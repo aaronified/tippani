@@ -173,7 +173,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was called washed out and an actually washed-out one said nothing. Those are two
   different facts and they read as two now, with the contrast measured off the file. And
   a picture that is not 2:3 says its shape, because everything else is cropped to fit
-  and until now nothing on the screen told you half a face was outside the circle.
+  and until now nothing on the screen told you half a face was outside the circle. A
+  cut-out portrait — a head on a transparent ground — is judged on the head rather than
+  the emptiness around it, and a picture with almost nothing opaque in it says nothing
+  about contrast rather than guessing from a handful of pixels.
 - **Dragging a sheet on a phone follows your finger, and the blur behind it stays put.**
   The drag had become almost impossible to make — it would lose your finger part-way,
   and the page tore, with the frosted background dropping out for a moment each time.
@@ -181,7 +184,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gesture, which made the whole screen behind it re-blur, and the previous attempt to
   make that cheaper simply switched the blur off while you dragged. The sheet now slides
   instead of being redrawn, so a drag costs the phone almost nothing and the blur never
-  flickers.
+  flickers. Going straight back in for a second pull works too — a sheet you overshot is
+  adjusted with a quick second drag, and that one used to be dropped part-way by the
+  first one's own settling animation.
 - **Delete on a row of a table asks, the way Delete on a card asks.** In the table view
   of a book's quotes and of a film's lines, the Delete key on a row did nothing at all
   when it was pressed — no dialog, no deletion, no message. It now puts the same

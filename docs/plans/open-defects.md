@@ -757,6 +757,34 @@ than a decision: say it now, frame it later. The note makes the crop visible tod
 pack's stored framing is its own piece of work, and a note that tells a reader something
 is wrong without letting them fix it is only worth shipping if the framing follows.
 
+## AK. Pressing my own fix the way the rater would, 7 September
+
+Nobody reported these. Section AI's fix and section AJ's fix were both written in this
+session, and this is what came of reading them back adversarially — the same three
+questions the rater has been asking about the guards rather than the app: what does this
+measure, what would it still pass with, and what did the fix itself make possible.
+
+| # | Defect | Status |
+|---|---|---|
+| AK1 | **A second drag begun inside the landing was cut off by it.** `settle` arms a 300ms `landingTimer` to hand the box back after the animation, and nothing checked that the sheet was still at rest when it fired: `span` went to zero and the offset was cleared mid-gesture, so every frame after wrote an offset of nothing and the sheet stopped following the finger. **This is AI4's resize defect in a second path, and the likelier of the two** — a quick second drag is how a reader adjusts a sheet they overshot, where a resize mid-drag is a rotation | **FIXED.** Three guards, deliberately redundant: `handBack` returns if a drag is live, `liftOff` clears the pending timer, and the landing's own double-rAF re-checks before it writes a transition. A gesture can reach that code by any of the three paths |
+| AK2 | **Transparent pixels read as black, so a cutout portrait was "low contrast".** AJ2's measurement downsamples to 32×32 and takes the luminance spread — and `drawImage` leaves untouched pixels at `rgba(0,0,0,0)`, which the sum reads as pure black. A PNG of a head on a transparent ground is mostly untouched pixels, so its 5th percentile was 0 and the spread was whatever the face happened to be: a picture with excellent contrast, captioned as having none | **FIXED.** Pixels under 25% alpha are not sampled. The absence of a pixel is not a dark pixel |
+| AK3 | **Four opaque pixels were a measurement.** With the alpha guard in, a picture that is almost entirely transparent leaves a handful of samples, and a percentile over four numbers is arithmetic rather than a reading. The old code had no such case because it sampled everything | **FIXED.** Under sixteen samples the measurement returns `null` and the caption says nothing about contrast — the same silence a tainted canvas gets, for the same reason |
+
+**AK1's test only fails on the triple mutation, and that is worth writing down** rather
+than discovering. Deleting any one of the three guards leaves the case green, because the
+other two still hold the property. A reader who mutates one, sees green and concludes the
+case is asleep would be wrong — remove all three and it fails, naming the snap to the box
+height. The alternative was to route every path through one checked function so a single
+mutation would fail; that trades a real property held three cheap ways for a testability
+property held one way, and the gesture would be no more correct for it. The comment in the
+case says so, so the next reader spends no time on it.
+
+**AND THE PATTERN, WHICH IS THE SIXTH CONSECUTIVE RATER PASS TO FIND IT.** Each of these
+three is a defect the FIX introduced — AK1 by adding a clock, AK2 and AK3 by replacing a
+size test with a real measurement. A fix is a change, and a change is a thing to press;
+what has repeatedly not been pressed in this session is the new code, because it is the
+code I have just convinced myself about.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

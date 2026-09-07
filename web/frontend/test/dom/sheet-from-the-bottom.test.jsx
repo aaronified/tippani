@@ -451,6 +451,48 @@ describe('what a drag costs', () => {
       .toBe(held)
   })
 
+  it('and a second drag inside the landing is not cut off by it', async () => {
+    // THE LANDING HAS A 300ms CLOCK ON IT, and a drag begun inside that window
+    // found `handBack` firing underneath it: `span` went to zero and the offset
+    // was cleared mid-gesture, so every frame after it wrote nothing and the
+    // sheet stopped following the finger. That is the resize defect in a second
+    // path — and a quick second drag is how a reader adjusts a sheet they
+    // overshot, which makes it the likelier of the two.
+    // DOWNWARD ON THE SECOND DRAG, which is what makes the failure visible. When
+    // the landing zeroes the offset mid-gesture the sheet snaps to the height of
+    // its BOX — the tallest anchor — and stays there; a second drag that happens
+    // to be going up would reach that number honestly and the case would pass
+    // either way. The first version of this case did exactly that.
+    // THREE GUARDS HOLD THIS ONE PROPERTY, and they are redundant on purpose —
+    // `handBack`'s `if (drag) return`, `liftOff`'s timer clear, and the `if (drag)
+    // return` inside the landing's own double-rAF. So deleting any ONE of them
+    // still passes here, and a reader who mutates one guard and sees green should
+    // not conclude the case is asleep: remove all three and it fails. The
+    // redundancy is the point — a gesture arriving mid-landing can reach the code
+    // by any of those paths, and the cheapest correct answer is for each path to
+    // check rather than for one of them to be trusted.
+    vi.useFakeTimers()
+    try {
+      render(<Sheet onDismiss={vi.fn()} />)
+      const tallest = Math.max(...ANCHORS)
+      fireEvent.pointerDown(el('grip'), pointer(400))
+      fireEvent.pointerMove(window, pointer(260))
+      fireEvent.pointerUp(window, pointer(260))
+      // Straight back in, well inside the landing's 300ms clock, and downward.
+      fireEvent.pointerDown(el('grip'), pointer(260))
+      fireEvent.pointerMove(window, pointer(300))
+      await act(async () => { vi.advanceTimersByTime(400) })
+      fireEvent.pointerMove(window, pointer(360))
+      await act(async () => { vi.advanceTimersByTime(20) })
+      expect(shownOf(el('sheet')), 'the first drag’s landing fired underneath the second and snapped the sheet to its box height')
+        .toBeLessThan(tallest)
+      expect(el('sheet').style.transform, 'the second drag lost its offset, so the rest of the gesture moved nothing')
+        .toMatch(/translateY\((?!0px)/)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('and clears the offset once the landing is over', async () => {
     // Tidiness rather than correctness — the sheet is already the right height at
     // the right place — but an inline transform nothing owns is a trap for the

@@ -132,3 +132,58 @@ describe('a portrait’s caption', () => {
     expect(screen.queryByText(/cropped/), 'a picture within a pixel of 2:3 is called cropped').toBeNull()
   })
 })
+
+describe('what the contrast measurement must not be fooled by', () => {
+  it('a transparent ground, which is not a black one', async () => {
+    // A cut-out PNG's transparency reads as (0,0,0,0) — a luminance of zero — so
+    // a flat portrait on a transparent ground got a full-range spread out of its
+    // own background and was never flagged. Anything under a quarter opaque is
+    // not part of the picture a reader sees.
+    cached({ w: 1000, h: 1500 })
+    const n = 32 * 32
+    const data = new Uint8ClampedArray(n * 4)
+    for (let i = 0; i < n; i++) {
+      const flat = 130
+      // Half the frame is the flat subject; half is fully transparent.
+      const clear = i % 2 === 0
+      data[i * 4] = clear ? 0 : flat
+      data[i * 4 + 1] = clear ? 0 : flat
+      data[i * 4 + 2] = clear ? 0 : flat
+      data[i * 4 + 3] = clear ? 0 : 255
+    }
+    vi.spyOn(window.HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: () => {}, getImageData: () => ({ data }),
+    })
+    await draw()
+    expect(screen.queryByText(/low contrast/),
+      'the transparent half supplied the tonal range, so a flat picture passed').toBeTruthy()
+  })
+
+  it('and a handful of opaque pixels, which is not a measurement', async () => {
+    // Four pixels of a 1024 are not a picture. A spread taken off them is noise
+    // wearing a number, and the caption would print it as a fact.
+    cached({ w: 1000, h: 1500 })
+    const n = 32 * 32
+    const data = new Uint8ClampedArray(n * 4)
+    for (let i = 0; i < 4; i++) { data[i * 4] = 130; data[i * 4 + 1] = 130; data[i * 4 + 2] = 130; data[i * 4 + 3] = 255 }
+    vi.spyOn(window.HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: () => {}, getImageData: () => ({ data }),
+    })
+    await draw()
+    expect(screen.queryByText(/1000×1500px/), 'the size is missing').toBeTruthy()
+    expect(screen.queryByText(/low contrast/), 'four pixels were taken for a measurement').toBeNull()
+  })
+
+  it('and a frame with nothing opaque in it at all', async () => {
+    // Nothing to measure is not the same as low contrast, and saying so would be
+    // a guess about somebody's portrait.
+    cached({ w: 1000, h: 1500 })
+    const data = new Uint8ClampedArray(32 * 32 * 4) // every alpha 0
+    vi.spyOn(window.HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: () => {}, getImageData: () => ({ data }),
+    })
+    await draw()
+    expect(screen.queryByText(/1000×1500px/), 'the size is missing').toBeTruthy()
+    expect(screen.queryByText(/low contrast/), 'a frame with nothing in it was judged').toBeNull()
+  })
+})

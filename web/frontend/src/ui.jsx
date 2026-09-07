@@ -1360,6 +1360,9 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // The one layout of a gesture: the box goes to its full size and is offset
     // back to where the finger found it, in the same write.
     const liftOff = (h) => {
+      // The landing this gesture is interrupting has a clock on it; it belongs to
+      // a sheet that is no longer at rest.
+      if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
       span = anchors.length ? Math.max(...anchors) : Math.round(h);
       showing = Math.round(h);
       el.style.transition = "none";
@@ -1378,6 +1381,13 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     let landingTimer = 0;
     const handBack = () => {
       if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
+      // NOT DURING A GESTURE. The landing's clock is 300ms long, and a second
+      // drag begun inside that window found `handBack` firing underneath it:
+      // `span` went to zero and the transform was cleared mid-drag, so every
+      // frame after it wrote an offset of nothing and the sheet stopped following
+      // the finger. That is the resize defect exactly, in a second path — a quick
+      // double-drag, which is how a reader adjusts a sheet they overshot.
+      if (drag) return;
       el.style.transform = "";
       span = 0;
       el.style.setProperty("--tp-sheet-h", `${resting}px`);

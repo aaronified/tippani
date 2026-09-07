@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,458 frontend tests, across 544 test files** — the
+- **1,494 Go test functions and 3,462 frontend tests, across 544 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -402,6 +402,20 @@ worth nothing here and only execution counts. What the repo actually runs:
   question the card view puts. Note that a throw inside a React handler does not come back
   out of `fireEvent` — the synthetic event system reports it to the window — so a case
   that only presses asserts nothing, and this one listens for the error event.
+
+  **AND A PROPERTY CAN BE HELD REDUNDANTLY, WHICH BREAKS THE MUTATION TEST WITHOUT
+  BREAKING THE CODE.** Mutation is how every case in this file was checked — delete the
+  fix, watch the case fail, put it back — and it assumes one line holds the property. A
+  phone sheet interrupted mid-landing is guarded three ways on purpose, because a gesture
+  arriving during the settle animation can reach that code by three paths and the cheapest
+  correct answer is for each path to check: so
+  `test/dom/sheet-from-the-bottom.test.jsx`'s double-drag case stays green when any ONE of
+  the three is deleted, and fails only on all three. That is not a sleeping case, and the
+  case says so in its own comment so the next reader spends no time on it. The alternative
+  — funnelling the three paths through one checked function so a single mutation would fail
+  — trades a real property held three cheap ways for a testability property held one way,
+  and the gesture is no more correct for it. **Where mutation cannot settle a case, the
+  comment has to.**
 
 - **`make controls` asks a question of every control instead of asserting a fix.** It
   presses everything a reader can press on fifteen surfaces — twelve screens, both work

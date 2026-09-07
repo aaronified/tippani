@@ -199,6 +199,13 @@ const SOFT_FLOOR = 400
 // reader means by contrast. 0.32 of the 0–1 range is about where a portrait stops
 // having a readable face in it; a flat scan of a newspaper photograph sits near
 // 0.2 and a lit studio headshot near 0.7.
+//
+// AN ABSOLUTE SPREAD RATHER THAN A RATIO, deliberately. Michelson contrast —
+// (max−min)/(max+min) — says a portrait whose whole range is 0.02 to 0.25 has
+// high contrast, and on its own terms it does. But these are drawn on this app's
+// dark ground, where that portrait is a smudge: the question the caption answers
+// is "will a reader see a face", not "does this file use its range well". A dark
+// picture flagged here is not a false alarm.
 const CONTRAST_FLOOR = 0.32
 // THE SHAPE THE APP DRAWS PORTRAITS AT. The pack's slots are 2:3, and everything
 // wider or squarer is centre-cropped by `object-fit: cover` — silently, so half a
@@ -222,9 +229,17 @@ function contrastOf(img) {
     const { data } = g.getImageData(0, 0, n, n)
     const lum = []
     for (let i = 0; i < data.length; i += 4) {
+      // TRANSPARENT PIXELS ARE NOT BLACK ONES. A cut-out PNG's transparency reads
+      // as (0,0,0,0) here, which is a luminance of zero — so a flat portrait on a
+      // transparent ground took a full-range spread out of its own background and
+      // was never flagged. Anything under a quarter opaque is not part of the
+      // picture a reader sees.
+      if (data[i + 3] < 64) continue
       lum.push((0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255)
     }
-    if (!lum.length) return null
+    // NOTHING TO MEASURE IS NOT LOW CONTRAST. A frame with almost nothing opaque
+    // in it gets no answer, and no answer prints nothing.
+    if (lum.length < 16) return null
     lum.sort((a, b) => a - b)
     const at = (q) => lum[Math.min(lum.length - 1, Math.floor(q * lum.length))]
     return at(0.95) - at(0.05)
