@@ -1226,6 +1226,33 @@ panel numbers right and the popover number stayed 0 — so the second defect was
 because the first had been measured rather than reasoned about. A fix verified by argument
 would have shipped with half the bug still in it and a probe reporting green.
 
+## AV. A cache in front of a per-user query, with nothing emptying it, 7 September
+
+**Found while mapping the ground for the owner's prefetch request, and it is live rather
+than hypothetical.** `SearchPage.jsx` held `GET /search/vocabulary` in a module-scope
+binding "for the session" with no forget anywhere. That endpoint is nine queries each
+scoped `WHERE user_id = ?` — every author, performer, tag, colour and shelf name in ONE
+library — and **signing out of this app does not reload the document**: App's Log out is
+`setUser(null)`, which swaps the shell for the login screen in place and leaves every
+module-scope binding standing. On a shared browser the next account was offered the
+previous one's vocabulary in its search box.
+
+**CLAUDE.md calls per-user isolation an invariant and `DEVELOPMENT.md` calls it a security
+property.** A cache in front of such a query has to be scoped the same way.
+
+| # | Defect | Status |
+|---|---|---|
+| AV1 | **The vocabulary cache was never emptied.** Written at first focus, read for the rest of the tab's life, cleared by nothing | **FIXED.** It enrols with `registerSessionCache` and Log out empties it |
+| AV2 | **Remembering to add the call was the mechanism, and it had already failed once.** `daily.js` grew `forgetDailyDeck` because signing out and back in as somebody else inside a five-second window served the first reader's deck, pending count and streak — and the fix was one call added to Log out by hand, which is why the next cache went uncovered | **FIXED by a registry, not a second line.** `sessionCaches.js`: a cache enrols itself at module scope and Log out empties whatever is enrolled, so forgetting now means not calling `registerSessionCache` at all — which `test/pure/session-cache-enrolment.test.js` sweeps for. Verified by adding a third cache that does not enrol: it is named |
+| AV3 | **AND EMPTYING THE CACHE WAS NOT ENOUGH, which my own test found and my own comment had claimed otherwise.** Clearing the value and the pending slot does not stop the request that was already out: its `.then` still runs and writes what it got into the cache, so the previous reader's answer arrives AFTER somebody else has signed in and refills the thing the forget was meant to empty. A mutation that dropped only the value passed every other case | **FIXED with one era counter in the registry.** A cache whose continuation writes back captures `sessionEra()` before the request goes out and discards the answer if the era has moved. One counter for every cache rather than a generation check per module. `daily.js` needs none — its promise writes nothing back, so dropping the reference is sufficient, and that is stated where it is true rather than guessed at |
+| AV4 | Switch account was checked and is **NOT A DEFECT**: it sets `window.location.href`, and the reload takes every cache with it. Log out is the only way out of an account that leaves the document standing | **NOT A DEFECT**, and the reason is recorded in `sessionCaches.js` so the next reader does not have to re-derive which paths leak |
+
+**The lesson, and it is the session's third instance of the same one.** The fix I wrote for
+AV1 came with a comment saying the pending promise was handled. It was not — I had cleared
+the slot, which is a different thing from stopping the request. The test that found it was
+one I wrote for the fix, staged against a request the test could hold open; without that
+staging every case passed and the leak shipped behind a comment claiming it had not.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

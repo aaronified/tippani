@@ -31,6 +31,7 @@
 // held at all — a retry has to be a retry.
 
 import { json } from './api.js'
+import { registerSessionCache } from './sessionCaches.js'
 
 // Long enough for a page load's two callers to meet — the shell's effect and
 // Home's card mount are milliseconds apart — and far too short to be mistaken for
@@ -71,3 +72,9 @@ export function dailyDeck(offset) {
 export function forgetDailyDeck() {
   inflight = null
 }
+
+// ENROLLED, so signing out empties this without Log out having to name it. The
+// call above is still exported because the OTHER reason to forget the deck — an
+// answer graded a card and took it out of today's list — is this module's own
+// business and nothing to do with who is reading.
+registerSessionCache(forgetDailyDeck)

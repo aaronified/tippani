@@ -4,7 +4,8 @@ import { applyLanguageMarks } from './languages.jsx'
 import { applyFonts, registerUploads } from './fonts.js'
 import { applyTypeScale } from './type.js'
 import { applyReviewPrefs, tzOffsetMinutes } from './review.jsx'
-import { dailyDeck, forgetDailyDeck } from './daily.js'
+import { dailyDeck } from './daily.js'
+import { forgetSessionCaches } from './sessionCaches.js'
 import { pickEpigraph } from './epigraphs.js'
 import { installShortcuts, shortcutFor } from './keys.js'
 import AddSurface from './AddSurface.jsx'
@@ -224,7 +225,13 @@ export default function App() {
           // to drop it or the next reader in this tab is served the last one's
           // cards, pending count and streak — every query behind it is scoped by
           // user_id, and a cache in front of one has to be too.
-          onLogout={() => { forgetDailyDeck(); setUser(null) }}
+          // EVERY ENROLLED CACHE, not the one somebody remembered. Signing out
+          // does not reload the document — this is `setUser(null)`, which swaps
+          // the shell for the login screen in place — so a cache written by one
+          // reader is still there for the next. `forgetSessionCaches` empties
+          // whatever registered itself; see `sessionCaches.js` for why a registry
+          // rather than a line per cache, and for the two that got this wrong.
+          onLogout={() => { forgetSessionCaches(); setUser(null) }}
           onPreferences={onPreferences}
           onUser={onUser}
         />

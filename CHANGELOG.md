@@ -183,7 +183,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
--- **Closing a popup no longer throws you back to the top of the page.** Whatever you were
+-- **Signing out no longer leaves your library in the search box for the next person.**
+  On a shared browser, the account that signed in after you was offered your authors,
+  performers, tags and shelf names — the search vocabulary was fetched once and kept for
+  as long as the tab was open, and signing out does not reload the page. Every cache the
+  app keeps of your own data is now emptied when you sign out, including a request that
+  was still in the air when you left.
+
+- **Closing a popup no longer throws you back to the top of the page.** Whatever you were
   reading, whatever you opened over it — a panel, the shelf chip's menu, the colour list —
   dismissing it leaves the page exactly where you left it. Two separate causes: the app
   mistook a panel's dismissal for you navigating back, and a menu handed keyboard focus to
