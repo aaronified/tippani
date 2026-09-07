@@ -123,10 +123,12 @@ const (
 // reviewMaxStability, so every query that floors or caps a half-life keeps
 // working unchanged and no stored value can promise a review past the ceiling.
 //
-// AGAINST A 365-DAY CEILING THE CLAMP IS THE WHOLE ANSWER, deliberately: grow
-// 2.5 from 100 overshoots a year in one step, and the alternative — tapering
-// growth as it nears the ceiling — would add a parameter nobody can evaluate,
-// which is the same argument that retired the sliders this file replaced.
+// AGAINST A 365-DAY CEILING THE CLAMP IS THE WHOLE ANSWER, deliberately. Growth
+// crosses the year from 146 upwards (146 x 2.5 = 365), so a card in the last
+// stretch of the range lands exactly ON the ceiling rather than near it — 100
+// still multiplies cleanly to 250. The alternative, tapering growth as it nears
+// the ceiling, would add a parameter nobody can evaluate, which is the same
+// argument that retired the sliders this file replaced.
 const (
 	reviewGrow   = 2.5 // successful recall multiplier (SM-2's classic ease)
 	reviewShrink = 0.5 // lapse multiplier — halve the half-life, never reset it
@@ -1111,13 +1113,15 @@ const (
 	//
 	// This is a policy trade-off, not a derivation. Intake costs more than one
 	// answer each: a brand-new card takes the 7-day rung on its FIRST correct
-	// recall (found=false takes the max() branch, not nextRung), so it returns at
-	// +7, +37 and +137 before reaching the 365-day rung. THREE returns per
-	// admission since the year rung was added, not two — the fourth rung buys
-	// capacity at the cost of one more climb — plus N/365 a day of maintenance
-	// once a library matures, which is where the capacity comes from: the
-	// maintenance bill fell by 3.65x and the intake bill rose by one answer.
-	// Holding intake to a third keeps both within a default quota up to
+	// recall (found=false takes the max() branch, not nextRung) and climbs from
+	// there. UNDER THE DEFAULT RULE, WHICH IS ADAPTIVE SINCE 3.1.0, that climb is
+	// 7 -> 17.5 -> 43.75 -> 109 -> 273 -> 365: FIVE returns before a card reaches
+	// the ceiling, where the ladder takes three (+7, +37, +137). Adaptive costs
+	// more admissions-in-progress and the ladder costs bigger jumps; both end at
+	// the same ceiling, so steady-state maintenance is N/365 a day either way —
+	// which is where reviewCapacity comes from and why raising the ceiling helped
+	// far more than this constant ever could.
+	// Holding intake to a third keeps both bills within a default quota up to
 	// reviewCapacity; past that the backlog grows and the quota (2..10, srDaily)
 	// is the user's lever. Deferring a due card doesn't make the schedule lie — the
 	// header promises a due STATE, and the seen bucket stays ordered

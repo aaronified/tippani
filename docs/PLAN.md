@@ -2762,7 +2762,7 @@ Spaced repetition is an exponential forgetting curve evaluated in SQL at query t
 
 Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Rohrer, Wixted & Pashler (2008) measured, across 1,354 people. The best gap is about a fifth of the delay at a few weeks and a twentieth at a year, and performance rises then falls *gradually*, so erring long is cheaper than erring short. Their designs are study → gap → restudy → one test, so applying the ratios to a repeating schedule is already an extrapolation — which is the reason to stop at the edge of their data rather than to invent a number past it.
 
-**Instead of.** Tapering the adaptive multiplier as it approaches the ceiling — rejected. `grow 2.5` from 100 overshoots a year in one step and the clamp already handles it; a taper is a parameter nobody can evaluate, which is the argument that retired the sliders in the first place. Also rejected: raising the daily quota instead, which buys the same capacity by asking more of the reader every day rather than less of them over a year.
+**Instead of.** Tapering the adaptive multiplier as it approaches the ceiling — rejected. Growth crosses the year from 146 upwards (146 × 2.5 = 365) and the clamp already handles it, so a card in the last stretch lands exactly on the ceiling rather than near it; a taper is a parameter nobody can evaluate, which is the argument that retired the sliders in the first place. Also rejected: raising the daily quota instead, which buys the same capacity by asking more of the reader every day rather than less of them over a year.
 
 **Approved.** Mine, with the ceiling named as the thing to argue about rather than the rungs.
 
@@ -3045,6 +3045,20 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 **Approved.** Mine, with the "everyone moves" consequence named out loud as the thing to be sure about.
 
 <sub>3.1.0 — `internal/httpapi/auth_handlers.go` · `internal/httpapi/review_tuning.go` · `internal/httpapi/review_handlers.go` · `web/frontend/src/Settings.jsx` · `web/frontend/src/Home.jsx` · `CHANGELOG.md`</sub>
+
+### A person card masks its own answer in the words it shows
+
+**Decided.** `speaker` and `author` cards blank the answer wherever it appears in the quote or the note they print: the whole credit, each split credit, and each credit's surname. A surname is matched **case-sensitively**; the full credit folds case. A card left with nothing to read is refused and `buildQuestion` falls through to another direction. The boundary is "not a letter or a number" rather than `\b`, so the masking works outside the Latin script.
+
+**Why.** review.jsx's prompt side sends every direction but "quote" down `QuoteBlock`, so these cards show the words and ask who is behind them — and a line whose own text names that person answers itself. The reader picks the option they can already read, the card records a success, and the half-life climbs on evidence of nothing.
+
+**Instead of.** Masking every character and actor name in the line, which is what the plan asked for and is wrong for the commonest case: a film line's answer is the ACTOR, so a line naming its CHARACTER gives it away only to a reader who knows the film — precisely what the card is testing. That version would blank a large share of the dialogue in a library to remove the knowledge being examined. Also rejected: masking surnames case-insensitively, which would have an author called "Stephen King" blanking *"the king was dead"* in every line; prose naming a person capitalises them, and that is the discriminator that actually works.
+
+**And the other half of this leak was already closed**, which is why only the text remained: `SourceLines` used to be reached by every direction that was not "source", printing the actor as a face chip and the character in its meta line, directly above the card's own four options.
+
+**Approved.** Mine, with the character-name correction as the part I changed my mind about.
+
+<sub>3.1.0 — `internal/httpapi/speaker.go` · `internal/httpapi/speaker_test.go` · `CHANGELOG.md`</sub>
 
 ### Cloze review computes the masked span at request time — no schema, no storage
 

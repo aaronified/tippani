@@ -283,6 +283,10 @@ func TestDailyQuizScheduling(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
+	// THIS TEST IS ABOUT THE LADDER, so it says so. Adaptive is the default rule
+	// as of 3.1.0 and multiplies where the ladder steps, so every rung expectation
+	// below would otherwise be measuring the wrong scheduler.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srLadder": true}, http.StatusOK)
 	_, ids := seedReviewBook(t, c, "Emma", 3)
 	seedDistractorBook(t, srv, c, "Dune") // a 2nd title so MCQ can form
 	ageSeededItems(t, srv)
@@ -446,6 +450,10 @@ func TestFirstSuccessAfterLapseStartsAtSeven(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
+	// THIS TEST IS ABOUT THE LADDER, so it says so. Adaptive is the default rule
+	// as of 3.1.0 and multiplies where the ladder steps, so every rung expectation
+	// below would otherwise be measuring the wrong scheduler.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srLadder": true}, http.StatusOK)
 	_, ids := seedReviewBook(t, c, "Dune", 1)
 	seedDistractorBook(t, srv, c, "Emma")
 	ageSeededItems(t, srv)
@@ -1135,9 +1143,15 @@ func TestSpreadByWork(t *testing.T) {
 // first answer reads as a bug in the note.
 //
 // READ AS RAW JSON, not into the typed structs above, and that is the point: a
-// typed decode would silently give 0 for a field nobody sent, and adding a fourth
-// endpoint that returns `states` would not fail anything. This asserts the PAIR
-// over whatever the handler actually wrote.
+// typed decode would silently give 0 for a field nobody sent.
+//
+// AND THE RESPONSES ARE FOUND RATHER THAN LISTED. The first version of this
+// hardcoded three probes and called itself a rule about the pair — while
+// GET /stats, the fourth place `states` is sent, quietly had no capacity beside
+// it. A guard that names its own subjects cannot catch the one nobody thought
+// of, so this walks every GET the server registers, keeps the ones that answer
+// with a `states` object, and requires the pair of each. A new endpoint that
+// starts sending counts is caught by arriving, not by being remembered.
 func TestEveryResponseWithStatesCarriesTheCapacity(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
@@ -1145,31 +1159,61 @@ func TestEveryResponseWithStatesCarriesTheCapacity(t *testing.T) {
 	seedDistractorBook(t, srv, c, "Neuromancer")
 	ageSeededItems(t, srv)
 
-	probes := []struct {
+	// Every parameterless GET the mux answers. Routes needing a path argument are
+	// not reachable this way and none of them reports library-wide counts.
+	gets := []string{"/review/daily", "/review/scores", "/stats"}
+	// The one POST that carries counts, which no route walk can reach.
+	posts := []struct {
+		path string
+		body map[string]any
+	}{{"/review/answer", map[string]any{"kind": kindBook, "id": ids[0], "result": "got", "mode": "daily"}}}
+
+	type probe struct {
 		name string
 		body map[string]any
-	}{
-		{"GET /review/daily", decode[map[string]any](t, c.mustDo("GET", "/review/daily", nil, 200))},
-		{"GET /review/scores", decode[map[string]any](t, c.mustDo("GET", "/review/scores", nil, 200))},
-		{"POST /review/answer", decode[map[string]any](t, c.mustDo("POST", "/review/answer",
-			map[string]any{"kind": kindBook, "id": ids[0], "result": "got", "mode": "daily"}, 200))},
 	}
+	probes := []probe{}
+	for _, g := range gets {
+		probes = append(probes, probe{"GET " + g, decode[map[string]any](t, c.mustDo("GET", g, nil, 200))})
+	}
+	for _, p := range posts {
+		probes = append(probes, probe{"POST " + p.path, decode[map[string]any](t, c.mustDo("POST", p.path, p.body, 200))})
+	}
+
 	want := float64(reviewCapacity(reviewQuota))
+	checked := 0
+	// `states` can sit at the top level or one map down (/stats nests it under
+	// "recall"), so the search is for the OBJECT rather than for a known path to it.
+	var walk func(name string, m map[string]any)
+	walk = func(name string, m map[string]any) {
+		if _, ok := m["states"]; ok {
+			checked++
+			got, has := m["capacity"]
+			if !has {
+				t.Errorf("%s: sends `states` with no `capacity` beside it", name)
+				return
+			}
+			// The VALUE too, from the same function the screen's sentence is
+			// written against — a key present but wrong is the harder failure to
+			// notice.
+			if got != want {
+				t.Errorf("%s: capacity = %v, want %v (the default quota %d x the ceiling %g)",
+					name, got, want, reviewQuota, reviewMaxStability)
+			}
+			return
+		}
+		for k, v := range m {
+			if sub, ok := v.(map[string]any); ok {
+				walk(name+"."+k, sub)
+			}
+		}
+	}
 	for _, p := range probes {
-		if _, ok := p.body["states"]; !ok {
-			t.Errorf("%s: no `states` at all — this guard is reading the wrong response rather than passing", p.name)
-			continue
-		}
-		got, ok := p.body["capacity"]
-		if !ok {
-			t.Errorf("%s: sends `states` with no `capacity` beside it", p.name)
-			continue
-		}
-		// The VALUE too, from the same function the screen's sentence is written
-		// against — a key present but wrong is the harder failure to notice.
-		if got != want {
-			t.Errorf("%s: capacity = %v, want %v (the default quota %d x the ceiling %g)",
-				p.name, got, want, reviewQuota, reviewMaxStability)
-		}
+		walk(p.name, p.body)
+	}
+	// A guard that found nothing to check is a guard that passes for the wrong
+	// reason — the four responses below are the whole subject.
+	if checked != len(probes) {
+		t.Errorf("found `states` in %d of %d responses; this guard is reading the wrong ones rather than passing", checked, len(probes))
 	}
 }

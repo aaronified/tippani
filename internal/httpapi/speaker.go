@@ -36,7 +36,12 @@ package httpapi
 
 import (
 	"math/rand/v2"
+	"regexp"
+	"sort"
 	"strings"
+	"unicode"
+
+	"tippani/internal/metadata"
 )
 
 // speakerMinOptions — fewer than three faces is a coin toss rather than a
@@ -120,6 +125,12 @@ func attachSpeaker(card *reviewCard, ownKey string, p quizPools, seed int64) boo
 	if answer == "" {
 		return false
 	}
+	// BEFORE THE OPTIONS ARE BUILT, so a line that is nothing but its own
+	// speaker's name costs a refusal rather than a pool scan — and so the card
+	// that reaches the reader is never one whose words gave the answer away.
+	if !hideTheAnswer(card, answer) {
+		return false
+	}
 	rng := seededRand(seed)
 	c := newNameCollector(answer)
 	for _, a := range p.byKey[ownKey].cast {
@@ -171,6 +182,9 @@ func attachAuthor(card *reviewCard, ownKey string, p quizPools, seed int64) bool
 	if answer == "" {
 		return false
 	}
+	if !hideTheAnswer(card, answer) {
+		return false
+	}
 	rng := seededRand(seed)
 	c := newNameCollector(answer)
 	for _, w := range rankWorks(p.byKey[ownKey], p.works, rng) {
@@ -183,4 +197,120 @@ func attachAuthor(card *reviewCard, ownKey string, p quizPools, seed int64) bool
 		}
 	}
 	return personChoices(card, answer, c.out, "author", rng)
+}
+
+// ---- the answer must not be printed above its own options --------------------
+//
+// THE LEAK. A `speaker` or `author` card shows the WORDS and asks who is behind
+// them (review.jsx's prompt side sends every direction but "quote" down
+// QuoteBlock). So a line whose own text names that person answers the question
+// before it is asked, and the reader picks the option they can already read.
+//
+// WHAT IT IS NOT. An earlier reading of this had it as "mask every character and
+// actor name in the line", which is wrong for the commonest case: a film line's
+// answer is the ACTOR, and a line naming its CHARACTER — "frankly, my dear
+// Scarlett" — gives the actor away only to a reader who knows the film, which is
+// precisely what the card is asking. Masking that would blank half the dialogue
+// in the library to remove knowledge the question is testing for. What leaks is
+// the ANSWER STRING, so that is what is hidden.
+//
+// A JOINT CREDIT IS ALSO ITS PARTS. "Gaiman & Pratchett" is one option, and a
+// line containing "Pratchett" picks it out just as surely as the whole string
+// would, so each split credit is masked too. Split by the FULL default
+// separator set rather than by the reader's creditSeparators preference, and
+// deliberately: this is hiding an answer rather than rendering a credit, so
+// splitting more aggressively than the reader asked for hides more and
+// reveals nothing.
+
+// maskName is one string to hide, and whether case may be ignored while looking
+// for it.
+//
+// A FULL NAME IS UNAMBIGUOUS IN ANY CASE; A BARE SURNAME IS NOT. "as pratchett
+// put it" is the name however it is typed, so the full credit and its parts fold
+// case. A surname on its own is a different matter: "Stephen King" would have
+// this masking "the king was dead" in every line of the library. So a surname is
+// matched case-SENSITIVELY, which is the discriminator that actually works —
+// prose naming a person capitalises them, and prose using the same word as a
+// common noun does not.
+type maskName struct {
+	text string
+	fold bool
+}
+
+// answerNames is the answer, every credit inside it, and each credit's surname —
+// longest first, so a name that contains a shorter one is masked whole rather
+// than in pieces.
+func answerNames(answer string) []maskName {
+	out := []maskName{}
+	seen := map[string]bool{}
+	add := func(s string, fold bool) {
+		s = strings.TrimSpace(strings.Trim(s, ".,;:"))
+		if len([]rune(s)) < 3 || seen[strings.ToLower(s)] {
+			return
+		}
+		seen[strings.ToLower(s)] = true
+		out = append(out, maskName{text: s, fold: fold})
+	}
+	add(answer, true)
+	for _, part := range metadata.SplitCredits(answer, metadata.ParseCreditSeps(defaultCreditSeps)) {
+		add(part, true)
+		// The last word of a multi-word credit. A one-word credit IS the whole
+		// answer and is already above, so this only ever adds a surname lifted out
+		// of a longer name — which is how a person is referred to in prose, and the
+		// spelling a joint credit is most often leaked by.
+		if f := strings.Fields(part); len(f) > 1 {
+			add(f[len(f)-1], false)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return len(out[i].text) > len(out[j].text) })
+	return out
+}
+
+// maskNames blanks each name wherever it stands as a word.
+//
+// A REGEXP RATHER THAN AN INDEX SCAN, because case-insensitive matching by
+// lowercasing both sides and slicing by the offsets is only correct while
+// folding preserves byte length, which it does not for every script this app
+// accepts. `(?i)` folds by rune, and the boundary is stated as "not a letter or
+// a number" rather than as `\b`, which is an ASCII-word rule and would refuse to
+// fire on a Bengali or Devanagari line — the scripts the plan specifically wants
+// this to reach.
+func maskNames(text string, names []maskName) string {
+	for _, n := range names {
+		if text == "" {
+			return text
+		}
+		fold := ""
+		if n.fold {
+			fold = "(?i)"
+		}
+		re := regexp.MustCompile(fold + `(^|[^\p{L}\p{N}])(` + regexp.QuoteMeta(n.text) + `)([^\p{L}\p{N}]|$)`)
+		text = re.ReplaceAllString(text, "${1}"+clozeBlank+"${3}")
+	}
+	return text
+}
+
+// hasWordsLeft — is there anything still to read?
+func hasWordsLeft(text string) bool {
+	for _, r := range text {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			return true
+		}
+	}
+	return false
+}
+
+// hideTheAnswer masks a person card's own answer in the words it shows, and
+// REFUSES the card when that leaves nothing to read — the same rule
+// TestClozeRefusesWhatItCannotAsk already applies to a quote that is all
+// stopwords. A line that is only its speaker's name is not a question, and
+// buildQuestion falls through to another direction rather than serving it.
+func hideTheAnswer(card *reviewCard, answer string) bool {
+	names := answerNames(answer)
+	quote, note := maskNames(card.Quote, names), maskNames(card.Note, names)
+	if !hasWordsLeft(quote) && !hasWordsLeft(note) {
+		return false
+	}
+	card.Quote, card.Note = quote, note
+	return true
 }

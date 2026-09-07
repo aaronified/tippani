@@ -1750,7 +1750,7 @@ quiz.taxonomy.line = {klass} · {form}
 # because it is the last one the deck could ask of a book as well as a film.
 quiz.question.last-universal.info = প্রতিটা ডেকে অন্তত একটা প্রশ্ন থাকা চাই যা বই আর সিনেমা দুটোকেই করা যায় — এটাই শেষটা।
 
-# The nine tuning sliders in Settings → Quiz. .label sits above the slider,
+# The ten tuning sliders in Settings → Quiz. .label sits above the slider,
 # .hint is its info dot. Every one of these multiplies a half-life.
 quiz.tuning.grow.label = ঠিক উত্তরে বাড়ে
 quiz.tuning.grow.hint = অ্যাডাপ্টিভ ফাঁকে, যেটাই সাধারণ নিয়ম। ঠিক মনে পড়লে অর্ধায়ু এই সংখ্যায় গুণ হয়। 2.5 হল SM-2-এর চেনা মাপ — বেশি দিলে ফাঁক তাড়াতাড়ি বড় হয়, আর মাঝে ভুলে যাওয়াও বাড়ে।

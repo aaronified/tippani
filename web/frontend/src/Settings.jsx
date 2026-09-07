@@ -919,10 +919,12 @@ function collectFonts(rows) {
 // SRSettings — the spaced-repetition knobs (v0.5.0 Daily Quiz & Practice): the
 // daily deck size, what the review covers (books / films & shows / both),
 // whether Practice is allowed to move the schedule, and which of the two
-// scheduling rules is in force. The default is still the fixed ladder
-// (7 → 30 → 100 days, review_handlers.go); adaptive is opt-in and its real
-// subject is the lapse, which shortens instead of resetting. Each knob persists
-// via the partial-merge preferences PUT.
+// scheduling rules is in force. THE DEFAULT IS ADAPTIVE since 3.1.0 — a recall
+// multiplies the half-life by 2.5 and a lapse HALVES it, which is the real
+// subject of the rule; the fixed ladder (7 → 30 → 100 → 365 days,
+// review_handlers.go) is the opt-in, and the stored preference is srLadder
+// rather than srAdaptive for the reason that field's comment gives. Each knob
+// persists via the partial-merge preferences PUT.
 function SRSettings({ user, onPreferences }) {
   const p = user.preferences || {}
   const [deep, setDeep] = useState(false)

@@ -402,6 +402,99 @@ as failure, `target 50% · recalling 51%` does not.
 
 ---
 
+## What the build found, and where this plan was wrong
+
+Recorded as it happened rather than tidied away, because two of these change what
+the remaining steps have to do.
+
+### Step 1 was already built, and better than specified
+
+`item_recalls` (0064/0065/0066) is the log. It carries `mode` and `counted`, which
+this plan did not ask for and which are the two facts that stop the panel reporting
+thirty-seven practice answers beside an unmoved half-life. What it does NOT carry is
+`direction`, `tier` or `lure_of`.
+
+**And `direction` cannot simply be added, because `review_handlers.go` already ruled
+against it.** The comment at the scheduling block is explicit: *"THE DIFFICULTY IS
+DERIVED, NOT DECLARED. A client-sent 'direction' would be the client telling the
+server what its own answer was worth, and the obvious abuse — claim every answer was
+the hardest kind — would inflate a schedule invisibly."* The answer request carries
+`{kind, id, result, mode, offset, attempt}` and nothing else; the server infers
+`dirCloze` from `attempt != nil` and treats every other direction as weight 1.
+
+So the log's `direction` would be a client claim. That is acceptable **for the log**,
+which decides nothing — but §3's retention figure is computed FROM the log and §7
+requires a two-option proverb card to be excluded **by direction**, which makes a
+client claim load-bearing for a number on screen. Either the figure is the reader's
+own number about their own answers (defensible, per-user isolation means nobody else
+is affected) or the direction has to be derived. Only `daily` could be: `dailyDirection`
+is a hash of card and day and the server can recompute it; Practice picks at random,
+server-side, and is not recoverable. **Not decided here.** The three columns are
+deferred to one migration alongside the tiers rather than three separate ones.
+
+### Step 4 has a blocker this plan does not mention
+
+The due point is stated **twice**, and the two statements are in different languages:
+
+- `dueSQL` — `julianday('now') - julianday(r.last_reviewed_at) >= MAX(r.stability, 7)`
+- `recallStatus` — `case p >= 0.9: remembered; case p >= 0.5: forgetting; default: probably-forgotten`
+
+`elapsed >= stability` is exactly `p <= 0.5`, so the deck's due point and the dot's
+bottom threshold are one number written down twice — and `dueSQL`'s own comment makes
+that a promise: *"a card is due exactly when its dot reads probably-forgotten."*
+
+`srTargetRetention` moves one of them. At a target of 0.9 the multiplier is 0.152, so
+a card becomes due at `p = 0.9` — while its dot still says **remembered**. The deck
+would fill with cards the app describes as remembered, and the comment above would be
+false.
+
+Three ways out, and this plan chose none of them:
+
+1. **Thread the target through both.** `recallStatus`'s bottom threshold becomes the
+   target and "remembered" scales to preserve today — `p >= target + (1-target)*0.8`
+   gives exactly 0.9 at a target of 0.5. Correct, and the largest: `recallStatus` has
+   seven call sites, three of them in `stats_handlers.go`, which loads no preferences.
+2. **Decouple them deliberately.** The dot answers "how likely are you to recall this
+   now?" (absolute); due answers "does the schedule want to ask?" (the reader's).
+   Cheaper, and it makes `dueSQL`'s comment false — it would have to be rewritten, and
+   the screen consequence at a high target stated rather than discovered.
+3. **Ship the dial after the figure it exists for.** Its only consumer is §3's score,
+   which is step 10. Nothing else in the app reads the target.
+
+**Not built, and not because it was forgotten.** A dial that changes when every card
+is due, whose own hazard note says raising it makes nearly everything due at once, is
+a poor thing to land days before a launch when its consumer does not exist yet. The
+duplication above is worth fixing whether or not the dial ships.
+
+### Step 5's leak is real, and narrower than described
+
+This plan says the masking exists because *"a quote that names its own speaker answers
+the speaker card before it is asked… on any line whose text contains the character's
+name"*. Two corrections:
+
+- **The character's name is not the answer.** A film line's speaker card asks for the
+  **actor** (`attachSpeaker` takes `card.Actor` for `kindScreen`). A line reading
+  "Neil, what are you doing here?" gives up Robert De Niro only to a reader who knows
+  *Heat* — which is precisely what the card is testing. Masking it would blank a large
+  share of the dialogue in a library to remove the knowledge being examined.
+- **The prompt-side leak was already closed.** `review.jsx` used to send every
+  direction that was not "source" down `SourceLines`, which prints the actor as a face
+  chip and the character in its meta line — the answer directly above its own four
+  options. The comment there records the fix.
+
+What actually leaks is **the answer string appearing in the words the card shows**, so
+that is what `hideTheAnswer` masks: the credit, each split credit, and each credit's
+surname. A surname is matched **case-sensitively** — an author called "Stephen King"
+would otherwise have the app blanking "the king was dead" in every line of the
+library, and prose naming a person capitalises them while prose using the same word as
+a common noun does not. A line with nothing left to read is refused, and
+`buildQuestion` falls through to another direction.
+
+Not gated on script: the cloze *span* selection needs mostly-Latin text because its
+stopword list is English, but a name match needs no stopword list, so the boundary is
+"not a letter or a number" rather than `\b` — which is an ASCII-word rule and would
+never have fired on a Bengali line.
+
 ## The order
 
 1. **The review log** — table, triggers, the one `INSERT`. Nothing else in this

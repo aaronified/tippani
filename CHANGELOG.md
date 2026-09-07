@@ -211,6 +211,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
+- **A quiz card no longer prints the answer above its own options.** "Who said this?" and "who
+  wrote this?" show the words and ask for the person, so a line whose own text names that person
+  answered itself — pick the option you can already read. The name is now blanked in the words
+  the card shows, the way a fill-in-the-blank card blanks its phrase: the whole credit, each
+  half of a joint credit, and each surname. A line with nothing left to read is not a question
+  and the card falls through to another one. Two things are deliberately left alone: a film line
+  naming its *character* keeps it, because the answer there is the actor and knowing the film is
+  what the card is asking; and a surname that is also an ordinary word is only hidden where it
+  is capitalised, so an author called Stephen King does not have "the king was dead" blanked in
+  every line of your library.
+
 - **Choosing something from a ⋯ menu no longer strands the keyboard.** Every menu takes
   focus when it opens, so the arrow keys work straight away — and on two of the four ways
   out of it, focus was simply dropped, leaving nothing to arrow from and nothing for a

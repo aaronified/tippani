@@ -897,6 +897,15 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// Recall overview (the forgetting curve across the whole library): status
 	// counts plus how many quotes have entered the schedule and their average
 	// floored half-life — the Stats page "Memory" card.
+	//
+	// The prefs read is for the daily quota alone, which is half of the capacity
+	// this card reports beside the counts. One row, once per stats load, on a page
+	// that already runs a dozen aggregates.
+	pf, err := s.loadPrefs(uid)
+	if err != nil {
+		internalError(w, r, "recall prefs", err)
+		return
+	}
 	states, err := s.reviewStates(uid, allMedia())
 	if err != nil {
 		internalError(w, r, "recall states", err)
@@ -983,7 +992,15 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		"top_tags":         topTags,
 		"first_saved":      firstSaved,
 		"recall": map[string]any{
-			"states":        states,
+			"states": states,
+			// THE SCHEDULE'S SIZE TRAVELS WITH THE COUNTS EVERYWHERE THEY GO.
+			// `states.total` is the library and this is what a daily quota can
+			// keep current (quota x the interval ceiling); a response carrying one
+			// without the other leaves a screen unable to say whether the reader
+			// has outgrown the schedule. Home already draws that note, and this is
+			// the fourth place `states` is sent — the guard in review_test.go
+			// walks every one of them rather than a list of three.
+			"capacity":      reviewCapacity(pf.SRDaily),
 			"reviewed":      reviewedN,
 			"avg_half_life": avgHalfLife,
 			// BOTH STREAKS, because the longest one is not derivable from the

@@ -251,6 +251,27 @@ describe('the tuning defaults agree with Go', () => {
     expect(top.max).toBe(ceiling)
     expect(DEFAULT_TUNING.ladder4).toBe(ceiling)
   })
+
+  // AND SO DOES EVERY OTHER RUNG, which the parity check above cannot say. That
+  // one asserts the panel is never LOOSER than the server — the direction that
+  // produces a slider whose value gets silently reverted. The opposite direction
+  // is a slider that is quietly TIGHTER, and it fails the other way: a legal
+  // value the reader is simply not offered, with nothing to see. Reverting
+  // ladder1's maximum to 100 left every check in this file green.
+  //
+  // The rungs are the case that matters, because they clamp against one shared
+  // pair of bounds in Go and a reader may legitimately want any rung anywhere in
+  // the range — an early rung at 200 days on a small library is a real setting.
+  it('and no rung slider is tighter than the server allows', () => {
+    const bound = (name) => Number(goHandlers.match(new RegExp('\\b' + name + '\\s*=\\s*([0-9.]+)'))[1])
+    const [lo, hi] = [bound('reviewMinStability'), bound('reviewMaxStability')]
+    const rungs = TUNING_FIELDS.filter((f) => /^ladder\d+$/.test(f.key))
+    expect(rungs.length).toBeGreaterThanOrEqual(4)
+    for (const f of rungs) {
+      expect(f.min, `${f.key} min is above the server's floor`).toBe(lo)
+      expect(f.max, `${f.key} max stops short of the server's ceiling`).toBe(hi)
+    }
+  })
 })
 
 describe('the ladder', () => {
