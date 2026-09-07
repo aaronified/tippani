@@ -1254,6 +1254,17 @@ settings.quiz.adaptive.aria = Adaptive intervals
 settings.quiz.adaptive.info.body = Adaptive is the default: a recall multiplies the half-life by 2.5, a lapse halves it, so one slip on a known quote no longer costs the whole climb. The ladder is simpler to hold — 7 → 30 → 100 → 365 days, any lapse to 7.
 settings.quiz.adaptive.ladder.label = Ladder
 settings.quiz.adaptive.on.label = Adaptive
+# --- how hard the questions are. Three tiers plus Random; medium is what the
+# quiz has always done, so an account that never opens this sees no change.
+settings.quiz.tier.title = How hard the questions are
+settings.quiz.tier.info.body = Medium is the quiz as it has always been. Easy offers two choices instead of four and keeps the wrong ones far apart; Hard asks you to type the words back. Random picks per card.
+settings.quiz.tier.easy.label = Easy
+settings.quiz.tier.medium.label = Medium
+settings.quiz.tier.hard.label = Hard
+settings.quiz.tier.random.label = Random
+# Shown under the picker only on Easy. A tier that advertised only its benefit
+# would be selling you something.
+settings.quiz.tier.easy.note = Close wrong answers teach more than obvious ones — you remember why each is wrong, not just why one is right. Easy gives that up on purpose, to make the question answerable when nothing else is.
 settings.quiz.seen.title = Seeing lengthens half-life by
 settings.quiz.seen.label = Seeing lengthens half-life by
 settings.quiz.seen.info.body = “Seeing” a quote — practising it, sharing it, favouriting it, or meeting it among the choices on a card you answered — nudges its half-life up a little, separate from Daily Quiz recall. Leave at 1.0× to turn this off.

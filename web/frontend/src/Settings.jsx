@@ -17,7 +17,7 @@ import { SECTIONS, visibleSections } from './routes.js'
 import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
 import { tourFeatures, tourSteps } from './tour.jsx'
-import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
+import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, REVIEW_TIERS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
 import { t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
@@ -1007,6 +1007,7 @@ function SRDeepControls({ p, set, onClose }) {
       srPracticeCounts: false,
       srSubmit: false,
       srLadder: false,
+      srTier: 'medium',
       srSeen: 1,
     })
   }
@@ -1098,6 +1099,30 @@ function SRDeepControls({ p, set, onClose }) {
             onChange={(v) => set({ srLadder: v === 'ladder' })}
             options={[['adaptive', t('settings.quiz.adaptive.on.label')], ['ladder', t('settings.quiz.adaptive.ladder.label')]]}
           />
+        </div>
+        {/* HOW HARD THE QUESTIONS ARE — a third axis, and not the same as either
+            of the two beside it: srQuestions says WHICH questions may be asked,
+            srTuning says how much an answer moves the schedule, and neither makes
+            the same card easier or harder to get right. Medium is what the quiz
+            has always done, so an account that never opens this sees no change. */}
+        <div>
+          <div className="mb-2 flex items-center gap-1.5">
+            <MonoLabel>{t('settings.quiz.tier.title')}</MonoLabel>
+            <InfoDot text={t('settings.quiz.tier.info.body')} />
+          </div>
+          <Toggle
+            ariaLabel={t('settings.quiz.tier.title')}
+            value={p.srTier || 'medium'}
+            onChange={(v) => set({ srTier: v })}
+            options={REVIEW_TIERS.map((k) => [k, t(`settings.quiz.tier.${k}.label`)])}
+          />
+          {/* THE COST OF THE FLOOR, SAID OUT LOUD. Close wrong answers teach more
+              than obvious ones (Little et al., 2012); Easy gives that up on
+              purpose, and a tier that only advertised its benefit would be
+              selling the reader something. */}
+          {(p.srTier || 'medium') === 'easy' && (
+            <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>{t('settings.quiz.tier.easy.note')}</p>
+          )}
         </div>
         <div>
           <div className="mb-2 flex items-center gap-1.5">

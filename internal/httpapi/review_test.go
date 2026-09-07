@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -1146,13 +1148,19 @@ func TestSpreadByWork(t *testing.T) {
 // READ AS RAW JSON, not into the typed structs above, and that is the point: a
 // typed decode would silently give 0 for a field nobody sent.
 //
-// AND THE RESPONSES ARE FOUND RATHER THAN LISTED. The first version of this
-// hardcoded three probes and called itself a rule about the pair — while
-// GET /stats, the fourth place `states` is sent, quietly had no capacity beside
-// it. A guard that names its own subjects cannot catch the one nobody thought
-// of, so this walks every GET the server registers, keeps the ones that answer
-// with a `states` object, and requires the pair of each. A new endpoint that
-// starts sending counts is caught by arriving, not by being remembered.
+// TWO HALVES, AND THE FIRST ONE IS THE ONE THAT CATCHES A STRANGER.
+//
+// The first version of this hardcoded three probes and called itself a rule
+// about the pair — while GET /stats, the fourth place `states` is sent, quietly
+// had no capacity beside it. Naming the subjects is exactly what let that
+// through, so the SOURCE is searched: every `"states"` key written into a
+// response map anywhere in this package has to be one this test drives. A new
+// endpoint that starts sending counts fails here for existing, before anyone has
+// to remember it.
+//
+// The second half then drives those responses and reads the pair back, including
+// through a nested object — /stats puts its counts under "recall", so the walk
+// looks for the `states` OBJECT rather than for a known path to it.
 func TestEveryResponseWithStatesCarriesTheCapacity(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
@@ -1160,9 +1168,20 @@ func TestEveryResponseWithStatesCarriesTheCapacity(t *testing.T) {
 	seedDistractorBook(t, srv, c, "Neuromancer")
 	ageSeededItems(t, srv)
 
-	// Every parameterless GET the mux answers. Routes needing a path argument are
-	// not reachable this way and none of them reports library-wide counts.
+	// THE SOURCE SAYS HOW MANY THERE ARE. Every `"states":` written into a response
+	// map in this package, counted where it is written rather than where somebody
+	// remembered to look — so a fifth one fails this line rather than passing
+	// unexamined.
+	emitters := 0
+	for _, f := range goSourceFiles(t) {
+		emitters += strings.Count(readSource(t, f), `"states":`)
+	}
 	gets := []string{"/review/daily", "/review/scores", "/stats"}
+	if want := len(gets) + 1; emitters != want {
+		t.Fatalf("%d handlers write a `states` key; this test drives %d. A response that reports "+
+			"library-wide counts has to send `capacity` beside them — add it to the list above "+
+			"(and to the handler) rather than to this number.", emitters, want)
+	}
 	// The one POST that carries counts, which no route walk can reach.
 	posts := []struct {
 		path string
@@ -1309,4 +1328,39 @@ func TestDueMultiplier(t *testing.T) {
 	if got, want := reviewDueFactorSQL, "1"; got != want {
 		t.Errorf("reviewDueFactorSQL = %q, want %q at the default due point", got, want)
 	}
+}
+
+// goSourceFiles / readSource — the package's own non-test sources, for the
+// handful of guards that assert something about how the code is WRITTEN rather
+// than about what it does.
+//
+// Both exist so those guards fail loudly when they can read nothing: a source
+// scan that silently matches an empty list is the shape of test that passes for
+// years while checking nothing, which is the failure this file has met before.
+func goSourceFiles(t *testing.T) []string {
+	t.Helper()
+	all, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatalf("listing the package's sources: %v", err)
+	}
+	var out []string
+	for _, f := range all {
+		if !strings.HasSuffix(f, "_test.go") {
+			out = append(out, f)
+		}
+	}
+	if len(out) < 20 {
+		t.Fatalf("found %d non-test sources in this package, which cannot be right — "+
+			"a scan reading nothing passes for the wrong reason", len(out))
+	}
+	return out
+}
+
+func readSource(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading %s: %v", path, err)
+	}
+	return string(b)
 }

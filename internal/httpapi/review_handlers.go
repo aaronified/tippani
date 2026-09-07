@@ -57,6 +57,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1725,7 +1726,7 @@ func distractorScore(own, cand workRef) int {
 // The flip card is what makes the signature honest: it needs no distractor pool,
 // no second work to be wrong with, and no maskable span, so there is always a
 // question to ask about any quote with words in it.
-func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool, on map[string]bool, clozeWords float64) (reviewCard, bool) {
+func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool, on map[string]bool, clozeWords float64, tier string) (reviewCard, bool) {
 	// Fold the day seed with the card identity into one stable per-card seed;
 	// 0 stays 0 (practice → global RNG).
 	cardSeed := seed
@@ -1735,15 +1736,29 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 			cardSeed = 1
 		}
 	}
+	// THE TIER IS RESOLVED PER CARD, because Random is. Everything below reads
+	// `at` rather than `tier`, so the two are never confused: `tier` is what the
+	// reader chose and `at` is what this card is asked at.
+	at := tierForCard(tier, c.card.Kind, c.card.ID, seed)
+	clozeWords = tierClozeThreshold(at, clozeWords)
+	// A tier NARROWS the reader's own repertoire and never widens it, so a
+	// question they turned off stays off at every difficulty.
+	dirs := tierDirections(at, directionsForMode(c.card.Kind, scored, on))
+	// The tier's own first choice, when the reader's repertoire still has it —
+	// weighted up rather than left to dailyDirection's hash, which would make a
+	// "hard" round hard one card in five by luck.
+	if want := tierPrefers(at); want != "" && slices.Contains(dirs, want) {
+		preferred = want
+	}
 	// The preferred direction, then every other one this kind allows.
-	if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed, clozeWords) {
+	if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at) {
 		return card, true
 	}
-	for _, d := range directionsForMode(c.card.Kind, scored, on) {
+	for _, d := range dirs {
 		if d == preferred {
 			continue
 		}
-		if card := finishCard(c, d); attachDirection(&card, c.workKey, p, cardSeed, clozeWords) {
+		if card := finishCard(c, d); attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at) {
 			return card, true
 		}
 	}
@@ -1778,10 +1793,10 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 // carrying quote options — the correct quote among them — while the client
 // rendered it as something else entirely. A default that returns false makes an
 // unknown direction produce no card instead of the wrong one.
-func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, clozeWords float64) bool {
+func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, clozeWords float64, tier string) bool {
 	switch card.Direction {
 	case dirSource, dirQuote:
-		return attachMCQ(card, ownKey, p, seed)
+		return attachMCQ(card, ownKey, p, seed, tier)
 	case dirFlip:
 		// Nothing to attach: a flip card is the quote on one side and its source
 		// on the other, both of which the card already carries.
@@ -1789,11 +1804,11 @@ func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, c
 	case dirCloze:
 		return attachCloze(card, clozeWords)
 	case dirClozeMCQ:
-		return attachClozeMCQ(card, ownKey, p, seed, clozeWords)
+		return attachClozeMCQ(card, ownKey, p, seed, clozeWords, tier)
 	case dirSpeaker:
-		return attachSpeaker(card, ownKey, p, seed)
+		return attachSpeaker(card, ownKey, p, seed, tier)
 	case dirAuthor:
-		return attachAuthor(card, ownKey, p, seed)
+		return attachAuthor(card, ownKey, p, seed, tier)
 	default:
 		return false
 	}
@@ -1802,7 +1817,7 @@ func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, c
 // attachMCQ fills a card's Options/Answer for its direction, drawing distractors
 // most-similar-first. `seed` (non-zero) makes the choice + order deterministic.
 // Returns false if there isn't enough material for a choice.
-func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
+func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier string) bool {
 	own := p.byKey[ownKey]
 	rng := seededRand(seed)
 	if card.Direction == dirSource {
@@ -1819,7 +1834,7 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
 				distractors = append(distractors, w)
 			}
 		}
-		opts, ans := choicesFromWorks(answer, distractors, quizOptions, rng)
+		opts, ans := choicesFromWorks(answer, distractors, tierOptions(tier), rng)
 		if len(opts) < 2 {
 			return false
 		}
@@ -1865,7 +1880,7 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
 	if mine.work.title == "" {
 		mine.work = workRef{key: ownKey, kind: card.Kind, title: card.Title}
 	}
-	opts, ans := choicesFromQuotes(mine, distractors, quizOptions, rng)
+	opts, ans := choicesFromQuotes(mine, distractors, tierOptions(tier), rng)
 	if len(opts) < 2 {
 		return false
 	}
@@ -1931,7 +1946,7 @@ func attachCloze(card *reviewCard, multiWordFrom float64) bool {
 // same word count — see clozePhraseOf. Ranked by the same similarity as every
 // other distractor pool, so the phrases offered come from the neighbourhood of
 // the quote rather than from the far end of the library.
-func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, multiWordFrom float64) bool {
+func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, multiWordFrom float64, tier string) bool {
 	text := card.Quote
 	if strings.TrimSpace(text) == "" {
 		text = card.Note
@@ -1955,16 +1970,20 @@ func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, mu
 			continue
 		}
 		distractors = append(distractors, phrase)
-		if len(distractors) >= quizOptions-1 {
+		if len(distractors) >= tierOptions(tier)-1 {
 			break
 		}
 	}
-	opts, ans := choicesFrom(answer, distractors, quizOptions, rng)
+	opts, ans := choicesFrom(answer, distractors, tierOptions(tier), rng)
 	// THE SAME FLOOR THE SPEAKER CARD USES, and for the same reason: two options
 	// is a coin toss, and a coin toss recorded as a grade moves a schedule on no
 	// evidence. A library too small for three phrases gets the typed cloze
 	// instead, which needs nothing but the quote's own words.
-	if len(opts) < speakerMinOptions {
+	//
+	// EXCEPT AT EASY, WHERE A COIN TOSS IS THE POINT — tierMinOptions follows the
+	// tier's own ceiling rather than standing above it, or Easy could never draw
+	// the two-option card it is defined by.
+	if len(opts) < tierMinOptions(tier) {
 		return false
 	}
 	if strings.TrimSpace(card.Quote) == "" {
@@ -2149,7 +2168,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			}
 			// A card with too little material to be asked a GRADED question is
 			// left out rather than downgraded to a self-marked one.
-			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed, onDaily), pools, seed, true, onDaily, tuning.ClozeWords); ok {
+			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed, onDaily), pools, seed, true, onDaily, tuning.ClozeWords, pf.SRTier); ok {
 				items = append(items, card)
 			}
 		}
@@ -2257,7 +2276,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 				preferred = dirFlip
 			}
 		}
-		if card, ok := buildQuestion(c, preferred, pools, 0, scored, onPractice, tuning.ClozeWords); ok {
+		if card, ok := buildQuestion(c, preferred, pools, 0, scored, onPractice, tuning.ClozeWords, pf.SRTier); ok {
 			items = append(items, card)
 		}
 	}

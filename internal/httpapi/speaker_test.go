@@ -25,7 +25,7 @@ func TestSpeakerOptionsAreActorsFromTheSameFilm(t *testing.T) {
 	card := reviewCard{Kind: kindScreen, ID: 1, Direction: dirSpeaker,
 		Quote: "Don't let yourself get attached", Title: "Heat", Character: "Neil", Actor: "Robert De Niro"}
 
-	if !attachSpeaker(&card, "screen:1", p, 99) {
+	if !attachSpeaker(&card, "screen:1", p, 99, tierMedium) {
 		t.Fatal("no speaker card from a five-strong cast")
 	}
 	if len(card.Options) < speakerMinOptions {
@@ -71,14 +71,14 @@ func TestSpeakerRefusesWhatItCannotAsk(t *testing.T) {
 	p := quizPools{byKey: map[string]workRef{"screen:1": own}, works: []workRef{own}}
 
 	noActor := reviewCard{Kind: kindScreen, ID: 1, Direction: dirSpeaker, Title: "Heat"}
-	if attachSpeaker(&noActor, "screen:1", p, 1) {
+	if attachSpeaker(&noActor, "screen:1", p, 1, tierMedium) {
 		t.Error("asked who said a line that has no actor recorded")
 	}
 
 	bare := workRef{key: "screen:2", kind: kindScreen, title: "Solo"}
 	bareP := quizPools{byKey: map[string]workRef{"screen:2": bare}, works: []workRef{bare}}
 	thin := reviewCard{Kind: kindScreen, ID: 2, Direction: dirSpeaker, Title: "Solo", Actor: "Someone"}
-	if attachSpeaker(&thin, "screen:2", bareP, 1) {
+	if attachSpeaker(&thin, "screen:2", bareP, 1, tierMedium) {
 		t.Error("made a question out of one face and no distractors")
 	}
 
@@ -115,7 +115,7 @@ func TestASpeechDoesNotPrintTheNameItIsAsking(t *testing.T) {
 		Quote: "These are the times that try men's souls, wrote Thomas Paine.",
 		Title: "The Crisis", Speaker: "Thomas Paine"}
 
-	if !attachSpeaker(&card, own.key, p, 7) {
+	if !attachSpeaker(&card, own.key, p, 7, tierMedium) {
 		t.Fatal("no speaker card from four speakers")
 	}
 	if strings.Contains(card.Quote, "Thomas Paine") {
@@ -144,7 +144,7 @@ func TestHalfAJointCreditLeaksTheWholeAnswer(t *testing.T) {
 		Quote: "It may help to understand human affairs, as Pratchett put it, to be clear.",
 		Title: "Good Omens", Author: "Neil Gaiman & Terry Pratchett"}
 
-	if !attachAuthor(&card, own.key, p, 7) {
+	if !attachAuthor(&card, own.key, p, 7, tierMedium) {
 		t.Fatal("no author card from four books")
 	}
 	if strings.Contains(card.Quote, "Pratchett") {
@@ -166,7 +166,7 @@ func TestAFilmLineKeepsTheCharacterNameItIsNotAskingAbout(t *testing.T) {
 	card := reviewCard{Kind: kindScreen, ID: 1, Direction: dirSpeaker,
 		Quote: "Neil, what are you doing here?", Title: "Heat", Character: "Neil", Actor: "Robert De Niro"}
 
-	if !attachSpeaker(&card, "screen:1", p, 99) {
+	if !attachSpeaker(&card, "screen:1", p, 99, tierMedium) {
 		t.Fatal("no speaker card from a five-strong cast")
 	}
 	if !strings.Contains(card.Quote, "Neil") {
@@ -185,7 +185,7 @@ func TestAFilmLineNamingItsActorIsMasked(t *testing.T) {
 		Quote: "Robert De Niro says the line about the coffee here.",
 		Title: "Heat", Character: "Neil", Actor: "Robert De Niro"}
 
-	if !attachSpeaker(&card, "screen:1", p, 99) {
+	if !attachSpeaker(&card, "screen:1", p, 99, tierMedium) {
 		t.Fatal("no speaker card from a five-strong cast")
 	}
 	if strings.Contains(card.Quote, "Robert De Niro") {
@@ -207,7 +207,7 @@ func TestALineThatIsOnlyItsSpeakersNameIsRefused(t *testing.T) {
 	card := reviewCard{Kind: kindUtterance, ID: 1, Direction: dirSpeaker,
 		Quote: "Thomas Paine.", Title: "An occasion", Speaker: "Thomas Paine"}
 
-	if attachSpeaker(&card, own.key, p, 7) {
+	if attachSpeaker(&card, own.key, p, 7, tierMedium) {
 		t.Fatalf("a line with nothing left to read was served as a question: %q", card.Quote)
 	}
 }
@@ -227,7 +227,7 @@ func TestTheNoteIsMaskedAsWellAsTheQuote(t *testing.T) {
 		Note:  "Written by Thomas Paine in December.",
 		Title: "An occasion", Speaker: "Thomas Paine"}
 
-	if !attachSpeaker(&card, own.key, p, 7) {
+	if !attachSpeaker(&card, own.key, p, 7, tierMedium) {
 		t.Fatal("no speaker card from four speakers")
 	}
 	if strings.Contains(card.Note, "Thomas Paine") {
@@ -251,7 +251,7 @@ func TestANameIsMaskedOutsideTheLatinScript(t *testing.T) {
 		Quote: "এই কথাটি রবীন্দ্রনাথ ঠাকুর বহুবার বলেছেন।",
 		Title: "একটি ভাষণ", Speaker: "রবীন্দ্রনাথ ঠাকুর"}
 
-	if !attachSpeaker(&card, own.key, p, 7) {
+	if !attachSpeaker(&card, own.key, p, 7, tierMedium) {
 		t.Fatal("no speaker card from four speakers")
 	}
 	if strings.Contains(card.Quote, "রবীন্দ্রনাথ ঠাকুর") {
@@ -280,7 +280,7 @@ func TestASurnameThatIsAlsoACommonWordIsLeftAlone(t *testing.T) {
 	lower := reviewCard{Kind: kindBook, ID: 1, Direction: dirAuthor,
 		Quote: "The king was dead, and the crown lay in the dust of the road.",
 		Title: "The Stand", Author: "Stephen King"}
-	if !attachAuthor(&lower, own.key, p, 7) {
+	if !attachAuthor(&lower, own.key, p, 7, tierMedium) {
 		t.Fatal("no author card from four books")
 	}
 	if !strings.Contains(lower.Quote, "king was dead") {
@@ -291,10 +291,88 @@ func TestASurnameThatIsAlsoACommonWordIsLeftAlone(t *testing.T) {
 	named := reviewCard{Kind: kindBook, ID: 2, Direction: dirAuthor,
 		Quote: "It is the sort of ending King would never have written.",
 		Title: "The Stand", Author: "Stephen King"}
-	if !attachAuthor(&named, own.key, p, 7) {
+	if !attachAuthor(&named, own.key, p, 7, tierMedium) {
 		t.Fatal("no author card from four books")
 	}
 	if strings.Contains(named.Quote, "King") {
 		t.Fatalf("a capitalised surname is the answer and is still readable: %q", named.Quote)
+	}
+}
+
+// THE THREE EDGES A RATER FOUND, each of which served a card with its own answer
+// printed on it.
+
+// A TWO-CHARACTER NAME IS A WHOLE NAME. The rune floor was 3 with nothing said
+// about it, so "Wu" and every two-character CJK name fell out of the mask list —
+// and 鲁迅 produced an EMPTY list, which meant hideTheAnswer masked nothing,
+// returned true, and the card went out with the answer readable.
+func TestATwoCharacterNameIsStillMasked(t *testing.T) {
+	own := workRef{key: "utterance:s", kind: kindUtterance, title: "An essay", author: "Ai Wu"}
+	others := []workRef{
+		{key: "utterance:a", kind: kindUtterance, author: "Lu Xun"},
+		{key: "utterance:b", kind: kindUtterance, author: "Ba Jin"},
+		{key: "utterance:c", kind: kindUtterance, author: "Bing Xin"},
+	}
+	p := quizPools{byKey: map[string]workRef{own.key: own}, works: append([]workRef{own}, others...)}
+	card := reviewCard{Kind: kindUtterance, ID: 1, Direction: dirSpeaker,
+		Quote: "Wu wrote this line on a train in the winter of that year.",
+		Title: "An essay", Speaker: "Ai Wu"}
+
+	if !attachSpeaker(&card, own.key, p, 7, tierMedium) {
+		t.Fatal("no speaker card from four speakers")
+	}
+	if strings.Contains(card.Quote, "Wu") {
+		t.Fatalf("a two-letter surname is the answer and is still readable: %q", card.Quote)
+	}
+	if !strings.Contains(card.Quote, "on a train") {
+		t.Fatalf("masking took more than the name: %q", card.Quote)
+	}
+}
+
+// A SCRIPT WITH NO WORD SPACES HAS NO WORD BOUNDARIES TO ASK FOR. The boundary
+// rule is what makes a Latin surname safe to match; in running Chinese there is
+// never a non-letter beside a name, so the rule left every one of them standing.
+func TestANameInASpaceFreeScriptIsMasked(t *testing.T) {
+	own := workRef{key: "utterance:h", kind: kindUtterance, title: "一篇文章", author: "鲁迅"}
+	others := []workRef{
+		{key: "utterance:a", kind: kindUtterance, author: "巴金"},
+		{key: "utterance:b", kind: kindUtterance, author: "冰心"},
+		{key: "utterance:c", kind: kindUtterance, author: "老舍"},
+	}
+	p := quizPools{byKey: map[string]workRef{own.key: own}, works: append([]workRef{own}, others...)}
+	card := reviewCard{Kind: kindUtterance, ID: 1, Direction: dirSpeaker,
+		Quote: "这是鲁迅先生说过的话。", Title: "一篇文章", Speaker: "鲁迅"}
+
+	if !attachSpeaker(&card, own.key, p, 7, tierMedium) {
+		t.Fatal("no speaker card from four speakers")
+	}
+	if strings.Contains(card.Quote, "鲁迅") {
+		t.Fatalf("a name in running Chinese is still readable above its own options: %q", card.Quote)
+	}
+	if !strings.Contains(card.Quote, "先生说过的话") {
+		t.Fatalf("masking took more than the name: %q", card.Quote)
+	}
+}
+
+// ADJACENT OCCURRENCES BOTH GO. The boundary characters are CONSUMED by a match,
+// so the space between two occurrences belonged to the first and the second had
+// nothing left to start on — leaving the exact string the function exists to
+// hide, in plain sight, one word along.
+func TestEveryOccurrenceOfTheNameGoes(t *testing.T) {
+	own := workRef{key: "book:1", kind: kindBook, title: "The Stand", author: "Stephen King"}
+	others := []workRef{
+		{key: "book:2", kind: kindBook, title: "Ghost Story", author: "Peter Straub"},
+		{key: "book:3", kind: kindBook, title: "Interview", author: "Anne Rice"},
+		{key: "book:4", kind: kindBook, title: "Books of Blood", author: "Clive Barker"},
+	}
+	p := quizPools{byKey: map[string]workRef{own.key: own}, works: append([]workRef{own}, others...)}
+	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirAuthor,
+		Quote: "King King said so, and King said it again.", Title: "The Stand", Author: "Stephen King"}
+
+	if !attachAuthor(&card, own.key, p, 7, tierMedium) {
+		t.Fatal("no author card from four books")
+	}
+	if strings.Contains(card.Quote, "King") {
+		t.Fatalf("an occurrence of the answer survived: %q", card.Quote)
 	}
 }

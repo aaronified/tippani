@@ -58,9 +58,12 @@ const speakerMinOptions = 3
 // the client looks the portrait up by, so it has to be the kind the People
 // console files that person under and not merely a word that describes the
 // question.
-func personChoices(card *reviewCard, answer string, distractors []string, kind string, rng *rand.Rand) bool {
-	opts, ans := choicesFrom(answer, distractors, quizOptions, rng)
-	if len(opts) < speakerMinOptions {
+func personChoices(card *reviewCard, answer string, distractors []string, kind string, rng *rand.Rand, tier string) bool {
+	opts, ans := choicesFrom(answer, distractors, tierOptions(tier), rng)
+	// THE FLOOR FOLLOWS THE TIER. Easy offers two faces on purpose, so holding it
+	// to three would mean the tier could never draw the card it is defined by —
+	// see tierMinOptions.
+	if len(opts) < tierMinOptions(tier) {
 		return false
 	}
 	card.Options = opts
@@ -97,6 +100,9 @@ func (c *nameCollector) add(name string) {
 	c.out = append(c.out, n)
 }
 
+// enough — as many distractors as the widest tier will use. Counted against the
+// ceiling rather than the tier in force, so a collector filled for one tier is
+// never short for another; choicesFrom takes what it needs from the top.
 func (c *nameCollector) enough() bool { return len(c.out) >= quizOptions-1 }
 
 // attachSpeaker fills a card's options with the people who might have said the
@@ -106,7 +112,7 @@ func (c *nameCollector) enough() bool { return len(c.out) >= quizOptions-1 }
 // elsewhere make the answer guessable from familiarity; three from this film's
 // own billing make it a question about the film. The wider pool is the fallback
 // for a title whose cast was never fetched.
-func attachSpeaker(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
+func attachSpeaker(card *reviewCard, ownKey string, p quizPools, seed int64, tier string) bool {
 	answer, kind := "", ""
 	switch card.Kind {
 	case kindScreen:
@@ -160,7 +166,7 @@ func attachSpeaker(card *reviewCard, ownKey string, p quizPools, seed int64) boo
 			c.add(a)
 		}
 	}
-	return personChoices(card, answer, c.out, kind, rng)
+	return personChoices(card, answer, c.out, kind, rng, tier)
 }
 
 // attachAuthor fills a book card's options with author credits — "who wrote the
@@ -174,7 +180,7 @@ func attachSpeaker(card *reviewCard, ownKey string, p quizPools, seed int64) boo
 // DISTRACTORS ARE THE AUTHORS OF THE NEAREST BOOKS, ranked by the same
 // similarity the "which book?" card uses: someone who writes the same genre is a
 // real hesitation, someone from the other end of the library is not.
-func attachAuthor(card *reviewCard, ownKey string, p quizPools, seed int64) bool {
+func attachAuthor(card *reviewCard, ownKey string, p quizPools, seed int64, tier string) bool {
 	if card.Kind != kindBook {
 		return false
 	}
@@ -196,7 +202,7 @@ func attachAuthor(card *reviewCard, ownKey string, p quizPools, seed int64) bool
 			break
 		}
 	}
-	return personChoices(card, answer, c.out, "author", rng)
+	return personChoices(card, answer, c.out, "author", rng, tier)
 }
 
 // ---- the answer must not be printed above its own options --------------------
@@ -243,9 +249,17 @@ type maskName struct {
 func answerNames(answer string) []maskName {
 	out := []maskName{}
 	seen := map[string]bool{}
+	// TWO RUNES, NOT THREE, AND THE DIFFERENCE IS A WHOLE CLASS OF NAME. The floor
+	// was 3 with nothing said about it, which silently dropped "Wu", "Li", "Ai" —
+	// and every two-character CJK name, where two characters is a FULL name:
+	// 鲁迅 produced an empty list, so hideTheAnswer masked nothing, returned true,
+	// and the card went out with its answer in plain view.
+	//
+	// One rune is still refused: a single letter is an initial, and blanking every
+	// standalone "A" or "I" in a library would be redaction rather than masking.
 	add := func(s string, fold bool) {
 		s = strings.TrimSpace(strings.Trim(s, ".,;:"))
-		if len([]rune(s)) < 3 || seen[strings.ToLower(s)] {
+		if len([]rune(s)) < 2 || seen[strings.ToLower(s)] {
 			return
 		}
 		seen[strings.ToLower(s)] = true
@@ -284,10 +298,58 @@ func maskNames(text string, names []maskName) string {
 		if n.fold {
 			fold = "(?i)"
 		}
-		re := regexp.MustCompile(fold + `(^|[^\p{L}\p{N}])(` + regexp.QuoteMeta(n.text) + `)([^\p{L}\p{N}]|$)`)
-		text = re.ReplaceAllString(text, "${1}"+clozeBlank+"${3}")
+		pat := fold + `(^|[^\p{L}\p{N}])(` + regexp.QuoteMeta(n.text) + `)([^\p{L}\p{N}]|$)`
+		if !spacedScript(n.text) {
+			// A SCRIPT WITH NO WORD SPACES HAS NO WORD BOUNDARIES TO ASK FOR.
+			// 鲁迅 inside 这是鲁迅先生说过的话 is a name in running text and there is no
+			// non-letter either side of it, ever — so the boundary rule, which is
+			// what makes a Latin surname safe to match, would leave every such name
+			// standing. Matched bare instead. The trade is the mirror of the
+			// case-sensitivity rule: a Han name is short and specific enough that a
+			// bare match is safe, where a bare "king" would not be.
+			pat = regexp.QuoteMeta(n.text)
+		}
+		re := regexp.MustCompile(pat)
+		rep := "${1}" + clozeBlank + "${3}"
+		if !spacedScript(n.text) {
+			rep = clozeBlank
+		}
+		// UNTIL IT STOPS CHANGING, because the boundary characters are CONSUMED by
+		// the match. "King King said so" left the second King standing: the space
+		// between them belonged to the first match, so the second had no boundary
+		// left to start on. Each pass strictly reduces the letters in the text, so
+		// this terminates; the cap is belt for a pattern that could somehow match
+		// its own replacement.
+		for i := 0; i < 8; i++ {
+			next := re.ReplaceAllString(text, rep)
+			if next == text {
+				break
+			}
+			text = next
+		}
 	}
 	return text
+}
+
+// spacedScript — does this name belong to a script that separates words with
+// spaces? Han, the kana, Thai, Lao, Khmer and Myanmar do not, so a name written
+// in one of them can never sit between two non-letters in running text.
+//
+// ANY such rune decides it, rather than all: a name is one name whatever it
+// mixes, and the question being asked is whether a word boundary can be relied
+// on to appear beside it. One Han character in the middle answers no.
+func spacedScript(name string) bool {
+	for _, r := range name {
+		for _, t := range []*unicode.RangeTable{
+			unicode.Han, unicode.Hiragana, unicode.Katakana,
+			unicode.Thai, unicode.Lao, unicode.Khmer, unicode.Myanmar,
+		} {
+			if unicode.Is(t, r) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // hasWordsLeft — is there anything still to read?

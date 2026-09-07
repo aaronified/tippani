@@ -118,7 +118,7 @@ func TestAGamesTypedVoiceCastFeedsTheQuiz(t *testing.T) {
 	// already quoted makes the answer guessable from familiarity.
 	card := reviewCard{Kind: kindScreen, ID: game, Direction: dirSpeaker,
 		Quote: "The cake is a lie.", Title: "Portal 2", Character: "GLaDOS", Actor: "Ellen McLain"}
-	if !attachSpeaker(&card, kindScreen+":"+itoa(game), pools, 7) {
+	if !attachSpeaker(&card, kindScreen+":"+itoa(game), pools, 7, tierMedium) {
 		t.Fatal("no speaker card from a three-strong typed voice cast")
 	}
 	if len(card.Options) < speakerMinOptions {

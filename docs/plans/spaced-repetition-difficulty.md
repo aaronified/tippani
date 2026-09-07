@@ -453,7 +453,10 @@ Three ways out, and this plan chose none of them:
 1. **Thread the target through both.** `recallStatus`'s bottom threshold becomes the
    target and "remembered" scales to preserve today — `p >= target + (1-target)*0.8`
    gives exactly 0.9 at a target of 0.5. Correct, and the largest: `recallStatus` has
-   seven call sites, three of them in `stats_handlers.go`, which loads no preferences.
+   six non-test call sites, three of them in `stats_handlers.go`. **That last leg of
+   the blocker is now retired** — the commit that recorded it also gave
+   `stats_handlers.go` a `loadPrefs` for the capacity, so preferences are in hand
+   there. What remains is threading the value, not finding it.
 2. **Decouple them deliberately.** The dot answers "how likely are you to recall this
    now?" (absolute); due answers "does the schedule want to ask?" (the reader's).
    Cheaper, and it makes `dueSQL`'s comment false — it would have to be rewritten, and
@@ -463,8 +466,13 @@ Three ways out, and this plan chose none of them:
 
 **Not built, and not because it was forgotten.** A dial that changes when every card
 is due, whose own hazard note says raising it makes nearly everything due at once, is
-a poor thing to land days before a launch when its consumer does not exist yet. The
-duplication above is worth fixing whether or not the dial ships.
+a poor thing to land days before a launch when its consumer does not exist yet.
+
+**The duplication itself IS fixed** (3.1.0): `reviewDuePoint` and `reviewHeldPoint` are
+constants, `dueSQL` splices `dueMultiplier(reviewDuePoint)` — `log2(1/target)`, exactly
+1 at 0.5 — and `recallStatus` switches on the same two. Behaviour is unchanged and
+`TestTheDotAndTheDeckAgreeOnDue` holds them together. So the dial is now a small
+change: the constant becomes the preference, in one place.
 
 ### Step 5's leak is real, and narrower than described
 

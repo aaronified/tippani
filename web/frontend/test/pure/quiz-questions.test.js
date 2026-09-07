@@ -365,3 +365,35 @@ describe('the schedule has a size and the screen can say so', () => {
     }
   })
 })
+
+// ---- how hard the questions are ---------------------------------------------
+
+import { REVIEW_TIERS } from '../../src/quiz.js'
+
+const goTier = readFileSync(join(repo, 'internal', 'httpapi', 'review_tier.go'), 'utf8')
+
+describe('the tiers agree with Go', () => {
+  // THE SERVER NORMALISES ANYTHING IT DOES NOT RECOGNISE TO MEDIUM, so a tier the
+  // panel offers and Go has never heard of is a control that moves and then does
+  // nothing — the same silent failure the ladder parity check above exists for.
+  // Read from the Go DECLARATIONS rather than from its own list literal, so a
+  // constant renamed on one side and not the other is caught too.
+  it('on every tier the panel offers, and in the same order', () => {
+    const declared = Object.fromEntries(
+      [...goTier.matchAll(/\btier([A-Za-z]+)\s*=\s*"([^"]+)"/g)].map((m) => [m[1], m[2]]),
+    )
+    const list = goTier.match(/reviewTiers = \[\]string\{([^}]*)\}/)
+    expect(list, 'reviewTiers is no longer a plain slice literal in Go').not.toBeNull()
+    const inGo = [...list[1].matchAll(/\btier([A-Za-z]+)\b/g)].map((m) => declared[m[1]])
+    expect(inGo.length).toBeGreaterThanOrEqual(4)
+    expect(inGo).toEqual(REVIEW_TIERS)
+  })
+
+  // MEDIUM IS THE DEFAULT AND IT IS THE ONE THAT CHANGES NOTHING. Both halves
+  // matter: a panel defaulting to a tier Go does not default to would move every
+  // reader's difficulty on their next save.
+  it('and medium is the fallback on both sides', () => {
+    expect(REVIEW_TIERS).toContain('medium')
+    expect(goTier).toMatch(/return tierMedium\s*\n\}/)
+  })
+})

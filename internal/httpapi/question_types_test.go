@@ -33,7 +33,7 @@ func TestWhoWroteThisOffersAuthorsWithFaces(t *testing.T) {
 	p, ownKey := authorPools()
 	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirAuthor,
 		Quote: "You cannot buy the revolution.", Title: "The Dispossessed", Author: "Ursula K. Le Guin"}
-	if !attachAuthor(&card, ownKey, p, 7) {
+	if !attachAuthor(&card, ownKey, p, 7, tierMedium) {
 		t.Fatal("a library of four books could not ask who wrote one of them")
 	}
 	if card.Options[card.Answer] != "Ursula K. Le Guin" {
@@ -62,18 +62,18 @@ func TestWhoWroteThisOffersAuthorsWithFaces(t *testing.T) {
 func TestWhoWroteThisRefusesWhatItCannotAsk(t *testing.T) {
 	p, ownKey := authorPools()
 	anon := reviewCard{Kind: kindBook, ID: 1, Direction: dirAuthor, Title: "The Dispossessed"}
-	if attachAuthor(&anon, ownKey, p, 1) {
+	if attachAuthor(&anon, ownKey, p, 1, tierMedium) {
 		t.Error("asked who wrote a book with no author recorded")
 	}
 	lonely := workRef{key: "book:9", kind: kindBook, title: "Alone", author: "Solo Writer"}
 	one := quizPools{byKey: map[string]workRef{lonely.key: lonely}, works: []workRef{lonely}}
 	card := reviewCard{Kind: kindBook, ID: 9, Direction: dirAuthor, Title: "Alone", Author: "Solo Writer"}
-	if attachAuthor(&card, lonely.key, one, 1) {
+	if attachAuthor(&card, lonely.key, one, 1, tierMedium) {
 		t.Error("offered a question with nobody to be wrong with")
 	}
 	// And it is a BOOK question: nobody is credited with writing a film line.
 	film := reviewCard{Kind: kindScreen, ID: 1, Direction: dirAuthor, Title: "Heat", Author: "Michael Mann"}
-	if attachAuthor(&film, "screen:1", p, 1) {
+	if attachAuthor(&film, "screen:1", p, 1, tierMedium) {
 		t.Error("asked who wrote a film")
 	}
 }
@@ -94,7 +94,7 @@ func TestWhoSaidThisReachesASpeech(t *testing.T) {
 	card := reviewCard{Kind: kindUtterance, ID: 1, Direction: dirSpeaker,
 		Quote: "Give me blood and I shall give you freedom.",
 		Title: "Burma Radio broadcast", Speaker: "Subhas Chandra Bose"}
-	if !attachSpeaker(&card, own.key, p, 5) {
+	if !attachSpeaker(&card, own.key, p, 5, tierMedium) {
 		t.Fatal("a library of four speeches could not ask who gave one of them")
 	}
 	if card.Options[card.Answer] != "Subhas Chandra Bose" {
@@ -109,7 +109,7 @@ func TestWhoSaidThisReachesASpeech(t *testing.T) {
 	// would be the "which source?" card with the same four answers.
 	bare := reviewCard{Kind: kindUtterance, ID: 2, Direction: dirSpeaker,
 		Quote: "Give me blood.", Title: "Subhas Chandra Bose", Speaker: "Subhas Chandra Bose"}
-	if attachSpeaker(&bare, own.key, p, 5) {
+	if attachSpeaker(&bare, own.key, p, 5, tierMedium) {
 		t.Error("asked who said a quote whose title is already the speaker's name")
 	}
 }
@@ -150,7 +150,7 @@ func TestClozeWithChoicesBlanksTheQuoteAndOffersRealPhrases(t *testing.T) {
 	// widest blank is the one where the distractors' shape actually matters.
 	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirClozeMCQ, Quote: text,
 		Title: "Pride and Prejudice", Stability: clozeMultiWordFrom + 1}
-	if !attachClozeMCQ(&card, ownKey, p, 11, clozeMultiWordFrom) {
+	if !attachClozeMCQ(&card, ownKey, p, 11, clozeMultiWordFrom, tierMedium) {
 		t.Fatal("a quote this long could not be blanked with choices")
 	}
 	if !strings.Contains(card.Quote, clozeBlank) {
@@ -217,7 +217,7 @@ func TestClozeWithChoicesNeverCutsADistractorOutOfTheCardsOwnWork(t *testing.T) 
 	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirClozeMCQ, Title: "Pride and Prejudice",
 		Stability: clozeMultiWordFrom + 1,
 		Quote:     "It is a truth universally acknowledged that a single man in possession of a good fortune must be in want of a wife"}
-	if !attachClozeMCQ(&card, own.key, p, 11, clozeMultiWordFrom) {
+	if !attachClozeMCQ(&card, own.key, p, 11, clozeMultiWordFrom, tierMedium) {
 		t.Fatal("two other quotes should still make a question")
 	}
 	for i, o := range card.Options {
@@ -235,7 +235,7 @@ func TestClozeWithChoicesRefusesALibraryWithNoOtherWords(t *testing.T) {
 	p := quizPools{byKey: map[string]workRef{own.key: own}, works: []workRef{own}}
 	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirClozeMCQ, Title: "Alone",
 		Quote: "It is a truth universally acknowledged that a single man must want a wife"}
-	if attachClozeMCQ(&card, own.key, p, 3, clozeMultiWordFrom) {
+	if attachClozeMCQ(&card, own.key, p, 3, clozeMultiWordFrom, tierMedium) {
 		t.Error("offered a multiple choice with nothing to choose between")
 	}
 	// The typed cloze still works on the same card, which is what makes refusing
@@ -253,7 +253,7 @@ func TestQuoteOptionsCarryTheirSource(t *testing.T) {
 	p, ownKey := clozeMCQPools()
 	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirQuote, Title: "Pride and Prejudice",
 		Quote: "It is a truth universally acknowledged"}
-	if !attachMCQ(&card, ownKey, p, 13) {
+	if !attachMCQ(&card, ownKey, p, 13, tierMedium) {
 		t.Fatal("no quote card from a three-book pool")
 	}
 	if len(card.OptionMeta) != len(card.Options) {

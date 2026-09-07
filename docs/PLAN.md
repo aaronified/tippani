@@ -3046,6 +3046,26 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 
 <sub>3.1.0 — `internal/httpapi/auth_handlers.go` · `internal/httpapi/review_tuning.go` · `internal/httpapi/review_handlers.go` · `web/frontend/src/Settings.jsx` · `web/frontend/src/Home.jsx` · `CHANGELOG.md`</sub>
 
+### The quiz has three difficulties, and a tier is a property of the round
+
+**Decided.** `srTier` is easy / medium / hard / random. It changes which directions may be asked, how many choices a card offers, and how wide a blank may be. **Medium is what the quiz has always done and is the default**; empty and unknown both normalise to it. Nothing about a tier is stored per card.
+
+**Why a property of the round and not a column.** The same ruling this section already made for the measured difficulty signal, for the same reason: it keeps §8's founding constraint — no due-date column, no sweep, everything derived at query time — and it makes changing difficulty instant and reversible rather than a rewrite of the library's scheduling state.
+
+**Why medium is byte-identical to today.** Every tier function returns its argument unchanged for medium, and that is the whole risk argument for landing a new axis of question generation near a release: a reader who changes nothing sees nothing change. A tier that quietly re-ranked distractors for everybody would be a schedule-wide behaviour change wearing a settings switch.
+
+**What each tier gives up.** Easy: two options rather than four, no typed blank, no self-marked card, one-word blanks at any half-life. Hard: no recognition at all — no "which book?", no "which quote?", no multiple-choice blank — and the widest blank a quote allows, whatever its age. Random picks per CARD from a seeded hash, so a refresh does not reshuffle the difficulty of a card the reader is halfway through thinking about, and a mixed library is not all one difficulty.
+
+**And Easy's cost is printed under the control.** Little, Bjork, Bjork & Angello (2012): multiple choice with COMPETITIVE alternatives teaches related, untested material better than cued recall, because you retrieve why each wrong option is wrong. Easy gives that up on purpose. A tier that advertised only its benefit would be selling the reader something.
+
+**Instead of.** Three options for Easy — rejected as a compromise that is neither the floor nor a real question. And a per-tier `speakerMinOptions` was not the interesting part: the floor now FOLLOWS the tier's own ceiling (`tierMinOptions`), because holding Easy to three would refuse every card it is defined by.
+
+**A tier narrows and never widens.** The reader's own repertoire (`srQuestions`) stays the outer bound, so a question they turned off stays off at every difficulty, and no tier may empty a deck — rule 3 of `review_questions.go`, restated where it could be broken again.
+
+**Approved.** Mine, with "medium changes nothing" as the condition of shipping it now rather than after the launch.
+
+<sub>3.1.0 — `internal/httpapi/review_tier.go` · `internal/httpapi/review_handlers.go` · `internal/httpapi/speaker.go` · `internal/httpapi/auth_handlers.go` · `web/frontend/src/quiz.js` · `web/frontend/src/Settings.jsx` · `internal/i18n/en.txt` · `CHANGELOG.md`</sub>
+
 ### The due point is one number, named, with the dot and the deck derived from it
 
 **Decided.** `reviewDuePoint` (0.5) and `reviewHeldPoint` (0.9) are constants. `dueSQL` splices `dueMultiplier(reviewDuePoint)` — `log2(1/target)`, which is exactly 1 at 0.5, so the rule and every stored half-life are untouched — and `recallStatus` switches on the same two constants. Behaviour is identical; the duplication is gone.
@@ -3064,7 +3084,7 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 
 ### A person card masks its own answer in the words it shows
 
-**Decided.** `speaker` and `author` cards blank the answer wherever it appears in the quote or the note they print: the whole credit, each split credit, and each credit's surname. A surname is matched **case-sensitively**; the full credit folds case. A card left with nothing to read is refused and `buildQuestion` falls through to another direction. The boundary is "not a letter or a number" rather than `\b`, so the masking works outside the Latin script.
+**Decided.** `speaker` and `author` cards blank the answer wherever it appears in the quote or the note they print: the whole credit, each split credit, and each credit's surname. A surname is matched **case-sensitively**; the full credit folds case. A card left with nothing to read is refused and `buildQuestion` falls through to another direction. The boundary is "not a letter or a number" rather than `\b`, so the masking reaches any script that separates words with spaces — `\b` is an ASCII-word rule and would never have fired on a Bengali line. A script that does NOT space its words (Han, the kana, Thai, Lao, Khmer, Myanmar) has no boundary to ask for, so a name written in one is matched bare: 鲁迅 inside 这是鲁迅先生说过的话 never sits between two non-letters, and the boundary rule that makes a Latin surname safe would have left every such name standing.
 
 **Why.** review.jsx's prompt side sends every direction but "quote" down `QuoteBlock`, so these cards show the words and ask who is behind them — and a line whose own text names that person answers itself. The reader picks the option they can already read, the card records a success, and the half-life climbs on evidence of nothing.
 

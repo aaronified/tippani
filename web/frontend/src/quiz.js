@@ -348,3 +348,14 @@ export function overCapacity(states, capacity) {
   if (!states || !Number.isFinite(capacity) || capacity <= 0) return false
   return Number(states.total) > capacity
 }
+
+// ---- how hard the questions are (3.1.0) -------------------------------------
+//
+// The order the settings screen lists them in, and the order the toggle's thumb
+// travels: easiest to hardest, with Random last because it is a choice ABOUT the
+// other three rather than one of them.
+//
+// MIRRORS reviewTiers IN Go, which is where the vocabulary is decided — the
+// server normalises anything it does not recognise to medium, so a value this
+// list carried and Go did not would be a control that moves and does nothing.
+export const REVIEW_TIERS = ['easy', 'medium', 'hard', 'random']

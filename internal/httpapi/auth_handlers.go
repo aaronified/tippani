@@ -475,6 +475,12 @@ type prefs struct {
 	// stays fully supported — it is the version that can be explained in one
 	// sentence, and some readers will prefer it. See nextStability, and prefs.adaptive.
 	SRLadder bool `json:"srLadder"`
+	// SRTier is how hard the QUESTIONS are — easy / medium / hard / random —
+	// which is a different axis from srQuestions (which questions may be asked)
+	// and from srTuning (how much an answer moves the schedule). Empty reads as
+	// medium, which is what the app has always done, so an account that never
+	// touches this sees no change. See review_tier.go.
+	SRTier string `json:"srTier"`
 	// SRSubmit puts a Submit button between choosing an answer and committing it,
 	// so a misplaced tap can be corrected instead of costing a rung. Off by
 	// default: tapping to answer is one gesture instead of two, and that is the
@@ -783,6 +789,10 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	// falls back to a built-in for a code it cannot find, so the worst an unknown
 	// language can do is render the box's own words.
 	p.Locale = i18n.NormalizeCode(p.Locale)
+	// A stored tier that is not one of the four reads as medium — which is what
+	// the quiz has always done, so a corrupt preference cannot change how hard the
+	// questions are.
+	p.SRTier = normalizeReviewTier(p.SRTier)
 	// A bad blob already in the database reads as NO marks rather than failing the
 	// login. The PUT below is where a client's mistake is refused.
 	if norm, ok := normalizeLanguageMarks(p.LanguageMarks); ok {
@@ -869,6 +879,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRSeen              *float64 `json:"srSeen"`
 		SRPracticeCounts    *bool    `json:"srPracticeCounts"`
 		SRLadder            *bool    `json:"srLadder"`
+		SRTier              *string  `json:"srTier"`
 		SRSubmit            *bool    `json:"srSubmit"`
 		Tour                *string  `json:"tour"`
 		TourStep            *int     `json:"tourStep"`
@@ -1071,6 +1082,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	// A bool has no "empty" sentinel, so presence is the pointer being non-nil.
 	if in.SRPracticeCounts != nil {
 		cur.SRPracticeCounts = *in.SRPracticeCounts
+	}
+	if in.SRTier != nil {
+		cur.SRTier = normalizeReviewTier(*in.SRTier)
 	}
 	if in.SRLadder != nil {
 		cur.SRLadder = *in.SRLadder
