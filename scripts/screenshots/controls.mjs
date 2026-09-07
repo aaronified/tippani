@@ -31,11 +31,12 @@
 // changing. Deliberately broad — the point is to find controls that do NOTHING,
 // not to judge what they did.
 import { readFileSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import puppeteer from 'puppeteer-core'
 
 import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
-import { exitCode, failing, judge, say } from './ratchet.mjs'
+import { canRecord, exitCode, failing, judge, say } from './ratchet.mjs'
 
 const opts = {
   baseUrl: 'http://127.0.0.1:8080', timeoutMs: 30000, width: 1280, height: 1000, only: '',
@@ -45,6 +46,7 @@ const opts = {
   // No default: a run that does not say gets no ceiling and says so, which is
   // better than being measured against somebody else's shelf.
   fixture: '',
+  baseline: '',
   username: process.env.TIPPANI_USER || HARNESS_ACCOUNT.username,
   password: process.env.TIPPANI_PASS || HARNESS_ACCOUNT.password,
 }
@@ -54,6 +56,11 @@ for (let i = 2; i < process.argv.length; i++) {
   else if (process.argv[i] === '--only') opts.only = next()
   else if (process.argv[i] === '--width') opts.width = Number(next())
   else if (process.argv[i] === '--fixture') opts.fixture = next()
+  // WHERE THE CEILINGS LIVE. Defaults to the committed file; a test of the
+  // recording rules points it at a temp copy, because the first version of that
+  // test wrote a shelf called `bakcup` into the repository — and still did, under
+  // any mutation that disabled the rule it was testing.
+  else if (process.argv[i] === '--baseline') opts.baseline = next()
   // WHOSE LIBRARY THIS IS. The seeded fixture's account is the harness's own, and
   // that is the default; a run against a RESTORED backup is somebody's real
   // library and signs in as them. Without this the probe typed the harness's
@@ -97,7 +104,9 @@ if (!opts.fixture) {
   process.exit(2)
 }
 
-const baselineFile = new URL('./controls-baseline.json', import.meta.url)
+const baselineFile = opts.baseline
+  ? new URL(`file://${resolve(opts.baseline)}`)
+  : new URL('./controls-baseline.json', import.meta.url)
 let baseline = {}
 try {
   baseline = JSON.parse(readFileSync(baselineFile, 'utf8'))
@@ -292,6 +301,13 @@ async function resolveSurfaces(page, baseUrl) {
 const engine = findBrowser(null, 'chrome')
 const browser = await puppeteer.launch(launchOptions(engine, { viewport: { width: opts.width, height: opts.height } }))
 const findings = { dead: [], small: [], empty: [], blank: [], unreachable: [], sideways: [], notaroute: [], labelled: [], head: [] }
+
+// HOW MUCH OF THE APP THIS RUN ACTUALLY LOOKED AT. Module-level because the
+// recording rule at the foot of this file needs it and the walk is inside a
+// function: `--only` filters before the walk, so a run can find nothing wrong
+// with one surface and record that as the whole app's ceiling.
+let walked = 0
+let surfaceTotal = 0
 let pressed = 0
 
 try {
@@ -624,8 +640,10 @@ try {
   }
 
   const surfaces = await resolveSurfaces(page, opts.baseUrl)
+  surfaceTotal = surfaces.length
   for (const surface of surfaces) {
     if (opts.only && !surface.name.toLowerCase().includes(opts.only.toLowerCase())) continue
+    walked++
     // ONE SURFACE MAY NOT COST THE REST OF THE RUN.
     //
     // A control that navigates — Settings has several — can land an in-page
@@ -1066,8 +1084,16 @@ if (opts.updateBaseline && !opts.fixture) {
 // ceiling of 0 gets written by a run against a server that was not there, after
 // which every real run reads as slack or, worse, as clean. Found by a test of
 // this file writing a shelf called `bakcup` into the repository.
-if (opts.updateBaseline && findings.blank.length) {
-  console.log(`\nNOT RECORDING: ${findings.blank.length} surface(s) did not render, so this run measured the harness and not the app.`)
+//
+// AND A RUN THAT SKIPPED SURFACES IS THE SAME FACT WITH NO BLANKS IN IT.
+// `--only` filters before the walk, so `--only home --update-baseline` measured
+// one surface, found nothing wrong with it, and wrote `{small: 0}` over a ceiling
+// of 187 — a whole app's touch-floor debt erased by a run that never looked at
+// it. Zero blanks is not the same as everything measured.
+const recordable = canRecord({ blanks: findings.blank.length, walked, total: surfaceTotal })
+if (opts.updateBaseline && !recordable) {
+  console.log(`\nNOT RECORDING: ${findings.blank.length} surface(s) did not render and ${walked} of ${surfaceTotal} were walked, ` +
+    'so this run measured the harness and not the app.')
 } else if (opts.updateBaseline) {
   baseline[opts.fixture] = baseline[opts.fixture] || {}
   baseline[opts.fixture][key] = Object.fromEntries(RATCHETS.map((k) => [k, findings[k].length]))

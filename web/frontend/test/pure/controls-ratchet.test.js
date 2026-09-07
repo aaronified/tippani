@@ -26,7 +26,8 @@
 // a restored backup is a different shelf and carries its own numbers.
 
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { copyFileSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -37,7 +38,7 @@ const SHOTS = join(REPO, 'scripts', 'screenshots')
 // BY ABSOLUTE URL, because the probe lives outside the frontend's Vite root and a
 // relative specifier would be resolved against it. Same file the probe imports —
 // a copy of the arithmetic here would be a test of the copy.
-const { SLACK, exitCode, failing, judge } = await import(pathToFileURL(join(SHOTS, 'ratchet.mjs')).href)
+const { SLACK, canRecord, exitCode, failing, judge } = await import(pathToFileURL(join(SHOTS, 'ratchet.mjs')).href)
 
 const baseline = JSON.parse(readFileSync(join(SHOTS, 'controls-baseline.json'), 'utf8'))
 const harness = readFileSync(join(SHOTS, 'run-controls.sh'), 'utf8')
@@ -170,17 +171,47 @@ describe('the controls ratchet', () => {
 
     // And recording a NEW shelf is still possible, or a first run could never
     // happen and the ratchet could only ever shrink.
-    const fresh = spawnSync(process.execPath, [join(SHOTS, 'controls.mjs'), ...dead, '--fixture', 'bakcup', '--update-baseline'], { encoding: 'utf8' })
-    expect(fresh.status, 'a new shelf cannot be recorded, so the ratchet can only ever shrink').not.toBe(2)
-
-    // AND IT WROTE NOTHING, because that run measured a server that was not
-    // there. This case USED TO WRITE a shelf called `bakcup` into the committed
-    // baseline — a test dirtying the repository it guards — and the repair is the
-    // rule it exposed: a ceiling from a run where nothing rendered is a floor of
-    // the harness, not of the app, and recording one turns every later run into
-    // slack or, worse, into "clean".
-    expect(readFileSync(join(SHOTS, 'controls-baseline.json'), 'utf8'), 'a run that measured nothing recorded a ceiling anyway')
+    //
+    // AGAINST A COPY, NOT AGAINST THE REPOSITORY. This case used to write a shelf
+    // called `bakcup` into the committed baseline; the no-record rule stopped
+    // that, and then a mutation that disabled the rule wrote it again — a test
+    // that only stays clean while the thing it tests works. `--baseline` points
+    // the probe at a temp file, so the case cannot dirty the tree whatever it
+    // finds, and it can assert the no-record rule directly.
+    const copy = join(tmpdir(), `controls-baseline-${process.pid}.json`)
+    copyFileSync(join(SHOTS, 'controls-baseline.json'), copy)
+    try {
+      const fresh = spawnSync(process.execPath,
+        [join(SHOTS, 'controls.mjs'), ...dead, '--fixture', 'bakcup', '--update-baseline', '--baseline', copy], { encoding: 'utf8' })
+      expect(fresh.status, 'a new shelf cannot be recorded, so the ratchet can only ever shrink').not.toBe(2)
+      expect(readFileSync(copy, 'utf8'), 'a run that measured nothing recorded a ceiling anyway').not.toMatch(/bakcup/)
+    } finally {
+      rmSync(copy, { force: true })
+    }
+    expect(readFileSync(join(SHOTS, 'controls-baseline.json'), 'utf8'), 'the test wrote to the committed baseline')
       .not.toMatch(/bakcup/)
+  })
+
+  it('and records a ceiling only from a run that looked at the whole app', () => {
+    // TWO WAYS TO MEASURE LESS THAN THERE IS, and both used to write anyway.
+    expect(canRecord({ blanks: 0, walked: 15, total: 15 }), 'a complete clean run cannot record').toBe(true)
+    expect(canRecord({ blanks: 1, walked: 15, total: 15 }), 'a run with a surface that did not render recorded anyway — that count is a floor of the harness').toBe(false)
+    // `--only home --update-baseline` has NO blanks: it looked at one screen,
+    // found nothing wrong, and wrote that over a ceiling of 187.
+    expect(canRecord({ blanks: 0, walked: 1, total: 15 }), 'a run that skipped fourteen surfaces recorded the app’s ceiling').toBe(false)
+    expect(canRecord({ blanks: 0, walked: 0, total: 0 }), 'a run that walked nothing at all recorded a ceiling of nothing').toBe(false)
+  })
+
+  it('and every bucket it records is one the probe still counts', () => {
+    // AN ORPHANED CEILING IS A BUCKET NOBODY IS WATCHING. Rename a ratchet in the
+    // probe and its old ceiling sits in this file for ever, judging nothing, while
+    // the new bucket has none and is loud but unfailing.
+    for (const [shelf, widths] of Object.entries(baseline)) {
+      for (const [width, counts] of Object.entries(widths)) {
+        expect(Object.keys(counts).sort(), `${shelf} at ${width}px records ${Object.keys(counts).sort().join(', ')}; the probe counts ${RATCHETS.slice().sort().join(', ')}`)
+          .toEqual(RATCHETS.slice().sort())
+      }
+    }
   })
 
   it('and has a ceiling at every width the harness actually runs', () => {

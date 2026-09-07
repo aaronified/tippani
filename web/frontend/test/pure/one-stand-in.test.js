@@ -273,6 +273,7 @@ const traverse = traverseModule.default || traverseModule
 // empty handler with a hook wrapped round it, and a CallExpression was accepted
 // wholesale — so this was the shortest escape of the lot.
 const PASSES_THROUGH = new Set(['useCallback', 'useMemo'])
+const REBOUND = new Set(['bind', 'call', 'apply'])
 const calleeName = (n) => (n?.type === 'Identifier' ? n.name
   : n?.type === 'MemberExpression' && n.property?.type === 'Identifier' ? n.property.name : '')
 
@@ -330,6 +331,12 @@ function actsIn(node, scope, seen = new Set(), path = null) {
     // A hook that hands the function back is not a body this rule cannot see:
     // it IS the body, one call away.
     if (PASSES_THROUGH.has(calleeName(node.callee))) return actsIn(node.arguments?.[0], scope, seen, path)
+    // AND NEITHER IS `.bind`. `noop.bind(null)` is the same empty function with
+    // its `this` fixed, and a bare CallExpression was accepted wholesale — so
+    // three characters walked round the whole rule.
+    if (REBOUND.has(calleeName(node.callee)) && node.callee.type === 'MemberExpression') {
+      return actsIn(node.callee.object, scope, seen, path)
+    }
     return true
   }
   if (node.type === 'MemberExpression' || node.type === 'OptionalMemberExpression') {
@@ -386,14 +393,59 @@ const ASKS = (tag, text = '') => {
   const body = handlerIn(tag)
   return body !== null && body !== '' && doesSomething(body, text)
 }
+// THE PARSER DECIDES WHICH TAGS THERE ARE, not a text scan zipped against it.
+//
+// The first version of the AST rule kept the regex scan for the tag list and used
+// the AST only for the `onError` question, matched by index — so the two had to
+// agree on how many `<img>` a file holds, and where they did not, the whole FILE
+// fell back to the textual rule this file's own comments call escapable three
+// ways. One `<img` in a comment was enough, and `silhouette.jsx` has exactly
+// that: a paragraph explaining that it draws a mask and NOT an `<img>`. A
+// fallback reached by disagreement is a hole, not a safety net.
+//
+// So `astTags` answers both questions from the same nodes, and resolves a name
+// through `scope.getBinding` rather than through a search of the file's text —
+// which is also how it stopped mattering whether a declaration ends in a
+// semicolon. `portraitTags` remains for the synthetic fragments in the shape
+// tables below, which are deliberately not whole modules.
+function astTags(text) {
+  let ast
+  try {
+    ast = parse(text, { sourceType: 'module', plugins: ['jsx', 'classProperties'] })
+  } catch {
+    return null
+  }
+  const src = (n) => text.slice(n.start, n.end)
+  const out = []
+  traverse(ast, {
+    JSXOpeningElement(path) {
+      if (path.node.name?.name !== 'img') return
+      const attrs = path.node.attributes
+      const srcAttr = attrs.find((a) => a.type === 'JSXAttribute' && a.name?.name === 'src')
+      // NO `src={…}` MEANS THE WHOLE TAG IS THE EXPRESSION — a spread puts the
+      // address somewhere this has no name for.
+      let expr = srcAttr?.value ? src(srcAttr.value) : src(path.node)
+      // A bare name, or a spread of one, resolved one step through its binding.
+      const names = []
+      if (srcAttr?.value?.expression?.type === 'Identifier') names.push(srcAttr.value.expression.name)
+      for (const a of attrs) {
+        if (a.type === 'JSXSpreadAttribute' && a.argument?.type === 'Identifier') names.push(a.argument.name)
+      }
+      for (const n of names) {
+        const init = path.scope.getBinding(n)?.path?.node?.init
+        if (init) expr += ' ' + src(init)
+      }
+      const onErr = attrs.find((a) => a.type === 'JSXAttribute' && a.name?.name === 'onError')
+      out.push({ expr, asking: onErr ? actsIn(onErr.value, path.scope, new Set(), path) : false })
+    },
+  })
+  return out
+}
+
 const unguarded = (text) => {
-  const tags = portraitTags(text)
-  // THE AST WHERE THE TEXT PARSES, the textual rule where it does not. The two
-  // walk `<img>` in the same order, so they are zipped by index — and the count
-  // has to agree, or the AST is answering about different tags and is not used.
-  const asked = askingByAst(text)
-  const byAst = asked && asked.length === tags.length
-  return tags.filter(({ tag, expr }, i) => OF_A_PERSON.test(expr) && !(byAst ? asked[i] : ASKS(tag, text)))
+  const parsed = astTags(text)
+  if (parsed) return parsed.filter((t) => OF_A_PERSON.test(t.expr) && !t.asking)
+  return portraitTags(text).filter(({ tag, expr }) => OF_A_PERSON.test(expr) && !ASKS(tag, text))
 }
 
 describe('the stand-in for a picture', () => {
@@ -424,6 +476,22 @@ describe('a picture of a person or a character', () => {
     // does not listen for `error` is wrong wherever it is written.
     const raw = FILES.filter((f) => unguarded(bodyOf(f)).length)
     expect(raw, `${raw.join(', ')} draws a face and never asks whether the picture arrived, so a file that has gone shows the browser’s torn page`)
+      .toEqual([])
+  })
+
+  it('and every file is judged by the parser, never by the fallback', () => {
+    // THE FALLBACK WAS A HOLE, not a safety net. `unguarded` uses the AST when the
+    // two walks count the same number of `<img>` and the textual rule when they do
+    // not — and the textual rule is the one this file's own comments call escapable
+    // three ways. So one `<img` written in a comment turns the strong answer off for
+    // a whole module, and `silhouette.jsx` has exactly that: a paragraph explaining
+    // that it draws a mask and NOT an `<img>`.
+    //
+    // Comments and string literals are stripped before the scan now, and this is
+    // what says so — a disagreement is a defect in this file rather than a reason
+    // to fall back quietly.
+    const unparsed = FILES.filter((f) => astTags(bodyOf(f)) === null)
+    expect(unparsed, 'these files do not parse, so they are judged by the textual fallback — which this file’s own comments call escapable three ways')
       .toEqual([])
   })
 
@@ -484,6 +552,7 @@ describe('a picture of a person or a character', () => {
       'an empty method on a local object': 'const hs = { broken() {} }\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={hs.broken} alt="" />',
       'an empty arrow inside useCallback': 'export const A = () => { const h = useCallback(() => {}, []); return <img src={coverImgURL(c.image_path)} onError={h} alt="" /> }',
       'an empty class property': 'class A { h = () => {}; render() { return <img src={coverImgURL(c.image_path)} onError={this.h} alt="" /> } }',
+      'an empty handler with its this fixed': 'const noop = () => {}\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={noop.bind(null)} alt="" />',
       'a no-op on one arm of a ternary': 'const noop = () => {}\nconst real = () => setBroken(true)\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={ok ? real : noop} alt="" />',
       'its own name written in a line comment inside the tag': 'export const A = () => <img src={coverImgURL(c.image_path)} style={{\n  // onError={boom}\n  color: "red",\n}} alt="" />',
       'the word onError typed in a comment': '<img src={coverImgURL(c.image_path)} /* onError */ alt="" />',
@@ -521,6 +590,8 @@ describe('a picture of a person or a character', () => {
       'a real class property': 'class A { h = () => this.setState({ broken: true }); render() { return <img src={coverImgURL(c.image_path)} onError={this.h} alt="" /> } }',
       'a real default for a destructured prop': 'export const A = ({ onErr = () => setBroken(true) }) => <img src={coverImgURL(c.image_path)} onError={onErr} alt="" />',
       'both arms of a ternary acting': 'const a = () => setBroken(true)\nconst b = () => report()\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={ok ? a : b} alt="" />',
+      'a real handler with its this fixed': 'const real = () => setBroken(true)\nexport const A = () => <img src={coverImgURL(c.image_path)} onError={real.bind(null)} alt="" />',
+      'a handler from a factory this file cannot see': 'export const A = () => <img src={coverImgURL(c.image_path)} onError={makeHandler()} alt="" />',
       'a prop reached through an object this file cannot see': 'export const A = ({ handlers }) => <img src={coverImgURL(c.image_path)} onError={handlers.broken} alt="" />',
     }
     for (const [what, code] of Object.entries(real)) {

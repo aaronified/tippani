@@ -94,13 +94,28 @@ const readSheet = (page) => page.evaluate((floor) => {
 
 // One whole gesture with the pointer, in steps, so the hook sees a drag rather
 // than a teleport.
-async function pull(page, from, by) {
+async function pull(page, from, by, watch) {
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
   const steps = 12
   for (let i = 1; i <= steps; i++) {
     await page.mouse.move(from.x, from.y + (by * i) / steps)
     await settle(16)
+    // MID-GESTURE READINGS, for the one thing only a browser can answer: whether
+    // a frame of this drag costs a LAYOUT or a composite. See case 5c.
+    if (watch) {
+      watch.push(await page.evaluate(() => {
+        const el = document.querySelector('.tp-panel')
+        if (!el) return null
+        const box = el.getBoundingClientRect()
+        return {
+          declared: el.style.getPropertyValue('--tp-sheet-h'),
+          transform: el.style.transform || '',
+          top: Math.round(box.top),
+          height: Math.round(box.height),
+        }
+      }))
+    }
   }
   await page.mouse.up()
   await settle(450)
@@ -269,6 +284,57 @@ try {
       failures++
     } else {
       console.log(`ok    a drag from the header bar took the sheet from ${was.toFixed(0)}px to ${s.height.toFixed(0)}px`)
+    }
+  }
+
+  // 5c. AND A FRAME OF THE DRAG COSTS A COMPOSITE, NOT A LAYOUT.
+  //
+  //     THE OWNER'S REPORT, three times, and the third named both ends of it:
+  //     "now dragging is almost impossible, extremely flaky, and the page tears
+  //     too much (often the background blur is removed for a second)". Writing a
+  //     HEIGHT every frame re-lays-out the sheet and invalidates the 10px
+  //     backdrop blur behind it, so the compositor re-blurred a screen's worth of
+  //     pixels at every step; the repair for THAT switched the blur off for the
+  //     length of the gesture, which is the second half of the same sentence.
+  //
+  //     Only a browser can say which property moved. The box must keep ONE height
+  //     for the whole gesture — laid out once, at the tallest anchor — while its
+  //     top edge follows the finger. A run of readings where the height changes is
+  //     the tear, whatever the sheet ends up at.
+  s = await readSheet(page)
+  if (s?.head) {
+    // DOWN, because 5b left the sheet at the TALLEST anchor and a pull up from
+    // there is clamped — the top edge cannot move, and the first version of this
+    // case reported that as the sheet holding still. A probe has to know where it
+    // left the thing it is measuring.
+    const seen = []
+    await pull(page, { x: s.head.mid, y: s.head.y }, 140, seen)
+    const live = seen.filter(Boolean)
+    const heights = [...new Set(live.map((r) => r.height))]
+    const tops = [...new Set(live.map((r) => r.top))]
+    if (live.length < 6) {
+      console.log(`FAIL  only ${live.length} of the drag's frames could be read, so the mechanism was not measured`)
+      failures++
+    } else if (heights.length > 1) {
+      console.log(`FAIL  the drag re-laid-out the sheet: its box took ${heights.length} heights (${heights.join(', ')}) across one gesture`)
+      failures++
+    } else if (tops.length < 3) {
+      console.log(`FAIL  the sheet's top edge held still at ${tops.join(', ')} — the drag moved nothing a reader can see`)
+      failures++
+    } else if (!live.every((r) => /translateY/.test(r.transform))) {
+      console.log('FAIL  the drag wrote no transform, so it is moving the sheet by laying it out')
+      failures++
+    } else {
+      console.log(`ok    one layout for the whole drag (${heights[0]}px box) and ${tops.length} positions of the top edge`)
+    }
+    // And it hands the height back, so the resting sheet is its own size again.
+    s = await readSheet(page)
+    const rest = await page.evaluate(() => document.querySelector('.tp-panel')?.style.transform || '')
+    if (s && rest) {
+      console.log(`FAIL  the sheet is still offset after the drag ended (${rest})`)
+      failures++
+    } else if (s) {
+      console.log('ok    and the offset is gone once the finger lifts')
     }
   }
 

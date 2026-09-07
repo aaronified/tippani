@@ -61,6 +61,19 @@ export function exitCode(anyFailingBucket, rows) {
   return 0
 }
 
+// MAY THIS RUN RECORD A CEILING? Two ways a run measures less than the app, and
+// both used to write anyway:
+//
+//   A SURFACE THAT DID NOT RENDER. Its controls were never counted, so the total
+//   is a floor of the harness. A run against a server that was not there records
+//   0, and every real run afterwards reads as slack — or, once that is recorded
+//   too, as clean.
+//
+//   A RUN THAT SKIPPED SURFACES. `--only home --update-baseline` has no blanks at
+//   all: it looked at one screen, found nothing wrong, and wrote that over a
+//   ceiling of 187. Zero blanks is not the same as everything measured.
+export const canRecord = ({ blanks, walked, total }) => blanks === 0 && total > 0 && walked === total
+
 export function say(row, width, shelf) {
   const { k, n, was } = row
   const at = `for ${shelf} at ${width}px`

@@ -1309,15 +1309,59 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // the only one a reader could have seen.
     let frame = 0;
     let want = null;
+    // WHAT A FRAME OF A DRAG WRITES: A TRANSFORM, NEVER A HEIGHT.
+    //
+    // THE OWNER'S REPORT, and it is the third time this gesture has been reported:
+    // "now dragging is almost impossible, extremely flaky, and the page tears too
+    // much (often the background blur is removed for a second)."
+    //
+    // The last clause names the cause. Writing `--tp-sheet-h` every frame is a
+    // LAYOUT animation: the sheet is re-laid-out, and it sits on a scrim wearing a
+    // 10px `backdrop-filter`, so the compositor re-blurs a screen's worth of
+    // pixels at every step. On a phone that blows the frame budget, the browser
+    // coalesces and drops the pointer stream, and the drag stops tracking the
+    // finger — which is what "almost impossible" and "extremely flaky" are. The
+    // previous repair stood the blur DOWN for the length of the gesture, which
+    // traded the tear for a visible flash and is the "blur is removed for a
+    // second" in the same sentence. An optimisation you can see is a defect.
+    //
+    // A TRANSFORM MOVES NOTHING AND LAYS OUT NOTHING. So the sheet is given the
+    // TALLEST anchor's height once, at the moment the drag starts, and is then
+    // pushed back down by the difference — every frame after that is one
+    // `translateY`, which the compositor answers without asking layout or paint
+    // anything, and the scrim's blur is never invalidated because what is BEHIND
+    // the scrim has not changed. The blur can stay on now, which is the half of
+    // this the reader actually notices.
+    //
+    // Down-drag hides the sheet's foot below the viewport, which is what a sheet
+    // being dismissed should look like; up-drag has room because the box is
+    // already as tall as it will ever be.
+    let span = 0;
+    // WHERE THE SHEET APPEARS TO BE. During a drag the BOX is the tallest anchor
+    // at every position, so its own height cannot say where the sheet looks like
+    // it is — and the release has to land on what a reader saw, not on the number
+    // the box happens to carry. This is that number, and it is the same one the
+    // last frame painted.
+    let showing = 0;
     const paint = () => {
       frame = 0;
       if (want == null) return;
-      el.style.setProperty("--tp-sheet-h", `${want}px`);
+      el.style.transform = `translateY(${Math.max(0, span - want)}px)`;
       want = null;
     };
     const put = (h) => {
       want = Math.round(h);
+      showing = want;
       if (!frame) frame = requestAnimationFrame(paint);
+    };
+    // The one layout of a gesture: the box goes to its full size and is offset
+    // back to where the finger found it, in the same write.
+    const liftOff = (h) => {
+      span = anchors.length ? Math.max(...anchors) : Math.round(h);
+      showing = Math.round(h);
+      el.style.transition = "none";
+      el.style.setProperty("--tp-sheet-h", `${span}px`);
+      el.style.transform = `translateY(${Math.max(0, span - showing)}px)`;
     };
     const settle = (h) => {
       // A PENDING FRAME OUTLIVES THE DRAG THAT QUEUED IT. Landing it after the
@@ -1327,6 +1371,13 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       if (frame) { cancelAnimationFrame(frame); frame = 0; }
       resting = Math.round(h);
       spring();
+      // BACK TO A HEIGHT ONCE THE GESTURE IS OVER, because the resting sheet has
+      // to be its own size for everything that reads it — the body's scroll
+      // extent, the fades, a screenshot. The transform goes with it in the same
+      // write, so there is no frame where both apply.
+      el.style.transform = "";
+      span = 0;
+      showing = resting;
       el.style.setProperty("--tp-sheet-h", `${resting}px`);
     };
 
@@ -1363,7 +1414,34 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
         from: e.clientY, at: e.clientY, when: e.timeStamp,
         height: el.getBoundingClientRect().height, v: 0, live: onGrip, moved: false, id: e.pointerId,
       };
-      if (onGrip) el.style.transition = "none";
+      if (onGrip) claim(false);
+    };
+
+    // CLAIM THE AXIS, AND CAPTURE ONLY WHERE CAPTURE IS THE POINT.
+    //
+    // `touch-action: none` on the sheet for the length of the gesture is the half
+    // that stops the browser answering the same drag itself — which is what made
+    // it "extremely flaky", because a gesture the browser claims is a gesture this
+    // hook stops receiving.
+    //
+    // POINTER CAPTURE IS NOT THE OTHER HALF, and adding it to this path broke two
+    // things a browser probe caught in one run: with capture set on pointerdown,
+    // the `click` that follows is dispatched to the CAPTURING element, so the
+    // header's and the grab bar's own click handlers never fire and the press that
+    // cycles the anchors went dead. A touch pointer is implicitly captured to its
+    // pointerdown target by the spec, and this hook's move and up listeners are on
+    // `window`, so nothing was gained for the cost. It stays on the BODY path,
+    // where it has a different job: the body is a scroll container, and capture is
+    // what stops it scrolling under a drag that started inside it.
+    const claim = (capture) => {
+      if (!drag) return;
+      drag.live = true;
+      liftOff(drag.height);
+      if (capture) {
+        try { el.setPointerCapture(drag.id); } catch { /* an engine without capture */ }
+      }
+      el.style.touchAction = "none";
+      if (body?.current) body.current.style.touchAction = "none";
     };
 
     const move = (e) => {
@@ -1377,10 +1455,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       if (Math.abs(dy) >= SLOP) drag.moved = true;
       if (!drag.live) {
         if (Math.abs(dy) < SLOP) return;
-        drag.live = true;
-        el.style.transition = "none";
-        try { el.setPointerCapture(drag.id); } catch { /* an engine without capture */ }
-        if (body?.current) body.current.style.touchAction = "none";
+        claim(true);
       }
       // A DRAG SAYS SO, so the stylesheet can stop asking the compositor for work
       // nobody can see during one — see `.tp-scrim.is-dragging`. On the scrim as
@@ -1408,12 +1483,14 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       if (!drag || (e && e.pointerId != null && e.pointerId !== drag.id)) return;
       const was = drag;
       drag = null;
+      el.style.touchAction = "";
       if (body?.current) body.current.style.touchAction = "";
+      try { el.releasePointerCapture(was.id); } catch { /* never held it */ }
       el.classList.remove("is-dragging");
       el.parentElement?.classList.remove("is-dragging");
       if (!was.live) return;
       dragged = was.moved;
-      const out = landing({ height: el.getBoundingClientRect().height, velocity: was.v, anchors });
+      const out = landing({ height: span ? showing : el.getBoundingClientRect().height, velocity: was.v, anchors });
       settle(out.dismiss ? anchors[0] : out.height);
       if (out.dismiss) bye.current?.();
     };

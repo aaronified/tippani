@@ -158,6 +158,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
+- **Dragging a sheet on a phone follows your finger, and the blur behind it stays put.**
+  The drag had become almost impossible to make — it would lose your finger part-way,
+  and the page tore, with the frosted background dropping out for a moment each time.
+  Both were one cause: the sheet was being re-drawn at a new size on every step of the
+  gesture, which made the whole screen behind it re-blur, and the previous attempt to
+  make that cheaper simply switched the blur off while you dragged. The sheet now slides
+  instead of being redrawn, so a drag costs the phone almost nothing, the blur never
+  flickers, and pressing the grab bar to step between sizes works again.
 - **Delete on a row of a table asks, the way Delete on a card asks.** In the table view
   of a book's quotes and of a film's lines, the Delete key on a row did nothing at all
   when it was pressed — no dialog, no deletion, no message. It now puts the same

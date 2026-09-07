@@ -57,9 +57,16 @@ node seed-cast.mjs --base-url "http://$BIND" || true
 # whole job is to have none.
 RUN=(env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY node controls.mjs --base-url "http://$BIND" --fixture seed)
 
+# THE PROBE'S CODES MEAN THINGS, AND THIS USED TO FLATTEN THEM ALL TO 1. `2` is a
+# refusal (no `--fixture`, or a shelf nobody has recorded) and `3` is "the app came
+# back clean but the touch floor was measured against nothing" — both invisible
+# through a `|| rc=1`, which is how the exit-3 rule could be written, tested and
+# documented while nothing that runs it could ever report one. The worst code wins,
+# so a real failure still outranks an unratcheted width.
 rc=0
+worst() { [ "$1" -gt "$rc" ] && rc="$1"; return 0; }
 echo; echo "──── desktop (1280) ────"
-"${RUN[@]}" --width 1280 "$@" || rc=1
+"${RUN[@]}" --width 1280 "$@" || worst "$?"
 echo; echo "──── phone (390) ────"
-"${RUN[@]}" --width 390 "$@" || rc=1
+"${RUN[@]}" --width 390 "$@" || worst "$?"
 exit "$rc"

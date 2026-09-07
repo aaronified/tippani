@@ -107,7 +107,16 @@ const NEVER = new Set([
   'event', 'focus', 'blur', 'find', 'stop', 'scroll', 'origin', 'frames', 'closed',
   'location', 'history', 'fetch', 'Image', 'File', 'Request', 'Response', 'Headers',
   'Notification', 'Selection', 'Range', 'Text', 'Comment', 'Option', 'Audio', 'Worker',
+  // The rest of the eight this file removed by hand, plus the two beside them.
+  // Transcribing half a list is how the half left behind reads as decided.
+  'alert', 'confirm', 'prompt', 'process', 'crypto', 'reportError', 'performance', 'size',
 ])
+
+// The eight this file removed by hand before the rule was written down, named
+// here so the WRITING DOWN can be checked against the doing. Half of them were
+// missing from `NEVER` when it was first written, which is the same failure one
+// level up: a judgement transcribed incompletely reads as a judgement made.
+const REMOVED_BY_HAND = ['open', 'close', 'print', 'screen', 'alert', 'confirm', 'prompt', 'process']
 
 function unboundIn(rel) {
   const code = readSource(rel)
@@ -181,6 +190,14 @@ describe('every name a module reads', () => {
       traverse(ast, { Program(path) { found = Object.keys(path.scope.globals).filter((n) => !PLATFORM.has(n)) } })
       expect(found.length, `${what} is invisible to the check`).toBeGreaterThan(0)
     }
+  })
+
+  it('and the list of names it may never excuse holds every one it has ever removed', () => {
+    // `NEVER` is a judgement, and its first version carried four of these eight.
+    // A rule written down by hand needs the same guard as a rule applied by hand.
+    const missing = REMOVED_BY_HAND.filter((n) => !NEVER.has(n))
+    expect(missing, `${missing.join(', ')} were removed from the allow-list for being app-shaped and are not in NEVER, so nothing stops them coming back`)
+      .toEqual([])
   })
 
   it('and never excuses a name this app could bind itself', () => {

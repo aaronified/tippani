@@ -1274,21 +1274,20 @@
      every gesture would freeze that. `pan-x` leaves the horizontal one with the
      browser — where it is smooth for free — and gives us the vertical. */
   .tp-panel-head { touch-action: pan-x; }
-  /* WHILE A DRAG IS ON, NOBODY IS READING THE BLUR.
-     A 10px backdrop blur is recomputed whenever what is in front of it changes
-     shape, and the sheet changes shape every frame of a drag — so the compositor
-     was re-blurring the whole screen at the same time the sheet was being laid
-     out, which is what the owner saw as a tear. The wash stays, so the layers
-     still read as layers; only the blur is stood down for the length of the
-     gesture, and it comes back the moment the finger lifts.
-     `will-change` tells the compositor the height is about to move repeatedly —
-     on the sheet only, and only while it is true, because a permanent
-     `will-change` is a permanent cost. */
-  .tp-scrim.is-dragging {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-  .tp-panel.is-dragging { will-change: height; }
+  /* THE BLUR STAYS ON THROUGH A DRAG, and standing it down was a defect wearing
+     an optimisation's clothes. It was switched off here because a drag that writes
+     a HEIGHT every frame re-lays-out the sheet, which invalidated the blur behind
+     it and re-blurred a screen's worth of pixels at every step. The owner saw both
+     halves and said so in one sentence: "the page tears too much (often the
+     background blur is removed for a second)". The tear and the flash were the
+     same bug at two ends.
+
+     A drag writes a TRANSFORM now (see `useSheetDrag`), so nothing behind the
+     scrim changes and the blur is computed once — there is nothing left to stand
+     down. `will-change: transform` is the honest hint for what actually moves, on
+     the sheet only and only while it is true, because a permanent `will-change` is
+     a permanent cost. */
+  .tp-panel.is-dragging { will-change: transform; }
 
   /* A rule between two sections of one page. Named because it was hand-typed in
      three files with three different borders — solid, dashed, and a third with

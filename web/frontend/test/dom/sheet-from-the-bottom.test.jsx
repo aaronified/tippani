@@ -35,6 +35,7 @@ import { useRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useSheetDrag } from '../../src/ui.jsx'
+import { declaredIn } from '../css-cascade.js'
 import { anchorsFor } from '../../src/sheetAnchors.js'
 
 afterEach(() => cleanup())
@@ -51,6 +52,19 @@ beforeEach(() => {
 function heightOf(el) {
   const set = el.style.getPropertyValue('--tp-sheet-h')
   return set ? parseFloat(set) : ANCHORS[0]
+}
+
+// HOW MUCH OF THE SHEET A READER CAN SEE, which is not the same as how tall its
+// box is once a drag is on. The gesture gives the box the tallest anchor and
+// pushes it back down by the difference — one `translateY` a frame, which the
+// compositor answers without laying anything out — so the box's own height is the
+// same number at every position and the visible edge is height MINUS the offset.
+// The owner reported the old mechanism three times, last as "the page tears too
+// much (often the background blur is removed for a second)": writing a height
+// every frame re-lays-out the sheet and re-blurs the screen behind it.
+function shownOf(el) {
+  const m = /translateY\((-?[\d.]+)px\)/.exec(el.style.transform || '')
+  return heightOf(el) - (m ? parseFloat(m[1]) : 0)
 }
 
 let stepper = null
@@ -145,7 +159,7 @@ describe('what starts a drag', () => {
       .toBe(start)
     await act(async () => { fireEvent.pointerMove(window, pointer(410)) })
     await frame()
-    expect(heightOf(el('sheet')), 'a committed drag in the body did nothing').toBeLessThan(start)
+    expect(shownOf(el('sheet')), 'a committed drag in the body did nothing').toBeLessThan(start)
   })
 
   it('but a scrolled body does not — that is the reader reading', async () => {
@@ -295,18 +309,127 @@ describe('a sheet whose content changes under it', () => {
   })
 })
 
-describe('what a drag does', () => {
-  it('resizes the sheet rather than sliding it', async () => {
-    // A SHEET THAT SLIDES IS A SHEET LEAVING. The reader is dragging to SEE MORE,
-    // and a translated sheet shows the same rows further up the screen.
+describe('what a drag costs', () => {
+  it('claims the axis for as long as the gesture lasts, and gives it back', async () => {
+    // THE OWNER'S REPORT: "now dragging is almost impossible, extremely flaky".
+    // A gesture the BROWSER answers is a gesture this hook stops receiving, and
+    // the sheet's own `touch-action` was left to the stylesheet — where the head
+    // says `pan-x`, because its title scrolls sideways under a fade. For the
+    // length of a drag the sheet takes the whole gesture and then hands it back,
+    // so the sideways scroll is not lost.
+    render(<Sheet onDismiss={vi.fn()} />)
+    const sheet = el('sheet')
+    await act(async () => { fireEvent.pointerDown(el('grip'), pointer(400)) })
+    expect(sheet.style.touchAction, 'the browser is still free to answer this gesture itself').toBe('none')
+    await act(async () => { fireEvent.pointerUp(window, pointer(400)) })
+    expect(sheet.style.touchAction, 'the sheet kept the axis after the drag ended').toBe('')
+  })
+
+  it('and captures the pointer only where capture is the point', async () => {
+    // CAPTURE ON THE GRAB BAR BROKE THE PRESS, and a browser probe caught it in
+    // one run: with capture taken on pointerdown, the `click` that follows is
+    // dispatched to the CAPTURING element, so the header's and the bar's own
+    // handlers never fire — "pressing the handle left the sheet exactly where it
+    // was". A touch pointer is implicitly captured to its pointerdown target
+    // anyway, and this hook listens on `window`, so there was nothing to gain.
+    //
+    // On the BODY path it has a different job: the body scrolls, and capture is
+    // what stops it scrolling under a drag that began inside it.
+    render(<Sheet onDismiss={vi.fn()} at={0} />)
+    const sheet = el('sheet')
+    const claimed = []
+    sheet.setPointerCapture = (id) => claimed.push(id)
+    await act(async () => {
+      fireEvent.pointerDown(el('grip'), pointer(400))
+      fireEvent.pointerMove(window, pointer(360))
+    })
+    expect(claimed, 'a drag from the grab bar captured the pointer, which kills the press that follows').toEqual([])
+    await act(async () => { fireEvent.pointerUp(window, pointer(360)) })
+
+    await act(async () => {
+      fireEvent.pointerDown(el('body'), pointer(400))
+      fireEvent.pointerMove(window, pointer(420))
+    })
+    expect(claimed.length, 'a drag begun in the body did not capture, so the body scrolls under it').toBe(1)
+  })
+
+  it('and lays the sheet out once, not once a frame', async () => {
+    // THE TEAR. A height written per pointer event re-lays-out the sheet AND
+    // re-blurs the scrim behind it, several times a frame on a pointer stream
+    // finer than a frame. The box is sized ONCE, at the start of the gesture, and
+    // every step after that is an offset.
+    render(<Sheet onDismiss={vi.fn()} />)
+    await act(async () => { fireEvent.pointerDown(el('grip'), pointer(400)) })
+    const sized = heightOf(el('sheet'))
+    const seen = new Set()
+    for (const y of [380, 360, 340, 320, 300, 280]) {
+      await act(async () => { fireEvent.pointerMove(window, pointer(y)) })
+      await frame()
+      seen.add(heightOf(el('sheet')))
+    }
+    expect([...seen], 'the sheet was laid out again during the drag, which is what re-blurs the screen behind it')
+      .toEqual([sized])
+    expect(shownOf(el('sheet')), 'the sheet did not track the finger').toBeGreaterThan(ANCHORS[0])
+  })
+
+  it('and hands the height back when the finger lifts', async () => {
+    // The resting sheet has to be its own size again: the body's scroll extent,
+    // the edge fades and every screenshot read it. And no frame may carry both —
+    // the offset is cleared in the same write as the height.
     render(<Sheet onDismiss={vi.fn()} />)
     await act(async () => {
       fireEvent.pointerDown(el('grip'), pointer(400))
       fireEvent.pointerMove(window, pointer(300))
     })
+    await frame()
+    await act(async () => { fireEvent.pointerUp(window, pointer(300)) })
+    expect(el('sheet').style.transform, 'the sheet is still offset after the drag ended').toBeFalsy()
+    expect(ANCHORS, 'the release did not land on an anchor').toContain(heightOf(el('sheet')))
+  })
+
+  it('and never stands the blur down to pay for itself', () => {
+    // THE OTHER HALF OF THE OWNER'S SENTENCE: "often the background blur is
+    // removed for a second". That was deliberate — `.tp-scrim.is-dragging` set
+    // `backdrop-filter: none` so the compositor would stop re-blurring a screen
+    // it was being asked to re-blur every frame. An optimisation a reader can see
+    // is a defect, and with the drag no longer laying anything out there is
+    // nothing behind the scrim changing for the blur to be recomputed from.
+    for (const prop of ['backdrop-filter', '-webkit-backdrop-filter']) {
+      expect(declaredIn('.tp-scrim.is-dragging').map((r) => r.decls[prop]?.value).filter(Boolean),
+        `a drag switches ${prop} off, which a reader sees as the blur dropping out`)
+        .toEqual([])
+    }
+  })
+})
+
+describe('what a drag does', () => {
+  it('shows more of the sheet without laying it out again', async () => {
+    // A SHEET THAT SLIDES IS A SHEET LEAVING: a reader dragging up is asking to
+    // SEE MORE, and translating a fixed-height box shows the same rows further up
+    // the screen instead. This case used to forbid `transform` outright for that
+    // reason — and forbidding it is what made every frame of a drag write a
+    // HEIGHT, which re-lays-out the sheet and re-blurs the scrim behind it. The
+    // owner reported the result three times; the last report named both ends of
+    // it in one sentence, the tear and the blur dropping out.
+    //
+    // SO THE RULE IS ABOUT WHAT A READER SEES, not about which property moves.
+    // The box takes the TALLEST anchor for the length of the gesture, so its
+    // content is laid out for the full height, and the offset decides how much of
+    // it shows. More of the sheet appears as the finger rises, which is the thing
+    // the old rule was protecting, and the frame costs a composite rather than a
+    // layout.
+    render(<Sheet onDismiss={vi.fn()} />)
+    await act(async () => {
+      fireEvent.pointerDown(el('grip'), pointer(400))
+      fireEvent.pointerMove(window, pointer(300))
+    })
+    await frame()
     const s = el('sheet').style
-    expect(s.getPropertyValue('--tp-sheet-h'), 'the drag wrote no height').toBeTruthy()
-    expect(s.transform, 'the drag moved the sheet instead of resizing it').toBeFalsy()
+    const tallest = Math.max(...ANCHORS)
+    expect(heightOf(el('sheet')), 'the box is not laid out for its full height, so a drag up reveals nothing')
+      .toBe(tallest)
+    expect(s.transform, 'the drag wrote no offset, so nothing moved').toMatch(/translateY/)
+    expect(shownOf(el('sheet')), 'the sheet did not follow the finger').toBeGreaterThan(ANCHORS[0])
   })
 
   it('and never past the top of the screen, WHILE it is being dragged', async () => {

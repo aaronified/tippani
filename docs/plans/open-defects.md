@@ -645,6 +645,47 @@ real object method, a real class property, a real prop default, both arms acting
 handler off an object this file cannot see — because a rule that cannot be satisfied gets
 worked around rather than obeyed.
 
+## AH. The drag, reported a third time, 7 September
+
+The owner, on their own phone: *"the only problem left now is the drag animation. now
+dragging is almost impossible, extremely flaky, and the page tears too much (often the
+background blur is removed for a second)."*
+
+**The last clause names the cause, and it was my repair.** The sheet's drag wrote a HEIGHT
+on every step, which re-lays-out the sheet — and it sits on a scrim wearing a 10px
+`backdrop-filter`, so the compositor re-blurred a screen's worth of pixels at every step.
+On a phone that blows the frame budget, the browser coalesces and drops the pointer
+stream, and the drag stops tracking the finger. The previous pass stood the blur DOWN for
+the length of the gesture to make that cheaper, which traded the tear for a visible flash.
+**An optimisation a reader can see is a defect.**
+
+| # | Defect | Status |
+|---|---|---|
+| AH1 | **Every frame of a drag laid the sheet out again**, behind a backdrop blur | **FIXED.** The box takes the tallest anchor once, at the start of the gesture, and every frame after that is one `translateY` — a composite, with nothing behind the scrim changing. Measured in a real browser: **one layout for the whole drag and twelve positions of the top edge** |
+| AH2 | **The blur was switched off while dragging** | **FIXED.** `.tp-scrim.is-dragging` is gone. There is nothing left to stand down, because the blur is no longer being invalidated |
+| AH3 | **The gesture was left to the stylesheet's `touch-action`**, which says `pan-x` on the header — the title scrolls sideways under a fade — so the browser was free to answer the same vertical drag itself, and a gesture the browser claims is one this hook stops receiving | **FIXED.** The sheet takes `touch-action: none` for the length of the drag and hands it back, so the sideways scroll survives |
+| AH4 | `will-change: height` promoted a layer for a property that no longer moves | **FIXED**, and it names `transform` |
+
+**And the first fix broke the press, which the browser probe caught in one run.** I took
+pointer capture on the grab-bar path as well, on the theory that an unclaimed pointer over
+a moving target is how a browser decides a gesture was a scroll. With capture set on
+pointerdown the `click` that follows is dispatched to the CAPTURING element, so the header's
+and the bar's own handlers never fire — `FAIL pressing the handle left the sheet at 793px,
+exactly where it was`. A touch pointer is implicitly captured to its pointerdown target
+anyway, and this hook listens on `window`, so there was nothing to gain. Capture stays on
+the BODY path, where it has a real job: the body scrolls, and capture is what stops it
+scrolling under a drag begun inside it.
+
+**A rule of mine was wrong and is restated rather than kept.** `sheet-from-the-bottom.test.jsx`
+forbade `transform` outright — "A SHEET THAT SLIDES IS A SHEET LEAVING", because translating
+a fixed-height box shows the same rows further up the screen. That is true of a fixed-height
+box and is why the drag wrote heights. The rule is about what a READER sees, so it now
+requires the box to be laid out for its full height first: more of the sheet appears as the
+finger rises, which is what the old rule was protecting, and the frame costs a composite.
+
+`make sheet-drag` exits 0, ten cases, including the new one that measures the mechanism
+rather than the outcome. Five new jsdom cases, each red without its own half of the fix.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.
