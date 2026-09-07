@@ -235,6 +235,55 @@ describe('what the panel says', () => {
     await waitFor(() => expect(document.querySelectorAll('.recall-log li').length + (panel().querySelector('.recall-wait') ? 1 : 0)).toBeGreaterThan(0))
   }
 
+  // THE LOG IS A SCROLLER, AND A SCROLLER IS TWO THINGS.
+  //
+  // The standing rule: "An edge fade means it scrolls; a button at the fade opens
+  // the full set. Use `Scroller` or `useEdgeScroll` — never bare `overflow`, which
+  // gives NO SIGNAL AND NO MOUSE GESTURE."
+  //
+  // The stylesheet sweeps hold the signal half — a fade may only hang off the
+  // measured attribute. Nothing held the gesture half, and a scroller's wiring is
+  // one line: delete it and `.recall-log` is left with `overflow-y: auto`, which
+  // is the rule's own example of the wrong thing. It looks identical, the fade
+  // simply never comes, and a plain mouse — no trackpad, no shift-wheel — cannot
+  // reach the older answers at all.
+  //
+  // jsdom lays nothing out, so the fade cannot be observed here. THE GESTURE CAN:
+  // a press and a drag past the slop takes the pointer capture, which is the
+  // hook's own doing and nothing else in the app's. A bare overflow takes none.
+  it('can be dragged by a plain mouse, which a bare overflow cannot', async () => {
+    await open()
+    const log = document.querySelector('.recall-log')
+    expect(log, 'the panel drew no log to scroll').toBeTruthy()
+    const held = []
+    log.setPointerCapture = (id) => held.push(id)
+    log.releasePointerCapture = () => {}
+    fireEvent.pointerDown(log, { pointerId: 4, button: 0, pointerType: 'mouse', clientX: 40, clientY: 90 })
+    // Past the 3px slop, which is deliberate: a press that never moves is a click
+    // on the row under it, and capturing on the press killed every click in every
+    // scroller in the app once already.
+    fireEvent.pointerMove(log, { pointerId: 4, clientX: 40, clientY: 60 })
+    fireEvent.pointerUp(log, { pointerId: 4 })
+    expect(held,
+      'a press-and-drag on the recall log does nothing, so it is a bare overflow: no fade, and no way for a mouse to reach the older answers')
+      .toEqual([4])
+  })
+
+  // AND THE PRESS THAT IS NOT A DRAG STILL LANDS. The other half of the same
+  // wiring, and the reason the capture is deferred at all.
+  it('does not swallow a press that never moves', async () => {
+    await open()
+    const log = document.querySelector('.recall-log')
+    const held = []
+    log.setPointerCapture = (id) => held.push(id)
+    fireEvent.pointerDown(log, { pointerId: 5, button: 0, pointerType: 'mouse', clientX: 40, clientY: 90 })
+    fireEvent.pointerMove(log, { pointerId: 5, clientX: 41, clientY: 91 })
+    fireEvent.pointerUp(log, { pointerId: 5 })
+    expect(held,
+      'the log grabs the pointer on the press, which retargets the click and kills every control inside it')
+      .toEqual([])
+  })
+
   it('shows one row per answer, in the order the server sent them', async () => {
     await open()
     const rows = [...document.querySelectorAll('.recall-log li')]
@@ -521,11 +570,20 @@ describe('the behaviour is the mark\'s', () => {
     // The ♥ and the recall mark stand a gap apart in the same card row and are
     // both things a thumb aims at. Their box is declared ONCE for the pair; two
     // copies is how one of them changes and the other quietly does not.
-    const css = src('index.css')
-    const pair = /\.heart,\s*\n\s*\.status-mark\s*\{/.test(css)
-    expect(pair, 'the recall mark has its own phone-width box instead of the one the heart beside it shares').toBe(true)
+    //
+    // WHAT IS ASKED IS WHETHER ONE RULE SETS BOTH BOXES, not how that rule is
+    // typed. A test that matched the two selectors' literal adjacency would pass
+    // over `.status-mark, .heart {…}` — the same fact, written the other way
+    // round — and would fail on a reformat that changed nothing.
+    const box = /(?:^|;|\{)\s*(?:min-)?width\s*:/
+    const shared = rulesNaming(src('index.css'), 'status-mark')
+      .filter((r) => box.test(r.body))
+      .filter((r) => r.sel.split(',').some((one) => /(^|[\s>+~])\.heart\b/.test(one.trim())))
+    expect(shared.length,
+      'the recall mark has its own phone-width box instead of the one the heart beside it shares, so a change to either leaves the pair uneven')
+      .toBeGreaterThan(0)
     // And it is a button's box: no border, no background of its own.
-    expect(/\.status-mark\s*\{[^}]*border:\s*0/.test(css), 'the mark became a button and kept the browser\'s chrome').toBe(true)
+    expect(/\.status-mark\s*\{[^}]*border:\s*0/.test(src('index.css')), 'the mark became a button and kept the browser\'s chrome').toBe(true)
   })
 })
 

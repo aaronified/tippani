@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 )
 
 type recallCardBody struct {
@@ -150,9 +151,29 @@ func TestRecallCardIsFresherThanTheCardThatOpenedIt(t *testing.T) {
 	}
 }
 
-// EVERY KIND OF QUOTE HAS A MEMORY, INCLUDING THE ONE WITH NO WORK BEHIND IT.
+// EVERY KIND OF QUOTE HAS A MEMORY, INCLUDING THE ONE WITH NO WORK BEHIND IT,
+// AND EACH ONE'S MEMORY IS ITS OWN.
+//
 // A standalone quote is a review card like any other — that is what made 0065
-// necessary — so the panel has to answer for it too.
+// necessary — so the panel has to answer for it too. But "answers for it" is only
+// half the claim, because THE THREE KINDS ARE THREE TABLES AND THEIR IDS ARE
+// INDEPENDENT: `annotations`, `dialogues` and `utterances` each start at 1, so a
+// library of any size has a highlight, a film line and a quote all numbered 7. A
+// card is named by (kind, id) and nothing else, so a panel that read the id out of
+// the wrong table would answer with a stranger's schedule — and on the seeded
+// three, which really do collide, it would answer plausibly.
+//
+// SO EACH KIND'S CARD IS MADE UNMISTAKABLE and then asked for by kind. Three
+// cards with the same age and the same answer are indistinguishable, and any of
+// the three tables satisfies all three cases; give each a different creation date
+// and a different last answer and only the right table can produce the right pair.
+// This is the collision AS2 recorded one layer down, in the same shape: a fixture
+// where every row looks alike cannot tell you which row was read.
+//
+// A DATE RATHER THAN A SECOND ANSWER, because a second answer on the same day is
+// deliberately a no-op — the Daily Quiz treats a re-answer as an echo so a retried
+// POST cannot compound a half-life — so a fixture built out of repeats would have
+// measured that rule instead of this one.
 func TestRecallCardCoversAllThreeKinds(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -167,27 +188,63 @@ func TestRecallCardCoversAllThreeKinds(t *testing.T) {
 	utts := seedReviewQuotes(t, c, "Subhas Chandra Bose", "Burma Radio broadcast", 1)
 	ageSeededItems(t, srv)
 
-	for _, tc := range []struct {
-		kind string
-		id   int64
-		what string
+	cases := []struct {
+		kind   string
+		id     int64
+		what   string
+		table  string
+		days   int
+		result string
+		lapses int
 	}{
-		{kindBook, anns[0], "a highlight"},
-		{kindScreen, dlg.ID, "a film line"},
-		{kindUtterance, utts[0], "a standalone quote"},
-	} {
+		{kindBook, anns[0], "a highlight", "annotations", 40, "forgot", 1},
+		{kindScreen, dlg.ID, "a film line", "dialogues", 90, "got", 0},
+		{kindUtterance, utts[0], "a standalone quote", "utterances", 200, "forgot", 1},
+	}
+	for _, tc := range cases {
+		if _, err := srv.Store.DB.Exec(
+			`UPDATE `+tc.table+` SET created_at = datetime('now', ?)`,
+			fmt.Sprintf("-%d days", tc.days)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range cases {
 		c.mustDo("POST", "/review/answer",
-			map[string]any{"kind": tc.kind, "id": tc.id, "result": "forgot", "mode": "daily"}, http.StatusOK)
+			map[string]any{"kind": tc.kind, "id": tc.id, "result": tc.result, "mode": "daily"}, http.StatusOK)
 		got := recallCard(t, c, tc.kind, tc.id)
 		if len(got.History) != 1 {
 			t.Errorf("%s answered once has %d logged answers — this kind has no recall history", tc.what, len(got.History))
 			continue
 		}
-		if got.History[0].Result != "forgot" || got.LapseCount != 1 {
-			t.Errorf("%s: the lapse did not reach the panel (result %q, lapses %d)",
-				tc.what, got.History[0].Result, got.LapseCount)
+		if got.History[0].Result != tc.result || got.LapseCount != tc.lapses {
+			t.Errorf("%s: the answer did not reach the panel (result %q, lapses %d, wanted %q and %d)",
+				tc.what, got.History[0].Result, got.LapseCount, tc.result, tc.lapses)
+		}
+		// THE SCHEDULE HALF, WHICH IS THE ONE READ OUT OF THE KIND'S OWN TABLE. The
+		// log above is keyed by (kind, id) directly and would look right even if the
+		// schedule were read off the wrong shelf; the card's age and its last answer
+		// come from that shelf, and here no two kinds share them.
+		if got.LastResult != tc.result {
+			t.Errorf("%s: the panel reports its last answer as %q, not %q — the schedule was read off another kind's card",
+				tc.what, got.LastResult, tc.result)
+		}
+		age := ageDaysOf(t, got.CreatedAt)
+		if age < float64(tc.days)-1 || age > float64(tc.days)+1 {
+			t.Errorf("%s: the panel dates the card %.1f days back; that shelf holds it %d days back — it is answering about another kind's row",
+				tc.what, age, tc.days)
 		}
 	}
+}
+
+// ageDaysOf — how long ago the panel says a card was made, from the timestamp it
+// sends. `created_at` is SQLite's `datetime('now')` shape: UTC, space-separated.
+func ageDaysOf(t *testing.T, at string) float64 {
+	t.Helper()
+	ts, err := time.Parse("2006-01-02 15:04:05", at)
+	if err != nil {
+		t.Fatalf("the panel sent a creation date it cannot be read from: %q (%v)", at, err)
+	}
+	return time.Since(ts).Hours() / 24
 }
 
 // THE PANEL AND THE QUIZ SAY THE SAME THING ABOUT WHETHER A CARD IS OWED.

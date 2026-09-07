@@ -54,11 +54,13 @@ directory picks the archive up with no flags at all — `make controls`, `make s
 `make typescale`, `make panel-depth`, `make frame-scroll`, `make hero-control`, and
 `run-with-server.sh --seed`. Each says which library it is against on its first line. The
 WIRING is checked by `test/pure/harness-archive.test.js`; the WORKING was checked by
-running them — six of the seven exit 0 against a restored archive (`sheet-drag`,
-`panel-depth`, `typescale`, `frame-scroll`, `hero-control`, and a capture from
-`run-with-server.sh --seed`). **`make controls` is the seventh and exits 3 until the backup
-shelf's 1280 ceiling is recorded** — see `--fixture` below; the app comes back clean, the
-touch floor is measured against nothing, and 3 is the code that says exactly that.
+running them — **all seven now exit 0 against a restored archive** (`sheet-drag`,
+`panel-depth`, `typescale`, `frame-scroll`, `hero-control`, a capture from
+`run-with-server.sh --seed`, and `make controls`). `make controls` was the last of them:
+it exited 3 while the backup shelf had no ceiling recorded — the app came back clean and
+the touch floor was measured against nothing, which is exactly what 3 says. Both ceilings
+are recorded now (`small 0 / labelled 0` at 1280, `small 301 / labelled 24` at 390), so a
+full run reports `ok` at both widths and takes about seventy minutes.
 **Exactly four names are read out of that file, and these are their spellings:**
 
 ```bash
@@ -116,6 +118,18 @@ here — but WHICH ones land first varies between runs, so the people rows diffe
 draws a different set of author chips, so the count moves. That is how the ratchet read
 187 three times and 188 on the fourth with no change to the app. A ceiling can only be
 exact over a library that does not drift, and a restored archive is one.
+
+**THE ARCHIVE IS STABLE; THE PROBE IS NOT QUITE.** This paragraph used to end there, and
+that was one claim too far. The archive removes the seeding drift — the same rows every
+run, so the same author chips — but `controls.mjs` PRESSES what it finds, and some of what
+it finds changes the library: it accepts and ignores rows on Checks, and it toggles a
+category on Settings and then reads the toggle back, which is why one run's list carries
+"Hide this category" where another's carries "Offer this category". So the 390 count moves
+by about one between runs on identical code (300 then 301), and a `small` figure a control
+or two above its ceiling is drift rather than a regression. THE WAY TO TELL THEM APART is
+the list, not the number: `--update-baseline` prints every control under the floor with
+its size and its surface, so diff two runs' lists and read the names. A control this
+session added would be in the diff under its own name.
 
 **The archive is somebody's library and never leaves this machine.** The server binds to
 127.0.0.1, the data dir is a mktemp the trap removes, and the archive is NOT committed —
@@ -270,6 +284,16 @@ old work, so a screen that breaks one is a bug and not a variation.
   a design discussion first.
 
 ## Gotchas
+
+- **A subagent with `isolation: "worktree"` puts a full checkout of this repo at
+  `.claude/worktrees/<id>`, INSIDE the tree.** Every sweep that walks the filesystem
+  rather than git then sees the repo twice — `ai-counts` reported 3,016 Go test functions
+  against AI.md's 1,508, which reads like a wildly stale document and is a scratch
+  checkout nobody removed. It is gitignored, so `git status` says nothing. `git worktree
+  list` is what shows it and `git worktree remove --force <path>` is what clears it (the
+  harness only auto-cleans a worktree the agent left unchanged, and a rater that mutates
+  the tree to test it never leaves one unchanged). `ai-counts` now skips `.claude`; a new
+  repo-wide walk should too.
 
 - **A chip's on-state class is `active`.** `.tp-filter-chip.active` is what the
   stylesheet styles; `is-on` belongs to other things (`.cat-swatch`, `.meta-rail-item`,

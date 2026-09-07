@@ -341,6 +341,18 @@ describe('taking them off a work', () => {
     expect(within(dialog).getByText(/Woland/)).toBeTruthy()
   })
 
+  // THE DISPOSITION IS THE SERVER'S WORD, NOT THIS SCREEN'S.
+  //
+  // This case used to demand `?quotes=move`, which `character_works.go` answers
+  // 400 — "quotes must be clear or replace". So it asserted the defect: green,
+  // while the one press that KEEPS a character's lines was refused outright on
+  // the work-level sheet. It was written from the handler that had just been typed
+  // rather than from what the endpoint accepts, which is the thing prompt 4 bans.
+  //
+  // Named here so the two cases below read as the pair they are: `replace` and
+  // `clear` are the only two words the endpoint takes, and
+  // `quotes-disposition.test.js` reads that set out of the Go source so neither
+  // side can drift from it again.
   it('replaces the speaker on every quote and then removes', async () => {
     DROP = { ok: false, status: 409, data: { quotes: 2 } }
     await unlink(BOOK())
@@ -349,7 +361,7 @@ describe('taking them off a work', () => {
     DROP = { ok: true, status: 200, data: { quotes: 2 } }
     await act(async () => { within(dialog).getByText(/Rename them and remove/i).click() })
     await waitFor(() => expect(
-      CALLS.some(([m, p]) => m === 'DELETE' && p.startsWith('/characters/3/works/11?quotes=move&to=Messire')),
+      CALLS.some(([m, p]) => m === 'DELETE' && p.startsWith('/characters/3/works/11?quotes=replace&to=Messire')),
     ).toBe(true))
   })
 

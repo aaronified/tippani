@@ -1167,6 +1167,46 @@ class of defect. What keeps working is a rater mutating my guards. What keeps fa
 writing the guard and the claim in the same hour — and, new here, me extracting a helper
 and not re-mutating the guards that now depend on it.
 
+## AT. The work-rater's twentieth pass, 7 September — 5/10
+
+**The score fell again, from 6, and this time the finding is not about a guard — it is that
+one of the owner's two asks did not work at all.** The rater rendered the real work-level
+character sheet, pressed "Also in another work", and nothing came up. `<AddWork>` sat after
+the `if (scope.local) { return … }` early return, so on the sheet the owner asked about, the
+row set a flag and drew nothing, while `CHANGELOG.md` and `docs/PLAN.md` both asserted the
+credit gets written. Every one of AS's five second-work cases passed because every one of
+them handed `CharacterLocal` a MOCK `onAddWork` — the flagged class again, one layer out:
+five fixtures that could not reach the state they claimed to check, because none of them
+rendered the screen.
+
+**And a second defect fell out of reading the branch that was missing.** The two copies of
+`DropWorkDialog` had drifted: the local one sent `?quotes=move`, which
+`character_works.go` answers 400 (`quotes must be clear or replace`). So on a work-level
+character, the one press that KEEPS a character's lines when the work is removed was broken
+— refused by the server, on that branch only. This is the "a line each" defect the repo
+directive names, and it is why the repair is structural rather than a copied line.
+
+| # | Defect | Status |
+|---|---|---|
+| AT1 | **The owner's item 3 did not work.** `<AddWork>` was rendered only after `scope.local`'s early return, so the work-level sheet's add-work row opened nothing. Five tests missed it by mocking the handler instead of rendering the screen | **FIXED by making the sheets ONE node.** All six — `FieldPicker`, `ChoosePicker`, `AddWork`, `ProviderLinkDialog`, `DropWorkDialog`, the promote confirmation — live in a single `sheets` element both branches render, because all six read the same state and none needs anything passed in. Three cases now render the real `characterPanel(…, {work})`, press the row, and assert the chooser comes up, offers the works this character is NOT in, and writes the credit for the one picked. All three fail on the exact original defect |
+| AT2 | **The local `DropWorkDialog` sent `?quotes=move`; the server takes `clear` or `replace`.** Two copies of one dialog, one of them wrong, on the branch with fewer eyes on it | **FIXED by the same extraction** — there is now one dialog and one disposition. Found by reading the branch AT1 was missing, not by a test |
+| AT3 | **`sourceFor`'s per-kind table was untestable.** Returning `bookSource()` for `kindUtterance` passed all nine card tests: the fixture gave the highlight and the utterance the same id and the same answer, so the wrong shelf produced identical values. AS2's collision, one layer up | **FIXED with distinguishing state:** each kind's card is created a different number of days ago and answered differently, and the panel is asked for its own age and its own last answer back. A date rather than a second answer, because a same-day re-answer is deliberately a no-op — a fixture of repeats would have measured that rule instead. Both wrong-table mutations now name the kind and the two ages |
+| AT4 | **Deleting `.recall-log`'s `useEdgeScroll` failed nothing.** All 26 recall-panel cases and all three CSS sweeps stayed green, leaving `overflow-y: auto` — the standing rule's own example of the wrong thing. The sweeps hold the SIGNAL half of that rule; nothing held the GESTURE half | **FIXED by pressing it.** jsdom lays nothing out, so the fade cannot be seen — but the press-and-drag can: past the 3px slop the hook takes the pointer capture, which nothing else in the app does. Two cases, one for the drag and one for the press that must NOT be captured (capturing on `pointerdown` once killed every click inside every scroller in the app) |
+| AT5 | **The collapsed favourite tile's mark had no guard.** AS4 put it there; the sweep that was meant to hold it only asks whether the FILE contains `<ReviewDot`, and `Home.jsx` has a second one in the expanded branch. Removing the resting one failed nothing | **FIXED by rendering the wall.** Real `Home`, three favourites, nothing pressed: three marks, or the board arrives with no route to a quote's history. Removing the resting mark fails it; the file-level sweep stayed green, which is the proof it was blind |
+| AT6 | **One quote per kind hid an `item_id`-less trigger.** Dropping `item_id = OLD.id` wipes every row of that kind — which, when the kind owns one quote, is exactly what deleting it should do | **FIXED with a bystander:** every kind owns a SECOND quote at a different id with its own answers, and nothing about the delete may touch it. Three mutations — `item_id` dropped from 0065, `item_id` dropped from 0064, `kind` dropped from 0064 — now fail with three different messages |
+| AT7 | **Two guards asserted the fix's own spelling**, which prompt 4 bans in as many words: `/const\s+openAddWork\s*=/`, and the literal adjacency `.heart,\n.status-mark {` | **FIXED behaviourally.** The one-function rule is now checked by pressing the door on BOTH sheets and comparing what comes up — a grep would pass two identical inline copies that had since drifted, which is the defect the directive exists to prevent. The pair rule is now "one rule sets both boxes", which tolerates `.status-mark, .heart {` (the same fact, reversed) and fails on a split. Both verified in both directions |
+| AT8 | **`rulesNaming`'s class-name escape was inert.** The regex literal lives inside `${…}` — real source, not template text — so its doubled backslashes escaped nothing and `'a.b'.replace(escape, …)` came back unchanged. Every caller passes a plain name, so it never showed | **FIXED, with a test for the helper four sweeps read the stylesheet through.** `test/pure/css-rules-helper.test.js` states the right answer for a rule inside an at-rule, a brace inside a comment, a selector list split per selector, and a metacharacter in the class name. A helper is not correct because its callers happen to stay inside its working subset |
+| AT9 | **A DOM test was asserting the defect.** `character-destination.test.jsx:352` demanded `?quotes=move&to=Messire` — the request the server answers 400 to — so it was green while the press it covers was refused outright. Written from the handler that had just been typed instead of from what the endpoint accepts, which is prompt 4's ban restated: a test that cannot fail for the reason it exists. Mine, found by the fix breaking it | **FIXED, and made uncheatable.** `test/pure/quotes-disposition.test.js` reads the accepted set OUT OF `character_works.go` and sweeps every `?quotes=` the SPA sends against it, both ways: a word the server refuses, and a word the server takes that no screen sends (a way out of the 409 the reader is offered and cannot take). Three mutations caught — the SPA sending `move` again, the SPA dropping `clear`, and the HANDLER renaming `replace`. Comments are stripped first, because the first run flagged this row's own explanation |
+| AT10 | **A rater launched with `isolation: "worktree"` leaves a full checkout of this repo at `.claude/worktrees/<id>`, inside the tree**, and every sweep that walks the filesystem rather than git then counts the repo twice: `ai-counts` read 3,016 Go test functions against AI.md's 1,508. It is gitignored, so `git status` is silent about it | **FIXED both ways.** The worktree is removed (`git worktree list` is what shows it; the harness only auto-cleans one the agent left unchanged, and a rater that mutates the tree never does), and `ai-counts`' walk now skips `.claude` — `.gitignore` already says that directory is not this repo's source. Recorded as a gotcha in `CLAUDE.md`, because the failure reads as a stale document rather than as a stray checkout |
+
+**AND `make controls` NOW EXITS 0 AT BOTH WIDTHS**, against the restored archive: `small 0
+/ labelled 0` at 1280 over fifteen surfaces, `small 301 / labelled 24` at 390. The 390
+ceiling was 300 and is now 301, which is drift and not a regression — diffing the two runs'
+own lists shows the difference is extra INSTANCES of controls the probe presses and thereby
+changes (three "Open Early Indians" on Checks, a category toggle read back as "Hide" where
+the earlier run read "Offer"), and no control this work added appears in either list. That
+correction is in `CLAUDE.md`, which had claimed a restored archive does not drift at all.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

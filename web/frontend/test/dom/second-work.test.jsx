@@ -145,24 +145,175 @@ describe('the sheet about one credit', () => {
   })
 })
 
-// AND THE VERB IS ONE FUNCTION, reached from both sheets.
+// AND THE DOOR IS ONE DOOR, whichever sheet the reader is standing on.
 //
 // The repo's directive: "A control drawn by one component on two screens has ONE
 // behaviour, and it lives in one function that both screens call — not in a line
 // each, which is how one of them goes on being right while the other quietly
-// stops." The global sheet's works strip and this row open the same chooser.
-describe('the chooser both sheets open', () => {
-  const src = (f) => readFileSync(join(process.env.TIPPANI_SRC || 'src', f), 'utf8')
+// stops." What the reader is promised by that is not a shape in the source: it is
+// that the add-work tile on the GLOBAL sheet and the add-work row on the
+// WORK-LEVEL sheet open the same chooser, offering the same works. So that is what
+// is asserted — by pressing both and comparing what comes up. A test that grepped
+// for a handler's name would pass over two identical inline copies that had since
+// drifted, which is the defect the directive exists to prevent.
 
-  it('is opened by one named function, not a line at each call site', () => {
-    const body = src('identity.jsx')
-    const inline = [...body.matchAll(/onAddWork=\{([^}]*)\}/g)].map((m) => m[1].trim())
-    expect(inline.length, 'nothing passes onAddWork, so neither sheet can add a work').toBeGreaterThan(1)
-    for (const expr of inline) {
-      expect(expr, `onAddWork={${expr}} is a handler written at the call site rather than the shared one`)
-        .toMatch(/^[A-Za-z_$][\w$]*$/)
+// ---- THE WHOLE ACT, ON THE REAL SHEET --------------------------------------
+//
+// Every case above hands `CharacterLocal` an `onAddWork` of its own, so all any of
+// them can say is that the ROW is drawn and calls what it was given. That is half
+// a feature. The other half is whether the screen the reader is actually looking
+// at answers the press — and it did not: the chooser was mounted on the global
+// branch only, so on a work-level character "Also in another work" set a flag and
+// drew nothing. The row was there, the handler ran, and the owner's item 3 did not
+// work at all.
+//
+// SO THIS RENDERS THE SCREEN, presses the row, and asks the reader's question: can
+// I now pick a work, and does picking one put this character in it? Nothing here
+// knows how the sheet is built or which branch mounts what.
+describe('the work-level sheet a reader actually opens', () => {
+  const APPEARANCES = [{
+    cast_id: 3, kind: 'movie', work_id: 4, work_title: 'V for Vendetta',
+    character: 'Evey Hammond', actor: 'Natalie Portman', actor_id: 8,
+    image: '', cover: '', media_type: 'movie', description: '',
+  }]
+  const SHELF = {
+    books: [{ id: 9, title: 'Watchmen', cover_path: '' }],
+    movies: [{ id: 4, title: 'V for Vendetta', poster_path: '', media_type: 'movie' }],
+  }
+
+  let panel
+  beforeEach(async () => {
+    const api = await import('../../src/api.js')
+    api.json.mockImplementation(async (method, path, body) => {
+      calls.push({ method, path, body })
+      if (method === 'GET' && path === '/characters/12') {
+        return { ok: true, data: { ...RECORD, appearances: APPEARANCES, aliases: [], links: [] } }
+      }
+      if (method === 'GET' && path === '/books') return { ok: true, data: { books: SHELF.books } }
+      if (method === 'GET' && path === '/movies') return { ok: true, data: { movies: SHELF.movies } }
+      if (method === 'POST' && path === '/characters/12/works') return { ok: true, data: { ok: true } }
+      return { ok: true, data: {} }
+    })
+    const { characterPanel } = await import('../../src/identity.jsx')
+    panel = characterPanel({ open: () => {}, push: () => {}, close: () => {} }, {
+      id: 12,
+      name: RECORD.name,
+      work: { kind: 'movie', id: 4, title: 'V for Vendetta', media_type: 'movie', castId: 3 },
+    })
+  })
+
+  const press = async () => {
+    render(panel.render())
+    await waitFor(() => expect(rowNamed('identity.row.add-work.label')).toBeTruthy())
+    fireEvent.click(rowNamed('identity.row.add-work.label'))
+  }
+
+  it('opens a chooser the reader can pick a work in', async () => {
+    await press()
+    await waitFor(() => {
+      expect(
+        document.querySelector(`input[placeholder="${t('identity.character.works.add.placeholder')}"]`),
+        'the press left the screen exactly as it was — the row is a door onto nothing',
+      ).toBeTruthy()
+    })
+  })
+
+  it('offers the works this character is not in yet, and not the one they are', async () => {
+    await press()
+    await waitFor(() => expect(document.querySelectorAll('.char-pick').length).toBeGreaterThan(0))
+    const offered = [...document.querySelectorAll('.char-pick')].map((b) => b.textContent.trim())
+    expect(offered, 'the chooser offers the work the character is already credited in').toEqual(['Watchmen'])
+  })
+
+  it('writes the second credit when a work is picked', async () => {
+    await press()
+    await waitFor(() => expect(document.querySelector('.char-pick')).toBeTruthy())
+    fireEvent.click(document.querySelector('.char-pick'))
+    await waitFor(() => {
+      const wrote = calls.find((c) => c.method === 'POST' && c.path === '/characters/12/works')
+      expect(wrote, 'picking a work wrote no credit, so the character is still in one work').toBeTruthy()
+      expect(wrote.body, 'the credit does not name the work that was picked')
+        .toMatchObject({ kind: 'book', work_id: 9 })
+    })
+  })
+})
+
+// ---- ONE DOOR, TWO SHEETS --------------------------------------------------
+describe('the add-work door on both sheets', () => {
+  const SHELF = {
+    books: [{ id: 9, title: 'Watchmen', cover_path: '' }, { id: 10, title: 'From Hell', cover_path: '' }],
+    movies: [{ id: 4, title: 'V for Vendetta', poster_path: '', media_type: 'movie' }],
+  }
+  // TWO CREDITS, so the same record answers as the global sheet, and ONE of them
+  // named as the work so it answers as the work-level sheet. Same record, same
+  // shelf — the only thing that differs is which sheet the reader opened.
+  const APPEARANCES = [
+    {
+      cast_id: 3, kind: 'movie', work_id: 4, work_title: 'V for Vendetta',
+      character: 'Evey Hammond', actor: 'Natalie Portman', actor_id: 8,
+      image: '', cover: '', media_type: 'movie', description: '',
+    },
+    {
+      cast_id: 4, kind: 'book', work_id: 10, work_title: 'From Hell',
+      character: 'Evey Hammond', actor: '', actor_id: 0,
+      image: '', cover: '', media_type: '', description: '',
+    },
+  ]
+
+  const openSheet = async (work) => {
+    const api = await import('../../src/api.js')
+    api.json.mockImplementation(async (method, path, body) => {
+      calls.push({ method, path, body })
+      if (method === 'GET' && path === '/characters/12') {
+        return { ok: true, data: { ...RECORD, appearances: APPEARANCES, aliases: [], links: [] } }
+      }
+      if (method === 'GET' && path === '/books') return { ok: true, data: { books: SHELF.books } }
+      if (method === 'GET' && path === '/movies') return { ok: true, data: { movies: SHELF.movies } }
+      return { ok: true, data: {} }
+    })
+    const { characterPanel } = await import('../../src/identity.jsx')
+    const view = render(characterPanel({ open: () => {}, push: () => {}, close: () => {} }, {
+      id: 12, name: RECORD.name, ...(work ? { work } : {}),
+    }).render())
+    await waitFor(() => expect(document.querySelector('.cs-body') || document.querySelector('.cs-row')).toBeTruthy())
+    return view
+  }
+
+  // WHAT THE DOOR IS CALLED DIFFERS — a tile in a strip of covers on one sheet, a
+  // row in a list on the other — so it is found by what it does, not by its words:
+  // the one control whose press puts up the works chooser.
+  const pressTheDoor = async () => {
+    const before = document.querySelectorAll('.char-pick, .tp-input').length
+    for (const el of document.querySelectorAll('button, [role=button]')) {
+      fireEvent.click(el)
+      const box = document.querySelector(`input[placeholder="${t('identity.character.works.add.placeholder')}"]`)
+      if (box) return true
+      if (document.querySelectorAll('.char-pick, .tp-input').length !== before) {
+        fireEvent.keyDown(document.body, { key: 'Escape' })
+      }
     }
-    expect(new Set(inline).size, `the two sheets are handed different handlers: ${[...new Set(inline)].join(' vs ')}`).toBe(1)
-    expect(body, 'the shared handler is not defined').toMatch(/const\s+openAddWork\s*=/)
+    return false
+  }
+
+  const offered = async () => {
+    await waitFor(() => expect(document.querySelectorAll('.char-pick').length).toBeGreaterThan(0))
+    return [...document.querySelectorAll('.char-pick')].map((b) => b.textContent.trim()).sort()
+  }
+
+  it('comes up on the work-level sheet and on the global one, offering the same works', async () => {
+    const local = await openSheet({ kind: 'movie', id: 4, title: 'V for Vendetta', media_type: 'movie', castId: 3 })
+    expect(await pressTheDoor(), 'no control on the work-level sheet opens the works chooser').toBe(true)
+    const fromLocal = await offered()
+    local.unmount()
+    cleanup()
+
+    await openSheet(null)
+    expect(await pressTheDoor(), 'no control on the global sheet opens the works chooser').toBe(true)
+    const fromGlobal = await offered()
+
+    expect(fromLocal.length, 'the chooser came up empty, so the comparison proves nothing').toBeGreaterThan(0)
+    expect(fromGlobal,
+      'the two sheets offer different works, so one of the two doors has drifted from the other')
+      .toEqual(fromLocal)
   })
 })

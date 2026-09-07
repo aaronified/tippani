@@ -70,6 +70,29 @@ const mount = async () => {
 }
 
 describe('the favourites wall', () => {
+  // THE RECALL MARK IS ON THE RESTING TILE, and that is a different claim from
+  // "Home draws the mark somewhere". This board's tile has two mutually exclusive
+  // states and the reader arrives in the closed one, so a mark drawn only in the
+  // expanded branch is a door that costs a tap no other quote surface asks for —
+  // which is exactly what shipped. A sweep that read the file for the component's
+  // name could not tell the two branches apart; this presses nothing and looks.
+  it('offers each resting tile its quote\'s recall history without opening it first', async () => {
+    await mount()
+    await waitFor(() => expect(screen.getByText(/A highlight from a book/)).toBeTruthy())
+    // Nothing has been pressed: every tile on the wall is closed.
+    expect(document.querySelectorAll('.hand-note, .quote-open').length,
+      'a tile is already open, so this is not measuring the resting state')
+      .toBe(0)
+    const marks = document.querySelectorAll('button.status-mark')
+    expect(marks.length,
+      'no resting tile on the favourites board offers a route to its quote\'s recall history')
+      .toBe(3)
+    // And it is the same mark, not a lookalike: pressing it puts up the panel.
+    expect([...marks].every((m) => m.getAttribute('aria-label')),
+      'the mark says nothing about what it means, so a reader cannot tell the four states apart')
+      .toBe(true)
+  })
+
   it('shows a favourite of every kind, not just the two it started with', async () => {
     await mount()
     await waitFor(() => expect(screen.getByText(/A highlight from a book/)).toBeTruthy())

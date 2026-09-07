@@ -31,9 +31,17 @@ const AI = readFileSync(join(REPO, 'AI.md'), 'utf8')
 
 // Everything under `dir` matching `pred`, skipping the directories the commands
 // in AI.md skip.
+//
+// AND `.claude`, WHICH IS NOT THIS REPO'S SOURCE — `.gitignore` says so in as many
+// words ("Everything else under .claude/ ... stays ignored"). It matters because a
+// subagent launched with worktree isolation gets a FULL CHECKOUT OF THIS REPO at
+// `.claude/worktrees/<id>`, so this walk counted every Go test file twice and
+// reported 3,016 functions against AI.md's 1,508 — a doubling that reads like a
+// wildly stale document and is a scratch checkout the harness has not cleaned up
+// yet. A count of the repo may not include a copy of the repo.
 function walk(dir, pred, out = []) {
   for (const name of readdirSync(dir)) {
-    if (name === 'node_modules' || name === '.git' || name === 'dist') continue
+    if (name === 'node_modules' || name === '.git' || name === 'dist' || name === '.claude') continue
     const full = join(dir, name)
     if (statSync(full).isDirectory()) walk(full, pred, out)
     else if (pred(name, full)) out.push(full)

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,74 +28,98 @@ import (
 // that same string. A pair of triggers copied from `item_reviews` covered two of
 // them, which is how 0065 came to exist.
 func TestRecallLogLeavesWithItsQuote(t *testing.T) {
-	// ONE DATABASE PER KIND, AND EACH KIND IS DELETED FIRST IN ITS OWN.
+	// ONE DATABASE PER KIND; EACH KIND IS DELETED FIRST IN ITS OWN; AND EVERY KIND
+	// HAS A SECOND QUOTE STANDING BESIDE THE ONE BEING DELETED.
 	//
-	// THE MUTATION THIS HAS TO CATCH keeps `item_id = OLD.id` and drops only the
-	// `kind` — that is what a copied trigger gets wrong — so it takes rows of
-	// OTHER kinds that share the rowid. Two earlier shapes of this test could not
-	// see it:
+	// A trigger has three ways to be wrong and each needs its own witness left
+	// alive, which is the whole design of this fixture:
 	//
-	//   THREE SEPARATELY-ALLOCATED IDS. Nothing collides, so the greedy trigger
-	//   deletes exactly the rows the correct one would.
+	//   NOT FIRING AT ALL — the deleted quote's own rows survive. Any shape of this
+	//   test catches that.
 	//
-	//   THREE DELETES IN SEQUENCE, whatever the order. Whichever kind goes LAST
-	//   has no survivors left to be wrongly taken, so its total is 0 either way.
-	//   Reordering only moved which kind was invisible, which is what the second
-	//   version did — the register has it as AR4, twice.
+	//   FORGETTING `kind` — the commonest, because the trigger is copied: it then
+	//   takes rows of OTHER kinds that share the rowid. Two earlier shapes could
+	//   not see it. Three separately-allocated ids collide with nothing, so the
+	//   greedy trigger deletes exactly what the right one would; and three deletes
+	//   in sequence leave whichever kind went LAST with no survivors to be wrongly
+	//   taken, so its total reads 0 either way. Reordering only moved which kind
+	//   was invisible — the register has that as AR4, twice. So the three kinds
+	//   share ONE id (independent `INTEGER PRIMARY KEY` spaces, so one number is a
+	//   highlight and a film line and a standalone quote at once — the state
+	//   0026's rowid-reuse argument produces) and each case is the first delete in
+	//   a database of its own.
 	//
-	// So the three kinds get one id BETWEEN them (independent `INTEGER PRIMARY
-	// KEY` spaces, so one number is a highlight and a film line and a standalone
-	// quote at once — the state 0026's rowid-reuse argument produces), and each
-	// case deletes ONE of them in a database of its own. Every kind is then the
-	// first delete, with the other two standing behind it as the witnesses.
-	for _, c := range []struct{ what, kind, table string }{
-		{"a highlight", "book", "annotations"},
-		{"a film line", "screen", "dialogues"},
-		{"a standalone quote", "utterance", "utterances"},
+	//   FORGETTING `item_id` — it then takes every row of its own kind. INVISIBLE
+	//   WITH ONE QUOTE PER KIND, because that quote's rows are all the rows of that
+	//   kind and wiping them is what deleting it should do. A rater found exactly
+	//   that hole here. So every kind owns a SECOND quote with a different id and
+	//   its own answers, which nothing about this delete may touch.
+	const (
+		doomed    = 7 // the id all three kinds share, and the one being deleted
+		bystander = 9 // a second quote of every kind, which must come through untouched
+	)
+	for _, c := range []struct{ what, noun, kind, table string }{
+		{"a highlight", "highlight", "book", "annotations"},
+		{"a film line", "film line", "screen", "dialogues"},
+		{"a standalone quote", "standalone quote", "utterance", "utterances"},
 	} {
 		t.Run(c.kind, func(t *testing.T) {
-			st, id := seedSharedIDRecalls(t)
-			if _, err := st.DB.Exec(`DELETE FROM `+c.table+` WHERE id = ?`, id); err != nil {
+			st := seedSharedIDRecalls(t, doomed, bystander)
+			if _, err := st.DB.Exec(`DELETE FROM `+c.table+` WHERE id = ?`, doomed); err != nil {
 				t.Fatal(err)
 			}
-			count := func(q string, args ...any) int {
+			count := func(kind string, item int64) int {
 				t.Helper()
 				var n int
-				if err := st.DB.QueryRow(q, args...).Scan(&n); err != nil {
+				if err := st.DB.QueryRow(
+					`SELECT count(*) FROM item_recalls WHERE kind = ? AND item_id = ?`, kind, item).Scan(&n); err != nil {
 					t.Fatal(err)
 				}
 				return n
 			}
 			// Its own history is gone: nothing can reach those rows, and the next
 			// quote handed that rowid inherits them.
-			if n := count(`SELECT count(*) FROM item_recalls WHERE kind = ?`, c.kind); n != 0 {
+			if n := count(c.kind, doomed); n != 0 {
 				t.Errorf("deleting %s left %d of its own recall row(s) behind", c.what, n)
 			}
-			// AND BOTH OTHER KINDS ARE UNTOUCHED, named individually. They share the
-			// rowid, so a trigger that forgot its `kind` reaches them — and saying
-			// which kind survived is what a total cannot say once only one is left.
+			// THE SAME KIND'S OTHER QUOTE IS UNTOUCHED. A trigger that dropped
+			// `item_id = OLD.id` takes this, and takes it silently: with one quote
+			// per kind there would be nothing here to lose.
+			if n := count(c.kind, bystander); n != 2 {
+				t.Errorf("deleting %s took the OTHER %s's history as well (%d of 2 rows left) — the trigger is not scoped to the row that was deleted",
+					c.what, c.noun, n)
+			}
+			// AND BOTH OTHER KINDS ARE UNTOUCHED, named individually, at BOTH ids.
+			// They share the doomed rowid, so a trigger that forgot its `kind`
+			// reaches them — and saying which kind survived is what a total cannot.
 			for _, other := range []struct{ what, kind string }{
 				{"a highlight", "book"}, {"a film line", "screen"}, {"a standalone quote", "utterance"},
 			} {
 				if other.kind == c.kind {
 					continue
 				}
-				if n := count(`SELECT count(*) FROM item_recalls WHERE kind = ?`, other.kind); n != 2 {
-					t.Errorf("deleting %s took %s's history too (%d of 2 rows left) — the trigger is not scoped to its own kind",
-						c.what, other.what, n)
+				for _, item := range []int64{doomed, bystander} {
+					if n := count(other.kind, item); n != 2 {
+						t.Errorf("deleting %s took %s's history too (item %d: %d of 2 rows left) — the trigger is not scoped to its own kind",
+							c.what, other.what, item, n)
+					}
 				}
 			}
-			if n := count(`SELECT count(*) FROM item_recalls`); n != 4 {
-				t.Errorf("deleting %s left %d rows in the whole log, want 4", c.what, n)
+			var total int
+			if err := st.DB.QueryRow(`SELECT count(*) FROM item_recalls`).Scan(&total); err != nil {
+				t.Fatal(err)
+			}
+			if total != 10 {
+				t.Errorf("deleting %s left %d rows in the whole log, want 10", c.what, total)
 			}
 		})
 	}
 }
 
 // seedSharedIDRecalls builds a library where a highlight, a film line and a
-// standalone quote all carry the SAME id, each with two logged answers, and
-// returns the store and that id.
-func seedSharedIDRecalls(t *testing.T) (*Store, int64) {
+// standalone quote all carry `doomed` as their id, and a second one of each
+// carries `bystander`. Every one of the six has two logged answers.
+func seedSharedIDRecalls(t *testing.T, doomed, bystander int64) *Store {
 	t.Helper()
 	st, err := Open(filepath.Join(t.TempDir(), "t.db"))
 	if err != nil {
@@ -110,29 +135,33 @@ func seedSharedIDRecalls(t *testing.T) (*Store, int64) {
 			t.Fatalf("%s: %v", q, err)
 		}
 	}
-	const shared = 7
 	must(`INSERT INTO users (id, username, password_hash, is_admin) VALUES (1, 'aro', 'x', 1)`)
 	must(`INSERT INTO books (id, user_id, title) VALUES (1, 1, 'The Master and Margarita')`)
 	must(`INSERT INTO movies (id, user_id, title) VALUES (1, 1, 'V for Vendetta')`)
-	must(`INSERT INTO annotations (id, book_id, quote, source, dedupe_hash) VALUES (?, 1, 'a highlight', 'manual', 'h-1')`, shared)
-	must(`INSERT INTO dialogues (id, movie_id, quote, source, dedupe_hash) VALUES (?, 1, 'a line', 'manual', 'h-2')`, shared)
-	must(`INSERT INTO utterances (id, user_id, quote, source, dedupe_hash) VALUES (?, 1, 'a speech', 'manual', 'h-3')`, shared)
-	for _, kind := range []string{"book", "screen", "utterance"} {
-		// Two answers each: one proves a trigger fires, two prove it does not stop
-		// at the first.
-		for _, r := range []string{"got", "forgot"} {
-			must(`INSERT INTO item_recalls (user_id, kind, item_id, result, stability, elapsed_days, answered_at)
-			      VALUES (1, ?, ?, ?, 7.0, 3.5, datetime('now'))`, kind, shared, r)
+	for i, id := range []int64{doomed, bystander} {
+		must(`INSERT INTO annotations (id, book_id, quote, source, dedupe_hash) VALUES (?, 1, 'a highlight', 'manual', ?)`,
+			id, fmt.Sprintf("h-a%d", i))
+		must(`INSERT INTO dialogues (id, movie_id, quote, source, dedupe_hash) VALUES (?, 1, 'a line', 'manual', ?)`,
+			id, fmt.Sprintf("h-d%d", i))
+		must(`INSERT INTO utterances (id, user_id, quote, source, dedupe_hash) VALUES (?, 1, 'a speech', 'manual', ?)`,
+			id, fmt.Sprintf("h-u%d", i))
+		for _, kind := range []string{"book", "screen", "utterance"} {
+			// Two answers each: one proves a trigger fires, two prove it does not
+			// stop at the first.
+			for _, r := range []string{"got", "forgot"} {
+				must(`INSERT INTO item_recalls (user_id, kind, item_id, result, stability, elapsed_days, answered_at)
+				      VALUES (1, ?, ?, ?, 7.0, 3.5, datetime('now'))`, kind, id, r)
+			}
 		}
 	}
 	var n int
 	if err := st.DB.QueryRow(`SELECT count(*) FROM item_recalls`).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
-	if n != 6 {
-		t.Fatalf("the seed is wrong: %d rows, want 6", n)
+	if n != 12 {
+		t.Fatalf("the seed is wrong: %d rows, want 12", n)
 	}
-	return st, shared
+	return st
 }
 
 // AND THE LOG IS IN THE ACCOUNT SNAPSHOT, which is a different question from the

@@ -1885,6 +1885,81 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
     load()
   }
 
+  // EVERY SHEET THIS SCREEN CAN OPEN, ONCE, FOR BOTH BRANCHES.
+  //
+  // The state that opens them is one set of hooks; the sheets that answer it were
+  // a copy per branch, and every defect this screen has had came out of that gap.
+  // The field sheet was on the local branch alone, so four field rows on the global
+  // screen set a picker nothing drew. Then AddWork was on the global branch alone,
+  // so "Also in another work" on a work-level character set `adding` and rendered
+  // nothing at all — the door the owner asked for, opening onto nothing. And the
+  // two copies of DropWorkDialog had drifted: the local one sent `?quotes=move`,
+  // which the server answers 400 (`character_works.go` takes clear or replace), so
+  // the one press that keeps a character's lines was broken on that branch only.
+  //
+  // That is the repo's rule about two things that look the same, one layer down: a
+  // sheet a screen can open lives in ONE place, and a branch that needs something
+  // different passes it in. None of these do — they all read the same state — so
+  // there is nothing to pass and no reason for a second copy to exist.
+  const sheets = (
+    <>
+      {/* KEYED ON THE SPEC so a new question is a new instance — see FieldPicker's
+          header for why seeding the draft in an effect flashes an armed tick. */}
+      {picker ? (
+        <FieldPicker
+          key={picker.id}
+          spec={picker}
+          busy={busy}
+          onClose={() => setPicker(null)}
+          onSave={picker.save}
+        />
+      ) : null}
+      {choose ? (
+        <ChoosePicker spec={choose} busy={busy} onClose={() => setChoose(null)} />
+      ) : null}
+      <AddWork open={adding} busy={busy} have={works} onAdd={addWork} onClose={() => setAdding(false)} />
+      {/* A CHARACTER IS NEVER AN ORGANISATION, so its list is the person one —
+          which is right: a character has an IMDb page under /name/ the way a
+          performer does, and no company id space at all. */}
+      <ProviderLinkDialog
+        open={linkDialog}
+        onClose={() => setLinkDialog(false)}
+        onAdd={addProviderLink}
+        busy={busy}
+      />
+      {/* THE REFUSAL'S DIALOG BELONGS TO EVERY SCREEN THAT CAN REMOVE, and both
+          can: a removal the server refused — the character still speaks on twelve
+          lines — showed nothing at all on a branch without it, so the press looked
+          like it had failed silently. */}
+      <DropWorkDialog
+        drop={drop}
+        name={data.name}
+        busy={busy}
+        onCancel={() => setDrop(null)}
+        onClear={() => removeWork(drop.appearance, '?quotes=clear')}
+        onReplace={(to) => removeWork(drop.appearance, `?quotes=replace&to=${encodeURIComponent(to)}`)}
+      />
+      {/* THE PACK'S OWN CONFIRMATION, word for word from its `ask` block: what
+          it becomes, everywhere it reaches, and the one reassurance a reader
+          needs before pressing — "This work keeps its own picture either way."
+          A dashed red button with no question behind it would be a warning
+          colour on a press that never warns. */}
+      <ConfirmDialog
+        open={!!promoteAsk}
+        title={t('identity.picture.promote.ask.title')}
+        body={<p className="microcopy">{t('identity.picture.promote.ask.body')}</p>}
+        confirmLabel={t('identity.picture.promote.ask.verb')}
+        onCancel={() => setPromoteAsk(null)}
+        onConfirm={() => {
+          const a = promoteAsk
+          setPromoteAsk(null)
+          if (a) promote(a.cast_id, a.work_title)
+        }}
+      />
+    </>
+  )
+
+
   // ---- char-book, the first of the pack's local sheets ---------------------
   //
   // ALL THREE MEDIA NOW. What differs between them is what identityScope says
@@ -1924,42 +1999,7 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
           onAddCredit={() => openAddCredit(here, false)}
           onAddDub={() => openAddCredit(here, true)}
         />
-        {/* KEYED ON THE SPEC so a new question is a new instance — see FieldPicker's
-            header for why seeding the draft in an effect flashes an armed tick. */}
-        {picker ? (
-          <FieldPicker
-            key={picker.id}
-            spec={picker}
-            busy={busy}
-            onClose={() => setPicker(null)}
-            onSave={picker.save}
-          />
-        ) : null}
-        <DropWorkDialog
-          drop={drop}
-          name={data.name}
-          busy={busy}
-          onCancel={() => setDrop(null)}
-          onClear={() => removeWork(drop.appearance, '?quotes=clear')}
-          onReplace={(to) => removeWork(drop.appearance, `?quotes=move&to=${encodeURIComponent(to)}`)}
-        />
-        {/* THE PACK'S OWN CONFIRMATION, word for word from its `ask` block: what
-            it becomes, everywhere it reaches, and the one reassurance a reader
-            needs before pressing — "This work keeps its own picture either way."
-            A dashed red button with no question behind it would be a warning
-            colour on a press that never warns. */}
-        <ConfirmDialog
-          open={!!promoteAsk}
-          title={t('identity.picture.promote.ask.title')}
-          body={<p className="microcopy">{t('identity.picture.promote.ask.body')}</p>}
-          confirmLabel={t('identity.picture.promote.ask.verb')}
-          onCancel={() => setPromoteAsk(null)}
-          onConfirm={() => {
-            const a = promoteAsk
-            setPromoteAsk(null)
-            if (a) promote(a.cast_id, a.work_title)
-          }}
-        />
+        {sheets}
       </div>
     )
   }
@@ -2127,48 +2167,7 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
             />
           ) : null}
         </CharacterGlobal>
-        {/* A CHARACTER IS NEVER AN ORGANISATION, so its list is the person one —
-            which is right: a character has an IMDb page under /name/ the way a
-            performer does, and no company id space at all. */}
-        {/* THE FIELD SHEET, MOUNTED ON THIS BRANCH TOO. It was rendered only on the
-            character's LOCAL branch, so every field row on the global screen —
-            sort name, born, description, the note — set a picker nothing drew:
-            four dead presses on the screen the owner has been photographing. The
-            state and the rows were shared and the sheet was not. */}
-        {/* KEYED ON THE SPEC so a new question is a new instance — see
-            FieldPicker's header for why seeding the draft in an effect flashes an
-            armed tick. */}
-        {picker ? (
-          <FieldPicker
-            key={picker.id}
-            spec={picker}
-            busy={busy}
-            onClose={() => setPicker(null)}
-            onSave={picker.save}
-          />
-        ) : null}
-        {choose ? (
-          <ChoosePicker spec={choose} busy={busy} onClose={() => setChoose(null)} />
-        ) : null}
-        <AddWork open={adding} busy={busy} have={works} onAdd={addWork} onClose={() => setAdding(false)} />
-        <ProviderLinkDialog
-          open={linkDialog}
-          onClose={() => setLinkDialog(false)}
-          onAdd={addProviderLink}
-          busy={busy}
-        />
-        {/* THE REFUSAL'S DIALOG BELONGS TO EVERY SCREEN THAT CAN REMOVE, and this
-            one can: leaving it to the branch below meant a removal the server
-            refused — the character still speaks on twelve lines — showed nothing
-            at all here, so the press looked like it had failed silently. */}
-        <DropWorkDialog
-          drop={drop}
-          name={data.name}
-          busy={busy}
-          onCancel={() => setDrop(null)}
-          onClear={() => removeWork(drop.appearance, '?quotes=clear')}
-          onReplace={(to) => removeWork(drop.appearance, `?quotes=replace&to=${encodeURIComponent(to)}`)}
-        />
+        {sheets}
       </div>
     )
   }

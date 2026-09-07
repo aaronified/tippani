@@ -68,7 +68,13 @@ export function cssRules(css) {
 // split into its individual selectors. `.a.cls`, `.parent .cls` and `.cls:hover`
 // all name it; `.clsish` does not.
 export function rulesNaming(css, cls) {
-  const word = new RegExp(`\\.${cls.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}(?![\\w-])`)
+  // THE ESCAPE IS REAL SOURCE, NOT TEMPLATE TEXT. Inside `${…}` the regex
+  // literal is parsed as ordinary JS, so the doubled backslashes this line used to
+  // carry escaped nothing at all — `'a.b'.replace(bad, …)` came back as `a.b` — and
+  // the class name reached `new RegExp` raw. Inert while every caller passes a
+  // plain name, and a silent false positive the first time one does not: `is.on`
+  // would then match `.isXon`.
+  const word = new RegExp(`\\.${cls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`)
   return cssRules(css)
     .map((r) => ({ ...r, selectors: r.sel.split(',').map((x) => x.trim()).filter(Boolean) }))
     .filter((r) => r.selectors.some((x) => word.test(x)))
