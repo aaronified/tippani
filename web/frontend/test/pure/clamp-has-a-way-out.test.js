@@ -38,14 +38,26 @@ import { SRC, readSource, sourcesUnder } from '../src-files.js'
 function clamps() {
   const out = []
   const css = readSource('index.css')
-  // The selector a clamp sits under: the nearest `{`-opening line above it.
+  // THE SELECTOR A CLAMP SITS UNDER, and a one-line rule is its own selector.
+  //
+  // The search walks backwards for the nearest line that is a selector opening a
+  // block — which is right for `.merge-old {` on its own line and WRONG for
+  // `.x { -webkit-line-clamp: 2 }` all on one, where it sails past and names the
+  // rule above. Caught by mutation: a clamp added as a one-liner was reported as
+  // `.board-form-img`, so the guard fired and sent the reader to the wrong rule.
+  // A failure that names the wrong thing is barely better than no failure.
   const lines = css.split('\n')
   lines.forEach((line, i) => {
     if (!/-webkit-line-clamp\s*:/.test(line)) return
     let sel = '?'
-    for (let j = i; j >= 0; j--) {
-      const m = /^\s*([^{}/][^{}]*)\{\s*$/.exec(lines[j])
-      if (m) { sel = m[1].trim(); break }
+    const own = /^\s*([^{}/][^{}]*?)\s*\{/.exec(line)
+    if (own) {
+      sel = own[1].trim()
+    } else {
+      for (let j = i; j >= 0; j--) {
+        const m = /^\s*([^{}/][^{}]*)\{\s*$/.exec(lines[j])
+        if (m) { sel = m[1].trim(); break }
+      }
     }
     out.push(`index.css:${sel}`)
   })

@@ -505,11 +505,18 @@ worth nothing here and only execution counts. What the repo actually runs:
   indent, quotes and CRLF — every one of which used to drop a variable silently and fall
   back to seeding, which prints the same first line as a machine with no archive at all.
 
-  The proof that the wiring works is six runs rather than a claim: `make sheet-drag` (ten
-  `ok`), `make panel-depth` (seven, having opened Geralt of Rivia in *The Witcher 3*),
-  `make typescale` (no new clips), `make frame-scroll`, `make hero-control` and `make
-  controls`, each against the owner's restored archive, each exiting 0. Section AH of the
-  defect register is there because the previous pass claimed a run it had not done.
+  The proof that the wiring works is seven runs rather than a claim, one per harness, each
+  against the owner's restored archive and each exiting 0: `make sheet-drag` (ten `ok`),
+  `make panel-depth` (seven, having opened Geralt of Rivia in *The Witcher 3*), `make
+  typescale` (no new clips), `make frame-scroll`, `make hero-control`, `make controls`,
+  and `run-with-server.sh --seed --screens home` (one capture, of the owner's own Home).
+  Section AH of the defect register is there because the previous pass claimed a run it
+  had not done.
+
+  AND A PROBE RUN IS A CLAIM ABOUT A BUILD. The first two `sheet-drag` runs quoted in the
+  register predated part of the change they were quoted for — `offsetNow`'s `matrix3d` arm
+  landed after them — so it was re-run on the commit itself. A build that has moved since
+  the run is a different claim, and the gap is invisible in the log.
 
   The seeded ceilings are 0 / 0 at 1280 and 187 / 9 at 390, and they were measured twice:
   a second full run returned the same two numbers across all thirty surfaces. An exact

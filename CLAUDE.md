@@ -52,7 +52,9 @@ in your claude.md to use it for all tests."*
 `backup-env.sh` reads it and `scratch-server.sh` sources that, so every harness in the
 directory picks the archive up with no flags at all — `make controls`, `make sheet-drag`,
 `make typescale`, `make panel-depth`, `make frame-scroll`, `make hero-control`, and
-`run-with-server.sh --seed`. Each says which library it is against on its first line.
+`run-with-server.sh --seed`. Each says which library it is against on its first line, and
+each has been run against a restored archive and exits 0 — the wiring is checked by
+`test/pure/harness-archive.test.js` and the working was checked by running all seven.
 **Exactly four names are read out of that file, and these are their spellings:**
 
 ```bash

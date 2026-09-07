@@ -696,8 +696,11 @@ box and is why the drag wrote heights. The rule is about what a READER sees, so 
 requires the box to be laid out for its full height first: more of the sheet appears as the
 finger rises, which is what the old rule was protecting, and the frame costs a composite.
 
-`make sheet-drag` exits 0 with **ten `ok` lines and no `FAIL`**, reproduced twice against
-the owner's archive on 7 September — including the case that measures the MECHANISM
+`make sheet-drag` exits 0 with **ten `ok` lines and no `FAIL`**, reproduced three times
+against the owner's archive on 7 September — twice before `b53a030` and once **on the
+commit itself**, because the first two runs predated part of the change they were being
+quoted for (`offsetNow`'s `matrix3d` arm landed after them). A probe run is a claim about
+a build, and a build that has moved since is a different claim — including the case that measures the MECHANISM
 (`dragverdict.mjs`, whose arithmetic has its own tests) rather than the outcome. Four new
 jsdom cases in `sheet-from-the-bottom.test.jsx`, each red without its own half of the fix,
 and one of the old ones deleted with its rule restated below.
@@ -833,6 +836,30 @@ not a line the probe prints; and "five new jsdom cases" where the range adds fou
 deletes one. All three are the same mistake — **a claim about a run, written from the
 change rather than from the run** — and it is the mistake this register exists to stop. AH
 now quotes the probe's own line and names the log it came out of.
+
+**EVERY NEW GUARD WAS MUTATED, and one of them was wrong.** The table above is only worth
+reading if each fix is held by something that fails without it, so each was deleted and the
+suite re-run:
+
+| Mutation | What went red |
+|---|---|
+| `dragverdict.mjs`: the length guard back below the dereference | 2 cases, with the original `TypeError: Cannot read properties of undefined (reading 'top')` |
+| `dragverdict.mjs`: "held still" and "not keeping up" swapped | the case that says a sheet which never moved deserves the first sentence |
+| `capture.mjs`: `HARNESS_ACCOUNT` stops reading the environment | "and that file lets the environment win" |
+| `run-typescale.sh`: the archive question moved below the build | "and asks before it builds or boots anything" |
+| `run-sheet-drag.sh` reverted to HEAD | "and each of them goes through the one shared decision" |
+| `backup-env.sh`: the no-trailing-newline guard, the `export` arm | 3 parser cases |
+| `index.css`: an `animation` on `.tp-panel` | "and the sheet's transform is the hook's alone" |
+| `index.css`: a new unargued clamp | 2 clamp cases |
+| `characterRows.jsx` reverted to pre-fix | 4 portrait cases |
+| `ui.jsx` reverted to pre-fix | the two mid-landing cases, at 114px and 236px |
+
+**AND THE CLAMP GUARD NAMED THE WRONG RULE.** Adding a clamp as a ONE-LINE rule made it
+fail — correctly — while reporting `.board-form-img`, the rule above: the selector search
+walked backwards for a line that opens a block and sailed past a rule that opens and closes
+on one. A failure that sends the reader to the wrong file is barely better than no failure,
+so a one-line rule is now read as its own selector. Found by mutating the guard rather than
+the app, which is the only way that class of defect surfaces.
 
 **THE PATTERN, AND IT IS THE SEVENTH PASS TO FIND IT.** AL1, AL2 and AL10 are one shape:
 a rule written once, in one of the places that needs it. The repo has a directive about
