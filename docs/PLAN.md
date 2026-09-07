@@ -10923,19 +10923,33 @@ sub-line under one of them — which the repo's own rule warns about ("a row say
 once… a sub-line earns its place by carrying something the label does not"). A reader who
 has to read the sub-line to tell two rows apart is reading prose to navigate.
 
-**THE RECOMMENDATION, and it is not to delete either.** Put the difference in the LABEL,
-and put the note where the thing it is about is:
+**WHAT WAS DONE, on the owner's word ("do it") — and it turned out to be a DELETION, not
+a move.** The recommendation was to relocate the note under the credit it annotates. Reading
+the code to do that found the destination already built: `openCreditNote` is wired to the ✎
+on every credit row and has been since that row was written, and it titles its editor **"Note
+on {name}'s credit"** — so it already says whose note it is, which the sheet-level row
+structurally could not.
 
-- `In this work` keeps its place and its label. It is about the character, and it sits in
-  the character's own column of rows.
-- `Note` moves under the CREDIT it annotates — the performer's row — and takes a label that
-  says whose it is. A note about Hugo Weaving's casting belongs beside Hugo Weaving, not
-  four rows below him among the character's fields.
+**So the two rows were two doors to one field.** Both `onNote` and `openCreditNote` called
+`openFact(…, 'credit_note', …)`; the sheet-level one on `here`, whose own credit row is
+always in the list above it (`creditsFor` narrows the character's credits to this work, and
+`here` is one of them). The difference between them was a sub-line. That is the repo's own
+rule broken twice: *"a row says a thing once"*, and *"two things that look the same behave
+the same"*.
 
-The cost is a third row-shape on that screen (a note attached to a credit rather than to
-the sheet), and that is the reason this is a recommendation rather than a change already
-made: it is worth one exchange with the owner before it is built.
+The sheet-level row is gone. Nothing became unreachable, and on a two-hander — Delia
+Surridge and V in one scene — the surviving door is the only one that could ever have said
+which casting the note was about.
 
-**Rejected: renaming `Note` to `Your note`.** It resolves the ambiguity in the label, which
-is the cheap half, and leaves the note orphaned four rows from the credit it describes — so
-a reader with two performers still cannot tell which one it is about.
+**AND THE LABEL NOW NAMES ITS SUBJECT.** `In this work` answered WHERE and left WHAT to be
+guessed, which is exactly what made it indistinguishable from the note beneath it. It reads
+**`Who they are here`**: the subject is the character, and `here` carries the scope in one
+word. `one-door-per-field.test.jsx` fails on both mutations — putting the second door back
+takes one case, reverting the label takes another.
+
+**Rejected: renaming `Note` to `Your note` and leaving it where it was.** It resolves the
+ambiguity in the label, which is the cheap half, and leaves the note four rows from the
+credit it describes — so a reader with two performers still could not tell which one it was
+about. **Also rejected: a third row-shape** (a note row attached to a credit), which is what
+the recommendation implied before the existing ✎ was found. Building it would have been a
+third door to the same field.

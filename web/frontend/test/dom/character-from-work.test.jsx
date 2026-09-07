@@ -198,8 +198,26 @@ describe('the character page, opened from a work', () => {
     // for why this is not a regex over the English.
     expect(screen.getByText(t('identity.section.identity.note')),
       'the identity section explains nothing').toBeTruthy()
-    // And the note's opposite, on the row that is this work's alone.
-    expect(rowValue('Note'), 'the private note does not say it is per-work').toMatch(/this work only/i)
+    // AND THE NOTE'S OPPOSITE, WHICH MOVED. This asserted a sheet-level `Note` row
+    // whose sub-line read "Yours, private, this work only". That row was a SECOND
+    // DOOR to `work_cast.credit_note` — the ✎ on each credit row edits the same
+    // field — and it is gone: the owner asked what the difference between it and
+    // "In this work" was, and the answer was that there wasn't one.
+    //
+    // The property this case was protecting is that a reader can tell what reaches
+    // one work from what reaches the record. It is now carried better: the
+    // description row states its scope, and the surviving note editor is titled
+    // "Note on {name}'s credit" — and a credit IS one work, by construction, which
+    // a sub-line could only assert.
+    // The row's own label names its subject — the character, here — where the old
+    // one named only the scope. The SCOPE sentence belongs to the editor that row
+    // opens and is asserted where that editor is opened
+    // (`character-destination.test.jsx`), not twice.
+    expect(rowValue(t('identity.row.local-desc.label')),
+      'the row about this character in this work is gone').toBeTruthy()
+    expect(screen.getAllByRole('button', { name: t('identity.credit.note.tip') }).length,
+      'no per-credit note editor, so nothing says which casting a note is about')
+      .toBeGreaterThanOrEqual(1)
   })
 
   it('names the way out for this medium, and reassures about the rest', async () => {

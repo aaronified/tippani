@@ -1901,7 +1901,6 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
           onPart={() => openFact(here, 'part', t('identity.facts.part'))}
           onFirst={() => openFact(here, 'first_appears', t('identity.facts.first'))}
           onAge={() => openFact(here, 'age_here', t('identity.facts.age'))}
-          onNote={() => openFact(here, 'credit_note', t('identity.row.note.label'), t('identity.row.note.sub'))}
           onDescription={() => openFact(here, 'description', t('identity.row.local-desc.label'), t('identity.row.local-desc.sub'))}
           onQuotes={openQuoteSearch}
           onLocator={openQuoteSearch}

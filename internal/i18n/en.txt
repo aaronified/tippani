@@ -6395,9 +6395,6 @@ identity.facts.none = not set
 # because the record's own description is the field that reaches every work and
 # the two look alike in a list.
 identity.row.note.for = Note on {name}’s credit
-identity.row.note.label = Note
-identity.row.note.sub = Yours, private, this work only
-identity.row.note.none = none
 
 # THE COUNTS, WHICH ARE DOORS INTO SEARCH. Pressing one lands on search with this
 # character and this work already up as chips. The second noun is the medium's,
@@ -6463,7 +6460,7 @@ identity.local.names.placeholder = The name that prints\nAnother spelling
 # `work_cast.description`, the per-work half of a pair whose other half is the
 # record's own. The sub-line states the scope for the same reason the note's does:
 # the two fields look alike and reach very different distances.
-identity.row.local-desc.label = In this work
+identity.row.local-desc.label = Who they are here
 identity.row.local-desc.sub = This work only
 identity.row.local-desc.none = none
 identity.local.names.saved = Names saved — the first line prints

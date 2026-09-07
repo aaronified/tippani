@@ -155,7 +155,7 @@ export function CharacterLocal({
   // that a screen can tell the two apart and SAY which it drew; this sheet took
   // the un-substituted value and then said nothing.
   portrait = '', portraitFrom = '',
-  onCalled, onPart, onFirst, onAge, onNote, onDescription,
+  onCalled, onPart, onFirst, onAge, onDescription,
   onQuotes, onLocator, onOpenGlobal, onRemove,
   // The performer block's verbs. Absent on a book, where the whole block is —
   // nobody plays a novel's character, so an empty "Played by" would claim the
@@ -332,9 +332,13 @@ export function CharacterLocal({
           only" under it and "nothing written for this work" as its value — the
           same fact three times in one row, and long enough that the label itself
           wrapped and clipped to "In this wor". The label already says the scope;
-          the value says whether anything is there, in the word the Note row
-          beside it uses. Reported as "the 'in this work' section has duplicate
-          and unnecessary prose". */}
+          the value says whether anything is there.
+
+          AND THE LABEL NOW SAYS WHAT THE ROW IS, not only where it applies. "In
+          this work" answered the scope and left the subject to be guessed, which
+          is what made it indistinguishable from the note that used to sit under
+          it — the owner's question. "Who they are here" says the subject (the
+          character) and keeps the scope in one word. */}
       <ScreenRow
         label={t('identity.row.local-desc.label')}
         meta={here.description || t('identity.row.local-desc.none')}
@@ -343,16 +347,22 @@ export function CharacterLocal({
         edit
       />
 
-      {/* THE NOTE IS PRIVATE AND PER-WORK, and its sub-line says so because the
-          reader cannot otherwise tell it from the record's own description —
-          which every work shares. */}
-      <ScreenRow
-        label={t('identity.row.note.label')}
-        sub={t('identity.row.note.sub')}
-        meta={here.credit_note || t('identity.row.note.none')}
-        icon={<IconEdit size={16} />}
-        onClick={onNote}
-      />
+      {/* THE NOTE IS NOT HERE ANY MORE, and it did not move — it was already
+          somewhere better.
+
+          THE OWNER: "what is supposed to be the difference between 'in this work'
+          and 'notes' fields? why do I need both?" The answer turned out to be that
+          they did not: this row and the ✎ on the performer's own credit row BOTH
+          edited `work_cast.credit_note`, on the same cast row, from two places on
+          one screen. Two doors to one field, and the difference between them was a
+          sub-line.
+
+          AND THE OTHER DOOR IS THE BETTER ONE. `openCreditNote` titles the editor
+          "Note on {name}'s credit", so it says WHOSE note it is — which this row
+          structurally could not, because it sat four rows below the credits among
+          the character's own fields. On a two-hander that is the whole question.
+          Every credit for this work is in the list above, `here`'s included, so
+          nothing became unreachable. See docs/PLAN.md. */}
 
       {/* THE COUNTS ARE DOORS INTO SEARCH, on the owner's instruction: pressing
           one lands on the search screen with this character and this work already

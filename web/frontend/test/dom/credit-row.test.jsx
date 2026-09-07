@@ -36,6 +36,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CharacterLocal } from '../../src/identityLocal.jsx'
 import { identityScope } from '../../src/identityScope.js'
+import { t } from '../../src/i18n.js'
 
 const WORK = { kind: 'movie', id: 3, title: 'The Shawshank Redemption', media_type: 'movie' }
 
@@ -185,28 +186,37 @@ const rowFor = (label) => [...document.querySelectorAll('.cs-row')]
   .find((r) => (r.querySelector('.cs-row-label')?.textContent || '').trim() === label)
 
 describe('a row on the character sheet', () => {
+  // THE LABEL COMES FROM THE LOCALE, NOT FROM A LITERAL. It was `'In this work'`
+  // in five places here and became `Who they are here` — the old one named the
+  // SCOPE and left the subject to be guessed, which is what made it
+  // indistinguishable from the note that used to sit beneath it (the owner's
+  // question). Five cases went red for a rename that touched nothing any of them
+  // is about.
+  const DESC = t('identity.row.local-desc.label')
+
   it('does not restate its own label underneath itself', () => {
     sheet()
-    const row = rowFor('In this work')
+    const row = rowFor(DESC)
     expect(row, 'the per-work description row is gone from the sheet').toBeTruthy()
     const sub = (row.querySelector('.cs-row-sub')?.textContent || '').trim()
-    expect(sub, `the row says its scope twice: "In this work" then "${sub}"`).toBe('')
+    expect(sub, `the row says its scope twice: "${DESC}" then "${sub}"`).toBe('')
   })
 
-  it('and says the absence of a value in the same word the row beside it uses', () => {
+  it('and says the absence of a value in the word this sheet uses for absence', () => {
     // A LENGTH TEST WAS TOOTHLESS AND SHIPPED. The first version of this case
     // allowed anything under 40 characters, and the string it was written against
     // — "nothing written for this work" — is 29: it passed on the code it was
-    // meant to fail. What is actually being asked is that two rows on one sheet,
-    // both saying "there is nothing here", say it the same way. The Note row's
-    // word is the one to match, because it was already right.
+    // meant to fail. What is actually being asked is that a row saying "there is
+    // nothing here" says it in the sheet's own word for that.
+    //
+    // IT USED TO COMPARE AGAINST THE `Note` ROW, which was the right comparison
+    // while that row existed — it was a second door to `work_cast.credit_note`,
+    // the ✎ on each credit edits the same field, and it is gone. So the word is
+    // named rather than borrowed from a neighbour that may not be there.
     sheet()
     const empty = (label) => (rowFor(label)?.querySelector('.cs-row-meta')?.textContent || '').trim()
-    const note = empty('Note')
-    expect(note, 'the Note row no longer prints an empty value to compare against').toBeTruthy()
-    expect(empty('In this work'),
-      `the two empty values on one sheet read differently: "${empty('In this work')}" and "${note}"`)
-      .toBe(note)
+    expect(empty(DESC), 'the empty value is not the sheet’s own word for nothing')
+      .toBe(t('identity.row.local-desc.none'))
   })
 
   it('and the value gives way rather than squeezing the label into a clip', () => {
@@ -215,9 +225,9 @@ describe('a row on the character sheet', () => {
     // for one value and left the next long one to do it again. A real description
     // is free text; the row has to hold it without cutting the label.
     sheet({ description: 'A prison librarian, a rock hammer, and nineteen years of patience — the part as this film has it.' })
-    const row = rowFor('In this work')
+    const row = rowFor(DESC)
     const label = row.querySelector('.cs-row-label')
-    expect(label.textContent, 'the label is not the one under test').toBe('In this work')
+    expect(label.textContent, 'the label is not the one under test').toBe(DESC)
     const meta = row.querySelector('.cs-row-meta')
     expect(meta.className, 'the value cannot scroll, so what does not fit is simply gone')
       .toMatch(/name-scroll/)

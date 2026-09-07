@@ -211,6 +211,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is still settling: a picture arriving, a list finishing, a panel opening inside it, or
   the arrow keys stepping it on. Each of those used to jump the sheet to wherever its box
   had got to — up to a couple of hundred pixels — instead of carrying on from where it was.
+- **A character's note on one work had two doors, and only one of them could say whose
+  note it was.** The work-level character sheet drew a `Note` row, and the ✎ beside each
+  performer's credit edited the same field — so on a two-hander the sheet-level one could
+  not tell you whether the note was about Hugo Weaving's casting or Sinéad Cusack's, and it
+  sat four rows below both of them. The row is gone; the ✎ on each credit stays, and its
+  editor is titled "Note on ___'s credit". Nothing became unreachable — every credit for the
+  work is in that list. The row above it is now labelled **"Who they are here"** rather than
+  "In this work", because the old label said where it applied and left what it was about to
+  be guessed, which is what made the two indistinguishable in the first place.
+
 - **A long value in a re-verify comparison can be opened.** Settings → Re-verify shows
   what you have stored beside what each supplier says, and a long one — a description, a
   list of links — was cut to four lines with the rest available only by hovering it. There

@@ -400,11 +400,18 @@ describe('what this character is on ONE work', () => {
     expect(row(/Patriarch Ponds/), 'the sheet does not print what this work says about them').toBeTruthy()
   })
 
+  // THE ROW IS FOUND BY THE LOCALE'S LABEL, NOT BY THE ENGLISH ONE — which is the
+  // rule this file already states two comments down and then broke four times:
+  // "a regex over the English fails on the Bengali build while the feature
+  // stands". It also fails when the label is RENAMED, which is what happened:
+  // `In this work` became `Who they are here` because the old label said where the
+  // row applied and left what it was about to be guessed, and four cases here went
+  // red for a change that did not touch what any of them are testing.
   it('says which scope the form is in, above the fields', async () => {
     // The load-bearing sentence. These fields look exactly like the record's one
     // door away and reach one row instead of every work — a reader who cannot
     // tell them apart renames a character everywhere by accident.
-    const dialog = await open_(/In this work/, BOOK())
+    const dialog = await open_(new RegExp(t('identity.row.local-desc.label')), BOOK())
     // THE LOCALE'S SENTENCE, NOT A SENTENCE. What the reader is owed is that the
     // editor SAYS how far it reaches; which words it uses is the locale's, and a
     // regex over the English fails on the Bengali build while the feature stands
@@ -416,8 +423,8 @@ describe('what this character is on ONE work', () => {
   })
 
   it('writes to the cast row, never to the record', async () => {
-    const dialog = await open_(/In this work/, BOOK())
-    const desc = within(dialog).getByLabelText(/In this work/i)
+    const dialog = await open_(new RegExp(t('identity.row.local-desc.label')), BOOK())
+    const desc = within(dialog).getByLabelText(new RegExp(t('identity.row.local-desc.label'), 'i'))
     fireEvent.change(desc, { target: { value: 'Woland in the novel.' } })
     await act(async () => { dialog.querySelector("form").requestSubmit() })
     await waitFor(() => expect(
@@ -442,7 +449,7 @@ describe('what this character is on ONE work', () => {
   })
 
   it('sends no actor at all for a book, rather than an empty one', async () => {
-    const dialog = await open_(/In this work/, BOOK())
+    const dialog = await open_(new RegExp(t('identity.row.local-desc.label')), BOOK())
     await act(async () => { dialog.querySelector("form").requestSubmit() })
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/cast/11')).toBe(true))
     const [, , sent] = CALLS.find(([m, p]) => m === 'PUT' && p === '/cast/11')

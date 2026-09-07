@@ -6345,9 +6345,6 @@ identity.facts.age = এখানে বয়স
 identity.facts.none = দেওয়া হয়নি
 
 identity.row.note.for = {name}-এর ক্রেডিটের নোট
-identity.row.note.label = নোট
-identity.row.note.sub = আপনার নিজের, কেবল এই কাজে
-identity.row.note.none = নেই
 
 identity.count.quotes.one = উদ্ধৃতি
 identity.count.quotes.other = উদ্ধৃতি
@@ -6382,7 +6379,7 @@ identity.picker.lang.other = বা একটা ভাষা লিখুন
 identity.picker.lang.suggestions = English · हिन्दी · বাংলা · 日本語 · Français
 identity.local.names.hint = এক লাইনে একটা নাম। প্রথম লাইনের নামটাই উদ্ধৃতি আর কৃতিত্বে ছাপা হয়; বাকিগুলো খোঁজে পাওয়া যাবে।
 identity.local.names.placeholder = যে নামটা ছাপা হবে\\nআরেকটা বানান
-identity.row.local-desc.label = এই কাজে
+identity.row.local-desc.label = এই কাজে ইনি কে
 identity.row.local-desc.sub = শুধু এই কাজে
 identity.row.local-desc.none = নেই
 identity.local.names.saved = নাম সেভ হয়েছে — প্রথম লাইনটা ছাপা হবে
