@@ -117,11 +117,36 @@ async function pull(page, from, by, watch) {
       }))
     }
   }
+  // THE FRAME AFTER THE RELEASE, before the landing has had time to run. The
+  // release used to jump to the tallest anchor for a frame — 216px, measured in
+  // Chromium — and this probe could not see it: it read the sheet 450ms later,
+  // by which time the leap had been animated away.
   await page.mouse.up()
+  if (watch) {
+    watch.push(await page.evaluate(() => {
+      const el = document.querySelector('.tp-panel')
+      if (!el) return null
+      const box = el.getBoundingClientRect()
+      return { released: true, top: Math.round(box.top), height: Math.round(box.height), transform: el.style.transform || '' }
+    }))
+  }
   await settle(450)
 }
 
 const nearest = (h, anchors) => anchors.reduce((b, a) => (Math.abs(a - h) < Math.abs(b - h) ? a : b), anchors[0])
+
+// A LEAP IS NOT A THRESHOLD IN PIXELS, because the landing is an animation and
+// the first frame of one has moved. It is a JUMP: the frame after the release is
+// nearer to where the sheet ends up than to where the finger left it, or it has
+// covered most of the distance at once. 216px out of 216 is a leap; 12px out of
+// 100 is an ease that has started.
+function leapt(left, released, ends) {
+  const moved = Math.abs(released - left)
+  if (ends == null) return moved > 40
+  const landing = Math.abs(ends - left)
+  if (landing < 8) return moved > 20 // nothing to animate; anything is a jump
+  return moved > Math.max(20, landing * 0.5)
+}
 
 try {
   const page = await browser.newPage()
@@ -307,11 +332,41 @@ try {
     // there is clamped — the top edge cannot move, and the first version of this
     // case reported that as the sheet holding still. A probe has to know where it
     // left the thing it is measuring.
+    //
+    // AND IT STOPS BETWEEN ANCHORS. At 140px this landed within about ten pixels
+    // of the next anchor down, so the landing had nothing to animate — and a
+    // release that LEAPS to its anchor is indistinguishable from one that eases
+    // there when the two are the same place. The leap check was blind for exactly
+    // that reason: reinstating the 216px jump left this case green. Seventy puts
+    // the sheet halfway between two anchors, where the difference is visible.
+    // WITH MOTION ON, because the whole harness runs under
+    // `prefers-reduced-motion: reduce` — and under that there IS no landing
+    // animation, so a release that jumps straight to its anchor is CORRECT. The
+    // leap check was measuring reduced motion and could not have failed: putting
+    // the 216px jump back left it green. This case is about what a reader with
+    // motion enabled sees, so it asks for that and hands the profile back.
+    await page.emulateMediaFeatures([
+      { name: 'prefers-color-scheme', value: 'light' },
+      { name: 'prefers-reduced-motion', value: 'no-preference' },
+    ])
     const seen = []
-    await pull(page, { x: s.head.mid, y: s.head.y }, 140, seen)
-    const live = seen.filter(Boolean)
+    await pull(page, { x: s.head.mid, y: s.head.y }, 70, seen)
+    const all = seen.filter(Boolean)
+    const live = all.filter((r) => !r.released)
+    const let_go = all.find((r) => r.released)
     const heights = [...new Set(live.map((r) => r.height))]
     const tops = [...new Set(live.map((r) => r.top))]
+    // THE TOP EDGE HAS TO KEEP UP WITH THE FINGER. "Three different positions"
+    // passes on a drag that tracks at half speed or lags a frame behind, which is
+    // what "extremely flaky" feels like — so the travel is compared to the
+    // pointer's. 12 steps of 140px, and the last reading is taken before the
+    // final step's frame lands, so a step's worth of slack.
+    const travel = Math.abs(live[live.length - 1].top - live[0].top)
+    const asked = 70 - 70 / 12
+    const after = await page.evaluate(() => {
+      const el = document.querySelector('.tp-panel')
+      return el ? { top: Math.round(el.getBoundingClientRect().top) } : null
+    })
     if (live.length < 6) {
       console.log(`FAIL  only ${live.length} of the drag's frames could be read, so the mechanism was not measured`)
       failures++
@@ -324,9 +379,16 @@ try {
     } else if (!live.every((r) => /translateY/.test(r.transform))) {
       console.log('FAIL  the drag wrote no transform, so it is moving the sheet by laying it out')
       failures++
+    } else if (travel < asked * 0.9) {
+      console.log(`FAIL  the sheet's top edge travelled ${travel}px while the finger travelled ${Math.round(asked)}px — it is not keeping up`)
+      failures++
+    } else if (let_go && leapt(live[live.length - 1].top, let_go.top, after?.top)) {
+      console.log(`FAIL  the release leapt: the top edge went from ${live[live.length - 1].top} to ${let_go.top} in the frame the finger lifted, on its way to ${after?.top}`)
+      failures++
     } else {
-      console.log(`ok    one layout for the whole drag (${heights[0]}px box) and ${tops.length} positions of the top edge`)
+      console.log(`ok    one layout for the whole drag (${heights[0]}px box), ${travel}px of travel for ${Math.round(asked)}px of finger, and no leap on release`)
     }
+    await emulateEngineMedia(page, engine.browser, 'light')
     // And it hands the height back, so the resting sheet is its own size again.
     s = await readSheet(page)
     const rest = await page.evaluate(() => document.querySelector('.tp-panel')?.style.transform || '')

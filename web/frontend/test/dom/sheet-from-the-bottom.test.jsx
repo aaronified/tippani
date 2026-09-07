@@ -35,7 +35,7 @@ import { useRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useSheetDrag } from '../../src/ui.jsx'
-import { declaredIn } from '../css-cascade.js'
+import { declaredIn, rules } from '../css-cascade.js'
 import { anchorsFor } from '../../src/sheetAnchors.js'
 
 afterEach(() => cleanup())
@@ -265,7 +265,13 @@ describe('what a drag costs', () => {
       fireEvent.pointerMove(window, pointer(340))
     })
     expect(sheet.classList.contains('is-dragging'), 'nothing on the page says a drag is under way').toBe(true)
-    expect(sheet.parentElement.classList.contains('is-dragging'), 'the surface behind the sheet was not told').toBe(true)
+    // NOT THE SCRIM ANY MORE. It wore this class for a rule that stood the blur
+    // down during a drag, and that rule is gone with the mechanism that needed
+    // it — the drag no longer invalidates the blur. The class went on being added
+    // and removed for nothing, which is a fact a reader of the stylesheet cannot
+    // check and a rater found by grepping for the rule it names.
+    expect(sheet.parentElement.classList.contains('is-dragging'),
+      'the scrim is still told about a drag, for a rule that no longer exists').toBe(false)
     await frame()
     await act(async () => { fireEvent.pointerUp(window, pointer(340)) })
     expect(sheet.classList.contains('is-dragging'), 'the drag class outlived the drag').toBe(false)
@@ -325,6 +331,21 @@ describe('what a drag costs', () => {
     expect(sheet.style.touchAction, 'the sheet kept the axis after the drag ended').toBe('')
   })
 
+  it('and the header leaves the browser no axis to take', () => {
+    // `pan-x` LEAVES HORIZONTAL PANNING TO THE BROWSER, and every real thumb drag
+    // is slightly diagonal — so the browser could claim a gesture meant for the
+    // sheet, and a gesture the browser claims is one this hook stops receiving.
+    // The head could only say `pan-x` while its title scrolled sideways under a
+    // fade; the owner's ruling of 7 September took that scroller away ("the title
+    // doesn't need to scroll in the header. it can be ellipsis-ed"), so there is
+    // no axis left to share.
+    const heads = declaredIn('.tp-panel-head').map((r) => r.decls['touch-action']?.value).filter(Boolean)
+    expect(heads, 'the header bar declares no touch-action, so the browser decides what this gesture is')
+      .not.toEqual([])
+    expect(heads, 'the header still leaves an axis to the browser, which can take a diagonal drag off the sheet')
+      .toEqual(heads.map(() => 'none'))
+  })
+
   it('and captures the pointer only where capture is the point', async () => {
     // CAPTURE ON THE GRAB BAR BROKE THE PRESS, and a browser probe caught it in
     // one run: with capture taken on pointerdown, the `click` that follows is
@@ -359,7 +380,15 @@ describe('what a drag costs', () => {
     // finer than a frame. The box is sized ONCE, at the start of the gesture, and
     // every step after that is an offset.
     render(<Sheet onDismiss={vi.fn()} />)
-    await act(async () => { fireEvent.pointerDown(el('grip'), pointer(400)) })
+    // SIZED ON THE FIRST MOVE, not on the press: a press on the header is a
+    // press — the bar's own click cycles the anchors — and lifting the box on
+    // `pointerdown` made every tap resize the sheet and then need a landing to
+    // come back from.
+    await act(async () => {
+      fireEvent.pointerDown(el('grip'), pointer(400))
+      fireEvent.pointerMove(window, pointer(390))
+    })
+    await frame()
     const sized = heightOf(el('sheet'))
     const seen = new Set()
     for (const y of [380, 360, 340, 320, 300, 280]) {
@@ -399,19 +428,44 @@ describe('what a drag costs', () => {
     window.innerHeight = VIEWPORT
   })
 
-  it('and hands the height back when the finger lifts', async () => {
-    // The resting sheet has to be its own size again: the body's scroll extent,
-    // the edge fades and every screenshot read it. And no frame may carry both —
-    // the offset is cleared in the same write as the height.
+  it('and lands without leaping first', async () => {
+    // THE RELEASE USED TO JUMP TO THE TALLEST ANCHOR FOR A FRAME. Clearing the
+    // offset and letting the HEIGHT transition means that, for one painted frame,
+    // the sheet is the tallest anchor with nothing holding it back — measured in
+    // Chromium at 216px of leap, released at 500 and painted at 716. A worse
+    // artefact than the tear it replaced, on the same gesture.
+    //
+    // So the height goes back FIRST, with an offset that puts the top edge
+    // exactly where the finger left it, and the offset is what animates away.
+    // The sheet is at its landing height immediately and has not moved a pixel.
     render(<Sheet onDismiss={vi.fn()} />)
     await act(async () => {
       fireEvent.pointerDown(el('grip'), pointer(400))
-      fireEvent.pointerMove(window, pointer(300))
+      fireEvent.pointerMove(window, pointer(330))
     })
     await frame()
-    await act(async () => { fireEvent.pointerUp(window, pointer(300)) })
-    expect(el('sheet').style.transform, 'the sheet is still offset after the drag ended').toBeFalsy()
+    const held = shownOf(el('sheet'))
+    await act(async () => { fireEvent.pointerUp(window, pointer(330)) })
     expect(ANCHORS, 'the release did not land on an anchor').toContain(heightOf(el('sheet')))
+    expect(shownOf(el('sheet')), 'the sheet leapt on release instead of animating from where it was')
+      .toBe(held)
+  })
+
+  it('and clears the offset once the landing is over', async () => {
+    // Tidiness rather than correctness — the sheet is already the right height at
+    // the right place — but an inline transform nothing owns is a trap for the
+    // next reader.
+    vi.useFakeTimers()
+    try {
+      render(<Sheet onDismiss={vi.fn()} />)
+      fireEvent.pointerDown(el('grip'), pointer(400))
+      fireEvent.pointerMove(window, pointer(300))
+      fireEvent.pointerUp(window, pointer(300))
+      await act(async () => { vi.advanceTimersByTime(600) })
+      expect(el('sheet').style.transform, 'the sheet is still offset long after the drag ended').toBeFalsy()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('and never stands the blur down to pay for itself', () => {
@@ -421,10 +475,17 @@ describe('what a drag costs', () => {
     // it was being asked to re-blur every frame. An optimisation a reader can see
     // is a defect, and with the drag no longer laying anything out there is
     // nothing behind the scrim changing for the blur to be recomputed from.
+    // BY WHAT THE SELECTOR MATCHES, not by how it is spelled. `declaredIn` takes a
+    // literal string, so re-adding this rule as `.is-dragging.tp-scrim` — the same
+    // selector, two words swapped — left this case green. A rule is not identified
+    // by its text.
+    const onADraggingScrim = rules.filter((r) => r.selectors.some((sel) => {
+      const parts = sel.trim().split(/\s+/).pop().split('.').filter(Boolean)
+      return parts.includes('tp-scrim') && parts.includes('is-dragging')
+    }))
     for (const prop of ['backdrop-filter', '-webkit-backdrop-filter']) {
-      expect(declaredIn('.tp-scrim.is-dragging').map((r) => r.decls[prop]?.value).filter(Boolean),
-        `a drag switches ${prop} off, which a reader sees as the blur dropping out`)
-        .toEqual([])
+      const off = onADraggingScrim.map((r) => r.decls[prop]?.value).filter(Boolean)
+      expect(off, `a drag switches ${prop} off, which a reader sees as the blur dropping out`).toEqual([])
     }
   })
 })

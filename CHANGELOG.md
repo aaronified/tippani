@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one.
 
 ### Changed
+- **A panel's title is shortened with an ellipsis instead of scrolling sideways.** Every
+  other name in the app scrolls under a fade rather than being cut, because a shortened
+  name and a short name look alike. A panel's header is the exception the owner asked
+  for: it is a signpost to what you are looking at, and the thing itself is named in
+  full inside the panel just below it. The back crumb beside it already worked this way.
+  It also gives the drag the whole gesture — a sideways scroller in the header meant the
+  browser kept horizontal swipes for itself, and a thumb drag is never perfectly vertical.
 
 - **A link you add can be given a name.** Every ＋ that adds a link — on a work, on a
   person, on a character — takes an optional name under the address, and every screen that
@@ -164,8 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Both were one cause: the sheet was being re-drawn at a new size on every step of the
   gesture, which made the whole screen behind it re-blur, and the previous attempt to
   make that cheaper simply switched the blur off while you dragged. The sheet now slides
-  instead of being redrawn, so a drag costs the phone almost nothing, the blur never
-  flickers, and pressing the grab bar to step between sizes works again.
+  instead of being redrawn, so a drag costs the phone almost nothing and the blur never
+  flickers.
 - **Delete on a row of a table asks, the way Delete on a card asks.** In the table view
   of a book's quotes and of a film's lines, the Delete key on a row did nothing at all
   when it was pressed — no dialog, no deletion, no message. It now puts the same

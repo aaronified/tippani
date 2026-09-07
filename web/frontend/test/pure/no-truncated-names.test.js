@@ -36,11 +36,12 @@ const NAME_CLASSES = [
   'cast-opt-name',
   'name-scroll',
   'trash-label',
-  'tp-panel-title',
 ]
 
-// The exceptions, each with the ruling that granted it. Two entries would want
-// arguing; one is an exception, and this is how it stays visible as one.
+// The exceptions, each with the ruling that granted it. Both are in the panel's
+// HEAD, one slot apart, and both were granted on the same argument: the head is a
+// signpost, and the thing it names is printed in full in the panel below it. A
+// third entry anywhere else would want arguing.
 const EXCEPTED = {
   // The owner, 6 September, over a screenshot of "← V / William Ro" printed
   // across "Change who this is": "the back breadcrumbs sometimes do this.
@@ -49,6 +50,19 @@ const EXCEPTED = {
   // place in the app where a name is not being READ, which is what the rule
   // protects. See `crumb-stays-in-its-slot.test.js` for what it must do instead.
   'tp-panel-back-word': 'the owner, 6 September',
+  // The owner, 7 September, over a screenshot of a character sheet whose header
+  // read "Mordin / in Mass Effect Legendary Edition": "the title doesn't need to
+  // scroll in the header. it can be ellipsis-ed. not a problem." The head is a
+  // signpost to what you are looking AT, and the thing itself is named in full
+  // inside the panel a finger's width below — which is the same argument the
+  // crumb beside it won on.
+  //
+  // AND THE EXCEPTION PAID FOR SOMETHING. A sideways scroller here is why
+  // `.tp-panel-head` could only claim `touch-action: pan-x`, leaving horizontal
+  // panning to the browser; every real thumb drag is slightly diagonal, so the
+  // browser could take a gesture meant for the sheet. With the scroller gone the
+  // head takes the whole gesture. See `sheet-from-the-bottom.test.jsx`.
+  'tp-panel-title': 'the owner, 7 September',
 }
 
 // The subset that is ITSELF the scrolling box. The others are typography classes

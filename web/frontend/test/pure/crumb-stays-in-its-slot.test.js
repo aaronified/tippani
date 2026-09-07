@@ -117,14 +117,22 @@ describe('the back crumb in a panel head', () => {
       .toBe(false)
   })
 
-  it('while the title beside it still scrolls its own name in full', () => {
-    // The exception is the crumb's alone. The title names what the panel is
-    // ABOUT — it is the row that exists to show that name — and the rule stands
-    // there untouched.
-    expect(decl('.tp-panel-title', 'overflow-x'),
-      'the title stopped scrolling, so the panel name it exists to print is now cut too')
-      .toBe('auto')
-    expect(decl('.tp-panel-title', 'text-overflow'),
-      'the title ellipsises the name the panel is named after').toBeNull()
+  it('and the title beside it clips rather than overflowing onto it', () => {
+    // THE EXCEPTION IS NO LONGER THE CRUMB'S ALONE. This case required the title
+    // to keep scrolling — "the exception is the crumb's alone" — and the owner
+    // ruled otherwise on 7 September, over a screenshot of a character sheet:
+    // "the title doesn't need to scroll in the header. it can be ellipsis-ed. not
+    // a problem." Both halves of the head are signposts to what you are looking
+    // AT, and the thing itself is named in full inside the panel below.
+    //
+    // WHAT STILL HOLDS IS THE HALF THIS FILE IS FOR. An ellipsis is permission to
+    // SHORTEN a name, not permission to print it over its neighbour — which is
+    // how the crumb was failing before its own ruling: neither scrolling NOR
+    // clipping. So the title has to really clip, and has to be able to shrink.
+    expect(decl('.tp-panel-title', 'overflow'),
+      'the title ellipsises with nothing to clip it, so the rest lands on the ✕ beside it')
+      .toBe('hidden')
+    expect(decl('.tp-panel-title', 'min-width'),
+      'the title keeps its content width, so the clip never happens').toBe('0')
   })
 })

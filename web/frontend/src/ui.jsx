@@ -1237,6 +1237,9 @@ export function useOverlayOpen() {
 const MIN_SAMPLE_MS = 4;
 // How far a pointer travels before it is a drag rather than a press. See its uses.
 const SLOP = 4;
+// How long a sheet takes to land, shared by the height spring and by the offset
+// the release animates — they are the same movement and were two numbers.
+const SETTLE_MS = 220;
 
 export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDismiss } = {}) {
   const bye = useRef(onDismiss);
@@ -1252,7 +1255,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     const el = sheet?.current;
     if (!el || !enabled) return undefined;
     const reduced = () => !!window.matchMedia?.(REDUCED_MOTION_QUERY).matches;
-    const spring = () => { el.style.transition = reduced() ? "none" : "height .22s cubic-bezier(.22,.7,.2,1)"; };
+    const spring = () => { el.style.transition = reduced() ? "none" : `height ${SETTLE_MS}ms cubic-bezier(.22,.7,.2,1)`; };
 
     let anchors = [];
     let resting = 0;
@@ -1363,22 +1366,70 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       el.style.setProperty("--tp-sheet-h", `${span}px`);
       el.style.transform = `translateY(${Math.max(0, span - showing)}px)`;
     };
+    // THE HEIGHT COMES BACK ONLY WHEN IT AGREES WITH THE OFFSET.
+    //
+    // The resting sheet has to be its own size again — the body's scroll extent,
+    // the edge fades and every screenshot read it — but the swap has to happen on
+    // a frame where the two describe the SAME sheet, or the reader sees the
+    // difference. Clearing the transform first is a 216px leap to the tallest
+    // anchor, measured in Chromium: released at 500px visible, the next painted
+    // frame is 716. That is a worse artefact than the tear it replaced, on the
+    // same gesture.
+    let landingTimer = 0;
+    const handBack = () => {
+      if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
+      el.style.transform = "";
+      span = 0;
+      el.style.setProperty("--tp-sheet-h", `${resting}px`);
+      spring();
+    };
     const settle = (h) => {
       // A PENDING FRAME OUTLIVES THE DRAG THAT QUEUED IT. Landing it after the
       // settle would put the sheet back where the finger was and then leave it
       // there, with the transition already spent — so it is dropped, not raced.
       want = null;
       if (frame) { cancelAnimationFrame(frame); frame = 0; }
+      if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
+      const hold = span ? showing : h;
       resting = Math.round(h);
-      spring();
-      // BACK TO A HEIGHT ONCE THE GESTURE IS OVER, because the resting sheet has
-      // to be its own size for everything that reads it — the body's scroll
-      // extent, the fades, a screenshot. The transform goes with it in the same
-      // write, so there is no frame where both apply.
-      el.style.transform = "";
-      span = 0;
       showing = resting;
+      // NOT MID-GESTURE: the box is its own height, so the spring on `height` is
+      // the animation and there is no offset to reconcile.
+      if (!span) {
+        spring();
+        el.style.transform = "";
+        el.style.setProperty("--tp-sheet-h", `${resting}px`);
+        return;
+      }
+      // MID-GESTURE: THE HEIGHT GOES BACK FIRST, and the offset is what animates.
+      //
+      // The obvious order is the wrong one. Clearing the transform and letting
+      // the HEIGHT transition means the sheet is, for one frame, the tallest
+      // anchor with no offset — a 216px leap, measured in Chromium: released at
+      // 500px visible, next painted frame 716. A worse artefact than the tear it
+      // replaced, on the same gesture.
+      //
+      // So the box takes its landing height immediately AND an offset that puts
+      // its top edge exactly where the finger left it — one write, nothing moves
+      // — and then that offset is animated to nothing. The animation is still a
+      // transform. And if it never completes, the sheet is ALREADY the right
+      // height at the right place: the clean-up below is tidiness, not
+      // correctness, which is the difference between this and waiting on a
+      // `transitionend` that a backgrounded tab never sends.
+      const from = resting - Math.round(hold);
+      span = 0;
+      el.style.transition = "none";
       el.style.setProperty("--tp-sheet-h", `${resting}px`);
+      el.style.transform = `translateY(${from}px)`;
+      if (reduced() || !from) { handBack(); return; }
+      // Two frames: the browser has to see the starting offset before it can
+      // animate away from it.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (drag) return; // a new gesture began; it owns the sheet now
+        el.style.transition = `transform ${SETTLE_MS}ms cubic-bezier(.22,.7,.2,1)`;
+        el.style.transform = "translateY(0px)";
+      }));
+      landingTimer = setTimeout(handBack, SETTLE_MS + 80);
     };
 
     measure();
@@ -1436,7 +1487,12 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     const claim = (capture) => {
       if (!drag) return;
       drag.live = true;
-      liftOff(drag.height);
+      // NOT `liftOff` HERE. A press on the header is a press — the bar's own
+      // click cycles the anchors — and lifting the box to the tallest anchor on
+      // `pointerdown` made every tap resize the sheet and then need a landing to
+      // come back from. The box is only re-sized once something has actually
+      // moved; `move` calls it on the first frame that does.
+      drag.lifted = false;
       if (capture) {
         try { el.setPointerCapture(drag.id); } catch { /* an engine without capture */ }
       }
@@ -1446,8 +1502,11 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       // promotes a layer, and promoting one on the first move is promoting it at
       // the worst moment of the gesture — the frame the reader is watching for a
       // response. At `down` there is a whole pointer event's worth of time.
+      //
+      // ON THE SHEET ONLY. The scrim wore this class too, for a rule that stood
+      // the blur down during a drag — deleted with the mechanism that needed it,
+      // and the class went on being added and removed for nothing.
       el.classList.add("is-dragging");
-      el.parentElement?.classList.add("is-dragging");
     };
 
     const move = (e) => {
@@ -1476,6 +1535,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
         drag.at = e.clientY;
         drag.when = e.timeStamp;
       }
+      if (!drag.lifted) { drag.lifted = true; liftOff(drag.height); }
       put(clampDrag({ height: drag.height - dy, anchors }));
     };
 
@@ -1487,7 +1547,6 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       if (body?.current) body.current.style.touchAction = "";
       try { el.releasePointerCapture(was.id); } catch { /* never held it */ }
       el.classList.remove("is-dragging");
-      el.parentElement?.classList.remove("is-dragging");
       if (!was.live) return;
       dragged = was.moved;
       const out = landing({ height: span ? showing : el.getBoundingClientRect().height, velocity: was.v, anchors });
@@ -1608,10 +1667,18 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       window.removeEventListener("pointercancel", up);
       window.removeEventListener("resize", remeasure);
       if (frame) cancelAnimationFrame(frame);
+      if (landingTimer) clearTimeout(landingTimer);
       el.classList.remove("is-dragging");
-      el.parentElement?.classList.remove("is-dragging");
       el.style.removeProperty("--tp-sheet-h");
       el.style.transition = "";
+      // AND EVERYTHING A DRAG SETS, because a teardown can land in the middle of
+      // one — `enabled` going false, the surface unmounting under a finger. This
+      // removed the height and left the OFFSET, so the sheet was translated by
+      // whatever the last frame wrote, against no height at all; and it left
+      // `touch-action: none` on a sheet that is no longer draggable, which takes
+      // the reader's scroll with it.
+      el.style.transform = "";
+      el.style.touchAction = "";
       if (body?.current) body.current.style.touchAction = "";
       step.current = () => {};
       refit.current = () => {};

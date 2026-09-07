@@ -677,6 +677,18 @@ anyway, and this hook listens on `window`, so there was nothing to gain. Capture
 the BODY path, where it has a real job: the body scrolls, and capture is what stops it
 scrolling under a drag begun inside it.
 
+**AH6 — the owner's ruling on the header title, 7 September**, over a screenshot of a
+character sheet: *"the title doesn't need to scroll in the header. it can be ellipsis-ed.
+not a problem."* **FIXED**, and it pays for something. `.tp-panel-title` was a sideways
+scroller, which is why `.tp-panel-head` could only claim `touch-action: pan-x` — horizontal
+panning left to the browser, and every real thumb drag is slightly diagonal, so the browser
+could take a gesture meant for the sheet. With the scroller gone the head takes `none`, and
+there is no axis left to share. This is the app's SECOND truncation exception and it sits
+one slot from the first: `no-truncated-names.test.js` holds both in `EXCEPTED` with their
+rulings, and still requires each to be a real clip rather than an overflow — because the
+way the crumb was failing before its ruling was neither scrolling NOR clipping, which is
+worse than either.
+
 **A rule of mine was wrong and is restated rather than kept.** `sheet-from-the-bottom.test.jsx`
 forbade `transform` outright — "A SHEET THAT SLIDES IS A SHEET LEAVING", because translating
 a fixed-height box shows the same rows further up the screen. That is true of a fixed-height

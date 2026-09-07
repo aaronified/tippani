@@ -1054,8 +1054,21 @@
      third that was left while the head had room to spare. */
   .tp-panel-head.has-scope .tp-panel-slot { flex: 0 0 auto; }
   /* THE PANEL IS NAMED AFTER WHAT IT IS ABOUT — a person, a character, a work —
-     so this is a name and it does not truncate either. Same treatment as the back
-     key beside it and as .cast-character: it scrolls under the fade. */
+     so this is a name, and the standing rule is that a name is never truncated:
+     it scrolls under the fade, or it wraps.
+
+     THE OWNER HAS EXCEPTED THIS ONE, 7 September, over a screenshot of the
+     character sheet: "the title doesn't need to scroll in the header. it can be
+     ellipsis-ed. not a problem." It is the second exception in the app and it
+     sits beside the first — the back crumb, one slot to the left — for the same
+     reason: the panel head is a signpost to what you are looking AT, and the
+     thing itself is named in full inside the panel a finger's width below.
+
+     AND THE EXCEPTION BUYS THE DRAG THE WHOLE GESTURE. A sideways scroller here
+     is why the head could only claim `touch-action: pan-x`, which leaves
+     horizontal panning to the browser — and every real thumb drag is slightly
+     diagonal, so the browser could take a gesture meant for the sheet. See
+     `.tp-panel-head` below. */
   .tp-panel-title {
     flex: 0 1 auto;
     min-width: 0;
@@ -1067,9 +1080,8 @@
     font-weight: 600;
     text-align: center;
     white-space: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   /* The back key names where it goes, not "Back" — walking a stack of five is
      five presses of a key that never says what it will show you. Capped in ch
@@ -1166,7 +1178,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .tp-panel-title::-webkit-scrollbar { display: none; }
   /* ONE QUESTION, OVER THE SCREEN THAT ASKED IT. The panel keeps its frame and
      its rounded corners; this layer covers its body and head with a head of its
      own, whose left slot is the way back. `inherit` on the radius so the corners
@@ -1268,12 +1279,17 @@
   .tp-sheet-grip:hover > span, .tp-sheet-grip:focus-visible > span {
     background: color-mix(in oklab, var(--ink), transparent 58%);
   }
-  /* THE WHOLE BAR DRAGS, and the browser has to be told which axis is ours.
-     `none` would be wrong here: the head's title and crumb scroll SIDEWAYS under
-     their fade, which is this app's standing answer to a long name, and taking
-     every gesture would freeze that. `pan-x` leaves the horizontal one with the
-     browser — where it is smooth for free — and gives us the vertical. */
-  .tp-panel-head { touch-action: pan-x; }
+  /* THE WHOLE BAR DRAGS, AND NOW IT TAKES THE WHOLE GESTURE.
+     This said `pan-x`, because the head's title scrolled sideways under a fade
+     and taking every gesture would have frozen that. `pan-x` leaves horizontal
+     panning to the browser — and every real thumb drag is slightly diagonal, so
+     the browser could claim a gesture meant for the sheet, which is a gesture
+     this hook then stops receiving. That is one of the ways a drag becomes
+     "extremely flaky".
+     The owner's ruling of 7 September took the scroller away: "the title doesn't
+     need to scroll in the header. it can be ellipsis-ed. not a problem." With
+     nothing here wanting a horizontal gesture, there is no axis left to share. */
+  .tp-panel-head { touch-action: none; }
   /* THE BLUR STAYS ON THROUGH A DRAG, and standing it down was a defect wearing
      an optimisation's clothes. It was switched off here because a drag that writes
      a HEIGHT every frame re-lays-out the sheet, which invalidated the blur behind
