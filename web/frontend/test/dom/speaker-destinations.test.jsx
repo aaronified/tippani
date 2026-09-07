@@ -309,11 +309,8 @@ describe('the same pill on every board that draws it', () => {
   // render `SpeakerChips` — so a fourth card that starts drawing pills joins the
   // rule by drawing them, not by being added to a list here.
   const read = async () => {
-    const { readFileSync, readdirSync } = await import('node:fs')
-    const { join } = await import('node:path')
-    return readdirSync(process.env.TIPPANI_SRC)
-      .filter((f) => /\.jsx?$/.test(f))
-      .map((f) => [f, readFileSync(join(process.env.TIPPANI_SRC, f), 'utf8')])
+    const { readSource, sourcesUnder } = await import('../src-files.js')
+    return sourcesUnder((n) => /\.jsx?$/.test(n), 60).map((f) => [f, readSource(f)])
   }
 
   // From an index, the balanced run of braces starting at the first `{`.

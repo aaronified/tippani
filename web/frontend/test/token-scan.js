@@ -52,19 +52,16 @@
 // internal/i18n/i18n.go, "what this package does not do"), so its user-facing
 // text is not in this catalogue and is not measured by it.
 
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
+import { sourcesUnder } from './src-files.js'
 
 const SRC = process.env.TIPPANI_SRC
 
-export function sources(dir = SRC, out = []) {
-  for (const name of readdirSync(dir)) {
-    const p = join(dir, name)
-    if (statSync(p).isDirectory()) sources(p, out)
-    else if (/\.jsx?$/.test(name)) out.push(p)
-  }
-  return out
-}
+// Absolute paths, because this module's callers pass them to `readFileSync`. The
+// walk is the shared one, which throws rather than returning a short list.
+export const sources = () => sourcesUnder((n) => /\.jsx?$/.test(n), 60).map((rel) => join(SRC, rel))
 
 // A COMMENT IS NOT A CALL SITE. i18n.js documents its own signature with
 // `t('bin.quotes', {count: n})` in a comment block, and the resolver's module is

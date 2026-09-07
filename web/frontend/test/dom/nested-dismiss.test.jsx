@@ -32,6 +32,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { PanelHost, useBackToClose, usePanelStack } from '../../src/ui.jsx'
+import { sourcesUnder } from '../src-files.js'
 
 const SRC = process.env.TIPPANI_SRC
 const read = (f) => readFileSync(join(SRC, f), 'utf8')
@@ -172,10 +173,9 @@ describe('every dismissible overlay owns a back entry', () => {
   // asked the question.
   it('has no scrim outside the roll', () => {
     const listed = new Set(OVERLAYS.map(([f]) => f))
-    const { readdirSync } = require('node:fs')
     const stray = []
-    for (const f of readdirSync(SRC)) {
-      if (!f.endsWith('.jsx') || f === 'ui.jsx' || listed.has(f)) continue
+    for (const f of sourcesUnder((n) => n.endsWith('.jsx'), 40)) {
+      if (f === 'ui.jsx' || listed.has(f)) continue
       const src = readFileSync(join(SRC, f), 'utf8')
       // `tp-scrim-deep` is a BADGE over artwork, not an overlay — works.jsx
       // carries two and neither is dismissible.

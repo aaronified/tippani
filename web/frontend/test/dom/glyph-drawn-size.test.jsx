@@ -20,18 +20,19 @@
 // WHAT A TEST WRITER NEEDS TO KNOW: the paragraphs above, and that the glyphs are
 // exported from `ui.jsx`.
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import * as ui from '../../src/ui.jsx'
+import { sourcesUnder } from '../src-files.js'
 
 afterEach(() => cleanup())
 
 const SRC = process.env.TIPPANI_SRC
 const names = new Set()
-for (const f of readdirSync(SRC).filter((n) => /\.jsx?$/.test(n))) {
+for (const f of sourcesUnder((n) => /\.jsx?$/.test(n), 60)) {
   for (const m of readFileSync(join(SRC, f), 'utf8').matchAll(/<(Icon[A-Za-z0-9]*)\s[^>]*\bsize=/g)) {
     if (typeof ui[m[1]] === 'function') names.add(m[1])
   }

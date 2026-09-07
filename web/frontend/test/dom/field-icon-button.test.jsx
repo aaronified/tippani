@@ -21,11 +21,12 @@
 // that adding `label` here later is a decision somebody has to argue with rather
 // than a patch that slips through.
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { FieldIconButton, IconEdit } from '../../src/ui.jsx'
+import { sourcesUnder } from '../src-files.js'
 
 const SRC = process.env.TIPPANI_SRC
 
@@ -136,8 +137,7 @@ describe('the class belongs to the primitive', () => {
     return out
   }
 
-  const sources = readdirSync(SRC)
-    .filter((f) => (f.endsWith('.jsx') || f.endsWith('.js')) && !f.includes('.test.'))
+  const sources = sourcesUnder((n) => (n.endsWith('.jsx') || n.endsWith('.js')) && !n.includes('.test.'), 60)
     .map((f) => [f, readFileSync(join(SRC, f), 'utf8')])
 
   it('is emitted by exactly one button, in ui.jsx', () => {

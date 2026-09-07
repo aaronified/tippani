@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { sourcesUnder } from '../src-files.js'
 
 // NO BENGALI IN THE SOURCE THAT ISN'T DATA, for the same reason there is no
 // English: copy belongs in internal/i18n/*.txt where a translator — or an
@@ -46,15 +47,10 @@ const BENGALI = /[ঀ-৿]/
 // code is written on.
 const SRC = fileURLToPath(new URL('../../src/', import.meta.url))
 
-function sourceFiles(dir) {
-  const out = []
-  for (const name of readdirSync(dir)) {
-    const p = join(dir, name)
-    if (statSync(p).isDirectory()) out.push(...sourceFiles(p))
-    else if (/\.(js|jsx)$/.test(name)) out.push(p)
-  }
-  return out
-}
+// THE SHARED WALK, which throws rather than returning a short list — this file's
+// own note above is about a gate that "had never once read a source file", and a
+// walk that can come back empty is the same failure one step earlier.
+const sourceFiles = () => sourcesUnder((n) => /\.(js|jsx)$/.test(n), 60).map((rel) => join(SRC, rel))
 
 // stripComments removes // and /* */ so the prose in this codebase — which
 // quotes Bengali constantly, and should — is not mistaken for shipped copy. It

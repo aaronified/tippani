@@ -30,6 +30,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { sourcesUnder } from '../src-files.js'
 
 const REPO = join(process.env.TIPPANI_SRC, '..', '..', '..')
 const PACK = join(REPO, 'docs', 'design', 'prototypes')
@@ -44,9 +45,10 @@ const PACK = join(REPO, 'docs', 'design', 'prototypes')
 // than as a miss. A guard that skips the file it exists for is the wrong half of
 // the tree.
 const SOURCES = [
-  ...readdirSync(join(REPO, 'web', 'frontend', 'src'))
-    .filter((f) => /\.(jsx?|css)$/.test(f))
-    .map((f) => join('web/frontend/src', f)),
+  // The shared walk for the source half — it is recursive where this read was
+  // not, so `src/demo/install.js` is in scope for the first time. The
+  // `docs/plans` read below is a different directory and stays by hand.
+  ...sourcesUnder((n) => /\.(jsx?|css)$/.test(n), 60).map((f) => join('web/frontend/src', f)),
   ...readdirSync(join(REPO, 'docs', 'plans'))
     .filter((f) => f.endsWith('.md'))
     .map((f) => join('docs/plans', f)),

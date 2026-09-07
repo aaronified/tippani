@@ -28,6 +28,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { ConfirmDialog } from '../../src/ui.jsx'
 import { t } from '../../src/i18n.js'
+import { sourcesUnder } from '../src-files.js'
 
 const ask = (props) => render(
   <ConfirmDialog open title="Delete this person?" body="They leave the library." confirmLabel="Delete" onConfirm={() => {}} onCancel={() => {}} {...props} />,
@@ -128,7 +129,7 @@ describe('the destructive verbs in the app', () => {
     // right is worth nothing while every caller asks it the old way. A confirm
     // whose title key names a delete, a revoke or an emptying has to say which
     // kind of question it is.
-    const { readdirSync, readFileSync } = require('node:fs')
+    const { readFileSync } = require('node:fs')
     const { join } = require('node:path')
     const SRC = process.env.TIPPANI_SRC
     // WIDER THAN THE LITERAL. The first cut matched `await ask(t('…delete…'))`
@@ -138,7 +139,7 @@ describe('the destructive verbs in the app', () => {
     // AROUND it does, so the window either side of the press is what is read.
     const bare = []
     const DESTROYS = /'DELETE'|deleteWithUndo|\.delete\.|\.remove\.|revoke|empty-the-bin/
-    for (const f of readdirSync(SRC).filter((x) => x.endsWith('.jsx'))) {
+    for (const f of sourcesUnder((n) => n.endsWith('.jsx'), 40)) {
       const src = readFileSync(join(SRC, f), 'utf8')
       for (const m of src.matchAll(/await ask\([\s\S]{0,200}?\)\)/g)) {
         if (/danger\s*:/.test(m[0])) continue

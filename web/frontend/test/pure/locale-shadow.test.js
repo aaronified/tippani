@@ -22,9 +22,10 @@
 // because the person reading it is halfway through a mechanical pass over forty
 // files and should not have to work anything out.
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
+import { sourcesUnder } from '../src-files.js'
 
 const SRC = process.env.TIPPANI_SRC
 
@@ -45,9 +46,7 @@ const BINDS_T = [
 ]
 
 function sources() {
-  return readdirSync(SRC, { withFileTypes: true })
-    .filter((e) => e.isFile() && /\.jsx?$/.test(e.name) && e.name !== 'i18n.js')
-    .map((e) => e.name)
+  return sourcesUnder((n) => /\.jsx?$/.test(n) && n !== 'i18n.js', 60)
 }
 
 describe('nothing shadows the resolver', () => {

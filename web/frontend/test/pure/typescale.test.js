@@ -12,7 +12,7 @@
 // global dial does not multiply anything — it writes itself into all four roles,
 // which is what "renormalise" means and what the panel's own words claim.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -28,6 +28,8 @@ import {
   sizePrefKey,
   typeTokens,
 } from '../../src/type.js'
+
+import { sourcesUnder } from '../src-files.js'
 
 describe('the arithmetic', () => {
   it('is one multiplication and rounds to a whole pixel', () => {
@@ -181,14 +183,7 @@ describe('nothing on the screen opts out', () => {
   const SRC = process.env.TIPPANI_SRC
   const css = readFileSync(join(SRC, 'index.css'), 'utf8')
 
-  const sources = (dir = SRC, out = []) => {
-    for (const name of readdirSync(dir)) {
-      const p = join(dir, name)
-      if (statSync(p).isDirectory()) sources(p, out)
-      else if (/\.jsx?$/.test(name)) out.push(p)
-    }
-    return out
-  }
+  const sources = () => sourcesUnder((n) => /\.jsx?$/.test(n), 60).map((rel) => join(SRC, rel))
 
   it('the stylesheet is consuming the tokens at all', () => {
     // A floor, so a sweep that silently reverted cannot pass the two checks below

@@ -35,9 +35,10 @@
 // present, correct and accessible inside a box of no size. Hence a sweep over
 // the stylesheet, in the shape scroll-containment.test.js established.
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readSource, sourcesUnder } from '../src-files.js'
 
 const SRC = process.env.TIPPANI_SRC
 // Comments stripped FIRST. A declaration like
@@ -153,13 +154,10 @@ describe('a JS-placed popup', () => {
 describe('a composed popup', () => {
   function composedWith(popup) {
     const found = new Set()
-    const walk = (dir) => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name)
-        if (e.isDirectory()) { walk(p); continue }
-        if (!/\.jsx?$/.test(e.name)) continue
+    const walk = () => {
+      for (const rel of sourcesUnder((n) => /\.jsx?$/.test(n), 60)) {
         const re = /className=(?:"([^"]*)"|'([^']*)')/g
-        const src = readFileSync(p, 'utf8')
+        const src = readSource(rel)
         let m
         while ((m = re.exec(src))) {
           const list = (m[1] ?? m[2]).split(/\s+/).filter(Boolean)

@@ -373,16 +373,16 @@ worth nothing here and only execution counts. What the repo actually runs:
   returning a short list — a tree floor for a wrong root, a per-guard floor for a
   predicate that stopped matching.
 
-  **It is not yet the ONLY walk, and the count says so rather than the prose.** Twenty-eight
-  guards read a directory themselves; ten converted in the same commit — every one a plain
-  `readdirSync(SRC).filter(...)`, which is non-recursive, so all ten had been silently
-  skipping `src/demo/install.js`, and all ten still pass with it in scope. The remaining
-  eighteen read something else (`web/dist`, `src/textures`) or read the tree in a shape
-  that has to be looked at one at a time. `test/pure/one-walk.test.js` holds the line: a
-  NEW guard that walks by hand fails it by name, and the eighteen are a number that may
-  fall and never rise. A new guard is the case that matters — it is written by whoever has
-  just been bitten by the thing it checks, and is not thinking about whether its own walk
-  can come back empty.
+  **Twenty-eight guards read a directory themselves; twenty-two have converted.** Most
+  were a plain `readdirSync(SRC).filter(...)` — non-recursive — so each had ALSO been
+  silently skipping `src/demo/install.js` for as long as that directory has existed, and
+  every one still passes with it in scope. The six that remain read a directory that is
+  not the source tree at all — `web/dist`, `src/textures`, `docs/plans`, the repo — and
+  `test/pure/one-walk.test.js` names each with its reason. So the count is a floor being
+  held rather than a debt being paid: what it stops now is a NEW guard walking the source
+  tree by hand, which is the case that matters, because a new guard is written by whoever
+  has just been bitten by the thing it checks and is not thinking about whether its own
+  walk can come back empty.
 
   The per-branch rendering stayed as well, because the two answer different questions: the
   scope check knows a name is missing, and only a render knows the arm draws the right

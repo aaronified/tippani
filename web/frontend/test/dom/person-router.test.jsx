@@ -14,12 +14,13 @@
 // it — which is precisely what happened, and what no behavioural test of the
 // router alone could have caught.
 import { useCallback, useMemo, useState } from 'react'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { usePersonOpener } from '../../src/personOpen.jsx'
+import { sourcesUnder } from '../src-files.js'
 
 const SRC = join(process.cwd(), 'src')
 
@@ -103,7 +104,7 @@ describe('the person router', () => {
 // right on the one screen that had it, and every other screen passed its own
 // state setter to the credit instead.
 describe('every screen routes a credit through the one opener', () => {
-  const files = readdirSync(SRC).filter((f) => f.endsWith('.jsx'))
+  const files = sourcesUnder((n) => n.endsWith('.jsx'), 40)
 
   it('never hands a raw state setter to a credit', () => {
     const offenders = []

@@ -15,15 +15,15 @@
 // So this reads the source. `useEscape` (ui.jsx) is the one permitted answer, and
 // its own listener is the one permitted registration.
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { sourcesUnder } from '../src-files.js'
 
 const SRC = new URL('../../src/', import.meta.url).pathname
 
 const sources = () =>
-  readdirSync(SRC, { recursive: true })
-    .filter((f) => /\.jsx?$/.test(f))
+  sourcesUnder((n) => /\.jsx?$/.test(n), 60)
     .map((f) => [f, readFileSync(join(SRC, f), 'utf8')])
 
 // Comments are stripped: this file's own prose says the word "keydown" a dozen
