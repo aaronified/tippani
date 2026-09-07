@@ -73,7 +73,13 @@ describe('every harness that fills a library prefers the archive', () => {
     // server, so a harness that has already started one leaks it — the mistake
     // `scratch-server.sh` was written for, after four orphaned servers and nine
     // data dirs holding a restored copy of somebody's library.
-    for (const f of runners.filter((x) => /scratch_prefer_archive/.test(code(x)))) {
+    const asking = runners.filter((x) => /scratch_prefer_archive/.test(code(x)))
+    // A LOOP OVER AN EMPTY LIST PASSES. The case above would already have failed
+    // in that world, but a guard that depends on another guard's failure to mean
+    // anything is one rename away from meaning nothing.
+    expect(asking.length, 'no harness asks for the archive at all, so this case is iterating nothing')
+      .toBeGreaterThanOrEqual(6)
+    for (const f of asking) {
       const lines = code(f).split('\n')
       const ask = lines.findIndex((l) => /scratch_prefer_archive/.test(l))
       const boot = lines.findIndex((l) => /"\$BIN" serve|go build -o/.test(l))
