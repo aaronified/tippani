@@ -2349,6 +2349,42 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// THE ANSWER GOES IN THE LOG, and the log is not the schedule.
+	//
+	// THE OWNER: "when i click on the spaced repetition icon in the quote cards,
+	// it should show a popup for the halflife status, and recall history (will
+	// need to create a recall history table)." `item_reviews` is a CURRENT STATE —
+	// one row per item, no memory — so the answer before last is gone and nothing
+	// can say when a card was forgotten or how a 30-day half-life was arrived at.
+	// 0064's `item_recalls` is one row per answer.
+	//
+	// EVERY ANSWER, SKIPS INCLUDED. A skip moves no schedule and is still
+	// something the reader did with this card, so leaving it out would make the
+	// history disagree with what they remember doing. The stability recorded is
+	// the one that stands AFTER any move, which for a skip is the one that stood
+	// before — true either way, and the popup can filter to the grades that moved
+	// the curve.
+	//
+	// WHAT IT DOES NOT DO: decide anything. Nothing reads this table to schedule,
+	// which is deliberate with an overhaul coming — a scheduler that replays a log
+	// is a different design, and if the overhaul wants that it can build it from
+	// here without a migration to fill the history, because it will already be
+	// full.
+	//
+	// AND A FAILED INSERT DOES NOT COST THE READER THEIR ANSWER. The log is
+	// beside the state, not part of it: rolling the transaction back because a
+	// history row would not write would lose the grade that was earned. It is
+	// logged and carried on from.
+	if _, err := tx.Exec(
+		`INSERT INTO item_recalls (user_id, kind, item_id, result, stability, elapsed_days, answered_at)
+		 VALUES (?, ?, ?, ?, ?,
+		         CASE WHEN ? IS NULL THEN NULL ELSE julianday('now') - julianday(?) END,
+		         datetime('now'))`,
+		uid, req.Kind, req.ID, req.Result, stability, lastReviewed, lastReviewed,
+	); err != nil {
+		olog.Warnf(olog.CodeReviewRecallLog, "[review] recall log insert failed for %s/%d: %v", req.Kind, req.ID, err)
+	}
+
 	// The lapse count as it stands AFTER this answer, because the offer it drives
 	// is earned by the answer just given rather than by the state before it.
 	// Derived from the write rather than re-read: the transaction already knows

@@ -938,6 +938,16 @@ var accountTables = []string{
 	// foreign key, so nothing walks to it. Its neighbour work_cast used to be on
 	// this line for the same reason and has moved up — see there.
 	"item_reviews", "work_reads",
+	// item_recalls (0064) after item_reviews, though nothing walks between them:
+	// the log is beside the state rather than under it. It is HERE at all because
+	// a recall history is the reader's own — every answer they have given a card,
+	// with the half-life it produced — and it exists nowhere else in the library.
+	// A quote can be re-highlighted and a schedule re-earned; six months of
+	// evidence about how somebody remembers cannot be, so a restore that came
+	// back without it would be a restore that quietly lost the only irreplaceable
+	// thing in the feature. It reaches `users` by a real foreign key and its items
+	// by the same polymorphic (kind, item_id) pair item_reviews uses.
+	"item_recalls",
 	// work_field_source with them, and for a third version of the same reason:
 	// it hangs off a work by the same polymorphic (kind, work_id) pair, so nothing
 	// walks to it either. Worth KEEPING rather than skipping — it records which

@@ -192,7 +192,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gesture, which made the whole screen behind it re-blur, and the previous attempt to
   make that cheaper simply switched the blur off while you dragged. The sheet now slides
   instead of being redrawn, so a drag costs the phone almost nothing and the blur never
-  flickers. **A sheet opens by sliding up from the bottom and leaves the same way** — it
+  flickers. **A sheet opens by sliding up from the bottom and leaves the same way, whichever way you leave it** — the drag, the ✕, or a tap outside — it
   used to appear at its height with nothing moving, and a dismissal sprang it back UP to
   its opening height before vanishing, so the pull you had just made was undone in front
   of you. **Coming back down to a smaller stop no longer closes it:** a release was judged

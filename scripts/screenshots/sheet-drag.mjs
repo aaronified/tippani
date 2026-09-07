@@ -418,7 +418,13 @@ try {
   //     real pointer stream, a real scroll container and a real compositor deliver
   //     them.
   s = await readSheet(page)
-  if (s?.head) {
+  if (!s?.head) {
+    // A CASE THAT SKIPS SAYS SO. Each of these is gated on the sheet still being
+    // there with a readable header, and a gate that prints nothing lets a run exit
+    // 0 having made fewer gestures than the register credits it with — which is
+    // the same silence as an `ok` about something never measured.
+    console.log('SKIP  no readable sheet header, so the pull back down was not tried')
+  } else {
     const grab = { x: s.head.mid, y: s.head.y }
 
     // "if i expand a popup from natural to 74%/96%, i cannot take it back to
@@ -451,7 +457,9 @@ try {
   // "in the same motion i cannot drag up and down both. this creates flakiness."
   await settle(420)
   s = await readSheet(page)
-  if (s?.head) {
+  if (!s?.head) {
+    console.log('SKIP  no readable sheet header, so the reversal was not tried')
+  } else {
     // THE GRIP AND NOT THE HEAD, and read FRESH. The previous block moved the
     // sheet, so a `head.y` taken before it is a coordinate pointing at whatever is
     // there now — a `mouse.down` on the body, or on the scrim. The first version
@@ -520,7 +528,9 @@ try {
   //     a `requestAnimationFrame` loop that runs for the length of the drag and
   //     nothing else, so the measurement costs one callback a frame.
   s = await readSheet(page)
-  if (s?.head) {
+  if (!s?.head) {
+    console.log('SKIP  no readable sheet header, so the frame timing was not measured')
+  } else {
     await page.emulateMediaFeatures([
       { name: 'prefers-color-scheme', value: 'light' },
       { name: 'prefers-reduced-motion', value: 'no-preference' },

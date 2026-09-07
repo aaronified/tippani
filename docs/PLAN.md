@@ -10896,3 +10896,46 @@ takes four cases with it, drawing it unconditionally takes the fifth.
 **Rejected:** a pencil in the cell's top-right corner, which is where the row pencils sit.
 It reads better on a desktop and clips `FIRST APPEARS` on a phone, and the phone is where
 this screen is used.
+
+### "In this work" and "Note" are two facts, and the screen does not say which
+
+*The owner, over a work-level character sheet: "what is supposed to be the difference
+between 'in this work' and 'notes' fields? why do I need both?" This is the answer, written
+here because the question was about the design and the answer is a design decision — and
+because answering it in chat alone leaves nothing for the next reader of that screen.*
+
+**They are genuinely different, and the code says so more clearly than the screen does.**
+
+| Row | Column | What it holds |
+|---|---|---|
+| `In this work` | `work_cast.description` | Who this character IS in this work, falling back to `characters.description`. A description OF THE CHARACTER, scoped to one work — "the mask, before Evey" |
+| `Note` | `work_cast.credit_note` | The reader's private remark about THIS CREDIT — "de-aged shot", "the stunt double did the fall", "uncredited in the titles" |
+
+Migration 0063 separated them deliberately, and its own comment says why: **"NOT
+`description`, which 0056 put on this row for a different job… a character's blurb [would]
+silently discard the reader's note about a stunt double."** One is about the character, the
+other about the casting. Folding them would mean either losing the distinction or asking a
+reader to keep two kinds of writing in one box.
+
+**So the question is fair and the defect is real: the SCREEN does not carry that
+difference.** Two rows, both reading `none`, and the only thing distinguishing them is a
+sub-line under one of them — which the repo's own rule warns about ("a row says a thing
+once… a sub-line earns its place by carrying something the label does not"). A reader who
+has to read the sub-line to tell two rows apart is reading prose to navigate.
+
+**THE RECOMMENDATION, and it is not to delete either.** Put the difference in the LABEL,
+and put the note where the thing it is about is:
+
+- `In this work` keeps its place and its label. It is about the character, and it sits in
+  the character's own column of rows.
+- `Note` moves under the CREDIT it annotates — the performer's row — and takes a label that
+  says whose it is. A note about Hugo Weaving's casting belongs beside Hugo Weaving, not
+  four rows below him among the character's fields.
+
+The cost is a third row-shape on that screen (a note attached to a credit rather than to
+the sheet), and that is the reason this is a recommendation rather than a change already
+made: it is worth one exchange with the owner before it is built.
+
+**Rejected: renaming `Note` to `Your note`.** It resolves the ambiguity in the label, which
+is the cheap half, and leaves the note orphaned four rows from the credit it describes — so
+a reader with two performers still cannot tell which one it is about.

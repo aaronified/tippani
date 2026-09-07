@@ -1262,6 +1262,8 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
   // Re-measured after every render of the surface, because the content can change
   // without this element changing — see the note at `refit.current` below.
   const refit = useRef(() => {});
+  // The sheet's own exit, handed out so the ✕ and the scrim can take it too.
+  const exit = useRef((then) => then?.());
   useEffect(() => {
     const el = sheet?.current;
     if (!el || !enabled) return undefined;
@@ -1411,7 +1413,26 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // frame is 716. That is a worse artefact than the tear it replaced, on the
     // same gesture.
     let landingTimer = 0;
+    // WHICH LAYOUT OWNS THE NEXT FRAME.
+    //
+    // THREE FUNCTIONS QUEUE A DOUBLE-rAF THAT WRITES A TRANSFORM — the entrance,
+    // the landing and the exit — and each takes two frames to fire, so a newer one
+    // can start while an older one is still pending. `if (drag) return` catches
+    // only the case where a READER interrupted; it does nothing about the app
+    // interrupting itself, and that is a defect a rater reproduced: the entrance's
+    // pending frame landed during a settle and wrote `translateY(0px)`, so the
+    // landing lost its offset, `settle` took the at-rest branch on the next call
+    // and the sheet jumped 136–236px. It is AK1 and AO's mid-landing snap for the
+    // third time, in a third path.
+    //
+    // A COUNTER RATHER THAN A THIRD GUARD. Each of the three takes a number on
+    // the way in and its frame only writes if the number is still current, so
+    // "has something newer happened" is one question with one answer instead of a
+    // guard per pair of paths — which is how the first two got written and how
+    // the third got missed.
+    let seq = 0;
     const handBack = () => {
+      seq++;
       if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
       // NOT DURING A GESTURE. The landing's clock is 300ms long, and a second
       // drag begun inside that window found `handBack` firing underneath it:
@@ -1432,6 +1453,10 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       want = null;
       if (frame) { cancelAnimationFrame(frame); frame = 0; }
       if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
+      // AND ANY FRAME AN EARLIER LAYOUT QUEUED IS STALE FROM HERE. See `seq`: the
+      // entrance's pending write landing inside a settle is what revived the
+      // mid-landing snap.
+      seq++;
       // AND A LANDING IS A THIRD STATE, between a gesture and a rest.
       //
       // After a release the box is already its landing height and an OFFSET is
@@ -1482,8 +1507,10 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       if (reduced() || !from) { handBack(); return; }
       // Two frames: the browser has to see the starting offset before it can
       // animate away from it.
+      const mine = ++seq;
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (drag) return; // a new gesture began; it owns the sheet now
+        // A new gesture began, or a newer layout did — either owns the sheet now.
+        if (drag || mine !== seq) return;
         el.style.transition = `transform ${SETTLE_MS}ms cubic-bezier(.22,.7,.2,1)`;
         el.style.transform = "translateY(0px)";
       }));
@@ -1512,8 +1539,11 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       el.style.setProperty("--tp-sheet-h", `${resting}px`);
       el.style.transform = `translateY(${resting}px)`;
       if (reduced()) { handBack(); return; }
+      const mine = ++seq;
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (drag) return; // a reader who grabbed it during the entrance owns it
+        // A reader who grabbed it during the entrance owns it; and so does any
+        // newer layout — see `seq`.
+        if (drag || mine !== seq) return;
         el.style.transition = `transform ${ENTER_MS}ms cubic-bezier(.2,.85,.25,1)`;
         el.style.transform = "translateY(0px)";
       }));
@@ -1530,16 +1560,30 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // off the screen SPRANG BACK UP to its opening height and vanished from there.
     // The drag had feedback; the release threw it away and replaced it with a jump
     // in the wrong direction.
-    const leave = () => {
+    // `then` IS THE VERB THIS EXIT IS FOR, and there are three of them. A drag
+    // past the smallest stop goes BACK (the caller's `onDismiss`); the ✕ and a tap
+    // on the scrim CLOSE, which is a different guarded verb. They all have to
+    // slide, and for a while only the drag did — the ✕ and the scrim called their
+    // verb straight away, so a sheet the owner had asked to animate out of
+    // vanished on two of its three exits while a comment here and the changelog
+    // both said it left the same way. A rater found the gap by reading the call
+    // sites rather than the comment.
+    const leave = (then) => {
       if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
       want = null;
       if (frame) { cancelAnimationFrame(frame); frame = 0; }
+      seq++;
+      let taken = false;
       const gone = () => {
         if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
         el.style.transition = "";
         el.style.transform = "";
         span = 0;
-        bye.current?.();
+        // ONCE. Both the rAF chain and the guard timer end here, and a verb that
+        // is `close` would put the unsaved-changes question up twice.
+        if (taken) return;
+        taken = true;
+        (then || bye.current)?.();
       };
       // AT REST THERE IS NO BOX TO SLIDE OUT OF, and a dismissal can come from a
       // press on the ✕ or a tap outside as well as from a drag. Give it the one
@@ -1553,7 +1597,9 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
         el.style.transform = "translateY(0px)";
       }
       if (reduced() || !span) { gone(); return; }
+      const mine = ++seq;
       requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (mine !== seq) return;
         el.style.transition = `transform ${EXIT_MS}ms cubic-bezier(.35,0,.75,.35)`;
         el.style.transform = `translateY(${span}px)`;
       }));
@@ -1805,6 +1851,8 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       if (rank === 0 && anchors[0] !== was) settle(anchors[0]);
     };
 
+    exit.current = (then) => leave(then);
+
     step.current = (by) => {
       if (!anchors.length) return;
       const i = anchors.indexOf(resting);
@@ -1886,6 +1934,11 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       if (body?.current) body.current.style.touchAction = "";
       step.current = () => {};
       refit.current = () => {};
+      // A CLEANED-UP HOOK STILL HAS TO CLOSE. The panel is unmounting or the
+      // gesture has been disabled (a desktop width, a dialog on top), and the ✕
+      // still has to work — so the exit degrades to taking its verb at once
+      // rather than to doing nothing, which would be a dead control.
+      exit.current = (then) => then?.();
     };
   }, [sheet, body, handle, head, enabled]);
   // NO DEPENDENCY LIST, deliberately: what this watches for is a change this
@@ -1893,7 +1946,13 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
   // arriving, a list that finished loading. Every one of them re-renders the
   // surface, and none of them changes a value that could sit in a list here.
   useEffect(() => { refit.current(); });
-  return useCallback((by) => step.current(by), []);
+  // BOTH VERBS, because the panel needs the exit as much as the stepper — see
+  // `leave`. An object rather than a callback with a property on it: two things
+  // that are two things.
+  return useMemo(() => ({
+    step: (by) => step.current(by),
+    slideOut: (then) => exit.current(then),
+  }), []);
 }
 
 // useBackToClose — an open overlay answers the hardware/gesture Back by closing
@@ -5003,7 +5062,7 @@ export function PanelHost({ stack }) {
   // "the bar is too small to drag. the whole header bar should act as the bar.
   // the bar is there just to make it intuitive."
   const headRef = useRef(null);
-  const stepSheet = useSheetDrag({
+  const { step: stepSheet, slideOut } = useSheetDrag({
     sheet: sheetRef,
     body: bodyRef,
     handle: gripRef,
@@ -5023,7 +5082,10 @@ export function PanelHost({ stack }) {
   return createPortal(
     <div
       className="tp-scrim tp-panel-scrim fixed inset-0 z-50 flex justify-center"
-      onMouseDown={backdropClose(() => guard(close)())}
+      // THE SHEET SLIDES OUT OF A TAP OUTSIDE IT TOO. `slideOut` runs the verb
+      // when the animation lands, and takes it at once where there is no sheet to
+      // animate — a desktop panel, or motion turned off.
+      onMouseDown={backdropClose(() => slideOut(guard(close)))}
     >
       <div
         // HOW MUCH IS AT STAKE, on the element, because there is no other way to
@@ -5164,7 +5226,7 @@ export function PanelHost({ stack }) {
                 icon={<IconClose />}
                 ariaLabel={t("common.action.close.label")}
                 tooltip={t("common.form.close.tip")}
-                onClick={guard(close)}
+                onClick={() => slideOut(guard(close))}
                 style={blocked !== null ? { color: 'var(--error)' } : undefined}
               />
             )}

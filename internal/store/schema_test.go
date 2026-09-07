@@ -765,6 +765,10 @@ func wantShapes() []tableShape {
 				// review row with it or the deck serves a card for a quote that no
 				// longer exists.
 				"item_reviews_book_del",
+				// 0064's, the same shape for the log beside that state: a deleted
+				// highlight must take its recall history with it, or the next quote
+				// given that rowid inherits somebody else's memory of it.
+				"item_recalls_book_del",
 				// 0043's, the same shape and for the same reason: an anthology entry
 				// points at (kind, item_id) across three tables and can hold no real
 				// foreign key, so a deleted highlight has to be removed from every
@@ -870,6 +874,8 @@ func wantShapes() []tableShape {
 			Triggers: []string{
 				"dialogues_ad", "dialogues_ai", "dialogues_au",
 				"item_reviews_screen_del",
+				// 0064's, beside it: the log a deleted line takes with it.
+				"item_recalls_screen_del",
 				"anthology_entries_screen_del", // 0043 — see annotations above
 				"cleanup_ignores_screen_del",   // 0052 — see annotations above
 			},
@@ -1321,6 +1327,10 @@ func TestSchemaInvariants(t *testing.T) {
 	for _, tc := range []struct{ table, trigger string }{
 		{"annotations", "item_reviews_book_del"},
 		{"dialogues", "item_reviews_screen_del"},
+		// 0064's pair, for the log beside that state. Both kinds, because a recall
+		// history is worth the same to a film line as to a highlight.
+		{"annotations", "item_recalls_book_del"},
+		{"dialogues", "item_recalls_screen_del"},
 		{"annotations", "anthology_entries_book_del"},
 		{"dialogues", "anthology_entries_screen_del"},
 		{"utterances", "anthology_entries_utterance_del"},

@@ -68,6 +68,7 @@ function shownOf(el) {
 }
 
 let stepper = null
+let slideOut = null
 
 // A READER WHO HAS ASKED FOR NO MOTION. `test/setup-dom.js` gives jsdom a
 // `matchMedia` that answers `matches: false` to everything, so the hook's
@@ -94,7 +95,12 @@ function Sheet({ onDismiss, enabled = true, at = 0, content = LONG, head = false
   const body = useRef(null)
   const handle = useRef(null)
   const bar = useRef(null)
-  stepper = useSheetDrag({ sheet, body, handle, head: head ? bar : undefined, enabled, onDismiss })
+  const sheetVerbs = useSheetDrag({ sheet, body, handle, head: head ? bar : undefined, enabled, onDismiss })
+  stepper = sheetVerbs.step
+  // THE EXIT THE ✕ AND THE SCRIM TAKE, exposed for the cases about it. It used
+  // to be the drag's alone, so two of the sheet's three ways out vanished with no
+  // animation while the code and the changelog both said otherwise.
+  slideOut = sheetVerbs.slideOut
   return (
     <div
       data-testid="sheet"
@@ -896,6 +902,81 @@ describe('what a drag does', () => {
     expect(out, 'an interrupted gesture dismissed the sheet').not.toHaveBeenCalled()
     expect(shownOf(el('sheet')), 'the sheet did not go back to where the gesture started')
       .toBeCloseTo(before, 0)
+  })
+
+  it('and the entrance’s pending frame does not land inside a later settle', async () => {
+    // THE MID-LANDING SNAP FOR THE THIRD TIME, IN A THIRD PATH — and a rater
+    // reproduced it against the entrance I had just added. Three functions queue a
+    // double-rAF that writes a transform (the entrance, the landing, the exit) and
+    // each takes two frames to fire, so a newer one can begin while an older is
+    // still pending. `if (drag) return` catches a READER interrupting and says
+    // nothing about the app interrupting itself: the entrance's frame landed inside
+    // a settle, wrote `translateY(0px)`, the landing lost its offset, and the next
+    // call took the at-rest branch and jumped the sheet 136–236px.
+    //
+    // ONE FRAME BETWEEN THE TWO is what makes it deterministic — the entrance is
+    // one rAF deep when the settle starts, so its second frame fires after.
+    // THE TIMING IS THE CASE, and the first version of this had it wrong and
+    // asserted nothing. `enter` queues frame A which queues frame B. One
+    // `await frame()` runs A. The stepper then settles, queuing frames C and D.
+    // The NEXT `await frame()` runs B — the entrance's own write, now stale — and
+    // that is the frame the guard is about.
+    render(<Sheet onDismiss={vi.fn()} />)
+    await frame()
+    await act(async () => { stepper(1) })
+    // Mid-settle the sheet is still off the screen: the entrance never finished,
+    // so `settle` compensated from a hold of nothing and is animating up from
+    // there. That is the state the stale write destroys.
+    const target = ANCHORS[1]
+    expect(shownOf(el('sheet')), 'the settle did not start from where the sheet visibly was')
+      .toBeLessThan(target - 40)
+    await frame()
+    expect(shownOf(el('sheet')), 'the entrance’s stale frame cleared the settle’s offset and popped the sheet into view')
+      .toBeLessThan(target - 40)
+    // And it still gets where it was going, so the guard is not a freeze.
+    await act(async () => { await new Promise((r) => setTimeout(r, 500)) })
+    expect(shownOf(el('sheet')), 'the sheet never reached the anchor it was stepping to')
+      .toBeCloseTo(target, 0)
+  })
+
+  it('and every way out slides, not only the drag', async () => {
+    // THE OWNER: "there should be a fast open and close animation (from the
+    // bottom) as well." A sheet has THREE ways out — a drag past the smallest
+    // stop, the ✕, and a tap on the scrim — and for a while only the drag slid.
+    // The other two called their guarded verb straight away, so the animation the
+    // owner asked for was absent on the two exits a reader takes most, while a
+    // comment in the hook and the changelog both said the sheet "leaves the same
+    // way". A rater found it by reading the call sites rather than the comment.
+    //
+    // `slideOut(verb)` is what the ✕ and the scrim take: it animates the offset
+    // down and runs the verb when it lands — the verb being `close` for those two
+    // and `back` for the drag, which is why it is a parameter and not `onDismiss`.
+    const out = vi.fn()
+    render(<Sheet onDismiss={vi.fn()} />)
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    const before = shownOf(el('sheet'))
+    await act(async () => { slideOut(out) })
+    expect(out, 'the verb ran before the sheet had left').not.toHaveBeenCalled()
+    await act(async () => { await frame(); await frame() })
+    expect(shownOf(el('sheet')), 'the sheet is not on its way down')
+      .toBeLessThan(before)
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    expect(out, 'the sheet slid out and the verb never ran, so the panel would stay').toHaveBeenCalledTimes(1)
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    expect(out, 'the verb ran twice — a guarded close would ask about unsaved changes twice')
+      .toHaveBeenCalledTimes(1)
+  })
+
+  it('and it still runs the verb where there is no sheet to animate', async () => {
+    // A DEGRADATION AND NOT A DEAD CONTROL. On a desktop width the gesture is
+    // disabled and the hook's exit is a stub; the ✕ still has to close. So the
+    // stub takes the verb at once rather than doing nothing, which is the one
+    // outcome that would make this refactor worse than the line it replaced.
+    const out = vi.fn()
+    render(<Sheet onDismiss={vi.fn()} enabled={false} />)
+    await act(async () => { slideOut(out) })
+    expect(out, 'the ✕ went dead on a surface with no drag').toHaveBeenCalledTimes(1)
   })
 
   it('and a pull that stops short does not', async () => {

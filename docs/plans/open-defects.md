@@ -1039,6 +1039,36 @@ Measuring that needs the owner's device or a throttled profile, and until one of
 otherwise the honest position is that the mechanism is clean here and the remaining
 question is a hardware one.
 
+## AP. The work-rater's seventeenth pass, 7 September — 6/10
+
+Four findings, and the first is a regression the previous fix introduced. That is the third
+consecutive pass to find one, which is now less a coincidence than a habit worth naming.
+
+| # | Defect | Status |
+|---|---|---|
+| AP1 | **The entrance revived the mid-landing snap — the third time, in a third path.** Three functions queue a double-rAF that writes a transform (`enter`, `settle`, `leave`), each takes two frames to fire, so a newer one can begin while an older is pending. `if (drag) return` catches a READER interrupting and says nothing about the app interrupting itself: the entrance's pending frame landed inside a settle, wrote `translateY(0px)`, the landing lost its offset and the sheet popped fully into view. Reproduced by the rater at 136–236px | **FIXED with a counter, not a fourth guard.** Each of the three takes a number on the way in and its frame writes only if the number is still current — "has something newer happened" as one question with one answer, instead of a guard per pair of paths, which is how the first two got written and the third got missed. Mutating the checks away fails the new case at *expected 752 to be less than 712* |
+| AP2 | **AND MY FIRST TEST FOR AP1 ASSERTED NOTHING.** It rendered, waited one frame, stepped, and compared against a value it had just read from a sheet that was off the screen — so the bound was `>= -1`. The mutation passed | **FIXED by getting the timing right and writing it down:** `enter` queues frame A which queues B; one `await frame()` runs A; the stepper queues C and D; the NEXT frame runs B — the stale write. The case names that sequence in its own comment, because the reason it looked right was that the arithmetic was invisible |
+| AP3 | **The close animation covered one of three exits.** A drag past the smallest stop slid out; the ✕ and a tap on the scrim called their guarded verb straight away. So the animation the owner asked for was missing on the two exits a reader takes most — while a comment in the hook and the CHANGELOG both said the sheet "leaves the same way". The rater found it by reading the call sites rather than the comment | **FIXED.** `leave(then)` takes the verb, and the hook hands out `slideOut` beside its stepper: the drag passes `onDismiss` (back), the ✕ and the scrim pass `close`. Where there is no sheet to animate — a desktop width, the hook cleaned up — the stub runs the verb at once rather than doing nothing, because a ✕ that goes dead would make the refactor worse than the line it replaced |
+| AP4 | **Three of the owner's items left no trace in the tree.** The "In this work" vs "Note" question was answered in chat only; the promote-to-global gate and the recall-history popup were neither planned nor registered. Against *"DO NOT STOP UNTIL ALL OPEN ITEMS ARE RESOLVED"* that is three-sevenths unrecorded, and an answer that exists only in a conversation is an answer the next reader of that screen does not have | **FIXED.** `docs/plans/character-gains-a-work.md` and `docs/plans/recall-history-popup.md` are filed with the owner's words, what each touches, and the one decision each still needs from them. The two-rows answer is a section in `docs/PLAN.md` with the table, migration 0063's own reasoning, the recommendation and the rejected alternative |
+| AP5 | **A skipped probe case printed nothing**, so a run could exit 0 having made fewer gestures than this register credits it with — the same silence as an `ok` about something never measured | **FIXED.** Each of the three new cases prints a `SKIP` line naming what was not tried |
+
+**AND THE RECALL LOG LANDED WHILE THIS PASS WAS RUNNING**, which is why the rater saw it as
+uncommitted work in progress. Migration 0064 gives `item_recalls` one row per answer with
+the half-life that answer produced and the gap since the previous one; `handleReviewAnswer`
+writes it inside the same transaction, for every answer including skips; a failed insert is
+logged as `TIP-REVIEW-002` rather than costing the reader their grade, because the log sits
+beside the schedule and not inside it. It is in `accountTables`, so a restore brings it
+back — six months of evidence about how somebody remembers is the one thing in the feature
+that exists nowhere else. **The read endpoint and the popup are not built** and the plan
+says so.
+
+**THE HABIT WORTH NAMING.** AK, AM and now AP each found a defect introduced by the
+previous fix, and each time the new code was the code that had not been pressed. The
+countermeasure that keeps working is a rater mutating my guards rather than my app; the one
+that keeps failing is me writing the guard and the claim in the same hour. AP2 is the
+sharpest version — a test written for a defect I had just reproduced, which did not
+reproduce it.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

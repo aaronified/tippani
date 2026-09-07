@@ -125,6 +125,7 @@ the subsystem and the underlying error.
 | `TIP-MOVIE-001` | Movies list / count |
 | `TIP-PEOPLE-001` | People list / names / orphan images |
 | `TIP-REVIEW-001` | Quiz / practice candidate rows |
+| `TIP-REVIEW-002` | An answer's row in the recall history (`item_recalls`). **The grade itself was saved** — the log sits beside the schedule rather than inside it, so the card is scheduled correctly and the only loss is one row the review popup can draw. Nothing to do unless it repeats. |
 | `TIP-EXPORT-001` | Export rows |
 | `TIP-BULK-001` | Bulk-selection id rows |
 | `TIP-TAG-001` | Genres / tags list |
