@@ -78,7 +78,8 @@ import {
 // StatesRow — the "where you stand" breakdown: a count per repetition status
 // with its coloured dot, plus a toggle for the explainer.
 //
-// `adaptive` mirrors the srAdaptive preference, and the explainer describes
+// `adaptive` is the rule in force — the inverse of the srLadder opt-in — and
+// the explainer describes
 // whichever rule is actually in force. Describing the ladder to somebody who has
 // switched it off would make the one piece of copy that explains the schedule
 // the one piece of copy that lies about it.
@@ -848,7 +849,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           entered the library yet, and that is easy to forget. */}
       <PendingImportCard pending={pendingImport} onOpen={onReviewImport} />
 
-      <DailyQuizCard onPending={onPending} states={states} capacity={capacity} onStates={takeStates} adaptive={!!user?.preferences?.srAdaptive} submitStep={!!user?.preferences?.srSubmit} />
+      <DailyQuizCard onPending={onPending} states={states} capacity={capacity} onStates={takeStates} adaptive={!user?.preferences?.srLadder} submitStep={!!user?.preferences?.srSubmit} />
 
       <PracticeCard onStates={takeStates} userId={user?.id} submitStep={!!user?.preferences?.srSubmit} />
 

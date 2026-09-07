@@ -455,12 +455,26 @@ type prefs struct {
 	// so this reinforcement is entirely opt-in.
 	SRSeen           float64 `json:"srSeen"`
 	SRPracticeCounts bool    `json:"srPracticeCounts"`
-	// SRAdaptive swaps the fixed 7 → 30 → 100 ladder for a multiplicative rule
-	// where a lapse shortens the half-life instead of resetting it to 7. Off by
-	// default: the ladder is legible in a way a computed interval is not, and
-	// somebody who has not asked for adaptive scheduling should keep the rule
-	// the explainer on the Home screen describes. See nextStability.
-	SRAdaptive bool `json:"srAdaptive"`
+	// SRLadder puts a reader back on the fixed 7 → 30 → 100 → 365 ladder, where a
+	// lapse falls straight to 7 from any rung. OFF by default, which is to say
+	// ADAPTIVE IS THE DEFAULT: a lapse halves the half-life instead of resetting
+	// it, which is the one place the ladder was harsher than the science asks —
+	// a single miss on a card recalled four times cost the whole climb.
+	//
+	// IT IS SPELT AS THE OPT-IN RATHER THAN AS `srAdaptive: true`, and it had to
+	// be. This is a flat bool in a JSON blob with no omitempty, so every stored
+	// preference already carries `"srAdaptive": false` whether the reader chose
+	// the ladder or never opened the panel — the two are indistinguishable in the
+	// data and always were. A default cannot be flipped for a field like that; the
+	// only honest move is to make the stored flag name the NON-default choice,
+	// which is the convention the rest of this struct follows (srPracticeCounts,
+	// srSubmit: zero means the default).
+	//
+	// SO EVERY EXISTING READER MOVES TO ADAPTIVE ONCE, and the release notes say
+	// so rather than letting it be discovered. The ladder is one switch away and
+	// stays fully supported — it is the version that can be explained in one
+	// sentence, and some readers will prefer it. See nextStability, and prefs.adaptive.
+	SRLadder bool `json:"srLadder"`
 	// SRSubmit puts a Submit button between choosing an answer and committing it,
 	// so a misplaced tap can be corrected instead of costing a rung. Off by
 	// default: tapping to answer is one gesture instead of two, and that is the
@@ -854,7 +868,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRTuning            *string  `json:"srTuning"`
 		SRSeen              *float64 `json:"srSeen"`
 		SRPracticeCounts    *bool    `json:"srPracticeCounts"`
-		SRAdaptive          *bool    `json:"srAdaptive"`
+		SRLadder            *bool    `json:"srLadder"`
 		SRSubmit            *bool    `json:"srSubmit"`
 		Tour                *string  `json:"tour"`
 		TourStep            *int     `json:"tourStep"`
@@ -1058,8 +1072,8 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	if in.SRPracticeCounts != nil {
 		cur.SRPracticeCounts = *in.SRPracticeCounts
 	}
-	if in.SRAdaptive != nil {
-		cur.SRAdaptive = *in.SRAdaptive
+	if in.SRLadder != nil {
+		cur.SRLadder = *in.SRLadder
 	}
 	if in.SRSubmit != nil {
 		cur.SRSubmit = *in.SRSubmit

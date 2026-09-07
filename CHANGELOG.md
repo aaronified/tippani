@@ -53,6 +53,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one.
 
 ### Changed
+- **Forgetting a quote no longer costs you the whole climb.** Adaptive intervals were an opt-in
+  almost nobody found; they are now what the quiz does by default. A correct recall multiplies a
+  quote's half-life by 2.5, and a miss halves it instead of dropping it straight back to seven
+  days — so one slip on a line you have recalled four times costs you one step, not four. The
+  fixed ladder is still there, one switch away in Settings → Daily quiz, and is still the
+  version that fits in a sentence. **This changes the schedule for everyone who never touched
+  that switch**, which is almost everyone: the app could not tell the difference between
+  choosing the ladder and never opening the panel, so it never recorded one. If the ladder is
+  what you want, it is still one tap.
+
 - **The quiz can now space a quote a year apart, not just a hundred days.** The interval ladder
   gains a fourth rung — 7, 30, 100, then 365 days — and a quote you keep getting right climbs
   onto it. The old ceiling quietly capped how large a library the quiz could keep current: a

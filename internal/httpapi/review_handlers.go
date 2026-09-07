@@ -105,14 +105,19 @@ const (
 	reviewLeechLapses = 5
 )
 
-// Adaptive-interval constants (srAdaptive, off by default). The fixed ladder is
-// the honest default and stays the default; these describe the OTHER rule.
+// Adaptive-interval constants, and THESE ARE THE DEFAULT RULE NOW. The fixed
+// ladder is the opt-in (prefs.SRLadder) and stays fully supported: it is the
+// version that can be explained in one sentence, and some readers will prefer it.
 //
-// The one place the ladder is harsher than the science asks is the lapse: it
-// drops a card to 7 from any rung, so a single miss on a card you have recalled
-// four times costs you the whole climb. Anki's move to FSRS made the argument
-// that a lapse should SHORTEN rather than reset mainstream, and that is the
-// substance of this option — reviewShrink, not reviewGrow, is why it exists.
+// WHY THE DEFAULT MOVED, and it is the lapse rather than the growth. Under the
+// ladder a lapse drops a card to 7 from any rung, so a single miss on a card you
+// have recalled four times costs you the whole climb — the one place the loop was
+// harsher than the science asks. Anki's move to FSRS made the argument that a
+// lapse should SHORTEN rather than reset mainstream. A reader who has expressed
+// no opinion should not be on the harsher of the two rules, which is what "off by
+// default" quietly meant for every account that never opened the panel.
+//
+// reviewShrink, not reviewGrow, is therefore the substance of the switch.
 //
 // The bounds do not change: adaptive still lives between reviewMinStability and
 // reviewMaxStability, so every query that floors or caps a half-life keeps
@@ -2384,7 +2389,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		// gap since the last review into the new half-life under whichever of the
 		// two rules the reviewer is on.
 		prev := stability
-		stability = nextStability(pf.SRAdaptive, req.Result, stability,
+		stability = nextStability(pf.adaptive(), req.Result, stability,
 			elapsedDays(lastReviewed), found && reviewCount > lapseCount, tuning)
 		// THE DIFFICULTY IS DERIVED, NOT DECLARED. A client-sent "direction" would
 		// be the client telling the server what its own answer was worth, and the

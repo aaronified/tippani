@@ -1004,7 +1004,7 @@ function SRDeepControls({ p, set, onClose }) {
       srTuning: '',
       srPracticeCounts: false,
       srSubmit: false,
-      srAdaptive: false,
+      srLadder: false,
       srSeen: 1,
     })
   }
@@ -1084,11 +1084,17 @@ function SRDeepControls({ p, set, onClose }) {
             <MonoLabel>{t('settings.quiz.adaptive.title')}</MonoLabel>
             <InfoDot text={t('settings.quiz.adaptive.info.body')} />
           </div>
+          {/* THE STORED FLAG IS THE LADDER, not adaptive, so the zero value is
+              the default the way it is for every other switch here. `srAdaptive`
+              was a flat bool in a JSON blob with no omitempty, so every account
+              already carried `false` whether the reader chose the ladder or never
+              opened this panel — a default that cannot be flipped. The two option
+              values stay 'off'/'on' in the reader's terms: off is adaptive. */}
           <Toggle
             ariaLabel={t('settings.quiz.adaptive.aria')}
-            value={p.srAdaptive ? 'on' : 'off'}
-            onChange={(v) => set({ srAdaptive: v === 'on' })}
-            options={[['off', t('settings.quiz.adaptive.ladder.label')], ['on', t('settings.quiz.adaptive.on.label')]]}
+            value={p.srLadder ? 'ladder' : 'adaptive'}
+            onChange={(v) => set({ srLadder: v === 'ladder' })}
+            options={[['adaptive', t('settings.quiz.adaptive.on.label')], ['ladder', t('settings.quiz.adaptive.ladder.label')]]}
           />
         </div>
         <div>

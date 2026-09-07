@@ -1255,7 +1255,7 @@ settings.languages.name.label = ভাষার নাম
 settings.languages.name.placeholder = ইওরুবা, সোয়াহিলি, তামিল…
 
 # --- the quiz panel.
-settings.quiz.info.body = এগুলো দৈনিক অনুশীলনী আর ঝালাই — দুটোকেই চালায়। কার্ড ফিরে আসার ফাঁকটা বাঁধা সিঁড়ি বেয়ে ওঠে — 7, 30, 100, তারপর 365 দিন — ঠিক মনে করতে পারলে এক ধাপ, আর একবার ভুললেই সোজা 7-এ নেমে যায়।
+settings.quiz.info.body = এগুলো দৈনিক অনুশীলনী আর ঝালাই — দুটোকেই চালায়। সাধারণভাবে মনে পড়লে অর্ধায়ু 2.5 গুণ হয়, ভুললে অর্ধেক, এক বছর পর্যন্ত। সিঁড়িতে ধাপে ধাপে ওঠে — 7, 30, 100, 365 দিন — আর ভুললেই সোজা 7-এ।
 settings.quiz.per-day.label = দৈনিক অনুশীলনীতে দিনে কটা কার্ড
 settings.quiz.in-depth.label = খুঁটিনাটি সেটিংস
 settings.quiz.in-depth.tip = দুই ডেকের প্রতিটা প্রশ্ন-ধরন
@@ -1274,7 +1274,7 @@ settings.quiz.submit.info.body = এমনিতে একবার ট্যা
 # the coinages (মানানসই, অভিযোজী) need decoding first.
 settings.quiz.adaptive.title = অ্যাডাপ্টিভ ফাঁক
 settings.quiz.adaptive.aria = অ্যাডাপ্টিভ ফাঁক
-settings.quiz.adaptive.info.body = সিঁড়িতে ধাপ 7 → 30 → 100 → 365 দিন, আর একবার ভুললেই সোজা 7-এ। অ্যাডাপ্টিভ তার বদলে 2.5 দিয়ে গুণ করে, আর ভুলে গোড়ায় না ফিরিয়ে অর্ধেক করে — তাই চেনা উদ্ধৃতিতে একবার হোঁচট খেলে গোটা চড়াইটা আর হারায় না।
+settings.quiz.adaptive.info.body = অ্যাডাপ্টিভই এখন সাধারণ নিয়ম: ঠিক মনে পড়লে অর্ধায়ু 2.5 গুণ হয়, ভুল হলে অর্ধেক — চেনা উদ্ধৃতিতে একবার হোঁচট খেলে গোটা চড়াই আর হারায় না। সিঁড়ি মাথায় রাখা সহজ: 7 → 30 → 100 → 365 দিন, ভুললেই সোজা 7-এ।
 settings.quiz.adaptive.ladder.label = সিঁড়ি
 settings.quiz.adaptive.on.label = অ্যাডাপ্টিভ
 settings.quiz.seen.title = চোখে পড়লে অর্ধায়ু বাড়ে
@@ -1753,9 +1753,9 @@ quiz.question.last-universal.info = প্রতিটা ডেকে অন্
 # The nine tuning sliders in Settings → Quiz. .label sits above the slider,
 # .hint is its info dot. Every one of these multiplies a half-life.
 quiz.tuning.grow.label = ঠিক উত্তরে বাড়ে
-quiz.tuning.grow.hint = শুধু অ্যাডাপ্টিভ ফাঁকে। ঠিক মনে পড়লে অর্ধায়ু এই সংখ্যায় গুণ হয়। 2.5 হল SM-2-এর চেনা মাপ — বেশি দিলে ফাঁক তাড়াতাড়ি বড় হয়, আর মাঝে ভুলে যাওয়াও বাড়ে।
+quiz.tuning.grow.hint = অ্যাডাপ্টিভ ফাঁকে, যেটাই সাধারণ নিয়ম। ঠিক মনে পড়লে অর্ধায়ু এই সংখ্যায় গুণ হয়। 2.5 হল SM-2-এর চেনা মাপ — বেশি দিলে ফাঁক তাড়াতাড়ি বড় হয়, আর মাঝে ভুলে যাওয়াও বাড়ে।
 quiz.tuning.shrink.label = ভুল হলে কমে
-quiz.tuning.shrink.hint = শুধু অ্যাডাপ্টিভ ফাঁকে। ভুল হলে অর্ধায়ু গোড়ায় না ফিরে এই সংখ্যায় গুণ হয় — 0.5 মানে অর্ধেক। 1 বা তার বেশি রাখা যায় না, তাতে ভুলে গেলে উল্টে ফাঁক বেড়ে যেত।
+quiz.tuning.shrink.hint = অ্যাডাপ্টিভ ফাঁকে, যেটাই সাধারণ নিয়ম। ভুল হলে অর্ধায়ু গোড়ায় না ফিরে এই সংখ্যায় গুণ হয় — 0.5 মানে অর্ধেক। 1 বা তার বেশি রাখা যায় না, তাতে ভুলে গেলে উল্টে ফাঁক বেড়ে যেত।
 quiz.tuning.cloze-grow.label = টাইপ করা উত্তরে বাড়ে
 quiz.tuning.cloze-grow.hint = শূন্যস্থান পূরণে ভরসা করার কিছু থাকে না, অথচ প্রশ্নোত্তরে চার ভাগের তিন ভাগ কাজ আগেই করা থাকে। ঠিক হলে টাইপ করা উত্তরের দাম তাই কতটা বেশি — সেটাই এই সংখ্যা।
 quiz.tuning.cloze-shrink.label = আর ভুল হলে খরচ
@@ -1765,7 +1765,7 @@ quiz.tuning.cloze-synonym.hint = কাছাকাছি সমার্থক 
 quiz.tuning.cloze-words.label = একাধিক শব্দের শূন্যস্থান কবে থেকে
 quiz.tuning.cloze-words.hint = উদ্ধৃতি এতদিন মনে না থাকা পর্যন্ত শূন্যস্থানে একটা শব্দই লুকায়, তারপরই গোটা টুকরো লুকাতে পারে। 1 করে দিলে চওড়া শূন্যস্থান গোড়া থেকেই আসবে।
 quiz.tuning.ladder-1.label = সিঁড়ির ধাপ 1
-quiz.tuning.ladder-1.hint = বাঁধা সিঁড়ির প্রথম ধাপ, আর ভুল হলে কার্ড এখানেই নেমে আসে। অ্যাডাপ্টিভ ফাঁক চালু থাকলে এটা ধরা হয় না।
+quiz.tuning.ladder-1.hint = বাঁধা সিঁড়ির প্রথম ধাপ, আর ভুল হলে কার্ড এখানেই নেমে আসে। সিঁড়িতে না বদলালে এটা ধরা হয় না।
 quiz.tuning.ladder-2.label = সিঁড়ির ধাপ 2
 quiz.tuning.ladder-2.hint = মাঝের ধাপ।
 quiz.tuning.ladder-3.label = সিঁড়ির ধাপ 3

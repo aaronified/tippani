@@ -405,7 +405,8 @@ func TestTheSynonymWeightNeverTouchesALapse(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srAdaptive": true}, 200)
+	// Adaptive is the default now, so nothing has to be asked for here — the
+	// PUT that used to turn it on is gone rather than restated as srLadder:false.
 
 	book := createBook(t, c, "Pride and Prejudice")
 	id := idOf(t, c.mustDo("POST", "/annotations",

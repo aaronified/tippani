@@ -1234,7 +1234,7 @@ settings.languages.name.label = Language name
 settings.languages.name.placeholder = Yoruba, Swahili, Tamil…
 
 # --- the quiz panel.
-settings.quiz.info.body = These drive both the Daily Quiz and Practice. A card's interval climbs a fixed ladder — 7, 30, 100, then 365 days — one step per correct recall, and one lapse drops it straight back to 7.
+settings.quiz.info.body = These drive both the Daily Quiz and Practice. By default a card's interval multiplies by 2.5 on each recall and halves on a lapse, up to a year. On the ladder it steps 7, 30, 100, then 365 days, and a lapse drops it to 7.
 settings.quiz.per-day.label = Daily quiz cards / day
 settings.quiz.in-depth.label = In-depth controls
 settings.quiz.in-depth.tip = Every question, both decks
@@ -1251,7 +1251,7 @@ settings.quiz.submit.aria = Confirm each answer
 settings.quiz.submit.info.body = Normally a tap answers straight away. Turn this on and a tap only chooses — you can change your mind, and a Submit button records it. Flip cards are unaffected: revealing and grading are already two steps.
 settings.quiz.adaptive.title = Adaptive intervals
 settings.quiz.adaptive.aria = Adaptive intervals
-settings.quiz.adaptive.info.body = The ladder steps 7 → 30 → 100 → 365 days, and any lapse drops you straight back to 7. Adaptive multiplies by 2.5 instead, and halves on a lapse rather than resetting — so one slip on a well-known quote no longer costs you the whole climb.
+settings.quiz.adaptive.info.body = Adaptive is the default: a recall multiplies the half-life by 2.5, a lapse halves it, so one slip on a known quote no longer costs the whole climb. The ladder is simpler to hold — 7 → 30 → 100 → 365 days, any lapse to 7.
 settings.quiz.adaptive.ladder.label = Ladder
 settings.quiz.adaptive.on.label = Adaptive
 settings.quiz.seen.title = Seeing lengthens half-life by
@@ -1725,9 +1725,9 @@ quiz.question.last-universal.info = Every deck needs at least one question it ca
 # The ten tuning sliders in Settings → Quiz. .label sits above the slider,
 # .hint is its info dot. Every one of these multiplies a half-life.
 quiz.tuning.grow.label = Correct answer stretches by
-quiz.tuning.grow.hint = Adaptive scheduling only. A correct recall multiplies the half-life by this. 2.5 is SM-2’s classic ease — higher means longer gaps sooner, and more forgetting between them.
+quiz.tuning.grow.hint = Adaptive scheduling, which is the default. A correct recall multiplies the half-life by this. 2.5 is SM-2’s classic ease — higher means longer gaps sooner, and more forgetting between them.
 quiz.tuning.shrink.label = A lapse shortens by
-quiz.tuning.shrink.hint = Adaptive scheduling only. A miss multiplies the half-life by this rather than resetting it — 0.5 halves it. It cannot be 1 or more, which would make forgetting a card lengthen its interval.
+quiz.tuning.shrink.hint = Adaptive scheduling, which is the default. A miss multiplies the half-life by this rather than resetting it — 0.5 halves it. It cannot be 1 or more, which would make forgetting a card lengthen its interval.
 quiz.tuning.cloze-grow.label = Typed answers earn
 quiz.tuning.cloze-grow.hint = Fill-in-the-blank is recall with nothing to lean on, where a multiple choice has three quarters of the work done for you. This is how much more a typed answer is worth when you get it right.
 quiz.tuning.cloze-shrink.label = And cost
@@ -1737,7 +1737,7 @@ quiz.tuning.cloze-synonym.hint = A blank filled with a close synonym counts as c
 quiz.tuning.cloze-words.label = Multi-word blanks from
 quiz.tuning.cloze-words.hint = A blank hides one word until a quote has been remembered this long, and only then may it hide a phrase. Set it to 1 to allow wide blanks immediately.
 quiz.tuning.ladder-1.label = Ladder rung 1
-quiz.tuning.ladder-1.hint = The fixed ladder’s first rung, and where any lapse drops a card back to. Ignored when Adaptive intervals is on.
+quiz.tuning.ladder-1.hint = The fixed ladder’s first rung, and where any lapse drops a card back to. Ignored unless you have switched to the ladder.
 quiz.tuning.ladder-2.label = Ladder rung 2
 quiz.tuning.ladder-2.hint = The middle rung.
 quiz.tuning.ladder-3.label = Ladder rung 3

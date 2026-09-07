@@ -152,3 +152,13 @@ func (t reviewTuning) String() string {
 		t.Grow, t.Shrink, t.ClozeGrow, t.ClozeShrink, t.ClozeSynonym, t.ClozeWords,
 		t.Ladder1, t.Ladder2, t.Ladder3, t.Ladder4)
 }
+
+// adaptive is the scheduling rule in force for this reader.
+//
+// ONE FUNCTION rather than a `!` at each call site. The stored preference names
+// the opt-in (srLadder) because a flat bool in a JSON blob cannot express "never
+// chose", so the sense is inverted exactly once, here — a negation is the easiest
+// thing in the world to spell correctly in three places and wrongly in the
+// fourth, and the fourth would be a reader on the wrong schedule with nothing on
+// screen to say so.
+func (p prefs) adaptive() bool { return !p.SRLadder }
