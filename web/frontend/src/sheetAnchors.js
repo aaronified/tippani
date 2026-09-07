@@ -74,7 +74,23 @@ export function landing({ height, velocity = 0, anchors }) {
   const v = Math.max(-MAX_FLICK, Math.min(MAX_FLICK, Number(velocity) || 0))
   const projected = height - v * PROJECT_MS
   const smallest = anchors[0]
-  if (projected < smallest - smallest * DISMISS_FRACTION) return { dismiss: true }
+  // A DISMISSAL IS A PULL DOWN FROM THE SMALLEST, AND THE READER HAS TO HAVE GONE
+  // THERE. `height < smallest` is the half that was missing, and its absence was
+  // the owner's report: "if i expand a popup from natural to 74%/96%, i cannot
+  // take it back to natural. it closes."
+  //
+  // The projection is 120ms of travel at up to 4px/ms, so an ORDINARY thumb going
+  // down at 2px/ms projects 240px below where it actually let go. Judging the
+  // dismissal on that number meant a release at the smallest anchor — the one
+  // position the reader was deliberately aiming for — read as a departure. The
+  // projection's job is to choose WHICH ANCHOR a release was heading for; it may
+  // not invent a departure from a height the reader is holding.
+  //
+  // Below the smallest is different, and that is where the projection is allowed
+  // to finish the journey: the reader is already travelling through the sheet's
+  // own exit, and asking them to drag every last pixel of it is asking them to
+  // prove a decision they have made.
+  if (height < smallest && projected < smallest - smallest * DISMISS_FRACTION) return { dismiss: true }
   // The nearest anchor to where it is going. `reduce` rather than a sort so a tie
   // keeps the SMALLER anchor: a sheet exactly between two stops settles down
   // rather than up, which is the direction the reader was already heading if they

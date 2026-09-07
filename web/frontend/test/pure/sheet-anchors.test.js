@@ -104,6 +104,70 @@ describe('where a release lands', () => {
     expect(out.dismiss, 'a flick down from the smallest anchor did not dismiss').toBe(true)
   })
 
+  it('and a drag back down to the smallest lands ON it rather than closing', () => {
+    // THE OWNER'S REPORT, and it is the whole of it: "there is supposed to be 3
+    // separate stop points (natural, 74%, 96%, I think). however, if i expand a
+    // popup from natural (where it opens, which is right) to 74%/96%, i cannot
+    // take it back to natural. it closes."
+    //
+    // WHY IT CLOSED. A release is judged on where the sheet WOULD be 120ms later
+    // at its current speed, and the dismissal was judged on that same projection.
+    // A drag down is a drag down at some speed: at 2px/ms — an ordinary thumb,
+    // nothing like a flick — the projection is 240px BELOW where the finger
+    // actually let go. So releasing at the smallest anchor projected well under
+    // the dismissal line and the sheet left, from the one position the reader was
+    // deliberately aiming at.
+    //
+    // THE RULE, in the owner's own words for the design: "a pull down from the
+    // SMALLEST dismisses." A release at or above the smallest is not a pull down
+    // from it — the projection may choose which anchor, and it may not invent a
+    // departure from a height the reader is holding.
+    const a = anchorsFor({ viewport: VIEW, natural: 420 })
+    expect(a.length, 'this case needs three stops to be about anything').toBe(3)
+    for (const v of [0.5, 1, 2, MAX_FLICK]) {
+      expect(landing({ height: a[0], velocity: v, anchors: a }),
+        `released at the smallest anchor at ${v}px/ms and the sheet closed`)
+        .toEqual({ dismiss: false, height: a[0] })
+    }
+  })
+
+  it('and the same anywhere above the smallest, at any speed', () => {
+    // The general form: the reader is somewhere between two stops with the sheet
+    // still fully on the screen. Whatever their speed, that is a choice of anchor
+    // and not a dismissal — there is a whole anchor's worth of sheet below them
+    // that they have not travelled through yet.
+    const a = anchorsFor({ viewport: VIEW, natural: 420 })
+    for (const h of [a[0] + 1, Math.round((a[0] + a[1]) / 2), a[1], a[2]]) {
+      for (const v of [0, 1, 3, MAX_FLICK]) {
+        const out = landing({ height: h, velocity: v, anchors: a })
+        expect(out.dismiss, `released at ${h} at ${v}px/ms and the sheet closed`).toBe(false)
+        expect(a, 'landed somewhere that is not an anchor').toContain(out.height)
+      }
+    }
+  })
+
+  it('and a pull BELOW the smallest still dismisses, which is the gesture that closes it', () => {
+    // The counterweight, and it is what stops the fix above from being "never
+    // close". Below the smallest the reader is travelling through the sheet's own
+    // exit, and that is the one place the projection is allowed to finish the
+    // journey for them.
+    const a = anchorsFor({ viewport: VIEW, natural: 420 })
+    const s = a[0]
+    expect(landing({ height: s - 1, velocity: 3, anchors: a }).dismiss,
+      'a brisk pull past the smallest did not close it').toBe(true)
+    expect(landing({ height: Math.round(s * 0.5), velocity: 0, anchors: a }).dismiss,
+      'the sheet was dragged half away and let go, and it stayed').toBe(true)
+  })
+
+  it('and a small dip below the smallest springs back rather than closing', () => {
+    // Two fifths of the smallest anchor is the line, and it is deliberately not
+    // half: by the time a sheet is half gone the reader has decided. A few pixels
+    // of overshoot on the way to the smallest stop is not a decision.
+    const a = anchorsFor({ viewport: VIEW, natural: 420 })
+    const out = landing({ height: a[0] - 8, velocity: 0, anchors: a })
+    expect(out, 'eight pixels of overshoot closed the sheet').toEqual({ dismiss: false, height: a[0] })
+  })
+
   it('and an upward flick never dismisses, however fast', () => {
     expect(landing({ height: anchors[0], velocity: -9, anchors }).dismiss).toBe(false)
   })

@@ -192,7 +192,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gesture, which made the whole screen behind it re-blur, and the previous attempt to
   make that cheaper simply switched the blur off while you dragged. The sheet now slides
   instead of being redrawn, so a drag costs the phone almost nothing and the blur never
-  flickers. Going straight back in for a second pull works too — a sheet you overshot is
+  flickers. **A sheet opens by sliding up from the bottom and leaves the same way** — it
+  used to appear at its height with nothing moving, and a dismissal sprang it back UP to
+  its opening height before vanishing, so the pull you had just made was undone in front
+  of you. **Coming back down to a smaller stop no longer closes it:** a release was judged
+  on where the sheet would be a moment later at its current speed, and an ordinary thumb
+  going down projected hundreds of pixels below where it actually let go — so aiming at the
+  smallest stop closed the sheet instead of landing on it. A dismissal now needs you to
+  have taken the sheet below that stop. **And one gesture can go up and then down again**:
+  overshoot at the top used to have to be paid back pixel for pixel before the sheet
+  answered the finger again. The header can no longer be text-selected while you drag it,
+  which is what made a drag stop halfway and snap to a stop for no visible reason — the
+  browser was quietly taking the gesture. An interrupted gesture (a call arriving, a system
+  swipe) now puts the sheet back where the drag began instead of landing it somewhere new.
+  Going straight back in for a second pull works too — a sheet you overshot is
   adjusted with a quick second drag, and that one used to be dropped part-way by the
   first one's own settling animation. So does anything else that happens while the sheet
   is still settling: a picture arriving, a list finishing, a panel opening inside it, or

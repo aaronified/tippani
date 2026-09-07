@@ -69,6 +69,18 @@ function shownOf(el) {
 
 let stepper = null
 
+// A READER WHO HAS ASKED FOR NO MOTION. `test/setup-dom.js` gives jsdom a
+// `matchMedia` that answers `matches: false` to everything, so the hook's
+// `reduced()` is false by default and the animated paths are the ones under test.
+// This swaps the answer for one case, because the repo's rule — a rest state may
+// not depend on anything firing — is only checked by asking for no motion.
+const realMatchMedia = window.matchMedia
+const reduce = (on) => {
+  window.matchMedia = on
+    ? (media) => ({ ...realMatchMedia(media), matches: /prefers-reduced-motion/.test(media) })
+    : realMatchMedia
+}
+
 // HOW TALL THE CONTENT IS, which the hook asks the BODY and not the sheet: the
 // sheet's own height is the thing being decided, so a measurement taken from it
 // would depend on its own last answer. The default is taller than the largest
@@ -662,6 +674,16 @@ describe('what a drag does', () => {
     // THE SAME EXIT AS THE ✕ AND ESCAPE. A second way out that skipped the
     // unsaved-changes question would be a way to lose typing, so this is the
     // caller's own guarded close and not a bare dismissal.
+    //
+    // AND IT ARRIVES AFTER THE SHEET HAS SLID OUT, not on the release. The owner
+    // asked for a close animation from the bottom, so a dismissal now animates the
+    // offset down and calls the caller's exit when it lands — which is why this
+    // case advances the clock. `ONCE` is the half that matters: the rAF chain and
+    // the guard timer both end at the same call, and calling it twice would put
+    // the unsaved-changes question up twice.
+    // REAL TIMERS, not fake ones: the exit is a double-`requestAnimationFrame`
+    // followed by a guard timeout, and faking the clock while awaiting a real
+    // frame deadlocks the two against each other.
     const out = vi.fn()
     render(<Sheet onDismiss={out} />)
     await act(async () => {
@@ -671,7 +693,209 @@ describe('what a drag does', () => {
     })
     await frame()
     await act(async () => { fireEvent.pointerUp(window, pointer(900)) })
+    expect(out, 'the sheet was gone before the reader saw it leave').not.toHaveBeenCalled()
+    // The sheet is on its way out: the box is a box, and the offset it is
+    // animating to is the whole of it.
+    expect(el('sheet').style.transform, 'the sheet is not leaving downward').toMatch(/translateY\(/)
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
     expect(out, 'a pull far past the smallest stop did not close the sheet').toHaveBeenCalledTimes(1)
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    expect(out, 'the guarded exit was taken twice — the reader would be asked about unsaved changes twice')
+      .toHaveBeenCalledTimes(1)
+  })
+
+  it('and it arrives from the bottom rather than appearing at its height', async () => {
+    // THE OWNER: "there should be a fast open and close animation (from the
+    // bottom) as well. that will make it feel more intuitive and organic."
+    //
+    // AND THE DIRECTION IS THE POINT, not the motion: the gesture that dismisses
+    // this sheet is a pull DOWN, so a sheet that arrives from anywhere else
+    // teaches the wrong direction before the reader has touched it.
+    render(<Sheet onDismiss={vi.fn()} />)
+    // The frame it is written on: the box is its resting height and the offset is
+    // the whole of it, so none of the sheet is on the screen yet.
+    expect(shownOf(el('sheet')), 'the sheet did not start below the screen').toBeCloseTo(0, 0)
+    expect(el('sheet').style.transform, 'no offset to animate away').toMatch(/translateY\((?!0px)/)
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    expect(shownOf(el('sheet')), 'the sheet never arrived at its anchor').toBeCloseTo(ANCHORS[0], 0)
+    expect(el('sheet').style.transform, 'the entrance left its offset behind').toBe('')
+  })
+
+  it('and is at its height at once for a reader who asked for no motion', async () => {
+    // THE REPO'S RULE: a rest state may not depend on anything firing. Disable
+    // every animation and the content is where it belongs — so the entrance is
+    // not a gate the sheet has to get through to exist.
+    reduce(true)
+    try {
+      render(<Sheet onDismiss={vi.fn()} />)
+      expect(shownOf(el('sheet')), 'a reader with motion off got a sheet off the screen')
+        .toBeCloseTo(ANCHORS[0], 0)
+      expect(el('sheet').style.transform, 'an offset was left on a sheet that never animates').toBe('')
+    } finally {
+      reduce(false)
+    }
+  })
+
+  it('and a dismissal carries on downward instead of springing back up', async () => {
+    // THE OWNER: "we can drag and the popup closes, but there is no visual
+    // confirmation beyond the opening point of the popup… that means the drag down
+    // mostly has 0 visual feedback."
+    //
+    // THE CAUSE WAS THE RELEASE. A dismissal ran `settle(anchors[0])` and then
+    // called the caller's exit, so the sheet the reader had pushed halfway off the
+    // screen SPRANG BACK UP to its opening height and vanished from there. The
+    // drag had feedback; the release threw it away and replaced it with a jump in
+    // the wrong direction.
+    render(<Sheet onDismiss={vi.fn()} />)
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    fireEvent.pointerDown(el('grip'), pointer(400))
+    fireEvent.pointerMove(window, pointer(700))
+    await act(async () => { await frame() })
+    const pushed = shownOf(el('sheet'))
+    expect(pushed, 'the drag itself gave no downward feedback').toBeLessThan(ANCHORS[0])
+    fireEvent.pointerUp(window, pointer(700))
+    await act(async () => { await frame(); await frame() })
+    expect(shownOf(el('sheet')), 'the sheet sprang back UP to its opening height to be dismissed from there')
+      .toBeLessThanOrEqual(pushed + 1)
+  })
+
+  it('and a drag from the tallest back down lands on the smallest, not off the screen', async () => {
+    // THE OWNER: "there is supposed to be 3 separate stop points… however, if i
+    // expand a popup from natural to 74%/96%, i cannot take it back to natural. it
+    // closes." The arithmetic is `sheet-anchors.test.js`'s; this is the same thing
+    // through a real gesture, because the hook is what hands `landing` its numbers
+    // and a correct rule fed the wrong height is still a sheet that closes.
+    const out = vi.fn()
+    render(<Sheet onDismiss={out} />)
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    // Up to the tallest first, the way a reader gets there.
+    fireEvent.pointerDown(el('grip'), pointer(400))
+    fireEvent.pointerMove(window, pointer(100))
+    await act(async () => { await frame() })
+    fireEvent.pointerUp(window, pointer(100))
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    expect(shownOf(el('sheet')), 'the pull up did not reach the tallest anchor')
+      .toBeCloseTo(Math.max(...ANCHORS), 0)
+    // And back down to about the smallest, at an ordinary thumb's pace.
+    fireEvent.pointerDown(el('grip'), pointer(200))
+    fireEvent.pointerMove(window, pointer(200 + (Math.max(...ANCHORS) - ANCHORS[0])))
+    await act(async () => { await frame() })
+    fireEvent.pointerUp(window, pointer(200 + (Math.max(...ANCHORS) - ANCHORS[0])))
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    expect(out, 'coming back down to the smallest stop closed the sheet').not.toHaveBeenCalled()
+    expect(shownOf(el('sheet')), 'it did not land on the smallest stop').toBeCloseTo(ANCHORS[0], 0)
+  })
+
+  it('and one gesture may go up and then down again', async () => {
+    // THE OWNER: "in the same motion i cannot drag up and down both. this creates
+    // flakiness." A gesture is one continuous thing to a reader — overshoot, come
+    // back — and a sheet that only answers the first direction it saw is a sheet
+    // that has to be let go of and grabbed again to correct.
+    render(<Sheet onDismiss={vi.fn()} />)
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    fireEvent.pointerDown(el('grip'), pointer(400))
+    fireEvent.pointerMove(window, pointer(300)) // up 100
+    await act(async () => { await frame() })
+    const up = shownOf(el('sheet'))
+    fireEvent.pointerMove(window, pointer(360)) // back down 60, same gesture
+    await act(async () => { await frame() })
+    const back = shownOf(el('sheet'))
+    fireEvent.pointerMove(window, pointer(280)) // and up again 80
+    await act(async () => { await frame() })
+    const again = shownOf(el('sheet'))
+    expect(up, 'the first leg moved nothing').toBeGreaterThan(ANCHORS[0])
+    expect(back, 'the sheet ignored the reversal and stayed where the first leg left it')
+      .toBeLessThan(up)
+    expect(again, 'the sheet ignored the second reversal').toBeGreaterThan(back)
+  })
+
+  it('and a reversal after the clamp moves it at once, not after paying the overshoot back', async () => {
+    // THE OWNER'S REPORT, and this is the half jsdom could not see: "in the same
+    // motion i cannot drag up and down both. this creates flakiness." The
+    // reversal case above starts at the SMALLEST anchor, so it never reaches the
+    // clamp and passes either way. A browser probe found the real one — "the sheet
+    // ignored the reversal: top went 51 then 51 when the finger came back down" —
+    // with the sheet already at the tallest stop.
+    //
+    // WHY. The height was computed absolutely, `drag.height - dy`, and then
+    // clamped. Drag up 90px past the top and the clamp holds it; come back down
+    // 55px and the arithmetic still asks for 35px ABOVE the top, so it is clamped
+    // again and nothing moves. Every pixel of overshoot has to be paid back before
+    // the sheet answers the finger — which is precisely what a reader feels as
+    // flakiness, because the sheet stops responding for no reason they can see.
+    render(<Sheet onDismiss={vi.fn()} />)
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    // Up to the tallest and let go, so the next gesture starts against the clamp.
+    fireEvent.pointerDown(el('grip'), pointer(400))
+    fireEvent.pointerMove(window, pointer(60))
+    await act(async () => { await frame() })
+    fireEvent.pointerUp(window, pointer(60))
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    const tallest = Math.max(...ANCHORS)
+    expect(shownOf(el('sheet')), 'the sheet is not at the tallest anchor, so this case cannot reach the clamp')
+      .toBeCloseTo(tallest, 0)
+
+    // One gesture: 90px further up (all of it clamped away), then 55px back down.
+    fireEvent.pointerDown(el('grip'), pointer(300))
+    fireEvent.pointerMove(window, pointer(210))
+    await act(async () => { await frame() })
+    expect(shownOf(el('sheet')), 'the clamp let the sheet grow past its tallest anchor')
+      .toBeCloseTo(tallest, 0)
+    fireEvent.pointerMove(window, pointer(265))
+    await act(async () => { await frame() })
+    expect(shownOf(el('sheet')), 'the sheet ignored 55px of reversal because it was still paying back the overshoot')
+      .toBeLessThan(tallest - 40)
+  })
+
+  it('and the drag stops the browser selecting the header it is dragging', async () => {
+    // THE CAUSE OF THE OWNER'S "FLAKINESS", found by a browser probe and not by
+    // reasoning: a drag from the header read `box 793px, no offset` one leg into a
+    // three-leg gesture — the shape `handBack` leaves behind, so a LANDING had run
+    // mid-drag. What ended the drag was `pointercancel`, because the header holds
+    // a title and a portrait and the engine started its own text selection across
+    // them. Every leg after that moved nothing and the sheet had snapped to an
+    // anchor for no reason a reader could see.
+    //
+    // `touch-action: none` says "do not scroll this" and says nothing about
+    // selecting it. Both have to be said.
+    render(<Sheet onDismiss={vi.fn()} />)
+    await act(async () => { await frame(); await frame() })
+    fireEvent.pointerDown(el('grip'), pointer(400))
+    expect(el('sheet').style.userSelect, 'the browser is free to select the header mid-drag')
+      .toBe('none')
+    fireEvent.pointerUp(window, pointer(400))
+    expect(el('sheet').style.userSelect, 'the sheet cannot be selected after the drag either')
+      .toBe('')
+  })
+
+  it('and a cancelled pointer puts the sheet back rather than landing it somewhere new', async () => {
+    // A CANCEL IS NOT A RELEASE. `pointercancel` means the engine took the gesture
+    // — a native selection, a system edge swipe, a call arriving — and the reader
+    // let go of nothing. Landing it on the nearest anchor to a PROJECTION invents
+    // a decision out of an interruption, and a sheet that jumps to a stop
+    // mid-gesture is exactly what "flakiness" describes.
+    const out = vi.fn()
+    render(<Sheet onDismiss={out} />)
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    const before = shownOf(el('sheet'))
+    fireEvent.pointerDown(el('grip'), pointer(400))
+    fireEvent.pointerMove(window, pointer(700))     // a long way down, fast
+    await act(async () => { await frame() })
+    fireEvent.pointerCancel(window, pointer(700))
+    await act(async () => { await frame(); await frame() })
+    await act(async () => { await new Promise((r) => setTimeout(r, 320)) })
+    expect(out, 'an interrupted gesture dismissed the sheet').not.toHaveBeenCalled()
+    expect(shownOf(el('sheet')), 'the sheet did not go back to where the gesture started')
+      .toBeCloseTo(before, 0)
   })
 
   it('and a pull that stops short does not', async () => {

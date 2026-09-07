@@ -106,6 +106,9 @@ const readSheet = (page) => page.evaluate((floor) => {
 // two and not a number typed next to them.
 const STEPS = 12
 const PULL = 70
+// The sheet's own exit duration, so this file waits for the animation rather than
+// for a number somebody typed beside it. Keep in step with `ui.jsx`'s EXIT_MS.
+const EXIT_MS = 160
 
 async function pull(page, from, by, watch) {
   await page.mouse.move(from.x, from.y)
@@ -409,11 +412,112 @@ try {
     }
   }
 
+  // 5d. THE OWNER'S THREE REMAINING REPORTS, each one a gesture the probe had
+  //     never made. The arithmetic for them is `sheetAnchors.js` and the wiring is
+  //     `sheet-from-the-bottom.test.jsx`; what only a browser can say is whether a
+  //     real pointer stream, a real scroll container and a real compositor deliver
+  //     them.
+  s = await readSheet(page)
+  if (s?.head) {
+    const grab = { x: s.head.mid, y: s.head.y }
+
+    // "if i expand a popup from natural to 74%/96%, i cannot take it back to
+    // natural. it closes." The release was judged on a 120ms projection at up to
+    // 4px/ms, so an ordinary thumb going down projected hundreds of pixels below
+    // where it let go and read as a departure from the very stop it was aiming at.
+    const tall = await readSheet(page)
+    await pull(page, grab, -(HEIGHT * 0.3))          // up, to the top anchor
+    const atTop = await readSheet(page)
+    await settle(420)
+    if (!atTop) {
+      console.log('FAIL  the sheet was gone before the pull back down could be tried')
+      failures++
+    } else {
+      await pull(page, { x: s.head.mid, y: (await readSheet(page))?.head?.y ?? grab.y }, HEIGHT * 0.28)
+      await settle(420)
+      const back = await readSheet(page)
+      if (!back) {
+        console.log(`FAIL  coming back down from ${atTop.height.toFixed(0)}px closed the sheet — the owner's report`)
+        failures++
+      } else if (Math.abs(back.height - (tall?.height ?? back.height)) > 24 && back.height > atTop.height - 24) {
+        console.log(`FAIL  the pull back down landed at ${back.height.toFixed(0)}px, which is not a smaller anchor`)
+        failures++
+      } else {
+        console.log(`ok    a pull back down from ${atTop.height.toFixed(0)}px landed at ${back.height.toFixed(0)}px instead of closing`)
+      }
+    }
+  }
+
+  // "in the same motion i cannot drag up and down both. this creates flakiness."
+  await settle(420)
+  s = await readSheet(page)
+  if (s?.head) {
+    // THE GRIP AND NOT THE HEAD, and read FRESH. The previous block moved the
+    // sheet, so a `head.y` taken before it is a coordinate pointing at whatever is
+    // there now — a `mouse.down` on the body, or on the scrim. The first version
+    // of this case did exactly that and reported the app broken.
+    const topNow = () => page.evaluate(() => {
+      const el = document.querySelector('.tp-panel')
+      if (!el) return null
+      // THE BOX, THE OFFSET AND THE TOP, because a top that will not move can be
+      // any of three things and the number alone cannot say which: the running
+      // position did not change, the paint did not happen, or the box is a
+      // different size than expected.
+      return {
+        top: Math.round(el.getBoundingClientRect().top),
+        box: el.style.getPropertyValue('--tp-sheet-h'),
+        tf: el.style.transform || '',
+      }
+    })
+    const readings = [await topNow()]
+    await page.mouse.move(s.head.mid, s.head.y)
+    await page.mouse.down()
+    const legs = [-90, 55, -70]                      // up, back down, up again
+    let y = s.head.y
+    for (const leg of legs) {
+      for (let i = 1; i <= 6; i++) {
+        await page.mouse.move(s.head.mid, y + (leg * i) / 6)
+        await settle(16)
+      }
+      y += leg
+      readings.push(await topNow())
+    }
+    await page.mouse.up()
+    await settle(420)
+    const [r0, r1, r2, r3] = readings
+    const say = (r) => (r ? `${r.top}px (box ${r.box || '-'} ${r.tf || 'no offset'})` : 'gone')
+    const trail = `${say(r0)} -> ${say(r1)} -> ${say(r2)} -> ${say(r3)}`
+    const start = r0?.top; const a = r1?.top; const b = r2?.top; const c = r3?.top
+    if ([start, a, b, c].some((n) => n == null)) {
+      console.log(`FAIL  the reversal could not be read — the sheet went away mid-gesture (${trail})`)
+      failures++
+    } else if (a === start && b === start) {
+      // NOT A REVERSAL FAILURE BUT A GRAB FAILURE, and telling them apart is the
+      // difference between reporting a defect and reporting a coordinate.
+      console.log(`FAIL  the gesture never took hold of the sheet: nothing moved at all (${trail})`)
+      failures++
+    } else if (!(a < b - 8)) {
+      console.log(`FAIL  the sheet ignored the reversal when the finger came back down (${trail})`)
+      failures++
+    } else if (!(c < b - 8)) {
+      console.log(`FAIL  the sheet ignored the second reversal (${trail})`)
+      failures++
+    } else {
+      console.log(`ok    one gesture went up, down and up again (${trail})`)
+    }
+  }
+
   // 6. AND A PULL OFF THE BOTTOM CLOSES IT. Twice the viewport, which is past the
   //    smallest anchor by any fraction.
   s = await readSheet(page)
   if (s?.grip) {
     await pull(page, { x: s.grip.mid, y: s.grip.y }, HEIGHT)
+    // THE SHEET LEAVES BEFORE IT IS REMOVED, on the owner's instruction: "there
+    // should be a fast open and close animation (from the bottom) as well." So a
+    // dismissal animates the offset down and calls the caller's exit when it
+    // lands — and reading for the panel on the release frame finds it still
+    // there, which is what this probe reported as "left it open at 641px".
+    await settle(EXIT_MS + 240)
     const gone = await page.evaluate(() => !document.querySelector('.tp-panel'))
     if (!gone) {
       const after = await readSheet(page)

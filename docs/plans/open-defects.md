@@ -969,6 +969,56 @@ the ref and not the object: `git fetch origin <old sha>` still succeeds against 
 only their own gc drops it. Verified rather than assumed. Their support can be asked to run
 it.
 
+## AO. The drag, reported a fourth time — and this time with a list, 7 September
+
+The owner, after the previous pass: *"there is still a little flakiness and stutter and
+tearing when dragging. it has reduced a lot with last updates, but it is still not buttery
+smooth (that is the goal)."* Then, precisely:
+
+> 1. there is supposed to be 3 separate stop points (natural, 74%, 96%, I think). however,
+>    if i expand a popup from natural (where it opens, which is right) to 74%/96%, i cannot
+>    take it back to natural. it closes.
+> 2. there is no dragging to the bottom available. we can drag and the popup closes, but
+>    there is no visual confirmation beyond the opening point of the popup… that means the
+>    drag down mostly has 0 visual feedback.
+> 3. in the same motion i cannot drag up and down both. this creates flakiness.
+> 4. there should be a fast open and close animation (from the bottom) as well. that will
+>    make it feel more intuitive and organic
+
+| # | Defect | Status |
+|---|---|---|
+| AO1 | **Coming back down to a smaller stop closed the sheet.** A release is judged on where the sheet WOULD be 120ms later at its current speed, and the DISMISSAL was judged on that same projection — so an ordinary thumb going down at 2px/ms projected 240px below where it actually let go, and releasing at the smallest anchor read as a departure from the one position the reader was aiming at | **FIXED.** A dismissal needs `height < smallest` as well: the projection chooses which anchor, and may not invent a departure from a height the reader is holding. That is the owner's original ruling read literally — "a pull down from the **smallest** dismisses." Four new cases in `sheet-anchors.test.js`; verified in Chromium against the archive: *"a pull back down from 793px landed at 641px instead of closing"* |
+| AO2 | **A dismissal sprang the sheet back UP before vanishing.** `up()` ran `settle(anchors[0])` and then called the caller's exit, so a sheet the reader had pushed halfway off the screen jumped to its opening height and disappeared from there. The drag HAD feedback; the release threw it away and replaced it with a jump in the wrong direction | **FIXED.** `leave()` animates the offset down and off, then takes the caller's guarded exit when it lands. Timer and not `transitionend`, because a backgrounded tab never sends one and a surface that will not close is worse than one that closes without sliding |
+| AO3 | **One gesture could not go up and then down.** The height was absolute — `drag.height - dy` — and then clamped, so 90px of overshoot at the top had to be paid back pixel for pixel before a reversal moved anything | **FIXED.** A running position and a per-move step, clamped each step, so overshoot costs nothing and the first pixel of a reversal is the first pixel of movement. The slop is discounted from where it ran out, not from the pointerdown — handing `claim` the current y instead threw the whole first committed move away, which a body-path case caught immediately |
+| AO4 | **The sheet appeared at its height and vanished from it.** No entrance, no exit — and the gesture that dismisses it is a pull DOWN, so an arrival from anywhere else teaches the wrong direction before the reader has touched it | **FIXED.** `enter()` writes the resting height with the whole of it as an offset and animates the offset to nothing: 200ms in, 160ms out, decelerating in and accelerating out, because arriving asks for attention and leaving gets out of the way. The offset and never the height, for the same reason the drag's is |
+| AO5 | **AND THE CAUSE OF THE FLAKINESS WAS THE BROWSER TAKING THE GESTURE.** Not a hypothesis: the probe read `box 793px, no offset` one leg into a three-leg drag — the shape `handBack` leaves, so a LANDING had run mid-gesture, which only happens when `drag` is already null. `pointercancel` nulled it. The header holds a title and a portrait, and dragging across selectable text makes the engine start its own selection and cancel the pointer it handed us. Every leg after that moved nothing and the sheet had snapped to a stop for no reason a reader can see | **FIXED, and it is two fixes.** `user-select: none` for the length of the drag — `touch-action: none` says "do not scroll this" and says nothing about selecting it, and both have to be said. And **a cancel is not a release**: it means the engine took the gesture and the reader let go of nothing, so the sheet goes back to the anchor the gesture started from and a cancel never dismisses. Landing an interruption on the nearest anchor to a projection is inventing a decision out of an interruption |
+| AO6 | **A `ReferenceError` at mount for every reader with motion reduced**, found by the case written for AO4. `handBack` reads `drag`, `enter` calls `handBack` straight away under `prefers-reduced-motion`, and `let drag = null` was declared BELOW the first layout — a temporal dead zone. Latent for as long as the mount path happened not to reach `handBack`; the entrance animation is what made it reach it | **FIXED.** The declaration moved above the first layout |
+
+**WHAT ONLY THE BROWSER COULD SAY, and the reason this section exists at all.** AO3 passes
+in jsdom whether or not it is fixed, because the reversal case that jsdom can run starts at
+the smallest anchor and never reaches the clamp. AO5 is invisible to jsdom entirely: there
+is no compositor, no selection and no `pointercancel`. Both were found by `make sheet-drag`
+against the owner's own library, and AO5 only became findable when the probe printed the
+BOX and the OFFSET beside the top edge — a top that will not move can be three different
+defects and the number alone cannot say which.
+
+**AND THE PROBE'S FIRST VERSION OF THAT CASE REPORTED THE APP BROKEN WHEN IT WAS THE
+CASE.** It grabbed at a `head.y` read before the previous block had moved the sheet, so
+`mouse.down` landed on whatever was there instead. It now reads fresh and distinguishes "the
+gesture never took hold" from "the reversal was ignored", because those are one FAIL line
+apart and a whole day apart to debug.
+
+`make sheet-drag` exits 0 against the archive with every case above, including
+*"one gesture went up, down and up again (203px → 113px → 168px → 98px)"* — the offsets
+tracking both reversals, printed so the next reader can see it rather than trust it.
+
+**STILL OPEN, and named rather than implied:** the owner's *"not buttery smooth"* is not
+closed by this. Five specific defects are, and each was a real interruption or a real jump
+— which is most of what "flaky" describes — but nothing here measures FRAME TIMING, so
+nothing here can say the remaining motion is smooth. A probe that records
+`requestAnimationFrame` intervals through a drag and reports the worst one is the next
+piece of work, because "buttery" is a number and this file does not have it yet.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

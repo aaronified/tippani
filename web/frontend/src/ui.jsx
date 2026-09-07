@@ -1240,6 +1240,17 @@ const SLOP = 4;
 // How long a sheet takes to land, shared by the height spring and by the offset
 // the release animates — they are the same movement and were two numbers.
 const SETTLE_MS = 220;
+// HOW LONG THE SHEET TAKES TO ARRIVE AND TO LEAVE, and the owner asked for both:
+// "there should be a fast open and close animation (from the bottom) as well. that
+// will make it feel more intuitive and organic."
+//
+// FAST, AND NOT THE SAME FAST. Arriving is slower than leaving, because arriving
+// is the sheet asking for attention and leaving is the sheet getting out of the
+// way — a slow exit is the app making the reader wait for a decision they have
+// already taken. The easings say the same thing: the entrance decelerates into
+// place, the exit accelerates out.
+const ENTER_MS = 200;
+const EXIT_MS = 160;
 
 export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDismiss } = {}) {
   const bye = useRef(onDismiss);
@@ -1479,13 +1490,94 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       landingTimer = setTimeout(handBack, SETTLE_MS + 80);
     };
 
-    measure();
-    if (anchors.length) settle(anchors[0]);
+    // THE SHEET ARRIVES FROM THE BOTTOM, on the owner's instruction. It used to
+    // appear at its height with nothing moving, which reads as a screen swapping
+    // rather than a sheet being pulled up — and the gesture that dismisses it is a
+    // pull DOWN, so an arrival that comes from anywhere else teaches the wrong
+    // direction.
+    //
+    // THE OFFSET IS THE ANIMATION, not the height, for the same reason the drag's
+    // is: a height animation re-lays-out the sheet on every frame and re-blurs the
+    // screen behind it, which is what the owner reported three times as tearing.
+    //
+    // AND THE REST STATE DOES NOT DEPEND ON IT FIRING — the repo's rule. Under
+    // `prefers-reduced-motion` the sheet is simply at its height; and if the
+    // double-rAF never runs because the tab is in the background, `landingTimer`
+    // hands the box back anyway.
+    const enter = (h) => {
+      resting = Math.round(h);
+      showing = resting;
+      span = resting;
+      el.style.transition = "none";
+      el.style.setProperty("--tp-sheet-h", `${resting}px`);
+      el.style.transform = `translateY(${resting}px)`;
+      if (reduced()) { handBack(); return; }
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (drag) return; // a reader who grabbed it during the entrance owns it
+        el.style.transition = `transform ${ENTER_MS}ms cubic-bezier(.2,.85,.25,1)`;
+        el.style.transform = "translateY(0px)";
+      }));
+      landingTimer = setTimeout(handBack, ENTER_MS + 80);
+    };
 
+    // AND IT LEAVES THE WAY IT WAS PUSHED, which is the other half of the owner's
+    // report: "we can drag and the popup closes, but there is no visual
+    // confirmation beyond the opening point of the popup… that means the drag down
+    // mostly has 0 visual feedback."
+    //
+    // THE CAUSE WAS THE RELEASE, not the drag. A dismissal ran `settle(anchors[0])`
+    // and then called `onDismiss` — so the sheet the reader had just pushed halfway
+    // off the screen SPRANG BACK UP to its opening height and vanished from there.
+    // The drag had feedback; the release threw it away and replaced it with a jump
+    // in the wrong direction.
+    const leave = () => {
+      if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
+      want = null;
+      if (frame) { cancelAnimationFrame(frame); frame = 0; }
+      const gone = () => {
+        if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
+        el.style.transition = "";
+        el.style.transform = "";
+        span = 0;
+        bye.current?.();
+      };
+      // AT REST THERE IS NO BOX TO SLIDE OUT OF, and a dismissal can come from a
+      // press on the ✕ or a tap outside as well as from a drag. Give it the one
+      // it has, at the offset it is already at, so the exit starts from where the
+      // sheet visibly is either way.
+      if (!span) {
+        span = Math.round(el.getBoundingClientRect().height) || resting;
+        showing = span;
+        el.style.transition = "none";
+        el.style.setProperty("--tp-sheet-h", `${span}px`);
+        el.style.transform = "translateY(0px)";
+      }
+      if (reduced() || !span) { gone(); return; }
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.style.transition = `transform ${EXIT_MS}ms cubic-bezier(.35,0,.75,.35)`;
+        el.style.transform = `translateY(${span}px)`;
+      }));
+      // THE SHEET GOES WHEN THE ANIMATION DOES, timer and not `transitionend`: a
+      // backgrounded tab never sends one, and a surface that will not close is a
+      // worse defect than one that closes without sliding.
+      landingTimer = setTimeout(gone, EXIT_MS + 60);
+    };
+
+    // DECLARED BEFORE THE FIRST LAYOUT RUNS, and that is not tidiness. Every one
+    // of the functions above reads `drag` to know whether the reader has hold of
+    // the sheet — `handBack` most of all — and `enter` calls `handBack` straight
+    // away for a reader who has asked for no motion. With the declaration below
+    // this line that is a temporal dead zone: `ReferenceError: Cannot access
+    // 'drag' before initialization`, thrown at mount, on every phone with motion
+    // reduced. It was latent for as long as the mount path happened not to reach
+    // `handBack`, and the entrance animation is what made it reach it.
     let drag = null;
     // Set on a release that was a real drag, and read by the bar's own click
     // handler below — see the note there.
     let dragged = false;
+
+    measure();
+    if (anchors.length) enter(anchors[0]);
     // WHAT DRAGS IMMEDIATELY. The owner's ruling: "the bar is too small to drag.
     // the whole header bar should act as the bar. the bar is there just to make
     // it intuitive." So the mark is a SIGN and the head is the TARGET — 36 by 4
@@ -1512,7 +1604,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
         from: e.clientY, at: e.clientY, when: e.timeStamp,
         height: el.getBoundingClientRect().height, v: 0, live: onGrip, moved: false, id: e.pointerId,
       };
-      if (onGrip) claim(false);
+      if (onGrip) claim(false, e.clientY);
     };
 
     // CLAIM THE AXIS, AND CAPTURE ONLY WHERE CAPTURE IS THE POINT.
@@ -1531,9 +1623,27 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // `window`, so nothing was gained for the cost. It stays on the BODY path,
     // where it has a different job: the body is a scroll container, and capture is
     // what stops it scrolling under a drag that started inside it.
-    const claim = (capture) => {
+    const claim = (capture, y) => {
       if (!drag) return;
       drag.live = true;
+      // WHERE THE SHEET IS, CARRIED FORWARD, AND WHERE THE FINGER WAS LAST SEEN.
+      //
+      // THE OWNER'S REPORT: "in the same motion i cannot drag up and down both.
+      // this creates flakiness." The height was computed absolutely from the
+      // gesture's origin — `drag.height - dy` — and then clamped to the tallest
+      // anchor. So 90px of overshoot at the top had to be paid back pixel for
+      // pixel before a reversal moved anything: the sheet simply stopped
+      // answering the finger, for a reason nothing on the screen explained.
+      // Measured in Chromium: "the sheet ignored the reversal: top went 51 then
+      // 51 when the finger came back down."
+      //
+      // A RUNNING POSITION AND A PER-MOVE STEP instead. The clamp then applies to
+      // each step rather than to an accumulating total, so overshoot costs
+      // nothing and the first pixel of a reversal is the first pixel of movement
+      // — which is how every native sheet behaves and what "in the same motion"
+      // means.
+      drag.pos = drag.height;
+      drag.mark = y;
       // NOT `liftOff` HERE. A press on the header is a press — the bar's own
       // click cycles the anchors — and lifting the box to the tallest anchor on
       // `pointerdown` made every tap resize the sheet and then need a landing to
@@ -1544,6 +1654,23 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
         try { el.setPointerCapture(drag.id); } catch { /* an engine without capture */ }
       }
       el.style.touchAction = "none";
+      // AND THE BROWSER'S OTHER GESTURE IS A SELECTION, which is the half that was
+      // missing and the cause of the owner's "flakiness".
+      //
+      // MEASURED IN CHROMIUM. A drag from the header read `box 793px, no offset`
+      // one leg into a three-leg gesture — the shape `handBack` leaves, so a
+      // LANDING had run mid-drag, which only happens when `drag` is already null.
+      // What nulled it was `pointercancel`: the header holds a title and a
+      // portrait, and dragging across selectable text (or a picture) makes the
+      // engine start its own selection or native drag and cancel the pointer it
+      // handed us. Every leg after that moved nothing, and the sheet had snapped
+      // to an anchor for no reason a reader can see.
+      //
+      // `touch-action: none` says "do not scroll this"; it does not say "do not
+      // select this". Both have to be said, and neither is a preventDefault on
+      // pointerdown — that would take the ✕ its focus and the header its press.
+      el.style.userSelect = "none";
+      el.style.webkitUserSelect = "none";
       if (body?.current) body.current.style.touchAction = "none";
       // A DRAG SAYS SO HERE, not on its first move. `will-change: transform`
       // promotes a layer, and promoting one on the first move is promoting it at
@@ -1567,7 +1694,13 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       if (Math.abs(dy) >= SLOP) drag.moved = true;
       if (!drag.live) {
         if (Math.abs(dy) < SLOP) return;
-        claim(true);
+        // FROM WHERE THE SLOP RAN OUT, which is neither the pointerdown nor here.
+        // The four pixels of slop are the price of telling a tap from a drag, so
+        // the sheet does not owe them — but the rest of this move IS travel, and
+        // handing `claim` the current y threw all of it away: the first committed
+        // move moved nothing, which on a slow deliberate drag is the whole gesture
+        // starting late.
+        claim(true, drag.from + (dy > 0 ? SLOP : -SLOP));
       }
       // A SAMPLE HAS TO SPAN LONG ENOUGH TO MEAN SOMETHING. `dy / dt` between two
       // moves delivered in the same tick is a division, not a speed — and a
@@ -1583,7 +1716,13 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
         drag.when = e.timeStamp;
       }
       if (!drag.lifted) { drag.lifted = true; liftOff(drag.height); }
-      put(clampDrag({ height: drag.height - dy, anchors }));
+      // ONE STEP AT A TIME, CLAMPED EACH TIME. See `claim`: clamping an absolute
+      // height meant overshoot had to be paid back before a reversal moved the
+      // sheet at all.
+      const step = drag.mark - e.clientY;
+      drag.mark = e.clientY;
+      drag.pos = clampDrag({ height: drag.pos + step, anchors });
+      put(drag.pos);
     };
 
     const up = (e) => {
@@ -1591,14 +1730,30 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       const was = drag;
       drag = null;
       el.style.touchAction = "";
+      el.style.userSelect = "";
+      el.style.webkitUserSelect = "";
       if (body?.current) body.current.style.touchAction = "";
       try { el.releasePointerCapture(was.id); } catch { /* never held it */ }
       el.classList.remove("is-dragging");
       if (!was.live) return;
       dragged = was.moved;
+      // A CANCEL IS NOT A RELEASE. `pointercancel` means the engine took the
+      // gesture — a native selection, a system edge swipe, a call arriving — and
+      // the reader let go of nothing. Landing it on the nearest anchor to a
+      // PROJECTION then invents a decision out of an interruption, which is the
+      // jump-to-a-stop-mid-drag that reads as flakiness. The sheet goes back to
+      // the anchor the gesture started from, and a cancel never dismisses:
+      // nobody has asked for that.
+      if (e && e.type === "pointercancel") {
+        const rank = anchors.indexOf(was.height);
+        settle(rank >= 0 ? was.height : landing({ height: was.height, velocity: 0, anchors }).height ?? anchors[0]);
+        return;
+      }
       const out = landing({ height: span ? showing : el.getBoundingClientRect().height, velocity: was.v, anchors });
-      settle(out.dismiss ? anchors[0] : out.height);
-      if (out.dismiss) bye.current?.();
+      // NOT `settle(anchors[0])` THEN `bye`, which sprang the sheet back UP to its
+      // opening height and dismissed it from there — see `leave`.
+      if (out.dismiss) { leave(); return; }
+      settle(out.height);
     };
 
     // THE VIEWPORT MOVES WITHOUT A SCROLL — a phone's address bar collapsing, the
@@ -1726,6 +1881,8 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       // the reader's scroll with it.
       el.style.transform = "";
       el.style.touchAction = "";
+      el.style.userSelect = "";
+      el.style.webkitUserSelect = "";
       if (body?.current) body.current.style.touchAction = "";
       step.current = () => {};
       refit.current = () => {};
