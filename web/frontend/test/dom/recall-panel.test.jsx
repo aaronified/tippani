@@ -25,6 +25,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { rulesNaming } from '../css-rules.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Every path the panel asks for, in order, so a test can say which card was
@@ -107,6 +108,21 @@ describe('the mark is a door', () => {
     await waitFor(() => expect(panel(), 'pressing the recall mark opened nothing').toBeTruthy())
     press()
     expect(panel(), 'pressing it again left the panel open, so there is no way back out with the same control').toBeFalsy()
+  })
+
+  // A ROW WITH NO ID CANNOT OPEN, AND MAY NOT SAY IT DID. `aria-expanded` is a
+  // promise to a reader who cannot see whether it was kept; it was read off
+  // `open` alone while the panel was gated on the id, so a press announced a
+  // panel that never arrived.
+  it('does not announce a panel it cannot open', () => {
+    render(<ReviewDot item={{ book_id: 3, created_at: '2026-01-01 09:00:00' }} />)
+    expect(mark().hasAttribute('aria-expanded'), 'a mark with no card behind it claims to be expandable').toBe(false)
+    press()
+    expect(panel(), 'a mark with no card behind it opened something').toBeFalsy()
+    expect(mark().getAttribute('aria-expanded'), 'the press left the mark claiming a panel is open').toBeNull()
+    // And it still swallows the press: the alternative is one row where pressing
+    // the mark opens the quote and every other row where it does not.
+    expect(asked, 'a mark with no card behind it asked the server about one').toEqual([])
   })
 
   it('is a control the app can see, and says which state it is in', () => {
@@ -277,6 +293,34 @@ describe('what the panel says', () => {
     expect(document.querySelector('.recall-log li'), 'a card with no answers drew a log row').toBeFalsy()
   })
 
+  // A QUOTE SAVED THIS WEEK AND ALREADY ANSWERED IS BOTH THINGS AT ONCE, and it
+  // is the state the case above could not reach.
+  //
+  // `reviewStatus` has a grace-week branch — a quote added in the last seven days
+  // reads "remembered" whatever its schedule says, mirroring the server — and
+  // that branch returns BEFORE the verdict is computed. The panel's facts table
+  // is gated on whether the card has been reviewed, which is a different question
+  // from which branch answered it, so a quote saved four days ago and answered
+  // once in scored practice went down the grace-week branch and the panel printed
+  // "Half-life NaN mo" beside a mark saying "added this week".
+  //
+  // The fixture in the agreement case above is eight months old, so it never
+  // enters the branch: the test asserting the mark and the panel agree about this
+  // number could not reach the state where they disagree. This one starts there.
+  it('names a real half-life for a quote that is inside its first week and already answered', async () => {
+    const days = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+    const newborn = { id: 7, book_id: 3, quote: 'the sleeper must awaken', created_at: days(4), reviewed: true, stability: 12, last_reviewed_at: days(1), last_result: 'got' }
+    answer = { ...CARD, created_at: days(4), stability: 12, last_reviewed_at: days(1), due_in_days: 11, history: CARD.history.slice(0, 1) }
+    render(<ReviewDot item={newborn} />)
+    press()
+    await waitFor(() => expect(document.querySelector('.recall-facts')).toBeTruthy())
+    const facts = document.querySelector('.recall-facts').textContent.replace(/\s+/g, ' ')
+    expect(facts, `the panel printed ${facts} about a quote saved four days ago`).not.toMatch(/NaN|undefined|Infinity/)
+    // And a real duration, not a blank where one belongs.
+    expect(factValue('common.recall.half-life.label'), 'the half-life cell is empty for a quote inside its first week')
+      .toMatch(/\d+\s*(h|d|w|mo)\b/)
+  })
+
   // A CARD KEPT OUT OF THE QUIZ HAS NO NEXT REVIEW TO NAME. "In 21 days" is a
   // promise nothing is going to keep, and the reader who excluded it is exactly
   // the one who would not remember doing so.
@@ -376,16 +420,19 @@ describe('the behaviour is the mark\'s', () => {
   // floor: that shape applies at every width, phone included, and there is no
   // narrower rule for the phone one to override. The 44px phone box itself is the
   // next case's business, and the browser probe is what proves the count held.
+  //
+  // AND THE SELECTOR IS READ WHOLE. Both cases below went through `cssRules`
+  // after a rater slid `.hand-card .status-mark` into the MIDDLE of an existing
+  // selector list and every one of 3,584 tests stayed green: the old split took
+  // the last line of the list, so a selector with anything after it was
+  // invisible. `test/css-rules.js` carries the argument.
   it('is never given a bare px box under the touch floor', () => {
-    const css = src('index.css')
     const FLOOR = 44
     const bad = []
-    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-      const sel = m[1].split('\n').pop().trim()
-      if (!/\.status-mark\b/.test(sel)) continue
-      for (const d of m[2].matchAll(/\b(width|height|min-width|min-height)\s*:\s*([^;]+)/g)) {
+    for (const r of rulesNaming(src('index.css'), 'status-mark')) {
+      for (const d of r.body.matchAll(/\b(width|height|min-width|min-height)\s*:\s*([^;]+)/g)) {
         const px = /^\s*(\d+(?:\.\d+)?)px\s*$/.exec(d[2])
-        if (px && Number(px[1]) < FLOOR) bad.push(`${sel} { ${d[1]}: ${d[2].trim()} }`)
+        if (px && Number(px[1]) < FLOOR) bad.push(`${r.sel} { ${d[1]}: ${d[2].trim()} }`)
       }
     }
     expect(bad,
@@ -398,14 +445,37 @@ describe('the behaviour is the mark\'s', () => {
   // floor; this one may not join them, so it wears the pair rule's 44 and skips
   // the narrowing — 10px of reach the eye cannot see, in the direction the pack
   // asks for.
-  it('keeps the whole floor at phone width instead of the narrowing beside it', () => {
-    const css = src('index.css')
-    const narrowed = []
-    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-      const sel = m[1].split('\n').pop().trim()
-      if (!/\.status-mark\b/.test(sel)) continue
-      if (/\b(?:min-)?width\s*:\s*3\dpx/.test(m[2])) narrowed.push(sel)
+  // EVERY QUOTE-CARD ACTION ROW CARRIES IT, and the guard is a sweep because the
+  // failure is an OMISSION. Library's `ActionRow`, Movies' `Frame` and Home's
+  // favourite tile each draw the same row — ♥, copy, share, the colour dots and
+  // the ⋯ — and Home's own comment already records what happens when they drift:
+  // "a reader who has learned the row on a book's page should not have to
+  // re-learn it here — which is exactly what shipped for one release". It
+  // happened again here: the mark moved into that row on two of the three and
+  // Home kept the old one, with no way to reach a quote's history from the
+  // favourites board.
+  //
+  // Read off the source, because rendering those three needs three screens' worth
+  // of props and the claim is about which files draw the mark at all.
+  it('is drawn on every action row that draws the rest of that row', () => {
+    const missing = []
+    for (const f of ['Library.jsx', 'Movies.jsx', 'Home.jsx']) {
+      const body = src(f)
+      // The row is identified by the two controls that have always been in it,
+      // rather than by a class: `Hearts` beside `QuoteActions` is that row and
+      // nothing else in the app is.
+      if (!/<Hearts\b/.test(body) || !/<QuoteActions\b/.test(body)) continue
+      if (!/<ReviewDot\b/.test(body)) missing.push(f)
     }
+    expect(missing,
+      'these draw a quote card\'s action row without the recall mark, so the history is reachable from some screens and not others')
+      .toEqual([])
+  })
+
+  it('keeps the whole floor at phone width instead of the narrowing beside it', () => {
+    const narrowed = rulesNaming(src('index.css'), 'status-mark')
+      .filter((r) => /\b(?:min-)?width\s*:\s*(?:[123]?\d)px/.test(r.body))
+      .map((r) => r.sel)
     expect(narrowed,
       'the recall mark takes the in-card narrowing, so every quote card on five surfaces adds one control under the touch floor and the 390px ratchet rises')
       .toEqual([])

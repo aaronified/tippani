@@ -1107,6 +1107,31 @@ would have been threaded after all; and `usePanelStack` writes `tpPanelDepth` in
 `window.history.state`, so one shell-level host serving all four would be two live stacks
 fighting over one key.
 
+## AR. The work-rater's eighteenth pass, 7 September — 7/10
+
+Seven findings on the recall popup. **Five were real defects in code pushed an hour
+earlier**, and the shape of the pass is worth naming before the table: three of the seven
+are about GUARDS rather than about the app. A rater that mutates the tests keeps finding
+things; a rater that only reads them would have passed all three.
+
+| # | Defect | Status |
+|---|---|---|
+| AR1 | **The panel printed "Half-life NaN mo".** `reviewStatus` has a grace-week branch — a quote added in the last seven days reads *remembered* whatever its schedule says — and that branch returned before `half` was computed, so it came back without the field. The panel's facts table is gated on whether the card has been REVIEWED, which is a different question from which branch answered: a quote saved four days ago and answered once in scored practice is both, and drew NaN beside a mark saying "added this week" | **FIXED** by computing the floored half-life ABOVE the first way out, so no branch can be written that forgets it. **And the test that claimed to cover this could not reach it**: its fixture is eight months old, so the case asserting the mark and the panel agree about this very number never entered the branch where they do not. A new case starts there, and the mutation reproduces the rater's string exactly |
+| AR2 | **`npm run glossary:check` failed on HEAD.** `docs/ui-glossary.html` was committed carrying the PRE-fix stylesheet — it still embedded the hand-rolled `.recall-log` mask (AQ6) and `.hand-card .status-mark{width:34px}` (AQ7), both of which that same commit claims to have fixed. Generated at 10:33, and the CSS changed at 10:37 | **FIXED** by regenerating last, after the final CSS. The order is the lesson: a generated artefact committed mid-change records the change's own intermediate state, and CLAUDE.md lists this gate by name |
+| AR3 | **Both of AQ7's guards were blind to a selector that is not last in its list.** They split the stylesheet with `m[1].split('\n').pop()` — the last line of the selector list, because the capture also swallows the `@media (...) {` above it. The rater slid `.hand-card .status-mark` into the MIDDLE of the narrowing rule and all 3,584 tests stayed green, so AQ7's claim was false as written | **FIXED, and in three files rather than one.** `test/css-rules.js` splits on brace depth and recurses into at-rules, keeping the whole selector list; `scroll-containment.test.js` and `scroller-boxes.test.js` carried the identical idiom and the identical hole, guarding other people's code — a chaining scroller declared mid-list was invisible to the first and a box's overflow to the second. All three converted, and each mutated in both positions to prove it catches what it could not see before |
+| AR4 | **AQ1's claim was false for 0065.** `recall_log_test.go` deleted the utterance LAST, when its rows were the only ones left — so "a trigger took more than its own kind" had nothing to be true of, and dropping `kind = 'utterance'` from 0065 survived | **FIXED by reordering the deletes**, newest kind first, which leaves four rows of other kinds standing behind it. The mutation now fails on two lines. The order was the assertion and nothing said so |
+| AR5 | **The panel's clock was not floored under test.** Removing `MAX(r.stability, reviewFloorSQL)` from `due_in_days` survived every case, because no fixture in the file had a stability below seven — the only region where the floor does anything | **FIXED** by a case with a stored half-life of three, five days old: floored it reads two days LEFT, unfloored two days OVERDUE, and the deck is asked which it agrees with rather than the arithmetic being restated |
+| AR6 | **A comment describing the version before the change.** `Library.jsx` still read "IT IS THE ONE CONTROL HERE THAT IS NOT ONE" over a `<button>` that opens a panel | **FIXED**, and it keeps why the mark still LEADS: what it does is read rather than change. Movies' twin corrected with it |
+| AR7 | **Home's quote card was left behind.** The mark moved into the action row on Library and Movies and not on Home's favourite tile — so the history was reachable from four screens and not the fifth. Home's own comment already warns about exactly this: *"a reader who has learned the row on a book's page should not have to re-learn it here — which is exactly what shipped for one release"* | **FIXED.** `<ReviewDot item={f.raw} />` leads that row too, and a sweep now fails when a file drawing `Hearts` beside `QuoteActions` — which is that row and nothing else in the app — draws no mark. Also fixed with it: `aria-expanded` read `true` over a panel that could not open when a row carries no id, and the half-life column's comment claimed more than a pre-0066 row can know |
+
+**WHAT THE RATER GOT RIGHT THAT A READER WOULD NOT.** AR1, AR3, AR4 and AR5 are all one
+failure wearing four faces: **a test whose fixture cannot reach the state it claims to
+check.** Eight months old, so never in the grace week. Last in the list, so nothing after
+it. Deleted last, so nothing left to protect. Above the floor, so the floor does nothing.
+Every one passed against a broken implementation, and every one was written in the same
+hour as the code it checks — which is the countermeasure AP already recorded as the one
+that keeps failing.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

@@ -1909,7 +1909,8 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           dialogue is an annotation with different credits, and the two cards
           should not put the same control in two different places. */}
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        {/* FIRST — the card's state before the things you can do to it. See
+        {/* FIRST — the card's state before the things you can do to it, and a
+            door to the whole of it since the owner asked for the popup. See
             AnnotationCard's note at the same place. */}
         <ReviewDot item={d} />
         <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />

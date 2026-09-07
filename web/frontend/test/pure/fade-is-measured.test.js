@@ -27,23 +27,19 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { cssRules } from '../css-rules.js'
+
 const SRC = process.env.TIPPANI_SRC
 const CSS = readFileSync(join(SRC, 'index.css'), 'utf8')
 
-// The same hand-rolled split its two siblings use, and for the same reason: the
-// file nests one level (@layer / @media) and the blocks that matter never nest in
-// each other.
-function rules() {
-  const out = []
-  const re = /([^{}]+)\{([^{}]*)\}/g
-  let m
-  while ((m = re.exec(CSS))) {
-    const sel = m[1].split('\n').pop().trim()
-    if (!sel || sel.startsWith('@')) continue
-    out.push({ sel, body: m[2] })
-  }
-  return out
-}
+// `cssRules` RATHER THAN THE SPLIT ITS SIBLINGS USE. Both of them take
+// `m[1].split('\n').pop()` — the last line of the selector list — so a selector
+// with anything after it on the list is invisible to them. This sweep asks
+// whether a fade hangs off the MEASURED attribute, and a rule it cannot see is a
+// rule it passes: exactly the failure it was written to catch, one level up. See
+// `test/css-rules.js`, which a rater found by sliding a selector into the middle
+// of a list and watching every test stay green.
+const rules = () => cssRules(CSS)
 
 // A fade, as opposed to any other mask. `url(...)` masks are pictures — the
 // paper grain is one — and they are not claims about scrolling.

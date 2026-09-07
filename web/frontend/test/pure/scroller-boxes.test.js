@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { cssRules } from '../css-rules.js'
 import { sourcesUnder } from '../src-files.js'
 
 const SRC = process.env.TIPPANI_SRC
@@ -28,17 +29,13 @@ const CSS = readFileSync(join(SRC, 'index.css'), 'utf8')
 // Every rule block as { sel, body } — the same hand-rolled split
 // scroll-containment.test.js uses, and for the same reason: the file nests one
 // level (@layer / @media) and the blocks that matter never nest in each other.
-function rules() {
-  const out = []
-  const re = /([^{}]+)\{([^{}]*)\}/g
-  let m
-  while ((m = re.exec(CSS))) {
-    const sel = m[1].split('\n').pop().trim()
-    if (!sel || sel.startsWith('@')) continue
-    out.push({ sel, body: m[2] })
-  }
-  return out
-}
+// `cssRules` RATHER THAN A LOCAL SPLIT. The split here took
+// `m[1].split('\n').pop()` — the last line of the selector list — so the
+// declarations landing on a class named anywhere but the end of its rule's
+// selector list were not collected: a box given its overflow on such a line read
+// as a box with no overflow, and one given a HEIGHT there read as unbounded. The
+// same hole, in the same idiom, in three files. See `test/css-rules.js`.
+const rules = () => cssRules(CSS)
 
 // Every declaration that lands on `.cls` itself, from every block that names it
 // — a rule at one width and a restatement in a media query both count, and so

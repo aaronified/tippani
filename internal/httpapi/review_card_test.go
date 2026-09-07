@@ -251,6 +251,57 @@ func TestRecallCardAgreesWithTheDeckAboutDue(t *testing.T) {
 	}
 }
 
+// AND IT AGREES ABOUT A CARD WHOSE STORED HALF-LIFE IS UNDER THE FLOOR.
+//
+// The schedule never asks a card sooner than `reviewMinStability`, however small
+// the number in the row — so the clock the panel prints has to be floored the
+// same way. It was not tested: a rater took `MAX(r.stability, …)` out of
+// `due_in_days` and every case passed, because no fixture in the file had a
+// stability below seven. Five days after a stored half-life of three, the floored
+// answer is two days LEFT and the unfloored one is two days OVERDUE — opposite
+// verdicts, and the deck's is the floored one.
+func TestRecallCardFloorsTheClockTheSameWayTheDeckDoes(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	_, ids := seedReviewBook(t, c, "Dune", 1)
+	seedDistractorBook(t, srv, c, "Neuromancer")
+	ageSeededItems(t, srv)
+	c.mustDo("POST", "/review/answer",
+		map[string]any{"kind": kindBook, "id": ids[0], "result": "got", "mode": "daily"}, http.StatusOK)
+	// A half-life under the floor, five days ago. Written straight in because
+	// `nextStability` will not produce one — the ladder's first rung IS the floor,
+	// which is exactly why the read has to floor it rather than trust the column.
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE item_reviews SET stability = 3,
+		                         last_reviewed_at = datetime('now', '-5 days'),
+		                         last_touched_at = datetime('now', '-5 days')
+		  WHERE kind = 'book' AND item_id = ?`, ids[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	got := recallCard(t, c, kindBook, ids[0])
+	if got.DueInDays == nil {
+		t.Fatal("a scheduled card came back with no clock")
+	}
+	// Floored: MAX(3, 7) - 5 = 2 days left. Unfloored: 3 - 5 = -2, overdue.
+	if *got.DueInDays <= 0 {
+		t.Errorf("the clock reads %.2f days — the stored half-life was used raw, so the panel calls a card overdue that the quiz will not ask for another two days",
+			*got.DueInDays)
+	}
+	if got.Due {
+		t.Error("the panel calls the card due")
+	}
+	// AND THE DECK IS THE ARBITER, not the arithmetic above: it floors the same
+	// value in `dueSQL`, so if the two ever part company this is which way.
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, http.StatusOK))
+	for _, it := range deck.Items {
+		if it.Kind == kindBook && it.ID == ids[0] {
+			t.Fatal("the deck offered the card while the panel called it not due — the floor is spelled differently in the two places")
+		}
+	}
+}
+
 // SOMEBODY ELSE'S MEMORY IS NOT VISIBLE, AND THE REFUSAL DOES NOT CONFIRM THE
 // CARD EXISTS. The repo's invariant: another user's row is 404, never 403.
 func TestRecallCardIsPrivateToItsReader(t *testing.T) {

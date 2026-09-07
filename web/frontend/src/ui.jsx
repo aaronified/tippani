@@ -6862,6 +6862,22 @@ function utcDays(ts, fallback) {
 // comes due, like the settings InfoDots.
 export function reviewStatus(item = {}) {
   const { reviewed, stability, last_reviewed_at, last_result, created_at } = item;
+  // `half` IS COMPUTED BEFORE ANY BRANCH, and that is a fix rather than a tidy.
+  //
+  // It used to be worked out beside the verdict, at the bottom, and returned by
+  // that return alone — so the two EARLY returns above it came back without the
+  // field. `RecallPanel` prints `fmtHalfLife(st.half)`, gated on whether the card
+  // has been reviewed, which is a different question from which branch answered:
+  // a quote saved four days ago AND answered once in scored practice is
+  // `reviewed` and inside its grace week, so the panel read `undefined` and drew
+  // "Half-life NaN mo" beside a mark saying "added this week".
+  //
+  // THE FIXTURE THAT MISSED IT was eight months old, so it never entered the
+  // branch — the test asserting the mark and the panel agree about this very
+  // number could not reach the state where they do not. A value every caller
+  // needs is computed once, above the first way out, so no branch can be written
+  // that forgets it.
+  const h = Math.max(Number(stability) || MIN_HALF_LIFE, MIN_HALF_LIFE);
   // New-item grace week (mirrors the server): remembered before any review,
   // and not yet in the Daily Quiz — unless a recorded lapse says otherwise.
   if (last_result !== "forgot" && utcDays(created_at, Infinity) < NEW_ITEM_DAYS) {
@@ -6869,11 +6885,11 @@ export function reviewStatus(item = {}) {
     return {
       key: "remembered",
       ...meta,
+      half: h,
       tip: t("common.status.tip", { name: t(meta.label), detail: t("common.status.new.detail") }),
     };
   }
-  if (!reviewed) return { key: "unseen", ...STATUS_META.unseen, tip: t(STATUS_META.unseen.label) };
-  const h = Math.max(Number(stability) || MIN_HALF_LIFE, MIN_HALF_LIFE);
+  if (!reviewed) return { key: "unseen", ...STATUS_META.unseen, half: h, tip: t(STATUS_META.unseen.label) };
   const elapsed = utcDays(last_reviewed_at, 0);
   const p = Math.pow(2, -elapsed / h);
   const key =
@@ -6893,10 +6909,10 @@ export function reviewStatus(item = {}) {
       ? t("common.status.due.detail")
       : t("common.status.half-life.detail", { span: fmtHalfLife(h) });
   // `half` IS THE FLOORED HALF-LIFE THIS VERDICT WAS REACHED ON, published rather
-  // than left for the caller to re-derive. The panel behind the dot prints it, and
-  // a second `Math.max(stability, MIN_HALF_LIFE)` there is a second place for the
-  // floor to be forgotten — a tooltip saying "half-life 7d" over a panel saying
-  // "3d" is one of the two lying and the reader cannot tell which.
+  // than left for the caller to re-derive: a second `Math.max(stability,
+  // MIN_HALF_LIFE)` in the panel is a second place for the floor to be forgotten,
+  // and a tooltip saying "half-life 7d" over a panel saying "3d" is one of the two
+  // lying with nothing on screen to say which.
   return { key, ...meta, half: h, tip: t("common.status.tip", { name: t(meta.label), detail: due }) };
 }
 
@@ -7012,10 +7028,18 @@ function RecallLog({ rows }) {
         <li key={`${a.answered_at}-${i}`} className={a.counted === false ? "is-idle" : ""}>
           <span className="recall-log-when">{fmtDate(a.answered_at)}</span>
           <span className="recall-log-said">{RECALL_RESULT[a.result] ? t(RECALL_RESULT[a.result]) : a.result}</span>
-          {/* THE HALF-LIFE THIS ANSWER PRODUCED, or the word saying it produced
-              none. Printing the number that still stood would say this answer
-              arrived at it, which for a practice run with counting off — or for
-              any skip — is not true. */}
+          {/* THE HALF-LIFE THAT STOOD AFTER THIS ANSWER, which is true of all
+              three cases, or the word saying the answer moved nothing. Printing
+              a number over an answer KNOWN to have moved nothing would say it
+              arrived at that number, which for a practice run with counting off
+              — or for any skip — is false.
+
+              A ROW FROM BEFORE 0066 KNOWS NEITHER, and prints the number. That
+              is the honest reading of the only fact it has: the value stood, and
+              nothing in the row says whether this answer is why. The claim
+              narrowed to fit rather than the rendering changing, because there
+              is no third thing to draw that a reader would read correctly — and
+              the rows are a handful, on one device, ending the day 0066 shipped. */}
           <span className="recall-log-span">
             {a.counted === false ? t("common.recall.uncounted.label") : fmtHalfLife(a.stability)}
           </span>
@@ -7165,6 +7189,13 @@ function RecallPanel({ kind, id, anchor, onClose, onRead }) {
 // controls to. The screens pass nothing; the kind comes from the row.
 export function ReviewDot({ item, side = "top" }) {
   const [open, setOpen] = useState(false);
+  // A ROW WITH NO ID HAS NOTHING TO OPEN, and the mark has to say so rather than
+  // announce a panel that will not arrive. The schedule is keyed `(kind, id)`, so
+  // without one there is no card to ask about; every list and search payload
+  // carries it, which is why this reads as belt and braces — but `aria-expanded`
+  // is a promise to a reader who cannot see whether it was kept, and it was set
+  // from `open` alone while the panel was gated on the id.
+  const canOpen = !!item?.id;
   // WHAT THE SERVER SAID, ONCE IT HAS SAID IT, and the mark reads that in
   // preference to the row it was handed. The row carries the schedule as it
   // stood when its list was fetched and the Daily Quiz moves it without the
@@ -7193,20 +7224,22 @@ export function ReviewDot({ item, side = "top" }) {
           // it opens — a label that described the press instead would leave a
           // screen reader with no way to hear the status at all.
           aria-label={st.tip}
-          aria-expanded={open}
+          aria-expanded={canOpen ? open : undefined}
           style={{ color: st.color }}
           onClick={(e) => {
             // These sit inside cards that are themselves pressable, and asking
-            // about a quote's memory must not also open the quote.
+            // about a quote's memory must not also open the quote. Swallowed even
+            // when there is nothing to open: the alternative is a press that
+            // opens the quote from one row and the panel from every other.
             e.preventDefault();
             e.stopPropagation();
-            setOpen((o) => !o);
+            if (canOpen) setOpen((o) => !o);
           }}
         >
           <IconRecall state={st.key} size={17} />
         </button>
       </Tooltip>
-      {open && item?.id ? (
+      {open && canOpen ? (
         <RecallPanel
           kind={reviewKindOf(item)}
           id={item.id}

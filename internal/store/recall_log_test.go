@@ -92,14 +92,23 @@ func TestRecallLogLeavesWithItsQuote(t *testing.T) {
 	// with the wrong `kind` in its WHERE would take the whole table with it, and a
 	// test that deleted all three at once could not tell that from three correct
 	// triggers.
+	//
+	// THE UTTERANCE GOES FIRST, and the order is the assertion rather than a
+	// preference. It ran LAST while its rows were the only ones left, so "did this
+	// trigger take more than its own kind" had nothing to be true of: a rater
+	// dropped `kind = 'utterance'` from 0065 and the test stayed green, because a
+	// trigger that deletes the whole table and a trigger that deletes its own
+	// three rows are the same trigger when three rows are all there is. Deleting
+	// the newest kind first leaves four rows of other kinds standing behind it,
+	// which is what the second assertion needs to be a claim.
 	for _, c := range []struct {
 		what, kind, table string
 		id                int64
 		left              int
 	}{
-		{"a highlight", "book", "annotations", ann, 4},
-		{"a film line", "screen", "dialogues", dlg, 2},
-		{"a standalone quote", "utterance", "utterances", utt, 0},
+		{"a standalone quote", "utterance", "utterances", utt, 4},
+		{"a highlight", "book", "annotations", ann, 2},
+		{"a film line", "screen", "dialogues", dlg, 0},
 	} {
 		must(`DELETE FROM `+c.table+` WHERE id = ?`, c.id)
 		if n := count(`SELECT count(*) FROM item_recalls WHERE kind = ? AND item_id = ?`, c.kind, c.id); n != 0 {

@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { cssRules } from '../css-rules.js'
 import { sourcesUnder } from '../src-files.js'
 
 const SRC = process.env.TIPPANI_SRC
@@ -24,17 +25,16 @@ const CSS = readFileSync(join(SRC, 'index.css'), 'utf8')
 // Every rule block, as { selector, body }. A hand-rolled split rather than a
 // parser: the file is nested only one level deep (@layer / @media around plain
 // rules), and the blocks that matter never nest inside each other.
-function rules() {
-  const out = []
-  const re = /([^{}]+)\{([^{}]*)\}/g
-  let m
-  while ((m = re.exec(CSS))) {
-    const sel = m[1].split('\n').pop().trim()
-    if (!sel || sel.startsWith('@')) continue
-    out.push({ sel, body: m[2] })
-  }
-  return out
-}
+// `cssRules` RATHER THAN A LOCAL SPLIT, and it closed a hole in this sweep as
+// well as in the one it was written for. The split here took
+// `m[1].split('\n').pop()` — the last line of the selector list, because the
+// capture also swallows the `@media (...) {` above it — so a scroller written as
+// one of several selectors on a list was invisible: `containingClasses()` missed
+// the classes it contributes, and a chaining scroller declared anywhere but the
+// last line of its own rule passed. A guard that cannot see a rule PASSES it,
+// which is the failure this whole file exists to catch, one level up. See
+// `test/css-rules.js`.
+const rules = () => cssRules(CSS)
 
 // A scroll container in the sense that matters: something the user can scroll
 // and therefore something whose end can chain.

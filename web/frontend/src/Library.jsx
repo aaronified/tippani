@@ -1431,11 +1431,16 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
   // shows is its ♥ and one quiet overflow glyph.
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5">
-      {/* FIRST, AND IT IS THE ONE CONTROL HERE THAT IS NOT ONE. Everything else
-          in this row does something to the quote; this says what the quote's
-          recall is. It leads because it is the card's state — the same position
-          the shelf chip takes on a work — and because a state read after four
-          verbs reads as a fifth verb. */}
+      {/* FIRST, BECAUSE IT IS THE CARD'S STATE — the same position the shelf chip
+          takes on a work, and because a state read after four verbs reads as a
+          fifth verb.
+
+          IT WAS "THE ONE CONTROL HERE THAT IS NOT ONE" until the owner asked the
+          mark to open the quote's recall history, and it is a control now: what
+          it does is READ rather than change, which is why it still leads instead
+          of joining the verbs. The sentence stayed true for exactly as long as
+          the mark stayed inert, and a comment that describes the version before
+          the change is worse than none — the next reader trusts it. */}
       <ReviewDot item={a} />
       <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
       <QuoteTools actions={atRow(acts)} alwaysVisible={actionsAlwaysVisible} />

@@ -63,6 +63,7 @@ import {
   QuoteActions,
   QuoteTools,
   shuffleSeeded,
+  ReviewDot,
   STATUS_META,
   toast,
   Tooltip,
@@ -1337,6 +1338,16 @@ export function FavouriteTile({
                   tile is open, which is already the deliberate act the hover gate
                   waits for. */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
+                {/* FIRST, for the reason AnnotationCard gives at the same place:
+                    it is the card's state rather than something you do to the
+                    card, and since the owner asked for the popup it is also the
+                    door to the whole recall history. Home was left behind when
+                    the mark moved into that row on Library and Movies — which is
+                    the defect the note above this row already warns about, in its
+                    own words: "a reader who has learned the row on a book's page
+                    should not have to re-learn it here". `f.raw` is the untouched
+                    quote row, so the mark reads its own kind off it. */}
+                <ReviewDot item={f.raw} />
                 {/* Where this quote lives, wearing that screen's own nav glyph — the
                     Library for a book, the Catalogue for a film or show, Quotes for
                     a standalone one. It was the words "Open book →" in a primary
