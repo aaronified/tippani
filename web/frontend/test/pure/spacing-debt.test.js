@@ -21,9 +21,11 @@
 // (lower) number below. Raising it is not a fix — if a screen genuinely needs a step
 // ROW cannot express, it restates `--row` on its own root, which is what makes these
 // per-screen constants rather than one global.
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+
+import { sourcesUnder } from '../src-files.js'
 
 // The same seam tokens.test.js uses: vitest runs from web/frontend for `npm test`
 // and from the repo root for `npx vitest --root web/frontend`.
@@ -36,9 +38,7 @@ const STEP = /\b(?:space-y-\d+|gap-y-\d+)\b/g
 const CEILING = 173
 
 function countedFiles() {
-  return readdirSync(SRC)
-    .filter((f) => f.endsWith('.jsx') || f.endsWith('.js'))
-    .sort()
+  return sourcesUnder((n) => n.endsWith('.jsx') || n.endsWith('.js'), 60).sort()
 }
 
 function debt() {

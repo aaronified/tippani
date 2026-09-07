@@ -29,13 +29,15 @@
 // `FormModal` takes `dirty`. Nothing about any particular screen, which is the
 // point — the first run of it named a block of seven plain inputs behind one
 // "Save" button on a panel whose head drew no ✓ at all, on three sheets.
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { sourcesUnder } from '../src-files.js'
+
 const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
-const FILES = readdirSync(SRC).filter((f) => /\.jsx$/.test(f))
+const FILES = sourcesUnder((n) => /\.jsx$/.test(n), 40)
 // COMMENTS ARE NOT CODE, and a scanner that forgets it finds tags nobody wrote.
 // `ui.jsx` explains its own `open` prop with the words "`{cond && <FormModal …>}`"
 // in a paragraph of prose, and that sentence was being counted as a call site —

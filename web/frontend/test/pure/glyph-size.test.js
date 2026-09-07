@@ -26,12 +26,14 @@
 // WHAT A TEST WRITER NEEDS TO KNOW: the paragraphs above, and that the glyphs
 // live in `ui.jsx` and are used across `src/`.
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { sourcesUnder } from '../src-files.js'
+
 const SRC = process.env.TIPPANI_SRC
-const files = readdirSync(SRC).filter((f) => /\.jsx?$/.test(f))
+const files = sourcesUnder((n) => /\.jsx?$/.test(n), 60)
 const sources = Object.fromEntries(files.map((f) => [f, readFileSync(join(SRC, f), 'utf8')]))
 
 // Every glyph a call site asks to size, and where it asked.

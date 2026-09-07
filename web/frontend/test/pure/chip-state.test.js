@@ -19,12 +19,14 @@
 // mounted with the right filters present, and the rule is about every call site
 // including the ones nobody has mounted. What is asserted is the RULE — a chip
 // whose class carries a state carries the state in ARIA too — not any screen.
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { sourcesUnder } from '../src-files.js'
+
 const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
-const files = readdirSync(SRC).filter((f) => f.endsWith('.jsx') || f.endsWith('.js'))
+const files = sourcesUnder((n) => n.endsWith('.jsx') || n.endsWith('.js'), 60)
 
 // Every `<button …>` whose className calls filterChipClass, as source text.
 //

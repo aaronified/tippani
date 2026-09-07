@@ -12,9 +12,11 @@
 // value", it is "someone adds `overflow-y: auto` next year and never thinks
 // about chaining at all", and only a sweep catches that.
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+
+import { sourcesUnder } from '../src-files.js'
 
 const SRC = process.env.TIPPANI_SRC
 const CSS = readFileSync(join(SRC, 'index.css'), 'utf8')
@@ -83,7 +85,7 @@ function containingClasses() {
 // an overflow utility, and it does not matter which side of an `=` it sits on.
 function classListsWithOverflow() {
   const out = []
-  const files = readdirSync(SRC).filter((f) => f.endsWith('.jsx') || f.endsWith('.js'))
+  const files = sourcesUnder((n) => n.endsWith('.jsx') || n.endsWith('.js'), 60)
   for (const file of files) {
     const text = readFileSync(join(SRC, file), 'utf8')
     text.split('\n').forEach((line, i) => {
@@ -116,8 +118,8 @@ describe('a scroll container written as a utility class', () => {
     // from here rather than writing their own.
     const ui = readFileSync(join(SRC, 'ui.jsx'), 'utf8')
     expect(ui, 'ui.jsx no longer exports a shared scrim class').toMatch(/export const SCRIM\b/)
-    const users = readdirSync(SRC)
-      .filter((f) => f.endsWith('.jsx') && f !== 'ui.jsx')
+    const users = sourcesUnder((n) => n.endsWith('.jsx'), 40)
+      .filter((f) => f !== 'ui.jsx')
       .filter((f) => /\bSCRIM(_CENTERED)?\b/.test(readFileSync(join(SRC, f), 'utf8')))
     expect(users.length, 'no screen takes the scrim from ui.jsx — they have gone back to their own')
       .toBeGreaterThan(3)

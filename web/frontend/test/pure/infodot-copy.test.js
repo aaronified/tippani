@@ -47,9 +47,11 @@
 // when this file was rewritten, which is the whole argument for selecting by key
 // rather than by the shape somebody happened to write.
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+
+import { sourcesUnder } from '../src-files.js'
 import { BUILTINS } from '../locale-file.js'
 
 // TIPPANI_SRC, not cwd — vitest is launched from web/frontend, see layout-width.
@@ -57,7 +59,7 @@ const SRC = process.env.TIPPANI_SRC
 
 export const INFODOT_MAX = 240
 
-const FILES = readdirSync(SRC).filter((f) => f.endsWith('.jsx')).sort()
+const FILES = sourcesUnder((n) => n.endsWith('.jsx'), 40).sort()
 
 // ---- the file's dots -------------------------------------------------------
 

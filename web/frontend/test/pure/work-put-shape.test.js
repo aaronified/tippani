@@ -21,9 +21,11 @@
 // the source and requires the shape instead: the body opens with a spread, and
 // the form's own fields override on top of it. A fourth site written the old way
 // fails here on the day it is written.
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+
+import { sourcesUnder } from '../src-files.js'
 
 const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
 
@@ -72,7 +74,7 @@ function bodyAt(text, i, all) {
 }
 
 function sites() {
-  const files = readdirSync(SRC).filter((n) => n.endsWith('.jsx')).sort()
+  const files = sourcesUnder((n) => n.endsWith('.jsx'), 40).sort()
   // One concatenated copy, so a builder called from another file still resolves.
   const all = files.map((f) => readFileSync(join(SRC, f), 'utf8')).join('\n')
   const found = []

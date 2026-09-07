@@ -16,9 +16,11 @@
 // hollow half of the claim. What is checkable everywhere is the DECLARATION, and
 // the declaration is the defect. Its sibling sweeps the boxes that DO scroll for
 // containment; this one sweeps the boxes that were asked to.
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+
+import { sourcesUnder } from '../src-files.js'
 
 const SRC = process.env.TIPPANI_SRC
 const CSS = readFileSync(join(SRC, 'index.css'), 'utf8')
@@ -53,7 +55,7 @@ function declarationsFor(cls) {
 // it was given. `axis` defaults to "x" in ui.jsx, so an omitted axis is sideways.
 function scrollers() {
   const out = []
-  for (const f of readdirSync(SRC).filter((n) => n.endsWith('.jsx'))) {
+  for (const f of sourcesUnder((n) => n.endsWith('.jsx'), 40)) {
     const text = readFileSync(join(SRC, f), 'utf8')
     const re = /<Scroller\b([^>]*)>/g
     let m

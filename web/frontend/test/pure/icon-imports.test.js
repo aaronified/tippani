@@ -43,13 +43,15 @@
 // vocabulary: the helpers every screen imports from a handful of modules. A name on
 // that list appearing in a file that does not declare it is never right.
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { sourcesUnder } from '../src-files.js'
+
 // TIPPANI_SRC, not cwd — the same seam infodot-copy uses.
 const SRC = process.env.TIPPANI_SRC
-const FILES = readdirSync(SRC).filter((f) => f.endsWith('.jsx')).sort()
+const FILES = sourcesUnder((n) => n.endsWith('.jsx'), 40).sort()
 
 // Used as a JSX element (<Foo ...>). A dotted tag (<Foo.Bar />) is captured at
 // its root, which is the binding that has to exist.

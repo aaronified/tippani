@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,431 frontend tests, across 542 test files** — the
+- **1,494 Go test functions and 3,434 frontend tests, across 543 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -158,7 +158,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 249 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 293 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 294 frontend
   ```
 
   THREE OF THE FOUR ARE NOW CHECKED RATHER THAN TRUSTED. This paragraph has said
@@ -178,7 +178,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
   recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
   1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, from
-  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, and from 1,494 / 3,426 / 541 before
+  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, and from 1,494 / 3,431 / 542 before
   this recount — which is why each one now sits beside the command that produces it.
   The last of those drifts is worth naming because it was one work session: a number
   recounted honestly at the start of a stretch is stale by the end of it.
@@ -369,9 +369,20 @@ worth nothing here and only execution counts. What the repo actually runs:
   the sibling of the first, in the commit that fixed the first. A per-file assertion is
   the wrong repair for exactly the reason this repo already states about screens: it is a
   line each, and that is how one of them goes on being right while the other quietly
-  stops. `test/src-files.js` is the one walk, and it THROWS below its floor rather than
+  stops. `test/src-files.js` is the shared walk, and it THROWS below its floor rather than
   returning a short list — a tree floor for a wrong root, a per-guard floor for a
   predicate that stopped matching.
+
+  **It is not yet the ONLY walk, and the count says so rather than the prose.** Twenty-eight
+  guards read a directory themselves; ten converted in the same commit — every one a plain
+  `readdirSync(SRC).filter(...)`, which is non-recursive, so all ten had been silently
+  skipping `src/demo/install.js`, and all ten still pass with it in scope. The remaining
+  eighteen read something else (`web/dist`, `src/textures`) or read the tree in a shape
+  that has to be looked at one at a time. `test/pure/one-walk.test.js` holds the line: a
+  NEW guard that walks by hand fails it by name, and the eighteen are a number that may
+  fall and never rise. A new guard is the case that matters — it is written by whoever has
+  just been bitten by the thing it checks, and is not thinking about whether its own walk
+  can come back empty.
 
   The per-branch rendering stayed as well, because the two answer different questions: the
   scope check knows a name is missing, and only a render knows the arm draws the right

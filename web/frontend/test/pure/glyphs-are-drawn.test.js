@@ -23,9 +23,11 @@
 // AND IT IS A RATCHET, NOT A BAN. The count may fall and never rise. A file that
 // genuinely needs one adds itself here with the reason, in a review where somebody
 // has to read the reason.
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+
+import { sourcesUnder } from '../src-files.js'
 
 const SRC = process.env.TIPPANI_SRC
 
@@ -70,8 +72,7 @@ function withoutComments(text) {
 
 function violations() {
   const out = []
-  for (const f of readdirSync(SRC)) {
-    if (!f.endsWith('.jsx') && !f.endsWith('.js')) continue
+  for (const f of sourcesUnder((n) => n.endsWith('.jsx') || n.endsWith('.js'), 60)) {
     const clean = withoutComments(readFileSync(join(SRC, f), 'utf8'))
     clean.split('\n').forEach((line, i) => {
       const m = line.match(DRAWN_AS_TEXT)
@@ -91,8 +92,9 @@ describe('every glyph on a screen', () => {
   it('and there is something to check, so this is not passing on an empty read', () => {
     // The extraction's own failure mode. Every file in src/ is read; if the
     // directory moved this would report zero violations and mean nothing.
-    const files = readdirSync(SRC).filter((f) => f.endsWith('.jsx'))
-    expect(files.length, 'no source files found — TIPPANI_SRC is wrong').toBeGreaterThan(20)
+    // `sourcesUnder` throws below its floor, so this is the second lock rather
+    // than the only one — and it names the file it expects, which a count cannot.
+    expect(sourcesUnder((n) => n.endsWith('.jsx'), 40), 'the walk is not reaching the app').toContain('App.jsx')
   })
 
   it('and the two a chip needs can be drawn at the chip\'s own scale', () => {
