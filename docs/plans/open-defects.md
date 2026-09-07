@@ -575,6 +575,21 @@ matters.
 seeded path, documented it on the backup path, and called the class fixed. A rule enforced
 on one path and written down on the other is a rule enforced on one path.
 
+## AE. The other half of a ratchet, 7 September
+
+Not a rater's finding. `spacing-debt.test.js` has always carried two cases — the count may
+not rise, AND the ceiling may not be left behind by its own progress — and the controls
+ratchet carried only the first. Section AB fixed an instance of the second (a ceiling
+belonging to another library) without fixing the rule.
+
+| # | Defect | Status |
+|---|---|---|
+| AE1 | **A ceiling the app has left behind is a gate with room in it.** Fix twenty sub-44px controls and the ceiling stays at 187: the gate then passes the next twenty that come back, silently, and the improvement is spent rather than kept. That is AB's 139 in slow motion, and nothing would have caught it | **FIXED.** `judge()` reports `slack` when the measured count is more than 5 below its ceiling, and slack fails the run with the number and the flag to re-record. Five is small on purpose — the seeded fixture measured 187 and 9 twice — and is there so one control behind a slow render does not fail a run that found nothing wrong |
+| AE2 | **The arithmetic was only reachable through a fifty-minute browser walk.** The rule went wrong twice — a ceiling from another library, and a missing ceiling that is not a failure — and both are arithmetic. Asking whether the rule was right meant spending an hour producing an input for it | **FIXED.** `scripts/screenshots/ratchet.mjs` holds `judge`, `failing` and `say`; `controls.mjs` and `controls-ratchet.test.js` import the same module, so the test is of the rule rather than of a copy of it. Six cases, in a millisecond: equal, one over, a fall inside the allowance, a fall past it, AB's own 48-against-187, and an unrecorded ceiling that is loud and still not a failure |
+
+**An unrecorded ceiling is deliberately not in the failing set**, and the case says so:
+failing there is how a ratchet gets deleted rather than filled in.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

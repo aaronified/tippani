@@ -35,6 +35,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import puppeteer from 'puppeteer-core'
 
 import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
+import { failing, judge, say } from './ratchet.mjs'
 
 const opts = {
   baseUrl: 'http://127.0.0.1:8080', timeoutMs: 30000, width: 1280, height: 1000, only: '',
@@ -1045,23 +1046,17 @@ if (opts.updateBaseline) {
 }
 
 const failed = FAILS.filter((k) => findings[k].length)
-// A MISSING CEILING IS NOT A REGRESSION. There is nothing to have risen from, and
-// failing there would mean a width nobody has recorded yet can never be run —
-// which is how the ratchet would get deleted rather than filled in. It is said
-// loudly instead, every run, until somebody records it.
-const risen = RATCHETS
-  .map((k) => ({ k, n: findings[k].length, was: bar[k] }))
-  .filter((r) => r.was !== undefined && r.n > r.was)
+// THE ARITHMETIC LIVES IN `ratchet.mjs`, so the rule can be asked about without
+// spending an hour producing an input for it — which is how it went wrong twice.
+// It judges both directions: a count that ROSE, and a ceiling the app has left
+// behind, which is the half that let 139 controls of room sit unnoticed.
+const rows = judge(Object.fromEntries(RATCHETS.map((k) => [k, findings[k].length])), bar)
 
 console.log('')
-for (const k of RATCHETS) {
-  const was = bar[k]
-  const n = findings[k].length
-  if (was === undefined) console.log(`RATCHET  ${k.padEnd(9)} ${n} — no baseline for ${shelf} at ${key}px; run with --fixture ${shelf} --update-baseline`)
-  else console.log(`${n > was ? 'FAIL   ' : 'ok     '} ${k.padEnd(9)} ${n} against a ceiling of ${was} for ${shelf} at ${key}px`)
-}
-for (const r of risen) {
-  console.log(`\n${r.k} ROSE${r.was === undefined ? '' : ` from ${r.was} to ${r.n}`} — the number may fall and never rise.`)
+for (const row of rows) console.log(say(row, key, shelf))
+for (const r of failing(rows)) {
+  if (r.state === 'rose') console.log(`\n${r.k} ROSE from ${r.was} to ${r.n} — the number may fall and never rise.`)
+  else console.log(`\n${r.k} FELL to ${r.n} and the ceiling still says ${r.was}. Record it, or the ${r.was - r.n} controls you just won pay for the next ${r.was - r.n} lost.`)
 }
 if (failed.length) console.log(`\nFAIL  ${failed.join(', ')}`)
-process.exit(failed.length || risen.length ? 1 : 0)
+process.exit(failed.length || failing(rows).length ? 1 : 0)

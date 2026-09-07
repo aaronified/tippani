@@ -28,10 +28,16 @@
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const REPO = join(process.env.TIPPANI_SRC, '..', '..', '..')
 const SHOTS = join(REPO, 'scripts', 'screenshots')
+
+// BY ABSOLUTE URL, because the probe lives outside the frontend's Vite root and a
+// relative specifier would be resolved against it. Same file the probe imports —
+// a copy of the arithmetic here would be a test of the copy.
+const { SLACK, failing, judge } = await import(pathToFileURL(join(SHOTS, 'ratchet.mjs')).href)
 
 const baseline = JSON.parse(readFileSync(join(SHOTS, 'controls-baseline.json'), 'utf8'))
 const harness = readFileSync(join(SHOTS, 'run-controls.sh'), 'utf8')
@@ -104,6 +110,36 @@ describe('the controls ratchet', () => {
     // invocation that must work without a library at all.
     const help = spawnSync(process.execPath, [join(SHOTS, 'controls.mjs'), '--help'], { encoding: 'utf8' })
     expect(help.status, '--help no longer works').toBe(0)
+  })
+
+  it('and judges both directions — a count that rose, and a ceiling left behind', () => {
+    // THE ARITHMETIC, ASKED IN A MILLISECOND. It used to live inside the probe,
+    // after a browser walk of thirty surfaces, so the only way to ask whether the
+    // rule was right was to spend an hour producing an input for it — which is
+    // how it went wrong twice without anyone noticing.
+    const at = (counts, bar) => Object.fromEntries(judge(counts, bar).map((r) => [r.k, r.state]))
+
+    expect(at({ small: 187 }, { small: 187 }), 'the measured number equalling its ceiling is not a failure')
+      .toEqual({ small: 'ok' })
+    expect(at({ small: 188 }, { small: 187 }), 'one more than the ceiling passed — the number may fall and never rise')
+      .toEqual({ small: 'rose' })
+    expect(at({ small: 187 - SLACK }, { small: 187 }), 'a fall inside the allowance is not a failure')
+      .toEqual({ small: 'ok' })
+
+    // THE HALF THAT IS NOT OBVIOUS, and the half that let 139 controls of room sit
+    // unnoticed: the thing got BETTER and the ceiling did not move, so the gate
+    // now has space in it and the next regression that size passes unseen. An
+    // improvement that is not written down is bought back by the next commit.
+    expect(at({ small: 187 - SLACK - 1 }, { small: 187 }), 'a ceiling the app has left far behind passed — that room is what the next regression spends')
+      .toEqual({ small: 'slack' })
+    expect(at({ small: 48 }, { small: 187 }), 'a ceiling from another library passed — this is the exact 139 that went unnoticed')
+      .toEqual({ small: 'slack' })
+
+    // AND A MISSING CEILING IS STILL NOT A REGRESSION. There is nothing to have
+    // risen from, and failing here is how a ratchet gets deleted rather than
+    // filled in. Loud, every run, until somebody records it — but not a failure.
+    expect(at({ small: 187 }, {}), 'a width nobody has recorded is judged as if it had').toEqual({ small: 'unrecorded' })
+    expect(failing(judge({ small: 187 }, {})), 'an unrecorded ceiling fails the run, so the ratchet gets deleted rather than filled in').toEqual([])
   })
 
   it('and has a ceiling at every width the harness actually runs', () => {

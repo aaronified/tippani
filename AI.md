@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,494 Go test functions and 3,435 frontend tests, across 543 test files** — the
+- **1,494 Go test functions and 3,436 frontend tests, across 543 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -462,6 +462,16 @@ worth nothing here and only execution counts. What the repo actually runs:
   a second full run returned the same two numbers across all thirty surfaces. An exact
   ceiling is only worth having if the count is stable — a second run of 186 or 188 would
   have meant recording a range and saying so.
+
+  **And the ratchet judges both directions now.** A count that ROSE is the easy half; a
+  ceiling the app has LEFT BEHIND is the other, and it is the half that let 139 controls of
+  room sit unnoticed — the thing gets better, the number stays, and the gate has space in
+  it until the next regression spends it. Both fail. That arithmetic moved out of
+  `controls.mjs` into `scripts/screenshots/ratchet.mjs` for a reason worth stating: while
+  it lived after a browser walk of thirty surfaces, the only way to ask whether the rule
+  was right was to spend an hour producing an input for it, and it went wrong twice without
+  anyone noticing. `controls-ratchet.test.js` imports the same module and asks it both ways
+  in a millisecond.
 
   **And the fingerprint had no geometry, so one control's whole effect was invisible.**
   A phone sheet's grab bar moves the sheet between its anchors and does nothing else —
