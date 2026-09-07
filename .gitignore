@@ -31,3 +31,6 @@ internal/importer/testdata/*_real/
 
 # A restored library is somebody's data. Never committed.
 *.tpbk
+
+# The archive and its password, supplied per machine — never committed.
+scripts/screenshots/backup.env

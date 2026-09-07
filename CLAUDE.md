@@ -44,24 +44,60 @@ against it cannot see a poster behind a medium glyph, a name long enough to trun
 card whose chip and whose credit line print the same performer. Every one of those was
 reported by the owner from their own phone and not one of them reproduced here.
 
-So **screenshots and probe runs go against a real backup**:
+So **screenshots and probe runs go against a real backup, and that is the default**. The
+owner's ruling, 7 September: *"why don't you use the backup instead for seeding? … save it
+in your claude.md to use it for all tests."*
+
+**`scripts/screenshots/backup.env` is where it lives, and it is gitignored.**
+`scratch-server.sh` reads it, so every harness in that directory picks the archive up with
+no flags at all — `make controls`, `make sheet-drag`, `make typescale` and the rest. Four
+names, and only those four are read out of that file:
 
 ```bash
-export TIPPANI_BACKUP=/path/to/tippanibackup*.tpbk
-export TIPPANI_BACKUP_PASSWORD=…            # the archive is sealed
-TIPPANI_BROWSER=chrome TIPPANI_BIND=127.0.0.1:8128   scripts/screenshots/run-with-backup.sh node scripts/screenshots/controls.mjs     --base-url http://127.0.0.1:8128 --width 390 --fixture backup
+TIPPANI_BACKUP=/path/to/tippanibackup*.tpbk   # the archive
+TIPPANI_BACKUP_PASSWORD=…                     # it is sealed
+TIPPANI_USER=…                                # the account INSIDE it
+TIPPANI_PASS=…
+```
+
+**THE PASSWORD IS NOT IN THIS FILE AND MUST NOT BE.** `CLAUDE.md` is committed; the
+archive is somebody's library and those credentials open it. The owner asked for the
+archive to be saved here for all tests, and this is that — the mechanism, not the secret.
+A machine without a `backup.env` has no `TIPPANI_BACKUP`, and every harness falls back to
+seeding and says so on its first line.
+
+**AND THE ACCOUNT MATTERS AS MUCH AS THE ARCHIVE.** The probe signs in, and a restored
+library has never heard of the harness's own username — the first backup run reported "did
+not render" on all thirty surfaces for exactly that reason, which reads like thirty broken
+screens and is one wrong login.
+
+**`make controls` takes the archive when `TIPPANI_BACKUP` is set** and the seeded
+fixture otherwise, and says which on its first line. It used to seed unconditionally, so
+the documented way to probe a real library was a hand-typed `run-with-backup.sh …
+controls.mjs …` line — and a line a person types is a line that gets typed wrong. Any
+other harness still takes the same shape:
+
+```bash
+TIPPANI_BROWSER=chrome scripts/screenshots/run-with-backup.sh node scripts/screenshots/sheet-drag.mjs --base-url http://127.0.0.1:8128
 ```
 
 `run-with-backup.sh` boots a scratch server on a fresh data dir and restores through
 `POST /auth/restore/upload`, the onboarding path — it is gated on the users table being
 empty, which a fresh mktemp dir is, and needs no session.
 
-**`--fixture` names the shelf, and `controls.mjs` needs it.** The touch-floor ratchet
-counts controls, and a bigger library draws more of them — so a ceiling recorded against
-the backup says nothing about a seeded run and the two must not be compared. They were,
-for a while: the seeded run measured 187 against the backup's 326 and printed `ok` with
-139 controls of slack. `make controls` passes `--fixture seed` itself; a backup run passes
-`--fixture backup`, and a run that names neither gets no ceiling and says so.
+**`--fixture` names the shelf, and `controls.mjs` refuses to run without it.** The
+touch-floor ratchet counts controls, and a bigger library draws more of them — so a
+ceiling recorded against the backup says nothing about a seeded run and the two must not
+be compared. They were, for a while: the seeded run measured 187 against the backup's 326
+and printed `ok` with 139 controls of slack. `make controls` names the shelf itself, both
+ways.
+
+**AND THE SEEDED FIXTURE IS NOT DETERMINISTIC**, which is the other reason to prefer the
+archive. Seeding provokes the app's own author lookups, every one of which comes back 403
+here — but WHICH ones land first varies between runs, so the people rows differ, so Home
+draws a different set of author chips, so the count moves. That is how the ratchet read
+187 three times and 188 on the fourth with no change to the app. A ceiling can only be
+exact over a library that does not drift, and a restored archive is one.
 
 **The archive is somebody's library and never leaves this machine.** The server binds to
 127.0.0.1, the data dir is a mktemp the trap removes, and the archive is NOT committed —

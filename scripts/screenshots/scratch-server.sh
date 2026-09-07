@@ -47,6 +47,42 @@
 # AND IT SWEEPS WHERE mktemp ACTUALLY PUTS THINGS. `mktemp -d` honours $TMPDIR, so
 # a hardcoded /tmp finds nothing on any machine that sets it.
 
+# THE ARCHIVE, IF THIS MACHINE HAS ONE. Every harness here can run against the
+# owner's real library instead of the seeded fixture, and the seeded one hides a
+# whole class of defect — no cover artwork, a cast of three, no name long enough
+# to truncate. It is also NOT DETERMINISTIC: seeding provokes the app's own author
+# lookups, which all 403 in this container, and which ones land first varies — so
+# the touch-floor count moves between runs with no change to the app.
+#
+# `backup.env` is gitignored and holds the path, the password and the account,
+# because the archive is somebody's library and those credentials open it: none of
+# it belongs in a committed file. A machine without one simply has no
+# `TIPPANI_BACKUP`, and every harness falls back to seeding and says so.
+#
+# THE ACCOUNT IS NOT PUT INTO `TIPPANI_USER` HERE. `run-with-backup.sh` does that,
+# after a restore has actually happened — because loaded straight, a SEEDED run
+# picked the archive's credentials up and tried to sign in to the fixture as
+# somebody who does not exist there. Every surface reported "did not render".
+scratch_backup_env() {
+  local here env_file
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  env_file="$here/backup.env"
+  [ -f "$env_file" ] || return 0
+  # Only the two names this is for, so a stray line in that file cannot set
+  # anything else in a shell that is about to run a browser as root.
+  local line key value
+  while IFS= read -r line; do
+    case "$line" in
+      TIPPANI_BACKUP=*|TIPPANI_BACKUP_PASSWORD=*|TIPPANI_BACKUP_USER=*|TIPPANI_BACKUP_PASS=*) ;;
+      *) continue ;;
+    esac
+    key="${line%%=*}"; value="${line#*=}"
+    # An environment already set wins, so a one-off run can override the file.
+    [ -n "${!key:-}" ] || export "$key=$value"
+  done < "$env_file"
+}
+scratch_backup_env
+
 scratch_sweep() {
   local root d
   root="${TMPDIR:-/tmp}"

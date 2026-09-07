@@ -14,6 +14,22 @@ set -euo pipefail
 # for the run this cost.
 # shellcheck source=scratch-server.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scratch-server.sh"
+
+# THE ARCHIVE FIRST, IF THERE IS ONE — and the decision belongs HERE, before
+# anything is built or booted. It was in the Makefile, which runs before
+# `scratch-server.sh` has read `backup.env`, so `make controls` could not see the
+# archive it was configured with and seeded anyway while reporting the backup
+# shelf's ceiling. One entry point, one decision, after the configuration is
+# loaded.
+HERE_EARLY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -n "${TIPPANI_BACKUP:-}" ] && [ -f "${TIPPANI_BACKUP}" ]; then
+  echo "controls: against the archive at $TIPPANI_BACKUP"
+  rc=0
+  bash "$HERE_EARLY/run-with-backup.sh" bash "$HERE_EARLY/controls-both.sh" backup "$@" || rc=$?
+  exit "$rc"
+fi
+echo "controls: against the seeded fixture (no TIPPANI_BACKUP; see scripts/screenshots/backup.env)"
+
 scratch_sweep
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -49,24 +65,22 @@ node seed-cast.mjs --base-url "http://$BIND" || true
 
 # Firefox refuses to start as root inside another user's X session, and this
 # harness has no use for a display either way.
-# `--fixture seed` NAMES THE SHELF THIS RUN IS AGAINST. The touch-floor count is a
-# fact about the library as much as about the app — a bigger library draws more
+# BOTH WIDTHS LIVE IN `controls-both.sh`, shared with the backup path. They differ
+# in one thing — which library the server is holding — so that is the only thing
+# they should differ in, and a run against a real archive had been reproducing the
+# rest from a line in CLAUDE.md that a person types.
+#
+# `seed` NAMES THE SHELF THIS RUN IS AGAINST. The touch-floor count is a fact
+# about the library as much as about the app — a bigger library draws more
 # controls — so a ceiling recorded against the owner's backup says nothing about
 # this one. It was compared across the two for a while: the seeded run measures
 # 187 against a ceiling of 326, which is 139 controls of slack in a gate whose
 # whole job is to have none.
-RUN=(env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY node controls.mjs --base-url "http://$BIND" --fixture seed)
-
-# THE PROBE'S CODES MEAN THINGS, AND THIS USED TO FLATTEN THEM ALL TO 1. `2` is a
-# refusal (no `--fixture`, or a shelf nobody has recorded) and `3` is "the app came
-# back clean but the touch floor was measured against nothing" — both invisible
-# through a `|| rc=1`, which is how the exit-3 rule could be written, tested and
-# documented while nothing that runs it could ever report one. The worst code wins,
-# so a real failure still outranks an unratcheted width.
+#
+# NOT `exec`, which replaces this shell so the EXIT trap never fires and the
+# scratch server outlives the run — the mistake `run-with-backup.sh` documents at
+# length, after four orphaned servers and nine data dirs holding a restored copy
+# of somebody's library were found on disk.
 rc=0
-worst() { [ "$1" -gt "$rc" ] && rc="$1"; return 0; }
-echo; echo "──── desktop (1280) ────"
-"${RUN[@]}" --width 1280 "$@" || worst "$?"
-echo; echo "──── phone (390) ────"
-"${RUN[@]}" --width 390 "$@" || worst "$?"
+bash "$HERE/controls-both.sh" seed "$@" || rc=$?
 exit "$rc"

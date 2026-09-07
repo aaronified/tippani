@@ -87,6 +87,17 @@ case "$onboarding" in
   *) echo "restore did not take: $onboarding" >&2; exit 1 ;;
 esac
 
+# THE ACCOUNT INSIDE THE ARCHIVE, handed on only now that a restore has happened.
+# The probe signs in, and a restored library has never heard of the harness's own
+# username — so without this every surface reports "did not render", which reads
+# like thirty broken screens and is one wrong login. It is mapped HERE rather than
+# loaded as `TIPPANI_USER` in `backup.env`, because a seeded run reading that file
+# then tried to sign in to the fixture as the owner.
+if [ -n "${TIPPANI_BACKUP_USER:-}" ]; then
+  export TIPPANI_USER="$TIPPANI_BACKUP_USER"
+  export TIPPANI_PASS="${TIPPANI_BACKUP_PASS:-}"
+fi
+
 cd "$HERE"
 [ -d node_modules ] || npm ci
 # NOT `exec`. It replaces this shell, so the EXIT trap above never fires — the

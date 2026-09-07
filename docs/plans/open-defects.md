@@ -699,6 +699,37 @@ finger rises, which is what the old rule was protecting, and the frame costs a c
 `make sheet-drag` exits 0, ten cases, including the new one that measures the mechanism
 rather than the outcome. Five new jsdom cases, each red without its own half of the fix.
 
+## AI. The probe seeds when it could restore, 7 September
+
+The owner, over the archive they had already shared once: *"why don't you use the backup
+instead for seeding? same one that I shared with you before. it must be gitignored, btw."*
+
+**Right, and it closes a defect I had just found and not yet named.** `make controls`
+seeded unconditionally, and the seeded fixture is NOT deterministic: seeding provokes the
+app's own author lookups, every one of which comes back 403 in this container — but WHICH
+ones land first varies between runs, so the people rows differ, so Home draws a different
+set of author chips, so the touch-floor count moves. That is how the ratchet read 187
+three times and 188 on the fourth **with no change to the app**, and the run I was about
+to call a regression was the fixture drifting.
+
+| # | Defect | Status |
+|---|---|---|
+| AI1 | **The documented way to probe a real library was a hand-typed command.** CLAUDE.md carried a `run-with-backup.sh … controls.mjs … --width 390` line, so the backup path reproduced the widths, the base URL and the shelf name from prose — and a line a person types is a line that gets typed wrong. It is also why that path went unratcheted for so long | **FIXED.** `make controls` takes the archive when `TIPPANI_BACKUP` is set and the fixture otherwise, and says which on its first line. `controls-both.sh` holds the widths and is shared by both paths: they differ in which library the server is holding and in nothing else |
+| AI2 | **The ratchet test checked one of the two paths.** It read `run-controls.sh` for a fixture name — so the backup path, the one that measures the app against a real library, was outside the guard | **FIXED.** It reads both entry points and requires every shelf either can name to have a ceiling. Naming only one fails it |
+| AI3 | **An exact ceiling over a drifting fixture is a gate that fails at random**, which is worse than one that is loose: it teaches the reader to re-run rather than to look | **FIXED by preferring the archive**, whose contents do not depend on what the run itself provoked. The seeded ceiling stays for a machine with no archive, with the drift named in `CLAUDE.md` so the next reader does not spend an hour diffing two runs as I did |
+
+**The archive is gitignored** (`.gitignore:33`, `*.tpbk`), lives outside the working tree,
+is passed by path in an environment variable, and is never copied into it. The server it
+is restored into binds to 127.0.0.1 and its data dir is a mktemp the trap removes.
+
+| AI4 | **The decision was in the Makefile, which runs before the configuration is read.** `scratch-server.sh` loads `backup.env`, and it is sourced INSIDE the harness — so `make controls` could not see the archive it had been configured with, seeded anyway, and reported the seeded shelf while I was reading the log for the backup's | **FIXED.** One entry point, one decision, after the configuration is loaded: `run-controls.sh` chooses before anything is built or booted, and the Makefile just calls it |
+| AI5 | **The archive's credentials leaked onto the seeded path.** Loaded as `TIPPANI_USER`/`TIPPANI_PASS`, they were picked up by a SEEDED run too, which then tried to sign in to the fixture as somebody who does not exist there — thirty surfaces reporting "did not render", which reads like thirty broken screens and is one wrong login | **FIXED.** `backup.env` names them `TIPPANI_BACKUP_USER`/`TIPPANI_BACKUP_PASS`, and `run-with-backup.sh` maps them onto `TIPPANI_USER` only after a restore has actually happened. The fixture and its account travel together or not at all |
+
+**And a wrapper's exit code is not the command's.** The first backup run reported "exit
+code 0" to me while `make` had returned 127 — `bash scripts/screenshots/controls-both.sh`
+resolved against `run-with-backup.sh`'s own `cd`, so the file was not found. The log said
+so on the line above. A background wrapper that ends in a `grep` reports the grep.
+
 ## Withdrawn claims
 
 Kept because the pattern matters more than any one of them.

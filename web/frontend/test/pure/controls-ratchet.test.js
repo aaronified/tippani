@@ -41,7 +41,12 @@ const SHOTS = join(REPO, 'scripts', 'screenshots')
 const { SLACK, canRecord, exitCode, failing, judge } = await import(pathToFileURL(join(SHOTS, 'ratchet.mjs')).href)
 
 const baseline = JSON.parse(readFileSync(join(SHOTS, 'controls-baseline.json'), 'utf8'))
-const harness = readFileSync(join(SHOTS, 'run-controls.sh'), 'utf8')
+// THE WIDTHS AND THE SHELF LIVE HERE NOW, shared by the seeded path and the
+// backup one — they differ in which library the server holds and in nothing else.
+const harness = readFileSync(join(SHOTS, 'controls-both.sh'), 'utf8')
+// And the two entry points that name a shelf and hand it to that file.
+const seeded = readFileSync(join(SHOTS, 'run-controls.sh'), 'utf8')
+const makefile = readFileSync(join(REPO, 'Makefile'), 'utf8')
 
 // The ratchet buckets `controls.mjs` records. Named here rather than derived, so
 // dropping one from the probe fails this instead of shrinking what is checked.
@@ -69,12 +74,17 @@ describe('the controls ratchet', () => {
     }
   })
 
-  it('and the harness names a shelf that has one', () => {
-    // `make controls` runs exactly this script, so its flags are the run.
-    const named = [...harness.matchAll(/--fixture\s+([\w-]+)/g)].map((m) => m[1])
-    expect(named.length, 'run-controls.sh names no fixture, so its run is compared to nothing').toBeGreaterThan(0)
+  it('and every shelf `make controls` can run against has a ceiling', () => {
+    // BOTH PATHS, NOT JUST THE SEEDED ONE. `make controls` uses the archive when
+    // `TIPPANI_BACKUP` is set and the fixture otherwise, and for a long time only
+    // the seeded path was checked — while the backup path is the one that
+    // measures the app against a real library. A shelf named by either entry
+    // point and unknown to the baseline is a run compared to nothing.
+    const named = [...`${seeded}\n${makefile}`.matchAll(/controls-both\.sh"?\s+([\w-]+)/g)].map((m) => m[1])
+    expect([...new Set(named)].sort(), 'the entry points no longer name both shelves')
+      .toEqual(['backup', 'seed'])
     for (const shelf of new Set(named)) {
-      expect(Object.keys(baseline), `run-controls.sh runs against "${shelf}", which has no ceiling recorded — the ratchet passes whatever it measures`)
+      expect(Object.keys(baseline), `make controls can run against "${shelf}", which has no ceiling recorded — the ratchet passes whatever it measures`)
         .toContain(shelf)
     }
   })
@@ -254,11 +264,14 @@ describe('the controls ratchet', () => {
     // THE HALF A RENAME LEAVES BEHIND. Adding a width to the script is cheap and
     // recording its ceiling is a fifty-minute run, so the two drift — and the new
     // width is the one nobody is watching.
-    const shelf = /--fixture\s+([\w-]+)/.exec(harness)[1]
     const widths = [...harness.matchAll(/--width\s+(\d+)/g)].map((m) => m[1])
-    expect(widths.length, 'run-controls.sh runs no width this test can see').toBeGreaterThan(1)
+    expect(widths.length, 'controls-both.sh runs no width this test can see').toBeGreaterThan(1)
+    // THE SEEDED SHELF ONLY. The backup shelf is measured against somebody's real
+    // library, which is not on this machine in CI — so requiring a ceiling at
+    // every width there would fail a check nobody can satisfy. The probe says so
+    // itself at run time: a width with no ceiling exits 3, "clean but unmeasured".
     for (const w of new Set(widths)) {
-      expect(Object.keys(baseline[shelf]), `run-controls.sh runs ${shelf} at ${w}px and nothing is recorded there, so that width is measured against nothing`)
+      expect(Object.keys(baseline.seed), `make controls runs the seeded fixture at ${w}px and nothing is recorded there, so that width is measured against nothing`)
         .toContain(w)
     }
   })
