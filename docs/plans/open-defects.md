@@ -697,7 +697,7 @@ requires the box to be laid out for its full height first: more of the sheet app
 finger rises, which is what the old rule was protecting, and the frame costs a composite.
 
 `make sheet-drag` exits 0 with **ten `ok` lines and no `FAIL`**, reproduced three times
-against the owner's archive on 7 September — twice before `b53a030` and once **on the
+against the owner's archive on 7 September — twice before `52241b4` and once **on the
 commit itself**, because the first two runs predated part of the change they were being
 quoted for (`offsetNow`'s `matrix3d` arm landed after them). A probe run is a claim about
 a build, and a build that has moved since is a different claim — including the case that measures the MECHANISM
@@ -714,7 +714,7 @@ git log --format=%h -- web/frontend/test/dom/sheet-from-the-bottom.test.jsx \
 ```
 
 `5bde71b` 16 · `25a3dd8` 21 · `869c77c` 23 · `a3b9096` 28 · `6ad717f` 29 · `f1bbf18` 31 ·
-`a36ded4` 32 · `b53a030` 35. Net, so a commit that deleted one and added six reads as five
+`a36ded4` 32 · `52241b4` 35. Net, so a commit that deleted one and added six reads as five
 — `a3b9096` is that one, and its deletion is the rule restated below.
 
 **FOUR NUMBERS IN THIS SECTION WERE WRONG WHEN IT WAS WRITTEN, and two raters found them
@@ -892,8 +892,8 @@ of a rating worth more than the number. The three that matter are below the tabl
 
 | # | Defect | Status |
 |---|---|---|
-| AM1 | **A verbatim excerpt of the owner's own highlight was committed.** Section AL14 and a comment in `typescale.mjs` both quoted the line the clamp had cut, to explain why the seeded fixture cannot reproduce the reading. The standing rule is that the archive never leaves this machine, and a sentence out of somebody's library in a public repository is the archive leaving it. **The worst finding of the pass and the least technical** | **FIXED IN THE TREE AND SCRUBBED FROM THE HISTORY, on the owner's instruction — "rewrite it".** Both copies are gone from the working tree; the reading is described without the words, which loses nothing. Then `git filter-branch` rewrote the eight commits from `b53a030` onward, replacing the excerpt in every blob that carried it: `git diff` between the old and the new tip is **empty**, so no current content changed, and a pickaxe over the rewritten history finds nothing. `refs/original`, `ORIG_HEAD` and the reflog were expired and the objects pruned, so the old commits are not valid object names locally any more. Force-pushed with `--force-with-lease`. **BUT GITHUB STILL SERVES THE OLD SHA:** a force-push removes the ref, not the object, and `git fetch origin b53a030…` still succeeds. Only GitHub's own gc drops it, which their support can be asked to run. The owner has been told |
-| AM2 | **The claim that all seven harnesses "have been run against a restored archive and exit 0" was false, and `make controls` is the one it was false about.** `b53a030`'s own commit message says in as many words that it could not exit 0. The rater found it by reading the message next to the claim | **FIXED, and the count is now six with the seventh named.** `make controls` reaches the archive and walks every surface clean, and exits **3** — the code that means "clean, and the touch floor was measured against nothing" — because the backup shelf's 1280 ceiling has never been recorded. `CLAUDE.md` and `AI.md` say that instead. **This is the range's own signature defect committed one more time**: a claim about a run, written from the change |
+| AM1 | **A verbatim excerpt of the owner's own highlight was committed.** Section AL14 and a comment in `typescale.mjs` both quoted the line the clamp had cut, to explain why the seeded fixture cannot reproduce the reading. The standing rule is that the archive never leaves this machine, and a sentence out of somebody's library in a public repository is the archive leaving it. **The worst finding of the pass and the least technical** | **FIXED IN THE TREE AND SCRUBBED FROM THE HISTORY, on the owner's instruction — "rewrite it".** Both copies are gone from the working tree; the reading is described without the words, which loses nothing. Then `git filter-branch` rewrote the eight commits from `52241b4` onward, replacing the excerpt in every blob that carried it: `git diff` between the old and the new tip is **empty**, so no current content changed, and a pickaxe over the rewritten history finds nothing. `refs/original`, `ORIG_HEAD` and the reflog were expired and the objects pruned, so the old commits are not valid object names locally any more. Force-pushed with `--force-with-lease`. **BUT GITHUB STILL SERVES THE OLD SHA:** a force-push removes the ref, not the object, and `git fetch origin 52241b4…` still succeeds. Only GitHub's own gc drops it, which their support can be asked to run. The owner has been told |
+| AM2 | **The claim that all seven harnesses "have been run against a restored archive and exit 0" was false, and `make controls` is the one it was false about.** `52241b4`'s own commit message says in as many words that it could not exit 0. The rater found it by reading the message next to the claim | **FIXED, and the count is now six with the seventh named.** `make controls` reaches the archive and walks every surface clean, and exits **3** — the code that means "clean, and the touch floor was measured against nothing" — because the backup shelf's 1280 ceiling has never been recorded. `CLAUDE.md` and `AI.md` say that instead. **This is the range's own signature defect committed one more time**: a claim about a run, written from the change |
 | AM3 | **And the CORRECTION of AH's numbers was itself uncounted.** AH now said "the range adds four and removes one", which is what I remembered doing rather than what the diff says | **FIXED by counting.** The section carries a per-commit table — 16 → 21 → 23 → 28 → 29 → 31 → 32 → 35 — and the shell line that produced it, so the next reader can disagree with the evidence |
 | AM4 | **`typescale.mjs` described the clamp guard as requiring "a control that opens it".** It requires an ENTRY, with an answer; five of the eight clamps have no control and are right not to | **FIXED.** The comment says what the guard actually asks and why "every clamp has a button" is the wrong rule |
 | AM5 | **The clamp exemption was too wide.** `if (CLAMPED(cs)) continue` skipped the element before both the horizontal and the vertical check, so a clamped box clipping SIDEWAYS became unratcheted — and the argument for the exemption is about line count only | **FIXED.** The exemption is on the `tall` check alone. A clamp promises N lines at every type size; it promises nothing about width |
@@ -916,7 +916,7 @@ extraction: 0, no new clips.
 **AND MY OWN COMMIT SWALLOWED A SUBAGENT'S STAGED FILES.** The plan sweep and I were in one
 working directory, and `git add <two paths> && git commit` commits the INDEX — which held
 the three roadmap files the sweep had staged. Its change is correct and
-`roadmap-data.mjs --check` passes against the committed state, but `4d95730`'s message
+`roadmap-data.mjs --check` passes against the committed state, but `a7508dd`'s message
 describes two files of five. The rule that follows, and it is cheap: **when anything else
 may be staging in this tree, commit with explicit pathspecs** — `git commit -- <paths>` —
 which ignores the index. I had told the sweep not to `git add -A` because a
@@ -927,7 +927,7 @@ the same hazard pointing the other way.
 clamp exemption from skipping the element to skipping only its vertical check, which can
 newly count a clamped box clipping sideways; AM6 put `pickFilm` in the path both
 `panel-depth` and `sheet-drag` use to choose a subject. So all three were run again on
-`e18837e`: `make typescale` 0 with no new clips, `make panel-depth` 0 with seven `ok`
+`eb37313`: `make typescale` 0 with no new clips, `make panel-depth` 0 with seven `ok`
 (having found *The Witcher 3* by asking the library), `make sheet-drag` 0 with ten and no
 `FAIL`. Quoting the earlier runs would have been AM2 a second time in the same hour.
 
@@ -945,6 +945,29 @@ updated to describe work that had not finished. That is the third pass running w
 new code is the code that has not been pressed. The countermeasure that actually worked
 this time was the rater mutating my guards rather than my app, which found AM7; the one
 that did not was me writing the document before the run finished.
+
+## AN. What the history rewrite broke, and the guard that said so, 7 September
+
+The owner's instruction was "rewrite it", and scrubbing the private excerpt out of
+`52241b4` rewrote the eight commits after it. **Every SHA this register cites for those
+commits stopped existing**, and a row closed by a commit the branch does not contain is a
+row that is not closed.
+
+`test/pure/register-citations.test.js` caught it on the next run: *"docs/plans/open-defects.md
+closes rows with these, and they are not ancestors of HEAD — b53a030, 4d95730, e18837e"*.
+Eight citations remapped by matching commit SUBJECTS, which a rewrite does not change.
+
+**Worth writing down because I did not think of it.** The rewrite's own verification was
+thorough about the thing I was checking — no content changed, the excerpt gone from every
+tree, the objects pruned — and silent about the thing I was not: that this repository's
+documents cite commits by SHA, so rewriting history invalidates its own paper trail. The
+guard existed, was written for a different reason (a row closed by a commit that never
+landed), and answered a question nobody had asked it yet.
+
+**And the rewrite is not complete, which is the owner's to act on.** A force-push removes
+the ref and not the object: `git fetch origin <old sha>` still succeeds against GitHub, and
+only their own gc drops it. Verified rather than assumed. Their support can be asked to run
+it.
 
 ## Withdrawn claims
 

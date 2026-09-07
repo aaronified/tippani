@@ -541,7 +541,39 @@ export function FactsRow({ cells }) {
         // is a live control that does nothing.
         <button key={c.label} type="button" className="cs-fact tactile" aria-disabled={c.onClick ? undefined : 'true'} onClick={c.onClick}>
           <span className="cs-fact-label">{c.label}</span>
-          <NameScroll className="cs-fact-value">{c.value}</NameScroll>
+          <span className="cs-fact-line">
+            <NameScroll className="cs-fact-value">{c.value}</NameScroll>
+            {/* A PENCIL, BECAUSE THE CELL OPENS AN EDITOR AND SAID SO NOWHERE.
+                The owner, over a work-level character sheet: "the part, first
+                appears, age here: these fields do not have the pencil to mark
+                that they are editable." Every other editable row on this screen
+                wears one — Credited as, In this work, the credit's name — so
+                three cells that open the same kind of editor and wear none are
+                the app signalling one behaviour two ways.
+
+                IT IS A SIGN AND NOT A SECOND TARGET. The whole cell is the
+                button, which is the owner's own ruling about the sheet's grab
+                bar: "the bar is there just to make it intuitive." A 14px pencil
+                inside a 118px cell would be a worse tap target than the cell.
+
+                ON THE VALUE'S LINE, NOT THE LABEL'S. `FIRST APPEARS` at mono-9
+                with .13em of tracking is about 85px of a ~98px content box, so a
+                pencil beside it would clip the label; the values here are short
+                ("not set", "00:02:14") and the long ones scroll under the fade
+                `NameScroll` already gives them.
+
+                AND ONLY WHERE THERE IS AN EDITOR. A cell the caller gave no
+                handler draws no pencil — promising an editor that is not there
+                is the same defect as a control that does nothing. */}
+            {/* WRAPPED, the way `.cs-row-pencil` is: `IconEdit` takes a size and
+                nothing else, so a className handed to it is silently dropped — and
+                the span is where `aria-hidden` belongs anyway. The cell's
+                accessible name is its label and its value; a screen reader
+                announcing "edit" after them would be describing the drawing. */}
+            {c.onClick
+              ? <span className="cs-fact-pen" aria-hidden="true"><IconEdit size={13} /></span>
+              : null}
+          </span>
         </button>
       ))}
     </div>

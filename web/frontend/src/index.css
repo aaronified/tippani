@@ -8884,6 +8884,16 @@ html[data-theme="dark"] .board-cover {
      clamp turns "Protagonist" into "Protagoni…" in every export and screenshot
      while the live box measures fine. */
   .cs-fact-value { font-size: var(--type-ui-15); line-height: 1.25; }
+  /* THE VALUE AND ITS PENCIL SHARE A LINE, and the value is what shrinks. The
+     pencil is the app's "this opens an editor" sign, on three cells that open one
+     and said so nowhere — the owner's report. `min-width: 0` on the value so a
+     long one scrolls under `NameScroll`'s fade instead of pushing the pencil out
+     of the cell, and `flex: none` on the pencil so it is never the thing that
+     gives way: a sign that disappears when the answer is long is a sign that is
+     absent exactly when the row is hardest to read. */
+  .cs-fact-line { display: flex; align-items: center; gap: 5px; width: 100%; min-width: 0; }
+  .cs-fact-line .cs-fact-value { flex: 1 1 auto; min-width: 0; }
+  .cs-fact-pen { flex: none; color: var(--faint); }
 
   /* Two counts, side by side. ONE LINE AND NOT A STACKED CARD: a glyph, a number
      and its unit stacked into 78px read as a tile with something missing. */
