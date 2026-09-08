@@ -278,6 +278,20 @@ old work, so a screen that breaks one is a bug and not a variation.
   absence of a thing is not worth a sentence: no alias needs no line saying so.
 - **A rest state may not depend on anything firing.** Disable every animation and the
   content is still there — see `entrance-rule.test.js`.
+- **Direction belongs to the text, not to the app.** A quote's own language decides which
+  way it reads, so `dir` goes on the element holding that text — in MARKUP, never as CSS
+  `direction`, which is [W3C i18n's own rule](https://www.w3.org/TR/string-meta/) and what
+  makes `:dir()` and form controls behave. Where the language is unknown, `dir="auto"` and
+  the Unicode bidi algorithm decide from the first strong character; a guess in CSS cannot.
+  **The interface itself does not mirror.** Apple's HIG and Material 3 both tie mirroring to
+  the UI being LOCALIZED into a right-to-left language, and this app's two locales are
+  `en` and `bn` — both left-to-right — so there is nothing to mirror for. New CSS is
+  written with logical properties all the same: `margin-inline-start`, not `margin-left`;
+  `text-align: start`, not `left`. That is iOS's leading/trailing rule under another name,
+  and it is why the day an RTL locale arrives is a flip rather than a rewrite. The physical
+  properties already in `index.css` are left alone and there is NO ratchet counting them —
+  neither design system asks for one, and a rule that fires on every unrelated stylesheet
+  edit teaches people to route around it.
 
 ## Invariants
 
