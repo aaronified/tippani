@@ -210,6 +210,31 @@ func TestALineThatIsOnlyItsSpeakersNameIsRefused(t *testing.T) {
 	if attachSpeaker(&card, own.key, p, 7, tierMedium) {
 		t.Fatalf("a line with nothing left to read was served as a question: %q", card.Quote)
 	}
+
+	// AND A NOTE DOES NOT RESCUE IT, which is the case this test could not reach
+	// for a release: the fixture above carries no note, and the refusal read "no
+	// words in the quote AND none in the note". So the same line with any remark
+	// beside it was masked to a glyph and a full stop and served — review.jsx
+	// prints `card.quote || card.note`, so the PROMPT was "￼." with the reader's
+	// own margin note under it, on a card two documents said would be refused.
+	withNote := reviewCard{Kind: kindUtterance, ID: 1, Direction: dirSpeaker,
+		Quote: "Thomas Paine.", Note: "worth remembering", Title: "An occasion", Speaker: "Thomas Paine"}
+	if attachSpeaker(&withNote, own.key, p, 7, tierMedium) {
+		t.Fatalf("a line masked down to %q was served because it happened to carry a note (%q) — "+
+			"the prompt IS the quote, so a note cannot make a wordless one a question",
+			withNote.Quote, withNote.Note)
+	}
+
+	// A NOTE-ONLY ROW IS STILL A CARD, and this is the line the fix above must not
+	// cross. A highlight can be a remark with no quote at all; its prompt is
+	// honestly the note, and refusing it would drop a legitimate row rather than a
+	// broken one. Masked to nothing and never having had any are different.
+	noteOnly := reviewCard{Kind: kindUtterance, ID: 1, Direction: dirSpeaker,
+		Note: "said on the eve of the crossing, to nobody in particular", Title: "An occasion", Speaker: "Thomas Paine"}
+	if !attachSpeaker(&noteOnly, own.key, p, 7, tierMedium) {
+		t.Errorf("a row that is a note with no quote was refused — its prompt is the note, " +
+			"and it had words left after masking")
+	}
 }
 
 // A NOTE IS SHOWN TOO, so a name hidden in the quote and left standing in the

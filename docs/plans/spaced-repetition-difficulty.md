@@ -474,6 +474,40 @@ constants, `dueSQL` splices `dueMultiplier(reviewDuePoint)` — `log2(1/target)`
 `TestTheDotAndTheDeckAgreeOnDue` holds them together. So the dial is now a small
 change: the constant becomes the preference, in one place.
 
+### Step 6 shipped in three of its five parts, and here is the fifth
+
+Built: the direction sets, the inverted scorer for Easy (twice — `attachSpeaker` does
+not consult `distractorScore` at all and had to be inverted separately), the wider
+blank for Hard, Random by seeded hash, and — later, after a rater measured it — the
+same-author quota for Medium.
+
+**The quota turned out to matter more than the plan's sentence suggests.** Over a
+ten-card deck of one author's quotes with six other authors parked in the pool, the
+same author won **ten cards out of ten**: `distractorScore` pays 100,000 for a shared
+author against 100 per shared genre. And the plan's shape for it was not enough.
+Withholding the bonus — scoring a same-author candidate as though the authors did not
+match — was built first and does not deliver "at most one card in three": with the
+scores level a shuffle still puts a same-author title in the top three about half the
+time. The cap needs the candidate DEMOTED below the whole pool, not merely unrewarded.
+
+**Two parts are not built, and neither is blocked — they are unstarted:**
+
+- **Closer cloze options, corpus-derived** (§2, Medium). `clozePhraseOf` already lifts
+  same-word-count phrases from other quotes; ranking them by surface similarity as
+  well as by parent-work similarity is the plan's own first recommendation and stands
+  as written.
+- **Easy's speaker and character chips beside the quote, with the face** (§2, Easy).
+  The data is a query away — `loadCharacterImages` + `characterImagesFor` is the
+  two-step every list surface already makes — and the component exists
+  (`SpeakerChips`, `PeopleChips`), so this is wiring rather than design. The one
+  decision it needs is which directions may show them: never `speaker` (the chip IS
+  the answer) and never `quote` (the chip points at the right option), which is the
+  same judgement `hideTheAnswer` makes about the words.
+
+**And Hard's same-series lures cannot be built at all yet**, which is recorded in
+`docs/PLAN.md` rather than here: there is no series term in `distractorScore` and no
+`series` field on `workRef`. A separate entry proposes adding them.
+
 ### Step 5's leak is real, and narrower than described
 
 This plan says the masking exists because *"a quote that names its own speaker answers

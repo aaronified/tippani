@@ -624,21 +624,65 @@ func TestATypedBlankIsGradedAtTheWidthItWasAskedAt(t *testing.T) {
 	}
 }
 
-// AND THE TIER A CARD WAS BUILT AT IS RECOVERABLE AT ANSWER TIME, which is the
-// property the grade above depends on and the reason Practice cannot draw its
-// tier at random: a tier nothing can recompute is a tier the answer path cannot
-// know. Both endpoints reach it from the same inputs, so tierDaySeed is the only
-// day either of them may use for this.
-func TestTheTierIsRecomputableFromTheCardAlone(t *testing.T) {
-	seed := tierDaySeed()
-	if seed == 0 {
+// AND A RANDOM ROUND ON PRACTICE IS GRADED AT THE WIDTH IT ASKED AT — which is
+// where the tier has to be RECOMPUTABLE, and where it once was not.
+//
+// THIS TEST WAS A TAUTOLOGY AND A RATER SAID SO. It called tierForCard twice with
+// the same arguments and compared the two results: a pure function agreeing with
+// itself, in which only the `seed == 0` line could ever fail. The property it
+// meant to guard is that the DECK and the ANSWER PATH reach the same tier for the
+// same card, and nothing about calling one function twice touches that.
+//
+// So it drives the two endpoints instead. Practice specifically, because Practice
+// is where the defect was: `seed` is 0 there, so the day term dropped out of the
+// hash and Random froze — and the repair that drew the tier per round with
+// rand.Int64N made every Hard cloze on Practice ungradeable by construction, since
+// the answer path had no way to reach the width the card was built with. Typing
+// back exactly what each card hid is the reader's own test of that, and it fails
+// under either bug.
+//
+// EVERY CARD IS A CLOZE CARD HERE even though Random gives some of them Easy,
+// which drops the typed blank: tierDirections never empties a repertoire, so a
+// cloze-only reader keeps cloze at every tier. The WIDTHS differ per card, which
+// is exactly what makes this worth asking.
+func TestARandomPracticeRoundIsGradedAtEachCardsOwnWidth(t *testing.T) {
+	if seed := tierDaySeed(); seed == 0 {
 		t.Fatal("tierDaySeed is 0, which is the value that froze Random on the practice path")
 	}
-	for id := int64(1); id <= 50; id++ {
-		first := tierForCard(tierRandom, kindBook, id, seed)
-		if again := tierForCard(tierRandom, kindBook, id, tierDaySeed()); again != first {
-			t.Fatalf("card %d resolves to %q from the deck and %q from the answer path", id, first, again)
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	seedReviewBook(t, c, "Dune", 6)
+	seedDistractorBook(t, srv, c, "Emma")
+	ageSeededItems(t, srv)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier": tierRandom, "srQuestions": `{"practice":["cloze"]}`}, http.StatusOK)
+
+	deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
+	graded := 0
+	for _, card := range deck.Items {
+		if card.Direction != dirCloze {
+			continue
 		}
+		full, err := srv.itemText(card.Kind, card.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		head, tail, ok := strings.Cut(card.Quote, clozeBlank)
+		if !ok {
+			t.Fatalf("card %d is a cloze card with no blank in it: %q", card.ID, card.Quote)
+		}
+		hidden := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(full, head), tail))
+		res := decode[answerResp](t, c.mustDo("POST", "/review/answer", map[string]any{
+			"kind": card.Kind, "id": card.ID, "mode": "practice", "result": "got", "attempt": hidden}, 200))
+		if res.Result != "got" {
+			t.Errorf("card %d hid %d word(s) (%q) and typing them back was graded %q — on a Random "+
+				"round the answer path is not reaching the tier the deck built the card at",
+				card.ID, len(strings.Fields(hidden)), hidden, res.Result)
+		}
+		graded++
+	}
+	if graded < 3 {
+		t.Fatalf("only %d cloze cards were graded, so this measured almost nothing", graded)
 	}
 }
 

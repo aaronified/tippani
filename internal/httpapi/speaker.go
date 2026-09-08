@@ -405,9 +405,28 @@ func hasWordsLeft(text string) bool {
 // TestClozeRefusesWhatItCannotAsk already applies to a quote that is all
 // stopwords. A line that is only its speaker's name is not a question, and
 // buildQuestion falls through to another direction rather than serving it.
+//
+// THE REFUSAL IS ABOUT THE QUOTE, NOT ABOUT THE CARD'S TOTAL WORD COUNT, and it
+// was the second thing for a release. `!hasWordsLeft(quote) && !hasWordsLeft(note)`
+// refuses only a card with nothing anywhere — so a line that is only its
+// speaker's name, carrying ANY note at all, was masked down to a mask glyph and a
+// full stop and then served: review.jsx prints `card.quote || card.note`, so the
+// prompt read "￼." with the reader's own margin remark under it. Two documents
+// promised in as many words that such a card falls through, and the guard beside
+// this used a fixture with no note, which is the one shape that cannot reach it.
+//
+// A NOTE-ONLY CARD IS STILL A CARD, which is why this is not simply
+// `hasWordsLeft(quote)`. A book highlight may be a remark with no quote at all —
+// that is a legitimate row and its prompt is honestly the note. The distinction
+// is whether the quote HAD words before masking: masked to nothing is a broken
+// card, never having had any is a different kind of card.
 func hideTheAnswer(card *reviewCard, answer string) bool {
 	names := answerNames(answer)
+	hadQuote := hasWordsLeft(card.Quote)
 	quote, note := maskNames(card.Quote, names), maskNames(card.Note, names)
+	if hadQuote && !hasWordsLeft(quote) {
+		return false
+	}
 	if !hasWordsLeft(quote) && !hasWordsLeft(note) {
 		return false
 	}

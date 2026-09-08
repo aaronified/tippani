@@ -8,18 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **The quiz has three difficulties now, and Random.** *Medium* is the quiz exactly as it has
-  always been, and it is what you are on unless you say otherwise. *Easy* offers two choices
-  instead of four, keeps the wrong ones far apart rather than close, and does not ask you to type
-  — it lowers the floor when a line will not come at all. *Hard* gives up recognition: no
-  picking a cover out of four, just the words with a hole in them and the two questions about
-  who. *Random* picks per card rather than per round, so a mixed library is not all one
-  difficulty. A tier narrows what you have already switched on and never empties it, so if the
-  only question you allow is one a tier would drop, you keep it. It sits in Settings → Daily quiz, and Easy says out loud what it costs: close
-  wrong answers teach more than obvious ones, and giving that up is the trade you are making.
+- **The quiz has three difficulties now, and Random.** *Medium* moves none of them, and it is
+  what you are on unless you say otherwise. *Easy* offers two choices instead of four, keeps the
+  wrong ones far apart rather than close, and does not ask you to type or to mark yourself — it
+  lowers the floor when a line will not come at all. *Hard* gives up recognition: no picking a
+  cover out of four, no multiple-choice blank — the words with a hole to type into, the two
+  questions about who, and (in Practice) the plain flip card, which is the hardest of the lot
+  because nothing is offered at all. *Random* picks per card rather than per round, so a mixed
+  library is not all one difficulty. A tier narrows what you have already switched on and never
+  empties it, so if the only question you allow is one a tier would drop, you keep it. It sits
+  under *In-depth controls* in Settings → Daily quiz, and Easy says out loud what it costs:
+  close wrong answers teach more than obvious ones, and giving that up is the trade you are
+  making.
 
 - **Home says when your library has outgrown the schedule.** A quote comes back once per
-  half-life, so eight cards a day and a year-long ceiling keep about 2,900 quotes current — past
+  half-life, so eight cards a day and a year-long ceiling keep 2,920 quotes current — past
   that the quiz runs permanently behind. It still leads with whatever you are closest to
   forgetting, so nothing is skipped, but the far end of a big library waits, and until now
   nothing said so. The note appears under *where you stand* with both numbers, and points at the
@@ -232,10 +235,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
-- **The note about how large a library the quiz can keep current reads your own top rung.** It
-  was assuming the year-long ceiling, so on a ladder you had shortened it overstated by up to
-  twelvefold — telling a reader on the default quota that there was room for 2,920 quotes
-  when their own top rung made it 240.
+- **The note about how large a library the quiz can keep current reads the ceiling that
+  actually applies to you.** It was assuming the year-long one, so on a fixed ladder you had
+  shortened it overstated by up to twelvefold — telling a reader on the default quota that
+  there was room for 2,920 quotes when their own top rung made it 240. The year is still the
+  ceiling on the adaptive schedule, and on a fixed ladder whose "seeing" knob is turned up,
+  because a card lengthened by being seen can pass its top rung.
+
+- **A "who said this?" card is no longer served with its words blanked away.** The quiz hides
+  the speaker's name inside the line so a quote that names its own speaker cannot answer
+  itself, and drops the card when that leaves nothing to read. But "nothing to read" was
+  measured across the quote AND your note together — so a line that is *only* the speaker's
+  name, with any note beside it, came through as a blanked-out mark and a full stop with your
+  own margin remark underneath. The prompt is the line, so a note cannot make a blanked one
+  into a question, and such a card now falls through to a different one. A highlight that is a
+  note with no quote at all is still asked: its prompt is honestly the note.
 
 - **Typing a Hard blank back correctly no longer counts as forgetting it.** On the Hard tier the
   quiz hides the widest phrase a quote allows, but the answer was being checked against a
