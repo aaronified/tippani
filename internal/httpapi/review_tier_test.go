@@ -43,8 +43,11 @@ func TestMediumChangesNothingAtAll(t *testing.T) {
 	if tierPrefersFarLures(tierMedium) {
 		t.Error("tierPrefersFarLures(medium) is true — medium reaches for the CLOSE lure, which is what makes it a question")
 	}
-	// And the list is walked rather than written down, so a seventh cannot arrive
-	// unchecked either.
+	// The six named again as a table, so a failure says WHICH function moved
+	// rather than only that one did. It is a written list and not a walk — Go has
+	// no way to enumerate a package's functions — so a seventh still has to be
+	// added here by hand, and saying otherwise was itself one of the claims this
+	// session kept making about code that could not do it.
 	for _, fn := range []struct {
 		name string
 		same func() bool
@@ -639,23 +642,22 @@ func TestTheTierIsRecomputableFromTheCardAlone(t *testing.T) {
 	}
 }
 
-// AND A RIGHT ANSWER SURVIVES THE TIER MOVING UNDER IT.
+// WHAT HAPPENS WHEN THE TIER MOVES UNDER A CARD, WHICH IS A LIMITATION AND NOT A
+// GUARANTEE.
 //
-// Recomputing the tier at answer time was not enough, and saying it was is how
-// the comment over that block came to be wrong twice. Two reachable states put
-// the deck and the grader on different tiers however carefully the tier is
-// derived:
+// This test asserted the opposite for one commit. The fix it guarded — judging the
+// attempt against every width the tiers could produce — was withdrawn because it
+// was worse than the bug: the widths give different spans at DIFFERENT POSITIONS,
+// so the one-word span is often a word still printed in the three-word prompt, and
+// accepting either meant accepting text the reader could read off the screen. It
+// also changed MEDIUM, which is the one claim the tiers rest on.
 //
-//   - the reader changes the difficulty in Settings between seeing a card and
-//     answering it; and
-//   - on Random, a round crosses UTC midnight, so tierDaySeed moves.
-//
-// Both produce the identical corrupting symptom — typed exactly what the deck
-// hid, graded "forgot", card lapsed. The attempt is judged against every width
-// the tiers could have produced, so neither can cost a correct reader their
-// climb. This drives the first state end-to-end, which is the one a reader
-// reaches by pressing a control rather than by waiting.
-func TestARightAnswerSurvivesTheTierChangingMidRound(t *testing.T) {
+// So the tier at answer time is authoritative, and a reader who changes the
+// difficulty between seeing a card and answering it is graded at the tier now in
+// force. That costs one card. It is pinned here so the cost is a decision somebody
+// made rather than a surprise: if this test ever has to change, the change is to
+// the feature and not to the test.
+func TestChangingTheTierMidRoundGradesByTheTierNowInForce(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
 	seedReviewBook(t, c, "Dune", 3)
@@ -680,63 +682,91 @@ func TestARightAnswerSurvivesTheTierChangingMidRound(t *testing.T) {
 		t.Fatal(err)
 	}
 	head, tail, _ := strings.Cut(card.Quote, clozeBlank)
-	hidden := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(full, head), tail))
-	if len(strings.Fields(hidden)) < 2 {
-		t.Fatalf("the hard blank hid %q — this test needs a multi-word span to differ from medium's", hidden)
+	wide := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(full, head), tail))
+	if len(strings.Fields(wide)) < 2 {
+		t.Fatalf("the hard blank hid %q — this test needs a multi-word span", wide)
 	}
 
-	// THE READER CHANGES THEIR MIND while the card is on screen.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srTier": tierMedium}, http.StatusOK)
-
+	// Answered at hard, it is a pass — which is the bug the width fix was for.
 	res := decode[answerResp](t, c.mustDo("POST", "/review/answer", map[string]any{
-		"kind": kindBook, "id": card.ID, "mode": "daily", "result": "got", "attempt": hidden}, 200))
+		"kind": kindBook, "id": card.ID, "mode": "daily", "result": "got", "attempt": wide}, 200))
 	if res.Result != "got" {
-		t.Errorf("typed back exactly what the hard deck hid (%q) after switching to medium, and was graded %q "+
-			"— changing a setting between seeing a card and answering it costs the reader their climb", hidden, res.Result)
+		t.Fatalf("at hard, typing back the %d words the card hid (%q) was graded %q",
+			len(strings.Fields(wide)), wide, res.Result)
 	}
-	if res.Answer != hidden {
-		t.Errorf("the card hid %q and the reveal says %q — the reveal is not the width that matched", hidden, res.Answer)
+
+	// AND THE SAME ATTEMPT AFTER SWITCHING TO MEDIUM IS A MISS, because medium
+	// hides one word and the grader has no way to know what the reader was shown.
+	// The reveal is medium's span, not hard's, so the card at least says what it
+	// was judging.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srTier": tierMedium}, http.StatusOK)
+	after := decode[answerResp](t, c.mustDo("POST", "/review/answer", map[string]any{
+		"kind": kindBook, "id": card.ID, "mode": "practice", "result": "got", "attempt": wide}, 200))
+	if after.Result != "forgot" {
+		t.Errorf("after switching to medium the wide attempt was graded %q — the grader is accepting a "+
+			"width medium never asked for, which is how a word still printed in the prompt gets accepted", after.Result)
+	}
+	if after.Answer == wide {
+		t.Errorf("the reveal says %q, which is hard's span — medium is grading against its own width "+
+			"and must reveal that one", after.Answer)
 	}
 }
 
-// THE SAME, FOR THE DAY MOVING RATHER THAN THE SETTING. On Random the tier comes
-// from tierDaySeed, so a round left open across UTC midnight is graded against a
-// different tier from the one that built it. Driven at the seam rather than over
-// HTTP, because the endpoints cannot be made to cross midnight — and the property
-// is the one that matters either way: for a card the reader typed correctly, SOME
-// tier's width matches.
-func TestEveryTiersWidthIsAcceptedForOneQuote(t *testing.T) {
-	const quote = "the sleeper must awaken and the spice must flow across the desert"
-	widths := map[int]string{}
-	for _, tier := range []string{tierEasy, tierMedium, tierHard} {
-		// A card at the first rung, where the tiers genuinely differ: easy and
-		// medium hide one word, hard hides the widest span the quote allows.
-		w := clozeMaxWordsFor(reviewMinStability, tierClozeThreshold(tier, clozeMultiWordFrom))
-		_, span, ok := clozeSpan(quote, kindBook, 1, w)
-		if !ok {
-			t.Fatalf("%s: no span at width %d, so this measured nothing", tier, w)
+// AND MEDIUM GRADES A WIDE ATTEMPT AS A MISS, WHICH IS EXACTLY WHAT IT DID BEFORE
+// THE TIERS EXISTED.
+//
+// THIS IS THE GUARD THAT WOULD HAVE CAUGHT THE REGRESSION. The union-of-widths
+// rule made a three-word attempt on a first-rung card a PASS where the baseline
+// made it a lapse — a silent change to every reader who never opened the tier
+// panel, under four documents promising that medium is unchanged. Nothing in the
+// suite noticed, because nothing graded a cloze at the default settings.
+func TestMediumGradesAWideAttemptAsAMiss(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	seedReviewBook(t, c, "Dune", 3)
+	seedDistractorBook(t, srv, c, "Emma")
+	ageSeededItems(t, srv)
+	// DEFAULT PREFS but for the direction, so this is the reader who changed
+	// nothing: medium, first rung, one-word blanks.
+	c.mustDo("PUT", "/auth/me/preferences",
+		map[string]any{"srQuestions": `{"daily":["cloze"]}`}, http.StatusOK)
+
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	var card *reviewCard
+	for i := range deck.Items {
+		if deck.Items[i].Direction == dirCloze {
+			card = &deck.Items[i]
+			break
 		}
-		widths[w] = span
 	}
-	if len(widths) < 2 {
-		t.Fatalf("every tier produced the same width (%v) — the divergence this guards cannot happen "+
-			"in this fixture, so the guard is empty", widths)
+	if card == nil {
+		t.Fatalf("the default deck served no typed blank: %+v", deck.Items)
 	}
-	// Whatever the reader typed, it was one of these. The grader has to accept it
-	// without knowing which tier the card was shown at.
-	for w, span := range widths {
-		hit := false
-		for other := range widths {
-			_, cand, ok := clozeSpan(quote, kindBook, 1, other)
-			if ok && clozeJudge(cand, span) != clozeMiss {
-				hit = true
-				break
-			}
-		}
-		if !hit {
-			t.Errorf("a reader who typed the width-%d span (%q) matches no tier's mask — a correct answer "+
-				"would be graded as a lapse", w, span)
-		}
+	full, err := srv.itemText(kindBook, card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, tail, _ := strings.Cut(card.Quote, clozeBlank)
+	hidden := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(full, head), tail))
+	if n := len(strings.Fields(hidden)); n != 1 {
+		t.Fatalf("a first-rung medium card hid %d words (%q), want 1 — the fixture is not the default case", n, hidden)
+	}
+	// The one word it hid is a pass.
+	if res := decode[answerResp](t, c.mustDo("POST", "/review/answer", map[string]any{
+		"kind": kindBook, "id": card.ID, "mode": "practice", "result": "got", "attempt": hidden}, 200)); res.Result != "got" {
+		t.Fatalf("medium: typing back the word the card hid (%q) was graded %q", hidden, res.Result)
+	}
+	// HARD'S span is not. It is three words of the same quote, and medium never
+	// asked for them.
+	_, wide, ok := clozeSpan(full, kindBook, card.ID,
+		clozeMaxWordsFor(reviewMinStability, tierClozeThreshold(tierHard, clozeMultiWordFrom)))
+	if !ok || len(strings.Fields(wide)) < 2 {
+		t.Fatalf("could not build hard's wider span from %q", full)
+	}
+	if res := decode[answerResp](t, c.mustDo("POST", "/review/answer", map[string]any{
+		"kind": kindBook, "id": card.ID, "mode": "practice", "result": "got", "attempt": wide}, 200)); res.Result != "forgot" {
+		t.Errorf("medium graded hard's %d-word span (%q) as %q — medium must grade exactly as it did before "+
+			"the tiers existed, and this is the case that regressed", len(strings.Fields(wide)), wide, res.Result)
 	}
 }
 

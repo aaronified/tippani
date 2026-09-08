@@ -2103,7 +2103,7 @@ func shuffleN(rng *rand.Rand, n int, swap func(i, j int)) {
 // surrounding material better, because you retrieve why each wrong option is
 // wrong. Easy gives that up deliberately, to lower the floor.
 func tierCloser(tier string) func(a, b int) bool {
-	if tier == tierEasy {
+	if tierPrefersFarLures(tier) {
 		return func(a, b int) bool { return a < b }
 	}
 	return func(a, b int) bool { return a > b }
@@ -2487,46 +2487,41 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		// answering it, and — on Random — a round crosses UTC midnight. Both
 		// reproduce the identical corrupting symptom.
 		//
-		// SO THE ATTEMPT IS JUDGED AGAINST EVERY WIDTH THE TIERS COULD HAVE
-		// PRODUCED, and the best verdict wins. The alternative is marking a
-		// correct answer wrong and lapsing the card, which is the worse error by a
-		// wide margin: this loop is "self-graded… the user is trusted to grade
-		// honestly", a flip card is entirely the reader's own verdict, and the
-		// generosity here is bounded to the two or three spans one quote can yield.
-		// The reveal is the width that actually matched, so the card says what it
-		// accepted.
-		widths := map[int]bool{}
-		for _, t := range []string{tierEasy, tierMedium, tierHard} {
-			widths[clozeMaxWordsFor(stabilityNow, tierClozeThreshold(t, tuning.ClozeWords))] = true
-		}
-		verdict, answerText, ok := clozeMiss, "", false
-		for w := range widths {
-			_, span, spanOK := clozeSpan(text, req.Kind, req.ID, w)
-			if !spanOK {
-				continue
-			}
-			ok = true
-			// Best-of, in the order a reader would want it: an exact recall beats a
-			// synonym, and either beats a miss. The FIRST width to be judged fills
-			// the reveal so that a card with no hit still says what it wanted.
-			switch j := clozeJudge(span, *req.Attempt); {
-			case j == clozeMiss:
-				if answerText == "" {
-					answerText = span
-				}
-			case verdict == clozeMiss, j != clozeGotSynonym && verdict == clozeGotSynonym:
-				verdict, answerText = j, span
-			}
-		}
+		// SO THE TIER IS RECOMPUTED AND ITS WIDTH IS AUTHORITATIVE, and the
+		// obvious generalisation — judge the attempt against EVERY width the tiers
+		// could produce and take the best verdict — WAS TRIED AND WITHDRAWN. It is
+		// worse than the bug it fixed, in two ways that matter more:
+		//
+		//   * The widths give DIFFERENT SPANS AT DIFFERENT POSITIONS, not a short
+		//     and a long version of one. `tierClozeThreshold` puts Easy at one word
+		//     and Hard at three whatever the half-life, so the set is always {1, 3}
+		//     — and the one-word span is frequently a word still PRINTED in the
+		//     three-word prompt. Accepting either meant accepting text the reader
+		//     could read off the screen, which is the exploit the alternative below
+		//     is rejected for, volunteered by the server.
+		//   * It changed MEDIUM. A three-word attempt on a first-rung card was a
+		//     lapse before the tiers existed and became a pass, which breaks the
+		//     one claim this whole feature rests on — that a reader who changes
+		//     nothing sees nothing change.
+		//
+		// WHAT REMAINS UNFIXED, SAID PLAINLY RATHER THAN CLAIMED AWAY: a reader who
+		// changes the difficulty between seeing a card and answering it is graded at
+		// the tier now in force, and on Random a round left open across UTC midnight
+		// is graded at the new day's tier. Both cost one card. The app cannot know
+		// otherwise without storing the width per card, and the two cheap ways of
+		// getting it here are both worse — see the entry in docs/PLAN.md.
+		at := tierForCard(pf.SRTier, req.Kind, req.ID, tierDaySeed())
+		_, answerText, ok := clozeSpan(text, req.Kind, req.ID,
+			clozeMaxWordsFor(stabilityNow, tierClozeThreshold(at, tuning.ClozeWords)))
 		if !ok {
-			// The card could not have been a cloze card at any width, so the
-			// attempt is about a question that was never asked. Refused rather
-			// than graded: a silent "forgot" here would move somebody's schedule
-			// on the strength of a request nothing generated.
+			// The card could not have been a cloze card, so the attempt is about
+			// a question that was never asked. Refused rather than graded: a
+			// silent "forgot" here would move somebody's schedule on the strength
+			// of a request nothing generated.
 			writeErr(w, http.StatusBadRequest, "this card is not a fill-in-the-blank")
 			return
 		}
-		switch verdict {
+		switch clozeJudge(answerText, *req.Attempt) {
 		case clozeMiss:
 			req.Result = "forgot"
 		case clozeGotSynonym:

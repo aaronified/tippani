@@ -221,20 +221,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
-- **A right answer stays right when you change the difficulty mid-round.** Typing a Hard blank
-  back and then switching to Medium before pressing the tick used to record it as forgotten —
-  and so did leaving a Random round open across midnight. The answer is now checked against
-  every width the difficulties could have hidden, so a correct answer is a correct answer
-  whichever one the card was drawn at. The note about how large a library the quiz can keep
-  current also reads your own top rung now, rather than assuming the year-long ceiling: on a
-  shortened ladder it was overstating by up to twelvefold.
+- **The note about how large a library the quiz can keep current reads your own top rung.** It
+  was assuming the year-long ceiling, so on a ladder you had shortened it overstated by up to
+  twelvefold — telling a reader on the default quota that there was room for 2,920 quotes when their own top rung made it 240.
 
 - **Typing a Hard blank back correctly no longer counts as forgetting it.** On the Hard tier the
   quiz hides the widest phrase a quote allows, but the answer was being checked against a
   one-word blank — so you typed exactly what was asked, were told you had forgotten it, and the
   card dropped back to seven days. It graded a word that was still printed on screen beside the
-  gap. The check now uses the same width the card was asked at, and Random rounds work the same
-  way on both the Daily Quiz and Practice.
+  gap. The check now uses the width the difficulty you are on asks for, on both the Daily Quiz
+  and Practice. **One thing it still does not do, said here rather than left to be found:** if
+  you change the difficulty part-way through a round, the card already in front of you is graded
+  at the difficulty you have just switched to — so a Hard blank answered after a switch to
+  Medium counts as a miss, as does a Random round left open across midnight. It costs one card,
+  and the app has no way of knowing which blank you were shown. Finish the round, then switch.
 
 - **A quiz card no longer prints the answer above its own options.** "Who said this?" and "who
   wrote this?" show the words and ask for the person, so a line whose own text names that person
