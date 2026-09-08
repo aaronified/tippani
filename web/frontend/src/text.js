@@ -192,47 +192,50 @@ export function clipChipName(v) {
 // from the board's text menu still wins, for the whole board, because that is an
 // explicit instruction and this is an inference.
 //
-// A FALLBACK, NOT A BLANK, kept from the version this replaces: "translation only"
-// on a quote with no translation shows the quote. Honouring the setting exactly
-// would empty every untranslated quote on the board, which on a library where
-// translations are the exception is a setting that looks like a bug that has
-// deleted your highlights. The setting says which text to PREFER; a card still has
-// to say something.
+// A FALLBACK, NOT A BLANK, kept from the version this replaces: a state that asks
+// for the translation alone, on a quote with no translation, shows the quote.
+// Honouring it exactly would empty every untranslated quote on the board, which on
+// a library where translations are the exception is a setting that looks like a bug
+// that has deleted your highlights. The state says which text to PREFER; a card
+// still has to say something. The mirror holds too: "no translation" on a row that
+// is only a translation shows it.
 //
-// `canRead` is a predicate rather than a set, so a caller with no preferences
-// loaded passes nothing and gets today's behaviour — see readerFrom.
-export function quoteTexts(a, tview, canRead) {
+// ONE RESOLVED STATE, NOT A MENU AND A PREDICATE. This took `(tview, canRead)` and
+// inferred the answer — the menu said quote/translation/both and, on `both`, a
+// predicate over the reader's declared languages decided which led. The owner
+// replaced the inference with an instruction in four parts and three scopes, so
+// the deciding is now textOrder.js's and this function only draws the decision.
+// That is the whole reason the predicate threading is gone: a capability that has
+// to reach every call site is absent at most of them, which is exactly how the
+// table view spent a day disagreeing with the cards.
+export function quoteTexts(a, order) {
   const quote = a?.quote || ''
   const translation = a?.translation || ''
-  if (tview === 'quote') return { body: quote, second: '' }
-  if (tview === 'translation') return { body: translation || quote, second: '' }
-  // `both`, which is where the language is allowed to speak.
-  //
-  // A QUOTE WITH NO LANGUAGE IS NOT A FOREIGN QUOTE, and the guard is HERE rather
-  // than left to the predicate. It is a property of the row: nobody has said what
-  // language it is in, so it cannot be one the reader is unable to read — and that
-  // is the commonest row in any library, so reading the blank as "not declared"
-  // would put the translation first on almost every card. canReadLanguage answers
-  // the same way for the same reason, and this does not delegate to it because a
-  // predicate is whatever the caller passed: a screen or a test that supplies a
-  // plain `(l) => l === 'english'` would otherwise flip every untagged quote it
-  // renders. The card does not get to depend on somebody else remembering.
-  const language = String(a?.language || '').trim()
-  const foreign = !!translation && !!language && typeof canRead === 'function' && !canRead(language)
-  if (foreign) return { body: translation, second: quote }
-  return { body: quote, second: translation }
+  switch (order) {
+    case 'quote-only':
+      return { body: quote || translation, second: '' }
+    case 'trans-only':
+      return { body: translation || quote, second: '' }
+    case 'trans-first':
+      // AND NOTHING TO LEAD WITH IS NOT A REORDERING. A row with no translation
+      // under "translations first" is not a card with an empty top line; it is a
+      // card with one text, and the one text goes in the big type.
+      return translation ? { body: translation, second: quote } : { body: quote, second: '' }
+    default:
+      return { body: quote, second: translation }
+  }
 }
 
 // quoteBody — the big type alone, for the callers that draw nothing else: the
 // table's two-line cell and the share payload. Expressed through quoteTexts so
 // there is one answer to "which text leads" in the app.
-export function quoteBody(a, tview, canRead) {
-  return quoteTexts(a, tview, canRead).body
+export function quoteBody(a, order) {
+  return quoteTexts(a, order).body
 }
 
-// showsTranslationLine — kept for the reader who looks for it by name, and for
-// the tests that pin the old behaviour. It answers "is there a second line", which
-// is no longer the same question as "is there a translation".
-export function showsTranslationLine(a, tview, canRead) {
-  return !!quoteTexts(a, tview, canRead).second
+// showsTranslationLine — kept for the reader who looks for it by name. It answers
+// "is there a second line", which is not the same question as "is there a
+// translation".
+export function showsTranslationLine(a, order) {
+  return !!quoteTexts(a, order).second
 }

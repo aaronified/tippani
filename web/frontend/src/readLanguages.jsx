@@ -47,46 +47,16 @@ export function parseReadLanguages(blob) {
   }
 }
 
-// canReadLanguage — may this reader read a quote in this language as written?
+// WHAT WAS BELOW THIS LINE IS GONE: canReadLanguage, readerFrom, the
+// ReadableLanguages provider and useReadableLanguages.
 //
-// AN EMPTY SET SAYS YES TO EVERYTHING, and an empty LANGUAGE does too. The first
-// is the default and has to change nothing for a reader who never opens the
-// setting. The second is the commoner case: a quote nobody has assigned a language
-// to cannot be one the reader is unable to read, and treating it as foreign would
-// put the translation first on every untagged row in the library.
-export function canReadLanguage(set, language) {
-  if (!set || set.size === 0) return true
-  const key = foldLanguageName(language)
-  return key === '' || set.has(key)
-}
-
-// readerFrom is the whole of what the shell needs: hand it the user's
-// preferences, get back the predicate a card asks. One call site, so nothing else
-// keeps its own copy of "parse the blob then test the language".
-export function readerFrom(preferences) {
-  const set = parseReadLanguages(preferences?.readLanguages)
-  return (language) => canReadLanguage(set, language)
-}
-
-// ---- provided once ---------------------------------------------------------
-
-const ReadableContext = createContext(null)
-
-// ReadableLanguages — wrap the app once with `readerFrom(user?.preferences)`.
-export function ReadableLanguages({ value, children }) {
-  return <ReadableContext.Provider value={value || null}>{children}</ReadableContext.Provider>
-}
-
-// useReadableLanguages — the predicate a card should use: its own prop where one
-// was given, else the shell's, else a function that says yes to everything.
+// They answered one question — "can this reader read this language" — and the
+// owner replaced that question with four states and three scopes. The precedence
+// lives in textOrder.js and the provider in textOrderHost.jsx; a predicate that
+// can only say yes or no has nothing left to decide, and a component left in a
+// file after its last caller went is the shape of thing nobody deletes (see
+// MetadataSources.jsx, which said exactly that about a badge earlier today).
 //
-// THE LAST LEG IS THE DEFAULT AND IT IS DELIBERATE. A card rendered bare in a test
-// or outside the provider reads every quote as written, which is what the app did
-// before this existed — so a missing provider degrades to the old behaviour rather
-// than to translations leading everywhere.
-export function useReadableLanguages(explicit = null) {
-  const provided = useContext(ReadableContext)
-  return explicit || provided || alwaysReadable
-}
-
-const alwaysReadable = () => true
+// `parseReadLanguages` and `foldLanguageName` stay: Settings' chips still read the
+// stored preference, and textOrderFromReadLanguages still migrates it. Both go
+// when the per-language table replaces that panel.

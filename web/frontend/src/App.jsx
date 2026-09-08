@@ -34,7 +34,7 @@ import AnthologiesPage from './anthologies.jsx'
 // The shell's own door to a work, provided to everything under it — see
 // personOpen.jsx. A leaf module, so this is not a lazy chunk.
 import { SearchDoor, WorkDoor } from './personOpen.jsx'
-import { ReadableLanguages, readerFrom } from './readLanguages.jsx'
+import { TextOrderHost, textOrderFrom } from './textOrderHost.jsx'
 const TagsPage = lazy(() => import('./TagsPage.jsx'))
 const SearchPage = lazy(() => import('./SearchPage.jsx'))
 const StagingPage = lazy(() => import('./StagingPage.jsx'))
@@ -1989,7 +1989,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     {/* WHICH LANGUAGES THIS READER CAN READ, provided once for the reason the two
         doors above are: a quote card is three components below here and the two in
         between only pass their props along. See readLanguages.jsx. */}
-    <ReadableLanguages value={readerFrom(user?.preferences)}>
+    <TextOrderHost value={textOrderFrom(user?.preferences)}>
     <div className="min-h-screen has-mobile-topbar">
       {/* THE RAIL OWNS THE BRAND, THE DESTINATIONS AND THE ACCOUNT now; the bar keeps
           the four verbs that act on the screen you are looking at. Neither list is
@@ -2380,7 +2380,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         />
       )}
     </div>
-    </ReadableLanguages>
+    </TextOrderHost>
     </SearchDoor>
     </WorkDoor>
   )

@@ -24,7 +24,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { AnnotationCard } = await import('../../src/Library.jsx')
-const { ReadableLanguages, readerFrom } = await import('../../src/readLanguages.jsx')
+const { TextOrderHost } = await import('../../src/textOrderHost.jsx')
 
 const GERMAN = 'Als die Nazis die Kommunisten holten'
 const ENGLISH = 'First they came for the Communists'
@@ -36,9 +36,12 @@ const row = {
 
 // The card needs a handful of no-op verbs; none of them is what this measures.
 const noop = () => {}
-const card = (preferences) =>
+// The host takes the reader's settings — the slider above the column and the rows
+// under it — exactly as App does. A card resolves its own state from them plus its
+// row's language, which is the point: nothing is threaded.
+const card = (settings) =>
   render(
-    <ReadableLanguages value={readerFrom(preferences)}>
+    <TextOrderHost value={settings}>
       <AnnotationCard
         a={row}
         variant={0}
@@ -51,7 +54,7 @@ const card = (preferences) =>
         onShare={noop}
         selectKind="quote"
       />
-    </ReadableLanguages>,
+    </TextOrderHost>,
   )
 
 // The big type and the small line are two different classes, so "which one leads"
@@ -84,13 +87,13 @@ beforeEach(() => { document.body.innerHTML = '' })
 
 describe('a card, and which text is the words', () => {
   it('reads as written when the reader declared its language', () => {
-    card({ readLanguages: '["german"]' })
+    card({ master: 'trans-first', byLanguage: { german: 'quote-first' } })
     leads(GERMAN)
     expect(secondLine()?.textContent).toBe(ENGLISH)
   })
 
   it('and leads with the translation when they did not', () => {
-    card({ readLanguages: '["english"]' })
+    card({ master: 'trans-first', byLanguage: { english: 'quote-first' } })
     leads(ENGLISH)
     // THE ORIGINAL IS STILL THERE, under it — "the original in the bottom". A
     // version of this that simply hid the German would pass an assertion about

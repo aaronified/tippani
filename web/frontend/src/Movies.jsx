@@ -32,7 +32,7 @@ import { KINDS } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
 import { t } from './i18n.js'
 import { quoteTexts } from './text.js'
-import { useReadableLanguages } from './readLanguages.jsx'
+import { useTextOrder } from './textOrderHost.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import {
   QUOTE_COLUMNS_IN,
@@ -1746,10 +1746,10 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // back in the order the old code hard-wired. The change is structural: the frame
   // now ASKS the shared function, so it inherits the behaviour the day the column
   // exists rather than needing to be found and edited again.
-  const frameReader = useReadableLanguages()
+  const frameOrder = useTextOrder({ language: d?.language })
   // NO TEXT MENU ON THIS SCREEN, so 'both' — which is not "show both in a fixed
   // order" but "let the language decide" (quoteTexts).
-  const { body: frameBody, second: frameSecond } = quoteTexts(d, 'both', frameReader)
+  const { body: frameBody, second: frameSecond } = quoteTexts(d, frameOrder)
   const sp = d.speaker_cast
   // THE CHARACTER'S PICTURE, AND THE ACTOR'S ONLY AS A FALLBACK — the owner's
   // ruling, and it is what this card already did with a separate row of discs

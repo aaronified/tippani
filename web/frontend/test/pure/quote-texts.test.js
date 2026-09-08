@@ -1,140 +1,133 @@
 // WHICH OF A QUOTE'S TWO TEXTS GOES IN THE BIG TYPE.
 //
-// THE OWNER'S RULING, asked and answered: the language decides, the menu
-// overrides. A quote in a language the reader has not declared leads with its
-// TRANSLATION and prints the original underneath — "a poem in a foreign language
-// will need the translation to be on top, and the original in the bottom" — and
-// the board's own text menu still wins where it says something explicit.
+// FOUR STATES, ON ONE AXIS, and the owner's own numbering: "1) translations above
+// quotations, 2) quotations above translation, 3) no translation, 4) no
+// quotations." Which state applies is textOrder.js's question and is tested beside
+// it; this file is only about what each state DRAWS.
 //
-// WHY THIS IS A TABLE AND NOT THREE CASES. The answer is a function of three
-// things (the menu, the language, whether there is a translation at all) and the
-// two halves — what leads and what sits under it — have to agree. They used to be
-// two functions, each reading the menu for itself, which was safe only while the
-// second line was ALWAYS the translation. Now that the two can swap, a
-// disagreement prints the same words in both sizes or hides one of them, silently.
-// So every combination is written out.
+// WHY IT IS A TABLE. Every state has to answer for a row that is missing one of
+// its two texts, and that is where a display rule turns into a card with nothing
+// on it. Six of the eight cases below are that.
 
 import { describe, expect, it } from 'vitest'
-import { quoteBody, quoteTexts, showsTranslationLine } from '../../src/text.js'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { quoteBody, quoteTexts, showsTranslationLine } from '../../src/text.js'
 
-const q = { quote: 'Als die Nazis die Kommunisten holten', translation: 'First they came for the Communists', language: 'German' }
-const readsGerman = (l) => String(l || '').toLowerCase() === 'german'
-const readsNothingElse = (l) => String(l || '').toLowerCase() === 'english'
+const both = { quote: 'Als die Nazis die Kommunisten holten', translation: 'First they came for the Communists' }
+const quoteOnly = { quote: 'a line', translation: '' }
+const transOnly = { quote: '', translation: 'eine Zeile' }
 
-describe('the menu overrides', () => {
-  it('quote-only shows the quote and nothing under it, whatever the reader reads', () => {
-    for (const canRead of [readsGerman, readsNothingElse, undefined]) {
-      expect(quoteTexts(q, 'quote', canRead)).toEqual({ body: q.quote, second: '' })
-    }
+describe('what each state draws', () => {
+  it('quote-first is the quotation with its translation under it', () => {
+    expect(quoteTexts(both, 'quote-first')).toEqual({ body: both.quote, second: both.translation })
   })
 
-  it('translation-only shows the translation and nothing under it', () => {
-    for (const canRead of [readsGerman, readsNothingElse, undefined]) {
-      expect(quoteTexts(q, 'translation', canRead)).toEqual({ body: q.translation, second: '' })
-    }
+  it('trans-first swaps them — "a poem in a foreign language will need the translation to be on top, and the original in the bottom"', () => {
+    expect(quoteTexts(both, 'trans-first')).toEqual({ body: both.translation, second: both.quote })
   })
 
-  // A FALLBACK, NOT A BLANK — kept from the pair this replaces. Honouring
-  // "translation only" exactly would empty every untranslated quote on the board,
-  // which on a library where translations are the exception is a setting that
-  // looks like a bug that has deleted your highlights.
-  it('and translation-only on an untranslated quote still says something', () => {
-    const bare = { quote: 'a line', translation: '', language: 'German' }
-    expect(quoteTexts(bare, 'translation', readsNothingElse).body).toBe('a line')
+  it('quote-only is the quotation alone', () => {
+    expect(quoteTexts(both, 'quote-only')).toEqual({ body: both.quote, second: '' })
+  })
+
+  it('trans-only is the translation alone', () => {
+    expect(quoteTexts(both, 'trans-only')).toEqual({ body: both.translation, second: '' })
+  })
+
+  // THE DEFAULT IS WHAT THE APP DID BEFORE ANY OF THIS, and an unknown state
+  // resolves to it rather than to nothing — a card rendered by an older screen, or
+  // one whose state came from a newer client, still has to draw.
+  it('and anything it does not recognise reads as written', () => {
+    for (const order of [undefined, null, '', 'both', 'sideways']) {
+      expect(quoteTexts(both, order), String(order))
+        .toEqual({ body: both.quote, second: both.translation })
+    }
   })
 })
 
-describe('otherwise the language decides', () => {
-  it('a quote in a language the reader declared reads as written', () => {
-    expect(quoteTexts(q, 'both', readsGerman)).toEqual({ body: q.quote, second: q.translation })
+// A FALLBACK, NOT A BLANK. Honouring a state exactly on a row that lacks the text
+// it asks for would empty the card — which, on a library where translations are
+// the exception, is a setting that looks like a bug that has deleted your
+// highlights.
+describe('a row that is missing one of its two texts', () => {
+  it('shows the quotation when the translation is wanted and absent', () => {
+    expect(quoteTexts(quoteOnly, 'trans-only')).toEqual({ body: 'a line', second: '' })
+    expect(quoteTexts(quoteOnly, 'trans-first')).toEqual({ body: 'a line', second: '' })
   })
 
-  it('and one in a language they did not leads with its translation', () => {
-    expect(quoteTexts(q, 'both', readsNothingElse)).toEqual({ body: q.translation, second: q.quote })
+  it('and shows the translation when the quotation is wanted and absent', () => {
+    // The mirror case, and it is real: an imported row can arrive with only the
+    // translation filled in.
+    expect(quoteTexts(transOnly, 'quote-only')).toEqual({ body: 'eine Zeile', second: '' })
   })
 
-  // THE DEFAULT HAS TO CHANGE NOTHING for a reader who never opens the setting,
-  // and for a card rendered outside the provider — which is every card in a test
-  // that does not know this feature exists.
-  it('and with no predicate at all, every quote reads as written', () => {
-    expect(quoteTexts(q, 'both', undefined)).toEqual({ body: q.quote, second: q.translation })
-    expect(quoteTexts(q, 'both', null)).toEqual({ body: q.quote, second: q.translation })
-  })
-
-  it('and a quote with no translation cannot lead with one', () => {
-    const bare = { quote: 'a line', translation: '', language: 'German' }
-    expect(quoteTexts(bare, 'both', readsNothingElse)).toEqual({ body: 'a line', second: '' })
-  })
-
-  // A QUOTE WITH NO LANGUAGE IS NOT A FOREIGN QUOTE. It is the commonest row in
-  // any library, and reading the blank as "not declared" would put the
-  // translation first on every one of them.
-  it('and a quote with no language reads as written', () => {
-    const untagged = { quote: 'a line', translation: 'eine Zeile', language: '' }
-    expect(quoteTexts(untagged, 'both', readsNothingElse)).toEqual({ body: 'a line', second: 'eine Zeile' })
+  it('and never prints the same words twice', () => {
+    // The failure this forbids is a card whose big type and second line are the
+    // same string, which is what a naive fallback produces.
+    for (const row of [quoteOnly, transOnly]) {
+      for (const order of ['trans-only', 'trans-first', 'quote-first', 'quote-only']) {
+        const { body, second } = quoteTexts(row, order)
+        expect(second === '' || second !== body, `${order} on ${JSON.stringify(row)}`).toBe(true)
+      }
+    }
   })
 })
 
-describe('the two old names still answer, and answer the same way', () => {
-  // They are re-exported from Library.jsx and four test files call them there.
-  // Expressed through quoteTexts, so there is one answer to "which text leads".
+describe('the two names beside it answer the same way', () => {
   it('quoteBody is the big type', () => {
-    expect(quoteBody(q, 'both', readsNothingElse)).toBe(q.translation)
-    expect(quoteBody(q, 'both', readsGerman)).toBe(q.quote)
+    expect(quoteBody(both, 'trans-first')).toBe(both.translation)
+    expect(quoteBody(both, 'quote-first')).toBe(both.quote)
   })
 
   it('and showsTranslationLine is "is there a second line", not "is there a translation"', () => {
-    expect(showsTranslationLine(q, 'both', readsGerman)).toBe(true)
-    // Still true when the two have swapped — there IS a second line, it is the
+    // Still true when the two have swapped: there IS a second line, it is the
     // original. A version of this that asked about the translation would say the
     // same thing here for the wrong reason.
-    expect(showsTranslationLine(q, 'both', readsNothingElse)).toBe(true)
-    expect(showsTranslationLine(q, 'quote', readsGerman)).toBe(false)
-    expect(showsTranslationLine(q, 'translation', readsGerman)).toBe(false)
+    expect(showsTranslationLine(both, 'quote-first')).toBe(true)
+    expect(showsTranslationLine(both, 'trans-first')).toBe(true)
+    expect(showsTranslationLine(both, 'quote-only')).toBe(false)
+    expect(showsTranslationLine(both, 'trans-only')).toBe(false)
   })
 })
 
-// ---- and every screen that asks actually passes the predicate ---------------
+// ---- and every screen that asks passes a state ------------------------------
 //
-// THE FAILURE THIS GUARDS IS NOT A WRONG ANSWER, IT IS AN UNASKED QUESTION, and
-// it has happened twice in this repo now. `quoteBody(a, tview)` compiles, runs,
-// and returns a perfectly sensible string — the one it returned before readable
-// languages existed. The table view shipped like that: cards led with the
-// translation and the same rows in the table led with the original, one library
-// giving two answers, and no test failed because nothing was broken. It was
-// merely not connected.
+// THE FAILURE THIS GUARDS IS NOT A WRONG ANSWER, IT IS AN UNASKED QUESTION, and it
+// has happened twice. `quoteBody(a, tview)` compiled, ran, and returned a
+// perfectly sensible string — the one it returned before the feature existed. The
+// table view shipped like that for a day: cards led with the translation and the
+// same rows in the table led with the original, and no test failed because nothing
+// was broken. It was merely not connected.
 //
-// SO THE ASSERTION IS ON THE CALL SITES, not on one component. A test that
-// rendered AnnotationTable would pin the site that was wrong and say nothing
-// about the next one; this fails on any screen that adds a call and forgets the
-// third argument. text.js is exempt because it IS the pair of wrappers, and its
-// own two-argument signature is what the wrappers exist to widen.
-//
-// AND HERE IS WHAT IT CANNOT SEE, said plainly because a guard that is trusted
-// past its reach is worse than no guard. The pattern refuses nested parentheses,
-// so `quoteBody(a, tview, readerFrom(x))` does not match it AT ALL and is skipped
-// in silence rather than counted — the same shape of miss the test is here to
-// prevent. It holds for the three call sites that exist, all of which pass bare
-// identifiers; a call that needs an expression for its reader should hoist it to
-// a `const` on the line above, which is what the two real callers already do.
-// Quotes.jsx has no call today and its row asserts nothing yet — it is listed so
-// that the screen most likely to grow one is already covered when it does.
-describe('the predicate reaches every caller', () => {
+// SO THE ASSERTION IS ON THE CALL SITES. A test that rendered one component would
+// pin the site that was wrong and say nothing about the next one.
+describe('the state reaches every caller', () => {
   const SCREENS = ['Library.jsx', 'Movies.jsx', 'Quotes.jsx']
-  // The three names that answer "which text leads", and a call to any of them
-  // that stops at two arguments is a screen that cannot see the reader.
   const CALL = /\b(quoteTexts|quoteBody|showsTranslationLine)\s*\(([^()]*)\)/g
 
-  it.each(SCREENS)('%s passes a reader to every one of them', (file) => {
+  it.each(SCREENS)('%s passes a state to every one of them', (file) => {
     const src = readFileSync(join(process.cwd(), 'src', file), 'utf8')
     const thin = []
     for (const m of src.matchAll(CALL)) {
       const args = m[2].split(',').map((a) => a.trim()).filter(Boolean)
-      if (args.length < 3) thin.push(`${m[1]}(${m[2]})`)
+      if (args.length < 2) thin.push(`${m[1]}(${m[2]})`)
     }
-    expect(thin, `${file} asks which text leads without saying who is reading — the answer will be the pre-feature one and nothing will look broken`)
+    expect(thin, `${file} asks which text leads without saying which state applies — the answer will be the default and nothing will look broken`)
       .toEqual([])
+  })
+
+  // AND WHAT THIS CANNOT SEE, said plainly because a guard trusted past its reach
+  // is worse than no guard: the pattern refuses nested parentheses, so
+  // `quoteBody(a, resolve(x))` does not match it AT ALL and is skipped in silence
+  // — the same shape of miss it exists to prevent. It holds for the call sites
+  // that exist, which pass bare identifiers; a caller needing an expression should
+  // hoist it to a const on the line above, as all three already do.
+  it('and the pattern still finds the calls it is meant to', () => {
+    // Without this, a rename could leave the guard scanning for nothing and
+    // passing on every file.
+    const src = readFileSync(join(process.cwd(), 'src', 'Library.jsx'), 'utf8')
+    expect([...src.matchAll(CALL)].length, 'the call-site pattern matches nothing in Library.jsx any more')
+      .toBeGreaterThan(0)
   })
 })

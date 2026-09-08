@@ -13,7 +13,8 @@ import { selectionClick, selectionMenuItems, useSelection } from './selection.js
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { PeopleChips, PersonModal, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
-import { useReadableLanguages } from './readLanguages.jsx'
+import { useTextOrder } from './textOrderHost.jsx'
+import { orderFromTextView } from './textOrder.js'
 import { categoryHidden, categoryName } from './theme.js'
 import {
   GroupHeading,
@@ -1471,13 +1472,28 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both', canRead = null, onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both', textOrder = null, onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
   // PROVIDED, NOT THREADED — see readLanguages.jsx. `tview` reaches here through
   // two components that only pass it on; a second prop down that chain is the
   // capability that goes missing wherever somebody forgets it.
-  const reader = useReadableLanguages(canRead)
-  const { body, second } = quoteTexts(a, tview, reader)
+  // ONE OF FOUR STATES, resolved from the reader's settings and this row's own
+  // two facts. `canRead` was a predicate a caller could hand in; a test that wants
+  // a particular state passes the state now, which is one indirection fewer
+  // between what a case says and what it asserts.
+  //
+  // THE HOOK RUNS UNCONDITIONALLY and the prop is preferred afterwards. Written as
+  // `textOrder || useTextOrder(...)` this skips the hook whenever a prop is given,
+  // which changes the hook order between renders of the same component — the one
+  // thing React's rules forbid outright, and it would have broken on the first
+  // card that was handed an explicit state after being rendered without one.
+  const resolved = useTextOrder({ language: a?.language })
+  // THE MENU FIRST, THEN THE CHAIN. `tview` is the board's ⋯ setting and it is on
+  // its way out (see orderFromTextView), but while it exists its two explicit
+  // settings are instructions and outrank everything — the rule it has always had.
+  // `both` maps to nothing, so the work, the language and the master decide.
+  const order = textOrder || orderFromTextView(tview) || resolved
+  const { body, second } = quoteTexts(a, order)
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
   const accordion = typeof onToggleExpand === 'function'
@@ -1775,14 +1791,23 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
   const arrow = (k) => (sort.col !== k ? null
     : sort.dir === 'asc' ? <IconSortAsc size={13} /> : <IconSortDesc size={13} />)
   const editingRow = rows.find((a) => a.id === editingId)
-  // THE SAME PREDICATE THE CARDS READ, and it is taken from the provider rather
-  // than passed in — the argument ReadableLanguages exists for. Without it
-  // `quoteBody` had no way to ask whether the reader can read the line, so the
-  // `both` default (which is every reader's, until they change it) resolved to
-  // the original here and to the translation on the card: one library, two
-  // answers, and the table's was the wrong one for exactly the quote the feature
-  // is for.
-  const reader = useReadableLanguages()
+  // THE SAME STATE THE CARDS READ, taken from the host rather than passed in —
+  // the argument TextOrderHost exists for. Without it `quoteBody` fell to the
+  // default, so the table showed the original where a card showed the
+  // translation: one library, two answers, and the table's was the wrong one for
+  // exactly the quote the feature is for.
+  //
+  // NO LANGUAGE HERE, DELIBERATELY. A table row is one line of a work's
+  // highlights and the cell has the row in hand, so this could ask per row — but
+  // the table is a scan of one work and a column whose reading order changed line
+  // by line would be unreadable. The work's own state governs the column.
+  // THE HOOK UNCONDITIONALLY, then the menu's instruction. Written as
+  // `orderFromTextView(tview) || useTextOrder()` the hook is skipped whenever the
+  // menu has an opinion, so the hook order changes the moment a reader picks
+  // "quote only" — the same violation the card above carries a note about, made
+  // twice in one afternoon.
+  const resolvedOrder = useTextOrder()
+  const order = orderFromTextView(tview) || resolvedOrder
   return (
     <Scroller className="ann-table-wrap">
       <table className="ann-table">
@@ -1807,7 +1832,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
                     one view where the translation was never drawn at all, so a
                     reader who asked for "translation only" here used to get the
                     original back with no sign the setting had done anything. */}
-                <ExpandableText text={quoteBody(a, tview, reader) || a.note} lines={2} style={QUOTE_STYLE} />
+                <ExpandableText text={quoteBody(a, order) || a.note} lines={2} style={QUOTE_STYLE} />
                 {a.tags && a.tags.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {a.tags.map((name) => {
