@@ -34,18 +34,26 @@ function parseArgs(argv) {
   // NO DEFAULT ID. A number here is a fact about one library, and this probe
   // runs against two — the seeded fixture and a restored archive. Left empty it
   // is resolved from whichever library is loaded; see `filmWithCast`.
-  const out = { baseUrl: 'http://127.0.0.1:8080', movieId: '', timeoutMs: 30000 }
+  const out = { baseUrl: 'http://127.0.0.1:8080', movieId: '', timeoutMs: 30000, surface: 'details' }
   for (let i = 0; i < argv.length; i++) {
     const next = () => argv[++i]
     if (argv[i] === '--base-url') out.baseUrl = next()
     else if (argv[i] === '--movie-id') out.movieId = next()
+    else if (argv[i] === '--surface') out.surface = next()
     else if (argv[i] === '--timeout') out.timeoutMs = Number(next())
     else if (argv[i] === '--help' || argv[i] === '-h') {
-      console.log('usage: node sheet-drag.mjs [--base-url URL] [--movie-id N]\n\n' +
+      console.log('usage: node sheet-drag.mjs [--base-url URL] [--movie-id N] [--surface S]\n\n' +
         'Opens a panel at phone width and checks that it is a sheet with a handle,\n' +
         'that it rests at one of its anchors, that a drag up grows it to the next\n' +
         'one, that a plain press on the handle moves it too, and that a drag off the\n' +
-        'bottom of the screen closes it.')
+        'bottom of the screen closes it.\n\n' +
+        '--surface picks WHICH panel, and it matters more than it looks:\n' +
+        '  details    the film\'s Details key. The owner reports this one FINE.\n' +
+        '  character  a speaker chip, then the character row in the chooser.\n' +
+        '  people     the same chip, then the performer row.\n' +
+        'The owner reports the last two flaky, twice, and this probe could not open\n' +
+        'either of them until now — so two fixes were written and shipped against\n' +
+        'the one surface that was never broken.')
       process.exit(0)
     }
   }
@@ -96,6 +104,70 @@ const readSheet = (page) => page.evaluate((floor) => {
     dragHeight: (g ? g.height : 0) + (b ? b.height : 0),
   }
 }, TAP_FLOOR)
+
+// pressChip — the reader's own way into a character or a people panel.
+//
+// THERE IS NO OTHER WAY IN. `routes.js` parses no /people/{id} or /characters/{id},
+// so these two panels exist only behind a chip on a work page, and a probe that
+// wanted to reach them by URL would have quietly measured nothing. That is how
+// they went unmeasured through two fixes.
+const pressChip = async (page, opts, wantActor = false) => {
+  try {
+    await page.waitForSelector('button.person-chip', { timeout: opts.timeoutMs })
+  } catch {
+    return 'this film draws no speaker chip, so no character or people panel can be opened from it'
+  }
+  // WHICH CHIP, AND `is-stacked` IS THE TELL. A chooser only offers a performer row
+  // where the line's character HAS a linked performer, and `openCharacterDoor` skips
+  // the chooser entirely when one door is live — so a probe that pressed the first
+  // chip it found reported "no performer to reach" and looked like a fixture problem.
+  // `PersonChip` adds `is-stacked` exactly when it has a sub-line, and that sub-line
+  // IS the performer's name, so this is the same fact the chooser will use.
+  const ok = await page.evaluate((stacked) => {
+    const chip = stacked
+      ? document.querySelector('button.person-chip.is-stacked')
+      : document.querySelector('button.person-chip')
+    if (!chip) return false
+    chip.click()
+    return true
+  }, wantActor)
+  if (!ok) {
+    return wantActor
+      ? 'SKIP no chip on this film names a performer, so no people panel sits behind one'
+      : 'the speaker chip vanished between being found and being pressed'
+  }
+  // The chooser is a panel on the stack and takes an entrance; pressing into it
+  // before it has arrived reads as an empty chooser.
+  await settle(900)
+  return ''
+}
+
+// watchHeight — does the sheet move when nothing is moving it.
+//
+// SAMPLED RATHER THAN OBSERVED, because what is being caught is a height that
+// settles more than once: a MutationObserver on the style attribute would report
+// every write including the ones that write the same number, and a reader does not
+// see a write, they see a change.
+//
+// `SLACK` IS THE TOLERANCE, not zero. `getBoundingClientRect` is fractional and the
+// sheet's height comes off a CSS variable through a transition, so a sub-pixel
+// difference between two samples is the same height twice.
+const watchHeight = async (page, ms) => page.evaluate((span, slack) => new Promise((done) => {
+  const el = document.querySelector('.tp-panel')
+  if (!el) return done({ first: 0, moves: ['no panel'] })
+  const at = () => Math.round(el.getBoundingClientRect().height * 10) / 10
+  const first = at()
+  let last = first
+  const moves = []
+  const tick = setInterval(() => {
+    const now = at()
+    if (Math.abs(now - last) > slack) {
+      moves.push(`${last}px->${now}px`)
+      last = now
+    }
+  }, 50)
+  setTimeout(() => { clearInterval(tick); done({ first, moves }) }, span)
+}), ms, SLACK)
 
 // One whole gesture with the pointer, in steps, so the hook sees a drag rather
 // than a teleport.
@@ -176,30 +248,117 @@ try {
   // `waitForSelector('.tp-btn')` and died with "Waiting for selector `.tp-btn`
   // failed" — a message about a button, from a wrong id, on a screen that was never
   // a film.
-  opts.movieId = opts.movieId || await pickFilm({ ...filmLookups(page, opts.baseUrl), wantCast: false })
+  // CAST IS REQUIRED FOR TWO OF THE THREE. A speaker chip is drawn from a line's
+  // own cast link, so a film with no cast has no chip and no way into either panel
+  // — and picking such a film would report "no chip" as a defect in the app.
+  opts.movieId = opts.movieId || await pickFilm({ ...filmLookups(page, opts.baseUrl), wantCast: opts.surface !== 'details' })
   if (!opts.movieId) {
     console.log('SKIP  the library has no film to open, so there is no sheet to measure')
     process.exit(0)
   }
 
   await page.goto(`${opts.baseUrl}/catalogue/${opts.movieId}`, { waitUntil: 'networkidle2' })
-  await page.waitForSelector('.tp-btn', { timeout: opts.timeoutMs })
-  const opened = await page.evaluate(() => {
-    const b = [...document.querySelectorAll('.tp-btn')].find((x) => x.textContent.trim() === 'Details')
-    if (!b) return false
-    b.click()
-    return true
-  })
-  if (!opened) {
-    console.log('FAIL  this film page has no Details key, so there is no panel to drag')
+
+  // WHICH PANEL, AND WHY IT IS A FLAG RATHER THAN A CONSTANT.
+  //
+  // THE OWNER, TWICE: "the drag issue is still not solved for character and people
+  // popups. details are totally fine, as before." This probe opened the Details key
+  // and nothing else — the ONE surface they had already called fine — so two fixes
+  // were written, shipped and reported closed against a panel that was never
+  // broken. That is the whole reason this flag exists, and the reason it takes a
+  // value rather than defaulting to "whatever is easiest to reach".
+  //
+  // THE OTHER TWO HAVE NO URL. `routes.js` parses no /people/{id} or
+  // /characters/{id}, so a chip press is the only way in and the probe has to make
+  // the same journey a reader does: press the speaker chip, then answer the chooser
+  // that `openCharacterDoor` opens.
+  const openers = {
+    details: async () => {
+      await page.waitForSelector('.tp-btn', { timeout: opts.timeoutMs })
+      return page.evaluate(() => {
+        const b = [...document.querySelectorAll('.tp-btn')].find((x) => x.textContent.trim() === 'Details')
+        if (!b) return 'this film page has no Details key'
+        b.click()
+        return ''
+      })
+    },
+    // The chip may open the character panel OUTRIGHT — `openCharacterDoor` skips the
+    // chooser when only one door is live, which is a character with no linked
+    // performer. So a missing chooser is a pass here and a SKIP for `people`.
+    character: async () => {
+      const why = await pressChip(page, opts)
+      if (why) return why
+      return page.evaluate(() => {
+        const rows = [...document.querySelectorAll('button.cs-choose')].filter((b) => !b.disabled)
+        if (!rows.length) return ''
+        // THE CHARACTER-ON-THIS-WORK ROW IS THE FIRST, and the `key` that says so is
+        // a React key rather than an attribute — so it is identified by position and
+        // by carrying no works count, which is the global row's own mark.
+        const local = rows[0]
+        if (local.querySelector('.cs-choose-meta')) return 'the first chooser row carries a works count, so it is not the work-level character'
+        local.click()
+        return ''
+      })
+    },
+    people: async () => {
+      const why = await pressChip(page, opts, true)
+      if (why) return why
+      return page.evaluate(() => {
+        const rows = [...document.querySelectorAll('button.cs-choose')].filter((b) => !b.disabled)
+        if (!rows.length) return 'SKIP the chip opened its character outright, so this line has no performer to reach'
+        const label = (b) => b.querySelector('.cs-choose-label')?.textContent?.trim() || ''
+        // THE PERFORMER IS LAST — the order is the owner's, "the work-character,
+        // global-character ... or the people" — and it must not be the character row
+        // read twice, which is what a one-row chooser would give.
+        const last = rows[rows.length - 1]
+        if (rows.length < 2 || label(last) === label(rows[0])) {
+          return 'SKIP no performer row on this line, so there is no people panel behind it'
+        }
+        last.click()
+        return ''
+      })
+    },
+  }
+  if (!openers[opts.surface]) {
+    console.log(`FAIL  --surface ${opts.surface} is not one of details, character, people`)
+    process.exit(1)
+  }
+  const why = await openers[opts.surface]()
+  if (why.startsWith('SKIP')) {
+    console.log(`SKIP  ${why.slice(5)}`)
+    process.exit(0)
+  }
+  if (why) {
+    console.log(`FAIL  ${why}, so there is no panel to drag`)
     process.exit(1)
   }
   await settle(1400)
 
   let s = await readSheet(page)
   if (!s) {
-    console.log('FAIL  pressing Details opened no panel, so nothing here can be measured')
+    console.log(`FAIL  opening the ${opts.surface} panel drew nothing, so nothing here can be measured`)
     process.exit(1)
+  }
+  console.log(`--    surface: ${opts.surface}`)
+
+  // 0. IT HOLDS STILL WHILE NOTHING IS TOUCHING IT.
+  //
+  //    THE OWNER'S SYMPTOM, and the one no other case here can see: "it flashes
+  //    sometimes". A flash is the sheet changing height with no gesture behind it,
+  //    and every case below moves the sheet on purpose — so a sheet that resizes
+  //    itself passes all of them.
+  //
+  //    WHY THESE PANELS AND NOT DETAILS. A details panel has its content when it
+  //    mounts; a character or a people panel makes its requests after opening, and
+  //    each answer is a render. `refit` runs after every render and is guarded
+  //    against a live drag and a live landing — so if the sheet still moves here,
+  //    the guard is not the whole story and this is the number that says so.
+  const held = await watchHeight(page, 2000)
+  if (held.moves.length) {
+    console.log(`FAIL  the sheet resized itself ${held.moves.length}x with nothing touching it: ${held.moves.join(' -> ')}`)
+    failures++
+  } else {
+    console.log(`ok    holds still when untouched (${held.first}px for 2s)`)
   }
 
   // 1. THERE IS A MARK, AND A THUMB CAN HIT THE SURFACE IT SITS ON.
@@ -247,6 +406,126 @@ try {
   //    `natural` is unknowable from outside, so the check is the pack's two stops
   //    OR something smaller than the first — which is what a natural anchor is.
   const anchors = anchorsFor({ viewport: s.viewport })
+  // THE LADDER ITSELF, REPORTED — not just "did it land on one".
+  //
+  // Every case in this file asks whether a gesture reached AN ANCHOR, and all of
+  // them pass on a sheet with two anchors a thumb's width apart. The owner's
+  // report is about the LADDER: "it rarely goes up and never down ... it feels
+  // like i am tugging on a hard leather sheet hung on the wall. just that much
+  // give." That is a range, and nothing here was measuring it.
+  const natural = await page.evaluate(() => {
+    const el = document.querySelector('.tp-panel')
+    const box = el?.querySelector('.tp-panel-body')
+    if (!el || !box) return 0
+    let chrome = 0
+    for (const kid of el.children) if (kid !== box) chrome += kid.getBoundingClientRect().height
+    return Math.ceil(chrome + box.scrollHeight)
+  })
+  const ladder = anchorsFor({ viewport: s.viewport, natural })
+  const travel = ladder.length > 1 ? ladder[ladder.length - 1] - ladder[0] : 0
+  console.log(`--    content wants ${natural}px of a ${s.viewport}px screen; ladder ${ladder.join('/')} = ${travel}px of travel`)
+  // WHAT A THUMB LANDS ON AT THE TOP OF THE SHEET, which is not the same question
+  // as "does .tp-panel-head drag". THE OWNER: "the behaviour i see in character and
+  // people screen is that they behave the same way any screen does when i am
+  // reaching end of scroll. not how the draggable top bar should perform." That is
+  // the browser answering the gesture as a SCROLL and rubber-banding — and per
+  // `claim` in ui.jsx, a gesture the browser claims is one this hook stops
+  // receiving. It happens when the press lands INSIDE the scrolling body, where
+  // `down` only drags while `scrollTop === 0`. So: what is actually up there.
+  const top = await page.evaluate(() => {
+    const el = document.querySelector('.tp-panel')
+    const body = el?.querySelector('.tp-panel-body')
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    // Everything the reader could plausibly aim at in the top 120px of the sheet,
+    // in paint order, with whether it is inside the scroller.
+    const rows = []
+    for (const n of el.querySelectorAll('*')) {
+      const b = n.getBoundingClientRect()
+      if (b.height < 8 || b.width < 40) continue
+      if (b.top - r.top > 120) continue
+      rows.push({
+        tag: n.tagName.toLowerCase(),
+        cls: (n.className || '').toString().split(/\s+/).filter(Boolean).slice(0, 3).join('.'),
+        h: Math.round(b.height),
+        dy: Math.round(b.top - r.top),
+        inBody: !!body && body.contains(n),
+        touch: getComputedStyle(n).touchAction,
+      })
+    }
+    return { scrollTop: body ? body.scrollTop : -1, scrollable: body ? body.scrollHeight > body.clientHeight : false, rows: rows.slice(0, 12) }
+  })
+  if (top) {
+    console.log(`--    body scrolls: ${top.scrollable} (scrollTop ${top.scrollTop})`)
+    for (const r of top.rows) {
+      console.log(`--      +${String(r.dy).padStart(3)}px ${String(r.h).padStart(3)}px  ${r.inBody ? 'IN BODY ' : 'chrome  '} touch-action:${r.touch.padEnd(12)} ${r.tag}.${r.cls}`)
+    }
+  }
+
+  // THE DRAG SURFACE MUST OWN THE WHOLE GESTURE, and this is READ rather than
+  // performed — the one assertion in this file that presses nothing.
+  //
+  // WHY IT CANNOT BE A GESTURE. `pull` drives Puppeteer's MOUSE, and `touch-action`
+  // governs touch panning rather than mouse events. So a header no finger can drag
+  // passes every gesture case in this file, which is precisely what happened for
+  // three rounds while the owner reported it broken. The computed value is the only
+  // thing within this harness's reach that a real thumb obeys.
+  const claimed = await page.evaluate(() => {
+    const head = document.querySelector('.tp-panel-head')
+    if (!head) return null
+    const bad = []
+    const scrollers = []
+    for (const n of [head, ...head.querySelectorAll('*')]) {
+      const cs = getComputedStyle(n)
+      const name = n.tagName.toLowerCase() + '.' + (n.className || '').toString().split(/\s+/).filter(Boolean).slice(0, 2).join('.')
+      // Anything but `none` leaves the browser a pan to claim, and every real thumb
+      // drag is slightly diagonal.
+      if (cs.touchAction !== 'none') bad.push(`${name}:${cs.touchAction}`)
+      // AND A SCROLL CONTAINER IN HERE IS THE SAME DEFECT ONE LAYER DOWN — the
+      // owner's "header should not even have any scrollable part". `visible`
+      // computes to `auto` beside a scrolling partner, so both axes are read.
+      if (/(auto|scroll)/.test(cs.overflowY) || /(auto|scroll)/.test(cs.overflowX)) {
+        scrollers.push(`${name}:${cs.overflowX}/${cs.overflowY}`)
+      }
+    }
+    return { bad, scrollers }
+  })
+  if (!claimed) {
+    console.log('SKIP  no panel header to read, so the drag surface went unchecked')
+  } else {
+    if (claimed.bad.length) {
+      console.log(`FAIL  the header leaves the browser a gesture to claim: ${claimed.bad.join(', ')}`)
+      failures++
+    } else {
+      console.log('ok    the header and everything in it claim the whole gesture (touch-action: none)')
+    }
+    if (claimed.scrollers.length) {
+      console.log(`FAIL  the header has a scrollable part, so a thumb pans it instead of the sheet: ${claimed.scrollers.join(', ')}`)
+      failures++
+    } else {
+      console.log('ok    and nothing in the header is a scroll container')
+    }
+  }
+  // A LADDER WITH NOWHERE BELOW WHERE IT OPENS IS NOT DRAGGABLE DOWNWARD AT ALL.
+  // `clampDrag` leaves downward free and `landing` then reads any release below
+  // the smallest anchor as either a spring-back or a dismissal — so a sheet whose
+  // smallest anchor IS its opening height can only be pulled down to be thrown
+  // away, which is the "never down" half of the report.
+  // REPORTED, NOT FAILED, and the first cut of this failed it.
+  //
+  // A sheet whose content exceeds 76% has the ladder [76%, 94%] — it opens at its
+  // smallest anchor, so a pull down can only dismiss it. That reads like the "never
+  // down" half of the owner's report and IS NOT A DEFECT: it is what a bottom sheet
+  // at its lowest detent does everywhere, and the owner calls the Details panel —
+  // which has the same two-anchor ladder — "totally fine". What made character and
+  // people feel stuck was the header handing the gesture to the browser, one case
+  // below. An assertion here condemned three working surfaces on the strength of a
+  // symptom whose cause was elsewhere.
+  if (natural > 0 && ladder[0] >= Math.round(s.viewport * 0.76)) {
+    console.log(`--    content taller than the first stop, so the ladder is ${ladder.join('/')} and down from ${ladder[0]}px dismisses`)
+  } else {
+    console.log(`--    there is a stop below where it opens (${ladder[0]}px under ${Math.round(s.viewport * 0.76)}px)`)
+  }
   const atAnchor = (h) => Math.abs(h - nearest(h, anchors)) <= SLACK || h < anchors[0]
   if (!atAnchor(s.height)) {
     console.log(`FAIL  the sheet opened ${s.height.toFixed(0)}px tall, which is no anchor (${anchors.join(', ')})`)
@@ -581,6 +860,81 @@ try {
   } else if (!failures) {
     console.log('FAIL  the sheet vanished before the dismissal could be tried')
     failures++
+  }
+
+  // 7. AND A DRAG THAT STARTS BEFORE THE PANEL HAS ITS CONTENT.
+  //
+  //    THE CASE EVERY OTHER ONE HERE MISSES, and the reason two fixes shipped
+  //    against a defect nobody had reproduced. Every case above waits 1400ms after
+  //    opening — by which time a character or a people panel has its answers back
+  //    and is as static as a details panel. The reader does not wait: they press a
+  //    chip and drag the sheet that appears. So this one opens the panel again and
+  //    grabs it after a single frame, while the requests are still outstanding and
+  //    each answer is a re-render that calls `refit`.
+  //
+  //    IT IS DELIBERATELY THE LAST CASE. The sheet is closed by case 6, so this
+  //    reopens from a known-clean state rather than inheriting whatever height the
+  //    gesture cases left behind.
+  {
+    const why = await openers[opts.surface]()
+    if (why) {
+      console.log(`EARLY  could not reopen the ${opts.surface} panel (${why.replace(/^SKIP /, '')}), so the early drag went unmeasured`)
+    } else {
+      // ONE FRAME, NOT NONE. The sheet has to exist to be grabbed, and its
+      // entrance writes the first transform on a double-rAF — grabbing before
+      // that measures the absence of a sheet rather than a drag on one.
+      await settle(120)
+      const early = await readSheet(page)
+      if (!early?.head) {
+        console.log('EARLY  the reopened panel had no readable header, so the early drag went unmeasured')
+      } else {
+        await page.evaluate(() => {
+          window.__tpFrames = []
+          window.__tpStop = false
+          const tick = (t) => { window.__tpFrames.push(t); if (!window.__tpStop) requestAnimationFrame(tick) }
+          requestAnimationFrame(tick)
+        })
+        const seen = []
+        await pull(page, { x: early.head.mid, y: early.head.y }, -PULL, seen)
+        const stamps = await page.evaluate(() => { window.__tpStop = true; return window.__tpFrames })
+        await settle(420)
+        const after = await readSheet(page)
+        const verdict = judgeDrag({
+          live: seen,
+          let_go: seen[seen.length - 1],
+          after,
+          asked: PULL,
+        })
+        const smooth = judgeFrames({ stamps })
+        // REPORTED AND NOT FAILED, and the reason is stated rather than assumed.
+        //
+        // This fires on ALL THREE surfaces, Details included — and the owner calls
+        // Details "totally fine" and has said "everything has already loaded
+        // instantly for me", so it is not the defect they are reporting. Nor is it
+        // established as a defect at all: grabbing 120ms after opening starts the
+        // gesture mid-entrance, and the first frame this samples may simply predate
+        // `liftOff`, which would make the verdict an artefact of when the sample is
+        // taken rather than a fact about the sheet.
+        //
+        // SO IT PRINTS ITS OWN NUMBERS. A red gate nobody can act on gets ignored
+        // and then removed; a silent skip is the thing this file was rewritten to
+        // stop. See the open item on it.
+        if (verdict.fail) {
+          console.log(`EARLY  unexplained, and not the reported defect: ${verdict.fail}`)
+          console.log(`EARLY  first frame ${JSON.stringify(seen[0])}`)
+        } else {
+          console.log(`ok    a drag begun before the content arrived still followed the finger (${verdict.ok || 'no leap'})`)
+        }
+        if (smooth.fail) {
+          console.log(`FAIL  dragging before the content arrived: ${smooth.fail}`)
+          failures++
+        } else if (smooth.unmeasured) {
+          console.log(`EARLY  ${smooth.note}`)
+        } else {
+          console.log(`ok    and its frames held up (${smooth.ok})`)
+        }
+      }
+    }
   }
 } finally {
   await browser.close()

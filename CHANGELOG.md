@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The phone sheet's header drags the sheet again on a character or a person.** Pulling the
+  header of those two panels behaved as though you were scrolling their contents — and did
+  not scroll them either, so the sheet barely moved and sprang back. The header was a scroll
+  container: the panel's title scrolled sideways for long names, which quietly made it
+  scrollable *vertically* too, and the browser took the gesture for itself. The title now
+  shortens with an ellipsis instead, nothing in the header scrolls, and the whole bar is the
+  sheet's to drag. The small bar above it always worked; so did every other panel, which is
+  why this took three tries to find.
+
 - **A year can be approximate, or BCE, and typing it works.** Every year box — a book's, a
   film's, on both the add and the edit form — now takes the phrase you would actually write:
   `c. 1500`, `380 BCE`, `c. 380 BCE`. It also carries a tick beside it saying the year is

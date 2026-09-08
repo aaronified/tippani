@@ -5422,7 +5422,21 @@ export function PanelHost({ stack }) {
                   opened with the name printed on whatever was pressed, and a
                   record renamed since — on its own global screen, one panel
                   back — would leave the header saying what it used to be. */}
-              <NameScroll as="h2" className="tp-panel-title is-scoped">{head.title || panel.title}</NameScroll>
+              {/* PLAIN, NOT A `NameScroll`, AND THIS IS WHERE THE DRAG DEFECT LIVED.
+                  The owner excepted this title from the never-truncate rule on 7
+                  September — "the title doesn't need to scroll in the header. it can
+                  be ellipsis-ed. not a problem" — and `.tp-panel-title` has carried
+                  `overflow: hidden; text-overflow: ellipsis` ever since. The class
+                  beside it undid that: `.name-scroll` sets `overflow-x: auto` 48
+                  lines later in the stylesheet, which both defeats the ellipsis and
+                  makes the header a SCROLL CONTAINER.
+                  So a thumb on the header of a scoped panel — a character, a person
+                  — was landing on a scroller, the browser claimed the vertical pan,
+                  and the sheet stopped receiving the gesture: "the header behaves as
+                  if i am scrolling the content (does not scroll it either)". The
+                  unscoped title one branch below has always been a plain h2, which
+                  is exactly why Details was "totally fine, as before". */}
+              <h2 className="tp-panel-title is-scoped">{head.title || panel.title}</h2>
               {head.crumb ? <span className="tp-panel-crumb">{head.crumb}</span> : null}
             </span>
           ) : (

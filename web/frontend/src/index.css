@@ -1006,15 +1006,18 @@
     font-size: var(--type-ui-11);
     letter-spacing: .06em;
     color: var(--soft);
-    /* ONE LINE. It carries a WORK's title — "in V for Vendetta" — and a title
-       broken across two lines in a header bar this slim pushes the name off its own
-       row. It scrolls under the fade like the name above it. */
+    /* ONE LINE, AND IT ELLIPSISES RATHER THAN SCROLLING. It carries a WORK's
+       title — "in V for Vendetta" — and a title broken across two lines in a
+       header bar this slim pushes the name off its own row.
+       IT USED TO SCROLL, "like the name above it", and that is what the name
+       above it stopped doing: the owner's ruling is that the header has no
+       scrollable part at all, because a scroller here hands the browser a pan and
+       the sheet loses the drag. The scope this sits under is a signpost to what
+       you are looking AT, and the work is named in full inside the panel. */
     white-space: nowrap;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .tp-panel-crumb::-webkit-scrollbar { display: none; }
   .tp-panel-head {
     flex: none;
     position: relative;
@@ -1064,11 +1067,16 @@
      reason: the panel head is a signpost to what you are looking AT, and the
      thing itself is named in full inside the panel a finger's width below.
 
-     AND THE EXCEPTION BUYS THE DRAG THE WHOLE GESTURE. A sideways scroller here
-     is why the head could only claim `touch-action: pan-x`, which leaves
-     horizontal panning to the browser — and every real thumb drag is slightly
-     diagonal, so the browser could take a gesture meant for the sheet. See
-     `.tp-panel-head` below. */
+     AND THE EXCEPTION BUYS THE DRAG THE WHOLE GESTURE — which it now does, having
+     been written down here and not applied for a release. The ellipsis below was
+     always in this block; the ELEMENT stayed a `NameScroll`, whose
+     `overflow-x: auto` is 48 lines further down the file and therefore won the
+     axis, so the title went on scrolling and the head could only claim
+     `touch-action: pan-x`. `pan-x` leaves horizontal panning to the browser, and
+     every real thumb drag is slightly diagonal, so the browser took gestures
+     meant for the sheet — reported three times as the header dragging like the
+     end of a scroll. The scoped title is a plain `h2` now and the head claims
+     `none`. See `.tp-panel-head` below. */
   .tp-panel-title {
     flex: 0 1 auto;
     min-width: 0;
@@ -1123,6 +1131,19 @@
     max-width: 100%;
     white-space: nowrap;
     overflow-x: auto;
+    /* AND THE OTHER AXIS IS NAMED, rather than left to be computed.
+       The note below already knew `overflow-y` becomes `auto` here and dealt with
+       one half of what that costs — the clipping. The other half is that the box
+       became a box the BROWSER WILL PAN, and the owner felt it three reports
+       running: "the header behaves as if i am scrolling the content (does not
+       scroll it either). so header is basically trying to vertically scroll
+       itself ... header should not even have any scrollable part." A panel title
+       is a `name-scroll`, so a thumb on the header landed on a vertical scroller
+       holding one line of nowrap text — nothing to scroll and a rubber-band for
+       trying, while `useSheetDrag` stopped receiving the gesture the browser had
+       claimed. `hidden` still clips, so the padding pair below is untouched and
+       still needed; what it stops is the panning. */
+    overflow-y: hidden;
     overscroll-behavior-x: contain;
     /* A scrollbar under a single line of text is thicker than the text. The fade
        is the signal, which is the whole premise of the edge-fade section. */
@@ -1289,7 +1310,31 @@
      The owner's ruling of 7 September took the scroller away: "the title doesn't
      need to scroll in the header. it can be ellipsis-ed. not a problem." With
      nothing here wanting a horizontal gesture, there is no axis left to share. */
-  .tp-panel-head { touch-action: none; }
+  /* THE WHOLE DRAG SURFACE, DESCENDANTS INCLUDED — and this was the head alone
+     for a release.
+
+     MEASURED, after the owner's third report: the grip and the head both carried
+     `touch-action: none` and every child of the head computed `auto` —
+     `.tp-panel-slot`, `.tp-panel-names`, the title — which is most of the 50px a
+     thumb can land on. `touch-action` is not inherited in the way that matters: a
+     descendant declaring `auto` re-enables the browser's own panning for a
+     gesture starting on it, the browser claims the drag, and per `claim` in
+     ui.jsx a claimed gesture is one `useSheetDrag` stops receiving. The reader
+     feels the page rubber-band — "the same way any screen does when i am reaching
+     end of scroll" — which is why the tiny bar worked and the header did not.
+
+     WHY THE PROBE MISSED IT FOR THREE ROUNDS. `sheet-drag.mjs` drags with
+     Puppeteer's MOUSE, and `touch-action` governs touch panning rather than mouse
+     events, so every case passed on a header no finger could drag. It reads the
+     computed value now instead of trusting the gesture.
+
+     AND `none` RATHER THAN `pan-x`, which the note on `.tp-panel-title` above
+     asked for and could not have: a sideways scroller in here forced `pan-x`, and
+     `pan-x` leaves horizontal panning to the browser — "every real thumb drag is
+     slightly diagonal, so the browser could take a gesture meant for the sheet".
+     Nothing in the head scrolls now (the title and the crumb both ellipsise, on
+     the owner's own exception), so the head can claim the whole gesture. */
+  .tp-panel-head, .tp-panel-head * { touch-action: none; }
   /* THE BLUR STAYS ON THROUGH A DRAG, and standing it down was a defect wearing
      an optimisation's clothes. It was switched off here because a drag that writes
      a HEIGHT every frame re-lays-out the sheet, which invalidated the blur behind
