@@ -63,6 +63,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one.
 
 ### Changed
+
+- **The quiz stops offering you the same author on every card.** A wrong answer by the
+  right answer's own author is the closest one your library can produce, so it was winning
+  nearly every card — on a shelf with one author you keep a lot of, ten cards out of ten.
+  Meeting the same four titles all round is not a harder question, it is one question, and
+  you stop reading the options. **At most one card in three** may now draw a wrong answer
+  by the right answer's own author; the rest reach for the next-closest thing your library
+  has. A shelf where every book is by one author still gets its choices — the rule ranks
+  those titles last rather than banning them, so the question survives where the cap
+  cannot hold. This applies whichever difficulty you are on, Easy excepted, which keeps its
+  wrong answers far apart on every card already.
 - **Forgetting a quote no longer costs you the whole climb.** Adaptive intervals were an opt-in
   almost nobody found; they are now what the quiz does by default. A correct recall multiplies a
   quote's half-life by 2.5, and a miss halves it instead of dropping it straight back to seven
@@ -223,7 +234,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **The note about how large a library the quiz can keep current reads your own top rung.** It
   was assuming the year-long ceiling, so on a ladder you had shortened it overstated by up to
-  twelvefold — telling a reader on the default quota that there was room for 2,920 quotes when their own top rung made it 240.
+  twelvefold — telling a reader on the default quota that there was room for 2,920 quotes
+  when their own top rung made it 240.
 
 - **Typing a Hard blank back correctly no longer counts as forgetting it.** On the Hard tier the
   quiz hides the widest phrase a quote allows, but the answer was being checked against a

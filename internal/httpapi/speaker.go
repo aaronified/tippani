@@ -171,6 +171,10 @@ func attachSpeaker(card *reviewCard, ownKey string, p quizPools, seed int64, tie
 	}
 	rng := seededRand(seed)
 	c := newNameCollector(answer)
+	// AND NO SAME-AUTHOR ALLOWANCE REACHES HERE, deliberately: this function does
+	// not consult distractorScore at all, so there is no author term to withhold.
+	// The own-work cast IS its ranking and addWiderPool shuffles the rest, which is
+	// why the quota is a work-lure rule and not a card-wide one.
 	// EASY LOOKS AWAY FROM THIS FILM FIRST, which is the same inversion rankWorks
 	// makes and the reason it has to be made twice.
 	//
@@ -222,7 +226,12 @@ func attachAuthor(card *reviewCard, ownKey string, p quizPools, seed int64, tier
 	}
 	rng := seededRand(seed)
 	c := newNameCollector(answer)
-	for _, w := range rankWorks(p.byKey[ownKey], p.works, rng, tier) {
+	// THE SAME-AUTHOR ALLOWANCE CANNOT APPLY TO THIS CARD, so it is granted rather
+	// than threaded: on "who wrote this?" a same-author book's author IS the answer,
+	// and newNameCollector drops it as a duplicate before it can be an option. There
+	// is no same-author lure here for a quota to ration, and withholding the bonus
+	// would only reorder the OTHER authors — a behaviour change nothing asked for.
+	for _, w := range rankWorks(p.byKey[ownKey], p.works, rng, tier, true) {
 		if w.kind != kindBook || w.key == ownKey {
 			continue
 		}

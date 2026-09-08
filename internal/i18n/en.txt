@@ -1254,10 +1254,12 @@ settings.quiz.adaptive.aria = Adaptive intervals
 settings.quiz.adaptive.info.body = Adaptive is the default: a recall multiplies the half-life by 2.5, a lapse halves it, so one slip on a known quote no longer costs the whole climb. The ladder is simpler to hold — 7 → 30 → 100 → 365 days, any lapse to 7.
 settings.quiz.adaptive.ladder.label = Ladder
 settings.quiz.adaptive.on.label = Adaptive
-# --- how hard the questions are. Three tiers plus Random; medium is what the
-# quiz has always done, so an account that never opens this sees no change.
+# --- how hard the questions are. Three tiers plus Random; medium moves none of
+# the dials, so an account that never opens this is asked its questions the same
+# way. That is a claim about the TIER and not about the release: the round's
+# same-author lure cap applies at every tier. See review_tier.go.
 settings.quiz.tier.title = How hard the questions are
-settings.quiz.tier.info.body = Medium is the quiz as it has always been. Easy offers two choices instead of four and keeps the wrong ones far apart; Hard leans on typing the words back; Random picks per card. A tier narrows what you allow, never empties it.
+settings.quiz.tier.info.body = Medium moves none of these, and is where you start. Easy offers two choices instead of four and keeps the wrong ones far apart; Hard leans on typing the words back; Random picks per card. A tier narrows what you allow, never empties it.
 settings.quiz.tier.easy.label = Easy
 settings.quiz.tier.medium.label = Medium
 settings.quiz.tier.hard.label = Hard

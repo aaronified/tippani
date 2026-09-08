@@ -478,8 +478,11 @@ type prefs struct {
 	// SRTier is how hard the QUESTIONS are — easy / medium / hard / random —
 	// which is a different axis from srQuestions (which questions may be asked)
 	// and from srTuning (how much an answer moves the schedule). Empty reads as
-	// medium, which is what the app has always done, so an account that never
-	// touches this sees no change. See review_tier.go.
+	// medium, which is the tier that changes none of the question dials — so an
+	// account that never touches this is asked its questions the way it always
+	// was. (The ROUND's same-author lure cap applies at every tier, medium
+	// included; that is a lure rule and not one of these dials.) See
+	// review_tier.go.
 	SRTier string `json:"srTier"`
 	// SRSubmit puts a Submit button between choosing an answer and committing it,
 	// so a misplaced tap can be corrected instead of costing a rung. Off by
@@ -789,9 +792,9 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	// falls back to a built-in for a code it cannot find, so the worst an unknown
 	// language can do is render the box's own words.
 	p.Locale = i18n.NormalizeCode(p.Locale)
-	// A stored tier that is not one of the four reads as medium — which is what
-	// the quiz has always done, so a corrupt preference cannot change how hard the
-	// questions are.
+	// A stored tier that is not one of the four reads as medium — the tier that
+	// changes none of the question dials — so a corrupt preference cannot change
+	// how hard the questions are.
 	p.SRTier = normalizeReviewTier(p.SRTier)
 	// A bad blob already in the database reads as NO marks rather than failing the
 	// login. The PUT below is where a client's mistake is refused.

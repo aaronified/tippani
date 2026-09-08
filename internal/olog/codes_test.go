@@ -113,6 +113,18 @@ func TestEveryTestedPackageIsInTheNightlySweep(t *testing.T) {
 			switch d.Name() {
 			case "node_modules", ".git", "dist":
 				return fs.SkipDir
+			case ".claude":
+				// NOT THIS REPO'S SOURCE, AND IT CAN CONTAIN A COPY OF IT. A
+				// subagent launched with worktree isolation gets a full checkout
+				// at .claude/worktrees/<id>, so this walk found every tested
+				// package twice — once at its own path and once under a scratch
+				// checkout that ci.yml has of course never heard of — and reported
+				// twelve packages missing from the nightly -race matrix. Twelve
+				// false failures that read like a broken CI config, on a tree
+				// where nothing was wrong. .gitignore already says this directory
+				// is not source; ai-counts.test.js skips it for the same reason,
+				// and any new repo-wide walk has to.
+				return fs.SkipDir
 			}
 			return nil
 		}

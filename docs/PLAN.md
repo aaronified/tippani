@@ -3069,11 +3069,11 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 
 ### The quiz has three difficulties, and a tier is a property of the round
 
-**Decided.** `srTier` is easy / medium / hard / random. It changes which directions may be asked, how many choices a card offers, and how wide a blank may be. **Medium is what the quiz has always done and is the default**; empty and unknown both normalise to it. Nothing about a tier is stored per card.
+**Decided.** `srTier` is easy / medium / hard / random. It changes which directions may be asked, how many choices a card offers, and how wide a blank may be. **Medium is the tier that moves none of those dials, and it is the default**; empty and unknown both normalise to it. Nothing about a tier is stored per card.
 
 **Why a property of the round and not a column.** The same ruling this section already made for the measured difficulty signal, for the same reason: it keeps §8's founding constraint — no due-date column, no sweep, everything derived at query time — and it makes changing difficulty instant and reversible rather than a rewrite of the library's scheduling state.
 
-**Why medium is byte-identical to today.** Every tier function returns its argument unchanged for medium, and that is the whole risk argument for landing a new axis of question generation near a release: a reader who changes nothing sees nothing change. A tier that quietly re-ranked distractors for everybody would be a schedule-wide behaviour change wearing a settings switch.
+**Why medium moves none of the tier dials.** Every function in `review_tier.go` returns its argument unchanged for medium, and that is the risk argument for landing a new axis of question generation near a release: the axis is inert unless the reader asks for it, so a tier cannot quietly re-rank distractors for everybody as a schedule-wide behaviour change wearing a settings switch. **That is a claim about the tier axis and it was written twice as a claim about the release**, which it is not: the same-author lure cap below applies at every tier including medium, deliberately, and the changelog says so. "Medium adds nothing" is true; "this release changes nothing for a reader who never opens the panel" is not, and the difference is worth one sentence rather than a footnote.
 
 **What each tier gives up.** Easy: two options rather than four, no typed blank, no self-marked card, one-word blanks at any half-life. Hard: no recognition at all — no "which book?", no "which quote?", no multiple-choice blank — and the widest blank a quote allows, whatever its age. Random picks per CARD from a seeded hash, so a refresh does not reshuffle the difficulty of a card the reader is halfway through thinking about, and a mixed library is not all one difficulty.
 
@@ -3090,6 +3090,22 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 **Approved.** Mine, with "medium changes nothing" as the condition of shipping it now rather than after the launch.
 
 <sub>3.1.0 — `internal/httpapi/review_tier.go` · `internal/httpapi/review_handlers.go` · `internal/httpapi/speaker.go` · `internal/httpapi/auth_handlers.go` · `web/frontend/src/quiz.js` · `web/frontend/src/Settings.jsx` · `internal/i18n/en.txt` · `CHANGELOG.md`</sub>
+
+### At most one card in three offers a wrong answer by the right answer's own author
+
+**Decided.** A round grants its same-author allowance to cards 0, 3, 6 … by position (`authorLureAllowed`). A card without it demotes every candidate sharing the answer's author below the whole rest of the pool, so a same-author title is reached only when there is nothing else to offer. It applies at **every** tier except Easy, whose inverted comparator already avoids close lures on every card and for which demotion would point backwards.
+
+**Why.** `distractorScore` rewards a same-author candidate above every other kind of similarity — 100,000 against 100 per shared genre — so on a shelf with one well-represented author it wins nearly every card. Measured over a ten-card deck of Le Guin quotes with six other authors parked in the pool, it won **ten out of ten**. That is not a closer question repeated; it is one question repeated, and the reader stops reading the options. "Close" is a property of the round as much as of the card.
+
+**Demoted, not excluded**, which is the difference between a cap and a lost card. A shelf whose books are all by one author has no other lure; refusing to ask "which book?" there would take the question away from exactly the reader whose library makes it hardest, and `buildQuestion`'s own history records what a card counted as due but never served looks like. Ranked last, the cap holds wherever it can hold and the question survives where it cannot.
+
+**Instead of.** Withholding the bonus — scoring a same-author candidate as though the authors did not match. **That was built first and did not deliver the promise**: with eight other books and two by the answer's author, all scoring alike, the shuffle put one of the two in the top three about half the time. "At most one card in three" is a cap, and a cap needs the candidate out of contention rather than merely unrewarded. Also rejected: a one-in-three coin toss per card, which gives one in three on average and three in a row often enough to be the thing being complained about; the ordinal is already known where the deck is built and is identical for every client on a given day, which makes the promise exactly testable.
+
+**And this is the one part of the tier work that changes medium.** The entry above says the tier axis moves nothing for a reader who never opens the panel, and that stays true — this is a lure rule, not a tier dial. But it does change which wrong answers that reader is offered, and four documents had to be corrected for having read "medium adds nothing" as "the release adds nothing".
+
+**Approved.** Mine, from the plan's own step 6, with the ten-out-of-ten measurement as the thing that decided the cap was worth a behaviour change this close to a release.
+
+<sub>3.1.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_lures_test.go` · `internal/httpapi/review_tier.go` · `internal/httpapi/auth_handlers.go` · `CHANGELOG.md`</sub>
 
 ### The due point is one number, named, with the dot and the deck derived from it
 

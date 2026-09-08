@@ -20,13 +20,21 @@ import "math"
 //
 // ---------------------------------------------------------------------------
 //
-// MEDIUM IS TODAY, EXACTLY, AND IT IS THE DEFAULT.
+// MEDIUM IS THE TIER THAT DOES NOTHING, AND IT IS THE DEFAULT.
 //
-// Every function below returns its argument unchanged for tierMedium. That is
-// deliberate and it is the whole risk argument for landing this near a release: a
-// reader who changes nothing sees nothing change, and the two new tiers are
-// reached only by asking for them. A tier that quietly re-ranked distractors for
-// everybody would be a schedule-wide behaviour change wearing a settings switch.
+// Every function below returns its argument unchanged for tierMedium. So the TIER
+// AXIS is a no-op for a reader who never opens the panel, and the other two are
+// reached only by asking for them — which is the risk argument for landing a new
+// axis of question generation near a release. A tier that quietly re-ranked
+// distractors for everybody would be a schedule-wide behaviour change wearing a
+// settings switch.
+//
+// THAT IS A CLAIM ABOUT THIS FILE AND NOT ABOUT THE WHOLE FEATURE, and it read as
+// the second thing for several commits. Step 6 of the plan also caps how often a
+// wrong answer may be by the right answer's own author (authorLureAllowed, in
+// review_handlers.go), and that cap applies at EVERY tier — so a medium reader's
+// options really do change, on purpose, and the changelog says so. Medium is the
+// tier that adds nothing; it is not a promise that the release adds nothing.
 //
 // ---------------------------------------------------------------------------
 //

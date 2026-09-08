@@ -231,7 +231,7 @@ func TestTheTierPreferenceReachesTheDeck(t *testing.T) {
 		t.Errorf("an easy round offered a card with %d choices, want at most 2 — the preference is not reaching buildQuestion", got)
 	}
 	if got := widest(tierMedium); got != quizOptions {
-		t.Errorf("a medium round offered at most %d choices, want %d — medium must be exactly what the quiz has always done", got, quizOptions)
+		t.Errorf("a medium round offered at most %d choices, want %d — medium must move none of the tier dials", got, quizOptions)
 	}
 }
 

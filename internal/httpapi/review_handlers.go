@@ -1743,6 +1743,68 @@ func distractorScore(own, cand workRef) int {
 	return score
 }
 
+// ---- the same-author allowance ----------------------------------------------
+//
+// AT MOST ONE CARD IN THREE MAY DRAW A WRONG ANSWER BY THE RIGHT ANSWER'S OWN
+// AUTHOR. The scorer above rewards a same-author candidate above every other
+// kind of similarity — a hundred thousand against a hundred per shared genre —
+// so on a library with a well-represented author it wins nearly every card, and
+// a reader who meets the same four names all round is not being asked a closer
+// question. They are being asked one question. "Close" is a property of the
+// round as much as of the card, and it stops meaning anything when every card
+// is close.
+//
+// THE QUOTA IS THE NEW THING; THE SCORER IS NOT. Nothing about distractorScore's
+// table changes, so the weights stay in one place and there is no second opinion
+// about what "similar" means. A card without the allowance demotes its
+// same-author candidates instead, below every other candidate in the pool.
+//
+// DEMOTED AND NOT EXCLUDED, which is the difference between a cap and a broken
+// screen. A library whose books are all by one author has no other lure to offer;
+// refusing the card there would take "which book?" away from exactly the reader
+// whose shelf makes it hardest. Ranked last, a same-author title is reached only
+// when the pool has nothing else, so the cap holds wherever it can hold and the
+// question survives where it cannot.
+//
+// AND WITHHOLDING THE BONUS WAS NOT ENOUGH — it was the first attempt at this and
+// it did not deliver the promise. Scoring a same-author candidate as though the
+// authors did not match only stops it being PREFERRED; with eight other books and
+// two by the answer's author, a shuffle then puts one of the two in the top three
+// about half the time. "At most one card in three" is a cap, and a cap needs the
+// candidate out of contention rather than merely unrewarded.
+//
+// BY POSITION, NOT BY CHANCE. A one-in-three coin toss per card gives one in
+// three on AVERAGE and three in a row often enough to be noticed, which is the
+// thing being fixed. The card's ordinal in the round is already known where the
+// deck is built, it is identical for every client on a given day because the
+// candidate order is, and it makes the promise exactly testable: card 0, 3, 6.
+const authorLurePeriod = 3
+
+func authorLureAllowed(nth int) bool { return nth%authorLurePeriod == 0 }
+
+// lureDemoted sorts below anything distractorScore returns for a candidate that
+// may be offered: 0 at worst (a cross-medium work sharing no genre), and -1 for
+// the answer itself, which every caller filters out by key or title before it
+// gets here.
+const lureDemoted = -2
+
+// lureScore is distractorScore for a card that may have spent its allowance.
+//
+// EASY IS NOT SUBJECT TO IT, and that is not an exemption — it is the same fact
+// read from the other end. tierCloser inverts the comparison there, so the
+// same-author bonus is what PUSHES a candidate away; demoting it would make an
+// easy card reach for the author it is supposed to avoid. The tier that wants far
+// lures already avoids them on every card, so a quota on top would be a second
+// mechanism aimed at the same thing and pointing backwards. buildQuestion grants
+// the allowance unconditionally there, so lureDemoted is never returned under an
+// inverted comparator.
+func lureScore(own, cand workRef, sameAuthor bool) int {
+	if !sameAuthor && own.author != "" && cand.author == own.author && cand.key != own.key {
+		return lureDemoted
+	}
+	return distractorScore(own, cand)
+}
+
 // buildQuestion turns a candidate into a multiple-choice card in its preferred
 // direction, falling back to the other. ok=false when neither can form (a
 // library with only one title can't offer a wrong answer).
@@ -1760,7 +1822,7 @@ func distractorScore(own, cand workRef) int {
 // The flip card is what makes the signature honest: it needs no distractor pool,
 // no second work to be wrong with, and no maskable span, so there is always a
 // question to ask about any quote with words in it.
-func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool, on map[string]bool, clozeWords float64, tier string) (reviewCard, bool) {
+func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scored bool, on map[string]bool, clozeWords float64, tier string, nth int) (reviewCard, bool) {
 	// Fold the day seed with the card identity into one stable per-card seed;
 	// 0 stays 0 (practice → global RNG).
 	cardSeed := seed
@@ -1786,6 +1848,11 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	// then disagree for anyone offset from UTC. See tierDaySeed.
 	at := tierForCard(tier, c.card.Kind, c.card.ID, tierDaySeed())
 	clozeWords = tierClozeThreshold(at, clozeWords)
+	// THE ROUND'S SAME-AUTHOR ALLOWANCE, spent by position — see authorLureAllowed.
+	// Derived here rather than passed in already-decided, for the reason clozeWords
+	// is: the tier this card is asked at is only known on this line, and Easy's
+	// answer to the question is the opposite of the other two tiers'.
+	sameAuthor := tierPrefersFarLures(at) || authorLureAllowed(nth)
 	// A tier NARROWS the reader's own repertoire and never widens it, so a
 	// question they turned off stays off at every difficulty.
 	dirs := tierDirections(at, directionsForMode(c.card.Kind, scored, on))
@@ -1808,7 +1875,7 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	}
 	// The preferred direction, then every other one this kind allows.
 	if preferred != "" {
-		if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at) {
+		if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at, sameAuthor) {
 			return card, true
 		}
 	}
@@ -1816,7 +1883,7 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 		if d == preferred {
 			continue
 		}
-		if card := finishCard(c, d); attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at) {
+		if card := finishCard(c, d); attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at, sameAuthor) {
 			return card, true
 		}
 	}
@@ -1851,10 +1918,10 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 // carrying quote options — the correct quote among them — while the client
 // rendered it as something else entirely. A default that returns false makes an
 // unknown direction produce no card instead of the wrong one.
-func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, clozeWords float64, tier string) bool {
+func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, clozeWords float64, tier string, sameAuthor bool) bool {
 	switch card.Direction {
 	case dirSource, dirQuote:
-		return attachMCQ(card, ownKey, p, seed, tier)
+		return attachMCQ(card, ownKey, p, seed, tier, sameAuthor)
 	case dirFlip:
 		// Nothing to attach: a flip card is the quote on one side and its source
 		// on the other, both of which the card already carries.
@@ -1862,7 +1929,7 @@ func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, c
 	case dirCloze:
 		return attachCloze(card, clozeWords)
 	case dirClozeMCQ:
-		return attachClozeMCQ(card, ownKey, p, seed, clozeWords, tier)
+		return attachClozeMCQ(card, ownKey, p, seed, clozeWords, tier, sameAuthor)
 	case dirSpeaker:
 		return attachSpeaker(card, ownKey, p, seed, tier)
 	case dirAuthor:
@@ -1875,7 +1942,7 @@ func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, c
 // attachMCQ fills a card's Options/Answer for its direction, drawing distractors
 // most-similar-first. `seed` (non-zero) makes the choice + order deterministic.
 // Returns false if there isn't enough material for a choice.
-func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier string) bool {
+func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier string, sameAuthor bool) bool {
 	own := p.byKey[ownKey]
 	rng := seededRand(seed)
 	if card.Direction == dirSource {
@@ -1887,7 +1954,7 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier st
 			answer = workRef{key: ownKey, kind: card.Kind, title: card.Title}
 		}
 		var distractors []workRef
-		for _, w := range rankWorks(own, p.works, rng, tier) {
+		for _, w := range rankWorks(own, p.works, rng, tier, sameAuthor) {
 			if w.title != card.Title {
 				distractors = append(distractors, w)
 			}
@@ -1925,7 +1992,7 @@ func attachMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, tier st
 	// choicesFrom, which could quietly leave a card with fewer choices than it
 	// should have had.
 	var distractors []quoteRef
-	for _, q := range rankQuotes(own, p.quotes, rng, tier) {
+	for _, q := range rankQuotes(own, p.quotes, rng, tier, sameAuthor) {
 		if q.work.key == ownKey || q.work.title == card.Title {
 			continue // never a quote from the same work
 		}
@@ -2005,7 +2072,7 @@ func attachCloze(card *reviewCard, multiWordFrom float64) bool {
 // other distractor pool, so the phrases offered come from the neighbourhood of
 // the quote rather than from the far end of the library — except at Easy, where
 // tierCloser inverts that ranking and the far end is exactly the point.
-func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, multiWordFrom float64, tier string) bool {
+func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, multiWordFrom float64, tier string, sameAuthor bool) bool {
 	text := card.Quote
 	if strings.TrimSpace(text) == "" {
 		text = card.Note
@@ -2018,7 +2085,7 @@ func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, mu
 	rng := seededRand(seed)
 	own := p.byKey[ownKey]
 	var distractors []string
-	for i, q := range rankQuotes(own, p.quotes, rng, tier) {
+	for i, q := range rankQuotes(own, p.quotes, rng, tier, sameAuthor) {
 		if q.work.key == ownKey {
 			continue // a phrase out of this same work could be this same phrase
 		}
@@ -2109,20 +2176,22 @@ func tierCloser(tier string) func(a, b int) bool {
 	return func(a, b int) bool { return a > b }
 }
 
-func rankWorks(own workRef, works []workRef, rng *rand.Rand, tier string) []workRef {
+func rankWorks(own workRef, works []workRef, rng *rand.Rand, tier string, sameAuthor bool) []workRef {
 	out := append([]workRef(nil), works...)
 	shuffleN(rng, len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
 	better := tierCloser(tier)
-	sort.SliceStable(out, func(i, j int) bool { return better(distractorScore(own, out[i]), distractorScore(own, out[j])) })
+	sort.SliceStable(out, func(i, j int) bool {
+		return better(lureScore(own, out[i], sameAuthor), lureScore(own, out[j], sameAuthor))
+	})
 	return out
 }
 
-func rankQuotes(own workRef, quotes []quoteRef, rng *rand.Rand, tier string) []quoteRef {
+func rankQuotes(own workRef, quotes []quoteRef, rng *rand.Rand, tier string, sameAuthor bool) []quoteRef {
 	out := append([]quoteRef(nil), quotes...)
 	shuffleN(rng, len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
 	better := tierCloser(tier)
 	sort.SliceStable(out, func(i, j int) bool {
-		return better(distractorScore(own, out[i].work), distractorScore(own, out[j].work))
+		return better(lureScore(own, out[i].work, sameAuthor), lureScore(own, out[j].work, sameAuthor))
 	})
 	return out
 }
@@ -2261,7 +2330,7 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			}
 			// A card with too little material to be asked a GRADED question is
 			// left out rather than downgraded to a self-marked one.
-			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed, onDaily), pools, seed, true, onDaily, tuning.ClozeWords, pf.SRTier); ok {
+			if card, ok := buildQuestion(c, dailyDirection(c.card.Kind, c.card.ID, seed, onDaily), pools, seed, true, onDaily, tuning.ClozeWords, pf.SRTier, len(items)); ok {
 				items = append(items, card)
 			}
 		}
@@ -2369,7 +2438,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 				preferred = dirFlip
 			}
 		}
-		if card, ok := buildQuestion(c, preferred, pools, 0, scored, onPractice, tuning.ClozeWords, pf.SRTier); ok {
+		if card, ok := buildQuestion(c, preferred, pools, 0, scored, onPractice, tuning.ClozeWords, pf.SRTier, len(items)); ok {
 			items = append(items, card)
 		}
 	}
@@ -2499,10 +2568,12 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		//     three-word prompt. Accepting either meant accepting text the reader
 		//     could read off the screen, which is the exploit the alternative below
 		//     is rejected for, volunteered by the server.
-		//   * It changed MEDIUM. A three-word attempt on a first-rung card was a
-		//     lapse before the tiers existed and became a pass, which breaks the
-		//     one claim this whole feature rests on — that a reader who changes
-		//     nothing sees nothing change.
+		//   * It changed MEDIUM'S GRADING. A three-word attempt on a first-rung
+		//     card was a lapse before the tiers existed and became a pass. The
+		//     tier axis is a no-op at medium by construction (review_tier.go), so
+		//     a rule that moved medium was a rule in the wrong place — the round's
+		//     author cap is the one deliberate exception and it is a lure rule, not
+		//     a grading one.
 		//
 		// WHAT REMAINS UNFIXED, SAID PLAINLY RATHER THAN CLAIMED AWAY: a reader who
 		// changes the difficulty between seeing a card and answering it is graded at
