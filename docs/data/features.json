@@ -225,6 +225,31 @@
       "plan": "import-one-drop-target.md"
     },
     {
+      "title": "Locators from files — dialogue timestamps and ebook locations",
+      "railLabel": "Locators from files",
+      "html": [
+        "<p>",
+        "  Drop a subtitle file (<strong>SRT, VTT, ASS/SSA</strong>) or an ebook",
+        "  (<strong>EPUB, MOBI/AZW3</strong>) beside a dialogue or book, and the app reads",
+        "  it to find where each quote appears — as a timestamp for dialogue, as a location",
+        "  or chapter for ebooks. The positions are proposed for review in a new Checks",
+        "  section before applying, never stored in the file itself, and matched through",
+        "  the same deduplication fold the library already uses, so an apostrophe means the",
+        "  same thing in both.",
+        "</p>",
+        "<p>",
+        "  An ambiguous match carries both candidates and the evidence — the matched text —",
+        "  so the eye can decide. A file for the wrong cut says so instead of writing 200",
+        "  wrong times. A refusal is durable: reject one proposal and it stays rejected on",
+        "  the next scan, the same model Cleanup uses. And <strong>end times</strong> land in",
+        "  a new column on dialogues, joined to the existing start time so they still sort",
+        "  and still rewrite together.",
+        "</p>"
+      ],
+      "id": "locators-from-files",
+      "plan": "locators-from-files.md"
+    },
+    {
       "title": "Spaced repetition — three difficulties and a longer ceiling",
       "railLabel": "Review difficulty tiers",
       "html": [
