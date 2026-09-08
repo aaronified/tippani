@@ -258,6 +258,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ceiling on the adaptive schedule, and on a fixed ladder whose "seeing" knob is turned up,
   because a card lengthened by being seen can pass its top rung.
 
+- **Opening a person for the first time reaches the person's own screen, not the old
+  popup.** A name you typed yourself — the speaker on a quote, an author you added by hand
+  — had no record behind it, and the only thing in the app that could make one was the
+  older popup. So the first press on any credit you had entered yourself landed there,
+  which in a library nobody has run a metadata fetch over is most of them. The record is
+  now created on that press, filed under the role the credit is asking about, and the
+  press opens the person's screen like every other. A name already filled in keeps
+  everything you wrote; it just gains the new role.
+
 - **On Easy, a fill-in-the-blank card no longer prints the answer on a chip beside its own
   blank.** The tier shows you who is in the line, and it withheld those faces only from the
   two questions that ask *who* — but when the words a card hides ARE somebody's name, the

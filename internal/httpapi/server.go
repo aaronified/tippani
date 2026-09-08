@@ -243,6 +243,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /people/lookup", s.requireAuth(s.handlePersonLookup))
 	mux.Handle("POST /people/portrait", s.requireAuth(s.handlePersonPortrait))
 	mux.Handle("POST /people/rename", s.requireAuth(s.handleRenamePerson))
+	// The record for a credit that has never had one — see handleEnsurePerson for
+	// why the old panel was still reachable without it.
+	mux.Handle("POST /people/ensure", s.requireAuth(s.handleEnsurePerson))
 	mux.Handle("PUT /people", s.requireAuth(s.handleUpsertPerson))
 	mux.Handle("DELETE /people/{id}", s.requireAuth(s.handleDeletePerson))
 	// ---- identity (0056): a person or a character as a RECORD, reached by id ----

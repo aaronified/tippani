@@ -611,6 +611,73 @@ func (s *Server) handlePeople(w http.ResponseWriter, r *http.Request) {
 
 // handleUpsertPerson: PUT /people — upsert by (kind, name). image_url is fetched
 // (any host; SSRF-guarded, private IPs blocked) and stored; clear_image drops it.
+// handleEnsurePerson: POST /people/ensure {kind, name} — the record for a credit
+// that has never had one, created if it is missing and RETURNED EITHER WAY.
+//
+// WHY THIS EXISTS: THE OLD PANEL WAS STILL REACHABLE, AND ONLY BECAUSE OF THIS
+// GAP. `usePersonOpener` sends a credit to the pack's screen by ID and falls back
+// to the legacy modal when there is no id — and the legacy modal was the ONLY
+// thing in the app that could create a `people` row for a credited name, so the
+// fallback was load-bearing. A name typed onto a quote is stored as text in
+// `utterances.speaker` and nothing files a person for it: the three writers that
+// call recordPersonKind are all triggered by an explicit person write (the
+// editor, the portrait fetch, re-verify). So the FIRST press on any manually
+// entered credit landed on the retired screen, whatever the reader's library had
+// — reported as "the people screen that shows up is the old one", and the
+// diagnosis with it: "i am assuming because the people had no kind".
+//
+// It is exactly that. The row may not exist, and where it does, `person_kinds`
+// may not carry the role the credit is asking under — GET /people?kind= filters
+// by a join since 0027, so a person the reader has as an author is invisible to a
+// speaker chip. Both halves are filed here.
+//
+// IT IS NOT handleUpsertPerson AND MUST NOT BE. That one UPDATEs bio, portrait,
+// dates, links and source from the request, so calling it with the empty fields a
+// scaffold has would blank the record of every name that already had one. This
+// creates or finds, files the role, and touches nothing else.
+//
+// A WRITE ON A PRESS, said out loud: opening a credit now files a person for it.
+// That is what the legacy modal already did on open, and more — it fetched a
+// portrait and a bio as well. A bare row is the smaller version of a thing the
+// app has always done here.
+func (s *Server) handleEnsurePerson(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Kind string `json:"kind"`
+		Name string `json:"name"`
+	}
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	req.Kind, req.Name = strings.TrimSpace(req.Kind), strings.TrimSpace(req.Name)
+	if !validPersonKind(req.Kind) {
+		writeErr(w, http.StatusBadRequest, "kind must be "+personKindsList)
+		return
+	}
+	if req.Name == "" {
+		writeErr(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	uid := userID(r)
+	olog.Tracef("[people] handleEnsurePerson uid=%d kind=%s name=%q", uid, req.Kind, req.Name)
+	id, err := s.personRowByName(uid, req.Name)
+	if err != nil {
+		internalError(w, r, "ensure person", err)
+		return
+	}
+	if err := s.recordPersonKind(id, req.Kind); err != nil {
+		internalError(w, r, "record person role", err)
+		return
+	}
+	p, err := scanPerson(s.Store.DB.QueryRow(
+		`SELECT `+personCols+` FROM people p WHERE p.id = ? AND p.user_id = ?`, id, uid))
+	if err != nil {
+		internalError(w, r, "reload person", err)
+		return
+	}
+	p.Kind, p.Kinds = req.Kind, s.personKindsOf(p.ID)
+	writeJSON(w, http.StatusOK, p)
+}
+
 func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Kind       string `json:"kind"`

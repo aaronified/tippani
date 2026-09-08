@@ -29,6 +29,20 @@ vi.mock('../../src/identity.jsx', () => ({
   personPanel: (_stack, arg) => { asked.push(arg); return { title: arg.name, render: () => null } },
 }))
 
+// THE SCAFFOLD THE ROUTER NOW CALLS FOR A CREDIT WITH NO RECORD. `SCAFFOLD` lets
+// one case make it fail, which is the only remaining route to the older surface
+// from a screen that HAS a panel stack.
+let SENT = []
+let SCAFFOLD = { ok: true, data: { id: 99, name: 'Herman Melville' } }
+vi.mock('../../src/api.js', async (orig) => ({
+  ...(await orig()),
+  json: async (method, path, body) => {
+    SENT.push({ method, path, body })
+    if (path === '/people/ensure') return SCAFFOLD
+    return { ok: true, data: {} }
+  },
+}))
+
 // STATE, NOT A RENDER-LOCAL ARRAY. The first version of this harness pushed
 // into arrays declared in the render body: nothing re-rendered, both outputs
 // stayed empty, and the two router cases failed for the harness's reason rather
@@ -65,13 +79,43 @@ describe('the person router', () => {
     expect(screen.getByTestId('legacy').textContent).toBe('')
   })
 
-  it('opens the surface that can CREATE the row when the credit has no record', async () => {
+  // THE CASE THAT USED TO ASSERT THE OPPOSITE, and it was the whole of a report:
+  // "the people screen that shows up is the old one. it is supposed to be
+  // retired." A credit with no record went to the legacy modal because that modal
+  // was the only thing in the app that could create the row — and a name typed
+  // onto a quote never gets one any other way, so the FIRST press on every
+  // hand-entered credit landed on the retired screen. The row is scaffolded now
+  // (POST /people/ensure files it and its role) and the press lands where every
+  // other press does.
+  it('scaffolds the record when the credit has none, and opens the pack screen', async () => {
+    asked.length = 0
+    SENT = []
     const user = userEvent.setup()
     render(<Harness person={undefined} />)
     await user.click(screen.getByText('press the credit'))
-    // Synchronous: there is no chunk to fetch on this branch.
+    await waitFor(() => expect(screen.getByTestId('opened').textContent).toBe('Herman Melville'))
+    // THE ROLE GOES WITH IT. A row filed under no role is invisible to the chip
+    // that asked — GET /people?kind= joins person_kinds — so a scaffold that sent
+    // only the name would leave the next press exactly where this one started.
+    const put = SENT.find((x) => x.path === '/people/ensure')
+    expect(put, 'no record was scaffolded, so a credit with none still has none').toBeTruthy()
+    expect(put.body).toMatchObject({ kind: 'author', name: 'Herman Melville' })
+    expect(asked[0], 'the panel was opened by something other than the scaffolded id')
+      .toMatchObject({ id: 99 })
+    expect(screen.getByTestId('legacy').textContent).toBe('')
+  })
+
+  // AND THE OLDER SURFACE IS STILL THERE FOR THE PRESS THAT CANNOT BE SERVED.
+  // A scaffold that fails must not be a dead press, which is the rule the
+  // no-stack case below already stands for.
+  it('falls back to the older surface when the record cannot be written', async () => {
+    SCAFFOLD = { ok: false, error: 'nope' }
+    const user = userEvent.setup()
+    render(<Harness person={undefined} />)
+    await user.click(screen.getByText('press the credit'))
     await waitFor(() => expect(screen.getByTestId('legacy').textContent).toBe('Herman Melville'))
     expect(screen.getByTestId('opened').textContent).toBe('')
+    SCAFFOLD = { ok: true, data: { id: 99, name: 'Herman Melville' } }
   })
 
   it('falls back rather than throwing when a screen has no panel stack', async () => {
@@ -92,7 +136,8 @@ describe('the person router', () => {
     render(<Bare />)
     await user.click(screen.getByText('go'))
     // Even WITH a record: no stack means no panel to open into, so the older
-    // surface answers rather than the press dying.
+    // surface answers rather than the press dying. It is now the ONLY route into
+    // that surface from a press, together with a scaffold that fails.
     await waitFor(() => expect(screen.getByTestId('bare').textContent).toBe('X'))
   })
 })
