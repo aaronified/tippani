@@ -1988,7 +1988,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     <SearchDoor open={searchScoped}>
     {/* WHICH LANGUAGES THIS READER CAN READ, provided once for the reason the two
         doors above are: a quote card is three components below here and the two in
-        between only pass their props along. See readLanguages.jsx. */}
+        between only pass their props along. See textOrderHost.jsx. */}
     <TextOrderHost value={textOrderFrom(user?.preferences)}>
     <div className="min-h-screen has-mobile-topbar">
       {/* THE RAIL OWNS THE BRAND, THE DESTINATIONS AND THE ACCOUNT now; the bar keeps

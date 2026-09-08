@@ -53,10 +53,6 @@ _name = বাংলা
 
 # The Settings row that changes the language, in the Appearance card.
 settings.language.title = ভাষা
-settings.read-languages.title = যে ভাষাগুলো আপনি পড়তে পারেন
-settings.read-languages.info.body = কোন ভাষা আপনি পড়তে পারেন, একটাই কাজে: যে ভাষা বলা নেই, সেই ভাষার উক্তিতে আগে অনুবাদ দেখায় আর নীচে মূল লেখা। কিছু না বললে সব উক্তি যেমন লেখা তেমনই পড়া যায়।
-settings.read-languages.none.prose = কিছু বলা নেই, তাই সব উক্তি যেমন লেখা তেমনই দেখায়।
-settings.read-languages.some.prose = অন্য কোনও ভাষার উক্তিতে আগে অনুবাদ থাকে।
 # The information dot beside that row.
 settings.language.info.title = ভাষা
 settings.language.info.body = ইংরেজি আর বাংলা টিপ্পনীর সঙ্গেই আসে। অন্য ভাষা চাইলে data/Locales-এ অ্যাপের রাখা _TEMPLATE.txt ফাইলটা fr.txt-এর মতো নামে কপি করে ভরে ফেলুন। নতুন বিল্ড ছাড়াই সেটা এখানে চলে আসবে, কতটা অনুবাদ হয়েছে সেই শতাংশ পাশে নিয়ে।
@@ -1250,6 +1246,14 @@ settings.languages.mark.remove.tip = এই চিহ্ন সরান
 settings.languages.full.prose = {name} ভাষার নিজের চিহ্ন বড়জোর {n}টা — নতুন দিতে হলে একটা সরান।
 settings.languages.add-mark.label = নিজের একটা দিন
 settings.languages.add-mark.placeholder = যে কোনও অক্ষর, চিহ্ন বা ইমোজি
+settings.languages.order.title = মূলের কতটা
+settings.languages.order.row.aria = {name}-এর জন্য মূলের কতটা দেখাবে
+settings.languages.order.custom.tip = কিছু ভাষা আলাদা করে সেট করা আছে — এটা নাড়ালে সবগুলো এক সারিতে ফিরে আসবে।
+settings.languages.order.intro.prose = একটা উদ্ধৃতি আর তার অনুবাদ দুটো আলাদা লেখা, আর কার্ড কোনটা দিয়ে শুরু করবে সেটা এখানে ঠিক হয়। একবারে সবের জন্য সেট করুন, বা যেখানে আলাদা চান সেই ভাষার জন্য — আর কোনো বই, ফিল্ম বা বোর্ড নিজের জন্য আলাদা নিয়ম রাখতে পারবে।
+vocab.textorder.trans-only.label = শুধু অনুবাদ
+vocab.textorder.trans-first.label = আগে অনুবাদ
+vocab.textorder.quote-first.label = আগে উদ্ধৃতি
+vocab.textorder.quote-only.label = শুধু উদ্ধৃতি
 settings.languages.reset.aria = {name} ভাষার চিহ্ন আগের মতো করুন
 settings.languages.reset.tip = লিপির অক্ষরে ফিরুন
 # Renaming a language is a DISPLAY name. The stored name stays and is shown

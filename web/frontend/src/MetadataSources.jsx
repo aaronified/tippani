@@ -39,10 +39,11 @@ import {
   InfoDot,
   MonoLabel,
   SectionTitle,
+  Slider,
+  SourceIcon,
   toast,
   Toggle,
   Tooltip,
-  SourceIcon,
 } from './ui.jsx'
 import {
   applyLanguageMarks,
@@ -54,6 +55,8 @@ import {
   MARK_MAX_RUNES,
   MAX_CUSTOM_MARKS,
 } from './languages.jsx'
+import { TEXT_ORDERS, TEXT_ORDER_DEFAULT, masterIsCustom } from './textOrder.js'
+import { textOrderFrom } from './textOrderHost.jsx'
 
 // StatusChip came with the block: after the move Settings had no other caller for
 // it, and a component left behind in the file that stopped using it is the shape
@@ -721,8 +724,29 @@ function CreditSeparators({ user, onPreferences }) {
 // looks like the subject. The row is the button now and the disc is what it
 // draws; only the reset glyph stays a separate control, because "put this back"
 // is not "let me look at this".
+// TEXT_ORDER_WORD — the four states as words. LITERAL KEYS, for the reason
+// SRC_STATE_WORD in ui.jsx gives: locale-complete.test.js reads statically what
+// the code asks for, and a key assembled at runtime defeats it in both
+// directions. Indexed by the state, not positionally, so the slider's arithmetic
+// and the vocabulary cannot drift apart.
+const TEXT_ORDER_WORD = {
+  'trans-only': 'vocab.textorder.trans-only.label',
+  'trans-first': 'vocab.textorder.trans-first.label',
+  'quote-first': 'vocab.textorder.quote-first.label',
+  'quote-only': 'vocab.textorder.quote-only.label',
+}
+
 function LanguageMarksSettings({ prefs, onSaved }) {
   const [rows, setRows] = useState(() => languageMarksState())
+  // HOW MUCH OF THE ORIGINAL, per language and for all of them.
+  //
+  // THE SAME ROWS, ONE MORE COLUMN. The owner asked for "a table, where i add
+  // languages as rows, and I can slide across the 4 options beside it" — and this
+  // panel already IS that table: a row per language with an add box under it. A
+  // second table of the same languages would be two lists to keep in step, and
+  // the first time somebody added a language to one of them they would diverge.
+  const [order, setOrder] = useState(() => textOrderFrom(prefs))
+  useEffect(() => { setOrder(textOrderFrom(prefs)) }, [prefs])
   const [picking, setPicking] = useState(null) // the language whose tray is open
   const [draft, setDraft] = useState('') // the "add your own" box, per open tray
   const [adding, setAdding] = useState('') // the new-language box, '' = closed
@@ -755,6 +779,40 @@ function LanguageMarksSettings({ prefs, onSaved }) {
     setErr('')
     onSaved?.({ languageMarks: blob })
   }
+
+  // saveOrder writes the whole blob, because the master and the rows are one
+  // setting: moving the master rewrites every row (the owner's "it will push all
+  // knobs to align with it"), and a per-field save would have to be one request
+  // per language.
+  //
+  // THE SERVER DROPS WHAT AGREES, so this does not have to. Pushing every row to
+  // the master sends a row per language and gets back a blob with none of them —
+  // see normalizeTextOrder, which is where "a row that agrees with the master is
+  // not a setting" is enforced. Doing it in both places would be one rule in two
+  // spellings.
+  async function saveOrder(next) {
+    const blob = JSON.stringify(next)
+    setOrder(next)
+    const r = await json('PUT', '/auth/me/preferences', { textOrder: blob })
+    if (!r.ok) {
+      setErr(errText(r, t('error.save.generic')))
+      setOrder(textOrderFrom(prefs))
+      return
+    }
+    setErr('')
+    onSaved?.({ textOrder: blob })
+  }
+
+  // THE MASTER IS A DEFAULT, A BULK SETTER AND AN INDICATOR, which is three jobs
+  // and all three are in the owner's two sentences. Moving it stores it AND puts
+  // every row on it; a row moved on its own leaves it stored but drawn dim.
+  const master = order.master || TEXT_ORDER_DEFAULT
+  const custom = masterIsCustom(master, order.byLanguage)
+  const moveMaster = (at) => saveOrder({ master: TEXT_ORDERS[at], byLanguage: {} })
+  const moveRow = (key, at) => saveOrder({
+    master: order.master,
+    byLanguage: { ...order.byLanguage, [key]: TEXT_ORDERS[at] },
+  })
 
   // addCustom appends to this language's own marks and selects it. Selecting is
   // not a convenience: somebody who has just typed a mark has said which one they
@@ -800,6 +858,37 @@ function LanguageMarksSettings({ prefs, onSaved }) {
       <p className="microcopy mb-3">
         {t('settings.languages.intro.prose')}
       </p>
+      {/* THE SLIDER ABOVE THE COLUMN — the owner's: "a slider will be there above
+          the column as well, as a master trigger. when it is controlled, it will
+          push all knobs to align with it. when other knobs are adjusted (custom),
+          it will lose contrast, which will indicate custom state."
+          The contrast loss is the indicator and the tooltip says what it means,
+          because a dimmed control with no explanation reads as disabled — which is
+          the opposite of true here: it is the one control that still does
+          something to every row. */}
+      <div
+        className="mb-4"
+        style={{ borderBottom: '1px solid var(--line)', paddingBottom: 12, opacity: custom ? 0.55 : 1 }}
+        title={custom ? t('settings.languages.order.custom.tip') : undefined}
+      >
+        <p className="microcopy mb-2" style={{ lineHeight: 1.6 }}>
+          {t('settings.languages.order.intro.prose')}
+        </p>
+        {/* NO `ariaLabel` PROP — Slider has none, and passing one was silently
+            ignored: it names itself from `label`, which is the visible text here
+            and reads correctly as an accessible name. A row's slider hides that
+            text with `hideLabel` and still announces it, which is what the prop is
+            for. */}
+        <Slider
+          label={t('settings.languages.order.title')}
+          min={0}
+          max={TEXT_ORDERS.length - 1}
+          step={1}
+          value={TEXT_ORDERS.indexOf(master)}
+          readout={t(TEXT_ORDER_WORD[master])}
+          onCommit={moveMaster}
+        />
+      </div>
       <div>
         {rows.map((row) => {
           const open = picking === row.key
@@ -838,6 +927,27 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                     tooltip={t('settings.languages.reset.tip')}
                   />
                 )}
+                {/* BESIDE THE TRIGGER AND NOT INSIDE IT. The row is one button
+                    that fills its width, and this file's own note says why the
+                    reset sits outside it: "a control nested in a control is
+                    invalid markup and, worse, ambiguous to press." A slider is
+                    the same case and more so — a drag inside a button would open
+                    the tray on release.
+                    It has room because `.inline-field-head` wraps, so at a phone's
+                    width this drops to a line of its own rather than squeezing
+                    the language's name, which is a name and may not be shortened. */}
+                <div style={{ flex: '1 1 11em', minWidth: '9em' }}>
+                  <Slider
+                    hideLabel
+                    label={t('settings.languages.order.row.aria', { name: row.name })}
+                    min={0}
+                    max={TEXT_ORDERS.length - 1}
+                    step={1}
+                    value={TEXT_ORDERS.indexOf(order.byLanguage?.[row.key] || master)}
+                    readout={t(TEXT_ORDER_WORD[order.byLanguage?.[row.key] || master])}
+                    onCommit={(at) => moveRow(row.key, at)}
+                  />
+                </div>
               </div>
               {open && (
                 <div className="space-y-3 pb-2">

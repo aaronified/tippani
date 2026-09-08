@@ -1474,7 +1474,7 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
 // hover affordances and the 320px layout all at once.
 export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both', textOrder = null, onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
-  // PROVIDED, NOT THREADED — see readLanguages.jsx. `tview` reaches here through
+  // PROVIDED, NOT THREADED — see textOrderHost.jsx. `tview` reaches here through
   // two components that only pass it on; a second prop down that chain is the
   // capability that goes missing wherever somebody forgets it.
   // ONE OF FOUR STATES, resolved from the reader's settings and this row's own

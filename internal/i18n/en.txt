@@ -44,10 +44,6 @@ _name = English
 
 # The Settings row that changes the language, in the Appearance card.
 settings.language.title = Language
-settings.read-languages.title = Languages you read
-settings.read-languages.info.body = Which languages you can read, for one purpose: a quote in a language you have not named shows its translation first and the original underneath. Naming none means every quote reads as written.
-settings.read-languages.none.prose = Nothing named, so every quote reads as it was written.
-settings.read-languages.some.prose = A quote in any other language leads with its translation.
 # The information dot beside that row.
 settings.language.info.title = Language
 settings.language.info.body = English and Bengali ship with tippani. Any other is a file: copy data/Locales/_TEMPLATE.txt — the app puts it there — to fr.txt and fill it in. It appears here with no rebuild, at whatever percentage it covers.
@@ -1229,6 +1225,14 @@ settings.languages.mark.remove.tip = Remove this mark
 settings.languages.full.prose = {name} keeps {n} marks of its own — remove one to add another.
 settings.languages.add-mark.label = Add one of your own
 settings.languages.add-mark.placeholder = any letter, symbol or emoji
+settings.languages.order.title = how much of the original
+settings.languages.order.row.aria = How much of the original for {name}
+settings.languages.order.custom.tip = Some languages have been set on their own — moving this puts them all back in line.
+settings.languages.order.intro.prose = A quote and its translation are two texts, and this says which one a card leads with. Set it once for everything, or per language where you want something different — and a book, film or board can still overrule its own.
+vocab.textorder.trans-only.label = translation only
+vocab.textorder.trans-first.label = translation first
+vocab.textorder.quote-first.label = quotation first
+vocab.textorder.quote-only.label = quotation only
 settings.languages.reset.aria = Reset the {name} mark
 settings.languages.reset.tip = Back to the script letter
 # Renaming a language is a DISPLAY name. The stored name stays and is shown
