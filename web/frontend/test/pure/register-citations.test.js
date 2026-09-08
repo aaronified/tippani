@@ -63,19 +63,31 @@ const isAncestor = (sha) => {
   }
 }
 
-// `git branch -a --contains` is empty for a hash no ref can reach — the state an
-// amend leaves the old commit in. `git show` still finds it, which is why an
+// `git for-each-ref --contains` is empty for a hash no ref can reach — the state
+// an amend leaves the old commit in. `git show` still finds it, which is why an
 // eye cannot tell the two apart.
-const onSomeBranch = (sha) => {
+//
+// EVERY REF, NOT EVERY BRANCH, and this was `git branch -a --contains` for a day.
+// A branch is one kind of ref and a TAG is another: four true citations — commits
+// released in v0.3.0 and v1.7.3, named by AI.md and PLAN.md for exactly that
+// reason — are reachable from dozens of release tags and from no branch at all.
+// They passed only while some stale topic branch happened to still contain them,
+// and failed the moment those branches were deleted, which is a guard that was
+// measuring the wrong thing and got the right answer by luck.
+//
+// IT REFUSES NOTHING IT USED TO. An amended commit is reachable from no branch AND
+// no tag, so the failure this exists to catch still fails; what it stops doing is
+// condemning released history for not sitting on a branch tip.
+const onSomeRef = (sha) => {
   try {
-    return execFileSync('git', ['branch', '-a', '--contains', sha], { cwd: ROOT }).toString().trim() !== ''
+    return execFileSync('git', ['for-each-ref', '--contains', sha, '--format=%(refname)'], { cwd: ROOT }).toString().trim() !== ''
   } catch {
     return false
   }
 }
 
 describe.each(DOCS)('every commit %s names', (file, what, rule) => {
-  const ask = rule === 'ancestor' ? isAncestor : onSomeBranch
+  const ask = rule === 'ancestor' ? isAncestor : onSomeRef
   const why = rule === 'ancestor'
     ? `${file} closes rows with these, and they are not ancestors of HEAD — a row closed by a commit this branch does not contain is a row that is not closed`
     : `${file} cites these and no ref can reach them — which is where an amended commit goes, and \`git show\` still finds it, so an eye cannot tell it from a real one`
