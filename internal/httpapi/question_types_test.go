@@ -150,7 +150,7 @@ func TestClozeWithChoicesBlanksTheQuoteAndOffersRealPhrases(t *testing.T) {
 	// widest blank is the one where the distractors' shape actually matters.
 	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirClozeMCQ, Quote: text,
 		Title: "Pride and Prejudice", Stability: clozeMultiWordFrom + 1}
-	if !attachClozeMCQ(&card, ownKey, p, 11, clozeMultiWordFrom, tierMedium, authorLureAllowed(0)) {
+	if !attachClozeMCQ(&card, ownKey, p, 11, clozeMultiWordFrom, tierMedium) {
 		t.Fatal("a quote this long could not be blanked with choices")
 	}
 	if !strings.Contains(card.Quote, clozeBlank) {
@@ -217,7 +217,7 @@ func TestClozeWithChoicesNeverCutsADistractorOutOfTheCardsOwnWork(t *testing.T) 
 	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirClozeMCQ, Title: "Pride and Prejudice",
 		Stability: clozeMultiWordFrom + 1,
 		Quote:     "It is a truth universally acknowledged that a single man in possession of a good fortune must be in want of a wife"}
-	if !attachClozeMCQ(&card, own.key, p, 11, clozeMultiWordFrom, tierMedium, authorLureAllowed(0)) {
+	if !attachClozeMCQ(&card, own.key, p, 11, clozeMultiWordFrom, tierMedium) {
 		t.Fatal("two other quotes should still make a question")
 	}
 	for i, o := range card.Options {
@@ -235,7 +235,7 @@ func TestClozeWithChoicesRefusesALibraryWithNoOtherWords(t *testing.T) {
 	p := quizPools{byKey: map[string]workRef{own.key: own}, works: []workRef{own}}
 	card := reviewCard{Kind: kindBook, ID: 1, Direction: dirClozeMCQ, Title: "Alone",
 		Quote: "It is a truth universally acknowledged that a single man must want a wife"}
-	if attachClozeMCQ(&card, own.key, p, 3, clozeMultiWordFrom, tierMedium, authorLureAllowed(0)) {
+	if attachClozeMCQ(&card, own.key, p, 3, clozeMultiWordFrom, tierMedium) {
 		t.Error("offered a multiple choice with nothing to choose between")
 	}
 	// The typed cloze still works on the same card, which is what makes refusing

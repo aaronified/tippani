@@ -1849,16 +1849,47 @@ func offerEasyChips(card *reviewCard, c reviewCand, tier string) {
 // cloze, for the multiple-choice blank, for the author card and for anything a
 // later direction masks, without anyone having to remember to add it here.
 //
-// CONSERVATIVE BY DESIGN. A partial overlap withholds the whole chip — if the
-// mask took "Paul" and the chip reads "Paul Atreides", the chip is dropped. It has
-// to be: naming "Paul Atreides" hands over "Paul".
+// PER WORD, NOT PER NAME, AND THE FIRST VERSION OF THIS WAS THE OTHER WAY. It
+// asked whether the whole chip name had gone missing from the words, which is the
+// wrong question and left the commonest shape of the leak wide open: a line saying
+// "…as if Paul had been there…" masks "Paul", and the chip reads "Paul Atreides"
+// — a string the words never contained, so nothing looked removed and the chip
+// was kept. Type "Paul", be graded right, watch the half-life climb. The comment
+// here CLAIMED the opposite ("a partial overlap withholds the whole chip"), which
+// makes it the same defect this session keeps producing: prose describing the
+// behaviour somebody meant to write.
+//
+// So every word of the name is asked separately, and one removed word condemns the
+// whole chip. That also answers a joint credit ("Alice & Bob" when only Alice was
+// masked — clozeNormalise drops the ampersand and leaves two words) and a surname
+// line under a full-name chip.
+//
+// A NAME THE WORDS NEVER CARRIED IS NOT A LEAK, which is the other half and the
+// one a blanket refusal would break: most characters are a column on the row and
+// appear nowhere in the quote. Those chips are the whole of what the tier buys.
+// And a word that appears TWICE, once inside the mask, is still on the screen —
+// there is nothing to hand back.
 func easyChipLeaks(card *reviewCard, name string) bool {
-	n := clozeNormalise(name)
-	if n == "" {
+	words := strings.Fields(clozeNormalise(name))
+	if len(words) == 0 {
 		return false
 	}
-	shown := clozeNormalise(card.Quote + " " + card.Note)
-	return strings.Contains(clozeNormalise(card.rawWords), n) && !strings.Contains(shown, n)
+	shown := fieldSet(clozeNormalise(card.Quote + " " + card.Note))
+	raw := fieldSet(clozeNormalise(card.rawWords))
+	for _, w := range words {
+		if raw[w] && !shown[w] {
+			return true
+		}
+	}
+	return false
+}
+
+func fieldSet(s string) map[string]bool {
+	out := make(map[string]bool)
+	for _, w := range strings.Fields(s) {
+		out[w] = true
+	}
+	return out
 }
 
 // fillEasyChips does the round's ONE picture lookup, for the cards offerEasyChips
@@ -2131,7 +2162,7 @@ func attachDirection(card *reviewCard, ownKey string, p quizPools, seed int64, c
 	case dirCloze:
 		return attachCloze(card, clozeWords)
 	case dirClozeMCQ:
-		return attachClozeMCQ(card, ownKey, p, seed, clozeWords, tier, sameAuthor)
+		return attachClozeMCQ(card, ownKey, p, seed, clozeWords, tier)
 	case dirSpeaker:
 		return attachSpeaker(card, ownKey, p, seed, tier)
 	case dirAuthor:
@@ -2274,7 +2305,12 @@ func attachCloze(card *reviewCard, multiWordFrom float64) bool {
 // other distractor pool, so the phrases offered come from the neighbourhood of
 // the quote rather than from the far end of the library — except at Easy, where
 // tierCloser inverts that ranking and the far end is exactly the point.
-func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, multiWordFrom float64, tier string, sameAuthor bool) bool {
+// attachClozeMCQ TAKES NO SAME-AUTHOR ALLOWANCE, and the parameter was left dead
+// here for a commit after the cap stopped reaching this card. A dead parameter is
+// worse than none: the next reader threads a value into it and the two rules point
+// opposite ways again. See the rankQuotes call below for why the cap does not
+// belong on a phrase.
+func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, multiWordFrom float64, tier string) bool {
 	text := card.Quote
 	if strings.TrimSpace(text) == "" {
 		text = card.Note

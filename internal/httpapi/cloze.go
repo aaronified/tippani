@@ -573,8 +573,16 @@ func clozeSurfaceScore(answer, cand string) int {
 	for _, w := range a {
 		stems[clozeStemFold(w)] = true
 	}
+	// DISTINCT STEMS, NOT OCCURRENCES, and it paid per occurrence for one commit:
+	// "spice spice spice" then outscored "spice must flow" against an answer that
+	// shares all three, because repetition counted three times and breadth once
+	// each. A lure that says one of the answer's words over and over resembles it
+	// less, not more.
+	hit := make(map[string]bool, len(b))
 	for _, w := range b {
-		if stems[clozeStemFold(w)] {
+		st := clozeStemFold(w)
+		if stems[st] && !hit[st] {
+			hit[st] = true
 			score += 1000
 		}
 	}

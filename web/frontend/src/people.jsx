@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, errText } from './api.js'
 import { t } from './i18n.js'
+import { clipChipName as clip } from './text.js'
 import { Face } from './characterRows.jsx'
 import { personImgURL, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
@@ -584,11 +585,8 @@ export function PersonCredit({ kind, name, person, size = 28, onOpen, nameClassN
 // chip inside a row of chips is a gesture nobody would find. So a long name ends
 // in an ellipsis with the whole of it on the `title`, and this is recorded as a
 // departure in PLAN.md rather than left to look like an oversight.
-const CHIP_CHARS = 18
-const clip = (v) => {
-  const s = String(v || '').trim()
-  return s.length > CHIP_CHARS ? s.slice(0, CHIP_CHARS - 1).trimEnd() + '…' : s
-}
+// The clip itself is in text.js — see the note there on why one number serves two
+// chip rows, and PLAN.md for the departure it is.
 
 export function PersonChip({ kind, name, person, onOpen, onPress, title, faceName, faceSrc, sub }) {
   if (!name) return null

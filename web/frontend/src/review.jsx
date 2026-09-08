@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
-import { chapterMeta, episodeLabel } from './text.js'
+import { chapterMeta, clipChipName, episodeLabel } from './text.js'
 import { forgetDailyDeck } from './daily.js'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, splitCredits, usePeople } from './credits.jsx'
 import { REVIEW_BULK_KIND } from './bulkOps.jsx'
@@ -345,8 +345,16 @@ function PersonChip({ name, map, size = 20 }) {
       style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 999, padding: '2px 9px 2px 4px', maxWidth: '100%' }}
     >
       <CreditFaces names={names.length ? names : [name]} map={map} size={size} ring="var(--raised)" />
-      <span className="mono-label" style={{ fontSize: 'var(--type-ui-11)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {name}
+      {/* THE SAME CLIP THE APP'S OTHER CHIP ROW USES, and it used to be
+          `textOverflow: 'ellipsis'` here — the same truncation of a name in the
+          one form no-truncated-names.test.js cannot see, because it reads the
+          stylesheet and this was an inline style. It matters more since the Easy
+          tier started naming a line's people on this chip: that tier exists to
+          say WHO is in the line, and a name cut off by however wide the card
+          happens to be is the thing the rule forbids. One clip, one number, in
+          text.js. The whole name is on the title. */}
+      <span className="mono-label" style={{ fontSize: 'var(--type-ui-11)', whiteSpace: 'nowrap' }} title={name}>
+        {clipChipName(name)}
       </span>
     </span>
   )

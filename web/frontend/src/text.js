@@ -145,3 +145,31 @@ export function chapterMeta(a) {
   if (!label) return ''
   return Number(a?.chapter_no) ? `CH. ${label}` : label
 }
+
+// ---- the one clip the app is allowed ----------------------------------------
+//
+// A DEPARTURE FROM "NEVER TRUNCATE A NAME", recorded in PLAN.md and granted by
+// the owner in as many words: "we do not want wrap, long names can instead get a
+// … after a certain number of chars." The argument is the ROW rather than the
+// name — a row of chips that reflows moves every other chip when one name is
+// long, and a scroller inside each chip of a row of chips is a gesture nobody
+// would find. The whole name goes on the button's `title`.
+//
+// IN JS AT A CHARACTER COUNT, NOT `text-overflow`. Two reasons, and PLAN.md gives
+// both: the ellipsis lands in the same place whatever the type dial says, and
+// `no-truncated-names.test.js` reads the stylesheet for that declaration on the
+// classes that hold names, so putting it in CSS would either trip that test or
+// teach the next reader that the rule has exceptions in the stylesheet.
+//
+// AND IT LIVES HERE BECAUSE TWO CHIPS DRAW NAMES. people.jsx has the app's rich
+// chip row; review.jsx has its own display-only one, which it must (people.jsx
+// imports usePractice from review.jsx). That one clipped with `textOverflow:
+// 'ellipsis'` in an inline style — the same truncation, in the one form the
+// stylesheet guard cannot see, on the surface the Easy tier exists to name people
+// on. One clip, one number, both callers.
+export const CHIP_NAME_CHARS = 18
+
+export function clipChipName(v) {
+  const s = String(v || '').trim()
+  return s.length > CHIP_NAME_CHARS ? s.slice(0, CHIP_NAME_CHARS - 1).trimEnd() + '…' : s
+}

@@ -394,14 +394,29 @@ func TestNoEasyChipNamesWhatTheCardMaskedOut(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
-	// THE CHARACTER IS THE LINE'S ONLY CONTENT WORD, so clozeSpan has nothing else
-	// to hide and the blank IS the name. Everything else here is a stopword.
+	// THE CHIP IS A FULL NAME AND THE LINE CARRIES ONLY HALF OF IT, which is the
+	// shape the first version of this test could not reach: it set the character to
+	// "Chani" and put exactly "Chani" in the words, so only string EQUALITY was
+	// measured and a chip that merely contains the masked word walked straight
+	// through. "Paul Atreides" is never in these lines; "Paul" is, and is the only
+	// content word in them, so clozeSpan has nothing else to hide.
 	book := decode[bookDetail](t, c.mustDo("POST", "/books",
 		map[string]any{"title": "Dune", "author": "Frank Herbert"}, http.StatusCreated))
 	for i := 0; i < 4; i++ {
 		c.mustDo("POST", "/annotations", map[string]any{
-			"book_id": book.ID, "character": "Chani",
-			"quote": fmt.Sprintf("and then it was as if Chani had been there for them %d", i),
+			"book_id": book.ID, "character": "Paul Atreides",
+			"quote": fmt.Sprintf("and then it was as if Paul had been there for them %d", i),
+		}, http.StatusCreated)
+	}
+	// AND A SECOND SHAPE ON ITS OWN ROWS: a joint credit where only one half is in
+	// the words. clozeNormalise drops the ampersand, so this is two words and one
+	// of them is maskable.
+	pair := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Good Omens", "author": "Gaiman & Pratchett"}, http.StatusCreated))
+	for i := 0; i < 3; i++ {
+		c.mustDo("POST", "/annotations", map[string]any{
+			"book_id": pair.ID, "character": "Aziraphale & Crowley",
+			"quote": fmt.Sprintf("it was as if Crowley had been there for them %d", i),
 		}, http.StatusCreated)
 	}
 	// Enough other books that a multiple-choice card can form.
@@ -430,23 +445,32 @@ func TestNoEasyChipNamesWhatTheCardMaskedOut(t *testing.T) {
 			"srTier": tierEasy, "srDaily": 10, "srQuestions": ask}, http.StatusOK)
 		deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
 		for _, card := range deck.Items {
-			if card.Title != "Dune" {
+			if card.Title != "Dune" && card.Title != "Good Omens" {
 				continue
 			}
 			seen[card.Direction] = true
-			words := clozeNormalise(card.Quote + " " + card.Note)
-			for _, ch := range card.EasyChips {
-				if !strings.Contains(words, clozeNormalise(ch.Name)) {
-					t.Errorf("a %q card at easy shows %q on a chip and does not show it in its own words "+
-						"(%q) — the card took that name out and the chip put it back, which on a typed "+
-						"blank is the answer printed beside the question",
-						card.Direction, ch.Name, card.Quote)
-				}
+			// PER WORD, because that is the property: no WORD of a chip may be one
+			// the card removed. Asking whether the whole name is present would pass
+			// a chip whose name the words never carried in full, which is most of
+			// them and the case the fix is about.
+			full, err := srv.itemText(card.Kind, card.ID)
+			if err != nil {
+				t.Fatal(err)
 			}
-			for _, n := range card.EasyPeople {
-				if !strings.Contains(words, clozeNormalise(n)) {
-					t.Errorf("a %q card at easy names %q on a chip and does not show it in its own words",
-						card.Direction, n)
+			raw := fieldSet(clozeNormalise(full))
+			shown := fieldSet(clozeNormalise(card.Quote + " " + card.Note))
+			names := append([]string(nil), card.EasyPeople...)
+			for _, ch := range card.EasyChips {
+				names = append(names, ch.Name)
+			}
+			for _, name := range names {
+				for _, w := range strings.Fields(clozeNormalise(name)) {
+					if raw[w] && !shown[w] {
+						t.Errorf("a %q card at easy shows %q on a chip while %q is missing from its own "+
+							"words (%q) — the card took that word out and the chip put it back, which "+
+							"on a typed blank is the answer printed beside the question",
+							card.Direction, name, w, card.Quote)
+					}
 				}
 			}
 		}

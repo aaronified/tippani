@@ -88,12 +88,22 @@ func TestAOneWordBlankOffersWordsThatStartLikeTheAnswer(t *testing.T) {
 		"the sleeper stirs, the spice settles, and the sand shifts silently")
 	// THREE BOOKS OF OTHER S-WORDS, so there are enough same-initial phrases to
 	// fill every wrong slot without any of them being the answer.
+	//
+	// BY THE CARD'S OWN AUTHOR, which is the realistic case and NOT a guard for the
+	// same-author cap — a claim written here first and disproved by mutating it.
+	// The cap only changes the ORDER the candidates arrive in, and the surface sort
+	// below re-orders the whole pool, so a demoted candidate still wins on
+	// resemblance and this test passes either way. The cap's reach into the phrase
+	// lures is observable only in a library with more than clozeLurePool usable
+	// quotes, where the bound truncates the list before the sort sees it. What
+	// keeps it out is structural rather than tested: attachClozeMCQ no longer takes
+	// an allowance to pass, so there is no parameter to thread one into.
 	for i, w := range []string{
 		"sailors sing softly, sirens summon storms, and September sighs",
 		"the surgeon sharpened scissors, sealed the satchel, and slept",
 		"seven sparrows scattered, a shutter slammed, and snow settled",
 	} {
-		seedVocabularyBook(t, c, fmt.Sprintf("Echo %d", i), fmt.Sprintf("Author E%d", i), w)
+		seedVocabularyBook(t, c, fmt.Sprintf("Echo %d", i), "Frank Herbert", w)
 	}
 	// AND TWELVE WITH NO S-WORD IN THEM. Without the ranking the options come from
 	// these, because they are most of the pool.
@@ -176,7 +186,9 @@ func TestAWiderBlankOffersPhrasesSharingTheAnswersWords(t *testing.T) {
 		"across the flowing spice the sleeper will awaken in a desert",
 		"a desert must awaken; the spice sleeper flows across it",
 	} {
-		seedVocabularyBook(t, c, fmt.Sprintf("Echo %d", i), fmt.Sprintf("Author E%d", i), w)
+		// The card's own author again — see the note in the one-word case for why
+		// that is realism and not a guard for the same-author cap.
+		seedVocabularyBook(t, c, fmt.Sprintf("Echo %d", i), "Frank Herbert", w)
 	}
 	for i, w := range []string{
 		"knitting bicycles rumble quietly through frozen orchards at dawn",
@@ -304,5 +316,34 @@ func TestNoWrongPhraseOnABlankCardWouldBeGradedRight(t *testing.T) {
 	}
 	if checked == 0 {
 		t.Fatal("no card offered a wrong answer, so nothing here was measured")
+	}
+}
+
+// BREADTH BEATS REPETITION, which is the one property of the lure scale that no
+// deck can show.
+//
+// A LIBRARY CANNOT BE MADE TO CHOOSE BETWEEN THESE TWO PHRASES. Both would have to
+// exist, in works of equal similarity, with the same word count as the answer and
+// with clozePhraseOf cutting exactly them out — so the endpoint tests above pass
+// whether the scale counts distinct stems or occurrences, which a mutation proved.
+// It is still a claim the scale makes in its own comment, and this is the level it
+// can be asked at.
+func TestARepeatedWordResemblesTheAnswerLessThanThreeDifferentOnes(t *testing.T) {
+	const answer = "spice must flow"
+	cases := []struct{ name, closer, further string }{
+		{"three of the answer's words beat one said three times",
+			"spice must flow", "spice spice spice"},
+		{"two beat one repeated", "the spice flow", "flow flow flow"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			near, far := clozeSurfaceScore(answer, tc.closer), clozeSurfaceScore(answer, tc.further)
+			if near <= far {
+				t.Errorf("%q scores %d against %q's %d — a lure that says one of the answer's words "+
+					"over and over resembles it LESS than one carrying several of them, and scoring "+
+					"per occurrence rather than per distinct stem gets that backwards",
+					tc.closer, near, tc.further, far)
+			}
+		})
 	}
 }
