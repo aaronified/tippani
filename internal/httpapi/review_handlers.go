@@ -2472,24 +2472,61 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 			internalError(w, r, "review answer cloze stability", err)
 			return
 		}
-		// AND THE SAME WIDTH MEANS THE TIER'S WIDTH. This read tuning.ClozeWords
-		// directly while the card was BUILT through tierClozeThreshold, so at Hard
-		// the deck served a three-word blank and the server graded it against a
-		// one-word mask: the reader typed exactly what was asked, was told
-		// "forgot", and the card lapsed. The comment above has claimed "the same
-		// width the card was built with" throughout; this is what makes it true.
-		at := tierForCard(pf.SRTier, req.Kind, req.ID, tierDaySeed())
-		_, answerText, ok := clozeSpan(text, req.Kind, req.ID,
-			clozeMaxWordsFor(stabilityNow, tierClozeThreshold(at, tuning.ClozeWords)))
+		// AND THE SAME WIDTH MEANS THE TIER'S WIDTH, WHICH THE SERVER CANNOT KNOW
+		// FOR CERTAIN.
+		//
+		// This read tuning.ClozeWords directly while the card was BUILT through
+		// tierClozeThreshold, so at Hard the deck served a three-word blank and the
+		// server graded it against a one-word mask: the reader typed exactly what
+		// was asked, was told "forgot", and the card lapsed.
+		//
+		// RECOMPUTING THE TIER HERE WAS NOT ENOUGH EITHER, and claiming it was is
+		// how this comment came to be wrong twice. Two reachable states put the
+		// deck and the grader on different tiers however carefully the tier is
+		// derived: the reader changes the setting between seeing a card and
+		// answering it, and — on Random — a round crosses UTC midnight. Both
+		// reproduce the identical corrupting symptom.
+		//
+		// SO THE ATTEMPT IS JUDGED AGAINST EVERY WIDTH THE TIERS COULD HAVE
+		// PRODUCED, and the best verdict wins. The alternative is marking a
+		// correct answer wrong and lapsing the card, which is the worse error by a
+		// wide margin: this loop is "self-graded… the user is trusted to grade
+		// honestly", a flip card is entirely the reader's own verdict, and the
+		// generosity here is bounded to the two or three spans one quote can yield.
+		// The reveal is the width that actually matched, so the card says what it
+		// accepted.
+		widths := map[int]bool{}
+		for _, t := range []string{tierEasy, tierMedium, tierHard} {
+			widths[clozeMaxWordsFor(stabilityNow, tierClozeThreshold(t, tuning.ClozeWords))] = true
+		}
+		verdict, answerText, ok := clozeMiss, "", false
+		for w := range widths {
+			_, span, spanOK := clozeSpan(text, req.Kind, req.ID, w)
+			if !spanOK {
+				continue
+			}
+			ok = true
+			// Best-of, in the order a reader would want it: an exact recall beats a
+			// synonym, and either beats a miss. The FIRST width to be judged fills
+			// the reveal so that a card with no hit still says what it wanted.
+			switch j := clozeJudge(span, *req.Attempt); {
+			case j == clozeMiss:
+				if answerText == "" {
+					answerText = span
+				}
+			case verdict == clozeMiss, j != clozeGotSynonym && verdict == clozeGotSynonym:
+				verdict, answerText = j, span
+			}
+		}
 		if !ok {
-			// The card could not have been a cloze card, so the attempt is about
-			// a question that was never asked. Refused rather than graded: a
-			// silent "forgot" here would move somebody's schedule on the strength
-			// of a request nothing generated.
+			// The card could not have been a cloze card at any width, so the
+			// attempt is about a question that was never asked. Refused rather
+			// than graded: a silent "forgot" here would move somebody's schedule
+			// on the strength of a request nothing generated.
 			writeErr(w, http.StatusBadRequest, "this card is not a fill-in-the-blank")
 			return
 		}
-		switch clozeJudge(answerText, *req.Attempt) {
+		switch verdict {
 		case clozeMiss:
 			req.Result = "forgot"
 		case clozeGotSynonym:

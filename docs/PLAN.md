@@ -2756,7 +2756,7 @@ Spaced repetition is an exponential forgetting curve evaluated in SQL at query t
 
 ### The ladder's ceiling is a year, and the fourth rung is where capacity comes from
 
-**Decided.** `reviewMaxStability` is **365 days** and the ladder is **7 → 30 → 100 → 365**. `reviewTuning` gains `Ladder4`, every rung slider runs to 365, and the whole ladder falls back to the defaults together when the ascent breaks rather than having the offending rung patched. `nextRung`'s fallback is the **ladder's own** top rung, not the package ceiling, so a reader who shortened their ladder is not stepped past it. No migration: 0019 already clamped every stored half-life to 100, so nothing sits above the old ceiling. **And the capacity is now reported.** `reviewCapacity(quota)` is `quota × reviewMaxStability`, sent beside `states` on every review response, and Home says so under *where you stand* once the library is past it — a note about reach, not a warning about breakage, so it is microcopy on the row rather than anything behind the help fold, where a reader who never opens it would never learn it. The comparison is one function (`overCapacity`) because two screens will want it; the capacity itself is the server's, since a client multiplying by its own idea of the ceiling would go quietly wrong on the next release that moved it.
+**Decided.** `reviewMaxStability` is **365 days** and the ladder is **7 → 30 → 100 → 365**. `reviewTuning` gains `Ladder4`, every rung slider runs to 365, and the whole ladder falls back to the defaults together when the ascent breaks rather than having the offending rung patched. `nextRung`'s fallback is the **ladder's own** top rung, not the package ceiling, so a reader who shortened their ladder is not stepped past it. No migration: 0019 already clamped every stored half-life to 100, so nothing sits above the old ceiling. **And the capacity is now reported.** `reviewCapacity(quota, ceiling)` is `quota × ceiling` — the READER's ceiling, which is `reviewMaxStability` under adaptive and their own top rung on the ladder (`reviewCeilingFor`) — sent beside `states` on every review response, and Home says so under *where you stand* once the library is past it — a note about reach, not a warning about breakage, so it is microcopy on the row rather than anything behind the help fold, where a reader who never opens it would never learn it. The comparison is one function (`overCapacity`) because two screens will want it; the capacity itself is the server's, since a client multiplying by its own idea of the ceiling would go quietly wrong on the next release that moved it.
 
 **Why.** The ceiling was silently a capacity limit. At equilibrium a card is asked once per half-life, so a library of `N` owes `N / ceiling` reviews a day and the largest library a quota can keep current is `quota × ceiling` — 8 × 100, about **800 quotes**. Above that the deck runs permanently behind. Nothing breaks, because most-overdue-first means the reader still gets the stalest thing, but the tail of a growing library stops being reached and **no screen said so**. A year makes it about 2,900. It buys that at the cost of one more climb per admission — a new card now returns at +7, +37 and +137 before reaching the top — while steady-state maintenance falls by 3.65×, which is the trade in one line.
 
@@ -3045,6 +3045,22 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 **Approved.** Mine, with the "everyone moves" consequence named out loud as the thing to be sure about.
 
 <sub>3.1.0 — `internal/httpapi/auth_handlers.go` · `internal/httpapi/review_tuning.go` · `internal/httpapi/review_handlers.go` · `web/frontend/src/Settings.jsx` · `web/frontend/src/Home.jsx` · `CHANGELOG.md`</sub>
+
+### A typed blank is graded against every width the tiers could have hidden
+
+**Decided.** `handleReviewAnswer` judges a cloze attempt against the span at **each** of the three tiers' widths and takes the best verdict. The reveal is the width that actually matched.
+
+**Why the obvious answer is wrong.** The card is built through `tierClozeThreshold`, so at Hard the blank is the widest the quote allows. Grading against the stored `tuning.ClozeWords` meant a reader typed exactly the three words asked for, was told "forgot", and watched the card drop to the first rung — with the reveal showing a one-word answer still printed beside the gap. **Recomputing the tier at answer time was not enough**, and claiming it was is how that block's comment came to be wrong twice: two reachable states put the deck and the grader on different tiers however carefully the tier is derived — the reader changes the setting between seeing a card and answering it, and on Random a round crosses UTC midnight.
+
+**So the server stops pretending it knows.** It cannot, and the alternative is marking a correct answer wrong and lapsing the card. This loop is self-graded by design — §8's own header says *"the user is trusted to grade honestly (that is the point of retrieval practice)"* and a flip card is entirely the reader's verdict — so accepting a right answer at any width one quote can yield is consistent with the feature rather than a hole in it. The generosity is bounded to two or three spans.
+
+**Instead of.** Recording the width on the card and honouring what comes back — rejected: that is the client telling the server what its own answer was worth, which is the abuse `review_handlers.go` already refuses for the direction weight, and a claim of width 1 on a three-word blank is exploitable in exactly the easy direction.
+
+**And the tier's day is UTC.** `tierDaySeed` is the one day either endpoint may use for Random, because Daily and Practice do not agree about the local day — Practice takes no timezone offset at all. An earlier repair drew Practice's tier at random per round, which made it unrecomputable and so made every Hard cloze there ungradeable by construction.
+
+**Approved.** Mine, with "a correct answer is never graded as a lapse" as the property that decides it.
+
+<sub>3.1.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_tier_test.go` · `CHANGELOG.md`</sub>
 
 ### The quiz has three difficulties, and a tier is a property of the round
 

@@ -34,6 +34,32 @@ func TestMediumChangesNothingAtAll(t *testing.T) {
 	if got := tierPrefers(tierMedium); got != "" {
 		t.Errorf("tierPrefers(medium) = %q, want no opinion", got)
 	}
+	// EVERY tier function, and this one was missing while the sentence above said
+	// "every" — the sixth function, and the one that decides whether the wrong
+	// answers come from the answer's own work. It is caught elsewhere, by
+	// TestAnEasySpeakerCardLooksOutsideTheAnswersOwnFilm, but a claim of
+	// exhaustiveness that is not exhaustive is the defect this session keeps
+	// producing.
+	if tierPrefersFarLures(tierMedium) {
+		t.Error("tierPrefersFarLures(medium) is true — medium reaches for the CLOSE lure, which is what makes it a question")
+	}
+	// And the list is walked rather than written down, so a seventh cannot arrive
+	// unchecked either.
+	for _, fn := range []struct {
+		name string
+		same func() bool
+	}{
+		{"tierDirections", func() bool { return slices.Equal(tierDirections(tierMedium, dirs), dirs) }},
+		{"tierOptions", func() bool { return tierOptions(tierMedium) == quizOptions }},
+		{"tierMinOptions", func() bool { return tierMinOptions(tierMedium) == speakerMinOptions }},
+		{"tierClozeThreshold", func() bool { return tierClozeThreshold(tierMedium, 30) == 30 }},
+		{"tierPrefers", func() bool { return tierPrefers(tierMedium) == "" }},
+		{"tierPrefersFarLures", func() bool { return !tierPrefersFarLures(tierMedium) }},
+	} {
+		if !fn.same() {
+			t.Errorf("%s changes something at medium, and medium is the tier that changes nothing", fn.name)
+		}
+	}
 }
 
 // An unknown or empty tier is medium, so a corrupt preference cannot change how
@@ -610,5 +636,125 @@ func TestTheTierIsRecomputableFromTheCardAlone(t *testing.T) {
 		if again := tierForCard(tierRandom, kindBook, id, tierDaySeed()); again != first {
 			t.Fatalf("card %d resolves to %q from the deck and %q from the answer path", id, first, again)
 		}
+	}
+}
+
+// AND A RIGHT ANSWER SURVIVES THE TIER MOVING UNDER IT.
+//
+// Recomputing the tier at answer time was not enough, and saying it was is how
+// the comment over that block came to be wrong twice. Two reachable states put
+// the deck and the grader on different tiers however carefully the tier is
+// derived:
+//
+//   - the reader changes the difficulty in Settings between seeing a card and
+//     answering it; and
+//   - on Random, a round crosses UTC midnight, so tierDaySeed moves.
+//
+// Both produce the identical corrupting symptom — typed exactly what the deck
+// hid, graded "forgot", card lapsed. The attempt is judged against every width
+// the tiers could have produced, so neither can cost a correct reader their
+// climb. This drives the first state end-to-end, which is the one a reader
+// reaches by pressing a control rather than by waiting.
+func TestARightAnswerSurvivesTheTierChangingMidRound(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	seedReviewBook(t, c, "Dune", 3)
+	seedDistractorBook(t, srv, c, "Emma")
+	ageSeededItems(t, srv)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier": tierHard, "srQuestions": `{"daily":["cloze"]}`}, http.StatusOK)
+
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	var card *reviewCard
+	for i := range deck.Items {
+		if deck.Items[i].Direction == dirCloze {
+			card = &deck.Items[i]
+			break
+		}
+	}
+	if card == nil {
+		t.Fatalf("the hard deck served no typed blank: %+v", deck.Items)
+	}
+	full, err := srv.itemText(kindBook, card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, tail, _ := strings.Cut(card.Quote, clozeBlank)
+	hidden := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(full, head), tail))
+	if len(strings.Fields(hidden)) < 2 {
+		t.Fatalf("the hard blank hid %q — this test needs a multi-word span to differ from medium's", hidden)
+	}
+
+	// THE READER CHANGES THEIR MIND while the card is on screen.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srTier": tierMedium}, http.StatusOK)
+
+	res := decode[answerResp](t, c.mustDo("POST", "/review/answer", map[string]any{
+		"kind": kindBook, "id": card.ID, "mode": "daily", "result": "got", "attempt": hidden}, 200))
+	if res.Result != "got" {
+		t.Errorf("typed back exactly what the hard deck hid (%q) after switching to medium, and was graded %q "+
+			"— changing a setting between seeing a card and answering it costs the reader their climb", hidden, res.Result)
+	}
+	if res.Answer != hidden {
+		t.Errorf("the card hid %q and the reveal says %q — the reveal is not the width that matched", hidden, res.Answer)
+	}
+}
+
+// THE SAME, FOR THE DAY MOVING RATHER THAN THE SETTING. On Random the tier comes
+// from tierDaySeed, so a round left open across UTC midnight is graded against a
+// different tier from the one that built it. Driven at the seam rather than over
+// HTTP, because the endpoints cannot be made to cross midnight — and the property
+// is the one that matters either way: for a card the reader typed correctly, SOME
+// tier's width matches.
+func TestEveryTiersWidthIsAcceptedForOneQuote(t *testing.T) {
+	const quote = "the sleeper must awaken and the spice must flow across the desert"
+	widths := map[int]string{}
+	for _, tier := range []string{tierEasy, tierMedium, tierHard} {
+		// A card at the first rung, where the tiers genuinely differ: easy and
+		// medium hide one word, hard hides the widest span the quote allows.
+		w := clozeMaxWordsFor(reviewMinStability, tierClozeThreshold(tier, clozeMultiWordFrom))
+		_, span, ok := clozeSpan(quote, kindBook, 1, w)
+		if !ok {
+			t.Fatalf("%s: no span at width %d, so this measured nothing", tier, w)
+		}
+		widths[w] = span
+	}
+	if len(widths) < 2 {
+		t.Fatalf("every tier produced the same width (%v) — the divergence this guards cannot happen "+
+			"in this fixture, so the guard is empty", widths)
+	}
+	// Whatever the reader typed, it was one of these. The grader has to accept it
+	// without knowing which tier the card was shown at.
+	for w, span := range widths {
+		hit := false
+		for other := range widths {
+			_, cand, ok := clozeSpan(quote, kindBook, 1, other)
+			if ok && clozeJudge(cand, span) != clozeMiss {
+				hit = true
+				break
+			}
+		}
+		if !hit {
+			t.Errorf("a reader who typed the width-%d span (%q) matches no tier's mask — a correct answer "+
+				"would be graded as a lapse", w, span)
+		}
+	}
+}
+
+// AND THE CEILING RISES FOR A SEEN-BUMPED LADDER READER. bumpSeen caps at
+// reviewMaxStability rather than at Ladder4, and nextStability's first-success
+// branch keeps `cur`, so with srSeen above 1 a card can sit above the reader's own
+// top rung and stay there. This case had the fix and no guard: removing the
+// srSeen leg left the whole package green.
+func TestASeenBumpedLadderReaderGetsTheFullCeiling(t *testing.T) {
+	short := `{"ladder1":7,"ladder2":14,"ladder3":21,"ladder4":30}`
+	plain := prefs{SRDaily: 8, SRLadder: true, SRTuning: short, SRSeen: 1}
+	if got, want := reviewCeilingFor(plain), 30.0; got != want {
+		t.Errorf("a ladder reader who does not lengthen on seeing: ceiling %g, want their top rung %g", got, want)
+	}
+	bumped := prefs{SRDaily: 8, SRLadder: true, SRTuning: short, SRSeen: 1.2}
+	if got, want := reviewCeilingFor(bumped), reviewMaxStability; got != want {
+		t.Errorf("a ladder reader with srSeen %g: ceiling %g, want %g — seeing lengthens past the top rung, "+
+			"so reporting the rung understates the capacity of the reader most likely to have a large library",
+			bumped.SRSeen, got, want)
 	}
 }

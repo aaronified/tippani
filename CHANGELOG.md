@@ -221,6 +221,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
+- **A right answer stays right when you change the difficulty mid-round.** Typing a Hard blank
+  back and then switching to Medium before pressing the tick used to record it as forgotten —
+  and so did leaving a Random round open across midnight. The answer is now checked against
+  every width the difficulties could have hidden, so a correct answer is a correct answer
+  whichever one the card was drawn at. The note about how large a library the quiz can keep
+  current also reads your own top rung now, rather than assuming the year-long ceiling: on a
+  shortened ladder it was overstating by up to twelvefold.
+
 - **Typing a Hard blank back correctly no longer counts as forgetting it.** On the Hard tier the
   quiz hides the widest phrase a quote allows, but the answer was being checked against a
   one-word blank — so you typed exactly what was asked, were told you had forgotten it, and the
