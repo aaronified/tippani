@@ -34,7 +34,12 @@ function parseArgs(argv) {
   // NO DEFAULT ID. A number here is a fact about one library, and this probe
   // runs against two — the seeded fixture and a restored archive. Left empty it
   // is resolved from whichever library is loaded; see `filmWithCast`.
-  const out = { baseUrl: 'http://127.0.0.1:8080', movieId: '', timeoutMs: 30000, surface: 'details' }
+  // NO DEFAULT SURFACE, and this is the fix for the defect that made this probe
+  // worth distrusting: it defaulted to `details`, so two rounds of "the drag is
+  // fixed" were measured against the one panel the owner had already called fine.
+  // `controls.mjs` sets the precedent — it "refuses to run without `--fixture`"
+  // because a ceiling measured against the wrong shelf says nothing.
+  const out = { baseUrl: 'http://127.0.0.1:8080', movieId: '', timeoutMs: 30000, surface: '' }
   for (let i = 0; i < argv.length; i++) {
     const next = () => argv[++i]
     if (argv[i] === '--base-url') out.baseUrl = next()
@@ -319,6 +324,12 @@ try {
       })
     },
   }
+  if (!opts.surface) {
+    console.log('FAIL  --surface is required: details, character or people. It had a default of')
+    console.log('FAIL  `details` for two releases, which is the one surface the owner called fine —')
+    console.log('FAIL  so a green run said nothing about the two they were reporting.')
+    process.exit(1)
+  }
   if (!openers[opts.surface]) {
     console.log(`FAIL  --surface ${opts.surface} is not one of details, character, people`)
     process.exit(1)
@@ -478,13 +489,23 @@ try {
     for (const n of [head, ...head.querySelectorAll('*')]) {
       const cs = getComputedStyle(n)
       const name = n.tagName.toLowerCase() + '.' + (n.className || '').toString().split(/\s+/).filter(Boolean).slice(0, 2).join('.')
-      // Anything but `none` leaves the browser a pan to claim, and every real thumb
-      // drag is slightly diagonal.
-      if (cs.touchAction !== 'none') bad.push(`${name}:${cs.touchAction}`)
+      // THE HEAD ONLY, and the first version of this read every descendant.
+      // Effective touch-action is the intersection of an element and its
+      // ancestors, so `none` on the head already covers its subtree —
+      // `getComputedStyle` reports the DECLARED value, which is `auto` for
+      // anything that never set it, so a per-descendant reading cannot tell
+      // "covered by the head" from "dangerously open". It looked like a finding,
+      // it was not, and a rater had to say so.
+      if (n === head && cs.touchAction !== 'none') bad.push(`${name}:${cs.touchAction}`)
       // AND A SCROLL CONTAINER IN HERE IS THE SAME DEFECT ONE LAYER DOWN — the
       // owner's "header should not even have any scrollable part". `visible`
       // computes to `auto` beside a scrolling partner, so both axes are read.
-      if (/(auto|scroll)/.test(cs.overflowY) || /(auto|scroll)/.test(cs.overflowX)) {
+      // THE VERTICAL AXIS IS THE ONE THAT MATTERED. A sideways scroller in the
+      // head is fine — the head's `none` stops a thumb panning it, and the crumb
+      // needs it so a work's title is readable rather than clipped. A vertical one
+      // holding a single line of nowrap text is the defect: nothing to scroll and
+      // a rubber-band for trying.
+      if (/(auto|scroll)/.test(cs.overflowY)) {
         scrollers.push(`${name}:${cs.overflowX}/${cs.overflowY}`)
       }
     }
@@ -497,7 +518,7 @@ try {
       console.log(`FAIL  the header leaves the browser a gesture to claim: ${claimed.bad.join(', ')}`)
       failures++
     } else {
-      console.log('ok    the header and everything in it claim the whole gesture (touch-action: none)')
+      console.log('ok    the header claims the gesture, and so does its subtree by intersection (touch-action: none)')
     }
     if (claimed.scrollers.length) {
       console.log(`FAIL  the header has a scrollable part, so a thumb pans it instead of the sheet: ${claimed.scrollers.join(', ')}`)

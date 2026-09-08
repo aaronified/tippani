@@ -5209,10 +5209,15 @@ export function PanelHost({ stack }) {
   // nowhere to be dragged. The argument for the exception is at
   // `.tp-panel-back-word` in index.css, where the rule it excepts is written, and
   // `run-panel-depth.sh` is what measures it in a browser.
-  const titleRef = useRef(null);
-  // The title is a name too — the panel is named after the person, character or
-  // work it is about — so it gets the same treatment rather than an ellipsis.
-  useEdgeScroll(titleRef, { axis: "x" });
+  // AND THE TITLE HAS NO SCROLLER EITHER, which is the same ruling one slot to the
+  // right. This carried `const titleRef` and `useEdgeScroll(titleRef, {axis:'x'})`
+  // under a comment saying "the title is a name too ... so it gets the same
+  // treatment rather than an ellipsis" — the position the owner overruled on
+  // 7 September: "the title doesn't need to scroll in the header. it can be
+  // ellipsis-ed. not a problem." `.tp-panel-title` took `text-overflow: ellipsis`
+  // then; the hook and its comment were left behind saying the opposite, and an
+  // edge fade over an `overflow: hidden` box means "there is more this way" about
+  // something that cannot be dragged. Both are gone.
   useBodyScrollLock(!!panel);
   // A PANEL CAN HOST A FORM, and it has to, or a form moved onto this stack loses
   // its save key without a word.
@@ -5440,7 +5445,7 @@ export function PanelHost({ stack }) {
               {head.crumb ? <span className="tp-panel-crumb">{head.crumb}</span> : null}
             </span>
           ) : (
-            <h2 className="tp-panel-title" ref={titleRef}>{panel.title}</h2>
+            <h2 className="tp-panel-title">{panel.title}</h2>
           )}
           <div className="tp-panel-slot tp-panel-slot-r">
             {/* Before the panel's own verb and before the ✕: the order is

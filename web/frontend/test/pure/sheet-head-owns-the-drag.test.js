@@ -6,16 +6,20 @@
 // to vertically scroll itself" — then "header should not even have any scrollable
 // part."
 //
-// WHAT IT WAS. `.tp-panel-head` claimed `touch-action: none` and every child of it
-// computed `auto`, which is most of the 50px a thumb can land on: `touch-action` is
-// not inherited in the way that matters, so a descendant declaring `auto`
-// re-enables the browser's own panning for a gesture starting on it. The browser
-// then claims the drag, and per `claim` in ui.jsx a claimed gesture is one
-// `useSheetDrag` stops receiving. On top of that the SCOPED panel title was a
-// `NameScroll`, whose `overflow-x: auto` makes it a scroll container — and CSS
-// computes the other axis to `auto` beside a scrolling partner, so the header held
-// a vertical scroller with one line of nowrap text in it. Nothing to scroll, and a
-// rubber-band for trying.
+// WHAT IT WAS. The SCOPED panel title was a `NameScroll`, whose `overflow-x: auto`
+// makes it a scroll container — and CSS computes the other axis to `auto` beside a
+// scrolling partner, so the header held a VERTICAL scroller with one line of nowrap
+// text in it. Nothing to scroll, and a rubber-band for trying.
+//
+// AND WHAT IT WAS NOT, because the first version of this file asserted it and a
+// rater took it apart: descendants of the head were NOT dangerously on
+// `touch-action: auto`. Effective touch-action is the intersection of an element
+// and its ancestors, and `.tp-panel-head { touch-action: none }` has been in the
+// stylesheet since f1bbf183 — so everything inside was already covered.
+// `getComputedStyle` reports the DECLARED value per element, which is why a
+// measurement of `auto` looked like a finding and was not. A guard requiring a
+// `.tp-panel-head *` rule went in on that reasoning; both the rule and the guard
+// are withdrawn.
 //
 // WHY THIS IS A STYLESHEET READ AND NOT A GESTURE. A drag cannot be had in jsdom,
 // and the browser probe that CAN have one drags with Puppeteer's mouse —
@@ -40,24 +44,29 @@ const rulesFor = (needle) => [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
   .map((m) => ({ sel: m[1].trim().replace(/\s+/g, ' '), body: m[2] }))
 
 describe('the panel header claims the drag', () => {
-  it('declares touch-action: none for itself AND its descendants', () => {
-    const claims = rulesFor('.tp-panel-head').filter((r) => /touch-action/.test(r.body))
-    expect(claims.length, 'no rule claims the gesture for the panel header at all')
+  it('declares touch-action: none for the head itself', () => {
+    // ONE DECLARATION IS ENOUGH, and asserting more than that was the error this
+    // file was rewritten to remove. Effective touch-action intersects with every
+    // ancestor, so `none` here covers the head's whole subtree — a rule per
+    // descendant adds nothing, and `touch-action` does not even apply to the
+    // non-replaced inline elements most of those children are.
+    const head = rulesFor('.tp-panel-head')
+      .filter((r) => /^\.tp-panel-head\s*$/.test(r.sel) || /touch-action/.test(r.body))
+    const claims = head.filter((r) => [...r.body.matchAll(/touch-action\s*:\s*([^;}]+)/g)]
+      .some((m) => m[1].trim() === 'none'))
+    expect(claims.length, 'nothing claims the gesture for the panel header')
       .toBeGreaterThan(0)
-    // A rule naming only the head leaves every child on `auto`, which is the defect.
-    const covers = claims.some((r) => /\.tp-panel-head\s*\*/.test(r.sel) && /touch-action:\s*none/.test(r.body))
-    expect(covers, `the header claims the gesture only for itself: ${claims.map((r) => r.sel).join(' | ')}`)
-      .toBe(true)
   })
 
-  it('and leaves no descendant a pan of its own', () => {
-    // `pan-x` was the previous state of this and is not enough: the note on
-    // `.tp-panel-title` says why — "every real thumb drag is slightly diagonal, so
-    // the browser could take a gesture meant for the sheet".
+  it('and hands no part of itself back to the browser', () => {
     // THE VALUE IS READ, NOT PATTERN-MATCHED AROUND. The first cut of this was
     // `/touch-action:\s*(?!none)/`, which matches `touch-action: none` — `\s*`
     // backtracks to zero and the lookahead then sits on " none", which does not
     // begin with "none". It failed the very rule it was written to bless.
+    //
+    // `pan-x` is the value this forbids, and the note on `.tp-panel-title` says
+    // why: it leaves horizontal panning to the browser, and "every real thumb drag
+    // is slightly diagonal".
     const loose = rulesFor('.tp-panel-head')
       .filter((r) => [...r.body.matchAll(/touch-action\s*:\s*([^;}]+)/g)]
         .some((m) => m[1].trim() !== 'none'))
@@ -84,10 +93,16 @@ describe('nothing in the header is a scroll container', () => {
     expect(title, 'the title neither ellipsises nor hides its overflow').toMatch(/text-overflow:\s*ellipsis/)
   })
 
-  it('and the crumb beside it ellipsises rather than scrolling', () => {
+  it('and the crumb beside it names its vertical axis', () => {
+    // THE CRUMB STILL SCROLLS SIDEWAYS, deliberately: truncating it made a THIRD
+    // exception to "never truncate a name", undocumented and unguarded, and it was
+    // not needed — the head claims `touch-action: none`, so no scroller in there is
+    // pannable by a thumb. What had to go is the axis nobody declared.
     const crumb = rulesFor('.tp-panel-crumb').map((r) => r.body).join('\n')
-    expect(crumb, 'the crumb scrolls, so a thumb on it pans instead of dragging the sheet')
-      .not.toMatch(/overflow-x:\s*(auto|scroll)/)
+    expect(crumb, 'the crumb stopped scrolling, which is a truncation exception nobody argued')
+      .toMatch(/overflow-x:\s*auto/)
+    expect(crumb, 'the crumb leaves its vertical axis to be computed, so it is a vertical scroller')
+      .toMatch(/overflow-y:\s*hidden/)
   })
 })
 

@@ -11395,21 +11395,37 @@ people popups. but the header behaves as if i am scrolling the content (does not
 either). so header is basically trying to vertically scroll itself"*, then *"header should
 not even have any scrollable part."*
 
-Two declarations, and each is a rule that does not mean what it reads like.
+**ONE DECLARATION, AND A CLAIM I WITHDREW.** The first version of this entry named two
+causes and a rater took the first one apart; it is recorded here because the mistake is more
+instructive than the fix.
 
-1. **`touch-action` is not inherited in the way that matters.** `.tp-panel-head` claimed
-   `none`; every child of it computed `auto` — `.tp-panel-slot`, `.tp-panel-names`, the
-   title — which is most of the 50px a thumb can land on. A descendant declaring `auto`
-   re-enables the browser's own panning for a gesture starting on it, the browser claims
-   the drag, and per `claim` in `ui.jsx` a claimed gesture is one `useSheetDrag` stops
-   receiving. What the reader feels is the page rubber-banding.
+**WHAT IS ACTUALLY WRONG: `overflow-x: auto` makes a box scroll on BOTH axes.** CSS computes
+a `visible` axis to `auto` beside a scrolling partner, so `.name-scroll` — one line of
+`nowrap` text — was a vertical scroll container everywhere it is used, and
+`.tp-panel-crumb` had the same shape. The stylesheet already KNEW this fact and had dealt
+with one half of it: a note on `.name-scroll` explains the computed `auto` and adds
+`padding-block` to undo the clipping it causes. Nobody followed the same fact to the
+panning. That is the owner's "header is basically trying to vertically scroll itself",
+almost word for word.
 
-2. **`overflow-x: auto` makes a box scroll on BOTH axes.** CSS computes a `visible` axis to
-   `auto` beside a scrolling partner, so `.name-scroll` — one line of `nowrap` text — was a
-   vertical scroll container everywhere it is used. `.tp-panel-crumb` had the same shape.
-   The stylesheet already KNEW this fact and had dealt with one half of it: a note on
-   `.name-scroll` explains the computed `auto` and adds `padding-block` to undo the
-   clipping. Nobody followed the same fact to the panning.
+**WHAT WAS NOT WRONG, though I asserted it in capitals in three places: `touch-action` on
+the head not reaching its children.** Effective touch-action is the INTERSECTION of an
+element and its ancestors, and `.tp-panel-head { touch-action: none }` has been in the
+stylesheet since `f1bbf183` — whose subject is *"the header takes the whole gesture"* — so
+descendants were already covered. `getComputedStyle` reports the value DECLARED on each
+element, which is `auto` for anything that never set one, so my measurement of "every child
+computed `auto`" could not distinguish "covered by the head" from "open to the browser". It
+looked like evidence and was not. `touch-action` also does not apply to non-replaced inline
+elements, which most of that head's children are, so the rule was doubly inert. A
+`.tp-panel-head *` rule went in on that reasoning, and TWO GUARDS were written to require
+it — which is the worse half: a false mechanism with tests holding it in place is harder to
+remove than the rule alone. Rule and guards withdrawn.
+
+**AND THE CRUMB WENT BACK.** I had truncated `.tp-panel-crumb` too, which made a THIRD
+exception to "never truncate a name" — undocumented, unguarded, and against a rule whose two
+existing exceptions are each named in `typescale-baseline.json` with the ruling that granted
+them. It was also unnecessary: with the head claiming `none`, a sideways scroller in there
+cannot be panned by a thumb. It scrolls again; only its unnamed vertical axis is gone.
 
 **AND THE DECISION HAD ALREADY BEEN MADE AND NOT APPLIED.** The owner excepted this title
 from the never-truncate rule on 7 September — *"the title doesn't need to scroll in the
@@ -11426,12 +11442,26 @@ ellipsises, and the head claims `none` for itself and everything in it.
 `<h2 className="tp-panel-title">` — plain, never a scroller. That is the entire difference
 between "totally fine, as before" and three reports.
 
-**AND WHY NO GESTURE TEST COULD HAVE CAUGHT IT.** `sheet-drag.mjs` drags with Puppeteer's
-MOUSE, and `touch-action` governs touch panning rather than mouse events. Every gesture case
-passed on a header no finger could drag, and would have gone on passing. The probe now READS
-the computed `touch-action` and `overflow` of the head and its descendants — the one part of
-this within a harness's reach that a real thumb obeys — and `sheet-head-owns-the-drag.test.js`
-holds the declarations in CI, where no browser runs at all.
+**AND THE REAL LESSON IS THE PROBE, not the CSS.** `sheet-drag.mjs` took `--surface` with a
+DEFAULT of `details`, so a bare run measured the one panel the owner had already called
+fine — twice, under two "the drag is fixed" reports. It has no default now and refuses to
+run without one, on `controls.mjs`'s precedent ("`--fixture` names the shelf, and
+`controls.mjs` refuses to run without it"), and `run-sheet-drag.sh` runs all three surfaces
+rather than one. The two panels have no URL — `routes.js` parses none — so the probe presses
+a speaker chip and answers the chooser the way a reader does.
+
+**A GESTURE TEST STILL CANNOT CATCH THIS.** The probe drags with Puppeteer's MOUSE and
+`touch-action` governs TOUCH panning, so a header no finger could drag passes every gesture
+case. What it reads instead is the head's own declared `touch-action` and the computed
+`overflow-y` of everything in the head — a vertical scroller in there is the defect, a
+horizontal one is not. `sheet-head-owns-the-drag.test.js` holds the declarations in CI, where
+no browser runs at all.
+
+**AND THE TITLE'S DEAD SCROLLER WENT WITH IT.** `ui.jsx` still ran
+`useEdgeScroll(titleRef, { axis: 'x' })` on the UNSCOPED title under a comment saying "the
+title is a name too ... so it gets the same treatment rather than an ellipsis" — the position
+the 7 September ruling overturned. An edge fade over an `overflow: hidden` box promises more
+text in a direction nothing can be dragged.
 
 **Two things the probe found that are NOT this defect, reported rather than gated:** a sheet
 whose content exceeds the first stop opens at its smallest anchor, so a pull down can only

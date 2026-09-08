@@ -17,7 +17,20 @@ set -euo pipefail
 # harness was one of the five that went on seeding while CLAUDE.md said otherwise.
 BIND="${TIPPANI_BIND:-127.0.0.1:8129}"
 export TIPPANI_BIND="$BIND"
-scratch_prefer_archive sheet-drag node sheet-drag.mjs --base-url "http://$BIND" "$@"
+# ALL THREE SURFACES, and that is the point of this loop. The probe used to be
+# invoked once with no `--surface` and defaulted to `details` — the one panel the
+# owner had already called fine — so two rounds of "the drag is fixed" were
+# measured against a surface nobody had complained about. A run that does not press
+# the reported one is worse than no run, because its exit code reads as an answer.
+SURFACES="${TIPPANI_SHEET_SURFACES:-details character people}"
+scratch_prefer_archive sheet-drag bash -c '
+  rc=0
+  for surf in '"$SURFACES"'; do
+    echo "=== sheet-drag: $surf ==="
+    node sheet-drag.mjs --base-url "'"http://$BIND"'" --surface "$surf" "$@" || rc=$?
+  done
+  exit $rc
+' -- "$@"
 
 scratch_sweep
 
@@ -52,5 +65,10 @@ node seed.mjs --base-url "http://$BIND"
 
 # Firefox refuses to start as root inside another user's X session, and this
 # harness has no use for a display either way.
-env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY \
-  node sheet-drag.mjs --base-url "http://$BIND" "$@"
+rc=0
+for surf in $SURFACES; do
+  echo "=== sheet-drag: $surf ==="
+  env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY \
+    node sheet-drag.mjs --base-url "http://$BIND" --surface "$surf" "$@" || rc=$?
+done
+exit $rc
