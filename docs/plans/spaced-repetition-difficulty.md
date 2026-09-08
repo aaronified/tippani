@@ -474,7 +474,7 @@ constants, `dueSQL` splices `dueMultiplier(reviewDuePoint)` — `log2(1/target)`
 `TestTheDotAndTheDeckAgreeOnDue` holds them together. So the dial is now a small
 change: the constant becomes the preference, in one place.
 
-### Step 6 shipped in four of its five parts, and here is the fifth
+### Step 6 shipped, and in three places not as the plan drew it
 
 Built: the direction sets, the inverted scorer for Easy (twice — `attachSpeaker` does
 not consult `distractorScore` at all and had to be inverted separately), the wider
@@ -503,12 +503,31 @@ mid-question would take the reader out of the round from the one place every tap
 already spoken for. So the quiz card's own display-only chip draws them, in the same
 wrapping row `SourceLines` uses for the attribution side.
 
-**One part is not built, and it is not blocked — it is unstarted:**
+**And the corpus-derived cloze lures landed last, as the plan's first recommendation
+specified** — `clozeSurfaceScore`, shared stem then initial letter then length, over a
+bounded pool of candidates that the work ranking has already ordered. Two things the plan
+did not say:
 
-- **Closer cloze options, corpus-derived** (§2, Medium). `clozePhraseOf` already lifts
-  same-word-count phrases from other quotes; ranking them by surface similarity as
-  well as by parent-work similarity is the plan's own first recommendation and stands
-  as written.
+- **At one word — the width every new card is asked at — the stem term is unreachable.**
+  A single word that shares the answer's stem IS the answer. So the initial letter and the
+  length carry the whole of it there, and the stem term only does work on a multi-word
+  blank, which means a guard for it has to park a card past `clozeMultiWordFrom` rather
+  than seeding a fresh one.
+- **A wrong option could be a phrase the TYPED card would accept**, and that was a defect
+  rather than a gap. The duplicate check was normalised equality, so a plural, a tense or
+  one of the app's own synonym pairs could be offered as a wrong answer: pick it and you
+  are told you forgot a line the other direction calls correct. The grader itself is the
+  check now.
+- **And the round's same-author cap must not reach these lures.** It was passed straight
+  in with the tier, so two cards in three drew their phrases from the FARTHEST works in the
+  library — the exact opposite of what this step is for. A phrase carries no visible author,
+  so the cap buys nothing here; it is about which TITLE is offered.
+
+**And Easy's chips shipped with a leak, which is recorded in `docs/PLAN.md` and belongs
+here too because the plan's own sentence is what produced it.** "Never on a card that asks
+it" reads as a list of directions, and a fill-in-the-blank card asks who whenever the
+phrase it hides is a name: the chip was the answer, and the reader could type it and be
+graded right on a card never recalled. The rule is the mask, not the direction.
 
 **And Hard's same-series lures cannot be built at all yet**, which is recorded in
 `docs/PLAN.md` rather than here: there is no series term in `distractorScore` and no

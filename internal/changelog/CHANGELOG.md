@@ -67,6 +67,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The wrong answers on a fill-in-the-blank card now look like the right one.** They were
+  phrases the same length as the answer, cut out of quotes from books like the one in front
+  of you — which made them plausible sentences and not plausible *answers*, so you could
+  often pick the right one by its shape without remembering the line. They are now chosen
+  for resemblance to the answer itself: a phrase built from one of its own words first,
+  then one that starts the way it starts, then one the same length. The rule that keeps the
+  same author off two cards in three does not apply to these — a phrase does not show you
+  whose book it came from, so holding them back only made the choices further apart.
+
 - **On Easy, the quiz card shows you who is in the line.** The characters a book or film
   line names, with their faces, beside the words — and for a quote you saved on its own,
   whoever said it. It is what Easy buys instead of a harder question: when a line will not
@@ -248,6 +257,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   there was room for 2,920 quotes when their own top rung made it 240. The year is still the
   ceiling on the adaptive schedule, and on a fixed ladder whose "seeing" knob is turned up,
   because a card lengthened by being seen can pass its top rung.
+
+- **On Easy, a fill-in-the-blank card no longer prints the answer on a chip beside its own
+  blank.** The tier shows you who is in the line, and it withheld those faces only from the
+  two questions that ask *who* — but when the words a card hides ARE somebody's name, the
+  chip was the answer. You could read it off the card, type it, and be told you had
+  remembered a line you never recalled, with the schedule moving on that. A chip now never
+  names anything the card took out of its own words, whichever question it is asking.
+
+- **A fill-in-the-blank card no longer offers the plural of its own answer as a wrong
+  choice.** The card checked that no option was *identical* to the answer, which let
+  through anything the typed version of the same blank would have accepted anyway — a
+  plural, a tense, a British spelling, one of the quiz's own synonym pairs. Pick it and you
+  were told you had forgotten the line, for words the other half of the app calls correct.
+  The check now asks the grader itself, so the two cards over one blank agree about what
+  the answer is.
 
 - **A "who said this?" card is no longer served with its words blanked away.** The quiz hides
   the speaker's name inside the line so a quote that names its own speaker cannot answer

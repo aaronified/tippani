@@ -3103,13 +3103,19 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 
 **And this is the one part of the tier work that changes medium.** The entry above says the tier axis moves nothing for a reader who never opens the panel, and that stays true — this is a lure rule, not a tier dial. But it does change which wrong answers that reader is offered, and four documents had to be corrected for having read "medium adds nothing" as "the release adds nothing".
 
+**It applies at Hard as well, deliberately.** The plan files the quota under Medium, and Hard drops all three directions that offer work options — so it is nearly unreachable there, and reachable only for a reader whose whole repertoire is one of those, whom `tierDirections`' never-empty rule leaves it to. It is not exempted, because the reason holds at every difficulty: a reader who meets one author's titles all round is being asked one question. Hard's own spec asks for same-SERIES lures rather than same-author ones, and there is no series term in `distractorScore` to make that with — a separate entry proposes adding one.
+
+**And it does not reach the fill-in-the-blank card's phrase lures**, which it did for two commits. The cap is about which TITLE is offered: a phrase carries no visible author, so demoting same-author quotes there buys the reader nothing and costs the thing the entry below was written to get — two cards in three were drawing their phrases from the FARTHEST works in the library while the plan asked for closer ones. The two rules point opposite ways and only one of them is about something on the screen.
+
 **Approved.** Mine, from the plan's own step 6, with the ten-out-of-ten measurement as the thing that decided the cap was worth a behaviour change this close to a release.
 
 <sub>3.1.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_lures_test.go` · `internal/httpapi/review_tier.go` · `internal/httpapi/auth_handlers.go` · `CHANGELOG.md`</sub>
 
 ### An easy card names who is in the line, and never on a card that asks it
 
-**Decided.** At the Easy tier the server sends the line's own people with the card — `easy_chips` for the characters a book or screen line names, each with the picture stored for them, and `easy_people` for a standalone quote's speaker — and the quiz card draws them beside the words. Never on `speaker`, where the chip IS the answer; never on `quote`, where the people belong to one of four options and point at it.
+**Decided.** At the Easy tier the server sends the line's own people with the card — `easy_chips` for the characters a book or screen line names, each with the picture stored for them, and `easy_people` for a standalone quote's speaker — and the quiz card draws them beside the words. **A chip may not name anything this card removed from its own words** (`easyChipLeaks`), and the two directions whose answer IS a person — `speaker` and `quote` — get no chips at all.
+
+**And the direction list alone was not the rule, which shipped as a leak with a schedule behind it.** This entry said "never on a card that asks it" and named two directions, and that is false for the commonest card in the deck: a fill-in-the-blank card's answer is a person whenever the phrase it hid is a name. A line whose one content word was "Chani" came back as `…when ▢ was with them` with Chani on a chip beside it — the reader reads the answer off the card, types it, is graded right, and the half-life climbs on a card they never recalled. `dirAuthor` on a memoir whose character is its author is the same shape, where `hideTheAnswer` masks the name and the chip restores it. So the test is the mask itself — present in the words as they were, absent from the words as shown — which answers for cloze, for the multiple-choice blank, for the author card and for any direction a later release masks, without anyone having to remember to extend a list. It is conservative on purpose: a partial overlap withholds the whole chip, because naming "Paul Atreides" hands over "Paul".
 
 **Why the server gates it and not the client.** This is the answer-leak judgement `hideTheAnswer` already makes about the same people, and putting the two on opposite sides of the wire is how one of them goes on being right. The client also cannot recompute the tier: Random resolves per card from `tierDaySeed`, so "is this card easy" is only answerable where the deck was built. So the payload arrives already decided, and `review.jsx` draws what came.
 
@@ -3122,6 +3128,22 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 **Approved.** Mine, from the plan's own §2, with "never on a card that asks it" as the property that decides the shape.
 
 <sub>3.1.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_lures_test.go` · `web/frontend/src/review.jsx` · `web/frontend/test/dom/quiz-easy-chips.test.jsx` · `CHANGELOG.md`</sub>
+
+### A fill-in-the-blank card's wrong options are ranked by how much they look like the answer, and none of them is a second right answer
+
+**Decided.** `attachClozeMCQ` gathers up to `clozeLurePool` (24) candidate phrases out of the work-similarity-ranked quote pool, drops any the GRADER would accept as the answer, ranks the rest by `clozeSurfaceScore` — shared stem 1000, matching initial per position 50, rune-length difference as the tie-break — and takes the best three. The arrival order breaks ties, so parent-work similarity is still in the answer.
+
+**Why a second scale.** The options were ranked only by the similarity of the WORK they came from. That is the right first cut and says nothing about the phrases: a three-word answer could be offered against three phrases with the same word count and no other resemblance, and the reader picks the right one by the shape of the sentence rather than by remembering the line. The plan's §2 asks for this in as many words and recommends deriving it from the corpus rather than from a thesaurus — no dependency, and every lure is real language somebody in this library wrote.
+
+**And a wrong option must not be one the typed card would accept — which is a bug this found rather than a nicety.** The duplicate test was `clozeSameSpan`, normalised equality, so a phrase within the typo budget of the answer or a synonym of it could be offered as a WRONG option: the reader picks the words the typed version of the same span would have marked right and is told they forgot the line. Two cards over one blank disagreeing about what the answer is. The grader is the test now — `clozeJudge(answer, phrase) != clozeMiss` — so there is one authority on it rather than two. The mutation that proved the guard names the defect exactly: *offers "awakens" as a wrong answer beside "awaken"*.
+
+**One word is the common width, and at one word the strongest signal is unreachable.** A single word sharing the answer's stem IS the answer, and the refusal above drops it — so what makes a one-word option close is its initial letter and its length, and the wider span is where the stem term does the work. Both are guarded, at their own widths: the multi-word case parks a card past `clozeMultiWordFrom` rather than pretending a fresh card can hide a phrase.
+
+**Instead of.** A synonym or antonym dictionary — the plan's second option, and rejected there for the reason `go.mod`'s three direct requirements are defended by name: a real one is a dependency, and a hand-curated list stays thin, so the feature would work on some cards and not others with nothing on screen to say why. The seven pairs in `clozeSynonyms` exist for GRADING and are deliberately not generators.
+
+**Approved.** Mine, with "no option is a second right answer" as the property that decides it — the half the plan did not ask for and the only one that was a defect.
+
+<sub>3.1.0 — `internal/httpapi/cloze.go` · `internal/httpapi/review_handlers.go` · `internal/httpapi/cloze_lures_test.go` · `CHANGELOG.md`</sub>
 
 ### The due point is one number, named, with the dot and the deck derived from it
 

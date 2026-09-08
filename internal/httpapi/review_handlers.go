@@ -804,6 +804,11 @@ type reviewCard struct {
 	// the wire: the client has no use for it and a work id on a quiz card would be
 	// a fifth way to identify the same row.
 	workID int64
+	// rawWords is this card's words BEFORE anything was masked out of them, kept
+	// so the scaffolding chips can be checked against what the card removed. See
+	// easyChipLeaks. Unexported for the obvious reason: the unmasked text is the
+	// answer to every cloze card in the deck.
+	rawWords string
 }
 
 // optionMeta is the picture and the provenance of one multiple-choice option.
@@ -1349,6 +1354,11 @@ func finishCard(c reviewCand, direction string) reviewCard {
 const (
 	quizOptions  = 4   // choices per question (fewer only if the pool is tiny)
 	quizQuoteCap = 200 // quotes sampled per medium into the distractor pool
+	// clozeLurePool is how many candidate phrases a fill-in-the-blank card
+	// gathers before choosing three. Enough that the surface ranking has a real
+	// choice to make; small enough that it is still choosing among the most
+	// similar WORKS, which is the signal rankQuotes already applied.
+	clozeLurePool = 24
 )
 
 // workRef is one book / film / show with the metadata that makes a distractor
@@ -1792,14 +1802,24 @@ func offerEasyChips(card *reviewCard, c reviewCand, tier string) {
 	case dirSpeaker, dirQuote:
 		return
 	}
+	// THE WORDS AS THEY WERE, for the leak check every chip goes through. `c.card`
+	// is the candidate before any attach function touched it, so this is the text
+	// with nothing masked out of it — which is exactly what a chip must not put
+	// back. See easyChipLeaks.
+	card.rawWords = c.card.Quote + " " + c.card.Note
 	switch card.Kind {
 	case kindUtterance:
 		// A standalone quote's speaker is a PERSON and has no cast row, so it goes
 		// down the people path rather than the character one — the same split
 		// SourceLines makes, for the same reason.
-		if s := strings.TrimSpace(card.Speaker); s != "" && !strings.EqualFold(s, strings.TrimSpace(card.Title)) {
-			card.EasyPeople = []string{s}
+		s := strings.TrimSpace(card.Speaker)
+		if s == "" || strings.EqualFold(s, strings.TrimSpace(card.Title)) {
+			return
 		}
+		if easyChipLeaks(card, s) {
+			return
+		}
+		card.EasyPeople = []string{s}
 	default:
 		// The work id, for the batched lookup. A key that does not split is a
 		// speech, which has no work and no cast — nothing to look up.
@@ -1807,6 +1827,38 @@ func offerEasyChips(card *reviewCard, c reviewCand, tier string) {
 			card.workID = id
 		}
 	}
+}
+
+// easyChipLeaks — would naming this person hand back what the card took away?
+//
+// ONE RULE, AND IT IS THE ONLY ONE THAT COVERS EVERY DIRECTION: a chip may not
+// name anything this card removed from its own words.
+//
+// GATING ON THE DIRECTION WAS NOT ENOUGH, and shipping it that way was a leak
+// with a schedule behind it. offerEasyChips withheld the chips from "who said
+// this?" and "which quote?" — the two cards whose ANSWER is a person — and a
+// fill-in-the-blank card's answer is a person whenever the phrase it hid is a
+// name. A line whose one content word is "Chani" came back as "…when ▢ was with
+// them" with Chani on a chip beside it: the reader reads the answer off the card,
+// types it, is graded right, and the half-life climbs on a card they never
+// recalled. The same shape reaches "who wrote this?" on a memoir whose character
+// is its author, where hideTheAnswer masks the name and the chip restores it.
+//
+// SO THE TEST IS THE MASK ITSELF rather than a list of directions: present in the
+// words as they were, absent from the words as they are shown. That answers for
+// cloze, for the multiple-choice blank, for the author card and for anything a
+// later direction masks, without anyone having to remember to add it here.
+//
+// CONSERVATIVE BY DESIGN. A partial overlap withholds the whole chip — if the
+// mask took "Paul" and the chip reads "Paul Atreides", the chip is dropped. It has
+// to be: naming "Paul Atreides" hands over "Paul".
+func easyChipLeaks(card *reviewCard, name string) bool {
+	n := clozeNormalise(name)
+	if n == "" {
+		return false
+	}
+	shown := clozeNormalise(card.Quote + " " + card.Note)
+	return strings.Contains(clozeNormalise(card.rawWords), n) && !strings.Contains(shown, n)
 }
 
 // fillEasyChips does the round's ONE picture lookup, for the cards offerEasyChips
@@ -1852,7 +1904,20 @@ func (s *Server) fillEasyChips(uid int64, items []reviewCard) {
 		if items[i].Kind == kindScreen {
 			k = "movie"
 		}
-		items[i].EasyChips = characterImagesFor(found[k], seps, items[i].workID, items[i].Character)
+		// THE SAME PREDICATE, on the resolved rows. The names are split here rather
+		// than in offerEasyChips — characterImagesFor applies the reader's own
+		// separators — so this is the first point at which there is a name to
+		// check. A row whose name the card masked out is dropped rather than the
+		// whole set: a line naming two characters and hiding one still gets the
+		// other.
+		var kept []characterImage
+		for _, ch := range characterImagesFor(found[k], seps, items[i].workID, items[i].Character) {
+			if easyChipLeaks(&items[i], ch.Name) {
+				continue
+			}
+			kept = append(kept, ch)
+		}
+		items[i].EasyChips = kept
 	}
 }
 
@@ -2221,21 +2286,64 @@ func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, mu
 	words := len(strings.Fields(answer))
 	rng := seededRand(seed)
 	own := p.byKey[ownKey]
-	var distractors []string
-	for i, q := range rankQuotes(own, p.quotes, rng, tier, sameAuthor) {
+	// TWO SCALES, NOT ONE, and this is the second of them. The quotes arrive
+	// work-similarity-first (rankQuotes), which is the right first cut and says
+	// nothing about the PHRASES — so the first three that yielded a span used to
+	// be the options, however little they resembled the answer. Now a pool is
+	// gathered and then ranked by how much each phrase looks like the answer, with
+	// the arrival order breaking ties: both signals, in the order the plan asks
+	// for them. See clozeSurfaceScore.
+	//
+	// THE POOL IS BOUNDED because the choosing is the point, not the sweep: the
+	// first candidates come from the most similar works, so scanning past them
+	// buys resemblance at the cost of provenance. It also keeps the work per card
+	// flat as a library grows.
+	type lure struct {
+		phrase string
+		score  int
+	}
+	var pool []lure
+	// THE ROUND'S AUTHOR CAP DOES NOT REACH HERE, and passing it in was wrong for
+	// two commits. The cap exists because a reader who meets the same author's
+	// TITLE on every card is being asked one question — and a phrase carries no
+	// visible author at all, so demoting same-author quotes buys nothing and costs
+	// the thing this card was just changed to get: the plan asks for cloze options
+	// to be CLOSER, and two cards in three were drawing their phrases from the
+	// farthest works in the library. The two rules point opposite ways and only one
+	// of them is about something the reader can see.
+	for i, q := range rankQuotes(own, p.quotes, rng, tier, true) {
+		if len(pool) >= clozeLurePool {
+			break
+		}
 		if q.work.key == ownKey {
 			continue // a phrase out of this same work could be this same phrase
 		}
 		// The salt varies the span taken from each source quote, so a library of
 		// near-identical openings does not offer the same three words twice.
 		phrase, ok := clozePhraseOf(q.text, words, uint64(i)*0x9E3779B97F4A7C15+uint64(card.ID))
-		if !ok || clozeSameSpan(phrase, answer) {
+		if !ok {
 			continue
 		}
-		distractors = append(distractors, phrase)
+		// A SECOND RIGHT ANSWER IS NOT A LURE, and this used to let one through.
+		// The test was clozeSameSpan — normalised equality — so a phrase within
+		// the typo budget of the answer, or a synonym of it, could be offered as a
+		// wrong option: the reader picks the words the TYPED version of this same
+		// card would have accepted and is marked forgotten for it. Two cards over
+		// one span disagreeing about what the answer is, which the repo has a rule
+		// against. The grader itself is the test now, so there is one answer to
+		// "is this the phrase" rather than two.
+		if clozeJudge(answer, phrase) != clozeMiss {
+			continue
+		}
+		pool = append(pool, lure{phrase, clozeSurfaceScore(answer, phrase)})
+	}
+	sort.SliceStable(pool, func(i, j int) bool { return pool[i].score > pool[j].score })
+	var distractors []string
+	for _, l := range pool {
 		if len(distractors) >= tierOptions(tier)-1 {
 			break
 		}
+		distractors = append(distractors, l.phrase)
 	}
 	opts, ans := choicesFrom(answer, distractors, tierOptions(tier), rng)
 	// THE SAME FLOOR THE SPEAKER CARD USES, and for the same reason: two options

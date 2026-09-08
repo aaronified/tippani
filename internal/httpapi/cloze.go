@@ -528,3 +528,65 @@ func clozePhraseOf(text string, words int, salt uint64) (string, bool) {
 func clozeSameSpan(a, b string) bool {
 	return clozeNormalise(a) == clozeNormalise(b)
 }
+
+// clozeSurfaceScore — how much does this candidate phrase LOOK LIKE the answer?
+//
+// WHY A SECOND SCALE AT ALL. The distractors were ranked only by the similarity
+// of the WORK they came from, which is the right first cut — a phrase out of a
+// book you also keep is the kind of language your library is made of — and it
+// says nothing about the phrases themselves. So a three-word answer could be
+// offered against three phrases of the same length and no other resemblance, and
+// the reader picks the right one by the shape of the sentence rather than by
+// remembering the line. `docs/plans/spaced-repetition-difficulty.md` §2 asks for
+// this in as many words, and recommends deriving it from the corpus rather than
+// from a thesaurus: no dependency, and every lure is real language somebody in
+// this library wrote.
+//
+// THE THREE SIGNALS ARE THE PLAN'S, and they are weighted in the order a reader
+// would notice them:
+//
+//   - A SHARED STEM is the closest kind of lure there is. "must flow" against
+//     "must awaken" makes the reader read both, which is the whole point of a
+//     competitive alternative (Little, Bjork, Bjork & Angello, 2012). Worth the
+//     most, and stem-folded rather than compared raw so "flows" reaches "flow".
+//   - AN INITIAL LETTER, per position. Word counts are equal by construction —
+//     clozePhraseOf cuts exactly as many words as the answer has — so position i
+//     against position i is a fair comparison and needs no alignment.
+//   - LENGTH, in runes, as the tie-break. Two phrases of the same shape sitting
+//     one under the other read as alternatives; a short one beside a long one
+//     reads as the wrong one.
+//
+// IT DOES NOT SCORE MEANING, and must not be read as if it did. A phrase that
+// means what the answer means is not a lure at all — it is a second right answer
+// — and attachClozeMCQ refuses those through clozeJudge, which is the grader
+// itself rather than a second opinion about sameness.
+func clozeSurfaceScore(answer, cand string) int {
+	a := strings.Fields(clozeNormalise(answer))
+	b := strings.Fields(clozeNormalise(cand))
+	if len(a) == 0 || len(b) == 0 {
+		return 0
+	}
+	score := 0
+	// Stems anywhere in the answer, not only at the same position: "the flowing
+	// spice" against "spice must flow" is a close lure and the words have moved.
+	stems := make(map[string]bool, len(a))
+	for _, w := range a {
+		stems[clozeStemFold(w)] = true
+	}
+	for _, w := range b {
+		if stems[clozeStemFold(w)] {
+			score += 1000
+		}
+	}
+	for i := 0; i < len(a) && i < len(b); i++ {
+		ar, br := []rune(a[i]), []rune(b[i])
+		if len(ar) > 0 && len(br) > 0 && ar[0] == br[0] {
+			score += 50
+		}
+	}
+	diff := len([]rune(clozeNormalise(answer))) - len([]rune(clozeNormalise(cand)))
+	if diff < 0 {
+		diff = -diff
+	}
+	return score - diff
+}

@@ -22,6 +22,7 @@ package httpapi
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -120,9 +121,14 @@ func TestAtMostOneCardInThreeOffersALureByTheAnswersOwnAuthor(t *testing.T) {
 		t.Fatal(`the deck served no "which book?" cards, so nothing here was measured`)
 	}
 
-	// THE CAP. Ceiling division, because a deck of four may honestly carry two:
-	// cards 0 and 3 both hold the allowance.
-	cap := (checked + authorLurePeriod - 1) / authorLurePeriod
+	// THE CAP, WITH THE THREE WRITTEN OUT. It read `authorLurePeriod` — the
+	// constant under test — so setting that constant to 1 restored the exact
+	// 10-of-10 defect the change was made for and this test still passed. A guard
+	// that takes its own threshold from the thing it is guarding cannot fail on the
+	// promise it names, and "one card in three" is what the plan and the changelog
+	// promise a reader. Ceiling division, because a deck of four may honestly carry
+	// two: cards 0 and 3 both hold the allowance.
+	cap := (checked + 2) / 3
 	if withLure > cap {
 		t.Errorf("%d of %d cards offered a wrong answer by %s — at most %d may, and a reader who meets "+
 			"the same author on every card is being asked one question rather than a closer one",
@@ -366,5 +372,145 @@ func TestEasyNamesTheSpeakerOfAStandaloneQuote(t *testing.T) {
 	}
 	if named == 0 {
 		t.Fatal("no standalone-quote source card reached the deck, so nothing here was measured")
+	}
+}
+
+// AND A CHIP MAY NOT NAME WHAT THE CARD MASKED OUT — AT ANY DIRECTION.
+//
+// THIS IS THE BUG THE TWO TESTS ABOVE COULD NOT SEE. They ask about `speaker` and
+// `quote`, the two directions whose ANSWER is a person, and their fixtures never
+// put a character's name inside a quote — so the case that shipped was invisible
+// to both. A fill-in-the-blank card's answer is a person whenever the phrase it
+// hid is a name: a line whose one content word is the character came back as a
+// blank with that character on a chip beside it. The reader reads the answer off
+// the card, types it, is graded right, and the half-life climbs on a card they
+// never recalled.
+//
+// SO THE FIXTURE PUTS THE NAME IN THE WORDS and asks every direction Easy can
+// serve. The assertion is not "no chips on cloze" — it is the rule itself, which
+// is what makes it hold for a direction nobody has written yet: whatever the card
+// took out of its words, no chip puts back.
+func TestNoEasyChipNamesWhatTheCardMaskedOut(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	// THE CHARACTER IS THE LINE'S ONLY CONTENT WORD, so clozeSpan has nothing else
+	// to hide and the blank IS the name. Everything else here is a stopword.
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Dune", "author": "Frank Herbert"}, http.StatusCreated))
+	for i := 0; i < 4; i++ {
+		c.mustDo("POST", "/annotations", map[string]any{
+			"book_id": book.ID, "character": "Chani",
+			"quote": fmt.Sprintf("and then it was as if Chani had been there for them %d", i),
+		}, http.StatusCreated)
+	}
+	// Enough other books that a multiple-choice card can form.
+	for i, ti := range []string{"Emma", "Solaris", "Kindred", "Ubik"} {
+		seedAuthoredBook(t, c, ti, fmt.Sprintf("Author %d", i), 2)
+	}
+	ageSeededItems(t, srv)
+
+	// EVERY DIRECTION EASY CAN SERVE, one deck each. `cloze` is in the list because
+	// tierDirections never empties a repertoire: a reader who allows only the typed
+	// blank keeps it at Easy, which is how the worst version of this is reached.
+	//
+	// AND EACH IS ASKED FOR THE WAY THAT ACTUALLY REACHES IT, which cost this test
+	// a run to work out. A universal direction is requested ALONE — pairing `cloze`
+	// with `source` lets tierDirections drop the cloze and keep the source, so the
+	// deck was all recognition cards and the case under test never appeared. The
+	// two "who?" directions are not universal (review_questions.go, rule 3) and a
+	// list naming only those falls back to the defaults, so they are paired.
+	seen := map[string]bool{}
+	for _, dir := range []string{dirCloze, dirClozeMCQ, dirSource, dirQuote, dirAuthor, dirSpeaker} {
+		ask := fmt.Sprintf(`{"daily":[%q]}`, dir)
+		if dir == dirAuthor || dir == dirSpeaker {
+			ask = fmt.Sprintf(`{"daily":[%q,%q]}`, dir, dirSource)
+		}
+		c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+			"srTier": tierEasy, "srDaily": 10, "srQuestions": ask}, http.StatusOK)
+		deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+		for _, card := range deck.Items {
+			if card.Title != "Dune" {
+				continue
+			}
+			seen[card.Direction] = true
+			words := clozeNormalise(card.Quote + " " + card.Note)
+			for _, ch := range card.EasyChips {
+				if !strings.Contains(words, clozeNormalise(ch.Name)) {
+					t.Errorf("a %q card at easy shows %q on a chip and does not show it in its own words "+
+						"(%q) — the card took that name out and the chip put it back, which on a typed "+
+						"blank is the answer printed beside the question",
+						card.Direction, ch.Name, card.Quote)
+				}
+			}
+			for _, n := range card.EasyPeople {
+				if !strings.Contains(words, clozeNormalise(n)) {
+					t.Errorf("a %q card at easy names %q on a chip and does not show it in its own words",
+						card.Direction, n)
+				}
+			}
+		}
+	}
+	// AND THE DIRECTION THIS WAS WRITTEN FOR WAS ACTUALLY SERVED. Without this the
+	// whole loop can pass over a deck that never produced a masked card, which is
+	// how the first version of it measured nothing at all.
+	if !seen[dirCloze] {
+		t.Fatal("no typed blank reached the deck, so the case this test exists for was not measured")
+	}
+}
+
+// AND THE RULE DOES NOT THROW AWAY THE CHIPS IT SHOULD KEEP.
+//
+// The obvious wrong fix for the leak above is to stop sending chips on any card
+// that masks anything, which is every cloze card in the deck — and that would
+// quietly delete the feature for the tier it was built for while every test about
+// the leak went green. A line that NAMES one character and hides a different word
+// still gets its chip.
+func TestAMaskedLineStillNamesTheCharacterItDidNotHide(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Dune", "author": "Frank Herbert"}, http.StatusCreated))
+	// THE CHARACTER IS NOT IN THE WORDS AT ALL, which is the ordinary case: the
+	// name is a column on the row and the quote is what was said.
+	for i := 0; i < 4; i++ {
+		c.mustDo("POST", "/annotations", map[string]any{
+			"book_id": book.ID, "character": "Paul Atreides",
+			"quote": fmt.Sprintf("the sleeper must awaken and the spice must flow across the desert %d", i),
+		}, http.StatusCreated)
+	}
+	for i, ti := range []string{"Emma", "Solaris", "Kindred", "Ubik"} {
+		seedAuthoredBook(t, c, ti, fmt.Sprintf("Author %d", i), 2)
+	}
+	ageSeededItems(t, srv)
+	// CLOZE ALONE, so tierDirections' never-empty rule keeps it at Easy. Asking for
+	// it beside `source` lets Easy drop the blank and keep the recognition card,
+	// and then nothing is masked.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier": tierEasy, "srDaily": 10,
+		"srQuestions": `{"daily":["cloze"]}`}, http.StatusOK)
+
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	named, masked := 0, 0
+	for _, card := range deck.Items {
+		if card.Title != "Dune" {
+			continue
+		}
+		if strings.Contains(card.Quote, clozeBlank) {
+			masked++
+		}
+		for _, ch := range card.EasyChips {
+			if ch.Name == "Paul Atreides" {
+				named++
+			}
+		}
+	}
+	if masked == 0 {
+		t.Fatal("no Dune card hid anything, so this measured nothing about a masked line")
+	}
+	if named == 0 {
+		t.Errorf("%d masked cards and not one of them named Paul Atreides — the leak rule is dropping "+
+			"chips for names the card never took out, which deletes the tier's own feature", masked)
 	}
 }
