@@ -331,17 +331,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   somewhere all the same — so on a library where you have not filled in timestamps or
   chapter numbers, every line folds into the same nowhere and the total is always one. It
   now reads how many of those lines you have marked a favourite, which moves when you mark
-  one and means the same thing on a book, a film, a show and a game. It is the same pair
-  wherever it appears — a character's own page, a person's, and a work's.
-  Pressing it searches that character's favourited lines in that work.
+  one and means the same thing on a book, a film, a show and a game. Pressing it searches
+  that character's favourited lines in that work, where the first number searches all of
+  them. It is one pair on one sheet — a character seen inside one work — and you reach that
+  sheet from a character anywhere, from a role on somebody's page, and from a work's cast,
+  so all three routes changed at once.
 
 - **The picture at the top of a character's or a person's page opens full screen again when
   you press it.** It used to, on the old picture page, and three pages quietly lost the
   behaviour when they moved onto a shared portrait block. A picture that has not arrived is
-  not pressable — a silhouette means "unphotographed", and pressing one used to be possible
-  on pages that still had the viewer — and if a picture fails while you are looking at it
-  full screen, the view closes rather than leaving you with a broken-image mark filling the
-  screen.
+  not pressable — a silhouette means "unphotographed", so pressing it would open a viewer
+  onto nothing — and if a picture fails while you are looking at it full screen, the view
+  closes rather than leaving you with a broken-image mark filling the screen.
 
 - **The phone sheet's header drags the sheet again on a character or a person.** Pulling the
   header of those two panels behaved as though you were scrolling their contents — and did

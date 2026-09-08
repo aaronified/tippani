@@ -1722,7 +1722,13 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
   // `yes` IS ONE OF THE FLAG'S OWN WORDS — parseFacetFlag takes 1/true/yes/y/on,
   // so this is not a spelling this screen invented.
   const openFavouriteSearch = quoteSearch([
-    { field: 'favourite', value: 'yes', label: t('identity.count.favourites.chip') },
+    // THE APP'S OWN CHIP FOR THIS FACET, not a second spelling of it. A chip
+    // renders as `field:label` (facets.js chipText), so a label of "favourites"
+    // read "favourite:favourites" — and a reader who builds the same filter by
+    // hand gets `favourite:Yes` off the field's own yes/no vocabulary. Two
+    // spellings of one filter is the directive's failure case in miniature: the
+    // seeded chip and the typed one have to be the same chip.
+    { field: 'favourite', value: 'yes', label: t('vocab.yesno.yes.label') },
   ])
 
   // The portrait's controls: the picture picker this work already had, plus the

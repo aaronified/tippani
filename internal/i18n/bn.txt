@@ -6406,7 +6406,6 @@ identity.count.quotes.other = উদ্ধৃতি
 identity.count.favourites.one = প্রিয়
 identity.count.favourites.other = প্রিয়
 identity.count.favourites.tip = এই কাজে এই চরিত্রের প্রিয় লাইনগুলো খুঁজুন
-identity.count.favourites.chip = প্রিয়
 identity.count.quotes.tip = এই কাজে এই চরিত্রের বলা লাইন খুঁজুন
 
 identity.row.global.label = বিশ্বজনীন রেকর্ড খুলুন

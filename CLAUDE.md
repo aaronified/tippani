@@ -329,6 +329,13 @@ old work, so a screen that breaks one is a bug and not a variation.
   reads the context `FormModal` puts around its children, so calling it in the component
   that renders the modal registers with whatever surface is further out — and a modal with
   nothing registered draws no ✓ at all.
+- **`make glossary` embeds the BUILT stylesheet, so it runs AFTER `make frontend` and never
+  before.** `glossary-build.mjs` reads the CSS out of `web/dist/`, not `src/index.css`, so a
+  glossary built between a stylesheet edit and the next `make frontend` bakes in the
+  PREVIOUS build's rules — and `npm run glossary:check` then fails on a commit where both
+  commands were run, just in the wrong order. It is a silent failure until the gate: the
+  page renders, the entry count is unchanged, and only the embedded declaration is stale.
+
 - `git diff --exit-code -- web/dist` failing on a whitespace-only diff is line endings —
   read `.gitattributes` before touching `core.eol`/`core.autocrlf`.
 - A Go test that passes suspiciously fast: check the `-run` filter actually matched.

@@ -46,6 +46,30 @@ describe('the five scopes', () => {
     }
   })
 
+  it('separate char-film from char-game by exactly the facts the table says', () => {
+    // THE HEADER OF identityScope.js MAKES A COUNT, and it was wrong from the day
+    // it was written: it said "exactly two facts (the second count's noun, and
+    // which of Played by / Voiced by leads)" and left the DUB out, so it named two
+    // of three. The noun has since gone, which would have made the stale sentence
+    // accidentally right about the number and still wrong about the members.
+    //
+    // So the count is measured. `id` and `medium` are the scope's own identity
+    // rather than facts about the screen, so they are not differences a reader of
+    // two files would have to guess at.
+    const film = identityScope({ table: 'character', work: { kind: 'movie' } })
+    const game = identityScope({ table: 'character', work: { kind: 'movie', media_type: 'game' } })
+    const differs = Object.keys(film)
+      .filter((k) => k !== 'id' && k !== 'medium')
+      .filter((k) => film[k] !== game[k])
+    expect(differs, `the two scopes differ on ${differs} — the header names dubs alone`)
+      .toEqual(['dubs'])
+    // AND THE SECOND FACT IS NOT IN THE TABLE AT ALL, which is why counting the
+    // object's own keys is not the whole answer: the leading role is a function of
+    // the scope and the work, because an animated feature is a film whose cast is
+    // voiced and no medium can know that.
+    expect(leadingRole(film)).not.toBe(leadingRole(game))
+  })
+
   it('reads a show as film-like rather than as a fourth medium', () => {
     // An episode is WHERE a line is; a scene is the unit the count is over. The
     // server draws the same line, which the next case proves.

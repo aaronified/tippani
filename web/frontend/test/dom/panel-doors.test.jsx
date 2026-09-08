@@ -30,7 +30,13 @@ vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path) => {
     if (method === 'GET' && path.startsWith('/characters/')) return { ok: true, data: CHARACTER }
-    if (method === 'GET' && path.startsWith('/whos-in-it')) return { ok: true, data: COUNTS }
+    // MATCHED WHEREVER IT SITS IN THE PATH. The endpoint is
+    // `/movies/5/whos-in-it`, so `startsWith` could never match it: this mock
+    // fell through to `{}` on every run, the panel found no row, and the counts
+    // it drew were zeros. Both cases below still passed, because reachability is
+    // what they test — but a fixture nothing reads is a fixture that cannot fail,
+    // and the figures it names were fiction.
+    if (method === 'GET' && path.includes('/whos-in-it')) return { ok: true, data: COUNTS }
     return { ok: true, data: {} }
   }),
 }))
@@ -101,6 +107,37 @@ describe('the counts on a character in one work', () => {
     // question: this character, in this work.
     expect(SEARCHED.scope).toBe('dialogues')
     expect(SEARCHED.chips.map((c) => c.field).sort()).toEqual(['character', 'movie'])
+    expect(SEARCHED.chips.find((c) => c.field === 'movie').value).toBe('Anand')
+  })
+
+  it('print the figures the work actually sent, so the fixture is read and not decoration', async () => {
+    // THE OTHER HALF OF A LIVE FIXTURE. Both cases here press a count and watch
+    // where it goes, which a panel drawing two zeros does just as well — so
+    // nothing noticed for a release that the mock's path never matched. Reading
+    // the numbers is what makes the rest of this file's evidence real.
+    await mount(true)
+    const text = counts().map((c) => c.textContent).join(' ')
+    expect(text, `the counts read ${text}, not the 12 and 3 the work sent`).toMatch(/12/)
+    expect(text, `the counts read ${text}, not the 12 and 3 the work sent`).toMatch(/3/)
+  })
+
+  it('and the second one narrows the same search to what the reader marked', async () => {
+    // THE TWO COUNTS ARE TWO QUESTIONS AND SO ARE THEIR DOORS. The first lands on
+    // this character's lines in this work; the second lands on the subset the
+    // reader favourited — which is the whole reason the second figure is a
+    // different number from the first. A second door that opened the first door's
+    // search would be a count you can press and learn nothing from.
+    await mount(true)
+    act(() => counts()[1].click())
+    await waitFor(() => expect(SEARCHED, 'the second count pressed and searched nothing').toBeTruthy())
+    const fields = SEARCHED.chips.map((c) => c.field).sort()
+    expect(fields, `the second door searched ${fields} — it does not narrow to favourites`)
+      .toEqual(['character', 'favourite', 'movie'])
+    // AND ON THE WIRE VALUE THE SERVER ACTUALLY TAKES. The label is copy; `value`
+    // is what reaches the query, and the facet refuses anything but yes/no.
+    expect(SEARCHED.chips.find((c) => c.field === 'favourite').value).toBe('yes')
+    // The narrowing is ADDED to the scope, never instead of it: dropping the work
+    // would search every favourite this character has anywhere.
     expect(SEARCHED.chips.find((c) => c.field === 'movie').value).toBe('Anand')
   })
 

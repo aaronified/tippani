@@ -3,8 +3,8 @@
 // `Character_Popup.dc.html` draws four of these beside `char-global`: char-book,
 // char-film, char-game, and a person's own global sheet. They are not four
 // designs. Every difference between them is an answer identityScope.js already
-// gives — the locator noun under the second count, whether there is a performer
-// to pair with the part, whether a dub can be credited — so this file is one
+// gives — whether there is a performer to pair with the part, whether a dub can
+// be credited — so this file is one
 // component that reads those answers, and a new medium stays a row in that table
 // rather than a screen in this directory.
 //

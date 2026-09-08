@@ -6463,14 +6463,13 @@ identity.facts.none = not set
 identity.row.note.for = Note on {name}’s credit
 
 # THE COUNTS, WHICH ARE DOORS INTO SEARCH. Pressing one lands on search with this
-# character and this work already up as chips. The second noun is the medium's,
-# and internal/httpapi/whos_in_it.go maps it the same three ways.
+# character and this work already up as chips, and the second adds `favourite:Yes`
+# so the narrower figure opens the narrower search.
 identity.count.quotes.one = quote
 identity.count.quotes.other = quotes
 identity.count.favourites.one = favourited
 identity.count.favourites.other = favourited
 identity.count.favourites.tip = Search this character’s favourited lines in this work
-identity.count.favourites.chip = favourites
 identity.count.quotes.tip = Search this character's lines in this work
 
 # THE WAY UP, to the character out of any one work.

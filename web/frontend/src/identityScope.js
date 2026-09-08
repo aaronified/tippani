@@ -7,14 +7,21 @@
 // record seen from five distances, and every difference between them falls out of
 // two questions. Which table is this (a character or a person), and which work am
 // I standing in (none, a book, a film, a game). Everything else — the header's
-// art, whether there is a performer to pair with
-// the part, whether a dub can be credited — is decided by the answer.
+// art, whether there is a performer to pair with the part, whether a dub can be
+// credited — is decided by the answer.
 //
 // WHY A TABLE AND NOT FIVE COMPONENTS. Five components drift: the pack already
 // shows what that costs, since `char-film` and `char-game` differ by exactly two
-// facts (the second count's noun, and which of Played by / Voiced by leads) and a reader
-// comparing them would not guess that from two separate files. One table makes a
-// new medium a row rather than a screen.
+// facts — which of Played by / Voiced by leads, and whether a dub can be credited
+// — and a reader comparing them would not guess that from two separate files. One
+// table makes a new medium a row rather than a screen.
+//
+// THERE WAS A THIRD AND IT WENT: the noun over the second count, scenes for a
+// film against quests for a game. That count is favourites now, which is the same
+// word on every medium, so the table stopped carrying a word at all. (This
+// paragraph named the noun and the leading role as "exactly two" and left the dub
+// out, which was wrong the whole time and is why the count is measured here
+// rather than remembered — see identity-scope.test.js.)
 //
 // A PERSON IS ALWAYS GLOBAL — the owner's ruling, and it settles a scope this
 // file used to invent. There were five ids here and a sixth called `people-work`,
@@ -26,7 +33,6 @@
 //
 // So there are FIVE scopes, and a work handed in with a person is ignored rather
 // than honoured.
-
 
 // mediumOf — a work's medium as this file names it, from the two fields the API
 // actually sends. `kind` separates the shelves and `media_type` separates the

@@ -11546,9 +11546,20 @@ component that bounces on the one input it is most likely to get.
 
 **AND A STORED PATH IS NOT A PICTURE.** The button is gated on the file having ARRIVED, not
 on a path being stored — a silhouette means "a person, unphotographed", and a press on one
-opens a viewer onto a torn-page mark. `Face` already judged whether a picture failed and had
-no way to say so; it now reports it, and a failure while the viewer is up takes the viewer
-down with it.
+opens a viewer onto a torn-page mark.
+
+**WHICH IS THE SAME REPAIR AS `ebea143d`, ON THE SCREEN THAT INHERITED THE DEFECT INSTEAD OF
+THE FIX.** An earlier version of this paragraph said `Face` "had no way to say so" and that
+this diff gave it one. It had one: `onBroken` has been a `Face` prop since that commit —
+whose subject is *"a picture that never arrived leaves nothing to zoom"* — and `people.jsx`
+has passed it ever since, which is why the OLD picture page retires its own control on a
+failure (`person.image_path && !gone`). What was missing is that `PortraitBlock` never
+called it, so the three sheets that moved onto the shared block inherited the defect the old
+page had already had fixed. That is the second time in this entry that "the shared block did
+not carry what the screen it replaced had" is the whole story, and it is the argument for
+putting the viewer here rather than on three screens.
+
+A failure while the viewer is up takes the viewer down with it, which is new.
 
 <sub>Unreleased — `internal/httpapi/whos_in_it.go` · `whos_in_it_test.go` ·
 `web/frontend/src/identity.jsx` · `identityLocal.jsx` · `identityScope.js` ·
