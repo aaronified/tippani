@@ -7817,7 +7817,13 @@ export function Chips({ items, className = "" }) {
 // Lightbox — a full-screen viewer for a stored cover/poster. Closes on the ×
 // button, Escape, a backdrop tap, and the browser/Android back gesture (it
 // pushes a history entry on open and closes when that entry is popped).
-export function Lightbox({ path, title, onClose }) {
+// `src` IS THE ESCAPE HATCH, and it exists because a resolver applied twice is a
+// bug this repo has shipped twice already — `/api/covers//api/covers/…`, drawn as
+// the browser's broken-image glyph and reported as "the picker doesn't show any
+// images". `path` is a STORED path and gets resolved here; `src` is a URL somebody
+// has already resolved, and PortraitBlock's is (its `Face` takes `url={(x) => x}`).
+// Naming the two apart is what `Face` does for the same reason.
+export function Lightbox({ path, src, title, onClose }) {
   // This viewer is where the Back-closes-the-overlay behaviour was written, and
   // it is the hook's own body verbatim — so it uses the hook now, and every other
   // overlay in the app inherits what only the Lightbox used to have.
@@ -7845,7 +7851,7 @@ export function Lightbox({ path, title, onClose }) {
         <IconClose />
       </button>
       <img
-        src={coverImgURL(path)}
+        src={src || coverImgURL(path)}
         alt={title ? t("common.cover.alt", { title }) : ""}
         className="lightbox-img"
         onClick={(e) => e.stopPropagation()}

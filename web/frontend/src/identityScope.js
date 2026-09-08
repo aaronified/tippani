@@ -7,12 +7,12 @@
 // record seen from five distances, and every difference between them falls out of
 // two questions. Which table is this (a character or a person), and which work am
 // I standing in (none, a book, a film, a game). Everything else — the header's
-// art, the noun on the second count, whether there is a performer to pair with
+// art, whether there is a performer to pair with
 // the part, whether a dub can be credited — is decided by the answer.
 //
 // WHY A TABLE AND NOT FIVE COMPONENTS. Five components drift: the pack already
 // shows what that costs, since `char-film` and `char-game` differ by exactly two
-// facts (the locator noun, and which of Played by / Voiced by leads) and a reader
+// facts (the second count's noun, and which of Played by / Voiced by leads) and a reader
 // comparing them would not guess that from two separate files. One table makes a
 // new medium a row rather than a screen.
 //
@@ -27,13 +27,6 @@
 // So there are FIVE scopes, and a work handed in with a person is ignored rather
 // than honoured.
 
-// THE LOCATOR NOUN IS THE SERVER'S, restated. `locatorNoun` in
-// internal/httpapi/whos_in_it.go maps the same three ways — a book counts
-// chapters, a game counts quests, everything with a running time counts scenes —
-// and the two disagreeing would put a number under the wrong word. A show is
-// film-like here on purpose: an episode is where a line IS, and a scene is the
-// unit inside it that the count is over.
-const LOCATOR = { book: 'chapter', game: 'quest', film: 'scene', show: 'scene' }
 
 // mediumOf — a work's medium as this file names it, from the two fields the API
 // actually sends. `kind` separates the shelves and `media_type` separates the
@@ -58,10 +51,6 @@ export function identityScope({ table, work = null } = {}) {
       table: person ? 'person' : 'character',
       local: false,
       medium: '',
-      // A GLOBAL SCOPE COUNTS NOTHING, because a count is a fact about one work.
-      // "37 quotes in 3 works" is a number nobody asked for: the works are listed
-      // right there, each with its own.
-      locator: '',
       performer: 'none',
       dubs: false,
     }
@@ -72,7 +61,7 @@ export function identityScope({ table, work = null } = {}) {
     // what produced a sheet the pack never drew; the work is dropped on purpose.
     return {
       id: 'people-global', table: 'person', local: false, medium: '',
-      locator: '', performer: 'none', dubs: false,
+      performer: 'none', dubs: false,
     }
   }
   return {
@@ -80,7 +69,6 @@ export function identityScope({ table, work = null } = {}) {
     table: 'character',
     local: true,
     medium,
-    locator: LOCATOR[medium] || 'scene',
     // NOBODY PLAYS A NOVEL'S CHARACTER. work_cast.actor_id is null on every book
     // by design (0048), so the whole performer block is absent there rather than
     // present and empty — an empty "Played by" claims the reader has not filled

@@ -20,8 +20,8 @@ package httpapi
 //
 // AND THE COUNTS RIDE ALONG, because they are the same question asked per
 // character: how much of this character have you actually kept in this work. The
-// screens print them as "37 quotes · 19 chapters"; see locatorNoun for what the
-// second one counts and why the noun changes with the medium.
+// screens print them as "37 quotes · 4 favourited"; see whosCharacter.Favourites
+// for what the second one counts and for the count it replaced.
 
 import (
 	"database/sql"
@@ -50,10 +50,17 @@ type whosCharacter struct {
 	Name        string `json:"name"`
 	Image       string `json:"image_path"`
 	Quotes      int    `json:"quotes"`
-	// Locators is how many distinct places in this work this character speaks
-	// from, and LocatorNoun is what those places are called here.
-	Locators    int    `json:"locators"`
-	LocatorNoun string `json:"locator_noun"`
+	// Favourites is how many of those lines the reader has marked a favourite.
+	//
+	// IT REPLACED A COUNT THAT COULD ONLY EVER READ ONE. The second figure used to
+	// be `locators` — a COUNT(DISTINCT) over the locator column this medium uses,
+	// coalesced to '' so a line with no locator still counted as somewhere. On a
+	// library where nobody fills timestamps every quote folds to the same blank
+	// value, so the box read "1 scene" for a character with three lines and for one
+	// with thirty. The owner: "the 3 quotes, 1 scene is not working. rather do 3
+	// quotes, 1 favourited." A favourite is a fact the reader put there themselves,
+	// so the number moves when they do something and means what it says.
+	Favourites int `json:"favourites"`
 }
 
 // whosPerson is somebody credited on the work, in any role. One row per person
@@ -65,30 +72,6 @@ type whosPerson struct {
 	Name  string `json:"name"`
 	Image string `json:"image_path"`
 	Roles string `json:"roles"` // "performer · author", the work's own words joined
-}
-
-// locatorNoun answers what a work's places are called, and what column holds
-// them.
-//
-// THE OWNER'S RULING, in their words: "in a movie all scenes are distinct
-// anyway". So the second count is a DISTINCT over this character's own quotes
-// rather than a stored total of the work's scenes — which nothing records and
-// which no provider reports. A book counts chapters, a film scenes, a game
-// quests, and each is the locator column that medium's quotes actually carry.
-//
-// THE BLANK IS ONE OF THE VALUES, also the owner's: a work where nobody has
-// filled a locator counts one place rather than none, because the quotes are
-// somewhere even when nobody has said where. COUNT(DISTINCT) drops NULLs, so the
-// column is coalesced first — dropping them would report 0 places for lines that
-// plainly exist.
-func locatorNoun(kind, mediaType string) (noun, expr string) {
-	if kind == "book" {
-		return "chapter", `COALESCE(CAST(a.chapter_no AS TEXT), '')`
-	}
-	if mediaType == "game" {
-		return "quest", `COALESCE(d.quest, '')`
-	}
-	return "scene", `COALESCE(d.timestamp, '')`
 }
 
 // handleWhosInIt: GET /{books|movies}/{id}/whos-in-it
@@ -111,7 +94,7 @@ func (s *Server) handleWhosInIt(kind string) http.HandlerFunc {
 			internalError(w, r, "whos-in-it: work", err)
 			return
 		}
-		chars, err := s.whosCharacters(uid, kind, workID, work.MediaType)
+		chars, err := s.whosCharacters(uid, kind, workID)
 		if err != nil {
 			internalError(w, r, "whos-in-it: characters", err)
 			return
@@ -152,15 +135,14 @@ func (s *Server) whosWorkRow(uid int64, kind string, workID int64) (whosWork, er
 // A TOMBSTONE IS NOT IN THE LIST. `origin <> 'removed'` — a row the reader
 // unlinked is gone as far as any screen is concerned, and it survives only so a
 // refetch can decline to bring it back.
-func (s *Server) whosCharacters(uid int64, kind string, workID int64, mediaType string) ([]whosCharacter, error) {
-	noun, locator := locatorNoun(kind, mediaType)
+func (s *Server) whosCharacters(uid int64, kind string, workID int64) ([]whosCharacter, error) {
 	var q string
 	if kind == "book" {
 		q = `SELECT c.id, COALESCE(c.character_id, 0), c.character,
 		            COALESCE(NULLIF(c.character_image_path, ''),
 		                     COALESCE((SELECT ch.image_path FROM characters ch
 		                                WHERE ch.id = c.character_id AND ch.user_id = c.user_id), '')),
-		            COUNT(a.id), COUNT(DISTINCT ` + locator + `)
+		            COUNT(a.id), SUM(COALESCE(a.favorite, 0))
 		       FROM work_cast c
 		       LEFT JOIN annotations a ON a.speaker_cast_id = c.id
 		      WHERE c.user_id = ? AND c.kind = ? AND c.work_id = ? AND c.origin <> ?
@@ -171,7 +153,7 @@ func (s *Server) whosCharacters(uid int64, kind string, workID int64, mediaType 
 		            COALESCE(NULLIF(c.character_image_path, ''),
 		                     COALESCE((SELECT ch.image_path FROM characters ch
 		                                WHERE ch.id = c.character_id AND ch.user_id = c.user_id), '')),
-		            COUNT(d.id), COUNT(DISTINCT ` + locator + `)
+		            COUNT(d.id), SUM(COALESCE(d.favorite, 0))
 		       FROM work_cast c
 		       LEFT JOIN dialogues d ON d.speaker_cast_id = c.id
 		      WHERE c.user_id = ? AND c.kind = ? AND c.work_id = ? AND c.origin <> ?
@@ -186,16 +168,14 @@ func (s *Server) whosCharacters(uid int64, kind string, workID int64, mediaType 
 	out := []whosCharacter{}
 	for rows.Next() {
 		var c whosCharacter
-		if err := rows.Scan(&c.CastID, &c.CharacterID, &c.Name, &c.Image, &c.Quotes, &c.Locators); err != nil {
+		// NO FIXUP FOR THE QUOTELESS ROW, and the count it replaced needed one.
+		// `COUNT(DISTINCT COALESCE(null, ''))` counted the LEFT JOIN's own null row
+		// as one place, so a cast member with no lines reported a place they do not
+		// speak from and the zero had to be written back by hand. A SUM over that
+		// same null row is zero on its own.
+		if err := rows.Scan(&c.CastID, &c.CharacterID, &c.Name, &c.Image, &c.Quotes, &c.Favourites); err != nil {
 			return nil, err
 		}
-		// A CHARACTER WITH NO QUOTES HAS NO PLACES EITHER. The LEFT JOIN yields one
-		// null row for such a cast member, and COUNT(DISTINCT COALESCE(null,''))
-		// counts that as one — a place the character does not in fact speak from.
-		if c.Quotes == 0 {
-			c.Locators = 0
-		}
-		c.LocatorNoun = noun
 		out = append(out, c)
 	}
 	return out, rows.Err()

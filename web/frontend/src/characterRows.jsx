@@ -33,7 +33,7 @@ import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
 import { Silhouette } from './silhouette.jsx'
 import { useSlowArrival } from './imageWait.js'
-import { IconChevron, IconClose, IconEdit, IconPlus, NameScroll, ProviderMark, Scroller, Tooltip, usePanelHead } from './ui.jsx'
+import { IconChevron, IconClose, IconEdit, IconPlus, Lightbox, NameScroll, ProviderMark, Scroller, Tooltip, usePanelHead } from './ui.jsx'
 
 // ---- the header -------------------------------------------------------------
 
@@ -310,6 +310,22 @@ function ratioOf({ w, h }) {
 export function PortraitBlock({ src, name, px, soft, from = '', actions, editor = null }) {
   const [dim, setDim] = useState(null)
   const [spread, setSpread] = useState(null)
+  // THE PICTURE OPENS FULL SCREEN, on the owner's report that it used to: "the
+  // people/detail screen hero picture (the one at the top) should be clickable and
+  // show the picture in full screen (this behaviour was there in the old picture
+  // screen)." That screen is `people.jsx`, which has carried its own `Lightbox`
+  // since before this block existed — so THREE screens lost the behaviour when
+  // they moved onto the shared block (a character's own record, a character in one
+  // work, and a person's record), and putting it here is what stops a fourth
+  // losing it.
+  const [zoom, setZoom] = useState(false)
+  // AND A PICTURE THAT DID NOT ARRIVE IS NOT ONE TO OPEN. `src` says a path is
+  // stored; it does not say the file behind it came back. Gating the press on the
+  // path alone leaves a live button over the silhouette `Face` drew instead — and
+  // pressing it opens a viewer onto the same broken address, which is the dead
+  // control `make controls` exists to catch. `Face` judges whether the picture
+  // failed and hands the fact over; what the screen does about it is here.
+  const [broken, setBroken] = useState(false)
   // THE PICTURE ITSELF, not the first `<img>` under this block. The editor lands
   // inside `.cs-portrait` and its provider strip is a row of thumbnails, so a
   // subtree query measured one of those whenever the slot had no portrait of its
@@ -331,6 +347,10 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
   useEffect(() => {
     setDim(null)
     setSpread(null)
+    // A NEW PATH DESERVES ITS OWN CHANCE — the same reasoning `Face` states for
+    // its own flag. Without this a slot whose picture failed once stays unpressable
+    // after the reader replaces it.
+    setBroken(false)
     const img = pic.current
     if (img?.complete) read(img)
   }, [src])
@@ -360,25 +380,63 @@ export function PortraitBlock({ src, name, px, soft, from = '', actions, editor 
     ? [t('identity.portrait.px', { w: dim.w, h: dim.h }), ...notes].join(' · ')
     : px
   const isSoft = dim ? fault : !!soft
+  // HOISTED, so the pressable branch and the plain one cannot drift. Two copies of
+  // a picture's props is how one keeps `loading="eager"` and the other quietly
+  // stops being measured.
+  const face = (
+    <Face
+      src={src}
+      name={name}
+      url={(x) => x}
+      // EAGER, BECAUSE THIS ONE IS MEASURED. `loading="lazy"` is right for a face
+      // in a list of ninety and wrong for the one picture on the screen whose
+      // dimensions the block prints: a deferred load defers the measurement, and
+      // the caption sits on the caller's guess until the reader scrolls something
+      // that is already in view.
+      loading="eager"
+      imgRef={pic}
+      onLoad={(e) => read(e.target)}
+      // CLOSING THE VIEWER TOO, not just retiring the button. A picture can fail
+      // while it is already open — the viewer renders its own `<img>` at the same
+      // address — and leaving a full-screen overlay of a torn-page mark up is the
+      // worse half of the same defect.
+      onBroken={() => { setBroken(true); setZoom(false) }}
+    />
+  )
   return (
     <div className="cs-portrait">
       {/* THE SCREEN THE OWNER NAMED AS THE MODEL — "a random person glyph, as used
           in the actual delia sturridge character page" — and it was branching on
           the stored path like the rest. `Face` owns the fallback; the measurement
           is this block's own and rides along on the load. */}
-      <Face
-        src={src}
-        name={name}
-        url={(x) => x}
-        // EAGER, BECAUSE THIS ONE IS MEASURED. `loading="lazy"` is right for a
-        // face in a list of ninety and wrong for the one picture on the screen
-        // whose dimensions the block prints: a deferred load defers the
-        // measurement, and the caption sits on the caller's guess until the
-        // reader scrolls something that is already in view.
-        loading="eager"
-        imgRef={pic}
-        onLoad={(e) => read(e.target)}
-      />
+      {/* THE PRESS IS A SIBLING OF THE PICTURE AND NOT ITS PARENT, which is not a
+          styling preference. It was written as a wrapper — `<button>{face}</button>`
+          where there is a picture and a bare `{face}` where there is not — and
+          that makes the two branches two React positions: the moment a picture
+          FAILS and the button is retired, the face lands at a different position,
+          remounts, forgets that it failed, and asks the server for the same
+          missing file again. As a sibling the face never moves, so `Face`'s own
+          judgement survives the button being taken away.
+
+          PRESSABLE ONLY WHERE A PICTURE ARRIVED — both halves, and see `broken`
+          above for the second. A silhouette means "a person, unphotographed", so
+          pressing it would open a viewer onto nothing, which is the dead control
+          `make controls` exists to catch. The button carries no chrome of its own:
+          it covers the face's circle exactly and the picture is the affordance. */}
+      <span className="cs-portrait-face">
+        {face}
+        {src && !broken ? (
+          <button
+            type="button"
+            className="cs-portrait-zoom"
+            aria-label={t('identity.portrait.zoom.aria', { name })}
+            onClick={() => setZoom(true)}
+          />
+        ) : null}
+      </span>
+      {/* `src`, NOT `path` — this block's URL is already resolved. See the `url`
+          prop above and Lightbox's own note on why the two are named apart. */}
+      {zoom && src && <Lightbox src={src} title={name} onClose={() => setZoom(false)} />}
       <span className="cs-portrait-side">
         {/* AND NOTHING WHERE THERE IS NOTHING TO MEASURE. An empty span is still a
             child of an 8px-gap column, so a slot with no picture drew a line of

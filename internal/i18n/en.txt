@@ -6381,6 +6381,7 @@ identity.crumb.badge.game = game
 # judged from a thumbnail: a reader who uploads a 266-wide portrait finds out it
 # was too small when a share card goes out soft, which is too late.
 identity.portrait.px = {w}×{h}px
+identity.portrait.zoom.aria = See {name}’s picture full screen
 # THE SIZE FLOOR, SAID AS A SIZE. This warning used to be spelled "low contrast"
 # while the code that showed it tested `w < 400 || h < 400` — so a small picture
 # was labelled low contrast and a washed-out one said nothing. The owner spotted
@@ -6466,14 +6467,11 @@ identity.row.note.for = Note on {name}’s credit
 # and internal/httpapi/whos_in_it.go maps it the same three ways.
 identity.count.quotes.one = quote
 identity.count.quotes.other = quotes
-identity.count.chapter.one = chapter
-identity.count.chapter.other = chapters
-identity.count.scene.one = scene
-identity.count.scene.other = scenes
-identity.count.quest.one = quest
-identity.count.quest.other = quests
+identity.count.favourites.one = favourited
+identity.count.favourites.other = favourited
+identity.count.favourites.tip = Search this character’s favourited lines in this work
+identity.count.favourites.chip = favourites
 identity.count.quotes.tip = Search this character's lines in this work
-identity.count.locator.tip = Search this work for where they appear
 
 # THE WAY UP, to the character out of any one work.
 identity.row.global.label = Open the global record

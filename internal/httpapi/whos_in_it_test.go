@@ -7,6 +7,17 @@ import (
 	"testing"
 )
 
+// whosChar is the wire shape of one cast row in the chooser. Named rather than
+// written out per literal: the response type and the by-name index below both
+// need it, and three copies of an anonymous struct are three places for the
+// field set to drift apart.
+type whosChar struct {
+	CastID     int64  `json:"cast_id"`
+	Name       string `json:"name"`
+	Quotes     int    `json:"quotes"`
+	Favourites int    `json:"favourites"`
+}
+
 type whosResp struct {
 	Work struct {
 		Kind      string `json:"kind"`
@@ -14,34 +25,16 @@ type whosResp struct {
 		Title     string `json:"title"`
 		MediaType string `json:"media_type"`
 	} `json:"work"`
-	Characters []struct {
-		CastID      int64  `json:"cast_id"`
-		Name        string `json:"name"`
-		Quotes      int    `json:"quotes"`
-		Locators    int    `json:"locators"`
-		LocatorNoun string `json:"locator_noun"`
-	} `json:"characters"`
-	People []struct {
+	Characters []whosChar `json:"characters"`
+	People     []struct {
 		ID    int64  `json:"id"`
 		Name  string `json:"name"`
 		Roles string `json:"roles"`
 	} `json:"people"`
 }
 
-func charsByName(r whosResp) map[string]struct {
-	CastID      int64  `json:"cast_id"`
-	Name        string `json:"name"`
-	Quotes      int    `json:"quotes"`
-	Locators    int    `json:"locators"`
-	LocatorNoun string `json:"locator_noun"`
-} {
-	out := map[string]struct {
-		CastID      int64  `json:"cast_id"`
-		Name        string `json:"name"`
-		Quotes      int    `json:"quotes"`
-		Locators    int    `json:"locators"`
-		LocatorNoun string `json:"locator_noun"`
-	}{}
+func charsByName(r whosResp) map[string]whosChar {
+	out := map[string]whosChar{}
 	for _, c := range r.Characters {
 		out[c.Name] = c
 	}
@@ -96,10 +89,13 @@ func TestATileListsEveryCharacterAndEveryoneCredited(t *testing.T) {
 	}
 }
 
-// THE SECOND COUNT IS A DISTINCT OVER THE CHARACTER'S OWN QUOTES, and the blank
-// is one of the values — both the owner's ruling. "In a movie all scenes are
-// distinct anyway", so nothing stores a scene total and none is invented.
-func TestTheCountsAreThisCharactersQuotesAndTheirDistinctPlaces(t *testing.T) {
+// THE SECOND COUNT IS HOW MANY OF THOSE LINES THE READER FAVOURITED — the
+// owner's ruling, replacing a count of distinct locators that could only ever
+// read one on a library where nobody fills timestamps. So the fixture gives one
+// character four lines and favourites two of them, and the pair is 4 and 2: a
+// figure derived from the reader's own marks moves when they mark something,
+// which is the whole property the number it replaced did not have.
+func TestTheCountsAreThisCharactersQuotesAndTheirFavourites(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
@@ -109,14 +105,13 @@ func TestTheCountsAreThisCharactersQuotesAndTheirDistinctPlaces(t *testing.T) {
 	cast := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast",
 		map[string]any{"character": "Harry", "actor": "Daniel Radcliffe"}, http.StatusCreated))
 
-	// Four lines: two share a timestamp, one has its own, one has none at all.
-	// Each quote text is distinct because a dialogue's dedupe hash is over the
-	// WORDS and not the timestamp — two identical lines in one film are one line,
-	// which is right and is not what this fixture is testing.
-	for i, ts := range []string{"00:02:14", "00:02:14", "01:40:00", ""} {
+	// Four lines, the first two favourited. Each quote text is distinct because a
+	// dialogue's dedupe hash is over the WORDS — two identical lines in one film
+	// are one line, which is right and is not what this fixture is testing.
+	for i, fav := range []bool{true, true, false, false} {
 		c.mustDo("POST", "/dialogues", map[string]any{
 			"movie_id": m.ID, "quote": "line " + itoa(int64(i)),
-			"character": "Harry", "timestamp": ts, "speaker_cast_id": cast.ID,
+			"character": "Harry", "speaker_cast_id": cast.ID, "favorite": fav,
 		}, http.StatusCreated)
 	}
 
@@ -125,22 +120,53 @@ func TestTheCountsAreThisCharactersQuotesAndTheirDistinctPlaces(t *testing.T) {
 	if harry.Quotes != 4 {
 		t.Fatalf("quotes = %d, want 4: %+v", harry.Quotes, harry)
 	}
-	// Three places: the shared timestamp counts once, the lone one counts, and
-	// the blank is its own — a line is somewhere even when nobody has said where.
-	if harry.Locators != 3 {
-		t.Fatalf("places = %d, want 3 (two share one, one alone, one blank): %+v", harry.Locators, harry)
+	if harry.Favourites != 2 {
+		t.Fatalf("favourites = %d, want 2 of the 4: %+v", harry.Favourites, harry)
 	}
-	// AND THE NOUN IS THE MEDIUM'S. A film has scenes where a book has chapters
-	// and a game has quests; the label is not a fixed word.
-	if harry.LocatorNoun != "scene" {
-		t.Fatalf("locator noun = %q, want scene", harry.LocatorNoun)
+	// AND THE TWO ARE NOT THE SAME NUMBER, which is what the box exists to show.
+	// A second figure that tracked the first would be decoration.
+	if harry.Favourites == harry.Quotes {
+		t.Fatalf("both counts read %d — the pair says nothing", harry.Quotes)
 	}
 }
 
-// A CHARACTER WITH NOTHING KEPT COUNTS NOTHING. The LEFT JOIN yields one null
-// row for a cast member with no quotes, and a coalesced DISTINCT would count
-// that null as one place the character does not in fact speak from.
-func TestACharacterWithNoQuotesReportsNoPlaces(t *testing.T) {
+// A BOOK COUNTS ITS OWN HIGHLIGHTS. The two mediums are two queries against two
+// tables (`annotations` and `dialogues`), so a favourite count proved on one
+// says nothing about the other — which is how the second figure could be right
+// for films and wrong for books for a release.
+func TestABooksCharacterCountsFavouritedHighlights(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	b := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Moby-Dick"}, http.StatusCreated))
+	c.mustDo("POST", "/books/"+itoa(b.ID)+"/cast",
+		map[string]any{"character": "Ahab"}, http.StatusCreated)
+
+	// The speaker link is written from the line's own `character` text on every
+	// quote write (store.SyncQuoteCast), so naming the billing is what points a
+	// highlight at the cast row — a book's POST takes no cast id.
+	for i, fav := range []bool{true, false, false} {
+		c.mustDo("POST", "/annotations", map[string]any{
+			"book_id": b.ID, "quote": "line " + itoa(int64(i)),
+			"character": "Ahab", "favorite": fav,
+		}, http.StatusCreated)
+	}
+
+	got := decode[whosResp](t, c.mustDo("GET", "/books/"+itoa(b.ID)+"/whos-in-it", nil, http.StatusOK))
+	ahab := charsByName(got)["Ahab"]
+	if ahab.Quotes != 3 || ahab.Favourites != 1 {
+		t.Fatalf("a book's character reports %d quotes / %d favourited, want 3 / 1: %+v",
+			ahab.Quotes, ahab.Favourites, ahab)
+	}
+}
+
+// A CHARACTER WITH NOTHING KEPT COUNTS NOTHING, and the LEFT JOIN's own null
+// row is why that is worth a test: it yields one row for a cast member with no
+// quotes, and any aggregate that treats null as a value counts it. The count
+// this pair replaced needed a fixup written back by hand for exactly this row.
+func TestACharacterWithNoQuotesCountsNothing(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
@@ -151,34 +177,8 @@ func TestACharacterWithNoQuotesReportsNoPlaces(t *testing.T) {
 
 	got := decode[whosResp](t, c.mustDo("GET", "/movies/"+itoa(m.ID)+"/whos-in-it", nil, http.StatusOK))
 	n := charsByName(got)["Neville"]
-	if n.Quotes != 0 || n.Locators != 0 {
-		t.Fatalf("an empty cast row reports %d quotes in %d places: %+v", n.Quotes, n.Locators, n)
-	}
-}
-
-// A GAME COUNTS QUESTS AND A BOOK CHAPTERS, from the column that medium's quotes
-// actually carry.
-func TestTheLocatorNounFollowsTheMedium(t *testing.T) {
-	srv := newTestServer(t)
-	h := srv.Handler()
-	c := signupAdmin(t, h)
-
-	g := decode[struct{ ID int64 }](t, c.mustDo("POST", "/movies",
-		map[string]any{"title": "The Game", "media_type": "game"}, http.StatusCreated))
-	c.mustDo("POST", "/movies/"+itoa(g.ID)+"/cast",
-		map[string]any{"character": "Harry", "actor": "Adam Sopp"}, http.StatusCreated)
-	got := decode[whosResp](t, c.mustDo("GET", "/movies/"+itoa(g.ID)+"/whos-in-it", nil, http.StatusOK))
-	if charsByName(got)["Harry"].LocatorNoun != "quest" {
-		t.Fatalf("a game counts %q", charsByName(got)["Harry"].LocatorNoun)
-	}
-
-	b := decode[struct{ ID int64 }](t, c.mustDo("POST", "/books",
-		map[string]any{"title": "Deathly Hallows"}, http.StatusCreated))
-	c.mustDo("POST", "/books/"+itoa(b.ID)+"/cast",
-		map[string]any{"character": "Harry"}, http.StatusCreated)
-	got = decode[whosResp](t, c.mustDo("GET", "/books/"+itoa(b.ID)+"/whos-in-it", nil, http.StatusOK))
-	if charsByName(got)["Harry"].LocatorNoun != "chapter" {
-		t.Fatalf("a book counts %q", charsByName(got)["Harry"].LocatorNoun)
+	if n.Quotes != 0 || n.Favourites != 0 {
+		t.Fatalf("an empty cast row reports %d quotes and %d favourited: %+v", n.Quotes, n.Favourites, n)
 	}
 }
 

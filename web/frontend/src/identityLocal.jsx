@@ -33,7 +33,7 @@ import {
   SegHead,
 } from './characterRows.jsx'
 import { t } from './i18n.js'
-import { NavIcon, IconDetails, IconEdit, IconPlus, IconQuote } from './ui.jsx'
+import { NavIcon, IconDetails, IconEdit, IconHeart, IconPlus, IconQuote } from './ui.jsx'
 import { leadingRole } from './identityScope.js'
 
 // THE APP'S OWN ART, NOT AN EMOJI. The first version of this line invented four
@@ -156,7 +156,7 @@ export function CharacterLocal({
   // the un-substituted value and then said nothing.
   portrait = '', portraitFrom = '',
   onCalled, onPart, onFirst, onAge, onDescription,
-  onQuotes, onLocator, onOpenGlobal, onRemove,
+  onQuotes, onFavourites, onOpenGlobal, onRemove,
   // GIVING THIS CHARACTER A SECOND WORK, which is what turns the sheet you are
   // on into one of several. Absent rather than dead where there is nothing to
   // give a work TO — see the row itself.
@@ -166,13 +166,17 @@ export function CharacterLocal({
   // reader had not filled something in where the truth is that there is nothing
   // to fill.
   onRole, onCreditPick, onOpenCredit, onCreditNote, onCreditRemove, onAddCredit, onAddDub,
-  // THE COUNTS COME FROM /whos-in-it, which has served them per cast row since
-  // it was written and which nothing had ever called. Its `locators` is a
-  // DISTINCT over this character's own quotes rather than a stored total of the
-  // work's chapters — nothing records that and no provider reports it — and its
-  // locator_noun is the server's answer to what those places are called. The
-  // noun printed here is the locale's, keyed on the same medium, so the two
-  // agree by construction rather than by one trusting the other's English.
+  // THE COUNTS COME FROM /whos-in-it, which has served them per cast row since it
+  // was written and which nothing had ever called: this character's lines in this
+  // work, and how many of them the reader has starred.
+  //
+  // THE SECOND ONE USED TO BE `locators` AND COULD ONLY EVER READ ONE. It was a
+  // COUNT(DISTINCT) over the medium's locator column, coalesced so a line with no
+  // locator still counted as somewhere — and on a library where nobody fills
+  // timestamps every quote folds to the same blank value. The owner: "the 3
+  // quotes, 1 scene is not working. rather do 3 quotes, 1 favourited." The noun
+  // is no longer per-medium either, which took a three-way map out of this file
+  // and its twin out of the server.
   counts = null,
   works = [],
 }) {
@@ -218,7 +222,7 @@ export function CharacterLocal({
   // for one book, one film and one game, which is the fact a reader wants.
   const workCount = new Set((works || []).map((a) => `${a.kind}:${a.work_id}`)).size
   const quotes = counts ? counts.quotes : 0
-  const locators = counts ? counts.locators : 0
+  const favourites = counts ? counts.favourites : 0
   const alsoHere = String(here.aliases || '')
     .split(/[·,;]/)
     .map((a) => a.trim())
@@ -368,12 +372,12 @@ export function CharacterLocal({
           Every credit for this work is in the list above, `here`'s included, so
           nothing became unreachable. See docs/PLAN.md. */}
 
-      {/* THE COUNTS ARE DOORS INTO SEARCH, on the owner's instruction: pressing
-          one lands on the search screen with this character and this work already
-          up as chips, which is the question the number is a summary of. The
-          second noun is the scope's — a book counts chapters, a game quests,
-          anything with a running time scenes — and the server's locatorNoun
-          agrees, so a number never appears under the wrong word. */}
+      {/* THE COUNTS ARE DOORS INTO SEARCH, on the owner's instruction: pressing one
+          lands on the search screen with this character and this work already up as
+          chips, which is the question the number is a summary of. The second door
+          adds the favourite chip, so the two go to DIFFERENT places — they went to
+          the same one while the second count was the locator, which is two doors
+          onto one screen and a figure whose door said nothing about it. */}
       <PairRow
         cells={[
           {
@@ -387,11 +391,11 @@ export function CharacterLocal({
             title: t('identity.count.quotes.tip'),
           },
           {
-            label: t(`identity.count.${scope.locator}`, { n: locators, count: locators }),
-            figure: locators,
-            icon: <IconDetails size={15} />,
-            onClick: onLocator,
-            title: t('identity.count.locator.tip'),
+            label: t('identity.count.favourites', { n: favourites, count: favourites }),
+            figure: favourites,
+            icon: <IconHeart size={15} />,
+            onClick: onFavourites,
+            title: t('identity.count.favourites.tip'),
           },
         ]}
       />

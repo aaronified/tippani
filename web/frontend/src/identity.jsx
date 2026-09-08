@@ -1678,7 +1678,7 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
     json('GET', `/${path}/${here.work_id}/whos-in-it`).then((r) => {
       if (!alive || !r.ok) return
       const row = (r.data?.characters || []).find((c) => c.cast_id === here.cast_id)
-      setCounts(row ? { quotes: row.quotes || 0, locators: row.locators || 0 } : { quotes: 0, locators: 0 })
+      setCounts(row ? { quotes: row.quotes || 0, favourites: row.favourites || 0 } : { quotes: 0, favourites: 0 })
     })
     return () => { alive = false }
   }, [here?.cast_id, here?.work_id, here?.kind])
@@ -1706,14 +1706,24 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
   // shell's tab UNDERNEATH this panel, which is a fixed overlay still on top of
   // it. Same fault and same fix as the work tile above; see `usePanelStack`'s
   // `leaveTo`.
-  const openQuoteSearch = !onSearch || !here ? undefined : () => {
+  // ONE BUILDER FOR BOTH COUNTS, and the flag is the only difference. Written as
+  // two functions they would drift the first time the chip list gained a field —
+  // which is the "a control drawn twice has one behaviour" rule applied to a door.
+  const quoteSearch = (extra = []) => !onSearch || !here ? undefined : () => {
     const go = () => onSearch(here.kind === 'book' ? 'annotations' : 'dialogues', [
       { field: 'character', value: here.character || data.name, label: here.character || data.name },
       { field: here.kind === 'book' ? 'book' : 'movie', value: here.work_title, label: here.work_title },
+      ...extra,
     ])
     if (stack?.leaveTo) stack.leaveTo(go)
     else go()
   }
+  const openQuoteSearch = quoteSearch()
+  // `yes` IS ONE OF THE FLAG'S OWN WORDS — parseFacetFlag takes 1/true/yes/y/on,
+  // so this is not a spelling this screen invented.
+  const openFavouriteSearch = quoteSearch([
+    { field: 'favourite', value: 'yes', label: t('identity.count.favourites.chip') },
+  ])
 
   // The portrait's controls: the picture picker this work already had, plus the
   // pack's "Set for the identity" — which is `promote`, the verb that makes one
@@ -2077,7 +2087,7 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
           onAge={() => openFact(here, 'age_here', t('identity.facts.age'))}
           onDescription={() => openFact(here, 'description', t('identity.row.local-desc.label'), t('identity.row.local-desc.sub'))}
           onQuotes={openQuoteSearch}
-          onLocator={openQuoteSearch}
+          onFavourites={openFavouriteSearch}
           onOpenGlobal={() => stack.open(characterPanel(stack, { id, name: data.name, onSearch }))}
           onAddWork={openAddWork}
           onRemove={() => removeWork(here)}

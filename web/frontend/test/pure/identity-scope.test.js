@@ -1,17 +1,18 @@
 // THE FIVE SCREENS ARE FIVE SCOPES, and this is the table that says which.
 //
 // WHAT THIS GUARDS. `identityScope` is the spine of the character and people
-// panels: the header's art, the noun over the second count, whether a performer
-// can be paired with the part and whether a dub can be credited are all read off
-// it. A wrong answer here is not a wrong pixel — it is "Played by" printed over
-// the voice cast of every animation in the library, or a book asked which of its
-// scenes a line is in.
+// panels: the header's art, whether a performer can be paired with the part and
+// whether a dub can be credited are all read off it. A wrong answer here is not a
+// wrong pixel — it is "Played by" printed over the voice cast of every animation
+// in the library.
 //
-// AND WHY THE LOCATOR IS DERIVED FROM THE GO SOURCE rather than asserted as three
-// strings. `locatorNoun` in internal/httpapi/whos_in_it.go answers the same
-// question for the count the server computes. If the two disagree the screen puts
-// the server's number under the client's word, which is a lie no test of either
-// side alone can see — so this reads the Go and compares.
+// AND THE COUNT CONTRACT IS READ OUT OF BOTH SOURCES rather than asserted as two
+// strings. The sheet's pair of numbers comes off /whos-in-it, and the client picks
+// them out of the row by name — so a field renamed on one side and not the other
+// leaves both sides compiling, both suites green, and every sheet printing zero.
+// That is exactly what happened when the second count stopped being a locator
+// tally, so the case below reads the Go struct's tags and the client's own reads
+// and compares them.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -21,6 +22,7 @@ const GO = readFileSync(
   join(process.env.TIPPANI_SRC, '../../../internal/httpapi/whos_in_it.go'),
   'utf8',
 )
+const PANEL = readFileSync(join(process.env.TIPPANI_SRC, 'identity.jsx'), 'utf8')
 
 describe('the five scopes', () => {
   it('are the pack’s own five, and no sixth', () => {
@@ -61,27 +63,41 @@ describe('the five scopes', () => {
   })
 })
 
-describe('the locator noun', () => {
-  it('is the same word the server counts under', () => {
-    // Parsed rather than copied: the three branches of locatorNoun, in order.
-    const fn = GO.slice(GO.indexOf('func locatorNoun'))
-    const body = fn.slice(0, fn.indexOf('\n}'))
-    const nouns = [...body.matchAll(/return "([a-z]+)",/g)].map((m) => m[1])
-    expect(nouns, 'locatorNoun no longer returns three nouns').toEqual(['chapter', 'quest', 'scene'])
-    const [book, game, rest] = nouns
-    expect(identityScope({ table: 'character', work: { kind: 'book' } }).locator).toBe(book)
-    expect(identityScope({ table: 'character', work: { kind: 'movie', media_type: 'game' } }).locator)
-      .toBe(game)
-    expect(identityScope({ table: 'character', work: { kind: 'movie' } }).locator).toBe(rest)
-    expect(identityScope({ table: 'character', work: { kind: 'movie', media_type: 'show' } }).locator)
-      .toBe(rest)
+describe('the two counts on the wire', () => {
+  it('are read by the name the server actually sends', () => {
+    // BOTH SIDES, PARSED. The Go struct's json tags are the wire; the reads inside
+    // the panel's /whos-in-it effect are what the client asks for. A name in the
+    // second list that is missing from the first is a count that renders as zero
+    // on every sheet and fails nothing else.
+    const struct = GO.slice(GO.indexOf('type whosCharacter struct'))
+    const tags = new Set(
+      [...struct.slice(0, struct.indexOf('\n}')).matchAll(/json:"([a-z_]+)/g)].map((m) => m[1]),
+    )
+    expect(tags.has('quotes'), 'the server stopped sending a quote count').toBe(true)
+
+    // The LAST mention and not the first: three comments above the effect name the
+    // endpoint before the fetch does, and anchoring on the first of them slices a
+    // window with no reads in it — which is a guard that passes on a panel reading
+    // nothing at all.
+    const effect = PANEL.slice(PANEL.lastIndexOf('whos-in-it'))
+    const reads = [...effect.slice(0, effect.indexOf('}, [')).matchAll(/\brow\.([a-z_]+)/g)]
+      .map((m) => m[1])
+    expect(reads.length, 'the panel no longer reads the row it fetched').toBeGreaterThan(1)
+    for (const name of new Set(reads)) {
+      expect(tags.has(name), `the panel reads row.${name}, which /whos-in-it does not send`)
+        .toBe(true)
+    }
   })
 
-  it('is empty on a global scope, which counts nothing', () => {
-    // "37 quotes in 3 works" is a number nobody asked for: the works are listed
-    // right there, each with its own count.
-    expect(identityScope({ table: 'character' }).locator).toBe('')
-    expect(identityScope({ table: 'person' }).locator).toBe('')
+  it('and neither of them is a per-medium noun any more', () => {
+    // The second figure used to be a locator tally whose LABEL changed with the
+    // medium — chapters for a book, quests for a game — so the scope table carried
+    // the word. It counts favourites now, which is the same word everywhere, and a
+    // scope that still handed one out would be a label nothing prints.
+    for (const work of [null, { kind: 'book' }, { kind: 'movie' }, { kind: 'movie', media_type: 'game' }]) {
+      const sc = identityScope({ table: 'character', work })
+      expect(sc.locator, `${sc.id} still carries a locator noun`).toBeUndefined()
+    }
   })
 })
 

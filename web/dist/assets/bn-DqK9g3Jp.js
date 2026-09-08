@@ -6363,6 +6363,7 @@ identity.crumb.badge.film = ছবি
 identity.crumb.badge.show = সিরিজ
 identity.crumb.badge.game = গেম
 identity.portrait.px = {w}×{h}px
+identity.portrait.zoom.aria = {name}-এর ছবি পুরো স্ক্রিনে দেখুন
 identity.portrait.small = {n}px-এর কম
 identity.portrait.soft = কম কনট্রাস্ট
 identity.portrait.ratio = {a}:{b}, ছেঁটে বসানো
@@ -6402,14 +6403,11 @@ identity.row.note.for = {name}-এর ক্রেডিটের নোট
 
 identity.count.quotes.one = উদ্ধৃতি
 identity.count.quotes.other = উদ্ধৃতি
-identity.count.chapter.one = অধ্যায়
-identity.count.chapter.other = অধ্যায়
-identity.count.scene.one = দৃশ্য
-identity.count.scene.other = দৃশ্য
-identity.count.quest.one = কোয়েস্ট
-identity.count.quest.other = কোয়েস্ট
+identity.count.favourites.one = প্রিয়
+identity.count.favourites.other = প্রিয়
+identity.count.favourites.tip = এই কাজে এই চরিত্রের প্রিয় লাইনগুলো খুঁজুন
+identity.count.favourites.chip = প্রিয়
 identity.count.quotes.tip = এই কাজে এই চরিত্রের বলা লাইন খুঁজুন
-identity.count.locator.tip = এই কাজে কোথায় আসে খুঁজুন
 
 identity.row.global.label = বিশ্বজনীন রেকর্ড খুলুন
 identity.row.global.sub = সব কাজ জুড়ে

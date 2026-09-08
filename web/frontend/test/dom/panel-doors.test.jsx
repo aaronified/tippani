@@ -69,7 +69,11 @@ const counts = () => [...document.querySelectorAll('.cs-count')]
 beforeEach(() => {
   SEARCHED = null
   OPENED = null
-  COUNTS = { lines: 12, locators: 3 }
+  // THE ENDPOINT'S OWN SHAPE: a list of cast rows, each with the pair of numbers.
+  // The fixture used to be a bare `{ lines, locators }`, which no row matched and
+  // no case noticed — the panel found nothing, printed two zeros, and the
+  // reachability these cases are about was proved over made-up figures.
+  COUNTS = { characters: [{ cast_id: 11, name: 'Dr. Bhaskar K. Bannerjee', quotes: 12, favourites: 3 }] }
   CHARACTER = {
     id: 3,
     name: 'Dr. Bhaskar K. Bannerjee',

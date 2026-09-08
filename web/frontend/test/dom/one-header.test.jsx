@@ -31,7 +31,7 @@ vi.mock('../../src/api.js', async (orig) => ({
   json: vi.fn(async (method, path) => {
     if (method === 'GET' && /^\/characters\/\d+$/.test(path)) return { ok: true, data: RECORD }
     if (method === 'GET' && /works/.test(path)) return { ok: true, data: { works: WORKS } }
-    if (method === 'GET' && /whos-in-it/.test(path)) return { ok: true, data: { quotes: 2, locators: 1 } }
+    if (method === 'GET' && /whos-in-it/.test(path)) return { ok: true, data: { characters: [] } }
     return { ok: true, data: {} }
   }),
 }))
