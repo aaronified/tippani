@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **A quote can be a song.** The seventh kind. 0026 had already listed "song" among the
+  values the old free-text field expected, so a card that has been showing the word as
+  work to do can be filed now.
+
+- **You can say which languages you read, and a quote in another one shows its translation
+  first.** Under the interface language in Settings: name the languages you can read, and a
+  quote in any language you did not name puts its translation in the big type with the
+  original underneath — which is what a poem or a song in a language you are learning
+  wants. Name none and every quote reads as it was written, which is what the app did
+  before. The text menu on a board still wins where you use it: quote-only and
+  translation-only mean exactly that.
+
+- **A translation keeps its line breaks.** It was rendered as one run of prose, so a poem's
+  translation lost the shape the original kept. It is the same text in another language and
+  there is no reading under which the line breaks belong to one and not the other.
+
 - **A quote can be a poem.** The sixth kind, beside speech, letter, essay, proverb and
   other. A poem's line breaks are its text, and they are kept exactly as you typed them —
   as is a translation's, which until now lost them.

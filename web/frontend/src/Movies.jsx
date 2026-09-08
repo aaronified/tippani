@@ -31,6 +31,8 @@ import {
 import { KINDS } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
 import { t } from './i18n.js'
+import { quoteTexts } from './text.js'
+import { useReadableLanguages } from './readLanguages.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import {
   QUOTE_COLUMNS_IN,
@@ -1729,6 +1731,17 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // the same three conditions the book card applies, for the same three reasons.
   // See AnnotationCard, and quote_speaker.go for why `speaker_cast` is not
   // `character`.
+  // WHICH TEXT LEADS, from the same pair the annotation card asks. THE FILM FRAME
+  // DREW ITS OWN, and that is the divergence this fixes: it took `d.quote` for the
+  // big type and `d.translation` for the line below, unconditionally — so the
+  // reader's text menu and now the language they can read reached the book card
+  // and stopped at the frame. A dialogue is an annotation with different credits,
+  // and the two cards should not answer the same question two ways.
+  const frameReader = useReadableLanguages()
+  // NO TEXT MENU ON THIS SCREEN, so 'both' — which is not "show both in a fixed
+  // order" but "let the language decide" (quoteTexts). A film frame gains the
+  // behaviour without gaining a menu nobody asked for.
+  const { body: frameBody, second: frameSecond } = quoteTexts(d, 'both', frameReader)
   const sp = d.speaker_cast
   // THE CHARACTER'S PICTURE, AND THE ACTOR'S ONLY AS A FALLBACK — the owner's
   // ruling, and it is what this card already did with a separate row of discs
@@ -1805,10 +1818,10 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       {selection && (
         <PickMark picked={picked} label={t('common.dialogue.pick.label')} onChange={() => selection.toggle(d.id, selectKind)} />
       )}
-      {d.quote &&
+      {frameBody &&
         (sticker ? (
           <FlowQuote
-            text={d.quote}
+            text={frameBody}
             quoteStyle={quoteStyle}
             stickerKey={`s${sticker.id}`}
             maxLines={quoteLines} /* collapsed → small corner badge; expanded →
@@ -1821,7 +1834,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           />
         ) : (
           <ExpandableText
-            text={d.quote}
+            text={frameBody}
             lines={quoteLines}
             style={quoteStyle}
             open={accordion ? !!expanded : undefined}
@@ -1900,7 +1913,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       )}
       {/* Above the pasted note, for the reason AnnotationCard gives: the
           translation belongs to the line, the note is a thought about it. */}
-      {d.translation && <TranslationLine>{d.translation}</TranslationLine>}
+      {frameSecond && <TranslationLine>{frameSecond}</TranslationLine>}
       {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
       {/* §7 declutter: the ♥ is the frame's resting mark and leads this row, then
           copy and share, then the colour quick-pick — the three reveal on hover

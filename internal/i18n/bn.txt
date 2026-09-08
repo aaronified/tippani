@@ -53,6 +53,10 @@ _name = বাংলা
 
 # The Settings row that changes the language, in the Appearance card.
 settings.language.title = ভাষা
+settings.read-languages.title = যে ভাষাগুলো আপনি পড়তে পারেন
+settings.read-languages.info.body = কোন ভাষা আপনি পড়তে পারেন, একটাই কাজে: যে ভাষা বলা নেই, সেই ভাষার উক্তিতে আগে অনুবাদ দেখায় আর নীচে মূল লেখা। কিছু না বললে সব উক্তি যেমন লেখা তেমনই পড়া যায়।
+settings.read-languages.none.prose = কিছু বলা নেই, তাই সব উক্তি যেমন লেখা তেমনই দেখায়।
+settings.read-languages.some.prose = অন্য কোনও ভাষার উক্তিতে আগে অনুবাদ থাকে।
 # The information dot beside that row.
 settings.language.info.title = ভাষা
 settings.language.info.body = ইংরেজি আর বাংলা টিপ্পনীর সঙ্গেই আসে। অন্য ভাষা চাইলে data/Locales-এ অ্যাপের রাখা _TEMPLATE.txt ফাইলটা fr.txt-এর মতো নামে কপি করে ভরে ফেলুন। নতুন বিল্ড ছাড়াই সেটা এখানে চলে আসবে, কতটা অনুবাদ হয়েছে সেই শতাংশ পাশে নিয়ে।
@@ -2979,6 +2983,7 @@ vocab.quote-kind.speech.label = ভাষণ
 vocab.quote-kind.letter.label = চিঠি
 vocab.quote-kind.essay.label = প্রবন্ধ
 vocab.quote-kind.poem.label = কবিতা
+vocab.quote-kind.song.label = গান
 vocab.quote-kind.proverb.label = প্রবাদ
 vocab.quote-kind.other.label = অন্যান্য
 vocab.kind.show.label = শো

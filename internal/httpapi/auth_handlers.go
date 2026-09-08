@@ -423,6 +423,11 @@ type prefs struct {
 	// `!=`). "" is the default and means every language uses the letter from its
 	// own script. See language_marks.go for why flags are offered and not assumed.
 	LanguageMarks string `json:"languageMarks"`
+	// ReadLanguages: the languages the reader says they can READ, as a JSON array
+	// of folded names stored as a string. It decides one thing — which text a quote
+	// card puts in the big type — and see read_languages.go for why that is the
+	// whole of its scope and why an empty list means "every language as written".
+	ReadLanguages string `json:"readLanguages"`
 	// TrashDays: how long a deleted thing waits in the bin before the purge takes
 	// it. One of 7, 30, 90, or -1 for "never expire" — never is -1 and not 0
 	// because an absent field unmarshals to 0, and "nobody has set this" must not
@@ -798,6 +803,15 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	p.SRTier = normalizeReviewTier(p.SRTier)
 	// A bad blob already in the database reads as NO marks rather than failing the
 	// login. The PUT below is where a client's mistake is refused.
+	if norm, ok := normalizeReadLanguages(p.ReadLanguages); ok {
+		p.ReadLanguages = norm
+	} else {
+		// A blob this cannot read reads as "no declaration", which means every
+		// language as written — the same direction normalizeLanguageMarks fails in,
+		// and for the same reason: a corrupt preference must not be able to reorder
+		// every card in the library.
+		p.ReadLanguages = ""
+	}
 	if norm, ok := normalizeLanguageMarks(p.LanguageMarks); ok {
 		p.LanguageMarks = norm
 	} else {
@@ -858,6 +872,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		CreditSeparators    *string  `json:"creditSeparators"`
 		Locale              *string  `json:"locale"`
 		LanguageMarks       *string  `json:"languageMarks"`
+		ReadLanguages       *string  `json:"readLanguages"`
 		FontDisplay         *string  `json:"fontDisplay"`
 		FontUI              *string  `json:"fontUi"`
 		FontMono            *string  `json:"fontMono"`
@@ -1024,6 +1039,17 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		cur.LanguageMarks = norm
+	}
+	// The same shape and the same reason: an empty array is "I withdraw the
+	// declaration", which is a real request and not an omission.
+	if in.ReadLanguages != nil {
+		norm, ok := normalizeReadLanguages(*in.ReadLanguages)
+		if !ok {
+			writeErr(w, http.StatusBadRequest,
+				"readLanguages must be a JSON array of language names")
+			return
+		}
+		cur.ReadLanguages = norm
 	}
 	// Category slots. Set before the validation switch so a bad value is caught
 	// there rather than normalised into something the caller did not ask for.

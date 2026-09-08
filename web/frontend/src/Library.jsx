@@ -13,6 +13,7 @@ import { selectionClick, selectionMenuItems, useSelection } from './selection.js
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { PeopleChips, PersonModal, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { useReadableLanguages } from './readLanguages.jsx'
 import { categoryHidden, categoryName } from './theme.js'
 import {
   GroupHeading,
@@ -1369,25 +1370,19 @@ export const TEXT_VIEWS = ['both', 'quote', 'translation']
 // them. AnnotationBoard has always drawn all three; only the toggle narrowed it.
 export const VIEW_KINDS = KINDS.book.views
 
-// quoteBody — WHICH TEXT GOES IN THE BIG TYPE, given the setting.
-//
-// A FALLBACK, NOT A BLANK. "Translation only" on a quote with no translation
-// falls back to the quote rather than showing an empty card. The alternative —
-// honouring the setting exactly — empties every untranslated quote on the board,
-// which on a library where translations are the exception is a setting that looks
-// like a bug that has deleted your highlights. The setting says which text to
-// PREFER; a card still has to say something.
-export function quoteBody(a, tview) {
-  if (tview === 'translation' && a.translation) return a.translation
-  return a.quote
-}
-
-// showsTranslationLine — whether the second line under the words is drawn. Only
-// in `both`: in `translation` the translation IS the words, and drawing it twice
-// is the failure this pair exists to avoid.
-export function showsTranslationLine(a, tview) {
-  return tview !== 'quote' && tview !== 'translation' && !!a.translation
-}
+// quoteTexts / quoteBody / showsTranslationLine LIVE IN text.js and are
+// re-exported here, because this is where a reader looks for them and four test
+// files import them from this module. They moved for the reason the person
+// primitives moved into credits.jsx: the film frame asks the same question and a
+// card importing another SCREEN to answer it is a cycle.
+export { quoteBody, quoteTexts, showsTranslationLine } from './text.js'
+// AND IMPORTED, because a re-export is not a local binding: `export … from` makes
+// the name available to importers and leaves this module without it. Both names
+// are read in this file — the card asks quoteTexts and the table's two-line cell
+// asks quoteBody — and both threw at render with only the re-export. The build was
+// happy either way; `no-free-names.test.js` exists for exactly this and named the
+// second one after the DOM test caught the first.
+import { quoteBody, quoteTexts } from './text.js'
 
 // duplicateSeed — the draft the Add surface opens on when a quote is duplicated.
 //
@@ -1476,9 +1471,13 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both', onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both', canRead = null, onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
-  const body = quoteBody(a, tview)
+  // PROVIDED, NOT THREADED — see readLanguages.jsx. `tview` reaches here through
+  // two components that only pass it on; a second prop down that chain is the
+  // capability that goes missing wherever somebody forgets it.
+  const reader = useReadableLanguages(canRead)
+  const { body, second } = quoteTexts(a, tview, reader)
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
   const accordion = typeof onToggleExpand === 'function'
@@ -1739,7 +1738,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               Drawn here rather than inside each kind's `meta` node so that all
               three kinds — and the search modal, which asks utteranceMeta for a
               plain string — show it identically. */}
-          {showsTranslationLine(a, tview) && <TranslationLine>{a.translation}</TranslationLine>}
+          {second && <TranslationLine>{second}</TranslationLine>}
           {a.note && <HandNote>{a.note}</HandNote>}
           {a.tags && a.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">

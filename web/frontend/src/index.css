@@ -1948,6 +1948,14 @@
      is a size down from the quote for the same reason — this is what the words
      mean, not another thing that was said. */
   .quote-translation {
+    /* THE LINE BREAKS ARE THE TEXT, and this line is why they used to be lost.
+       The quote body has carried `pre-wrap` since it could hold a paragraph; its
+       translation had not, so a poem's translation arrived as one run of prose
+       beside an original that kept its shape. The owner's: "the translation needs
+       to follow the linebreaks and spaces like the quote body." It is the same
+       text in another language and there is no reading of it under which the
+       shape belongs to one and not the other. */
+    white-space: pre-wrap;
     font-family: var(--font-display);
     font-weight: var(--font-display-weight);
     font-variant-caps: var(--font-display-caps);

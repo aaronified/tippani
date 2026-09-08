@@ -16,6 +16,8 @@ import {
 import { SECTIONS, visibleSections } from './routes.js'
 import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
+import { languageMarksState } from './languages.jsx'
+import { parseReadLanguages } from './readLanguages.jsx'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, REVIEW_TIERS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
@@ -2924,6 +2926,14 @@ function Appearance({ prefs, onPreferences }) {
             json('PUT', '/auth/me/preferences', { locale: code })
           }}
         />
+        {/* WHICH LANGUAGES YOU CAN READ, under the one the interface is in and
+            deliberately not folded into it. The interface language is what the app
+            SPEAKS; this is what the reader can read, and the two are different
+            facts about the same person — somebody reading a Bengali interface may
+            read French, and somebody reading an English one may read nothing else.
+            Its scope is one thing (which text a quote card leads with) and the
+            owner set that scope: "only for this feature, as of now". */}
+        <ReadableLanguagesField prefs={prefs} onPreferences={onPreferences} />
       </div>
 
       {/* The door, and it KEEPS ITS WORDS at every width.
@@ -3010,6 +3020,86 @@ function TextSizeField({ prefs, onPreferences }) {
 // directions because both are real — a dense desktop user wants the row back,
 // and someone who has not learned the glyphs yet wants the words on a phone
 // more than they want the space.
+// ReadableLanguagesField — the languages this reader says they can read.
+//
+// THE OWNER'S ASK AND THE OWNER'S SCOPE: "there will be a settings where user can
+// declare what languages they can read (only for this feature, as of now)." The
+// feature is which of a quote's two texts goes in the big type. Declared: the quote
+// reads as written. Not declared: the translation leads and the original sits under
+// it — "a poem in a foreign language will need the translation to be on top".
+//
+// THE LIST IS THE ONE THE LIBRARY ALREADY HAS, not a menu of every language on
+// earth: languageMarksState() is the starters plus every language the reader has
+// added, and Metadata is where that list is edited. Offering four hundred names
+// here would make the control a search problem and would let somebody declare a
+// language nothing in their library is in.
+//
+// DECLARING NOTHING IS THE DEFAULT AND MEANS EVERY LANGUAGE AS WRITTEN, which is
+// what the app did before this existed. The opposite reading — nothing declared
+// means "I read nothing", so every translated quote leads with its translation —
+// would reorder every card in the library on an upgrade, for a preference nobody
+// had expressed. The note under the chips says which way round it is, because an
+// empty multi-select is otherwise ambiguous by construction.
+function ReadableLanguagesField({ prefs, onPreferences }) {
+  const rows = languageMarksState()
+  const chosen = parseReadLanguages(prefs?.readLanguages)
+  const [err, setErr] = useState('')
+
+  async function toggle(key) {
+    const next = new Set(chosen)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    const blob = JSON.stringify([...next].sort())
+    onPreferences?.({ readLanguages: blob })
+    const r = await json('PUT', '/auth/me/preferences', { readLanguages: blob })
+    if (!r.ok) {
+      setErr(errText(r, t('error.save.generic')))
+      // Back to what the server still believes, so the panel cannot show a
+      // declaration that was refused.
+      onPreferences?.({ readLanguages: prefs?.readLanguages || '' })
+      return
+    }
+    setErr('')
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1.5">
+        <MonoLabel>{t('settings.read-languages.title')}</MonoLabel>
+        <InfoDot text={t('settings.read-languages.info.body')} />
+      </div>
+      {/* `data-content` — THE NAMES IN HERE ARE THE READER'S, not ours. A language
+          name is data in this app by design: the canonical one is what quotes are
+          matched on and the display one is whatever the reader renamed it to, so
+          "Bengali" here may read "বাংলা" on the next account. screens-i18n.test.jsx
+          reads this declaration rather than keeping a list of the ten starters,
+          which is the shape `data-grammar` already uses one exemption earlier. */}
+      <div className="flex flex-wrap gap-2" data-content>
+        {rows.map((row) => {
+          const on = chosen.has(row.key)
+          return (
+            <button
+              key={row.key}
+              type="button"
+              aria-pressed={on}
+              className={'tp-filter-chip tactile' + (on ? ' active' : '')}
+              onClick={() => toggle(row.key)}
+            >
+              {row.name}
+            </button>
+          )
+        })}
+      </div>
+      <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>
+        {chosen.size === 0
+          ? t('settings.read-languages.none.prose')
+          : t('settings.read-languages.some.prose')}
+      </p>
+      {err && <ErrorText>{err}</ErrorText>}
+    </div>
+  )
+}
+
 export function LabelDensity() {
   const [pref, setPref] = useState(labelsPref)
   function pick(v) {

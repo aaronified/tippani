@@ -44,6 +44,10 @@ _name = English
 
 # The Settings row that changes the language, in the Appearance card.
 settings.language.title = Language
+settings.read-languages.title = Languages you read
+settings.read-languages.info.body = Which languages you can read, for one purpose: a quote in a language you have not named shows its translation first and the original underneath. Naming none means every quote reads as written.
+settings.read-languages.none.prose = Nothing named, so every quote reads as it was written.
+settings.read-languages.some.prose = A quote in any other language leads with its translation.
 # The information dot beside that row.
 settings.language.info.title = Language
 settings.language.info.body = English and Bengali ship with tippani. Any other is a file: copy data/Locales/_TEMPLATE.txt — the app puts it there — to fr.txt and fill it in. It appears here with no rebuild, at whatever percentage it covers.
@@ -2945,6 +2949,7 @@ vocab.quote-kind.speech.label = Speech
 vocab.quote-kind.letter.label = Letter
 vocab.quote-kind.essay.label = Essay
 vocab.quote-kind.poem.label = Poem
+vocab.quote-kind.song.label = Song
 vocab.quote-kind.proverb.label = Proverb
 vocab.quote-kind.other.label = Other
 vocab.kind.show.label = Show

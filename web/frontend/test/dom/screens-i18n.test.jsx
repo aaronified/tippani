@@ -87,13 +87,38 @@ const SPOKEN = ['title', 'placeholder', 'aria-label', 'alt']
 // screen declares what it is, and this reads the declaration.
 const isGrammar = (node) => !!node?.parentElement?.closest?.('[data-grammar]')
 
+// AND THE READER'S OWN WORDS ARE NOT COPY EITHER, which is the second exemption
+// and the last one this sweep should ever grow.
+//
+// A language name is DATA in this app by its own design: languageMarksState keeps
+// a canonical name that quotes are matched on and a display name the reader may
+// change — "the row has to be able to say 'Bengali' while showing 'বাংলা'". So the
+// ten starters arrive as English strings, and the reader renames the ones they
+// care about. Tokenising them would mean ten more keys per locale AND leaving the
+// rename feature in place to do the same job, with the fold key still English
+// underneath.
+//
+// IT IS THE SAME SHAPE AS `data-grammar` FOR THE SAME REASON: an attribute the
+// screen sets, not a list of strings here. A list would need keeping in step with
+// STARTER_LANGUAGES, and the day somebody adds an eleventh language the list is
+// what would be forgotten.
+//
+// WHAT IT MUST NOT BECOME. This says "the text inside is the reader's", and a
+// screen that puts it on a heading to quiet the sweep has broken the sweep. It
+// belongs on the element that renders a value out of the database and nowhere
+// else — every use of it is a claim that can be checked by looking at what is
+// inside.
+const isReaderContent = (node) => !!node?.parentElement?.closest?.('[data-content]')
+
 // Everything on the page that a reader can see or hear, as {where, text}.
 function spokenStrings() {
   const out = []
   const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
   for (let n = walk.nextNode(); n; n = walk.nextNode()) {
     const text = n.textContent.trim()
-    if (text && !isGrammar(n)) out.push({ where: `<${n.parentElement?.tagName.toLowerCase() || '?'}>`, text })
+    if (text && !isGrammar(n) && !isReaderContent(n)) {
+      out.push({ where: `<${n.parentElement?.tagName.toLowerCase() || '?'}>`, text })
+    }
   }
   for (const el of document.body.querySelectorAll('*')) {
     for (const attr of SPOKEN) {

@@ -173,3 +173,66 @@ export function clipChipName(v) {
   const s = String(v || '').trim()
   return s.length > CHIP_NAME_CHARS ? s.slice(0, CHIP_NAME_CHARS - 1).trimEnd() + '…' : s
 }
+
+// quoteTexts — WHICH TEXT GOES IN THE BIG TYPE AND WHICH GOES UNDER IT.
+//
+// ONE FUNCTION FOR BOTH HALVES, and it used to be two that could disagree:
+// `quoteBody` chose the big type and `showsTranslationLine` decided the second
+// line, each reading `tview` for itself. That was safe while the second line was
+// always the translation. It is not safe now that the two can SWAP, because the
+// pair would then have to arrive at the same answer twice from the same inputs —
+// and the failure is silent and doubled: the same words printed in both sizes, or
+// a card that shows one text and hides the other.
+//
+// THE LANGUAGE DECIDES, THE MENU OVERRIDES — the owner's ruling, asked and
+// answered. `both` is the default and is not "show both in a fixed order": it lets
+// each card decide from its OWN language, which is what makes this per-card
+// without storing anything per card. A quote in a language the reader has not
+// declared leads with its translation. Choosing quote-only or translation-only
+// from the board's text menu still wins, for the whole board, because that is an
+// explicit instruction and this is an inference.
+//
+// A FALLBACK, NOT A BLANK, kept from the version this replaces: "translation only"
+// on a quote with no translation shows the quote. Honouring the setting exactly
+// would empty every untranslated quote on the board, which on a library where
+// translations are the exception is a setting that looks like a bug that has
+// deleted your highlights. The setting says which text to PREFER; a card still has
+// to say something.
+//
+// `canRead` is a predicate rather than a set, so a caller with no preferences
+// loaded passes nothing and gets today's behaviour — see readerFrom.
+export function quoteTexts(a, tview, canRead) {
+  const quote = a?.quote || ''
+  const translation = a?.translation || ''
+  if (tview === 'quote') return { body: quote, second: '' }
+  if (tview === 'translation') return { body: translation || quote, second: '' }
+  // `both`, which is where the language is allowed to speak.
+  //
+  // A QUOTE WITH NO LANGUAGE IS NOT A FOREIGN QUOTE, and the guard is HERE rather
+  // than left to the predicate. It is a property of the row: nobody has said what
+  // language it is in, so it cannot be one the reader is unable to read — and that
+  // is the commonest row in any library, so reading the blank as "not declared"
+  // would put the translation first on almost every card. canReadLanguage answers
+  // the same way for the same reason, and this does not delegate to it because a
+  // predicate is whatever the caller passed: a screen or a test that supplies a
+  // plain `(l) => l === 'english'` would otherwise flip every untagged quote it
+  // renders. The card does not get to depend on somebody else remembering.
+  const language = String(a?.language || '').trim()
+  const foreign = !!translation && !!language && typeof canRead === 'function' && !canRead(language)
+  if (foreign) return { body: translation, second: quote }
+  return { body: quote, second: translation }
+}
+
+// quoteBody — the big type alone, for the callers that draw nothing else: the
+// table's two-line cell and the share payload. Expressed through quoteTexts so
+// there is one answer to "which text leads" in the app.
+export function quoteBody(a, tview, canRead) {
+  return quoteTexts(a, tview, canRead).body
+}
+
+// showsTranslationLine — kept for the reader who looks for it by name, and for
+// the tests that pin the old behaviour. It answers "is there a second line", which
+// is no longer the same question as "is there a translation".
+export function showsTranslationLine(a, tview, canRead) {
+  return !!quoteTexts(a, tview, canRead).second
+}

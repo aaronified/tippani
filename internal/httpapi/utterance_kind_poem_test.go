@@ -35,3 +35,22 @@ func TestAPoemCanBeSavedAndAnInventedKindCannot(t *testing.T) {
 	c.mustDo("POST", "/quotes", map[string]any{
 		"quote": "x", "kind": "haiku"}, http.StatusBadRequest)
 }
+
+// AND A SONG, which 0068 added a day later and for the neighbouring reason: its
+// line breaks are its text too, and it is not a poem — one is read and the other
+// is sung. Its own case rather than a row in the one above, because the CHECK is
+// what is being asked and each widening is its own migration.
+func TestASongCanBeSaved(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	got := newUtterance(t, c, map[string]any{
+		"quote": "আমার সোনার বাংলা\nআমি তোমায় ভালোবাসি",
+		"speaker": "Rabindranath Tagore", "work_title": "Amar Shonar Bangla", "kind": "song",
+	})
+	if got.Kind != "song" {
+		t.Fatalf("saved a song and it came back as %q", got.Kind)
+	}
+	if !strings.Contains(got.Quote, "বাংলা\nআমি") {
+		t.Errorf("the stored quote is %q — a song's line breaks are its text", got.Quote)
+	}
+}

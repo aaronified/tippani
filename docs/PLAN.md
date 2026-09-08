@@ -1172,6 +1172,40 @@ It matters more for the timestamp than it ever did for the season. **Nothing in 
 
 <sub>2.2.0 — `internal/httpapi/dialogue_handlers.go` · `internal/httpapi/game_locator_test.go`</sub>
 
+### Which languages the reader can read, and the translation that leads because of them
+
+**Decided.** A `readLanguages` preference — a JSON array of folded language names — and a quote in a language it does not name leads with its TRANSLATION, printing the original underneath. `quoteTexts(a, tview, canRead)` is the one function that answers "which text goes in the big type and which goes under it", and all three quote cards ask it.
+
+**The language decides, the menu overrides**, which is the owner's ruling, asked and answered. The board's text menu already had three states, and `both` was "quote then translation, always". It now means "let the card decide from its own language", which is what makes this per-card without storing anything per card; `quote` and `translation` still win for the whole board, because those are explicit instructions and this is an inference.
+
+**Why it is one function and not two.** `quoteBody` chose the big type and `showsTranslationLine` decided the second line, each reading `tview` for itself. That was safe only while the second line was ALWAYS the translation. Now that the two can swap, two functions would have to reach the same answer twice from the same inputs — and the failure is silent and doubled: the same words printed in both sizes, or a card that shows one text and hides the other. Both names survive as thin wrappers, because four test files import them and a reader looks for them there.
+
+**And it is provided once, not threaded.** This is the repo's third entry on that lesson — `WorkDoor` and `SearchDoor` are the other two. A card is two components below the screen and neither of them mentions this, so a prop would be a capability absent wherever somebody forgot it. The shell provides the predicate; an explicit prop still wins, which is how a test hands in its own.
+
+**An empty declaration means every language as written**, and the direction matters more than it looks. The opposite reading — nothing named, so nothing readable — would put the translation first on every translated quote in the library on an upgrade, for a preference nobody had expressed. A corrupt blob normalises the same way for the same reason. **And a quote with no language is not a foreign quote**: that guard is in `quoteTexts` rather than delegated to the predicate, because a predicate is whatever the caller passed and a plain `(l) => l === 'english'` would otherwise flip every untagged row a screen renders.
+
+**Scope, kept narrow on purpose.** The owner's parenthesis is the specification: "only for this feature, as of now". It is not the interface language, not a filter, and not a general claim about what this reader can read. The module's name and the field's are the other half of that guard.
+
+**The translation keeps its line breaks**, which is a one-line fix and was a real loss: `.quote-translation` had no `pre-wrap` while the quote body has carried one since it could hold a paragraph, so a poem's translation arrived as prose beside an original that kept its shape.
+
+**Two bugs of mine, and the two guards that caught them.** Moving `quoteTexts` into `text.js` and re-exporting it from `Library.jsx` left that module without a local binding — `export … from` is not an import — so the card and the table both threw at render while every screen still compiled. `quote-translation-leads.test.jsx` caught the first and `no-free-names.test.js` named the second, which is exactly what it exists for. And inserting the Settings control split `export function LabelDensity`, leaving the keyword in front of a comment: `labels.test.jsx` and two others failed with "element type is invalid", which is what an unexported component looks like three screens away.
+
+**And the sweep gained its second exemption.** `screens-i18n.test.jsx` flagged the ten language chips as untranslated English. They are DATA by this app's own design — `languageMarksState` keeps a canonical name that quotes are matched on and a display name the reader may change, so the row "has to be able to say 'Bengali' while showing 'বাংলা'". So the screen declares it with `data-content`, the shape `data-grammar` already uses, rather than the test keeping a list of ten starters that an eleventh language would silently fall out of. Tokenising the names was the alternative and is rejected: ten keys per locale to duplicate a rename feature that already exists, with the fold key still English underneath.
+
+**Approved.** Mine, on the owner's ask, with the ruling on the menu asked before it was built.
+
+<sub>3.1.0 — `internal/httpapi/read_languages.go` · `internal/httpapi/auth_handlers.go` · `web/frontend/src/readLanguages.jsx` · `web/frontend/src/text.js` · `web/frontend/src/Library.jsx` · `web/frontend/src/Movies.jsx` · `web/frontend/src/Settings.jsx` · `web/frontend/src/App.jsx` · `web/frontend/src/index.css` · `CHANGELOG.md`</sub>
+
+### A seventh quote kind, on the sixth's mechanism
+
+**Decided.** `song` joins the seven. Migration 0068 is 0067's six statements — park, drop, rename — a day apart, and that repetition is the argument for the shape rather than a coincidence: the vocabulary is now known to grow, and each widening must stay cheap and safe rather than being 0029's table rebuild each time.
+
+**Why it is not a poem.** One is read and the other is sung, and a library that files Tagore's songs under his poems has lost the distinction its owner keeps them for. 0026's `medium` column already listed "song" among the values it expected, so a reader who has been here since then may have `medium = 'song'` on rows the one-time pass declined to fold — those cards have been showing the leftover text ever since, which is what made it visible as work to do.
+
+**Approved.** Mine, on the owner's "you have added poem, add songs too".
+
+<sub>3.1.0 — `internal/store/migrations/0068_quote_kind_song.sql` · `internal/httpapi/utterance_handlers.go` · `web/frontend/src/quoteKind.js` · `internal/i18n/en.txt` · `internal/i18n/bn.txt` · `CHANGELOG.md`</sub>
+
 ### A sixth quote kind, and the cheap way to widen a CHECK
 
 **Decided.** `poem` joins speech, letter, essay, proverb and other. Migration 0067 widens the CHECK on `utterances.kind` by **parking the value in a new column that carries the wider constraint, dropping the old column, and renaming** — six statements, no table rebuild. `staged_quotes.kind` is unconstrained and unchanged, so an import naming a poem already worked; it was the library's own column that had to learn the word.
