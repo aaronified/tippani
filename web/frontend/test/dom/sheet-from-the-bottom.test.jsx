@@ -314,6 +314,37 @@ describe('a sheet whose content changes under it', () => {
       .toBe(ANCHORS[0])
   })
 
+  // THE OWNER'S THIRD REPORT ON THIS GESTURE: "the grab and drag is still flaky.
+  // it doesnt smoothly follow the up and down gestures... it flashes sometimes" —
+  // with the discrimination that names the cause: "it doesnt happen in 1. details
+  // popups or 2. character/people picker popups. only in char (global/local) and
+  // people popups!"
+  //
+  // WHAT SEPARATES THOSE GROUPS IS RENDER COUNT, NOT THE GESTURE. A details panel
+  // and a picker have their content when they mount; a character or people panel
+  // fetches (people.jsx makes eight requests) and each answer is a render. `refit`
+  // runs after every render by design, and for the 220ms after a placement the
+  // sheet is mid-landing — so on those panels it re-measured and settled again,
+  // repeatedly, restarting the landing under the reader's finger.
+  //
+  // A REAL RELEASE, and the aim is what makes the case. `refit` moves the sheet
+  // only from `anchors[0]`, so the gesture has to end there: the long content's
+  // anchors are [608, 752] and 608 is its first, so a short drag from rest lands
+  // back on 608 with the landing still in the air. The short content's own first
+  // anchor is smaller, so the rerender gives `refit` somewhere to move it to.
+  it('but not while a landing the reader just put it on is still in the air', async () => {
+    const { rerender } = render(<Sheet onDismiss={vi.fn()} content={LONG} />)
+    expect(heightOf(el('sheet')), 'the long sheet did not open on its first anchor').toBe(ANCHORS[0])
+    // Short enough that the nearest stop is the one it started on — a nudge, the
+    // gesture a reader makes and abandons.
+    await drag('grip', -30)
+    const placed = heightOf(el('sheet'))
+    await act(async () => { rerender(<Sheet onDismiss={vi.fn()} content={80} />) })
+    expect(heightOf(el('sheet')),
+      'content arriving mid-landing re-settled the sheet — the landing restarts from a new height, and on a panel that renders eight times as its requests land it restarts eight times, which is the flash')
+      .toBe(placed)
+  })
+
   it('but not once the reader has put it somewhere', async () => {
     // A SHEET THE READER HAS DRAGGED HAS BEEN PLACED. Following the content from
     // there would be the app overruling the gesture it just invited.

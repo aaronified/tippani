@@ -3399,7 +3399,13 @@
   /* THE ROW GAP IS WHAT SEPARATES THEM NOW, so the rule that used to flush the
      last row's hairline has nothing left to suppress. */
   .inline-field-rows > .inline-field:last-child { border-bottom: 1px solid var(--line); }
-  .inline-field-head { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; min-height: 26px; }
+  /* IT WRAPS, and that is the other half of the mid-word break. This line holds a
+     supplier's mark, a mono label, an info dot, the value and two buttons; with
+     `nowrap` the only give in the row was INSIDE the words, so at 390px the label
+     came apart ("AMA / ZON / DOM / AIN") and a domain came down two characters at
+     a time. Wrapping spends a second line instead of the words, which is the
+     trade the "never truncate a name" rule already makes everywhere else. */
+  .inline-field-head { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 5px; min-height: 26px; }
   /* Nothing below the row: the gap it was leaving is for a value line or an
      editor that is not there, and a settings card is mostly rows like this. */
   .inline-field-head.is-flush { margin-bottom: 0; }
@@ -3413,8 +3419,13 @@
     font-variant-numeric: var(--font-ui-figures);
     font-size: var(--type-ui-13);
     color: var(--ink);
+    /* ANYWHERE IS THE LAST RESORT AND IT NEEDED A FLOOR. It is right for a value
+       that genuinely cannot wrap — a long key, a domain with no spaces in it —
+       but `min-width: 0` beside it let the flex line squeeze this box to a couple
+       of characters and break the value down the screen instead. 8ch is about the
+       narrowest a value can be and still read as one. */
     overflow-wrap: anywhere;
-    min-width: 0;
+    min-width: min(8ch, 100%);
   }
   .inline-field-inline.is-empty { color: var(--faint); font-style: italic; }
   /* A CREDIT'S PORTRAIT, the pack's own (`work-details-popup.dc.html:661-669`):
@@ -3843,6 +3854,50 @@
     transition: color .15s ease;
   }
   .src-mark:hover, .src-mark:focus-visible { color: var(--ink); }
+  /* ---- AND WHAT THE KEY BEHIND THAT MARK IS DOING ------------------------
+     THE OWNER'S SCHEME: "green is saved, yellow is not saved but optional, red is
+     needed and not saved. purple is using the pre-built. and the information can
+     be in one of the infodots."
+     IT REPLACES A CHIP PER ROW. Each row carried a StatusChip reading OPTIONAL /
+     NEEDED / BUILT IN, plus a second badge — a floppy disc with a tick — saying
+     the key was stored. Two controls, both words, in a flex row that also holds a
+     mono label, an info dot, the value and two buttons: at 390px there was nothing
+     left, and the label broke mid-word ("AMA / ZON / DOM / AIN"). The state is one
+     fact about one row, so it goes on the one thing the row already draws.
+     A RING AND A TINT, NOT A TINT ALONE. An outline glyph at 16px tinted amber on
+     this paper is a hint rather than a signal, and the owner asked for "an icon or
+     a border on the provider icon". `box-shadow` rather than `border` so the ring
+     cannot change the box — the mark is sized in one place above.
+     THE COLOUR IS NEVER THE ONLY CARRIER. SourceIcon names the state in its
+     aria-label and its tooltip, because four hues are four hues to a reader who
+     cannot separate them. ---- */
+  .src-mark.has-state, .src-legend-dot { box-shadow: inset 0 0 0 1.5px currentColor; }
+  /* THE FOUR TONES ARE NOT SCOPED TO THE MARK, because the legend row has to draw
+     the same four and a legend whose colours are defined separately from the thing
+     it explains is a legend that can drift out of true. `is-src-` and not `is-`:
+     the short name would collide with the on-state classes other components use. */
+  .is-src-saved { color: var(--ok); }
+  .is-src-optional { color: var(--amber); }
+  .is-src-needed { color: var(--error); }
+  .is-src-builtin { color: var(--hl-6); }
+  /* The hover rule above would grey a stated mark back to --ink on touch, which
+     would read as the state changing under the finger. */
+  .src-mark.has-state:hover, .src-mark.has-state:focus-visible { color: currentColor; }
+  /* ---- the legend, a ROW rather than a dot to open -----------------------
+     The owner's, correcting an earlier plan to hide it: "not infodot, use a row to
+     explain the colours." A colour code that needs a tap to decode is a colour
+     code nobody decodes. It WRAPS rather than scrolls: these are four short words
+     and not names, so there is nothing here the "never truncate a name" rule is
+     protecting, and a fade over a legend would suggest there is a fifth state. */
+  .src-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--edge); margin-bottom: 9px; }
+  .src-legend-item { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--soft); }
+  .src-legend-dot {
+    width: 0.95em; height: 0.95em; flex: none; border-radius: 5px;
+    background: color-mix(in srgb, currentColor 18%, transparent);
+  }
+  /* The word beside the swatch is the row's own ink, not the state's — four
+     coloured words in a row is a ransom note, and the swatch is the signal. */
+  .src-legend-item > span:last-child { color: var(--soft); }
   /* Borderless but unmistakably tappable: chrome comes from a tinted accent
      disc rather than a rule, so it reads as a control without framing one. */
   .cand-add {
@@ -4052,20 +4107,18 @@
   .ann-table .col-actions { white-space: nowrap; text-align: right; }
   .ann-table .col-actions .tp-link { margin-left: 10px; }
 
-  /* ---- a supplier's mark, and the tag it sits in --------------------------
-     A MASK, NEVER AN <img>. Each mark is an opaque black shape; painted as a mask
-     over a background-color it takes the row's own ink — `--soft` at rest, `--ink`
-     under the pointer — so a dozen suppliers do not bring a dozen brand colours to
-     a screen made of paper. It also means one file serves both themes. ---- */
-  .src-mark {
-    display: inline-block;
-    width: 1em; height: 1em;
-    flex: none;
-    background-color: currentColor;
-    -webkit-mask-position: center; mask-position: center;
-    -webkit-mask-size: contain; mask-size: contain;
-    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
-  }
+  /* ---- a supplier's mark: THE MASK RULE THAT USED TO BE HERE IS GONE ------
+     It declared `background-color: currentColor` plus `mask-size`/`position`/
+     `repeat` for a mask IMAGE — one opaque shape per supplier, inked by the row.
+     That implementation is no longer the one: the marks are inline `<svg>`
+     components now (IconSrcGoogle and its five neighbours in ui.jsx), and this
+     rule outlived them.
+     WHAT IT DID INSTEAD WAS PAINT OVER THEM. No `mask-image` is set anywhere in
+     this stylesheet, so there was nothing to mask the background — the box filled
+     with a flat block of `currentColor` and the SVG drew underneath it. The
+     owner's report was "the provider icons are not visible at all", and it was
+     literally seven solid squares. The container rule further up the file, which
+     is `inline-flex` and sizes the child, is the live one and always was. ---- */
 
   /* THE TAG INKS ITSELF WHEN THE VALUE IS YOURS. A mark at --faint is quiet enough
      to read past and loud enough to find; the accent says "you decided this", which

@@ -629,6 +629,7 @@ common.colour.pick.empty.tip = Pick a colour
 # --- where a metadata row came from.
 common.source.detail.tip = {name} · {detail}
 common.source.aria = Source: {name}
+common.source.state.tip = {name} — {state}
 
 # The mark a proverb board wears in place of a face. {name} is the language.
 common.language-mark.aria = in {name}
@@ -5122,9 +5123,8 @@ settings.keys.unset.label = not set
 settings.keys.need.bundled.label = built in
 settings.keys.need.required.label = needed
 settings.keys.need.optional.label = optional
-settings.keys.need.closed.label = closed to new keys
+settings.keys.legend.label = the mark says
 settings.keys.saved.tip = Saved
-settings.keys.saved.aria = {name}: saved
 # {name} is a whole field name — "Google Books key" — and goes in unaltered.
 # These two replaced "Add a google books key", lower-cased in code.
 settings.keys.add.aria = Add the {name}

@@ -1419,6 +1419,22 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // frame is 716. That is a worse artefact than the tear it replaced, on the
     // same gesture.
     let landingTimer = 0;
+    // IS THE LANDING IN THE AIR ONE SOMETHING PUT THERE, or one the sheet is
+    // arriving on? Both animate an offset to zero on a timer, so neither
+    // `landingTimer` nor "is there an offset on the element" can tell them apart —
+    // and they need opposite treatment from `refit`. A sheet still ARRIVING must
+    // follow its content, because the content is what decides the height it is
+    // arriving at (see the sub-surface note on `refit`); a sheet that has just
+    // been PLACED by a release or by the arrow keys must not be re-settled
+    // underneath that landing.
+    //
+    // A FLAG, AND `settle`'s NOTE ARGUES AGAINST FLAGS — so this is the exception
+    // and it has to earn it. That argument is about "is a landing in flight",
+    // where the element itself answers. This is "which KIND", which nothing on the
+    // element records: entrance and landing leave the same offset, the same timer
+    // and the same non-zero `span`. It goes stale in exactly one place, and
+    // `handBack` is that place — the single end of every landing.
+    let placing = false;
     // WHICH LAYOUT OWNS THE NEXT FRAME.
     //
     // THREE FUNCTIONS QUEUE A DOUBLE-rAF THAT WRITES A TRANSFORM — the entrance,
@@ -1440,6 +1456,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     const handBack = () => {
       seq++;
       if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
+      placing = false;
       // NOT DURING A GESTURE. The landing's clock is 300ms long, and a second
       // drag begun inside that window found `handBack` firing underneath it:
       // `span` went to zero and the transform was cleared mid-drag, so every
@@ -1520,6 +1537,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
         el.style.transition = `transform ${SETTLE_MS}ms cubic-bezier(.22,.7,.2,1)`;
         el.style.transform = "translateY(0px)";
       }));
+      placing = true;
       landingTimer = setTimeout(handBack, SETTLE_MS + 80);
     };
 
@@ -1553,6 +1571,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
         el.style.transition = `transform ${ENTER_MS}ms cubic-bezier(.2,.85,.25,1)`;
         el.style.transform = "translateY(0px)";
       }));
+      placing = false;
       landingTimer = setTimeout(handBack, ENTER_MS + 80);
     };
 
@@ -1850,6 +1869,41 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // gesture it just invited.
     refit.current = () => {
       if (drag || !anchors.length) return;
+      // AND NOT WHILE A LANDING IS STILL IN THE AIR.
+      //
+      // THE OWNER'S REPORT: "the grab and drag is still flaky. it doesnt smoothly
+      // follow the up and down gestures... it flashes sometimes" — and the half
+      // that named the cause: "interestingly it doesnt happen in 1. details popups
+      // or 2. character/people picker popups. only in char (global/local) and
+      // people popups!"
+      //
+      // WHAT SEPARATES THOSE TWO GROUPS IS HOW OFTEN THEY RE-RENDER WHILE OPEN.
+      // A details panel and a picker have their content when they mount. A
+      // character or a people panel does not: people.jsx alone makes eight
+      // requests, and each answer is a render. This effect is wired to fire
+      // `refit` after EVERY render of the surface, deliberately (see the note on
+      // the dependency-less effect below), so those panels call it repeatedly —
+      // and for the 220ms after a release the sheet is mid-landing, its box
+      // already at the landing height with an offset being animated off. `refit`
+      // re-measured in that window and, when the natural anchor had moved,
+      // settled AGAIN: the landing restarted from a new base, over and over as
+      // the requests came back. That is the flash, and the finger appearing to be
+      // ignored is the same thing while the gesture's own settle is being
+      // overwritten.
+      //
+      // `settle` was hardened against exactly this and `refit` was not, which is
+      // why the note inside `settle` says a re-render "is guarded against a live
+      // DRAG and was not against a live landing" — it made settle survive being
+      // re-entered, without stopping the re-entry.
+      //
+      // NOT EVERY LANDING — ONLY A PLACEMENT. The first attempt at this guard read
+      // `offsetNow()`, on the reasoning that a measured fact beats a flag. It
+      // measured the wrong fact: an ENTRANCE carries an offset too, so the guard
+      // also blocked the content-following this function exists for, and
+      // sheet-from-the-bottom's "follows its content rather than keeping the
+      // height the last thing needed" caught it on a case with no drag in it at
+      // all. `placing` is the distinction that has no reading on the element.
+      if (placing) return;
       const was = anchors[0];
       const rank = anchors.indexOf(resting);
       measure();
@@ -9344,14 +9398,50 @@ export function FieldSourceTag({ source, at, note, onOpen, openLabel, disabled =
 // SourceIcon — the pill replacement, labelled the way InfoDot is: a tooltip for
 // a pointer and a real aria-label for assistive tech. `detail` appends the
 // supplier's id ("TMDB · #603") to the label without costing any row width.
-export function SourceIcon({ source, detail, side = "top" }) {
+// SRC_STATE_WORD — what a supplier's key is doing, as one word. LITERAL KEYS, for
+// the reason MetadataSources.jsx's NEED_LABEL spells out: locale-complete.test.js
+// reads the keys the code asks for statically, and one assembled at runtime reads
+// as a missing key AND leaves the four real ones looking like orphans.
+//
+// THEY ARE THE WORDS THE ROWS ALREADY USED. This state replaced a chip per row
+// reading "optional" / "needed" / "built in" and a badge reading "Saved"; reusing
+// those four strings rather than writing four more keeps one vocabulary for one
+// fact, which is what the repo means by a row saying a thing once.
+const SRC_STATE_WORD = {
+  saved: "settings.keys.saved.tip",
+  optional: "settings.keys.need.optional.label",
+  needed: "settings.keys.need.required.label",
+  builtin: "settings.keys.need.bundled.label",
+};
+
+export function SourceIcon({ source, detail, side = "top", state = null, stateOf = null }) {
   const meta = SOURCE_META[source];
   const Icon = meta ? meta.Icon : IconSrcUnknown;
   const name = meta ? t(meta.name) : source || t("vocab.source.unknown.label");
-  const label = detail ? t("common.source.detail.tip", { name, detail }) : name;
+  const base = detail ? t("common.source.detail.tip", { name, detail }) : name;
+  // THE COLOUR IS NEVER THE ONLY CARRIER. Green, amber, red and violet are four
+  // hues to a reader who can separate them and one hue to a reader who cannot, so
+  // the state is said in words in the tooltip and in the aria-label. The legend
+  // row beside these marks is the third telling, for a reader who can see the
+  // colours and has not yet learned what they mean.
+  //
+  // AND `stateOf` NAMES THE ROW, NOT THE SUPPLIER, WHICH IS NOT A NICETY. Two
+  // rows can share one supplier — TheTVDB has a key and a PIN, IGDB a client id
+  // and a secret — so a mark that announced only "TheTVDB — needed" would say the
+  // same words twice with two different states behind them, and a reader using
+  // the accessible name would have no way to tell which row was which. The
+  // supplier's name is already the tooltip when there is no state to report; when
+  // there is, the row's own label is the thing worth naming.
+  const label = state
+    ? t("common.source.state.tip", { name: stateOf || base, state: t(SRC_STATE_WORD[state]) })
+    : base;
   return (
     <Tooltip label={label} side={side}>
-      <span tabIndex={0} className="src-mark" aria-label={t("common.source.aria", { name: label })}>
+      <span
+        tabIndex={0}
+        className={"src-mark" + (state ? ` has-state is-src-${state}` : "")}
+        aria-label={t("common.source.aria", { name: label })}
+      >
         <Icon />
       </span>
     </Tooltip>

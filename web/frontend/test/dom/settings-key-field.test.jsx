@@ -50,7 +50,23 @@ const page = async () => {
   await screen.findByText('Metadata sources')
 }
 
-const badge = (label) => screen.queryByRole('img', { name: `${label}: saved` })
+// WHERE "IS THIS KEY STORED" LIVES NOW. It was a badge — a floppy disc with a
+// tick and an aria-label of "<field>: saved" — and it is the COLOUR of the
+// supplier's mark: green saved, purple using the built-in key, amber optional and
+// unset, red needed and unset. The owner's scheme, and the reason for it was
+// width: the badge and a status chip beside it left this row nothing at 390px and
+// the label came apart mid-word.
+//
+// SO THE ASSERTION FOLLOWS THE FACT AND NOT THE PIXELS. A class name would be a
+// tautology and a colour is not readable from jsdom, but the mark says its state
+// in words in its accessible name, because four hues are one hue to a reader who
+// cannot separate them — so the accessible name is both the honest thing to test
+// and the thing that would actually break a reader if it went.
+const markState = (label) => {
+  const el = screen.queryByLabelText(new RegExp(`^Source: ${label} — `, 'i'))
+  return el ? el.getAttribute('aria-label').replace(/^Source: .*? — /i, '') : null
+}
+const badge = (label) => (markState(label) === 'Saved' ? true : null)
 const editBtn = (label) => screen.getByRole('button', { name: new RegExp(`(Add|Replace) (a|the) ${label.toLowerCase()}`, 'i') })
 
 describe('a key row', () => {
@@ -58,9 +74,12 @@ describe('a key row', () => {
     KEYS = { tmdb_key_set: true, tvdb_key_set: false }
     await page()
     await waitFor(() => expect(badge('TMDB key')).not.toBeNull())
-    // The one that is not set has no badge — absence is the signal, and the
-    // edit button's own label already says "Add" rather than "Replace".
+    // AND THE ONE THAT IS NOT SET NOW SAYS SO, which is the half the badge could
+    // not do. Absence used to be the whole signal — no badge meant no key — and
+    // absence is the one state a reader cannot tell from "I have not looked
+    // there yet". The mark is red or amber instead, and says which.
     expect(badge('TheTVDB key')).toBeNull()
+    expect(markState('TheTVDB key')).toMatch(/needed|optional/i)
     // And nothing on the page pretends to show a secret.
     expect(screen.queryByText(/•/)).toBeNull()
   })
@@ -72,10 +91,11 @@ describe('a key row', () => {
     expect(screen.queryByPlaceholderText(/TMDB v3 key/)).toBeNull()
     fireEvent.click(editBtn('TMDB key'))
     expect(screen.getByPlaceholderText(/TMDB v3 key/)).toBeTruthy()
-    // While editing, the badge steps aside: the row is showing a save and a
-    // cancel, and a third glyph saying "the old one is still stored" beside them
-    // is a state that is about to stop being true.
-    expect(badge('TMDB key')).toBeNull()
+    // While editing, the row is showing a save and a cancel; the mark keeps its
+    // state, because unlike the badge it is not a third control competing with
+    // them — it is the same 24px it always was, and "the old one is still
+    // stored" is true right up until the save lands.
+    expect(markState('TMDB key')).toBe('Saved')
   })
 
   it('still saves what you type into it', async () => {

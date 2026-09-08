@@ -652,6 +652,7 @@ common.colour.pick.empty.tip = একটা রং বাছুন
 # --- where a metadata row came from.
 common.source.detail.tip = {name} · {detail}
 common.source.aria = সূত্র: {name}
+common.source.state.tip = {name} — {state}
 
 # The mark a proverb board wears in place of a face. {name} is the language.
 common.language-mark.aria = {name} ভাষায়
@@ -5124,9 +5125,8 @@ settings.keys.unset.label = দেওয়া নেই
 settings.keys.need.bundled.label = সঙ্গেই আছে
 settings.keys.need.required.label = লাগবে
 settings.keys.need.optional.label = ইচ্ছেমতো
-settings.keys.need.closed.label = নতুন চাবি মেলে না
+settings.keys.legend.label = চিহ্ন যা বলে
 settings.keys.saved.tip = সেভ আছে
-settings.keys.saved.aria = {name}: সেভ আছে
 # {name} is a whole field name — "Google Books key" — and goes in unaltered.
 # These two replaced "Add a google books key", lower-cased in code.
 settings.keys.add.aria = {name} দিন

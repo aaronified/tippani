@@ -55,10 +55,14 @@ import {
   MAX_CUSTOM_MARKS,
 } from './languages.jsx'
 
-// StatusChip and IconSaved came with the block: after the move Settings had no
-// other caller for either, and a component left behind in the file that stopped
-// using it is the shape of thing nobody deletes.
-// StatusChip — small mono pill; tone drives the palette (§2 chips).
+// StatusChip came with the block: after the move Settings had no other caller for
+// it, and a component left behind in the file that stopped using it is the shape
+// of thing nobody deletes. IconSaved came the same way and HAS now been deleted,
+// on that reasoning: the green mark says "stored" and a floppy disc beside it
+// said it twice.
+// StatusChip — small mono pill; tone drives the palette (§2 chips). Four callers
+// left, all of them the status row under the heading; the per-key rows draw their
+// state on the supplier's mark instead.
 function StatusChip({ tone = 'muted', children }) {
   const tones = {
     active: { color: 'var(--accent-ui)', bg: 'color-mix(in srgb, var(--accent) 15%, transparent)', bd: 'color-mix(in srgb, var(--accent) 45%, transparent)' },
@@ -90,41 +94,45 @@ function StatusChip({ tone = 'muted', children }) {
   )
 }
 
-// IconSaved — a floppy disk with a tick: this key is stored.
-//
-// A BADGE, NOT A BUTTON. It reports; there is nothing to press. So it is a span
-// with role="img" and a real label rather than a disabled button, which would be
-// a tab stop that does nothing and would announce itself as an action.
-//
-// The disk's outline stops short of its bottom-right corner and the tick sits in
-// the gap. Two closed shapes overlapping at 18px read as one smudge, and the
-// whole point of the glyph is to be legible at a glance in a row of controls.
-function IconSaved() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M13.2 19.5H6A1.5 1.5 0 0 1 4.5 18V6A1.5 1.5 0 0 1 6 4.5h8.3L19.5 9.7v2.9" />
-      <path d="M9 4.5v3.7h5.4V4.5" />
-      <path d="M13.9 17.9l2.1 2.1 4-4.6" />
-    </svg>
-  )
-}
 
-// NEED_TONE maps a row's consequence to the chip palette. `bundled` is 'active'
-// and not 'ok' on purpose: it is a live fact about what is answering right now,
-// the same tone the built-in chips beside the heading already use.
-const NEED_TONE = { bundled: 'active', required: 'error', optional: 'muted', closed: 'muted' }
+// NEED_TONE AND NEED_LABEL WERE HERE and went with the chip they painted. The
+// four consequence words survive — SRC_STATE_WORD in ui.jsx and KEY_STATES below
+// both name them, by literal key for the reason the deleted note gave: a key
+// assembled at runtime defeats locale-complete.test.js in both directions.
+//
+// `settings.keys.need.closed.label` went too, and it is the one real deletion.
+// NEED_LABEL was its only reader, no row has ever passed `need="closed"`, and it
+// is not one of the four colours — so keeping the string would have left an
+// orphan the locale test counts and nothing that could ever render it.
 
-// LITERAL KEYS IN A MAP, never t('prefix.' + x + '.label'). locale-complete.test.js
-// verifies statically that every key the code asks for exists and that every key
-// in en.txt is asked for, and a key assembled at runtime defeats both halves: the
-// scan reads the prefix as a missing key and the four real ones as orphans. Same
-// shape as SOURCE_KEYS in CoverPicker.jsx, for the same reason.
-const NEED_LABEL = {
-  bundled: 'settings.keys.need.bundled.label',
-  required: 'settings.keys.need.required.label',
-  optional: 'settings.keys.need.optional.label',
-  closed: 'settings.keys.need.closed.label',
-}
+// keyState — the owner's scheme: "green is saved, yellow is not saved but
+// optional, red is needed and not saved. purple is using the pre-built."
+//
+// SAVED WINS OVER BUILT-IN, and that ordering is the whole subtlety. A reader who
+// has given TMDB their own key is not "using the pre-built" any more, even though
+// the app still ships one — so the purple state is specifically "nothing of yours
+// here, and something of ours is answering", which is a fact about right now
+// rather than about the field.
+//
+// `closed` returns null deliberately. It is a fifth `need` (a supplier that has
+// stopped issuing keys), no row passes it today, and it is not one of the four
+// colours — a mark with no state draws in the row's own ink, which is the honest
+// answer for a field whose key state is not the interesting thing about it.
+const keyState = (saved, need) =>
+  saved ? 'saved'
+    : need === 'bundled' ? 'builtin'
+      : need === 'required' ? 'needed'
+        : need === 'optional' ? 'optional'
+          : null
+
+// The legend's four rows, in the order a reader meets them: the two that need
+// nothing from you, then the two that do. LITERAL KEYS, as above.
+const KEY_STATES = [
+  ['saved', 'settings.keys.saved.tip'],
+  ['builtin', 'settings.keys.need.bundled.label'],
+  ['optional', 'settings.keys.need.optional.label'],
+  ['needed', 'settings.keys.need.required.label'],
+]
 
 function KeyField({ label, hint, set, placeholder, secret = true, value = '', onSave, busy, need, source }) {
   const [editing, setEditing] = useState(false)
@@ -151,7 +159,7 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
             the owner's report was that the marks were missing from "the metadata
             fetch sections". They were missing from the place that names the
             fetchers. */}
-        {source ? <SourceIcon source={source} side="right" /> : null}
+        {source ? <SourceIcon source={source} side="right" state={keyState(saved, need)} stateOf={label} /> : null}
         <MonoLabel>{label}</MonoLabel>
         {/* WHAT FILLING THIS IN ACTUALLY BUYS, said before the reader goes and
             registers for anything.
@@ -165,25 +173,32 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
             before it is useful, and most of them are not obtainable in five
             minutes.
 
-            So each row says which it is, in one word, before the label's own
-            tooltip has to be opened. The wording is about CONSEQUENCE and not
-            about status — "built in" rather than "configured" — because the
-            question being answered is "must I do something about this". */}
-        {need && (
-          <StatusChip tone={NEED_TONE[need]}>{t(NEED_LABEL[need])}</StatusChip>
-        )}
+            So each row says which it is, before the label's own tooltip has to be
+            opened. The wording is about CONSEQUENCE and not about status — "built
+            in" rather than "configured" — because the question being answered is
+            "must I do something about this".
+
+            AND IT IS NO LONGER A WORD IN THE ROW; IT IS THE COLOUR OF THE MARK.
+            The owner's: "the optional tag is probably better indicated via an icon
+            or a border on the provider icon", then the scheme itself — green
+            saved, yellow optional and unsaved, red needed and unsaved, purple
+            using the pre-built. What forced it is width. This row is a flex line
+            holding a mark, a mono label, this chip, an info dot, the value, a
+            spacer and two buttons; at 390px there was no room left and the LABEL
+            gave way, breaking mid-word — "AMA / ZON / DOM / AIN", with
+            www.amazon.in coming down the screen two characters at a time. A fact
+            about the row moved onto the thing the row already draws, and the
+            words moved to the legend above, which says all four at once instead
+            of one per row seven times.
+
+            The saved badge went the same way and for the same reason: a floppy
+            disc with a tick, one more control saying one more word, when green
+            already says it. */}
         {hint && <InfoDot text={hint} title={label} />}
         {!secret && !editing && (
           <span className={'inline-field-inline' + (value ? '' : ' is-empty')}>{value || t('settings.keys.unset.label')}</span>
         )}
         <span className="flex-1" />
-        {saved && !editing && (
-          <Tooltip label={t('settings.keys.saved.tip')}>
-            <span className="field-badge" role="img" aria-label={t('settings.keys.saved.aria', { name: label })}>
-              <IconSaved />
-            </span>
-          </Tooltip>
-        )}
         {!editing ? (
           <FieldIconButton
             icon={<IconEdit />}
@@ -332,6 +347,22 @@ export function MetadataSources({ user, onPreferences }) {
       <SectionTitle info={t('settings.metadata.info.body')}>
         {t('settings.metadata.title')}
       </SectionTitle>
+
+      {/* WHAT THE COLOUR OF EACH SUPPLIER'S MARK MEANS.
+          The owner's, correcting where this was going to live: "not infodot, use a
+          row to explain the colours." A legend behind a tap is a legend nobody
+          opens, and the whole point of moving four words out of seven rows was to
+          say them once — hiding them would have said them zero times.
+          It reads as one line on a desk and wraps to two on a phone. */}
+      <div className="src-legend">
+        <MonoLabel>{t('settings.keys.legend.label')}</MonoLabel>
+        {KEY_STATES.map(([state, word]) => (
+          <span className="src-legend-item" key={state}>
+            <span className={`src-legend-dot is-src-${state}`} aria-hidden="true" />
+            <span>{t(word)}</span>
+          </span>
+        ))}
+      </div>
 
       {/* No per-source headings. 1.7.2 took away the feature descriptions that
           sat under them ("Books: Google Books + Open Library"), which left three
