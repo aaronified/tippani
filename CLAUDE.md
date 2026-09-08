@@ -27,6 +27,17 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   session's prompts verbatim and never the target; act on its findings before reporting,
   and report the score as given.
 
+- **DO NOT EDIT CODE FILES WHILE A RATER IS RUNNING.** The owner's, standing: "do not edit
+  code files when the rater is running. keep this in memory." A rater reads the tree it was
+  pointed at and re-runs its suites there, so an edit mid-pass means it is rating a commit
+  that no longer exists — its line numbers drift, its mutations land on code that moved, and
+  a finding it reports cannot be checked against what it saw. Editing DOCUMENTS is the same
+  hazard for the same reason: a rater's central job here is checking prose against the line
+  it cites. So a pass owns the tree until it reports. Start the pass and wait, or do the
+  reading, planning and question-asking that needs no edit; a worktree-isolated rater still
+  gets its own checkout, and that is not a licence to work in the main tree beside it,
+  because the isolation protects the RATER's copy and not the coherence of what it says.
+
 ## The design pack
 
 `docs/design/` holds the prototypes and handoff documents this app is being built to —

@@ -15,9 +15,14 @@ import { describe, expect, it } from 'vitest'
 import { QUOTE_KINDS, quoteKindLabel, quoteKindMeta, quoteKindOptions } from '../../src/quoteKind.js'
 import { t } from '../../src/i18n.js'
 
-describe('the five kinds', () => {
-  it('are the five, in the order the form offers them', () => {
-    expect(QUOTE_KINDS).toEqual(['speech', 'letter', 'essay', 'proverb', 'other'])
+describe('the six kinds', () => {
+  // THE LIST IS WRITTEN OUT, and it is meant to be edited when a kind is added —
+  // which is the point, because adding one is a MIGRATION (the CHECK is on
+  // utterances.kind) and this line failing is the reminder that the column has to
+  // learn the word too. `poem` arrived in 0067 and broke exactly this assertion
+  // first, which is the guard working.
+  it('are the six, in the order the form offers them', () => {
+    expect(QUOTE_KINDS).toEqual(['speech', 'letter', 'essay', 'poem', 'proverb', 'other'])
   })
 
   it('each has a word in the interface language', () => {

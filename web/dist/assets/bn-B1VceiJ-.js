@@ -2978,6 +2978,7 @@ vocab.quote-kind.unset.label = (দেওয়া নেই)
 vocab.quote-kind.speech.label = ভাষণ
 vocab.quote-kind.letter.label = চিঠি
 vocab.quote-kind.essay.label = প্রবন্ধ
+vocab.quote-kind.poem.label = কবিতা
 vocab.quote-kind.proverb.label = প্রবাদ
 vocab.quote-kind.other.label = অন্যান্য
 vocab.kind.show.label = শো

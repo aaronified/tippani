@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **A quote can be a poem.** The sixth kind, beside speech, letter, essay, proverb and
+  other. A poem's line breaks are its text, and they are kept exactly as you typed them —
+  as is a translation's, which until now lost them.
+
 - **The quiz has three difficulties now, and Random.** *Medium* moves none of them, and it is
   what you are on unless you say otherwise. *Easy* offers two choices instead of four, keeps the
   wrong ones far apart rather than close, and does not ask you to type or to mark yourself — it

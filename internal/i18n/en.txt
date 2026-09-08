@@ -2944,6 +2944,7 @@ vocab.quote-kind.unset.label = (not set)
 vocab.quote-kind.speech.label = Speech
 vocab.quote-kind.letter.label = Letter
 vocab.quote-kind.essay.label = Essay
+vocab.quote-kind.poem.label = Poem
 vocab.quote-kind.proverb.label = Proverb
 vocab.quote-kind.other.label = Other
 vocab.kind.show.label = Show

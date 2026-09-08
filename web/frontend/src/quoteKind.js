@@ -20,10 +20,11 @@
 
 import { t } from './i18n.js'
 
-// The five, in the order the form offers them: the three commonest first, then
-// proverb, then the residual. Machine values on the wire, always — the words are
-// this module's business and the server never sends prose.
-export const QUOTE_KINDS = ['speech', 'letter', 'essay', 'proverb', 'other']
+// The six, in the order the form offers them: the three commonest first, then the
+// poem and the proverb — the two whose line breaks and language matter more than
+// their occasion — then the residual. Machine values on the wire, always: the words
+// are this module's business and the server never sends prose.
+export const QUOTE_KINDS = ['speech', 'letter', 'essay', 'poem', 'proverb', 'other']
 
 // quoteKindOptions is [value, label] pairs for a Select, with the unset answer at
 // the top. A getter is not needed here because every caller calls the function at

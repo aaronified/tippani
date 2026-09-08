@@ -45,8 +45,9 @@ import (
 // is the cost of a fixed vocabulary, and it is worth paying: `medium` was free text
 // and the Quotes board groups on it, so grouping produced one shelf per spelling
 // and nothing could tell you that "Speech" and "speech" were the same kind of
-// thing.
-var quoteKinds = []string{"", "speech", "letter", "essay", "proverb", "other"}
+// thing. `poem` cost 0067, and that migration is where the cheap way of paying it
+// is written down — a parked column and a rename rather than 0029's table rebuild.
+var quoteKinds = []string{"", "speech", "letter", "essay", "poem", "proverb", "other"}
 
 func validQuoteKind(k string) bool {
 	for _, v := range quoteKinds {
