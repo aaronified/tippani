@@ -8604,6 +8604,71 @@ export function FieldIconButton({
 
 const iconStroke = { width: ICON_SIZE, height: ICON_SIZE, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.85, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" }
 
+// Slider — a stepped range that commits when the reader lets go.
+//
+// IT LIVED IN Settings.jsx AND NOW LIVES HERE, because the Metadata screen's
+// per-language text-order rows are the same control: a handful of ordered stops,
+// one readout, and a write on release rather than on every pixel of the drag.
+//
+// COMMIT ON RELEASE, NOT ON CHANGE, which is the whole reason it is a component
+// rather than a bare input. A `range` fires `change` for every step the thumb
+// passes, so writing through on change means a PUT per step and a preference that
+// briefly held four values on the way to the one the reader wanted.
+//
+// `readout` OVERRIDES THE NUMBER. The original always showed its value, formatted
+// through a locale key taking `{n}` — right for "175%" and "21 days", wrong for a
+// stop whose meaning is a word. Given a readout, that is what is drawn; without
+// one, the number formats exactly as it always did.
+export function Slider({ label, hideLabel = false, min, max, step, value, format = "", decimals = 0, readout = null, onCommit }) {
+  const [v, setV] = useState(value);
+  useEffect(() => setV(value), [value]);
+  const num = decimals ? v.toFixed(decimals) : String(v);
+  const show = readout != null ? readout : format ? t(format, { n: num, count: v }) : num;
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between">
+        {hideLabel ? <span /> : <MonoLabel>{label}</MonoLabel>}
+        <span style={{ fontFamily: "var(--font-mono)", fontWeight: "var(--font-mono-weight)", fontStyle: "var(--font-mono-style)", fontVariantCaps: "var(--font-mono-caps)", textTransform: "var(--font-mono-case)", fontVariantNumeric: "var(--font-mono-figures)", fontSize: "var(--type-mono-12)", color: "var(--faint)" }}>{show}</span>
+      </div>
+      <input
+        type="range" min={min} max={max} step={step} value={v} aria-label={label}
+        onChange={(e) => setV(Number(e.target.value))}
+        onPointerUp={() => onCommit(Number(Number(v).toFixed(2)))}
+        onKeyUp={() => onCommit(Number(Number(v).toFixed(2)))}
+        style={{ width: "100%", accentColor: "var(--accent-ui)", cursor: "pointer" }}
+      />
+    </div>
+  );
+}
+
+// A GLOSSARY ENTRY, because moving this into ui.jsx made it a documented surface.
+// The registry ratchet counts exported components with no entry and refuses to let
+// that number rise — which is the right instrument here: the alternative fix was
+// raising the ceiling by one, and a ceiling that rises whenever it is inconvenient
+// stops being a ratchet.
+//
+// THE DEMO IS STATIC and states its own value, because the glossary renders
+// components outside any screen: the stops it draws are the text-order states the
+// Metadata table uses, so the entry shows the control in the role that motivated
+// moving it rather than as an unlabelled range.
+if (import.meta.env.DEV) {
+  Slider.glossary = {
+    demo: (h) =>
+      h("div", { style: { width: 260 } }, [
+        h(Slider, {
+          key: "s",
+          label: "How much of the original",
+          min: 0,
+          max: 3,
+          step: 1,
+          value: 2,
+          readout: "quotation above translation",
+          onCommit: () => {},
+        }),
+      ]),
+  };
+}
+
 // ---- iconFill: the four reasons a glyph may be solid ------------------------
 //
 // THE APP IS WIREFRAME AND STAYS WIREFRAME. `iconStroke` above is the rule; this is the

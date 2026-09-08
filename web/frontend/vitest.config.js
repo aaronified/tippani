@@ -70,6 +70,20 @@ export default defineConfig({
           environment: 'node',
           include: ['test/pure/**/*.test.{js,jsx}'],
           setupFiles: ['./test/setup-pure.js'],
+          // THE SAME 20s THE dom PROJECT ALREADY HAS, and for a reason the note
+          // beside that one nearly describes: several cases here PARSE THE WHOLE
+          // SOURCE TREE — one-stand-in walks every file with a real parser, and
+          // no-free-names and the call-site guards read files too. Their cost is
+          // a function of how big the app is, so they creep towards the default
+          // 5s as the tree grows and then cross it, three files at a time, on a
+          // change that has nothing to do with them. Two of them went red at
+          // 6.8s and 5.1s having asserted exactly what they always asserted.
+          //
+          // NOT SLACK FOR SLOW TESTS TO HIDE IN, which is the argument the dom
+          // block makes and it holds here: a genuine hang still fails, twenty
+          // seconds later. What this buys is that "this code is wrong" and "this
+          // tree got bigger" stop looking the same.
+          testTimeout: 20000,
         },
       },
       {

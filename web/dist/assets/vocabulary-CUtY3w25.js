@@ -1,0 +1,1 @@
+import{j as l,d3 as s,d4 as n}from"./index-hRGdQmba.js";let a=null,e=null;s(()=>{a=null,e=null});function c(){return a}function u(){if(a)return Promise.resolve(a);if(!e){const o=n();e=l("GET","/search/vocabulary").then(r=>o!==n()?{}:(e=null,r.ok&&r.data&&(a=r.data),a||{}))}return e}export{c,u as p};

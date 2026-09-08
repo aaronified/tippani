@@ -428,6 +428,13 @@ type prefs struct {
 	// card puts in the big type — and see read_languages.go for why that is the
 	// whole of its scope and why an empty list means "every language as written".
 	ReadLanguages string `json:"readLanguages"`
+	// TextOrder: how much of the original a card shows, per language, plus the
+	// master above the column. A JSON object stored as a string, because prefs is
+	// a flat comparable struct. It SUPERSEDES ReadLanguages — the owner's ruling,
+	// since the four states say what the declaration said and two things it could
+	// not — and the client migrates an account that still has one. See
+	// text_order.go for the four states and why their order is an axis.
+	TextOrder string `json:"textOrder"`
 	// TrashDays: how long a deleted thing waits in the bin before the purge takes
 	// it. One of 7, 30, 90, or -1 for "never expire" — never is -1 and not 0
 	// because an absent field unmarshals to 0, and "nobody has set this" must not
@@ -812,6 +819,13 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 		// every card in the library.
 		p.ReadLanguages = ""
 	}
+	// And the same direction of failure, for the same reason: a blob this cannot
+	// read reads as no settings at all, which is every quote as written.
+	if norm, ok := normalizeTextOrder(p.TextOrder); ok {
+		p.TextOrder = norm
+	} else {
+		p.TextOrder = ""
+	}
 	if norm, ok := normalizeLanguageMarks(p.LanguageMarks); ok {
 		p.LanguageMarks = norm
 	} else {
@@ -873,6 +887,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		Locale              *string  `json:"locale"`
 		LanguageMarks       *string  `json:"languageMarks"`
 		ReadLanguages       *string  `json:"readLanguages"`
+		TextOrder           *string  `json:"textOrder"`
 		FontDisplay         *string  `json:"fontDisplay"`
 		FontUI              *string  `json:"fontUi"`
 		FontMono            *string  `json:"fontMono"`
@@ -1050,6 +1065,19 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		cur.ReadLanguages = norm
+	}
+	// An EMPTY object is "put everything back to the default", which is a real
+	// request: it is what the master slider at quote-first with no custom rows
+	// means, and normalizeTextOrder returns "" for it rather than storing a blob
+	// that says nothing.
+	if in.TextOrder != nil {
+		norm, ok := normalizeTextOrder(*in.TextOrder)
+		if !ok {
+			writeErr(w, http.StatusBadRequest,
+				"textOrder must be a JSON object of "+strings.Join(textOrders, " / ")+" states")
+			return
+		}
+		cur.TextOrder = norm
 	}
 	// Category slots. Set before the validation switch so a bad value is caught
 	// there rather than normalised into something the caller did not ask for.

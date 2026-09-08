@@ -1,1 +1,0 @@
-import{j as l,d2 as s,d3 as n}from"./index-CcmOEvE0.js";let a=null,e=null;s(()=>{a=null,e=null});function c(){return a}function u(){if(a)return Promise.resolve(a);if(!e){const o=n();e=l("GET","/search/vocabulary").then(r=>o!==n()?{}:(e=null,r.ok&&r.data&&(a=r.data),a||{}))}return e}export{c,u as p};

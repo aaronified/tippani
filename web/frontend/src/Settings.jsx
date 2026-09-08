@@ -25,27 +25,30 @@ import { createPortal } from 'react-dom'
 import { t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
+  backdropClose,
   Card,
   ChipSwitches,
   CloseButton,
   ErrorText,
   FieldIconButton,
-  FormModal,
   formatPartialDate,
-  IconChevron,
+  FormModal,
   frameCode,
   GhostButton,
   IconArchive,
+  IconArrow,
   IconBookmark,
   IconCheck,
+  IconChevron,
   IconClose,
   IconCopy,
   IconDelete,
   IconDevice,
+  IconExport,
   IconEye,
   IconEyeOff,
-  IconExport,
   IconKey,
+  IconOpen,
   IconQuiz,
   IconRefresh,
   IconRestore,
@@ -54,27 +57,25 @@ import {
   IconType,
   IconUpload,
   InfoDot,
+  isPartialDate,
   MobileSheet,
   MonoLabel,
   PageHeader,
+  SCRIM_CENTERED,
+  SectionTitle,
   Select,
+  Slider,
   StickerButton,
   toast,
   Toggle,
   Tooltip,
+  useBackToClose,
+  useBodyScrollLock,
   useConfirm,
   useCoverSize,
   useFrameBase,
   useIsMobileScreen,
-  useBodyScrollLock,
   useScreenBar,
-  SectionTitle,
-  useBackToClose,
-  SCRIM_CENTERED,
-  backdropClose,
-  IconArrow,
-  IconOpen,
-  isPartialDate,
 } from './ui.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
@@ -287,27 +288,11 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
 // number. So the whole readout is one string: `{n} days`, `{n}×`, whatever the
 // language puts where. `count` rides along so a language with a singular form gets
 // it (`{n} day` at 1).
-function Slider({ label, hideLabel = false, min, max, step, value, format = '', decimals = 0, onCommit }) {
-  const [v, setV] = useState(value)
-  useEffect(() => setV(value), [value])
-  const num = decimals ? v.toFixed(decimals) : String(v)
-  const show = format ? t(format, { n: num, count: v }) : num
-  return (
-    <div>
-      <div className="mb-1.5 flex items-baseline justify-between">
-        {hideLabel ? <span /> : <MonoLabel>{label}</MonoLabel>}
-        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-12)', color: 'var(--faint)' }}>{show}</span>
-      </div>
-      <input
-        type="range" min={min} max={max} step={step} value={v} aria-label={label}
-        onChange={(e) => setV(Number(e.target.value))}
-        onPointerUp={() => onCommit(Number(Number(v).toFixed(2)))}
-        onKeyUp={() => onCommit(Number(Number(v).toFixed(2)))}
-        style={{ width: '100%', accentColor: 'var(--accent-ui)', cursor: 'pointer' }}
-      />
-    </div>
-  )
-}
+// Slider MOVED TO ui.jsx. The Metadata screen's per-language rows need the same
+// control — a stepped range that commits on release — and the repo's directive is
+// that a control drawn on two screens lives in one function both call, not in a
+// line each. It gained one option there (`readout`), because these stops are named
+// states rather than numbers.
 
 // ---- colour categories --------------------------------------------------
 
