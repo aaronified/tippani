@@ -5239,6 +5239,7 @@ common.field.author.label = লেখক
 common.field.translator.label = অনুবাদক
 common.field.editor.label = সম্পাদক
 common.field.year.label = সাল
+common.field.year.circa.label = সালটা আন্দাজ
 common.field.pages.label = পৃষ্ঠা
 common.field.series.label = সিরিজ
 common.field.series-no.label = সিরিজে নম্বর

@@ -49,7 +49,6 @@ import {
   ExpandableText,
   Field,
   FilterChip,
-  formatYear,
   FormModal,
   GhostButton,
   HandCard,
@@ -64,6 +63,8 @@ import {
   MonoLabel,
   mulberry32,
   parseYearInput,
+  YearField,
+  yearInputValue,
   PickMark,
   QuizSkipMark,
   QuoteActions,
@@ -613,7 +614,12 @@ export function ManualTab({ onAdded, formId, title, setTitle, onBusy }) {
       <Field label={t('common.field.title.label')} nameCase value={title} autoFocus onChange={(e) => setTitle(e.target.value)} />
       <Field label={t('common.field.author.label')} nameCase value={author} onChange={(e) => setAuthor(e.target.value)} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t('common.field.year.label')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+        <YearField
+          label={t('common.field.year.label')}
+          value={year}
+          onChange={setYear}
+          circaLabel={t('common.field.year.circa.label')}
+        />
         <Field label={t('common.field.isbn.label')} value={isbn} onChange={(e) => setIsbn(e.target.value)} />
       </div>
       <ErrorText>{error}</ErrorText>
@@ -695,7 +701,7 @@ export function EditBook({ book, onSaved, onCancel }) {
   const [editor, setEditor] = useState(book.editor || '')
   const [isbn, setIsbn] = useState(book.isbn || '')
   const [asin, setAsin] = useState(book.asin || '')
-  const [year, setYear] = useState(formatYear(book.published_year, book.published_circa))
+  const [year, setYear] = useState(yearInputValue(book.published_year, book.published_circa))
   const [genres, setGenres] = useState(book.genres || [])
   const [genreSuggestions, setGenreSuggestions] = useState([])
   useEffect(() => {
@@ -836,7 +842,12 @@ export function EditBook({ book, onSaved, onCancel }) {
         <Field label={t('common.field.editor.label')} nameCase placeholder={t('book.form.editor.placeholder')} value={editor} onChange={(e) => setEditor(e.target.value)} />
         <Field label={t('common.field.isbn.label')} value={isbn} onChange={(e) => setIsbn(e.target.value)} />
         <Field label={t('common.field.asin.label')} value={asin} onChange={(e) => setAsin(e.target.value)} />
-        <Field label={t('common.field.year.label')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+        <YearField
+          label={t('common.field.year.label')}
+          value={year}
+          onChange={setYear}
+          circaLabel={t('common.field.year.circa.label')}
+        />
       </div>
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.genres.label')}</MonoLabel>

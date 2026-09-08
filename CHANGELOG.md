@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A year can be approximate, or BCE, and typing it works.** Every year box — a book's, a
+  film's, on both the add and the edit form — now takes the phrase you would actually write:
+  `c. 1500`, `380 BCE`, `c. 380 BCE`. It also carries a tick beside it saying the year is
+  approximate, which lights up when you type the marker and can be pressed instead.
+  **This was losing data.** The boxes accepted digits only, so the app documented that it
+  understood "c. 1500" while making it impossible to type — and a book already recorded as
+  approximate opened with `c. 1500` in the box, where a single keystroke deleted the `c.` and
+  the next save wrote the estimate away. Silently, with the year still looking right. Anything
+  the box cannot read now takes a red edge instead of quietly saving as no year at all.
+
+- **"c. 1890" in a date box now means what you meant.** The approximate-date tick has moved
+  onto the date field it qualifies, on both the quote form and the capture card, instead of
+  sitting further down where it described nothing in particular. And typing the marker works:
+  `c.`, `ca`, `circa` or `~` in front of a date ticks the box for you and keeps the date.
+  Until now the box accepted only digits, so the `c.` was silently deleted — the date landed,
+  looked right, and nothing recorded that you had said it was approximate.
+
+- **A picture that is slow to arrive says so.** Covers, posters and the portrait on a
+  person's own page draw a soft sweep over their box while the image is still coming, so a
+  gap on a slow connection reads as *loading* rather than as *missing*. It waits a moment
+  before appearing — a picture that arrives promptly is never described as slow, which is
+  what stops a whole shelf flickering on a fast connection — and once it appears it stays
+  long enough to be read rather than blinking out. An empty box still shows the placeholder
+  it always did: the mark means "there is a picture and it is late", never "there is none".
+  If you have asked your system for less motion, the sweep is a still tint instead.
+
 - **Pressing a character opens straight away.** It used to ask the server how many works
   that character appears in — which decides whether the "across both works" row is offered —
   and drew nothing at all until the answer came back. On a choppy connection that was the

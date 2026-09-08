@@ -127,6 +127,7 @@ export function characterPanel(stack, { id, name, work = null, onSearch = null, 
 // So the contract is stated rather than assumed: a row on THIS surface navigates,
 // and a row that merely acts belongs in `ChoosePicker`, where the removal lists
 // already are.
+//
 // A ROW MAY ARRIVE AFTER THE PANEL DOES. `spec.more` is a promise of extra rows
 // and `spec.order` the key order they merge into; a spec carrying neither draws
 // exactly as this always did. It exists because one of the character door's rows

@@ -175,14 +175,29 @@ The general lesson for the boundary sentence above: *"the reader's own data from
 server"* is not sufficient. It has to be **a read that is only a read**, and this codebase
 has at least one GET that is not.
 
-**3. The image loader.** Needs no ruling. Reserve the box first (an unreserved loader causes
+**3. The image loader.** **BUILT.** Needs no ruling. Reserve the box first (an unreserved loader causes
 the layout shift it was meant to soften — and it is the same box question as the owner's
 earlier "how do we tackle images that are not 2:3"), delay ~150 ms before showing, hold ~300 ms
 once shown so it cannot strobe on a fast local network, and degrade to a static mark with
 motion off.
 
-**4. The page loader**, last, because (4) above says the plumbing is the work and the loader
-is the garnish. "Back cancels the opening, not the fetch" is the right instinct and cheap:
+**AND FOUR THINGS THIS STEP ASSUMED THAT ARE NOT SO.** (a) The box is ALREADY reserved
+nearly everywhere — a width plus an `aspect-ratio` fully determines a box, and the face
+classes carry a width and a height. (b) There is no loading mark to reuse: `.ph` stands in
+for ABSENT artwork and says so in words, and `Sprockets` is the film skin's sprocket holes.
+(c) "Degrade to a static mark with motion off" needs no code — the global
+`prefers-reduced-motion` rule kills every animation with `!important`, so an animated
+gradient freezes into a still tint by itself. (d) The step does not mention `loading`, and
+it decides everything: `Cover` sets no attribute so every cover is eager and a mark is
+honest, while `Face` is lazy by default and a mark on an unrequested off-screen picture
+describes a wait nobody is having.
+
+**4. The page loader** — and the loader half ALREADY EXISTS. Both identity panels draw
+`common.state.loading` while their record is in flight (`identity.jsx`), and fifteen other
+surfaces use the same string. So what remains here is not a loader: it is the CACHE that
+"back cancels the opening, not the fetch" requires, because without one a fetch left to
+settle settles into nothing. Last, because the plumbing is the work and the loader is the
+garnish. "Back cancels the opening, not the fetch" is the right instinct and cheap:
 don't abort, let it settle into the cache. It needs a bound so a hung socket cannot leak
 (`api.js`'s `timeoutMs` exists for exactly that case), a cap on concurrent fills, and
 invalidation on write — which is the riskiest part of the whole request, because the panel

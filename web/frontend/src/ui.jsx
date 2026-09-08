@@ -18,6 +18,7 @@ import { t, tNodes } from "./i18n.js";
 import { anchorsFor, clampDrag, landing } from "./sheetAnchors.js";
 import { PROVIDER_MARKS } from "./providerMarks.js";
 import { Silhouette } from "./silhouette.jsx";
+import { useSlowArrival } from "./imageWait.js";
 
 // ErrorBoundary — a render error anywhere below unmounts only to this fallback
 // instead of white-screening the whole app (there was no boundary before, so
@@ -2515,6 +2516,26 @@ function DatePicker({ value, onPick, onClose, granularity = "day" }) {
 // value / onChange speak the stored string. `granularity` caps the picker (see
 // DatePicker); 'year' turns it into a year chooser, which is what a person's
 // birth year wants.
+// `circa`/`onCirca`/`circaLabel` — THE FLAG THAT QUALIFIES THIS FIELD, drawn as
+// part of it.
+//
+// IT USED TO SIT ELSEWHERE ON THE FORM and the comment beside it defended that:
+// "it sits here rather than beside the date because it is the only one of the
+// five that qualifies another field". The owner overruled it — a flag about a
+// field belongs with the field — and the defence had the argument backwards:
+// being the only control that qualifies another field is the reason to put it
+// NEXT to the field it qualifies, not away from it.
+//
+// AND THE READER'S OWN GESTURE WAS BEING SWALLOWED. The input below accepts
+// digits and a separator and silently drops everything else, so a reader typing
+// the ordinary thing — `c. 1890` — watched the `c.` vanish, saw 1890 land, and
+// had no way to know a checkbox somewhere else on the form was what they had
+// meant. So it is parsed: a leading circa marker ticks the flag instead of being
+// deleted. The owner's ruling in three words, "parse it and tick the button".
+//
+// OPTIONAL, and the three callers that pass none of it draw exactly what they
+// drew before — a person's birth and death dates and a work's date have nothing
+// to be approximate about in this schema.
 export function PartialDateField({
   label,
   value,
@@ -2523,6 +2544,9 @@ export function PartialDateField({
   placeholder,
   hint,
   className = "",
+  circa,
+  onCirca,
+  circaLabel,
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -2545,7 +2569,16 @@ export function PartialDateField({
           aria-invalid={bad || undefined}
           // Only digits and the separator can be typed: it keeps the value in the
           // stored shape without needing to reject whole words on save.
-          onChange={(e) => onChange(e.target.value.replace(/[^\d-]/g, "").slice(0, 10))}
+          onChange={(e) => {
+            const raw = e.target.value;
+            // THE MARKER IS READ BEFORE THE STRIP, because the strip is what was
+            // eating it. Deliberately NOT a bare `c`: the reader is typing into a
+            // numeric box and a stray letter is a slip, so a period or a space is
+            // required to make it an instruction. `~` because a reader who reaches
+            // for a symbol reaches for that one.
+            if (onCirca && /^\s*(?:c\.|ca\.?\s|circa\s|~)\s*/i.test(raw)) onCirca(true);
+            onChange(raw.replace(/[^\d-]/g, "").slice(0, 10));
+          }}
           style={bad ? { borderColor: "var(--error)" } : undefined}
         />
         <Tooltip label={t("common.date.pick.tip")} className="shrink-0">
@@ -2572,8 +2605,156 @@ export function PartialDateField({
           {bad ? t("error.validate.partial-date") : hint}
         </span>
       )}
+      {/* A SPAN AND NOT A NESTED `label`, which is what a checkbox with words
+          beside it wants to be — and cannot be here, because this whole field is
+          already a `label` and nesting one inside another gives the inner control
+          two things claiming to caption it. Clicking the words still ticks the box:
+          they are inside the outer label, whose control is the date input, so the
+          box carries its own accessible name instead. */}
+      {onCirca && (
+        <span className="mt-2 flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={!!circa}
+            aria-label={circaLabel}
+            onChange={(e) => onCirca(e.target.checked)}
+          />
+          <span className="microcopy">{circaLabel}</span>
+        </span>
+      )}
     </label>
   );
+}
+
+// yearInputValue — the year as a phrase a reader can EDIT, and one `parseYearInput`
+// can read back.
+//
+// NOT `formatYear`, WHICH IS FOR DISPLAY AND WAS BEING USED FOR BOTH. That one
+// resolves four locale keys — "c. {year}", "{year} BCE" and the two plain ones —
+// so in Bengali it returns a Bengali prefix, and `parseYearInput` matches
+// `/^(?:circa|ca|c)\.?/i` and cannot read it. Seeding an input from it therefore
+// round-tripped correctly in English and silently dropped the estimate in every
+// other language: the box showed the reader's own words, the parser saw no marker,
+// and the flag was cleared on save.
+//
+// So the EDITABLE form is canonical and the DISPLAYED form is translated, which is
+// the ordinary split between what a machine reads and what a person reads.
+export function yearInputValue(year, circa = false) {
+  const y = Number(year);
+  if (!y) return "";
+  return (circa ? "c. " : "") + Math.abs(y) + (y < 0 ? " BCE" : "");
+}
+
+// YearField — a year, its estimate flag, and the phrase that carries both.
+//
+// IT DOES NOT STRIP, and that is the fix. Every one of the four year boxes ran
+// `value.replace(/\D/g, '').slice(0, 4)`, so `parseYearInput`'s documented ability
+// to read "380 BCE" and "c. 1500" — the comment above two of those call sites says
+// exactly that — was unreachable from all of them: the characters could not survive
+// being typed. Two consequences, and the second is data loss. A reader could not
+// enter an estimate or a BCE year at all; and opening a book that HAD one seeded
+// the box with "c. 1500", so the first keystroke anywhere in that box deleted the
+// "c. " and the next save cleared the flag.
+//
+// THE FLAG IS DERIVED, NOT STORED BESIDE THE STRING. One state, one source of
+// truth: the checkbox reads `parseYearInput(value).circa` and toggling it rewrites
+// the prefix. A second piece of state would be a second answer to "is this
+// approximate", and the two would disagree the first time either was set alone.
+//
+// AND THE OWNER OVERRULED A RECORDED DECISION TO GET IT, which is worth naming
+// here rather than leaving for someone to rediscover. WorkDetails' inline year
+// editor argues the other way — "'c. 380 BCE' is how the year of an ancient text is
+// actually written, and splitting that across two controls asks the reader to
+// disassemble a phrase they already know" — and that reasoning is sound, which is
+// why the phrase still works and the box still accepts it. The checkbox is an
+// ADDITION to it, for the reader who does not know the phrase is allowed.
+export function YearField({
+  label,
+  value,
+  onChange,
+  circaLabel,
+  placeholder,
+  className = "",
+  maxLength = 24,
+}) {
+  const parsed = parseYearInput(value);
+  const typed = String(value ?? "").trim();
+  // UNPARSEABLE IS SHOWN, because it is newly possible. While the box stripped to
+  // digits nothing invalid could be typed; now that it accepts a phrase, "sometime
+  // in the 90s" is enterable and saves as no year at all. A border and
+  // `aria-invalid` rather than a message: it needs no new string to say what the
+  // red edge already says next to a field the reader is looking at.
+  const bad = !!typed && !parsed.year;
+  const setCirca = (on) => {
+    const rest = String(value ?? "").replace(/^\s*(?:circa|ca|c)\.?\s*/i, "").trim();
+    onChange(on && rest ? "c. " + rest : rest);
+  };
+  const input = (
+    <input
+      className="tp-input"
+      value={value || ""}
+      placeholder={placeholder}
+      maxLength={maxLength}
+      aria-invalid={bad || undefined}
+      aria-label={label ? undefined : placeholder}
+      onChange={(e) => onChange(e.target.value.slice(0, maxLength))}
+      style={bad ? { borderColor: "var(--error)" } : undefined}
+    />
+  );
+  const flag = (
+    <span className="mt-2 flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={parsed.circa}
+        aria-label={circaLabel}
+        // A YEAR IS REQUIRED FOR AN ESTIMATE TO MEAN ANYTHING. Ticking an empty box
+        // would write "c. " and read back as no year, so the flag would appear to
+        // untick itself on the next render.
+        disabled={!parsed.year}
+        onChange={(e) => setCirca(e.target.checked)}
+      />
+      <span className="microcopy">{circaLabel}</span>
+    </span>
+  );
+  // LABELLED OR NOT, because the two screens differ: a book form gives every field
+  // a label, a film form gives them placeholders in a flat column. The wrapper is
+  // a `label` only where there is something to caption with.
+  if (!label) {
+    return (
+      <span className={"block " + className}>
+        {input}
+        {flag}
+      </span>
+    );
+  }
+  return (
+    <label className={"tp-field " + className}>
+      <MonoLabel>{label}</MonoLabel>
+      {input}
+      {flag}
+    </label>
+  );
+}
+
+if (import.meta.env.DEV) {
+  YearField.glossary = {
+    demo: (h) => h(YearField, {
+      label: t("common.field.year.label"),
+      value: "c. 380 BCE",
+      onChange: () => {},
+      circaLabel: t("common.field.year.circa.label"),
+    }),
+  };
+  PartialDateField.glossary = {
+    demo: (h) => h(PartialDateField, {
+      label: t("quotes.form.when.label"),
+      value: "1890-04",
+      onChange: () => {},
+      circa: true,
+      onCirca: () => {},
+      circaLabel: t("quotes.form.circa.label"),
+    }),
+  };
 }
 
 // MultiSelect — a dropdown you can tick more than one row in, wearing the same
@@ -7833,6 +8014,13 @@ if (import.meta.env.DEV) {
 // in an app that ships Bengali. One artwork component, one placeholder word.
 export function Cover({ path, title, large = false, hero = false, zoomable = false, badge = 'common.badge.cover' }) {
   const [zoom, setZoom] = useState(false);
+  // NEITHER BRANCH BELOW SETS `loading`, so every cover is eager by the HTML
+  // default — the browser is fetching this one now, which is what makes a
+  // waiting mark honest here where it is not on a lazy face. A cover is also the
+  // largest picture on most screens and the one a reader waits on.
+  const [arrived, setArrived] = useState(false);
+  useEffect(() => { setArrived(false); }, [path]);
+  const waiting = useSlowArrival(!!path && !arrived);
   // hero: fills its (sized) wrapper at 2:3 — used by the detail header, where the
   // wrapper controls width and adds the drop shadow.
   if (hero) {
@@ -7841,7 +8029,8 @@ export function Cover({ path, title, large = false, hero = false, zoomable = fal
         <img
           src={coverImgURL(path)}
           alt={title ? t("common.cover.alt", { title }) : ""}
-          className="block w-full rounded-md object-cover"
+          className={"block w-full rounded-md object-cover" + (waiting ? " img-wait" : "")}
+          onLoad={() => setArrived(true)}
           style={{
             aspectRatio: "2 / 3",
             border: "1px solid var(--ink-border)",
@@ -7873,7 +8062,8 @@ export function Cover({ path, title, large = false, hero = false, zoomable = fal
       <img
         src={coverImgURL(path)}
         alt={title ? t("common.cover.alt", { title }) : ""}
-        className={size + " shrink-0 rounded-md object-cover"}
+        className={size + " shrink-0 rounded-md object-cover" + (waiting ? " img-wait" : "")}
+        onLoad={() => setArrived(true)}
         style={{ border: "1px solid var(--ink-border)" }}
       />
     );

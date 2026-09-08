@@ -5243,6 +5243,7 @@ common.field.author.label = Author
 common.field.translator.label = Translator
 common.field.editor.label = Editor
 common.field.year.label = Year
+common.field.year.circa.label = The year is approximate
 common.field.pages.label = Pages
 common.field.series.label = Series
 common.field.series-no.label = Series #

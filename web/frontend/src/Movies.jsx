@@ -46,7 +46,6 @@ import {
   ErrorText,
   ExpandableText,
   filterChipClass,
-  formatYear,
   FormModal,
   FrameCode,
   frameCode,
@@ -62,6 +61,8 @@ import {
   NameInput,
   NameScroll,
   parseYearInput,
+  YearField,
+  yearInputValue,
   PickMark,
   QuizSkipMark,
   QuoteActions,
@@ -723,7 +724,12 @@ export function ManualMovie({ mediaType, setMediaType, title, setTitle, onAdded,
             onChange={(e) => setPublisher(e.target.value)}
           />
         )}
-        <input className="tp-input" placeholder={t('film.form.year.placeholder')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+        <YearField
+          value={year}
+          onChange={setYear}
+          placeholder={t('film.form.year.placeholder')}
+          circaLabel={t('common.field.year.circa.label')}
+        />
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder={t('common.field.genres.placeholder')} ariaLabel={t('common.field.genres.label')} transform={titleCaseGenre} />
         <NameInput placeholder={t('film.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
         <input
@@ -833,7 +839,7 @@ export function EditMovie({ movie, onSaved, onCancel }) {
   const [mediaType, setMediaType] = useState(movie.media_type || 'movie')
   const [director, setDirector] = useState(movie.director || '')
   const [publisher, setPublisher] = useState(movie.publisher || '')
-  const [year, setYear] = useState(formatYear(movie.release_year, movie.release_circa))
+  const [year, setYear] = useState(yearInputValue(movie.release_year, movie.release_circa))
   const [genres, setGenres] = useState(movie.genres || [])
   const [genreSuggestions, setGenreSuggestions] = useState([])
   useEffect(() => {
@@ -956,7 +962,12 @@ export function EditMovie({ movie, onSaved, onCancel }) {
             onChange={(e) => setPublisher(e.target.value)}
           />
         )}
-        <input className="tp-input" placeholder={t('film.form.year.placeholder')} inputMode="numeric" value={year} maxLength={4} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+        <YearField
+          value={year}
+          onChange={setYear}
+          placeholder={t('film.form.year.placeholder')}
+          circaLabel={t('common.field.year.circa.label')}
+        />
         <TokenInput value={genres} onChange={setGenres} suggestions={genreSuggestions} placeholder={t('common.field.genres.placeholder')} ariaLabel={t('common.field.genres.label')} transform={titleCaseGenre} />
         <NameInput placeholder={t('film.form.series.placeholder')} value={series} onChange={(e) => setSeries(e.target.value)} />
         <input

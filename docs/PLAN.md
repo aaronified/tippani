@@ -11256,4 +11256,128 @@ same branch a failed request already took: the identity is left out.
 for it — which is a server change and a decision about when adoption should happen, both
 larger than the complaint that prompted any of this.
 
-<sub>Unreleased — `web/frontend/src/identity.jsx` · `web/frontend/test/dom/speaker-destinations.test.jsx`</sub>
+**AND THE IMAGE LOADER, which is the other half of the same request** — "use some
+loading animation if there is an image and it is not loaded (no loader if there is no
+image)". The second clause is the hard one, and not for the reason it looks like: an empty
+box is easy, but a mark keyed on "no pixels yet" appears on every FAST load too, so a local
+network turns a shelf into a flicker. So the timing is the feature. `useSlowArrival`
+(`imageWait.js`) lags a pending state by 150 ms going up — below which nothing is drawn at
+all — and by 300 ms coming down, so a picture landing just after the mark appears does not
+blink it out. Both numbers in one place, because a component inlining them gets the delay
+right and forgets the hold, which is the half nobody notices until a fast connection makes
+everything twitch.
+
+**THE MARK IS A CLASS ON THE `img`, NOT AN ELEMENT.** An `<img>` paints its own background
+until its pixels land and then covers it, so the mark needs no wrapper, changes no layout,
+and cannot be forgotten by a caller — the box is already reserved by whatever sizes the
+picture. A loader that reserves its own box is how a loader causes the shift it was added
+to soften. And it is an animated gradient, so the existing
+`prefers-reduced-motion` rule freezes it into a still tint with nothing new to arrange:
+disable every animation and the mark is still there, which is this repo's rule.
+
+**IT IS NOT `.ph`, AND `Sprockets` IS NOT A LOADER.** Two things in the tree look like
+candidates and neither is. `.ph` stands in for artwork there is NONE of and says so in
+words — the opposite claim to "there is one and it is late", and a reader who cannot tell
+them apart waits for something that is never coming. `Sprockets` is the film skin's
+sprocket holes.
+
+**AND IT IS GATED ON `loading`, WHICH IS WHERE THIS GOT INTERESTING.** `Cover` sets no
+`loading` attribute on either branch, so every cover is eager by the HTML default — the
+browser is fetching it now, and a mark is honest. `Face` defaults to LAZY and is drawn
+ninety to a screen: a lazy picture below the fold has not been requested, so a mark over it
+would describe a wait nobody is having and animate ninety of them against §8's idle-CPU
+budget. Its one eager caller is `PortraitBlock`, which is also the only place a face is big
+enough for the mark to be information rather than a twitch. The lazy ones keep the reserved
+box they already had.
+
+**Not done, and named rather than implied:** the eleven direct `<img>` tags that go through
+neither shared component, and step 4's back-cancellation, which needs a shared cache and an
+invalidation table nobody has built — the panels already say `common.state.loading` while
+their record is in flight, so what step 4 adds is the CACHE, not the loader.
+
+<sub>Unreleased — `web/frontend/src/identity.jsx` · `web/frontend/src/imageWait.js` · `web/frontend/test/dom/speaker-destinations.test.jsx` · `web/frontend/test/dom/image-wait.test.jsx`</sub>
+
+### The flag that qualifies a date moves onto the date, and the marker stops being deleted
+
+**Decided.** The owner: *"Approx date moves beside the date field"*, and on how: *"Parse it
+and tick the button."*
+
+**The comment being overruled had the argument backwards.** It read: "it sits here rather
+than beside the date because it is the only one of the five that qualifies another field".
+Being the only control that qualifies another field is the reason to put it NEXT to the
+field it qualifies, not away from it — a flag on its own says "approximate" about nothing in
+particular, and the reader has to work out which of five boxes it means.
+
+**AND THERE WAS A SWALLOWED GESTURE UNDER IT, which is the half nobody had noticed.**
+`PartialDateField`'s input accepts digits and a separator and silently drops everything
+else, so a reader typing the ordinary thing — `c. 1890` — watched the `c.` vanish, saw
+1890 land, and had no way to learn that a checkbox further down the form was what they had
+meant. Nothing was broken; nothing said anything. The marker is now read BEFORE the strip
+that was eating it, and ticks the flag.
+
+**A period or a space is required, and a bare `c` is not enough.** This is a numeric box,
+so a stray letter is a slip rather than an instruction, and ticking a flag off a slip is
+worse than ignoring it — the reader never asked and the box is where their eye is not.
+`c.`, `ca `, `ca. `, `circa `, `c.1890` and `~` all tick it; `c` alone does not.
+
+**PARSING SETS THE FLAG AND NEVER CLEARS IT.** Only the reader unticks. A parse that also
+unset it would untick the box on the very next keystroke after ticking it.
+
+**It is a prop on the shared field, not a copy in each form.** Both quote surfaces — the
+full form and the capture card — pass it, so they cannot drift; the capture card had its own
+checkbox with its own defence of its own placement, which is exactly the "a line each" the
+repo's directive is about. The three callers with nothing to be approximate about (a
+person's birth and death, a work's date) pass none of it and draw what they drew before.
+
+**A `span` inside the field, not a nested `label`.** The field is already a `label` whose
+control is the date input, so a nested one would give the checkbox two things claiming to
+caption it; the box carries its own `aria-label` instead. The words are still inside the
+outer label, so clicking them still works.
+
+<sub>Unreleased — `web/frontend/src/ui.jsx` · `web/frontend/src/Quotes.jsx` · `web/frontend/src/AddSurface.jsx` · `web/frontend/test/dom/circa-beside-date.test.jsx`</sub>
+
+### Every year box gets the estimate flag, and stops deleting the phrase that carried it
+
+**Decided.** The owner: *"every capture screen shall get the same year/circa behaviour. both
+the checkbox and the text parsing."* Four boxes — a book's add and edit forms, a film's two —
+and what was wrong there is worse than a missing checkbox.
+
+**A DOCUMENTED CAPABILITY WAS UNREACHABLE.** Every one of the four ran
+`value.replace(/\D/g, '').slice(0, 4)` on each keystroke, while the comment above two of them
+said `parseYearInput` "reads '380 BCE' and 'c. 1500' as well as '1719'". Both statements were
+true and they could not both matter: the parser could read the phrase and the box could not
+hold it. An estimate and a BCE year were impossible to type, and nothing said so.
+
+**AND IT DESTROYED DATA THAT WAS ALREADY THERE.** The edit forms seeded the box from
+`formatYear`, so a book recorded as `c. 1500` opened with that in the field — and the first
+keystroke anywhere in it stripped the `c. `, so the next save cleared the flag. No error, and
+the year still looked right afterwards. This is the defect worth remembering: it needed no
+bad input, only an edit.
+
+**`formatYear` WAS DOING TWO JOBS AND FAILING THE SECOND IN EVERY LANGUAGE BUT ONE.** It
+resolves one of four locale keys, so in Bengali it returns a Bengali prefix and
+`parseYearInput`'s `/^(?:circa|ca|c)\.?/i` cannot match it. The estimate therefore
+round-tripped in English and was silently dropped elsewhere. `yearInputValue` is the editable
+form and resolves nothing; `formatYear` stays for display. The ordinary split between what a
+machine reads and what a person reads.
+
+**THE FLAG IS DERIVED FROM THE STRING, not stored beside it.** One state, one answer to "is
+this approximate": the checkbox reads `parseYearInput(value).circa` and toggling rewrites the
+prefix. A second piece of state would disagree with the phrase the first time either was set
+alone, and a doubled marker cannot arise. It is disabled with no year, because `c. ` alone
+reads back as nothing and the flag would appear to untick itself.
+
+**AND THIS OVERRULES A RECORDED DECISION, said plainly rather than left to be rediscovered.**
+`WorkDetails`' inline year editor argues the other way: *"'c. 380 BCE' is how the year of an
+ancient text is actually written, and splitting that across two controls asks the reader to
+disassemble a phrase they already know."* That reasoning is sound and is why the phrase still
+works and the box still accepts it. The checkbox is an ADDITION to it, for the reader who does
+not know the phrase is allowed. The inline editor is unchanged — it is not a capture screen,
+and it never had the strip.
+
+**Newly possible, and shown rather than swallowed:** while the box stripped to digits nothing
+invalid could be typed. `sometime in the 90s` is now enterable and saves as no year, so an
+unparseable phrase takes a red border and `aria-invalid` — no new string, because the red edge
+beside a field the reader is looking at already says it.
+
+<sub>Unreleased — `web/frontend/src/ui.jsx` · `web/frontend/src/Library.jsx` · `web/frontend/src/Movies.jsx` · `web/frontend/test/dom/year-circa.test.jsx`</sub>

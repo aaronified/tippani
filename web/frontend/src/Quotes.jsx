@@ -415,7 +415,14 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       <div className="cl-grid">
         {/* A year alone is a complete answer, so this is a partial date rather
             than a date picker — see the field's own note. */}
-        <PartialDateField label={t('quotes.form.when.label')} value={occasionDate} onChange={setOccasionDate} />
+        <PartialDateField
+          label={t('quotes.form.when.label')}
+          value={occasionDate}
+          onChange={setOccasionDate}
+          circa={circa}
+          onCirca={setCirca}
+          circaLabel={t('quotes.form.circa.label')}
+        />
         <Field
           label={t('common.field.place.label')}
           placeholder={t('common.field.place.placeholder')}
@@ -503,15 +510,6 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
             onChange={(e) => setLocator(e.target.value)}
           />
         </div>
-        {/* THE DATE'S OWN PRECISION, and it sits here rather than beside the date
-            because it is the only one of the five that qualifies another field —
-            "around 1890". A plain checkbox with no cross-field rule: ticking it
-            before typing the year is not a mistake worth refusing (see
-            utteranceReq.OccasionCirca). */}
-        <label className="mt-3 flex items-center gap-2">
-          <input type="checkbox" checked={circa} onChange={(e) => setCirca(e.target.checked)} />
-          <span className="microcopy">{t('quotes.form.circa.label')}</span>
-        </label>
       </div>
       {/* A TEXTAREA SINCE 0051, where it was a one-line box before. It holds the
           same prose the quote above it does — uncapped at the server — and the two

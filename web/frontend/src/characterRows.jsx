@@ -32,6 +32,7 @@ import { useEffect, useRef, useState } from 'react'
 import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
 import { Silhouette } from './silhouette.jsx'
+import { useSlowArrival } from './imageWait.js'
 import { IconChevron, IconClose, IconEdit, IconPlus, NameScroll, ProviderMark, Scroller, Tooltip, usePanelHead } from './ui.jsx'
 
 // ---- the header -------------------------------------------------------------
@@ -120,8 +121,18 @@ export function Face({ src, name, className = 'cs-face', imgClass, url = coverIm
   // A NEW PATH DESERVES ITS OWN CHANCE. Without this a row that fails once keeps
   // the glyph after the picture is replaced, because React reuses the component
   // and the flag outlives the src it was set for.
-  useEffect(() => { setBroken(false) }, [path])
+  const [arrived, setArrived] = useState(false)
+  useEffect(() => { setBroken(false); setArrived(false) }, [path])
   const empty = !path || broken
+  // A MARK ONLY WHERE THE BROWSER IS ACTUALLY FETCHING. `loading` defaults to
+  // lazy here, and a lazy picture that is off-screen has not been REQUESTED —
+  // a "still coming" mark over it would describe a wait nobody is having, on
+  // ninety rows at once, and animate all ninety against §8's idle-CPU budget.
+  // Eager is one caller (PortraitBlock, which measures its picture and says so),
+  // and that is also the only place a face is large enough for the mark to be
+  // information rather than a twitch. The lazy ones keep the reserved box they
+  // already had.
+  const waiting = useSlowArrival(!empty && !arrived && loading === 'eager')
   // `is-empty` IS DRAWN FROM WHAT IS DRAWN, not from what is stored. Three
   // stylesheets set that class from the presence of a PATH — the grey plate a
   // silhouette sits on, its padding, its colour — so a picture that failed to
@@ -159,7 +170,7 @@ export function Face({ src, name, className = 'cs-face', imgClass, url = coverIm
             // tile, a binned record's face — and those callers keep their class
             // on the picture rather than being rewritten around this one. The
             // wrapper then carries `display: contents` and adds nothing.
-            className={imgClass}
+            className={[imgClass, waiting ? 'img-wait' : ''].filter(Boolean).join(' ') || undefined}
             alt=""
             loading={loading}
             // AND THE CALLER MAY NEED TO KNOW, not to decide. A slot whose whole
@@ -168,7 +179,9 @@ export function Face({ src, name, className = 'cs-face', imgClass, url = coverIm
             // defect `make controls` exists to catch. The judgement of WHETHER a
             // picture failed stays here; what a screen does about it is its own.
             onError={() => { setBroken(true); onBroken?.() }}
-            onLoad={onLoad}
+            // THE ARRIVAL IS THIS FUNCTION'S AND WHAT TO DO ABOUT IT IS THE
+            // CALLER'S — the same split `onBroken` above already makes.
+            onLoad={(e) => { setArrived(true); onLoad?.(e) }}
           />
         )}
     </span>

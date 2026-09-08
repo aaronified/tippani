@@ -998,7 +998,14 @@ export function CaptureQuote({ initialTarget = null, initialFields = null, initi
           </div>
           <div className="grid grid-cols-2 gap-3">
             {/* A year on its own is a complete answer here. */}
-            <PartialDateField label={t('quotes.form.when.label')} value={draft.occasionDate} onChange={(v) => set({ occasionDate: v })} />
+            <PartialDateField
+              label={t('quotes.form.when.label')}
+              value={draft.occasionDate}
+              onChange={(v) => set({ occasionDate: v })}
+              circa={draft.circa}
+              onCirca={(v) => set({ circa: v })}
+              circaLabel={t('quotes.form.circa.label')}
+            />
             <label className="tp-field">
               <MonoLabel>{t('common.field.place.label')}</MonoLabel>
               <input className="tp-input" placeholder={t('common.field.place.placeholder')} value={draft.place} onChange={(e) => set({ place: e.target.value })} />
@@ -1042,13 +1049,6 @@ export function CaptureQuote({ initialTarget = null, initialFields = null, initi
               <input className="tp-input" placeholder={t('quotes.form.locator.placeholder')} value={draft.locator} onChange={(e) => set({ locator: e.target.value })} />
             </label>
           </div>
-          {/* The date's own precision, beside the boxes rather than beside the date:
-              it qualifies the date, and a checkbox in the middle of a date row reads
-              as a second date field. */}
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={draft.circa} onChange={(e) => set({ circa: e.target.checked })} />
-            <span className="microcopy">{t('quotes.form.circa.label')}</span>
-          </label>
         </>
       ) : isScreen ? (
         <>

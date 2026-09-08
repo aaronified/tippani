@@ -2034,6 +2034,42 @@
     border-radius: 6px;
   }
   .ph-label { font-size: var(--type-ui-9); letter-spacing: .3em; }
+
+  /* ---- a picture that has been asked for and has not arrived --------------
+     ON THE `img` ITSELF, not on a box around it, and that is the whole reason
+     this is three declarations rather than a component. An `<img>` paints its
+     own background until its pixels land and then covers it, so the mark needs
+     no wrapper, changes no layout, and cannot be forgotten by a caller — the
+     box is already reserved by whatever sizes the picture.
+
+     IT IS NOT `.ph`. That one stands in for artwork there is NONE of, and says
+     so in words. This says the opposite: there IS a picture and it is late. A
+     reader who cannot tell those apart waits for something that is never
+     coming.
+
+     WHEN IT SHOWS IS JS, NOT CSS — see useSlowArrival. A mark keyed only on
+     "no pixels yet" appears on every fast load for a frame or two.
+
+     AND A READER WHO ASKED FOR LESS MOTION STILL SEES IT. The sheen is an
+     animation, and the global reduced-motion rule above kills every animation
+     with `!important`, which freezes this gradient mid-sweep — still a visible
+     tint over a reserved box, which is the repo's rule that a rest state may
+     not depend on anything firing. */
+  .img-wait {
+    background-image: linear-gradient(
+      100deg,
+      color-mix(in oklab, var(--ink) 4%, transparent) 0 30%,
+      color-mix(in oklab, var(--ink) 9%, transparent) 45% 55%,
+      color-mix(in oklab, var(--ink) 4%, transparent) 70% 100%
+    );
+    background-size: 300% 100%;
+    background-repeat: no-repeat;
+    animation: img-wait-sweep 1.1s linear infinite;
+  }
+  @keyframes img-wait-sweep {
+    from { background-position: 150% 0; }
+    to { background-position: -150% 0; }
+  }
   /* A placeholder is a stand-in for artwork, so it takes the shape of the thing
      it stands in for: a hand-drawn corner under paper, a square frame with the
      amber hairline under film. It had one radius for both, which made an
