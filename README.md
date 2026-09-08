@@ -50,103 +50,56 @@ Tailscale, or a PEM pair it serves and hot-reloads itself. No Node at runtime; m
 and optional; covers and posters are served from your own disk. Tippani was **written with AI assistance** and
 **contains no AI** — no model calls, nothing sent anywhere. Both halves are set out in [`AI.md`](AI.md).
 
-## What it does
+## Screenshots
 
-<!-- The carousel. One strip of cards wider than the page, so GitHub gives it a horizontal scroll: each card is
-     one thing a reader does with the app, with the screen that does it. Real screenshots, one skin/theme/accent
-     combination per shot. -->
+<!-- Six real screenshots, one strip wider than the page so GitHub gives it a horizontal
+     scroll. Purely visual now — what each screen does is explained under Features below. -->
 <table>
   <tr>
-    <td valign="top" width="440">
-      <img src="docs/img/library-paper-light.jpg" width="440" alt="The Library — paper skin, light theme: a grid of real book covers with genre filters and a colour bar under each cover">
-      <br><br><strong>📚 Keep your book highlights</strong><br>
-      <sub>Six colour categories you name, tags, chapter and page, a ♥, series. Browse as masonry, list or a
-      sortable table; group by series, author, decade or genre; shelve as reading · paused · abandoned ·
-      finished.</sub>
-    </td>
-    <td valign="top" width="440">
-      <img src="docs/img/catalogue-film-dark.jpg" width="440" alt="The Catalogue — film skin, dark theme: a grid of film and show posters with dialogue counts">
-      <br><br><strong>🎬 Films, shows and games too</strong><br>
-      <sub>A line with its timestamp, character and auto-filled actor. A show's lines carry the episode and
-      read as <em>S2E6</em>; a game's carry the act and the quest. Posters, details and the cast come from TMDB,
-      TheTVDB and IMDb; characters get pictures of their own.</sub>
-    </td>
-    <td valign="top" width="440">
-      <img src="docs/img/quotes-mobile-paper-light.jpg" width="215" alt="Quotes on a phone — paper skin, light theme: standalone quotes in Bengali, Hindi and English, each with its script mark and translation"> <img src="docs/img/home-mobile-film-dark.jpg" width="215" alt="Home on a phone — film skin, dark theme: the Daily Quiz, Practice and the library's counts">
-      <br><br><strong>💬 Quotes from anywhere else</strong> · <strong>🧠 Remember what you kept</strong><br>
-      <sub>Speeches, letters, essays, proverbs, something a friend said — on boards you make; a proverb board
-      asks which languages it holds and puts the translation first. Then a daily quiz and a practice mode:
-      spaced repetition along the forgetting curve, five question types including a server-graded
-      fill-in-the-blank, and a skip for the shopping list you saved as a quote.</sub>
-    </td>
-    <td valign="top" width="440">
-      <img src="docs/img/search-film-light.jpg" width="440" alt="Search — film skin, light theme: a misspelled query corrected automatically, with results in sections across books and highlights">
-      <br><br><strong>🔎 Find it instantly</strong><br>
-      <sub>Full-text across titles, people, quotes, notes, tags and dialogue, returned in sections by what
-      matched, typo-tolerant. Type <code>tag:</code>, <code>author:</code>, <code>colour:</code> or any of
-      sixteen fields and your own library's words drop down as chips.</sub>
-    </td>
-    <td valign="top" width="440">
-      <img src="docs/img/import-paper-dark.jpg" width="440" alt="Import — paper skin, dark theme: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports">
-      <br><br><strong>📥 Import, then approve</strong><br>
-      <sub>Markdown from Tippani or Readest, Kindle three ways (Bookcision, the notebook, <code>My
-      Clippings.txt</code>), saved Goodreads and Hardcover pages, IMDb quote pages. Everything waits in a
-      pending queue where you correct a whole file at once; importing the same file twice adds nothing.</sub>
-    </td>
+    <td><img src="docs/img/library-paper-light.jpg" width="440" alt="The Library — paper skin, light theme: a grid of real book covers with genre filters and a colour bar under each cover"></td>
+    <td><img src="docs/img/catalogue-film-dark.jpg" width="440" alt="The Catalogue — film skin, dark theme: a grid of film and show posters with dialogue counts"></td>
+    <td><img src="docs/img/search-film-light.jpg" width="440" alt="Search — film skin, light theme: a misspelled query corrected automatically, with results in sections across books and highlights"></td>
+    <td><img src="docs/img/import-paper-dark.jpg" width="440" alt="Import — paper skin, dark theme: cards for Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle imports"></td>
+    <td><img src="docs/img/quotes-mobile-paper-light.jpg" width="215" alt="Quotes on a phone — paper skin, light theme: standalone quotes in Bengali, Hindi and English, each with its script mark and translation"></td>
+    <td><img src="docs/img/home-mobile-film-dark.jpg" width="215" alt="Home on a phone — film skin, dark theme: the Daily Quiz, Practice and the library's counts"></td>
   </tr>
 </table>
 
-<p align="center"><sub>Five cards — scroll sideways for the rest. Paper and Film skins, light and dark, four accents, one
-combination per shot. Screenshots lag the interface now and then; <a href="https://aaronified.github.io/tippani/demo/">the
-demo</a> never does.</sub></p>
+<p align="center"><sub>Six screens — scroll sideways for the rest. Paper and Film skins, light and dark, four
+accents, one combination per shot. Screenshots lag the interface now and then;
+<a href="https://aaronified.github.io/tippani/demo/">the demo</a> never does.</sub></p>
+
+## Features
+
+<table>
+  <tr>
+    <td valign="top" width="33%">📚 <strong>Books, films, shows, games and quotes — one library</strong> — a book highlight keeps its chapter and page, a film or show line its timestamp and episode (<em>S2E6</em>), a game line its act and quest. A standalone quote — a speech, a letter, an essay, a proverb, something a friend said — keeps a speaker, an occasion and its own translation where it needs one.</td>
+    <td valign="top" width="33%">📖 <strong>Anthologies</strong> — quotes gathered into a reading order with your own prose between them, drawn from all three kinds at once. Six switches decide what each passage shows, on screen and in the exported Markdown alike.</td>
+    <td valign="top" width="33%">📡 <strong>Auto-fetching metadata</strong> — search a title, pick the right match from a short list, and its cover, cast, blurb and details fill in from TMDB, IGDB, Google Books and more, nothing typed by hand. Run it again later on a selection and it fills only what's still empty; <em>Re-verify</em> shows every difference and waits for your tick.</td>
+  </tr>
+  <tr>
+    <td valign="top">🔎 <strong>Find it instantly</strong> — full-text search across titles, people, quotes, notes, tags and dialogue, returned in sections by what matched, typo-tolerant. Type <code>tag:</code>, <code>author:</code>, <code>colour:</code> or any of sixteen fields and your own library's words drop down as chips.</td>
+    <td valign="top">📥 <strong>Import, then approve</strong> — Markdown from Tippani or Readest, Kindle three ways (Bookcision, the notebook, <code>My Clippings.txt</code>), saved Goodreads and Hardcover pages, IMDb quote pages. Everything waits in a pending queue where you correct a whole file at once; importing the same file twice adds nothing.</td>
+    <td valign="top">📨 <strong>Share a quote as an image</strong> — drawn on your own device in your paper or film theme, with the credited person's portrait as a backdrop, then straight to your phone's share sheet or a download. The same dialog also hands a quote out as Markdown, WhatsApp text, plain text or Reddit.</td>
+  </tr>
+  <tr>
+    <td valign="top">🧠 <strong>Scientific spaced repetition</strong> — every quote carries a memory half-life and returns along the Ebbinghaus forgetting curve, asked one of five ways including a server-graded fill-in-the-blank, in a Daily Quiz and an open Practice mode alike.</td>
+    <td valign="top">🌐 <strong>Multilingual by design</strong> — the app holds no source language: English and Bengali both ship in the box, neither a fallback for the other, and a quote can carry its own translation alongside the original script. A third language is one text file dropped in — nothing to rebuild, nothing to restart.</td>
+  </tr>
+</table>
 
 ### And the rest
 
 <table>
   <tr>
-    <td valign="top" width="33%">📖 <strong>Anthologies</strong> — quotes in a reading order with your own prose between them, drawn from all three kinds at once. Six switches decide what each passage shows, on screen and in the Markdown alike.</td>
-    <td valign="top" width="33%">🎨 <strong>Colour categories</strong> — a tag says what a quote is <em>about</em>, its colour says what <em>kind</em> of note it is. Rename one and every label in the app follows; your exports do not change.</td>
-    <td valign="top" width="33%">🔖 <strong>A read log</strong> — progress as a page, a percentage or a season and episode; every reread its own dated entry; and a sort by when you last had the thing in your hands.</td>
+    <td valign="top" width="33%">🔐 <strong>Multi-user</strong> — a fully isolated library per person, a profile behind the avatar for photo, name, password and account switching. Admins hand over admin, and step down.</td>
+    <td valign="top" width="33%">👤 <strong>People, characters included</strong> — authors, actors, directors, translators, speakers and the characters themselves are real records with a portrait, a bio and a page of their own; one person can be an author here and a translator there.</td>
+    <td valign="top" width="33%">📤 <strong>Export</strong> — one work, a filtered set, your standalone quotes or the whole library, as Obsidian-friendly Markdown that imports cleanly back in.</td>
   </tr>
   <tr>
-    <td valign="top">🎲 <strong>Shuffle and on this day</strong> — one quote at random from anywhere in your library, and whatever you saved on this date in earlier years. Neither touches your review schedule.</td>
-    <td valign="top">📊 <strong>Stats</strong> — a capture calendar, a memory breakdown, a decade timeline and superlatives, each of them a doorway straight through to the quotes behind it.</td>
-    <td valign="top">🧭 <strong>Search that knows where you are</strong> — from a filtered shelf it arrives filtered; from a book's own page it is scoped to that book. Every chip is removable, so narrowing costs nothing.</td>
-  </tr>
-  <tr>
-    <td valign="top">☑️ <strong>Multiselect on everything</strong> — tick a card's corner, Ctrl-click, or hold on a phone, then set the colour, ♥, tags, a sticker, a shelf, a board or any one field across the whole selection.</td>
-    <td valign="top">🩹 <strong>Fill only the gaps</strong> — fetch metadata for a selection and write nothing but the empty fields, so a description you wrote is never overwritten. <em>Re-verify</em> shows every difference and waits for your tick.</td>
-    <td valign="top">👤 <strong>People, characters included</strong> — authors, actors, directors, translators, speakers and the characters themselves are real records with a portrait, a bio and a page of their own; one person can be an author here and a translator there.</td>
-  </tr>
-  <tr>
-    <td valign="top">📨 <strong>Share a quote</strong> — as Markdown, WhatsApp, plain text or Reddit, or as an image drawn on your own machine in your theme, with the credited person's portrait as a backdrop.</td>
-    <td valign="top">📤 <strong>Export</strong> — one work, a filtered set, your standalone quotes or the whole library, as Obsidian-friendly Markdown that imports cleanly back in.</td>
-    <td valign="top">🏷️ <strong>Stickers</strong> — a heart, a star and three faces to start with; upload a transparent PNG or SVG and pin it to a quote so the text flows around it.</td>
-  </tr>
-  <tr>
-    <td valign="top">🧹 <strong>Stray marks</strong> — footnote numbers, pronunciation glosses, double spaces and invisible characters your quotes picked up on the way in, listed with the fix offered and your refusals remembered.</td>
-    <td valign="top">🗑️ <strong>A bin, not a delete</strong> — everything comes back with its tags, colours, review history and cover intact. Keep things for 7, 30 or 90 days, or for ever.</td>
-    <td valign="top">🌐 <strong>English and Bengali</strong> — both ship in the box and neither is a fallback for the other. Any further language is one text file you drop in, without rebuilding anything.</td>
-  </tr>
-  <tr>
-    <td valign="top">🔤 <strong>Type, your way</strong> — six roles, each face previewed doing its own job, two alternates each and your own uploads accepted; bold, italic, small caps and tabular figures per role; text size on a dial.</td>
-    <td valign="top">🎞 <strong>Two skins made of something</strong> — Paper is a note lifted off a desk, Film a frame on a light table, with real texture in every card, button and bar. Ask your system for more contrast and the texture drops away.</td>
-    <td valign="top">📱 <strong>Phone-first</strong> — an installable PWA with a drawer, capture one ❝ tap away, full-screen filter sheets, 44 px targets, an icon badge for due cards and waiting imports, and files that open straight into import.</td>
-  </tr>
-  <tr>
-    <td valign="top">👌 <strong>A long press that knows what it is on</strong> — hold a control for its label, hold a card to select it, and hold the <em>words</em> of a quote for nothing at all, because that is how your phone selects text.</td>
-    <td valign="top">⌨️ <strong>Keyboard shortcuts</strong> — printed on the buttons that share their job, so nothing has to be memorised; <code>?</code> lists them all, and typing is never a shortcut.</td>
-    <td valign="top">🎓 <strong>A guided tour</strong> — a walk through every feature on first run, on its own sample content rather than your library, resumable from Settings wherever you stopped.</td>
-  </tr>
-  <tr>
-    <td valign="top">🔐 <strong>Multi-user</strong> — a fully isolated library per person, a profile behind the avatar for photo, name, password and account switching. Admins hand over admin, and step down.</td>
-    <td valign="top">📲 <strong>Paired devices</strong> — a one-time pairing code that a native client swaps for a long-lived token, so a phone never holds your password. Changing your password signs out browsers and leaves paired phones alone.</td>
-    <td valign="top">🔗 <strong>Real URLs</strong> — every tab and detail view has its own address, so back and forward work and a link opens straight onto the view.</td>
-  </tr>
-  <tr>
-    <td valign="top">🔄 <strong>Updates when you ask</strong> — Settings checks GitHub for a newer release on demand, never on its own. With the Docker socket, one click pulls and restarts; without it, you get the exact command to run.</td>
     <td valign="top">💾 <strong>Encrypted backup and restore</strong> — one click builds a dated AES-256-GCM archive of the whole data directory; restore it here or on another Tippani, and a password change never orphans an archive this server made.</td>
-    <td valign="top">🗣 <strong>Quotes carry their own facts</strong> — a speaker, an occasion, a date that may be only a year, and per kind: who a letter was written to, which essay a line is from, a proverb's region and its translation.</td>
+    <td valign="top">📊 <strong>Stats</strong> — a capture calendar, a memory breakdown, a decade timeline and superlatives, each of them a doorway straight through to the quotes behind it.</td>
+    <td valign="top">🔄 <strong>Updates when you ask</strong> — Settings checks GitHub for a newer release on demand, never on its own. With the Docker socket, one click pulls and restarts; without it, you get the exact command to run.</td>
   </tr>
 </table>
 
