@@ -305,8 +305,10 @@ func nextRung(cur float64, ladder [reviewRungs]float64) float64 {
 // IT IS REPORTED RATHER THAN ENFORCED. Above capacity nothing breaks — the deck
 // still leads with the most overdue — but the tail of a growing library stops
 // being reached, and the only wrong thing about that today is that it happens in
-// silence. The number is derived here so the screen that says it and the test
-// that checks it are reading one definition.
+// silence. The number is derived here so the SCREEN and the server read one
+// definition. The endpoint guard deliberately does NOT: it compares against a
+// literal, because a test that recomputes a value with the function under test
+// moves both sides together and catches nothing.
 // THE CEILING IS THE READER'S, NOT THE PACKAGE'S. Under adaptive — the default —
 // a half-life grows to reviewMaxStability, so the two are the same. A reader on
 // the fixed ladder stops at THEIR top rung, and one who lowered it to 30 days has
@@ -317,8 +319,14 @@ func reviewCapacity(quota int, ceiling float64) int {
 }
 
 // reviewCeilingFor is the longest half-life this reader's schedule can reach.
+// A LADDER READER WHO LENGTHENS ON "SEEING" CAN PASS THEIR OWN TOP RUNG. bumpSeen
+// caps at reviewMaxStability rather than at Ladder4, and nextStability's
+// first-success branch keeps `cur` rather than lowering it — so with srSeen above
+// 1 a card can sit above the ladder and stay there. Reporting the rung as the
+// ceiling would understate the capacity of the very reader most likely to have a
+// large library.
 func reviewCeilingFor(pf prefs) float64 {
-	if pf.adaptive() {
+	if pf.adaptive() || pf.SRSeen > 1 {
 		return reviewMaxStability
 	}
 	return parseReviewTuning(pf.SRTuning).Ladder4
@@ -361,6 +369,19 @@ func dueMultiplier(target float64) float64 { return math.Log2(1 / target) }
 // which is five chances to get an offset wrong for a value that is derived from
 // a constant and never from user text. %g keeps "1" as "1".
 var reviewDueFactorSQL = fmt.Sprintf("%g", dueMultiplier(reviewDuePoint))
+
+// tierDaySeed is the day a Random tier is drawn for.
+//
+// UTC, NOT THE READER'S LOCAL DAY, and that is the whole reason it is a function.
+// The deck builds a card at one tier and the answer path has to grade a typed
+// blank against the SAME width, so both must reach the same tier from the same
+// inputs — and the two endpoints do not agree about the local day (Practice takes
+// no timezone offset at all). One UTC day for the tier, whatever local day the
+// schedule itself is keeping.
+func tierDaySeed() int64 {
+	_, seed, _ := reviewDay(0)
+	return seed
+}
 
 // reviewFloorSQL is reviewMinStability for splicing into due-ness SQL — the
 // stored stability can predate a floor raise, so queries floor it the same way
@@ -1753,23 +1774,17 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	// `at` rather than `tier`, so the two are never confused: `tier` is what the
 	// reader chose and `at` is what this card is asked at.
 	//
-	// `cardSeed` AND NOT `seed`, WHICH WAS FROZEN ON THE PRACTICE PATH. Practice
-	// passes seed 0 — its RNG is global and its shuffle is per request — so the day
-	// term vanished from the hash and Random gave a card the same tier for ever,
-	// the exact opposite of what tierForCard promises.
+	// THE TIER'S OWN DAY SEED, AND IT HAS TO BE RECOMPUTABLE. This read `seed`,
+	// which is 0 on the Practice path — so the day term vanished from the hash and
+	// Random gave a card the same tier for ever. The obvious repair, drawing at
+	// random for Practice, was worse: a tier nothing can recompute is a tier the
+	// ANSWER path cannot know, and the answer path has to know it to grade a typed
+	// blank against the same mask the card was built with.
 	//
-	// DAILY KEEPS THE HASH and Practice DRAWS, which is not an inconsistency: it is
-	// the difference between the two decks. Daily must be stable, because a refresh
-	// that reshuffled a card's difficulty would change the question under the
-	// reader's hand and the day's score is permanent. Practice is the varied,
-	// unscored twin and already picks its DIRECTION with rand.IntN a few lines
-	// below; the tier follows the same rule, drawn once per card as the round is
-	// built.
-	tierSeed := cardSeed
-	if tierSeed == 0 {
-		tierSeed = rand.Int64N(reviewSeedRange) + 1
-	}
-	at := tierForCard(tier, c.card.Kind, c.card.ID, tierSeed)
+	// So: one seed, derived from the UTC day, used identically here and in
+	// handleReviewAnswer. Not the reader's local day, because the two paths would
+	// then disagree for anyone offset from UTC. See tierDaySeed.
+	at := tierForCard(tier, c.card.Kind, c.card.ID, tierDaySeed())
 	clozeWords = tierClozeThreshold(at, clozeWords)
 	// A tier NARROWS the reader's own repertoire and never widens it, so a
 	// question they turned off stays off at every difficulty.
@@ -1988,7 +2003,8 @@ func attachCloze(card *reviewCard, multiWordFrom float64) bool {
 // The distractors are spans cut out of OTHER quotes by the same selector, in the
 // same word count — see clozePhraseOf. Ranked by the same similarity as every
 // other distractor pool, so the phrases offered come from the neighbourhood of
-// the quote rather than from the far end of the library.
+// the quote rather than from the far end of the library — except at Easy, where
+// tierCloser inverts that ranking and the far end is exactly the point.
 func attachClozeMCQ(card *reviewCard, ownKey string, p quizPools, seed int64, multiWordFrom float64, tier string) bool {
 	text := card.Quote
 	if strings.TrimSpace(text) == "" {
@@ -2456,7 +2472,15 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 			internalError(w, r, "review answer cloze stability", err)
 			return
 		}
-		_, answerText, ok := clozeSpan(text, req.Kind, req.ID, clozeMaxWordsFor(stabilityNow, tuning.ClozeWords))
+		// AND THE SAME WIDTH MEANS THE TIER'S WIDTH. This read tuning.ClozeWords
+		// directly while the card was BUILT through tierClozeThreshold, so at Hard
+		// the deck served a three-word blank and the server graded it against a
+		// one-word mask: the reader typed exactly what was asked, was told
+		// "forgot", and the card lapsed. The comment above has claimed "the same
+		// width the card was built with" throughout; this is what makes it true.
+		at := tierForCard(pf.SRTier, req.Kind, req.ID, tierDaySeed())
+		_, answerText, ok := clozeSpan(text, req.Kind, req.ID,
+			clozeMaxWordsFor(stabilityNow, tierClozeThreshold(at, tuning.ClozeWords)))
 		if !ok {
 			// The card could not have been a cloze card, so the attempt is about
 			// a question that was never asked. Refused rather than graded: a

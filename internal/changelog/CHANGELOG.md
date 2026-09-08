@@ -221,6 +221,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   printing its performers once in the header and again in the card below.
 
 ### Fixed
+- **Typing a Hard blank back correctly no longer counts as forgetting it.** On the Hard tier the
+  quiz hides the widest phrase a quote allows, but the answer was being checked against a
+  one-word blank — so you typed exactly what was asked, were told you had forgotten it, and the
+  card dropped back to seven days. It graded a word that was still printed on screen beside the
+  gap. The check now uses the same width the card was asked at, and Random rounds work the same
+  way on both the Daily Quiz and Practice.
+
 - **A quiz card no longer prints the answer above its own options.** "Who said this?" and "who
   wrote this?" show the words and ask for the person, so a line whose own text names that person
   answered itself — pick the option you can already read. The name is now blanked in the words

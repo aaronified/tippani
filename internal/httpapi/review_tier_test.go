@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -458,19 +459,22 @@ func TestAPersonCardHonoursTheTiersOptionCount(t *testing.T) {
 	}
 }
 
-// RANDOM ON PRACTICE WAS FROZEN FOR EVER, and its own documentation said the
-// opposite.
+// RANDOM ON PRACTICE WAS FROZEN FOR EVER, and it is the DECK AND THE GRADER
+// AGREEING that fixes it rather than variety for its own sake.
 //
-// Practice passes seed 0 to buildQuestion — its RNG is global and its shuffle is
-// per request — so the day term vanished from tierForCard's hash and a card drew
-// the same tier every time, for ever. Daily keeps the hash, because a refresh
-// that reshuffled a card's difficulty would change the question under the
-// reader's hand and the day's score is permanent; Practice draws, exactly as it
-// already draws its DIRECTION a few lines below the same call.
+// Practice passed seed 0 to buildQuestion, so the day term vanished from
+// tierForCard's hash and a card drew the same tier every round, for ever. The
+// first repair here drew at random per round — and this test asserted exactly
+// that, which was WRONG in a way the test could not see: a tier nothing can
+// recompute is a tier the ANSWER path cannot know, and the answer path has to
+// know it to grade a typed blank against the width the card was built at. A
+// random tier makes every Hard cloze on Practice ungradeable.
 //
-// Asserted over HTTP across several rounds, because the freeze is only visible
-// between them.
-func TestRandomVariesBetweenPracticeRounds(t *testing.T) {
+// So the property is not "it varies between rounds". It is that the practice
+// deck and the answer path reach the SAME tier from the same inputs — which
+// tierDaySeed gives, varying by day rather than by request. Asserted through the
+// option count, which is what a reader sees of the tier.
+func TestPracticeUsesTheTierTheAnswerPathWillRecompute(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
 	for _, w := range []struct{ title, author string }{
@@ -490,34 +494,121 @@ func TestRandomVariesBetweenPracticeRounds(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
 		"srTier": tierRandom, "srQuestions": `{"practice":["source"]}`}, http.StatusOK)
 
-	// Per card, across rounds: how many distinct option-counts did it draw?
-	widths := map[int64]map[int]bool{}
-	for round := 0; round < 8; round++ {
-		deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
-		if len(deck.Items) == 0 {
-			t.Fatal("an empty practice deck measures nothing")
+	deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
+	if len(deck.Items) == 0 {
+		t.Fatal("an empty practice deck measures nothing")
+	}
+	checked, easies := 0, 0
+	for _, it := range deck.Items {
+		if len(it.Options) == 0 {
+			continue
 		}
-		for _, it := range deck.Items {
-			if len(it.Options) == 0 {
-				continue
+		checked++
+		// What the ANSWER path would work out, from the card and nothing else.
+		want := tierOptions(tierForCard(tierRandom, it.Kind, it.ID, tierDaySeed()))
+		if len(it.Options) != want {
+			t.Errorf("practice card %d offered %d choices; the answer path resolves it to a tier "+
+				"offering %d — the two disagree about which tier this card was asked at",
+				it.ID, len(it.Options), want)
+		}
+		if len(it.Options) == 2 {
+			easies++
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no option-bearing card in the practice deck, so this measured nothing")
+	}
+	// AND RANDOM IS ACTUALLY RANDOM HERE. With seed 0 the hash still produced a
+	// spread, so a distribution check alone would not have caught the freeze —
+	// but a deck of one tier would mean Random had stopped reaching the others.
+	if easies == 0 || easies == checked {
+		t.Errorf("all %d practice cards drew the same difficulty (%d easy) — Random is not reaching "+
+			"every tier on this path", checked, easies)
+	}
+}
+
+// A HARD BLANK, TYPED BACK, MUST BE MARKED RIGHT.
+//
+// THE BUG THIS EXISTS FOR, and it corrupted schedules rather than screens. The
+// card is BUILT through tierClozeThreshold — at Hard the gate opens at once, so
+// the blank is the widest the quote allows — and the answer path graded against
+// `tuning.ClozeWords` directly, which at a 7-day half-life is one word. So the
+// deck served a three-word blank, the reader typed exactly those three words, and
+// the server recorded "forgot" and lapsed the card while revealing a one-word
+// answer still visible in the quote beside it.
+//
+// NO TEST IN THIS PACKAGE ANSWERED A CLOZE AT ANY TIER — review_tier_test.go
+// contained no `attempt` at all — which is why every guard passed. This one plays
+// the whole round: read the blank the deck actually served, type back what it
+// hid, and read the grade.
+func TestATypedBlankIsGradedAtTheWidthItWasAskedAt(t *testing.T) {
+	for _, tier := range []string{tierHard, tierMedium} {
+		t.Run(tier, func(t *testing.T) {
+			srv := newTestServer(t)
+			c := signupAdmin(t, srv.Handler())
+			seedReviewBook(t, c, "Dune", 3)
+			seedDistractorBook(t, srv, c, "Emma")
+			ageSeededItems(t, srv)
+			// The typed blank only, so every card is the one under test.
+			c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+				"srTier": tier, "srQuestions": `{"daily":["cloze"]}`}, http.StatusOK)
+
+			deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+			var card *reviewCard
+			for i := range deck.Items {
+				if deck.Items[i].Direction == dirCloze {
+					card = &deck.Items[i]
+					break
+				}
 			}
-			if widths[it.ID] == nil {
-				widths[it.ID] = map[int]bool{}
+			if card == nil {
+				t.Fatalf("%s: the deck served no typed blank, so this measured nothing: %+v", tier, deck.Items)
 			}
-			widths[it.ID][len(it.Options)] = true
+			if !strings.Contains(card.Quote, clozeBlank) {
+				t.Fatalf("%s: the card carries no blank: %q", tier, card.Quote)
+			}
+
+			// WHAT THE BLANK HID, worked out from the card and the source text
+			// rather than from the function under test: the words the served quote
+			// is missing, in order, are the answer.
+			full, err := srv.itemText(kindBook, card.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			head, tail, _ := strings.Cut(card.Quote, clozeBlank)
+			hidden := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(full, head), tail))
+			if hidden == "" {
+				t.Fatalf("%s: could not read the hidden span back out of %q vs %q", tier, card.Quote, full)
+			}
+
+			res := decode[answerResp](t, c.mustDo("POST", "/review/answer", map[string]any{
+				"kind": kindBook, "id": card.ID, "mode": "daily", "result": "got", "attempt": hidden}, 200))
+			if res.Result != "got" {
+				t.Errorf("%s: typed back exactly the %d word(s) the card hid (%q) and was graded %q — "+
+					"the answer path is grading against a different width from the one the deck asked at",
+					tier, len(strings.Fields(hidden)), hidden, res.Result)
+			}
+			if res.Answer != hidden {
+				t.Errorf("%s: the card hid %q and the reveal says %q", tier, hidden, res.Answer)
+			}
+		})
+	}
+}
+
+// AND THE TIER A CARD WAS BUILT AT IS RECOVERABLE AT ANSWER TIME, which is the
+// property the grade above depends on and the reason Practice cannot draw its
+// tier at random: a tier nothing can recompute is a tier the answer path cannot
+// know. Both endpoints reach it from the same inputs, so tierDaySeed is the only
+// day either of them may use for this.
+func TestTheTierIsRecomputableFromTheCardAlone(t *testing.T) {
+	seed := tierDaySeed()
+	if seed == 0 {
+		t.Fatal("tierDaySeed is 0, which is the value that froze Random on the practice path")
+	}
+	for id := int64(1); id <= 50; id++ {
+		first := tierForCard(tierRandom, kindBook, id, seed)
+		if again := tierForCard(tierRandom, kindBook, id, tierDaySeed()); again != first {
+			t.Fatalf("card %d resolves to %q from the deck and %q from the answer path", id, first, again)
 		}
-	}
-	if len(widths) == 0 {
-		t.Fatal("no option-bearing card in any round, so this measured nothing")
-	}
-	moved := 0
-	for _, seen := range widths {
-		if len(seen) > 1 {
-			moved++
-		}
-	}
-	if moved == 0 {
-		t.Errorf("across eight practice rounds not one of %d cards changed difficulty — "+
-			"Random is frozen per card on the practice path, which is the opposite of what it promises", len(widths))
 	}
 }

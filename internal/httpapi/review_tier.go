@@ -67,8 +67,15 @@ func normalizeReviewTier(t string) string {
 //
 // For the three fixed tiers that is the choice itself. For Random it is a seeded
 // hash of the card and the day — the same mechanism dailyDirection uses, and for
-// the same reason: a refresh must not reshuffle the difficulty of a card the
-// reader is halfway through thinking about.
+// two reasons rather than one. A refresh must not reshuffle the difficulty of a
+// card the reader is halfway through thinking about; and the ANSWER path has to
+// reach the same tier the deck did, because a typed blank is graded against the
+// width the card was built at.
+//
+// THE DAY IS THE UTC DAY, not the reader's local one, and the caller passes
+// tierDaySeed for it. Daily and Practice do not agree about the local day —
+// Practice takes no timezone offset at all — so a local day here would have the
+// two decks and the grader disagreeing about which tier a card was asked at.
 //
 // WHY RANDOM IS WORTH HAVING AT ALL. A fixed tier over a mixed library is either
 // too easy for the lines you know by heart or too hard for the ones you wrote
