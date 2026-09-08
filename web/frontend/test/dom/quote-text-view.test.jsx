@@ -1,16 +1,29 @@
-// WHICH TEXT A TRANSLATED QUOTE SHOWS, and the two other settings the board
-// publishes into the screen's ⋯ beside it.
+// WHICH TEXT A TRANSLATED QUOTE SHOWS, on the board that has to draw it — and the
+// two unrelated settings the board publishes into the screen's ⋯ beside it.
 //
-// A translated quote is two texts, and until now the board drew both and offered
-// no way to say otherwise. These drive the published menu rather than a control
-// on the page, because that is where the settings are: the shell renders the ⋯,
-// and buildScreenActions is what it calls when the menu opens.
+// WHERE THE STATE COMES FROM IS NOT THIS FILE'S QUESTION. The precedence is
+// textOrder.js's and is tested pure; the table a reader sets it in is tested in
+// language-text-order.test.jsx. This file asks the one thing neither of those can:
+// does a RENDERED board obey the answer.
+//
+// THAT GAP IS WHERE THE FEATURE BROKE ONCE ALREADY. The resolver was right and the
+// table view simply never asked it, so cards led with the translation while the
+// same rows in the table led with the original — with every pure test green.
+//
+// SO THESE DRIVE THE HOST, NOT A MENU. The ⋯ used to carry three text settings and
+// these cases used to click them. That menu is retired — one device-local key
+// answering the question the master slider now answers — so the state arrives here
+// the way it arrives in the app: out of the reader's preferences, through
+// TextOrderHost.
 
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 
 const ROWS = [
-  { id: 1, book_id: 1, quote: 'Call me Ishmael.', translation: 'আমাকে ইসমাইল বলে ডেকো।', color: 'yellow', tags: [], created_at: '2024-01-01 10:00:00' },
+  // A LANGUAGE ON THIS ONE AND NOT THE OTHER, so a per-language row and the master
+  // can disagree inside one board — which is the whole reason the state resolves
+  // per card instead of once for the screen.
+  { id: 1, book_id: 1, quote: 'Call me Ishmael.', translation: 'আমাকে ইসমাইল বলে ডেকো।', language: 'Bengali', color: 'yellow', tags: [], created_at: '2024-01-01 10:00:00' },
   // No translation at all — the case that decides whether "translation only" is
   // a setting or a way to empty half the board.
   { id: 2, book_id: 1, quote: 'The whale.', color: 'blue', tags: [], created_at: '2024-02-01 10:00:00' },
@@ -27,9 +40,17 @@ vi.mock('../../src/api.js', async (orig) => ({
 
 const { default: Library } = await import('../../src/Library.jsx')
 const { buildScreenActions } = await import('../../src/ui.jsx')
+const { TextOrderHost } = await import('../../src/textOrderHost.jsx')
 
-const board = () =>
-  render(<Library openId={1} onOpen={() => {}} onClose={() => {}} creditSeparators=",;&" onAdd={() => {}} onSearch={() => {}} dataNonce={0} />)
+// `order` is the { master, byLanguage } the shell provides. Omitted, it is `{}` —
+// which is what a surface nobody has wrapped gets, and it has to draw as the app
+// always drew.
+const board = (order) =>
+  render(
+    <TextOrderHost value={order}>
+      <Library openId={1} onOpen={() => {}} onClose={() => {}} creditSeparators=",;&" onAdd={() => {}} onSearch={() => {}} dataNonce={0} />
+    </TextOrderHost>,
+  )
 
 const rows = () => buildScreenActions()
 const row = (name) => {
@@ -40,49 +61,46 @@ const row = (name) => {
 const text = () => document.body.textContent
 
 describe('which text a quote shows', () => {
-  it('offers the three the pack names, with the original as the resting one', async () => {
-    board()
-    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
-    const labels = rows().filter((r) => r.sub).map((r) => r.label)
-    expect(labels).toEqual(['Both', 'Quote only', 'Translation only'])
-    // Every one says what it means. The whole difficulty is that most readers do
-    // not know a quote here can carry a translation at all.
-    expect(row(/^Both$/).sub).toMatch(/translation/i)
-    expect(row(/^Both$/).checked).toBe(true)
-  })
-
-  it('draws both texts until it is told otherwise', async () => {
+  it('draws both texts when nothing has an opinion', async () => {
     board()
     await waitFor(() => expect(text()).toContain('Call me Ishmael'))
     expect(text()).toContain('আমাকে ইসমাইল বলে ডেকো।')
   })
 
-  it('puts the translation away when the reader asks for the quote alone', async () => {
-    board()
-    await waitFor(() => expect(text()).toContain('আমাকে ইসমাইল বলে ডেকো।'))
-    row(/^Quote only$/).onClick()
-    await waitFor(() => expect(text()).not.toContain('আমাকে ইসমাইল বলে ডেকো।'))
-    expect(text()).toContain('Call me Ishmael')
+  it('puts the translation away when the state is the quote alone', async () => {
+    board({ master: 'quote-only' })
+    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
+    expect(text()).not.toContain('আমাকে ইসমাইল বলে ডেকো।')
   })
 
   it('promotes the translation into the quote’s own type, without drawing it twice', async () => {
-    board()
-    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
-    row(/^Translation only$/).onClick()
-    await waitFor(() => expect(text()).not.toContain('Call me Ishmael'))
+    board({ master: 'trans-only' })
+    await waitFor(() => expect(text()).toContain('আমাকে ইসমাইল বলে ডেকো।'))
+    expect(text()).not.toContain('Call me Ishmael')
     // Once, not once as the words and once as the line under them.
-    const hits = text().split('আমাকে ইসমাইল বলে ডেকো।').length - 1
-    expect(hits).toBe(1)
+    expect(text().split('আমাকে ইসমাইল বলে ডেকো।').length - 1).toBe(1)
   })
 
   it('falls back to the quote rather than emptying a card with no translation', async () => {
-    board()
-    await waitFor(() => expect(text()).toContain('The whale.'))
-    row(/^Translation only$/).onClick()
+    board({ master: 'trans-only' })
     // A setting that blanks every untranslated quote looks like a bug that has
-    // eaten the library, which is why quoteBody prefers rather than obeys.
-    await waitFor(() => expect(text()).not.toContain('Call me Ishmael'))
-    expect(text()).toContain('The whale.')
+    // eaten the library, which is why quoteTexts prefers rather than obeys.
+    await waitFor(() => expect(text()).toContain('The whale.'))
+  })
+
+  // THE CHAIN RESOLVES PER CARD, and this is the case that proves it rather than
+  // asserting it. One board, one master, two cards, two different answers — which
+  // a screen that read the state once and handed it down could not produce, and
+  // which is exactly what the retired menu did.
+  it('and a language’s own row outranks the master, card by card', async () => {
+    board({ master: 'quote-only', byLanguage: { bengali: 'trans-only' } })
+    // The Bengali row obeys its language: the translation, alone.
+    await waitFor(() => expect(text()).toContain('আমাকে ইসমাইল বলে ডেকো।'))
+    expect(text(), 'the Bengali card kept its original, so its language row lost to the master')
+      .not.toContain('Call me Ishmael')
+    // The row with no language of its own obeys the master, in the same board.
+    expect(text(), 'the card with no language followed the Bengali row instead of the master')
+      .toContain('The whale.')
   })
 })
 

@@ -109,28 +109,3 @@ export function masterIsCustom(master, byLanguage) {
   const m = known(master) || TEXT_ORDER_DEFAULT
   return Object.values(byLanguage || {}).some((v) => known(v) && v !== m)
 }
-
-// orderFromTextView — the board's ⋯ menu, in the new vocabulary.
-//
-// THE MENU IS ON ITS WAY OUT and this is the bridge, not the destination. It has
-// three settings — Both, Quote only, Translation only — held in one device-local
-// key for the whole app, and the owner's master slider is what replaces it: a
-// global control and a global slider answering the same question is the "one fact
-// signalled twice" the repo forbids.
-//
-// BUT NOT YET, AND THAT IS THE POINT OF THIS FUNCTION. Deleting the menu in the
-// same step that introduced the states would leave a reader with no global control
-// at all until the table lands — a regression window opened for tidiness. So the
-// menu keeps working, as a scope ABOVE the work: `quote` and `translation` are
-// explicit instructions and outrank everything, which is exactly the rule it had
-// ("the language decides, the menu overrides").
-//
-// `both` RETURNS NOTHING, which is the whole reason it maps cleanly. It never
-// meant "show them in this order" — since the readable-languages work it has meant
-// "let something else decide", and no opinion is precisely what the chain wants
-// from a scope with nothing to say.
-export function orderFromTextView(tview) {
-  if (tview === 'quote') return 'quote-only'
-  if (tview === 'translation') return 'trans-only'
-  return null
-}

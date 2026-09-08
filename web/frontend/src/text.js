@@ -184,13 +184,18 @@ export function clipChipName(v) {
 // and the failure is silent and doubled: the same words printed in both sizes, or
 // a card that shows one text and hides the other.
 //
-// THE LANGUAGE DECIDES, THE MENU OVERRIDES — the owner's ruling, asked and
-// answered. `both` is the default and is not "show both in a fixed order": it lets
-// each card decide from its OWN language, which is what makes this per-card
-// without storing anything per card. A quote in a language the reader has not
-// declared leads with its translation. Choosing quote-only or translation-only
-// from the board's text menu still wins, for the whole board, because that is an
-// explicit instruction and this is an inference.
+// THE NARROWEST SCOPE DECIDES, and it replaced an inference. resolveTextOrder
+// walks scope → language → master: a work's own setting beats the reader's row for
+// that language, which beats their master slider, which falls back to quote-first.
+// Nothing is stored per card — a card contributes only the language of its own
+// line, which is what keeps this per-card without a column.
+//
+// AND THE ⋯ MENU'S TEXT SECTION IS GONE, which is the point and not a side-effect.
+// It held one device-local key for the whole app, sat ABOVE the work in the chain,
+// and answered exactly the question the master slider answers now: a global menu
+// and a global slider on one question is the "one fact signalled twice" this repo
+// forbids. What replaced it is not a shorter menu but scopes that can each say
+// nothing and defer — which a three-way menu could not do.
 //
 // A FALLBACK, NOT A BLANK, kept from the version this replaces: a state that asks
 // for the translation alone, on a quote with no translation, shows the quote.

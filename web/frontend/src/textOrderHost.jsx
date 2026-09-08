@@ -1,8 +1,9 @@
 // THE RESOLVED STATE, PROVIDED ONCE RATHER THAN THREADED.
 //
 // This repo's fourth entry on the same lesson, and the third one about this exact
-// feature. `tview` reached a card through two components that only passed it
-// along; the readable-languages predicate was added beside it and the table view
+// feature. The board's own text menu reached a card through two components that
+// only passed it along; the readable-languages predicate was added beside it and
+// the table view
 // spent a day not reading it, so cards led with the translation and the same rows
 // in the table led with the original. WorkDoor and SearchDoor in personOpen.jsx
 // exist for the same reason and their note says it best: "absent-by-omission looks

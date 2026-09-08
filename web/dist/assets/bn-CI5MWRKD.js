@@ -6643,13 +6643,6 @@ book.sort.dir.desc.label = বড় থেকে ছোট
 book.sort.menu.label = সাজানো
 book.strip.shown.label = {total}টার মধ্যে {n}টা দেখানো হচ্ছে
 book.select.menu.label = উদ্ধৃতি বাছাই
-book.text.menu.label = উদ্ধৃতির লেখা
-book.text.both.label = দুটোই
-book.text.both.sub = মূল লেখা, তার নিচে অনুবাদ
-book.text.quote.label = শুধু উদ্ধৃতি
-book.text.quote.sub = যা লেখা হয়েছিল
-book.text.translation.label = শুধু অনুবাদ
-book.text.translation.sub = যা বোঝায়
 
 # ---- PRUNE: the saved records nothing points at ---------------------------
 # bn: "orphan" has no good Bengali for a record — অনাথ is for a child. পড়ে থাকা

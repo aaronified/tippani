@@ -6794,13 +6794,6 @@ book.sort.dir.desc.label = Descending
 book.sort.menu.label = Sort
 book.strip.shown.label = {n} of {total} shown
 book.select.menu.label = Select quotes
-book.text.menu.label = quote text
-book.text.both.label = Both
-book.text.both.sub = The original, then the translation under it
-book.text.quote.label = Quote only
-book.text.quote.sub = What was written
-book.text.translation.label = Translation only
-book.text.translation.sub = What it says
 
 # ---- PRUNE: the saved records nothing points at ---------------------------
 # One endpoint, two consoles. The button draws nothing at zero, so every string

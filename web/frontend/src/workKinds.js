@@ -154,7 +154,7 @@ export const KINDS = {
       // change the first time they rearrange a book — and a `chapter` order
       // arriving on a film board would send every row into the sort's `missing`
       // partition, so the board would look unsorted with no control saying why.
-      persist: { view: 'tippani:annview', sort: 'tippani:annsort', group: 'tippani:anngroup', text: 'tippani:anntext' },
+      persist: { view: 'tippani:annview', sort: 'tippani:annsort', group: 'tippani:anngroup' },
     },
     card: { skin: 'hand', listSkin: 'plain' },
     views: ['tiles', 'list', 'table'],

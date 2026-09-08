@@ -12,18 +12,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   values the old free-text field expected, so a card that has been showing the word as
   work to do can be filed now.
 
-- **You can say which languages you read, and a standalone quote in another one shows its
-  translation first.** Under the interface language in Settings: name the languages you can
-  read, and a quote in any language you did not name puts its translation in the big type
-  with the original underneath — which is what a poem or a song in a language you are
-  learning wants. Name none and every quote reads as it was written, which is what the app
-  did before. The text menu on a board still wins where you use it: quote-only and
-  translation-only mean exactly that.
+- **You choose how much of the original a quote shows, per language and for all of them.**
+  Metadata → Language marks is a row per language with a slider beside it and four stops:
+  translation only, translation above the original, original above the translation, original
+  only. A slider above the column is the master — move it and every row comes into line with
+  it; move a single row and the master loses contrast to say the rows are no longer all
+  following it. A quote reads by its own language's row, and by the master where its language
+  has no row of its own. The list also offers every language your own quotes are actually in,
+  not only the starters and the ones you have given a mark to.
+  **This replaced a shorter version of itself before either shipped.** The first pass was a
+  list of "languages you read" in Settings, and a quote in a language you had not named led
+  with its translation — an inference drawn from a declaration. The owner respecified it as
+  four named states you set directly, which is the thing above. An account that had the old
+  list is read through it and nothing rewrites the old preference.
   **A book highlight and a film line cannot do this yet**, and the reason is that neither
   records what language it is in — they have carried a translation since 1.15.0 but never a
-  language to compare it against, so there is nothing for the setting to test. The Settings
-  chips now also offer every language your own quotes are actually in, not only the ten
-  starters and the ones you have given a mark to.
+  language to compare it against, so there is nothing for the setting to test.
+
+- **The board's ⋯ no longer carries a "quote text" menu.** The slider above answers the same
+  question and answers it everywhere. That menu held ONE browser-local setting for the whole
+  app, so it was never per board despite sitting on one — and a global menu beside a global
+  slider is two controls for one fact, which is the thing this app tries not to do. Quote-only
+  and translation-only have not gone anywhere: they are two of the slider's four stops now,
+  and they travel with your account instead of staying on the device you set them on.
 
 - **A translation keeps its line breaks.** It was rendered as one run of prose, so a poem's
   translation lost the shape the original kept. It is the same text in another language and

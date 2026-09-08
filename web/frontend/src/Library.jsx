@@ -14,7 +14,6 @@ import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, w
 import { SelectionBar } from './SelectionBar.jsx'
 import { PeopleChips, PersonModal, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useTextOrder } from './textOrderHost.jsx'
-import { orderFromTextView } from './textOrder.js'
 import { categoryHidden, categoryName } from './theme.js'
 import {
   GroupHeading,
@@ -1106,13 +1105,12 @@ function AnnotationBoard({
   rows, view, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
   save, patch, remove, onCopy, onShare, selection, sort, onSort,
   columns, clamp, expandedId, onToggleExpand, boardRef = null, pinnedCount = 0, seed = 1,
-  tview = 'both', onDuplicate, onOpenCharacter,
+  onDuplicate, onOpenCharacter,
 }) {
   if (view === 'table') {
     return (
       <AnnotationTable
         rows={rows}
-        tview={tview}
         tagMap={tagMap}
         stickers={stickers}
         reloadStickers={reloadStickers}
@@ -1147,7 +1145,6 @@ function AnnotationBoard({
       tagSuggestions={Object.keys(tagMap)}
       selection={selection}
       onOpenCharacter={onOpenCharacter}
-      tview={tview}
       onDuplicate={onDuplicate}
       {...(expandable
         ? { expanded: expandedId === a.id, onToggleExpand: () => onToggleExpand(a.id) }
@@ -1356,17 +1353,6 @@ export function groupAnnotations(rows, dim) {
   return out
 }
 
-// ── WHICH TEXT ───────────────────────────────────────────────────────────────
-//
-// TEXT_VIEWS is the reader's answer to "a quote here is two texts". `both` is the
-// board as it has always drawn: the words, then the translation under them.
-//
-// THE SUB-LINE IS PART OF THE SETTING, not decoration on it. "Quote only" and
-// "Translation only" are unambiguous once you know a quote can carry a
-// translation, and the whole difficulty is that most readers do not — the second
-// line is where that fact is stated, in the one place someone is looking for it.
-export const TEXT_VIEWS = ['both', 'quote', 'translation']
-
 // VIEW_KINDS — the three the board actually renders, in the order the menu lists
 // them. AnnotationBoard has always drawn all three; only the toggle narrowed it.
 export const VIEW_KINDS = KINDS.book.views
@@ -1472,11 +1458,12 @@ function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
 // colour dots are keyed to the same two selectors. A bespoke wrapper would look
 // right on a desktop screenshot and silently lose the aesthetic toggle, the
 // hover affordances and the 320px layout all at once.
-export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, tview = 'both', textOrder = null, onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
+export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers = [], reloadStickers, editing, setEditingId, save, patch, remove, onCopy, onShare, quoteLines = 6, tagSuggestions = [], actionsAlwaysVisible = false, editInline = false, expanded, onToggleExpand, meta, form: Form = AnnotationForm, selection, selectKind = 'annotation', onMoveBoard, onDuplicate, textOrder = null, onOpenCharacter, people = {}, onOpenPerson = null, seps }) {
   const sticker = a.sticker_id != null ? stickerMap[a.sticker_id] : null
-  // PROVIDED, NOT THREADED — see textOrderHost.jsx. `tview` reaches here through
-  // two components that only pass it on; a second prop down that chain is the
-  // capability that goes missing wherever somebody forgets it.
+  // PROVIDED, NOT THREADED — see textOrderHost.jsx. The board's own text menu
+  // reached a card by being handed down two components that did nothing but pass
+  // it on, and a capability threaded that way goes missing wherever one of them
+  // forgets a prop. The menu is gone; the reason it went that way is not.
   // ONE OF FOUR STATES, resolved from the reader's settings and this row's own
   // two facts. `canRead` was a predicate a caller could hand in; a test that wants
   // a particular state passes the state now, which is one indirection fewer
@@ -1488,11 +1475,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // thing React's rules forbid outright, and it would have broken on the first
   // card that was handed an explicit state after being rendered without one.
   const resolved = useTextOrder({ language: a?.language })
-  // THE MENU FIRST, THEN THE CHAIN. `tview` is the board's ⋯ setting and it is on
-  // its way out (see orderFromTextView), but while it exists its two explicit
-  // settings are instructions and outrank everything — the rule it has always had.
-  // `both` maps to nothing, so the work, the language and the master decide.
-  const order = textOrder || orderFromTextView(tview) || resolved
+  const order = textOrder || resolved
   const { body, second } = quoteTexts(a, order)
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
@@ -1783,7 +1766,7 @@ const TABLE_COLS = KINDS.book.tableCols.map((c) => ({
   get label() { return t(c.labelKey) },
 }))
 
-function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onCopy, onShare, tview = 'both' }) {
+function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSort, editingId, setEditingId, save, remove, onCopy, onShare }) {
   // DRAWN, NOT TYPED. `▲`/`▼` render in the reader's font — solid on one platform,
   // hollow on another, off the baseline the header's letters share — and are the
   // one picture docs/ui-glossary.html cannot document. IconSortAsc/IconSortDesc
@@ -1801,13 +1784,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
   // highlights and the cell has the row in hand, so this could ask per row — but
   // the table is a scan of one work and a column whose reading order changed line
   // by line would be unreadable. The work's own state governs the column.
-  // THE HOOK UNCONDITIONALLY, then the menu's instruction. Written as
-  // `orderFromTextView(tview) || useTextOrder()` the hook is skipped whenever the
-  // menu has an opinion, so the hook order changes the moment a reader picks
-  // "quote only" — the same violation the card above carries a note about, made
-  // twice in one afternoon.
-  const resolvedOrder = useTextOrder()
-  const order = orderFromTextView(tview) || resolvedOrder
+  const order = useTextOrder()
   return (
     <Scroller className="ann-table-wrap">
       <table className="ann-table">
@@ -1933,12 +1910,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   // to be saved is a board you scroll rather than read.
   const [sort, setSort] = usePersistedState('tippani:annsort', { col: 'default', dir: 'asc' })
   const [groupBy, setGroupBy] = usePersistedState('tippani:anngroup', 'none')
-  // WHICH TEXT, not which layout — and the two are settings of the same kind, so
-  // they sit together in the menu. A translated quote is two texts, and which one
-  // a reader wants changes per sitting: the original when they can read it, the
-  // translation when they cannot, both when they are comparing them. Nothing on
-  // this board could ask for that before; it always drew both.
-  const [tview, setTview] = usePersistedState('tippani:anntext', 'both')
   // Ids of annotations added this session, most-recent first. They're floated to
   // the top of the pile (overriding the current order) so the user sees their
   // addition — until they sort, which clears the pin (see toggleSort).
@@ -2059,14 +2030,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
         label: t(`common.view.${v}.label`),
         checked: view === v,
         onClick: () => setView(v),
-      })),
-      { id: 'h-text', heading: t('book.text.menu.label') },
-      ...TEXT_VIEWS.map((k) => ({
-        id: `text-${k}`,
-        label: t(`book.text.${k}.label`),
-        sub: t(`book.text.${k}.sub`),
-        checked: tview === k,
-        onClick: () => setTview(k),
       })),
       // THE THIRD DOOR INTO SELECTING, and the only one that can be found by
       // looking. The other two — a long press and a Ctrl-click — are gestures a
@@ -2275,7 +2238,6 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   // does not change per section is bundled here.
   const board = {
     view,
-    tview,
     // Undefined on every surface but a work's own page, and the card checks: a
     // chip that cannot open anything is worse than the text it would replace.
     onOpenCharacter,
