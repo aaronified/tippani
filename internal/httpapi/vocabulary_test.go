@@ -18,18 +18,19 @@ import (
 // then matches nothing — a dropdown suggesting a search with no results.
 
 type vocabResp struct {
-	Tags      []string      `json:"tags"`
-	Genres    []string      `json:"genres"`
-	Series    []string      `json:"series"`
-	Authors   []string      `json:"authors"`
-	Directors []string      `json:"directors"`
+	Tags       []string      `json:"tags"`
+	Genres     []string      `json:"genres"`
+	Series     []string      `json:"series"`
+	Authors    []string      `json:"authors"`
+	Directors  []string      `json:"directors"`
 	Actors     []string      `json:"actors"`
 	Characters []string      `json:"characters"`
 	Speakers   []string      `json:"speakers"`
+	Languages  []string      `json:"languages"`
 	Books      []vocabColour `json:"books"`
 	Movies     []vocabColour `json:"movies"`
-	Shelves   []string      `json:"shelves"`
-	Colours   []vocabColour `json:"colours"`
+	Shelves    []string      `json:"shelves"`
+	Colours    []vocabColour `json:"colours"`
 }
 
 func vocabOf(t *testing.T, c *testClient) vocabResp {
@@ -226,5 +227,63 @@ func TestVocabularyIsEmptyRatherThanNullOnAFreshAccount(t *testing.T) {
 		if list == nil {
 			t.Errorf("%s came back null rather than an empty list", name)
 		}
+	}
+}
+
+// THE LANGUAGES THE LIBRARY IS IN, which is the list Settings' readable-languages
+// chips are drawn from.
+//
+// WHAT THIS IS FOR, rather than what it returns: those chips used to be the ten
+// starter languages plus every language the reader had given a MARK to. A quote
+// typed as "Sanskrit" was in neither set, so there was no chip to press, so
+// Sanskrit could not be declared readable, so that quote led with its translation
+// for good — the exact opposite of what the reader wants from a line they can
+// read. The fix is this facet, and the assertion below is on a language that is
+// NOT a starter and has NO mark, because a starter would pass with the facet
+// deleted.
+func TestVocabularyOffersALanguageThatIsNeitherAStarterNorMarked(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	_ = srv
+
+	c.mustDo("POST", "/quotes", map[string]any{
+		"quote": "सत्यमेव जयते", "language": "Sanskrit", "translation": "Truth alone triumphs",
+	}, 201)
+
+	v := vocabOf(t, c)
+	if !has(v.Languages, "Sanskrit") {
+		t.Errorf("languages does not offer %q: %v", "Sanskrit", v.Languages)
+	}
+	// NOT SPLIT, unlike every other name-shaped facet here. A language is one name;
+	// splitting on the credit separators would offer "Old" and "English" as two
+	// languages nothing is stored under.
+	c.mustDo("POST", "/quotes", map[string]any{
+		"quote": "Hwæt!", "language": "Old English",
+	}, 201)
+	v = vocabOf(t, c)
+	if !has(v.Languages, "Old English") {
+		t.Errorf("languages lost the space in %q: %v", "Old English", v.Languages)
+	}
+	if has(v.Languages, "English") {
+		t.Errorf("languages split a language name: %v", v.Languages)
+	}
+}
+
+// And a language is nobody else's, on the endpoint whose whole hazard is a missing
+// user_id — the same property TestVocabularyIsOnlyEverYourOwn holds for the other
+// eight lists, extended to the ninth rather than assumed of it.
+func TestVocabularyLanguagesAreOnlyEverYourOwn(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	bob := addUser(t, h, admin, "bob")
+	admin.mustDo("POST", "/quotes", map[string]any{
+		"quote": "সত্যের জয়", "language": "Bengali",
+	}, 201)
+
+	v := vocabOf(t, bob)
+	if has(v.Languages, "Bengali") {
+		t.Errorf("a stranger was offered the owner's languages: %v", v.Languages)
 	}
 }

@@ -1732,15 +1732,23 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // See AnnotationCard, and quote_speaker.go for why `speaker_cast` is not
   // `character`.
   // WHICH TEXT LEADS, from the same pair the annotation card asks. THE FILM FRAME
-  // DREW ITS OWN, and that is the divergence this fixes: it took `d.quote` for the
-  // big type and `d.translation` for the line below, unconditionally — so the
-  // reader's text menu and now the language they can read reached the book card
-  // and stopped at the frame. A dialogue is an annotation with different credits,
-  // and the two cards should not answer the same question two ways.
+  // DREW ITS OWN: it took `d.quote` for the big type and `d.translation` for the
+  // line below, unconditionally. A dialogue is an annotation with different
+  // credits, and the two cards should not answer the same question two ways.
+  //
+  // WHAT THIS CHANGES TODAY IS NOTHING, AND THAT IS WORTH WRITING DOWN. An earlier
+  // version of this comment claimed the fix carried "the reader's text menu and
+  // now the language they can read" across to the frame, and it was wrong on both
+  // halves. There is no text menu on this screen — see the line below, which has
+  // always said so — so nothing was stopping here to be let through. And
+  // `dialogues` has a `translation` column but no `language` one (0051), so
+  // `quoteTexts` reads an empty language, `foreign` is false, and the pair comes
+  // back in the order the old code hard-wired. The change is structural: the frame
+  // now ASKS the shared function, so it inherits the behaviour the day the column
+  // exists rather than needing to be found and edited again.
   const frameReader = useReadableLanguages()
   // NO TEXT MENU ON THIS SCREEN, so 'both' — which is not "show both in a fixed
-  // order" but "let the language decide" (quoteTexts). A film frame gains the
-  // behaviour without gaining a menu nobody asked for.
+  // order" but "let the language decide" (quoteTexts).
   const { body: frameBody, second: frameSecond } = quoteTexts(d, 'both', frameReader)
   const sp = d.speaker_cast
   // THE CHARACTER'S PICTURE, AND THE ACTOR'S ONLY AS A FALLBACK — the owner's

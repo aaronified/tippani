@@ -18,6 +18,7 @@ import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './upd
 import { LanguagePicker } from './locale.jsx'
 import { languageMarksState } from './languages.jsx'
 import { parseReadLanguages } from './readLanguages.jsx'
+import { primeSearchVocabulary } from './vocabulary.js'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, REVIEW_TIERS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
@@ -3002,24 +3003,6 @@ function TextSizeField({ prefs, onPreferences }) {
   )
 }
 
-// LabelDensity — whether a button that has a glyph also shows its words.
-//
-// Device-local, like the two cover-size sliders it sits beside and unlike
-// everything else on this card: how much room a row of buttons has is a
-// property of the screen you are looking at, not of the account. Signing in on
-// a phone should not inherit the density you chose for a 27-inch monitor, and
-// riding it on the account would mean exactly that.
-//
-// It also has to stay out of `persist` above, which re-sends every theme field
-// on any change — a label preference in that object would be wiped by an
-// unrelated accent click. This writes its own key and calls applyLabels
-// directly; theme.js owns the attribute either way.
-//
-// Auto is the default and resolves against the same 768px breakpoint the CSS
-// uses: words on a desktop, glyphs on a phone. The override exists in both
-// directions because both are real — a dense desktop user wants the row back,
-// and someone who has not learned the glyphs yet wants the words on a phone
-// more than they want the space.
 // ReadableLanguagesField — the languages this reader says they can read.
 //
 // THE OWNER'S ASK AND THE OWNER'S SCOPE: "there will be a settings where user can
@@ -3029,10 +3012,18 @@ function TextSizeField({ prefs, onPreferences }) {
 // it — "a poem in a foreign language will need the translation to be on top".
 //
 // THE LIST IS THE ONE THE LIBRARY ALREADY HAS, not a menu of every language on
-// earth: languageMarksState() is the starters plus every language the reader has
-// added, and Metadata is where that list is edited. Offering four hundred names
-// here would make the control a search problem and would let somebody declare a
-// language nothing in their library is in.
+// earth. Offering four hundred names here would make the control a search problem
+// and would let somebody declare a language nothing in their library is in.
+//
+// AND THAT SENTENCE WAS NOT TRUE WHEN IT WAS WRITTEN. `languageMarksState()` with
+// no argument is the ten starters plus every language the reader has given a MARK
+// — which is not the same set as the languages their quotes are in. A line typed
+// as "Sanskrit" therefore had no chip to press: it could not be declared readable,
+// so its translation led the card forever, and the only way out was to go and give
+// Sanskrit a mark in Metadata. The library's own languages now come from
+// `/search/vocabulary`, which is where every other "what does this library
+// contain" list already comes from, and they are passed in as the `extra` argument
+// that has existed for exactly this.
 //
 // DECLARING NOTHING IS THE DEFAULT AND MEANS EVERY LANGUAGE AS WRITTEN, which is
 // what the app did before this existed. The opposite reading — nothing declared
@@ -3041,7 +3032,16 @@ function TextSizeField({ prefs, onPreferences }) {
 // had expressed. The note under the chips says which way round it is, because an
 // empty multi-select is otherwise ambiguous by construction.
 function ReadableLanguagesField({ prefs, onPreferences }) {
-  const rows = languageMarksState()
+  // The languages the library is actually in. Empty until the request lands, so
+  // the starters draw immediately and the reader's own names arrive under them
+  // rather than the panel waiting on a list it can work without.
+  const [used, setUsed] = useState([])
+  useEffect(() => {
+    let live = true
+    primeSearchVocabulary().then((v) => { if (live) setUsed(v?.languages || []) })
+    return () => { live = false }
+  }, [])
+  const rows = languageMarksState(used)
   const chosen = parseReadLanguages(prefs?.readLanguages)
   const [err, setErr] = useState('')
 
@@ -3100,6 +3100,24 @@ function ReadableLanguagesField({ prefs, onPreferences }) {
   )
 }
 
+// LabelDensity — whether a button that has a glyph also shows its words.
+//
+// Device-local, like the two cover-size sliders it sits beside and unlike
+// everything else on this card: how much room a row of buttons has is a
+// property of the screen you are looking at, not of the account. Signing in on
+// a phone should not inherit the density you chose for a 27-inch monitor, and
+// riding it on the account would mean exactly that.
+//
+// It also has to stay out of `persist` above, which re-sends every theme field
+// on any change — a label preference in that object would be wiped by an
+// unrelated accent click. This writes its own key and calls applyLabels
+// directly; theme.js owns the attribute either way.
+//
+// Auto is the default and resolves against the same 768px breakpoint the CSS
+// uses: words on a desktop, glyphs on a phone. The override exists in both
+// directions because both are real — a dense desktop user wants the row back,
+// and someone who has not learned the glyphs yet wants the words on a phone
+// more than they want the space.
 export function LabelDensity() {
   const [pref, setPref] = useState(labelsPref)
   function pick(v) {

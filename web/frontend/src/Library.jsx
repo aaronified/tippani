@@ -1775,6 +1775,14 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
   const arrow = (k) => (sort.col !== k ? null
     : sort.dir === 'asc' ? <IconSortAsc size={13} /> : <IconSortDesc size={13} />)
   const editingRow = rows.find((a) => a.id === editingId)
+  // THE SAME PREDICATE THE CARDS READ, and it is taken from the provider rather
+  // than passed in — the argument ReadableLanguages exists for. Without it
+  // `quoteBody` had no way to ask whether the reader can read the line, so the
+  // `both` default (which is every reader's, until they change it) resolved to
+  // the original here and to the translation on the card: one library, two
+  // answers, and the table's was the wrong one for exactly the quote the feature
+  // is for.
+  const reader = useReadableLanguages()
   return (
     <Scroller className="ann-table-wrap">
       <table className="ann-table">
@@ -1799,7 +1807,7 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
                     one view where the translation was never drawn at all, so a
                     reader who asked for "translation only" here used to get the
                     original back with no sign the setting had done anything. */}
-                <ExpandableText text={quoteBody(a, tview) || a.note} lines={2} style={QUOTE_STYLE} />
+                <ExpandableText text={quoteBody(a, tview, reader) || a.note} lines={2} style={QUOTE_STYLE} />
                 {a.tags && a.tags.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {a.tags.map((name) => {

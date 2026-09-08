@@ -20,7 +20,12 @@ import {
 } from './facets.js'
 import { t, tNodes } from './i18n.js'
 import { usePersonOpener } from './personOpen.jsx'
-import { registerSessionCache, sessionEra } from './sessionCaches.js'
+// A REAL IMPORT BESIDE THE RE-EXPORT BELOW. `export … from` is not a local
+// binding, and useSearchVocabulary calls this — see no-free-names.test.js.
+import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
+
+// Re-exported so the callers that have always imported it from here still can.
+export { primeSearchVocabulary } from './vocabulary.js'
 import { quoteKindMeta } from './quoteKind.js'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState } from './Movies.jsx'
@@ -85,59 +90,11 @@ import {
   IconChevron,
 } from './ui.jsx'
 
-// ---- the vocabulary, fetched once and held for the session ------------------
-//
-// ONE REQUEST, NOT ONE PER KEYSTROKE. A personal library's vocabulary is a few
-// hundred names — small enough to filter in the browser and far too small to be
-// worth a round trip behind every character typed into a box that is already a
-// typeahead over the whole library.
-//
-// The cache is at MODULE scope rather than in the hook, so leaving Search and
-// coming back does not re-fetch, and the two places that will want this (the
-// box, and the filter sheets) share one copy. `pending` deduplicates the case
-// that actually happens: two components focusing in the same tick.
-let vocabCache = null
-let vocabPending = null
-
-// AND IT IS EMPTIED WHEN THE READER CHANGES. `GET /search/vocabulary` is nine
-// queries each scoped by `user_id` — every author, performer, tag, colour and
-// shelf name in ONE library — and this held it "for the session" with nothing
-// clearing it anywhere. Signing out does not reload the document (App's Log out is
-// `setUser(null)`), so on a shared browser the next account was offered the
-// previous one's vocabulary in its search box. The pending promise goes with it: a
-// request the previous reader started must not land in this cache afterwards.
-registerSessionCache(() => {
-  vocabCache = null
-  vocabPending = null
-})
-
-export function primeSearchVocabulary() {
-  if (vocabCache) return Promise.resolve(vocabCache)
-  if (!vocabPending) {
-    // WHOSE VOCABULARY THIS IS GOING TO BE. Captured before the request goes out,
-    // because a request outlives the reader who started it: sign out while this is
-    // in the air and the continuation below still runs, and without this check it
-    // writes the previous account's authors, performers and tags into the cache
-    // AFTER somebody else has signed in. Emptying the cache on sign-out is not
-    // enough on its own — the request that refills it was already gone.
-    const era = sessionEra()
-    vocabPending = json('GET', '/search/vocabulary').then((r) => {
-      if (era !== sessionEra()) return {}
-      vocabPending = null
-      // A vocabulary that would not load is an empty dropdown, never a broken
-      // search box: the grammar still parses and the chips still work, you just
-      // do not get offered the values.
-      if (r.ok && r.data) vocabCache = r.data
-      return vocabCache || {}
-    })
-  }
-  return vocabPending
-}
 
 // useSearchVocabulary fetches on FIRST FOCUS rather than on mount, so opening
 // the Search screen to read your last results costs nothing.
 function useSearchVocabulary() {
-  const [vocab, setVocab] = useState(vocabCache || {})
+  const [vocab, setVocab] = useState(cachedVocabulary() || {})
   const asked = useRef(false)
   const load = () => {
     if (asked.current) return

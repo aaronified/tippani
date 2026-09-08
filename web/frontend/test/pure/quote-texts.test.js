@@ -16,6 +16,8 @@
 
 import { describe, expect, it } from 'vitest'
 import { quoteBody, quoteTexts, showsTranslationLine } from '../../src/text.js'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const q = { quote: 'Als die Nazis die Kommunisten holten', translation: 'First they came for the Communists', language: 'German' }
 const readsGerman = (l) => String(l || '').toLowerCase() === 'german'
@@ -91,5 +93,48 @@ describe('the two old names still answer, and answer the same way', () => {
     expect(showsTranslationLine(q, 'both', readsNothingElse)).toBe(true)
     expect(showsTranslationLine(q, 'quote', readsGerman)).toBe(false)
     expect(showsTranslationLine(q, 'translation', readsGerman)).toBe(false)
+  })
+})
+
+// ---- and every screen that asks actually passes the predicate ---------------
+//
+// THE FAILURE THIS GUARDS IS NOT A WRONG ANSWER, IT IS AN UNASKED QUESTION, and
+// it has happened twice in this repo now. `quoteBody(a, tview)` compiles, runs,
+// and returns a perfectly sensible string — the one it returned before readable
+// languages existed. The table view shipped like that: cards led with the
+// translation and the same rows in the table led with the original, one library
+// giving two answers, and no test failed because nothing was broken. It was
+// merely not connected.
+//
+// SO THE ASSERTION IS ON THE CALL SITES, not on one component. A test that
+// rendered AnnotationTable would pin the site that was wrong and say nothing
+// about the next one; this fails on any screen that adds a call and forgets the
+// third argument. text.js is exempt because it IS the pair of wrappers, and its
+// own two-argument signature is what the wrappers exist to widen.
+//
+// AND HERE IS WHAT IT CANNOT SEE, said plainly because a guard that is trusted
+// past its reach is worse than no guard. The pattern refuses nested parentheses,
+// so `quoteBody(a, tview, readerFrom(x))` does not match it AT ALL and is skipped
+// in silence rather than counted — the same shape of miss the test is here to
+// prevent. It holds for the three call sites that exist, all of which pass bare
+// identifiers; a call that needs an expression for its reader should hoist it to
+// a `const` on the line above, which is what the two real callers already do.
+// Quotes.jsx has no call today and its row asserts nothing yet — it is listed so
+// that the screen most likely to grow one is already covered when it does.
+describe('the predicate reaches every caller', () => {
+  const SCREENS = ['Library.jsx', 'Movies.jsx', 'Quotes.jsx']
+  // The three names that answer "which text leads", and a call to any of them
+  // that stops at two arguments is a screen that cannot see the reader.
+  const CALL = /\b(quoteTexts|quoteBody|showsTranslationLine)\s*\(([^()]*)\)/g
+
+  it.each(SCREENS)('%s passes a reader to every one of them', (file) => {
+    const src = readFileSync(join(process.cwd(), 'src', file), 'utf8')
+    const thin = []
+    for (const m of src.matchAll(CALL)) {
+      const args = m[2].split(',').map((a) => a.trim()).filter(Boolean)
+      if (args.length < 3) thin.push(`${m[1]}(${m[2]})`)
+    }
+    expect(thin, `${file} asks which text leads without saying who is reading — the answer will be the pre-feature one and nothing will look broken`)
+      .toEqual([])
   })
 })

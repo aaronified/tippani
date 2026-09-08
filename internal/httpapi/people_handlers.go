@@ -609,8 +609,6 @@ func (s *Server) handlePeople(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"people": people})
 }
 
-// handleUpsertPerson: PUT /people — upsert by (kind, name). image_url is fetched
-// (any host; SSRF-guarded, private IPs blocked) and stored; clear_image drops it.
 // handleEnsurePerson: POST /people/ensure {kind, name} — the record for a credit
 // that has never had one, created if it is missing and RETURNED EITHER WAY.
 //
@@ -678,6 +676,8 @@ func (s *Server) handleEnsurePerson(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, p)
 }
 
+// handleUpsertPerson: PUT /people — upsert by (kind, name). image_url is fetched
+// (any host; SSRF-guarded, private IPs blocked) and stored; clear_image drops it.
 func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Kind       string `json:"kind"`

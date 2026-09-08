@@ -12,6 +12,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -61,6 +63,15 @@ const card = (preferences) =>
 // about the card and a useless one about this question. So: the second line is one
 // element and is read directly, and the leading text is asserted to be present and
 // NOT to be the second line.
+// index.css is read rather than loaded: jsdom applies no stylesheet, so a
+// declaration is a fact about the file. Same idiom as no-truncated-names.test.js,
+// which guards the standing "never truncate a name" rule the same way.
+const css = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8')
+const blockFor = (cls) => {
+  const at = css.indexOf(`.${cls} {`)
+  return at === -1 ? null : css.slice(at, css.indexOf('}', at))
+}
+
 const secondLine = () => document.querySelector('.quote-translation')
 const leads = (text) => {
   const hits = screen.queryAllByText(text)
@@ -98,13 +109,37 @@ describe('a card, and which text is the words', () => {
 //
 // The owner's: "the translation needs to follow the linebreaks and spaces like the
 // quote body." A poem's translation arrived as one run of prose beside an original
-// that kept its shape, because `.quote-translation` had no `pre-wrap` and the
-// body had carried one since it could hold a paragraph. Asserted on the class
-// rather than on the rendered geometry, which jsdom does not compute.
+// that kept its shape, because `.quote-translation` had no `pre-wrap` and the body
+// had carried one since it could hold a paragraph.
+//
+// THE FIRST VERSION OF THIS TEST ASSERTED NOTHING. It selected `.quote-translation`
+// and then checked that the element's className contained "quote-translation",
+// which is true of anything that selector can return — so deleting `white-space:
+// pre-wrap` from index.css left the whole suite green and the feature gone. jsdom
+// not computing geometry is a real constraint but it is not a reason to assert a
+// tautology: the declaration is READ instead.
+//
+// AND BOTH SIDES ARE READ, because the two carry pre-wrap from two different
+// places — the body from an inline style in ExpandableText, the translation from
+// the stylesheet — so either can be changed without the other, which is exactly
+// the drift the owner's "like the quote body" forbids.
 describe('the second line', () => {
-  it('is styled to keep the line breaks it was given', () => {
+  it('is given pre-wrap by the stylesheet', () => {
+    const block = blockFor('quote-translation')
+    expect(block, '.quote-translation is not declared in index.css any more').not.toBeNull()
+    expect(block, "the translation no longer keeps its line breaks — a poem's translation draws as prose")
+      .toMatch(/white-space\s*:\s*pre-wrap/)
+  })
+
+  it('and the body it has to match still has it too', () => {
     card({})
-    expect(secondLine()?.className, 'the second line is not the class the stylesheet gives pre-wrap')
-      .toMatch(/quote-translation/)
+    // ExpandableText puts `card-text` on its WRAPPER and the pre-wrap on the <p>
+    // inside it, so `.card-text` alone selects the wrapper and reads an empty
+    // style. `.clampable` is the half TranslationLine does not carry, which is
+    // what tells the body's paragraph from the translation's.
+    const body = document.querySelector('.clampable.card-text > p')
+    expect(body, 'the card no longer renders a body through ExpandableText').toBeTruthy()
+    expect(body.style.whiteSpace, 'the quote body stopped keeping its line breaks, so there is nothing for the translation to match')
+      .toBe('pre-wrap')
   })
 })

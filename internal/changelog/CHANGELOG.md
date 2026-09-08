@@ -12,13 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   values the old free-text field expected, so a card that has been showing the word as
   work to do can be filed now.
 
-- **You can say which languages you read, and a quote in another one shows its translation
-  first.** Under the interface language in Settings: name the languages you can read, and a
-  quote in any language you did not name puts its translation in the big type with the
-  original underneath — which is what a poem or a song in a language you are learning
-  wants. Name none and every quote reads as it was written, which is what the app did
-  before. The text menu on a board still wins where you use it: quote-only and
+- **You can say which languages you read, and a standalone quote in another one shows its
+  translation first.** Under the interface language in Settings: name the languages you can
+  read, and a quote in any language you did not name puts its translation in the big type
+  with the original underneath — which is what a poem or a song in a language you are
+  learning wants. Name none and every quote reads as it was written, which is what the app
+  did before. The text menu on a board still wins where you use it: quote-only and
   translation-only mean exactly that.
+  **A book highlight and a film line cannot do this yet**, and the reason is that neither
+  records what language it is in — they have carried a translation since 1.15.0 but never a
+  language to compare it against, so there is nothing for the setting to test. The Settings
+  chips now also offer every language your own quotes are actually in, not only the ten
+  starters and the ones you have given a mark to.
 
 - **A translation keeps its line breaks.** It was rendered as one run of prose, so a poem's
   translation lost the shape the original kept. It is the same text in another language and

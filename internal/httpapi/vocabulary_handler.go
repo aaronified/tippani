@@ -83,6 +83,19 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		                SELECT DISTINCT a.character FROM annotations a JOIN books b ON b.id = a.book_id
 		                WHERE b.user_id = ? AND a.character <> ''`, true},
 		{"speakers", `SELECT DISTINCT speaker FROM utterances WHERE user_id = ? AND speaker <> ''`, true},
+		// THE LANGUAGES THE LIBRARY ACTUALLY USES, and the reason it is here rather
+		// than derived on a screen is that the screen that needs it holds no quotes.
+		// Settings' readable-languages chips were drawn from the ten starters plus
+		// whatever the reader had MARKED, so a line typed as "Sanskrit" had no chip
+		// to press — it could not be declared readable, so its translation led the
+		// card forever and the only way out was to go and give Sanskrit a mark in
+		// Metadata. The Quotes screen dodged this by deduplicating the rows it had
+		// already loaded, which is not available to a screen that loads none.
+		//
+		// NOT SPLIT. Every other name-shaped facet here is a joined credit and has
+		// to be taken apart; a language is one name, and splitting it would offer
+		// "Old" and "English" as two languages nothing is stored under.
+		{"languages", `SELECT DISTINCT language FROM utterances WHERE user_id = ? AND language <> ''`, false},
 		{"shelves", `SELECT DISTINCT status FROM books WHERE user_id = ? AND status <> ''
 		             UNION SELECT DISTINCT status FROM movies WHERE user_id = ? AND status <> ''`, false},
 	} {

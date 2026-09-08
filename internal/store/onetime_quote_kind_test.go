@@ -187,7 +187,10 @@ func TestQuoteKindColumnRefusesAnythingElse(t *testing.T) {
 		`INSERT INTO users (id, username, password_hash) VALUES (1, 'a', 'x')`); err != nil {
 		t.Fatal(err)
 	}
-	for _, k := range []string{"", "speech", "letter", "essay", "proverb", "other"} {
+	// 0053's six, plus 0067's `poem` and 0068's `song`. The two widenings each
+	// added a word to this vocabulary and neither added it here, so the store
+	// package went on asserting that the column holds exactly the six it used to.
+	for _, k := range []string{"", "speech", "letter", "essay", "poem", "song", "proverb", "other"} {
 		if _, err := s.DB.Exec(
 			`INSERT INTO utterances (user_id, quote, color, kind, dedupe_hash) VALUES (1, ?, 'yellow', ?, ?)`,
 			"ok-"+k, k, "h-"+k); err != nil {

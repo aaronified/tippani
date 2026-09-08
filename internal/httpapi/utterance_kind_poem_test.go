@@ -20,7 +20,7 @@ func TestAPoemCanBeSavedAndAnInventedKindCannot(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
 	got := newUtterance(t, c, map[string]any{
-		"quote": "Turning and turning in the widening gyre\nThe falcon cannot hear the falconer;",
+		"quote":   "Turning and turning in the widening gyre\nThe falcon cannot hear the falconer;",
 		"speaker": "W. B. Yeats", "work_title": "The Second Coming", "kind": "poem",
 	})
 	if got.Kind != "poem" {
@@ -31,7 +31,15 @@ func TestAPoemCanBeSavedAndAnInventedKindCannot(t *testing.T) {
 	if want := "gyre\nThe falcon"; !strings.Contains(got.Quote, want) {
 		t.Errorf("the stored quote is %q — a poem's line breaks are its text", got.Quote)
 	}
-	// The vocabulary is still a vocabulary.
+	// AND AN UNKNOWN KIND IS STILL REFUSED — BY THE HANDLER, WHICH IS THE ONLY
+	// THING THIS LINE CAN SPEAK FOR. It used to say "the vocabulary is still a
+	// vocabulary", which read as a claim about the column and is not one: the 400
+	// comes from validQuoteKind (utterance_handlers.go), so stripping the CHECK out
+	// of the migration entirely leaves this passing. The column's own vocabulary is
+	// guarded in the store package, where the schema is — TestQuoteKindColumnRefuses-
+	// AnythingElse enumerates all eight values and refuses a ninth, and
+	// quote_kind_widening_test.go proves the widening carried the existing values
+	// across. Two layers, two tests, and neither one covers for the other.
 	c.mustDo("POST", "/quotes", map[string]any{
 		"quote": "x", "kind": "haiku"}, http.StatusBadRequest)
 }
@@ -44,7 +52,7 @@ func TestASongCanBeSaved(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())
 	got := newUtterance(t, c, map[string]any{
-		"quote": "আমার সোনার বাংলা\nআমি তোমায় ভালোবাসি",
+		"quote":   "আমার সোনার বাংলা\nআমি তোমায় ভালোবাসি",
 		"speaker": "Rabindranath Tagore", "work_title": "Amar Shonar Bangla", "kind": "song",
 	})
 	if got.Kind != "song" {
