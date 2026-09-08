@@ -67,6 +67,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **On Easy, the quiz card shows you who is in the line.** The characters a book or film
+  line names, with their faces, beside the words — and for a quote you saved on its own,
+  whoever said it. It is what Easy buys instead of a harder question: when a line will not
+  come at all, being shown who is in it is usually enough to place it. Not on "who said
+  this?", where the faces would be the answer, and not on "which of these quotes is from
+  this work?", where they belong to one of the four and would point at it.
+
 - **The quiz stops offering you the same author on every card.** A wrong answer by the
   right answer's own author is the closest one your library can produce, so it was winning
   nearly every card — on a shelf with one author you keep a lot of, ten cards out of ten.

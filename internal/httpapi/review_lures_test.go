@@ -168,3 +168,203 @@ func TestAOneAuthorShelfStillOffersAChoice(t *testing.T) {
 		}
 	}
 }
+
+// EASY SHOWS THE READER WHO IS IN THE LINE — AND NEVER ON A CARD THAT ASKS IT.
+//
+// The plan's words for the Easy tier: "Speaker and character chips visible beside
+// the quote, with the face." That is what Easy buys instead of a harder question,
+// and it is the half of the tier that is not a count or a width — so nothing in
+// the tier's own guards could see it.
+//
+// THE LEAK IS THE THING TO TEST, not the presence. "Who said this?" with the
+// character named above the options is the same defect hideTheAnswer exists for,
+// arrived at from the other side: the server would be printing the answer itself
+// rather than leaving it in the words. So each case below asks a direction and
+// then asks whether the people came with it.
+
+func seedCharacterBook(t *testing.T, c *testClient, title, author, character string, n int) {
+	t.Helper()
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": title, "author": author}, http.StatusCreated))
+	for i := 0; i < n; i++ {
+		c.mustDo("POST", "/annotations", map[string]any{
+			"book_id": book.ID, "character": character,
+			"quote": fmt.Sprintf(
+				"%s passage %d: the sleeper must awaken and the spice must flow across the desert", title, i),
+		}, http.StatusCreated)
+	}
+}
+
+// easyChipDeck asks for a deck of one direction at one tier and returns it.
+func easyChipDeck(t *testing.T, h http.Handler, c *testClient, tier, direction string) []reviewCard {
+	t.Helper()
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier": tier, "srDaily": 10,
+		"srQuestions": fmt.Sprintf(`{"daily":[%q]}`, direction)}, http.StatusOK)
+	return decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200)).Items
+}
+
+func TestEasyNamesTheCharacterBesideTheQuoteAndNeverOnACardThatAsksIt(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	seedCharacterBook(t, c, "Dune", "Frank Herbert", "Paul Atreides", 4)
+	seedAuthoredBook(t, c, "Emma", "Jane Austen", 2)
+	ageSeededItems(t, srv)
+
+	// WHICH BOOK IS THIS FROM — the character is a hint and not the answer.
+	withChips := 0
+	for _, card := range easyChipDeck(t, h, c, tierEasy, dirSource) {
+		if card.Title != "Dune" {
+			continue
+		}
+		if len(card.EasyChips) == 0 {
+			t.Errorf("an easy %q card for a line spoken by Paul Atreides carries no chips — the tier "+
+				"promises the people beside the quote and this is where they are the help", dirSource)
+			continue
+		}
+		if card.EasyChips[0].Name != "Paul Atreides" {
+			t.Errorf("the chip names %q, want the line's own character", card.EasyChips[0].Name)
+		}
+		withChips++
+	}
+	if withChips == 0 {
+		t.Fatal("no Dune card reached the deck, so nothing here was measured")
+	}
+
+	// AND MEDIUM GETS NOTHING, because the chips are what Easy buys.
+	for _, card := range easyChipDeck(t, h, c, tierMedium, dirSource) {
+		if len(card.EasyChips) > 0 || len(card.EasyPeople) > 0 {
+			t.Errorf("a MEDIUM card carries scaffolding chips (%+v / %v) — the tier that moves no dials "+
+				"must not gain one", card.EasyChips, card.EasyPeople)
+		}
+	}
+}
+
+// AND NOT ON THE TWO DIRECTIONS THE PEOPLE WOULD ANSWER.
+//
+// dirSpeaker asks who said it. dirQuote shows the work and asks which of four
+// quotes came from it, so the people belong to one option and naming them points
+// at it. Driven over the endpoint at Easy, which is the only tier that offers
+// them at all.
+//
+// A TRAP FOR THE NEXT TEST AUTHOR, met while writing this one: asking for
+// `{"daily":["speaker"]}` silently gets you the DEFAULTS. Rule 3 in
+// review_questions.go falls the whole list back when it contains no UNIVERSAL
+// direction, because `speaker` needs a recorded speaker and `author` needs a
+// book — a reader who enabled only those would leave a third of the library with
+// nothing to be asked. So each request below pairs the direction under test with
+// `source`, and the loop filters on what the card actually IS.
+func TestEasyWithholdsItsChipsFromTheCardsTheyWouldAnswer(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	// FILMS, because dirSpeaker is a screen/utterance direction: attachSpeaker
+	// refuses a book card outright, so a book fixture cannot reach this case.
+	// Three of them, so there are three actors and a two-option easy card can
+	// always be built.
+	films := []struct{ title, character, actor string }{
+		{"Casablanca", "Rick Blaine", "Humphrey Bogart"},
+		{"Chinatown", "Jake Gittes", "Jack Nicholson"},
+		{"The Third Man", "Harry Lime", "Orson Welles"},
+	}
+	for _, f := range films {
+		m := decode[movieDetail](t, c.mustDo("POST", "/movies",
+			map[string]any{"title": f.title}, http.StatusCreated))
+		for j := 0; j < 3; j++ {
+			c.mustDo("POST", "/dialogues", map[string]any{
+				"movie_id": m.ID, "character": f.character, "actor": f.actor,
+				"quote": fmt.Sprintf("%s line %d: the sleeper must awaken and the spice must flow across the desert",
+					f.title, j),
+			}, http.StatusCreated)
+		}
+	}
+	ageSeededItems(t, srv)
+
+	for _, dir := range []string{dirSpeaker, dirQuote} {
+		c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+			"srTier": tierEasy, "srDaily": 10,
+			"srQuestions": fmt.Sprintf(`{"daily":[%q,%q]}`, dir, dirSource)}, http.StatusOK)
+		deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+		asked, sawSource := 0, 0
+		for _, card := range deck.Items {
+			switch card.Direction {
+			case dir:
+				asked++
+				if len(card.EasyChips) > 0 || len(card.EasyPeople) > 0 {
+					t.Errorf("an easy %q card carries the line's own people (%+v / %v) — that is the answer, "+
+						"or points straight at it, printed above the options", dir, card.EasyChips, card.EasyPeople)
+				}
+			case dirSource:
+				sawSource++
+				// THE CONTROL, in the same deck: a "which film?" card at the same
+				// tier over the same rows DOES carry them, so a green run above
+				// cannot be the chips being switched off everywhere.
+				if len(card.EasyChips) == 0 {
+					t.Errorf("the %q card beside it carries no chips either — this deck is not showing "+
+						"the tier's scaffolding at all, so the withholding above proves nothing", dirSource)
+				}
+			}
+		}
+		if asked == 0 {
+			t.Errorf("no %q card reached the deck, so that case was not measured", dir)
+		}
+		if sawSource == 0 {
+			t.Errorf("no %q card reached the deck, so the control above did not run", dirSource)
+		}
+	}
+}
+
+// AND A STANDALONE QUOTE'S SPEAKER IS A PERSON, NOT A CHARACTER.
+//
+// The two go down different paths on purpose — a speech's speaker has no cast row
+// and no picture under the cover root, so it is a person chip and not a character
+// chip, which is the same split SourceLines already makes. Without this case the
+// EasyPeople half of the payload would be code nothing ever asked for.
+//
+// AND THE SPEAKER IS DROPPED WHEN IT IS ALSO THE TITLE. A speech with no occasion
+// is titled by whoever gave it, so a "which source?" card would print the same
+// name as a chip and as its own answer.
+func TestEasyNamesTheSpeakerOfAStandaloneQuote(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	seedReviewQuotes(t, c, "Subhas Chandra Bose", "the Burma radio broadcast, on the sleeper and the spice", 3)
+	seedReviewQuotes(t, c, "Sojourner Truth", "the Akron convention, on the sleeper and the spice", 3)
+	// NO OCCASION, so utteranceAttribution titles this one by its speaker.
+	titledByItsSpeaker := newUtterance(t, c, map[string]any{
+		"quote":   "the sleeper must awaken and the spice must flow across the desert, he said",
+		"speaker": "Frederick Douglass",
+	})
+	ageSeededItems(t, srv)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"srTier": tierEasy, "srDaily": 10, "srQuestions": `{"daily":["source"]}`}, http.StatusOK)
+
+	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+	named := 0
+	for _, card := range deck.Items {
+		if card.Kind != kindUtterance || card.Direction != dirSource {
+			continue
+		}
+		if card.ID == titledByItsSpeaker.ID {
+			if len(card.EasyPeople) > 0 {
+				t.Errorf("a speech titled by its own speaker carries %v as a chip — the chip and the "+
+					"card's own answer are the same name", card.EasyPeople)
+			}
+			continue
+		}
+		if len(card.EasyPeople) != 1 || card.EasyPeople[0] != card.Speaker {
+			t.Errorf("card %d says speaker %q and offers %v — an easy card names who said it",
+				card.ID, card.Speaker, card.EasyPeople)
+			continue
+		}
+		if len(card.EasyChips) > 0 {
+			t.Errorf("a speech carries character chips (%+v) — a speaker is a person and has no cast row",
+				card.EasyChips)
+		}
+		named++
+	}
+	if named == 0 {
+		t.Fatal("no standalone-quote source card reached the deck, so nothing here was measured")
+	}
+}

@@ -787,6 +787,23 @@ type reviewCard struct {
 	// OptionMeta mirrors Options index-for-index: what each option IS, beyond
 	// the string the reader reads. See optionMeta.
 	OptionMeta []optionMeta `json:"option_meta,omitempty"`
+	// EasyChips are the characters this line names, WITH their faces, to be drawn
+	// beside the quote as scaffolding. EasyPeople is the same offer for a
+	// standalone quote, whose speaker is a person rather than a character.
+	//
+	// THE GATE IS THE SERVER'S AND THE CLIENT DRAWS WHAT ARRIVES. Both are filled
+	// only on the Easy tier and only on directions where the people are not the
+	// answer — see offerEasyChips. The alternative was sending the resolved tier
+	// and letting review.jsx decide, which would put the answer-leak rule on the
+	// far side of the wire from hideTheAnswer, which makes the same judgement
+	// about the same people.
+	EasyChips  []characterImage `json:"easy_chips,omitempty"`
+	EasyPeople []string         `json:"easy_people,omitempty"`
+	// workID is the parent book/movie, carried for the batched picture lookup the
+	// deck handlers do after every card is built. Unexported, so it never reaches
+	// the wire: the client has no use for it and a work id on a quiz card would be
+	// a fifth way to identify the same row.
+	workID int64
 }
 
 // optionMeta is the picture and the provenance of one multiple-choice option.
@@ -1743,6 +1760,117 @@ func distractorScore(own, cand workRef) int {
 	return score
 }
 
+// offerEasyChips hangs a card's own people on it as SCAFFOLDING.
+//
+// THE PLAN'S OWN WORDS for the Easy tier: "Speaker and character chips visible
+// beside the quote, with the face." That is what Easy buys instead of a harder
+// question — the reader who cannot place a line at all is shown who is in it, and
+// the schedule already discounts what an easy answer is worth.
+//
+// NEVER ON A CARD THEY ANSWER, which is the same judgement hideTheAnswer makes
+// about the same people one function away:
+//
+//   - dirSpeaker asks who said it. The chip IS the answer, and on a screen line
+//     the character chip carries the performer underneath it, so even the role
+//     alone hands it over.
+//   - dirQuote shows the work and asks which of four quotes came from it. The
+//     people belong to ONE of the options, so naming them points at it.
+//
+// Everything else Easy can ask — which book, the multiple-choice blank, who wrote
+// it — is a question the line's own cast does not answer, so the chips are a hint
+// rather than a leak. (Easy has no typed blank and no flip card.)
+//
+// THE PICTURES ARE NOT FETCHED HERE. This marks the card and copies what it
+// already has; the deck handler does one batched loadCharacterImages for the whole
+// round afterwards, which is the two-step every list surface in the app makes. A
+// per-card query inside the build loop would be one round trip per card.
+func offerEasyChips(card *reviewCard, c reviewCand, tier string) {
+	if tier != tierEasy {
+		return
+	}
+	switch card.Direction {
+	case dirSpeaker, dirQuote:
+		return
+	}
+	switch card.Kind {
+	case kindUtterance:
+		// A standalone quote's speaker is a PERSON and has no cast row, so it goes
+		// down the people path rather than the character one — the same split
+		// SourceLines makes, for the same reason.
+		if s := strings.TrimSpace(card.Speaker); s != "" && !strings.EqualFold(s, strings.TrimSpace(card.Title)) {
+			card.EasyPeople = []string{s}
+		}
+	default:
+		// The work id, for the batched lookup. A key that does not split is a
+		// speech, which has no work and no cast — nothing to look up.
+		if _, id, ok := splitWorkKey(c.workKey); ok {
+			card.workID = id
+		}
+	}
+}
+
+// fillEasyChips does the round's ONE picture lookup, for the cards offerEasyChips
+// marked.
+//
+// ONE FUNCTION AND TWO CALLERS, not a copy in each deck handler: the Daily Quiz
+// and Practice draw the same card and a control drawn once behaves once. It is
+// best-effort throughout — a library with no character art renders exactly as it
+// did, which is most libraries and every new one, so nothing here is gated on
+// having found a picture.
+//
+// TWO QUERIES AND NOT ONE, because loadCharacterImages is per medium: a book's
+// characters and a film's live in different works and the fold is per (work,
+// name). A round of one medium therefore makes one query, which is the ordinary
+// case.
+func (s *Server) fillEasyChips(uid int64, items []reviewCard) {
+	byKind := map[string][]characterImageRef{}
+	for _, it := range items {
+		if it.workID == 0 || strings.TrimSpace(it.Character) == "" {
+			continue
+		}
+		// "movie" is loadCharacterImages' name for the screen medium — see its
+		// callers in dialogue_handlers.go and search_character_images.go.
+		k := "book"
+		if it.Kind == kindScreen {
+			k = "movie"
+		}
+		byKind[k] = append(byKind[k], characterImageRef{WorkID: it.workID, Character: it.Character})
+	}
+	if len(byKind) == 0 {
+		return
+	}
+	found := map[string]map[string]castFace{}
+	for k, refs := range byKind {
+		found[k] = s.loadCharacterImages(uid, k, refs)
+	}
+	seps := s.creditSeps(uid)
+	for i := range items {
+		if items[i].workID == 0 || strings.TrimSpace(items[i].Character) == "" {
+			continue
+		}
+		k := "book"
+		if items[i].Kind == kindScreen {
+			k = "movie"
+		}
+		items[i].EasyChips = characterImagesFor(found[k], seps, items[i].workID, items[i].Character)
+	}
+}
+
+// splitWorkKey reads "book:12" / "screen:7" back into its halves. ok=false for
+// an utterance key, which is "utterance:<folded speaker and occasion>" and holds
+// no row id — see utteranceWorkKey.
+func splitWorkKey(key string) (kind string, id int64, ok bool) {
+	kind, rest, found := strings.Cut(key, ":")
+	if !found || (kind != kindBook && kind != kindScreen) {
+		return "", 0, false
+	}
+	id, err := strconv.ParseInt(rest, 10, 64)
+	if err != nil {
+		return "", 0, false
+	}
+	return kind, id, true
+}
+
 // ---- the same-author allowance ----------------------------------------------
 //
 // AT MOST ONE CARD IN THREE MAY DRAW A WRONG ANSWER BY THE RIGHT ANSWER'S OWN
@@ -1873,19 +2001,28 @@ func buildQuestion(c reviewCand, preferred string, p quizPools, seed int64, scor
 	if !slices.Contains(dirs, preferred) {
 		preferred = ""
 	}
-	// The preferred direction, then every other one this kind allows.
+	// The preferred direction, then every other one this kind allows — ONE LIST
+	// AND ONE EXIT. This was a branch for the preferred direction and a loop for
+	// the rest, each with its own `return card, true`, and the two had to be kept
+	// in step by hand: anything a built card needs doing to it before it leaves
+	// (offerEasyChips, below) would have to be written twice, which is how one of
+	// two copies goes on being right while the other quietly stops.
+	order := make([]string, 0, len(dirs)+1)
 	if preferred != "" {
-		if card := finishCard(c, preferred); attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at, sameAuthor) {
-			return card, true
-		}
+		order = append(order, preferred)
 	}
 	for _, d := range dirs {
-		if d == preferred {
+		if d != preferred {
+			order = append(order, d)
+		}
+	}
+	for _, d := range order {
+		card := finishCard(c, d)
+		if !attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at, sameAuthor) {
 			continue
 		}
-		if card := finishCard(c, d); attachDirection(&card, c.workKey, p, cardSeed, clozeWords, at, sameAuthor) {
-			return card, true
-		}
+		offerEasyChips(&card, c, at)
+		return card, true
 	}
 	// A SCORED DECK HAS NO ESCAPE HATCH, and that is the change. This used to end
 	// `return finishCard(c, dirFlip)`: the flip card needs no distractors, so it
@@ -2335,6 +2472,8 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// The Easy tier's chips, after every card is built — see fillEasyChips.
+	s.fillEasyChips(uid, items)
 	states, err := s.reviewStates(uid, scope)
 	if err != nil {
 		internalError(w, r, "daily quiz states", err)
@@ -2442,6 +2581,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 			items = append(items, card)
 		}
 	}
+	s.fillEasyChips(uid, items)
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "pool": len(items)})
 }
 

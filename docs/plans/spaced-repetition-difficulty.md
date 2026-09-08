@@ -474,7 +474,7 @@ constants, `dueSQL` splices `dueMultiplier(reviewDuePoint)` — `log2(1/target)`
 `TestTheDotAndTheDeckAgreeOnDue` holds them together. So the dial is now a small
 change: the constant becomes the preference, in one place.
 
-### Step 6 shipped in three of its five parts, and here is the fifth
+### Step 6 shipped in four of its five parts, and here is the fifth
 
 Built: the direction sets, the inverted scorer for Easy (twice — `attachSpeaker` does
 not consult `distractorScore` at all and had to be inverted separately), the wider
@@ -490,19 +490,25 @@ match — was built first and does not deliver "at most one card in three": with
 scores level a shuffle still puts a same-author title in the top three about half the
 time. The cap needs the candidate DEMOTED below the whole pool, not merely unrewarded.
 
-**Two parts are not built, and neither is blocked — they are unstarted:**
+**Easy's chips landed after that, and the plan was wrong about which component draws
+them.** "Speaker and character chips visible beside the quote, with the face" reads as a
+job for `SpeakerChips`, the app's rich chip row — and `review.jsx` cannot import it:
+`people.jsx` imports `usePractice` from `review.jsx`, which is the cycle `credits.jsx`
+exists to keep open. Moving the row down into `credits.jsx` was tried and reverted, and
+two guards said why before any of this was reasoned out — `locale-shadow.test.js` (the
+move collided with two local `const t` in that file) and `person-router.test.jsx`, whose
+own comment already recorded the answer: *"review.jsx defines its OWN PersonChip —
+display-only, because there the answer buttons own the tap."* A chip that became a door
+mid-question would take the reader out of the round from the one place every tap is
+already spoken for. So the quiz card's own display-only chip draws them, in the same
+wrapping row `SourceLines` uses for the attribution side.
+
+**One part is not built, and it is not blocked — it is unstarted:**
 
 - **Closer cloze options, corpus-derived** (§2, Medium). `clozePhraseOf` already lifts
   same-word-count phrases from other quotes; ranking them by surface similarity as
   well as by parent-work similarity is the plan's own first recommendation and stands
   as written.
-- **Easy's speaker and character chips beside the quote, with the face** (§2, Easy).
-  The data is a query away — `loadCharacterImages` + `characterImagesFor` is the
-  two-step every list surface already makes — and the component exists
-  (`SpeakerChips`, `PeopleChips`), so this is wiring rather than design. The one
-  decision it needs is which directions may show them: never `speaker` (the chip IS
-  the answer) and never `quote` (the chip points at the right option), which is the
-  same judgement `hideTheAnswer` makes about the words.
 
 **And Hard's same-series lures cannot be built at all yet**, which is recorded in
 `docs/PLAN.md` rather than here: there is no series term in `distractorScore` and no

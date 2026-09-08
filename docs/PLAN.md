@@ -3107,6 +3107,22 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 
 <sub>3.1.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_lures_test.go` · `internal/httpapi/review_tier.go` · `internal/httpapi/auth_handlers.go` · `CHANGELOG.md`</sub>
 
+### An easy card names who is in the line, and never on a card that asks it
+
+**Decided.** At the Easy tier the server sends the line's own people with the card — `easy_chips` for the characters a book or screen line names, each with the picture stored for them, and `easy_people` for a standalone quote's speaker — and the quiz card draws them beside the words. Never on `speaker`, where the chip IS the answer; never on `quote`, where the people belong to one of four options and point at it.
+
+**Why the server gates it and not the client.** This is the answer-leak judgement `hideTheAnswer` already makes about the same people, and putting the two on opposite sides of the wire is how one of them goes on being right. The client also cannot recompute the tier: Random resolves per card from `tierDaySeed`, so "is this card easy" is only answerable where the deck was built. So the payload arrives already decided, and `review.jsx` draws what came.
+
+**And it is the quiz card's OWN chip, not the app's rich one.** `people.jsx`'s `SpeakerChips` is the better row on every other surface — a press that opens the character, the performer under the name — and it is the wrong one here twice over. `people.jsx` imports `usePractice` from `review.jsx`, which is exactly the cycle `credits.jsx` exists to keep open; and on a quiz card the answer buttons own the tap, so a chip that became a door would take the reader out of a round from the one place every press is already spoken for. `person-router.test.jsx` had already written that down — *"review.jsx defines its OWN PersonChip — display-only, because there the answer buttons own the tap"* — before this change went looking for it.
+
+**Instead of.** Moving `PersonChip`, `SpeakerChips`, `PeopleChips` and `chipRows` down into `credits.jsx` and re-exporting them, which is what this file's layering argument seems to invite. It was built and reverted: two guards rejected it — `locale-shadow.test.js`, because `credits.jsx` holds two local `const t` that a new `t` import would silently shadow, and `person-router.test.jsx`, whose rule is that a file importing the shared chip must route it through `usePersonOpener`, i.e. that the shared chip is a door. Both were saying the same thing from different directions: the shared chip is not what a quiz card wants.
+
+**A character's face comes off the card; a person's out of the People map.** A character's picture belongs to ONE work — the same name in two films is two pictures — so the server resolves the pair (`loadCharacterImages` + `characterImagesFor`, the two-step every list surface makes, one batched query per round after the cards are built) and the client turns the rows into the name→row shape `CreditFaces` already reads. A speech's speaker is a person with a headshot and goes through `usePeople('speaker')`, which is the same split `SourceLines` makes one function away.
+
+**Approved.** Mine, from the plan's own §2, with "never on a card that asks it" as the property that decides the shape.
+
+<sub>3.1.0 — `internal/httpapi/review_handlers.go` · `internal/httpapi/review_lures_test.go` · `web/frontend/src/review.jsx` · `web/frontend/test/dom/quiz-easy-chips.test.jsx` · `CHANGELOG.md`</sub>
+
 ### The due point is one number, named, with the dot and the deck derived from it
 
 **Decided.** `reviewDuePoint` (0.5) and `reviewHeldPoint` (0.9) are constants. `dueSQL` splices `dueMultiplier(reviewDuePoint)` — `log2(1/target)`, which is exactly 1 at 0.5, so the rule and every stored half-life are untouched — and `recallStatus` switches on the same two constants. Behaviour is identical; the duplication is gone.

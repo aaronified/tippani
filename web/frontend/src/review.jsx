@@ -352,6 +352,53 @@ function PersonChip({ name, map, size = 20 }) {
   )
 }
 
+// EasyChips — who is in the line, beside the words, on the Easy tier.
+//
+// THE PLAN'S OWN SENTENCE for that difficulty: "speaker and character chips
+// visible beside the quote, with the face." It is what Easy buys instead of a
+// harder question — the reader who cannot place a line at all is shown who is in
+// it, and the schedule already discounts what an easy answer is worth.
+//
+// THE SERVER DECIDES WHETHER THEY ARE SAFE, not this file. `easy_chips` and
+// `easy_people` arrive filled only at Easy, and only on directions the people do
+// not answer — never "who said this?", where the chip IS the answer, and never
+// "which quote?", where the people belong to one option and point at it. That is
+// the judgement hideTheAnswer makes about the same people on the other side of
+// the wire, and it belongs beside it: the client cannot recompute the tier
+// anyway, because Random resolves per card from the server's own day seed.
+//
+// AND IT IS THIS FILE'S OWN CHIP, deliberately. people.jsx's SpeakerChips is the
+// richer row — a press that opens the character, the performer under the name —
+// and it is the wrong one twice over: review.jsx cannot import people.jsx (it
+// imports usePractice from here, which is the cycle credits.jsx exists to keep
+// open), and on a quiz card the answer buttons own the tap. So the same
+// display-only PersonChip that draws an option's credit draws these, in the same
+// wrapping row SourceLines uses for the attribution side — one drawing of one
+// control, on both sides of the card.
+//
+// A CHARACTER'S FACE COMES OFF THE CARD, a person's out of the People map. A
+// character's picture belongs to ONE WORK — the same name in two films is two
+// pictures — so the server resolves the pair and the row is turned into the
+// name→row shape CreditFaces already reads, rather than a second lookup.
+function EasyChips({ card, speakerMap }) {
+  const chips = card.easy_chips || []
+  const people = card.easy_people || []
+  if (chips.length === 0 && people.length === 0) return null
+  const faces = Object.fromEntries(
+    chips.map((c) => [c.name, { image_path: c.path || c.actor_image || '' }]),
+  )
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {chips.map((c) => (
+        <PersonChip key={'character:' + c.name} name={c.name} map={faces} />
+      ))}
+      {people.map((n) => (
+        <PersonChip key={'speaker:' + n} name={n} map={speakerMap} />
+      ))}
+    </div>
+  )
+}
+
 // SourceLines — the attribution side of a card (title + author/character etc.):
 // the revealed answer for "source", the prompt for "quote". The people carry
 // face chips — a book's author(s), a screen quote's actor; `maps` are the
@@ -880,6 +927,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       {card.direction === 'quote'
         ? <SourceLines card={card} maps={personMaps} />
         : <QuoteBlock card={card} />}
+      <EasyChips card={card} speakerMap={speakerMap} />
       {/* A CLOZE CARD: type the missing words, then check. The answer is graded
           on the server — it never travelled here, because unlike an option index
           the words ARE the thing being recalled. */}
