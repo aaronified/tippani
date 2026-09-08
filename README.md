@@ -85,21 +85,7 @@ accents, one combination per shot. Screenshots lag the interface now and then;
   <tr>
     <td valign="top">🧠 <strong>Scientific spaced repetition</strong> — every quote carries a memory half-life and returns along the Ebbinghaus forgetting curve, asked one of five ways including a server-graded fill-in-the-blank, in a Daily Quiz and an open Practice mode alike.</td>
     <td valign="top">🌐 <strong>Multilingual by design</strong> — the app holds no source language: English and Bengali both ship in the box, neither a fallback for the other, and a quote can carry its own translation alongside the original script. A third language is one text file dropped in — nothing to rebuild, nothing to restart.</td>
-  </tr>
-</table>
-
-### And the rest
-
-<table>
-  <tr>
-    <td valign="top" width="33%">🔐 <strong>Multi-user</strong> — a fully isolated library per person, a profile behind the avatar for photo, name, password and account switching. Admins hand over admin, and step down.</td>
-    <td valign="top" width="33%">👤 <strong>People, characters included</strong> — authors, actors, directors, translators, speakers and the characters themselves are real records with a portrait, a bio and a page of their own; one person can be an author here and a translator there.</td>
-    <td valign="top" width="33%">📤 <strong>Export</strong> — one work, a filtered set, your standalone quotes or the whole library, as Obsidian-friendly Markdown that imports cleanly back in.</td>
-  </tr>
-  <tr>
-    <td valign="top">💾 <strong>Encrypted backup and restore</strong> — one click builds a dated AES-256-GCM archive of the whole data directory; restore it here or on another Tippani, and a password change never orphans an archive this server made.</td>
-    <td valign="top">📊 <strong>Stats</strong> — a capture calendar, a memory breakdown, a decade timeline and superlatives, each of them a doorway straight through to the quotes behind it.</td>
-    <td valign="top">🔄 <strong>Updates when you ask</strong> — Settings checks GitHub for a newer release on demand, never on its own. With the Docker socket, one click pulls and restarts; without it, you get the exact command to run.</td>
+    <td valign="top">✨ <strong>And the rest</strong> — <strong>Multi-user</strong> · <strong>Export</strong> · <strong>Encrypted backup</strong> · <strong>Detailed stats</strong></td>
   </tr>
 </table>
 
