@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **Pressing a character opens straight away.** It used to ask the server how many works
+  that character appears in — which decides whether the "across both works" row is offered —
+  and drew nothing at all until the answer came back. On a choppy connection that was the
+  delay; on a connection that accepts and then never replies it never drew anything, and
+  nothing on screen said the press had landed. The question now only ever ADDS that row: the
+  choice appears immediately and the extra row drops into place when the answer arrives. The
+  one case that still waits is a character with no linked performer, where the answer decides
+  whether there is anything to choose between — and that wait now gives up after a few
+  seconds instead of hanging.
 - **A quote can be a song.** The seventh kind. 0026 had already listed "song" among the
   values the old free-text field expected, so a card that has been showing the word as
   work to do can be filed now.

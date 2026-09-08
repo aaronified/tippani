@@ -69,7 +69,7 @@
     "web/frontend/src/help.jsx": "b23e024457ad943971b596606d249d128bb7da85669bdc48668e3e4964584644",
     "web/frontend/src/history.js": "a8f08b3a480b4cb6fd4144f692e03b6dd3bf89aeae7863138df7bd159790046a",
     "web/frontend/src/i18n.js": "6056197526bb55ee44f4a4c3be19304e9c48bf83af8e98f6c44dfa80fd82afe5",
-    "web/frontend/src/identity.jsx": "1c1fb2c73463779cf09dfd6b4c71b8dcd1428faef9e28ed9a42afd30aebca74d",
+    "web/frontend/src/identity.jsx": "c2a5bdef89f885e27d0ebc76d96c5af9cc7bc74ced521581f77bd24a91ec69b6",
     "web/frontend/src/identityGlobal.jsx": "eabb275060304b38481b4051a346728cb2900515ca81986aaa40109bf96c2d42",
     "web/frontend/src/identityLocal.jsx": "bcdcc8472b4a9218238655593ab8182b8f6f2cb968a4d1431cef33b6599efd08",
     "web/frontend/src/identityPicker.jsx": "a076dbe42064ed9a518b6d76e67f30f666ee5b6b93ca631ca5b70f3e1c8f073c",

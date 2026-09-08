@@ -127,11 +127,46 @@ export function characterPanel(stack, { id, name, work = null, onSearch = null, 
 // So the contract is stated rather than assumed: a row on THIS surface navigates,
 // and a row that merely acts belongs in `ChoosePicker`, where the removal lists
 // already are.
+// A ROW MAY ARRIVE AFTER THE PANEL DOES. `spec.more` is a promise of extra rows
+// and `spec.order` the key order they merge into; a spec carrying neither draws
+// exactly as this always did. It exists because one of the character door's rows
+// is gated on a request, and waiting for it meant a press that drew nothing at
+// all until the server answered — see openCharacterDoor.
 export function choosePanel(_stack, spec) {
   return {
     title: spec.title,
-    render: () => <ChooseList spec={spec} onDone={() => {}} />,
+    render: () => <ChooseRows spec={spec} />,
   }
+}
+
+// ChooseRows — ChooseList, plus the rows that were not ready in time.
+//
+// THE STATE IS HERE AND NOT IN ChooseList, which two other surfaces draw and
+// neither of which grows. A component gets the capability where the capability
+// is needed, rather than every caller paying for one caller's problem.
+function ChooseRows({ spec }) {
+  const [late, setLate] = useState([])
+  useEffect(() => {
+    if (!spec.more) return undefined
+    let live = true
+    // A REJECTION IS NOT AN ERROR HERE, it is "no extra rows" — which is the same
+    // drawing. What a failure MEANS is the caller's to decide; this only draws.
+    Promise.resolve(spec.more).then(
+      (rows) => { if (live && rows?.length) setLate(rows) },
+      () => {},
+    )
+    return () => { live = false }
+  }, [spec.more])
+  if (!late.length) return <ChooseList spec={spec} onDone={() => {}} />
+  // MERGED BY KEY ORDER, NOT APPENDED, because the order is the owner's ruling
+  // and a row that arrives second still belongs in the middle. Sort is stable in
+  // every engine this ships to, so rows sharing a rank keep the caller's order.
+  const rank = (o) => {
+    const i = (spec.order || []).indexOf(o.key)
+    return i < 0 ? (spec.order || []).length : i
+  }
+  const options = [...(spec.options || []), ...late].sort((a, b) => rank(a) - rank(b))
+  return <ChooseList spec={{ ...spec, options }} onDone={() => {}} />
 }
 
 // openCharacterDoor — what pressing a character chip does, ANYWHERE.
@@ -162,6 +197,13 @@ export function choosePanel(_stack, spec) {
 // query and stale the instant a work is linked. A request that fails leaves the
 // global out rather than guessing.
 //
+// AND IT NO LONGER GATES THE FIRST PAINT, which is what the owner felt as a
+// chore. The count only decides whether a THIRD row appears, so wherever the
+// press already has two answers the panel opens at once and the row drops in
+// when the count lands. Only the one-live-door case still waits, because there
+// the count decides between opening that door and asking at all — two different
+// presses, neither drawable before the answer. That one is bounded.
+//
 // AND ONE LIVE ANSWER OPENS STRAIGHT AWAY. The pack's rule — "when there is only
 // one thing behind the tile, it just opens it" — because a sheet offering a
 // single answer is one the reader must dismiss to reach what they already asked
@@ -170,6 +212,12 @@ export function choosePanel(_stack, spec) {
 // EVERY `face` HERE IS A STORED PATH. `Face` resolves it; resolving it twice
 // gives `/api/covers//api/covers/…` and the browser's broken-image glyph, which
 // is what "the picker doesn't show any images" was.
+// THE ROW ORDER IS THE OWNER'S, quoted above: "the work-character,
+// global-character ... or the people". Named here because two paths build the
+// list now — one splices the identity in, the other merges it in late — and an
+// order written twice is an order that stops agreeing with itself.
+const CHOOSE_ORDER = ['local', 'global', 'actor']
+
 export async function openCharacterDoor(stack, sp, { work = null, onSearch = null } = {}) {
   const local = () => characterPanel(stack, {
     id: sp.character_id,
@@ -192,23 +240,10 @@ export async function openCharacterDoor(stack, sp, { work = null, onSearch = nul
     face: sp.image || '',
     onPick: () => stack.open(local()),
   }]
-  let works = 0
-  if (sp.character_id) {
-    const r = await json('GET', `/characters/${sp.character_id}`)
-    if (r.ok) works = new Set((r.data?.appearances || []).map((a) => `${a.kind}:${a.work_id}`)).size
-  }
-  if (works > 1) {
-    options.push({
-      key: 'global',
-      label: sp.record_name || sp.name,
-      sub: t('identity.choose.global.sub'),
-      meta: t('identity.row.global.works', { n: works, count: works }),
-      face: sp.image || '',
-      onPick: () => stack.open(characterPanel(stack, {
-        id: sp.character_id, name: sp.record_name || sp.name, onSearch,
-      })),
-    })
-  }
+  // THE PERFORMER'S ROW NEEDS NOTHING ASKED, so it is built before the count
+  // rather than after it. That is the whole trick: with this row present the
+  // press already has two answers, so the panel can open while the count is
+  // still in flight.
   if (sp.actor) {
     options.push({
       key: 'actor',
@@ -221,12 +256,66 @@ export async function openCharacterDoor(stack, sp, { work = null, onSearch = nul
       title: sp.actor_id ? undefined : t('identity.credit.unnamed.tip'),
     })
   }
-  const live = options.filter((o) => o.onPick)
+  const globalRow = (works) => ({
+    key: 'global',
+    label: sp.record_name || sp.name,
+    sub: t('identity.choose.global.sub'),
+    meta: t('identity.row.global.works', { n: works, count: works }),
+    face: sp.image || '',
+    onPick: () => stack.open(characterPanel(stack, {
+      id: sp.character_id, name: sp.record_name || sp.name, onSearch,
+    })),
+  })
+
+  // HOW MANY WORKS THE IDENTITY SPANS — and this is BOUNDED now.
+  //
+  // `fetch` has no timeout of its own, and a socket that is ACCEPTED and then
+  // never answered leaves the promise pending rather than rejecting; api.js's
+  // note on `timeoutMs` has the case that proved it. This await used to be the
+  // first thing the door did, so on such a socket a press drew NOTHING AT ALL —
+  // not a slow panel, no panel, and nothing on screen saying the press landed.
+  // A timeout and a failure are one answer here, nought, which leaves the
+  // identity out: the degradation this door had already chosen for a failure.
+  // They are literally the same branch — `send` catches the abort and returns
+  // `{ok:false, status:0}`, so json RESOLVES on a timeout rather than rejecting,
+  // and `r.ok` is what sees it. The `.catch` below is for a throw from parse,
+  // which would otherwise take the press down with it.
+  const spanned = sp.character_id
+    ? json('GET', `/characters/${sp.character_id}`, undefined, { timeoutMs: 8000 })
+      .then((r) => (r.ok ? new Set((r.data?.appearances || []).map((a) => `${a.kind}:${a.work_id}`)).size : 0))
+      .catch(() => 0)
+    : Promise.resolve(0)
+
+  // TWO LIVE DOORS ALREADY, so the press yields a chooser whatever the count
+  // says — which means nothing the first paint needs is behind the request.
+  if (options.filter((o) => o.onPick).length >= 2) {
+    stack.open(choosePanel(stack, {
+      title: sp.name,
+      hint: t('identity.choose.work.hint'),
+      options,
+      order: CHOOSE_ORDER,
+      more: spanned.then((n) => (n > 1 ? [globalRow(n)] : [])),
+    }))
+    return
+  }
+
+  // ONE LIVE DOOR, so the count decides between OPENING it and ASKING at all.
+  // Those are two different presses and neither can be drawn before the answer,
+  // so this is the one path that still waits — bounded, and it is also the path
+  // with the least to lose, because a character with no linked performer is the
+  // case where there was nothing else to show meanwhile.
+  const n = await spanned
+  // Spliced rather than appended: the identity sits between the character's own
+  // row and the performer's, which is the order the owner asked for.
+  const all = n > 1 ? [options[0], globalRow(n), ...options.slice(1)] : options
+  const live = all.filter((o) => o.onPick)
   if (live.length < 2) {
     live[0]?.onPick?.()
     return
   }
-  stack.open(choosePanel(stack, { title: sp.name, hint: t('identity.choose.work.hint'), options }))
+  stack.open(choosePanel(stack, {
+    title: sp.name, hint: t('identity.choose.work.hint'), options: all, order: CHOOSE_ORDER,
+  }))
 }
 
 // ---- shared pieces ---------------------------------------------------------

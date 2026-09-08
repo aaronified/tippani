@@ -11214,3 +11214,46 @@ credit it describes — so a reader with two performers still could not tell whi
 about. **Also rejected: a third row-shape** (a note row attached to a credit), which is what
 the recommendation implied before the existing ✎ was found. Building it would have been a
 third door to the same field.
+
+### No prefetch, and a door that draws before its own count answers
+
+**Decided.** The owner asked for client-side prefetch on a choppy connection. The ruling
+after the measurement was put to them: **neither gesture** — not a `pointerdown` on a row,
+not a row entering a moving viewport — and the wait removed instead.
+
+**Why that is not merely "not yet".** `docs/plans/prefetch-and-loaders.md` establishes that
+this repo's "no background fetching, ever" is about the SERVER fetching third-party metadata
+on a schedule, and that same-origin requests without a press are already ordinary here —
+`warmScreens` prefetches route chunks on idle, `usePortraitFill` fires up to twenty
+unrequested portrait calls, and the search vocabulary loads on first focus. So nothing
+written down forbade this. What killed it is narrower and worse: **`GET /characters/{id}`
+WRITES.** `fillLineFaces` → `loadCharacterImages` → `adoptQuoteCharacters` opens a
+transaction and inserts up to twelve `work_cast` rows, adopting characters a work's quotes
+name but its cast list does not. Deliberate on a deliberate press; on a `pointerdown` it
+means a finger resting on a chip creates rows.
+
+**So the boundary sentence that plan proposed is rejected as written.** "The reader's own
+data from their own server, on an expressed intent" is not a sufficient test, because it
+passes for a GET that mutates. The test is **a read that is only a read**, and knowing which
+those are means having looked rather than having assumed a GET is one. Nobody has built that
+list, which is the real reason there is no prefetch.
+
+**What shipped instead is subtraction.** `openCharacterDoor` awaited `GET /characters/{id}`
+before drawing anything, because the count of works decides whether the identity row appears.
+`fetch` has no timeout, and a socket accepted and never answered leaves the promise pending —
+so a press drew NOTHING AT ALL, with nothing on screen saying it had landed. The count now
+only ADDS a row: wherever the press already has two answers the panel opens at once and the
+identity drops into place when the count lands, spliced by key order rather than appended
+because the row order is the owner's ruling. `choosePanel` grew `more` and `order` for it.
+
+**One path still waits, and that is not an oversight.** With no live performer the count
+decides between OPENING the character and ASKING between two — different presses, neither
+drawable before the answer. It is bounded at 8s instead, and a timeout arrives as
+`{ok:false}` rather than a rejection because `send` catches the abort, so it lands on the
+same branch a failed request already took: the identity is left out.
+
+**Rejected: a read-only door for the panel** — moving the adoption to where a reader asks
+for it — which is a server change and a decision about when adoption should happen, both
+larger than the complaint that prompted any of this.
+
+<sub>Unreleased — `web/frontend/src/identity.jsx` · `web/frontend/test/dom/speaker-destinations.test.jsx`</sub>

@@ -21,12 +21,21 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 
 let APPEARANCES
 let CALLS
+// WHAT THE COUNT REQUEST DOES, for the cases about what the door draws BEFORE it
+// answers. `hang` is the one that matters: a socket accepted and never answered,
+// which is the state `fetch` has no timeout for and which used to eat the press
+// whole. `down` is the shape a real timeout arrives in — `send` catches the abort
+// and resolves `{ok:false, status:0}` rather than rejecting, so a case that threw
+// here would be testing something this api cannot produce.
+let COUNT
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path) => {
     CALLS.push([method, path])
     if (method === 'GET' && path.startsWith('/characters/')) {
+      if (COUNT === 'hang') return new Promise(() => {})
+      if (COUNT === 'down') return { ok: false, status: 0, data: null }
       return { ok: true, data: { id: 3, name: 'Anand', appearances: APPEARANCES } }
     }
     return { ok: true, data: {} }
@@ -74,6 +83,7 @@ const mount = () => {
 beforeEach(() => {
   CALLS = []
   APPEARANCES = ONE_WORK
+  COUNT = 'ok'
 })
 afterEach(() => cleanup())
 
@@ -558,5 +568,92 @@ describe('answering the question', () => {
     } finally {
       spy.mockRestore()
     }
+  })
+})
+
+// ---- THE PRESS DOES NOT WAIT ON THE COUNT ----------------------------------
+//
+// The owner called opening a character "a chore". The count — how many works the
+// identity spans — decided whether a third row appeared, and the door awaited it
+// before drawing ANY row. So the wait was paid by a panel that had two answers
+// ready, and on a socket that is accepted and never answered it was paid for
+// ever: the press drew nothing at all, with nothing on screen saying it landed.
+//
+// WHY THESE FIVE AND NOT THE TWENTY-ONE ABOVE. Every case before this one passes
+// against the blocking version too — they await the door and then look, so a door
+// that finished its request first is indistinguishable from one that did not.
+// These look at the panel WHILE the request is still outstanding, which is the
+// only way to tell the two apart.
+describe('the count no longer gates the first paint', () => {
+  // PRESSED WITHOUT AWAITING THE DOOR'S OWN PROMISE, and only in this describe.
+  //
+  // These two cases exist for the state where that promise may never settle, and
+  // `await act(async () => { await door(sp) })` on a promise that never settles
+  // leaves the act scope open — which fails the case by timeout twenty seconds
+  // later AND poisons every case after it in the file. Measured, not feared: a
+  // mutation that put the blocking await back produced FIVE failures at 8s each
+  // from one defect, and three of those five pass in isolation.
+  //
+  // Not awaiting is sound rather than a dodge: the door reaches `stack.open` with
+  // no `await` before it on this path, so the panel is up by the time the call
+  // returns. A regression therefore fails on the assertion below — nothing was
+  // drawn — which is the sentence a reader wants, immediately.
+  const pressLoose = async (sp = SPEAKER) => {
+    await waitFor(() => expect(door, 'the board never got a character door').toBeTruthy())
+    await act(async () => { door(sp) })
+  }
+
+  it('draws the answers it already has while the count is still outstanding', async () => {
+    COUNT = 'hang'
+    mount()
+    await pressLoose()
+    // The character's own row and the performer's need nothing asked, and the
+    // count can only ever ADD to them.
+    expect(offered(), 'the press drew nothing while the count was in flight')
+      .toEqual(['Anand', 'Rajesh Khanna'])
+  })
+
+  it('and still asks, rather than dying, when the count never answers', async () => {
+    COUNT = 'hang'
+    mount()
+    await pressLoose()
+    expect(document.querySelector('.cs-choose'), 'no chooser at all on a hung socket').toBeTruthy()
+  })
+
+  it('and leaves the identity out when the count comes back unreachable', async () => {
+    // The shape a timeout arrives in. The door had already chosen this
+    // degradation for a failed request; a timeout is now the same branch.
+    COUNT = 'down'
+    APPEARANCES = TWO_WORKS
+    mount()
+    await press()
+    expect(offered(), 'an unreachable count invented an identity row')
+      .toEqual(['Anand', 'Rajesh Khanna'])
+  })
+
+  // THE ROW ARRIVES LATE AND STILL LANDS IN THE MIDDLE, which is the failure a
+  // naive fix produces: the panel is already drawn, so the obvious thing is to
+  // append — and the owner's order is "the work-character, global-character ...
+  // or the people".
+  it('and the identity drops into its own place, not onto the end', async () => {
+    APPEARANCES = TWO_WORKS
+    mount()
+    // `record_name` distinct from `name` so the three rows can be told apart:
+    // the local row and the identity row are both called "Anand" otherwise.
+    await press({ ...SPEAKER, record_name: 'Anand, across both' })
+    expect(offered(), 'the row that arrived second was appended rather than spliced')
+      .toEqual(['Anand', 'Anand, across both', 'Rajesh Khanna'])
+  })
+
+  // AND THE ONE PATH THAT STILL WAITS, said out loud so a later reader does not
+  // "fix" it: with no live performer the count decides between OPENING the
+  // character and ASKING between two, and those are different presses. It is
+  // bounded instead — see the door's note on timeoutMs.
+  it('but waits where the count decides whether to ask at all', async () => {
+    APPEARANCES = TWO_WORKS
+    mount()
+    await press({ ...SPEAKER, actor: '', actor_id: 0, record_name: 'Anand, across both' })
+    expect(offered(), 'the identity was not offered, so the count was not waited for')
+      .toEqual(['Anand', 'Anand, across both'])
   })
 })

@@ -128,11 +128,29 @@ These are not caveats; two of them decide the shape, and neither has a number.
 
 ## THE ORDER TO BUILD IN
 
-**1. Stop the door blocking its own first paint.** `openCharacterDoor` awaits
+**1. Stop the door blocking its own first paint.** **BUILT** — see `docs/PLAN.md`, *"No
+prefetch, and a door that draws before its own count answers"*. `openCharacterDoor` awaited
 `GET /characters/{id}` before drawing anything, with no timeout — the count decides whether
 the global row appears, so a hung socket means a press that draws nothing at all. This is the
 "chore" the owner felt, amplified by a slow link rather than caused by it. Needs no cache and
 no prefetch.
+
+**AND THE BUILD FOUND A SPLIT THIS STEP DOES NOT NAME.** "Stop blocking" is two cases, not
+one. Where the press already has two live rows — the character's own and a linked performer's
+— the answer is a chooser whatever the count says, so the panel opens at once and the row
+merges in late. Where the performer is absent or unlinked, the count decides between OPENING
+the character and ASKING between two, which are different presses; that path cannot be drawn
+before the answer and is bounded rather than unblocked. A plan that had said only "draw
+first" would have produced a chooser with one row, which this door deliberately avoids.
+
+**AND THE LATE ROW HAS TO LAND IN THE MIDDLE.** The owner's order is "the work-character,
+global-character ... or the people", so appending — the obvious thing once the panel is
+already drawn — puts the identity after the performer. `choosePanel` merges by key order.
+
+**2 IS RULED OUT, NOT DEFERRED.** The owner's answer to the gesture question was *"Neither —
+just unblock the door"*. Step 2 below is kept for its FINDING, which outlives the decision:
+"the reader's own data from their own server" is not a sufficient test for what may be
+prefetched, because this codebase has a GET that writes.
 
 **2. `pointerdown` prefetch — and NOT on the character chip, which is the endpoint the
 first draft of this file recommended.**
