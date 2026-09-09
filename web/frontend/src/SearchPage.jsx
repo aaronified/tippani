@@ -775,23 +775,23 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
       {results && !empty && (
         <>
           {results?.date_added && (
-            <DateSection d={results.date_added} view={view} terms={terms} renderBook={renderBook} renderMovie={renderMovie} onOpenQuote={setQuote} speakerMap={speakers.map} creditSeps={creditSeps} />
+            <FacetSection
+              d={results.date_added}
+              heading={(n) => t('search.section.date.title', {
+                date: new Date(results.date_added.date + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'long' }),
+                n,
+              })}
+              view={view} terms={terms} renderBook={renderBook} renderMovie={renderMovie}
+              onOpenQuote={setQuote} speakerMap={speakers.map} creditSeps={creditSeps}
+            />
           )}
           {results?.decade && (
-            <section className="space-y-3">
-              <MonoLabel className="block">
-                {t('search.section.decade.title', {
-                  name: results.decade.label,
-                  n: (results.decade.books?.length || 0) + (results.decade.movies?.length || 0),
-                })}
-              </MonoLabel>
-              <Board view={view}>
-                {[
-                  ...groupBooks({ books: results.decade.books || [], annotations: [] }).map(renderBook),
-                  ...groupMovies({ movies: results.decade.movies || [], dialogues: [] }).map(renderMovie),
-                ]}
-              </Board>
-            </section>
+            <FacetSection
+              d={results.decade}
+              heading={(n) => t('search.section.decade.title', { name: results.decade.label, n })}
+              view={view} terms={terms} renderBook={renderBook} renderMovie={renderMovie}
+              onOpenQuote={setQuote} speakerMap={speakers.map} creditSeps={creditSeps}
+            />
           )}
           {view === 'table' ? (
             <SearchTables results={results} terms={terms} onOpenBook={onOpenBook} onOpenMovie={onOpenMovie} reload={reload} />
@@ -2002,11 +2002,21 @@ function GenreSection({ genres, view, renderBook, renderMovie }) {
   )
 }
 
-// DateSection — everything added on one day (the Stats calendar's dot target):
-// the works shelved that day, then the quotes captured that day under their
-// parent works.
-function DateSection({ d, view, terms, renderBook, renderMovie, onOpenQuote, speakerMap, creditSeps }) {
-  const pretty = new Date(d.date + 'T00:00:00').toLocaleDateString(undefined, { dateStyle: 'long' })
+// FacetSection — the body of a structured facet: works, then the lines found
+// inside works, then the standalone quotes.
+//
+// The two facets that use it are the two the app's own charts link into:
+// everything added on one day (the Stats calendar's dot target) and everything
+// from one decade (the Stats timeline's tick).
+//
+// ONE COMPONENT FOR BOTH STRUCTURED FACETS, and it is one because the decade
+// facet was a second implementation that had quietly stopped keeping up. It drew
+// books and films and nothing else, so the standalone quotes the server now sends
+// it would have arrived and rendered nowhere — and its own count line would have
+// said "2 works" over a page holding three things. A date facet and a decade facet
+// differ in the QUESTION they ask, not in how an answer is drawn, and the repo's
+// rule is that a control on two screens lives in one function.
+export function FacetSection({ d, heading, view, terms, renderBook, renderMovie, onOpenQuote, speakerMap, creditSeps }) {
   const works = [
     ...groupBooks({ books: d.books || [], annotations: [] }).map(renderBook),
     ...groupMovies({ movies: d.movies || [], dialogues: [] }).map(renderMovie),
@@ -2015,19 +2025,13 @@ function DateSection({ d, view, terms, renderBook, renderMovie, onOpenQuote, spe
     ...groupBooks({ books: [], annotations: d.annotations || [] }).map(renderBook),
     ...groupMovies({ movies: [], dialogues: d.dialogues || [] }).map(renderMovie),
   ]
-  const n =
-    (d.books?.length || 0) +
-    (d.movies?.length || 0) +
-    (d.annotations?.length || 0) +
-    (d.dialogues?.length || 0) +
-    (d.quotes?.length || 0)
   // Standalone quotes cannot go through groupBooks/groupMovies — those bucket
   // hits under a parent work, and this kind has none. They render as their own
   // flat block below the work cards.
   const standalone = d.quotes || []
   return (
     <section className="space-y-3">
-      <MonoLabel className="block">{t('search.section.date.title', { date: pretty, n })}</MonoLabel>
+      <MonoLabel className="block">{heading(facetCount(d))}</MonoLabel>
       {works.length > 0 && <Board view={view}>{works}</Board>}
       {quotes.length > 0 && <Board view={view}>{quotes}</Board>}
       {standalone.length > 0 && (
@@ -2039,6 +2043,14 @@ function DateSection({ d, view, terms, renderBook, renderMovie, onOpenQuote, spe
       )}
     </section>
   )
+}
+
+// facetCount counts every kind a structured facet can carry, so a heading cannot
+// promise fewer things than the section shows. The decade heading added two of
+// the five by hand and was wrong the moment the facet learned a third.
+export function facetCount(d) {
+  return ['books', 'movies', 'annotations', 'dialogues', 'quotes']
+    .reduce((n, k) => n + (d[k]?.length || 0), 0)
 }
 
 // groupBooks merges matched books and matched annotations into per-book groups,

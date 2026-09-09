@@ -29,6 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   up on the label — names the shapes it takes, how to write a year before the era, and that
   the tick beside it is what marks a date as an estimate.
 
+- **A decade search finds the quotes from it, not just the books.** Searching `380s BCE`
+  or `1940s` listed the works published or released then and stopped there — so a
+  standalone quote, the one kind of row that carries a date of its own, was the one kind a
+  decade could not find. **The Stats timeline was already counting those quotes into its
+  bars**, and its ticks are doors into that search, so a bar drawn over 399 BCE opened a
+  page that did not mention the quote it was counting. The search now honours the scope
+  too: a books-only search returns no quotes, and a quotes-only one returns no books.
+
 ### Fixed
 
 - **`380BCE` written without a space was read as `380`.** Every year box quietly dropped an

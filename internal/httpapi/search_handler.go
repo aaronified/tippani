@@ -218,6 +218,10 @@ type decadeHits struct {
 	Label  string     `json:"label"` // e.g. "1990s"
 	Books  []bookHit  `json:"books"`
 	Movies []movieHit `json:"movies"`
+	// Quotes is a STANDALONE quote dated by its occasion — the only kind of row
+	// that carries a date of its own rather than borrowing its work's. A book
+	// highlight and a film line are already here, inside the work they came from.
+	Quotes []utteranceHit `json:"quotes"`
 }
 
 type dateHits struct {
@@ -882,10 +886,20 @@ func (s *Server) searchGenreFacet(uid int64, tokens []string, sc searchScope, f 
 
 // searchDecadeFacet lists the works published/released in the decade. Returns
 // nil when nothing falls in it (no section rather than an empty one).
-func (s *Server) searchDecadeFacet(uid int64, label string, from, to int, wantBooks, wantMovies bool, f searchFacets, limit int) (*decadeHits, error) {
-	dh := &decadeHits{Label: label, Books: []bookHit{}, Movies: []movieHit{}}
+// searchDecadeFacet lists what a library holds from one decade.
+//
+// IT TAKES THE WHOLE SCOPE, not two booleans, because the third kind it has to
+// reach is the reason this function was wrong: a standalone quote is dated by
+// `occasion_date` and nothing here was reading that column. The stats timeline
+// already counts those quotes into its bars — see timelineYears, whose UNION has
+// a branch for exactly them — and its ticks are doors into this facet, so the
+// chart drew a bar for 399 BCE and the door under it led to an empty page. The
+// two functions now take the same argument for the same reason searchDateFacet
+// does: five kinds, one predicate shape, no per-kind spelling of the scope.
+func (s *Server) searchDecadeFacet(uid int64, label string, from, to int, sc searchScope, f searchFacets, limit int) (*decadeHits, error) {
+	dh := &decadeHits{Label: label, Books: []bookHit{}, Movies: []movieHit{}, Quotes: []utteranceHit{}}
 	var err error
-	if wantBooks {
+	if sc.books {
 		dh.Books, err = facetedHits(s, rowBook, hitReq{
 			what: "decade book", extra: " AND b.published_year BETWEEN ? AND ?", extraArgs: []any{from, to},
 			order: "b.published_year, b.title", limit: limit,
@@ -894,7 +908,7 @@ func (s *Server) searchDecadeFacet(uid int64, label string, from, to int, wantBo
 			return nil, err
 		}
 	}
-	if wantMovies {
+	if sc.movies {
 		dh.Movies, err = facetedHits(s, rowMovie, hitReq{
 			what: "decade movie", extra: " AND m.release_year BETWEEN ? AND ?", extraArgs: []any{from, to},
 			order: "m.release_year, m.title", limit: limit,
@@ -903,7 +917,30 @@ func (s *Server) searchDecadeFacet(uid int64, label string, from, to int, wantBo
 			return nil, err
 		}
 	}
-	if len(dh.Books)+len(dh.Movies) == 0 {
+	if sc.utterances {
+		// THE SAME EXPRESSION THE STATS TIMELINE USES, and deliberately the same:
+		// substr(…, 1, 5) rather than 1, 4, because a BCE year carries a leading
+		// '-' and '-0399' needs five characters. SQLite's CAST stops at the first
+		// non-digit, so '1990-' and '-0399' both land on the right number.
+		//
+		// AND THE EMPTINESS GUARD IS LOAD-BEARING: CAST('' AS INTEGER) is 0, and
+		// "0s" is a legal query whose range is 0-9 — so without it, one search
+		// would return every undated quote in the library as though it were from
+		// the first decade of the era.
+		const year = "CAST(substr(u.occasion_date, 1, 5) AS INTEGER)"
+		dh.Quotes, err = facetedHits(s, rowUtterance, hitReq{
+			what: "decade quote", extra: " AND u.occasion_date <> '' AND " + year + " BETWEEN ? AND ?",
+			extraArgs: []any{from, to},
+			// ORDERED BY THE NUMBER, not by the column: within a BCE decade the
+			// padded text runs backwards, because a minus sign reverses the order
+			// it prefixes, so 380 BCE would file itself before 389 BCE.
+			order: year + ", u.quote", limit: limit,
+		}, f, uid, scanUtteranceHit)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(dh.Books)+len(dh.Movies)+len(dh.Quotes) == 0 {
 		return nil, nil
 	}
 	return dh, nil
@@ -1078,7 +1115,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	if label, from, to, ok := parseDecade(q); ok {
 		parsedStructured = true
-		dec, err := s.searchDecadeFacet(uid, label, from, to, sc.books, sc.movies, f, limit)
+		dec, err := s.searchDecadeFacet(uid, label, from, to, sc, f, limit)
 		if err != nil {
 			internalError(w, r, "search decade", err)
 			return
