@@ -223,7 +223,7 @@ func serveMarkdown(w http.ResponseWriter, filename, body string) {
 // line or a re-import would misattribute them.
 func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
-		SELECT id, COALESCE(quote, ''), COALESCE(note, ''), translation, color, COALESCE(chapter, ''),
+		SELECT id, COALESCE(quote, ''), COALESCE(note, ''), translation, transliteration, color, COALESCE(chapter, ''),
 		       COALESCE(chapter_no, 0), COALESCE(location, ''), character, favorite,
 		       COALESCE(noted_at, '')
 		FROM annotations WHERE book_id = ? ORDER BY id`, b.ID)
@@ -238,7 +238,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 		// '' (0047, 0051), so the empty string is what a row predating the column
 		// actually holds and there is no NULL for a COALESCE to catch. Same rule as
 		// dialogueCols.
-		if err := rows.Scan(&a.ID, &a.Quote, &a.Note, &a.Translation, &a.Color, &a.Chapter,
+		if err := rows.Scan(&a.ID, &a.Quote, &a.Note, &a.Translation, &a.Transliteration, &a.Color, &a.Chapter,
 			&a.ChapterNo, &a.Location, &a.Character, &a.Favorite, &a.NotedAt); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] book annotation row scan failed: %v", err)
 			continue
@@ -346,6 +346,10 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 				// 0035. Two keys and not one: an importer that read them into a single
 				// field would be the merge 0051 exists to undo.
 				writeBinding(&sb, "translation", a.Translation)
+				// 0069, beside it for the same reason: three registers of one line, and
+				// three keys, because an importer folding any two together would be the
+				// merge 0051 exists to undo.
+				writeBinding(&sb, "transliteration", a.Transliteration)
 				writeBinding(&sb, "note", note)
 				if a.Color != "yellow" {
 					writeBinding(&sb, "color", a.Color)
@@ -365,7 +369,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 // PLAN §3b).
 func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
-		SELECT id, quote, COALESCE(note, ''), translation, color, COALESCE(character, ''), COALESCE(actor, ''),
+		SELECT id, quote, COALESCE(note, ''), translation, transliteration, color, COALESCE(character, ''), COALESCE(actor, ''),
 		       COALESCE(timestamp, ''), season, episode, act, quest, episode_name, favorite
 		FROM dialogues WHERE movie_id = ?`+dialogueOrder(""), m.ID)
 	if err != nil {
@@ -378,7 +382,7 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 		// act/quest/episode_name and translation carry no COALESCE, for the reason
 		// dialogueCols states: NOT NULL DEFAULT '' (0047, 0051), so there is no NULL
 		// to catch.
-		if err := rows.Scan(&d.ID, &d.Quote, &d.Note, &d.Translation, &d.Color, &d.Character, &d.Actor,
+		if err := rows.Scan(&d.ID, &d.Quote, &d.Note, &d.Translation, &d.Transliteration, &d.Color, &d.Character, &d.Actor,
 			&d.Timestamp, &d.Season, &d.Episode, &d.Act, &d.Quest, &d.EpisodeName,
 			&d.Favorite); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] movie dialogue row scan failed: %v", err)
@@ -448,6 +452,7 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 			writeBinding(&sb, "timestamp", d.Timestamp)
 			// See the book export for why this sits immediately before the note.
 			writeBinding(&sb, "translation", d.Translation)
+			writeBinding(&sb, "transliteration", d.Transliteration)
 			writeBinding(&sb, "note", note)
 			// Same rule as the book export: the default colour is left out, so
 			// a file only mentions colour when it was actually chosen.

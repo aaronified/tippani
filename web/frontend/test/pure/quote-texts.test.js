@@ -8,6 +8,12 @@
 // WHY IT IS A TABLE. Every state has to answer for a row that is missing one of
 // its two texts, and that is where a display rule turns into a card with nothing
 // on it. Six of the eight cases below are that.
+//
+// A QUOTE HAS A THIRD TEXT SINCE 0069 — a transliteration — and it is deliberately
+// absent from every row here: it does not take part in this axis, and where it
+// DOES sit is asserted in transliteration.test.js. Every expectation below still
+// names it, because `toEqual` over the whole shape is what caught the new key
+// arriving and that is the property worth keeping.
 
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -20,19 +26,19 @@ const transOnly = { quote: '', translation: 'eine Zeile' }
 
 describe('what each state draws', () => {
   it('quote-first is the quotation with its translation under it', () => {
-    expect(quoteTexts(both, 'quote-first')).toEqual({ body: both.quote, second: both.translation })
+    expect(quoteTexts(both, 'quote-first')).toEqual({ body: both.quote, second: both.translation, roman: '' })
   })
 
   it('trans-first swaps them — "a poem in a foreign language will need the translation to be on top, and the original in the bottom"', () => {
-    expect(quoteTexts(both, 'trans-first')).toEqual({ body: both.translation, second: both.quote })
+    expect(quoteTexts(both, 'trans-first')).toEqual({ body: both.translation, second: both.quote, roman: '' })
   })
 
   it('quote-only is the quotation alone', () => {
-    expect(quoteTexts(both, 'quote-only')).toEqual({ body: both.quote, second: '' })
+    expect(quoteTexts(both, 'quote-only')).toEqual({ body: both.quote, second: '', roman: '' })
   })
 
   it('trans-only is the translation alone', () => {
-    expect(quoteTexts(both, 'trans-only')).toEqual({ body: both.translation, second: '' })
+    expect(quoteTexts(both, 'trans-only')).toEqual({ body: both.translation, second: '', roman: '' })
   })
 
   // THE DEFAULT IS WHAT THE APP DID BEFORE ANY OF THIS, and an unknown state
@@ -41,7 +47,7 @@ describe('what each state draws', () => {
   it('and anything it does not recognise reads as written', () => {
     for (const order of [undefined, null, '', 'both', 'sideways']) {
       expect(quoteTexts(both, order), String(order))
-        .toEqual({ body: both.quote, second: both.translation })
+        .toEqual({ body: both.quote, second: both.translation, roman: '' })
     }
   })
 })
@@ -52,14 +58,14 @@ describe('what each state draws', () => {
 // highlights.
 describe('a row that is missing one of its two texts', () => {
   it('shows the quotation when the translation is wanted and absent', () => {
-    expect(quoteTexts(quoteOnly, 'trans-only')).toEqual({ body: 'a line', second: '' })
-    expect(quoteTexts(quoteOnly, 'trans-first')).toEqual({ body: 'a line', second: '' })
+    expect(quoteTexts(quoteOnly, 'trans-only')).toEqual({ body: 'a line', second: '', roman: '' })
+    expect(quoteTexts(quoteOnly, 'trans-first')).toEqual({ body: 'a line', second: '', roman: '' })
   })
 
   it('and shows the translation when the quotation is wanted and absent', () => {
     // The mirror case, and it is real: an imported row can arrive with only the
     // translation filled in.
-    expect(quoteTexts(transOnly, 'quote-only')).toEqual({ body: 'eine Zeile', second: '' })
+    expect(quoteTexts(transOnly, 'quote-only')).toEqual({ body: 'eine Zeile', second: '', roman: '' })
   })
 
   it('and never prints the same words twice', () => {

@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
-import { episodeLabel } from './text.js'
+import { episodeLabel, wantsTransliteration } from './text.js'
 import { coverImgURL, json, errText, downloadPost } from './api.js'
 import { CoverControls, MovieLookupPicker, idNum } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
@@ -30,7 +30,7 @@ import {
 } from './works.jsx'
 import { KINDS } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
-import { t } from './i18n.js'
+import { localeActive, t } from './i18n.js'
 import { quoteTexts } from './text.js'
 import { useTextOrder } from './textOrderHost.jsx'
 import { usePersonOpener } from './personOpen.jsx'
@@ -1251,6 +1251,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
       quote: d.quote,
       note: d.note,
       translation: d.translation,
+      transliteration: d.transliteration || '',
       color: d.color,
       title: movie?.title,
       year: movie?.release_year,
@@ -1761,7 +1762,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   const frameOrder = useTextOrder({ language: d?.language })
   // NO TEXT MENU ON THIS SCREEN, so 'both' — which is not "show both in a fixed
   // order" but "let the language decide" (quoteTexts).
-  const { body: frameBody, second: frameSecond } = quoteTexts(d, frameOrder)
+  const { body: frameBody, second: frameSecond, roman: frameRoman } = quoteTexts(d, frameOrder)
   const sp = d.speaker_cast
   // THE CHARACTER'S PICTURE, AND THE ACTOR'S ONLY AS A FALLBACK — the owner's
   // ruling, and it is what this card already did with a separate row of discs
@@ -1933,6 +1934,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       )}
       {/* Above the pasted note, for the reason AnnotationCard gives: the
           translation belongs to the line, the note is a thought about it. */}
+      {frameRoman && <TranslationLine roman>{frameRoman}</TranslationLine>}
       {frameSecond && <TranslationLine>{frameSecond}</TranslationLine>}
       {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
       {/* §7 declutter: the ♥ is the frame's resting mark and leads this row, then
@@ -2021,6 +2023,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
   const [episode, setEpisode] = useState(initial?.episode ?? '')
   const [note, setNote] = useState(initial?.note || '')
   const [translation, setTranslation] = useState(initial?.translation || '')
+  const [transliteration, setTransliteration] = useState(initial?.transliteration || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [tags, setTags] = useState(initial?.tags || [])
   const [stickerId, setStickerId] = useState(initial?.sticker_id ?? null)
@@ -2077,6 +2080,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       // stale value back would be asserting something it does not display.
       timestamp: game ? '' : timestamp.trim(),
       translation: translation.trim(),
+      transliteration: transliteration.trim(),
       // An episode's title is carried through — it has no box here — and a game's
       // act and quest are EDITED now, from the two fields below. Both must be SENT
       // either way: omitting a field would clear it on every save, which is the same
@@ -2216,6 +2220,13 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
                 aria-label={t('common.field.translation.label')}
                 value={translation} onChange={(e) => setTranslation(e.target.value)} />
+      {/* 0069 — see wantsTransliteration. This form wears aria-labels rather than
+          MonoLabels, so the new box follows its neighbour's spelling. */}
+      {wantsTransliteration(quote, localeActive(), transliteration) && (
+        <textarea className="tp-input" rows="2" placeholder={t('common.field.transliteration.placeholder')}
+                  aria-label={t('common.field.transliteration.label')}
+                  value={transliteration} onChange={(e) => setTransliteration(e.target.value)} />
+      )}
       <textarea className="tp-input" rows="2" placeholder={t('common.field.note.label')} value={note} onChange={(e) => setNote(e.target.value)} />
       <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder={t('common.field.tags.placeholder')} ariaLabel={t('common.field.tags.label')} />
       <div className="flex items-center gap-3">

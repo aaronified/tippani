@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A quote can carry its own words in another script.** A *Transliteration* box sits under
+  the translation on all three kinds of quote, so অতি সন্ন্যাসীতে গাজন নষ্ট keeps *Ati
+  sannyasite gajon nosto* beside it — and the card draws all three registers: the line, how
+  it sounds, what it means. **It is searchable**, which is the point: typing `sannyasite` on
+  a keyboard that cannot produce Bengali letters finds the proverb.
+  **The box is only offered where it is needed.** It appears when the quote is written in a
+  script other than the one you are reading the app in — so the app in English offers a Latin
+  romanisation of a Bengali line, and the app in Bengali offers a Bengali one of an English
+  line. The script is read off the characters rather than off the language field, which is
+  free text nobody can rely on. A box that already holds something always shows, whatever
+  the scripts say.
+  Not a second use of the translation, and that is why it has its own column: a romanisation
+  tells you nothing about the meaning, so a review deck promising a translation and showing
+  one would be prompting with the wrong thing. It round-trips through the quote, book and
+  film exports as its own `transliteration:` key.
+
 - **A quote captured on a board is filed on that board.** Pressing ＋ inside a board of
   Bengali proverbs opened the card that asks which *book* the line came from — on a screen
   holding lines that came from no book at all — and anything saved from ＋ anywhere went to

@@ -386,12 +386,12 @@ func stageMovieWork(tx *sql.Tx, batchID int64, m importer.MovieHeader) (int64, e
 func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues []importer.Dialogue) (int, error) {
 	const q = `
 		INSERT OR IGNORE INTO staged_quotes
-		  (staged_work_id, quote, note, translation, color, favorite, chapter, chapter_no, location, location_orig,
+		  (staged_work_id, quote, note, translation, transliteration, color, favorite, chapter, chapter_no, location, location_orig,
 		   character, actor, timestamp, timestamp_orig, season, episode,
 		   act, quest, episode_name, tags, noted_at, dedupe_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	staged := 0
-	add := func(quote, note, translation, color string, favorite bool, chapter string, chapterNo float64,
+	add := func(quote, note, translation, transliteration, color string, favorite bool, chapter string, chapterNo float64,
 		location, character, actor, timestamp string,
 		season, episode *int, act, quest, episodeName string, tags []string, notedAt string) error {
 		if color == "" {
@@ -417,7 +417,7 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		res, err := tx.Exec(q, workID, nullable(quote), nullable(note),
 			// A plain string: staged_quotes.translation is NOT NULL DEFAULT '' (0035),
 			// and nullable("") is nil.
-			translation, color, favorite,
+			translation, transliteration, color, favorite,
 			nullable(chapter), nullableFloat(chapterNo), nullable(location), nullable(location),
 			nullable(character), nullable(actor), nullable(timestamp), nullable(timestamp),
 			season, episode,
@@ -443,7 +443,7 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		// itself — the same reason season and episode are listed below and can
 		// never actually change either. The episode name is NOT in the hash, which
 		// is exactly why the copy already staged can be missing it.
-		return enrichStagedQuote(tx, workID, hash, quote, note, translation, color, favorite,
+		return enrichStagedQuote(tx, workID, hash, quote, note, translation, transliteration, color, favorite,
 			chapter, chapterNo, location, character, actor, timestamp, season, episode,
 			episodeName, tags, notedAt)
 	}
@@ -458,13 +458,13 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 		// episode name either — a book has none, and a book file retargeted onto a
 		// game is repaired by the media-type gate at approval rather than by inventing
 		// a locator here.
-		if err := add(a.Quote, a.Note, a.Translation, a.Color, a.Favorite, a.Chapter, a.ChapterNo, a.Location,
+		if err := add(a.Quote, a.Note, a.Translation, a.Transliteration, a.Color, a.Favorite, a.Chapter, a.ChapterNo, a.Location,
 			a.Character, "", "", nil, nil, "", "", "", a.Tags, a.NotedAt); err != nil {
 			return 0, err
 		}
 	}
 	for _, d := range dialogues {
-		if err := add(d.Quote, d.Note, d.Translation, d.Color, d.Favorite, "", 0, "", d.Character, d.Actor, d.Timestamp,
+		if err := add(d.Quote, d.Note, d.Translation, d.Transliteration, d.Color, d.Favorite, "", 0, "", d.Character, d.Actor, d.Timestamp,
 			d.Season, d.Episode, d.Act, d.Quest, d.EpisodeName, d.Tags, d.NotedAt); err != nil {
 			return 0, err
 		}
@@ -478,7 +478,7 @@ func stageQuotes(tx *sql.Tx, workID int64, anns []importer.Annotation, dialogues
 // tags union. Existing values always win, so the first copy in the file is the one
 // whose edits survive. The _orig snapshots follow their live column, so a locator
 // that arrives only on the second copy is still resettable.
-func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, translation, color string, favorite bool,
+func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, translation, transliteration, color string, favorite bool,
 	chapter string, chapterNo float64, location, character, actor, timestamp string, season, episode *int,
 	episodeName string, tags []string, notedAt string) error {
 
@@ -508,6 +508,7 @@ func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, translation,
 		  episode        = COALESCE(episode, ?),
 		  episode_name   = CASE WHEN episode_name = '' THEN ? ELSE episode_name END,
 		  translation    = CASE WHEN translation = '' THEN ? ELSE translation END,
+		  transliteration = CASE WHEN transliteration = '' THEN ? ELSE transliteration END,
 		  color          = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 		  favorite       = MAX(favorite, ?)
 		 WHERE id = ?`,
@@ -522,7 +523,7 @@ func enrichStagedQuote(tx *sql.Tx, workID int64, hash, quote, note, translation,
 		// same rule spelled the way `status` two functions up already spells it, and
 		// upsertImportBook's NULLIF() is a third spelling of the one idea. 0051's
 		// translation is the same shape of column and takes the same spelling.
-		episodeName, translation,
+		episodeName, translation, transliteration,
 		color, color, favorite, id); err != nil {
 		return err
 	}
@@ -634,6 +635,11 @@ type stagedQuoteRow struct {
 	Category    string `json:"category"`
 	Language    string `json:"language"`
 	Translation string `json:"translation"`
+	// 0069, in the queue for the reason the paragraph above gives about the other
+	// three: this app's own export is an importer's source, so a field the queue
+	// does not hold survives the export, survives the parse and is dropped on the
+	// way in — with matching counts saying nothing happened.
+	Transliteration string `json:"transliteration"`
 	// 0047, and in the queue for exactly the reason the paragraph above gives. These
 	// five are a standalone quote's per-kind fields; the kind lives on the BOARD,
 	// which does not round-trip yet, so they are carried for every quote whatever
@@ -933,7 +939,7 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 	             COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
 	             COALESCE(q.place, ''), COALESCE(q.medium, ''), COALESCE(q.kind, ''),
 	             COALESCE(q.category, 'other'), COALESCE(q.language, ''),
-	             COALESCE(q.translation, ''),
+	             COALESCE(q.translation, ''), COALESCE(q.transliteration, ''),
 	             q.region, q.recipient, q.work_title, q.locator, q.occasion_circa,
 	             COALESCE(q.anthology, ''), COALESCE(q.anthology_note, ''),
 	             COALESCE(q.anthology_intro, '')` + from + ` ORDER BY w.batch_id DESC, q.staged_work_id, q.id`
@@ -955,7 +961,7 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 			&sq.EpisodeName, &sq.Act, &sq.Quest,
 			&tags, &sq.NotedAt, &sq.CreatedAt,
 			&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium, &sq.Kind,
-			&sq.Category, &sq.Language, &sq.Translation,
+			&sq.Category, &sq.Language, &sq.Translation, &sq.Transliteration,
 			&sq.Region, &sq.Recipient, &sq.WorkTitle, &sq.Locator, &sq.OccasionCirca,
 			&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro); err != nil {
 			olog.Warnf(olog.CodeImportRowScan, "[import] staged quote row scan failed: %v", err)
@@ -1294,7 +1300,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 			       COALESCE(q.noted_at, ''),
 			       COALESCE(q.speaker, ''), COALESCE(q.occasion, ''), COALESCE(q.occasion_date, ''),
 			       COALESCE(q.place, ''), COALESCE(q.medium, ''), COALESCE(q.kind, ''),
-			       COALESCE(q.category, 'other'), COALESCE(q.language, ''), COALESCE(q.translation, ''),
+			       COALESCE(q.category, 'other'), COALESCE(q.language, ''), COALESCE(q.translation, ''), COALESCE(q.transliteration, ''),
 			       q.region, q.recipient, q.work_title, q.locator, q.occasion_circa,
 			       COALESCE(q.anthology, ''), COALESCE(q.anthology_note, ''),
 			       COALESCE(q.anthology_intro, '')
@@ -1312,7 +1318,7 @@ func loadStagedForApproval(tx *sql.Tx, picked stagedSelection) ([]stagedWorkForA
 				&sq.Chapter, &sq.ChapterNo, &sq.Location, &sq.Character, &sq.Actor, &sq.Timestamp,
 				&sq.Season, &sq.Episode, &sq.EpisodeName, &sq.Act, &sq.Quest, &tags, &sq.NotedAt,
 				&sq.Speaker, &sq.Occasion, &sq.OccasionDate, &sq.Place, &sq.Medium, &sq.Kind,
-				&sq.Category, &sq.Language, &sq.Translation,
+				&sq.Category, &sq.Language, &sq.Translation, &sq.Transliteration,
 				&sq.Region, &sq.Recipient, &sq.WorkTitle, &sq.Locator, &sq.OccasionCirca,
 				&sq.Anthology, &sq.AnthologyNote, &sq.AnthologyIntro); err != nil {
 				return err
@@ -1379,9 +1385,11 @@ func stagedAsAnnotations(quotes []stagedQuoteRow) []importer.Annotation {
 	for _, q := range quotes {
 		out = append(out, importer.Annotation{
 			Quote: q.Quote, Note: q.Note, Chapter: q.Chapter, ChapterNo: q.ChapterNo, Location: q.Location,
-			Character:   q.Character,   // 0047; no actor — a novel has speakers, not a cast
-			Translation: q.Translation, // 0051; the queue has carried it since 0035
-			Color:       q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
+			Character:       q.Character,       // 0047; no actor — a novel has speakers, not a cast
+			Translation:     q.Translation,     // 0051; the queue has carried it since 0035
+			Transliteration: q.Transliteration, // 0069
+
+			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
 		})
 	}
 	return out
@@ -1396,7 +1404,8 @@ func stagedAsUtterances(quotes []stagedQuoteRow) []importer.Utterance {
 			Quote: q.Quote, Note: q.Note, Speaker: q.Speaker, Occasion: q.Occasion,
 			OccasionDate: q.OccasionDate, Place: q.Place, Medium: q.Medium, Kind: q.Kind,
 			Category: q.Category, Language: q.Language, Translation: q.Translation,
-			Region: q.Region, Recipient: q.Recipient, WorkTitle: q.WorkTitle,
+			Transliteration: q.Transliteration, // 0069
+			Region:          q.Region, Recipient: q.Recipient, WorkTitle: q.WorkTitle,
 			Locator: q.Locator, OccasionCirca: q.OccasionCirca, // 0047
 			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite, NotedAt: q.NotedAt,
 			Anthology: q.Anthology, AnthologyNote: q.AnthologyNote, AnthologyIntro: q.AnthologyIntro,
@@ -1412,8 +1421,8 @@ func stagedAsDialogues(quotes []stagedQuoteRow) []importer.Dialogue {
 			Quote: q.Quote, Note: q.Note, Character: q.Character, Actor: q.Actor,
 			Timestamp: q.Timestamp, Season: q.Season, Episode: q.Episode,
 			EpisodeName: q.EpisodeName, Act: q.Act, Quest: q.Quest, // 0047
-			Translation: q.Translation, // 0051
-			Color:       q.Color, Tags: q.Tags, Favorite: q.Favorite,
+			Translation: q.Translation, Transliteration: q.Transliteration, // 0051, 0069
+			Color: q.Color, Tags: q.Tags, Favorite: q.Favorite,
 			NotedAt: q.NotedAt,
 		})
 	}

@@ -269,7 +269,7 @@ type utteranceRow struct {
 // using it must add utteranceReviewJoin.
 const utteranceCols = `u.id, u.quote, COALESCE(u.note, ''), u.color, u.favorite,
 	u.speaker, u.occasion, u.occasion_date, u.place, u.medium, COALESCE(u.kind, ''),
-	u.category, u.language, u.translation, COALESCE(u.board_id, 0),
+	u.category, u.language, u.translation, u.transliteration, COALESCE(u.board_id, 0),
 	u.region, u.recipient, u.work_title, u.locator, u.occasion_circa,
 	COALESCE(u.noted_at, ''), u.sticker_id, u.sticker_x, u.sticker_y, u.created_at, u.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
@@ -281,7 +281,7 @@ func scanUtterance(sc interface{ Scan(...any) error }) (utteranceRow, error) {
 	var u utteranceRow
 	err := sc.Scan(&u.ID, &u.Quote, &u.Note, &u.Color, &u.Favorite,
 		&u.Speaker, &u.Occasion, &u.OccasionDate, &u.Place, &u.Medium, &u.Kind,
-		&u.Category, &u.Language, &u.Translation, &u.BoardID,
+		&u.Category, &u.Language, &u.Translation, &u.Transliteration, &u.BoardID,
 		&u.Region, &u.Recipient, &u.WorkTitle, &u.Locator, &u.OccasionCirca,
 		&u.NotedAt, &u.StickerID, &u.StickerX, &u.StickerY, &u.CreatedAt, &u.UpdatedAt,
 		&u.Reviewed, &u.Stability, &u.LastReviewedAt, &u.LastResult, &u.ReviewExcluded)
@@ -353,14 +353,14 @@ func (s *Server) handleCreateUtterance(w http.ResponseWriter, r *http.Request) {
 	res, err := tx.Exec(`
 		INSERT INTO utterances (id, user_id, quote, note, color, favorite,
 		                        speaker, occasion, occasion_date, place, medium, kind,
-		                        category, language, translation, board_id,
+		                        category, language, translation, transliteration, board_id,
 		                        region, recipient, work_title, locator, occasion_circa,
 		                        source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
 		ON CONFLICT DO NOTHING`,
 		id, uid, req.Quote, nullable(req.Note), req.Color, req.Favorite,
 		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium, req.Kind,
-		req.Category, req.Language, req.Translation, boardID,
+		req.Category, req.Language, req.Translation, req.Transliteration, boardID,
 		// Plain values, like the five above them: every column here is NOT NULL with
 		// a zero-value default, so nullable() would turn "" into the violation.
 		req.Region, req.Recipient, req.WorkTitle, req.Locator, req.OccasionCirca,
@@ -590,14 +590,14 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 	res, err := tx.Exec(`
 		UPDATE utterances SET quote = ?, note = ?, color = ?, favorite = ?,
 		       speaker = ?, occasion = ?, occasion_date = ?, place = ?, medium = ?, kind = ?,
-		       category = ?, language = ?, translation = ?, board_id = ?,
+		       category = ?, language = ?, translation = ?, transliteration = ?, board_id = ?,
 		       region = ?, recipient = ?, work_title = ?, locator = ?, occasion_circa = ?,
 		       dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?,
 		       updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Quote, nullable(req.Note), req.Color, req.Favorite,
 		req.Speaker, req.Occasion, req.OccasionDate, req.Place, req.Medium, req.Kind,
-		req.Category, req.Language, req.Translation, boardID,
+		req.Category, req.Language, req.Translation, req.Transliteration, boardID,
 		// Full-state, like every other field in this UPDATE — see the note above on
 		// board_id for what a client that omits one of them is asking for.
 		req.Region, req.Recipient, req.WorkTitle, req.Locator, req.OccasionCirca,

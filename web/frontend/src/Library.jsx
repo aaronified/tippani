@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, json, errText, downloadPost } from './api.js'
-import { chapterLabel } from './text.js'
+import { chapterLabel, wantsTransliteration } from './text.js'
 import { usePersonOpener } from './personOpen.jsx'
 import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
@@ -32,7 +32,7 @@ import {
 } from './works.jsx'
 import { KINDS, bookGenres } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
-import { t } from './i18n.js'
+import { localeActive, t } from './i18n.js'
 import {
   fmtDate,
   ActionMenu,
@@ -1490,7 +1490,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // card that was handed an explicit state after being rendered without one.
   const resolved = useTextOrder({ language: a?.language })
   const order = textOrder || resolved
-  const { body, second } = quoteTexts(a, order)
+  const { body, second, roman } = quoteTexts(a, order)
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
   const accordion = typeof onToggleExpand === 'function'
@@ -1751,6 +1751,10 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               Drawn here rather than inside each kind's `meta` node so that all
               three kinds — and the search modal, which asks utteranceMeta for a
               plain string — show it identically. */}
+          {/* 0069, above the translation and under the words it respells: the order
+              the owner writes them in — অতি সন্ন্যাসীতে গাজন নষ্ট, then Ati
+              sannyasite gajon nosto, then what it means. */}
+          {roman && <TranslationLine roman>{roman}</TranslationLine>}
           {second && <TranslationLine>{second}</TranslationLine>}
           {a.note && <HandNote>{a.note}</HandNote>}
           {a.tags && a.tags.length > 0 && (
@@ -2221,6 +2225,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       quote: a.quote,
       note: a.note,
       translation: a.translation,
+      transliteration: a.transliteration || '',
       author: book?.author,
       title: book?.title,
       published: book?.published_year,
@@ -2554,6 +2559,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
   const [quote, setQuote] = useState(initial?.quote || '')
   const [note, setNote] = useState(initial?.note || '')
   const [translation, setTranslation] = useState(initial?.translation || '')
+  const [transliteration, setTransliteration] = useState(initial?.transliteration || '')
   const [chapter, setChapter] = useState(initial?.chapter || '')
   // The chapter's NUMBER, kept as a string so the box can be empty. Number(...)||0
   // at submit is the same shape the work forms use for Series #, and 0 is how the
@@ -2593,6 +2599,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
       quote: quote.trim(),
       note: note.trim(),
       translation: translation.trim(),
+      transliteration: transliteration.trim(),
       chapter: chapter.trim(),
       chapter_no: Number(chapterNo.trim()) || 0,
       location: location.trim(),
@@ -2642,6 +2649,19 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
         <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
                   value={translation} onChange={(e) => setTranslation(e.target.value)} />
       </label>
+      {/* 0069. HOW IT SOUNDS, and offered only when the quote is in a script other
+          than the one this reader reads the app in — see wantsTransliteration and
+          the owner's rule quoted there. A box already holding text always draws,
+          whatever the scripts say, because a field that hides while full is a
+          field that drops what is in it on the next save. */}
+      {wantsTransliteration(quote, localeActive(), transliteration) && (
+        <label className="block">
+          <MonoLabel className="mb-1.5 block">{t('common.field.transliteration.label')}</MonoLabel>
+          <textarea className="tp-input" rows="2" placeholder={t('common.field.transliteration.placeholder')}
+                    value={transliteration} onChange={(e) => setTransliteration(e.target.value)} />
+        </label>
+      )}
+
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.note.label')}</MonoLabel>
         <textarea className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />

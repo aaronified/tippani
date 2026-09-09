@@ -303,6 +303,8 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 			// markdown.go for why the spelling is deliberately shared.
 			case "translation", "translated", "english":
 				cur.Translation = val
+			case "transliteration", "romanised", "romanized":
+				cur.Transliteration = val
 			case "note":
 				cur.Note = val
 			case "color", "colour":

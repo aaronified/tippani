@@ -216,18 +216,27 @@ export function clipChipName(v) {
 export function quoteTexts(a, order) {
   const quote = a?.quote || ''
   const translation = a?.translation || ''
+  // 0069. A THIRD TEXT THAT THE ORDER DIAL DOES NOT REORDER, and that is the one
+  // decision worth stating. The dial answers "which MEANING leads" — the words as
+  // said, or the words as understood — and a transliteration is neither: it is how
+  // the original SOUNDS, so it belongs beside the original rather than in the
+  // queue with it. Returned as its own field so the callers that draw one line
+  // (the table cell, the share payload) are unaffected by its existence.
+  const roman = a?.transliteration || ''
   switch (order) {
     case 'quote-only':
-      return { body: quote || translation, second: '' }
+      return { body: quote || translation, second: '', roman }
+    // Under "translations only" the original is not on the card, so a
+    // pronunciation of it has nothing to be a pronunciation OF.
     case 'trans-only':
-      return { body: translation || quote, second: '' }
+      return { body: translation || quote, second: '', roman: '' }
     case 'trans-first':
       // AND NOTHING TO LEAD WITH IS NOT A REORDERING. A row with no translation
       // under "translations first" is not a card with an empty top line; it is a
       // card with one text, and the one text goes in the big type.
-      return translation ? { body: translation, second: quote } : { body: quote, second: '' }
+      return translation ? { body: translation, second: quote, roman } : { body: quote, second: '', roman }
     default:
-      return { body: quote, second: translation }
+      return { body: quote, second: translation, roman }
   }
 }
 
@@ -236,6 +245,69 @@ export function quoteTexts(a, order) {
 // there is one answer to "which text leads" in the app.
 export function quoteBody(a, order) {
   return quoteTexts(a, order).body
+}
+
+// scriptOf — which writing system a string is mostly in, as a script name or ''.
+//
+// NOT A LANGUAGE, and the difference is why this is answerable at all. One script
+// serves many languages and the app's language field is free text a reader typed
+// (see languages.jsx — there are no ISO codes yet and no script column), so
+// "which language is this" cannot be read off a row. "Which script are these
+// characters" can be read off the characters, needs no metadata, and is the
+// question actually being asked.
+//
+// FIRST MATCH WINS over a fixed order rather than a count of every character. A
+// transliteration in brackets after the original, or a stray Latin name inside a
+// Bengali proverb, would tip a majority vote; the leading strong character is what
+// the bidi algorithm uses for the same kind of decision (see the direction rule in
+// CLAUDE.md) and it is stable under that mixing. Digits, spaces and punctuation
+// belong to no script and are skipped by every pattern.
+const SCRIPTS = [
+  ['bengali', /\p{Script=Bengali}/u],
+  ['devanagari', /\p{Script=Devanagari}/u],
+  ['arabic', /\p{Script=Arabic}/u],
+  ['han', /\p{Script=Han}/u],
+  ['cyrillic', /\p{Script=Cyrillic}/u],
+  ['greek', /\p{Script=Greek}/u],
+  ['hebrew', /\p{Script=Hebrew}/u],
+  ['latin', /\p{Script=Latin}/u],
+]
+
+export function scriptOf(s) {
+  const str = String(s || '')
+  if (!str.trim()) return ''
+  for (const ch of str) {
+    for (const [name, re] of SCRIPTS) if (re.test(ch)) return name
+  }
+  return ''
+}
+
+// LOCALE_SCRIPT — the script each interface language is written in. Two entries
+// because the app has two locales; a third locale adds a row here and nothing
+// else. Unknown locales fall back to Latin, which is what an unlisted one is
+// overwhelmingly likely to be and is the same guess the fonts already make.
+const LOCALE_SCRIPT = { en: 'latin', bn: 'bengali' }
+
+// wantsTransliteration — whether the form should offer the box.
+//
+// THE OWNER'S RULE: "All quote shall get one, but will only be shown for scripts
+// that are not the same as the chosen language. User may want to store bengali
+// transliteration everywhere." So the question is not "is this Bengali" but "is
+// this in a script other than the one the reader is reading the app in" — which
+// means the app in Bengali offers a Bengali romanisation of an English quote, and
+// the app in English offers a Latin one of a Bengali quote. The same field, two
+// directions, decided by the reader's own locale rather than by a hardcoded idea
+// of which script is the strange one.
+//
+// AN EXISTING VALUE ALWAYS SHOWS ITS BOX. A field that hides while holding text
+// is a field that silently drops it on the next save, and a reader who switched
+// locale would watch their own work disappear. Nothing here can hide data; it can
+// only decline to ask for it.
+export function wantsTransliteration(quote, locale, existing = '') {
+  if (String(existing || '').trim()) return true
+  const s = scriptOf(quote)
+  if (!s) return false // nothing typed yet, or nothing but digits — do not ask
+  return s !== (LOCALE_SCRIPT[locale] || 'latin')
 }
 
 // showsTranslationLine — kept for the reader who looks for it by name. It answers

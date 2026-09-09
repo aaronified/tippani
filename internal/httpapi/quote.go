@@ -68,6 +68,21 @@ type quoteReq struct {
 	// is nowhere yet. Promoting Language would put a permanently unfillable field on
 	// two kinds — see 0051 for the argument in full.
 	Translation string `json:"translation"`
+	// HOW THE LINE SOUNDS, which is a third thing and not a second use of either
+	// field above it (0069). A note is what you thought about the line; a
+	// translation is what the line says; a transliteration is the same sentence
+	// letter for letter in a script the reader can pronounce from — "Ati
+	// sannyasite gajon nosto" beside অতি সন্ন্যাসীতে গাজন নষ্ট, whose translation
+	// is "too many ascetics ruin the festival" and is not this.
+	//
+	// ON ALL THREE KINDS, unlike Language above: a Bengali line highlighted in a
+	// book and a line of Hindi dialogue want this exactly as much as a proverb
+	// does, so there is no kind for which it is permanently unfillable. That is
+	// the test 0051 set and the reason Language failed it.
+	//
+	// Uncapped, like Quote, Note and Translation: it is a whole sentence, and a
+	// romanisation runs longer than the script it romanises.
+	Transliteration string `json:"transliteration"`
 }
 
 // validate trims and checks the shared fields, returning "" when they are good
@@ -127,7 +142,11 @@ type quoteRow struct {
 	// strip since 0035. A list that omitted it would leave every card to fetch its
 	// own quote again to render one line of text.
 	Translation string   `json:"translation"`
-	Color       string   `json:"color"`
+	// 0069, and on the LIST row for the reason Translation is: the card draws it,
+	// and a list that omitted it would leave every card fetching its own quote
+	// again to render one line of text.
+	Transliteration string   `json:"transliteration"`
+	Color           string   `json:"color"`
 	Favorite    bool     `json:"favorite"`
 	Tags        []string `json:"tags"`
 	NotedAt     string   `json:"noted_at"`   // date of capture (original, or add time); "" if unknown

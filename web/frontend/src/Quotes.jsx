@@ -16,7 +16,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
-import { t } from './i18n.js'
+import { localeActive, t } from './i18n.js'
+import { wantsTransliteration } from './text.js'
 import { usePersonOpener } from './personOpen.jsx'
 import { QUOTE_KINDS, quoteKindLabel, quoteKindMeta, quoteKindOptions } from './quoteKind.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
@@ -328,6 +329,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   const [locator, setLocator] = useState(initial?.locator || '')
   const [circa, setCirca] = useState(!!initial?.occasion_circa)
   const [translation, setTranslation] = useState(initial?.translation || '')
+  const [transliteration, setTransliteration] = useState(initial?.transliteration || '')
   const [color, setColor] = useState(initial?.color || 'yellow')
   const [tags, setTags] = useState(initial?.tags || [])
   const [stickerId, setStickerId] = useState(initial?.sticker_id ?? null)
@@ -370,6 +372,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       board_id: boardID,
       language: language.trim(),
       translation: translation.trim(),
+      transliteration: transliteration.trim(),
       // 0047's five. Sent because this PUT is full-state: omitting one is not
       // "leave it alone", it is "empty it".
       region: region.trim(),
@@ -531,6 +534,19 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
                   value={translation} onChange={(e) => setTranslation(e.target.value)} />
       </label>
+      {/* 0069. HOW IT SOUNDS, and offered only when the quote is in a script other
+          than the one this reader reads the app in — see wantsTransliteration and
+          the owner's rule quoted there. A box already holding text always draws,
+          whatever the scripts say, because a field that hides while full is a
+          field that drops what is in it on the next save. */}
+      {wantsTransliteration(quote, localeActive(), transliteration) && (
+        <label className="block">
+          <MonoLabel className="mb-1.5 block">{t('common.field.transliteration.label')}</MonoLabel>
+          <textarea className="tp-input" rows="2" placeholder={t('common.field.transliteration.placeholder')}
+                    value={transliteration} onChange={(e) => setTransliteration(e.target.value)} />
+        </label>
+      )}
+
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.tags.label')}</MonoLabel>
         <TokenInput
@@ -951,6 +967,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     quoteShare({
       quote: u.quote,
       translation: u.translation,
+      transliteration: u.transliteration || '',
       note: u.note,
       category: u.category,
       language: u.language,

@@ -738,6 +738,13 @@ func wantShapes() []tableShape {
 				// not in this work's cast. Nullable, because narration has no speaker
 				// and inventing one is worse than leaving it off.
 				{Name: "speaker_cast_id", Type: "INTEGER"},
+				// 0069. HOW IT SOUNDS, which is neither the note nor the translation above
+				// it: a romanisation says nothing about the meaning, so a reader who
+				// cannot read the script is no wiser after reading it and a reader who
+				// wants to say the line aloud gets nothing from the translation. Last in
+				// the column order because ALTER TABLE appends, and on all three quote
+				// tables because the owner's ruling was "all quote shall get one".
+				{Name: "transliteration", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
@@ -847,6 +854,13 @@ func wantShapes() []tableShape {
 				// stays as the printed spelling, because dialogues_fts is
 				// external-content FTS5 and cannot index a joined table.
 				{Name: "actor_id", Type: "INTEGER"},
+				// 0069. HOW IT SOUNDS, which is neither the note nor the translation above
+				// it: a romanisation says nothing about the meaning, so a reader who
+				// cannot read the script is no wiser after reading it and a reader who
+				// wants to say the line aloud gets nothing from the translation. Last in
+				// the column order because ALTER TABLE appends, and on all three quote
+				// tables because the owner's ruling was "all quote shall get one".
+				{Name: "transliteration", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",

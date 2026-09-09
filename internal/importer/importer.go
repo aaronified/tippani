@@ -117,9 +117,13 @@ type Annotation struct {
 	// line says. A parser that merged them would be the loss 0051 exists to undo,
 	// and it would be silent: the import would succeed and the counts would match.
 	Translation string
-	Tags        []string
-	Favorite    bool
-	NotedAt     string // original date of the highlight/note, when the source carries one; "" otherwise
+	// 0069 — the same line in another script, which is neither the note nor the
+	// translation. Read from Tippani's own frontmatter only, like the credits and
+	// the languages above: no third-party importer has a source for it.
+	Transliteration string
+	Tags            []string
+	Favorite        bool
+	NotedAt         string // original date of the highlight/note, when the source carries one; "" otherwise
 }
 
 // Result groups the annotations of one book.
@@ -410,9 +414,11 @@ type Dialogue struct {
 	Note        string
 	Color       string // "" = the importer leaves it to the server default (yellow)
 	Translation string // 0051; see Annotation.Translation for why it is not the note
-	Tags        []string
-	Favorite    bool
-	NotedAt     string // as for Annotation. No file format carries a date for a
+	// 0069; see Annotation.Transliteration.
+	Transliteration string
+	Tags            []string
+	Favorite        bool
+	NotedAt         string // as for Annotation. No file format carries a date for a
 	// dialogue yet, so no parser sets this; it exists so that retargeting staged
 	// book highlights (which do carry Kindle dates) onto a film keeps them
 	// instead of silently dropping the field on the way across.

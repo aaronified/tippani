@@ -56,7 +56,7 @@ type utteranceExportRow struct {
 	id                                                   int64
 	quote, note, color                                   string
 	speaker, occasion, occasionDate, place, medium, kind string
-	category, language, translation                      string
+	category, language, translation, transliteration     string
 	// 0047 — what a proverb, a letter and an essay carry. Written unconditionally
 	// for every quote, whatever board it is on, because the kind lives on the BOARD
 	// and the board does not round-trip yet: a file that only wrote a recipient for
@@ -71,7 +71,7 @@ type utteranceExportRow struct {
 func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 	q := `SELECT id, quote, COALESCE(note,''), color, COALESCE(speaker,''), COALESCE(occasion,''),
 	             COALESCE(occasion_date,''), COALESCE(place,''), COALESCE(medium,''), COALESCE(kind,''),
-	             category, language, translation,
+	             category, language, translation, transliteration,
 	             region, recipient, work_title, locator, occasion_circa,
 	             favorite, COALESCE(noted_at,'')
 	      FROM utterances WHERE user_id = ?`
@@ -98,7 +98,7 @@ func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 		// what a row predating them holds. Same rule as utteranceCols.
 		if err := rows.Scan(&u.id, &u.quote, &u.note, &u.color, &u.speaker, &u.occasion,
 			&u.occasionDate, &u.place, &u.medium, &u.kind,
-			&u.category, &u.language, &u.translation,
+			&u.category, &u.language, &u.translation, &u.transliteration,
 			&u.region, &u.recipient, &u.workTitle, &u.locator, &u.occasionCirca,
 			&u.favorite, &u.notedAt); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] quote row scan failed: %v", err)
@@ -179,6 +179,7 @@ func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 				}
 				writeBinding(&sb, "language", u.language)
 				writeBinding(&sb, "translation", u.translation)
+				writeBinding(&sb, "transliteration", u.transliteration)
 				writeBinding(&sb, "note", note)
 				// Same rule as the other two exports: the default colour is left
 				// out, so a file only mentions colour when one was chosen.

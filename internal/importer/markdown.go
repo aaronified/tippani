@@ -251,6 +251,8 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			// know which shelf it is going to in order to name the same field.
 			case "translation", "translated", "english":
 				cur.Translation = val
+			case "transliteration", "romanised", "romanized":
+				cur.Transliteration = val
 			case "date", "added", "noted":
 				cur.NotedAt = val
 			case "tags":

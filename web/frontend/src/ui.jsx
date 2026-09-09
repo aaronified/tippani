@@ -3081,10 +3081,18 @@ export function HandNote({ className = "", lines = 2, children }) {
 // stack has no Indic member (see src/locale.jsx), so a Bengali translation set in
 // it would draw in whatever the OS reached for — which is the same trap
 // .cleanup-snippet documents.
-export function TranslationLine({ className = "", children }) {
+// `roman` is the same slot holding a TRANSLITERATION rather than a translation
+// (0069) — a prop and not a second component, because it is one line in one
+// place on the card and only its voice differs: upright rather than italic,
+// because it is not another language, it is the same words respelled.
+export function TranslationLine({ className = "", roman = false, children }) {
   // card-text for the reason HandNote carries it: this is prose, so a long press
   // over it should select words rather than the card.
-  return <p className={"quote-translation card-text " + className}>{children}</p>;
+  return (
+    <p className={"quote-translation card-text " + (roman ? "quote-roman " : "") + className}>
+      {children}
+    </p>
+  );
 }
 
 // ---- ♥ favourite mark (§6: hearts for favourites, never stars) ----
