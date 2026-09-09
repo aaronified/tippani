@@ -53,6 +53,7 @@ import {
   useEdgeScroll,
   PanelHost,
   usePanelStack,
+  sourceName,
 } from './ui.jsx'
 
 // The second column's name, from the machine value the server sends. `actor_role`
@@ -386,6 +387,12 @@ export function usePicturePicker({
   const [urlOpen, setUrlOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [pics, setPics] = useState(null) // null = never asked; [] = asked, nothing found
+  // WHAT EACH SUPPLIER DID, which is the half an empty strip could never say. The
+  // owner: "character pages silently fail the fetch images. it does not even show
+  // whether it is trying correctly in fandom, which has almost all images." The
+  // route reports it per rung now — how many it found, and for Fandom which wiki
+  // it decided the work lives on — so a miss names itself instead of being silence.
+  const [tried, setTried] = useState(null)
   const [picsBusy, setPicsBusy] = useState(false)
   const applyURL = async () => {
     await onPicked(url.trim())
@@ -405,6 +412,7 @@ export function usePicturePicker({
     setPicsBusy(true)
     const r = await json('POST', '/images/search', search()).catch(() => ({ ok: false }))
     setPicsBusy(false)
+    setTried(r.ok ? (r.data?.tried || []) : [])
     // ANY RUNG. See people.jsx: the ladder has more suppliers than the two this
     // test used to name, and a character strip is commonly configured with no
     // Google key at all.
@@ -483,6 +491,36 @@ export function usePicturePicker({
           <span className="microcopy">
             {pics.length ? t('cast.picture.pick.prose') : t('cast.picture.pick.none')}
           </span>
+          {/* THE ATTEMPTS, SHOWN WHERE THE PICTURES ARE NOT. Drawn whenever the
+              strip came back empty — that is the moment a reader needs to know
+              which suppliers were reached and what each said — and also under a
+              short strip, because "one picture from Google" and "one picture from
+              Fandom" are different answers to the same press.
+
+              A ROW PER RUNG, in the order the ladder ran them, so the reader sees
+              that the supplier with the pictures was asked FIRST and still had
+              nothing. `note` is the rung's own sentence and is the only part that
+              varies: for Fandom it names the wiki, or the slugs that answered
+              nothing, which is the sentence that tells them to paste the address. */}
+          {tried && tried.length ? (
+            <span className="cast-row-tried">
+              {tried.map((a) => (
+                <span key={a.source} className="microcopy" style={{ display: 'block', color: 'var(--faint)' }}>
+                  {t('cast.picture.tried.row', {
+                    source: sourceName(a.source), n: a.hits, count: a.hits,
+                  })}
+                  {/* THE NOTE IS THE SERVER'S OWN SENTENCE, rendered raw — the same
+                      treatment an error message gets, and for the same reason: it
+                      names a wiki slug, a media type and a record id, which are
+                      addresses rather than words and do not translate. Keeping it
+                      out of the locale string is also what keeps that string a
+                      simple plural instead of an ICU select this file has no other
+                      use for. */}
+                  {a.note ? ` — ${a.note}` : ''}
+                </span>
+              ))}
+            </span>
+          ) : null}
           <span className="flex flex-wrap gap-2">
             {pics.map((im) => (
               <button

@@ -48,9 +48,21 @@ import (
 // imageTier is one rung. `name` is what the trace calls it; `run` returns its
 // hits and swallows its own failure, because one supplier being down is not the
 // request being down.
+//
+// AND `note` IS WHAT THE RUNG HAS TO SAY ABOUT ITS OWN ATTEMPT, which is the half
+// this strip could never report. The response carried a `sources` map of which
+// rungs RAN — enough to tell "nothing configured" from "nothing found", and
+// nothing more. So a reader watching an empty strip could not tell whether Fandom
+// had been asked at all, which wiki it decided this work lives on, or whether it
+// found the wiki and missed the page. The owner: "it does not even show whether it
+// is trying correctly in fandom, which has almost all images."
+//
+// A POINTER BECAUSE THE TIER IS A VALUE IN A SLICE and the note is written while
+// it runs. Empty means the rung had nothing to add beyond its hit count.
 type imageTier struct {
 	name string
 	run  func(ctx context.Context) []metadata.ImageHit
+	note *string
 }
 
 // castPin is what a cast row can tell the ladder about where to look: the work's
@@ -70,9 +82,18 @@ type castPin struct {
 	WorkID     int64
 	MediaType  string
 	Character  string
-	Actor      string
-	PersonID   string // TheTVDB person id, when the row came from TheTVDB
-	Source     string // the supplier this row's ids belong to
+	// THE CHARACTER RECORD'S OWN LINKS, and the reason they are here is the whole
+	// of the owner's report. A Fandom wiki cannot be derived from a title —
+	// Battlestar Galactica lives at `galactica` — so the app's answer was always
+	// meant to be that the reader tells it: "there needs to be a way to tell
+	// tippani to look for william_adama in this link". They can already paste that
+	// address onto the record, and this ladder never read it. One URL names BOTH
+	// halves the guesswork was for: the wiki in its host and the page in its path.
+	CharacterLinks string
+	CharacterID    int64
+	Actor          string
+	PersonID       string // TheTVDB person id, when the row came from TheTVDB
+	Source         string // the supplier this row's ids belong to
 }
 
 // castPinFor resolves a cast row to the pinned identities behind it. Every miss
@@ -87,11 +108,15 @@ func (s *Server) castPinFor(uid, castID int64) castPin {
 	var kind string
 	err := s.Store.DB.QueryRow(
 		`SELECT c.work_id, c.kind, c.character, c.actor,
-		        COALESCE(c.person_id, ''), COALESCE(c.source, '')
+		        COALESCE(c.person_id, ''), COALESCE(c.source, ''),
+		        COALESCE(c.character_id, 0),
+		        COALESCE((SELECT ch.links FROM characters ch
+		                   WHERE ch.id = c.character_id AND ch.user_id = c.user_id), '')
 		   FROM work_cast c
 		  WHERE c.id = ? AND c.user_id = ? AND c.origin <> 'removed'`,
 		castID, uid,
-	).Scan(&p.WorkID, &kind, &p.Character, &p.Actor, &p.PersonID, &p.Source)
+	).Scan(&p.WorkID, &kind, &p.Character, &p.Actor, &p.PersonID, &p.Source,
+		&p.CharacterID, &p.CharacterLinks)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			olog.Warnf(olog.CodeCastRowScan, "[meta] image ladder: cast %d unreadable: %v", castID, err)
@@ -209,11 +234,19 @@ func (s *Server) tvdbCharacterTier(pin castPin, subject string) *imageTier {
 	if strings.TrimSpace(role) == "" {
 		role = pin.Character
 	}
-	return &imageTier{name: "tvdb", run: func(ctx context.Context) []metadata.ImageHit {
+	note := new(string)
+	return &imageTier{name: "tvdb", note: note, run: func(ctx context.Context) []metadata.ImageHit {
 		hits, err := tvdb.CharacterImages(ctx, pin.MediaType, pin.TVDBWorkID, role)
 		if err != nil {
 			olog.Warnf(olog.CodeMetaLookupFailed, "[meta] tvdb character art %q: %v", role, err)
+			*note = "TheTVDB refused: " + err.Error()
 			return nil
+		}
+		if len(hits) == 0 {
+			// TheTVDB HAS NO CHARACTER SEARCH, so a role is only reachable through
+			// the work — and saying which work was read is what lets a reader see
+			// that the title is pinned to the wrong record.
+			*note = "no role matching " + role + " on TheTVDB " + pin.MediaType + " " + pin.TVDBWorkID
 		}
 		return hits
 	}}
@@ -356,12 +389,43 @@ func (s *Server) fandomCharacterTier(uid int64, pin castPin, character, workTitl
 	if strings.TrimSpace(character) == "" {
 		return nil
 	}
-	return &imageTier{name: "fandom", run: func(ctx context.Context) []metadata.ImageHit {
+	note := new(string)
+	return &imageTier{name: "fandom", note: note, run: func(ctx context.Context) []metadata.ImageHit {
+		// A PASTED PAGE BEATS EVERY GUESS, and it is the only thing here that is
+		// not a guess. One address carries the wiki AND the article, so a reader
+		// who has told the app where this character is written up gets that page
+		// read directly — no slug derivation, no name search, no ranking.
+		if wiki, page := metadata.FandomPageFromLinks(pin.CharacterLinks); page != "" {
+			hits := metadata.FandomLeadImageAt(ctx, page, wiki)
+			if len(hits) == 0 {
+				*note = wiki + ".fandom.com/wiki/" + page + " has no picture"
+			} else {
+				*note = wiki + ".fandom.com/wiki/" + page + " (you set this)"
+			}
+			// REMEMBERED FOR THE WORK, so the character billed beside them on the
+			// same film stops guessing too. Only into an empty column — a probe
+			// must never overwrite something a reader typed.
+			s.rememberFandomWiki(uid, pin.WorkID, wiki)
+			return hits
+		}
 		wiki := s.fandomWikiFor(ctx, uid, pin.WorkID, pin.FandomWiki, workTitle)
 		if wiki == "" {
+			// WHICH SLUGS WERE TRIED, because "no wiki" is the answer a reader is
+			// most likely to disagree with and the one they can fix. The wiki for
+			// Battlestar Galactica is `galactica`, which no derivation from the
+			// title reaches — so the honest report is the guesses that failed,
+			// which is also the sentence that tells them to paste the address.
+			*note = "no wiki answered for " + workTitle + " — tried " +
+				strings.Join(metadata.FandomWikiCandidates(workTitle), ", ")
 			return nil
 		}
-		return metadata.FandomCharacterImages(ctx, character, wiki)
+		hits := metadata.FandomCharacterImages(ctx, character, wiki)
+		if len(hits) == 0 {
+			*note = wiki + ".fandom.com has no page for " + character
+		} else {
+			*note = wiki + ".fandom.com"
+		}
+		return hits
 	}}
 }
 
@@ -392,14 +456,23 @@ func (s *Server) fandomWikiFor(ctx context.Context, uid, workID int64, stored, t
 	if wiki == "" || workID == 0 {
 		return wiki
 	}
-	// Only into an EMPTY column, so a value the reader typed between the read
-	// above and this write is not clobbered by a probe that started earlier.
+	s.rememberFandomWiki(uid, workID, wiki)
+	return wiki
+}
+
+// rememberFandomWiki stores a wiki on the work, and ONLY into an empty column, so
+// a value the reader typed between a read and this write is not clobbered by a
+// probe that started earlier. Shared by the probe and by the pasted-address path,
+// because "remember which wiki this work is on" is one fact however it was learned.
+func (s *Server) rememberFandomWiki(uid, workID int64, wiki string) {
+	if wiki == "" || workID == 0 {
+		return
+	}
 	if _, err := s.Store.DB.Exec(
 		`UPDATE movies SET fandom_wiki = ? WHERE id = ? AND user_id = ? AND COALESCE(fandom_wiki, '') = ''`,
 		wiki, workID, uid); err != nil {
 		olog.Warnf(olog.CodeMetaLookupFailed, "[meta] remembering fandom wiki for %d: %v", workID, err)
 	}
-	return wiki
 }
 
 // googleScrapeTier is the bottom of the ladder and is absent unless the reader

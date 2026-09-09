@@ -324,6 +324,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Looking for a character's picture now says what it tried.** An empty strip was silent:
+  you could not tell whether Fandom had been asked, which wiki it decided the work lives on,
+  or whether it found the wiki and missed the page. Each supplier now reports its own attempt
+  under the strip — how many pictures it found, and for Fandom the wiki it used or the
+  addresses that answered nothing.
+
+- **And you can tell it where a character is written up.** Paste the article's address on the
+  character — `https://galactica.fandom.com/wiki/William_Adama` — and the fetch reads that
+  page directly instead of guessing. The guess could never have got there: a wiki's name is
+  not derivable from a work's title, which is why Battlestar Galactica's characters live at
+  `galactica` and Star Wars' at both `starwars` and `wookieepedia`. The wiki it learns this
+  way is remembered for the work, so the rest of that cast stops guessing too. Links are the
+  character's own, shared by their page and their page-inside-a-work.
+
 - **The portrait on a character's or a person's page has stopped shimmering.** The soft
   sweep that means "this picture is still coming" was drawn over the hero portrait for as
   long as the page stayed open, on every visit after the first — a flicker with nothing

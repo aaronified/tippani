@@ -211,10 +211,29 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		}})
 	}
 
+	// EVERY RUNG'S OWN ACCOUNT OF ITS ATTEMPT, which is what an empty strip could
+	// never give. `sources` says which suppliers were ASKED; this says what each
+	// one did — how many pictures it found, and anything it has to add about how
+	// it looked. A reader whose character has no picture can now see that Fandom
+	// was reached, which wiki it decided the work lives on, and whether the miss
+	// was the wiki or the page. Those are three different problems and only one of
+	// them is theirs to fix.
+	type attempt struct {
+		Source string `json:"source"`
+		Hits   int    `json:"hits"`
+		Note   string `json:"note,omitempty"`
+	}
 	names := make([]string, 0, len(tiers))
+	tried := make([]attempt, 0, len(tiers))
 	for _, t := range tiers {
 		names = append(names, t.name)
-		add(t.run(r.Context())...)
+		hits := t.run(r.Context())
+		add(hits...)
+		a := attempt{Source: t.name, Hits: len(hits)}
+		if t.note != nil {
+			a.Note = *t.note
+		}
+		tried = append(tried, a)
 		if len(images) >= imageSearchMax {
 			break // the cap is spent, and it was spent from the top
 		}
@@ -239,7 +258,7 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 			srcs[t.name] = true
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"images": images, "sources": srcs})
+	writeJSON(w, http.StatusOK, map[string]any{"images": images, "sources": srcs, "tried": tried})
 }
 
 // amazonSuits reports whether the Amazon search scrape has any business

@@ -4170,6 +4170,10 @@ people.form.image-pick.use = {source} থেকে এই ছবিটা নি
 # configured; without one the button opens a web search in a tab as before.
 cast.picture.pick.prose = একটা বেছে নিন, বা ঠিকানা বসান
 cast.picture.pick.none = কিছুই এল না — অভিনেতার নাম দিয়ে দেখুন, বা ঠিকানা বসান
+# কোন সরবরাহকারী কী পেল, ছবি না এলে নিচে দেখানো হয়। পাশের নোটটা সার্ভারের নিজের
+# বাক্য আর সেটা যেমন আছে তেমনই দেখানো হয় — ওতে উইকির নাম আর রেকর্ডের আইডি থাকে।
+cast.picture.tried.row.one = {source}: {n}টি ছবি
+cast.picture.tried.row.other = {source}: {n}টি ছবি
 cast.picture.pick.use = {source} থেকে এই ছবিটা নিন
 people.form.image-url.placeholder = https://… ছবির লিংক বসান
 # Two lines of example, joined by the code — the file format is one value per

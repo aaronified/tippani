@@ -242,3 +242,76 @@ func fandomLeadImage(ctx context.Context, title, slug string) []ImageHit {
 	}
 	return []ImageHit{{URL: src, Source: "fandom"}}
 }
+
+// FandomPageFromLinks pulls a Fandom article out of a record's stored links: the
+// wiki from the host, the page from the path.
+//
+// THIS IS THE ONE THING IN THIS FILE THAT IS NOT A GUESS. Everything above
+// derives a slug from a title and accepts being wrong — which is the right bargain
+// and is also why `galactica` was unreachable for Battlestar Galactica, and
+// `wookieepedia` for Star Wars. A reader who pastes
+// `https://galactica.fandom.com/wiki/William_Adama` has answered both questions at
+// once, and the owner asked for exactly that: "there needs to be a way to tell
+// tippani to look for william_adama in this link and then fetch the image from
+// there. the wiki name galactica is not very straight forward here."
+//
+// THE LINKS FIELD IS FREE TEXT, space- or newline-separated, holding whatever the
+// reader has added — so this recognises a Fandom address by its HOST rather than
+// by position, the same way wikipediaLinkOf does one package over.
+//
+// A BARE WIKI ADDRESS IS NOT A PAGE. `https://galactica.fandom.com` names the wiki
+// and no article, so the wiki is returned with an empty page and the caller falls
+// back to searching — which is strictly better than the title-derived slug it
+// would otherwise have guessed.
+func FandomPageFromLinks(links string) (wiki, page string) {
+	for _, tok := range strings.Fields(strings.ReplaceAll(links, "\n", " ")) {
+		u, err := url.Parse(tok)
+		if err != nil || u.Hostname() == "" {
+			continue
+		}
+		host := strings.ToLower(u.Hostname())
+		if !strings.HasSuffix(host, ".fandom.com") {
+			continue
+		}
+		w := strings.TrimSuffix(host, ".fandom.com")
+		// `www.` and a language prefix are not the wiki. Fandom serves
+		// `starwars.fandom.com` and localised wikis at `starwars.fandom.com/de`,
+		// so the language lives in the PATH and the host's first label is the wiki.
+		if i := strings.Index(w, "."); i >= 0 {
+			w = w[:i]
+		}
+		if w == "" || w == "www" {
+			continue
+		}
+		// /wiki/<Article>, which is MediaWiki's own shape. Anything else on a
+		// fandom host — a category, a search, the front page — names no article.
+		//
+		// THE SEGMENT IS FOUND, NOT INDEXED, because a localised wiki puts its
+		// language FIRST: `starwars.fandom.com/de/wiki/Yoda`. Reading position 0
+		// found `de` and reported no article on every non-English page.
+		parts := strings.Split(strings.Trim(u.EscapedPath(), "/"), "/")
+		for i, seg := range parts {
+			if seg != "wiki" || i+1 >= len(parts) {
+				continue
+			}
+			a, err := url.PathUnescape(parts[i+1])
+			if err != nil || strings.TrimSpace(a) == "" {
+				break
+			}
+			// MediaWiki titles use underscores in a URL and spaces in the API.
+			return w, strings.ReplaceAll(a, "_", " ")
+		}
+		wiki, page = w, ""
+	}
+	return wiki, page
+}
+
+// FandomLeadImageAt reads one named article's lead image on one named wiki — the
+// exact page a reader pointed at, with no searching and no ranking.
+func FandomLeadImageAt(ctx context.Context, title, wiki string) []ImageHit {
+	title, wiki = strings.TrimSpace(title), strings.TrimSpace(wiki)
+	if title == "" || wiki == "" {
+		return nil
+	}
+	return fandomLeadImage(ctx, title, wiki)
+}
