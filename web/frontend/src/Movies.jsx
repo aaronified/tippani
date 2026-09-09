@@ -37,6 +37,7 @@ import { usePersonOpener } from './personOpen.jsx'
 import {
   QUOTE_COLUMNS_IN,
   byLastRead,
+  byYear,
   bySeries,
   clampSequence,
   ColorSwatches,
@@ -366,7 +367,7 @@ function MovieList({ onOpen, creditSeparators, dataNonce }) {
     if (sort === 'recent') return pinInProgress(list, 'movie')
     list = [...list]
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
-    else if (sort === 'year') list.sort((a, b) => (b.release_year || 0) - (a.release_year || 0))
+    else if (sort === 'year') list.sort(byYear((m) => m.release_year))
     else if (sort === 'series') list.sort(bySeries)
     else if (sort === 'read') list.sort(byLastRead)
     return list

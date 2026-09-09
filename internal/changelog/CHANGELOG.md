@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The Library sorts by the year a book came out.** *Year* joins Recent, Title, Author,
+  Series and Last read on the Library's sort menu, newest first — the same sort the Movies
+  list has always offered, under the same word, because it answers the same question.
+  A book whose year nobody has recorded sits at the end, the way an unread one does under
+  *Last read*.
+  **380 BCE files below 1890, not between the eras.** These columns store a year before the
+  era as a negative and have stored "nobody recorded one" as 0 since they were created, so
+  on the number line the absence sits between the two eras: a plain numeric sort puts the one
+  undated book in the middle of the shelf, above Plato and below Woolf. Both shelves now
+  share one comparator that sends the absence to the end explicitly. The Movies list had
+  been right by luck — no film has a release year before the era — and its year ties now
+  break alphabetically rather than by when the row was added, which is what its Title and
+  Series sorts already did.
+
 - **A quote can be from 399 BCE, or from the year 40.** The *When* box on the quote form and
   the capture card now takes any year in either era — `399`, `399 BCE`, `-399`, `c. 40` — and
   so do a person's birth and death, which is what lets Seneca be born in 4 BCE and Sophocles

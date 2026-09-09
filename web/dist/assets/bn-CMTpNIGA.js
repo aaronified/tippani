@@ -3466,6 +3466,7 @@ library.group.residual.author.label = লেখক অজানা
 library.sort.recent.label = নতুন আগে
 library.sort.title.label = নাম
 library.sort.author.label = লেখক
+library.sort.year.label = সাল
 library.sort.series.label = সিরিজ
 library.sort.read.label = শেষ কবে পড়া
 # "Books" here means UNGROUPED — one board of them.
@@ -5416,8 +5417,8 @@ library.help.shelf-state.term = তাকের অবস্থা
 library.help.shelf-state.what = পড়া চলছে, থেমে আছে, ছেড়ে দেওয়া, শেষ — প্রতিটা কভারের নিচের রঙিন পটিটাই। বইয়ের পাতার চিপ থেকে বসান।
 
 library.help.sort.term = সাজান
-library.help.sort.what = নতুন আগে, নাম, লেখক, সিরিজ, বা শেষ কবে পড়া — শেষ কবে বইটা হাতে ছিল সেই তারিখ, শেষ করে থাকুন, মাঝপথে থাকুন, বা ছেড়ে দিয়ে থাকুন।
-library.help.sort.more = যে বইগুলোর পড়ার খাতায় কিছুই লেখা নেই, সেগুলো শেষে বসে, বর্ণানুক্রমে — উদ্ধৃতি রাখার গ্রন্থাগারের বেশির ভাগ বই-ই তো কোনওদিন খাতায় ওঠেনি।
+library.help.sort.what = নতুন আগে, নাম, লেখক, সাল, সিরিজ, বা শেষ কবে পড়া — শেষ কবে বইটা হাতে ছিল সেই তারিখ, শেষ করে থাকুন, মাঝপথে থাকুন, বা ছেড়ে দিয়ে থাকুন।
+library.help.sort.more = যে বইগুলোর পড়ার খাতায় কিছুই লেখা নেই, সেগুলো শেষে বসে, বর্ণানুক্রমে — উদ্ধৃতি রাখার গ্রন্থাগারের বেশির ভাগ বই-ই তো কোনওদিন খাতায় ওঠেনি। সাল-সাজানোও তাই করে যার সাল কেউ লেখেনি তার সঙ্গে, আর খ্রিস্টপূর্ব ৩৮০ বসে ১৮৯০-এর নিচে, ওপরে নয়।
 
 library.help.group-by.term = ভাগ
 library.help.group-by.what = সিরিজ, লেখক, দশক বা ঘরানা ধরে বোর্ডটাকে ভাগে ভাগে দেখুন।

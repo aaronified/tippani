@@ -39,6 +39,7 @@ import {
   ANNOTATION_COLORS,
   QUOTE_COLUMNS_IN,
   byLastRead,
+  byYear,
   bySeries,
   clampSequence,
   ColorSwatches,
@@ -321,6 +322,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
     list = [...list]
     if (sort === 'title') list.sort((a, b) => a.title.localeCompare(b.title))
     else if (sort === 'author') list.sort((a, b) => (a.author || '').localeCompare(b.author || ''))
+    else if (sort === 'year') list.sort(byYear((b) => b.published_year))
     else if (sort === 'series') list.sort(bySeries)
     else if (sort === 'read') list.sort(byLastRead)
     return list
@@ -428,6 +430,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
         ['recent', t('library.sort.recent.label')],
         ['title', t('library.sort.title.label')],
         ['author', t('library.sort.author.label')],
+        ['year', t('library.sort.year.label')],
         ['series', t('library.sort.series.label')],
         ['read', t('library.sort.read.label')],
       ]}

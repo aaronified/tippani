@@ -3435,6 +3435,7 @@ library.group.residual.author.label = Unknown author
 library.sort.recent.label = Recent
 library.sort.title.label = Title
 library.sort.author.label = Author
+library.sort.year.label = Year
 library.sort.series.label = Series
 library.sort.read.label = Last read
 # "Books" here means UNGROUPED — one board of them.
@@ -5433,8 +5434,8 @@ library.help.shelf-state.term = Shelf state
 library.help.shelf-state.what = Reading, paused, abandoned, completed — the coloured bar under each cover. Set it from the state chip on a book’s page.
 
 library.help.sort.term = Sort
-library.help.sort.what = Recent, Title, Author, Series, or Last read — the date you last had it in your hands, whether you finished it, are still in it, or gave up on it.
-library.help.sort.more = Books you have never logged a read for sit at the end, in alphabetical order, because most of a library that exists to hold quotes has never been logged.
+library.help.sort.what = Recent, Title, Author, Year, Series, or Last read — the date you last had it in your hands, whether you finished it, are still in it, or gave up on it.
+library.help.sort.more = Books you have never logged a read for sit at the end, in alphabetical order, because most of a library that exists to hold quotes has never been logged. Year does the same with a book nobody has dated, and files 380 BCE below 1890 rather than above it.
 
 library.help.group-by.term = Group by
 library.help.group-by.what = Break the grid into sections by series, author, decade or genre.

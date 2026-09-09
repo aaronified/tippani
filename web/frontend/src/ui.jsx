@@ -8569,6 +8569,40 @@ export function byLastRead(a, b) {
   return (a.title || "").localeCompare(b.title || "");
 }
 
+// byYear orders by the year a work came out — newest first — with everything
+// whose year nobody recorded after it, alphabetically.
+//
+// `get` NAMES THE COLUMN because the two shelves spell one fact differently: a
+// book has `published_year` (0001) and a movie `release_year` (0003). One
+// comparator with two accessors, not a line each — a line each is how one shelf
+// goes on being right while the other quietly stops, which is the repo's own
+// rule about two things that look the same.
+//
+// 0 IS NOT A YEAR AND MUST NOT SIT INSIDE THE RANGE. Since 0030 these columns
+// take a NEGATIVE year for BCE, and 0 has meant "not recorded" since 0001 —
+// there is no year zero for it to be confused with. So a plain numeric
+// descending sort files an undated book at 0, which is above -380 and below
+// 1890: the one book nobody has dated lands in the middle of the shelf, between
+// Woolf and Plato. The sentinel is therefore sent to the end explicitly, the way
+// byLastRead sends the never-read there — and unlike byLastRead's guards, this
+// one is reachable, because a BCE year really does sort below it.
+//
+// THE MOVIES LIST HAD THIS RIGHT BY LUCK. No film has a BCE release year, so its
+// undated rows already fell off the bottom and a naive `b - a` was
+// indistinguishable from this. The Library has Plato, and it is not.
+//
+// `circa` is not consulted: migration 0030 makes it display-only, so c. 380 BCE
+// sorts exactly where 380 BCE does.
+export function byYear(get) {
+  return (a, b) => {
+    const ya = Number(get(a)) || 0,
+      yb = Number(get(b)) || 0;
+    if (!ya !== !yb) return ya ? -1 : 1; // "not recorded" last, whichever side it is on
+    if (ya !== yb) return yb - ya; // newest first
+    return (a.title || "").localeCompare(b.title || "");
+  };
+}
+
 // formatYear — how a publication or release year is written down.
 //
 // 0 means "not recorded" and has since the column existed, so it renders as
