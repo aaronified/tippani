@@ -691,6 +691,9 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		// The most recent date this was watched, for the "Last watched" sort.
 		LastReadAt    string `json:"last_read_at"`
 		DialogueCount int    `json:"dialogue_count"`
+		// FAVOURITED, beside the total — see the books list for why the two are one
+		// query. The details sheet prints the pair every identity sheet prints.
+		FavouriteCount int `json:"favourite_count"`
 		// Mirrors the books list: "tagged" means the title has at least one
 		// tagged dialogue, "noted" at least one carrying a note. "Wishlist" is
 		// likewise derived from dialogue_count == 0 and so needs no field.
@@ -724,6 +727,7 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		       m.media_type, COALESCE(m.poster_path, ''),
 		       COALESCE(m.series, ''), COALESCE(m.series_index, 0), m.favorite, m.status, m.progress,
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id),
+		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id AND d.favorite = 1),
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id
 		          AND EXISTS (SELECT 1 FROM dialogue_tags dt WHERE dt.dialogue_id = d.id)),
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id
@@ -746,7 +750,8 @@ func (s *Server) handleListMovies(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Director, &it.ReleaseYear, &it.ReleaseCirca,
 			&it.MediaType, &it.PosterPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.Status, &it.Progress, &it.DialogueCount, &it.TaggedCount, &it.NotedCount,
+			&it.Favorite, &it.Status, &it.Progress, &it.DialogueCount, &it.FavouriteCount,
+			&it.TaggedCount, &it.NotedCount,
 			&it.ReviewExcluded); err != nil {
 			olog.Warnf(olog.CodeMovieRowScan, "[movie] movie list row scan failed: %v", err)
 			continue

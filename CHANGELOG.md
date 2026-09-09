@@ -324,6 +324,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The provider marks are back on every links pill, id and field.** IMDb, TMDB, Wikipedia
+  and the rest were showing as bare words with an empty gap where their mark should be —
+  on a person's links, a work's links and ids, and the small mark beside every field
+  saying who wrote it. One stylesheet rule served two different kinds of mark and the rule
+  was removed to fix the other one; both are drawn correctly now.
+
+- **And the Metadata screen shows each supplier's own mark instead of a generic glyph.**
+  Google Books had a book, TMDB a film strip, TheTVDB a television, IGDB a gamepad — the
+  app's own category drawings, where every other screen already showed the real thing. The
+  colour still says whether that key is saved, optional, needed or built in.
+
+- **The quotes · favourited pair is on all four sheets now, not one.** A work's details, a
+  person, a character across your library, and a character inside one work all print the
+  same two numbers with the same words: how many lines are theirs, and how many of those
+  you marked a favourite. Three of the four had no pair at all. Each one's tooltip says
+  what its numbers are counted over, and pressing a number opens the search it summarises
+  — except on a person, where their lines are linked two different ways and one search
+  could only ever reach half of them, so the figures stay figures.
+
 - **The pair of numbers on a character's sheet counts favourites where it used to count
   places, because the places count could only ever say one.** A character with three
   quotes and a character with thirty both read "1 scene": the figure counted distinct

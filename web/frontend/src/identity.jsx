@@ -31,6 +31,7 @@ import { useCharacterPicture, usePicturePicker } from './cast.jsx'
 import { movieState } from './Movies.jsx'
 import { CharacterGlobal, PersonGlobal } from './identityGlobal.jsx'
 import { identityScope, mediumOf } from './identityScope.js'
+import { quotePairDoors } from './quotePair.jsx'
 import { CharacterLocal, GLYPH_NAME } from './identityLocal.jsx'
 import { ChooseList, ChoosePicker, FieldPicker } from './identityPicker.jsx'
 import { buildProviderLink, detectProviderLink, isOrganisation, linkLine, personImgURL, providerLinksFor, providerRule, ProviderChips, SpeakerChips } from './people.jsx'
@@ -2170,6 +2171,16 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
         <CharacterGlobal
           record={data}
           works={works}
+          // THE LIBRARY-WIDE PAIR'S DOORS. `character:<name>` and no work chip,
+          // which is exactly the scope the number is over — and the facet reaches
+          // a book highlight as well as a film line (search_facets.go), so one
+          // chip covers both shelves rather than half of them.
+          {...quotePairDoors({
+            onSearch,
+            stack,
+            scope: 'all',
+            chips: [{ field: 'character', value: data.name, label: data.name }],
+          })}
           portraitActions={
             <>
               {globalPicture.verbs}

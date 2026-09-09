@@ -50,6 +50,16 @@ type personDetail struct {
 	// linked ones would be quietly wrong about how many lines this person has.
 	Lines       []store.QuoteLine `json:"lines"`
 	SharedLines int               `json:"shared_lines"`
+	// THE PAIR THE SHEET PRINTS: how many lines are this record's, and how many of
+	// those the reader marked a favourite. The owner's ruling, and its scope was
+	// "for all. people, character, details, all pages those two boxes are" — so the
+	// same two numbers, meaning the same thing, on every sheet that draws them
+	// rather than one number per screen invented locally.
+	//
+	// TAKEN OVER THE SAME ROWS AS `Lines` and before the cap, which is the whole
+	// reason it is not a separate aggregate query — see store.QuoteTally.
+	Quotes     int `json:"quotes"`
+	Favourites int `json:"favourites"`
 }
 
 // characterRow is the global record. Deliberately NOT personRow with a flag: a
@@ -86,6 +96,16 @@ type characterDetail struct {
 	// wrong about how much this character has said.
 	Lines       []store.QuoteLine `json:"lines"`
 	SharedLines int               `json:"shared_lines"`
+	// THE PAIR THE SHEET PRINTS: how many lines are this record's, and how many of
+	// those the reader marked a favourite. The owner's ruling, and its scope was
+	// "for all. people, character, details, all pages those two boxes are" — so the
+	// same two numbers, meaning the same thing, on every sheet that draws them
+	// rather than one number per screen invented locally.
+	//
+	// TAKEN OVER THE SAME ROWS AS `Lines` and before the cap, which is the whole
+	// reason it is not a separate aggregate query — see store.QuoteTally.
+	Quotes     int `json:"quotes"`
+	Favourites int `json:"favourites"`
 }
 
 const characterCols = `c.id, c.name, c.sort_name, c.description, c.image_path, c.note, c.links, c.born`
@@ -138,10 +158,13 @@ func (s *Server) handlePersonByID(w http.ResponseWriter, r *http.Request) {
 	// CAPPED, AND THE COUNT IS NOT. personLineCap bounds what the panel draws; the
 	// shared count walks the unlinked rows whatever the cap, because it is the
 	// number that would otherwise be silently wrong.
-	if out.Lines, out.SharedLines, err = store.PersonLines(s.Store.DB, uid, id, s.creditSeps(uid), personLineCap); err != nil {
+	lines, tally, err := store.PersonLines(s.Store.DB, uid, id, s.creditSeps(uid), personLineCap)
+	if err != nil {
 		internalError(w, r, "read lines", err)
 		return
 	}
+	out.Lines, out.SharedLines = lines, tally.Shared
+	out.Quotes, out.Favourites = tally.Total, tally.Favourites
 	s.fillLineFaces(uid, out.Lines)
 	writeJSON(w, http.StatusOK, out)
 }
@@ -721,11 +744,13 @@ func (s *Server) handleCharacterByID(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "read appearances", err)
 		return
 	}
-	if out.Lines, out.SharedLines, err = store.CharacterLines(
-		s.Store.DB, uid, id, s.creditSeps(uid), personLineCap); err != nil {
+	lines, tally, err := store.CharacterLines(s.Store.DB, uid, id, s.creditSeps(uid), personLineCap)
+	if err != nil {
 		internalError(w, r, "read character lines", err)
 		return
 	}
+	out.Lines, out.SharedLines = lines, tally.Shared
+	out.Quotes, out.Favourites = tally.Total, tally.Favourites
 	s.fillLineFaces(uid, out.Lines)
 	writeJSON(w, http.StatusOK, out)
 }

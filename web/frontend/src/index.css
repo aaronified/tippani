@@ -3936,6 +3936,28 @@
     transition: color .15s ease;
   }
   .src-mark:hover, .src-mark:focus-visible { color: var(--ink); }
+  /* ---- AND THE HALF THAT HAS NO CHILD -----------------------------------
+     `ProviderMark` paints a supplier's own mark by setting `mask-image` inline
+     and drawing nothing else, so this box IS the picture: it fills with
+     `currentColor` and the mask cuts the shape out of the fill. That is what
+     makes a dozen brand marks wear the app's ink instead of a dozen brand hues.
+
+     ON ITS OWN CLASS, BECAUSE `.src-mark` SERVES TWO CONTRACTS. `SourceIcon`
+     lays out an inline `<svg>` in the same box and must NOT be filled — a
+     background there is a solid block over the glyph, which is what the owner
+     photographed. Resolving that by deleting the fill blanked every mark
+     `ProviderMark` draws instead, and both halves of the mistake looked like a
+     one-line stylesheet cleanup. Two contracts, two classes; the mask sizing
+     lives here too, so a mark cannot arrive stretched or tiled. */
+  .src-mark-img {
+    background-color: currentColor;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
   /* ---- AND WHAT THE KEY BEHIND THAT MARK IS DOING ------------------------
      THE OWNER'S SCHEME: "green is saved, yellow is not saved but optional, red is
      needed and not saved. purple is using the pre-built. and the information can

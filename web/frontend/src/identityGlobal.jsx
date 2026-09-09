@@ -40,6 +40,7 @@ import { coverImgURL } from './api.js'
 import {
   AppearanceStrip,
   NamesRow,
+  PairRow,
   PillRow,
   PortraitBlock,
   ScreenBody,
@@ -51,6 +52,7 @@ import { t } from './i18n.js'
 import { IconGlobe, IconDelete, IconMerge, IconPlus, NavIcon } from './ui.jsx'
 import { GLYPH_NAME } from './identityLocal.jsx'
 import { mediumOf } from './identityScope.js'
+import { quotePairCells } from './quotePair.jsx'
 import { namedLinks } from './people.jsx'
 
 // THE GLOBE IS THE ART A GLOBAL SCOPE HAS, and its absence is the information:
@@ -237,6 +239,10 @@ export function CharacterGlobal({
   // twice, and the row "edited" by scrolling you down to its twin.
   onDescription = null, onNote = null,
   onOpenWork, onAddWork, onMerge, onRemoveAll, onOpenPerformer = null, children,
+  // THE TWO DOORS UNDER THE PAIR. Absent on a sheet mounted without a search —
+  // `PairRow` then draws the figures with `aria-disabled`, which is its own
+  // honest degradation and not a dead control.
+  onQuoteSearch = undefined, onFavouriteSearch = undefined,
 }) {
   const tiles = useMemo(
     () => workTiles(works, record.image_path, onOpenWork),
@@ -262,6 +268,24 @@ export function CharacterGlobal({
         px={t('identity.portrait.global')}
         actions={portraitActions}
         editor={portraitEditor}
+      />
+
+
+      {/* THE PAIR, AND THE SCOPE IS THE WHOLE LIBRARY HERE. Same two numbers as
+          every other sheet, counted over everything this record has said rather
+          than over one work — see quotePair.jsx, which is the one place they are
+          built. The owner's scope for the swap named this screen and it had no
+          pair at all: "for all. people, character, details, all pages those two
+          boxes are." */}
+      <PairRow
+        cells={quotePairCells({
+          quotes: record.quotes || 0,
+          favourites: record.favourites || 0,
+          onQuotes: onQuoteSearch,
+          onFavourites: onFavouriteSearch,
+          quotesTip: 'identity.count.quotes.tip.character',
+          favouritesTip: 'identity.count.favourites.tip.character',
+        })}
       />
 
       <SectionHead label={t('identity.section.identity.label')} note={t('identity.section.identity.note')} />
@@ -397,6 +421,9 @@ export function PersonGlobal({
   // now, which is the shape the local sheet has used since 3.1.
   onDied = null, onBio = null, onNote = null,
   onLinkAdd, onOpenWork, onOpenRole, onAddWork, onMerge, onDelete, children,
+  // THE TWO DOORS UNDER THE PAIR — see CharacterGlobal, which takes the same two
+  // for the same reason.
+  onQuoteSearch = undefined, onFavouriteSearch = undefined,
 }) {
   // TWO SOURCES, ONE STRIP, and the pack's own tiles say so: "as Harry
   // (performer) · as Miles (performer) · author of Jungle" is a union of what
@@ -434,6 +461,26 @@ export function PersonGlobal({
         px={t('identity.portrait.global')}
         actions={portraitActions}
         editor={portraitEditor}
+      />
+
+      {/* THE PAIR, OVER EVERYTHING THIS PERSON HAS SAID. Same two numbers and the
+          same words as the other three sheets — quotePair.jsx is the one place
+          they are built, which is what the owner's "for all" asks for. This
+          screen is the one they photographed with nothing here.
+
+          A PERSON'S LINES ARE LINKED THROUGH THEM, not through a character: the
+          server counts `dialogues.actor_id` and `utterances.speaker_id`, which is
+          the same linkage the list of lines further down this screen is built
+          from, so the number and the list cannot disagree. */}
+      <PairRow
+        cells={quotePairCells({
+          quotes: record.quotes || 0,
+          favourites: record.favourites || 0,
+          onQuotes: onQuoteSearch,
+          onFavourites: onFavouriteSearch,
+          quotesTip: 'identity.count.quotes.tip.person',
+          favouritesTip: 'identity.count.favourites.tip.person',
+        })}
       />
 
       {/* THE NOTE IS A DEPARTURE, and the pack is the thing being departed from:

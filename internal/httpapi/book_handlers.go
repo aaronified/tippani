@@ -403,6 +403,12 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		// go rather than leaving them wherever a comparator drops them.
 		LastReadAt      string `json:"last_read_at"`
 		AnnotationCount int    `json:"annotation_count"`
+		// FAVOURITED, beside the total, because the details sheet prints the pair
+		// the identity sheets print — the owner's "for all. people, character,
+		// details, all pages those two boxes are". A subquery beside the count it
+		// sits next to rather than a second endpoint: the two numbers have to be
+		// over the same rows or the pair says nothing.
+		FavouriteCount int `json:"favourite_count"`
 		// Books carry no tags of their own — annotation_tags joins ANNOTATIONS to
 		// tags — so "tagged" on a book row means "has at least one tagged quote".
 		// Counts rather than bools: same cost, and the list page can say how many.
@@ -422,6 +428,7 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(b.published_year, 0), b.published_circa, COALESCE(b.cover_path, ''),
 		       COALESCE(b.series, ''), COALESCE(b.series_index, 0), b.favorite, b.status, b.progress,
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id),
+		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id AND a.favorite = 1),
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id
 		          AND EXISTS (SELECT 1 FROM annotation_tags at WHERE at.annotation_id = a.id)),
 		       (SELECT count(*) FROM annotations a WHERE a.book_id = b.id
@@ -446,7 +453,8 @@ func (s *Server) handleListBooks(w http.ResponseWriter, r *http.Request) {
 		it := item{Genres: []string{}}
 		if err := rows.Scan(&it.ID, &it.Title, &it.Author, &it.ISBN,
 			&it.PublishedYear, &it.PublishedCirca, &it.CoverPath, &it.Series, &it.SeriesIndex,
-			&it.Favorite, &it.Status, &it.Progress, &it.AnnotationCount, &it.TaggedCount, &it.NotedCount,
+			&it.Favorite, &it.Status, &it.Progress, &it.AnnotationCount, &it.FavouriteCount,
+			&it.TaggedCount, &it.NotedCount,
 			&it.ReviewExcluded); err != nil {
 			olog.Warnf(olog.CodeBookRowScan, "[book] list book row scan failed: %v", err)
 			continue

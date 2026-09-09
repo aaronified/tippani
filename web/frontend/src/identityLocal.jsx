@@ -32,6 +32,7 @@ import {
   SectionHead,
   SegHead,
 } from './characterRows.jsx'
+import { quotePairCells } from './quotePair.jsx'
 import { t } from './i18n.js'
 import { NavIcon, IconDetails, IconEdit, IconHeart, IconPlus, IconQuote } from './ui.jsx'
 import { leadingRole } from './identityScope.js'
@@ -379,25 +380,17 @@ export function CharacterLocal({
           the same one while the second count was the locator, which is two doors
           onto one screen and a figure whose door said nothing about it. */}
       <PairRow
-        cells={[
-          {
-            // The caption pluralises, so it takes the figure it sits under —
-            // "1 quotes" is the kind of thing a count says when the number and
-            // the noun were resolved apart.
-            label: t('identity.count.quotes', { n: quotes, count: quotes }),
-            figure: quotes,
-            icon: <IconQuote size={15} />,
-            onClick: onQuotes,
-            title: t('identity.count.quotes.tip'),
-          },
-          {
-            label: t('identity.count.favourites', { n: favourites, count: favourites }),
-            figure: favourites,
-            icon: <IconHeart size={15} />,
-            onClick: onFavourites,
-            title: t('identity.count.favourites.tip'),
-          },
-        ]}
+        cells={quotePairCells({
+          quotes,
+          favourites,
+          onQuotes,
+          onFavourites,
+          // THIS WORK is the scope here, and it is the only one of the four that
+          // narrows to a single work — see quotePair.jsx on why the scope is a
+          // parameter and the caption is not.
+          quotesTip: 'identity.count.quotes.tip',
+          favouritesTip: 'identity.count.favourites.tip',
+        })}
       />
 
       {/* THE WAY UP, AND ONLY WHERE IT LEADS SOMEWHERE ELSE. One row, carrying the

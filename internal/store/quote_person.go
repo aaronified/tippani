@@ -540,6 +540,10 @@ type QuoteLine struct {
 	// are zero and empty there — a standalone quote is the thing it is.
 	WorkID    int64  `json:"work_id,omitempty"`
 	WorkTitle string `json:"work_title,omitempty"`
+	// Whether the reader marked this line a favourite. On the wire because the
+	// sheet's second count is a count of these, and a client that had to ask
+	// per line to find out could not draw the number at all.
+	Favorite bool `json:"favorite,omitempty"`
 	// WHO THE LINE NAMES, as the reader typed it, and NOT the same thing as Name
 	// above. On a character's page Name is already the character text; on a
 	// person's it is the PERFORMER text, because that is how a person's lines are
@@ -553,6 +557,28 @@ type QuoteLine struct {
 	// off work_cast and the fold is per (work, name), a lookup httpapi already
 	// owns and batches across a whole page. See cast_images.go.
 	CharacterImages []LineFace `json:"character_images,omitempty"`
+}
+
+// QuoteTally is how much of one record's speech the reader has actually kept: the
+// linked lines, how many of those they marked a favourite, and how many further
+// lines name them alongside somebody else.
+//
+// WHY IT REPLACES A BARE `shared int`. The identity sheets print a pair of numbers
+// — quotes, and favourites among them — and the ONLY way that pair can be trusted
+// is for it to be counted over the same rows the list beneath it is built from. A
+// separate aggregate query would be a second definition of "this character's
+// lines", and the linker's rules are not trivial: a two-hander is deliberately
+// left unlinked, a tombstoned cast row is excluded, a book highlight counts for a
+// character and not for a performer. Two implementations of that would agree until
+// one of them was edited.
+//
+// SO THE TOTALS ARE TAKEN BEFORE THE CAP. `limit` trims what is LISTED; a reader
+// with four hundred lines wants the recent ones and the real total, and a count of
+// what survived the cap would just be the cap.
+type QuoteTally struct {
+	Total      int `json:"total"`
+	Favourites int `json:"favourites"`
+	Shared     int `json:"shared"`
 }
 
 // LineFace is one name on a line and the picture stored for them. It lives here
@@ -617,54 +643,54 @@ type LineFace struct {
 //
 // `limit` caps the listed lines, not the count: a reader with four hundred linked
 // lines wants the recent ones and the total, and the panel says which it is showing.
-func PersonLines(db Queryer, uid, personID int64, seps metadata.CreditSeps, limit int) ([]QuoteLine, int, error) {
+func PersonLines(db Queryer, uid, personID int64, seps metadata.CreditSeps, limit int) ([]QuoteLine, QuoteTally, error) {
 	keys, err := personSpellings(db, uid, personID)
 	if err != nil {
-		return nil, 0, err
+		return nil, QuoteTally{}, err
 	}
 	out := []QuoteLine{}
 
 	// ---- the linked ones -----------------------------------------------------
 	rows, err := db.Query(
-		`SELECT d.id, d.quote, d.actor, m.id, m.title, d.character
+		`SELECT d.id, d.quote, d.actor, m.id, m.title, d.character, COALESCE(d.favorite, 0)
 		   FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		  WHERE m.user_id = ? AND d.actor_id = ?
 		  ORDER BY d.id DESC`, uid, personID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("person lines: screen: %w", err)
+		return nil, QuoteTally{}, fmt.Errorf("person lines: screen: %w", err)
 	}
 	for rows.Next() {
 		l := QuoteLine{Kind: KindScreen}
-		if err := rows.Scan(&l.ID, &l.Text, &l.Name, &l.WorkID, &l.WorkTitle, &l.Characters); err != nil {
+		if err := rows.Scan(&l.ID, &l.Text, &l.Name, &l.WorkID, &l.WorkTitle, &l.Characters, &l.Favorite); err != nil {
 			rows.Close()
-			return nil, 0, err
+			return nil, QuoteTally{}, err
 		}
 		out = append(out, l)
 	}
 	err = rows.Err()
 	rows.Close()
 	if err != nil {
-		return nil, 0, err
+		return nil, QuoteTally{}, err
 	}
 
 	urows, err := db.Query(
-		`SELECT id, quote, speaker FROM utterances
+		`SELECT id, quote, speaker, COALESCE(favorite, 0) FROM utterances
 		  WHERE user_id = ? AND speaker_id = ? ORDER BY id DESC`, uid, personID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("person lines: utterance: %w", err)
+		return nil, QuoteTally{}, fmt.Errorf("person lines: utterance: %w", err)
 	}
 	for urows.Next() {
 		l := QuoteLine{Kind: KindUtterance}
-		if err := urows.Scan(&l.ID, &l.Text, &l.Name); err != nil {
+		if err := urows.Scan(&l.ID, &l.Text, &l.Name, &l.Favorite); err != nil {
 			urows.Close()
-			return nil, 0, err
+			return nil, QuoteTally{}, err
 		}
 		out = append(out, l)
 	}
 	err = urows.Err()
 	urows.Close()
 	if err != nil {
-		return nil, 0, err
+		return nil, QuoteTally{}, err
 	}
 
 	// ---- the ones that name somebody else too --------------------------------
@@ -680,13 +706,13 @@ func PersonLines(db Queryer, uid, personID int64, seps metadata.CreditSeps, limi
 	} {
 		srows, err := db.Query(q.sql, q.args...)
 		if err != nil {
-			return nil, 0, fmt.Errorf("person lines: shared: %w", err)
+			return nil, QuoteTally{}, fmt.Errorf("person lines: shared: %w", err)
 		}
 		for srows.Next() {
 			var printed string
 			if err := srows.Scan(&printed); err != nil {
 				srows.Close()
-				return nil, 0, err
+				return nil, QuoteTally{}, err
 			}
 			for _, part := range metadata.SplitCredits(printed, seps) {
 				if keys[CastKey(part)] {
@@ -698,14 +724,21 @@ func PersonLines(db Queryer, uid, personID int64, seps metadata.CreditSeps, limi
 		err = srows.Err()
 		srows.Close()
 		if err != nil {
-			return nil, 0, err
+			return nil, QuoteTally{}, err
 		}
 	}
 
+	// COUNTED BEFORE THE CAP, over exactly the rows above — see QuoteTally.
+	tally := QuoteTally{Total: len(out), Shared: shared}
+	for _, l := range out {
+		if l.Favorite {
+			tally.Favourites++
+		}
+	}
 	if limit > 0 && len(out) > limit {
 		out = out[:limit]
 	}
-	return out, shared, nil
+	return out, tally, nil
 }
 
 // personSpellings is every folded spelling that resolves to one record — its own

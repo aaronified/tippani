@@ -383,10 +383,10 @@ func LinkAllQuotesToCast(tx *sql.Tx, uid int64, seps metadata.CreditSeps) error 
 //
 // `limit` caps the listed lines and not the count: a reader with four hundred
 // linked lines wants a screenful and the total.
-func CharacterLines(db Queryer, uid, characterID int64, seps metadata.CreditSeps, limit int) ([]QuoteLine, int, error) {
+func CharacterLines(db Queryer, uid, characterID int64, seps metadata.CreditSeps, limit int) ([]QuoteLine, QuoteTally, error) {
 	keys, err := characterSpellings(db, uid, characterID)
 	if err != nil {
-		return nil, 0, err
+		return nil, QuoteTally{}, err
 	}
 	out := []QuoteLine{}
 
@@ -399,12 +399,12 @@ func CharacterLines(db Queryer, uid, characterID int64, seps metadata.CreditSeps
 		sql  string
 		kind QuoteKind
 	}{
-		{`SELECT a.id, a.quote, a.character, b.id, b.title, a.character
+		{`SELECT a.id, a.quote, a.character, b.id, b.title, a.character, COALESCE(a.favorite, 0)
 		    FROM annotations a JOIN books b ON b.id = a.book_id
 		    JOIN work_cast wc ON wc.id = a.speaker_cast_id
 		   WHERE b.user_id = ? AND wc.character_id = ? AND wc.origin <> 'removed'
 		   ORDER BY a.id DESC`, KindHighlight},
-		{`SELECT d.id, d.quote, d.character, m.id, m.title, d.character
+		{`SELECT d.id, d.quote, d.character, m.id, m.title, d.character, COALESCE(d.favorite, 0)
 		    FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		    JOIN work_cast wc ON wc.id = d.speaker_cast_id
 		   WHERE m.user_id = ? AND wc.character_id = ? AND wc.origin <> 'removed'
@@ -412,7 +412,7 @@ func CharacterLines(db Queryer, uid, characterID int64, seps metadata.CreditSeps
 	} {
 		rows, err := db.Query(q.sql, uid, characterID)
 		if err != nil {
-			return nil, 0, fmt.Errorf("character lines: %s: %w", q.kind, err)
+			return nil, QuoteTally{}, fmt.Errorf("character lines: %s: %w", q.kind, err)
 		}
 		for rows.Next() {
 			l := QuoteLine{Kind: q.kind}
@@ -420,16 +420,16 @@ func CharacterLines(db Queryer, uid, characterID int64, seps metadata.CreditSeps
 			// roster the chips are built from. They are the same column here and
 			// two different ones on a person's page, so the field pair is what
 			// lets one handler fold both.
-			if err := rows.Scan(&l.ID, &l.Text, &l.Name, &l.WorkID, &l.WorkTitle, &l.Characters); err != nil {
+			if err := rows.Scan(&l.ID, &l.Text, &l.Name, &l.WorkID, &l.WorkTitle, &l.Characters, &l.Favorite); err != nil {
 				rows.Close()
-				return nil, 0, err
+				return nil, QuoteTally{}, err
 			}
 			out = append(out, l)
 		}
 		err = rows.Err()
 		rows.Close()
 		if err != nil {
-			return nil, 0, err
+			return nil, QuoteTally{}, err
 		}
 	}
 
@@ -443,13 +443,13 @@ func CharacterLines(db Queryer, uid, characterID int64, seps metadata.CreditSeps
 	} {
 		rows, err := db.Query(q, uid)
 		if err != nil {
-			return nil, 0, fmt.Errorf("character lines: shared: %w", err)
+			return nil, QuoteTally{}, fmt.Errorf("character lines: shared: %w", err)
 		}
 		for rows.Next() {
 			var printed string
 			if err := rows.Scan(&printed); err != nil {
 				rows.Close()
-				return nil, 0, err
+				return nil, QuoteTally{}, err
 			}
 			parts := metadata.SplitCredits(printed, seps)
 			if len(parts) < 2 {
@@ -467,14 +467,21 @@ func CharacterLines(db Queryer, uid, characterID int64, seps metadata.CreditSeps
 		err = rows.Err()
 		rows.Close()
 		if err != nil {
-			return nil, 0, err
+			return nil, QuoteTally{}, err
 		}
 	}
 
+	// COUNTED BEFORE THE CAP, over exactly the rows above — see QuoteTally.
+	tally := QuoteTally{Total: len(out), Shared: shared}
+	for _, l := range out {
+		if l.Favorite {
+			tally.Favourites++
+		}
+	}
 	if limit > 0 && len(out) > limit {
 		out = out[:limit]
 	}
-	return out, shared, nil
+	return out, tally, nil
 }
 
 // characterSpellings is every folded name this record answers to: its own, and

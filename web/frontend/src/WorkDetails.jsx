@@ -23,7 +23,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { CastFills, CastSection } from './cast.jsx'
-import { Face, FaceStrip, PillRow, SectionHead } from './characterRows.jsx'
+import { Face, FaceStrip, PairRow, PillRow, SectionHead } from './characterRows.jsx'
+import { quotePairCells, quotePairDoors } from './quotePair.jsx'
+import { useSearchDoor } from './personOpen.jsx'
 import { characterPanel } from './identity.jsx'
 import { OFFERED_FIELDS, fieldOffersPanel } from './fieldOffers.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits, personImgURL, usePeople } from './credits.jsx'
@@ -1254,6 +1256,13 @@ export function workDetailsPanel(stack, { kind, item, onChanged, onDelete }) {
 // ---- the resting view ------------------------------------------------------
 
 function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, genreSuggestions, onSaveField, onSaveAll, onSaveIds, onCover, onChanged, onFetch, onDelete, onClose }) {
+  // THE SEARCH DOOR IS READ FROM THE SHELL, not threaded through the seven
+  // callers that open this sheet — the same lesson `onOpenWork` and `onSearch`
+  // both taught on the identity panels: "a capability that has to be re-threaded
+  // at each call site is a capability that is absent at most of them".
+  const onSearch = useSearchDoor()
+  // The total this work's own card already draws, per shelf.
+  const workQuotes = (kind === 'book' ? item.annotation_count : item.dialogue_count) || 0
   const artPath = kind === 'book' ? item.cover_path : item.poster_path
   // field_sources[] -> { field: { source, at } }, so a row is one lookup rather than a
   // scan. Empty when the record has none, which is every record until something
@@ -1461,6 +1470,35 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
         search={kind === 'book'
           ? { isbn: item.isbn, title: item.title, author: item.author, asin: item.asin }
           : { title: item.title, year: item.release_year, mediaType: item.media_type || 'movie', tmdbId: item.tmdb_id, tvdbId: item.tvdb_id, igdbId: item.igdb_id }}
+      />
+
+      {/* THE PAIR, OVER THIS WORK. The owner's scope named this screen —
+          "for all. people, character, details, all pages those two boxes are" —
+          and it had no pair: the counts a work carries were on its CARD in the
+          library and nowhere on its own sheet. Same two numbers and same words as
+          the three identity sheets, built by the one function in quotePair.jsx.
+
+          THE FIGURES ARE THE ONES THE CARD ALREADY DRAWS, off the list read —
+          `annotation_count` on a book, `dialogue_count` on a film — with a
+          favourite count added beside each in the same query. A second endpoint
+          would have been a second definition of "this work's quotes".
+
+          AND THE DOOR IS THIS WORK'S OWN FACET, by id: `book:` and `movie:` carry
+          the id on the wire and the title on the chip, which is what makes two
+          editions and the film of the book distinguishable. */}
+      <PairRow
+        cells={quotePairCells({
+          quotes: workQuotes,
+          favourites: item.favourite_count || 0,
+          ...quotePairDoors({
+            onSearch,
+            stack,
+            scope: kind === 'book' ? 'annotations' : 'dialogues',
+            chips: [{ field: kind === 'book' ? 'book' : 'movie', value: String(item.id), label: item.title }],
+          }),
+          quotesTip: 'identity.count.quotes.tip.work',
+          favouritesTip: 'identity.count.favourites.tip.work',
+        })}
       />
 
       {/* THE CAST MOVED BEHIND THE PEOPLE DOOR, with the credits it belongs

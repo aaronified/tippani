@@ -9585,12 +9585,24 @@ export const sourceName = (slug) =>
 //
 // A SLUG WITH NO MARK IS NOT AN ERROR. `manual` has no supplier to draw, and a supplier
 // added tomorrow has no mark until somebody adds one; both fall back to the name.
+//
+// AND `src-mark-img` IS NOT DECORATION ON THE CLASS NAME — it is the whole difference
+// between this drawing and nothing at all. Two components paint onto `.src-mark` and they
+// need OPPOSITE things from it: `SourceIcon` puts an inline `<svg>` inside and needs a box
+// with no background, while this one has NO CHILD and is only visible if the box paints
+// `currentColor` for the mask to cut a shape out of. One class cannot be both, and for a
+// day it was the first: the paint rule was deleted to stop `SourceIcon`'s glyphs being
+// covered, on the stated grounds that "with no mask-image anywhere there was nothing to
+// mask" — which was false, because this function sets one inline on every links pill,
+// every ids row and every field-source tag in the app. All of them went blank, and the
+// stylesheet guard passed because painting NOTHING also satisfies "never paint without a
+// mask". So the two contracts have two classes, and the guard now reads both from here.
 export function ProviderMark({ source, size }) {
   const uri = PROVIDER_MARKS[source];
   if (!uri) return null;
   return (
     <span
-      className="src-mark"
+      className="src-mark src-mark-img"
       aria-hidden="true"
       style={{
         WebkitMaskImage: `url("${uri}")`,
@@ -9715,6 +9727,24 @@ export function SourceIcon({ source, detail, side = "top", state = null, stateOf
   const label = state
     ? t("common.source.state.tip", { name: stateOf || base, state: t(SRC_STATE_WORD[state]) })
     : base;
+  // THE SUPPLIER'S OWN MARK WHERE THERE IS ONE, and the category glyph only where
+  // there is not. This block drew the glyph unconditionally, which left Metadata as
+  // the last surface in the app showing a book for Google Books and a television for
+  // TheTVDB while every links pill, ids row and field-source tag beside it wore the
+  // real thing. The owner's report is the same one `ProviderMark` was written for:
+  // five of twelve suppliers shared one drawing, so a screen listing TheTVDB's key
+  // AND its PIN drew the same television twice, and IGDB's client id and secret the
+  // same gamepad. A mark is recognised without being read; a category glyph has to
+  // be decoded and then still cannot separate two rows.
+  //
+  // 16px INSIDE A 24px BOX, so the state RING has somewhere to be. `has-state`
+  // paints `box-shadow: inset 0 0 0 1.5px currentColor` on this span, and a mask
+  // clips everything the element draws — its background AND its shadow — so a mark
+  // filling the box edge to edge would take the ring with it. It goes on the
+  // unmasked parent and the mark sits inside it. That ring is the owner's own fix
+  // ("an icon or a border on the provider icon") and is not a thing to lose while
+  // answering their next report.
+  const mark = PROVIDER_MARKS[source];
   return (
     <Tooltip label={label} side={side}>
       <span
@@ -9722,7 +9752,7 @@ export function SourceIcon({ source, detail, side = "top", state = null, stateOf
         className={"src-mark" + (state ? ` has-state is-src-${state}` : "")}
         aria-label={t("common.source.aria", { name: label })}
       >
-        <Icon />
+        {mark ? <ProviderMark source={source} size={16} /> : <Icon />}
       </span>
     </Tooltip>
   );

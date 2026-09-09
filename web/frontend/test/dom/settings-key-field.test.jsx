@@ -36,6 +36,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 // what the move makes possible, and it is what the cases were always about — the
 // old mount rendered a whole settings page to reach six inputs.
 const { MetadataSources } = await import('../../src/MetadataSources.jsx')
+const { PROVIDER_MARKS } = await import('../../src/providerMarks.js')
 
 const ADMIN = { username: 'a', is_admin: true, preferences: {} }
 
@@ -276,5 +277,61 @@ describe('multi-author credits', () => {
     await waitFor(() =>
       expect(PUTS.some(([p, b]) => p === '/auth/me/preferences' && typeof b.creditSeparators === 'string')).toBe(true),
     )
+  })
+})
+
+// EVERY ROW WEARS ITS OWN SUPPLIER'S MARK, WHICH IS THE SAME MARK EVERY OTHER
+// SURFACE IN THE APP DRAWS FOR IT.
+//
+// THE OWNER'S QUESTION: "do you think the icons you used in the metadata sources
+// are the provider icons I spoke about?" They were not. These rows drew the app's
+// own hand-drawn CATEGORY glyphs — a book for Google Books, a film strip for TMDB,
+// a television for TheTVDB, a gamepad for IGDB, a carton for Amazon — while the
+// vendored marks sat in the repo being used by every links pill, ids row and
+// field-source tag beside them. A category glyph has to be decoded; a mark is
+// recognised. And the repo's own directive is that two things that look the same
+// behave the same, which cuts the other way too: one supplier drawn two ways on
+// two screens is two pictures of one thing.
+//
+// SO THE ASSERTION IS AN IDENTITY, not a shape: whatever this row draws for a
+// supplier is byte-for-byte the drawing `providerMarks.js` publishes for that
+// supplier. It cannot pass on a lookalike, and it does not care what the element
+// or its classes are called.
+describe('the mark on each key row', () => {
+  // The five suppliers the block names. Each has a mark, so each is checkable;
+  // a sixth added tomorrow with no mark falls back to a glyph and is not a
+  // failure — see ProviderMark on why an unknown slug is the ordinary case.
+  const SUPPLIERS = ['google', 'tmdb', 'tvdb', 'igdb', 'amazon']
+
+  it('is the supplier’s own, not a category glyph standing in for it', async () => {
+    await page()
+    // Every mask this screen paints, read off the DOM. A masked span IS the
+    // picture, so its mask is the whole of what the reader sees.
+    const painted = new Set(
+      [...document.querySelectorAll('[style*="mask-image"]')]
+        .map((el) => el.style.maskImage || el.style.webkitMaskImage)
+        // The inline value comes back wrapped in url("…"); the stored mark is the
+        // bare data URI.
+        .map((v) => v.replace(/^url\(["']?/, '').replace(/["']?\)$/, '')),
+    )
+    const missing = SUPPLIERS.filter((s) => !painted.has(PROVIDER_MARKS[s]))
+    expect(missing, `${missing.join(', ')} draw something other than their own mark on this screen`)
+      .toEqual([])
+  })
+
+  it('and still says which state its key is in, because the ring rides on the box outside it', async () => {
+    // THE MARK MOVED INSIDE A WRAPPER and the state is painted on the wrapper —
+    // a mask clips an element's background AND its box-shadow, so a mark filling
+    // its box edge to edge would have taken the state ring with it. The state is
+    // the owner's own fix for this screen ("an icon or a border on the provider
+    // icon") and had to survive the marks arriving.
+    STATUS = { tmdb: { source: 'builtin' }, books_lookup: { ok: true } }
+    await page()
+    const stated = [...document.querySelectorAll('[aria-label]')]
+      .map((el) => el.getAttribute('aria-label'))
+      .filter((l) => /TMDB key/i.test(l))
+    expect(stated.length, 'the TMDB key row no longer announces itself at all').toBeGreaterThan(0)
+    expect(stated.join(' | '), 'the row names its supplier but no longer says what state the key is in')
+      .toMatch(/built|saved|needed|optional/i)
   })
 })

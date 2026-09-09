@@ -12,10 +12,14 @@ import (
 // need it, and three copies of an anonymous struct are three places for the
 // field set to drift apart.
 type whosChar struct {
-	CastID     int64  `json:"cast_id"`
-	Name       string `json:"name"`
-	Quotes     int    `json:"quotes"`
-	Favourites int    `json:"favourites"`
+	CastID int64 `json:"cast_id"`
+	// The RECORD behind the row, which is not the row: a work may bill one
+	// character twice. Read by identity_counts_test.go, which needs the record a
+	// billing resolved to in order to ask the character sheet about it.
+	CharacterID int64  `json:"character_id"`
+	Name        string `json:"name"`
+	Quotes      int    `json:"quotes"`
+	Favourites  int    `json:"favourites"`
 }
 
 type whosResp struct {

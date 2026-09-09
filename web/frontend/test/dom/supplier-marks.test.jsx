@@ -37,6 +37,24 @@ vi.mock('../../src/api.js', async (orig) => ({
 
 const { SOURCE_META, SourceIcon } = await import('../../src/ui.jsx')
 const { MetadataSources } = await import('../../src/MetadataSources.jsx')
+const { PROVIDER_MARKS } = await import('../../src/providerMarks.js')
+
+// WHAT COUNTS AS A DRAWING, and it is two things now rather than one. A supplier
+// with a vendored mark is painted as a MASK over a fill — the span IS the picture
+// and has no child — and one without falls back to a hand-drawn `<svg>` glyph.
+// These cases used to look for the `<svg>` alone, which was the whole of it while
+// every mark was a glyph and became half of it when the real marks arrived.
+const drawing = (el) => {
+  if (el.querySelector('svg')) return 'glyph'
+  const masked = [...el.querySelectorAll('*')]
+    .find((n) => n.style.maskImage || n.style.webkitMaskImage)
+  return masked ? 'mark' : null
+}
+const maskOf = (el) => {
+  const n = [...el.querySelectorAll('*')].find((x) => x.style.maskImage || x.style.webkitMaskImage)
+  const v = n ? (n.style.maskImage || n.style.webkitMaskImage) : ''
+  return v.replace(/^url\(["']?/, '').replace(/["']?\)$/, '')
+}
 
 afterEach(() => cleanup())
 
@@ -48,16 +66,26 @@ describe('every supplier the app can talk to', () => {
     expect(slugs.length, 'the supplier vocabulary has emptied out').toBeGreaterThan(4)
     for (const slug of slugs) {
       const { container, unmount } = render(<SourceIcon source={slug} />)
-      expect(container.querySelector('svg'), `${slug} has no mark of its own`).toBeTruthy()
+      expect(drawing(container), `${slug} has no mark of its own`).toBeTruthy()
+      // AND IT IS THE SUPPLIER'S OWN, which is stronger than "there is a picture"
+      // and is what the earlier version of this case could not say. Six category
+      // glyphs are six drawings and were not six MARKS: the owner's report on the
+      // Metadata screen was that the pictures there were the app's own book, film
+      // strip, television and gamepad rather than the suppliers'.
+      if (PROVIDER_MARKS[slug]) {
+        expect(maskOf(container), `${slug} draws something other than its own mark`)
+          .toBe(PROVIDER_MARKS[slug])
+      }
       unmount()
     }
   })
 
   it('and an unknown one still draws something rather than nothing', () => {
     // A supplier the app has not met — an operator's own, a slug from a newer
-    // server — must not leave a hole where every other row has a picture.
+    // server — must not leave a hole where every other row has a picture. It has
+    // no vendored mark, so this is the case the hand-drawn fallback glyph is for.
     const { container } = render(<SourceIcon source="something-new" />)
-    expect(container.querySelector('svg'), 'an unrecognised supplier draws no mark at all').toBeTruthy()
+    expect(drawing(container), 'an unrecognised supplier draws no mark at all').toBe('glyph')
   })
 })
 
@@ -77,16 +105,28 @@ describe('the screen where a reader meets a supplier', () => {
 
   it('and the mark says which supplier it is, for a reader who cannot see it', () => {
     card()
-    for (const m of document.querySelectorAll('.src-mark')) {
+    // NAMED OR HIDDEN, NEVER NEITHER — which is the rule this case was always
+    // about and is now stated as one. A supplier's mark is painted as a mask on a
+    // span INSIDE the labelled box, and that inner span is decorative: it carries
+    // `aria-hidden` and announcing the supplier twice would be worse than once.
+    // What must not exist is a mark that is neither labelled nor hidden, and that
+    // is the thing asserted.
+    const mute = [...document.querySelectorAll('.src-mark')].filter((m) => {
       const said = m.getAttribute('aria-label') || ''
-      expect(said.length, 'a supplier mark announces nothing').toBeGreaterThan(0)
-    }
+      return !said && m.getAttribute('aria-hidden') !== 'true'
+    })
+    expect(mute.length, 'a supplier mark neither announces itself nor hides from a reader')
+      .toBe(0)
+    // And the screen does have labelled ones — a card where every mark went
+    // `aria-hidden` would satisfy the rule above and say nothing to anybody.
+    const named = [...document.querySelectorAll('.src-mark[aria-label]')]
+    expect(named.length, 'not one mark on this screen announces its supplier').toBeGreaterThan(3)
   })
 
   it('names TMDB and TheTVDB among them, which are the two a film needs', () => {
     card()
-    const said = [...document.querySelectorAll('.src-mark')]
-      .map((m) => m.getAttribute('aria-label') || '').join(' | ')
+    const said = [...document.querySelectorAll('.src-mark[aria-label]')]
+      .map((m) => m.getAttribute('aria-label')).join(' | ')
     expect(said, 'the film suppliers are not marked').toMatch(/TMDB/i)
     expect(said).toMatch(/TVDB/i)
   })

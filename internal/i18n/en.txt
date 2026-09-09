@@ -6465,6 +6465,18 @@ identity.row.note.for = Note on {name}’s credit
 # THE COUNTS, WHICH ARE DOORS INTO SEARCH. Pressing one lands on search with this
 # character and this work already up as chips, and the second adds `favourite:Yes`
 # so the narrower figure opens the narrower search.
+# AND THE SCOPE IS PER SHEET WHERE THE CAPTION IS NOT. The same two words —
+# quotes, favourited — on all four sheets, because that is what makes the numbers
+# comparable; the TOOLTIP says what each is counted over, because a figure whose
+# scope is ambiguous is a figure the reader cannot check. A person's pair has no
+# door: their lines are linked as a performer OR as a quoted speaker, two facets
+# that AND together, so one press could only ever reach half of what was counted.
+identity.count.favourites.tip.character = Search this character’s favourited lines, in every work
+identity.count.favourites.tip.person = Every favourited line this person has said
+identity.count.favourites.tip.work = Search this work’s favourited lines
+identity.count.quotes.tip.character = Search this character’s lines, in every work
+identity.count.quotes.tip.person = Every line this person has said
+identity.count.quotes.tip.work = Search this work’s lines
 identity.count.quotes.one = quote
 identity.count.quotes.other = quotes
 identity.count.favourites.one = favourited

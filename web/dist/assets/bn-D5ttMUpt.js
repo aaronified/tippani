@@ -6401,6 +6401,15 @@ identity.facts.none = দেওয়া হয়নি
 
 identity.row.note.for = {name}-এর ক্রেডিটের নোট
 
+# আর পরিধি প্রতি পর্দায় আলাদা, ক্যাপশন নয়। চারটে পর্দাতেই একই দুটো শব্দ —
+# উদ্ধৃতি, প্রিয় — তাতেই সংখ্যাগুলো মেলানো যায়; কোন পরিধিতে গোনা হয়েছে সেটা
+# টুলটিপ বলে।
+identity.count.favourites.tip.character = সব কাজ মিলিয়ে এই চরিত্রের প্রিয় লাইনগুলো খুঁজুন
+identity.count.favourites.tip.person = এই মানুষটার বলা সব প্রিয় লাইন
+identity.count.favourites.tip.work = এই কাজের প্রিয় লাইনগুলো খুঁজুন
+identity.count.quotes.tip.character = সব কাজ মিলিয়ে এই চরিত্রের বলা লাইন খুঁজুন
+identity.count.quotes.tip.person = এই মানুষটার বলা সব লাইন
+identity.count.quotes.tip.work = এই কাজের লাইনগুলো খুঁজুন
 identity.count.quotes.one = উদ্ধৃতি
 identity.count.quotes.other = উদ্ধৃতি
 identity.count.favourites.one = প্রিয়
