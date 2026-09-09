@@ -755,17 +755,21 @@ type reviewCard struct {
 	// WHO SAYS IT. A screen line's speaker — and, since 0047, a book highlight's
 	// too: a novel has speakers, and this was the fourth read of that column to be
 	// found still dropping it after three passes had swept the other three.
-	Character    string  `json:"character"`
-	Actor        string  `json:"actor"`         // screen speaker's actor; "" otherwise
-	Speaker      string  `json:"speaker"`       // utterance only — who said it
-	OccasionDate string  `json:"occasion_date"` // utterance only — when, possibly just a year
-	Chapter      string  `json:"chapter"`       // book only
-	Location     string  `json:"location"`      // book only
-	Timestamp    string  `json:"timestamp"`     // screen only
-	episodeRef           // screen only, shows only; null on a film's lines
-	MediaType    string  `json:"media_type"` // movie | show (screen); "" for book
-	Stability    float64 `json:"stability"`
-	ReviewCount  int     `json:"review_count"`
+	Character    string `json:"character"`
+	Actor        string `json:"actor"`         // screen speaker's actor; "" otherwise
+	Speaker      string `json:"speaker"`       // utterance only — who said it
+	OccasionDate string `json:"occasion_date"` // utterance only — when, possibly just a year
+	// OccasionCirca is the other half of that date, and it travels with it for the
+	// same reason the search row now carries it: the reader's tick was stored and
+	// then shown on no screen at all.
+	OccasionCirca bool    `json:"occasion_circa"`
+	Chapter       string  `json:"chapter"`   // book only
+	Location      string  `json:"location"`  // book only
+	Timestamp     string  `json:"timestamp"` // screen only
+	episodeRef            // screen only, shows only; null on a film's lines
+	MediaType     string  `json:"media_type"` // movie | show (screen); "" for book
+	Stability     float64 `json:"stability"`
+	ReviewCount   int     `json:"review_count"`
 	// LapseCount is how many times this card has been forgotten — stored since
 	// 0015 and, until now, never read by anything. It sits beside ReviewCount
 	// because the two are always read together: review_count > lapse_count is
@@ -1152,6 +1156,7 @@ func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, th reviewThem
 	rs := utteranceSource()
 	q := `SELECT x.id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
 	             COALESCE(x.speaker,''), COALESCE(x.occasion,''), COALESCE(x.occasion_date,''),
+	             x.occasion_circa,
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
@@ -1183,7 +1188,7 @@ func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, th reviewThem
 		var speaker, occasion string
 		c.card.Kind = kindUtterance
 		if err := rows.Scan(&c.card.ID, &c.card.Quote, &c.card.Note, &c.card.Color,
-			&speaker, &occasion, &c.card.OccasionDate,
+			&speaker, &occasion, &c.card.OccasionDate, &c.card.OccasionCirca,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] utterance candidate row scan failed: %v", err)
 			continue

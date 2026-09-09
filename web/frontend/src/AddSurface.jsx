@@ -33,6 +33,8 @@ import {
   Select,
   PartialDateField,
   isPartialDate,
+  parsePartialDate,
+  partialDateValue,
   Toggle,
   toast,
   usePersistedState,
@@ -795,7 +797,7 @@ export function CaptureQuote({ initialTarget = null, initialFields = null, initi
     ? !draft.quote.trim()
       // Unlike a book highlight, there is no page for a bare note to be about.
       ? t('error.validate.quote-words')
-      : draft.occasionDate && !isPartialDate(draft.occasionDate)
+      : draft.occasionDate && !isPartialDate(draft.occasionDate, { historical: true })
         ? t('error.validate.date')
         : ''
     : !draft.target
@@ -824,7 +826,8 @@ export function CaptureQuote({ initialTarget = null, initialFields = null, initi
           note: draft.note.trim(),
           speaker: draft.speaker.trim(),
           occasion: draft.occasion.trim(),
-          occasion_date: draft.occasionDate.trim(),
+          // The canonical form, not the typed phrase — see UtteranceForm's note.
+          occasion_date: partialDateValue(parsePartialDate(draft.occasionDate, { historical: true })),
           place: draft.place.trim(),
           kind: draft.kind,
           region: draft.region.trim(),
@@ -1002,6 +1005,7 @@ export function CaptureQuote({ initialTarget = null, initialFields = null, initi
               label={t('quotes.form.when.label')}
               value={draft.occasionDate}
               onChange={(v) => set({ occasionDate: v })}
+              historical
               circa={draft.circa}
               onCirca={(v) => set({ circa: v })}
               circaLabel={t('quotes.form.circa.label')}

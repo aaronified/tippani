@@ -428,6 +428,12 @@ common.date.pick.field.fallback = তারিখ
 # use whichever letters stand for year, month and day in the reader's language,
 # and keep the punctuation and the count of them.
 common.field.date.placeholder = YYYY, YYYY-MM বা YYYY-MM-DD
+common.field.date.historical.placeholder = 1890, 399 BCE, 1890-03-04
+common.field.year.info.title = সাল কীভাবে লিখবেন
+common.field.year.info.body = শুধু সাল: 1890। খ্রিস্টপূর্ব হলে: 380 BCE, বা -380। আন্দাজ হলে নিচের বাক্সে টিক দিন, বা শুরুতে "c." লিখুন — টিক নিজেই পড়ে যাবে।
+common.field.date.info.title = তারিখ কীভাবে লিখবেন
+common.field.date.info.body = শুধু সাল লিখলেই পুরো উত্তর হয়: 1890। বেশি জানা থাকলে ছোট করে আনুন — 1890-03, বা 1890-03-04। ক্যালেন্ডারের বোতাম তিনটের যেটাই হোক ভরে দেয়।
+common.field.date.historical.info.body = শুধু সাল লিখলেই চলে: 399, বা 1890 — খ্রিস্টপূর্ব হলে 399 BCE, বা -399। ছোট করে আনুন 1890-03 বা 1890-03-04 দিয়ে। আন্দাজ হলে টিক দিন, বা শুরুতে "c." লিখুন।
 common.field.year.placeholder = যেমন 1920
 
 # --- shelf states. ONE CONCEPT, TWO WORDS: a book is read and a film is
@@ -956,6 +962,7 @@ error.save.generic = সেভ করা গেল না
 error.save.read = পড়ার খাতায় এটা সেভ করা গেল না
 error.save.watch = দেখার খাতায় এটা সেভ করা গেল না
 error.validate.partial-date = YYYY, YYYY-MM বা YYYY-MM-DD — এই তিন আকারের একটায় লিখুন
+error.validate.historical-date = সাল, সাল-মাস, বা পুরো তারিখ — "399 BCE" আর "c. 40" দুটোই চলে
 error.validate.episodes-total = এই সিজনে কটা এপিসোড?
 error.validate.pages-total = বইটায় মোট কটা পৃষ্ঠা?
 

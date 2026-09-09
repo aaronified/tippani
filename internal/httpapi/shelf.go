@@ -157,19 +157,68 @@ func resolveActiveStatus(kind, mediaType, requested string) string {
 // invent a precision that was never there.
 var partialDate = regexp.MustCompile(`^\d{4}(-\d{2}(-\d{2})?)?$`)
 
+// A HISTORICAL YEAR MAY BE ONE TO FOUR DIGITS, because 399 and 0399 are the same
+// year and neither an import file nor a reader typing into a box should have to
+// know which spelling this column keeps. normalizeDateIn pads it.
+var partialDateLoose = regexp.MustCompile(`^\d{1,4}(-\d{2}(-\d{2})?)?$`)
+
 // normalizePartialDate trims and validates one date. "" (unknown) is legal.
 func normalizePartialDate(field string, v *string) string {
+	return normalizeDateIn(field, v, false)
+}
+
+// normalizeHistoricalDate is the same three shapes with the 1000-3000 window
+// lifted and a BCE year allowed, for a date that is a point in HISTORY rather
+// than a date in the reader's own life.
+//
+// THE TWO ARE NOT ONE FUNCTION WITH A WIDER RANGE, and the window is the reason.
+// A read log recording that a book was finished in the year 40 is a typo, and
+// catching it is the whole purpose of the bound — so the bound stays exactly
+// where it is for every date about the reading, and lifts only for the two facts
+// that are about the world: when a line was said, and when a person lived. The
+// Apology was spoken in 399 BCE and Seneca was born in 4 BCE; a form that
+// demanded four digits and a year past 1000 could hold neither, which is what
+// this pair exists to fix.
+//
+// BCE IS STORED AS A LEADING '-' ON A FOUR-DIGIT YEAR: '-0399'. The stats
+// timeline already read it that way — see timelineYears, whose comment says "a
+// BCE year carries a leading '-'" — so the column's format is not being invented
+// here, only finally accepted by the thing that guards it.
+func normalizeHistoricalDate(field string, v *string) string {
+	return normalizeDateIn(field, v, true)
+}
+
+func normalizeDateIn(field string, v *string, historical bool) string {
 	*v = strings.TrimSpace(*v)
 	if *v == "" {
 		return ""
 	}
-	if !partialDate.MatchString(*v) {
+	body := *v
+	bce := false
+	if historical && strings.HasPrefix(body, "-") {
+		bce = true
+		body = body[1:]
+	}
+	shape := partialDate
+	if historical {
+		shape = partialDateLoose
+	}
+	if !shape.MatchString(body) {
+		if historical {
+			return field + " must be a year, YYYY-MM or YYYY-MM-DD, optionally with a leading - for BCE"
+		}
 		return field + " must be YYYY, YYYY-MM or YYYY-MM-DD"
 	}
 	// Reject the shapes the regexp lets through but a calendar would not, so a
 	// stored date is always a real one.
-	parts := strings.Split(*v, "-")
-	if y, _ := strconv.Atoi(parts[0]); y < 1000 || y > 3000 {
+	parts := strings.Split(body, "-")
+	y, _ := strconv.Atoi(parts[0])
+	switch {
+	case historical && (y == 0 || y > 3000):
+		// No year zero: the era changes at 1 BCE / 1 CE, so '0000' is a slip and
+		// not a date, whichever side of the join it was meant for.
+		return field + " year must be between 3000 BCE and 3000"
+	case !historical && (y < 1000 || y > 3000):
 		return field + " year must be between 1000 and 3000"
 	}
 	if len(parts) > 1 {
@@ -185,9 +234,28 @@ func normalizePartialDate(field string, v *string) string {
 		// accepted 30 February, and 31 April, while the comment above promised
 		// "a stored date is always a real one". time.Parse is the calendar —
 		// it rejects an out-of-range day and knows which Februaries have 29.
-		if _, err := time.Parse("2006-01-02", *v); err != nil {
+		//
+		// PARSED ON THE UNSIGNED BODY, because time.Parse's "2006" is four digits
+		// and cannot read '-0399'. February's length repeats every four years in
+		// the proleptic calendar either way, so the absolute year answers the only
+		// question being asked here.
+		if _, err := time.Parse("2006-01-02", body); err != nil {
 			return field + " is not a real date"
 		}
+	}
+	// Canonical on the way in, so the column never holds two spellings of one
+	// date: the client sends '0399' and '399' as the same thing, and a value that
+	// reached here from an import or a curl may be either.
+	*v = ""
+	if bce {
+		*v = "-"
+	}
+	*v += fmt.Sprintf("%04d", y)
+	if len(parts) > 1 {
+		*v += "-" + parts[1]
+	}
+	if len(parts) > 2 {
+		*v += "-" + parts[2]
 	}
 	return ""
 }

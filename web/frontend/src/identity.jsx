@@ -55,6 +55,9 @@ import {
   NavIcon,
   InfoDot,
   MonoLabel,
+  parsePartialDate,
+  partialDateInputValue,
+  partialDateValue,
   Scroller,
   toast,
   Tooltip,
@@ -982,6 +985,24 @@ function Portrait({ person, busy, onPicked, onClear }) {
   )
 }
 
+// A FACT THAT IS A DATE, and the two that are. The single-field picker below is
+// generic over any column, which is how born and died came to be free text on
+// this screen while the person FORM was validating and normalising them — two
+// controls for one column, behaving differently, which is the thing the repo
+// forbids outright. It is the same normalisation, called from the one place that
+// still was not doing it.
+const DATE_FACTS = new Set(['born', 'died'])
+
+const factValue = (key, raw) => {
+  if (!DATE_FACTS.has(key)) return raw
+  // An unreadable value is stored as typed, which is what this screen has always
+  // done: the picker has no error line to put a message on, and refusing a save
+  // with nothing to say would be worse than keeping the words.
+  return partialDateValue(parsePartialDate(raw, { historical: true })) || raw
+}
+
+const factSeed = (key, stored) => (DATE_FACTS.has(key) ? partialDateInputValue(stored) : stored)
+
 function PersonBody({ stack, id, work, onOpenWork: given = null }) {
   // THE SHELL'S DOOR, read rather than demanded. See personOpen.jsx's `WorkDoor`:
   // as a prop this was passed by none of the app's callers, so every tile below
@@ -1099,9 +1120,9 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
     id: `person-${key}`,
     title: label,
     saveTip: t('identity.picker.save.tip'),
-    fields: [{ key, label, value: data?.[key] || '', rows, required }],
+    fields: [{ key, label, value: factSeed(key, data?.[key] || ''), rows, required }],
     save: async (d) => {
-      if (await save({ ...form, [key]: d[key] ?? '' })) setPicker(null)
+      if (await save({ ...form, [key]: factValue(key, d[key] ?? '') })) setPicker(null)
     },
   })
 
@@ -1466,9 +1487,9 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
     id: `char-${key}`,
     title: label,
     saveTip: t('identity.picker.save.tip'),
-    fields: [{ key, label, value: data?.[key] || '', rows, required }],
+    fields: [{ key, label, value: factSeed(key, data?.[key] || ''), rows, required }],
     save: async (d) => {
-      if (await save({ ...form, [key]: d[key] ?? '' })) setPicker(null)
+      if (await save({ ...form, [key]: factValue(key, d[key] ?? '') })) setPicker(null)
     },
   })
   // SPLIT REACHES THE CHARACTER TABLE TOO, and always could — 0056 shipped

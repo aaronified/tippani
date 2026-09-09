@@ -44,6 +44,9 @@ import {
   TokenInput,
   formatPartialDate,
   isPartialDate,
+  parsePartialDate,
+  partialDateValue,
+  partialDateInputValue,
   QUOTE_COLUMNS,
   useConfirm,
   useColumnsAt,
@@ -224,7 +227,7 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
   // to that text when no kind is set, so a value the one-time pass could not read
   // stays on the card as work to do rather than vanishing in the release that
   // replaced the field.
-  const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, quoteKindMeta(u), u.language].filter(Boolean)
+  const rest = [u.occasion, formatPartialDate(u.occasion_date, u.occasion_circa), u.place, quoteKindMeta(u), u.language].filter(Boolean)
   // The string forms feed the share image and the group headings, where a second
   // line has nowhere to go. They stay one line; only the rich form below grows.
   // THE STRING FORMS, for the share image and the group headings — a second line
@@ -292,7 +295,10 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   const [note, setNote] = useState(initial?.note || '')
   const [speaker, setSpeaker] = useState(initial?.speaker || '')
   const [occasion, setOccasion] = useState(initial?.occasion || '')
-  const [occasionDate, setOccasionDate] = useState(initial?.occasion_date || '')
+  // partialDateInputValue, NOT the raw column: a BCE occasion is stored '-0399'
+  // and a reader editing that would be shown the machine's spelling of their own
+  // date. See the function's note.
+  const [occasionDate, setOccasionDate] = useState(partialDateInputValue(initial?.occasion_date || ''))
   const [place, setPlace] = useState(initial?.place || '')
   // 0053. What kind of thing this is, from a fixed list. `medium` is still on the
   // record and still sent (see the payload below); it just has no box any more.
@@ -334,7 +340,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   // no page here to be about.
   const missing = !quote.trim()
     ? t('error.validate.quote-required')
-    : occasionDate && !isPartialDate(occasionDate)
+    : occasionDate && !isPartialDate(occasionDate, { historical: true })
       ? t('error.validate.date')
       : ''
   // Joins the dialog's header ✓ when there is one — see FormHostContext.
@@ -350,7 +356,12 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       note: note.trim(),
       speaker: speaker.trim(),
       occasion: occasion.trim(),
-      occasion_date: occasionDate.trim(),
+      // NORMALISED HERE, not as it is typed. The box holds the phrase the reader
+      // wrote ('399 BCE'); the column holds the canonical form ('-0399'), because
+      // it is sorted and grouped as text. Rewriting the box mid-keystroke would
+      // make the era unspellable — you cannot type B, C, E into a field that
+      // reformats after each one.
+      occasion_date: partialDateValue(parsePartialDate(occasionDate, { historical: true })),
       place: place.trim(),
       // Carried, not offered: the box is gone and the value is not.
       medium: initial?.medium || '',
@@ -419,6 +430,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
           label={t('quotes.form.when.label')}
           value={occasionDate}
           onChange={setOccasionDate}
+          historical
           circa={circa}
           onCirca={setCirca}
           circaLabel={t('quotes.form.circa.label')}
@@ -563,7 +575,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
 // 'YYYY-MM-DD' (§3f), so the year is its first four characters — never
 // new Date(), which turns '1944' into a January morning nobody recorded.
 export function utteranceYear(u) {
-  const y = Number((u.occasion_date || '').slice(0, 4))
+  const y = parsePartialDate(u.occasion_date || '', { historical: true })?.year || 0
   return Number.isInteger(y) && y > 0 ? y : null
 }
 
@@ -865,7 +877,17 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
     else if (sort === 'occasion') list.sort((a, b) => (a.occasion || '').localeCompare(b.occasion || ''))
     // Partial dates sort correctly as strings BECAUSE they are zero-padded and
     // big-endian: '1944' < '1944-08' < '1945'. Undated sinks rather than leading.
-    else if (sort === 'said') list.sort((a, b) => (a.occasion_date || '\uffff').localeCompare(b.occasion_date || '\uffff'))
+    // BY THE YEAR AS A NUMBER, not as text. '-0399' and '-0040' sort the wrong way
+    // round as strings — 40 BCE reads as earlier than 399 BCE — because a minus
+    // sign reverses the order it prefixes and a padded string cannot know that.
+    // The month and day still compare as text, where the padding does the work.
+    else if (sort === 'said') list.sort((a, b) => {
+      const pa = parsePartialDate(a.occasion_date || '', { historical: true })
+      const pb = parsePartialDate(b.occasion_date || '', { historical: true })
+      if (!pa || !pb) return (pa ? 0 : 1) - (pb ? 0 : 1)
+      if (pa.year !== pb.year) return pa.year - pb.year
+      return (a.occasion_date || '').slice(-6).localeCompare((b.occasion_date || '').slice(-6))
+    })
     return list
   }, [board, color, favOnly, tagged, noted, tag, speaker, kind, language, sort, seps])
 
@@ -934,7 +956,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       language: u.language,
       speaker: u.speaker,
       occasion: u.occasion,
-      when: formatPartialDate(u.occasion_date),
+      when: formatPartialDate(u.occasion_date, u.occasion_circa),
       place: u.place,
       // The kind's WORD, not its machine value, and falling back to the old
       // free-text medium the same way the card's meta line does — a share is a

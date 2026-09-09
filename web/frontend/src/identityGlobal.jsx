@@ -49,7 +49,7 @@ import {
   SectionHead,
 } from './characterRows.jsx'
 import { t } from './i18n.js'
-import { IconGlobe, IconDelete, IconMerge, IconPlus, NavIcon } from './ui.jsx'
+import { formatPartialDate, IconGlobe, IconDelete, IconMerge, IconPlus, NavIcon } from './ui.jsx'
 import { GLYPH_NAME } from './identityLocal.jsx'
 import { mediumOf } from './identityScope.js'
 import { quotePairCells } from './quotePair.jsx'
@@ -285,9 +285,14 @@ export function CharacterGlobal({
         onClick={onSort}
         edit
       />
+      {/* THE RAW VALUE IS THE FALLBACK, and it is not belt-and-braces. This
+          screen's single-field picker had no date validation before today, so the
+          column may legally hold free text somebody typed into it — and a
+          formatter that returns '' for what it cannot read would print "not
+          recorded" over a birth date that is sitting right there. */}
       <ScreenRow
         label={t('identity.field.born')}
-        meta={record.born || t('identity.row.born.none')}
+        meta={formatPartialDate(record.born) || record.born || t('identity.row.born.none')}
         // IN-WORLD, and the distinction matters on this table alone: a person's
         // birth is a fact about the world and a character's is a fact a work
         // states. Sherlock Holmes has a birth year because a story says so.
@@ -503,14 +508,14 @@ export function PersonGlobal({
           this field for a studio and a thing has one name wherever it is drawn. */}
       <ScreenRow
         label={org ? t('people.form.founded.label') : t('identity.field.born')}
-        meta={record.born || t('identity.row.born.none')}
+        meta={formatPartialDate(record.born) || record.born || t('identity.row.born.none')}
         onClick={onBorn}
         edit
       />
       {onDied ? (
         <ScreenRow
           label={org ? t('people.form.closed.label') : t('identity.field.died')}
-          meta={record.died || t('identity.row.born.none')}
+          meta={formatPartialDate(record.died) || record.died || t('identity.row.born.none')}
           onClick={onDied}
           edit
         />

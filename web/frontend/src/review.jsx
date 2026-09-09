@@ -27,6 +27,7 @@ import {
   ErrorText,
   Field,
   FieldIconButton,
+  formatPartialDate,
   FormModal,
   HandNote,
   IconEdit,
@@ -425,7 +426,10 @@ function SourceLines({ card, maps = {} }) {
     meta = [media, episodeLabel(card), card.character, card.timestamp].filter(Boolean).join(' · ')
   } else if (card.kind === 'utterance') {
     // A quote's date is partial by design — a year alone is a complete answer.
-    meta = card.occasion_date || ''
+    // THROUGH THE FORMATTER, not printed raw: a BCE occasion is stored '-0399'
+    // and a padded one '0399', and a recall card showing either is showing the
+    // reader the column rather than their own date.
+    meta = formatPartialDate(card.occasion_date, card.occasion_circa)
   } else {
     // The author lives in the chips row now; the meta line keeps the location —
     // and, since 0047, WHO SAYS IT. A novel has speakers, and the quiz card was

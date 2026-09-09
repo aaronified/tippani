@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A quote can be from 399 BCE, or from the year 40.** The *When* box on the quote form and
+  the capture card now takes any year in either era — `399`, `399 BCE`, `-399`, `c. 40` — and
+  so do a person's birth and death, which is what lets Seneca be born in 4 BCE and Sophocles
+  in 497. **It refused all of them,** and had since the field was built: it demanded exactly
+  four digits and a year past 1000, so a date older than the millennium had no spelling at
+  all, and it offered a numeric keypad, so `BCE` could not have been typed even if the
+  validator had allowed it. A book's year has taken `380 BCE` for two releases; the box that
+  records when a line was *said* had not caught up.
+  Dates about your own reading are unchanged and still refuse both: a book finished in the
+  year 40 is a typo, and that is what the 1000-3000 window is for.
+
+- **The approximate tick is finally visible.** Ticking *the date is approximate* was stored,
+  exported and imported for a release and then shown on no screen at all — the quote card,
+  the search hit and the recall card each printed the bare date. A quote said in about the
+  year 40 now reads `c. 40` everywhere it appears.
+
+- **Every year and date box explains itself.** An info dot inside the box — in the field, not
+  up on the label — names the shapes it takes, how to write a year before the era, and that
+  the tick beside it is what marks a date as an estimate.
+
+### Fixed
+
+- **`380BCE` written without a space was read as `380`.** Every year box quietly dropped an
+  era typed tight against the number, so a book entered that way was filed 380 years *after*
+  the date meant, in the wrong era, with nothing on screen to show it.
+
+### Added
+
 - **A year can be approximate, or BCE, and typing it works.** Every year box — a book's, a
   film's, on both the add and the edit form — now takes the phrase you would actually write:
   `c. 1500`, `380 BCE`, `c. 380 BCE`. It also carries a tick beside it saying the year is
@@ -24,7 +52,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sitting further down where it described nothing in particular. And typing the marker works:
   `c.`, `ca`, `circa` or `~` in front of a date ticks the box for you and keeps the date.
   Until now the box accepted only digits, so the `c.` was silently deleted — the date landed,
-  looked right, and nothing recorded that you had said it was approximate.
+  looked right, and nothing recorded that you had said it was approximate. (The date itself
+  still could not be older than the year 1000 at that point; see above for the release that
+  fixed it.)
 
 - **A picture that is slow to arrive says so.** Covers, posters and the portrait on a
   person's own page draw a soft sweep over their box while the image is still coming, so a

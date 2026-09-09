@@ -2351,25 +2351,159 @@ export const MONTH_KEYS = [
   "common.month.oct.label", "common.month.nov.label", "common.month.dec.label",
 ];
 
+// parsePartialDate — ONE reader for every partial date in the app, and the reason
+// there is one is that "399 BCE" broke three different hand-rolled ones.
+//
+// IT READS A PHRASE, NOT JUST A STORED VALUE. `399 BCE`, `c. 40`, `-0399-03-04`
+// and `2019` all land here, because the box a reader types into holds what they
+// wrote and the column holds the canonical form — the same split `parseYearInput`
+// and `yearInputValue` already draw for a bare year, for the same reason: the
+// machine's form and the person's form are not the same string.
+//
+// `historical` is what the date MEANS, and it is the whole difference between the
+// two kinds of date this app stores. A quote's occasion and a person's birth are
+// points in history, so any year and either era: Seneca was born in 4 BCE and the
+// Apology was spoken in 399 BCE. A read log is a date in the reader's own life, so
+// it keeps the 1000-3000 window — a book finished in the year 40 is a typo, and
+// catching it here is why that window exists.
+//
+// Returns null for anything it cannot read, so a caller can use it as the test.
+export function parsePartialDate(raw, { historical = false } = {}) {
+  let s = String(raw ?? "").trim();
+  if (!s) return null;
+  let circa = false;
+  // Longest first: "circa" before "ca" before "c". A bare `c` is NOT a marker —
+  // see PartialDateField's note; the period or space is what makes it deliberate.
+  const c = s.match(/^(?:circa\s|ca\.?\s|c\.\s*|~\s*)/i);
+  if (c) {
+    circa = true;
+    s = s.slice(c[0].length).trim();
+  }
+  let bce = false;
+  // The era rides at the END of the phrase, where it is written, and it is read
+  // BEFORE the shape test so `399 BCE-03` is a legal way to write it.
+  // NO `\b` BEFORE THE ERA, and it used to have one. A word boundary needs a
+  // word/non-word transition, and there is none between `9` and `B` — so "399BCE"
+  // typed without a space, which is how the owner reported typing it, matched
+  // nothing and the era was silently dropped. The anchor is the end of the string;
+  // the digits in front are guarded by the shape test below.
+  const era = s.match(/\s*(b\.?\s*c\.?(?:\s*e\.?)?|a\.?\s*d\.?|c\.?\s*e\.?)\.?\s*$/i);
+  if (era) {
+    if (!historical) return null;
+    bce = era[1].replace(/[^a-z]/gi, "").toLowerCase().startsWith("b");
+    s = s.slice(0, era.index).trim();
+  }
+  // A leading minus is the stored form of BCE, so it is the same fact typed the
+  // other way. Taken off before the shape test, which is about the digits.
+  let neg = false;
+  if (s.startsWith("-")) {
+    if (!historical) return null;
+    neg = true;
+    s = s.slice(1);
+  }
+  // ONE to FOUR digits for the year, because 399 and 0399 are the same year and a
+  // reader who knows one of them should not have to know the other. The month and
+  // day stay two digits each: those are never abbreviated in this notation.
+  const m = s.match(/^(\d{1,4})(?:-(\d{2})(?:-(\d{2}))?)?$/);
+  if (!m) return null;
+  const year = (bce || neg ? -1 : 1) * Number(m[1]);
+  if (year === 0) return null; // there is no year zero, and "0000" is a slip
+  if (!historical && (year < 1000 || year > 3000)) return null;
+  if (Math.abs(year) > 3000) return null;
+  const month = m[2] == null ? null : Number(m[2]);
+  const day = m[3] == null ? null : Number(m[3]);
+  if (month != null && (month < 1 || month > 12)) return null;
+  // A real calendar's bounds, so a typed "2019-13" or "2019-02-30" is caught
+  // before saving. The ABSOLUTE year, because JavaScript's Date has no BCE leap
+  // rule worth trusting.
+  //
+  // AND A TRAP IN daysInMonth THAT IS SAFE HERE FOR A REASON WORTH WRITING DOWN:
+  // `new Date(y, …)` maps a year of 0-99 onto 1900-1999, so daysInMonth(40, 2) is
+  // really asking about February 1940. It gives the right answer anyway — 1900 is
+  // divisible by 4, so the shift preserves `y % 4`, and no year in 1-99 lands on a
+  // century year, which is the only place the Gregorian rule differs. Do not widen
+  // that range without redoing this reasoning.
+  if (day != null && (day < 1 || day > daysInMonth(Math.abs(year), month))) return null;
+  return { year, month, day, circa };
+}
+
+// partialDateValue — the canonical column value, and the inverse of the parse.
+//
+// FOUR DIGITS ALWAYS, with a leading '-' for BCE. The padding is not cosmetic:
+// `occasion_date` is sorted and grouped as TEXT in two places and read as
+// `substr(occasion_date, 1, 5)` by the stats timeline, all of which need the year
+// to occupy a fixed width. It is also what makes "399" and "0399" one date rather
+// than two rows the dedupe hash cannot see are the same.
+export function partialDateValue(parts) {
+  if (!parts || !parts.year) return "";
+  const { year, month, day } = parts;
+  let out = (year < 0 ? "-" : "") + String(Math.abs(year)).padStart(4, "0");
+  if (month != null) out += "-" + String(month).padStart(2, "0");
+  if (day != null) out += "-" + String(day).padStart(2, "0");
+  return out;
+}
+
+// partialDateInputValue — the stored value as a phrase a reader can EDIT.
+//
+// NOT formatPartialDate, which is for READING and resolves locale keys: in Bengali
+// it returns a Bengali era word that no parser here matches, so seeding an input
+// from it would drop the era on the next save. Exactly the trap `yearInputValue`
+// was written to close, one field over.
+export function partialDateInputValue(v) {
+  const p = parsePartialDate(v, { historical: true });
+  if (!p) return String(v ?? "");
+  let out = String(Math.abs(p.year));
+  if (p.month != null) out += "-" + String(p.month).padStart(2, "0");
+  if (p.day != null) out += "-" + String(p.day).padStart(2, "0");
+  return p.year < 0 ? out + " BCE" : out;
+}
+
+// dateFieldInfo — the explanation a year or date box carries, in ONE function
+// because two components draw the same dot and a copy each is how one of them
+// goes quietly out of step with what its box actually accepts.
+//
+// IT SITS INSIDE THE BOX, NOT ON THE LABEL. Every other InfoDot in the app rides
+// in a field's header row beside its MonoLabel, and the owner ruled against that
+// here: "keep it in the field, and not on the header". The reason holds — a
+// reader who needs this is looking at the box and about to type into it, and a
+// dot on the header reads as an explanation of the field's NAME.
+//
+// Three bodies, because the boxes take three different things: a bare year, a
+// date in the reader's own life, and a date in history — which is the only one
+// of the three that takes an era.
+export function dateFieldInfo(kind) {
+  if (kind === "year") {
+    return { title: t("common.field.year.info.title"), text: t("common.field.year.info.body") };
+  }
+  return {
+    title: t("common.field.date.info.title"),
+    text: t(kind === "historical" ? "common.field.date.historical.info.body" : "common.field.date.info.body"),
+  };
+}
+
 // isPartialDate mirrors normalizePartialDate on the server: the three shapes,
 // plus a real calendar's bounds so a typed "2019-13" is caught before saving.
-export function isPartialDate(v) {
-  if (!/^\d{4}(-\d{2}(-\d{2})?)?$/.test(v)) return false;
-  const [y, m, d] = v.split("-").map(Number);
-  if (y < 1000 || y > 3000) return false;
-  if (m != null && (m < 1 || m > 12)) return false;
-  if (d != null && (d < 1 || d > daysInMonth(y, m))) return false;
-  return true;
+export function isPartialDate(v, opts) {
+  return !!parsePartialDate(v, opts);
 }
 
 // formatPartialDate renders a stored value for reading: "2019", "Mar 2019",
-// "4 Mar 2019". The precision shows, which is the point of keeping it.
-export function formatPartialDate(v) {
-  if (!v) return "";
-  const [y, m, d] = v.split("-").map(Number);
-  if (!m) return String(y);
-  if (!d) return t("common.date.month-year.label", { month: t(MONTH_KEYS[m - 1]), year: y });
-  return t("common.date.full.label", { day: d, month: t(MONTH_KEYS[m - 1]), year: y });
+// "4 Mar 2019", "399 BCE", "c. 40". The precision shows, which is the point of
+// keeping it.
+//
+// `circa` IS AN ARGUMENT AND NOT PART OF THE VALUE, because on a quote it is a
+// separate column (`occasion_circa`) — the reader's tick, not something read off
+// the digits. It was stored, exported and imported for a release and displayed
+// nowhere, so a reader who ticked "the date is approximate" got no sign back that
+// the app had heard them.
+export function formatPartialDate(v, circa = false) {
+  const p = parsePartialDate(v, { historical: true });
+  if (!p) return "";
+  const year = formatYear(p.year, circa || p.circa);
+  if (!p.month) return year;
+  const month = t(MONTH_KEYS[p.month - 1]);
+  if (!p.day) return t("common.date.month-year.label", { month, year });
+  return t("common.date.full.label", { day: p.day, month, year });
 }
 
 // todayPartial is the full date today, the default every date prompt opens with.
@@ -2536,6 +2670,9 @@ function DatePicker({ value, onPick, onClose, granularity = "day" }) {
 // OPTIONAL, and the three callers that pass none of it draw exactly what they
 // drew before — a person's birth and death dates and a work's date have nothing
 // to be approximate about in this schema.
+// `historical` says the date is a point in history rather than a date in the
+// reader's own life, and it changes three things at once because all three were
+// stopping the same thing. See parsePartialDate for the distinction itself.
 export function PartialDateField({
   label,
   value,
@@ -2547,6 +2684,7 @@ export function PartialDateField({
   circa,
   onCirca,
   circaLabel,
+  historical = false,
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -2554,8 +2692,14 @@ export function PartialDateField({
   // generous because a calendar that scrolls is worse than one that overlaps.
   const { popRef, style } = useAnchoredPosition(open, ref, { minHeight: 240 });
   useDismiss(open, () => setOpen(false), [ref, popRef]);
-  const bad = !!value && !isPartialDate(value);
-  const ph = placeholder || t(granularity === "year" ? "common.field.year.placeholder" : "common.field.date.placeholder");
+  const bad = !!value && !isPartialDate(value, { historical });
+  const ph = placeholder || t(
+    historical
+      ? "common.field.date.historical.placeholder"
+      : granularity === "year"
+        ? "common.field.year.placeholder"
+        : "common.field.date.placeholder",
+  );
   return (
     <label className={"tp-field " + className}>
       {label && <MonoLabel>{label}</MonoLabel>}
@@ -2563,20 +2707,29 @@ export function PartialDateField({
         <input
           className="tp-input"
           value={value || ""}
-          inputMode="numeric"
+          // A NUMERIC KEYPAD HAS NO LETTERS ON IT, which is the whole reason "399
+          // BCE" could not be typed on a phone: the box wanted an era word and
+          // then offered a keyboard that could not spell one.
+          inputMode={historical ? "text" : "numeric"}
           placeholder={ph}
-          maxLength={10}
+          maxLength={historical ? 20 : 10}
           aria-invalid={bad || undefined}
-          // Only digits and the separator can be typed: it keeps the value in the
-          // stored shape without needing to reject whole words on save.
           onChange={(e) => {
             const raw = e.target.value;
             // THE MARKER IS READ BEFORE THE STRIP, because the strip is what was
-            // eating it. Deliberately NOT a bare `c`: the reader is typing into a
-            // numeric box and a stray letter is a slip, so a period or a space is
-            // required to make it an instruction. `~` because a reader who reaches
-            // for a symbol reaches for that one.
+            // eating it. Deliberately NOT a bare `c`: a stray letter is a slip, so
+            // a period or a space is required to make it an instruction. `~`
+            // because a reader who reaches for a symbol reaches for that one.
             if (onCirca && /^\s*(?:c\.|ca\.?\s|circa\s|~)\s*/i.test(raw)) onCirca(true);
+            // A HISTORICAL FIELD DOES NOT STRIP, and that is the fix — the same one
+            // YearField's note records. While the box deleted everything but digits,
+            // "BCE" could not survive being typed, so the parser's documented
+            // ability to read it was unreachable from the only place it mattered.
+            // Garbage is caught by the red edge and the message below instead.
+            if (historical) {
+              onChange(raw.replace(/^\s*(?:c\.|ca\.?\s|circa\s|~)\s*/i, "").slice(0, 20));
+              return;
+            }
             onChange(raw.replace(/[^\d-]/g, "").slice(0, 10));
           }}
           style={bad ? { borderColor: "var(--error)" } : undefined}
@@ -2593,6 +2746,7 @@ export function PartialDateField({
             <IconCalendar />
           </button>
         </Tooltip>
+        <InfoDot {...dateFieldInfo(historical ? "historical" : "date")} />
         {open && createPortal(
           <span ref={popRef} className="date-pop" style={style}>
             <DatePicker value={value} granularity={granularity} onPick={onChange} onClose={() => setOpen(false)} />
@@ -2602,7 +2756,7 @@ export function PartialDateField({
       </span>
       {(bad || hint) && (
         <span style={{ display: "block", marginTop: 5, fontSize: 'var(--type-ui-12)', lineHeight: 1.4, color: bad ? "var(--error)" : "var(--faint)" }}>
-          {bad ? t("error.validate.partial-date") : hint}
+          {bad ? t(historical ? "error.validate.historical-date" : "error.validate.partial-date") : hint}
         </span>
       )}
       {/* A SPAN AND NOT A NESTED `label`, which is what a checkbox with words
@@ -2689,17 +2843,22 @@ export function YearField({
     const rest = String(value ?? "").replace(/^\s*(?:circa|ca|c)\.?\s*/i, "").trim();
     onChange(on && rest ? "c. " + rest : rest);
   };
+  // A ROW RATHER THAN A BARE INPUT, so the dot can sit in the box's own line —
+  // see dateFieldInfo for why it is not up on the label.
   const input = (
-    <input
-      className="tp-input"
-      value={value || ""}
-      placeholder={placeholder}
-      maxLength={maxLength}
-      aria-invalid={bad || undefined}
-      aria-label={label ? undefined : placeholder}
-      onChange={(e) => onChange(e.target.value.slice(0, maxLength))}
-      style={bad ? { borderColor: "var(--error)" } : undefined}
-    />
+    <span className="flex items-center gap-2">
+      <input
+        className="tp-input"
+        value={value || ""}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        aria-invalid={bad || undefined}
+        aria-label={label ? undefined : placeholder}
+        onChange={(e) => onChange(e.target.value.slice(0, maxLength))}
+        style={bad ? { borderColor: "var(--error)" } : undefined}
+      />
+      <InfoDot {...dateFieldInfo("year")} />
+    </span>
   );
   const flag = (
     <span className="mt-2 flex items-center gap-2">
@@ -8462,7 +8621,9 @@ export function parseYearInput(raw) {
     s = s.slice(c[0].length).trim();
   }
   let bce = false;
-  const era = s.match(/\s*\b(b\.?\s*c\.?(?:\s*e\.?)?|a\.?\s*d\.?|c\.?\s*e\.?)\.?\s*$/i);
+  // NO `\b` BEFORE THE ERA — see parsePartialDate: it cannot fire between a digit
+  // and a letter, so "380BCE" typed without a space lost its era.
+  const era = s.match(/\s*(b\.?\s*c\.?(?:\s*e\.?)?|a\.?\s*d\.?|c\.?\s*e\.?)\.?\s*$/i);
   if (era) {
     bce = era[1].replace(/[^a-z]/gi, "").toLowerCase().startsWith("b");
     s = s.slice(0, era.index).trim();

@@ -409,6 +409,19 @@ common.date.pick.field.fallback = a date
 # use whichever letters stand for year, month and day in the reader's language,
 # and keep the punctuation and the count of them.
 common.field.date.placeholder = YYYY, YYYY-MM or YYYY-MM-DD
+# A date in HISTORY, not in the reader's own life: the year may be one digit and
+# it may carry an era, so the example carries one rather than spelling the shape.
+common.field.date.historical.placeholder = 1890, 399 BCE, 1890-03-04
+# --- HOW TO WRITE ONE, carried by an info dot inside the box itself and not on the
+# label above it: the reader needing this is looking at the box, and a dot on the
+# header answers a question about the field's name instead of about its contents.
+# Three bodies because the boxes differ — a bare year, a date in the reader's own
+# life, and a date in history, which is the only one of the three that takes an era.
+common.field.year.info.title = How to write a year
+common.field.year.info.body = A year on its own: 1890. Before the era: 380 BCE, or -380. For an estimate tick the box below, or type "c." in front — that ticks it for you.
+common.field.date.info.title = How to write a date
+common.field.date.info.body = A year on its own is a complete answer: 1890. Narrow it where you know more — 1890-03, or 1890-03-04. The calendar button fills in any of the three.
+common.field.date.historical.info.body = A year alone is enough: 399, or 1890 — and 399 BCE, or -399, before the era. Narrow it with 1890-03 or 1890-03-04. For an estimate tick the box, or type "c." in front.
 common.field.year.placeholder = e.g. 1920
 
 # --- shelf states. ONE CONCEPT, TWO WORDS: a book is read and a film is
@@ -936,6 +949,7 @@ error.save.generic = could not save
 error.save.read = could not save this read
 error.save.watch = could not save this watch
 error.validate.partial-date = needs to be YYYY, YYYY-MM or YYYY-MM-DD
+error.validate.historical-date = needs to be a year, a year and month, or a full date — "399 BCE" and "c. 40" both work
 error.validate.episodes-total = how many episodes in this season?
 error.validate.pages-total = how many pages in the book?
 

@@ -5,7 +5,7 @@ import { clipChipName as clip } from './text.js'
 import { Face } from './characterRows.jsx'
 import { personImgURL, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, isPartialDate, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Scroller, Tooltip, useConfirm, useEscape, useBackToClose, SCRIM, backdropClose} from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, formatYear, isPartialDate, parsePartialDate, partialDateValue, partialDateInputValue, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Scroller, Tooltip, useConfirm, useEscape, useBackToClose, SCRIM, backdropClose} from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -916,7 +916,18 @@ export function creditKey(s) {
 // line is for, and "4 Mar 1920 – 12 Nov 2001" reads as a gravestone next to a
 // title. The full precision is kept, and shows in the edit form.
 function lifespanLabel(p) {
-  const year = (v) => (v || '').trim().slice(0, 4)
+  // THROUGH THE PARSER, not slice(0, 4). A BCE birth is stored '-0004' and the
+  // first four characters of that are '-000'; a 5th-century one is stored '0497'
+  // and reads as a typo with the padding still on. formatYear is what turns a
+  // signed number back into the era word the reader wrote.
+  const year = (v) => {
+    const p = parsePartialDate(v || '', { historical: true })
+    // AND THE RAW VALUE WHEN IT CANNOT BE READ, because the identity screen's
+    // picker stored free text for a release and slice(0, 4) turned "sometime in
+    // the 90s" into "some". Showing the words is worse than showing a year and
+    // better than showing four characters of one.
+    return p ? formatYear(p.year) : String(v || '').trim()
+  }
   const b = year(p?.born)
   const d = year(p?.died)
   if (b && d) return t('people.lifespan.range', { born: b, died: d })
@@ -1049,8 +1060,10 @@ function PersonLinksDetail({ links }) {
 function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
   const { ask, confirmDialog } = useConfirm()
   const [bio, setBio] = useState(initial?.bio || '')
-  const [born, setBorn] = useState(initial?.born || '')
-  const [died, setDied] = useState(initial?.died || '')
+  // The editable phrase, not the column: '-0004' is how 4 BCE is stored and not
+  // how anybody writes it. See partialDateInputValue.
+  const [born, setBorn] = useState(partialDateInputValue(initial?.born || ''))
+  const [died, setDied] = useState(partialDateInputValue(initial?.died || ''))
   const [links, setLinks] = useState(initial?.links || '')
   const [imageUrl, setImageUrl] = useState('')
   const [clearImage, setClearImage] = useState(false)
@@ -1165,10 +1178,14 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
     e.stopPropagation()
     // Born/died are partial dates (§3f): a year, a year-month, or a full day —
     // whatever is actually known. Same rule and same picker as a read's dates.
-    if (born.trim() && !isPartialDate(born.trim())) {
+    //
+    // HISTORICAL, unlike a read's dates, which is the one place the two part
+    // company: Seneca was born in 4 BCE and Sophocles in 497, and a form that
+    // demanded four digits and a year past 1000 could hold neither.
+    if (born.trim() && !isPartialDate(born.trim(), { historical: true })) {
       return setError(t('error.validate.born-date'))
     }
-    if (died.trim() && !isPartialDate(died.trim())) {
+    if (died.trim() && !isPartialDate(died.trim(), { historical: true })) {
       return setError(t('error.validate.died-date'))
     }
     setBusy(true)
@@ -1177,8 +1194,8 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
       kind,
       name,
       bio: bio.trim(),
-      born: born.trim(),
-      died: died.trim(),
+      born: partialDateValue(parsePartialDate(born, { historical: true })),
+      died: partialDateValue(parsePartialDate(died, { historical: true })),
       links: links.trim(),
       source: initial?.source || 'manual',
       source_id: initial?.source_id || '',
@@ -1221,12 +1238,14 @@ function PersonForm({ kind, name, initial, onCancel, onSaved, onRenamed }) {
           value={born}
           onChange={setBorn}
           placeholder={t('people.form.born.placeholder')}
+          historical
         />
         <PartialDateField
           label={isOrg ? t('people.form.closed.label') : t('common.field.died.label')}
           value={died}
           onChange={setDied}
           placeholder={isOrg ? t('people.form.closed.placeholder') : t('people.form.died.placeholder')}
+          historical
         />
       </div>
       <div>

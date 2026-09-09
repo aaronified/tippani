@@ -218,7 +218,7 @@ func (u *utteranceReq) validate() string {
 	// reimplemented: same three shapes, same calendar checks, same message, so
 	// the two places in the app that accept a partial date cannot disagree about
 	// what one is.
-	if msg := normalizePartialDate("occasion date", &u.OccasionDate); msg != "" {
+	if msg := normalizeHistoricalDate("occasion date", &u.OccasionDate); msg != "" {
 		return msg
 	}
 	return ""

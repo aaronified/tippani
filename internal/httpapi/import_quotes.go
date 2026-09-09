@@ -291,7 +291,7 @@ func writeUtterances(tx *sql.Tx, uid int64, us []importer.Utterance, seps metada
 		}
 		occDate := strings.TrimSpace(u.OccasionDate)
 		if occDate != "" {
-			if msg := normalizePartialDate("occasion date", &occDate); msg != "" {
+			if msg := normalizeHistoricalDate("occasion date", &occDate); msg != "" {
 				olog.Warnf(olog.CodeImportRowScan,
 					"[import] dropping unusable occasion date %q on an approved quote: %s", u.OccasionDate, msg)
 				occDate = ""

@@ -160,9 +160,14 @@ func TestUtteranceValidation(t *testing.T) {
 	c.mustDo("POST", "/quotes", map[string]any{"note": "just a note"}, http.StatusBadRequest)
 	c.mustDo("POST", "/quotes", map[string]any{"quote": "   "}, http.StatusBadRequest)
 
-	// The occasion date is partial by design, and validated by the same rule the
-	// shelf read log uses.
-	for _, bad := range []string{"1944-13", "44", "1944-02-30", "not a date", "0999"} {
+	// The occasion date is partial by design, and validated by
+	// normalizeHistoricalDate — NO LONGER by the same rule the shelf read log
+	// uses, which is why "44" and "0999" left this list. When a line was SAID is a
+	// date in history and takes any year in either era; when a book was FINISHED is
+	// a date in the reader's own life and keeps the 1000-3000 window. See
+	// historical_date_test.go, which asserts that difference directly, and the
+	// report that split them: "i cannot even add just 399".
+	for _, bad := range []string{"1944-13", "1944-02-30", "not a date", "0000", "3001"} {
 		body := bose()
 		body["occasion_date"] = bad
 		c.mustDo("POST", "/quotes", body, http.StatusBadRequest)

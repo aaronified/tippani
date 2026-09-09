@@ -488,7 +488,7 @@ export function screenFav(d, movieMap) {
 export function quoteFav(u) {
   // 0053. The kind's word, falling back to the old free-text medium — the same
   // rule utteranceMeta follows, spelled through the same helper.
-  const rest = [u.occasion, formatPartialDate(u.occasion_date), u.place, quoteKindMeta(u)].filter(Boolean)
+  const rest = [u.occasion, formatPartialDate(u.occasion_date, u.occasion_circa), u.place, quoteKindMeta(u)].filter(Boolean)
   return {
     key: `quote:${u.id}`,
     kind: 'quote',
@@ -804,7 +804,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         quote: f.raw.quote, translation: f.raw.translation, note: f.raw.note,
         category: f.raw.category, language: f.raw.language,
         speaker: f.raw.speaker, occasion: f.raw.occasion,
-        when: formatPartialDate(f.raw.occasion_date), place: f.raw.place, medium: quoteKindMeta(f.raw),
+        when: formatPartialDate(f.raw.occasion_date, f.raw.occasion_circa), place: f.raw.place, medium: quoteKindMeta(f.raw),
         date: fmtDate(f.raw.noted_at || f.raw.created_at),
         tags: f.raw.tags, color: f.raw.color, people: speakerMap, seps,
       })
