@@ -122,7 +122,37 @@ export function Face({ src, name, className = 'cs-face', imgClass, url = coverIm
   // the glyph after the picture is replaced, because React reuses the component
   // and the flag outlives the src it was set for.
   const [arrived, setArrived] = useState(false)
-  useEffect(() => { setBroken(false); setArrived(false) }, [path])
+  // AND A CACHED PICTURE NEVER FIRES `load` — the same fact `PortraitBlock` states
+  // twenty lines down and works around for its MEASUREMENT, which this flag did
+  // not. The consequence was not a missing caption but a permanent animation: the
+  // sweep below is `1.1s linear infinite`, it is gated on this flag, and a picture
+  // already in the browser's cache never fires the event that clears it. So the
+  // hero portrait on a character or a person sheet swept for as long as the panel
+  // stayed open, on every visit after the first. The owner: "i keep on getting
+  // flickers even long after the popup is opened… and i never saw anything pending
+  // to load." Nothing WAS pending; that was the whole of it.
+  //
+  // `complete` MEANS FINISHED, NOT SUCCEEDED, so `naturalWidth` decides which:
+  // a cached FAILURE is complete with a zero width and fires no `error` either,
+  // which left the zoom button live over a picture that was never coming.
+  const own = useRef(null)
+  const hold = (node) => {
+    own.current = node
+    if (typeof imgRef === 'function') imgRef(node)
+    else if (imgRef) imgRef.current = node
+  }
+  useEffect(() => {
+    setBroken(false)
+    setArrived(false)
+    const img = own.current
+    if (!img || !img.complete) return
+    if (img.naturalWidth > 0) setArrived(true)
+    else { setBroken(true); onBroken?.() }
+    // `onBroken` is the caller's and is read rather than tracked: adding it to the
+    // deps would re-run this on every render that hands a fresh closure, which is
+    // every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path])
   const empty = !path || broken
   // A MARK ONLY WHERE THE BROWSER IS ACTUALLY FETCHING. `loading` defaults to
   // lazy here, and a lazy picture that is off-screen has not been REQUESTED —
@@ -164,7 +194,7 @@ export function Face({ src, name, className = 'cs-face', imgClass, url = coverIm
             // editor instead and captioned somebody else's 180×270 as the
             // record's own. A ref cannot pick the wrong element: where there is
             // no picture there is nothing to point at.
-            ref={imgRef}
+            ref={hold}
             src={url(path)}
             // SOME STYLESHEETS DRESS THE PICTURE AND NOT ITS BOX — a board's
             // tile, a binned record's face — and those callers keep their class

@@ -123,3 +123,67 @@ describe('and no mark where there is nothing coming', () => {
     expect(marked(), 'the one face that IS being fetched says nothing about it').toBe(1)
   })
 })
+
+// AND A PICTURE ALREADY IN THE CACHE IS NOT A PICTURE THAT IS COMING.
+//
+// THE OWNER'S REPORT: "i keep on getting flickers even long after the popup is
+// opened", on the character and actor sheets, "and i never saw anything pending to
+// load". Nothing WAS pending — that is the whole of it.
+//
+// THE MECHANISM. The mark is `animation: img-wait-sweep 1.1s linear infinite`, and
+// it is gated on the picture not having arrived. Arrival was learned from the
+// `load` event alone, and a cached image fires no `load` — so on every visit after
+// the first, the hero portrait swept for as long as the panel stayed open. Not a
+// wait described wrongly: a wait that never ended.
+//
+// `PortraitBlock` HAD ALREADY LEARNED THIS, twenty lines away, and says so in its
+// own comment — it measures an image that is `complete` instead of waiting for an
+// event that will not come. The same fact had to reach the arrival flag.
+//
+// AND `complete` MEANS FINISHED, NOT SUCCEEDED. A cached FAILURE is complete with
+// a zero natural width and fires no `error` either, so the two cases are told
+// apart by the width rather than by the flag.
+describe('a picture the browser already has', () => {
+  const complete = (width) => {
+    // jsdom loads nothing, so `complete` is what the app reads and what a test has
+    // to be able to state. Defined per-element, restored by cleanup.
+    const proto = window.HTMLImageElement.prototype
+    const had = { c: Object.getOwnPropertyDescriptor(proto, 'complete'), n: Object.getOwnPropertyDescriptor(proto, 'naturalWidth') }
+    Object.defineProperty(proto, 'complete', { configurable: true, get: () => true })
+    Object.defineProperty(proto, 'naturalWidth', { configurable: true, get: () => width })
+    return () => {
+      if (had.c) Object.defineProperty(proto, 'complete', had.c)
+      if (had.n) Object.defineProperty(proto, 'naturalWidth', had.n)
+    }
+  }
+
+  it('wears no waiting mark at all, and never starts one', async () => {
+    const restore = complete(600)
+    try {
+      render(<Face src="cached.jpg" name="Itkovian" url={(x) => x} loading="eager" />)
+      // SAMPLED ACROSS THE WHOLE DELAY AND HOLD, not just at the end: the mark is
+      // lagged on deliberately, so a check at one instant can miss a sweep that
+      // starts late and then runs forever.
+      for (let i = 0; i < 12; i++) {
+        await act(async () => { vi.advanceTimersByTime(100) })
+        expect(document.querySelector('.img-wait'),
+          `a picture already in the cache is being described as still coming (at ${(i + 1) * 100}ms)`)
+          .toBeNull()
+      }
+    } finally { restore() }
+  })
+
+  it('and a cached failure draws the stand-in rather than a permanent sweep', async () => {
+    // Complete with no pixels: the request finished and there is nothing to show.
+    // No `error` event is coming either, so this is the only signal there is.
+    const restore = complete(0)
+    try {
+      render(<Face src="gone.jpg" name="Itkovian" url={(x) => x} loading="eager" />)
+      await act(async () => { vi.advanceTimersByTime(1200) })
+      expect(document.querySelector('.img-wait'),
+        'a picture that already failed is being animated as if it were on its way').toBeNull()
+      expect(document.querySelector('img'),
+        'a picture that already failed is still being drawn as one').toBeNull()
+    } finally { restore() }
+  })
+})

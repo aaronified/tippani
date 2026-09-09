@@ -324,6 +324,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The portrait on a character's or a person's page has stopped shimmering.** The soft
+  sweep that means "this picture is still coming" was drawn over the hero portrait for as
+  long as the page stayed open, on every visit after the first — a flicker with nothing
+  behind it, because the picture had already arrived. A picture the browser already holds
+  in its cache announces no arrival, and that was the only signal being listened for. One
+  that has already failed now shows the silhouette straight away instead of being animated
+  as though it were on its way.
+
 - **A character's or a person's name can be changed, and their other spellings edited, on
   their own page.** The pencil beside the name opened a row of spelling chips at the very
   bottom of the sheet — below everything, so the press looked like it did nothing — and the
