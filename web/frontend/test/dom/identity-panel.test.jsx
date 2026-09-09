@@ -73,17 +73,28 @@ function InPanel({ panel }) {
 }
 const inPanel = (panel) => <InPanel panel={panel} />
 
-// openSpellings — press the name row, which is what reveals the chips.
+// openSpellings — press the name row, which opens the record's names as one field.
 //
-// THE ROW IS THE DISPLAY AND THE CHIPS ARE ITS EDITOR, which is how the design
-// pack draws every row it has: the row lists every spelling as its second line,
-// so a chip list open beneath it printed each alias twice and left the reader
-// working out whether the two lists were the same thing. Split is a verb per
-// spelling and cannot live in a single line of them, so the chips stayed — behind
-// the press rather than beside it.
+// WHAT THE PRESS DOES CHANGED, and the tests below moved with it rather than being
+// relaxed. It used to toggle a chip row at the FOOT of the sheet — far below the
+// row that opened it, which is why the owner reported the row as doing nothing —
+// and there was no way to change the printing NAME at all, because the endpoint
+// that can (`PUT /{table}/{id}/names`) had no caller. The press opens that field
+// now: one line per spelling, the first being the one that prints.
+//
+// The chips remain, no longer behind the press, and carry the one verb a textarea
+// has nowhere to put: split, which gives a spelling its own record.
 const openSpellings = async (label) => {
   const row = (await screen.findByText(label)).closest('.cs-row')
   act(() => row.click())
+}
+
+// The names field the press opens, and the header ✓ that writes it.
+const namesField = () => document.querySelector('textarea')
+const saveNames = async () => {
+  const tick = [...document.querySelectorAll('button')].find((b) => b.getAttribute('type') === 'submit')
+  expect(tick, 'the names field offers no way to confirm').toBeTruthy()
+  await act(async () => { tick.click() })
 }
 
 beforeEach(() => {
@@ -502,33 +513,49 @@ describe('adding a link from an id', () => {
 })
 
 describe('the aliases are what find the record', () => {
-  it('adds one and shows it back from the reload, not from local state', async () => {
+  it('adds one, and the record redraws from what the server stored', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
     await openSpellings('Canonical name')
-    // TWICE ON SCREEN BY DESIGN: the name row lists every spelling and the chip
-    // below it is that row's editor, so a count is not the assertion — that the
-    // reload brought the new one back is.
-    await screen.findAllByText('Messire')
+    // THE FIELD OPENS WITH WHAT IS STORED, printing name first — so the reader
+    // adds a line rather than retyping the set.
+    const box = namesField()
+    expect(box, 'the name row opened no field').toBeTruthy()
+    expect(box.value.split('\n')[0], 'the field does not open on the printing name').toBe('Woland')
+    expect(box.value, 'an existing spelling is missing, so a save would delete it').toMatch(/Messire/)
 
-    fireEvent.change(screen.getByPlaceholderText('another spelling…'), { target: { value: 'the professor' } })
-    act(() => screen.getByText('Add').closest('button').click())
-    await screen.findAllByText('the professor')
-    expect(CALLS.some(([m, p, b]) => m === 'POST' && p === '/characters/3/aliases' && b.alias === 'the professor')).toBe(true)
+    await act(async () => {
+      fireEvent.change(box, { target: { value: `${box.value}\nthe professor` } })
+    })
+    await saveNames()
+    // THE WHOLE SET IN ONE WRITE, which is what the endpoint takes: it replaces
+    // the names and makes the first non-empty line the one that prints. The
+    // assertion that matters is unchanged from when this was a per-alias POST —
+    // that the new spelling reached the SERVER, not that local state grew.
+    const wrote = CALLS.find(([m, p]) => m === 'PUT' && p === '/characters/3/names')
+    expect(wrote, `nothing reached /characters/3/names — calls were ${JSON.stringify(CALLS.map((c) => c.slice(0, 2)))}`)
+      .toBeTruthy()
+    expect(wrote[2].text, 'the added spelling was not in the write').toMatch(/the professor/)
+    expect(wrote[2].text.split('\n')[0], 'the write would have renamed the record').toBe('Woland')
   })
 
-  it('removes one by its own chip', async () => {
+  it('and takes one off by dropping its line', async () => {
     const stack = { push: vi.fn(), open: vi.fn() }
     render(body(characterPanel(stack, { id: 3, name: 'Woland' })))
     await openSpellings('Canonical name')
-    const chip = [...document.querySelectorAll('.tp-chip, .alias-chip')]
-      .find((c) => /Messire/.test(c.textContent)) || (await screen.findAllByText('Messire')).at(-1).closest('span')
-    // TWO CONTROLS ON THE CHIP NOW, and the × is the second: characters offer
-    // split-out as well, which 0056 shipped an endpoint for and only the person
-    // panel ever wired up. So a reader who welded two Wolands together had a way
-    // back on one of the two tables.
-    act(() => within(chip).getByLabelText(/Remove the spelling Messire/).click())
-    await waitFor(() => expect(screen.queryByText('Messire')).toBeNull())
+    const box = namesField()
+    await act(async () => {
+      fireEvent.change(box, {
+        target: { value: box.value.split('\n').filter((l) => !/Messire/.test(l)).join('\n') },
+      })
+    })
+    await saveNames()
+    const wrote = CALLS.find(([m, p]) => m === 'PUT' && p === '/characters/3/names')
+    expect(wrote, 'nothing reached the names endpoint').toBeTruthy()
+    expect(wrote[2].text, 'the removed spelling is still in the write').not.toMatch(/Messire/)
+    // AND THE RECORD IS STILL NAMED, which is the refusal `setNames` exists for:
+    // a set with no name is a record nobody can find again.
+    expect(wrote[2].text.trim(), 'the write left the record with no name at all').toBeTruthy()
   })
 
   it('offers split-out on a character, not only on a person', async () => {

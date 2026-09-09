@@ -324,6 +324,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A character's or a person's name can be changed, and their other spellings edited, on
+  their own page.** The pencil beside the name opened a row of spelling chips at the very
+  bottom of the sheet — below everything, so the press looked like it did nothing — and the
+  name itself could not be changed at all. It now opens the names as one field: one line per
+  spelling, the first being the one that prints on quotes and credits. Renaming there reaches
+  every work. "Split out", which gives one spelling its own record, stays on the chips, because
+  it is a verb about a single spelling and a list of lines has nowhere to put it.
+
+- **The quotes · favourited pair now sits just above the Links section**, on a work's details,
+  a person and a character — the three sheets that have one. A character seen inside one work
+  has no links of its own (they belong to the record), so there the pair keeps its place under
+  the portrait.
+
 - **The provider marks are back on every links pill, id and field.** IMDb, TMDB, Wikipedia
   and the rest were showing as bare words with an empty gap where their mark should be —
   on a person's links, a work's links and ids, and the small mark beside every field

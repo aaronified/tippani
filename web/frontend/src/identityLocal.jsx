@@ -379,6 +379,14 @@ export function CharacterLocal({
           adds the favourite chip, so the two go to DIFFERENT places — they went to
           the same one while the second count was the locator, which is two doors
           onto one screen and a figure whose door said nothing about it. */}
+      {/* THE PAIR SITS ABOVE THE LINKS SECTION ON EVERY OTHER SHEET — the owner's
+          placement, "just above links section, for all popups" — and this is the
+          one sheet with no links to be above. A work-scoped sheet has no addresses
+          of its own: a character's links belong to the RECORD and are edited a
+          door away, on the global screen, because a link is not a fact about one
+          work. So the pair keeps its place under the portrait here, which is the
+          same relative position it holds on the others: after the picture, before
+          the rows. */}
       <PairRow
         cells={quotePairCells({
           quotes,

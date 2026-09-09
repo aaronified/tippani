@@ -6596,6 +6596,13 @@ identity.section.works.label.other = Works · {n}
 identity.section.itself.label.character = The identity itself
 identity.section.itself.label.person = This person
 identity.section.itself.label.company = This company
+# THE RECORD'S NAMES, EDITED AS ONE FIELD, which is what the server has always
+# taken: PUT /{characters|people}/{id}/names replaces the whole set, first
+# non-empty line becoming the name that prints. The row used to open a chip row
+# of aliases and no way to change the name at all — the owner: "i am unable to
+# change the canonical name or add aliases".
+identity.row.canonical.hint = One name per line. The first line is the name that prints everywhere; the rest are spellings search will find. Renaming here reaches every work.
+identity.row.canonical.saved = Names saved — the first line prints
 identity.row.canonical.label = Canonical name
 identity.row.canonical.alone = The only spelling on record
 identity.row.name.label = Name

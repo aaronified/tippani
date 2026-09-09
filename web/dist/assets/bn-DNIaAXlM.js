@@ -6485,6 +6485,10 @@ identity.section.works.label.other = কাজ · {n}
 identity.section.itself.label.character = পরিচয়টা নিজেই
 identity.section.itself.label.person = এই মানুষটি
 identity.section.itself.label.company = এই সংস্থাটি
+# রেকর্ডের নামগুলো একটাই ঘরে — সার্ভার বরাবর গোটা সেটই নেয়, আর প্রথম খালি-নয় লাইনটাই
+# ছাপা নাম হয়।
+identity.row.canonical.hint = এক লাইনে একটা নাম। প্রথম লাইনটাই সব জায়গায় ছাপা হয়; বাকিগুলো খোঁজে পাওয়া যাবে। এখানে নাম বদলালে সব কাজে বদলায়।
+identity.row.canonical.saved = নাম সেভ হয়েছে — প্রথম লাইনটা ছাপা হবে
 identity.row.canonical.label = আসল নাম
 identity.row.canonical.alone = রেকর্ডে এই একটাই বানান
 identity.row.name.label = নাম

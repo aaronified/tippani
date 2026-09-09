@@ -110,6 +110,55 @@ export function characterPanel(stack, { id, name, work = null, onSearch = null, 
   }
 }
 
+// openRecordNames — the record's names, edited as ONE field on either table.
+//
+// THE ENDPOINT HAS EXISTED SINCE 0056 AND HAD NO CALLER. `PUT
+// /{characters|people}/{id}/names` replaces the whole set and makes the first
+// non-empty line the name that PRINTS — `store.setNames`, whose own note says
+// "the field's whole point is that the printing name may have moved". Nothing in
+// the app ever called it, so the pencil on the Canonical name row toggled a chip
+// row of aliases at the FOOT of the sheet and the name itself could not be
+// changed at all. The owner: "i am unable to change the canonical name or add
+// aliases (global character screen)."
+//
+// ONE FUNCTION FOR BOTH TABLES, because it is one behaviour on two screens that
+// draw the same row — the repo's directive, and the reason the person sheet's
+// gap is closed by the same change. That sheet had a SECOND kind of dead wire:
+// `onRename` was passed to `PersonGlobal`, which has never declared the prop, so
+// it renamed nothing and drew nothing either.
+//
+// THE SAME SHAPE THE LOCAL SHEET USES (`openNames`), deliberately: a reader who
+// has edited a cast row's names meets the identical field here. What differs is
+// the reach, and the hint says so — a rename here moves the name on every work.
+function recordNamesPicker({ table, id, name, aliases, setPicker, setErr, load }) {
+  return {
+    id: `${table}-names-${id}`,
+    title: t('identity.row.canonical.label'),
+    hint: t('identity.row.canonical.hint'),
+    saveTip: t('identity.picker.save.tip'),
+    fields: [{
+      key: 'names',
+      label: t('identity.row.canonical.label'),
+      value: [name || '', ...(aliases || [])].join('\n'),
+      rows: 4,
+      placeholder: t('identity.local.names.placeholder'),
+      required: true,
+    }],
+    save: async (d) => {
+      // `text` RATHER THAN `lines`, which is the half of the endpoint's contract
+      // that fits a textarea: decodeNameLines splits on newlines itself and
+      // setNames drops the blanks, so a reader who pressed Enter twice does not
+      // get a refusal.
+      const r = await json('PUT', `/${table}/${id}/names`, { text: String(d.names || '') })
+      if (!r.ok) return setErr(errText(r))
+      setErr('')
+      setPicker(null)
+      toast(t('identity.row.canonical.saved'))
+      load()
+    },
+  }
+}
+
 // choosePanel — the question, as a panel on the same stack as its answers.
 //
 // SEE `ChooseList` for why this is a panel rather than a modal. In short: the
@@ -476,6 +525,14 @@ function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
                 size and broke the rule: a character renders in the reader's own face,
                 off the baseline every other glyph shares. `IconClose` takes a size,
                 so the drawing can be small without stopping being the app's. */}
+            {/* AND THE ✕ FOLLOWS ITS HANDLER, exactly as `onSplit` above already
+                did. The record's names are edited as one field now
+                (`recordNamesPicker`), so removing a spelling belongs there —
+                these chips are where SPLIT lives, because "give this spelling its
+                own record" is a verb per spelling and a textarea has nowhere to
+                put it. Two editors for one fact is what the local sheet's own
+                "ONE EDITOR, NOT TWO" note was written about. */}
+            {onRemove && (
             <button
               type="button"
               aria-label={t('identity.alias.remove.aria', { alias: a })}
@@ -487,6 +544,7 @@ function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
             >
               <IconClose size="1em" />
             </button>
+            )}
           </span>
         ))}
       </div>
@@ -496,6 +554,7 @@ function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
       {onSplit && aliases.length > 0 && (
         <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.alias.split.tip')}</p>
       )}
+      {onAdd && (
       <div className="flex items-center gap-2">
         <input
           className="tp-input"
@@ -513,6 +572,7 @@ function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
           {t('identity.alias.add.label')}
         </GhostButton>
       </div>
+      )}
     </div>
   )
 }
@@ -937,7 +997,6 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
   const [choose, setChoose] = useState(null)
   const { data, err, setErr, load } = useRecord(`/people/id/${id}`)
   // Same disclosure as the character screen, for the same reason. See there.
-  const [names, setNames] = useState(false)
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
   const [linkDialog, setLinkDialog] = useState(false)
@@ -1106,17 +1165,6 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
   const linkAdder = useLinkAdder({ form, setBusy, setErr, setDialog: setLinkDialog, load })
   const addProviderLink = linkAdder(`/people/id/${id}`)
 
-  const addAlias = async (alias) => {
-    const r = await json('POST', `/people/id/${id}/aliases`, { alias })
-    if (!r.ok) return setErr(errText(r))
-    setErr('')
-    load()
-  }
-  const removeAlias = async (alias) => {
-    const r = await json('DELETE', `/people/id/${id}/aliases?alias=${encodeURIComponent(alias)}`)
-    if (!r.ok) return setErr(errText(r))
-    load()
-  }
   // SPLIT IS NOT UNDO AND THE TOAST SAYS SO. It hands back a record with the name;
   // the works stay with this one, because the schema does not remember which of
   // them was credited to the record that got folded in. Saying that in the toast
@@ -1167,13 +1215,15 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
             </>
           }
           portraitEditor={personPicture.pictureEditor}
-          onNames={() => setNames((v) => !v)}
+          onNames={() => setPicker(recordNamesPicker({
+            table: 'people', id, name: data.name, aliases: data.aliases,
+            setPicker, setErr, load,
+          }))}
           onSort={() => openPersonFact('sort_name', t('identity.field.sort'))}
           onBorn={() => openPersonFact('born', org ? t('people.form.founded.label') : t('identity.field.born'))}
           onDied={() => openPersonFact('died', org ? t('people.form.closed.label') : t('identity.field.died'))}
           onBio={() => openPersonFact('bio', t('common.field.bio.label'), { rows: 5 })}
           onNote={() => openPersonFact('note', t('identity.field.note'), { rows: 3 })}
-          onRename={() => openPersonFact('name', t('common.field.name.label'), { required: true })}
           onLinkAdd={() => setLinkDialog(true)}
           // THE WORK, NOT THE PERSON AGAIN. See usePersonOpener for what this
           // used to do and why the press produced a copy of the screen it was
@@ -1219,11 +1269,17 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
               their works and the two acts that end the screen
               (`character-popup.dc.html:1109-1168`), and a list of lines is none of
               those. Search is where a list of quotes belongs. */}
-          {names ? (
+          {/* WHERE SPLIT LIVES, and it no longer hangs off the pencil. That pencil
+              toggled this block at the FOOT of the sheet — far below the row that
+              opened it — which is why the row read as doing nothing, and it could
+              not change the name in any case. The names are one field now; these
+              chips carry the one verb that has nowhere to be in a textarea, and
+              they draw only when there is a spelling to split. */}
+          {(data.aliases || []).length ? (
             <>
               <MonoLabel>{t('identity.alias.title')}</MonoLabel>
               <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.alias.body')}</p>
-              <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
+              <AliasRow aliases={data.aliases} onSplit={splitAlias} />
             </>
           ) : null}
           {/* ONE EDITOR, NOT TWO. This screen drew the pack's rows — Name, Sort
@@ -1358,7 +1414,6 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
   // the row lists every spelling as its second line, so an always-open chip list
   // under it printed each alias twice and a reader had to work out whether the
   // two lists were the same thing.
-  const [names, setNames] = useState(false)
   // THE PACK'S CHOOSE SHEET, which the strip's tiles open. This was a disclosure
   // holding an inline card, and the card's own comment set the condition for its
   // retirement: "every per-work act — this work's picture, promoting it to the
@@ -1416,17 +1471,6 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
       if (await save({ ...form, [key]: d[key] ?? '' })) setPicker(null)
     },
   })
-  const addAlias = async (alias) => {
-    const r = await json('POST', `/characters/${id}/aliases`, { alias })
-    if (!r.ok) return setErr(errText(r))
-    setErr('')
-    load()
-  }
-  const removeAlias = async (alias) => {
-    const r = await json('DELETE', `/characters/${id}/aliases?alias=${encodeURIComponent(alias)}`)
-    if (!r.ok) return setErr(errText(r))
-    load()
-  }
   // SPLIT REACHES THE CHARACTER TABLE TOO, and always could — 0056 shipped
   // `/characters/{id}/split` beside the person one and only the person panel ever
   // offered it. A reader who merged two Wolands by mistake had a way back on one
@@ -2197,7 +2241,10 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
             </>
           }
           portraitEditor={globalPicture.pictureEditor}
-          onNames={() => setNames((v) => !v)}
+          onNames={() => setPicker(recordNamesPicker({
+            table: 'characters', id, name: data.name, aliases: data.aliases,
+            setPicker, setErr, load,
+          }))}
           onSort={() => openCharFact('sort_name', t('identity.field.sort'))}
           onBorn={() => openCharFact('born', t('identity.field.born'))}
           onDescription={() => openCharFact('description', t('identity.field.description'), { rows: 5 })}
@@ -2262,11 +2309,17 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
           {/* SPLIT HAS NOWHERE TO LIVE IN A ROW OF NAMES — it is a verb per
               spelling, and the row is one line of them — so the chips stay, as
               the row's editor rather than as a section of their own. */}
-          {names ? (
+          {/* WHERE SPLIT LIVES, and it no longer hangs off the pencil. That pencil
+              toggled this block at the FOOT of the sheet — far below the row that
+              opened it — which is why the row read as doing nothing, and it could
+              not change the name in any case. The names are one field now; these
+              chips carry the one verb that has nowhere to be in a textarea, and
+              they draw only when there is a spelling to split. */}
+          {(data.aliases || []).length ? (
             <>
               <MonoLabel>{t('identity.alias.title')}</MonoLabel>
               <p className="microcopy" style={{ color: 'var(--soft)' }}>{t('identity.alias.body')}</p>
-              <AliasRow aliases={data.aliases || []} onAdd={addAlias} onRemove={removeAlias} onSplit={splitAlias} />
+              <AliasRow aliases={data.aliases} onSplit={splitAlias} />
             </>
           ) : null}
           {/* ONE EDITOR, NOT TWO — the same fix `PersonBody` took one commit

@@ -1472,35 +1472,6 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
           : { title: item.title, year: item.release_year, mediaType: item.media_type || 'movie', tmdbId: item.tmdb_id, tvdbId: item.tvdb_id, igdbId: item.igdb_id }}
       />
 
-      {/* THE PAIR, OVER THIS WORK. The owner's scope named this screen —
-          "for all. people, character, details, all pages those two boxes are" —
-          and it had no pair: the counts a work carries were on its CARD in the
-          library and nowhere on its own sheet. Same two numbers and same words as
-          the three identity sheets, built by the one function in quotePair.jsx.
-
-          THE FIGURES ARE THE ONES THE CARD ALREADY DRAWS, off the list read —
-          `annotation_count` on a book, `dialogue_count` on a film — with a
-          favourite count added beside each in the same query. A second endpoint
-          would have been a second definition of "this work's quotes".
-
-          AND THE DOOR IS THIS WORK'S OWN FACET, by id: `book:` and `movie:` carry
-          the id on the wire and the title on the chip, which is what makes two
-          editions and the film of the book distinguishable. */}
-      <PairRow
-        cells={quotePairCells({
-          quotes: workQuotes,
-          favourites: item.favourite_count || 0,
-          ...quotePairDoors({
-            onSearch,
-            stack,
-            scope: kind === 'book' ? 'annotations' : 'dialogues',
-            chips: [{ field: kind === 'book' ? 'book' : 'movie', value: String(item.id), label: item.title }],
-          }),
-          quotesTip: 'identity.count.quotes.tip.work',
-          favouritesTip: 'identity.count.favourites.tip.work',
-        })}
-      />
-
       {/* THE CAST MOVED BEHIND THE PEOPLE DOOR, with the credits it belongs
           beside. It used to sit HERE, above the form — twenty rows of a film's
           cast between the cover and the first field, which is the list nobody can
@@ -1774,6 +1745,35 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
         />
       ) : null}
       {castTiles.length > 0 ? <FaceStrip tiles={castTiles} /> : null}
+
+      {/* THE PAIR, OVER THIS WORK. The owner's scope named this screen —
+          "for all. people, character, details, all pages those two boxes are" —
+          and it had no pair: the counts a work carries were on its CARD in the
+          library and nowhere on its own sheet. Same two numbers and same words as
+          the three identity sheets, built by the one function in quotePair.jsx.
+
+          THE FIGURES ARE THE ONES THE CARD ALREADY DRAWS, off the list read —
+          `annotation_count` on a book, `dialogue_count` on a film — with a
+          favourite count added beside each in the same query. A second endpoint
+          would have been a second definition of "this work's quotes".
+
+          AND THE DOOR IS THIS WORK'S OWN FACET, by id: `book:` and `movie:` carry
+          the id on the wire and the title on the chip, which is what makes two
+          editions and the film of the book distinguishable. */}
+      <PairRow
+        cells={quotePairCells({
+          quotes: workQuotes,
+          favourites: item.favourite_count || 0,
+          ...quotePairDoors({
+            onSearch,
+            stack,
+            scope: kind === 'book' ? 'annotations' : 'dialogues',
+            chips: [{ field: kind === 'book' ? 'book' : 'movie', value: String(item.id), label: item.title }],
+          }),
+          quotesTip: 'identity.count.quotes.tip.work',
+          favouritesTip: 'identity.count.favourites.tip.work',
+        })}
+      />
 
       {/* ── THE WAYS OUT OF THIS RECORD, IN ONE SECTION ──
           A pill per id the record holds and a pill per link the reader added, one

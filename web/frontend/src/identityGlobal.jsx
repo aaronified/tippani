@@ -271,23 +271,6 @@ export function CharacterGlobal({
       />
 
 
-      {/* THE PAIR, AND THE SCOPE IS THE WHOLE LIBRARY HERE. Same two numbers as
-          every other sheet, counted over everything this record has said rather
-          than over one work — see quotePair.jsx, which is the one place they are
-          built. The owner's scope for the swap named this screen and it had no
-          pair at all: "for all. people, character, details, all pages those two
-          boxes are." */}
-      <PairRow
-        cells={quotePairCells({
-          quotes: record.quotes || 0,
-          favourites: record.favourites || 0,
-          onQuotes: onQuoteSearch,
-          onFavourites: onFavouriteSearch,
-          quotesTip: 'identity.count.quotes.tip.character',
-          favouritesTip: 'identity.count.favourites.tip.character',
-        })}
-      />
-
       <SectionHead label={t('identity.section.identity.label')} note={t('identity.section.identity.note')} />
       <NamesRow
         label={t('identity.row.canonical.label')}
@@ -336,6 +319,23 @@ export function CharacterGlobal({
 
       {/* NO NOTE. "Where this character is written up outside the app" over a row
           of IMDb, TMDB and Wikipedia pills says what the pills say. */}
+      {/* THE PAIR, AND THE SCOPE IS THE WHOLE LIBRARY HERE. Same two numbers as
+          every other sheet, counted over everything this record has said rather
+          than over one work — see quotePair.jsx, which is the one place they are
+          built. The owner's scope for the swap named this screen and it had no
+          pair at all: "for all. people, character, details, all pages those two
+          boxes are." */}
+      <PairRow
+        cells={quotePairCells({
+          quotes: record.quotes || 0,
+          favourites: record.favourites || 0,
+          onQuotes: onQuoteSearch,
+          onFavourites: onFavouriteSearch,
+          quotesTip: 'identity.count.quotes.tip.character',
+          favouritesTip: 'identity.count.favourites.tip.character',
+        })}
+      />
+
       <SectionHead label={t('identity.section.links.label')} />
       <PillRow
         pills={pills}
@@ -463,26 +463,6 @@ export function PersonGlobal({
         editor={portraitEditor}
       />
 
-      {/* THE PAIR, OVER EVERYTHING THIS PERSON HAS SAID. Same two numbers and the
-          same words as the other three sheets — quotePair.jsx is the one place
-          they are built, which is what the owner's "for all" asks for. This
-          screen is the one they photographed with nothing here.
-
-          A PERSON'S LINES ARE LINKED THROUGH THEM, not through a character: the
-          server counts `dialogues.actor_id` and `utterances.speaker_id`, which is
-          the same linkage the list of lines further down this screen is built
-          from, so the number and the list cannot disagree. */}
-      <PairRow
-        cells={quotePairCells({
-          quotes: record.quotes || 0,
-          favourites: record.favourites || 0,
-          onQuotes: onQuoteSearch,
-          onFavourites: onFavouriteSearch,
-          quotesTip: 'identity.count.quotes.tip.person',
-          favouritesTip: 'identity.count.favourites.tip.person',
-        })}
-      />
-
       {/* THE NOTE IS A DEPARTURE, and the pack is the thing being departed from:
           `char-global` carries "Edits here reach every work." over exactly these
           rows and `people-global` carries nothing over the same three. The two
@@ -557,6 +537,26 @@ export function PersonGlobal({
       ) : null}
 
       {/* See CharacterGlobal: the pills are the sentence. */}
+      {/* THE PAIR, OVER EVERYTHING THIS PERSON HAS SAID. Same two numbers and the
+          same words as the other three sheets — quotePair.jsx is the one place
+          they are built, which is what the owner's "for all" asks for. This
+          screen is the one they photographed with nothing here.
+
+          A PERSON'S LINES ARE LINKED THROUGH THEM, not through a character: the
+          server counts `dialogues.actor_id` and `utterances.speaker_id`, which is
+          the same linkage the list of lines further down this screen is built
+          from, so the number and the list cannot disagree. */}
+      <PairRow
+        cells={quotePairCells({
+          quotes: record.quotes || 0,
+          favourites: record.favourites || 0,
+          onQuotes: onQuoteSearch,
+          onFavourites: onFavouriteSearch,
+          quotesTip: 'identity.count.quotes.tip.person',
+          favouritesTip: 'identity.count.favourites.tip.person',
+        })}
+      />
+
       <SectionHead label={t('identity.section.links.label')} />
       <PillRow
         pills={pills}
