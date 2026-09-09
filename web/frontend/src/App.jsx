@@ -1876,6 +1876,16 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // whichever book happens to share the number. A positive list rather than an
   // exclusion, so the next detail type cannot inherit the bug by default.
   const addFor = detail?.type === 'book' || detail?.type === 'movie' ? { type: detail.type, id: detail.id } : null
+  // THE BOARD YOU ARE STANDING ON, which is the answer to "where does this go"
+  // exactly as an open book is the answer to "which work". Its own prop rather
+  // than a second shape inside addFor: a target means a WORK all the way down to
+  // the picker, and widening it is how a board id ends up pre-filling a book.
+  //
+  // Read from `detail` at render rather than carried through openAdd, because
+  // unlike a duplicate's seeded fields this is never anything but where the
+  // reader is. Every door into the surface therefore gets it, including the
+  // keyboard shortcut.
+  const addBoard = detail?.type === 'board' ? detail.id : null
   const addLabel = t(addKind === 'quote' ? 'shell.add.quote.label' : addKind === 'film' ? 'shell.add.film.label' : 'shell.add.work.label')
 
   // The bar's search field, and what its pill says. The scope comes from the SAME
@@ -2333,6 +2343,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         open={addOpen}
         initialSection={addSec}
         initialTarget={addTarget}
+        initialBoard={addBoard}
         initialFields={addFields}
         pendingImport={pendingImport}
         sections={sections}

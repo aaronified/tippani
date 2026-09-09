@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A quote captured on a board is filed on that board.** Pressing ＋ inside a board of
+  Bengali proverbs opened the card that asks which *book* the line came from — on a screen
+  holding lines that came from no book at all — and anything saved from ＋ anywhere went to
+  whichever board the server files an unasked quote on. Both are gone: the capture card now
+  carries the board control the edit form has always had, pre-filled with the board you are
+  standing on, and ＋ on a board offers a standalone quote.
+  One defect wearing two faces. `addSection` read *any* open thing as a work, so a board and
+  an anthology were treated as a book; and the capture card never sent a board at all, so the
+  server's default answered a question nobody was asked. A board is now handed over
+  separately from the work target, because a board id read as a book id would pre-fill
+  whichever book happens to share the number.
+
 - **The Library sorts by the year a book came out.** *Year* joins Recent, Title, Author,
   Series and Last read on the Library's sort menu, newest first — the same sort the Movies
   list has always offered, under the same word, because it answers the same question.

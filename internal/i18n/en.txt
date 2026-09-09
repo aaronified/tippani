@@ -5323,6 +5323,7 @@ common.field.tmdb-id.label = TMDB id
 common.field.tvdb-id.label = TheTVDB id
 
 common.field.board.label = Board
+capture.board.default.label = Your default board
 common.field.anthology.label = Anthology
 common.field.sticker.label = Sticker
 

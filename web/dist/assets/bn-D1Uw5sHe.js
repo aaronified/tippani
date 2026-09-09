@@ -5310,6 +5310,7 @@ common.field.tmdb-id.label = TMDB id
 common.field.tvdb-id.label = TheTVDB id
 
 common.field.board.label = বোর্ড
+capture.board.default.label = আপনার ডিফল্ট বোর্ড
 common.field.anthology.label = সংকলন
 common.field.sticker.label = স্টিকার
 

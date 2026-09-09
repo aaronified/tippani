@@ -11,6 +11,7 @@ import { json, errText } from './api.js'
 import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { t } from './i18n.js'
 import { quoteKindOptions } from './quoteKind.js'
+import { useBoards } from './boards.jsx'
 import { CandidateRow, groupEditions } from './CoverPicker.jsx'
 import { ManualTab, isIsbn } from './Library.jsx'
 import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm, countOrNull } from './Movies.jsx'
@@ -677,7 +678,7 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
 const SITTING_KEY = 'tippani:lastCapture'
 const SITTING_MS = 30 * 60 * 1000
 
-export function CaptureQuote({ initialTarget = null, initialFields = null, initialStandalone = false, onCaptured, onWorkCreated, onSaveState }) {
+export function CaptureQuote({ initialTarget = null, initialBoard = null, initialFields = null, initialStandalone = false, onCaptured, onWorkCreated, onSaveState }) {
   // The page behind an overlay does not move. Without this a wheel or a swipe
   // that runs past the end of the dialog scrolls the page you cannot see, and it
   // is still scrolled when you close this. Ref-counted, so a dialog opened from
@@ -709,6 +710,13 @@ export function CaptureQuote({ initialTarget = null, initialFields = null, initi
     // the same reason: a letter's recipient and an essay's page are known at the
     // moment the quote is typed, not later.
     region: '', recipient: '', workTitle: '', locator: '', circa: false,
+    // WHERE IT IS FILED, and until now this surface never asked. The board
+    // control has been on the edit form since boards shipped and every quote
+    // captured here went to whichever board the server calls the default, so a
+    // reader standing on their own Bengali proverbs board and pressing ＋ filed
+    // into Others and had to move it afterwards. null still means "let the
+    // server decide", which is what a capture from Home should do.
+    board: initialBoard ?? null,
     // A DUPLICATE ARRIVES SEEDED, and the seed is applied LAST so it wins over
     // the sitting's remembered colour and tags: the reader is copying a
     // particular quote, not continuing a session.
@@ -724,6 +732,10 @@ export function CaptureQuote({ initialTarget = null, initialFields = null, initi
   // question outright instead. (§24)
   const [standalone, setStandalone] = useState(initialStandalone)
   useEffect(() => { setStandalone(initialStandalone) }, [initialStandalone])
+  // The same loader the Quotes screen uses, so the two cannot disagree about
+  // which boards exist or what they are called. One GET when the card opens;
+  // the card is only mounted while the capture tab is showing.
+  const { boards } = useBoards()
 
   useEffect(() => {
     Promise.all([json('GET', '/books'), json('GET', '/movies')]).then(([rb, rm]) => {
@@ -834,6 +846,7 @@ export function CaptureQuote({ initialTarget = null, initialFields = null, initi
           recipient: draft.recipient.trim(),
           work_title: draft.workTitle.trim(),
           locator: draft.locator.trim(),
+          board_id: draft.board,
           occasion_circa: draft.circa,
           color: draft.color,
           tags,
@@ -1015,6 +1028,24 @@ export function CaptureQuote({ initialTarget = null, initialFields = null, initi
               <input className="tp-input" placeholder={t('common.field.place.placeholder')} value={draft.place} onChange={(e) => set({ place: e.target.value })} />
             </label>
           </div>
+          {/* WHERE IT IS FILED — the same control the edit form draws, in the same
+              order relative to the kind beside it, because they are the two
+              questions that look alike and must not behave differently. Pre-filled
+              when the ＋ was pressed on a board's own page: you have already
+              answered "which board" by standing there, and asking again is asking
+              a question twice. Drawn only when there are boards to choose between
+              — a label naming a control that is not there is worse than neither. */}
+          {(boards || []).length > 0 && (
+            <label className="tp-field">
+              <MonoLabel>{t('common.field.board.label')}</MonoLabel>
+              <Select
+                ariaLabel={t('common.field.board.label')}
+                value={draft.board == null ? '' : String(draft.board)}
+                onChange={(v) => set({ board: v === '' ? null : Number(v) })}
+                options={[['', t('capture.board.default.label')], ...(boards || []).map((b) => [String(b.id), b.name])]}
+              />
+            </label>
+          )}
           {/* 0053. Five words, chosen, where a free-text "Medium" box used to be:
               the Quotes board groups by this, and grouping on something typed
               gives one shelf per spelling. Unset is the default and a real
@@ -1231,6 +1262,10 @@ export default function AddSurface({
   open,
   initialSection = 'book',
   initialTarget = null,
+  // THE BOARD A STANDALONE QUOTE IS FILED ON, when the ＋ was pressed on that
+  // board's own page. Distinct from initialTarget, which means a work — see the
+  // note beside addBoard in App.jsx.
+  initialBoard = null,
   // A DRAFT TO OPEN ON, rather than a blank form. Only the duplicate verb sets
   // it; everything else opens cold, which is what the picker's own note argues
   // for ("a search-first picker with a silently pre-filled work invites
@@ -1348,6 +1383,7 @@ export default function AddSurface({
       {tab === 'quote' && (
         <CaptureQuote
           initialTarget={initialTarget}
+          initialBoard={initialBoard}
           initialFields={initialFields}
           initialStandalone={initialSection === 'standalone'}
           onCaptured={onCaptured}

@@ -229,6 +229,19 @@ describe('the shell controls', () => {
     expect(addSection('quotes', null)).toBe('standalone')
   })
 
+  // A BOARD IS NOT A WORK, and it is a detail like any other. Standing inside a
+  // board of proverbs and pressing ＋ has to offer a proverb — not the card that
+  // asks which book the line came from, on a screen holding lines that came from
+  // no book at all. An anthology is the same shape: nothing on that screen adds
+  // an entry (its own note says the server has no route for one), so its ＋ means
+  // what the list behind it means and not a highlight against a work.
+  it('still offers a standalone quote when the open thing is a board', () => {
+    expect(addSection('quotes', { type: 'board', id: 7 })).toBe('standalone')
+    expect(addSection('anthologies', { type: 'anthology', id: 2 })).toBe(
+      addSection('anthologies', null),
+    )
+  })
+
   it('pre-scopes search to the side you are on', () => {
     expect(searchScope('library', null)).toBe('books')
     expect(searchScope('movies', null)).toBe('movies')

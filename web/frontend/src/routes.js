@@ -296,7 +296,16 @@ export function helpScreen(tab, detail) {
 // Shell pairs this with `addFor`, the target), because on a book's own page "add"
 // means a highlight, not another book. Everywhere else it is the plain look-up card.
 export function addSection(tab, detail) {
-  if (detail) return 'quote'
+  // A POSITIVE LIST, and it used to be `if (detail)`. Only a book or a film you
+  // have open makes ＋ mean "a highlight against this thing" — and those two are
+  // also the only types `addFor` will hand over as a target, for the reason its
+  // own comment gives. A BOARD IS A DETAIL TOO, and so is an anthology, so `if
+  // (detail)` opened the card that asks which book a line came from while
+  // standing on a screen full of lines that came from no book at all: on a board
+  // of proverbs, ＋ demanded a work before it would save anything. The board is
+  // handed over separately (addBoard), because a board id read as a book id
+  // would pre-fill whichever book happens to share the number.
+  if (detail?.type === 'book' || detail?.type === 'movie') return 'quote'
   if (tab === 'movies') return 'film'
   // The Quotes list holds quotes belonging to nothing, so ＋ there means one of
   // those — not a book, and not a highlight against a work you do not have open.
