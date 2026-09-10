@@ -34,11 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rather than on the row**: the chip is already there, and the row repeating it was the same
   fault one line down. A book highlight has worked that way since its chips landed; the
   standalone quote was the last place still able to print the name twice.
-- **A filed proverb no longer wears its language twice.** The card's line is now
-  *Bengali proverb*, and the little Bengali disc that used to sit in front of it — standing
-  in for the portrait a proverb has no room for — steps aside when the words already say it.
-  A proverb with no language recorded still gets the disc, because then it is the only thing
-  the row has.
+- **A proverb's language is on the first screen of its form now, not behind *Show all
+  fields*.** It is the one exception to the rule that puts the language behind the
+  disclosure everywhere, and it earns it: the card reads a proverb's whole attribution off
+  that box — *Bengali proverb* — so a proverb saved without opening the disclosure would say
+  nothing about itself at all. The little Bengali disc stays in front of the words, where it
+  stands in for the portrait a proverb has no room for.
 - **A poem quoted out of a book puts the poem's name in the chapter-name field**, and the
   card reads `{poem} from {book}` off that pair. "Chapter" over a box holding *Sonar Tori*
   is surprising for a moment and it is right: a poem in a collection is a chapter of it as

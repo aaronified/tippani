@@ -238,9 +238,20 @@ const FIELDS = {
   // Region behind the disclosure on their instruction ("proverb: region behind
   // show all"), which the measurement agrees with: none of the proverbs in a real
   // library has one, because the shipped starters arrive without.
+  // THE LANGUAGE IS ON THE FIRST SCREEN, AND ONLY HERE. The global rule puts it
+  // behind the disclosure everywhere ("language … it should be everywhere, behind
+  // show all") and the owner made this kind the exception once the card's shape was
+  // settled: "proverb language should be a first screen field."
+  //
+  // The reason is that the card now reads a proverb's attribution OFF THIS BOX —
+  // "{language} proverb", their correction of a first proposal that used the region
+  // — so a proverb saved without opening the disclosure would draw no attribution
+  // at all. The one line the card prints cannot come from a field the reader has to
+  // go looking for. It is also the field their own measurement showed filled on
+  // every proverb in a real library, which is what makes promoting it cost nothing.
   proverb: {
-    main: ['quote', 'board', 'translation', 'note', 'tags', 'color'],
-    more: ['region', 'language', 'sticker'],
+    main: ['quote', 'board', 'translation', 'language', 'note', 'tags', 'color'],
+    more: ['region', 'sticker'],
   },
 
   // ── other ─────────────────────────────────────────────────────────────────

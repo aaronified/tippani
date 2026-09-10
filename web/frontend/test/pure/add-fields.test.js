@@ -46,11 +46,26 @@ describe('the fields every kind of quote asks for', () => {
   })
 
   it('always hides the sticker and the language behind Show all fields', () => {
+    // ONE EXCEPTION, AND IT IS THE OWNER'S: "proverb language should be a first
+    // screen field." The card reads a proverb's whole attribution off that box —
+    // "{language} proverb" — so leaving it behind the disclosure means the one line
+    // the card prints comes from a field the reader has to go looking for, and a
+    // proverb saved without opening it draws no attribution at all.
+    //
+    // Named here rather than letting the rule go soft: an exception with a reason
+    // beside it survives the next sweep, and a loosened rule does not.
+    const EXCEPT = new Set(['proverb:language'])
     const offenders = QUOTE_DOORS.flatMap((door) => {
       const { main, more } = fieldsFor(door, { mediaType: 'movie' })
-      return ['sticker', 'language'].filter((f) => main.includes(f) || !more.includes(f)).map((f) => `${door}:${f}`)
+      return ['sticker', 'language']
+        .filter((f) => main.includes(f) || !more.includes(f))
+        .map((f) => `${door}:${f}`)
+        .filter((k) => !EXCEPT.has(k))
     })
     expect(offenders).toEqual([])
+    // And the exception is REAL, so a sweep that quietly demoted it again fails
+    // here rather than passing an emptier list.
+    expect(fieldsFor('proverb').main, 'the exception is no longer an exception').toContain('language')
   })
 
   // "except for quotes, language & translation also stays hidden everywhere" — so
@@ -182,7 +197,9 @@ describe('what each kind refuses to ask', () => {
       essay: 9,
       poem: 8,
       song: 8,
-      proverb: 6,
+      // Seven since the language came out from behind the disclosure, on the
+      // owner's ruling — the card's own attribution reads off that box.
+      proverb: 7,
       other: 7,
     }
     // Every door that draws a FORM — the two work-quote doors and the seven quote

@@ -134,11 +134,19 @@ describe('the mark that stands where a face would', () => {
   // attribution IS the language — "Bengali proverb" — so a Bengali script mark in
   // front of it is the same fact twice, which is the directive this whole change
   // came out of.
-  it('and steps aside when the attribution is the language', () => {
-    expect(markTitle({ quote: 'x', kind: 'proverb', language: 'Bengali' })).toBe('')
-    // The fact is still on the row — said once, in words.
+  // AND IT STAYS WHEN THE WORDS BESIDE IT NAME THE LANGUAGE TOO. I took it off a
+  // filed proverb — "Bengali proverb" with a Bengali disc in front looked like the
+  // language twice — and the owner put it back: "the script mark should be in the
+  // same row." The disc is not a printing of the language, it is the slot where
+  // every other quote carries a portrait, and a proverb is the one kind with nobody
+  // to credit. Without it this line alone begins with nothing.
+  it('and stays even when the attribution names the language', () => {
+    expect(markTitle({ quote: 'x', kind: 'proverb', language: 'Bengali' })).toBe('Bengali')
     show(rich({ quote: 'x', kind: 'proverb', language: 'Bengali' }))
-    expect(screen.getAllByTestId('meta').pop().textContent).toBe('Bengali proverb')
+    // `toContain`, not `toBe`: the disc holds a letter FROM the script, so it is
+    // part of the row's text content as well as its own titled element. Both are
+    // there, which is the point.
+    expect(screen.getAllByTestId('meta').pop().textContent).toContain('Bengali proverb')
   })
 
   it('returns an empty STRING for an unfiled proverb, not an empty element', () => {

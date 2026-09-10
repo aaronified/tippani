@@ -76,7 +76,7 @@ export function attribution(u, opts) {
 // a box whose contents show up nowhere is what taught readers to type the whole
 // attribution into Occasion in the first place.
 export function attributionParts(u, { piece = '', date = '' } = {}) {
-  if (!u) return { line: '', rest: [], spoke: [] }
+  if (!u) return { line: '', rest: [] }
   const kind = s(u.kind)
   const line = phrase(u, kind, piece)
   // The four the phrase may or may not have spoken for, in reading order — coarse
@@ -89,12 +89,13 @@ export function attributionParts(u, { piece = '', date = '' } = {}) {
     spoke.includes('place') ? '' : s(u.place),
     spoke.includes('locator') ? '' : s(u.locator),
   ].filter(Boolean)
-  // `spoke` is the table's own answer, handed back rather than re-derived: the card
-  // needs it to decide whether the LANGUAGE MARK beside this line is a second
-  // printing. On a proverb the phrase IS the language ("Bengali proverb"), so a
-  // Bengali script mark in front of it says one fact twice — which is the same
-  // directive that started this whole change.
-  return { line, rest, spoke }
+  // NO THIRD KEY. This returned `spoke` for one release-in-progress, so the card
+  // could ask whether the phrase had already named the language and drop the script
+  // mark if it had. The owner overruled that — "the script mark should be in the
+  // same row" — and an unused return key is the same dead surface as the
+  // `omitSpeaker` flag deleted one commit earlier, so it goes with the reason for
+  // it. `CONSUMES` stays internal, which is where a table with one reader belongs.
+  return { line, rest }
 }
 
 // Which fields each kind's phrase speaks for. `date` is never consumed by any of

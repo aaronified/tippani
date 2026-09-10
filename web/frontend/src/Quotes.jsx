@@ -238,7 +238,7 @@ export function utteranceMeta(u, { mark = false } = {}) {
   // disagree. The language leaves the strip with it: it is a PROVERB's whole
   // attribution now ("{language} proverb"), and on every other kind it was a
   // locator nobody reads.
-  const { line: kindLine, rest: unspoken, spoke } = attributionParts(u, {
+  const { line: kindLine, rest: unspoken } = attributionParts(u, {
     date: formatPartialDate(u.occasion_date, u.occasion_circa),
   })
   const rest = [kindLine, ...unspoken].filter(Boolean)
@@ -246,18 +246,19 @@ export function utteranceMeta(u, { mark = false } = {}) {
   // has nowhere to go.
   if (!mark) return rest.join(' · ')
 
-  // THE MARK STANDS IN FOR THE FACE. A proverb is the one kind of quote with
-  // nobody to credit, so this line used to begin with nothing at all while every
-  // other quote in the app begins with somebody's portrait. Its language takes
-  // that slot: the reader's own mark if they set one, else a letter from the
-  // script.
+  // THE MARK STANDS IN FOR THE FACE, and it stands there even when the words
+  // beside it name the language too.
   //
-  // NOT WHEN THE PHRASE ALREADY NAMES THE LANGUAGE. On a proverb the attribution
-  // IS the language — "Bengali proverb" — so a Bengali script mark in front of it
-  // is the same fact twice, which is the directive this whole change came out of.
-  // `spoke` is the table's answer rather than a `kind === 'proverb'` here, so the
-  // day another kind's phrase names a language the mark steps aside for it too.
-  const showMark = !!u.language && !spoke.includes('language')
+  // I TOOK IT OFF A FILED PROVERB AND THE OWNER PUT IT BACK: "the script mark
+  // should be in the same row." My reason was the directive that a row says a
+  // thing once — "Bengali proverb" with a Bengali disc in front of it looked like
+  // the language twice. Theirs is better, and it is the one this file's own comment
+  // already made: the disc is not a PRINTING of the language, it is the slot where
+  // every other quote in the app carries a portrait. A proverb has nobody to
+  // credit, so without it this line begins with nothing while every line beside it
+  // begins with a face — the ragged edge the mark was introduced to remove. A glyph
+  // holding a place and a word carrying a fact are not the same reading.
+  const showMark = !!u.language
   if (!showMark && rest.length === 0) return ''
   return (
     <>

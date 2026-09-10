@@ -205,6 +205,6 @@ describe('the strip beside the line', () => {
   })
 
   it('and survives a row that is not there', () => {
-    expect(attributionParts(null)).toEqual({ line: '', rest: [], spoke: [] })
+    expect(attributionParts(null)).toEqual({ line: '', rest: [] })
   })
 })
