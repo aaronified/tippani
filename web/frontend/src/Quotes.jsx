@@ -211,16 +211,20 @@ const SPEAKER_LINK = {
 // splits it: a speaker is a credit and can name two people, and the card and
 // the image have to agree about who is credited.
 //
-// `omitSpeaker` drops the speaker from the line for a surface that has already
-// credited them above it — the search popup puts a portrait chip in its header,
-// so including the name here named the same person twice on one card, and
-// passing the rich version would have drawn their face twice as well.
+// THE SPEAKER IS NOT ON THIS LINE, and there is no option to put them back. The
+// owner, on seeing the composed Einstein card: "the albert einstein is not needed
+// on that row. as it would already have a chip of its own." They are right, and
+// the code agreed with them before they said it — BOTH callers passed
+// `omitSpeaker: true`, so the branch that printed the name, split the credit and
+// drew the faces had no caller at all. It is deleted rather than left as a flag
+// nobody sets: the card's bands are the person chip and THEN the attribution, and
+// a line that could optionally repeat the chip is an option to break that.
 //
 // Returns '' when there is nothing to say, and that is load-bearing rather than
 // tidy. AnnotationCard renders this as `{metaLine && <MonoLabel>}`, and a JSX
 // element is ALWAYS truthy — so a proverb (no speaker, no occasion, nothing)
 // would otherwise get an empty label and the spacing that comes with it.
-export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {}) {
+export function utteranceMeta(u, { mark = false } = {}) {
   // A SENTENCE, NOT A CONCATENATION — and this line used to be the latter, which
   // is the whole of the report that changed it: "Quote cards need better
   // formatting (e.g. letter to carl seelig)." It joined whatever happened to be
@@ -234,57 +238,32 @@ export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {
   // disagree. The language leaves the strip with it: it is a PROVERB's whole
   // attribution now ("{language} proverb"), and on every other kind it was a
   // locator nobody reads.
-  const { line: kindLine, rest: unspoken } = attributionParts(u, {
+  const { line: kindLine, rest: unspoken, spoke } = attributionParts(u, {
     date: formatPartialDate(u.occasion_date, u.occasion_circa),
   })
   const rest = [kindLine, ...unspoken].filter(Boolean)
-  // The string forms feed the share image and the group headings, where a second
-  // line has nowhere to go. They stay one line; only the rich form below grows.
-  // THE STRING FORMS, for the share image and the group headings — a second line
-  // has nowhere to go there, so they stay flat.
-  if (omitSpeaker && !onOpenPerson) return rest.join(' · ')
-  if (!onOpenPerson) return [u.speaker, ...rest].filter(Boolean).join(' · ')
+  // The flat form feeds the search hit and the group headings, where a second line
+  // has nowhere to go.
+  if (!mark) return rest.join(' · ')
 
-  // `omitSpeaker` DROPS THE NAMES, NOT THE LINE. It used to return the flat
-  // string, which threw away the leading mark as well — and the mark is not a
-  // duplicate of anything: on a quote with no speaker it is the only thing
-  // standing where every other card in the app begins with a face. What is a
-  // duplicate is the name and the portrait beside it, on a card whose chip row
-  // has just drawn both.
-  const names = omitSpeaker || !u.speaker ? [] : splitCredits(u.speaker, seps || DEFAULT_CREDIT_SEPS)
-  if (names.length === 0 && rest.length === 0) return ''
+  // THE MARK STANDS IN FOR THE FACE. A proverb is the one kind of quote with
+  // nobody to credit, so this line used to begin with nothing at all while every
+  // other quote in the app begins with somebody's portrait. Its language takes
+  // that slot: the reader's own mark if they set one, else a letter from the
+  // script.
+  //
+  // NOT WHEN THE PHRASE ALREADY NAMES THE LANGUAGE. On a proverb the attribution
+  // IS the language — "Bengali proverb" — so a Bengali script mark in front of it
+  // is the same fact twice, which is the directive this whole change came out of.
+  // `spoke` is the table's answer rather than a `kind === 'proverb'` here, so the
+  // day another kind's phrase names a language the mark steps aside for it too.
+  const showMark = !!u.language && !spoke.includes('language')
+  if (!showMark && rest.length === 0) return ''
   return (
     <>
-      {/* THE MARK STANDS IN FOR THE FACE. A proverb is the one kind of quote with
-          nobody to credit — no speaker, no occasion, no date — so this line used
-          to begin with nothing at all while every other quote in the app begins
-          with somebody's portrait. Its language takes that slot: the reader's own
-          mark if they set one, else a letter from the script.
-
-          Only when there is no face to show — and under `omitSpeaker` that is
-          every line, because the card's chip has taken the face and the name.
-          The slot is still owed something: a line that begins with nothing while
-          every other line in the app begins with a mark is the ragged edge this
-          was written to remove, and the language is not a second printing of
-          anything the chip says. */}
-      {names.length === 0 && u.language && (
+      {showMark && (
         <LanguageMark languages={[u.language]} size={20} ring="var(--card)" className="mr-1.5" />
       )}
-      {names.length > 0 && (
-        <>
-          <CreditFaces names={names} map={people} size={20} ring="var(--card)" className="mr-1.5 align-middle" />
-          {names.map((n, i) => (
-            <Fragment key={n}>
-              {i > 0 && ', '}
-              {/* The same map the faces beside it use, so the name and the
-                  portrait agree about which person this is — and the press lands
-                  on their screen rather than on the older panel. */}
-              <PersonName kind="speaker" name={n} person={people?.[n]} onOpen={onOpenPerson} className="" style={SPEAKER_LINK} />
-            </Fragment>
-          ))}
-        </>
-      )}
-      {names.length > 0 && rest.length > 0 && ' · '}
       {rest.join(' · ')}
       {/* THE TRANSLATION USED TO BE DRAWN HERE, as a block span smuggled inside the
           meta label — the cheapest way to get a second line without touching the
@@ -1039,7 +1018,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       // `metaLine` has omitted the speaker whenever a chip draws it since the
       // ladder landed; this call site passes an explicit `meta` and so never
       // reached that branch.
-      meta={utteranceMeta(u, { people: speakerMap, seps, onOpenPerson: openPerson, omitSpeaker: true })}
+      meta={utteranceMeta(u, { mark: true })}
       // The card's chip ladder needs the same two things the meta line does.
       people={speakerMap}
       seps={seps}

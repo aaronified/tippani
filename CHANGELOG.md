@@ -30,7 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **The kind's own word is printed only when nothing else in the phrase implies it** — an
   untitled letter to nobody still says *Letter* — and whatever the phrase did not speak for
   follows it, so the date and the place stay and nothing is said twice. Einstein now reads
-  *Albert Einstein · Letter to Carl Seelig · 11 Mar 1952 · Zurich*.
+  *Letter to Carl Seelig · 11 Mar 1952 · Zurich*, **with his name on the chip above it
+  rather than on the row**: the chip is already there, and the row repeating it was the same
+  fault one line down. A book highlight has worked that way since its chips landed; the
+  standalone quote was the last place still able to print the name twice.
+- **A filed proverb no longer wears its language twice.** The card's line is now
+  *Bengali proverb*, and the little Bengali disc that used to sit in front of it — standing
+  in for the portrait a proverb has no room for — steps aside when the words already say it.
+  A proverb with no language recorded still gets the disc, because then it is the only thing
+  the row has.
 - **A poem quoted out of a book puts the poem's name in the chapter-name field**, and the
   card reads `{poem} from {book}` off that pair. "Chapter" over a box holding *Sonar Tori*
   is surprising for a moment and it is right: a poem in a collection is a chapter of it as

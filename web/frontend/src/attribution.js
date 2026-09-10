@@ -76,20 +76,25 @@ export function attribution(u, opts) {
 // a box whose contents show up nowhere is what taught readers to type the whole
 // attribution into Occasion in the first place.
 export function attributionParts(u, { piece = '', date = '' } = {}) {
-  if (!u) return { line: '', rest: [] }
+  if (!u) return { line: '', rest: [], spoke: [] }
   const kind = s(u.kind)
   const line = phrase(u, kind, piece)
   // The four the phrase may or may not have spoken for, in reading order — coarse
   // to fine, the order a person says them: what the occasion was, when, where, and
   // where in the source.
-  const spoken = CONSUMES[kind] || []
+  const spoke = CONSUMES[kind] || []
   const rest = [
-    spoken.includes('occasion') ? '' : s(u.occasion),
-    spoken.includes('date') ? '' : s(date),
-    spoken.includes('place') ? '' : s(u.place),
-    spoken.includes('locator') ? '' : s(u.locator),
+    spoke.includes('occasion') ? '' : s(u.occasion),
+    spoke.includes('date') ? '' : s(date),
+    spoke.includes('place') ? '' : s(u.place),
+    spoke.includes('locator') ? '' : s(u.locator),
   ].filter(Boolean)
-  return { line, rest }
+  // `spoke` is the table's own answer, handed back rather than re-derived: the card
+  // needs it to decide whether the LANGUAGE MARK beside this line is a second
+  // printing. On a proverb the phrase IS the language ("Bengali proverb"), so a
+  // Bengali script mark in front of it says one fact twice — which is the same
+  // directive that started this whole change.
+  return { line, rest, spoke }
 }
 
 // Which fields each kind's phrase speaks for. `date` is never consumed by any of

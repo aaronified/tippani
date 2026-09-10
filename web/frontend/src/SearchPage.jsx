@@ -1218,7 +1218,7 @@ export function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMa
         ) : isBook || isQuote ? (
           <AnnotationCard
             a={row}
-            meta={isQuote ? utteranceMeta(row, { omitSpeaker: true }) : undefined}
+            meta={isQuote ? utteranceMeta(row) : undefined}
             form={isQuote ? UtteranceForm : undefined}
             variant={0}
             tagMap={tagMap}

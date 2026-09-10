@@ -28,15 +28,15 @@ const people = {
 const show = (node) => render(<div data-testid="meta">{node}</div>)
 
 describe('the plain string mode', () => {
-  // SPEAKER, THEN THE KIND'S PHRASE, THEN WHAT THE PHRASE DID NOT SAY. The order
-  // is the card's own band order — the person, then the attribution — and it
-  // changed with the report that "Letter" was printed twice.
+  // THE KIND'S PHRASE, THEN WHAT THE PHRASE DID NOT SAY — and no speaker, because
+  // the card's chip has already named them. The owner: "the albert einstein is not
+  // needed on that row. as it would already have a chip of its own."
   //
   // Bose's row has no `kind` and a legacy `medium`, so the phrase is that word: an
   // unfiled quote keeps the text its reader typed, visible as work to do, and
   // nothing about it can be composed until the kind is set.
-  it('reads speaker first, then the kind, then the rest', () => {
-    expect(utteranceMeta(BOSE)).toBe('Subhas Chandra Bose · radio · Burma Radio broadcast · 1944 · Burma')
+  it('reads the kind first, then the rest', () => {
+    expect(utteranceMeta(BOSE)).toBe('radio · Burma Radio broadcast · 1944 · Burma')
   })
 
   // THE CASE THE REPORT NAMED: "Quote cards need better formatting (e.g. letter to
@@ -50,17 +50,17 @@ describe('the plain string mode', () => {
       recipient: 'Carl Seelig',
       place: 'Zurich',
       occasion_date: '1952-03-11',
-    })).toBe('Albert Einstein · Letter to Carl Seelig · 11 Mar 1952 · Zurich')
+    })).toBe('Letter to Carl Seelig · 11 Mar 1952 · Zurich')
   })
 
   // A speech's phrase IS its occasion and place, so neither is said again.
   it('and never says a speech’s occasion twice', () => {
     expect(utteranceMeta({ speaker: 'Tagore', kind: 'speech', occasion: 'Nobel banquet', place: 'Stockholm' }))
-      .toBe('Tagore · Nobel banquet, Stockholm')
+      .toBe('Nobel banquet, Stockholm')
   })
 
   it('drops the fields that are empty', () => {
-    expect(utteranceMeta({ speaker: 'Anon', medium: 'letter' })).toBe('Anon · letter')
+    expect(utteranceMeta({ speaker: 'Anon', medium: 'letter' })).toBe('letter')
   })
 
   it('is empty for a proverb nobody has filed', () => {
@@ -83,94 +83,75 @@ describe('the plain string mode', () => {
   })
 })
 
-describe('omitSpeaker', () => {
-  it('leaves the speaker out for a surface that credits them above', () => {
-    expect(utteranceMeta(BOSE, { omitSpeaker: true })).toBe('radio · Burma Radio broadcast · 1944 · Burma')
+// THE SPEAKER IS NOT ON THIS LINE, AND THERE IS NO OPTION TO PUT THEM BACK.
+//
+// The owner, on the composed Einstein card: "the albert einstein is not needed on
+// that row. as it would already have a chip of its own." The card's bands are the
+// person chip and THEN the attribution, so a line that could repeat the chip is an
+// option to break that order.
+//
+// AND THE CODE HAD ALREADY AGREED WITH THEM. Both callers passed
+// `omitSpeaker: true` — the Quotes board and the search hit — so the branch that
+// split the credit, drew the faces and made each name a button was unreachable
+// from every screen in the app. It had six cases here holding it up, which is what
+// a test of an unused path looks like from the inside: green, detailed, and about
+// nothing. The names branch is deleted; the rest of that chain is `SpeakerChips`'
+// and is tested against the chip.
+//
+// The book card had already been doing it this way — Library.jsx drops the
+// character from its own meta line the moment a chip draws it — so this makes the
+// standalone quote agree with the two kinds beside it.
+describe('the mark that stands where a face would', () => {
+  const rich = (u) => utteranceMeta(u, { mark: true })
+
+  it('never names the speaker, whatever else is on the row', () => {
+    const node = rich(BOSE)
+    show(node)
+    expect(screen.getByTestId('meta').textContent).not.toContain('Subhas Chandra Bose')
+    expect(screen.queryByRole('button')).toBeNull()
   })
 
-  it('is empty when the speaker was the only thing there', () => {
-    expect(utteranceMeta({ speaker: 'Anon' }, { omitSpeaker: true })).toBe('')
-  })
-})
-
-describe('the credited mode', () => {
-  const opts = (onOpenPerson = () => {}) => ({ people, seps: undefined, onOpenPerson })
-
-  it('makes the speaker a button, not text', () => {
-    show(utteranceMeta(BOSE, opts()))
-    expect(screen.getByRole('button', { name: /Subhas Chandra Bose/ })).toBeTruthy()
+  it('and the flat form does not either', () => {
+    expect(utteranceMeta(BOSE)).toBe('radio · Burma Radio broadcast · 1944 · Burma')
+    expect(utteranceMeta({ speaker: 'Anon' })).toBe('')
   })
 
-  it('opens the person panel for the speaker kind', () => {
-    const onOpenPerson = vi.fn()
-    show(utteranceMeta(BOSE, opts(onOpenPerson)))
-    screen.getByRole('button', { name: /Subhas Chandra Bose/ }).click()
-    // The kind matters: 'speaker' is its own people kind as of 1.5.0, and
-    // opening the panel on 'author' would show a different person's record.
-    expect(onOpenPerson).toHaveBeenCalledWith(expect.objectContaining({ kind: 'speaker', name: 'Subhas Chandra Bose' }))
-    // AND THE RECORD RIDES ALONG, which is the whole point of the third key: the
-    // caller routes on `person.id` — a name with a record opens the pack's person
-    // screen, a name without one opens the older panel, which is the only surface
-    // that can create the row. PersonName handed back {kind, name} alone for a
-    // release, so every credit drawn as a PersonCredit opened the legacy modal
-    // however complete the person's record was, and the person screens looked
-    // absent rather than unreachable.
-    expect(onOpenPerson.mock.calls[0][0].person).toBeTruthy()
+  // A proverb is the one kind with nobody to credit, so the line used to begin
+  // with nothing while every other quote in the app begins with a portrait. Its
+  // language takes that slot.
+  // LanguageMark draws a titled disc, so the language's NAME is what says it is
+  // there — asserted through the title rather than a class, because the markup is
+  // that component's business and a test pinning its element would fail the day it
+  // changed shape without the behaviour changing.
+  const markTitle = (u) => show(rich(u)).container.querySelector('span[title]')?.getAttribute('title') || ''
+
+  it('draws the language mark when the line has no face to show', () => {
+    expect(markTitle({ quote: 'x', occasion: 'somewhere', language: 'Bengali' })).toBe('Bengali')
+    expect(markTitle({ quote: 'x', occasion: 'somewhere' })).toBe('')
   })
 
-  it('shows the saved portrait', () => {
-    const { container } = show(utteranceMeta(BOSE, opts()))
-    const img = container.querySelector('img')
-    expect(img).toBeTruthy()
-    expect(img.getAttribute('src')).toContain('p/bose.jpg')
+  // NOT WHEN THE PHRASE ALREADY NAMES THE LANGUAGE. On a filed proverb the
+  // attribution IS the language — "Bengali proverb" — so a Bengali script mark in
+  // front of it is the same fact twice, which is the directive this whole change
+  // came out of.
+  it('and steps aside when the attribution is the language', () => {
+    expect(markTitle({ quote: 'x', kind: 'proverb', language: 'Bengali' })).toBe('')
+    // The fact is still on the row — said once, in words.
+    show(rich({ quote: 'x', kind: 'proverb', language: 'Bengali' }))
+    expect(screen.getAllByTestId('meta').pop().textContent).toBe('Bengali proverb')
   })
 
-  it('shows no portrait for a speaker with no saved photo', () => {
-    const { container } = show(utteranceMeta({ speaker: 'Nobody Known' }, opts()))
-    expect(container.querySelector('img')).toBeNull()
-    // Still a link, though — clicking is how you GIVE them a photo.
-    expect(screen.getByRole('button', { name: /Nobody Known/ })).toBeTruthy()
-  })
-
-  it('splits a credit that names two people', () => {
-    // The share image splits the speaker with the same function, so the card
-    // and the exported image have to agree about who is credited.
-    //
-    // Asserted by COUNT and by exact name. The first version of this test used
-    // /Subhas Chandra Bose/ and /Nobody Known/ against a combined string, and
-    // both matched the single unsplit button as substrings — so it passed
-    // whether the split happened or not.
-    show(utteranceMeta({ speaker: 'Subhas Chandra Bose, Nobody Known' }, opts()))
-    const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(2)
-    expect(buttons.map((b) => b.textContent)).toEqual(['Subhas Chandra Bose', 'Nobody Known'])
-  })
-
-  it('leaves a name containing no separator alone', () => {
-    show(utteranceMeta({ speaker: 'Subhas Chandra Bose' }, opts()))
-    const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(1)
-    expect(buttons[0].textContent).toBe('Subhas Chandra Bose')
-  })
-
-  it('still shows the occasion beside the speaker', () => {
-    show(utteranceMeta(BOSE, opts()))
-    expect(screen.getByTestId('meta').textContent).toContain('Burma Radio broadcast')
-    expect(screen.getByTestId('meta').textContent).toContain('radio')
-  })
-
-  it('returns an empty STRING for a proverb, not an empty element', () => {
+  it('returns an empty STRING for an unfiled proverb, not an empty element', () => {
     // AnnotationCard renders this as `{metaLine && <MonoLabel>}`. A JSX element
     // is always truthy, so returning <></> here would give every proverb an
     // empty label and its spacing — a silent layout change, not an error.
-    expect(utteranceMeta(PROVERB, opts())).toBe('')
+    expect(rich(PROVERB)).toBe('')
   })
 
-  it('renders the occasion alone when there is no speaker', () => {
-    const node = utteranceMeta({ occasion: 'a letter home' }, opts())
+  it('renders the occasion alone when there is nothing else', () => {
+    const node = rich({ occasion: 'a letter home' })
     expect(node).not.toBe('')
     show(node)
     expect(screen.getByTestId('meta').textContent).toBe('a letter home')
-    expect(screen.queryByRole('button')).toBeNull()
   })
 })
