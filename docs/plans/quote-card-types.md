@@ -208,3 +208,84 @@ guess which, so the box is pre-filled only when the board names exactly one.
 the disclosure and the card no longer prints it, which leaves it as what it always was: a
 narrowing on top of the language — a Sylheti proverb is a Bengali proverb from somewhere in
 particular, and the card has room for the general fact only.
+
+---
+
+# The card's shape, settled
+
+The owner's, and it replaces Part B's three body variants with **one structure every
+annotation card in the app obeys**. Read top to bottom:
+
+| # | Band | Notes |
+| :-- | :-- | :-- |
+| 1 | **The body: quote and translation** | Both **separately expandable**. Which of the two is shown — and if both, which sits on top — is decided by **the language chosen**, then **overridden by the work's or the board's rules** |
+| 2 | **The person chip** | author / speaker / character, whichever this kind has |
+| 3 | **The kind's attribution** | the five shapes settled above — `Letter to {recipient}`, `"{work_title}", {locator}`, `{poem_name} from {work_title}`, `{language} proverb`, `{occasion}, {place}` |
+| 4 | **The note** | expandable |
+| 5 | **The tag row** | |
+| 6 | **The action row** | the icons |
+
+> **"this shape will be adhered for all annotation cards across the app."**
+
+## What this settles, and what it replaces
+
+**Part B is withdrawn.** It proposed three body *shapes* — Attributed, Verse, Saying — chosen
+per kind, and warned that three shapes meant three things to keep in step across five
+surfaces. This is better: **one structure, and the kind varies only band 3.** The verse case
+that motivated B2 is served by the body preserving line breaks (which it must do anyway),
+and the proverb case that motivated B3 is served by band 2 being absent when there is no
+person — which the field table already guarantees, since a proverb has no speaker to draw.
+
+So the risk Part B's "primary downside" named is gone: there is nothing to drift, because
+there is one component and one order.
+
+## The precedence rule is the part with teeth
+
+**Language first, then the work or board overrides.** Three facts already exist and this is
+the first thing to state how they compose:
+
+1. **`language` on the quote** (0071 put it on all three kinds) — what the line is in.
+2. **The reader's readable languages** — which decides whether the original is legible to
+   them at all, and is why the translation exists on the card.
+3. **`text_order` on the work and the board**, which `docs/PLAN.md` records as pending
+   (task 83, "the board wins").
+
+The rule is: **the language decides the default, and a work or board rule beats it.** A
+Bengali couplet in a library read in English leads with the translation because the language
+says so; a board of Bengali proverbs set to show the original first leads with the original
+because the board says so. `textOrder.js` is where this composes, and it currently answers
+from the dial alone — so the language half is the new work, and the work/board half is task
+83's.
+
+**The consequence worth naming: "which text leads" stops being a preference and becomes a
+computation with three inputs.** That is a change in kind, not in degree, and it wants a pure
+function with a table-driven test — the same shape `chapterPatch` and `addFields` took, for
+the same reason: a precedence rule spread across the card, the search hit, the recall popup
+and the share image is four places for one of them to disagree.
+
+## Both halves expandable, separately
+
+The card folds the quote today. **Two independent folds** is new, and the case for it is the
+bilingual card: a long original with a long translation is two long texts, and folding them
+together means a reader who wants the meaning has to expand the words they cannot read to
+get to it.
+
+**Open question, cheap:** does an expanded state persist per quote, or reset when the card
+leaves the screen? Persisting is friendlier and is another thing to store per reader; the
+current fold does not persist, so resetting is the smaller change.
+
+## Where "all annotation cards" reaches
+
+The owner's word is *all*, so this is the surface list the implementation has to satisfy —
+and it is the list Part B's downside was about:
+
+- the Quotes board and the Library's highlight list
+- a work's own page
+- the search hit
+- the recall popup (the review deck)
+- the share image
+
+The share image is the one that cannot take the whole structure — it has no room for six
+bands — and it is already an open question above. Answering it is now unavoidable rather
+than optional, because a share image that draws a different order from the card is the same
+drift by another name.
