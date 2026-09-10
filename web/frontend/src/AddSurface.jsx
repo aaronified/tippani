@@ -1,10 +1,27 @@
-// AddSurface — the single "＋ Add" surface (§7 declutter, One "＋ Add"). One
-// modal with three tabs the user rotates freely between: "Look up / add" — a
-// single card that looks up (or lets you hand-enter) a Book, Film, or Show —
-// "Capture quote" — the quote/note capture form against any work — and
-// "Import files", the drag-drop source cards. The Library and Catalogue "Add"
-// buttons, the shell's top-bar "＋ Add" / ❝ pills and the drawer rows all open
-// this very surface, so there's one obvious way to add anything.
+// AddSurface — the single "＋ Add" surface (§7 declutter, One "＋ Add").
+//
+// ONE PANEL, TWO STATES: a chooser grouped the way the owner grouped it — a work,
+// a quote, many at once — and then the form for the thing picked, with Back in the
+// header. That replaced three tabs whose own comment described them as tabs "the
+// user rotates freely between", and nobody rotates: you know what you are adding
+// before you press the plus, so a segmented control across three things of wildly
+// different weights spent the top of every opening asking a question already
+// answered.
+//
+// NOBODY IS ASKED TWICE. A work's own plus opens the highlight or dialogue form
+// with that work filled in; a proverb board's plus opens the proverb form; a
+// duplicate opens on the kind it copies. The chooser appears only when nothing
+// else has answered — a bare plus on the Quotes screen, or a plain board.
+//
+// WHICH FIELDS A FORM DRAWS IS DATA, not markup: addFields.js holds what each of
+// the eleven forms shows, hides behind "Show all fields", and hard-drops. A POST
+// here is full-state, so a hard-dropped field must be ABSENT from the body rather
+// than empty in it — otherwise a locator that arrived by import is cleared by a
+// reader who never saw a box for it. `showsField` is that gate, in one place.
+//
+// The Library and Catalogue "Add" buttons, the shell's top-bar "＋ Add" / ❝ pills
+// and the drawer rows all open this very surface, so there's one obvious way to
+// add anything.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'

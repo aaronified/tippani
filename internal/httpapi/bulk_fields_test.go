@@ -23,7 +23,11 @@ package httpapi
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -301,6 +305,80 @@ func TestEveryReplaceKindIsAKindTheTablesKnow(t *testing.T) {
 	for _, wire := range []string{"utterance", "book", "movie", ""} {
 		if replaceKind(wire) != "" {
 			t.Errorf("%q is not a documented kind and replace accepts it", wire)
+		}
+	}
+}
+
+// THE PANEL AND THE ENDPOINT MUST OFFER THE SAME SET, and this is the guard that
+// says so — because the way they came apart was silent in the direction nothing
+// checks. `quoteFieldKinds` above gained language and dlc with 0071, timestamp_end
+// and source_author with 0070, and the endpoint accepted all four from the day the
+// migration landed. BULK_QUOTE_FIELDS was never touched, so no screen offered any
+// of them, and the CHANGELOG went out promising that a Bengali book's forty
+// highlights were "one value on forty rows".
+//
+// A missing field is not an error anywhere: the endpoint answers a request nobody
+// makes, and the panel draws a list that is merely shorter than it should be. Only
+// walking the two tables against each other finds it. The four fields 0047 added —
+// region, recipient, work_title, locator — had been missing the same way for four
+// releases, which is what this test's neighbour above means by "cheaper than
+// remembering that they must agree".
+//
+// The JSX is read rather than mirrored, for the reason bulk_handlers' own header
+// gives about its two literals: a copy of the list here would be a third table to
+// keep in step.
+func TestEveryBulkSettableColumnIsOfferedByThePanel(t *testing.T) {
+	// The one deliberate absence, and it is documented on both sides. 0053 replaced
+	// the free-text `medium` with `kind`; the endpoint still accepts the old column
+	// because a pre-0053 backup restores through it, but no form draws a box for it,
+	// and a bulk editor is the wrong place to reintroduce one.
+	deliberate := map[string]string{
+		"medium": "0053 retired it; no form draws it and a bulk editor must not reintroduce one",
+	}
+	// Numbers the queue's own retarget already moves. Setting a season or an episode
+	// number across a mixed selection would renumber lines from different episodes
+	// alike, which is a data change disguised as a correction.
+	deliberate["season"] = "a number retarget owns"
+	deliberate["episode"] = "a number retarget owns"
+
+	src, err := os.ReadFile(filepath.Join("..", "..", "web", "frontend", "src", "bulkOps.jsx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := string(src)
+	start := strings.Index(block, "export const BULK_QUOTE_FIELDS = [")
+	if start < 0 {
+		t.Fatal("BULK_QUOTE_FIELDS not found in bulkOps.jsx — did it move or get renamed?")
+	}
+	end := strings.Index(block[start:], "\n]")
+	if end < 0 {
+		t.Fatal("BULK_QUOTE_FIELDS is not terminated by a line starting \"]\"")
+	}
+	block = block[start : start+end]
+	offered := map[string]bool{}
+	for _, m := range regexp.MustCompile(`key:\s*'([a-z_]+)'`).FindAllStringSubmatch(block, -1) {
+		offered[m[1]] = true
+	}
+	// A walk that finds nothing makes a guard green while it checks nothing.
+	if len(offered) < 10 {
+		t.Fatalf("only %d keys parsed out of BULK_QUOTE_FIELDS; the extraction is broken", len(offered))
+	}
+	for field := range quoteFieldKinds {
+		if _, ok := deliberate[field]; ok {
+			if offered[field] {
+				t.Errorf("%q is offered by the panel but this test calls it a deliberate absence (%s)",
+					field, deliberate[field])
+			}
+			continue
+		}
+		if !offered[field] {
+			t.Errorf("the endpoint accepts %q in bulk and no screen offers it — add it to "+
+				"BULK_QUOTE_FIELDS, or name it in `deliberate` above with the reason", field)
+		}
+	}
+	for field := range offered {
+		if _, ok := quoteFieldKinds[field]; !ok {
+			t.Errorf("the panel offers %q and the endpoint refuses it: every press would be a 400", field)
 		}
 	}
 }

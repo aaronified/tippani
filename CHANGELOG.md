@@ -21,14 +21,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   boxes that mostly did not. Every form now hides its rarely-used boxes behind **Show all
   fields** and **drops the irrelevant ones entirely**: a film has a timestamp and no
   chapter, a show adds season, episode number and episode name, a game has its act, quest
-  and pack, a letter and a speech have the source they reach us through, a proverb has a
-  region and no speaker. Which boxes those are came out of a real library rather than a
+  and pack, a proverb has a region and no speaker. **A letter and a speech both keep the
+  source they reach us through one press away** — the edition's title and the person who
+  transmitted it matter on some of them and not most, and the two kinds that share the pair
+  now put it in the same place. Which boxes those are came out of a real library rather than a
   guess at one. **A box you were never shown cannot clear the value behind it** — a locator
   that arrived by import survives a kind that has no box for it.
 - **The quote, note, tags and colour are always on the first screen**, on every form,
-  along with the character where a character makes sense; the sticker, the language and the
-  translation are always behind *Show all fields*. One rule, eleven forms, so the screen
-  you learn on the first one is the screen you get on the rest.
+  along with the character where a character makes sense. The sticker and the language are
+  always behind *Show all fields*. **The translation is on the first screen of a standalone
+  quote and behind the disclosure on a book highlight or a screen line** — a proverb or a
+  couplet is usually in a language you are quoting *because* it needs the second text, and a
+  highlight out of the book you are reading usually does not. One rule, eleven forms, so the
+  screen you learn on the first one is the screen you get on the rest.
 - **A work's ＋ and a board's ＋ skip the chooser.** You are standing on the thing you are
   adding to, so the form opens with it filled in — and a proverb board opens the proverb
   form, because the board already answered which kind. The chooser appears when nothing
@@ -82,6 +87,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is its book's — is recorded as wrong in `docs/PLAN.md` rather than quietly dropped.
   Bulk-settable too, which is the obvious case: forty highlights out of one Bengali book is
   one value on forty rows.
+- **Eleven more fields can be set over a whole selection.** The endpoint had accepted
+  language, both timestamp ends, a game's act, quest and pack, a show's episode name, a
+  quote's source author, region, recipient, source title and page for as long as each column
+  has existed — and no screen offered any of them, so "set the language on these forty" was
+  a promise with no control behind it. All eleven are in the selection editor now. A season
+  and an episode number deliberately stay out: those are what the import queue's own
+  retarget moves, and setting them across a mixed selection would renumber lines from
+  different episodes alike.
+- **The selection editor stops capitalising things that are not names.** It asked the
+  keyboard for per-word capitals on every field that was not a number, so a page reference,
+  a clock reading and an occasion — *the funeral of his brother* — came back capitalised in
+  the one place the single-record forms are careful not to.
 - **A game remembers the packs you have already quoted from.** The DLC box offers this
   game's own pack names, commonest first — the same memory a book's chapter boxes have had
   since they learned the chapters its highlights name. Per game rather than library-wide,

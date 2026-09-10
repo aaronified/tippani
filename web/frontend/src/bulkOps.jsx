@@ -200,6 +200,15 @@ export function useBulkOps({ kind, ids = [], onDone }) {
 
 // BULK_WORK_FIELDS / BULK_QUOTE_FIELDS — what may be set, per kind.
 // `kinds` names the record kinds that have the column; absent means all of them.
+//
+// `prose: true` MEANS "THIS VALUE IS NOT A NAME". The panel draws one input for
+// whichever field is chosen, so the as-you-type capitalisation has to be decided
+// from the table rather than at the input — and it was decided by `!number`
+// alone, which made a page reference, a clock reading and "the funeral of his
+// brother" all take per-word capitals. `number` and `prose` are two different
+// facts: a chapter number wants a numeric keypad, a timestamp wants a text box
+// with no capitals. name-casing.test.js argues each of the five, one field at a
+// time, and bulk-fields.test.js is what holds this table to it.
 // `label` IS A GETTER, HERE AND BELOW. Every render site reads `f.label`, and
 // none of them is in this file, so a getter is what lets the copy resolve at
 // render time — after a locale has been applied, and again when it changes —
@@ -249,18 +258,54 @@ export const BULK_QUOTE_FIELDS = [
   { key: 'note', get label() { return t('common.field.note.label') }, long: true },
   { key: 'chapter_no', get label() { return t('common.field.chapter-no.label') }, kinds: ['annotation'], number: true },
   { key: 'chapter', get label() { return t('common.field.chapter-name.label') }, kinds: ['annotation'] },
-  { key: 'location', get label() { return t('common.field.location.label') }, kinds: ['annotation'] },
+  { key: 'location', get label() { return t('common.field.location.label') }, kinds: ['annotation'], prose: true },
   { key: 'character', get label() { return t('common.field.character.label') }, kinds: ['dialogue'] },
   { key: 'actor', get label() { return t('common.field.actor.label') }, kinds: ['dialogue'] },
-  { key: 'timestamp', get label() { return t('common.field.timestamp.label') }, kinds: ['dialogue'] },
+  { key: 'timestamp', get label() { return t('common.field.timestamp.label') }, kinds: ['dialogue'], prose: true },
+  // 0070/0071's four, and their absence here was a promise the changelog made and
+  // no screen kept: the endpoint has accepted all four since the migration
+  // (quoteFieldKinds), so the panel simply never offered them. bulk_fields_test.go
+  // now fails when the two tables disagree.
+  { key: 'timestamp_end', get label() { return t('common.field.timestamp-end.label') }, kinds: ['dialogue'], prose: true },
+  // A container rather than a locator, which is why it is bulk-settable at all:
+  // naming the pack a run of lines came in is one answer over forty rows, and
+  // deliberately not part of what makes two lines different.
+  { key: 'dlc', get label() { return t('common.field.dlc.label') }, kinds: ['dialogue'] },
+  // A game's act and quest, and a show's episode name. All three place a line
+  // inside a work rather than identifying it, so a run of lines from one quest or
+  // one episode is one answer over many rows — which is the whole case for a bulk
+  // field. `season` and `episode` are absent for the opposite reason: they are
+  // NUMBERS the queue's own retarget already moves, and a panel that set them
+  // across a mixed selection would renumber lines from different episodes alike.
+  { key: 'act', get label() { return t('common.field.act.label') }, kinds: ['dialogue'] },
+  { key: 'quest', get label() { return t('common.field.quest.label') }, kinds: ['dialogue'] },
+  { key: 'episode_name', get label() { return t('common.field.episode-name.label') }, kinds: ['dialogue'] },
   { key: 'speaker', get label() { return t('common.field.speaker.label') }, kinds: ['quote'] },
-  { key: 'occasion', get label() { return t('common.field.occasion.label') }, kinds: ['quote'] },
+  { key: 'occasion', get label() { return t('common.field.occasion.label') }, kinds: ['quote'], prose: true },
   { key: 'place', get label() { return t('common.field.place.label') }, kinds: ['quote'] },
   // 0053. The free-text `medium` it replaced is deliberately NOT here: it has no
   // box on any form any more, and a bulk editor is the wrong place to reintroduce
   // one — "set the medium on forty quotes" over a field nothing else offers is a
   // way to fill a column the interface has stopped reading.
   { key: 'kind', get label() { return t('quotes.form.kind.label') }, kinds: ['quote'], get options() { return quoteKindOptions().slice(1) } },
+  // The person a quote reaches us through (0070) — Plato, for Socrates. Bulk
+  // because a source is a property of the EDITION, so a run of speeches taken out
+  // of one paraphrase all name the same transmitter.
+  { key: 'source_author', get label() { return t('common.field.source-author.label') }, kinds: ['quote'] },
+  // 0047's four locators. Each is a property of the SOURCE rather than of the
+  // line, so each is the same answer across every quote taken out of one place: a
+  // run of letters to one recipient, a set of essays out of one collection, a
+  // shelf of proverbs from one region.
+  { key: 'region', get label() { return t('common.field.region.label') }, kinds: ['quote'] },
+  { key: 'recipient', get label() { return t('common.field.recipient.label') }, kinds: ['quote'] },
+  { key: 'work_title', get label() { return t('common.field.work-title.label') }, kinds: ['quote'] },
+  { key: 'locator', get label() { return t('common.field.locator.label') }, kinds: ['quote'], prose: true },
+  // THE ONE FIELD ON ALL THREE KINDS, because 0071 finally put the column on all
+  // three — and the most obviously bulk-settable thing in the app: forty
+  // highlights out of one Bengali book is one value on forty rows. It sits last
+  // because it applies to every kind and the per-kind fields above read better
+  // grouped.
+  { key: 'language', get label() { return t('common.field.language.label') } },
 ]
 
 export function bulkFieldsFor(kind) {

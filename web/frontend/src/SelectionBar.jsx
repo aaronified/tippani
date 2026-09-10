@@ -618,7 +618,13 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
             // these fields, so a series set over five books is spelled the way it
             // would have been spelled in one of them — and the same SPLIT, because a
             // series is a title and an author is a person (see ui.jsx's SMALL_WORDS).
-            nameCase={!spec?.number}
+            //
+            // `!number` ALONE WAS THE WRONG TEST. It capitalised every non-numeric
+            // field, so a page reference, a clock reading and an occasion ("the
+            // funeral of his brother") all came back with per-word capitals the
+            // single-record forms deliberately withhold. `prose` is the table's own
+            // answer to "is this a name", declared per field in bulkOps.jsx.
+            nameCase={!spec?.number && !spec?.prose}
             inputMode={spec?.number ? 'numeric' : undefined}
             value={value}
             autoFocus

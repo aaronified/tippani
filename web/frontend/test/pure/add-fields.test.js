@@ -24,6 +24,18 @@ import {
 //   language: "it should be everywhere, behind show all."
 const QUOTE_DOORS = [...QUOTE_KIND_DOORS, 'annotation', 'dialogue']
 
+// ABOVE AND BELOW THE DISCLOSURE, WITH THE PAIRS FLATTENED. `main` and `more` hold
+// `a+b` for a row of two boxes, so asking whether a field is on the first screen by
+// reading those arrays directly answers "no" for every paired field — which is the
+// exact bug that made `showsField` report a show's season as not offered, and would
+// have cleared the season off every show line saved. One accessor per side, so the
+// mistake cannot be made a third time.
+const above = (door, ctx) => fieldsFor(door, ctx).main.flatMap(splitPair)
+const below = (door, ctx) => fieldsFor(door, ctx).more.flatMap(splitPair)
+
+// ROWS, NOT FIELDS: what a phone actually has to fit. A pair is one row.
+const rows = (door, ctx) => fieldsFor(door, ctx).main.length
+
 describe('the fields every kind of quote asks for', () => {
   it('always puts the quote, the note, the tags and the colour on the first screen', () => {
     const offenders = QUOTE_DOORS.flatMap((door) => {
@@ -132,16 +144,79 @@ describe('what each kind refuses to ask', () => {
     // And its source author, which would be a second name for the one already in
     // `speaker`: an essay's source is the essay.
     expect(showsField('essay', 'source_author')).toBe(false)
-    // What it does keep is the citation and the year.
+    // What it does keep is the citation and the year — the page and the year on one
+    // row, because both are short and together they finish the citation.
     for (const f of ['work_title', 'locator', 'when']) {
-      expect(fieldsFor('essay').main, f).toContain(f)
+      expect(above('essay'), f).toContain(f)
+    }
+  })
+
+  // ── THE PHONE-FIT TARGET, COUNTED ──────────────────────────────────────────
+  //
+  // The owner's, and it is the one instruction in this spec the table cannot
+  // satisfy by itself: "there is not that much, and if we redesign right, all can
+  // be fitted in one screen without scroll on phone. that's the target."
+  //
+  // A ROW COUNT IS NOT A HEIGHT, and this is deliberately honest about that. Rows
+  // are what DRIVES the height, and they are the half a pure test can measure
+  // everywhere, on every run, with no browser. What it cannot know is how tall a
+  // textarea grows, or where 844 pixels of phone actually run out — that needs a
+  // probe against a rendered form, and no harness reaches the Add surface yet
+  // (`controls.mjs`'s SURFACES does not list it either).
+  //
+  // So this is a RATCHET, on the same rule as typescale-baseline.json: the number
+  // may fall and never rise. Four doors sit at six rows and fit; the longest is a
+  // letter and a speech at nine, and the way a speech got there is the owner's
+  // ruling on the measurement — "move source pair behind the 'show more fields'".
+  // Its two remaining pairing candidates were a source TITLE and a source AUTHOR,
+  // both long, and "never truncate a name" outranks a row count, so moving them
+  // was the only way to spend those rows. docs/PLAN.md carries the reckoning.
+  it('records how many rows each first screen costs a phone, and never grows one', () => {
+    const CEILING = {
+      annotation: 6,
+      'dialogue/movie': 6,
+      'dialogue/show': 8,
+      'dialogue/game': 7,
+      speech: 9,
+      letter: 9,
+      essay: 9,
+      poem: 8,
+      song: 8,
+      proverb: 6,
+      other: 7,
+    }
+    // Every door that draws a FORM — the two work-quote doors and the seven quote
+    // kinds. The work-lookup doors and `import` are in ALL_DOORS too and have no
+    // field table, which is why this walks QUOTE_DOORS rather than all of them.
+    const measured = {}
+    for (const door of QUOTE_DOORS) {
+      if (door === 'dialogue') {
+        for (const mediaType of ['movie', 'show', 'game']) {
+          measured[`dialogue/${mediaType}`] = rows(door, { mediaType })
+        }
+      } else {
+        measured[door] = rows(door)
+      }
+    }
+    // Every door the chooser can open is counted, so a new door cannot slip past
+    // this by simply not being listed.
+    expect(Object.keys(measured).sort()).toEqual(Object.keys(CEILING).sort())
+    for (const [door, ceiling] of Object.entries(CEILING)) {
+      expect(measured[door], `${door} grew a row — pair two of them, or say why in docs/PLAN.md`)
+        .toBeLessThanOrEqual(ceiling)
     }
   })
 
   it('gives a letter its addressee and its dateline, and buries the edition', () => {
-    const { main, more } = fieldsFor('letter')
-    expect(main).toContain('recipient')
-    expect(main).toContain('place') // "Letter shows Place"
+    const { more } = fieldsFor('letter')
+    expect(above('letter')).toContain('recipient')
+    // "Letter shows Place" — and it shares its row with the date, because "Berlin,
+    // 1952" is how a letter states both. Asked through `above` rather than off
+    // `main` directly: a paired field is spelled `when+place` there, and reading
+    // the raw array is the mistake that made `showsField` answer "not offered" for
+    // a show's season.
+    expect(above('letter')).toContain('place')
+    expect(above('letter')).toContain('when')
     // "letter: source title · source author : behind show all"
     expect(more).toContain('work_title')
     expect(more).toContain('source_author')
@@ -153,6 +228,20 @@ describe('what each kind refuses to ask', () => {
     expect(showsField('speech', 'source_author')).toBe(true)
     expect(showsField('letter', 'source_author')).toBe(true)
     expect(showsField('speech', 'work_title')).toBe(true)
+  })
+
+  // TWO KINDS SHARE THE PAIR, SO THEY KEEP IT IN THE SAME PLACE. The owner put a
+  // letter's behind the disclosure by name ("letter: source title · source author :
+  // behind show all") and a speech's followed once the row counts were measured
+  // ("move source pair behind the 'show more fields'"). One rule, and the repo's
+  // own directive about two things that look alike behaving alike.
+  it('and keeps that pair in the same place on both of them', () => {
+    for (const door of ['speech', 'letter']) {
+      expect(below(door), door).toContain('work_title')
+      expect(below(door), door).toContain('source_author')
+      expect(above(door), door).not.toContain('work_title')
+      expect(above(door), door).not.toContain('source_author')
+    }
   })
 
   it('leads verse with its title, not an occasion, and keeps the occasion reachable', () => {

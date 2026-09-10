@@ -32,6 +32,11 @@ const NAME_FIELDS = [
   'common.field.language', 'common.field.author', 'common.field.title',
   'common.field.series', 'common.field.publisher', 'common.field.director',
   'common.field.studio',
+  // A book's other two credits (0034). They were missed on the first pass because
+  // the owner named "editor" and this file read that as `source-author` — which it
+  // was, in the sentence, but a book HAS an editor and a translator of its own and
+  // both are people. Two more names, same rule.
+  'common.field.editor', 'common.field.translator',
   // `common.field.name` IS DELIBERATELY ABSENT, and the reason is a flaw in
   // keying this rule on the i18n key at all: that one key is reused by a BOARD's
   // name, a STICKER's name and a TAG's name, and the third is lowercase by this
@@ -70,6 +75,24 @@ const PROSE_FIELDS = [
 const ELEMENT = /<(input|textarea|Field|TokenInput)\b([^>]*?)\/?>/gs
 const LABEL = /(?:label|aria-label|ariaLabel|placeholder)=\{t\('([^']+)'\)\}/
 
+// `nameCase={false}` IS NOT A HINT, AND READING IT AS ONE MADE THIS GUARD GREEN
+// OVER A BOX THAT ASKS FOR NOTHING. The first version tested whether the prop was
+// MENTIONED, so mutating a name box to `nameCase={false}` kept all four cases
+// passing — the mutation that should have failed loudest. The question is whether
+// the box asks the keyboard for capitals, which means reading the value.
+const MENTIONS_HINT = /\bnameCase\b|autoCapitalize=/
+const HINT_TURNED_OFF = /nameCase=\{\s*false\s*\}|autoCapitalize=(?:"(?:none|off)"|\{\s*['"](?:none|off)['"]\s*\})/
+
+// WHAT THIS WALK CANNOT SEE, named rather than left as a hole: a box whose label
+// is a VARIABLE. `SelectionBar`'s bulk editor draws one input for whichever field
+// the reader picked, so its label is `spec?.label` and LABEL above never matches
+// it — and for a while that box capitalised every non-numeric field, including a
+// page reference and a clock reading. It is policed instead by the table it reads:
+// `bulk-fields.test.js` holds every prose-shaped entry in `BULK_QUOTE_FIELDS` to
+// carrying `prose: true`, which is what turns the hint off there. A rule about
+// which BOXES exist cannot reach a box whose identity is chosen at runtime; the
+// rule has to move to the data that chooses it.
+
 // THROUGH sourcesUnder, NOT A HAND-ROLLED readdir. `one-walk.test.js` refuses a
 // second walk over src/ and its reason is this test's own worry, already solved:
 // "a walk that finds nothing makes a guard green while it checks nothing, which
@@ -92,7 +115,7 @@ function boxes() {
         // The key without its final segment, so `.label` and `.placeholder` of
         // one field fold together.
         field: label[1].replace(/\.[^.]+$/, ''),
-        hinted: /\bnameCase\b/.test(body) || /autoCapitalize=/.test(body),
+        hinted: MENTIONS_HINT.test(body) && !HINT_TURNED_OFF.test(body),
       })
     }
   }

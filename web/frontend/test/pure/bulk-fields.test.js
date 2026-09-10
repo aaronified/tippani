@@ -51,11 +51,65 @@ describe('what may be set over a selection', () => {
       expect.arrayContaining(['director', 'media_type', 'release_year', 'series', 'description']),
     )
     expect(keys('annotation')).toEqual(expect.arrayContaining(['note', 'chapter', 'chapter_no', 'location']))
-    expect(keys('dialogue')).toEqual(expect.arrayContaining(['character', 'actor', 'timestamp']))
+    expect(keys('dialogue')).toEqual(
+      expect.arrayContaining(['character', 'actor', 'timestamp', 'timestamp_end', 'act', 'quest', 'episode_name', 'dlc']),
+    )
     // `kind` (0053) rather than the free-text `medium` it replaced: that field has
     // no box on any form now, and a bulk editor is the wrong place to keep one.
-    expect(keys('quote')).toEqual(expect.arrayContaining(['speaker', 'occasion', 'place', 'kind']))
+    expect(keys('quote')).toEqual(
+      expect.arrayContaining(['speaker', 'occasion', 'place', 'kind', 'region', 'recipient', 'work_title', 'locator', 'source_author']),
+    )
     expect(keys('quote'), 'the retired free-text field is still offered').not.toContain('medium')
+  })
+
+  // THE ONE FIELD ON ALL THREE KINDS. 0071 put `language` on annotations,
+  // dialogues and utterances alike, and it is the most obviously bulk-settable
+  // thing in the app — forty highlights out of one Bengali book is one value on
+  // forty rows, which is what the changelog promised while no screen offered it.
+  // bulk_fields_test.go now walks this list against the endpoint's own table.
+  it('and the language on every kind that has one', () => {
+    for (const kind of ['annotation', 'dialogue', 'quote']) {
+      expect(keys(kind), `${kind} must offer its language`).toContain('language')
+    }
+    // Not on a work: a book's `language` and `orig_language` are a different pair
+    // of columns with their own controls, and this panel edits quotes.
+    for (const kind of ['book', 'movie']) {
+      expect(keys(kind)).not.toContain('language')
+    }
+  })
+
+  // A number the import queue's own retarget already moves. Setting a season or an
+  // episode across a mixed selection renumbers lines from different episodes alike
+  // — a data change wearing the clothes of a correction.
+  it('never a season or an episode number', () => {
+    for (const key of ['season', 'episode']) {
+      expect(keys('dialogue'), `${key} must not be bulk-settable`).not.toContain(key)
+    }
+  })
+
+  // WHICH FIELDS ARE NOT NAMES, and the reason this lives here rather than in
+  // name-casing.test.js: the bulk editor draws ONE input for whichever field the
+  // reader picked, so its label is a variable and the source walk that polices
+  // every other name box cannot see it. The decision has to come from this table,
+  // and `nameCase={!spec?.number}` was making it — which capitalised a page
+  // reference, a clock reading and "the funeral of his brother" per word, in the
+  // one place the single-record forms deliberately do not.
+  //
+  // Each of the five is argued field-by-field in name-casing.test.js's PROSE_FIELDS.
+  it('and knows which of them are not names', () => {
+    const prose = ['location', 'locator', 'timestamp', 'timestamp_end', 'occasion']
+    for (const key of prose) {
+      const f = BULK_QUOTE_FIELDS.find((x) => x.key === key)
+      expect(f, `${key} is not in the table at all`).toBeTruthy()
+      expect(f.prose, `${key} would take per-word capitals`).toBe(true)
+    }
+    // And the other direction, which is what makes it a rule: a name must NOT
+    // carry the flag, or a sweep that set it everywhere would pass half of this.
+    for (const key of ['character', 'actor', 'speaker', 'recipient', 'work_title', 'source_author', 'region', 'place', 'chapter']) {
+      const f = BULK_QUOTE_FIELDS.find((x) => x.key === key)
+      expect(f, `${key} is not in the table at all`).toBeTruthy()
+      expect(f.prose, `${key} is a name and must keep its capitals`).toBeFalsy()
+    }
   })
 
   // A field offered to a kind with no such column would be a 400 from the

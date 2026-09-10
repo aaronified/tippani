@@ -102,9 +102,13 @@ const FIELDS = {
   // "location and chapter no. will share one line" — a number and a page are both
   // short and both answer "where", so they are one row of two boxes.
   //
-  // The whole of `main` is six controls, which is the owner's stated target:
-  // "there is not that much, and if we redesign right, all can be fitted in one
-  // screen without scroll on phone."
+  // The whole of `main` is six rows, which for THIS door meets the owner's stated
+  // target: "there is not that much, and if we redesign right, all can be fitted in
+  // one screen without scroll on phone." It is met on four of the eleven doors and
+  // missed on the rest — `add-fields.test.js` records the count for every one of
+  // them and lets it fall and never rise. See docs/PLAN.md, "the phone-fit target,
+  // met on four doors of eleven", for what a speech's eleven rows would cost to
+  // reach and why nothing here pretends otherwise.
   annotation: {
     main: ['quote', 'chapter', 'chapter_no+location', 'note', 'tags', 'color'],
     more: ['character', 'translation', 'language', 'sticker'],
@@ -135,7 +139,9 @@ const FIELDS = {
       // (normalizeLocator), so offering one would be offering a box whose value is
       // thrown away without a word. Act and quest place the line; the DLC names
       // which body of content they sit inside (0071).
-      main: ['quote', 'character', 'act', 'quest', 'dlc', 'note', 'tags', 'color'],
+      // Act and quest pair, on the same rule as a book's chapter number and page:
+      // two short boxes answering "where in this game", so one row rather than two.
+      main: ['quote', 'character', 'act+quest', 'dlc', 'note', 'tags', 'color'],
       more: SCREEN_SHARED_MORE,
     },
   },
@@ -149,8 +155,20 @@ const FIELDS = {
   // paraphrasing" — because a speech reaches a reader through a text, and the
   // person who wrote that text is neither the speaker nor anyone else on the row.
   speech: {
-    main: ['quote', 'speaker', 'board', 'translation', 'occasion', 'when', 'place', 'work_title', 'source_author', 'note', 'tags', 'color'],
-    more: ['language', 'sticker'],
+    // THE SOURCE PAIR IS BEHIND THE DISCLOSURE, on the owner's ruling once the row
+    // counts were measured — "finding 3: move source pair behind the 'show more
+    // fields'". It is the same place a letter keeps it ("letter: source title ·
+    // source author : behind show all"), so the two kinds that share the pair now
+    // treat it alike, which is this repo's own rule about two things that look the
+    // same. And it is what brings a speech from eleven first-screen rows to nine:
+    // the pair could not be PAIRED — a source's title and the name of the person
+    // the words reach us through are both long, and "never truncate a name"
+    // outranks a row count — so the only way to spend those two rows was to move
+    // them. The field is not demoted in importance: the owner promoted it into
+    // existence ("i may not read plato, but i want to add his quotes"), and one
+    // press is where a thing that matters on some speeches and not most belongs.
+    main: ['quote', 'speaker', 'board', 'translation', 'occasion', 'when+place', 'note', 'tags', 'color'],
+    more: ['work_title', 'source_author', 'language', 'sticker'],
     // No region — a speech is placed by its occasion, and `place` already says
     // where. No recipient: a speech is given to a room, not addressed to a person.
   },
@@ -162,7 +180,10 @@ const FIELDS = {
   // behind show all", which is right, because a letter is usually quoted from the
   // letter rather than from an edition of the letters.
   letter: {
-    main: ['quote', 'speaker', 'board', 'translation', 'recipient', 'when', 'place', 'note', 'tags', 'color'],
+    // The dateline is ONE row: "Berlin, 1952" is how a letter says both, and a date
+    // and a place are two short boxes answering one question — the pairing rule the
+    // owner set with "location and chapter no. will share one line".
+    main: ['quote', 'speaker', 'board', 'translation', 'recipient', 'when+place', 'note', 'tags', 'color'],
     more: ['work_title', 'source_author', 'occasion', 'language', 'sticker'],
   },
 
@@ -175,7 +196,9 @@ const FIELDS = {
   // for the first: an essay's source IS the essay, so its author is the person
   // already in `speaker`.
   essay: {
-    main: ['quote', 'speaker', 'board', 'translation', 'work_title', 'locator', 'when', 'note', 'tags', 'color'],
+    // The page and the year pair: an essay's citation is "<title>", p. 42 and the
+    // year completes it, and both are short. Same rule as the letter's dateline.
+    main: ['quote', 'speaker', 'board', 'translation', 'work_title', 'locator+when', 'note', 'tags', 'color'],
     more: ['place', 'language', 'sticker'],
   },
 

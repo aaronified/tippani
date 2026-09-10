@@ -86,18 +86,22 @@ identically. What it *lacks* is the chapter name and the page number, both of wh
 the markdown has. **Neither export is a superset of the other**, which is why both
 stay and why the plan says plainly what each one carries.
 
-**The Import screen is not a screen.** `/import` is a section of the ＋ Add surface
-(`AddSurface.jsx:1368`, `routes.js:232-240`), and `ImportPage`'s `!embedded` branch
-— its `PageHeader`, its mobile sticky bar — is dead code nothing renders. The
-section's "?" opens the **capture** help section (`AddSurface.jsx:1384,1406`), so
-"pressing a help menu" does not today reach anything about import beyond one row.
+**The Import screen is not a screen.** `/import` is a DOOR of the ＋ Add surface —
+one of three in the chooser's "many at once" group since the surface was rebuilt —
+and `ImportPage`'s `!embedded` branch, its `PageHeader` and its mobile sticky bar
+are dead code nothing renders. The door's "?" opens the **capture** help section,
+so "pressing a help menu" does not today reach anything about import beyond one
+row. *(Written against the three-tab surface: the tab is a door now, and the line
+numbers this paragraph used to carry moved with it. `helpScreen` in `routes.js` is
+still where the "?" target is decided.)*
 
-**Two documents still call `ImportPage` un-migrated for i18n, and it is not.**
-`test/pure/infodot-copy.test.js:37` and `docs/bengali-style.md` both list
-it among files whose strings are still English literals. It resolves every word
-through `t()` against 71 `import.*` keys, and its one `InfoDot` (`:307`) is built
-from `t()`-resolved steps. The claim is stale for this file; a rewrite should not
-inherit it.
+**One test still calls `ImportPage` un-migrated for i18n, and it is not.**
+`test/pure/infodot-copy.test.js:37` lists it among files whose strings are still
+English literals. It resolves every word through `t()` against 71 `import.*` keys,
+and its one `InfoDot` (`:307`) is built from `t()`-resolved steps. The claim is
+stale for this file; a rewrite should not inherit it. *(This paragraph said "two
+documents" and named `docs/bengali-style.md` as the second. That file has no such
+mention — the claim was mine and it was wrong.)*
 
 **Detection cannot be honest about everything, and the roadmap already says so.**
 `#bug-14` (`roadmap.html:450-463`): legacy catalogue exports re-import as books, and
