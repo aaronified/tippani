@@ -10,6 +10,7 @@ import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
 import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { t } from './i18n.js'
+import { chapterPatch } from './text.js'
 import { quoteKindOptions } from './quoteKind.js'
 import { useBoards } from './boards.jsx'
 import { CandidateRow, groupEditions } from './CoverPicker.jsx'
@@ -1171,7 +1172,7 @@ export function CaptureQuote({ initialTarget = null, initialBoard = null, initia
             <input className="tp-input" inputMode="decimal"
                    list={suggest.chapterNumbers.length ? `${listId}-chno` : undefined}
                    placeholder={t('capture.form.chapter-no.placeholder')} value={draft.chapter_no}
-                   onChange={(e) => set({ chapter_no: e.target.value.replace(/[^\d.]/g, '').slice(0, 7) })} />
+                   onChange={(e) => set(chapterPatch('no', e.target.value.replace(/[^\d.]/g, '').slice(0, 7), draft.chapter, suggest.chapters))} />
             <Datalist id={`${listId}-chno`} options={suggest.chapterNumbers} />
           </label>
           <label className="tp-field">
@@ -1181,14 +1182,7 @@ export function CaptureQuote({ initialTarget = null, initialBoard = null, initia
               list={suggest.chapterNames.length ? `${listId}-chname` : undefined}
               placeholder={t('capture.form.chapter-name.placeholder')}
               value={draft.chapter}
-              onChange={(e) => {
-                const name = e.target.value
-                const no = suggest.chapterNoFor(name)
-                // Only fills an EMPTY number box. Overwriting a number somebody has
-                // just typed because the name matched something is the form editing
-                // itself, which is the one thing a suggestion must never do.
-                set(no && !String(draft.chapter_no).trim() ? { chapter: name, chapter_no: String(no) } : { chapter: name })
-              }}
+              onChange={(e) => set(chapterPatch('name', e.target.value, draft.chapter_no, suggest.chapters))}
             />
             <Datalist id={`${listId}-chname`} options={suggest.chapterNames} />
           </label>

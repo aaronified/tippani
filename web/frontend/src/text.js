@@ -243,3 +243,61 @@ export function quoteBody(a, order) {
 export function showsTranslationLine(a, order) {
   return !!quoteTexts(a, order).second
 }
+
+// ---- the chapter pair, in one function both forms call ----------------------
+//
+// A BOOK'S CHAPTER IS TWO COLUMNS (0044) — a number and a name — and a reader who
+// has recorded both once should not have to remember the mapping again. Choosing
+// "The Whale" can fill 42 beside it, and choosing 42 can fill "The Whale".
+//
+// THE OWNER REVERSED THE DIRECTION THIS SHIPPED WITH, and the old reasoning is
+// kept here because it was not wrong, only outvoted. `suggest.jsx` said: "Filling
+// the name from a number would be guessing at what somebody meant by '42';
+// filling the number from a name is repeating what they themselves typed against
+// those exact words." The owner's answer: "chapter number auto populates from
+// chapter name now, but not vice versa. chapter name from number is more useful."
+//
+// And in use they are right, because of which box a reader reaches for FIRST. You
+// are holding a book open at chapter 42; the number is on the page in front of
+// you and the name is the thing you would have to flip back to find. So the
+// number is what gets typed and the name is what is worth recalling. The old
+// argument answers a different question — which direction is more RELIABLE — and
+// reliability is bought back below by never overwriting.
+//
+// BOTH DIRECTIONS, AND NEITHER EVER CLOBBERS. A fill lands only in an EMPTY
+// counterpart. The failure it avoids: you type 7, then pick a chapter name to
+// save typing, and the 7 silently becomes 3 — you would not notice until the
+// quote was filed under the wrong chapter, and nothing would record that the app
+// had done it. So a disagreement is left alone; the reader's own typing always
+// wins.
+//
+// IT LIVES HERE, IMPORT-FREE, so the add form and the edit form call one function
+// rather than keeping a line each — the repo's directive that two things which
+// look the same behave the same, and the reason `chapterLabel` is already in this
+// file. A rule duplicated across two forms is two places for one of them to stop
+// being right.
+//
+// `pool` is [{ no, name, count }] as `GET /books/{id}/chapters` returns it.
+export function chapterPatch(which, typed, current, pool) {
+  const rows = Array.isArray(pool) ? pool : []
+  const fold = (s) => String(s ?? '').trim().toLowerCase()
+  if (which === 'name') {
+    const patch = { chapter: typed }
+    if (fold(current) !== '') return patch // never overwrite a number already there
+    // FIRST MATCH, and the pool arrives commonest-first, so a one-off typo of a
+    // chapter name loses to the spelling actually used. A name recorded against
+    // two different numbers is genuinely ambiguous and the first is the one the
+    // reader used most — which beats picking neither on a form whose whole point
+    // is being quick.
+    const hit = rows.find((r) => fold(r.name) === fold(typed) && r.no)
+    return hit ? { ...patch, chapter_no: String(hit.no) } : patch
+  }
+  const patch = { chapter_no: typed }
+  if (fold(current) !== '') return patch // never overwrite a name already there
+  // Numbers compare as numbers: "42", "42.0" and 42 are one chapter, and a string
+  // compare would offer the name for one spelling of it and not the others.
+  const want = Number(String(typed).trim())
+  if (!Number.isFinite(want) || String(typed).trim() === '') return patch
+  const hit = rows.find((r) => Number(r.no) === want && String(r.name || '').trim())
+  return hit ? { ...patch, chapter: String(hit.name).trim() } : patch
+}

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A chapter's name now fills in from its number, as well as the other way round.**
+  Type 42 into the number box on a book highlight and the chapter name you recorded
+  against 42 appears beside it. It shipped one-way — name filling number — and that was
+  the wrong way round for how the boxes are actually used: you are holding the book open
+  at chapter 42, so the number is on the page in front of you and the name is the thing
+  you would have to flip back to find. **Neither direction ever overwrites what you have
+  typed**, so a name you invented for a chapter survives choosing its number.
+
 ### Added
 
 - **A quote can name who it reaches us through.** *Socrates' speeches are known from

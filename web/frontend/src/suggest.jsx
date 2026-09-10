@@ -83,20 +83,12 @@ export function useWorkSuggestions(target) {
     return (name) => m.get(String(name || '').trim().toLowerCase()) || ''
   }, [state.cast])
 
-  // chapterNoFor is the other half of the pair: the number the reader typed beside
-  // this chapter NAME last time, or '' when they never did.
-  //
-  // THE NAME IS THE KEY AND NOT THE NUMBER, deliberately. Filling the name from a
-  // number would be guessing at what somebody meant by "42"; filling the number
-  // from a name is repeating what they themselves typed against those exact words.
-  const chapterNoFor = useMemo(() => {
-    const m = new Map()
-    for (const ch of state.chapters) {
-      const name = (ch.name || '').trim().toLowerCase()
-      if (name && ch.no && !m.has(name)) m.set(name, ch.no)
-    }
-    return (name) => m.get(String(name || '').trim().toLowerCase()) || ''
-  }, [state.chapters])
+  // THE CHAPTER PAIRING MOVED OUT, to `chapterPatch` in text.js. This hook used to
+  // own one direction of it — name fills number — and the owner reversed the
+  // emphasis: "chapter name from number is more useful." Both directions now run,
+  // and the rule lives in an import-free module so the add form and the edit form
+  // call one function instead of keeping a line each. What stays here is the DATA
+  // both of them read: `state.chapters`, straight from the endpoint, pairs intact.
 
   // The names and the numbers as plain lists, for the two datalists. Numbers are
   // strings because that is what an input holds, and a trailing `.0` on a whole
@@ -110,7 +102,7 @@ export function useWorkSuggestions(target) {
     [state.chapters],
   )
 
-  return { ...state, actorFor, chapterNoFor, chapterNames, chapterNumbers }
+  return { ...state, actorFor, chapterNames, chapterNumbers }
 }
 
 // Datalist — a native suggestion list for a plain input. The CHAPTER fields, and

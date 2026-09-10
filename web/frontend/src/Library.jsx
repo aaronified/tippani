@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, json, errText, downloadPost } from './api.js'
-import { chapterLabel } from './text.js'
+import { chapterLabel, chapterPatch } from './text.js'
 import { usePersonOpener } from './personOpen.jsx'
 import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
@@ -2654,25 +2654,33 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
           chapter in. Both chapter fields are optional and independent: a numbered
           book fills the first, an essay collection the second. The number box takes
           a decimal, because 12.5 is where an interlude goes. */}
-      {/* BOTH CHAPTER BOXES REMEMBER THIS BOOK, commonest chapter first. Choosing a
-          NAME fills an empty number box with the number typed beside it last time;
-          it never overwrites a number already there, because a suggestion that
-          edits what you have just typed is the form arguing with you. The reverse
-          direction is deliberately absent — filling a name from a number would be
-          guessing what somebody meant by "42". */}
+      {/* BOTH CHAPTER BOXES REMEMBER THIS BOOK, commonest chapter first, and the
+          fill now runs BOTH WAYS — the owner's correction: "chapter number auto
+          populates from chapter name now, but not vice versa. chapter name from
+          number is more useful."
+          They are right about which box a reader reaches for first: you are
+          holding the book open at chapter 42, so the number is on the page in
+          front of you and the name is the thing you would have to flip back to
+          find. Neither direction ever overwrites a counterpart you have already
+          typed. The rule is `chapterPatch` in text.js, called by this form and by
+          the add surface, so the two cannot drift. */}
       <div className="cl-grid">
         <Field label={t('common.field.chapter-no.label')} inputMode="decimal" placeholder={t('book.quote.form.chapter-no.placeholder')} value={chapterNo}
                list={suggest.chapterNumbers.length ? `${listId}-chno` : undefined}
-               onChange={(e) => setChapterNo(e.target.value.replace(/[^\d.]/g, '').slice(0, 7))} />
+               onChange={(e) => {
+                 const typed = e.target.value.replace(/[^\d.]/g, '').slice(0, 7)
+                 const patch = chapterPatch('no', typed, chapter, suggest.chapters)
+                 setChapterNo(patch.chapter_no)
+                 if (patch.chapter !== undefined) setChapter(patch.chapter)
+               }} />
         <Field
           label={t('common.field.chapter-name.label')}
           value={chapter}
           list={suggest.chapterNames.length ? `${listId}-chname` : undefined}
           onChange={(e) => {
-            const name = e.target.value
-            const no = suggest.chapterNoFor(name)
-            setChapter(name)
-            if (no && !String(chapterNo).trim()) setChapterNo(String(no))
+            const patch = chapterPatch('name', e.target.value, chapterNo, suggest.chapters)
+            setChapter(patch.chapter)
+            if (patch.chapter_no !== undefined) setChapterNo(patch.chapter_no)
           }}
         />
         <Datalist id={`${listId}-chno`} options={suggest.chapterNumbers} />
