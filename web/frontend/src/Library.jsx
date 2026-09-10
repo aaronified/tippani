@@ -1713,6 +1713,19 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
                 onToggle={accordion ? onToggleExpand : undefined}
               />
             ))}
+          {/* THE OTHER HALF OF THE BODY, directly under the words and above every
+              line that describes them. The owner's card shape: "quote,
+              translation: these will form the card body. both separately
+              expandable" — and then the chip, the attribution, the note, the tags,
+              the actions, in that order, "adhered for all annotation cards across
+              the app."
+              It was drawn below the attribution, which put half the card's own text
+              underneath a line of metadata about the other half: a bilingual card
+              read the words, then who said them, then where, and only then what the
+              words mean. WHICH OF THE TWO LEADS is `quoteTexts`' answer, not this
+              site's — the reader's dial and the row's own language decide it, and a
+              work's or board's rule will override both (task 83). */}
+          {second && <TranslationLine>{second}</TranslationLine>}
           {/* ITS OWN LINE, ABOVE THE LOCATOR ROW — not inside it. The chip is a
               38px pill and the row beside it holds two 8px dots and a line of mono
               text, so putting them together made the tallest object on the card
@@ -1756,17 +1769,6 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
             <QuizSkipMark item={a} parent={selectKind === 'annotation' ? 'book' : ''} />
             {metaLine && <MonoLabel className="block">{metaLine}</MonoLabel>}
           </div>
-          {/* WHAT IT SAYS, then what you thought — in that order, and the order is
-              the argument. The translation belongs to the quote, so it sits under
-              the words and above the margin note; putting it after the note would
-              read as a second thought about the line rather than the line itself.
-              Drawn here rather than inside each kind's `meta` node so that all
-              three kinds — and the search modal, which asks utteranceMeta for a
-              plain string — show it identically. */}
-          {/* 0069, above the translation and under the words it respells: the order
-              the owner writes them in — অতি সন্ন্যাসীতে গাজন নষ্ট, then Ati
-              sannyasite gajon nosto, then what it means. */}
-          {second && <TranslationLine>{second}</TranslationLine>}
           {a.note && <HandNote>{a.note}</HandNote>}
           {a.tags && a.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">

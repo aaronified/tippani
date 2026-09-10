@@ -3062,7 +3062,28 @@ export function HandNote({ className = "", lines = 2, children }) {
   );
 }
 
-// TranslationLine — what the line SAYS, under the meta strip and above the note.
+// TranslationLine — what the line SAYS, and it sits IN the card's body beside the
+// quote rather than under the strip that describes it.
+//
+// THE OWNER'S CARD SHAPE, which they settled as a rule for every annotation card
+// in the app: "quote, translation: these will form the card body. both separately
+// expandable… then the author/speaker/character chip, then the Kind specific
+// attribution, then notes (expandable), then the tag row. finally the icons /
+// action row."
+//
+// It used to be drawn after the attribution, which put the other half of the
+// card's own text below a line of metadata about it — so a bilingual card read
+// words, then who said them, then where, and only then what the words mean. The
+// two texts are ONE band and the band leads.
+//
+// AND IT FOLDS ON ITS OWN, off the same primitive HandNote uses. "Both separately
+// expandable" is the part that needed building: this was a plain <p> that ran to
+// whatever length it wanted, so a long original with a long translation was one of
+// them clamped and the other not — and a reader who wanted the meaning had to
+// scroll past all of the words they could not read to reach it. Three lines rather
+// than the quote's six, because it is the supporting half of the pair: expanding
+// is one press, and a collapsed card that ran to twelve lines of text would be a
+// list nobody can scan.
 //
 // ONE COMPONENT FOR ALL THREE KINDS, and that is the point of it living here.
 // The rich form of utteranceMeta drew this itself from 0035 until 0051, which
@@ -3081,13 +3102,25 @@ export function HandNote({ className = "", lines = 2, children }) {
 // stack has no Indic member (see src/locale.jsx), so a Bengali translation set in
 // it would draw in whatever the OS reached for — which is the same trap
 // .cleanup-snippet documents.
-export function TranslationLine({ className = "", children }) {
-  // card-text for the reason HandNote carries it: this is prose, so a long press
-  // over it should select words rather than the card.
+export function TranslationLine({ className = "", lines = 3, children }) {
+  const [open, setOpen] = useState(false)
+  const { ref, canToggle, clamp } = useClamped({ lines, open, watch: children })
   return (
-    <p className={"quote-translation card-text " + className}>
-      {children}
-    </p>
+    // THE CLAMP IS ON THE <p> AND THE CONTROL IS ON A WRAPPER, which is the shape
+    // all four clamped blocks take: a -webkit-box cannot hold a chevron beside its
+    // own text without the chevron counting as one of the lines.
+    <div
+      className={`clampable${canToggle ? ' is-clickable' : ''}`}
+      aria-expanded={canToggle ? open : undefined}
+      {...clampProps(canToggle, () => setOpen((o) => !o))}
+    >
+      {/* card-text for the reason HandNote carries it: this is prose, so a long
+          press over it should select words rather than the card. */}
+      <p ref={ref} style={clamp || undefined} className={"quote-translation card-text " + className}>
+        {children}
+      </p>
+      <ClampToggle canToggle={canToggle} open={open} />
+    </div>
   );
 }
 

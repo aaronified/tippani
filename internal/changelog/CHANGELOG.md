@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A quote and its translation are one block at the top of the card now, and each folds on
+  its own.** The translation used to sit *below* the line naming who said it and where — so a
+  bilingual card read the words, then the speaker, then the chapter, and only then what the
+  words mean. Half of the card's own text arrived after a line of metadata about the other
+  half. The two texts are one band and the band leads; which of them is in the big type is
+  still decided by your reading languages and the text-order setting, not by the card.
+  **And the translation folds separately**, which it could not before: a long original with a
+  long translation left one clamped and the other running on, so getting to the meaning meant
+  scrolling past every word you could not read.
+- **Every annotation card reads in one fixed order** — the two texts, the person, the kind's
+  own line, the note, the tags, the icons — on the Library list, the Quotes board, a work's
+  page and a search hit alike.
 - **The add screen asks what you are adding before it asks anything else.** It offered
   eleven doors at once — Book, Film, Show, Game, Board, a book highlight, a screen line and
   the seven kinds of quote — and those are *forms*, which is not where anybody starts. It
