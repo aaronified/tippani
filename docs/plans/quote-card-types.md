@@ -126,3 +126,85 @@ held, B2 and B3 will drift and the share image will keep drawing a proverb as a 
    The field is gone (0072), so a proverb's card is two registers and the tall-card worry
    with it. What remains of the question is whether the **note** — which is where a
    romanisation now lives — should draw above or below the translation on a saying.
+
+---
+
+# The owner's corrections, and the principle behind them
+
+Given after the first draft, and they change the recommendation rather than refine it. The
+governing sentence, which decides every case below:
+
+> **"show as little is needed to convey the important stuff about the quote"**
+
+That is not a style note. It settles the question this draft could not: whether a fuller
+attribution is worth a new column. It is not — the card composes what it *has*, and a
+shape that needs a column the reader would have to fill twice is a shape that does not
+earn its place.
+
+## The five attribution shapes, corrected
+
+| Kind | Shape | Was |
+| :-- | :-- | :-- |
+| **Essay** | `"{work_title}", {locator}` | `{work_title}, {locator}` — the title now wears quotation marks, which is how an essay inside a collection is cited everywhere else |
+| **Poem** | `{poem_name} from {work_title}` when both are known; `from {work_title}` or `{poem_name}` when only one is | one shape, `from {work_title}` |
+| **Song** | the same three shapes as a poem | not distinguished from a poem |
+| **Proverb** | `{language} proverb` | `{region} proverb` |
+| Speech / Letter | unchanged — `{occasion}, {place}` and `Letter to {recipient}` | — |
+
+## Where a poem's own name lives, and the decision that makes it work
+
+**A poem quoted out of a book puts the poem's name in the chapter-name field.** The owner's,
+and it is the decision that makes the three-shape rule reachable without a new column:
+
+- Added as a **book highlight**: the book row is the collection and `chapter` is the poem.
+  So the card has both halves and draws `{chapter} from {book title}` — shape one.
+- Added as a **standalone poem or song**: there is one title box, and the card draws whichever
+  shape the values support.
+
+**This is worth stating because a reader will find it surprising.** "Chapter" over a box
+holding *Sonar Tori* reads oddly for a moment — and it is right, because a poem in a
+collection IS a chapter of it as far as the locator model is concerned: `annotations` already
+splits a chapter into a number and a name (0044), and a numbered poem in a numbered
+collection is exactly that pair. The alternative was a `piece_title` column duplicating
+`chapter` for one kind of book, which the principle above rules out.
+
+**A song's title box is labelled `Book / Movie / Album`** — the owner's exact words. A song
+reaches a reader through any of the three, and one label naming all three is honest where
+`Album` alone would be wrong for a film song and `Source` would be wrong for everything.
+
+## Dates
+
+- **Poem and song: the date is not important.** It stays reachable and sits behind *Show all
+  fields* — which is where `addFields.js` already puts it, so no change is needed.
+- **A proverb has no date at all.** Hard dropped, which `addFields.js` also already does:
+  `showsField('proverb', 'when')` is false, alongside speaker, occasion, place and recipient.
+
+Both are recorded here rather than left implicit, because the field table and the card
+composition have to agree: a card that drew a date for a proverb would be drawing a field
+the form refuses to collect.
+
+## The consequence for `{language} proverb`, and it needs the owner's eye
+
+The proverb card's attribution is now **the language**, and the owner has also ruled that on
+the proverb form the language sits **behind *Show all fields*** (the global: "language … it
+should be everywhere, behind show all").
+
+Those two together mean **the one line the card prints about a proverb comes from a box the
+reader has to open a disclosure to fill.** A proverb saved without opening it draws no
+attribution at all. Three ways out, in order of how much they cost:
+
+1. **Language comes out from behind the disclosure on the proverb door only** — one entry in
+   the field table, and it is the kind the owner's own measurement showed at 100% filled.
+2. Leave it, and let a proverb with no language draw no attribution line.
+3. Default the language from the board's own `languages` list (0037 stores one per proverb
+   board, exactly so the form can offer it), so the box is pre-filled rather than promoted.
+
+**Recommendation: 3, falling back to 1.** A proverb board already knows its languages and
+that is what 0037 stored them for — so the commonest case needs no box at all, and the
+disclosure holds the exception. The primary downside: a board with several languages cannot
+guess which, so the box is pre-filled only when the board names exactly one.
+
+**Region survives as a field and stops being the attribution.** The owner moved it behind
+the disclosure and the card no longer prints it, which leaves it as what it always was: a
+narrowing on top of the language — a Sylheti proverb is a Bengali proverb from somewhere in
+particular, and the card has room for the general fact only.
