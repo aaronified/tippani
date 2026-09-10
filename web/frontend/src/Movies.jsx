@@ -2015,6 +2015,16 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
   // 0047's two, which this form has carried through and never offered.
   const [act, setAct] = useState(initial?.act || '')
   const [quest, setQuest] = useState(initial?.quest || '')
+  // 0070/0071's THREE, AND THIS FORM HAD NONE OF THEM. The add surface drew all
+  // three from the day the migrations landed and this form drew none, which on a
+  // full-state PUT is not "not offered" — it is CLEARED on every save. Editing a
+  // game's line wiped its pack; editing a film's line wiped where the line stops;
+  // editing anything wiped what the line is in. `edit-parity.test.js` now walks
+  // the add surface's own field table against this payload so a fourth cannot be
+  // added to one side alone.
+  const [timestampEnd, setTimestampEnd] = useState(initial?.timestamp_end || '')
+  const [dlc, setDlc] = useState(initial?.dlc || '')
+  const [language, setLanguage] = useState(initial?.language || '')
   // Kept as strings: '' is unset and '0' is season 0, and a number field cannot
   // hold both. ?? not ||, so a stored 0 seeds as "0" rather than blank.
   const [season, setSeason] = useState(initial?.season ?? '')
@@ -2076,6 +2086,15 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       // (normalizeLocator), and this form no longer shows the box — so sending the
       // stale value back would be asserting something it does not display.
       timestamp: game ? '' : timestamp.trim(),
+      // Both ends together, and both cleared on a game for the same reason: the
+      // server discards a runtime a game's line does not have, so sending a stale
+      // one would be asserting something this form does not show.
+      timestamp_end: game ? '' : timestampEnd.trim(),
+      // A PACK IS A GAME'S ALONE. A film or a show has no DLC column to fill, and
+      // the server refuses one — so it goes out empty rather than carrying whatever
+      // was there, exactly as `timestamp` does in the other direction.
+      dlc: game ? dlc.trim() : '',
+      language: language.trim(),
       translation: translation.trim(),
       // An episode's title is carried through — it has no box here — and a game's
       // act and quest are EDITED now, from the two fields below. Both must be SENT
@@ -2149,6 +2168,7 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
           "Prologue" are both real answers, and a quest has a name rather than an
           index. */}
       {game ? (
+        <>
         <div className="grid grid-cols-2 gap-2">
           <input
             className="tp-input"
@@ -2170,6 +2190,19 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
             onChange={(e) => setQuest(e.target.value)}
           />
         </div>
+        {/* THE PACK THE ACT AND QUEST SIT INSIDE (0071), and a name like every
+            other box on this row. Under the pair rather than beside it: a DLC name
+            is long — "Blood and Wine", "Far Harbor" — and this row is already two
+            columns on a phone. */}
+        <input
+          className="tp-input"
+          autoCapitalize="words"
+          placeholder={t('add.form.dlc.placeholder')}
+          aria-label={t('common.field.dlc.label')}
+          value={dlc}
+          onChange={(e) => setDlc(e.target.value)}
+        />
+        </>
       ) : episodeFields ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <input
@@ -2203,19 +2236,49 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
             value={timestamp}
             onChange={(e) => setTimestamp(e.target.value)}
           />
+          {/* WHERE THE LINE STOPS (0070). Beside the start, because a stretch of
+              runtime is one fact with two ends and reading them apart is reading
+              neither. */}
+          <input
+            className="tp-input col-span-2 sm:col-span-1"
+            placeholder={t('add.form.timestamp-end.placeholder')}
+            aria-label={t('common.field.timestamp-end.label')}
+            value={timestampEnd}
+            onChange={(e) => setTimestampEnd(e.target.value)}
+          />
         </div>
       ) : (
-        <input
-          className="tp-input"
-          placeholder={t('film.line.form.timestamp.placeholder')}
-          title={t('film.line.form.timestamp.tip')}
-          aria-label={t('common.field.timestamp.label')}
-          value={timestamp}
-          onChange={(e) => setTimestamp(e.target.value)}
-        />
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            className="tp-input"
+            placeholder={t('film.line.form.timestamp.placeholder')}
+            title={t('film.line.form.timestamp.tip')}
+            aria-label={t('common.field.timestamp.label')}
+            value={timestamp}
+            onChange={(e) => setTimestamp(e.target.value)}
+          />
+          <input
+            className="tp-input"
+            placeholder={t('add.form.timestamp-end.placeholder')}
+            aria-label={t('common.field.timestamp-end.label')}
+            value={timestampEnd}
+            onChange={(e) => setTimestampEnd(e.target.value)}
+          />
+        </div>
       )}
       {/* What the line says, above what you thought about it — the order the frame
           draws them in, and the order the book form uses. */}
+      {/* WHAT THE LINE IS IN (0071), immediately above the translation because it
+          is the fact that RANKS the two texts — the app cannot decide which of them
+          leads without it. A name, so it takes the capital hint. */}
+      <input
+        className="tp-input"
+        autoCapitalize="words"
+        placeholder={t('common.field.language.placeholder')}
+        aria-label={t('common.field.language.label')}
+        value={language}
+        onChange={(e) => setLanguage(e.target.value)}
+      />
       <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
                 aria-label={t('common.field.translation.label')}
                 value={translation} onChange={(e) => setTranslation(e.target.value)} />

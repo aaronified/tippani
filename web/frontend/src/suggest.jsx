@@ -118,62 +118,22 @@ export function useWorkSuggestions(target) {
   return { ...state, actorFor, chapterNames, chapterNumbers }
 }
 
-// Datalist — a native suggestion list for a plain input. The CHAPTER fields, and
-// only those: the character and actor boxes moved to CastCombo below.
+// THE NATIVE DATALIST IS GONE, and the owner is why: "tag, character, chapter
+// name, and number will be comboboxes based on the available items."
 //
-// NATIVE, AND STILL RIGHT HERE. The argument was that the browser's own list is
-// strictly better in this role — it filters as you type, it does not steal the
-// keyboard on a phone, and it never prevents you typing something that is not on
-// the list. The part that did not survive contact with the character box is
-// DISCOVERABILITY: desktop Chrome opens a datalist only after a keystroke, so a
-// reader who had typed nothing saw nothing. That is fatal for a list of a work's
-// cast, which is the thing you open the box in order to be reminded of, and it
-// costs nothing for a chapter number you are about to type anyway.
+// It served the two chapter boxes and nothing else, and the argument for it was
+// real — the browser's own list filters as you type, does not steal the keyboard on
+// a phone, and never prevents you typing something off the list. What killed it is
+// DISCOVERABILITY, which the cast box had already proved: desktop Chrome opens a
+// datalist only after a keystroke, so a reader who had typed nothing saw nothing.
+// That is fatal for a list you open the box in order to be reminded of, and a
+// chapter name is exactly that — you know the number, the name is what you would
+// have to flip back to find.
 //
-// Rendered as nothing when there is nothing to offer, so an input's `list=` can
-// point at an id that is simply absent; a datalist with no options is the same as
-// no datalist to every browser, but an EMPTY one still renders an empty popup in
-// some, which reads as a broken control.
-export function Datalist({ id, options }) {
-  if (!options || options.length === 0) return null
-  return (
-    <datalist id={id}>
-      {options.map((o) => (
-        <option key={o} value={o} />
-      ))}
-    </datalist>
-  )
-}
+// Deleted rather than left exported: the last two callers are `SuggestCombo` now,
+// and an unused primitive is a second answer to a question this file already
+// answers once.
 
-// ---- the cast combobox ------------------------------------------------------
-//
-// CastCombo is the character (or actor) box with the work's own cast hanging
-// under it: a text input that drops a list, filters as you type, and never stops
-// you typing a name the list has never heard of.
-//
-// IT REPLACES A <datalist>, WHICH IS A DECISION REVERSED. The argument for the
-// native list was that the browser's own is strictly better in this one role —
-// it filters, it does not steal a phone's keyboard, and it cannot refuse free
-// text. Two of those are still true and the first one is what went wrong: what
-// the browser actually does with a datalist is a per-browser matter. On desktop
-// Chrome it opens only after a keystroke, so a reader who had typed nothing saw
-// nothing and had no way to learn the list existed; Safari draws it as a
-// scrolling menu of everything; on Android it is a strip above the keyboard that
-// looks like autocorrect. "There is a dropdown here" was not discoverable, which
-// for a memory aid is the whole of its value.
-//
-// So it opens on FOCUS, shows what the work knows, and says who plays each part.
-//
-// TEN ON A DESKTOP, FIVE ON A PHONE, which is the cap the owner asked for and is
-// not arbitrary either way round: a phone's dropdown is drawn over the form it
-// belongs to, and a list of twenty covers the box you are typing into.
-//
-// THE ACTOR IS IN THE ROW, not only in the preview under the box. A film's cast
-// is twenty rows of two names and the one you remember is often the actor's —
-// "the one Alan Rickman played" — so a list of characters alone is a list you
-// have to translate before you can use it. It is free text, so nothing stops the
-// reader typing the actor's name into the character box; the row is what makes
-// that unnecessary rather than what prevents it.
 const COMBO_MAX_DESKTOP = 10
 const COMBO_MAX_MOBILE = 5
 
@@ -201,8 +161,8 @@ const fold = (v) => String(v || '').toLowerCase().trim()
 // field this serves is optional free text at the API, so a chapter you have never
 // recorded has to be typeable or the helper becomes a cage. Nothing is ever
 // restricted to the pool.
-export function SuggestCombo({ label, value, onChange, placeholder, options = [], nameCase = true, inputRef, ariaLabel }) {
-  return <Combo label={label} value={value} onChange={onChange} placeholder={placeholder} rows={options} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} />
+export function SuggestCombo({ label, value, onChange, onCommit, placeholder, options = [], nameCase = true, inputRef, ariaLabel, inputMode }) {
+  return <Combo label={label} value={value} onChange={onChange} onCommit={onCommit} placeholder={placeholder} rows={options} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} inputMode={inputMode} />
 }
 
 // CastCombo — SuggestCombo over a work's cast, which is where this component
@@ -210,12 +170,12 @@ export function SuggestCombo({ label, value, onChange, placeholder, options = []
 // holds two names, `field` says which of them this box is for, and the OTHER one
 // becomes the second line — so a reader typing "quinn" is shown "Harley Quinn"
 // with "Margot Robbie" under it.
-export function CastCombo({ label, value, onChange, placeholder, cast = [], field = 'character', nameCase = true, inputRef, ariaLabel }) {
+export function CastCombo({ label, value, onChange, onCommit, placeholder, cast = [], field = 'character', nameCase = true, inputRef, ariaLabel }) {
   const rows = useMemo(
     () => cast.map((c) => ({ name: (c?.[field] || '').trim(), other: (c?.[field === 'character' ? 'actor' : 'character'] || '').trim() })),
     [cast, field],
   )
-  return <Combo label={label} value={value} onChange={onChange} placeholder={placeholder} rows={rows} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} />
+  return <Combo label={label} value={value} onChange={onChange} onCommit={onCommit} placeholder={placeholder} rows={rows} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} />
 }
 
 // Combo is the body both of them share. Not exported: a caller reaching past the
@@ -224,6 +184,22 @@ function Combo({
   label,
   value,
   onChange,
+  // onCommit — THE EDIT IS FINISHED. Fired when a suggestion is picked, when
+  // Enter takes a highlighted row, and when focus genuinely leaves the box;
+  // never on a keystroke.
+  //
+  // THE OWNER FOUND WHY THIS HAS TO EXIST, by typing a two-digit chapter: "if i
+  // am at chapter 15, the chapter name is assigned at typing 1 and then no
+  // rewrites". Anything that reads the box's value and acts on the LIBRARY —
+  // pairing a chapter number with its name, here — is answering a question about
+  // a value the reader has not finished giving. At `1` the answer is chapter one,
+  // and it is confidently wrong. Their own fix: "should it not be assigned when
+  // the edit is complete (the typing cursor is moved)?"
+  //
+  // So the two callbacks have two jobs and neither does the other's. `onChange`
+  // keeps the box's text in step with the keyboard, every keystroke, and must stay
+  // cheap and local. `onCommit` is where a consequence goes.
+  onCommit,
   placeholder,
   // [{ name, other }] in the order they arrived — billing order for a cast,
   // commonest-first for a chapter or a pack, which is what the endpoints return.
@@ -231,6 +207,10 @@ function Combo({
   nameCase = true,
   inputRef,
   ariaLabel,
+  // A numeric keypad for the one box here that holds a number. Passed through
+  // rather than inferred: `nameCase` already says "this is a name" and a second
+  // flag deriving the keypad from it would tie two unrelated facts together.
+  inputMode,
 }) {
   const [open, setOpen] = useState(false)
   const [hi, setHi] = useState(-1)
@@ -272,8 +252,15 @@ function Combo({
   const { popRef, style } = useAnchoredPosition(menuOpen, boxRef, { matchWidth: true, minHeight: 120 })
   useDismiss(menuOpen, () => setOpen(false), [boxRef, popRef], { event: 'pointerdown' })
 
+  // A PICK IS A COMMIT, and it is the one case where the two callbacks must fire
+  // together: `onChange` puts the row's text in the box and `onCommit` lets the
+  // caller act on it. Not `onChange` alone — the caller has no other signal that
+  // the value is finished — and not `onCommit` alone, because the box is
+  // controlled and would still show what was typed.
+  const commit = (v) => onCommit?.(v)
   const pick = (name) => {
     onChange(name)
+    commit(name)
     setOpen(false)
     setHi(-1)
   }
@@ -292,6 +279,13 @@ function Combo({
       // control most likely to be the last thing typed.
       e.preventDefault()
       pick(matches[hi].name)
+    } else if (e.key === 'Enter') {
+      // Enter with NO row highlighted is still the reader saying they are done —
+      // it is how a form is submitted from the last field, and the pairing has to
+      // have run before that. Not prevented: swallowing Enter here would make the
+      // box a trap on the control most likely to be the last thing typed, which is
+      // the argument the highlighted-row branch above already makes.
+      commit(value || '')
     } else if (e.key === 'Escape' && menuOpen) {
       // Stopped here rather than allowed to bubble: the dialog this box sits in
       // closes on Escape, and losing the whole form to a dismissed dropdown is
@@ -321,6 +315,7 @@ function Combo({
         aria-activedescendant={menuOpen && hi >= 0 ? `${listID}-${hi}` : undefined}
         aria-label={ariaLabel || label}
         autoComplete="off"
+        inputMode={inputMode}
         placeholder={placeholder}
         value={value || ''}
         onChange={(e) => {
@@ -333,10 +328,14 @@ function Combo({
         onBlur={(e) => {
           // The menu is portalled, so it is not a descendant of boxRef — asking
           // only boxRef makes every option click look like focus leaving the
-          // control, and closes the menu before the click can land.
+          // control, and closes the menu before the click can land. The same two
+          // checks gate the commit: a click on a row must not fire the blur
+          // commit as well, or the half-typed text competes with the row that was
+          // chosen — the case entry-helpers.md calls out by name.
           if (boxRef.current?.contains(e.relatedTarget)) return
           if (popRef.current?.contains(e.relatedTarget)) return
           setOpen(false)
+          commit(value || '')
         }}
       />
       {/* THE POINTER LETTING GO IS AS MUCH AN ANSWER AS THE POINTER ARRIVING.
@@ -372,6 +371,46 @@ function Combo({
         document.body,
       )}
     </div>
+  )
+}
+
+// OfferChip — what the app says when it knows an answer and will not write it.
+//
+// `docs/plans/entry-helpers.md` state 3: "counterpart non-empty and disagrees →
+// write nothing. Show one inline chip — `Chapter 3?` — that fills on tap." The
+// plan's reason is the failure it prevents, and it is worth restating because the
+// chip looks like a nicety and is not: "you type 7, then pick a chapter name to
+// save typing, and the 7 silently becomes 3. You would not notice until the quote
+// was already filed under the wrong chapter, and nothing would record that the app
+// had done it."
+//
+// BUT NEVER WRITING IS ONLY HALF AN ANSWER, and the owner found the other half by
+// using it — "the chapter name is assigned at typing 1 and then no rewrites".
+// Refusing to clobber protects what you typed; with no way to accept the pool's
+// answer it also strands a value the app itself filled in a moment earlier. The
+// chip is that way back, and it is one tap, and it writes only when tapped.
+//
+// ONE COMPONENT, so a second caller cannot invent a second behaviour — the plan's
+// own reasoning, and this repo's directive that two things which look the same
+// behave the same. A chip is a real button (`tp-chip-btn`, the class the shelf-cap
+// and "Mark as read" rows already use) rather than a span with a handler, so it is
+// reachable by Tab and announces itself.
+//
+// The Alt+1…9 route the plan specifies is NOT here yet: it wants nine ids in
+// `keys.js` with a `ctx`, and `prettyKey` needs an `alt` word. That is a keyboard
+// feature of its own and this is one chip; the pointer route is complete.
+// ONE CONTROL AND NO SECOND ONE TO DISMISS IT. The plan says the chip "fills on
+// tap and vanishes on dismiss or on the next keystroke in that field", and the
+// keystroke is the whole of it: typing in the box the chip is about is already the
+// reader saying they meant what they typed. A ✕ beside it would be a second
+// control for a state that clears itself, and this app has a standing rule against
+// a row that says a thing twice.
+export function OfferChip({ label, onAccept }) {
+  if (!label) return null
+  return (
+    <button type="button" className="tp-chip tp-chip-btn offer-chip" onClick={onAccept}>
+      {label}
+    </button>
   )
 }
 

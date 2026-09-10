@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A chapter's name is filled in when you finish typing the number, not while you type
+  it.** At chapter 15 you typed `1`, the app matched chapter one and wrote its name, and
+  because it never overwrites what is already there the wrong name then stuck. It now waits
+  for the edit to be finished — a suggestion picked, Enter, or the cursor moving on — so it
+  answers about the number you meant rather than the number you were halfway through.
+- **And when it disagrees with what is already in the other box, it offers instead of
+  giving up.** Refusing to overwrite protects what you typed; refusing with no way back
+  strands a value the app itself filled in a moment earlier. A small chip now names what
+  your library says — `Chapter 15?`, or the name it has for that number — and fills it on a
+  tap. Nothing is written until you tap, and the chip disappears the moment you type in that
+  box again.
+- **Both chapter boxes are proper dropdowns on the edit form too, not just when adding.**
+  They used the browser's own suggestion list, which on a desktop only opens after you have
+  typed a character — useless for a list you open the box in order to be *reminded* of. Same
+  control on both screens now.
 - **The add screen was rebuilt.** It was three tabs — look a work up, capture a quote,
   read a wall of import instructions — across three things of wildly different weights, and
   the segmented control at the top spent every opening asking a question you had already
@@ -161,6 +176,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Four fields were being wiped by the forms that should have been editing them.** Saving
+  a game's line cleared the **pack** it came in. Saving a film's line cleared where the line
+  **stops**. Saving any highlight, line or quote cleared **what it is in** — the language
+  that decides whether the original or the translation leads. Saving a speech cleared the
+  **source author**, the person the words reach us through. All four are recent additions:
+  the add screen offered them from the day they shipped and the three edit forms never grew
+  a box, and because a save here replaces the whole record rather than patching it, a box
+  that is missing is not "left alone" — it is emptied. Every one of them now has a box on
+  every form that edits it, and a new check walks the add screen's own list of fields
+  against what each edit form sends, so a fifth cannot land on one side alone.
 - **A capture you abandoned came back without its tags.** The screen keeps an unfinished
   quote for a few minutes so a mistyped page or a closed panel does not cost you the line —
   and it restored the quote, the note and the colour but silently dropped the tags, because

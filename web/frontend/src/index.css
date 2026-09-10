@@ -6005,6 +6005,13 @@
      shape/size as .tp-chip, with a hover lift so it reads as clickable. */
   .tp-chip-btn { cursor: pointer; color: var(--accent-ui); transition: color .18s ease, border-color .18s ease, background .18s ease; }
   .tp-chip-btn:hover { color: var(--ink); border-color: var(--ink-border); background: var(--card); }
+  /* AN OFFER, WHICH IS NOT A STATE — it is one press that has not happened yet.
+     `docs/plans/entry-helpers.md` state 3: the library knows an answer, what you
+     typed disagrees with it, and nothing is written until you tap. It wears the
+     accent because it is a thing to do rather than a thing to read, and it sits
+     hard against the box it is about — `align-self: start` so it is as wide as its
+     own words, and never a full-width bar competing with the field above it. */
+  .offer-chip { align-self: flex-start; }
   .tp-link {
     background: none;
     border: none;

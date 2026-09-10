@@ -325,6 +325,11 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   const [region, setRegion] = useState(initial?.region || '')
   const [recipient, setRecipient] = useState(initial?.recipient || '')
   const [workTitle, setWorkTitle] = useState(initial?.work_title || '')
+  // 0070's, and the owner asked for it by name: "socrates' speeches are known from
+  // plato's paraphrasing". The add surface has drawn it since the migration landed
+  // and this form did not, so a full-state PUT cleared Plato off every speech the
+  // moment anything else on it was edited.
+  const [sourceAuthor, setSourceAuthor] = useState(initial?.source_author || '')
   const [locator, setLocator] = useState(initial?.locator || '')
   const [circa, setCirca] = useState(!!initial?.occasion_circa)
   const [translation, setTranslation] = useState(initial?.translation || '')
@@ -375,6 +380,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       region: region.trim(),
       recipient: recipient.trim(),
       work_title: workTitle.trim(),
+      source_author: sourceAuthor.trim(),
       locator: locator.trim(),
       occasion_circa: circa,
       color,
@@ -523,6 +529,22 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
             placeholder={t('quotes.form.locator.placeholder')}
             value={locator}
             onChange={(e) => setLocator(e.target.value)}
+          />
+        </div>
+        {/* THE PERSON THE WORDS REACH US THROUGH (0070), under the source they
+            reach us in — which is where it belongs, because it is a fact about that
+            source and not about the speaker. The owner's case for the field
+            existing: "socrates' speeches are known from plato's paraphrasing".
+            A fifth relation and not a reuse of one of the four already on this
+            form: the speaker said it, the recipient was told it, an author writes a
+            work, a character lives inside one. */}
+        <div className="cl-grid mt-3">
+          <Field
+            label={t('common.field.source-author.label')}
+            nameCase
+            placeholder={t('add.form.source-author.placeholder')}
+            value={sourceAuthor}
+            onChange={(e) => setSourceAuthor(e.target.value)}
           />
         </div>
       </div>

@@ -5312,6 +5312,10 @@ common.field.tags.placeholder = add a tag…
 common.field.quote.label = Quote
 common.field.chapter-no.label = Chapter #
 common.field.chapter-name.label = Chapter name
+# The offer shown when the chapter pool disagrees with what is already in the
+# other box. Tapping it writes; nothing else does — chapterPatch in text.js.
+common.field.chapter-no.offer = Chapter {no}?
+common.field.chapter-name.offer = “{name}”?
 common.field.location.label = Location
 common.field.character.label = Character
 common.field.actor.label = Actor

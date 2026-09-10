@@ -271,6 +271,19 @@ export function showsTranslationLine(a, order) {
 // had done it. So a disagreement is left alone; the reader's own typing always
 // wins.
 //
+// AND "LEFT ALONE" IS NOT THE SAME AS "NOTHING HAPPENS", WHICH IS WHAT IT WAS FOR
+// A RELEASE. The owner found the dead end this rule creates, and found it by
+// typing: "if i am at chapter 15, the chapter name is assigned at typing 1 and
+// then no rewrites". Two defects, one report. The first is WHEN — the rule ran on
+// every keystroke, so `1` of `15` matched chapter one and filled its name, and by
+// the `5` the never-clobber rule had made that permanent. The fix is theirs:
+// "should it not be assigned when the edit is complete (the typing cursor is
+// moved)?" — yes, and it now runs on COMMIT, which is picking a suggestion or
+// leaving the box, never mid-word. The second is that never-clobber with no way
+// back is a trap rather than a safeguard, so a disagreement now returns an OFFER:
+// one chip naming what the pool says, which fills on a tap and writes nothing
+// until it is tapped. That is `docs/plans/entry-helpers.md`'s state 3, built.
+//
 // IT LIVES HERE, IMPORT-FREE, so the add form and the edit form call one function
 // rather than keeping a line each — the repo's directive that two things which
 // look the same behave the same, and the reason `chapterLabel` is already in this
@@ -278,26 +291,39 @@ export function showsTranslationLine(a, order) {
 // being right.
 //
 // `pool` is [{ no, name, count }] as `GET /books/{id}/chapters` returns it.
+//
+// Returns `{ patch, offer }`. `patch` is always applied; `offer` is null or
+// `{ field, value }` for the counterpart the pool disagrees with — never both, by
+// construction, because a fill and an offer answer the same question.
 export function chapterPatch(which, typed, current, pool) {
   const rows = Array.isArray(pool) ? pool : []
   const fold = (s) => String(s ?? '').trim().toLowerCase()
   if (which === 'name') {
     const patch = { chapter: typed }
-    if (fold(current) !== '') return patch // never overwrite a number already there
     // FIRST MATCH, and the pool arrives commonest-first, so a one-off typo of a
     // chapter name loses to the spelling actually used. A name recorded against
     // two different numbers is genuinely ambiguous and the first is the one the
     // reader used most — which beats picking neither on a form whose whole point
     // is being quick.
     const hit = rows.find((r) => fold(r.name) === fold(typed) && r.no)
-    return hit ? { ...patch, chapter_no: String(hit.no) } : patch
+    if (!hit) return { patch, offer: null }
+    const want = String(hit.no)
+    if (fold(current) === '') return { patch: { ...patch, chapter_no: want }, offer: null }
+    // Numbers compare as numbers on the way to "do these agree": 42 and "42.0"
+    // are one chapter, and a string compare would offer a chip that changes
+    // nothing visible.
+    if (Number(String(current).trim()) === Number(want)) return { patch, offer: null }
+    return { patch, offer: { field: 'chapter_no', value: want } }
   }
   const patch = { chapter_no: typed }
-  if (fold(current) !== '') return patch // never overwrite a name already there
   // Numbers compare as numbers: "42", "42.0" and 42 are one chapter, and a string
   // compare would offer the name for one spelling of it and not the others.
   const want = Number(String(typed).trim())
-  if (!Number.isFinite(want) || String(typed).trim() === '') return patch
+  if (!Number.isFinite(want) || String(typed).trim() === '') return { patch, offer: null }
   const hit = rows.find((r) => Number(r.no) === want && String(r.name || '').trim())
-  return hit ? { ...patch, chapter: String(hit.name).trim() } : patch
+  if (!hit) return { patch, offer: null }
+  const name = String(hit.name).trim()
+  if (fold(current) === '') return { patch: { ...patch, chapter: name }, offer: null }
+  if (fold(current) === fold(name)) return { patch, offer: null }
+  return { patch, offer: { field: 'chapter', value: name } }
 }

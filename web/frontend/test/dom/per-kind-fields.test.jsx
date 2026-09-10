@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 
 // The suggestion hook fetches the work's cast and (for a book) its chapters. Answered
-// here so the datalists have something in them.
+// here so the comboboxes have something in them.
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path) => {
@@ -57,31 +57,59 @@ describe('a book highlight', () => {
   it('offers the book’s own cast and its own chapters', async () => {
     render(<AnnotationForm initial={{ id: 5, book_id: 3, quote: 'x' }} onSubmit={() => null} submitLabel="Save" bookId={3} />)
     await flush()
-    // The chapter fields keep the native datalist; the character box is a real
-    // dropdown since 2.2.3, because a datalist on desktop Chrome shows nothing
-    // until you have typed and this is the box you open to be reminded.
-    const options = [...document.querySelectorAll('datalist option')].map((o) => o.value)
-    expect(options, 'the chapter names are not offered').toContain('The Whale')
-    expect(options, 'the chapter numbers are not offered').toContain('42')
-    // Asserted through what is on SCREEN rather than through the fetch: a list
+    // EVERY ONE OF THE THREE IS A REAL DROPDOWN NOW, on the owner's ask: "tag,
+    // character, chapter name, and number will be comboboxes based on the available
+    // items." The chapter pair kept a native datalist until then, and a datalist on
+    // desktop Chrome shows nothing until you have typed — fatal for a list you open
+    // the box in order to be reminded of.
+    //
+    // Asserted through what is ON SCREEN rather than through the fetch: a list
     // nobody can see is not a suggestion.
-    fireEvent.focus(document.querySelector('input[role="combobox"]'))
-    expect(screen.getAllByRole('option').map((o) => o.textContent), 'the cast is not offered').toContain('Ahab')
+    const shown = (label) => {
+      fireEvent.focus(screen.getByLabelText(label))
+      return screen.getAllByRole('option').map((o) => o.textContent)
+    }
+    expect(shown(t('common.field.chapter-name.label')), 'the chapter names are not offered').toContain('The Whale')
+    expect(shown(t('common.field.chapter-no.label')), 'the chapter numbers are not offered').toContain('42')
+    expect(shown(t('common.field.character.label')), 'the cast is not offered').toContain('Ahab')
   })
 
-  it('fills an empty chapter number from the name, and never overwrites one', async () => {
+  // THE EDIT FORM'S COPY OF THE PAIRING CHECK, and it is here rather than folded
+  // into chapter-commit.test.jsx on purpose: that file drives the ADD surface, this
+  // one drives the edit form, and the owner's point is that the two must behave
+  // alike. One rule (`chapterPatch`), two callers, two tests that agree.
+  it('fills an empty chapter number from the name — on commit, not mid-word', async () => {
     render(<AnnotationForm initial={{ id: 5, book_id: 3, quote: 'x' }} onSubmit={() => null} submitLabel="Save" bookId={3} />)
     await flush()
-    const name = document.querySelector(`input[list$="-chname"]`)
-    const no = document.querySelector(`input[list$="-chno"]`)
-    fireEvent.change(name, { target: { value: 'The Whale' } })
-    expect(no.value, 'the number was not filled from the name').toBe('42')
+    const name = screen.getByLabelText(t('common.field.chapter-name.label'))
+    const no = screen.getByLabelText(t('common.field.chapter-no.label'))
 
-    // And with a number already typed, the name leaves it alone — a suggestion that
-    // edits what you have just typed is the form arguing with you.
+    // Typing changes the text and nothing else. The owner found the old behaviour by
+    // typing a two-digit chapter: "the chapter name is assigned at typing 1 and then
+    // no rewrites".
+    fireEvent.change(name, { target: { value: 'The Whal' } })
+    expect(no.value, 'the number was filled from a half-typed name').toBe('')
+
+    fireEvent.change(name, { target: { value: 'The Whale' } })
+    fireEvent.blur(name)
+    await vi.waitFor(() => expect(no.value, 'the number was not filled from the name').toBe('42'))
+  })
+
+  it('and never overwrites a number already there — it offers instead', async () => {
+    render(<AnnotationForm initial={{ id: 5, book_id: 3, quote: 'x' }} onSubmit={() => null} submitLabel="Save" bookId={3} />)
+    await flush()
+    const name = screen.getByLabelText(t('common.field.chapter-name.label'))
+    const no = screen.getByLabelText(t('common.field.chapter-no.label'))
+
     fireEvent.change(no, { target: { value: '7' } })
     fireEvent.change(name, { target: { value: 'Loomings' } })
-    expect(no.value, 'the number was overwritten').toBe('7')
+    fireEvent.blur(name)
+    // A suggestion that edits what you have just typed is the form arguing with you.
+    await vi.waitFor(() => expect(no.value, 'the number was overwritten').toBe('7'))
+    // And refusing to overwrite with no way back is a trap, so the pool's answer is
+    // one tap away.
+    fireEvent.click(await screen.findByRole('button', { name: /1/ }))
+    await vi.waitFor(() => expect(no.value).toBe('1'))
   })
 })
 

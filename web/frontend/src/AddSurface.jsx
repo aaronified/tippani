@@ -25,7 +25,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
-import { CastCombo, Datalist, SuggestCombo, useTagNames, useWorkSuggestions } from './suggest.jsx'
+import { CastCombo, OfferChip, SuggestCombo, useTagNames, useWorkSuggestions } from './suggest.jsx'
 import { t } from './i18n.js'
 import { BoardForm, useBoards } from './boards.jsx'
 import { QUOTE_KIND_DOORS, doorForBoard, fieldsFor, showsField, splitPair } from './addFields.js'
@@ -905,6 +905,21 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
 
   // What this work already knows about itself — its cast, its chapters, its packs.
   const suggest = useWorkSuggestions(needsWork ? draft.target : null)
+
+  // THE CHAPTER PAIRING'S OFFER, AND WHY IT IS STATE HERE RATHER THAN INSIDE THE
+  // BOX. `chapterPatch` answers about the OTHER box, so the component that holds
+  // both values is the only one that can ask — and the chip has to survive the
+  // commit that produced it, which a value living inside one box would not.
+  //
+  // One slot, not one per field: the two boxes are one pairing and only one of them
+  // can be the counterpart at a time. `offer.field` says which box it belongs
+  // under, so a chip cannot appear beside the box that caused it.
+  const [offer, setOffer] = useState(null)
+  const pair = (which, typed) => {
+    const { patch, offer: next } = chapterPatch(which, typed, which === 'name' ? draft.chapter_no : draft.chapter, suggest.chapters)
+    set(patch)
+    setOffer(next)
+  }
   const impliedActor = door === 'dialogue' ? suggest.actorFor(draft.character) : ''
 
   useEffect(() => {
@@ -1120,31 +1135,51 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
             {impliedActor && <span className="microcopy">{t('capture.form.played-by.prose', { name: impliedActor })}</span>}
           </div>
         )
+      // BOTH CHAPTER BOXES PAIR, AND ONLY ON COMMIT. `onChange` keeps the text in
+      // step with the keyboard and touches nothing else; `onCommit` — a picked
+      // suggestion, Enter, or focus leaving the box — is where the pairing runs.
+      // The owner found why: "if i am at chapter 15, the chapter name is assigned
+      // at typing 1 and then no rewrites". A rule that reads the box mid-word is
+      // answering a question about a number the reader has not finished giving.
       case 'chapter':
         return (
-          <SuggestCombo
-            key={key}
-            label={t('common.field.chapter-name.label')}
-            placeholder={t('capture.form.chapter-name.placeholder')}
-            value={draft.chapter}
-            options={suggest.chapterNames.map((n) => ({ name: n }))}
-            // BOTH DIRECTIONS, through the one function the edit form also calls
-            // (chapterPatch in text.js). Neither ever overwrites a counterpart
-            // already typed — see that function's note for the failure it avoids.
-            onChange={(name) => set(chapterPatch('name', name, draft.chapter_no, suggest.chapters))}
-          />
+          <div key={key} className="flex flex-col gap-1.5">
+            <SuggestCombo
+              label={t('common.field.chapter-name.label')}
+              placeholder={t('capture.form.chapter-name.placeholder')}
+              value={draft.chapter}
+              options={suggest.chapterNames.map((n) => ({ name: n }))}
+              onChange={(name) => { setOffer(null); set({ chapter: name }) }}
+              onCommit={(name) => pair('name', name)}
+            />
+            {offer?.field === 'chapter_no' && (
+              <OfferChip
+                label={t('common.field.chapter-no.offer', { no: offer.value })}
+                onAccept={() => { set({ chapter_no: offer.value }); setOffer(null) }}
+              />
+            )}
+          </div>
         )
       case 'chapter_no':
         return (
-          <SuggestCombo
-            key={key}
-            label={t('common.field.chapter-no.label')}
-            placeholder={t('capture.form.chapter-no.placeholder')}
-            value={String(draft.chapter_no)}
-            options={suggest.chapterNumbers.map((n) => ({ name: String(n) }))}
-            nameCase={false}
-            onChange={(v) => set(chapterPatch('no', String(v).replace(/[^\d.]/g, '').slice(0, 7), draft.chapter, suggest.chapters))}
-          />
+          <div key={key} className="flex flex-col gap-1.5">
+            <SuggestCombo
+              label={t('common.field.chapter-no.label')}
+              placeholder={t('capture.form.chapter-no.placeholder')}
+              value={String(draft.chapter_no)}
+              options={suggest.chapterNumbers.map((n) => ({ name: String(n) }))}
+              nameCase={false}
+              inputMode="decimal"
+              onChange={(v) => { setOffer(null); set({ chapter_no: String(v).replace(/[^\d.]/g, '').slice(0, 7) }) }}
+              onCommit={(v) => pair('no', String(v).replace(/[^\d.]/g, '').slice(0, 7))}
+            />
+            {offer?.field === 'chapter' && (
+              <OfferChip
+                label={t('common.field.chapter-name.offer', { name: offer.value })}
+                onAccept={() => { set({ chapter: offer.value }); setOffer(null) }}
+              />
+            )}
+          </div>
         )
       case 'location':
         return <Field key={key} label={t('common.field.location.label')} placeholder={t('capture.form.location.placeholder')} value={draft.location} onChange={(e) => set({ location: e.target.value })} />

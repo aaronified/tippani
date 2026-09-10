@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, json, errText, downloadPost } from './api.js'
 import { chapterLabel, chapterPatch } from './text.js'
 import { usePersonOpener } from './personOpen.jsx'
-import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
+import { CastCombo, OfferChip, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
@@ -2569,6 +2569,13 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
   const [quote, setQuote] = useState(initial?.quote || '')
   const [note, setNote] = useState(initial?.note || '')
   const [translation, setTranslation] = useState(initial?.translation || '')
+  // 0071 PUT `language` ON THIS TABLE AND THIS FORM NEVER GREW A BOX FOR IT — so
+  // on a full-state PUT every edit of a highlight cleared it. A Bengali couplet
+  // quoted inside an English novel is in Bengali while the book is in English,
+  // which is the whole reason the column is on the LINE, and it is what decides
+  // whether the translation below leads. `edit-parity.test.js` walks the add
+  // surface's field table against this form's payload now.
+  const [language, setLanguage] = useState(initial?.language || '')
   const [chapter, setChapter] = useState(initial?.chapter || '')
   // The chapter's NUMBER, kept as a string so the box can be empty. Number(...)||0
   // at submit is the same shape the work forms use for Series #, and 0 is how the
@@ -2589,7 +2596,18 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
   // cast. Keyed on the book, so it is one fetch per book rather than one per
   // keystroke; with no bookId it answers empty and the boxes simply have no lists.
   const suggest = useWorkSuggestions(bookId ? { kind: 'book', id: bookId } : null)
-  const listId = `ann-${bookId || 0}`
+
+  // The pairing and its offer, in the shape the add surface uses — one slot, since
+  // the two boxes are one pairing and only one of them can be the counterpart at a
+  // time. `offer.field` says which box the chip belongs under, so it can never
+  // appear beside the box that caused it.
+  const [offer, setOffer] = useState(null)
+  const pairChapter = (which, typed) => {
+    const { patch, offer: next } = chapterPatch(which, typed, which === 'name' ? chapterNo : chapter, suggest.chapters)
+    if (patch.chapter !== undefined) setChapter(patch.chapter)
+    if (patch.chapter_no !== undefined) setChapterNo(patch.chapter_no)
+    setOffer(next)
+  }
 
   // The must-fill rule, stated once: the guard below and the greyed-out button
   // read the same value, so the button is never pressable in a state the
@@ -2608,6 +2626,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
       quote: quote.trim(),
       note: note.trim(),
       translation: translation.trim(),
+      language: language.trim(),
       chapter: chapter.trim(),
       chapter_no: Number(chapterNo.trim()) || 0,
       location: location.trim(),
@@ -2649,6 +2668,17 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
         <MonoLabel className="mb-1.5 block">{t('common.field.quote.label')}</MonoLabel>
         <textarea className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
       </label>
+      {/* WHAT THE LINE IS IN, immediately above the translation because it is the
+          fact that RANKS the two texts: without it the app cannot decide which of
+          them leads. A name, so it takes the capital hint. */}
+      <Field
+        label={t('common.field.language.label')}
+        nameCase
+        placeholder={t('common.field.language.placeholder')}
+        value={language}
+        onChange={(e) => setLanguage(e.target.value)}
+      />
+
       {/* A TEXTAREA AND NOT A ONE-LINE BOX, like the quote it translates and unlike
           every locator below it: a translated passage is a passage, and the server
           caps neither. */}
@@ -2667,37 +2697,62 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
           book fills the first, an essay collection the second. The number box takes
           a decimal, because 12.5 is where an interlude goes. */}
       {/* BOTH CHAPTER BOXES REMEMBER THIS BOOK, commonest chapter first, and the
-          fill now runs BOTH WAYS — the owner's correction: "chapter number auto
+          fill runs BOTH WAYS — the owner's correction: "chapter number auto
           populates from chapter name now, but not vice versa. chapter name from
           number is more useful."
           They are right about which box a reader reaches for first: you are
           holding the book open at chapter 42, so the number is on the page in
           front of you and the name is the thing you would have to flip back to
-          find. Neither direction ever overwrites a counterpart you have already
-          typed. The rule is `chapterPatch` in text.js, called by this form and by
-          the add surface, so the two cannot drift. */}
+          find.
+
+          COMBOBOXES, NOT A NATIVE DATALIST, and only since the owner asked for it:
+          "tag, character, chapter name, and number will be comboboxes based on the
+          available items." A datalist opens only after a keystroke in desktop
+          Chrome, so a reader who had typed nothing saw nothing — fatal for a list
+          you open the box in order to be REMINDED of. Same control the add surface
+          draws, which is the point: this form and that one now differ in nothing.
+
+          AND THE PAIRING RUNS ON COMMIT. The owner found it mid-word: "if i am at
+          chapter 15, the chapter name is assigned at typing 1 and then no
+          rewrites." A rule that reads the box on every keystroke answers about a
+          number nobody has finished typing. Where the pool disagrees with what is
+          already in the other box, nothing is written and a chip offers — see
+          `chapterPatch` in text.js, the one function this form and the add surface
+          both call. */}
       <div className="cl-grid">
-        <Field label={t('common.field.chapter-no.label')} inputMode="decimal" placeholder={t('book.quote.form.chapter-no.placeholder')} value={chapterNo}
-               list={suggest.chapterNumbers.length ? `${listId}-chno` : undefined}
-               onChange={(e) => {
-                 const typed = e.target.value.replace(/[^\d.]/g, '').slice(0, 7)
-                 const patch = chapterPatch('no', typed, chapter, suggest.chapters)
-                 setChapterNo(patch.chapter_no)
-                 if (patch.chapter !== undefined) setChapter(patch.chapter)
-               }} />
-        <Field
-          label={t('common.field.chapter-name.label')}
-          nameCase
-          value={chapter}
-          list={suggest.chapterNames.length ? `${listId}-chname` : undefined}
-          onChange={(e) => {
-            const patch = chapterPatch('name', e.target.value, chapterNo, suggest.chapters)
-            setChapter(patch.chapter)
-            if (patch.chapter_no !== undefined) setChapterNo(patch.chapter_no)
-          }}
-        />
-        <Datalist id={`${listId}-chno`} options={suggest.chapterNumbers} />
-        <Datalist id={`${listId}-chname`} options={suggest.chapterNames} />
+        <div className="flex flex-col gap-1.5">
+          <SuggestCombo
+            label={t('common.field.chapter-no.label')}
+            placeholder={t('book.quote.form.chapter-no.placeholder')}
+            value={chapterNo}
+            options={suggest.chapterNumbers.map((n) => ({ name: String(n) }))}
+            nameCase={false}
+            inputMode="decimal"
+            onChange={(v) => { setOffer(null); setChapterNo(String(v).replace(/[^\d.]/g, '').slice(0, 7)) }}
+            onCommit={(v) => pairChapter('no', String(v).replace(/[^\d.]/g, '').slice(0, 7))}
+          />
+          {offer?.field === 'chapter' && (
+            <OfferChip
+              label={t('common.field.chapter-name.offer', { name: offer.value })}
+              onAccept={() => { setChapter(offer.value); setOffer(null) }}
+            />
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <SuggestCombo
+            label={t('common.field.chapter-name.label')}
+            value={chapter}
+            options={suggest.chapterNames.map((n) => ({ name: n }))}
+            onChange={(v) => { setOffer(null); setChapter(v) }}
+            onCommit={(v) => pairChapter('name', v)}
+          />
+          {offer?.field === 'chapter_no' && (
+            <OfferChip
+              label={t('common.field.chapter-no.offer', { no: offer.value })}
+              onAccept={() => { setChapterNo(offer.value); setOffer(null) }}
+            />
+          )}
+        </div>
       </div>
       <div className="cl-grid">
         <Field label={t('common.field.location.label')} placeholder={t('book.quote.form.location.placeholder')} value={location} onChange={(e) => setLocation(e.target.value)} />
