@@ -28,16 +28,52 @@ const people = {
 const show = (node) => render(<div data-testid="meta">{node}</div>)
 
 describe('the plain string mode', () => {
-  it('reads speaker first, then the occasion', () => {
-    expect(utteranceMeta(BOSE)).toBe('Subhas Chandra Bose · Burma Radio broadcast · 1944 · Burma · radio')
+  // SPEAKER, THEN THE KIND'S PHRASE, THEN WHAT THE PHRASE DID NOT SAY. The order
+  // is the card's own band order — the person, then the attribution — and it
+  // changed with the report that "Letter" was printed twice.
+  //
+  // Bose's row has no `kind` and a legacy `medium`, so the phrase is that word: an
+  // unfiled quote keeps the text its reader typed, visible as work to do, and
+  // nothing about it can be composed until the kind is set.
+  it('reads speaker first, then the kind, then the rest', () => {
+    expect(utteranceMeta(BOSE)).toBe('Subhas Chandra Bose · radio · Burma Radio broadcast · 1944 · Burma')
+  })
+
+  // THE CASE THE REPORT NAMED: "Quote cards need better formatting (e.g. letter to
+  // carl seelig)." It used to draw the word "Letter" twice — once as the phrase the
+  // reader had typed into Occasion by hand, and once as the kind chip — and the
+  // recipient box appeared nowhere.
+  it('and composes a letter instead of concatenating it', () => {
+    expect(utteranceMeta({
+      speaker: 'Albert Einstein',
+      kind: 'letter',
+      recipient: 'Carl Seelig',
+      place: 'Zurich',
+      occasion_date: '1952-03-11',
+    })).toBe('Albert Einstein · Letter to Carl Seelig · 11 Mar 1952 · Zurich')
+  })
+
+  // A speech's phrase IS its occasion and place, so neither is said again.
+  it('and never says a speech’s occasion twice', () => {
+    expect(utteranceMeta({ speaker: 'Tagore', kind: 'speech', occasion: 'Nobel banquet', place: 'Stockholm' }))
+      .toBe('Tagore · Nobel banquet, Stockholm')
   })
 
   it('drops the fields that are empty', () => {
     expect(utteranceMeta({ speaker: 'Anon', medium: 'letter' })).toBe('Anon · letter')
   })
 
-  it('is empty for a proverb', () => {
+  it('is empty for a proverb nobody has filed', () => {
     expect(utteranceMeta(PROVERB)).toBe('')
+  })
+
+  // AND NOT EMPTY ONCE IT IS ONE. The owner's correction made the language a
+  // proverb's whole attribution — "{language} proverb" — where the first proposal
+  // used the region, which they replaced: a Sylheti proverb is a Bengali proverb
+  // from somewhere in particular, and the card has room for the general fact only.
+  it('and names a filed proverb by its language, never its region', () => {
+    expect(utteranceMeta({ ...PROVERB, kind: 'proverb', language: 'Bengali', region: 'Sylhet' }))
+      .toBe('Bengali proverb')
   })
 
   it('renders a bare year as a year', () => {
@@ -49,7 +85,7 @@ describe('the plain string mode', () => {
 
 describe('omitSpeaker', () => {
   it('leaves the speaker out for a surface that credits them above', () => {
-    expect(utteranceMeta(BOSE, { omitSpeaker: true })).toBe('Burma Radio broadcast · 1944 · Burma · radio')
+    expect(utteranceMeta(BOSE, { omitSpeaker: true })).toBe('radio · Burma Radio broadcast · 1944 · Burma')
   })
 
   it('is empty when the speaker was the only thing there', () => {

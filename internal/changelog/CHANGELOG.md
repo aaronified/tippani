@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A quote's card now composes its attribution instead of stringing fields together.** An
+  Einstein letter, filled in exactly the way the app asks for it, used to read
+  *Albert Einstein · Letter to Carl Seelig · 11 March 1952 · Zurich · **Letter** · English* —
+  the word "Letter" twice, because nothing in the line knew that "Letter" and "to Carl
+  Seelig" are one fact rather than two. Worse, **four fields the form collects appeared on
+  no card at all**: a letter's recipient, an essay's source and page, a proverb's region. So
+  the only place that showed "Carl Seelig" was the *Occasion* box, and the interface had
+  taught people to type the whole phrase there and then printed the kind again beside it.
+  The kind is now the shape of the phrase rather than an item in a list:
+
+  | | Reads |
+  |---|---|
+  | Letter | `Letter to Carl Seelig` |
+  | Speech | `Nobel banquet, Stockholm` |
+  | Essay | `“Why Socialism?”, p. 3` |
+  | Poem or song | `Sonar Tori from Gitanjali`, or `from Gitanjali`, or `“Sonar Tori”` |
+  | Proverb | `Bengali proverb` |
+
+  **The kind's own word is printed only when nothing else in the phrase implies it** — an
+  untitled letter to nobody still says *Letter* — and whatever the phrase did not speak for
+  follows it, so the date and the place stay and nothing is said twice. Einstein now reads
+  *Albert Einstein · Letter to Carl Seelig · 11 Mar 1952 · Zurich*.
+- **A poem quoted out of a book puts the poem's name in the chapter-name field**, and the
+  card reads `{poem} from {book}` off that pair. "Chapter" over a box holding *Sonar Tori*
+  is surprising for a moment and it is right: a poem in a collection is a chapter of it as
+  far as locators go, and the alternative was a second title column for one kind of book.
 - **A chapter's name is filled in when you finish typing the number, not while you type
   it.** At chapter 15 you typed `1`, the app matched chapter one and wrote its name, and
   because it never overwrites what is already there the wrong name then stuck. It now waits

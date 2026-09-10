@@ -2998,6 +2998,12 @@ vocab.quote-kind.poem.label = কবিতা
 vocab.quote-kind.song.label = গান
 vocab.quote-kind.proverb.label = প্রবাদ
 vocab.quote-kind.other.label = অন্যান্য
+quote.attribution.letter-to = {name}-কে লেখা চিঠি
+quote.attribution.essay-at = “{title}”, {locator}
+quote.attribution.titled = “{title}”
+quote.attribution.piece-from = {work} থেকে {name}
+quote.attribution.from = {work} থেকে
+quote.attribution.language-proverb = {language} প্রবাদ
 vocab.kind.show.label = শো
 vocab.kind.game.label = গেম
 

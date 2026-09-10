@@ -19,6 +19,7 @@ import { json, errText, downloadPost } from './api.js'
 import { t } from './i18n.js'
 import { usePersonOpener } from './personOpen.jsx'
 import { QUOTE_KINDS, quoteKindLabel, quoteKindMeta, quoteKindOptions } from './quoteKind.js'
+import { attributionParts } from './attribution.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
@@ -220,14 +221,23 @@ const SPEAKER_LINK = {
 // element is ALWAYS truthy — so a proverb (no speaker, no occasion, nothing)
 // would otherwise get an empty label and the spacing that comes with it.
 export function utteranceMeta(u, { people, seps, onOpenPerson, omitSpeaker } = {}) {
-  // 0035. The language joins the strip because for a PROVERB it is often the only
-  // locator there is — no speaker, no occasion, no date, no place — so without it a
-  // Bengali proverb's meta line is empty and the card says nothing about itself.
-  // 0053. The KIND's word where `medium`'s raw text used to be — and falling back
-  // to that text when no kind is set, so a value the one-time pass could not read
-  // stays on the card as work to do rather than vanishing in the release that
-  // replaced the field.
-  const rest = [u.occasion, formatPartialDate(u.occasion_date, u.occasion_circa), u.place, quoteKindMeta(u), u.language].filter(Boolean)
+  // A SENTENCE, NOT A CONCATENATION — and this line used to be the latter, which
+  // is the whole of the report that changed it: "Quote cards need better
+  // formatting (e.g. letter to carl seelig)." It joined whatever happened to be
+  // non-empty, so nothing in it knew that "Letter" and "to Carl Seelig" are ONE
+  // fact; the kind said its word again on its own, and four fields the form
+  // collects appeared nowhere at all.
+  //
+  // `attributionParts` composes the kind's phrase and hands back only what the
+  // phrase did not speak for. It is a pure module with its own table, because six
+  // surfaces draw this line and a rule spread across six is six places for one to
+  // disagree. The language leaves the strip with it: it is a PROVERB's whole
+  // attribution now ("{language} proverb"), and on every other kind it was a
+  // locator nobody reads.
+  const { line: kindLine, rest: unspoken } = attributionParts(u, {
+    date: formatPartialDate(u.occasion_date, u.occasion_circa),
+  })
+  const rest = [kindLine, ...unspoken].filter(Boolean)
   // The string forms feed the share image and the group headings, where a second
   // line has nowhere to go. They stay one line; only the rich form below grows.
   // THE STRING FORMS, for the share image and the group headings — a second line

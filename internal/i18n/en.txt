@@ -2971,6 +2971,14 @@ vocab.quote-kind.poem.label = Poem
 vocab.quote-kind.song.label = Song
 vocab.quote-kind.proverb.label = Proverb
 vocab.quote-kind.other.label = Other
+# The kind's own line on a quote card (band 3). The KIND is the verb of the phrase
+# rather than a chip beside it — see attribution.js for the report that caused it.
+quote.attribution.letter-to = Letter to {name}
+quote.attribution.essay-at = “{title}”, {locator}
+quote.attribution.titled = “{title}”
+quote.attribution.piece-from = {name} from {work}
+quote.attribution.from = from {work}
+quote.attribution.language-proverb = {language} proverb
 vocab.kind.show.label = Show
 vocab.kind.game.label = Game
 
