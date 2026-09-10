@@ -9,21 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A quote can carry its own words in another script.** A *Transliteration* box sits under
-  the translation on all three kinds of quote, so অতি সন্ন্যাসীতে গাজন নষ্ট keeps *Ati
-  sannyasite gajon nosto* beside it — and the card draws all three registers: the line, how
-  it sounds, what it means. **It is searchable**, which is the point: typing `sannyasite` on
-  a keyboard that cannot produce Bengali letters finds the proverb.
-  **The box is only offered where it is needed.** It appears when the quote is written in a
-  script other than the one you are reading the app in — so the app in English offers a Latin
-  romanisation of a Bengali line, and the app in Bengali offers a Bengali one of an English
-  line. The script is read off the characters rather than off the language field, which is
-  free text nobody can rely on. A box that already holds something always shows, whatever
-  the scripts say.
-  Not a second use of the translation, and that is why it has its own column: a romanisation
-  tells you nothing about the meaning, so a review deck promising a translation and showing
-  one would be prompting with the wrong thing. It round-trips through the quote, book and
-  film exports as its own `transliteration:` key.
+- **A quote can name who it reaches us through.** *Socrates' speeches are known from
+  Plato's paraphrasing* — and until now Plato had nowhere to go but the note, where nothing
+  could group by him, cite him or find him. A **Source author** box sits beside the source
+  title on a speech and a letter, and it is a fifth relation rather than a reuse of one of
+  the four names already on the row: the speaker said it, the recipient was told it, an
+  author writes a work, a character lives inside one. This is the person the words survive
+  through. **Searchable**, which is the whole point — typing `Plato` finds the Socrates
+  lines.
+- **A film line can say where it stops.** A **Timestamp end** beside the start, so a line
+  is a stretch of the runtime rather than an instant. A game's line still has neither: it
+  is placed by its act and quest, and the server clears both ends rather than storing a
+  runtime a game does not have.
+- **A game's line can name the pack it came in.** A **DLC** box beside act and quest —
+  *Blood and Wine*, *Far Harbor* — because without it two expansions that both open with a
+  "Prologue" are one shelf. It is a container the act and quest sit inside, so it is
+  deliberately NOT part of what makes two lines different: naming the pack on a line you
+  already saved does not fork a duplicate of it.
+- **Every kind of quote carries its own language now**, not just a standalone one. A book
+  highlight and a film line both gained the field, and the reason is mechanical rather than
+  tidy: the app already decides whether the quote or its translation leads, and it cannot
+  decide without knowing what the quote is in. A Bengali couplet quoted inside an English
+  novel is in Bengali; the book is in English. For two releases those two kinds carried a
+  second text with nothing able to rank it. The old argument — that a highlight's language
+  is its book's — is recorded as wrong in `docs/PLAN.md` rather than quietly dropped.
+  Bulk-settable too, which is the obvious case: forty highlights out of one Bengali book is
+  one value on forty rows.
+- **A game remembers the packs you have already quoted from.** The DLC box offers this
+  game's own pack names, commonest first — the same memory a book's chapter boxes have had
+  since they learned the chapters its highlights name. Per game rather than library-wide,
+  because "Blood and Wine" belongs to one game and offering every pack in the catalogue
+  while you type a locator for this one would be wrong more often than right.
 
 - **A quote captured on a board is filed on that board.** Pressing ＋ inside a board of
   Bengali proverbs opened the card that asks which *book* the line came from — on a screen

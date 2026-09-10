@@ -89,3 +89,77 @@ func (s *Server) handleBookChapters(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"chapters": out})
 }
+
+// GET /movies/{id}/packs — the DLC names this game's own lines already carry.
+//
+// IT LIVES IN THIS FILE BECAUSE IT IS THE SAME QUESTION. "What does this work
+// already know about its own locators" has one answer per medium — a book's
+// chapters, a game's packs — and every argument in the header above transfers
+// word for word: it is a two-column query rather than a fetch of every line of
+// the film; it is per work rather than library-wide, because "Blood and Wine"
+// belongs to one game and offering every pack in the catalogue while typing a
+// locator for THIS one would be wrong more often than right; and empty is a
+// legitimate answer rather than an error.
+//
+// A LIST OF NAMES, NOT PAIRS, and that is the one place it differs. A chapter is a
+// number and a name that mean each other, so choosing one can fill the other
+// (0044). A pack is a name and nothing else — act and quest sit inside it and are
+// not implied by it, since one expansion holds many quests. So there is no pairing
+// to express and a flat list is the honest shape.
+//
+// GAMES ARE `movies` ROWS (0040), so the route is under /movies and the media type
+// is not checked here: a film's lines carry no pack (normalizeLocator clears it),
+// so a film simply answers an empty list. Refusing by media type would mean this
+// endpoint had to be right about a fact the writer already enforces.
+
+type packOption struct {
+	Name string `json:"name"`
+	// How many of this game's lines already name it, so the pack you are playing
+	// through sits at the top rather than alphabetically buried — the same sort
+	// chapterOption.Count exists for.
+	Count int `json:"count"`
+}
+
+func (s *Server) handleMoviePacks(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	uid := userID(r)
+	olog.Tracef("[movie] handleMoviePacks uid=%v movie=%d", uid, id)
+
+	// Ownership through the parent, and a foreign film is a 404 rather than an
+	// empty list — see the chapters handler for why the difference matters.
+	var one int
+	if err := s.Store.DB.QueryRow(`SELECT 1 FROM movies WHERE id = ? AND user_id = ?`, id, uid).Scan(&one); err != nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+
+	rows, err := s.Store.DB.Query(`
+		SELECT dlc, COUNT(*)
+		FROM dialogues
+		WHERE movie_id = ? AND dlc <> ''
+		GROUP BY dlc
+		ORDER BY COUNT(*) DESC, dlc`, id)
+	if err != nil {
+		codedError(w, r, olog.CodeBookChapters, "list packs", err)
+		return
+	}
+	defer rows.Close()
+	out := []packOption{}
+	for rows.Next() {
+		var p packOption
+		if err := rows.Scan(&p.Name, &p.Count); err != nil {
+			codedError(w, r, olog.CodeBookChapters, "scan pack", err)
+			return
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		codedError(w, r, olog.CodeBookChapters, "read packs", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"packs": out})
+}

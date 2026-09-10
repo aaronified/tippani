@@ -63,26 +63,21 @@ type quoteReq struct {
 	// Uncapped, like Quote and Note and unlike every locator beside them: it is the
 	// same kind of content, and a translation is routinely longer than its original.
 	//
-	// NO Language BESIDE IT HERE. A standalone quote carries its own, because it has
-	// no parent to ask; an annotation's is the book's (0047's two columns); a film's
-	// is nowhere yet. Promoting Language would put a permanently unfillable field on
-	// two kinds — see 0051 for the argument in full.
 	Translation string `json:"translation"`
-	// HOW THE LINE SOUNDS, which is a third thing and not a second use of either
-	// field above it (0069). A note is what you thought about the line; a
-	// translation is what the line says; a transliteration is the same sentence
-	// letter for letter in a script the reader can pronounce from — "Ati
-	// sannyasite gajon nosto" beside অতি সন্ন্যাসীতে গাজন নষ্ট, whose translation
-	// is "too many ascetics ruin the festival" and is not this.
+	// LANGUAGE LIVES HERE NOW, AND THIS PARAGRAPH USED TO ARGUE THAT IT MUST NOT.
+	// 0051's reasoning was that a standalone quote carries its own because it has no
+	// parent to ask, an annotation's is the book's, and a film's was nowhere — so
+	// promoting it would put a permanently unfillable field on two kinds out of
+	// three. The middle claim was the wrong one and 0071 says so: a language is a
+	// fact about THE LINE, not about the shelf it came off. A Bengali couplet quoted
+	// inside an English novel is in Bengali.
 	//
-	// ON ALL THREE KINDS, unlike Language above: a Bengali line highlighted in a
-	// book and a line of Hindi dialogue want this exactly as much as a proverb
-	// does, so there is no kind for which it is permanently unfillable. That is
-	// the test 0051 set and the reason Language failed it.
-	//
-	// Uncapped, like Quote, Note and Translation: it is a whole sentence, and a
-	// romanisation runs longer than the script it romanises.
-	Transliteration string `json:"transliteration"`
+	// AND IT IS LOAD-BEARING RATHER THAN DECORATIVE, which is what settled it — the
+	// owner's: "it is the thing that ascertains whether a translation will get
+	// priority over a quote text or not." `Translation` above has been on all three
+	// kinds since 0051; the fact that decides which of the two leads was on one. So
+	// two kinds have carried a second text with nothing able to rank it.
+	Language string `json:"language"`
 }
 
 // validate trims and checks the shared fields, returning "" when they are good
@@ -113,6 +108,15 @@ func (q *quoteReq) validate() string {
 	// Trimmed but NOT capped, for the reason on the field: it holds prose, and the
 	// words it translates are uncapped too.
 	q.Translation = strings.TrimSpace(q.Translation)
+	// CAPPED, unlike the prose above it: a language is a name and not a sentence.
+	// 100 is the width `utterances.language` has had since 0035 — this rule moved
+	// here with the field so that an annotation and a dialogue get the same
+	// refusal, rather than the utterance kind keeping a check the other two lack.
+	lang, ok := trimCap(q.Language, 100)
+	if !ok {
+		return "language is too long"
+	}
+	q.Language = lang
 	return ""
 }
 
@@ -141,20 +145,21 @@ type quoteRow struct {
 	// draws it — see utteranceMeta, where it has been a second line under the meta
 	// strip since 0035. A list that omitted it would leave every card to fetch its
 	// own quote again to render one line of text.
-	Translation string   `json:"translation"`
-	// 0069, and on the LIST row for the reason Translation is: the card draws it,
-	// and a list that omitted it would leave every card fetching its own quote
-	// again to render one line of text.
-	Transliteration string   `json:"transliteration"`
-	Color           string   `json:"color"`
-	Favorite    bool     `json:"favorite"`
-	Tags        []string `json:"tags"`
-	NotedAt     string   `json:"noted_at"`   // date of capture (original, or add time); "" if unknown
-	StickerID   *int64   `json:"sticker_id"` // attached sticker (uploaded image), nil = none
-	StickerX    *float64 `json:"sticker_x"`  // seal centre x as a fraction of block width; nil = top-right default
-	StickerY    *float64 `json:"sticker_y"`  // seal centre y in the same width units
-	CreatedAt   string   `json:"created_at"`
-	UpdatedAt   string   `json:"updated_at"`
+	Translation string `json:"translation"`
+	// 0071, and on the LIST row because the card cannot ORDER its two texts without
+	// it: textOrder decides whether the quote or the translation leads, and a list
+	// that sent the pair and withheld the fact that ranks them would make every
+	// card fetch its own quote again to find out which way round to draw.
+	Language  string   `json:"language"`
+	Color     string   `json:"color"`
+	Favorite  bool     `json:"favorite"`
+	Tags      []string `json:"tags"`
+	NotedAt   string   `json:"noted_at"`   // date of capture (original, or add time); "" if unknown
+	StickerID *int64   `json:"sticker_id"` // attached sticker (uploaded image), nil = none
+	StickerX  *float64 `json:"sticker_x"`  // seal centre x as a fraction of block width; nil = top-right default
+	StickerY  *float64 `json:"sticker_y"`  // seal centre y in the same width units
+	CreatedAt string   `json:"created_at"`
+	UpdatedAt string   `json:"updated_at"`
 	// Spaced-repetition state for the status dot (v0.5.0). Reviewed=false is the
 	// "unseen" pool; the client derives remembered/forgetting/probably-forgotten
 	// from stability + last_reviewed_at + last_result (a lapse forces

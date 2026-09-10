@@ -223,7 +223,7 @@ func serveMarkdown(w http.ResponseWriter, filename, body string) {
 // line or a re-import would misattribute them.
 func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
-		SELECT id, COALESCE(quote, ''), COALESCE(note, ''), translation, transliteration, color, COALESCE(chapter, ''),
+		SELECT id, COALESCE(quote, ''), COALESCE(note, ''), translation, language, color, COALESCE(chapter, ''),
 		       COALESCE(chapter_no, 0), COALESCE(location, ''), character, favorite,
 		       COALESCE(noted_at, '')
 		FROM annotations WHERE book_id = ? ORDER BY id`, b.ID)
@@ -238,7 +238,7 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 		// '' (0047, 0051), so the empty string is what a row predating the column
 		// actually holds and there is no NULL for a COALESCE to catch. Same rule as
 		// dialogueCols.
-		if err := rows.Scan(&a.ID, &a.Quote, &a.Note, &a.Translation, &a.Transliteration, &a.Color, &a.Chapter,
+		if err := rows.Scan(&a.ID, &a.Quote, &a.Note, &a.Translation, &a.Language, &a.Color, &a.Chapter,
 			&a.ChapterNo, &a.Location, &a.Character, &a.Favorite, &a.NotedAt); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] book annotation row scan failed: %v", err)
 			continue
@@ -346,10 +346,12 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 				// 0035. Two keys and not one: an importer that read them into a single
 				// field would be the merge 0051 exists to undo.
 				writeBinding(&sb, "translation", a.Translation)
-				// 0069, beside it for the same reason: three registers of one line, and
-				// three keys, because an importer folding any two together would be the
-				// merge 0051 exists to undo.
-				writeBinding(&sb, "transliteration", a.Transliteration)
+				// 0071. WHAT IT IS IN, which is what decides whether the translation
+				// above leads or follows on the card. A book file has a `language:` of
+				// its own in the frontmatter — the BOOK's — so this rides on the line
+				// where it belongs to the line, and the two cannot be confused because
+				// one is a work binding and the other a quote binding.
+				writeBinding(&sb, "language", a.Language)
 				writeBinding(&sb, "note", note)
 				if a.Color != "yellow" {
 					writeBinding(&sb, "color", a.Color)
@@ -369,8 +371,8 @@ func (s *Server) renderBookExport(b *bookDetail) (string, error) {
 // PLAN §3b).
 func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 	rows, err := s.Store.DB.Query(`
-		SELECT id, quote, COALESCE(note, ''), translation, transliteration, color, COALESCE(character, ''), COALESCE(actor, ''),
-		       COALESCE(timestamp, ''), season, episode, act, quest, episode_name, favorite
+		SELECT id, quote, COALESCE(note, ''), translation, language, color, COALESCE(character, ''), COALESCE(actor, ''),
+		       COALESCE(timestamp, ''), timestamp_end, season, episode, act, quest, dlc, episode_name, favorite
 		FROM dialogues WHERE movie_id = ?`+dialogueOrder(""), m.ID)
 	if err != nil {
 		return "", err
@@ -382,8 +384,8 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 		// act/quest/episode_name and translation carry no COALESCE, for the reason
 		// dialogueCols states: NOT NULL DEFAULT '' (0047, 0051), so there is no NULL
 		// to catch.
-		if err := rows.Scan(&d.ID, &d.Quote, &d.Note, &d.Translation, &d.Transliteration, &d.Color, &d.Character, &d.Actor,
-			&d.Timestamp, &d.Season, &d.Episode, &d.Act, &d.Quest, &d.EpisodeName,
+		if err := rows.Scan(&d.ID, &d.Quote, &d.Note, &d.Translation, &d.Language, &d.Color, &d.Character, &d.Actor,
+			&d.Timestamp, &d.TimestampEnd, &d.Season, &d.Episode, &d.Act, &d.Quest, &d.DLC, &d.EpisodeName,
 			&d.Favorite); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] movie dialogue row scan failed: %v", err)
 			continue
@@ -449,10 +451,22 @@ func (s *Server) renderMovieExport(m *movieDetail) (string, error) {
 			writeBinding(&sb, "episode_name", d.EpisodeName)
 			writeBinding(&sb, "act", d.Act)
 			writeBinding(&sb, "quest", d.Quest)
+			// 0071. WHICH PACK the act and the quest are inside — Blood and Wine, Far
+			// Harbor. After them because it is the coarsest of the three and a file
+			// reads outside-in nowhere else; before the timestamp for the reason the
+			// comment above gives about the game's locators replacing it.
+			writeBinding(&sb, "dlc", d.DLC)
 			writeBinding(&sb, "timestamp", d.Timestamp)
+			// 0070. WHERE IT STOPS, written immediately after where it starts, so
+			// the pair reads as one range in the file the way it reads as one on the
+			// card. Dropped when empty like every other binding, so every film
+			// exported before this column existed still diffs clean.
+			writeBinding(&sb, "timestamp_end", d.TimestampEnd)
 			// See the book export for why this sits immediately before the note.
 			writeBinding(&sb, "translation", d.Translation)
-			writeBinding(&sb, "transliteration", d.Transliteration)
+			// 0071, and see the book export for why a LINE's language is a different
+			// binding from the WORK's.
+			writeBinding(&sb, "language", d.Language)
 			writeBinding(&sb, "note", note)
 			// Same rule as the book export: the default colour is left out, so
 			// a file only mentions colour when it was actually chosen.

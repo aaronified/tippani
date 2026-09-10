@@ -97,15 +97,21 @@ type bulkTagReq struct {
 	// speakers, and correcting the same misspelt name on thirty highlights is the
 	// most obvious reason there is to select thirty highlights. There is still no
 	// `actor` beside it on that side — nobody plays Ahab.
-	Character   *string `json:"character"`    // annotation, dialogue
-	Actor       *string `json:"actor"`        // dialogue
-	Timestamp   *string `json:"timestamp"`    // dialogue
-	Act         *string `json:"act"`          // dialogue (a game's)
-	Quest       *string `json:"quest"`        // dialogue (a game's)
-	EpisodeName *string `json:"episode_name"` // dialogue (a show's)
-	Speaker     *string `json:"speaker"`      // quote
-	Occasion    *string `json:"occasion"`     // quote
-	Place       *string `json:"place"`        // quote
+	Character    *string `json:"character"`     // annotation, dialogue
+	Actor        *string `json:"actor"`         // dialogue
+	Timestamp    *string `json:"timestamp"`     // dialogue
+	TimestampEnd *string `json:"timestamp_end"` // dialogue (0070)
+	Act          *string `json:"act"`           // dialogue (a game's)
+	Quest        *string `json:"quest"`         // dialogue (a game's)
+	EpisodeName  *string `json:"episode_name"`  // dialogue (a show's)
+	// 0071. DLC is a dialogue's; LANGUAGE is all three kinds', because the column
+	// finally is — and it is the most obviously bulk-settable field in the app: a
+	// batch of highlights out of one Bengali book is one value on forty rows.
+	DLC      *string `json:"dlc"`      // dialogue (a game's)
+	Language *string `json:"language"` // annotation, dialogue, quote
+	Speaker  *string `json:"speaker"`  // quote
+	Occasion *string `json:"occasion"` // quote
+	Place    *string `json:"place"`    // quote
 	// SUPERSEDED BY Kind (0053) AND STILL ACCEPTED, which is not the same as still
 	// offered: no screen has a control for it since the field was replaced. It stays
 	// on the wire because a client older than 0053 — or a script somebody wrote
@@ -117,6 +123,11 @@ type bulkTagReq struct {
 	Recipient *string `json:"recipient"`  // quote
 	WorkTitle *string `json:"work_title"` // quote
 	Locator   *string `json:"locator"`    // quote
+	// 0070. WHO A BATCH OF QUOTES REACHES US THROUGH, and the most obvious reason
+	// there is to set one field on a selection: every speech read out of one
+	// edition has the same editor, so it is the `character` case (the note at the
+	// top of this struct) with a different noun.
+	SourceAuthor *string `json:"source_author"` // quote
 	// occasion_circa is DELIBERATELY NOT HERE. It says how precisely one date is
 	// known, and "all forty of these dates are approximate" is not a thing anybody
 	// knows about forty quotes at once — it is a claim about each of them. The same
@@ -218,21 +229,28 @@ var quoteFieldKinds = map[string][]string{
 	"location":   {"annotation"},
 	// 0047: a book character is a character. The word and the column are the same
 	// on both sides, which is what lets one facet and one autocomplete serve them.
-	"character":    {"annotation", "dialogue"},
-	"actor":        {"dialogue"},
-	"timestamp":    {"dialogue"},
-	"act":          {"dialogue"},
-	"quest":        {"dialogue"},
-	"episode_name": {"dialogue"},
-	"speaker":      {"utterance"},
-	"occasion":     {"utterance"},
-	"place":        {"utterance"},
-	"medium":       {"utterance"},
-	"kind":         {"utterance"},
-	"region":       {"utterance"},
-	"recipient":    {"utterance"},
-	"work_title":   {"utterance"},
-	"locator":      {"utterance"},
+	"character":     {"annotation", "dialogue"},
+	"actor":         {"dialogue"},
+	"timestamp":     {"dialogue"},
+	"timestamp_end": {"dialogue"},
+	"act":           {"dialogue"},
+	"quest":         {"dialogue"},
+	"episode_name":  {"dialogue"},
+	"dlc":           {"dialogue"},
+	// 0071. THE ONE FIELD ON ALL THREE, because the column finally is — and the
+	// most obviously bulk-settable thing in the app: forty highlights out of one
+	// Bengali book is one value on forty rows.
+	"language":      {"annotation", "dialogue", "utterance"},
+	"speaker":       {"utterance"},
+	"occasion":      {"utterance"},
+	"place":         {"utterance"},
+	"medium":        {"utterance"},
+	"kind":          {"utterance"},
+	"region":        {"utterance"},
+	"recipient":     {"utterance"},
+	"work_title":    {"utterance"},
+	"locator":       {"utterance"},
+	"source_author": {"utterance"},
 }
 
 // notNullQuoteCols are the bulk-settable columns declared NOT NULL with an
@@ -268,6 +286,11 @@ var notNullQuoteCols = map[string]bool{
 	// is" is the answer the empty string means.
 	"kind":   true,
 	"region": true, "recipient": true, "work_title": true, "locator": true,
+	// 0070. `timestamp_end` belongs HERE and `timestamp` beside it does not:
+	// the new column is NOT NULL DEFAULT '' while the old one predates that rule
+	// and is nullable. The pair look alike and clear differently, which is exactly
+	// the mistake this map exists to stop.
+	"source_author": true, "timestamp_end": true, "dlc": true, "language": true,
 }
 
 // bulkQuoteFieldPtrs is the one mapping from a column name to the request field
@@ -283,6 +306,8 @@ func bulkQuoteFieldPtrs(req *bulkTagReq) map[string]*string {
 	return map[string]*string{
 		"note": req.Note, "chapter": req.Chapter, "location": req.Location,
 		"character": req.Character, "actor": req.Actor, "timestamp": req.Timestamp,
+		"timestamp_end": req.TimestampEnd, "source_author": req.SourceAuthor,
+		"dlc": req.DLC, "language": req.Language,
 		"act": req.Act, "quest": req.Quest, "episode_name": req.EpisodeName,
 		"speaker": req.Speaker, "occasion": req.Occasion,
 		"place": req.Place, "medium": req.Medium, "kind": req.Kind,

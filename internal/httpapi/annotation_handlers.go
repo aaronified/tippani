@@ -127,14 +127,14 @@ func (s *Server) fetchAnnotation(uid, id int64) (*annotationRow, error) {
 	var castID int64
 	err := s.Store.DB.QueryRow(`
 		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''), COALESCE(b.cover_path, ''),
-		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.translation, a.transliteration, a.color,
+		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.translation, a.language, a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.chapter_no, 0), COALESCE(a.location, ''),
 		       a.character, a.favorite,
 		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at,
 		       a.review_excluded, b.review_excluded, COALESCE(a.speaker_cast_id, 0)
 		FROM annotations a JOIN books b ON b.id = a.book_id
 		WHERE a.id = ? AND b.user_id = ?`, id, uid).
-		Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.BookCover, &a.Quote, &a.Note, &a.Translation, &a.Transliteration, &a.Color,
+		Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.BookCover, &a.Quote, &a.Note, &a.Translation, &a.Language, &a.Color,
 			&a.Chapter, &a.ChapterNo, &a.Location, &a.Character,
 			&a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
 			&a.ReviewExcluded, &a.WorkReviewExcluded, &castID)
@@ -208,7 +208,7 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	res, err := tx.Exec(`
-		INSERT INTO annotations (id, book_id, quote, note, translation, transliteration, color, chapter, chapter_no, location, character,
+		INSERT INTO annotations (id, book_id, quote, note, translation, language, color, chapter, chapter_no, location, character,
 		                         favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y,
 		                         review_excluded)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
@@ -218,10 +218,10 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 		        -- moment it is added rather than by being ANDed in at query time.
 		        (SELECT COALESCE(review_excluded, 0) FROM books WHERE id = ?)) ON CONFLICT DO NOTHING`,
 		id, req.BookID, nullable(req.Quote), nullable(req.Note),
-		// A plain string like `character` below and for the identical reason: 0051's
-		// column is NOT NULL DEFAULT '', and nullable("") is nil — the constraint
-		// violation rather than the empty value.
-		req.Translation, req.Transliteration, req.Color,
+		// Plain strings like `character` below and for the identical reason: these
+		// columns are NOT NULL DEFAULT '' (0051, 0069, 0071), and nullable("") is nil
+		// — the constraint violation rather than the empty value.
+		req.Translation, req.Language, req.Color,
 		nullable(req.Chapter), nullableFloat(req.ChapterNo), nullable(req.Location),
 		// A PLAIN STRING, not nullable(): character is NOT NULL DEFAULT '' (0047), and
 		// nullable("") is nil, which is the constraint violation rather than the empty
@@ -308,7 +308,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		r.URL.Query().Get("book_id"), r.URL.Query().Get("color"), r.URL.Query().Get("tag"))
 	q := `
 		SELECT a.id, a.book_id, b.title, COALESCE(b.author, ''), COALESCE(b.cover_path, ''),
-		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.translation, a.transliteration, a.color,
+		       COALESCE(a.quote, ''), COALESCE(a.note, ''), a.translation, a.language, a.color,
 		       COALESCE(a.chapter, ''), COALESCE(a.chapter_no, 0), COALESCE(a.location, ''),
 		       a.character, a.favorite,
 		       COALESCE(a.noted_at, ''), a.sticker_id, a.sticker_x, a.sticker_y, a.created_at, a.updated_at,
@@ -364,7 +364,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 		var a annotationRow
 		var castID int64
 		a.Tags = []string{}
-		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.BookCover, &a.Quote, &a.Note, &a.Translation, &a.Transliteration, &a.Color,
+		if err := rows.Scan(&a.ID, &a.BookID, &a.BookTitle, &a.BookAuthor, &a.BookCover, &a.Quote, &a.Note, &a.Translation, &a.Language, &a.Color,
 			&a.Chapter, &a.ChapterNo, &a.Location, &a.Character,
 			&a.Favorite, &a.NotedAt, &a.StickerID, &a.StickerX, &a.StickerY, &a.CreatedAt, &a.UpdatedAt,
 			&a.Reviewed, &a.Stability, &a.LastReviewedAt, &a.LastResult,
@@ -488,11 +488,11 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
-		UPDATE annotations SET quote = ?, note = ?, translation = ?, transliteration = ?, color = ?, chapter = ?, chapter_no = ?, location = ?,
+		UPDATE annotations SET quote = ?, note = ?, translation = ?, language = ?, color = ?, chapter = ?, chapter_no = ?, location = ?,
 		       character = ?,
 		       favorite = ?, dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
 		WHERE id = ?`,
-		nullable(req.Quote), nullable(req.Note), req.Translation, req.Transliteration, req.Color,
+		nullable(req.Quote), nullable(req.Note), req.Translation, req.Language, req.Color,
 		nullable(req.Chapter), nullableFloat(req.ChapterNo), nullable(req.Location),
 		req.Character, // plain string — NOT NULL DEFAULT '', see the create path
 		req.Favorite, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {

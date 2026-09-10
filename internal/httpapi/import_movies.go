@@ -336,12 +336,12 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 		}
 		ins, err := tx.Exec(`
 			INSERT OR IGNORE INTO dialogues
-			  (id, movie_id, quote, note, translation, transliteration, color, character, actor, timestamp, season, episode,
+			  (id, movie_id, quote, note, translation, color, character, actor, timestamp, season, episode,
 			   act, quest, episode_name, favorite, dedupe_hash, noted_at, review_excluded)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			did, movieID, quote, nullable(note),
 			// 0051, plain string, out of the hash — see the annotation importer.
-			d.Translation, d.Transliteration, color, nullable(d.Character), nullable(actor),
+			d.Translation, color, nullable(d.Character), nullable(actor),
 			nullable(timestamp), season, episode,
 			// Plain strings: NOT NULL DEFAULT '' (0047), so nullable("") would send the
 			// NULL the column refuses rather than the default it already has.
@@ -363,7 +363,6 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 				  noted_at  = COALESCE(noted_at, ?),
 				  episode_name = CASE WHEN episode_name = '' THEN ? ELSE episode_name END,
 				  translation = CASE WHEN translation = '' THEN ? ELSE translation END,
-				  transliteration = CASE WHEN transliteration = '' THEN ? ELSE transliteration END,
 				  color     = CASE WHEN color = 'yellow' AND ? <> 'yellow' THEN ? ELSE color END,
 				  favorite  = MAX(favorite, ?),
 				  updated_at = datetime('now')
@@ -377,7 +376,6 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 				       OR (noted_at IS NULL AND ? IS NOT NULL)
 				       OR (episode_name = '' AND ? <> '')
 				       OR (translation = '' AND ? <> '')
-				       OR (transliteration = '' AND ? <> '')
 				       OR (color = 'yellow' AND ? <> 'yellow')
 				       OR (favorite = 0 AND ?))`,
 				nullable(note), nullable(d.Character), nullable(actor), nullable(timestamp),
@@ -391,12 +389,12 @@ func writeMovieDialogues(tx *sql.Tx, uid, movieID int64, dialogues []importer.Di
 				// CASE WHEN and `<> ''` rather than COALESCE and IS NOT NULL, because on a
 				// NOT NULL DEFAULT '' column the obvious spelling donates nothing while
 				// reporting an enrichment. See enrichStagedQuote.
-				episodeName, d.Translation, d.Transliteration,
+				episodeName, d.Translation,
 				color, color, d.Favorite,
 				movieID, hash,
 				nullable(note), nullable(d.Character), nullable(actor), nullable(timestamp),
 				season, episode, nullable(d.NotedAt),
-				episodeName, d.Translation, d.Transliteration,
+				episodeName, d.Translation,
 				color, d.Favorite)
 			if err != nil {
 				return 0, 0, err

@@ -117,13 +117,13 @@ type Annotation struct {
 	// line says. A parser that merged them would be the loss 0051 exists to undo,
 	// and it would be silent: the import would succeed and the counts would match.
 	Translation string
-	// 0069 — the same line in another script, which is neither the note nor the
-	// translation. Read from Tippani's own frontmatter only, like the credits and
-	// the languages above: no third-party importer has a source for it.
-	Transliteration string
-	Tags            []string
-	Favorite        bool
-	NotedAt         string // original date of the highlight/note, when the source carries one; "" otherwise
+	// 0071. WHAT THE LINE IS IN, which is what ranks the translation above it. A
+	// book file's frontmatter carries the BOOK's language; this is the line's, and a
+	// Bengali couplet quoted in an English novel is why they are two facts.
+	Language string
+	Tags     []string
+	Favorite bool
+	NotedAt  string // original date of the highlight/note, when the source carries one; "" otherwise
 }
 
 // Result groups the annotations of one book.
@@ -397,6 +397,8 @@ type Dialogue struct {
 	Character string
 	Actor     string
 	Timestamp string
+	// 0070 — where the line stops, beside where it starts.
+	TimestampEnd string
 	// Shows only: which episode the line is from. Pointers because nil ("the file
 	// didn't say") and 0 are different facts — season 0 is where a series keeps
 	// its specials, so it has to survive a round trip as a number.
@@ -414,11 +416,13 @@ type Dialogue struct {
 	Note        string
 	Color       string // "" = the importer leaves it to the server default (yellow)
 	Translation string // 0051; see Annotation.Translation for why it is not the note
-	// 0069; see Annotation.Transliteration.
-	Transliteration string
-	Tags            []string
-	Favorite        bool
-	NotedAt         string // as for Annotation. No file format carries a date for a
+	Language    string // 0071; see Annotation.Language
+	// 0071. WHICH PACK the act and quest below are inside — games only, cleared for
+	// every other medium by the destination's media type (writeMovieDialogues).
+	DLC      string
+	Tags     []string
+	Favorite bool
+	NotedAt  string // as for Annotation. No file format carries a date for a
 	// dialogue yet, so no parser sets this; it exists so that retargeting staged
 	// book highlights (which do carry Kindle dates) onto a film keeps them
 	// instead of silently dropping the field on the way across.

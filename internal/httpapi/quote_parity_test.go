@@ -171,9 +171,18 @@ func TestQuoteKindsDifferOnlyByLocator(t *testing.T) {
 	// Quest and EpisodeName (0047) are the same argument for the other two media: a
 	// game is placed by act and quest and has no timestamp at all, and an episode
 	// has a name as well as a number.
+	//
+	// TimestampEnd and DLC (0071) join that list rather than quoteRow, and they are
+	// the case this test is FOR: both look like general quote fields and neither is.
+	// A book highlight has no runtime for a line to stop in — its locator is a page
+	// — and a proverb has no runtime either. A DLC names which body of a game's
+	// content the act and quest sit inside, which no other medium has a shape for.
+	// Contrast `language`, which arrived in the same migration and went straight
+	// onto quoteRow, because "what is this line in" is a question every kind can
+	// answer.
 	wantDlg := []string{
-		"Act", "Actor", "Character", "CharacterImages", "Episode", "EpisodeName",
-		"MovieID", "Quest", "Season", "SpeakerCast", "Timestamp",
+		"Act", "Actor", "Character", "CharacterImages", "DLC", "Episode", "EpisodeName",
+		"MovieID", "Quest", "Season", "SpeakerCast", "Timestamp", "TimestampEnd",
 	}
 
 	if got := own(reflect.TypeOf(annotationRow{})); !reflect.DeepEqual(got, wantAnn) {

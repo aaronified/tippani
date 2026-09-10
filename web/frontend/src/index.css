@@ -2012,15 +2012,6 @@
     color: var(--soft);
     margin-top: 3px;
   }
-  /* A TRANSLITERATION IS NOT A TRANSLATION, and upright is how the card says so.
-     Italic marks the line that carries another language; this line carries the
-     SAME words in another script, so it stays upright and a shade quieter — the
-     eye should be able to skip it when it does not need the pronunciation, which
-     an italic line the same weight as the translation does not allow. */
-  .quote-roman {
-    font-style: normal;
-    color: var(--faint);
-  }
   /* On a film frame the card is dark, so --soft (a paper mid-tone) would sink
      into it. The amber the credit line uses is the frame's own quiet voice. */
 

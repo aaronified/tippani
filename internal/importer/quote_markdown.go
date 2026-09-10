@@ -52,10 +52,9 @@ type Utterance struct {
 	// says. Category "" -> caller defaults to 'other', matching the column: a file
 	// written before the three boards existed named no category, and every line in
 	// it goes on meaning exactly what it meant.
-	Category        string
-	Language        string
-	Translation     string
-	Transliteration string
+	Category    string
+	Language    string
+	Translation string
 	// 0047 — what a proverb, a letter and an essay carry. Every one of them is
 	// optional and empty means "the file did not say", which the caller turns into
 	// the column default, exactly as the fields above do.
@@ -67,6 +66,7 @@ type Utterance struct {
 	Region        string
 	Recipient     string
 	WorkTitle     string
+	SourceAuthor  string
 	Locator       string
 	OccasionCirca bool
 	// 0043. Which anthology this quote belongs to and the commentary that
@@ -221,6 +221,16 @@ func applyQuoteBinding(cur *Utterance, line string) {
 	// hand-written file has no reason to know the column is named generically.
 	case "work_title", "work title", "work", "essay":
 		cur.WorkTitle = val
+	// 0070. WHO THE SOURCE IS BY — Plato, for a speech of Socrates. Spelled
+	// `source_author` and NOT `author`: this same parser reads the anthology file
+	// too, and the BOOK parser's `author:` means the writer of the work — a key
+	// that means the speaker's editor in one file and the work's writer in another
+	// is how a hand-edited file lands as the wrong kind, since MarkdownKind routes
+	// on `author:`. `editor` and `translator` ride along as the two other words a
+	// hand-written file would reach for: all three name the person the text
+	// reaches us through, which is the one relation this column holds.
+	case "source_author", "source author", "editor", "translator":
+		cur.SourceAuthor = val
 	// THE ESSAY'S LOCATOR, AND WHY THE FILE KEY IS `page` AND NOT `locator`.
 	//
 	// `locator` is already taken, by the anthology export (export_anthology.go),
@@ -246,11 +256,6 @@ func applyQuoteBinding(cur *Utterance, line string) {
 	// a note is what you thought, a translation is what the line says.
 	case "translation", "translated", "english":
 		cur.Translation = val
-	// 0069 — how it sounds, which is a third register and not either of the two
-	// above. The two spellings of "romanised" are accepted for the same reason
-	// "translated" and "english" are accepted beside "translation".
-	case "transliteration", "romanised", "romanized":
-		cur.Transliteration = val
 	// `date` is when YOU saved it, matching the book export. When it was
 	// SAID is occasion_date above — the two are different facts, and a
 	// parser that folded them together would date a 1944 speech to the

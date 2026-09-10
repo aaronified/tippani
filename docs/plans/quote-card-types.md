@@ -82,18 +82,24 @@ reflowing as prose, and the source line sits under it like a citation. Today a p
 with line breaks is displayed as a paragraph, which destroys the one thing that makes it a
 poem. *(This is also the "song and poem have not been optimised" note.)*
 
-**B3. Saying** — proverb. Structurally different from both: no speaker, and three registers
-of the same sentence stacked rather than a quote plus a translation squeezed onto one line.
+**B3. Saying** — proverb. Structurally different from both: **no speaker**, and the two
+registers of the same sentence stacked rather than a quote and a translation squeezed onto
+one line.
 
 ```
 অতি সন্ন্যাসীতে গাজন নষ্ট
-Ati sannyasite gajon nosto            ← transliteration (new field)
 Too many ascetics ruin the festival   ← translation (exists)
                         Sylheti proverb
 ```
 
-The reader's "similar to 'too many cooks spoil the broth'" goes in the **note**, per their
-ruling — the note already renders under the quote on every card.
+**IT WAS THREE REGISTERS WHEN THIS WAS WRITTEN.** The middle line was a romanisation, in a
+`transliteration` column added by 0069 — and the owner has since withdrawn both the field
+and the column (0072, and `PLAN.md` records why). A romanisation still has somewhere to go:
+their own instruction is *"it can be in notes if user wants it"*, and the note already
+renders under the quote on every card. So does the reader's "similar to 'too many cooks
+spoil the broth'", per their earlier ruling — which means on a proverb the note is doing
+two jobs, and that is the reader's call to make per quote rather than the card's to
+enforce.
 
 ## What I recommend
 
@@ -116,5 +122,7 @@ held, B2 and B3 will drift and the share image will keep drawing a proverb as a 
 
 1. Should the **share image** get the three shapes too, or stay one shape? (It draws a
    speaker face and has no room for a third register.)
-2. On a proverb, is the transliteration shown on the **card**, or only on the edit form and
-   the recall card? Three lines is a tall card on a board of forty.
+2. ~~On a proverb, is the transliteration shown on the card?~~ **Answered by deletion.**
+   The field is gone (0072), so a proverb's card is two registers and the tall-card worry
+   with it. What remains of the question is whether the **note** — which is where a
+   romanisation now lives — should draw above or below the translation on a saying.

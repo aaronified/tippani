@@ -738,13 +738,12 @@ func wantShapes() []tableShape {
 				// not in this work's cast. Nullable, because narration has no speaker
 				// and inventing one is worse than leaving it off.
 				{Name: "speaker_cast_id", Type: "INTEGER"},
-				// 0069. HOW IT SOUNDS, which is neither the note nor the translation above
-				// it: a romanisation says nothing about the meaning, so a reader who
-				// cannot read the script is no wiser after reading it and a reader who
-				// wants to say the line aloud gets nothing from the translation. Last in
-				// the column order because ALTER TABLE appends, and on all three quote
-				// tables because the owner's ruling was "all quote shall get one".
-				{Name: "transliteration", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				// 0071. WHAT THIS LINE IS IN, which the book's own language does not
+				// answer: a Bengali couplet quoted inside an English novel is in
+				// Bengali. It is what ranks the `translation` this table has held since
+				// 0051 — so for two releases the second text existed here and the fact
+				// that decides which of the two leads did not.
+				{Name: "language", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",
@@ -854,13 +853,22 @@ func wantShapes() []tableShape {
 				// stays as the printed spelling, because dialogues_fts is
 				// external-content FTS5 and cannot index a joined table.
 				{Name: "actor_id", Type: "INTEGER"},
-				// 0069. HOW IT SOUNDS, which is neither the note nor the translation above
-				// it: a romanisation says nothing about the meaning, so a reader who
-				// cannot read the script is no wiser after reading it and a reader who
-				// wants to say the line aloud gets nothing from the translation. Last in
-				// the column order because ALTER TABLE appends, and on all three quote
-				// tables because the owner's ruling was "all quote shall get one".
-				{Name: "transliteration", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				// 0070. WHERE THE LINE STOPS. A second column rather than a range inside
+				// `timestamp`, so that the sort, the card, the IMDb import, the dedupe
+				// hash and the Markdown export all go on reading the start exactly as
+				// they did. Appended, because ALTER TABLE appends, and on
+				// this table only: a book highlight has no runtime and a game's line is
+				// placed by act and quest (normalizeLocator clears both ends for one).
+				{Name: "timestamp_end", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				// 0071, both. `language` for the reason given on the annotations table
+				// one screen up. `dlc` is a THIRD game locator, coarser than act and
+				// quest: it names which body of content they sit inside — Blood and
+				// Wine, Far Harbor — and without it two expansions that both open with
+				// a "Prologue" are one shelf. Games only, cleared for every other
+				// medium by gameRef.normalize, and deliberately out of the dedupe hash
+				// that act and quest are in.
+				{Name: "language", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
+				{Name: "dlc", Type: "TEXT", NotNull: true, Default: "''", HasDflt: true},
 			},
 			Checks: []string{
 				"color IN ('yellow','blue','pink','orange','green','purple')",

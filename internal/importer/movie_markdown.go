@@ -282,6 +282,12 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 				cur.Actor = val
 			case "timestamp", "time":
 				cur.Timestamp = val
+			// 0070. The other end of the same range, written by our own export
+			// immediately after the start. A file that names an end and no start
+			// is not repaired here — writeMovieDialogues decides what a medium
+			// keeps, exactly as it does for act, quest and episode_name.
+			case "timestamp_end", "timestamp end", "end":
+				cur.TimestampEnd = val
 			// 0047. The game's two locators and the show's episode name. Reported
 			// whatever the file's media type says: the DESTINATION's type decides
 			// which survive, in writeMovieDialogues, because that is where
@@ -293,6 +299,12 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 				cur.Act = val
 			case "quest":
 				cur.Quest = val
+			// 0071. Reported whatever the file's media type says, exactly as act and
+			// quest are: the DESTINATION's type decides which locators survive, in
+			// writeMovieDialogues, because that is where a misdetected file is
+			// repaired.
+			case "dlc", "expansion":
+				cur.DLC = val
 			case "episode_name", "episode name":
 				cur.EpisodeName = val
 			case "season", "episode", "ep":
@@ -301,10 +313,12 @@ func parseMovieFrontmatter(lines []string) (*MovieResult, error) {
 				applyEpisodeBinding(cur, strings.TrimSpace(key), val)
 			// 0051, and the same three keys the other two importers take — see
 			// markdown.go for why the spelling is deliberately shared.
+			// 0071. See the book parser: this is the LINE's language, and the film's
+			// own sits in the frontmatter under the same word.
+			case "language", "lang":
+				cur.Language = val
 			case "translation", "translated", "english":
 				cur.Translation = val
-			case "transliteration", "romanised", "romanized":
-				cur.Transliteration = val
 			case "note":
 				cur.Note = val
 			case "color", "colour":

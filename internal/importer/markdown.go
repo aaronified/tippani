@@ -249,10 +249,14 @@ func parseFrontmatter(lines []string) (*Result, error) {
 			// 0051. The same three keys the quote importer has accepted since 0035,
 			// spelled the same way on purpose: a hand-written file should not have to
 			// know which shelf it is going to in order to name the same field.
+			// 0071. THE LINE's language, not the book's — `language:` in the
+			// frontmatter above is the work's and is read by parseBookFrontmatter. A
+			// per-line binding cannot collide with it: one is a work key and one a
+			// quote key, and they are parsed by different switches.
+			case "language", "lang":
+				cur.Language = val
 			case "translation", "translated", "english":
 				cur.Translation = val
-			case "transliteration", "romanised", "romanized":
-				cur.Transliteration = val
 			case "date", "added", "noted":
 				cur.NotedAt = val
 			case "tags":

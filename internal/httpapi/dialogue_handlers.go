@@ -76,12 +76,21 @@ func (e *episodeRef) normalize(mediaType string) string {
 // to solve and no pointer to carry: empty IS unset, which is also the column
 // default (0047).
 //
-// BOTH ARE IDENTITY, not decoration — 0047 folds them into the dedupe hash the
-// way 0025 folded in season and episode. A bark reused in two quests is two
-// quotes, which is the TV catchphrase argument one medium over.
+// ACT AND QUEST ARE IDENTITY, not decoration — 0047 folds them into the dedupe
+// hash the way 0025 folded in season and episode. A bark reused in two quests is
+// two quotes, which is the TV catchphrase argument one medium over.
+//
+// DLC IS NOT (0071), and it sits here anyway. It names which body of content the
+// act and quest are inside — Blood and Wine, Far Harbor — so it is the same
+// games-only rule and belongs to the same clearing, which is why it joins the
+// struct rather than getting a second copy of that rule next door. But it buys no
+// distinguishing power the pair above do not already have, and folding it into the
+// hash would fork a duplicate the moment somebody named the pack on a line that
+// already existed. Same reasoning as occasion_circa and recipient.
 type gameRef struct {
 	Act   string `json:"act"`
 	Quest string `json:"quest"`
+	DLC   string `json:"dlc"`
 }
 
 // normalize applies the games-only rule, in the shape episodeRef.normalize uses
@@ -105,6 +114,17 @@ type dialogueReq struct {
 	Character string `json:"character"`
 	Actor     string `json:"actor"`
 	Timestamp string `json:"timestamp"`
+	// 0070. WHERE THE LINE STOPS. The owner's, in three words: "Film timestamp:
+	// start and end". A line of dialogue occupies a stretch of the runtime and
+	// `Timestamp` has only ever held where it begins — so this is a second value
+	// rather than a range spelled inside the first, and everything that already
+	// reads Timestamp (the sort, the card, the IMDb import, the dedupe hash, the
+	// Markdown export) goes on reading exactly what it read before.
+	//
+	// DELIBERATELY OUT OF THE DEDUPE HASH, for the reason occasion_circa is: the
+	// same line, timed to the same start, is the same line — and folding the end in
+	// would make correcting it fork a duplicate on the next import of the file.
+	TimestampEnd string `json:"timestamp_end"`
 	episodeRef
 	gameRef
 	// The episode's NAME, beside its number (0047). NOT inside episodeRef, though
@@ -144,6 +164,10 @@ func (d *dialogueReq) normalizeLocator(mediaType string) string {
 	// have.
 	if mediaType == "game" {
 		d.Timestamp = ""
+		// AND THE END WITH IT (0070). An end with no start is a locator pointing at
+		// nothing, and a runtime a game does not have cannot be indexed into either
+		// way round.
+		d.TimestampEnd = ""
 	}
 	// An episode name with no episode is a name for nothing.
 	if mediaType != "show" {
@@ -185,6 +209,9 @@ func (d *dialogueReq) validate() string {
 	if d.Timestamp, ok = trimCap(d.Timestamp, 128); !ok {
 		return "timestamp too long (max 128 characters)"
 	}
+	if d.TimestampEnd, ok = trimCap(d.TimestampEnd, 128); !ok {
+		return "timestamp end too long (max 128 characters)"
+	}
 	// The game's locator and the show's episode name (0047). Capped HERE rather
 	// than in normalizeLocator, beside timestamp and for the same reason: a cap is
 	// a property of the column and not of the medium, so a value too long to store
@@ -194,6 +221,12 @@ func (d *dialogueReq) validate() string {
 	}
 	if d.Quest, ok = trimCap(d.Quest, 128); !ok {
 		return "quest too long (max 128 characters)"
+	}
+	// 200, a NAME rather than a locator: "Hearts of Stone" and "Shadow of the
+	// Erdtree" are titles, which is the shape episode_name is sized for one line
+	// down and twice what a quest index needs.
+	if d.DLC, ok = trimCap(d.DLC, 200); !ok {
+		return "dlc too long (max 200 characters)"
 	}
 	// 200, an episode TITLE rather than a locator: episode names are sentences
 	// ("The One Where Everybody Finds Out"), which is the shape of an occasion and
@@ -332,6 +365,10 @@ type dialogueRow struct {
 	Character string `json:"character"`
 	Actor     string `json:"actor"`
 	Timestamp string `json:"timestamp"`
+	// 0070. On the list row as well, because the card draws the pair as one range
+	// and a shelf that had to re-fetch each line to print "01:12:40–01:13:02" is
+	// the thing a list endpoint exists to avoid.
+	TimestampEnd string `json:"timestamp_end"`
 	episodeRef
 	gameRef
 	// See dialogueReq.EpisodeName for why this is not inside episodeRef.
@@ -359,9 +396,9 @@ type dialogueRow struct {
 // column beside them: they are NOT NULL with an empty-string default, so the empty
 // string is what a row predating the columns actually holds and there is no NULL
 // for a COALESCE to catch. Wrapping them anyway would read as though there were.
-const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.translation, d.transliteration, d.color, COALESCE(d.character, ''),
-	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.season, d.episode,
-	d.act, d.quest, d.episode_name,
+const dialogueCols = `d.id, d.movie_id, d.quote, COALESCE(d.note, ''), d.translation, d.language, d.color, COALESCE(d.character, ''),
+	COALESCE(d.actor, ''), COALESCE(d.timestamp, ''), d.timestamp_end, d.season, d.episode,
+	d.act, d.quest, d.dlc, d.episode_name,
 	d.favorite, d.sticker_id, d.sticker_x, d.sticker_y,
 	COALESCE(d.noted_at, ''), d.created_at, d.updated_at,
 	r.item_id IS NOT NULL, COALESCE(r.stability, 0), COALESCE(r.last_reviewed_at, ''), COALESCE(r.last_result, ''),
@@ -411,9 +448,9 @@ func (s *Server) fetchDialogue(uid, id int64) (*dialogueRow, error) {
 		SELECT `+dialogueCols+`
 		FROM dialogues d JOIN movies m ON m.id = d.movie_id`+dialogueReviewJoin+`
 		WHERE d.id = ? AND m.user_id = ?`, id, uid).
-		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Translation, &d.Transliteration, &d.Color, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Season, &d.Episode,
-			&d.Act, &d.Quest, &d.EpisodeName,
+		Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Translation, &d.Language, &d.Color, &d.Character,
+			&d.Actor, &d.Timestamp, &d.TimestampEnd, &d.Season, &d.Episode,
+			&d.Act, &d.Quest, &d.DLC, &d.EpisodeName,
 			&d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult,
@@ -491,22 +528,24 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := tx.Exec(`
-		INSERT INTO dialogues (id, movie_id, quote, note, translation, transliteration, color, character, actor, timestamp, season, episode,
-		                       act, quest, episode_name,
+		INSERT INTO dialogues (id, movie_id, quote, note, translation, language, color, character, actor, timestamp, timestamp_end, season, episode,
+		                       act, quest, dlc, episode_name,
 		                       favorite, source, dedupe_hash, noted_at, sticker_id, sticker_x, sticker_y,
 		                       review_excluded)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?,
 		        -- Inherited from the film, exactly as a highlight inherits from its
 		        -- book. See the annotation create path.
 		        (SELECT COALESCE(review_excluded, 0) FROM movies WHERE id = ?)) ON CONFLICT DO NOTHING`,
 		// req.Translation is a plain string for the reason the three 0047 columns
 		// below are: 0051's column is NOT NULL DEFAULT '' and nullable("") is nil.
-		id, req.MovieID, req.Quote, nullable(req.Note), req.Translation, req.Transliteration, req.Color, nullable(req.Character),
-		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode,
+		id, req.MovieID, req.Quote, nullable(req.Note), req.Translation, req.Language, req.Color, nullable(req.Character),
+		// PLAIN STRING, not nullable(): 0070's column is NOT NULL DEFAULT '' like the
+		// three below and unlike `timestamp` beside it, which predates that rule.
+		nullable(req.Actor), nullable(req.Timestamp), req.TimestampEnd, req.Season, req.Episode,
 		// PLAIN STRINGS, not nullable(): these three are NOT NULL DEFAULT '' (0047),
 		// and nullable("") is nil, which is the constraint violation rather than the
 		// empty value. Every new column in 0047 has this trap.
-		req.Act, req.Quest, req.EpisodeName,
+		req.Act, req.Quest, req.DLC, req.EpisodeName,
 		req.Favorite, req.Source,
 		req.hash(), nullable(req.NotedAt), req.StickerID, req.StickerX, req.StickerY, req.MovieID)
 	if err != nil {
@@ -624,9 +663,9 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 		var d dialogueRow
 		var castID int64
 		d.Tags = []string{}
-		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Translation, &d.Transliteration, &d.Color, &d.Character,
-			&d.Actor, &d.Timestamp, &d.Season, &d.Episode,
-			&d.Act, &d.Quest, &d.EpisodeName,
+		if err := rows.Scan(&d.ID, &d.MovieID, &d.Quote, &d.Note, &d.Translation, &d.Language, &d.Color, &d.Character,
+			&d.Actor, &d.Timestamp, &d.TimestampEnd, &d.Season, &d.Episode,
+			&d.Act, &d.Quest, &d.DLC, &d.EpisodeName,
 			&d.Favorite, &d.StickerID, &d.StickerX, &d.StickerY,
 			&d.NotedAt, &d.CreatedAt, &d.UpdatedAt,
 			&d.Reviewed, &d.Stability, &d.LastReviewedAt, &d.LastResult,
@@ -754,14 +793,14 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(`
-		UPDATE dialogues SET quote = ?, note = ?, translation = ?, transliteration = ?, color = ?, character = ?, actor = ?, timestamp = ?,
-		       season = ?, episode = ?, act = ?, quest = ?, episode_name = ?,
+		UPDATE dialogues SET quote = ?, note = ?, translation = ?, language = ?, color = ?, character = ?, actor = ?, timestamp = ?,
+		       timestamp_end = ?, season = ?, episode = ?, act = ?, quest = ?, dlc = ?, episode_name = ?,
 		       favorite = ?, dedupe_hash = ?, sticker_id = ?, sticker_x = ?, sticker_y = ?, updated_at = datetime('now')
 		WHERE id = ?`,
-		req.Quote, nullable(req.Note), req.Translation, req.Transliteration, req.Color, nullable(req.Character),
-		nullable(req.Actor), nullable(req.Timestamp), req.Season, req.Episode,
+		req.Quote, nullable(req.Note), req.Translation, req.Language, req.Color, nullable(req.Character),
+		nullable(req.Actor), nullable(req.Timestamp), req.TimestampEnd, req.Season, req.Episode,
 		// Plain strings — NOT NULL DEFAULT '', see the create path.
-		req.Act, req.Quest, req.EpisodeName,
+		req.Act, req.Quest, req.DLC, req.EpisodeName,
 		req.Favorite, hash, req.StickerID, req.StickerX, req.StickerY, id); err != nil {
 		internalError(w, r, "update dialogue", err)
 		return

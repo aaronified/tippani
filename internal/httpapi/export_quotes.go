@@ -56,23 +56,23 @@ type utteranceExportRow struct {
 	id                                                   int64
 	quote, note, color                                   string
 	speaker, occasion, occasionDate, place, medium, kind string
-	category, language, translation, transliteration     string
+	category, language, translation                      string
 	// 0047 — what a proverb, a letter and an essay carry. Written unconditionally
 	// for every quote, whatever board it is on, because the kind lives on the BOARD
 	// and the board does not round-trip yet: a file that only wrote a recipient for
 	// a quote currently sitting on a letter board would lose it the moment the
 	// reader moved that quote, which is the failure this whole pass is about.
-	region, recipient, workTitle, locator string
-	occasionCirca                         bool
-	favorite                              bool
-	notedAt                               string
+	region, recipient, workTitle, locator, sourceAuthor string
+	occasionCirca                                       bool
+	favorite                                            bool
+	notedAt                                             string
 }
 
 func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 	q := `SELECT id, quote, COALESCE(note,''), color, COALESCE(speaker,''), COALESCE(occasion,''),
 	             COALESCE(occasion_date,''), COALESCE(place,''), COALESCE(medium,''), COALESCE(kind,''),
-	             category, language, translation, transliteration,
-	             region, recipient, work_title, locator, occasion_circa,
+	             category, language, translation,
+	             region, recipient, work_title, locator, source_author, occasion_circa,
 	             favorite, COALESCE(noted_at,'')
 	      FROM utterances WHERE user_id = ?`
 	args := []any{uid}
@@ -98,8 +98,8 @@ func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 		// what a row predating them holds. Same rule as utteranceCols.
 		if err := rows.Scan(&u.id, &u.quote, &u.note, &u.color, &u.speaker, &u.occasion,
 			&u.occasionDate, &u.place, &u.medium, &u.kind,
-			&u.category, &u.language, &u.translation, &u.transliteration,
-			&u.region, &u.recipient, &u.workTitle, &u.locator, &u.occasionCirca,
+			&u.category, &u.language, &u.translation,
+			&u.region, &u.recipient, &u.workTitle, &u.locator, &u.sourceAuthor, &u.occasionCirca,
 			&u.favorite, &u.notedAt); err != nil {
 			olog.Warnf(olog.CodeExportRowScan, "[export] quote row scan failed: %v", err)
 			continue
@@ -170,6 +170,14 @@ func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 				// reach for. See applyQuoteBinding for why it cannot be `locator`.
 				writeBinding(&sb, "work_title", u.workTitle)
 				writeBinding(&sb, "page", u.locator)
+				// 0070. WHO THE SOURCE IS BY, written after the source it belongs to
+				// and spelled `source_author` rather than `author`: a quotes file has
+				// no author of its own to be confused with, but a BOOK file's
+				// frontmatter `author:` is the writer of the work, and one word
+				// meaning two things across two of this app's own formats is how a
+				// hand-edited file ends up filed as the wrong kind (MarkdownKind
+				// routes on `author:`).
+				writeBinding(&sb, "source_author", u.sourceAuthor)
 				// 0035. `other` is left out for the same reason yellow is: a file
 				// should mention the category only when one was chosen, so a shelf
 				// of ordinary quotes exports exactly as it did before the boards
@@ -179,7 +187,6 @@ func (s *Server) renderQuotesExport(uid int64, ids []int64) (string, error) {
 				}
 				writeBinding(&sb, "language", u.language)
 				writeBinding(&sb, "translation", u.translation)
-				writeBinding(&sb, "transliteration", u.transliteration)
 				writeBinding(&sb, "note", note)
 				// Same rule as the other two exports: the default colour is left
 				// out, so a file only mentions colour when one was chosen.

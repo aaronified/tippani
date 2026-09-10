@@ -49,6 +49,13 @@ type stagedBulkReq struct {
 	Character  *string  `json:"character"`
 	Actor      *string  `json:"actor"`
 	Timestamp  *string  `json:"timestamp"`
+	// 0070. No _orig pair below, and no entry in applyStagedFormula either: the
+	// formula shifts a locator the file got wrong across a batch, and the end of a
+	// range is typed in the app rather than parsed out of anything.
+	TimestampEnd *string `json:"timestamp_end"`
+	// 0071. Both NOT NULL DEFAULT '' columns, so both are written plain below.
+	DLC      *string `json:"dlc"`
+	Language *string `json:"language"`
 	// Counts arrive as strings, not numbers, because three states have to be
 	// distinguishable and a *int only carries two: absent (leave alone), "" (clear
 	// it) and "0" (season 0, where a series keeps its specials).
@@ -71,6 +78,9 @@ func (req *stagedBulkReq) validate() string {
 		{&req.Character, "character"},
 		{&req.Actor, "actor"},
 		{&req.Timestamp, "timestamp"},
+		{&req.TimestampEnd, "timestamp_end"},
+		{&req.DLC, "dlc"},
+		{&req.Language, "language"},
 	} {
 		if *f.val == nil {
 			continue
@@ -197,6 +207,18 @@ func (s *Server) handleBulkStaged(w http.ResponseWriter, r *http.Request) {
 	if req.Timestamp != nil {
 		set("timestamp", nullable(*req.Timestamp))
 		set("timestamp_orig", nullable(*req.Timestamp))
+	}
+	// A PLAIN STRING, not nullable(): 0070's column is NOT NULL DEFAULT '' unlike
+	// `timestamp` above it, so nullable("") would be the violation rather than the
+	// clear. Same trap as act/quest/episode_name on the live table.
+	if req.TimestampEnd != nil {
+		set("timestamp_end", *req.TimestampEnd)
+	}
+	if req.DLC != nil {
+		set("dlc", *req.DLC)
+	}
+	if req.Language != nil {
+		set("language", *req.Language)
 	}
 	// No _orig pair for these: nothing rewrites an episode number, so there is
 	// nothing to reset back to (see 0025).
