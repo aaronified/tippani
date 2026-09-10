@@ -920,7 +920,20 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
     set(patch)
     setOffer(next)
   }
-  const impliedActor = door === 'dialogue' ? suggest.actorFor(draft.character) : ''
+  // The cast's character names, for the token box's suggestions — TokenInput takes
+  // a flat list where CastCombo takes the rows, because a token has no room for the
+  // performer underneath it.
+  const castNames = useMemo(
+    () => [...new Set(suggest.cast.map((c) => (c?.character || '').trim()).filter(Boolean))],
+    [suggest.cast],
+  )
+  // WHO PLAYS THEM, and now for EVERY name on the line rather than the first: a
+  // two-speaker exchange has two performers, and showing one of them was showing
+  // the wrong half of the answer.
+  const impliedActor =
+    door === 'dialogue'
+      ? [...new Set(asTags(draft.character).map((n) => suggest.actorFor(n)).filter(Boolean))].join(', ')
+      : ''
 
   useEffect(() => {
     if (!needsWork) return undefined
@@ -1119,16 +1132,42 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
             />
           </label>
         )
+      // ONE BOX FOR A BOOK'S SPEAKER, TOKENS FOR A SCREEN'S — because the two
+      // columns genuinely differ and both edit forms already agree on which is
+      // which. `annotations.character` holds one person; `dialogues.character` holds
+      // a comma-joined list, and the film page's edit form has taken several as
+      // tokens since it was written.
+      //
+      // THE ADD SURFACE TOOK ONE NAME ON BOTH, which the owner's audit caught:
+      // "both should offer the same entry support for the same fields". A
+      // two-speaker exchange could be typed here as "A, B" and the server would
+      // store it, but only the edit form helped you do it — one screen suggesting a
+      // name at a time while the other suggested each name in a list. Same field,
+      // same work, two behaviours.
       case 'character':
         return (
           <div key={key}>
-            <CastCombo
-              label={t('common.field.character.label')}
-              placeholder={t(door === 'annotation' ? 'book.quote.form.character.placeholder' : 'common.field.character.placeholder')}
-              value={draft.character}
-              onChange={(v) => set({ character: v })}
-              cast={suggest.cast}
-            />
+            {door === 'dialogue' ? (
+              <label className="tp-field">
+                <MonoLabel>{t('common.field.character.label')}</MonoLabel>
+                <TokenInput
+                  value={asTags(draft.character)}
+                  onChange={(names) => set({ character: names.join(', ') })}
+                  suggestions={castNames}
+                  nameCase
+                  placeholder={t('common.field.character.placeholder')}
+                  ariaLabel={t('common.field.character.label')}
+                />
+              </label>
+            ) : (
+              <CastCombo
+                label={t('common.field.character.label')}
+                placeholder={t('book.quote.form.character.placeholder')}
+                value={draft.character}
+                onChange={(v) => set({ character: v })}
+                cast={suggest.cast}
+              />
+            )}
             {/* Who plays them, from the cast — read-only, because the server
                 derives the stored actor. Seeing it is how you know the name
                 matched a real row rather than being kept as loose text. */}

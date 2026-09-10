@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   your library says — `Chapter 15?`, or the name it has for that number — and fills it on a
   tap. Nothing is written until you tap, and the chip disappears the moment you type in that
   box again.
+- **A film or show line takes several speakers when you capture it, not only when you edit
+  it.** The film page has let you enter an exchange as a list of names for as long as it has
+  existed; the add screen took one name and left you to type `A, B` yourself, with
+  suggestions offered one at a time. Same box on both now, and the "played by" line under it
+  names *every* performer on the line rather than the first.
+- **A game's DLC box offers the packs you have already quoted from when editing, as it
+  already did when adding.**
 - **Both chapter boxes are proper dropdowns on the edit form too, not just when adding.**
   They used the browser's own suggestion list, which on a desktop only opens after you have
   typed a character — useless for a list you open the box in order to be *reminded* of. Same

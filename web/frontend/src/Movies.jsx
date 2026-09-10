@@ -12,6 +12,7 @@ import { selectionClick, selectionMenuItems, useSelection } from './selection.js
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { useCharacterArt } from './cast.jsx'
+import { SuggestCombo, useWorkSuggestions } from './suggest.jsx'
 import { CreditFaces, PersonModal, PersonName, SpeakerChips, chipRows, creditsNotOnChips, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
 import {
   GroupHeading,
@@ -2025,6 +2026,17 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
   const [timestampEnd, setTimestampEnd] = useState(initial?.timestamp_end || '')
   const [dlc, setDlc] = useState(initial?.dlc || '')
   const [language, setLanguage] = useState(initial?.language || '')
+
+  // THE PACKS THIS GAME'S OWN LINES ALREADY NAME, so the DLC box offers them here
+  // exactly as it does on the add surface. The owner's audit: "both should offer
+  // the same entry support for the same fields."
+  //
+  // ONLY FOR A GAME, and the saving is the point: `useWorkSuggestions` fetches the
+  // cast alongside the pool, and this form is already handed a cast by its parent —
+  // so on a film or a show, where there is no pack column at all, this would be two
+  // requests for nothing. A game's edit form pays one duplicate cast fetch to reach
+  // the list, which beats a second hook that fetches half of what this one does.
+  const suggest = useWorkSuggestions(game && initial?.movie_id ? { kind: 'screen', id: initial.movie_id } : null)
   // Kept as strings: '' is unset and '0' is season 0, and a number field cannot
   // hold both. ?? not ||, so a stored 0 seeds as "0" rather than blank.
   const [season, setSeason] = useState(initial?.season ?? '')
@@ -2194,13 +2206,12 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
             other box on this row. Under the pair rather than beside it: a DLC name
             is long — "Blood and Wine", "Far Harbor" — and this row is already two
             columns on a phone. */}
-        <input
-          className="tp-input"
-          autoCapitalize="words"
+        <SuggestCombo
+          ariaLabel={t('common.field.dlc.label')}
           placeholder={t('add.form.dlc.placeholder')}
-          aria-label={t('common.field.dlc.label')}
           value={dlc}
-          onChange={(e) => setDlc(e.target.value)}
+          options={suggest.packs.map((n) => ({ name: n }))}
+          onChange={setDlc}
         />
         </>
       ) : episodeFields ? (

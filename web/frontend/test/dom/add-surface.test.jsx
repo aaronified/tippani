@@ -140,6 +140,45 @@ describe('a form shows only its own fields', () => {
     }
   })
 
+  // A SCREEN LINE TAKES SEVERAL SPEAKERS AND A BOOK HIGHLIGHT TAKES ONE, because
+  // the two columns differ and both edit forms already agreed on which is which:
+  // `annotations.character` holds a person, `dialogues.character` holds a
+  // comma-joined list the film page has edited as tokens since it was written.
+  //
+  // The add surface took ONE name on both, which the owner's audit caught — "both
+  // should offer the same entry support for the same fields". A two-speaker
+  // exchange could be typed here as "A, B" and stored, but only the edit form
+  // helped you do it.
+  it('takes several speakers on a screen line, joined the way the column stores them', async () => {
+    const state = form('dialogue', { initialTarget: { type: 'movie', id: 9 } })
+    await screen.findByLabelText('Quote')
+    fireEvent.change(screen.getByLabelText('Quote'), { target: { value: 'a line' } })
+    const box = screen.getByLabelText('Character')
+    // TokenInput commits a token on Enter, which is how the edit form takes them.
+    for (const name of ['Stalker', 'Writer']) {
+      fireEvent.change(box, { target: { value: name } })
+      fireEvent.keyDown(box, { key: 'Enter' })
+    }
+    await waitFor(() => expect(state.canSave).toBe(true))
+    await state.save()
+    expect(posted[posted.length - 1].body.character).toBe('Stalker, Writer')
+  })
+
+  it('and one speaker on a book highlight, because the column holds one', async () => {
+    const state = form('annotation', { initialTarget: { type: 'book', id: 4 } })
+    await screen.findByLabelText('Quote')
+    fireEvent.change(screen.getByLabelText('Quote'), { target: { value: 'a line' } })
+    // Behind the disclosure for a book — the owner put it there.
+    fireEvent.click(screen.getByText(/Show every field/i))
+    const box = await screen.findByLabelText('Character')
+    // A single box, not a token box: typing a name and saving sends that name, and
+    // Enter does not turn it into a chip.
+    fireEvent.change(box, { target: { value: 'Shevek' } })
+    await waitFor(() => expect(state.canSave).toBe(true))
+    await state.save()
+    expect(posted[posted.length - 1].body.character).toBe('Shevek')
+  })
+
   it('calls the same column by the word the kind uses', async () => {
     // One column, three words for it. "Speaker" over a poem's author would be the
     // interface guessing somebody said it aloud.
