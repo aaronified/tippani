@@ -272,7 +272,8 @@
         "</p>"
       ],
       "id": "review-difficulty-tiers",
-      "plan": "spaced-repetition-difficulty.md"
+      "plan": "spaced-repetition-difficulty.md",
+      "shipped_in": "2.2.9"
     }
   ],
   "overrides": {
