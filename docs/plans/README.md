@@ -21,15 +21,22 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Sixteen files sit here, and only some of them are plans** — the table at the foot of this
-file names the eight that are not, and the rest are features.
+**Fifteen files sit here, and only some of them are plans** — the table at the foot of this
+file names the six that are not, leaving nine features.
 
-That count has now been wrong three times, and the third time is the instructive one. It
-said "Seven"; a change that added a file incremented it to "Eight" without counting the
-directory; and the change that fixed THAT wrote "Fifteen" while citing the command that
-answers sixteen, and said "seven" of a table with eight rows. Both numbers are now the ones
-the tree gives — `ls docs/plans/*.md | wc -l` and the row count below — and if you are
-editing this sentence, run them rather than adjusting them.
+THAT COUNT HAS NOW BEEN WRONG FOUR TIMES, and the fourth is the most instructive because it
+was made by a change that was editing this very paragraph. It said "Seven"; a change that
+added a file incremented it to "Eight" without counting the directory; a change that fixed
+THAT wrote "Fifteen" while citing the command answering sixteen, and said "seven" of a
+table with eight rows; and then the change that moved three files OUT of this directory
+corrected the prose around them and left both numbers behind — so the sentence claimed
+sixteen files and eight non-plans over a directory holding fifteen and six. The periodic
+sweep found it, which is the only reason it is right now.
+
+**The lesson is not "be careful", it is that a hand-maintained count of a directory is a
+fact with no owner.** Both numbers are what the tree gives — `ls docs/plans/*.md | wc -l`
+and the row count below — so if you are editing this sentence, RUN them rather than
+adjusting them by the size of your own change.
 
 Two of the non-plans are odd ones of the same kind:
 `screen-audit.md` and `codebase-audit.md` are not features but the unfixed halves
@@ -49,8 +56,21 @@ about something else. It carries a build order whose first two steps need no rul
 retires the same way everything here does: when the boundary sentence it proposes is in
 `PLAN.md` and the four steps have shipped or been dropped.
 
-The other four — `anthologies.md` and `access.md` for roadmap §4 and §6, and
-`entry-helpers.md` and `episodes.md`, which no roadmap section owns.
+**`anthologies.md` was a fourth of that kind and this paragraph used to call it a live
+plan**, which contradicted the table below listing it as a non-plan — `anthology-update.md`
+took over its one remaining item and says so. One file described two ways in one document
+is the shape that makes a reader trust neither, and the sweep is what caught it.
+
+So the plans proper are the nine the table does not name: `access.md` for roadmap §6,
+`entry-helpers.md` and `episodes.md`, which no roadmap section owns, and
+`anthology-update.md`, `atrium-liquid-glass.md`, `bulk-editors-one-field-table.md`,
+`import-one-drop-target.md`, `locators-from-files.md` and `quote-card-types.md`.
+
+**`quote-card-types.md` has no roadmap card and is not on the skip table either**, which
+looks like an omission and is the file's own instruction: "Not queued … The roadmap sweep
+should leave it alone until the owner picks a shape." The owner has since ruled that it
+retires into `PLAN.md` once the card work lands, so it is a plan on its way out rather than
+a seventh non-plan.
 
 ## Three files left this directory rather than being deleted
 
