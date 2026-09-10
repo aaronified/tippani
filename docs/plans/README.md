@@ -49,14 +49,24 @@ about something else. It carries a build order whose first two steps need no rul
 retires the same way everything here does: when the boundary sentence it proposes is in
 `PLAN.md` and the four steps have shipped or been dropped.
 
-The other five — `anthologies.md` and `access.md` for roadmap §4 and §6,
-`entry-helpers.md` and `episodes.md`, which no roadmap section owns, and
-`multilingual.md`, whose mechanism shipped in 2.1.0 and whose Bengali shipped in 2.1.1. That
-last one is the exception the directory's own rule allows for: the *language* work is done
-and it stays because two things outlast it — the record of how a six-writer translation was
-checked, and a short list of what is still open, of which the honest one is that nobody has
-measured how many strings never became keys at all. `bengali-style.md` sits beside it as its
-appendix, and is the reason a stranger could write the next language.
+The other four — `anthologies.md` and `access.md` for roadmap §4 and §6, and
+`entry-helpers.md` and `episodes.md`, which no roadmap section owns.
+
+## Three files left this directory rather than being deleted
+
+The rule above says a shipped plan is folded into `PLAN.md` and the file here deleted. That
+is right for a plan, and wrong for the two kinds of document a finished plan can leave
+behind — so on the owner's instruction three moved out instead:
+
+| Now at | Why it is not deleted |
+|---|---|
+| `docs/bengali-style.md` | **A guideline.** The register it fixes is implemented, so it is no longer a plan for anything — but it goes on binding every new Bengali string, and it is the reason a stranger could write the next language. The owner's: "it is implemented and the guideline needs to be kept recorded." Nine live citations point at it, `fonts.js` among them |
+| `docs/spaced-repetition-difficulty.md` | **A research record.** The owner's: "it is built and stays to show the research that has gone into the feature." Which curve, which scheduler, what was measured — a reader who wants to know why the deck behaves as it does needs the evidence, not a promise, and `README.md`'s spaced-repetition line now links straight to it |
+| *deleted* — `multilingual.md` | **Neither.** Shipped 2.1.0/2.1.1, and the owner's word was "stale and already completed". It had been kept for a record and a punch-list; the record's real keeper turned out to be `screens-i18n.test.jsx`, which fails on an untranslated screen, and a paragraph a test already holds is a second copy waiting to disagree. Its two real code warts are named in `PLAN.md` |
+
+**The distinguishing question is whether the text still binds or still explains.** A plan
+promises; a guideline binds; a research record explains. Only the first belongs here, and
+only the first is deleted when it comes true.
 `help-density.md` left at 2.0.1 by the front door, folded into PLAN.md §13; §5
 itself stays on the roadmap, because what shipped was the panel's shape and what
 that section asks for is the consolidation behind it. Their verification passes
@@ -127,8 +137,6 @@ the same exclusions nightly will eventually decide one of them differently.
 | `open-defects.md` | A defect register: the owner's reports and what was done about each. Nothing in it is a promise about the future |
 | `screen-audit.md` | The found-and-unfixed half of an adversarial pass over every screen. Its own text: "It is not a feature plan, which is what the rest of this directory holds" |
 | `codebase-audit.md` | The same shape, over the code. Its own first line: "**Not a feature.**" |
-| `bengali-style.md` | A translator's style sheet — the appendix to `multilingual.md`. "This document is the decision, not a survey" |
-| `multilingual.md` | Shipped (2.1.0/2.1.1). What is left in it is a punch-list, one item of which is explicitly out of scope and the other an unreachable code wart |
 | `anthologies.md` | Its one remaining item was taken over by `anthology-update.md`, which says so. A card here would either restate shipped work as upcoming or duplicate that one |
 | `prefetch-and-loaders.md` | A discussion with a build order, not a committed feature. Its first two steps need no ruling and its last two wait on measurements nobody has taken, so a public card reading "prefetch and loaders" would promise the whole of it. It earns a card when the boundary sentence it proposes is in `PLAN.md` — then the sentence is the promise and the card can name it |
 

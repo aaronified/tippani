@@ -3209,7 +3209,7 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 
 **Instead of.** Binding the multiplier as a SQL parameter rather than splicing it — rejected: `dueSQL` is a string five queries concatenate, so a parameter puts its position in five argument lists, which is five chances to get an offset wrong for a value derived from a constant and never from user text.
 
-**This is the prerequisite for `srTargetRetention`, which is NOT built.** The plan's step 4 makes the due point a preference. It was deferred, and the reason is recorded in `docs/plans/spaced-repetition-difficulty.md` rather than left to be rediscovered: the dial's only consumer is the retention figure of step 10, which does not exist, and raising the target makes nearly everything due at once — a poor thing to land days before a launch. With the duplication gone the dial becomes a small change: the constant becomes the preference in one place.
+**This is the prerequisite for `srTargetRetention`, which is NOT built.** The plan's step 4 makes the due point a preference. It was deferred, and the reason is recorded in `docs/spaced-repetition-difficulty.md` rather than left to be rediscovered: the dial's only consumer is the retention figure of step 10, which does not exist, and raising the target makes nearly everything due at once — a poor thing to land days before a launch. With the duplication gone the dial becomes a small change: the constant becomes the preference in one place.
 
 **Approved.** Mine, as a refactor that had to happen whether or not the dial ships.
 
@@ -5563,7 +5563,7 @@ Library and Catalogue never met it because they pass `'annotation'` and `'dialog
 
 **Why the English had to leave the call site.** A fallback argument is a second source of truth that nothing keeps in step, and it is the one that gets read: a reviewer stops looking at the catalogue the moment the sentence is visible in the JSX, and the key stops being the name of anything. Worse, it fixes the *shape* of every other language as a patch chasing English — English is what the code says, so English is what is current, and Bengali is forever a diff against it. A key-only call site makes the two files peers by construction rather than by discipline.
 
-**The cost of that is paid in key names, which is why they are long.** The English is no longer at the call site, so the key is what a maintainer reads, and a key nobody can read is a call site nobody can read. `en.txt` carries 1,305 comment lines of context for the translator on top of that — 686 keys have one on the line directly above them and 2,206 sit inside a block a comment introduces. `docs/plans/multilingual.md` says "1,299 of the 2,446 carry one" and that number is a count of comment lines, not of keys; it is exactly the sort of figure that gets quoted onward as though it were the other thing, so it is corrected here rather than left standing.
+**The cost of that is paid in key names, which is why they are long.** The English is no longer at the call site, so the key is what a maintainer reads, and a key nobody can read is a call site nobody can read. `en.txt` carries 1,305 comment lines of context for the translator on top of that — 686 keys have one on the line directly above them and 2,206 sit inside a block a comment introduces. The multilingual plan said "1,299 of the 2,446 carry one" and that number is a count of comment lines, not of keys; it is exactly the sort of figure that gets quoted onward as though it were the other thing, so it is corrected here rather than left standing.
 
 **Both built-ins ship in the box, and neither is the other's floor by accident.** `Builtins = []string{"en", "bn"}` in Go and `BUILTIN_CODES = ['en', 'bn']` in JS are an inventory, not a precedence. Two named `//go:embed` directives rather than `//go:embed *.txt`, which would have mirrored `seed_stickers.go` and `store/migrate.go` and is wrong here on purpose: a glob means dropping `fr.txt` beside the package silently compiles a third language in, and a third built-in is a deliberate edit. `buildChain` ends every chain at *every* built-in it has not already reached, in that order, so Bengali's floor is English and English's floor is Bengali. `FULL_KEY_SET` — what "100%" is measured against — is the **union** of the two rather than English's set, because measuring `bn` against `en` would make English the source language by arithmetic and would also hide the opposite mistake, a key added to `bn.txt` and forgotten in `en.txt` leaving English at a silent 100%.
 
@@ -10008,7 +10008,7 @@ Every term below was decided by the owner reading the app in Bengali, not by tra
 `en.txt`. They are recorded here because a naming decision is the one kind of design choice
 that a later session cannot re-derive from the code: nothing in the file says why the Library
 is a গ্রন্থাগার and not a লাইব্রেরি, and a rater with a style sheet will happily argue the
-loanword back in. `docs/plans/bengali-style.md` carries the reasoning; this is the register.
+loanword back in. `docs/bengali-style.md` carries the reasoning; this is the register.
 
 Several of these reverse an earlier ruling in the same session. The last column says so where
 it happened, because the reversals are the entries most likely to be "corrected" back.
@@ -12087,3 +12087,30 @@ dropped, because the original is not on the card for it to be a pronunciation of
   translation`; a transliteration is text and belongs there, and it is a separate pass.
 - **The search modal's hit does not draw it.** The hit structs carry the translation; this
   follows when the quote-card types land (`docs/plans/quote-card-types.md`).
+
+## The multilingual plan is finished, and two warts outlive it
+
+`docs/plans/multilingual.md` is deleted. The owner's word: *"multilingual.md in docs/plans/
+is stale and already completed."* The mechanism shipped in 2.1.0, the Bengali in 2.1.1, and
+the pseudo-locale gap that was the file's last real open item is closed — `screens-i18n.test.jsx`
+mounts every screen `App` can route to under `qps` and fails on a readable plain-ASCII
+string, so what holds the coverage is a test rather than a paragraph.
+
+**The style sheet did not go with it.** `docs/bengali-style.md` — moved out of `docs/plans/`
+in the same pass, on the owner's instruction that "it is implemented and the guideline needs
+to be kept recorded". That is the case the plan directory's delete-on-ship rule does not
+cover: a shipped plan whose text goes on *binding new work* is a guideline, and a guideline
+is kept rather than deleted. Nine live citations point at it, `fonts.js` among them.
+
+**Two things in its punch-list are real and are recorded here rather than lost with the
+file**, because both are code that exists and neither is a promise:
+
+- **The Go side's user-facing strings are not in the catalogue.** Deliberately out of scope
+  for the 2.1.0 pass; `internal/i18n` serves the SPA, and a Go error string reaches the
+  reader in English whatever locale they chose. Not scheduled — noting it so the next
+  person to find one knows it is known.
+- **`works.jsx` still carries English `-s` plural fallbacks** (`nounPlural = ${noun}s`) —
+  English grammar living in code, in a file that serves a language with no `-s`. Unreachable
+  today because every call site passes `nounPlural` explicitly, which is why it has not been
+  ripped out: removing the default changes three component signatures for a branch nothing
+  takes. It is a wart with a guard, not a defect.

@@ -23,6 +23,7 @@
 <p align="center">
   <a href="https://github.com/aaronified/tippani/releases"><img alt="Release" src="https://img.shields.io/github/v/release/aaronified/tippani?sort=semver&color=blue"></a>
   <a href="https://aaronified.github.io/tippani/roadmap.html"><img alt="Roadmap" src="https://img.shields.io/badge/roadmap-what's%20next-B4482D"></a>
+  <a href="https://aaronified.github.io/tippani/ui-glossary.html"><img alt="UI glossary" src="https://img.shields.io/badge/glossary-every%20control-B4482D"></a>
   <a href="go.mod"><img alt="Go" src="https://img.shields.io/github/go-mod/go-version/aaronified/tippani"></a>
   <a href="https://github.com/aaronified/tippani/pkgs/container/tippani"><img alt="Container" src="https://img.shields.io/badge/ghcr.io-aaronified%2Ftippani-2496ED?logo=docker&logoColor=white"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-amd64%20%C2%B7%20arm64%20(untested)-informational">
@@ -38,7 +39,9 @@
   <a href="https://github.com/aaronified/tippani/issues/new?template=feature_request.yml">request a feature</a> ·
   <a href="https://github.com/aaronified/tippani/issues/new?template=bug_report.yml">report a bug</a><br>
   📓 <a href="docs/PLAN.md"><strong>Design log</strong></a> — how it is built and why: one entry per decision, with the
-  alternatives considered and the trade-offs behind it
+  alternatives considered and the trade-offs behind it<br>
+  🔤 <a href="https://aaronified.github.io/tippani/ui-glossary.html"><strong>UI glossary</strong></a> — every control in
+  the interface, named and pressable, generated from the source rather than drawn by hand
 </p>
 
 ---
@@ -83,8 +86,8 @@ accents, one combination per shot. Screenshots lag the interface now and then;
     <td valign="top">📨 <strong>Share a quote as an image</strong> — drawn on your own device in your paper or film theme, with the credited person's portrait as a backdrop, then straight to your phone's share sheet or a download. The same dialog also hands a quote out as Markdown, WhatsApp text, plain text or Reddit.</td>
   </tr>
   <tr>
-    <td valign="top">🧠 <strong>Scientific spaced repetition</strong> — every quote carries a memory half-life and returns along the Ebbinghaus forgetting curve, asked one of five ways including a server-graded fill-in-the-blank, in a Daily Quiz and an open Practice mode alike.</td>
-    <td valign="top">🌐 <strong>Multilingual by design</strong> — the app holds no source language: English and Bengali both ship in the box, neither a fallback for the other, and a quote can carry its own translation alongside the original script. A third language is one text file dropped in — nothing to rebuild, nothing to restart.</td>
+    <td valign="top">🧠 <strong>Scientific spaced repetition</strong> — every quote carries a memory half-life and returns along the Ebbinghaus forgetting curve, asked one of five ways including a server-graded fill-in-the-blank, in a Daily Quiz and an open Practice mode alike. <a href="docs/spaced-repetition-difficulty.md">The research behind it</a> — which curve, which scheduler, and what was measured before any of it shipped.</td>
+    <td valign="top">🌐 <strong>Multilingual by design</strong> — the app holds no source language: English and Bengali both ship in the box, neither a fallback for the other, and a quote can carry its own translation alongside the original script. A third language is one text file dropped in — nothing to rebuild, nothing to restart. <a href="docs/bengali-style.md">The Bengali style sheet</a> is what a fourth would be written against.</td>
     <td valign="top">✨ <strong>And the rest</strong> — <strong>Multi-user</strong> · <strong>Export</strong> · <strong>Encrypted backup</strong> · <strong>Detailed stats</strong></td>
   </tr>
 </table>
@@ -315,7 +318,7 @@ Standing on the shoulders of:
 - **[Phosphor Icons](https://github.com/phosphor-icons/core)** — the **MIT**-licensed fill weight behind the
   solid glyphs: the nav rail, the favourite, the three shelf marks in their ON state, the practise mortarboard
   and the colour palette. Everything else is drawn by hand in `ui.jsx`, and a fill has to argue its way in —
-  see the *Icons* section of [the UI glossary](docs/ui-glossary.html).
+  see the *Icons* section of [the UI glossary](https://aaronified.github.io/tippani/ui-glossary.html).
 - **[CC0 Textures](https://cc0-textures.com/)** — the public-domain texture packs behind the paper · wood ·
   metal · glass surfaces of the two skins.
 - **[Bookcision](https://bookcision.readwise.io/)** and **[Readest](https://github.com/readest/readest)** —

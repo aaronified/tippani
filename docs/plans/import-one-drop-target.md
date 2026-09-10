@@ -93,7 +93,7 @@ section's "?" opens the **capture** help section (`AddSurface.jsx:1384,1406`), s
 "pressing a help menu" does not today reach anything about import beyond one row.
 
 **Two documents still call `ImportPage` un-migrated for i18n, and it is not.**
-`test/pure/infodot-copy.test.js:37` and `docs/plans/multilingual.md:141` both list
+`test/pure/infodot-copy.test.js:37` and `docs/bengali-style.md` both list
 it among files whose strings are still English literals. It resolves every word
 through `t()` against 71 `import.*` keys, and its one `InfoDot` (`:307`) is built
 from `t()`-resolved steps. The claim is stale for this file; a rewrite should not

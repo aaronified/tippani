@@ -1096,7 +1096,8 @@ Six writers had left two or three Bengali words for one English one. These are n
   why a specimen stays Latin, why one Bengali word serves two English ones. They are the
   only comments in the file that are not `en.txt`’s. The `# ??` / `# !!` markers of §7 are
   still the convention for doubt and overflow; v3 hands in none.
-- The checks of `docs/plans/multilingual.md` were run again over the result: 0 সাধু markers,
+- The checks this sheet fixes were run again over the result (they were written in
+  `docs/plans/multilingual.md`, deleted when that plan finished): 0 সাধু markers,
   0 তুমি outside the Tagore line, 0 Bengali digits, 0 placeholder mismatches, every
   `.help.*` and `.info.body` inside its budget.
 

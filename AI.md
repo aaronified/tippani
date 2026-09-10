@@ -111,12 +111,12 @@ my direction and then reconciling what came back, rather than by one session doi
 everything in order. Three examples from 2.1.x, all of them in the history:
 
 - **The Bengali interface** (2.1.1, 2,446 strings) was written by **six agents in
-  two passes**, each working from a committed style sheet — `docs/plans/bengali-style.md`
+  two passes**, each working from a committed style sheet — `docs/bengali-style.md`
   — rather than from the English alone, because six writers with no shared
   register produce six registers in one interface. The merge was then checked
   mechanically: key set, placeholder parity, nothing lost, and on the 442 keys
   where writers disagreed, that the file holds one of *their* readings rather than
-  an invented third. The register checks are in `docs/plans/multilingual.md`.
+  an invented third. The register checks are in `docs/bengali-style.md`.
   In 2.2.x one agent rewrote every string again from a per-key dossier of the code
   that renders it, and a second, independent agent rated the result against the
   brief before it was committed.
