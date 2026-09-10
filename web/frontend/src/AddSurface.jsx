@@ -8,11 +8,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
-import { CastCombo, Datalist, useWorkSuggestions } from './suggest.jsx'
+import { CastCombo, Datalist, SuggestCombo, useTagNames, useWorkSuggestions } from './suggest.jsx'
 import { t } from './i18n.js'
+import { BoardForm, useBoards } from './boards.jsx'
+import { QUOTE_KIND_DOORS, doorForBoard, fieldsFor, showsField, splitPair } from './addFields.js'
 import { chapterPatch } from './text.js'
-import { quoteKindOptions } from './quoteKind.js'
-import { useBoards } from './boards.jsx'
+import { StickerPicker, useStickers } from './stickers.jsx'
 import { CandidateRow, groupEditions } from './CoverPicker.jsx'
 import { ManualTab, isIsbn } from './Library.jsx'
 import { ManualMovie, sourceRef, candSourceID, DuplicateConfirm, countOrNull } from './Movies.jsx'
@@ -21,12 +22,15 @@ import { PageHelp } from './help.jsx'
 import {
   useEscape,
   ColorSwatches,
+  Field,
+  TokenInput,
   EmptyState,
   ErrorText,
   filterChipClass,
   GhostButton,
   HandCard,
   IconButton,
+  IconBack,
   IconCheck,
   IconClose,
   MobileSheet,
@@ -112,7 +116,7 @@ export function workFromMovie(m) {
 // back the normalised work so an embedder can target it. `initialQuery` seeds
 // (and, for books, auto-runs) the search; `hideManual` drops the manual
 // affordances where the host offers its own.
-export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQuery = '', hideManual = false, sections }) {
+export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQuery = '', hideManual = false, sections, lockKind = false }) {
   const kinds = kindsFor(sections)
   const [kind, setKind] = useState(() => {
     const want = initialKind === 'film' || initialKind === 'show' || initialKind === 'game' ? initialKind : 'book'
@@ -271,7 +275,15 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
       {/* One kind left is not a choice — the Catalogue alone still needs its
           Film / Show / Game toggle, but a lone "Book" segment is a label
           pretending to be a control. */}
-      {kinds.length > 1 && <Toggle ariaLabel={t('capture.lookup.kind.aria')} value={kind} onChange={switchKind} options={kinds} />}
+      {/* THE KIND TOGGLE IS GONE WHEN THE CHOOSER HAS ALREADY ANSWERED. `lockKind`
+          is set by every door that names a kind — Book, Film, Show, Game — and by
+          the inline create inside a quote form, where the door decided which kind
+          of work the quote needs. Drawing it anyway would be the question asked
+          twice, which is field-model §1's argument about the Kind chips applied
+          one surface over.
+          It stays for a caller that opens the card cold, which is what the
+          embedded lookup used to be and what a future entry point may be. */}
+      {!lockKind && kinds.length > 1 && <Toggle ariaLabel={t('capture.lookup.kind.aria')} value={kind} onChange={switchKind} options={kinds} />}
       <form onSubmit={(e) => { e.preventDefault(); doSearch() }} className="flex flex-wrap gap-2">
         <input
           className="tp-input min-w-0 flex-1"
@@ -653,148 +665,364 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
   )
 }
 
-// CaptureQuote — the "Capture quote" tab body: jot a quote or note against any
-// book, film or show without leaving where you are — or quick-create the work
-// inline via the embedded look-up card when it isn't in the library yet. Tags
-// are comma-separated names — unknown ones are auto-created server-side.
-// `onCaptured` fires after a successful save; `onWorkCreated` after an inline
-// work add (the shell refreshes its counts).
+// ═══════════════════════════════════════════════════════════════════════════════
+// THE CHOOSER, AND THE FORMS BEHIND IT
+//
+// THE OWNER'S BRIEF: "redesign from ground up. forget what is there right now.
+// think of how it should be. we need to add various types of works, and also need
+// to add various types of quotes. and then there is bulk imports. all these things
+// need to be in the add surface that is visually similar to the rest of the app."
+//
+// WHAT WAS THERE, AND WHY IT WENT. Three tabs — a look-up card, one capture form,
+// a wall of import instructions — that the reader "rotates freely between". Nobody
+// rotates. You know what you are adding before you press ＋, so a segmented
+// control across three things of wildly different weights spends the top of every
+// opening asking a question you have already answered. And the middle tab was ONE
+// form for nine kinds of quote, which is why it had a heading reading "What the
+// kind carries" over four boxes that mostly do not apply — its own comment said
+// the reason was that "the kind lives on the BOARD and this surface has not asked
+// for one yet", and that stopped being true when the board control landed.
+//
+// WHAT IT IS NOW: one panel, two states. A CHOOSER, grouped the way the owner
+// grouped it in their own sentence — a work, a quote, many at once — and then the
+// one form for the thing you picked, with Back in the header. That is the app's
+// own panel-stack chrome rather than a new idiom, and it is what makes "each
+// surface needs to only show their specific fields" possible at all: the kind is
+// known before the form draws, so the form can be honest about what it wants.
+//
+// NOBODY IS ASKED TWICE. A work's own ＋ opens the quote form with that work
+// filled in; a proverb board's ＋ opens the proverb form (doorForBoard); the
+// chooser appears only when nothing else has answered.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Which endpoint each door writes to, and which shape it sends. One table rather
+// than a chain of conditionals in the save handler, because "where does this door
+// POST" is a fact about the door and reading it off a nested ternary is how the
+// game path came to send a timestamp for a release.
 // A SITTING is a run of captures made minutes apart — six quotes off one page of
-// one book — and it used to cost six full re-entries: pick the work, pick the
-// colour, retype the tags, every time.
+// one book — and without this each one costs a full re-entry: pick the work, pick
+// the colour, retype the tags.
 //
-// So a capture leaves a note of what it used, and the next one within the window
-// starts from it. The window is the whole design:
-//
-//   COLOUR AND TAGS carry with no expiry. Neither can mis-file anything — the worst
-//   case is a quote wearing a tag you have to remove, which is visible on the card.
-//
-//   THE WORK carries for THIRTY MINUTES and no longer. This is deliberately in
-//   tension with the rule stated below — "no default target when the surface was
-//   opened cold", because a silently pre-filled work invites mis-filed quotes — and
-//   the window is how both survive. Within half an hour you are still holding the
-//   same book, and the picker SHOWS the work it has chosen, so it is not silent.
-//   Tomorrow you are not, and a stale target would file tomorrow's quote under
-//   yesterday's book with no signal at all.
+// COLOUR AND TAGS carry with no expiry: neither can mis-file anything, and the
+// worst case is a tag you remove, which is visible on the card. THE WORK carries
+// for thirty minutes and no longer. That is deliberately in tension with "no
+// default target when the surface was opened cold" — a silently pre-filled work
+// invites mis-filed quotes — and the window is how both survive: within half an
+// hour you are still holding the same book and the picker SHOWS what it chose, so
+// it is not silent. Tomorrow you are not, and a stale target would file tomorrow's
+// quote under yesterday's book with no signal at all.
 const SITTING_KEY = 'tippani:lastCapture'
 const SITTING_MS = 30 * 60 * 1000
 
-export function CaptureQuote({ initialTarget = null, initialBoard = null, initialFields = null, initialStandalone = false, onCaptured, onWorkCreated, onSaveState }) {
-  // The page behind an overlay does not move. Without this a wheel or a swipe
-  // that runs past the end of the dialog scrolls the page you cannot see, and it
-  // is still scrolled when you close this. Ref-counted, so a dialog opened from
-  // inside a sheet does not unlock the sheet on its way out.
+// asTags takes either shape a seed can arrive in. The token input needs an array;
+// the previous release's capture card kept its tags in a comma box and wrote the
+// string it held — into localStorage for a sitting, and through `duplicateSeed`
+// for a duplicate. `duplicateSeed` now hands back the array, but a sitting written
+// by that release is still on disk in somebody's browser, so the tolerance has to
+// live where both producers meet. Reading only the array dropped them silently,
+// which is the one thing a sitting exists not to do.
+const asTags = (v) => (Array.isArray(v) ? v : String(v || '').split(',').map((x) => x.trim()).filter(Boolean))
+
+const DOOR_POST = { annotation: '/annotations', dialogue: '/dialogues' }
+
+// The four doors the look-up card serves — a work you search a provider for. The
+// board door is not one of them: a board is made rather than looked up.
+const WORK_LOOKUP = ['book', 'film', 'show', 'game']
+
+// The doors that write an `utterances` row. Their door key IS the value stored in
+// `kind` (0053) — see addFields.js for why that is a departure from the design
+// pack and why the schema forced it.
+const STANDALONE = new Set(QUOTE_KIND_DOORS)
+
+// A DOOR'S WORD COMES FROM THE APP'S OWN VOCABULARY, not from a key per door.
+// `vocab.kind.*` and `vocab.quote-kind.*` already name every one of these things
+// on the cards, in the board grouping, in the bulk editor and in the share
+// payload — so a `add.door.speech.label` would be the word "Speech" written a
+// second time, free to drift from the first. Four doors have no vocabulary entry
+// because they are not kinds of quote, and they get one key each.
+const DOOR_LABEL = (door) =>
+  door === 'book' ? t('vocab.kind.book.label')
+  : door === 'film' ? t('vocab.kind.movie.label')
+  : door === 'show' ? t('vocab.kind.show.label')
+  : door === 'game' ? t('vocab.kind.game.label')
+  : QUOTE_KIND_DOORS.includes(door) ? t(`vocab.quote-kind.${door}.label`)
+  : t(`add.door.${door}.label`)
+
+// AND THE PANEL'S TITLE IS THAT SAME WORD. Not "Add a speech": you reached this
+// panel by pressing ＋ and then Speech, so a title restating both is the design
+// pack's "a row says a thing once" broken at the top of the screen — and it is
+// fifteen more strings to translate for no fact the reader does not have.
+const DOOR_TITLE = (door) => DOOR_LABEL(door)
+
+// THREE FIELDS WEAR A DIFFERENT WORD PER KIND, and these maps are why there are
+// three small tables rather than eighteen keys of the form
+// `add.field.speaker.${door}.label`. Most doors share a word: a speech has a
+// SPEAKER and everything written has a WRITER, so two keys cover six doors. A
+// templated key per door would be fifteen strings to translate, most of them
+// identical, and a missing one is a runtime "no string for" rather than a build
+// error — which is exactly the failure a shared table cannot have.
+//
+// The fallback is the first entry, so a door added to `addFields.js` without a
+// word here draws the generic label rather than nothing.
+const SPEAKER_LABEL = { speech: 'said', letter: 'wrote', essay: 'wrote', poem: 'wrote', song: 'wrote', other: 'said' }
+const LOCATOR_LABEL = { essay: 'page', poem: 'stanza', song: 'stanza', other: 'page' }
+// A SONG'S IS THE OWNER'S OWN WORDING — "song work label: Book / Movie / Album" —
+// because a song reaches a reader through any of the three, and `Album` alone
+// would be wrong for a film song while `Source` would be wrong for all of them.
+const WORK_TITLE_LABEL = { speech: 'source', letter: 'source', essay: 'title', poem: 'collection', song: 'album', other: 'source' }
+
+// ---- the chooser ------------------------------------------------------------
+
+// AddChooser — "what are you adding?", in the owner's own three groups.
+//
+// A BUTTON AND NOT A FILTER CHIP, though a chip row is what this looks like. The
+// app's `tp-filter-chip` means "narrow the list to this" and wears an on-state; a
+// door means "go here" and has no state to be in. Reusing the chip would put two
+// different jobs behind one drawing, which `docs/ui-glossary.html` could then only
+// document once.
+//
+// THE WORK ROW IS GATED BY `sections` and the quote row is not, which is the same
+// asymmetry the old kind chooser had and for the same reason: hiding a section
+// stops the app INVITING you into something you put away, and a quote is not filed
+// in a section you can hide. `board` rides with the works because it is a
+// container you make before you file into it.
+export function AddChooser({ sections, onPick }) {
+  const works = [...kindsFor(sections).map(([k]) => k), 'board']
+  const quotes = ['annotation', 'dialogue', ...QUOTE_KIND_DOORS]
+  const group = (labelKey, doors) => (
+    <div className="tp-field" key={labelKey}>
+      <MonoLabel>{t(labelKey)}</MonoLabel>
+      <div className="flex flex-wrap gap-2">
+        {doors.map((d) => (
+          <button key={d} type="button" className="tp-btn tactile" onClick={() => onPick(d)}>
+            {DOOR_LABEL(d)}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="microcopy">{t('add.chooser.prose')}</p>
+      {works.length > 0 && group('add.group.work.label', works)}
+      {group('add.group.quote.label', quotes)}
+      {group('add.group.files.label', ['import'])}
+    </div>
+  )
+}
+
+// ---- the one quote form -----------------------------------------------------
+
+// QuoteForm draws whatever `fieldsFor(door)` says and sends only what it drew.
+//
+// ONE COMPONENT FOR NINE DOORS, not nine components. The nine differ in WHICH
+// boxes they show and in nothing else — same validation shape, same save verb,
+// same sitting memory, same disclosure — so nine copies would be nine places for
+// the ✓ to stop arming. What varies is data, and it lives in addFields.js where a
+// test can read it without mounting anything.
+//
+// AND IT SENDS ONLY WHAT IT DREW, which is the half that is easy to get wrong. A
+// POST here is full-state; a field the door hard-dropped must be absent from the
+// body rather than sent empty, or a value that arrived by import would be cleared
+// by a reader who never saw a box for it. `showsField` is the gate, in one place.
+export function QuoteForm({ door, initialTarget, initialBoard, initialFields, onSaved, onWorkCreated, onSaveState }) {
   useBodyScrollLock(true)
-  const [works, setWorks] = useState(null) // [{kind:'book'|'screen', id, title, sub, tag}]
-  const [creating, setCreating] = useState(null) // null | {title} — inline new-work lookup
+  const [works, setWorks] = useState(null)
+  const [creating, setCreating] = useState(null)
+  const [showAll, setShowAll] = useState(false)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
-  // No default target when the surface was opened cold — a search-first picker
-  // with a silently pre-filled work invites mis-filed quotes, and picking is one
-  // keystroke away. `initialTarget` is the deliberate exception: you pressed ＋
-  // on a particular book's own page, so that book IS the answer to "which work",
-  // and asking again would be asking a question you already answered.
   const [sitting, setSitting] = usePersistedState(SITTING_KEY, null)
+  const { boards } = useBoards()
+  const tagPool = useTagNames()
+  const { stickers, reload: reloadStickers } = useStickers()
+
   // Read once, at mount: a capture writes this on the way out, and re-reading it
   // mid-edit would change the form under somebody's hands.
   const [seed] = useState(() => {
-    if (!sitting || typeof sitting !== 'object') return { color: 'yellow', tags: '', targetKey: null }
+    if (!sitting || typeof sitting !== 'object') return { color: 'yellow', tags: [], targetKey: null }
     const fresh = typeof sitting.at === 'number' && Date.now() - sitting.at < SITTING_MS
     return {
       color: sitting.color || 'yellow',
-      tags: sitting.tags || '',
+      // BOTH SHAPES, AND THE STRING IS THE OLD ONE. The card this form replaces
+      // kept its tags in a comma-separated box and wrote the string it held, so a
+      // reader who upgrades mid-sitting has `"grief, craft"` in localStorage and
+      // this form takes an array. Reading only the array would drop them — a
+      // silent loss of the one thing a sitting exists to carry, on exactly the
+      // release that introduced the improvement.
+      //
+      // No migration and no version stamp: the value is a browser convenience
+      // with a thirty-minute window on its interesting half, so accepting both
+      // spellings for a release is cheaper than writing something that has to
+      // run. The split matches what the old box did on save.
+      tags: asTags(sitting.tags),
       targetKey: fresh ? sitting.targetKey || null : null,
     }
   })
-  const [draft, setDraft] = useState({ target: null, quote: '', note: '', chapter: '', chapter_no: '', location: '', character: '', timestamp: '', season: '', episode: '', episodeName: '', act: '', quest: '', tags: seed.tags, color: seed.color, speaker: '', occasion: '', occasionDate: '', place: '', kind: '',
-    // 0047's five, which the edit form gained in this release and this one needs for
-    // the same reason: a letter's recipient and an essay's page are known at the
-    // moment the quote is typed, not later.
-    region: '', recipient: '', workTitle: '', locator: '', circa: false,
-    // WHERE IT IS FILED, and until now this surface never asked. The board
-    // control has been on the edit form since boards shipped and every quote
-    // captured here went to whichever board the server calls the default, so a
-    // reader standing on their own Bengali proverbs board and pressing ＋ filed
-    // into Others and had to move it afterwards. null still means "let the
-    // server decide", which is what a capture from Home should do.
+
+  const [draft, setDraft] = useState(() => ({
+    target: null,
+    quote: '', note: '', translation: '', language: '',
+    chapter: '', chapter_no: '', location: '', character: '',
+    timestamp: '', timestamp_end: '', season: '', episode: '', episode_name: '',
+    act: '', quest: '', dlc: '',
+    speaker: '', occasion: '', when: '', circa: false, place: '',
+    region: '', recipient: '', work_title: '', locator: '', source_author: '',
     board: initialBoard ?? null,
-    // A DUPLICATE ARRIVES SEEDED, and the seed is applied LAST so it wins over
-    // the sitting's remembered colour and tags: the reader is copying a
-    // particular quote, not continuing a session.
-    //
-    // Applied at INITIALISATION rather than in an effect. An effect would land a
-    // frame after the first paint, which is a form the reader can start typing
-    // into and then watch overwrite itself.
-    ...(initialFields || {}) })
-  // "This came from nothing" is a MODE rather than an entry in the work picker.
-  // The picker is search-first, so a synthetic "no book or film" row would only
-  // surface for someone who typed words matching it — which is nobody, since it
-  // is the one option you cannot name. A chip beside the picker asks the
-  // question outright instead. (§24)
-  const [standalone, setStandalone] = useState(initialStandalone)
-  useEffect(() => { setStandalone(initialStandalone) }, [initialStandalone])
-  // The same loader the Quotes screen uses, so the two cannot disagree about
-  // which boards exist or what they are called. One GET when the card opens;
-  // the card is only mounted while the capture tab is showing.
-  const { boards } = useBoards()
+    tags: seed.tags, color: seed.color, sticker_id: null,
+    // A DUPLICATE ARRIVES SEEDED, applied last so it beats the sitting: the reader
+    // is copying a particular quote, not continuing a session. At initialisation
+    // rather than in an effect, because an effect lands a frame after the first
+    // paint — a form you can start typing into and then watch overwrite itself.
+    ...(initialFields || {}),
+    // AFTER the spread, so a seed's own tags go through the normaliser too — a
+    // duplicate made by this release hands an array and one made by the last
+    // hands a string, and neither may reach the token input unconverted.
+    ...(initialFields ? { tags: asTags(initialFields.tags) } : {}),
+  }))
+  const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
+
+  const needsWork = door === 'annotation' || door === 'dialogue'
+  const mediaType = door === 'dialogue' ? draft.target?.media_type || 'movie' : undefined
+  const { main, more } = fieldsFor(door, { mediaType })
+
+  // What this work already knows about itself — its cast, its chapters, its packs.
+  const suggest = useWorkSuggestions(needsWork ? draft.target : null)
+  const impliedActor = door === 'dialogue' ? suggest.actorFor(draft.character) : ''
 
   useEffect(() => {
+    if (!needsWork) return undefined
+    let stale = false
     Promise.all([json('GET', '/books'), json('GET', '/movies')]).then(([rb, rm]) => {
+      if (stale) return
       const list = []
-      if (rb.ok && rb.data) {
-        for (const b of rb.data.books || []) {
-          list.push({ kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: t('common.badge.book') })
-        }
-      }
-      if (rm.ok && rm.data) {
-        for (const m of rm.data.movies || []) {
-          list.push(workFromMovie(m))
-        }
-      }
-      setWorks(list)
-      // The target arrives as {type, id} from the route; the picker speaks the
-      // richer {kind, title, sub, tag} shape, and the list that just landed is
-      // where that shape comes from. A target that is not in the list (deleted
-      // in another tab) simply leaves the picker empty rather than half-filled.
+      if (rb.ok && rb.data) for (const b of rb.data.books || []) list.push(workFromBook(b))
+      if (rm.ok && rm.data) for (const m of rm.data.movies || []) list.push(workFromMovie(m))
+      // ONLY THE KIND THIS DOOR ASKED FOR. The old picker offered every book and
+      // every film at once and worked out afterwards which form to draw; the door
+      // has already said, so offering the other kind would be offering a choice
+      // that silently changes which endpoint Save hits.
+      const want = door === 'annotation' ? 'book' : 'screen'
+      const mine = list.filter((w) => w.kind === want)
+      setWorks(mine)
       if (initialTarget) {
-        const wantKind = initialTarget.type === 'movie' ? 'screen' : 'book'
-        const hit = list.find((w) => w.kind === wantKind && w.id === initialTarget.id)
+        const hit = mine.find((w) => w.id === initialTarget.id)
         if (hit) setDraft((d) => ({ ...d, target: hit }))
       } else if (seed.targetKey) {
-        // The work from a sitting still in its window. Resolved against the list
-        // that just landed, so a work deleted in the meantime simply leaves the
-        // picker empty rather than half-filled with something that is gone.
-        const hit = list.find((w) => `${w.kind}:${w.id}` === seed.targetKey)
+        const hit = mine.find((w) => `${w.kind}:${w.id}` === seed.targetKey)
         if (hit) setDraft((d) => (d.target ? d : { ...d, target: hit }))
       }
     })
+    return () => { stale = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialTarget?.type, initialTarget?.id])
+  }, [door, initialTarget?.type, initialTarget?.id])
 
-  const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
-  const isScreen = !standalone && draft.target?.kind === 'screen'
-  // Only a series has episodes to locate a line in; a film has just its runtime.
-  const isShow = isScreen && draft.target?.media_type === 'show'
-  // A GAME IS A `movies` ROW (0006, 0040) and is located by act and quest rather
-  // than by a timestamp — the server drops a timestamp on a game's line outright
-  // (normalizeLocator), so a form that offered one was offering a box whose value
-  // was thrown away without a word.
-  const isGame = isScreen && draft.target?.media_type === 'game'
+  // ---- what must be filled, in one place ------------------------------------
+  //
+  // The same predicate greys out Save and refuses the submit, so the button can
+  // never be pressable in a state the handler would reject — and `why` is what its
+  // tooltip says instead of leaving a dead control unexplained.
+  const missing = needsWork && !draft.target
+    ? t('error.validate.target-required')
+    : !draft.quote.trim()
+      // A book highlight may be a bare note ABOUT a page; nothing else can be,
+      // because there is no page for it to be about.
+      ? (door === 'annotation' && draft.note.trim() ? '' : t(door === 'annotation' ? 'error.validate.quote-or-note' : 'error.validate.quote-words'))
+      : draft.when && !isPartialDate(draft.when, { historical: true })
+        ? t('error.validate.date')
+        : door === 'dialogue' && mediaType === 'show' && countOrNull(draft.episode) != null && countOrNull(draft.season) == null
+          ? t('error.validate.season-required')
+          : ''
 
-  // What this work already knows about itself: its cast, and (for a book) the
-  // chapters its own highlights name. The film page's edit form has offered the
-  // first since the cast existed; this form offered nothing, which is the same
-  // field on the same work asking you to remember what the database already holds.
-  const suggest = useWorkSuggestions(standalone ? null : draft.target)
-  const listId = `capture-${draft.target?.kind || 'none'}-${draft.target?.id || 0}`
-  // The actor(s) the chosen character implies, shown as a preview exactly as the
-  // film form shows it. Read-only: the server derives the stored actor from the
-  // cast, so a box here would be a second answer to a question already settled.
-  const impliedActor = isScreen ? suggest.actorFor(draft.character) : ''
+  async function save() {
+    if (missing) return setErr(missing.toLowerCase())
+    setBusy(true)
+    setErr('')
+    const only = (key, value) => (showsField(door, key, { mediaType }) ? { [key]: value } : {})
+    const txt = (key) => only(key, String(draft[key] ?? '').trim())
+    const body = {
+      quote: draft.quote.trim(),
+      note: draft.note.trim(),
+      color: draft.color,
+      tags: draft.tags,
+      ...only('sticker_id', draft.sticker_id),
+      ...txt('translation'),
+      ...txt('language'),
+      ...(needsWork
+        ? door === 'annotation'
+          ? {
+              book_id: draft.target.id,
+              ...txt('chapter'),
+              ...only('chapter_no', Number(String(draft.chapter_no).trim()) || 0),
+              ...txt('location'),
+              ...txt('character'),
+            }
+          : {
+              movie_id: draft.target.id,
+              ...txt('character'),
+              ...txt('timestamp'),
+              ...txt('timestamp_end'),
+              ...txt('act'),
+              ...txt('quest'),
+              ...txt('dlc'),
+              ...txt('episode_name'),
+              // Blank means "not recorded" and 0 is a real season, so '' has to
+              // become null rather than 0.
+              ...only('season', countOrNull(draft.season)),
+              ...only('episode', countOrNull(draft.episode)),
+            }
+        : {
+            // The door IS the kind (0053), so this is not read off a control.
+            kind: door,
+            board_id: draft.board,
+            ...txt('speaker'),
+            ...txt('occasion'),
+            ...txt('place'),
+            ...txt('region'),
+            ...txt('recipient'),
+            ...txt('work_title'),
+            ...txt('locator'),
+            ...txt('source_author'),
+            // THE CANONICAL FORM, NOT THE TYPED PHRASE. The box holds what the
+            // reader wrote ('399 BCE'); the column holds '-0399', because it is
+            // sorted and grouped as text. Rewriting the box mid-keystroke would
+            // make the era unspellable — you cannot type B, C, E into a field that
+            // reformats after each one. See UtteranceForm.
+            ...(showsField(door, 'when', { mediaType })
+              ? {
+                  occasion_date: partialDateValue(parsePartialDate(draft.when, { historical: true })),
+                  occasion_circa: draft.circa,
+                }
+              : {}),
+          }),
+    }
+    const r = await json('POST', DOOR_POST[door] || '/quotes', body)
+    setBusy(false)
+    if (!r.ok) return setErr(errText(r))
+    // ONE TOAST PER RECORD WRITTEN, not per door. Nine doors write an
+    // `utterances` row and the confirmation a reader wants is "saved", not the
+    // name of the door they just came through — which they can still see.
+    toast(t(door === 'annotation' ? 'capture.toast.annotation' : door === 'dialogue' ? 'capture.toast.dialogue' : 'capture.toast.quote'))
+    // What the next capture in this sitting starts from. THE QUOTE IS DELIBERATELY
+    // NOT HERE: the words are the one thing never the same twice, and a form that
+    // came back holding the last quote is a form somebody saves twice by accident.
+    setSitting({
+      at: Date.now(),
+      color: draft.color,
+      tags: draft.tags,
+      targetKey: draft.target ? `${draft.target.kind}:${draft.target.id}` : null,
+    })
+    onSaved?.(door)
+  }
 
-  // targetCreated adopts a freshly-added work (from the look-up card) as the
-  // capture target and slots it into the picker list. The shell's stat tiles
-  // count works, so refresh them now rather than only on save.
+  // Publish Save upward so the host can put it in its title bar. `draft` is in the
+  // deps because `save` closes over it — without it the bar would keep calling a
+  // stale save with the first keystroke's draft.
+  useEffect(() => {
+    onSaveState?.({ canSave: !missing && !busy, busy, why: missing, save })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missing, busy, draft])
+
   function targetCreated(work) {
     setWorks((list) => [work, ...(list || [])])
     set({ target: work })
@@ -802,470 +1030,314 @@ export function CaptureQuote({ initialTarget = null, initialBoard = null, initia
     onWorkCreated?.()
   }
 
-  // ---- what "must-fill" means here, in one place -----------------------------
-  // The same predicate greys out Save and refuses the submit, so the button can
-  // never be pressable in a state the handler would reject — and `why` is what
-  // its tooltip says instead of leaving a dead control unexplained.
-  const missing = standalone
-    ? !draft.quote.trim()
-      // Unlike a book highlight, there is no page for a bare note to be about.
-      ? t('error.validate.quote-words')
-      : draft.occasionDate && !isPartialDate(draft.occasionDate, { historical: true })
-        ? t('error.validate.date')
-        : ''
-    : !draft.target
-    ? t('error.validate.target-required')
-    : isScreen && !draft.quote.trim()
-      ? t('error.validate.line-words')
-      : !isScreen && !draft.quote.trim() && !draft.note.trim()
-        ? t('error.validate.quote-or-note')
-        : isShow && countOrNull(draft.episode) != null && countOrNull(draft.season) == null
-          ? t('error.validate.season-required')
-          : ''
-
-  async function save() {
-    const target = draft.target
-    if (missing) return setErr(missing.toLowerCase())
-    setBusy(true)
-    setErr('')
-    const tags = draft.tags.split(',').map((s) => s.trim()).filter(Boolean)
-    // The body differs only in how the quote points at its source: a dialogue
-    // carries character/timestamp, an annotation chapter/location. Everything
-    // else — quote, note, colour, tags — is shared (the server models this with
-    // the quoteReq embedded struct). The server auto-fills actor from the cast.
-    const r = standalone
-      ? await json('POST', '/quotes', {
-          quote: draft.quote.trim(),
-          note: draft.note.trim(),
-          speaker: draft.speaker.trim(),
-          occasion: draft.occasion.trim(),
-          // The canonical form, not the typed phrase — see UtteranceForm's note.
-          occasion_date: partialDateValue(parsePartialDate(draft.occasionDate, { historical: true })),
-          place: draft.place.trim(),
-          kind: draft.kind,
-          region: draft.region.trim(),
-          recipient: draft.recipient.trim(),
-          work_title: draft.workTitle.trim(),
-          locator: draft.locator.trim(),
-          board_id: draft.board,
-          occasion_circa: draft.circa,
-          color: draft.color,
-          tags,
-        })
-      : isScreen
-      ? await json('POST', '/dialogues', {
-          movie_id: target.id,
-          quote: draft.quote.trim(),
-          note: draft.note.trim(),
-          character: draft.character.trim(),
-          // A game's line carries no timestamp and a film's carries no act or
-          // quest. Sent as '' rather than omitted, because the server's normaliser
-          // clears the fields the medium does not have — sending the pair the
-          // medium DOES have is this form's whole job, and omitting a field on an
-          // edit would leave whatever was there before.
-          timestamp: isGame ? '' : draft.timestamp.trim(),
-          act: isGame ? draft.act.trim() : '',
-          quest: isGame ? draft.quest.trim() : '',
-          // Blank means "not recorded", and 0 is a real season — so '' has to
-          // become null rather than 0. Films send neither.
-          season: isShow ? countOrNull(draft.season) : null,
-          episode: isShow ? countOrNull(draft.episode) : null,
-          episode_name: isShow ? draft.episodeName.trim() : '',
-          color: draft.color,
-          tags,
-        })
-      : await json('POST', '/annotations', {
-          book_id: target.id,
-          quote: draft.quote.trim(),
-          note: draft.note.trim(),
-          chapter: draft.chapter.trim(),
-          chapter_no: Number(String(draft.chapter_no).trim()) || 0,
-          location: draft.location.trim(),
-          // 0047's column, which this form had no box for until now.
-          character: draft.character.trim(),
-          color: draft.color,
-          tags,
-        })
-    setBusy(false)
-    if (!r.ok) return setErr(errText(r))
-    toast(t(standalone ? 'capture.toast.quote' : isScreen ? 'capture.toast.dialogue' : 'capture.toast.annotation'))
-    // What the next capture in this sitting starts from. The QUOTE is deliberately
-    // not here: the words are the one thing that is never the same twice, and a
-    // form that came back holding the last quote would be a form somebody saves
-    // twice by accident.
-    setSitting({
-      at: Date.now(),
-      color: draft.color,
-      tags: draft.tags,
-      targetKey: standalone || !target ? null : `${target.kind}:${target.id}`,
-    })
-    onCaptured?.()
+  // ---- one renderer per field key -------------------------------------------
+  //
+  // A SWITCH AND NOT A COMPONENT PER FIELD, because every arm is two lines and a
+  // component per arm would be twenty files whose only content is which label goes
+  // with which control. The keys are addFields.js's; a key it offers and this does
+  // not draw is caught by `add-surface.test.jsx`, which walks every door.
+  const listID = `add-${door}-${draft.target?.id || 0}`
+  function field(key) {
+    switch (key) {
+      case 'quote':
+        return (
+          <label className="tp-field" key={key}>
+            <MonoLabel>{t('common.field.quote.label')}</MonoLabel>
+            <textarea
+              className="tp-input"
+              // VERSE KEEPS ITS SHAPE, and that is 0068's whole point: "its line
+              // breaks are its text". Four rows for prose, seven for a poem, so
+              // the breaks are visible as you type rather than after you save.
+              rows={door === 'poem' || door === 'song' ? 7 : 4}
+              placeholder={t('capture.form.quote.placeholder')}
+              style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'italic', fontSize: 'var(--type-display-17)', lineHeight: 1.55 }}
+              value={draft.quote}
+              onChange={(e) => set({ quote: e.target.value })}
+            />
+          </label>
+        )
+      case 'note':
+        return (
+          <label className="tp-field" key={key}>
+            <MonoLabel>{t('common.field.note.label')}</MonoLabel>
+            <textarea className="tp-input" rows={2} placeholder={t('capture.form.note.placeholder')} value={draft.note} onChange={(e) => set({ note: e.target.value })} />
+          </label>
+        )
+      case 'translation':
+        return (
+          <label className="tp-field" key={key}>
+            <MonoLabel>{t('common.field.translation.label')}</MonoLabel>
+            <textarea className="tp-input" rows={2} placeholder={t('common.field.translation.placeholder')} value={draft.translation} onChange={(e) => set({ translation: e.target.value })} />
+          </label>
+        )
+      case 'board':
+        // Drawn even with one board, unlike the old card which hid the control
+        // when there was nothing to choose between: this is where the quote LANDS,
+        // and a quote in the wrong place with nothing on screen having said so is
+        // the defect 3ba63af5 fixed. Pre-filled when the ＋ was pressed on a
+        // board — you answered by standing there.
+        return (
+          <label className="tp-field" key={key}>
+            <MonoLabel>{t('common.field.board.label')}</MonoLabel>
+            <Select
+              ariaLabel={t('common.field.board.label')}
+              value={draft.board == null ? '' : String(draft.board)}
+              onChange={(v) => set({ board: v === '' ? null : Number(v) })}
+              options={[['', t('capture.board.default.label')], ...(boards || []).map((b) => [String(b.id), b.name])]}
+            />
+          </label>
+        )
+      case 'character':
+        return (
+          <div key={key}>
+            <CastCombo
+              label={t('common.field.character.label')}
+              placeholder={t(door === 'annotation' ? 'book.quote.form.character.placeholder' : 'common.field.character.placeholder')}
+              value={draft.character}
+              onChange={(v) => set({ character: v })}
+              cast={suggest.cast}
+            />
+            {/* Who plays them, from the cast — read-only, because the server
+                derives the stored actor. Seeing it is how you know the name
+                matched a real row rather than being kept as loose text. */}
+            {impliedActor && <span className="microcopy">{t('capture.form.played-by.prose', { name: impliedActor })}</span>}
+          </div>
+        )
+      case 'chapter':
+        return (
+          <SuggestCombo
+            key={key}
+            label={t('common.field.chapter-name.label')}
+            placeholder={t('capture.form.chapter-name.placeholder')}
+            value={draft.chapter}
+            options={suggest.chapterNames.map((n) => ({ name: n }))}
+            // BOTH DIRECTIONS, through the one function the edit form also calls
+            // (chapterPatch in text.js). Neither ever overwrites a counterpart
+            // already typed — see that function's note for the failure it avoids.
+            onChange={(name) => set(chapterPatch('name', name, draft.chapter_no, suggest.chapters))}
+          />
+        )
+      case 'chapter_no':
+        return (
+          <SuggestCombo
+            key={key}
+            label={t('common.field.chapter-no.label')}
+            placeholder={t('capture.form.chapter-no.placeholder')}
+            value={String(draft.chapter_no)}
+            options={suggest.chapterNumbers.map((n) => ({ name: String(n) }))}
+            nameCase={false}
+            onChange={(v) => set(chapterPatch('no', String(v).replace(/[^\d.]/g, '').slice(0, 7), draft.chapter, suggest.chapters))}
+          />
+        )
+      case 'location':
+        return <Field key={key} label={t('common.field.location.label')} placeholder={t('capture.form.location.placeholder')} value={draft.location} onChange={(e) => set({ location: e.target.value })} />
+      case 'timestamp':
+        return <Field key={key} label={t('common.field.timestamp.label')} placeholder={t('capture.form.timestamp.placeholder')} value={draft.timestamp} onChange={(e) => set({ timestamp: e.target.value })} />
+      case 'timestamp_end':
+        return <Field key={key} label={t('common.field.timestamp-end.label')} placeholder={t('add.form.timestamp-end.placeholder')} value={draft.timestamp_end} onChange={(e) => set({ timestamp_end: e.target.value })} />
+      case 'season':
+        return <Field key={key} label={t('common.field.season.label')} type="number" min="0" max="999" placeholder={t('capture.form.season.placeholder')} value={draft.season} onChange={(e) => set({ season: e.target.value })} />
+      case 'episode':
+        return <Field key={key} label={t('common.field.episode.label')} type="number" min="0" max="9999" placeholder={t('capture.form.episode.placeholder')} value={draft.episode} onChange={(e) => set({ episode: e.target.value })} />
+      case 'episode_name':
+        return <Field key={key} label={t('common.field.episode-name.label')} nameCase placeholder={t('capture.form.episode-name.placeholder')} value={draft.episode_name} onChange={(e) => set({ episode_name: e.target.value })} />
+      case 'act':
+        return <Field key={key} label={t('common.field.act.label')} placeholder={t('capture.form.act.placeholder')} value={draft.act} onChange={(e) => set({ act: e.target.value })} />
+      case 'quest':
+        return <Field key={key} label={t('common.field.quest.label')} nameCase placeholder={t('capture.form.quest.placeholder')} value={draft.quest} onChange={(e) => set({ quest: e.target.value })} />
+      case 'dlc':
+        // The owner asked for this one as a combobox by name, and the pool is this
+        // game's own packs (GET /movies/{id}/packs) for the reason the chapter
+        // boxes read this book's own chapters: "Blood and Wine" belongs to one game.
+        return (
+          <SuggestCombo
+            key={key}
+            label={t('common.field.dlc.label')}
+            placeholder={t('add.form.dlc.placeholder')}
+            value={draft.dlc}
+            options={suggest.packs.map((p) => ({ name: p }))}
+            onChange={(v) => set({ dlc: v })}
+          />
+        )
+      case 'speaker':
+        // THE SAME COLUMN, THREE WORDS FOR IT. A speech has a speaker; a letter,
+        // an essay and a poem have a writer. One label per door rather than one
+        // label for all of them, because "Speaker" over a poem's author is the
+        // interface guessing that somebody said it aloud.
+        return <Field key={key} label={t(`add.field.speaker.${SPEAKER_LABEL[door] || 'said'}.label`)} nameCase placeholder={t('common.field.speaker.placeholder')} value={draft.speaker} onChange={(e) => set({ speaker: e.target.value })} />
+      case 'occasion':
+        return <Field key={key} label={t('common.field.occasion.label')} placeholder={t('common.field.occasion.placeholder')} value={draft.occasion} onChange={(e) => set({ occasion: e.target.value })} />
+      case 'when':
+        return (
+          <PartialDateField
+            key={key}
+            label={t('quotes.form.when.label')}
+            value={draft.when}
+            onChange={(v) => set({ when: v })}
+            historical
+            circa={draft.circa}
+            onCirca={(v) => set({ circa: v })}
+            circaLabel={t('quotes.form.circa.label')}
+          />
+        )
+      case 'place':
+        return <Field key={key} label={t('common.field.place.label')} nameCase placeholder={t('common.field.place.placeholder')} value={draft.place} onChange={(e) => set({ place: e.target.value })} />
+      case 'region':
+        return <Field key={key} label={t('common.field.region.label')} nameCase placeholder={t('quotes.form.region.placeholder')} value={draft.region} onChange={(e) => set({ region: e.target.value })} />
+      case 'recipient':
+        return <Field key={key} label={t('add.field.recipient.label')} nameCase placeholder={t('quotes.form.recipient.placeholder')} value={draft.recipient} onChange={(e) => set({ recipient: e.target.value })} />
+      case 'work_title':
+        return <Field key={key} label={t(`add.field.work-title.${WORK_TITLE_LABEL[door] || 'source'}.label`)} nameCase placeholder={t('quotes.form.work-title.placeholder')} value={draft.work_title} onChange={(e) => set({ work_title: e.target.value })} />
+      case 'locator':
+        return <Field key={key} label={t(`add.field.locator.${LOCATOR_LABEL[door] || 'page'}.label`)} placeholder={t('quotes.form.locator.placeholder')} value={draft.locator} onChange={(e) => set({ locator: e.target.value })} />
+      case 'source_author':
+        return <Field key={key} label={t('common.field.source-author.label')} nameCase placeholder={t('add.form.source-author.placeholder')} value={draft.source_author} onChange={(e) => set({ source_author: e.target.value })} />
+      case 'language':
+        return <Field key={key} label={t('common.field.language.label')} nameCase placeholder={t('common.field.language.placeholder')} value={draft.language} onChange={(e) => set({ language: e.target.value })} />
+      case 'tags':
+        // A TOKEN INPUT, not the comma-separated box the old card used. The edit
+        // forms have had this since tags existed; the capture form asked you to
+        // type your own separators and offered no memory of a tag you already use,
+        // which is how one library ends up with `essay` and `essays`.
+        return (
+          <div className="tp-field" key={key}>
+            <MonoLabel>{t('common.field.tags.label')}</MonoLabel>
+            <TokenInput value={draft.tags} onChange={(v) => set({ tags: v })} suggestions={tagPool} placeholder={t('common.field.tags.placeholder')} ariaLabel={t('common.field.tags.label')} />
+          </div>
+        )
+      case 'color':
+        return (
+          <div className="flex items-center gap-3" key={key}>
+            <MonoLabel>{t('common.mono.colour.label')}</MonoLabel>
+            <ColorSwatches value={draft.color} onChange={(c) => set({ color: c })} />
+          </div>
+        )
+      case 'sticker':
+        return (
+          <div className="tp-field" key={key}>
+            <MonoLabel>{t('common.field.sticker.label')}</MonoLabel>
+            <StickerPicker value={draft.sticker_id} onChange={(v) => set({ sticker_id: v })} stickers={stickers} reload={reloadStickers} />
+          </div>
+        )
+      default:
+        return null
+    }
   }
 
-  // Publish Save upward so the host can put it in its title bar. `draft` is in
-  // the deps because `save` closes over it — without it the bar would keep
-  // calling a stale save with the first keystroke's draft. No loop: the host's
-  // setState re-renders this, but the deps are unchanged, so this does not re-fire.
-  useEffect(() => {
-    onSaveState?.({ canSave: !missing && !busy, busy, why: missing, save })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [missing, busy, draft])
+  // A pair draws as one row of two. `splitPair` is addFields.js's, so the layout
+  // is a property of the table rather than of this switch — the owner asked for
+  // one of these by name ("location and chapter no. will share one line") and the
+  // rest follow the same rule.
+  const row = (key) => {
+    const parts = splitPair(key)
+    if (parts.length === 1) return field(key)
+    return (
+      <div className="grid grid-cols-2 gap-3" key={key}>
+        {parts.map((p) => field(p))}
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-3.5">
-      {/* ONE LINE NAMING WHAT CAME ACROSS, above a form that is already full.
-          Every box holds another quote's words, and the reader has to be able to
-          tell at a glance that this is a COPY rather than the original opened for
-          editing — the title says which record Save writes and this says which
-          parts of the old one are sitting in the boxes. Without it the safest
-          reading of a full form is "I am editing the thing I pressed". */}
       {initialFields && (
-        <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>
-          {t('capture.form.duplicate.prose')}
-        </p>
+        <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>{t('capture.form.duplicate.prose')}</p>
       )}
-      <div className="tp-field">
-        <div className="flex items-center justify-between gap-2">
-          <MonoLabel>{t(standalone ? 'capture.form.standalone.label' : 'capture.form.target.label')}</MonoLabel>
-          <button
-            type="button"
-            className={filterChipClass(standalone)}
-            aria-pressed={standalone}
-            onClick={() => {
-              // Switching modes drops the other mode's answer rather than
-              // keeping it hidden: a target still set behind a standalone save
-              // is a quote filed against a book you thought you had cleared.
-              setStandalone(!standalone)
-              setCreating(null)
-              setErr('')
-              if (!standalone) set({ target: null })
-            }}
-          >
-            {t('capture.form.standalone.chip.label')}
-          </button>
-        </div>
-        {!standalone && (
+      {needsWork && (
+        <div className="tp-field">
+          <MonoLabel>{t(`add.door.${door}.target.label`)}</MonoLabel>
           <WorkPicker
             works={works}
             value={draft.target}
-            onChange={(w) => {
-              set({ target: w })
-              // Picking a work supersedes a half-typed inline create — clearing
-              // it here keeps the stale form from resurfacing on "change".
-              if (w) setCreating(null)
-            }}
-            onCreate={(title) => {
-              setErr('')
-              setCreating({ title })
-            }}
+            onChange={(w) => { set({ target: w }); if (w) setCreating(null) }}
+            onCreate={(title) => { setErr(''); setCreating({ title }) }}
           />
-        )}
-      </div>
-      {creating && !draft.target && !standalone && (
+        </div>
+      )}
+      {creating && !draft.target && (
         <div className="space-y-2.5" style={{ border: '1.4px dashed var(--ink-border)', borderRadius: 10, padding: '10px 12px' }}>
           <div className="flex items-center justify-between gap-2">
             <MonoLabel>{t('capture.form.create.label')}</MonoLabel>
             <button type="button" className="tp-link" onClick={() => setCreating(null)}>{t('capture.form.create.cancel.label')}</button>
           </div>
-          {/* The app's canonical look-up / add card, embedded: search a source to
-              auto-fill cover + year + genres, or add by hand. On add it becomes
-              the capture target. */}
-          {/* DELIBERATELY NOT GATED BY `sections`, unlike the ＋'s own chooser
-              above. This one is reached only after the reader has said the work
-              they are quoting is not in their library yet — a step inside a form,
-              not a door into a section — and it is the escape hatch that keeps
-              every kind creatable however the nav is configured. Gating a
-              chooser stops the app INVITING you into a section you put away;
-              gating this would stop you finishing a quote you are holding. */}
-          <AddLookup initialQuery={creating.title} onCreated={targetCreated} />
+          {/* DELIBERATELY UNGATED by `sections`, unlike the chooser: this is reached
+              only after the reader has said the work they are quoting is not in
+              their library, so it is a step inside a form rather than a door into a
+              section they put away. */}
+          <AddLookup initialKind={door === 'annotation' ? 'book' : 'film'} initialQuery={creating.title} onCreated={targetCreated} lockKind />
         </div>
       )}
-      <label className="tp-field">
-        <MonoLabel>{t('common.field.quote.label')}</MonoLabel>
-        <textarea
-          className="tp-input"
-          rows={4}
-          placeholder={t('capture.form.quote.placeholder')}
-          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-17)', lineHeight: 1.55 }}
-          value={draft.quote}
-          onChange={(e) => set({ quote: e.target.value })}
-        />
-      </label>
-      <label className="tp-field">
-        <MonoLabel>{t('common.field.note.label')}</MonoLabel>
-        <textarea
-          className="tp-input"
-          rows={2}
-          placeholder={t('capture.form.note.placeholder')}
-          value={draft.note}
-          onChange={(e) => set({ note: e.target.value })}
-        />
-      </label>
-      {standalone ? (
+      {main.map(row)}
+      {/* THE SOFT DROP. The owner's shape: "soft drop (behind a show all buttons
+          button) all fields which are not frequently used." A disclosure and not a
+          second panel, because these are the same form — a panel would make
+          reaching a rare field a navigation rather than a glance. */}
+      {more.length > 0 && (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.speaker.label')}</MonoLabel>
-              <input className="tp-input" autoCapitalize="words" placeholder={t('common.field.speaker.placeholder')} value={draft.speaker} onChange={(e) => set({ speaker: e.target.value })} />
-            </label>
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.occasion.label')}</MonoLabel>
-              <input className="tp-input" placeholder={t('common.field.occasion.placeholder')} value={draft.occasion} onChange={(e) => set({ occasion: e.target.value })} />
-            </label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {/* A year on its own is a complete answer here. */}
-            <PartialDateField
-              label={t('quotes.form.when.label')}
-              value={draft.occasionDate}
-              onChange={(v) => set({ occasionDate: v })}
-              historical
-              circa={draft.circa}
-              onCirca={(v) => set({ circa: v })}
-              circaLabel={t('quotes.form.circa.label')}
-            />
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.place.label')}</MonoLabel>
-              <input className="tp-input" autoCapitalize="words" placeholder={t('common.field.place.placeholder')} value={draft.place} onChange={(e) => set({ place: e.target.value })} />
-            </label>
-          </div>
-          {/* WHERE IT IS FILED — the same control the edit form draws, in the same
-              order relative to the kind beside it, because they are the two
-              questions that look alike and must not behave differently. Pre-filled
-              when the ＋ was pressed on a board's own page: you have already
-              answered "which board" by standing there, and asking again is asking
-              a question twice. Drawn only when there are boards to choose between
-              — a label naming a control that is not there is worse than neither. */}
-          {(boards || []).length > 0 && (
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.board.label')}</MonoLabel>
-              <Select
-                ariaLabel={t('common.field.board.label')}
-                value={draft.board == null ? '' : String(draft.board)}
-                onChange={(v) => set({ board: v === '' ? null : Number(v) })}
-                options={[['', t('capture.board.default.label')], ...(boards || []).map((b) => [String(b.id), b.name])]}
-              />
-            </label>
-          )}
-          {/* 0053. Five words, chosen, where a free-text "Medium" box used to be:
-              the Quotes board groups by this, and grouping on something typed
-              gives one shelf per spelling. Unset is the default and a real
-              answer. */}
-          <label className="tp-field">
-            <MonoLabel>{t('quotes.form.kind.label')}</MonoLabel>
-            <Select
-              ariaLabel={t('quotes.form.kind.label')}
-              value={draft.kind}
-              onChange={(v) => set({ kind: v })}
-              options={quoteKindOptions()}
-            />
-          </label>
-          {/* WHAT THE KIND CARRIES (0047), the same four boxes and the same heading as
-              the edit form — a proverb's region, a letter's recipient, an essay's
-              source title and page. Grouped rather than shown per kind because the
-              kind lives on the BOARD and this surface has not asked for one yet. */}
-          <MonoLabel>{t('quotes.form.carries.label')}</MonoLabel>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.region.label')}</MonoLabel>
-              <input className="tp-input" placeholder={t('quotes.form.region.placeholder')} value={draft.region} onChange={(e) => set({ region: e.target.value })} />
-            </label>
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.recipient.label')}</MonoLabel>
-              <input className="tp-input" placeholder={t('quotes.form.recipient.placeholder')} value={draft.recipient} onChange={(e) => set({ recipient: e.target.value })} />
-            </label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.work-title.label')}</MonoLabel>
-              <input className="tp-input" placeholder={t('quotes.form.work-title.placeholder')} value={draft.workTitle} onChange={(e) => set({ workTitle: e.target.value })} />
-            </label>
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.locator.label')}</MonoLabel>
-              <input className="tp-input" placeholder={t('quotes.form.locator.placeholder')} value={draft.locator} onChange={(e) => set({ locator: e.target.value })} />
-            </label>
-          </div>
-        </>
-      ) : isScreen ? (
-        <>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            {/* THE CAST, AS YOU TYPE. The list is this work's own characters and
-                the actor who plays each, so it is a memory aid rather than a
-                vocabulary — the box still takes anybody, which matters for the
-                line the cast list has never heard of. */}
-            <CastCombo
-              label={t('common.field.character.label')}
-              placeholder={t('common.field.character.placeholder')}
-              value={draft.character}
-              onChange={(v) => set({ character: v })}
-              cast={suggest.cast}
-            />
-            {/* Who plays them, from the cast. The same preview the film page's edit
-                form draws, and for the same reason: the actor is DERIVED on save,
-                so seeing it here is how you know the character matched a real row
-                rather than being stored as loose text. */}
-            {impliedActor && (
-              <span className="microcopy">{t('capture.form.played-by.prose', { name: impliedActor })}</span>
-            )}
-          </div>
-          {/* A game has no timestamp — see isGame. Its second box is the act. */}
-          {isGame ? (
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.act.label')}</MonoLabel>
-              <input className="tp-input" placeholder={t('capture.form.act.placeholder')} value={draft.act} onChange={(e) => set({ act: e.target.value })} />
-            </label>
-          ) : (
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.timestamp.label')}</MonoLabel>
-              <input className="tp-input" placeholder={t('capture.form.timestamp.placeholder')} value={draft.timestamp} onChange={(e) => set({ timestamp: e.target.value })} />
-            </label>
-          )}
-        </div>
-        {/* THE TWO LOCATORS A GAME'S LINE IS PLACED BY (0047), and the pair that
-            was missing here entirely: a bark reused in two quests is two quotes,
-            which is why the dedupe hash includes them, and a capture form that
-            could not say which quest could only ever store the first of them. */}
-        {isGame && (
-          <label className="tp-field">
-            <MonoLabel>{t('common.field.quest.label')}</MonoLabel>
-            <input className="tp-input" placeholder={t('capture.form.quest.placeholder')} value={draft.quest} onChange={(e) => set({ quest: e.target.value })} />
-          </label>
-        )}
-        {isShow && (
-          <>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="tp-field">
-                <MonoLabel>{t('common.field.season.label')}</MonoLabel>
-                <input className="tp-input" type="number" min="0" max="999" placeholder={t('capture.form.season.placeholder')} value={draft.season} onChange={(e) => set({ season: e.target.value })} />
-              </label>
-              <label className="tp-field">
-                <MonoLabel>{t('common.field.episode.label')}</MonoLabel>
-                <input className="tp-input" type="number" min="0" max="9999" placeholder={t('capture.form.episode.placeholder')} value={draft.episode} onChange={(e) => set({ episode: e.target.value })} />
-              </label>
-            </div>
-            {/* The episode's NAME, which the API has taken since 0047 and this form
-                never offered. Kept beside the numbers rather than above them: it is
-                the same locator said in words, and the server drops it on anything
-                that is not a show. */}
-            <label className="tp-field">
-              <MonoLabel>{t('common.field.episode-name.label')}</MonoLabel>
-              <input className="tp-input" placeholder={t('capture.form.episode-name.placeholder')} value={draft.episodeName} onChange={(e) => set({ episodeName: e.target.value })} />
-            </label>
-          </>
-        )}
-        </>
-      ) : (
-        <>
-        <div className="grid grid-cols-2 gap-3">
-          {/* The number and the name, since 0044. This form's placeholder used to read
-              "e.g. 3" under a label saying Chapter, which is the whole reason the field
-              was split: it was asking for a number and storing it as a name.
-
-              BOTH REMEMBER THIS BOOK'S OWN CHAPTERS now, commonest first, from the
-              highlights already in it. Choosing a NAME fills the number the reader
-              typed beside it last time; the reverse is deliberately not done —
-              filling a name from a number would be guessing what somebody meant by
-              "42". See suggest.js. */}
-          <label className="tp-field">
-            <MonoLabel>{t('common.field.chapter-no.label')}</MonoLabel>
-            <input className="tp-input" inputMode="decimal"
-                   list={suggest.chapterNumbers.length ? `${listId}-chno` : undefined}
-                   placeholder={t('capture.form.chapter-no.placeholder')} value={draft.chapter_no}
-                   onChange={(e) => set(chapterPatch('no', e.target.value.replace(/[^\d.]/g, '').slice(0, 7), draft.chapter, suggest.chapters))} />
-            <Datalist id={`${listId}-chno`} options={suggest.chapterNumbers} />
-          </label>
-          <label className="tp-field">
-            <MonoLabel>{t('common.field.chapter-name.label')}</MonoLabel>
-            <input
-              className="tp-input"
-              list={suggest.chapterNames.length ? `${listId}-chname` : undefined}
-              placeholder={t('capture.form.chapter-name.placeholder')}
-              value={draft.chapter}
-              onChange={(e) => set(chapterPatch('name', e.target.value, draft.chapter_no, suggest.chapters))}
-            />
-            <Datalist id={`${listId}-chname`} options={suggest.chapterNames} />
-          </label>
-          <label className="tp-field">
-            <MonoLabel>{t('common.field.location.label')}</MonoLabel>
-            <input className="tp-input" placeholder={t('capture.form.location.placeholder')} value={draft.location} onChange={(e) => set({ location: e.target.value })} />
-          </label>
-        </div>
-        {/* A NOVEL HAS SPEAKERS (0047), and this form had nowhere to put one — the
-            column has existed since that migration and the API has always accepted
-            it, so a highlight captured here could not say who said it while the same
-            highlight edited on the book's page could. The list is the book's own
-            cast: rows with a character and nobody beside them, which is what a
-            book's cast list is. */}
-        <CastCombo
-          label={t('common.field.character.label')}
-          placeholder={t('book.quote.form.character.placeholder')}
-          value={draft.character}
-          onChange={(v) => set({ character: v })}
-          cast={suggest.cast}
-        />
+          <button type="button" className="tp-link self-start" aria-expanded={showAll} onClick={() => setShowAll((v) => !v)}>
+            {t(showAll ? 'add.form.show-all.hide.label' : 'add.form.show-all.label')}
+          </button>
+          {showAll && <div className="flex flex-col gap-3.5">{more.map(row)}</div>}
         </>
       )}
-      <label className="tp-field">
-        <MonoLabel>{t('capture.form.tags.label')}</MonoLabel>
-        <input
-          className="tp-input"
-          style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-13)' }}
-          placeholder={t('capture.form.tags.placeholder')}
-          value={draft.tags}
-          onChange={(e) => set({ tags: e.target.value })}
-        />
-      </label>
-      <div className="flex items-center gap-3">
-        <MonoLabel>{t('common.mono.colour.label')}</MonoLabel>
-        <ColorSwatches value={draft.color} onChange={(c) => set({ color: c })} />
-      </div>
       <ErrorText>{err}</ErrorText>
       {/* No Save row down here: it is a ✓ in the surface's title bar, which on a
-          phone is pinned and reachable without scrolling past six fields to find
-          it. What stays is the reason it is greyed, where the fields are. */}
-      {missing && (
-        <p className="microcopy" style={{ color: 'var(--faint)' }}>
-          {t('capture.form.missing.hint', { reason: missing })}
-        </p>
-      )}
+          phone is pinned and reachable without scrolling past the fields. What
+          stays is the reason it is greyed, where the fields are. */}
+      {missing && <p className="microcopy" style={{ color: 'var(--faint)' }}>{t('capture.form.missing.hint', { reason: missing })}</p>}
     </div>
   )
 }
 
-// AddSurface renders when `open`. `initialSection` picks the tab/kind it opens
-// on ("book" / "film" → the look-up card on that kind, "quote" → the capture
-// form, "import" → the file import tab); the user can rotate freely once it's
-// open — Capture quote swaps the bottom of THIS surface, exactly like Import
-// files, never a separate popup. `initialTarget` ({type:'book'|'movie', id})
-// pre-fills the capture target, which is how a work's own ＋ lands here: since
-// 1.4.1 the book and film pages no longer carry an add form of their own, so
-// "add a highlight to THIS book" is this surface with the book filled in.
-// `onAdded(what)` fires after a book/film/show is added (what = 'book' |
-// 'film'); `onCaptured` after a quote/note is saved from the capture tab; the
-// import flow reports inline and leaves the surface open. `onOpenMovie`, when
-// supplied, lets an IMDb import jump straight to the new title (closing the
-// surface first). `onWorkCreated` reports an inline work add from the capture
-// tab (the shell refreshes its counts).
+// ---- the board door ---------------------------------------------------------
+
+// BoardDoor wraps `boards.jsx`'s own create form rather than drawing a second
+// one. It already asks the three questions a board is made of — a name, a colour,
+// and the kind, with the language list appearing for a proverb board — and it
+// already knows the names in use, which is what stops two boards called the same
+// thing. A copy here would be a second opinion about what a board is.
+function BoardDoor({ onSaved, onSaveState }) {
+  const { boards, reload } = useBoards()
+  const [err, setErr] = useState('')
+  // The header ✓ needs a verb to call, and BoardForm publishes none — it owns its
+  // own submit button. So this door reports no save state and lets the form's own
+  // footer draw the pair, which is the same arrangement the form uses everywhere
+  // else it is hosted inline.
+  useEffect(() => { onSaveState?.(null) }, [onSaveState])
+  return (
+    <>
+      <BoardForm
+        existingNames={(boards || []).map((b) => b.name)}
+        submitLabel={t('add.door.board.save.label')}
+        onSubmit={async (fields) => {
+          const r = await json('POST', '/boards', fields)
+          if (!r.ok) { setErr(errText(r)); return errText(r) }
+          reload?.()
+          onSaved?.('board')
+          return null
+        }}
+      />
+      <ErrorText>{err}</ErrorText>
+    </>
+  )
+}
+
+// ---- the surface ------------------------------------------------------------
+
+// AddSurface renders when `open`. Its prop contract is unchanged from the
+// three-tab version it replaces, deliberately: `App.jsx` decides WHERE a ＋ was
+// pressed and this decides what to do about it, and moving that boundary would
+// have made a shell change out of a form change.
 //
-// On a phone it is a full-screen sheet, not a card floating on a scrim: it is
-// the app's densest form (a work picker, a quote, a note, six fields, tags and
-// a colour), and a 90%-width card inside a scrolling scrim wasted both edges
-// and put the Save button somewhere the thumb had to hunt for.
+// `initialSection` is still the five values `routes.js` produces — 'book',
+// 'film', 'quote', 'standalone', 'import' — and `doorFor` below maps them onto
+// doors. Anything it cannot answer opens the chooser, which is the honest
+// behaviour: the surface asks rather than guessing which of nine kinds you meant.
 export default function AddSurface({
   open,
   initialSection = 'book',
   initialTarget = null,
-  // THE BOARD A STANDALONE QUOTE IS FILED ON, when the ＋ was pressed on that
-  // board's own page. Distinct from initialTarget, which means a work — see the
-  // note beside addBoard in App.jsx.
   initialBoard = null,
-  // A DRAFT TO OPEN ON, rather than a blank form. Only the duplicate verb sets
-  // it; everything else opens cold, which is what the picker's own note argues
-  // for ("a search-first picker with a silently pre-filled work invites
-  // mis-filed quotes"). Its PRESENCE is also what tells this surface it is a
-  // duplicate — one fact, not a boolean beside the data that would let the two
-  // disagree.
   initialFields = null,
   onClose,
   onAdded,
@@ -1277,132 +1349,141 @@ export default function AddSurface({
   onStaged,
   sections,
 }) {
-  // What there is to look up at all. With BOTH the Library and the Catalogue
-  // switched off there is no work to add, so the tab goes rather than standing
-  // there with an empty kind toggle in it. Capture and Import stay: a quote and a
-  // file are not filed in a section the reader can hide.
-  const lookupKinds = kindsFor(sections)
-  const canLookUp = lookupKinds.length > 0
-  // 'standalone' is a capture too — it opens the same tab, in its own mode.
-  const tabFor = (s) =>
-    s === 'import' ? 'import' : s === 'quote' || s === 'standalone' ? 'quote' : canLookUp ? 'add' : 'quote'
-  const [tab, setTab] = useState(tabFor(initialSection))
-  // The capture form's Save, lifted here so it can live in the title bar beside
-  // Close (§ icons-in-title-bars). {canSave, busy, save} — null while the active
-  // tab has nothing to save (look-up adds per row; import reports inline).
+  const { boards } = useBoards()
+  // WHAT THE READER PICKED, kept apart from what the ＋ already answered — and the
+  // first cut of this held one `door` state written by an effect, which had a bug
+  // worth recording: the effect depended on the boards list, so the moment
+  // `/boards` came back it re-ran and reset the door to whatever the ＋ implied,
+  // wiping the door the reader had just pressed. A chooser that empties itself a
+  // few hundred milliseconds after you answer it.
+  //
+  // Two values compose instead of one being overwritten: `picked` is the reader's
+  // and only a press or Back changes it; `openingDoor` is derived, so it can
+  // recompute freely as data arrives without touching the answer.
+  const [picked, setPicked] = useState(null)
   const [saveState, setSaveState] = useState(null)
   const mobile = useIsMobileScreen()
-  // ITS OWN BACK ENTRY — see PersonModal, and desktop-only for the reason
-  // FormModal gives: the mobile branch below is a MobileSheet, which takes the
-  // entry for itself, and two markers for one dialog is two presses to close it.
-  useBackToClose(open && !mobile, onClose)
-  // Short labels on a phone (the three-segment slider can't fit the full words).
-  const tabOptions = (mobile
-    ? [
-        ['add', t('capture.tab.add.short.label')],
-        ['quote', t('capture.tab.quote.short.label')],
-        ['import', t('capture.tab.import.short.label')],
-      ]
-    : [
-        ['add', t('capture.tab.add.label')],
-        ['quote', t('capture.tab.quote.label')],
-        ['import', t('capture.tab.import.label')],
-      ]
-  ).filter(([key]) => key !== 'add' || canLookUp)
 
+  // WHICH DOOR A ＋ OPENS, and the whole design is that nobody is asked twice.
+  //
+  // A work's own ＋ knows the work, so it knows whether the quote is a highlight
+  // or a screen line. A proverb board's ＋ knows the kind (doorForBoard — 0037
+  // gives a board two kinds and one of them has behaviour behind it). A duplicate
+  // arrives with a draft and must land on the form that draft came from. What is
+  // left over is a bare ＋ on the Quotes screen or a plain board, where the kind
+  // genuinely is not known by anything — and there the chooser asks.
+  const doorFor = () => {
+    if (initialSection === 'import') return 'import'
+    if (initialSection === 'film') return 'film'
+    if (initialSection === 'book') return 'book'
+    if (initialTarget) return initialTarget.type === 'movie' ? 'dialogue' : 'annotation'
+    if (initialBoard != null) {
+      const board = (boards || []).find((b) => b.id === initialBoard)
+      const answered = doorForBoard(board)
+      if (answered) return answered
+    }
+    // A duplicate carries the kind of the quote it copies, so it never needs the
+    // chooser: the fields are already full and the form has to match them.
+    if (initialFields?.kind && QUOTE_KIND_DOORS.includes(initialFields.kind)) return initialFields.kind
+    return null
+  }
+
+  // DERIVED, NOT STORED. It answers "did the ＋ already say what this is", and it
+  // may change as `/boards` lands — which is exactly why it must not be the thing
+  // the reader's press writes to.
+  const openingDoor = useMemo(doorFor, [initialSection, initialTarget?.type, initialTarget?.id, initialBoard, initialFields?.kind, boards])
+  const door = picked ?? openingDoor
+
+  // A CLOSED SURFACE FORGETS. Reopening from somewhere else must not land on the
+  // door the last press chose — and the previous session's Save goes with it,
+  // because the closure it holds captured that session's draft and a ✓ tapped
+  // before the fresh form republishes would save the wrong thing.
   useEffect(() => {
-    if (!open) return
-    setTab(tabFor(initialSection))
-    // Drop the previous session's Save with it. The closure it holds captured
-    // that session's draft, and a ✓ tapped in the frame before the fresh form
-    // republishes would have saved the wrong thing.
+    if (open) return
+    setPicked(null)
     setSaveState(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialSection])
-  // A tab with no save action must not leave the previous tab's Save in the bar.
-  useEffect(() => { if (tab !== 'quote') setSaveState(null) }, [tab])
+  }, [open])
+
+  // A door with nothing to save must not leave the previous door's Save in the bar.
+  useEffect(() => { if (!door || door === 'import' || WORK_LOOKUP.includes(door)) setSaveState(null) }, [door])
 
   // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx.
   useEscape(open, onClose)
+  // ITS OWN BACK ENTRY, desktop-only for the reason FormModal gives: the mobile
+  // branch is a MobileSheet, which takes the entry for itself, and two markers for
+  // one dialog is two presses to close it.
+  useBackToClose(open && !mobile, onClose)
 
   if (!open) return null
 
-  // THE TITLE NAMES THE RECORD SAVE IS GOING TO WRITE, and on a duplicate that is
-  // the one thing that must never be ambiguous: every box on the form is full of
-  // another quote's words, and "Capture a quote" over that is a form that looks
-  // like it is editing the thing it copied.
+  // THE TITLE NAMES WHAT SAVE WILL WRITE, and on a duplicate that is the one thing
+  // that must never be ambiguous: every box is full of another quote's words, and
+  // "Add a proverb" over that reads like editing the thing you copied.
   const title = initialFields
     ? t('capture.title.duplicate')
-    : t(tab === 'quote' ? 'capture.title.quote' : tab === 'import' ? 'capture.title.import' : 'capture.title.add')
-  // Save is a ✓ in the title bar and is disabled — visibly, not silently — until
-  // every must-fill field is filled. The reason is in its tooltip, because a
-  // greyed control that will not say why is worse than one that is not there.
+    : door
+      ? DOOR_TITLE(door)
+      : t('add.chooser.title')
+
   const saveBtn = saveState && (
     <IconButton
       icon={<IconCheck />}
       ariaLabel={t('common.action.save.label')}
-      tooltip={
-        saveState.busy
-          ? t('common.action.save.busy')
-          : saveState.canSave
-            ? t('common.action.save.label')
-            : saveState.why || t('capture.save.blocked.tip')
-      }
+      tooltip={saveState.busy ? t('common.action.save.busy') : saveState.canSave ? t('common.action.save.label') : saveState.why || t('capture.save.blocked.tip')}
       ok
       disabled={!saveState.canSave || saveState.busy}
       onClick={() => saveState.save()}
     />
   )
+  // BACK RATHER THAN CLOSE, once a door is open — the app's own panel-stack
+  // chrome, and the reason the chooser is a state of this surface rather than a
+  // screen: changing your mind about what you are adding should cost one press
+  // and should not throw away the surface.
+  //
+  // IT IS ABSENT WHEN THE DOOR WAS NOT CHOSEN HERE. A ＋ pressed on a book opens
+  // the highlight form directly, and a Back from there would walk the reader into
+  // a chooser they never saw — which reads as the app having lost its place. The
+  // test for it is whether `doorFor()` had an answer.
+  const backBtn = door && openingDoor == null && (
+    <IconButton icon={<IconBack />} ariaLabel={t('add.back.label')} tooltip={t('add.back.tip')} onClick={() => { setPicked(null); setSaveState(null) }} />
+  )
   const closeBtn = (
     <IconButton icon={<IconClose />} ariaLabel={t('common.action.close.label')} tooltip={t('capture.close.tip')} onClick={onClose} />
   )
 
-  const body = (
+  const body = !door ? (
+    <AddChooser sections={sections} onPick={setPicked} />
+  ) : door === 'import' ? (
     <>
-      <div className="mb-5">
-        <Toggle
-          ariaLabel={t('capture.tabs.aria')}
-          value={tab}
-          onChange={setTab}
-          options={tabOptions}
-        />
-      </div>
-      {tab === 'add' && (
-        <AddLookup
-          initialKind={initialSection === 'film' ? 'film' : 'book'}
-          onAdded={(what) => onAdded?.(what)}
-          sections={sections}
-        />
+      {/* An import still waiting in the queue must be visible from the one place
+          you would start another one. */}
+      {pendingImport > 0 && onReviewImport && (
+        <button type="button" className="tp-btn tp-btn-primary w-full" style={{ marginBottom: 12 }} onClick={onReviewImport}>
+          {t('capture.import.pending', { count: pendingImport, n: pendingImport })}
+        </button>
       )}
-      {tab === 'quote' && (
-        <CaptureQuote
-          initialTarget={initialTarget}
-          initialBoard={initialBoard}
-          initialFields={initialFields}
-          initialStandalone={initialSection === 'standalone'}
-          onCaptured={onCaptured}
-          onWorkCreated={onWorkCreated}
-          onSaveState={setSaveState}
-        />
-      )}
-      {tab === 'import' && (
-        <>
-          {/* An import still waiting in the queue must be visible from the one
-              place you would start another one. */}
-          {pendingImport > 0 && onReviewImport && (
-            <button
-              type="button"
-              className="tp-btn tp-btn-primary w-full"
-              style={{ marginBottom: 12 }}
-              onClick={onReviewImport}
-            >
-              {t('capture.import.pending', { count: pendingImport, n: pendingImport })}
-            </button>
-          )}
-          <ImportPage embedded onReviewImport={onReviewImport} onStaged={onStaged} />
-        </>
-      )}
+      <ImportPage embedded onReviewImport={onReviewImport} onStaged={onStaged} />
     </>
+  ) : door === 'board' ? (
+    <BoardDoor onSaved={(what) => { onAdded?.(what); onClose?.() }} onSaveState={setSaveState} />
+  ) : WORK_LOOKUP.includes(door) ? (
+    <AddLookup
+      initialKind={door}
+      lockKind
+      sections={sections}
+      onAdded={(what) => onAdded?.(what)}
+      onCreated={onOpenMovie && door !== 'book' ? undefined : undefined}
+    />
+  ) : (
+    <QuoteForm
+      door={door}
+      initialTarget={initialTarget}
+      initialBoard={initialBoard}
+      initialFields={initialFields}
+      onSaved={() => onCaptured?.()}
+      onWorkCreated={onWorkCreated}
+      onSaveState={setSaveState}
+    />
   )
 
   if (mobile) {
@@ -1415,6 +1496,7 @@ export default function AddSurface({
         dismissOnScrim={false}
         actions={
           <span className="flex shrink-0 items-center">
+            {backBtn}
             <PageHelp screen="capture" />
             {saveBtn}
           </span>
@@ -1427,15 +1509,13 @@ export default function AddSurface({
   }
 
   return (
-    <div
-      className={SCRIM_CENTERED}
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('capture.dialog.aria')}
-      onMouseDown={backdropClose(onClose)}
-    >
+    <div className={SCRIM_CENTERED} role="dialog" aria-modal="true" aria-label={t('capture.dialog.aria')} onMouseDown={backdropClose(onClose)}>
       <HandCard variant={2} className="w-full max-w-2xl px-6 py-6">
+        {/* THE HEADER IS THE PANEL STACK'S, not this surface's own invention: a
+            leading slot, the title, and the verbs. Back sits leading because that
+            is where every other panel in the app puts it. */}
         <div className="mb-4 flex items-center gap-2">
+          {backBtn}
           <h2 className="display-title flex-1 text-xl">{title}</h2>
           <PageHelp screen="capture" />
           {saveBtn}

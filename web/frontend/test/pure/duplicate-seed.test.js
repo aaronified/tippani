@@ -4,10 +4,12 @@
 // in a label is only as good as the mapping under it — this is that mapping. It
 // is a pure function precisely so the promise can be checked without a screen.
 //
-// TWO CONVERSIONS ARE THE WHOLE REASON IT EXISTS: a row's `tags` is an array and
-// the form's box is a comma string, and a row's `chapter_no` is a number or null
-// while every box holds a string. Both are the kind of thing that "works" in a
-// browser by coercion and then saves 0 for "no chapter".
+// ONE CONVERSION IS LEFT, AND IT WAS TWO. A row's `chapter_no` is a number or
+// null while every box holds a string — the kind of thing that "works" in a
+// browser by coercion and then saves 0 for "no chapter". The other was `tags`:
+// the old capture card kept them in a comma box so this joined the array, and the
+// add-surface rework replaced that box with the token input the three edit forms
+// have always used, which takes the array the row already carries.
 
 import { describe, expect, it } from 'vitest'
 import { duplicateSeed } from '../../src/Library.jsx'
@@ -22,10 +24,16 @@ const FULL = {
   character: 'Woland',
   color: 'blue',
   tags: ['craft', 'fire'],
-  // Not seeded, and deliberately: the capture form has no box for any of them,
-  // so a value here would sit in a draft nothing can show and nothing will send.
+  // SEEDED NOW, AND THEY WERE NOT. The old capture card had no translation, no
+  // language and no sticker box, so seeding them would have put values in a draft
+  // nothing could show — the add surface's rework gave every quote form all
+  // three, and a duplicate that dropped the translation is a copy whose meaning
+  // has to be retyped.
   translation: 'পাণ্ডুলিপি পোড়ে না।',
+  language: 'Bengali',
   sticker_id: 3,
+  // Still not seeded: a duplicate is a NEW quote, so it starts unfavourited and
+  // with no id of its own.
   favorite: 1,
   id_of_something_else: 99,
 }
@@ -46,8 +54,17 @@ describe('the draft a duplicate opens on', () => {
     expect(duplicateSeed(FULL).quote).toBe('Manuscripts don’t burn.')
   })
 
-  it('turns the tag array into the string the box holds', () => {
-    expect(duplicateSeed(FULL).tags).toBe('craft, fire')
+  it('hands the tags over as the array the token input takes', () => {
+    // It joined them into 'craft, fire' for as long as the form's box was a comma
+    // input. That box is gone.
+    expect(duplicateSeed(FULL).tags).toEqual(['craft', 'fire'])
+  })
+
+  it('carries the three texts the reworked form can show', () => {
+    const s = duplicateSeed(FULL)
+    expect(s.translation).toBe('পাণ্ডুলিপি পোড়ে না।')
+    expect(s.language).toBe('Bengali')
+    expect(s.sticker_id).toBe(3)
   })
 
   it('leaves a missing chapter number EMPTY rather than zero', () => {
@@ -57,9 +74,13 @@ describe('the draft a duplicate opens on', () => {
     expect(duplicateSeed({ ...FULL, chapter_no: 0 }).chapter_no).toBe('0')
   })
 
-  it('seeds nothing the form cannot show', () => {
+  it('seeds nothing the form cannot show, and nothing a new quote must not inherit', () => {
     const s = duplicateSeed(FULL)
-    for (const k of ['translation', 'sticker_id', 'favorite', 'id']) {
+    // `favorite` and `id` are the two that must never come across: a duplicate is
+    // a new quote, so it starts unfavourited and unidentified. Anything else on
+    // the row that the form has no box for is dropped for the original reason —
+    // a value in a draft nothing can show is a value nothing will send.
+    for (const k of ['favorite', 'id', 'id_of_something_else']) {
       expect(s, k).not.toHaveProperty(k)
     }
   })
@@ -69,8 +90,10 @@ describe('the draft a duplicate opens on', () => {
     // saved from an import has most of them empty.
     const s = duplicateSeed({ quote: 'Just the words.' })
     expect(s.quote).toBe('Just the words.')
-    expect(s.tags).toBe('')
+    expect(s.tags).toEqual([])
     expect(s.color).toBe('yellow') // the app's default, not an empty colour
     expect(s.note).toBe('')
+    expect(s.translation).toBe('')
+    expect(s.sticker_id).toBe(null)
   })
 })

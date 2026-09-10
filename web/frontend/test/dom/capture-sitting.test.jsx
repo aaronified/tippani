@@ -28,7 +28,7 @@ vi.mock('../../src/api.js', async (orig) => ({
   }),
 }))
 
-const { CaptureQuote } = await import('../../src/AddSurface.jsx')
+const { QuoteForm } = await import('../../src/AddSurface.jsx')
 
 const KEY = 'tippani:lastCapture'
 
@@ -42,7 +42,10 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-const open = () => render(<CaptureQuote onCaptured={() => {}} />)
+// `door="annotation"` because a sitting is ABOUT the work: the memory that
+// matters is which book you are holding, and only the two work-backed doors have
+// a work to remember. The colour and the tags are shared with every door.
+const open = () => render(<QuoteForm door="annotation" onSaved={() => {}} />)
 
 describe('a sitting', () => {
   it('starts the next capture on the same work', async () => {
@@ -58,7 +61,11 @@ describe('a sitting', () => {
     await screen.findByText('The Dispossessed')
     // The tag field carries the words, so the next quote is one keystroke from
     // being tagged the same way rather than a re-typing exercise.
-    expect(screen.getByDisplayValue('grief, craft')).toBeTruthy()
+    // PILLS, NOT A COMMA BOX. The form took a token input in the add-surface
+    // rework, which is what the three edit forms have always used — so the
+    // remembered tags come back as two chips rather than one string.
+    expect(screen.getByText('grief')).toBeTruthy()
+    expect(screen.getByText('craft')).toBeTruthy()
   })
 
   it('forgets the WORK after half an hour, and keeps the colour and tags', async () => {
@@ -67,7 +74,8 @@ describe('a sitting', () => {
     // such risk, and their worst case is visible on the card.
     remember({ at: Date.now() - 31 * 60 * 1000 })
     open()
-    await waitFor(() => expect(screen.getByDisplayValue('grief, craft')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('grief')).toBeTruthy())
+    expect(screen.getByText('craft')).toBeTruthy()
     expect(screen.queryByText('The Dispossessed')).toBeNull()
   })
 
@@ -83,7 +91,7 @@ describe('a sitting', () => {
   it('opens cold with nothing remembered', async () => {
     open()
     await waitFor(() => expect(screen.queryByText('The Dispossessed')).toBeNull())
-    expect(screen.queryByDisplayValue('grief, craft')).toBeNull()
+    expect(screen.queryByText('grief')).toBeNull()
   })
 
   it('survives a note written by a newer version, or by hand', async () => {

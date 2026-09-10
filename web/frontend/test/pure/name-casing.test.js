@@ -58,13 +58,16 @@ const PROSE_FIELDS = [
   'common.field.timestamp', 'common.field.timestamp-end', 'common.field.tags',
 ]
 
-// The controls that take a name. Two are absent deliberately, both because the
-// hint is already inside them: `CastCombo`'s `nameCase` DEFAULTS to true, and
-// `NameInput` hardcodes `autoCapitalize="words"` — it exists for exactly this.
+// The controls that take a name. Three are absent deliberately, all because the
+// hint is already inside them: `CastCombo` and `SuggestCombo` both DEFAULT
+// `nameCase` to true, and `NameInput` hardcodes `autoCapitalize="words"` — it
+// exists for exactly this. A combobox over a work's own prior values is a name
+// box by construction, and the one that is not — a chapter NUMBER — says
+// `nameCase={false}` at its call site.
 // Requiring the prop at those call sites would be requiring people to restate a
 // default, and a caller that DID restate it would read as though the others had
 // opted out.
-const ELEMENT = /<(input|textarea|Field|SuggestCombo|TokenInput)\b([^>]*?)\/?>/gs
+const ELEMENT = /<(input|textarea|Field|TokenInput)\b([^>]*?)\/?>/gs
 const LABEL = /(?:label|aria-label|ariaLabel|placeholder)=\{t\('([^']+)'\)\}/
 
 // THROUGH sourcesUnder, NOT A HAND-ROLLED readdir. `one-walk.test.js` refuses a
@@ -126,18 +129,14 @@ describe('the keyboard hint on a name box', () => {
     // nothing. So each named field must have at least one box, and every box it
     // has must carry the hint.
     //
-    // `source-author` — the owner's "editor" — is NOT here, and that is a fact
-    // about the tree rather than an exemption: the column shipped in 0070 and the
-    // form that draws it is the add-surface rework, so there is no box to check
-    // yet. It stays in NAME_FIELDS above, so the first box that appears without
-    // the hint fails the case above. This list gains it when that form lands.
-    for (const field of ['common.field.chapter-name', 'common.field.work-title']) {
+    // `source-author` — the owner's "editor" — had no box when this was written,
+    // because the column shipped in 0070 and the form that draws it is the
+    // add-surface rework. The case asserted the absence, so the day the form
+    // landed it failed and said to move the field up a line. It is up a line.
+    for (const field of ['common.field.chapter-name', 'common.field.work-title', 'common.field.source-author']) {
       const found = all.filter((b) => b.field === field)
       expect(found.length, `no box found for ${field}`).toBeGreaterThan(0)
       expect(found.every((b) => b.hinted), `${field} is unhinted somewhere`).toBe(true)
     }
-    // And the field with no box yet has no box yet — stated, so the day it gains
-    // one this case is what tells somebody to move it up a line.
-    expect(all.filter((b) => b.field === 'common.field.source-author')).toEqual([])
   })
 })

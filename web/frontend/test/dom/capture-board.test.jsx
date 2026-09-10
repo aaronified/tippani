@@ -44,16 +44,21 @@ vi.mock('../../src/api.js', async (orig) => ({
   }),
 }))
 
-const { CaptureQuote } = await import('../../src/AddSurface.jsx')
+const { QuoteForm } = await import('../../src/AddSurface.jsx')
 
-// The card hands its save verb out rather than drawing a button of its own — the
+// The form hands its save verb out rather than drawing a button of its own — the
 // surface around it owns the tick. A test is one of those surfaces.
+//
+// `door="other"` is the standalone kind that hard-drops nothing, so it is the one
+// to open when the test is about a field EVERY standalone kind shares — which the
+// board is. A door with a narrower field set would pass here and say nothing
+// about the other eight.
 function openCapture(props = {}) {
   const state = {}
   render(
-    <CaptureQuote
-      initialStandalone
-      onCaptured={() => {}}
+    <QuoteForm
+      door="other"
+      onSaved={() => {}}
       onSaveState={(s) => Object.assign(state, s)}
       {...props}
     />,
@@ -97,7 +102,7 @@ describe('capturing onto a board', () => {
   })
 
   it('does not offer a board for a highlight against a book', async () => {
-    render(<CaptureQuote initialTarget={{ type: 'book', id: 4 }} onCaptured={() => {}} />)
+    render(<QuoteForm door="annotation" initialTarget={{ type: 'book', id: 4 }} onSaved={() => {}} />)
     expect(await screen.findByText('The Dispossessed')).toBeTruthy()
     // A board holds standalone quotes. Offering one here would promise a filing
     // that the annotation route has nowhere to put.

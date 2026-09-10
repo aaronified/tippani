@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The add screen was rebuilt.** It was three tabs — look a work up, capture a quote,
+  read a wall of import instructions — across three things of wildly different weights, and
+  the segmented control at the top spent every opening asking a question you had already
+  answered by pressing ＋. It is now **one panel with two states**: a chooser grouped the way
+  you would say it out loud — *a work*, *a quote*, *many at once* — and then the form for the
+  thing you picked, with Back in the header. Same chrome as every other panel in the app.
+- **Each kind of quote now asks only for what that kind has.** One form served all nine, so
+  a proverb was asked who said it, a book highlight was offered a timestamp, and an essay
+  was offered an occasion — under a heading that read "What the kind carries" above four
+  boxes that mostly did not. Every form now hides its rarely-used boxes behind **Show all
+  fields** and **drops the irrelevant ones entirely**: a film has a timestamp and no
+  chapter, a show adds season, episode number and episode name, a game has its act, quest
+  and pack, a letter and a speech have the source they reach us through, a proverb has a
+  region and no speaker. Which boxes those are came out of a real library rather than a
+  guess at one. **A box you were never shown cannot clear the value behind it** — a locator
+  that arrived by import survives a kind that has no box for it.
+- **The quote, note, tags and colour are always on the first screen**, on every form,
+  along with the character where a character makes sense; the sticker, the language and the
+  translation are always behind *Show all fields*. One rule, eleven forms, so the screen
+  you learn on the first one is the screen you get on the rest.
+- **A work's ＋ and a board's ＋ skip the chooser.** You are standing on the thing you are
+  adding to, so the form opens with it filled in — and a proverb board opens the proverb
+  form, because the board already answered which kind. The chooser appears when nothing
+  else has answered: a bare ＋ on the Quotes screen, or a plain board.
+- **Every form gained a translation, a language, a sticker and the proper tag box.** The old
+  capture card had none of the first three and a comma-separated box for the last, so a
+  quote captured in the moment could not carry its translation and a tag typed there did not
+  match a tag typed anywhere else. The tag box is now the same token input the edit forms
+  have always used, and the chapter boxes pair in both directions.
 - **Every box that holds a name now asks your keyboard for capitals.** Chapter name, the
   source's editor, a poem or song's title, a quest, a DLC, a place, a region, a language, a
   board's name, a sticker's name, an anthology's title — all of them offer a capital at the
@@ -115,6 +144,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A capture you abandoned came back without its tags.** The screen keeps an unfinished
+  quote for a few minutes so a mistyped page or a closed panel does not cost you the line —
+  and it restored the quote, the note and the colour but silently dropped the tags, because
+  the box that held them changed shape and the restore only knew the old spelling. The same
+  slip lost the tags off **Duplicate**, along with the translation, the language and the
+  sticker: a copy of a quote is supposed to differ from it in one field, not four.
 - **`380BCE` written without a space was read as `380`.** Every year box quietly dropped an
   era typed tight against the number, so a book entered that way was filed 380 years *after*
   the date meant, in the wrong era, with nothing on screen to show it.

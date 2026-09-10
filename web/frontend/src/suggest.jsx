@@ -33,7 +33,7 @@ import { MonoLabel, useAnchoredPosition, useDismiss, useIsMobileScreen } from '.
 // EMPTY is the answer for "no work chosen", shared so callers can destructure
 // without guarding, and frozen so a caller cannot leave a name in it for the next
 // one — these are module-level defaults, not state.
-const EMPTY = Object.freeze({ cast: [], chapters: [], loading: false })
+const EMPTY = Object.freeze({ cast: [], chapters: [], packs: [], loading: false })
 
 export function useWorkSuggestions(target) {
   const kind = target?.kind === 'screen' || target?.type === 'movie' ? 'movies' : 'books'
@@ -49,10 +49,19 @@ export function useWorkSuggestions(target) {
     let stale = false
     setState((s) => ({ ...s, loading: true }))
     // The cast for both kinds — a book's rows are characters with nobody beside
-    // them, which is exactly the shape the character box wants — and the chapter
-    // list for a book only, because a film has no chapters to offer.
+    // them, which is exactly the shape the character box wants — and then the
+    // locator pool for whichever medium has one: chapters for a book, packs for a
+    // game (0071). A film has neither, and asks for neither: this is the second
+    // and third request on opening a form, so a fetch for a list that is always
+    // empty is a fetch that costs a round trip to say nothing.
+    //
+    // GAMES ARE `movies` ROWS, so `kind` cannot tell a game from a film here and
+    // the pack list is asked for on both. `/movies/{id}/packs` answers [] for a
+    // film by construction — no film line carries a pack, because the writer
+    // clears it — so the alternative would be plumbing media_type into this hook
+    // to save one empty reply.
     const wants = [json('GET', `/${kind}/${id}/cast`)]
-    if (kind === 'books') wants.push(json('GET', `/books/${id}/chapters`))
+    wants.push(kind === 'books' ? json('GET', `/books/${id}/chapters`) : json('GET', `/movies/${id}/packs`))
     Promise.all(wants).then(([rc, rch]) => {
       if (stale) return
       const cast = (rc?.ok && rc.data?.cast) || []
@@ -64,6 +73,10 @@ export function useWorkSuggestions(target) {
       setState({
         cast,
         chapters: (rch?.ok && rch.data?.chapters) || [],
+        // Names only, because a pack is a name and nothing else — see the
+        // endpoint's own note on why it returns a flat list where the chapter
+        // endpoint returns pairs.
+        packs: ((rch?.ok && rch.data?.packs) || []).map((p) => p.name).filter(Boolean),
         loading: false,
       })
     })
@@ -169,16 +182,52 @@ const COMBO_MAX_MOBILE = 5
 // two-line function that has a different job here (substring, not distance).
 const fold = (v) => String(v || '').toLowerCase().trim()
 
-export function CastCombo({
+// SuggestCombo — a single-value box with a filtered list of your own prior
+// values. THE GENERAL FORM OF WHAT CastCombo ALREADY WAS.
+//
+// `docs/plans/entry-helpers.md` specifies this as `SuggestInput` and lists what
+// it needs: filter-and-rank, a cap, a portalled `role="listbox"`,
+// arrow/Enter/Escape, and "the blur-commit that checks both the box and the
+// popover, without which clicking a suggestion reads as 'focus left the field'
+// and commits the half-typed text instead". Every one of those is in the body
+// below and has been since the cast box shipped — so this is a generalisation
+// rather than a new component, because the alternative was a second copy of the
+// one part that is genuinely hard to get right.
+//
+// `options` is [{ name, other }] — `other` being the second line a row can carry,
+// which for the cast is the actor and for a chapter or a pack is nothing.
+//
+// IT IS FREE TEXT WITH SUGGESTIONS, NOT A PICKER, and that is load-bearing: every
+// field this serves is optional free text at the API, so a chapter you have never
+// recorded has to be typeable or the helper becomes a cage. Nothing is ever
+// restricted to the pool.
+export function SuggestCombo({ label, value, onChange, placeholder, options = [], nameCase = true, inputRef, ariaLabel }) {
+  return <Combo label={label} value={value} onChange={onChange} placeholder={placeholder} rows={options} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} />
+}
+
+// CastCombo — SuggestCombo over a work's cast, which is where this component
+// started. Kept as its own name because the mapping is real work: a cast row
+// holds two names, `field` says which of them this box is for, and the OTHER one
+// becomes the second line — so a reader typing "quinn" is shown "Harley Quinn"
+// with "Margot Robbie" under it.
+export function CastCombo({ label, value, onChange, placeholder, cast = [], field = 'character', nameCase = true, inputRef, ariaLabel }) {
+  const rows = useMemo(
+    () => cast.map((c) => ({ name: (c?.[field] || '').trim(), other: (c?.[field === 'character' ? 'actor' : 'character'] || '').trim() })),
+    [cast, field],
+  )
+  return <Combo label={label} value={value} onChange={onChange} placeholder={placeholder} rows={rows} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} />
+}
+
+// Combo is the body both of them share. Not exported: a caller reaching past the
+// two named forms would be a third opinion about what a row is.
+function Combo({
   label,
   value,
   onChange,
   placeholder,
-  // [{ character, actor }] — the work's cast in billing order, straight from the
-  // hook. `field` says which of the two names this box holds, which decides both
-  // what is matched and what is shown as the second line.
-  cast = [],
-  field = 'character',
+  // [{ name, other }] in the order they arrived — billing order for a cast,
+  // commonest-first for a chapter or a pack, which is what the endpoints return.
+  rows: given = [],
   nameCase = true,
   inputRef,
   ariaLabel,
@@ -193,20 +242,21 @@ export function CastCombo({
   const mobile = useIsMobileScreen()
   const cap = mobile ? COMBO_MAX_MOBILE : COMBO_MAX_DESKTOP
 
-  // The rows, deduped on the name this box holds and in the order they arrived
-  // (billing order, then the reader's own additions) — the lead is the character
-  // most lines belong to, which beats alphabetical for a list of ten.
+  // Deduped on the name, in the order they arrived — the lead is the row most
+  // lines belong to, which beats alphabetical for a list of ten. Blanks dropped:
+  // a cast row with no actor and a chapter with no name both arrive legitimately
+  // and neither is a suggestion.
   const rows = useMemo(() => {
     const seen = new Set()
     const out = []
-    for (const c of cast) {
-      const name = (c?.[field] || '').trim()
+    for (const r of given) {
+      const name = String(r?.name || '').trim()
       if (!name || seen.has(fold(name))) continue
       seen.add(fold(name))
-      out.push({ name, other: (c?.[field === 'character' ? 'actor' : 'character'] || '').trim() })
+      out.push({ name, other: String(r?.other || '').trim() })
     }
     return out
-  }, [cast, field])
+  }, [given])
 
   // A SUBSTRING MATCH, NOT A PREFIX. "quinn" finds "Harley Quinn", which is the
   // half of the name people actually remember. An exact hit is dropped: a list
@@ -323,4 +373,27 @@ export function CastCombo({
       )}
     </div>
   )
+}
+
+// useTagNames — the tag names in the library, for a token input's suggestions.
+//
+// ITS OWN SMALL HOOK, and deliberately not a fifth copy of the fetch the Library,
+// Catalogue, Home and Quotes screens each keep. Those four read a richer shape —
+// `tagMap`, with counts and colours, which they draw as chips and filter by — so
+// they are not duplicates of this and are left alone. What a FORM needs is the
+// names, and nothing else.
+export function useTagNames() {
+  const [tags, setTags] = useState([])
+  useEffect(() => {
+    let stale = false
+    json('GET', '/tags').then((r) => {
+      if (stale) return
+      // A refusal is an empty list, never an error on screen — the rule this
+      // module's header states for the cast and the chapters. Tag suggestions
+      // are a convenience; the box takes anything typed.
+      setTags(((r?.ok && r.data?.tags) || []).map((x) => x.name || x).filter(Boolean))
+    })
+    return () => { stale = true }
+  }, [])
+  return tags
 }

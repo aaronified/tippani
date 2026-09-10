@@ -1394,13 +1394,22 @@ import { quoteBody, quoteTexts } from './text.js'
 // oversight: "the reader is usually keeping most of a sentence and changing a
 // clause, so an empty box would be a worse start than a full one."
 //
-// WHAT IS NOT HERE IS NOT AN OMISSION. The capture form has no translation, no
-// language and no sticker box — those are the edit form's — so seeding them would
-// put values in a draft nothing can show and nothing will send. The menu row's
-// sub-line names what actually carries, for exactly that reason.
+// WHAT IS NOT HERE IS NOT AN OMISSION — and the list of what is missing got
+// shorter. The add surface's rework gave every quote form a translation, a
+// language and a sticker, so those three are seeded now; a duplicate that dropped
+// them would be a copy the reader has to retype the meaning of. The menu row's
+// sub-line names what carries, for exactly that reason.
 //
-// `tags` is a COMMA STRING because that is what the form's box holds; the row
-// carries an array. One of the two conversions this function exists to do.
+// `tags` IS AN ARRAY, AND WAS A COMMA STRING. The old capture card kept its tags
+// in a comma box, so this joined them — and the rework replaced that box with the
+// token input the three edit forms have always used, which takes the array the
+// row already carries. The join was one of two conversions this function existed
+// to do; it is now none, because `chapter_no` still needs its string.
+//
+// The form normalises either shape anyway (see its `asTags`), which is not
+// belt-and-braces: a sitting saved by the previous release has a comma string in
+// localStorage, so the tolerance has to exist somewhere and the form is where
+// both producers meet.
 export function duplicateSeed(a) {
   return {
     quote: a.quote || '',
@@ -1409,8 +1418,11 @@ export function duplicateSeed(a) {
     chapter_no: a.chapter_no == null ? '' : String(a.chapter_no),
     location: a.location || '',
     character: a.character || '',
+    translation: a.translation || '',
+    language: a.language || '',
+    sticker_id: a.sticker_id ?? null,
     color: a.color || 'yellow',
-    tags: (a.tags || []).join(', '),
+    tags: a.tags || [],
   }
 }
 

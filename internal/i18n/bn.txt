@@ -3025,21 +3025,46 @@ error.validate.title-required = একটা নাম দিতে হবে
 # ---------------------------------------------------------------------------
 
 # The ＋ surface's own title, per tab.
-capture.title.add = যোগ করুন
-capture.title.quote = তুলে রাখুন
 capture.title.duplicate = এই উদ্ধৃতির নকল
 capture.form.duplicate.prose = প্রতিটা ঘরে আপনি যে উদ্ধৃতিতে চেপেছেন তার কপি আছে। সেভ করলে নতুন একটা লেখা হবে; মূলটা অপরিবর্তিত থাকবে।
-capture.title.import = ইমপোর্ট
 capture.dialog.aria = গ্রন্থাগারে যোগ করুন
-capture.tabs.aria = যোগ, তুলে রাখা বা ইমপোর্ট
 # The three tabs. The SHORT set is what fits a phone's three-segment slider —
 # keep those to one word.
-capture.tab.add.label = খুঁজে যোগ করুন
-capture.tab.quote.label = উদ্ধৃতি তুলে রাখুন
-capture.tab.import.label = ফাইল ইমপোর্ট
-capture.tab.add.short.label = যোগ
-capture.tab.quote.short.label = উদ্ধৃতি
-capture.tab.import.short.label = ইমপোর্ট
+# ---- the add surface (the chooser and its doors) ---------------------------
+# দরজার নামগুলো এখানে নেই — সেগুলো `vocab.kind.*` আর `vocab.quote-kind.*` থেকে আসে,
+# যাতে প্যানেল আর কার্ড আলাদা কথা না বলে।
+add.chooser.title = কী যোগ করছেন?
+add.chooser.prose = একটা বেছে নিন, প্যানেলটা তারই ফর্ম হয়ে যাবে। যে ঘরগুলো ওই জিনিসটার দরকার, শুধু সেগুলোই থাকবে।
+add.group.work.label = একটা বই বা ছবি
+add.group.quote.label = একটা উদ্ধৃতি
+add.group.files.label = একসাথে অনেক
+add.back.label = তালিকায় ফিরুন
+add.back.tip = অন্য কিছু যোগ করুন
+add.door.board.label = বোর্ড
+add.door.annotation.label = বই থেকে
+add.door.dialogue.label = পর্দা থেকে
+add.door.import.label = ফাইল ফেলে দিন
+add.door.annotation.target.label = কোন বই
+add.door.dialogue.target.label = কোন ছবি, সিরিজ বা গেম
+add.door.board.save.label = বোর্ডটা বানান
+add.form.show-all.label = সব ঘর দেখান
+add.form.show-all.hide.label = কম দরকারি ঘরগুলো লুকান
+add.field.speaker.said.label = যিনি বলেছেন
+add.field.speaker.wrote.label = যিনি লিখেছেন
+add.field.recipient.label = যাঁকে পাঠানো
+add.field.locator.page.label = পাতা
+add.field.locator.stanza.label = স্তবক বা লাইন
+add.field.work-title.source.label = যেখান থেকে নেওয়া
+add.field.work-title.title.label = নাম
+add.field.work-title.collection.label = সংকলন
+add.field.work-title.album.label = বই / ছবি / অ্যালবাম
+add.form.timestamp-end.placeholder = যেমন 01:13:02
+add.form.dlc.placeholder = যেমন Blood and Wine
+add.form.source-author.placeholder = যিনি মূল লেখাটা লিখেছেন বা সম্পাদনা করেছেন
+common.field.timestamp-end.label = শেষ হয়
+common.field.dlc.label = ডিএলসি
+common.field.source-author.label = মূল লেখক
+
 # On the ✓ when a must-fill field is empty and nothing more specific applies.
 capture.save.blocked.tip = দরকারি ঘরগুলো ভরুন
 capture.close.tip = সেভ না করে বন্ধ করুন
@@ -3084,9 +3109,6 @@ capture.picker.create.blank.label = ＋ নতুন বই, সিনেমা 
 
 # THE CAPTURE FORM.
 # The label above the work picker, and the chip that turns the picker off.
-capture.form.target.label = বই · সিনেমা · শো
-capture.form.standalone.label = অন্য কোথাও থেকে
-capture.form.standalone.chip.label = বই বা সিনেমা নয়
 capture.form.create.label = নতুন বই, সিনেমা বা শো যোগ করুন
 capture.form.create.cancel.label = বাতিল
 capture.form.quote.placeholder = রেখে দেওয়ার মতো বাক্যটা…
@@ -3098,8 +3120,6 @@ capture.form.chapter-no.placeholder = যেমন 7
 capture.form.chapter-name.placeholder = ঐচ্ছিক
 capture.form.location.placeholder = যেমন 142
 # This field takes NAMES SEPARATED BY COMMAS rather than one tag at a time.
-capture.form.tags.label = ট্যাগ · কমা দিয়ে আলাদা
-capture.form.tags.placeholder = স্মৃতি, কারিগরি
 # Under the fields when Save is greyed: {reason} is one of the must-fill
 # messages below, and this sentence completes it.
 capture.form.missing.hint = {reason} — তবেই সেভ হবে।
@@ -3119,7 +3139,6 @@ capture.import.pending.other = {n}টা উদ্ধৃতি বাকি — 
 # bn: Each of these is both the greyed ✓'s tooltip and the front half of
 # capture.form.missing.hint ("… — তবেই সেভ হবে।"), so each is an imperative.
 error.validate.quote-words = উদ্ধৃতির কথাগুলো লিখুন
-error.validate.line-words = সংলাপের কথাগুলো লিখুন
 error.validate.quote-or-note = একটা উদ্ধৃতি বা একটা নোট লিখুন
 error.validate.target-required = একটা বই, সিনেমা বা শো বাছুন
 error.validate.season-required = এপিসোড দিলে সিজনটাও দিন

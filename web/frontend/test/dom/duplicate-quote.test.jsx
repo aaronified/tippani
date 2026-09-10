@@ -92,7 +92,16 @@ describe('duplicating a quote', () => {
     expect(seed.note).toBe('Woland, to the Master.')
     expect(seed.color).toBe('blue')
     expect(seed.location).toBe('p.402')
-    expect(seed.tags).toBe('craft')
+    // AN ARRAY, AND IT WAS A COMMA STRING. The old capture card kept tags in a
+    // comma box so `duplicateSeed` joined them; the add-surface rework replaced
+    // that box with the token input the edit forms have always used, which takes
+    // the array the row already carries. One conversion fewer.
+    expect(seed.tags).toEqual(['craft'])
+    // And the three boxes the rework added are seeded now — a duplicate that
+    // dropped the translation would be a copy whose meaning has to be retyped.
+    expect(seed.translation).toBe('')
+    expect(seed.language).toBe('')
+    expect(seed.sticker_id).toBe(null)
 
     // NOTHING IS CREATED UNTIL SAVE. A duplicate you abandon is a duplicate that
     // never existed, so reaching the form must not have written a row.
@@ -120,7 +129,7 @@ describe('the Add surface on a duplicate', () => {
     )
 
   it('names the record Save will write, and says what is in the boxes', async () => {
-    surface({ quote: 'Manuscripts don’t burn.', note: 'Woland.', color: 'blue', tags: 'craft' })
+    surface({ quote: 'Manuscripts don’t burn.', note: 'Woland.', color: 'blue', tags: ['craft'] })
     // Every box is full of another quote's words; "Capture a quote" over that is
     // a form that looks like it is editing the thing it copied.
     expect(await screen.findByText(/Duplicate this quote/i)).toBeTruthy()
@@ -128,6 +137,14 @@ describe('the Add surface on a duplicate', () => {
   })
 
   it('arrives with the boxes already filled', async () => {
+    // THE COMMA STRING ON PURPOSE, and it is the shape the PREVIOUS release
+    // wrote: a duplicate opened from a page loaded before the upgrade, or a
+    // sitting still on disk, arrives like this. The form normalises either
+    // shape (`asTags`), and reading only the array dropped them silently.
+    // THE COMMA STRING ON PURPOSE — the shape the PREVIOUS release wrote. A
+    // duplicate opened from a page loaded before the upgrade arrives like this,
+    // and so does a sitting still on disk. The form normalises either shape
+    // (`asTags`); reading only the array dropped the tags silently.
     surface({ quote: 'Manuscripts don’t burn.', note: 'Woland.', color: 'blue', tags: 'craft' })
     // At initialisation, not in an effect: an effect lands a frame after the
     // first paint, which is a form a reader can start typing into and then watch

@@ -2998,21 +2998,59 @@ error.validate.title-required = a title is required
 # ---------------------------------------------------------------------------
 
 # The ＋ surface's own title, per tab.
-capture.title.add = Add
-capture.title.quote = Capture
 capture.title.duplicate = Duplicate this quote
 capture.form.duplicate.prose = Every box holds a copy of the quote you pressed. Save writes a new one; the original is untouched.
-capture.title.import = Import
 capture.dialog.aria = Add to your library
-capture.tabs.aria = Add, capture or import
 # The three tabs. The SHORT set is what fits a phone's three-segment slider —
 # keep those to one word.
-capture.tab.add.label = Look up / add
-capture.tab.quote.label = Capture quote
-capture.tab.import.label = Import files
-capture.tab.add.short.label = Add
-capture.tab.quote.short.label = Capture
-capture.tab.import.short.label = Import
+# ---- the add surface (the chooser and its doors) ---------------------------
+# The ＋ opens one panel that asks what you are adding, then becomes the form for
+# that one thing. A door's WORD is not here: it comes from `vocab.kind.*` and
+# `vocab.quote-kind.*`, which already name these things on every card, so the
+# panel and the card cannot drift apart. Only the four doors that are not kinds
+# of quote need a word of their own.
+add.chooser.title = What are you adding?
+add.chooser.prose = Pick one and this becomes its form. Only the boxes that kind of thing needs.
+add.group.work.label = A work
+add.group.quote.label = A quote
+add.group.files.label = Many at once
+add.back.label = Back to the list
+add.back.tip = Choose something else to add
+add.door.board.label = Board
+add.door.annotation.label = From a book
+add.door.dialogue.label = From a screen
+add.door.import.label = Drop files in
+add.door.annotation.target.label = Which book
+add.door.dialogue.target.label = Which film, show or game
+add.door.board.save.label = Make the board
+# The disclosure that holds the fields this kind rarely needs. The words say what
+# is behind it rather than naming a direction, because "More" over a form tells
+# you nothing about what you would get.
+add.form.show-all.label = Show every field
+add.form.show-all.hide.label = Hide the rare fields
+# WHO SAID IT, in the two words the kinds actually divide into. A speech is
+# spoken; a letter, an essay, a poem and a song are written.
+add.field.speaker.said.label = Speaker
+add.field.speaker.wrote.label = Written by
+# WHO IT WAS WRITTEN TO. "Recipient" is the column; "Sent to" is what a reader
+# writing down a letter would look for.
+add.field.recipient.label = Sent to
+# WHERE IN IT. A page for prose, a stanza or a line for verse.
+add.field.locator.page.label = Page
+add.field.locator.stanza.label = Stanza or line
+# WHAT IT CAME OUT OF, and the word differs by kind because the thing does. A
+# song reaches you through any of three, which is why all three are named.
+add.field.work-title.source.label = Source title
+add.field.work-title.title.label = Title
+add.field.work-title.collection.label = Collection
+add.field.work-title.album.label = Book / Movie / Album
+add.form.timestamp-end.placeholder = e.g. 01:13:02
+add.form.dlc.placeholder = e.g. Blood and Wine
+add.form.source-author.placeholder = who wrote or edited the source
+common.field.timestamp-end.label = Ends
+common.field.dlc.label = DLC
+common.field.source-author.label = Source author
+
 # On the ✓ when a must-fill field is empty and nothing more specific applies.
 capture.save.blocked.tip = Fill the required fields
 capture.close.tip = Close without saving
@@ -3057,9 +3095,6 @@ capture.picker.create.blank.label = ＋ Add a new work — book, film or show
 
 # THE CAPTURE FORM.
 # The label above the work picker, and the chip that turns the picker off.
-capture.form.target.label = Book · Film · Show
-capture.form.standalone.label = From somewhere else
-capture.form.standalone.chip.label = no book or film
 capture.form.create.label = Add a new book, film or show
 capture.form.create.cancel.label = cancel
 capture.form.quote.placeholder = the line worth keeping…
@@ -3071,8 +3106,6 @@ capture.form.chapter-no.placeholder = e.g. 7
 capture.form.chapter-name.placeholder = optional
 capture.form.location.placeholder = e.g. 142
 # This field takes NAMES SEPARATED BY COMMAS rather than one tag at a time.
-capture.form.tags.label = Tags · comma separated
-capture.form.tags.placeholder = memory, craft
 # Under the fields when Save is greyed: {reason} is one of the must-fill
 # messages below, and this sentence completes it.
 capture.form.missing.hint = {reason} to save.
@@ -3090,7 +3123,6 @@ capture.import.pending.other = {n} staged quotes waiting — review the queue
 # What must be filled before a capture can save. Each doubles as the tooltip on
 # the greyed ✓, so each has to make sense on its own.
 error.validate.quote-words = A quote needs the words themselves
-error.validate.line-words = A line needs the words themselves
 error.validate.quote-or-note = Write a quote or a note
 error.validate.target-required = Pick a book, film or show
 error.validate.season-required = An episode needs its season
