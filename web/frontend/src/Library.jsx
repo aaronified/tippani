@@ -2675,6 +2675,7 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
                }} />
         <Field
           label={t('common.field.chapter-name.label')}
+          nameCase
           value={chapter}
           list={suggest.chapterNames.length ? `${listId}-chname` : undefined}
           onChange={(e) => {

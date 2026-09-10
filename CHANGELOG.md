@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Every box that holds a name now asks your keyboard for capitals.** Chapter name, the
+  source's editor, a poem or song's title, a quest, a DLC, a place, a region, a language, a
+  board's name, a sticker's name, an anthology's title — all of them offer a capital at the
+  start of each word on a phone, the way the character box already did. It is a hint and
+  never a rule: press shift and *bell hooks* is what gets stored. Nine boxes were missing
+  it. **The prose boxes deliberately do not have it** — a quote, a note, a translation, an
+  occasion, a page or a timestamp is a sentence or a number, and per-word capitals there
+  are the keyboard fighting you.
 - **A chapter's name now fills in from its number, as well as the other way round.**
   Type 42 into the number box on a book highlight and the chapter name you recorded
   against 42 appears beside it. It shipped one-way — name filling number — and that was

@@ -330,6 +330,7 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
     <form onSubmit={submit} className="space-y-4">
       <Field
         label={t('common.field.name.label')}
+        nameCase
         value={name}
         placeholder={t('quotes.board.form.name.placeholder')}
         onChange={(e) => setName(e.target.value)}

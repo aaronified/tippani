@@ -2160,6 +2160,9 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
           />
           <input
             className="tp-input"
+            // A quest has a NAME — see ui.jsx's "name casing". This form lays out
+            // its own inputs rather than using Field, so the hint is spelled here.
+            autoCapitalize="words"
             placeholder={t('film.line.form.quest.placeholder')}
             title={t('film.line.form.quest.tip')}
             aria-label={t('common.field.quest.label')}

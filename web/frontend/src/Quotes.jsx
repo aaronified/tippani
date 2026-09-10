@@ -437,6 +437,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         />
         <Field
           label={t('common.field.place.label')}
+          nameCase
           placeholder={t('common.field.place.placeholder')}
           value={place}
           onChange={(e) => setPlace(e.target.value)}
@@ -475,6 +476,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
       </label>
       <Field
         label={t('common.field.language.label')}
+        nameCase
         placeholder={t('common.field.language.placeholder')}
         value={language}
         onChange={(e) => setLanguage(e.target.value)}
@@ -494,6 +496,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         <div className="cl-grid">
           <Field
             label={t('common.field.region.label')}
+            nameCase
             placeholder={t('quotes.form.region.placeholder')}
             value={region}
             onChange={(e) => setRegion(e.target.value)}

@@ -1006,7 +1006,7 @@ export function CaptureQuote({ initialTarget = null, initialBoard = null, initia
           <div className="grid grid-cols-2 gap-3">
             <label className="tp-field">
               <MonoLabel>{t('common.field.speaker.label')}</MonoLabel>
-              <input className="tp-input" placeholder={t('common.field.speaker.placeholder')} value={draft.speaker} onChange={(e) => set({ speaker: e.target.value })} />
+              <input className="tp-input" autoCapitalize="words" placeholder={t('common.field.speaker.placeholder')} value={draft.speaker} onChange={(e) => set({ speaker: e.target.value })} />
             </label>
             <label className="tp-field">
               <MonoLabel>{t('common.field.occasion.label')}</MonoLabel>
@@ -1026,7 +1026,7 @@ export function CaptureQuote({ initialTarget = null, initialBoard = null, initia
             />
             <label className="tp-field">
               <MonoLabel>{t('common.field.place.label')}</MonoLabel>
-              <input className="tp-input" placeholder={t('common.field.place.placeholder')} value={draft.place} onChange={(e) => set({ place: e.target.value })} />
+              <input className="tp-input" autoCapitalize="words" placeholder={t('common.field.place.placeholder')} value={draft.place} onChange={(e) => set({ place: e.target.value })} />
             </label>
           </div>
           {/* WHERE IT IS FILED — the same control the edit form draws, in the same

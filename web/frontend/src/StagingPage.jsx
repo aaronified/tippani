@@ -898,7 +898,7 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
           and 01:02:03 is a picture of a time format. */}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t('common.field.chapter-no.label')} inputMode="decimal" placeholder={t('staging.form.chapter-no.placeholder')} value={f.chapter_no} onChange={upd('chapter_no')} />
-        <Field label={t('common.field.chapter-name.label')} placeholder={t('staging.form.chapter.placeholder')} value={f.chapter} onChange={upd('chapter')} />
+        <Field label={t('common.field.chapter-name.label')} nameCase placeholder={t('staging.form.chapter.placeholder')} value={f.chapter} onChange={upd('chapter')} />
         <Field label={t('common.field.location.label')} placeholder={t('staging.form.location.placeholder')} value={f.location} onChange={upd('location')} />
         <Field label={t('common.field.character.label')} nameCase placeholder={t('staging.form.character.placeholder')} value={f.character} onChange={upd('character')} />
         <Field label={t('common.field.actor.label')} nameCase placeholder={t('staging.form.actor.placeholder')} value={f.actor} onChange={upd('actor')} />

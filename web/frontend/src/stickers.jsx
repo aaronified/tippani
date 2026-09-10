@@ -225,6 +225,7 @@ function StickerCard({ sticker, index, onChanged }) {
       </div>
       <input
         className="tp-input"
+        autoCapitalize="words"
         placeholder={t('common.field.name.placeholder')}
         maxLength={64}
         value={name}
@@ -294,6 +295,7 @@ function StickerRow({ sticker, ask, onChanged, setError }) {
       <td>
         <input
           className="tp-input"
+          autoCapitalize="words"
           placeholder={t('common.field.name.placeholder')}
           maxLength={64}
           value={name}

@@ -176,6 +176,7 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
     <form onSubmit={submit} className="space-y-4">
       <Field
         label={t('common.field.title.label')}
+        nameCase
         value={title}
         maxLength={TITLE_MAX}
         placeholder={t('anthologies.form.title.placeholder')}

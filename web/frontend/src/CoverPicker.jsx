@@ -885,6 +885,7 @@ export function MovieLookupPicker({ title, year, mediaType = 'movie', tmdbId, tv
           <div className="flex gap-2">
             <input
               className="tp-input"
+              autoCapitalize="words"
               placeholder={t('common.field.title.label')}
               aria-label={t('common.field.title.label')}
               value={q}
