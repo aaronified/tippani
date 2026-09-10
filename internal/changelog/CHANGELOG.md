@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The add screen asks what you are adding before it asks anything else.** It offered
+  eleven doors at once — Book, Film, Show, Game, Board, a book highlight, a screen line and
+  the seven kinds of quote — and those are *forms*, which is not where anybody starts. It
+  also put "a book" beside "a highlight" as though they were alternatives, when one is a
+  thing you add to the other. Now the first screen offers five: **a work, a board, an
+  anthology, a quote, or files.**
+- **And when a work or a board is the answer, you say which one on that same screen.** A
+  mode with no work named is not an answer, so the picker appears under the row rather than
+  on a screen of its own. **The work picker is one gesture for two things** — the books,
+  films, shows and games you have, with "look one up" pinned inside it — so *adding* a work
+  and *choosing* one are no longer separate doors.
+- **The next screen's header is the thing you chose**: the book's title, the board's name.
+  Three steps in, "where am I" is the question worth answering, and the form under it
+  already says what it is. The kind of quote appears as a small line under the title only
+  when you actually picked it from several — on a book, whose one form is implied by the
+  book, "Highlight" underneath would be the same fact twice.
+- **That header carries a menu for changing your mind.** Back steps one level, as always;
+  the menu jumps straight to another mode without walking back through the steps, and marks
+  the one you are on rather than hiding it.
+- **The anthology door says plainly that it is not open yet.** It is listed because leaving
+  it out would make the first screen lie about what the app holds, and it is pressable
+  because a greyed-out control cannot tell you why it is grey.
 - **A quote's card now composes its attribution instead of stringing fields together.** An
   Einstein letter, filled in exactly the way the app asks for it, used to read
   *Albert Einstein · Letter to Carl Seelig · 11 March 1952 · Zurich · **Letter** · English* —

@@ -48,31 +48,107 @@ beforeEach(() => {
 })
 
 describe('the chooser', () => {
-  it('offers a work, a quote and a way to drop files, in three named groups', async () => {
+  // THE FIRST SCREEN ASKS WHAT YOU ARE ADDING, not which form you want. The
+  // owner's correction of the chooser I built before this one: "now i cannot
+  // choose if i want to add a work, a board for quote, an anthology, a quote, or
+  // import stuff. that should be the first screen."
+  //
+  // The old shape offered eleven DOORS in three groups — book, film, show, game,
+  // board, highlight, line and the seven quote kinds. Those are forms, and it put
+  // "a book" beside "a highlight" as alternatives when one is a thing you add to
+  // the other.
+  it('asks which of the five modes, and nothing else', async () => {
     surface({ initialSection: 'standalone' })
     expect(await screen.findByText('What are you adding?')).toBeTruthy()
-    for (const group of ['A work', 'A quote', 'Many at once']) {
-      expect(screen.getByText(group), group).toBeTruthy()
+    for (const mode of ['A work', 'A board', 'An anthology', 'A quote', 'Files']) {
+      expect(screen.getByRole('button', { name: mode }), mode).toBeTruthy()
     }
-    // The owner's three groups, and the doors inside them. A board rides with the
-    // works because it is a container you make before you file into it.
-    for (const door of ['Book', 'Film', 'Show', 'Game', 'Board']) {
-      expect(screen.getByRole('button', { name: door }), door).toBeTruthy()
-    }
-    for (const door of ['From a book', 'From a screen', 'Speech', 'Letter', 'Essay', 'Poem', 'Song', 'Proverb', 'Other']) {
-      expect(screen.getByRole('button', { name: door }), door).toBeTruthy()
+    // And NOT the forms, which are the second question. A chooser offering both at
+    // once is the shape that was wrong.
+    for (const door of ['Speech', 'Letter', 'Proverb', 'From a book']) {
+      expect(screen.queryByRole('button', { name: door }), door).toBeNull()
     }
   })
 
-  it('becomes the form for the door pressed, and can be backed out of', async () => {
+  // "if a work/board/anthology is chosen, i will also need to select the
+  // work/board/anthology there" — `there`, on the same screen, because a mode with
+  // no work named is not an answer.
+  it('and asks which work on the same screen, once a work is the mode', async () => {
     surface({ initialSection: 'standalone' })
-    fireEvent.click(await screen.findByRole('button', { name: 'Proverb' }))
-    // THE PANEL BECOMES THE FORM: the chooser is gone, the title is the door's own
-    // word, and the boxes are the proverb's.
+    fireEvent.click(await screen.findByRole('button', { name: 'A work' }))
+    expect(await screen.findByText('Which work')).toBeTruthy()
+    // The mode row is still there, so changing your mind costs one press.
+    expect(screen.getByRole('button', { name: 'A board' })).toBeTruthy()
+  })
+
+  it('and which board, with a way to make one that does not exist yet', async () => {
+    surface({ initialSection: 'standalone' })
+    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
+    expect(await screen.findByText('Which board')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Bengali proverbs' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'A new board' })).toBeTruthy()
+  })
+
+  // A plain board cannot know whether the next line is a letter or a song (0037
+  // gives a board two kinds), so the second screen asks — and its header says
+  // which board, which is the owner's: "next screen header should say which
+  // work/board/anthology I chose and then show the relevant add page options."
+  it('names the chosen board in the header, then offers the kinds', async () => {
+    surface({ initialSection: 'standalone' })
+    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
     await waitFor(() => expect(screen.queryByText('What are you adding?')).toBeNull())
-    expect(screen.getByText('Proverb')).toBeTruthy()
-    fireEvent.click(screen.getByLabelText('Back to the list'))
+    expect(screen.getByRole('heading', { name: 'Others' })).toBeTruthy()
+    expect(screen.getByText('What kind of quote')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Proverb' }))
+    await screen.findByLabelText('Quote')
+    // Still the board's name in the header — you always know where you are — with
+    // the kind as the sub-line under it.
+    expect(screen.getByRole('heading', { name: 'Others' })).toBeTruthy()
+  })
+
+  // BACK STEPS ONE LEVEL, not all the way out.
+  it('and Back walks the steps in reverse, one press each', async () => {
+    surface({ initialSection: 'standalone' })
+    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Proverb' }))
+    await screen.findByLabelText('Quote')
+    const back = () => fireEvent.click(screen.getByLabelText('Back to the list'))
+    back() // the form -> the kinds
+    expect(await screen.findByText('What kind of quote')).toBeTruthy()
+    back() // the kinds -> the board picker
+    expect(await screen.findByText('Which board')).toBeTruthy()
+    back() // the picker -> the modes
     expect(await screen.findByText('What are you adding?')).toBeTruthy()
+  })
+
+  // "the header will also have a back button as usual, but also a menu button to
+  // have a dropdown where users can change the add mode."
+  it('and the header menu changes the mode without going back', async () => {
+    surface({ initialSection: 'standalone' })
+    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
+    await waitFor(() => expect(screen.queryByText('What are you adding?')).toBeNull())
+    fireEvent.click(screen.getByLabelText('Change what you are adding'))
+    // `menuitemradio`, not `menuitem`: the rows are a choice with a current answer,
+    // and ActionMenu makes a row with `checked` announce itself as one. The mode
+    // you are on is marked rather than dropped, so the menu does not change length
+    // as you move through it.
+    expect(await screen.findByRole('menuitemradio', { name: 'A board', checked: true })).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Files' }))
+    // Straight to the other mode, and what the board chose is not carried into it.
+    await waitFor(() => expect(screen.queryByText('Which board')).toBeNull())
+  })
+
+  // The mode is offered and cannot act, which is the honest state for it: the
+  // owner set anthologies aside — "anthology is due for a revamp" — and then asked
+  // for the mode anyway. Leaving it out makes the first screen lie about what the
+  // app holds; half-wiring it ships something misleading.
+  it('says plainly that the anthology door is not open yet', async () => {
+    surface({ initialSection: 'standalone' })
+    fireEvent.click(await screen.findByRole('button', { name: 'An anthology' }))
+    expect(await screen.findByText(/being reworked/i)).toBeTruthy()
   })
 
   it('does not ask when the ＋ was pressed somewhere that already answered', async () => {
@@ -88,15 +164,24 @@ describe('the chooser', () => {
 
   it('lets a proverb board answer the kind question by standing in it', async () => {
     // 0037 gives a board two kinds and only one of them has behaviour behind it,
-    // so this is the single case where a board can skip the chooser.
+    // so this is the single case where a board skips BOTH questions: the mode, and
+    // the kind. The header is the board's own name.
     surface({ initialSection: 'standalone', initialBoard: 7 })
     await waitFor(() => expect(screen.queryByText('What are you adding?')).toBeNull())
-    expect(screen.getByText('Proverb')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Bengali proverbs' })).toBeTruthy()
+    // And it is the proverb form, not a list of kinds to pick from. Asserted on a
+    // FIRST-SCREEN box: the region sits behind the disclosure, so looking for it
+    // here would pass or fail on the disclosure rather than on the form.
+    expect(screen.queryByText('What kind of quote')).toBeNull()
+    expect(await screen.findByLabelText('Translation')).toBeTruthy()
   })
 
   it('still asks on a plain board, which cannot know', async () => {
     surface({ initialSection: 'standalone', initialBoard: 3 })
-    expect(await screen.findByText('What are you adding?')).toBeTruthy()
+    // The mode and the container are both answered by standing there, so what is
+    // left is the kind — and the header already names the board.
+    expect(await screen.findByText('What kind of quote')).toBeTruthy()
+    expect(screen.queryByText('What are you adding?')).toBeNull()
   })
 })
 

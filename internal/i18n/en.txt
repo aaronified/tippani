@@ -3019,9 +3019,27 @@ capture.dialog.aria = Add to your library
 # of quote need a word of their own.
 add.chooser.title = What are you adding?
 add.chooser.prose = Pick one and this becomes its form. Only the boxes that kind of thing needs.
-add.group.work.label = A work
-add.group.quote.label = A quote
-add.group.files.label = Many at once
+add.mode.work.label = A work
+add.mode.board.label = A board
+add.mode.anthology.label = An anthology
+add.mode.quote.label = A quote
+add.mode.import.label = Files
+# The header before a work or a board has been named. Once one is, the header is
+# its own title or name — the owner's: "next screen header should say which
+# work/board/anthology I chose".
+add.mode.work.title = A work
+add.mode.board.title = A board
+add.mode.anthology.title = An anthology
+add.mode.quote.title = A quote
+add.mode.import.title = Files
+add.mode.work.which.label = Which work
+add.mode.board.which.label = Which board
+add.mode.board.new.label = A new board
+add.mode.board.none.prose = No boards yet — make one and its quotes land there.
+add.mode.anthology.held.prose = Anthologies are being reworked, so this door is not open yet. Until it is, add to an anthology from its own page.
+add.mode.menu.aria = Change what you are adding
+add.mode.menu.tip = Add something else instead
+add.door.which.label = What kind of quote
 add.back.label = Back to the list
 add.back.tip = Choose something else to add
 add.door.board.label = Board

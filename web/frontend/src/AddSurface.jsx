@@ -29,6 +29,7 @@ import { CastCombo, OfferChip, SuggestCombo, useTagNames, useWorkSuggestions } f
 import { t } from './i18n.js'
 import { BoardForm, useBoards } from './boards.jsx'
 import { QUOTE_KIND_DOORS, doorForBoard, fieldsFor, showsField, splitPair } from './addFields.js'
+import { ADD_MODES, doorsFor, modeIsHeld, modeNeedsTarget, soleDoor } from './addModes.js'
 import { chapterPatch } from './text.js'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { CandidateRow, groupEditions } from './CoverPicker.jsx'
@@ -41,6 +42,8 @@ import {
   ColorSwatches,
   Field,
   TokenInput,
+  MoreMenu,
+  IconMenu,
   EmptyState,
   ErrorText,
   filterChipClass,
@@ -803,27 +806,105 @@ const WORK_TITLE_LABEL = { speech: 'source', letter: 'source', essay: 'title', p
 // stops the app INVITING you into something you put away, and a quote is not filed
 // in a section you can hide. `board` rides with the works because it is a
 // container you make before you file into it.
-export function AddChooser({ sections, onPick }) {
-  const works = [...kindsFor(sections).map(([k]) => k), 'board']
-  const quotes = ['annotation', 'dialogue', ...QUOTE_KIND_DOORS]
-  const group = (labelKey, doors) => (
-    <div className="tp-field" key={labelKey}>
-      <MonoLabel>{t(labelKey)}</MonoLabel>
-      <div className="flex flex-wrap gap-2">
-        {doors.map((d) => (
-          <button key={d} type="button" className="tp-btn tactile" onClick={() => onPick(d)}>
-            {DOOR_LABEL(d)}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
+// useWorks — every book, film, show and game, as the picker's rows.
+//
+// LIFTED OUT OF QuoteForm, because the chooser now asks the question the form used
+// to. Under the owner's order — pick the work on the FIRST screen — the form
+// arrives with its target already set, so leaving the fetch inside it would mean
+// two identical round trips per opening: one to fill the chooser's picker and one
+// to fill a picker the reader has already answered.
+export function useWorks() {
+  const [works, setWorks] = useState(null)
+  useEffect(() => {
+    let stale = false
+    Promise.all([json('GET', '/books'), json('GET', '/movies')]).then(([rb, rm]) => {
+      if (stale) return
+      const list = []
+      if (rb.ok && rb.data) for (const b of rb.data.books || []) list.push(workFromBook(b))
+      if (rm.ok && rm.data) for (const m of rm.data.movies || []) list.push(workFromMovie(m))
+      setWorks(list)
+    })
+    return () => { stale = true }
+  }, [])
+  return works
+}
+
+// AddChooser — the first screen, and it asks ONE question at two depths.
+//
+// THE OWNER'S ORDER: "now i cannot choose if i want to add a work, a board for
+// quote, an anthology, a quote, or import stuff. that should be the first screen.
+// if a work/board/anthology is chosen, i will also need to select the
+// work/board/anthology there."
+//
+// So the modes are the row, and the moment one of them needs something named the
+// picker for it appears UNDER the row rather than on a screen of its own. That is
+// the "there" in their sentence, and it is what keeps the first screen one screen:
+// a mode with no work named is not an answer, and making the reader press Next to
+// give the rest of it would be two screens to answer one question.
+//
+// WHAT THIS REPLACES, and why the old shape was wrong at the root: the previous
+// chooser offered eleven DOORS in three groups — book, film, show, game, board,
+// highlight, line and the seven quote kinds. Those are forms, and a reader does
+// not start from a form. Worse, it put "a book" and "a highlight" side by side as
+// alternatives when one is a thing you add to the other.
+export function AddChooser({ sections, mode, onMode, target, onTarget, onCreateWork, boards, onNewBoard }) {
+  const works = useWorks()
+  const wantsTarget = modeNeedsTarget(mode)
   return (
     <div className="flex flex-col gap-4">
       <p className="microcopy">{t('add.chooser.prose')}</p>
-      {works.length > 0 && group('add.group.work.label', works)}
-      {group('add.group.quote.label', quotes)}
-      {group('add.group.files.label', ['import'])}
+      {/* NO LABEL OVER THIS ROW. The header already asks "What are you adding?"
+          and a MonoLabel repeating it is the same words twice on one screen — the
+          repo's rule that a row says a thing once, and a duplicate a test found
+          before a reader did. */}
+      <div className="tp-field">
+        <div className="flex flex-wrap gap-2">
+          {ADD_MODES.map((m) => (
+            <button
+              key={m}
+              type="button"
+              /* `active` is the on-state class the stylesheet actually styles —
+                 `is-on` belongs to other controls and matches nothing here, which
+                 is a mistake only a render shows. */
+              className={'tp-btn tactile' + (m === mode ? ' active' : '')}
+              aria-pressed={m === mode}
+              onClick={() => onMode(m)}
+            >
+              {t(`add.mode.${m}.label`)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* THE SECOND HALF OF THE SAME QUESTION. A work's picker carries its own
+          "look one up" row (WorkPicker's pinned create), which is the owner's
+          ruling made concrete: choosing a work you have and adding one you do not
+          are the same gesture, so there is no separate "add a book" door any more. */}
+      {wantsTarget && mode === 'work' && (
+        <div className="tp-field">
+          <MonoLabel>{t('add.mode.work.which.label')}</MonoLabel>
+          <WorkPicker works={works || []} value={target} onChange={onTarget} onCreate={onCreateWork} />
+        </div>
+      )}
+
+      {wantsTarget && mode === 'board' && (
+        <div className="tp-field">
+          <MonoLabel>{t('add.mode.board.which.label')}</MonoLabel>
+          <div className="flex flex-wrap gap-2">
+            {(boards || []).map((b) => (
+              <button key={b.id} type="button" className="tp-btn tactile" onClick={() => onTarget(b)}>
+                {b.name}
+              </button>
+            ))}
+            {/* A board you do not have yet, on the same row as the ones you do —
+                the work picker's create row, in the shape a short list wants. */}
+            <button type="button" className="tp-btn tactile" onClick={onNewBoard}>
+              {t('add.mode.board.new.label')}
+            </button>
+          </div>
+          {(boards || []).length === 0 && <p className="microcopy">{t('add.mode.board.none.prose')}</p>}
+        </div>
+      )}
     </div>
   )
 }
@@ -1441,63 +1522,36 @@ export default function AddSurface({
   sections,
 }) {
   const { boards } = useBoards()
-  // WHAT THE READER PICKED, kept apart from what the ＋ already answered — and the
-  // first cut of this held one `door` state written by an effect, which had a bug
-  // worth recording: the effect depended on the boards list, so the moment
-  // `/boards` came back it re-ran and reset the door to whatever the ＋ implied,
-  // wiping the door the reader had just pressed. A chooser that empties itself a
-  // few hundred milliseconds after you answer it.
+
+  // THREE VALUES, NOT ONE DOOR. The owner's reorder — "that should be the first
+  // screen. if a work/board/anthology is chosen, i will also need to select the
+  // work/board/anthology there" — turned one question into a sequence, and the
+  // sequence is what these hold: WHICH MODE, WHICH container, WHICH form.
   //
-  // Two values compose instead of one being overwritten: `picked` is the reader's
-  // and only a press or Back changes it; `openingDoor` is derived, so it can
-  // recompute freely as data arrives without touching the answer.
-  const [picked, setPicked] = useState(null)
+  // KEPT APART FROM WHAT THE ＋ ALREADY ANSWERED, and the first cut of the old
+  // surface held one `door` written by an effect, which had a bug worth
+  // remembering: the effect depended on the boards list, so the moment `/boards`
+  // came back it re-ran and reset the door to whatever the ＋ implied, wiping the
+  // one the reader had just pressed. A chooser that empties itself a few hundred
+  // milliseconds after you answer it. So the reader's answers are state and the
+  // ＋'s are derived, and the derived side can recompute freely as data lands.
+  const [pickedMode, setPickedMode] = useState(null)
+  const [pickedTarget, setPickedTarget] = useState(null)
+  const [pickedDoor, setPickedDoor] = useState(null)
+  const [newBoard, setNewBoard] = useState(false)
+  const [lookup, setLookup] = useState(null)
   const [saveState, setSaveState] = useState(null)
   const mobile = useIsMobileScreen()
 
-  // WHICH DOOR A ＋ OPENS, and the whole design is that nobody is asked twice.
+  // THE DISMISS WIRING SITS HERE, DIRECTLY UNDER THE STATE, and not further down
+  // where the derived work is. Two reasons and one of them is mechanical:
+  // `nested-dismiss.test.js` reads 4,000 characters from this component's
+  // declaration looking for the registration, and the state machine's own notes
+  // pushed it past that window — the guard failed on a surface that was still
+  // correct, which is a guard measuring the wrong thing. Moving the call is the
+  // honest fix; widening the window would have made every future overlay's
+  // registration easier to lose.
   //
-  // A work's own ＋ knows the work, so it knows whether the quote is a highlight
-  // or a screen line. A proverb board's ＋ knows the kind (doorForBoard — 0037
-  // gives a board two kinds and one of them has behaviour behind it). A duplicate
-  // arrives with a draft and must land on the form that draft came from. What is
-  // left over is a bare ＋ on the Quotes screen or a plain board, where the kind
-  // genuinely is not known by anything — and there the chooser asks.
-  const doorFor = () => {
-    if (initialSection === 'import') return 'import'
-    if (initialSection === 'film') return 'film'
-    if (initialSection === 'book') return 'book'
-    if (initialTarget) return initialTarget.type === 'movie' ? 'dialogue' : 'annotation'
-    if (initialBoard != null) {
-      const board = (boards || []).find((b) => b.id === initialBoard)
-      const answered = doorForBoard(board)
-      if (answered) return answered
-    }
-    // A duplicate carries the kind of the quote it copies, so it never needs the
-    // chooser: the fields are already full and the form has to match them.
-    if (initialFields?.kind && QUOTE_KIND_DOORS.includes(initialFields.kind)) return initialFields.kind
-    return null
-  }
-
-  // DERIVED, NOT STORED. It answers "did the ＋ already say what this is", and it
-  // may change as `/boards` lands — which is exactly why it must not be the thing
-  // the reader's press writes to.
-  const openingDoor = useMemo(doorFor, [initialSection, initialTarget?.type, initialTarget?.id, initialBoard, initialFields?.kind, boards])
-  const door = picked ?? openingDoor
-
-  // A CLOSED SURFACE FORGETS. Reopening from somewhere else must not land on the
-  // door the last press chose — and the previous session's Save goes with it,
-  // because the closure it holds captured that session's draft and a ✓ tapped
-  // before the fresh form republishes would save the wrong thing.
-  useEffect(() => {
-    if (open) return
-    setPicked(null)
-    setSaveState(null)
-  }, [open])
-
-  // A door with nothing to save must not leave the previous door's Save in the bar.
-  useEffect(() => { if (!door || door === 'import' || WORK_LOOKUP.includes(door)) setSaveState(null) }, [door])
-
   // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx.
   useEscape(open, onClose)
   // ITS OWN BACK ENTRY, desktop-only for the reason FormModal gives: the mobile
@@ -1505,16 +1559,104 @@ export default function AddSurface({
   // one dialog is two presses to close it.
   useBackToClose(open && !mobile, onClose)
 
+  // WHAT A ＋ ALREADY ANSWERED, and the whole design is that nobody is asked
+  // twice. A work's own ＋ knows the work, so it knows the mode AND the container
+  // AND — because a book reaches exactly one form — the door. A proverb board's ＋
+  // knows all three too (0037 gives a board two kinds and one has behaviour behind
+  // it). A duplicate arrives with a draft and must land on the form that draft
+  // came from. What is left over is a bare ＋, where nothing is known and the
+  // chooser asks.
+  const opening = useMemo(() => {
+    const none = { mode: null, target: null, door: null }
+    if (initialSection === 'import') return { mode: 'import', target: null, door: null }
+    if (initialTarget) {
+      const mode = 'work'
+      return { mode, target: initialTarget, door: soleDoor(mode, initialTarget) }
+    }
+    if (initialBoard != null) {
+      const board = (boards || []).find((b) => b.id === initialBoard)
+      // Until /boards lands the board is unknown, so the mode is settled and the
+      // door is not — which is correct rather than a gap: the reader is on the
+      // board already and the surface has nothing to ask them.
+      return { mode: 'board', target: board || null, door: board ? soleDoor('board', board) : null }
+    }
+    if (initialFields?.kind && QUOTE_KIND_DOORS.includes(initialFields.kind)) {
+      return { mode: 'quote', target: null, door: initialFields.kind }
+    }
+    // 'book' and 'film' are the Library's and the Catalogue's own Add buttons.
+    // They used to open a provider look-up door of their own; the owner folded that
+    // into the work picker — "one picker: choose yours, or look up a new one" — so
+    // they now open the work mode with nothing named, which is that picker.
+    if (initialSection === 'book' || initialSection === 'film') return { mode: 'work', target: null, door: null }
+    return none
+  }, [initialSection, initialTarget, initialBoard, initialFields?.kind, boards])
+
+  const mode = pickedMode ?? opening.mode
+  const target = pickedTarget ?? (pickedMode ? null : opening.target)
+  const door = pickedDoor ?? (pickedMode || pickedTarget ? null : opening.door)
+
+  // The forms this mode and container can reach, and the one it opens with no
+  // further asking. Both from addModes.js, so the chooser and the header cannot
+  // disagree about whether a second question is owed.
+  const doors = doorsFor(mode, target)
+  const settledDoor = door ?? soleDoor(mode, target)
+
+  // CHANGING THE MODE CLEARS WHAT THE OLD ONE CHOSE. A board picked under 'board'
+  // is not a work, and carrying it into 'work' would leave the header naming
+  // something the form cannot use.
+  const goMode = (m) => {
+    setPickedMode(m)
+    setPickedTarget(null)
+    setPickedDoor(null)
+    setNewBoard(false)
+    setLookup(null)
+    setSaveState(null)
+  }
+
+  // A CLOSED SURFACE FORGETS. Reopening from somewhere else must not land on the
+  // door the last press chose — and the previous session's Save goes with it,
+  // because the closure it holds captured that session's draft and a ✓ tapped
+  // before the fresh form republishes would save the wrong thing.
+  useEffect(() => {
+    if (open) return
+    setPickedMode(null)
+    setPickedTarget(null)
+    setPickedDoor(null)
+    setNewBoard(false)
+    setLookup(null)
+    setSaveState(null)
+  }, [open])
+
+  // A step with nothing to save must not leave the previous one's Save in the bar.
+  useEffect(() => {
+    if (!settledDoor || mode === 'import' || mode === 'anthology') setSaveState(null)
+  }, [settledDoor, mode])
+
   if (!open) return null
 
-  // THE TITLE NAMES WHAT SAVE WILL WRITE, and on a duplicate that is the one thing
-  // that must never be ambiguous: every box is full of another quote's words, and
-  // "Add a proverb" over that reads like editing the thing you copied.
-  const title = initialFields
-    ? t('capture.title.duplicate')
-    : door
-      ? DOOR_TITLE(door)
-      : t('add.chooser.title')
+  // THE HEADER SAYS WHAT YOU CHOSE, which is the owner's second sentence: "next
+  // screen header should say which work/board/anthology I chose and then show the
+  // relevant add page options."
+  //
+  // So the title is the CONTAINER once there is one — the book's title, the board's
+  // name — and not the form's word. It is the answer to "where am I", which on a
+  // surface three steps deep is the question worth answering; the form under it
+  // already says what it is. Where there is no container the mode names itself, and
+  // a duplicate overrides everything: every box is full of another quote's words,
+  // and any other title over that reads like editing the thing you copied.
+  const containerName =
+    mode === 'work' && target ? target.title
+      : mode === 'board' && target ? target.name
+        : mode ? t(`add.mode.${mode}.title`)
+          : t('add.chooser.title')
+  const title = initialFields ? t('capture.title.duplicate') : containerName
+
+  // AND THE DOOR IS THE SUB-LINE, not a second title — but only when the reader
+  // actually chose it among several. A sub-line earns its place by carrying
+  // something the label does not (the repo's rule), and on a book, whose one form
+  // is implied by the book itself, "Highlight" under the title would be the same
+  // fact twice.
+  const subLine = !initialFields && settledDoor && doors.length > 1 ? DOOR_LABEL(settledDoor) : ''
 
   const saveBtn = saveState && (
     <IconButton
@@ -1526,25 +1668,85 @@ export default function AddSurface({
       onClick={() => saveState.save()}
     />
   )
-  // BACK RATHER THAN CLOSE, once a door is open — the app's own panel-stack
-  // chrome, and the reason the chooser is a state of this surface rather than a
-  // screen: changing your mind about what you are adding should cost one press
-  // and should not throw away the surface.
+
+  // BACK STEPS ONE LEVEL, not all the way out — the app's own panel-stack chrome,
+  // and the reason the chooser is a state of this surface rather than a screen:
+  // changing your mind should cost one press and should not throw away the surface.
   //
-  // IT IS ABSENT WHEN THE DOOR WAS NOT CHOSEN HERE. A ＋ pressed on a book opens
-  // the highlight form directly, and a Back from there would walk the reader into
-  // a chooser they never saw — which reads as the app having lost its place. The
-  // test for it is whether `doorFor()` had an answer.
-  const backBtn = door && openingDoor == null && (
-    <IconButton icon={<IconBack />} ariaLabel={t('add.back.label')} tooltip={t('add.back.tip')} onClick={() => { setPicked(null); setSaveState(null) }} />
+  // IT IS ABSENT WHERE THERE IS NOTHING BEHIND. A ＋ pressed on a book opens the
+  // highlight form directly, and a Back from there would walk the reader into a
+  // chooser they never saw — which reads as the app having lost its place. So each
+  // step asks whether the READER made it, never whether it exists.
+  const back =
+    newBoard || lookup ? () => { setNewBoard(false); setLookup(null) }
+      : pickedDoor ? () => { setPickedDoor(null); setSaveState(null) }
+        : pickedTarget ? () => { setPickedTarget(null); setPickedDoor(null); setSaveState(null) }
+          : pickedMode ? () => { goMode(null) }
+            : null
+  const backBtn = back && (
+    <IconButton icon={<IconBack />} ariaLabel={t('add.back.label')} tooltip={t('add.back.tip')} onClick={back} />
   )
+
+  // THE MODE MENU, the owner's third sentence: "the header will also have a back
+  // button as usual, but also a menu button to have a dropdown where users can
+  // change the add mode."
+  //
+  // It is `MoreMenu` with a different face, which that component exists for — its
+  // own note says the pattern turned out to be "a glyph that opens a list of
+  // things to do" rather than the ⋯ specifically, and the selection bar's shelf
+  // control is the precedent. So no new primitive, and the menu keeps the
+  // aria-haspopup / aria-expanded pair every other menu trigger in the app has.
+  //
+  // ABSENT ON THE FIRST SCREEN, where the modes are already the body: a dropdown
+  // listing what is on screen behind it is a second way to press the same buttons.
+  const modeMenu = mode && (
+    <MoreMenu
+      icon={<IconMenu />}
+      ariaLabel={t('add.mode.menu.aria')}
+      tooltip={t('add.mode.menu.tip')}
+      items={ADD_MODES.map((m) => ({
+        label: t(`add.mode.${m}.label`),
+        onClick: () => goMode(m),
+        // The one you are on is marked rather than hidden: a menu that dropped the
+        // current entry would change length as you moved through it, and the row
+        // that says where you are is the reason to open it.
+        checked: m === mode,
+      }))}
+    />
+  )
+
   const closeBtn = (
     <IconButton icon={<IconClose />} ariaLabel={t('common.action.close.label')} tooltip={t('capture.close.tip')} onClick={onClose} />
   )
 
-  const body = !door ? (
-    <AddChooser sections={sections} onPick={setPicked} />
-  ) : door === 'import' ? (
+  // A work the reader is adding rather than choosing — WorkPicker's create row.
+  // It hands back to the picker with the new work selected, so looking one up and
+  // choosing one you already had end in the same place.
+  const workLookup = lookup && (
+    <AddLookup
+      initialKind={lookup === true ? 'book' : lookup}
+      sections={sections}
+      onAdded={(what) => onAdded?.(what)}
+      onCreated={(w) => { setLookup(null); setPickedTarget(w); setPickedMode(mode || 'work') }}
+    />
+  )
+
+  const body = !mode ? (
+    <AddChooser
+      sections={sections}
+      mode={mode}
+      onMode={goMode}
+      target={target}
+      onTarget={(w) => setPickedTarget(w)}
+      onCreateWork={() => setLookup(true)}
+      boards={boards}
+      onNewBoard={() => setNewBoard(true)}
+    />
+  ) : newBoard ? (
+    <BoardDoor onSaved={(what) => { onAdded?.(what); onClose?.() }} onSaveState={setSaveState} />
+  ) : lookup ? (
+    workLookup
+  ) : mode === 'import' ? (
     <>
       {/* An import still waiting in the queue must be visible from the one place
           you would start another one. */}
@@ -1555,21 +1757,45 @@ export default function AddSurface({
       )}
       <ImportPage embedded onReviewImport={onReviewImport} onStaged={onStaged} />
     </>
-  ) : door === 'board' ? (
-    <BoardDoor onSaved={(what) => { onAdded?.(what); onClose?.() }} onSaveState={setSaveState} />
-  ) : WORK_LOOKUP.includes(door) ? (
-    <AddLookup
-      initialKind={door}
-      lockKind
+  ) : modeIsHeld(mode) ? (
+    // HELD, AND IT SAYS SO. The owner set anthologies aside — "anthology is due
+    // for a revamp. we will tackle that later" — and then asked for the mode in
+    // the chooser anyway. Both are right: leaving it out makes the first screen
+    // lie about what the app holds, and half-wiring it ships something misleading.
+    <p className="microcopy">{t('add.mode.anthology.held.prose')}</p>
+  ) : modeNeedsTarget(mode) && !target ? (
+    // The container is still unnamed — the picker, on its own, with the mode row
+    // above it. This is the state a ＋ from the Library lands in.
+    <AddChooser
       sections={sections}
-      onAdded={(what) => onAdded?.(what)}
-      onCreated={onOpenMovie && door !== 'book' ? undefined : undefined}
+      mode={mode}
+      onMode={goMode}
+      target={target}
+      onTarget={(w) => setPickedTarget(w)}
+      onCreateWork={() => setLookup(true)}
+      boards={boards}
+      onNewBoard={() => setNewBoard(true)}
     />
+  ) : !settledDoor ? (
+    // THE RELEVANT ADD OPTIONS, which is the rest of the owner's second sentence.
+    // Only reached where the container genuinely does not know: a plain board, or a
+    // standalone quote. A book never gets here, because naming the book chose the
+    // form.
+    <div className="tp-field">
+      <MonoLabel>{t('add.door.which.label')}</MonoLabel>
+      <div className="flex flex-wrap gap-2">
+        {doors.map((d) => (
+          <button key={d} type="button" className="tp-btn tactile" onClick={() => setPickedDoor(d)}>
+            {DOOR_LABEL(d)}
+          </button>
+        ))}
+      </div>
+    </div>
   ) : (
     <QuoteForm
-      door={door}
-      initialTarget={initialTarget}
-      initialBoard={initialBoard}
+      door={settledDoor}
+      initialTarget={mode === 'work' ? target : null}
+      initialBoard={mode === 'board' ? target?.id ?? null : initialBoard}
       initialFields={initialFields}
       onSaved={() => onCaptured?.()}
       onWorkCreated={onWorkCreated}
@@ -1588,6 +1814,7 @@ export default function AddSurface({
         actions={
           <span className="flex shrink-0 items-center">
             {backBtn}
+            {modeMenu}
             <PageHelp screen="capture" />
             {saveBtn}
           </span>
@@ -1607,7 +1834,11 @@ export default function AddSurface({
             is where every other panel in the app puts it. */}
         <div className="mb-4 flex items-center gap-2">
           {backBtn}
-          <h2 className="display-title flex-1 text-xl">{title}</h2>
+          <div className="flex-1 min-w-0">
+            <h2 className="display-title text-xl">{title}</h2>
+            {subLine && <MonoLabel>{subLine}</MonoLabel>}
+          </div>
+          {modeMenu}
           <PageHelp screen="capture" />
           {saveBtn}
           {closeBtn}
