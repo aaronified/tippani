@@ -6,9 +6,12 @@ per role** — a subtitle track for a film, an ebook for a book, a text for an e
 — and two things to do with it: find where each quote sits, and show what is around
 it.
 
+— and then, when the quotes stop arriving, **a way to keep the context and throw
+the file away**, which is measured below at 29× smaller on the owner's own book.
+
 It is the spine. `docs/plans/locators-from-files.md` is the reader of these files
-and is written against them; this plan is where they come from, where they live and
-who can reach them.
+and is written against them; this plan is where they come from, where they live,
+who can reach them and when they go.
 
 Verified against `v3` at **`b51feaf`**. The branch moves — re-check a line before
 trusting it.
@@ -148,10 +151,48 @@ CREATE TABLE work_sources (
   -- What the reader called it, for the row that says which file this is.
   name       TEXT    NOT NULL DEFAULT '',
   bytes      INTEGER NOT NULL DEFAULT 0,
-  -- The fold of the bytes, so a re-upload of the same file is recognised as one.
+  -- The fold of the bytes, so a re-upload of the same file is recognised as one
+  -- -- and so a kept context can say whether it came from THIS file.
   sha256     TEXT    NOT NULL DEFAULT '',
+  -- PRUNED: the context was extracted and the file thrown away. The ROW STAYS,
+  -- with `path` empty, because it is the only record that this work ever had a
+  -- source -- what it was called and what its bytes hashed to. That is what lets
+  -- the app say "re-add V for Vendetta.srt" instead of "no source", and what lets
+  -- a re-upload be recognised as the same file. See The prune.
+  pruned_at  TEXT    NOT NULL DEFAULT '',
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- WHAT SURVIVES A PRUNE. One row per quote, because the windows barely overlap --
+-- measured at 1% on the owner's own book, so a shared span pool would be
+-- machinery bought for nothing.
+CREATE TABLE source_context (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source_id  INTEGER NOT NULL REFERENCES work_sources(id) ON DELETE CASCADE,
+  -- The quote this is the context of.
+  subject    TEXT    NOT NULL,          -- annotation | dialogue | utterance
+  item_id    INTEGER NOT NULL,
+  -- What came before, the span itself as the FILE has it, and what came after.
+  -- `body` is the file's words and not the reader's: a quote they tidied and the
+  -- line as published are both worth seeing, and only one of them is here.
+  before     TEXT    NOT NULL DEFAULT '',
+  body       TEXT    NOT NULL DEFAULT '',
+  after      TEXT    NOT NULL DEFAULT '',
+  -- THE CUT IS RECORDED BECAUSE IT CANNOT BE UNDONE. `unit` is paragraph | cue and
+  -- `span` is how many either side this was kept at, so the panel can say "two
+  -- paragraphs either side, kept on 14 March" rather than implying there is more.
+  unit       TEXT    NOT NULL,
+  span       INTEGER NOT NULL,
+  -- A subtitle's context is timed; a book's is not.
+  start_at   TEXT    NOT NULL DEFAULT '',
+  end_at     TEXT    NOT NULL DEFAULT '',
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX idx_source_context_one
+  ON source_context(user_id, subject, item_id);
+CREATE INDEX idx_source_context_source ON source_context(source_id);
 
 CREATE UNIQUE INDEX idx_work_sources_one
   ON work_sources(user_id, subject, subject_id, subject_key, role);
@@ -182,27 +223,32 @@ top-level directory also makes the backup question answerable in one place.
 random and the row is scoped by `user_id`; a request for another user's source is a
 404 like every other foreign row. There is no route that takes a path.
 
-### The backup — **recommendation: exclude, and make it a setting**
+### The backup — **the prune answers this, and the earlier recommendation is withdrawn**
 
 A new directory under `DataDir` is archived automatically, so *doing nothing*
 chooses "include" — which is why this has to be chosen.
 
-**Exclude source files from the archive by default.** A backup protects what cannot
-be got again. An EPUB can be downloaded a second time from wherever it came from;
-forty highlights and the hours behind them cannot. Excluding keeps the archive the
-size it is today, keeps a restore fast, and keeps the thing the owner moves between
-machines small enough to move.
+An earlier draft of this plan recommended excluding sources from the archive by
+default, on the grounds that an EPUB can be downloaded again and a highlight cannot.
+**The measurement under *The prune* withdraws that**, and the reason is arithmetic
+rather than principle: kept context is **~4% of the raw files**, so the owner's
+library carries ~1.5 MB pruned against ~41 MB raw. At 1.5 MB there is nothing to
+argue about.
 
-**The downside, stated plainly:** a restored library has its positions (those are
-rows, and they restore) but **no context until the files are re-added**, and the
-list of what is missing is the only thing the restore can offer. That is a real
-loss and the reader must be told at restore time rather than discovering it by
-pressing a dead control.
+So the rule splits along the line the reader has already drawn:
 
-So: `Sources/` is added to the archive's skip list beside the control entries, a
-setting turns it back on for a reader who would rather carry everything, and the
-restore reports how many sources the archive did not contain. Reversible in one
-flag, which is the reason to start on the cheap side.
+- **Kept context is always archived.** It is rows, it is tiny, and it is the half
+  that cannot be re-derived once the file is gone. Excluding it would make a restore
+  lose something no re-download can bring back.
+- **Raw source files follow a setting, default off.** They are the bulky half and
+  the recoverable half. A reader who wants a self-contained archive turns it on.
+- **The restore reports what the archive did not carry**, by work, so a dead control
+  is never the way this is discovered.
+
+That also means `Sources/` is skipped by the archive walk by default while the two
+new tables ride along in the database snapshot with no special handling at all —
+which is the cheap outcome, and it is cheap because of the prune rather than in
+spite of it.
 
 ### Deletion, and the orphan debt
 
@@ -262,24 +308,35 @@ a real file once is not a hypothetical.
 
 ---
 
-## The four doors
+## The doors
 
 All four open the same two verbs. **The verbs live in `actions.jsx` and nowhere
 else**, which is the repo's directive and also the file's own stated reason for
 existing.
 
 ```js
-// actions.jsx — actionsFor(kind, item, ctx), both where: ROW
-{ id: 'sourceAdd',    available: isWork && !!ctx.addSource }     // "Add a subtitle" / "Add the book"
-{ id: 'sourceApply',  available: isWork && !!ctx.applySource && !!item.hasSource }
+// actions.jsx — actionsFor(kind, item, ctx)
+{ id: 'sourceAdd',   where: ROW,      available: isWork && !!ctx.addSource }
+{ id: 'sourceApply', where: ROW,      available: isWork && !!ctx.applySource && item.sourceState === 'file' }
+{ id: 'sourcePrune', where: OVERFLOW, available: isWork && !!ctx.pruneSource  && item.sourceState === 'file' }
+{ id: 'inContext',   where: ROW,      available: !isWork && !!ctx.inContext && !!item.hasContext }
 ```
 
-**`sourceApply` is absent, not disabled, when there is no file** — the owner's *"and
+**Each is absent, not disabled, when it would do nothing** — the owner's *"and
 another to adjust as per it (when it is present)"*. The registry already expresses
-absence through `available`, so this is one predicate and no new mechanism. It needs
-`hasSource` on the work payload, which is one `EXISTS` in the work query.
+absence through `available`, so this is four predicates and no new mechanism.
 
-### 1 — the work-detail row
+**One field carries it: `sourceState` ∈ `none | file | pruned`.** Not two booleans —
+`hasSource` plus `isPruned` makes `{false, true}` a state nothing should be in, and
+somebody eventually writes the branch that handles it. One `LEFT JOIN` on the work
+query answers all three. Quotes carry `hasContext`, which is one `EXISTS` over
+`source_context` or the work's live file.
+
+**Prune sits in the overflow, not the row.** It is rare, it is destructive, and the
+registry's own rule is that the destructive thing is never adjacent to something
+that merely sets a field.
+
+### 1 — the work-detail panel
 
 Beside metadata fetch, which is its sibling: a file picker rather than a lookup.
 **And this is where `WorkDetails.jsx` starts rendering from the registry** instead
@@ -307,7 +364,30 @@ because Checks is where a reader goes when the app is waiting on them, and "this
 film has 30 quotes and no times" is exactly that. A work with quotes, no positions
 and no source is a row there with an Add button.
 
-### 4 — the global import
+### 4 — the work page, and the review card
+
+The owner's: *"this option should also be in the book details, and reviews screen."*
+
+Neither is new work, and that is the point of having put the verbs in the registry:
+
+- **`WorkDetail.jsx`** — the work *screen*, as against `WorkDetails.jsx`'s editable
+  panel. It renders `actionsFor` and the three source verbs arrive. Its header
+  already states the rule this depends on: *"what differs is a row in `workKinds.js`
+  — change one place, and every work page changes with it."* So the game exclusion
+  is a row there and not a condition typed into a screen.
+- **`review.jsx`** — the quiz card. It gets **In context** on the quote, which is
+  where an out-of-context line is most jarring: the card shows you a sentence with no
+  surroundings by design, and this is the way out of it.
+
+**Prune from the review card acts on the work, not the card**, and this is the one
+place a reader could reasonably get it wrong — you are looking at one quote and the
+button throws away a file serving thirty. So it names the work and the count in the
+confirmation, or it is not offered there at all. **Recommendation: offer it, named**
+— the owner's *"prune the stack"* describes exactly the moment of going through
+quotes and tidying behind yourself, and a verb that exists in three places and not
+the fourth is the drift `actions.jsx` was written to end.
+
+### 5 — the global import
 
 The one drop target takes these too, and **asks which work** — the owner's, and it
 is the one case where content genuinely cannot decide. A subtitle names no film
@@ -363,10 +443,23 @@ control on the panel, which would make every reader tune it on every quote.
 
 ### Where the work happens
 
-**Server reads the span, client draws it.** `GET /quotes/{kind}/{id}/context` opens
-the stored file, seeks to the recorded position, reads outward by the configured
-unit, and answers the spans. The file never leaves. This is the same division the
-subtitle screen uses and for the same reason — one parser, in Go, tested.
+**Server reads the span, client draws it.** `GET /quotes/{kind}/{id}/context`
+answers `{before, body, after, unit, span}`. The file never leaves. This is the same
+division the subtitle screen uses and for the same reason — one parser, in Go,
+tested.
+
+**And the endpoint has two backings, which is the hinge this whole plan turns on.**
+It asks for a quote's context and does not care where it comes from:
+
+1. **A `source_context` row**, if one was kept — answered as stored.
+2. **The file**, if it is still there — opened, seeked, read outward, closed.
+3. **Neither** — answered as absent, with *why*: pruned and added since, or never
+   had a source at all. Two different sentences, because they have two different
+   remedies.
+
+One interface, two backings. Pruning swaps the backing and changes nothing above it
+— no second endpoint, no branch in the panel, no "pruned mode". If the panel has to
+know, the abstraction is in the wrong place.
 
 **Nothing is extracted at upload and nothing is cached.** "For now, will not be read
 fully" is honoured literally: an EPUB is opened, the one spine document holding the
@@ -391,12 +484,124 @@ That is what `sha256` is doing in the table above.
 
 ---
 
+---
+
+## The prune — keep the context, throw the file away
+
+> *"add an option to parse the srt/ass/epub files and only keep the context text.
+> this will save on space. but no context for new quotes (until the file is uploaded
+> again). so user will keep it as long as they are actively adding new ones in the
+> works, and then they just prune the stack."*
+
+The reader's own lifecycle: the file is scaffolding. It earns its space while quotes
+are still arriving, and once they stop it is 1.4 MB holding 50 KB of usefulness.
+
+### What it saves — measured, not estimated
+
+Both supplied files, against the quotes the owner actually keeps for them.
+
+| | Raw file | Kept context | |
+| :-- | --: | --: | :-- |
+| *Dust of Dreams* (EPUB), 36 highlights, **2 paragraphs** either side | 1,455,315 B | **50,814 B** | **29× smaller** (3.5%) |
+| …at 5 paragraphs either side | 1,455,315 B | 95,007 B | 15× smaller (6.5%) |
+| *V for Vendetta* (SRT), 30 quotes, **5 cues** either side | 145,695 B | **11,410 B** | **12.8× smaller** (7.8%) |
+| …at 10 cues either side | 145,695 B | 19,579 B | 7.4× smaller (13.4%) |
+
+Extended over the owner's library — 27 books and 13 films — the source store goes
+from roughly **41 MB to about 1.5 MB**. That is the number that settles the backup
+question above, and it is why this option is worth building rather than worth
+mentioning.
+
+Three things the same measurement decided:
+
+- **Do not build span dedupe.** Overlapping windows collapse 180 paragraphs to 178
+  — **1%**. The owner's highlights are spread across a novel, not clustered, so a
+  shared span pool is machinery bought for one percent. One row per quote.
+- **A paragraph count alone is not enough of a floor.** Paragraphs in this novel
+  average 155 characters but the **median is 91** — dialogue exchanges, a line each.
+  Two either side of a short exchange is four short lines and reads as no context at
+  all. So the cut is *"N paragraphs, or M characters, whichever gives more"*, and the
+  character floor is what stops a fast exchange collapsing.
+- **The subtitle case saves an order of magnitude less** (12.8× against 29×) and on
+  a file a tenth the size. A reader pruning to save space is pruning ebooks; offering
+  it for subtitles is consistency, not economy, and the screen should not oversell it.
+
+### What the prune does
+
+One pass, in one request, with no goroutine outliving it:
+
+1. Read the stored file. For every located quote of that work, cut its window at the
+   reader's current setting.
+2. Write a `source_context` row per quote — `before`, `body`, `after`, and **`unit`
+   and `span` recorded**, because the cut cannot be undone and the panel has to be
+   able to say what it was.
+3. Delete the bytes. Keep the `work_sources` row, empty its `path`, stamp
+   `pruned_at`.
+
+**A quote with no position is skipped and counted.** Pruning cannot invent a
+location, so the confirmation says how many quotes will keep context and how many
+will not — before the file is gone, which is the only moment that number is useful.
+
+### The three things this costs, said before it is pressed
+
+The confirmation names all three. A prune is not reversible from inside the app, so
+a reader who did not understand it has lost something.
+
+- **New quotes get no context.** The owner's own line. A quote added after the prune
+  says *"no context — re-add the source"*, which names the remedy rather than
+  showing an empty panel.
+- **The window is frozen at the size it was cut at.** Prune at two paragraphs and
+  later raise the setting to five, and the old works stay at two. The panel says so
+  from `span`, rather than silently showing less than the setting promises.
+- **The locator matcher loses its input for that work.** Re-running the match needs
+  the file. Positions already applied are rows and survive; a new quote cannot be
+  placed.
+
+### Re-uploading, and why `sha256` is in the table
+
+Re-adding the file restores everything: full context again, new quotes placeable,
+the matcher runnable.
+
+**If the hash matches** the pruned row's, it is the same file: the kept context is
+still true, and the new upload simply supersedes it.
+
+**If it does not match**, it is a different file — another edition, another release,
+another cut — and the stored context was computed against text that is no longer
+there. **The kept rows are then re-derived from the new file, not merged with it.**
+Keeping both would mean one work whose context comes from two editions, with nothing
+on screen to say which line came from which, and that is a worse failure than
+re-doing the work.
+
+### Pruning the stack
+
+The owner's phrase is plural, so the operation is too.
+
+- **One work** — from any surface that offers the verbs (below).
+- **Everything** — a maintenance action listing each work with a raw source, its
+  size, when a quote was last added to it, and what the prune would leave. Sorted by
+  what it frees. *"Last added"* is the column that makes the decision: a work nobody
+  has added to in six months is the one to prune, and that is the reader's judgement
+  rather than a rule the app should apply on its own.
+
+**Nothing prunes automatically.** No age threshold, no size trigger, no sweep. It
+destroys something on the reader's behalf and the reader presses it.
+
+---
+
 ## Guards
 
 | Guard | What it needs |
 | :-- | :-- |
 | **No route serves a source file.** | The boundary this plan is allowed under. Assert no handler `ServeFile`s, streams or redirects to anything under `Sources/`; a route census in the test, not a code review |
 | **A context answer is bounded.** | The span is the configured unit and cannot be widened by a parameter into "send me the book" |
+| **The context endpoint answers the same shape from a file and from a pruned row.** | The hinge. One golden fixture read both ways, byte-identical answers |
+| **A prune keeps context for every located quote and no others.** | Count in equals count out, and the skipped ones were the unlocated ones |
+| **A prune deletes the bytes and keeps the row.** | `path` empty, `pruned_at` set, the file gone from disk, the name and `sha256` still readable |
+| **A quote added after a prune says why it has no context.** | "Pruned, re-add the source" and "never had a source" are two different answers, not one empty panel |
+| **The frozen window is reported, not implied.** | Prune at 2, raise the setting to 5, and the panel still says 2 for that work |
+| **Re-upload of a different file re-derives rather than merges.** | A changed `sha256` discards the old rows. One work's context never comes from two editions |
+| **Kept context is in the archive; raw files follow the setting.** | Both directions, since the default is the one nobody re-tests |
+| **Nothing prunes on its own.** | No sweep, no age rule, no size trigger — assert no caller but the handler |
 | **A second upload replaces the first, bytes included.** | Upload, upload again, assert one row, one file on disk, and the first path gone |
 | **Deleting a work deletes its sources.** | Row and bytes. This is the bug covers have; it must not be inherited |
 | **Another user's source is a 404.** | The standing invariant, on a new table |
@@ -429,12 +634,20 @@ That is what `sha256` is doing in the table above.
    `internal/importer/detect.go`
 5. **Door 3.** The Checks row for a work with quotes and no source — after
    `locators-from-files.md`'s section exists, since it lands in it.
-6. **Context.** The endpoint, the panel, the two settings, the fingerprint refusal.
+6. **Context.** The endpoint behind its two-backing interface, the panel, the two
+   settings, the fingerprint refusal. Write the interface first even though only one
+   backing exists yet — retrofitting it after the panel has learned to read files is
+   how the branch ends up in the panel.
    — `internal/httpapi/context.go` (new), the panel, `actions.jsx`
-7. **The orphan sweep**, for sources and for covers, in maintenance.
-8. **Help and infodots** — `en.txt` and `bn.txt`, which are a **frontend** change
-   and force a `web/dist` rebuild in the same commit.
-9. **Docs** — `docs/PLAN.md` gains the **Reversal paragraph** quoted at the top of
+7. **The prune.** `source_context`, the per-work pass, the confirmation that counts
+   what will and will not keep context, the frozen-window reporting, the re-upload
+   rule. Then the library-wide list sorted by what it frees.
+   — `internal/httpapi/prune.go` (new), maintenance
+8. **The orphan sweep**, for sources and for covers, in maintenance.
+9. **Help and infodots** — `en.txt` and `bn.txt`, which are a **frontend** change
+   and force a `web/dist` rebuild in the same commit. The prune confirmation is the
+   one that has to be written carefully: it destroys something.
+10. **Docs** — `docs/PLAN.md` gains the **Reversal paragraph** quoted at the top of
    this file and an entry for the backup default; `CHANGELOG.md`; `DEVELOPMENT.md`'s
    file map for the new package; `docs/troubleshoot.md` for the new `TIP-*` code;
    `docs/ui-glossary.html` for the panel.
@@ -459,7 +672,17 @@ By hand, against a restored backup rather than `seed.mjs`:
   number this plan predicts is ~21 MB against ~60 MB on the owner's own library.
 - Restore the small one and read what it says about the missing sources.
 - Jump to context from a book quote and from a film quote, and check the amount
-  reads as enough. **That judgement is the feature** and no test makes it.
+  reads as enough. **That judgement is the feature** and no test makes it. Do it
+  again on a fast dialogue exchange, where the paragraph median is 91 characters and
+  the character floor is what is being tested.
+- Prune *Dust of Dreams* and compare the numbers against this plan's predictions:
+  **1,455,315 B → ~50,814 B at two paragraphs**. A measured feature should be able
+  to reproduce its own arithmetic.
+- Add a quote to a pruned work and read what the panel says about it.
+- Re-upload the same file, then a different one, and confirm the first restores and
+  the second re-derives.
+- Prune from the review card and confirm the confirmation names the work, not the
+  quote you were looking at.
 - Rename an `.srt` to `.txt` and add it. Then rename one to `.ass.txt`, which is how
   the owner's own sample arrived.
 
@@ -473,6 +696,11 @@ By hand, against a restored backup rather than `seed.mjs`:
   keeps its monopoly because nothing here makes a call.
 - **Audio and video.** A speech has a recording; this app does not hold one.
 - **Versions or history.** A second upload replaces.
+- **Un-pruning.** The file is gone; the only way back is to add it again. An app
+  that offered to undo this would have to have kept the file.
+- **Automatic pruning** on age, size or a schedule. It destroys something on the
+  reader's behalf and no goroutine outlives its request anyway.
+- **Span dedupe between overlapping windows** — measured at 1% on real data.
 - **A per-user disk quota.**
 - **DRM'd files of any kind** — refused at the header, by name.
 - **Guessing the work from a filename**, at any door. Door 4 asks.
