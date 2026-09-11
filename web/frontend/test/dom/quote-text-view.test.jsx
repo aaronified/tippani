@@ -123,7 +123,16 @@ describe('the rest of what the board publishes', () => {
     start.onClick()
     // The mode is up with nothing picked — the bar holds its shape at zero, and
     // the row that started it is gone rather than offering to start it again.
-    await waitFor(() => expect(document.querySelector('.hand-card.is-selecting')).toBeTruthy())
-    expect(rows().some((r) => /^Select quotes$/.test(String(r.label)))).toBe(false)
+    //
+    // WAITED FOR ON THE ROW, NOT ON THE CARD, and that is the whole of a failure
+    // this case produced exactly once. It waited for `.hand-card.is-selecting` to
+    // appear and then read `rows()` in the SAME TICK — two different things
+    // re-rendering, asserted as though one implied the other. When the card's
+    // class landed first the menu was still the old one and the row was still
+    // there, which is a red test over working code: the mode had come up, the
+    // assertion just looked too early. Waiting on the thing the case is actually
+    // about removes the race rather than outrunning it.
+    await waitFor(() => expect(rows().some((r) => /^Select quotes$/.test(String(r.label)))).toBe(false))
+    expect(document.querySelector('.hand-card.is-selecting')).toBeTruthy()
   })
 })
