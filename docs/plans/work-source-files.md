@@ -9,6 +9,10 @@ it.
 — and then, when the quotes stop arriving, **a way to keep the context and throw
 the file away**, which is measured below at 29× smaller on the owner's own book.
 
+A file arrives one of two ways: **uploaded**, or **found on a read-only mount** the
+operator already keeps their library on. The second is the one that scales, and it
+is the same store either way.
+
 It is the spine. `docs/plans/locators-from-files.md` is the reader of these files
 and is written against them; this plan is where they come from, where they live,
 who can reach them and when they go.
@@ -146,8 +150,17 @@ CREATE TABLE work_sources (
   role       TEXT    NOT NULL,           -- subtitle | text
   -- WHAT THE BYTES ARE, from the magic bytes and never the extension.
   format     TEXT    NOT NULL,           -- srt | vtt | ass | epub | txt
-  -- The stored filename under Sources/, like a cover or a font.
+  -- WHERE THE BYTES ARE, and it means one of two things depending on `origin`:
+  -- a stored filename under Sources/ (like a cover or a font), or a path RELATIVE
+  -- to a configured mount root. Never an absolute path, so re-pointing a mount at
+  -- a moved library is a settings change and not a migration.
   path       TEXT    NOT NULL,
+  -- upload | mount. A mounted file is never copied, so a prune has nothing of ours
+  -- to delete -- see "A mounted source can still be pruned".
+  origin     TEXT    NOT NULL DEFAULT 'upload',
+  -- Which mount, when origin = mount. A box may have books and films on different
+  -- disks, and one going away must not take the other's rows with it.
+  mount_id   TEXT    NOT NULL DEFAULT '',
   -- What the reader called it, for the row that says which file this is.
   name       TEXT    NOT NULL DEFAULT '',
   bytes      INTEGER NOT NULL DEFAULT 0,
@@ -326,11 +339,16 @@ existing.
 another to adjust as per it (when it is present)"*. The registry already expresses
 absence through `available`, so this is four predicates and no new mechanism.
 
-**One field carries it: `sourceState` ∈ `none | file | pruned`.** Not two booleans —
-`hasSource` plus `isPruned` makes `{false, true}` a state nothing should be in, and
-somebody eventually writes the branch that handles it. One `LEFT JOIN` on the work
-query answers all three. Quotes carry `hasContext`, which is one `EXISTS` over
-`source_context` or the work's live file.
+**One field carries it: `sourceState` ∈ `none | file | mounted | pruned | missing`.**
+Not booleans — `hasSource` plus `isPruned` makes `{false, true}` a state nothing
+should be in, and somebody eventually writes the branch that handles it. One
+`LEFT JOIN` on the work query answers all of them. Quotes carry `hasContext`, which
+is one `EXISTS` over `source_context` or a readable file.
+
+**`missing` is the state a mount makes necessary.** A stored file is there or the
+app has a bug; a mounted one is there or the disk is not. So the work query stats
+the path, and a work whose mount has gone says *"the file is not where it was"* —
+which names the remedy — rather than *"no source"*, which does not.
 
 **Prune sits in the overflow, not the row.** It is rare, it is destructive, and the
 registry's own rule is that the destructive thing is never adjacent to something
@@ -387,7 +405,135 @@ confirmation, or it is not offered there at all. **Recommendation: offer it, nam
 quotes and tidying behind yourself, and a verb that exists in three places and not
 the fourth is the drift `actions.jsx` was written to end.
 
-### 5 — the global import
+### 5 — a read-only mount
+
+> *"or, the user may mount the book and song and the movie folders (strictly ro
+> mode), and the app will check the files and update all (via the checks screen).
+> that can be one easy route!"*
+
+It is the easy route, and it is the one that scales: a reader with three hundred
+books does not upload three hundred times. **A mounted file is never copied.** The
+row points at a path inside the mount, `Sources/` stays empty for it, and both
+locators and context read through.
+
+This is a fifth door onto the same store, not a second system.
+
+#### It is read-only twice, and only one of those is the app's promise
+
+- **The mount.** `docker-compose.yml` already carries the idiom, including an
+  opt-in mount annotated with its own risk (the Docker socket). A library mount
+  is `- /srv/books:/library/books:ro`, and the `:ro` is **the operator's**
+  guarantee, not the app's.
+- **The app.** Every open is `O_RDONLY`. Nothing under a mount is written,
+  renamed, moved or deleted, ever, including by the prune — which has no bytes of
+  its own to remove there. **A guard asserts it**, because "we only read" is the
+  kind of promise a later convenience feature quietly breaks.
+
+#### The security surface, which is new to this codebase
+
+**Nothing in this app reads a filesystem path a user supplied.** Every path today
+is derived from `DataDir` or is internal — a mount is the first, and that deserves
+saying rather than discovering.
+
+- **Admin only.** Mounts are configured by an administrator, through the
+  `requireAdmin` + global-`settings` pattern the metadata API keys already use.
+  `settings` is a key-value table with **no `user_id`**, which is right here — a
+  mount is a property of the box, not of a reader — and the consequence must be
+  stated: **every user's scan sees the same mount.** Files on it are the operator's,
+  not another reader's rows, so this does not breach per-user isolation; the
+  *proposals* it produces are per-user like everything else.
+- **The configured root is resolved once and every candidate path must stay under
+  it** after `filepath.EvalSymlinks`. A symlink out of the mount is the obvious
+  escape and the check is cheap.
+- **Regular files only.** No devices, no FIFOs, no sockets — a `Stat` per candidate,
+  and anything else is skipped and counted.
+- **No path from the client, ever.** The reader picks a work, not a path. No request
+  carries a filename, so there is no traversal to defend: the scan walks and the
+  client chooses from what it found.
+
+#### Scanning without a goroutine
+
+**This is the hard constraint and it has to be led with.** The invariant is
+absolute — *no goroutine outlives its request; no worker pool, ticker or
+scheduler* — and a folder scan is the shape that most wants one.
+
+**The repo has already answered this once, and the answer is Cleanup's.** Its scan
+is on demand, capped at 500 findings, and returns `truncated` with the reason
+written down: *"a silently truncated list is indistinguishable from a clean
+library."* The mount scan is the same shape:
+
+1. The reader presses **Scan** — it is never automatic, never on boot, never timed.
+2. The walk runs **inside the request**, bounded by a file cap and a wall-clock
+   budget, whichever comes first.
+3. It answers what it found, **`truncated`, and a cursor** — the path it stopped
+   at. Pressing Continue resumes from there.
+
+So a large library is several presses rather than one background job, and the
+reader can see it working instead of wondering. **The cost is honest** and should
+be in the plan rather than discovered: identifying one EPUB is **5 ms measured**
+(below), so a thousand-book shelf is about five seconds of walking — one press,
+not several. A cap exists for the pathological folder, not the ordinary one.
+
+#### Identifying a file without its filename — and books need no exception
+
+The standing rule is that content decides. For an EPUB it holds completely, and
+cheaply. Measured on the supplied file:
+
+> Reading the zip's central directory, `META-INF/container.xml` and the OPF —
+> **10,258 bytes of a 1,455,315-byte file, in 5.0 ms** — yields
+> `title: "Dust of Dreams: The Malazan Book of the Fallen 9"`,
+> `creator: "Steven Erikson"`, and identifiers including
+> **ISBN `9781409091530`** and **ASIN `B003QXMYUC`**.
+
+`books` has carried `isbn` and `asin` since 0001. So:
+
+1. **ISBN or ASIN match — exact, and no fuzz at all.** Where both sides have one,
+   this is not a guess and is accepted without a proposal's usual hedging.
+2. **Folded title + creator**, otherwise — and this is where it is genuinely fuzzy,
+   because the file says *"Dust of Dreams: The Malazan Book of the Fallen 9"* and
+   the library says *"Dust of Dreams"*. A proposal, not an assumption.
+3. **No match** — the file is listed as unclaimed, and the reader can attach it to a
+   work by hand. The scan never creates a work.
+
+**Subtitles are the exception and it is a real one.** An SRT contains no title, no
+year and no identifier — the owner's own file opens with an advertisement. So a
+film's subtitle is identified by **the folder it sits in and the video file beside
+it**, which is depending on a name. That is a departure from the standing rule and
+the plan states it as one rather than pretending otherwise: *there is nothing inside
+the file to read.* The layout it expects is the one every media server already
+assumes — `Movie Title (Year)/…` — and where the guess is wrong, the reader
+reassigns it. Songs are the same: an `.lrc` names nothing, so its filename and
+folder are all there is.
+
+**A show is per episode**, so `S01E04` in the name is part of the same
+name-based reading, and `subject_key` already carries the episode.
+
+#### What lands in Checks
+
+Everything, and that is the owner's *"update all (via the checks screen)"*. The scan
+writes no source rows on its own — it proposes them, in the same section, under the
+same durable-refusal rule as everything else:
+
+- **Attach** this file to this work (exact identifier matches grouped for accept-all,
+  fuzzy ones one press each — the split *Approving* already draws).
+- **Then the locators**, because attaching a subtitle to a film whose lines have no
+  times is a proposal waiting to be made. One scan, two kinds of row.
+- **Refused once, not offered again** — `cleanup_ignores`' key shape, hashed over the
+  path and the work, so declining to attach a file stays declined through rescans.
+
+#### A mounted source can still be pruned, and that is not redundant
+
+Pruning a mounted file frees nothing — there is nothing of ours to free. It does
+something else, and it is worth having: **it makes the context survive the mount
+going away.** A disk unplugged, a container restarted without the volume, a NAS
+off — the file vanishes and every context jump with it. Pruning first keeps the
+spans in the database, where the backup already carries them.
+
+So the prune confirmation reads differently for a mounted source: not *"this frees
+1.4 MB"* but *"this keeps the context if the mount disappears"*. Same operation,
+honest about which benefit applies.
+
+### 6 — the global import
 
 The one drop target takes these too, and **asks which work** — the owner's, and it
 is the one case where content genuinely cannot decide. A subtitle names no film
@@ -602,6 +748,16 @@ destroys something on the reader's behalf and the reader presses it.
 | **Re-upload of a different file re-derives rather than merges.** | A changed `sha256` discards the old rows. One work's context never comes from two editions |
 | **Kept context is in the archive; raw files follow the setting.** | Both directions, since the default is the one nobody re-tests |
 | **Nothing prunes on its own.** | No sweep, no age rule, no size trigger — assert no caller but the handler |
+| **Nothing under a mount is ever opened for writing.** | The promise the app makes, as against the one `:ro` makes. Assert every open under a mount root is `O_RDONLY`, and that no delete, rename or create path can reach one — a mounted prune removes rows, never bytes |
+| **A path outside the mount root is refused.** | After `EvalSymlinks`. A symlink pointing out is the escape, and the fixture is a symlink |
+| **Only regular files are read.** | Devices, FIFOs and sockets are skipped and counted, never opened |
+| **No request carries a path.** | The client names a work, never a filename. A route census, because this is the property that makes traversal unreachable rather than defended |
+| **Mount config is admin-only.** | A non-admin `PUT` is refused, like the metadata keys it copies |
+| **The scan is bounded and resumable.** | A folder past the cap answers `truncated` with a cursor, and Continue from that cursor covers the rest exactly once — no gap, no repeat |
+| **No goroutine outlives the scan request.** | The invariant, on the feature most likely to break it. Assert goroutine count before and after |
+| **An identifier match is exact and a title match is not.** | An ISBN hit attaches without hedging; a folded-title hit is a proposal. The supplied EPUB is the fixture — its title carries "The Malazan Book of the Fallen 9" and the library's does not |
+| **A vanished mount reads as `missing`, not `none`.** | Different sentence, different remedy |
+| **A refused attachment is not offered again.** | `cleanup_ignores`' key shape, hashed over path and work |
 | **A second upload replaces the first, bytes included.** | Upload, upload again, assert one row, one file on disk, and the first path gone |
 | **Deleting a work deletes its sources.** | Row and bytes. This is the bug covers have; it must not be inherited |
 | **Another user's source is a 404.** | The standing invariant, on a new table |
@@ -643,14 +799,23 @@ destroys something on the reader's behalf and the reader presses it.
    what will and will not keep context, the frozen-window reporting, the re-upload
    rule. Then the library-wide list sorted by what it frees.
    — `internal/httpapi/prune.go` (new), maintenance
-8. **The orphan sweep**, for sources and for covers, in maintenance.
-9. **Help and infodots** — `en.txt` and `bn.txt`, which are a **frontend** change
+8. **The mount.** Admin settings for the roots, the `O_RDONLY` and containment
+   guards first and the walk second, EPUB identification by ISBN/ASIN then title,
+   the bounded resumable scan, the name-based reading for subtitles and lyrics, and
+   the attach proposals into Checks. **Take the guards before the feature** — this is
+   the first path in the codebase that a user chose, and the tests are what make the
+   rest of it boring. — `internal/mount/` (new), `internal/httpapi/mount.go` (new),
+   `docker-compose.yml`
+9. **The orphan sweep**, for sources and for covers, in maintenance.
+10. **Help and infodots** — `en.txt` and `bn.txt`, which are a **frontend** change
    and force a `web/dist` rebuild in the same commit. The prune confirmation is the
    one that has to be written carefully: it destroys something.
-10. **Docs** — `docs/PLAN.md` gains the **Reversal paragraph** quoted at the top of
+11. **Docs** — `docs/PLAN.md` gains the **Reversal paragraph** quoted at the top of
    this file and an entry for the backup default; `CHANGELOG.md`; `DEVELOPMENT.md`'s
-   file map for the new package; `docs/troubleshoot.md` for the new `TIP-*` code;
-   `docs/ui-glossary.html` for the panel.
+   file map for the new packages; `docs/troubleshoot.md` for the new `TIP-*` codes;
+   `docs/ui-glossary.html` for the panel; and **`docker-compose.yml` gains the
+   commented `:ro` library mount** beside the two opt-ins it already documents,
+   which is where most readers will meet this feature at all.
 
 ## Verification
 
@@ -683,6 +848,14 @@ By hand, against a restored backup rather than `seed.mjs`:
   the second re-derives.
 - Prune from the review card and confirm the confirmation names the work, not the
   quote you were looking at.
+- Mount a folder `:ro`, scan, and read the proposals. Then mount one containing a
+  symlink pointing outside it and confirm the walk refuses rather than follows.
+- Scan a folder past the cap and press Continue; confirm the second pass covers the
+  rest exactly once.
+- Unmount the volume and reopen a work that used it — it must say the file is not
+  where it was, not that there is no source.
+- Remount read-write and confirm the app still never writes: the `:ro` is the
+  operator's promise and this checks ours.
 - Rename an `.srt` to `.txt` and add it. Then rename one to `.ass.txt`, which is how
   the owner's own sample arrived.
 
@@ -701,6 +874,18 @@ By hand, against a restored backup rather than `seed.mjs`:
 - **Automatic pruning** on age, size or a schedule. It destroys something on the
   reader's behalf and no goroutine outlives its request anyway.
 - **Span dedupe between overlapping windows** — measured at 1% on real data.
+- **Lyrics embedded in an MP3.** The owner's: *"lrc embedded in mp3 will not be
+  processed for now."* ID3 `USLT`/`SYLT` frames are not read, and **no audio file is
+  opened at all** — a mounted music folder is scanned for `.lrc` and `.txt`
+  sidecars only. Stated rather than assumed, because "mount the song folder" sounds
+  like it includes the songs.
+- **Watching a mount for changes.** No inotify, no poll, no timer — that is a
+  goroutine outliving its request by definition. The reader presses Scan.
+- **Writing to a mount**, including moving, renaming or tidying a library. Other
+  applications do that properly and this one is a guest on their disk.
+- **Creating a work from a scanned file.** The scan attaches files to works that
+  exist; it does not populate a shelf from a folder, which is the catalogue this
+  app has already refused to become.
 - **A per-user disk quota.**
 - **DRM'd files of any kind** — refused at the header, by name.
 - **Guessing the work from a filename**, at any door. Door 4 asks.
