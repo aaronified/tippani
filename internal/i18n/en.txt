@@ -4420,6 +4420,12 @@ staging.counts.works.other = {n} works waiting, no quotes
 # this narrows it to the file being worked through. {name} is the uploaded
 # filename, or the source's name when the file had none.
 staging.filter.file.label = File
+
+# The strip of destination covers under the file filter, and its "everything" chip.
+# A reader with four exports of one library asks "what is going into THIS book" far
+# more often than "what did that file bring".
+staging.filter.work.aria = Narrow the queue to one destination
+staging.filter.all-works.label = All {n} works
 staging.filter.batch.aria = Import batch
 staging.filter.all-files.label = All files ({n})
 staging.filter.batch.label = {name} · {n}

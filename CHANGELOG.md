@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failing, and no key at all. **And the Amazon marketplace is two letters now** — `in`,
   `com`, `com.au` — instead of the whole `www.amazon.in`, which was the widest thing on
   the card. Paste any form of it and it still works.
+- **The import queue can be narrowed to a book, not just to a file.** A strip of covers
+  under the file filter says where each waiting group is going, and pressing one shows only
+  the lines bound for that work — across every file they arrived in. Four Kindle exports of
+  one library used to be four separate things to work through; now they are one book with
+  four files behind it. A destination with no artwork gets the usual stand-in, and the strip
+  stays out of the way when everything in the queue is going to the same place.
+
 - **Every locator a queued import row carries can be corrected before you approve it.**
   Twelve fields went through the queue unfixable: a show's episode name, a game's act and
   quest, and the nine that place a quote belonging to no book and no film — who said it,

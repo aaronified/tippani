@@ -7,6 +7,10 @@ import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { chapterLabel, episodeLabel } from './text.js'
 import { CastCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
 import { fieldKeys, QUOTE_KIND_DOORS } from './addFields.js'
+// THE APP'S ONE ANSWER to "a path stored is not a picture arriving" — the same
+// component every other face and cover in the app goes through, so a missing
+// cover draws this screen's stand-in rather than a broken tile.
+import { Face } from './characterRows.jsx'
 import {
   ANNOTATION_HEX,
   BulkBar,
@@ -30,6 +34,7 @@ import {
   partialDateInputValue,
   partialDateValue,
   PartialDateField,
+  Scroller,
   SectionHead,
   Select,
   splitCommas,
@@ -92,6 +97,8 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
   const [busy, setBusy] = useState(false)
   const [flash, setFlash] = useState('')
   const [panel, setPanel] = useState('') // '' | 'fields' | 'move' | 'formula'
+  // 'all', or a destKey — see the note on the destination filter below.
+  const [dest, setDest] = useState('all')
   const mobile = useIsMobileScreen()
   const reqSeq = useRef(0)
 
@@ -119,11 +126,54 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
   const works = queue?.works || []
   const quotes = queue?.quotes || []
 
+  // NARROWING BY DESTINATION, WHICH IS THE OTHER QUESTION. The file filter answers
+  // "what did THIS export bring"; this answers "what is going into THIS book", and a
+  // reader with four Kindle exports of one library has the second question far more
+  // often. The endpoint has taken `?work_id=` beside `?batch_id=` all along.
+  //
+  // BY DESTINATION AND NOT BY STAGED WORK. Four exports of one library stage four
+  // separate `staged_works` rows that all land on the same book, so keying the filter
+  // on the staged id would offer the same title four times and narrow to a quarter of
+  // its quotes. `target_id` is the thing a reader means by "this book".
+  //
+  // A GROUP BOUND FOR A NEW WORK IS ITS OWN ENTRY, keyed `new:<staged id>`: it has no
+  // destination to be grouped under, and folding every such row into one "new" bucket
+  // would put an unrelated film and book behind one chip.
+  const destKey = (w) => (w.target_id ? `t:${w.kind === 'book' ? 'b' : 'm'}:${w.target_id}` : `new:${w.id}`)
+  // The works this queue holds, one per destination, in queue order.
+  const dests = useMemo(() => {
+    const seen = new Map()
+    for (const w of works) {
+      if (batch !== 'all' && String(w.batch_id) !== String(batch)) continue
+      const key = destKey(w)
+      if (!seen.has(key)) seen.set(key, { key, title: w.target_title || w.title, cover: w.target_cover || '', kind: w.kind })
+    }
+    return [...seen.values()]
+  }, [works, batch])
+  // A destination the queue no longer holds must not hide every row while its own
+  // chip reads as chosen — the same trap the batch filter's fallback above names.
+  useEffect(() => {
+    setDest((d) => (d !== 'all' && !dests.some((x) => x.key === d) ? 'all' : d))
+  }, [dests])
+
+  const workIds = useMemo(() => {
+    const ids = new Set()
+    for (const w of works) if (dest === 'all' || destKey(w) === dest) ids.add(w.id)
+    return ids
+  }, [works, dest])
+
   // A batch filter, not a batch view: the queue stays one list, and the filter
-  // narrows it to the file you are working through.
+  // narrows it to the file you are working through. The two filters INTERSECT —
+  // "this book, out of that file" is a question, and either alone is the other's
+  // `all`.
   const shownQuotes = useMemo(
-    () => (batch === 'all' ? quotes : quotes.filter((q) => String(q.batch_id) === String(batch))),
-    [quotes, batch],
+    () =>
+      quotes.filter(
+        (q) =>
+          (batch === 'all' || String(q.batch_id) === String(batch)) &&
+          (dest === 'all' || workIds.has(q.staged_work_id)),
+      ),
+    [quotes, batch, dest, workIds],
   )
   // Grouped by target work, in queue order, so a group heading can say where its
   // quotes are going. Driven from the works list rather than from the quotes, so a
@@ -137,9 +187,10 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
     }
     return works
       .filter((w) => (batch === 'all' || String(w.batch_id) === String(batch)) &&
+                     (dest === 'all' || workIds.has(w.id)) &&
                      (byWork.has(w.id) || w.quotes === 0))
       .map((w) => ({ work: w, items: byWork.get(w.id) || [] }))
-  }, [shownQuotes, works, batch])
+  }, [shownQuotes, works, batch, dest, workIds])
 
   const shownIds = shownQuotes.map((q) => q.id)
   const selectedIds = shownIds.filter((id) => sel.has(id))
@@ -303,6 +354,49 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
           <span className="microcopy">{t('staging.select-all.label', { n: shownIds.length })}</span>
         </label>
       </div>
+
+      {/* WHERE THESE QUOTES ARE GOING, as a strip of covers — a SECOND row rather
+          than a second control in the filter row above, because it is pictures and a
+          dropdown of titles beside a dropdown of filenames would be the same control
+          twice. The poster is the whole point: it is what lets a reader pick a book
+          out of a queue by looking.
+
+          ONE CHIP IS NOT A CHOICE. A queue holding a single destination draws
+          nothing — the filter would narrow to what is already on screen, and a
+          control that cannot change anything is a control the reader learns to stop
+          reading. `Scroller` because the row scrolls when a batch brings in a
+          shelf's worth, and the app's rule is that an edge fade is what says so. */}
+      {dests.length > 1 && (
+        <Scroller axis="x" className="staging-dest-strip" aria-label={t('staging.filter.work.aria')}>
+          <button
+            type="button"
+            className={'tp-filter-chip' + (dest === 'all' ? ' active' : '')}
+            onClick={() => setDest('all')}
+          >
+            {t('staging.filter.all-works.label', { n: dests.length })}
+          </button>
+          {dests.map((d) => (
+            <button
+              key={d.key}
+              type="button"
+              className={'tp-filter-chip staging-dest-chip' + (dest === d.key ? ' active' : '')}
+              onClick={() => setDest(dest === d.key ? 'all' : d.key)}
+            >
+              {/* THE APP'S ONE ANSWER to "a path stored is not a picture arriving",
+                  so a destination with no artwork gets the stand-in rather than a
+                  broken tile — and a NEW work, which has no destination at all,
+                  gets it by the same route with no branch here. */}
+              <Face
+                src={d.cover}
+                name={d.title}
+                className="staging-dest-face"
+                fallback={<span className="staging-dest-blank" aria-hidden="true" />}
+              />
+              <span>{d.title}</span>
+            </button>
+          ))}
+        </Scroller>
+      )}
 
       <BulkBar n={n} onClear={clearSel}>
         {/* The toast names the CATEGORY, not the token. It said "colour → blue"

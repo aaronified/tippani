@@ -4412,6 +4412,10 @@ staging.counts.works.other = {n}টা উৎস বাকি, কোনও উ�
 # this narrows it to the file being worked through. {name} is the uploaded
 # filename, or the source's name when the file had none.
 staging.filter.file.label = ফাইল
+
+# The strip of destination covers under the file filter, and its "everything" chip.
+staging.filter.work.aria = সারি কমিয়ে একটি গন্তব্যে আনুন
+staging.filter.all-works.label = সবগুলো ({n}টি) উৎস
 # bn: The control picks a file, so the file is what it is called; Bengali needs no word for a batch.
 staging.filter.batch.aria = ইমপোর্টের ফাইল
 staging.filter.all-files.label = সব ফাইল ({n})

@@ -49,6 +49,11 @@ type stagedWorkPreview struct {
 	TargetID     int64  `json:"target_id"`    // 0 = a new row would be created
 	TargetTitle  string `json:"target_title"` // the library row it would join
 	TargetYear   int    `json:"target_year"`
+	// The destination's artwork, so a reader can pick a work out of a queue by
+	// looking rather than by reading. `books.cover_path` or `movies.poster_path`,
+	// whichever kind this is, and "" when the row would create a NEW work — the
+	// same state TargetTitle is already in, so no caller needs a second branch.
+	TargetCover string `json:"target_cover"`
 	Ambiguous    bool   `json:"ambiguous"`    // more than one same-title candidate
 	Alternatives int    `json:"alternatives"` // how many were passed over
 }
@@ -609,6 +614,8 @@ type stagedWorkRow struct {
 	TargetID     int64    `json:"target_id"`
 	TargetTitle  string   `json:"target_title"`
 	TargetYear   int      `json:"target_year"`
+	TargetCover  string   `json:"target_cover"` // see stagedWorkPreview
+
 	Ambiguous    bool     `json:"ambiguous"`
 	Alternatives int      `json:"alternatives"`
 }
@@ -850,10 +857,10 @@ func (s *Server) listStagedWorks(uid int64) ([]stagedWorkRow, error) {
 		row := p.row
 		if row.TargetID != 0 {
 			row.Pinned = true
-			if ok, title, year, err := s.libraryWork(uid, p.targetKind, row.TargetID); err != nil {
+			if ok, dest, err := s.libraryWork(uid, p.targetKind, row.TargetID); err != nil {
 				return nil, err
 			} else if ok {
-				row.TargetTitle, row.TargetYear = title, year
+				row.TargetTitle, row.TargetYear, row.TargetCover = dest.Title, dest.Year, dest.Cover
 			} else {
 				// The pinned row was deleted while the quotes waited. Drop the
 				// stale pin from the preview so the queue shows what approval
@@ -867,6 +874,11 @@ func (s *Server) listStagedWorks(uid int64) ([]stagedWorkRow, error) {
 				return nil, err
 			}
 			row.TargetID, row.TargetTitle, row.TargetYear = resolved.TargetID, resolved.TargetTitle, resolved.TargetYear
+			// THE PREVIEW PATH CARRIES THE COVER TOO, and forgetting it here would
+			// leave exactly half the queue with artwork: a PINNED row reads through
+			// libraryWork above, an unpinned one through previewStagedTarget, and a
+			// reader cannot tell which of their rows is which.
+			row.TargetCover = resolved.TargetCover
 			row.Ambiguous, row.Alternatives = resolved.Ambiguous, resolved.Alternatives
 		}
 		out = append(out, row)
@@ -897,7 +909,11 @@ func (s *Server) previewStagedTarget(uid int64, row stagedWorkRow) (stagedWorkPr
 		}
 		if id != 0 {
 			out.TargetID = id
-			if err := tx.QueryRow(`SELECT title FROM books WHERE id = ?`, id).Scan(&out.TargetTitle); err != nil {
+			// COALESCE because cover_path is nullable on books and poster_path on
+			// movies: a work with no artwork is the ordinary case, not an error, and
+			// "" is what the client already reads as "draw the stand-in".
+			if err := tx.QueryRow(`SELECT title, COALESCE(cover_path, '') FROM books WHERE id = ?`, id).
+				Scan(&out.TargetTitle, &out.TargetCover); err != nil {
 				return out, err
 			}
 		}
@@ -910,7 +926,8 @@ func (s *Server) previewStagedTarget(uid int64, row stagedWorkRow) (stagedWorkPr
 	if anchor.ID != 0 {
 		out.TargetID, out.TargetYear = anchor.ID, anchor.MatchedYear
 		out.Ambiguous, out.Alternatives = anchor.Ambiguous, anchor.Alternatives
-		if err := tx.QueryRow(`SELECT title FROM movies WHERE id = ?`, anchor.ID).Scan(&out.TargetTitle); err != nil {
+		if err := tx.QueryRow(`SELECT title, COALESCE(poster_path, '') FROM movies WHERE id = ?`, anchor.ID).
+			Scan(&out.TargetTitle, &out.TargetCover); err != nil {
 			return out, err
 		}
 	}
@@ -919,23 +936,34 @@ func (s *Server) previewStagedTarget(uid int64, row stagedWorkRow) (stagedWorkPr
 
 // libraryWork reads a pinned destination. ok=false means the row is gone (or was
 // never the caller's), which is not an error — the pin is simply stale.
-func (s *Server) libraryWork(uid int64, kind string, id int64) (bool, string, int, error) {
+// A STRUCT RATHER THAN A FIFTH RETURN VALUE. Four was already at the edge of what
+// reads; the cover would make it five positional values a caller has to get in the
+// right order, and `(true, title, year, cover, nil)` is a line nobody can check by
+// eye. The named fields also say which of the two column pairs this row came out of.
+type libraryWorkRow struct {
+	Title string
+	Year  int
+	Cover string // books.cover_path or movies.poster_path, "" when there is none
+}
+
+func (s *Server) libraryWork(uid int64, kind string, id int64) (bool, libraryWorkRow, error) {
 	var (
-		title string
-		year  int
-		err   error
+		out libraryWorkRow
+		err error
 	)
 	if kind == "book" {
-		err = s.Store.DB.QueryRow(`SELECT title, COALESCE(published_year, 0) FROM books WHERE id = ? AND user_id = ?`,
-			id, uid).Scan(&title, &year)
+		err = s.Store.DB.QueryRow(
+			`SELECT title, COALESCE(published_year, 0), COALESCE(cover_path, '') FROM books WHERE id = ? AND user_id = ?`,
+			id, uid).Scan(&out.Title, &out.Year, &out.Cover)
 	} else {
-		err = s.Store.DB.QueryRow(`SELECT title, COALESCE(release_year, 0) FROM movies WHERE id = ? AND user_id = ?`,
-			id, uid).Scan(&title, &year)
+		err = s.Store.DB.QueryRow(
+			`SELECT title, COALESCE(release_year, 0), COALESCE(poster_path, '') FROM movies WHERE id = ? AND user_id = ?`,
+			id, uid).Scan(&out.Title, &out.Year, &out.Cover)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, "", 0, nil
+		return false, libraryWorkRow{}, nil
 	}
-	return err == nil, title, year, err
+	return err == nil, out, err
 }
 
 // listStagedQuotes returns the staged quotes matching the filter plus the

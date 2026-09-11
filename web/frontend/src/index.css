@@ -2624,6 +2624,47 @@
     min-width: 0;
   }
   .trash-face img,
+  /* The strip itself, and it is a SCROLLER: the app's rule is that an edge fade is
+     what says a row scrolls, and a fade can only appear over a box that can. Same
+     shape as .board-head-chips, for the same reason — a row of chips that a batch
+     can fill past the edge. */
+  .staging-dest-strip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    overflow-x: auto;
+    /* Flinging this row to its end must not then start moving the page behind it —
+       the standing rule every scroller in the app answers to. */
+    overscroll-behavior-x: contain;
+  }
+  .staging-dest-strip > * { flex: none; }
+
+  /* THE DESTINATION STRIP on the import queue — a cover and a title per chip, so a
+     reader picks a book out of the queue by looking rather than by reading a
+     dropdown of filenames. Sized in `em` because the chip holds text beside it and
+     the whole row has to grow with the type dials; a px tile beside scaling words
+     is the thing typescale.test.js exists to catch. */
+  .staging-dest-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+  }
+  .staging-dest-face,
+  .staging-dest-blank {
+    /* 2:3 is a book jacket and a film poster alike. `flex: 0 0 auto` so a long title
+       squeezes the words and never the picture. */
+    width: 1.4em;
+    height: 2.1em;
+    border-radius: 3px;
+    object-fit: cover;
+    flex: 0 0 auto;
+  }
+  .staging-dest-blank {
+    border: 1px solid var(--line);
+    background: var(--sunk, var(--raised));
+  }
+
   .trash-face-blank {
     width: 2.5em;
     height: 2.5em;
