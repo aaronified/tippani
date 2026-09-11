@@ -5,6 +5,7 @@ import { t, tNodes } from './i18n.js'
 import { quoteKindMeta } from './quoteKind.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { chapterLabel, episodeLabel } from './text.js'
+import { CastCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
 import {
   ANNOTATION_HEX,
   BulkBar,
@@ -366,6 +367,22 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
         {editing && (
           <StagedQuoteForm
             quote={editing}
+            // THE LIBRARY WORK THIS ROW WILL LAND ON, so the editor can offer what
+            // that work already holds — its cast, its chapters, its packs.
+            //
+            // LOOKED UP HERE RATHER THAN THREADED THROUGH THE GROUP AND THE ROW.
+            // `works` is already in scope and a staged quote already names its
+            // staged work; passing it down two components that would do nothing but
+            // forward it is the shape of prop that goes missing the day one of them
+            // is edited.
+            //
+            // `target_id` IS THE WHOLE CONDITION and it is often zero: a staged work
+            // that matched nothing in the library is a NEW work, and a new work has
+            // no cast and no chapters to suggest from. The editor is handed null and
+            // draws plain boxes, which is correct rather than degraded — there is
+            // nothing to offer, and offering another work's chapters would be worse
+            // than offering none.
+            work={works.find((w) => w.id === editing.staged_work_id) || null}
             onCancel={() => setEditing(null)}
             onSaved={async (fields) => {
               const r = await json('POST', '/import/staged/bulk', { ids: [editing.id], ...fields })
@@ -833,7 +850,20 @@ function Panel({ title, children }) {
 // endpoint with a single id, so there is one set of validation rules; the quote's
 // own text is not editable here, because a staged row is a record of what the file
 // said. Fix wording after approval, in the normal edit form.
-function StagedQuoteForm({ quote, onSaved, onCancel }) {
+function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
+  // WHAT THE DESTINATION ALREADY KNOWS, through the hook the add and edit forms
+  // both use. The owner's point on this screen: it is the one place a value is most
+  // likely to be a near-miss of one that already exists — an importer writes "Ch. 4"
+  // where the library says "Chapter 4", and "Kim Kitsuragi" where a cast row says
+  // "Kim Kitsuragi ". A queue with no suggestions is the queue asking the reader to
+  // remember what they typed last month.
+  //
+  // NULL UNTIL THE ROW HAS A DESTINATION, which `useWorkSuggestions` handles by
+  // fetching nothing — see the `key` guard in the hook. A staged work bound for a
+  // NEW library record legitimately has nothing behind it.
+  const suggest = useWorkSuggestions(
+    work?.target_id ? { kind: work.kind === 'movie' ? 'screen' : 'book', id: work.target_id } : null,
+  )
   const [f, setF] = useState({
     chapter: quote.chapter || '',
     // Kept as a string for the same reason season is: '' clears it, and the
@@ -904,10 +934,41 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
           and 01:02:03 is a picture of a time format. */}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t('common.field.chapter-no.label')} inputMode="decimal" placeholder={t('staging.form.chapter-no.placeholder')} value={f.chapter_no} onChange={upd('chapter_no')} />
-        <Field label={t('common.field.chapter-name.label')} nameCase placeholder={t('staging.form.chapter.placeholder')} value={f.chapter} onChange={upd('chapter')} />
+        {/* FOUR BOXES GAIN THE LIBRARY'S OWN ANSWERS and the rest stay plain, which
+            is not a partial job: a location, a season, an episode number and a
+            timestamp have no pool to draw on — they are positions, not names, and a
+            list of other people's page numbers is noise.
+            FREE TEXT WITH SUGGESTIONS, NEVER A PICKER. Every one of these is
+            optional free text at the API, so a chapter the library has never seen
+            stays typeable — the helper must not become a cage, which is the rule
+            SuggestCombo states for itself. */}
+        <SuggestCombo
+          label={t('common.field.chapter-name.label')}
+          placeholder={t('staging.form.chapter.placeholder')}
+          value={f.chapter}
+          onChange={(v) => setF((d) => ({ ...d, chapter: v }))}
+          options={suggest.chapterNames.map((name) => ({ name }))}
+        />
         <Field label={t('common.field.location.label')} placeholder={t('staging.form.location.placeholder')} value={f.location} onChange={upd('location')} />
-        <Field label={t('common.field.character.label')} nameCase placeholder={t('staging.form.character.placeholder')} value={f.character} onChange={upd('character')} />
-        <Field label={t('common.field.actor.label')} nameCase placeholder={t('staging.form.actor.placeholder')} value={f.actor} onChange={upd('actor')} />
+        <CastCombo
+          label={t('common.field.character.label')}
+          placeholder={t('staging.form.character.placeholder')}
+          value={f.character}
+          onChange={(v) => setF((d) => ({ ...d, character: v }))}
+          cast={suggest.cast}
+        />
+        {/* THE ACTOR BOX TAKES THE SAME CAST, the other way round — `field` decides
+            which of a row's two names this box is for and which becomes the second
+            line under it. Typing "robbie" shows Margot Robbie with Harley Quinn
+            beneath, which is how a reader knows the name matched a real row. */}
+        <CastCombo
+          label={t('common.field.actor.label')}
+          field="actor"
+          placeholder={t('staging.form.actor.placeholder')}
+          value={f.actor}
+          onChange={(v) => setF((d) => ({ ...d, actor: v }))}
+          cast={suggest.cast}
+        />
         <Field label={t('common.field.season.label')} placeholder={t('staging.form.season.placeholder')} value={f.season} onChange={upd('season')} />
         <Field label={t('common.field.episode.label')} placeholder={t('staging.form.episode.placeholder')} value={f.episode} onChange={upd('episode')} />
         <Field label={t('common.field.timestamp.label')} placeholder={t('staging.form.timestamp.placeholder')} value={f.timestamp} onChange={upd('timestamp')} />
@@ -928,7 +989,13 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
             does not take them either, and a control that posts a field the server
             drops is worse than no control. They are a server change first. */}
         <Field label={t('common.field.timestamp-end.label')} placeholder={t('add.form.timestamp-end.placeholder')} value={f.timestamp_end} onChange={upd('timestamp_end')} />
-        <Field label={t('common.field.dlc.label')} nameCase placeholder={t('add.form.dlc.placeholder')} value={f.dlc} onChange={upd('dlc')} />
+        <SuggestCombo
+          label={t('common.field.dlc.label')}
+          placeholder={t('add.form.dlc.placeholder')}
+          value={f.dlc}
+          onChange={(v) => setF((d) => ({ ...d, dlc: v }))}
+          options={suggest.packs.map((name) => ({ name }))}
+        />
         <Field label={t('common.field.language.label')} nameCase placeholder={t('common.field.language.placeholder')} value={f.language} onChange={upd('language')} />
       </div>
       <div className="flex flex-wrap items-center gap-4">

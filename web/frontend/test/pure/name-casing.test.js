@@ -63,16 +63,22 @@ const PROSE_FIELDS = [
   'common.field.timestamp', 'common.field.timestamp-end', 'common.field.tags',
 ]
 
-// The controls that take a name. Three are absent deliberately, all because the
-// hint is already inside them: `CastCombo` and `SuggestCombo` both DEFAULT
-// `nameCase` to true, and `NameInput` hardcodes `autoCapitalize="words"` — it
-// exists for exactly this. A combobox over a work's own prior values is a name
-// box by construction, and the one that is not — a chapter NUMBER — says
-// `nameCase={false}` at its call site.
-// Requiring the prop at those call sites would be requiring people to restate a
-// default, and a caller that DID restate it would read as though the others had
-// opted out.
-const ELEMENT = /<(input|textarea|Field|TokenInput)\b([^>]*?)\/?>/gs
+// The controls that take a name. `NameInput` is absent deliberately: it hardcodes
+// `autoCapitalize="words"` — it exists for exactly this — and its call sites are
+// keyed under their own screen rather than `common.field`, so neither list below
+// reaches them.
+//
+// THE TWO COMBOS ARE IN THE LIST AND HINTED BY DEFAULT, and leaving them OUT of it
+// is what made this guard go blind. `CastCombo` and `SuggestCombo` both default
+// `nameCase` to true, so an earlier version excluded them rather than ask a caller
+// to restate a default — then the staged-row editor swapped its chapter-name
+// `Field` for a `SuggestCombo`, the walk stopped seeing that field at all, and the
+// only case that noticed was the coverage one at the bottom. Whether a box is
+// LOOKED AT and what its hint EVALUATES TO are two questions, and the default
+// answers the second. So the tag joins the pattern and the default seeds `hinted`
+// — which `nameCase={false}` still overrides, as a chapter NUMBER does.
+const ELEMENT = /<(input|textarea|Field|TokenInput|CastCombo|SuggestCombo)\b([^>]*?)\/?>/gs
+const HINTED_BY_DEFAULT = new Set(['CastCombo', 'SuggestCombo'])
 const LABEL = /(?:label|aria-label|ariaLabel|placeholder)=\{t\('([^']+)'\)\}/
 
 // `nameCase={false}` IS NOT A HINT, AND READING IT AS ONE MADE THIS GUARD GREEN
@@ -115,7 +121,7 @@ function boxes() {
         // The key without its final segment, so `.label` and `.placeholder` of
         // one field fold together.
         field: label[1].replace(/\.[^.]+$/, ''),
-        hinted: MENTIONS_HINT.test(body) && !HINT_TURNED_OFF.test(body),
+        hinted: (HINTED_BY_DEFAULT.has(m[1]) || MENTIONS_HINT.test(body)) && !HINT_TURNED_OFF.test(body),
       })
     }
   }

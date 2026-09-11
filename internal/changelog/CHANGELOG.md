@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fix one was to approve the row and then edit it again somewhere else — which is the exact
   thing the queue exists to save you.
 
+- **And it offers what the destination work already holds.** The character, actor,
+  chapter and pack boxes on a queued row now suggest that work's own values, the way the
+  add and edit forms have for a while. It matters most here: an importer wrote these, not
+  you, so "Ch. 4" against your library's "Chapter 4" is two chapters as far as every
+  grouping in the app is concerned.
+
 - **Google image search now sends the consent your switch already recorded.** Reading
   Google's results directly is answered, in much of the world, with a consent screen rather
   than results — so the setting could be on, the app could correctly report why nothing came
