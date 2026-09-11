@@ -12849,3 +12849,25 @@ twenty-one; the field that fell out was `language`, which is the one most likely
 uniformly wrong across a whole file and therefore the one the bulk editor exists for. Both
 read `WRITABLE_FIELDS` now. The panel skips only the date, because a canonical date and a
 circa flag travelling together cannot be expressed by a checkbox and a text box.
+
+### The import plan's own step-8 guard is moot, and the proof is one line
+
+`docs/plans/import-one-drop-target.md` lists, among the guards its last step owes, an
+`import` entry in `web/frontend/test/screens.js`. It cannot have one, and the reason is
+worth recording rather than leaving as a guard nobody closed.
+
+`SCREENS` is a MOUNT table keyed by route, and `screens-mount.test.jsx:49` asserts
+`screenLabelsInApp()` — read out of App.jsx's own `data-screen-label` attributes —
+equals its keys exactly. Import has no such label, because the add-surface rebuild made
+it a MODE of that surface rather than a screen with a route. Adding the key would
+therefore fail the test that exists to keep the table honest, which is the table working.
+
+What the guard was actually reaching for is covered elsewhere: `ImportPage` is mounted by
+`test/dom/import-drop.test.jsx`, so the "does this component throw on mount" question the
+mount table answers for every screen is answered for it too.
+
+Two of that plan's items are genuinely still open — the shared file-upload primitive, and
+`controls.mjs` never reaching the add surface or the import mode — so the file stays in
+`docs/plans/` until they land. A third has retired itself: `infodot-copy.test.js` named
+ImportPage among the files whose dots are still English literals, and `grep -c InfoDot`
+on it is now 0. That list is seven files, not eight.

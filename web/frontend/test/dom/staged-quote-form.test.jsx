@@ -128,7 +128,10 @@ const LOOSE_QUOTE = {
 // Which fixture `/import/staged` answers with, set per case.
 let queued = null
 
-const { default: StagingPage } = await import('../../src/StagingPage.jsx')
+const { default: StagingPage, WRITABLE_FIELDS } = await import('../../src/StagingPage.jsx')
+// The resolver, under its own name: this file imports `t` from nowhere, so the
+// labels come from the same place the panel reads them.
+const { t: label } = await import('../../src/i18n.js')
 
 const noop = () => {}
 
@@ -380,6 +383,22 @@ describe('the boxes a staged row is given', () => {
     expect(posted[0].occasion_circa, 'the circa toggle did not reach the endpoint').toBe(true)
   })
 
+  // A KIND NOBODY RECOGNISES STILL GETS AN EDITOR. `stagedDoor` reads the quote's
+  // own kind (0053) and hands it to `fieldsFor`, which answers `{ main: [], more:
+  // [] }` for anything it does not know — so an unchecked value drew ZERO locator
+  // boxes and left a form offering nothing but colour, favourite and tags. That
+  // reads as broken rather than as an unrecognised kind.
+  //
+  // `importQuoteKind` 400s a kind outside the seven, so the only way in is a
+  // restored archive written by something else — which is exactly the reader who
+  // must not lose their boxes.
+  it('and a kind outside the seven falls back to the door that drops nothing', async () => {
+    await at({ ...LOOSE, quotes: [{ ...LOOSE_QUOTE, kind: 'epigram' }] })
+    for (const label of ['Speaker', 'Occasion', 'Place', 'Language']) {
+      expect(screen.getByLabelText(label), label).toBeTruthy()
+    }
+  })
+
   it('and a standalone row sends its own locators under the right names', async () => {
     await at(LOOSE)
     fireEvent.change(screen.getByLabelText('Occasion'), { target: { value: 'the Eichmann trial' } })
@@ -393,5 +412,85 @@ describe('the boxes a staged row is given', () => {
     // `chapter` key in the body would be the form posting a field it never drew.
     expect('chapter' in posted[0], 'a field the form never drew was posted').toBe(false)
     expect('speaker' in posted[0], 'an untouched speaker was re-sent').toBe(false)
+  })
+})
+
+// THE BULK PANEL, WHICH HAD NO TEST AT ALL — and that is not a gap in coverage so
+// much as the exact hole the drift fell through. It listed eight fields while the
+// row editor listed twenty-one, and the field that had fallen out was `language`:
+// the one most likely to be uniformly wrong across a whole imported file, which is
+// what a bulk editor is FOR. A rater removed `language` from the list again and all
+// four thousand frontend tests stayed green.
+//
+// SO IT IS CHECKED AGAINST WRITABLE_FIELDS ITSELF rather than against a list
+// written here. A second copy of the field names in a test is the same defect one
+// layer out: it would agree on the day it was typed and never again.
+describe('the bulk field panel', () => {
+  // Select a row and open the panel. `Edit fields…` is the bar's own control.
+  const openPanel = async (shelf = GAME) => {
+    await page(shelf)
+    fireEvent.click(await screen.findByLabelText('Select this staged quote'))
+    fireEvent.click(await screen.findByRole('button', { name: /edit fields/i }))
+    await screen.findByText(/Edit 1 selected/)
+  }
+
+  it('draws every field the endpoint can write, bar the date', async () => {
+    await openPanel()
+    const missing = WRITABLE_FIELDS
+      .filter(([key]) => key !== 'when')
+      .filter(([, labelKey]) => !screen.queryByText(label(labelKey)))
+      .map(([key]) => key)
+    expect(missing, 'fields the row editor offers and the bulk panel does not').toEqual([])
+  })
+
+  // AND THE DATE IS ABSENT ON PURPOSE, asserted so the exclusion stays a decision
+  // rather than becoming an oversight: a canonical date and a circa flag travelling
+  // together cannot be said by a checkbox and a text box.
+  it('and leaves the date out, because a checkbox cannot say "about 399 BCE"', async () => {
+    await openPanel()
+    expect(screen.queryByText(label('quotes.form.when.label')), 'the date joined the bulk panel').toBeNull()
+  })
+
+  it('and posts under the names the endpoint decodes', async () => {
+    await openPanel()
+    // Tick `language` and give it a value — the field whose absence started this.
+    const row = screen.getByText(label('common.field.language.label')).closest('label')
+    fireEvent.click(row.querySelector('input[type="checkbox"]'))
+    fireEvent.change(row.querySelector('input.tp-input'), { target: { value: 'Bengali' } })
+    fireEvent.click(screen.getByRole('button', { name: /apply to 1/i }))
+
+    await waitFor(() => expect(posted.length).toBe(1))
+    expect(posted[0].language, 'the bulk panel posted under a key the endpoint ignores').toBe('Bengali')
+  })
+
+  // AND A NAME ASKS THE KEYBOARD FOR CAPITALS HERE TOO. The row editor said
+  // `nameCase` per box and this panel said it nowhere, so one field asked the
+  // keyboard for two different things depending on which control a reader reached
+  // for. The mark is on WRITABLE_FIELDS, so the two cannot disagree again.
+  it('and a name box asks for capitals, while a page reference does not', async () => {
+    await openPanel()
+    const boxFor = (labelKey) =>
+      screen.getByText(label(labelKey)).closest('label').querySelector('input.tp-input')
+    expect(boxFor('common.field.speaker.label').getAttribute('autocapitalize')).toBe('words')
+    expect(boxFor('common.field.work-title.label').getAttribute('autocapitalize')).toBe('words')
+    // Prose and positions must NOT: "the funeral of his brother" is not improved by
+    // capitals, and neither is p. 142.
+    expect(boxFor('common.field.location.label').getAttribute('autocapitalize')).toBeNull()
+    expect(boxFor('common.field.occasion.label').getAttribute('autocapitalize')).toBeNull()
+  })
+
+  // AN UNTICKED FIELD IS NOT A CLEARED ONE, which is the whole reason this panel
+  // uses checkboxes rather than blank boxes: a blank box cannot say the difference
+  // between "leave it" and "empty it", and forty rows is a bad place to guess.
+  it('and writes nothing for a field nobody ticked', async () => {
+    await openPanel()
+    const row = screen.getByText(label('common.field.language.label')).closest('label')
+    fireEvent.click(row.querySelector('input[type="checkbox"]'))
+    fireEvent.change(row.querySelector('input.tp-input'), { target: { value: 'Bengali' } })
+    fireEvent.click(screen.getByRole('button', { name: /apply to 1/i }))
+
+    await waitFor(() => expect(posted.length).toBe(1))
+    expect('chapter' in posted[0], 'an unticked field was written anyway').toBe(false)
+    expect('act' in posted[0], 'an unticked field was written anyway').toBe(false)
   })
 })

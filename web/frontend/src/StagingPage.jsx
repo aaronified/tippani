@@ -6,7 +6,7 @@ import { quoteKindMeta } from './quoteKind.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { chapterLabel, episodeLabel } from './text.js'
 import { CastCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
-import { fieldKeys } from './addFields.js'
+import { fieldKeys, QUOTE_KIND_DOORS } from './addFields.js'
 import {
   ANNOTATION_HEX,
   BulkBar,
@@ -636,7 +636,7 @@ function FieldsPanel({ n, busy, onApply }) {
   }
   return (
     <Panel title={t('staging.fields.panel.title', { n })}>
-      {FIELDS.map(([key, labelKey]) => (
+      {FIELDS.map(([key, labelKey, opts]) => (
         <label key={key} className="flex flex-wrap items-center gap-2">
           <input type="checkbox" checked={!!on[key]} onChange={(e) => setOn({ ...on, [key]: e.target.checked })} />
           <span className="microcopy" style={{ minWidth: 76 }}>
@@ -647,8 +647,13 @@ function FieldsPanel({ n, busy, onApply }) {
             /* One frame with the field's own name dropped into it, LOWER-CASED BY
                THE CALLER — the arrangement the bin's kind filter already uses, and
                the reason the field label stays a single source of truth rather
-               than being written out eight more times. */
+               than being written out however many fields there are. */
             placeholder={t('staging.fields.set.placeholder', { field: t(labelKey).toLowerCase() })}
+            /* THE SAME KEYBOARD THE ROW EDITOR ASKS FOR. A raw <input> here rather
+               than Field, because the checkbox and the box are one row — so the hint
+               is set by hand from the table's own mark instead of being inherited,
+               and a name asks for capitals whichever control a reader reached for. */
+            autoCapitalize={opts?.name ? 'words' : undefined}
             disabled={!on[key]}
             value={val[key] || ''}
             onChange={(e) => setVal({ ...val, [key]: e.target.value })}
@@ -870,7 +875,19 @@ function Panel({ title, children }) {
 function stagedDoor(work, quote) {
   // 'quotes' is the queue's group for lines that belong to no book and no film;
   // which KIND of line is the quote's own (0053), and that is a door name.
-  if (work?.kind === 'quotes') return quote.kind || 'other'
+  //
+  // CHECKED AGAINST THE DOOR LIST, not trusted. An unknown kind makes `fieldsFor`
+  // answer `{ main: [], more: [] }` — so the editor would draw ZERO locator boxes
+  // and offer nothing but colour, favourite and tags, which reads as a broken form
+  // rather than as an unrecognised value. `other` is the right fallback because it
+  // hard-drops nothing: it is the door for a line whose kind nobody has decided.
+  //
+  // `importQuoteKind` (import_quotes.go:135-151) 400s a kind outside the seven, so
+  // the only way in is a restored archive written by something else — which is
+  // exactly the case that must not lose the reader their boxes.
+  if (work?.kind === 'quotes') {
+    return QUOTE_KIND_DOORS.includes(quote.kind) ? quote.kind : 'other'
+  }
   return work?.kind === 'book' ? 'annotation' : 'dialogue'
 }
 
@@ -887,45 +904,59 @@ function stagedMedia(work) {
 // the file said. `tags`, `color` and `board` are drawn by this form's own controls
 // below, and `sticker` has no column in the queue at all.
 //
+// AND `noted_at` IS PRINTED ON THE ROW AND DELIBERATELY NOT HERE, which is worth
+// saying because every other printed field on that line became writable. It is when
+// the reader MADE the note, not where the line is from — a fact about the file's
+// own timestamps rather than a locator an importer can guess wrong. Correcting it
+// would be rewriting history rather than fixing a misread.
+//
 // AN INTERSECTION RATHER THAN A SECOND LIST: the table decides which fields a kind
 // HAS and the order they read in, and this decides which of them the queue can
 // repair. A key that appears in neither is simply not drawn, which is the state a
 // field is in before somebody wires it.
-// ONE TABLE, READ BY BOTH EDITORS. Key to the shared label, in the order the bulk
-// panel lists them. The row editor filters the add-surface table against these keys
+// ONE TABLE, READ BY BOTH EDITORS. Key, the shared label, and whether the box holds
+// a NAME — in the order the bulk panel lists them.
+//
+// `{ name: true }` IS A KEYBOARD HINT AND NOTHING ELSE: it becomes
+// `autoCapitalize="words"`, which is right on a person, a title or a place and wrong
+// on a page reference, a clock reading or an occasion ("the funeral of his brother"
+// is not improved by capitals). The row editor said it per box and the bulk panel
+// said it nowhere, so one field asked the keyboard for two different things
+// depending on which control a reader reached for. `name-casing.test.js` holds the
+// canonical list of which fields are names; this marks the same ones. The row editor filters the add-surface table against these keys
 // and draws each with its own control; the bulk panel draws every one with a
 // checkbox. They were two hand-written lists for a release and drifted at once: the
 // row editor gained thirteen fields and the bulk panel kept its original eight, so
 // the language an import most often lacks — the field most likely to be uniformly
 // wrong across a whole file, which is exactly the bulk case — could be set on one
 // row and not on four hundred.
-const WRITABLE_FIELDS = [
+export const WRITABLE_FIELDS = [
   ['chapter_no', 'common.field.chapter-no.label'],
-  ['chapter', 'common.field.chapter-name.label'],
+  ['chapter', 'common.field.chapter-name.label', { name: true }],
   ['location', 'common.field.location.label'],
-  ['character', 'common.field.character.label'],
-  ['actor', 'common.field.actor.label'],
+  ['character', 'common.field.character.label', { name: true }],
+  ['actor', 'common.field.actor.label', { name: true }],
   ['season', 'common.field.season.label'],
   ['episode', 'common.field.episode.label'],
-  ['episode_name', 'common.field.episode-name.label'],
+  ['episode_name', 'common.field.episode-name.label', { name: true }],
   ['timestamp', 'common.field.timestamp.label'],
   ['timestamp_end', 'common.field.timestamp-end.label'],
   ['act', 'common.field.act.label'],
-  ['quest', 'common.field.quest.label'],
-  ['dlc', 'common.field.dlc.label'],
-  ['speaker', 'common.field.speaker.label'],
+  ['quest', 'common.field.quest.label', { name: true }],
+  ['dlc', 'common.field.dlc.label', { name: true }],
+  ['speaker', 'common.field.speaker.label', { name: true }],
   ['occasion', 'common.field.occasion.label'],
   // 'when' IS THE ONE THE BULK PANEL SKIPS, and its own note below says why: it is
   // a pair (a canonical date and a circa flag) drawn by a date control, not a text
   // box, so a checkbox and a free-text input cannot express it.
   ['when', 'quotes.form.when.label'],
-  ['place', 'common.field.place.label'],
-  ['region', 'common.field.region.label'],
-  ['recipient', 'common.field.recipient.label'],
-  ['work_title', 'common.field.work-title.label'],
+  ['place', 'common.field.place.label', { name: true }],
+  ['region', 'common.field.region.label', { name: true }],
+  ['recipient', 'common.field.recipient.label', { name: true }],
+  ['work_title', 'common.field.work-title.label', { name: true }],
   ['locator', 'common.field.locator.label'],
-  ['source_author', 'common.field.source-author.label'],
-  ['language', 'common.field.language.label'],
+  ['source_author', 'common.field.source-author.label', { name: true }],
+  ['language', 'common.field.language.label', { name: true }],
 ]
 const WRITABLE = new Set(WRITABLE_FIELDS.map(([k]) => k))
 

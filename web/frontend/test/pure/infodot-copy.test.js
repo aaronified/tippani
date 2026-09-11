@@ -34,9 +34,11 @@
 // dot's heading and is excluded, exactly as the old scan stripped `title="…"`.
 //
 // THE SOURCE SCAN STAYS, unioned with the file, and that is not belt-and-braces.
-// Eight files have not been migrated yet — Account, ImportPage, StagingPage,
-// BinPage, MetadataPage, ReverifyReview, CoverPicker, people — and every dot in
-// them is still an English literal. Dropping the scan would take 33 payloads out
+// Seven files have not been migrated yet — Account, StagingPage, BinPage,
+// MetadataPage, ReverifyReview, CoverPicker, people — and every dot in them is
+// still an English literal. ImportPage was the eighth and left the list the day its
+// wall of seven source cards became one drop target: `grep -c InfoDot` on it is 0,
+// so naming it here promised a scan a payload that no longer exists. Dropping the scan would take 33 payloads out
 // of the budget until somebody remembered to put them back. When the last file
 // lands the scan finds nothing, the union is the file, and no test needs editing.
 //

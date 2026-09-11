@@ -3,13 +3,18 @@
 // THE OWNER, on this part of the backlog: "complete import review". The queue's
 // own argument, written in the importer, is that "an import guesses, and the queue
 // is where a wrong guess gets corrected" — and for twelve fields that argument was
-// false. stagedQuoteRow carries all twelve, StagedRow prints THREE of them
-// (speaker, occasion and place — count them in `bits`, and note that act, quest and
-// episode_name are not there), and POST /import/staged/bulk could write none: the
+// false. stagedQuoteRow carries all twelve, StagedRow prints FOUR of them — speaker,
+// occasion, occasion_date and place, which are positions 13-16 of `bits`
+// (StagingPage.jsx:517-540) — and POST /import/staged/bulk could write none: the
 // reader could see that a parser had put a speech's occasion in its place field,
 // and could do nothing until after approving the row.
 //
-// THE OTHER NINE WERE WORSE, because they were not printed either. A show's episode
+// COUNT THEM IN `bits` RATHER THAN FROM MEMORY. This comment said "three" in the
+// commit written specifically to correct a previous count of "six", because
+// occasion_date is easy to miss between occasion and place. The list is twelve lines
+// long and reading it is the only way to be right about it.
+//
+// THE OTHER EIGHT WERE WORSE, because they were not printed either. A show's episode
 // name, a game's act and quest, a proverb's region, a letter's recipient and the
 // three that name the text a speech reaches a reader through went through the whole
 // queue unseen and landed in the library unread.
