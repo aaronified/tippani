@@ -832,66 +832,127 @@ Once a quote is matched, the file holds **the same words as somebody else typed
 them**. Where the two disagree, one of them is wrong — and which one is the question
 this section is careful about.
 
-### The measurement first, because it decides the whole design
+### The app does not decide which side is right. It names the difference.
 
-Thirty stored lines of *V for Vendetta* against its own subtitle:
+**An earlier draft of this section had the app refuse a whole class of finding** —
+where the quote carried characters the file lacked — on the grounds that the file
+was the degraded one. **The owner's correction, and it is right:** *"why will you
+decide? the user will. you will tell the exact issue (bucketise them) and let them
+act on it easily / in bulk."*
 
-| | |
-| --: | :-- |
-| **12** | identical after the fold — nothing to say |
-| **18** | differ |
-
-And of those eighteen, what a corrector would want to do:
-
-| | |
-| --: | :-- |
-| **13** | same character set, similar length — **a real wording difference**, and a question |
-| **3** | the quote carries join ellipses the file does not — safe to trim |
-| **1** | the file is longer; the quote looks truncated — safe to extend |
-| **1** | **the file has fewer accented characters than the quote** — must be refused |
-
-**That last row is the whole point.** The subtitle contains **zero** non-ASCII
-characters in 145,695 bytes; the stored quotes contain two. This is the
-`Voilà` → `Voil ` damage measured earlier, and it is not hypothetical: **in a
-thirty-quote sample, a corrector that trusted the file would have destroyed one
-correctly-accented line.** Across a library that is a steady trickle of silent
-damage, dressed as tidying.
-
-So: **4 of 18 are safely proposable, 1 must be refused outright, and 13 are
-questions.** This is a question-asking feature and not a fixing one — which is what
-Cleanup's own preamble already decided, and this family inherits it word for word:
+Suppressing a class is worse than proposing one, and Cleanup's own doctrine says so
+without needing an extension. It **finds and never fixes** — but "never fixes" is
+not "never shows", and I had turned it into that:
 
 > **THIS FINDS AND NEVER FIXES, and that is the whole design rather than a first
 > step.** Every rule below has a false positive that is somebody's real text… An
 > automatic pass would edit the reader's own words on the strength of a guess,
-> silently, in a library whose whole point is that the words are theirs.
+> silently, in a library whose whole point is that the words are theirs. So this
+> **reports, with enough of the line to judge by, and the reader decides**.
 
-**And it extends it, because an extrinsic rule's false positive is worse.** An
-intrinsic rule's mistake flags text that was fine. This family's mistake *overwrites
-good text with a worse version of itself* — the guess arrives with a whole file
-behind it, which makes it look like evidence.
+The hidden class was the *most useful row in the list*: it tells the reader their
+quote is better than the file, which is a thing worth knowing and a thing only they
+can conclude. So nothing is hidden. **Every difference is a row, in a named bucket,
+and every bucket can be dispatched in one press either way.**
 
-### The rule, stated so it can be tested
+### What the differences actually are — measured
 
-**A correction may add information or remove a known artefact. It may never leave
-the text poorer than it found it.**
+Thirty stored lines of *V for Vendetta* against the **exact aligned span** of its own
+subtitle. The alignment is tight, not sloppy: the matched span is the same length as
+the quote (ratio median **1.000**, max 1.024), so these are real differences and not
+a window picking up a neighbour.
 
-| Class | Direction | Proposed? |
-| :-- | :-- | :-- |
-| Quote is a prefix of the file's line (Kindle-clipping truncation) | adds | **Yes** |
-| Join ellipses at an edge — measured at 274 opening and 290 closing cues in this one file | removes an artefact | **Yes** |
-| Whitespace, line-break and soft-hyphen damage | removes an artefact | **Yes** |
-| Speaker's `NAME:` prefix inside the quote | removes an artefact, and **fills** `character` | Yes — a fill, never an overwrite |
-| The file has characters the quote lacks (accents, a dash, typography) | adds | Yes |
-| **The quote has characters the file lacks** | **subtracts** | **Refused — never offered** |
-| Same charset, similar length, different words | neither | **A question**, with both texts shown and no default |
-| The locator | adds | That is `locators-from-files.md`, not this |
+| | |
+| --: | :-- |
+| **0** | byte-identical |
 
-**The charset test is cheap and does the heavy lifting**: count the characters
-outside ASCII on each side. A file poorer than the quote is a degraded file, and the
-whole of it becomes untrusted for character-level corrections — structural ones
-(truncation, joins, whitespace) still stand, because those do not depend on the
-file's encoding being intact.
+Not one. Every quote differs from its own file somehow — which is the number that
+sets the whole design, because thirty rows for thirty quotes is a wall unless they
+are bucketed.
+
+By substance, on the fold that ignores marks and spacing:
+
+| | |
+| --: | :-- |
+| **12** | the words are identical — the difference is marks or spacing alone |
+| **4** | ≤ 2% edit distance — a mark or a single letter |
+| **8** | ≤ 5% |
+| **6** | > 5% (none above 15%) |
+
+Roughly **13 rows about marks and spacing, 17 about words** — and that split is
+where I have to be honest about my own instability: **three passes over this data
+gave three different splits** (15/3/2 and then 14/2/1 and then this), because each
+used a slightly different fold. Which is the design constraint, not an aside:
+
+> **The bucketiser and the matcher must share one fold.** A bucket boundary is a
+> fold boundary. Two folds means the buckets move for reasons the reader cannot see,
+> and `store.CastKey` is the fold this repo already reuses rather than restates.
+
+### The buckets, and the two verbs every one of them has
+
+A bucket is **homogeneous by construction**, which is what makes bulk safe. "Accept
+all 30 differences" is a dangerous press; "take the file's punctuation for these 10"
+is not, because every row in it is the same kind of thing.
+
+**Marks and spacing** — dispatchable without reading the words:
+
+| Bucket | The two verbs |
+| :-- | :-- |
+| Invisible characters | Take the file's · Keep mine |
+| Line breaks and spacing | Take the file's · Keep mine |
+| Capitalisation | Take the file's · Keep mine |
+| Punctuation and quote marks — **10 rows here** | Take the file's · Keep mine |
+| **Marks the file has and your quote lacks** | Take the file's · Keep mine |
+| **Marks your quote has and the file lacks** | **Keep mine** · Take the file's |
+| Join marks kept from the file — **3 rows** | Trim them · Keep them |
+
+**Words** — each row read before it is pressed:
+
+| Bucket | The two verbs |
+| :-- | :-- |
+| Your quote stops early — the line continues | Extend to the line · Keep mine |
+| Your quote runs past the line | Trim to the line · Keep mine |
+| The speaker's name is inside the quote | Move it to the character field · Keep it |
+| One word differs — **2 rows**, and the word is marked | Take the file's · Keep mine |
+| Two or three words differ — **1 row** | Take the file's · Keep mine |
+| The wording differs | Take the file's · Keep mine |
+
+**Every bucket carries both verbs and no bucket is one-way.** The order the two are
+drawn in is the app's hint; which one is pressed is the reader's. That is the whole
+difference between this and the draft it replaces: the accented quote is now a
+**one-row bucket named for exactly what happened**, with *Keep mine* offered first,
+dispatched in a single press — and the reader learns something instead of being
+protected from it.
+
+### A bucket explains itself once, from a fact about the file
+
+The reason that bucket exists is a property of the file, computable once:
+
+> *This subtitle contains **no accented characters at all** (0 in 145,695 bytes).
+> One of your quotes has marks it cannot represent.*
+
+One line on the bucket, and the thirty-row judgement becomes a one-line read. It is
+**information, not a filter** — the rows are all still there, and a reader who wants
+the file's version anyway can have it.
+
+The same note generalises: a file that is ASCII-only, a file with straight quotes
+where the library has typographic ones, a file with no line breaks. Each is one fact
+that makes a whole bucket obvious, and each is cheaper to read than the rows.
+
+**And it gives the honest bulk I was trying to hard-code:** *"skip the mark buckets
+for this file"*, offered on the file, pressed by the reader. That is the same
+outcome as my refusal, chosen rather than imposed — and reversible.
+
+### Bulk, and the three rules that keep it safe
+
+1. **Bulk acts within one bucket, never across them.** There is no "accept
+   everything" — the closest thing is a bucket at a time, which is a decision a
+   reader can actually hold in their head.
+2. **The count is on the bucket before it opens.** *"Punctuation and quote marks —
+   10"* is what makes the press informed.
+3. **Either verb is a durable answer.** *Keep mine* is a refusal and goes into
+   `cleanup_ignores` exactly like an Ignore, so it is never asked again — which is
+   what makes a rescan tolerable on a library the reader has already been through.
 
 ### It needs no file, and that is the stored context paying off again
 
@@ -932,8 +993,12 @@ where a row came from. A quote edited since it arrived has been *deliberately*
 worded — the reader may have fixed the publisher's own typo — so a file-based
 correction to it is the most likely false positive in the family.
 
-Such a row is still shown, but **as a question rather than a proposal**, and it says
-that the reader changed this text themselves. It never joins an accept-all group.
+So the row carries that fact — *you edited this quote yourself* — and it is a
+**marker on the row, not a bucket of its own**: the difference is still whatever
+kind of difference it is, and hiding it in a separate pile would lose that. What the
+marker changes is the bulk press: a bucket's *Take the file's* skips the rows the
+reader has edited and says how many it skipped, so one press cannot quietly undo
+deliberate work. Those rows are then one press each.
 
 ### And one finding is about the file, not the quote
 
@@ -1076,10 +1141,13 @@ destroys something on the reader's behalf and the reader presses it.
 | **Extraction never crosses a chapter edge or a long silence.** | Measured: 52 spine documents at a 400-paragraph median, and 9 gaps over 30 s in the film. A quote at a chapter start gets nothing before it without anyone configuring that |
 | **A bounded span is reported as bounded.** | `bound_before`/`bound_after`, so short-because-the-work-is never reads as short-because-broken |
 | **Every edge is a line start and a line end.** | Including when the character floor decides the width — it rounds outward, never cuts |
-| **A correction is never proposed that makes the text poorer.** | The measured case: the supplied subtitle has 0 non-ASCII characters against the quotes' 2, so a quote with an accent the file lacks must produce **no** row. One in thirty in the real library — the fixture is that quote |
-| **A poorer file loses only its character-level rules.** | Truncation, joins and whitespace still fire on an ASCII-degraded file; spelling and typography do not |
-| **A wording difference has no default.** | Both texts shown, neither pre-selected, never in an accept-all group. 13 of 18 differences are this |
-| **A reader-edited quote is a question, not a proposal.** | `updated_at` past its arrival. It never joins an accept-all group |
+| **No difference is suppressed.** | The owner's correction, as a test: a quote carrying marks the file lacks produces a **row**, in its own named bucket. The fixture is that quote — one in thirty in the real library |
+| **Every bucket offers both verbs.** | Take the file's *and* Keep mine, on every bucket. No bucket is one-way; the draw order is a hint and nothing more |
+| **Bulk acts within one bucket and never across buckets.** | There is no accept-everything. Assert no route takes a mixed set |
+| **A bucket states its count before it opens.** | An uninformed bulk press is the failure mode bulk has |
+| **Keep mine is as durable as Ignore.** | It writes `cleanup_ignores` and is never asked again on a rescan |
+| **Bulk skips reader-edited rows and says how many.** | `updated_at` past arrival. One press may not quietly undo deliberate wording |
+| **The bucketiser and the matcher share one fold.** | Three passes over the same data gave three different splits because each used its own fold. `store.CastKey` or the test fails |
 | **A `NAME:` prefix fills `character` and never overwrites it.** | A fill is safe; an overwrite is somebody's correction being undone |
 | **A wrong-file work produces one row, not forty.** | Wide discrepancy across most matches is evidence about the file |
 | **Correction rules are pure over the pair.** | `contextRule` tested without a database or a handler, for the reason `cleanupRule` is |
@@ -1149,13 +1217,13 @@ destroys something on the reader's behalf and the reader presses it.
    `pruned_at`, and one confirmation saying nothing new can be derived until the file
    returns. Then the library-wide list sorted by what it frees. Absent for mounted
    sources. — `internal/httpapi/prune.go` (new), maintenance
-9. **The correction family.** `contextRule` as a sibling of `cleanupRule`, the
-   direction-of-information rule and its charset test first, then the safe classes,
-   then the question class. A third section on Checks in Cleanup's mould — or a
-   fourth family inside Cleanup's own, which is the better answer if its section can
-   carry the pair view. **Build the refusal before the proposals**: the destructive
-   case is measured and real. — `internal/httpapi/cleanup_context.go` (new),
-   `CleanupPage.jsx`
+9. **The correction family.** `contextRule` as a sibling of `cleanupRule`, sharing
+   the matcher's fold. **Build the bucketiser first and the surface second** — the
+   buckets are the feature, and they are the part that is pure and testable. Then
+   the bucket list with counts, the two verbs per bucket, the per-bucket bulk, the
+   file-level note, and the reader-edited marker. A fourth family inside Cleanup's
+   own section if it can carry a pair view; a third section on Checks if it cannot.
+   — `internal/httpapi/cleanup_context.go` (new), `CleanupPage.jsx`
 10. **The mount.** Admin settings for the roots, the `O_RDONLY` and containment
    guards first and the walk second, EPUB identification by ISBN/ASIN then title,
    the bounded resumable scan, the name-based reading for subtitles and lyrics, and
@@ -1207,9 +1275,14 @@ By hand, against a restored backup rather than `seed.mjs`:
   gaps and the second is recognised as a different edition.
 - Narrow one annotation to nothing-before and confirm it stays there when the work
   rule is raised and enforced.
-- Run the corrections over *V for Vendetta* and check the numbers against this
-  plan's: **18 of 30 differ, 13 of them questions, and the accented line refused.**
-  If the accented quote appears as a proposal, the direction rule is not wired.
+- Run the corrections over *V for Vendetta* and check the shape against this plan's:
+  **0 of 30 byte-identical**, about **13 rows about marks and 17 about words**, ten
+  of them in punctuation alone. The exact split will move with the fold, and that is
+  expected — what must not move is that the **accented quote has its own named
+  bucket with Keep mine offered first.** If it is missing, the suppression bug is
+  back.
+- Press a bucket's bulk verb on a bucket containing a quote you have edited by hand,
+  and confirm it is skipped and counted rather than overwritten.
 - Open the context of a quote that sits at a chapter start and confirm it shows
   nothing before it **without anyone having configured that**, and says why.
 - Raise the global ceiling and confirm it is the one change that needs the files
@@ -1245,9 +1318,10 @@ By hand, against a restored backup rather than `seed.mjs`:
 - **Automatic pruning** on age, size or a schedule. It destroys something on the
   reader's behalf and no goroutine outlives its request anyway.
 - **Span dedupe between overlapping windows** — measured at 1% on real data.
-- **Correcting anything automatically.** Cleanup's doctrine, and this family has the
-  stronger reason for it: its mistakes overwrite good text with a whole file standing
-  behind the guess.
+- **Correcting anything automatically**, and **deciding which side is right**.
+  Cleanup's doctrine for the first; the owner's correction for the second. The app
+  names the difference and counts it; the reader presses one of two verbs. A bucket
+  the app filled in on its own would be a guess wearing a whole file's authority.
 - **Correcting the file.** It is the reader's or the operator's, and on a mount the
   app does not write there at all.
 - **Lyrics embedded in an MP3.** The owner's: *"lrc embedded in mp3 will not be
