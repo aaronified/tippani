@@ -56,6 +56,27 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   and a desktop toast and says nothing in the conversation, and its per-tool toast is off
   by default.
 
+- **A SUBAGENT'S FINDING IS A LEAD, NOT EVIDENCE. ALWAYS VERIFY.** The owner's, asked
+  whether to check an inventory before building on it: *"yes, always verify."*
+
+  THE NUMBERS FROM THE DAY THE RULE WAS MADE, because they are the argument. A six-question
+  diagnosis fan-out with **three refuters per answer** had **four of its six answers
+  killed** — including the session's own hypothesis, and including two that were killed only
+  for being HALF the cause, which is the failure a single reader cannot see. The same
+  afternoon, a six-question inventory run with **no verification pass at all** got every
+  component right and **line numbers wrong** — it cited `Movies.jsx:792, 1653` for card
+  sites that are actually at `1383, 1424`. Right conclusion, unusable citations, and the
+  difference only showed under a grep.
+
+  SO: a finding is checked at its own line before any work rests on it. Either give the
+  fan-out adversarial verifiers — prompted to REFUTE, defaulting to refuted when unsure —
+  or check it first-hand afterwards. Checking a cited line is a `haiku` job by the rule
+  above, so this is cheap; what it is not is optional.
+
+  AND SAY WHICH IT IS WHEN REPORTING. "Verified" and "an agent said" are different claims,
+  and a table that mixes them silently is worse than one that reports less: the reader
+  cannot tell which rows to trust, so the checked ones lose their value too.
+
 - **DO NOT EDIT CODE FILES WHILE A RATER IS RUNNING.** The owner's, standing: "do not edit
   code files when the rater is running. keep this in memory." A rater reads the tree it was
   pointed at and re-runs its suites there, so an edit mid-pass means it is rating a commit
