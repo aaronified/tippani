@@ -12774,3 +12774,37 @@ first screen. Two controls doing one thing in the scarcest row on a phone, and t
 had to be discovered sat beside the one that did not. Both test cases were INVERTED rather
 than deleted, and each now asserts the capability as well as the absence — "the menu is gone"
 and "the menu is gone and so is the way to Files" are the same `queryByLabelText`.
+
+### Import's how-to list is help, and the screen's own copy of it went
+
+This reverses a departure this file never recorded. The one-drop-target plan says the list of
+supported formats "moves into help, where a list belongs", and that the eight step-lists are a
+help SECTION rather than the one row `capture.help.import` had been. What actually shipped kept
+them on the screen, behind a `<details>`, under a comment in `ImportPage.jsx` asserting that
+"the how-tos stay" — an argument made in a code comment and nowhere a reader of this file would
+meet it.
+
+The argument was not wrong about the question: *"where do I get a Goodreads file"* is real, and
+answering it is worth a screen's space. It was wrong about the shape. Eight formats, each with a
+description, an extension and three numbered steps, is reference material — and this repo's own
+rule is that a row says a thing once. Keeping the list on the screen AND adding it to help would
+have been two copies of one table; keeping it only on the screen left the "?" answering a
+question about capturing a quote, because the add surface hardcoded `screen="capture"` on both
+of its headers.
+
+So the list is drawn once, by `HelpSources`, from `SOURCES` itself — which is the plan's
+strongest line and the reason it survives contact: *the list cannot drift from the parser table,
+because it IS the parser table.* The table moved to `src/importSources.js` so neither of its two
+readers owns it; `ImportPage` still derives its `accept` filter and its "Read this as…" menu from
+the same rows.
+
+**And the "?" now picks its section off the mode.** `helpScreen` in `routes.js` cannot answer for
+import — it derives from `(tab, detail)`, and import has been a MODE of the add surface rather
+than a screen since the rebuild, so there is no tab to derive from. The surface decides instead,
+in one `helpKey` both its headers read. Two headers each carrying their own literal is how one of
+them goes on being right while the other quietly stops, which is the failure the repo's
+"two things that look the same behave the same" directive names.
+
+The one thing genuinely lost is a reader who never presses "?". That is the cost of the rule, and
+it is paid down by where the section sits: `import` is directly under `capture` in `GUIDE_ORDER`,
+so the guide's rail shows the two together the moment either is opened.

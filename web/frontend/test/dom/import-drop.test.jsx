@@ -14,6 +14,9 @@
 // works and not a file between parsers.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { HelpList } from '../../src/ui.jsx'
+import { SOURCES, sourceTitle } from '../../src/importSources.js'
+import { helpFor } from '../../src/help.jsx'
 
 const uploads = []
 // The progress callbacks, kept OUT of `uploads` because two cases compare a
@@ -124,17 +127,34 @@ describe('the one import target', () => {
     expect(await screen.findByText(/1 file → 2 quotes staged/)).toBeTruthy()
   })
 
-  // The seven step-lists were the one thing worth keeping off the wall: "where do
-  // I get a Goodreads file" is a real question. They are behind one disclosure
-  // rather than in front of seven file inputs.
-  it('keeps the how-tos, collapsed, and lists the eighth source too', async () => {
+  // THE HOW-TOS ARE HELP NOW, and both halves of that are asserted, because only
+  // one of them is a bug on its own. "Where do I get a Goodreads file" is a real
+  // question — it was worth keeping off the wall of cards and it is still worth
+  // answering — but eight step-lists are reference, not a control, and they were
+  // the last reason this screen carried a fold.
+  //
+  // THIS SCREEN NO LONGER HOLDS THEM.
+  it('leaves the step-lists to help rather than folding them under the target', () => {
     render(<ImportPage />)
-    const summary = screen.getByText('Where do these files come from?')
-    expect(summary.closest('details').open).toBe(false)
-    fireEvent.click(summary)
-    for (const name of ['Markdown', 'Readest', 'Bookcision', 'Goodreads', 'My Clippings']) {
-      expect(screen.getByText(name), name).toBeTruthy()
+    expect(screen.queryByText('Bookcision'), 'the screen kept its own copy of the source list').toBeNull()
+    // AND ITS SHAPE IS GONE TOO, not just the eight names. A numbered list is
+    // what a step-list IS here, and this screen draws no other — so an `ol`
+    // surviving would mean the markup outlived the words it held.
+    expect(document.querySelector('ol'), 'a step-list outlived the source list').toBeNull()
+  })
+
+  // AND THE HELP SECTION DOES — every row of the table, not a sample of it. The
+  // list is drawn FROM `SOURCES`, so a ninth parser added there appears here with
+  // no edit; what this case defends is that the rendering did not quietly lose a
+  // row, and that the section exists at all under its own key.
+  it('and the import help section draws every source in the table', () => {
+    render(<HelpList entries={helpFor('import').entries} />)
+    for (const s of SOURCES) {
+      expect(screen.getByText(sourceTitle(s.kind)), s.kind).toBeTruthy()
     }
+    // The extension is a hint about which file is yours, so it is printed beside
+    // the name — detection is by content and never by this.
+    expect(screen.getAllByText('.txt').length, 'the extension hint is gone').toBeGreaterThan(0)
   })
 })
 

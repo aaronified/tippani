@@ -4009,8 +4009,7 @@ import.experimental.label = পরীক্ষামূলক
 # takes a dropped file too — not a separate control, the same one.
 import.choose.label = ফাইল বাছুন — একটা বা অনেকগুলো
 import.drop.hint = বা এখানে টেনে এনে ছাড়ুন
-# The how-tos, collapsed under the target.
-import.sources.summary = এই ফাইলগুলো কোথায় পাব?
+# The eight how-tos moved to the "?" (import.help.sources).
 
 # WHEN THE BYTES DO NOT SAY. The reader's override, offered only on a file no
 # parser claimed.
@@ -6197,18 +6196,41 @@ capture.help.save.term = সেভ (✓)
 capture.help.save.what = ফর্মের নিচে নয়, উপরের বারেই — তাই ফোনে সব ঘর পেরিয়ে না নেমেও হাতের নাগালে।
 capture.help.save.more = দরকারি ঘরগুলো ভরা না হওয়া পর্যন্ত ধূসর হয়ে থাকে, আর কোনটা বাকি সেটাও বলে দেয়।
 
-# The ＋’s bulk-import tab.
-capture.help.import.term = ইমপোর্ট
-capture.help.import.what = Markdown আর Readest-এর এক্সপোর্ট, Kindle Bookcision আর Kindle-এর নোটবুক, Goodreads আর Hardcover-এর পাতা, IMDb-র উদ্ধৃতির পাতা।
-capture.help.import.more = সবই আগে যাচাই বাকি ইমপোর্টে নামে।
 
-# The accessible name of the little diagram in the Import entry — a screen reader reads this instead of the three boxes.
-capture.help.import.flow.aria = ফাইল আগে যাচাই বাকি ইমপোর্টে যায়, আপনি মেনে নিলে তবেই গ্রন্থাগারে পৌঁছয়
+# ---------------------------------------------------------------------------
+# import.help.* — the "?" panel’s section for Import, which is a MODE of the ＋
+# surface rather than a screen of its own. It was one row inside capture.help
+# until the eight formats and their step-lists needed somewhere to live.
+# ---------------------------------------------------------------------------
+
+# The help panel’s heading on the ＋ surface’s import mode.
+import.help.title = ইমপোর্ট
+
+# The one upload well, which is also the drop target.
+import.help.drop.term = আপলোডের ঘর
+import.help.drop.what = ফাইল টেনে এনে এর উপর ছাড়ুন, বা চেপে বেছে নিন। একসঙ্গে যত খুশি — প্রত্যেকটা আলাদা করে পড়া হয়।
+
+# That there is no format to choose: the server sniffs the bytes.
+import.help.detect.term = ফরম্যাট নিজেই বুঝে নেয়
+import.help.detect.what = আপলোডের আগে কিছু বাছতে হয় না: এই ফাইলগুলোর প্রত্যেক ফরম্যাটের চিহ্ন গোড়ার কয়েকটা বাইটেই থাকে।
+import.help.detect.more = ভুল বুঝলে সারিটা সেটা জানায়, আর “এই ফরম্যাট হিসেবে পড়ুন…” দেয় — আপনি নাম বলে দিলে একই ফাইল আবার পড়া হয়। তখনই সেরে নেওয়া ভালো: ভুল পাঠকের হাতে পড়া ফাইল থেকে একটা লাইনও জমা পড়ে না, আর ইমপোর্টের এই একটা গোলমালই পরে যাচাইকরণে শোধরানো যায় না।
+
+# Where everything lands, and the diagram under it.
+import.help.pending.term = যাচাই বাকি ইমপোর্ট
+import.help.pending.what = আপলোড করলেই কিছু গ্রন্থাগারে ঢোকে না। প্রতিটা লাইন যাচাইকরণে অপেক্ষা করে, যতক্ষণ না আপনি মেনে নিচ্ছেন।
+import.help.pending.more = অপেক্ষায় থাকা লাইনও বদলানো যায় — তার অধ্যায়, চরিত্র, সময়, প্যাক আর ভাষা — আর ইমপোর্টের আন্দাজ শুধরে নেওয়ার সবচেয়ে সস্তা মুহূর্ত ওটাই, কারণ মেনে নেওয়ার পরে ওই একই সংশোধন আর এক স্ক্রিনে গিয়ে দ্বিতীয়বার সম্পাদনা।
+
+# The accessible name of the little diagram in the Pending entry — a screen reader reads this instead of the three boxes.
+import.help.flow.aria = ফাইল আগে যাচাই বাকি ইমপোর্টে যায়, আপনি মেনে নিলে তবেই গ্রন্থাগারে পৌঁছয়
 # The three boxes of that diagram, in order, then the arrow between the last two. Each sits in a fixed 52-68px box in a mono face, so a long word will not fit — abbreviate rather than overflow.
-capture.help.import.flow.file.label = ফাইল
-capture.help.import.flow.pending.label = যাচাই
-capture.help.import.flow.library.label = গ্রন্থাগার
-capture.help.import.flow.approve.label = মেনে নিন
+import.help.flow.file.label = ফাইল
+import.help.flow.pending.label = যাচাই
+import.help.flow.library.label = গ্রন্থাগার
+import.help.flow.approve.label = মেনে নিন
+
+# The list under this row is drawn from the importer’s own table — the eight rows, their extensions and their steps are import.source.* below.
+import.help.sources.term = ফাইলগুলো কোথায় পাবেন
+import.help.sources.what = প্রত্যেকটা বলে দেয় কী সেভ করতে হবে আর কোথা থেকে। এক্সটেনশনটা কোন ফাইলটা আপনার তা চেনার আভাস, নিয়ম নয়।
 
 # ---------------------------------------------------------------------------
 # common.help.* — the shell’s own rows, appended to EVERY screen’s panel, and

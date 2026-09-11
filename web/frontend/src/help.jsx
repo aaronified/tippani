@@ -42,10 +42,12 @@ import {
   IconShare,
   IconType,
   IconUpload,
+  IconWarning,
   useIsMobileScreen,
 } from './ui.jsx'
 import { Gesture } from './gestures.jsx'
 import { t } from './i18n.js'
+import { SOURCES, sourceCaveat, sourceDesc, sourceSteps, sourceTitle } from './importSources.js'
 
 // ---- assets ----------------------------------------------------------------
 //
@@ -85,20 +87,71 @@ function HelpImportFlow() {
   const label = { fontSize: 'var(--type-mono-9)', fill: 'currentColor', fontFamily: 'var(--font-mono)' }
   return (
     <svg viewBox="0 0 240 46" width="240" role="img"
-         aria-label={t('capture.help.import.flow.aria')}>
+         aria-label={t('import.help.flow.aria')}>
       <rect x="1" y="12" width="52" height="18" {...box} />
-      <text x="27" y="24" {...label} textAnchor="middle">{t('capture.help.import.flow.file.label')}</text>
+      <text x="27" y="24" {...label} textAnchor="middle">{t('import.help.flow.file.label')}</text>
       <rect x="86" y="12" width="68" height="18" {...box} />
-      <text x="120" y="24" {...label} textAnchor="middle">{t('capture.help.import.flow.pending.label')}</text>
+      <text x="120" y="24" {...label} textAnchor="middle">{t('import.help.flow.pending.label')}</text>
       <rect x="187" y="12" width="52" height="18" {...box} />
-      <text x="213" y="24" {...label} textAnchor="middle">{t('capture.help.import.flow.library.label')}</text>
+      <text x="213" y="24" {...label} textAnchor="middle">{t('import.help.flow.library.label')}</text>
       {/* Two arrows, and the second is the whole point: it is the one you press. */}
       <path d="M55 21 H84" stroke="currentColor" strokeWidth="1.2" opacity="0.5" />
       <path d="M78 18 l6 3 -6 3" fill="currentColor" opacity="0.5" />
       <path d="M156 21 H185" stroke="currentColor" strokeWidth="1.4" />
       <path d="M179 18 l6 3 -6 3" fill="currentColor" />
-      <text x="170" y="10" {...label} textAnchor="middle" opacity="0.85">{t('capture.help.import.flow.approve.label')}</text>
+      <text x="170" y="10" {...label} textAnchor="middle" opacity="0.85">{t('import.help.flow.approve.label')}</text>
     </svg>
+  )
+}
+
+// HelpSources — every format the importer parses, drawn FROM THE PARSER TABLE.
+//
+// The assets header above puts a LIVE CONTROL first and a SCHEMATIC second, and
+// this is neither: it is the app's own data, rendered. That is the same claim
+// HelpSwatches makes with the reader's six category colours — the list cannot be
+// wrong about the app, because it is not a description of the app.
+//
+// SO IT CANNOT DRIFT FROM THE IMPORTERS. `SOURCES` is what ImportPage derives its
+// `accept` filter and its "Read this as…" menu from; a list typed out here would
+// agree with the parsers on the day it was written and never again, and nothing
+// would notice, because a help panel has no run to fail.
+//
+// THE EXTENSION IS A HINT ABOUT WHERE TO LOOK, NEVER A RULE. Detection is by
+// content, so a `.txt` that is really a notebook still imports and a `.html` that
+// is really nothing at all still fails. It is here because "which of these is my
+// file" is a question answered by looking at a downloads folder.
+function HelpSources() {
+  return (
+    <div className="flex flex-col gap-3">
+      {SOURCES.map((s) => (
+        <div key={s.kind}>
+          <p style={{ fontSize: 'var(--type-ui-13)' }}>
+            <b>{sourceTitle(s.kind)}</b>
+            <span className="mono-label" style={{ color: 'var(--faint)', marginInlineStart: '0.5em' }}>{s.ext}</span>
+            {s.caveat && (
+              <span className="tp-chip" style={{ color: 'var(--amber)', fontSize: 'var(--type-ui-9)', marginInlineStart: '0.5em' }}>
+                {t('import.experimental.label')}
+              </span>
+            )}
+          </p>
+          <p className="microcopy">{sourceDesc(s.kind)}</p>
+          <ol
+            className="microcopy"
+            style={{ listStyle: 'decimal', paddingInlineStart: '1.4em', display: 'flex', flexDirection: 'column', gap: 3 }}
+          >
+            {sourceSteps(s).map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
+          </ol>
+          {sourceCaveat(s) && (
+            <p className="microcopy inline-flex items-start gap-1.5" style={{ color: 'var(--amber, var(--accent-ui))' }}>
+              <IconWarning size={13} />
+              {sourceCaveat(s)}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -401,7 +454,24 @@ export const HELP = {
     entry('capture.help.film', { more: true }),
     entry('capture.help.quote', { icon: <IconQuote />, more: true }),
     entry('capture.help.save', { more: true }),
-    entry('capture.help.import', { icon: <IconUpload />, asset: <HelpImportFlow />, more: true }),
+  ]),
+  // IMPORT IS ITS OWN SECTION NOW, AND THE EIGHT FORMATS ARE WHY. One row can
+  // carry "we read these eight things"; it cannot carry where each file comes
+  // from, which is the question people actually arrive with — "where do I get a
+  // Goodreads file" — and eight step-lists under one row is a section wearing a
+  // row's clothes. It sat inside `capture` while import was one sentence, and the
+  // list lived on the import screen behind a fold, which made the same eight rows
+  // two things to keep in step.
+  //
+  // A SECTION WITHOUT A SCREEN, deliberately. Import is a MODE of the add surface
+  // since the rebuild, so there is no tab and no route to reach it from — the rail
+  // entry is how it is found, and the "?" on that mode opens here (AddSurface.jsx
+  // picks the key off `mode`).
+  import: section('import.help.title', [
+    entry('import.help.drop', { icon: <IconUpload /> }),
+    entry('import.help.detect', { more: true }),
+    entry('import.help.pending', { asset: <HelpImportFlow />, more: true }),
+    entry('import.help.sources', { asset: <HelpSources /> }),
   ]),
 }
 
@@ -442,6 +512,10 @@ const GUIDE_ORDER = [
   'anthologies',
   'search',
   'capture',
+  // Import sits directly under Capture because it is the same door: the ＋ opens
+  // the add surface, and import is one of its modes. A reader who found the one
+  // is a press away from the other.
+  'import',
   // Checks sits above the two sections it is made of. Both keep their own rails
   // entries because both keep their own URLs — this one answers what the SCREEN
   // is, and each of those answers what its list means.

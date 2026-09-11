@@ -51,13 +51,24 @@ describe('every screen you can reach has help', () => {
     expect(helpFor(helpScreen('movies', { type: 'movie', id: 1 }))?.title).toBe('Film, show or game')
   })
 
-  // Both are rendered with a literal screen= prop rather than through
-  // helpScreen, so neither is covered by the loop above.
+  // Rendered with a literal screen= prop rather than through helpScreen, so not
+  // covered by the loop above.
   it('the surfaces with a hardcoded screen prop exist', () => {
-    for (const [file, key] of [['AddSurface.jsx', 'capture'], ['App.jsx', 'profile']]) {
+    for (const [file, key] of [['App.jsx', 'profile']]) {
       expect(src(file)).toContain(`screen="${key}"`)
       expect(HELP[key]).toBeTruthy()
     }
+  })
+
+  // THE ADD SURFACE PICKS BETWEEN TWO, and that is the point: import is a MODE of
+  // it, not a screen, so `helpScreen` never sees import and the surface decides.
+  // It hardcoded `capture` on both its headers for a release, which is how the
+  // import mode's "?" came to answer a question about capturing a quote.
+  it('the add surface answers for whichever mode it is in', () => {
+    const add = src('AddSurface.jsx')
+    expect(add, 'the "?" is back to naming one screen for both modes').toContain('<PageHelp screen={helpKey} />')
+    expect(add).toContain("const helpKey = mode === 'import' ? 'import' : 'capture'")
+    for (const key of ['capture', 'import']) expect(HELP[key], key).toBeTruthy()
   })
 
   it('an unknown key is null rather than a half-built panel', () => {

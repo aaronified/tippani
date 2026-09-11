@@ -1722,6 +1722,11 @@ export default function AddSurface({
     return () => { stale = true }
   }, [initialTarget?.type, initialTarget?.id])
   const target = pickedTarget ?? (pickedMode ? null : (openedWork || opening.target))
+  // WHICH HELP THE "?" OPENS, once, for both headers below. Import is a mode of
+  // this surface rather than a screen, so `helpScreen` in routes.js never sees it
+  // — there is no tab to derive it from. Hardcoding `capture` on both branches is
+  // what made the import mode's "?" answer a question about capturing a quote.
+  const helpKey = mode === 'import' ? 'import' : 'capture'
   const door = pickedDoor ?? (pickedMode || pickedTarget ? null : opening.door)
 
   // The forms this mode and container can reach, and the one it opens with no
@@ -1947,7 +1952,7 @@ export default function AddSurface({
         dismissOnScrim={false}
         actions={
           <span className="flex shrink-0 items-center">
-            <PageHelp screen="capture" />
+            <PageHelp screen={helpKey} />
             {saveBtn}
           </span>
         }
@@ -1976,7 +1981,7 @@ export default function AddSurface({
             <h2 className="display-title text-xl add-head-title">{title}</h2>
             {subLine && <MonoLabel className={'add-head-sub' + (target?.credit ? ' is-name' : '')}>{subLine}</MonoLabel>}
           </div>
-          <PageHelp screen="capture" />
+          <PageHelp screen={helpKey} />
           {saveBtn}
           {closeBtn}
         </div>

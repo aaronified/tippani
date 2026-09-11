@@ -3999,9 +3999,8 @@ import.experimental.label = experimental
 # takes a dropped file too — not a separate control, the same one.
 import.choose.label = Choose file — one or many
 import.drop.hint = or drag & drop here
-# The how-tos, collapsed under the target. They are what the wall of cards was
-# for; what was wrong was reading seven of them to find a file input.
-import.sources.summary = Where do these files come from?
+# The eight how-tos moved to the "?" (import.help.sources): they are reference
+# rather than a control, and they were the only reason this screen had a fold.
 
 # WHEN THE BYTES DO NOT SAY. The sniffer answers first and this is the reader's
 # override — a second door rather than a front one, offered only on a file no
@@ -6255,18 +6254,41 @@ capture.help.save.term = Save (✓)
 capture.help.save.what = In the title bar, not at the foot of the form, so it is reachable on a phone without scrolling past every field.
 capture.help.save.more = It stays greyed until the must-fill fields are filled, and says which one is missing.
 
-# The ＋’s bulk-import tab.
-capture.help.import.term = Import
-capture.help.import.what = Markdown and Readest exports, Kindle Bookcision and your Kindle notebook, Goodreads and Hardcover pages, IMDb quote pages.
-capture.help.import.more = Everything lands in Pending import first.
 
-# The accessible name of the little diagram in the Import entry — a screen reader reads this instead of the three boxes.
-capture.help.import.flow.aria = A file goes to Pending import, and reaches your library only when you approve it
+# ---------------------------------------------------------------------------
+# import.help.* — the "?" panel’s section for Import, which is a MODE of the ＋
+# surface rather than a screen of its own. It was one row inside capture.help
+# until the eight formats and their step-lists needed somewhere to live.
+# ---------------------------------------------------------------------------
+
+# The help panel’s heading on the ＋ surface’s import mode.
+import.help.title = Import
+
+# The one upload well, which is also the drop target.
+import.help.drop.term = The upload well
+import.help.drop.what = Drop files on it or press it to pick them. As many at once as you like — each is read on its own.
+
+# That there is no format to choose: the server sniffs the bytes.
+import.help.detect.term = It works out the format
+import.help.detect.what = Nothing to pick before you upload: every format these files arrive in has a signature in its first bytes.
+import.help.detect.more = When it gets that wrong the row says so and offers “Read this as…”, which re-reads the same file as the format you name. It is worth doing there and then: a file read by the wrong parser stages nothing, and that is the one import fault the queue cannot repair afterwards.
+
+# Where everything lands, and the diagram under it.
+import.help.pending.term = Pending import
+import.help.pending.what = Nothing reaches your library on upload. Every line waits in Checks until you approve it.
+import.help.pending.more = A waiting line is editable — its chapter, character, timestamp, pack and language — and that is the cheapest moment to fix what an importer guessed, because the same repair after approval is a second edit on another screen.
+
+# The accessible name of the little diagram in the Pending entry — a screen reader reads this instead of the three boxes.
+import.help.flow.aria = A file goes to Pending import, and reaches your library only when you approve it
 # The three boxes of that diagram, in order, then the arrow between the last two. Each sits in a fixed 52-68px box in a mono face, so a long word will not fit — abbreviate rather than overflow.
-capture.help.import.flow.file.label = file
-capture.help.import.flow.pending.label = pending
-capture.help.import.flow.library.label = library
-capture.help.import.flow.approve.label = approve
+import.help.flow.file.label = file
+import.help.flow.pending.label = pending
+import.help.flow.library.label = library
+import.help.flow.approve.label = approve
+
+# The list under this row is drawn from the importer’s own table — the eight rows, their extensions and their steps are import.source.* below.
+import.help.sources.term = Where the files come from
+import.help.sources.what = Each of these says what to save and where to save it from. The extension is a hint about which file is yours, not a rule.
 
 # ---------------------------------------------------------------------------
 # common.help.* — the shell’s own rows, appended to EVERY screen’s panel, and

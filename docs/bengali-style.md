@@ -776,7 +776,7 @@ Named slots, with the decision made for you:
 | `common.position.episode / episode-season` | E{a} / {a} · S{b} | **unchanged** | §8 — a one-letter code beside a Western digit is a symbol, not a word |
 | `common.half-life.*` | {n}h {n}d {n}w {n}mo | **unchanged** | Same reasoning |
 | `common.slider.multiplier` / `shelf.reads` | {n}× / ×{n} | **unchanged** | |
-| `capture.help.import.flow.*` | file / pending / library / approve | ফাইল / অপেক্ষায় / লাইব্রেরি / মেনে নিন | Fixed 52–68px mono boxes. **Abbreviate rather than overflow** — and see §0.5: these draw in an OS fallback face |
+| `import.help.flow.*` | file / pending / library / approve | ফাইল / যাচাই / গ্রন্থাগার / মেনে নিন | Fixed 52–68px mono boxes. **Abbreviate rather than overflow** — and see §0.5: these draw in an OS fallback face |
 | `common.progress.unit.*` | % / pages / episodes | % / পৃষ্ঠা / এপিসোড | |
 | `common.mono.*` | colour, group, tag, speaker… | রং, ভাগ, ট্যাগ, বক্তা… | One word each; mono slot |
 

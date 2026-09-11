@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failing, and no key at all. **And the Amazon marketplace is two letters now** — `in`,
   `com`, `com.au` — instead of the whole `www.amazon.in`, which was the widest thing on
   the card. Paste any form of it and it still works.
+- **The list of import formats moved into help, and Import has its own section there.**
+  The eight formats and their step-by-step instructions used to sit folded under the upload
+  target, which made the same eight entries two things to keep in step — and the "?" on the
+  import screen answered a question about capturing a quote instead. Press it there now and
+  you get Import: what the upload well takes, why there is no format to pick, what "Pending
+  import" means, and where each kind of file comes from. It is in the guide's rail too,
+  directly under Add & capture.
+
 - **The import instructions stopped saying "here".** Each source's steps ended "drop the
   saved .html here", pointing at a card that no longer exists — there is one target now,
   so the steps say what to produce and nothing about where to put it.

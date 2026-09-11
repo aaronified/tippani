@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { errText, uploadWithProgress } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { IconArrow, IconImport, IconWarning, ProgressBar } from './ui.jsx'
+import { IMPORT_ACCEPT, sourceTitle } from './importSources.js'
 
 // ONE TARGET, AND THE BYTES SAY WHAT THE FILE IS.
 //
@@ -15,9 +16,13 @@ import { IconArrow, IconImport, IconWarning, ProgressBar } from './ui.jsx'
 // bytes. So the question is gone and `POST /import/auto` sniffs instead
 // (internal/httpapi/import_auto.go).
 //
-// THE HOW-TOS STAY, behind one disclosure. "Where do I get a Goodreads file" is
-// a real question and the seven step-lists are the answer; what was wrong was
-// making the reader read them to find a file input, not that they existed.
+// THE HOW-TOS ARE HELP NOW, not a disclosure on this screen. "Where do I get a
+// Goodreads file" is a real question and the eight step-lists are the answer —
+// but they are reference rather than a control, and they were the only reason
+// this screen still carried a fold. They are the `import` help section, one
+// press of the "?" in the header above away, and the plan's line for why is the
+// one that decides it: a list belongs in help. This screen kept its own copy for
+// one release, which made the same eight rows two things to keep in step.
 //
 // AND THE SNIFFER CAN BE WRONG, so a row that failed offers "Read this as…".
 // That is not politeness: detection failure is the one import fault the staging
@@ -29,25 +34,11 @@ import { IconArrow, IconImport, IconWarning, ProgressBar } from './ui.jsx'
 // queue and answers a batch id and a staged count, and the rows below report
 // what was STAGED.
 
-// SOURCES is now a HOW-TO LIST and nothing else — no file input, no accept
-// filter, no colour. Every word a reader sees is a key resolved where it is
-// drawn, and `steps` is a COUNT rather than a list of strings: the keys are
-// import.source.<kind>.step.1 … .N, so the table says how many there are and the
-// locale file says what they are.
-const SOURCES = [
-  { kind: 'markdown', ext: '.md', steps: 2 },
-  { kind: 'readest', ext: '.json', steps: 2 },
-  { kind: 'bookcision', ext: '.json', steps: 3 },
-  { kind: 'hardcover-html', ext: '.html', steps: 3 },
-  { kind: 'goodreads-html', ext: '.html', steps: 3 },
-  { kind: 'imdb-quotes', ext: '.html', steps: 3 },
-  { kind: 'kindle-notebook', ext: '.html', steps: 3 },
-  { kind: 'kindle-clippings', ext: '.txt', steps: 3, caveat: true },
-]
-
-// Every extension any of them arrives as, for the input's `accept`. Derived
-// rather than typed, so a source added above cannot be left out of it.
-const ACCEPT = [...new Set(SOURCES.map((s) => s.ext))].join(',') + ',.markdown,.htm,.text'
+// THE SOURCE TABLE MOVED OUT (importSources.js) when the help guide became its
+// second reader. This screen still needs it for two things — the `accept` filter
+// and the "Read this as…" list — and the step-lists it used to draw are now the
+// `import` help section, so the list lives in one place and this screen holds
+// none of it.
 
 // THE OVERRIDE'S SLUGS ARE THE SERVER'S, and they are NOT the seven route
 // names. `POST /import/auto` matches `as` against `importSources`, whose keys
@@ -71,13 +62,6 @@ const READ_AS = [
 // the door that does take the file — Restore, Type — and those are screen names
 // this locale file already owns.
 const NEAR_MISS = new Set(['backup', 'zip', 'epub', 'image', 'font', 'binary'])
-
-// The reader's words for one source, resolved at render.
-const sourceTitle = (kind) => t(`import.source.${kind}.title`)
-const sourceDesc = (kind) => t(`import.source.${kind}.desc`)
-const sourceSteps = (src) =>
-  Array.from({ length: src.steps }, (_, i) => t(`import.source.${src.kind}.step.${i + 1}`))
-const sourceCaveat = (src) => (src.caveat ? t(`import.source.${src.kind}.caveat`) : '')
 
 export default function ImportPage({ onReviewImport, onStaged }) {
   const [rows, setRows] = useState(null) // per-file, in batch order
@@ -178,7 +162,6 @@ export default function ImportPage({ onReviewImport, onStaged }) {
     <section className="flex flex-col gap-4">
       <DropTarget busy={busy} pct={pct} onFiles={runBatch} />
       {rows && <BatchResults rows={rows} summary={summary} staged={staged} busy={busy} onReviewImport={onReviewImport} onReread={reread} />}
-      <WhereFromNote />
       <NothingLandsYetNote />
       <SaveDontPasteNote />
     </section>
@@ -223,7 +206,7 @@ function DropTarget({ busy, pct, onFiles }) {
       <input
         type="file"
         multiple
-        accept={ACCEPT}
+        accept={IMPORT_ACCEPT}
         /* sr-only, NOT `hidden`: a display:none input cannot take focus, so the
            label around it would be a control no keyboard could reach. This is
            the pattern Settings' typeface upload already uses. */
@@ -236,48 +219,6 @@ function DropTarget({ busy, pct, onFiles }) {
         }}
       />
     </label>
-  )
-}
-
-// WhereFromNote — the seven step-lists, collapsed. This is what the wall of
-// cards was for, minus the seven file inputs the sniffer made redundant.
-function WhereFromNote() {
-  return (
-    <details className="import-note">
-      <summary className="mono-label cursor-pointer" style={{ listStyle: 'revert' }}>
-        {t('import.sources.summary')}
-      </summary>
-      <div className="mt-2 flex flex-col gap-3">
-        {SOURCES.map((s) => (
-          <div key={s.kind}>
-            <p style={{ fontSize: 'var(--type-ui-13)' }}>
-              <b>{sourceTitle(s.kind)}</b>
-              <span className="mono-label" style={{ color: 'var(--faint)', marginInlineStart: '0.5em' }}>{s.ext}</span>
-              {s.caveat && (
-                <span className="tp-chip" style={{ color: 'var(--amber)', fontSize: 'var(--type-ui-9)', marginInlineStart: '0.5em' }}>
-                  {t('import.experimental.label')}
-                </span>
-              )}
-            </p>
-            <p className="microcopy">{sourceDesc(s.kind)}</p>
-            <ol
-              className="microcopy"
-              style={{ listStyle: 'decimal', paddingInlineStart: '1.4em', display: 'flex', flexDirection: 'column', gap: 3 }}
-            >
-              {sourceSteps(s).map((step, i) => (
-                <li key={i}>{step}</li>
-              ))}
-            </ol>
-            {sourceCaveat(s) && (
-              <p className="microcopy inline-flex items-start gap-1.5" style={{ color: 'var(--amber, var(--accent-ui))' }}>
-                <IconWarning size={13} />
-                {sourceCaveat(s)}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
-    </details>
   )
 }
 
