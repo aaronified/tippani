@@ -21,22 +21,29 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Fifteen files sit here, and only some of them are plans** — the table at the foot of this
-file names the six that are not, leaving nine features.
+**Sixteen files sit here, and only some of them are plans** — the table at the foot of this
+file names the six that are not, leaving ten features.
 
-THAT COUNT HAS NOW BEEN WRONG FOUR TIMES, and the fourth is the most instructive because it
-was made by a change that was editing this very paragraph. It said "Seven"; a change that
-added a file incremented it to "Eight" without counting the directory; a change that fixed
-THAT wrote "Fifteen" while citing the command answering sixteen, and said "seven" of a
-table with eight rows; and then the change that moved three files OUT of this directory
-corrected the prose around them and left both numbers behind — so the sentence claimed
-sixteen files and eight non-plans over a directory holding fifteen and six. The periodic
-sweep found it, which is the only reason it is right now.
+THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
+incremented it to "Eight" without counting the directory; a change that fixed THAT wrote
+"Fifteen" while citing the command answering sixteen, and said "seven" of a table with
+eight rows; the change that moved three files OUT of this directory corrected the prose
+around them and left both numbers behind — so the sentence claimed sixteen files and eight
+non-plans over a directory holding fifteen and six.
+
+**AND THE FIFTH IS THE ONE THE LESSON BELOW DOES NOT COVER**, which is why it is worth its
+own sentence. `work-source-files.md` arrived and NOBODY EDITED THIS PARAGRAPH — the four
+before it were all miscounts made while writing here, and this one is a count that went
+stale while the file sat untouched. "Run the command rather than adjusting the number"
+only reaches a reader who is already editing the sentence; a directory that grows behind
+its own index needs somebody whose job is to look, and that is the periodic sweep. It
+found the fourth and it found this one.
 
 **The lesson is not "be careful", it is that a hand-maintained count of a directory is a
 fact with no owner.** Both numbers are what the tree gives — `ls docs/plans/*.md | wc -l`
 and the row count below — so if you are editing this sentence, RUN them rather than
-adjusting them by the size of your own change.
+adjusting them by the size of your own change. And if you have ADDED a file, this sentence
+is part of your change whether you meant to come here or not.
 
 Two of the non-plans are odd ones of the same kind:
 `screen-audit.md` and `codebase-audit.md` are not features but the unfixed halves
@@ -61,10 +68,12 @@ plan**, which contradicted the table below listing it as a non-plan — `antholo
 took over its one remaining item and says so. One file described two ways in one document
 is the shape that makes a reader trust neither, and the sweep is what caught it.
 
-So the plans proper are the nine the table does not name: `access.md` for roadmap §6,
+So the plans proper are the ten the table does not name: `access.md` for roadmap §6,
 `entry-helpers.md` and `episodes.md`, which no roadmap section owns, and
 `anthology-update.md`, `atrium-liquid-glass.md`, `bulk-editors-one-field-table.md`,
-`import-one-drop-target.md`, `locators-from-files.md` and `quote-card-types.md`.
+`import-one-drop-target.md`, `locators-from-files.md`, `quote-card-types.md` and
+`work-source-files.md` — the storage, mount and prune spine that `locators-from-files.md`
+already calls "the reader of these files" and cites by name.
 
 **`quote-card-types.md` has no roadmap card and is not on the skip table either**, which
 looks like an omission and is the file's own instruction: "Not queued … The roadmap sweep
