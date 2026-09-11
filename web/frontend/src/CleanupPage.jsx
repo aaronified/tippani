@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { errText, json } from './api.js'
 import { t } from './i18n.js'
 import {
+  BulkBar,
   Card,
   EmptyState,
   FieldIconButton,
@@ -108,12 +109,33 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
   // about THIS find rather than about the rule on the field for ever.
   const target = (it, f) => ({ kind: it.kind, id: it.id, field: f.field, rule: f.rule, match_hash: f.match_hash })
 
+  // THE SELECTION IS OVER FINDINGS, NOT OVER ROWS, and the five fields `target`
+  // already sends are exactly its identity — so the key is that object flattened
+  // and the bulk call is the selection mapped straight back to it.
+  //
+  // KEYED ON `match_hash` RATHER THAN ON A POSITION, and that is load-bearing: it
+  // is what makes a find whose text changed under the reader drop OUT of the
+  // selection on the next read instead of being answered blind. That is the same
+  // fact `accept`'s toast reports as `stale`, caught one step earlier.
+  const targetKey = (it, f) => `${it.kind}:${it.id}:${f.field}:${f.rule}:${f.match_hash}`
+  const [sel, setSel] = useState(() => new Set())
+  const clearSel = () => setSel(new Set())
+  const toggleKey = (key) =>
+    setSel((s) => {
+      const next = new Set(s)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+
   async function answer(path, items, said) {
     setBusy(true)
     const r = await json('POST', path, { items })
     setBusy(false)
     if (!r.ok) return toast(errText(r, t('error.save.generic')))
     said(r.data || {})
+    // The answered finds are about to stop existing, so the selection goes with
+    // them rather than surviving as keys that match nothing.
+    clearSel()
     setNonce((n) => n + 1)
   }
 
@@ -155,7 +177,35 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
   // whether or not it fired, which is exactly what makes this filterable.
   const chips = useMemo(() => (data?.rules || []).filter((r) => hits.has(r)), [data, hits])
 
-  const shown = rule === 'all' ? items : items.filter((it) => it.findings.some((f) => f.rule === rule))
+  // MEMOISED FOR THE REASON `items` ABOVE GIVES: it feeds `shownFinds`, and a memo
+  // keyed on a list rebuilt every render is a memo that never holds.
+  const shown = useMemo(
+    () => (rule === 'all' ? items : items.filter((it) => it.findings.some((f) => f.rule === rule))),
+    [items, rule],
+  )
+
+  // THE FINDINGS ACTUALLY ON SCREEN, flattened, and the list below draws from the
+  // same `found` rule filter — so a selection made under one rule chip is neither
+  // acted on nor silently lost when the chip changes: it stays in the Set and
+  // simply stops being part of what the bar is about, which is how the staging
+  // half above behaves with its own `shownIds`.
+  const shownFinds = useMemo(() => {
+    const out = []
+    for (const it of shown) {
+      for (const f of rule === 'all' ? it.findings : it.findings.filter((x) => x.rule === rule)) {
+        out.push({ it, f, key: targetKey(it, f) })
+      }
+    }
+    return out
+  }, [shown, rule])
+  const picked = shownFinds.filter((x) => sel.has(x.key))
+  const n = picked.length
+  const allShownPicked = shownFinds.length > 0 && n === shownFinds.length
+  // ACCEPT ONLY REACHES WHAT HAS A REWRITE. A rule that finds something it cannot
+  // correct sends no `after_snippet`, and the per-find Accept is drawn only when
+  // there is one — so the bulk verb counts the same condition and says the number
+  // out loud rather than quietly answering a subset of what was ticked.
+  const acceptable = picked.filter((x) => x.f.after_snippet)
 
   // A filter that outlives what it was filtering would leave the page reading
   // "nothing of that kind" over a list with rows in it. Nothing can remove a
@@ -305,6 +355,62 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
             </p>
           )}
 
+          {/* SELECT ALL, IN THE ROW THE FILTERS ARE IN, exactly where the staging
+              half above puts its own — the two sections sit on one screen (Checks),
+              and a reader who has learnt the tick row on the top half should not
+              have to learn a second mechanism eight inches lower. "All" here means
+              all the finds the rule chip is currently showing, which is what makes
+              this control also the answer to "accept every one of this rule". */}
+          {shownFinds.length > 0 && (
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={allShownPicked}
+                onChange={() => setSel(allShownPicked ? new Set() : new Set(shownFinds.map((x) => x.key)))}
+              />
+              <span className="microcopy">{t('cleanup.select-all.label', { n: shownFinds.length })}</span>
+            </label>
+          )}
+
+          {/* THE ENDPOINTS HAVE ALWAYS TAKEN MANY AND THIS SCREEN OFFERED ONE.
+              `/cleanup/accept`, `/cleanup/ignore` and `/cleanup/unignore` each take
+              a list, and every call site passed a single-element array — so four
+              hundred finds of one rule were four hundred presses over an endpoint
+              that would have taken the lot. */}
+          <BulkBar n={n} onClear={clearSel}>
+            {bucket === 'open' ? (
+              <>
+                <GhostButton
+                  icon={<IconCheck />}
+                  keepLabel
+                  disabled={busy || acceptable.length === 0}
+                  onClick={() => accept(acceptable.map((x) => target(x.it, x.f)))}
+                >
+                  {t('cleanup.bulk.accept.label', { n: acceptable.length })}
+                </GhostButton>
+                <Tooltip label={t('cleanup.ignore.tip')}>
+                  <GhostButton
+                    icon={<IconClose />}
+                    keepLabel
+                    disabled={busy}
+                    onClick={() => setIgnored(picked.map((x) => target(x.it, x.f)), true)}
+                  >
+                    {t('cleanup.bulk.ignore.label')}
+                  </GhostButton>
+                </Tooltip>
+              </>
+            ) : (
+              <GhostButton
+                icon={<IconRefresh />}
+                keepLabel
+                disabled={busy}
+                onClick={() => setIgnored(picked.map((x) => target(x.it, x.f)), false)}
+              >
+                {t('cleanup.bulk.restore.label')}
+              </GhostButton>
+            )}
+          </BulkBar>
+
           {shown.length > 0 && (
             <ul className="cleanup-list">
               {shown.map((it) => {
@@ -330,6 +436,16 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
                     <ul className="cleanup-finds">
                       {found.map((f, i) => (
                         <li key={`${f.rule}-${f.field}-${i}`}>
+                          {/* THE TICK LEADS THE FIND, on the line that names the
+                              rule, because that line is what the reader is judging
+                              — the snippet below it is the evidence for it. */}
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={sel.has(targetKey(it, f))}
+                              onChange={() => toggleKey(targetKey(it, f))}
+                              aria-label={t('cleanup.row.pick.aria', { rule: t(`cleanup.rule.${f.rule}.label`) })}
+                            />
                           <p className="microcopy">
                             {[
                               t(`cleanup.rule.${f.rule}.label`),
@@ -339,6 +455,7 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
                               .filter(Boolean)
                               .join(' · ')}
                           </p>
+                          </label>
                           {/* THE SNIPPET IS THE EVIDENCE. Half these rules find
                               something with no appearance at all, so the
                               guillemets the server marks the find with are the

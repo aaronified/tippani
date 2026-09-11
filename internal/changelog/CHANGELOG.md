@@ -496,6 +496,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`380BCE` written without a space was read as `380`.** Every year box quietly dropped an
   era typed tight against the number, so a book entered that way was filed 380 years *after*
   the date meant, in the wrong era, with nothing on screen to show it.
+- **Stray marks can be answered a hundred at a time.** The screen that finds the
+  furniture a paste brings in — doubled spaces, footnote numbers, invisible hyphens —
+  offered one Accept and one Ignore per find, so a library with four hundred of one
+  kind was four hundred presses. Tick the ones you mean, or tick them all, and answer
+  the lot in one go; filter by rule first and "all" means that rule's. Accept says how
+  many of your selection it can actually correct, because some rules find things they
+  have no rewrite for.
 - **A screen reader was not told the add screen was a screen.** On a phone, the
   sheet that opens when you press ＋ is the app's one overlay that never announced
   itself as a dialog, so assistive software read it as part of the page behind it

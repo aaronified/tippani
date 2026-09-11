@@ -2264,8 +2264,14 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         )}
         {/* Stray marks, the bin's neighbour in every sense: one door in from
             Settings, a URL so it survives a refresh, and no tab. Its rows open
-            the work a quote lives in, which is where it can be edited — this page
-            never writes. */}
+            the work a quote lives in, which is where the WORDS are edited.
+
+            "this page never writes" ended this note and stopped being true the
+            day Accept and Ignore landed: it posts to /cleanup/accept, /ignore and
+            /unignore. What it still does not do is edit a quote in place — it
+            applies a correction the server wrote and showed you first, or files
+            the find away. A comment describing the version before a change is
+            worse than none, because the next reader trusts it. */}
         {tab === 'cleanup' && (
           <div data-screen-label="cleanup">
             <CleanupPage
