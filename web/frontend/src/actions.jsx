@@ -1,4 +1,6 @@
 import {
+  ColorSwatches,
+  Hearts,
   IconAnthology,
   IconCopy,
   IconDelete,
@@ -13,6 +15,9 @@ import {
   IconSeal,
   IconShare,
   IconTag,
+  QuoteActions,
+  QuoteTools,
+  ReviewDot,
 } from './ui.jsx'
 import { t } from './i18n.js'
 
@@ -255,6 +260,80 @@ export function actionsFor(kind, item, ctx = {}) {
 // the rule — and so changing where an action lives is a change in this file.
 export const atRow = (actions) => actions.filter((a) => a.where === ROW)
 export const atOverflow = (actions) => actions.filter((a) => a.where === OVERFLOW)
+
+// ---------------------------------------------------------------------------
+// the row that draws the list
+// ---------------------------------------------------------------------------
+
+// ONE ROW, TWO CARDS, AND IT WAS WRITTEN TWICE.
+//
+// The book card (Library's AnnotationCard) and the film card (Movies' Frame)
+// each kept their own copy, and the film one's comment made a promise about the
+// other: "Order and contents match Library's ActionRow exactly — a dialogue is an
+// annotation with different credits, and the two cards should not put the same
+// control in two different places."
+//
+// THE PROMISE WAS TRUE AND THAT IS NOT THE SAME AS SAFE. Diffed line for line
+// before this move, the order and the contents did match — and the two class
+// lists did not, Library's row carrying a `pt-1.5` the frame's had never had. A
+// promise kept by two people reading carefully is the repo's "two things that
+// look the same behave the same" waiting to be broken by the next edit to one of
+// them, which is why that directive says the verb lives in ONE function both
+// screens call rather than in a line each.
+//
+// IT LIVES HERE AND NOT IN ui.jsx, which is where every control it draws lives:
+// the row needs `atRow`/`atOverflow`, this file imports ui.jsx for its icons, and
+// ui.jsx importing back would close a cycle. Beside the registry is the better
+// home anyway — one file answers "what can you do to a quote" and "where do those
+// go".
+//
+// `className` IS THE DIFFERENCE PASSED IN, which is the same directive's other
+// half: where a screen genuinely needs something the other does not, it hands the
+// fact over rather than keeping its own copy of the verb. Library's `pt-1.5` is a
+// step typed into a row and therefore debt by this repo's spacing rule, but
+// deleting it here would be a silent visual change riding along with a
+// deduplication — so each screen keeps the spacing it had and the step stays
+// visible as the one thing left to settle.
+//
+// `acts` IS STILL BUILT BY THE CARD, from the registry above — one list per card,
+// rendered in three places: this row, the ⋯, and the context menu. Built in here
+// instead, the gesture and the buttons would be two lists that agree by
+// coincidence.
+//
+// §7 DECLUTTER, which is what the order is for: the favourite ♥ is the card's
+// resting mark, and beside it sit the two things you do WITH a quote — copy it,
+// send it — then the colour quick-pick. Those three hide until the card is
+// hovered on desktop and stand on a phone, where there is no hover to wait for.
+// Only edit and delete are behind the ⋯, at every width (see QuoteActions), so
+// what a resting card shows is its ♥ and one quiet overflow glyph.
+export function ActionRow({ acts, item, color, onColor, onFavourite, actionsAlwaysVisible = false, className = '' }) {
+  return (
+    <div className={('mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 ' + className).trim()}>
+      {/* FIRST, BECAUSE IT IS THE CARD'S STATE — the same position the shelf chip
+          takes on a work, and because a state read after four verbs reads as a
+          fifth verb.
+
+          IT WAS "THE ONE CONTROL HERE THAT IS NOT ONE" until the owner asked the
+          mark to open the quote's recall history, and it is a control now: what
+          it does is READ rather than change, which is why it still leads instead
+          of joining the verbs. The sentence stayed true for exactly as long as
+          the mark stayed inert, and a comment that describes the version before
+          the change is worse than none — the next reader trusts it. */}
+      <ReviewDot item={item} />
+      <Hearts value={!!item.favorite} onChange={onFavourite} />
+      <QuoteTools actions={atRow(acts)} alwaysVisible={actionsAlwaysVisible} />
+      {/* shrink-0: the colour dots are one atomic control — the row wraps the ⋯
+          cluster to a second line before it splits or squeezes them. (Six of
+          them since 1.7.1, collapsing to a single trigger below a 330px card.) */}
+      <span className={'card-colors shrink-0' + (actionsAlwaysVisible ? ' is-visible' : '')}>
+        <ColorSwatches value={color} onChange={onColor} ariaLabel={t('common.colour.category.aria')} collapsible />
+      </span>
+      <span className="ml-auto flex items-center">
+        <QuoteActions actions={atOverflow(acts)} />
+      </span>
+    </div>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // bulk

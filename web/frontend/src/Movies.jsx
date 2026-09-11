@@ -7,7 +7,7 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
-import { actionsFor, atOverflow, atRow } from './actions.jsx'
+import { ActionRow, actionsFor } from './actions.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
@@ -54,7 +54,6 @@ import {
   GhostButton,
   HandCard,
   HandNote,
-  Hearts,
   IconMetadata,
   Masonry,
   MobileSheet,
@@ -67,9 +66,6 @@ import {
   yearInputValue,
   PickMark,
   QuizSkipMark,
-  QuoteActions,
-  QuoteTools,
-  ReviewDot,
   Scroller,
   Select,
   SheetFooter,
@@ -1942,32 +1938,24 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       {/* §7 declutter: the ♥ is the frame's resting mark and leads this row, then
           copy and share, then the colour quick-pick — the three reveal on hover
           (desktop) and stand on a phone. Edit and delete are behind the ⋯ at
-          every width. Order and contents match Library's ActionRow exactly — a
-          dialogue is an annotation with different credits, and the two cards
-          should not put the same control in two different places. */}
-      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        {/* FIRST — the card's state before the things you can do to it, and a
-            door to the whole of it since the owner asked for the popup. See
-            AnnotationCard's note at the same place. */}
-        <ReviewDot item={d} />
-        <Hearts value={!!d.favorite} onChange={(v) => onPatch({ favorite: v })} />
-        <QuoteTools actions={atRow(acts)} alwaysVisible={actionsAlwaysVisible} />
-        {/* shrink-0: the colour dots are one atomic control — the row wraps the
-            ⋯ cluster to a second line before it splits or squeezes them. (Six
-            of them since 1.7.1, and below a 330px card they collapse to a single
-            trigger, which is what keeps this row on one line beside the ♥.) */}
-        <span className={'card-colors shrink-0' + (actionsAlwaysVisible ? ' is-visible' : '')}>
-          <ColorSwatches
-            collapsible
-            value={d.color || 'yellow'}
-            onChange={(c) => onPatch({ color: c })}
-            ariaLabel={t('common.colour.category.aria')}
-          />
-        </span>
-        <span className="ml-auto flex items-center">
-          <QuoteActions actions={atOverflow(acts)} />
-        </span>
-      </div>
+          every width.
+
+          IT IS LIBRARY'S ROW AND NOT A COPY OF IT NOW. This block used to end
+          with a promise — "Order and contents match Library's ActionRow exactly"
+          — and it was a promise two readers had to keep by hand. They did keep
+          the order and the contents; what had already drifted was the spacing,
+          Library's row wearing a `pt-1.5` this one never had. One function both
+          screens call is the repo's answer to exactly that, and the frame passes
+          the one thing it differs in (no top padding) rather than keeping its own
+          copy of the verb. See actions.jsx. */}
+      <ActionRow
+        acts={acts}
+        item={d}
+        color={d.color || 'yellow'}
+        onColor={(c) => onPatch({ color: c })}
+        onFavourite={(v) => onPatch({ favorite: v })}
+        actionsAlwaysVisible={actionsAlwaysVisible}
+      />
       {menu}
     </article>
     </>

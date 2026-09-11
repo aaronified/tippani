@@ -9,7 +9,7 @@ import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
-import { actionsFor, atOverflow, atRow } from './actions.jsx'
+import { ActionRow, actionsFor } from './actions.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
@@ -55,7 +55,6 @@ import {
   GhostButton,
   HandCard,
   HandNote,
-  Hearts,
   IconCheckAll,
   IconSliders,
   IconSortAsc,
@@ -69,9 +68,6 @@ import {
   yearInputValue,
   PickMark,
   QuizSkipMark,
-  QuoteActions,
-  QuoteTools,
-  ReviewDot,
   Scroller,
   Select,
   StickerButton,
@@ -1434,44 +1430,11 @@ export function duplicateSeed(a) {
   }
 }
 
-function ActionRow({ acts, a, color, onColor, patch, actionsAlwaysVisible }) {
-  // `acts` is built by the card, from the registry (actions.jsx) — one list per
-  // card, rendered in three places: this row, the ⋯, and the context menu. Built
-  // here instead, the gesture and the buttons would be two lists that agree by
-  // coincidence.
-  // §7 declutter: the favourite ♥ is the card's resting mark, and beside it sit
-  // the two things you do WITH a quote — copy it, send it — then the colour
-  // quick-pick. Those three hide until the card is hovered on desktop and stand
-  // on a phone, where there is no hover to wait for. Only edit and delete are
-  // behind the ⋯, at every width (see QuoteActions), so what a resting card
-  // shows is its ♥ and one quiet overflow glyph.
-  return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5">
-      {/* FIRST, BECAUSE IT IS THE CARD'S STATE — the same position the shelf chip
-          takes on a work, and because a state read after four verbs reads as a
-          fifth verb.
-
-          IT WAS "THE ONE CONTROL HERE THAT IS NOT ONE" until the owner asked the
-          mark to open the quote's recall history, and it is a control now: what
-          it does is READ rather than change, which is why it still leads instead
-          of joining the verbs. The sentence stayed true for exactly as long as
-          the mark stayed inert, and a comment that describes the version before
-          the change is worse than none — the next reader trusts it. */}
-      <ReviewDot item={a} />
-      <Hearts value={!!a.favorite} onChange={(v) => patch(a, { favorite: v })} />
-      <QuoteTools actions={atRow(acts)} alwaysVisible={actionsAlwaysVisible} />
-      {/* shrink-0: the colour dots are one atomic control — the row wraps the ⋯
-          cluster to a second line before it splits or squeezes them. (Six of
-          them since 1.7.1, collapsing to a single trigger below a 330px card.) */}
-      <span className={'card-colors shrink-0' + (actionsAlwaysVisible ? ' is-visible' : '')}>
-        <ColorSwatches value={color} onChange={onColor} ariaLabel={t('common.colour.category.aria')} collapsible />
-      </span>
-      <span className="ml-auto flex items-center">
-        <QuoteActions actions={atOverflow(acts)} />
-      </span>
-    </div>
-  )
-}
+// ActionRow MOVED TO actions.jsx, where the registry it renders already lives.
+// Movies' Frame kept a second copy of this row and a comment promising it matched
+// this one exactly; it did, and the two class lists did not. See the note there —
+// the `pt-1.5` this screen has always worn is passed in rather than deleted, so
+// the deduplication changes no pixels.
 
 // AnnotationCard is the shared card body for the tiles + list views. An attached
 // uploaded sticker becomes the corner seal the quote flows around (pretext); the
@@ -1796,7 +1759,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               })}
             </div>
           )}
-          <ActionRow acts={acts} a={a} color={color} onColor={pickColor} patch={patch} actionsAlwaysVisible={actionsAlwaysVisible} />
+          <ActionRow acts={acts} item={a} color={color} onColor={pickColor} onFavourite={(v) => patch(a, { favorite: v })} actionsAlwaysVisible={actionsAlwaysVisible} className="pt-1.5" />
         </div>
       {menu}
     </HandCard>
