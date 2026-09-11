@@ -41,7 +41,7 @@ Verified against `v3` at the commit this file lands on.
 | Piece | State |
 | :-- | :-- |
 | `dialogues.timestamp` | **One free-text `TEXT` column** (0003), documented as "free text; HH:MM:SS sorts lexically" |
-| An end time, anywhere | **None.** No `end`, no `duration`, on any table. `timestamp_orig` exists only on `staged_quotes`, not on the live row |
+| An end time | **Shipped while this plan sat.** `dialogues.timestamp_end TEXT NOT NULL DEFAULT ''` and the same on `staged_quotes` — migration 0070, commit `6800f97`, 10 September. See the correction below |
 | `annotations.location` | Free-text `TEXT` (0001) — "free text page/loc/%", holding `p.142`, `610-612`, `42%`, `1234`; **not part of the dedupe hash** |
 | `annotations.chapter` / `chapter_no` | `TEXT` (0001) / `REAL` (0044) |
 | The clock vocabulary | `locformula.go:92` — `(\d{1,3}):([0-5]\d)(?::([0-5]\d))?`, and a match counts as a clock **only when not touching a digit** on either side |
@@ -142,12 +142,51 @@ nothing about the ceiling. So:
   signs and `Comment:` lines; an EPUB with a wrong `mimetype`, obfuscated fonts, a
   spine out of document order, or XHTML that is not well formed.
 
-**The match rate against a real library is still unmeasured.** The parsers'
-requirements are settled — they are the tables above, measured from the files
-themselves. What no file can settle alone is how many of the owner's stored lines
-actually find their cue, and whether the ones that do are exact or fuzzy. That
-number decides whether the accept-all group below is most of a film or a handful of
-rows, so **it is measured before the threshold is chosen**, not after.
+**The match rate is measured now, against the owner's own library, and it changed
+the algorithm.** The archive was restored to a scratch server, its *V for Vendetta*
+and *Dust of Dreams* rows read back, and both files matched against them.
+
+| Measured | |
+| :-- | :-- |
+| **30 of 30** stored lines of the film found their place in its subtitle | 12 verbatim after the fold, 12 within 5% edit distance, 6 within 15%, **none missed** |
+| **36 of 36** stored highlights of the book found their place in its EPUB | Every one, and the positions come out in reading order |
+| Worst ratio on a match | **11.8%**, on a 76-character line. A flat 5% budget would have lost six of the thirty |
+| Exact-and-unique share | **12 of 30 — 40%** |
+
+Four things follow, and the third is a change to the plan rather than a
+confirmation of it.
+
+**The accept-all group is a large minority, not most of a film.** 40% is worth
+having — it is twelve presses saved out of thirty — but the phrase "a 200-line film
+becomes one press" below was optimistic and is corrected. Most rows still get an
+eye, which is the outcome Cleanup's rule wanted anyway.
+
+**The budget has to be length-scaled and generous.** The worst true match sat at
+11.8%, and it was one of the *short* lines — which is the opposite of the intuition
+that short lines are easy. A short quote has few characters for a dropped accent or
+a swallowed article to hide in, so the same one-word difference is a far larger
+ratio. 15% of length, floored at a few characters, admitted every true match here
+and invented none.
+
+**The sliding window of consecutive cues is wrong, and the measurement is what says
+so.** *The matching* below proposes a window of a few consecutive cues. The owner's
+stored lines span **1 to 21 cues, median 3** — the long ones are speeches kept
+whole, and no fixed cap that admits a 21-cue speech is still a cheap filter. The
+correct shape is the one that has no cap: **fold every usable cue into one string
+with a character-to-cue map, then find the best-fitting substring** by edit distance
+with a free start and a free end. The span falls out of the alignment — the cue
+owning the first matched character gives the start, the cue owning the last gives
+the end — which is the same answer the window was reaching for, without having to
+guess how wide it should be. The token prefilter still does its job: it chooses
+where to align, not how far.
+
+**Junk cues have to leave the concatenation, not just the candidate list.** With the
+OpenSubtitles advertisement still in the string, a 138-character quote aligned back
+across it and reported a start of 1s for a line that begins around 40s. Excluding a
+cue from *being matched* is not enough; it has to be absent from the text the
+alignment runs over, or it lends its characters to a neighbour's span. 116 of 1,823
+cues go (114 bracketed effects, the advertisement, one empty), and the screen still
+draws all 1,823.
 
 **The clock regex constrains the output format.** Any computed time must be written
 in a form `locformula.go` still recognises, or the first offset correction applied
@@ -228,6 +267,27 @@ The supplied EPUB — *Dust of Dreams*, 1.45 MB, 67 entries — says the rest:
 should be offered as one. This file has neither, so it gets locations and chapters
 — which is the common case, not the exception.
 
+**And where one does not, the reader may already have supplied it.** All 36 stored
+highlights of this book carry a `p.NNN` location, from Readest's markdown export.
+Matched against the EPUB, the stored page and the computed position agree on order
+**perfectly** — Spearman ρ = **1.0000** over all 36 — and the scale is close to
+constant at ~0.0574 percent per page across the later two thirds, drifting to 0.041
+over the first ten (front matter, which is pages with little text in them).
+
+So a book with no page map can have one **fitted** from the pages its reader already
+recorded, and a proposal for a new highlight can then be offered in the unit the
+library is already written in. That is a real capability this measurement found, and
+it carries three cautions that are not optional:
+
+- **It is a fit, not a fact.** It interpolates between the reader's own pages, which
+  came from one app's pagination of one edition. Offer it labelled as estimated, and
+  never beside a `page-list` page, which is the real thing.
+- **It needs enough anchors, well spread.** Thirty-six across a novel is plenty;
+  three clustered in chapter one is not, and the front-matter drift above is exactly
+  what a fit built on early anchors alone would get wrong.
+- **It is one book.** Rank agreement this clean on a second title would make it a
+  feature; on its own it makes it a hypothesis worth testing before it ships.
+
 ### A correction to this plan's own earlier claim
 
 An earlier draft proposed, as its most convincing test, that computed locations
@@ -262,9 +322,13 @@ One algorithm serves both halves; only the unit at the end differs.
    quote is `O(n·m)` and a film has ~1,500 cues.
 3. **Then `search.Distance` with a length-scaled budget**, the same shape cloze
    grading already uses — an edit budget per length band rather than a flat ratio.
-4. **Match across cue boundaries.** A stored line often spans two or three cues, so
-   the candidate is a sliding window of consecutive cues; the result takes the
-   **start of the first** and the **end of the last**.
+4. **Align, do not window.** One folded string of every usable cue with a
+   character-to-cue map, then a **best-fitting substring** by edit distance with a
+   free start and a free end. The span falls out: the cue owning the first matched
+   character gives the start, the cue owning the last gives the end. Measured spans
+   run **1 to 21 cues** on the owner's own library, so no fixed window is both safe
+   and cheap — and the prefilter in step 2 chooses *where* to align rather than how
+   far to reach.
 5. **Refuse ambiguity rather than resolve it.** If the best match is not clearly
    better than the second best, the row is reported as *ambiguous* and carries both.
    A short line — "Yes." — will match a dozen cues, and guessing is worse than
@@ -286,9 +350,25 @@ whose quotes it matches; if it matches none, it says so.
 
 ---
 
-## The end time
+## The end time — decided elsewhere, the same way
 
-`dialogues` can hold a start and nothing else. Two ways, and I recommend the first.
+**This section is now a record, not a decision.** It recommended a column; migration
+0070 added exactly that column on 10 September, from the owner's own three words
+("Film timestamp: start and end"), and reached it by the same argument this plan
+gives — *"a second column, not a range inside the first… every consumer of
+`timestamp` would have to learn the new spelling on the same day"*. It went further
+than this plan did, onto `staged_quotes` as well, so the app's own Markdown
+round-trip does not lose the field.
+
+The debt the section warned about — *"a debt paid at each site is a debt one site
+forgets"* — **appears to have been paid**: `timestamp_end` reaches the single
+`INSERT INTO dialogues`, the export binding, `import_staging.go`, the staged bulk
+editor, the Markdown importer, the shared bulk field table and the card's meta line.
+The builder should confirm rather than trust this, but the column is not this plan's
+work any more. **Step 3 of the order becomes a check, not a migration.**
+
+The reasoning is kept below because it is still the argument for the shape, and
+because a later reader deserves to see that the two sessions agreed.
 
 **A new column, `dialogues.timestamp_end TEXT NOT NULL DEFAULT ''`.**
 An end is a distinct fact, and 0047's precedent is that a fact gets a column. The
@@ -427,8 +507,10 @@ about *judgement*, and judgement is what an exact, unique, verbatim match does n
 need. So the section groups by evidence:
 
 - **Exact and unique** — the quote appears once, verbatim after the fold, in one
-  window. **Accept all of these together.** This is where a 200-line film becomes
-  one press, and it is the reason the word "bulk" is in the request.
+  alignment. **Accept all of these together.** Measured at **40%** of the owner's
+  lines for this film (12 of 30), which is twelve presses saved and not the whole
+  film — the earlier draft's "a 200-line film becomes one press" was optimistic and
+  is corrected here.
 - **Fuzzy, or ambiguous, or offset-suspect** — one press each, with the evidence
   shown. Cleanup's rule, unchanged, for the rows it was written for.
 
@@ -476,7 +558,8 @@ of a feature."* So:
 | One `.vtt` | Whether cue settings and cue ids appear in practice |
 | One non-DRM `.epub` | **Supplied** — *Dust of Dreams*: EPUB 2, NCX only, no page list, 52 spine documents, 17,171 computed locations. It settled the page-number question by having none, and disproved this plan's own comparability claim |
 | One `.azw3` or `.mobi` | **The biggest open cost in the plan** — a two-byte read says whether `Compression` is 2 (short decoder) or 17480 (HUFF/CDIC, its own decision) |
-| One subtitle file **for the wrong cut** of a film you have | The offset detection, which cannot be tested with a matching file |
+| One subtitle file **for the wrong cut** of a film you have | The offset detection, which cannot be tested with a matching file. **Still outstanding** — the supplied file is the right cut, which is why it matched 30 of 30 |
+| A **second** book with stored page numbers | Whether the page fit above is a feature or a coincidence of one title |
 
 They install as gitignored `*_real.*` fixtures beside the parsers, per the
 convention (`.gitignore`, `PLAN.md`), with a committed synthetic twin for CI. Until
@@ -496,7 +579,9 @@ labelled Kindle clippings.
 | **ASS: the ninth comma.** | A `Dialogue:` line whose text contains commas survives intact |
 | **ASS: centiseconds.** | `0:01:02.50` is 62.5s, not 62.05s |
 | **ASS: `Format:` order is honoured.** | A file with a reordered `Format:` line parses correctly |
-| **A quote spanning three cues gets the first start and the last end.** | The whole point of the window |
+| **A quote spanning 21 cues gets the first start and the last end.** | Measured: the owner's longest kept speech spans 21. A fixed window is the failure this replaces |
+| **An advertisement cue is absent from the concatenation, not merely unmatched.** | With it present a real quote aligned across it and reported a start 40 seconds early |
+| **The budget admits an 11.8% difference on a short line.** | The worst true match measured. A flat 5% loses six of thirty |
 | **An ambiguous match is reported, not resolved.** | A quote that matches several cues produces an ambiguous row |
 | **A wrong-cut file reports an offset.** | Shift a fixture by 3s and assert the estimate |
 | **A refusal survives a rescan and does not survive a changed proposal.** | The `cleanup_ignores` contract, restated for locators |
@@ -508,7 +593,7 @@ labelled Kindle clippings.
 | **The ASS `Name` field is used when present and never required.** | The supplied file leaves it empty on all 1,823 lines; a fixture that fills it must also work |
 | **A hand selection spanning three cues gives the first start and the last end.** | The same rule as the automatic window, so the screen and the matcher cannot drift apart |
 | **A file the parser only partly understood says so.** | Unparsed cues, unopenable spine documents and unknown `Format:` fields are counted and named in the answer, never dropped |
-| `go test ./...` | The new column makes this a schema change; every create path owes it |
+| `go test ./...` | `timestamp_end` shipped in 0070; confirm the debt is paid at every write site rather than adding the column again |
 
 ---
 
@@ -519,9 +604,9 @@ labelled Kindle clippings.
 2. **The matcher** — normalise through `store.CastKey`, token filter,
    `search.Distance`, cue windows, ambiguity, offset estimate. Pure.
    — `internal/subs/match.go`
-3. **`dialogues.timestamp_end`**, and the debt at every write site, the export
-   binding, the round-trip test, the field table entry, the meta line.
-   — a migration, `dialogue_handlers.go`, `import_*.go`, `export_handlers.go`
+3. **Confirm `timestamp_end`'s debt is paid** — the column shipped in 0070, so this
+   is a read of the write sites, the export binding and the round-trip test, not a
+   migration. — `dialogue_handlers.go`, `import_*.go`, `export_handlers.go`
 4. **The proposals section** — table, the durable refusal, `stale`, the grouped
    accept. — a migration, `internal/httpapi/locators.go` (new),
    `ChecksPage.jsx`, `CleanupPage.jsx`'s row component as the model
@@ -567,6 +652,9 @@ By hand, against a real backup rather than `seed.mjs`:
   is the windowing decision, and it is better taken here than after five surfaces
   copied the list.
 - Reject a proposal, rescan, and confirm it stays rejected.
+- Re-run the measurement above on a second film and a second book before the
+  thresholds are frozen. 15% of length and a 40% exact share are two titles' worth
+  of evidence, not the library's.
 
 ## Out of scope, named
 
