@@ -57,3 +57,43 @@ describe('the scope reaches the screens that have one', () => {
     })
   }
 })
+
+// AND THE CONTROL REACHES EVERY CONTAINER THAT HAS THE COLUMN.
+//
+// THE SAME GAP ONE LAYER UP. `text-order-control.test.jsx` renders the control and
+// proves it works; it says nothing about whether any screen draws it — and 0073
+// shipped with the column stored, every card obeying it, and no way to set it at
+// all. A component test cannot see that, because it supplies its own mount.
+describe('a container that can store the order can also set it', () => {
+  // Where the control belongs, per container. A book and a film edit their fields
+  // in the Details panel (one registry entry each, drawn by one `order` branch); a
+  // board edits its own in BoardForm.
+  const DRAWS = ['WorkDetails.jsx', 'boards.jsx']
+
+  it('names every file that draws the control', () => {
+    const drawn = sourcesUnder().filter((rel) => /<TextOrderField[\s/>]/.test(readSource(rel)))
+    expect(drawn.sort(), 'a screen draws TextOrderField and is not listed in DRAWS')
+      .toEqual([...DRAWS].sort())
+  })
+
+  // BOTH WORK KINDS, not one. The Details panel is two registries — a book's and a
+  // film's — and a control added to one of them would leave the other unable to
+  // say anything, which is exactly the drift this repo's "similar things behave
+  // similarly" rule exists against.
+  it("the Details panel offers it on a book AND on a film", () => {
+    const src = readSource('WorkDetails.jsx')
+    // `[\s\S]{0,160}?` AND NOT `[^}]*`: the entry holds a GETTER —
+    // `get label() { return t(…) }` — so a class excluding braces stops inside the
+    // row and matches nothing. The first cut of this line did exactly that and
+    // reported zero registries against a file with two.
+    const rows = [...src.matchAll(/\{ key: 'text_order',[\s\S]{0,160}?kind: 'order'/g)]
+    expect(rows.length, 'text_order is in one work registry and not the other').toBe(2)
+  })
+
+  it('and the board form carries it in the body it PUTs', () => {
+    // Drawing the control and not sending it would be a slider that moves and
+    // saves nothing — and because every PUT here is full-state, a board edited for
+    // its colour would clear the setting on the way past.
+    expect(/text_order: textOrder/.test(readSource('boards.jsx'))).toBe(true)
+  })
+})

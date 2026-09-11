@@ -28,6 +28,8 @@ import { quotePairCells, quotePairDoors } from './quotePair.jsx'
 import { useSearchDoor } from './personOpen.jsx'
 import { characterPanel } from './identity.jsx'
 import { OFFERED_FIELDS, fieldOffersPanel } from './fieldOffers.jsx'
+import { TEXT_ORDER_WORD } from './textOrder.js'
+import { TextOrderField } from './textOrderField.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits, personImgURL, usePeople } from './credits.jsx'
 import { PasteLink, WorkLinks, linkRows, providerURL } from './workLinks.jsx'
 import { t } from './i18n.js'
@@ -131,6 +133,16 @@ const BOOK_FIELDS = [
   { key: 'description', get label() { return t('common.field.description.label') }, kind: 'long', sheet: true },
   { key: 'genres', get label() { return t('common.field.genres.label') }, kind: 'tokens', sheet: true },
   { key: 'published_year', get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'published_circa' },
+  // 0073 — WHICH TEXT LEADS ON THIS WORK'S CARDS, and it outranks the reader's
+  // per-language table and their master slider. The owner's spec: "the work
+  // controls will supercede the metadata controls."
+  //
+  // A ROW HERE RATHER THAN A BOX ON THE EDIT MODAL, because this is the per-field
+  // surface: it is where a work's fields are read one at a time, and a setting
+  // that changes how every card on the screen below it reads belongs where the
+  // reader is looking at that work. `bookState` carries the column through the
+  // modal and the ♥ untouched, so nothing else can clear what is set here.
+  { key: 'text_order', get label() { return t('common.field.text-order.label') }, kind: 'order' },
   // THE TWO LANGUAGES, storable since 0047 and never once editable from a screen.
   // The hero has printed them for releases and the only way to put one there was
   // an import file — a field the app can show, can search by and cannot be told.
@@ -356,6 +368,13 @@ export const MOVIE_FIELDS = [
     get hint() { return t('film.field.media-type.info') },
   },
   { key: 'release_year', half: true, get label() { return t('common.field.year.label') }, kind: 'year', circaKey: 'release_circa' },
+  // 0073 — WHICH TEXT LEADS ON THIS WORK'S CARDS, and it outranks the reader's
+  // per-language table and their master slider. The owner's spec: "the work
+  // controls will supercede the metadata controls."
+  //
+  // See the book's row for why it is here rather than on the edit modal, and for
+  // what keeps the ♥ from clearing it.
+  { key: 'text_order', get label() { return t('common.field.text-order.label') }, kind: 'order' },
   // WHO MADE IT, AS A ROW OF ITS OWN — `work-details-popup.dc.html`'s `filmRows`,
   // where Director sits directly under Year. See the CREDITS ARE FIELDS note above
   // the tables for why it is here rather than behind a door.
@@ -533,6 +552,10 @@ export function fullState(kind, it) {
 // coerce turns an editor's draft into what the API stores for that field kind.
 function coerce(spec, draft) {
   if (spec.kind === 'tokens') return Array.isArray(draft) ? draft : []
+  // 0073. One of the four states, or '' for inherit — nothing to coerce, and the
+  // empty string is a VALUE here rather than a missing one: it is how the work
+  // says "follow my settings".
+  if (spec.kind === 'order') return String(draft || '')
   if (spec.kind === 'year') {
     // `n > 0` used to live here, which read every BCE year as no year at all —
     // you could type 380 BCE, watch it save, and find the field empty. The
@@ -560,6 +583,13 @@ function coerce(spec, draft) {
 function resting(spec, it) {
   const v = it?.[spec.key]
   if (spec.kind === 'tokens') return v || []
+  // 0073 — THE STORED STATE, not its word. This function's own first line says it
+  // turns a value into what InlineField "edits and shows", and for this kind those
+  // are two different strings: the slider is driven by `quote-first` and the
+  // resting row reads "quotation first". Returning the word here would hand the
+  // slider a value matching none of its four stops, so every work would open as
+  // unset — see the row's own `display` prop, which is where the word belongs.
+  if (spec.kind === 'order') return v == null ? '' : String(v)
   if (spec.kind === 'year') return formatYear(v, spec.circaKey ? it?.[spec.circaKey] : false)
   if (spec.kind === 'number' || spec.kind === 'count' || spec.kind === 'id') return v ? String(v) : ''
   return v == null ? '' : String(v)
@@ -1591,6 +1621,29 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
                 input={({ value: v, onChange }) => (
                   <TokenInput value={v} onChange={onChange} suggestions={genreSuggestions} placeholder={t('common.field.genres.placeholder')} ariaLabel={label} transform={titleCaseGenre} />
                 )}
+              />
+            )
+          }
+          // 0073 — the four-state slider, through the same `input` render prop the
+          // token row uses. `TextOrderField` is the one component all three
+          // surfaces draw (a book here, a film here, a board on its own form), so
+          // the control cannot come to mean different things on two screens.
+          if (spec.kind === 'order') {
+            return (
+              <InlineField
+                key={spec.key}
+                half={!!spec.half}
+                fieldKey={spec.key}
+                label={label}
+                value={value}
+                // THE WORD, here and not in `resting` — see the note there. An
+                // unset work shows nothing, so the row wears the panel's own empty
+                // styling, which is honest: it has no opinion of its own.
+                display={value ? t(TEXT_ORDER_WORD[value]) : ''}
+                hint={spec.hint}
+                busy={!!busy}
+                onSave={(d) => onSaveField(spec, d)}
+                input={({ value: v, onChange }) => <TextOrderField value={v} onChange={onChange} />}
               />
             )
           }

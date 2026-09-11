@@ -31,15 +31,46 @@ import (
 //
 // EMPTY IS A LEGITIMATE ANSWER and is not an error: a book whose highlights carry
 // no chapter at all answers `{"chapters":[]}`, and the form simply offers nothing.
+//
+// THE ORDER IS A SORT, AND IT USED TO BE A POPULARITY RANKING. `ORDER BY COUNT(*)
+// DESC` put the chapter with the most highlights first, which reads as no order at
+// all: the owner, from their phone, "the chapter no. combobox shows 6,2,14,1,12 on
+// mobile (the list is fixed irrespective of page refresh)… can we give them a sort
+// instead (numerical sort for numbers, ofc)". It was stable precisely because it
+// was a real ranking — chapter 6 simply had the most highlights — and that is
+// exactly why it looked arbitrary.
+//
+// THE SORT IS ENTRY ORDER, MOST RECENT FIRST, and the owner arrived at it after
+// rejecting two others in turn: "should it not be the last chapter instead? as
+// this is a entry aid?", then "better yet, use the entry order. that's the best.
+// even works on rereads".
+//
+// IT IS THE ONLY ONE OF THE THREE THAT SURVIVES A REREAD, which is the whole
+// argument. Highest-number-first answers "how far have I got" and is right until
+// you go back: annotate chapter 3 of a book you have read to 14 and it offers 14,
+// which is where you were months ago. Entry order offers 3, because 3 is what you
+// were last typing — and on a first read the two agree anyway, since you enter
+// chapters in the order you read them. A popularity ranking answered neither
+// question and is what this replaced.
+//
+// BY `id` RATHER THAN BY `created_at`, and the difference is granularity: the
+// timestamp is stored to the second, so every chapter captured in one sitting
+// would tie and fall back to something arbitrary. `annotations.id` is INTEGER
+// PRIMARY KEY — a rowid alias — so it is monotonic per insert and never ties.
+// An import inserts in file order, which for a clippings file IS reading order,
+// so a freshly imported book sorts by its last chapter without special-casing.
+//
+// AND THE NUMBER IS NOT A TIE-BREAK EITHER. There is nothing to break: no two
+// rows of this GROUP BY can share a MAX(id).
 
 type chapterOption struct {
 	// The number as stored, and 0 for "no number" — the same spelling the column
 	// uses. It is a float because 12.5 is where an interlude goes (0044).
 	No   float64 `json:"no"`
 	Name string  `json:"name"`
-	// How many highlights already use this pair. The form sorts by it, so the
-	// chapter you are working through is near the top rather than alphabetically
-	// buried, and a one-off typo sinks instead of sitting next to the real name.
+	// How many highlights already use this pair. NO LONGER THE SORT — see the
+	// ORDER BY below — but still sent, because it is what tells a real chapter
+	// from a one-off typo of one when the two sit next to each other.
 	Count int `json:"count"`
 }
 
@@ -68,7 +99,7 @@ func (s *Server) handleBookChapters(w http.ResponseWriter, r *http.Request) {
 		WHERE a.book_id = ?
 		  AND (COALESCE(a.chapter, '') <> '' OR COALESCE(a.chapter_no, 0) <> 0)
 		GROUP BY COALESCE(a.chapter_no, 0), COALESCE(a.chapter, '')
-		ORDER BY COUNT(*) DESC, COALESCE(a.chapter_no, 0), COALESCE(a.chapter, '')`, id)
+		ORDER BY MAX(a.id) DESC`, id)
 	if err != nil {
 		codedError(w, r, olog.CodeBookChapters, "list chapters", err)
 		return
@@ -114,9 +145,13 @@ func (s *Server) handleBookChapters(w http.ResponseWriter, r *http.Request) {
 
 type packOption struct {
 	Name string `json:"name"`
-	// How many of this game's lines already name it, so the pack you are playing
-	// through sits at the top rather than alphabetically buried — the same sort
-	// chapterOption.Count exists for.
+	// How many of this game's lines already name it. NOT the sort any more, for the
+	// reason the chapter list gives — and the sort here is the SAME sort, entry
+	// order, rather than the alphabetical one a pack's lack of a number first
+	// suggested. "Which pack was I last taking lines from" is the question a
+	// locator box is asking, and it is the same question on both mediums; two
+	// answers to it would be this repo's "similar things behave similarly" broken
+	// over a distinction that does not reach the reader.
 	Count int `json:"count"`
 }
 
@@ -142,7 +177,7 @@ func (s *Server) handleMoviePacks(w http.ResponseWriter, r *http.Request) {
 		FROM dialogues
 		WHERE movie_id = ? AND dlc <> ''
 		GROUP BY dlc
-		ORDER BY COUNT(*) DESC, dlc`, id)
+		ORDER BY MAX(id) DESC`, id)
 	if err != nil {
 		codedError(w, r, olog.CodeBookChapters, "list packs", err)
 		return

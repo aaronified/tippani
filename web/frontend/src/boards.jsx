@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { coverImgURL, errText, json, uploadWithProgress } from './api.js'
 import { t, tNodes } from './i18n.js'
+import { TextOrderField } from './textOrderField.jsx'
 import { Face } from './characterRows.jsx'
 import { categoryVar } from './theme.js'
 import { glyphFor, STARTER_LANGUAGES } from './languages.jsx'
@@ -260,6 +261,11 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
   const [imagePath, setImagePath] = useState(initial?.image_path || '')
   const [kind, setKind] = useState(initial?.kind || 'plain')
   const [languages, setLanguages] = useState(initial?.languages || [])
+  // 0073 — which text leads on this board's cards, outranking the reader's
+  // per-language rows and their master slider. A board is a standalone quote's
+  // container: a quote has no work row, because `work_title` is a plain string on
+  // the quote and two quotes can spell one work differently.
+  const [textOrder, setTextOrder] = useState(initial?.text_order || '')
   const [newLanguage, setNewLanguage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -321,6 +327,10 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
       // never absent from a full-state PUT. The server drops the list from a
       // plain board itself.
       languages,
+      // AND THE SAME RULE FOR THE SAME REASON: a PUT that omits it clears it, and
+      // this form is the only way to set it — so a board edited for its colour
+      // would silently lose which text its cards lead with.
+      text_order: textOrder,
     })
     setBusy(false)
     if (msg) setError(msg)
@@ -396,6 +406,11 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
           </>
         )}
       </div>
+      {/* 0073 — AFTER THE KIND AND BEFORE THE LANGUAGES, and on EVERY board rather
+          than only a proverb one: the setting is about how a card reads, which is
+          as true of a board of speeches as of a board of proverbs. The languages
+          block below is the proverb-only one. */}
+      <TextOrderField value={textOrder} onChange={setTextOrder} />
       {kind === 'proverb' && (
         <div>
           <MonoLabel className="mb-1.5 block">{t('quotes.board.form.languages.label')}</MonoLabel>

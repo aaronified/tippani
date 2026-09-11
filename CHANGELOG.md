@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **You can now set which text leads, per book, film, show, game or board** — the original
+  above the translation, the translation above the original, or one without the other. It
+  sits in a work's details and on a board's form, and it outranks your per-language rows
+  and the master slider in Settings, so a bilingual novel can read one way while the rest
+  of your library reads another. A work with no opinion follows your settings, and a
+  single control puts it back to that.
+- **The chapter and pack suggestions are in the order you entered them, newest first.**
+  They used to be ranked by how many highlights each one had, which is a real order and
+  reads as no order at all — "6, 2, 14, 1, 12", the same every time. Now the top of the
+  list is the chapter you were last typing into, which is still right when you go back to
+  annotate an earlier one on a reread. **And three other dropdowns** — series, languages
+  and shelves — **are explicitly sorted** rather than relying on the database happening to
+  return them in order.
+
 - **Groundwork: a book, a film, a show, a game and a board can now each hold their own
   answer to which text leads** — the original above the translation, the translation above
   the original, one without the other. It outranks the per-language rows and the master

@@ -55,8 +55,15 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 	}{
 		{"tags", `SELECT name FROM tags WHERE user_id = ? ORDER BY name`, false},
 		{"genres", `SELECT name FROM genres WHERE user_id = ? ORDER BY name`, false},
+		// AN EXPLICIT ORDER ON THE THREE THAT HAD NONE. `splitAll` sorts every list
+		// it touches, so the five credit facets were always alphabetical; these three
+		// are `split: false` and were relying on DISTINCT and UNION happening to emit
+		// sorted rows, which is a SQLite implementation detail rather than a promise.
+		// A dropdown whose order depends on how the engine felt like deduplicating is
+		// the same defect the chapter list had, one layer less visible.
 		{"series", `SELECT DISTINCT series FROM books WHERE user_id = ? AND series IS NOT NULL AND series <> ''
-		            UNION SELECT DISTINCT series FROM movies WHERE user_id = ? AND series IS NOT NULL AND series <> ''`, false},
+		            UNION SELECT DISTINCT series FROM movies WHERE user_id = ? AND series IS NOT NULL AND series <> ''
+		            ORDER BY 1 COLLATE NOCASE`, false},
 		{"authors", `SELECT DISTINCT author FROM books WHERE user_id = ? AND author IS NOT NULL AND author <> ''`, true},
 		{"directors", `SELECT DISTINCT director FROM movies WHERE user_id = ? AND director IS NOT NULL AND director <> ''`, true},
 		{"actors", `SELECT DISTINCT d.actor FROM dialogues d JOIN movies m ON m.id = d.movie_id
@@ -95,9 +102,11 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		// NOT SPLIT. Every other name-shaped facet here is a joined credit and has
 		// to be taken apart; a language is one name, and splitting it would offer
 		// "Old" and "English" as two languages nothing is stored under.
-		{"languages", `SELECT DISTINCT language FROM utterances WHERE user_id = ? AND language <> ''`, false},
+		{"languages", `SELECT DISTINCT language FROM utterances WHERE user_id = ? AND language <> ''
+		               ORDER BY 1 COLLATE NOCASE`, false},
 		{"shelves", `SELECT DISTINCT status FROM books WHERE user_id = ? AND status <> ''
-		             UNION SELECT DISTINCT status FROM movies WHERE user_id = ? AND status <> ''`, false},
+		             UNION SELECT DISTINCT status FROM movies WHERE user_id = ? AND status <> ''
+		             ORDER BY 1 COLLATE NOCASE`, false},
 	} {
 		vals, err := s.vocabList(spec.query, uid, strings.Count(spec.query, "user_id = ?"))
 		if err != nil {
