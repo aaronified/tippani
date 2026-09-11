@@ -176,8 +176,11 @@ describe('what each kind refuses to ask', () => {
   // are what DRIVES the height, and they are the half a pure test can measure
   // everywhere, on every run, with no browser. What it cannot know is how tall a
   // textarea grows, or where 844 pixels of phone actually run out — that needs a
-  // probe against a rendered form, and no harness reaches the Add surface yet
-  // (`controls.mjs`'s SURFACES does not list it either).
+  // probe against a rendered form. `controls.mjs` reaches the Add surface now (it
+  // presses the ＋ from Home rather than naming a route, because the surface has
+  // none), so its touch-floor ratchet covers those controls at 390px — but a
+  // control being 44px is not the same claim as a form fitting one screen, and
+  // nothing measures the second yet.
   //
   // So this is a RATCHET, on the same rule as typescale-baseline.json: the number
   // may fall and never rise. Four doors sit at six rows and fit; the longest is a

@@ -496,6 +496,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`380BCE` written without a space was read as `380`.** Every year box quietly dropped an
   era typed tight against the number, so a book entered that way was filed 380 years *after*
   the date meant, in the wrong era, with nothing on screen to show it.
+- **A screen reader was not told the add screen was a screen.** On a phone, the
+  sheet that opens when you press ＋ is the app's one overlay that never announced
+  itself as a dialog, so assistive software read it as part of the page behind it
+  and did not keep focus inside it. On a desk the same screen always did. It says so
+  at both sizes now.
 - **A shared proverb arrived as words from nowhere.** A proverb is the one kind of quote
   with nobody to credit — no speaker, no occasion, no date, no place — so the share says
   what it is instead: *a Bengali proverb*. That line was reading the shelf the quote is

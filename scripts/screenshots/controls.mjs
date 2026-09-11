@@ -146,6 +146,25 @@ const DESTRUCTIVE = /\b(delete|remove|discard|log ?out|sign ?out|reset|clear|emp
 // And ones that leave the app, which a probe cannot come back from.
 const LEAVES = /^(https?:)?\/\//
 
+// WHAT COUNTS AS "THE DOOR OPENED". A surface reached by pressing something is
+// recognised by the container that appears, and there are two of them: the panel
+// stack's `.tp-panel`, and any modal overlay — which is what the add surface is
+// at both widths (a centred scrim on a desk, a MobileSheet on a phone) and what
+// the sub-sheets are.
+//
+// IT WAS `.tp-panel` ALONE AND THAT COST A WHOLE SURFACE. The add surface is
+// neither a panel nor a route, so both of its rows below reported "did not open"
+// and nothing on either was ever measured — the exact blind spot they were added
+// to close. The enumeration scope further down has ALWAYS fallen back to
+// `[role=dialog]`; only this wait did not, so the two disagreed about what a
+// surface is.
+//
+// The phone sheet carried no role at all until this was found, which is the same
+// fact one layer down and is fixed in ui.jsx rather than worked around here: a
+// probe that learns a bespoke selector per overlay is a probe that stops
+// noticing when an overlay is not announced as one.
+const OPENED_SEL = '.tp-panel, [role=dialog]'
+
 const SURFACES = [
   { route: '/', name: 'Home' },
   { route: '/library', name: 'Library' },
@@ -222,6 +241,38 @@ const SURFACES = [
       { selector: '.tp-btn', text: 'Details' },
       { selector: '.cs-face-tile:not([aria-disabled])' },
     ],
+  },
+  // THE ADD SURFACE, WHICH THIS PROBE HAD NEVER REACHED. It is not a route — the
+  // ＋ opens it over whatever screen you are on — so a table of routes could not
+  // see it, and everything the rebuild landed there (the chooser, the eleven
+  // per-kind forms, the draggable sheet, the one-line header) went unmeasured at
+  // 390px for as long as this file listed routes alone. The `door` shape above
+  // already solves it: name a route, then press.
+  //
+  // FROM HOME, because the ＋ reads the screen it is on — on a work's own page it
+  // captures a quote against that work and the chooser never appears. Home is
+  // where it offers the choice, which is the surface with the controls on it.
+  //
+  // `[data-tour="add"]` AND NOT `.topbar-add-btn`, which is what these two rows
+  // said on their first run and why both reported "did not open". That class is
+  // the DESKTOP header's ＋ (App.jsx:2057) — the phone draws its own at
+  // `.mobile-dock-btn.is-accent` (:1361) — so one width had no door at all. The
+  // tour hook is on both, which makes it the one selector that names the same
+  // control at every width; the step matcher above then picks whichever of the
+  // two is actually visible.
+  { route: '/', name: 'Add surface', door: [{ selector: '[data-tour="add"]' }] },
+  // AND ITS IMPORT MODE, one press further in. `/import` is not a route either —
+  // it redirects to Home — so this is the only way to the drop target, the
+  // format list and the staged results.
+  //
+  // BY THE MODE ROW'S OWN WORDS. The chooser's rows are the eleven doors; "Files"
+  // is import's (add.mode.import.label), and naming it rather than taking the nth
+  // row means a door added above it does not silently move this surface to
+  // something else.
+  {
+    route: '/',
+    name: 'Add surface · import',
+    door: [{ selector: '[data-tour="add"]' }, { selector: 'button', text: 'Files' }],
   },
 ]
 
@@ -740,7 +791,14 @@ try {
       let opened = true
       for (const step of steps) {
         opened = await page.evaluate((d) => {
-          const all = [...document.querySelectorAll(d.selector)]
+          // VISIBLE ONES ONLY. The app draws its ＋ twice — once in the desktop
+          // header and once in the phone dock — and CSS hides whichever does not
+          // belong at this width. Taking `all[0]` therefore clicked a zero-box
+          // element at one of the two widths and the door silently did nothing.
+          // `getClientRects()` is the test rather than `offsetParent`, which is
+          // null for a `position: fixed` element that is perfectly visible — and
+          // the dock is fixed.
+          const all = [...document.querySelectorAll(d.selector)].filter((x) => x.getClientRects().length > 0)
           const b = d.text ? all.find((x) => x.textContent.includes(d.text)) : all[0]
           if (!b) return false
           b.click()
@@ -751,7 +809,7 @@ try {
       }
       if (opened === 'detached') {
         await new Promise((r) => setTimeout(r, 800))
-        return await waitFor(() => page.evaluate(() => !!document.querySelector('.tp-panel')).catch(() => false))
+        return await waitFor(() => page.evaluate((sel) => !!document.querySelector(sel), OPENED_SEL).catch(() => false))
       }
       // THE DOOR HAS TO HAVE OPENED. Without this the surface degrades silently
       // to the screen the door is on, and the probe reports the film page's
@@ -767,7 +825,7 @@ try {
       // that reports a defect that is not there gets switched off exactly as fast
       // as one that misses a defect that is.
       if (!opened) return false
-      if (!await waitFor(() => page.evaluate(() => !!document.querySelector('.tp-panel')).catch(() => false))) return false
+      if (!await waitFor(() => page.evaluate((sel) => !!document.querySelector(sel), OPENED_SEL).catch(() => false))) return false
       // AND THEN THE PANEL'S OWN CONTENT. A panel appears the instant it is
       // opened and fetches its record afterwards, so enumerating on the frame it
       // mounted found ONE control — its ✕ — and the surface was reported as

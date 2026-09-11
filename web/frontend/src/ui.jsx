@@ -10932,7 +10932,30 @@ export function MobileSheet({ open, onClose, onBack, title, sub, subIsName = fal
   );
   return (
     <div className="mobile-sheet tp-scrim" onClick={dismissOnScrim ? () => slideOut(onClose) : undefined}>
-      <div ref={sheetRef} className="mobile-sheet-card" onClick={(e) => e.stopPropagation()}>
+      {/* A MODAL SAYS SO, and this one did not. Every other overlay in the app
+          carries role="dialog" aria-modal="true" — the centred scrim, the
+          sub-sheet (.tp-subsheet), the panel stack — and the phone sheet, which
+          is the SAME surface at a narrower width, carried none of the three. A
+          screen reader therefore announced the add surface as a dialog on a desk
+          and as a plain div on a phone, and focus was scoped in one and not the
+          other: the repo's "two things that look the same behave the same", with
+          the two things being one component at two widths.
+
+          It was found by the touch-floor probe rather than by a reader. A surface
+          reached by pressing a door is recognised by its container, and the probe
+          looks for `.tp-panel` or `[role=dialog]`; this sheet is neither, so the
+          add surface reported "did not open" at 390 and nothing on it was ever
+          measured. The a11y gap and the blind spot were one fact.
+
+          aria-label from `title`, exactly as .tp-subsheet does at the same job. */}
+      <div
+        ref={sheetRef}
+        className="mobile-sheet-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={typeof title === 'string' ? title : undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* THE MARK IS A SIGN AND THE WHOLE BAR IS THE TARGET — the panel's rule,
             and the owner's reason for it: "the bar is too small to drag. the whole
             header bar should act as the bar. the bar is there just to make it

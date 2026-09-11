@@ -72,7 +72,17 @@ describe('the add surface on a phone', () => {
     // The grip is what says the sheet moves; `useSheetDrag` reads it as the
     // handle, so its absence is a drag with nothing to start from.
     expect(sheet().querySelector('.tp-sheet-grip')).toBeTruthy()
-    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    // ONE OVERLAY, AND IT IS THE SHEET.
+    //
+    // This line was `expect(document.querySelector('[role="dialog"]')).toBeNull()`,
+    // using the ABSENCE of a dialog role as the proof that the desktop branch had
+    // not rendered — which stopped being true the day the sheet started saying it
+    // is a modal (it is one, and it was the only overlay in the app not saying so;
+    // see MobileSheet). The proxy was also weaker than the claim: it passed if
+    // NEITHER branch rendered. Counting says the thing itself.
+    const dialogs = document.querySelectorAll('[role="dialog"]')
+    expect(dialogs.length).toBe(1)
+    expect(dialogs[0]).toBe(sheet())
   })
 
   // THE DEFECT THE OWNER REPORTED: "there are two back buttons now, both doing
