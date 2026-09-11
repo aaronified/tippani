@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "0795e855e81af861e2c9ce4f30b9289b4a6468087cc1cc362eb12347694387f8",
-    "internal/i18n/en.txt": "8d749c2aa1700df0bf73db570a36e73a2c15022022eedfabff90be331ea63036",
+    "internal/i18n/bn.txt": "3a2db0252d7a59ee8328a7d2b18318abf9992e2ac96c95dd1a99de32df3469ca",
+    "internal/i18n/en.txt": "293af1e238a609feb462584e66853c312ee7be6a92666c13e847ba4a817ee00f",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "ae52734844923282963a5acdd6bfe710196fdfcf5bed06e944c9f4c638a24547",
     "web/frontend/package.json": "d985ed193616c275ad40b9788fd8dffc1d774ce4a59c2c1836a45effde06162e",
@@ -33,10 +33,10 @@
     "web/frontend/src/CleanupPage.jsx": "3a49ebcdc9d6ceeabce506d27183e2119ee312560f21f3838537278af73bc80c",
     "web/frontend/src/CoverPicker.jsx": "31f77090b5e358f7fc88104f0609f61a1a14196cf4d17bc7b2ccbe41ce0ca914",
     "web/frontend/src/Home.jsx": "391c6a3dfb681ebd4c60c02cee6cc56532f174789fba3d8bd14f1b63df8979f8",
-    "web/frontend/src/ImportPage.jsx": "aecfce50528ede67af3e6a7f81909acc350369a0dceea4932413123b8fe7c19c",
+    "web/frontend/src/ImportPage.jsx": "616fb25c678e47b24e02fcf3f66ff80931aa31098e9573afde88bb170a4a4ea3",
     "web/frontend/src/Library.jsx": "96b2b550fea38977036ad1bc3ff0b15869e4ad226db4e8c97246fdb3b154d0a7",
     "web/frontend/src/MetadataPage.jsx": "8cae8ab417e928e7063b4d416749fa47ca90c4a215d01cd8119cd5e1e56e637c",
-    "web/frontend/src/MetadataSources.jsx": "1858ca434de0f5c649fe516d4f92422fe5eb709d89f7f493b21b1edb172a72ab",
+    "web/frontend/src/MetadataSources.jsx": "166cbc7184eca81699420399f1f26f933580fdfea357410846f496317c69d6cb",
     "web/frontend/src/Movies.jsx": "df9051f4444474259354fe02b8935bcf98e044138e5e0d611267d25a2957bf3a",
     "web/frontend/src/Quotes.jsx": "2d35cef5731907c00f7a6d1ae1ef52146a7ac449688eb6d3af7903210f39f36f",
     "web/frontend/src/ReverifyReview.jsx": "9ca60e89bca3c54371b56c2db45a872cfb2a86ba9298a98d5c8aca013cd4ca66",

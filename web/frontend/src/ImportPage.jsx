@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { upload, errText } from './api.js'
+import { errText, uploadWithProgress } from './api.js'
 import { t, tNodes } from './i18n.js'
-import { IconArrow, IconImport, IconWarning } from './ui.jsx'
+import { IconArrow, IconImport, IconWarning, ProgressBar } from './ui.jsx'
 
 // ONE TARGET, AND THE BYTES SAY WHAT THE FILE IS.
 //
@@ -85,9 +85,30 @@ export default function ImportPage({ onReviewImport, onStaged }) {
   const [staged, setStaged] = useState(0) // this run's total, for the hand-over
   const [busy, setBusy] = useState(false)
 
+  // HOW FAR THE FILE IN HAND HAS GOT, 0..1, or null when nothing is uploading.
+  //
+  // A 5 MB clippings file staging tens of thousands of rows showed NOTHING: the
+  // row said "pending" from the first byte to the last, so a reader on a slow
+  // link could not tell a large upload from a hung one. `upload()` cannot report
+  // this — fetch has no upload-progress event at all — which is why
+  // `uploadWithProgress` exists and why moving to it is the whole fix rather
+  // than a spinner.
+  const [pct, setPct] = useState(null)
+
   // ONE REQUEST PER FILE (§10 bulk contract), and `as` rides with the bytes.
   async function post(file, as) {
-    const r = await upload('/import/auto', file, as ? { as } : null)
+    // THE FORM IS BUILT HERE because uploadWithProgress takes a prepared
+    // FormData rather than a file — the same two lines `upload()` runs, kept
+    // beside the call that needs them rather than added as a third helper.
+    const form = new FormData()
+    form.append('file', file)
+    if (as) form.append('as', as)
+    setPct(0)
+    // NO TIMEOUT, DELIBERATELY, and the plan says why in the API's own words: "a
+    // timeout on an import or a backup would abort work the server is really
+    // doing". uploadWithProgress has none and must not gain one.
+    const r = await uploadWithProgress('/import/auto', form, setPct)
+    setPct(null)
     if (r.ok) return { name: file.name, file, as, ok: true, ...r.data }
     // `near_miss` PRESENT means the sniffer reached a verdict: a name for what
     // the file is, or "" for a text file nothing claimed. Absent means the
@@ -155,7 +176,7 @@ export default function ImportPage({ onReviewImport, onStaged }) {
 
   return (
     <section className="flex flex-col gap-4">
-      <DropTarget busy={busy} onFiles={runBatch} />
+      <DropTarget busy={busy} pct={pct} onFiles={runBatch} />
       {rows && <BatchResults rows={rows} summary={summary} staged={staged} busy={busy} onReviewImport={onReviewImport} onReread={reread} />}
       <WhereFromNote />
       <NothingLandsYetNote />
@@ -170,7 +191,7 @@ export default function ImportPage({ onReviewImport, onStaged }) {
 // there is no "press this, or alternatively drop there" to read. `tp-btn` inside
 // it would be a second press-target inside a press-target, which is why the
 // inner line is plain text.
-function DropTarget({ busy, onFiles }) {
+function DropTarget({ busy, pct, onFiles }) {
   const [over, setOver] = useState(false)
   return (
     <label
@@ -192,6 +213,13 @@ function DropTarget({ busy, onFiles }) {
           one more place for the two to drift apart. */}
       <span className="import-drop-label">{t(busy ? 'common.action.upload.busy' : 'import.choose.label')}</span>
       <span className="microcopy">{t('import.drop.hint')}</span>
+      {/* HOW FAR THE BYTES HAVE GOT, on the control that is sending them. A
+          separate progress row would be a second place to look while the first
+          one still says "uploading"; this is the same well, filling.
+          INDETERMINATE AT 0 is deliberate and is what ProgressBar does with
+          `max <= 0`: the fraction is honest only once the browser has a total,
+          and a bar pinned at zero reads as stalled rather than as starting. */}
+      {pct != null && <ProgressBar value={Math.round(pct * 100)} max={pct > 0 ? 100 : 0} />}
       <input
         type="file"
         multiple

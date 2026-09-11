@@ -16,13 +16,40 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const uploads = []
+// The progress callbacks, kept OUT of `uploads` because two cases compare a
+// whole upload with toEqual — a fourth key there fails them against correct
+// code, which is a test reporting its own bookkeeping as a defect.
+const progressed = []
 // `reply` is what the next upload answers, set per test.
 let reply = { ok: true, data: { staged: 3, works: [] } }
+// A promise the upload waits on before answering, or null to answer at once.
+let gate = null
 
+// THE SPY IS ON uploadWithProgress, NOT upload, and that is the point rather
+// than a detail. `upload()` goes through fetch, which has NO upload-progress
+// event at all — so a 5 MB clippings file staging tens of thousands of rows
+// showed nothing between the first byte and the last, and a reader on a slow
+// link could not tell a large upload from a hung one. Moving to XHR is the whole
+// fix; a spinner would have been a picture of one.
+//
+// IT TAKES A PREPARED FormData rather than a file, so the fields come back out
+// of the form here — which also proves `as` still rides with the bytes on a
+// re-read, the thing the override depends on.
 vi.mock('../../src/api.js', () => ({
   json: async () => ({ ok: true, data: {} }),
-  upload: async (path, file, fields) => {
-    uploads.push({ path, name: file.name, fields: fields || null })
+  uploadWithProgress: async (path, form, onProgress) => {
+    const file = form.get('file')
+    const as = form.get('as')
+    uploads.push({ path, name: file.name, fields: as ? { as } : null })
+    progressed.push(onProgress)
+    // The real one reports 1 once the body is fully sent, before the server
+    // answers. A mock that never called back would let a caller that ignores
+    // progress pass this file.
+    if (onProgress) onProgress(1)
+    // A HELD UPLOAD, for the one case that has to look at the screen WHILE the
+    // bytes are going up. Every other case wants the answer immediately, so the
+    // gate is null and this is one settled promise.
+    if (gate) await gate
     return reply
   },
   errText: (r, fallback) => (r.data && r.data.error) || fallback,
@@ -37,6 +64,8 @@ const well = () => document.querySelector('.import-drop')
 
 beforeEach(() => {
   uploads.length = 0
+  progressed.length = 0
+  gate = null
   reply = { ok: true, data: { staged: 3, works: [] } }
 })
 
@@ -106,5 +135,35 @@ describe('the one import target', () => {
     for (const name of ['Markdown', 'Readest', 'Bookcision', 'Goodreads', 'My Clippings']) {
       expect(screen.getByText(name), name).toBeTruthy()
     }
+  })
+})
+
+// AND THE PROGRESS IS ACTUALLY ASKED FOR. The move to XHR buys nothing if the
+// caller passes no callback — the upload would report to nobody and the row
+// would say "pending" exactly as it did before, with the API change invisible.
+describe('the upload reports how far it has got', () => {
+  it('hands uploadWithProgress a callback', async () => {
+    render(<ImportPage />)
+    drop(well(), textFile('clippings.txt'))
+    await waitFor(() => expect(uploads).toHaveLength(1))
+    expect(typeof progressed[0], 'the upload reports progress to nobody').toBe('function')
+  })
+
+  it('draws the bar in the well while the bytes are going up', async () => {
+    // THE CALLBACK ALONE IS NOT THE FEATURE. A caller can take a progress
+    // callback, keep the fraction in state and render nothing with it, and the
+    // case above passes on that — the reader still watches a well that says
+    // "uploading" and nothing else. So this one holds the upload open and looks
+    // at the screen.
+    let release
+    gate = new Promise((r) => { release = r })
+    render(<ImportPage />)
+    drop(well(), textFile('clippings.txt'))
+    await waitFor(() => expect(document.querySelector('.import-drop [role="progressbar"]')).toBeTruthy())
+    release()
+    // AND IT GOES WHEN THE UPLOAD DOES. A bar left behind after the answer lands
+    // is the "pending" row's failure in a new shape: something on screen that
+    // stopped meaning anything.
+    await waitFor(() => expect(document.querySelector('[role="progressbar"]')).toBeNull())
   })
 })

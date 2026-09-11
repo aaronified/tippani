@@ -137,6 +137,39 @@ const KEY_STATES = [
   ['needed', 'settings.keys.need.required.label'],
 ]
 
+// THE AMAZON MARKETPLACE, AS THE TWO LETTERS THAT DIFFER.
+//
+// THE OWNER: "for amazon domain, just use the in, com, au, etc., not the full url.
+// that takes space." They are right about the space and right about the content:
+// every marketplace host is `www.amazon.` plus a suffix, so the prefix is eleven
+// characters of the same eleven characters on every install. This row already had
+// the worst width on the card — its own note records the label breaking mid-word
+// into "AMA / ZON / DOM / AIN" with `www.amazon.in` coming down the screen two
+// characters at a time.
+//
+// THE COLUMN STILL HOLDS A HOST, and that is deliberate rather than lazy.
+// `FetchAmazonBook` builds `https://<domain>/dp/<asin>` and defaults to
+// `www.amazon.com`; a stored suffix would mean the server composing a hostname
+// from a fragment, and every existing install's value would need migrating. So
+// the SCREEN speaks suffixes and the wire keeps speaking hosts, which is one
+// transform in one place rather than a data change reaching two layers.
+//
+// AND IT TAKES WHATEVER IS PASTED. `in`, `amazon.in`, `www.amazon.in` and
+// `https://www.amazon.in/` all mean the same marketplace, and a reader who has
+// just copied their address bar should not be told off. Same forgiveness the IMDb
+// id field already extends for the same reason.
+export function amazonSuffix(host) {
+  const h = String(host || '').trim().toLowerCase()
+  if (!h) return ''
+  const m = h.match(/amazon\.([a-z.]+)/)
+  return m ? m[1].replace(/\/$/, '') : h.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+}
+
+export function amazonHost(typed) {
+  const suffix = amazonSuffix(typed)
+  return suffix ? 'www.amazon.' + suffix : ''
+}
+
 function KeyField({ label, hint, set, placeholder, secret = true, value = '', onSave, busy, need, source }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(secret ? '' : value)
@@ -294,37 +327,39 @@ export function MetadataSources({ user, onPreferences }) {
   // said exactly what the saved badge on the TMDB field says one line below it,
   // and "No key (optional)" beside TheTVDB said nothing at all — an optional key
   // you have not set is the ordinary state of the app, not a status worth a pill.
-  // What survives is the pair a key field genuinely cannot report: that lookups
-  // are running on the shared built-in key even though you have set nothing, and
-  // that they are running on nothing at all and will 503.
-  const tmdbChip =
-    source === 'builtin' ? ['active', 'settings.metadata.tmdb.builtin.label']
-      : source === 'none' ? ['error', 'settings.metadata.tmdb.none.label']
-        : null
-  // THE SAME FACT ABOUT THE DEFAULT SOURCE. TheTVDB has a built-in slot too now,
-  // and "you have set nothing and lookups are running anyway" is precisely the
-  // thing a key field cannot report. There is no `none` chip beside it: an unset
-  // optional key is the ordinary state of a self-built binary, not a fault — the
-  // TMDB chip already says when there is nothing at all to look in.
-  const tvdbChip =
-    status?.tvdb?.source === 'builtin' ? ['active', 'settings.metadata.tvdb.builtin.label'] : null
-
-  // THE ONE-TIME NOTICE THAT THE DEFAULT FILM SOURCE MOVED (2.2.0), and it earns
-  // a chip under this section's own rule — "a chip here means something to act
-  // on" — because there is a specific action: re-verify those titles and their
-  // cast gains a picture per character, which is the whole reason the default
-  // moved to TheTVDB.
+  // What survived that cut was a PAIR — lookups running on the shared built-in
+  // key even though you have set nothing, and lookups running on nothing at all
+  // — and it is a single chip now.
   //
-  // The server decides whether it applies, not this component. It is shown only
-  // to an instance that EXISTED before the change (a one-time pass wrote the
-  // marker) and only while that reader still has titles pinned to TMDB alone — so
-  // it clears itself as they work through them and needs no dismiss button, and no
-  // stored dismissal to go stale. A fresh install never sees it at all, because a
-  // notice about a change you never lived through is a sentence the app made up.
-  const moved = status?.film_source_notice
-  const filmSourceChip = moved
-    ? ['active', 'settings.metadata.filmsource.moved.label', { n: moved.tmdb_pinned }]
-    : null
+  // THE BUILT-IN BRANCH IS GONE, on the owner's ruling: "remove the built in key
+  // callouts… infact, remove all callouts." What survives is the FAULT — no key at
+  // all, so a lookup will 503 — because this section's own rule is that silence is
+  // the healthy state and a chip means something to act on. "You are running on the
+  // shared key" is not something to act on; "nothing will answer" is.
+  const tmdbChip = source === 'none' ? ['error', 'settings.metadata.tmdb.none.label'] : null
+  // TheTVDB HAD A BUILT-IN CHIP AND NOW HAS NONE. It only ever reported the
+  // built-in case — it had no fault branch, because an unset optional key is the
+  // ordinary state of a self-built binary — so removing the callout removes the
+  // chip entirely rather than narrowing it.
+
+  // THE FILM-SOURCE NOTICE IS GONE, AND SO IS THE DEFAULT IT ANNOUNCED.
+  //
+  // THE OWNER: "remove the still on tmdb callout. infact, remove all callouts. we
+  // are simultaneously checking all metadata sources on a fetch (if not, we
+  // should) so the TVDB default prose is useless too."
+  //
+  // CHECKED BEFORE CUTTING, because the sentence rests on it: reverifyMovie
+  // fetches EVERY source a title has an id for — TheTVDB, then TMDB, then the
+  // keyless rungs — and appends each answer. `preferredSourceFor` decides only
+  // which one LEADS and which namespace a person id belongs to. So a reader
+  // "still on TMDB" is not missing anything a re-verify would not already offer
+  // them, and the notice was asking them to act on a distinction the fetch does
+  // not make.
+  //
+  // `status.film_source_notice` STILL ARRIVES and is simply not read. Removing
+  // the server's marker is a separate decision about a one-time pass's leftovers,
+  // and doing it in the same breath as a screen change would be two changes
+  // wearing one reason.
 
   // saveKey writes exactly one field. The endpoint decodes every key as a
   // pointer, so an omitted field is left alone and a present-but-empty one is
@@ -385,21 +420,17 @@ export function MetadataSources({ user, onPreferences }) {
           The row itself goes when both chips do: an empty flex box under the
           heading is a gap that reads as a missing element rather than as
           nothing to report. */}
-      {(booksChip || tmdbChip || tvdbChip || filmSourceChip) && (
+      {/* TWO CHIPS LEFT, AND BOTH ARE FAULTS. The three that went were notices —
+          two built-in-key ones and the moved-default one. These two report that
+          something will not answer: lookups are failing, or there is no key at all
+          and a lookup will 503. That is this section's own rule kept rather than
+          an exception to the owner's: "silence is the healthy state; a chip here
+          means something to act on." */}
+      {(booksChip || tmdbChip) && (
         <div className="flex flex-wrap items-center gap-2">
           {booksChip && <StatusChip tone={booksChip[0]}>{t(booksChip[1])}</StatusChip>}
-          {tvdbChip && <StatusChip tone={tvdbChip[0]}>{t(tvdbChip[1])}</StatusChip>}
           {tmdbChip && <StatusChip tone={tmdbChip[0]}>{t(tmdbChip[1])}</StatusChip>}
-          {filmSourceChip && <StatusChip tone={filmSourceChip[0]}>{t(filmSourceChip[1], filmSourceChip[2])}</StatusChip>}
         </div>
-      )}
-      {/* The chip says how many; this says what to do about them. Same shape as
-          the lookup error below it, and for the same reason: a count with no
-          instruction is a number somebody has to come and ask about. */}
-      {filmSourceChip && (
-        <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)' }}>
-          {t('settings.metadata.filmsource.moved.prose')}
-        </p>
       )}
       {lookup?.ok === false && lookup.error && (
         <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)', color: 'var(--error)' }}>
@@ -581,11 +612,13 @@ export function MetadataSources({ user, onPreferences }) {
               hint={t('settings.keys.amazon-domain.hint')}
               need="optional"
               secret={false}
-              value={keys?.amazon_domain || ''}
+              // THE SUFFIX IN AND THE HOST OUT — see amazonSuffix above for why the
+              // screen and the wire speak different halves of the same name.
+              value={amazonSuffix(keys?.amazon_domain)}
               set={!!keys?.amazon_domain}
               placeholder={t('settings.keys.amazon-domain.placeholder')}
               busy={saving}
-              onSave={(v) => saveKey('amazon_domain', v)}
+              onSave={(v) => saveKey('amazon_domain', amazonHost(v))}
             />
           </div>
         </div>

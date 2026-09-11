@@ -13,7 +13,7 @@
 // screenshot and are not the same change.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 // The card loads its status and its keys on mount, so the module is mocked
 // before it is imported. Each case sets KEYS/STATUS and renders.
@@ -112,11 +112,19 @@ describe('a key row', () => {
 
   it('shows a value that is not a secret, because hiding it answers nothing', async () => {
     // "Saved" is the whole content of a stored secret. It is not the whole
-    // content of www.amazon.de, and a badge there would withhold the only thing
+    // content of a marketplace, and a badge there would withhold the only thing
     // the field is for.
+    //
+    // THE FIELD SPEAKS SUFFIXES AND THE COLUMN KEEPS A HOST. The owner's: "for
+    // amazon domain, just use the in, com, au, etc., not the full url". So a
+    // stored `www.amazon.de` reads out as `de` — still shown, which is what this
+    // case is about, and shown as the part that actually varies. The second
+    // assertion is the half that would otherwise pass on the old field: `de` is a
+    // substring of `www.amazon.de`, so a row that never changed still contains it.
     KEYS = { amazon_domain: 'www.amazon.de' }
     await page()
-    await waitFor(() => expect(screen.getByText('www.amazon.de')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('de')).toBeTruthy())
+    expect(screen.queryByText('www.amazon.de')).toBeNull()
   })
 })
 
@@ -139,22 +147,28 @@ describe('what the card no longer says', () => {
     expect(screen.queryByText('Custom key')).toBeNull()
   })
 
-  it('drops the chip that says everything is fine', async () => {
+  it('drops every chip that only says things are working', async () => {
     // The healthy state is the one state nobody needs told about, and a pill
     // that ONLY appears when there is nothing to do is worse than silent: a
     // reader learns to look there, and it is empty in every case that matters.
     // The default STATUS in this file is a working lookup, so this is the
     // ordinary render, not an edge case.
     //
-    // The same render is what pins the built-in key, which is the case a key
-    // field is silent about: you have set nothing and lookups work anyway.
-    // Deleting the chip along with the redundant one would have removed the
-    // answer to "why does this work".
+    // "Built-in TMDB key" was the last survivor of that class, kept once as the
+    // answer to "why does this work when I have set nothing". It went on the
+    // owner's ruling — "remove the built in key callouts… infact, remove all
+    // callouts" — and the answer it carried did not go with it: the key row's own
+    // mark says `Built-in` in its accessible name, one line below, which is where
+    // a question about a key is asked.
     await page()
-    // NAMED BY SUPPLIER since TheTVDB gained a built-in slot of its own: two
-    // chips reading "Built-in key" side by side answer "why does this work"
-    // with a question.
-    await waitFor(() => expect(screen.getByText('Built-in TMDB key')).toBeTruthy())
+    // THE FLUSH IS THE ANCHOR, and an absence needs one. `json` is mocked as an
+    // async function with nothing awaited inside it, so both loads settle in a
+    // single microtask drain — this line makes the render below the settled one
+    // rather than a fetch that has not landed yet, which would pass for the wrong
+    // reason and keep passing if the chip came back.
+    await act(async () => {})
+    expect(screen.queryByText('Built-in TMDB key')).toBeNull()
+    expect(screen.queryByText('Built-in TheTVDB key')).toBeNull()
     expect(screen.queryByText('OK')).toBeNull()
   })
 

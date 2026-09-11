@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A large import shows how far it has got.** A 5 MB clippings file staging tens of
+  thousands of highlights used to sit on "pending" from the first byte to the last, so
+  there was no way to tell a slow upload from a stuck one. The drop target fills as the
+  file goes up.
+- **The metadata sources page says less.** The notices telling you which built-in key was
+  answering, and the one about the default film source having moved, are gone — none of
+  them was anything to act on, and a fetch checks every source a title has an id for
+  regardless. What is left are the two that report something actually broken: lookups
+  failing, and no key at all. **And the Amazon marketplace is two letters now** — `in`,
+  `com`, `com.au` — instead of the whole `www.amazon.in`, which was the widest thing on
+  the card. Paste any form of it and it still works.
+- **The import instructions stopped saying "here".** Each source's steps ended "drop the
+  saved .html here", pointing at a card that no longer exists — there is one target now,
+  so the steps say what to produce and nothing about where to put it.
+
 - **You can now set which text leads, per book, film, show, game or board** — the original
   above the translation, the translation above the original, or one without the other. It
   sits in a work's details and on a board's form, and it outranks your per-language rows

@@ -3954,51 +3954,51 @@ offers.unpinned.prose = এই রেকর্ড কোনও জোগান�
 # Clippings” is the filename on the device. URLs, file extensions and the
 # Ctrl+S / ⌘S key names are Latin for the same reason.
 import.source.markdown.title = Markdown
-import.source.markdown.desc = টিপ্পনীর বই বা ক্যাটালগের এক্সপোর্ট, কিংবা Readest-এর এক্সপোর্ট — নিজে থেকেই চিনে নেয়।
+import.source.markdown.desc = টিপ্পনীর বই বা ক্যাটালগের এক্সপোর্ট, কিংবা Readest-এর এক্সপোর্ট — .json আর Markdown দুটোই পড়া হয়।
 import.source.markdown.step.1 = টিপ্পনীর এক্সপোর্ট (বই বা ক্যাটালগ), Readest-এর এক্সপোর্ট, বা নিজের frontmatter + উদ্ধৃতি আবার ইমপোর্ট করুন।
-import.source.markdown.step.2 = একটা .md ফাইলে অনেক বই বা টাইটেল থাকতে পারে — সবগুলোই আসবে। ফাইল এখানে ছাড়ুন।
+import.source.markdown.step.2 = একটা .md ফাইলে অনেক বই বা টাইটেল থাকতে পারে — প্রত্যেকটাই আসবে।
 
 import.source.readest.title = Readest
 import.source.readest.desc = Readest-এর নিজের অ্যানোটেশন এক্সপোর্ট — রং আর কোন দিন দাগ দিয়েছিলেন, দুটোই আসে।
 import.source.readest.step.1 = Readest-এ বইটার অ্যানোটেশন খুলে এক্সপোর্ট করুন।
-import.source.readest.step.2 = .json ফাইলটা এখানে ছাড়ুন — Readest-এর Markdown এক্সপোর্টও চলে।
+import.source.readest.step.2 = .json ফাইলটা আনুন — Readest-এর Markdown এক্সপোর্টও পড়া হয়।
 
 import.source.bookcision.title = Bookcision
 import.source.bookcision.desc = Bookcision বুকমার্কলেট দিয়ে Kindle-এর উদ্ধৃতি।
 import.source.bookcision.step.1 = read.amazon.com/notebook-এ গিয়ে বইয়ের Notes & Highlights খুলুন।
-import.source.bookcision.step.2 = Bookcision বুকমার্কলেট চালান, তারপর Download → JSON, আর ফাইলটা এখানে ছাড়ুন।
-import.source.bookcision.step.3 = বুকমার্কলেট এড়াতে চান? Kindle নোটবুক কার্ড দিয়ে সেভ করা পাতাটাই সরাসরি আনুন (রং থেকে যায়)।
+import.source.bookcision.step.2 = Bookcision বুকমার্কলেট চালান, তারপর Download → JSON, আর সেই ফাইলটা আনুন।
+import.source.bookcision.step.3 = বুকমার্কলেট এড়াতে চান? বদলে সেভ করা Kindle নোটবুকের পাতাটাই আনুন — রং থেকে যায়।
 
 import.source.hardcover-html.title = Hardcover
 import.source.hardcover-html.desc = Hardcover-এ একটা বইয়ের পড়ার জার্নালের পাতা।
 import.source.hardcover-html.step.1 = নিজের জার্নালের পাতা খুলুন, যেমন hardcover.app/books/<book>/journals/@you
 import.source.hardcover-html.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
-import.source.hardcover-html.step.3 = সেভ করা .html এখানে ছাড়ুন।
+import.source.hardcover-html.step.3 = সেভ করা .html আনুন।
 
 import.source.goodreads-html.title = Goodreads
 import.source.goodreads-html.desc = বইয়ের খোলা Quotes পাতা — উদ্ধৃতির ট্যাগও সঙ্গে আসে।
 import.source.goodreads-html.step.1 = বইয়ের Quotes পাতা খুলুন, যেমন goodreads.com/work/quotes/<id>-<book>
 import.source.goodreads-html.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
-import.source.goodreads-html.step.3 = সেভ করা .html এখানে ছাড়ুন।
+import.source.goodreads-html.step.3 = সেভ করা .html আনুন।
 
 import.source.imdb-quotes.title = IMDb উদ্ধৃতি
 import.source.imdb-quotes.desc = সিনেমা বা শো-র Quotes পাতা → সংলাপ (ক্যাটালগে)।
 import.source.imdb-quotes.step.1 = টাইটেলের Quotes পাতা খুলুন, যেমন imdb.com/title/tt0434409/quotes
 import.source.imdb-quotes.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
-import.source.imdb-quotes.step.3 = সেভ করা .html এখানে ছাড়ুন।
+import.source.imdb-quotes.step.3 = সেভ করা .html আনুন।
 
 import.source.kindle-notebook.title = Kindle নোটবুক
 import.source.kindle-notebook.desc = Kindle-এর Notes & Highlights পাতা — রং আর লোকেশন সঙ্গে আসে।
 import.source.kindle-notebook.step.1 = read.amazon.com/notebook খুলে বইটা বাছুন।
 import.source.kindle-notebook.step.2 = পাতাটা ওয়েব পেজ হিসেবে সেভ করুন, শুধু HTML (Ctrl+S / ⌘S)।
-import.source.kindle-notebook.step.3 = সেভ করা .html এখানে ছাড়ুন।
+import.source.kindle-notebook.step.3 = সেভ করা .html আনুন।
 
 # The filename on the device. Latin in every language, per §8.
 import.source.kindle-clippings.title = My Clippings
 import.source.kindle-clippings.desc = Kindle যন্ত্রপাতির নিজের ফাইল — একবারে সব বই, উদ্ধৃতি আর নোট সমেত।
 import.source.kindle-clippings.step.1 = USB দিয়ে Kindle লাগান।
 import.source.kindle-clippings.step.2 = যন্ত্রপাতি থেকে documents/My Clippings.txt কপি করুন।
-import.source.kindle-clippings.step.3 = এখানে ছাড়ুন — ফাইলের সব বই একবারেই আসবে।
+import.source.kindle-clippings.step.3 = এটাই আনুন — ফাইলের সব বই একবারেই আসবে।
 # Not keyed as .info or .hint on purpose: this is a caveat under a chip, not a
 # dot's body, and it is longer than the 240 those are held to.
 import.source.kindle-clippings.caveat = Kindle এই ফরম্যাটের কথা কোথাও লিখে রাখেনি, আর ভাষা অনুযায়ী বদলায়ও — তাই অন্য ভাষার যন্ত্রপাতি (বা অচেনা ফার্মওয়্যার) এমন রেকর্ড বানাতে পারে, যা এটা ভুল পড়ে। কিছুই আন্দাজে ধরা হয় না: যা পড়া যায় না তা বাদ যায়, আর গুনে জানানো হয়।
@@ -5129,19 +5129,14 @@ settings.prompt.close.tip = বাতিল করে বন্ধ করুন
 # ---------------------------------------------------------------------------
 settings.metadata.title = মেটাডেটার সূত্র
 settings.metadata.info.body = বইয়ের জন্য কোনও চাবি লাগে না: Google Books আর Open Library, দুটো মিলিয়ে। সিনেমা আর শো প্রথমে TheTVDB দেখে, তারপর TMDB; গেম চলে IGDB-র জোড়া চাবিতে, যার পিছনে সঙ্গে-আসা কিছু নেই। প্রতিটা ঘর আলাদা সেভ হয়, আর নিজে হাতে লেখা সবসময়ই চলে।
-# Three chips, and only where a key field cannot answer: that lookups are
-# failing, that they are running on the shared built-in key or on nothing at
-# all, and that titles are still pinned to the source that used to be default.
+# FAULTS ONLY. A chip here is something to act on, and the ones that merely
+# reported a working state — the built-in key behind TMDB and behind TheTVDB,
+# and the count of titles still pinned to the source that used to be default —
+# went on the owner's ruling that the card carries no callouts. What is left is
+# a lookup that failed and a film source with no key at all, which will 503.
 settings.metadata.books.failing.label = খোঁজ আটকে যাচ্ছে
-settings.metadata.tmdb.builtin.label = সঙ্গে আসা TMDB চাবি
-settings.metadata.tvdb.builtin.label = সঙ্গে আসা TheTVDB চাবি
 settings.metadata.tmdb.none.label = চাবি নেই
 settings.metadata.last-error.prose = শেষ গোলমাল: {error}
-# Shown only on an instance that existed before 2.2.0 moved the default film
-# source to TheTVDB, and only while that reader still has titles pinned to TMDB
-# alone — so it clears itself rather than needing a dismiss button.
-settings.metadata.filmsource.moved.label = {n}টা এখনও TMDB-তে
-settings.metadata.filmsource.moved.prose = সিনেমা আর শো-র জন্য এখন TheTVDB-ই প্রথম পছন্দ। একটা আবার মিলিয়ে দেখলে তার কাস্টে প্রতিটা চরিত্রের ছবি আসবে; তার আগে কিছুই বদলাবে না।
 # Half an IGDB pair fails at the Twitch token exchange, which arrives as a
 # lookup failure — so the missing half is named. {half} is one of the nouns
 # below, not a sentence.
@@ -5183,9 +5178,11 @@ settings.keys.igdb-secret.placeholder = Twitch client secret — গেমের
 # bn: .caveat and not .hint — 440 characters of security warning with a procedure in it; nothing can be cut to reach the dot budget.
 settings.keys.amazon-cookie.caveat = ঐচ্ছিক। ASIN থেকে কভার তো কিছু না সাজিয়েই আসে; কুকিটা শুধু প্রোডাক্ট পেজ পড়ে বিবরণ আর ঘরানা যোগ করে। এটা ভঙ্গুর, Amazon-এর শর্তের বিরুদ্ধে, আর এতে আপনার অ্যাকাউন্টে ঢোকার পথ খুলে যায় — তাই এটা শুধু লেখা যায়, কখনও দেখানো হয় না। যেভাবে পাবেন: যে মার্কেটপ্লেসে আপনার বই, সেখানে Amazon-এ লগ ইন করুন, DevTools খুলুন (F12) → Network → যে কোনও amazon রিকোয়েস্টে ক্লিক → Request Headers, আর গোটা "cookie:" মানটা কপি করুন।
 settings.keys.amazon-cookie.placeholder = Amazon সেশন কুকি — ঐচ্ছিক
-settings.keys.amazon-domain.hint = যে মার্কেটপ্লেসে বই কেনা হয়েছিল, যেমন www.amazon.com বা www.amazon.de। এটা গোপন কিছু নয়, তাই এর মানটা দেখা যায়।
+# THE SUFFIX, NOT THE HOST — see en.txt for why. The field takes a whole URL
+# all the same and keeps only this part.
+settings.keys.amazon-domain.hint = কোন মার্কেটপ্লেসে বই কেনা হয়েছিল — amazon-এর পরের অংশটুকু, যেমন com, de বা com.au। এটা গোপন কিছু নয়, তাই এর মানটা দেখা যায়।
 # A domain to type, not a word to read.
-settings.keys.amazon-domain.placeholder = www.amazon.com
+settings.keys.amazon-domain.placeholder = com
 settings.keys.google-scrape.title = গুগল ছবির ফল সরাসরি পড়া হবে
 settings.keys.google-scrape.aria = গুগল ছবির ফল সরাসরি পড়া হবে
 settings.keys.google-scrape.info.body = একেবারে শেষ উপায়, উপরের কিছুতেই উত্তর না এলে তবেই। চাবি লাগে না, কারণ এটা ফলের পাতাটাই পড়ে — তাই অনুরোধ যায় এই সার্ভার থেকে, আর সীমা পড়লে বা সম্মতির দেয়াল এলে তা সবার উপরেই পড়ে। শুরুতে বন্ধ থাকে।
