@@ -196,11 +196,24 @@ CREATE TABLE source_context (
   before     TEXT    NOT NULL DEFAULT '',
   body       TEXT    NOT NULL DEFAULT '',
   after      TEXT    NOT NULL DEFAULT '',
-  -- THE CUT IS RECORDED BECAUSE IT CANNOT BE UNDONE. `unit` is paragraph | cue and
-  -- `span` is how many either side this was kept at, so the panel can say "two
-  -- paragraphs either side, kept on 14 March" rather than implying there is more.
-  unit       TEXT    NOT NULL,
-  span       INTEGER NOT NULL,
+  -- WHAT WAS STORED. `unit` is paragraph | cue; the stored pair is how many were
+  -- kept, at the global CEILING rather than at anyone's preference -- see "store
+  -- wide, render narrow". The panel renders the effective pair out of these, so
+  -- narrowing never needs the file back.
+  unit          TEXT    NOT NULL,
+  stored_before INTEGER NOT NULL,
+  stored_after  INTEGER NOT NULL,
+  -- THIS QUOTE'S OWN ADJUSTMENT, and NULL is not 0. NULL means "inherit from the
+  -- board or work, then the global"; 0 means "nothing, deliberately" -- the owner's
+  -- chapter-start case. Independently nullable, so "nothing before, inherit after"
+  -- is expressible, which is that case verbatim.
+  want_before   INTEGER,
+  want_after    INTEGER,
+  -- WHERE THE SPAN RAN OUT RATHER THAN STOPPED. Set when extraction hit a chapter
+  -- edge or a long silence instead of reaching the ceiling, so the panel can say a
+  -- span is short because the work is, not because the app is.
+  bound_before  INTEGER NOT NULL DEFAULT 0,
+  bound_after   INTEGER NOT NULL DEFAULT 0,
   -- A subtitle's context is timed; a book's is not.
   start_at   TEXT    NOT NULL DEFAULT '',
   end_at     TEXT    NOT NULL DEFAULT '',
@@ -596,16 +609,25 @@ quote's detail, and it is **one component both call** — the registry again.
 
 | Source | Before / after | Default |
 | :-- | :-- | :-- |
-| Subtitle | **Cues** | 5 each way |
-| EPUB / text | **Paragraphs**, never a character count that cuts a word | 2 each way |
+| Subtitle | **Cues** | 5 before, 5 after |
+| EPUB / text | **Paragraphs**, never a character count that cuts a word | 2 before, 2 after |
 
 A character count would slice mid-sentence and read as damage. Paragraphs and cues
 are the units the files themselves are made of, and both are cheap to count outward
 from a known offset.
 
-**One setting, two numbers, in the reading preferences beside the type dials.** The
-owner asked for "a set amount", which is a number the reader sets once — not a
-control on the panel, which would make every reader tune it on every quote.
+**Before and after are two numbers, never one.** The owner's example is exactly the
+asymmetric case — *"an annotation may be the first in the chapter, so it needs
+nothing before it"* — so a single "amount" cannot express what this feature is for.
+Every tier below carries a pair.
+
+**Every edge lands on a line start and a line end.** The owner's, and it is a hard
+rule rather than a preference: a span that begins mid-sentence reads as damage even
+when the text is right. With paragraphs and cues as the units this is automatic —
+both *are* line boundaries. Where it bites is the **character floor** from *The
+prune* (`N paragraphs, or M characters, whichever gives more`, which exists because
+this novel's paragraphs run to a 91-character median): the floor **rounds outward to
+the next boundary** and never cuts at the character it reached.
 
 ### Where the work happens — **the context is stored, and that is the whole design**
 
@@ -647,7 +669,8 @@ was only ever in service of the second backing that is now gone.
 **Widening the window is a rescan, and that is the honest cost.** A stored span is
 cut at the size the setting had when it was cut. Raise the setting and the old rows
 keep their old width until something reads the file again — which the reader can do
-deliberately, and which the panel reports from `span` rather than implying. On a
+deliberately, and which the panel reports from the stored pair rather than
+implying. On a
 mount that is one press; on an upload it means adding the file again.
 
 **The risk this carries, named:** a stored position is a byte offset into an
@@ -659,6 +682,144 @@ are text, not offsets, and they cannot rot. What needs the guard is the *next*
 extraction, so the golden test pins the rule and `sha256` records which file a row
 came from — so a rescan against a different edition is recognised rather than
 merged.
+
+### How much context — three tiers, and a boundary that beats all of them
+
+> *"users should be able to adjust context size for each annotation… the global rule
+> will be overridden by board/work rules, which in turn will be overridden by
+> annotation level adjustments."*
+
+#### First: the boundary, because it answers the owner's own example structurally
+
+*"An annotation may be the first in the chapter, so it needs nothing before it."*
+
+**That one needs no setting at all.** A chapter start has nothing before it *in the
+chapter*, and the extractor must not cross out of one — so the answer is a hard stop
+in the extractor, not a number the reader has to discover and type. Measured on the
+supplied files:
+
+| | Boundary | Measured |
+| :-- | :-- | :-- |
+| EPUB | **The spine document**, refined by an NCX/nav point where one falls inside it | 52 spine documents, **median 400 paragraphs** each (max 905); **41 NCX navPoints**. So a 2-paragraph window almost never meets a boundary — it meets one exactly at the chapter edges, which is where it matters |
+| Subtitle | **A long silence** — and this is weaker, stated as weaker | Gaps between cues: median **0.00 s**, p90 2.64 s, p95 6.51 s, p99 21.69 s, max **476.9 s**. A 30 s threshold stops **9 times** in the whole film; 20 s stops 22 |
+
+**A subtitle has no chapter and the app must not pretend otherwise.** Nine stops in
+a two-hour film is not scene detection — a film has a hundred scenes. It is an
+absurdity stop: it prevents context reaching back across eight minutes of silence
+into an unrelated sequence. Called what it is (*a long silence*), defaulted at 30 s,
+and never described to the reader as a scene break.
+
+So the tiers below express *want*; the boundary expresses *possible*, and the
+boundary wins. A span that hits one is shorter than asked for, and the panel says so
+rather than looking broken.
+
+#### Then: store wide, render narrow
+
+**This is the move that makes the rest cheap.** Extraction stores the span at a
+generous **ceiling** — one global number, not the reader's preference — and the
+panel renders the *effective* limit out of it.
+
+- **Narrowing is instant and needs no file**, at any tier, forever. It is a
+  `SELECT` and a trim.
+- **Widening is free up to the ceiling**, for the same reason.
+- **Only exceeding the ceiling needs the file** back, and a rescan.
+
+The cost is storage, and the measurement says it is not a cost: at 5 paragraphs
+either side the owner's book stores 95,007 bytes against 50,814 at 2 — still **15×
+smaller than the 1.45 MB file**. So the ceiling is set generously once (recommend 10
+paragraphs / 15 cues) and the three tiers become arithmetic rather than I/O.
+
+**The ceiling is the one setting with a real bill**: raising it means re-extracting
+every work that has a file and leaves pruned works behind at their old width. It
+belongs with the maintenance operations, not beside the type dials.
+
+#### The cascade
+
+| Tier | Where it lives | Applies to |
+| :-- | :-- | :-- |
+| **Global** | one `settings` pair | everything |
+| **Board or work** | `boards` for utterances; `books` / `movies` for the rest | the quotes under it |
+| **The quote itself** | `source_context` | one |
+
+**The middle tier is one tier with two names, and the tree is why.** `board_id`
+exists **only on `utterances`** (0036) — annotations and dialogues have no board at
+all, so the owner's own example, an *annotation*, cascades global → **work** →
+annotation. Utterances have no work row (`work_title` is free text), so they cascade
+global → **board** → utterance. The two are mutually exclusive in practice, which
+makes "board/work rule" one concept rather than two competing ones.
+
+**And there is no ambiguity to resolve**, because 0036 already refused the thing
+that would have caused it: *"One board per quote. Many-to-many was considered and
+refused."* A quote has at most one middle tier. Tags are many-to-many and are
+therefore **not** a tier — a quote with four tags carrying four rules is the problem
+0036 avoided, and this plan does not reintroduce it.
+
+**`NULL` means inherit and `0` means nothing.** Two different facts that a single
+integer conflates, and conflating them is how *"this annotation needs nothing
+before it"* becomes indistinguishable from *"nobody has said"*. Both halves of the
+pair are independently nullable, so "nothing before, inherit after" is expressible —
+and that is the owner's example verbatim.
+
+**Every override carries a way back.** A *Reset to inherited* on each tier, because
+an override system without one leaves the reader holding a number they cannot
+remember choosing.
+
+**The panel says where the effective number came from, once.** One short line — *"2
+before, 5 after · from this work"* — and not a sentence per tier. The standing rule
+is that a row says a thing once.
+
+#### Changing a board or work rule: the prompt, and why it only clamps down
+
+> *"any change to the board/work rule will ask whether the rule should be enforced
+> on existing quotes (always as a higher limit, never increasing it so a chapter
+> start annotation doesnt suddenly has text from previous chapter)."*
+
+A new rule applies to quotes added afterwards without asking. For quotes that
+already exist, the change offers to enforce, and **enforcement is a clamp and never
+an expansion**:
+
+- A quote whose effective span is **wider** than the new rule is brought down to it.
+- A quote whose effective span is **narrower** is left alone — whether it is narrow
+  because the reader set it so, or because it sits against a chapter boundary. Both
+  are deliberate and neither should be undone by a number typed at the work level.
+
+**So the work rule behaves as a ceiling on its quotes, not as an assignment to
+them.** That is the owner's *"always as a higher limit, never increasing it"* read
+as a mechanism: the rule sets the most a quote may show, and each quote keeps
+whatever it already shows below that.
+
+The consequence to state rather than discover: **raising a work rule changes
+nothing about existing quotes.** It only widens what they *may* be raised to, one at
+a time. A reader who wants everything wider has to say so per quote, or clear the
+overrides — and the prompt should offer *"clear the per-quote adjustments on this
+work"* as the explicit second option, because it is the only thing that makes a
+raise take effect and it is destructive enough to need naming.
+
+#### Show more, for this read only
+
+Most of the time a reader does not want to change a policy; they want more text
+right now. Since the span is stored to the ceiling, **the panel can extend in place**
+— a press that reveals more of what is already there, up to the ceiling or the
+boundary, whichever comes first, and forgets it on close.
+
+That keeps the *settings* for what should stick and stops the cascade being fiddled
+with to answer a one-off question. It is also free: no file, no request beyond the
+one already made.
+
+#### What a rescan may and may not touch
+
+**A rescan never clobbers an override.** It fills context for quotes that have none
+and re-extracts spans whose file changed; a per-quote adjustment is the reader's
+judgement and a scan is a mechanical pass. The guard is explicit because the
+tempting implementation — delete the work's rows and re-derive — destroys exactly
+this.
+
+#### Bulk
+
+Context limits are per-quote fields, so they belong in the **shared field table**
+`docs/plans/bulk-editors-one-field-table.md` designs rather than in a control of
+their own. Narrowing forty quotes at once is then the bulk editor doing what it
+already does, and this plan adds two fields to a list instead of a screen.
 
 ### What has no context, and says so once
 
@@ -718,7 +879,7 @@ One pass, in one request, with no goroutine outliving it:
 1. Read the stored file. For every located quote of that work, cut its window at the
    reader's current setting.
 2. Write a `source_context` row per quote — `before`, `body`, `after`, and **`unit`
-   and `span` recorded**, because the cut cannot be undone and the panel has to be
+   and the stored pair recorded**, because the cut cannot be undone and the panel
    able to say what it was.
 3. Delete the bytes. Keep the `work_sources` row, empty its `path`, stamp
    `pruned_at`.
@@ -786,7 +947,13 @@ destroys something on the reader's behalf and the reader presses it.
 | **No route serves a source file.** | The boundary this plan is allowed under. Assert no handler `ServeFile`s, streams or redirects to anything under `Sources/`; a route census in the test, not a code review |
 | **A context answer is bounded.** | The span is the configured unit and cannot be widened by a parameter into "send me the book" |
 | **The context endpoint opens no file.** | The whole design in one assertion: a request served while the source file is deleted and the mount unplugged still answers. A file-open census inside the handler |
-| **A rescan fills in quotes added since and leaves the rest alone.** | The owner's "reapply context in new quotes". Attach, add two quotes, rescan: two new rows, the others untouched, including their `span` |
+| **A rescan fills in quotes added since and leaves the rest alone.** | The owner's "reapply context in new quotes". Attach, add two quotes, rescan: two new rows, the others untouched |
+| **A rescan never clobbers a per-quote adjustment.** | The tempting implementation — delete the work's rows and re-derive — destroys exactly this. `want_before`/`want_after` survive |
+| **`NULL` and `0` are different answers.** | Inherit against deliberately-nothing. A quote set to 0 before stays at 0 when the work rule rises |
+| **Enforcing a work rule clamps and never expands.** | The owner's rule. Quotes wider than the new rule come down; narrower ones — set or bounded — are untouched |
+| **Extraction never crosses a chapter edge or a long silence.** | Measured: 52 spine documents at a 400-paragraph median, and 9 gaps over 30 s in the film. A quote at a chapter start gets nothing before it without anyone configuring that |
+| **A bounded span is reported as bounded.** | `bound_before`/`bound_after`, so short-because-the-work-is never reads as short-because-broken |
+| **Every edge is a line start and a line end.** | Including when the character floor decides the width — it rounds outward, never cuts |
 | **A rescan against a different file is recognised, not merged.** | The `sha256` on the row. One work's context never comes from two editions |
 | **A prune keeps context for every located quote and no others.** | Count in equals count out, and the skipped ones were the unlocated ones |
 | **A prune deletes the bytes and keeps the row.** | `path` empty, `pruned_at` set, the file gone from disk, the name and `sha256` still readable |
@@ -839,26 +1006,31 @@ destroys something on the reader's behalf and the reader presses it.
 5. **Door 3.** The Checks row for a work with quotes and no source — after
    `locators-from-files.md`'s section exists, since it lands in it.
 6. **Extraction and context.** `source_context`, filled at attach; the endpoint that
-   reads one row and opens nothing; the panel; the two settings; the `span`
-   reporting. **This is the step the plan turns on** — everything after it either
+   reads one row and opens nothing; the panel; the cascade; the boundary stops; the
+   stored-pair reporting. **This is the step the plan turns on** — everything after it either
    adds a way to fill the table or a way to refill it.
    — `internal/httpapi/context.go` (new), the panel, `actions.jsx`
-7. **The prune**, which is now small: delete the bytes, empty `path`, stamp
+7. **The cascade's middle and top tiers** — the work/board rule pair, the enforce
+   prompt that clamps and never expands, *Reset to inherited*, and the two fields
+   into the shared bulk table. The per-quote pair and the boundary stops came with
+   step 6; this is what sits above them. — `actions.jsx`, the work and board forms,
+   `bulkOps.jsx`
+8. **The prune**, which is now small: delete the bytes, empty `path`, stamp
    `pruned_at`, and one confirmation saying nothing new can be derived until the file
    returns. Then the library-wide list sorted by what it frees. Absent for mounted
    sources. — `internal/httpapi/prune.go` (new), maintenance
-8. **The mount.** Admin settings for the roots, the `O_RDONLY` and containment
+9. **The mount.** Admin settings for the roots, the `O_RDONLY` and containment
    guards first and the walk second, EPUB identification by ISBN/ASIN then title,
    the bounded resumable scan, the name-based reading for subtitles and lyrics, and
    the attach proposals into Checks. **Take the guards before the feature** — this is
    the first path in the codebase that a user chose, and the tests are what make the
    rest of it boring. — `internal/mount/` (new), `internal/httpapi/mount.go` (new),
    `docker-compose.yml`
-9. **The orphan sweep**, for sources and for covers, in maintenance.
-10. **Help and infodots** — `en.txt` and `bn.txt`, which are a **frontend** change
+10. **The orphan sweep**, for sources and for covers, in maintenance.
+11. **Help and infodots** — `en.txt` and `bn.txt`, which are a **frontend** change
    and force a `web/dist` rebuild in the same commit. The prune confirmation is the
    one that has to be written carefully: it destroys something.
-11. **Docs** — `docs/PLAN.md` gains the **Reversal paragraph** quoted at the top of
+12. **Docs** — `docs/PLAN.md` gains the **Reversal paragraph** quoted at the top of
    this file and an entry for the backup default; `CHANGELOG.md`; `DEVELOPMENT.md`'s
    file map for the new packages; `docs/troubleshoot.md` for the new `TIP-*` codes;
    `docs/ui-glossary.html` for the panel; and **`docker-compose.yml` gains the
@@ -896,8 +1068,13 @@ By hand, against a restored backup rather than `seed.mjs`:
   read path and the file was never one.
 - Re-upload the same file, then a different one, and confirm the first fills in the
   gaps and the second is recognised as a different edition.
-- Raise the context setting, rescan a mounted work, and confirm the windows widen —
-  and that an un-rescanned work still reports its old `span` rather than pretending.
+- Narrow one annotation to nothing-before and confirm it stays there when the work
+  rule is raised and enforced.
+- Open the context of a quote that sits at a chapter start and confirm it shows
+  nothing before it **without anyone having configured that**, and says why.
+- Raise the global ceiling and confirm it is the one change that needs the files
+  back — and that pruned works are reported as left behind rather than silently
+  narrower.
 - Prune from the review card and confirm the confirmation names the work, not the
   quote you were looking at.
 - Mount a folder `:ro`, scan, and read the proposals. Then mount one containing a
