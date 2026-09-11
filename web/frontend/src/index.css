@@ -8758,6 +8758,49 @@ html[data-theme="dark"] .board-cover {
   }
 }
 
+/* THE SOURCES TAB'S CARDS, PACKED INTO TWO COLUMNS ON A DESK.
+   The owner's: "desktop view: two column masonry".
+
+   MULTICOL AND NOT GRID, and the difference is the whole reason this exists. The
+   cards here are a six-row key list, a four-chip footnote and (once the language
+   work lands) a door — three boxes of wildly different heights. A two-column grid
+   stretches every cell in a row to the tallest, so the short card would draw a
+   column of whitespace beside the long one exactly where the reader is looking for
+   the next thing. Multicol flows them instead and each ends where it ends.
+
+   `--row` RESTATED, because this screen genuinely differs: `--row` is the step
+   between ROWS and this is the gap between CARDS, which the sources tab has spaced
+   at 24px since it was written. Restating it on the one element is what the spacing
+   rule asks for; typing 24px into two declarations is what it forbids.
+
+   900px BECAUSE THAT IS WHERE THIS SCREEN ALREADY STOPS BEING A PHONE — the rail
+   above goes sticky at exactly this width, and two answers to "is this a desk" on
+   one console is the drift the repo's own directive is against.
+
+   EVERY CHILD KEEPS ITS BOTTOM MARGIN IN BOTH MODES, with no :last-child exception:
+   in one column the last card is genuinely last, but in two the last child in SOURCE
+   order can be balanced anywhere, so an exception for it would delete the gap under
+   a card in the middle of the page. */
+.meta-columns {
+  --row: 24px;
+}
+.meta-columns > * {
+  margin-bottom: var(--row);
+}
+@media (min-width: 900px) {
+  .meta-columns {
+    columns: 2;
+    column-gap: var(--row);
+  }
+  /* A CARD IS NOT SAWN IN HALF BY A COLUMN BREAK. Without this the browser is free
+     to leave three key fields at the foot of the left column and the rest at the
+     head of the right, under no heading — which reads as two cards, one of them
+     unlabelled. */
+  .meta-columns > * {
+    break-inside: avoid;
+  }
+}
+
 /* ── THE PHONE'S ARRANGEMENT STRIP.
    A band between the hero and the stream: a hairline top and bottom, and inside
    it only words. The pack's own reason: "a strip that states the count should not

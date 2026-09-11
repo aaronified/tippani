@@ -11,7 +11,7 @@
     "claude-kit@claude-kit": true
   },
   "env": {
-    "CLAUDE_KIT_DIGEST_MINUTES": "30",
+    "CLAUDE_KIT_DIGEST_MINUTES": "120",
     "CLAUDE_KIT_DIGEST_EVERY": "100000",
     "CLAUDE_KIT_DIGEST_TOOLS": "100000"
   }

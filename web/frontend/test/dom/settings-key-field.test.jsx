@@ -14,6 +14,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { mediaOf, valueOf } from '../css-cascade.js'
 
 // The card loads its status and its keys on mount, so the module is mocked
 // before it is imported. Each case sets KEYS/STATUS and renders.
@@ -274,15 +275,98 @@ describe('the IGDB pair', () => {
   })
 })
 
-describe('multi-author credits', () => {
-  it('lives inside the metadata card rather than beside it', async () => {
-    // Four chips and a label is a footnote to a subject, not a subject. The
-    // assertion is containment, not presence: rendering it anywhere on the page
-    // would pass a queryByText.
+// THE SCRAPE TOGGLE IS LAST, AND IT IS STILL THE ADMIN'S.
+//
+// The owner's: "the read google results directly: shorten the header and put it at
+// the bottom." It used to sit between Amazon's cookie and Amazon's marketplace,
+// inside a block headed by a security warning about Amazon — so it read as a third
+// Amazon field, which it is not: it is the last rung of the ladder every kind of
+// lookup falls to.
+//
+// THE GUARD IS ABOUT THE `admin` HALF as much as the order. The move lifted the
+// control out of the Amazon block, and that block's own `{admin && …}` went with
+// it — which is the half a move like this loses in silence: the toggle would draw
+// for every reader and 403 on press, and no case here would have noticed, because
+// this file's only user is an admin.
+describe('the Google scrape toggle', () => {
+  it('is drawn after every key, not in the middle of Amazon’s', async () => {
     await page()
-    const card = screen.getByText('Metadata sources').closest('.hand-card, [class*="card"]')
-    expect(card, 'the metadata card').toBeTruthy()
-    expect(card.textContent).toContain('Multi-author credits')
+    const toggle = screen.getByText('Google image results')
+    const lastKey = screen.getByText('Amazon domain')
+    // DOCUMENT_POSITION_FOLLOWING: the toggle comes after the last key field in
+    // reading order, which is the claim — not "it is inside some element", which
+    // would pass wherever on the card it landed.
+    expect(
+      lastKey.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the Google toggle is back above a key field',
+    ).toBeTruthy()
+  })
+
+  it('and a reader who is not an admin is not offered it at all', async () => {
+    render(<MetadataSources user={{ username: 'b', is_admin: false, preferences: {} }} onPreferences={() => {}} />)
+    await screen.findByText('Metadata sources')
+    await act(async () => {})
+    expect(screen.queryByText('Google image results'), 'a non-admin is offered a switch whose PUT will 403')
+      .toBeNull()
+  })
+
+  it('and its heading is short while its spoken name is whole', async () => {
+    // WCAG 2.5.3: the visible words are a prefix of the accessible ones, so a
+    // reader can say the label they can see. A heading beside a yes/no toggle does
+    // not need the verb; the toggle's own name does.
+    await page()
+    expect(screen.getByText('Google image results')).toBeTruthy()
+    const toggle = screen.getByLabelText('Read Google image results directly')
+    expect(toggle, 'the toggle no longer says what pressing it does').toBeTruthy()
+  })
+})
+
+// AND THE CARDS PACK RATHER THAN STRETCH. "desktop view: two column masonry" — a
+// grid would pad the four-chip card out to the key list's height. Read from
+// index.css, for the reason quote-translation-leads.test.jsx gives: jsdom applies no
+// stylesheet, so a declaration is a fact about the file and an assertion about a
+// rendered element would be a tautology.
+describe('the two columns on a desk', () => {
+  // THE STYLESHEET IS PARSED, NOT GREPPED. test/css-cascade.js is the seam the
+  // other CSS suites use; asking it "what wins for this selector, and inside which
+  // queries" cannot be fooled by whitespace, by comment text that happens to name
+  // the property, or by a rule that was moved out of its media block.
+  it('flows the cards in multicol rather than stretching them in a grid', () => {
+    expect(valueOf('.meta-columns', 'columns'), '.meta-columns no longer goes to two columns at any width')
+      .toBe('2')
+    // AND IT IS BEHIND A WIDTH, which is the half that keeps a phone at one column:
+    // two columns of key fields at 390px is two columns of nothing.
+    expect(mediaOf('.meta-columns', 'columns').join(' '), 'the two columns are unconditional, so a phone gets them too')
+      .toMatch(/min-width/)
+  })
+
+  it('and forbids a card being sawn in half by a column break', () => {
+    expect(valueOf('.meta-columns > *', 'break-inside'), 'a card may now break across the column gap, under no heading')
+      .toBe('avoid')
+  })
+})
+
+describe('multi-author credits', () => {
+  it('is a card of its own, beside the sources rather than inside them', async () => {
+    // THIS CASE ASSERTED THE OPPOSITE FOR A RELEASE, and the owner overruled it:
+    // "multi author credits: separate card." The old argument was about vertical
+    // space — four chips and a label is a footnote, and a card claiming the same
+    // share of a one-column page as the keys every lookup runs on is out of
+    // proportion. The page is two columns on a desk now, so a short card beside a
+    // tall one costs nothing, and what it was buried under was six key fields and
+    // a security warning about Amazon.
+    //
+    // THE ASSERTION IS STILL CONTAINMENT, not presence, because presence is what a
+    // queryByText would have passed either way — it is just the other containment:
+    // in a card, and NOT in the sources card.
+    await page()
+    const sources = screen.getByText('Metadata sources').closest('.hand-card')
+    expect(sources, 'the sources card').toBeTruthy()
+    expect(sources.textContent, 'the credits section is back inside the sources card')
+      .not.toContain('Multi-author credits')
+    const credits = screen.getByText('Multi-author credits').closest('.hand-card')
+    expect(credits, 'multi-author credits is on the page but not in a card of any kind').toBeTruthy()
+    expect(credits, 'it is in the sources card after all, so the split did not happen').not.toBe(sources)
   })
 
   it('still writes the preference when a separator is toggled', async () => {

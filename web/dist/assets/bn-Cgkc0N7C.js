@@ -5183,7 +5183,8 @@ settings.keys.amazon-cookie.placeholder = Amazon সেশন কুকি — �
 settings.keys.amazon-domain.hint = কোন মার্কেটপ্লেসে বই কেনা হয়েছিল — amazon-এর পরের অংশটুকু, যেমন com, de বা com.au। এটা গোপন কিছু নয়, তাই এর মানটা দেখা যায়।
 # A domain to type, not a word to read.
 settings.keys.amazon-domain.placeholder = com
-settings.keys.google-scrape.title = গুগল ছবির ফল সরাসরি পড়া হবে
+# THE HEADING IS SHORT AND THE ARIA IS WHOLE — see en.txt.
+settings.keys.google-scrape.title = গুগল ছবির ফল
 settings.keys.google-scrape.aria = গুগল ছবির ফল সরাসরি পড়া হবে
 settings.keys.google-scrape.info.body = একেবারে শেষ উপায়, উপরের কিছুতেই উত্তর না এলে তবেই। চাবি লাগে না, কারণ এটা ফলের পাতাটাই পড়ে — তাই অনুরোধ যায় এই সার্ভার থেকে, আর সীমা পড়লে বা সম্মতির দেয়াল এলে তা সবার উপরেই পড়ে। শুরুতে বন্ধ থাকে।
 

@@ -5217,7 +5217,11 @@ settings.keys.amazon-cookie.placeholder = Amazon session cookie — optional
 settings.keys.amazon-domain.hint = Which marketplace your books were bought on — the part after amazon, e.g. com, de or com.au. Not a secret, so this one shows its value.
 # A domain to type, not a word to read.
 settings.keys.amazon-domain.placeholder = com
-settings.keys.google-scrape.title = Read Google image results directly
+# THE HEADING IS SHORT AND THE ARIA IS WHOLE. A row's heading says what the row
+# is about; a yes/no toggle's accessible name has to say what pressing it does, so
+# the two differ on purpose. The visible words are a PREFIX of the spoken ones —
+# WCAG 2.5.3 — so somebody can say the label they can see and be understood.
+settings.keys.google-scrape.title = Google image results
 settings.keys.google-scrape.aria = Read Google image results directly
 settings.keys.google-scrape.info.body = A last resort, used only when nothing above answers. It needs no key because it reads the results page — so the requests come from THIS SERVER, and being rate-limited or shown a consent wall affects everyone here. Off by default.
 

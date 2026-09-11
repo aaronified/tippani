@@ -24,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   saved .html here", pointing at a card that no longer exists — there is one target now,
   so the steps say what to produce and nothing about where to put it.
 
+- **The metadata sources page is two columns on a desk, and the multi-author separators
+  are their own card.** The cards pack rather than stretch, so a short one beside a tall
+  one no longer leaves a column of whitespace. **And the "read Google image results
+  directly" switch moved to the bottom** with a shorter heading — it was buried between
+  Amazon's cookie and Amazon's marketplace, under a security warning about a different
+  supplier, which made it read as a third Amazon field. It is not Amazon's and it is not
+  a key: it is the last thing every kind of picture lookup falls back to.
+
 - **A poem keeps its line breaks with animations turned off, and so does a note over
   several lines.** Two paragraphs a card draws were reflowing text you had shaped: the
   margin note always, and the quote body for anybody who asks their system for reduced

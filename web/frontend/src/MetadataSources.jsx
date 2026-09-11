@@ -381,6 +381,19 @@ export function MetadataSources({ user, onPreferences }) {
   }
 
   return (
+    // TWO COLUMNS ON A DESK, ONE ON A PHONE, AND THE CARDS DECIDE WHERE THEY BREAK.
+    //
+    // The owner's: "desktop view: two column masonry". A console whose cards are a
+    // six-row key list, a four-chip footnote and (after the language work) a door is
+    // three boxes of wildly different heights — a grid would pad the short ones out
+    // to the tall one's height, which is a column of whitespace where the reader is
+    // looking for the next thing. Multicol packs them.
+    //
+    // `.meta-columns` is CSS and not a component on purpose: what is actually being
+    // said is "these siblings flow", and a wrapper component would be a new name for
+    // `display`. See index.css for why the breakpoint is 900px — it is the width at
+    // which THIS screen's rail already stops being a phone's.
+    <div className="meta-columns">
     <Card data-tour="metadata-keys">
       <SectionTitle info={t('settings.metadata.info.body')}>
         {t('settings.metadata.title')}
@@ -569,43 +582,10 @@ export function MetadataSources({ user, onPreferences }) {
             {/* GOOGLE'S PROGRAMMABLE SEARCH PAIR STOOD HERE. Google closed that
                 API to new customers and retires it on 1 January 2027, so the two
                 fields asked readers to register for something they could not get
-                and would then lose. What is left of Google is the toggle below,
+                and would then lose. What is left of Google is the scrape toggle,
                 which needs no credential at all — which is why it is a setting
-                rather than a key, and why it sits under Amazon's cookie beside
-                the other thing the reader has to agree to rather than obtain. */}
-            {/* THE SCRAPE'S OPT-IN, and the only control on this card that is
-                not a credential.
-
-                Every other switch here is implicit in a secret: you cannot use
-                the Amazon scrape without storing the cookie that says you meant
-                to, so the key field IS the consent. Scraping Google's image
-                results needs nothing at all, which leaves the consent with
-                nowhere to live — hence a setting, and hence a control, because a
-                setting with no control is a feature nobody can reach.
-
-                It sits under the Programmable Search pair because it is the same
-                index read a worse way, and anybody who fills in the two fields
-                above never reaches it. */}
-            <div className="mt-4">
-              <div className="mb-2 flex items-center gap-1.5">
-                <MonoLabel>{t('settings.keys.google-scrape.title')}</MonoLabel>
-                <InfoDot text={t('settings.keys.google-scrape.info.body')} />
-              </div>
-              <Toggle
-                ariaLabel={t('settings.keys.google-scrape.aria')}
-                value={keys?.google_scrape ? 'on' : 'off'}
-                onChange={async (v) => {
-                  setSaving(true)
-                  setError('')
-                  const r = await json('PUT', '/admin/metadata-keys', { google_scrape: v === 'on' })
-                  setSaving(false)
-                  if (!r.ok) { setError(errText(r, t('error.save.generic'))); return }
-                  await Promise.all([loadStatus(), loadKeys()])
-                  toast(t('common.toast.saved'))
-                }}
-                options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
-              />
-            </div>
+                rather than a key, and why it is no longer in this block: it now
+                sits under every key on the card. See it below. */}
             <KeyField
               label={keyLabel('amazon', 'domain')}
               source="amazon"
@@ -624,13 +604,60 @@ export function MetadataSources({ user, onPreferences }) {
         </div>
       )}
 
+      {/* THE SCRAPE'S OPT-IN, LAST, AND THE ONLY CONTROL ON THIS CARD THAT IS NOT
+          A CREDENTIAL.
+
+          Every other switch here is implicit in a secret: you cannot use the Amazon
+          scrape without storing the cookie that says you meant to, so the key field
+          IS the consent. Scraping Google's image results needs nothing at all, which
+          leaves the consent with nowhere to live — hence a setting, and hence a
+          control, because a setting with no control is a feature nobody can reach.
+
+          WHY IT MOVED TO THE BOTTOM. The owner's: "the read google results directly:
+          shorten the header and put it at the bottom." It was buried between Amazon's
+          cookie and Amazon's marketplace, inside a block headed by a security warning
+          about a different supplier — which read as a third Amazon field. It is not
+          Amazon's and it is not a key: it is the last rung of the ladder every kind of
+          lookup falls to, so it belongs under all of them rather than inside one.
+
+          STILL BEHIND `admin`, and it has to be: the write is PUT /admin/metadata-keys
+          and the requests it authorises come from THIS SERVER, so it is an instance
+          decision rather than a reader's. Lifting it out of the Amazon block meant
+          lifting it out of that block's own guard, which is the half a move like this
+          loses silently — the control would have drawn for everybody and 403'd on
+          press. */}
+      {admin && (
+        <div className="mt-4">
+          <div className="mb-2 flex items-center gap-1.5">
+            {/* SHORT ON THE PAGE, WHOLE IN THE ACCESSIBLE NAME. "Google image
+                results" is what the row is about; "Read Google image results
+                directly" is what pressing it means, and a toggle answering yes/no
+                needs the verb in its name where a heading beside it does not. The
+                visible words are a prefix of the accessible ones, which is what
+                WCAG 2.5.3 asks and what lets somebody say the label out loud. */}
+            <MonoLabel>{t('settings.keys.google-scrape.title')}</MonoLabel>
+            <InfoDot text={t('settings.keys.google-scrape.info.body')} />
+          </div>
+          <Toggle
+            ariaLabel={t('settings.keys.google-scrape.aria')}
+            value={keys?.google_scrape ? 'on' : 'off'}
+            onChange={async (v) => {
+              setSaving(true)
+              setError('')
+              const r = await json('PUT', '/admin/metadata-keys', { google_scrape: v === 'on' })
+              setSaving(false)
+              if (!r.ok) { setError(errText(r, t('error.save.generic'))); return }
+              await Promise.all([loadStatus(), loadKeys()])
+              toast(t('common.toast.saved'))
+            }}
+            options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
+          />
+        </div>
+      )}
+
       <ErrorText>{error}</ErrorText>
 
-      {/* Last, and a section rather than a card: a lookup hands back one credit
-          string and this decides whether it names one person or two. */}
-      <CreditSeparators user={user} onPreferences={onPreferences} />
-
-      {/* And the door to Language marks, which hung off Appearance from 1.15.2
+      {/* The door to Language marks, which hung off Appearance from 1.15.2
           until the reader moved it here.
 
           WHY IT BELONGS ON THIS CARD. Everything above is about where the facts
@@ -651,10 +678,35 @@ export function MetadataSources({ user, onPreferences }) {
           <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setMarksOpen(true)}>{t('settings.languages.title')}</GhostButton>
         </Tooltip>
       </div>
+    </Card>
+
+      {/* A CARD OF ITS OWN NOW, on the owner's ruling: "multi author credits:
+          separate card."
+
+          IT WAS A FOOTNOTE BECAUSE THE PAGE WAS ONE COLUMN. The argument for
+          keeping it inside — four chips and a label is not a subject, and a card
+          with four chips claims the same share of a page as the keys every lookup
+          runs on — was an argument about VERTICAL SPACE, and it stops applying the
+          moment the cards pack into two columns: a short card beside a tall one
+          costs nothing, and the thing it was buried under was six key fields and a
+          security warning.
+
+          AND IT IS A DIFFERENT QUESTION. Everything on the card above is "where do
+          the facts come from"; this is "what does one of those facts MEAN" — a
+          lookup hands back "Gaiman & Pratchett" as one string and this decides
+          whether that is one person or two. */}
+      <Card>
+        <CreditSeparators user={user} onPreferences={onPreferences} />
+      </Card>
+
+      {/* IT IS NOT A COLUMN ITEM, whatever it looks like sitting here: FormModal
+          returns null while closed and a portal while open, so it never takes part
+          in this flow either way. Left inside the card above it would have read as
+          part of the keys; here it sits beside the door that opens it. */}
       <FormModal open={marksOpen} onClose={() => setMarksOpen(false)} title={t('settings.languages.title')} maxWidth={560}>
         <LanguageMarksSettings prefs={user.preferences} onSaved={onPreferences} />
       </FormModal>
-    </Card>
+    </div>
   )
 }
 
