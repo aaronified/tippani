@@ -911,8 +911,19 @@ export function AddChooser({
         <div className="tp-field">
           <MonoLabel>{t('add.mode.board.which.label')}</MonoLabel>
           <div className="flex flex-wrap gap-2">
+            {/* THE CHOSEN ONE TAKES THE PRESSED FACE, exactly as the mode row
+                above it does. It did not, and with every question now on one
+                screen that left a board you had answered looking identical to
+                the ones you passed over — the same defect as a filter chip
+                whose on-state class matches nothing. */}
             {(boards || []).map((b) => (
-              <button key={b.id} type="button" className="tp-btn tp-btn-ghost tactile" onClick={() => onTarget(b)}>
+              <button
+                key={b.id}
+                type="button"
+                className={'tp-btn tactile ' + (target?.id === b.id ? 'tp-btn-primary' : 'tp-btn-ghost')}
+                aria-pressed={target?.id === b.id}
+                onClick={() => onTarget(b)}
+              >
                 {b.name}
               </button>
             ))}
@@ -1852,6 +1863,12 @@ export default function AddSurface({
         onBack={back || undefined}
         title={title}
         sub={subLine || undefined}
+        // A FORM IS REGISTERED, SO THE ✕ IS THE DISCARDING HALF. `saveState` is
+        // exactly "a form published a Save here", which is the same fact the ✓
+        // is drawn from — so the pair cannot end up half-drawn. Without this the
+        // phone drew an armed ✓ beside a plain ✕, or, once the leading slot went
+        // to Back, an armed ✓ with no cross at all.
+        closeDanger={!!saveState}
         // A half-written quote must not be lost to a tap beside the card.
         dismissOnScrim={false}
         actions={

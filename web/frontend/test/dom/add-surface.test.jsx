@@ -70,6 +70,35 @@ describe('the chooser', () => {
     }
   })
 
+  // THE BUTTONS HAVE A SURFACE — the owner: "now the buttons look like just plain
+  // text, for example." Bare `.tp-btn` is a 44px box with a transparent border
+  // and no background at all; the paper comes from `.tp-btn-ghost` and
+  // `.tp-btn-primary`. A rater stripped both class names off this row and all
+  // 3,958 tests passed, so the reported regression was unguarded — which is the
+  // whole reason for asserting a class name rather than a behaviour here.
+  it('draws the choices as buttons, and marks the chosen one', async () => {
+    surface({ initialSection: 'standalone' })
+    const chosen = (name) => screen.getByRole('button', { name })
+    // Before a mode is picked every one of them wears the unpressed face.
+    for (const mode of ['A work', 'A board', 'A quote', 'Files']) {
+      expect(chosen(mode).className, mode).toMatch(/\btp-btn-ghost\b/)
+    }
+    fireEvent.click(chosen('A board'))
+    await screen.findByText('Which board')
+    expect(chosen('A board').className).toMatch(/\btp-btn-primary\b/)
+    expect(chosen('A board').getAttribute('aria-pressed')).toBe('true')
+    expect(chosen('A work').className).toMatch(/\btp-btn-ghost\b/)
+    // AND THE BOARD LIST ANSWERS THE SAME WAY. With every question on one screen
+    // an answered board that looked identical to the ones passed over is the
+    // same defect as a filter chip whose on-state class matches nothing.
+    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
+    await screen.findByText('What kind of quote')
+    expect(chosen('Others').className).toMatch(/\btp-btn-primary\b/)
+    expect(chosen('Bengali proverbs').className).toMatch(/\btp-btn-ghost\b/)
+    // The kinds are buttons too, not a list of words.
+    expect(chosen('Proverb').className).toMatch(/\btp-btn-ghost\b/)
+  })
+
   // "if a work/board/anthology is chosen, i will also need to select the
   // work/board/anthology there" — `there`, on the same screen, because a mode with
   // no work named is not an answer.

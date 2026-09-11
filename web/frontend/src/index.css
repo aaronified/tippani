@@ -7296,19 +7296,63 @@ html[data-theme="dark"] .to-top { box-shadow: 0 12px 26px -14px rgba(0, 0, 0, .7
 .shelf-track > span { max-width: 100%; }
 
 /* MobileSheet — full-screen filter page on phones */
+/* IT IS A POPUP, AND IT WAS A SCREEN. The owner, on the add surface: "make it a
+   popup (on phone, like the other popups, with drag)." This was
+   `position: fixed; inset: 0; background: var(--bg)` — a square, opaque surface
+   filling the viewport, with no scrim, no strip of page above it, and nothing a
+   drag could resize.
+
+   AND THAT LAST CLAUSE IS WHY THE DRAG DID NOTHING. `useSheetDrag` publishes the
+   height it wants into `--tp-sheet-h`; the only rule in this file reading that
+   property was `.tp-panel`, and this card was `height: 100%`. So the hook
+   measured its anchors, wrote them, and the card stayed exactly as tall as the
+   screen: a gesture that translated the card and sprang back, and a grip that
+   was a dead control. The hook was wired and the stylesheet was not, which is a
+   failure no test in the suite could see, because both halves were individually
+   correct.
+
+   SO IT TAKES THE PANEL STACK'S RULES RATHER THAN A SECOND SET — the same
+   `--tp-sheet-h` contract, the same 94dvh ceiling, the same 20px top corners and
+   squared bottom ones. "Like the other popups" is the whole request, and two
+   sheet idioms is how the ninth surface stops behaving like the other eight. */
 .mobile-sheet {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: var(--bg);
   display: flex;
   flex-direction: column;
+  /* The card hugs the bottom; what is left above it is the strip of page that
+     tells the reader they are on top of something rather than somewhere new. */
+  justify-content: flex-end;
 }
 .mobile-sheet-card {
+  /* A sub-surface must draw inside this box rather than over the viewport —
+     `.tp-panel` carries this for the same reason. */
+  position: relative;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  width: 100%;
+  /* THE ANCHORS DECIDE THE HEIGHT. `auto` is what a sheet wears before any
+     script has run, so one that never gets a drag is still the right size. */
+  height: var(--tp-sheet-h, auto);
+  max-height: 94dvh;
   overflow: hidden;
+  border: 1.6px solid var(--ink-border);
+  /* No bottom edge: a 1.6px line across the foot of the screen is a rule, not
+     an edge — `.tp-panel`'s phone rule says the same. */
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
+  /* THE LIT EDGE IS THE TOKEN'S, not a copy of the panel's literal. `.tp-panel`
+     spells its own `rgba(255,255,255,.6)` and pays for it with a whole dark-theme
+     rule to restate the same edge dimmer; `--bevel-hi` already carries both
+     values, so this needs one line and the dark rule below only restates the
+     drop shadow. `depth.test.js` counts the hand-written ones and its ceiling may
+     fall and never rise. */
+  box-shadow: 0 30px 64px -28px rgba(var(--sh), .8), inset 0 1px var(--bevel-hi);
+}
+html[data-theme="dark"] .mobile-sheet-card {
+  box-shadow: 0 30px 64px -28px rgba(var(--sh), .9), inset 0 1px var(--bevel-hi);
 }
 .mobile-sheet-header {
   /* positioned so the shell tile's z-index:-1 ::before resolves against THIS
@@ -7318,9 +7362,11 @@ html[data-theme="dark"] .to-top { box-shadow: 0 12px 26px -14px rgba(0, 0, 0, .7
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  /* status-bar clearance in standalone/PWA contexts — the sheet covers the
-     whole viewport, so it owns the top inset just like the shell bars */
-  padding-top: max(10px, env(safe-area-inset-top));
+  /* THE TOP INSET IS NOT THIS SHEET'S ANY MORE. It used to cover the whole
+     viewport and owned the status-bar clearance like a shell bar; it now stops
+     short of the top with the scrim's strip of page above it, so reserving the
+     inset here would be a band of empty header under nothing. The BOTTOM inset
+     is the one a bottom sheet owes, and the body and the footer carry it. */
   background: linear-gradient(180deg, var(--topbar-top), var(--topbar-bottom));
   border-bottom: 1px solid var(--line);
   box-shadow: 0 3px 14px -6px rgba(41,38,29,.22), inset 0 1px 0 rgba(255,255,255,.4);
@@ -7382,10 +7428,20 @@ html[data-theme="dark"] .mobile-sheet-header {
 .mobile-sheet-body {
   overscroll-behavior: contain;
   flex: 1;
+  /* A flex item whose overflow is not visible still has an automatic minimum
+     size of its content — without this the body refuses to shrink and the card
+     grows past the height the drag asked for. */
+  min-height: 0;
   overflow-y: auto;
   padding: 16px 14px;
+  /* The gesture strip is under the last row now that the sheet stops at the
+     bottom edge. A footer carries its own; this is for the sheets with none. */
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
   -webkit-overflow-scrolling: touch;
 }
+/* Except where a footer is drawn — it takes the inset, and paying it twice
+   leaves a band of card under the last row. */
+.mobile-sheet-card:has(> .mobile-sheet-footer) .mobile-sheet-body { padding-bottom: 16px; }
 /* Sheet controls read as a form: selects span the full row instead of
    collapsing to content width (the ragged-left look). */
 .mobile-sheet-body .tp-select { display: block; width: 100%; }

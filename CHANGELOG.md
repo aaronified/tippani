@@ -51,9 +51,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without going back, and marks the one you are on rather than hiding it. It is on the form
   only: on the first screen the modes are the screen, so a dropdown listing them would be a
   second way to press the buttons already in front of you.
-- **The add panel is a draggable sheet on a phone, like every other panel.** Drag it down
-  by the grip or the header to dismiss it — and because this is the sheet all nine of the
-  app's panels use, they all gained it at once.
+- **The phone's sheets are popups now, and they drag.** They were full-screen: an opaque
+  surface filling the glass, square-cornered, with no scrim and no strip of page above to
+  say you were on top of something rather than somewhere new. They now sit on the dimmed,
+  blurred ground every other overlay in the app uses, hug the bottom edge with rounded top
+  corners, and answer a drag on the grip or the header — pull up to grow, pull down to
+  dismiss, with the same anchors the panel stack has had. Nine surfaces draw this sheet,
+  so all nine changed together: the add panel, every edit form, the help sheet, the filter
+  sheets, the review and issues lists.
+- **And the tick and the cross stay together on a phone form.** Giving the sheet's leading
+  slot to Back had taken the ✕ off the form entirely, leaving an armed ✓ with nothing to
+  discard with. The cross is beside the tick, in red, wherever a form is open; a sheet
+  with nothing to save keeps its plain way out.
 - **The anthology door says plainly that it is not open yet.** It is listed because leaving
   it out would make the first screen lie about what the app holds, and it is pressable
   because a greyed-out control cannot tell you why it is grey.

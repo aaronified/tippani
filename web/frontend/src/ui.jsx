@@ -6688,8 +6688,9 @@ export function InfoDot({ text, title }) {
 }
 
 // HelpSheet — the popover an InfoDot or the page Help button opens. Mobile-first:
-// a full-screen sheet on a phone (thumb-sized close, room for real prose) and a
-// centred dialog on desktop. Portalled to <body> so it escapes the isolated
+// a bottom sheet on a phone (thumb-sized close, room for real prose) and a
+// centred dialog on desktop. It said "full-screen sheet" until MobileSheet
+// became the popup the rest of the app's overlays already were. Portalled to <body> so it escapes the isolated
 // stacking context of whatever card it was opened from. Escape and a backdrop
 // click both close.
 // Kbd — one key cap. The legend everywhere else in this file is built out of
@@ -10574,12 +10575,17 @@ export function TableActions({ onCopy, onShare, onPractise, onEdit, onDelete, no
 // wrong was that dismissing a window meant looking for whichever one this window
 // happened to use.
 //
-// The exception is deliberate and stays: MobileSheet keeps its back arrow. A
-// full-screen sheet does not sit over the screen, it IS the screen, and leaving
-// it returns you to where you were — which is what every phone means by ←. So
-// the rule is two-line rather than one: a window over content closes with a ×,
-// a full-screen sheet goes back with an arrow. Two affordances for two things,
-// instead of five for one.
+// THE EXCEPTION THIS NOTE USED TO CLAIM IS GONE, and it is worth saying why
+// rather than deleting the paragraph. It read: a full-screen sheet does not sit
+// over the screen, it IS the screen, so MobileSheet keeps a back arrow where
+// everything else takes a ×. That rested on the sheet being full-screen, and it
+// is not — it is a popup on a scrim with a strip of page above it, which is what
+// the owner asked for and what makes its drag mean anything.
+//
+// So the rule is one line again: a window over content closes with a ×. The
+// sheet draws an arrow ONLY where its caller has steps of its own to walk back
+// through, and then the × moves beside the caller's ✓ rather than disappearing.
+// One affordance for one thing, in one place, instead of five for one.
 export function CloseButton({ onClick, label, tooltip, disabled = false, className = "" }) {
   const word = label || t("common.action.close.label")
   return (
@@ -10651,27 +10657,41 @@ export function QuoteActions({ actions = [] }) {
   return <MoreMenu items={actions.map((a) => ({ ...a, onClick: a.run }))} />;
 }
 
-// MobileSheet — a full-screen overlay for mobile filter pages and forms (§7).
-// On narrow screens it covers the entire viewport with a sticky header
-// (back/close + title + optional `actions`), a scrollable body, and an optional
-// pinned footer (see SheetFooter). Callers compose the controls inside the body;
-// on desktop the sheet is never rendered.
+// MobileSheet — the phone's popup for filter pages and forms (§7): a sheet on a
+// scrim, hugging the bottom edge, with a grip, a header (the way out + title +
+// optional `actions`), a scrollable body and an optional pinned footer (see
+// SheetFooter). Callers compose the controls inside the body; on desktop the
+// sheet is never rendered.
 //
 // `actions` is where a form's own Save / Help glyphs go — the title bar, not a
 // row at the bottom of a long scroll. It replaces the spacer that balanced the
-// close button, so a sheet with no actions still centres its title.
+// leading button, so a sheet with no actions still centres its title.
 //
 // `dismissOnScrim` is off for forms: a filter sheet loses nothing to a stray tap
 // beside the card, and a half-written quote loses everything.
-// `closeDanger` makes the dismiss the DISCARDING half of the standing pair, and
-// it changes the glyph as well as the colour. A sheet's default exit is a back
-// arrow, which is right for a filter sheet — nothing is lost by leaving — and
-// wrong for a form, where leaving throws away what was typed. The repo's rule is
-// that the cross is red and the tick is not, and a rule that held on a desk and
-// not on a phone would be two rules; the desk branch of FormModal has drawn this
-// pair since the rule was written, and this is the same pair.
+//
+// WHERE THE EXITS SIT, AND IT IS ONE RULE WITH TWO SLOTS.
+//
+//   leading   ← when the caller has steps of its own (`onBack`), else the ✕
+//   trailing  the caller's `actions` — and the ✕ again when the leading slot is
+//             taken AND a form is registered
+//
+// THE SECOND LINE IS A REPAIR. Handing the leading slot to `onBack` gave the add
+// surface the one way back the owner asked for, and took the ✕ off every
+// stepping sheet with it — so a form drew an armed ✓ with no discarding half,
+// which the repo's standing pair rule forbids outright. The cross comes back
+// beside the tick, where the desk branch has always drawn the pair.
+//
+// `closeDanger` says a form is registered, so the ✕ is the discarding half and
+// takes the danger colour — wherever of the two slots it is drawn in. It never
+// touches the arrow: stepping back is not discarding, and a red ← would warn
+// about a press that loses nothing.
 export function MobileSheet({ open, onClose, onBack, title, sub, actions, children, footer, dismissOnScrim = true, closeDanger = false }) {
-  useBackToClose(open, onClose);
+  // THE DEVICE'S BACK GESTURE DOES WHAT THE ON-SCREEN ARROW DOES. It closed the
+  // sheet outright while the button beside the title stepped one level — the
+  // same two-things-for-one-gesture the owner reported about the two arrows,
+  // one layer down and invisible until a thumb swipes.
+  useBackToClose(open, typeof onBack === "function" ? onBack : onClose);
   useBodyScrollLock(open);
   // AND THIS SHEET DRAGS NOW, off the same hook the panel stack uses.
   //
@@ -10706,8 +10726,24 @@ export function MobileSheet({ open, onClose, onBack, title, sub, actions, childr
   // own beside this one.
   const stepping = typeof onBack === "function";
   const exit = () => slideOut(stepping ? onBack : onClose);
+  // The ✕, wherever it is drawn. One element rather than two spellings, because
+  // the leading and trailing copies are the same control in different slots and
+  // a second copy is how one of them stops being red.
+  const closeBtn = (
+    <Tooltip label={t("common.sheet.close.tip")} side="bottom" className="shrink-0">
+      <button
+        type="button"
+        className="mobile-sheet-close"
+        onClick={() => slideOut(onClose)}
+        aria-label={t("common.action.close.label")}
+        style={closeDanger ? { color: "var(--error)" } : undefined}
+      >
+        <IconClose />
+      </button>
+    </Tooltip>
+  );
   return (
-    <div className="mobile-sheet" onClick={dismissOnScrim ? () => slideOut(onClose) : undefined}>
+    <div className="mobile-sheet tp-scrim" onClick={dismissOnScrim ? () => slideOut(onClose) : undefined}>
       <div ref={sheetRef} className="mobile-sheet-card" onClick={(e) => e.stopPropagation()}>
         {/* THE MARK IS A SIGN AND THE WHOLE BAR IS THE TARGET — the panel's rule,
             and the owner's reason for it: "the bar is too small to drag. the whole
@@ -10728,17 +10764,20 @@ export function MobileSheet({ open, onClose, onBack, title, sub, actions, childr
           <span aria-hidden="true" />
         </button>
         <div ref={headRef} className="mobile-sheet-header">
-          <Tooltip label={stepping ? t("add.back.tip") : t("common.sheet.close.tip")} side="bottom" className="shrink-0">
-            <button
-              type="button"
-              className="mobile-sheet-close"
-              onClick={exit}
-              aria-label={stepping ? t("add.back.label") : t("common.action.close.label")}
-              style={closeDanger ? { color: "var(--error)" } : undefined}
-            >
-              {stepping ? <IconBack /> : <IconClose />}
-            </button>
-          </Tooltip>
+          {stepping ? (
+            <Tooltip label={t("add.back.tip")} side="bottom" className="shrink-0">
+              <button
+                type="button"
+                className="mobile-sheet-close"
+                onClick={exit}
+                aria-label={t("add.back.label")}
+              >
+                <IconBack />
+              </button>
+            </Tooltip>
+          ) : (
+            closeBtn
+          )}
           {/* A sub-line under the title, for a surface whose header names a
               container and needs to say what is being added into it. Drawn only
               when given: an empty one brings its own spacing. */}
@@ -10746,7 +10785,12 @@ export function MobileSheet({ open, onClose, onBack, title, sub, actions, childr
             <h2 className="mobile-sheet-title">{title}</h2>
             {sub && <span className="mobile-sheet-sub">{sub}</span>}
           </span>
-          {actions || <span className="mobile-sheet-spacer" />}
+          {actions || (stepping && closeDanger ? null : <span className="mobile-sheet-spacer" />)}
+          {/* THE DISCARDING HALF, when the leading slot is the arrow. Only where
+              a form is registered: a sheet with no ✓ has nothing for a ✕ to be
+              half of, and drawing one beside its own back arrow would be the two
+              exits the owner asked to have streamlined. */}
+          {stepping && closeDanger && closeBtn}
         </div>
         <div ref={bodyRef} className="mobile-sheet-body">
           {children}
