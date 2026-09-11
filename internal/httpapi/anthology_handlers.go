@@ -150,6 +150,17 @@ type anthologyEntryRow struct {
 	// server-side would mean the reading view could not honour the switch without
 	// refetching the whole anthology.
 	Locator string `json:"locator"`
+	// AN ESSAY'S OWN TITLE, utterance only and "" for the other two kinds — whose
+	// title is already the Source, read off the book or the film.
+	//
+	// IT IS NOT FOLDED INTO Source, and that is the whole of why it is a field. A
+	// COALESCE of occasion-then-work_title would have exported the title under the
+	// `occasion:` binding, and the importer maps that key to `Occasion`
+	// (quote_markdown.go) — so a re-imported essay would come back with its title
+	// in the wrong column. The importer already knows `work_title` (and `work`,
+	// `essay`), so the export writes it under its own key and the round trip stays
+	// exact.
+	WorkTitle string `json:"work_title,omitempty"`
 	// 0053. WHAT KIND OF THING a standalone quote is, as the MACHINE value, empty
 	// for the other two kinds. The screen renders the word, in whichever language
 	// it is running in; this file has never sent English prose and does not start
@@ -318,7 +329,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		                 THEN CASE WHEN COALESCE(a.chapter_no,0) <> 0 OR COALESCE(a.chapter,'') <> ''
 		                           THEN ' · ' ELSE '' END || a.location
 		                 ELSE '' END),
-		       DATE(COALESCE(NULLIF(TRIM(COALESCE(a.noted_at,'')), ''), a.created_at)), ''
+		       DATE(COALESCE(NULLIF(TRIM(COALESCE(a.noted_at,'')), ''), a.created_at)), '', ''
 		  FROM anthology_entries e
 		  JOIN annotations a ON a.id = e.item_id
 		  JOIN books b ON b.id = a.book_id
@@ -343,7 +354,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		              THEN ' · ' ELSE '' END ||
 		         COALESCE(d.timestamp,'')
 		       ),
-		       DATE(COALESCE(NULLIF(TRIM(COALESCE(d.noted_at,'')), ''), d.created_at)), ''
+		       DATE(COALESCE(NULLIF(TRIM(COALESCE(d.noted_at,'')), ''), d.created_at)), '', ''
 		  FROM anthology_entries e
 		  JOIN dialogues d ON d.id = e.item_id
 		  JOIN movies m ON m.id = d.movie_id
@@ -367,7 +378,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		         THEN ' · ' ELSE '' END ||
 		         CASE WHEN COALESCE(u.kind,'') = '' THEN COALESCE(u.medium,'') ELSE '' END),
 		       DATE(COALESCE(NULLIF(TRIM(COALESCE(u.noted_at,'')), ''), u.created_at)),
-		       COALESCE(u.kind,'')
+		       COALESCE(u.kind,''), COALESCE(u.work_title,'')
 		  FROM anthology_entries e
 		  JOIN utterances u ON u.id = e.item_id
 		 WHERE e.anthology_id = ? AND e.kind = 'utterance' AND u.user_id = ?
@@ -382,7 +393,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		var e anthologyEntryRow
 		if err := rows.Scan(&e.Kind, &e.ItemID, &e.Position, &e.Note,
 			&e.Quote, &e.QuoteNote, &e.Color, &e.Favorite, &e.Source, &e.Credit, &e.WorkID,
-			&e.Locator, &e.Date, &e.QuoteKind); err != nil {
+			&e.Locator, &e.Date, &e.QuoteKind, &e.WorkTitle); err != nil {
 			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] entry scan failed: %v", err)
 			continue
 		}

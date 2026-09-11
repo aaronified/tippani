@@ -127,6 +127,11 @@ func renderAnthologyExport(title, intro string, f anthologyFields, entries []ant
 			}
 			if !f.HideSource {
 				writeBinding(&sb, "occasion", e.Source)
+				// AN ESSAY'S TITLE UNDER ITS OWN KEY, not folded into the occasion.
+				// `writeBinding` skips an empty value, so every export written before
+				// this still diffs clean; and the importer reads `work_title` back to
+				// the column it came from, which an `occasion:` binding would not.
+				writeBinding(&sb, "work_title", e.WorkTitle)
 			}
 			// Off by default, both of them, so an existing anthology exports byte for
 			// byte as it did before this feature — which is what keeps a re-export
@@ -166,8 +171,17 @@ func renderAnthologyExport(title, intro string, f anthologyFields, entries []ant
 // has asked for a document of passages.
 func anthologyHeading(e anthologyEntryRow, i int, f anthologyFields) string {
 	parts := []string{}
-	if s := strings.TrimSpace(e.Source); s != "" && !f.HideSource {
-		parts = append(parts, s)
+	// THE SOURCE, OR THE TITLE OF THE TEXT IT CAME OUT OF. A standalone quote's
+	// Source is its occasion, and an essay filed the way the capture screen asks
+	// for one has no occasion at all — so it reached the position fallback below
+	// with a full record and exported as "## 3". The fallback is for the reader
+	// who has written the LEAST, and an essay with a title is not that.
+	src := strings.TrimSpace(e.Source)
+	if src == "" {
+		src = strings.TrimSpace(e.WorkTitle)
+	}
+	if src != "" && !f.HideSource {
+		parts = append(parts, src)
 	}
 	if c := strings.TrimSpace(e.Credit); c != "" && !f.HideCredit {
 		parts = append(parts, c)

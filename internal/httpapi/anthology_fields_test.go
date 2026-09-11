@@ -275,3 +275,42 @@ func TestEachFlagIsTheFlagItSaysItIs(t *testing.T) {
 		})
 	}
 }
+
+// AN ESSAY HEADS ITS OWN SECTION, and before this it exported under a number.
+//
+// A standalone quote's Source is its OCCASION, and `entriesFor` read no other
+// column for it — so a passage filed the way the capture screen asks for an essay
+// (its source title, no occasion) arrived at `anthologyHeading` with both Source
+// and Credit empty and fell through to the position fallback. That fallback's own
+// comment says it is for "the one case where the reader has written the least",
+// and an essay with a title and an author is not that case.
+//
+// THE TITLE GOES OUT UNDER `work_title` AND NOT UNDER `occasion`, which is the
+// half a COALESCE would have got wrong: the quotes importer maps `occasion` to
+// the occasion column (quote_markdown.go), so folding the two would move the
+// field on the way back in. This asserts both — the heading, and the key.
+func TestAnEssayHeadsItsSectionByItsTitle(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	utt := newUtterance(t, c, map[string]any{
+		"quote": "the economic anarchy of capitalist society", "kind": "essay",
+		"speaker": "Albert Einstein", "work_title": "Why Socialism?",
+	})
+	a := newAnthology(t, c, "Openings")
+	addEntries(t, c, a.ID, []map[string]any{{"kind": "utterance", "item_id": utt.ID}})
+
+	md := exportAnthology(t, c, a.ID)
+	if !strings.Contains(md, "## Why Socialism? — Albert Einstein") {
+		t.Errorf("the essay did not head its own section:\n%s", md)
+	}
+	if strings.Contains(md, "## 1\n") {
+		t.Errorf("the essay still exported under its position:\n%s", md)
+	}
+	// THE KEY IS THE ONE THE IMPORTER READS BACK TO THE SAME COLUMN.
+	if !strings.Contains(md, "- work_title: Why Socialism?") {
+		t.Errorf("the title went out under some other key:\n%s", md)
+	}
+	if strings.Contains(md, "- occasion: Why Socialism?") {
+		t.Errorf("the title went out as an occasion, which re-imports into the wrong column:\n%s", md)
+	}
+}

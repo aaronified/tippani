@@ -496,6 +496,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`380BCE` written without a space was read as `380`.** Every year box quietly dropped an
   era typed tight against the number, so a book entered that way was filed 380 years *after*
   the date meant, in the wrong era, with nothing on screen to show it.
+- **An essay in an anthology exported under a number.** A standalone quote heads its
+  section with the occasion it was said on — and an essay filed the way the capture
+  screen asks, with its source title and no occasion, had nothing to head with, so it
+  came out as "## 3" with no attribution at all. The title heads it now, and travels
+  in the file under its own name so a re-import puts it back in the box it came from.
 - **An essay or a poem can be revised, and the quiz stopped titling them by their
   author.** A quote the app asks you to recall has to have a source to recall, and
   it looked in two boxes: the occasion and the speaker. So a passage filed the way
