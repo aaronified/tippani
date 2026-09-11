@@ -14,8 +14,15 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"tippani/internal/metadata"
 )
 
 func TestAWorkingSourceIsNotReportedAtAll(t *testing.T) {
@@ -280,4 +287,104 @@ func TestARungIsRecordedUnderItsSuppliersName(t *testing.T) {
 			t.Errorf("%s is reported as %q, want %q", rung, got, want)
 		}
 	}
+}
+
+// ---- and the plumbing between the two, which is the whole of the ask ----------
+//
+// EVERY CASE ABOVE TESTS THE FOLD IN ISOLATION, and the DOM cases on the other side
+// feed the card a hand-written payload. NOTHING JOINED THEM — a rater deleted the
+// `recordLookup` call out of the image ladder and the whole Go suite stayed green,
+// then replaced the status payload's `faults` with an empty slice and it stayed green
+// again. So the owner's exact report — "google photo search is yielding zero results,
+// zilch", and the card saying nothing about it — could be unwired in either place
+// without a single test noticing.
+//
+// This drives a real search through the handler and reads the answer off the real
+// status endpoint. It is the only case here that proves the feature exists rather
+// than that its parts are correct.
+
+func TestAPictureRungThatKeepsFindingNothingReachesTheStatusCard(t *testing.T) {
+	// A Google that answers a perfectly good page with no previews on it — the
+	// "markup rotated" case, which is indistinguishable from an honest miss to
+	// everything except the reason the scraper now returns.
+	google := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `<html><body><div>nothing this understands</div></body></html>`)
+	}))
+	defer google.Close()
+
+	srv := newTestServer(t)
+	metadata.SetFandomAndScrapeBasesForTest(t, "", google.URL)
+	c := signupAdmin(t, srv.Handler())
+	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_scrape": true}, 200)
+
+	// ONE SEARCH IS NOT A FAULT, which is the rule the whole design rests on — so
+	// this asserts the card stays silent first, and only then earns the row.
+	c.mustDo("POST", "/images/search", map[string]any{"kind": "poster", "title": "Heat"}, 200)
+	if got := faultsOn(t, c); len(got) != 0 {
+		t.Fatalf("one empty search put a fault on the card: %+v", got)
+	}
+
+	for i := 1; i < emptyRunFault; i++ {
+		c.mustDo("POST", "/images/search",
+			map[string]any{"kind": "poster", "title": fmt.Sprintf("Heat %d", i)}, 200)
+	}
+	got := faultsOn(t, c)
+	if len(got) != 1 {
+		t.Fatalf("after %d empty searches the card reports %+v", emptyRunFault, got)
+	}
+	// NAMED BY THE SUPPLIER THE READER KNOWS, not by the rung. "google-scrape" is a
+	// technique; and it is google-IMAGES rather than google, because
+	// vocab.source.google.label reads "Google Books" and would put a book supplier
+	// on a fault about a poster.
+	if got[0].Source != "google-images" || got[0].Area != faultAreaPictures {
+		t.Errorf("the row names the wrong thing: %+v", got[0])
+	}
+	if got[0].Kind != "empty" || got[0].Run != emptyRunFault {
+		t.Errorf("a dry spell was reported as something else: %+v", got[0])
+	}
+	// AND THE RUNG'S OWN ACCOUNT OF THE MISS TRAVELLED WITH IT. "Nothing found three
+	// times" says something is wrong; "google's results page carried no preview
+	// images" says what. It is the half that was being thrown away at the `return
+	// nil` every failure used to share.
+	if !strings.Contains(got[0].Note, "preview images") {
+		t.Errorf("the reason did not reach the card: %q", got[0].Note)
+	}
+}
+
+// AND A SUPPLIER THAT ANSWERS IS NEVER ON THE CARD, through the same two endpoints.
+// Silence is this screen's healthy state, and a card that reported a working source
+// would be worse than one that reported nothing.
+func TestAPictureRungThatAnswersIsNotReported(t *testing.T) {
+	google := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ABC&amp;s">`)
+	}))
+	defer google.Close()
+
+	srv := newTestServer(t)
+	metadata.SetFandomAndScrapeBasesForTest(t, "", google.URL)
+	c := signupAdmin(t, srv.Handler())
+	c.mustDo("PUT", "/admin/metadata-keys", map[string]any{"google_scrape": true}, 200)
+
+	for i := 0; i < emptyRunFault+2; i++ {
+		c.mustDo("POST", "/images/search",
+			map[string]any{"kind": "poster", "title": fmt.Sprintf("Heat %d", i)}, 200)
+	}
+	if got := faultsOn(t, c); len(got) != 0 {
+		t.Fatalf("a supplier that answered every time is on the fault list: %+v", got)
+	}
+}
+
+// faultsOn reads the card's own source — GET /metadata/status — rather than the
+// registry behind it. That is the point of these two cases: the registry is tested
+// above, and what was untested is that its answer survives the journey to a payload
+// key the client reads.
+func faultsOn(t *testing.T, c *testClient) []faultRow {
+	t.Helper()
+	var body struct {
+		Faults []faultRow `json:"faults"`
+	}
+	if err := json.Unmarshal(c.mustDo("GET", "/metadata/status", nil, 200).Body.Bytes(), &body); err != nil {
+		t.Fatalf("status did not decode: %v", err)
+	}
+	return body.Faults
 }

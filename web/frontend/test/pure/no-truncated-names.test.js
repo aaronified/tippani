@@ -53,10 +53,18 @@ const NAME_CLASSES = [
   'trash-label',
 ]
 
-// The exceptions, each with the ruling that granted it. Both are in the panel's
-// HEAD, one slot apart, and both were granted on the same argument: the head is a
-// signpost, and the thing it names is printed in full in the panel below it. A
-// third entry anywhere else would want arguing.
+// The exceptions, each with the ruling that granted it. There are SIX, on two
+// surfaces: the panel's head (the crumb and the title, one slot apart) and the add
+// surface's header (a title and a sub-line, drawn once for a phone and once for a
+// desk). Every one was granted on the same argument — the header is a signpost, and
+// the thing it names is printed in full below it or on the screen the reader just
+// came through.
+//
+// THE COUNT IS IN THIS COMMENT BECAUSE IT DRIFTED. It said "both" and "a third entry
+// anywhere else would want arguing" while five entries sat under it, which is the
+// shape of thing this file exists to stop happening in the stylesheet. A seventh
+// still wants arguing; what it does not want is a sentence that has stopped
+// counting.
 const EXCEPTED = {
   // The owner, 6 September, over a screenshot of "← V / William Ro" printed
   // across "Change who this is": "the back breadcrumbs sometimes do this.
@@ -110,6 +118,13 @@ const EXCEPTED = {
   // full in the work picker the reader just came through. What it is not is exempt
   // from having to clip honestly, which is what this list enforces.
   'add-head-sub': 'the owner, 11 September',
+  // AND ITS PHONE TWIN, which is the surface the owner actually checks — "i am only
+  // checking on phone". `.mobile-sheet-sub` has clipped since it was written, back
+  // when it carried a DOOR's name ("Highlight", "Proverb") and no rule reached it.
+  // The 11 September ruling put an AUTHOR in it, and the entry above was added for
+  // the desk copy alone: the same finding, one element over, on the half a reader
+  // sees. Registered here rather than forbidden for the reason the pair above gives.
+  'mobile-sheet-sub': 'the owner, 11 September',
 }
 
 // The subset that is ITSELF the scrolling box. The others are typography classes

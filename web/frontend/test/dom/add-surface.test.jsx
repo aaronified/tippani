@@ -15,6 +15,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 const posted = []
 vi.mock('../../src/api.js', () => ({
   json: async (method, path, body) => {
+    if (method === 'GET' && path === '/books/4') return { ok: true, data: { id: 4, title: 'The Dispossessed', author: 'Le Guin' } }
+    if (method === 'GET' && path === '/movies/9') return { ok: true, data: { id: 9, title: 'Stalker', media_type: 'movie', director: 'Tarkovsky' } }
     if (method === 'GET' && path === '/books') return { ok: true, data: { books: [{ id: 4, title: 'The Dispossessed', author: 'Le Guin' }] } }
     if (method === 'GET' && path === '/movies') return { ok: true, data: { movies: [{ id: 9, title: 'Stalker', media_type: 'movie' }] } }
     if (method === 'GET' && path === '/boards') return { ok: true, data: { boards: [{ id: 3, name: 'Others', kind: 'plain' }, { id: 7, name: 'Bengali proverbs', kind: 'proverb' }], total: 2 } }

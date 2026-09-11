@@ -24,11 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   saved .html here", pointing at a card that no longer exists — there is one target now,
   so the steps say what to produce and nothing about where to put it.
 
-- **Google image search gets past a consent page instead of only naming one.** Reading
+- **Google image search now sends the consent your switch already recorded.** Reading
   Google's results directly is answered, in much of the world, with a consent screen rather
   than results — so the setting could be on, the app could correctly report why nothing came
-  back, and nothing ever would. The request now carries the same consent the switch itself
-  records.
+  back, and nothing ever would. The request carries the consent cookie a browser stores once
+  somebody has answered that page, which is the same statement you make by turning the switch
+  on. Whether it clears any particular consent screen is Google's to decide and is not
+  something this build could test.
 
 - **The add surface's header is one line, with who made the work under it.** A long
   title used to come down the header three lines deep and push the form off a phone

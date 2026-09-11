@@ -822,16 +822,9 @@ const WORK_TITLE_LABEL = { speech: 'source', letter: 'source', essay: 'title', p
 // arrives with its target already set, so leaving the fetch inside it would mean
 // two identical round trips per opening: one to fill the chooser's picker and one
 // to fill a picker the reader has already answered.
-// `enabled` IS FOR THE HEADER'S SAKE and is false by default so no caller changes.
-// The surface itself needs a work's ROW — its title and who made it — only when it
-// was opened ON one (a ＋ pressed on a book's page), and in exactly that case the
-// chooser does not render and its own call to this hook never happens. So the fetch
-// moves rather than doubles. Where the chooser does render, the surface asks for
-// nothing and the chooser asks as it always did.
-export function useWorks(enabled = true) {
+export function useWorks() {
   const [works, setWorks] = useState(null)
   useEffect(() => {
-    if (!enabled) return undefined
     let stale = false
     Promise.all([json('GET', '/books'), json('GET', '/movies')]).then(([rb, rm]) => {
       if (stale) return
@@ -841,7 +834,7 @@ export function useWorks(enabled = true) {
       setWorks(list)
     })
     return () => { stale = true }
-  }, [enabled])
+  }, [])
   return works
 }
 
@@ -1708,16 +1701,27 @@ export default function AddSurface({
   // below prints the work in its own picker chip, so the screen read as fine and the
   // header read as a gap, on what is probably the commonest way into this surface.
   //
-  // Resolved against the library's own rows, which is where the title and the credit
-  // both live. Until they land the raw prop stands in: it has an id, which is all
-  // anything but the header needs.
-  const openedWorks = useWorks(!!initialTarget)
-  const openedTarget = useMemo(() => {
-    if (!initialTarget || !openedWorks) return opening.target
-    return openedWorks.find((w) => w.id === initialTarget.id && w.kind === (initialTarget.type === 'book' ? 'book' : 'screen'))
-      || opening.target
-  }, [initialTarget, openedWorks, opening.target])
-  const target = pickedTarget ?? (pickedMode ? null : openedTarget)
+  // ONE ROW, BY ID, AND NOT THE WHOLE LIBRARY. The first fix reached for `useWorks`,
+  // which GETs every book AND every film to render one title — two full list fetches
+  // on the path a reader takes most often, for a string the server can hand back in
+  // one. The chooser still uses that hook because it genuinely needs every row; this
+  // needs exactly one and asks for exactly one.
+  //
+  // Until it lands the raw prop stands in: it has an id, which is all anything but
+  // the header needs.
+  const [openedWork, setOpenedWork] = useState(null)
+  useEffect(() => {
+    setOpenedWork(null)
+    if (!initialTarget?.id) return undefined
+    const book = initialTarget.type === 'book'
+    let stale = false
+    json('GET', `${book ? '/books' : '/movies'}/${initialTarget.id}`).then((r) => {
+      if (stale || !r.ok || !r.data) return
+      setOpenedWork(book ? workFromBook(r.data) : workFromMovie(r.data))
+    })
+    return () => { stale = true }
+  }, [initialTarget?.type, initialTarget?.id])
+  const target = pickedTarget ?? (pickedMode ? null : (openedWork || opening.target))
   const door = pickedDoor ?? (pickedMode || pickedTarget ? null : opening.door)
 
   // The forms this mode and container can reach, and the one it opens with no
@@ -1930,6 +1934,9 @@ export default function AddSurface({
         onBack={back || undefined}
         title={title}
         sub={subLine || undefined}
+        // WHICH KIND OF SUB-LINE IT IS, because the slot holds two different things
+        // and one of them is a person. See .mobile-sheet-sub.is-name.
+        subIsName={!!target?.credit}
         // A FORM IS REGISTERED, SO THE ✕ IS THE DISCARDING HALF. `saveState` is
         // exactly "a form published a Save here", which is the same fact the ✓
         // is drawn from — so the pair cannot end up half-drawn. Without this the
@@ -1967,7 +1974,7 @@ export default function AddSurface({
                 the same behave the same. A desk header that wrapped where the
                 phone's clipped would be one of them quietly going wrong. */}
             <h2 className="display-title text-xl add-head-title">{title}</h2>
-            {subLine && <MonoLabel className="add-head-sub">{subLine}</MonoLabel>}
+            {subLine && <MonoLabel className={'add-head-sub' + (target?.credit ? ' is-name' : '')}>{subLine}</MonoLabel>}
           </div>
           <PageHelp screen="capture" />
           {saveBtn}

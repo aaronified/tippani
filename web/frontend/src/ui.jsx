@@ -10768,7 +10768,7 @@ export function QuoteActions({ actions = [] }) {
 // takes the danger colour — wherever of the two slots it is drawn in. It never
 // touches the arrow: stepping back is not discarding, and a red ← would warn
 // about a press that loses nothing.
-export function MobileSheet({ open, onClose, onBack, title, sub, actions, children, footer, dismissOnScrim = true, closeDanger = false }) {
+export function MobileSheet({ open, onClose, onBack, title, sub, subIsName = false, actions, children, footer, dismissOnScrim = true, closeDanger = false }) {
   // THE DEVICE'S BACK GESTURE DOES WHAT THE ON-SCREEN ARROW DOES. It closed the
   // sheet outright while the button beside the title stepped one level — the
   // same two-things-for-one-gesture the owner reported about the two arrows,
@@ -10876,7 +10876,7 @@ export function MobileSheet({ open, onClose, onBack, title, sub, actions, childr
               when given: an empty one brings its own spacing. */}
           <span className="mobile-sheet-titles">
             <h2 className="mobile-sheet-title">{title}</h2>
-            {sub && <span className="mobile-sheet-sub">{sub}</span>}
+            {sub && <span className={"mobile-sheet-sub" + (subIsName ? " is-name" : "")}>{sub}</span>}
           </span>
           {actions || (stepping && closeDanger ? null : <span className="mobile-sheet-spacer" />)}
           {/* THE DISCARDING HALF, when the leading slot is the arrow. Only where

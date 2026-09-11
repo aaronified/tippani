@@ -7487,6 +7487,27 @@ html[data-theme="dark"] .mobile-sheet-header {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* WITHOUT THIS THE CLIP NEVER HAPPENS. A flex child sizes to its content unless
+     told it may shrink, so the ellipsis above is a declaration with nothing to
+     trigger it and the name prints past its box instead of ending. The parent
+     carries `min-width: 0` too and that is not the same claim: this element has to
+     be able to clip on its own terms, which is what the name guard checks. */
+  min-width: 0;
+}
+
+/* A CREDIT IS A NAME, AND A NAME IS NOT SHOUTED.
+   This slot was written for a DOOR's word — "Highlight", "Proverb" — where tracked
+   mono capitals read as the label they are. The 11 September ruling put an AUTHOR in
+   it, and the same declarations render Le Guin as L E   G U I N: a person's name
+   respelled by a stylesheet, which is the same disrespect the never-truncate rule
+   exists to prevent, one letter-case along. The owner asked for the credit "in
+   smaller font", not in a different alphabet.
+   THE SIZE AND THE COLOUR STAY — it is still the quieter half of the pair, still the
+   same face, and still clips. What goes is the shouting. */
+.mobile-sheet-sub.is-name,
+.add-head-sub.is-name {
+  text-transform: none;
+  letter-spacing: normal;
 }
 .mobile-sheet-spacer { width: 44px; flex-shrink: 0; }
 

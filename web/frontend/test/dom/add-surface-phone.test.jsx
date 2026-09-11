@@ -17,8 +17,13 @@ import { MOBILE_SCREEN_QUERY } from '../../src/ui.jsx'
 
 vi.mock('../../src/api.js', () => ({
   json: async (method, path) => {
+    // ONE ROW BY ID, which is what the header asks for now — it used to pull both
+    // whole lists to render one title. A film answers here too, so the director half
+    // of "author/director whatever" is exercised rather than assumed.
+    if (method === 'GET' && path === '/books/4') return { ok: true, data: { id: 4, title: 'The Dispossessed', author: 'Le Guin' } }
+    if (method === 'GET' && path === '/movies/9') return { ok: true, data: { id: 9, title: 'Stalker', media_type: 'movie', director: 'Tarkovsky' } }
     if (method === 'GET' && path === '/books') return { ok: true, data: { books: [{ id: 4, title: 'The Dispossessed', author: 'Le Guin' }] } }
-    if (method === 'GET' && path === '/movies') return { ok: true, data: { movies: [] } }
+    if (method === 'GET' && path === '/movies') return { ok: true, data: { movies: [{ id: 9, title: 'Stalker', media_type: 'movie', director: 'Tarkovsky' }] } }
     if (method === 'GET' && path === '/boards') return { ok: true, data: { boards: [{ id: 3, name: 'Others', kind: 'plain' }], total: 1 } }
     if (method === 'GET') return { ok: true, data: {} }
     return { ok: true, data: { id: 1 } }
@@ -198,6 +203,29 @@ describe('the add surface on a phone', () => {
       return el
     })
     expect(sub.textContent, 'the author is not under the title').toBe('Le Guin')
+  })
+
+  // AND THE OTHER HALF OF "author/director whatever", which nothing held.
+  //
+  // A rater set `credit: m.director || ''` to `''` and watched all 4,043 tests pass:
+  // the book case above covers `workFromBook`, and `workFromMovie` had no case at
+  // all — this file's /movies fixture was an empty list, so a film could not be
+  // opened here to check. Half an instruction guarded is the half that goes on
+  // working while the other quietly stops, which is the failure the repo's own
+  // "similar things behave similarly" is about.
+  //
+  // `director` IS ONE COLUMN WEARING THREE NAMES — a film's director, a show's
+  // creator, a game's studio — so this case covers all three: the header prints the
+  // value, never the noun.
+  it('and names who made a film under its title too', async () => {
+    surface({ initialSection: 'quote', initialTarget: { type: 'movie', id: 9 } })
+    await waitFor(() => {
+      const el = document.querySelector('.mobile-sheet-title')
+      expect(el?.textContent, 'the header does not name the film the ＋ was pressed on').toBe('Stalker')
+    })
+    const sub = document.querySelector('.mobile-sheet-sub')
+    expect(sub, 'a film gets no second line at all, so only the book half was built').toBeTruthy()
+    expect(sub.textContent, 'the director is not under the title').toBe('Tarkovsky')
   })
 
   // THE HEADER MENU IS GONE, and this case asserted it worked for one release.
