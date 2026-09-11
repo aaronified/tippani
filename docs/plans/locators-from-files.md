@@ -24,13 +24,22 @@ The line is *holding and serving*, not *reading*. The owner's own framing of thi
 feature says the same: **"it will not provide a reader screen. it will read itself
 to determine position of the quotes."**
 
-So the decision stands, and this plan is bound by it as an invariant rather than
-excused from it:
+**And the decision has since moved, which changes this plan's input rather than its
+work.** An earlier draft of this file was allowed under the boundary by never
+storing the file — *"it arrives in a request, is parsed in memory, and its bytes are
+discarded when the handler returns."* The owner has since asked for the ebook to be
+kept: *"for the epub part, the epub will also be stored, but for now, will not be
+read fully."*
 
-> **The file is never stored.** It arrives in a request, is parsed in memory,
-> yields positions, and its bytes are discarded when the handler returns. Nothing
-> is written to disk, nothing to the database, no cache, no cover-store sibling. A
-> guard asserts it, and `docs/PLAN.md` gains the sentence.
+So the storage, the reversal `docs/PLAN.md` needs, the four doors a file arrives
+through and the context feature it unlocks are all **`docs/plans/work-source-files.md`**,
+and that plan is the spine this one hangs off. **This plan is now the reader**: it
+takes a file that is already stored against a work and answers where each quote sits
+in it.
+
+What survives unchanged is the narrow half of the boundary, and it is still a guard
+here: **nothing this plan writes ever renders or serves the file.** It reads spans
+and answers positions.
 
 ---
 
@@ -521,27 +530,24 @@ rather than quietly widening it.
 
 ## Entry points
 
-**On a work.** A second `GhostButton` in `WorkDetails.jsx:1471`'s row, beside the
-metadata fetch it is a sibling of — same shape, same `InfoDot` treatment, a file
-picker rather than a lookup view. The row is `flex flex-wrap`, so it wraps rather
-than needing a `Scroller`; with two buttons, an `InfoDot`, a spacer and Delete it is
-close to the point where it would. Picking a file here **opens the screen**, the way
-the metadata button opens `setView('lookup')` — the sibling control's sibling
-behaviour.
+**The doors belong to the spine plan** — `work-source-files.md` designs all four
+(the work-detail row, the work context menu, Checks, and the global import that asks
+which work) and settles the picker, the caps and the detection. They are one
+registry entry there, not four surfaces here.
 
-**In bulk.** One surface that takes several files at once and reports per file:
-matched, ambiguous, unmatched, and which work each file found. The natural home is
-beside the other library-wide operations rather than on a work, and the results all
-land in the same Checks section regardless of which door opened them.
+What this plan owns is **what the second of those two verbs does**. A file is
+already stored against the work; *Adjust as per it* runs the matcher over it and
+produces proposals. So:
 
-**No `accept` attribute on either picker**, per the import plan's rule: a subtitle
-saved as `.txt` is still a subtitle, and the OS dialog hiding it is depending on the
-extension one dialog removed. Detection is by content — an `[Events]` section, a
-`WEBVTT` header, an `-->` arrow, a zip's `container.xml`, a Palm header.
+- **One work, one file** — the run opens the subtitle screen, below, with the
+  matches already drawn.
+- **Several works at once** — the run reports per work and the proposals land in
+  Checks. No screen opens, because several screens cannot.
 
-**Cap: 12 MB**, matching the font and cover precedent rather than the import 5 MB,
-because an EPUB routinely exceeds five and a subtitle never approaches either.
-Above it, the answer names the size rather than failing generically.
+**Re-running is free and is the point.** The file is stored, so the reader can run
+the matcher again after editing a quote, after a later import, or after the
+threshold changes — which the upload-only shape could not offer without asking for
+the file a second time.
 
 ---
 
@@ -573,7 +579,8 @@ labelled Kindle clippings.
 
 | Guard | What it needs |
 | :-- | :-- |
-| **The file is never stored.** | The invariant this plan is allowed under. Assert the handler writes nothing to the data dir and nothing to any table but the proposals; a `t.TempDir()` census before and after |
+| **The matcher reads and never writes the file.** | The storage is the spine plan's; here the guard is that a run mutates nothing under `Sources/` and writes nothing but proposals. A `t.TempDir()` census before and after |
+| **A run is repeatable and idempotent.** | The file is stored, so the same run twice produces the same proposals and no duplicates — refusals included |
 | **DRM is refused before parsing.** | `Encryption Type != 0` answers with its own message and reads no further |
 | **`Compression = 17480` is named, not mishandled.** | A synthetic header is enough; it must not silently produce garbage text |
 | **ASS: the ninth comma.** | A `Dialogue:` line whose text contains commas survives intact |
@@ -610,10 +617,9 @@ labelled Kindle clippings.
 4. **The proposals section** — table, the durable refusal, `stale`, the grouped
    accept. — a migration, `internal/httpapi/locators.go` (new),
    `ChecksPage.jsx`, `CleanupPage.jsx`'s row component as the model
-5. **The work-detail button and the subtitle screen.** Measure the 1,823-row list
-   before anything else inherits the pattern. — `WorkDetails.jsx`, the screen, and
-   `Scroller`
-6. **The bulk surface**, reporting per file into the same proposals.
+5. **The subtitle screen**, opened by the per-work run. Measure the 1,823-row list
+   before anything else inherits the pattern. — the screen, and `Scroller`
+6. **The multi-work run**, reporting per work into the same proposals.
 7. **EPUB** — zip, `container.xml`, OPF spine, XHTML to text with offsets, then the
    same matcher; location, chapter, percent. The extraction rule is pinned by a
    golden test in the same commit that writes it. — `internal/ebook/` (new)
@@ -658,10 +664,12 @@ By hand, against a real backup rather than `seed.mjs`:
 
 ## Out of scope, named
 
-- **A reader.** Stated because the feature reads book files and the boundary is the
-  reason it is allowed to: no rendering, no pagination for display, no storage. The
-  subtitle screen is not an exception — it lists cues the server parsed, holds no
-  file, and has no ebook counterpart: an EPUB run reports, it does not open.
+- **A reader.** The file is stored now (the spine plan) but nothing here renders
+  it: no pagination for display, no next page, nothing served back. The subtitle
+  screen is not an exception — it lists cues the server parsed, and it has no ebook
+  counterpart: an EPUB run reports, it does not open.
+- **The context panel**, which is what the stored file's *other* job is and belongs
+  to `work-source-files.md`. This plan finds the position; that one reads around it.
 - **Folders and archives.** One file at a time, several files at once, no
   traversal — the same limit the import plan holds.
 - **VobSub, PGS and any bitmap subtitle**, which would need OCR.
