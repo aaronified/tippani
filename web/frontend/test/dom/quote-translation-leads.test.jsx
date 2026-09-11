@@ -39,11 +39,13 @@ const noop = () => {}
 // The host takes the reader's settings — the slider above the column and the rows
 // under it — exactly as App does. A card resolves its own state from them plus its
 // row's language, which is the point: nothing is threaded.
-const card = (settings) =>
+// `extra` overrides the row for the one case that needs a field this fixture
+// leaves empty — the note. Everything else about the card is the same card.
+const card = (settings, extra) =>
   render(
     <TextOrderHost value={settings}>
       <AnnotationCard
-        a={row}
+        a={extra ? { ...row, ...extra } : row}
         variant={0}
         tagMap={{}}
         setEditingId={noop}
@@ -144,5 +146,51 @@ describe('the second line', () => {
     expect(body, 'the card no longer renders a body through ExpandableText').toBeTruthy()
     expect(body.style.whiteSpace, 'the quote body stopped keeping its line breaks, so there is nothing for the translation to match')
       .toBe('pre-wrap')
+  })
+})
+
+// AND SO DO THE OTHER TWO PARAGRAPHS A CARD DRAWS OF THE READER'S OWN TEXT.
+//
+// The rule above is not about the translation, it is about the card never
+// reflowing text a person shaped — and the card draws FOUR such paragraphs, from
+// four different places. Two of them carried the rule and two did not, which is the
+// same shape of drift the block above exists to catch, one layer out:
+//
+//   body        ExpandableText's inline style (ui.jsx)     — had it
+//   translation .quote-translation (index.css)             — had it, after the owner asked
+//   flow body   .flow-line, one element per line           — needs none, breaks ARE elements
+//   flow body   .flow-fallback, one <p>                    — HAD NO RULE AT ALL
+//   note        .hand-note (index.css)                     — had no white-space
+//
+// THE FALLBACK IS THE ONE THAT MATTERS MOST and it is the one nobody would look at,
+// because it reads as a degraded path and is not one: flow.jsx's header says it
+// renders under prefers-reduced-motion and until the chunk loads, so a reader who
+// asks for less motion got a poem run together into prose — permanently, and only
+// them. Neither `.flow` nor `.card-text` sets white-space, so there was nothing to
+// inherit either.
+//
+// READ FROM THE FILE, like the block above, for the reason it gives: jsdom applies
+// no stylesheet, so a declaration is a fact about index.css and an assertion about
+// the rendered element would be a tautology.
+describe('every other paragraph of the reader’s own text', () => {
+  it.each([
+    ['flow-fallback', 'a poem run together into prose for every reader who asked for less motion'],
+    ['hand-note', 'a note typed over several lines drawn as one run of prose'],
+  ])('.%s keeps the line breaks it was given', (cls, breaks) => {
+    const block = blockFor(cls)
+    expect(block, `.${cls} is not declared in index.css at all — it was rendered with no rule for a release`).not.toBeNull()
+    expect(block, `.${cls} lost its white-space: ${breaks}`)
+      .toMatch(/white-space\s*:\s*pre-wrap/)
+  })
+
+  // AND THE CLASS IS ON THE PARAGRAPH, not on a wrapper around it. `.quote-translation`
+  // is on its <p> and `.card-text` is on ExpandableText's wrapper — one of each in the
+  // same card — so "the rule exists" and "the rule reaches the words" are two claims,
+  // and the second is the one a reader feels.
+  it('and the note’s class is on the paragraph the words are in', () => {
+    card({ master: 'quote-first' }, { note: 'first line\nsecond line' })
+    const note = document.querySelector('p.hand-note')
+    expect(note, 'the note is no longer a <p> carrying .hand-note, so the rule above lands on nothing')
+      .toBeTruthy()
   })
 })

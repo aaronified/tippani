@@ -1953,6 +1953,12 @@
 
   /* ---- handwritten note (§6): Caveat on paper, Newsreader italic on film ---- */
   .hand-note {
+    /* THE NOTE IS THE READER'S OWN TEXT, so it keeps the shape they typed — the
+       same rule `.quote-translation` records two hundred lines up and for the same
+       reason. A note is where a romanisation goes, and where "similar to 'too many
+       cooks spoil the broth'" goes under it; both are lines, and a note that
+       reflowed them into one run of prose lost the only thing separating them. */
+    white-space: pre-wrap;
     font-family: var(--font-hand);
     font-style: var(--font-hand-style);
     font-variant-caps: var(--font-hand-caps);
@@ -2159,6 +2165,18 @@
      widths). The image is the user's sticker; a soft drop shadow lifts it off
      the page like a real sticker. */
   .flow-line { white-space: nowrap; overflow: hidden; }
+  /* THE FALLBACK IS NOT A DEGRADED VIEW, IT IS THE VIEW — for every reader who
+     asks for less motion, and for every reader at all until the flow chunk loads
+     (flow.jsx's own header says so). It had no rule of any kind, and neither
+     `.flow` nor `.card-text` sets white-space, so the one `<p>` it renders
+     inherited the initial `normal` and ran a poem together into prose EXACTLY
+     where the measured path keeps every break — that path positions each line
+     absolutely, so its breaks are elements rather than characters and it never
+     needed this.
+     `pre-wrap` and not `pre`: the line breaks are the author's and the wrapping is
+     the screen's, which is the same pair `.quote-translation` and ExpandableText's
+     inline style already strike for the two halves of the body this stands in for. */
+  .flow-fallback { white-space: pre-wrap; }
   .flow-sticker { display: inline-flex; }
   .sticker-img {
     width: 100%;

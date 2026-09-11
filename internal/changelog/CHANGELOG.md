@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   saved .html here", pointing at a card that no longer exists — there is one target now,
   so the steps say what to produce and nothing about where to put it.
 
+- **A poem keeps its line breaks with animations turned off, and so does a note over
+  several lines.** Two paragraphs a card draws were reflowing text you had shaped: the
+  margin note always, and the quote body for anybody who asks their system for reduced
+  motion — that reader gets a plain paragraph rather than the measured line-by-line
+  layout, and it had no styling at all. Both keep their shape now.
+
 - **You can now set which text leads, per book, film, show, game or board** — the original
   above the translation, the translation above the original, or one without the other. It
   sits in a work's details and on a board's form, and it outranks your per-language rows
