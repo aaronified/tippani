@@ -294,6 +294,27 @@ export function showsField(door, field, ctx) {
   return fieldKeys(door, ctx).includes(field)
 }
 
+// editFields — what an EDIT form draws, which is every field this kind has, flat.
+//
+// THE OWNER'S RULING: "only add will have show all fields button, edit won't (all
+// fields will show)." And it is the right asymmetry rather than a shortcut.
+// Adding is fast capture, so a disclosure earns its place by keeping the common
+// six on one screen; editing is a deliberate act on a row you already have, so
+// hiding half of it behind a press is friction for no gain.
+//
+// "ALL FIELDS" MEANS ALL OF THIS KIND'S, not every column in the schema — which is
+// the whole of the report that produced this function: "while editing a proverb, i
+// still see all the useless fields." A proverb has nine. It was being shown every
+// one the table knows.
+//
+// AND IT IS HERE RATHER THAN `main.concat(more)` AT THREE CALL SITES, because
+// three spellings of one rule is how one of them stops being right — the repo's
+// own directive, and the reason this table exists at all.
+export function editFields(door, ctx) {
+  const { main, more } = fieldsFor(door, ctx)
+  return Object.freeze([...main, ...more])
+}
+
 // PAIRS are the field keys that draw as one row of two boxes, spelled `a+b` in the
 // tables above. The owner asked for one of them by name — "location and chapter
 // no. will share one line" — and the rest follow the same rule: two short boxes

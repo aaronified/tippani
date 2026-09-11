@@ -1675,11 +1675,44 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // cleared the 44px floor. The head carries the ✕ and the title, and neither
     // loses its press: a pointer sequence that never travels four pixels is a
     // press, which is the same rule that lets the mark itself be pressed.
+    //
+    // AND A CONTROL IN THE BAR IS NOT THE BAR. The owner: "the capture drag is too
+    // sensitive, it is jumping up and down when i am clicking just on the tick.
+    // maybe remove drag from the buttons only… then do it for all drags."
+    //
+    // It was worse than sensitive. `bar.contains(target)` took every press in the
+    // head, and the ✓ ✕ ⋯ ? all live there — so a tap on the tick set `drag.live`,
+    // which is the flag that means "this press was unambiguous, start now". The
+    // slop gate below is written `if (!drag.live)`, so the header had NO slop at
+    // all: the first move event after touching the tick moved the sheet by the
+    // whole travel of the finger, and the release sprang it back. A thumb tap on
+    // glass travels several pixels, so that was every press of it.
+    //
+    // THE GRIP IS TESTED FIRST BECAUSE IT IS ITSELF A BUTTON. Excluding controls
+    // before asking about the grip would exclude the one thing whose only job is
+    // to be dragged.
+    //
+    // ONE SELECTOR, ASKED TWICE. The CLICK path below already excluded controls
+    // and the drag path did not — which is the whole defect, and it is also two
+    // spellings of one rule waiting to disagree. `controlAt` is the rule; the two
+    // callers ask their own question of the answer, because they are different
+    // questions: the click asks "is this control the surface I am listening on",
+    // the drag asks "is this control inside the bar".
+    //
+    // `closest` rather than a tag check, because the press lands on whatever is
+    // innermost — the ✓'s `<svg>`, a `<span>` inside a label — and the control is
+    // its ancestor. The roles are here because `MoreMenu`'s rows are not always
+    // `<button>`: a row with `checked` announces itself as `menuitemradio`.
+    const CONTROL = 'button, a[href], input, select, textarea, label, [role="button"],'
+      + ' [role="menuitem"], [role="menuitemradio"], [contenteditable="true"]';
+    const controlAt = (target) => target?.closest?.(CONTROL) || null;
     const dragSurface = (target) => {
       const grip = handle?.current;
       const bar = head?.current;
       if (grip && (grip === target || grip.contains(target))) return true;
-      return !!bar && (bar === target || bar.contains(target));
+      if (!bar || !(bar === target || bar.contains(target))) return false;
+      const control = controlAt(target);
+      return !(control && bar.contains(control));
     };
     const down = (e) => {
       if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -1690,11 +1723,26 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       measure();
       if (!anchors.length) return;
       dragged = false;
+      // ONLY THE MARK STARTS WITHOUT SLOP, and that is the other half of the
+      // sensitivity report. `live` means "begin on the pointerdown, before any
+      // travel" — right for the mark, whose only job is to be dragged, and wrong
+      // for the bar now that the bar carries a title and four controls. A press
+      // on the title that wobbled two pixels moved the sheet two pixels and
+      // sprang it back; it waits for the same four the body waits for now.
+      const onMark = !!handle?.current
+        && (handle.current === e.target || handle.current.contains(e.target));
       drag = {
         from: e.clientY, at: e.clientY, when: e.timeStamp,
-        height: el.getBoundingClientRect().height, v: 0, live: onGrip, moved: false, id: e.pointerId,
+        height: el.getBoundingClientRect().height, v: 0, live: onMark, moved: false, id: e.pointerId,
+        // WHETHER THIS GESTURE MAY TAKE POINTER CAPTURE, carried rather than
+        // decided later — and it is only the body's to take. The note on `claim`
+        // says why: capture dispatches the following `click` to the capturing
+        // element, so the bar's own press-to-cycle would go dead. `move` used a
+        // literal `true` here because the body was the only path that reached it;
+        // the bar reaches it now.
+        capture: inBody && !onGrip,
       };
-      if (onGrip) claim(false, e.clientY);
+      if (onMark) claim(false, e.clientY);
     };
 
     // CLAIM THE AXIS, AND CAPTURE ONLY WHERE CAPTURE IS THE POINT.
@@ -1790,7 +1838,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
         // handing `claim` the current y threw all of it away: the first committed
         // move moved nothing, which on a slow deliberate drag is the whole gesture
         // starting late.
-        claim(true, drag.from + (dy > 0 ? SLOP : -SLOP));
+        claim(drag.capture, drag.from + (dy > 0 ? SLOP : -SLOP));
       }
       // A SAMPLE HAS TO SPAN LONG ENOUGH TO MEAN SOMETHING. `dy / dt` between two
       // moves delivered in the same tick is a division, not a speed — and a
@@ -1966,7 +2014,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
       // control inside it belongs to that control; a press on the bar itself is
       // the bar's. `currentTarget` is the surface the listener is on, so the mark
       // — which IS a button — still answers its own press.
-      const control = e?.target?.closest?.('button, a[href], input, select, textarea, [role="button"]');
+      const control = controlAt(e?.target);
       if (control && control !== e.currentTarget) return;
       if (!anchors.length) return;
       const i = anchors.indexOf(resting);

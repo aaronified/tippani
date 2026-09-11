@@ -59,6 +59,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dismiss, with the same anchors the panel stack has had. Nine surfaces draw this sheet,
   so all nine changed together: the add panel, every edit form, the help sheet, the filter
   sheets, the review and issues lists.
+- **Tapping a button in a sheet's header no longer jerks the sheet up and down.** The whole
+  header bar is a drag handle, and the ✓, ✕, menu and ? sit inside it — so a tap on one of
+  them counted as a grab, and a grab on the bar was treated as deliberate enough to need no
+  dead zone at all. Every pixel your thumb slid while pressing the tick moved the sheet, and
+  letting go sprang it back. A control in the bar is no longer part of the handle, and the
+  bar itself now waits the same few pixels a scroll does before it decides you meant to
+  drag. The little grip mark keeps following your finger immediately, because that is the
+  one place there is nothing else you could have meant.
 - **Going back a step no longer animates the sheet away and back.** The arrow was running
   the sheet's *exit*: the card slid fully off the bottom, waited, snapped back into place
   in a single frame, and only then showed the previous screen — which then resized. Four

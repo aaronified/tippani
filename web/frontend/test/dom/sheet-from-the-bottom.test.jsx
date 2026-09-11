@@ -235,6 +235,51 @@ describe('what starts a drag', () => {
       .toBe(start)
   })
 
+  // THE OWNER, FROM THEIR PHONE: "the capture drag is too sensitive, it is jumping
+  // up and down when i am clicking just on the tick. maybe remove drag from the
+  // buttons only… then do it for all drags."
+  //
+  // The case above covers a tap that does not move. This is the one they reported:
+  // a press on a key that TRAVELS, which every thumb tap on glass does. It was the
+  // worst possible combination — `dragSurface` took every press in the head, so
+  // the tick set `drag.live`, and `live` is the flag that means "no slop, start
+  // now". The first move event moved the sheet by the whole travel of the finger
+  // and the release sprang it back.
+  it('but a press on a key in the bar never drags, however far the thumb slides', async () => {
+    render(<Sheet onDismiss={vi.fn()} head />)
+    const start = heightOf(el('sheet'))
+    await act(async () => {
+      fireEvent.pointerDown(el('close'), pointer(400))
+      fireEvent.pointerMove(window, pointer(340))
+    })
+    await frame()
+    expect(heightOf(el('sheet')), 'a 60px slide that began on a key in the bar resized the sheet')
+      .toBe(start)
+  })
+
+  // AND THE BAR ITSELF NOW OWES THE SAME FOUR PIXELS THE BODY OWES. It was live
+  // from the pointerdown, which is right for the mark — whose only job is to be
+  // dragged — and wrong for a bar that carries a title and four controls: a press
+  // on the title that wobbled two pixels moved the sheet two pixels and sprang it
+  // back. The mark keeps its zero slop; the case at the top of this block is what
+  // holds that.
+  it('and the bar waits the same four pixels the body waits, because it holds a title now', async () => {
+    render(<Sheet onDismiss={vi.fn()} head />)
+    const start = heightOf(el('sheet'))
+    await act(async () => {
+      fireEvent.pointerDown(el('head'), pointer(400))
+      fireEvent.pointerMove(window, pointer(398))
+    })
+    await frame()
+    expect(heightOf(el('sheet')), 'a 2px wobble on the bar moved the sheet, which is the report')
+      .toBe(start)
+    // And it is a slop, not a refusal: the rest of the gesture still drags.
+    await act(async () => { fireEvent.pointerMove(window, pointer(340)) })
+    await frame()
+    expect(heightOf(el('sheet')), 'the bar stopped dragging altogether')
+      .toBeGreaterThan(start)
+  })
+
   it('and nothing does where the panel is not a sheet', async () => {
     const out = vi.fn()
     render(<Sheet onDismiss={out} enabled={false} />)
