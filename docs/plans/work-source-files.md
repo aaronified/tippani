@@ -821,6 +821,128 @@ Context limits are per-quote fields, so they belong in the **shared field table*
 their own. Narrowing forty quotes at once is then the bulk editor doing what it
 already does, and this plan adds two fields to a list instead of a screen.
 
+---
+
+## Correcting the quote from the file — a fourth Cleanup family
+
+> *"the context and matching may be used to correct issues in the annotations (in
+> the checks screen)."*
+
+Once a quote is matched, the file holds **the same words as somebody else typed
+them**. Where the two disagree, one of them is wrong — and which one is the question
+this section is careful about.
+
+### The measurement first, because it decides the whole design
+
+Thirty stored lines of *V for Vendetta* against its own subtitle:
+
+| | |
+| --: | :-- |
+| **12** | identical after the fold — nothing to say |
+| **18** | differ |
+
+And of those eighteen, what a corrector would want to do:
+
+| | |
+| --: | :-- |
+| **13** | same character set, similar length — **a real wording difference**, and a question |
+| **3** | the quote carries join ellipses the file does not — safe to trim |
+| **1** | the file is longer; the quote looks truncated — safe to extend |
+| **1** | **the file has fewer accented characters than the quote** — must be refused |
+
+**That last row is the whole point.** The subtitle contains **zero** non-ASCII
+characters in 145,695 bytes; the stored quotes contain two. This is the
+`Voilà` → `Voil ` damage measured earlier, and it is not hypothetical: **in a
+thirty-quote sample, a corrector that trusted the file would have destroyed one
+correctly-accented line.** Across a library that is a steady trickle of silent
+damage, dressed as tidying.
+
+So: **4 of 18 are safely proposable, 1 must be refused outright, and 13 are
+questions.** This is a question-asking feature and not a fixing one — which is what
+Cleanup's own preamble already decided, and this family inherits it word for word:
+
+> **THIS FINDS AND NEVER FIXES, and that is the whole design rather than a first
+> step.** Every rule below has a false positive that is somebody's real text… An
+> automatic pass would edit the reader's own words on the strength of a guess,
+> silently, in a library whose whole point is that the words are theirs.
+
+**And it extends it, because an extrinsic rule's false positive is worse.** An
+intrinsic rule's mistake flags text that was fine. This family's mistake *overwrites
+good text with a worse version of itself* — the guess arrives with a whole file
+behind it, which makes it look like evidence.
+
+### The rule, stated so it can be tested
+
+**A correction may add information or remove a known artefact. It may never leave
+the text poorer than it found it.**
+
+| Class | Direction | Proposed? |
+| :-- | :-- | :-- |
+| Quote is a prefix of the file's line (Kindle-clipping truncation) | adds | **Yes** |
+| Join ellipses at an edge — measured at 274 opening and 290 closing cues in this one file | removes an artefact | **Yes** |
+| Whitespace, line-break and soft-hyphen damage | removes an artefact | **Yes** |
+| Speaker's `NAME:` prefix inside the quote | removes an artefact, and **fills** `character` | Yes — a fill, never an overwrite |
+| The file has characters the quote lacks (accents, a dash, typography) | adds | Yes |
+| **The quote has characters the file lacks** | **subtracts** | **Refused — never offered** |
+| Same charset, similar length, different words | neither | **A question**, with both texts shown and no default |
+| The locator | adds | That is `locators-from-files.md`, not this |
+
+**The charset test is cheap and does the heavy lifting**: count the characters
+outside ASCII on each side. A file poorer than the quote is a degraded file, and the
+whole of it becomes untrusted for character-level corrections — structural ones
+(truncation, joins, whitespace) still stand, because those do not depend on the
+file's encoding being intact.
+
+### It needs no file, and that is the stored context paying off again
+
+`source_context.body` already holds **the file's own words for the span** — the
+schema comment says so, and the reason given there was that *"a quote they tidied and
+the line as published are both worth seeing."* That is the second string this family
+needs. So corrections are proposable from the database alone: on a pruned work, on an
+unplugged mount, forever.
+
+### Where it does not fit, and the sibling type
+
+`cleanupRule` is `{ID string; find func(string) [][]int}` — **a pure function over
+one string**, and the file explains why: *"They are the part worth testing, and
+testing them through a database and an HTTP handler would make the interesting cases
+… expensive to write and easy to leave out."*
+
+An extrinsic rule needs **two** strings. So it gets a sibling type rather than a
+distorted `cleanupRule`:
+
+```go
+// contextRule compares what the reader kept against what the file says, and is
+// pure over the pair for the same reason cleanupRule is pure over one string.
+type contextRule struct {
+	ID   string
+	find func(stored, published string) []contextFinding
+}
+```
+
+Everything downstream is unchanged: the finding shape, the accept/ignore pair, the
+`stale` answer, and **`cleanup_ignores` needs no migration** — its key already
+carries `rule`, so new rule IDs slot into the existing refusal table and a declined
+correction stays declined through rescans.
+
+### A quote the reader has edited is treated differently
+
+`utterances`/`annotations`/`dialogues` all carry `updated_at`, and `source` records
+where a row came from. A quote edited since it arrived has been *deliberately*
+worded — the reader may have fixed the publisher's own typo — so a file-based
+correction to it is the most likely false positive in the family.
+
+Such a row is still shown, but **as a question rather than a proposal**, and it says
+that the reader changed this text themselves. It never joins an accept-all group.
+
+### And one finding is about the file, not the quote
+
+If most of a work's quotes differ widely, the attached file is the wrong thing — a
+different cut, a different edition, a different translation. That is **one work-level
+row** saying so, not forty per-quote rows saying it forty times. It reuses the
+offset-detection reasoning from `locators-from-files.md`: a consistent discrepancy
+across matches is evidence about the file.
+
 ### What has no context, and says so once
 
 - **A game.** No file, no context, no action in the menu.
@@ -954,6 +1076,14 @@ destroys something on the reader's behalf and the reader presses it.
 | **Extraction never crosses a chapter edge or a long silence.** | Measured: 52 spine documents at a 400-paragraph median, and 9 gaps over 30 s in the film. A quote at a chapter start gets nothing before it without anyone configuring that |
 | **A bounded span is reported as bounded.** | `bound_before`/`bound_after`, so short-because-the-work-is never reads as short-because-broken |
 | **Every edge is a line start and a line end.** | Including when the character floor decides the width — it rounds outward, never cuts |
+| **A correction is never proposed that makes the text poorer.** | The measured case: the supplied subtitle has 0 non-ASCII characters against the quotes' 2, so a quote with an accent the file lacks must produce **no** row. One in thirty in the real library — the fixture is that quote |
+| **A poorer file loses only its character-level rules.** | Truncation, joins and whitespace still fire on an ASCII-degraded file; spelling and typography do not |
+| **A wording difference has no default.** | Both texts shown, neither pre-selected, never in an accept-all group. 13 of 18 differences are this |
+| **A reader-edited quote is a question, not a proposal.** | `updated_at` past its arrival. It never joins an accept-all group |
+| **A `NAME:` prefix fills `character` and never overwrites it.** | A fill is safe; an overwrite is somebody's correction being undone |
+| **A wrong-file work produces one row, not forty.** | Wide discrepancy across most matches is evidence about the file |
+| **Correction rules are pure over the pair.** | `contextRule` tested without a database or a handler, for the reason `cleanupRule` is |
+| **A declined correction stays declined.** | New `rule` IDs in the existing `cleanup_ignores` key — no migration |
 | **A rescan against a different file is recognised, not merged.** | The `sha256` on the row. One work's context never comes from two editions |
 | **A prune keeps context for every located quote and no others.** | Count in equals count out, and the skipped ones were the unlocated ones |
 | **A prune deletes the bytes and keeps the row.** | `path` empty, `pruned_at` set, the file gone from disk, the name and `sha256` still readable |
@@ -1019,18 +1149,25 @@ destroys something on the reader's behalf and the reader presses it.
    `pruned_at`, and one confirmation saying nothing new can be derived until the file
    returns. Then the library-wide list sorted by what it frees. Absent for mounted
    sources. — `internal/httpapi/prune.go` (new), maintenance
-9. **The mount.** Admin settings for the roots, the `O_RDONLY` and containment
+9. **The correction family.** `contextRule` as a sibling of `cleanupRule`, the
+   direction-of-information rule and its charset test first, then the safe classes,
+   then the question class. A third section on Checks in Cleanup's mould — or a
+   fourth family inside Cleanup's own, which is the better answer if its section can
+   carry the pair view. **Build the refusal before the proposals**: the destructive
+   case is measured and real. — `internal/httpapi/cleanup_context.go` (new),
+   `CleanupPage.jsx`
+10. **The mount.** Admin settings for the roots, the `O_RDONLY` and containment
    guards first and the walk second, EPUB identification by ISBN/ASIN then title,
    the bounded resumable scan, the name-based reading for subtitles and lyrics, and
    the attach proposals into Checks. **Take the guards before the feature** — this is
    the first path in the codebase that a user chose, and the tests are what make the
    rest of it boring. — `internal/mount/` (new), `internal/httpapi/mount.go` (new),
    `docker-compose.yml`
-10. **The orphan sweep**, for sources and for covers, in maintenance.
-11. **Help and infodots** — `en.txt` and `bn.txt`, which are a **frontend** change
+11. **The orphan sweep**, for sources and for covers, in maintenance.
+12. **Help and infodots** — `en.txt` and `bn.txt`, which are a **frontend** change
    and force a `web/dist` rebuild in the same commit. The prune confirmation is the
    one that has to be written carefully: it destroys something.
-12. **Docs** — `docs/PLAN.md` gains the **Reversal paragraph** quoted at the top of
+13. **Docs** — `docs/PLAN.md` gains the **Reversal paragraph** quoted at the top of
    this file and an entry for the backup default; `CHANGELOG.md`; `DEVELOPMENT.md`'s
    file map for the new packages; `docs/troubleshoot.md` for the new `TIP-*` codes;
    `docs/ui-glossary.html` for the panel; and **`docker-compose.yml` gains the
@@ -1070,6 +1207,9 @@ By hand, against a restored backup rather than `seed.mjs`:
   gaps and the second is recognised as a different edition.
 - Narrow one annotation to nothing-before and confirm it stays there when the work
   rule is raised and enforced.
+- Run the corrections over *V for Vendetta* and check the numbers against this
+  plan's: **18 of 30 differ, 13 of them questions, and the accented line refused.**
+  If the accented quote appears as a proposal, the direction rule is not wired.
 - Open the context of a quote that sits at a chapter start and confirm it shows
   nothing before it **without anyone having configured that**, and says why.
 - Raise the global ceiling and confirm it is the one change that needs the files
@@ -1105,6 +1245,11 @@ By hand, against a restored backup rather than `seed.mjs`:
 - **Automatic pruning** on age, size or a schedule. It destroys something on the
   reader's behalf and no goroutine outlives its request anyway.
 - **Span dedupe between overlapping windows** — measured at 1% on real data.
+- **Correcting anything automatically.** Cleanup's doctrine, and this family has the
+  stronger reason for it: its mistakes overwrite good text with a whole file standing
+  behind the guess.
+- **Correcting the file.** It is the reader's or the operator's, and on a mount the
+  app does not write there at all.
 - **Lyrics embedded in an MP3.** The owner's: *"lrc embedded in mp3 will not be
   processed for now."* ID3 `USLT`/`SYLT` frames are not read, and **no audio file is
   opened at all** — a mounted music folder is scanned for `.lrc` and `.txt`
