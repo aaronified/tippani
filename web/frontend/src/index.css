@@ -4032,6 +4032,19 @@
     border-radius: 12px;
     color: var(--soft);
   }
+  /* THE ONE THAT FOLDS IS A CONTROL, and it was 34px tall on a phone — under the
+     app's 44px touch floor, which the probe only found the day it could reach the
+     add surface at all (#125). The words do not move: the height is added as room
+     around them, so what changes is the size of the thing a thumb has to hit.
+
+     `max(44px, …em)` AND NOT A FLAT 44px, per the repo's rule that no box holding
+     text is measured in px alone — a reader on a large type scale gets a box that
+     grows with the line rather than one that clips it. */
+  .import-note > summary {
+    display: flex;
+    align-items: center;
+    min-height: max(44px, 2.8em);
+  }
 
   /* ---- look-up candidate rows (the Add surface's results list) ----
      Source is a 16px mark, not a "GOOGLE BOOKS" pill, and Add is a borderless
