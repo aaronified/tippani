@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   saved .html here", pointing at a card that no longer exists — there is one target now,
   so the steps say what to produce and nothing about where to put it.
 
+- **Google image search gets past a consent page instead of only naming one.** Reading
+  Google's results directly is answered, in much of the world, with a consent screen rather
+  than results — so the setting could be on, the app could correctly report why nothing came
+  back, and nothing ever would. The request now carries the same consent the switch itself
+  records.
+
 - **The add surface's header is one line, with who made the work under it.** A long
   title used to come down the header three lines deep and push the form off a phone
   screen; it clips to one line now, and the second line names the author, director,

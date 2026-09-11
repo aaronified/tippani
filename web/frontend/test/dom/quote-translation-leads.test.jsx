@@ -15,6 +15,8 @@ import { render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { stripComments } from '../css-cascade.js'
+
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: async (_m, path) => {
@@ -71,7 +73,17 @@ const card = (settings, extra) =>
 // index.css is read rather than loaded: jsdom applies no stylesheet, so a
 // declaration is a fact about the file. Same idiom as no-truncated-names.test.js,
 // which guards the standing "never truncate a name" rule the same way.
-const css = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8')
+//
+// AND COMMENTS ARE STRIPPED FIRST, which is the half this file did not have and
+// its sibling was fixed for in the same hour. A CSS comment inside a declaration
+// block is part of the slice `blockFor` returns, so a note explaining WHY a rule
+// needs `white-space: pre-wrap` satisfies the assertion looking for it — and the
+// check then passes with the declaration deleted. A rater proved it here by
+// replacing both declarations with comments naming them and watching 8 of 8 stay
+// green. The hole was disclosed for `clamp-has-a-way-out` and closed in
+// `no-truncated-names`, and missed in the file those assertions were written
+// beside, which is the shape of gap a fix makes rather than finds.
+const css = stripComments(readFileSync(join(process.cwd(), 'src/index.css'), 'utf8'))
 const blockFor = (cls) => {
   const at = css.indexOf(`.${cls} {`)
   return at === -1 ? null : css.slice(at, css.indexOf('}', at))

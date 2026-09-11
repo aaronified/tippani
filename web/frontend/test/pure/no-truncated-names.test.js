@@ -101,6 +101,15 @@ const EXCEPTED = {
   // so a clip on one and a wrap on the other would be the repo's own "two things
   // that look the same behave the same" broken down the middle of one component.
   'add-head-title': 'the owner, 11 September',
+  // AND THE LINE UNDER IT, which is an AUTHOR'S NAME and was registered nowhere at
+  // all — not here and not in NAME_CLASSES, so the one element added by this ruling
+  // that holds a PERSON rather than a title was outside the rule entirely.
+  //
+  // It is excepted rather than forbidden for the same reason as the title above it:
+  // the pair is a signpost to what you are adding to, and the credit is printed in
+  // full in the work picker the reader just came through. What it is not is exempt
+  // from having to clip honestly, which is what this list enforces.
+  'add-head-sub': 'the owner, 11 September',
 }
 
 // The subset that is ITSELF the scrolling box. The others are typography classes
@@ -142,6 +151,14 @@ describe('the one class the owner has excepted', () => {
       .toMatch(/overflow\s*:\s*(hidden|clip)/)
     expect(block, `.${cls} keeps its content width, so the clip never happens`)
       .toMatch(/min-width\s*:\s*0/)
+    // AND THE ELLIPSIS ITSELF, which this block asserted everything around and not.
+    // `overflow: hidden` and `min-width: 0` are the two halves that make a clip
+    // POSSIBLE; without `text-overflow` the name is cut off mid-letter with nothing
+    // saying so — which is worse than the truncation the exception granted, because
+    // the exception's whole argument is that a shortened name ADMITS it is
+    // shortened. A rater removed the declaration and watched this pass.
+    expect(block, `.${cls} cuts the name off mid-letter with no ellipsis to admit it`)
+      .toMatch(/text-overflow\s*:\s*ellipsis/)
   })
 })
 

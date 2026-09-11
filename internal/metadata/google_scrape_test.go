@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -14,8 +15,10 @@ import (
 // site" must not be enough to turn it on.
 func TestTheGoogleScrapeDoesNothingUntilItIsTurnedOn(t *testing.T) {
 	var hits int
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	var sentCookie string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits++
+		sentCookie = r.Header.Get("Cookie")
 		_, _ = w.Write([]byte(`<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ABC&amp;s">`))
 	}))
 	defer srv.Close()
@@ -31,6 +34,13 @@ func TestTheGoogleScrapeDoesNothingUntilItIsTurnedOn(t *testing.T) {
 	got, why := GoogleImageScrape(context.Background(), "Hugo Weaving portrait", true, 8)
 	if len(got) != 1 {
 		t.Fatalf("want the one thumbnail on the page, got %+v", got)
+	}
+	// AND THE CONSENT COOKIE WENT WITH IT, which is the difference between naming the
+	// interstitial and getting past it. Without this the rung is permanently dead in
+	// the EU and the app can only explain why — the opt-in IS the reader's consent, so
+	// a server that asks for permission and then cannot act on it asked for nothing.
+	if !strings.Contains(sentCookie, "CONSENT=") {
+		t.Errorf("no consent cookie was sent, so a consent wall stays a wall: %q", sentCookie)
 	}
 	// A WORKING RUNG SAYS NOTHING. The reason exists for the four ways this can
 	// come back empty; a page with a thumbnail on it is not one of them, and a

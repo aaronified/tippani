@@ -12716,3 +12716,61 @@ The table view's sortable **Date** column, and the **staging queue's** rows. The
 not a card — its own comment says what it is, *"Every kind's locator on one line — a staged
 row shows whichever it has"* — because its job is to show every field so the reader can check
 it before approving. Suppressing a field there would hide the thing under review.
+
+## The add surface's header is one line, and that is the third exception to a standing rule
+
+The owner, over a screenshot of a phone where "The Armchair Economist" came down the header
+three lines deep and pushed the form off the screen:
+
+> the header names can get ellipsis. they do not need to have edgemask sidescroll or infinite
+> wrap. one line is enough. / for second line get the author/director whatever in smaller font.
+
+**IT OVERRULES "NEVER TRUNCATE A NAME", WHICH IS A RULE IN THIS REPO'S OWN CLAUDE.md** — so
+it is recorded here rather than changed in a stylesheet, and the convention the crumb section
+above states is followed: an exception is named in `typescale-baseline.json` with the ruling
+that granted it, and held in `no-truncated-names.test.js`'s EXCEPTED beside the two before
+it. That note said "exactly TWO deliberate clips"; there are four now — this is a PAIR, the
+phone's `.mobile-sheet-title` and the desk's `.add-head-title`, because one component draws
+one header twice and a clip on one with a wrap on the other is this repo's "two things that
+look the same behave the same" broken down the middle of a single file.
+
+**WHAT PAYS FOR THE CLIP IS THE SECOND HALF OF THE SAME INSTRUCTION.** The rule's argument is
+that a shortened name and a short name look alike, so the ellipsis destroys the thing the line
+exists to show. That argument holds when the line is all there is. It stops holding when the
+line becomes two: the slot went from one ambiguous name that would not fit to a name AND the
+person who made it, which is more identifying than the untruncated title was — two books
+called *Home*, a film and the novel it came from. The trade is the same one the panel title
+won on four days earlier, and it is the reason this is an exception rather than a reversal.
+A name still never truncates anywhere a reader is READING it.
+
+**`credit` IS A NEW FIELD RATHER THAN A REUSE OF `sub`**, and the distinction is not
+bookkeeping. `sub` is what the work PICKER prints under a row and filters on, where a release
+year is genuinely what tells two films apart; `credit` is who made the thing. On a book they
+coincide, on a film they do not, and reusing `sub` would have put a year in a slot the owner
+asked for a director in.
+
+### And the header was empty on the commonest route, which the ruling exposed
+
+A ＋ pressed on a book's own page opens this surface with `{type, id}` — enough to file the
+quote against the right work and nothing with which to NAME it. So `target.title` was
+undefined and the header drew an empty string, on what is probably the way most quotes are
+captured. It was invisible because the form prints the work itself in its picker chip one row
+below, so the screen read as fine and the header read as a gap rather than a defect.
+
+The opening target is resolved against the library's own rows now. `useWorks` took an
+`enabled` flag so the fetch MOVES rather than doubles: the surface asks only when it was
+opened on a work, which is exactly the case where the chooser does not render and its own
+call never happens.
+
+### The kind menu went, and it was this surface's own earlier request
+
+> the header will also have a back button as usual, but also a menu button to have a dropdown
+> where users can change the add mode.
+
+— and, three sentences later over the built thing, *"remove this menu from the add surface.
+not needed since we have the back button already."* They are right, and the reason is
+structural: the dropdown's five rows ARE the first screen, and Back is what returns to the
+first screen. Two controls doing one thing in the scarcest row on a phone, and the one that
+had to be discovered sat beside the one that did not. Both test cases were INVERTED rather
+than deleted, and each now asserts the capability as well as the absence — "the menu is gone"
+and "the menu is gone and so is the way to Files" are the same `queryByLabelText`.

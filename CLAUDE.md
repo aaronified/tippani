@@ -46,15 +46,25 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   to do with a score; telling a rater what score to reach is how a rater stops being worth
   running.
 
-- **THE DIGEST IS ON A CLOCK, NOT ON A COUNTER.** The owner: *"run it every 30 mins
-  (other hooks to be similarly relaxed). and when i ask for summaries, it will be run
-  manually."* `session_digest.py` fires on whichever of three thresholds trips first —
-  prompts, minutes, tool calls — so leaving the other two at their defaults means a busy
-  half-hour still produces four digests. `.claude/settings.json`'s `env` block is where
-  that is set: `CLAUDE_KIT_DIGEST_MINUTES=30`, with `_EVERY` and `_TOOLS` pushed out of
-  reach so the clock is the only trigger left. `notify.py` needs nothing — it writes a log
-  and a desktop toast and says nothing in the conversation, and its per-tool toast is off
-  by default.
+- **THE DIGEST IS ON A CLOCK, NOT ON A COUNTER, AND THE CLOCK IS 120 MINUTES.** The owner,
+  first: *"run it every 30 mins (other hooks to be similarly relaxed). and when i ask for
+  summaries, it will be run manually."* Then, on 11 September while leaving a long queue
+  running: *"digest bot can work every 120 mins for now."* `session_digest.py` fires on
+  whichever of three thresholds trips first — prompts, minutes, tool calls — so leaving the
+  other two at their defaults means a busy half-hour still produces four digests.
+  `.claude/settings.json`'s `env` block is where that is set:
+  `CLAUDE_KIT_DIGEST_MINUTES=120`, with `_EVERY` and `_TOOLS` pushed out of reach so the
+  clock is the only trigger left.
+
+  **AND THE PROJECT FILE IS NOT THE ONLY PLACE IT HAS TO BE SET.** In a headless or remote
+  session the project `env` block does not reach the hook process — `CLAUDE_KIT_DIGEST_TOOLS`
+  read back as unset and the hook used its own default of 60 tool calls, so digests fired on
+  a counter while this paragraph said they fired on a clock. The same three names are in
+  `/root/.claude/settings.json` for that reason. A setting that is true in one file and
+  inert in the process is the shape of thing this document exists to stop.
+
+  `notify.py` needs nothing — it writes a log and a desktop toast and says nothing in the
+  conversation, and its per-tool toast is off by default.
 
 - **A SUBAGENT'S FINDING IS A LEAD, NOT EVIDENCE. ALWAYS VERIFY.** The owner's, asked
   whether to check an inventory before building on it: *"yes, always verify."*
