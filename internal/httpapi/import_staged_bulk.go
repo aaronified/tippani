@@ -56,6 +56,42 @@ type stagedBulkReq struct {
 	// 0071. Both NOT NULL DEFAULT '' columns, so both are written plain below.
 	DLC      *string `json:"dlc"`
 	Language *string `json:"language"`
+
+	// EVERY OTHER LOCATOR THE QUEUE ALREADY CARRIES, and the line drawn here is
+	// worth stating because it is the queue's own argument: this endpoint corrects
+	// where a line CAME FROM, never what it SAYS. So the eleven below — the three
+	// per-kind screen locators, a standalone quote's three, and the five a
+	// standalone quote's source is named by — are all writable, and `quote`,
+	// `note` and `translation` are not. Those three are the text, and a staged row
+	// is a record of what the file said; wording is fixed after approval, in the
+	// normal edit form, on a row that is yours.
+	//
+	// ALL ELEVEN ARE `TEXT NOT NULL DEFAULT ''`, so all eleven are written plain —
+	// never through nullable(), which would turn a clear into a constraint
+	// violation. That is the same trap TimestampEnd's note names one field up.
+	//
+	// THEY WERE SHOWN AND NOT EDITABLE, which is the defect. stagedQuoteRow carries
+	// all of them and StagedRow prints six, so a reader could see that an importer
+	// had put a speech's occasion in its place field and could do nothing about it
+	// until after approving the row — which is the repair the queue exists to make
+	// unnecessary. The other five were not even printed: carried through the whole
+	// queue, invisible, and dropped into the library unread.
+	Act         *string `json:"act"`          // 0047, a game
+	Quest       *string `json:"quest"`        // 0047, a game
+	EpisodeName *string `json:"episode_name"` // 0047, a show
+	// 0026/§24. A standalone quote is placed by who said it, on what occasion and
+	// where — the three that stand in for a chapter and a page.
+	Speaker  *string `json:"speaker"`
+	Occasion *string `json:"occasion"`
+	Place    *string `json:"place"`
+	// 0047 and 0070. What a standalone quote's line came OUT of: the region it is
+	// a proverb of, who a letter was to, and the title, locator and author of the
+	// text a speech reaches a reader through.
+	Region       *string `json:"region"`
+	Recipient    *string `json:"recipient"`
+	WorkTitle    *string `json:"work_title"`
+	Locator      *string `json:"locator"`
+	SourceAuthor *string `json:"source_author"`
 	// Counts arrive as strings, not numbers, because three states have to be
 	// distinguishable and a *int only carries two: absent (leave alone), "" (clear
 	// it) and "0" (season 0, where a series keeps its specials).
@@ -81,6 +117,17 @@ func (req *stagedBulkReq) validate() string {
 		{&req.TimestampEnd, "timestamp_end"},
 		{&req.DLC, "dlc"},
 		{&req.Language, "language"},
+		{&req.Act, "act"},
+		{&req.Quest, "quest"},
+		{&req.EpisodeName, "episode_name"},
+		{&req.Speaker, "speaker"},
+		{&req.Occasion, "occasion"},
+		{&req.Place, "place"},
+		{&req.Region, "region"},
+		{&req.Recipient, "recipient"},
+		{&req.WorkTitle, "work_title"},
+		{&req.Locator, "locator"},
+		{&req.SourceAuthor, "source_author"},
 	} {
 		if *f.val == nil {
 			continue
@@ -219,6 +266,31 @@ func (s *Server) handleBulkStaged(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Language != nil {
 		set("language", *req.Language)
+	}
+	// The eleven above, written plain for the reason their block gives: every one
+	// is NOT NULL DEFAULT '', so "" IS the cleared state rather than a violation.
+	// A loop rather than eleven ifs — the column name and the pointer are the whole
+	// of what differs, and eleven near-identical blocks is eleven places for one to
+	// be spelt wrong against a column that does not exist.
+	for _, f := range []struct {
+		col string
+		val *string
+	}{
+		{"act", req.Act},
+		{"quest", req.Quest},
+		{"episode_name", req.EpisodeName},
+		{"speaker", req.Speaker},
+		{"occasion", req.Occasion},
+		{"place", req.Place},
+		{"region", req.Region},
+		{"recipient", req.Recipient},
+		{"work_title", req.WorkTitle},
+		{"locator", req.Locator},
+		{"source_author", req.SourceAuthor},
+	} {
+		if f.val != nil {
+			set(f.col, *f.val)
+		}
 	}
 	// No _orig pair for these: nothing rewrites an episode number, so there is
 	// nothing to reset back to (see 0025).

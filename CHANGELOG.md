@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failing, and no key at all. **And the Amazon marketplace is two letters now** — `in`,
   `com`, `com.au` — instead of the whole `www.amazon.in`, which was the widest thing on
   the card. Paste any form of it and it still works.
+- **Every locator a queued import row carries can be corrected before you approve it.**
+  Eleven fields went through the queue unfixable: a show's episode name, a game's act and
+  quest, and the eight that place a quote belonging to no book and no film — who said it,
+  where, on what occasion, and the title, page and author of the text it came out of. Six
+  of them were printed on the row, so you could read what the importer guessed and do
+  nothing about it; the other five were not even shown. **And the queue stops asking the
+  wrong questions**: a staged proverb was offered a chapter, a season and a timestamp, none
+  of which can apply to it. A row bound for a book or a film gets that kind's boxes, a
+  standalone quote gets its own, and both are asked their language.
+
 - **The list of import formats moved into help, and Import has its own section there.**
   The eight formats and their step-by-step instructions used to sit folded under the upload
   target, which made the same eight entries two things to keep in step — and the "?" on the

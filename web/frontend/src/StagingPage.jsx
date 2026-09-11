@@ -846,6 +846,54 @@ function Panel({ title, children }) {
   )
 }
 
+// WHICH LOCATORS A STAGED ROW CAN BE GIVEN, and the question has exactly two
+// answers because there are exactly two things the queue knows for certain.
+//
+// A ROW IN A STANDALONE GROUP BELONGS TO NO BOOK AND NO FILM. A chapter and a
+// timestamp are not empty on it, they are meaningless — which is why the add
+// surface HARD DROPS them for those kinds rather than drawing them blank
+// (addFields.js, on the owner’s "hard drop anything that is not relevant"). This
+// form drew all of them on every row, so a staged proverb offered a season and an
+// episode and no way at all to say where the proverb was from.
+//
+// A ROW BOUND FOR A WORK TAKES THE UNION OF BOOK AND SCREEN, deliberately rather
+// than for want of trying. `stagedWorkRow` carries no media_type: a staged film,
+// show and game are one `movie` kind until approval, and `writeMovieDialogues` is
+// what decides there which locators survive. So this form cannot ask
+// `fieldsFor('dialogue', { mediaType })` the way the add form does — it shows what
+// the file said and lets the gate at approval drop the rest, which is the rule
+// stagedQuoteRow states about itself.
+//
+// LANGUAGE IS ON BOTH, because it is on every row and an import is where it is
+// most often missing: a clippings export of a Bengali novel arrives with none at
+// all, and it decides which way the card reads.
+const WORK_LOCATORS = [
+  'chapter_no', 'chapter', 'location', 'character', 'actor',
+  'season', 'episode', 'episode_name', 'timestamp', 'timestamp_end',
+  'act', 'quest', 'dlc',
+]
+const QUOTE_LOCATORS = [
+  'speaker', 'occasion', 'place',
+  'region', 'recipient', 'work_title', 'locator', 'source_author',
+]
+function stagedLocatorKeys(standalone) {
+  return [...(standalone ? QUOTE_LOCATORS : WORK_LOCATORS), 'language']
+}
+
+// What the row already holds, as the box will hold it — ONE function, read by the
+// seed and by the diff. Two spellings of this is how a form comes to re-send a
+// field nobody touched.
+//
+// EVERYTHING IS A STRING, including the two counts. '' is unset and '0' is season
+// 0, where a series keeps its specials, and the endpoint takes both as text for
+// exactly that reason (see stagedBulkReq).
+function stagedInitial(quote, key) {
+  // 0044 stores a decimal; '' clears it, so absent and cleared stay apart.
+  if (key === 'chapter_no') return quote.chapter_no ? String(quote.chapter_no) : ''
+  if (key === 'season' || key === 'episode') return String(quote[key] ?? '')
+  return quote[key] || ''
+}
+
 // StagedQueueForm — the per-row editor for one-offs. It posts the same bulk
 // endpoint with a single id, so there is one set of validation rules; the quote's
 // own text is not editable here, because a staged row is a record of what the file
@@ -864,25 +912,15 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
   const suggest = useWorkSuggestions(
     work?.target_id ? { kind: work.kind === 'movie' ? 'screen' : 'book', id: work.target_id } : null,
   )
-  const [f, setF] = useState({
-    chapter: quote.chapter || '',
-    // Kept as a string for the same reason season is: '' clears it, and the
-    // endpoint takes a decimal as text so absent and cleared stay distinguishable.
-    chapter_no: quote.chapter_no ? String(quote.chapter_no) : '',
-    location: quote.location || '',
-    character: quote.character || '',
-    actor: quote.actor || '',
-    // Counts stay strings: '' is unset and '0' is season 0 (specials), and the
-    // endpoint takes them as text for exactly that reason.
-    season: quote.season ?? '',
-    episode: quote.episode ?? '',
-    timestamp: quote.timestamp || '',
-    timestamp_end: quote.timestamp_end || '',
-    dlc: quote.dlc || '',
-    language: quote.language || '',
+  // WHICH LOCATORS THIS ROW CAN BE GIVEN — see stagedLocatorKeys for why the
+  // question has exactly two answers here.
+  const standalone = work?.kind === 'quotes'
+  const keys = stagedLocatorKeys(standalone)
+  const [f, setF] = useState(() => ({
+    ...Object.fromEntries(keys.map((k) => [k, stagedInitial(quote, k)])),
     color: quote.color || 'yellow',
     favorite: !!quote.favorite,
-  })
+  }))
   const [tags, setTags] = useState(quote.tags || [])
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -898,20 +936,14 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
     // `reset` returns to what you typed), and re-sending an untouched value would
     // quietly destroy the snapshot a location formula relies on for its undo.
     const body = { add_tags: tags, remove_tags: gone }
-    for (const [k, was] of [
-      ['chapter', quote.chapter || ''],
-      ['chapter_no', quote.chapter_no ? String(quote.chapter_no) : ''],
-      ['location', quote.location || ''],
-      ['character', quote.character || ''],
-      ['actor', quote.actor || ''],
-      ['season', String(quote.season ?? '')],
-      ['episode', String(quote.episode ?? '')],
-      ['timestamp', quote.timestamp || ''],
-      ['timestamp_end', quote.timestamp_end || ''],
-      ['dlc', quote.dlc || ''],
-      ['language', quote.language || ''],
-    ]) {
-      if (f[k] !== was) body[k] = f[k]
+    // FROM THE SAME LIST THE SEED CAME FROM, which is the whole reason that list
+    // exists. This was two hand-written arrays that had to stay in step, and they
+    // had already drifted: the seed put `season` in as a NUMBER and the diff
+    // compared it against a string, so every row with a season re-sent its season
+    // on every save — the exact thing the paragraph above forbids, in the code
+    // written to obey it.
+    for (const k of keys) {
+      if (f[k] !== stagedInitial(quote, k)) body[k] = f[k]
     }
     if (f.color !== (quote.color || 'yellow')) body.color = f.color
     if (f.favorite !== !!quote.favorite) body.favorite = f.favorite
@@ -920,19 +952,19 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
     if (msg) setErr(msg)
   }
 
-  return (
-    <div className="space-y-4">
-      <p
-        className="whitespace-pre-wrap"
-        style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-17)' }}
-      >
-        {t('staging.form.quoted', { text: quote.quote || quote.note })}
-      </p>
-      <p className="microcopy">{t('staging.form.locators.prose')}</p>
-      {/* Every label here is the shared one; only the eight example values are
-          this screen's own. Philip Marlowe and Elliott Gould are proper nouns,
-          and 01:02:03 is a picture of a time format. */}
-      <div className="grid gap-3 sm:grid-cols-2">
+  // WHERE A LINE IS IN A BOOK OR ON A SCREEN — the union of both, for the reason
+  // stagedLocatorKeys gives: the queue does not know yet which of the two the
+  // destination will be, or which medium, and approval is where that is settled.
+  //
+  // Every label here is the shared one, and so is most of the example text: a
+  // placeholder is an example of the FIELD rather than of the screen, so a game's
+  // act reads "e.g. Act II" wherever it is asked for. Duplicating eight of those
+  // into two locales to win a key prefix is the worse trade. What IS this screen's
+  // own are the examples written for it — Philip Marlowe and Elliott Gould are
+  // proper nouns, and 01:02:03 is a picture of a time format.
+  function workBoxes() {
+    return (
+      <>
         <Field label={t('common.field.chapter-no.label')} inputMode="decimal" placeholder={t('staging.form.chapter-no.placeholder')} value={f.chapter_no} onChange={upd('chapter_no')} />
         {/* FOUR BOXES GAIN THE LIBRARY'S OWN ANSWERS and the rest stay plain, which
             is not a partial job: a location, a season, an episode number and a
@@ -972,22 +1004,8 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
         <Field label={t('common.field.season.label')} placeholder={t('staging.form.season.placeholder')} value={f.season} onChange={upd('season')} />
         <Field label={t('common.field.episode.label')} placeholder={t('staging.form.episode.placeholder')} value={f.episode} onChange={upd('episode')} />
         <Field label={t('common.field.timestamp.label')} placeholder={t('staging.form.timestamp.placeholder')} value={f.timestamp} onChange={upd('timestamp')} />
-        {/* THREE THE ENDPOINT HAS ALWAYS TAKEN AND THIS FORM NEVER OFFERED, which is
-            the gap the owner's "that is a serious backlog" is about: a row with a
-            wrong one of these is approved and then edited a second time, on a
-            different screen, to fix what was on the first.
-
-            `timestamp_end` (0070) closes a range. `dlc` (0071) says which pack a
-            game's line came in — the queue holds it, StagedRow prints the locator
-            line it belongs to, and nothing could change it. `language` (0071) is
-            the one most likely to be wrong on an import, because a file rarely
-            says: a clippings export of a Bengali novel arrives with none at all,
-            and it decides which way the card reads.
-
-            THE OTHER SEVEN A STAGED ROW CARRIES ARE NOT HERE — act, quest, episode
-            name, occasion, note, translation, and the text — because the endpoint
-            does not take them either, and a control that posts a field the server
-            drops is worse than no control. They are a server change first. */}
+        {/* `timestamp_end` (0070) closes a range; `dlc` (0071) says which pack a
+            game's line came in. */}
         <Field label={t('common.field.timestamp-end.label')} placeholder={t('add.form.timestamp-end.placeholder')} value={f.timestamp_end} onChange={upd('timestamp_end')} />
         <SuggestCombo
           label={t('common.field.dlc.label')}
@@ -996,6 +1014,54 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
           onChange={(v) => setF((d) => ({ ...d, dlc: v }))}
           options={suggest.packs.map((name) => ({ name }))}
         />
+        {/* THE THREE 0047 LOCATORS THE QUEUE CARRIED AND NOBODY COULD SEE. An
+            episode's name, and the two a game's line is placed by: not printed on
+            the row, not offered here, and written into the library unread. A show
+            whose parser put the episode title in the wrong field was approved that
+            way or not at all. */}
+        <Field label={t('common.field.episode-name.label')} nameCase placeholder={t('capture.form.episode-name.placeholder')} value={f.episode_name} onChange={upd('episode_name')} />
+        <Field label={t('common.field.act.label')} placeholder={t('capture.form.act.placeholder')} value={f.act} onChange={upd('act')} />
+        <Field label={t('common.field.quest.label')} nameCase placeholder={t('capture.form.quest.placeholder')} value={f.quest} onChange={upd('quest')} />
+      </>
+    )
+  }
+
+  // A STANDALONE ROW'S OWN LOCATORS, and this form offered NONE of them. A staged
+  // proverb was drawn a chapter, a season and a timestamp — three fields that
+  // cannot apply to it — and no way to say who said it, where, or on what
+  // occasion, which are the only three that can. The row PRINTS all three, so the
+  // reader could read what the importer guessed and not touch it.
+  function quoteBoxes() {
+    return (
+      <>
+        <Field label={t('common.field.speaker.label')} nameCase placeholder={t('common.field.speaker.placeholder')} value={f.speaker} onChange={upd('speaker')} />
+        <Field label={t('common.field.occasion.label')} placeholder={t('common.field.occasion.placeholder')} value={f.occasion} onChange={upd('occasion')} />
+        <Field label={t('common.field.place.label')} nameCase placeholder={t('common.field.place.placeholder')} value={f.place} onChange={upd('place')} />
+        <Field label={t('common.field.region.label')} nameCase placeholder={t('quotes.form.region.placeholder')} value={f.region} onChange={upd('region')} />
+        <Field label={t('common.field.recipient.label')} nameCase placeholder={t('quotes.form.recipient.placeholder')} value={f.recipient} onChange={upd('recipient')} />
+        {/* WHAT THE LINE CAME OUT OF (0070). A speech reaches a reader through
+            somebody's text, and the person who wrote that text is neither the
+            speaker nor anyone else on the row. */}
+        <Field label={t('common.field.work-title.label')} nameCase placeholder={t('quotes.form.work-title.placeholder')} value={f.work_title} onChange={upd('work_title')} />
+        <Field label={t('common.field.locator.label')} placeholder={t('quotes.form.locator.placeholder')} value={f.locator} onChange={upd('locator')} />
+        <Field label={t('common.field.source-author.label')} nameCase placeholder={t('add.form.source-author.placeholder')} value={f.source_author} onChange={upd('source_author')} />
+      </>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <p
+        className="whitespace-pre-wrap"
+        style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-17)' }}
+      >
+        {t('staging.form.quoted', { text: quote.quote || quote.note })}
+      </p>
+      <p className="microcopy">{t('staging.form.locators.prose')}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {standalone ? quoteBoxes() : workBoxes()}
+        {/* ON BOTH, because it is on every row and an import is where it is most
+            often missing. */}
         <Field label={t('common.field.language.label')} nameCase placeholder={t('common.field.language.placeholder')} value={f.language} onChange={upd('language')} />
       </div>
       <div className="flex flex-wrap items-center gap-4">
