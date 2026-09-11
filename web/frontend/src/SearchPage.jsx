@@ -27,6 +27,7 @@ import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 // Re-exported so the callers that have always imported it from here still can.
 export { primeSearchVocabulary } from './vocabulary.js'
 import { quoteKindMeta } from './quoteKind.js'
+import { TextOrderScope } from './textOrderHost.jsx'
 import { AnnotationCard, annotationState, annDate, fmtDate } from './Library.jsx'
 import { Frame, dialogueState } from './Movies.jsx'
 import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
@@ -1216,6 +1217,18 @@ export function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMa
         ) : !row ? (
           <HandCard className="p-5"><p className="microcopy">{t('common.action.load.busy')}</p></HandCard>
         ) : isBook || isQuote ? (
+          // THE HIT'S OWN WORK, NOT THE SCREEN'S (0073). Every other surface that
+          // draws this card sits inside one container and states it once at the
+          // top; this modal draws a row from ANY work in the library, so the
+          // container is a property of the hit. `parent` is the book or film this
+          // modal already fetched, so it costs no request.
+          //
+          // A STANDALONE QUOTE HAS NO PARENT — the comment above says why — so it
+          // passes nothing and falls through to the line's language and then the
+          // reader's master, which is what a quote did before this column existed.
+          // Fetching its board here to close that would be a request per hit for a
+          // rung the reader can already reach from the board itself.
+          <TextOrderScope value={parent?.text_order}>
           <AnnotationCard
             a={row}
             meta={isQuote ? utteranceMeta(row) : undefined}
@@ -1237,6 +1250,7 @@ export function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMa
             actionsAlwaysVisible
             editInline
           />
+          </TextOrderScope>
         ) : (
           <Frame
             d={row}

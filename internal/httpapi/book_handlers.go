@@ -43,6 +43,7 @@ type bookReq struct {
 	Pages          int      `json:"pages"`
 	ISBN           string   `json:"isbn"`
 	ASIN           string   `json:"asin"`
+	TextOrder      string   `json:"text_order"`
 	Description    string   `json:"description"`
 	PublishedYear  int      `json:"published_year"`
 	PublishedCirca bool     `json:"published_circa"`
@@ -97,6 +98,13 @@ func (b *bookReq) validate() string {
 	b.Publisher = strings.TrimSpace(b.Publisher)
 	if b.Title == "" {
 		return "title is required"
+	}
+	// 0073, and the same call a film and a board make — one whitelist for all five
+	// containers rather than a copy each.
+	if norm, ok := normalizeTextOrderScope(b.TextOrder); ok {
+		b.TextOrder = norm
+	} else {
+		return "text_order must be empty or one of " + textOrderList()
 	}
 	if raw := strings.TrimSpace(b.ISBN); raw == "" {
 		b.ISBN = ""
@@ -164,14 +172,20 @@ type bookDetail struct {
 	Author       string              `json:"author"`
 	// Present HERE and absent from the list row on purpose — see the list
 	// handler's own note. This is the shape the work's own page reads.
-	Translator     string `json:"translator"`
-	Editor         string `json:"editor"`
-	Subtitle       string `json:"subtitle"`
-	Publisher      string `json:"publisher"`
-	Pages          int    `json:"pages"`
-	Links          string `json:"links"`
-	ISBN           string `json:"isbn"`
-	ASIN           string `json:"asin"`
+	Translator string `json:"translator"`
+	Editor     string `json:"editor"`
+	Subtitle   string `json:"subtitle"`
+	Publisher  string `json:"publisher"`
+	Pages      int    `json:"pages"`
+	Links      string `json:"links"`
+	ISBN       string `json:"isbn"`
+	ASIN       string `json:"asin"`
+	// TextOrder (0073) is this book's own answer to "which text leads", and it
+	// OUTRANKS the reader's per-language table and their master slider — the
+	// owner's spec: "the work controls will supercede the metadata controls."
+	// '' is inherit rather than a fifth state; see resolveTextOrder in
+	// web/frontend/src/textOrder.js for the ladder it sits at the top of.
+	TextOrder      string `json:"text_order"`
 	Description    string `json:"description"`
 	PublishedYear  int    `json:"published_year"`
 	PublishedCirca bool   `json:"published_circa"`
@@ -209,7 +223,7 @@ func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 		       language, orig_language, subtitle, publisher, pages, links,
 		       COALESCE(google_id, ''), COALESCE(openlibrary_id, ''), COALESCE(cover_path, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
-		       pos_unit, pos, pos_total, created_at
+		       pos_unit, pos, pos_total, created_at, text_order
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&b.ID, &b.Title, &b.Author, &b.Translator, &b.Editor, &b.ISBN, &b.ASIN,
 			&b.Description, &b.PublishedYear, &b.PublishedCirca,
@@ -217,7 +231,7 @@ func (s *Server) fetchBook(uid, id int64) (*bookDetail, error) {
 			&b.Language, &b.OrigLanguage, &b.Subtitle, &b.Publisher, &b.Pages, &b.Links,
 			&b.GoogleID, &b.OpenLibraryID, &b.CoverPath,
 			&b.Series, &b.SeriesIndex, &b.Favorite, &b.Status, &b.Progress,
-			&b.Unit, &b.Pos, &b.PosTotal, &b.CreatedAt)
+			&b.Unit, &b.Pos, &b.PosTotal, &b.CreatedAt, &b.TextOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -324,8 +338,8 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO books (id, updated_at, user_id, title, author, translator, editor, isbn, asin, cover_path,
 		                   description, published_year, published_circa, language, orig_language,
 		                   google_id, openlibrary_id, source_metadata,
-		                   series, series_index, favorite, subtitle, publisher, pages, links)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+		                   series, series_index, favorite, subtitle, publisher, pages, links, text_order)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		id, uid, req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(coverPath), nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		// Plain strings — NOT NULL DEFAULT '' (0047), so nullable("") would be the
@@ -335,7 +349,7 @@ func (s *Server) handleCreateBook(w http.ResponseWriter, r *http.Request) {
 		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite,
 		// 0061's three, plain values on NOT NULL DEFAULT columns like the languages
 		// above them.
-		req.Subtitle, req.Publisher, req.Pages, req.Links)
+		req.Subtitle, req.Publisher, req.Pages, req.Links, req.TextOrder)
 	if err != nil {
 		s.removeCoverFile(coverPath)
 		internalError(w, r, "insert book", err)
@@ -643,13 +657,13 @@ func (s *Server) handleUpdateBook(w http.ResponseWriter, r *http.Request) {
 		                 description = ?, published_year = ?, published_circa = ?,
 		                 language = ?, orig_language = ?,
 		                 subtitle = ?, publisher = ?, pages = ?, links = ?,
-		                 series = ?, series_index = ?, favorite = ?, updated_at = datetime('now')
+		                 series = ?, series_index = ?, favorite = ?, text_order = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Author), req.Translator, req.Editor, nullable(req.ISBN), nullable(req.ASIN),
 		nullable(req.Description), nullableInt(req.PublishedYear), req.PublishedCirca,
 		req.Language, req.OrigLanguage, // plain strings, see the create path
 		req.Subtitle, req.Publisher, req.Pages, req.Links,
-		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, id, uid)
+		nullable(req.Series), nullableFloat(req.SeriesIndex), req.Favorite, req.TextOrder, id, uid)
 	if err != nil {
 		failErr("update book", err)
 		return

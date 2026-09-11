@@ -57,11 +57,19 @@ type movieReq struct {
 	// what a re-sync pulls from, so an old client omitting one must not wipe it;
 	// nothing ever fetches with this one, so there is no such thing to protect —
 	// it is a field the reader typed, and it behaves like every other.
-	IMDbID   string `json:"imdb_id"`
-	Source   string `json:"source"`    // "tmdb" | "tvdb": with SourceID, create/resync from that supplier
-	SourceID string `json:"source_id"` // id within the source
-	Title    string `json:"title"`
-	Director string `json:"director"` // "creator" for shows; one column, labelled per media_type in the UI
+	IMDbID string `json:"imdb_id"`
+	// TextOrder (0073) is this work's own answer to "which text leads", and it
+	// OUTRANKS the reader's per-language table and their master slider — the
+	// owner's spec: "the work controls will supercede the metadata controls."
+	// Full-state like IMDbID and unlike the supplier ids, and for IMDbID's own
+	// reason: nothing ever FETCHES this, it is a field the reader set, so there is
+	// no probe's answer to protect from an omitting client. The resync path is
+	// where that distinction is load-bearing — see the note there.
+	TextOrder string `json:"text_order"`
+	Source    string `json:"source"`    // "tmdb" | "tvdb": with SourceID, create/resync from that supplier
+	SourceID  string `json:"source_id"` // id within the source
+	Title     string `json:"title"`
+	Director  string `json:"director"` // "creator" for shows; one column, labelled per media_type in the UI
 	// Publisher is the OTHER company credit a game has (0042). Its own field
 	// rather than a second meaning for Director, because collapsing the two is
 	// the bug that migration exists to end.
@@ -92,6 +100,13 @@ func (m *movieReq) validate() string {
 	}
 	if !validYear(m.ReleaseYear) {
 		return "release_year must be between 4000 BCE and 3000 CE"
+	}
+	// 0073, and the same call a book and a board make — one whitelist for all five
+	// containers rather than a copy each.
+	if norm, ok := normalizeTextOrderScope(m.TextOrder); ok {
+		m.TextOrder = norm
+	} else {
+		return "text_order must be empty or one of " + textOrderList()
 	}
 	if msg := normalizeMediaType(&m.MediaType); msg != "" {
 		return msg
@@ -243,7 +258,10 @@ type movieDetail struct {
 	// the work's fact and not the credit's: an animated film voices its whole
 	// cast, and asking per credit would put the same question twenty times on one
 	// screen. The one credit that differs says so in its own note.
-	CastRole     string                `json:"cast_role"`
+	CastRole string `json:"cast_role"`
+	// TextOrder (0073) — see movieReq. '' is inherit, which is what most works
+	// send, and the client falls through to the language and then the master.
+	TextOrder    string                `json:"text_order"`
 	ID           int64                 `json:"id"`
 	Title        string                `json:"title"`
 	Director     string                `json:"director"`
@@ -277,13 +295,13 @@ func (s *Server) fetchMovie(uid, id int64) (*movieDetail, error) {
 		       COALESCE(tvdb_id, 0), COALESCE(igdb_id, 0), media_type, COALESCE(poster_path, ''), COALESCE(description, ''),
 		       COALESCE(series, ''), COALESCE(series_index, 0), favorite, status, progress,
 		       pos_unit, pos, pos_total, season, season_total, created_at,
-		       COALESCE(imdb_id, ''), publisher, COALESCE(fandom_wiki, ''), links, cast_role
+		       COALESCE(imdb_id, ''), publisher, COALESCE(fandom_wiki, ''), links, cast_role, text_order
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(&m.ID, &m.Title, &m.Director, &m.ReleaseYear, &m.ReleaseCirca, &m.TMDBID,
 			&m.TVDBID, &m.IGDBID, &m.MediaType, &m.PosterPath, &m.Description,
 			&m.Series, &m.SeriesIndex, &m.Favorite, &m.Status, &m.Progress,
 			&m.Unit, &m.Pos, &m.PosTotal, &m.Season, &m.SeasonTotal,
-			&m.CreatedAt, &m.IMDbID, &m.Publisher, &m.FandomWiki, &m.Links, &m.CastRole)
+			&m.CreatedAt, &m.IMDbID, &m.Publisher, &m.FandomWiki, &m.Links, &m.CastRole, &m.TextOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -382,11 +400,11 @@ func (s *Server) handleCreateMovie(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := tx.Exec(`
 		INSERT INTO movies (id, updated_at, user_id, title, director, release_year, release_circa, description,
-		                    media_type, series, series_index, favorite, imdb_id, publisher, links)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                    media_type, series, series_index, favorite, imdb_id, publisher, links, text_order)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, uid, req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher, req.Links); err != nil {
+		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher, req.Links, req.TextOrder); err != nil {
 		internalError(w, r, "create movie: insert", err)
 		return
 	}
@@ -970,11 +988,11 @@ func (s *Server) handleUpdateMovie(w http.ResponseWriter, r *http.Request) {
 	res, err := tx.Exec(`
 		UPDATE movies SET title = ?, director = ?, release_year = ?, release_circa = ?, description = ?,
 		                  media_type = ?, series = ?, series_index = ?, favorite = ?, imdb_id = ?,
-		                  publisher = ?, links = ?, updated_at = datetime('now')
+		                  publisher = ?, links = ?, text_order = ?, updated_at = datetime('now')
 		WHERE id = ? AND user_id = ?`,
 		req.Title, nullable(req.Director), nullableInt(req.ReleaseYear), req.ReleaseCirca,
 		nullable(req.Description), req.MediaType, nullable(req.Series),
-		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher, req.Links, id, uid)
+		nullableFloat(req.SeriesIndex), req.Favorite, normaliseIMDb(req.IMDbID), req.Publisher, req.Links, req.TextOrder, id, uid)
 	if err != nil {
 		failErr("update movie: exec", err)
 		return

@@ -113,6 +113,16 @@ type boardRow struct {
 	// twice, and what the optional per-language sections group by. Always sent as
 	// an array, never null, so the client never branches on absent-vs-empty.
 	Languages []string `json:"languages"`
+	// TextOrder (0073) is this board's own answer to "which text leads", and it
+	// OUTRANKS the reader's per-language table and their master slider — the
+	// owner's spec: "the work controls will supercede the metadata controls." A
+	// board is a standalone quote's container, because a quote has no work row.
+	//
+	// '' IS INHERIT rather than a fifth state, so a board with no opinion sends
+	// the empty string and the client falls through to the language and then the
+	// master. See resolveTextOrder in web/frontend/src/textOrder.js, which has
+	// composed that ladder since before there was a column to fill its top rung.
+	TextOrder string `json:"text_order"`
 }
 
 type boardReq struct {
@@ -125,6 +135,7 @@ type boardReq struct {
 	MoveTo      *int64   `json:"move_to"` // delete only
 	Kind        string   `json:"kind"`
 	Languages   []string `json:"languages"`
+	TextOrder   string   `json:"text_order"`
 }
 
 func (b *boardReq) normalise() string {
@@ -145,6 +156,15 @@ func (b *boardReq) normalise() string {
 	}
 	if !validColor(b.Color) {
 		return "color must be one of " + strings.Join(annotationColors, ", ")
+	}
+	// BEFORE THE KIND BRANCH, and that is not a style choice: the non-proverb path
+	// below RETURNS EARLY, so a check written after it would validate a proverb
+	// board's text order and let every plain board store anything at all — which is
+	// most boards, and the silent half of the bug.
+	if norm, ok := normalizeTextOrderScope(b.TextOrder); ok {
+		b.TextOrder = norm
+	} else {
+		return "text_order must be empty or one of " + textOrderList()
 	}
 	// An absent kind is 'plain' rather than an error, so every client written
 	// against 1.14.0 and every board in an older export keeps working untouched.
@@ -343,7 +363,7 @@ func (s *Server) handleListBoards(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(`
 		SELECT b.id, b.name, b.description, b.color, b.image_path, b.hidden, b.pos,
 		       (SELECT COUNT(*) FROM utterances u WHERE u.board_id = b.id),
-		       b.kind, b.languages
+		       b.kind, b.languages, b.text_order
 		FROM boards b WHERE b.user_id = ? ORDER BY b.pos, b.id`, uid)
 	if err != nil {
 		internalError(w, r, "list boards", err)
@@ -355,7 +375,7 @@ func (s *Server) handleListBoards(w http.ResponseWriter, r *http.Request) {
 		var b boardRow
 		var langs string
 		if err := rows.Scan(&b.ID, &b.Name, &b.Description, &b.Color, &b.ImagePath, &b.Hidden, &b.Pos, &b.Quotes,
-			&b.Kind, &langs); err != nil {
+			&b.Kind, &langs, &b.TextOrder); err != nil {
 			olog.Warnf(olog.CodeBoardRowScan, "[boards] row scan failed: %v", err)
 			continue
 		}
@@ -409,9 +429,9 @@ func (s *Server) handleCreateBoard(w http.ResponseWriter, r *http.Request) {
 	}
 	var pos int
 	_ = tx.QueryRow(`SELECT COALESCE(MAX(pos), -1) + 1 FROM boards WHERE user_id = ?`, uid).Scan(&pos)
-	res, err := tx.Exec(`INSERT INTO boards (user_id, name, description, color, image_path, pos, kind, languages)
-	                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		uid, req.Name, req.Description, req.Color, req.ImagePath, pos, req.Kind, encodeLanguages(req.Languages))
+	res, err := tx.Exec(`INSERT INTO boards (user_id, name, description, color, image_path, pos, kind, languages, text_order)
+	                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		uid, req.Name, req.Description, req.Color, req.ImagePath, pos, req.Kind, encodeLanguages(req.Languages), req.TextOrder)
 	if err != nil {
 		internalError(w, r, "insert board", err)
 		return
@@ -468,8 +488,8 @@ func (s *Server) handleUpdateBoard(w http.ResponseWriter, r *http.Request) {
 	}
 	// hidden and pos are pointers so an edit of the name cannot un-hide a board
 	// as a side effect. Every other field is full-state, like every PUT here.
-	set := `name = ?, description = ?, color = ?, image_path = ?, kind = ?, languages = ?, updated_at = datetime('now')`
-	args := []any{req.Name, req.Description, req.Color, req.ImagePath, req.Kind, encodeLanguages(req.Languages)}
+	set := `name = ?, description = ?, color = ?, image_path = ?, kind = ?, languages = ?, text_order = ?, updated_at = datetime('now')`
+	args := []any{req.Name, req.Description, req.Color, req.ImagePath, req.Kind, encodeLanguages(req.Languages), req.TextOrder}
 	if req.Hidden != nil {
 		set += `, hidden = ?`
 		args = append(args, *req.Hidden)

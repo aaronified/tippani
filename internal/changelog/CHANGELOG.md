@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Groundwork: a book, a film, a show, a game and a board can now each hold their own
+  answer to which text leads** — the original above the translation, the translation above
+  the original, one without the other. It outranks the per-language rows and the master
+  slider in Settings, so a bilingual novel can read one way while the rest of the library
+  reads another. **There is no control for it yet**, so nothing you can see has changed;
+  this release only makes the setting storable and makes every card, table row and search
+  hit obey it once there is a way to set it.
+
 - **A card names one place in the book, not two.** A highlight that recorded a chapter
   printed the chapter *and* the page — "CH. 4 · P.112" — and the page is the half that stops
   being true in a different printing. Whichever the row has, the card now says the chapter

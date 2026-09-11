@@ -92,13 +92,51 @@ export function TextOrderHost({ value, children }) {
   return <TextOrderContext.Provider value={value || {}}>{children}</TextOrderContext.Provider>
 }
 
+// ---- the scope rung: whose screen this is (0073) ----------------------------
+
+// THE WORK'S OR THE BOARD'S OWN OPINION, PROVIDED BY THE SCREEN THAT HAS ONE.
+//
+// THE OWNER'S SPEC, the sentence that had no column until 0073: "the work
+// controls will supercede the metadata controls." `resolveTextOrder` has taken a
+// `scope` since it was written and NO CALLER EVER SUPPLIED ONE, because there was
+// nothing to read.
+//
+// A SECOND PROVIDER RATHER THAN A FIELD ON THE FIRST, and the two facts have
+// genuinely different lifetimes. `TextOrderHost` carries the READER's settings,
+// mounted once at the shell and true everywhere. This carries THE CONTAINER's,
+// which changes with the screen — so nesting a second TextOrderHost to add it
+// would replace the reader's settings with an object holding only a scope, and
+// every card under it would fall back to the app default for the master. Two
+// contexts is not duplication; it is two facts with two lifetimes.
+//
+// AND NOT A PROP THREADED DOWN, which is the whole argument this file opens
+// with: the board's old text menu reached a card through two components that only
+// passed it along, and the table view spent a day not reading it. A screen states
+// the fact once, at the top, and every card under it resolves its own answer.
+const TextOrderScopeContext = createContext('')
+
+export function TextOrderScope({ value, children }) {
+  return (
+    <TextOrderScopeContext.Provider value={value || ''}>{children}</TextOrderScopeContext.Provider>
+  )
+}
+
 // useTextOrder — one of the four states, for this card.
 //
-// `scope` is the work's or the board's stored opinion and `language` is the line's
-// own. Both are the CALLER's to supply because both are properties of the row
-// being drawn; the master and the per-language table come from the context, which
-// is the part every card shares.
+// `language` is the line's own and stays the CALLER's to supply, because it is a
+// property of the ROW being drawn and no two rows on a screen need agree about it.
+//
+// `scope` IS THE SCREEN'S AND COMES FROM CONTEXT, because it is a property of the
+// container and every card under one shares it — a caller passing it would be
+// three call sites each remembering the same fact, which is the shape this file's
+// own header opens by describing as the reason it exists.
+//
+// THE PROP STILL WINS WHERE IT IS GIVEN, and one surface needs that: the search
+// modal draws a card for a row from any work in the library, so the container is
+// a property of the HIT rather than of the screen it is on. Passing it there is
+// the screen "passing the fact in" rather than keeping its own copy of the verb.
 export function useTextOrder({ scope, language } = {}) {
   const { master, byLanguage } = useContext(TextOrderContext)
-  return resolveTextOrder({ scope, language, byLanguage, master })
+  const fromScreen = useContext(TextOrderScopeContext)
+  return resolveTextOrder({ scope: scope || fromScreen, language, byLanguage, master })
 }

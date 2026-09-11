@@ -24,6 +24,7 @@ import { QUOTE_KIND_DOORS, showsField } from './addFields.js'
 import { QUOTE_KINDS, quoteKindLabel, quoteKindMeta, quoteKindOptions } from './quoteKind.js'
 import { attributionParts } from './attribution.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
+import { TextOrderScope } from './textOrderHost.jsx'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
@@ -789,15 +790,28 @@ export default function QuotesPage({ creditSeparators, openId = null, onOpen, on
   if (openId == null) {
     return <BoardList boards={boards} total={total} loadError={loadError} reload={reloadBoards} onOpen={onOpen} />
   }
+  // THE BOARD'S OWN ANSWER TO "WHICH TEXT LEADS" (0073), stated once for every
+  // card under it — the same line WorkDetail states for a book or a film, and the
+  // owner's own ruling on why a BOARD is the container here: a standalone quote
+  // has no work row, because `work_title` is a plain string on the quote and two
+  // quotes can spell one work differently.
+  //
+  // READ OFF THE SHELF LIST rather than fetched again. `useBoards` already has
+  // every board this account owns, so the open one is a find rather than a
+  // request — and a second fetch would be a second answer that could disagree
+  // with the tiles for as long as it was in flight.
+  const open = (boards || []).find((b) => String(b.id) === String(openId))
   return (
-    <BoardQuotes
-      key={String(openId)}
-      boardId={openId}
-      boards={boards}
-      reloadBoards={reloadBoards}
-      creditSeparators={creditSeparators}
-      onClose={onClose}
-    />
+    <TextOrderScope value={open?.text_order}>
+      <BoardQuotes
+        key={String(openId)}
+        boardId={openId}
+        boards={boards}
+        reloadBoards={reloadBoards}
+        creditSeparators={creditSeparators}
+        onClose={onClose}
+      />
+    </TextOrderScope>
   )
 }
 

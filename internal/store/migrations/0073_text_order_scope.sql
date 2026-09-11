@@ -1,0 +1,44 @@
+-- 0073 — a work and a board get an opinion about which text leads.
+--
+-- THE OWNER'S SPEC, the half that had nowhere to live: "There will be per work
+-- control over whether the cards are to show 1) translations above quotations,
+-- 2) quotations above translation, 3) no translation, 4) no quotations. same
+-- control will be there in metadata section on per language basis. the work
+-- controls will supercede the metadata controls."
+--
+-- THE LADDER WAS BUILT AT BOTH ENDS AND CONNECTED TO NEITHER. `resolveTextOrder`
+-- (web/frontend/src/textOrder.js) has composed scope -> language -> master since
+-- the day it was written, with tests; `useTextOrder` has passed `scope` through;
+-- and NO CALLER ANYWHERE SUPPLIED ONE, because there was no column to read. Two
+-- of the owner's four sentences were working and the first one — the one that
+-- says the work wins — was a parameter nobody could fill.
+--
+-- THREE TABLES BECAUSE THERE ARE THREE CONTAINERS, and a quote belongs to exactly
+-- one of them. A book highlight's container is its book, a screen line's is its
+-- film or show, and a standalone quote's is its BOARD — the owner's own ruling,
+-- recorded in textOrder.js: a quote has no work row, because `work_title` is a
+-- plain string on the quote and two quotes can spell one work differently, so a
+-- board is the nearest thing it has. That is also why nothing here is a shared
+-- table keyed by (kind, id): three columns on three rows the app already reads is
+-- less machinery than a join, and the app never asks "which container" without
+-- already knowing which one it has.
+--
+-- '' IS INHERIT, AND IT IS NOT A FIFTH STATE. A work with no opinion stores
+-- nothing, so the language decides; a language with no opinion stores nothing, so
+-- the master does. Storing an explicit "inherit" would be two spellings of one
+-- state and a migration the first time either changed — the same argument
+-- textOrder.js makes for the client and text_order.go for the stored blob.
+--
+-- NO CHECK CONSTRAINT, DELIBERATELY, and `boards.color` is the precedent being
+-- declined rather than one being ignored. The four states are an axis the client
+-- draws as a slider, and `validTextOrder` already refuses an unknown one at the
+-- handler — so a CHECK would buy a second refusal of the same value and charge a
+-- three-table rebuild the day the axis gains a stop. A colour is a closed set
+-- somebody picks from; this is an ordered scale the design may extend.
+--
+-- NO FTS COST. None of these three tables is indexed on this column and none is
+-- searched by it: this decides how a card DRAWS, never what it matches.
+
+ALTER TABLE books  ADD COLUMN text_order TEXT NOT NULL DEFAULT '';
+ALTER TABLE movies ADD COLUMN text_order TEXT NOT NULL DEFAULT '';
+ALTER TABLE boards ADD COLUMN text_order TEXT NOT NULL DEFAULT '';

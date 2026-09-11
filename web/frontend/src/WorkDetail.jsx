@@ -42,6 +42,7 @@ import { deleteWithUndo } from './undo.jsx'
 import { publishSearchSeed, workSeedChip } from './facets.js'
 import { t } from './i18n.js'
 import { nameFor } from './languages.jsx'
+import { TextOrderScope } from './textOrderHost.jsx'
 import { PersonChip, PersonModal, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { usePractice } from './review.jsx'
 import {
@@ -675,18 +676,38 @@ export default function WorkDetail({
     onSearch: onSeedSearch,
   })
 
-  const streamBlock = item && renderBoard({
-    item,
-    spec,
-    seps,
-    creditMaps,
-    mobileFilter,
-    setMobileFilter,
-    onStats: setQuoteStats,
-    onAdd,
-    dataNonce,
-    openCharacter,
-  })
+  // THE WORK'S OWN ANSWER TO "WHICH TEXT LEADS", stated once for every card and
+  // every table row on this screen (0073). The owner's spec: "the work controls
+  // will supercede the metadata controls."
+  //
+  // HERE, AND NOT ON THE CARDS, which is the argument textOrderHost.jsx opens
+  // with and this feature is what proved it: the board's old text menu reached a
+  // card through two components that only passed it along, and the TABLE view
+  // spent a day not reading it — so the same rows led with the original in one
+  // view and with the translation in the other.
+  //
+  // AND HERE RATHER THAN IN EACH CALLER, because this one line covers a book, a
+  // film, a show and a game. `renderBoard` has exactly two call sites —
+  // Library.jsx and Movies.jsx — and wrapping each of them would be two copies of
+  // one rule and one of them eventually forgetting. It is drawn in TWO places
+  // below (wide and narrow), which is the other half of the same argument:
+  // wrapping the value rather than the layout means neither branch can miss it.
+  const streamBlock = item && (
+    <TextOrderScope value={item.text_order}>
+      {renderBoard({
+        item,
+        spec,
+        seps,
+        creditMaps,
+        mobileFilter,
+        setMobileFilter,
+        onStats: setQuoteStats,
+        onAdd,
+        dataNonce,
+        openCharacter,
+      })}
+    </TextOrderScope>
+  )
 
   return (
     /* THE HEADER NEEDS AIR UNDER THE BAR, and md:pt-4 only ever gave it on a

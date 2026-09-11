@@ -122,3 +122,43 @@ func normalizeTextOrder(raw string) (string, bool) {
 	}
 	return string(b), true
 }
+
+// ---- the scope rung: a work's or a board's own opinion (0073) ---------------
+
+// normalizeTextOrderScope is the whole of what a book, a film, a show, a game or
+// a board may store in its `text_order` column — ONE function for all five,
+// because "similar things act similarly" and five copies of a four-value
+// whitelist is four chances for one of them to drift.
+//
+// IT IS NOT normalizeTextOrder ABOVE, and the difference is the shape rather than
+// the vocabulary. That one round-trips the READER's blob — a master plus a table
+// keyed by language, with rows that agree with the master dropped. This one holds
+// a single state, because a work has one answer and not a table: a book is not
+// bilingual by container the way a reader is by habit.
+//
+// ” IS INHERIT AND IS ALWAYS ACCEPTED. A work with no opinion stores nothing and
+// the ladder falls through to the language and then to the master, which is what
+// clearing the control has to mean. Whitespace is trimmed into that same answer,
+// so a client sending " " is clearing it rather than storing a state no reader can
+// see or remove.
+//
+// AN UNKNOWN STATE IS REFUSED rather than dropped, which is the rule the blob
+// above already follows for the same reason: a value this server has never heard
+// of is a client sending something it invented, and storing it would put a card
+// into a state the reader cannot reach the control for.
+func normalizeTextOrderScope(raw string) (string, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", true
+	}
+	if !validTextOrder(raw) {
+		return "", false
+	}
+	return raw, true
+}
+
+// textOrderList is the error message's half of the same table, so a 400 names the
+// four states rather than saying a value was wrong without saying what is right.
+func textOrderList() string {
+	return strings.Join(textOrders, " / ")
+}
