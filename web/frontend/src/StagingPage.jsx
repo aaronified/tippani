@@ -847,6 +847,9 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
     season: quote.season ?? '',
     episode: quote.episode ?? '',
     timestamp: quote.timestamp || '',
+    timestamp_end: quote.timestamp_end || '',
+    dlc: quote.dlc || '',
+    language: quote.language || '',
     color: quote.color || 'yellow',
     favorite: !!quote.favorite,
   })
@@ -874,6 +877,9 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
       ['season', String(quote.season ?? '')],
       ['episode', String(quote.episode ?? '')],
       ['timestamp', quote.timestamp || ''],
+      ['timestamp_end', quote.timestamp_end || ''],
+      ['dlc', quote.dlc || ''],
+      ['language', quote.language || ''],
     ]) {
       if (f[k] !== was) body[k] = f[k]
     }
@@ -905,6 +911,25 @@ function StagedQuoteForm({ quote, onSaved, onCancel }) {
         <Field label={t('common.field.season.label')} placeholder={t('staging.form.season.placeholder')} value={f.season} onChange={upd('season')} />
         <Field label={t('common.field.episode.label')} placeholder={t('staging.form.episode.placeholder')} value={f.episode} onChange={upd('episode')} />
         <Field label={t('common.field.timestamp.label')} placeholder={t('staging.form.timestamp.placeholder')} value={f.timestamp} onChange={upd('timestamp')} />
+        {/* THREE THE ENDPOINT HAS ALWAYS TAKEN AND THIS FORM NEVER OFFERED, which is
+            the gap the owner's "that is a serious backlog" is about: a row with a
+            wrong one of these is approved and then edited a second time, on a
+            different screen, to fix what was on the first.
+
+            `timestamp_end` (0070) closes a range. `dlc` (0071) says which pack a
+            game's line came in — the queue holds it, StagedRow prints the locator
+            line it belongs to, and nothing could change it. `language` (0071) is
+            the one most likely to be wrong on an import, because a file rarely
+            says: a clippings export of a Bengali novel arrives with none at all,
+            and it decides which way the card reads.
+
+            THE OTHER SEVEN A STAGED ROW CARRIES ARE NOT HERE — act, quest, episode
+            name, occasion, note, translation, and the text — because the endpoint
+            does not take them either, and a control that posts a field the server
+            drops is worse than no control. They are a server change first. */}
+        <Field label={t('common.field.timestamp-end.label')} placeholder={t('add.form.timestamp-end.placeholder')} value={f.timestamp_end} onChange={upd('timestamp_end')} />
+        <Field label={t('common.field.dlc.label')} nameCase placeholder={t('add.form.dlc.placeholder')} value={f.dlc} onChange={upd('dlc')} />
+        <Field label={t('common.field.language.label')} nameCase placeholder={t('common.field.language.placeholder')} value={f.language} onChange={upd('language')} />
       </div>
       <div className="flex flex-wrap items-center gap-4">
         <label className="tp-field">

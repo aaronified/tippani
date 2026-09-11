@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   saved .html here", pointing at a card that no longer exists — there is one target now,
   so the steps say what to produce and nothing about where to put it.
 
+- **A row waiting in the import queue can be given its pack, its range end and its
+  language before you approve it.** The queue already showed all three and the server
+  already accepted all three; the form in between offered none of them, so the only way to
+  fix one was to approve the row and then edit it again somewhere else — which is the exact
+  thing the queue exists to save you.
+
 - **Google image search now sends the consent your switch already recorded.** Reading
   Google's results directly is answered, in much of the world, with a consent screen rather
   than results — so the setting could be on, the app could correctly report why nothing came
