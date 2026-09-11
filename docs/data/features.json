@@ -250,6 +250,30 @@
       "plan": "locators-from-files.md"
     },
     {
+      "title": "Source files — a work keeps the file its quotes came from",
+      "railLabel": "Source files",
+      "html": [
+        "<p>",
+        "  A quote out of context can read as nonsense, and until now a work has never",
+        "  kept the file its quotes came from. This gives it one source file per role — a",
+        "  subtitle track for a film, an ebook for a book — arriving either uploaded or",
+        "  found on a read-only mount of your own library, the route that scales past",
+        "  uploading one file at a time.",
+        "</p>",
+        "<p>",
+        "  What the file is for is stored the moment it is read: where each quote sits,",
+        "  and the text around it, so <a href=\"#locators-from-files\">a position</a> and a",
+        "  quote's context both survive the file being deleted. Once every quote from a",
+        "  work has that context saved, the raw file itself can be thrown away — measured",
+        "  at 29 times smaller than keeping it — and added again later if new quotes need",
+        "  placing. Nothing here is a reader: no rendering, no pagination, no download, and",
+        "  nothing fetched from anywhere.",
+        "</p>"
+      ],
+      "id": "work-source-files",
+      "plan": "work-source-files.md"
+    },
+    {
       "title": "Spaced repetition — three difficulties and a longer ceiling",
       "railLabel": "Review difficulty tiers",
       "html": [
