@@ -253,5 +253,7 @@ By hand, because the interesting cases are selections:
   is the motivation for this plan rather than its scope: the bulk editor is
   precisely where a reader supplies what a source could not carry. Which parsers
   should learn which fields is a per-source question and belongs with the source.
-  `docs/plans/import-one-drop-target.md` already carries the Readest case, where
-  the JSON brings colour, notes and timestamps that the markdown loses.
+  The Readest case is the worked example — the JSON brings colour, notes and
+  timestamps that the markdown loses — and it is in `docs/PLAN.md` now ("The import
+  wall became one drop target"), not in `docs/plans/`: that plan shipped and was
+  folded in, which is the exit every plan here takes.

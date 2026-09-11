@@ -21,8 +21,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Sixteen files sit here, and only some of them are plans** — the table at the foot of this
-file names the six that are not, leaving ten features.
+**Fifteen files sit here, and only some of them are plans** — the table at the foot of this
+file names the six that are not, leaving nine features.
 
 THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
 incremented it to "Eight" without counting the directory; a change that fixed THAT wrote
@@ -68,12 +68,18 @@ plan**, which contradicted the table below listing it as a non-plan — `antholo
 took over its one remaining item and says so. One file described two ways in one document
 is the shape that makes a reader trust neither, and the sweep is what caught it.
 
-So the plans proper are the ten the table does not name: `access.md` for roadmap §6,
+So the plans proper are the nine the table does not name: `access.md` for roadmap §6,
 `entry-helpers.md` and `episodes.md`, which no roadmap section owns, and
 `anthology-update.md`, `atrium-liquid-glass.md`, `bulk-editors-one-field-table.md`,
-`import-one-drop-target.md`, `locators-from-files.md`, `quote-card-types.md` and
-`work-source-files.md` — the storage, mount and prune spine that `locators-from-files.md`
-already calls "the reader of these files" and cites by name.
+`locators-from-files.md`, `quote-card-types.md` and `work-source-files.md` — the storage,
+mount and prune spine that `locators-from-files.md` already calls "the reader of these
+files" and cites by name.
+
+**`import-one-drop-target.md` was the tenth and left by the front door**, which is the
+exit this file is about: it shipped, it is folded into `PLAN.md` with a pass on the one
+guard it asked for that cannot exist, and the file is gone. Its roadmap card is retired
+with it. The count above moved with the deletion rather than after it, which is the whole
+of the lesson three paragraphs up.
 
 **`quote-card-types.md` has no roadmap card and is not on the skip table either**, which
 looks like an omission and is the file's own instruction: "Not queued … The roadmap sweep

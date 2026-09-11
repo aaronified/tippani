@@ -222,7 +222,8 @@
         "</p>"
       ],
       "id": "import-one-drop-target",
-      "plan": "import-one-drop-target.md"
+      "plan": "import-one-drop-target.md",
+      "shipped_in": "Unreleased"
     },
     {
       "title": "Locators from files — dialogue timestamps and ebook locations",
