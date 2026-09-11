@@ -174,29 +174,33 @@ describe('the chooser', () => {
     expect(screen.queryByLabelText('Back to the list')).toBeNull()
   })
 
-  // "the header will also have a back button as usual, but also a menu button to
-  // have a dropdown where users can change the add mode."
+  // THE HEADER MENU IS GONE, and this case asserted it worked for one release.
   //
-  // IT IS THE FORM'S CONTROL AND NOT THE CHOOSER'S: on the first screen the modes
-  // ARE the body, so a dropdown listing them would be a second way to press the
-  // buttons already on screen.
-  it('and the header menu changes the mode without going back', async () => {
+  // The owner asked for it — "a menu button to have a dropdown where users can
+  // change the add mode" — and withdrew it over a screenshot of the built thing:
+  // "remove this menu from the add surface. not needed since we have the back
+  // button already." The dropdown's five rows WERE the chooser, and Back is what
+  // returns to the chooser. Two controls doing one thing.
+  //
+  // THE CAPABILITY IS ASSERTED AND NOT ONLY THE ABSENCE. "The menu is gone" and
+  // "the menu is gone and there is no way to the other modes" look the same from a
+  // queryByLabelText, and only one of them is what was asked for.
+  it('has no mode menu, because Back is the way to the other modes', async () => {
     surface({ initialSection: 'standalone' })
     fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
     expect(await screen.findByText('What kind of quote')).toBeTruthy()
-    expect(screen.queryByLabelText('Change what you are adding')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Proverb' }))
     await screen.findByLabelText('Quote')
-    fireEvent.click(screen.getByLabelText('Change what you are adding'))
-    // `menuitemradio`, not `menuitem`: the rows are a choice with a current answer,
-    // and ActionMenu makes a row with `checked` announce itself as one. The mode
-    // you are on is marked rather than dropped, so the menu does not change length
-    // as you move through it.
-    expect(await screen.findByRole('menuitemradio', { name: 'A board', checked: true })).toBeTruthy()
-    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Files' }))
-    // Straight to the other mode, and what the board chose is not carried into it.
-    await waitFor(() => expect(screen.queryByText('Which board')).toBeNull())
+    expect(screen.queryByLabelText('Change what you are adding'), 'the mode menu came back').toBeNull()
+    fireEvent.click(screen.getByLabelText('Back to the list'))
+    // AND THE FIRST SCREEN IS WHERE THE MENU'S ROWS LIVE. It holds step 1 and step
+    // 2 together — the modes and, under them, which work or board — so one Back
+    // from the form lands on the list the dropdown was a copy of. That is the whole
+    // of the owner's "we have the back button already", and asserting the mode is
+    // REACHABLE is what keeps this from being a test that only deletes something.
+    expect(await screen.findByText('What kind of quote')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Files' }), 'the modes are not on the screen Back returns to').toBeTruthy()
   })
 
   // A CONTROL THAT DOES NOTHING IS WORSE THAN AN ABSENT ONE. `BoardForm` draws its
@@ -227,7 +231,14 @@ describe('the chooser', () => {
     // A book's own ＋ knows the work, so it knows the quote is a highlight. Asking
     // again is asking a question the reader answered by standing there.
     surface({ initialSection: 'quote', initialTarget: { type: 'book', id: 4 } })
-    expect(await screen.findByText('The Dispossessed')).toBeTruthy()
+    // TWICE NOW, AND THE SECOND ONE IS THE HEADER. An opening target arrives as
+    // {type, id} — enough to file the quote, not enough to name anything — so the
+    // header drew an empty string while the form's work chip printed the title, on
+    // what is probably the commonest way into this surface. `findAllByText` rather
+    // than a count, because how many places print it is not what this case is about.
+    expect((await screen.findAllByText('The Dispossessed')).length).toBeGreaterThan(0)
+    expect(document.querySelector('.add-head-title')?.textContent, 'the header does not name the work')
+      .toBe('The Dispossessed')
     expect(screen.queryByText('What are you adding?')).toBeNull()
     // And with no chooser behind it there is nothing to go Back to — a Back here
     // would walk the reader into a list they never saw.

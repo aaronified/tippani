@@ -7445,18 +7445,37 @@ html[data-theme="dark"] .mobile-sheet-header {
   font-weight: 600;
   font-size: var(--type-display-19);
   min-width: 0;
-  /* IT WRAPS, AND IT DOES NOT STOP. This title was always a screen's own word —
-     "Settings", "Edit" — and it now also carries a BOARD'S NAME or a WORK'S
-     TITLE, because the add surface names the container you chose. The repo's
-     rule is that a name is never shortened: a truncated name and a short name
-     look alike, so cutting one destroys the thing the line exists to show.
+  /* ONE LINE, ELLIPSISED, ON THE OWNER'S RULING — which overrules the repo's own
+     standing rule for this slot and nowhere else.
 
-     A TWO-LINE CLAMP WAS HERE AND IT WAS THE SAME BUG WEARING A SUIT — an
-     ellipsis after two lines instead of after one — which is why
-     `clamp-has-a-way-out` counted it as a new clamp. There is no ceiling: a long
-     title makes this header taller, which a sheet can afford and a lost name
-     cannot. */
-  overflow-wrap: anywhere;
+     IT WRAPPED AND DID NOT STOP, and the argument for that is written out in
+     `no-truncated-names.test.js`: a truncated name and a short name look alike, so
+     cutting one destroys the thing the line exists to show. Then the add surface
+     started naming the container you chose, and "The Armchair Economist" came down
+     the header three lines deep, pushing the form off a phone screen. The owner,
+     over that screenshot: "the header names can get ellipsis. they do not need to
+     have edgemask sidescroll or infinite wrap. one line is enough."
+
+     WHAT PAYS FOR IT IS THE LINE UNDERNEATH. The same instruction continues: "for
+     second line get the author/director whatever in smaller font." So the header
+     stopped being one ambiguous fact that could not fit and became two that do —
+     which is the argument the panel's own title won this exception on a week
+     earlier, and it is recorded in EXCEPTED beside that one rather than left in a
+     stylesheet nobody diffs.
+
+     NOT A LINE CLAMP. A two-line clamp was here once and was the same bug in a
+     suit — an ellipsis after two lines rather than after one — which is why
+     `clamp-has-a-way-out` counted it. This is a single-line clip, which that
+     ratchet does not count and which the name guard checks the shape of:
+     `overflow: hidden` and `min-width: 0`, or the rest of the title prints over
+     the buttons beside it.
+
+     (And the property is deliberately not spelled out in this comment: the ratchet
+     greps the stylesheet without stripping comments, so naming it here would count
+     as one. Worth knowing before writing about a clamp in CSS.) */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.2;
 }
 .mobile-sheet-sub {
@@ -7470,6 +7489,29 @@ html[data-theme="dark"] .mobile-sheet-header {
   text-overflow: ellipsis;
 }
 .mobile-sheet-spacer { width: 44px; flex-shrink: 0; }
+
+/* THE DESK HEADER OF THE ADD SURFACE, WHICH IS THE SAME HEADER.
+   `.mobile-sheet-title` above carries the owner's ruling and the argument for it;
+   this branch draws the identical title and sub-line from the identical variables,
+   so it gets the identical treatment. Written as two blocks rather than one
+   selector list because `no-truncated-names.test.js` reads a class's own block by
+   name, and a shared list would hide both from the guard that is holding them to
+   the shape an excepted name has to keep.
+   `min-width: 0` is what makes the clip happen at all: without it the flex child
+   sizes to its content and the title prints over the buttons instead of ending. */
+.add-head-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.add-head-sub {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
 .mobile-sheet-body {
   overscroll-behavior: contain;
   flex: 1;

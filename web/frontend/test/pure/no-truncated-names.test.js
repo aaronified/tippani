@@ -26,7 +26,22 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const css = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8')
+import { stripComments } from '../css-cascade.js'
+
+// COMMENTS ARE STRIPPED BEFORE ANY OF THIS LOOKS AT THE FILE, and that is not
+// tidiness — it is the difference between a guard and a guard-shaped thing.
+//
+// These assertions grep a declaration block for `overflow: hidden` and for
+// `text-overflow: ellipsis`. A CSS COMMENT INSIDE THE BLOCK IS PART OF THAT SLICE,
+// so a note explaining WHY the rule needs `overflow: hidden` satisfies the check
+// for it — and the check then passes with the declaration deleted. That is exactly
+// what happened: a comment written to record the owner's ruling made the rule it
+// was recording unfalsifiable, and a mutation run is what found it rather than a
+// reading.
+//
+// `stripComments` is test/css-cascade.js's, which the parsed-stylesheet suites
+// already share. One implementation of "what is actually declared here".
+const css = stripComments(readFileSync(join(process.cwd(), 'src/index.css'), 'utf8'))
 
 // Each entry is a class whose content is a person's name, a character's name, or
 // a work's title. Adding one here is how a new name-bearing element joins the
@@ -63,6 +78,29 @@ const EXCEPTED = {
   // browser could take a gesture meant for the sheet. With the scroller gone the
   // head takes the whole gesture. See `sheet-from-the-bottom.test.jsx`.
   'tp-panel-title': 'the owner, 7 September',
+  // The owner, 11 September, over a screenshot of the add surface whose header
+  // printed "The Armchair Economist" down three lines and pushed the form off the
+  // screen: "the header names can get ellipsis. they do not need to have edgemask
+  // sidescroll or infinite wrap. one line is enough."
+  //
+  // THE SAME ARGUMENT AS THE TWO ABOVE, AND IT PAID THE SAME PRICE. The sheet's
+  // header is a signpost to what you are adding to, and the thing it names is
+  // printed in full in the work picker you just came through and in the fields
+  // below. What makes it hold here rather than merely being asserted is the rest of
+  // the instruction — "for second line get the author/director whatever in smaller
+  // font" — so the slot stopped being one ambiguous name that could not fit and
+  // became a name plus the person who made it. A title alone is what a library
+  // makes ambiguous; a title and its author is not.
+  //
+  // THE COMMENT IN THE STYLESHEET SAID THE OPPOSITE and is rewritten rather than
+  // deleted: a rule reversed by its author is worth more in the file than a rule
+  // that was never argued.
+  'mobile-sheet-title': 'the owner, 11 September',
+  // The same ruling, the other branch. The add surface draws one header from one
+  // pair of variables and renders it twice — a sheet on a phone, a card on a desk —
+  // so a clip on one and a wrap on the other would be the repo's own "two things
+  // that look the same behave the same" broken down the middle of one component.
+  'add-head-title': 'the owner, 11 September',
 }
 
 // The subset that is ITSELF the scrolling box. The others are typography classes

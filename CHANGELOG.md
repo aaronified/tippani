@@ -24,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   saved .html here", pointing at a card that no longer exists — there is one target now,
   so the steps say what to produce and nothing about where to put it.
 
+- **The add surface's header is one line, with who made the work under it.** A long
+  title used to come down the header three lines deep and push the form off a phone
+  screen; it clips to one line now, and the second line names the author, director,
+  creator or studio. **And the ＋ pressed on a book's own page finally names that book
+  up there** — it had been drawing an empty title, because the only thing it was given
+  was an id. **The menu beside the title is gone**: every row in it was a screen the
+  back arrow already reaches.
+
 - **The metadata sources page reports every supplier that has stopped working, not the
   two it happened to know about.** Every lookup the app makes — books, films, shows,
   games, and each rung of the picture search — now records what it last did, and the

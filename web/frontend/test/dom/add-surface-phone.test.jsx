@@ -166,15 +166,65 @@ describe('the add surface on a phone', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('lets the header menu change the mode from the form', async () => {
+  // AND THE HEADER'S SECOND LINE IS WHO MADE THE THING.
+  //
+  // The owner, over a screenshot of "The Armchair Economist" coming down the header
+  // three lines deep and pushing the form off the screen: "the header names can get
+  // ellipsis… one line is enough. / for second line get the author/director whatever
+  // in smaller font."
+  //
+  // THE TWO HALVES ARE ONE CHANGE AND NEITHER STANDS ALONE. Clipping a title to one
+  // line is a truncation, which this repo forbids by standing rule; what pays for it
+  // is that the slot stopped carrying one ambiguous name and started carrying a name
+  // AND its author. So a case that only checked the clip would be pinning half a
+  // ruling — and the half that is a regression on its own.
+  it('names who made the work under its title', async () => {
+    // Straight to the form with the work already chosen, the way a ＋ pressed on a
+    // book's own page arrives — which is also the render in the owner's screenshot.
+    surface({ initialSection: 'quote', initialTarget: { type: 'book', id: 4 } })
+    // TWICE, AND THAT IS THE FIX RATHER THAN AN INCONVENIENCE: the form's own work
+    // chip printed it and the header printed an empty string, because an opening
+    // target arrives as {type,id} and the header wanted a row. `findByText` throwing
+    // on two matches is how this case first noticed.
+    const title = await waitFor(() => {
+      const el = document.querySelector('.mobile-sheet-title')
+      expect(el?.textContent, 'the header does not name the work the ＋ was pressed on').toBe('The Dispossessed')
+      return el
+    })
+    expect(title).toBeTruthy()
+    const sub = await waitFor(() => {
+      const el = document.querySelector('.mobile-sheet-sub')
+      expect(el, 'the header has no second line at all').toBeTruthy()
+      return el
+    })
+    expect(sub.textContent, 'the author is not under the title').toBe('Le Guin')
+  })
+
+  // THE HEADER MENU IS GONE, and this case asserted it worked for one release.
+  //
+  // It was the owner's own request — "a menu button to have a dropdown where users
+  // can change the add mode" — withdrawn by them over a screenshot of the built
+  // thing: "remove this menu from the add surface. not needed since we have the
+  // back button already." The dropdown listed the chooser, and Back returns to the
+  // chooser: two controls doing one thing in the scarcest row on the screen.
+  //
+  // THE WAY IT REPLACES IS ASSERTED, not just the absence, because "the control is
+  // gone" and "the control is gone and so is the capability" look identical here.
+  it('has no mode menu, because Back is the way to the other modes', async () => {
     surface({ initialSection: 'standalone' })
     fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Proverb' }))
     await screen.findByLabelText('Quote')
-    fireEvent.click(screen.getByLabelText('Change what you are adding'))
-    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Files' }))
-    await waitFor(() => expect(screen.queryByText('Which board')).toBeNull())
-    expect(document.querySelector('.import-drop')).toBeTruthy()
+    expect(screen.queryByLabelText('Change what you are adding'), 'the mode menu came back').toBeNull()
+    // Back, twice, reaches the chooser the menu used to list.
+    fireEvent.click(screen.getByLabelText('Back to the list'))
+    // AND THE FIRST SCREEN IS WHERE THE MENU'S ROWS LIVE. It holds step 1 and step
+    // 2 together — the modes and, under them, which work or board — so one Back
+    // from the form lands on the list the dropdown was a copy of. That is the whole
+    // of the owner's "we have the back button already", and asserting the mode is
+    // REACHABLE is what keeps this from being a test that only deletes something.
+    expect(await screen.findByText('What kind of quote')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Files' }), 'the modes are not on the screen Back returns to').toBeTruthy()
   })
 })

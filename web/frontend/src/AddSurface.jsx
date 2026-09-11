@@ -42,8 +42,6 @@ import {
   ColorSwatches,
   Field,
   TokenInput,
-  MoreMenu,
-  IconMenu,
   EmptyState,
   ErrorText,
   filterChipClass,
@@ -114,8 +112,15 @@ export function kindsFor(sections) {
 // workFromBook / workFromMovie normalise a freshly-created record into the lean
 // {kind,id,title,sub,tag} shape the capture picker (and WorkPicker) speak, so an
 // add made through the look-up card can immediately become the capture target.
+// `credit` IS NOT `sub`, and the two are different jobs on purpose. `sub` is what
+// the PICKER prints under a row and filters on — a year is genuinely what tells two
+// editions of one film apart there. `credit` is who made the thing, which is what
+// the add surface's header prints under the title on the owner's instruction: "for
+// second line get the author/director whatever in smaller font." On a book they
+// happen to coincide; on a film they do not, and collapsing them would have put a
+// release year where a director was asked for.
 export function workFromBook(b) {
-  return { kind: 'book', id: b.id, title: b.title, sub: b.author || '', tag: 'BOOK' }
+  return { kind: 'book', id: b.id, title: b.title, sub: b.author || '', credit: b.author || '', tag: 'BOOK' }
 }
 export function workFromMovie(m) {
   // media_type rides along beside the display tag: capture needs the fact (a show
@@ -123,7 +128,11 @@ export function workFromMovie(m) {
   // rather than passed through, because a row with no media_type is a film — but
   // a game must survive as a game or it captures as one and files as the other.
   const mt = m.media_type === 'show' ? 'show' : m.media_type === 'game' ? 'game' : 'movie'
-  return { kind: 'screen', id: m.id, title: m.title, sub: m.release_year ? String(m.release_year) : '', media_type: mt, tag: mt === 'show' ? 'SHOW' : mt === 'game' ? 'GAME' : 'FILM' }
+  // `director` IS ONE COLUMN WEARING THREE NAMES — a film's director, a show's
+  // creator, a game's studio — which is how the schema stores it and how every
+  // other screen labels it. The header prints the value and not the noun, so the
+  // ambiguity never reaches the reader here.
+  return { kind: 'screen', id: m.id, title: m.title, sub: m.release_year ? String(m.release_year) : '', credit: m.director || '', media_type: mt, tag: mt === 'show' ? 'SHOW' : mt === 'game' ? 'GAME' : 'FILM' }
 }
 
 // AddLookup — the canonical "look up / add a Book, Film, Show or Game" card: a kind
@@ -813,9 +822,16 @@ const WORK_TITLE_LABEL = { speech: 'source', letter: 'source', essay: 'title', p
 // arrives with its target already set, so leaving the fetch inside it would mean
 // two identical round trips per opening: one to fill the chooser's picker and one
 // to fill a picker the reader has already answered.
-export function useWorks() {
+// `enabled` IS FOR THE HEADER'S SAKE and is false by default so no caller changes.
+// The surface itself needs a work's ROW — its title and who made it — only when it
+// was opened ON one (a ＋ pressed on a book's page), and in exactly that case the
+// chooser does not render and its own call to this hook never happens. So the fetch
+// moves rather than doubles. Where the chooser does render, the surface asks for
+// nothing and the chooser asks as it always did.
+export function useWorks(enabled = true) {
   const [works, setWorks] = useState(null)
   useEffect(() => {
+    if (!enabled) return undefined
     let stale = false
     Promise.all([json('GET', '/books'), json('GET', '/movies')]).then(([rb, rm]) => {
       if (stale) return
@@ -825,7 +841,7 @@ export function useWorks() {
       setWorks(list)
     })
     return () => { stale = true }
-  }, [])
+  }, [enabled])
   return works
 }
 
@@ -1684,7 +1700,24 @@ export default function AddSurface({
   }, [initialSection, initialTarget, initialBoard, initialFields?.kind, boards])
 
   const mode = pickedMode ?? opening.mode
-  const target = pickedTarget ?? (pickedMode ? null : opening.target)
+  // THE OPENING TARGET IS AN ID, NOT A WORK, and the header had nothing to print.
+  //
+  // A ＋ pressed on a book's own page arrives as `{type:'book', id:4}` — enough to
+  // file the quote and not enough to NAME anything, so `target.title` was undefined
+  // and the sheet's header drew an empty string. It was invisible because the form
+  // below prints the work in its own picker chip, so the screen read as fine and the
+  // header read as a gap, on what is probably the commonest way into this surface.
+  //
+  // Resolved against the library's own rows, which is where the title and the credit
+  // both live. Until they land the raw prop stands in: it has an id, which is all
+  // anything but the header needs.
+  const openedWorks = useWorks(!!initialTarget)
+  const openedTarget = useMemo(() => {
+    if (!initialTarget || !openedWorks) return opening.target
+    return openedWorks.find((w) => w.id === initialTarget.id && w.kind === (initialTarget.type === 'book' ? 'book' : 'screen'))
+      || opening.target
+  }, [initialTarget, openedWorks, opening.target])
+  const target = pickedTarget ?? (pickedMode ? null : openedTarget)
   const door = pickedDoor ?? (pickedMode || pickedTarget ? null : opening.door)
 
   // The forms this mode and container can reach, and the one it opens with no
@@ -1743,12 +1776,21 @@ export default function AddSurface({
           : t('add.chooser.title')
   const title = initialFields ? t('capture.title.duplicate') : containerName
 
-  // AND THE DOOR IS THE SUB-LINE, not a second title — but only when the reader
-  // actually chose it among several. A sub-line earns its place by carrying
-  // something the label does not (the repo's rule), and on a book, whose one form
-  // is implied by the book itself, "Highlight" under the title would be the same
-  // fact twice.
-  const subLine = !initialFields && settledDoor && doors.length > 1 ? DOOR_LABEL(settledDoor) : ''
+  // THE SUB-LINE IS WHO MADE THE THING, and the door only where there is nobody.
+  //
+  // The owner, over a screenshot of a three-line title: "for second line get the
+  // author/director whatever in smaller font." A title alone is ambiguous in a way
+  // a library makes obvious — two books called Home, a film and the novel it came
+  // from — and the credit is what a reader actually uses to tell them apart.
+  //
+  // THE DOOR KEEPS THE SLOT WHEN THERE IS NO CREDIT, which is what it had before:
+  // it earns its place only when the reader chose among several, because on a book
+  // whose one form is implied by the book itself, "Highlight" under the title is
+  // the same fact twice. Where BOTH exist the credit wins — the door is already
+  // named by the fields under it, and a sub-line carrying two facts is the row that
+  // talks.
+  const doorLine = settledDoor && doors.length > 1 ? DOOR_LABEL(settledDoor) : ''
+  const subLine = initialFields ? '' : (target?.credit || doorLine)
 
   const saveBtn = saveState && (
     <IconButton
@@ -1792,33 +1834,20 @@ export default function AddSurface({
     <IconButton icon={<IconBack />} ariaLabel={t('add.back.label')} tooltip={t('add.back.tip')} onClick={back} />
   )
 
-  // THE MODE MENU, the owner's third sentence: "the header will also have a back
-  // button as usual, but also a menu button to have a dropdown where users can
-  // change the add mode."
+  // THE MODE MENU IS GONE, and it was this surface's own request three sentences
+  // earlier — "the header will also have a back button as usual, but also a menu
+  // button to have a dropdown where users can change the add mode." The owner,
+  // looking at the built thing over a screenshot: "remove this menu from the add
+  // surface. not needed since we have the back button already."
   //
-  // It is `MoreMenu` with a different face, which that component exists for — its
-  // own note says the pattern turned out to be "a glyph that opens a list of
-  // things to do" rather than the ⋯ specifically, and the selection bar's shelf
-  // control is the precedent. So no new primitive, and the menu keeps the
-  // aria-haspopup / aria-expanded pair every other menu trigger in the app has.
+  // THEY ARE RIGHT AND THE REASON IS THE REPO'S OWN. The dropdown listed A work /
+  // A board / An anthology / A quote / Files — which is the chooser, exactly, and
+  // the chooser is what Back returns to. Two controls doing one thing, in the
+  // scarcest row on the screen, and the one that had to be discovered was sitting
+  // beside the one that did not.
   //
-  // ABSENT ON THE FIRST SCREEN, where the modes are already the body: a dropdown
-  // listing what is on screen behind it is a second way to press the same buttons.
-  const modeMenu = mode && (onForm || overlay) && (
-    <MoreMenu
-      icon={<IconMenu />}
-      ariaLabel={t('add.mode.menu.aria')}
-      tooltip={t('add.mode.menu.tip')}
-      items={ADD_MODES.map((m) => ({
-        label: t(`add.mode.${m}.label`),
-        onClick: () => goMode(m),
-        // The one you are on is marked rather than hidden: a menu that dropped the
-        // current entry would change length as you moved through it, and the row
-        // that says where you are is the reason to open it.
-        checked: m === mode,
-      }))}
-    />
-  )
+  // `goMode` SURVIVES because the chooser still calls it; only its second caller
+  // went.
 
   // RED WHEREVER THERE IS A PAIR FOR IT TO BE HALF OF, which is the rule as
   // written and not "red on a phone". The mobile branch has taken `closeDanger`
@@ -1911,7 +1940,6 @@ export default function AddSurface({
         dismissOnScrim={false}
         actions={
           <span className="flex shrink-0 items-center">
-            {modeMenu}
             <PageHelp screen="capture" />
             {saveBtn}
           </span>
@@ -1932,10 +1960,15 @@ export default function AddSurface({
         <div className="mb-4 flex items-center gap-2">
           {backBtn}
           <div className="flex-1 min-w-0">
-            <h2 className="display-title text-xl">{title}</h2>
-            {subLine && <MonoLabel>{subLine}</MonoLabel>}
+            {/* THE SAME ONE-LINE RULE AS THE PHONE'S, and it is the same header.
+                The owner's ruling arrived over a phone screenshot, but this branch
+                draws the identical `title` and `subLine` pair from the identical
+                variables — and the repo's directive is that two things that look
+                the same behave the same. A desk header that wrapped where the
+                phone's clipped would be one of them quietly going wrong. */}
+            <h2 className="display-title text-xl add-head-title">{title}</h2>
+            {subLine && <MonoLabel className="add-head-sub">{subLine}</MonoLabel>}
           </div>
-          {modeMenu}
           <PageHelp screen="capture" />
           {saveBtn}
           {closeBtn}

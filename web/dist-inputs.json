@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "1c310cd472190e1a96093dca3c730c1af1e641aee2a8954a6da0981247e5c442",
-    "internal/i18n/en.txt": "436db5b93d9f2a4a789662568e8a1fa4cf3c3d93f36e8fdca04341c2982c090a",
+    "internal/i18n/bn.txt": "cf0dc5a75a1ad5ba97b026469618609f4637eac56fc532c77d2ae92baec65a37",
+    "internal/i18n/en.txt": "4e5eca6e77a4ec802f5097c41ee8eadca03efac868694d57ef2501f42fb9d48c",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "ae52734844923282963a5acdd6bfe710196fdfcf5bed06e944c9f4c638a24547",
     "web/frontend/package.json": "d985ed193616c275ad40b9788fd8dffc1d774ce4a59c2c1836a45effde06162e",
@@ -26,7 +26,7 @@
     "web/frontend/public/mark-dark.svg": "a046ef4ec92b31b76fc98e908a3351df053b88d312a0974daff28755ebccc962",
     "web/frontend/public/mark.svg": "fce406e4046c0ac0885f679b22e9dab9dfb35d0fb92a6a94ad2894ac3bbe0ff8",
     "web/frontend/src/Account.jsx": "92cc2a4d60a91642d9a9c3f90c3aff1b48cd090c9a00b106dc9af52cae62920a",
-    "web/frontend/src/AddSurface.jsx": "fda410ea8ab9e378f7d2f50b5fe476425ea7e21444ea6b19fe519bd7fc50423e",
+    "web/frontend/src/AddSurface.jsx": "d969070b48507e81ac32c9d1f32496bbd818f976b63efb7fa845ab3030d4f2b4",
     "web/frontend/src/App.jsx": "3eb2c45d9b38871676eba9b52c79f5f46818ef4dfdf67191a47a3fc2d480a105",
     "web/frontend/src/BinPage.jsx": "585f033f7dd4d6c69655378a0893849f087ba010e9be2fce6baf1440e93d1600",
     "web/frontend/src/ChecksPage.jsx": "d8ea57329cb535ef6f45fd8511788350b14c6264ec18d7de57cc2e437bfe3566",
@@ -78,7 +78,7 @@
     "web/frontend/src/identityPicker.jsx": "a076dbe42064ed9a518b6d76e67f30f666ee5b6b93ca631ca5b70f3e1c8f073c",
     "web/frontend/src/identityScope.js": "f4f5c4cd0ea02ba000abfba48e0c2405dc9cc0c4bb90f3ed0d2e4c1b4941c3ca",
     "web/frontend/src/imageWait.js": "2711f9d98423daf1842f29351e663493914f078d7e942e4619d33262f42b6c54",
-    "web/frontend/src/index.css": "1d20845303b9ab1fc6ea9edf62c6889d7092db3195c2d81f0319c77305f5a7ca",
+    "web/frontend/src/index.css": "e4ce6004747408ed498746755dd420318f6890273e70c356e63b7f596016aa15",
     "web/frontend/src/keys.js": "75e1fd35adf3747681c0ddd7aff0b71d01d8961cd890e5525be6d4dd85d5fd9a",
     "web/frontend/src/languages.jsx": "869532cdca1124db41a7447cd9a05588698bb37dd78c230af38f0de3a3af7b12",
     "web/frontend/src/locale.jsx": "3c27a6f83604ccbaa173750f33fbd08ea2add93b6239ef1627af1969ea56b174",
