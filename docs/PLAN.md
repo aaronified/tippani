@@ -12871,3 +12871,25 @@ Two of that plan's items are genuinely still open — the shared file-upload pri
 `docs/plans/` until they land. A third has retired itself: `infodot-copy.test.js` named
 ImportPage among the files whose dots are still English literals, and `grep -c InfoDot`
 on it is now 0. That list is seven files, not eight.
+
+### A proverb's language is already on the first screen, and the plan still says it is not
+
+The owner, asked about the open question `docs/plans/quote-card-types.md` raises: **"Proverb
+language should be too screen."** That is the plan's option 1 — language out from behind
+*Show all fields* on the proverb door — and it shipped on 10 September in `abf27b53`.
+`addFields.js:253` reads `main: ['quote', 'board', 'translation', 'language', 'note',
+'tags', 'color']`, and the edit form shows it too, because `Quotes.jsx:318` asks
+`showsField`, which is main ∪ more.
+
+**The plan's section "The consequence for `{language} proverb`, and it needs the owner's
+eye" is therefore stale in a way that would have cost work.** It states that language sits
+behind the disclosure, concludes that a proverb saved without opening it draws no
+attribution at all, and recommends option 3 — defaulting the language from the proverb
+board's own `languages` list (0037), falling back to option 1. The premise is false against
+the code, so option 3 would have been a workaround for a problem that was fixed the day
+before the plan was read.
+
+Recorded here rather than edited into the plan file, because a planning agent owns that
+directory. What the plan is still right about is the other half: **region survives as a
+field and is not the attribution** — a Sylheti proverb is a Bengali proverb from somewhere
+in particular, and the card has room for the general fact only.
