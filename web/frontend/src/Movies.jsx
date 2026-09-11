@@ -218,6 +218,9 @@ export function movieState(m) {
     media_type: m.media_type || 'movie',
     series: m.series || '',
     series_index: m.series_index || 0,
+    // 0073 — see bookState's note. Unconditional in the server's UPDATE, so an
+    // omission is a deletion.
+    text_order: m.text_order || '',
     favorite: !!m.favorite,
     // imdb_id is full-state, so the detail-header ♥ has to carry it or
     // favouriting a film would clear the id — the same trap 0034, 0035, 0036

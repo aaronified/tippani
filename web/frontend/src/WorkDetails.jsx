@@ -492,6 +492,11 @@ export function fullState(kind, it) {
       series: it.series || '',
       series_index: it.series_index || 0,
       favorite: !!it.favorite,
+      // 0073 — which text leads on this work's cards. Same rule as every line
+      // above: unconditional in the server's UPDATE, so omitting it is deleting
+      // it. This panel is the SECOND builder a book has (bookState is the other),
+      // and full-state-put.test.js checks both precisely because they drifted.
+      text_order: it.text_order || '',
     }
   }
   return {
@@ -520,6 +525,8 @@ export function fullState(kind, it) {
     // clear it on the next save of any other field — the trap 0034, 0035, 0036
     // and 0037 each caught in turn.
     imdb_id: it.imdb_id || '',
+    // 0073 — see the book branch above.
+    text_order: it.text_order || '',
   }
 }
 

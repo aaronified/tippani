@@ -15,7 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   slider in Settings, so a bilingual novel can read one way while the rest of the library
   reads another. **There is no control for it yet**, so nothing you can see has changed;
   this release only makes the setting storable and makes every card, table row and search
-  hit obey it once there is a way to set it.
+  hit obey it once there is a way to set it. **And it survives every other save** —
+  hearting a book, picking a card's colour or saving any field from its Details panel
+  would have cleared it, because those requests send the whole record and none of them
+  knew about this column yet.
 
 - **A card names one place in the book, not two.** A highlight that recorded a chapter
   printed the chapter *and* the page — "CH. 4 · P.112" — and the page is the half that stops

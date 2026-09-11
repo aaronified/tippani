@@ -109,3 +109,22 @@ export function masterIsCustom(master, byLanguage) {
   const m = known(master) || TEXT_ORDER_DEFAULT
   return Object.values(byLanguage || {}).some((v) => known(v) && v !== m)
 }
+
+// TEXT_ORDER_WORD — the four states as words.
+//
+// HERE RATHER THAN IN MetadataSources.jsx, where it was written and where the
+// Settings table still reads it from. It has a second reader now — the per-work
+// and per-board control — and a second copy of a four-row table is four chances
+// for one of them to say something the other does not. This module is where the
+// four states are DECLARED, so it is where their names belong.
+//
+// LITERAL KEYS, for the reason SRC_STATE_WORD in ui.jsx gives: locale-complete
+// reads statically what the code asks for, and a key assembled at runtime defeats
+// it in both directions. Indexed by the state rather than positionally, so the
+// slider's arithmetic and the vocabulary cannot drift apart.
+export const TEXT_ORDER_WORD = {
+  'trans-only': 'vocab.textorder.trans-only.label',
+  'trans-first': 'vocab.textorder.trans-first.label',
+  'quote-first': 'vocab.textorder.quote-first.label',
+  'quote-only': 'vocab.textorder.quote-only.label',
+}

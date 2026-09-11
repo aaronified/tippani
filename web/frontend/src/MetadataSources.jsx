@@ -55,7 +55,7 @@ import {
   MARK_MAX_RUNES,
   MAX_CUSTOM_MARKS,
 } from './languages.jsx'
-import { TEXT_ORDERS, TEXT_ORDER_DEFAULT, masterIsCustom } from './textOrder.js'
+import { TEXT_ORDERS, TEXT_ORDER_DEFAULT, TEXT_ORDER_WORD, masterIsCustom } from './textOrder.js'
 import { textOrderFrom } from './textOrderHost.jsx'
 
 // StatusChip came with the block: after the move Settings had no other caller for
@@ -724,18 +724,6 @@ function CreditSeparators({ user, onPreferences }) {
 // looks like the subject. The row is the button now and the disc is what it
 // draws; only the reset glyph stays a separate control, because "put this back"
 // is not "let me look at this".
-// TEXT_ORDER_WORD — the four states as words. LITERAL KEYS, for the reason
-// SRC_STATE_WORD in ui.jsx gives: locale-complete.test.js reads statically what
-// the code asks for, and a key assembled at runtime defeats it in both
-// directions. Indexed by the state, not positionally, so the slider's arithmetic
-// and the vocabulary cannot drift apart.
-const TEXT_ORDER_WORD = {
-  'trans-only': 'vocab.textorder.trans-only.label',
-  'trans-first': 'vocab.textorder.trans-first.label',
-  'quote-first': 'vocab.textorder.quote-first.label',
-  'quote-only': 'vocab.textorder.quote-only.label',
-}
-
 function LanguageMarksSettings({ prefs, onSaved }) {
   const [rows, setRows] = useState(() => languageMarksState())
   // HOW MUCH OF THE ORIGINAL, per language and for all of them.

@@ -65,6 +65,11 @@ const STORED = {
     'published_year', 'published_circa', 'language', 'orig_language',
     'subtitle', 'publisher', 'pages', 'links',
     'genres', 'series', 'series_index', 'favorite',
+    // 0073: which text leads, for this work. Unconditional in the server's
+    // UPDATE like every field above it, so a body that omits it clears the
+    // reader's choice on the next ♥ — which is the exact defect the paragraph
+    // above this list describes, arriving for the fourth time.
+    'text_order',
   ],
   // imdb_id IS full-state and belongs here. tmdb_id / tvdb_id / igdb_id are
   // POINTERS in movieReq — nil leaves the column alone — so sending 0 for one is
@@ -74,7 +79,7 @@ const STORED = {
   movie: [
     'title', 'director', 'publisher', 'links', 'release_year', 'release_circa',
     'description', 'genres', 'media_type', 'series', 'series_index',
-    'favorite', 'imdb_id',
+    'favorite', 'imdb_id', 'text_order', // 0073 — see the book's note
   ],
 }
 

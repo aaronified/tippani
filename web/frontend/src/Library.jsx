@@ -161,6 +161,13 @@ export function bookState(b) {
     pages: b.pages || 0,
     links: b.links || '',
     genres: b.genres || [],
+    // 0073, and here for the reason every field above it is: the server's UPDATE
+    // writes `text_order` unconditionally, so a ♥ that does not name it clears
+    // the reader's choice about which text leads on this book. This list's own
+    // test (full-state-put.test.js) named it before the control existed, which is
+    // the first time that file has caught a column on the way IN rather than
+    // after a reader lost something.
+    text_order: b.text_order || '',
     series: b.series || '',
     series_index: b.series_index || 0,
     favorite: !!b.favorite,
