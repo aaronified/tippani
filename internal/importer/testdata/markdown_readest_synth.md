@@ -17,6 +17,8 @@
 > A second quote that spans
 > two source lines.
 
+**Note**: The note this parser used to throw away.
+
 *[Page: 20](readest://book/f00ba4/annotation/bbb) · Time: 1/1/2026, 9:05:00 AM*
 
 

@@ -110,6 +110,7 @@ const (
 	CodeImportRowScan  Code = "TIP-IMPORT-002" // a staged batch/work/quote row could not be scanned while listing the queue
 	CodeImportApprove  Code = "TIP-IMPORT-003" // approving staged quotes failed; the transaction rolled back, so nothing entered the library
 	CodeImportStagedOp Code = "TIP-IMPORT-004" // a staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged
+	CodeImportUnknown  Code = "TIP-IMPORT-005" // no signature matched and no parser claimed the upload; nothing was staged and the reader is offered "Read this as…"
 
 	// TRASH — the bin (0031): a 30-day undo for anything deleted.
 	CodeTrashWrite   Code = "TIP-TRASH-001" // a delete could not be binned; the delete was refused rather than made final
@@ -219,6 +220,7 @@ var Registry = map[Code]string{
 	CodeImportRowScan:  "A staged batch, work or quote row could not be scanned while listing the import queue; that row was left out of the response.",
 	CodeImportApprove:  "Approving staged quotes failed; the transaction rolled back, so nothing entered the library and the queue still holds them.",
 	CodeImportStagedOp: "A staging-queue mutation (bulk edit, retarget or discard) failed; the queue is unchanged.",
+	CodeImportUnknown:  "No signature matched and no parser claimed the upload; nothing was staged, and the row offers \u201cRead this as\u2026\u201d so the format can be named by hand.",
 
 	CodeCastRowScan:    "A work's cast row failed to scan (SELECT/struct drift); that character was left out of the list.",
 	CodeCastKeyFold:    "A cast row's folded lookup keys could not be rewritten during the boot-time repair; the row keeps the keys it had.",

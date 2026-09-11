@@ -37,12 +37,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   already says what it is. The kind of quote appears as a small line under the title only
   when you actually picked it from several — on a book, whose one form is implied by the
   book, "Highlight" underneath would be the same fact twice.
-- **That header carries a menu for changing your mind.** Back steps one level, as always;
-  the menu jumps straight to another mode without walking back through the steps, and marks
-  the one you are on rather than hiding it.
+- **And where naming the container still leaves the kind open — a plain board, a quote
+  filed nowhere — that list is on the same screen too.** The whole question is one screen
+  and the form is the next one: what you are adding, which one, and what kind, each
+  appearing as you answer the one above it. It used to be three screens, so choosing a
+  board and choosing what to put on it were two steps apart and walking back out of a
+  form took three presses.
+- **One Back, and it is the sheet's own.** The panel drew a Back of its own beside the
+  sheet's, which looked identical and closed instead of stepping — two buttons doing
+  different things. There is now one: it steps back to the first screen where there is one
+  behind you, and closes the panel where there is not.
+- **That header carries a menu for changing your mind** — it jumps straight to another mode
+  without going back, and marks the one you are on rather than hiding it. It is on the form
+  only: on the first screen the modes are the screen, so a dropdown listing them would be a
+  second way to press the buttons already in front of you.
+- **The add panel is a draggable sheet on a phone, like every other panel.** Drag it down
+  by the grip or the header to dismiss it — and because this is the sheet all nine of the
+  app's panels use, they all gained it at once.
 - **The anthology door says plainly that it is not open yet.** It is listed because leaving
   it out would make the first screen lie about what the app holds, and it is pressable
   because a greyed-out control cannot tell you why it is grey.
+
+### Changed — importing
+
+- **Import is one drop target, and the file says what it is.** It was a wall of seven cards
+  — Markdown, Bookcision, Hardcover, Goodreads, IMDb, Kindle notebook, My Clippings — each
+  with its own file button, and a searchable format picker on the phone because seven cards
+  do not fit one. You had to answer "which of these is mine?" before the app would look at
+  it, and the app can answer that better than you can: every one of those formats signs
+  itself in its first bytes. Drop a file, or several, and each is read by whatever parser
+  claims it.
+- **Readest's own JSON export imports now**, colours and marking dates included, alongside
+  the Markdown export that already worked.
+- **A file that is not an import is named rather than refused.** Drop a Tippani backup and
+  it points you at Settings → Restore; an export archive, at unzipping it first; an EPUB, a
+  cover image, a typeface — each says which door does take it. A one-file target invites
+  every file you have, and "unrecognised" is a poor answer to a file the app plainly knows.
+- **And where nothing claims a file, you can name its format yourself** — on that file's
+  own row, without starting the run again. This is the one import fault the staging queue
+  cannot repair afterwards: it can move staged quotes between books, not a file between
+  parsers.
+- **The how-tos are still there**, collapsed under the target — where to find your
+  Goodreads quotes page, how to save a Kindle notebook — which is what the wall of cards
+  was actually for.
 - **A quote's card now composes its attribution instead of stringing fields together.** An
   Einstein letter, filled in exactly the way the app asks for it, used to read
   *Albert Einstein · Letter to Carl Seelig · 11 March 1952 · Zurich · **Letter** · English* —

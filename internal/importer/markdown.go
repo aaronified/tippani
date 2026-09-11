@@ -277,14 +277,39 @@ func parseFrontmatter(lines []string) (*Result, error) {
 }
 
 // readestPage pulls N out of the trailing "*[Page: N](readest://…) · Time: …*"
-// line; the deep link and timestamp are discarded (PLAN 5b(b)).
+// line. The deep link is discarded — it addresses a file on the reader's own
+// device — and the timestamp is not: see readestStamp.
 var readestPage = regexp.MustCompile(`\[Page:\s*(\d+)\]`)
+
+// readestStamp pulls the "· Time: …" half of the same line.
+//
+// STORED VERBATIM, NOT PARSED INTO A DATE. Readest writes it with the exporting
+// device's own locale — "1/1/2026, 9:00:00 AM" here, something else entirely on a
+// Bengali or a German machine — so any pattern that read it back into a
+// normalised date would be right for one reader and silently wrong for the rest.
+// noted_at is free text for exactly this reason, and the My Clippings parser
+// already puts the device's own localised sentence in it untouched. A
+// machine-readable instant comes from the JSON export (readest.go); the markdown
+// does not have one to give.
+var readestStamp = regexp.MustCompile(`·\s*Time:\s*(.+?)\s*\**\s*$`)
+
+// readestNoteLabel is the label Readest writes between a highlight and its page
+// line when the highlight carries a note.
+//
+// FOR TWO RELEASES THIS PARSER'S OWN COMMENT SAID "the format carries no
+// notes/colors/tags", AND THE FIRST THIRD OF THAT WAS FALSE. The note line hit no
+// case here and was discarded — so a reader's annotations imported with their
+// words and without their thinking, successfully, with matching counts. Four of
+// the forty-one annotations in the export this was measured against carry one.
+const readestNoteLabel = "**Note**:"
 
 // parseReadest handles PLAN 5b(b), the Readest "Highlights & Annotations"
 // export: "# " heading = title, "**Author**: name" = author, "### " headings
-// = chapters, consecutive ">" lines = one quote, and the italic page line
-// binds a location to the quote above. "##" section headers, "---" rules and
-// other "**…**" lines are ignored. The format carries no notes/colors/tags.
+// = chapters, consecutive ">" lines = one quote, "**Note**:" the note on the
+// quote above, and the italic page line binds a location and the export's own
+// timestamp to it. "##" section headers, "---" rules and other "**…**" lines are
+// ignored. The format carries no colours and no tags — those come from the JSON
+// export (readest.go), which in turn carries no chapter and no page.
 // lines starts at the "# Title" heading.
 func parseReadest(lines []string) (*Result, error) {
 	res := &Result{}
@@ -319,10 +344,19 @@ func parseReadest(lines []string) (*Result, error) {
 			res.Book.Title = strings.TrimSpace(line[2:])
 		case strings.HasPrefix(line, "**Author**:"):
 			res.Book.Author = strings.TrimSpace(line[len("**Author**:"):])
+		// Deliberately NOT resetting lastIdx: the note sits BETWEEN the quote and
+		// its page line, so the quote is still awaiting its locator after this.
+		case strings.HasPrefix(line, readestNoteLabel) && lastIdx >= 0:
+			if note := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(line[len(readestNoteLabel):]), "*")); note != "" {
+				res.Annotations[lastIdx].Note = note
+			}
 		default:
 			if m := readestPage.FindStringSubmatch(line); m != nil && lastIdx >= 0 {
 				if res.Annotations[lastIdx].Location == "" {
 					res.Annotations[lastIdx].Location = "p." + m[1]
+				}
+				if ts := readestStamp.FindStringSubmatch(line); ts != nil {
+					res.Annotations[lastIdx].NotedAt = strings.TrimSpace(ts[1])
 				}
 				lastIdx = -1 // one page line per quote
 			}

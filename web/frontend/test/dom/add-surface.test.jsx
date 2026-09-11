@@ -90,9 +90,10 @@ describe('the chooser', () => {
   })
 
   // A plain board cannot know whether the next line is a letter or a song (0037
-  // gives a board two kinds), so the second screen asks — and its header says
-  // which board, which is the owner's: "next screen header should say which
-  // work/board/anthology I chose and then show the relevant add page options."
+  // gives a board two kinds), so it is asked — ON THE SAME SCREEN, under the
+  // picker that answered the board. The owner's split: "step 1 (choosing what)
+  // and step 2 (choosing which) should be in the first screen. step three
+  // (entering annotations, of that is chosen) should be in secind screen."
   it('names the chosen board in the header, then offers the kinds', async () => {
     surface({ initialSection: 'standalone' })
     fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
@@ -107,29 +108,57 @@ describe('the chooser', () => {
     expect(screen.getByRole('heading', { name: 'Others' })).toBeTruthy()
   })
 
-  // BACK STEPS ONE LEVEL, not all the way out.
-  it('and Back walks the steps in reverse, one press each', async () => {
+  // EVERY QUESTION ON ONE SCREEN — the owner's reorder, and the reason there is
+  // only one Back. Mode, container and kind are three answers deep and they are
+  // all visible at once, each revealed by the one above it.
+  it('keeps all three questions on the first screen, revealed in order', async () => {
+    surface({ initialSection: 'standalone' })
+    // Nothing but the modes until one is pressed.
+    expect(await screen.findByRole('button', { name: 'A board' })).toBeTruthy()
+    expect(screen.queryByText('Which board')).toBeNull()
+    expect(screen.queryByText('What kind of quote')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'A board' }))
+    expect(await screen.findByText('Which board')).toBeTruthy()
+    // The board is named and the kind is still owed — so the kind list joins the
+    // screen rather than replacing it, and the two earlier answers stay pressable.
+    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
+    expect(await screen.findByText('What kind of quote')).toBeTruthy()
+    expect(screen.getByText('Which board')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'A quote' })).toBeTruthy()
+  })
+
+  // ONE BACK, BECAUSE THERE IS ONE SCREEN BEHIND. The owner: "there are two back
+  // buttons now, both doing different things. streamline." The three-rung ladder
+  // this replaces was the other half of that — walking back out of the form took
+  // three presses through screens that are now one.
+  it('and Back is a single press from the form to the first screen', async () => {
     surface({ initialSection: 'standalone' })
     fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Proverb' }))
     await screen.findByLabelText('Quote')
-    const back = () => fireEvent.click(screen.getByLabelText('Back to the list'))
-    back() // the form -> the kinds
+    fireEvent.click(screen.getByLabelText('Back to the list'))
+    // Back on the one screen, with all three answers on it — and nothing further
+    // to step back to, so the way out from here is Close.
     expect(await screen.findByText('What kind of quote')).toBeTruthy()
-    back() // the kinds -> the board picker
-    expect(await screen.findByText('Which board')).toBeTruthy()
-    back() // the picker -> the modes
-    expect(await screen.findByText('What are you adding?')).toBeTruthy()
+    expect(screen.getByText('Which board')).toBeTruthy()
+    expect(screen.queryByLabelText('Back to the list')).toBeNull()
   })
 
   // "the header will also have a back button as usual, but also a menu button to
   // have a dropdown where users can change the add mode."
+  //
+  // IT IS THE FORM'S CONTROL AND NOT THE CHOOSER'S: on the first screen the modes
+  // ARE the body, so a dropdown listing them would be a second way to press the
+  // buttons already on screen.
   it('and the header menu changes the mode without going back', async () => {
     surface({ initialSection: 'standalone' })
     fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
-    await waitFor(() => expect(screen.queryByText('What are you adding?')).toBeNull())
+    expect(await screen.findByText('What kind of quote')).toBeTruthy()
+    expect(screen.queryByLabelText('Change what you are adding')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Proverb' }))
+    await screen.findByLabelText('Quote')
     fireEvent.click(screen.getByLabelText('Change what you are adding'))
     // `menuitemradio`, not `menuitem`: the rows are a choice with a current answer,
     // and ActionMenu makes a row with `checked` announce itself as one. The mode

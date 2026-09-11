@@ -24,13 +24,30 @@ const maxImportBody = 5 << 20
 // those counters now come back from POST /import/staged/approve, which is where
 // the writing actually happens.
 
-func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
-	// Markdown is dual-format: a catalogue (movie/show) export or a book export,
-	// each possibly multi-item. Peek to route; both round-trip our own exports.
+// importRoute is every POST /import/<source> route: cap the upload, then hand
+// the bytes to that source's stager.
+//
+// The seven per-source routes STAY — they are the API, every existing test posts
+// to one, and the reader's "Read this as…" override needs a way to name a format
+// — but they no longer each own their own flow. importSources (import_auto.go) is
+// the single table they and the sniffer both go through.
+func (s *Server) importRoute(w http.ResponseWriter, r *http.Request, source string) {
 	data, filename, ok := readUpload(w, r)
 	if !ok {
 		return
 	}
+	importSources[source](s, w, r, data, filename)
+}
+
+func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
+	s.importRoute(w, r, importer.SourceMarkdown)
+}
+
+// stageMarkdownBytes routes a markdown upload by its own content. Markdown is
+// four formats in one extension — a book export, a catalogue (movie/show/game)
+// export, a quotes file and an anthology — so MarkdownKind peeks first; both
+// round-trip our own exports.
+func (s *Server) stageMarkdownBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
 	// An anthology file (0043) is a quotes file with prose and an order around it,
 	// so it stages through the SAME queue: one group, one row per entry, in the
 	// file's order. What it carries extra is the anthology's title on every row and
@@ -42,7 +59,7 @@ func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		s.stageQuotesFile(w, r, "md", filename, an.Entries)
+		s.stageQuotesFile(w, r, importer.SourceMarkdown, filename, an.Entries)
 		return
 	}
 	if importer.MarkdownKind(data) == importer.KindQuotes {
@@ -55,7 +72,7 @@ func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "no quotes found in file")
 			return
 		}
-		s.stageQuotesFile(w, r, "md", filename, us)
+		s.stageQuotesFile(w, r, importer.SourceMarkdown, filename, us)
 		return
 	}
 	if importer.LooksLikeMovieMarkdown(data) {
@@ -68,7 +85,7 @@ func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "no titles found in file")
 			return
 		}
-		s.stageMovies(w, r, "md", filename, results, nil)
+		s.stageMovies(w, r, importer.SourceMarkdown, filename, results, nil)
 		return
 	}
 	results, err := importer.MarkdownAll(bytes.NewReader(data))
@@ -80,23 +97,60 @@ func (s *Server) handleImportMarkdown(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "no books found in file")
 		return
 	}
-	s.stageBooks(w, r, "md", filename, results, nil)
+	s.stageBooks(w, r, importer.SourceMarkdown, filename, results, nil)
 }
 
 func (s *Server) handleImportBookcision(w http.ResponseWriter, r *http.Request) {
-	s.handleImport(w, r, "bookcision", importer.Bookcision)
+	s.importRoute(w, r, importer.SourceBookcision)
 }
 
 func (s *Server) handleImportHardcover(w http.ResponseWriter, r *http.Request) {
-	s.handleImport(w, r, "hardcover_html", importer.HardcoverHTML) // PLAN §5e
+	s.importRoute(w, r, importer.SourceHardcoverHTML) // PLAN §5e
 }
 
 func (s *Server) handleImportGoodreads(w http.ResponseWriter, r *http.Request) {
-	s.handleImport(w, r, "goodreads_html", importer.Goodreads)
+	s.importRoute(w, r, importer.SourceGoodreadsHTML)
 }
 
 func (s *Server) handleImportKindleNotebook(w http.ResponseWriter, r *http.Request) {
-	s.handleImport(w, r, "kindle_notebook", importer.AmazonNotebook) // read.amazon.com/notebook (PLAN §5)
+	s.importRoute(w, r, importer.SourceKindleNotebook) // read.amazon.com/notebook (PLAN §5)
+}
+
+func (s *Server) handleImportReadestJSON(w http.ResponseWriter, r *http.Request) {
+	s.importRoute(w, r, importer.SourceReadestJSON)
+}
+
+func (s *Server) stageBookcisionBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
+	s.stageOneBook(w, r, importer.SourceBookcision, importer.Bookcision, data, filename)
+}
+
+func (s *Server) stageHardcoverBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
+	s.stageOneBook(w, r, importer.SourceHardcoverHTML, importer.HardcoverHTML, data, filename)
+}
+
+func (s *Server) stageGoodreadsBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
+	s.stageOneBook(w, r, importer.SourceGoodreadsHTML, importer.Goodreads, data, filename)
+}
+
+func (s *Server) stageKindleNotebookBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
+	s.stageOneBook(w, r, importer.SourceKindleNotebook, importer.AmazonNotebook, data, filename)
+}
+
+// stageReadestJSONBytes stages Readest's own annotations export (0072-era, the
+// eighth source). It reports the two things the format carries and Tippani
+// cannot: a highlight in a colour with no slot, and Readest's underline styles.
+// The My Clippings path set that precedent — a best-effort parser that quietly
+// returns less than the file held is worse than one that says so.
+func (s *Server) stageReadestJSONBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
+	res, stats, err := importer.ReadestJSON(bytes.NewReader(data))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	s.stageBooks(w, r, importer.SourceReadestJSON, filename, []*importer.Result{res}, map[string]any{
+		"colors_unmapped": stats.ColorUnmapped,
+		"styles_dropped":  stats.StyleDropped,
+	})
 }
 
 // handleImportKindleClippings takes the Kindle device's own My Clippings.txt —
@@ -105,10 +159,10 @@ func (s *Server) handleImportKindleNotebook(w http.ResponseWriter, r *http.Reque
 // it reports what it skipped instead of failing the whole file, and the UI
 // labels the source experimental.
 func (s *Server) handleImportKindleClippings(w http.ResponseWriter, r *http.Request) {
-	data, filename, ok := readUpload(w, r)
-	if !ok {
-		return
-	}
+	s.importRoute(w, r, importer.SourceKindleClippings)
+}
+
+func (s *Server) stageKindleClippingsBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
 	results, stats, err := importer.KindleClippings(bytes.NewReader(data))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -118,7 +172,7 @@ func (s *Server) handleImportKindleClippings(w http.ResponseWriter, r *http.Requ
 		writeErr(w, http.StatusBadRequest, "no books found in file")
 		return
 	}
-	s.stageBooks(w, r, "kindle_clippings", filename, results, map[string]any{
+	s.stageBooks(w, r, importer.SourceKindleClippings, filename, results, map[string]any{
 		"bookmarks_skipped": stats.Bookmarks,
 		"blocks_malformed":  stats.Malformed,
 		"notes_merged":      stats.NotesMerged,
@@ -132,40 +186,21 @@ type importClientError struct{ msg string }
 
 func (e importClientError) Error() string { return e.msg }
 
-// handleImport adapts a single-book parser to the multi-book flow so every
-// source funnels through one persistence path.
-func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, source string,
-	parse func(io.Reader) (*importer.Result, error)) {
-	s.handleImportN(w, r, source, func(rd io.Reader) ([]*importer.Result, error) {
-		res, err := parse(rd)
-		if err != nil {
-			return nil, err
-		}
-		return []*importer.Result{res}, nil
-	})
-}
+// stageOneBook adapts a single-book parser to the shared staging flow: parse ->
+// one transaction that stages the book and its quotes (PLAN §5, §8). The dedupe
+// that makes a re-import idempotent runs at approval, against the library.
+//
+// IT TAKES BYTES, NOT A REQUEST BODY. A body can be read once, and the sniffer
+// has already read it — which is the reason this is no longer a handler.
+func (s *Server) stageOneBook(w http.ResponseWriter, r *http.Request, source string,
+	parse func(io.Reader) (*importer.Result, error), data []byte, filename string) {
 
-// handleImportN is the shared multipart import flow: cap -> parse (one or many
-// books) -> one transaction that stages every book and its quotes (PLAN §5, §8).
-// A multi-book file stages every book, so an export round-trip is preserved; the
-// dedupe that makes a re-import idempotent runs at approval, against the library.
-func (s *Server) handleImportN(w http.ResponseWriter, r *http.Request, source string,
-	parseAll func(io.Reader) ([]*importer.Result, error)) {
-
-	data, filename, ok := readUpload(w, r)
-	if !ok {
-		return
-	}
-	results, err := parseAll(bytes.NewReader(data))
+	res, err := parse(bytes.NewReader(data))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if len(results) == 0 {
-		writeErr(w, http.StatusBadRequest, "no books found in file")
-		return
-	}
-	s.stageBooks(w, r, source, filename, results, nil)
+	s.stageBooks(w, r, source, filename, []*importer.Result{res}, nil)
 }
 
 // readUpload pulls the multipart "file" field's bytes (capped) and its name —

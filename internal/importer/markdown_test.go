@@ -181,10 +181,17 @@ func TestMarkdownReadestSynth(t *testing.T) {
 	if len(res.Annotations) != 3 {
 		t.Fatalf("got %d annotations: %+v", len(res.Annotations), res.Annotations)
 	}
+	// The note on the second and the "· Time:" stamp on all three are what this
+	// parser discarded for two releases — its own comment claimed the format
+	// carried neither. The stamp is the export's own locale string, verbatim: see
+	// readestStamp for why nothing here parses it into a date.
 	expect := []Annotation{
-		{Quote: "A first synthetic quote.", Chapter: "Chapter One", Location: "p.10"},
-		{Quote: "A second quote that spans two source lines.", Chapter: "Chapter One", Location: "p.20"},
-		{Quote: "The third and final quote.", Chapter: "Chapter Two", Location: "p.30"},
+		{Quote: "A first synthetic quote.", Chapter: "Chapter One", Location: "p.10",
+			NotedAt: "1/1/2026, 9:00:00 AM"},
+		{Quote: "A second quote that spans two source lines.", Chapter: "Chapter One", Location: "p.20",
+			Note: "The note this parser used to throw away.", NotedAt: "1/1/2026, 9:05:00 AM"},
+		{Quote: "The third and final quote.", Chapter: "Chapter Two", Location: "p.30",
+			NotedAt: "1/2/2026, 8:00:00 AM"},
 	}
 	if !reflect.DeepEqual(res.Annotations, expect) {
 		t.Fatalf("annotations = %+v", res.Annotations)

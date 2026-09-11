@@ -3951,16 +3951,18 @@ offers.unpinned.prose = এই রেকর্ড কোনও জোগান�
 # The steps are numbered by the code, so each is one line of instruction with no
 # number in it.
 # ---------------------------------------------------------------------------
-# bn: The seven format names are proper nouns and stay as themselves (§8); “My
+# bn: The eight format names are proper nouns and stay as themselves (§8); “My
 # Clippings” is the filename on the device. URLs, file extensions and the
 # Ctrl+S / ⌘S key names are Latin for the same reason.
-import.title = ইমপোর্ট
-import.counts = উদ্ধৃতিগুলো ঘরে তুলে আনুন
-
 import.source.markdown.title = Markdown
 import.source.markdown.desc = টিপ্পনীর বই বা ক্যাটালগের এক্সপোর্ট, কিংবা Readest-এর এক্সপোর্ট — নিজে থেকেই চিনে নেয়।
 import.source.markdown.step.1 = টিপ্পনীর এক্সপোর্ট (বই বা ক্যাটালগ), Readest-এর এক্সপোর্ট, বা নিজের frontmatter + উদ্ধৃতি আবার ইমপোর্ট করুন।
 import.source.markdown.step.2 = একটা .md ফাইলে অনেক বই বা টাইটেল থাকতে পারে — সবগুলোই আসবে। ফাইল এখানে ছাড়ুন।
+
+import.source.readest.title = Readest
+import.source.readest.desc = Readest-এর নিজের অ্যানোটেশন এক্সপোর্ট — রং আর কোন দিন দাগ দিয়েছিলেন, দুটোই আসে।
+import.source.readest.step.1 = Readest-এ বইটার অ্যানোটেশন খুলে এক্সপোর্ট করুন।
+import.source.readest.step.2 = .json ফাইলটা এখানে ছাড়ুন — Readest-এর Markdown এক্সপোর্টও চলে।
 
 import.source.bookcision.title = Bookcision
 import.source.bookcision.desc = Bookcision বুকমার্কলেট দিয়ে Kindle-এর উদ্ধৃতি।
@@ -4004,14 +4006,28 @@ import.source.kindle-clippings.caveat = Kindle এই ফরম্যাটে�
 
 # The honest chip beside a format that can misread a file.
 import.experimental.label = পরীক্ষামূলক
-# The desktop card's button, and the phone picker's.
+# The drop target's two lines. The first is the press, the second says the box
+# takes a dropped file too — not a separate control, the same one.
 import.choose.label = ফাইল বাছুন — একটা বা অনেকগুলো
 import.drop.hint = বা এখানে টেনে এনে ছাড়ুন
-import.pick.label = ইমপোর্ট — ফাইল বাছুন
-# The phone's format chooser.
-import.format.aria = ইমপোর্টের ফরম্যাট
-import.format.search.placeholder = ফরম্যাট খুঁজুন…
-import.format.none = কোনও ফরম্যাট মিলল না
+# The how-tos, collapsed under the target.
+import.sources.summary = এই ফাইলগুলো কোথায় পাব?
+
+# WHEN THE BYTES DO NOT SAY. The reader's override, offered only on a file no
+# parser claimed.
+import.unknown.body = ফাইলটার ভিতরে কোথাও লেখা নেই এটা কী। ফরম্যাট বেছে দিন, আবার পড়া হবে।
+import.read-as.label = এই ফরম্যাট হিসেবে পড়ুন…
+import.read-as.aria = আপনার বেছে দেওয়া ফরম্যাট হিসেবে ফাইলটা পড়া হবে
+import.read-as.placeholder = ফরম্যাট বাছুন
+
+# WHAT THE FILE ACTUALLY IS. Each names the door that does take it — the screen
+# names are this file's own (settings.restore.title, settings.type.title).
+import.near-miss.backup = এটা টিপ্পনীর ব্যাকআপ — সেটিংস → ফিরিয়ে আনা দিয়ে ফেরান।
+import.near-miss.zip = এক্সপোর্টের আর্কাইভ গোটাটা ইমপোর্ট হয় না — unzip করে ভিতরের ফাইলগুলো ছাড়ুন।
+import.near-miss.epub = টিপ্পনী আপনার দাগ দেওয়া লাইন রাখে, গোটা বই নয় — রিডার থেকে অ্যানোটেশনগুলো এক্সপোর্ট করে আনুন।
+import.near-miss.image = প্রচ্ছদ বসে বই বা সিনেমার নিজের পাতা থেকে।
+import.near-miss.font = ফন্ট আপলোড হয় সেটিংস → ফন্ট থেকে।
+import.near-miss.binary = ফাইলটা টেক্সট নয়, তাই পড়ার মতো কিছু নেই।
 
 # The run's summary line. Two plural families rather than one sentence, because
 # the file count and the quote count pluralise independently.

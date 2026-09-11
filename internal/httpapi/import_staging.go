@@ -144,7 +144,7 @@ func (s *Server) stageBooks(w http.ResponseWriter, r *http.Request, source, file
 		codedError(w, r, olog.CodeImportStage, "stage books: commit", err)
 		return
 	}
-	s.replyStaged(w, r, batchID, staged, works, allDupes, extra)
+	s.replyStaged(w, r, source, batchID, staged, works, allDupes, extra)
 }
 
 // stageMovies is the catalogue counterpart of stageBooks: it stages parsed
@@ -216,12 +216,19 @@ func (s *Server) stageMovies(w http.ResponseWriter, r *http.Request, source, fil
 		codedError(w, r, olog.CodeImportStage, "stage titles: commit", err)
 		return
 	}
-	s.replyStaged(w, r, batchID, staged, works, []dupHint{}, extra)
+	s.replyStaged(w, r, source, batchID, staged, works, []dupHint{}, extra)
 }
 
 // replyStaged answers an import: what was staged, and how much is now waiting in
 // total, so a client can show the pending badge without a second request.
-func (s *Server) replyStaged(w http.ResponseWriter, r *http.Request, batchID int64, staged int,
+//
+// IT NAMES THE SOURCE, because the reader no longer chose one. With seven cards
+// the format was whichever card you pressed; with one drop target it is whatever
+// the bytes said, so the result row has to state the reading back — "read as
+// Goodreads" — and offer to be told otherwise. It is reported on every path, not
+// only the sniffed one: a fact about an import does not change shape depending on
+// which door it came through.
+func (s *Server) replyStaged(w http.ResponseWriter, r *http.Request, source string, batchID int64, staged int,
 	works []stagedWorkPreview, dupes []dupHint, extra map[string]any) {
 
 	pending, err := s.pendingStagedCount(userID(r))
@@ -229,6 +236,7 @@ func (s *Server) replyStaged(w http.ResponseWriter, r *http.Request, batchID int
 		olog.Warnf(olog.CodeImportRowScan, "[import] pending count after staging: %v", err)
 	}
 	reply := map[string]any{
+		"source":              source,
 		"batch_id":            batchID,
 		"staged":              staged,
 		"pending":             pending,

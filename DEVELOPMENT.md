@@ -451,8 +451,12 @@ helper to `api.js`.
 **Add an import format.** Write the parser in `internal/importer/`, returning the shared
 shapes from `importer.go` → register it there → add a fixture under
 `internal/importer/testdata/` → add the routing in `movie_markdown.go` if it is a
-markdown variant → add the upload branch in `import_handlers.go` → add the source card in
-`ImportPage.jsx`.
+markdown variant → add the upload branch in `import_handlers.go` → give it a `Source*`
+slug and a signature in `detect.go`, and an entry in `importSources`, `importProbeOrder`
+and `importProbes` in `import_auto.go`, because the one drop target is dispatched from
+those three tables and a format missing from them can only be reached by its own route →
+add its how-to to `SOURCES` and its slug to `READ_AS` in `ImportPage.jsx` (the `as` slugs
+are the importer's constants, not the hyphenated route names).
 
 **Add a migration.** Create `internal/store/migrations/NNNN_what_it_does.sql`, the next
 number → it is embedded automatically → never edit it again → if it adds a column an

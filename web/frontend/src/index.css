@@ -3920,6 +3920,61 @@
   /* The Search-again controls, on one wrapping line. `tools` in the pack. */
   .match-tools { display: flex; align-items: center; flex-wrap: wrap; gap: calc(var(--row) * 0.45); }
 
+  /* ---- THE ONE IMPORT TARGET (the Add surface's import mode) ---------------
+     A WELL, NOT A CARD, and the well IS the file input's label — so the whole
+     box is one press-target and there is no "press this, or alternatively drop
+     over there" for a reader to parse. It replaces seven source cards, each
+     with a file input of its own, now that the bytes answer which format a file
+     is (internal/importer/detect.go).
+
+     DASHED, because a dashed edge is already this app's mark for "a thing goes
+     here" — the two collapsed notes under it wear the same one, and the drag
+     state is where it goes solid.
+
+     NO PX ON A BOX THAT HOLDS TEXT: the height is whatever the three lines
+     need, and the padding is `em`, so a reader at 20px type gets a
+     proportionally taller well instead of a clipped one. */
+  .import-drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35em;
+    padding-block: 1.6em;
+    padding-inline: var(--edge);
+    text-align: center;
+    cursor: pointer;
+    color: var(--soft);
+    border: 1.4px dashed var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    transition: border-color .18s ease, background .18s ease, color .18s ease;
+  }
+  .import-drop:hover, .import-drop:focus-within { border-color: var(--accent); color: var(--ink); }
+  /* The input inside is `sr-only`, so this is the focus ring a keyboard gets. */
+  .import-drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* A FILE IS OVER IT — louder than hover on purpose, because this is the one
+     state a reader checks before letting go. */
+  .import-drop.is-over {
+    border-style: solid;
+    border-color: var(--accent);
+    color: var(--ink);
+    background: color-mix(in srgb, var(--accent) 10%, var(--card));
+  }
+  .import-drop.is-busy { cursor: default; opacity: .62; }
+  .import-drop-label { font-family: var(--font-display); font-size: var(--type-ui-15); color: var(--ink); }
+
+  /* The asides under it — where the files come from, what the queue does, why a
+     saved page and not a URL. ONE RULE for the three, because they are one kind
+     of thing, and three copies of a dashed box is how two of them drift. */
+  .import-note {
+    padding-block: 0.7em;
+    padding-inline: var(--edge);
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    color: var(--soft);
+  }
+
   /* ---- look-up candidate rows (the Add surface's results list) ----
      Source is a 16px mark, not a "GOOGLE BOOKS" pill, and Add is a borderless
      "+": together the pill and the bordered word button ate ~145px of a ~256px
@@ -7287,6 +7342,9 @@ html[data-theme="dark"] .mobile-sheet-header {
   flex-shrink: 0;
 }
 .mobile-sheet-close:hover { color: var(--ink); }
+/* The title and its optional sub-line share the middle slot; the flex lives on
+   the pair so the pair is what stretches. */
+.mobile-sheet-titles { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
 .mobile-sheet-title {
   font-family: var(--font-display);
   font-style: var(--font-display-style);
@@ -7295,11 +7353,30 @@ html[data-theme="dark"] .mobile-sheet-header {
   font-variant-numeric: var(--font-display-figures);
   font-weight: 600;
   font-size: var(--type-display-19);
-  flex: 1;
   min-width: 0;
+  /* IT WRAPS, AND IT DOES NOT STOP. This title was always a screen's own word —
+     "Settings", "Edit" — and it now also carries a BOARD'S NAME or a WORK'S
+     TITLE, because the add surface names the container you chose. The repo's
+     rule is that a name is never shortened: a truncated name and a short name
+     look alike, so cutting one destroys the thing the line exists to show.
+
+     A TWO-LINE CLAMP WAS HERE AND IT WAS THE SAME BUG WEARING A SUIT — an
+     ellipsis after two lines instead of after one — which is why
+     `clamp-has-a-way-out` counted it as a new clamp. There is no ceiling: a long
+     title makes this header taller, which a sheet can afford and a lost name
+     cannot. */
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+.mobile-sheet-sub {
+  font-family: var(--font-mono);
+  font-size: var(--type-mono-11);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .mobile-sheet-spacer { width: 44px; flex-shrink: 0; }
 .mobile-sheet-body {

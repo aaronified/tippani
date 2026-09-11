@@ -78,6 +78,7 @@ func (s *Server) stageQuotesFile(w http.ResponseWriter, r *http.Request, source,
 		olog.Warnf(olog.CodeImportRowScan, "[import] pending count after staging quotes: %v", err)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
+		"source":   source,
 		"batch_id": batchID,
 		"staged":   staged,
 		"pending":  pending,

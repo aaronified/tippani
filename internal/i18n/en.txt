@@ -3928,8 +3928,9 @@ offers.none.prose = No source has another answer for this field.
 offers.unpinned.prose = This record is not pinned to a source. Use Look up to pin it first.
 
 # ---------------------------------------------------------------------------
-# IMPORT — ImportPage.jsx. Seven source formats, each a card with a how-to, and
-# the per-file result rows underneath.
+# IMPORT — ImportPage.jsx. ONE drop target: the bytes say what a file is, so the
+# eight formats are a how-to list behind a disclosure rather than eight cards
+# with a file input each. Under it, one result row per file.
 #
 # THE FORMAT NAMES ARE PROPER NOUNS and stay as themselves (§8): Markdown,
 # Bookcision, Hardcover, Goodreads, IMDb, Kindle. Where a common noun is stuck to
@@ -3940,13 +3941,15 @@ offers.unpinned.prose = This record is not pinned to a source. Use Look up to pi
 # The steps are numbered by the code, so each is one line of instruction with no
 # number in it.
 # ---------------------------------------------------------------------------
-import.title = Import
-import.counts = bring the highlights home
-
 import.source.markdown.title = Markdown
 import.source.markdown.desc = Tippani book or catalogue exports, or a Readest export — auto-detected.
 import.source.markdown.step.1 = Re-import a Tippani export (books or the catalogue), a Readest export, or your own frontmatter + quotes.
 import.source.markdown.step.2 = A single .md may hold many books or titles — each is imported. Drop the file(s) here.
+
+import.source.readest.title = Readest
+import.source.readest.desc = Readest’s own annotation export — colours and the date you marked each line come across.
+import.source.readest.step.1 = In Readest, open the book’s annotations and export them.
+import.source.readest.step.2 = Drop the .json here — Readest’s Markdown export works too.
 
 import.source.bookcision.title = Bookcision
 import.source.bookcision.desc = Kindle highlights via the Bookcision bookmarklet.
@@ -3990,14 +3993,33 @@ import.source.kindle-clippings.caveat = Kindle never documented this format and 
 
 # The honest chip beside a format that can misread a file.
 import.experimental.label = experimental
-# The desktop card's button, and the phone picker's.
+# The drop target's two lines. The first is the press, the second says the box
+# takes a dropped file too — not a separate control, the same one.
 import.choose.label = Choose file — one or many
 import.drop.hint = or drag & drop here
-import.pick.label = Import — pick file(s)
-# The phone's format chooser.
-import.format.aria = Import format
-import.format.search.placeholder = Search formats…
-import.format.none = no format matches
+# The how-tos, collapsed under the target. They are what the wall of cards was
+# for; what was wrong was reading seven of them to find a file input.
+import.sources.summary = Where do these files come from?
+
+# WHEN THE BYTES DO NOT SAY. The sniffer answers first and this is the reader's
+# override — a second door rather than a front one, offered only on a file no
+# parser claimed, because detection is the one import fault the staging queue
+# cannot repair.
+import.unknown.body = Nothing in this file says what it is. Pick its format and it will be read again.
+import.read-as.label = Read this as…
+import.read-as.aria = Read this file as a format you pick
+import.read-as.placeholder = pick a format
+
+# WHAT THE FILE ACTUALLY IS, when it is something the app knows and import is
+# the wrong door for it. Each names the door that does take it, because
+# “unrecognised” to a backup archive is a worse answer than the wall of cards
+# was.
+import.near-miss.backup = That is a Tippani backup — restore it from Settings → Restore.
+import.near-miss.zip = An export archive is not imported whole — unzip it and drop the files inside.
+import.near-miss.epub = Tippani keeps your highlights, not your books — export the annotations from your reader instead.
+import.near-miss.image = Covers are set from a book or film’s own page.
+import.near-miss.font = A typeface is uploaded from Settings → Type.
+import.near-miss.binary = That file is not text, so there is nothing here to read.
 
 # The run's summary line. Two plural families rather than one sentence, because
 # the file count and the quote count pluralise independently.

@@ -480,7 +480,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /stickers", s.requireAuth(s.handleUploadSticker))
 	mux.Handle("PUT /stickers/{id}", s.requireAuth(s.handleUpdateSticker))
 	mux.Handle("DELETE /stickers/{id}", s.requireAuth(s.handleDeleteSticker))
+	// ONE TARGET: the drop row posts here and the bytes say what the file is. The
+	// per-source routes below stay the API — the "Read this as…" override names one
+	// through this endpoint's `as` field, and every import test posts to one.
+	mux.Handle("POST /import/auto", s.requireAuth(s.handleImportAuto))
 	mux.Handle("POST /import/markdown", s.requireAuth(s.handleImportMarkdown))
+	mux.Handle("POST /import/readest-json", s.requireAuth(s.handleImportReadestJSON))
 	mux.Handle("POST /import/bookcision", s.requireAuth(s.handleImportBookcision))
 	mux.Handle("POST /import/hardcover-html", s.requireAuth(s.handleImportHardcover))
 	mux.Handle("POST /import/goodreads-html", s.requireAuth(s.handleImportGoodreads))
@@ -1004,6 +1009,21 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// writeErrDetail answers an error with machine-readable fields beside the
+// sentence, for a failure the interface has to describe in its own words rather
+// than by matching on English.
+//
+// The import sniffer is the caller: "that is a Tippani backup" and "that is an
+// EPUB" are different advice, and the client cannot pick between them by
+// string-matching a message that exists in two languages.
+func writeErrDetail(w http.ResponseWriter, status int, msg string, detail map[string]any) {
+	reply := map[string]any{"error": msg}
+	for k, v := range detail {
+		reply[k] = v
+	}
+	writeJSON(w, status, reply)
 }
 
 // writeConflictExisting answers a duplicate-create 409 with the row that

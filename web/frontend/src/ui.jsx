@@ -10670,29 +10670,85 @@ export function QuoteActions({ actions = [] }) {
 // that the cross is red and the tick is not, and a rule that held on a desk and
 // not on a phone would be two rules; the desk branch of FormModal has drawn this
 // pair since the rule was written, and this is the same pair.
-export function MobileSheet({ open, onClose, title, actions, children, footer, dismissOnScrim = true, closeDanger = false }) {
+export function MobileSheet({ open, onClose, onBack, title, sub, actions, children, footer, dismissOnScrim = true, closeDanger = false }) {
   useBackToClose(open, onClose);
   useBodyScrollLock(open);
+  // AND THIS SHEET DRAGS NOW, off the same hook the panel stack uses.
+  //
+  // The owner, on the add surface: "make it a popup (on phone, like the other
+  // popups, with drag)." It was already a sheet — what it was not was DRAGGABLE,
+  // and the other popups have been since "the whole thing is responsive to drag,
+  // and has predefined anchors". Nine surfaces render this component, so the drag
+  // belongs here rather than in the one that reported it missing: a tenth copy of
+  // a sheet idiom is how the ninth stops behaving like the other eight.
+  const sheetRef = useRef(null);
+  const bodyRef = useRef(null);
+  const gripRef = useRef(null);
+  const headRef = useRef(null);
+  const { step: stepSheet, slideOut } = useSheetDrag({
+    sheet: sheetRef,
+    body: bodyRef,
+    handle: gripRef,
+    head: headRef,
+    enabled: open,
+    onDismiss: onClose,
+  });
   if (!open) return null;
+  // ONE WAY BACK, NOT TWO. The leading button drew IconBack and CLOSED the sheet,
+  // so a surface with steps of its own — the add surface — put a second Back in
+  // the actions beside it, and the reader had two identical glyphs a thumb apart
+  // doing different things. The owner: "there are two back buttons now, both
+  // doing different things. streamline."
+  //
+  // So the leading slot is the way OUT OF WHERE YOU ARE, and it means one thing:
+  // given `onBack` it steps, and its glyph is the arrow; with none it closes, and
+  // its glyph is the ✕. A caller with steps hands them in rather than drawing its
+  // own beside this one.
+  const stepping = typeof onBack === "function";
+  const exit = () => slideOut(stepping ? onBack : onClose);
   return (
-    <div className="mobile-sheet" onClick={dismissOnScrim ? onClose : undefined}>
-      <div className="mobile-sheet-card" onClick={(e) => e.stopPropagation()}>
-        <div className="mobile-sheet-header">
-          <Tooltip label={t("common.sheet.close.tip")} side="bottom" className="shrink-0">
+    <div className="mobile-sheet" onClick={dismissOnScrim ? () => slideOut(onClose) : undefined}>
+      <div ref={sheetRef} className="mobile-sheet-card" onClick={(e) => e.stopPropagation()}>
+        {/* THE MARK IS A SIGN AND THE WHOLE BAR IS THE TARGET — the panel's rule,
+            and the owner's reason for it: "the bar is too small to drag. the whole
+            header bar should act as the bar. the bar is there just to make it
+            intuitive." */}
+        <button
+          type="button"
+          ref={gripRef}
+          className="tp-sheet-grip"
+          aria-label={t("shell.sheet.grip.aria")}
+          title={t("shell.sheet.grip.aria")}
+          onKeyDown={(e) => {
+            if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+            e.preventDefault();
+            stepSheet(e.key === "ArrowUp" ? 1 : -1);
+          }}
+        >
+          <span aria-hidden="true" />
+        </button>
+        <div ref={headRef} className="mobile-sheet-header">
+          <Tooltip label={stepping ? t("add.back.tip") : t("common.sheet.close.tip")} side="bottom" className="shrink-0">
             <button
               type="button"
               className="mobile-sheet-close"
-              onClick={onClose}
-              aria-label={t("common.action.close.label")}
+              onClick={exit}
+              aria-label={stepping ? t("add.back.label") : t("common.action.close.label")}
               style={closeDanger ? { color: "var(--error)" } : undefined}
             >
-              {closeDanger ? <IconClose /> : <IconBack />}
+              {stepping ? <IconBack /> : <IconClose />}
             </button>
           </Tooltip>
-          <h2 className="mobile-sheet-title">{title}</h2>
+          {/* A sub-line under the title, for a surface whose header names a
+              container and needs to say what is being added into it. Drawn only
+              when given: an empty one brings its own spacing. */}
+          <span className="mobile-sheet-titles">
+            <h2 className="mobile-sheet-title">{title}</h2>
+            {sub && <span className="mobile-sheet-sub">{sub}</span>}
+          </span>
           {actions || <span className="mobile-sheet-spacer" />}
         </div>
-        <div className="mobile-sheet-body">
+        <div ref={bodyRef} className="mobile-sheet-body">
           {children}
         </div>
         {footer && <div className="mobile-sheet-footer">{footer}</div>}

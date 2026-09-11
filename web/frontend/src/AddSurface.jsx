@@ -829,30 +829,46 @@ export function useWorks() {
   return works
 }
 
-// AddChooser — the first screen, and it asks ONE question at two depths.
+// AddChooser — THE FIRST SCREEN, AND EVERY CHOICE ON IT.
 //
-// THE OWNER'S ORDER: "now i cannot choose if i want to add a work, a board for
-// quote, an anthology, a quote, or import stuff. that should be the first screen.
-// if a work/board/anthology is chosen, i will also need to select the
-// work/board/anthology there."
+// THE OWNER'S ORDER, in two sentences a day apart. First: "now i cannot choose if
+// i want to add a work, a board for quote, an anthology, a quote, or import
+// stuff. that should be the first screen. if a work/board/anthology is chosen, i
+// will also need to select the work/board/anthology there." Then, having seen it:
+// "step 1 (choosing what) and step 2 (choosing which) should be in the first
+// screen. step three (entering annotations, of that is chosen) should be in
+// secind screen."
 //
-// So the modes are the row, and the moment one of them needs something named the
-// picker for it appears UNDER the row rather than on a screen of its own. That is
-// the "there" in their sentence, and it is what keeps the first screen one screen:
-// a mode with no work named is not an answer, and making the reader press Next to
-// give the rest of it would be two screens to answer one question.
+// So this screen holds the whole question and the next one holds the form. The
+// mode is a row; the moment a mode needs something named, the picker for it
+// appears UNDER that row; and where naming it still leaves the KIND open — a
+// plain board, a standalone quote — that list appears under the picker. Three
+// questions, one screen, each revealed by the answer above it. Nothing here
+// advances by itself: AddSurface opens the form when `soleDoor` says there is
+// nothing left to ask.
 //
-// WHAT THIS REPLACES, and why the old shape was wrong at the root: the previous
-// chooser offered eleven DOORS in three groups — book, film, show, game, board,
-// highlight, line and the seven quote kinds. Those are forms, and a reader does
-// not start from a form. Worse, it put "a book" and "a highlight" side by side as
-// alternatives when one is a thing you add to the other.
-export function AddChooser({ sections, mode, onMode, target, onTarget, onCreateWork, boards, onNewBoard }) {
+// THE MIDDLE SCREEN THAT WAS HERE IS GONE. "What kind of quote" used to be a
+// state of its own between the chooser and the form, which made choosing a board
+// and choosing what to put on it two screens apart — and gave the surface three
+// steps to walk back through instead of one.
+//
+// AND IMPORT IS A DROP TARGET ON THIS SCREEN, not a second one: "import should be
+// single upload (and a drag and drop target) in the first screen."
+export function AddChooser({
+  mode, onMode,
+  target, onTarget, onCreateWork,
+  boards, onNewBoard,
+  doors, onDoor,
+  pendingImport, onReviewImport, onStaged,
+}) {
   const works = useWorks()
   const wantsTarget = modeNeedsTarget(mode)
   return (
     <div className="flex flex-col gap-4">
-      <p className="microcopy">{t('add.chooser.prose')}</p>
+      {/* THE SENTENCE INTRODUCES THE FIRST QUESTION AND THEN ITS WORK IS DONE.
+          "Pick one and this becomes its form" is history the moment one is
+          picked — and over a drop target it would be wrong, not merely stale. */}
+      {!mode && <p className="microcopy">{t('add.chooser.prose')}</p>}
       {/* NO LABEL OVER THIS ROW. The header already asks "What are you adding?"
           and a MonoLabel repeating it is the same words twice on one screen — the
           repo's rule that a row says a thing once, and a duplicate a test found
@@ -863,10 +879,14 @@ export function AddChooser({ sections, mode, onMode, target, onTarget, onCreateW
             <button
               key={m}
               type="button"
-              /* `active` is the on-state class the stylesheet actually styles —
-                 `is-on` belongs to other controls and matches nothing here, which
-                 is a mistake only a render shows. */
-              className={'tp-btn tactile' + (m === mode ? ' active' : '')}
+              /* THE VARIANT IS WHERE THE SURFACE LIVES, and leaving it off is why
+                 the owner said "the buttons look like just plain text": bare
+                 `.tp-btn` is a 44px box with `border: 1.4px solid transparent` and
+                 no background at all. The paper it is drawn on comes from
+                 `.tp-btn-ghost` and `.tp-btn-primary`, which are the app's own
+                 unpressed and pressed faces — so the chosen mode takes the primary
+                 and the rest take the ghost, and nothing new is invented. */
+              className={'tp-btn tactile ' + (m === mode ? 'tp-btn-primary' : 'tp-btn-ghost')}
               aria-pressed={m === mode}
               onClick={() => onMode(m)}
             >
@@ -892,17 +912,55 @@ export function AddChooser({ sections, mode, onMode, target, onTarget, onCreateW
           <MonoLabel>{t('add.mode.board.which.label')}</MonoLabel>
           <div className="flex flex-wrap gap-2">
             {(boards || []).map((b) => (
-              <button key={b.id} type="button" className="tp-btn tactile" onClick={() => onTarget(b)}>
+              <button key={b.id} type="button" className="tp-btn tp-btn-ghost tactile" onClick={() => onTarget(b)}>
                 {b.name}
               </button>
             ))}
             {/* A board you do not have yet, on the same row as the ones you do —
                 the work picker's create row, in the shape a short list wants. */}
-            <button type="button" className="tp-btn tactile" onClick={onNewBoard}>
+            <button type="button" className="tp-btn tp-btn-ghost tactile" onClick={onNewBoard}>
               {t('add.mode.board.new.label')}
             </button>
           </div>
           {(boards || []).length === 0 && <p className="microcopy">{t('add.mode.board.none.prose')}</p>}
+        </div>
+      )}
+
+      {/* AND THE THIRD QUESTION, where the container leaves it open. Only a plain
+          board and a standalone quote get here: a book reaches one form, so
+          naming the book chose it, and `doorsFor` says so as a list of length
+          one rather than as a special case. A list of one is never drawn. */}
+      {doors.length > 1 && (
+        <div className="tp-field">
+          <MonoLabel>{t('add.door.which.label')}</MonoLabel>
+          <div className="flex flex-wrap gap-2">
+            {doors.map((d) => (
+              <button key={d} type="button" className="tp-btn tp-btn-ghost tactile" onClick={() => onDoor(d)}>
+                {DOOR_LABEL(d)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* HELD, AND IT SAYS SO. The owner set anthologies aside — "anthology is due
+          for a revamp. we will tackle that later" — and then asked for the mode in
+          the chooser anyway. Both are right: leaving it out makes this screen lie
+          about what the app holds, and half-wiring it ships something misleading.
+          A disabled button was the alternative, and this app's rule is against it:
+          a control that cannot be pressed cannot say why. */}
+      {modeIsHeld(mode) && <p className="microcopy">{t('add.mode.anthology.held.prose')}</p>}
+
+      {mode === 'import' && (
+        <div className="flex flex-col gap-4">
+          {/* An import still waiting in the queue must be visible from the one
+              place you would start another one. */}
+          {pendingImport > 0 && onReviewImport && (
+            <button type="button" className="tp-btn tp-btn-primary w-full" onClick={onReviewImport}>
+              {t('capture.import.pending', { count: pendingImport, n: pendingImport })}
+            </button>
+          )}
+          <ImportPage onReviewImport={onReviewImport} onStaged={onStaged} />
         </div>
       )}
     </div>
@@ -1669,19 +1727,32 @@ export default function AddSurface({
     />
   )
 
+  // TWO SCREENS, AND THIS IS WHICH ONE. The owner's split — "step 1 (choosing
+  // what) and step 2 (choosing which) should be in the first screen. step three
+  // (entering annotations, of that is chosen) should be in secind screen" — so
+  // there is a settled door or there is the chooser, and nothing between.
+  // `overlay` is neither: making a board and looking a work up are panels that
+  // sit ON the chooser and hand back to it.
+  const overlay = newBoard || lookup
+  const onForm = !overlay && !!settledDoor
+
   // BACK STEPS ONE LEVEL, not all the way out — the app's own panel-stack chrome,
   // and the reason the chooser is a state of this surface rather than a screen:
-  // changing your mind should cost one press and should not throw away the surface.
+  // changing your mind should cost one press and should not throw away the
+  // surface. With every question on the first screen there is exactly one level
+  // to step, which is what "there are two back buttons now, both doing different
+  // things. streamline" asked for.
   //
-  // IT IS ABSENT WHERE THERE IS NOTHING BEHIND. A ＋ pressed on a book opens the
-  // highlight form directly, and a Back from there would walk the reader into a
-  // chooser they never saw — which reads as the app having lost its place. So each
-  // step asks whether the READER made it, never whether it exists.
+  // IT IS ABSENT WHERE THERE IS NOTHING BEHIND, and that is not the same as
+  // "there is a chooser". A ＋ pressed on a book opens the highlight form
+  // directly, and a Back from there would walk the reader into a chooser they
+  // never saw — which reads as the app having lost its place. So it asks whether
+  // the READER's own press opened this form, never whether a chooser exists.
   const back =
-    newBoard || lookup ? () => { setNewBoard(false); setLookup(null) }
-      : pickedDoor ? () => { setPickedDoor(null); setSaveState(null) }
-        : pickedTarget ? () => { setPickedTarget(null); setPickedDoor(null); setSaveState(null) }
-          : pickedMode ? () => { goMode(null) }
+    overlay ? () => { setNewBoard(false); setLookup(null) }
+      : !onForm ? null
+        : pickedDoor ? () => { setPickedDoor(null); setSaveState(null) }
+          : pickedTarget ? () => { setPickedTarget(null); setPickedDoor(null); setSaveState(null) }
             : null
   const backBtn = back && (
     <IconButton icon={<IconBack />} ariaLabel={t('add.back.label')} tooltip={t('add.back.tip')} onClick={back} />
@@ -1699,7 +1770,7 @@ export default function AddSurface({
   //
   // ABSENT ON THE FIRST SCREEN, where the modes are already the body: a dropdown
   // listing what is on screen behind it is a second way to press the same buttons.
-  const modeMenu = mode && (
+  const modeMenu = mode && (onForm || overlay) && (
     <MoreMenu
       icon={<IconMenu />}
       ariaLabel={t('add.mode.menu.aria')}
@@ -1731,67 +1802,16 @@ export default function AddSurface({
     />
   )
 
-  const body = !mode ? (
-    <AddChooser
-      sections={sections}
-      mode={mode}
-      onMode={goMode}
-      target={target}
-      onTarget={(w) => setPickedTarget(w)}
-      onCreateWork={() => setLookup(true)}
-      boards={boards}
-      onNewBoard={() => setNewBoard(true)}
-    />
-  ) : newBoard ? (
+  // THREE BRANCHES AND NOT SEVEN. A panel over the chooser, the form, or the
+  // chooser — the owner's two screens plus the two panels that hand back to the
+  // first. What went: an `import` branch, a `held` branch, a second copy of the
+  // chooser for "the container is unnamed", and a kind list that was a screen of
+  // its own. All four are questions, and questions live on the first screen now.
+  const body = newBoard ? (
     <BoardDoor onSaved={(what) => { onAdded?.(what); onClose?.() }} onSaveState={setSaveState} />
   ) : lookup ? (
     workLookup
-  ) : mode === 'import' ? (
-    <>
-      {/* An import still waiting in the queue must be visible from the one place
-          you would start another one. */}
-      {pendingImport > 0 && onReviewImport && (
-        <button type="button" className="tp-btn tp-btn-primary w-full" style={{ marginBottom: 12 }} onClick={onReviewImport}>
-          {t('capture.import.pending', { count: pendingImport, n: pendingImport })}
-        </button>
-      )}
-      <ImportPage embedded onReviewImport={onReviewImport} onStaged={onStaged} />
-    </>
-  ) : modeIsHeld(mode) ? (
-    // HELD, AND IT SAYS SO. The owner set anthologies aside — "anthology is due
-    // for a revamp. we will tackle that later" — and then asked for the mode in
-    // the chooser anyway. Both are right: leaving it out makes the first screen
-    // lie about what the app holds, and half-wiring it ships something misleading.
-    <p className="microcopy">{t('add.mode.anthology.held.prose')}</p>
-  ) : modeNeedsTarget(mode) && !target ? (
-    // The container is still unnamed — the picker, on its own, with the mode row
-    // above it. This is the state a ＋ from the Library lands in.
-    <AddChooser
-      sections={sections}
-      mode={mode}
-      onMode={goMode}
-      target={target}
-      onTarget={(w) => setPickedTarget(w)}
-      onCreateWork={() => setLookup(true)}
-      boards={boards}
-      onNewBoard={() => setNewBoard(true)}
-    />
-  ) : !settledDoor ? (
-    // THE RELEVANT ADD OPTIONS, which is the rest of the owner's second sentence.
-    // Only reached where the container genuinely does not know: a plain board, or a
-    // standalone quote. A book never gets here, because naming the book chose the
-    // form.
-    <div className="tp-field">
-      <MonoLabel>{t('add.door.which.label')}</MonoLabel>
-      <div className="flex flex-wrap gap-2">
-        {doors.map((d) => (
-          <button key={d} type="button" className="tp-btn tactile" onClick={() => setPickedDoor(d)}>
-            {DOOR_LABEL(d)}
-          </button>
-        ))}
-      </div>
-    </div>
-  ) : (
+  ) : onForm ? (
     <QuoteForm
       door={settledDoor}
       initialTarget={mode === 'work' ? target : null}
@@ -1801,6 +1821,21 @@ export default function AddSurface({
       onWorkCreated={onWorkCreated}
       onSaveState={setSaveState}
     />
+  ) : (
+    <AddChooser
+      mode={mode}
+      onMode={goMode}
+      target={target}
+      onTarget={(w) => setPickedTarget(w)}
+      onCreateWork={() => setLookup(true)}
+      boards={boards}
+      onNewBoard={() => setNewBoard(true)}
+      doors={doors}
+      onDoor={(d) => setPickedDoor(d)}
+      pendingImport={pendingImport}
+      onReviewImport={onReviewImport}
+      onStaged={onStaged}
+    />
   )
 
   if (mobile) {
@@ -1808,12 +1843,19 @@ export default function AddSurface({
       <MobileSheet
         open
         onClose={onClose}
+        // ONE WAY BACK, IN THE SLOT THE SHEET ALREADY HAS FOR IT. This surface used
+        // to draw its own Back in `actions` while the sheet drew a leading button
+        // that looked identical and closed instead — "there are two back buttons
+        // now, both doing different things." The sheet's leading slot is the way
+        // out of where you are, so the steps are handed to it: given one it steps
+        // and wears the arrow, with none it closes and wears the ✕.
+        onBack={back || undefined}
         title={title}
+        sub={subLine || undefined}
         // A half-written quote must not be lost to a tap beside the card.
         dismissOnScrim={false}
         actions={
           <span className="flex shrink-0 items-center">
-            {backBtn}
             {modeMenu}
             <PageHelp screen="capture" />
             {saveBtn}

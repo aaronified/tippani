@@ -1,0 +1,69 @@
+{
+  "$format": "readest-annotations",
+  "version": 1,
+  "exportedAt": 1788707296898,
+  "book": {
+    "title": "The Synthetic Compendium",
+    "author": "Ada Example",
+    "hash": "f00ba4",
+    "metaHash": "f00ba4meta",
+    "format": "EPUB"
+  },
+  "annotations": [
+    {
+      "id": "aaa",
+      "type": "annotation",
+      "cfi": "epubcfi(/6/2!/4/2/2)",
+      "note": "",
+      "createdAt": 1767256200000,
+      "updatedAt": 1767256200000,
+      "text": "A first synthetic quote.",
+      "style": "highlight",
+      "color": "green",
+      "xpointer0": "/body/DocFragment[1]/body/p[1]/text().0",
+      "xpointer1": "/body/DocFragment[1]/body/p[1]/text().24"
+    },
+    {
+      "id": "bbb",
+      "type": "annotation",
+      "cfi": "epubcfi(/6/2!/4/2/6)",
+      "note": "The note the markdown export writes on its own line.",
+      "createdAt": 1767256500000,
+      "updatedAt": 1767256500000,
+      "text": "A second quote that spans two source lines.",
+      "style": "highlight",
+      "color": "yellow"
+    },
+    {
+      "id": "ccc",
+      "type": "annotation",
+      "cfi": "epubcfi(/6/4!/4/2/2)",
+      "note": "",
+      "createdAt": 1767340800000,
+      "updatedAt": 1767340800000,
+      "text": "The third quote, in a colour Tippani has no slot for.",
+      "style": "squiggly",
+      "color": "red"
+    },
+    {
+      "id": "ddd",
+      "type": "annotation",
+      "note": "",
+      "createdAt": 0,
+      "text": "The fourth, in a colour this build has never seen.",
+      "style": "underline",
+      "color": "chartreuse"
+    },
+    {
+      "id": "eee",
+      "type": "annotation",
+      "note": "",
+      "createdAt": 1767427200000,
+      "text": "   ",
+      "style": "highlight",
+      "color": "violet"
+    }
+  ],
+  "progress": [879, 1837],
+  "location": "epubcfi(/6/4!/4/2/2)"
+}

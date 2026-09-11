@@ -74,9 +74,15 @@ export async function json(method, url, body, { timeoutMs } = {}) {
 }
 
 // upload posts a single file as multipart form data (field name "file").
-export async function upload(url, file) {
+//
+// `fields` are extra form values sent beside it, and the one caller is the
+// import target's "Read this as…" — the sniffer can be wrong in a way the
+// staging queue cannot repair, so the reader's answer has to travel with the
+// same bytes rather than as a second request.
+export async function upload(url, file, fields) {
   const form = new FormData()
   form.append('file', file)
+  for (const [k, v] of Object.entries(fields || {})) form.append(k, v)
   return send(url, { method: 'POST', body: form })
 }
 

@@ -24,16 +24,16 @@ import (
 // attach to your existing Casablanca (1942)" can be seen and corrected before
 // anything is written.
 func (s *Server) handleImportIMDb(w http.ResponseWriter, r *http.Request) {
-	data, filename, ok := readUpload(w, r)
-	if !ok {
-		return
-	}
+	s.importRoute(w, r, importer.SourceIMDb)
+}
+
+func (s *Server) stageIMDbBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
 	res, err := importer.IMDbQuotes(bytes.NewReader(data))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	s.stageMovies(w, r, "imdb", filename, []*importer.MovieResult{res}, nil)
+	s.stageMovies(w, r, importer.SourceIMDb, filename, []*importer.MovieResult{res}, nil)
 }
 
 // importMovieResult reports how an imported title resolved: which movie the
