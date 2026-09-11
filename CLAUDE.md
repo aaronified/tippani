@@ -27,6 +27,35 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   session's prompts verbatim and never the target; act on its findings before reporting,
   and report the score as given.
 
+- **WHEN TO RERUN A RATER, and it is a ceiling on passes rather than on score.** The
+  owner's ruling: *"run and fix. if the rater crosses 8/10, fix and stop. if it is below
+  8/10, rerun after fix."* So —
+
+  | The pass says | What happens |
+  |---|---|
+  | **8/10 or better** | fix every finding, then **stop**. No second pass. |
+  | **below 8/10** | fix every finding, then **rerun**, and repeat until a pass lands at 8 or better. |
+
+  EVERY FINDING IS FIXED EITHER WAY. The score decides whether another pass runs, never
+  whether the findings are worth acting on — a 9/10 pass's three findings are three real
+  defects, and "we already cleared the bar" is not a reason to leave them. Where a finding
+  is genuinely wrong, say so with the line that disproves it rather than silently dropping
+  it.
+
+  A TARGET IS STILL NEVER HANDED TO THE RATER. This table is how THIS session decides what
+  to do with a score; telling a rater what score to reach is how a rater stops being worth
+  running.
+
+- **THE DIGEST IS ON A CLOCK, NOT ON A COUNTER.** The owner: *"run it every 30 mins
+  (other hooks to be similarly relaxed). and when i ask for summaries, it will be run
+  manually."* `session_digest.py` fires on whichever of three thresholds trips first —
+  prompts, minutes, tool calls — so leaving the other two at their defaults means a busy
+  half-hour still produces four digests. `.claude/settings.json`'s `env` block is where
+  that is set: `CLAUDE_KIT_DIGEST_MINUTES=30`, with `_EVERY` and `_TOOLS` pushed out of
+  reach so the clock is the only trigger left. `notify.py` needs nothing — it writes a log
+  and a desktop toast and says nothing in the conversation, and its per-tool toast is off
+  by default.
+
 - **DO NOT EDIT CODE FILES WHILE A RATER IS RUNNING.** The owner's, standing: "do not edit
   code files when the rater is running. keep this in memory." A rater reads the tree it was
   pointed at and re-runs its suites there, so an edit mid-pass means it is rating a commit
