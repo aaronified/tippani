@@ -50,63 +50,119 @@ vi.mock('../../src/api.js', () => ({
   coverImgURL: () => '',
 }))
 
-// A GAME'S LINE, because it is the row that carries all three of the fields this
-// file is about: a pack, a range that ends, and a language the file did not state.
-// `target_id` IS THE LIBRARY WORK this staged work will land on. A staged work that
-// matched nothing has none, and then there is nothing to suggest from — the case at
-// the bottom of this file is about exactly that.
-const WORK = { id: 1, kind: 'movie', title: 'Disco Elysium', media_type: 'game', quotes: 1, batch_id: 7, target_id: 42 }
+// THE FIXTURES ARE SHAPED LIKE WHAT THE SERVER SENDS, and the first cut of this
+// file was not. It set `kind: 'movie'` plus a `media_type` field — and
+// `stagedWorkRow` HAS NO media_type. A staged work's kind IS the medium:
+// `importMediaType()` (import_movies.go:79-85) answers "show", "game" or "movie"
+// and import_staging.go:336 stores exactly that. So the suite was green over a
+// shape the server never sends, while the code it guarded routed every show and
+// every game down the books branch.
+//
+// `target_id` IS THE LIBRARY WORK a staged work will land on. A staged work that
+// matched nothing has none, and then there is nothing to suggest from.
+
+// A GAME. Its line is placed by an act, a quest and a pack, and by no timestamp at
+// all — the server clears both ends on a game, so a box for one would post a value
+// that is thrown away without a word.
+const WORK = { id: 1, kind: 'game', title: 'Disco Elysium', quotes: 1, batch_id: 7, target_id: 42 }
 const QUOTE = {
   id: 11, staged_work_id: 1, batch_id: 7,
   quote: 'Somewhere in the drywall, the Pale is waiting.',
   chapter: '', chapter_no: 0, location: '', character: 'Kim Kitsuragi', actor: '',
-  // A SEASON THE FILE GAVE, and it is here to be left alone. The seed and the
-  // diff read it through one function now; when they were two lists the seed put
-  // it in as a NUMBER and the diff compared it against a string, so every row
-  // with a season re-sent its season on every save.
+  act: '', quest: '', episode_name: '',
+  season: null, episode: null,
+  timestamp: '', timestamp_end: '', dlc: '', language: '',
+  color: 'yellow', favorite: false, tags: [],
+}
+
+// A SHOW, which is the only medium with a season, an episode and an episode name —
+// and the one that proves `kind` is read rather than assumed, because a show and a
+// game are both "movie rows" in the library and must not draw the same boxes.
+//
+// A SEASON THE FILE GAVE, here to be left alone: the seed and the diff read it
+// through one function, and when they were two lists the seed put it in as a NUMBER
+// and the diff compared it against a string, so every row with a season re-sent its
+// season on every save.
+const SHOW_WORK = { id: 3, kind: 'show', title: 'Breaking Bad', quotes: 1, batch_id: 7, target_id: 42 }
+const SHOW_QUOTE = {
+  id: 13, staged_work_id: 3, batch_id: 7,
+  quote: 'I am the one who knocks.',
+  chapter: '', chapter_no: 0, location: '', character: 'Walter White', actor: '',
+  act: '', quest: '', episode_name: '',
   season: 3, episode: 7,
   timestamp: '01:02:03', timestamp_end: '', dlc: '', language: '',
   color: 'yellow', favorite: false, tags: [],
 }
 
+// A BOOK, whose line is placed by a chapter and a page — and by nothing a screen
+// has. This is the owner's own hard-drop example: "timestamp of a book".
+const BOOK_WORK = { id: 4, kind: 'book', title: 'The Dispossessed', quotes: 1, batch_id: 7, target_id: 42 }
+const BOOK_QUOTE = {
+  id: 14, staged_work_id: 4, batch_id: 7,
+  quote: 'There was a wall.',
+  chapter: '', chapter_no: 0, location: 'p. 1', character: '', actor: '',
+  act: '', quest: '', episode_name: '',
+  season: null, episode: null,
+  timestamp: '', timestamp_end: '', dlc: '', language: '',
+  color: 'yellow', favorite: false, tags: [],
+}
+
 // A STANDALONE GROUP, which is how the queue holds quotes that belong to no book
-// and no film: `kind: 'quotes'` and no target. Its rows are placed by who said
-// them and on what occasion — never by a chapter or a timestamp.
+// and no film: `kind: 'quotes'` and no target. WHICH boxes it gets is then the
+// QUOTE's own kind (0053) — a speech is placed by an occasion and a date, a proverb
+// by a region and nothing else.
 const QUOTE_WORK = { id: 2, kind: 'quotes', title: '', quotes: 1, batch_id: 7, target_id: 0 }
 const LOOSE_QUOTE = {
   id: 12, staged_work_id: 2, batch_id: 7,
+  kind: 'speech',
   quote: 'The banality of evil.',
   chapter: '', chapter_no: 0, location: '', character: '', actor: '',
   speaker: 'Hannah Arendt', occasion: '', place: '', region: '',
   recipient: '', work_title: '', locator: '', source_author: '',
+  occasion_date: '', occasion_circa: false,
+  season: null, episode: null,
   timestamp: '', timestamp_end: '', dlc: '', language: '',
   color: 'yellow', favorite: false, tags: [],
 }
+
 // Which fixture `/import/staged` answers with, set per case.
 let queued = null
 
 const { default: StagingPage } = await import('../../src/StagingPage.jsx')
 
 const noop = () => {}
-const page = async (fixture = null) => {
+
+// The four shelves, each as {works, quotes, text, settle}: what the queue answers,
+// the words on the row, and a box that shelf is CERTAIN to have. `settle` is what
+// openEditor waits on, and it differs by kind — which is the whole point. Waiting
+// on the wrong one hangs for the timeout and reports "did not render" over a form
+// that rendered fine, which is how the first cut of this file hid a real bug.
+const GAME = { works: [WORK], quotes: [QUOTE], text: /the Pale is waiting/, settle: 'DLC' }
+const SHOW = { works: [SHOW_WORK], quotes: [SHOW_QUOTE], text: /the one who knocks/, settle: 'Episode name' }
+const BOOK = { works: [BOOK_WORK], quotes: [BOOK_QUOTE], text: /There was a wall/, settle: 'Chapter name' }
+const LOOSE = { works: [QUOTE_WORK], quotes: [LOOSE_QUOTE], text: /banality of evil/, settle: 'Occasion' }
+
+const page = async (shelf = GAME) => {
   posted.length = 0
   asked.length = 0
-  queued = fixture
+  queued = { works: shelf.works, quotes: shelf.quotes }
   render(<StagingPage embedded onPending={noop} onOpenBook={noop} onOpenMovie={noop} onApproved={noop} />)
   // The row lands before anything can be pressed.
-  await screen.findByText(fixture ? /banality of evil/ : /the Pale is waiting/)
+  await screen.findByText(shelf.text)
 }
 
 // Open the editor on the one staged row. The pencil is the row's edit affordance;
 // finding it by role keeps this from depending on which glyph it wears.
-//
-// `settle` is a box this row is CERTAIN to have, and it differs by group — which
-// is the whole point of the two field sets. Waiting on the wrong one would hang
-// for the timeout and report "did not render" over a form that rendered fine.
-const openEditor = async (settle = 'DLC') => {
+const openEditor = async (shelf = GAME) => {
   const edit = await screen.findByRole('button', { name: /edit/i })
   fireEvent.click(edit)
-  await screen.findByLabelText(settle)
+  await screen.findByLabelText(shelf.settle)
+}
+
+// `at` opens one shelf and its editor — every case below starts this way.
+const at = async (shelf) => {
+  await page(shelf)
+  await openEditor(shelf)
 }
 
 // WHAT THE DESTINATION ALREADY KNOWS, OFFERED WHERE IT IS MOST NEEDED.
@@ -118,8 +174,7 @@ const openEditor = async (settle = 'DLC') => {
 // as every grouping in the app is concerned.
 describe('the values the destination work already holds', () => {
   it('offers the work’s own cast on the character box', async () => {
-    await page()
-    await openEditor()
+    await at(GAME)
     const box = screen.getByLabelText('Character')
     fireEvent.change(box, { target: { value: 'kim' } })
     fireEvent.focus(box)
@@ -134,8 +189,7 @@ describe('the values the destination work already holds', () => {
   })
 
   it('and the work’s own packs on the DLC box', async () => {
-    await page()
-    await openEditor()
+    await at(GAME)
     const box = screen.getByLabelText('DLC')
     fireEvent.change(box, { target: { value: 'final' } })
     fireEvent.focus(box)
@@ -146,8 +200,7 @@ describe('the values the destination work already holds', () => {
     // A staged work is not in the library yet: it has no cast and no id anything
     // could be fetched by. `target_id` is the work it will BECOME part of, and
     // asking by the staged id would 404 quietly and leave every box empty.
-    await page()
-    await openEditor()
+    await at(GAME)
     expect(asked.some((p) => p === '/movies/42/cast'), 'the cast came from the wrong id').toBe(true)
     expect(asked.some((p) => p.startsWith('/movies/1/')), 'the staged work’s own id was fetched').toBe(false)
   })
@@ -158,11 +211,19 @@ describe('a staged row, before it is approved', () => {
     // `POST /import/staged/bulk` has taken timestamp_end, dlc and language since
     // 0070/0071 (see stagedBulkReq). The form offered none of the three, so the
     // queue held a value the reader could read and not fix.
-    await page()
-    await openEditor()
-    expect(screen.getByLabelText('Ends'), 'a range cannot be closed in the queue').toBeTruthy()
+    //
+    // TWO SHELVES, because the three do not share one. A game has a pack and NO
+    // timestamp at either end — the server clears both on a game — so a fixture
+    // carrying all three at once would be a row the app cannot produce.
+    await at(GAME)
     expect(screen.getByLabelText('DLC'), 'a game line cannot be given its pack in the queue').toBeTruthy()
     expect(screen.getByLabelText('Language'), 'the field an import most often lacks cannot be filled').toBeTruthy()
+    expect(screen.queryByLabelText('Ends'), 'a game was offered a range it cannot have').toBeNull()
+  })
+
+  it('and a show closes a range', async () => {
+    await at(SHOW)
+    expect(screen.getByLabelText('Ends'), 'a range cannot be closed in the queue').toBeTruthy()
   })
 
   it('and sends all three under the names the endpoint decodes', async () => {
@@ -170,17 +231,22 @@ describe('a staged row, before it is approved', () => {
     // pointer, so a misspelt key is silently left alone and the save reports
     // success having stored nothing — the same trap the IGDB pair's cases were
     // written for.
-    await page()
-    await openEditor()
-    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '01:04:00' } })
+    await at(GAME)
     fireEvent.change(screen.getByLabelText('DLC'), { target: { value: 'The Final Cut' } })
     fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'English' } })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
 
     await waitFor(() => expect(posted.length).toBe(1))
-    expect(posted[0].timestamp_end).toBe('01:04:00')
     expect(posted[0].dlc).toBe('The Final Cut')
     expect(posted[0].language).toBe('English')
+  })
+
+  it('and a show sends its range end under the same rule', async () => {
+    await at(SHOW)
+    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '01:04:00' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(posted.length).toBe(1))
+    expect(posted[0].timestamp_end).toBe('01:04:00')
   })
 
   it('and sends nothing it was not asked to change', async () => {
@@ -188,13 +254,12 @@ describe('a staged row, before it is approved', () => {
     // location or a timestamp RE-BASES its as-imported snapshot server-side, so
     // re-sending an untouched value destroys the undo a location formula relies
     // on. A new field joining the list is a new way to trip that.
-    await page()
-    await openEditor()
-    fireEvent.change(screen.getByLabelText('DLC'), { target: { value: 'The Final Cut' } })
+    await at(SHOW)
+    fireEvent.change(screen.getByLabelText('Episode name'), { target: { value: 'Ozymandias' } })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
 
     await waitFor(() => expect(posted.length).toBe(1))
-    expect(posted[0].dlc).toBe('The Final Cut')
+    expect(posted[0].episode_name).toBe('Ozymandias')
     expect('timestamp' in posted[0], 'an untouched timestamp was re-sent, re-basing its snapshot').toBe(false)
     expect('season' in posted[0], 'an untouched season was re-sent').toBe(false)
     expect('episode' in posted[0], 'an untouched episode was re-sent').toBe(false)
@@ -209,12 +274,11 @@ describe('a staged row, before it is approved', () => {
   // without it a reader who opened the season box and thought better of it would
   // post a season they never meant to set.
   it('and a value typed back to what it was is not a change', async () => {
-    await page()
-    await openEditor()
+    await at(SHOW)
     const box = screen.getByLabelText('Season')
     fireEvent.change(box, { target: { value: '4' } })
     fireEvent.change(box, { target: { value: '3' } }) // back to what the file said
-    fireEvent.change(screen.getByLabelText('DLC'), { target: { value: 'The Final Cut' } })
+    fireEvent.change(screen.getByLabelText('Episode name'), { target: { value: 'Ozymandias' } })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
 
     await waitFor(() => expect(posted.length).toBe(1))
@@ -222,57 +286,102 @@ describe('a staged row, before it is approved', () => {
   })
 })
 
-// WHICH BOXES A ROW GETS, and the two answers are the only two the queue knows.
+// WHICH BOXES A ROW GETS — FOUR ANSWERS, NOT TWO, and both of the first two were
+// wrong.
 //
-// This form drew one set for every row: a staged proverb was offered a chapter, a
-// season and a timestamp — three fields that cannot apply to it — and no way at
-// all to say who said it or on what occasion. The row PRINTS the speaker and the
-// occasion, so a reader could read what the importer guessed and not touch it.
+// This form began by drawing ONE set on every row: a staged proverb was offered a
+// chapter, a season and a timestamp, and nothing with which to say who said it. The
+// repair for that branched on "is this standalone", which fixed the proverb and left
+// a BOOK row holding a timestamp, a season, an act and a DLC — the owner's own
+// example of a hard drop, "timestamp of a book".
+//
+// The answer is the table the add surface already reads. A staged work's kind IS its
+// medium (importMediaType), so `fieldKeys(door, { mediaType })` answers here exactly
+// as it does there, and these cases are that table's four shapes.
+//
+// EACH CASE ASSERTS BOTH DIRECTIONS. A list of boxes that must be present catches a
+// field going missing; only the list that must be ABSENT catches the failure this
+// screen actually had, which was drawing everything for everybody.
 describe('the boxes a staged row is given', () => {
-  it('places a row bound for a work by where it is in that work', async () => {
-    await page()
-    await openEditor()
-    for (const label of ['Chapter name', 'Episode name', 'Act', 'Quest']) {
+  it('places a book line by its chapter and its page, and by nothing a screen has', async () => {
+    await at(BOOK)
+    for (const label of ['Chapter name', 'Chapter #', 'Location', 'Character', 'Language']) {
       expect(screen.getByLabelText(label), label).toBeTruthy()
     }
-    // And not by an occasion, which a line with a book or a film behind it does
-    // not have — the add surface hard drops these for the same reason.
-    expect(screen.queryByLabelText('Occasion'), 'a work row was offered an occasion').toBeNull()
-    expect(screen.queryByLabelText('Region'), 'a work row was offered a region').toBeNull()
+    for (const label of ['Timestamp', 'Season', 'Act', 'DLC', 'Occasion']) {
+      expect(screen.queryByLabelText(label), `a book row was offered ${label}`).toBeNull()
+    }
+  })
+
+  it('and a game line by its act, its quest and its pack', async () => {
+    await at(GAME)
+    for (const label of ['Character', 'Actor', 'Act', 'Quest', 'DLC', 'Language']) {
+      expect(screen.getByLabelText(label), label).toBeTruthy()
+    }
+    // No timestamp at either end: the server clears both on a game, so a box for
+    // one would post a value thrown away without a word.
+    for (const label of ['Timestamp', 'Ends', 'Chapter name', 'Season', 'Occasion']) {
+      expect(screen.queryByLabelText(label), `a game row was offered ${label}`).toBeNull()
+    }
+  })
+
+  it('and a show line by its season, its episode and that episode’s name', async () => {
+    await at(SHOW)
+    for (const label of ['Character', 'Season', 'Episode', 'Episode name', 'Timestamp', 'Ends']) {
+      expect(screen.getByLabelText(label), label).toBeTruthy()
+    }
+    for (const label of ['Act', 'Quest', 'DLC', 'Chapter name', 'Occasion']) {
+      expect(screen.queryByLabelText(label), `a show row was offered ${label}`).toBeNull()
+    }
   })
 
   it('and a standalone row by who said it, where, and on what occasion', async () => {
-    await page({ works: [QUOTE_WORK], quotes: [LOOSE_QUOTE] })
-    await openEditor('Occasion')
-    for (const label of ['Speaker', 'Occasion', 'Place', 'Region', 'To', 'Source title', 'Page', 'Source author']) {
+    await at(LOOSE)
+    // A SPEECH's own locators (0053 puts the kind on the quote). `Region` and `To`
+    // are a proverb's and a letter's, so a speech must NOT have them — the same
+    // table that grants these withholds those.
+    for (const label of ['Speaker', 'Occasion', 'Place', 'Source title', 'Source author', 'Language']) {
       expect(screen.getByLabelText(label), label).toBeTruthy()
     }
-    // A quote that belongs to nothing has no chapter and no runtime to be at.
-    for (const label of ['Chapter name', 'Timestamp', 'Season', 'DLC']) {
-      expect(screen.queryByLabelText(label), `a standalone row was offered ${label}`).toBeNull()
+    for (const label of ['Chapter name', 'Timestamp', 'Season', 'DLC', 'Region', 'To']) {
+      expect(screen.queryByLabelText(label), `a speech was offered ${label}`).toBeNull()
     }
   })
 
-  // LANGUAGE IS ON BOTH, because every row has one and an import is where it is
-  // most often missing — a clippings export of a Bengali novel arrives with none.
-  // TWO CASES RATHER THAN ONE WITH TWO RENDERS: testing-library tears down between
-  // `it`s and not inside one, so a second render leaves two queues in the document
-  // and every getByRole finds two of everything.
-  it('and a work row is asked its language', async () => {
-    await page()
-    await openEditor()
-    expect(screen.getByLabelText('Language')).toBeTruthy()
+  // WHEN IT WAS SAID, which the row PRINTS and could not repair. `occasion_date` is
+  // on the locator line (StagedRow's `bits`), so a reader could see that a parser
+  // had read "c. 40" as a year and do nothing about it — the same state the other
+  // eleven were in, and the reason the commit that fixed them overclaimed by saying
+  // "every locator".
+  //
+  // THE BOX HOLDS THE PHRASE AND THE COLUMN HOLDS THE CANONICAL FORM, which is what
+  // this case is really for: type "399 BCE" and the body must carry '-0399'. Sending
+  // the phrase would sort every ancient quote wrongly and silently.
+  it('and a date typed as a phrase is sent in the form the column sorts by', async () => {
+    await at(LOOSE)
+    // BY PLACEHOLDER, not by label: PartialDateField wraps the input AND the
+    // circa checkbox in one <label>, so its accessible name is the whole pair.
+    fireEvent.change(screen.getByPlaceholderText(/399 BCE/), { target: { value: '399 BCE' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(posted.length).toBe(1))
+    expect(posted[0].occasion_date, 'the typed phrase was stored instead of the canonical form').toBe('-0399')
+    // ITS FLAG RIDES WITH IT. A date sent without its circa is a date stated more
+    // precisely than the reader meant, so a change to either sends both.
+    expect('occasion_circa' in posted[0], 'the date went without its circa flag').toBe(true)
   })
 
-  it('and so is a standalone one', async () => {
-    await page({ works: [QUOTE_WORK], quotes: [LOOSE_QUOTE] })
-    await openEditor('Occasion')
-    expect(screen.getByLabelText('Language')).toBeTruthy()
+  it('and pressing circa alone is a change, even with the date untouched', async () => {
+    await at(LOOSE)
+    fireEvent.click(screen.getByLabelText('The date is approximate'))
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(posted.length).toBe(1))
+    expect(posted[0].occasion_circa, 'the circa toggle did not reach the endpoint').toBe(true)
   })
 
   it('and a standalone row sends its own locators under the right names', async () => {
-    await page({ works: [QUOTE_WORK], quotes: [LOOSE_QUOTE] })
-    await openEditor('Occasion')
+    await at(LOOSE)
     fireEvent.change(screen.getByLabelText('Occasion'), { target: { value: 'the Eichmann trial' } })
     fireEvent.change(screen.getByLabelText('Place'), { target: { value: 'Jerusalem' } })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))

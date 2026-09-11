@@ -6,6 +6,7 @@ import { quoteKindMeta } from './quoteKind.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { chapterLabel, episodeLabel } from './text.js'
 import { CastCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
+import { fieldKeys } from './addFields.js'
 import {
   ANNOTATION_HEX,
   BulkBar,
@@ -25,6 +26,10 @@ import {
   InfoDot,
   MonoLabel,
   NameScroll,
+  parsePartialDate,
+  partialDateInputValue,
+  partialDateValue,
+  PartialDateField,
   SectionHead,
   Select,
   splitCommas,
@@ -606,19 +611,21 @@ function FieldsPanel({ n, busy, onApply }) {
   const [val, setVal] = useState({})
   const [addTags, setAddTags] = useState([])
   const [removeTags, setRemoveTags] = useState([])
-  // HOLDS KEYS, not words. Every one of the eight is the shared label the rest
-  // of the app already draws for that column, so the bulk editor and the add
-  // form cannot disagree about what a field is called.
-  const FIELDS = [
-    ['chapter_no', 'common.field.chapter-no.label'],
-    ['chapter', 'common.field.chapter-name.label'],
-    ['location', 'common.field.location.label'],
-    ['character', 'common.field.character.label'],
-    ['actor', 'common.field.actor.label'],
-    ['season', 'common.field.season.label'],
-    ['episode', 'common.field.episode.label'],
-    ['timestamp', 'common.field.timestamp.label'],
-  ]
+  // FROM WRITABLE_FIELDS, so this panel and the row editor cannot disagree about
+  // what a staged row has. They did for a release — eight here against twenty-one
+  // there — and the list that fell behind was this one, which is the one a reader
+  // reaches for when a whole file got a field wrong.
+  //
+  // NOT GATED BY KIND, unlike the row editor, and that is the difference between the
+  // two controls rather than an oversight. A selection spans groups: a reader can
+  // tick a book's rows and a film's together, so there is no one door to ask. The
+  // checkbox beside each field is what makes that safe — nothing is written unless
+  // it is ticked, so a field that means nothing to a row is simply never ticked.
+  //
+  // MINUS THE DATE. `when` is a canonical date and a circa flag travelling together
+  // behind a date control; a checkbox and a free-text box cannot say "about 399
+  // BCE", and a bulk panel that took the phrase would store it unparsed.
+  const FIELDS = WRITABLE_FIELDS.filter(([key]) => key !== 'when')
   function submit() {
     const body = {}
     for (const [key] of FIELDS) if (on[key]) body[key] = (val[key] || '').trim()
@@ -846,38 +853,96 @@ function Panel({ title, children }) {
   )
 }
 
-// WHICH LOCATORS A STAGED ROW CAN BE GIVEN, and the question has exactly two
-// answers because there are exactly two things the queue knows for certain.
+// WHICH BOXES A STAGED ROW GETS, and it is the SAME table the add surface reads.
 //
-// A ROW IN A STANDALONE GROUP BELONGS TO NO BOOK AND NO FILM. A chapter and a
-// timestamp are not empty on it, they are meaningless — which is why the add
-// surface HARD DROPS them for those kinds rather than drawing them blank
-// (addFields.js, on the owner’s "hard drop anything that is not relevant"). This
-// form drew all of them on every row, so a staged proverb offered a season and an
-// episode and no way at all to say where the proverb was from.
+// THE FIRST VERSION OF THIS INVENTED TWO LISTS AND WAS WRONG TWICE. It branched on
+// "is this a standalone row", so a BOOK row was drawn a timestamp, a season, an act
+// and a DLC — the owner's own example of a hard drop ("timestamp of a book"). And
+// it argued that the queue could not ask `fieldKeys` because it did not know the
+// medium. It does: `stagedWorkRow.Kind` is `importMediaType()`'s output
+// (import_staging.go:336, import_movies.go:79-85), so a staged show says "show" and
+// a staged game says "game". The claim was false and a whole field list rested on
+// it.
 //
-// A ROW BOUND FOR A WORK TAKES THE UNION OF BOOK AND SCREEN, deliberately rather
-// than for want of trying. `stagedWorkRow` carries no media_type: a staged film,
-// show and game are one `movie` kind until approval, and `writeMovieDialogues` is
-// what decides there which locators survive. So this form cannot ask
-// `fieldsFor('dialogue', { mediaType })` the way the add form does — it shows what
-// the file said and lets the gate at approval drop the rest, which is the rule
-// stagedQuoteRow states about itself.
+// SO THERE ARE THREE DOORS, and addFields.js answers all three — the one table the
+// add form, the edit forms and their tests already read, which is this repo's rule
+// about a control drawn on two screens having one definition.
+function stagedDoor(work, quote) {
+  // 'quotes' is the queue's group for lines that belong to no book and no film;
+  // which KIND of line is the quote's own (0053), and that is a door name.
+  if (work?.kind === 'quotes') return quote.kind || 'other'
+  return work?.kind === 'book' ? 'annotation' : 'dialogue'
+}
+
+// A screen row's medium, for the one door whose fields depend on it. A staged work
+// is 'movie', 'show' or 'game' and nothing else — importMediaType folds everything
+// unknown onto 'movie', so this cannot fall through to a door that does not exist.
+function stagedMedia(work) {
+  return work?.kind === 'show' ? 'show' : work?.kind === 'game' ? 'game' : 'movie'
+}
+
+// WHAT THIS FORM CAN ACTUALLY WRITE, which is not everything the table lists. The
+// endpoint takes the locators and the language; `quote`, `note` and `translation`
+// are the TEXT and stay unwritable here, because a staged row is a record of what
+// the file said. `tags`, `color` and `board` are drawn by this form's own controls
+// below, and `sticker` has no column in the queue at all.
 //
-// LANGUAGE IS ON BOTH, because it is on every row and an import is where it is
-// most often missing: a clippings export of a Bengali novel arrives with none at
-// all, and it decides which way the card reads.
-const WORK_LOCATORS = [
-  'chapter_no', 'chapter', 'location', 'character', 'actor',
-  'season', 'episode', 'episode_name', 'timestamp', 'timestamp_end',
-  'act', 'quest', 'dlc',
+// AN INTERSECTION RATHER THAN A SECOND LIST: the table decides which fields a kind
+// HAS and the order they read in, and this decides which of them the queue can
+// repair. A key that appears in neither is simply not drawn, which is the state a
+// field is in before somebody wires it.
+// ONE TABLE, READ BY BOTH EDITORS. Key to the shared label, in the order the bulk
+// panel lists them. The row editor filters the add-surface table against these keys
+// and draws each with its own control; the bulk panel draws every one with a
+// checkbox. They were two hand-written lists for a release and drifted at once: the
+// row editor gained thirteen fields and the bulk panel kept its original eight, so
+// the language an import most often lacks — the field most likely to be uniformly
+// wrong across a whole file, which is exactly the bulk case — could be set on one
+// row and not on four hundred.
+const WRITABLE_FIELDS = [
+  ['chapter_no', 'common.field.chapter-no.label'],
+  ['chapter', 'common.field.chapter-name.label'],
+  ['location', 'common.field.location.label'],
+  ['character', 'common.field.character.label'],
+  ['actor', 'common.field.actor.label'],
+  ['season', 'common.field.season.label'],
+  ['episode', 'common.field.episode.label'],
+  ['episode_name', 'common.field.episode-name.label'],
+  ['timestamp', 'common.field.timestamp.label'],
+  ['timestamp_end', 'common.field.timestamp-end.label'],
+  ['act', 'common.field.act.label'],
+  ['quest', 'common.field.quest.label'],
+  ['dlc', 'common.field.dlc.label'],
+  ['speaker', 'common.field.speaker.label'],
+  ['occasion', 'common.field.occasion.label'],
+  // 'when' IS THE ONE THE BULK PANEL SKIPS, and its own note below says why: it is
+  // a pair (a canonical date and a circa flag) drawn by a date control, not a text
+  // box, so a checkbox and a free-text input cannot express it.
+  ['when', 'quotes.form.when.label'],
+  ['place', 'common.field.place.label'],
+  ['region', 'common.field.region.label'],
+  ['recipient', 'common.field.recipient.label'],
+  ['work_title', 'common.field.work-title.label'],
+  ['locator', 'common.field.locator.label'],
+  ['source_author', 'common.field.source-author.label'],
+  ['language', 'common.field.language.label'],
 ]
-const QUOTE_LOCATORS = [
-  'speaker', 'occasion', 'place',
-  'region', 'recipient', 'work_title', 'locator', 'source_author',
-]
-function stagedLocatorKeys(standalone) {
-  return [...(standalone ? QUOTE_LOCATORS : WORK_LOCATORS), 'language']
+const WRITABLE = new Set(WRITABLE_FIELDS.map(([k]) => k))
+
+// AND ONE FIELD THE QUEUE HAS THAT THE ADD FORM DOES NOT, which is not an oversight
+// in either. No door lists `actor`, because a person capturing a line types the
+// character and the server fills the performer in from the cast. A FILE can state
+// one outright — and `autofillActor` (dialogue_handlers.go:262) returns it unchanged
+// when it is non-empty, so a parser's wrong actor survives approval untouched. Drop
+// the box and that is a repair the queue cannot make.
+//
+// Beside `character`, because they are the two halves of one question and the cast
+// popover under each reads the other way round.
+function stagedLocatorKeys(work, quote) {
+  const keys = fieldKeys(stagedDoor(work, quote), { mediaType: stagedMedia(work) }).filter((k) => WRITABLE.has(k))
+  const at = keys.indexOf('character')
+  if (at < 0 || stagedDoor(work, quote) !== 'dialogue') return keys
+  return [...keys.slice(0, at + 1), 'actor', ...keys.slice(at + 1)]
 }
 
 // What the row already holds, as the box will hold it — ONE function, read by the
@@ -891,6 +956,11 @@ function stagedInitial(quote, key) {
   // 0044 stores a decimal; '' clears it, so absent and cleared stay apart.
   if (key === 'chapter_no') return quote.chapter_no ? String(quote.chapter_no) : ''
   if (key === 'season' || key === 'episode') return String(quote[key] ?? '')
+  // THE BOX HOLDS THE PHRASE, THE COLUMN HOLDS THE CANONICAL FORM. '-0399' is what
+  // sorts and groups; '399 BCE' is what a person types and reads. The add form
+  // converts on the way out and Quotes.jsx:295 converts on the way in — this is
+  // that same inverse, and writing it any other way makes the era unspellable.
+  if (key === 'when') return partialDateInputValue(quote.occasion_date || '')
   return quote[key] || ''
 }
 
@@ -909,15 +979,24 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
   // NULL UNTIL THE ROW HAS A DESTINATION, which `useWorkSuggestions` handles by
   // fetching nothing — see the `key` guard in the hook. A staged work bound for a
   // NEW library record legitimately has nothing behind it.
+  //
+  // BY `kind === 'book'`, NOT BY `kind === 'movie'`. A staged work's kind is one of
+  // book, movie, show, game and quotes — so testing for 'movie' sent every SHOW and
+  // every GAME down the books branch, which fetched `/books/<a movie id>/cast` and
+  // `/books/<id>/chapters`. A game's DLC box could then never suggest a pack, and if
+  // a book happened to hold that id the row offered another work's chapters — which
+  // this file's own note calls worse than offering none.
   const suggest = useWorkSuggestions(
-    work?.target_id ? { kind: work.kind === 'movie' ? 'screen' : 'book', id: work.target_id } : null,
+    work?.target_id ? { kind: work.kind === 'book' ? 'book' : 'screen', id: work.target_id } : null,
   )
-  // WHICH LOCATORS THIS ROW CAN BE GIVEN — see stagedLocatorKeys for why the
-  // question has exactly two answers here.
-  const standalone = work?.kind === 'quotes'
-  const keys = stagedLocatorKeys(standalone)
+  // WHICH BOXES THIS ROW GETS — three doors, answered by addFields.js. See
+  // stagedDoor and WRITABLE.
+  const keys = stagedLocatorKeys(work, quote)
   const [f, setF] = useState(() => ({
     ...Object.fromEntries(keys.map((k) => [k, stagedInitial(quote, k)])),
+    // The circa flag rides beside the date rather than in `keys`: it is not a field
+    // of its own, it is the second half of one. See the pair's note in submit().
+    circa: !!quote.occasion_circa,
     color: quote.color || 'yellow',
     favorite: !!quote.favorite,
   }))
@@ -943,7 +1022,19 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
     // on every save — the exact thing the paragraph above forbids, in the code
     // written to obey it.
     for (const k of keys) {
+      if (k === 'when') continue // a pair, handled below
       if (f[k] !== stagedInitial(quote, k)) body[k] = f[k]
+    }
+    // THE DATE AND ITS CIRCA GO TOGETHER OR NEITHER GOES. They are one fact — a
+    // date sent without its flag is a date stated more precisely than the reader
+    // meant — so a change to either sends both, and the phrase is converted to the
+    // canonical form on the way out exactly as the add surface does.
+    if (keys.includes('when')) {
+      const movedDate = f.when !== stagedInitial(quote, 'when')
+      if (movedDate || f.circa !== !!quote.occasion_circa) {
+        body.occasion_date = partialDateValue(parsePartialDate(f.when, { historical: true }))
+        body.occasion_circa = f.circa
+      }
     }
     if (f.color !== (quote.color || 'yellow')) body.color = f.color
     if (f.favorite !== !!quote.favorite) body.favorite = f.favorite
@@ -952,101 +1043,140 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
     if (msg) setErr(msg)
   }
 
-  // WHERE A LINE IS IN A BOOK OR ON A SCREEN — the union of both, for the reason
-  // stagedLocatorKeys gives: the queue does not know yet which of the two the
-  // destination will be, or which medium, and approval is where that is settled.
+  // ONE BOX PER FIELD KEY, in the order the table gives, and the same switch shape
+  // the add surface uses for the identical job. Two hand-written groups lived here
+  // and both were wrong: a book row drew a timestamp and a season, and a standalone
+  // row drew no place to put its own locators at all.
   //
-  // Every label here is the shared one, and so is most of the example text: a
-  // placeholder is an example of the FIELD rather than of the screen, so a game's
-  // act reads "e.g. Act II" wherever it is asked for. Duplicating eight of those
-  // into two locales to win a key prefix is the worse trade. What IS this screen's
-  // own are the examples written for it — Philip Marlowe and Elliott Gould are
-  // proper nouns, and 01:02:03 is a picture of a time format.
-  function workBoxes() {
-    return (
-      <>
-        <Field label={t('common.field.chapter-no.label')} inputMode="decimal" placeholder={t('staging.form.chapter-no.placeholder')} value={f.chapter_no} onChange={upd('chapter_no')} />
-        {/* FOUR BOXES GAIN THE LIBRARY'S OWN ANSWERS and the rest stay plain, which
-            is not a partial job: a location, a season, an episode number and a
-            timestamp have no pool to draw on — they are positions, not names, and a
-            list of other people's page numbers is noise.
-            FREE TEXT WITH SUGGESTIONS, NEVER A PICKER. Every one of these is
-            optional free text at the API, so a chapter the library has never seen
-            stays typeable — the helper must not become a cage, which is the rule
-            SuggestCombo states for itself. */}
-        <SuggestCombo
-          label={t('common.field.chapter-name.label')}
-          placeholder={t('staging.form.chapter.placeholder')}
-          value={f.chapter}
-          onChange={(v) => setF((d) => ({ ...d, chapter: v }))}
-          options={suggest.chapterNames.map((name) => ({ name }))}
-        />
-        <Field label={t('common.field.location.label')} placeholder={t('staging.form.location.placeholder')} value={f.location} onChange={upd('location')} />
-        <CastCombo
-          label={t('common.field.character.label')}
-          placeholder={t('staging.form.character.placeholder')}
-          value={f.character}
-          onChange={(v) => setF((d) => ({ ...d, character: v }))}
-          cast={suggest.cast}
-        />
-        {/* THE ACTOR BOX TAKES THE SAME CAST, the other way round — `field` decides
-            which of a row's two names this box is for and which becomes the second
-            line under it. Typing "robbie" shows Margot Robbie with Harley Quinn
-            beneath, which is how a reader knows the name matched a real row. */}
-        <CastCombo
-          label={t('common.field.actor.label')}
-          field="actor"
-          placeholder={t('staging.form.actor.placeholder')}
-          value={f.actor}
-          onChange={(v) => setF((d) => ({ ...d, actor: v }))}
-          cast={suggest.cast}
-        />
-        <Field label={t('common.field.season.label')} placeholder={t('staging.form.season.placeholder')} value={f.season} onChange={upd('season')} />
-        <Field label={t('common.field.episode.label')} placeholder={t('staging.form.episode.placeholder')} value={f.episode} onChange={upd('episode')} />
-        <Field label={t('common.field.timestamp.label')} placeholder={t('staging.form.timestamp.placeholder')} value={f.timestamp} onChange={upd('timestamp')} />
-        {/* `timestamp_end` (0070) closes a range; `dlc` (0071) says which pack a
-            game's line came in. */}
-        <Field label={t('common.field.timestamp-end.label')} placeholder={t('add.form.timestamp-end.placeholder')} value={f.timestamp_end} onChange={upd('timestamp_end')} />
-        <SuggestCombo
-          label={t('common.field.dlc.label')}
-          placeholder={t('add.form.dlc.placeholder')}
-          value={f.dlc}
-          onChange={(v) => setF((d) => ({ ...d, dlc: v }))}
-          options={suggest.packs.map((name) => ({ name }))}
-        />
-        {/* THE THREE 0047 LOCATORS THE QUEUE CARRIED AND NOBODY COULD SEE. An
-            episode's name, and the two a game's line is placed by: not printed on
-            the row, not offered here, and written into the library unread. A show
-            whose parser put the episode title in the wrong field was approved that
-            way or not at all. */}
-        <Field label={t('common.field.episode-name.label')} nameCase placeholder={t('capture.form.episode-name.placeholder')} value={f.episode_name} onChange={upd('episode_name')} />
-        <Field label={t('common.field.act.label')} placeholder={t('capture.form.act.placeholder')} value={f.act} onChange={upd('act')} />
-        <Field label={t('common.field.quest.label')} nameCase placeholder={t('capture.form.quest.placeholder')} value={f.quest} onChange={upd('quest')} />
-      </>
-    )
-  }
-
-  // A STANDALONE ROW'S OWN LOCATORS, and this form offered NONE of them. A staged
-  // proverb was drawn a chapter, a season and a timestamp — three fields that
-  // cannot apply to it — and no way to say who said it, where, or on what
-  // occasion, which are the only three that can. The row PRINTS all three, so the
-  // reader could read what the importer guessed and not touch it.
-  function quoteBoxes() {
-    return (
-      <>
-        <Field label={t('common.field.speaker.label')} nameCase placeholder={t('common.field.speaker.placeholder')} value={f.speaker} onChange={upd('speaker')} />
-        <Field label={t('common.field.occasion.label')} placeholder={t('common.field.occasion.placeholder')} value={f.occasion} onChange={upd('occasion')} />
-        <Field label={t('common.field.place.label')} nameCase placeholder={t('common.field.place.placeholder')} value={f.place} onChange={upd('place')} />
-        <Field label={t('common.field.region.label')} nameCase placeholder={t('quotes.form.region.placeholder')} value={f.region} onChange={upd('region')} />
-        <Field label={t('common.field.recipient.label')} nameCase placeholder={t('quotes.form.recipient.placeholder')} value={f.recipient} onChange={upd('recipient')} />
-        {/* WHAT THE LINE CAME OUT OF (0070). A speech reaches a reader through
-            somebody's text, and the person who wrote that text is neither the
-            speaker nor anyone else on the row. */}
-        <Field label={t('common.field.work-title.label')} nameCase placeholder={t('quotes.form.work-title.placeholder')} value={f.work_title} onChange={upd('work_title')} />
-        <Field label={t('common.field.locator.label')} placeholder={t('quotes.form.locator.placeholder')} value={f.locator} onChange={upd('locator')} />
-        <Field label={t('common.field.source-author.label')} nameCase placeholder={t('add.form.source-author.placeholder')} value={f.source_author} onChange={upd('source_author')} />
-      </>
-    )
+  // Every label is the shared one, and so is most of the example text: a placeholder
+  // is an example of the FIELD rather than of the screen, so a game's act reads
+  // "e.g. Act II" wherever it is asked for. Duplicating them into two locales to win
+  // a key prefix is the worse trade. What IS this screen's own are the examples
+  // written for it — Philip Marlowe and Elliott Gould are proper nouns, and 01:02:03
+  // is a picture of a time format.
+  //
+  // FOUR BOXES OFFER THE LIBRARY'S OWN ANSWERS and the rest stay plain, which is not
+  // a partial job: a location, a season, an episode number and a timestamp have no
+  // pool to draw on — they are positions, not names, and a list of other people's
+  // page numbers is noise. And every one of them stays FREE TEXT WITH SUGGESTIONS
+  // rather than becoming a picker, because each is optional free text at the API and
+  // a chapter the library has never seen has to stay typeable.
+  function box(key) {
+    switch (key) {
+      case 'chapter_no':
+        return <Field key={key} label={t('common.field.chapter-no.label')} inputMode="decimal" placeholder={t('staging.form.chapter-no.placeholder')} value={f.chapter_no} onChange={upd('chapter_no')} />
+      case 'chapter':
+        return (
+          <SuggestCombo
+            key={key}
+            label={t('common.field.chapter-name.label')}
+            placeholder={t('staging.form.chapter.placeholder')}
+            value={f.chapter}
+            onChange={(v) => setF((d) => ({ ...d, chapter: v }))}
+            options={suggest.chapterNames.map((name) => ({ name }))}
+          />
+        )
+      case 'location':
+        return <Field key={key} label={t('common.field.location.label')} placeholder={t('staging.form.location.placeholder')} value={f.location} onChange={upd('location')} />
+      case 'character':
+        return (
+          <CastCombo
+            key={key}
+            label={t('common.field.character.label')}
+            placeholder={t('staging.form.character.placeholder')}
+            value={f.character}
+            onChange={(v) => setF((d) => ({ ...d, character: v }))}
+            cast={suggest.cast}
+          />
+        )
+      // THE ACTOR BOX TAKES THE SAME CAST, the other way round — `field` decides
+      // which of a row's two names this box is for and which becomes the second line
+      // under it. Typing "robbie" shows Margot Robbie with Harley Quinn beneath,
+      // which is how a reader knows the name matched a real row.
+      case 'actor':
+        return (
+          <CastCombo
+            key={key}
+            label={t('common.field.actor.label')}
+            field="actor"
+            placeholder={t('staging.form.actor.placeholder')}
+            value={f.actor}
+            onChange={(v) => setF((d) => ({ ...d, actor: v }))}
+            cast={suggest.cast}
+          />
+        )
+      case 'season':
+        return <Field key={key} label={t('common.field.season.label')} placeholder={t('staging.form.season.placeholder')} value={f.season} onChange={upd('season')} />
+      case 'episode':
+        return <Field key={key} label={t('common.field.episode.label')} placeholder={t('staging.form.episode.placeholder')} value={f.episode} onChange={upd('episode')} />
+      case 'episode_name':
+        return <Field key={key} label={t('common.field.episode-name.label')} nameCase placeholder={t('capture.form.episode-name.placeholder')} value={f.episode_name} onChange={upd('episode_name')} />
+      case 'timestamp':
+        return <Field key={key} label={t('common.field.timestamp.label')} placeholder={t('staging.form.timestamp.placeholder')} value={f.timestamp} onChange={upd('timestamp')} />
+      // 0070 closes a range.
+      case 'timestamp_end':
+        return <Field key={key} label={t('common.field.timestamp-end.label')} placeholder={t('add.form.timestamp-end.placeholder')} value={f.timestamp_end} onChange={upd('timestamp_end')} />
+      case 'act':
+        return <Field key={key} label={t('common.field.act.label')} placeholder={t('capture.form.act.placeholder')} value={f.act} onChange={upd('act')} />
+      case 'quest':
+        return <Field key={key} label={t('common.field.quest.label')} nameCase placeholder={t('capture.form.quest.placeholder')} value={f.quest} onChange={upd('quest')} />
+      // 0071 says which pack a game's line came in.
+      case 'dlc':
+        return (
+          <SuggestCombo
+            key={key}
+            label={t('common.field.dlc.label')}
+            placeholder={t('add.form.dlc.placeholder')}
+            value={f.dlc}
+            onChange={(v) => setF((d) => ({ ...d, dlc: v }))}
+            options={suggest.packs.map((name) => ({ name }))}
+          />
+        )
+      case 'speaker':
+        return <Field key={key} label={t('common.field.speaker.label')} nameCase placeholder={t('common.field.speaker.placeholder')} value={f.speaker} onChange={upd('speaker')} />
+      case 'occasion':
+        return <Field key={key} label={t('common.field.occasion.label')} placeholder={t('common.field.occasion.placeholder')} value={f.occasion} onChange={upd('occasion')} />
+      // THE DATE IS A PAIR, and the control is the add surface's own: the box holds
+      // the phrase a person typed and the column holds '-0399', so the two halves
+      // travel together and the era stays spellable.
+      case 'when':
+        return (
+          <PartialDateField
+            key={key}
+            label={t('quotes.form.when.label')}
+            value={f.when}
+            onChange={(v) => setF((d) => ({ ...d, when: v }))}
+            historical
+            circa={f.circa}
+            onCirca={(v) => setF((d) => ({ ...d, circa: v }))}
+            circaLabel={t('quotes.form.circa.label')}
+          />
+        )
+      case 'place':
+        return <Field key={key} label={t('common.field.place.label')} nameCase placeholder={t('common.field.place.placeholder')} value={f.place} onChange={upd('place')} />
+      case 'region':
+        return <Field key={key} label={t('common.field.region.label')} nameCase placeholder={t('quotes.form.region.placeholder')} value={f.region} onChange={upd('region')} />
+      case 'recipient':
+        return <Field key={key} label={t('common.field.recipient.label')} nameCase placeholder={t('quotes.form.recipient.placeholder')} value={f.recipient} onChange={upd('recipient')} />
+      // WHAT THE LINE CAME OUT OF (0070). A speech reaches a reader through
+      // somebody's text, and the person who wrote that text is neither the speaker
+      // nor anyone else on the row.
+      case 'work_title':
+        return <Field key={key} label={t('common.field.work-title.label')} nameCase placeholder={t('quotes.form.work-title.placeholder')} value={f.work_title} onChange={upd('work_title')} />
+      case 'locator':
+        return <Field key={key} label={t('common.field.locator.label')} placeholder={t('quotes.form.locator.placeholder')} value={f.locator} onChange={upd('locator')} />
+      case 'source_author':
+        return <Field key={key} label={t('common.field.source-author.label')} nameCase placeholder={t('add.form.source-author.placeholder')} value={f.source_author} onChange={upd('source_author')} />
+      // On every door, and an import is where it is most often missing: a clippings
+      // export of a Bengali novel arrives with none at all.
+      case 'language':
+        return <Field key={key} label={t('common.field.language.label')} nameCase placeholder={t('common.field.language.placeholder')} value={f.language} onChange={upd('language')} />
+      default:
+        // A key WRITABLE admits and this switch does not draw. Unreachable while the
+        // two agree, and silent rather than thrown because a form that crashes on an
+        // unknown field is worse than one missing a box.
+        return null
+    }
   }
 
   return (
@@ -1058,12 +1188,7 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
         {t('staging.form.quoted', { text: quote.quote || quote.note })}
       </p>
       <p className="microcopy">{t('staging.form.locators.prose')}</p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {standalone ? quoteBoxes() : workBoxes()}
-        {/* ON BOTH, because it is on every row and an import is where it is most
-            often missing. */}
-        <Field label={t('common.field.language.label')} nameCase placeholder={t('common.field.language.placeholder')} value={f.language} onChange={upd('language')} />
-      </div>
+      <div className="grid gap-3 sm:grid-cols-2">{keys.map(box)}</div>
       <div className="flex flex-wrap items-center gap-4">
         <label className="tp-field">
           <MonoLabel>{t('common.field.colour.label')}</MonoLabel>

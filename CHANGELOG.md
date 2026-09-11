@@ -21,14 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `com`, `com.au` — instead of the whole `www.amazon.in`, which was the widest thing on
   the card. Paste any form of it and it still works.
 - **Every locator a queued import row carries can be corrected before you approve it.**
-  Eleven fields went through the queue unfixable: a show's episode name, a game's act and
-  quest, and the eight that place a quote belonging to no book and no film — who said it,
-  where, on what occasion, and the title, page and author of the text it came out of. Six
-  of them were printed on the row, so you could read what the importer guessed and do
-  nothing about it; the other five were not even shown. **And the queue stops asking the
-  wrong questions**: a staged proverb was offered a chapter, a season and a timestamp, none
-  of which can apply to it. A row bound for a book or a film gets that kind's boxes, a
-  standalone quote gets its own, and both are asked their language.
+  Twelve fields went through the queue unfixable: a show's episode name, a game's act and
+  quest, and the nine that place a quote belonging to no book and no film — who said it,
+  where, when, on what occasion, and the title, page and author of the text it came out of.
+  Three of them were printed on the row, so you could read what the importer guessed and do
+  nothing about it; the other nine were not even shown. **And the queue stops asking the
+  wrong questions**: a staged proverb was offered a chapter, a season and a timestamp, and
+  a book highlight was offered a timestamp and a DLC — none of which can apply. Every row
+  now gets the boxes its own kind has, from the same table the add screen reads, so a game
+  is asked for its act and a show for its episode name.
 
 - **The list of import formats moved into help, and Import has its own section there.**
   The eight formats and their step-by-step instructions used to sit folded under the upload

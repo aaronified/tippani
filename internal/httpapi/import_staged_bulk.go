@@ -92,6 +92,19 @@ type stagedBulkReq struct {
 	WorkTitle    *string `json:"work_title"`
 	Locator      *string `json:"locator"`
 	SourceAuthor *string `json:"source_author"`
+
+	// WHEN IT WAS SAID, and it is a pair rather than a field. `occasion_date` is
+	// the CANONICAL form — '-0399' for 399 BCE — because the column is sorted and
+	// grouped as text; the box a reader types into holds the phrase and the client
+	// converts, exactly as the add surface does (partialDateValue). `occasion_circa`
+	// is the "about" flag beside it, and the two are one fact: a date typed without
+	// its circa is a date stated more precisely than the reader meant.
+	//
+	// A *bool, NOT A *string, so it does not join the loop below: absent leaves it
+	// alone and false clears it, which is the same three-state rule the strings get
+	// from their pointer.
+	OccasionDate  *string `json:"occasion_date"`
+	OccasionCirca *bool   `json:"occasion_circa"`
 	// Counts arrive as strings, not numbers, because three states have to be
 	// distinguishable and a *int only carries two: absent (leave alone), "" (clear
 	// it) and "0" (season 0, where a series keeps its specials).
@@ -128,6 +141,7 @@ func (req *stagedBulkReq) validate() string {
 		{&req.WorkTitle, "work_title"},
 		{&req.Locator, "locator"},
 		{&req.SourceAuthor, "source_author"},
+		{&req.OccasionDate, "occasion_date"},
 	} {
 		if *f.val == nil {
 			continue
@@ -287,10 +301,15 @@ func (s *Server) handleBulkStaged(w http.ResponseWriter, r *http.Request) {
 		{"work_title", req.WorkTitle},
 		{"locator", req.Locator},
 		{"source_author", req.SourceAuthor},
+		{"occasion_date", req.OccasionDate},
 	} {
 		if f.val != nil {
 			set(f.col, *f.val)
 		}
+	}
+	// Its flag, apart from the loop because it is a bool — see the pair's note.
+	if req.OccasionCirca != nil {
+		set("occasion_circa", boolToInt(*req.OccasionCirca))
 	}
 	// No _orig pair for these: nothing rewrites an episode number, so there is
 	// nothing to reset back to (see 0025).

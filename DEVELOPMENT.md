@@ -455,8 +455,10 @@ markdown variant → add the upload branch in `import_handlers.go` → give it a
 slug and a signature in `detect.go`, and an entry in `importSources`, `importProbeOrder`
 and `importProbes` in `import_auto.go`, because the one drop target is dispatched from
 those three tables and a format missing from them can only be reached by its own route →
-add its how-to to `SOURCES` and its slug to `READ_AS` in `ImportPage.jsx` (the `as` slugs
-are the importer's constants, not the hyphenated route names).
+add its how-to to `SOURCES` in `importSources.js` (which the import screen and the
+`import` help section both read, so the list cannot drift from the parsers) and its slug to
+`READ_AS` in `ImportPage.jsx` (the `as` slugs are the importer's constants, not the
+hyphenated route names).
 
 **Add a migration.** Create `internal/store/migrations/NNNN_what_it_does.sql`, the next
 number → it is embedded automatically → never edit it again → if it adds a column an

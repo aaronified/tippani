@@ -2,16 +2,17 @@
 //
 // THE OWNER, on this part of the backlog: "complete import review". The queue's
 // own argument, written in the importer, is that "an import guesses, and the queue
-// is where a wrong guess gets corrected" — and for eleven fields that argument was
-// false. stagedQuoteRow carries all eleven, StagedRow prints six of them, and
-// POST /import/staged/bulk could write none: the reader could see that a parser
-// had put a speech's occasion in its place field, and could do nothing until after
-// approving the row.
+// is where a wrong guess gets corrected" — and for twelve fields that argument was
+// false. stagedQuoteRow carries all twelve, StagedRow prints THREE of them
+// (speaker, occasion and place — count them in `bits`, and note that act, quest and
+// episode_name are not there), and POST /import/staged/bulk could write none: the
+// reader could see that a parser had put a speech's occasion in its place field,
+// and could do nothing until after approving the row.
 //
-// THE OTHER FIVE WERE WORSE, because they were not printed either. A proverb's
-// region, a letter's recipient and the three that name the text a speech reaches a
-// reader through went through the whole queue unseen and landed in the library
-// unread.
+// THE OTHER NINE WERE WORSE, because they were not printed either. A show's episode
+// name, a game's act and quest, a proverb's region, a letter's recipient and the
+// three that name the text a speech reaches a reader through went through the whole
+// queue unseen and landed in the library unread.
 //
 // WHY A TABLE AND NOT ELEVEN TESTS. The decode is by pointer and the write is by
 // column name, so the failure mode is a misspelling on ONE field: the request
@@ -46,6 +47,10 @@ var stagedLocatorFields = []struct {
 	{"work_title", "Eichmann in Jerusalem", func(q stagedQuoteRow) string { return q.WorkTitle }},
 	{"locator", "ch. 15", func(q stagedQuoteRow) string { return q.Locator }},
 	{"source_author", "Plato", func(q stagedQuoteRow) string { return q.SourceAuthor }},
+	// THE CANONICAL FORM, not the phrase — the column is sorted and grouped as
+	// text, so '-0399' is what 399 BCE has to be stored as. The client converts;
+	// this asserts the endpoint stores whatever it is handed without mangling it.
+	{"occasion_date", "-0399", func(q stagedQuoteRow) string { return q.OccasionDate }},
 }
 
 func TestAStagedRowTakesEveryLocatorItCarries(t *testing.T) {
@@ -140,6 +145,45 @@ func TestTheQueueDoesNotRewriteWhatAFileSaid(t *testing.T) {
 		}
 		if sq.Note != before[i].Note || sq.Translation != before[i].Translation {
 			t.Fatalf("note or translation was rewritten: %+v -> %+v", before[i], sq)
+		}
+	}
+}
+
+// THE DATE'S FLAG IS A BOOL, so it cannot join the table above and needs its own
+// round trip. It is the half most likely to be dropped: `occasion_date` decodes as
+// a *string beside eleven other *strings, and `occasion_circa` is the one field on
+// this request that is not one — a loop that quietly skipped it would leave every
+// "about 399 BCE" recorded as an exact year, with a successful save saying nothing.
+func TestTheCircaFlagRoundTripsBesideItsDate(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
+	ids := stagedIDs(queue(t, c, ""))
+
+	c.mustDo("POST", "/import/staged/bulk", map[string]any{
+		"ids": ids, "occasion_date": "-0399", "occasion_circa": true,
+	}, 200)
+	for _, sq := range queue(t, c, "").Quotes {
+		if sq.OccasionDate != "-0399" || !sq.OccasionCirca {
+			t.Fatalf("the date pair did not survive: date=%q circa=%v", sq.OccasionDate, sq.OccasionCirca)
+		}
+	}
+
+	// AND FALSE CLEARS IT, which a *bool has to express and a plain bool cannot:
+	// absent leaves the flag alone, false turns it off. A request carrying only the
+	// date must not silently un-approximate a row.
+	c.mustDo("POST", "/import/staged/bulk", map[string]any{"ids": ids, "occasion_date": "-0400"}, 200)
+	for _, sq := range queue(t, c, "").Quotes {
+		if !sq.OccasionCirca {
+			t.Fatalf("a date sent without its flag cleared the flag: %+v", sq)
+		}
+	}
+	c.mustDo("POST", "/import/staged/bulk", map[string]any{"ids": ids, "occasion_circa": false}, 200)
+	for _, sq := range queue(t, c, "").Quotes {
+		if sq.OccasionCirca {
+			t.Fatalf("occasion_circa=false did not clear the flag: %+v", sq)
 		}
 	}
 }

@@ -12808,3 +12808,44 @@ them goes on being right while the other quietly stops, which is the failure the
 The one thing genuinely lost is a reader who never presses "?". That is the cost of the rule, and
 it is paid down by where the section sits: `import` is directly under `capture` in `GUIDE_ORDER`,
 so the guide's rail shows the two together the moment either is opened.
+
+### A staged row's boxes come from the add surface's own table, after two wrong answers
+
+The queue's per-row editor drew ONE box set on every row. A staged proverb was offered a
+chapter, a season and a timestamp, and nothing with which to say who said it — so the repair
+branched on "is this a standalone row", which fixed the proverb and left a BOOK row holding a
+timestamp, a season, an act and a DLC. That is the owner's own example of a hard drop
+("timestamp of a book"), reintroduced by the fix for the adjacent bug.
+
+**The argument that produced it was false, and that is the part worth recording.** The
+branching version reasoned in a comment that the queue could not ask `fieldsFor(door, {
+mediaType })` the way the add surface does, because a staged film, show and game are one
+`movie` kind until approval. They are not: `stagedWorkRow.Kind` is `importMediaType()`'s
+output (`import_staging.go:336`, `import_movies.go:79-85`), so a staged show says `show` and a
+staged game says `game`. A whole field list rested on a claim nobody checked against the line
+that produces the value.
+
+The same wrong belief had already shipped a live bug one layer up — the suggestions hook was
+routed by `kind === 'movie'`, so every show and every game asked `/books/<a movie id>/cast`
+and `/books/<id>/chapters`. A game's DLC box could never suggest a pack, and where a book
+happened to hold that id the row offered another work's chapters, which the code's own comment
+calls worse than offering none. **And the test that should have caught it could not**: its
+fixture set `kind: 'movie'` plus a `media_type` field `stagedWorkRow` does not have, so the
+suite was green over a shape the server never sends.
+
+So the editor now asks `fieldKeys(door, { mediaType })` and intersects it with what the
+endpoint can write. Four shapes, from one table: a book by its chapter and page, a film by its
+runtime, a show by its season and episode name, a game by its act, quest and pack, and a
+standalone row by its own 0053 kind.
+
+**One field is the queue's and not the add form's**, and the exception is stated rather than
+smuggled: no door lists `actor`, because a person capturing a line types the character and the
+server fills the performer in from the cast. A FILE can state one outright, and `autofillActor`
+(`dialogue_handlers.go:262`) returns a non-empty actor unchanged — so dropping the box would
+lose a repair the queue is the only place to make.
+
+**And the bulk panel is the same table.** It offered eight fields while the row editor offered
+twenty-one; the field that fell out was `language`, which is the one most likely to be
+uniformly wrong across a whole file and therefore the one the bulk editor exists for. Both
+read `WRITABLE_FIELDS` now. The panel skips only the date, because a canonical date and a
+circa flag travelling together cannot be expressed by a checkbox and a text box.
