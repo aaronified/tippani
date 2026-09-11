@@ -220,7 +220,7 @@ describe('buildModel selection', () => {
   // not the bare language. A noun glued after the language would read wrongly in
   // any language that puts the noun first or has no article.
   it('gives a proverb a legend naming its language, as a whole clause', () => {
-    const share = quoteShare({ quote: 'যেমন কর্ম তেমন ফল', category: 'proverb', language: 'Bengali' })
+    const share = quoteShare({ quote: 'যেমন কর্ম তেমন ফল', kind: 'proverb', language: 'Bengali' })
     const model = buildModel(share, ALL, null)
     expect(model.meta.join(' ')).toContain('Bengali')
     // The clause, not the bare value: "a Bengali proverb" rather than "Bengali".
@@ -228,9 +228,11 @@ describe('buildModel selection', () => {
   })
 
   // A speech is not a proverb, and the legend must not appear on one — the field
-  // is gated on the category, not on having a language.
+  // is gated on the KIND, not on having a language. (It read `category` for a
+  // release, which is where the quote is filed rather than what it is; see
+  // share.jsx and test/pure/share.test.js for what that cost.)
   it('leaves the legend off a quote that is not a proverb', () => {
-    const share = quoteShare({ quote: 'Give me blood', category: 'speech', language: 'Bengali' })
+    const share = quoteShare({ quote: 'Give me blood', kind: 'speech', language: 'Bengali' })
     expect(buildModel(share, ALL, null).meta.join(' ').toLowerCase()).not.toContain('proverb')
   })
 

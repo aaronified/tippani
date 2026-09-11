@@ -496,6 +496,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`380BCE` written without a space was read as `380`.** Every year box quietly dropped an
   era typed tight against the number, so a book entered that way was filed 380 years *after*
   the date meant, in the wrong era, with nothing on screen to show it.
+- **A shared proverb arrived as words from nowhere.** A proverb is the one kind of quote
+  with nobody to credit — no speaker, no occasion, no date, no place — so the share says
+  what it is instead: *a Bengali proverb*. That line was reading the shelf the quote is
+  filed on rather than what the quote *is*, and nothing filed the proverbs you capture, so
+  every proverb saved since the capture screen was rebuilt shared with no attribution at
+  all. It reads the kind now, which is the box you actually answer.
 
 ### Added
 

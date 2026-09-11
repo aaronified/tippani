@@ -287,7 +287,7 @@ export function quoteShare({
   quote,
   translation,
   note,
-  category,
+  kind,
   language,
   speaker,
   occasion,
@@ -330,10 +330,27 @@ export function quoteShare({
       // last and has no "a" — so the whole clause is one key with the hole in it,
       // the way the "played by …" credit stopped being a prefix. The hole is
       // {value}, which is what buildModel hands every phrase on this line.
+      //
+      // THE KIND, NOT THE CATEGORY, and this line asked the wrong column for a
+      // release. `category` is 0035's filing shelf — utterance_handlers.go says
+      // so in its own words, "where you FILED it, not what it is", and defaults
+      // an absent one to 'other'. The add surface never sets it (grep
+      // AddSurface.jsx and addFields.js: neither mentions the word), so every
+      // proverb captured since that rebuild had category='other' and shared with
+      // no legend at all — the exact "words from nowhere" this block exists to
+      // prevent. The legend fired only on starter proverbs that happened to
+      // arrive pre-categorised.
+      //
+      // `kind` (0053) IS THE COLUMN, and it is the one attribution.js already
+      // reads for the same legend on the card. No category fallback: the
+      // one-time pass (onetime_2_2_3_quote_kind.go) folds category='proverb'
+      // into kind='proverb' on every row that had no kind, so kind is a superset
+      // of what the old test caught and a fallback would only keep the wrong
+      // column alive.
       {
         id: "proverb",
         label: t("share.field.proverb.label"),
-        value: category === "proverb" && language ? language : "",
+        value: kind === "proverb" && language ? language : "",
         phrase: "share.field.proverb.legend",
       },
       { id: "place", label: t("share.field.place.label"), value: place || "" },

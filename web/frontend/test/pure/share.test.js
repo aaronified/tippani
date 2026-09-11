@@ -290,6 +290,20 @@ describe('the payload shapers', () => {
     expect(buildShareText(proverb, ALL, 'plaintext')).toBe('“Least said, soonest mended”')
   })
 
+  // THE LEGEND READS THE KIND, AND THE SECOND HALF OF THIS TEST IS THE POINT.
+  // It read `category` — 0035's filing shelf, which the server defaults to
+  // 'other' and the add surface never sets — so every proverb captured through
+  // that surface shared with no legend at all. Asserting only that a proverb
+  // gets its legend would pass over either column; asserting that a row filed on
+  // the proverb shelf with no kind gets NOTHING is what proves the column moved.
+  it('a proverb takes its legend from the kind, not from the shelf it is filed on', () => {
+    const captured = quoteShare({ quote: 'অতি সন্ন্যাসীতে গাজন নষ্ট', kind: 'proverb', language: 'Bengali', category: 'other' })
+    expect(buildShareText(captured, ALL, 'plaintext')).toContain('a Bengali proverb')
+
+    const filedOnly = quoteShare({ quote: 'Least said, soonest mended', kind: '', language: 'English', category: 'proverb' })
+    expect(buildShareText(filedOnly, ALL, 'plaintext')).not.toContain('proverb')
+  })
+
   it('render a whole quote card in the epigraph order', () => {
     expect(buildShareText(bose(), ALL, 'markdown')).toBe(
       [

@@ -804,7 +804,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       // and the same quote shared from its own screen produce the same picture.
       return quoteShare({
         quote: f.raw.quote, translation: f.raw.translation, note: f.raw.note,
-        category: f.raw.category, language: f.raw.language,
+        kind: f.raw.kind, language: f.raw.language,
         speaker: f.raw.speaker, occasion: f.raw.occasion,
         when: formatPartialDate(f.raw.occasion_date, f.raw.occasion_circa), place: f.raw.place, medium: quoteKindMeta(f.raw),
         date: fmtDate(f.raw.noted_at || f.raw.created_at),

@@ -1038,7 +1038,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
       quote: u.quote,
       translation: u.translation,
       note: u.note,
-      category: u.category,
+      kind: u.kind,
       language: u.language,
       speaker: u.speaker,
       occasion: u.occasion,
