@@ -6,12 +6,16 @@ per role** — a subtitle track for a film, an ebook for a book, a text for an e
 — and two things to do with it: find where each quote sits, and show what is around
 it.
 
-— and then, when the quotes stop arriving, **a way to keep the context and throw
-the file away**, which is measured below at 29× smaller on the owner's own book.
+**Both answers are stored the moment the file is read**, and the file is never a
+read path afterwards. A locator is a row and a context is a row, so a quote opens
+its surroundings whether the file is still there or not. What the file is for is
+**making** those rows — and re-making them, for quotes added since.
 
-A file arrives one of two ways: **uploaded**, or **found on a read-only mount** the
+It arrives one of two ways: **uploaded**, or **found on a read-only mount** the
 operator already keeps their library on. The second is the one that scales, and it
-is the same store either way.
+is the only one where re-making is free. When an uploaded file has done its job,
+**it can be thrown away** — measured below at 29× smaller than keeping it, and
+costing nothing that is already stored.
 
 It is the spine. `docs/plans/locators-from-files.md` is the reader of these files
 and is written against them; this plan is where they come from, where they live,
@@ -330,7 +334,7 @@ existing.
 ```js
 // actions.jsx — actionsFor(kind, item, ctx)
 { id: 'sourceAdd',   where: ROW,      available: isWork && !!ctx.addSource }
-{ id: 'sourceApply', where: ROW,      available: isWork && !!ctx.applySource && item.sourceState === 'file' }
+{ id: 'sourceApply', where: ROW,      available: isWork && !!ctx.applySource && readable(item) }
 { id: 'sourcePrune', where: OVERFLOW, available: isWork && !!ctx.pruneSource  && item.sourceState === 'file' }
 { id: 'inContext',   where: ROW,      available: !isWork && !!ctx.inContext && !!item.hasContext }
 ```
@@ -342,8 +346,17 @@ absence through `available`, so this is four predicates and no new mechanism.
 **One field carries it: `sourceState` ∈ `none | file | mounted | pruned | missing`.**
 Not booleans — `hasSource` plus `isPruned` makes `{false, true}` a state nothing
 should be in, and somebody eventually writes the branch that handles it. One
-`LEFT JOIN` on the work query answers all of them. Quotes carry `hasContext`, which
-is one `EXISTS` over `source_context` or a readable file.
+`LEFT JOIN` on the work query answers all of them, and `readable(item)` is
+`sourceState === 'file' || sourceState === 'mounted'` — the two states where bytes
+can still be read, which is what running the matcher or a rescan needs.
+
+**Pruning needs `file` specifically**, not `readable`: a mounted file has no bytes of
+ours to remove, so the action is absent there. See the mount door.
+
+**Quotes carry `hasContext`, and it is one `EXISTS` over `source_context` — nothing
+else.** Not "a row or a readable file": the row *is* the context, so a quote with a
+row has context whether or not any file survives, and a quote without one does not
+have context however many files are lying about.
 
 **`missing` is the state a mount makes necessary.** A stored file is there or the
 app has a bug; a mounted one is there or the disk is not. So the work query stats
@@ -521,17 +534,24 @@ same durable-refusal rule as everything else:
 - **Refused once, not offered again** — `cleanup_ignores`' key shape, hashed over the
   path and the work, so declining to attach a file stays declined through rescans.
 
-#### A mounted source can still be pruned, and that is not redundant
+#### A mounted source is never pruned, and an earlier draft of this was wrong
 
-Pruning a mounted file frees nothing — there is nothing of ours to free. It does
-something else, and it is worth having: **it makes the context survive the mount
-going away.** A disk unplugged, a container restarted without the volume, a NAS
-off — the file vanishes and every context jump with it. Pruning first keeps the
-spans in the database, where the backup already carries them.
+This section previously argued that pruning a mounted file was worth doing because
+it *"makes the context survive the mount going away."* **That reasoning is gone.**
+Context is extracted and stored the moment a file is attached (*Context*, below), so
+it already survives the mount going away — pruning adds nothing.
 
-So the prune confirmation reads differently for a mounted source: not *"this frees
-1.4 MB"* but *"this keeps the context if the mount disappears"*. Same operation,
-honest about which benefit applies.
+And there is nothing to delete: the bytes are the operator's, on their disk, and the
+app does not write there. So **prune is simply absent for a mounted source**, the
+way it is absent for a work with no file at all. `sourceState` already distinguishes
+`mounted` from `file`, so this is a predicate on an action that already exists
+rather than a new rule.
+
+What a mount gives instead is the thing prune has to give up: **rescan is free and
+repeatable.** New quotes get context on the next press, the window can be widened by
+changing the setting and scanning again, and the locator matcher always has its
+input. That is the case for mounting rather than uploading, and it is stronger than
+any space argument.
 
 ### 6 — the global import
 
@@ -587,39 +607,58 @@ from a known offset.
 owner asked for "a set amount", which is a number the reader sets once — not a
 control on the panel, which would make every reader tune it on every quote.
 
-### Where the work happens
+### Where the work happens — **the context is stored, and that is the whole design**
 
-**Server reads the span, client draws it.** `GET /quotes/{kind}/{id}/context`
-answers `{before, body, after, unit, span}`. The file never leaves. This is the same
-division the subtitle screen uses and for the same reason — one parser, in Go,
-tested.
+> *"the context will be stored in the app, and locators too. the scans will reapply
+> context in new quotes. that's all."*
 
-**And the endpoint has two backings, which is the hinge this whole plan turns on.**
-It asks for a quote's context and does not care where it comes from:
+`GET /quotes/{kind}/{id}/context` reads **one `source_context` row** and answers
+`{before, body, after, unit, span}`. It opens no file. There is no second backing,
+no fallback path, no branch.
 
-1. **A `source_context` row**, if one was kept — answered as stored.
-2. **The file**, if it is still there — opened, seeked, read outward, closed.
-3. **Neither** — answered as absent, with *why*: pruned and added since, or never
-   had a source at all. Two different sentences, because they have two different
-   remedies.
+**An earlier draft of this plan had two backings — a stored row or the live file —
+and called it the hinge. It is withdrawn, and the simpler shape is better on every
+axis it was supposed to win on.**
 
-One interface, two backings. Pruning swaps the backing and changes nothing above it
-— no second endpoint, no branch in the panel, no "pruned mode". If the panel has to
-know, the abstraction is in the wrong place.
+| | Two backings | Stored only |
+| :-- | :-- | :-- |
+| Read path | Row, or open a zip and seek | **One indexed row** |
+| Works when the file is gone | Only if pruned first | **Always** |
+| Works when a mount is unplugged | No | **Yes** |
+| In the backup | Only the pruned half | **All of it**, it is rows |
+| Code | An interface, two implementations, a fallback order | A `SELECT` |
 
-**Nothing is extracted at upload and nothing is cached.** "For now, will not be read
-fully" is honoured literally: an EPUB is opened, the one spine document holding the
-position is parsed, the paragraphs around it are taken, and the zip is closed.
-Reading one document of 52 is not reading the book.
+The file is not a read path. It is **where context comes from once**, and there are
+exactly three moments it is read:
+
+1. **On attach** — a file uploaded, or a scan matching one on a mount. Every located
+   quote gets its row then.
+2. **On rescan** — new quotes since get theirs. This is the owner's *"the scans will
+   reapply context in new quotes"*, and it is the only refresh there is.
+3. **On a locator run**, which is reading the same file for the same reason.
+
+**So extraction moved to attach time, and this reverses another line of the earlier
+draft** — *"nothing is extracted at upload"*. It is now: at attach, the spine
+documents holding matched quotes are parsed, the spans around each are taken, and
+the zip is closed. Still not reading the book — the supplied EPUB's 36 highlights
+touch a fraction of its 52 documents — but no longer deferred, because deferring it
+was only ever in service of the second backing that is now gone.
+
+**Widening the window is a rescan, and that is the honest cost.** A stored span is
+cut at the size the setting had when it was cut. Raise the setting and the old rows
+keep their old width until something reads the file again — which the reader can do
+deliberately, and which the panel reports from `span` rather than implying. On a
+mount that is one press; on an upload it means adding the file again.
 
 **The risk this carries, named:** a stored position is a byte offset into an
 extraction rule (`locators-from-files.md` freezes it for exactly this reason).
-**Change the rule and every context jump lands in the wrong place** — silently,
-because a paragraph of the same novel looks like a paragraph of the same novel. The
-plan's answer is the golden test that pins the rule, plus a **fingerprint**: the row
-records the `sha256` of the file the offset was computed against, and a context
-request whose file no longer matches says so rather than drawing the wrong page.
-That is what `sha256` is doing in the table above.
+**Change the rule and every re-extraction lands in the wrong place** — silently,
+because a paragraph of the same novel looks like a paragraph of the same novel.
+Already-stored rows are unaffected, which is a quiet virtue of storing them: they
+are text, not offsets, and they cannot rot. What needs the guard is the *next*
+extraction, so the golden test pins the rule and `sha256` records which file a row
+came from — so a rescan against a different edition is recognised rather than
+merged.
 
 ### What has no context, and says so once
 
@@ -688,20 +727,26 @@ One pass, in one request, with no goroutine outliving it:
 location, so the confirmation says how many quotes will keep context and how many
 will not — before the file is gone, which is the only moment that number is useful.
 
-### The three things this costs, said before it is pressed
+### What it costs, said before it is pressed
 
-The confirmation names all three. A prune is not reversible from inside the app, so
-a reader who did not understand it has lost something.
+**Much less than the earlier draft of this plan claimed, and the reason is that
+context is stored.** Every quote that had context keeps it — the rows are the read
+path, and throwing the file away does not touch them. What is lost is the ability to
+*make new rows*:
 
-- **New quotes get no context.** The owner's own line. A quote added after the prune
-  says *"no context — re-add the source"*, which names the remedy rather than
-  showing an empty panel.
-- **The window is frozen at the size it was cut at.** Prune at two paragraphs and
-  later raise the setting to five, and the old works stay at two. The panel says so
-  from `span`, rather than silently showing less than the setting promises.
-- **The locator matcher loses its input for that work.** Re-running the match needs
-  the file. Positions already applied are rows and survive; a new quote cannot be
-  placed.
+- **A quote added later gets no context** until the file comes back. The owner's own
+  line. It says *"no context — re-add the source"*, which names the remedy rather
+  than showing an empty panel.
+- **The window cannot be widened** for that work. Raising the setting needs a
+  re-extraction and re-extraction needs the file.
+- **The locator matcher loses its input.** Positions already applied are rows and
+  survive; a new quote cannot be placed.
+
+All three are the same sentence — *nothing new can be derived* — and the
+confirmation should say it once rather than three times. A prune is not reversible
+from inside the app, but it is **recoverable**: add the file again and everything
+resumes, which is a materially smaller warning than the one this section used to
+carry.
 
 ### Re-uploading, and why `sha256` is in the table
 
@@ -740,11 +785,14 @@ destroys something on the reader's behalf and the reader presses it.
 | :-- | :-- |
 | **No route serves a source file.** | The boundary this plan is allowed under. Assert no handler `ServeFile`s, streams or redirects to anything under `Sources/`; a route census in the test, not a code review |
 | **A context answer is bounded.** | The span is the configured unit and cannot be widened by a parameter into "send me the book" |
-| **The context endpoint answers the same shape from a file and from a pruned row.** | The hinge. One golden fixture read both ways, byte-identical answers |
+| **The context endpoint opens no file.** | The whole design in one assertion: a request served while the source file is deleted and the mount unplugged still answers. A file-open census inside the handler |
+| **A rescan fills in quotes added since and leaves the rest alone.** | The owner's "reapply context in new quotes". Attach, add two quotes, rescan: two new rows, the others untouched, including their `span` |
+| **A rescan against a different file is recognised, not merged.** | The `sha256` on the row. One work's context never comes from two editions |
 | **A prune keeps context for every located quote and no others.** | Count in equals count out, and the skipped ones were the unlocated ones |
 | **A prune deletes the bytes and keeps the row.** | `path` empty, `pruned_at` set, the file gone from disk, the name and `sha256` still readable |
 | **A quote added after a prune says why it has no context.** | "Pruned, re-add the source" and "never had a source" are two different answers, not one empty panel |
-| **The frozen window is reported, not implied.** | Prune at 2, raise the setting to 5, and the panel still says 2 for that work |
+| **The frozen window is reported, not implied.** | Extract at 2, raise the setting to 5, and the panel still says 2 until something re-extracts |
+| **Prune is absent for a mounted source.** | There are no bytes of ours to remove, and the context is already stored. Not disabled — absent |
 | **Re-upload of a different file re-derives rather than merges.** | A changed `sha256` discards the old rows. One work's context never comes from two editions |
 | **Kept context is in the archive; raw files follow the setting.** | Both directions, since the default is the one nobody re-tests |
 | **Nothing prunes on its own.** | No sweep, no age rule, no size trigger — assert no caller but the handler |
@@ -790,15 +838,15 @@ destroys something on the reader's behalf and the reader presses it.
    `internal/importer/detect.go`
 5. **Door 3.** The Checks row for a work with quotes and no source — after
    `locators-from-files.md`'s section exists, since it lands in it.
-6. **Context.** The endpoint behind its two-backing interface, the panel, the two
-   settings, the fingerprint refusal. Write the interface first even though only one
-   backing exists yet — retrofitting it after the panel has learned to read files is
-   how the branch ends up in the panel.
+6. **Extraction and context.** `source_context`, filled at attach; the endpoint that
+   reads one row and opens nothing; the panel; the two settings; the `span`
+   reporting. **This is the step the plan turns on** — everything after it either
+   adds a way to fill the table or a way to refill it.
    — `internal/httpapi/context.go` (new), the panel, `actions.jsx`
-7. **The prune.** `source_context`, the per-work pass, the confirmation that counts
-   what will and will not keep context, the frozen-window reporting, the re-upload
-   rule. Then the library-wide list sorted by what it frees.
-   — `internal/httpapi/prune.go` (new), maintenance
+7. **The prune**, which is now small: delete the bytes, empty `path`, stamp
+   `pruned_at`, and one confirmation saying nothing new can be derived until the file
+   returns. Then the library-wide list sorted by what it frees. Absent for mounted
+   sources. — `internal/httpapi/prune.go` (new), maintenance
 8. **The mount.** Admin settings for the roots, the `O_RDONLY` and containment
    guards first and the walk second, EPUB identification by ISBN/ASIN then title,
    the bounded resumable scan, the name-based reading for subtitles and lyrics, and
@@ -843,17 +891,23 @@ By hand, against a restored backup rather than `seed.mjs`:
 - Prune *Dust of Dreams* and compare the numbers against this plan's predictions:
   **1,455,315 B → ~50,814 B at two paragraphs**. A measured feature should be able
   to reproduce its own arithmetic.
-- Add a quote to a pruned work and read what the panel says about it.
-- Re-upload the same file, then a different one, and confirm the first restores and
-  the second re-derives.
+- Add a quote to a pruned work and read what the panel says about it — then confirm
+  every *older* quote on that work still opens its context, because the rows are the
+  read path and the file was never one.
+- Re-upload the same file, then a different one, and confirm the first fills in the
+  gaps and the second is recognised as a different edition.
+- Raise the context setting, rescan a mounted work, and confirm the windows widen —
+  and that an un-rescanned work still reports its old `span` rather than pretending.
 - Prune from the review card and confirm the confirmation names the work, not the
   quote you were looking at.
 - Mount a folder `:ro`, scan, and read the proposals. Then mount one containing a
   symlink pointing outside it and confirm the walk refuses rather than follows.
 - Scan a folder past the cap and press Continue; confirm the second pass covers the
   rest exactly once.
-- Unmount the volume and reopen a work that used it — it must say the file is not
-  where it was, not that there is no source.
+- Unmount the volume and reopen a work that used it. **Every stored context must
+  still open** — that is the design's central claim. What must change is only the
+  offer to scan, which says the file is not where it was rather than that there is
+  no source.
 - Remount read-write and confirm the app still never writes: the `:ro` is the
   operator's promise and this checks ours.
 - Rename an `.srt` to `.txt` and add it. Then rename one to `.ass.txt`, which is how
