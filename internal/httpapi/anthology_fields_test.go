@@ -296,14 +296,33 @@ func TestAnEssayHeadsItsSectionByItsTitle(t *testing.T) {
 		"quote": "the economic anarchy of capitalist society", "kind": "essay",
 		"speaker": "Albert Einstein", "work_title": "Why Socialism?",
 	})
+	// THE CASE THAT ACTUALLY REACHED THE NUMBER, and the reason there are two. The
+	// essay above carries a speaker, so before the fix it headed "## Albert
+	// Einstein" — mistitled, but not a bare position. The fallback is only reached
+	// when the credit is empty TOO, which is an essay filed with its title and
+	// nothing else: exactly the row the capture screen produces when the reader
+	// fills the field the screen asks for and no other. Without this entry the
+	// test passes over a heading that was never a number.
+	bare := newUtterance(t, c, map[string]any{
+		"quote": "a society in which every man is dependent on nobody", "kind": "essay",
+		"work_title": "On Liberty",
+	})
 	a := newAnthology(t, c, "Openings")
-	addEntries(t, c, a.ID, []map[string]any{{"kind": "utterance", "item_id": utt.ID}})
+	addEntries(t, c, a.ID, []map[string]any{
+		{"kind": "utterance", "item_id": utt.ID},
+		{"kind": "utterance", "item_id": bare.ID},
+	})
 
 	md := exportAnthology(t, c, a.ID)
 	if !strings.Contains(md, "## Why Socialism? — Albert Einstein") {
 		t.Errorf("the essay did not head its own section:\n%s", md)
 	}
-	if strings.Contains(md, "## 1\n") {
+	if !strings.Contains(md, "## On Liberty\n") {
+		t.Errorf("the essay with no speaker did not head its own section:\n%s", md)
+	}
+	// Reverted, THIS is the assertion that fails: entry two has nothing else to be
+	// called, so it heads as "## 2".
+	if strings.Contains(md, "## 2\n") {
 		t.Errorf("the essay still exported under its position:\n%s", md)
 	}
 	// THE KEY IS THE ONE THE IMPORTER READS BACK TO THE SAME COLUMN.

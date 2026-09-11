@@ -496,6 +496,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`380BCE` written without a space was read as `380`.** Every year box quietly dropped an
   era typed tight against the number, so a book entered that way was filed 380 years *after*
   the date meant, in the wrong era, with nothing on screen to show it.
+- **"Why upload the page instead of pasting a link?" was too small to press on a phone.**
+  The fold that answers it on the import screen was 34 pixels tall against the app's own
+  44-pixel floor for anything a thumb has to hit. It has the room now, and the words have
+  not moved — and its triangle is drawn the same way the rest of the app draws one.
 - **An essay in an anthology exported under a number.** A standalone quote heads its
   section with the occasion it was said on — and an essay filed the way the capture
   screen asks, with its source title and no occasion, had nothing to head with, so it

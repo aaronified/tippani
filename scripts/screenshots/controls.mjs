@@ -1157,6 +1157,22 @@ if (opts.updateBaseline && !recordable) {
   console.log(`\nNOT RECORDING: ${findings.blank.length} surface(s) did not render and ${walked} of ${surfaceTotal} were walked, ` +
     'so this run measured the harness and not the app.')
 } else if (opts.updateBaseline) {
+  // AND THE EVIDENCE FOR A MOVE IS THE NAMED LIST, WHICH NEVER ENTERS THE REPO.
+  // A raised ceiling has to be justified by WHICH control appeared, because this
+  // probe drifts by about one between runs on identical code — it presses what it
+  // finds, and some of what it finds changes the library. The list above is that
+  // evidence, and it is the only form of it there is.
+  //
+  // IT IS NOT COMMITTED BESIDE THE BASELINE AND MUST NOT BE. Against the `backup`
+  // fixture every row is rendered from the owner's own library, so a control's
+  // label can be a book they own; CLAUDE.md's rule is that nothing out of the
+  // archive reaches a committed file, including a sentence. So the named list goes
+  // in the COMMIT BODY of the move — read at the moment somebody asks why the
+  // number changed, and gone from disk with the run that produced it.
+  //
+  // WHAT THAT LEAVES A READER WITHOUT THE ARCHIVE is the `seed` ceiling, which is
+  // theirs and is reproducible; the `backup` one is a fact about a library they do
+  // not have, and no file in here could make it otherwise.
   baseline[opts.fixture] = baseline[opts.fixture] || {}
   baseline[opts.fixture][key] = Object.fromEntries(RATCHETS.map((k) => [k, findings[k].length]))
   writeFileSync(baselineFile, JSON.stringify(baseline, null, 2) + '\n')

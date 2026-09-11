@@ -223,7 +223,10 @@ function DropTarget({ busy, pct, onFiles }) {
 function SaveDontPasteNote() {
   return (
     <details className="import-note">
-      <summary className="mono-label cursor-pointer" style={{ listStyle: 'revert' }}>
+      {/* No `listStyle: 'revert'` here any more: the stylesheet masks the native
+          marker and draws its own ▸/▾, because the 44px touch box needs a display
+          value that would have taken the native one away. One place decides. */}
+      <summary className="mono-label cursor-pointer">
         {t('import.why-upload.summary')}
       </summary>
       <p className="mt-2" style={{ fontSize: 'var(--type-ui-13)', lineHeight: 1.55 }}>

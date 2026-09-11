@@ -149,6 +149,17 @@ export function useResolvedDark() {
 // One source for mobile-specific UI decisions. This intentionally follows the
 // browser's layout viewport, not the device/user-agent, so "desktop site" mode
 // gets the desktop UI when the browser exposes a desktop-sized viewport.
+// A DIALOG'S NAME IS TEXT OR IT IS NOTHING. Every surface in this file takes its
+// `title` prop for both the visible heading and the accessible name, and a heading
+// is allowed to be a node — a name is not. React stringifies an object attribute,
+// so an unguarded aria-label on a node title announces "[object Object]", which is
+// worse than the unnamed dialog it was meant to fix.
+//
+// ONE FUNCTION BECAUSE TWO SURFACES ASK THE SAME QUESTION — the phone sheet and
+// the panel's sub-sheet. A line each is how one of them goes on being right while
+// the other quietly stops.
+export const ariaLabelText = (title) => (typeof title === "string" ? title : undefined);
+
 export const MOBILE_SCREEN_QUERY = "(max-width: 768px)";
 
 export function isMobileScreen() {
@@ -6044,7 +6055,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
   // dismiss key's clothes (`PanelHost`'s own rule, applied here).
   if (surface) {
     return createPortal(
-      <div className="tp-subsheet" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="tp-subsheet" role="dialog" aria-modal="true" aria-label={ariaLabelText(title)}>
         <div className="tp-panel-head">
           <div className="tp-panel-slot">
             <button
@@ -10947,13 +10958,15 @@ export function MobileSheet({ open, onClose, onBack, title, sub, subIsName = fal
           add surface reported "did not open" at 390 and nothing on it was ever
           measured. The a11y gap and the blind spot were one fact.
 
-          aria-label from `title`, exactly as .tp-subsheet does at the same job. */}
+          The accessible name comes from `title` through ariaLabelText, which is the
+          one function .tp-subsheet calls for the same question — a title that is a
+          node names nothing rather than announcing "[object Object]". */}
       <div
         ref={sheetRef}
         className="mobile-sheet-card"
         role="dialog"
         aria-modal="true"
-        aria-label={typeof title === 'string' ? title : undefined}
+        aria-label={ariaLabelText(title)}
         onClick={(e) => e.stopPropagation()}
       >
         {/* THE MARK IS A SIGN AND THE WHOLE BAR IS THE TARGET — the panel's rule,

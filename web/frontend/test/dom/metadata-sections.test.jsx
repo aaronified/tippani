@@ -26,7 +26,7 @@
 // be able to render a blank page. localStorage outlives a release.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 
 let LIB
 let WIDTH = 1280
@@ -124,18 +124,27 @@ describe('the rail', () => {
     // Works is 2 books + 0 films; characters and people come from their own
     // reads, which is why they are here at all — the rail cannot print a number
     // the page has not got.
-    expect(tab(/^Works/).textContent).toContain('2')
-    expect(tab(/^Characters/).textContent).toContain('2')
-    expect(tab(/^People/).textContent).toContain('3')
+    //
+    // WAITED FOR RATHER THAN READ ONCE, because mount() resolves when the tabs
+    // EXIST and the counts arrive from three later fetches — the same race the
+    // sibling test one block down asserts the other side of. Read as a snapshot
+    // this passes on whichever fetch happened to land first.
+    await waitFor(() => {
+      expect(tab(/^Works/).textContent).toContain('2')
+      expect(tab(/^Characters/).textContent).toContain('2')
+      expect(tab(/^People/).textContent).toContain('3')
+    })
   })
 
   it('counts PROBLEMS on the overview, not records, and marks them', async () => {
     await mount()
     // Two books, each missing a cover and a series: four gaps. Not "2", which is
     // how many works there are — the overview row answers "how much is wrong".
-    const el = tab(/^Overview/)
-    expect(el.textContent).toContain('4')
-    expect(el.querySelector('.meta-rail-count').className).toContain('is-warn')
+    // Waited for, per the note above: this one was observed failing as
+    // "expected 'Overview0' to contain '4'" — the rail drawn from a library read
+    // that had not landed yet.
+    await waitFor(() => expect(tab(/^Overview/).textContent).toContain('4'))
+    expect(tab(/^Overview/).querySelector('.meta-rail-count').className).toContain('is-warn')
   })
 
   it('says nothing where a count has not arrived', async () => {

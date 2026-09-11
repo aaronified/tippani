@@ -4039,12 +4039,25 @@
 
      `max(44px, …em)` AND NOT A FLAT 44px, per the repo's rule that no box holding
      text is measured in px alone — a reader on a large type scale gets a box that
-     grows with the line rather than one that clips it. */
+     grows with the line rather than one that clips it.
+
+     AND THE TRIANGLE IS DRAWN HERE BECAUSE `display` IS THE THING THAT REMOVES IT.
+     A <summary> is `display: list-item`, which is what its marker hangs off; any
+     other display value takes the marker with it, so the first version of this
+     rule bought the touch box by silently deleting the fold's only affordance.
+     .help-more > summary already had this problem and already solved it — mask the
+     native marker, draw ▸/▾ — so this is that idiom rather than a second answer to
+     one question. */
   .import-note > summary {
     display: flex;
     align-items: center;
+    gap: 0.45em;
     min-height: max(44px, 2.8em);
+    list-style: none;
   }
+  .import-note > summary::-webkit-details-marker { display: none; }
+  .import-note > summary::before { content: "▸"; color: var(--faint); }
+  .import-note[open] > summary::before { content: "▾"; }
 
   /* ---- look-up candidate rows (the Add surface's results list) ----
      Source is a 16px mark, not a "GOOGLE BOOKS" pill, and Add is a borderless
