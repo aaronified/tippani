@@ -163,8 +163,17 @@ func TestLanguageAndPackSurviveTheirOwnExport(t *testing.T) {
 //
 // The same claim `GET /books/{id}/chapters` makes: a library-wide list would offer
 // every pack in the catalogue while you type a locator for THIS game, which is
-// wrong more often than right. Commonest first, so the pack being played through
-// sits at the top.
+// wrong more often than right.
+//
+// AND THE ORDER IS ENTRY ORDER, NEWEST FIRST — the same sort the chapter list
+// takes, and the owner's ruling on why they must agree: "which pack was I last
+// taking lines from" is what a locator box is asking, and it is the same question
+// on both mediums. It used to be commonest-first, which reads as no order at all.
+//
+// THE FIXTURE BELOW SEPARATES THE TWO, and did so before this rule arrived: Blood
+// and Wine has two lines and was entered first, Hearts of Stone has one and was
+// entered last. Count order leads with Blood and Wine; entry order leads with
+// Hearts of Stone. No third rule produces either.
 func TestAGameOffersItsOwnPacksAndNobodyElsesTest(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -178,7 +187,9 @@ func TestAGameOffersItsOwnPacksAndNobodyElsesTest(t *testing.T) {
 	}, http.StatusCreated))
 
 	// Two lines in one pack and one in another, so the ordering claim has something
-	// to order. Different quests, because act+quest are the dedupe identity.
+	// to order — and the one with FEWER lines is entered LAST, which is what makes
+	// the fixture tell entry order from a popularity ranking. Different quests,
+	// because act+quest are the dedupe identity.
 	for _, q := range []struct{ quote, quest, dlc string }{
 		{"Wind's howling", "The Beast", "Blood and Wine"},
 		{"Evil is evil", "Lesser Evil", "Blood and Wine"},
@@ -204,10 +215,15 @@ func TestAGameOffersItsOwnPacksAndNobodyElsesTest(t *testing.T) {
 	if len(got.Packs) != 2 {
 		t.Fatalf("want 2 packs, got %+v", got.Packs)
 	}
-	if got.Packs[0].Name != "Blood and Wine" || got.Packs[0].Count != 2 {
-		t.Fatalf("commonest pack should lead: %+v", got.Packs)
+	// THE PACK YOU WERE LAST TAKING LINES FROM, first — despite having the fewer
+	// lines of the two, which is the assertion that separates this from the
+	// commonest-first rule it replaced.
+	if got.Packs[0].Name != "Hearts of Stone" || got.Packs[0].Count != 1 {
+		t.Fatalf("the last pack entered should lead: %+v", got.Packs)
 	}
-	if got.Packs[1].Name != "Hearts of Stone" {
+	// And the count still travels, because it is what tells a real pack from a
+	// one-off typo of one when the two sit next to each other.
+	if got.Packs[1].Name != "Blood and Wine" || got.Packs[1].Count != 2 {
 		t.Fatalf("second pack wrong: %+v", got.Packs)
 	}
 	for _, p := range got.Packs {
