@@ -41,16 +41,29 @@ func seedReviewQuotes(t *testing.T, c *testClient, speaker, occasion string, n i
 // ---- what a quote's "work" is ----
 
 func TestUtteranceAttribution(t *testing.T) {
-	cases := []struct{ speaker, occasion, want string }{
-		{"Subhas Chandra Bose", "Burma Radio broadcast", "Burma Radio broadcast"}, // the occasion is the work
-		{"Subhas Chandra Bose", "", "Subhas Chandra Bose"},                        // no occasion: the speaker stands in
-		{"", "Burma Radio broadcast", "Burma Radio broadcast"},                    // an unattributed speech is still a speech
-		{"  Bose  ", "   ", "Bose"},                                               // whitespace is not an occasion
-		{"", "", ""},                                                              // a proverb belongs to nothing
+	cases := []struct{ speaker, occasion, workTitle, want string }{
+		{"Subhas Chandra Bose", "Burma Radio broadcast", "", "Burma Radio broadcast"}, // the occasion is the work
+		{"Subhas Chandra Bose", "", "", "Subhas Chandra Bose"},                        // nothing else: the speaker stands in
+		{"", "Burma Radio broadcast", "", "Burma Radio broadcast"},                    // an unattributed speech is still a speech
+		{"  Bose  ", "   ", "", "Bose"},                                               // whitespace is not an occasion
+		{"", "", "", ""},                                                              // a proverb belongs to nothing
+		// 0047's column, and the three cases that made it worth adding. An essay
+		// filed with its title and nothing else was not reviewable AT ALL before
+		// this, because the eligibility rule refuses whatever this answers "" for.
+		{"", "", "Why Socialism?", "Why Socialism?"},
+		// AND IT OUTRANKS THE SPEAKER, which is the behaviour change: the source of
+		// an essay is the essay, not the person who wrote it. A book highlight's
+		// card is titled by its book with the author beside it, and this is the same
+		// shape — `Speaker` still travels on the card of its own.
+		{"Albert Einstein", "", "Why Socialism?", "Why Socialism?"},
+		// The occasion still leads, so no card already in somebody's deck changes
+		// what it asks.
+		{"Einstein", "Nobel banquet", "Why Socialism?", "Nobel banquet"},
+		{"", "", "   ", ""}, // whitespace is not a title either
 	}
 	for _, tc := range cases {
-		if got := utteranceAttribution(tc.speaker, tc.occasion); got != tc.want {
-			t.Errorf("utteranceAttribution(%q, %q) = %q, want %q", tc.speaker, tc.occasion, got, tc.want)
+		if got := utteranceAttribution(tc.speaker, tc.occasion, tc.workTitle); got != tc.want {
+			t.Errorf("utteranceAttribution(%q, %q, %q) = %q, want %q", tc.speaker, tc.occasion, tc.workTitle, got, tc.want)
 		}
 	}
 }
@@ -59,21 +72,26 @@ func TestUtteranceAttribution(t *testing.T) {
 // as its own wrong answer — the option list would show the same event twice and
 // both would be correct.
 func TestUtteranceWorkKeyFoldsSpelling(t *testing.T) {
-	a := utteranceWorkKey("Bose", "Burma Radio broadcast")
-	b := utteranceWorkKey("Bose", "burma   radio  BROADCAST ")
+	a := utteranceWorkKey("Bose", "Burma Radio broadcast", "")
+	b := utteranceWorkKey("Bose", "burma   radio  BROADCAST ", "")
 	if a != b {
 		t.Fatalf("one speech became two works: %q vs %q", a, b)
 	}
 	if a == "" {
 		t.Fatal("an attributed quote must have a work key")
 	}
-	if utteranceWorkKey("", "") != "" {
+	if utteranceWorkKey("", "", "") != "" {
 		t.Fatal("a proverb must have no work key — it would group every proverb into one work")
 	}
 	// Two different speeches by the same person stay distinct: they are exactly
 	// the pair the deck most wants to be able to tell apart.
-	if utteranceWorkKey("Bose", "Singapore rally") == a {
+	if utteranceWorkKey("Bose", "Singapore rally", "") == a {
 		t.Fatal("two speeches by one speaker collapsed into one work")
+	}
+	// TWO PASSAGES OUT OF ONE ESSAY ARE ONE WORK, which is what makes the per-work
+	// spread and the distractor ranking treat an essay the way they treat a book.
+	if utteranceWorkKey("Einstein", "", "Why Socialism?") != utteranceWorkKey("", "", "why  SOCIALISM? ") {
+		t.Fatal("two quotes from one essay became two works")
 	}
 }
 
@@ -190,6 +208,88 @@ func TestProverbsAreNotReviewable(t *testing.T) {
 	scores := decode[scoresResp](t, c.mustDo("GET", "/review/scores", nil, 200))
 	if scores.States.Total != 2 {
 		t.Fatalf("status tally counted %d quotes, deck holds 2 — the two queries disagree", scores.States.Total)
+	}
+}
+
+// AN ESSAY IS REVIEWABLE BY ITS TITLE, and before 0047's column reached the deck
+// it was not reviewable at all.
+//
+// The eligibility rule refuses whatever utteranceAttribution answers "" for, and
+// that function read `occasion || speaker` — the only two columns a standalone
+// quote had when the deck was written. So a passage filed the way the capture
+// screen asks for an essay, with its source title and no occasion, was silently
+// never asked. This is the end-to-end half of TestUtteranceAttribution: the deck,
+// the badge and the card's own title, over a quote that has only a work title.
+func TestAnEssayReachesTheDeckByItsTitle(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// Two passages out of one essay, filed as the capture screen files an essay:
+	// the source title, the author in `speaker`, and no occasion.
+	newUtterance(t, c, map[string]any{
+		"quote": "the economic anarchy of capitalist society", "kind": "essay",
+		"speaker": "Albert Einstein", "work_title": "Why Socialism?",
+	})
+	newUtterance(t, c, map[string]any{
+		"quote": "a planned economy is not yet socialism", "kind": "essay",
+		"speaker": "Albert Einstein", "work_title": "Why Socialism?", "locator": "p. 3",
+	})
+	// AND THE CASE THE ELIGIBILITY RULE ITSELF REFUSED: a title and nothing else.
+	// The two above carry a speaker, so the old `occasion || speaker` rule already
+	// let them in and only their TITLE was wrong; this one was not asked at all.
+	newUtterance(t, c, map[string]any{
+		"quote": "so long as these formidable obstacles remain", "kind": "essay",
+		"work_title": "Why Socialism?",
+	})
+	// And one proverb, which still has nothing to recall and must stay out.
+	newUtterance(t, c, map[string]any{"quote": "Least said, soonest mended", "kind": "proverb"})
+	ageSeededItems(t, srv)
+
+	deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
+	if len(deck.Items) != 3 {
+		t.Fatalf("the deck should hold the three essay passages, got %d", len(deck.Items))
+	}
+	for _, card := range deck.Items {
+		// THE TITLE IS THE ESSAY AND NOT THE AUTHOR. "Which source is this from?"
+		// answered by a person is the wrong question — a book highlight is titled
+		// by its book with the author beside it, and this reads the same way.
+		if card.Title != "Why Socialism?" {
+			t.Fatalf("card titled %q, want the essay's own title", card.Title)
+		}
+	}
+	// AND THE TWO LOCATOR COLUMNS REACH THE CARD. `place` and `locator` were
+	// collected by the capture screen and printed on no recall card — the meta line
+	// was the date alone — which is the same "captured and never shown" fault the
+	// attribution work exists to close.
+	withPage := 0
+	for _, card := range deck.Items {
+		if card.Locator != "" {
+			withPage++
+		}
+	}
+	if withPage != 1 {
+		t.Fatalf("%d cards carry a page, want the one that has one", withPage)
+	}
+
+	// And the author still travels on the cards that have one — the title took the
+	// source's place, not the credit's.
+	named := 0
+	for _, card := range deck.Items {
+		if card.Speaker == "Albert Einstein" {
+			named++
+		}
+	}
+	if named != 2 {
+		t.Fatalf("%d of the three cards credit the author, want 2", named)
+	}
+
+	// The badge is a different query over the same rule, so it is checked against
+	// the deck rather than against a number — the assertion that catches a WHERE
+	// clause widened in one place and not the other.
+	scores := decode[scoresResp](t, c.mustDo("GET", "/review/scores", nil, 200))
+	if scores.States.Total != 3 {
+		t.Fatalf("status tally counted %d quotes, deck holds 3 — the two queries disagree", scores.States.Total)
 	}
 }
 

@@ -94,8 +94,8 @@ const (
 	// rule in nextRung lets a value join the nearest rung above at its next answer.
 	reviewMaxStability = 365.0
 	reviewNewItemDays  = 7.0 // days; grace week after an item is added — reads "remembered", not yet due
-	reviewSeen         = 1.0   // default srSeen: "seeing" (practice/share/favourite) marginal lengthen; 1.0 = off
-	reviewQuota        = 8     // default srDaily deck size
+	reviewSeen         = 1.0 // default srSeen: "seeing" (practice/share/favourite) marginal lengthen; 1.0 = off
+	reviewQuota        = 8   // default srDaily deck size
 	// reviewLeechLapses is how many times a card has to be forgotten before the
 	// deck offers a way out of it. Five is Anki's default, which is what makes
 	// the word mean the same thing here as it does to anyone who has met one
@@ -548,16 +548,35 @@ func kindSalt(kind string) uint64 {
 }
 
 // utteranceAttribution is the "work" a standalone quote belongs to: the occasion
-// it was said on, or its speaker when the occasion went unrecorded. A quote has
-// no parent row to inherit a title from, so this is what the deck asks you to
-// recall, what groups two lines from the same speech, and what a wrong answer
-// offers instead.
+// it was said on, the text it came out of, or its speaker when neither was
+// recorded. A quote has no parent row to inherit a title from, so this is what
+// the deck asks you to recall, what groups two lines from the same speech, and
+// what a wrong answer offers instead.
 //
-// A quote with neither — a proverb — has no attribution, and is not reviewable:
-// there is nothing to recall except the words already on the card.
-func utteranceAttribution(speaker, occasion string) string {
+// WORK_TITLE WAS MISSING AND THAT KEPT WHOLE KINDS OUT OF THE DECK. This read
+// `occasion || speaker` — the only two columns a standalone quote had when it was
+// written. 0047 gave it `work_title`, which is an essay's source and a poem's
+// collection, and the eligibility rule below (utteranceSource) refuses any quote
+// this function answers "" for. So an essay filed with its title and no occasion
+// was not reviewable at all, and one filed with its author in `speaker` was asked
+// under the AUTHOR's name — "which source is this from?" answered by a person.
+//
+// IT OUTRANKS THE SPEAKER FOR THAT REASON, and sits under the occasion so no card
+// already in somebody's deck changes what it asks. A book highlight's card is
+// titled by its BOOK with the author beside it; an essay's should read the same
+// way, and `Speaker` travels on the card separately for exactly that.
+//
+// A PROVERB STILL HAS NONE, and is still not reviewable. The reason has not
+// changed and is better than the absence of a column: there is nothing to recall
+// except the words already on the card — and every proverb in one language would
+// answer the same thing, so a "which source?" question over them would offer the
+// same option four times.
+func utteranceAttribution(speaker, occasion, workTitle string) string {
 	if occasion = strings.TrimSpace(occasion); occasion != "" {
 		return occasion
+	}
+	if workTitle = strings.TrimSpace(workTitle); workTitle != "" {
+		return workTitle
 	}
 	return strings.TrimSpace(speaker)
 }
@@ -565,8 +584,8 @@ func utteranceAttribution(speaker, occasion string) string {
 // utteranceWorkKey folds case and runs of spaces, so "Burma Radio broadcast" and
 // "burma radio  broadcast" are one speech rather than two works that can be
 // offered as each other's distractor. Empty when the quote has no attribution.
-func utteranceWorkKey(speaker, occasion string) string {
-	a := utteranceAttribution(speaker, occasion)
+func utteranceWorkKey(speaker, occasion, workTitle string) string {
+	a := utteranceAttribution(speaker, occasion, workTitle)
 	if a == "" {
 		return ""
 	}
@@ -762,14 +781,21 @@ type reviewCard struct {
 	// OccasionCirca is the other half of that date, and it travels with it for the
 	// same reason the search row now carries it: the reader's tick was stored and
 	// then shown on no screen at all.
-	OccasionCirca bool    `json:"occasion_circa"`
-	Chapter       string  `json:"chapter"`   // book only
-	Location      string  `json:"location"`  // book only
-	Timestamp     string  `json:"timestamp"` // screen only
-	episodeRef            // screen only, shows only; null on a film's lines
-	MediaType     string  `json:"media_type"` // movie | show (screen); "" for book
-	Stability     float64 `json:"stability"`
-	ReviewCount   int     `json:"review_count"`
+	OccasionCirca bool `json:"occasion_circa"`
+	// WHERE, AND WHERE IN THE TEXT — utterance only, and the two 0047 columns this
+	// card collected and never showed. A speech has a place and an essay has a page,
+	// and the recall card printed a date and nothing else for either. NOT the
+	// attribution itself: Title already carries that (utteranceAttribution), and a
+	// meta line repeating it would be the row saying one thing twice.
+	Place       string  `json:"place"`     // utterance only
+	Locator     string  `json:"locator"`   // utterance only — an essay's page
+	Chapter     string  `json:"chapter"`   // book only
+	Location    string  `json:"location"`  // book only
+	Timestamp   string  `json:"timestamp"` // screen only
+	episodeRef          // screen only, shows only; null on a film's lines
+	MediaType   string  `json:"media_type"` // movie | show (screen); "" for book
+	Stability   float64 `json:"stability"`
+	ReviewCount int     `json:"review_count"`
 	// LapseCount is how many times this card has been forgotten — stored since
 	// 0015 and, until now, never read by anything. It sits beside ReviewCount
 	// because the two are always read together: review_count > lapse_count is
@@ -940,7 +966,7 @@ func screenSource() reviewSource {
 
 func utteranceSource() reviewSource {
 	return reviewSource{kind: kindUtterance, table: "utterances", idCol: "x.id",
-		eligible: `AND (COALESCE(x.occasion,'') <> '' OR COALESCE(x.speaker,'') <> '')`,
+		eligible: `AND (COALESCE(x.occasion,'') <> '' OR COALESCE(x.work_title,'') <> '' OR COALESCE(x.speaker,'') <> '')`,
 		tagJoin:  "utterance_tags", tagKey: "utterance_id"}
 }
 
@@ -1155,8 +1181,9 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, th reviewTheme, 
 func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, th reviewTheme, mod, day string, seed int64, limit int) ([]reviewCand, error) {
 	rs := utteranceSource()
 	q := `SELECT x.id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
-	             COALESCE(x.speaker,''), COALESCE(x.occasion,''), COALESCE(x.occasion_date,''),
-	             x.occasion_circa,
+	             COALESCE(x.speaker,''), COALESCE(x.occasion,''), COALESCE(x.work_title,''),
+	             COALESCE(x.occasion_date,''),
+	             x.occasion_circa, COALESCE(x.place,''), COALESCE(x.locator,''),
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
@@ -1185,10 +1212,11 @@ func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, th reviewThem
 	for rows.Next() {
 		var c reviewCand
 		var lr sql.NullString
-		var speaker, occasion string
+		var speaker, occasion, workTitle string
 		c.card.Kind = kindUtterance
 		if err := rows.Scan(&c.card.ID, &c.card.Quote, &c.card.Note, &c.card.Color,
-			&speaker, &occasion, &c.card.OccasionDate, &c.card.OccasionCirca,
+			&speaker, &occasion, &workTitle, &c.card.OccasionDate, &c.card.OccasionCirca,
+			&c.card.Place, &c.card.Locator,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] utterance candidate row scan failed: %v", err)
 			continue
@@ -1197,8 +1225,8 @@ func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, th reviewThem
 		// Title is the attribution, because Title is what the "which source?"
 		// question offers as an answer. The eligibility rule guarantees it is
 		// non-empty here.
-		c.card.Title = utteranceAttribution(speaker, occasion)
-		c.workKey = utteranceWorkKey(speaker, occasion)
+		c.card.Title = utteranceAttribution(speaker, occasion, workTitle)
+		c.workKey = utteranceWorkKey(speaker, occasion, workTitle)
 		c.elapsed = elapsedDays(lr)
 		out = append(out, c)
 	}
@@ -1659,22 +1687,28 @@ func (s *Server) quizPools(uid int64, sc reviewScope, seed int64) (quizPools, er
 		// utteranceCandidates' — a quote with no attribution belongs to no work and
 		// would otherwise become a distractor with a blank title.
 		uttOrder, uttArgs := sampleOn("id", kindUtterance)
-		if err := scan(`SELECT id, COALESCE(quote,''), COALESCE(note,''), COALESCE(speaker,''), COALESCE(occasion,'')
+		// THE ELIGIBILITY RULE IS WRITTEN OUT AGAIN HERE, which `where` above calls
+		// itself "the one choke point" to avoid — this pool is a sixth reader of the
+		// same fact and does not go through it. Widening the deck without widening
+		// this would make an essay reviewable and then never offer it as anybody's
+		// distractor, so the two are kept in step by hand until the pool is moved
+		// onto `reviewSource`.
+		if err := scan(`SELECT id, COALESCE(quote,''), COALESCE(note,''), COALESCE(speaker,''), COALESCE(occasion,''), COALESCE(work_title,'')
 		                FROM utterances
 		                WHERE user_id = ? AND (COALESCE(quote,'') <> '' OR COALESCE(note,'') <> '')
-		                  AND (COALESCE(occasion,'') <> '' OR COALESCE(speaker,'') <> '')
+		                  AND (COALESCE(occasion,'') <> '' OR COALESCE(work_title,'') <> '' OR COALESCE(speaker,'') <> '')
 		                `+uttOrder,
 			func(rows *sql.Rows) error {
 				var id int64
-				var quote, note, speaker, occasion string
-				if err := rows.Scan(&id, &quote, &note, &speaker, &occasion); err != nil {
+				var quote, note, speaker, occasion, workTitle string
+				if err := rows.Scan(&id, &quote, &note, &speaker, &occasion, &workTitle); err != nil {
 					olog.Warnf(olog.CodeReviewRowScan, "[review] utterance pool row scan failed: %v", err)
 					return nil
 				}
-				key := utteranceWorkKey(speaker, occasion)
+				key := utteranceWorkKey(speaker, occasion, workTitle)
 				w, ok := p.byKey[key]
 				if !ok {
-					w = workRef{key: key, kind: kindUtterance, title: utteranceAttribution(speaker, occasion),
+					w = workRef{key: key, kind: kindUtterance, title: utteranceAttribution(speaker, occasion, workTitle),
 						author: speaker, genres: map[string]bool{}, actors: map[string]bool{}}
 					p.byKey[key] = w
 				}

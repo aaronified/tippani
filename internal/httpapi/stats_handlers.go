@@ -348,11 +348,13 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 	// works.
 	//
 	// A proverb contributes to neither: tallyMap.work drops an empty name, so a
-	// quote with no speaker and no occasion falls out of the breakdown the same
-	// way it falls out of the review deck.
+	// quote with no speaker, no occasion and no work title falls out of the
+	// breakdown the same way it falls out of the review deck. The three columns are
+	// utteranceAttribution's, and this reads them through it rather than keeping its
+	// own idea of what a quote's "work" is.
 	speakers := newTallyMap()
 	rows, err = s.Store.DB.Query(`
-		SELECT COALESCE(u.speaker,''), COALESCE(u.occasion,''),
+		SELECT COALESCE(u.speaker,''), COALESCE(u.occasion,''), COALESCE(u.work_title,''),
 		       r.item_id IS NOT NULL, COALESCE(r.stability, ?), r.last_reviewed_at, COALESCE(r.last_result,''),
 		       COALESCE(julianday('now') - julianday(u.created_at), 1e9)
 		FROM utterances u
@@ -362,17 +364,17 @@ func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
 		return nil, err
 	}
 	for rows.Next() {
-		var speaker, occasion string
+		var speaker, occasion, workTitle string
 		var seen bool
 		var stability, age float64
 		var lr sql.NullString
 		var lastResult string
-		if err := rows.Scan(&speaker, &occasion, &seen, &stability, &lr, &lastResult, &age); err != nil {
+		if err := rows.Scan(&speaker, &occasion, &workTitle, &seen, &stability, &lr, &lastResult, &age); err != nil {
 			olog.Warnf(olog.CodeStatsRowScan, "[stats] breakdown quote row scan failed: %v", err)
 			continue
 		}
 		status := recallStatus(seen, stability, elapsedDays(lr), age, lastResult)
-		key := utteranceWorkKey(speaker, occasion)
+		key := utteranceWorkKey(speaker, occasion, workTitle)
 		for _, sp := range metadata.SplitCredits(speaker, seps) {
 			speakers.quote(sp, key, status)
 			people.quote(sp, key, status)

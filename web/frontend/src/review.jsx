@@ -426,11 +426,23 @@ function SourceLines({ card, maps = {} }) {
     const media = t(card.media_type === 'show' ? 'vocab.kind.show.label' : 'vocab.kind.movie.label')
     meta = [media, episodeLabel(card), card.character, card.timestamp].filter(Boolean).join(' · ')
   } else if (card.kind === 'utterance') {
-    // A quote's date is partial by design — a year alone is a complete answer.
-    // THROUGH THE FORMATTER, not printed raw: a BCE occasion is stored '-0399'
-    // and a padded one '0399', and a recall card showing either is showing the
-    // reader the column rather than their own date.
-    meta = formatPartialDate(card.occasion_date, card.occasion_circa)
+    // WHEN, WHERE, AND WHERE IN THE TEXT. This line was the date alone, so a
+    // speech's place and an essay's page — both 0047 columns the capture screen
+    // asks for — appeared on no recall card at all, which is the same
+    // "captured and never shown" fault attribution.js exists to close.
+    //
+    // NOT THE ATTRIBUTION ITSELF, which is the title above this line
+    // (utteranceAttribution, and it now reads an essay's work_title). Printing the
+    // phrase here as well would be the row saying one thing twice; what belongs
+    // here is what the title did NOT speak for.
+    //
+    // THE DATE THROUGH THE FORMATTER, not printed raw: a quote's date is partial
+    // by design, a BCE occasion is stored '-0399' and a padded one '0399', and a
+    // card showing either is showing the reader the column rather than their own
+    // date.
+    meta = [formatPartialDate(card.occasion_date, card.occasion_circa), card.place, card.locator]
+      .filter(Boolean)
+      .join(' · ')
   } else {
     // The author lives in the chips row now; the meta line keeps the location —
     // and, since 0047, WHO SAYS IT. A novel has speakers, and the quiz card was

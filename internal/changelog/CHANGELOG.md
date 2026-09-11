@@ -496,6 +496,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`380BCE` written without a space was read as `380`.** Every year box quietly dropped an
   era typed tight against the number, so a book entered that way was filed 380 years *after*
   the date meant, in the wrong era, with nothing on screen to show it.
+- **An essay or a poem can be revised, and the quiz stopped titling them by their
+  author.** A quote the app asks you to recall has to have a source to recall, and
+  it looked in two boxes: the occasion and the speaker. So a passage filed the way
+  the capture screen asks for an essay — its source title, no occasion — was never
+  asked at all, and one filed with its author in Speaker was asked under the
+  author's name, which is not what the essay is. The source title is read now, and
+  it outranks the author: a card reads like a book's, titled by the work with the
+  person credited beside it. **And the recall card shows where and where in the
+  text** — a speech's place, an essay's page — which were collected and printed
+  nowhere. A proverb is still not asked; there is nothing to recall but the words
+  already on the card.
 - **Stray marks can be answered a hundred at a time.** The screen that finds the
   furniture a paste brings in — doubled spaces, footnote numbers, invisible hyphens —
   offered one Accept and one Ignore per find, so a library with four hundred of one
