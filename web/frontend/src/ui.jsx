@@ -1586,7 +1586,7 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // off the screen SPRANG BACK UP to its opening height and vanished from there.
     // The drag had feedback; the release threw it away and replaced it with a jump
     // in the wrong direction.
-    // `then` IS THE VERB THIS EXIT IS FOR, and there are three of them. A drag
+    // `then` IS THE VERB THIS EXIT IS FOR, and every one of them LEAVES. A drag
     // past the smallest stop goes BACK (the caller's `onDismiss`); the ✕ and a tap
     // on the scrim CLOSE, which is a different guarded verb. They all have to
     // slide, and for a while only the drag did — the ✕ and the scrim called their
@@ -1594,8 +1594,26 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
     // vanished on two of its three exits while a comment here and the changelog
     // both said it left the same way. A rater found the gap by reading the call
     // sites rather than the comment.
+    //
+    // AND A STEP IS NOT ONE OF THEM, which this note used to imply by counting
+    // and which cost the owner a report: "the back animations are finnicky."
+    // `MobileSheet` routed its back arrow through here, so a press that swaps the
+    // sheet's CONTENTS played a 160ms slide fully off the bottom, sat off-screen
+    // for 60ms behind a still-lit scrim, snapped back in one frame with no
+    // entrance to undo it, and only then handed over — after which the new
+    // screen's height sprang for another 220ms. Four movements in 440ms for a
+    // press that dismisses nothing. A surface that STAYS calls its verb plainly,
+    // which is what the panel stack has always done.
     const leave = (then) => {
       if (landingTimer) { clearTimeout(landingTimer); landingTimer = 0; }
+      // A LANDING INTERRUPTED HERE MUST NOT LEAVE ITS FLAG UP. `placing` is what
+      // tells `refit` to keep its hands off a sheet mid-landing, and it is cleared
+      // only where a landing finishes. An exit begun inside that 300ms window —
+      // a ✕ pressed on a sheet still settling — cancelled the landing's timer and
+      // left the flag set, so a sheet that then SURVIVED (a guarded close the
+      // reader backs out of) stopped following its own content for the rest of
+      // its life. Found by a workflow reading this function for something else.
+      placing = false;
       want = null;
       if (frame) { cancelAnimationFrame(frame); frame = 0; }
       seq++;
@@ -2045,6 +2063,22 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
 // navigated, the entry on top is no longer ours and calling back() would undo the
 // navigation instead.
 export function useBackToClose(active, onClose) {
+  // THE VERB IS READ WHEN THE GESTURE ARRIVES, NOT WHEN THE MARKER WAS PUSHED.
+  //
+  // The effect below is keyed on `active` alone, deliberately — re-running it
+  // would push a second history marker every time a caller re-rendered. But that
+  // also meant the handler kept the FIRST `onClose` it ever saw, and a caller
+  // whose verb changes while the overlay stays open got the stale one.
+  //
+  // MOBILESHEET IS EXACTLY THAT CALLER. Its verb is "step" while there is
+  // somewhere to step back to and "close" otherwise, and which one it is changes
+  // as the reader moves through the sheet without `active` ever changing. So the
+  // device's Back gesture went on closing the whole surface from a screen whose
+  // on-screen arrow stepped — the same two-things-for-one-gesture the owner
+  // reported about the two arrows, one layer down. A ref costs nothing and makes
+  // every caller's verb live.
+  const verb = useRef(onClose);
+  verb.current = onClose;
   useEffect(() => {
     if (!active) return;
     let closedByPop = false;
@@ -2055,7 +2089,7 @@ export function useBackToClose(active, onClose) {
     window.history.pushState({ ...window.history.state, tpOverlay: true }, "");
     const onPop = () => {
       closedByPop = true;
-      onClose?.();
+      verb.current?.();
     };
     window.addEventListener("popstate", onPop);
     return () => {
@@ -10725,7 +10759,18 @@ export function MobileSheet({ open, onClose, onBack, title, sub, actions, childr
   // its glyph is the ✕. A caller with steps hands them in rather than drawing its
   // own beside this one.
   const stepping = typeof onBack === "function";
-  const exit = () => slideOut(stepping ? onBack : onClose);
+  // A STEP IS NOT A DISMISSAL, and running it as one is what the owner saw: "the
+  // back animations are finnicky." `slideOut` animates the card off the bottom
+  // and hands over when it has gone — right for the ✕ and the scrim, and wrong
+  // for an arrow that leaves the sheet on screen with different contents in it.
+  // The card slid away, waited, snapped back with no entrance, and then resized.
+  //
+  // SO THE STEP IS A PLAIN CALL, which is exactly what `PanelHost` does with its
+  // own nested back (`onClick={back}`) while reserving `slideOut` for its ✕ and
+  // its scrim. The content swaps on the frame of the press and the hook's own
+  // height spring is the only movement — the same one the device's Back gesture
+  // has been producing all along, a few lines up.
+  const exit = () => (stepping ? onBack() : slideOut(onClose));
   // The ✕, wherever it is drawn. One element rather than two spellings, because
   // the leading and trailing copies are the same control in different slots and
   // a second copy is how one of them stops being red.

@@ -199,6 +199,20 @@ describe('the chooser', () => {
     await waitFor(() => expect(screen.queryByText('Which board')).toBeNull())
   })
 
+  // A CONTROL THAT DOES NOTHING IS WORSE THAN AN ABSENT ONE. `BoardForm` draws its
+  // own footer pair and `BoardDoor` never passed `onCancel` down, so the
+  // discarding half was wired to nothing — a rater pressed it and watched the
+  // panel sit there, on the one surface the owner had just asked to have polished
+  // and made consistent.
+  it('and the new-board panel can be backed out of by its own Cancel', async () => {
+    surface({ initialSection: 'standalone' })
+    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'A new board' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    // Back on the first screen, at the step the header's own arrow would reach.
+    expect(await screen.findByText('Which board')).toBeTruthy()
+  })
+
   // The mode is offered and cannot act, which is the honest state for it: the
   // owner set anthologies aside — "anthology is due for a revamp" — and then asked
   // for the mode anyway. Leaving it out makes the first screen lie about what the

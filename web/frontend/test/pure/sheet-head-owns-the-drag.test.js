@@ -35,26 +35,47 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { rulesNaming } from '../css-rules.js'
+
 const CSS = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8')
 const UI = readFileSync(join(process.cwd(), 'src/ui.jsx'), 'utf8')
 
-// Every rule whose selector mentions the head, with its body.
-const rulesFor = (needle) => [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-  .filter((m) => m[1].includes(needle))
-  .map((m) => ({ sel: m[1].trim().replace(/\s+/g, ' '), body: m[2] }))
+// Every rule whose selector NAMES the head, with its body.
+//
+// THIS WENT THROUGH `css-rules.js` AFTER IT READ A COMMENT AS A DECLARATION. The
+// hand-rolled `/([^{}]+)\{([^{}]*)\}/g` this used kept comments in the body it
+// handed back, so a note explaining WHY the head carries `touch-action: none`
+// was scanned as a rule that carries something else — the value capture ran past
+// the prose to the next semicolon — and the file failed the very declaration it
+// had just been extended to bless. `cssRules` strips comments first and tracks
+// braces, and its own header records a rater finding the same class of bug in
+// three other sweeps.
+const rulesFor = (cls) => rulesNaming(CSS, cls.replace(/^\./, ''))
+  .map((r) => ({ sel: r.sel.trim().replace(/\s+/g, ' '), body: r.body }))
 
-describe('the panel header claims the drag', () => {
+// BOTH HEADS, BECAUSE BOTH TAKE THE HOOK. This file was written about
+// `.tp-panel-head` when that was the app's only draggable head. `MobileSheet`
+// took `useSheetDrag` too and its head shipped WITHOUT the declaration — so the
+// owner got a sheet whose whole header was wired to drag in JS and neutered in
+// CSS, and reported it as "the drag target is too small when i am adding a quote".
+// The guard that would have caught it was this one, scoped to one selector.
+//
+// A head in this list owes the declaration; a head not in it is unguarded, which
+// is how the second one came to be missing.
+const DRAG_HEADS = ['.tp-panel-head', '.mobile-sheet-header']
+
+describe.each(DRAG_HEADS)('%s claims the drag', (HEAD) => {
   it('declares touch-action: none for the head itself', () => {
     // ONE DECLARATION IS ENOUGH, and asserting more than that was the error this
     // file was rewritten to remove. Effective touch-action intersects with every
     // ancestor, so `none` here covers the head's whole subtree — a rule per
     // descendant adds nothing, and `touch-action` does not even apply to the
     // non-replaced inline elements most of those children are.
-    const head = rulesFor('.tp-panel-head')
-      .filter((r) => /^\.tp-panel-head\s*$/.test(r.sel) || /touch-action/.test(r.body))
+    const head = rulesFor(HEAD)
+      .filter((r) => r.sel === HEAD || /touch-action/.test(r.body))
     const claims = head.filter((r) => [...r.body.matchAll(/touch-action\s*:\s*([^;}]+)/g)]
       .some((m) => m[1].trim() === 'none'))
-    expect(claims.length, 'nothing claims the gesture for the panel header')
+    expect(claims.length, `nothing claims the gesture for ${HEAD}`)
       .toBeGreaterThan(0)
   })
 
@@ -67,11 +88,23 @@ describe('the panel header claims the drag', () => {
     // `pan-x` is the value this forbids, and the note on `.tp-panel-title` says
     // why: it leaves horizontal panning to the browser, and "every real thumb drag
     // is slightly diagonal".
-    const loose = rulesFor('.tp-panel-head')
+    const loose = rulesFor(HEAD)
       .filter((r) => [...r.body.matchAll(/touch-action\s*:\s*([^;}]+)/g)]
         .some((m) => m[1].trim() !== 'none'))
       .map((r) => r.sel)
-    expect(loose, 'a rule under the panel header hands the browser a pan to claim').toEqual([])
+    expect(loose, `a rule under ${HEAD} hands the browser a pan to claim`).toEqual([])
+  })
+})
+
+// AND THE LIST HAS TO KEEP UP WITH THE HOOK. `sheet-drag-wiring.test.js` names
+// every surface that takes `useSheetDrag` and checks the stylesheet SIZES it;
+// this checks the stylesheet lets it be GRABBED. Both halves are per-surface, so
+// a third sheet must appear in both lists or it is half-guarded — which is
+// exactly the state MobileSheet shipped in.
+describe('every draggable head is on the list', () => {
+  it('one head per surface that takes the hook', () => {
+    expect(DRAG_HEADS.length, 'a surface takes useSheetDrag and its head is not guarded here')
+      .toBe([...UI.matchAll(/=\s*useSheetDrag\(\{/g)].length)
   })
 })
 

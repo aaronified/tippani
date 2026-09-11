@@ -59,6 +59,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dismiss, with the same anchors the panel stack has had. Nine surfaces draw this sheet,
   so all nine changed together: the add panel, every edit form, the help sheet, the filter
   sheets, the review and issues lists.
+- **Going back a step no longer animates the sheet away and back.** The arrow was running
+  the sheet's *exit*: the card slid fully off the bottom, waited, snapped back into place
+  in a single frame, and only then showed the previous screen — which then resized. Four
+  movements for a press that dismisses nothing. A step now swaps the contents where the
+  sheet stands, and the only thing that moves is its height settling to the new screen.
+  Closing still slides out, because that one really is leaving.
+- **The whole header bar drags, not just the little grip.** The bar was handed to the drag
+  in code and left to the browser in the stylesheet, so a thumb on the header started a
+  page-pan that went nowhere and the only thing you could actually drag was an 18px strip.
+- **And the header stops looking like a separate bar.** It was painted in the shell's own
+  top-bar material, with a lit hairline along its top edge, over a grip strip showing the
+  card beneath — two different papers meeting on a line. It now shares the sheet's own
+  ground and separates itself with a single rule, the way the app's other panels always
+  have, so the grip and the title read as one bar because they are one bar.
+- **The device's Back gesture goes back one step**, like the arrow beside the title, rather
+  than closing the whole panel from halfway in.
+- **"A new board" can be backed out of.** Its Cancel button did nothing at all.
 - **And the tick and the cross stay together on a phone form.** Giving the sheet's leading
   slot to Back had taken the ✕ off the form entirely, leaving an armed ✓ with nothing to
   discard with. The cross is beside the tick, in red, wherever a form is open; a sheet

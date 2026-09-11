@@ -114,6 +114,58 @@ describe('the add surface on a phone', () => {
     expect(screen.queryByLabelText('Back to the list')).toBeNull()
   })
 
+  // A STEP IS NOT A DISMISSAL — the owner: "the back animations are finnicky."
+  // The arrow ran `slideOut`, the hook's exit: the card animated fully off the
+  // bottom over 160ms, sat there 60ms behind a still-lit scrim, snapped back in
+  // one frame with no entrance to undo it, and only then swapped its contents —
+  // after which the new screen's height sprang for another 220ms. Four movements
+  // for a press that dismisses nothing.
+  it('steps without animating the sheet away, and does it on the press', async () => {
+    surface({ initialSection: 'standalone' })
+    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Proverb' }))
+    await screen.findByLabelText('Quote')
+    fireEvent.click(screen.getByLabelText('Back to the list'))
+    // ON THE FRAME OF THE PRESS. `slideOut` defers its verb to a 220ms timer, so
+    // asserting the content is already back is what separates the two paths —
+    // with the old code this findBy would have to outwait the animation.
+    expect(screen.getByText('What kind of quote')).toBeTruthy()
+    // And the card never went anywhere: a positive translateY is the exit.
+    expect(sheet().style.transform || '').not.toMatch(/translateY\(\s*[1-9]/)
+  })
+
+  // THE OTHER HALF, and without it the case above is satisfiable by deleting
+  // `slideOut` from the sheet altogether — which would throw away the exit
+  // animation the owner asked for in the same breath as the popup.
+  it('but a close still slides the sheet away before it goes', async () => {
+    const onClose = vi.fn()
+    surface({ initialSection: 'standalone', onClose })
+    await screen.findByRole('button', { name: 'A board' })
+    fireEvent.click(screen.getByLabelText('Close'))
+    // The verb waits on the animation; the card is on its way out meanwhile.
+    expect(onClose).not.toHaveBeenCalled()
+    expect(sheet().style.transform || '').toMatch(/translateY\(\s*[1-9]/)
+  })
+
+  // AND THE DEVICE'S OWN BACK GESTURE DOES WHAT THE ARROW DOES. It closed the
+  // surface outright from a screen whose arrow stepped. The first repair passed
+  // the right verb and was INERT: `useBackToClose` keys its effect on `active`
+  // alone, so the handler kept whichever verb existed when the sheet opened —
+  // which on a bare ＋ is `onClose`, because there was nothing to step back to
+  // yet. The verb is read through a ref now.
+  it('and the device back gesture steps too, with the verb it has now', async () => {
+    const onClose = vi.fn()
+    surface({ initialSection: 'standalone', onClose })
+    fireEvent.click(await screen.findByRole('button', { name: 'A board' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Others' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Proverb' }))
+    await screen.findByLabelText('Quote')
+    fireEvent.popState(window)
+    expect(await screen.findByText('What kind of quote')).toBeTruthy()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('lets the header menu change the mode from the form', async () => {
     surface({ initialSection: 'standalone' })
     fireEvent.click(await screen.findByRole('button', { name: 'A board' }))

@@ -854,6 +854,21 @@ export function useWorks() {
 //
 // AND IMPORT IS A DROP TARGET ON THIS SCREEN, not a second one: "import should be
 // single upload (and a drag and drop target) in the first screen."
+// WHAT A CHOICE ON THIS SCREEN LOOKS LIKE, in one function the four rows call.
+//
+// A RATER'S FINDING, and the second time the same rule drifted here: the pressed
+// face was a ternary spelled once per row, so the mode row marked its answer and
+// the board list did not — two copies of one rule, one of which quietly stopped
+// being right. The repair spelled it a THIRD time, which is the same bug with
+// better odds. It is a function now, and the repo's own directive is why:
+// "similar things should act similarly… it lives in one function that both
+// screens call — not in a line each."
+//
+// `on` is nullable rather than boolean so a row with nothing to be chosen (the
+// kinds, which open the form instead of marking) passes nothing and gets the
+// unpressed face without a ternary of its own.
+const choiceFace = (on) => 'tp-btn tactile ' + (on ? 'tp-btn-primary' : 'tp-btn-ghost')
+
 export function AddChooser({
   mode, onMode,
   target, onTarget, onCreateWork,
@@ -886,7 +901,7 @@ export function AddChooser({
                  `.tp-btn-ghost` and `.tp-btn-primary`, which are the app's own
                  unpressed and pressed faces — so the chosen mode takes the primary
                  and the rest take the ghost, and nothing new is invented. */
-              className={'tp-btn tactile ' + (m === mode ? 'tp-btn-primary' : 'tp-btn-ghost')}
+              className={choiceFace(m === mode)}
               aria-pressed={m === mode}
               onClick={() => onMode(m)}
             >
@@ -920,7 +935,7 @@ export function AddChooser({
               <button
                 key={b.id}
                 type="button"
-                className={'tp-btn tactile ' + (target?.id === b.id ? 'tp-btn-primary' : 'tp-btn-ghost')}
+                className={choiceFace(target?.id === b.id)}
                 aria-pressed={target?.id === b.id}
                 onClick={() => onTarget(b)}
               >
@@ -929,7 +944,7 @@ export function AddChooser({
             ))}
             {/* A board you do not have yet, on the same row as the ones you do —
                 the work picker's create row, in the shape a short list wants. */}
-            <button type="button" className="tp-btn tp-btn-ghost tactile" onClick={onNewBoard}>
+            <button type="button" className={choiceFace(false)} onClick={onNewBoard}>
               {t('add.mode.board.new.label')}
             </button>
           </div>
@@ -946,7 +961,7 @@ export function AddChooser({
           <MonoLabel>{t('add.door.which.label')}</MonoLabel>
           <div className="flex flex-wrap gap-2">
             {doors.map((d) => (
-              <button key={d} type="button" className="tp-btn tp-btn-ghost tactile" onClick={() => onDoor(d)}>
+              <button key={d} type="button" className={choiceFace(false)} onClick={() => onDoor(d)}>
                 {DOOR_LABEL(d)}
               </button>
             ))}
@@ -1537,19 +1552,27 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
 // and the kind, with the language list appearing for a proverb board — and it
 // already knows the names in use, which is what stops two boards called the same
 // thing. A copy here would be a second opinion about what a board is.
-function BoardDoor({ onSaved, onSaveState }) {
+function BoardDoor({ onSaved, onSaveState, onCancel }) {
   const { boards, reload } = useBoards()
   const [err, setErr] = useState('')
   // The header ✓ needs a verb to call, and BoardForm publishes none — it owns its
   // own submit button. So this door reports no save state and lets the form's own
   // footer draw the pair, which is the same arrangement the form uses everywhere
   // else it is hosted inline.
+  //
+  // AND THAT SENTENCE WAS HALF TRUE UNTIL NOW: the footer drew the pair and its
+  // discarding half was WIRED TO NOTHING, because `onCancel` was never passed
+  // down. A rater pressed it — nothing happened, on the one surface the owner had
+  // just asked to be polished and made consistent. It steps back to the board
+  // list now, which is where the header's own arrow goes, so the two ways out of
+  // this panel agree.
   useEffect(() => { onSaveState?.(null) }, [onSaveState])
   return (
     <>
       <BoardForm
         existingNames={(boards || []).map((b) => b.name)}
         submitLabel={t('add.door.board.save.label')}
+        onCancel={onCancel}
         onSubmit={async (fields) => {
           const r = await json('POST', '/boards', fields)
           if (!r.ok) { setErr(errText(r)); return errText(r) }
@@ -1797,8 +1820,19 @@ export default function AddSurface({
     />
   )
 
+  // RED WHEREVER THERE IS A PAIR FOR IT TO BE HALF OF, which is the rule as
+  // written and not "red on a phone". The mobile branch has taken `closeDanger`
+  // since the pair was repaired there; the desk branch drew a plain ✕ beside an
+  // armed ✓ and nobody had noticed because the owner checks a phone. One fact,
+  // one spelling: a form is registered exactly when `saveState` is.
   const closeBtn = (
-    <IconButton icon={<IconClose />} ariaLabel={t('common.action.close.label')} tooltip={t('capture.close.tip')} onClick={onClose} />
+    <IconButton
+      icon={<IconClose />}
+      ariaLabel={t('common.action.close.label')}
+      tooltip={t('capture.close.tip')}
+      danger={!!saveState}
+      onClick={onClose}
+    />
   )
 
   // A work the reader is adding rather than choosing — WorkPicker's create row.
@@ -1819,7 +1853,11 @@ export default function AddSurface({
   // chooser for "the container is unnamed", and a kind list that was a screen of
   // its own. All four are questions, and questions live on the first screen now.
   const body = newBoard ? (
-    <BoardDoor onSaved={(what) => { onAdded?.(what); onClose?.() }} onSaveState={setSaveState} />
+    <BoardDoor
+      onSaved={(what) => { onAdded?.(what); onClose?.() }}
+      onSaveState={setSaveState}
+      onCancel={() => setNewBoard(false)}
+    />
   ) : lookup ? (
     workLookup
   ) : onForm ? (
