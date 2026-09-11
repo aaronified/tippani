@@ -15,6 +15,7 @@ import {
   FieldIconButton,
   GhostButton,
   IconButton,
+  FilePick,
   IconCheck,
   IconChevron,
   IconClose,
@@ -259,9 +260,8 @@ export function CoverControls({
   const staged = coverUrl || (!clearCover && currentPath ? coverImgURL(currentPath) : '')
   const previewUrl = coverUrl && previewFor?.url === coverUrl && previewFor.thumb ? previewFor.thumb : staged
 
-  async function onFile(e) {
-    const f = e.target.files && e.target.files[0]
-    e.target.value = '' // allow re-picking the same file
+  // A File, not an event — FilePick reads the input and clears it.
+  async function onFile(f) {
     if (!f) return
     setBusy(true)
     setErr('')
@@ -321,17 +321,21 @@ export function CoverControls({
     <Tooltip label={busy ? t('common.action.upload.busy') : t('cover.upload.tip', { noun })}>
       {/* A FILE PICKER IS A <label>, NOT A BUTTON — the input has to be inside it
           for a press to open the chooser, so this one wears IconButton's classes by
-          hand rather than being one. `has-btn-icon` is what the Button labels
-          preference hides the word with, so it opts in like its three neighbours. */}
-      <label
+          hand rather than being one. That rule is `FilePick` now, and this comment
+          is where it was first written down. `has-btn-icon` is what the Button
+          labels preference hides the word with, so it opts in like its three
+          neighbours. */}
+      <FilePick
         className={'tp-btn tp-btn-ghost tactile flex items-center justify-center rounded-full has-btn-icon' + (busy ? ' is-busy' : '')}
         style={{ height: 44, flexShrink: 0 }}
-        aria-label={t('cover.upload.aria', { noun })}
+        ariaLabel={t('cover.upload.aria', { noun })}
+        accept="image/*"
+        disabled={busy}
+        onFiles={onFile}
       >
         <span className="btn-icon"><IconUpload /></span>
         <span className="btn-label">{t('cover.verb.upload.label')}</span>
-        <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
-      </label>
+      </FilePick>
     </Tooltip>,
     <IconButton
       icon={<IconLink />}

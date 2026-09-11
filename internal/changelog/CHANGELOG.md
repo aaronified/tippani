@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failing, and no key at all. **And the Amazon marketplace is two letters now** — `in`,
   `com`, `com.au` — instead of the whole `www.amazon.in`, which was the widest thing on
   the card. Paste any form of it and it still works.
+- **Choosing the same file twice works everywhere now.** On a board's picture and on the
+  restore screen, picking a file, thinking better of it and picking the same one again did
+  nothing at all — no error, no second try. Eight of the app's ten file pickers cleared
+  themselves after a pick and two did not; they all share one control now. **And three of
+  them can be reached from the keyboard again** — the profile photo, a board's picture and a
+  cover were hidden in a way that took them out of the tab order entirely.
+
 - **The import queue can be narrowed to a book, not just to a file.** A strip of covers
   under the file filter says where each waiting group is going, and pressing one shows only
   the lines bound for that work — across every file they arrived in. Four Kindle exports of

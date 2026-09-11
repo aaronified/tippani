@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
-import { Card, ErrorText, Field, FieldIconButton, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip, useConfirm, IconClose } from './ui.jsx'
+import { Card, ErrorText, Field, FieldIconButton, FilePick, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip, useConfirm, IconClose } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
@@ -39,9 +39,9 @@ function AvatarRow({ user, onUser }) {
   const [gone, setGone] = useState(false)
   useEffect(() => { setGone(false) }, [user.avatar_path])
   const has = !!user.avatar_path && !gone
-  async function onFile(e) {
-    const f = e.target.files && e.target.files[0]
-    e.target.value = '' // allow re-picking the same file
+  // TAKES A FILE, not an event: FilePick reads the input, clears it so the same
+  // file can be picked twice, and hands over what was chosen.
+  async function onFile(f) {
     if (!f) return
     setBusy(true)
     setErr('')
@@ -62,14 +62,13 @@ function AvatarRow({ user, onUser }) {
       </span>
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="tp-btn tp-btn-primary" style={{ cursor: 'pointer' }}>
+          <FilePick className="tp-btn tp-btn-primary" accept="image/*" disabled={busy} onFiles={onFile}>
             {busy
               ? t('common.action.upload.busy')
               : has
                 ? t('account.photo.change')
                 : t('account.photo.upload')}
-            <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
-          </label>
+          </FilePick>
           <InfoDot title={t('account.photo.info.title')} text={t('account.photo.info.body')} />
           {has && (
             <FieldIconButton

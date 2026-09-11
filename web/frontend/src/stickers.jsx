@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, json, upload, errText } from './api.js'
 import { t } from './i18n.js'
-import { EmptyState, ErrorText, GhostButton, HandCard, IconPlus, MonoLabel, Scroller, SortableTh, TableActions, Tooltip, useConfirm, useSort } from './ui.jsx'
+import { EmptyState, ErrorText, GhostButton, HandCard, IconPlus, MonoLabel, Scroller, SortableTh, TableActions, Tooltip, useConfirm, useFilePick, useSort } from './ui.jsx'
 
 // Stored sticker files are served from the shared cover route (built directly,
 // like Cover in ui.jsx — these don't go through the json/upload helpers).
@@ -52,11 +52,9 @@ export function StickerImg({ sticker }) {
 export function StickerPicker({ value, onChange, stickers, reload }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const fileRef = useRef(null)
+  const pick = useFilePick({ accept: STICKER_ACCEPT, onFiles: onFile })
 
-  async function onFile(e) {
-    const f = e.target.files && e.target.files[0]
-    e.target.value = '' // let the same file be re-picked later
+  async function onFile(f) {
     if (!f) return
     setBusy(true)
     setError('')
@@ -100,13 +98,13 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
           <button
             type="button"
             className="sticker-opt sticker-add"
-            onClick={() => fileRef.current && fileRef.current.click()}
+            onClick={pick.open}
             disabled={busy}
           >
             {busy ? '…' : <IconPlus size="1em" />}
           </button>
         </Tooltip>
-        <input ref={fileRef} type="file" accept={STICKER_ACCEPT} hidden onChange={onFile} />
+        {pick.input}
       </div>
       <ErrorText>{error}</ErrorText>
     </div>
@@ -118,11 +116,9 @@ export function StickerPicker({ value, onChange, stickers, reload }) {
 export function NewStickerCard({ onUploaded }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const fileRef = useRef(null)
+  const pick = useFilePick({ accept: STICKER_ACCEPT, onFiles: onFile })
 
-  async function onFile(e) {
-    const f = e.target.files && e.target.files[0]
-    e.target.value = ''
+  async function onFile(f) {
     if (!f) return
     setBusy(true)
     setError('')
@@ -140,10 +136,10 @@ export function NewStickerCard({ onUploaded }) {
       <p className="mb-3 text-xs" style={{ color: 'var(--soft)' }}>
         {t('tags.sticker.new.body')}
       </p>
-      <GhostButton type="button" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}>
+      <GhostButton type="button" onClick={pick.open} disabled={busy}>
         {t(busy ? 'tags.sticker.new.upload.busy' : 'tags.sticker.new.upload.label')}
       </GhostButton>
-      <input ref={fileRef} type="file" accept={STICKER_ACCEPT} hidden onChange={onFile} />
+      {pick.input}
       <ErrorText>{error}</ErrorText>
     </section>
   )

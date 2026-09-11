@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { errText, uploadWithProgress } from './api.js'
 import { t, tNodes } from './i18n.js'
-import { IconArrow, IconImport, IconWarning, ProgressBar } from './ui.jsx'
+import { FilePick, IconArrow, IconImport, IconWarning, ProgressBar } from './ui.jsx'
 import { IMPORT_ACCEPT, sourceTitle } from './importSources.js'
 
 // ONE TARGET, AND THE BYTES SAY WHAT THE FILE IS.
@@ -177,8 +177,12 @@ export default function ImportPage({ onReviewImport, onStaged }) {
 function DropTarget({ busy, pct, onFiles }) {
   const [over, setOver] = useState(false)
   return (
-    <label
+    <FilePick
       className={'import-drop' + (over ? ' is-over' : '') + (busy ? ' is-busy' : '')}
+      accept={IMPORT_ACCEPT}
+      multiple
+      disabled={busy}
+      onFiles={onFiles}
       onDragOver={(e) => {
         e.preventDefault()
         if (!busy) setOver(true)
@@ -203,22 +207,13 @@ function DropTarget({ busy, pct, onFiles }) {
           `max <= 0`: the fraction is honest only once the browser has a total,
           and a bar pinned at zero reads as stalled rather than as starting. */}
       {pct != null && <ProgressBar value={Math.round(pct * 100)} max={pct > 0 ? 100 : 0} />}
-      <input
-        type="file"
-        multiple
-        accept={IMPORT_ACCEPT}
-        /* sr-only, NOT `hidden`: a display:none input cannot take focus, so the
-           label around it would be a control no keyboard could reach. This is
-           the pattern Settings' typeface upload already uses. */
-        className="sr-only"
-        disabled={busy}
-        onChange={(e) => {
-          const fs = [...e.target.files]
-          e.target.value = ''
-          if (fs.length > 0) onFiles(fs)
-        }}
-      />
-    </label>
+      {/* THE INPUT IS FilePick'S NOW, and the note that used to sit on it is the
+          reason that primitive exists: sr-only and NOT `hidden`, because a
+          display:none input cannot take focus and the label around it would be a
+          control no keyboard could reach. Three other label pickers in the app had
+          copied the wrong half of that. `.import-drop:focus-within` is the ring a
+          keyboard gets, and it is still this screen's. */}
+    </FilePick>
   )
 }
 

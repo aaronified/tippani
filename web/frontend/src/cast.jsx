@@ -46,6 +46,7 @@ import {
   IconRefresh,
   IconSearch,
   IconUpload,
+  useFilePick,
   IconUsers,
   InfoDot,
   MonoLabel,
@@ -383,7 +384,11 @@ export function usePicturePicker({
   // reader they have done something wrong.
   onUpload = null,
 }) {
-  const fileRef = useRef(null)
+  const picturePick = useFilePick({
+    accept: 'image/*',
+    ariaLabel: t('identity.picture.upload.aria', { name: faceName }),
+    onFiles: (file) => onUpload?.(file),
+  })
   const [urlOpen, setUrlOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [pics, setPics] = useState(null) // null = never asked; [] = asked, nothing found
@@ -592,32 +597,19 @@ export function usePicturePicker({
             disabled={busy}
             title={t('identity.picture.upload.tip')}
             icon={<IconUpload />}
-                onClick={() => fileRef.current?.click()}
+            onClick={picturePick.open}
           >
             {t('identity.picture.upload.label')}
           </GhostButton>
           {/* THE FILE INPUT IS THE CONTROL AND THE BUTTON IS ITS FACE. A bare
               `<input type=file>` cannot be styled to the pack's button and cannot
               carry the icon, so the app does what every other upload here does:
-              hide the input and press it from a real button. `hidden` rather than
-              `display:none` in a style — the reset in this page gives `[hidden]`
-              that already, and one way to hide a thing is enough. */}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            hidden
-            aria-label={t('identity.picture.upload.aria', { name: faceName })}
-            onChange={async (e) => {
-              const file = e.target.files?.[0]
-              // CLEARED BEFORE THE AWAIT, so choosing the same file twice fires
-              // twice. Without it a failed upload cannot be retried with the same
-              // picture: the input still holds it, `change` never fires again, and
-              // the reader presses a live button that does nothing.
-              e.target.value = ''
-              if (file) await onUpload(file)
-            }}
-          />
+              hide the input and press it from a real button. That pairing is
+              `useFilePick` now — including the clear this site was the first to
+              write down: without it a failed upload cannot be retried with the
+              same picture, because the input still holds it, `change` never fires
+              again, and the reader presses a live button that does nothing. */}
+          {picturePick.input}
         </>
       ) : null}
       <GhostButton

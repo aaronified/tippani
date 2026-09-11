@@ -2384,6 +2384,101 @@ if (import.meta.env.DEV) {
 // which is exactly how a caller ends up focusing an element that never moves.
 // Pulled out of `rest` for the same reason every other named prop is — anything
 // left in there is spread onto the <input> and would land as a DOM attribute.
+// PICKING A FILE, ONCE, FOR THE TEN PLACES THAT DO IT.
+//
+// Ten file inputs across eight files, in two idioms — five wrapped in a <label>
+// that is itself the press target, five held by a ref and opened by a button's
+// onClick — and the rule they were meant to share was written out ten times. It had
+// already drifted: EIGHT of them clear the input's value after a pick and TWO do
+// not, so on a board's cover and on the restore screen, choosing a file, thinking
+// better of it and choosing THE SAME FILE AGAIN does nothing at all. No error, no
+// second change event; the browser has no new value to report.
+//
+// That is the whole argument for a primitive here. The reset is one line, it is
+// invisible when it is missing, and it is the kind of line that gets copied nine
+// times out of ten.
+//
+// TWO SHAPES, ONE INPUT, and the second shape is why this is not just a component.
+// A <label> around a real <button> is a press target inside a press target — which
+// CoverPicker's own comment names — so a site that already has a GhostButton or an
+// icon button cannot wrap it. `useFilePick` hands those sites the same input and a
+// function to open it, so both idioms keep one definition of what a file pick IS.
+
+// The input every shape draws, so its rules are stated once.
+//
+// `onFiles` TAKES WHAT THE CALLER ASKED FOR: one File when `multiple` is false, an
+// array when it is true. A caller that says `multiple` and then reads `[0]` is a
+// caller that will silently drop the rest, so the shape is decided here.
+function filePickInput({ accept, multiple, disabled, onFiles, ariaLabel, inputRef, hide }) {
+  return (
+    <input
+      ref={inputRef}
+      type="file"
+      accept={accept}
+      multiple={multiple || undefined}
+      disabled={disabled || undefined}
+      aria-label={ariaLabel}
+      className={hide}
+      onChange={(e) => {
+        const files = [...(e.target.files || [])];
+        // BEFORE THE HANDLER, NOT AFTER. The handler is usually async and usually
+        // awaits an upload; clearing afterwards would leave the input holding the
+        // old value for the whole of that upload, and a reader who picked again
+        // mid-upload would get nothing.
+        e.target.value = "";
+        if (files.length) onFiles(multiple ? files : files[0]);
+      }}
+    />
+  );
+}
+
+// FilePick — a <label> that IS the button, with the input hidden inside it. The
+// children are what a reader presses, so a caller styles them however that screen
+// styles a button; what it must not put in there is another button.
+// `sr-only` AND NOT `hidden`, AND THIS IS THE BUG THE PRIMITIVE FIXES SECOND. A
+// label-wrapped picker has no focusable control of its own — the input IS the
+// control and the label is its face — so `display: none` on that input makes the
+// whole thing unreachable by keyboard. Three of the five label sites hid it that
+// way (a profile photo, a board's picture, a cover) and were keyboard-dead; the
+// two that used `sr-only` had a comment saying why, and the comment did not travel
+// with the copy. `sr-only` keeps the input in the tree, off screen, focusable — and
+// a caller styles `:focus-within` on its label, as `.import-drop` does.
+//
+// ANY OTHER PROP RIDES ONTO THE LABEL, which is how the import drop target keeps
+// its own drag handlers while sharing this input.
+export function FilePick({
+  accept,
+  multiple = false,
+  disabled = false,
+  onFiles,
+  ariaLabel,
+  className = "",
+  style,
+  children,
+  ...rest
+}) {
+  return (
+    <label className={className} style={{ cursor: disabled ? "default" : "pointer", ...style }} {...rest}>
+      {children}
+      {filePickInput({ accept, multiple, disabled, onFiles, ariaLabel, hide: "sr-only" })}
+    </label>
+  );
+}
+
+// useFilePick — the same input for a site whose press target is already a button.
+// Returns the element to render and the function its onClick calls.
+export function useFilePick({ accept, multiple = false, disabled = false, onFiles, ariaLabel }) {
+  const ref = useRef(null);
+  return {
+    // `hidden` is right HERE and wrong in FilePick: this input is never the
+    // focusable control — the caller's own button is — so taking it out of the
+    // tree costs nothing and keeps it off the tab order, where an sr-only input
+    // beside a button would be a second stop that does the same thing.
+    input: filePickInput({ accept, multiple, disabled, onFiles, ariaLabel, inputRef: ref, hide: "hidden" }),
+    open: () => ref.current?.click(),
+  };
+}
+
 export function Field({ label, className = "", nameCase = false, onChange, inputRef, ...rest }) {
   return (
     <label className={"tp-field " + className}>

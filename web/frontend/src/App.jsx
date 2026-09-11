@@ -106,6 +106,7 @@ import {
   useScreenBarState,
   useFrameBase,
   useHideOnScrollDown,
+  useFilePick,
   useIsMobileScreen,
   usePersistedState,
   useResolvedDark,
@@ -384,7 +385,11 @@ export function Onboarding({ onDone, backup }) {
   // is a label saying whose password to reach for.
   const [password, setPassword] = useState('')
   const [passphrase, setPassphrase] = useState('')
-  const fileRef = useRef(null)
+  const restorePick = useFilePick({
+    accept: '.tpbk,.tar.gz,.tgz,application/gzip,application/octet-stream',
+    ariaLabel: t('shell.restore.file.aria'),
+    onFiles: (f) => chooseFile(f || null),
+  })
   useEffect(() => {
     applyTheme({ materialSet: 'manuscript', theme: 'light' })
   }, [])
@@ -494,15 +499,12 @@ export function Onboarding({ onDone, backup }) {
         )}
         {source === 'file' && (
           <>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".tpbk,.tar.gz,.tgz,application/gzip,application/octet-stream"
-              aria-label={t('shell.restore.file.aria')}
-              className="hidden"
-              onChange={(e) => chooseFile(e.target.files?.[0] || null)}
-            />
-            <GhostButton className="mt-3 w-full" onClick={() => fileRef.current?.click()} disabled={phase !== 'idle'}>
+            {/* THIS ONE NEVER CLEARED ITS INPUT, so choosing an archive, thinking
+                better of it and choosing THE SAME FILE again did nothing — no error
+                and no second change event, because the browser had no new value to
+                report. The primitive clears it for every site at once. */}
+            {restorePick.input}
+            <GhostButton className="mt-3 w-full" onClick={restorePick.open} disabled={phase !== 'idle'}>
               {file ? file.name : t('shell.restore.file.choose.label')}
             </GhostButton>
           </>

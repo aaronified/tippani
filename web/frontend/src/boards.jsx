@@ -31,6 +31,7 @@ import {
   IconEyeOff,
   IconPlus,
   IconQuote,
+  FilePick,
   IconUpload,
   MonoLabel,
   MoreMenu,
@@ -300,8 +301,10 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
     setNewLanguage('')
   }
 
-  async function pickImage(e) {
-    const file = e.target.files?.[0]
+  // A FILE, not an event — see FilePick. This handler never cleared the input, so
+  // picking a cover, thinking better of it and picking the SAME file again did
+  // nothing at all; the primitive clears it for every site at once.
+  async function pickImage(file) {
     if (!file || !initial?.id) return
     setBusy(true)
     const form = new FormData()
@@ -502,11 +505,10 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
             imgClass="board-form-img"
             fallback={<span className="board-form-img is-empty" aria-hidden="true" />}
           />
-          <label className="tp-btn tp-btn-ghost tactile" style={{ cursor: 'pointer' }}>
+          <FilePick className="tp-btn tp-btn-ghost tactile" accept="image/*" disabled={busy} onFiles={pickImage}>
             <IconUpload />
             <span className="btn-label">{t('quotes.board.form.picture.label')}</span>
-            <input type="file" accept="image/*" className="hidden" onChange={pickImage} disabled={busy} />
-          </label>
+          </FilePick>
           {imagePath && (
             <GhostButton type="button" onClick={() => setImagePath('')}>
               {t('common.action.remove.label')}

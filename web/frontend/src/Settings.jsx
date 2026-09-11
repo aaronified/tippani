@@ -53,6 +53,7 @@ import {
   IconRevert,
   IconTour,
   IconType,
+  FilePick,
   IconUpload,
   InfoDot,
   isPartialDate,
@@ -72,6 +73,7 @@ import {
   useConfirm,
   useCoverSize,
   useFrameBase,
+  useFilePick,
   useIsMobileScreen,
   useScreenBar,
 } from './ui.jsx'
@@ -801,17 +803,15 @@ function TypeSettings({ prefs, onSaved }) {
                     {/* UPLOAD IS ITS OWN BUTTON. It was a fourth chip beside three
                         typefaces, which reads as a fourth typeface — and it is not
                         a face, it is a way of getting one. */}
-                    <label className="tp-btn tp-btn-ghost tactile" style={{ cursor: 'pointer' }}>
+                    <FilePick
+                      className="tp-btn tp-btn-ghost tactile"
+                      accept=".woff2,.woff,.otf,.ttf,font/woff2,font/woff,font/otf,font/ttf"
+                      disabled={busy}
+                      onFiles={(f) => upload(row.key, f)}
+                    >
                       <IconUpload />
                       <span>{busy ? t('common.action.upload.busy') : t('settings.type.upload.label')}</span>
-                      <input
-                        type="file"
-                        accept=".woff2,.woff,.otf,.ttf,font/woff2,font/woff,font/otf,font/ttf"
-                        className="sr-only"
-                        disabled={busy}
-                        onChange={(e) => { upload(row.key, e.target.files?.[0]); e.target.value = '' }}
-                      />
-                    </label>
+                    </FilePick>
                   </div>
                   {/* Removing an uploaded face is managing YOUR FONTS, not picking
                       this role's — so it is listed once, here, rather than as a bin
@@ -2405,7 +2405,13 @@ function BackupCard({ user, asking = false, onAsking }) {
   const [prompt, setPrompt] = useState(false) // restore prompt open
   const [phase, setPhase] = useState('idle') // idle | uploading | restoring
   const [pct, setPct] = useState(0)
-  const fileRef = useRef(null)
+  // The restore picker, through the shared primitive: one input, one place the
+  // value is cleared so the same archive can be chosen twice.
+  const restorePick = useFilePick({
+    accept: '.tpbk,.tar.gz,.tgz,application/gzip,application/octet-stream',
+    ariaLabel: t('shell.restore.file.aria'),
+    onFiles: (f) => chooseFile(f || null),
+  })
 
   useEffect(() => {
     json('GET', '/admin/backup').then((r) => {
@@ -2588,21 +2594,14 @@ function BackupCard({ user, asking = false, onAsking }) {
           )}
           {source === 'file' && (
             <>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".tpbk,.tar.gz,.tgz,application/gzip,application/octet-stream"
-                className="hidden"
-                aria-label={t('shell.restore.file.aria')}
-                onChange={(e) => chooseFile(e.target.files?.[0] || null)}
-              />
+              {restorePick.input}
               <div className="flex flex-wrap items-center gap-2">
                 {/* IconUpload: this file is going TO the server, which is the one
                     thing that tells it apart from the download beside it. */}
                 <GhostButton
                   icon={<IconUpload />}
                   keepLabel
-                  onClick={() => fileRef.current?.click()}
+                  onClick={restorePick.open}
                   disabled={phase !== 'idle'}
                 >
                   {t(file ? 'settings.backup.file.replace.label' : 'settings.backup.file.choose.label')}
