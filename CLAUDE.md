@@ -77,13 +77,24 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   and a table that mixes them silently is worse than one that reports less: the reader
   cannot tell which rows to trust, so the checked ones lose their value too.
 
-- **A PLAN IS A LIST OF TASKS. NOTHING ELSE.** The owner: *"the plan area need not be so
-  much populated. all it needs is the list of tasks. always do that only"* — so what goes
-  into plan mode is the task list and no more: no context section, no rulings table, no
-  per-item evidence, no verification appendix. The reasoning still has to happen and still
-  has to be recorded; it goes in the commit body and `docs/PLAN.md`, where the house style
-  already puts it, and where it is read at the line it is about rather than scrolled past
-  before the work starts.
+- **A PLAN IS A LIST OF TASKS, AND IT LISTS EVERY ASK.** The owner, twice: *"the plan area
+  need not be so much populated. all it needs is the list of tasks. always do that only"*,
+  then *"in this session, you will always plan using only the task list and include every
+  single ask there. for actual elaborate planning i will use another agent in another
+  session."*
+
+  So a plan is one line per ask and no more: no context section, no rulings table, no
+  per-item evidence, no proposed-order paragraph, no verification appendix. **Brevity is
+  per item, never in coverage** — the list is short because each line is short, not because
+  it was pruned, and an ask made this session that is not on it is the defect this rule
+  exists to prevent. The reasoning still has to happen and still has to be recorded; it
+  goes in the commit body and `docs/PLAN.md`, where the house style already puts it and
+  where it is read at the line it is about rather than scrolled past before work starts.
+
+  AND THE PANEL IS NOT THE FILE. `/root/.claude/plans/<name>.md` can be rewritten and the
+  Plan panel goes on showing the text captured when the plan was APPROVED. Replacing what
+  the reader sees means re-submitting through plan mode; editing the file and reporting the
+  panel fixed is a claim about something that was never checked.
 
 - **DO NOT EDIT CODE FILES WHILE A RATER IS RUNNING.** The owner's, standing: "do not edit
   code files when the rater is running. keep this in memory." A rater reads the tree it was
