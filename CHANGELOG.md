@@ -24,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   saved .html here", pointing at a card that no longer exists — there is one target now,
   so the steps say what to produce and nothing about where to put it.
 
+- **The metadata sources page reports every supplier that has stopped working, not the
+  two it happened to know about.** Every lookup the app makes — books, films, shows,
+  games, and each rung of the picture search — now records what it last did, and the
+  broken ones say so on the card with the reason attached. **A source that finds nothing
+  once is not broken**; one that has found nothing several times in a row is, and that is
+  the difference the card now draws. The Google image search in particular used to fail
+  silently in four different ways that looked identical — a consent page, a rate limit, a
+  changed results page, and an honest miss — and it now says which.
+
 - **The metadata sources page is two columns on a desk, and the multi-author separators
   are their own card.** The cards pack rather than stretch, so a short one beside a tall
   one no longer leaves a column of whitespace. **And the "read Google image results

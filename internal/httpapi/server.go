@@ -71,7 +71,19 @@ type Server struct {
 
 	// booksLookup remembers the most recent POST /books/lookup outcome for
 	// GET /metadata/status; nil = never tried. In-memory by design (§10).
+	//
+	// IT IS THE OLDER SPELLING OF THE SAME FACT. `lookups` below records books
+	// too, and everything else besides; this field survives because the payload
+	// key `books_lookup` has a shape the card and a dozen fixtures already read,
+	// and rewriting them buys the reader nothing. Both are written from one call
+	// (recordBooksLookup), so there is no second place for the fact to drift.
 	booksLookup atomic.Pointer[lookupOutcome]
+
+	// lookups remembers what EVERY metadata source last did — the film and game
+	// lookups, and each rung of the picture ladder — so the Metadata sources card
+	// can report a fault rather than the two it happened to know about. See
+	// metadata_faults.go for why a run of empty answers is a fault and one is not.
+	lookups lookupRegistry
 
 	// Update-check seams (Settings → Updates, admin): the GitHub API base and a
 	// factory for the Docker-socket client, both stubbed in tests.

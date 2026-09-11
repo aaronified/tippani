@@ -275,6 +275,84 @@ describe('the IGDB pair', () => {
   })
 })
 
+// EVERY SOURCE THAT IS BROKEN, NOT THE TWO THIS SCREEN HAPPENED TO KNOW ABOUT.
+//
+// THE OWNER: "those two cannot be the only metadata faults. add all kinds of faults
+// there. like now i can see that google photo search is yielding zero results,
+// zilch." They were right about the cause as well as the symptom: the card reported
+// a failed books lookup and a missing film key because those were the only two
+// states the SERVER ever remembered. Everything else answered a request and was
+// forgotten when the response was written.
+//
+// WHAT IS A FAULT AND WHAT IS A MISS IS DECIDED SERVER-SIDE and is tested there
+// (metadata_faults_test.go): a single empty search is the ordinary state of a search
+// box, and only a RUN is a fault. These cases are about the other half — that a
+// fault the server reports actually reaches the reader, with the cause attached.
+describe('the fault list', () => {
+  const fault = (over) => ({
+    source: 'google-images', area: 'pictures', kind: 'empty',
+    run: 7, note: 'google is showing a consent page instead of results',
+    checked_at: '2026-09-11T10:00:00Z', ...over,
+  })
+
+  it('draws a chip for a source the server says has stopped answering', async () => {
+    STATUS = { tmdb: { source: 'builtin' }, books_lookup: { ok: true }, faults: [fault()] }
+    await page()
+    // NAMED BY SUPPLIER AND BY AREA. The same company answers a book lookup and a
+    // picture search, and only one of them may have stopped — a chip reading
+    // "Google" alone would send the reader to check a books key that works.
+    await waitFor(() => expect(screen.getByText('Google Images pictures finding nothing')).toBeTruthy())
+  })
+
+  it('and says what the source itself reported, which is the actionable half', async () => {
+    // "Nothing found seven times" says something is wrong. "Google is showing a
+    // consent page" says what to do about it, and the rung already knew — it was
+    // being thrown away at the `return nil` that every failure used to share.
+    STATUS = { tmdb: { source: 'builtin' }, books_lookup: { ok: true }, faults: [fault()] }
+    await page()
+    await waitFor(() => expect(screen.getByText(/consent page/)).toBeTruthy())
+  })
+
+  it('tells a failure from a dry spell, because they are different things to do', async () => {
+    STATUS = {
+      tmdb: { source: 'builtin' }, books_lookup: { ok: true },
+      faults: [fault({ source: 'tvdb', area: 'films', kind: 'error', run: 0, note: '', error: 'dial tcp: i/o timeout' })],
+    }
+    await page()
+    await waitFor(() => expect(screen.getByText('TheTVDB films failing')).toBeTruthy())
+    // AND NOT THE OTHER WORDING: a card that said TheTVDB was "finding nothing"
+    // when the connection is refused sends the reader to look at their library
+    // instead of their network.
+    expect(screen.queryByText(/finding nothing/)).toBeNull()
+  })
+
+  it('names a source the app has never heard of rather than drawing its key', async () => {
+    // THE LIST IS OPEN-ENDED BY DESIGN: a rung added to the picture ladder records
+    // itself the moment it runs. A card that drew
+    // "vocab.source.wikiquote.label" would be worse than one that drew
+    // "wikiquote" — this is a report about the server, and a report that refuses
+    // to name a supplier it has not met is not a report.
+    STATUS = {
+      tmdb: { source: 'builtin' }, books_lookup: { ok: true },
+      faults: [fault({ source: 'wikiquote', kind: 'error', error: 'boom' })],
+    }
+    await page()
+    await waitFor(() => expect(screen.getByText('wikiquote pictures failing')).toBeTruthy())
+    expect(screen.queryByText(/vocab\.source/), 'a raw translation key reached the screen').toBeNull()
+  })
+
+  it('and says nothing at all when nothing is broken', async () => {
+    // The card's own rule, kept: silence is the healthy state. An empty list must
+    // not draw a row — an empty flex box under the heading reads as an element
+    // that failed to load, which is the mistake the built-in chips were deleted
+    // for.
+    STATUS = { tmdb: { source: 'builtin' }, books_lookup: { ok: true }, faults: [] }
+    await page()
+    await act(async () => {})
+    expect(screen.queryByText(/finding nothing|failing/)).toBeNull()
+  })
+})
+
 // THE SCRAPE TOGGLE IS LAST, AND IT IS STILL THE ADMIN'S.
 //
 // The owner's: "the read google results directly: shorten the header and put it at

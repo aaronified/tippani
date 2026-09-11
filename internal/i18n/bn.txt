@@ -663,7 +663,9 @@ common.language-mark.aria = {name} ভাষায়
 # vocab.source.* — the metadata suppliers. PROPER NOUNS: DO NOT TRANSLATE.
 # Transliterating into the reader's script is fine; renaming is not.
 # ---------------------------------------------------------------------------
+# TWO PRODUCTS OF ONE COMPANY — see en.txt. Both are Latin brand names and stay so.
 vocab.source.google.label = Google Books
+vocab.source.google-images.label = Google Images
 vocab.source.openlibrary.label = Open Library
 vocab.source.wikipedia.label = Wikipedia
 vocab.source.wikimedia.label = Wikimedia
@@ -5137,6 +5139,16 @@ settings.metadata.info.body = বইয়ের জন্য কোনও চ�
 settings.metadata.books.failing.label = খোঁজ আটকে যাচ্ছে
 settings.metadata.tmdb.none.label = চাবি নেই
 settings.metadata.last-error.prose = শেষ গোলমাল: {error}
+# THE OPEN-ENDED HALF OF THE FAULT LIST — see en.txt. {source} is a proper noun and
+# {area} one of the four words below.
+settings.metadata.fault.failing.label = {source} {area} আটকে যাচ্ছে
+settings.metadata.fault.empty.label = {source} {area} কিছুই পাচ্ছে না
+# {why} is the source's own words and is NOT translated — see en.txt.
+settings.metadata.fault.why.prose = {source}: {why}
+settings.metadata.area.books.label = বইয়ে
+settings.metadata.area.films.label = সিনেমায়
+settings.metadata.area.games.label = গেমে
+settings.metadata.area.pictures.label = ছবিতে
 # Half an IGDB pair fails at the Twitch token exchange, which arrives as a
 # lookup failure — so the missing half is named. {half} is one of the nouns
 # below, not a sentence.

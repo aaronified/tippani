@@ -234,6 +234,24 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 			a.Note = *t.note
 		}
 		tried = append(tried, a)
+		// AND THE SERVER REMEMBERS, which is the half `tried` could never be.
+		//
+		// `tried` is this request's account of itself and dies with the response:
+		// it tells the reader looking at ONE empty strip which rungs were asked.
+		// It cannot tell anybody that a rung has answered nothing to everything
+		// for a week, because nothing was keeping score — which is exactly the
+		// state the owner reported ("google photo search is yielding zero results,
+		// zilch") and exactly what no screen in the app could say.
+		//
+		// A RUNG THAT RUNS IS A RUNG THAT WORKED, as far as this loop can tell: an
+		// imageTier's run() swallows its own errors and returns nil, so the third
+		// argument is always nil here and every rung is recorded as a successful
+		// call with a count. That is not a gap being papered over — it is why the
+		// EMPTY RUN exists rather than an error count. The note carries whatever
+		// the rung itself understood about the miss.
+		if who := faultSourceOf(t.name); who != "" {
+			s.recordLookup(faultAreaPictures, who, len(hits), a.Note, nil)
+		}
 		if len(images) >= imageSearchMax {
 			break // the cap is spent, and it was spent from the top
 		}
@@ -384,3 +402,34 @@ func mediaNoun(mediaType string) string {
 // because the client asks the question and a constant is the correct answer to
 // it rather than a reason to make the client stop asking.
 func (s *Server) imageSearchConfigured(_ context.Context) bool { return true }
+
+// faultSourceOf turns a rung's internal name into the supplier a reader would name,
+// or "" for a rung that must not be judged this way at all.
+//
+// ONE TABLE, AND IT IS THE ONE THE RESPONSE ALREADY USES. `sources` in the reply
+// below maps google-scrape onto "google" for exactly this reason — the reader knows
+// the company, not the technique — and a second table in the client would be the
+// same fact in two languages, drifting the first time a rung is renamed.
+//
+// `amazon-by-id` IS EXCLUDED, and this is the interesting entry. It is not a search:
+// it composes a cover URL from an ISBN or an ASIN and asks whether a picture is
+// there. Asked for a book with neither, it correctly does nothing and returns
+// nothing — which, counted as an empty answer, would build a permanent run and put
+// "Amazon found nothing" on the card of every reader who searches covers by title.
+// A probe that was never given anything to probe with has not failed.
+func faultSourceOf(rung string) string {
+	switch rung {
+	// "google-images" AND NOT "google", and the distinction is the reader's rather
+	// than a nicety: `vocab.source.google.label` reads "Google Books", which is the
+	// supplier behind a book lookup and has nothing to do with this rung. One label
+	// for both would put "Google Books found nothing" on a card about pictures.
+	case "google-scrape":
+		return "google-images"
+	case "amazon-search":
+		return "amazon"
+	case "amazon-by-id":
+		return ""
+	default:
+		return rung
+	}
+}

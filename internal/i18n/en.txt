@@ -647,7 +647,12 @@ common.language-mark.aria = in {name}
 # vocab.source.* — the metadata suppliers. PROPER NOUNS: DO NOT TRANSLATE.
 # Transliterating into the reader's script is fine; renaming is not.
 # ---------------------------------------------------------------------------
+# TWO PRODUCTS OF ONE COMPANY, and the app asks them different questions: the
+# books API answers a lookup, the image results page answers a picture search.
+# One label for both would put "Google Books found nothing" on a fault about a
+# portrait.
 vocab.source.google.label = Google Books
+vocab.source.google-images.label = Google Images
 vocab.source.openlibrary.label = Open Library
 vocab.source.wikipedia.label = Wikipedia
 # The picture ladder's keyless rung. Named for the FOUNDATION and not for
@@ -5169,6 +5174,24 @@ settings.metadata.info.body = Books need no key: Google Books and Open Library, 
 settings.metadata.books.failing.label = Lookup failing
 settings.metadata.tmdb.none.label = No key
 settings.metadata.last-error.prose = last error: {error}
+# THE OPEN-ENDED HALF OF THE FAULT LIST. Every supplier the app asks records what it
+# last did, and these name the two ways one can be broken. {source} is a proper noun
+# from vocab.source.*, {area} one of the four words below — "TheTVDB pictures" rather
+# than "TheTVDB", because the same supplier answers two kinds of question and only
+# one of them may have stopped.
+settings.metadata.fault.failing.label = {source} {area} failing
+settings.metadata.fault.empty.label = {source} {area} finding nothing
+# THE CAUSE, UNDER THE CHIPS. {why} is the source's own words and is NOT translated —
+# the same rule settings.metadata.last-error.prose has always followed, because a
+# provider's message arrives in whatever language the provider chose and the frame
+# around it is the only part this app is responsible for.
+settings.metadata.fault.why.prose = {source}: {why}
+# THE FOUR KINDS OF QUESTION THE APP ASKS A SUPPLIER. A noun, not a sentence: it is
+# read inside a chip beside a supplier's name.
+settings.metadata.area.books.label = books
+settings.metadata.area.films.label = films
+settings.metadata.area.games.label = games
+settings.metadata.area.pictures.label = pictures
 # Half an IGDB pair fails at the Twitch token exchange, which arrives as a
 # lookup failure — so the missing half is named. {half} is one of the nouns
 # below, not a sentence.

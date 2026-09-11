@@ -483,7 +483,16 @@ func (s *Server) googleScrapeTier(query string) *imageTier {
 	if err != nil || on != "1" || strings.TrimSpace(query) == "" {
 		return nil
 	}
-	return &imageTier{name: "google-scrape", run: func(ctx context.Context) []metadata.ImageHit {
-		return metadata.GoogleImageScrape(ctx, query, true, 8)
+	// THE NOTE IS WHY THIS RUNG CAME BACK EMPTY, and it is the reason the scraper
+	// grew a second return value. A consent wall, a rate limit, a markup rotation
+	// and an honest miss were one empty slice — four different things to do about
+	// it, and the app had thrown away which. The owner's report was the fourth
+	// case being indistinguishable from the other three: "google photo search is
+	// yielding zero results, zilch."
+	note := new(string)
+	return &imageTier{name: "google-scrape", note: note, run: func(ctx context.Context) []metadata.ImageHit {
+		hits, why := metadata.GoogleImageScrape(ctx, query, true, 8)
+		*note = why
+		return hits
 	}}
 }

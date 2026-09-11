@@ -79,12 +79,24 @@ type lookupOutcome struct {
 	CheckedAt string // RFC3339
 }
 
-func (s *Server) recordBooksLookup(err error) {
+// ONE CALL WRITES BOTH STORES, which is what keeps `books_lookup` and the fault
+// list from drifting: the older payload key survives because a card and a dozen
+// fixtures read its shape, but it is not a second SOURCE of the fact.
+//
+// `found` IS NEW AND IS WHY THE SIGNATURE CHANGED. The old boolean could say a
+// books lookup failed and could not say it worked and returned nothing, which is
+// precisely the state the owner is looking at on the picture ladder. `books_lookup`
+// keeps the two-state shape it always had; the registry gets the third.
+func (s *Server) recordBooksLookup(found int, err error) {
 	rec := &lookupOutcome{OK: err == nil, CheckedAt: time.Now().UTC().Format(time.RFC3339)}
 	if err != nil {
 		rec.Error = strings.ReplaceAll(err.Error(), "\n", "; ")
 	}
 	s.booksLookup.Store(rec)
+	// "google" AND NOT "google-books", because `vocab.source.google.label` already
+	// reads "Google Books" — the app named this supplier once and the fault list
+	// has no business naming it a second time in a slightly different way.
+	s.recordLookup(faultAreaBooks, "google", found, "", err)
 }
 
 // resolveTMDB picks the effective TMDB client per request, in the PLAN §6
@@ -189,6 +201,14 @@ func (s *Server) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
 		// ask the question — a cover, a poster, a portrait — are used by every
 		// reader and none of them can see a key.
 		"image_search": s.imageSearchConfigured(r.Context()),
+		// EVERY SOURCE THAT IS ACTUALLY BROKEN, and nothing about the ones that
+		// are not. The card's own rule is that silence is the healthy state, so an
+		// empty list is the ordinary answer and is not decoration to be filled.
+		//
+		// COMPUTED HERE RATHER THAN IN THE CLIENT because the thing that makes a
+		// zero into a fault is a RUN, and a run is only visible to whatever saw
+		// every attempt. A client sees one page load.
+		"faults": s.lookups.faults(),
 	}
 	if n := s.filmSourceNotice(userID(r)); n != nil {
 		out["film_source_notice"] = n

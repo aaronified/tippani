@@ -21,7 +21,7 @@
 
 import { useEffect, useState } from 'react'
 import { json, errText } from './api.js'
-import { t } from './i18n.js'
+import { placeholderFor, t } from './i18n.js'
 import {
   Card,
   ErrorText,
@@ -283,6 +283,34 @@ function KeyField({ label, hint, set, placeholder, secret = true, value = '', on
 // PROPER NOUNS and already live in vocab.source.*, so seven hardcoded labels
 // would be seven more copies of a word the app spells in a dozen other places.
 // Called during render, never at module scope.
+// THE SUPPLIER'S OWN NAME, or the raw slug when the app has never named it.
+//
+// A FALLBACK RATHER THAN A MISSING KEY, because the fault list is open-ended by
+// design: a rung added to the picture ladder tomorrow records itself here the moment
+// it runs, and a card that drew "settings.metadata.source.wikiquote.label" would be
+// worse than one that drew "wikiquote". The list is a report about the server, and a
+// report that refuses to name a supplier it has never heard of is not a report.
+const sourceName = (slug) => {
+  const key = `vocab.source.${slug}.label`
+  const named = t(key)
+  // `t` DOES NOT RETURN THE KEY FOR A MISSING STRING — it returns
+  // placeholderFor(key), which is the last segment title-cased, so every unnamed
+  // supplier would draw the word "Label". Comparing against that function is how a
+  // caller recognises the placeholder, which is what it is exported for; comparing
+  // against the key is the mistake this line was written with first, and it fails
+  // silently because the comparison is simply never true.
+  return named === placeholderFor(key) ? slug : named
+}
+
+// The fault cause's own line. Same face and colour as the `last-error` prose under
+// it — they are the same kind of sentence and were drawn identically before this
+// list existed, so the shared constant is the rule rather than a tidy-up.
+const FAULT_PROSE = {
+  fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)',
+  fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)',
+  fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)', color: 'var(--error)',
+}
+
 const keyLabel = (source, noun) =>
   t('settings.keys.field.label', {
     source: t(`vocab.source.${source}.label`),
@@ -337,6 +365,10 @@ export function MetadataSources({ user, onPreferences }) {
   // the healthy state and a chip means something to act on. "You are running on the
   // shared key" is not something to act on; "nothing will answer" is.
   const tmdbChip = source === 'none' ? ['error', 'settings.metadata.tmdb.none.label'] : null
+  // EVERY OTHER SOURCE THAT IS ACTUALLY BROKEN, composed by the server because the
+  // thing that turns a zero into a fault is a RUN and a run is only visible to
+  // whatever saw every attempt. A client sees one page load.
+  const faults = status?.faults || []
   // TheTVDB HAD A BUILT-IN CHIP AND NOW HAS NONE. It only ever reported the
   // built-in case — it had no fault branch, because an unset optional key is the
   // ordinary state of a self-built binary — so removing the callout removes the
@@ -433,18 +465,56 @@ export function MetadataSources({ user, onPreferences }) {
           The row itself goes when both chips do: an empty flex box under the
           heading is a gap that reads as a missing element rather than as
           nothing to report. */}
-      {/* TWO CHIPS LEFT, AND BOTH ARE FAULTS. The three that went were notices —
-          two built-in-key ones and the moved-default one. These two report that
-          something will not answer: lookups are failing, or there is no key at all
-          and a lookup will 503. That is this section's own rule kept rather than
-          an exception to the owner's: "silence is the healthy state; a chip here
-          means something to act on." */}
-      {(booksChip || tmdbChip) && (
+      {/* TWO CHIPS LEFT OF THE OLD ONES, AND BOTH ARE FAULTS. The three that went
+          were notices — two built-in-key ones and the moved-default one. These two
+          report that something will not answer: lookups are failing, or there is no
+          key at all and a lookup will 503. That is this section's own rule kept
+          rather than an exception to the owner's: "silence is the healthy state; a
+          chip here means something to act on."
+
+          AND THE SERVER'S OWN FAULT LIST JOINS THEM, which is the owner's next ask
+          on the same screen: "those two cannot be the only metadata faults. add all
+          kinds of faults there." Every supplier the app asks — the film and game
+          lookups, and each rung of the picture ladder — now records what it last
+          did, and the ones that are broken arrive here. See metadata_faults.go for
+          why a RUN of empty answers is a fault and a single one never is.
+
+          ONE ROW, NOT TWO. A second strip under the first would be two places to
+          look for the same kind of news, and the older chips are faults by the same
+          definition — they are simply the two the server always knew. */}
+      {(booksChip || tmdbChip || faults.length > 0) && (
         <div className="flex flex-wrap items-center gap-2">
           {booksChip && <StatusChip tone={booksChip[0]}>{t(booksChip[1])}</StatusChip>}
           {tmdbChip && <StatusChip tone={tmdbChip[0]}>{t(tmdbChip[1])}</StatusChip>}
+          {faults.map((f) => (
+            <StatusChip key={f.area + '/' + f.source} tone="error">
+              {t(`settings.metadata.fault.${f.kind === 'error' ? 'failing' : 'empty'}.label`, {
+                source: sourceName(f.source),
+                area: t(`settings.metadata.area.${f.area}.label`),
+              })}
+            </StatusChip>
+          ))}
         </div>
       )}
+      {/* WHAT EACH FAULT ACTUALLY SAID, under the chips rather than inside them. A
+          chip is a name and a verdict; the cause is a sentence, and a sentence in a
+          pill is a pill that wraps to four lines on a phone.
+
+          THE CAUSE IS THE SOURCE'S OWN WORDS AND IS NOT TRANSLATED, which the
+          `last-error` line below has always done for the same reason: a provider's
+          error text arrives in whatever language the provider chose, and the frame
+          around it is what this app is responsible for. The scrape's reasons are
+          written to read as English sentences because they are the ones a reader is
+          most likely to act on — a consent page and a rate limit are both things to
+          do something about. */}
+      {faults.filter((f) => f.error || f.note).map((f) => (
+        <p key={f.area + '/' + f.source} className="mt-1" style={FAULT_PROSE}>
+          {t('settings.metadata.fault.why.prose', {
+            source: sourceName(f.source),
+            why: f.error || f.note,
+          })}
+        </p>
+      ))}
       {lookup?.ok === false && lookup.error && (
         <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-11)', color: 'var(--error)' }}>
           {t('settings.metadata.last-error.prose', { error: lookup.error })}

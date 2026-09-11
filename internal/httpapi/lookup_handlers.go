@@ -53,7 +53,10 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 	var searchErr error
 	if isbn != "" || req.Title != "" {
 		cands, searchErr = s.searchBooks(r.Context(), isbn, req.Title, req.Author, gkey)
-		s.recordBooksLookup(searchErr) // GET /metadata/status surfaces this (§10)
+		// GET /metadata/status surfaces this (§10). The COUNT goes with it now:
+		// a books search that works and finds nothing, over and over, is a fault
+		// the old boolean could not express — see metadata_faults.go.
+		s.recordBooksLookup(len(cands), searchErr)
 	}
 
 	// Amazon (opt-in): an ASIN + a stored session cookie. Best-effort and
@@ -217,13 +220,21 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// EACH SUPPLIER'S OWN ANSWER IS RECORDED, not the merged one, and that is the
+	// point: this handler already tolerates one source being down while the other
+	// answers — the reader sees candidates and nothing is reported — so the half
+	// that failed is invisible to everyone unless it is written down here. That is
+	// how an install can run for a month on TMDB alone and never be told TheTVDB
+	// has been refusing since a key expired.
 	var firstErr, tvdbErr error
 	if tvdb != nil && req.Title != "" {
-		if c, err := tvdb.Search(r.Context(), req.Title, req.Year, mediaType); err != nil {
+		c, err := tvdb.Search(r.Context(), req.Title, req.Year, mediaType)
+		if err != nil {
 			firstErr, tvdbErr = err, err
 		} else {
 			add(c)
 		}
+		s.recordLookup(faultAreaFilms, "tvdb", len(c), "", err)
 	}
 	if tmdb != nil && req.Title != "" {
 		var c []metadata.MovieCandidate
@@ -240,6 +251,7 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 		} else {
 			add(c)
 		}
+		s.recordLookup(faultAreaFilms, "tmdb", len(c), "", err)
 	}
 	olog.Tracef("[meta] movie lookup %q year=%d media=%s: tmdb=%t tvdb=%t -> %d candidate(s), err=%v",
 		req.Title, req.Year, mediaType, tmdb != nil, tvdb != nil, len(cands), firstErr)
@@ -332,11 +344,18 @@ func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string
 
 	var searchErr error
 	if title != "" && igdb != nil {
-		if c, err := igdb.Search(r.Context(), title, year); err != nil {
+		c, err := igdb.Search(r.Context(), title, year)
+		if err != nil {
 			searchErr = err
 		} else {
 			add(c)
 		}
+		// RECORDED EVEN THOUGH WIKIDATA CATCHES THE FALL, and because of it: the
+		// floor below means a reader with a dead IGDB pair still gets candidates,
+		// so nothing on any screen would ever say the pair had stopped working.
+		// A thinner record arriving silently in place of a full one is exactly the
+		// kind of degradation a status card exists to name.
+		s.recordLookup(faultAreaGames, "igdb", len(c), "", err)
 	}
 
 	// WIKIDATA IS THE FLOOR UNDER IGDB, and it runs only when IGDB did not
