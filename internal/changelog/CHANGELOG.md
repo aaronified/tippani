@@ -59,6 +59,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dismiss, with the same anchors the panel stack has had. Nine surfaces draw this sheet,
   so all nine changed together: the add panel, every edit form, the help sheet, the filter
   sheets, the review and issues lists.
+- **Editing a proverb no longer asks who said it, when, or where.** The add screen has
+  known for a while which boxes each kind of quote actually has — a proverb has nine — but
+  the *edit* form did not read that list, so it went on offering all seventeen: a speaker, a
+  date, a place, a recipient, a source title, a page. The two screens now read the same
+  list, so a letter is asked who it was sent to and a proverb is not. **Nothing you had
+  typed is lost by this**: a box that disappears keeps whatever was in it and saves it back
+  untouched.
+- **And the edit form shows a kind's fields all at once**, with no "Show all fields" to
+  press. Adding a quote is quick capture, so keeping the rare boxes out of the way earns
+  its place there; opening something you already saved to change it does not.
 - **Tapping a button in a sheet's header no longer jerks the sheet up and down.** The whole
   header bar is a drag handle, and the ✓, ✕, menu and ? sit inside it — so a tap on one of
   them counted as a grab, and a grab on the bar was treated as deliberate enough to need no

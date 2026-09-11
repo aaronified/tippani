@@ -6430,7 +6430,6 @@ film.line.form.quest.tip = The quest or mission it belongs to. Two quests can sh
 # Grouped under one heading because the kind lives on the board and not on the quote,
 # so the form cannot know which of them applies — and because the alternative,
 # boxes appearing and disappearing under a Select, hides a field somebody has filled.
-quotes.form.carries.label = What this kind carries
 quotes.form.region.placeholder = Sylhet, Kolkata…
 quotes.form.recipient.placeholder = who it was written to
 quotes.form.work-title.placeholder = the essay or article it is from

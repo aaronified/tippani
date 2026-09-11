@@ -6392,7 +6392,6 @@ film.line.form.quest.tip = কোন কোয়েস্ট বা মিশ�
 # Grouped under one heading because the kind lives on the board and not on the quote,
 # so the form cannot know which of them applies — and because the alternative,
 # boxes appearing and disappearing under a Select, hides a field somebody has filled.
-quotes.form.carries.label = এই ধরনের সঙ্গে যা থাকে
 quotes.form.region.placeholder = সিলেট, কলকাতা…
 quotes.form.recipient.placeholder = কাকে লেখা
 quotes.form.work-title.placeholder = কোন প্রবন্ধ বা নিবন্ধ থেকে

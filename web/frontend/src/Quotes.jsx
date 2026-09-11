@@ -18,6 +18,9 @@ import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
 import { t } from './i18n.js'
 import { usePersonOpener } from './personOpen.jsx'
+// THE ONE SOURCE FOR WHAT A KIND CARRIES, read here as well as by the add
+// surface. See the note on `door` below for why this form drew everything.
+import { QUOTE_KIND_DOORS, showsField } from './addFields.js'
 import { QUOTE_KINDS, quoteKindLabel, quoteKindMeta, quoteKindOptions } from './quoteKind.js'
 import { attributionParts } from './attribution.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
@@ -293,6 +296,25 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   // 0053. What kind of thing this is, from a fixed list. `medium` is still on the
   // record and still sent (see the payload below); it just has no box any more.
   const [kind, setKind] = useState(initial?.kind || '')
+  // THE DOOR THIS ROW BELONGS TO, and the one source both surfaces read.
+  //
+  // THE OWNER: "while editing a proverb, i still see all the useless fields…
+  // both edit and add should read field list from one source. standardise it."
+  // `addFields.js` was imported by the add surface alone, so this form drew all
+  // seventeen fields the table knows for every kind — a proverb has nine.
+  //
+  // `other` IS THE FALLBACK BECAUSE IT HARD-DROPS NOTHING. A row saved before
+  // 0053 has no `kind`, and guessing one would hide a box that has a value in
+  // it; `other` means "the reader could not say what this is", which is exactly
+  // true of a row that never recorded one.
+  //
+  // AND THE REASON THIS FORM DREW EVERYTHING HAS EXPIRED. The note over the
+  // five-field block below said the kind "lives on the BOARD and not on the
+  // quote… only the first of those knows which kind is being edited" — true when
+  // it was written, and 0053 made `kind` a column on the quote. The form has
+  // known the kind ever since and went on asking as though it did not.
+  const door = QUOTE_KIND_DOORS.includes(kind) ? kind : 'other'
+  const shows = (key) => showsField(door, key)
   // 0035. Which board this belongs on, and — for a line not in the reader's own
   // language — what it says. Editable by hand because nothing else sets them: the
   // starter proverbs arrive categorised, and anything you type arrives as 'other'.
@@ -404,41 +426,56 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         <MonoLabel className="mb-1.5 block">{t('common.field.note.label')}</MonoLabel>
         <textarea className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
-      <div className="cl-grid">
-        <Field
-          label={t('common.field.speaker.label')}
-          nameCase
-          placeholder={t('common.field.speaker.placeholder')}
-          value={speaker}
-          onChange={(e) => setSpeaker(e.target.value)}
-        />
-        <Field
-          label={t('common.field.occasion.label')}
-          placeholder={t('common.field.occasion.placeholder')}
-          value={occasion}
-          onChange={(e) => setOccasion(e.target.value)}
-        />
-      </div>
-      <div className="cl-grid">
-        {/* A year alone is a complete answer, so this is a partial date rather
-            than a date picker — see the field's own note. */}
-        <PartialDateField
-          label={t('quotes.form.when.label')}
-          value={occasionDate}
-          onChange={setOccasionDate}
-          historical
-          circa={circa}
-          onCirca={setCirca}
-          circaLabel={t('quotes.form.circa.label')}
-        />
-        <Field
-          label={t('common.field.place.label')}
-          nameCase
-          placeholder={t('common.field.place.placeholder')}
-          value={place}
-          onChange={(e) => setPlace(e.target.value)}
-        />
-      </div>
+      {/* THE PAIRS SURVIVE A HALF, which is why each box is gated rather than each
+          row: a poem has `when` and no `place`, so the row that held both draws
+          one. `cl-grid` lays out whatever it is given. */}
+      {(shows('speaker') || shows('occasion')) && (
+        <div className="cl-grid">
+          {shows('speaker') && (
+            <Field
+              label={t('common.field.speaker.label')}
+              nameCase
+              placeholder={t('common.field.speaker.placeholder')}
+              value={speaker}
+              onChange={(e) => setSpeaker(e.target.value)}
+            />
+          )}
+          {shows('occasion') && (
+            <Field
+              label={t('common.field.occasion.label')}
+              placeholder={t('common.field.occasion.placeholder')}
+              value={occasion}
+              onChange={(e) => setOccasion(e.target.value)}
+            />
+          )}
+        </div>
+      )}
+      {(shows('when') || shows('place')) && (
+        <div className="cl-grid">
+          {/* A year alone is a complete answer, so this is a partial date rather
+              than a date picker — see the field's own note. */}
+          {shows('when') && (
+            <PartialDateField
+              label={t('quotes.form.when.label')}
+              value={occasionDate}
+              onChange={setOccasionDate}
+              historical
+              circa={circa}
+              onCirca={setCirca}
+              circaLabel={t('quotes.form.circa.label')}
+            />
+          )}
+          {shows('place') && (
+            <Field
+              label={t('common.field.place.label')}
+              nameCase
+              placeholder={t('common.field.place.placeholder')}
+              value={place}
+              onChange={(e) => setPlace(e.target.value)}
+            />
+          )}
+        </div>
+      )}
       <label className="block">
         <MonoLabel className="mb-1 block">{t('quotes.form.kind.label')}</MonoLabel>
         {/* 0053, AND IT IS WHAT THE FREE-TEXT "MEDIUM" BOX WAS REACHING FOR. Five
@@ -470,6 +507,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
           />
         )}
       </label>
+      {shows('language') && (
       <Field
         label={t('common.field.language.label')}
         nameCase
@@ -477,6 +515,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         value={language}
         onChange={(e) => setLanguage(e.target.value)}
       />
+      )}
       {/* WHAT THE KIND CARRIES (0047). Region pairs with the language above it — a
           Bengali proverb from Sylhet is not one from Kolkata. Recipient is what makes
           a letter a letter. Source title and page are an essay's two, named
@@ -487,9 +526,15 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
           edit and from the search modal, and only the first of those knows which
           kind is being edited. A heading and four optional boxes is honest about
           that; four boxes appearing and disappearing under a Select would not be. */}
+      {/* NO HEADING OVER THESE ANY MORE. It read "what the kind carries" over five
+          boxes of which a given kind carries one or two — honest when the form
+          could not know the kind, and a tautology now that it gates on it: a
+          heading naming the fields under it says the same thing twice, which is
+          the repo's own rule. The add surface dropped it for the same reason. */}
       <div>
-        <MonoLabel className="mb-1.5 block">{t('quotes.form.carries.label')}</MonoLabel>
+        {(shows('region') || shows('recipient')) && (
         <div className="cl-grid">
+          {shows('region') && (
           <Field
             label={t('common.field.region.label')}
             nameCase
@@ -497,6 +542,8 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
             value={region}
             onChange={(e) => setRegion(e.target.value)}
           />
+          )}
+          {shows('recipient') && (
           <Field
             label={t('common.field.recipient.label')}
             nameCase
@@ -504,8 +551,12 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
           />
+          )}
         </div>
+        )}
+        {(shows('work_title') || shows('locator')) && (
         <div className="cl-grid mt-3">
+          {shows('work_title') && (
           <Field
             // A source title is a title: "the wheel of time" and not a person.
             nameCase
@@ -514,13 +565,17 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
             value={workTitle}
             onChange={(e) => setWorkTitle(e.target.value)}
           />
+          )}
+          {shows('locator') && (
           <Field
             label={t('common.field.locator.label')}
             placeholder={t('quotes.form.locator.placeholder')}
             value={locator}
             onChange={(e) => setLocator(e.target.value)}
           />
+          )}
         </div>
+        )}
         {/* THE PERSON THE WORDS REACH US THROUGH (0070), under the source they
             reach us in — which is where it belongs, because it is a fact about that
             source and not about the speaker. The owner's case for the field
@@ -528,6 +583,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
             A fifth relation and not a reuse of one of the four already on this
             form: the speaker said it, the recipient was told it, an author writes a
             work, a character lives inside one. */}
+        {shows('source_author') && (
         <div className="cl-grid mt-3">
           <Field
             label={t('common.field.source-author.label')}
@@ -537,6 +593,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
             onChange={(e) => setSourceAuthor(e.target.value)}
           />
         </div>
+        )}
       </div>
       {/* A TEXTAREA SINCE 0051, where it was a one-line box before. It holds the
           same prose the quote above it does — uncapped at the server — and the two
