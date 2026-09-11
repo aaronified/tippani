@@ -259,7 +259,8 @@ describe('what the copy glyph puts on the clipboard', () => {
 
   it('holds back the same parts the dialog holds back', async () => {
     // shareDefaults is shared with ShareDialog so these cannot drift. The page
-    // number and the save-date are factual noise to a reader.
+    // number and the save-date are factual noise to a reader; the full set the
+    // dialog holds back, and why, is in share.test.js.
     await copyQuote(earthsea())
     expect(written()).not.toContain('12')
     expect(written()).not.toContain('2026-08-01')

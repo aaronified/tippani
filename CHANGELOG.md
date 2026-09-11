@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A card names one place in the book, not two.** A highlight that recorded a chapter
+  printed the chapter *and* the page — "CH. 4 · P.112" — and the page is the half that stops
+  being true in a different printing. Whichever the row has, the card now says the chapter
+  where there is one and the page where there is not. **And the four screens that drew that
+  line say it the same way**, which they did not: the book page prefixed "CH." onto a chapter
+  *name* as well as a number, so "CH. Envoi" appeared where Home and the recall card printed
+  "Envoi", and the page came out as "P.112" on one screen and "P. 112" on the others. The
+  chapter caption was also hard-coded in English on Home and the recall card, so one
+  highlight was captioned in two languages depending on where you looked at it.
+- **The date you saved a quote is off the cards.** It was on the meta line of every book
+  highlight, between the page number and nothing — a fact about your filing rather than
+  about the words. It is still on the table view's sortable Date column, still on the review
+  queue's rows, and still a toggle in the share dialog.
+- **A shared quote no longer carries the work's year unless you ask for it.** A book's
+  publication year and a film's release year start unticked in the share dialog now, beside
+  the page number and the save-date, which have been unticked since the dialog had
+  toggles at all. They are facts
+  about the *work*, on a credit line that already names the work. **A standalone quote keeps
+  its own date**: the occasion is when the words were said, there is no work behind them to
+  carry it instead, and an undated broadcast line is a quote from nowhere.
 - **A quote and its translation are one block at the top of the card now, and each folds on
   its own.** The translation used to sit *below* the line naming who said it and where — so a
   bilingual card read the words, then the speaker, then the chapter, and only then what the

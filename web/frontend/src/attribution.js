@@ -32,6 +32,7 @@
 
 import { t } from './i18n.js'
 import { quoteKindMeta } from './quoteKind.js'
+import { chapterLabel } from './text.js'
 
 const s = (v) => String(v ?? '').trim()
 
@@ -186,4 +187,55 @@ function phrase(u, kind, piece) {
 // that promise is against.
 export function attributionOf(row, kindOfRow, opts) {
   return kindOfRow === 'quote' ? attribution(row, opts) : ''
+}
+
+// ---- band 2: where in the work ---------------------------------------------
+//
+// WHERE IN THE BOOK, AND ONE ANSWER RATHER THAN TWO.
+//
+// THE OWNER: "the book annotations in the book details view do not need to show
+// page number if chapter details are available. think through all cases like
+// that." The chapter wins, and the reason is better than tidiness: a chapter is
+// the locator that SURVIVES AN EDITION and a page is the one that does not, so
+// "CH. 4 · P.112" tells a reader holding a different printing one durable fact
+// and one that is wrong for them.
+//
+// AND THE RULE IS NOT SCOPED TO THAT SCREEN, though it is where they saw it. The
+// redundancy is between two fields on ONE CARD, not between a card and the
+// surface under it — a page dropped on the book page and kept on Home would be
+// the identical row reading two ways, which is exactly what this repo's "two
+// things that look the same behave the same" forbids. THE CASES THAT ARE NOT
+// THIS ONE, since the ask was to think them through: an episode and a timestamp
+// are not two answers to one question (which episode, then where inside it), and
+// neither are an essay's title and its page — both pairs stay whole. The four
+// screens that DID say the work twice were saying it against their surface, and
+// none of them do: no card prints its board's name, its work's title on that
+// work's own page, or a year that belongs to the work.
+//
+// FOUR CALL SITES WROTE THIS LINE FOUR TIMES AND NO TWO AGREED. Library drew
+// `CH. {chapterLabel}` — the prefix on a NAME as well as a number, which is the
+// exact thing `chapterMeta` was written to stop and its comment already claimed
+// to have stopped ("Library's own meta line… stops disagreeing with Home and the
+// quiz"); it never did. Library then printed `P.{n}` while Home and the recall
+// card printed `P. {n}`, from two locale keys differing by one space. And
+// `chapterMeta` spelled "CH." as a LITERAL in a module that imports nothing, so
+// a Bengali reader got "CH. ৪" on Home and "অধ্যা. ৪" on the book page for one
+// row. One function, and all three go with the duplication.
+//
+// IT LIVES HERE AND NOT IN text.js, which takes strings and returns values and
+// has no imports at all, deliberately. A caption is vocabulary, so it belongs
+// beside the other vocabulary this module already owns — i18n and nothing else,
+// the same reason `attribution` gives for itself.
+export function locatorMeta(a) {
+  const name = chapterLabel(a)
+  // THE PREFIX GOES ON A NUMBER ONLY, which is `chapterMeta`'s rule kept: "CH. 7"
+  // reads as a chapter, "CH. Envoi" reads as somebody who did not know what was
+  // in the field.
+  if (name) {
+    return Number(a?.chapter_no)
+      ? t('common.locator.chapter.label', { name })
+      : name
+  }
+  const at = s(a?.location)
+  return at ? t('common.locator.page.label', { n: at }) : ''
 }

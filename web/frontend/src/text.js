@@ -130,21 +130,19 @@ export function chapterLabel(a) {
   return name ? `${no} · ${name}` : String(no)
 }
 
-// chapterMeta is chapterLabel with the "CH." a card's meta line wants — and it puts
-// the prefix on a NUMBER only. "CH. 7" reads as a chapter; "CH. Envoi" reads as
-// somebody who did not know what was in the field.
+// chapterMeta WAS HERE, and its rule moved to `locatorMeta` in attribution.js.
 //
-// This replaces the same heuristic written out in three files — `/^\d/.test(ch) ?
-// 'CH. ' + ch : ch` — which existed precisely BECAUSE one text field held both a
-// number and a name and the card had to guess which it had. Now it knows, so the
-// guess becomes a rule; and Library's own meta line, which prefixed CH. onto
-// everything unconditionally, stops disagreeing with Home and the quiz about how to
-// caption the identical row.
-export function chapterMeta(a) {
-  const label = chapterLabel(a)
-  if (!label) return ''
-  return Number(a?.chapter_no) ? `CH. ${label}` : label
-}
+// Its job was chapterLabel plus the "CH." a card's meta line wants, on a NUMBER
+// only — "CH. 7" reads as a chapter, "CH. Envoi" reads as somebody who did not
+// know what was in the field. That rule is kept; what could not stay is the
+// caption, because "CH." was a LITERAL in a module that imports nothing, while
+// the book page drew the same field through `common.locator.chapter.label` — so
+// one row was captioned in English on Home and the recall card and in the
+// reader's own language on the book page. A caption is vocabulary and needs
+// `t`; this module takes strings and returns
+// values and has no imports at all, deliberately. So the rule went to where the
+// vocabulary already lives, and the page number went with it — the two were
+// always one decision and were being made in four places.
 
 // ---- the one clip the app is allowed ----------------------------------------
 //

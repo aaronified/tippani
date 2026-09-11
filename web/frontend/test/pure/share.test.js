@@ -8,7 +8,7 @@
 // rather than through the component.
 
 import { describe, expect, it } from 'vitest'
-import { bookShare, buildShareText, movieShare, quoteShare, SHARE_FORMATS } from '../../src/share.jsx'
+import { bookShare, buildShareText, movieShare, quoteShare, shareDefaults, SHARE_FORMATS } from '../../src/share.jsx'
 import { value } from '../locale-file.js'
 
 const ALL = new Proxy({}, { get: () => true })
@@ -375,5 +375,81 @@ describe('both faces travel with a share', () => {
       characterImages: [{ name: 'Aomame', path: 'aomame.jpg' }],
     })
     expect(s.characterFaces.map((f) => f.name)).toEqual(['Aomame'])
+  })
+})
+
+// ---- what a freshly-opened share starts with -------------------------------
+//
+// THE OWNER: "except for the quote annoations, others do not need year of
+// writing/shooting/recording etc. as those are already there in the work level
+// details." A book's publication year and a film's release year are facts about
+// the WORK, named on a credit line that already says the work — so they come off
+// by default. A standalone quote is the stated exception: its `when` is the
+// OCCASION's date, the quote's own, and there is no work behind it to carry the
+// date instead.
+//
+// A DEFAULT AND NOT A REMOVAL, which is their other ruling on this dialog: "the
+// user anyway chooses what to put on the share image." So each case below
+// asserts the part is still LISTED as well as unticked — a part deleted from the
+// payload would satisfy "unticked" and take the reader's choice with it.
+describe('shareDefaults — what comes without being asked for', () => {
+  const book = () => bookShare({
+    quote: 'Only in silence the word',
+    author: 'Ursula K. Le Guin',
+    title: 'A Wizard of Earthsea',
+    published: 1968,
+    chapter: '3',
+    location: '12',
+    date: '2026-08-01',
+  })
+  const film = () => movieShare({
+    quote: 'I know what I have to do now',
+    title: 'V for Vendetta',
+    year: 2005,
+    actor: 'Hugo Weaving',
+    character: 'V',
+    timestamp: '01:42:10',
+  })
+  const quote = () => quoteShare({
+    quote: 'Give me blood',
+    speaker: 'Subhas Chandra Bose',
+    occasion: 'Burma Radio broadcast',
+    when: '1944',
+    date: '2026-08-01',
+  })
+
+  const listed = (share) => Object.keys(shareDefaults(share))
+
+  it("a book's publication year is offered and starts off", () => {
+    expect(listed(book())).toContain('published')
+    expect(shareDefaults(book()).published).toBe(false)
+  })
+
+  it("a film's release year is offered and starts off", () => {
+    expect(listed(film())).toContain('year')
+    expect(shareDefaults(film()).year).toBe(false)
+  })
+
+  // THE STATED EXCEPTION. A quote's own date is the one date the owner kept, and
+  // an undated broadcast line is a quote from nowhere.
+  it("a standalone quote's own date stays on, because nothing else carries it", () => {
+    expect(shareDefaults(quote()).when).toBe(true)
+  })
+
+  // The two that were already held back, asserted here so a future edit to the
+  // set cannot quietly drop one while adding another.
+  it('the page number and the save-date are still off, on every kind', () => {
+    expect(shareDefaults(book()).location).toBe(false)
+    expect(shareDefaults(book()).noted).toBe(false)
+    expect(shareDefaults(quote()).noted).toBe(false)
+  })
+
+  // AND EVERYTHING ELSE IS ON: a default set that held back the quote, the
+  // author or the work would pass every assertion above.
+  it('leaves the quote and its credit on', () => {
+    const d = shareDefaults(book())
+    expect(d.quote).toBe(true)
+    expect(d.author).toBe(true)
+    expect(d.work).toBe(true)
   })
 })

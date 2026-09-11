@@ -3567,7 +3567,6 @@ common.quote.pick.label = এই উদ্ধৃতি
 # same way the Markdown export writes a chapter heading and the importer reads
 # it back — see text.js. Changing it breaks the round trip.
 common.locator.chapter.label = অধ্যা. {name}
-common.locator.page.short.label = পৃ.{n}
 
 # THE HIGHLIGHTS TABLE on a book's page.
 book.table.quote.label = উদ্ধৃতি

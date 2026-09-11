@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, json, errText, downloadPost } from './api.js'
 import { chapterLabel, chapterPatch } from './text.js'
+import { locatorMeta } from './attribution.js'
 import { usePersonOpener } from './personOpen.jsx'
 import { CastCombo, OfferChip, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
@@ -1506,7 +1507,6 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
   const accordion = typeof onToggleExpand === 'function'
-  const d = fmtDate(annDate(a))
   // Optimistic colour. patch() refetches the whole list before the row comes
   // back changed, so the quick-pick paints the card's bar (and the picked dot)
   // itself the instant it's tapped. The preview clears as soon as the refetched
@@ -1584,9 +1584,16 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
           // same people twice on one card is the reader reading the same fact
           // twice and wondering what the difference is.
           chipCount ? null : a.character,
-          chapterLabel(a) && t('common.locator.chapter.label', { name: chapterLabel(a) }),
-          a.location && t('common.locator.page.short.label', { n: a.location }),
-          d,
+          // ONE LOCATOR, AND NO CAPTURE DATE. The owner, from their phone: "the
+          // book annotations in the book details view do not need to show page
+          // number if chapter details are available", and "date of capture is not
+          // needed on any card." The chapter/page rule lives in `locatorMeta`
+          // because four screens wrote it four times and no two agreed — see the
+          // note there. The date simply goes: it is a fact about the reader's
+          // filing rather than about the words, it is on the table view's own
+          // sortable Date column for anyone who wants it, and the share dialog
+          // has defaulted it off since it had toggles at all.
+          locatorMeta(a),
         ].filter(Boolean).join(' · ')
       : meta
   const editForm = (

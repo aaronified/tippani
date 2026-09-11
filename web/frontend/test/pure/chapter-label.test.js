@@ -9,7 +9,7 @@
 // chapter number into a chapter name, and nothing would fail.
 
 import { describe, expect, it } from 'vitest'
-import { chapterLabel, chapterMeta } from '../../src/text.js'
+import { chapterLabel } from '../../src/text.js'
 
 describe('chapterLabel', () => {
   it('prints a number and a name as one string', () => {
@@ -56,20 +56,6 @@ describe('chapterLabel', () => {
   })
 })
 
-describe('chapterMeta — the card caption', () => {
-  it('prefixes CH. when there is a number', () => {
-    expect(chapterMeta({ chapter_no: 7, chapter: '' })).toBe('CH. 7')
-    expect(chapterMeta({ chapter_no: 7, chapter: 'The Fall' })).toBe('CH. 7 · The Fall')
-  })
-
-  // The rule the three copies of `/^\d/.test(ch)` were reaching for: "CH. Envoi"
-  // reads as a bug, so a name stands on its own.
-  it('leaves a bare name unprefixed', () => {
-    expect(chapterMeta({ chapter_no: 0, chapter: 'Envoi' })).toBe('Envoi')
-  })
-
-  it('says nothing when the chapter is empty', () => {
-    expect(chapterMeta({ chapter_no: 0, chapter: '' })).toBe('')
-    expect(chapterMeta(undefined)).toBe('')
-  })
-})
+// chapterMeta's rule moved to `locatorMeta` (attribution.js) when the page
+// number joined it — see locator-meta.test.js, which keeps these three cases
+// plus the ones a caption alone could not have.

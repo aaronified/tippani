@@ -77,6 +77,14 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   and a table that mixes them silently is worse than one that reports less: the reader
   cannot tell which rows to trust, so the checked ones lose their value too.
 
+- **A PLAN IS A LIST OF TASKS. NOTHING ELSE.** The owner: *"the plan area need not be so
+  much populated. all it needs is the list of tasks. always do that only"* — so what goes
+  into plan mode is the task list and no more: no context section, no rulings table, no
+  per-item evidence, no verification appendix. The reasoning still has to happen and still
+  has to be recorded; it goes in the commit body and `docs/PLAN.md`, where the house style
+  already puts it, and where it is read at the line it is about rather than scrolled past
+  before the work starts.
+
 - **DO NOT EDIT CODE FILES WHILE A RATER IS RUNNING.** The owner's, standing: "do not edit
   code files when the rater is running. keep this in memory." A rater reads the tree it was
   pointed at and re-runs its suites there, so an edit mid-pass means it is rating a commit

@@ -18,7 +18,8 @@ import { useEffect, useRef, useState } from 'react'
 import { categoryVar } from './theme.js'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
-import { chapterMeta, clipChipName, episodeLabel } from './text.js'
+import { clipChipName, episodeLabel } from './text.js'
+import { locatorMeta } from './attribution.js'
 import { forgetDailyDeck } from './daily.js'
 import { CreditFaces, DEFAULT_CREDIT_SEPS, splitCredits, usePeople } from './credits.jsx'
 import { REVIEW_BULK_KIND } from './bulkOps.jsx'
@@ -434,13 +435,9 @@ function SourceLines({ card, maps = {} }) {
     // The author lives in the chips row now; the meta line keeps the location —
     // and, since 0047, WHO SAYS IT. A novel has speakers, and the quiz card was
     // the last of four reads of that column still dropping it.
-    meta = [
-      card.character,
-      chapterMeta(card),
-      card.location && t('common.locator.page.label', { n: card.location }),
-    ]
-      .filter(Boolean)
-      .join(' · ')
+    // ONE LOCATOR: the chapter where there is one, else the page. See
+    // `locatorMeta` — four screens wrote this pair out and no two agreed.
+    meta = [card.character, locatorMeta(card)].filter(Boolean).join(' · ')
   }
   return (
     <div className="flex items-start gap-3">

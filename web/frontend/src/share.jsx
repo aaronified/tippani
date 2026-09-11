@@ -345,10 +345,24 @@ export function quoteShare({
   };
 }
 
-// Parts that start unchecked in the share dialog (present only on book quotes):
-// the page "Location" and the "Noted" save-date. See shareDefaults, which is
+// Parts that start unchecked in the share dialog. See shareDefaults, which is
 // where both the dialog and the cards' one-tap copy read it.
-const SHARE_OFF_BY_DEFAULT = new Set(["location", "noted"]);
+//
+// THE WORK'S OWN YEAR JOINED THEM, on the owner's ask: "except for the quote
+// annotations, others do not need year of writing/shooting/recording etc. as
+// those are already there in the work level details." A book's publication year
+// and a film's release year are facts about the WORK, and the work is named on
+// the same credit line — so the year is a third clause in a credit that already
+// reads "— Author, Title". A standalone quote is the stated exception and
+// keeps `when`: the occasion's date is the quote's own, there is no work behind
+// it to carry the date instead, and an undated broadcast line is a quote from
+// nowhere.
+//
+// A DEFAULT AND NOT A REMOVAL, which is the owner's other ruling on this dialog:
+// "the user anyway chooses what to put on the share image." Both parts are still
+// listed and still one tap away — a reader making an epigraph wants the year
+// in it. What changes is what they get without asking.
+const SHARE_OFF_BY_DEFAULT = new Set(["location", "noted", "published", "year"]);
 
 // fieldsOf lists the toggleable parts present in a payload, in output order.
 function fieldsOf(share) {
@@ -1001,9 +1015,10 @@ export function ShareDialog({ share, seen, onClose }) {
   // way. So it is first in the row and it is what you land on.
   const [format, setFormat] = useState("image");
   const fields = useMemo(() => fieldsOf(share), [share]);
-  // Everything on, except the two parts shareDefaults holds back (Location and
-  // Noted — factual noise for most readers). The user can flip any of them per
-  // share. Shared with the cards' copy glyph so the two cannot drift.
+  // Everything on, except the parts shareDefaults holds back — the page number,
+  // the save-date, and the work's own year, which the credit line beside it has
+  // already named. The user can flip any of them per share. Shared with the
+  // cards' copy glyph so the two cannot drift.
   const [selected, setSelected] = useState(() => shareDefaults(share));
   const [text, setText] = useState("");
   const [copied, setCopied] = useState(false);

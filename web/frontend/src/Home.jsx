@@ -6,7 +6,8 @@
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
-import { chapterLabel, chapterMeta, episodeLabel } from './text.js'
+import { chapterLabel, episodeLabel } from './text.js'
+import { locatorMeta } from './attribution.js'
 import { dateLine, greetingFor } from './greetings.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
@@ -400,8 +401,9 @@ function bookFav(a) {
     // 0047's character, on the tile as well as on the library card: the same box,
     // and it was invisible on both.
     a.character,
-    chapterMeta(a),
-    a.location && t('common.locator.page.label', { n: a.location }),
+    // ONE LOCATOR, not a chapter and a page — see `locatorMeta`, which is where
+    // that rule lives now for all four screens that used to spell it out.
+    locatorMeta(a),
   ]
     .filter(Boolean)
     .join(' · ')
@@ -1070,8 +1072,7 @@ export function FavouriteTile({
   //
   // So the collapsed line is now the ONE thing no pill and no header carries: a
   // standalone quote's occasion. Everything else has somewhere better to be.
-  const chLabel = isBook ? chapterMeta(f.raw) : ''
-  const locLabel = isBook && f.raw.location ? t('common.locator.page.label', { n: f.raw.location }) : ''
+  const bookLocator = isBook ? locatorMeta(f.raw) : ''
   // THE OCCASION ALONE, which is what the paragraph above says it should be and
   // what `f.source` is not: `quoteFav` builds that as `[speaker, occasion]`, so
   // the line printed the speaker the chip beside it was already showing, with
@@ -1103,7 +1104,7 @@ export function FavouriteTile({
   // AN UTTERANCE KEEPS `f.meta` UNTOUCHED: occasion, date, place and medium are
   // its locator — there is no work behind it for a header to have named.
   let expandedMeta = isBook
-    ? [chLabel, locLabel].filter(Boolean).join(' · ')
+    ? bookLocator
     : isUtterance
       ? f.meta
       : [episodeLabel(f.raw), hasChips ? '' : f.raw?.character, f.raw?.timestamp].filter(Boolean).join(' · ')
