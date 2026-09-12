@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "9df93227a841bf87f10dfe96e3872ee4b02b9c6e272e440a48ce8cb0c9c7ee4b",
-    "internal/i18n/en.txt": "6e48fdce9a22338f11694adbb23f0c15825adea755a577409e146b33feb3a1a7",
+    "internal/i18n/bn.txt": "c650d06ae7facdd39c1fba6cf251a5c0b28a9495ab94c3e6c7e66fa383490ce4",
+    "internal/i18n/en.txt": "b853378901aca47e158350f1d7861f38d8a6023bfd13bcb303f7d7cde29e1e9a",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "ae52734844923282963a5acdd6bfe710196fdfcf5bed06e944c9f4c638a24547",
     "web/frontend/package.json": "d985ed193616c275ad40b9788fd8dffc1d774ce4a59c2c1836a45effde06162e",
@@ -101,8 +101,8 @@
     "web/frontend/src/sheetAnchors.js": "631d8954e79fa2845f992f7f05ec7404f0d0fcf54618feb9587d9031147c9a47",
     "web/frontend/src/silhouette.jsx": "1d74be254e8e4a71fe6a14101d79426a972139f84e2452a9fcb3ee2df89345a0",
     "web/frontend/src/stickers.jsx": "3fdbbbb633778215b5b0bfc4eb8ddf7c0a716294e334aac3d08454f7245ac66d",
-    "web/frontend/src/suggest.jsx": "db1ffc7181a21085033ca18afb361cafb4a38cf86244c003eab2207262436b8b",
-    "web/frontend/src/text.js": "72ddf18309a7ee90feb0ac9333dbe05fd45ca8a9af0ea63658f3e4c1d3d43da4",
+    "web/frontend/src/suggest.jsx": "6eeb03b565785091e43c86e1bb29bf864587a75c3dd02dd1d87ac39eccb8124c",
+    "web/frontend/src/text.js": "c7447025bfe067e90eb80d880f4646876cc44aae05edc9240eb102ad15b314ba",
     "web/frontend/src/textOrder.js": "3471a065a1335da2ea66732769fd882522cfba969a7ef296c51854273ee4b276",
     "web/frontend/src/textOrderField.jsx": "84f31f88733283c264b824a54fd43f48ece5e4d9e65be1c66f52f92046712353",
     "web/frontend/src/textOrderHost.jsx": "63ea9dec5bb64543da21d69bf551186d77ba727d6845f7b4dc89770acc7fcbd6",

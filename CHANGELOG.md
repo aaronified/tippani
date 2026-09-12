@@ -38,8 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   at all: the box opened on English, Spanish and French, a proverb board had no chips
   to press, and Settings showed a live red ✕ beside a language the library is full
   of, under a tooltip promising it would refuse while quotes still used it. All three
-  kinds count now, and one language spelled two ways across two of them is still one
-  row.
+  kinds count now — **and a book's own two language fields with them**, so a language
+  you set only on a work is offered back on the very box you typed it into, and a
+  language a book is still written in cannot be taken off the list. One language
+  spelled two ways across two of them is still one row.
 - **A language your library spells two ways is one chip, not two.** A language is free
   text on the quote, so writing "bengali" one day and "Bengali" the next left the
   proverb board's language row offering both — and pressing either lit both, because

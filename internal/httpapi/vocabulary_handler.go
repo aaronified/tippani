@@ -137,6 +137,15 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		// is not stable and would pick a different one between two runs over the same
 		// library.
 		//
+		// AND A BOOK'S OWN TWO, which is the same defect one layer up and was found by
+		// the same question: `books.language` and `books.orig_language` (0047) are
+		// edited through this very combobox now, so a language a reader had only ever
+		// set on a WORK was offered back to them nowhere — including on the box they
+		// had just typed it into. `orig_language` counts as much as `language`: a
+		// novel translated from Russian holds Russian, and a reader who then marks
+		// Russian must not have that mark removable while the book still says it.
+		// `movies` has neither column, so there is nothing to union from it.
+		//
 		// ALL THREE QUOTE TABLES, and reading only `utterances` was a defect that
 		// emptied this list for a whole kind of library. 0071 put `language` on
 		// annotations and dialogues — "it is needed everywhere" is the ask it quotes
@@ -165,6 +174,12 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		                 SELECT d.language, d.created_at, d.id FROM dialogues d
 		                   JOIN movies m ON m.id = d.movie_id
 		                  WHERE m.user_id = ? AND d.language <> ''
+		                 UNION ALL
+		                 SELECT language, created_at, id FROM books
+		                  WHERE user_id = ? AND language <> ''
+		                 UNION ALL
+		                 SELECT orig_language, created_at, id FROM books
+		                  WHERE user_id = ? AND orig_language <> ''
 		               )
 		               GROUP BY language ORDER BY MIN(created_at), MIN(id)`, false, true},
 		{"shelves", `SELECT DISTINCT status FROM books WHERE user_id = ? AND status <> ''

@@ -446,3 +446,51 @@ func TestVocabularyLanguagesFromEveryKindAreScopedToTheirOwner(t *testing.T) {
 		}
 	}
 }
+
+// A BOOK'S OWN TWO LANGUAGE COLUMNS, which are the same defect one layer up.
+//
+// 0047 gave a book `language` and `orig_language`, and 1.16.0 put the language
+// combobox on both rows — so a reader could type "Bengali" into a book's language,
+// have it stored, and be offered nothing on the very box they had just typed it
+// into. `orig_language` counts as much: a novel translated from Russian holds
+// Russian, and a reader who marks Russian must not find the ✕ beside it live while
+// the book still says it.
+//
+// Neither language is on any quote here, which is the point — the quote tables
+// alone would return an empty list.
+func TestVocabularyLanguagesIncludeABooksOwnTwoColumns(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	c.mustDo("POST", "/books", map[string]any{
+		"title": "Anna Karenina", "language": "Bengali", "orig_language": "Russian",
+	}, 201)
+
+	v := vocabOf(t, c)
+	for _, want := range []string{"Bengali", "Russian"} {
+		if !has(v.Languages, want) {
+			t.Errorf("languages does not offer a book's %q: %v", want, v.Languages)
+		}
+	}
+}
+
+// And a book's languages are nobody else's. `books` is the one arm whose user
+// filter sits on the row itself rather than on a join, so it is the arm where a
+// forgotten scope would look least like a mistake.
+func TestVocabularyABooksLanguagesAreOnlyEverYourOwn(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	bob := addUser(t, h, admin, "bob")
+
+	admin.mustDo("POST", "/books", map[string]any{
+		"title": "Anna Karenina", "language": "Bengali", "orig_language": "Russian",
+	}, 201)
+
+	v := vocabOf(t, bob)
+	for _, leak := range []string{"Bengali", "Russian"} {
+		if has(v.Languages, leak) {
+			t.Errorf("a stranger was offered the owner's book language %q: %v", leak, v.Languages)
+		}
+	}
+}

@@ -1268,7 +1268,7 @@ settings.languages.reset.aria = {name} ভাষার চিহ্ন আগে
 settings.languages.reset.tip = লিপির অক্ষরে ফিরুন
 settings.languages.remove.aria = {name} সরান
 settings.languages.remove.tip = এই ভাষাটা সরান
-settings.languages.remove.in-use.tip = {name} ব্যবহারে আছে — আপনার কিছু উদ্ধৃতি এই ভাষায় রয়েছে
+settings.languages.remove.in-use.tip = {name} ব্যবহারে আছে — আপনার উদ্ধৃতি বা বই এই ভাষায় রয়েছে
 # Renaming a language is a DISPLAY name. The stored name stays and is shown
 # beside it, so "why does my Bangla board say Bengali" stays answerable.
 settings.languages.rename.label = দেখাবে এই নামে (জমা আছে “{name}” নামে)

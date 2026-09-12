@@ -183,12 +183,20 @@ export function CastCombo({ label, value, onChange, onCommit, placeholder, cast 
 // LanguageCombo — SuggestCombo over the languages a reader might mean, and the one
 // box in this file that fetches its own rows.
 //
-// ONE COMPONENT FOR SEVEN FIELDS, which is the repo's own directive rather than a
-// convenience: "a control drawn by one component on two screens has ONE behaviour,
-// and it lives in one function that both screens call — not in a line each, which is
-// how one of them goes on being right while the other quietly stops." A language is
-// typed on the capture card, on an annotation, on a film line, on a standalone
-// quote, on a staged import row, on a work (twice) and on a proverb board.
+// ONE COMPONENT FOR EVERY LANGUAGE BOX BUT ONE, which is the repo's own directive
+// rather than a convenience: "a control drawn by one component on two screens has
+// ONE behaviour, and it lives in one function that both screens call — not in a
+// line each, which is how one of them goes on being right while the other quietly
+// stops."
+//
+// NO COUNT HERE, and this paragraph carried one: "SEVEN FIELDS", with a list that
+// named a proverb board (which does not use this — see boards.jsx, where the
+// reasoning is) and omitted the bulk dialog (which does). A count in a comment
+// cannot be checked from where it is written and goes stale on the next commit, and
+// this one was wrong in both directions at once. The exception is the one worth
+// naming: the board form's "add a language" appends to a list rather than storing a
+// value, and Combo cannot tell blur from Enter — boards.jsx carries that argument in
+// full.
 //
 // THE LIBRARY'S OWN LANGUAGES LEAD, AND THE ORDER IS LOAD-BEARING. The box opens on
 // focus and an empty query passes every row before the cap, so what a reader sees

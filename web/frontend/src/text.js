@@ -3,8 +3,10 @@
 // Everything here takes strings and returns values. No React and no fetch, which
 // is the whole point: it loads in the `pure` test project without dragging the
 // component tree behind it, and neither caller has to know the other exists. The
-// one import is `iso639.js`, which is a table and a few pure lookups over it — it
-// has no imports of its own, so nothing follows it in.
+// two imports are `iso639.js` and `fonts.js`, each a table and a few pure lookups
+// over it; neither has an import of its own, so nothing follows them in. (This
+// said "the one import" in the commit that added the second, which is the kind of
+// sentence that is only ever wrong for as long as nobody counts.)
 //
 // It exists because `editDistance` was written inside MetadataPage.jsx for
 // near-duplicate person names, and the search box's facet dropdown now wants the

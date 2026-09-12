@@ -17,7 +17,7 @@
 // TextOrderHost.
 
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 
 const ROWS = [
   // A LANGUAGE ON THIS ONE AND NOT THE OTHER, so a per-language row and the master
@@ -39,6 +39,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: Library } = await import('../../src/Library.jsx')
+const { Frame } = await import('../../src/Movies.jsx')
 const { buildScreenActions } = await import('../../src/ui.jsx')
 const { TextOrderHost } = await import('../../src/textOrderHost.jsx')
 
@@ -170,5 +171,52 @@ describe('the face a quote is drawn in', () => {
     board()
     await waitFor(() => expect(text()).toContain('The whale.'))
     expect(screen.getByText('The whale.').closest('.bengali')).toBeNull()
+  })
+
+  // THE TABLE TOO, and the three cases above did not reach it — every one of them
+  // renders the CARD view, so replacing the table cell's class with '' left the
+  // whole DOM suite green. That is the gap this file opens by naming ("the
+  // resolver was right and the table view simply never asked it"), reopened one
+  // property later: the table does ask which text leads, and until this case it
+  // was nobody's job to check that it asks which face too.
+  //
+  // The view is a persisted preference rather than a prop, so the way to land in
+  // the table is the way a returning reader lands there.
+  it('reaches the table cell as well as the card', async () => {
+    localStorage.setItem('tippani:annview', '"table"')
+    board()
+    await waitFor(() => expect(document.querySelector('.ann-table')).toBeTruthy())
+    expect(screen.getByText('Call me Ishmael.').closest('.bengali')).toBeTruthy()
+    expect(screen.getByText('The whale.').closest('.bengali')).toBeNull()
+    localStorage.removeItem('tippani:annview')
+  })
+})
+
+// AND THE FILM FRAME, which is the third of the three sites and was the other one
+// no case reached. A dialogue is an annotation with different credits — 0071 gave
+// it a `language` column for that reason — so a Bengali film line has exactly as
+// much claim on the Bengali face as a Bengali highlight. `Frame` is rendered
+// directly here because it is a leaf that takes its row as a prop: nothing about
+// this property needs the screen around it, and a test that needed the screen
+// would be testing the screen.
+describe('the face a film line is drawn in', () => {
+  const line = (over = {}) => ({
+    id: 1, movie_id: 1, quote: 'Call me Ishmael.', translation: 'আমাকে ইসমাইল বলে ডেকো।',
+    language: 'Bengali', color: 'yellow', tags: [], created_at: '2024-01-01 10:00:00', ...over,
+  })
+  // `within` the frame's own container: the file's earlier cases render a whole
+  // board, and a document-wide query would be asking about whichever of them ran
+  // last rather than about this frame.
+  const frame = (d) => within(render(<Frame d={d} tagMap={{}} seps=",;&" />).container)
+
+  it('sets the line in its language\u2019s face and leaves the translation alone', async () => {
+    const f = frame(line())
+    expect(f.getByText('Call me Ishmael.').closest('.bengali')).toBeTruthy()
+    expect(f.getByText('\u0986\u09AE\u09BE\u0995\u09C7 \u0987\u09B8\u09AE\u09BE\u0987\u09B2 \u09AC\u09B2\u09C7 \u09A1\u09C7\u0995\u09CB\u0964').closest('.bengali')).toBeNull()
+  })
+
+  it('tags nothing on a line with no language', async () => {
+    const f = frame(line({ quote: 'Here\u2019s looking at you, kid.', translation: '', language: '' }))
+    expect(f.getByText('Here\u2019s looking at you, kid.').closest('.bengali')).toBeNull()
   })
 })
