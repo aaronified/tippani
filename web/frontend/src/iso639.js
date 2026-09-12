@@ -238,8 +238,14 @@ export function displayName(value) {
 }
 
 // scriptOf is which script a stored value is written in, or '' when unknown.
-// The values are fonts.js's FONT_ROLES keys where the app has a face for the script
-// — see the header — so this is what a per-language face is chosen by.
+//
+// IT ANSWERS FOR EVERY SCRIPT, NOT ONLY THE TWO THE APP HAS A FACE FOR, and this
+// comment claimed otherwise — "the values are fonts.js's FONT_ROLES keys where the
+// app has a face for the script". `scriptOf('Italian')` is 'latin', which is no
+// role and no stylesheet rule, so a caller trusting that sentence would have
+// tagged Italian text with a class that does not exist. Which scripts have a face
+// is fonts.js's question and `scriptFace` is where it is answered; this one says
+// what a language is WRITTEN in, which is a fact about the language.
 export function scriptOf(value) {
   const l = languageFor(value)
   return (l && l.script) || ''

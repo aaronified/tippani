@@ -23,6 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   typed. The one box that stays plain is the board form's "add a language", because
   there Enter and clicking away mean different things and a suggestion box cannot
   tell them apart.
+- **A quote is set in its own language's face.** The Bengali and Devanagari faces
+  have been in Settings since the type dials shipped, and nothing but the wordmark
+  ever wore one — your Bengali highlights drew in the Latin text face, on the one
+  screen whose whole subject is somebody's own words. The quote now takes the face
+  its language is written in, on the book card, the film frame and the table alike,
+  and **it follows the quote rather than the slot**: under "translations first" the
+  face is on the second line, where the original is. The translation beside it is
+  untouched — nothing records what language it is in — and a language this app has
+  no face for is left exactly as it was.
 - **A library of book highlights has languages again.** "Your own languages first"
   read one table, and the language of a highlight and of a film line live in two
   others — so a reader whose Bengali is all book highlights was offered no languages

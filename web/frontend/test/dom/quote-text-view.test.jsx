@@ -136,3 +136,39 @@ describe('the rest of what the board publishes', () => {
     expect(document.querySelector('.hand-card.is-selecting')).toBeTruthy()
   })
 })
+
+// AND THE FACE IT IS SET IN REACHES THE RENDERED CARD.
+//
+// The pure half is text.test.js. This is the half neither a pure test nor a spec
+// table can answer — does a card that is actually on screen wear the class — and it
+// is the gap this file opens by describing: the resolver was right for a day while
+// the table view simply never asked it.
+//
+// THE TAG FOLLOWS THE QUOTE, NOT THE SLOT. Row 1's language is Bengali, so it is
+// `a.quote` that carries the face wherever the four states put it; the translation
+// beside it is in a language nothing stores and is never tagged. Row 2 has no
+// language at all, which is the case most of a library is in.
+describe('the face a quote is drawn in', () => {
+  it('sets the quote in its language\u2019s face and leaves the translation alone', async () => {
+    board()
+    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
+    expect(screen.getByText('Call me Ishmael.').closest('.bengali')).toBeTruthy()
+    expect(screen.getByText('\u0986\u09AE\u09BE\u0995\u09C7 \u0987\u09B8\u09AE\u09BE\u0987\u09B2 \u09AC\u09B2\u09C7 \u09A1\u09C7\u0995\u09CB\u0964').closest('.bengali')).toBeNull()
+  })
+
+  // The state that moves the quote to the SECOND line. A render site working the
+  // script out for itself would have tagged the big type here, which is the
+  // translation.
+  it('follows the quote to the second line when the translation leads', async () => {
+    board({ master: 'trans-first' })
+    await waitFor(() => expect(text()).toContain('Call me Ishmael'))
+    expect(screen.getByText('Call me Ishmael.').closest('.bengali')).toBeTruthy()
+    expect(screen.getByText('\u0986\u09AE\u09BE\u0995\u09C7 \u0987\u09B8\u09AE\u09BE\u0987\u09B2 \u09AC\u09B2\u09C7 \u09A1\u09C7\u0995\u09CB\u0964').closest('.bengali')).toBeNull()
+  })
+
+  it('tags nothing on a row with no language', async () => {
+    board()
+    await waitFor(() => expect(text()).toContain('The whale.'))
+    expect(screen.getByText('The whale.').closest('.bengali')).toBeNull()
+  })
+})

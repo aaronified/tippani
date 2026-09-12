@@ -144,6 +144,19 @@ export const FONT_STYLES = [
   { id: 'figures', label: 'vocab.font-style.figures.label', css: { fontVariantNumeric: 'tabular-nums' } },
 ]
 
+// scriptFace — the class a text in `script` is drawn in, or '' where this app has
+// no face for it.
+//
+// THE GUARD BETWEEN "WHICH SCRIPT IS THIS" AND "CAN WE DRAW IT". `scriptOf` in
+// iso639.js answers the first for all ninety-one languages, so most of them come
+// back 'latin' — which is not a role here and not a rule in the stylesheet. A
+// caller that passed that straight through would put `class="latin"` on a card and
+// see nothing happen, which is the worst shape of bug: correct-looking code, no
+// error, no effect. The roles that carry a `script` ARE the answer, so the list
+// cannot drift from the faces it describes.
+export const scriptFace = (script) =>
+  script && FONT_ROLES.some((r) => r.script === script) ? script : ''
+
 // stylesFor lists the modifiers a role can actually offer.
 export function stylesFor(roleKey) {
   const role = FONT_ROLES.find((r) => r.key === roleKey)

@@ -1,15 +1,18 @@
 // text.js — the string primitives two unrelated screens both need.
 //
-// Everything here takes strings and returns values. No React, no fetch, no
-// imports at all, which is the whole point: it loads in the `pure` test project
-// without dragging the component tree behind it, and neither caller has to know
-// the other exists.
+// Everything here takes strings and returns values. No React and no fetch, which
+// is the whole point: it loads in the `pure` test project without dragging the
+// component tree behind it, and neither caller has to know the other exists. The
+// one import is `iso639.js`, which is a table and a few pure lookups over it — it
+// has no imports of its own, so nothing follows it in.
 //
 // It exists because `editDistance` was written inside MetadataPage.jsx for
 // near-duplicate person names, and the search box's facet dropdown now wants the
 // same function for typo tolerance over the vocabulary. Two copies of Levenshtein
 // in one app is the kind of duplication that stays correct right up until
 // somebody tunes one of them.
+import { scriptFace } from './fonts.js'
+import { scriptOf } from './iso639.js'
 
 // editDistance is Levenshtein (iterative, one row of state) — the number of
 // single-character insertions, deletions or substitutions between a and b.
@@ -214,19 +217,41 @@ export function clipChipName(v) {
 export function quoteTexts(a, order) {
   const quote = a?.quote || ''
   const translation = a?.translation || ''
-  switch (order) {
-    case 'quote-only':
-      return { body: quote || translation, second: '' }
-    case 'trans-only':
-      return { body: translation || quote, second: '' }
-    case 'trans-first':
-      // AND NOTHING TO LEAD WITH IS NOT A REORDERING. A row with no translation
-      // under "translations first" is not a card with an empty top line; it is a
-      // card with one text, and the one text goes in the big type.
-      return translation ? { body: translation, second: quote } : { body: quote, second: '' }
-    default:
-      return { body: quote, second: translation }
+  const pair = () => {
+    switch (order) {
+      case 'quote-only':
+        return { body: quote || translation, second: '' }
+      case 'trans-only':
+        return { body: translation || quote, second: '' }
+      case 'trans-first':
+        // AND NOTHING TO LEAD WITH IS NOT A REORDERING. A row with no translation
+        // under "translations first" is not a card with an empty top line; it is a
+        // card with one text, and the one text goes in the big type.
+        return translation ? { body: translation, second: quote } : { body: quote, second: '' }
+      default:
+        return { body: quote, second: translation }
+    }
   }
+  // AND WHICH FACE EACH OF THE TWO IS SET IN, which only this function can say.
+  //
+  // A quote's language is a fact about the QUOTE and not about the card: the
+  // translation beside it is in whatever the reader translated into, and nothing
+  // stores that. So the script tags the slot holding `a.quote`, wherever the four
+  // states have put it — and a card under "translations first" gets its Bengali
+  // face on the SECOND line, which is the case that makes this the wrong thing to
+  // compute at a render site. Every caller already asks this function which text
+  // leads; asking it in one more place for a class name would be a second opinion
+  // about the same question.
+  //
+  // '' FOR EVERY LANGUAGE THIS APP HAS NO FACE FOR, which is most of them — and
+  // `scriptOf` is not that test on its own. It answers for all ninety-one, so
+  // Italian comes back 'latin', which is no font role and no rule in the
+  // stylesheet; `scriptFace` is the guard, and English, Italian and Sylheti alike
+  // end up blank so the text keeps the card's own face.
+  const { body, second } = pair()
+  const script = scriptFace(scriptOf(a?.language))
+  const tag = (text) => (text && text === quote ? script : '')
+  return { body, second, bodyScript: tag(body), secondScript: tag(second) }
 }
 
 // quoteBody — the big type alone, for the callers that draw nothing else: the

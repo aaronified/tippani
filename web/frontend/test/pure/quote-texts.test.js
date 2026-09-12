@@ -19,21 +19,27 @@ const both = { quote: 'Als die Nazis die Kommunisten holten', translation: 'Firs
 const quoteOnly = { quote: 'a line', translation: '' }
 const transOnly = { quote: '', translation: 'eine Zeile' }
 
+// toMatchObject RATHER THAN toEqual, WHICH THESE CASES USED TO USE. `quoteTexts`
+// returns the face each of the two texts is set in as well as the texts
+// themselves, and a whole-object compare here failed on all eight of them for a
+// field none of them is about — every case below asks which TEXT leads, and that
+// is exactly what a partial match asserts. The scripts have their own cases in
+// text.test.js, where they are the subject.
 describe('what each state draws', () => {
   it('quote-first is the quotation with its translation under it', () => {
-    expect(quoteTexts(both, 'quote-first')).toEqual({ body: both.quote, second: both.translation })
+    expect(quoteTexts(both, 'quote-first')).toMatchObject({ body: both.quote, second: both.translation })
   })
 
   it('trans-first swaps them — "a poem in a foreign language will need the translation to be on top, and the original in the bottom"', () => {
-    expect(quoteTexts(both, 'trans-first')).toEqual({ body: both.translation, second: both.quote })
+    expect(quoteTexts(both, 'trans-first')).toMatchObject({ body: both.translation, second: both.quote })
   })
 
   it('quote-only is the quotation alone', () => {
-    expect(quoteTexts(both, 'quote-only')).toEqual({ body: both.quote, second: '' })
+    expect(quoteTexts(both, 'quote-only')).toMatchObject({ body: both.quote, second: '' })
   })
 
   it('trans-only is the translation alone', () => {
-    expect(quoteTexts(both, 'trans-only')).toEqual({ body: both.translation, second: '' })
+    expect(quoteTexts(both, 'trans-only')).toMatchObject({ body: both.translation, second: '' })
   })
 
   // THE DEFAULT IS WHAT THE APP DID BEFORE ANY OF THIS, and an unknown state
@@ -42,7 +48,7 @@ describe('what each state draws', () => {
   it('and anything it does not recognise reads as written', () => {
     for (const order of [undefined, null, '', 'both', 'sideways']) {
       expect(quoteTexts(both, order), String(order))
-        .toEqual({ body: both.quote, second: both.translation })
+        .toMatchObject({ body: both.quote, second: both.translation })
     }
   })
 })
@@ -53,14 +59,14 @@ describe('what each state draws', () => {
 // highlights.
 describe('a row that is missing one of its two texts', () => {
   it('shows the quotation when the translation is wanted and absent', () => {
-    expect(quoteTexts(quoteOnly, 'trans-only')).toEqual({ body: 'a line', second: '' })
-    expect(quoteTexts(quoteOnly, 'trans-first')).toEqual({ body: 'a line', second: '' })
+    expect(quoteTexts(quoteOnly, 'trans-only')).toMatchObject({ body: 'a line', second: '' })
+    expect(quoteTexts(quoteOnly, 'trans-first')).toMatchObject({ body: 'a line', second: '' })
   })
 
   it('and shows the translation when the quotation is wanted and absent', () => {
     // The mirror case, and it is real: an imported row can arrive with only the
     // translation filled in.
-    expect(quoteTexts(transOnly, 'quote-only')).toEqual({ body: 'eine Zeile', second: '' })
+    expect(quoteTexts(transOnly, 'quote-only')).toMatchObject({ body: 'eine Zeile', second: '' })
   })
 
   it('and never prints the same words twice', () => {

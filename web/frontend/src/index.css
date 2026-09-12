@@ -1859,12 +1859,18 @@
     letter-spacing: -0.01em;
     color: var(--ink);
   }
+  /* THE FACE AND NOTHING ELSE. This carried `color: var(--amber)` for the two
+     places that draw the wordmark in Bengali, which was fine while those were its
+     only callers and wrong the moment a QUOTE wore it: a reader's Bengali library
+     would have turned amber from end to end. A class named for a script says which
+     letters to draw text in; it does not get to say what colour the text is, and
+     both wordmarks now ask for the amber themselves. */
   .bengali { font-family: var(--font-bengali);
  font-weight: var(--font-bengali-weight);
  font-style: var(--font-bengali-style);
  font-variant-caps: var(--font-bengali-caps);
  text-transform: var(--font-bengali-case);
- font-variant-numeric: var(--font-bengali-figures); color: var(--amber); }
+ font-variant-numeric: var(--font-bengali-figures); }
   .devanagari { font-family: var(--font-devanagari);
  font-weight: var(--font-devanagari-weight);
  font-style: var(--font-devanagari-style);

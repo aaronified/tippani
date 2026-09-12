@@ -1748,20 +1748,24 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // line below, unconditionally. A dialogue is an annotation with different
   // credits, and the two cards should not answer the same question two ways.
   //
-  // WHAT THIS CHANGES TODAY IS NOTHING, AND THAT IS WORTH WRITING DOWN. An earlier
-  // version of this comment claimed the fix carried "the reader's text menu and
-  // now the language they can read" across to the frame, and it was wrong on both
-  // halves. There is no text menu on this screen — see the line below, which has
-  // always said so — so nothing was stopping here to be let through. And
-  // `dialogues` has a `translation` column but no `language` one (0051), so
-  // `quoteTexts` reads an empty language, `foreign` is false, and the pair comes
-  // back in the order the old code hard-wired. The change is structural: the frame
-  // now ASKS the shared function, so it inherits the behaviour the day the column
-  // exists rather than needing to be found and edited again.
+  // IT CHANGED NOTHING THE DAY IT LANDED, AND THAT WAS THE POINT — but the reason
+  // has since expired and the comment outlived it. It said `dialogues` had "a
+  // `translation` column but no `language` one (0051)", so the pair came back in
+  // the order the old code hard-wired; 0071 added `language` to annotations and
+  // dialogues both, under the ask "it is needed everywhere". The line below has
+  // been reading `d.language` ever since. So the structural change did exactly what
+  // it was built for: the frame inherited the behaviour on the day the column
+  // arrived, without anyone having to come back and find it.
   const frameOrder = useTextOrder({ language: d?.language })
   // NO TEXT MENU ON THIS SCREEN, so 'both' — which is not "show both in a fixed
   // order" but "let the language decide" (quoteTexts).
-  const { body: frameBody, second: frameSecond } = quoteTexts(d, frameOrder)
+  //
+  // AND THE FACE EACH LINE IS SET IN, off the same answer. A film line in Bengali
+  // is a quote in Bengali; the frame drawing it in the Latin text face while the
+  // book card beside it draws its own in Noto Serif Bengali is the two cards
+  // disagreeing about the same question, which is what asking the shared function
+  // exists to prevent.
+  const { body: frameBody, second: frameSecond, bodyScript, secondScript } = quoteTexts(d, frameOrder)
   const sp = d.speaker_cast
   // THE CHARACTER'S PICTURE, AND THE ACTOR'S ONLY AS A FALLBACK — the owner's
   // ruling, and it is what this card already did with a separate row of discs
@@ -1842,6 +1846,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         (sticker ? (
           <FlowQuote
             text={frameBody}
+            className={bodyScript}
             quoteStyle={quoteStyle}
             stickerKey={`s${sticker.id}`}
             maxLines={quoteLines} /* collapsed → small corner badge; expanded →
@@ -1855,6 +1860,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         ) : (
           <ExpandableText
             text={frameBody}
+            className={bodyScript}
             lines={quoteLines}
             style={quoteStyle}
             open={accordion ? !!expanded : undefined}
@@ -1933,7 +1939,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
       )}
       {/* Above the pasted note, for the reason AnnotationCard gives: the
           translation belongs to the line, the note is a thought about it. */}
-      {frameSecond && <TranslationLine>{frameSecond}</TranslationLine>}
+      {frameSecond && <TranslationLine className={secondScript}>{frameSecond}</TranslationLine>}
       {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
       {/* §7 declutter: the ♥ is the frame's resting mark and leads this row, then
           copy and share, then the colour quick-pick — the three reveal on hover

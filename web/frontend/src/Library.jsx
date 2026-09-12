@@ -1473,7 +1473,13 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
   // card that was handed an explicit state after being rendered without one.
   const resolved = useTextOrder({ language: a?.language })
   const order = textOrder || resolved
-  const { body, second } = quoteTexts(a, order)
+  // AND WHICH FACE EACH OF THE TWO IS SET IN. A Bengali quote drawn in a Latin
+  // text face is the app choosing a fallback the reader can see, on the one screen
+  // whose entire subject is somebody's own words — and the faces have been in
+  // Settings since the type dials shipped, with nothing but the wordmark wearing
+  // them. `quoteTexts` says which slot holds the QUOTE, so it says which slot the
+  // language applies to; under "translations first" that is the second line.
+  const { body, second, bodyScript, secondScript } = quoteTexts(a, order)
   // Accordion mode (tiles board): the parent owns which quote is open, so one
   // expands at a time. Elsewhere (list, search modal) each card keeps its own.
   const accordion = typeof onToggleExpand === 'function'
@@ -1671,6 +1677,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
             (sticker ? (
               <FlowQuote
                 text={body}
+                className={bodyScript}
                 quoteStyle={QUOTE_STYLE}
                 stickerKey={`s${sticker.id}`}
                 maxLines={quoteLines} /* collapsed → small corner badge; expanded →
@@ -1684,6 +1691,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
             ) : (
               <ExpandableText
                 text={body}
+                className={bodyScript}
                 lines={quoteLines}
                 style={QUOTE_STYLE}
                 open={accordion ? !!expanded : undefined}
@@ -1702,7 +1710,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
               words mean. WHICH OF THE TWO LEADS is `quoteTexts`' answer, not this
               site's — the reader's dial and the row's own language decide it, and a
               work's or board's rule will override both (task 83). */}
-          {second && <TranslationLine>{second}</TranslationLine>}
+          {second && <TranslationLine className={secondScript}>{second}</TranslationLine>}
           {/* ITS OWN LINE, ABOVE THE LOCATOR ROW — not inside it. The chip is a
               38px pill and the row beside it holds two 8px dots and a line of mono
               text, so putting them together made the tallest object on the card
@@ -1810,14 +1818,27 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
           </tr>
         </thead>
         <tbody>
-          {rows.map((a) => (
+          {rows.map((a) => {
+            // ONE CALL, NOT quoteBody TWICE. The cell wants the text AND the face
+            // it is set in, and both come off the same answer — asking quoteBody
+            // for the words and then working out the script beside it would be
+            // this site holding a second opinion about which of the two texts is
+            // the quote, which is the divergence that once had the table and the
+            // cards disagreeing about which text leads at all.
+            const { body, bodyScript } = quoteTexts(a, order)
+            return (
             <tr key={a.id}>
               <td className="col-quote">
                 {/* The table honours the same setting the cards do — it is the
                     one view where the translation was never drawn at all, so a
                     reader who asked for "translation only" here used to get the
                     original back with no sign the setting had done anything. */}
-                <ExpandableText text={quoteBody(a, order) || a.note} lines={2} style={QUOTE_STYLE} />
+                <ExpandableText
+                  text={body || a.note}
+                  className={bodyScript}
+                  lines={2}
+                  style={QUOTE_STYLE}
+                />
                 {a.tags && a.tags.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {a.tags.map((name) => {
@@ -1855,7 +1876,8 @@ function AnnotationTable({ rows, tagMap, stickers = [], reloadStickers, sort, on
                 />
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
       <FormModal open={!!editingRow} onClose={() => setEditingId(null)} title={t('common.quote.edit.title')}>

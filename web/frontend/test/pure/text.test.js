@@ -8,7 +8,7 @@
 // a second caller is about to depend on the exact numbers.
 
 import { describe, expect, it } from 'vitest'
-import { editBudget, editDistance, foldText } from '../../src/text.js'
+import { editBudget, editDistance, foldText, quoteTexts } from '../../src/text.js'
 
 describe('editDistance', () => {
   it('is zero for identical strings', () => {
@@ -133,5 +133,66 @@ describe('editBudget', () => {
       [40, 2],
     ]
     expect(table.map(([n]) => [n, editBudget(n)])).toEqual(table)
+  })
+})
+
+// WHICH FACE EACH OF THE TWO TEXTS IS SET IN.
+//
+// The faces have been in Settings since the type dials shipped and nothing but the
+// wordmark ever wore one: a Bengali quote drew in the Latin text face, on the one
+// screen whose whole subject is somebody's own words. `scriptOf` existed, was
+// tested, and had no caller in the app at all — a seam this repo counts as a defect
+// in its own right.
+//
+// THE SCRIPT BELONGS TO THE QUOTE, NOT TO THE CARD. A quote's language is stored;
+// the language of the translation beside it is not, so only the slot holding
+// `a.quote` is tagged — and under "translations first" that is the SECOND line,
+// which is the case a render site computing this for itself would get wrong.
+describe('the face a quote is set in', () => {
+  const bn = { quote: 'আমার সোনার বাংলা', translation: 'My golden Bengal', language: 'Bengali' }
+
+  it('tags the quote and leaves the translation alone', () => {
+    const { bodyScript, secondScript } = quoteTexts(bn, 'both')
+    expect(bodyScript).toBe('bengali')
+    expect(secondScript).toBe('')
+  })
+
+  // The case that makes this the wrong thing to compute beside a render: the
+  // reader asked for translations first, so the Bengali is the second line and the
+  // face has to follow it there.
+  it('follows the quote to the second line when the translation leads', () => {
+    const { body, second, bodyScript, secondScript } = quoteTexts(bn, 'trans-first')
+    expect(body).toBe('My golden Bengal')
+    expect(second).toBe('আমার সোনার বাংলা')
+    expect(bodyScript).toBe('')
+    expect(secondScript).toBe('bengali')
+  })
+
+  // "Translation only" on a row that HAS one shows no original at all, so nothing
+  // on the card is in the quote's script and nothing may claim to be.
+  it('tags nothing when only the translation is shown', () => {
+    expect(quoteTexts(bn, 'trans-only').bodyScript).toBe('')
+  })
+
+  // …but the fallback is the quote itself, and then it is the quote's face again.
+  // The same line that makes "translation only" a setting rather than a way to
+  // empty the board.
+  it('tags the fallback, because the fallback is the quote', () => {
+    const noTrans = { quote: 'আমার সোনার বাংলা', language: 'bn' }
+    expect(quoteTexts(noTrans, 'trans-only').bodyScript).toBe('bengali')
+  })
+
+  // EVERY LANGUAGE THE APP HAS NO FACE FOR COMES BACK BLANK, which is most of the
+  // ninety-one — `scriptOf` answers with a fonts.js role key only where one exists.
+  // A card whose text is tagged with a class the stylesheet does not define would
+  // be silent breakage, so the honest answer is nothing at all.
+  it('tags nothing for a language the app has no face for', () => {
+    expect(quoteTexts({ quote: 'Chiamatemi Ismaele.', language: 'Italian' }, 'both').bodyScript).toBe('')
+    expect(quoteTexts({ quote: 'kichu ekta', language: 'Sylheti' }, 'both').bodyScript).toBe('')
+    expect(quoteTexts({ quote: 'no language at all' }, 'both').bodyScript).toBe('')
+  })
+
+  it('and Devanagari is the other face it knows', () => {
+    expect(quoteTexts({ quote: 'सत्यमेव जयते', language: 'Hindi' }, 'both').bodyScript).toBe('devanagari')
   })
 })

@@ -582,7 +582,8 @@ export function Login({ onLogin }) {
               <>
                 <img src="/mark-dark.svg" alt="" width="44" height="44" className="mx-auto mb-3" />
                 <div className="wordmark" style={{ fontSize: 'var(--type-ui-22)' }}>{t('shell.wordmark.label')}</div>
-                <p className="bengali text-sm" aria-hidden="true">টিপ্পনী</p>
+                {/* The amber is the WORDMARK's, not the script's — see .bengali. */}
+                <p className="bengali text-sm" style={{ color: 'var(--amber)' }} aria-hidden="true">টিপ্পনী</p>
                 {/* A locked door, and this app's subject is the sentence somebody
                     kept — so it opens with one, and a different one each visit.
                     Unattributed and written for the app: a login screen has no
