@@ -9343,6 +9343,11 @@ export function IconFilter() { return <svg {...iconStroke}><path d="M22 3H2l9 9v
 // four exceptions do not cover a control.
 export function IconSort() { return <svg {...iconStroke}><path d="M4 6h11"/><path d="M4 12h7"/><path d="M4 18h4"/><path d="M18 5v14"/><path d="M15 16l3 3 3-3"/></svg> }
 export function IconExport() { return <svg {...iconStroke}><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 18h16"/></svg> }
+// A PRINTER, and not a page with an arrow: the control it labels calls the
+// browser's own print dialog, from which the reader chooses paper or a PDF. A
+// document glyph would say "export", which is the button next to it and a
+// different verb — that one hands over a Markdown file the server wrote.
+export function IconPrint({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M7 9V4h10v5"/><rect x="3.5" y="9" width="17" height="7" rx="2"/><path d="M7 14h10v6H7z"/></svg> }
 // TAKES A SIZE, like IconClose and IconPlus and for the same reason: two callers
 // already asked for one and got 24px anyway, because this signature dropped the
 // prop on the floor. A 24px pencil beside a 15px word is the wrong picture, and

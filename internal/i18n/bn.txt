@@ -345,6 +345,7 @@ common.action.duplicate.sub = সবকিছু নকল করে আরে�
 common.action.duplicate.tip = এই উদ্ধৃতির একটা কপি খুলুন — সেভ না করা পর্যন্ত কিছুই লেখা হয় না
 common.action.share.label = শেয়ার
 common.action.export.label = এক্সপোর্ট
+common.action.print.label = প্রিন্ট
 common.action.restore.label = ফিরিয়ে আনুন
 common.action.apply.label = বসান
 common.action.apply.busy = বসানো হচ্ছে…

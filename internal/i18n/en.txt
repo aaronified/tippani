@@ -327,6 +327,10 @@ common.action.duplicate.sub = A copy of the {kind} with the same note, tags, col
 common.action.duplicate.tip = Open a copy of this quote — nothing is saved until you press save
 common.action.share.label = Share
 common.action.export.label = Export
+# PRINT AND NOT "SAVE AS PDF", though the dialog it opens offers both: the verb
+# names what the control does, and which of the two the reader picks is theirs to
+# choose in their own browser. There is no PDF endpoint here to promise.
+common.action.print.label = Print
 common.action.restore.label = Restore
 common.action.apply.label = Apply
 common.action.apply.busy = Applying…

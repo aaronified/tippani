@@ -348,4 +348,31 @@ describe('the fields a work lends its passages', () => {
     const bare = screen.getByText('Least said, soonest mended.').closest('div')
     expect(bare.textContent).not.toContain('anarchism')
   })
+
+  it('prints through the browser, and leaves the furniture off the page', async () => {
+    // THE CONTROL IS window.print() AND NOT A FETCH, which is the whole PDF
+    // decision in one assertion: there is no server-side PDF endpoint, by
+    // construction, because a PDF writer is a typesetting engine bought to print a
+    // thirty-entry anthology. A future refactor that "improves" this into a
+    // download would be a dependency decision taken by accident.
+    const print = vi.fn()
+    const was = window.print
+    window.print = print
+    try {
+      open()
+      await screen.findByText('We remember light.')
+      fireEvent.click(screen.getByText('Print'))
+      expect(print).toHaveBeenCalledTimes(1)
+      expect(CALLS.some(([, p]) => /print|pdf/.test(p))).toBe(false)
+      // AND THE CONTROLS ARE MARKED AS FURNITURE. The print stylesheet hides
+      // `.no-print`; a button that is not inside one prints on top of the document,
+      // which no test of the CSS alone can see because the class has to be APPLIED.
+      expect(screen.getByText('Print').closest('.no-print')).toBeTruthy()
+      expect(screen.getByText('All anthologies').closest('.no-print')).toBeTruthy()
+      // The title is the document's and must NOT be marked furniture.
+      expect(screen.getByText('On keeping quiet').closest('.no-print')).toBeNull()
+    } finally {
+      window.print = was
+    }
+  })
 })

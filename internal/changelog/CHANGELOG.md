@@ -26,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   everything else on that list needs a work to read from. Shown only where you actually
   have a record of that person, which most passages will not have, and the line is
   simply absent rather than blank when you do not.
+- **An anthology can be printed, and the whole app got a print stylesheet with it.**
+  A Print control on the reading view opens your browser's own print dialog — paper or
+  PDF, whichever you choose there. What comes out is the document and not the app: no
+  bars, no buttons, no shadows, a passage never split across a page where it fits on
+  one, and **a light page whatever theme you are reading in** — printing the dark theme
+  used to mean white text on a black page. Every other screen prints better too.
+  **There is no server-side PDF**, deliberately: a PDF writer is a typesetting engine,
+  and this app sets Bengali and Devanagari, so your browser is the better renderer and
+  costs nothing to carry.
 - **A large import shows how far it has got.** A 5 MB clippings file staging tens of
   thousands of highlights used to sit on "pending" from the first byte to the last, so
   there was no way to tell a slow upload from a stuck one. The drop target fills as the

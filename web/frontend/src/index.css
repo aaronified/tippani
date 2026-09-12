@@ -922,7 +922,10 @@
     -webkit-user-select: none;
   }
   /* PAPER DOES NOT SCROLL. A mask on a printed page deletes the words under it
-     and leaves no way to reach them, so print gets the whole row, un-faded. */
+     and leaves no way to reach them, so print gets the whole row, un-faded.
+
+     THE REST OF THE PRINT STYLESHEET IS AT THE FOOT OF THIS FILE, under "PAPER",
+     and this rule stays here because it belongs to the scroller it un-masks. */
   @media print {
     [data-scroll-x], [data-scroll-v] {
       -webkit-mask-image: none;
@@ -9920,3 +9923,105 @@ html[data-theme="dark"] .board-cover {
   .cs-tile-add-label { font-size: var(--type-ui-13); line-height: 1.35; }
 
   .cs-strip-hint { font-size: var(--type-ui-12); color: var(--faint); padding: 0 10px; line-height: 1.45; text-wrap: pretty; }
+
+/* ==========================================================================
+   PAPER — the print stylesheet (roadmap §15, and the anthology's Print control)
+   ==========================================================================
+
+   WHY NOW AND NOT AS PART OF A PDF WRITER. `docs/plans/anthology-update.md`
+   argues it and `PLAN.md` backs the argument with a rule: go.mod has three direct
+   requirements, and a PDF library is a typesetting engine — fonts, shaping,
+   pagination — bought to print a thirty-entry anthology. This app sets Bengali and
+   Devanagari, so the browser's own engine is not a compromise here, it is the
+   better renderer: correct shaping in every script the reader has, their own
+   hyphenation and widow control, embedded fonts, selectable text, no dependency.
+
+   THE COST, STATED PLAINLY: there is no server-side PDF endpoint, so a script, a
+   CLI or a token-scoped feed cannot ask for one, and the output varies a little
+   between browsers. If a server-rendered PDF is ever genuinely wanted, that is a
+   dependency decision on its own merits and not a side effect of an anthology.
+
+   IT IS NOT THE ANTHOLOGY'S STYLESHEET. §15 asks for a print stylesheet
+   independently and every screen gets this one; the anthology is only the screen
+   that most wants it, being already a document with an introduction, ordered
+   entries and prose between them. */
+@media print {
+  /* PAPER IS LIGHT, WHATEVER THE READER IS RUNNING, and this is the rule that
+     needs `!important` to mean anything: theme.js writes the palette as INLINE
+     custom properties on the root element (theme.js:467), and a normal declaration
+     in a stylesheet loses to an inline one. An important one does not. Without
+     this, a reader on the dark theme prints white text on a black page — which is
+     unreadable, and empties a cartridge saying so.
+
+     THE NEUTRALS ONLY. `--hl-1`..`--hl-4` are left as the theme set them, because
+     a passage's colour is part of what the reader chose to record and a printed
+     rule in the dark variant is still a legible rule. */
+  :root {
+    --bg: #FFFFFF !important;
+    --raised: #FFFFFF !important;
+    --card: #FFFFFF !important;
+    --card-top: #FFFFFF !important;
+    --card-bottom: #FFFFFF !important;
+    --ink: #16120E !important;
+    --soft: #453D35 !important;
+    --faint: #665C52 !important;
+    --line: #C4BBAD !important;
+  }
+  @page { margin: 18mm 16mm; }
+  html, body { background: #FFFFFF !important; }
+
+  /* THE CHROME GOES, and the first seven of these are not a list this rule
+     invented: they are index.css's own isolation group, whose comment says
+     "Every one of them is already sticky or fixed". That makes it the file's
+     existing answer to "what is chrome", and `print-hides-the-chrome.test.js`
+     fails when a bar joins that group without joining this rule — which is the
+     only way a list like this stays true.
+
+     `.no-print` is the per-screen half: a control that belongs to a screen rather
+     than to the shell wears it, because the shell cannot know that a Back button
+     is furniture and a heading is not. */
+  .drawer,
+  .mobile-dock,
+  .rail,
+  .topbar,
+  .mobile-topbar,
+  .mobile-sticky-bar,
+  .mobile-sheet-footer,
+  .to-top,
+  .tp-scrim,
+  .no-print { display: none !important; }
+
+  /* NOTHING IS RAISED ON PAPER. The app's elevation is light falling on a card;
+     printed, it is a grey smear around every block. */
+  .hand-card, .tp-panel, .tp-subsheet, .mobile-sheet-card {
+    box-shadow: none !important;
+  }
+
+  /* AN ANTHOLOGY IS THE DOCUMENT THIS EXISTS FOR. On screen it takes a 62ch
+     measure because the window is wider than a column of prose should be; the
+     page is already that column, so the measure comes off and the margin above
+     does the same job.
+
+     A PASSAGE IS NOT SPLIT ACROSS A PAGE where it fits on one — an entry is the
+     reader's commentary, the quote and its attribution, and those three broken
+     apart are three fragments rather than one passage. `orphans`/`widows` catch
+     the case where it genuinely does not fit. */
+  .anthology-read { max-width: none; }
+  .anthology-read .hand-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 0 !important;
+    padding: 0 !important;
+    margin-top: 1.4em !important;
+  }
+  .anthology-prose, .anthology-quote { orphans: 2; widows: 2; }
+
+  /* A LINK IS TEXT ON PAPER. `.tp-link` is a button in the attribution line — a
+     doorway into the work — and a doorway printed as blue underlined text is a
+     control the page cannot honour. */
+  .tp-link {
+    color: inherit !important;
+    text-decoration: none !important;
+    font: inherit !important;
+  }
+}

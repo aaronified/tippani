@@ -55,7 +55,7 @@ import {
   IconExport,
   IconPlus,
   useScreenBar,
-  IconQuiz, IconPractise,
+  IconQuiz, IconPractise, IconPrint,
   MonoLabel,
   MoreMenu,
   PageHeader,
@@ -807,6 +807,12 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         : []),
       ...(anthology ? [{ id: 'edit', icon: <IconEdit />, label: t('common.action.edit.label'), onClick: () => setEditing(true) }] : []),
       ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('common.action.export.label'), onClick: () => { window.location.href = exportHref(id) } }]),
+      // PRINT IS NOT IN THE SHARE FAMILY and is next to Export rather than in it.
+      // Export hands over a file the server wrote; this opens the browser's own
+      // print dialog, from which the reader chooses paper or a PDF. There is no
+      // PDF endpoint by construction — see the print stylesheet's note — and
+      // putting it in a menu of file formats without a word would imply one.
+      ...(anthology ? [{ id: 'print', icon: <IconPrint />, label: t('common.action.print.label'), onClick: () => window.print() }] : []),
       ...(anthology ? [{ id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setDeleting(true), danger: true }] : []),
     ],
   })
@@ -815,7 +821,12 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       {/* The way back, drawn unconditionally. A detail view takes the phone's top
           bar away, so this is the only way back on a phone and it cannot be a
           desktop-only nicety. */}
-      <div className="mb-3">
+      {/* `.no-print` HERE AND ON THE HEADER'S BUTTONS, not on the header: the
+          title and the count are the document's, and only the controls beside
+          them are furniture. The shell cannot make that distinction — it does not
+          know a Back button from a heading — which is why the class is applied by
+          the screen that does. */}
+      <div className="mb-3 no-print">
         <GhostButton icon={<IconBack />} onClick={onClose}>
           {t('anthologies.read.back.label')}
         </GhostButton>
@@ -824,7 +835,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         title={anthology?.title || t('anthologies.read.title.fallback')}
         counts={entries ? t('common.count.phrase', { n: rows.length, noun: t('unit.entry', { count: rows.length }) }) : ''}
         right={
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 no-print">
             {/* Before Edit, because reading it back is what you do with an
                 anthology and editing it is what you do to one. Disabled while it
                 is empty: a round over nothing is the one case the dialog can only
@@ -849,6 +860,9 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
                 {t('common.action.export.label')}
               </GhostButton>
             )}
+            <GhostButton icon={<IconPrint />} onClick={() => window.print()} disabled={!anthology}>
+              {t('common.action.print.label')}
+            </GhostButton>
             <GhostButton icon={<IconDelete />} onClick={() => setDeleting(true)} disabled={!anthology}>
               {t('common.action.delete.label')}
             </GhostButton>
