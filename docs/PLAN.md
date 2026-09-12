@@ -14148,6 +14148,23 @@ board's bar, `Frame` citing `AnnotationCard` for where the translation sits, and
 this. A comment naming the canonical function is evidence the author knew about
 it, not evidence the code uses it.
 
+**AND THE FILM CARD WAS THE FOURTH, FOUND BY WRITING THE GUARD THE OTHER WAY UP.**
+`Frame` drew the translation after the chips, the credit row AND the tag row, under
+a comment reading "for the reason AnnotationCard gives" — a reason about the NOTE,
+from a card that puts the translation directly under the words. The owner's card
+shape is one order for every annotation card in the app, so this was the twin four
+bands out of step.
+
+**THE GUARD FOUND A SECOND DIVERGENCE THE EYE HAD MISSED.** `one-card-shape.test.js`
+does not check either card against a written order; it reads both sources, ranks the
+seven bands in each, and asserts the two rankings are equal. The first run failed
+twice: the translation, which is what it was written for, AND the note and the tag
+row, which `Frame` also had the wrong way round and which nobody had noticed in
+three passes over that file. **A test that checked the film card alone would have
+passed** — the card was internally consistent; what it was not was the same as its
+twin. That is the argument for comparing two implementations rather than checking
+one against prose: prose is what both of them already cited.
+
 **AND THE GUARD WAS SCOPED TO THE SCREEN RATHER THAN TO THE RULE**, which is why
 the first fix could ship a false claim. `search-hit-credit.test.js` covered the
 search row alone while the commit told users that row was "the one place left" —

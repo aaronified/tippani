@@ -1999,6 +1999,21 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
             onToggle={accordion ? onToggleExpand : undefined}
           />
         ))}
+      {/* THE OTHER HALF OF THE BODY, and it sat four bands lower than that for a
+          release. It was drawn after the chips, the credit row AND the tag row —
+          under a comment reading "for the reason AnnotationCard gives", which is
+          the reason for putting it ABOVE THE NOTE and says nothing about putting
+          it below everything else. So a bilingual line read the words, who said
+          them, where, its tags, and only then what the words mean.
+
+          A RULE CITED RATHER THAN CALLED IS A RULE WITH TWO READINGS. The owner's
+          card shape is one order for every annotation card in the app — "quote,
+          translation: these will form the card body. both separately expandable",
+          then the chip, the attribution, the note, the tags, the actions — and
+          `AnnotationCard` has drawn it that way since. This is the twin catching
+          up, not a new decision. WHICH OF THE TWO LEADS is `quoteTexts`' answer
+          and not this site's. */}
+      {frameSecond && <TranslationLine className={secondScript}>{frameSecond}</TranslationLine>}
       {/* ITS OWN LINE, ABOVE THE CREDIT ROW — see AnnotationCard, which does the
           same and for the same reason: a 38px pill sharing a row with two 8px dots
           and a line of mono text makes the tallest object set the height of the
@@ -2057,6 +2072,12 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           </span>
         </span>
       </div>
+      {/* THE NOTE ABOVE THE TAGS, which is bands 4 and 5 of the owner's card shape
+          and which this card had the other way round. The book card has always
+          drawn it this way; a guard comparing the two is what found it, after a
+          guard checking this card alone would have passed — it was internally
+          consistent, just not the same as its twin. */}
+      {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
       {d.tags?.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-2">
           {d.tags.map((name) => {
@@ -2069,10 +2090,6 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
           })}
         </div>
       )}
-      {/* Above the pasted note, for the reason AnnotationCard gives: the
-          translation belongs to the line, the note is a thought about it. */}
-      {frameSecond && <TranslationLine className={secondScript}>{frameSecond}</TranslationLine>}
-      {d.note && <HandNote className="mt-2">{d.note}</HandNote>}
       {/* §7 declutter: the ♥ is the frame's resting mark and leads this row, then
           copy and share, then the colour quick-pick — the three reveal on hover
           (desktop) and stand on a phone. Edit and delete are behind the ⋯ at

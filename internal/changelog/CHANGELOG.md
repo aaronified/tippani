@@ -736,6 +736,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   credit does not already say it — off until you ask for it, the way a book highlight's
   page already was. Nothing you had switched off in the share dialog comes back on.
 
+- **A film line's translation was printed below its tags.** A bilingual film or show
+  quote read the words, then who said them, then where in the runtime, then its tags — and
+  only then what the words mean. A book highlight has always put the translation directly
+  under the words, where it belongs, because the two are one piece of text. The film card
+  now does the same, and its note moves above its tags to match. Every quote card in the
+  app now reads in one order, whatever kind of thing it came from.
+
 - **A letter did not say who it was to on the search results or on your wall.** Two
   screens still glued a quote's credit together out of whatever fields happened to be
   filled, so one letter read three different ways: "Albert Einstein · after the prize" in
