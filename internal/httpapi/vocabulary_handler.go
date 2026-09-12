@@ -129,14 +129,44 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		// looks complete. There is no language facet to match against (#153), and
 		// when there is, it will be case-insensitive for the same reason this is.
 		//
-		// GROUP BY, NOT DISTINCT, so ORDER BY MIN(id) is available: the fold keeps
-		// the FIRST spelling written, which is the rule validateBoard already states
-		// — "bengali" typed second should not win over "Bengali". DISTINCT with an
-		// ORDER BY outside the select list is not, and sorting the folded list by
-		// name would leave the surviving spelling to sort.Slice, which is not stable
-		// and would pick a different one between two runs over the same library.
-		{"languages", `SELECT language FROM utterances WHERE user_id = ? AND language <> ''
-		               GROUP BY language ORDER BY MIN(id)`, false, true},
+		// GROUP BY, NOT DISTINCT, so an ORDER BY over an aggregate is available: the
+		// fold keeps the FIRST spelling written, which is the rule validateBoard
+		// already states — "bengali" typed second should not win over "Bengali".
+		// DISTINCT with an ORDER BY outside the select list is not, and sorting the
+		// folded list by name would leave the surviving spelling to sort.Slice, which
+		// is not stable and would pick a different one between two runs over the same
+		// library.
+		//
+		// ALL THREE QUOTE TABLES, and reading only `utterances` was a defect that
+		// emptied this list for a whole kind of library. 0071 put `language` on
+		// annotations and dialogues — "it is needed everywhere" is the ask it quotes
+		// — so a reader whose Bengali is all book highlights got NO languages back:
+		// their combobox opened on English, Spanish and French, their board offered
+		// no chips at all, and Settings drew a live red ✕ beside a language their
+		// library is full of, under a tooltip promising it refuses while rows still
+		// use it.
+		//
+		// ORDERED BY created_at AND THEN id, because `id` alone cannot span three
+		// tables — the sequences are independent, so an annotation's id 2 says
+		// nothing about whether it was written before utterance 7. created_at is
+		// comparable across all three; inside one second it falls back to the
+		// smallest id, which is exact within a table and arbitrary-but-stable across
+		// them. Which of two spellings entered in the same second wins is not a
+		// question with a right answer, only one that must have the same answer every
+		// time.
+		{"languages", `SELECT language FROM (
+		                 SELECT language, created_at, id FROM utterances
+		                  WHERE user_id = ? AND language <> ''
+		                 UNION ALL
+		                 SELECT a.language, a.created_at, a.id FROM annotations a
+		                   JOIN books b ON b.id = a.book_id
+		                  WHERE b.user_id = ? AND a.language <> ''
+		                 UNION ALL
+		                 SELECT d.language, d.created_at, d.id FROM dialogues d
+		                   JOIN movies m ON m.id = d.movie_id
+		                  WHERE m.user_id = ? AND d.language <> ''
+		               )
+		               GROUP BY language ORDER BY MIN(created_at), MIN(id)`, false, true},
 		{"shelves", `SELECT DISTINCT status FROM books WHERE user_id = ? AND status <> ''
 		             UNION SELECT DISTINCT status FROM movies WHERE user_id = ? AND status <> ''
 		             ORDER BY 1 COLLATE NOCASE`, false, false},

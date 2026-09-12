@@ -482,9 +482,12 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
           </div>
           <div className="flex items-end gap-2 mt-2">
             {/* STILL A PLAIN BOX, AND THAT IS NOW A CONCLUSION RATHER THAN A DEFERRAL.
-                LanguageCombo landed on the other six language fields; this one was
-                looked at properly and keeps its Field, for a reason Combo cannot be
-                asked to fix for one caller.
+                LanguageCombo landed on every other language field in the app; this
+                one was looked at properly and keeps its Field, for a reason Combo
+                cannot be asked to fix for one caller. (It said "the other six" for a
+                commit, when there were five — a count in a comment is a fact that
+                goes stale on the next commit and cannot be checked from here, so
+                this one names the rule instead.)
 
                 COMBO CANNOT TELL BLUR FROM ENTER. Both call `commit(value)` with the
                 same argument (suggest.jsx's onKey and onBlur), so a box whose commit

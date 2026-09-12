@@ -15,10 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the quote and this panel does not touch it. So a language your library still holds
   refuses, with a reason on the button rather than a row that quietly comes back.
 - **Every language box offers what you already use.** The language field on a
-  highlight, a film line, a standalone quote, the capture card, an imported row and a
-  work now suggests as you type — **your own languages first**, then the rest of the
-  ninety-one, each with its own name for itself underneath (Bengali · বাংলা). It is
-  still free text: a language nothing has heard of is typed and kept exactly as typed.
+  highlight, a film line, a standalone quote, the capture card, an imported row, a
+  book or film's two language rows, and the box that sets a language across a whole
+  selection now suggests as you type — **your own languages first**, then the rest of
+  the ninety-one, each with its own name for itself underneath (Bengali · বাংলা). It
+  is still free text: a language nothing has heard of is typed and kept exactly as
+  typed. The one box that stays plain is the board form's "add a language", because
+  there Enter and clicking away mean different things and a suggestion box cannot
+  tell them apart.
+- **A library of book highlights has languages again.** "Your own languages first"
+  read one table, and the language of a highlight and of a film line live in two
+  others — so a reader whose Bengali is all book highlights was offered no languages
+  at all: the box opened on English, Spanish and French, a proverb board had no chips
+  to press, and Settings showed a live red ✕ beside a language the library is full
+  of, under a tooltip promising it would refuse while quotes still used it. All three
+  kinds count now, and one language spelled two ways across two of them is still one
+  row.
 - **A language your library spells two ways is one chip, not two.** A language is free
   text on the quote, so writing "bengali" one day and "Bengali" the next left the
   proverb board's language row offering both — and pressing either lit both, because

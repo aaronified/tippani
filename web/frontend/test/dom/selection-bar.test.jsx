@@ -26,6 +26,10 @@ vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
     CALLS.push([method, path, body])
+    // The language field is a combobox and leads with the library's own
+    // languages; a mock with no vocabulary would test the ninety-one, not the
+    // offer that makes a bulk edit spell a language the same way twice.
+    if (path === '/search/vocabulary') return { ok: true, data: { languages: ['Bengali'] } }
     return OK
       ? { ok: true, data: { deleted: body?.ids?.length || 0, trash_id: 77, updated: body?.ids?.length || 0 } }
       : { ok: false, status: 400, data: { error: 'nope' } }
@@ -333,6 +337,40 @@ describe('following the Button labels preference', () => {
 //
 // The assertion goes to the REQUEST, like the works one: finding the menu item
 // would prove only that a guard changed.
+// A BULK EDIT IS WHERE A SPELLING MATTERS MOST, and it was the last field-setting
+// surface with a bare box on it. Forty rows take whatever is typed here, so
+// "Bengali" typed today and "bengali" typed next month are two languages in the
+// picker, the board chips and the marks table — the thing the whole fold exists to
+// prevent, created in one press. The dialog reads `language: true` off the spec,
+// the same way it reads `long` and `options`; it never looks at the key.
+describe('setting a language over a selection', () => {
+  const openLanguage = () => {
+    bar()
+    openMore()
+    fireEvent.click(item('Set fields'))
+    fireEvent.click(screen.getByLabelText('Which field to set'))
+    fireEvent.click(screen.getByText('Language'))
+  }
+
+  it('offers the library\u2019s own languages as you type', async () => {
+    openLanguage()
+    const box = await screen.findByRole('combobox', { name: 'The value to set' })
+    fireEvent.change(box, { target: { value: 'beng' } })
+    expect(await screen.findByRole('option', { name: /Bengali/ })).toBeTruthy()
+  })
+
+  it('sends the language that was picked', async () => {
+    openLanguage()
+    const box = await screen.findByRole('combobox', { name: 'The value to set' })
+    fireEvent.change(box, { target: { value: 'beng' } })
+    fireEvent.click(await screen.findByRole('option', { name: /Bengali/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+    await waitFor(() => expect(sent('/quotes/bulk')).toBeTruthy())
+    expect(sent('/quotes/bulk')[2].language).toBe('Bengali')
+  })
+})
+
 describe('setting one field over a selection of quotes', () => {
   it('files the kind on all of them, in one targeted request', async () => {
     bar()

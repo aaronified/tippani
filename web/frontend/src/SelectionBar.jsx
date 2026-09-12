@@ -6,6 +6,7 @@ import { t, tNodes } from './i18n.js'
 import { MoveToBoardDialog } from './boards.jsx'
 import { KIND_ROUTES, bulkFieldsFor, deletePhrase, overwriteWarning, useBulkOps } from './bulkOps.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
+import { LanguageCombo } from './suggest.jsx'
 import { capKeyFor } from './works.jsx'
 import {
   useEscape,
@@ -598,6 +599,20 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
               options={clearable
                 ? [['', t('common.selection.edit.value.none.label')], ...spec.options]
                 : spec.options}
+            />
+          </div>
+        ) : spec?.language ? (
+          // The library's own languages first, then the ninety-one. Same component
+          // as every single-record language box — a bulk edit that offered a
+          // different list, or no list, would be the one place a reader is asked to
+          // spell a language from memory while setting it on forty rows at once.
+          <div className="tp-field">
+            <MonoLabel>{spec.label}</MonoLabel>
+            <LanguageCombo
+              value={value}
+              onChange={setValue}
+              ariaLabel={t('common.selection.edit.value.aria')}
+              placeholder={t('common.field.language.placeholder')}
             />
           </div>
         ) : spec?.long ? (

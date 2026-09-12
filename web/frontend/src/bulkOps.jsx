@@ -305,7 +305,14 @@ export const BULK_QUOTE_FIELDS = [
   // highlights out of one Bengali book is one value on forty rows. It sits last
   // because it applies to every kind and the per-kind fields above read better
   // grouped.
-  { key: 'language', get label() { return t('common.field.language.label') } },
+  //
+  // `language: true` ASKS FOR THE COMBOBOX, the same way `long` asks for a
+  // textarea and `options` for a Select — the dialog reads the spec, never the
+  // key. A bulk edit is the one place the spelling matters most: forty rows get
+  // whatever is typed here, so "Bengali" and "Bengali " and "bengali" become three
+  // languages in one press, and the box that offers what the library already holds
+  // is the fix the single-record forms already have.
+  { key: 'language', language: true, get label() { return t('common.field.language.label') } },
 ]
 
 export function bulkFieldsFor(kind) {

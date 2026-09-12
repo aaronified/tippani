@@ -882,11 +882,18 @@ function CreditSeparators({ user, onPreferences }) {
 // is not "let me look at this".
 //
 // THE LIST IS THE READER'S OWN NOW, not ten the app chose. It opens with every
-// language their quotes are actually in (the vocabulary's `languages`, which is
-// one DISTINCT over `utterances` — see vocabulary_handler.go) plus every language
-// they have marked or renamed. A language in the library is `added: false`, so its
-// row cannot be removed while rows are still stored under it; one that is only
-// marked can be dropped, because dropping it drops a mark and not a quote.
+// language their quotes are actually in — the vocabulary's `languages`, which is
+// one folded list over all three quote tables (see vocabulary_handler.go) — plus
+// every language they have marked or renamed.
+//
+// `inLibrary` IS THE FLAG, AND IT IS TRUE FOR A LANGUAGE THE LIBRARY HOLDS. This
+// paragraph named `added` and named it the wrong way round for a commit, which is
+// worse than naming nothing: `added` was deleted when the starters went (see
+// languages.jsx), and a reader checking "can this row be removed?" against a flag
+// that no longer exists, whose surviving replacement carries the OPPOSITE value,
+// gets the answer backwards twice and agrees with itself. A row the library holds
+// up cannot be removed; one that is only marked can be dropped, because dropping
+// it drops a mark and not a quote.
 function LanguageMarksSettings({ prefs, onSaved }) {
   // What the library holds, so the table opens populated rather than empty. Seeded
   // from the cache synchronously so a second opening draws the rows on the first

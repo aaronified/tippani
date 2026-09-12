@@ -30,6 +30,7 @@ import { characterPanel } from './identity.jsx'
 import { OFFERED_FIELDS, fieldOffersPanel } from './fieldOffers.jsx'
 import { TEXT_ORDER_WORD } from './textOrder.js'
 import { TextOrderField } from './textOrderField.jsx'
+import { LanguageCombo } from './suggest.jsx'
 import { DEFAULT_CREDIT_SEPS, splitCredits, personImgURL, usePeople } from './credits.jsx'
 import { PasteLink, WorkLinks, linkRows, providerURL } from './workLinks.jsx'
 import { t } from './i18n.js'
@@ -149,8 +150,8 @@ const BOOK_FIELDS = [
   // Two language codes, paired for the reason the series pair is: neither has
   // ever needed a line of its own, and side by side they read as the one fact
   // they are — what it is in, and what it was written in.
-  { key: 'language', half: true, get label() { return t('common.field.language.label') } },
-  { key: 'orig_language', half: true, get label() { return t('common.field.orig-language.label') } },
+  { key: 'language', half: true, kind: 'language', get label() { return t('common.field.language.label') } },
+  { key: 'orig_language', half: true, kind: 'language', get label() { return t('common.field.orig-language.label') } },
   {
     key: 'publisher',
     get label() { return t('common.field.publisher.label') },
@@ -1644,6 +1645,47 @@ function FieldList({ kind, item, stack, specs, creditSpecs, mediaType, busy, gen
                 busy={!!busy}
                 onSave={(d) => onSaveField(spec, d)}
                 input={({ value: v, onChange }) => <TextOrderField value={v} onChange={onChange} />}
+              />
+            )
+          }
+          // THE SAME BOX THE QUOTE FIELDS GOT, on the two fields a WORK carries.
+          // A language is free text everywhere in this app, and five quote-side
+          // fields learned to suggest the reader's own languages while these two
+          // went on being a bare line — so the one place a whole book's language is
+          // set was the one place the app would not help spell it. "Two things that
+          // look the same behave the same": it is the same component, given the
+          // row's label as its aria-label because the row already draws the label
+          // beside the pencil.
+          //
+          // AND IT CAPITALISES PER WORD NOW, which the plain row did not: these two
+          // specs carry no `nameCase`, so the box asked a phone keyboard for
+          // nothing, while the five quote-side language boxes have asked for a
+          // capital per word since they were built. "Bengali" and "Old English" are
+          // capitalised names; one surface withholding the keyboard's offer is the
+          // same control behaving two ways.
+          //
+          // NO onCommit. InlineField's `enterCommits` is `!multiline && !input`, so
+          // supplying an editor turns Enter-commits off at the row — exactly the
+          // bargain TokenInput already relies on, and the reason Combo's Enter can
+          // pick a suggestion here without the row saving a draft React has not
+          // re-rendered yet. The ✓ is what saves.
+          if (spec.kind === 'language') {
+            return (
+              <InlineField
+                key={spec.key}
+                half={!!spec.half}
+                fieldKey={spec.key}
+                source={prov?.source}
+                sourceAt={prov?.at}
+                sourceOpen={openOffers(spec, label, prov)}
+                label={label}
+                value={value}
+                hint={spec.hint}
+                busy={!!busy}
+                onSave={(d) => onSaveField(spec, d)}
+                input={({ value: v, onChange, ref }) => (
+                  <LanguageCombo value={v} onChange={onChange} inputRef={ref} ariaLabel={label} />
+                )}
               />
             )
           }

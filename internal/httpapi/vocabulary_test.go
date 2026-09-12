@@ -356,3 +356,93 @@ func TestVocabularyDoesNotFoldTheCreditFacets(t *testing.T) {
 		t.Errorf("a speaker facet folded two stored values into one option: %v", v.Speakers)
 	}
 }
+
+// ALL THREE QUOTE KINDS, and reading only `utterances` emptied this list for a
+// whole shape of library.
+//
+// 0071 put `language` on annotations and dialogues because the ask was "it is
+// needed everywhere" — but the facet went on asking one table, so a reader whose
+// Bengali is entirely book highlights got nothing back. That is not a missing
+// suggestion: LanguageCombo leads with the library's own languages, so their box
+// opened on English, Spanish and French; the board's chip row had nothing to draw;
+// and Settings decides whether a language may be REMOVED by whether this list
+// holds it, so it offered a live red ✕ beside a language the library is full of.
+//
+// Each of the three below is a different table and a different join, so a facet
+// that forgot one of them fails on exactly that name.
+func TestVocabularyLanguagesComeFromAllThreeQuoteKinds(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	bookID := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "Gitanjali"}, 201).Body.Bytes())
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": bookID, "quote": "আমার মাথা নত করে দাও", "language": "Bengali",
+	}, 201)
+	movieID := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Pather Panchali"}, 201).Body.Bytes())
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movieID, "quote": "una battuta", "language": "Italian",
+	}, 201)
+	c.mustDo("POST", "/quotes", map[string]any{"quote": "सत्यमेव जयते", "language": "Sanskrit"}, 201)
+
+	v := vocabOf(t, c)
+	for _, want := range []string{"Bengali", "Italian", "Sanskrit"} {
+		if !has(v.Languages, want) {
+			t.Errorf("languages does not offer %q: %v", want, v.Languages)
+		}
+	}
+}
+
+// And the fold spans the three tables too, which the single-table version could
+// not have got wrong. A highlight typed "bengali" and a film line typed "Bengali"
+// are one language in two places, and the picker must say so once.
+func TestVocabularyFoldsOneLanguageAcrossTwoKinds(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	bookID := idOf(t, c.mustDo("POST", "/books", map[string]any{"title": "Gitanjali"}, 201).Body.Bytes())
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": bookID, "quote": "a highlight", "language": "Bengali",
+	}, 201)
+	movieID := idOf(t, c.mustDo("POST", "/movies", map[string]any{"title": "Pather Panchali"}, 201).Body.Bytes())
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movieID, "quote": "a film line", "language": "bengali",
+	}, 201)
+
+	v := vocabOf(t, c)
+	n := 0
+	for _, l := range v.Languages {
+		if strings.EqualFold(l, "bengali") {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("one language across two kinds came back %d times: %v", n, v.Languages)
+	}
+}
+
+// A language of somebody else's book or film is nobody else's either. The
+// single-table query had one user filter to get wrong; this one has three, two of
+// them on the JOINED table rather than on the quote — which is the shape of scope
+// bug that reads as correct right up until it leaks.
+func TestVocabularyLanguagesFromEveryKindAreScopedToTheirOwner(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	bob := addUser(t, h, admin, "bob")
+
+	bookID := idOf(t, admin.mustDo("POST", "/books", map[string]any{"title": "Gitanjali"}, 201).Body.Bytes())
+	admin.mustDo("POST", "/annotations", map[string]any{
+		"book_id": bookID, "quote": "a highlight", "language": "Bengali",
+	}, 201)
+	movieID := idOf(t, admin.mustDo("POST", "/movies", map[string]any{"title": "Bicycle Thieves"}, 201).Body.Bytes())
+	admin.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movieID, "quote": "a film line", "language": "Italian",
+	}, 201)
+
+	v := vocabOf(t, bob)
+	for _, leak := range []string{"Bengali", "Italian"} {
+		if has(v.Languages, leak) {
+			t.Errorf("a stranger was offered the owner's %q: %v", leak, v.Languages)
+		}
+	}
+}

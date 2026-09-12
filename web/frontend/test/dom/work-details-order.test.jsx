@@ -37,6 +37,9 @@ vi.mock('../../src/api.js', async (orig) => ({
       return { ok: true, data: { cast: [{ id: 1, character: 'Woland', actor: '' }], actor_role: 'none' } }
     }
     if (method === 'GET' && path.startsWith('/people')) return { ok: true, data: { people: [] } }
+    // The language rows are comboboxes and lead with the library's own languages,
+    // so a mock with no vocabulary would test the ninety-one and not the offer.
+    if (path === '/search/vocabulary') return { ok: true, data: { languages: ['Bengali'] } }
     return { ok: true, data: {} }
   }),
 }))
@@ -451,5 +454,52 @@ describe("a game's publisher", () => {
     expect(kinds.some((p) => p.includes('kind=publisher')),
       'nothing asked for the publishers, so the row\'s face can only be a guess: ' + kinds.join(' | '))
       .toBe(true)
+  })
+})
+
+// THE TWO LANGUAGE ROWS ARE COMBOBOXES, like every other language box in the app.
+//
+// They were the last plain text boxes on a language field: five quote-side fields
+// learned to suggest and these two did not, so the one place a whole book's
+// language is set was the one place the app would not help spell it — and the
+// changelog that shipped the feature named "a work" among the surfaces that had
+// it. Typed rather than asserted on the spec table: a spec flag proves nothing
+// about what renders.
+describe("a work's two language rows", () => {
+  it('suggest the library\u2019s own languages as you type', async () => {
+    panel()
+    await shown()
+    fireEvent.click(screen.getByRole('button', { name: /^Edit language$/i }))
+    const box = await screen.findByRole('combobox', { name: /^Language$/i })
+    fireEvent.change(box, { target: { value: 'beng' } })
+    expect(await screen.findByRole('option', { name: /Bengali/ })).toBeTruthy()
+  })
+
+  // The ORIGINAL language too, which is the row a translated work is actually
+  // read through — and the one a spec-table test would have missed if only the
+  // first of the pair had been given the kind.
+  it('and the original-language row is one as well', async () => {
+    panel()
+    await shown()
+    fireEvent.click(screen.getByRole('button', { name: /^Edit original language$/i }))
+    const box = await screen.findByRole('combobox', { name: /^Original language$/i })
+    fireEvent.change(box, { target: { value: 'beng' } })
+    expect(await screen.findByRole('option', { name: /Bengali/ })).toBeTruthy()
+  })
+
+  // AND THE ROW STILL SAVES WHAT WAS PICKED. Combo lets Enter bubble so a form can
+  // submit from its last field; InlineField turns its own Enter-commit off when a
+  // caller supplies an editor, so the \u2713 is what writes — and this proves the
+  // value that reaches the PUT is the one the reader chose.
+  it('save the language that was picked', async () => {
+    panel()
+    await shown()
+    fireEvent.click(screen.getByRole('button', { name: /^Edit language$/i }))
+    const box = await screen.findByRole('combobox', { name: /^Language$/i })
+    fireEvent.change(box, { target: { value: 'beng' } })
+    fireEvent.click(await screen.findByRole('option', { name: /Bengali/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Save language$/i }))
+    await waitFor(() => expect(PUTS.length).toBe(1))
+    expect(PUTS[0].body.language).toBe('Bengali')
   })
 })
