@@ -385,6 +385,50 @@ describe('the fields a work lends its passages', () => {
     }
   })
 
+  it('offers what is waiting without adding it, and adds it when pressed', async () => {
+    // "KEEP IT FED" IS A COUNT AND NOT AN ARRIVAL. The anthology must not grow
+    // because it was opened — that is a write on a read and the exact "change that
+    // happened while they were not looking" the plan warns against. So the two
+    // claims here are: opening ASKS (preview:true), and only the press TAKES.
+    DETAIL = {
+      ...DETAIL,
+      anthology: { ...DETAIL.anthology, rule: 'tag=stoicism', rule_auto: true },
+    }
+    FILL = { matched: 12, added: 12, skipped: 0, capped: false }
+    open()
+    const take = await screen.findByText('Add 12 waiting')
+
+    // Everything sent so far was a question.
+    const before = CALLS.filter(([m, p]) => m === 'POST' && /\/fill$/.test(p))
+    expect(before.length).toBe(1)
+    expect(before[0][2].preview).toBe(true)
+
+    fireEvent.click(take)
+    await waitFor(() => {
+      const posts = CALLS.filter(([m, p]) => m === 'POST' && /\/fill$/.test(p))
+      return expect(posts.length).toBe(2)
+    })
+    const real = CALLS.filter(([m, p]) => m === 'POST' && /\/fill$/.test(p))[1][2]
+    expect(real.preview).toBeFalsy()
+    // THE SAME RULE THE COUNT WAS MEASURED FROM. Pressing a number that then took a
+    // different set would be the screen lying at the one moment it was specific.
+    expect(real.rule).toBe('tag=stoicism')
+  })
+
+  it('does not offer anything when keeping it fed is off', async () => {
+    // The switch is the whole gate: a rule with the switch off must produce no
+    // question at all, or "off" would mean "ask but do not say".
+    DETAIL = {
+      ...DETAIL,
+      anthology: { ...DETAIL.anthology, rule: 'tag=stoicism', rule_auto: false },
+    }
+    FILL = { matched: 12, added: 12, skipped: 0, capped: false }
+    open()
+    await screen.findByText('We remember light.')
+    expect(screen.queryByText(/waiting/)).toBeNull()
+    expect(CALLS.some(([m, p]) => m === 'POST' && /\/fill$/.test(p))).toBe(false)
+  })
+
   it('previews a rule before it fills, and sends the search’s own query string', async () => {
     // THREE CLAIMS IN ONE PRESS, and each is a way this screen could lie:
     //   - the rule on the wire is the SEARCH's query string, so a reader can paste

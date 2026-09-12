@@ -2385,12 +2385,19 @@ anthologies.rule.title = Fill from a search
 anthologies.rule.body = Anything the search bar takes. Matching quotes are added to the end — nothing here is removed or reordered, and your own writing on an entry is never touched.
 anthologies.rule.credits.note = Author, actor, character and speaker match the name written on the quote or its work. A line with nobody named on it will not be found by the performer's name, even where the film credits them.
 anthologies.rule.auto.label = Keep it fed
-anthologies.rule.auto.hint = Run this again when you open the anthology, and add anything new.
+# CHECKING AND NOT ADDING, and the wording matters: the anthology does not grow
+# because you opened it. It counts what is waiting and offers it — see the effect
+# in anthologies.jsx for why appending on open was refused.
+anthologies.rule.auto.hint = Count what is waiting when you open this, and offer it. Nothing is added until you say so.
 anthologies.rule.preview.action = What would this take?
 anthologies.rule.fill.action = Fill
 anthologies.rule.preview = {matched} match. {added} would be added, {skipped} are already here.
 anthologies.rule.capped = Two hundred at a time; press again for the rest.
 anthologies.rule.filled = {added} added, {skipped} already here
+# THE COUNT IS THE CONTROL, so this string is a verb and not a report: the only
+# thing to do with "12 waiting" is take them, and a label that only announced
+# would need a button beside it saying what this one already says.
+anthologies.rule.waiting = Add {n} waiting
 anthologies.rule.empty = Give the rule something to match.
 
 anthologies.toast.deleted = anthology deleted

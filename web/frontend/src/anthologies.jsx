@@ -877,6 +877,10 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   const [deleting, setDeleting] = useState(false)
   const [noting, setNoting] = useState(null)
   const [ruling, setRuling] = useState(false)
+  // KEEP IT FED (0075), and it is a COUNT rather than an ARRIVAL — see the effect
+  // below for why the plan's own two sentences could not both ship.
+  const [waiting, setWaiting] = useState(null)
+  const [filling, setFilling] = useState(false)
   // A THEMED ROUND OVER THIS ANTHOLOGY. The engine has taken ?anthology= since
   // 0043 — it narrows the deck by a join on anthology_entries and excludes no
   // kind, so a mixed anthology practises as one deck — and for two releases there
@@ -897,6 +901,54 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   useEffect(() => {
     reload()
   }, [reload])
+
+  // "KEEP IT FED" ASKS ON OPEN AND CHANGES NOTHING, which is a departure from the
+  // plan's first sentence and an obedience to its second.
+  //
+  // It reads "run the fill and append anything new", and then, one clause later,
+  // "the count as a control the reader presses RATHER THAN a change that happened
+  // while they were not looking". Those are two designs. This is the second, for
+  // two reasons:
+  //
+  //   APPENDING ON OPEN IS A WRITE ON A READ. Opening an anthology is a GET, and
+  //   making it insert rows makes it non-idempotent — a prefetch, a back button or
+  //   a second tab performs it again. Harmless under INSERT OR IGNORE and still a
+  //   write nobody asked for on a path nobody thinks of as a write.
+  //
+  //   AND IT IS EXACTLY THE THING THE NEXT CLAUSE WARNS ABOUT. An anthology that
+  //   grew by twelve entries because you looked at it is a change that happened
+  //   while you were not looking, however welcome the twelve are.
+  //
+  // So the screen asks what a fill WOULD take — the preview that already exists, no
+  // new endpoint — and draws the number as a control. Nothing moves until it is
+  // pressed.
+  useEffect(() => {
+    let live = true
+    setWaiting(null)
+    if (!anthology?.rule || !anthology?.rule_auto) return undefined
+    json('POST', `/anthologies/${id}/fill`, { rule: anthology.rule, auto: true, preview: true })
+      .then((r) => {
+        // A FAILED CHECK IS SILENT. This is a background question the reader did
+        // not ask; an error banner over an anthology that opened perfectly well
+        // would be the screen reporting its own housekeeping as their problem.
+        if (live && r.ok && r.data.added > 0) setWaiting(r.data)
+      })
+      .catch(() => {})
+    return () => { live = false }
+  }, [id, anthology?.rule, anthology?.rule_auto])
+
+  // takeWaiting runs the fill the count was measured from. THE SAME RULE, because
+  // the count came from a preview of that rule and pressing a number that then took
+  // a different set would be the screen lying at the one moment it was specific.
+  async function takeWaiting() {
+    setFilling(true)
+    const r = await json('POST', `/anthologies/${id}/fill`, { rule: anthology.rule, auto: true })
+    setFilling(false)
+    if (!r.ok) return setError(errText(r))
+    setWaiting(null)
+    toast(t('anthologies.rule.filled', { added: r.data.added, skipped: r.data.skipped }))
+    await reload()
+  }
 
   async function save(fields) {
     const r = await json('PUT', `/anthologies/${id}`, fields)
@@ -1038,6 +1090,18 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         }
       />
       <ErrorText>{error}</ErrorText>
+
+      {/* THE COUNT IS THE CONTROL. Not a banner with a button beside it: the number
+          IS what you press, because the only thing to do with "12 new" is take them.
+          `.no-print` because it is furniture — a printed anthology is the document,
+          and an offer to change it is not part of the document. */}
+      {waiting && (
+        <div className="mt-2 no-print">
+          <GhostButton icon={<IconPlus />} onClick={takeWaiting} disabled={filling}>
+            {t('anthologies.rule.waiting', { n: waiting.added })}
+          </GhostButton>
+        </div>
+      )}
 
       {anthology?.intro && (
         <Card className="mt-2">

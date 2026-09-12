@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   everything else on that list needs a work to read from. Shown only where you actually
   have a record of that person, which most passages will not have, and the line is
   simply absent rather than blank when you do not.
+- **An anthology with a rule can keep an eye out, and it asks before it grows.** Turn on
+  "Keep it fed" and the next time you open it, it counts what has since matched and offers
+  it: **Add 12 waiting**. Nothing is added until you press it — your anthology does not
+  change because you looked at it, and there is no background job doing anything while you
+  are away.
 - **And the rule is built in the search bar you already know.** "Fill from a search" on
   an anthology opens the same box the Search screen uses — the same chips, the same field
   menu, the same vocabulary — and **"What would this take?" tells you how many it found,
