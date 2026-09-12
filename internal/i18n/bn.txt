@@ -1245,6 +1245,8 @@ vocab.script.latin.label = রোমান
 # --- Settings → Language marks. The mark a proverb board wears.
 settings.languages.title = ভাষার চিহ্ন
 settings.languages.open.tip = প্রবাদের গায়ে যে চিহ্ন
+# মেটাডেটা উৎস পাতার কার্ড: দরজাটা কীসের জন্য, আর দরজার নিজের কথা।
+settings.languages.card.info.body = প্রবাদের কৃতিত্ব দেওয়ার মতো কেউ নেই, তাই তার কার্ডে আগে আসে ভাষা, আর বোর্ডের মলাটে সেই ভাষার হয়ে দাঁড়ায় এই চিহ্ন। এখানে সেটি বদলান, বা কোনও ভাষাকে নিজের পছন্দের নাম ও চিহ্ন দিন।
 settings.languages.script.title = লিপি
 settings.languages.glyphs.aria = {name} ভাষার লিপির অক্ষর
 settings.languages.no-script.prose = {name} ভাষার জন্য কোনও লিপির অক্ষর নেই — নিচে নিজের একটা চিহ্ন দিন।

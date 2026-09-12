@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   typed. The one box that stays plain is the board form's "add a language", because
   there Enter and clicking away mean different things and a suggestion box cannot
   tell them apart.
+- **Language marks is its own card on Metadata sources**, instead of a button
+  hanging off the bottom of the API-keys card behind a rule. Nothing about it
+  changed but where it sits — and a rule was doing the whole job of saying "this is
+  not about keys", which is a weaker signal than every other subject on that page
+  gets.
 - **The capture sheet names the work once.** Adding a quote to a book showed its
   title and author in the header and then again in a "which book" row underneath,
   with a *change* link — and pressing *change* moved the row and not the header, so

@@ -1237,6 +1237,8 @@ vocab.script.latin.label = Latin
 # --- Settings → Language marks. The mark a proverb board wears.
 settings.languages.title = Language marks
 settings.languages.open.tip = What a proverb wears
+# The card on Metadata sources: what the door is for, and the door's own word.
+settings.languages.card.info.body = A proverb has nobody to credit, so its card leads with the language it is in, and the mark stands in for that language on a board's cover. Change one here, or give a language a name and a mark of your own.
 settings.languages.script.title = script
 settings.languages.glyphs.aria = Script letters for {name}
 settings.languages.no-script.prose = No script letters for {name} — give it a mark of your own below.

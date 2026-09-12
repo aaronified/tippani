@@ -144,13 +144,13 @@ describe('the two panels are doors, not cards', () => {
     expect(dialog().getAttribute('aria-label')).toBe('Language marks')
   })
 
-  it('hangs the marks door off the sources block and Type off Appearance', async () => {
-    // WHERE each door is, which is the whole of this change and the one thing
-    // the assertions above cannot see: they find a button on a page without
-    // caring what it sits under. A mark is what a quote with nobody to credit
-    // says it IS — the sources block's subject — and not how the app looks.
-    const heading = (name) =>
-      screen.getByRole('button', { name }).closest('.hand-card')?.querySelector('h2')?.textContent || ''
+  it('puts the marks door on its own card, and Type under Appearance', async () => {
+    // WHERE each door is, which is the one thing the assertions above cannot see:
+    // they find a button on a page without caring what it sits under. A mark is
+    // what a quote with nobody to credit says it IS — the sources page's subject —
+    // and not how the app looks.
+    const card = (name) => screen.getByRole('button', { name }).closest('.hand-card')
+    const heading = (name) => card(name)?.querySelector('h2')?.textContent || ''
     await page()
     expect(heading('Type')).toBe('Appearance')
     // AND IT IS NOT ON SETTINGS AT ALL ANY MORE, which is the half a heading
@@ -158,7 +158,17 @@ describe('the two panels are doors, not cards', () => {
     expect(screen.queryByRole('button', { name: 'Language marks' })).toBeNull()
     cleanup()
     await sources()
-    expect(heading('Language marks')).toBe('Metadata sources')
+
+    // A CARD OF ITS OWN, which is what this used to assert the opposite of. It
+    // read `heading('Language marks')` === 'Metadata sources' — correct while the
+    // door hung off the foot of the keys card behind a rule, and the very thing
+    // that changed. The door IS the card's heading now, so its card has no h2:
+    // put it back inside the keys card and this fails on the next line.
+    expect(card('Language marks')).toBeTruthy()
+    expect(heading('Language marks')).toBe('')
+    // And the keys card is a different card, still on the same page.
+    expect(screen.getByText('Metadata sources').closest('.hand-card'))
+      .not.toBe(card('Language marks'))
   })
 })
 

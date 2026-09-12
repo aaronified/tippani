@@ -728,27 +728,6 @@ export function MetadataSources({ user, onPreferences }) {
 
       <ErrorText>{error}</ErrorText>
 
-      {/* The door to Language marks, which hung off Appearance from 1.15.2
-          until the reader moved it here.
-
-          WHY IT BELONGS ON THIS CARD. Everything above is about where the facts
-          about a work come from and what they are called. A language mark is the
-          same kind of fact: a proverb has nobody to credit, so its card leads
-          with its LANGUAGE, and the mark is that language's stand-in. Appearance
-          decides how the app looks; this decides what a quote says about itself.
-          The old argument — that what a proverb wears is a matter of appearance —
-          was about the drawing rather than the datum.
-
-          Still a door rather than a section, for the reason 1.15.2 gave: it is a
-          row per language with a tray behind each, and standing that open on a
-          page read at a glance is a column spent on a choice made once. Two
-          sections deep on one card would also read as part of the credit
-          separators above it, which it is not. */}
-      <div className="mt-7 flex flex-wrap items-center gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-        <Tooltip label={t('settings.languages.open.tip')}>
-          <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setMarksOpen(true)}>{t('settings.languages.title')}</GhostButton>
-        </Tooltip>
-      </div>
     </Card>
 
       {/* A CARD OF ITS OWN NOW, on the owner's ruling: "multi author credits:
@@ -768,6 +747,46 @@ export function MetadataSources({ user, onPreferences }) {
           whether that is one person or two. */}
       <Card>
         <CreditSeparators user={user} onPreferences={onPreferences} />
+      </Card>
+
+      {/* AND LANGUAGE MARKS IS A CARD NOW TOO, on the owner's ruling and for the
+          reason the credit separators moved: it was a footnote because the page
+          was one column. It hung off the bottom of the keys card behind a rule,
+          which is where a thing goes when there is nowhere else to put it — and
+          the moment the cards pack into two columns there is somewhere.
+
+          THE ARGUMENT FOR BURYING IT WAS ALWAYS ABOUT VERTICAL SPACE. The old
+          note here said a mark "belongs on this card" because a mark is the same
+          kind of fact as a title or an author. That reasoning was right and is
+          why the door is on this PAGE rather than under Appearance; it never
+          settled how much of the page the door should take, which is the question
+          a card answers.
+
+          STILL A DOOR RATHER THAN A SECTION, which is the part of the old note
+          that holds unchanged: it is a row per language with a tray behind each,
+          and standing ninety-one of those open on a page read at a glance is a
+          column spent on a choice made once.
+
+          A CARD, THOUGH, IS WHAT STOPS IT READING AS PART OF SOMETHING ELSE. At
+          the foot of the keys card a rule was doing the whole job of saying "this
+          is not about API keys", and a rule is a weaker signal than the thing
+          every other subject on this page gets. */}
+      <Card>
+        {/* THE DOOR IS THE HEADING, and that is the whole card. A MonoLabel over a
+            button that repeats it is the defect the capture sheet was cured of an
+            hour ago — "the header has the work name already. Why do we still have
+            the name and changing option?" — and a first draft of this card had it
+            twice inside forty pixels, with the button renamed to "Open language
+            marks" to tell them apart. Renaming the control to escape a duplicate
+            heading is the wrong half to move. One control, one name: the InfoDot
+            carries what the heading's explanation would have said, and the tooltip
+            says what pressing it is for. */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Tooltip label={t('settings.languages.open.tip')}>
+            <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setMarksOpen(true)}>{t('settings.languages.title')}</GhostButton>
+          </Tooltip>
+          <InfoDot text={t('settings.languages.card.info.body')} />
+        </div>
       </Card>
 
       {/* IT IS NOT A COLUMN ITEM, whatever it looks like sitting here: FormModal
