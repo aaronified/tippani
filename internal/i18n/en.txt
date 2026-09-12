@@ -2372,6 +2372,11 @@ anthologies.form.fields.work.hint = Off unless you ask. A passage shows only wha
 anthologies.form.fields.person.label = About who said it
 anthologies.form.fields.person.hint = Shown where you have a record of that person. Most will not have one.
 
+# THE FORMAT IS NAMED because the control beside it is also an export and the two
+# hand over different files. "Export" twice would be the screen saying one thing
+# twice; EPUB is what the reader has to know to decide which they want.
+anthologies.action.epub.label = EPUB
+
 anthologies.toast.deleted = anthology deleted
 anthologies.toast.entry-removed = entry removed
 

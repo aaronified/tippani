@@ -472,6 +472,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /anthologies/{id}/entries/{kind}/{itemID}", s.requireAuth(s.handleRemoveAnthologyEntry))
 	mux.Handle("POST /anthologies/{id}/order", s.requireAuth(s.handleReorderAnthology))
 	mux.Handle("GET /anthologies/{id}/export", s.requireAuth(s.handleExportAnthology))
+	// The second format for the same document. A separate path rather than a
+	// `?format=` on the one above, because these are two files with two media types
+	// and two extensions — and the browser decides what to do with a download by
+	// the response, which a query parameter does not change.
+	mux.Handle("GET /anthologies/{id}/export.epub", s.requireAuth(s.handleExportAnthologyEPUB))
 
 	// Taxonomy, imports, local cover store (PLAN §5, §6, §7).
 	// Tags are a managed vocabulary with colour + style (§10).

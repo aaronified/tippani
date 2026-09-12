@@ -55,7 +55,7 @@ import {
   IconExport,
   IconPlus,
   useScreenBar,
-  IconQuiz, IconPractise, IconPrint,
+  IconQuiz, IconPractise, IconPrint, IconReading,
   MonoLabel,
   MoreMenu,
   PageHeader,
@@ -112,6 +112,10 @@ export function useAnthologies() {
 // body here — the anthology already knows what is in it. A real href also means
 // middle-click and "save link as" work on it.
 const exportHref = (id) => apiURL(`/anthologies/${id}/export`)
+// The same document in the container an e-reader opens. A SEPARATE PATH and not a
+// `?format=` on the one above: these are two files with two media types and two
+// extensions, and what a browser does with a download is decided by the response.
+const epubHref = (id) => apiURL(`/anthologies/${id}/export.epub`)
 
 // FIELD_SWITCHES — everything an entry can show, in reading order rather than in
 // column order, because this is a list somebody reads top to bottom.
@@ -807,6 +811,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         : []),
       ...(anthology ? [{ id: 'edit', icon: <IconEdit />, label: t('common.action.edit.label'), onClick: () => setEditing(true) }] : []),
       ...(DEMO ? [] : [{ id: 'export', icon: <IconExport />, label: t('common.action.export.label'), onClick: () => { window.location.href = exportHref(id) } }]),
+      ...(DEMO ? [] : [{ id: 'epub', icon: <IconReading />, label: t('anthologies.action.epub.label'), onClick: () => { window.location.href = epubHref(id) } }]),
       // PRINT IS NOT IN THE SHARE FAMILY and is next to Export rather than in it.
       // Export hands over a file the server wrote; this opens the browser's own
       // print dialog, from which the reader chooses paper or a PDF. There is no
@@ -858,6 +863,21 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
                 }}
               >
                 {t('common.action.export.label')}
+              </GhostButton>
+            )}
+            {/* A BOOK GLYPH AND NOT A SECOND DOWNWARD ARROW. Beside Export it would
+                be two identical pictures for two different files; what distinguishes
+                this one is not that it downloads but WHAT it hands you — something an
+                e-reader opens. The label carries the format's name for the same
+                reason: "Export" twice would be the screen saying one thing twice. */}
+            {!DEMO && (
+              <GhostButton
+                icon={<IconReading />}
+                onClick={() => {
+                  window.location.href = epubHref(id)
+                }}
+              >
+                {t('anthologies.action.epub.label')}
               </GhostButton>
             )}
             <GhostButton icon={<IconPrint />} onClick={() => window.print()} disabled={!anthology}>

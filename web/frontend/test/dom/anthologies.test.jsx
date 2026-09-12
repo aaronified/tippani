@@ -349,6 +349,30 @@ describe('the fields a work lends its passages', () => {
     expect(bare.textContent).not.toContain('anarchism')
   })
 
+  it('offers the EPUB at its own path, and keeps Export at the old one', async () => {
+    // TWO FILES, TWO PATHS, and neither is a `?format=` on the other — what a
+    // browser does with a download is decided by the response's media type and
+    // filename, which a query parameter does not change.
+    //
+    // Asserted through the href the control navigates to rather than through a
+    // fetch: both are plain navigations, so a mocked api.json never sees them and
+    // a test written against CALLS would pass with the buttons doing nothing.
+    const hrefs = []
+    const loc = Object.getOwnPropertyDescriptor(window, 'location')
+    delete window.location
+    window.location = { set href(v) { hrefs.push(v) }, get href() { return '' } }
+    try {
+      open()
+      await screen.findByText('We remember light.')
+      fireEvent.click(screen.getByText('EPUB'))
+      fireEvent.click(screen.getByText('Export'))
+      expect(hrefs.some((h) => /\/anthologies\/1\/export\.epub$/.test(h))).toBe(true)
+      expect(hrefs.some((h) => /\/anthologies\/1\/export$/.test(h))).toBe(true)
+    } finally {
+      if (loc) Object.defineProperty(window, 'location', loc)
+    }
+  })
+
   it('prints through the browser, and leaves the furniture off the page', async () => {
     // THE CONTROL IS window.print() AND NOT A FETCH, which is the whole PDF
     // decision in one assertion: there is no server-side PDF endpoint, by

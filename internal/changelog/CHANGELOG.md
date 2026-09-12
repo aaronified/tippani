@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   everything else on that list needs a work to read from. Shown only where you actually
   have a record of that person, which most passages will not have, and the line is
   simply absent rather than blank when you do not.
+- **An anthology exports as an EPUB — a small book to put back on the e-reader.** Beside
+  the Markdown export there is now an EPUB: your introduction, every passage in the order
+  you put them in, your commentary above each one, and a table of contents your reader can
+  jump around in. **It is the same document you see on screen** — the switches that decide
+  what a passage shows govern the book as well. Export the same anthology twice and your
+  e-reader updates the book it has rather than adding a second copy of it. No new
+  dependency: an EPUB is a zip holding four small files, and the app could already make a
+  zip.
 - **An anthology can be printed, and the whole app got a print stylesheet with it.**
   A Print control on the reading view opens your browser's own print dialog — paper or
   PDF, whichever you choose there. What comes out is the document and not the app: no
