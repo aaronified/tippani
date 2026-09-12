@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A language you no longer want can be taken off the list — unless you are still
+  quoting it.** The language table now has a ✕ per row. It removes your mark and your
+  own name for that language, never a quote: the language a quote is in is stored on
+  the quote and this panel does not touch it. So a language your library still holds
+  refuses, with a reason on the button rather than a row that quietly comes back.
 - **Every language box offers what you already use.** The language field on a
   highlight, a film line, a standalone quote, the capture card, an imported row and a
   work now suggests as you type — **your own languages first**, then the rest of the

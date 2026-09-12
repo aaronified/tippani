@@ -141,12 +141,14 @@ export function applyLanguageMarks(prefs) {
 // quotes are actually in. A new account sees an empty table and an add box, which is
 // the honest picture of a library with no languages recorded in it.
 //
-// `extra` NAMES ROWS AND NOTHING ELSE. The old shape carried a second meaning —
-// `added` said "not a starter", which was the same question as "may this be
-// removed" only while the ten were unremovable. There is no remove control on this
-// panel, so the flag had no reader; it is gone rather than left to go stale under a
-// changed meaning, and the row-refuses-removal rule will bring back what it needs
-// beside the button that needs it.
+// `extra` NAMES ROWS, AND SAYS WHICH ONES THE LIBRARY IS HOLDING UP. It carried a
+// flag called `added` once — "not a starter", which was the same question as "may
+// this be removed" only while the ten starters were unremovable — and that flag was
+// deleted rather than left to go stale, because with the starters gone nothing read
+// it. The remove control is here now, so the fact comes back under the name of the
+// thing it actually is: `inLibrary`, meaning this caller says quotes are stored in
+// this language. Removing such a row is refused, because the row would come straight
+// back on the next open and a control that undoes itself is a control that lies.
 //
 // AND THE CANONICAL NAME HAS TO BE RECOVERED, which the ten starters used to do by
 // being written down: `seen.set(fold(s.name), s.name)` put "Bengali" beside the key
@@ -155,6 +157,7 @@ export function applyLanguageMarks(prefs) {
 // the name for a language it has heard of; for one it has not, the caller's own
 // spelling is what the quote is stored under and is better than the fold.
 export function languageMarksState(extra = []) {
+  const inLibrary = new Set(extra.map(fold).filter(Boolean))
   const seen = new Map()
   for (const name of [...Object.keys(entries), ...extra]) {
     const key = fold(name)
@@ -183,6 +186,11 @@ export function languageMarksState(extra = []) {
       glyphs: glyphsFor(canonical),
       mark: e.mark,
       customs: e.customs,
+      // WHETHER THE LIBRARY IS HOLDING THIS ROW UP, which is the only reason a row
+      // may not be removed. What removal drops is a MARK and a rename — never a
+      // quote, whose language column this panel does not touch — so the only row
+      // worth protecting is one the library would put straight back.
+      inLibrary: inLibrary.has(key),
       resolved: e.mark || scriptMark(canonical),
     }
   })

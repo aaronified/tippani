@@ -1258,6 +1258,9 @@ vocab.textorder.quote-first.label = quotation first
 vocab.textorder.quote-only.label = quotation only
 settings.languages.reset.aria = Reset the {name} mark
 settings.languages.reset.tip = Back to the script letter
+settings.languages.remove.aria = Remove {name}
+settings.languages.remove.tip = Remove this language
+settings.languages.remove.in-use.tip = {name} is in use — some of your quotes are in it
 # Renaming a language is a DISPLAY name. The stored name stays and is shown
 # beside it, so "why does my Bangla board say Bengali" stays answerable.
 settings.languages.rename.label = Shown as (stored as “{name}”)

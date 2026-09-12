@@ -252,6 +252,43 @@ describe('the language-mark tray', () => {
     })
   })
 
+  // ── REMOVING ONE, and the refusal that is the whole point of the control.
+  //
+  // WHAT REMOVAL DROPS IS A MARK AND A RENAME, never a quote — a language lives in a
+  // free-text column on every annotation, dialogue and utterance, and this panel does
+  // not touch it. So a row the library is still holding up would come back on the
+  // next open, and a control that undoes itself is a control that lies. It is drawn
+  // and disabled rather than hidden, so the reader is told WHY one row differs from
+  // another instead of comparing two rows and guessing.
+  //
+  // The mock's library holds Bengali and Hindi (see /search/vocabulary above), so
+  // those two are refused and a marked-only language is not.
+  it('refuses to remove a language the library is still holding up', async () => {
+    await sources()
+    fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
+    const x = await within(dialog()).findByRole('button', { name: 'Remove Bengali' })
+    expect(x.disabled, 'Bengali is in the library and its remove was live').toBe(true)
+    fireEvent.click(x)
+    // Nothing saved: a disabled control that still fires is the bug this asserts.
+    expect(PUTS.filter(([p]) => p === '/auth/me/preferences')).toHaveLength(0)
+  })
+
+  it('removes one the library is not, and drops its whole entry', async () => {
+    applyLanguageMarks({ languageMarks: '{"sylheti":{"m":"✦"},"bengali":{"m":"ক"}}' })
+    await sources()
+    fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
+    const x = await within(dialog()).findByRole('button', { name: 'Remove sylheti' })
+    expect(x.disabled, 'a language no quote is stored in should be removable').toBe(false)
+    fireEvent.click(x)
+    await waitFor(() => {
+      const blob = lastPrefs()
+      // THE WHOLE ENTRY, not an emptied one — and Bengali is untouched beside it,
+      // which is what says this removed a row rather than the map.
+      expect(blob.sylheti).toBeUndefined()
+      expect(blob.bengali.m).toBe('ক')
+    })
+  })
+
   it('adds a language the module never heard of', async () => {
     await sources()
     fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))

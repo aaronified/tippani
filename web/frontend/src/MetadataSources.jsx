@@ -945,6 +945,34 @@ function LanguageMarksSettings({ prefs, onSaved }) {
     onSaved?.({ languageMarks: blob })
   }
 
+  // remove DROPS THE WHOLE ENTRY, which `save` cannot express: it merges a patch,
+  // and there is no patch that means "this row is not a setting any more". Clearing
+  // every field would come to the same thing through normalizeLanguageMarks — an
+  // entry with no mark, no customs and no name is dropped whole — but saying it by
+  // deletion is saying what is meant, and it does not depend on that rule holding.
+  //
+  // WHAT IT DOES NOT TOUCH IS THE QUOTES. A language lives in a free-text column on
+  // every annotation, dialogue and utterance; this panel holds marks and renames.
+  // So removing a row un-marks a language, and the row comes back the moment the
+  // library still holds one — which is exactly why the control is refused there
+  // rather than allowed to appear to work.
+  async function remove(key) {
+    const all = currentLanguageEntries()
+    delete all[key]
+    const blob = languageMarksBlob(all)
+    applyLanguageMarks({ languageMarks: blob })
+    setRows(languageMarksState(inLibrary))
+    const r = await json('PUT', '/auth/me/preferences', { languageMarks: blob })
+    if (!r.ok) {
+      setErr(errText(r, t('error.save.generic')))
+      applyLanguageMarks(prefs || {})
+      setRows(languageMarksState(inLibrary))
+      return
+    }
+    setErr('')
+    onSaved?.({ languageMarks: blob })
+  }
+
   // saveOrder writes the whole blob, because the master and the rows are one
   // setting: moving the master rewrites every row (the owner's "it will push all
   // knobs to align with it"), and a per-field save would have to be one request
@@ -1092,6 +1120,28 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                     tooltip={t('settings.languages.reset.tip')}
                   />
                 )}
+                {/* REMOVE, AND IT IS DRAWN EVEN WHERE IT IS REFUSED. The other way —
+                    show the ✕ only on removable rows — leaves a reader comparing two
+                    rows that look different for a reason nothing on screen gives. A
+                    disabled control with a tooltip that says WHY is this repo's own
+                    idiom (characterRows.jsx: "`disabled`, so the row stays readable
+                    and its title still explains").
+
+                    IT SAYS "IN USE" AND NOT A COUNT, because there is no count here
+                    to say. The vocabulary endpoint returns the language NAMES a
+                    library holds, not how many quotes are in each; inventing "12
+                    quotes" from a list of names is the confidently-wrong answer this
+                    whole module was built to refuse. */}
+                <FieldIconButton
+                  icon={<IconClose />}
+                  disabled={row.inLibrary}
+                  ariaLabel={t('settings.languages.remove.aria', { name: row.canonical })}
+                  onClick={() => remove(row.key)}
+                  tooltip={row.inLibrary
+                    ? t('settings.languages.remove.in-use.tip', { name: row.canonical })
+                    : t('settings.languages.remove.tip')}
+                  danger={!row.inLibrary}
+                />
                 {/* BESIDE THE TRIGGER AND NOT INSIDE IT. The row is one button
                     that fills its width, and this file's own note says why the
                     reset sits outside it: "a control nested in a control is
