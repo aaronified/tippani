@@ -21,8 +21,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Fifteen files sit here, and only some of them are plans** — the table at the foot of this
-file names the six that are not, leaving nine features.
+**Thirteen files sit here, and only some of them are plans** — the table at the foot of this
+file names the five that are not, leaving eight features.
 
 THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
 incremented it to "Eight" without counting the directory; a change that fixed THAT wrote
@@ -65,15 +65,17 @@ retires the same way everything here does: when the boundary sentence it propose
 
 **`anthologies.md` was a fourth of that kind and this paragraph used to call it a live
 plan**, which contradicted the table below listing it as a non-plan — `anthology-update.md`
-took over its one remaining item and says so. One file described two ways in one document
-is the shape that makes a reader trust neither, and the sweep is what caught it.
+took over its one remaining item and said so. One file describing two ways in one document
+is the shape that makes a reader trust neither, and the sweep is what caught it. **Both
+have since left by the front door**: the update shipped, the pair is folded into `PLAN.md`
+under one heading with a pass on the four places they turned out to be wrong, and neither
+file is here any more.
 
-So the plans proper are the nine the table does not name: `access.md` for roadmap §6,
+So the plans proper are the eight the table does not name: `access.md` for roadmap §6,
 `entry-helpers.md` and `episodes.md`, which no roadmap section owns, and
-`anthology-update.md`, `atrium-liquid-glass.md`, `bulk-editors-one-field-table.md`,
-`locators-from-files.md`, `quote-card-types.md` and `work-source-files.md` — the storage,
-mount and prune spine that `locators-from-files.md` already calls "the reader of these
-files" and cites by name.
+`atrium-liquid-glass.md`, `bulk-editors-one-field-table.md`, `locators-from-files.md`,
+`quote-card-types.md` and `work-source-files.md` — the storage, mount and prune spine that
+`locators-from-files.md` already calls "the reader of these files" and cites by name.
 
 **`import-one-drop-target.md` was the tenth and left by the front door**, which is the
 exit this file is about: it shipped, it is folded into `PLAN.md` with a pass on the one
@@ -172,7 +174,6 @@ the same exclusions nightly will eventually decide one of them differently.
 | `open-defects.md` | A defect register: the owner's reports and what was done about each. Nothing in it is a promise about the future |
 | `screen-audit.md` | The found-and-unfixed half of an adversarial pass over every screen. Its own text: "It is not a feature plan, which is what the rest of this directory holds" |
 | `codebase-audit.md` | The same shape, over the code. Its own first line: "**Not a feature.**" |
-| `anthologies.md` | Its one remaining item was taken over by `anthology-update.md`, which says so. A card here would either restate shipped work as upcoming or duplicate that one |
 | `prefetch-and-loaders.md` | A discussion with a build order, not a committed feature. Its first two steps need no ruling and its last two wait on measurements nobody has taken, so a public card reading "prefetch and loaders" would promise the whole of it. It earns a card when the boundary sentence it proposes is in `PLAN.md` — then the sentence is the promise and the card can name it |
 
 A file that belongs on this list is added to it in the same change that adds the

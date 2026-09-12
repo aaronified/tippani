@@ -108,7 +108,8 @@
         "</p>"
       ],
       "id": "anthology-fill-and-export",
-      "plan": "anthology-update.md"
+      "plan": "anthology-update.md",
+      "shipped_in": "Unreleased"
     },
     {
       "title": "Atrium, the glass material set",
