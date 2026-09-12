@@ -505,3 +505,138 @@ func TestTheGapsBetweenTheTwoEditorsAreTheOnesOnRecord(t *testing.T) {
 		}
 	}
 }
+
+// ── the staged endpoint, against the table and against itself ───────────────
+//
+// THE LIVE SIDE'S WORST BUG WAS TWO LISTS. `bulkQuoteFieldPtrs`' header records
+// it: the applicability check and the write loop each carried their own literal,
+// and "a field present in the first and missing from the second is accepted,
+// reported as updated and silently dropped."
+//
+// THE STAGED SIDE HAS FOUR LISTS. `validate()` checks lengths over one, a second
+// covers the numbers, the write path is a hand-written chain of ifs, and a
+// table-driven loop follows it. Nothing walks any of them against another, so the
+// same defect is available here and would look the same from outside: a 200, a
+// count of rows updated, and a field unchanged.
+//
+// WHAT THIS DOES NOT DO, and the narrowing is deliberate. The plan's step 3 says
+// the staged endpoint's "fourteen hand-written pointers become the shared path".
+// That count was taken at 619eb05 and the struct now has thirty; more to the
+// point, the chain is hand-written for fields that genuinely differ — `location`
+// and `timestamp` write an `_orig` snapshot beside themselves, `chapter_no` goes
+// through nullableMeasure, `season` and `episode` through nullableCount, and the
+// whole block runs before tags, formula and retarget in an order PLAN.md fixes.
+// Folding those into a field table means encoding four write strategies and an
+// ordering into the registry, which buys less than it risks. The DEFECT is that
+// nothing checks the lists against each other; that is what is closed here.
+
+// stagedBulkSource is the endpoint's source, read once.
+func stagedBulkSource(t *testing.T) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("import_staged_bulk.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+// EVERY FIELD THE ENDPOINT VALIDATES IS A FIELD IT WRITES. The failure this
+// catches is the live side's, in the staged side's shape: a length check on a
+// column the UPDATE never touches accepts the value, answers 200 and drops it.
+func TestEveryValidatedStagedFieldIsAlsoWritten(t *testing.T) {
+	src := stagedBulkSource(t)
+
+	// The names `validate()` checks, from its own literal.
+	vStart := strings.Index(src, "func (req *stagedBulkReq) validate() string {")
+	if vStart < 0 {
+		t.Fatal("stagedBulkReq.validate not found — did it move or get renamed?")
+	}
+	vEnd := strings.Index(src[vStart:], "\n}\n")
+	validated := map[string]bool{}
+	for _, m := range regexp.MustCompile(`\{&req\.[A-Za-z]+,\s*"([a-z_]+)"\}`).
+		FindAllStringSubmatch(src[vStart:vStart+vEnd], -1) {
+		validated[m[1]] = true
+	}
+	if len(validated) < 15 {
+		t.Fatalf("only %d validated field names parsed; the extraction is broken", len(validated))
+	}
+
+	// The columns the endpoint writes, from both write paths: the hand-written
+	// `set("col", …)` chain and the table-driven `{"col", req.Field}` loop.
+	written := map[string]bool{}
+	for _, m := range regexp.MustCompile(`set\("([a-z_]+)"`).FindAllStringSubmatch(src, -1) {
+		written[m[1]] = true
+	}
+	for _, m := range regexp.MustCompile(`\{"([a-z_]+)",\s*req\.[A-Za-z]+\}`).FindAllStringSubmatch(src, -1) {
+		written[m[1]] = true
+	}
+	if len(written) < 20 {
+		t.Fatalf("only %d written columns parsed; the extraction is broken", len(written))
+	}
+
+	for name := range validated {
+		if !written[name] {
+			t.Errorf("the staged endpoint validates %q and never writes it — a value that passes "+
+				"the length check, answers 200 and is silently dropped", name)
+		}
+	}
+}
+
+// AND EVERY COLUMN IT WRITES IS IN THE SHARED TABLE, which is what makes that
+// table authoritative rather than decorative. A staged field with no entry is a
+// field the two editors can drift on again, invisibly, because the ratchet in
+// TestTheGapsBetweenTheTwoEditorsAreTheOnesOnRecord only sees what the table
+// names.
+func TestEveryStagedColumnWrittenIsInTheSharedTable(t *testing.T) {
+	src := stagedBulkSource(t)
+
+	// Not field assignments: the tag set operations, the two transforms, and the
+	// `_orig` snapshots, which are written BESIDE a field rather than being one.
+	// Named with reasons rather than skipped silently.
+	notAField := map[string]string{
+		"color":          "a chip, not a text field — set by both editors through their own path",
+		"favorite":       "a flag, likewise",
+		"tags":           "a set operation",
+		"location_orig":  "a snapshot written beside `location`, so the formula can re-base from it",
+		"timestamp_orig": "a snapshot written beside `timestamp`, likewise",
+		"book_id":        "retarget moves a row between works; it is not a field edit",
+		"movie_id":       "likewise",
+		"season":         "a number retarget owns — see the panel walk above",
+		"episode":        "a number retarget owns",
+		"occasion_date":  "not yet in the shared table; the live editor cannot set it either",
+		"occasion_circa": "likewise — the pair move together",
+	}
+
+	written := map[string]bool{}
+	for _, m := range regexp.MustCompile(`set\("([a-z_]+)"`).FindAllStringSubmatch(src, -1) {
+		written[m[1]] = true
+	}
+	for _, m := range regexp.MustCompile(`\{"([a-z_]+)",\s*req\.[A-Za-z]+\}`).FindAllStringSubmatch(src, -1) {
+		written[m[1]] = true
+	}
+
+	staged := map[string]bool{}
+	for _, f := range bulkFields {
+		if f.staged != "" {
+			staged[f.staged] = true
+		}
+	}
+	for col := range written {
+		if staged[col] {
+			continue
+		}
+		if _, ok := notAField[col]; ok {
+			continue
+		}
+		t.Errorf("the staged endpoint writes %q and the shared table does not name it — either give "+
+			"it an entry or say here why it is not a field", col)
+	}
+	// A reason that stops being true is the failure the gap ratchet exists for, so
+	// the exemptions get the same treatment.
+	for col, why := range notAField {
+		if staged[col] {
+			t.Errorf("%q is exempted here (%s) and the shared table names it now — remove the "+
+				"exemption rather than leaving a stale reason", col, why)
+		}
+	}
+}
