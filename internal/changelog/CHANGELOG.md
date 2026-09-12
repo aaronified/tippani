@@ -736,6 +736,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   credit does not already say it — off until you ask for it, the way a book highlight's
   page already was. Nothing you had switched off in the share dialog comes back on.
 
+- **You can take a tag off a selection of quotes, not only put one on.** The import
+  checks screen has always been able to remove a tag across a batch; the Quotes screen
+  could only add. Same job, one side of approval apart. It removes now, and it answers the
+  way the import screen does: the tag itself is kept, with whatever colour and style you
+  gave it, and a tag you remove and add in the same breath stays on.
+
 - **Choosing the Atrium look failed with an error that did not mention Atrium.** It is
   the eighth material set — flat surfaces, and the fastest the app draws, standing in for
   a glass design still to come. Settings offered it, named it and drew it; saving it came

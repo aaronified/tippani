@@ -720,3 +720,91 @@ func TestEveryNotNullFlagMatchesTheSchema(t *testing.T) {
 		}
 	}
 }
+
+// ── removing a tag over a selection, on both screens ────────────────────────
+//
+// THE ASYMMETRY docs/plans/bulk-editors-one-field-table.md FOUND: the import
+// queue could take a tag off a selection and the Quotes screen could only put one
+// on. The same job, one side of approval apart, and the sort of gap that survives
+// because each screen is coherent on its own.
+// quoteTagsNow re-reads one quote's tags from the account's list — there is no
+// GET /quotes/{id}, which is the same reason QuoteModal picks its row out of the
+// list (§24: a standalone quote has no parent to fetch it through).
+func quoteTagsNow(t *testing.T, c *testClient, id int64) []string {
+	t.Helper()
+	for _, u := range decode[struct {
+		Utterances []utteranceRow `json:"utterances"`
+	}](t, c.mustDo("GET", "/quotes", nil, http.StatusOK)).Utterances {
+		if u.ID == id {
+			return u.Tags
+		}
+	}
+	t.Fatalf("quote %d is not in the list", id)
+	return nil
+}
+
+func TestBulkRemoveTagsTakesATagOffASelection(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	a := newUtterance(t, c, map[string]any{"quote": "the first", "tags": []string{"faith", "funny"}})
+	b := newUtterance(t, c, map[string]any{"quote": "the second", "tags": []string{"faith"}})
+
+	c.mustDo("POST", "/quotes/bulk",
+		map[string]any{"ids": []int64{a.ID, b.ID}, "remove_tags": []string{"faith"}}, http.StatusOK)
+
+	if got := quoteTagsNow(t, c, a.ID); !slices.Equal(got, []string{"funny"}) {
+		t.Errorf("quote a has %v, want just funny — faith should be off and funny untouched", got)
+	}
+	if got := quoteTagsNow(t, c, b.ID); len(got) != 0 {
+		t.Errorf("quote b has %v, want none", got)
+	}
+
+	// THE TAG ITSELF SURVIVES. It carries a colour and a style the reader chose,
+	// and PLAN.md's taxonomy rule is explicit: "a tag dropping to zero uses is not
+	// a reason to throw away that choice."
+	var seen bool
+	for _, tg := range decode[struct {
+		Tags []struct {
+			Name string `json:"name"`
+		} `json:"tags"`
+	}](t, c.mustDo("GET", "/tags", nil, http.StatusOK)).Tags {
+		if tg.Name == "faith" {
+			seen = true
+		}
+	}
+	if !seen {
+		t.Error("removing the last use of `faith` deleted the tag — it keeps its colour and style")
+	}
+}
+
+// AND IT ANSWERS THE WAY THE STAGED EDITOR DOES, which is the point of the shared
+// table and this repo's rule that two things which look alike behave alike. Two
+// questions where the sides could silently differ:
+//
+//   case      staging matches on strings.ToLower, so "Faith" drops "faith"
+//   ordering  staging filters the removals out and THEN appends the additions,
+//             so a tag in both lists survives
+//
+// Asserted here rather than left to each side's own tests, because a difference
+// between two correct-looking implementations is invisible to either one.
+func TestBulkTagRemovalMatchesTheStagedEditorsAnswers(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	folded := newUtterance(t, c, map[string]any{"quote": "folded", "tags": []string{"faith"}})
+	c.mustDo("POST", "/quotes/bulk",
+		map[string]any{"ids": []int64{folded.ID}, "remove_tags": []string{"Faith"}}, http.StatusOK)
+	if got := quoteTagsNow(t, c, folded.ID); len(got) != 0 {
+		t.Errorf("removing %q left %v — the staged editor folds case and this must too", "Faith", got)
+	}
+
+	both := newUtterance(t, c, map[string]any{"quote": "both", "tags": []string{"grief"}})
+	c.mustDo("POST", "/quotes/bulk", map[string]any{
+		"ids": []int64{both.ID}, "remove_tags": []string{"grief"}, "add_tags": []string{"grief"},
+	}, http.StatusOK)
+	if got := quoteTagsNow(t, c, both.ID); !slices.Equal(got, []string{"grief"}) {
+		t.Errorf("a tag both removed and added left %v, want it present — the staged editor "+
+			"drops then appends, so the addition wins, and one request must not mean two things", got)
+	}
+}

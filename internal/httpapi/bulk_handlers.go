@@ -61,7 +61,12 @@ func (s *Server) ownedChildIDs(table, parentCol, parentTable string, uid int64, 
 // same JSON at a bool.
 type bulkTagReq struct {
 	IDs      []int64  `json:"ids"`
-	AddTags  []string `json:"add_tags"`
+	AddTags []string `json:"add_tags"`
+	// REMOVING WAS STAGING-ONLY UNTIL NOW, which is the asymmetry
+	// docs/plans/bulk-editors-one-field-table.md found: the import queue could
+	// take a tag off a selection and the Quotes screen could only put one on.
+	// Same job, one side of approval apart.
+	RemoveTags []string `json:"remove_tags"`
 	Favorite *bool    `json:"favorite"`
 	// Colour became a six-slot, user-named category in 1.7.1, which made it the
 	// single most plausible reason to select forty quotes — and the bulk endpoints
@@ -339,6 +344,7 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 		return
 	}
 	addTagsList := cleanNames(req.AddTags)
+	removeTagsList := cleanNames(req.RemoveTags)
 
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
@@ -348,6 +354,17 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	defer tx.Rollback()
 
 	for _, id := range owned {
+		// REMOVE BEFORE ADD, because the staged editor does and a request carrying
+		// both must mean the same thing on both screens. There it filters the drop
+		// list out of the stored tags and then appends the additions, so a tag in
+		// both lists SURVIVES. Doing it the other way round here would make one
+		// screen keep it and the other lose it, from one request.
+		if len(removeTagsList) > 0 {
+			if err := removeTags(tx, kind, uid, id, removeTagsList); err != nil {
+				internalError(w, r, "bulk tag: remove tags", err)
+				return
+			}
+		}
 		if len(addTagsList) > 0 {
 			if err := addTags(tx, kind, uid, id, addTagsList); err != nil {
 				internalError(w, r, "bulk tag: add tags", err)

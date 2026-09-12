@@ -393,6 +393,30 @@ func setTags(tx *sql.Tx, kind string, userID, ownerID int64, names []string) err
 	return nil
 }
 
+// removeTags detaches names from one item and DELETES NO TAG. A tag carries a
+// colour and a style the reader chose, and `PLAN.md`'s own rule for the taxonomy
+// sweep says so: "a tag dropping to zero uses is not a reason to throw away that
+// choice." So this unlinks and stops.
+//
+// IT FOLDS CASE, and the staged editor is why. That side has been able to remove
+// a tag over a selection since it existed, and it matches on `strings.ToLower`
+// (import_staged_bulk.go) — so removing "Faith" there drops "faith". Two editors
+// doing the same job must answer the same way, which is this repo's rule about
+// two things that look alike; matching exactly here would mean the live screen
+// quietly kept a tag the staged screen removes.
+func removeTags(tx *sql.Tx, kind string, userID, ownerID int64, names []string) error {
+	for _, n := range cleanNames(names) {
+		if _, err := tx.Exec(
+			`DELETE FROM `+kind+`_tags
+			 WHERE `+kind+`_id = ? AND tag_id IN (
+			     SELECT id FROM tags WHERE user_id = ? AND lower(name) = lower(?))`,
+			ownerID, userID, n); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // addTags attaches names WITHOUT detaching existing ones — import duplicate
 // enrichment (PLAN §5) unions tags instead of replacing them.
 func addTags(tx *sql.Tx, kind string, userID, ownerID int64, names []string) error {
