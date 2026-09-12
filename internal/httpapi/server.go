@@ -477,6 +477,9 @@ func (s *Server) Handler() http.Handler {
 	// and two extensions — and the browser decides what to do with a download by
 	// the response, which a query parameter does not change.
 	mux.Handle("GET /anthologies/{id}/export.epub", s.requireAuth(s.handleExportAnthologyEPUB))
+	// FILL, and it is a POST because it WRITES. The rule looks like a search and
+	// this is not one: it appends rows and stores the rule that produced them.
+	mux.Handle("POST /anthologies/{id}/fill", s.requireAuth(s.handleFillAnthology))
 
 	// Taxonomy, imports, local cover store (PLAN §5, §6, §7).
 	// Tags are a managed vocabulary with colour + style (§10).

@@ -76,6 +76,13 @@ type anthologyRow struct {
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 	anthologyFields
+	// The rule that fills it (0075), read-only on this row and written by the fill
+	// that runs it. NOT part of anthologyFields: those are per-entry display
+	// switches that the PUT owns, and folding the rule in would put it in a
+	// full-state save — where a form that did not know about it would clear it.
+	Rule      string `json:"rule,omitempty"`
+	RuleAuto  bool   `json:"rule_auto,omitempty"`
+	RuleRunAt string `json:"rule_run_at,omitempty"`
 }
 
 // anthologyFields is what this anthology shows — and therefore what it exports,
@@ -123,6 +130,12 @@ type anthologyFields struct {
 // to be found — and after 0074 a new FIELD is not a column at all, so this list is
 // finished at seven.
 const anthologyFieldCols = `hide_credit, hide_source, hide_commentary, hide_colour, show_locator, show_date, fields`
+
+// anthologyRuleCols is read alongside them and written by nothing here — the fill
+// owns these three (0075). Kept OUT of anthologyFieldCols on purpose: that constant
+// is spliced into the INSERT and the UPDATE, and a rule in a full-state PUT is a
+// rule any form that has not heard of it silently clears.
+const anthologyRuleCols = `rule, rule_auto, rule_run_at`
 
 // scanTargets returns the pointers in the same order as anthologyFieldCols.
 //
@@ -350,7 +363,7 @@ func (s *Server) handleListAnthologies(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(`
 		SELECT a.id, a.title, a.intro, a.created_at, a.updated_at,
 		       (SELECT COUNT(*) FROM anthology_entries e WHERE e.anthology_id = a.id),
-		       `+anthologyFieldCols+`
+		       `+anthologyFieldCols+`, `+anthologyRuleCols+`
 		FROM anthologies a WHERE a.user_id = ?
 		ORDER BY a.updated_at DESC, a.id DESC`, uid)
 	if err != nil {
@@ -362,6 +375,7 @@ func (s *Server) handleListAnthologies(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var a anthologyRow
 		targets := append([]any{&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt, &a.Entries}, a.scanTargets()...)
+		targets = append(targets, &a.Rule, &a.RuleAuto, &a.RuleRunAt)
 		if err := rows.Scan(targets...); err != nil {
 			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] row scan failed: %v", err)
 			continue
@@ -732,9 +746,10 @@ func (s *Server) handleGetAnthology(w http.ResponseWriter, r *http.Request) {
 	olog.Tracef("[anthologies] get uid=%d id=%d", uid, id)
 	var a anthologyRow
 	err := s.Store.DB.QueryRow(`
-		SELECT id, title, intro, created_at, updated_at, `+anthologyFieldCols+` FROM anthologies
+		SELECT id, title, intro, created_at, updated_at, `+anthologyFieldCols+`, `+anthologyRuleCols+` FROM anthologies
 		WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(append([]any{&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt}, a.scanTargets()...)...)
+		Scan(append(append([]any{&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt}, a.scanTargets()...),
+			&a.Rule, &a.RuleAuto, &a.RuleRunAt)...)
 	a.fromRow()
 	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "anthology not found")
@@ -798,8 +813,9 @@ func (s *Server) handleCreateAnthology(w http.ResponseWriter, r *http.Request) {
 	// the database's answer, and a client that has to guess them will guess wrong
 	// across a timezone.
 	var a anthologyRow
-	if err := s.Store.DB.QueryRow(`SELECT id, title, intro, created_at, updated_at, `+anthologyFieldCols+` FROM anthologies WHERE id = ?`,
-		id).Scan(append([]any{&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt}, a.scanTargets()...)...); err != nil {
+	if err := s.Store.DB.QueryRow(`SELECT id, title, intro, created_at, updated_at, `+anthologyFieldCols+`, `+anthologyRuleCols+` FROM anthologies WHERE id = ?`,
+		id).Scan(append(append([]any{&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt}, a.scanTargets()...),
+		&a.Rule, &a.RuleAuto, &a.RuleRunAt)...); err != nil {
 		internalError(w, r, "read back anthology", err)
 		return
 	}

@@ -26,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   everything else on that list needs a work to read from. Shown only where you actually
   have a record of that person, which most passages will not have, and the line is
   simply absent rather than blank when you do not.
+- **An anthology can be filled from a search.** Give it a rule — a tag, an author, a
+  word, any combination the search bar already takes — and every quote that matches is
+  added to the end. **It finds exactly what the search bar finds**, because it runs the
+  same query; a rule that disagreed with the search showing the same words would be worse
+  than either. It only ever ADDS: your order is untouched, anything already there is
+  skipped rather than duplicated, and nothing you wrote about an entry can be removed by
+  a change somewhere else in your library. It tells you how many it found, how many it
+  added, and how many were already there — and says so when it stops at 200 rather than
+  quietly taking fewer.
 - **An anthology exports as an EPUB — a small book to put back on the e-reader.** Beside
   the Markdown export there is now an EPUB: your introduction, every passage in the order
   you put them in, your commentary above each one, and a table of contents your reader can
