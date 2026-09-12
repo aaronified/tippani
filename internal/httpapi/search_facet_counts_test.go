@@ -292,3 +292,56 @@ func TestSearchNarrowsToAnAddedOnRange(t *testing.T) {
 		t.Fatalf("a range with no query is still a search: %+v", only.Annotations)
 	}
 }
+
+// THE LANGUAGE FACET'S OWN COUNTS, and the arm they prove is reading the right
+// column. `search_facet_counts.go`'s language arm is `COALESCE(<self>.language,
+// '')` — three tables, one column name, so it reads the alias the row set gave
+// it. Point that at any other column of any of the three and the whole Go suite
+// still passes, because until this case nothing asked /search/facets for a
+// language at all: the chips would have offered "here the highlight" as a
+// language to narrow by and the number beside it would have been right about the
+// wrong question.
+//
+// THE COUNT IS ACROSS ALL THREE KINDS for the same reason the facet itself is: a
+// highlight, a film line and a standalone quote each carry their own `language`,
+// and a reader narrowing to Bengali means all of them.
+func TestFacetCountsCountLanguagesAndNotTheQuoteText(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	book := idOf(t, c.mustDo("POST", "/books", map[string]any{
+		"title": "Gitanjali", "author": "Rabindranath Tagore",
+	}, 201).Body.Bytes())
+	film := idOf(t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "Pather Panchali", "director": "Satyajit Ray",
+	}, 201).Body.Bytes())
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book, "quote": "here the highlight", "language": "Bengali",
+	}, 201)
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": film, "quote": "here the line", "language": "Bengali",
+	}, 201)
+	newUtterance(t, c, map[string]any{"quote": "here the proverb", "language": "Sanskrit"})
+
+	got := countsOf(t, c, "q=here")
+	if got["language"]["Bengali"] != 2 {
+		t.Errorf("language:Bengali = %d, want 2 (a highlight and a film line) — counts are %v",
+			got["language"]["Bengali"], got["language"])
+	}
+	if got["language"]["Sanskrit"] != 1 {
+		t.Errorf("language:Sanskrit = %d, want 1 — counts are %v", got["language"]["Sanskrit"], got["language"])
+	}
+	// THE SHAPE OF THE FAILURE THIS CATCHES: an arm reading the wrong column
+	// answers with quote text, which is a plausible-looking map of 1s. Naming one
+	// says so at the line rather than leaving the reader to notice the total.
+	if _, ok := got["language"]["here the highlight"]; ok {
+		t.Errorf("the language arm is counting quote text, not languages — counts are %v", got["language"])
+	}
+
+	// AND THE COUNT IS THE NUMBER THE SEARCH ITSELF RETURNS, which is this file's
+	// governing rule: a count that disagrees with its own list is worse than none.
+	res := decode[searchResults](t, c.mustDo("GET", "/search?q=here&language=Bengali", nil, 200))
+	if listed := len(res.Annotations) + len(res.Dialogues) + len(res.Quotes); listed != got["language"]["Bengali"] {
+		t.Errorf("language:Bengali counted %d and listed %d", got["language"]["Bengali"], listed)
+	}
+}

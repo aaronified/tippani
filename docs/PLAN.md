@@ -2566,6 +2566,45 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 <sub>1.10.0 — `internal/httpapi/search_facets.go` · `web/frontend/src/facets.js` · `web/frontend/src/SearchPage.jsx`</sub>
 
+### `language` is the nineteenth facet, and it matches a whole value rather than a word
+
+**Decided.** The language model this release rebuilt gave every quote of all three kinds a
+`language` of its own, put a mark beside it on the card, chose the face it is set in and
+decided which of the two texts leads — and left it the one fact about a quote you could
+not search by. So it becomes a facet, and three of its four properties are just the rule
+above applied: it **unions** (`combine: 'or'`), because a line is in ONE language and
+ANDing two asks for something nothing is; it reaches **all three quote kinds**
+(`annotations`, `dialogues`, `utterances`), because all three carry the column; and it
+appears in `/search/vocabulary` and in the count beside each chip like every other facet.
+
+**The fourth is a departure, and it is the only real decision here: the match is
+whole-value and case-folded, not tokenised.** The credit facets (`author`, `speaker`,
+`actor`, `character`) split their column on the credit separators and ask whether it
+*contains* each word, which is right for a column holding several names — "Gaiman &
+Pratchett" must be findable as either. A language is not that shape. It is one value, and
+a contains-match on it means `language:English` drags in every row written in **Old
+English** — a wider answer that looks like a correct one, which is the exact failure
+"never widen silently" was written against two entries down. The fold is the other half of
+the same argument and comes from the same place `/search/vocabulary` already folds: the
+column is free text, so one language gets stored two ways by a reader who typed it twice,
+and a facet that did not fold would hand back a chip drawn from the folded list and then
+find half the rows behind it.
+
+**Instead of.** Tokenising it like a credit (one line's `language` is not a cast list), and
+matching it exactly (a facet that is case-sensitive over free text finds half a library).
+
+**Where the plan was wrong, recorded at the pass that found it.** Two guards were missing
+and a rater's mutations found both: `/search/facets` was never asked for a language at
+all, so the arm reading `<self>.language` could be repointed at the quote text and the
+whole Go suite stayed green — the chips would have offered quote text as a language to
+narrow by; and both of the facet's own tests passed a `q`, so `searchFacets.any()` could
+drop `len(f.languages) > 0` and a bare `?language=Bengali` — pressing the chip without
+also typing, which is how a facet is actually used — would answer 400 *q is required*.
+Neither was a design error; both were a test that exercised the feature only in the shape
+its author happened to write it in.
+
+<sub>Unreleased — `internal/httpapi/search_facets.go` · `internal/httpapi/search_facet_counts.go` · `web/frontend/src/facets.js`</sub>
+
 ### Facet values never reach a `MATCH`, and an unknown facet is a 400
 
 **Decided.** The facets are ordinary SQL predicates on ordinary columns; only the free-text `q` reaches FTS, and it reaches it the way it does today (7.4). That keeps the escaping surface exactly one function wide. Separately, an unknown facet name is a 400 rather than a silent ignore, because a typo'd facet that is quietly dropped returns a *wider* result set that looks like a correct answer — the failure mode where the user cannot tell they were not answered. `fuzzyCorrect` keeps its zero-hit behaviour and corrects free text only: a facet value came from a list the user was shown, so correcting it would be second-guessing a choice rather than a typo. All three are mine, and all three are the same instinct — never widen silently.
@@ -14061,3 +14100,30 @@ asserting the pre-rater behaviour — so that commit's baseline was red and its 
 mentioned only the import work. Recorded here because a commit that quietly
 repairs something else is a commit whose body cannot be trusted to list what it
 touched.
+
+**AND ONE SURFACE WAS STILL CONCATENATING.** The entry above says the share now
+composes its credit the way the card does, which was true and not the whole claim
+a reader takes from it: the SEARCH RESULTS LIST was never part of either. It drew
+`[h.speaker, h.occasion].join(' · ')` — the literal shape `quote-card-types.md`
+opens on — so a letter found by search read "Albert Einstein · after the prize"
+while the same quote on its board read "Albert Einstein · Letter to Carl Seelig ·
+after the prize · Zurich · p. 3". One quote, two pictures, on two screens a reader
+moves between.
+
+**HALF OF THAT FIX IS ON THE SERVER, and it is why the defect survived the pass
+that should have caught it.** `utteranceHit` carried no `recipient`, `work_title`
+or `locator`, so composing the row correctly was not enough — the hit had nothing
+to compose from, and a fix written only in the client would have drawn the kind's
+bare word and looked like the phrase working. `search_handler.go` sends the three
+now. `region` is deliberately not among them: the owner's correction made a
+proverb's attribution `{language} proverb`, so no shape in `CONSUMES` reads region
+and shipping it would be a column with no reader.
+
+**A RATER FOUND THIS BY MEASURING AND WAS WRONG ABOUT WHERE IT WAS.** The report
+named `SearchPage.jsx:1176`'s `quoteShare` call as the site. That call is handed
+`row`, fetched from `GET /quotes` — which carries all four 0047 columns
+(`utterance_handlers.go`'s `utteranceCols`) — and `ShareDialog` is gated on
+`row &&`, so a hit never reaches it. The share was correct. The measurement was
+right, the line was next door, and the value of the finding was entirely in the
+measurement: worth recording because a finding checked at its own line is what
+separates the defect from the guess about it.

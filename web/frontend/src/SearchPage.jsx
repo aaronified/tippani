@@ -1935,8 +1935,15 @@ function QuoteHit({ h, terms, onOpen, people = {}, seps }) {
             that opens the quote, and nesting a second one inside it means a
             near-miss opens the wrong thing. The panel is one tap further in. */}
         <CreditFaces names={splitCredits(h.speaker, seps)} map={people} size={22} ring="var(--raised)" />
+        {/* THE SAME LINE THE BOARD DRAWS, composed by the same function — this
+            row hand-joined the speaker and the occasion, so it was the one
+            surface left where "Letter" and "to Carl Seelig" were still two facts
+            and the recipient, the essay's title and its page appeared nowhere.
+            `utteranceMeta` deliberately omits the speaker (the card has a person
+            chip naming them); here the faces beside it carry no name, so the
+            speaker is prepended rather than the function changed. */}
         <MonoLabel className="block min-w-0">
-          <NameScroll>{[h.speaker, h.occasion].filter(Boolean).join(' · ')}</NameScroll>
+          <NameScroll>{[h.speaker, utteranceMeta(h)].filter(Boolean).join(' · ')}</NameScroll>
         </MonoLabel>
       </span>
     </ChildHit>

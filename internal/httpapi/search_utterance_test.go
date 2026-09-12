@@ -335,3 +335,55 @@ func TestAnAnthologyEntryCarriesItsQuotesLanguage(t *testing.T) {
 		t.Errorf("the anthology entry lost its language: %q", got.Entries[0].Language)
 	}
 }
+
+// AND IT CARRIES THE THREE FIELDS ITS ATTRIBUTION IS COMPOSED FROM.
+//
+// The results list draws a quote's credit with `utteranceMeta`, the same
+// function the board's card uses — and that composes the kind's PHRASE rather
+// than joining whatever is non-empty: "Letter to Carl Seelig", not "Letter" and
+// an occasion holding the recipient by hand. The phrase reads `recipient`,
+// `work_title` and `locator`, so a hit without them draws the kind's bare word
+// where the board draws the fact, and one quote has two pictures on two screens.
+//
+// `region` is deliberately NOT here and this case says so: the owner's
+// correction made a proverb's attribution `{language} proverb`, so no shape
+// consumes region and shipping it would be a column with no reader.
+func TestASearchHitCarriesWhatItsAttributionIsMadeOf(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	newUtterance(t, c, map[string]any{
+		"quote": "unforgivable to waste one's life", "kind": "letter",
+		"speaker": "Albert Einstein", "recipient": "Carl Seelig", "occasion": "after the prize",
+	})
+	newUtterance(t, c, map[string]any{
+		"quote": "unforgivable to leave a page unnumbered", "kind": "essay",
+		"work_title": "Why Socialism?", "locator": "p. 3",
+	})
+
+	res := decode[struct {
+		Quotes []struct {
+			Kind      string `json:"kind"`
+			Recipient string `json:"recipient"`
+			WorkTitle string `json:"work_title"`
+			Locator   string `json:"locator"`
+		} `json:"quotes"`
+	}](t, c.mustDo("GET", "/search?q=unforgivable&scope=quotes", nil, http.StatusOK))
+
+	if len(res.Quotes) != 2 {
+		t.Fatalf("the search found %d quotes, want 2 — the assertions below would be true of nothing", len(res.Quotes))
+	}
+	byKind := map[string]struct{ Kind, Recipient, WorkTitle, Locator string }{}
+	for _, q := range res.Quotes {
+		byKind[q.Kind] = struct{ Kind, Recipient, WorkTitle, Locator string }{q.Kind, q.Recipient, q.WorkTitle, q.Locator}
+	}
+	if got := byKind["letter"].Recipient; got != "Carl Seelig" {
+		t.Errorf("a letter hit's recipient = %q, want %q — without it the row reads \"Letter\"", got, "Carl Seelig")
+	}
+	if got := byKind["essay"].WorkTitle; got != "Why Socialism?" {
+		t.Errorf("an essay hit's work_title = %q, want %q", got, "Why Socialism?")
+	}
+	if got := byKind["essay"].Locator; got != "p. 3" {
+		t.Errorf("an essay hit's locator = %q, want %q", got, "p. 3")
+	}
+}

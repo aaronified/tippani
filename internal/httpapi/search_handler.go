@@ -122,6 +122,17 @@ type utteranceHit struct {
 	Category    string `json:"category"`
 	Language    string `json:"language"`
 	Translation string `json:"translation"`
+	// 0047's three, and they are here for the same reason Category is: the hit is
+	// what the results list DRAWS, and since the card's line became a composed
+	// phrase rather than a concatenation these are the words in it. A letter's row
+	// without a recipient reads "Letter"; an essay's without a title and a page
+	// reads "Essay" — the kind's own word standing in for the fact it was meant to
+	// imply, which is the duplicate `attributionParts` exists to remove. `region`
+	// is NOT here: no shape consumes it (see CONSUMES in attribution.js), so it
+	// would be a column shipped to a reader nobody has.
+	Recipient string `json:"recipient"`
+	WorkTitle string `json:"work_title"`
+	Locator   string `json:"locator"`
 
 	// No parent field to borrow: a standalone quote carries only its own flag,
 	// which is the same asymmetry the rest of §24 has.
@@ -314,6 +325,7 @@ const (
 		u.occasion_circa,
 		COALESCE(u.place, ''), COALESCE(u.medium, ''), COALESCE(u.kind, ''),
 		u.category, u.language, u.translation,
+		u.recipient, u.work_title, u.locator,
 		u.review_excluded`
 )
 
@@ -353,6 +365,7 @@ func scanUtteranceHit(rows *sql.Rows) (utteranceHit, error) {
 	err := rows.Scan(&h.ID, &h.Quote, &h.Note, &h.Color, &h.Speaker, &h.Occasion,
 		&h.OccasionDate, &h.OccasionCirca, &h.Place, &h.Medium, &h.Kind,
 		&h.Category, &h.Language, &h.Translation,
+		&h.Recipient, &h.WorkTitle, &h.Locator,
 		&h.ReviewExcluded)
 	return h, err
 }

@@ -296,6 +296,29 @@ func TestTheLanguageFacetFoldsCaseAndMatchesWhole(t *testing.T) {
 	wantTitles(t, "language:English", utteranceTexts(res.Quotes), []string{})
 }
 
+// A FACET WITH NO SEARCH TERM, which is how a facet is actually used: you press
+// the chip, you do not also type. Every other facet has a case for it
+// (`scope=quotes&tag=stoicism`) and the language facet did not — both of the two
+// above pass `q=here`, so the one line that makes a bare `language=` legal could
+// be deleted and the whole suite would still pass while
+// `GET /search?scope=quotes&language=Bengali` answered 400 "q is required".
+//
+// THE LINE IS `searchFacets.any()`'s `len(f.languages) > 0` (search_facets.go).
+// `any()` is what tells the handler a request with no `q` still asks something,
+// so a facet missing from it is a facet that only works as a narrowing of a
+// typed search — which is the opposite of how the chips are used.
+func TestALanguageAloneIsASearch(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	newUtterance(t, c, map[string]any{"quote": "nothing in this line is a search term", "language": "Bengali"})
+	newUtterance(t, c, map[string]any{"quote": "nor in this one", "language": "Sanskrit"})
+
+	res := searchWith(t, c, "scope=quotes&language=Bengali")
+	wantTitles(t, "language:Bengali with no q", utteranceTexts(res.Quotes),
+		[]string{"nothing in this line is a search term"})
+}
+
 // ---- work facets: genre, series, year, shelf -------------------------------
 
 func TestGenreSeriesAndYearFacets(t *testing.T) {

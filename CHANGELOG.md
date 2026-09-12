@@ -736,6 +736,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   credit does not already say it — off until you ask for it, the way a book highlight's
   page already was. Nothing you had switched off in the share dialog comes back on.
 
+- **A letter found by search did not say who it was to either.** The search results list
+  was the one place left that glued a quote's credit together out of two fields, so the
+  same letter read "Albert Einstein · after the prize" there and "Albert Einstein · Letter
+  to Carl Seelig · after the prize · Zurich · p. 3" on its own board. An essay's title and
+  its page were missing from the row for the same reason. Search now writes that line the
+  way every other screen does, so one quote reads the same wherever you find it.
+
 - **A work page's quotes stopped at two columns on any screen.** However wide the window,
   a book's or a film's board drew two — and the reason was two sensible numbers that had
   never been read together: the page holds each thing in its stream to a readable measure,
