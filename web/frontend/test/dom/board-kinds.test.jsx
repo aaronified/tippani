@@ -14,7 +14,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-let BOARDS, SENT
+let BOARDS, SENT, VOCAB
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -25,7 +25,10 @@ vi.mock('../../src/api.js', async (orig) => ({
     // the app chose, present for every account whether or not a word was stored in
     // any of them; it offers what this reader's quotes are actually in. A chip to
     // press therefore needs a library that holds something.
-    if (path === '/search/vocabulary') return { ok: true, data: { languages: ['Bengali', 'Hindi'] } }
+    // TWO SPELLINGS OF ONE LANGUAGE, because that is what a real library sends.
+    // A language is free text on the quote, so a reader who typed "bengali" once
+    // has it stored both ways, and the row used to draw a chip for each.
+    if (path === '/search/vocabulary') return { ok: true, data: { languages: VOCAB } }
     return { ok: true, data: {} }
   }),
 }))
@@ -41,6 +44,7 @@ const board = (id, name, over = {}) => ({
 beforeEach(() => {
   SENT = []
   BOARDS = []
+  VOCAB = ['Bengali', 'bengali', 'Hindi']
 })
 
 const noop = () => {}
@@ -97,6 +101,39 @@ describe('the starter offer', () => {
     const post = SENT.find((s) => s.method === 'POST')
     expect(post.body.kind).toBe('proverb')
     expect(post.body.languages).toEqual(['Bengali', 'Hindi'])
+  })
+
+  // ONE LANGUAGE, ONE CHIP, however many ways the library spells it.
+  //
+  // The row deduped with a bare Set, which is case-sensitive, so a library holding
+  // both "Bengali" and "bengali" drew two chips — and pressing either lit BOTH,
+  // because the on-test beside them has always folded. The surviving spelling is
+  // the FIRST one offered, not the prettiest: the board's own languages lead the
+  // list, so a board that already says "bengali" keeps saying it.
+  it('draws one chip for a language its library spells two ways', async () => {
+    render(<BoardList boards={BOARDS} total={0} reload={noop} onOpen={noop} />)
+    await openNewBoard()
+    fireEvent.click(screen.getByRole('button', { name: /^Proverbs/ }))
+    await screen.findByText('languages')
+
+    const chips = await screen.findAllByRole('button', { name: /^bengali$/i })
+    expect(chips).toHaveLength(1)
+    expect(chips[0].textContent).toContain('Bengali')
+  })
+
+  // And the board's own spelling outranks the library's, which is the half a fold
+  // that always kept the capitalised form would get wrong.
+  it('keeps the spelling the board already carries', async () => {
+    BOARDS = [board(1, 'Proverbs', { kind: 'proverb', languages: ['bengali'] })]
+    render(<BoardList boards={BOARDS} total={1} reload={noop} onOpen={noop} />)
+    fireEvent.click(screen.getByLabelText(/more/i))
+    fireEvent.click(await screen.findByText('Edit'))
+    await screen.findByText('languages')
+
+    const chips = await screen.findAllByRole('button', { name: /^bengali$/i })
+    expect(chips).toHaveLength(1)
+    expect(chips[0].textContent).toContain('bengali')
+    expect(chips[0].textContent).not.toContain('Bengali')
   })
 
   // Not a closed list: a reader's proverbs are not limited to the languages their

@@ -52,22 +52,26 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		key   string
 		query string
 		split bool
+		fold  bool
 	}{
-		{"tags", `SELECT name FROM tags WHERE user_id = ? ORDER BY name`, false},
-		{"genres", `SELECT name FROM genres WHERE user_id = ? ORDER BY name`, false},
-		// AN EXPLICIT ORDER ON THE THREE THAT HAD NONE. `splitAll` sorts every list
-		// it touches, so the five credit facets were always alphabetical; these three
-		// are `split: false` and were relying on DISTINCT and UNION happening to emit
-		// sorted rows, which is a SQLite implementation detail rather than a promise.
-		// A dropdown whose order depends on how the engine felt like deduplicating is
-		// the same defect the chapter list had, one layer less visible.
+		{"tags", `SELECT name FROM tags WHERE user_id = ? ORDER BY name`, false, false},
+		{"genres", `SELECT name FROM genres WHERE user_id = ? ORDER BY name`, false, false},
+		// AN EXPLICIT ORDER ON THE ONES THAT HAD NONE, and it is not what sorts the
+		// dropdown — vocabList has sorted every list it returns since 2f8263c2, which
+		// this comment claimed otherwise for a day. What a query's own ORDER BY
+		// decides is which rows arrive FIRST, and that only shows when two rows
+		// collapse into one: the languages list folds, so the order below picks the
+		// spelling the reader sees. For series and shelves it is belt and braces —
+		// a UNION emitting rows in whatever order it deduplicated them is a SQLite
+		// implementation detail rather than a promise, and a query that says what it
+		// wants costs nothing.
 		{"series", `SELECT DISTINCT series FROM books WHERE user_id = ? AND series IS NOT NULL AND series <> ''
 		            UNION SELECT DISTINCT series FROM movies WHERE user_id = ? AND series IS NOT NULL AND series <> ''
-		            ORDER BY 1 COLLATE NOCASE`, false},
-		{"authors", `SELECT DISTINCT author FROM books WHERE user_id = ? AND author IS NOT NULL AND author <> ''`, true},
-		{"directors", `SELECT DISTINCT director FROM movies WHERE user_id = ? AND director IS NOT NULL AND director <> ''`, true},
+		            ORDER BY 1 COLLATE NOCASE`, false, false},
+		{"authors", `SELECT DISTINCT author FROM books WHERE user_id = ? AND author IS NOT NULL AND author <> ''`, true, false},
+		{"directors", `SELECT DISTINCT director FROM movies WHERE user_id = ? AND director IS NOT NULL AND director <> ''`, true, false},
 		{"actors", `SELECT DISTINCT d.actor FROM dialogues d JOIN movies m ON m.id = d.movie_id
-		            WHERE m.user_id = ? AND d.actor IS NOT NULL AND d.actor <> ''`, true},
+		            WHERE m.user_id = ? AND d.actor IS NOT NULL AND d.actor <> ''`, true, false},
 		// Characters come off the same table as actors and are split the same way,
 		// which is the point rather than a convenience: a line credited
 		// "Rosencrantz & Guildenstern" has to be offered as two options or
@@ -88,8 +92,8 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		                WHERE m.user_id = ? AND d.character IS NOT NULL AND d.character <> ''
 		                UNION
 		                SELECT DISTINCT a.character FROM annotations a JOIN books b ON b.id = a.book_id
-		                WHERE b.user_id = ? AND a.character <> ''`, true},
-		{"speakers", `SELECT DISTINCT speaker FROM utterances WHERE user_id = ? AND speaker <> ''`, true},
+		                WHERE b.user_id = ? AND a.character <> ''`, true, false},
+		{"speakers", `SELECT DISTINCT speaker FROM utterances WHERE user_id = ? AND speaker <> ''`, true, false},
 		// THE LANGUAGES THE LIBRARY ACTUALLY USES, and the reason it is here rather
 		// than derived on a screen is that the screen that needs it holds no quotes.
 		// Settings' readable-languages chips were drawn from the ten starters plus
@@ -102,13 +106,42 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		// NOT SPLIT. Every other name-shaped facet here is a joined credit and has
 		// to be taken apart; a language is one name, and splitting it would offer
 		// "Old" and "English" as two languages nothing is stored under.
-		{"languages", `SELECT DISTINCT language FROM utterances WHERE user_id = ? AND language <> ''
-		               ORDER BY 1 COLLATE NOCASE`, false},
+		//
+		// FOLDED, AND THE ONLY ONE THAT IS. A language is free text on the row, so a
+		// reader who typed "bengali" on Tuesday and "Bengali" on Friday has one
+		// language stored two ways, and this list sent both. The board form's chip
+		// row drew two chips for it (boards.jsx deduped with a bare Set until this
+		// commit); the language combobox did not, because Combo already folds every
+		// row list it is given — which is the point rather than a reprieve. A server
+		// that hands back one language twice is a defect every consumer has to know
+		// about, and one of the two did not.
+		//
+		// It is folded rather than left alone because the rest of the app has already
+		// decided the question: normalizeLanguageMarks folds the key it stores
+		// ("Bengali" and "bengali" are one language), validateBoard folds before
+		// deduping a board's list, and languages.jsx keys its whole mark table by the
+		// lowercased name. This list disagreeing with all three was the defect.
+		//
+		// The credit facets are NOT folded, and that is not an oversight. `author:`
+		// and `tag:` match a stored value with no NOCASE anywhere in the schema, so
+		// "Poetry" and "poetry" are two tag rows finding two different sets of
+		// quotes; offering one of them would hide half a library behind a chip that
+		// looks complete. There is no language facet to match against (#153), and
+		// when there is, it will be case-insensitive for the same reason this is.
+		//
+		// GROUP BY, NOT DISTINCT, so ORDER BY MIN(id) is available: the fold keeps
+		// the FIRST spelling written, which is the rule validateBoard already states
+		// — "bengali" typed second should not win over "Bengali". DISTINCT with an
+		// ORDER BY outside the select list is not, and sorting the folded list by
+		// name would leave the surviving spelling to sort.Slice, which is not stable
+		// and would pick a different one between two runs over the same library.
+		{"languages", `SELECT language FROM utterances WHERE user_id = ? AND language <> ''
+		               GROUP BY language ORDER BY MIN(id)`, false, true},
 		{"shelves", `SELECT DISTINCT status FROM books WHERE user_id = ? AND status <> ''
 		             UNION SELECT DISTINCT status FROM movies WHERE user_id = ? AND status <> ''
-		             ORDER BY 1 COLLATE NOCASE`, false},
+		             ORDER BY 1 COLLATE NOCASE`, false, false},
 	} {
-		vals, err := s.vocabList(spec.query, uid, strings.Count(spec.query, "user_id = ?"))
+		vals, err := s.vocabList(spec.query, uid, strings.Count(spec.query, "user_id = ?"), spec.fold)
 		if err != nil {
 			// Best-effort per list: a vocabulary that is missing its series names is
 			// still a working dropdown, and 500-ing the whole search box because one
@@ -206,7 +239,13 @@ func (s *Server) vocabPairs(query string, uid int64) ([]vocabColour, error) {
 
 // vocabList runs one single-column query with `uid` repeated `n` times (some are
 // UNIONs over two tables), and returns non-empty values, sorted and deduplicated.
-func (s *Server) vocabList(query string, uid int64, n int) ([]string, error) {
+//
+// `fold` decides what "duplicated" means. Off, two spellings of one word are two
+// options, which is right for a tag or an author — they are stored values matched
+// with no NOCASE anywhere in the schema, so each finds its own rows. On, the first
+// spelling the query emits wins and the rest are dropped, which is why the caller
+// that folds orders by first appearance rather than by name.
+func (s *Server) vocabList(query string, uid int64, n int, fold bool) ([]string, error) {
 	if n < 1 {
 		n = 1
 	}
@@ -228,10 +267,14 @@ func (s *Server) vocabList(query string, uid int64, n int) ([]string, error) {
 			continue
 		}
 		v = strings.TrimSpace(v)
-		if v == "" || seen[v] {
+		key := v
+		if fold {
+			key = strings.ToLower(v)
+		}
+		if v == "" || seen[key] {
 			continue
 		}
-		seen[v] = true
+		seen[key] = true
 		out = append(out, v)
 	}
 	if err := rows.Err(); err != nil {

@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   work now suggests as you type — **your own languages first**, then the rest of the
   ninety-one, each with its own name for itself underneath (Bengali · বাংলা). It is
   still free text: a language nothing has heard of is typed and kept exactly as typed.
+- **A language your library spells two ways is one chip, not two.** A language is free
+  text on the quote, so writing "bengali" one day and "Bengali" the next left the
+  proverb board's language row offering both — and pressing either lit both, because
+  they were one language all along. Your list of languages is folded wherever it is
+  offered now, keeping the spelling you wrote first; a board that already says
+  "bengali" goes on saying it.
 - **A language's mark is a letter that belongs to it, not just a letter nobody else
   took.** Assamese wore **অ** — the first letter of অসমীয়া, and also the first vowel of
   the script Bengali writes, so it told you the board was in *some* Bengali-script

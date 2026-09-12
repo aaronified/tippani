@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -285,5 +286,73 @@ func TestVocabularyLanguagesAreOnlyEverYourOwn(t *testing.T) {
 	v := vocabOf(t, bob)
 	if has(v.Languages, "Bengali") {
 		t.Errorf("a stranger was offered the owner's languages: %v", v.Languages)
+	}
+}
+
+// ONE LANGUAGE, ONE ROW, WHICHEVER WAY IT WAS TYPED.
+//
+// A language is free text on the quote, so a reader who typed "bengali" one day
+// and "Bengali" the next has one language stored two ways. The list came back with
+// both, and it is the list the language combobox offers FIRST and the list a
+// board's chip row is drawn from — so the reader was asked to choose between two
+// spellings of their own language, in a picker whose whole job is to stop them
+// having to type it again.
+//
+// The two halves below are the same library in the two possible orders, and they
+// are here together because either one alone passes for the wrong reason: a fold
+// that always kept the capitalised spelling would satisfy the first and fail the
+// second, and one that always kept the lowercase spelling the other way round.
+// What is actually promised is the spelling written FIRST — validateBoard's rule,
+// "bengali typed second should not win over Bengali", read the other way too.
+func TestVocabularyOffersALanguageOnceWhateverItsCasing(t *testing.T) {
+	for _, tc := range []struct{ name, first, second string }{
+		{"capitalised first", "Bengali", "bengali"},
+		{"lowercase first", "bengali", "Bengali"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newTestServer(t)
+			c := signupAdmin(t, srv.Handler())
+			c.mustDo("POST", "/quotes", map[string]any{
+				"quote": "সত্যের জয়", "language": tc.first,
+			}, 201)
+			c.mustDo("POST", "/quotes", map[string]any{
+				"quote": "কথার কথা", "language": tc.second,
+			}, 201)
+
+			v := vocabOf(t, c)
+			n := 0
+			for _, l := range v.Languages {
+				if strings.EqualFold(l, "bengali") {
+					n++
+				}
+			}
+			if n != 1 {
+				t.Errorf("one language spelled two ways came back %d times: %v", n, v.Languages)
+			}
+			if !has(v.Languages, tc.first) {
+				t.Errorf("the spelling written first (%q) is not the one offered: %v", tc.first, v.Languages)
+			}
+		})
+	}
+}
+
+// AND NOTHING ELSE IS FOLDED, which is the half of the rule that is easy to lose.
+//
+// `speaker:` and `tag:` match a stored value, and there is no NOCASE collation
+// anywhere in the schema — so "Gandhi" and "gandhi" are two values finding two
+// different sets of quotes. Folding them would offer one chip that looks like the
+// whole library and returns half of it. A language has no facet to match against
+// yet (#153) and an app-wide canonical form already (normalizeLanguageMarks folds
+// its key, validateBoard folds before deduping, languages.jsx keys its mark table
+// by the lowercased name), which is the entire difference.
+func TestVocabularyDoesNotFoldTheCreditFacets(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	c.mustDo("POST", "/quotes", map[string]any{"quote": "the first line", "speaker": "Gandhi"}, 201)
+	c.mustDo("POST", "/quotes", map[string]any{"quote": "the second line", "speaker": "gandhi"}, 201)
+
+	v := vocabOf(t, c)
+	if !has(v.Speakers, "Gandhi") || !has(v.Speakers, "gandhi") {
+		t.Errorf("a speaker facet folded two stored values into one option: %v", v.Speakers)
 	}
 }

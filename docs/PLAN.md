@@ -13280,8 +13280,13 @@ ten names is not the standard's: the starter list said "Mandarin" where 639-1 `z
 "Chinese". Every board created from that picker holds the string "Mandarin", so without an
 alias those boards lose their cover glyph the day the picker starts offering "Chinese". It
 is a map beside the index and not a second `name` field — nothing outside those lines
-should have to know that a name was once spelled differently here — and the one-time
-upgrade that folds free-text languages onto codes will read the same map.
+should have to know that a name was once spelled differently here. It was written
+expecting a one-time upgrade to fold free-text languages onto codes and read the same
+map; that upgrade is not being built, for the reasons in the next section, so the alias
+earns its place on the display path alone. `languageFor` resolves "mandarin" to the `zh`
+row, which is what `displayName` and `markFor` each ask for, so a board created from the
+old picker still shows 中文 and still wears its cover glyph — with the string "Mandarin"
+left exactly where the reader put it.
 
 **A test suite that opened on ten rows now opens on a fetch.** Four DOM files rendered the
 language table or the board form against nothing and found ten rows there anyway. They
@@ -13366,3 +13371,59 @@ the standard rather than strict with it.** BCP 47 (RFC 5646 §2.2.1) says a prim
 language subtag is the SHORTEST AVAILABLE code — 639-1 where one exists, 639-3 where
 none does — so `mas` is Maa's correct tag and the code column takes two letters or
 three.
+
+## The upgrade that folds languages onto codes is not being built
+
+The queue's language work listed "a one-time upgrade: fold existing free-text languages
+onto ISO codes", and building it would have contradicted two rules this app states out
+loud:
+
+- `internal/httpapi/board_handlers.go:196` — *"Case-insensitively unique, but the
+  reader's own capitalisation is what is stored: 'bengali' typed second should not win
+  over 'Bengali'."*
+- `iso639.js`'s own header — a reader who typed "Sylheti" goes on seeing "Sylheti"
+  everywhere, **because the display value has always been what they typed**.
+
+A row that says `bn` where the reader wrote "Bengali" is a rewrite of their library to
+suit a table, and `displayName()` already shows the autonym at display time without
+touching a stored byte. The codes are for the app to reason with; the strings are the
+reader's.
+
+**WHAT WAS ACTUALLY BROKEN, found by measuring rather than by reasoning from the title.**
+`/search/vocabulary`'s languages list deduplicated case-sensitively, so a library holding
+"Bengali" and "bengali" sent both. A throwaway SQLite check over a three-row table:
+
+```
+3 rows ["Bengali" "bengali" "বাংলা"]   SELECT DISTINCT language …
+2 rows ["Bengali" "বাংলা"]             … COLLATE NOCASE
+```
+
+That list feeds two screens. The board form's chip row drew a chip for each — and both
+lit, because the on-test beside them has always folded. The language combobox did not,
+because `Combo` folds every row list it is given. **One consumer coping is not the
+endpoint being right**: a server that hands back one language twice is a defect every
+caller has to know about, and one of the two did not.
+
+**THE PICKER IS NOT `MIN`, AND THAT IS THE ONE THING THE SCRATCH TEST DISPROVED.** The
+first attempt was `SELECT MIN(language) … GROUP BY language COLLATE NOCASE`, on the
+assumption that MIN would land on the capitalised-normal spelling. Under BINARY
+collation it returns `"BENGALI"` over `"Bengali"` — an all-caps spelling nobody wants,
+and it would have shipped looking right on a library that happened not to contain one.
+The rule is **the spelling written first**, which is what `board_handlers.go:196`
+already promises, expressed as `GROUP BY language ORDER BY MIN(id)`. Both directions are
+tested, because a fold that always kept the capitalised form passes half of them.
+
+**AND ONLY THAT ONE LIST FOLDS.** `author:`, `tag:` and the other credit facets match a
+stored value and there is no `NOCASE` collation anywhere in the schema, so "Poetry" and
+"poetry" are two tag rows finding two different sets of quotes — offering one of them
+would hide half a library behind a chip that looks complete. A language has an
+app-wide canonical form already (`normalizeLanguageMarks` folds the key it stores,
+`validateBoard` folds before deduping, `languages.jsx` keys its mark table by the
+lowercased name) and no facet to match against yet, which is the entire difference.
+
+**A COMMENT WRITTEN TWO WEEKS AGO WAS WRONG WHEN IT WAS WRITTEN.** `vocabulary_handler.go`
+claimed the three unsplit lists "were relying on DISTINCT and UNION happening to emit
+sorted rows"; `vocabList` had been sorting everything it returns since `2f8263c2`, two
+and a half weeks before that sentence. The queries' own `ORDER BY` never decided the
+dropdown's order and still does not — what it decides is which row arrives first, which
+matters only now that one of the lists folds.

@@ -10,7 +10,7 @@
 // did not rescue you. A filter narrows what you see within a container; the board
 // decides which container you are in. This is that correction.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { coverImgURL, errText, json, uploadWithProgress } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { TextOrderField } from './textOrderField.jsx'
@@ -277,6 +277,18 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
   useEffect(() => {
     primeSearchVocabulary().then((v) => setInLibrary(v?.languages || [])).catch(() => {})
   }, [])
+  // The chips below, DEDUPED CASE-INSENSITIVELY — which the bare Set this used to
+  // be is not. A language is free text on the quote, so a library holding both
+  // "Bengali" and "bengali" drew two chips for one language, and both of them lit,
+  // because the `on` test has always folded. The board's own spellings come first,
+  // so the fold keeps the one this reader chose for this board over whichever one
+  // the library happens to lead with.
+  const languageChips = useMemo(
+    () => [...languages, ...inLibrary].filter(
+      (l, i, all) => all.findIndex((x) => x.toLowerCase() === l.toLowerCase()) === i,
+    ),
+    [languages, inLibrary],
+  )
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -448,7 +460,7 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
 
                 A reader whose library is empty sees no chips, which is honest: they
                 have no languages yet, and the box is how the first one is named. */}
-            {[...new Set([...languages, ...inLibrary])].map((l) => {
+            {languageChips.map((l) => {
               const on = languages.some((x) => x.toLowerCase() === l.toLowerCase())
               const glyph = glyphFor([l])
               return (
