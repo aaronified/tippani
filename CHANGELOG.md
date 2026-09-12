@@ -736,6 +736,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   credit does not already say it — off until you ask for it, the way a book highlight's
   page already was. Nothing you had switched off in the share dialog comes back on.
 
+- **Choosing the Atrium look failed with an error that did not mention Atrium.** It is
+  the eighth material set — flat surfaces, and the fastest the app draws, standing in for
+  a glass design still to come. Settings offered it, named it and drew it; saving it came
+  back refused, with a message listing the seven other sets. It saves now.
+
 - **A film line's translation was printed below its tags.** A bilingual film or show
   quote read the words, then who said them, then where in the runtime, then its tags — and
   only then what the words mean. A book highlight has always put the translation directly

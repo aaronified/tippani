@@ -956,3 +956,30 @@ func TestCoversRefetchReplacesLowRes(t *testing.T) {
 		t.Fatalf("cover changed to a worse image: %q (err %v)", cover, err)
 	}
 }
+
+// ATRIUM IS A MATERIAL SET A READER CAN ACTUALLY SAVE.
+//
+// It was in `MAT_SETS`, in `MAT_SET_LABELS` and in `en.txt` — so Settings drew the
+// option — and it was not in `prefMaterialSets`, so choosing it answered 400 with a
+// message enumerating the seven that were. That is the worst shape a refusal can
+// have: the app offered it, the server called it invalid, and the list it printed
+// did not include the thing just pressed.
+//
+// THE CROSS-LANGUAGE GUARD IS `prefs-agree.test.js`, which reads this file's maps
+// and compares them to theme.js. This case is the other half and is not redundant:
+// the guard proves the two LISTS match, and this proves the value actually round
+// trips through the handler and the store. A set could be in both lists and still
+// fail to save.
+func TestAtriumIsAMaterialSetThatSaves(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	c.mustDo("PUT", "/auth/me/preferences",
+		prefs{MaterialSet: "atrium", Theme: "dark", Accent: "slate"}, http.StatusOK)
+
+	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, http.StatusOK))
+	if me.Preferences.MaterialSet != "atrium" {
+		t.Fatalf("materialSet = %q, want atrium — a set Settings offers must survive a save",
+			me.Preferences.MaterialSet)
+	}
+}

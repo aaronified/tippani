@@ -258,9 +258,18 @@ var (
 	// aesthetics these replace — see internal/store/onetime_3_0_0_material_sets.go,
 	// which carries each reader's choice across rather than letting loadPrefs heal it
 	// to the default.
+	//
+	// ATRIUM WAS MISSING FROM THIS LIST FOR A RELEASE while `theme.js` offered it,
+	// labelled it and `en.txt` named it — so a reader who picked Atrium in Settings
+	// got a 400 from an error message that listed the seven and did not mention the
+	// one they had just chosen. It is the eighth set and the only one with no
+	// material: four flat tiles, shipped deliberately ahead of the glass design that
+	// will replace them, so the key has a meaning people can use now and the glass
+	// version has somewhere to land without migrating everybody's stored preference.
+	// `prefs-agree.test.js` now fails when this map and MAT_SETS disagree.
 	prefMaterialSets = map[string]bool{
 		"manuscript": true, "film-assembly": true, "office": true, "school": true,
-		"atelier": true, "bindery": true, "quarry": true,
+		"atelier": true, "bindery": true, "quarry": true, "atrium": true,
 	}
 	prefThemes  = map[string]bool{"light": true, "dark": true, "system": true}
 	prefAccents = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
@@ -1228,7 +1237,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	case !prefMaterialSets[cur.MaterialSet]:
 		writeErr(w, http.StatusBadRequest,
-			"materialSet must be manuscript, film-assembly, office, school, atelier, bindery or quarry")
+			"materialSet must be manuscript, film-assembly, office, school, atelier, bindery, quarry or atrium")
 		return
 	case !prefThemes[cur.Theme]:
 		writeErr(w, http.StatusBadRequest, "theme must be light, dark or system")

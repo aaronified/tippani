@@ -36,7 +36,7 @@ Verified against `f3a28bb`.
 | Per-material physics | **Deleted, not migrated.** `--thumb-ease`/`--thumb-dur`/`--press-a`/`--press-r` are declared once on `html` with one `html .nav-toggle` override — paper's physics became everyone's. `data-mat-set` is written to `<html>` and read by no CSS rule |
 | The glass tiles | **Present and measured.** `glass.webp` (448², sd 42.61, s .06 → 2.56 levels) and `glass-soft.png` (sd 6.32, capped at .12 → 0.76 levels) |
 | A lit ground for glass to look through | **Partly.** `html::before` draws a fixed radial pool at z −2; `.scene-bg` the ground tile at 14% |
-| Saving the preference | **Broken.** See the first thing the verification changed |
+| Saving the preference | **Fixed, ahead of this plan.** It was broken and is step 1 below; see the first thing the verification changed |
 | List virtualization on the board | **None.** No windowing dependency, no `content-visibility` |
 
 ### What the verification changed
@@ -50,6 +50,19 @@ fires `persist({ materialSet: 'atrium' })` straight into that 400.
 only exercises `manuscript`, `film-assembly` and the rejection of `vellum`. This
 is a live defect in the shipped set, found before a line of the feature was
 written, and it is step 1 below.
+
+> **STEP 1 HAS SHIPPED, ahead of the rest of this plan and separately from it.** A
+> reader could not use a set the app was already offering them, which is a bug in
+> what is released rather than a prerequisite for what is planned, so it was not
+> held for the glass work. `prefMaterialSets` carries `atrium`, the 400's message
+> names all eight, `TestAtriumIsAMaterialSetThatSaves` proves the round trip, and
+> **`prefs-agree.test.js` closes the class rather than the instance**: it reads
+> this file's `prefMaterialSets` and `prefAccents` out of the Go source and fails
+> when either disagrees with `MAT_SETS` or `ACCENTS` in `theme.js`. That is the
+> part worth keeping. The defect was invisible to both sides' own tests — the
+> client had a case that its sets render, the server had one that an unknown set is
+> refused, and both passed — because a value valid on one side and invalid on the
+> other is only visible to a test that reads both.
 
 **The blur is on four scrims now, not one.** An earlier reading of this branch
 found `backdrop-filter` only on `.tp-scrim`, whose own comment argues "One recipe,
