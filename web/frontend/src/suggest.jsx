@@ -29,6 +29,8 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json } from './api.js'
 import { MonoLabel, useAnchoredPosition, useDismiss, useIsMobileScreen } from './ui.jsx'
+import { LANGUAGES, displayName } from './iso639.js'
+import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 
 // EMPTY is the answer for "no work chosen", shared so callers can destructure
 // without guarding, and frozen so a caller cannot leave a name in it for the next
@@ -178,8 +180,51 @@ export function CastCombo({ label, value, onChange, onCommit, placeholder, cast 
   return <Combo label={label} value={value} onChange={onChange} onCommit={onCommit} placeholder={placeholder} rows={rows} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} />
 }
 
-// Combo is the body both of them share. Not exported: a caller reaching past the
-// two named forms would be a third opinion about what a row is.
+// LanguageCombo — SuggestCombo over the languages a reader might mean, and the one
+// box in this file that fetches its own rows.
+//
+// ONE COMPONENT FOR SEVEN FIELDS, which is the repo's own directive rather than a
+// convenience: "a control drawn by one component on two screens has ONE behaviour,
+// and it lives in one function that both screens call — not in a line each, which is
+// how one of them goes on being right while the other quietly stops." A language is
+// typed on the capture card, on an annotation, on a film line, on a standalone
+// quote, on a staged import row, on a work (twice) and on a proverb board.
+//
+// THE LIBRARY'S OWN LANGUAGES LEAD, AND THE ORDER IS LOAD-BEARING. The box opens on
+// focus and an empty query passes every row before the cap, so what a reader sees
+// before typing is the FIRST TEN — and ninety-one languages in file order would open
+// on English, Spanish, French, Portuguese and six more European ones, in an app whose
+// owner's library is Bengali. Their own languages first makes the untyped dropdown
+// the answer most of the time; Combo dedupes on the folded name, so a language that
+// is both keeps its leading position and appears once.
+//
+// THE AUTONYM IS THE SECOND LINE, because "Bengali" and "বাংলা" are the same choice
+// and a reader looking for their own language is looking for the second. Dropped when
+// it would repeat the first: a row that says Yoruba twice is the row saying a thing
+// twice, which this repo has a rule against.
+//
+// FREE TEXT STILL WINS, and that is what keeps this an offer. Every language column
+// in this app is free text; this suggests, and a language nobody has heard of is
+// typed and stored exactly as typed.
+export function LanguageCombo({ label, value, onChange, onCommit, placeholder, nameCase = true, inputRef, ariaLabel }) {
+  const [inLibrary, setInLibrary] = useState(() => cachedVocabulary()?.languages || [])
+  useEffect(() => {
+    let live = true
+    primeSearchVocabulary().then((v) => { if (live) setInLibrary(v?.languages || []) }).catch(() => {})
+    return () => { live = false }
+  }, [])
+  const rows = useMemo(() => {
+    const row = (name) => {
+      const own = displayName(name)
+      return { name, other: own === name ? '' : own }
+    }
+    return [...inLibrary.map(row), ...LANGUAGES.map((l) => row(l.name))]
+  }, [inLibrary])
+  return <Combo label={label} value={value} onChange={onChange} onCommit={onCommit} placeholder={placeholder} rows={rows} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} />
+}
+
+// Combo is the body all three share. Not exported: a caller reaching past the
+// named forms would be a third opinion about what a row is.
 function Combo({
   label,
   value,

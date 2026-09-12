@@ -14,6 +14,7 @@
 // wrong.
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { LanguageCombo } from './suggest.jsx'
 import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
 import { t } from './i18n.js'
@@ -509,12 +510,11 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
         )}
       </label>
       {shows('language') && (
-      <Field
+      <LanguageCombo
         label={t('common.field.language.label')}
-        nameCase
         placeholder={t('common.field.language.placeholder')}
         value={language}
-        onChange={(e) => setLanguage(e.target.value)}
+        onChange={setLanguage}
       />
       )}
       {/* WHAT THE KIND CARRIES (0047). Region pairs with the language above it — a

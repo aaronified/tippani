@@ -469,17 +469,26 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
             })}
           </div>
           <div className="flex items-end gap-2 mt-2">
-            {/* STILL A PLAIN BOX, and the ninety-one are not offered in it yet.
-                SuggestCombo is what belongs here — it is how every other name box
-                in this app offers the library's own values — but its contract is
-                that a commit fires on blur as well as on a pick, which for a box
-                whose commit ADDS A LANGUAGE means typing "Beng" and clicking away
-                files a language called Beng. Wiring it properly is the combobox
-                task's own work, on the quote and work fields at the same time; a
-                half-built one here would ship that bug to make this diff look
-                finished. Until then Enter adds, the button adds, and a language the
-                reader has not used yet is spelled out — which is exactly what this
-                box has always done. */}
+            {/* STILL A PLAIN BOX, AND THAT IS NOW A CONCLUSION RATHER THAN A DEFERRAL.
+                LanguageCombo landed on the other six language fields; this one was
+                looked at properly and keeps its Field, for a reason Combo cannot be
+                asked to fix for one caller.
+
+                COMBO CANNOT TELL BLUR FROM ENTER. Both call `commit(value)` with the
+                same argument (suggest.jsx's onKey and onBlur), so a box whose commit
+                ADDS A LANGUAGE would file "Beng" the moment the reader clicked away.
+                And Combo deliberately does NOT swallow Enter when no row is
+                highlighted — it lets the key bubble so a form can submit from its
+                last field — which here would CREATE THE BOARD on the keystroke meant
+                to add a language. Two opposite contracts: every other language field
+                stores a value and wants Combo's, this one appends to a list and
+                wants its own.
+
+                Giving Combo a prop for the one caller that disagrees with it is how a
+                shared control stops being shared. The chips above already offer the
+                library's languages, so nothing here is unreachable — a language the
+                reader has not used is spelled out, Enter adds it, the button adds it,
+                exactly as this box has always worked. */}
             <Field
               label={t('quotes.board.form.language.label')}
               value={newLanguage}

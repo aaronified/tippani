@@ -12,7 +12,7 @@ import { selectionClick, selectionMenuItems, useSelection } from './selection.js
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
 import { useCharacterArt } from './cast.jsx'
-import { SuggestCombo, useWorkSuggestions } from './suggest.jsx'
+import { LanguageCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
 import { CreditFaces, PersonModal, PersonName, SpeakerChips, chipRows, creditsNotOnChips, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
 import {
   GroupHeading,
@@ -2273,13 +2273,21 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
       {/* WHAT THE LINE IS IN (0071), immediately above the translation because it
           is the fact that RANKS the two texts — the app cannot decide which of them
           leads without it. A name, so it takes the capital hint. */}
-      <input
-        className="tp-input"
-        autoCapitalize="words"
+      {/* NO VISIBLE LABEL, because its neighbours have none — this form is a stack of
+          bare inputs carrying aria-labels, and a single labelled row would read as the
+          one field that mattered. LanguageCombo draws no MonoLabel when it is given
+          only an ariaLabel.
+
+          THE `.tp-field` WRAPPER COSTS NOTHING HERE, which is worth saying because it
+          is the one language site that was not already a Field. index.css:1800-1801
+          gives it `display: block` and a 14px top margin ONLY between two adjacent
+          `.tp-field`s; this one's neighbours are a `div.grid` and a `textarea`, so
+          there is no adjacency and no margin to gain. */}
+      <LanguageCombo
         placeholder={t('common.field.language.placeholder')}
-        aria-label={t('common.field.language.label')}
+        ariaLabel={t('common.field.language.label')}
         value={language}
-        onChange={(e) => setLanguage(e.target.value)}
+        onChange={setLanguage}
       />
       <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
                 aria-label={t('common.field.translation.label')}

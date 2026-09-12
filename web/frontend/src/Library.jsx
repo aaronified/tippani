@@ -3,7 +3,7 @@ import { coverImgURL, json, errText, downloadPost } from './api.js'
 import { chapterLabel, chapterPatch } from './text.js'
 import { locatorMeta } from './attribution.js'
 import { usePersonOpener } from './personOpen.jsx'
-import { CastCombo, OfferChip, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
+import { CastCombo, LanguageCombo, OfferChip, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
 import { CoverControls, BookLookupPicker } from './CoverPicker.jsx'
 import { FlowQuote } from './flow.jsx'
 import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
@@ -2650,12 +2650,11 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
       {/* WHAT THE LINE IS IN, immediately above the translation because it is the
           fact that RANKS the two texts: without it the app cannot decide which of
           them leads. A name, so it takes the capital hint. */}
-      <Field
+      <LanguageCombo
         label={t('common.field.language.label')}
-        nameCase
         placeholder={t('common.field.language.placeholder')}
         value={language}
-        onChange={(e) => setLanguage(e.target.value)}
+        onChange={setLanguage}
       />
 
       {/* A TEXTAREA AND NOT A ONE-LINE BOX, like the quote it translates and unlike

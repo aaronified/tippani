@@ -25,7 +25,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
-import { CastCombo, OfferChip, SuggestCombo, useTagNames, useWorkSuggestions } from './suggest.jsx'
+import { CastCombo, LanguageCombo, OfferChip, SuggestCombo, useTagNames, useWorkSuggestions } from './suggest.jsx'
 import { t } from './i18n.js'
 import { BoardForm, useBoards } from './boards.jsx'
 import { QUOTE_KIND_DOORS, doorForBoard, fieldsFor, showsField, splitPair } from './addFields.js'
@@ -1458,7 +1458,7 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
       case 'source_author':
         return <Field key={key} label={t('common.field.source-author.label')} nameCase placeholder={t('add.form.source-author.placeholder')} value={draft.source_author} onChange={(e) => set({ source_author: e.target.value })} />
       case 'language':
-        return <Field key={key} label={t('common.field.language.label')} nameCase placeholder={t('common.field.language.placeholder')} value={draft.language} onChange={(e) => set({ language: e.target.value })} />
+        return <LanguageCombo key={key} label={t('common.field.language.label')} placeholder={t('common.field.language.placeholder')} value={draft.language} onChange={(v) => set({ language: v })} />
       case 'tags':
         // A TOKEN INPUT, not the comma-separated box the old card used. The edit
         // forms have had this since tags existed; the capture form asked you to

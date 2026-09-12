@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Every language box offers what you already use.** The language field on a
+  highlight, a film line, a standalone quote, the capture card, an imported row and a
+  work now suggests as you type — **your own languages first**, then the rest of the
+  ninety-one, each with its own name for itself underneath (Bengali · বাংলা). It is
+  still free text: a language nothing has heard of is typed and kept exactly as typed.
 - **A language's mark is a letter that belongs to it, not just a letter nobody else
   took.** Assamese wore **অ** — the first letter of অসমীয়া, and also the first vowel of
   the script Bengali writes, so it told you the board was in *some* Bengali-script

@@ -5,7 +5,7 @@ import { t, tNodes } from './i18n.js'
 import { quoteKindMeta } from './quoteKind.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { chapterLabel, episodeLabel } from './text.js'
-import { CastCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
+import { CastCombo, LanguageCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
 import { fieldKeys, QUOTE_KIND_DOORS } from './addFields.js'
 // THE APP'S ONE ANSWER to "a path stored is not a picture arriving" — the same
 // component every other face and cover in the app goes through, so a missing
@@ -1295,7 +1295,9 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
       // On every door, and an import is where it is most often missing: a clippings
       // export of a Bengali novel arrives with none at all.
       case 'language':
-        return <Field key={key} label={t('common.field.language.label')} nameCase placeholder={t('common.field.language.placeholder')} value={f.language} onChange={upd('language')} />
+        // A COMBO RATHER THAN upd('language'), which takes an event; Combo hands its
+        // caller a string, so this one site cannot share the generic setter.
+        return <LanguageCombo key={key} label={t('common.field.language.label')} placeholder={t('common.field.language.placeholder')} value={f.language} onChange={(v) => setF({ ...f, language: v })} />
       default:
         // A key WRITABLE admits and this switch does not draw. Unreachable while the
         // two agree, and silent rather than thrown because a form that crashes on an
