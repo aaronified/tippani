@@ -13,7 +13,7 @@
 // first one is how this becomes a mis-filing bug.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const BOOKS = { books: [{ id: 4, title: 'The Dispossessed', author: 'Le Guin' }] }
 const MOVIES = { movies: [{ id: 9, title: 'Casablanca', media_type: 'movie' }] }
@@ -45,20 +45,40 @@ beforeEach(() => {
 // `door="annotation"` because a sitting is ABOUT the work: the memory that
 // matters is which book you are holding, and only the two work-backed doors have
 // a work to remember. The colour and the tags are shared with every door.
-const open = () => render(<QuoteForm door="annotation" onSaved={() => {}} />)
+// THE WORK IS NOT DRAWN ON THIS FORM ANY MORE, and these cases used to read it
+// off the "which book" row — a row the owner had removed as a second copy of the
+// header's own name. Four of them then passed VACUOUSLY: `queryByText('The
+// Dispossessed')` is null on a form that never prints a title, so "it forgot the
+// work" and "it never knew one" became the same green.
+//
+// So the sitting is asserted by its CONSEQUENCE instead: a form with no work
+// cannot save, and says so in `why`. That is the thing the memory exists to buy —
+// the next quote goes to the same book without being asked again — and unlike a
+// label it cannot be satisfied by rendering nothing.
+const TARGET_REQUIRED = 'Pick a book, film or show'
+const open = () => {
+  const state = {}
+  render(<QuoteForm door="annotation" onSaved={() => {}} onSaveState={(v) => Object.assign(state, v)} />)
+  return state
+}
+// A quote typed in, so `why` is answering about the WORK rather than about the
+// empty words every fresh form has.
+const withQuote = async (state) => {
+  fireEvent.change(await screen.findByLabelText('Quote'), { target: { value: 'a line' } })
+  return state
+}
+const hasWork = (state) => waitFor(() => expect(state.why).not.toBe(TARGET_REQUIRED))
+const hasNoWork = (state) => waitFor(() => expect(state.why).toBe(TARGET_REQUIRED))
 
 describe('a sitting', () => {
   it('starts the next capture on the same work', async () => {
     remember()
-    open()
-    // The picker shows what it chose, which is what keeps it from being silent.
-    expect(await screen.findByText('The Dispossessed')).toBeTruthy()
+    await hasWork(await withQuote(open()))
   })
 
   it('starts it with the same colour and tags', async () => {
     remember()
-    open()
-    await screen.findByText('The Dispossessed')
+    await hasWork(await withQuote(open()))
     // The tag field carries the words, so the next quote is one keystroke from
     // being tagged the same way rather than a re-typing exercise.
     // PILLS, NOT A COMMA BOX. The form took a token input in the add-surface
@@ -73,24 +93,24 @@ describe('a sitting', () => {
     // place with nothing on screen to say so — while a colour and a tag carry no
     // such risk, and their worst case is visible on the card.
     remember({ at: Date.now() - 31 * 60 * 1000 })
-    open()
+    const state = open()
     await waitFor(() => expect(screen.getByText('grief')).toBeTruthy())
     expect(screen.getByText('craft')).toBeTruthy()
-    expect(screen.queryByText('The Dispossessed')).toBeNull()
+    await hasNoWork(await withQuote(state))
   })
 
   it('never carries the quote itself', async () => {
     // The words are the one thing that is never the same twice, and a form that
     // came back holding the last quote is a form somebody saves twice by accident.
     remember({ quote: 'the last thing I saved' })
-    open()
-    await screen.findByText('The Dispossessed')
+    const state = open()
     expect(screen.queryByDisplayValue('the last thing I saved')).toBeNull()
+    // The work still came back — it is the quote alone that is dropped.
+    await hasWork(await withQuote(state))
   })
 
   it('opens cold with nothing remembered', async () => {
-    open()
-    await waitFor(() => expect(screen.queryByText('The Dispossessed')).toBeNull())
+    await hasNoWork(await withQuote(open()))
     expect(screen.queryByText('grief')).toBeNull()
   })
 
@@ -99,8 +119,9 @@ describe('a sitting', () => {
     // does not recognise must leave the form empty rather than throwing on mount —
     // this is the capture surface, and it failing to open is losing the quote.
     localStorage.setItem(KEY, '{"nonsense":true}')
-    expect(() => open()).not.toThrow()
-    await waitFor(() => expect(screen.queryByText('The Dispossessed')).toBeNull())
+    let state
+    expect(() => { state = open() }).not.toThrow()
+    await hasNoWork(await withQuote(state))
     localStorage.setItem(KEY, 'not json at all')
     expect(() => open()).not.toThrow()
   })
@@ -109,7 +130,6 @@ describe('a sitting', () => {
     // Deleted in another tab, or by somebody else. The list that lands is the only
     // source of truth for what can be picked.
     remember({ targetKey: 'book:999' })
-    open()
-    await waitFor(() => expect(screen.queryByText('The Dispossessed')).toBeNull())
+    await hasNoWork(await withQuote(open()))
   })
 })

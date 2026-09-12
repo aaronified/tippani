@@ -103,7 +103,10 @@ describe('capturing onto a board', () => {
 
   it('does not offer a board for a highlight against a book', async () => {
     render(<QuoteForm door="annotation" initialTarget={{ type: 'book', id: 4 }} onSaved={() => {}} />)
-    expect(await screen.findByText('The Dispossessed')).toBeTruthy()
+    // Waited on the form being up, which this used to do by finding the work's
+    // title in the "which book" row — a row that is gone, because the sheet's
+    // header already names the work. The Quote box is the form.
+    expect(await screen.findByLabelText('Quote')).toBeTruthy()
     // A board holds standalone quotes. Offering one here would promise a filing
     // that the annotation route has nowhere to put.
     expect(screen.queryByLabelText('Board')).toBeNull()

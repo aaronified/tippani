@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   typed. The one box that stays plain is the board form's "add a language", because
   there Enter and clicking away mean different things and a suggestion box cannot
   tell them apart.
+- **The capture sheet names the work once.** Adding a quote to a book showed its
+  title and author in the header and then again in a "which book" row underneath,
+  with a *change* link — and pressing *change* moved the row and not the header, so
+  the sheet could end up showing two different works at once. The row is gone. The
+  header names the work, as it already did; to file a quote against a different one,
+  open that one.
 - **A quote is set in its own language's face.** The Bengali and Devanagari faces
   have been in Settings since the type dials shipped, and nothing but the wordmark
   ever wore one — your Bengali highlights drew in the Latin text face, on the one

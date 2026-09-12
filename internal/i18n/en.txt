@@ -3098,8 +3098,6 @@ add.door.board.label = Board
 add.door.annotation.label = From a book
 add.door.dialogue.label = From a screen
 add.door.import.label = Drop files in
-add.door.annotation.target.label = Which book
-add.door.dialogue.target.label = Which film, show or game
 add.door.board.save.label = Make the board
 # The disclosure that holds the fields this kind rarely needs. The words say what
 # is behind it rather than naming a direction, because "More" over a form tells

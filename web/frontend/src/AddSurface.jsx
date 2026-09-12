@@ -1018,7 +1018,6 @@ export function AddChooser({
 // by a reader who never saw a box for it. `showsField` is the gate, in one place.
 export function QuoteForm({ door, initialTarget, initialBoard, initialFields, onSaved, onWorkCreated, onSaveState }) {
   useBodyScrollLock(true)
-  const [works, setWorks] = useState(null)
   const [creating, setCreating] = useState(null)
   const [showAll, setShowAll] = useState(false)
   const [err, setErr] = useState('')
@@ -1123,7 +1122,11 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
       // that silently changes which endpoint Save hits.
       const want = door === 'annotation' ? 'book' : 'screen'
       const mine = list.filter((w) => w.kind === want)
-      setWorks(mine)
+      // NOT HELD IN STATE ANY MORE. This list had two jobs — fill the "which book"
+      // picker and resolve the work this form opened against — and the picker is
+      // gone (see the form below). What is left is the resolve: turning the id the
+      // surface opened with, or the one a sitting draft remembers, into the lean
+      // record the fields read.
       if (initialTarget) {
         const hit = mine.find((w) => w.id === initialTarget.id)
         if (hit) setDraft((d) => ({ ...d, target: hit }))
@@ -1243,7 +1246,8 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
   }, [missing, busy, draft])
 
   function targetCreated(work) {
-    setWorks((list) => [work, ...(list || [])])
+    // No list to prepend to: the work created here becomes this quote's target
+    // and the next form's fetch will find it like any other.
     set({ target: work })
     setCreating(null)
     onWorkCreated?.()
@@ -1508,17 +1512,25 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
       {initialFields && (
         <p className="microcopy" style={{ color: 'var(--accent-ui)' }}>{t('capture.form.duplicate.prose')}</p>
       )}
-      {needsWork && (
-        <div className="tp-field">
-          <MonoLabel>{t(`add.door.${door}.target.label`)}</MonoLabel>
-          <WorkPicker
-            works={works}
-            value={draft.target}
-            onChange={(w) => { set({ target: w }); if (w) setCreating(null) }}
-            onCreate={(title) => { setErr(''); setCreating({ title }) }}
-          />
-        </div>
-      )}
+      {/* NO "WHICH BOOK" ROW. The header above already names the work and its
+          author, so this was the same fact twice — and worse, the two were read
+          from different places: the header from the SURFACE's `target`, this row
+          from the FORM's `draft.target`. Changing it here moved nothing above,
+          which is what the owner saw: "the header has the work name already. Why
+          do we still have the name and changing option? If i change there, the
+          header doesn't change and it is confusing. Remove the chooser."
+
+          IT COULD NEVER HAVE BEEN THE ONLY WAY TO NAME ONE, which is what makes
+          removing it safe rather than a trade. `annotation` and `dialogue` are
+          WORK_QUOTE_DOORS, and `doorsFor` produces them from `mode === 'work'`
+          with a non-null target and from nowhere else (addModes.js) — so by the
+          time this form exists the work is settled, `initialTarget` is set, and
+          the header is drawing it. A reader who opened the wrong book closes the
+          sheet and opens the right one, which is the same gesture as before and
+          one screen shorter.
+
+          The surface's OWN picker is untouched (AddChooser): that one asks before
+          there is a header to answer, and its onChange is what moves the header. */}
       {creating && !draft.target && (
         <div className="space-y-2.5" style={{ border: '1.4px dashed var(--ink-border)', borderRadius: 10, padding: '10px 12px' }}>
           <div className="flex items-center justify-between gap-2">

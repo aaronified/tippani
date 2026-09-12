@@ -294,11 +294,17 @@ describe('a form shows only its own fields', () => {
     // one would be a box whose value is discarded without a word.
     const state = form('dialogue', { initialTarget: { type: 'movie', id: 9 } })
     await screen.findByLabelText('Quote')
-    // The picker wears a MonoLabel over it rather than an aria-label on an input,
-    // so this reads the words rather than the binding.
-    expect(await screen.findByText('Which film, show or game')).toBeTruthy()
-    expect(await screen.findByText('Stalker')).toBeTruthy()
+    // NO "WHICH FILM" ROW ANY MORE, and nothing is lost by asserting its absence
+    // instead of its contents: the sheet's header names the work, and this row
+    // repeated it from a different variable — so pressing `change` here moved the
+    // name below and not the one above. The owner: "the header has the work name
+    // already … Remove the chooser."
+    expect(screen.queryByText('Which film, show or game')).toBeNull()
     fireEvent.change(screen.getByLabelText('Quote'), { target: { value: "Let everything come true" } })
+    // THE TARGET STILL RESOLVED, which is what the row used to prove by printing
+    // "Stalker". `canSave` cannot go true while `draft.target` is empty (see
+    // `missing`), so the fetch that turns an opened id into a work is still under
+    // test — through the guarantee that depends on it rather than through a label.
     await waitFor(() => expect(state.canSave).toBe(true))
     await state.save()
     const body = posted[posted.length - 1].body
@@ -405,5 +411,37 @@ describe('what a form sends', () => {
     expect(body).toHaveProperty('translation')
     expect(body).toHaveProperty('region')
     expect(body.tags).toEqual([])
+  })
+})
+
+// THE WORK IS NAMED ONCE, in the header, and the sheet has no second opinion.
+//
+// The owner, over a phone screenshot of the book sheet: "the header has the work
+// name already. Why do we still have the name and changing option? If i change
+// there, the header doesn't change and it is confusing. Remove the chooser."
+//
+// BOTH HALVES OF THAT ARE ONE CAUSE. The header read the SURFACE's `target` and
+// the row read the FORM's `draft.target`, so the row could not move the header —
+// the repo's own directive against a fact living in two places, with the
+// confusing screen as the receipt.
+//
+// It could never have been the only way to name a work, which is what makes
+// removing it a fix rather than a trade: `annotation` and `dialogue` come from
+// `doorsFor('work', target)` and from nowhere else, so by the time this sheet
+// exists the work is settled and the header is drawing it.
+describe('the work a quote is being added to', () => {
+  it('is named by the header and nowhere else on the sheet', async () => {
+    surface({ initialSection: 'book', initialTarget: { type: 'book', id: 4 } })
+    await screen.findByLabelText('Quote')
+
+    // ONCE, which is the assertion — not "somewhere". The defect was a second
+    // copy, so a case that only checked the header was present would have passed
+    // before the fix as well.
+    expect(await screen.findByText('The Dispossessed')).toBeTruthy()
+    expect(screen.getAllByText('The Dispossessed').length).toBe(1)
+    // And the row that used to repeat it, with a `change` that moved nothing, is
+    // gone — label, value and link together.
+    expect(screen.queryByText('Which book')).toBeNull()
+    expect(screen.queryByText('change')).toBeNull()
   })
 })
