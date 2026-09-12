@@ -94,6 +94,7 @@ describe('a favourite carries the face its language is set in', () => {
       .toContain('--font-quote')
     applyFonts({}, '')
   })
+
 })
 
 describe('the favourites wall', () => {

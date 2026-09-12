@@ -8530,7 +8530,9 @@ html[data-theme="dark"] .board-cover {
   margin: 8px 0 0;
   padding: 2px 0 2px 14px;
   border-left: 3px solid var(--entry-color, var(--line));
-  font-family: var(--font-display);
+  /* QUOTE_FACE's spelling — an anthology entry IS a quote, so it reads in the
+     face its language was set in like every other quote surface. */
+  font-family: var(--font-quote, var(--font-display));
   font-style: var(--font-display-style);
   font-variant-caps: var(--font-display-caps);
   text-transform: var(--font-display-case);

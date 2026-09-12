@@ -2174,10 +2174,15 @@ export function MatchWindow({ text, terms, style, className = '' }) {
       <IconChevron open={dir === 'up'} size={13} />
     </span>
   )
+  // THE WINDOWED BRANCH CARRIES THE CLASS TOO, and it did not for one commit —
+  // which is the branch that actually runs on a long quote with a match in the
+  // middle of it, i.e. most of them. A face that appears on short results and
+  // vanishes on long ones is worse than one that never appears: the reader sees
+  // it working and cannot tell what turned it off.
   return (
     <span style={{ display: 'block' }}>
       {before && chev('up')}
-      <span style={qStyle}><Highlight text={s.slice(start, end)} terms={terms} /></span>
+      <span className={className} style={qStyle}><Highlight text={s.slice(start, end)} terms={terms} /></span>
       {after && chev('down')}
     </span>
   )

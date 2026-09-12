@@ -211,8 +211,12 @@ type anthologyEntryRow struct {
 
 	Quote     string `json:"quote"`
 	QuoteNote string `json:"quote_note"`
-	Color     string `json:"color"`
-	Favorite  bool   `json:"favorite"`
+	// Language is the passage's own language, carried for the face the reader set
+	// for it — an anthology is a page of quotes and reads in the same type the
+	// cards do. Nothing here decides anything with it; see fonts.js.
+	Language string `json:"language"`
+	Color    string `json:"color"`
+	Favorite bool   `json:"favorite"`
 	// Source is where the passage came from — a book or film title, or a
 	// standalone quote's occasion — and Credit is who is answerable for it: an
 	// author, an actor, a speaker. Two fields rather than one formatted string,
@@ -456,7 +460,8 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		       --
 		       -- NO BACKTICKS IN THIS COMMENT, and none anywhere in this string: it is
 		       -- a Go RAW string literal, so one would end the query here.
-		       COALESCE(b.author,''), COALESCE(a.character,'')
+		       COALESCE(b.author,''), COALESCE(a.character,''),
+		       COALESCE(a.language,'')
 		  FROM anthology_entries e
 		  JOIN annotations a ON a.id = e.item_id
 		  JOIN books b ON b.id = a.book_id
@@ -485,7 +490,8 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		       -- A film line's person is the ACTOR and not the director: the line was
 		       -- said by one of them, and people is one row per name either way. The
 		       -- director is a field of the WORK and has its own registry row.
-		       COALESCE(d.actor,''), COALESCE(d.character,'')
+		       COALESCE(d.actor,''), COALESCE(d.character,''),
+		       COALESCE(d.language,'')
 		  FROM anthology_entries e
 		  JOIN dialogues d ON d.id = e.item_id
 		  JOIN movies m ON m.id = d.movie_id
@@ -515,7 +521,8 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		       -- a people row when one exists, never a foreign key."
 		       -- utterances has no character column (0026), so the cast join has
 		       -- nothing to key on for a standalone quote and this is always ''.
-		       COALESCE(u.speaker,''), ''
+		       COALESCE(u.speaker,''), '',
+		       COALESCE(u.language,'')
 		  FROM anthology_entries e
 		  JOIN utterances u ON u.id = e.item_id
 		 WHERE e.anthology_id = ? AND e.kind = 'utterance' AND u.user_id = ?
@@ -530,7 +537,8 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		var e anthologyEntryRow
 		if err := rows.Scan(&e.Kind, &e.ItemID, &e.Position, &e.Note,
 			&e.Quote, &e.QuoteNote, &e.Color, &e.Favorite, &e.Source, &e.Credit, &e.WorkID,
-			&e.Locator, &e.Date, &e.QuoteKind, &e.WorkTitle, &e.PersonName, &e.CharacterName); err != nil {
+			&e.Locator, &e.Date, &e.QuoteKind, &e.WorkTitle, &e.PersonName, &e.CharacterName,
+			&e.Language); err != nil {
 			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] entry scan failed: %v", err)
 			continue
 		}

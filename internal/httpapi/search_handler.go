@@ -63,6 +63,13 @@ type annotationHit struct {
 	// from dialogueHits, and a section mixing books and films under one name is a
 	// layout decision for the design pass rather than a column.
 	Character string `json:"character"`
+	// THE LINE'S OWN LANGUAGE (0071), carried for exactly what utteranceHit has
+	// carried it for since it was added: the face the reader set for that
+	// language. A search hit IS the quote, drawn in the same type as the card it
+	// came from — and without this field the class on the hit resolves to nothing
+	// and the result reads in a face nobody chose, which is the one place a
+	// reader sees their own quote beside somebody else's.
+	Language string `json:"language"`
 	// 0051. On the hit for the reason utteranceHit.Translation is: it is what
 	// MATCHED — a result whose search term appears in nothing the card shows reads
 	// as a wrong result, and a translated highlight is now findable by its English.
@@ -139,6 +146,7 @@ type dialogueHit struct {
 	Character      string   `json:"character"`
 	Actor          string   `json:"actor"`
 	Timestamp      string   `json:"timestamp"`
+	Language       string   `json:"language"`    // 0071; see annotationHit.Language
 	Translation    string   `json:"translation"` // 0051; see annotationHit.Translation
 	episodeRef              // shows only; null on a film's lines
 
@@ -288,7 +296,7 @@ const (
 	// nothing: `b`/`m` is already joined here, because for a child row that join
 	// IS the ownership check (see searchSources).
 	annotationHitCols = `a.id, a.book_id, b.title, COALESCE(b.cover_path, ''),
-		COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color, a.character, a.translation,
+		COALESCE(a.quote, ''), COALESCE(a.note, ''), a.color, a.character, COALESCE(a.language, ''), a.translation,
 		COALESCE(b.author, ''), COALESCE(b.published_year, 0), COALESCE(b.series, ''),
 		a.review_excluded, b.review_excluded`
 	movieHitCols = `m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
@@ -297,7 +305,7 @@ const (
 		m.review_excluded`
 	dialogueHitCols = `d.id, d.movie_id, m.title, COALESCE(m.poster_path, ''), d.quote,
 		COALESCE(d.note, ''), d.color, COALESCE(d.character, ''), COALESCE(d.actor, ''), COALESCE(d.timestamp, ''),
-		d.translation, d.season, d.episode,
+		COALESCE(d.language, ''), d.translation, d.season, d.episode,
 		COALESCE(m.director, ''), COALESCE(m.release_year, 0), COALESCE(m.series, ''),
 		COALESCE(m.media_type, 'movie'),
 		d.review_excluded, m.review_excluded`
@@ -318,7 +326,7 @@ func scanBookHit(rows *sql.Rows) (bookHit, error) {
 
 func scanAnnotationHit(rows *sql.Rows) (annotationHit, error) {
 	h := annotationHit{BookGenres: []string{}}
-	err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note, &h.Color, &h.Character, &h.Translation,
+	err := rows.Scan(&h.ID, &h.BookID, &h.BookTitle, &h.BookCoverPath, &h.Quote, &h.Note, &h.Color, &h.Character, &h.Language, &h.Translation,
 		&h.BookAuthor, &h.BookYear, &h.BookSeries,
 		&h.ReviewExcluded, &h.WorkReviewExcluded)
 	return h, err
@@ -334,7 +342,7 @@ func scanMovieHit(rows *sql.Rows) (movieHit, error) {
 func scanDialogueHit(rows *sql.Rows) (dialogueHit, error) {
 	h := dialogueHit{MovieGenres: []string{}}
 	err := rows.Scan(&h.ID, &h.MovieID, &h.MovieTitle, &h.MoviePosterPath, &h.Quote, &h.Note, &h.Color,
-		&h.Character, &h.Actor, &h.Timestamp, &h.Translation, &h.Season, &h.Episode,
+		&h.Character, &h.Actor, &h.Timestamp, &h.Language, &h.Translation, &h.Season, &h.Episode,
 		&h.MovieDirector, &h.MovieYear, &h.MovieSeries, &h.MovieMediaType,
 		&h.ReviewExcluded, &h.WorkReviewExcluded)
 	return h, err

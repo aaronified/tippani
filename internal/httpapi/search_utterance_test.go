@@ -260,3 +260,78 @@ func TestSearchCorrectsATypoAgainstQuoteVocabulary(t *testing.T) {
 		t.Fatalf("the corrected pass found %d quotes", len(res.Quotes))
 	}
 }
+
+// ---- the face a search hit is drawn in ---------------------------------------
+//
+// A SEARCH HIT IS THE QUOTE, and it reads in the face the reader set for its
+// language like every other quote surface. The client asks each hit for its
+// `language` (SearchPage.jsx); the field existed on a standalone quote's hit and
+// on neither of the other two, so `languageClass(h.language)` was permanently ”
+// on book and film results — the class was there, the face never arrived, and a
+// CHANGELOG entry said search was covered.
+//
+// THIS IS THE HALF NO FRONTEND TEST CAN SEE. A vitest case renders a hit it built
+// itself, so it proves the class is applied and can say nothing about whether the
+// server ever sends the field to put in it.
+func TestASearchHitCarriesItsQuotesLanguage(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Die Räuber", "author": "Friedrich Schiller"}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "Mir ekelt vor diesem tintenklecksenden Saeculum",
+		"language": "German",
+	}, http.StatusCreated)
+
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Nosferatu"}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "Mir ekelt vor dem Morgen", "language": "German",
+	}, http.StatusCreated)
+
+	res := decode[struct {
+		Annotations []struct {
+			Language string `json:"language"`
+		} `json:"annotations"`
+		Dialogues []struct {
+			Language string `json:"language"`
+		} `json:"dialogues"`
+	}](t, c.mustDo("GET", "/search?q=ekelt", nil, http.StatusOK))
+
+	// NEITHER LIST MAY BE EMPTY, or the assertions below are true of nothing —
+	// the shape this file's other cases already guard against.
+	if len(res.Annotations) != 1 || len(res.Dialogues) != 1 {
+		t.Fatalf("the search found %d highlights and %d lines, want one of each",
+			len(res.Annotations), len(res.Dialogues))
+	}
+	if res.Annotations[0].Language != "German" {
+		t.Errorf("a book hit lost its language: %q", res.Annotations[0].Language)
+	}
+	if res.Dialogues[0].Language != "German" {
+		t.Errorf("a film hit lost its language: %q", res.Dialogues[0].Language)
+	}
+}
+
+// AND AN ANTHOLOGY ENTRY CARRIES ONE TOO, for the same reason and on the surface
+// that is most obviously a page of quotes.
+func TestAnAnthologyEntryCarriesItsQuotesLanguage(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Die Räuber"}, http.StatusCreated))
+	ann := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "ein Satz", "language": "German",
+	}, http.StatusCreated))
+	a := newAnthology(t, c, "Deutsch")
+	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann.ID}})
+
+	got := getAnthology(t, c, a.ID)
+	if len(got.Entries) != 1 {
+		t.Fatalf("want one entry, got %d", len(got.Entries))
+	}
+	if got.Entries[0].Language != "German" {
+		t.Errorf("the anthology entry lost its language: %q", got.Entries[0].Language)
+	}
+}

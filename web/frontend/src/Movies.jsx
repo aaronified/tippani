@@ -31,7 +31,7 @@ import {
 } from './works.jsx'
 import { KINDS } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
-import { QUOTE_FACE } from './fonts.js'
+import { QUOTE_FACE, languageClass } from './fonts.js'
 import { t } from './i18n.js'
 import { quoteTexts } from './text.js'
 import { useTextOrder } from './textOrderHost.jsx'
@@ -1587,7 +1587,13 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
           {rows.map((d) => (
             <tr key={d.id}>
               <td className="col-quote">
-                <ExpandableText text={d.quote} lines={2} style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic' }} />
+                {/* THE TABLE CELL TAKES THE FACE TOO. It prints `d.quote` directly
+                    — no quoteTexts, so no text-order either, which is a real
+                    difference from the book table next door and is #171's to
+                    settle — but the slot IS the quote, so the language answers
+                    with no order involved. Without this the same line reads in
+                    two faces between the frame view and the table view. */}
+                <ExpandableText text={d.quote} lines={2} className={languageClass(d.language)} style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic' }} />
                 {d.tags?.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {d.tags.map((name) => {

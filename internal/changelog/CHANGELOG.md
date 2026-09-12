@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **And the face now reaches the last four places it was missing**: a book or film
+  **search result** (their hits carried no language at all, so the setting was
+  invisible there even though the previous entry said otherwise), a **long** search
+  result whose match is windowed, the **film table view**, and an **anthology**
+  page. An anthology is a page of quotes and now reads like one.
+
 - **The per-language face now actually draws.** The picker shipped working and the
   type did not change: the rule that set your language's face lost, every time, to
   the one each quote already carried. It is a variable now, which the quote reads

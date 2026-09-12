@@ -1583,7 +1583,12 @@ const MEDIA_BADGE = {
 // THE CHARACTER, NOT JUST THE ACTOR. The old line printed `credit`, which for a
 // film is who ACTED. A reader looking at a line from Casablanca wants Rick Blaine
 // first and Humphrey Bogart second, and the row had no field for the former.
-function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, actions }) {
+// EXPORTED FOR THE SUITE. It is a quote slot, and quote slots have a rule to keep
+// — defer to --font-quote rather than name a face. It does not render in a plain
+// Home mount (the wall does), so a test that went through the screen could only
+// ever assert the TILE while claiming to cover this; a commit body claimed exactly
+// that before a rater caught it.
+export function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, actions }) {
   const kind = FAV_KINDS[q.kind]
   const [hearted, setHearted] = useState(!!q.favorite)
   const [busy, setBusy] = useState(false)

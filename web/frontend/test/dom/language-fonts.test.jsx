@@ -300,6 +300,26 @@ describe('every quote slot defers to the language, rather than naming a face', (
     })
   }
 
+  // HOME'S QUOTE-OF-THE-MOMENT, which is a SECOND quote component on that screen
+  // and does not render in a plain Home mount — so the only honest way to cover it
+  // is to draw it. A commit body claimed it was covered when the case it pointed
+  // at could only reach the tile; the rater that caught that is worth more than
+  // the case it asked for.
+  it('Home\'s serendipity card resolves it', async () => {
+    const { SerendipityCard } = await import('../../src/Home.jsx')
+    applyFonts({ fontsByLanguage: JSON.stringify({ german: 'literata' }) }, '')
+    const { container } = render(
+      <SerendipityCard q={{ id: 1, quote: 'Alle Menschen werden Brüder', language: 'German', kind: 'quote', speaker: 'Schiller', tags: [], color: 'yellow' }} />,
+    )
+    // CONTAINS, not equals: this card wraps a quotable kind in “ ” , so the
+    // innermost node holding the words is not textually identical to them.
+    const el = [...container.querySelectorAll('*')].reverse()
+      .find((n) => n.textContent.includes('Alle Menschen werden Brüder'))
+    expect(el, 'the card drew no quote').toBeTruthy()
+    expect(getComputedStyle(el).getPropertyValue('--font-quote')).toContain('Literata')
+    expect(el.closest('[style*="font-family"]').style.fontFamily).toContain('--font-quote')
+  })
+
   // THE DECK, which is the surface a reader meets a quote on most often and the
   // last one the per-language type reached. Its language comes off the card the
   // server sends (reviewCard.Language) — see review_utterance_test.go for the
@@ -315,6 +335,37 @@ describe('every quote slot defers to the language, rather than naming a face', (
     expect(getComputedStyle(el).getPropertyValue('--font-quote'),
       'the deck draws a quote in a face the reader did not choose').toContain('Literata')
     expect(el.closest('[style*="font-family"]').style.fontFamily).toContain('--font-quote')
+  })
+
+  // THE WINDOWED BRANCH, which is the one a real search hit takes. MatchWindow
+  // slices a long quote around the match and returns a DIFFERENT tree — and that
+  // branch dropped the class for a commit, so the face appeared on short results
+  // and vanished on long ones. The case above renders the short branch; this one
+  // forces the long one, because "it works" on the branch nobody hits is worse
+  // than not working at all.
+  it('and MatchWindow keeps it on the branch a long quote takes', () => {
+    applyFonts({ fontsByLanguage: JSON.stringify({ german: 'literata' }) }, '')
+    const long = 'Der Mensch ist frei geschaffen, ist frei, '.repeat(12) + 'und würd er in Ketten geboren'
+    const { container } = render(
+      <MatchWindow text={long} terms={['Ketten']} className={languageClass('German')} style={QUOTE_STYLE} />,
+    )
+    const el = [...container.querySelectorAll('*')].reverse().find((n) => n.textContent.includes('Ketten'))
+    expect(el, 'nothing was drawn').toBeTruthy()
+    expect(getComputedStyle(el).getPropertyValue('--font-quote'),
+      'a long search hit loses the face a short one keeps').toContain('Literata')
+  })
+
+  // THE ANTHOLOGY ENTRY, which is a whole page of quotes and was the last surface
+  // still drawing in the display face. It draws through `.anthology-quote` in the
+  // stylesheet, so the assertion is the variable reaching the words.
+  it('an anthology entry resolves it', async () => {
+    applyFonts({ fontsByLanguage: JSON.stringify({ german: 'literata' }) }, '')
+    const { container } = render(
+      <blockquote className={`anthology-quote ${languageClass('German')}`.trim()}>Der Mensch ist frei</blockquote>,
+    )
+    const el = textNode(container, 'Der Mensch ist frei')
+    expect(getComputedStyle(el).getPropertyValue('--font-quote'),
+      'an anthology entry ignores the face its language was set in').toContain('Literata')
   })
 
   // TranslationLine draws through the stylesheet rather than an inline style, so

@@ -38,6 +38,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { DEMO, apiURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { quoteKindLabel } from './quoteKind.js'
+import { languageClass } from './fonts.js'
 import { categoryVar } from './theme.js'
 import { usePractice } from './review.jsx'
 // THE SEARCH SCREEN'S OWN BOX, imported rather than rebuilt. See RuleDialog below:
@@ -793,8 +794,11 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
               is one of the six switches. Hidden, the bar takes the neutral rule the
               card would have had anyway rather than disappearing and leaving the
               passage unmarked. */}
+          {/* THE ENTRY'S OWN LANGUAGE. An anthology is a page of quotes and this
+              is one of them — the last surface in the app that was still drawing
+              a reader's German in the display face. */}
           <blockquote
-            className="anthology-quote"
+            className={`anthology-quote ${languageClass(entry.language)}`.trim()}
             style={{ '--entry-color': fields.hide_colour ? 'var(--line)' : categoryVar(entry.color) }}
           >
             {entry.quote}

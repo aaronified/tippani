@@ -13676,8 +13676,17 @@ jsdom does not resolve `var()` inside `font-family`, so the honest assertion is 
 pair: the element RESOLVES `--font-quote` to the chosen family (which proves the
 class reaches it and the rule sets a variable), and nothing between the class and
 the words names a face of its own. Both are now made per slot — ExpandableText,
-FlowQuote, TranslationLine, MatchWindow, Home's tile, Home's serendipity card and
-the quiz block — and reverting the rule to `font-family` fails five of them.
+FlowQuote, TranslationLine, MatchWindow, Home's tile and the quiz block — and
+reverting the rule to `font-family` fails five of them.
+
+**AND THAT SENTENCE NAMED A SIXTH THAT WAS NOT THERE.** The commit body and an
+earlier draft of this paragraph both claimed Home's serendipity card was covered.
+It was not: the case they pointed at rendered Home, and the serendipity card does
+not draw in a plain Home mount — only the favourites wall does, so the assertion
+could only ever reach the TILE. A rater caught the claim; the honest fix was to
+export the component and draw it, which is what `QuoteBlock` and `MatchWindow`
+already needed for the same reason. A claim about coverage is worth checking by
+counting the nodes the case actually found, which is how this one was settled.
 
 ### Two more from the same pass
 
@@ -13692,3 +13701,30 @@ is HEADED "Bengali" and KEYED `বাংলা`, which is the whole trap.
 a quote on most often and it carried no language at all. `reviewCard.Language` now
 travels — one column on each of the three deck queries, read by nothing on the
 server, which is exactly why it needed a test of its own.
+
+### And four surfaces the face still did not reach
+
+A third pass, at 7/10, found the rest of them — every one the same shape as the
+first: the class was in place and something upstream made it answer nothing.
+
+**SEARCH HITS CARRIED NO LANGUAGE AT ALL.** `annotationHit` and `dialogueHit` had
+no `Language` field; only `utteranceHit` did. So `languageClass(h.language)` on a
+book or film result was permanently `''` — and the CHANGELOG said search was
+covered. No frontend test could see it: a vitest case renders a hit it built
+itself, so it proves the class is applied and can say nothing about whether the
+server sends the field to put in it. Both structs, both SELECTs and both scans
+now carry it, with a Go case that fails when either column is dropped.
+
+**AND `MatchWindow` DROPPED IT ON THE BRANCH THAT ACTUALLY RUNS.** A quote over
+the window length returns a different tree — the slice around the match — and that
+return had no `className`. The face appeared on short results and vanished on long
+ones, which is worse than never appearing: the reader sees it work and cannot tell
+what turned it off. The new case forces the long branch by length.
+
+**THE FILM TABLE AND THE ANTHOLOGY** were simply missed. `Movies.jsx`'s table cell
+draws `d.quote` raw, so the same line read in two faces between the frame view and
+the table view; `.anthology-quote` named `var(--font-display)` and the entry
+payload carried no language. Both fixed — and the film table's OTHER difference
+from the book table next door (it does not go through `quoteTexts`, so it ignores
+text-order too) is left alone and recorded, because that is one of the two boards
+#171 exists to fold together.
