@@ -102,7 +102,12 @@ var bulkFields = map[string]bulkField{
 	"occasion":      {kinds: []string{"utterance"}, live: "occasion", staged: "occasion", notNull: true},
 	"place":         {kinds: []string{"utterance"}, live: "place", staged: "place", notNull: true},
 	"medium":        {kinds: []string{"utterance"}, live: "medium", notNull: true},
-	"kind":          {kinds: []string{"utterance"}, live: "kind"},
+	// NOT NULL since 0053, and this line was missing its flag for one commit.
+	// The extraction that built this table used a regex wanting one space after
+	// the colon; the literal it read spelled this entry "kind":   true. Clearing
+	// a quote's kind in bulk became a 500 — the exact failure the flag exists to
+	// prevent — and TestQuoteKindInBulk caught it.
+	"kind":          {kinds: []string{"utterance"}, live: "kind", notNull: true},
 	"region":        {kinds: []string{"utterance"}, live: "region", staged: "region", notNull: true},
 	"recipient":     {kinds: []string{"utterance"}, live: "recipient", staged: "recipient", notNull: true},
 	"work_title":    {kinds: []string{"utterance"}, live: "work_title", staged: "work_title", notNull: true},
