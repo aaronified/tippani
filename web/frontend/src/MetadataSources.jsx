@@ -57,6 +57,7 @@ import {
 } from './languages.jsx'
 import { TEXT_ORDERS, TEXT_ORDER_DEFAULT, TEXT_ORDER_WORD, masterIsCustom } from './textOrder.js'
 import { textOrderFrom } from './textOrderHost.jsx'
+import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 
 // StatusChip came with the block: after the move Settings had no other caller for
 // it, and a component left behind in the file that stopped using it is the shape
@@ -879,8 +880,23 @@ function CreditSeparators({ user, onPreferences }) {
 // looks like the subject. The row is the button now and the disc is what it
 // draws; only the reset glyph stays a separate control, because "put this back"
 // is not "let me look at this".
+//
+// THE LIST IS THE READER'S OWN NOW, not ten the app chose. It opens with every
+// language their quotes are actually in (the vocabulary's `languages`, which is
+// one DISTINCT over `utterances` — see vocabulary_handler.go) plus every language
+// they have marked or renamed. A language in the library is `added: false`, so its
+// row cannot be removed while rows are still stored under it; one that is only
+// marked can be dropped, because dropping it drops a mark and not a quote.
 function LanguageMarksSettings({ prefs, onSaved }) {
-  const [rows, setRows] = useState(() => languageMarksState())
+  // What the library holds, so the table opens populated rather than empty. Seeded
+  // from the cache synchronously so a second opening draws the rows on the first
+  // paint, then refreshed — this panel opens from a dialog, and a table that
+  // arrives one frame late reads as a screen that has nothing on it.
+  const [inLibrary, setInLibrary] = useState(() => cachedVocabulary()?.languages || [])
+  useEffect(() => {
+    primeSearchVocabulary().then((v) => setInLibrary(v?.languages || [])).catch(() => {})
+  }, [])
+  const [rows, setRows] = useState(() => languageMarksState(inLibrary))
   // HOW MUCH OF THE ORIGINAL, per language and for all of them.
   //
   // THE SAME ROWS, ONE MORE COLUMN. The owner asked for "a table, where i add
@@ -898,7 +914,7 @@ function LanguageMarksSettings({ prefs, onSaved }) {
   // Re-seed when the session prefs change under us — another tab, or the account
   // switching. Reads the APPLIED marks, so this stays in step with what is on
   // screen rather than with a stale prop, exactly as the colour card does.
-  useEffect(() => { setRows(languageMarksState()) }, [prefs])
+  useEffect(() => { setRows(languageMarksState(inLibrary)) }, [prefs, inLibrary])
 
   // save takes the WHOLE next entry rather than a mark, because every control in
   // the tray changes a different field of one row and a mark-shaped save would
@@ -909,14 +925,20 @@ function LanguageMarksSettings({ prefs, onSaved }) {
     all[key] = { ...cur, ...patch }
     const blob = languageMarksBlob(all)
     applyLanguageMarks({ languageMarks: blob })
-    setRows(languageMarksState(Object.keys(all)))
+    // THE ROWS COME BACK OFF THE APPLIED BLOB, not off `all`. This used to pass
+    // `Object.keys(all)` as well, to keep a just-added language on screen — which
+    // it no longer needs to do, since the stored name keeps the row (see
+    // languageMarksBlob), and which would have been wrong the other way: an entry
+    // emptied of its mark, its customs AND its name normalises away, and naming it
+    // here would leave a row on screen that a reload does not draw.
+    setRows(languageMarksState(inLibrary))
     const r = await json('PUT', '/auth/me/preferences', { languageMarks: blob })
     if (!r.ok) {
       setErr(errText(r, t('error.save.generic')))
       // Back to what the server still believes, so the panel can never show a
       // mark that was refused.
       applyLanguageMarks(prefs || {})
-      setRows(languageMarksState())
+      setRows(languageMarksState(inLibrary))
       return
     }
     setErr('')

@@ -21,6 +21,11 @@ vi.mock('../../src/api.js', async (orig) => ({
   json: vi.fn(async (method, path, body) => {
     SENT.push({ method, path, body })
     if (path === '/boards' && method === 'GET') return { ok: true, data: { boards: BOARDS, total: 0 } }
+    // THE CHIPS ARE THE LIBRARY'S LANGUAGES NOW. The row used to offer ten names
+    // the app chose, present for every account whether or not a word was stored in
+    // any of them; it offers what this reader's quotes are actually in. A chip to
+    // press therefore needs a library that holds something.
+    if (path === '/search/vocabulary') return { ok: true, data: { languages: ['Bengali', 'Hindi'] } }
     return { ok: true, data: {} }
   }),
 }))
@@ -84,7 +89,7 @@ describe('the starter offer', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Proverbs/ }))
     await screen.findByText('languages')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Bengali' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Bengali' }))
     fireEvent.click(screen.getByRole('button', { name: 'Hindi' }))
     fireEvent.click(screen.getByText('Create'))
 
@@ -94,8 +99,8 @@ describe('the starter offer', () => {
     expect(post.body.languages).toEqual(['Bengali', 'Hindi'])
   })
 
-  // Not a closed list: a reader's proverbs are not limited to the three
-  // languages this app happens to ship starters for.
+  // Not a closed list: a reader's proverbs are not limited to the languages their
+  // library already holds, nor to the eighty-six iso639.js knows.
   it('takes a language it has never heard of', async () => {
     render(<BoardList boards={BOARDS} total={0} reload={noop} onOpen={noop} />)
     await openNewBoard()

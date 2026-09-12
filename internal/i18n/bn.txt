@@ -4980,7 +4980,7 @@ settings.credits.sep.and.aria = “and” শব্দটা
 
 # --- Language marks: the standing paragraph above the rows. The rest of this
 # panel was migrated earlier; this line was missed.
-settings.languages.intro.prose = প্রবাদের কোনও বক্তা নেই, তাই তার কার্ড কারও মুখ নয়, ভাষা দিয়ে শুরু হয়। প্রতিটা ভাষা নিজের লিপির চারটে অক্ষর দেয়; এর বাইরে যা লিখবেন — কোনও চিহ্ন, পতাকা, ইমোজি — সেটা ওই ভাষার নিজের চিহ্ন হয়ে থেকে যায়।
+settings.languages.intro.prose = প্রবাদের কোনও বক্তা নেই, তাই তার কার্ড কারও মুখ নয়, ভাষা দিয়ে শুরু হয়। আপনার উদ্ধৃতি যে যে ভাষায় আছে, তার প্রত্যেকটির জন্য এখানে একটা সারি আছে; প্রতিটা ভাষা নিজের নামের কয়েকটা অক্ষর দেয় নিজের হয়ে দাঁড়ানোর জন্য। এর বাইরে যা লিখবেন — কোনও চিহ্ন, পতাকা, ইমোজি — সেটা ওই ভাষার নিজের চিহ্ন হয়ে থেকে যায়।
 
 # The specimen inside the little callout — a line of the app's own display face
 # doing its job, not a pangram. Write one a reader of this language would keep.

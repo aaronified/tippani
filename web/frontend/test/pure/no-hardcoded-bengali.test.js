@@ -23,8 +23,20 @@ import { SRC, sourcesUnder } from '../src-files.js'
 //   the font probe — a sample of glyphs used to ask the browser whether a Bengali
 //   face actually loaded. Nobody reads it; it is measured.
 //
-//   the language-mark palette — the four letters offered as the mark a proverb
-//   board wears. They are letters of the script being chosen, not words in it.
+//   the autonyms — a language's own name for itself, which is the one string in this
+//   repository that CANNOT take a locale key. বাংলা is not the Bengali translation
+//   of "Bengali"; it is what the language is called, in every locale this app will
+//   ever have, and a `common.language.bn.name` key would invite somebody to
+//   translate it into the very thing it exists to replace. It is data about a
+//   language rather than copy addressed to a reader, which is the line this whole
+//   file draws.
+//
+//   THE LANGUAGE-MARK PALETTE USED TO BE ITS OWN ALLOWANCE and no longer needs one.
+//   It was four letters typed by hand into `languages.jsx` — a single-rune exemption
+//   in that file — and since the starter list was retired the palette is DERIVED
+//   from the autonym at run time. There is no literal left to allow, so the entry
+//   went with the letters rather than being re-pointed at `iso639.js`, where it
+//   would have been a rule matching nothing.
 //
 // Anything else is a finding. Add a locale key instead; if the string turns out
 // to be dead, delete it — an orphan key fails the build, which is the lesson
@@ -32,7 +44,7 @@ import { SRC, sourcesUnder } from '../src-files.js'
 const ALLOWED = [
   { what: 'the wordmark', re: /^টিপ্পনী$/ },
   { what: 'the font probe', re: /^[ঀ-৿]{5,}$/, files: ['fonts.js'] },
-  { what: 'the language-mark palette', re: /^[ঀ-৿]$/, files: ['languages.jsx'] },
+  { what: 'an autonym', re: /^[ঀ-৿]+$/, files: ['iso639.js'] },
 ]
 
 const BENGALI = /[ঀ-৿]/

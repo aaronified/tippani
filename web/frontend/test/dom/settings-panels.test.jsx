@@ -38,6 +38,13 @@ vi.mock('../../src/api.js', async (orig) => ({
   json: vi.fn(async (method, path, body) => {
     if (method === 'PUT') { PUTS.push([path, body]); return { ok: true, data: {} } }
     if (path === '/fonts') return { ok: true, data: { fonts: [] } }
+    // THE LIBRARY THE LANGUAGE TABLE IS A TABLE OF. It used to open with ten
+    // starter languages regardless of what was in the library, so these cases
+    // could render it against nothing; the starters are gone and the rows are
+    // now the reader's own — every language their quotes are actually in. A
+    // mock that answers this with nothing is an account with no quotes, and the
+    // table it draws is correctly empty.
+    if (path === '/search/vocabulary') return { ok: true, data: { languages: ['Bengali', 'Hindi'] } }
     return { ok: true, data: {} }
   }),
 }))
@@ -45,6 +52,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 const { default: Settings } = await import('../../src/Settings.jsx')
 const { MetadataSources } = await import('../../src/MetadataSources.jsx')
 const { applyLanguageMarks } = await import('../../src/languages.jsx')
+const { glyphsFor } = await import('../../src/iso639.js')
 
 const USER = { username: 'a', is_admin: false, preferences: {} }
 
@@ -181,11 +189,19 @@ describe('the language-mark tray', () => {
     expect(within(dialog()).getByRole('button', { name: /^Bengali/ }).getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('offers four letters of the language’s own script and no flags', async () => {
+  it('offers the letters of the language’s own name and no flags', async () => {
+    // FOUR HAND-TYPED LETTERS BECAME THE LETTERS OF বাংলা. The tray used to be a
+    // row somebody chose for each of ten languages; it is derived from the
+    // language's own autonym now, which for Bengali is two distinct letters and
+    // not four. Asserted against `glyphsFor` rather than a literal so this stays a
+    // test of what the TRAY RENDERS — the derivation has its own cases in
+    // iso639.test.js, and spelling the answer out here would be one rule in two
+    // places, the second of which nobody updates.
     await openTray()
     const tray = within(dialog()).getByRole('listbox', { name: 'Script letters for Bengali' })
     const offered = within(tray).getAllByRole('option').map((o) => o.textContent)
-    expect(offered).toEqual(['অ', 'আ', 'ক', 'ব'])
+    expect(offered).toEqual(glyphsFor('bn'))
+    expect(offered.length).toBeGreaterThan(0)
     expect(offered.filter((g) => /\p{Regional_Indicator}/u.test(g))).toEqual([])
   })
 
@@ -210,12 +226,16 @@ describe('the language-mark tray', () => {
   })
 
   it('sets a script letter without adding it to the custom bar', async () => {
+    // The SECOND letter, so this is a choice and not the default the row already
+    // wears — pressing the one that is already selected would save nothing and
+    // the case would pass on a tray that does not work.
     await openTray()
+    const letter = glyphsFor('bn')[1]
     const tray = within(dialog()).getByRole('listbox', { name: 'Script letters for Bengali' })
-    fireEvent.click(within(tray).getByRole('option', { name: 'ক' }))
+    fireEvent.click(within(tray).getByRole('option', { name: letter }))
     await waitFor(() => {
       const blob = lastPrefs()
-      expect(blob.bengali.m).toBe('ক')
+      expect(blob.bengali.m).toBe(letter)
       expect(blob.bengali.c).toBeUndefined()
     })
   })
@@ -232,14 +252,17 @@ describe('the language-mark tray', () => {
     })
   })
 
-  it('adds a language the starter list never heard of', async () => {
+  it('adds a language the module never heard of', async () => {
     await sources()
     fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Add a language' }))
     const input = within(dialog()).getByPlaceholderText(/Yoruba, Swahili/)
-    fireEvent.change(input, { target: { value: 'Yoruba' } })
+    // Sylheti and not Yoruba, which iso639.js now knows — the case is about a
+    // language the app has NEVER heard of keeping its row, and a known one would
+    // be testing a different branch under the old name.
+    fireEvent.change(input, { target: { value: 'Sylheti' } })
     fireEvent.blur(input)
-    await waitFor(() => expect(lastPrefs().yoruba.n).toBe('Yoruba'))
+    await waitFor(() => expect(lastPrefs().sylheti.n).toBe('Sylheti'))
   })
 })
 

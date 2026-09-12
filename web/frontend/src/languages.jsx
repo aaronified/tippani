@@ -20,47 +20,37 @@
 // anything and a tray that suggests. Anything typable works: a script the app
 // has never heard of, a symbol, an emoji nobody thought of.
 //
-// It is a leaf: React and nothing else. The quote cards, the board covers, the
-// board form and Settings all read it, and those live on four different levels
-// of the import graph.
+// It is near the bottom of the graph: React and `iso639.js`, which is itself a leaf
+// with no imports at all. The quote cards, the board covers, the board form and
+// Settings all read THIS file, and those live on four different levels of the import
+// graph — which is why the language list sits one level below rather than beside any
+// of them.
 //
-// THE TEN STARTER NAMES BELOW ARE DATA AND ARE NOT KEYED. A starter's `name` is
-// what a board form writes into a quote's `languages`, and its folded form is the
-// key the languageMarks preference is stored under — translate it and every mark
-// and every proverb board stops matching. The app's own answer to a reader who
-// wants to see বাংলা is already here and is per-reader rather than
-// per-language: the rename in Settings → Languages, which changes the display
-// name and never the stored one.
+// A LANGUAGE'S STORED NAME IS NEVER TRANSLATED. What a board form writes into a
+// quote's `languages` and the folded form the languageMarks preference is keyed
+// under are the same string — translate either and every mark and every proverb
+// board stops matching. The app's own answer to a reader who wants to see বাংলা is
+// per-reader rather than per-language: the rename in Settings → Languages, which
+// changes the display name and never the stored one.
+//
+// THE TEN HAND-PICKED STARTERS ARE GONE (the owner's ruling), and `iso639.js` is
+// what replaced them. Where this file used to hold ten names with four glyphs each,
+// typed by hand, it now asks that module — which knows eighty-six languages and takes
+// each one's letters from its own name for itself.
+//
+// THE MARK IS THE FIRST OF THOSE LETTERS THAT NO EARLIER LANGUAGE OF THE SAME SCRIPT
+// HAS CLAIMED, and the tray is up to four starting from it. That clause is the
+// hand-picked rows' whole reason for existing, kept: four of the ten were written in
+// Latin, and a naive first-rune rule would have drawn one letter on all four covers,
+// because English and español both begin with an E. The objection is answered in that
+// module rather than accepted here.
+//
+// A TRAY CAN BE SHORTER THAN FOUR NOW, which it never was. Four was a floor while
+// somebody was typing them in; it is a ceiling when they come off the autonym, and
+// 中文 has two letters in it. Padding it out would be the app choosing a letter again.
 
 import { t } from './i18n.js'
-
-// STARTER_LANGUAGES — the ten most spoken, each with FOUR glyphs from its own
-// script, and the first is the default the board cover draws.
-//
-// FOUR, and all four in the same script, because the choice being offered is
-// "which letter stands for my language" and not "which country". Four is enough
-// to have a preference between and few enough to read as a row rather than a
-// grid — and the fourth is doing real work: the letter a Bengali reader would
-// pick is not necessarily the first letter of the alphabet.
-//
-// The glyphs are deliberately DISTINCT between languages that share a script:
-// four of these ten are written in Latin, and a cover that was the identical
-// glyph on all four would tell you nothing about which board you were looking
-// at. So Spanish leads with ñ and Portuguese with ã. Urdu and Arabic share a
-// script and do NOT share a row: Urdu offers the four letters Arabic does not
-// have, which is exactly how a reader tells the two apart on a shelf.
-export const STARTER_LANGUAGES = [
-  { name: 'English', glyphs: ['A', 'a', 'E', 'W'] },
-  { name: 'Mandarin', glyphs: ['字', '文', '中', '話'] },
-  { name: 'Hindi', glyphs: ['अ', 'क', 'ह', 'न'] },
-  { name: 'Spanish', glyphs: ['ñ', 'Ñ', 'á', '¡'] },
-  { name: 'French', glyphs: ['É', 'é', 'à', 'ç'] },
-  { name: 'Arabic', glyphs: ['ع', 'ض', 'ا', 'ق'] },
-  { name: 'Bengali', glyphs: ['অ', 'আ', 'ক', 'ব'] },
-  { name: 'Portuguese', glyphs: ['ã', 'Ã', 'ç', 'õ'] },
-  { name: 'Russian', glyphs: ['Ж', 'Я', 'Д', 'Б'] },
-  { name: 'Urdu', glyphs: ['ی', 'ے', 'ں', 'ھ'] },
-].map((l) => ({ ...l, glyph: l.glyphs[0] }))
+import { glyphsFor, languageFor, markFor as scriptMark } from './iso639.js'
 
 // How many of the reader's own glyphs one language may keep. A bound rather than
 // a limit for its own sake: the custom bar sits under a row of four and reads as
@@ -141,24 +131,41 @@ export function applyLanguageMarks(prefs) {
   }
 }
 
-const starterFor = (key) => STARTER_LANGUAGES.find((s) => fold(s.name) === key)
-
-// languageMarksState is what Settings renders from: every starter plus every
-// language the reader has touched, so a language typed into a board form and
-// marked there does not vanish from the list that edits it.
+// languageMarksState is what Settings renders from: every language the reader has
+// touched, plus whatever the caller says their library actually holds.
 //
-// `added` says whether a row is one of the reader's own rather than a starter,
-// which is the only thing that may be removed — a starter with no mark is not
-// clutter, it is the list.
+// NO FIXED SEED ANY MORE. It used to open with the ten starters whether or not the
+// reader had a word in any of them, which was a list the app chose; with the
+// starters gone the list is the reader's own — their marks, and the languages their
+// quotes are actually in. A new account sees an empty table and an add box, which is
+// the honest picture of a library with no languages recorded in it.
+//
+// `extra` NAMES ROWS AND NOTHING ELSE. The old shape carried a second meaning —
+// `added` said "not a starter", which was the same question as "may this be
+// removed" only while the ten were unremovable. There is no remove control on this
+// panel, so the flag had no reader; it is gone rather than left to go stale under a
+// changed meaning, and the row-refuses-removal rule will bring back what it needs
+// beside the button that needs it.
+//
+// AND THE CANONICAL NAME HAS TO BE RECOVERED, which the ten starters used to do by
+// being written down: `seen.set(fold(s.name), s.name)` put "Bengali" beside the key
+// "bengali". Nothing else carries that capitalisation — the entries map is keyed on
+// the fold — so without this the row would head itself "bengali". `iso639.js` knows
+// the name for a language it has heard of; for one it has not, the caller's own
+// spelling is what the quote is stored under and is better than the fold.
 export function languageMarksState(extra = []) {
   const seen = new Map()
-  for (const s of STARTER_LANGUAGES) seen.set(fold(s.name), s.name)
-  for (const name of [...Object.keys(entries), ...extra.map(fold)]) {
-    if (name && !seen.has(name)) seen.set(name, name)
+  for (const name of [...Object.keys(entries), ...extra]) {
+    const key = fold(name)
+    if (!key) continue
+    const known = languageFor(key)?.name
+    // A later, better spelling may replace a fold — a marked language the library
+    // also holds is seen twice, first as its key and then as the reader typed it.
+    if (known) seen.set(key, known)
+    else if (!seen.has(key) || seen.get(key) === key) seen.set(key, name)
   }
   return [...seen.entries()].map(([key, canonical]) => {
     const e = entries[key] || { mark: '', customs: [], name: '' }
-    const starter = starterFor(key)
     return {
       key,
       // The canonical name is what quotes are matched on and never changes; the
@@ -166,13 +173,16 @@ export function languageMarksState(extra = []) {
       // has to be able to say "Bengali" while showing "বাংলা".
       canonical,
       name: e.name || canonical,
-      renamed: !!e.name,
-      glyph: starter?.glyph || '',
-      glyphs: starter?.glyphs || [],
+      // RENAMED IS A COMPARISON, NOT THE PRESENCE OF A FIELD. A stored name is now
+      // also how a language with no mark keeps its row (see languageMarksBlob), so
+      // "there is a name" and "this reader calls it something else" have come
+      // apart — and only the second may draw the canonical name beside the row.
+      renamed: !!e.name && fold(e.name) !== key,
+      glyph: scriptMark(canonical),
+      glyphs: glyphsFor(canonical),
       mark: e.mark,
       customs: e.customs,
-      added: !starter,
-      resolved: e.mark || starter?.glyph || '',
+      resolved: e.mark || scriptMark(canonical),
     }
   })
 }
@@ -191,16 +201,20 @@ export function languageMarksBlob(next) {
     const row = {}
     if (e.mark) row.m = e.mark
     if (e.customs.length) row.c = e.customs
-    // A rename that matches a STARTER's own name is not a rename, and storing it
-    // would keep a row alive for saying nothing.
+    // THE NAME IS ALWAYS KEPT, because an entry with nothing in it is dropped
+    // whole and the entry is now the ONLY record that this language is on the
+    // reader's list. It used to be dropped when it matched a known language's own
+    // name, on the reasoning that a row saying nothing is not a setting — true
+    // while ten starters were rows whether or not anything was stored for them,
+    // and false the moment the starters went: a reader who typed "Bengali" and
+    // gave it no mark would have watched the row appear and be gone on the next
+    // reload, which is "add a language" failing its own test.
     //
-    // For a language the reader added, the same name is not redundant — it is
-    // the only record that exists. The key is folded ("yoruba") and the name is
-    // what they typed ("Yoruba"), so dropping it would lose the capitalisation
-    // AND, because an entry with nothing in it is dropped whole, the language
-    // itself: added, then gone on the next reload, which is how "add a language"
-    // failed its own test before this line said so.
-    if (e.name && (!starterFor(key) || fold(e.name) !== key)) row.n = e.name
+    // Keeping it does not resurrect the redundant-rename badge. That question is
+    // asked at display time now — languageMarksState compares the stored name with
+    // the key — so storage keeps the row and the row still knows it was not
+    // renamed.
+    if (e.name) row.n = e.name
     if (Object.keys(row).length) out[key] = row
   }
   return Object.keys(out).length ? JSON.stringify(out) : ''
@@ -216,18 +230,22 @@ export const currentLanguageEntries = () => {
 
 // ---- resolving a mark ------------------------------------------------------
 
-// glyphFor — the script glyph for the first known language in a list, or "" when
-// nothing is known. Matched on the folded name, because the starter list seeds a
-// free-text field and "bengali" is the same language as "Bengali".
+// glyphFor — the script glyph for the first language in a list that `iso639.js`
+// knows, or "" when it knows none. Matched on the folded name, code or autonym,
+// because this seeds a free-text field and "bengali", "bn" and "বাংলা" are one
+// language.
 //
-// A language nobody listed gets NO glyph. Guessing a script from an unknown name
-// would put a Latin A on a board of Yoruba proverbs, and being confidently wrong
-// about somebody's language is worse than being blank.
+// A LANGUAGE THE MODULE HAS NEVER HEARD OF STILL GETS NO GLYPH, and that has not
+// changed with the list growing from ten to eighty-six. Deriving a mark from an
+// unknown name would take its first letter — which for a language written in a
+// script the name is not written in puts a Latin S on a board of Sylheti proverbs.
+// Being confidently wrong about somebody's language is worse than being blank, and
+// the reader's own mark is how they fix it.
 export function glyphFor(languages = []) {
   const list = Array.isArray(languages) ? languages : [languages]
   for (const l of list) {
-    const hit = starterFor(fold(l))
-    if (hit) return hit.glyph
+    const g = scriptMark(l)
+    if (g) return g
   }
   return ''
 }

@@ -22,6 +22,12 @@ vi.mock('../../src/api.js', async (orig) => ({
     if (method === 'PUT') { PUTS.push([path, body]); return { ok: true, data: {} } }
     if (path === '/metadata/status') return { ok: true, data: { tmdb: { source: 'builtin' }, books_lookup: { ok: true } } }
     if (path === '/admin/metadata-keys') return { ok: true, data: {} }
+    // THE ROWS ARE THE LIBRARY'S LANGUAGES NOW, not ten the app picked. The table
+    // used to open with the same ten for every account; with STARTER_LANGUAGES
+    // gone it opens with what the reader's quotes are in, which is what this
+    // answer supplies. Three, because the master-carries-the-rows assertions want
+    // more than one row to carry.
+    if (path === '/search/vocabulary') return { ok: true, data: { languages: ['Bengali', 'Hindi', 'English'] } }
     return { ok: true, data: {} }
   }),
 }))
@@ -43,8 +49,15 @@ const open = async () => {
   return screen.findByLabelText(/^how much of the original$/i)
 }
 
-// The rows are the ten starter languages; each slider announces its own language.
-const rowFor = (name) => screen.getByLabelText(new RegExp(`how much of the original for ${name}`, 'i'))
+// The rows are the library's own languages; each slider announces its own language.
+//
+// AWAITED, BECAUSE A ROW ARRIVES ON A PROMISE. The table used to open with ten
+// starters — present on the first paint, synchronously, for every account — and
+// its rows are now the languages the library holds, which is a fetch. Only the
+// FIRST case in a file actually races: the vocabulary is cached at module scope,
+// so every case after it finds the rows already there. That is the shape of an
+// order-dependent suite, which this file has been bitten by before.
+const rowFor = (name) => screen.findByLabelText(new RegExp(`how much of the original for ${name}`, 'i'))
 const master = () => screen.getByLabelText(/^how much of the original$/i)
 const written = () => PUTS.filter(([p]) => p === '/auth/me/preferences').map(([, b]) => JSON.parse(b.textOrder))
 
@@ -59,16 +72,16 @@ describe('the per-language table', () => {
   it('has a slider for every language and one above them all', async () => {
     await open()
     expect(master()).toBeTruthy()
-    expect(rowFor('Bengali')).toBeTruthy()
+    expect(await rowFor('Bengali')).toBeTruthy()
     // Four stops, and the range's own bounds are what a reader drags between: a
     // slider with the wrong max silently refuses its last state.
     expect(master().getAttribute('max')).toBe('3')
-    expect(rowFor('Bengali').getAttribute('max')).toBe('3')
+    expect((await rowFor('Bengali')).getAttribute('max')).toBe('3')
   })
 
   it('saves the state a row is dragged to', async () => {
     await open()
-    slide(rowFor('Bengali'), 0) // trans-only, the first stop
+    slide(await rowFor('Bengali'), 0) // trans-only, the first stop
     await waitFor(() => expect(written().length).toBeGreaterThan(0))
     expect(written().at(-1).byLanguage.bengali).toBe('trans-only')
   })
@@ -93,7 +106,7 @@ describe('the per-language table', () => {
     await open()
     // Not the app default — the master's value, which is the whole point of it
     // being a default rather than only a bulk setter.
-    expect(rowFor('Bengali').value).toBe('0')
+    expect((await rowFor('Bengali')).value).toBe('0')
   })
 })
 

@@ -12,6 +12,11 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { BoardCover, glyphFor } from '../../src/boards.jsx'
+import { markFor as scriptMark } from '../../src/iso639.js'
+
+// A language nothing in this app has ever heard of. Yoruba used to play this part
+// and cannot: `iso639.js` knows eighty-six languages and Yoruba is one of them.
+const UNKNOWN = 'Sylheti'
 
 const board = (over = {}) => ({ id: 1, name: 'A board', color: 'blue', kind: 'plain', languages: [], ...over })
 
@@ -25,23 +30,30 @@ describe('glyphFor', () => {
   // dying on the first. Each row keeps the name of the it() it used to be.
   it('draws the script it recognises, and nothing when it recognises none', () => {
     const cases = [
-      { name: 'finds a language however it was typed', languages: ['Bengali'], want: 'অ' },
-      { name: 'finds a language however it was typed', languages: ['bengali'], want: 'অ' },
-      { name: 'finds a language however it was typed', languages: ['  Hindi  '], want: 'अ' },
-      { name: 'takes the first language it recognises, so a mixed board still has one', languages: ['Yoruba', 'Bengali'], want: 'অ' },
-      // Guessing a script from a name nobody listed would put a Latin A on a board
-      // of Yoruba proverbs. Being confidently wrong about somebody's language is
+      // THE LETTER IS DERIVED NOW, not typed into a table of ten, so the wanted
+      // value is asked of the module rather than spelled out here — a literal
+      // would be the rule written down twice, and iso639.test.js already owns the
+      // derivation. What THIS case is about is that a board finds its language
+      // however the reader typed it.
+      { name: 'finds a language however it was typed', languages: ['Bengali'], want: scriptMark('bn') },
+      { name: 'finds a language however it was typed', languages: ['bengali'], want: scriptMark('bn') },
+      { name: 'finds a language however it was typed', languages: ['  Hindi  '], want: scriptMark('hi') },
+      { name: 'takes the first language it recognises, so a mixed board still has one', languages: [UNKNOWN, 'Bengali'], want: scriptMark('bn') },
+      // Guessing a script from a name nobody listed would put a Latin S on a board
+      // of Sylheti proverbs. Being confidently wrong about somebody's language is
       // worse than being blank.
-      { name: 'says nothing about a language it does not know', languages: ['Yoruba'], want: '' },
+      { name: 'says nothing about a language it does not know', languages: [UNKNOWN], want: '' },
       { name: 'says nothing about a language it does not know', languages: [], want: '' },
     ]
     const got = cases.map(({ name, languages }) => [name, languages, glyphFor(languages)])
     expect(got).toEqual(cases.map(({ name, languages, want }) => [name, languages, want]))
   })
 
-  // Four of the ten are written in Latin, so the glyphs are deliberately
-  // different letters — an identical "A" on four covers would tell you nothing
-  // about which board you were looking at.
+  // These four are written in Latin, so the glyphs are deliberately different
+  // letters — an identical "A" on four covers would tell you nothing about which
+  // board you were looking at. It was a property of ten hand-picked rows and is
+  // now a property of the derivation, which claims the first letter of a
+  // language's own name that no earlier language of the same script has taken.
   it('gives the Latin languages distinct letters', () => {
     const latin = [glyphFor(['English']), glyphFor(['Spanish']), glyphFor(['French']), glyphFor(['Portuguese'])]
     expect(new Set(latin).size).toBe(4)
@@ -56,7 +68,7 @@ describe('the default cover', () => {
 
   it('draws its language on a board of proverbs', () => {
     render(<BoardCover board={board({ kind: 'proverb', languages: ['Bengali'] })} />)
-    expect(glyph().textContent).toBe('অ')
+    expect(glyph().textContent).toBe(scriptMark('bn'))
   })
 
   // The stated fallback: "for others, use the tippani mark".
@@ -68,7 +80,7 @@ describe('the default cover', () => {
   it('falls back to the app mark', () => {
     const drew = []
     for (const [name, over] of [
-      ['for a proverb board in a language it cannot draw', { kind: 'proverb', languages: ['Yoruba'] }],
+      ['for a proverb board in a language it cannot draw', { kind: 'proverb', languages: [UNKNOWN] }],
       ['on a plain board', { kind: 'plain' }],
     ]) {
       const { unmount } = render(<BoardCover board={board(over)} />)
@@ -83,7 +95,7 @@ describe('the default cover', () => {
   // renamed the board, silently, and only they could see it.
   it('follows the kind and not the name', () => {
     const { unmount } = render(<BoardCover board={board({ name: 'Grandmother', kind: 'proverb', languages: ['Hindi'] })} />)
-    expect(glyph().textContent).toBe('अ')
+    expect(glyph().textContent).toBe(scriptMark('hi'))
     unmount()
     // ...and the converse: a plain board called Proverbs gets no glyph.
     render(<BoardCover board={board({ name: 'Proverbs', kind: 'plain' })} />)

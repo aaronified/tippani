@@ -5015,7 +5015,7 @@ settings.credits.sep.and.aria = and
 
 # --- Language marks: the standing paragraph above the rows. The rest of this
 # panel was migrated earlier; this line was missed.
-settings.languages.intro.prose = A proverb has nobody to credit, so its card leads with its language instead of a face. Each language offers four letters from its own script; anything else you type — a symbol, a flag, an emoji — is kept as one of that language’s own marks.
+settings.languages.intro.prose = A proverb has nobody to credit, so its card leads with its language instead of a face. There is a row here for every language your quotes are in, each offering a few letters of its own name to stand for it; anything else you type — a symbol, a flag, an emoji — is kept as one of that language’s own marks.
 
 # --- Appearance → the seven material specimens. Each card is drawn in
 # the materials it offers; this is the line of type inside it.

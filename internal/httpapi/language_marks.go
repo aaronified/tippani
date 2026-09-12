@@ -12,10 +12,11 @@ package httpapi
 // language, because a flag is a country and a language is not. The reasoning
 // held; the screen still did the thing it was defending against, since a grid of
 // flags at the top of a language's tray is a recommendation whoever wrote it. A
-// language offers four letters of its OWN SCRIPT now, and a flag is reachable by
-// typing one — which is the difference between a tool and a suggestion. Nothing
-// in this file ever knew which flag went with which language and nothing here
-// changes: it validates marks, it does not choose them.
+// language offers the letters of its OWN NAME FOR ITSELF now — up to four, taken
+// from its autonym rather than typed in by hand — and a flag is reachable by typing
+// one, which is the difference between a tool and a suggestion. Nothing in this file
+// ever knew which flag went with which language, and nothing here changes when the
+// client's list does: it validates marks, it does not choose them.
 //
 // STORED AS A JSON STRING, not a map, and that is not laziness either: prefs is
 // a flat comparable struct — ui_test.go compares two of them with `!=` — and a
@@ -48,9 +49,10 @@ const (
 	// short enough that the blob cannot become a place to keep notes. It bounds
 	// both the KEY (the canonical language) and the reader's own display name.
 	languageNameMaxRunes = 40
-	// How many languages one reader may re-mark. Ten starters plus room for a
-	// genuinely multilingual library; a bound exists because this is one column
-	// of one row and an unbounded map in it is a storage bug waiting to happen.
+	// How many languages one reader may re-mark. Comfortably above the eighty-six
+	// the client offers by name, which is not the bound this is for: a language is
+	// free text, so the set is open. A bound exists because this is one column of
+	// one row and an unbounded map in it is a storage bug waiting to happen.
 	languageMarksMax = 64
 	// How many of their own marks one language may keep. Mirrors MAX_CUSTOM_MARKS
 	// in languages.jsx, and is the reason the whole blob stays small: 64 languages
@@ -135,15 +137,21 @@ func normalizeLanguageMarks(raw string) (string, bool) {
 		// WHETHER A DISPLAY NAME IS REDUNDANT IS NOT THIS LAYER'S CALL, and an
 		// earlier draft of this function made it: it dropped any name that folded
 		// to its key, on the reasoning that renaming Bengali to "Bengali" says
-		// nothing. True for a starter language, and wrong for one the reader
-		// added — there the key is the folded name ("yoruba") and the display
-		// name is the only record of what they actually typed ("Yoruba"). Since
-		// an entry with nothing left in it is dropped whole, that rule deleted
-		// the language on the next save.
+		// nothing. The key is the folded name ("yoruba") and the display name is
+		// the only record of what the reader actually typed ("Yoruba") — and since
+		// an entry with nothing left in it is dropped whole, that rule deleted the
+		// language on the next save.
 		//
-		// The starter list is a client concept and belongs there; teaching it to
-		// the server would be a second copy of a table to keep in step. So this
-		// validates the name and stores what it is given.
+		// THE CLIENT HAS SINCE ARRIVED AT THE SAME ANSWER, which is worth saying
+		// because it used to disagree. languageMarksBlob dropped a name matching a
+		// starter's own, which was safe only while the ten starters were rows
+		// whether or not anything was stored for them; with them gone the stored
+		// name is what keeps an unmarked language on the list, so both layers now
+		// keep it and only the SCREEN asks whether it counts as a rename.
+		//
+		// Which languages exist at all is a client concept and belongs there;
+		// teaching it to the server would be a second copy of a table to keep in
+		// step. So this validates the name and stores what it is given.
 		if len(e.Customs) > languageCustomMax {
 			return "", false
 		}

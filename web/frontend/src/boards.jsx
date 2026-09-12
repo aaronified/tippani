@@ -16,7 +16,8 @@ import { t, tNodes } from './i18n.js'
 import { TextOrderField } from './textOrderField.jsx'
 import { Face } from './characterRows.jsx'
 import { categoryVar } from './theme.js'
-import { glyphFor, STARTER_LANGUAGES } from './languages.jsx'
+import { glyphFor } from './languages.jsx'
+import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 import {
   Card,
   ConfirmDialog,
@@ -100,7 +101,7 @@ const BOARD_STARTERS = [
 // languages.jsx — a leaf, because the quote cards and Settings read them too and
 // neither has any business importing a board. Re-exported here: this is still
 // where a board's cover asks what glyph to draw.
-export { glyphFor, STARTER_LANGUAGES } from './languages.jsx'
+export { glyphFor } from './languages.jsx'
 
 // ALL_BOARD is the pinned entry, and it is deliberately NOT a board: it has no
 // row, cannot be renamed, hidden or deleted, and its id is a word rather than a
@@ -268,6 +269,14 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
   // the quote and two quotes can spell one work differently.
   const [textOrder, setTextOrder] = useState(initial?.text_order || '')
   const [newLanguage, setNewLanguage] = useState('')
+  // WHAT THE LIBRARY IS ACTUALLY IN, which is what the chip row offers now that
+  // the ten hand-picked starters are gone. A reader's next proverb board is
+  // overwhelmingly in a language they already keep quotes in; the other
+  // eighty-odd are one keystroke away in the box below.
+  const [inLibrary, setInLibrary] = useState(() => cachedVocabulary()?.languages || [])
+  useEffect(() => {
+    primeSearchVocabulary().then((v) => setInLibrary(v?.languages || [])).catch(() => {})
+  }, [])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -418,7 +427,21 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
         <div>
           <MonoLabel className="mb-1.5 block">{t('quotes.board.form.languages.label')}</MonoLabel>
           <div className="flex flex-wrap items-center gap-2">
-            {[...new Set([...STARTER_LANGUAGES.map((s) => s.name), ...languages])].map((l) => {
+            {/* THE OFFER IS THE LIBRARY'S OWN LANGUAGES, and that is the whole
+                offer — a change from the ten hand-picked starters this row used to
+                open with.
+
+                NOT ALL EIGHTY-SIX. `iso639.js` knows that many and laying them out
+                here would be a wall of chips: the repo's own rule is that a row too
+                long to read scrolls under a fade with a button to the full set, and
+                a wrapped grid of eighty-six is neither. So the chips are the ones a
+                reader would actually press — the languages their library is already
+                in, plus any this board has — and every other language arrives
+                through the box below, which offers all eighty-six as you type.
+
+                A reader whose library is empty sees no chips, which is honest: they
+                have no languages yet, and the box is how the first one is named. */}
+            {[...new Set([...languages, ...inLibrary])].map((l) => {
               const on = languages.some((x) => x.toLowerCase() === l.toLowerCase())
               const glyph = glyphFor([l])
               return (
@@ -439,6 +462,17 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
             })}
           </div>
           <div className="flex items-end gap-2 mt-2">
+            {/* STILL A PLAIN BOX, and the eighty-six are not offered in it yet.
+                SuggestCombo is what belongs here — it is how every other name box
+                in this app offers the library's own values — but its contract is
+                that a commit fires on blur as well as on a pick, which for a box
+                whose commit ADDS A LANGUAGE means typing "Beng" and clicking away
+                files a language called Beng. Wiring it properly is the combobox
+                task's own work, on the quote and work fields at the same time; a
+                half-built one here would ship that bug to make this diff look
+                finished. Until then Enter adds, the button adds, and a language the
+                reader has not used yet is spelled out — which is exactly what this
+                box has always done. */}
             <Field
               label={t('quotes.board.form.language.label')}
               value={newLanguage}

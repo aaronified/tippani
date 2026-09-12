@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Every language, not the ten the app picked.** The language list behind proverb
+  boards and language marks was ten names chosen by hand — English, Mandarin, Hindi,
+  Spanish, French, Arabic, Bengali, Portuguese, Russian and Urdu — each with four
+  letters somebody typed for it. It is **eighty-six** now, each with its own name for
+  itself (বাংলা, हिन्दी, 中文, Ελληνικά) and letters taken from that name rather than
+  chosen for it. A language is still free text everywhere: anything you type is
+  accepted, stored and shown exactly as you typed it, and one this list has never
+  heard of goes on working as it always has.
+- **The language table in Settings is your list now, not the app's.** It used to open
+  with the same ten languages whether or not you had a word in any of them. It opens
+  with **the languages your quotes are actually in**, plus any you have marked or
+  renamed yourself — so a library of Bengali and Sanskrit shows two rows instead of
+  ten, eight of which were somebody else's. A new account sees an empty table and an
+  add box, and a language you add with no mark at all now **stays added**.
+- **A proverb board's language chips are the ones you use.** The same change one
+  screen over: the row offers the languages your library already holds rather than a
+  fixed ten, and any other language is typed into the box beside it as before.
+
 - **An anthology can print what the book or the film knows.** Until now a passage in an
   anthology could show six things — who said it, where it came from, the chapter or
   timestamp, the day you saved it, your own commentary, and the colour bar. The work

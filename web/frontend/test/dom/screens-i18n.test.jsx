@@ -92,16 +92,17 @@ const isGrammar = (node) => !!node?.parentElement?.closest?.('[data-grammar]')
 //
 // A language name is DATA in this app by its own design: languageMarksState keeps
 // a canonical name that quotes are matched on and a display name the reader may
-// change — "the row has to be able to say 'Bengali' while showing 'বাংলা'". So the
-// ten starters arrive as English strings, and the reader renames the ones they
-// care about. Tokenising them would mean ten more keys per locale AND leaving the
-// rename feature in place to do the same job, with the fold key still English
-// underneath.
+// change — "the row has to be able to say 'Bengali' while showing 'বাংলা'". So a
+// language arrives as the English string it is stored under, and the reader renames
+// the ones they care about. Tokenising them would mean a key per language per locale
+// AND leaving the rename feature in place to do the same job, with the fold key
+// still English underneath. `iso639.js` already carries each one's own name for
+// itself, which is the per-language half of the same answer and needs no locale file.
 //
 // IT IS THE SAME SHAPE AS `data-grammar` FOR THE SAME REASON: an attribute the
 // screen sets, not a list of strings here. A list would need keeping in step with
-// STARTER_LANGUAGES, and the day somebody adds an eleventh language the list is
-// what would be forgotten.
+// the language list — eighty-six rows now that STARTER_LANGUAGES' ten are gone, and
+// growing — and the day somebody adds one the list is what would be forgotten.
 //
 // WHAT IT MUST NOT BECOME. This says "the text inside is the reader's", and a
 // screen that puts it on a heading to quiet the sweep has broken the sweep. It
