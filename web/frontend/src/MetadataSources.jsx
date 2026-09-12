@@ -39,7 +39,6 @@ import {
   InfoDot,
   MonoLabel,
   SectionTitle,
-  Slider,
   SourceIcon,
   toast,
   Toggle,
@@ -56,6 +55,7 @@ import {
   MAX_CUSTOM_MARKS,
 } from './languages.jsx'
 import { TEXT_ORDERS, TEXT_ORDER_DEFAULT, TEXT_ORDER_WORD, masterIsCustom } from './textOrder.js'
+import { TextOrderChoice } from './textOrderField.jsx'
 import { textOrderFrom } from './textOrderHost.jsx'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 
@@ -1074,38 +1074,30 @@ function LanguageMarksSettings({ prefs, onSaved }) {
 
   return (
     <>
-      <p className="microcopy mb-3">
-        {t('settings.languages.intro.prose')}
-      </p>
-      {/* THE SLIDER ABOVE THE COLUMN — the owner's: "a slider will be there above
-          the column as well, as a master trigger. when it is controlled, it will
-          push all knobs to align with it. when other knobs are adjusted (custom),
-          it will lose contrast, which will indicate custom state."
-          The contrast loss is the indicator and the tooltip says what it means,
-          because a dimmed control with no explanation reads as disabled — which is
-          the opposite of true here: it is the one control that still does
-          something to every row. */}
+      {/* NO PROSE AT THE TOP, and there were two full paragraphs of it — one
+          explaining what a mark is, one explaining what the chooser below does.
+          The owner, over a phone screenshot of this sheet: "What is this long ass
+          prose?? ... Lose the prose." On a 390px screen they were the whole first
+          view: a reader who opened this to change one letter met four hundred words
+          first.
+
+          WHERE THE WORDS WENT. The first paragraph is the card's InfoDot on
+          Metadata sources — the door explains itself where the door is, which is
+          before you commit to opening it. The second described a control that now
+          says four words on its own face; four chips reading "translation first",
+          "quotation first" and their companions do not need a paragraph saying that
+          a quote and its translation are two texts. The master's dimming keeps its
+          tooltip, because that one IS invisible. */}
       <div
         className="mb-4"
         style={{ borderBottom: '1px solid var(--line)', paddingBottom: 12, opacity: custom ? 0.55 : 1 }}
         title={custom ? t('settings.languages.order.custom.tip') : undefined}
       >
-        <p className="microcopy mb-2" style={{ lineHeight: 1.6 }}>
-          {t('settings.languages.order.intro.prose')}
-        </p>
-        {/* NO `ariaLabel` PROP — Slider has none, and passing one was silently
-            ignored: it names itself from `label`, which is the visible text here
-            and reads correctly as an accessible name. A row's slider hides that
-            text with `hideLabel` and still announces it, which is what the prop is
-            for. */}
-        <Slider
-          label={t('settings.languages.order.title')}
-          min={0}
-          max={TEXT_ORDERS.length - 1}
-          step={1}
-          value={TEXT_ORDERS.indexOf(master)}
-          readout={t(TEXT_ORDER_WORD[master])}
-          onCommit={moveMaster}
+        <MonoLabel className="mb-1.5 block">{t('settings.languages.order.title')}</MonoLabel>
+        <TextOrderChoice
+          value={master}
+          onChange={(k) => moveMaster(TEXT_ORDERS.indexOf(k))}
+          ariaLabel={t('settings.languages.order.title')}
         />
       </div>
       <div>
@@ -1178,15 +1170,10 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                     width this drops to a line of its own rather than squeezing
                     the language's name, which is a name and may not be shortened. */}
                 <div style={{ flex: '1 1 11em', minWidth: '9em' }}>
-                  <Slider
-                    hideLabel
-                    label={t('settings.languages.order.row.aria', { name: row.name })}
-                    min={0}
-                    max={TEXT_ORDERS.length - 1}
-                    step={1}
-                    value={TEXT_ORDERS.indexOf(order.byLanguage?.[row.key] || master)}
-                    readout={t(TEXT_ORDER_WORD[order.byLanguage?.[row.key] || master])}
-                    onCommit={(at) => moveRow(row.key, at)}
+                  <TextOrderChoice
+                    value={order.byLanguage?.[row.key] || master}
+                    onChange={(k) => moveRow(row.key, TEXT_ORDERS.indexOf(k))}
+                    ariaLabel={t('settings.languages.order.row.aria', { name: row.name })}
                   />
                 </div>
               </div>

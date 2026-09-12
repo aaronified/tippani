@@ -1261,7 +1261,6 @@ settings.languages.add-mark.placeholder = যে কোনও অক্ষর, �
 settings.languages.order.title = মূলের কতটা
 settings.languages.order.row.aria = {name}-এর জন্য মূলের কতটা দেখাবে
 settings.languages.order.custom.tip = কিছু ভাষা আলাদা করে সেট করা আছে — এটা নাড়ালে সবগুলো এক সারিতে ফিরে আসবে।
-settings.languages.order.intro.prose = একটা উদ্ধৃতি আর তার অনুবাদ দুটো আলাদা লেখা, আর কার্ড কোনটা দিয়ে শুরু করবে সেটা এখানে ঠিক হয়। একবারে সবের জন্য সেট করুন, বা যেখানে আলাদা চান সেই ভাষার জন্য — আর কোনো বই, ফিল্ম বা বোর্ড নিজের জন্য আলাদা নিয়ম রাখতে পারবে।
 vocab.textorder.trans-only.label = শুধু অনুবাদ
 vocab.textorder.trans-first.label = আগে অনুবাদ
 vocab.textorder.quote-first.label = আগে উদ্ধৃতি
@@ -4983,7 +4982,6 @@ settings.credits.sep.and.aria = “and” শব্দটা
 
 # --- Language marks: the standing paragraph above the rows. The rest of this
 # panel was migrated earlier; this line was missed.
-settings.languages.intro.prose = প্রবাদের কোনও বক্তা নেই, তাই তার কার্ড কারও মুখ নয়, ভাষা দিয়ে শুরু হয়। আপনার উদ্ধৃতি যে যে ভাষায় আছে, তার প্রত্যেকটির জন্য এখানে একটা সারি আছে; প্রতিটা ভাষা নিজের নামের কয়েকটা অক্ষর দেয় নিজের হয়ে দাঁড়ানোর জন্য। এর বাইরে যা লিখবেন — কোনও চিহ্ন, পতাকা, ইমোজি — সেটা ওই ভাষার নিজের চিহ্ন হয়ে থেকে যায়।
 
 # The specimen inside the little callout — a line of the app's own display face
 # doing its job, not a pangram. Write one a reader of this language would keep.

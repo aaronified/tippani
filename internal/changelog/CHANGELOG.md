@@ -23,6 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   typed. The one box that stays plain is the board form's "add a language", because
   there Enter and clicking away mean different things and a suggestion box cannot
   tell them apart.
+- **The four text settings are four buttons, not a slider.** "Quotation first",
+  "translation first", "quotation only", "translation only" are four distinct
+  answers, and a slider says the space between them means something — it was even
+  labelled "how much of the original", a quantity's question. Pick one. The same
+  four buttons now appear everywhere the question is asked: above the language
+  table, on each language's row, on a book or film's own settings and on a board's.
+- **And the Language marks panel opens on the table, not on two paragraphs.** What
+  a mark is has moved to the ⓘ beside the door; what the setting does is written on
+  the four buttons themselves.
 - **Language marks is its own card on Metadata sources**, instead of a button
   hanging off the bottom of the API-keys card behind a rule. Nothing about it
   changed but where it sits — and a rule was doing the whole job of saying "this is

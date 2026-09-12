@@ -1253,7 +1253,6 @@ settings.languages.add-mark.placeholder = any letter, symbol or emoji
 settings.languages.order.title = how much of the original
 settings.languages.order.row.aria = How much of the original for {name}
 settings.languages.order.custom.tip = Some languages have been set on their own — moving this puts them all back in line.
-settings.languages.order.intro.prose = A quote and its translation are two texts, and this says which one a card leads with. Set it once for everything, or per language where you want something different — and a book, film or board can still overrule its own.
 vocab.textorder.trans-only.label = translation only
 vocab.textorder.trans-first.label = translation first
 vocab.textorder.quote-first.label = quotation first
@@ -5018,7 +5017,6 @@ settings.credits.sep.and.aria = and
 
 # --- Language marks: the standing paragraph above the rows. The rest of this
 # panel was migrated earlier; this line was missed.
-settings.languages.intro.prose = A proverb has nobody to credit, so its card leads with its language instead of a face. There is a row here for every language your quotes are in, each offering a few letters of its own name to stand for it; anything else you type — a symbol, a flag, an emoji — is kept as one of that language’s own marks.
 
 # --- Appearance → the seven material specimens. Each card is drawn in
 # the materials it offers; this is the line of type inside it.

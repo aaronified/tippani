@@ -23,45 +23,67 @@ vi.mock('../../src/api.js', () => ({
 const { TextOrderField } = await import('../../src/textOrderField.jsx')
 const { TEXT_ORDERS, TEXT_ORDER_DEFAULT } = await import('../../src/textOrder.js')
 
+// The words the chips wear, so a case can name a state the way a reader sees it.
+const WORD = {
+  'trans-only': 'translation only',
+  'trans-first': 'translation first',
+  'quote-first': 'quotation first',
+  'quote-only': 'quotation only',
+}
+
 const field = (props = {}) => {
   const onChange = vi.fn()
   render(<TextOrderField value="" onChange={onChange} {...props} />)
   return onChange
 }
 
-const slider = () => document.querySelector('input[type="range"]')
+// CHIPS, AND IT WAS A SLIDER. The owner replaced it — "Sliders are for when we
+// have a gradient, not when we have 4-5 distinct options!" — and the four
+// guarantees below are unchanged by that: they are all about WHICH STATE the
+// control shows, which is a fact about the component and not about the widget.
+// Only the reading of it moved, from a range's numeric `value` to which chip is
+// checked.
+const chips = () => [...document.querySelectorAll('[role="radio"]')]
+const showing = () => chips().find((b) => b.getAttribute('aria-checked') === 'true')
 
-describe('the four states, as one slider', () => {
-  it('draws a stop for each state and no more', () => {
+describe('the four states, as one chooser', () => {
+  it('draws a chip for each state and no more', () => {
     field()
-    const el = slider()
-    expect(el, 'the control is not a slider').toBeTruthy()
-    expect(Number(el.min)).toBe(0)
-    // FOUR STOPS, NOT FIVE. Inherit is not more or less of the original than the
-    // four, so putting it on the axis would break the one property that makes the
-    // axis a slider: each stop shows strictly more of the original than the last.
-    expect(Number(el.max)).toBe(TEXT_ORDERS.length - 1)
+    // FOUR, NOT FIVE. Inherit is not a fifth state of the text — it is the absence
+    // of an opinion — so it gets the revert glyph below and not a chip here.
+    expect(chips()).toHaveLength(TEXT_ORDERS.length)
+    // Exactly one of them answers at a time, which is the property `radiogroup`
+    // exists to state and four independent `aria-pressed` buttons could not.
+    expect(chips().filter((b) => b.getAttribute('aria-checked') === 'true')).toHaveLength(1)
   })
 
-  it('an unset work sits at what it would inherit, rather than at a guess', () => {
+  it('an unset work shows what it would inherit, rather than a guess', () => {
     field({ value: '', inherited: 'trans-first' })
-    expect(Number(slider().value)).toBe(TEXT_ORDERS.indexOf('trans-first'))
+    expect(showing().textContent).toBe('translation first')
   })
 
-  it('and at the app default when it inherits nothing', () => {
+  it('and the app default when it inherits nothing', () => {
     field()
-    expect(Number(slider().value)).toBe(TEXT_ORDERS.indexOf(TEXT_ORDER_DEFAULT))
+    expect(showing().textContent).toBe(WORD[TEXT_ORDER_DEFAULT])
   })
 
-  it('a set work sits at its own state', () => {
+  it('a set work shows its own state', () => {
     field({ value: 'quote-only' })
-    expect(Number(slider().value)).toBe(TEXT_ORDERS.indexOf('quote-only'))
+    expect(showing().textContent).toBe('quotation only')
+  })
+
+  it('and choosing one reports that state, not an index', () => {
+    // The old control handed back a position on an axis and the field turned it
+    // into a state. A chip IS the state, so nothing in between can mistranslate it.
+    const onChange = field({ value: 'quote-only' })
+    fireEvent.click(chips().find((b) => b.textContent === 'translation only'))
+    expect(onChange).toHaveBeenCalledWith('trans-only')
   })
 })
 
 // INHERIT NEEDS ITS OWN WAY BACK, and this is where a work differs from a LANGUAGE
 // row in Settings: there, "equal to the master" and "not set" are the same thing,
-// so moving the slider onto the master clears the row. A work has the language rung
+// so choosing the master's own value clears the row. A work has the language rung
 // between it and the master, so no single value means "follow my settings".
 describe('telling a set control from an unset one', () => {
   it('an unset work says so in words, and offers no revert', () => {
@@ -81,8 +103,8 @@ describe('telling a set control from an unset one', () => {
   it('and the revert clears it rather than setting a state', () => {
     const onChange = field({ value: 'trans-only' })
     fireEvent.click(screen.getByLabelText('Follow my settings'))
-    // '' and not TEXT_ORDER_DEFAULT: those are the same bytes to a slider and
-    // different meanings on a card — one falls through to the language and then
+    // '' and not TEXT_ORDER_DEFAULT: the control shows the same chip either way
+    // and they are different meanings on a card — one falls through to the language and then
     // the master, the other stops the ladder at this work.
     expect(onChange).toHaveBeenCalledWith('')
   })
