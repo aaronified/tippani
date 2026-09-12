@@ -704,6 +704,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A work page's quotes stopped at two columns on any screen.** However wide the window,
+  a book's or a film's board drew two — and the reason was two sensible numbers that had
+  never been read together: the page holds each thing in its stream to a readable measure,
+  and the board's column ladder is measured against the board, which lives inside that
+  measure. The measure was narrower than the ladder's own three-column rung, so the third
+  rung was unreachable on any screen ever built. **It is a default now rather than a
+  ceiling**, and the board's **⋯** gained a **Columns** row — Auto, or one to five — beside
+  the view. Asking for more widens the board enough to draw them; asking for one gives a
+  single wide card to read rather than an 880px box with half of it empty. A count the
+  window has no room for still draws what fits, which is the honest answer.
+
 - **A superlative's name ran out of its tile and over the one beside it.** On Stats,
   the tiles that name your most-quoted book, film and person scroll a long name under
   a fade rather than shortening it — except that the name could never be narrower than

@@ -38,6 +38,7 @@ import {
   ANNOTATION_COLORS,
   ActionMenu,
   ColorSwatches,
+  columnMeasure,
   FilterChip,
   IconSliders,
   IconSortAsc,
@@ -377,4 +378,45 @@ export function BoardSheet({
       </div>
     </MobileSheet>
   )
+}
+
+// COLUMN_CHOICES — Auto, then one to five. 0 is Auto and not "no columns": the
+// board always draws some, and 0 is the absence of a CHOICE.
+export const COLUMN_CHOICES = [0, 1, 2, 3, 4, 5]
+
+// columnActions — the Columns section of a board's ⋯, for whichever board is
+// asking.
+//
+// WHY IT IS IN THE MENU AND NOT THE BAR. The same argument that moved the view
+// there: it costs width, it is set once and read for an hour, and the bar is kept
+// to one line. It sits directly under the view for a second reason — a column
+// count is a property OF a view, and it is drawn only for the one view that has
+// columns. A row that stays visible in the table, doing nothing, is the dead
+// control the rest of this screen argues against.
+//
+// THE READER CAN ASK FOR FEWER, NOT ONLY MORE. Auto is the measured answer; one
+// column is a real request (a wide card to read rather than scan) and it is the
+// one choice the measure cannot produce on its own, because the ladder's floor is
+// already one.
+export function columnActions({ view, columns, onColumns }) {
+  if (view !== 'tiles') return []
+  return [
+    { id: 'h-cols', heading: t('board.columns.label') },
+    ...COLUMN_CHOICES.map((n) => ({
+      id: `cols-${n}`,
+      label: n === 0
+        ? t('board.columns.auto.label')
+        : t('common.count.phrase', { n, noun: t('unit.column', { count: n }) }),
+      checked: columns === n,
+      onClick: () => onColumns(n),
+    })),
+  ]
+}
+
+// measureStyle — the style a board's root element wears so the stream's measure
+// cap becomes the one the reader asked for. `undefined` on Auto, so the
+// stylesheet's own 880px stands and nothing is written into the markup at all.
+export function measureStyle(columns) {
+  const px = columnMeasure(columns)
+  return px ? { '--board-measure': `${px}px` } : undefined
 }

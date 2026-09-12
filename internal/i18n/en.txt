@@ -721,6 +721,8 @@ unit.show.one = show
 unit.show.other = shows
 unit.quote.one = quote
 unit.quote.other = quotes
+unit.column.one = column
+unit.column.other = columns
 # A quote saved against a book.
 unit.highlight.one = highlight
 unit.highlight.other = highlights
@@ -7018,6 +7020,8 @@ links.remove.aria = Remove the {name} link
 # (chapter, character, episode, act, quest), so no two kinds collide and a kind
 # offers only the ones workKinds.js says it has.
 board.category.any.label = Any category
+board.columns.label = Columns
+board.columns.auto.label = Auto
 board.group.aria = Group quotes by
 board.group.none.label = none
 board.group.chapter.label = by chapter

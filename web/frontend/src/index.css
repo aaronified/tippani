@@ -5378,9 +5378,18 @@
   /* THE MEASURE CAP, and it is what makes the page cap unnecessary here. The
      stream fills whatever the window leaves beside the rail and the hero, and
      then stops widening at a readable line — which is the only thing
-     --container-max was doing for this screen anyway. */
+     --container-max was doing for this screen anyway.
+
+     AND IT IS A DEFAULT NOW, NOT A CEILING, because it was silently a ceiling on
+     something else. The quote board's column ladder is measured against the
+     BOARD, and the board lives inside this cap — 880 is under the ladder's 1200
+     rung, so a work page could never draw more than two columns however wide the
+     window was. The owner's report: the quotes "stop at two columns and do not
+     use the width it has". A reader who asks for more columns sets
+     --board-measure on the board itself (see columnMeasure), and 880 stands for
+     everyone who has not. */
   .tp-detail-stream > * {
-    max-width: 880px;
+    max-width: var(--board-measure, 880px);
   }
   /* EXCEPT THE TABLE, WHICH IS SCANNED AND NOT READ. 880px is a MEASURE — the
      width a line of prose stays comfortable at — and it is exactly right for a

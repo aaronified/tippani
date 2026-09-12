@@ -13855,3 +13855,52 @@ had not read.
 row for a game that has no `board` block of its own — `game` declares `inherits:
 'movie'` and `specFor` is what merges it. Indexing the table directly threw on the
 game screen, and the game shelf's own suite is what said so.
+
+## Two numbers that were each right, and a ceiling neither declared
+
+The owner's third report: a work page's quotes *"stop at two columns and do not
+use the width it has"*, and a column picker to go with it.
+
+Neither number was wrong on its own:
+
+```
+index.css   .tp-detail-stream > * { max-width: 880px }   /* a prose MEASURE */
+ui.jsx      QUOTE_COLUMNS_IN = [[2000,5],[1600,4],[1200,3],[800,2]]
+```
+
+The cap's own comment defends 880 as the width a line of prose stays comfortable
+at, and it is right about that. The ladder's own comment defends its rungs from the
+owner's earlier report that a 1080p board was drawing four columns of 170px, and it
+is right about that too. What neither says is that the ladder is measured against
+the BOARD and the board lives inside the cap — so 880, being under the 1200 rung,
+was a hard ceiling of two columns on any screen ever built. **The product of two
+defensible numbers, and nothing in the code states it.**
+
+So 880 becomes a DEFAULT rather than a ceiling: `max-width: var(--board-measure,
+880px)`, and a reader who chooses a count sets the property on the board itself.
+The custom property is read off the element the rule applies to, so setting it on
+the board's own root reaches the cap that caps it — and the head above the board
+widens with it, which is the pack's rule that a head and its rows share one right
+edge.
+
+### The invariant is the relation, not either number
+
+`board-columns.test.js` asserts that the measure a chosen count is given is wide
+enough for the ladder to return that count. That is the one assertion the old code
+fails, at three, four and five — and the one a future edit to either list has to
+keep, whichever of them it edits.
+
+### An override was written and taken out again
+
+`useColumnsIn(ladder, override)` was the first shape: the reader's count wins over
+the measurement. It went, and the reason is worth keeping. It would force five
+columns into a 900px window, where measuring gives the honest answer — you asked
+for five, there is room for two, here are two. With the override gone, Auto and a
+chosen count run through ONE mechanism: the choice changes how wide the board is
+ALLOWED to be, and the same ResizeObserver answers in both cases.
+
+**A MUTATION RUN IS WHAT SETTLED IT.** Removing the override survived the whole
+suite, which read at first as a missing case. It was not: the path was redundant,
+because the measure alone already produces the count on a window wide enough for
+it. A second mechanism nothing can distinguish from the first is a second
+mechanism to get wrong later.

@@ -154,7 +154,7 @@ export const KINDS = {
       // change the first time they rearrange a book — and a `chapter` order
       // arriving on a film board would send every row into the sort's `missing`
       // partition, so the board would look unsorted with no control saying why.
-      persist: { view: 'tippani:annview', sort: 'tippani:annsort', group: 'tippani:anngroup' },
+      persist: { view: 'tippani:annview', sort: 'tippani:annsort', group: 'tippani:anngroup', columns: 'tippani:anncols' },
     },
     card: { skin: 'hand', listSkin: 'plain' },
     views: ['tiles', 'list', 'table'],
@@ -284,7 +284,7 @@ export const KINDS = {
       editTitle: 'common.dialogue.edit.title',
       pickLabel: 'common.dialogue.pick.label',
       tagAll: 'film.lines.filter.tag.all.label',
-      persist: { view: 'tippani:view:dialogues', sort: 'tippani:dlgsort', group: 'tippani:dlggroup', text: 'tippani:dlgtext' },
+      persist: { view: 'tippani:view:dialogues', sort: 'tippani:dlgsort', group: 'tippani:dlggroup', text: 'tippani:dlgtext', columns: 'tippani:dlgcols' },
       // countsShown / stripShown / selectMenu land with the shared board: this
       // screen builds those three strings in English in the source today, so the
       // keys do not exist yet.

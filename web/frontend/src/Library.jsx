@@ -15,7 +15,7 @@ import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, w
 import { SelectionBar } from './SelectionBar.jsx'
 import { PeopleChips, PersonModal, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useTextOrder } from './textOrderHost.jsx'
-import { BoardHead, BoardSheet, BoardStrip } from './boardHead.jsx'
+import { BoardHead, BoardSheet, BoardStrip, columnActions, measureStyle } from './boardHead.jsx'
 import { annDate, groupAnnotations, sortAnnotations } from './boardOrder.js'
 import {
   GroupHeading,
@@ -1585,6 +1585,8 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   // to be saved is a board you scroll rather than read.
   const [sort, setSort] = usePersistedState('tippani:annsort', { col: 'default', dir: 'asc' })
   const [groupBy, setGroupBy] = usePersistedState('tippani:anngroup', 'none')
+  // 0 is Auto — the measured answer — and not "no columns". See columnActions.
+  const [columns, setColumns] = usePersistedState(KINDS.book.board.persist.columns, 0)
   // Ids of annotations added this session, most-recent first. They're floated to
   // the top of the pile (overriding the current order) so the user sees their
   // addition — until they sort, which clears the pin (see toggleSort).
@@ -1717,6 +1719,8 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
         // starts multi-select; it commits nothing, and the ✓ beside it is the
         // same drawing every form's Save wears.
         : [{ id: 'select', icon: <IconCheckAll />, label: t('book.select.menu.label'), onClick: () => selection.begin('annotation') }]),
+      // Directly under the view, because a column count is a property OF a view.
+      ...columnActions({ view, columns, onColumns: setColumns }),
     ],
   })
 
@@ -1942,7 +1946,14 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   }
 
   return (
-    <div className="space-y-4">
+    // THE MEASURE THE READER ASKED FOR. The work page's stream caps every child
+    // at 880px, and the column ladder is measured against the board INSIDE that
+    // cap — so 880, being under the ladder's 1200 rung, was a hard ceiling of two
+    // columns whatever the window was. Set here rather than on the stream because
+    // the stream belongs to WorkDetail and the choice belongs to the board; the
+    // cap reads the property off the child it applies to, so the value lands
+    // where it is needed and the head above the board widens with it.
+    <div className="space-y-4" style={measureStyle(columns)}>
       {mobile && (
         <BoardSheet
           open={mobileFilterOpen}

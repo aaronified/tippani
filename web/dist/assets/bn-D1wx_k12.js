@@ -726,6 +726,8 @@ unit.show.one = শো
 unit.show.other = শো
 unit.quote.one = উদ্ধৃতি
 unit.quote.other = উদ্ধৃতি
+unit.column.one = কলাম
+unit.column.other = কলাম
 # A quote saved against a book.
 unit.highlight.one = উদ্ধৃতি
 unit.highlight.other = উদ্ধৃতি
@@ -6779,6 +6781,8 @@ links.remove.aria = {name} লিংকটা সরান
 # (chapter, character, episode, act, quest), so no two kinds collide and a kind
 # offers only the ones workKinds.js says it has.
 board.category.any.label = যে কোনও শ্রেণি
+board.columns.label = কলাম
+board.columns.auto.label = আপনা-আপনি
 board.group.aria = উদ্ধৃতি সাজান
 board.group.none.label = কিছু না
 board.group.chapter.label = অধ্যায় অনুযায়ী

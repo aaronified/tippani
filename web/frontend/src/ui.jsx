@@ -1136,6 +1136,34 @@ export function useColumnsIn(ladder) {
   return [n, setEl];
 }
 
+// columnMeasure — how wide a board has to be ALLOWED to get for a chosen column
+// count to be reachable.
+//
+// A READER'S CHOICE ACTS THROUGH THE WIDTH, NOT AROUND THE MEASUREMENT. An
+// override handed to useColumnsIn was written first and taken out again: it would
+// force five columns into a 900px window, where measuring gives the honest answer
+// — you asked for five, there is room for two, here are two. Auto and a chosen
+// count then run through ONE mechanism rather than two, and there is no second
+// path for a future edit to get wrong.
+//
+// WHY THIS EXISTS AT ALL. The work page's stream caps every child at a MEASURE —
+// 880px, the width a line of prose stays comfortable at — and the column ladder
+// below is measured against the board, which lives inside that cap. 880 is under
+// the ladder's 1200 rung, so the board could never report more than two columns
+// however wide the window was: the owner's report, in their words, that a work
+// page's quotes "stop at two columns and do not use the width it has". A picker
+// that did not also lift the cap would be a control that changes nothing.
+//
+// The rungs are the ladder's own, so the two cannot disagree; ONE column is the
+// exception and is not a rung at all — the ladder's floor — so it gets a single
+// card's measure rather than two cards' worth of empty page.
+export function columnMeasure(n) {
+  if (!(n > 0)) return null; // Auto: the stylesheet's 880 stands
+  if (n === 1) return 460;
+  const rung = QUOTE_COLUMNS_IN.find(([, cols]) => cols === n);
+  return Math.max(880, rung ? rung[0] : 880);
+}
+
 // QUOTE_COLUMNS_IN — the same intent as QUOTE_COLUMNS, measured against the board
 // rather than the window, and DELIBERATELY MORE GENEROUS. The rungs are set from
 // the owner's own report: on a 1080p screen the board was drawing four columns of

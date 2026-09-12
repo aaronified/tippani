@@ -31,7 +31,7 @@ import {
 } from './works.jsx'
 import { KINDS, specFor } from './workKinds.js'
 import { groupAnnotations, sortAnnotations } from './boardOrder.js'
-import { BoardHead, BoardSheet, BoardStrip } from './boardHead.jsx'
+import { BoardHead, BoardSheet, BoardStrip, columnActions, measureStyle } from './boardHead.jsx'
 import WorkDetail from './WorkDetail.jsx'
 import { QUOTE_FACE, languageClass } from './fonts.js'
 import { t } from './i18n.js'
@@ -1246,6 +1246,8 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   // film board would be refused by groupAnnotations and leave the board looking
   // ungrouped with the control saying otherwise.
   const [groupBy, setGroupBy] = usePersistedState(kind.board.persist.group, 'none')
+  // 0 is Auto — the measured answer — and not "no columns". See columnActions.
+  const [columns, setColumns] = usePersistedState(kind.board.persist.columns, 0)
   // THE BOARD IS NOT THE WINDOW, and measuring the window is what put four
   // ~170px columns of syllables on a 1080p screen — the owner's report, twice:
   // "i see 4 columns in the board tile, all very skinny... the annotations need
@@ -1463,6 +1465,8 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
       ...(dlgSelection.active
         ? []
         : [{ id: 'select', icon: <IconCheckAll />, label: t('film.lines.select.menu.label'), onClick: () => dlgSelection.begin('dialogue') }]),
+      // Directly under the view, because a column count is a property OF a view.
+      ...columnActions({ view, columns, onColumns: setColumns }),
     ],
   })
 
@@ -1508,7 +1512,8 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   }
 
   return (
-    <div className="space-y-4">
+    // The measure the reader asked for — see Annotations, and measureStyle.
+    <div className="space-y-4" style={measureStyle(columns)}>
       {mobile && (
         <BoardSheet
           open={mobileFilterOpen}

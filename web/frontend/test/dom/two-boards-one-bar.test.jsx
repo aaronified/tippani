@@ -20,7 +20,7 @@
 // in the bar.
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 const ANNOTATIONS = [
   { id: 11, book_id: 1, quote: 'Call me Ishmael.', chapter: 'One', chapter_no: 1, color: 'yellow', tags: ['craft'], created_at: '2024-01-01 10:00:00' },
@@ -124,6 +124,35 @@ describe.each(BOARDS)('the bar above %s', (_what, screenOf, line, mine, theirs) 
     // exactly here.
     expect(rows.some((r) => mine.test(r)), `no row for ${mine}`).toBe(true)
     expect(rows.some((r) => theirs.test(r)), `offers the other kind's ${theirs}`).toBe(false)
+  })
+
+  it('offers the column count in the ⋯ too, on the one view that has columns', async () => {
+    await mount(screenOf, line)
+    const rows = buildScreenActions().filter((r) => !r.heading)
+    // Auto plus one to five. The board opens in tiles, which is the view a column
+    // count is a property OF.
+    const cols = rows.filter((r) => /^(Auto|[1-5] columns?)$/i.test(String(r.label)))
+    expect(cols.length, 'no Columns section in the ⋯').toBe(6)
+    expect(cols.filter((r) => r.checked).length, 'no column choice is marked').toBe(1)
+    // AUTO WRITES NOTHING INTO THE MARKUP, so the stylesheet's own measure stands
+    // for every reader who has not chosen.
+    expect(document.querySelector('.board-head').closest('[style*="--board-measure"]')).toBeNull()
+  })
+
+  it('widens the board to a measure the chosen count can actually reach', async () => {
+    await mount(screenOf, line)
+    const three = buildScreenActions().find((r) => !r.heading && /^3 columns$/i.test(String(r.label)))
+    expect(three, 'no 3-column row').toBeTruthy()
+    await act(async () => { three.onClick() })
+    // The stream caps every child at 880px unless the child says otherwise, and
+    // 880 is under the ladder's 1200 rung — so without this the picker would be a
+    // control that changes nothing.
+    const widened = await waitFor(() => {
+      const el = document.querySelector('[style*="--board-measure"]')
+      expect(el, 'the board did not take a measure').toBeTruthy()
+      return el
+    })
+    expect(widened.style.getPropertyValue('--board-measure')).toBe('1200px')
   })
 
   it('puts the view in the screen’s ⋯, where the other board’s lives', async () => {
