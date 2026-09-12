@@ -14,6 +14,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"tippani/internal/store"
 )
 
 // exportAnthology, setEntryNote and listAnthologies live in export_anthology_test.go.
@@ -543,5 +545,90 @@ func TestThePersonBehindAPassage(t *testing.T) {
 	// Once, on the entry that owns it — not on the quote whose speaker has no row.
 	if n := strings.Count(md, "- bio:"); n != 1 {
 		t.Errorf("bio written %d times over two entries, want 1:\n%s", n, md)
+	}
+}
+
+// THE CAST JOIN AND THE TWO PORTRAITS (0048/0050).
+//
+// THE VOCABULARY MISMATCH IS THE WHOLE RISK. An anthology entry is
+// `book | screen | utterance` and a cast row is `book | movie` — the same word for
+// books and a different one for films. Getting that wrong matches no rows and looks
+// exactly like a work with no cast, which is the ordinary state, so nothing on
+// screen would say anything was wrong. The film case below is the one that would
+// fail; the book case is there so a fix that inverted the mapping cannot pass.
+func TestACharactersFaceReachesTheEntryThatNamesThem(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Stalker", "director": "Andrei Tarkovsky"}, http.StatusCreated))
+	dia := decode[dialogueRow](t, c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "Let everything that has been planned come true.",
+		"character": "Stalker", "actor": "Alexander Kaidanovsky",
+	}, http.StatusCreated))
+	// The cast row a film screen would have written, WITH a downloaded face.
+	// Written directly because the path that fills it fetches from a provider, and
+	// what is under test is the join rather than the fetch.
+	//
+	// `kind` IS 'movie' AND THE ANTHOLOGY ENTRY'S IS 'screen' — the mismatch this
+	// test exists for. A join that passed the entry's kind straight through would
+	// find nothing here and look exactly like a film with no cast.
+	if _, err := srv.Store.DB.Exec(
+		`INSERT INTO work_cast (user_id, kind, work_id, character, character_key, actor, actor_key,
+		                        character_image_path, billing, origin, source)
+		 VALUES (1, 'movie', ?, 'Stalker', ?, 'Alexander Kaidanovsky', ?,
+		         '00112233445566aa.jpg', 0, 'provider', 'tmdb')`,
+		movie.ID, store.CastKey("Stalker"), store.CastKey("Alexander Kaidanovsky")); err != nil {
+		t.Fatal(err)
+	}
+
+	a := newAnthology(t, c, "Zone")
+	addEntries(t, c, a.ID, []map[string]any{{"kind": "screen", "item_id": dia.ID}})
+	setFields(t, c, a.ID, "Zone", map[string]any{"fields": map[string]any{"character_portrait": true}})
+
+	got := getAnthology(t, c, a.ID).Entries[0].Cast
+	if got["character_portrait"] != "00112233445566aa.jpg" {
+		t.Errorf("the character's face did not reach the entry: %+v", got)
+	}
+}
+
+// AND THE MAPPING ITSELF, asserted directly, because the test above can only fail
+// one way round: a mapping that returned "screen" would find nothing, and so would
+// one that returned "" — two different bugs with one symptom.
+func TestAnEntrysKindBecomesTheCastTablesKind(t *testing.T) {
+	for _, tc := range []struct{ entry, cast string }{
+		{kindBook, "book"},
+		{kindScreen, "movie"},
+		{kindUtterance, ""},
+	} {
+		if got := castKindOfEntry(tc.entry); got != tc.cast {
+			t.Errorf("a %q entry looks for %q cast rows, want %q", tc.entry, got, tc.cast)
+		}
+	}
+}
+
+// A PORTRAIT IS NOT A MARKDOWN BINDING, which is the third meaning `Binding: ""`
+// carries in the registry — and the one worth a test, because the other two are
+// fields that ARE written and this is a field that must not be.
+func TestAPortraitIsNeverWrittenIntoTheMarkdown(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	c.mustDo("PUT", "/people", map[string]any{
+		"kind": "author", "name": "Italo Calvino", "bio": "Wrote about cities.",
+	}, http.StatusOK)
+	ann, _, _ := threeKinds(t, c)
+	a := newAnthology(t, c, "Cities")
+	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann}})
+	setFields(t, c, a.ID, "Cities", map[string]any{
+		"fields": map[string]any{"portrait": true, "character_portrait": true, "bio": true},
+	})
+	md := exportAnthology(t, c, a.ID)
+	// The bio IS written — so this is not passing because the switches were ignored.
+	if !strings.Contains(md, "- bio: Wrote about cities.") {
+		t.Fatalf("the bio did not reach the file, so this test proves nothing:\n%s", md)
+	}
+	for _, key := range []string{"- portrait:", "- character_portrait:"} {
+		if strings.Contains(md, key) {
+			t.Errorf("a picture was written into the Markdown as %q:\n%s", key, md)
+		}
 	}
 }

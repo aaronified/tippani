@@ -261,6 +261,16 @@ type anthologyEntryRow struct {
 	// the ORDINARY case and not an error: a person row exists only where somebody
 	// looked the name up or typed it in.
 	Person map[string]string `json:"person,omitempty"`
+	// CharacterName is which cast row to look up — the character named ON the quote,
+	// which is what work_cast is keyed by together with the work. Not sent, like
+	// PersonName: a join key, not something to render.
+	//
+	// ALWAYS "" FOR A STANDALONE QUOTE, and that is the schema rather than a choice:
+	// utterances has a speaker and no character column at all (0026).
+	CharacterName string `json:"-"`
+	// Cast is that row's fields — today the character's downloaded portrait, and
+	// absent where there is no cast row or no picture in it.
+	Cast map[string]string `json:"cast,omitempty"`
 	// Work is everything the parent book or film knows, keyed by registry key and
 	// carrying only the fields that work actually has a value for (0074). Absent
 	// entirely for a standalone quote, which has no parent.
@@ -446,7 +456,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		       --
 		       -- NO BACKTICKS IN THIS COMMENT, and none anywhere in this string: it is
 		       -- a Go RAW string literal, so one would end the query here.
-		       COALESCE(b.author,'')
+		       COALESCE(b.author,''), COALESCE(a.character,'')
 		  FROM anthology_entries e
 		  JOIN annotations a ON a.id = e.item_id
 		  JOIN books b ON b.id = a.book_id
@@ -475,7 +485,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		       -- A film line's person is the ACTOR and not the director: the line was
 		       -- said by one of them, and people is one row per name either way. The
 		       -- director is a field of the WORK and has its own registry row.
-		       COALESCE(d.actor,'')
+		       COALESCE(d.actor,''), COALESCE(d.character,'')
 		  FROM anthology_entries e
 		  JOIN dialogues d ON d.id = e.item_id
 		  JOIN movies m ON m.id = d.movie_id
@@ -503,7 +513,9 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		       -- 0026 says it in the schema: "speaker matches people.name verbatim,
 		       -- the way books.author and dialogues.actor do -- free text, enriched by
 		       -- a people row when one exists, never a foreign key."
-		       COALESCE(u.speaker,'')
+		       -- utterances has no character column (0026), so the cast join has
+		       -- nothing to key on for a standalone quote and this is always ''.
+		       COALESCE(u.speaker,''), ''
 		  FROM anthology_entries e
 		  JOIN utterances u ON u.id = e.item_id
 		 WHERE e.anthology_id = ? AND e.kind = 'utterance' AND u.user_id = ?
@@ -518,7 +530,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		var e anthologyEntryRow
 		if err := rows.Scan(&e.Kind, &e.ItemID, &e.Position, &e.Note,
 			&e.Quote, &e.QuoteNote, &e.Color, &e.Favorite, &e.Source, &e.Credit, &e.WorkID,
-			&e.Locator, &e.Date, &e.QuoteKind, &e.WorkTitle, &e.PersonName); err != nil {
+			&e.Locator, &e.Date, &e.QuoteKind, &e.WorkTitle, &e.PersonName, &e.CharacterName); err != nil {
 			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] entry scan failed: %v", err)
 			continue
 		}
@@ -530,7 +542,10 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 	if err := s.attachWorkFields(uid, out); err != nil {
 		return nil, err
 	}
-	return out, s.attachPersonFields(uid, out)
+	if err := s.attachPersonFields(uid, out); err != nil {
+		return nil, err
+	}
+	return out, s.attachCastFields(uid, out)
 }
 
 // attachWorkFields fills each entry's Work map — everything the BOOK or the FILM
@@ -602,7 +617,7 @@ func (s *Server) attachPersonFields(uid int64, out []anthologyEntryRow) error {
 		args = append(args, name)
 	}
 	rows, err := s.Store.DB.Query(
-		`SELECT name, COALESCE(bio,''), COALESCE(born,''), COALESCE(died,''), COALESCE(links,'')
+		`SELECT name, COALESCE(bio,''), COALESCE(born,''), COALESCE(died,''), COALESCE(links,''), COALESCE(image_path,'')
 		   FROM people WHERE user_id = ? AND name IN (`+
 			strings.TrimSuffix(strings.Repeat("?,", len(args)-1), ",")+`)`, args...)
 	if err != nil {
@@ -642,7 +657,80 @@ func (s *Server) attachPersonFields(uid int64, out []anthologyEntryRow) error {
 // next to nothing else on purpose: the two literals it has to agree with are three
 // lines apart, which is the only arrangement in which a column added to one and not
 // the other is visible rather than inferred.
-var personFieldOrder = []string{"bio", "born", "died", "links"}
+var personFieldOrder = []string{"bio", "born", "died", "links", "portrait"}
+
+// attachCastFields fills each entry's Cast map from the work_cast row for this
+// entry's work and the character named on the quote (0048/0050).
+//
+// THE KIND HAS TO BE TRANSLATED, which is the whole reason this is careful: an
+// anthology entry is `book | screen | utterance` and a cast row is `book | movie`.
+// The same word for books and a different one for films is the shape of mismatch
+// that matches no rows and looks exactly like a work with no cast. castKindOfEntry
+// is where that mapping lives, and it returns "" for an utterance — which has no
+// character column to join on at all.
+//
+// ONE QUERY PER KIND over the (work, character) pairs, matched on character rather
+// than on character_key: CastKey is store's normaliser and importing it here to
+// rebuild a key the database already holds would be a second spelling of the same
+// rule. The exact name is what the entry carries and what the row was written with.
+func (s *Server) attachCastFields(uid int64, out []anthologyEntryRow) error {
+	for _, kind := range []string{kindBook, kindScreen} {
+		castKind := castKindOfEntry(kind)
+		byPair := map[string][]*anthologyEntryRow{}
+		for i := range out {
+			if out[i].Kind != kind || out[i].WorkID == 0 || strings.TrimSpace(out[i].CharacterName) == "" {
+				continue
+			}
+			key := strconv.FormatInt(out[i].WorkID, 10) + "\x00" + out[i].CharacterName
+			byPair[key] = append(byPair[key], &out[i])
+		}
+		if len(byPair) == 0 {
+			continue
+		}
+		args := []any{uid, castKind}
+		where := []string{}
+		for key := range byPair {
+			parts := strings.SplitN(key, "\x00", 2)
+			id, err := strconv.ParseInt(parts[0], 10, 64)
+			if err != nil {
+				continue
+			}
+			where = append(where, "(work_id = ? AND character = ?)")
+			args = append(args, id, parts[1])
+		}
+		if len(where) == 0 {
+			continue
+		}
+		rows, err := s.Store.DB.Query(
+			`SELECT work_id, character, COALESCE(character_image_path,'')
+			   FROM work_cast WHERE user_id = ? AND kind = ? AND (`+strings.Join(where, " OR ")+`)`, args...)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var workID int64
+			var character, portrait string
+			if err := rows.Scan(&workID, &character, &portrait); err != nil {
+				olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] cast scan failed: %v", err)
+				continue
+			}
+			if portrait == "" {
+				// A cast row with no downloaded picture has nothing to give, and an
+				// empty map would be a "cast" the renderers then had to test for.
+				continue
+			}
+			for _, e := range byPair[strconv.FormatInt(workID, 10)+"\x00"+character] {
+				e.Cast = map[string]string{"character_portrait": portrait}
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return err
+		}
+		rows.Close()
+	}
+	return nil
+}
 
 // workFieldQuery is the per-kind read, one row per work, columns in registry order.
 //

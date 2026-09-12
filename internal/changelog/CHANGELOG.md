@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   everything else on that list needs a work to read from. Shown only where you actually
   have a record of that person, which most passages will not have, and the line is
   simply absent rather than blank when you do not.
+- **An anthology can show the faces as well as the names.** Two more switches: the
+  portrait of whoever is answerable for a passage, and the face of the character named on
+  a film line. They draw on the screen, and **the EPUB carries the picture itself**, so a
+  book you put on an e-reader has the faces in it rather than links to them. The Markdown
+  export writes neither, deliberately — a path to a file on your own machine means nothing
+  in a file you send somebody. A face that has since been deleted costs nothing: the book
+  is built from what is actually there.
 - **An anthology with a rule can keep an eye out, and it asks before it grows.** Turn on
   "Keep it fed" and the next time you open it, it counts what has since matched and offers
   it: **Add 12 waiting**. Nothing is added until you press it — your anthology does not

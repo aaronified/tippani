@@ -17,6 +17,8 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -248,4 +250,63 @@ func TestAnotherReadersAnthologyHasNoEPUB(t *testing.T) {
 
 	bob := addUser(t, h, alice, "bob")
 	bob.mustDo("GET", "/anthologies/"+itoa(a.ID)+"/export.epub", nil, http.StatusNotFound)
+}
+
+// A PORTRAIT REACHES THE BOOK AS BYTES, which is the only renderer that can carry
+// one — and the manifest, the file and the <img> all have to agree or the book is
+// invalid and a reader refuses the whole thing over one face.
+func TestTheEPUBCarriesAPortraitAndSurvivesAMissingOne(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	c.mustDo("PUT", "/people", map[string]any{
+		"kind": "author", "name": "Italo Calvino", "bio": "Wrote about cities.",
+	}, http.StatusOK)
+	// A real file under MediaCover, named the way the cover route validates.
+	const face = "00112233445566aa.png"
+	if err := os.MkdirAll(srv.coversDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srv.coversDir(), face), []byte("not really a png"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Store.DB.Exec(`UPDATE people SET image_path = ? WHERE name = 'Italo Calvino'`, face); err != nil {
+		t.Fatal(err)
+	}
+
+	ann, _, _ := threeKinds(t, c)
+	a := newAnthology(t, c, "Cities")
+	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann}})
+	setFields(t, c, a.ID, "Cities", map[string]any{"fields": map[string]any{"portrait": true}})
+
+	z := exportEPUB(t, c, a.ID)
+	if got := epubFile(t, z, "OEBPS/"+face); got != "not really a png" {
+		t.Errorf("the portrait's bytes are not in the book: %q", got)
+	}
+	opf := epubFile(t, z, "OEBPS/content.opf")
+	if !strings.Contains(opf, `href="`+face+`"`) || !strings.Contains(opf, `media-type="image/png"`) {
+		t.Errorf("the manifest does not declare the portrait as a png:\n%s", opf)
+	}
+	body := epubFile(t, z, "OEBPS/anthology.xhtml")
+	if !strings.Contains(body, `<img src="`+face+`" alt="" />`) {
+		t.Errorf("the page does not show the portrait:\n%s", body)
+	}
+
+	// AND A FACE THAT HAS GONE COSTS NOTHING. image_path can name a file that was
+	// deleted; a manifest item pointing at nothing makes the WHOLE book invalid, so
+	// the bytes are read first and the manifest written from what arrived.
+	if err := os.Remove(filepath.Join(srv.coversDir(), face)); err != nil {
+		t.Fatal(err)
+	}
+	z = exportEPUB(t, c, a.ID)
+	opf = epubFile(t, z, "OEBPS/content.opf")
+	if strings.Contains(opf, face) {
+		t.Errorf("the manifest declares a file that was not written:\n%s", opf)
+	}
+	if strings.Contains(epubFile(t, z, "OEBPS/anthology.xhtml"), face) {
+		t.Errorf("the page points at a picture the book does not hold")
+	}
+	// The book is still a book.
+	if got := epubFile(t, z, "mimetype"); got != "application/epub+zip" {
+		t.Errorf("mimetype = %q", got)
+	}
 }

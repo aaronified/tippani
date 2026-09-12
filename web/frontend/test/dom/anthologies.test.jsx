@@ -385,6 +385,36 @@ describe('the fields a work lends its passages', () => {
     }
   })
 
+  it('draws the two faces it was told to, and nothing for an entry that has none', async () => {
+    // THE SWITCH HAS TO REACH THE SCREEN IT WAS THROWN ON. A portrait field that
+    // saved and then drew nothing here would read as a broken record rather than
+    // as a missing wire — which is exactly the failure the registry drift guard
+    // exists to catch on the Go side and cannot catch on this one.
+    DETAIL = {
+      anthology: {
+        id: 1, title: 'On keeping quiet', intro: '', entries: 2,
+        fields: { portrait: true, character_portrait: true },
+      },
+      entries: [
+        entry('screen', 9, 1, '', 'We remember light.', {
+          person: { portrait: 'aaaabbbbccccdddd.jpg' },
+          cast: { character_portrait: '1111222233334444.png' },
+        }),
+        entry('utterance', 4, 2, '', 'Least said, soonest mended.', { work_id: 0, source: '', credit: 'Anon' }),
+      ],
+    }
+    open()
+    await screen.findByText('We remember light.')
+    const faces = document.querySelectorAll('img[src*="covers/"]')
+    expect(faces.length).toBe(2)
+    // THE CHARACTER FIRST, then whoever is answerable — the order they are read in.
+    expect(faces[0].getAttribute('src')).toContain('1111222233334444.png')
+    expect(faces[1].getAttribute('src')).toContain('aaaabbbbccccdddd.jpg')
+    // `alt=""` and not a name: the name is already in the attribution above, and a
+    // screen reader announcing it twice is the row saying one thing twice.
+    expect(faces[0].getAttribute('alt')).toBe('')
+  })
+
   it('offers what is waiting without adding it, and adds it when pressed', async () => {
     // "KEEP IT FED" IS A COUNT AND NOT AN ARRIVAL. The anthology must not grow
     // because it was opened — that is a write on a read and the exact "change that

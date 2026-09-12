@@ -92,16 +92,38 @@ describe('the two field lists name the same fields', () => {
     expect([...storedKeys].sort()).toEqual(goStored)
   })
 
-  it('agrees with Go about which stored fields come off the person', () => {
-    // Go names them in `personFieldKeys` and the split decides which SELECT reads
-    // them; the client names them by which list they are in and the split decides
-    // which line they are drawn on. Either half naming a field the other does not
-    // is a field the form offers and the server never fills — a toggle that saves
-    // and then shows nothing, which looks like a broken record rather than a
-    // missing table row.
-    const body = GO.split('var personFieldKeys = map[string]bool{')[1].split('}')[0]
-    const goPerson = [...body.matchAll(/"([^"]+)"/g)].map((m) => m[1]).sort()
-    expect([...personKeys].sort()).toEqual(goPerson)
+  it('agrees with Go about which stored fields are not read off the work', () => {
+    // THE TWO SIDES GROUP BY DIFFERENT THINGS, and this test is the place that has
+    // to know it. Go splits by SOURCE TABLE — `personFieldKeys` is the people row,
+    // `castFieldKeys` is the work_cast row — because that decides which SELECT
+    // fills them. The client splits by FORM SECTION, and a character's portrait
+    // belongs under "About who said it" beside the speaker's: on a film line the
+    // character is who says it and the actor is who said it, so the reader's
+    // question is one question even though the answer comes from two tables.
+    //
+    // So the comparison is against the UNION. What it still catches is the failure
+    // that matters: a field one side names and the other does not is a toggle that
+    // saves and then shows nothing — which reads as a broken record rather than as
+    // a missing table row.
+    const namesIn = (decl) => {
+      const body = GO.split(decl)[1]
+      if (body === undefined) return null
+      return [...body.split('}')[0].matchAll(/"([^"]+)"/g)].map((m) => m[1])
+    }
+    const person = namesIn('var personFieldKeys = map[string]bool{')
+    const cast = namesIn('var castFieldKeys = map[string]bool{')
+    expect(person, 'personFieldKeys not found in the Go source').not.toBeNull()
+    expect(cast, 'castFieldKeys not found in the Go source').not.toBeNull()
+    expect([...personKeys].sort()).toEqual([...person, ...cast].sort())
+  })
+
+  it('keeps the two Go source sets disjoint', () => {
+    // A key in both would make `fromWork` and `fromPerson` disagree about where to
+    // read it, and the value that won would be whichever predicate was asked first.
+    const namesIn = (decl) => [...GO.split(decl)[1].split('}')[0].matchAll(/"([^"]+)"/g)].map((m) => m[1])
+    const person = namesIn('var personFieldKeys = map[string]bool{')
+    const cast = namesIn('var castFieldKeys = map[string]bool{')
+    expect(person.filter((k) => cast.includes(k))).toEqual([])
   })
 
   it('spells every column-backed switch hide_ or show_, and nothing else', () => {

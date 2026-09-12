@@ -170,23 +170,61 @@ var anthologyRegistry = []anthologyField{
 	{Key: "born", Kinds: allKinds, Binding: "born", Label: "common.field.born.label"},
 	{Key: "died", Kinds: allKinds, Binding: "died", Label: "common.field.died.label"},
 	{Key: "links", Kinds: allKinds, Binding: "links", Label: "common.field.links.label"},
+	{Key: "portrait", Kinds: allKinds, Binding: "", Label: "common.field.portrait.label"},
+
+	// THE CAST JOIN, and it is one row because there is nothing else in that table
+	// worth having: `work_cast.actor` is the VOICE actor on a game and is always ''
+	// on a book, and everything else there is provider bookkeeping.
+	//
+	// BOOK AND SCREEN ONLY, and that is the schema and not a choice: `utterances`
+	// has no character column (0026 gives it `speaker` and nothing else), so a
+	// standalone quote has no cast row to find.
+	{Key: "character_portrait", Kinds: workKinds, Binding: "", Label: "common.field.cast.label"},
 }
 
 // personFieldKeys are the registry rows read off the `people` row rather than off
 // the work. Named once here so `fromWork` stays the derivation it is and does not
 // become a three-way guess: a key in this set is a PERSON field, a key with a
 // column is a 0045 field, and everything else is a work field.
-var personFieldKeys = map[string]bool{"bio": true, "born": true, "died": true, "links": true}
+var personFieldKeys = map[string]bool{
+	"bio": true, "born": true, "died": true, "links": true, "portrait": true,
+}
 
-// PORTRAITS ARE NOT IN THAT LIST AND THE CAST JOIN IS NOT IN THIS COMMIT, which is
-// a scoping decision rather than an oversight. `people.image_path` and
-// `work_cast.image_url` are IMAGES, and the only renderer an anthology has today is
-// Markdown — where a portrait can only be written as a local path that means
-// nothing outside this install. A field whose exported form is useless is worse
-// than an absent one, because it is a promise on the form that the file does not
-// keep. Both belong with the EPUB writer, which can carry the bytes; the cast join
-// has no other field worth having (its `actor` column is the voice actor on a game
-// and is always empty on a book), so it goes there whole.
+// castFieldKeys is the same for the cast row. One key today; a map rather than a
+// comparison so adding a second is a line here and not a new predicate.
+var castFieldKeys = map[string]bool{"character_portrait": true}
+
+// castKindOfEntry is 0043's vocabulary mapped onto 0048's, and THIS is the caller
+// that comment said the mapping should wait for. `anthology_entries.kind` is
+// `book | screen | utterance` and `work_cast.kind` is `book | movie` — the same
+// word for books and a different one for films, which is the shape of mismatch that
+// matches no rows and looks exactly like an empty cast.
+func castKindOfEntry(kind string) string {
+	switch kind {
+	case kindBook:
+		return "book"
+	case kindScreen:
+		return "movie"
+	}
+	return ""
+}
+
+// THE TWO PORTRAITS, and they are the only fields here that are not text.
+//
+// THEY ARE LOCAL FILES AND NOT THE PROVIDER'S URLs, which is the distinction that
+// decides whether they can be carried at all. `work_cast` has BOTH: `image_url` is
+// where the provider's picture lives, out on the internet, and
+// `character_image_path` (0050) is the copy this install downloaded, sitting under
+// MediaCover. Only the second can be read from here — `internal/metadata` is the
+// only package allowed an outbound call — so it is the second that is joined.
+// `people.image_path` has always been local.
+//
+// THEY WRITE NO MARKDOWN BINDING, which is the third meaning `Binding: ""` carries
+// in this list. The commentary is "" because it is exported as PROSE; these are ""
+// because a picture in a Markdown file could only be a path meaningless outside
+// this install, and a field whose exported form is useless is worse than an absent
+// one. The EPUB carries the bytes; the reading view draws the file it already
+// serves at /covers/.
 
 // GENRES IS NOT IN THAT LIST AND THE REASON IS THE COLUMN, not the idea. Both
 // works tables carry `genre_text`, which is space-joined for FTS — "Fiction
@@ -208,10 +246,16 @@ func (f anthologyField) appliesTo(kind string) bool {
 // fromWork says whether this field is read off the joined work rather than off the
 // entry row or the person. Derived rather than stated: a second boolean saying so
 // is a second thing to keep true.
-func (f anthologyField) fromWork() bool { return f.Col == "" && !personFieldKeys[f.Key] }
+func (f anthologyField) fromWork() bool {
+	return f.Col == "" && !personFieldKeys[f.Key] && !castFieldKeys[f.Key]
+}
 
 // fromPerson says whether it is read off the `people` row matched to the entry.
 func (f anthologyField) fromPerson() bool { return personFieldKeys[f.Key] }
+
+// fromCast says whether it is read off the `work_cast` row for this entry's work
+// and character.
+func (f anthologyField) fromCast() bool { return castFieldKeys[f.Key] }
 
 // stored says whether this field lives in the `fields` blob rather than in a column
 // of its own — which is every field added after 0045, whatever it reads from. The
@@ -295,6 +339,9 @@ func anthologyFieldValue(e anthologyEntryRow, f anthologyField) string {
 	}
 	if f.fromPerson() {
 		return e.Person[f.Key]
+	}
+	if f.fromCast() {
+		return e.Cast[f.Key]
 	}
 	switch f.Key {
 	case fieldCredit:

@@ -37,12 +37,16 @@ package httpapi
 // when you read the anthology is what you get when you export it, extended to a
 // second format rather than reimplemented beside it.
 //
-// PORTRAITS ARE NOT IN THIS FILE YET. They were left out of the person join because
-// Markdown could only carry them as a local path that means nothing outside this
-// install; this is the renderer that can carry the bytes, and doing so is the next
-// step rather than this one. Nothing here is shaped to make that hard: an image is
-// a manifest item and an <img>, and the writer below already builds the manifest
-// from a list.
+// THE PORTRAITS ARE HERE AND NOWHERE ELSE IN THE EXPORTS, which is the whole reason
+// they waited for this file. A picture in a Markdown export could only be a local
+// path meaningless outside this install; an EPUB is a container, so it carries the
+// bytes. Each one becomes a manifest item and an <img>, deduplicated by filename —
+// thirty quotes by one author embed one photograph.
+//
+// A MISSING FILE IS DROPPED AND THE BOOK STILL OPENS. `image_path` can name a file
+// that has since gone, and a manifest item pointing at nothing is an invalid EPUB:
+// a reader would refuse the whole book over one absent face. So the bytes are read
+// FIRST and the manifest is written from what was actually read.
 
 import (
 	"archive/zip"
@@ -50,6 +54,8 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -82,7 +88,7 @@ func (s *Server) handleExportAnthologyEPUB(w http.ResponseWriter, r *http.Reques
 		internalError(w, r, "render anthology epub", err)
 		return
 	}
-	book, err := renderAnthologyEPUB(id, title, intro, fields, entries)
+	book, err := s.renderAnthologyEPUB(id, title, intro, fields, entries)
 	if err != nil {
 		internalError(w, r, "render anthology epub", err)
 		return
@@ -107,7 +113,7 @@ func epubIdentifier(id int64) string {
 // renderAnthologyEPUB writes the whole book. The entry order is the anthology's,
 // which is the whole point of an anthology and the one thing a format conversion
 // must not touch.
-func renderAnthologyEPUB(id int64, title, intro string, f anthologyFields, entries []anthologyEntryRow) ([]byte, error) {
+func (s *Server) renderAnthologyEPUB(id int64, title, intro string, f anthologyFields, entries []anthologyEntryRow) ([]byte, error) {
 	uid := epubIdentifier(id)
 	var buf bytes.Buffer
 	z := zip.NewWriter(&buf)
@@ -138,10 +144,23 @@ func renderAnthologyEPUB(id int64, title, intro string, f anthologyFields, entri
 	if err := add("OEBPS/style.css", epubStyle); err != nil {
 		return nil, err
 	}
-	if err := add("OEBPS/anthology.xhtml", epubBody(title, intro, f, entries)); err != nil {
+	// READ BEFORE MANIFESTED. See the header: a manifest item pointing at a file
+	// that was not written makes the whole book invalid, so what goes in the
+	// manifest is what actually arrived.
+	images := s.epubImages(f, entries)
+	for _, im := range images {
+		w, err := z.Create("OEBPS/" + im.name)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := w.Write(im.data); err != nil {
+			return nil, err
+		}
+	}
+	if err := add("OEBPS/anthology.xhtml", epubBody(title, intro, f, entries, images)); err != nil {
 		return nil, err
 	}
-	if err := add("OEBPS/content.opf", epubOPF(title, uid)); err != nil {
+	if err := add("OEBPS/content.opf", epubOPF(title, uid, images)); err != nil {
 		return nil, err
 	}
 	if err := add("OEBPS/toc.ncx", epubNCX(title, uid, entries, f)); err != nil {
@@ -174,9 +193,11 @@ p.commentary { margin: .4em 0; }
 blockquote { margin: .6em 0 .4em 0; padding-left: .9em; border-left: 3px solid #999; }
 p.attribution { margin: .2em 0 0; font-size: .85em; }
 p.intro { margin: .4em 0; }
+p.portrait { margin: .5em 0; }
+p.portrait img { max-width: 40%; }
 `
 
-func epubOPF(title, bookID string) string {
+func epubOPF(title, bookID string, images []epubImage) string {
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -188,7 +209,7 @@ func epubOPF(title, bookID string) string {
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="css" href="style.css" media-type="text/css"/>
     <item id="body" href="anthology.xhtml" media-type="application/xhtml+xml"/>
-  </manifest>
+` + epubImageItems(images) + `  </manifest>
   <spine toc="ncx">
     <itemref idref="body"/>
   </spine>
@@ -221,7 +242,7 @@ func epubNCX(title, bookID string, entries []anthologyEntryRow, f anthologyField
 // "Ursula K. Le Guin · Parnassus Press · 1968" — rather than as `- key: value`
 // lines, because those are a machine's format and this file is read by a person on
 // a device with no way to ask what a key means.
-func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRow) string {
+func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRow, images []epubImage) string {
 	var sb strings.Builder
 	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
@@ -256,6 +277,20 @@ func epubBody(title, intro string, f anthologyFields, entries []anthologyEntryRo
 			sb.WriteString("<p>" + xmlText(line) + "</p>")
 		}
 		sb.WriteString("</blockquote>\n")
+		// THE FACES UNDER THE PASSAGE, after the quote and before the attribution
+		// that names them. Absent for most entries: a portrait exists only where the
+		// reader looked somebody up AND a picture was downloaded.
+		for _, key := range []string{"character_portrait", "portrait"} {
+			fd, ok := anthologyFieldByKey[key]
+			if !ok || !f.shows(key) || !fd.appliesTo(e.Kind) {
+				continue
+			}
+			name := anthologyFieldValue(e, fd)
+			if name == "" || !hasEpubImage(images, name) {
+				continue
+			}
+			sb.WriteString(`<p class="portrait"><img src="` + xmlText(name) + `" alt="" /></p>` + "\n")
+		}
 		if line := epubAttribution(e, f); line != "" {
 			sb.WriteString(`<p class="attribution">` + xmlText(line) + "</p>\n")
 		}
@@ -295,3 +330,86 @@ func epubAttribution(e anthologyEntryRow, f anthologyFields) string {
 // break in a reader's commentary into "&#xA;" on the page. html.EscapeString covers
 // & < > " and ' and nothing else, which is exactly the set XML text content needs.
 func xmlText(s string) string { return html.EscapeString(s) }
+
+// epubImage is one picture, already read off disk.
+type epubImage struct {
+	name string // the file's own name, which is also its href inside OEBPS/
+	mime string
+	data []byte
+}
+
+// epubImages reads every portrait the switched-on fields point at.
+//
+// DEDUPLICATED BY FILENAME, which is what makes this cheap on the anthology it is
+// for: thirty passages from one book name one author, and one photograph goes in.
+//
+// THE NAME IS VALIDATED BEFORE IT IS OPENED. `coverFile` is the same expression the
+// cover route uses — sixteen hex characters and a known extension — so a bad value
+// in the database cannot make this read a path of its own choosing. That check is
+// not decoration here: these names come out of rows, and the file being written
+// into a zip the reader then opens elsewhere is exactly the shape where a traversal
+// would not be noticed.
+func (s *Server) epubImages(f anthologyFields, entries []anthologyEntryRow) []epubImage {
+	seen := map[string]bool{}
+	out := []epubImage{}
+	for _, e := range entries {
+		for _, key := range []string{"portrait", "character_portrait"} {
+			fd, ok := anthologyFieldByKey[key]
+			if !ok || !f.shows(key) || !fd.appliesTo(e.Kind) {
+				continue
+			}
+			name := anthologyFieldValue(e, fd)
+			if name == "" || seen[name] || !coverFile.MatchString(name) {
+				continue
+			}
+			seen[name] = true
+			data, err := os.ReadFile(filepath.Join(s.coversDir(), name))
+			if err != nil {
+				// GONE IS NORMAL, NOT AN ERROR. A face that has been deleted must not
+				// cost the reader the whole book.
+				continue
+			}
+			out = append(out, epubImage{name: name, mime: epubMime(name), data: data})
+		}
+	}
+	return out
+}
+
+func hasEpubImage(images []epubImage, name string) bool {
+	for _, im := range images {
+		if im.name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// epubImageItems is the manifest half. The id is the filename with its dot removed,
+// which is unique because the names are — OPF ids have to be XML NAMEs and a dot is
+// legal in one, but a leading digit is not, so `i` prefixes it.
+func epubImageItems(images []epubImage) string {
+	var sb strings.Builder
+	for _, im := range images {
+		id := "i" + strings.ReplaceAll(im.name, ".", "-")
+		sb.WriteString(`    <item id="` + xmlText(id) + `" href="` + xmlText(im.name) +
+			`" media-type="` + im.mime + `"/>` + "\n")
+	}
+	return sb.String()
+}
+
+// epubMime maps the four extensions coverFile admits. An EPUB manifest must state
+// one, and stating the wrong one is how a reader shows a broken-image box for a file
+// that is perfectly good.
+func epubMime(name string) string {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".png":
+		return "image/png"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".svg":
+		return "image/svg+xml"
+	}
+	return "image/jpeg"
+}

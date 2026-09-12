@@ -229,6 +229,13 @@ const PERSON_SWITCHES = [
   { key: 'born', work: true, label: 'common.field.born.label' },
   { key: 'died', work: true, label: 'common.field.died.label' },
   { key: 'links', work: true, label: 'common.field.links.label' },
+  // THE TWO PICTURES, and they are the only fields on this form that are not text.
+  // They draw the file the app already serves at /covers/; the EPUB carries the
+  // bytes; the Markdown writes neither, because a path is meaningless outside this
+  // install. `character_portrait` is the face of whoever is NAMED on the line — a
+  // standalone quote has no character column at all (0026), so it is absent there.
+  { key: 'portrait', work: true, label: 'common.field.portrait.label' },
+  { key: 'character_portrait', work: true, label: 'common.field.cast.label' },
 ]
 
 // `work: true` ON A PERSON ROW READS ODD AND IS RIGHT: the flag means "stored in
@@ -272,10 +279,24 @@ const workLine = (entry, fields = {}) =>
 // the book, the other about whoever wrote it — and a bio is a sentence rather than
 // a field, so running it in after "Parnassus Press · 1968" would read as one long
 // caption with a paragraph buried in it.
+// PORTRAIT_KEYS are the rows personLine must NOT join into its sentence: a filename
+// read out beside a biography is the screen printing its own bookkeeping.
+const PORTRAIT_KEYS = new Set(['portrait', 'character_portrait'])
+
 const personLine = (entry, fields = {}) =>
-  PERSON_SWITCHES.filter((row) => fields?.[row.key] && entry.person?.[row.key])
+  PERSON_SWITCHES.filter((row) => !PORTRAIT_KEYS.has(row.key) && fields?.[row.key] && entry.person?.[row.key])
     .map((row) => entry.person[row.key])
     .join(' · ')
+
+// portraitsOf is the two faces an entry can show, in the order they are read: the
+// character named on the line first, then whoever is answerable for it. Each is a
+// file under /covers/, and each is absent for most entries — a picture exists only
+// where somebody was looked up AND one was downloaded.
+const portraitsOf = (entry, fields = {}) =>
+  [
+    fields?.character_portrait && entry.cast?.character_portrait,
+    fields?.portrait && entry.person?.portrait,
+  ].filter(Boolean)
 
 // RuleDialog — choose the search that fills this anthology, see what it would take,
 // and take it.
@@ -837,6 +858,20 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
           {personLine(entry, fields.fields) ? (
             <p className="microcopy mt-1 opacity-80">{personLine(entry, fields.fields)}</p>
           ) : null}
+          {/* THE FACES. `alt=""` and not a name: the name is already in the
+              attribution line above, so a screen reader that announced it here
+              would read it twice — the picture is decoration beside a credit that
+              is already text. A fixed em height rather than px, because this box
+              holds no text but sits in a column that scales. */}
+          {portraitsOf(entry, fields.fields).map((file) => (
+            <img
+              key={file}
+              src={apiURL(`/covers/${file}`)}
+              alt=""
+              className="mt-1.5 rounded-md object-cover"
+              style={{ height: '4.5em', width: 'auto' }}
+            />
+          ))}
           {/* The QUOTE's own note, which is a different thing from the entry's and
               can be non-empty at the same time: one is what the reader wrote when
               they saved the line, the other is what they wrote when they placed it
