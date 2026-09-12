@@ -709,11 +709,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   never been read together: the page holds each thing in its stream to a readable measure,
   and the board's column ladder is measured against the board, which lives inside that
   measure. The measure was narrower than the ladder's own three-column rung, so the third
-  rung was unreachable on any screen ever built. **It is a default now rather than a
-  ceiling**, and the board's **⋯** gained a **Columns** row — Auto, or one to five — beside
-  the view. Asking for more widens the board enough to draw them; asking for one gives a
-  single wide card to read rather than an 880px box with half of it empty. A count the
-  window has no room for still draws what fits, which is the honest answer.
+  rung was unreachable on any screen ever built.
+
+  **The board now uses the width with nothing switched on** — the measure is for prose,
+  and a board of cards is not prose, which is the same reason the table beside it has been
+  exempt from it since you asked for the full width there. And the board's **⋯** gained a
+  **Columns** row beside the view: Auto, or one to five. Asking for fewer narrows the board
+  — one column is a single wide card to read rather than a box with half of it empty — and
+  a count the window has no room for still draws what fits, which is the honest answer.
 
 - **A superlative's name ran out of its tile and over the one beside it.** On Stats,
   the tiles that name your most-quoted book, film and person scroll a long name under

@@ -1158,7 +1158,16 @@ export function useColumnsIn(ladder) {
 // exception and is not a rung at all — the ladder's floor — so it gets a single
 // card's measure rather than two cards' worth of empty page.
 export function columnMeasure(n) {
-  if (!(n > 0)) return null; // Auto: the stylesheet's 880 stands
+  // AUTO IS "USE THE WIDTH", WHICH IS THE HALF OF THE REPORT A PICKER DOES NOT
+  // ANSWER. A rater put it plainly: the picker shipped and every reader who never
+  // opens ⋯ still had two columns, while the CHANGELOG filed it under Fixed. The
+  // 880 cap is a PROSE measure and a board of cards is not prose — the table
+  // beside it has been exempt from the same cap since the owner said "the table
+  // needs to utilise the full width of the screen", and a board is the other
+  // thing that is scanned rather than read in one line. So Auto lifts the cap and
+  // lets the ladder answer from the width the page actually has; a chosen count
+  // NARROWS it again, which is what makes the picker useful in both directions.
+  if (!(n > 0)) return "none";
   if (n === 1) return 460;
   const rung = QUOTE_COLUMNS_IN.find(([, cols]) => cols === n);
   return Math.max(880, rung ? rung[0] : 880);

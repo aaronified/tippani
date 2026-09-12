@@ -436,6 +436,58 @@ const ROW_SEGS = [
   ['unseen', (r) => r.unseen],
 ]
 
+// NameDoor — a name that opens something, and the one place the three of them
+// agree on how to be narrower than the name they hold.
+//
+// WHY IT EXISTS, and it is the repo's own rule failing at the site that had just
+// invoked it. This screen drew the same thing three times — a Tooltip, a bare
+// <button>, a NameScroll — and the fix for the owner's report ("the superlatives
+// overlap and spill out of their box") was applied to ONE of them. A rater found
+// the other two by reading, not by running: no test could see them, because
+// `.name-scroll` declares min-width:0 on itself and a flex item's default
+// min-width:auto silently overrides the ancestor chain. Three copies, one fixed,
+// and the two left behind are exactly what "a control drawn by one component on
+// two screens has ONE behaviour" is written against.
+//
+// THE SHRINK IS THIS COMPONENT'S AND NEVER THE CALLER'S. `style` is for what a
+// site genuinely differs in — the tile's line-height, which the two baseline rows
+// do not want — and a caller cannot opt out of being shrinkable.
+//
+// EXPORTED FOR THE SUITE, as SuperTile is. The chain it guarantees is only
+// checkable if the component can be rendered on its own, and checking it HERE is
+// what makes the guarantee reach all three call sites instead of the one a case
+// happened to mount.
+export function NameDoor({ tip, tipSide = 'bottom', name, onOpen, style }) {
+  return (
+    <Tooltip label={tip} side={tipSide} className="min-w-0">
+      <button
+        type="button"
+        // min-w-0 and max-w-full so the scroller inside can be narrower than the
+        // name; block so the percentage has a width to be a percentage of.
+        className="text-left min-w-0 max-w-full block"
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontStyle: 'var(--font-display-style)',
+          fontVariantCaps: 'var(--font-display-caps)',
+          textTransform: 'var(--font-display-case)',
+          fontVariantNumeric: 'var(--font-display-figures)',
+          fontWeight: 600,
+          fontSize: 'var(--type-display-15)',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
+          color: 'inherit',
+          ...style,
+        }}
+        onClick={onOpen}
+      >
+        <NameScroll>{name}</NameScroll>
+      </button>
+    </Tooltip>
+  )
+}
+
 // BreakdownRow — rank · art (cover thumb or portrait chip) · name · quote
 // count, a stacked status bar (proportions), and a mono sub-line spelling
 // every non-zero status out (never colour alone). The name is a doorway: it
@@ -481,16 +533,7 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, characterMap, onSear
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <Tooltip label={t('stats.breakdown.name.tip')} side="bottom" className="min-w-0">
-            <button
-              type="button"
-              className="text-left"
-              style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
-              onClick={() => onSearch?.(r.name)}
-            >
-              <NameScroll>{r.name}</NameScroll>
-            </button>
-          </Tooltip>
+          <NameDoor tip={t('stats.breakdown.name.tip')} name={r.name} onOpen={() => onSearch?.(r.name)} />
           <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.quotes}</span>
           {onPractise && (
             <FieldIconButton
@@ -693,16 +736,7 @@ function LeaderList({ rows, onSearch, onPractise }) {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <Tooltip label={t('stats.tag.tip')} side="bottom" className="min-w-0">
-                <button
-                  type="button"
-                  className="text-left"
-                  style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
-                  onClick={() => onSearch?.(r.name)}
-                >
-                  <NameScroll>{r.name}</NameScroll>
-                </button>
-              </Tooltip>
+              <NameDoor tip={t('stats.tag.tip')} name={r.name} onOpen={() => onSearch?.(r.name)} />
               <span className="mono-label" style={{ flex: '0 0 auto', color: 'var(--accent-ui)' }}>{r.count}</span>
               {/* The colour rows have had this since they were the only named
                   theme with no page of its own; a tag is a theme too, and the
@@ -1360,33 +1394,7 @@ export function SuperTile({ label, title, count, amber, cover, person, onOpen })
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-1.5" style={{ minWidth: 0 }}>
             {title && onOpen ? (
-              <Tooltip label={t('stats.super.title.tip')} side="top" className="min-w-0">
-                {/* minWidth:0 AND maxWidth:100%, AND THE TILE IS BROKEN WITHOUT
-                    THEM. `.name-scroll` already declares both on itself, and that
-                    is not enough: a scroller can only be narrower than its text
-                    if every box between it and the tile agrees to shrink, and a
-                    <button> is a flex item whose default min-width is `auto` —
-                    it refuses to go below its content, so the scroller inherits a
-                    box the full width of the name and has nothing to scroll. The
-                    name then ran out of the tile and over the one beside it,
-                    which is what the owner saw. Every other box in the chain says
-                    so already (min-w-0 on the column, on the row, and on the
-                    Tooltip, which puts it on .tp-tip-wrap); this was the one that
-                    did not.
-                    display:block for the same reason as .name-scroll's own: an
-                    inline box has no width to be a percentage of.
-                    NOT AN ELLIPSIS. "Never truncate a name" is the standing rule
-                    — a shortened name and a short name look alike — and
-                    NameScroll is how this app keeps it. */}
-                <button
-                  type="button"
-                  className="text-left min-w-0 max-w-full block"
-                  style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', lineHeight: 1.3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
-                  onClick={onOpen}
-                >
-                  <NameScroll>{title}</NameScroll>
-                </button>
-              </Tooltip>
+              <NameDoor tip={t('stats.super.title.tip')} tipSide="top" name={title} onOpen={onOpen} style={{ lineHeight: 1.3 }} />
             ) : (
               <NameScroll
                 title={title || undefined}

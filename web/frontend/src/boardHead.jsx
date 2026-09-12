@@ -414,9 +414,9 @@ export function columnActions({ view, columns, onColumns }) {
 }
 
 // measureStyle — the style a board's root element wears so the stream's measure
-// cap becomes the one the reader asked for. `undefined` on Auto, so the
-// stylesheet's own 880px stands and nothing is written into the markup at all.
+// cap becomes the one this board should have. Always set, because Auto is a real
+// answer here (`none` — use the width) and not the absence of one.
 export function measureStyle(columns) {
-  const px = columnMeasure(columns)
-  return px ? { '--board-measure': `${px}px` } : undefined
+  const m = columnMeasure(columns)
+  return { '--board-measure': typeof m === 'number' ? `${m}px` : m }
 }

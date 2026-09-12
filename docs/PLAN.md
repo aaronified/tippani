@@ -13904,3 +13904,44 @@ suite, which read at first as a missing case. It was not: the path was redundant
 because the measure alone already produces the count on a window wide enough for
 it. A second mechanism nothing can distinguish from the first is a second
 mechanism to get wrong later.
+
+### What the 8/10 pass found, and the one finding that was about the ask
+
+Four findings, and three of them are the same shape as the work they were rating —
+a fix applied where the report pointed and nowhere else.
+
+**THE FIX FOR THE COLUMN BUG HAD NO TEST, AND THE RATER PROVED IT** by reverting
+`index.css`'s cap to a bare `max-width: 880px` — the exact pre-fix state — in a
+scratch worktree. The whole suite passed, 4,257 of 4,257. The dom cases read the
+picker's value off the STYLE ATTRIBUTE, so the board went on writing
+`--board-measure: 1200px` into markup that nothing consumed: a control that
+changes nothing, green. `category-dot-class.test.js`, written four commits
+earlier in this same stretch, is exactly the function-names-it / stylesheet-
+declares-it guard that was needed here — and it was not written, because that
+bug came in through a colour and this one came in through a number.
+
+**AUTO STILL DREW TWO COLUMNS**, which is the finding that was about the ASK
+rather than the code. `columnMeasure(0)` returned null, so every reader who never
+opens ⋯ kept the 880 cap — and the CHANGELOG filed it under *Fixed* as "stopped at
+two columns on any screen", which reads as a default repair. It was a workaround
+made available. Auto returns `none` now: the cap is a PROSE measure and a board of
+cards is not prose, which is the argument the table beside it already won ("the
+table needs to utilise the full width of the screen"). A chosen count NARROWS from
+there, which is what makes the picker useful in both directions rather than only
+one.
+
+**THE SAME PINNED BUTTON AT TWO MORE SITES**, found by reading rather than
+running: `StatsPage.jsx` drew a Tooltip + bare `<button>` + `NameScroll` three
+times, and the superlative fix went into one of them. No test could see the other
+two, because `.name-scroll` declares `min-width: 0` on itself and a flex item's
+`min-width: auto` silently overrides the chain above it. So the three become
+`NameDoor`, one component that owns the shrink and cannot be opted out of — and a
+source-level case fails on a fourth written out by hand, which is the half that
+keeps it from happening again. This is the repo's own "similar things act
+similarly" failing at the site that had just invoked it.
+
+**AND ONE CLAIM IN A COMMIT BODY WAS ABOUT THE WRONG TREE.** `27a4d4f5` said vet
+and the Go suite passed "on the head this builds on" — true, and not a statement
+about that commit. The rater ran them on the commit itself: both 0. Worth
+recording because a verification sentence that quietly means the previous commit
+is the kind of thing a reader takes for more than it says.

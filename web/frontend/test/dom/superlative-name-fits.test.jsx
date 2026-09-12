@@ -27,7 +27,8 @@
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 
-const { SuperTile } = await import('../../src/StatsPage.jsx')
+const { NameDoor, SuperTile } = await import('../../src/StatsPage.jsx')
+const { readSource } = await import('../src-files.js')
 
 // A real one, and long: the name that put this rule in the repo.
 const LONG = 'Bibhutibhushan Bandyopadhyay'
@@ -89,5 +90,59 @@ describe('a superlative that is not a doorway', () => {
     const { container } = render(<SuperTile label="Most quoted" title={LONG} count={42} />)
     const pinned = chain(container.firstChild).filter((el) => !canShrink(el))
     expect(pinned.map((el) => el.tagName.toLowerCase())).toEqual([])
+  })
+})
+
+// AND THE SITE THIS FIXED WAS ONE OF THREE.
+//
+// The report named the superlatives, the fix went in at the superlatives, and a
+// rater found the same pinned <button> at two more places on the same screen —
+// the breakdown row and the tag row — by READING, because nothing could run it:
+// the cases above mount SuperTile and nothing else. Three copies of one control,
+// one of them fixed, is precisely the shape "similar things act similarly" is
+// written against, at the site that had just invoked the rule.
+//
+// So the shrink is NameDoor's now, and these are the two halves that keep it
+// there: the component guarantees the chain, and nothing on this screen draws a
+// name-door any other way.
+describe('NameDoor', () => {
+  it('gives every box between the name and the caller room to shrink', () => {
+    const { container } = render(<NameDoor tip="Open" name={LONG} onOpen={() => {}} />)
+    const pinned = chain(container.firstChild).filter((el) => !canShrink(el))
+    expect(
+      pinned.map((el) => `${el.tagName.toLowerCase()}.${el.className || '(no class)'}`),
+      'these refuse to be narrower than the name',
+    ).toEqual([])
+  })
+
+  it('is a doorway, and a caller cannot opt out of being shrinkable', () => {
+    let opened = 0
+    const { container } = render(
+      // A caller's own style is for what a site genuinely differs in. It must not
+      // be able to put the pinned box back.
+      <NameDoor tip="Open" name={LONG} onOpen={() => { opened += 1 }} style={{ lineHeight: 1.3 }} />,
+    )
+    const btn = container.querySelector('button')
+    expect(btn.className).toMatch(/\bmin-w-0\b/)
+    btn.click()
+    expect(opened).toBe(1)
+  })
+})
+
+describe('the Stats screen draws no second copy of it', () => {
+  it('has no <button> holding a NameScroll outside NameDoor', () => {
+    const src = readSource('StatsPage.jsx')
+    // A <NameScroll> is "inside a button" when the nearest tag BEFORE it, of
+    // `<button` and `</button>`, is the opening one. Matching a button and its
+    // contents with a lazy span does not work here — it happily reaches across a
+    // closed button to a later scroller, and reported two where there is one.
+    const inAButton = [...src.matchAll(/<NameScroll\b/g)].filter((m) => {
+      const before = src.slice(0, m.index)
+      return before.lastIndexOf('<button') > before.lastIndexOf('</button>')
+    })
+    expect(
+      inAButton.length,
+      'a name-door was written out by hand again instead of calling NameDoor',
+    ).toBe(1)
   })
 })
