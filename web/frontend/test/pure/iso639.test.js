@@ -116,8 +116,18 @@ describe('the language list', () => {
   // the string that picker offered, so an alias is what keeps their cover glyph —
   // and it is an alias rather than a second name because it is a fact about this
   // app's history, not about the language.
-  it('answers to a name this app used to offer under its own spelling', () => {
+  it('answers to the names a reader reaches for, and refuses the ambiguous one', () => {
+    // Three reasons, one map — see ALIASES. This app's own history, a spelling, and
+    // the name English speakers use for a language whose own name they do not.
     expect(languageFor('Mandarin')?.code).toBe('zh')
+    expect(languageFor('Masai')?.code).toBe('mas')
+    expect(languageFor('Inuit')?.code).toBe('iu')
+    expect(languageFor('inuktut')?.code).toBe('iu')
+    // AND "GAELIC" RESOLVES TO NOTHING ON PURPOSE. It means Irish in Ireland and
+    // Scottish Gaelic in Scotland, this list carries both, and an app that picks is
+    // wrong for half its readers — so it stays free text, like any unknown name.
+    expect(languageFor('Gaelic')).toBeNull()
+    expect(languageFor('Scottish Gaelic')?.code).toBe('gd')
     expect(displayName('Mandarin')).toBe(displayName('zh'))
     // The canonical keys still win: an alias is added only where nothing is already
     // answering to that spelling, so no real name can ever be shadowed by one.

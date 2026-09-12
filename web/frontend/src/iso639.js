@@ -164,20 +164,36 @@ export const LANGUAGES = [
 
 const fold = (s) => String(s || '').trim().toLowerCase()
 
-// NAMES THIS APP ITSELF OFFERED THAT ISO 639 DOES NOT USE.
+// NAMES A READER WILL TYPE THAT THE STANDARD DOES NOT CARRY.
 //
-// The board form's language picker was `STARTER_LANGUAGES.map((l) => l.name)` for a
-// year, and one of those ten names is not the one the standard carries: the starter
-// list said "Mandarin" where 639-1 `zh` is "Chinese". Every board created from that
-// picker holds the string "Mandarin", so without this line those boards stop
-// resolving the day the picker starts offering "Chinese" — the cover glyph goes
-// blank and the row splits in two on the Settings table.
+// THE HEADING USED TO SAY "names this app itself offered", and only the first entry
+// ever was — the other two were added under it without the sentence being reread.
+// Three different reasons live here and the map is worth keeping only if it says
+// which is which:
 //
-// It is a map rather than a second `name` field because an alias is a fact about
-// THIS APP'S HISTORY, not about the language: nothing outside these lines should
-// have to know that a name was once spelled differently here. The one-time upgrade
-// that folds free-text languages onto codes reads the same map.
-const ALIASES = { mandarin: 'zh', masai: 'mas', inuktut: 'iu' }
+//   `mandarin` — THIS APP'S OWN HISTORY. The board picker was
+//     `STARTER_LANGUAGES.map((l) => l.name)` for a year and that list said
+//     "Mandarin" where 639-1 `zh` is "Chinese". Boards hold the string the picker
+//     offered, so without this they lose their cover glyph and split into two rows
+//     on the Settings table the day the picker starts saying "Chinese".
+//   `masai` — A SPELLING. The modern English preference is "Maasai"; both name the
+//     same people and the same language.
+//   `inuit`, `inuktut` — THE NAME A READER REACHES FOR. `iu` is Inuktitut, and
+//     "Inuit" is what English speakers overwhelmingly call it even though it names
+//     the people rather than the language; `inuktut` is the spelling used across
+//     Nunavut. Resolving them is an OFFER — the stored value stays whatever was
+//     typed, so nothing is renamed under anybody.
+//
+// "GAELIC" IS DELIBERATELY ABSENT, which is the same judgement reaching the other
+// answer: it means Irish in Ireland and Scottish Gaelic in Scotland, this list
+// carries both, and an app that picks one is wrong for half its readers. An alias is
+// for a name with ONE referent.
+//
+// It is a map rather than a second `name` field because none of this is a fact about
+// the language: nothing outside these lines should have to know that a name is
+// spelled differently here. The one-time upgrade that folds free-text languages onto
+// codes reads the same map.
+const ALIASES = { mandarin: 'zh', masai: 'mas', inuit: 'iu', inuktut: 'iu' }
 
 // THE THREE WAYS A STORED VALUE CAN NAME A LANGUAGE, and all three have to work
 // because all three are already in somebody's library: the code (`bn`), the English
@@ -314,7 +330,7 @@ const alphabet = (script) =>
 // confidently-wrong answer this file exists to refuse.
 //
 // AND THE LAST RESORT IS THE SCRIPT'S OWN ALPHABET, because Latin has twenty-six
-// letters and this list has forty-three languages written in it — exhaustion is
+// letters and this list has forty-seven languages written in it — exhaustion is
 // structural there, not bad luck, and both galego and oʻzbekcha hit it. A letter
 // nothing in the language's own name offers is not evocative, and that is the right
 // trade: a mark that says little is a mark, and two boards wearing the SAME letter

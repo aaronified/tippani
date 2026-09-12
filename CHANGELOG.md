@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and Estonian, Galician and Tagalog, and Esperanto and English each drew the same
   cover. Every mark is now unique, and a test compares all of them rather than trusting
   the rule.
+- **Every language still has one, and a dozen of them changed letter as a side
+  effect.** The forty that gained a distinctive letter freed up the ones they had been
+  using, so a language with nothing distinctive of its own may now lead with a
+  different letter than before: Swedish went from **v** to **s**, Danish **a** to
+  **d**, Malay **y** to **a**, Bulgarian **ъ** to **б**, and Afrikaans, Basque, Irish,
+  Latin, Slovenian, Estonian and Zulu likewise. Those letters are arbitrary — the app
+  has nothing better to offer for a language whose alphabet it shares with a dozen
+  others — and **a mark you set yourself always wins**, so only a board whose language
+  you never marked will look different.
 - **Five more languages: Scottish Gaelic, Māori, Quechua, Inuktitut and Maa
   (Maasai).** Irish was already here; Scottish Gaelic was not. Maa has no two-letter
   ISO code at all, so the list now takes a three-letter one where that is the only

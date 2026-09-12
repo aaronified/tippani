@@ -13,6 +13,11 @@
 // NO CALLER PASSES A NODE TODAY, which is why nothing was visibly broken and why this
 // file is a ratchet rather than a bug report: it holds the asymmetry closed for the
 // caller who eventually does.
+//
+// AND THE SWEEP IS AS WIDE AS ITS HEADING, which took a second pass. It matched the
+// literal `{title}` while `ui.jsx` carried `aria-label={panel.title}` on a
+// `role="dialog"` — the same bug, one property access away, missed by a guard whose
+// first line says EVERY.
 
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -30,9 +35,15 @@ describe('a dialog’s accessible name', () => {
     for (const rel of sources()) {
       const text = readFileSync(join(SRC, rel), 'utf8')
       text.split('\n').forEach((line, i) => {
-        // The bare form only. `aria-label={ariaLabelText(title)}` is the fixed one and
-        // must not match, so the test is anchored on the closing brace.
-        if (/aria-label=\{title\}/.test(line)) bare.push(`${rel}:${i + 1}`)
+        // ANY TITLE-SHAPED EXPRESSION, not the one spelling. This matched the literal
+        // `aria-label={title}` and nothing else, so `aria-label={panel.title}` at
+        // ui.jsx:5760 sat in the same latent class the file was written to close —
+        // a sweep narrower than its own heading, which is the defect this repo keeps
+        // finding in guards rather than in features.
+        //
+        // `aria-label={ariaLabelText(...)}` is the fixed form and must not match, so
+        // the pattern requires the brace to close straight after the identifier path.
+        if (/aria-label=\{[\w.]*\btitle\}/.test(line)) bare.push(`${rel}:${i + 1}`)
       })
     }
     expect(bare).toEqual([])

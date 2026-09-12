@@ -29,13 +29,23 @@
 -- an anthology with no rule is exactly what an anthology is today.
 ALTER TABLE anthologies ADD COLUMN rule TEXT NOT NULL DEFAULT '';
 
--- KEEP IT FED — run the fill the next time the anthology is opened, and append
--- anything new.
+-- KEEP IT FED — count what has matched since, the next time the anthology is
+-- opened.
 --
--- NOT A BACKGROUND JOB, and this is an invariant rather than a preference: "no
--- goroutine outlives its request — no worker pool, ticker, or scheduler; adding one
--- is a design discussion first." Filling on read is the cheapest thing that is
--- honest, and it means the reader is present when their anthology changes.
+-- AND IT ASKS RATHER THAN APPENDS, which this comment promised the other way round
+-- until a rater read the file against the code. It was written before the design
+-- settled and said "append anything new"; appending on open is a WRITE ON A GET,
+-- so an anthology would change because somebody looked at it. What shipped offers
+-- the count as a control — "Add 12 waiting" — and adds nothing until it is pressed
+-- (anthologies.jsx's takeWaiting). The next block already described that behaviour,
+-- so the file contradicted itself; the promise is what was wrong.
+--
+-- THE DDL IS UNTOUCHED, which is why correcting this is not an edit to a shipped
+-- migration in the sense the invariant forbids. Migrations are applied and recorded
+-- by version number, never by content, so no database that has already run 0075 can
+-- observe this; and "forward-only, never edited" exists to stop the SQL changing
+-- under a schema somebody already has, not to freeze a sentence that was wrong when
+-- it was written.
 ALTER TABLE anthologies ADD COLUMN rule_auto INTEGER NOT NULL DEFAULT 0;
 
 -- When the rule last ran, so the screen can say "12 new since Tuesday" — with the

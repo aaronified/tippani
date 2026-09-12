@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { json } from './api.js'
 import { visibleSections } from './routes.js'
 import { t, tNodes } from './i18n.js'
-import { FieldIconButton, IconBack, InfoDot, MonoLabel, StickerButton, toast, useIsMobileScreen, useEscape } from './ui.jsx'
+import { ariaLabelText, FieldIconButton, IconBack, InfoDot, MonoLabel, StickerButton, toast, useIsMobileScreen, useEscape } from './ui.jsx'
 
 // The guided feature tour (Settings → Onboarding). It auto-opens once per user
 // on their first launch (App.jsx checks preferences.tour === ''), and can be
@@ -419,7 +419,7 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
         ref={cardRef}
         tabIndex={-1}
         role="dialog"
-        aria-label={step.title}
+        aria-label={ariaLabelText(step.title)}
         className={'tour-card hand-card p-5' + (mobile ? ' mobile' : '')}
         style={style}
       >

@@ -49,11 +49,21 @@ const (
 	// short enough that the blob cannot become a place to keep notes. It bounds
 	// both the KEY (the canonical language) and the reader's own display name.
 	languageNameMaxRunes = 40
-	// How many languages one reader may re-mark. Comfortably above the ninety-one
-	// the client offers by name, which is not the bound this is for: a language is
-	// free text, so the set is open. A bound exists because this is one column of
-	// one row and an unbounded map in it is a storage bug waiting to happen.
-	languageMarksMax = 64
+	// How many languages one reader may re-mark.
+	//
+	// IT WAS 64 UNDER A COMMENT CLAIMING IT WAS "comfortably above" the client's
+	// list, and it never was — the list was 86 when that sentence was written and
+	// 91 when the sentence was updated to say 91, both above the cap it sat on. A
+	// reader who marked a 65th language got a 400 and a message that names no
+	// count. The number is the thing that was wrong, so the number moved.
+	//
+	// 128 IS NOT A GUESS AT THE LIST'S SIZE. A language is free text, so the set is
+	// open and no cap can be "enough" by counting rows; what a cap is for is that
+	// this is one column of one row and an unbounded map in it is a storage bug
+	// waiting to happen. 128 languages x 4 marks x 8 runes is a bounded worst case
+	// somebody can reason about, and it is comfortably past anything the client
+	// offers by name — which is now a statement this file can keep.
+	languageMarksMax = 128
 	// How many of their own marks one language may keep. Mirrors MAX_CUSTOM_MARKS
 	// in languages.jsx, and is the reason the whole blob stays small: 64 languages
 	// × 4 marks × 8 runes is a bounded worst case somebody can reason about.

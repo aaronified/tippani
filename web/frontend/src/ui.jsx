@@ -5757,7 +5757,7 @@ export function PanelHost({ stack }) {
         data-dirty={dirty || undefined}
         role="dialog"
         aria-modal="true"
-        aria-label={panel.title}
+        aria-label={ariaLabelText(panel.title)}
         className="tp-panel"
         // TWO REFS FOR ONE BOX: the state one a sub-sheet's portal needs, and a
         // plain one the drag writes a height onto every frame. A `useState` ref
