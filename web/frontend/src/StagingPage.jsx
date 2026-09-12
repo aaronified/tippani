@@ -251,6 +251,17 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
     onApproved?.(r.data)
   }
 
+  // ONE PLACE THAT ASKS, so a scoped discard and the BulkBar's put the same
+  // question in the same words. The confirm is not optional at any scope: a
+  // discard is the one verb here that cannot be undone from this screen.
+  const askDiscard = (ids) =>
+    setConfirm({
+      title: t('staging.discard.confirm.title', { count: ids.length, n: ids.length }),
+      body: t('staging.discard.confirm.body'),
+      label: t('staging.discard.label'),
+      run: () => discard(ids),
+    })
+
   async function discard(ids) {
     if (busy) return
     setBusy(true)
@@ -346,6 +357,16 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
           <MonoLabel>{t('staging.filter.file.label')}</MonoLabel>
           <Select ariaLabel={t('staging.filter.batch.aria')} value={batch} onChange={setBatch} options={batchOptions} width={mobile ? undefined : 260} />
         </label>
+        {/* THE FILE'S OWN VERBS, beside the control that chose the file. The
+            queue stays one list and the batch stays a FILTER — the decision this
+            screen already made and the comment above `shownQuotes` states — so
+            the scope these act on is exactly what the filter is showing, which
+            is the same set the reader is looking at. Drawn only once a file is
+            chosen, because over "all files" they would be the page header's
+            approve-all under a second name. */}
+        {batch !== 'all' && (
+          <GroupVerbs ids={shownIds} busy={busy} onApprove={approve} onAskDiscard={askDiscard} />
+        )}
         <label className="flex items-center gap-2" style={{ marginLeft: 'auto' }}>
           <input
             type="checkbox"
@@ -455,6 +476,9 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
             sel={sel}
             onToggle={toggleId}
             onToggleGroup={() => toggleGroup(items)}
+            busy={busy}
+            onApprove={approve}
+            onAskDiscard={askDiscard}
             onEdit={setEditing}
             onOpenBook={onOpenBook}
             onOpenMovie={onOpenMovie}
@@ -514,10 +538,45 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
   )
 }
 
+// GroupVerbs — approve or discard ONE SCOPE of the queue, in one press.
+//
+// THE OWNER'S ASK, in their words: "The import checks need to have file and work
+// (identified from the file) level bulk options." The queue already had the two
+// ENDS of that — the whole queue, from the page header, and an arbitrary
+// selection, from the BulkBar — and nothing in between. A work group carried a
+// select-all CHECKBOX and no verb; acting on a whole file meant finding the
+// filter, choosing the file, ticking select-all-shown, and then scrolling to the
+// bar. Four steps for the thing a reader does most: a file landed, it looks
+// right, take it.
+//
+// ONE COMPONENT FOR BOTH LEVELS, which is the repo's rule and also the honest
+// reading of the ask: a file and a work are two scopes of one question, so they
+// get one control. The words are the BulkBar's own keys rather than new ones —
+// the verb does not change because the scope did.
+//
+// GHOST, NOT PRIMARY, at both levels. Approving is this screen's adding verb and
+// the accent belongs to it, but the accent is the PAGE's one approve-all: a
+// primary button per work group puts a dozen of them on a long queue and the
+// loudest thing on screen stops meaning anything.
+function GroupVerbs({ ids, busy, onApprove, onAskDiscard }) {
+  const n = ids.length
+  if (n === 0) return null
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <GhostButton disabled={busy} onClick={() => onAskDiscard(ids)}>
+        {t('staging.discard.label')}
+      </GhostButton>
+      <GhostButton disabled={busy} onClick={() => onApprove(ids)}>
+        {t('staging.bulk.approve.label', { n })}
+      </GhostButton>
+    </span>
+  )
+}
+
 // StagedGroup — one target work and its staged quotes. The heading is the
 // contract: it names where these quotes will go if approved, so a misdetected
 // file is visible before the write rather than after it.
-function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpenBook, onOpenMovie }) {
+function StagedGroup({ work, items, sel, onToggle, onToggleGroup, busy, onApprove, onAskDiscard, onEdit, onOpenBook, onOpenMovie }) {
   const allOn = items.length > 0 && items.every((q) => sel.has(q.id))
   const isBook = work.kind === 'book'
   // A standalone-quote group has no destination work — it is the queue's way of
@@ -557,6 +616,11 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
           {t('common.count.phrase', { n: items.length, noun: t('unit.quote', { count: items.length }) })}
         </MonoLabel>
         <span className="h-px flex-1" style={{ background: 'var(--line)' }} />
+        {/* The same two verbs the file row draws, over this work's rows. The
+            checkbox beside the title still composes a bigger selection across
+            groups; these are for the common case, where one group is the whole
+            decision. */}
+        <GroupVerbs ids={items.map((q) => q.id)} busy={busy} onApprove={onApprove} onAskDiscard={onAskDiscard} />
       </div>
       <p className="microcopy mb-3">
         {isStandalone ? (

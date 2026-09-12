@@ -4053,6 +4053,7 @@ import.unknown.body = ফাইলটার ভিতরে কোথাও ল�
 import.read-as.label = এই ফরম্যাট হিসেবে পড়ুন…
 import.read-as.aria = আপনার বেছে দেওয়া ফরম্যাট হিসেবে ফাইলটা পড়া হবে
 import.read-as.placeholder = ফরম্যাট বাছুন
+import.read-as.unqueued = এই ফাইল থেকে কিছুই সারিতে যায়নি — কোথাও অপেক্ষা করছে না। উপরে একটা ফরম্যাট বাছুন, নয়তো এই পাতা ছাড়লে ফাইলটা আবার দিতে হবে।
 
 # WHAT THE FILE ACTUALLY IS. Each names the door that does take it — the screen
 # names are this file's own (settings.restore.title, settings.type.title).

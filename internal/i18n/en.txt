@@ -4074,6 +4074,7 @@ import.unknown.body = Nothing in this file says what it is. Pick its format and 
 import.read-as.label = Read this as…
 import.read-as.aria = Read this file as a format you pick
 import.read-as.placeholder = pick a format
+import.read-as.unqueued = Nothing was queued from this file — it is not waiting anywhere. Pick a format above, or drop it again if you leave this screen.
 
 # WHAT THE FILE ACTUALLY IS, when it is something the app knows and import is
 # the wrong door for it. Each names the door that does take it, because

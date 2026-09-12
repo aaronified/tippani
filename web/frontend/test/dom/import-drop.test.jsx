@@ -127,6 +127,36 @@ describe('the one import target', () => {
     expect(await screen.findByText(/1 file → 2 quotes staged/)).toBeTruthy()
   })
 
+  // AND IT SAYS WHAT HAPPENS IF YOU WALK AWAY, which is the half a reader cannot
+  // see and would guess wrongly about. A file nothing claimed is answered with a
+  // 400 and NO batch row: nothing is in the database, nothing is on Checks, and
+  // the override above works only because this page still holds the File the
+  // browser handed it. Reload and it is gone.
+  //
+  // The owner settled the alternative — persisting rejected uploads, so a failed
+  // import waits on you like everything else on Checks — and chose against it,
+  // for a migration, the bytes and a retention policy. The row saying so is what
+  // that ruling costs, and the reader who assumes the app kept their file is the
+  // defect it would otherwise leave behind.
+  it('says the file is not queued anywhere, so nobody assumes it was kept', async () => {
+    reply = { ok: false, data: { error: 'server words', near_miss: '' } }
+    render(<ImportPage />)
+    drop(well(), textFile('mystery.txt'))
+    await screen.findByLabelText('Read this file as a format you pick')
+    expect(await screen.findByText(/not waiting anywhere/i)).toBeTruthy()
+  })
+
+  it('and says it only where the file actually failed', async () => {
+    // A recognised-but-unimportable file has its own door (restore) and is not
+    // sitting unqueued in the sense this line is about; a file that STAGED
+    // something is queued, so the line would be a lie on both.
+    reply = { ok: false, data: { error: 'server words', near_miss: 'backup' } }
+    render(<ImportPage />)
+    drop(well(), textFile('mine.tpbk'))
+    await screen.findByText(/restore it from/i)
+    expect(screen.queryByText(/not waiting anywhere/i)).toBeNull()
+  })
+
   // THE HOW-TOS ARE HELP NOW, and both halves of that are asserted, because only
   // one of them is a bug on its own. "Where do I get a Goodreads file" is a real
   // question — it was worth keeping off the wall of cards and it is still worth

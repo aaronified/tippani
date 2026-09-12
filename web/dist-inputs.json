@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "0271c4fe4e205fa025977871187c9da2c42ab3bab431bdf66e6b72597ace7ad6",
-    "internal/i18n/en.txt": "660d9b30797c1c62bfe892d7e7738e7776d9738dd630dc506af82b997d321266",
+    "internal/i18n/bn.txt": "b8a4346fa3a82bd52a7f5e324119b2f31d3f018d6817984f903561a5c8c410ad",
+    "internal/i18n/en.txt": "483916da03fe633fae0d06a023dfb468ac7fc6d84f6d363b5a7144ee18c0d387",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "ae52734844923282963a5acdd6bfe710196fdfcf5bed06e944c9f4c638a24547",
     "web/frontend/package.json": "d985ed193616c275ad40b9788fd8dffc1d774ce4a59c2c1836a45effde06162e",
@@ -33,7 +33,7 @@
     "web/frontend/src/CleanupPage.jsx": "bbc76c072168c473a7dde76dd077bfe47a1f3bf702cb5bd3c1c3ec3f83458a27",
     "web/frontend/src/CoverPicker.jsx": "12e9358506be866a8586a4fb71d16dcda2f849f2cfa86f0fa37db9f29a870598",
     "web/frontend/src/Home.jsx": "fb9b31b997d97f771b75ed09e6b206593149876d52ecd8378883e70abd78f4aa",
-    "web/frontend/src/ImportPage.jsx": "b5295f763ac3784056d54de7e7c61c2bc7213ac5a9b71885b4af26b78c1d881f",
+    "web/frontend/src/ImportPage.jsx": "4549c8e47626db680e1470401adc9b325a7dfff6dda5c1e8c8b906724979f635",
     "web/frontend/src/Library.jsx": "ecbe5d0303d7ce2696b8c08157c2242c178931fb14cbda203964a34191ee3e0a",
     "web/frontend/src/MetadataPage.jsx": "8cae8ab417e928e7063b4d416749fa47ca90c4a215d01cd8119cd5e1e56e637c",
     "web/frontend/src/MetadataSources.jsx": "c85dde48bb08151de4e96ea85a68d416a56245157627193e711292ccdefa49a6",
@@ -43,7 +43,7 @@
     "web/frontend/src/SearchPage.jsx": "4b949ea98d3273db6d4af642fece5a5c6f3d6686fc5d8f5d7bab5dfbdc68d0fe",
     "web/frontend/src/SelectionBar.jsx": "cf457eb0b6ff884fc696983a7358a614e11b82546003205285924a4f094360e5",
     "web/frontend/src/Settings.jsx": "fd1cb1c48cdcd55b9ba8498a78126351e1dffc9fb88dce31189c2f8ac8267dc2",
-    "web/frontend/src/StagingPage.jsx": "71e054c773d3e27d0b6aecc9031074f93c5e1ea0fa5edd3d7dbf212d346a8f11",
+    "web/frontend/src/StagingPage.jsx": "93229cdd794523960e38a734e77d037d82926f2042f2b8d59caa4480509d87ab",
     "web/frontend/src/StatsPage.jsx": "ec749ff8a96783ce0183ea17f9727d00cbaa964a5d3c5d849617f649f9e9002e",
     "web/frontend/src/TagsPage.jsx": "264ef804ed4de55e666e8c69e9d793e627bf71bbf1177da34338e4454d6749b2",
     "web/frontend/src/WorkDetail.jsx": "289de91ce7375e25466be21f27ffa9d54125bd3754d90f59717cfab9f2174968",

@@ -280,6 +280,25 @@ function BatchResults({ rows, summary, staged, busy, onReviewImport, onReread })
               </select>
             </label>
           )}
+          {/* AND WHAT HAPPENS IF YOU WALK AWAY, which nothing said. A file no
+              parser claims is answered with a 400 and NO batch row is created
+              (import_auto.go, the writeErrDetail at the end of the probe loop) —
+              so there is nothing in the database, nothing on Checks, and nothing
+              waiting. The re-read above works only because THIS PAGE still holds
+              the File the browser was handed; reload and it is gone.
+
+              The owner settled the alternative and chose against it: persisting
+              rejected uploads would make a failed import a thing that waits on
+              you, and it costs a forward-only migration, the bytes of every
+              5MB clippings file, and a retention policy. So the offer stays where
+              the failure is reported — and the row says so, because a reader who
+              assumes the app kept their file is the defect that ruling leaves
+              behind. */}
+          {r.unclaimed && (
+            <p className="microcopy" style={{ color: 'var(--faint)' }}>
+              {t('import.read-as.unqueued')}
+            </p>
+          )}
           {r.ok && <ClippingsNotice row={r} />}
           {r.ok && (r.works || []).map((w) => <StagedWorkNotice key={w.id} work={w} />)}
           {r.ok && r.possible_duplicates && r.possible_duplicates.length > 0 && (

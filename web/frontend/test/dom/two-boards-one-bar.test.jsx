@@ -134,9 +134,14 @@ describe.each(BOARDS)('the bar above %s', (_what, screenOf, line, mine, theirs) 
     const cols = rows.filter((r) => /^(Auto|[1-5] columns?)$/i.test(String(r.label)))
     expect(cols.length, 'no Columns section in the ⋯').toBe(6)
     expect(cols.filter((r) => r.checked).length, 'no column choice is marked').toBe(1)
-    // AUTO WRITES NOTHING INTO THE MARKUP, so the stylesheet's own measure stands
-    // for every reader who has not chosen.
-    expect(document.querySelector('.board-head').closest('[style*="--board-measure"]')).toBeNull()
+    // AND AUTO IS A REAL ANSWER, not the absence of one. It used to write nothing
+    // and leave the stylesheet's 880px prose cap in place — which meant the board
+    // still stopped at two columns for every reader who never opens ⋯, and the
+    // reported bug was only fixed for the ones who did. `none` lifts the cap and
+    // lets the ladder read the width the page actually has.
+    const board = document.querySelector('[style*="--board-measure"]')
+    expect(board, 'the board takes no measure at all').toBeTruthy()
+    expect(board.style.getPropertyValue('--board-measure')).toBe('none')
   })
 
   it('widens the board to a measure the chosen count can actually reach', async () => {

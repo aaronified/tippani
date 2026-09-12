@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The import queue can act on a whole file, and on a whole work.** It could act on
+  everything — one button at the top — and on whatever you had ticked, and on nothing in
+  between. A work in the queue carried a select-all box and no verb at all; taking a whole
+  file meant finding the filter, choosing the file, ticking select-all, and then scrolling
+  to the bar, which is four steps for the thing you do most: a file landed, it looks right,
+  take it. **Approve** and **Discard** now sit on each work's own heading, and beside the
+  file filter once a file is chosen. Same two verbs, same words, at both levels — and a
+  discard still asks first, at every scope.
+
+- **A file the app cannot read now says it is not waiting anywhere.** "Read this as…" has
+  always been on the row that reported the failure, and the row said nothing about what
+  happens if you walk away: nothing is queued from a file nothing could read, so it is not
+  on Checks and not in the app at all. It has to be dropped again. The row says so.
+
 - **A film, a show and a game now have the board a book has had.** The bar above the
   lines on a work page was a different bar from the one above a book's highlights, and
   the difference was not decoration: there was **no grouping at all**, so lines could
