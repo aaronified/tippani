@@ -7010,30 +7010,43 @@ links.already = Already on this record.
 links.add.aria = Add this link
 links.remove.aria = Remove the {name} link
 
-# Ordering and grouping a book's board of quotes. See Library.jsx.
-book.category.any.label = Any category
-book.group.aria = Group quotes by
-book.group.none.label = none
-book.group.chapter.label = by chapter
-book.group.color.label = by category
-book.group.tag.label = by tag
-book.group.date.label = by date added
-book.group.chapter.numbered.label = Chapter {n}
-book.group.chapter.named.label = Ch {n}: {name}
-book.group.chapter.none.label = No chapter
-book.group.tag.none.label = No tags
-book.group.date.none.label = No date
-book.sort.default.label = Recent
-book.sort.date.label = Date added
-book.sort.chapter.label = Chapter
-book.sort.location.label = Location
-book.sort.length.label = Length
-book.sort.category.label = Category
-book.sort.dir.label = Direction
-book.sort.dir.asc.label = Ascending
-book.sort.dir.desc.label = Descending
-book.sort.menu.label = Sort
-book.strip.shown.label = {n} of {total} shown
+# Ordering, grouping and filtering ANY board of quotes — a book's highlights and
+# a film's, a show's or a game's lines alike. One vocabulary, because one control
+# draws all of them: see boardHead.jsx. The dimensions are named for themselves
+# (chapter, character, episode, act, quest), so no two kinds collide and a kind
+# offers only the ones workKinds.js says it has.
+board.category.any.label = Any category
+board.group.aria = Group quotes by
+board.group.none.label = none
+board.group.chapter.label = by chapter
+board.group.color.label = by category
+board.group.tag.label = by tag
+board.group.date.label = by date added
+board.group.chapter.numbered.label = Chapter {n}
+board.group.chapter.named.label = Ch {n}: {name}
+board.group.chapter.none.label = No chapter
+board.group.tag.none.label = No tags
+board.group.date.none.label = No date
+board.sort.default.label = Recent
+board.sort.date.label = Date added
+board.sort.chapter.label = Chapter
+board.sort.location.label = Location
+board.sort.length.label = Length
+board.sort.category.label = Category
+board.sort.dir.label = Direction
+board.sort.dir.asc.label = Ascending
+board.sort.dir.desc.label = Descending
+board.sort.menu.label = Sort
+board.group.character.label = by character
+board.group.episode.label = by episode
+board.group.act.label = by act
+board.group.quest.label = by quest
+board.sort.character.label = Character
+board.sort.episode.label = Episode
+board.sort.timestamp.label = Time
+board.sort.act.label = Act
+board.sort.quest.label = Quest
+board.strip.shown.label = {n} of {total} shown
 book.select.menu.label = Select quotes
 
 # ---- PRUNE: the saved records nothing points at ---------------------------

@@ -149,7 +149,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,708 Go test functions and 4,209 frontend tests, across 639 test files** — the
+- **1,708 Go test functions and 4,219 frontend tests, across 640 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -158,7 +158,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   cd web/frontend && npm test                                            # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 275 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
-       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 364 frontend
+       -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 365 frontend
   ```
 
   THREE OF THE FOUR ARE NOW CHECKED RATHER THAN TRUSTED. This paragraph has said
@@ -178,7 +178,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
   recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
   1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, from
-  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, from 1,494 / 3,431 / 542, from 1,494 / 3,434 / 543, from 1,494 / 3,435 / 543, from 1,494 / 3,436 / 543, from 1,494 / 3,439 / 543, from 1,494 / 3,448 / 543, from 1,494 / 3,449 / 543, from 1,494 / 3,450 / 543, from 1,494 / 3,562 / 551, from 1,508 / 3,590 / 555, from 1,508 / 3,595 / 556, from 1,508 / 3,610 / 558, from 1,508 / 3,616 / 559, from 1,508 / 3,624 / 561, from 1,509 / 3,626 / 562, from 1,509 / 3,631 / 563, from 1,512 / 3,633 / 563, from 1,513 / 3,642 / 564, from 1,514 / 3,645 / 565, from 1,522 / 3,645 / 565, from 1,524 / 3,646 / 565, from 1,533 / 3,648 / 566, from 1,538 / 3,652 / 567, from 1,542 / 3,652 / 567, from 1,685 / 4,102 / 633, from 1,685 / 4,135 / 636, from 1,687 / 4,137 / 636, from 1,690 / 4,142 / 636, from 1,690 / 4,151 / 636, from 1,692 / 4,154 / 636, from 1,692 / 4,156 / 636, from 1,692 / 4,157 / 636, from 1,692 / 4,158 / 636, from 1,703 / 4,188 / 638, from 1,703 / 4,191 / 638, from 1,705 / 4,198 / 638, from 1,707 / 4,201 / 638, and from 1,708 / 4,202 / 638 before
+  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, from 1,494 / 3,431 / 542, from 1,494 / 3,434 / 543, from 1,494 / 3,435 / 543, from 1,494 / 3,436 / 543, from 1,494 / 3,439 / 543, from 1,494 / 3,448 / 543, from 1,494 / 3,449 / 543, from 1,494 / 3,450 / 543, from 1,494 / 3,562 / 551, from 1,508 / 3,590 / 555, from 1,508 / 3,595 / 556, from 1,508 / 3,610 / 558, from 1,508 / 3,616 / 559, from 1,508 / 3,624 / 561, from 1,509 / 3,626 / 562, from 1,509 / 3,631 / 563, from 1,512 / 3,633 / 563, from 1,513 / 3,642 / 564, from 1,514 / 3,645 / 565, from 1,522 / 3,645 / 565, from 1,524 / 3,646 / 565, from 1,533 / 3,648 / 566, from 1,538 / 3,652 / 567, from 1,542 / 3,652 / 567, from 1,685 / 4,102 / 633, from 1,685 / 4,135 / 636, from 1,687 / 4,137 / 636, from 1,690 / 4,142 / 636, from 1,690 / 4,151 / 636, from 1,692 / 4,154 / 636, from 1,692 / 4,156 / 636, from 1,692 / 4,157 / 636, from 1,692 / 4,158 / 636, from 1,703 / 4,188 / 638, from 1,703 / 4,191 / 638, from 1,705 / 4,198 / 638, from 1,707 / 4,201 / 638, from 1,708 / 4,202 / 638, and from 1,708 / 4,209 / 639 before
   this recount — which is why each one now sits beside the command that produces it.
   The last of those drifts is worth naming because it was one work session: a number
   recounted honestly at the start of a stretch is stale by the end of it.

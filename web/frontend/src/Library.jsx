@@ -15,7 +15,8 @@ import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, w
 import { SelectionBar } from './SelectionBar.jsx'
 import { PeopleChips, PersonModal, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useTextOrder } from './textOrderHost.jsx'
-import { categoryDotClass, categoryHidden, categoryName } from './theme.js'
+import { categoryName } from './theme.js'
+import { BoardHead, BoardStrip } from './boardHead.jsx'
 import {
   GroupHeading,
   WorkCard,
@@ -37,7 +38,6 @@ import { QUOTE_FACE } from './fonts.js'
 import { t } from './i18n.js'
 import {
   fmtDate,
-  ActionMenu,
   ANNOTATION_COLORS,
   QUOTE_COLUMNS_IN,
   byLastRead,
@@ -57,7 +57,6 @@ import {
   HandCard,
   HandNote,
   IconCheckAll,
-  IconSliders,
   IconSortAsc,
   IconSortDesc,
   Masonry,
@@ -71,7 +70,6 @@ import {
   QuizSkipMark,
   Scroller,
   Select,
-  StickerButton,
   SheetFooter,
   TableActions,
   TagChip,
@@ -939,177 +937,6 @@ function locSortVal(a) {
   const m = String(a.location || '').match(/\d+/)
   return m ? parseInt(m[0], 10) : -1
 }
-// CategoryFilter — which category the board is filtered to, named rather than
-// guessed at from a coloured dot.
-//
-// The swatch alone cannot say what it is for: a reader names their own categories
-// (theme.js), so the blue one might be "Fact" or "Disagree" or nothing at all,
-// and a row of six dots asks them to remember which. The dot rides WITH the name
-// here, which is what the colour is good at — recognising the one you already
-// know — rather than being asked to carry the meaning on its own.
-//
-// HIDDEN SLOTS STAY HIDDEN, except the one currently chosen: a filter set to a
-// category the reader has since retired must still be able to say so, or the
-// board is narrowed by something with no entry in its own control.
-function CategoryFilter({ value, onChange }) {
-  const opt = (tok, label) => [
-    tok,
-    <span className="cat-opt" key={tok}>
-      <span className={`cat-opt-dot ${tok ? categoryDotClass(tok) : 'cat-opt-none'}`} aria-hidden="true" />
-      <span>{label}</span>
-    </span>,
-    label,
-  ]
-  const options = [
-    opt('', t('book.category.any.label')),
-    ...ANNOTATION_COLORS.filter((c) => !categoryHidden(c) || c === value).map((c) => opt(c, categoryName(c))),
-  ]
-  return (
-    <Select
-      ariaLabel={t('common.colour.category.aria')}
-      value={value}
-      onChange={onChange}
-      options={options}
-    />
-  )
-}
-
-// GroupSortField — the board's arrangement, in one field.
-//
-// GROUPING AND SORTING ARE ONE DECISION MADE TWICE. "By chapter, in reading
-// order" is a single thought, and it was two controls plus a direction key
-// sitting side by side in the header — three things to press for one intent,
-// and the widest group in a row the design pack keeps to a single line.
-//
-// So the grouping is the field, and the ordering is the row at the end of its
-// menu. The pack's words: "the grouping is a field on the page, so the sort is
-// the row at the end of its menu rather than a second control competing for the
-// header". The field states the current grouping without being opened, which is
-// the job a control earns its width with; the ordering states itself as that
-// row's value, so one press away is still one glance away.
-//
-// ONE POPOVER, TWO CONTENTS, rather than a menu that opens a second menu beside
-// itself. `pop` says which is showing and the trigger is the anchor for both, so
-// going from Group to Sort is the same rectangle changing what it lists — a
-// desk's version of the phone pushing a sheet.
-//
-// A FIELD, NOT A CHIP. It carries the app's Select shape — the inset field with a
-// caption and a chevron — because a chip is a filter and this is a setting, and
-// the pack spends a paragraph on that exact confusion: grouping "was an
-// underlined word sitting in the chip scroller: same size, same row, same species
-// as 'favourites'".
-function GroupSortField({ groupBy, onGroup, sort, onSort, compact = false }) {
-  const [pop, setPop] = useState(null)
-  const ref = useRef(null)
-  const groupLabel = t(`book.group.${GROUP_DIMS.includes(groupBy) ? groupBy : 'none'}.label`)
-  const sortLabel = t(`book.sort.${SORT_DIMS.includes(sort.col) ? sort.col : 'default'}.label`)
-  const dirLabel = t(sort.dir === 'desc' ? 'book.sort.dir.desc.label' : 'book.sort.dir.asc.label')
-  const items =
-    pop === 'sort'
-      ? [
-          { id: 'h-by', heading: t('common.mono.sort.label') },
-          ...SORT_DIMS.map((d) => ({
-            id: `s-${d}`,
-            label: t(`book.sort.${d}.label`),
-            checked: sort.col === d,
-            keepOpen: true,
-            onClick: () => onSort((cur) => ({ col: d, dir: cur.dir })),
-          })),
-          // NO DIRECTION SECTION ON A PHONE. The strip beside this trigger carries
-          // it as a key, on the pack's own rule — "direction is one bit, so it is
-          // one tap and never a sheet" — and a bit that is one tap on the strip
-          // must not also be three taps inside a menu.
-          ...(compact ? [] : [{ id: 'h-dir', heading: t('book.sort.dir.label') }]),
-          ...(compact ? [] : ['asc', 'desc']).map((d) => ({
-            id: `d-${d}`,
-            // THE BARS ARE THE GIVEAWAY, not the arrow: they grow for ascending
-            // and shrink for descending, so the glyph IS the order rather than a
-            // direction a reader has to translate.
-            icon: d === 'asc' ? <IconSortAsc /> : <IconSortDesc />,
-            label: t(`book.sort.dir.${d}.label`),
-            checked: sort.dir === d,
-            keepOpen: true,
-            onClick: () => onSort((cur) => ({ col: cur.col, dir: d })),
-          })),
-        ]
-      : [
-          ...GROUP_DIMS.map((d) => ({
-            id: `g-${d}`,
-            label: t(`book.group.${d}.label`),
-            checked: groupBy === d,
-            onClick: () => onGroup(d),
-          })),
-          {
-            id: 'sort',
-            icon: <IconSliders />,
-            label: t('book.sort.menu.label'),
-            meta: `${sortLabel} · ${dirLabel}`,
-            // The one row that does NOT close the popover — it swaps what the
-            // popover is showing. Set after the menu's own close runs, which is
-            // why it is a state change and not a second ActionMenu.
-            onClick: () => setPop('sort'),
-          },
-        ]
-  // TWO TRIGGERS, ONE MENU. The desk's is the app's inset field with its GROUP
-  // caption; the phone's is the pack's underlined word — "a strip that states the
-  // count should not be as tall as a toolbar, so both controls lose their boxes
-  // and keep only their words". Same rows behind both, so the two viewports
-  // cannot end up offering different arrangements.
-  //
-  // AND THE PHONE'S TRIGGER STATES BOTH HALVES, because it is the only thing on
-  // that strip that can: "chapter · location" is the whole arrangement in the
-  // width of two words, where the desk has room for a caption and a field.
-  return (
-    <div className={compact ? 'relative board-strip-sort' : 'tp-select board-head-group'} ref={ref}>
-      {compact ? (
-        <button
-          type="button"
-          className="board-strip-trigger"
-          aria-haspopup="menu"
-          aria-expanded={pop != null}
-          aria-label={t('book.group.aria')}
-          onClick={() => setPop((p) => (p ? null : 'group'))}
-        >
-          {groupLabel} · {sortLabel}
-        </button>
-      ) : (
-      <button
-        type="button"
-        className="tp-select-trigger tactile"
-        aria-haspopup="menu"
-        aria-expanded={pop != null}
-        aria-label={t('book.group.aria')}
-        onClick={() => setPop((p) => (p ? null : 'group'))}
-      >
-        <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
-        <span>{groupLabel}</span>
-        <svg
-          className="tp-select-chev"
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="m4 6 4 4 4-4" />
-        </svg>
-      </button>
-      )}
-      <ActionMenu
-        open={pop != null}
-        items={items}
-        anchorRef={ref}
-        onClose={() => setPop(null)}
-        returnFocusTo={ref}
-      />
-    </div>
-  )
-}
-
 // AnnotationBoard — one set of quotes, drawn in whichever view is chosen.
 //
 // IT EXISTS BECAUSE OF GROUPING. A grouped board draws its view once per section,
@@ -1340,25 +1167,25 @@ export function groupAnnotations(rows, dim) {
         const label = n == null
           ? name
           : name
-            ? t('book.group.chapter.named.label', { n, name })
-            : t('book.group.chapter.numbered.label', { n })
+            ? t('board.group.chapter.named.label', { n, name })
+            : t('board.group.chapter.numbered.label', { n })
         // KEYED ON THE NUMBER, not on the label, for the reason the name map above
         // exists: the group is the chapter, and two spellings of one chapter's name
         // are one chapter.
         // Numbered chapters in reading order; named ones after them, alphabetical.
         add(n != null ? `ch#${n}` : `ch:${label}`, label, a, n != null ? n : Number.MAX_SAFE_INTEGER, false)
-      } else add('~none', t('book.group.chapter.none.label'), a, Infinity, true)
+      } else add('~none', t('board.group.chapter.none.label'), a, Infinity, true)
     } else if (dim === 'color') {
       const tok = a.color || 'yellow'
       add(tok, categoryName(tok), a, Math.max(0, ANNOTATION_COLORS.indexOf(tok)), false)
     } else if (dim === 'tag') {
       const tags = a.tags || []
       if (tags.length) tags.forEach((tg) => add(tg, tg, a, 0, false))
-      else add('~none', t('book.group.tag.none.label'), a, Infinity, true)
+      else add('~none', t('board.group.tag.none.label'), a, Infinity, true)
     } else {
       const d = dayOf(a)
       if (d) add(d, fmtDate(d), a, -new Date(`${d}T00:00:00`).getTime(), false)
-      else add('~none', t('book.group.date.none.label'), a, Infinity, true)
+      else add('~none', t('board.group.date.none.label'), a, Infinity, true)
     }
   }
   const out = [...map.values()]
@@ -2390,7 +2217,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
           say is that a filter is currently hiding half the board, so that is what
           this says, and only while something is actually hidden. */}
       {mobile && (
-        <div className="board-strip">
+        <BoardStrip dims={GROUP_DIMS} sortDims={SORT_DIMS} groupBy={groupBy} onGroup={setGroupBy} sort={sort} onSort={setSort}>
           {/* UNCONDITIONAL NOW, and the note above says why it was not. It read
               "the hero already says that beside how many are favourites, noted and
               tagged" — true until the header stopped saying it on a phone, which
@@ -2400,92 +2227,29 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
               is hiding some, because that second fact has nowhere else to appear. */}
           <MonoLabel>
             {hidden > 0
-              ? t('book.strip.shown.label', { n: displayRows.length, total })
+              ? t('board.strip.shown.label', { n: displayRows.length, total })
               : countOf(displayRows.length, 'unit.quote')}
           </MonoLabel>
-          <GroupSortField groupBy={groupBy} onGroup={setGroupBy} sort={sort} onSort={setSort} compact />
-          <button
-            type="button"
-            className="board-strip-dir"
-            aria-label={t(sort.dir === 'asc' ? 'book.sort.dir.asc.label' : 'book.sort.dir.desc.label')}
-            onClick={() => setSort((cur) => ({ col: cur.col, dir: cur.dir === 'asc' ? 'desc' : 'asc' }))}
-          >
-            {sort.dir === 'asc' ? <IconSortAsc size={16} /> : <IconSortDesc size={16} />}
-          </button>
-        </div>
+        </BoardStrip>
       )}
       {!mobile && (
-        <div className="board-head">
-          <div className="board-head-left">
-            {/* HOW IT IS ARRANGED COMES FIRST, before what it is filtered to: the
-                pack's left group is "what you are looking at and how it is
-                grouped", and the grouping is the part that changes what the whole
-                page looks like. Outside the scroller, because a setting that can
-                scroll out of sight is a page arranged by something nothing on
-                screen still says. */}
-            <GroupSortField groupBy={groupBy} onGroup={setGroupBy} sort={sort} onSort={setSort} />
-            <span className="board-head-rule" aria-hidden="true" />
-            {/* A COLOUR IS A FILING DECISION WITH SIX VALUES, SO IT OPENS A LIST
-                rather than sitting there as six toggles — which is what this
-                comment has said since the row was drawn, over a control that was
-                six toggles. Six dots side by side are six switches a reader has
-                to try; one control that names the category it is filtering by
-                answers "what am I looking at" without being pressed, and it is
-                the only thing here that can, because the swatch has no word.
-
-                A control rather than a chip, so it keeps its own place beside the
-                grouping instead of scrolling away among the filters. */}
-            <CategoryFilter value={color} onChange={setColor} />
-            {tags.length > 0 && (
-              <>
-                <span className="board-head-rule" aria-hidden="true" />
-                <Select
-                  ariaLabel={t('common.filters.tag.aria')}
-                  value={tag}
-                  onChange={setTag}
-                  options={[['', t('common.filters.tag.all.label')], ...tags.map((row) => [row.name, row.name])]}
-                />
-              </>
-            )}
-            {/* THREE CHIPS, NOT ONE, and every one of them announces its state.
-                The pack draws four; its fourth is "unread", which means nothing
-                for a quote, so three is the whole set here.
-
-                FilterChip rather than a hand-rolled <button>: it sets
-                aria-pressed, and its own comment says why — "a toggle that only
-                announces its state in one of the two states is a toggle a screen
-                reader reads as a plain button half the time". The one that was
-                here was that button, and it carried its ♥ as a CHARACTER in the
-                label, so the mark sized and coloured as text and was read out as
-                a word.
-
-                ON-CHIPS FIRST. A switched-on filter that has scrolled out of
-                sight under the fade is a board quietly hiding rows for a reason
-                nothing on screen still says. */}
-            <Scroller axis="x" className="board-head-chips">
-              {quoteChips
-                .slice()
-                .sort((a, b) => Number(b.on) - Number(a.on))
-                .map((c) => (
-                  <FilterChip key={c.label} active={c.on} label={c.label} tooltip={c.tip} onClick={() => c.set(!c.on)} />
-                ))}
-            </Scroller>
-          </div>
-          <div className="board-head-verbs">
-            {/* Both form factors now open the ONE Add surface, on Capture with
-                this book as the target — the shell's ＋ knows which page it is
-                on. This is the desktop route to it; the phone's is the ＋ in the
-                detail bar above. */}
-            {/* THE ACCENT BELONGS TO THE ONE CONTROL THAT ADDS SOMETHING — the
-                pack's own words about this row, in the comment on a view toggle
-                it decided not to draw here at all. Add was a ghost button while
-                the toggle beside it wore the accent gradient, so the row's
-                loudest element was a lens. (The toggle's own accent is
-                .tp-toggle-thumb, which every toggle in the app shares; moving
-                View into the ⋯ is the pack's answer and is a separate change.) */}
-            <StickerButton onClick={() => onAdd?.('quote', { type: 'book', id: bookId })}>{t('book.quotes.capture.label')}</StickerButton>
-          </div>
-        </div>
+        <BoardHead
+          dims={GROUP_DIMS}
+          sortDims={SORT_DIMS}
+          groupBy={groupBy}
+          onGroup={setGroupBy}
+          sort={sort}
+          onSort={setSort}
+          color={color}
+          onColor={setColor}
+          tags={tags}
+          tag={tag}
+          onTag={setTag}
+          tagAllLabel={t('common.filters.tag.all.label')}
+          chips={quoteChips}
+          captureLabel={t('book.quotes.capture.label')}
+          onCapture={() => onAdd?.('quote', { type: 'book', id: bookId })}
+        />
       )}
 
       <ErrorText>{error}</ErrorText>

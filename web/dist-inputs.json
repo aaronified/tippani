@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "2674f5edd2666a11ce137eb3fe108a4c78f0c2fcc4f37f69911fcb15a88b19ab",
-    "internal/i18n/en.txt": "0e0d988f74c685a19530a57ea86f851059fb33ba2f1d97b14b2663ebcf99f85e",
+    "internal/i18n/bn.txt": "311ab7c6c8b36e157c2eeff924ef1e267ee0dd5d7a935e39d3a7dd6a48740e97",
+    "internal/i18n/en.txt": "48b0995f69132bfddde430d426594164d1f94d4f9d31f6dcab3bc9d7e9148c67",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "ae52734844923282963a5acdd6bfe710196fdfcf5bed06e944c9f4c638a24547",
     "web/frontend/package.json": "d985ed193616c275ad40b9788fd8dffc1d774ce4a59c2c1836a45effde06162e",
@@ -34,7 +34,7 @@
     "web/frontend/src/CoverPicker.jsx": "12e9358506be866a8586a4fb71d16dcda2f849f2cfa86f0fa37db9f29a870598",
     "web/frontend/src/Home.jsx": "fb9b31b997d97f771b75ed09e6b206593149876d52ecd8378883e70abd78f4aa",
     "web/frontend/src/ImportPage.jsx": "b5295f763ac3784056d54de7e7c61c2bc7213ac5a9b71885b4af26b78c1d881f",
-    "web/frontend/src/Library.jsx": "7975bab584859c6f07e1d5a98d3480a77caf21accc61a168524118c607396259",
+    "web/frontend/src/Library.jsx": "c84332636faa748bda258d72a16116b30d9fa4ba4a08adf32b821d2bb76a9de0",
     "web/frontend/src/MetadataPage.jsx": "8cae8ab417e928e7063b4d416749fa47ca90c4a215d01cd8119cd5e1e56e637c",
     "web/frontend/src/MetadataSources.jsx": "c85dde48bb08151de4e96ea85a68d416a56245157627193e711292ccdefa49a6",
     "web/frontend/src/Movies.jsx": "9f0dae0087ebca2446f167d3eadf2c9722301da6df77ff4985668ef29f38c902",
@@ -55,6 +55,7 @@
     "web/frontend/src/api.js": "f7930824e8b6d7ba3f36932143ab5b203775ea9a551753c1767b1a8fd4f42b81",
     "web/frontend/src/attribution.js": "7c9522d8be08eedd964e5768796eacb68042a0d126d1dc24d068b9d86341cff4",
     "web/frontend/src/avatar.jsx": "5a9e6b5d73c2172ec47db12d9ab719cc76d37e29cf3ab63664f4bb817f15b071",
+    "web/frontend/src/boardHead.jsx": "f6fefa44a661de2bd20ccec11a554e6fe43887adcb7bb6e9699c0d59a28e53dd",
     "web/frontend/src/boards.jsx": "f0c82a0d0c8fcf57c4071378db6048ca927375ab26c03af55ea8c0c90547381a",
     "web/frontend/src/bulkOps.jsx": "59013e001ffe675aa37d4bccab7707cd426fb6a4c3bae2e354bc6e01b963d7ca",
     "web/frontend/src/cast.jsx": "05ae263e960e9d925fa601ad7be4442377025ea5b0c94ce82536d81cc38e6cea",
@@ -145,7 +146,7 @@
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
     "web/frontend/src/update.js": "b30d91b8a80432e7e68145b3944a0a947f6a1685485cc00c95704ef276b40a42",
     "web/frontend/src/vocabulary.js": "9485138ce686ee2ca34e619f6087260bb0a68f032d864e6dddccdbf564ae70fb",
-    "web/frontend/src/workKinds.js": "f335c4092986959ff8da2820df21cef89ee858023d071f2d3e9c51bbc7c4d0af",
+    "web/frontend/src/workKinds.js": "96098b50c486d5d3e54a73502d166cf272d16a4ccec605c5eca003ee0e77548d",
     "web/frontend/src/workLinks.jsx": "3444a8a26e1b8e0bdd0f34bd865e7e791044739f49765c7f13c623b7d1a568d6",
     "web/frontend/src/works.jsx": "246597800c9bf8d9c1d0c6eedc89c9dc3e0e8a5cb69e9a16477c902d0fc7aa8f",
     "web/frontend/vite.config.js": "e68566c44bb7553c2567ffeb6da9c308065ed32bebe1b2a625148cbd387c55d8"

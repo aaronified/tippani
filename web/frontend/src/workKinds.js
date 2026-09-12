@@ -145,7 +145,7 @@ export const KINDS = {
       nomatch: 'book.quotes.nomatch',
       deleteConfirm: 'book.quotes.delete.confirm',
       countsShown: 'book.quotes.counts.shown',
-      stripShown: 'book.strip.shown.label',
+      stripShown: 'board.strip.shown.label',
       selectMenu: 'book.select.menu.label',
       editTitle: 'common.quote.edit.title',
       pickLabel: 'common.quote.pick.label',

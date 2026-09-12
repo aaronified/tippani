@@ -6771,30 +6771,43 @@ links.reading.none = এটা এখনও কোনও ঠিকানা ন�
 links.already = এটা ইতিমধ্যেই এই রেকর্ডে আছে।
 links.add.aria = এই লিংকটা যোগ করুন
 links.remove.aria = {name} লিংকটা সরান
-# Ordering and grouping a book's board of quotes. See Library.jsx.
-book.category.any.label = যে কোনও শ্রেণি
-book.group.aria = উদ্ধৃতি সাজান
-book.group.none.label = কিছু না
-book.group.chapter.label = অধ্যায় অনুযায়ী
-book.group.color.label = শ্রেণি অনুযায়ী
-book.group.tag.label = ট্যাগ অনুযায়ী
-book.group.date.label = যোগ করার তারিখ অনুযায়ী
-book.group.chapter.numbered.label = অধ্যায় {n}
-book.group.chapter.named.label = অধ্যা. {n}: {name}
-book.group.chapter.none.label = অধ্যায় নেই
-book.group.tag.none.label = ট্যাগ নেই
-book.group.date.none.label = তারিখ নেই
-book.sort.default.label = সাম্প্রতিক
-book.sort.date.label = যোগ করার তারিখ
-book.sort.chapter.label = অধ্যায়
-book.sort.location.label = অবস্থান
-book.sort.length.label = দৈর্ঘ্য
-book.sort.category.label = শ্রেণি
-book.sort.dir.label = ক্রম
-book.sort.dir.asc.label = ছোট থেকে বড়
-book.sort.dir.desc.label = বড় থেকে ছোট
-book.sort.menu.label = সাজানো
-book.strip.shown.label = {total}টার মধ্যে {n}টা দেখানো হচ্ছে
+# Ordering, grouping and filtering ANY board of quotes — a book's highlights and
+# a film's, a show's or a game's lines alike. One vocabulary, because one control
+# draws all of them: see boardHead.jsx. The dimensions are named for themselves
+# (chapter, character, episode, act, quest), so no two kinds collide and a kind
+# offers only the ones workKinds.js says it has.
+board.category.any.label = যে কোনও শ্রেণি
+board.group.aria = উদ্ধৃতি সাজান
+board.group.none.label = কিছু না
+board.group.chapter.label = অধ্যায় অনুযায়ী
+board.group.color.label = শ্রেণি অনুযায়ী
+board.group.tag.label = ট্যাগ অনুযায়ী
+board.group.date.label = যোগ করার তারিখ অনুযায়ী
+board.group.chapter.numbered.label = অধ্যায় {n}
+board.group.chapter.named.label = অধ্যা. {n}: {name}
+board.group.chapter.none.label = অধ্যায় নেই
+board.group.tag.none.label = ট্যাগ নেই
+board.group.date.none.label = তারিখ নেই
+board.sort.default.label = সাম্প্রতিক
+board.sort.date.label = যোগ করার তারিখ
+board.sort.chapter.label = অধ্যায়
+board.sort.location.label = অবস্থান
+board.sort.length.label = দৈর্ঘ্য
+board.sort.category.label = শ্রেণি
+board.sort.dir.label = ক্রম
+board.sort.dir.asc.label = ছোট থেকে বড়
+board.sort.dir.desc.label = বড় থেকে ছোট
+board.sort.menu.label = সাজানো
+board.group.character.label = চরিত্র অনুযায়ী
+board.group.episode.label = এপিসোড অনুযায়ী
+board.group.act.label = অঙ্ক অনুযায়ী
+board.group.quest.label = কোয়েস্ট অনুযায়ী
+board.sort.character.label = চরিত্র
+board.sort.episode.label = এপিসোড
+board.sort.timestamp.label = সময়
+board.sort.act.label = অঙ্ক
+board.sort.quest.label = কোয়েস্ট
+board.strip.shown.label = {total}টার মধ্যে {n}টা দেখানো হচ্ছে
 book.select.menu.label = উদ্ধৃতি বাছাই
 
 # ---- PRUNE: the saved records nothing points at ---------------------------
