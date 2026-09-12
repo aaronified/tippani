@@ -243,9 +243,9 @@
         "  An ambiguous match carries both candidates and the evidence — the matched text —",
         "  so the eye can decide. A file for the wrong cut says so instead of writing 200",
         "  wrong times. A refusal is durable: reject one proposal and it stays rejected on",
-        "  the next scan, the same model Cleanup uses. And <strong>end times</strong> land in",
-        "  a new column on dialogues, joined to the existing start time so they still sort",
-        "  and still rewrite together.",
+        "  the next scan, the same model Cleanup uses. Dropping one file on one work opens",
+        "  a screen listing every cue or paragraph with your own matches already",
+        "  highlighted, so a fuzzy one is checked by eye rather than accepted blind.",
         "</p>"
       ],
       "id": "locators-from-files",
