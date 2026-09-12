@@ -640,3 +640,83 @@ func TestEveryStagedColumnWrittenIsInTheSharedTable(t *testing.T) {
 		}
 	}
 }
+
+// THE notNull FLAGS ARE READ OFF THE SCHEMA, NOT TRANSCRIBED FROM IT.
+//
+// THE BUG THIS EXISTS FOR IS MINE. The shared table was built by extracting the
+// old `notNullQuoteCols` literal with a regex wanting one space after the colon.
+// Sixteen of its seventeen entries were written that way; the seventeenth was
+// aligned — `"kind":   true,` — so it did not match, and `kind` entered the table
+// without its flag. Clearing a quote's kind over a selection became a 500,
+// NOT NULL constraint failed, raised inside the transaction after the ownership
+// check. The exact failure the flag exists to prevent.
+//
+// AND THE CHECK WRITTEN TO CATCH IT COULDN'T. It compared the derived map against
+// a list produced by THE SAME EXTRACTION, so it confirmed the misreading and
+// reported sixteen of sixteen. A test whose expected values come from the same
+// reading as the code under test proves only that the reading is self-consistent.
+//
+// SO THIS ONE READS THE MIGRATIONS. `TestQuoteKindInBulk` is what actually found
+// the defect — by clearing a kind and expecting a 200 — and behaviour cases like
+// it remain the real proof. What this adds is that a field added to the table
+// tomorrow cannot get its flag wrong silently: the schema is asked, not a human.
+func TestEveryNotNullFlagMatchesTheSchema(t *testing.T) {
+	dir := filepath.Join("..", "store", "migrations")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Column name -> is it NOT NULL, per the last migration that declared it.
+	// Both CREATE TABLE bodies and ALTER TABLE ... ADD COLUMN, over the four
+	// tables a bulk edit can reach.
+	notNull := map[string]bool{}
+	col := regexp.MustCompile(`(?m)^\s*([a-z_]+)\s+(?:TEXT|INTEGER|REAL|BLOB|NUMERIC)\b(.*)$`)
+	add := regexp.MustCompile(`(?i)ALTER TABLE\s+(?:utterances|annotations|dialogues|staged_quotes)\s+ADD COLUMN\s+([a-z_]+)\s+(?:TEXT|INTEGER|REAL|BLOB|NUMERIC)\b([^;]*)`)
+	tables := regexp.MustCompile(`(?is)CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(?:utterances|annotations|dialogues|staged_quotes)\s*\((.*?)\n\);`)
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".sql") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		src := string(b)
+		for _, body := range tables.FindAllStringSubmatch(src, -1) {
+			for _, m := range col.FindAllStringSubmatch(body[1], -1) {
+				notNull[m[1]] = strings.Contains(strings.ToUpper(m[2]), "NOT NULL")
+			}
+		}
+		for _, m := range add.FindAllStringSubmatch(src, -1) {
+			notNull[m[1]] = strings.Contains(strings.ToUpper(m[2]), "NOT NULL")
+		}
+	}
+	if len(notNull) < 40 {
+		t.Fatalf("only %d columns parsed out of the migrations; the extraction is broken", len(notNull))
+	}
+	// The schema has to know about `kind` at all, or this guard would have passed
+	// over the very defect it was written for.
+	if _, ok := notNull["kind"]; !ok {
+		t.Fatal("the walk did not find `kind` — it would not have caught the bug it exists for")
+	}
+
+	for name, f := range bulkFields {
+		for _, c := range []string{f.live, f.staged} {
+			if c == "" {
+				continue
+			}
+			declared, ok := notNull[c]
+			if !ok {
+				continue // covered by TestEveryBulkFieldColumnExistsOnTheTableItNames
+			}
+			if declared && !f.notNull {
+				t.Errorf("the column %q is NOT NULL in the schema and bulkFields[%q] does not say so — "+
+					"clearing it in bulk is a 500 inside the transaction", c, name)
+			}
+			if !declared && f.notNull {
+				t.Errorf("bulkFields[%q] marks %q NOT NULL and the schema does not — a clear that "+
+					"should write NULL writes '' instead", name, c)
+			}
+		}
+	}
+}
