@@ -21,8 +21,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Thirteen files sit here, and only some of them are plans** — the table at the foot of this
-file names the five that are not, leaving eight features.
+**Twelve files sit here, and only some of them are plans** — the table at the foot of this
+file names the five that are not, leaving seven features.
 
 THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
 incremented it to "Eight" without counting the directory; a change that fixed THAT wrote
@@ -30,6 +30,12 @@ incremented it to "Eight" without counting the directory; a change that fixed TH
 eight rows; the change that moved three files OUT of this directory corrected the prose
 around them and left both numbers behind — so the sentence claimed sixteen files and eight
 non-plans over a directory holding fifteen and six.
+
+**AND A SIXTH WOULD HAVE BEEN A DELETION RATHER THAN AN ARRIVAL.** `quote-card-types.md`
+leaving took the count from thirteen to twelve and the plans from eight to seven, and both
+numbers moved in the same change that removed the file — which is the whole of the lesson two
+paragraphs down, applied for once in the direction it is usually needed least. A directory
+shrinking behind its own index is as wrong as one growing behind it.
 
 **AND THE FIFTH IS THE ONE THE LESSON BELOW DOES NOT COVER**, which is why it is worth its
 own sentence. `work-source-files.md` arrived and NOBODY EDITED THIS PARAGRAPH — the four
@@ -71,10 +77,10 @@ have since left by the front door**: the update shipped, the pair is folded into
 under one heading with a pass on the four places they turned out to be wrong, and neither
 file is here any more.
 
-So the plans proper are the eight the table does not name: `access.md` for roadmap §6,
+So the plans proper are the seven the table does not name: `access.md` for roadmap §6,
 `entry-helpers.md` and `episodes.md`, which no roadmap section owns, and
-`atrium-liquid-glass.md`, `bulk-editors-one-field-table.md`, `locators-from-files.md`,
-`quote-card-types.md` and `work-source-files.md` — the storage, mount and prune spine that
+`atrium-liquid-glass.md`, `bulk-editors-one-field-table.md`, `locators-from-files.md` and
+`work-source-files.md` — the storage, mount and prune spine that
 `locators-from-files.md` already calls "the reader of these files" and cites by name.
 
 **`import-one-drop-target.md` was the tenth and left by the front door**, which is the
@@ -83,11 +89,17 @@ guard it asked for that cannot exist, and the file is gone. Its roadmap card is 
 with it. The count above moved with the deletion rather than after it, which is the whole
 of the lesson three paragraphs up.
 
-**`quote-card-types.md` has no roadmap card and is not on the skip table either**, which
-looks like an omission and is the file's own instruction: "Not queued … The roadmap sweep
-should leave it alone until the owner picks a shape." The owner has since ruled that it
-retires into `PLAN.md` once the card work lands, so it is a plan on its way out rather than
-a seventh non-plan.
+**`quote-card-types.md` HAS NOW LEFT BY THE FRONT DOOR**, and this paragraph used to
+explain why it was here: it had no roadmap card and was not on the skip table, which looked
+like an omission and was the file's own instruction — "Not queued … The roadmap sweep should
+leave it alone until the owner picks a shape." The owner then ruled that it retires into
+`PLAN.md` once the card work lands. The card work has landed: the composed attribution, the
+settled six-band order on both cards, the precedence rule, and a proverb's language on the
+first screen. It is folded into `PLAN.md` with a pass on the five places it turned out to be
+wrong — including one the directory's own rule is meant to prevent, a feature it proposed as
+new that had shipped a fortnight before it was written — and the two questions it left open
+are carried there rather than lost. **It never had a roadmap card, so there is none to
+retire.**
 
 ## Three files left this directory rather than being deleted
 
