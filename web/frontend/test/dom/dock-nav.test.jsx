@@ -162,3 +162,33 @@ describe('a screen with nothing of its own', () => {
     expect(keys[4].getAttribute('aria-haspopup')).toBe('menu')
   })
 })
+
+// ONE ＋, AND IT IS THE DOCK'S.
+//
+// The drawer led with its own "＋ Add" row, under §7's rule that a single Add
+// surface leads the drawer — the rule was right and the row was it drawn in the
+// wrong place. The dock's ＋ is on screen at all times on a phone, wears the one
+// accent seat in the bar and is what the tour points at; reaching the same
+// surface through the drawer meant opening the drawer first. The owner: "in the
+// mobile sidebar, the top add is useless. Lose it too."
+//
+// BOTH HALVES, because either alone is the wrong test. "The drawer has no Add"
+// passes just as well on a phone that has lost the dock's ＋ too — the failure
+// that would actually strand somebody — and "the dock has a ＋" was true while the
+// duplicate existed. The pair is the claim.
+//
+// BY CLASS AND NOT BY NAME. The dock's ＋ is labelled for what it will add on
+// this screen ("Add a work", "Add a quote"), so there is no one string to look it
+// up by; `.is-accent` is the one accent seat in the bar and `.drawer-add` was the
+// row's own class.
+describe('the one way in', () => {
+  it('is the dock, and the drawer does not offer a second', async () => {
+    await mount()
+    // Open the drawer the way a thumb does — from the phone top bar, not the
+    // dock, which is where the trigger actually lives (App.jsx's mobile-topbar).
+    fireEvent.click(document.querySelector('.mobile-topbar-btn'))
+    await waitFor(() => expect(document.querySelector('.drawer-nav')).toBeTruthy())
+    expect(document.querySelector('.drawer-nav .drawer-add'), 'the drawer offers a second Add').toBeNull()
+    expect(document.querySelector('.mobile-dock .is-accent'), 'the dock has lost its ＋').toBeTruthy()
+  })
+})

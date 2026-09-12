@@ -1133,7 +1133,6 @@ shell.drawer.close.aria = মেনু বন্ধ করুন
 # English side, and it stays: it is the app naming itself.
 shell.drawer.tagline.label = টিপ্পনী · মার্জিনে লেখা কথা
 # What the one Add row can reach, as a badge beside it.
-shell.drawer.add.badge.label = বই-সিনেমা · উদ্ধৃতি · ইমপোর্ট
 shell.drawer.pending.label = যাচাই বাকি ইমপোর্ট
 # The Metadata row's badge when the console has nothing to fix.
 shell.drawer.metadata.clear.label = সব ঠিক আছে

@@ -1125,7 +1125,6 @@ shell.drawer.close.aria = Close menu
 # English side, and it stays: it is the app naming itself.
 shell.drawer.tagline.label = টিপ্পনী · a marginal annotation
 # What the one Add row can reach, as a badge beside it.
-shell.drawer.add.badge.label = work · quote · import
 shell.drawer.pending.label = Pending import
 # The Metadata row's badge when the console has nothing to fix.
 shell.drawer.metadata.clear.label = all clear

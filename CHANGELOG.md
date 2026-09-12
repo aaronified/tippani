@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   typed. The one box that stays plain is the board form's "add a language", because
   there Enter and clicking away mean different things and a suggestion box cannot
   tell them apart.
+- **The phone's menu drops its "＋ Add" row.** The ＋ in the bar at the bottom is
+  on screen at all times and does the same thing; reaching it through the menu
+  meant opening the menu first.
 - **The four text settings are four buttons, not a slider.** "Quotation first",
   "translation first", "quotation only", "translation only" are four distinct
   answers, and a slider says the space between them means something — it was even

@@ -6878,16 +6878,6 @@ html[data-theme="dark"] .drawer-item.active,
 html[data-theme="dark"] .mobile-dock-btn.active {
   background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in srgb, color-mix(in oklab, var(--accent-dark), white 12%) var(--sel-veil), transparent), color-mix(in srgb, var(--accent-dark) var(--sel-veil), transparent)), var(--tile-shell), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark));
 }
-/* §7 One "＋ Add": the drawer's lead row wears the accent so the single add
-   action reads as primary, and a rule sets it apart from the nav rows below. */
-.drawer-add {
-  color: var(--accent-ui);
-  margin-bottom: 4px;
-  padding-bottom: 13px;
-  border-bottom: 1px solid var(--line);
-  border-radius: 9px 9px 0 0;
-}
-.drawer-add:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .drawer-badge {
   margin-left: auto;
   font-family: var(--font-mono);

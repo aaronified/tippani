@@ -1167,18 +1167,14 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
           </div>
         </div>
         <div className="drawer-nav">
-          {/* §7 One "＋ Add": the single Add surface leads the drawer. Quote
-              capture is the surface's Capture tab (reached from ＋ Add), not a
-              separate drawer row — everything is covered by this one entry. */}
-          <button
-            type="button"
-            className="drawer-item drawer-add"
-            onClick={() => { onAdd(); onClose() }}
-          >
-            <IconPlus />
-            {t('common.action.add.label')}
-            <span className="drawer-badge">{t('shell.drawer.add.badge.label')}</span>
-          </button>
+          {/* NO ＋ Add HERE, AND §7's "one Add" IS WHY. The rule was that a single
+              Add surface leads the drawer, and this row was that rule drawn in the
+              wrong place: the dock's ＋ is on screen at all times on a phone, is
+              the accent seat in the bar, and is what the tour points at
+              (data-tour="add"). A drawer entry beside it is the same door reached
+              by opening a drawer first — one more tap for the same surface.
+              The owner: "in the mobile sidebar, the top add is useless. Lose it
+              too." */}
           {pendingImport > 0 && (
             <button
               type="button"
