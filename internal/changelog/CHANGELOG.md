@@ -704,6 +704,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A superlative's name ran out of its tile and over the one beside it.** On Stats,
+  the tiles that name your most-quoted book, film and person scroll a long name under
+  a fade rather than shortening it — except that the name could never be narrower than
+  the tile, so there was nothing to scroll and it simply overflowed onto its
+  neighbour. Every box around it already knew to give way; the one holding the name
+  did not. Reported from the owner's own screen.
+
 - **A book board's colour filter offered six identical grey circles.** Every option in
   "Colour category" — on the phone and on the desk alike — drew the same colourless dot,
   so the one control whose swatch is the only thing distinguishing its rows could not tell

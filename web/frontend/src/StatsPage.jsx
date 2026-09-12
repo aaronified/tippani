@@ -1328,7 +1328,13 @@ function TimelineKey({ kind, label }) {
 // SuperTile — a superlative as a compact tile (the same raised-chip tiling the
 // Overview and Memory grids use): cover thumb · scrolling headline · accent
 // count · label. With `onOpen` the headline is a doorway (→ Search).
-function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
+//
+// EXPORTED FOR ONE TEST AND NO CALLER OUTSIDE THIS FILE. What its case asserts
+// is a chain — every box between the tile and the name agreeing to shrink — and
+// the chain is only visible if the tile can be rendered on its own. Mounting the
+// whole Stats screen to reach it would make the case pass or fail for reasons
+// that have nothing to do with the tile.
+export function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
   return (
     <div style={{ background: 'var(--raised)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px', minWidth: 0 }}>
       <div className="flex items-center gap-2.5" style={{ minWidth: 0 }}>
@@ -1355,9 +1361,26 @@ function SuperTile({ label, title, count, amber, cover, person, onOpen }) {
           <div className="flex items-baseline gap-1.5" style={{ minWidth: 0 }}>
             {title && onOpen ? (
               <Tooltip label={t('stats.super.title.tip')} side="top" className="min-w-0">
+                {/* minWidth:0 AND maxWidth:100%, AND THE TILE IS BROKEN WITHOUT
+                    THEM. `.name-scroll` already declares both on itself, and that
+                    is not enough: a scroller can only be narrower than its text
+                    if every box between it and the tile agrees to shrink, and a
+                    <button> is a flex item whose default min-width is `auto` —
+                    it refuses to go below its content, so the scroller inherits a
+                    box the full width of the name and has nothing to scroll. The
+                    name then ran out of the tile and over the one beside it,
+                    which is what the owner saw. Every other box in the chain says
+                    so already (min-w-0 on the column, on the row, and on the
+                    Tooltip, which puts it on .tp-tip-wrap); this was the one that
+                    did not.
+                    display:block for the same reason as .name-scroll's own: an
+                    inline box has no width to be a percentage of.
+                    NOT AN ELLIPSIS. "Never truncate a name" is the standing rule
+                    — a shortened name and a short name look alike — and
+                    NameScroll is how this app keeps it. */}
                 <button
                   type="button"
-                  className="text-left"
+                  className="text-left min-w-0 max-w-full block"
                   style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', lineHeight: 1.3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit' }}
                   onClick={onOpen}
                 >
