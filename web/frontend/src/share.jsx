@@ -5,6 +5,7 @@ import { t } from "./i18n.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
 import { categoryHex, MAT_SET_DEFAULT, MAT_SET_LABELS, MAT_SETS, paletteTheme, tileFor } from "./theme.js";
 import { DEMO, apiURL, copyText, coverImgURL, json } from "./api.js";
+import { attributionParts } from "./attribution.js";
 
 // resolveFaces turns a credit string + a name→metadata map into the portrait
 // chips drawn on the quote-card image: one per credited name that has a saved
@@ -310,7 +311,42 @@ export function quoteShare({
   color,
   people,
   seps,
+  // THE ROW ITSELF, because three of its fields reached no part of the share.
+  // `recipient`, `work_title` and `locator` were captured by 0047 and 0053 and
+  // appeared nowhere — not in the picture, not in the text — so a letter shared as
+  // "— Albert Einstein, 1952" with Carl Seelig missing entirely. That is the same
+  // "captured and never shown" fault attribution.js's own header says taught
+  // readers to type the whole attribution into Occasion in the first place.
+  row,
 }) {
+  // ONE RULE FOR THE CARD AND THE PICTURE, which is what attribution.js exists
+  // for. The obvious fix — three more flat entries — is the one the plan file
+  // warns against by name: it reinstates "Letter · Carl Seelig" where the
+  // attribution work put "Letter to Carl Seelig", and "if that discipline is not
+  // held, B2 and B3 will drift and the share image will keep drawing a proverb as
+  // a speech".
+  //
+  // NO `date` PASSED, and the reason is narrower than it first looks. A phrase
+  // never speaks for a date — `phrase()` does not take one — so the option only
+  // ever changes what lands in `rest`, and the share reads `rest` for MEMBERSHIP
+  // rather than rendering it: `when` has had its own toggle since this function
+  // was written. Handing it the date would put a value in a set nothing asks
+  // about. (An earlier note here said this stopped the picture printing the year
+  // twice. It did not — nothing renders `rest` wholesale — and a mutation run is
+  // what showed the claim was unfalsifiable.)
+  const { line, rest } = attributionParts(row || {});
+  // Whether the phrase already spoke for a field. `rest` is the ordered list of
+  // values it did NOT speak for, so a field in it still needs its own row; one
+  // that is absent has been said already. This is how the share keeps per-field
+  // TOGGLES — which the card has no need of — without keeping a second opinion
+  // about which fields a kind's phrase covers.
+  //
+  // THE `line &&` IS NOT BELT AND BRACES, and the suite is what said so. With no
+  // row — or a row captured before 0053, which has no `kind` — there is no phrase
+  // and `rest` is empty, so asking "is this value in rest" answers NO for every
+  // field and the share silently dropped a place it had been handed directly.
+  // Nothing spoke for anything, so everything stands.
+  const unspoken = (v) => (!v || (line && !rest.includes(v)) ? "" : v);
   return {
     quote: quote || "",
     // Carried for the IMAGE's typeface and nothing else — see bookShare's note.
@@ -328,7 +364,12 @@ export function quoteShare({
     // italic, then when: the same epigraph order a book keeps.
     attribution: [
       { id: "speaker", label: t("share.field.speaker.label"), value: speaker || "", emphasis: "bold" },
-      { id: "occasion", label: t("share.field.occasion.label"), value: occasion || "", emphasis: "italic" },
+      // THE KIND'S COMPOSED PHRASE, under the `occasion` id it has always had.
+      // For a speech the phrase IS the occasion and the label still reads right;
+      // for a letter this toggle says "Occasion" over "Letter to Carl Seelig",
+      // which the owner chose over renaming the id — a rename resets the stored
+      // preference of every reader who had switched this off.
+      { id: "occasion", label: t("share.field.occasion.label"), value: line || occasion || "", emphasis: "italic" },
       { id: "when", label: t("share.field.when.label"), value: when || "" },
     ],
     meta: [
@@ -366,7 +407,13 @@ export function quoteShare({
         value: kind === "proverb" && language ? language : "",
         phrase: "share.field.proverb.legend",
       },
-      { id: "place", label: t("share.field.place.label"), value: place || "" },
+      // A SPEECH'S PHRASE ALREADY NAMES ITS PLACE, so drawing this as well is the
+      // duplicate — "Letter" twice — that the attribution work was written to end.
+      { id: "place", label: t("share.field.place.label"), value: unspoken(place) },
+      // WHERE IN THE SOURCE, and it reached nothing at all before this. An essay's
+      // phrase names its page, so the entry is empty there and carries it for
+      // every other kind. The book share's own word for the same fact.
+      { id: "locator", label: t("share.field.location.label"), value: unspoken(row?.locator) },
       { id: "medium", label: t("share.field.medium.label"), value: medium || "" },
       { id: "noted", label: t("share.field.noted.label"), value: date || "" },
     ],

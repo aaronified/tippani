@@ -10,7 +10,7 @@
 // a first proposal, so each case quotes the instruction it implements. A test that
 // asserted my reading rather than theirs would pass while being wrong.
 import { describe, expect, it } from 'vitest'
-import { attribution, attributionOf, attributionParts } from '../../src/attribution.js'
+import { attribution, attributionParts } from '../../src/attribution.js'
 
 describe('a letter', () => {
   // The phrase the reader was typing into Occasion by hand, because the recipient
@@ -135,20 +135,12 @@ describe('what it says about a kind nobody has set', () => {
   })
 })
 
-// ONE FUNCTION FOR BAND 3 WHATEVER THE CARD IS DRAWING. A book highlight and a
-// screen line have no `kind` column and never did — they are typed by their WORK,
-// which is why 0053 put the column on the standalone table only. Their locator
-// line is a different band, so this answers '' for them rather than inventing a
-// phrase, and the card asks one question instead of branching on which table a row
-// came from.
-describe('the one entry point every card uses', () => {
-  it('answers for a standalone quote and stays silent for the other two', () => {
-    const row = { kind: 'letter', recipient: 'Carl Seelig' }
-    expect(attributionOf(row, 'quote')).toBe('Letter to Carl Seelig')
-    expect(attributionOf({ chapter: 'The Fall' }, 'annotation')).toBe('')
-    expect(attributionOf({ timestamp: '01:12' }, 'dialogue')).toBe('')
-  })
-})
+// `attributionOf` WAS TESTED HERE AND IS GONE WITH IT. These were its only
+// references anywhere — the function had no production caller at all — and the
+// owner ruled it deleted rather than left as a seam whose comment promised more
+// than it could do. The reasoning is in attribution.js where the function stood;
+// the case is not restored here, because a test for a function nobody calls is
+// the same dead surface one layer up.
 
 // ── what the phrase did NOT speak for ──────────────────────────────────────────
 //

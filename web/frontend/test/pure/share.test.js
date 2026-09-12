@@ -263,7 +263,12 @@ describe('the payload shapers', () => {
     // empty-valued unless the quote IS one — the same way place/medium/noted are
     // declared and empty on a proverb. It leads because it answers "what is this",
     // which is more general than where or when it was said.
-    expect(bose().meta.map((m) => m.id)).toEqual(['proverb', 'place', 'medium', 'noted'])
+    // `locator` joined them when the share started composing its attribution
+    // through attribution.js: where in the source a quote came from reached NO
+    // part of the share before that — not the picture, not the text — and it is
+    // declared here the same way `proverb` is, empty unless the row carries one
+    // and the kind's phrase has not already said it.
+    expect(bose().meta.map((m) => m.id)).toEqual(['proverb', 'place', 'locator', 'medium', 'noted'])
     // Declared, and inert: a speech is not a proverb, so the value is empty and
     // neither the dialog nor the image offers it.
     expect(bose().meta.find((m) => m.id === 'proverb').value).toBe('')

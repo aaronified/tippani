@@ -805,6 +805,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       // The same payload the Quotes screen builds, so a quote shared from Home
       // and the same quote shared from its own screen produce the same picture.
       return quoteShare({
+        row: f.raw,
         quote: f.raw.quote, translation: f.raw.translation, note: f.raw.note,
         kind: f.raw.kind, language: f.raw.language,
         speaker: f.raw.speaker, occasion: f.raw.occasion,

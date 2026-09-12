@@ -718,6 +718,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A letter you shared did not name who it was to.** Three things you can record about a
+  quote — a letter's **recipient**, an essay's or a poem's **title**, and the **page** a
+  quote came from — reached no part of a share: not the picture, not the text. A letter
+  went out as "— Albert Einstein, 1952" with the recipient missing entirely. The share now
+  composes its credit the same way the card does, so it reads "Letter to Carl Seelig"
+  rather than gluing a word to a name — and it stops repeating itself, so a speech whose
+  credit already names where it was given no longer prints the place twice. The page gets
+  a line of its own, and its own switch, on every kind whose credit does not already say
+  it. Nothing you had switched off in the share dialog comes back on.
+
 - **A work page's quotes stopped at two columns on any screen.** However wide the window,
   a book's or a film's board drew two — and the reason was two sensible numbers that had
   never been read together: the page holds each thing in its stream to a readable measure,

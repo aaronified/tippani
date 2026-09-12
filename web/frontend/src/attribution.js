@@ -170,24 +170,26 @@ function phrase(u, kind, piece) {
   }
 }
 
-// attributionFor a BOOK HIGHLIGHT or a SCREEN LINE, which have no `kind` column
-// and never did.
+// `attributionOf(row, kindOfRow, opts)` STOOD HERE AND IS GONE, on the owner's
+// ruling, and the reason is recorded because the seam was not a mistake — it was a
+// promise that outran its callers.
 //
-// THEY ARE NOT UNTYPED, THEY ARE TYPED BY THEIR WORK, and that is the whole reason
-// `utterances.kind` exists only on the standalone table (0053): a row under a book
-// is a highlight and a row under a film is a line, and asking a reader to say so
-// again would be the third place one fact is stored. So the phrase comes from the
-// locator rather than from a kind — which is what a book card's "CH. 4 · P.112"
-// has always been, one band earlier than this function is about.
+// It answered `attribution(row)` for a standalone quote and '' for a book
+// highlight or a screen line, so that a card could ask ONE question for band 3
+// whatever it was drawing rather than branching on which table a row came from.
+// Nothing in `src` ever called it. Worse, wiring it in as written would have been
+// a REGRESSION: the boards pass `meta={utteranceMeta(...)}`, which composes the
+// kind's phrase, the fields the phrase did not speak for, AND the language mark —
+// and this returned the phrase alone, so a card that switched to it would have
+// dropped the occasion, the date, the place, the locator and the proverb's mark.
 //
-// Returns '' for both today. It exists so the card can call ONE function for band
-// 3 whatever it is drawing, rather than branching on which table a row came from —
-// the shape the owner asked for is "adhered for all annotation cards across the
-// app", and a card that asked a different question per kind would be the drift
-// that promise is against.
-export function attributionOf(row, kindOfRow, opts) {
-  return kindOfRow === 'quote' ? attribution(row, opts) : ''
-}
+// The real consolidation runs the other way: band 3 moves INTO the card so no
+// call site passes `meta` at all. That is four files and the meta line on every
+// card in the app, it was put to the owner, and they chose to delete the seam
+// rather than leave a comment promising something it could not do. The promise
+// itself is not deleted — Quotes.jsx records it where the drift actually shows,
+// in the owner's own words about a card's speaker-omitting branch that its call
+// site made unreachable.
 
 // ---- band 2: where in the work ---------------------------------------------
 //
