@@ -7046,6 +7046,12 @@ board.sort.episode.label = Episode
 board.sort.timestamp.label = Time
 board.sort.act.label = Act
 board.sort.quest.label = Quest
+board.group.character.none.label = No character
+board.group.episode.numbered.label = Episode {n}
+board.group.episode.seasoned.label = S{s} · E{n}
+board.group.episode.none.label = No episode
+board.group.act.none.label = No act
+board.group.quest.none.label = No quest
 board.strip.shown.label = {n} of {total} shown
 book.select.menu.label = Select quotes
 

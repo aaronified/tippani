@@ -6807,6 +6807,12 @@ board.sort.episode.label = এপিসোড
 board.sort.timestamp.label = সময়
 board.sort.act.label = অঙ্ক
 board.sort.quest.label = কোয়েস্ট
+board.group.character.none.label = চরিত্র নেই
+board.group.episode.numbered.label = এপিসোড {n}
+board.group.episode.seasoned.label = সি{s} · এ{n}
+board.group.episode.none.label = এপিসোড নেই
+board.group.act.none.label = অঙ্ক নেই
+board.group.quest.none.label = কোয়েস্ট নেই
 board.strip.shown.label = {total}টার মধ্যে {n}টা দেখানো হচ্ছে
 book.select.menu.label = উদ্ধৃতি বাছাই
 

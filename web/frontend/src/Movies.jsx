@@ -30,6 +30,7 @@ import {
   wishFilter,
 } from './works.jsx'
 import { KINDS } from './workKinds.js'
+import { sortAnnotations } from './boardOrder.js'
 import WorkDetail from './WorkDetail.jsx'
 import { QUOTE_FACE, languageClass } from './fonts.js'
 import { t } from './i18n.js'
@@ -1453,7 +1454,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
       )}
       {items && items.length > 0 && view === 'table' && (
         <DialogueTable
-          rows={sortDialogues(items, sort)}
+          rows={sortAnnotations(items, sort)}
           tagMap={tagMap}
           stickers={stickers}
           reloadStickers={reloadStickers}
@@ -1515,39 +1516,13 @@ const dialogueCols = (show) =>
     { key: 'favorite', label: t('film.table.favourite.label') },
   ].filter(Boolean)
 
-// episodeSortKey orders a line within its run. Unset sorts last (Infinity) rather
-// than first, matching the server's NULLS-last dialogue order; season 0 is a real
-// season and sorts where it belongs, ahead of season 1.
-function episodeSortKey(d) {
-  return [d.season ?? Infinity, d.episode ?? Infinity]
-}
-
-// sortDialogues orders rows for the table view: text columns collate, favourite
-// compares numerically, ascending/descending per the header click.
-function sortDialogues(rows, sort) {
-  const dir = sort.dir === 'asc' ? 1 : -1
-  return [...rows].sort((a, b) => {
-    switch (sort.col) {
-      case 'favorite':
-        return ((a.favorite ? 1 : 0) - (b.favorite ? 1 : 0)) * dir
-      case 'character':
-        return (a.character || '').localeCompare(b.character || '') * dir
-      case 'episode': {
-        const [as, ae] = episodeSortKey(a)
-        const [bs, be] = episodeSortKey(b)
-        // Ties on the season fall through to the episode, then to the timestamp —
-        // the same three-level order the list view is served in.
-        if (as !== bs) return (as - bs) * dir
-        if (ae !== be) return (ae - be) * dir
-        return (a.timestamp || '').localeCompare(b.timestamp || '') * dir
-      }
-      case 'timestamp':
-        return (a.timestamp || '').localeCompare(b.timestamp || '') * dir
-      default:
-        return (a.quote || '').localeCompare(b.quote || '') * dir
-    }
-  })
-}
+// THE ORDERING LIVES IN boardOrder.js NOW, and this is what was here: a second
+// comparator that knew favourite, character, episode and timestamp and sent
+// everything else to the quote's text. It answered four of the six dimensions
+// workKinds.js declares for a film — `default`, `date`, `length` and `category`
+// all fell through to alphabetical — and it ran on the TABLE view alone, so the
+// same board was ordered in one view and served in source order in the other two.
+// Its episode key is kept whole in sortValue's `episode` case, Infinity and all.
 
 // DialogueTable — the sortable table view for dialogues, mirroring the Library
 // annotation table (shared .ann-table styles): sortable columns + inline edit;
