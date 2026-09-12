@@ -1221,6 +1221,13 @@ settings.review-scope.stuck.tip = The deck needs one
 settings.type.title = Type
 settings.type.open.tip = Every face the app uses
 settings.type.intro.prose = Every face the app uses, each shown doing its own job. Two alternates apiece, all bundled with the app and free to use — nothing here is fetched from anywhere.
+# WHOSE INTERFACE these faces are for. '' is the answer every UI language
+# inherits; a code is that language's own. Not "English" — the inherited answer
+# applies in every language, and English can overrule it like any other.
+settings.type.scope.title = These faces are for
+settings.type.scope.all = Every language
+settings.type.scope.revert.aria = Follow every language for {name}
+settings.type.scope.revert.tip = Back to the shared answer
 settings.type.style.title = style
 settings.type.upload.label = ＋ Upload
 settings.type.face.aria = Typeface for {name}
@@ -1264,6 +1271,12 @@ settings.languages.remove.in-use.tip = {name} is in use — quotes or books of y
 # Renaming a language is a DISPLAY name. The stored name stays and is shown
 # beside it, so "why does my Bangla board say Bengali" stays answerable.
 settings.languages.rename.label = Shown as (stored as “{name}”)
+# What this language's QUOTES are set in — every face the app ships, because the
+# question is "what does my German look like" and the answer may be a sans or a
+# hand. "Follows the card" is a real answer and so is an option, not a clear button.
+settings.languages.face.title = Quotes in this language
+settings.languages.face.inherit = Follows the card
+settings.languages.face.aria = Typeface for quotes in {name}
 settings.languages.add.label = Add a language
 settings.languages.name.label = Language name
 settings.languages.name.placeholder = Yoruba, Swahili, Tamil…

@@ -1,4 +1,4 @@
-import { fontChoice } from './fonts.js'
+import { fontChoice, languageFamily } from './fonts.js'
 import { t } from './i18n.js'
 
 // Quote-card images (ROADMAP §10). Render a highlight as a shareable PNG,
@@ -30,7 +30,19 @@ const W = 640 // logical card width (px); height is computed from the content
 // quote draws in the Bengali face rather than in a system fallback.
 let FONTS = buildFonts()
 
-function buildFonts() {
+// `language` is the QUOTE's own language, and it changes exactly one face.
+//
+// THE PICTURE AND THE CARD MUST NOT DISAGREE. A reader who sets their German in
+// Literata sees it on every card in the app; a share image still setting it in the
+// display face would be the same quote in two typefaces, in the one place the
+// quote leaves the app. '' for every language nobody has chosen a face for, which
+// is the app's own display face and what this drew before.
+//
+// AND ONLY THE QUOTE. The translation beside it is in whatever the reader
+// translated INTO and nothing stores that, so it keeps the display face — the
+// same rule the card follows, where `quoteTexts` tags the slot holding `a.quote`
+// and leaves the other alone.
+function buildFonts(language) {
   const fam = (role) => fontChoice(role).family
   const disp = fam('display')
   const mono = fam('mono')
@@ -38,9 +50,11 @@ function buildFonts() {
   const bn = fam('bengali')
   const dv = fam('devanagari')
   const serif = `"${disp}", "${bn}", "${dv}", Georgia, serif`
+  const own = languageFamily(language)
+  const quoteStack = own ? `"${own}", "${bn}", "${dv}", Georgia, serif` : serif
   const code = `"${mono}", ui-monospace, monospace`
   return {
-    quote: `italic 400 27px ${serif}`,
+    quote: `italic 400 27px ${quoteStack}`,
     // The translation: the quote's face, upright and two sizes down. Upright
     // because the italic is what marks the ORIGINAL as the quotation, and two
     // lines of italic in a row stop distinguishing anything. The Bengali and
@@ -75,9 +89,15 @@ export function ensureFonts(sample) {
   // Rebuilt HERE, on every call, because this is the one thing every draw
   // awaits — so a face changed in Settings is in the next image without the
   // module having to be told about it.
-  FONTS = buildFonts()
+  FONTS = buildFonts(sample?.language)
   const fam = (role) => fontChoice(role).family
+  // The quote's own face is asked for BESIDE the display one rather than instead
+  // of it: the translation, the attribution and the footer are all still set in
+  // the display face, so a card whose quote has a face of its own needs both
+  // loaded or half of it falls back on the first paint.
+  const own = languageFamily(sample?.language)
   const faces = [
+    ...(own ? [`italic 27px "${own}"`] : []),
     `italic 27px "${fam('display')}"`, `600 15px "${fam('display')}"`,
     `italic 15px "${fam('display')}"`, `600 14px "${fam('display')}"`,
     `500 12px "${fam('mono')}"`, `600 11px "${fam('mono')}"`, `500 11px "${fam('mono')}"`,

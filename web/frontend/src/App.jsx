@@ -44,7 +44,7 @@ const BinPage = lazy(() => import('./BinPage.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
 const ChecksPage = lazy(() => import('./ChecksPage.jsx'))
 import { applyColors, applyTheme } from './theme.js'
-import { applyLocale, useLocale } from './i18n.js'
+import { applyLocale, localeActive, useLocale } from './i18n.js'
 import { LanguagePicker } from './locale.jsx'
 import {
   CONTENT_TABS,
@@ -191,7 +191,13 @@ export default function App() {
       // there is no second place that has to remember to keep it current.
       applyReviewPrefs(user.preferences || {})
       applyLanguageMarks(user.preferences || {})
-      applyFonts(user.preferences || {})
+      // AFTER applyLocale, and the order is load-bearing: the faces are per UI
+      // LANGUAGE now, so applyFonts has to be told which language is rendering —
+      // and localeActive() only answers correctly once applyLocale has resolved
+      // the stored code against what is installed. Called with the RESOLVED code
+      // rather than the preference, because a stored language the operator has
+      // since removed renders a built-in, and its faces have to follow it there.
+      applyFonts(user.preferences || {}, localeActive())
       // The four size dials. Beside applyFonts rather than inside it, because a
       // size is not a face: the tokens it writes are consumed by every rule in the
       // stylesheet, and the faces are consumed by six.
@@ -202,7 +208,7 @@ export default function App() {
       // loads leaves its token unresolvable, which falls back to the built-in.
       json('GET', '/fonts').then((r) => {
         if (!r.ok) return
-        registerUploads(r.data?.fonts || []).then(() => applyFonts(user.preferences || {}))
+        registerUploads(r.data?.fonts || []).then(() => applyFonts(user.preferences || {}, localeActive()))
       })
     }
   }, [user])

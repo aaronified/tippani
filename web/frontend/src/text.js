@@ -3,18 +3,18 @@
 // Everything here takes strings and returns values. No React and no fetch, which
 // is the whole point: it loads in the `pure` test project without dragging the
 // component tree behind it, and neither caller has to know the other exists. The
-// two imports are `iso639.js` and `fonts.js`, each a table and a few pure lookups
-// over it; neither has an import of its own, so nothing follows them in. (This
-// said "the one import" in the commit that added the second, which is the kind of
-// sentence that is only ever wrong for as long as nobody counts.)
+// one import is `fonts.js` — a table, a few pure lookups over it, and one import
+// of its own (`iso639.js`, which has none), so nothing else follows it in. (This
+// said "the one import" while there were two, and "neither has an import of its
+// own" after one of them gained one: a count in prose is only ever right for as
+// long as somebody keeps counting.)
 //
 // It exists because `editDistance` was written inside MetadataPage.jsx for
 // near-duplicate person names, and the search box's facet dropdown now wants the
 // same function for typo tolerance over the vocabulary. Two copies of Levenshtein
 // in one app is the kind of duplication that stays correct right up until
 // somebody tunes one of them.
-import { scriptFace } from './fonts.js'
-import { scriptOf } from './iso639.js'
+import { languageClass } from './fonts.js'
 
 // editDistance is Levenshtein (iterative, one row of state) — the number of
 // single-character insertions, deletions or substitutions between a and b.
@@ -245,13 +245,14 @@ export function quoteTexts(a, order) {
   // leads; asking it in one more place for a class name would be a second opinion
   // about the same question.
   //
-  // '' FOR EVERY LANGUAGE THIS APP HAS NO FACE FOR, which is most of them — and
-  // `scriptOf` is not that test on its own. It answers for all ninety-one, so
-  // Italian comes back 'latin', which is no font role and no rule in the
-  // stylesheet; `scriptFace` is the guard, and English, Italian and Sylheti alike
-  // end up blank so the text keeps the card's own face.
+  // '' FOR EVERY LANGUAGE NOTHING HAS SET AND WHOSE SCRIPT THIS APP HAS NO FACE
+  // FOR, which is most of them — English, Italian and Sylheti alike end up blank,
+  // so the text keeps the card's own face. `languageClass` is the whole ladder:
+  // the reader's own choice for this language first, the script's role second,
+  // nothing third. It is keyed on the LANGUAGE and not the script because those
+  // are different questions for German and English, which share one.
   const { body, second } = pair()
-  const script = scriptFace(scriptOf(a?.language))
+  const script = languageClass(a?.language)
   const tag = (text) => (text && text === quote ? script : '')
   return { body, second, bodyScript: tag(body), secondScript: tag(second) }
 }

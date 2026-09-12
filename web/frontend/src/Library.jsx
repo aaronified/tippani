@@ -2237,6 +2237,7 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
       quote: a.quote,
       note: a.note,
       translation: a.translation,
+      language: a.language,
       author: book?.author,
       title: book?.title,
       published: book?.published_year,

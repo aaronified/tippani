@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Your German can have serifs and your English not.** Two font pickers, one for
+  each half of what a language is here. **The interface**: every language the app
+  can be read in now gets its own set of faces — the two that ship in the box and
+  any you add as a translation file — chosen from one scope row above the six
+  type roles rather than from a card that repeats itself per language. A language
+  you have said nothing about follows the shared answer, and says so. **Your
+  quotes**: every language in your library gets a face of its own, on its own row
+  in the language table, chosen from every face the app ships rather than one
+  role's three. Until now a quote's face came from its SCRIPT, so two languages
+  written in the same letters could not differ at all — which is the whole of what
+  this changes. A language you have not chosen a face for still follows its
+  script, and then the card.
+
 - **A language you no longer want can be taken off the list — unless you are still
   quoting it.** The language table now has a ✕ per row. It removes your mark and your
   own name for that language, never a quote: the language a quote is in is stored on

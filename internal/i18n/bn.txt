@@ -1229,6 +1229,13 @@ settings.review-scope.stuck.tip = ডেকের অন্তত একটা �
 settings.type.title = ফন্ট
 settings.type.open.tip = অ্যাপের সব ফন্ট
 settings.type.intro.prose = অ্যাপ যে যে ফন্ট ব্যবহার করে, প্রতিটা নিজের কাজটা করতে করতে দেখানো। প্রতিটার দুটো বিকল্প, সবই অ্যাপের সঙ্গে আসে আর ব্যবহারে কোনও বাধা নেই — বাইরে থেকে কিছুই টেনে আনা হয় না।
+# WHOSE INTERFACE these faces are for. '' is the answer every UI language
+# inherits; a code is that language's own. Not "English" — the inherited answer
+# applies in every language, and English can overrule it like any other.
+settings.type.scope.title = এই ফন্টগুলো কোন ভাষার জন্য
+settings.type.scope.all = সব ভাষার জন্য
+settings.type.scope.revert.aria = {name}-এর জন্য সব ভাষার ফন্টেই ফিরুন
+settings.type.scope.revert.tip = সবার জন্য যেটা, সেটাতেই ফিরুন
 settings.type.style.title = স্টাইল
 settings.type.upload.label = ＋ আপলোড
 settings.type.face.aria = {name} লেখার ফন্ট
@@ -1272,6 +1279,12 @@ settings.languages.remove.in-use.tip = {name} ব্যবহারে আছে
 # Renaming a language is a DISPLAY name. The stored name stays and is shown
 # beside it, so "why does my Bangla board say Bengali" stays answerable.
 settings.languages.rename.label = দেখাবে এই নামে (জমা আছে “{name}” নামে)
+# What this language's QUOTES are set in — every face the app ships, because the
+# question is "what does my German look like" and the answer may be a sans or a
+# hand. "Follows the card" is a real answer and so is an option, not a clear button.
+settings.languages.face.title = এই ভাষার উদ্ধৃতির ফন্ট
+settings.languages.face.inherit = কার্ডের ফন্টেই থাকুক
+settings.languages.face.aria = {name} ভাষার উদ্ধৃতির ফন্ট
 settings.languages.add.label = ভাষা যোগ করুন
 settings.languages.name.label = ভাষার নাম
 settings.languages.name.placeholder = ইওরুবা, সোয়াহিলি, তামিল…

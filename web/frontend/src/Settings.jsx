@@ -4,15 +4,16 @@ import { ACCENTS, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_P
 import { SIZE_ROLES, TYPE_FACTORS, applyTypeScale, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
   applyFonts,
-  fontState,
-  prefKey,
+  faceFor,
+  fontPatch,
+  fontStateFor,
   registerUploads,
   serialiseFontStyles,
-  stylePrefKey,
   stylesFor,
   uploadedFonts,
   verifyUpload,
 } from './fonts.js'
+import { FaceSelect } from './fontPicker.jsx'
 import { SECTIONS, visibleSections } from './routes.js'
 import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
@@ -20,7 +21,7 @@ import { languageMarksState } from './languages.jsx'
 import { tourFeatures, tourSteps } from './tour.jsx'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, REVIEW_TIERS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
-import { t, tNodes } from './i18n.js'
+import { localeActive, localeCatalogue, t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
   ariaLabelText,
@@ -588,23 +589,10 @@ function SizeDial({ value, onChange, ariaLabel, width = 108 }) {
   )
 }
 
-// faceOptions — one role's whole list, each option drawn in the face it names.
-//
-// Select takes [value, label] pairs and a label may be a node, which is what lets
-// the specimen BE the option: a list of type names set in one typeface answers no
-// question anybody has.
-const faceOptions = (row, uploads) => [
-  ...row.faces.map((f) => [
-    f.id,
-    <span key={f.id} style={{ fontFamily: `'${f.family}'` }}>{t(f.name)}</span>,
-    t(f.name), // what typing searches, since the label itself is an element
-  ]),
-  ...uploads.map((f) => [
-    f.token,
-    <span key={f.token} style={{ fontFamily: `'${f.family}'` }}>{f.name}</span>,
-    f.name,
-  ]),
-]
+// faceOptions MOVED TO fontPicker.jsx, with the Select it fills. Three surfaces
+// ask for a list of faces now — a role, a UI language, and a quote language — and
+// the repo's directive is that a control drawn on more than one screen lives in
+// one function they all call.
 
 // specimenSize — the token a role's specimen is drawn at. Mono is set smaller
 // because a label IS smaller; the two script rows borrow the reading face's dial,
@@ -616,7 +604,6 @@ const specimenSize = (roleKey) => {
 
 function TypeSettings({ prefs, onSaved }) {
   const { ask, confirmDialog } = useConfirm()
-  const [rows, setRows] = useState(fontState)
   const [openRole, setOpenRole] = useState(null)
   const [err, setErr] = useState('')
   const [mine, setMine] = useState(uploadedFonts)
@@ -624,8 +611,25 @@ function TypeSettings({ prefs, onSaved }) {
   // What the script check said about the face just assigned, per role. A
   // WARNING and never a refusal — see hasScript.
   const [warn, setWarn] = useState({})
+  // WHICH LANGUAGE'S INTERFACE THESE FACES ARE FOR. '' is the answer every UI
+  // language inherits — the six flat preference fields the app has always had —
+  // and a code is that language's own.
+  //
+  // THE OWNER'S SPEC: "tippani is meant to be highly translatable… any language
+  // can become the ui language… Any language that the user adds in via translation
+  // files should have a full ui font picker (revamp the font picker in settings
+  // for that)." So the picker did not gain a second copy per language; it gained a
+  // scope, and the six rows under it are the same six rows.
+  const [scope, setScope] = useState('')
+  // The optimistic copy, cleared when the parent's prefs catch up with it. The card
+  // applies a change before the PUT answers — the whole point of a type picker is
+  // watching the type move — and the rows are derived from prefs now rather than
+  // held as state, so without this they would snap back for one round trip.
+  const [draft, setDraft] = useState(null)
+  const live = draft || prefs || {}
+  const rows = fontStateFor(live, scope)
 
-  useEffect(() => { setRows(fontState()) }, [prefs])
+  useEffect(() => { setDraft(null) }, [prefs])
 
   // The four dials, read from the preferences the card was handed rather than held
   // as state of their own: the global dial on the Appearance card writes the same
@@ -652,8 +656,7 @@ function TypeSettings({ prefs, onSaved }) {
     if (!r.ok) return
     await registerUploads(r.data?.fonts || [])
     setMine(uploadedFonts())
-    applyFonts(prefs || {})
-    setRows(fontState())
+    applyFonts(live, localeActive())
   }
 
   // upload sends the file, registers the face, and assigns it to the role that
@@ -668,15 +671,21 @@ function TypeSettings({ prefs, onSaved }) {
     setBusy(false)
     if (!r.ok) return setErr(errText(r, t('error.upload.font')))
     await reloadUploads()
-    await save({ [prefKey(roleKey)]: r.data.token })
-    checkScript(roleKey)
+    await save({ [roleKey]: r.data.token })
+    checkScript(roleKey, r.data.token)
   }
 
   // THE VERIFIER, and it runs after the assignment rather than before it. The
   // check needs the face LOADED to measure it, and the honest thing to report is
   // what the reader is now looking at — not a prediction about it.
-  function checkScript(roleKey) {
-    const face = fontState().find((x) => x.key === roleKey)?.chosen
+  // THE TOKEN RATHER THAN THE LIVE STATE, because the card can now assign a face
+  // to a scope the app is not rendering. Reading fontState() would measure
+  // whatever the interface happens to be set to — which is unchanged when the
+  // scope is another language, so an uploaded face with no Bengali in it would
+  // pass the check and turn every Bengali label into boxes with nothing on screen
+  // to say why.
+  function checkScript(roleKey, token) {
+    const face = faceFor(roleKey, token)
     const ok = face ? verifyUpload(face.family, roleKey) : null
     setWarn((wmap) => ({ ...wmap, [roleKey]: ok }))
   }
@@ -691,14 +700,26 @@ function TypeSettings({ prefs, onSaved }) {
   // save applies FIRST and asks after, like every other card here: the whole
   // point of a type picker is seeing the change, and a round trip between the
   // tap and the type is long enough to make the control feel broken.
-  async function save(patch) {
-    applyFonts({ ...(prefs || {}), ...collectFonts(rows), ...patch })
-    setRows(fontState())
+  //
+  // ONE CALLER SHAPE FOR BOTH SCOPES. `field` is a role key, or a role key plus
+  // "Style"; fontPatch turns it into the flat preference field or into this
+  // locale's entry in the blob, and nothing here has to know which. `null` clears,
+  // which is what the revert glyph sends and is not the same as "".
+  //
+  // AND IT IS ALWAYS APPLIED AGAINST THE RENDERING LOCALE, never against `scope`.
+  // Editing Bengali's faces while the interface is in English must change nothing
+  // on screen — applyFonts composes flat plus the ACTIVE locale's overlay, so it
+  // already does exactly that, and the specimen below is what shows the scope.
+  async function save(changes) {
+    const patch = fontPatch(live, scope, changes)
+    const next = { ...live, ...patch }
+    setDraft(next)
+    applyFonts(next, localeActive())
     const r = await json('PUT', '/auth/me/preferences', patch)
     if (!r.ok) {
       setErr(errText(r, t('error.save.generic')))
-      applyFonts(prefs || {})
-      setRows(fontState())
+      setDraft(null)
+      applyFonts(prefs || {}, localeActive())
       return
     }
     setErr('')
@@ -711,6 +732,32 @@ function TypeSettings({ prefs, onSaved }) {
       <p className="microcopy mb-3">
         {t('settings.type.intro.prose')}
       </p>
+      {/* WHOSE INTERFACE, and it is one row above the six rather than a second
+          copy of them per language. The app ships with two languages and takes any
+          number from data/Locales, so a picker that repeated itself per language
+          would be a card that grows with somebody's translations folder.
+
+          THE FIRST OPTION IS THE ANSWER EVERY LANGUAGE INHERITS, not "English".
+          Naming it English would be wrong twice over: it is what a reader with no
+          per-language opinion sees in EVERY language, and English itself can take
+          an answer of its own that overrules it. */}
+      <div className="mb-3">
+        <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>{t('settings.type.scope.title')}</MonoLabel>
+        <Select
+          value={scope}
+          ariaLabel={t('settings.type.scope.title')}
+          width={230}
+          // THE WARNING GOES WITH THE SCOPE. It says something about the face
+          // assigned to one language's role, and a role key alone cannot tell two
+          // scopes apart — so switching scope drops it rather than leaving a
+          // sentence about a face this scope does not use.
+          onChange={(v) => { setScope(v); setWarn({}) }}
+          options={[
+            ['', t('settings.type.scope.all')],
+            ...localeCatalogue().map((l) => [l.code, l.name]),
+          ]}
+        />
+      </div>
       <div>
         {rows.map((row) => {
           const open = openRole === row.key
@@ -731,12 +778,33 @@ function TypeSettings({ prefs, onSaved }) {
                     {t(row.chosen.name)}
                   </MonoLabel>
                 </div>
+                {/* THE REVERT, AND ONLY WHERE THERE IS SOMETHING TO REVERT — the
+                    same glyph and the same condition the language rows and the
+                    text-order field already use, because "put this back" is one
+                    verb. A scope row with nothing of its own SHOWS what it would
+                    inherit, so a set row and an unset one look alike; this is what
+                    tells them apart. The inherited scope itself has nothing above
+                    it to fall back to, so it never draws one. */}
+                {scope && row.own && (
+                  <FieldIconButton
+                    icon={<IconRevert />}
+                    ariaLabel={t('settings.type.scope.revert.aria', { name: t(row.label) })}
+                    onClick={() => save({ [row.key]: null, [row.key + 'Style']: null })}
+                    tooltip={t('settings.type.scope.revert.tip')}
+                  />
+                )}
                 {/* THE SIZE DIAL SITS IN THE HEAD, not behind the disclosure, so
                     the four of them read as a column you can compare down — and
                     so the one control a reader is most likely to want is not two
                     taps away. Only the four roles that OWN a size have one: a
                     script's glyphs take the size of the element they are drawn in.
-                */}
+
+                    AND IT IGNORES THE SCOPE ABOVE IT, which is why that row says
+                    "these FACES are for". A size is a reader's eyesight and their
+                    screen; a face is a taste about a language. The Appearance
+                    card's global dial writes the same four fields, so making them
+                    per-language here would give one number two homes and no way to
+                    tell which one a screen was obeying. */}
                 {SIZE_ROLES.includes(row.key) && (
                   <SizeDial
                     value={factors[row.key]}
@@ -751,7 +819,12 @@ function TypeSettings({ prefs, onSaved }) {
               <p
                 className="mb-1"
                 style={{
-                  fontFamily: `var(${row.prop})`,
+                  // THE SCOPE'S OWN STACK, not `var(--font-display)`. The card can
+                  // edit the faces for a UI language the reader is not in, and the
+                  // custom property is what the app is actually drawing — so a
+                  // specimen reading it would show English while the row above it
+                  // said Bengali. fontStateFor composes this one per scope.
+                  fontFamily: row.family,
                   fontStyle: row.italic ? 'italic' : 'normal',
                   // THE SPECIMEN ANSWERS THIS ROW'S OWN DIAL, which is what makes
                   // it a preview rather than a picture: turn Labels up and the
@@ -789,17 +862,15 @@ function TypeSettings({ prefs, onSaved }) {
                       you know what you uploaded one for. The script check below is
                       what tells you whether it suits the role you picked. */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <Select
-                      filter
-                      width={228}
+                    <FaceSelect
+                      faces={row.faces}
+                      uploads={mine}
                       value={row.chosen.id}
                       ariaLabel={t('settings.type.face.aria', { name: t(row.label) })}
-                      filterPlaceholder={t('settings.type.face.filter.placeholder')}
                       onChange={(id) => {
-                        save({ [prefKey(row.key)]: id })
-                        if (String(id).startsWith('upload:')) checkScript(row.key)
+                        save({ [row.key]: id })
+                        if (String(id).startsWith('upload:')) checkScript(row.key, id)
                       }}
-                      options={faceOptions(row, mine)}
                     />
                     {/* UPLOAD IS ITS OWN BUTTON. It was a fourth chip beside three
                         typefaces, which reads as a fourth typeface — and it is not
@@ -860,11 +931,12 @@ function TypeSettings({ prefs, onSaved }) {
                             aria-pressed={on}
                             className={'tp-filter-chip tactile' + (on ? ' active' : '')}
                             onClick={() =>
-                              save({
-                                [stylePrefKey(row.key)]: serialiseFontStyles(
+                              save(
+                                row.key + 'Style',
+                                serialiseFontStyles(
                                   on ? row.styles.filter((x) => x !== st.id) : [...row.styles, st.id],
                                 ),
-                              })
+                              )
                             }
                           >
                             {t(st.label)}
@@ -891,16 +963,12 @@ function TypeSettings({ prefs, onSaved }) {
   )
 }
 
-// collectFonts turns the rendered rows back into the preference shape, so an
-// optimistic apply carries every role rather than only the one being changed.
-function collectFonts(rows) {
-  const out = {}
-  for (const r of rows) {
-    out[prefKey(r.key)] = r.chosen.id
-    out[stylePrefKey(r.key)] = serialiseFontStyles(r.styles)
-  }
-  return out
-}
+// collectFonts IS GONE, and what replaced it is the reason. It rebuilt the whole
+// preference shape from the rendered rows so an optimistic apply carried every
+// role rather than only the one being changed — necessary while the rows were the
+// source of truth. They are derived from `prefs` now, so the optimistic copy is
+// the preferences themselves (`draft`), and applyFonts reads them the same way a
+// fresh login does. One shape, not two that have to agree.
 
 
 // SRSettings — the spaced-repetition knobs (v0.5.0 Daily Quiz & Practice): the

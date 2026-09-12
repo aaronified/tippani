@@ -435,6 +435,17 @@ type prefs struct {
 	// not — and the client migrates an account that still has one. See
 	// text_order.go for the four states and why their order is an axis.
 	TextOrder string `json:"textOrder"`
+	// FontsByLanguage: what a QUOTE in a given language is set in. A JSON object
+	// of folded language name -> face token, stored as a string for the reason
+	// TextOrder is. It exists because FontDisplay..FontDevanagari are per SCRIPT,
+	// so German and English — one script — cannot differ, which is exactly what
+	// the owner asked for. See font_scopes.go.
+	FontsByLanguage string `json:"fontsByLanguage"`
+	// FontsByLocale: what the INTERFACE is set in, per UI language. A JSON object
+	// of locale code -> the roles that locale answers differently from the six
+	// flat fields above, which remain the answer for every locale that says
+	// nothing. Also font_scopes.go.
+	FontsByLocale string `json:"fontsByLocale"`
 	// TrashDays: how long a deleted thing waits in the bin before the purge takes
 	// it. One of 7, 30, 90, or -1 for "never expire" — never is -1 and not 0
 	// because an absent field unmarshals to 0, and "nobody has set this" must not
@@ -826,6 +837,19 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	} else {
 		p.TextOrder = ""
 	}
+	// And the same direction again for the two type tables: a blob this cannot
+	// read reads as no per-language type at all, which is the app's own faces —
+	// never a login that fails over a preference about fonts.
+	if norm, ok := normalizeFontsByLanguage(p.FontsByLanguage); ok {
+		p.FontsByLanguage = norm
+	} else {
+		p.FontsByLanguage = ""
+	}
+	if norm, ok := normalizeFontsByLocale(p.FontsByLocale); ok {
+		p.FontsByLocale = norm
+	} else {
+		p.FontsByLocale = ""
+	}
 	if norm, ok := normalizeLanguageMarks(p.LanguageMarks); ok {
 		p.LanguageMarks = norm
 	} else {
@@ -888,6 +912,8 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		LanguageMarks       *string  `json:"languageMarks"`
 		ReadLanguages       *string  `json:"readLanguages"`
 		TextOrder           *string  `json:"textOrder"`
+		FontsByLanguage     *string  `json:"fontsByLanguage"`
+		FontsByLocale       *string  `json:"fontsByLocale"`
 		FontDisplay         *string  `json:"fontDisplay"`
 		FontUI              *string  `json:"fontUi"`
 		FontMono            *string  `json:"fontMono"`
@@ -1078,6 +1104,27 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		cur.TextOrder = norm
+	}
+	// The same "empty means default" reading as TextOrder above: a table with
+	// every row cleared normalises to "" rather than to "{}", so clearing the last
+	// row leaves the account as it was before the first one was set.
+	if in.FontsByLanguage != nil {
+		norm, ok := normalizeFontsByLanguage(*in.FontsByLanguage)
+		if !ok {
+			writeErr(w, http.StatusBadRequest,
+				"fontsByLanguage must be a JSON object of language name -> face token")
+			return
+		}
+		cur.FontsByLanguage = norm
+	}
+	if in.FontsByLocale != nil {
+		norm, ok := normalizeFontsByLocale(*in.FontsByLocale)
+		if !ok {
+			writeErr(w, http.StatusBadRequest,
+				"fontsByLocale must be a JSON object of locale code -> role -> face token")
+			return
+		}
+		cur.FontsByLocale = norm
 	}
 	// Category slots. Set before the validation switch so a bad value is caught
 	// there rather than normalised into something the caller did not ask for.

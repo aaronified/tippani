@@ -371,6 +371,61 @@ describe('the Type panel', () => {
     expect(screen.getByText(/nothing matches/i)).toBeTruthy()
   })
 
+  // WHOSE INTERFACE, and it is the half of the owner's font spec that is about
+  // the app's own words: "any language that the user adds in via translation
+  // files should have a full ui font picker (revamp the font picker in settings
+  // for that)." The revamp is a scope above the six rows, not six more rows per
+  // language — a card that grew with somebody's translations folder would be
+  // unreadable by the third file.
+  describe('the scope above the six rows', () => {
+    it('offers every installed language, and the shared answer first', async () => {
+      await page()
+      fireEvent.click(screen.getByRole('button', { name: 'Type' }))
+      fireEvent.click(within(dialog()).getByRole('button', { name: /These faces are for/i }))
+      const words = screen.getAllByRole('option').map((o) => o.textContent)
+      // The first is NOT "English": it is what a reader with no per-language
+      // opinion sees in every language, and English can overrule it like any other.
+      expect(words[0]).toMatch(/Every language/i)
+      // BOTH BUILT-INS AND THE INHERITED ANSWER, at least. Asserted as a count
+      // rather than by name: `bn`'s strings are a lazy chunk, so a list rendered
+      // before ensureBuiltin resolves labels it with its CODE — which is
+      // localeName's own documented behaviour and not this picker's business.
+      expect(words.length, 'the picker offers fewer scopes than there are languages')
+        .toBeGreaterThanOrEqual(3)
+    })
+
+    it('writes the flat field under the shared scope', async () => {
+      await openRole('Labels')
+      fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))
+      fireEvent.change(screen.getByPlaceholderText(/Type a typeface name/i), { target: { value: 'jet' } })
+      fireEvent.keyDown(document, { key: 'Enter' })
+      await waitFor(() => {
+        const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
+        expect(put[1].fontMono).toBe('jetbrains-mono')
+        expect(put[1].fontsByLocale, 'the shared scope wrote the per-language blob').toBeUndefined()
+      })
+    })
+
+    // THE CASE THE WHOLE SCOPE EXISTS FOR. Choosing a face under a named language
+    // must NOT write the field every other language reads.
+    it('and the blob under a named one, leaving the flat field alone', async () => {
+      await page()
+      fireEvent.click(screen.getByRole('button', { name: 'Type' }))
+      fireEvent.click(within(dialog()).getByRole('button', { name: /These faces are for/i }))
+      fireEvent.click(screen.getAllByRole('option').at(-1)) // the last installed language
+      fireEvent.click(within(dialog()).getByRole('button', { name: 'Labels' }))
+      fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))
+      fireEvent.change(screen.getByPlaceholderText(/Type a typeface name/i), { target: { value: 'jet' } })
+      fireEvent.keyDown(document, { key: 'Enter' })
+      await waitFor(() => {
+        const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
+        expect(put[1].fontMono, 'a per-language choice overwrote the shared answer').toBeUndefined()
+        const blob = JSON.parse(put[1].fontsByLocale)
+        expect(Object.values(blob)[0].mono).toBe('jetbrains-mono')
+      })
+    })
+  })
+
   it('offers Upload as its own control rather than as a fourth typeface', async () => {
     // It was a chip in the row of faces, which reads as a face. It is not a face;
     // it is a way of getting one.

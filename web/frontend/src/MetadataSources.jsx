@@ -21,7 +21,7 @@
 
 import { useEffect, useState } from 'react'
 import { json, errText } from './api.js'
-import { placeholderFor, t } from './i18n.js'
+import { localeActive, placeholderFor, t } from './i18n.js'
 import {
   Card,
   ErrorText,
@@ -58,6 +58,8 @@ import { TEXT_ORDERS, TEXT_ORDER_DEFAULT, TEXT_ORDER_WORD, masterIsCustom } from
 import { TextOrderChoice } from './textOrderField.jsx'
 import { textOrderFrom } from './textOrderHost.jsx'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
+import { ALL_FACES, applyFonts, quoteFaceFor, quoteFontPatch } from './fonts.js'
+import { FaceSelect } from './fontPicker.jsx'
 
 // StatusChip came with the block: after the move Settings had no other caller for
 // it, and a component left behind in the file that stopped using it is the shape
@@ -932,6 +934,12 @@ function LanguageMarksSettings({ prefs, onSaved }) {
   // the first time somebody added a language to one of them they would diverge.
   const [order, setOrder] = useState(() => textOrderFrom(prefs))
   useEffect(() => { setOrder(textOrderFrom(prefs)) }, [prefs])
+  // The face table, held optimistically for the same reason `order` is: the panel
+  // applies a change before the PUT answers, and `prefs` does not catch up until
+  // the parent re-renders.
+  const [faces, setFaces] = useState(() => prefs?.fontsByLanguage || '')
+  useEffect(() => { setFaces(prefs?.fontsByLanguage || '') }, [prefs])
+  const live = { ...(prefs || {}), fontsByLanguage: faces }
   const [picking, setPicking] = useState(null) // the language whose tray is open
   const [draft, setDraft] = useState('') // the "add your own" box, per open tray
   const [adding, setAdding] = useState('') // the new-language box, '' = closed
@@ -1020,6 +1028,38 @@ function LanguageMarksSettings({ prefs, onSaved }) {
     }
     setErr('')
     onSaved?.({ textOrder: blob })
+  }
+
+  // saveFace — what this language's QUOTES are set in.
+  //
+  // THE OWNER'S SENTENCE: "every language that the user adds via adding them in
+  // metadata or via adding them in quotes (via the language field) should also get
+  // a font picker for their quotes. Even when they use same script. I may want my
+  // german to have serifs, but not english."
+  //
+  // AND IT IS IN THIS TABLE RATHER THAN IN THE TYPE CARD, on this panel's own
+  // stated rule: "A second table of the same languages would be two lists to keep
+  // in step, and the first time somebody added a language to one of them they
+  // would diverge." A language's row is where its mark, its name and how much of
+  // the original it shows already live; its face is the fourth thing about it.
+  //
+  // APPLIED FIRST, LIKE EVERY OTHER CONTROL HERE — applyFonts rewrites the
+  // generated sheet, so the cards behind this panel change under it rather than
+  // after a reload.
+  async function saveFace(row, token) {
+    const patch = quoteFontPatch(live, row.canonical, token)
+    const next = { ...live, ...patch }
+    setFaces(next.fontsByLanguage || '')
+    applyFonts(next, localeActive())
+    const r = await json('PUT', '/auth/me/preferences', patch)
+    if (!r.ok) {
+      setErr(errText(r, t('error.save.generic')))
+      setFaces(prefs?.fontsByLanguage || '')
+      applyFonts(prefs || {}, localeActive())
+      return
+    }
+    setErr('')
+    onSaved?.(patch)
   }
 
   // THE MASTER IS A DEFAULT, A BULK SETTER AND AN INDICATOR, which is three jobs
@@ -1277,6 +1317,28 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                     }}
                     onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
                   />
+
+                  {/* WHAT THIS LANGUAGE'S QUOTES ARE SET IN. Every face the app
+                      ships, not one role's three: the question is not "which serif"
+                      but "what does my German look like", and the answer may be a
+                      sans, a hand or something you uploaded.
+
+                      "FOLLOWS THE CARD" IS THE FIRST OPTION AND NOT A CLEAR BUTTON.
+                      It is a real answer a reader has to be able to choose again,
+                      and the row still has a ✕ of its own that means something
+                      else entirely — dropping the language's mark. */}
+                  <div>
+                    <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>
+                      {t('settings.languages.face.title')}
+                    </MonoLabel>
+                    <FaceSelect
+                      faces={ALL_FACES}
+                      value={quoteFaceFor(live, row.canonical)?.id || ''}
+                      inheritLabel={t('settings.languages.face.inherit')}
+                      ariaLabel={t('settings.languages.face.aria', { name: row.name })}
+                      onChange={(id) => saveFace(row, id)}
+                    />
+                  </div>
                 </div>
               )}
             </div>

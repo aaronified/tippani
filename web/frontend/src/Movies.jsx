@@ -1251,6 +1251,7 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
       quote: d.quote,
       note: d.note,
       translation: d.translation,
+      language: d.language,
       color: d.color,
       title: movie?.title,
       year: movie?.release_year,

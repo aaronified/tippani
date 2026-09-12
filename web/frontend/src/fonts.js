@@ -23,6 +23,11 @@
 // the Bengali face has to rebuild the display and ui stacks too — which is why
 // the stacks are composed here, from the whole choice, rather than per role.
 
+// scriptOf is the FALLBACK half of languageClass below: a language with no face
+// of its own still gets its script's. iso639.js imports nothing, so nothing
+// follows it in here.
+import { scriptOf } from './iso639.js'
+
 // EVERY LABEL, NOTE AND SPECIMEN BELOW IS A KEY. This module is evaluated at
 // import, before the reader's language is known, and it renders nothing itself —
 // Settings' Type card resolves each one through t() as it draws the row. A face's
@@ -281,8 +286,59 @@ export function verifyUpload(family, roleKey) {
 
 let chosen = {}
 let chosenStyles = {}
+let activeLocale = ''
 
 const roleKeys = FONT_ROLES.map((r) => r.key)
+
+// EVERY BUNDLED FACE, ONCE, for the two pickers that are not asking about a role.
+// A language row asks "what is my German set in", and the answer is any face this
+// app ships — a serif, a sans, a hand, or one you uploaded. Deduped by id because
+// nothing stops two roles offering the same family later.
+export const ALL_FACES = Object.values(FONT_FACES)
+  .flat()
+  .filter((f, i, all) => all.findIndex((x) => x.id === f.id) === i)
+
+// foldLanguage — the key both tables use, and it is the SERVER's fold
+// (foldLanguageName in read_languages.go: lower-case, trimmed, nothing else).
+// Keeping the two spellings identical is what makes a row written by the browser
+// findable by the browser after the server has round-tripped it.
+export const foldLanguage = (s) => String(s || '').trim().toLowerCase()
+
+// localeFonts reads the per-UI-language overlay out of the preference blob.
+//
+// A PARTIAL, NEVER A FULL SET — see font_scopes.go. A locale stores only the roles
+// it answers differently, so the rows a reader never touched under `bn` go on
+// following their English answers, and an upgrade that changes a built-in face
+// still reaches every locale with no opinion about it.
+//
+// PARSED, NEVER THROWN: a blob that will not parse reads as no overlay, which is
+// the app's own faces. A preference about type must not be able to stop the app
+// from having any.
+export function localeFonts(prefs, locale) {
+  if (!locale) return {}
+  return parseBlob(prefs?.fontsByLocale)[locale] || {}
+}
+
+// quoteFonts reads the per-QUOTE-LANGUAGE table: folded name -> face token.
+export function quoteFonts(prefs) {
+  const raw = parseBlob(prefs?.fontsByLanguage)
+  const out = {}
+  for (const [name, token] of Object.entries(raw)) {
+    const key = foldLanguage(name)
+    if (key && typeof token === 'string' && token) out[key] = token
+  }
+  return out
+}
+
+function parseBlob(raw) {
+  if (!raw) return {}
+  try {
+    const v = JSON.parse(raw)
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {}
+  } catch {
+    return {}
+  }
+}
 
 // prefKey — the preference field for a role. Flat and repetitive on purpose:
 // prefs is a comparable struct on the server (ui_test.go compares two with
@@ -306,11 +362,16 @@ export function fontStylesOn(roleKey) {
 // Latin face, their own Latin subsets would win and the app would change
 // typeface. It also means this cannot be a per-role substitution — changing the
 // Bengali face rebuilds the display and ui stacks too.
-export function stackFor(roleKey) {
+// `pick` is HOW A SCOPE THAT IS NOT RENDERING GETS DRAWN. Settings' Type card can
+// edit the faces for a UI language the reader is not currently in — that is the
+// whole point of a per-language picker — and its specimens have to show what they
+// are editing rather than what the app happens to be set to. Everything else calls
+// it with one argument and gets the reader's live choice, as before.
+export function stackFor(roleKey, pick = fontChoice) {
   const q = (f) => `'${f.family}'`
-  const latin = q(fontChoice(roleKey))
-  const bn = q(fontChoice('bengali'))
-  const dv = q(fontChoice('devanagari'))
+  const latin = q(pick(roleKey))
+  const bn = q(pick('bengali'))
+  const dv = q(pick('devanagari'))
   switch (roleKey) {
     case 'display':
       return `${latin}, ${bn}, ${dv}, Georgia, 'Times New Roman', serif`
@@ -351,6 +412,142 @@ export function stackFor(roleKey) {
   }
 }
 
+// ---- a quote's own language, not its script --------------------------------
+//
+// THE OWNER'S SENTENCE: "every language that the user adds via adding them in
+// metadata or via adding them in quotes (via the language field) should also get a
+// font picker for their quotes. Even when they use same script. I may want my
+// german to have serifs, but not english."
+//
+// WHY THE SCRIPT ROLES CANNOT ANSWER THAT. `.bengali` and `.devanagari` are the
+// only two type keys a card has ever carried, and they are SCRIPTS: German and
+// English are one script, so no arrangement of them can set one in a serif and
+// leave the other alone. This table is keyed by the language the reader typed.
+//
+// A GENERATED STYLESHEET, AND NOT AN INLINE STYLE, and the choice is worth
+// stating because the other one is the obvious one. Every site that draws a quote
+// takes a CLASS from quoteTexts and passes it on — seven of them, across three
+// components — so a family that arrived as a style would mean a new prop on all
+// three and a merge at all seven, and one of those seven quietly not doing it is
+// exactly the drift the repo's "one function both call" rule exists to stop. A
+// rule per configured language keeps the contract at one word.
+//
+// THE CLASS IS HASHED AND NOT THE NAME. A language is free text — "বাংলা",
+// "Français", "Ancient Greek (Attic)" — and none of those is a CSS identifier.
+// Hashing is what makes the class stable across renders and safe to write into a
+// stylesheet; the name lives in the preference, which is where a reader looks.
+const SHEET_ID = 'tp-language-type'
+
+let langClasses = new Map() // folded language -> { cls, family }
+
+// langClass hashes a folded language name to a stable, CSS-safe class. FNV-1a,
+// 32-bit, base36 — not for cryptography, for a short token that is the same on
+// every render and cannot collide with the app's own class names.
+function langClass(key) {
+  let h = 0x811c9dc5
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return 'tp-lang-' + h.toString(36)
+}
+
+// applyQuoteFonts rewrites the generated sheet from the preference blob.
+//
+// REPLACED WHOLE, NEVER APPENDED TO: a language whose face was just cleared has to
+// stop being styled, and a sheet that only grows would go on setting it until a
+// reload. Same reason applyFonts writes every role's property rather than the one
+// that changed.
+function applyQuoteFonts(prefs) {
+  const table = quoteFonts(prefs)
+  langClasses = new Map()
+  const rules = []
+  for (const [key, token] of Object.entries(table)) {
+    const face = anyFace(token)
+    // A token nothing resolves — a face this build dropped, an upload that is
+    // gone — leaves the script rung to answer, which is what the absence of a
+    // setting means. Not faceFor, which falls back to the display built-in and
+    // would silently override the card with a face the reader never chose.
+    if (!face) continue
+    const cls = langClass(key)
+    // The FAMILY as well as the class, because the share image is a canvas and
+    // has no stylesheet to read. One map rather than two: the picture and the
+    // card must never be able to disagree about what a language is set in.
+    langClasses.set(key, { cls, family: face.family })
+    rules.push(`.${cls}{font-family:${quoteStack(face)}}`)
+  }
+  writeSheet(rules.join('\n'))
+}
+
+// quoteStack puts the chosen face first and the two Indic faces after it, which is
+// the same trick stackFor explains: a Latin face chosen for German has no Bengali
+// in it, and a card is not always only one language.
+function quoteStack(face) {
+  const q = (f) => `'${f.family}'`
+  return `${q(face)}, ${q(fontChoice('bengali'))}, ${q(fontChoice('devanagari'))}, serif`
+}
+
+function writeSheet(css) {
+  if (typeof document === 'undefined') return
+  let el = document.getElementById(SHEET_ID)
+  if (!css) {
+    el?.remove()
+    return
+  }
+  if (!el) {
+    el = document.createElement('style')
+    el.id = SHEET_ID
+    document.head.appendChild(el)
+  }
+  el.textContent = css
+}
+
+// languageClass is the one answer to "what face is this text in", and it is a
+// LADDER rather than a lookup: the reader's own choice for this language, then the
+// script's role if this app has a face for it, then nothing — which leaves the
+// text in the card's own face, and is right for the ninety or so languages nobody
+// has set anything for.
+export function languageClass(language) {
+  const key = foldLanguage(language)
+  if (key && langClasses.has(key)) return langClasses.get(key).cls
+  return scriptFace(scriptOf(language))
+}
+
+// languageFamily is the same answer as a CSS family name, for the one surface
+// that cannot use a class: the share image draws on a canvas. '' where the reader
+// has set nothing, so the caller keeps its own face — the picture's quote is a
+// designed composition and only the FAMILY follows the preference (see
+// quoteImage.js, which has said so since it was written).
+export function languageFamily(language) {
+  const key = foldLanguage(language)
+  return (key && langClasses.get(key)?.family) || ''
+}
+
+// quoteFaceFor resolves what a language row in Settings should show as chosen:
+// the face if one is set, and null for "follows the card". NOT faceFor, which
+// falls back to the built-in — here the absence of a setting is the setting, and
+// showing a face name for it would read as a choice nobody made.
+export function quoteFaceFor(prefs, language) {
+  return anyFace(quoteFonts(prefs)[foldLanguage(language)])
+}
+
+// anyFace resolves a token against EVERY face the app has, rather than one role's
+// three, and returns null for one it cannot place.
+//
+// A ROLE IS NOT A SHELF. faceFor takes a role because a ROLE always has an answer
+// — an unrecognised preference falls back to its built-in, which is the right
+// failure for "what is the display face". A quote language is the other case: it
+// may legitimately have no answer, and the app ships twelve faces that are only
+// grouped by role on the picker. Resolving "tiro-bangla" through the display
+// role's list would find nothing and hand back Newsreader — a face nobody chose,
+// on every quote in that language, with the picker still showing the choice that
+// was made. That is the bug this function exists to make impossible, and a test
+// caught it exactly once.
+export function anyFace(token) {
+  if (!token) return null
+  return ALL_FACES.find((f) => f.id === token) || uploadFace(token) || null
+}
+
 // applyFonts writes the stacks and the modifiers onto <html> as inline custom
 // properties — the same mechanism applyTheme and applyColors already use, and
 // the reason a font swap needs no reload.
@@ -361,13 +558,21 @@ export function stackFor(roleKey) {
 // is used and nowhere else. `inherit` is the off value rather than `normal`,
 // because a heading that is already 600 must not be flattened to 400 by a role
 // nobody has touched.
-export function applyFonts(prefs) {
+export function applyFonts(prefs, locale = activeLocale) {
   chosen = {}
   chosenStyles = {}
+  activeLocale = locale || ''
+  // THE UI LANGUAGE'S OWN ANSWER FIRST, THE ACCOUNT'S SECOND. The overlay is keyed
+  // by ROLE (`display`) and by role plus "Style", which is the flat preference's
+  // own naming minus the `font` prefix — so composing the two is a lookup and not
+  // a translation table.
+  const over = localeFonts(prefs, activeLocale)
+  const pick = (field, flat) => (over[field] !== undefined ? over[field] : flat)
   for (const key of roleKeys) {
-    chosen[key] = String(prefs?.[prefKey(key)] || '').trim()
-    chosenStyles[key] = parseFontStyles(prefs?.[stylePrefKey(key)])
+    chosen[key] = String(pick(key, prefs?.[prefKey(key)]) || '').trim()
+    chosenStyles[key] = parseFontStyles(pick(key + 'Style', prefs?.[stylePrefKey(key)]))
   }
+  applyQuoteFonts(prefs)
   const root = document.documentElement
   for (const role of FONT_ROLES) {
     root.style.setProperty(role.prop, stackFor(role.key))
@@ -400,7 +605,8 @@ export function serialiseFontStyles(ids) {
   return FONT_STYLES.filter((s) => on.has(s.id)).map((s) => s.id).join(',')
 }
 
-// fontState is what Settings renders from.
+// fontState is the LIVE choice — what the app is actually drawing — and its one
+// caller is the upload verifier, which is asking about the face it just assigned.
 export function fontState() {
   return FONT_ROLES.map((role) => ({
     ...role,
@@ -408,4 +614,83 @@ export function fontState() {
     chosen: fontChoice(role.key),
     styles: fontStylesOn(role.key),
   }))
+}
+
+// fontStateFor is what the Type card renders from, and it is PURE OVER prefs
+// rather than over module state — because the card can now edit a scope the app is
+// not in. `locale` is '' for the answer every UI language inherits, or a code for
+// that language's own.
+//
+// `own` is the whole of the difference between the two scopes, and it is the same
+// distinction TextOrderField draws: a row with nothing of its own SHOWS what it
+// would inherit, so the reader sees what German looks like today rather than a
+// blank, and the revert glyph is what says whether the scope has an opinion at all.
+export function fontStateFor(prefs, locale) {
+  const over = localeFonts(prefs, locale)
+  const rows = FONT_ROLES.map((role) => {
+    const has = over[role.key] !== undefined
+    const hasStyle = over[role.key + 'Style'] !== undefined
+    return {
+      ...role,
+      faces: faceList(role.key),
+      chosen: faceFor(role.key, has ? over[role.key] : prefs?.[prefKey(role.key)]),
+      styles: parseFontStyles(hasStyle ? over[role.key + 'Style'] : prefs?.[stylePrefKey(role.key)]),
+      own: has || hasStyle,
+    }
+  })
+  const by = Object.fromEntries(rows.map((r) => [r.key, r.chosen]))
+  // The stack this scope would draw with, so the specimen is the scope's own
+  // answer and not the app's. The Indic faces ride inside it exactly as they do
+  // live — see stackFor.
+  return rows.map((r) => ({ ...r, family: stackFor(r.key, (k) => by[k]) }))
+}
+
+// fontPatch turns a set of changes on the Type card into the preference fields
+// to PUT. `changes` is keyed by role (`display`) or role plus "Style".
+//
+// TWO SHAPES, ONE FUNCTION, because the card is one card: the scope that every UI
+// language inherits writes the flat fields the app has always had, and a named
+// locale writes its overlay inside the blob. A caller says WHAT changed and never
+// which of the two it is — which is what stops the "every language" scope and a
+// locale scope from drifting into two code paths that look alike on screen.
+//
+// A SET AND NOT ONE FIELD, because one gesture is not always one field: the
+// revert glyph clears a role's face AND its modifiers, and two calls would each
+// compute their blob from the same unchanged preferences — so the second would
+// write a table that never heard about the first, and the face would come back.
+//
+// `null` CLEARS, and clearing is not the same as setting "". An empty face token
+// is a real value on the flat fields — it means "back to the built-in" — while a
+// locale that has nothing of its own must have no entry at all, or it would stop
+// following the answer it is supposed to inherit.
+export function fontPatch(prefs, locale, changes) {
+  if (!locale) {
+    const out = {}
+    for (const [field, value] of Object.entries(changes)) {
+      const style = field.endsWith('Style')
+      const role = style ? field.slice(0, -'Style'.length) : field
+      out[style ? stylePrefKey(role) : prefKey(role)] = value === null ? '' : value
+    }
+    return out
+  }
+  const all = parseBlob(prefs?.fontsByLocale)
+  const row = { ...(all[locale] || {}) }
+  for (const [field, value] of Object.entries(changes)) {
+    if (value === null) delete row[field]
+    else row[field] = value
+  }
+  const next = { ...all }
+  if (Object.keys(row).length) next[locale] = row
+  else delete next[locale]
+  return { fontsByLocale: Object.keys(next).length ? JSON.stringify(next) : '' }
+}
+
+// quoteFontPatch is the same idea for the QUOTE table: one language's face, or
+// null to take the row out so it follows the card again.
+export function quoteFontPatch(prefs, language, token) {
+  const key = foldLanguage(language)
+  const next = { ...quoteFonts(prefs) }
+  if (!token) delete next[key]
+  else next[key] = token
+  return { fontsByLanguage: Object.keys(next).length ? JSON.stringify(next) : '' }
 }

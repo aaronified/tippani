@@ -143,6 +143,11 @@ export function bookShare({
   quote,
   note,
   translation,
+  // THE QUOTE'S OWN LANGUAGE, and it reaches the payload for one reason: the
+  // image sets the quote in the face the reader chose for that language, exactly
+  // as every card in the app does. It is not a field the dialog offers — nothing
+  // is drawn FROM it — so it takes no toggle and no label.
+  language,
   author,
   title,
   published,
@@ -165,6 +170,8 @@ export function bookShare({
 }) {
   return {
     quote: quote || "",
+    // Carried for the IMAGE's typeface and nothing else — see bookShare's note.
+    language: language || "",
     // WHAT THE LINE SAYS (0051). The same slot, and the same argument, that
     // quoteShare has carried since 0035: a share of a Bengali highlight that
     // carried only the original is half the quote to anybody who cannot read it.
@@ -218,6 +225,8 @@ export function movieShare({
   quote,
   note,
   translation,
+  language, // see bookShare: the face the image sets the quote in
+
   title,
   year,
   character,
@@ -234,6 +243,8 @@ export function movieShare({
 }) {
   return {
     quote: quote || "",
+    // Carried for the IMAGE's typeface and nothing else — see bookShare's note.
+    language: language || "",
     translation: translation || "", // 0051; see bookShare
     // BOTH SETS TRAVEL, and the panel picks one. `faces` stays the actor's so
     // that every existing caller, and the drawing code, keep the meaning they
@@ -302,6 +313,8 @@ export function quoteShare({
 }) {
   return {
     quote: quote || "",
+    // Carried for the IMAGE's typeface and nothing else — see bookShare's note.
+    language: language || "",
     // WHAT THE LINE SAYS, not a thought about it — 0035 drew that line between a
     // translation and a note, and the share keeps it: the translation sits with
     // the quote, above the credit, where the card puts it. A proverb IS its own
@@ -808,6 +821,11 @@ function QuoteImagePanel({ share, selected, onShared, actionRef }) {
           .filter(Boolean)
           .join(' '),
         hand: !!share.note,
+        // The quote's own language, so a face the reader chose for it is LOADED
+        // before the finished draw — and so buildFonts sets the quote in it. A
+        // language nobody has chosen a face for costs nothing: languageFamily
+        // answers '' and the card draws exactly what it drew before.
+        language: share.language,
       }),
       // Author / actor portraits, which load lazily.
       loadFaceImages(drawnFaces.map((f) => f.url)),
