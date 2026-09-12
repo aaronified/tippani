@@ -50,6 +50,34 @@ Verified against `619eb05`.
 | Live UI | `BULK_QUOTE_FIELDS` (`bulkOps.jsx:248-264`) — **11 fields** |
 | Any prior record of this | **None.** Nothing in `docs/plans/`, nothing in the defects register. One roadmap line, §7 `#data-hygiene`: *"The after-import jobs the bulk editor and staging miss."* |
 
+> ## RE-VERIFIED AT `d331b5f8`, AND THE CENTRAL TABLE BELOW IS STALE
+>
+> The pass below was taken against `619eb05`. The tree has moved a long way since,
+> and the gap this plan was written to close **has mostly already closed**. Measured
+> rather than read:
+>
+> | | This plan says | Measured |
+> | :-- | :-- | :-- |
+> | `stagedBulkReq` | 14 fields | **30** |
+> | `quoteFieldKinds` | 19 fields | **23** |
+> | Shared by both editors | — | **22** |
+> | Only staging can set | `season`, `episode`, `remove_tags`, `retarget`, `formula` | `season`, `episode`, `occasion_date`, `occasion_circa` (+ `retarget`, `formula`) |
+> | Only the live editor can set | 15, including `speaker`, `occasion`, `place`, `region`, `recipient`, `work_title`, `locator`, `act`, `quest`, `episode_name` | **6**: `board_id`, `kind`, `medium`, `note`, `review`, `sticker_id` |
+> | "Both gain `language`, `translation`, `occasion_circa`" | three | **`language` is on both already; `occasion_circa` is on staging already.** Only `translation` is absent from both |
+> | "The live editor gains `remove_tags`" | | **Still true** — `RemoveTags` appears nowhere in `bulk_handlers.go` |
+>
+> **SO THE REGISTRY IS STILL WORTH BUILDING AND IT IS NO LONGER A CATCH-UP.** Ten
+> fields divide the two editors where this plan found twenty; the work that closed
+> the rest was done one column at a time, by hand, in the migrations between. That
+> is the argument for the table rather than against it: nothing stopped the drift,
+> and nothing stops the next one. **The value is the guard, not the fields.**
+>
+> **AND THE STALENESS IS THE PLAN'S OWN LESSON, ONE ITERATION ON.** Its verification
+> pass opens "I expected one editor to be behind the other. Both are behind each
+> other" — a correction it earned by reading the tree instead of the brief. This
+> block is the same correction applied to that pass. A plan is written against the
+> tree rather than against memory, and a plan is READ against the tree too.
+
 ### What the verification changed
 
 **I expected one editor to be behind the other. Both are behind each other.** The
