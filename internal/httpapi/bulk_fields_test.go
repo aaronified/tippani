@@ -382,3 +382,126 @@ func TestEveryBulkSettableColumnIsOfferedByThePanel(t *testing.T) {
 		}
 	}
 }
+
+// ── the shared table, walked against the schema it claims to describe ────────
+//
+// `bulk_fields.go` names each bulk-settable field once, with its column on the
+// live tables and its column on `staged_quotes`. A table is only worth having if
+// something checks it against the database; otherwise it is a third literal to
+// fall out of step, which is what this file's header is already about.
+//
+// THESE WALK THE MIGRATIONS, not a hand-written list of columns. A list would be
+// a fourth copy.
+
+// stagedQuoteColumns reads the columns `staged_quotes` actually has, by replaying
+// its CREATE TABLE and every ALTER TABLE ... ADD COLUMN across the migrations.
+func stagedQuoteColumns(t *testing.T) map[string]bool {
+	t.Helper()
+	dir := filepath.Join("..", "store", "migrations")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cols := map[string]bool{}
+	create := regexp.MustCompile(`(?is)CREATE TABLE\s+(?:IF NOT EXISTS\s+)?staged_quotes\s*\((.*?)\n\);`)
+	add := regexp.MustCompile(`(?i)ALTER TABLE\s+staged_quotes\s+ADD COLUMN\s+([a-z_]+)`)
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".sql") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		src := string(b)
+		if m := create.FindStringSubmatch(src); m != nil {
+			for _, line := range strings.Split(m[1], "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "--") {
+					continue
+				}
+				name := strings.Fields(line)[0]
+				// Skip table-level constraints, which start with a keyword rather
+				// than a column name.
+				switch strings.ToUpper(name) {
+				case "PRIMARY", "FOREIGN", "UNIQUE", "CHECK", "CONSTRAINT":
+					continue
+				}
+				cols[strings.Trim(name, ",")] = true
+			}
+		}
+		for _, m := range add.FindAllStringSubmatch(src, -1) {
+			cols[m[1]] = true
+		}
+	}
+	// A walk that finds nothing makes every case below green while checking
+	// nothing — the failure mode the panel walk above already guards against.
+	if len(cols) < 30 {
+		t.Fatalf("only %d staged_quotes columns parsed out of the migrations; the extraction is broken", len(cols))
+	}
+	return cols
+}
+
+// EVERY COLUMN THE TABLE NAMES MUST EXIST. A field whose `staged` column is a
+// typo is accepted by the endpoint, reported as updated, and lost in the UPDATE
+// — the "success that did nothing" this file's header opens on.
+func TestEveryBulkFieldColumnExistsOnTheTableItNames(t *testing.T) {
+	staged := stagedQuoteColumns(t)
+	for name, f := range bulkFields {
+		if f.staged != "" && !staged[f.staged] {
+			t.Errorf("bulkFields[%q].staged = %q, and staged_quotes has no such column", name, f.staged)
+		}
+		// The live column is checked by the round-trip cases above, which set and
+		// clear each field against a real row; a wrong name fails there with a SQL
+		// error rather than silently. Named here so its absence does not read as
+		// an omission.
+		if f.live == "" && f.staged == "" {
+			t.Errorf("bulkFields[%q] names no column on either side — it is settable nowhere", name)
+		}
+		if len(f.kinds) == 0 {
+			t.Errorf("bulkFields[%q] applies to no kind", name)
+		}
+	}
+}
+
+// AND EVERY KIND NAME IS bulkTag's. The same walk TestEveryBulkFieldKindIsAKind-
+// BulkTagKnows does for the derived map, done for the table it now derives from —
+// because the derivation drops any field with no live column, so a staged-only
+// field's kinds would otherwise reach no guard at all.
+func TestEveryBulkFieldKindInTheSharedTableIsAKindBulkTagKnows(t *testing.T) {
+	for name, f := range bulkFields {
+		for _, kind := range f.kinds {
+			if _, ok := quoteBulkKinds[kind]; !ok {
+				t.Errorf("bulkFields[%q] names kind %q, which bulkTag has never heard of (it knows %v)",
+					name, kind, kindNames())
+			}
+		}
+	}
+}
+
+// THE GAPS ARE WRITTEN DOWN, SO CLOSING ONE IS A DELIBERATE EDIT. This is the
+// plan's whole point stated as a test: the two editors drifted because nothing
+// said which fields each lacked. It is a ratchet in one direction — a gap may be
+// closed, and a new one may not be opened — and it is exact rather than a count,
+// so the failure names the field.
+func TestTheGapsBetweenTheTwoEditorsAreTheOnesOnRecord(t *testing.T) {
+	// Measured at the commit that introduced the shared table. Each is a field one
+	// editor can set and the other cannot, with the reason it is still open.
+	liveOnly := map[string]string{
+		"note":   "the staged editor has no note field; parity says it should, and the plan records the doubt",
+		"medium": "0053 retired it — deliberate on both sides",
+		"kind":   "not yet wired to the staged endpoint",
+	}
+	for name, f := range bulkFields {
+		gap := f.live != "" && f.staged == ""
+		why, onRecord := liveOnly[name]
+		if gap && !onRecord {
+			t.Errorf("bulkFields[%q] is live-only and not on the record — either give it a staged "+
+				"column or name it here with the reason", name)
+		}
+		if !gap && onRecord {
+			t.Errorf("bulkFields[%q] is named as a live-only gap (%s) but it has a staged column now "+
+				"— remove it from the list rather than leaving a stale reason", name, why)
+		}
+	}
+}
