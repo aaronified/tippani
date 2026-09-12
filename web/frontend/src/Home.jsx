@@ -12,7 +12,7 @@ import { locatorMeta } from './attribution.js'
 import { dateLine, greetingFor } from './greetings.js'
 import { AnnotationForm, annotationState, annDate, fmtDate } from './Library.jsx'
 import { DialogueForm, dialogueState } from './Movies.jsx'
-import { UtteranceForm, utteranceState } from './Quotes.jsx'
+import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
 import { t, tNodes } from './i18n.js'
 import { openCharacterDoor } from './identity.jsx'
 import { usePersonOpener } from './personOpen.jsx'
@@ -421,7 +421,6 @@ function bookFav(a) {
     // repeats what the header and the chips already say.
     workTitle: a.book_title,
     cover: a.book_cover || '',
-    source: [a.book_title, a.book_author].filter(Boolean).join(' · '),
     meta,
     createdAt: a.created_at,
     openLabel: t('home.favourites.open.book.aria'),
@@ -461,7 +460,6 @@ export function screenFav(d, movieMap) {
     // The poster comes off the /movies lookup this tile already needs for the
     // title, so it costs no request of its own.
     cover: m.poster_path || '',
-    source: [m.title, d.character].filter(Boolean).join(' · '),
     meta: [m.title, episodeLabel(d), d.character, d.timestamp].filter(Boolean).join(' · '),
     createdAt: d.created_at,
     // The same three-way as the badge above — a game's tile said "Open this film".
@@ -489,9 +487,16 @@ export function screenFav(d, movieMap) {
 // would assert only that the tile prints what it was given. See
 // `credit-row.test.jsx`'s header for the same lesson learned the other way.
 export function quoteFav(u) {
-  // 0053. The kind's word, falling back to the old free-text medium — the same
-  // rule utteranceMeta follows, spelled through the same helper.
-  const rest = [u.occasion, formatPartialDate(u.occasion_date, u.occasion_circa), u.place, quoteKindMeta(u)].filter(Boolean)
+  // THE SAME LINE THE CARD DRAWS, composed by the same function — and this had to
+  // be said here twice. The comment replaced claimed "the same rule utteranceMeta
+  // follows, spelled through the same helper", and it was spelling a DIFFERENT
+  // rule: a list of whatever happened to be non-empty, with the kind's own word
+  // appended as one more item. So a letter's tile read "after the prize · 11 Mar
+  // 1952 · Zurich · Letter" where its card reads "Letter to Carl Seelig · 11 Mar
+  // 1952 · Zurich · p. 3" — the recipient nowhere, the kind's word said on its
+  // own, and this page's own share of the SAME quote (below, which passes the
+  // whole row) getting it right. A rule cited rather than called is a rule with
+  // two implementations.
   return {
     key: `quote:${u.id}`,
     kind: 'quote',
@@ -499,9 +504,9 @@ export function quoteFav(u) {
     text: u.quote || u.note,
     note: u.quote ? u.note : '',
     tags: u.tags || [],
-    source: [u.speaker, u.occasion].filter(Boolean).join(' · '),
-    // No speaker in `meta` \u2014 the expanded tile chips them. See bookFav.
-    meta: rest.join(' · '),
+    // No speaker in `meta` \u2014 the expanded tile chips them, and utteranceMeta
+    // omits it for that reason on every surface. See bookFav.
+    meta: utteranceMeta(u),
     createdAt: u.created_at,
     openLabel: t('home.favourites.open.quotes.aria'),
     raw: u,

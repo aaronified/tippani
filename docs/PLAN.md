@@ -14101,9 +14101,10 @@ mentioned only the import work. Recorded here because a commit that quietly
 repairs something else is a commit whose body cannot be trusted to list what it
 touched.
 
-**AND ONE SURFACE WAS STILL CONCATENATING.** The entry above says the share now
-composes its credit the way the card does, which was true and not the whole claim
-a reader takes from it: the SEARCH RESULTS LIST was never part of either. It drew
+**AND TWO SURFACES WERE STILL CONCATENATING — this paragraph said ONE, and a pass
+later found the second.** The entry above says the share now composes its credit
+the way the card does, which was true and not the whole claim a reader takes from
+it: the SEARCH RESULTS LIST was never part of either. It drew
 `[h.speaker, h.occasion].join(' · ')` — the literal shape `quote-card-types.md`
 opens on — so a letter found by search read "Albert Einstein · after the prize"
 while the same quote on its board read "Albert Einstein · Letter to Carl Seelig ·
@@ -14127,3 +14128,33 @@ named `SearchPage.jsx:1176`'s `quoteShare` call as the site. That call is handed
 right, the line was next door, and the value of the finding was entirely in the
 measurement: worth recording because a finding checked at its own line is what
 separates the defect from the guess about it.
+
+**THE SECOND SURFACE WAS HOME, AND THE FIX FOR THE FIRST CLAIMED THERE WAS NO
+SECOND.** `quoteFav` (`Home.jsx`) built a favourite tile's line as
+`[occasion, date, place, quoteKindMeta(u)]` — the same list-of-whatever-is-filled,
+with the kind's own word appended as one more item, which is precisely the
+duplicate `attributionParts` exists to remove. So a letter read three ways at
+once: `after the prize · 11 Mar 1952 · Zurich · Letter` on the wall,
+`Albert Einstein · after the prize` in search, and the right thing on its card —
+while THIS PAGE'S OWN SHARE of the same quote was correct, because that call
+passes the whole row.
+
+**WHAT MAKES IT WORTH A PARAGRAPH IS THE COMMENT IT CARRIED**, which read "the
+same rule utteranceMeta follows, spelled through the same helper". It was not
+following that rule; it was spelling a different one beside it. **A rule CITED
+rather than CALLED is a rule with two implementations**, and that is the third
+time this session the same shape has been found: the film board citing the book
+board's bar, `Frame` citing `AnnotationCard` for where the translation sits, and
+this. A comment naming the canonical function is evidence the author knew about
+it, not evidence the code uses it.
+
+**AND THE GUARD WAS SCOPED TO THE SCREEN RATHER THAN TO THE RULE**, which is why
+the first fix could ship a false claim. `search-hit-credit.test.js` covered the
+search row alone while the commit told users that row was "the one place left" —
+a guard over one surface cannot check a sentence about all of them. It is
+`one-credit-everywhere.test.js` now, named for the rule, and it compares the
+search row, the Home tile and the stored row against each other rather than
+asserting any one is right. Its two fixtures are independent literals for the
+same reason: the first version built the stored row by spreading the hit, so a
+field missing from the hit was missing from both sides and the comparison agreed
+by construction — a rater deleted `place` from it and every case still passed.
