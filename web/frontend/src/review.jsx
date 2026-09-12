@@ -15,6 +15,7 @@ import { installShortcuts, shortcutFor } from './keys.js'
 // The runner itself is unchanged by the move. Its behaviour is described where
 // it is defined, below.
 import { useEffect, useRef, useState } from 'react'
+import { QUOTE_FACE, languageClass } from './fonts.js'
 import { categoryVar } from './theme.js'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
@@ -140,7 +141,13 @@ function isFlipCard(card) {
 
 // QuoteBlock — the quote side of a card (used as prompt for "source", as the
 // revealed answer for "quote").
-function QuoteBlock({ card }) {
+//
+// EXPORTED FOR THE SUITE, because this is a quote slot and quote slots now have a
+// rule to keep: defer to --font-quote rather than name a face, or the reader's
+// per-language type loses here exactly as it lost everywhere else for a commit.
+// A test that cannot render the block can only check that somebody wrote the
+// right string.
+export function QuoteBlock({ card }) {
   return (
     <blockquote
       style={{
@@ -148,9 +155,15 @@ function QuoteBlock({ card }) {
         padding: '2px 0 2px 12px',
       }}
     >
+      {/* THE FACE THE READER SET FOR THIS LANGUAGE, on the surface that shows a
+          quote more often than any other. The deck is the one place the same
+          German line was still drawing in the display face after the per-language
+          type shipped — `language` is carried on the card for this and nothing
+          else (see reviewCard in review_handlers.go). */}
       <p
+        className={languageClass(card.language)}
         style={{
-          fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
+          fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
           fontStyle: 'italic',
           fontSize: 'var(--type-display-17)',
           lineHeight: 1.5,

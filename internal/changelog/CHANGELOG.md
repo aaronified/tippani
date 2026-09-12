@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The per-language face now actually draws.** The picker shipped working and the
+  type did not change: the rule that set your language's face lost, every time, to
+  the one each quote already carried. It is a variable now, which the quote reads
+  instead of competing with — so a face you set for German appears on the card, on
+  Home, in search results, in the quiz deck and in a shared picture, rather than on
+  a translation line alone. A language your library stores under its own name
+  (বাংলা, Deutsch) is also keyed correctly now; the picker was saving under the
+  English name and quietly changing nothing.
+
 - **Your German can have serifs and your English not.** Two font pickers, one for
   each half of what a language is here. **The interface**: every language the app
   can be read in now gets its own set of faces — the two that ship in the box and

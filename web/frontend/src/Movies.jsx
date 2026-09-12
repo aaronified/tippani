@@ -31,6 +31,7 @@ import {
 } from './works.jsx'
 import { KINDS } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
+import { QUOTE_FACE } from './fonts.js'
 import { t } from './i18n.js'
 import { quoteTexts } from './text.js'
 import { useTextOrder } from './textOrderHost.jsx'
@@ -1586,7 +1587,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
           {rows.map((d) => (
             <tr key={d.id}>
               <td className="col-quote">
-                <ExpandableText text={d.quote} lines={2} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic' }} />
+                <ExpandableText text={d.quote} lines={2} style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic' }} />
                 {d.tags?.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {d.tags.map((name) => {
@@ -1824,7 +1825,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // ♥ lives in the action row at the foot of the frame, where a book
   // annotation has always kept it (Library's ActionRow).
   const sticker = d.sticker_id != null ? stickerMap[d.sticker_id] : null
-  const quoteStyle = { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-17)', lineHeight: 1.5, color: 'var(--ink)' }
+  const quoteStyle = { fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-17)', lineHeight: 1.5, color: 'var(--ink)' }
   return (
     <>
       <FormModal open={editing} onClose={onCancelEdit} title={t('common.dialogue.edit.title')}>

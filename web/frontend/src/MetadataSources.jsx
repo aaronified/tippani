@@ -1046,8 +1046,14 @@ function LanguageMarksSettings({ prefs, onSaved }) {
   // APPLIED FIRST, LIKE EVERY OTHER CONTROL HERE — applyFonts rewrites the
   // generated sheet, so the cards behind this panel change under it rather than
   // after a reload.
+  // `row.key` AND NOT `row.canonical`, which is what every other control in this
+  // row already passes and what this one got wrong for a commit. The key is the
+  // FOLD OF WHAT THE LIBRARY STORES; the canonical is the ISO English name, which
+  // is a different string the moment a reader's quotes say `বাংলা` or `Deutsch`.
+  // Written against canonical, the picker saved {"bengali":…} for a library whose
+  // quotes are keyed `বাংলা` — it read back as saved, and not one card changed.
   async function saveFace(row, token) {
-    const patch = quoteFontPatch(live, row.canonical, token)
+    const patch = quoteFontPatch(live, row.key, token)
     const next = { ...live, ...patch }
     setFaces(next.fontsByLanguage || '')
     applyFonts(next, localeActive())
@@ -1333,7 +1339,7 @@ function LanguageMarksSettings({ prefs, onSaved }) {
                     </MonoLabel>
                     <FaceSelect
                       faces={ALL_FACES}
-                      value={quoteFaceFor(live, row.canonical)?.id || ''}
+                      value={quoteFaceFor(live, row.key)?.id || ''}
                       inheritLabel={t('settings.languages.face.inherit')}
                       ariaLabel={t('settings.languages.face.aria', { name: row.name })}
                       onChange={(id) => saveFace(row, id)}

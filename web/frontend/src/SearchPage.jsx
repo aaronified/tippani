@@ -38,7 +38,7 @@ import { CharacterFaces, CreditFaces, PersonCredit, PersonModal, PersonPortrait,
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
 import { categoryVar } from './theme.js'
-import { languageClass } from './fonts.js'
+import { QUOTE_FACE, languageClass } from './fonts.js'
 import { chapterLabel, episodeLabel } from './text.js'
 import {
   useEscape,
@@ -1698,7 +1698,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
           isBook ? (
             <ChildHit key={h.id} color={h.color} hit={h} parent="book" onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
               {h.quote && (
-                <MatchWindow text={h.quote} terms={terms} className={languageClass(h.language)} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
+                <MatchWindow text={h.quote} terms={terms} className={languageClass(h.language)} style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
               )}
               {h.note && (
                 <HandNote>
@@ -1708,7 +1708,7 @@ function WorkResult({ kind, g, view, terms, onOpen, onOpenQuote, onOpenPerson, p
             </ChildHit>
           ) : (
             <ChildHit key={h.id} color={h.color} hit={h} parent={g.media_type === 'show' ? 'show' : 'film'} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
-              <MatchWindow text={h.quote} terms={terms} className={languageClass(h.language)} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
+              <MatchWindow text={h.quote} terms={terms} className={languageClass(h.language)} style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
               {/* The margin note (highlighted — this is what a Notes hit matched on). */}
               {h.note && (
                 <HandNote>
@@ -1926,7 +1926,7 @@ function QuoteHit({ h, terms, onOpen, people = {}, seps }) {
           text={h.quote || h.note}
           terms={terms}
           className={languageClass(h.language)}
-          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }}
+          style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }}
         />
       )}
       <span className="mt-1 flex items-center gap-1.5">
@@ -1963,7 +1963,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
             {(tag.annotations || []).map((h) => (
               <ChildHit key={`a${h.id}`} color={h.color} hit={h} parent="book" onClick={() => onOpenQuote({ kind: 'book', hit: h })}>
                 {(h.quote || h.note) && (
-                  <MatchWindow text={h.quote || h.note} terms={terms} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
+                  <MatchWindow text={h.quote || h.note} terms={terms} className={languageClass(h.language)} style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
                 )}
                 <MonoLabel className="mt-1 block min-w-0">
                   <NameScroll>{[h.book_title, h.book_author].filter(Boolean).join(' · ')}</NameScroll>
@@ -1972,7 +1972,7 @@ function TagSection({ tags, terms, onOpenQuote, speakerMap, creditSeps }) {
             ))}
             {(tag.dialogues || []).map((h) => (
               <ChildHit key={`d${h.id}`} color={h.color} hit={h} parent={h.movie_media_type === 'show' ? 'show' : 'film'} onClick={() => onOpenQuote({ kind: 'movie', hit: h })}>
-                <MatchWindow text={h.quote} terms={terms} className={languageClass(h.language)} style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
+                <MatchWindow text={h.quote} terms={terms} className={languageClass(h.language)} style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }} />
                 <MonoLabel className="mt-1 block min-w-0">
                   <NameScroll>{[h.movie_title, h.character].filter(Boolean).join(' · ')}</NameScroll>
                 </MonoLabel>
@@ -2141,7 +2141,12 @@ function termPattern(terms, flags) {
 // the quote itself, so the class that says what that language is set in belongs on
 // the same span the text is in — otherwise a reader's German reads in Literata on
 // the work page and in the display face the moment they search for it.
-function MatchWindow({ text, terms, style, className = '' }) {
+// EXPORTED FOR THE SUITE, as FacetSection and SearchBox already are in this file.
+// The reason is the rule it now has to keep: a quote slot must DEFER to
+// --font-quote rather than name the display face, and a test that cannot render
+// the slot can only assert that somebody wrote the right string — which is how
+// this surface shipped with a class that could never win.
+export function MatchWindow({ text, terms, style, className = '' }) {
   const s = String(text || '')
   // Honour the quote's own line breaks / paragraphs (matching the detail cards).
   const qStyle = { whiteSpace: 'pre-wrap', ...style }

@@ -433,10 +433,32 @@ export function stackFor(roleKey, pick = fontChoice) {
 // the drift the repo's "one function both call" rule exists to stop. A rule per
 // configured language keeps the contract at one word.
 //
+// AND THE RULE SETS A VARIABLE, NOT font-family, WHICH IS THE HALF THAT WAS
+// MISSING AND MADE THE WHOLE THING INERT FOR ONE COMMIT. Every quote slot in this
+// app carries an INLINE font-family — `QUOTE_STYLE` (Library.jsx), `quoteStyle`
+// (Movies.jsx, flow.jsx), the Home tiles, the search hit windows — and a style
+// attribute beats a normal author rule, whatever its specificity. So a class that
+// declared `font-family` lost at every site it was attached to, silently: the
+// reader's German went on drawing in Newsreader, the picker went on showing
+// Literata, and 4,191 tests stayed green because they asserted the CLASS NAME and
+// never the computed face.
+//
+// A custom property inherits and is read BY the inline declaration instead of
+// competing with it: the rule sets `--font-quote`, every quote slot asks for
+// `QUOTE_FACE` below, and the language wins by being the value rather than by
+// out-ranking anything. The same indirection is why `.bengali` keeps its own
+// `font-family` — the Bengali WORDMARK has no inline face and still needs one.
+//
 // (The count reads "three components" and not "three files" on purpose — a rater
 // read it the other way, which is a fair reading of a sentence that named
 // neither. Library.jsx 1680/1694/1713/1838 and Movies.jsx 1850/1864/1943 are the
 // seven; the three prop signatures are what a style would have had to change.)
+
+// QUOTE_FACE is what a quote slot puts in its inline `fontFamily`, and it is the
+// ONLY spelling of it: the language's face when one is set, the app's display
+// face when it is not. Written once here so a new quote surface cannot invent a
+// version of it that answers to nothing.
+export const QUOTE_FACE = 'var(--font-quote, var(--font-display))'
 //
 // THE CLASS IS HASHED AND NOT THE NAME. A language is free text — "বাংলা",
 // "Français", "Ancient Greek (Attic)" — and none of those is a CSS identifier.
@@ -480,7 +502,7 @@ function applyQuoteFonts(prefs) {
     // has no stylesheet to read. One map rather than two: the picture and the
     // card must never be able to disagree about what a language is set in.
     langClasses.set(key, { cls, family: face.family })
-    rules.push(`.${cls}{font-family:${quoteStack(face)}}`)
+    rules.push(`.${cls}{--font-quote:${quoteStack(face)}}`)
   }
   writeSheet(rules.join('\n'))
 }

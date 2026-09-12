@@ -82,9 +82,16 @@ describe('a favourite carries the face its language is set in', () => {
     UTTERANCES = [{ id: 3, quote: 'Der Mensch ist frei', language: 'German', speaker: 'Schiller', favorite: 1, tags: [], color: 'yellow', kind: 'quote' }]
     await mount()
     const p = await screen.findByText(/Der Mensch ist frei/)
-    const cls = languageClass('German')
-    expect(cls, 'the language has no face, so this case is proving nothing').toBeTruthy()
-    expect(p.className, 'Home draws the quote without its language’s face').toContain(cls)
+    expect(languageClass('German'), 'the language has no face, so this case is proving nothing').toBeTruthy()
+    // THE RESOLVED FACE, NOT THE CLASS NAME. A class that names a font-family
+    // loses to the tile's own inline one, silently — which is how this shipped
+    // once with the class in place and the type unchanged. jsdom does not resolve
+    // var() in font-family, so the honest pair is the variable reaching the words
+    // and the slot deferring to it.
+    expect(getComputedStyle(p).getPropertyValue('--font-quote'),
+      'Home draws the quote without its language’s face').toContain('Literata')
+    expect(p.style.fontFamily, 'the tile names a face instead of deferring to it')
+      .toContain('--font-quote')
     applyFonts({}, '')
   })
 })

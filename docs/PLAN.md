@@ -13629,3 +13629,66 @@ on every Bengali quote, with the picker still showing the choice they made. `any
 resolves against every face the app ships and returns null for one it cannot place,
 which leaves the script rung to answer. The case that found it is
 `language-fonts.test.jsx`'s "the reader can overrule that script face for one language".
+
+## The face that was asked for everywhere and won nowhere
+
+A 5/10 rater pass on 258361d9, and its first finding is the one that matters: the
+per-language face was **inert on every surface it had been attached to**.
+
+`applyFonts` emitted `.tp-lang-x { font-family: … }` as a normal author rule. Every
+quote slot in this app carries an **inline** font-family — `QUOTE_STYLE`
+(Library.jsx), `quoteStyle` (Movies.jsx, flow.jsx), the two Home tiles, the search
+hit windows — and a style-attribute declaration beats a normal author rule whatever
+its specificity. So the class was applied, the picker showed the reader's choice,
+and the type never changed. The one slot that DID work was `TranslationLine`, which
+draws through the stylesheet and has no inline face, plus the share image, which is
+a canvas and never saw the class at all — so the owner's German would have taken
+its serifs on a translation line and in a picture, and nowhere else.
+
+**AND `.bengali` HAD THE SAME DEFECT SINCE IT WAS WRITTEN.** It only looked right
+because the display stack already carries the Bengali face after the Latin one, so
+the glyphs came out Bengali by FALLBACK rather than by that rule. A Latin-on-Latin
+swap has nothing to fall back to, which is why the bug was invisible until German
+needed a serif.
+
+### The fix is an indirection, not a bigger hammer
+
+`!important` would have worked and would have been the wrong answer: it makes the
+class beat every inline style including ones that are supposed to win, and it
+teaches the next reader that specificity in this app is a fight. A custom property
+is read BY the inline declaration instead of competing with it:
+
+- the generated rule sets `--font-quote`, and so do `.bengali` and `.devanagari`;
+- every quote slot's inline `fontFamily` is `QUOTE_FACE` — `var(--font-quote,
+  var(--font-display))` — written once in fonts.js so a new surface cannot invent
+  a spelling that answers to nothing;
+- `.bengali` KEEPS its own `font-family`, because the Bengali wordmark wears that
+  class with no inline face and would lose its letters without it.
+
+### Why 4,191 tests were green over it
+
+Every case asserted the CLASS NAME. `expect(bodyScript).toBe('bengali')` is true of
+a class that cannot win, and deleting `className={languageClass(…)}` from four of
+the five surfaces the previous commit existed to fix left the whole suite green —
+the rater proved that by doing it.
+
+jsdom does not resolve `var()` inside `font-family`, so the honest assertion is a
+pair: the element RESOLVES `--font-quote` to the chosen family (which proves the
+class reaches it and the rule sets a variable), and nothing between the class and
+the words names a face of its own. Both are now made per slot — ExpandableText,
+FlowQuote, TranslationLine, MatchWindow, Home's tile, Home's serendipity card and
+the quiz block — and reverting the rule to `font-family` fails five of them.
+
+### Two more from the same pass
+
+**THE PICKER SAVED UNDER THE WRONG KEY.** A language row carries both a `key` (the
+fold of what the library stores) and a `canonical` (the English name iso639 knows
+it by). Every other control in that row passes `key`; the face picker passed
+`canonical`, so a library whose quotes say `বাংলা` saved `{"bengali": …}` — read
+back as saved, showed the chosen face in the dropdown, and changed no card. The row
+is HEADED "Bengali" and KEYED `বাংলা`, which is the whole trap.
+
+**AND THE DECK DREW IN A FACE NOBODY CHOSE.** The quiz is the surface a reader meets
+a quote on most often and it carried no language at all. `reviewCard.Language` now
+travels — one column on each of the three deck queries, read by nothing on the
+server, which is exactly why it needed a test of its own.

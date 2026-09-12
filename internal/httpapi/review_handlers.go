@@ -760,6 +760,13 @@ type reviewCard struct {
 	Quote     string `json:"quote"`
 	Note      string `json:"note"`
 	Color     string `json:"color"` // highlight colour — every kind carries one (0021, 0026)
+	// Language is the quote's own language, and it is carried for ONE reason: the
+	// deck draws the quote, and a reader who has set a face for their German has
+	// set it for every surface that shows German. Without it the quiz is the one
+	// place in the app where the same quote reads in a face nobody chose — which
+	// is the "two things that look the same behave the same" rule, on the surface
+	// that shows a quote most often. Nothing on the server reads it.
+	Language string `json:"language,omitempty"`
 	// Title is the source the quote is attributed to: a book / film / show
 	// title, or — for a standalone quote, which has no parent work — the
 	// occasion it was said on, falling back to the speaker. It is what a
@@ -1082,7 +1089,7 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mo
 	rs := bookSource()
 	q := `SELECT x.id, x.book_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
 	             p.title, COALESCE(p.author,''), COALESCE(p.cover_path,''), COALESCE(x.character,''),
-	             COALESCE(x.chapter,''), COALESCE(x.location,''),
+	             COALESCE(x.chapter,''), COALESCE(x.location,''), COALESCE(x.language,''),
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
@@ -1115,6 +1122,7 @@ func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mo
 		c.card.Kind = kindBook
 		if err := rows.Scan(&c.card.ID, &bookID, &c.card.Quote, &c.card.Note, &c.card.Color,
 			&c.card.Title, &c.card.Author, &c.card.Art, &c.card.Character, &c.card.Chapter, &c.card.Location,
+			&c.card.Language,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] book candidate row scan failed: %v", err)
 			continue
@@ -1130,6 +1138,7 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, th reviewTheme, 
 	rs := screenSource()
 	q := `SELECT x.id, x.movie_id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color, p.title, COALESCE(p.poster_path,''), COALESCE(x.character,''),
 	             COALESCE(x.actor,''), COALESCE(x.timestamp,''), x.season, x.episode, COALESCE(p.media_type,'movie'),
+	             COALESCE(x.language,''),
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
@@ -1162,6 +1171,7 @@ func (s *Server) screenCandidates(uid int64, bucket deckBucket, th reviewTheme, 
 		c.card.Kind = kindScreen
 		if err := rows.Scan(&c.card.ID, &movieID, &c.card.Quote, &c.card.Note, &c.card.Color, &c.card.Title, &c.card.Art, &c.card.Character,
 			&c.card.Actor, &c.card.Timestamp, &c.card.Season, &c.card.Episode, &c.card.MediaType,
+			&c.card.Language,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] screen candidate row scan failed: %v", err)
 			continue
@@ -1183,7 +1193,7 @@ func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, th reviewThem
 	q := `SELECT x.id, COALESCE(x.quote,''), COALESCE(x.note,''), x.color,
 	             COALESCE(x.speaker,''), COALESCE(x.occasion,''), COALESCE(x.work_title,''),
 	             COALESCE(x.occasion_date,''),
-	             x.occasion_circa, COALESCE(x.place,''), COALESCE(x.locator,''),
+	             x.occasion_circa, COALESCE(x.place,''), COALESCE(x.locator,''), COALESCE(x.language,''),
 	             ` + schedCols + `
 	      FROM ` + rs.from() + ` ` + rs.reviewJoin() + ` ` + rs.where()
 	args := []any{reviewMinStability, uid}
@@ -1216,7 +1226,7 @@ func (s *Server) utteranceCandidates(uid int64, bucket deckBucket, th reviewThem
 		c.card.Kind = kindUtterance
 		if err := rows.Scan(&c.card.ID, &c.card.Quote, &c.card.Note, &c.card.Color,
 			&speaker, &occasion, &workTitle, &c.card.OccasionDate, &c.card.OccasionCirca,
-			&c.card.Place, &c.card.Locator,
+			&c.card.Place, &c.card.Locator, &c.card.Language,
 			&c.seen, &c.card.Stability, &c.card.ReviewCount, &c.card.LapseCount, &lr, &c.lastResult, &c.age); err != nil {
 			olog.Warnf(olog.CodeReviewRowScan, "[review] utterance candidate row scan failed: %v", err)
 			continue

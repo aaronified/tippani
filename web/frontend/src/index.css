@@ -1865,13 +1865,24 @@
      would have turned amber from end to end. A class named for a script says which
      letters to draw text in; it does not get to say what colour the text is, and
      both wordmarks now ask for the amber themselves. */
-  .bengali { font-family: var(--font-bengali);
+  /* THE SCRIPT CLASSES SET THE VARIABLE TOO, for the reason fonts.js gives over the
+     generated language rules: every quote slot in this app carries an INLINE
+     font-family, and a style attribute beats a normal author rule. So `.bengali`
+     has been losing at every card it was attached to since it was written — it
+     only looked right because the display stack already carries the Bengali face
+     after the Latin one, so the glyphs came out Bengali by fallback rather than by
+     this rule. `--font-quote` is what the slots actually read (QUOTE_FACE).
+     The `font-family` below STAYS: the Bengali wordmark (App.jsx) wears this class
+     with no inline face of its own, and would lose its letters without it. */
+  .bengali { --font-quote: var(--font-bengali);
+ font-family: var(--font-bengali);
  font-weight: var(--font-bengali-weight);
  font-style: var(--font-bengali-style);
  font-variant-caps: var(--font-bengali-caps);
  text-transform: var(--font-bengali-case);
  font-variant-numeric: var(--font-bengali-figures); }
-  .devanagari { font-family: var(--font-devanagari);
+  .devanagari { --font-quote: var(--font-devanagari);
+ font-family: var(--font-devanagari);
  font-weight: var(--font-devanagari-weight);
  font-style: var(--font-devanagari-style);
  font-variant-caps: var(--font-devanagari-caps);
@@ -2016,7 +2027,11 @@
        text in another language and there is no reading of it under which the
        shape belongs to one and not the other. */
     white-space: pre-wrap;
-    font-family: var(--font-display);
+    /* QUOTE_FACE's spelling, in the one quote slot that draws through CSS rather
+       than an inline style. It reads the same variable for the same reason — a
+       line that IS the quote (under "translations first" the original is the
+       second line, and quoteTexts tags whichever slot holds it). */
+    font-family: var(--font-quote, var(--font-display));
     font-weight: var(--font-display-weight);
     font-variant-caps: var(--font-display-caps);
     font-variant-numeric: var(--font-display-figures);

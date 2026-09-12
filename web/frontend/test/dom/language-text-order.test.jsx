@@ -22,6 +22,9 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 
 let PUTS
 let PREFS
+// The languages the library holds. A case that needs a library stored under its
+// own name — `বাংলা` rather than `Bengali` — sets this before opening.
+let VOCAB
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -34,16 +37,24 @@ vi.mock('../../src/api.js', async (orig) => ({
     // gone it opens with what the reader's quotes are in, which is what this
     // answer supplies. Three, because the master-carries-the-rows assertions want
     // more than one row to carry.
-    if (path === '/search/vocabulary') return { ok: true, data: { languages: ['Bengali', 'Hindi', 'English'] } }
+    if (path === '/search/vocabulary') return { ok: true, data: { languages: VOCAB } }
     return { ok: true, data: {} }
   }),
 }))
 
 const { MetadataSources } = await import('../../src/MetadataSources.jsx')
+const { forgetSessionCaches } = await import('../../src/sessionCaches.js')
 
 beforeEach(() => {
   PUTS = []
   PREFS = {}
+  VOCAB = ['Bengali', 'Hindi', 'English']
+  // THE VOCABULARY IS A SESSION CACHE, held at module scope for the whole file —
+  // which is why this file's own header says only the FIRST case races for it.
+  // One case needs a library stored under its own name (`বাংলা`), so every case
+  // now starts from an empty cache and gets the VOCAB it asked for. `open()`
+  // awaits the table, so nothing races.
+  forgetSessionCaches()
 })
 
 const open = async () => {
@@ -131,10 +142,14 @@ describe('the per-language table', () => {
 // how much of the original it shows already live in its row; its face is the
 // fourth thing about it.
 describe('a language row carries its quotes\' face', () => {
+  // AWAITED, because a row arrives on a promise. Every case in this file now
+  // starts from an empty vocabulary cache (see beforeEach), so no case inherits
+  // rows another one fetched — which is what made this helper synchronous, and
+  // order-dependent, before.
   const tray = async (name) => {
     await open()
-    fireEvent.click(screen.getByRole('button', { name }))
-    return screen.getByRole('button', { name: new RegExp(`Typeface for quotes in ${name}`, 'i') })
+    fireEvent.click(await screen.findByRole('button', { name }))
+    return screen.findByRole('button', { name: new RegExp(`Typeface for quotes in ${name}`, 'i') })
   }
 
   it('offers every face the app ships, not one role\'s three', async () => {
@@ -145,6 +160,27 @@ describe('a language row carries its quotes\' face', () => {
     expect(words).toContain('Literata')
     expect(words).toContain('Inter')
     expect(words).toContain('Caveat')
+  })
+
+  // THE KEY IS WHAT THE LIBRARY STORES, NOT THE ISO NAME. A row carries both: its
+  // `key` is the fold of what the reader typed, its `canonical` is the English
+  // name iso639 knows it by. This control passed `canonical` for a commit, so a
+  // library whose quotes say `বাংলা` saved {"bengali":…} — which reads back as
+  // saved, looks right in the picker, and changes no card at all.
+  it('keys the face on what the library stores, not on the ISO name', async () => {
+    // THE VOCABULARY IS A SESSION CACHE, so a case that needs a different library
+    // has to forget the one the file's earlier cases primed — this panel's own
+    // header warns that only the FIRST case in a file races for it.
+    // THE ROW IS HEADED "Bengali" AND KEYED `বাংলা`, which is the whole trap: the
+    // row's NAME is what iso639 calls the language, and its KEY is what the
+    // library stores. A picker reading the name saves under the wrong one.
+    VOCAB = ['বাংলা']
+    fireEvent.click(await tray('Bengali'))
+    fireEvent.click(screen.getAllByRole('option').find((o) => o.textContent === 'Literata'))
+    await waitFor(() => {
+      const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
+      expect(JSON.parse(put[1].fontsByLanguage)).toEqual({ 'বাংলা': 'literata' })
+    })
   })
 
   it('saves the face against the language, not against a script', async () => {

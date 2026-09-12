@@ -609,3 +609,62 @@ func TestFavouritingAQuoteCountsAsSeeing(t *testing.T) {
 		t.Fatalf("re-saving a favourite credited it again: %v -> %v", stability, again)
 	}
 }
+
+// ---- the face the deck draws a quote in --------------------------------------
+//
+// THE ONE SURFACE THE PER-LANGUAGE TYPE DID NOT REACH. A reader who sets their
+// German in a serif sees it on every card, on Home and in search; the quiz drew
+// the same line in the display face, because the card carried no language to draw
+// it by. It is the app's most-read quote surface, so "two things that look the
+// same behave the same" reaches it before it reaches most screens.
+//
+// NOTHING ON THE SERVER READS THIS FIELD. It is carried for the client's
+// stylesheet and for nothing else — which is exactly why it needs a test: a
+// silently dropped column here changes no behaviour the server can notice, and
+// the client falls back to the display face without complaining.
+func TestAReviewCardCarriesItsQuotesLanguage(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	newUtterance(t, c, map[string]any{
+		"quote":    "Der Mensch ist frei geschaffen, ist frei",
+		"speaker":  "Friedrich Schiller",
+		"occasion": "Die Worte des Glaubens",
+		"language": "German",
+	})
+
+	deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
+	if len(deck.Items) == 0 {
+		t.Fatal("a library with one reviewable quote produced no practice deck")
+	}
+	var seen bool
+	for _, card := range deck.Items {
+		if card.Kind != kindUtterance {
+			continue
+		}
+		seen = true
+		if card.Language != "German" {
+			t.Fatalf("the card lost the quote's language: %q", card.Language)
+		}
+	}
+	if !seen {
+		t.Fatal("no utterance card in the deck to check")
+	}
+}
+
+// AND A QUOTE WITH NO LANGUAGE CARRIES NONE, rather than an invented one. The
+// field is omitempty: a reader who has never filled the box gets a card with no
+// language key at all, and the client's ladder falls through to the card's own
+// face — which is what every English quote in every library does.
+func TestAReviewCardInventsNoLanguage(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	seedReviewQuotes(t, c, "Marcus Aurelius", "Meditations", 1)
+
+	deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
+	for _, card := range deck.Items {
+		if card.Language != "" {
+			t.Fatalf("a quote with no language was given %q", card.Language)
+		}
+	}
+}

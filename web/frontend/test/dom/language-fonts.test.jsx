@@ -28,8 +28,10 @@ describe('a quote language can have a face of its own', () => {
     const en = languageClass('English')
     expect(de, 'the language with a face of its own got no class').toBeTruthy()
     expect(en, 'a language with no face took one anyway').toBe('')
-    // The rule is real: a class the stylesheet does not define is silent breakage.
-    expect(sheet()).toContain(`.${de}{font-family:'Literata'`)
+    // A VARIABLE AND NOT font-family, which is the whole of why this works at all
+    // — see fonts.js. A rule declaring the family lost to every quote slot's
+    // inline style, silently, and that is what shipped for one commit.
+    expect(sheet()).toContain(`.${de}{--font-quote:'Literata'`)
   })
 
   // FOLDED, because the language box is free text and the server stores the
@@ -233,5 +235,98 @@ describe('the share image sets the quote in the same face', () => {
     // checkbox and no label.
     expect((share.attribution || []).some((a) => a.id === 'language')).toBe(false)
     expect((share.meta || []).some((m) => m.id === 'language')).toBe(false)
+  })
+})
+
+// ---- THE FACE HAS TO WIN, NOT JUST BE ASKED FOR -----------------------------
+//
+// WHAT THESE CASES EXIST FOR, and it is the one thing the rest of this file could
+// not see. Every quote slot in the app carries an INLINE font-family, and a style
+// attribute beats a normal author rule whatever its specificity — so the class
+// shipped attached to seven surfaces and changed the face on none of them, with
+// 4,191 green tests, because every one of them asserted the CLASS NAME.
+//
+// jsdom does not resolve `var()` inside font-family, so the honest pair is:
+//   1. the element RESOLVES --font-quote to the chosen family (proves the class
+//      reaches it and the rule sets a variable rather than a family), and
+//   2. its own font-family DEFERS to that variable instead of naming a face.
+// Break either and the reader sees the wrong type; assert only the class and you
+// see nothing at all.
+import { render } from '@testing-library/react'
+import { ExpandableText, TranslationLine } from '../../src/ui.jsx'
+import { FlowQuote } from '../../src/flow.jsx'
+import { MatchWindow } from '../../src/SearchPage.jsx'
+import { QUOTE_FACE } from '../../src/fonts.js'
+
+describe('every quote slot defers to the language, rather than naming a face', () => {
+  const QUOTE_STYLE = { fontFamily: QUOTE_FACE, fontStyle: 'italic' }
+  // The element holding the words, whatever wrapper the component puts round it.
+  const textNode = (root, words) =>
+    [...root.querySelectorAll('*')].reverse().find((el) => el.textContent.trim() === words)
+
+  // `inline` says whether this slot sets its own font-family. Three of the four
+  // do, and those are the ones the class could never beat; TranslationLine draws
+  // through `.quote-translation` in the stylesheet, which the suite does not load
+  // — so for that one the equivalent claim is that it names no face inline at all.
+  const slots = [
+    ['ExpandableText', true, (cls) => <ExpandableText text="Der Mensch ist frei" className={cls} style={QUOTE_STYLE} />],
+    ['FlowQuote', true, (cls) => <FlowQuote text="Der Mensch ist frei" className={cls} quoteStyle={QUOTE_STYLE} />],
+    ['TranslationLine', false, (cls) => <TranslationLine className={cls}>Der Mensch ist frei</TranslationLine>],
+    ['MatchWindow', true, (cls) => <MatchWindow text="Der Mensch ist frei" terms={[]} className={cls} style={QUOTE_STYLE} />],
+  ]
+
+  for (const [name, inline, draw] of slots) {
+    it(`${name} resolves the language's face`, () => {
+      applyFonts({ fontsByLanguage: JSON.stringify({ german: 'literata' }) }, '')
+      const { container, unmount } = render(draw(languageClass('German')))
+      const el = textNode(container, 'Der Mensch ist frei')
+      expect(el, `${name} drew no text to tag`).toBeTruthy()
+      // (1) the variable reaches the words.
+      expect(getComputedStyle(el).getPropertyValue('--font-quote'), `${name} never sees the language's face`)
+        .toContain('Literata')
+      // (2) and nothing between the class and the words names a face of its own.
+      // An inline declaration is what beat the class; walking up to the tagged
+      // element catches a slot that moved its style onto a wrapper.
+      for (let n = el; n && n !== container; n = n.parentElement) {
+        const own = n.style.fontFamily
+        if (!own) continue
+        expect(own, `${name} names a face inline instead of deferring to --font-quote`)
+          .toContain('--font-quote')
+      }
+      if (inline) {
+        expect(el.closest('[style*="font-family"]'), `${name} sets no face at all`).toBeTruthy()
+      }
+      unmount()
+    })
+  }
+
+  // THE DECK, which is the surface a reader meets a quote on most often and the
+  // last one the per-language type reached. Its language comes off the card the
+  // server sends (reviewCard.Language) — see review_utterance_test.go for the
+  // half that proves the column travels.
+  it('the quiz card resolves it too', async () => {
+    const { QuoteBlock } = await import('../../src/review.jsx')
+    applyFonts({ fontsByLanguage: JSON.stringify({ german: 'literata' }) }, '')
+    const { container } = render(
+      <QuoteBlock card={{ quote: 'Der Mensch ist frei', language: 'German', color: 'yellow' }} />,
+    )
+    const el = textNode(container, 'Der Mensch ist frei')
+    expect(el, 'the quiz card drew no quote').toBeTruthy()
+    expect(getComputedStyle(el).getPropertyValue('--font-quote'),
+      'the deck draws a quote in a face the reader did not choose').toContain('Literata')
+    expect(el.closest('[style*="font-family"]').style.fontFamily).toContain('--font-quote')
+  })
+
+  // TranslationLine draws through the stylesheet rather than an inline style, so
+  // it is the one slot where the class could have won on its own — and it is the
+  // only one that did. Kept as its own claim so a future change that gives it an
+  // inline face has to face this line.
+  it('and a language with no face of its own leaves the card alone', () => {
+    applyFonts({}, '')
+    const { container } = render(<ExpandableText text="An English line" className={languageClass('English')} style={QUOTE_STYLE} />)
+    const el = textNode(container, 'An English line')
+    expect(getComputedStyle(el).getPropertyValue('--font-quote')).toBe('')
+    // Still deferring: the fallback inside QUOTE_FACE is what draws it.
+    expect(el.closest('[style*="font-family"]').style.fontFamily).toContain('--font-display')
   })
 })

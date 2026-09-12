@@ -6,7 +6,7 @@
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
-import { languageClass } from './fonts.js'
+import { QUOTE_FACE, languageClass } from './fonts.js'
 import { chapterLabel, episodeLabel } from './text.js'
 import { locatorMeta } from './attribution.js'
 import { dateLine, greetingFor } from './greetings.js'
@@ -1219,7 +1219,7 @@ export function FavouriteTile({
               <p
                 className={languageClass(f.raw?.language)}
                 style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
+                  fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
                   fontStyle: 'italic',
                   fontSize: 'var(--type-display-15)',
                   lineHeight: 1.5,
@@ -1670,7 +1670,7 @@ function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, actions }
                 the class needs no order. Without it a reader's German is Literata
                 on a work page and the display face on Home, which is the "two
                 things that look the same behave the same" rule read backwards. */}
-            <p className={languageClass(q.language)} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
+            <p className={languageClass(q.language)} style={{ fontFamily: QUOTE_FACE, fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
               {kind.quoted ? `“${q.quote}”` : q.quote}
             </p>
           </button>
