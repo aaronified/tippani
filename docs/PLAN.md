@@ -13728,3 +13728,37 @@ payload carried no language. Both fixed — and the film table's OTHER differenc
 from the book table next door (it does not go through `quoteTexts`, so it ignores
 text-order too) is left alone and recorded, because that is one of the two boards
 #171 exists to fold together.
+
+### A fourth pass, at 8/10, and the surfaces counting kept missing
+
+Three findings were more of the same seam, and the fourth is about the prose.
+
+**THE IMPORT QUEUE, THE QUIZ ANSWER AND THE CAPTURE BOX.** A staged row already
+carried its language (`import_staging.go` selects it and the row's own form edits
+it), so an imported German highlight read in one face in the queue and another the
+moment it was approved. The cloze answer is quote text sitting directly under
+`QuoteBlock`, which had the face — one screen, two faces, on the same words. And
+the capture textarea is the one place the app's own form would have contradicted
+the setting while the reader typed into it.
+
+**AND THE CHANGELOG HAD CALLED THE PREVIOUS FOUR "THE LAST".** That is the third
+entry in this feature to claim a surface was covered when it was not. Counting is
+what keeps failing, so the entry now NAMES the surfaces instead of totalling them
+— a list can be checked against the code one line at a time, and a number cannot.
+
+**THE LINE NUMBERS IN `fonts.js` WERE WRONG WITHIN TWO COMMITS.** They were added
+to settle an earlier ambiguity about "three components", and a later rater found
+every one off by seven. A line number in a comment is a fact with no guard on it:
+nothing recompiles when it rots. They are gone, and the class name (`tp-lang-*`)
+is named instead, because `grep` is never stale.
+
+**AND TWO OF THE THREE DECK QUERIES WERE UNGUARDED.** `TestAReviewCard…` walked
+`kindUtterance` only, so `bookCandidates` and `screenCandidates` could each have
+their new column replaced with `''` with the suite still green — which the rater
+demonstrated. Three queries, three cases now.
+
+**ONE THING THE FIX ITSELF NEARLY BROKE**, caught by a build warning rather than a
+test: adding `className={languageClass(…)}` to the capture textarea as a second
+attribute does not merge with the first — it REPLACES it, so `tp-input` was
+silently dropped and the box lost its appearance. esbuild warns about a duplicate
+JSX attribute; nothing else would have.

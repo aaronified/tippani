@@ -26,6 +26,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
 import { CastCombo, LanguageCombo, OfferChip, SuggestCombo, useTagNames, useWorkSuggestions } from './suggest.jsx'
+import { QUOTE_FACE, languageClass } from './fonts.js'
 import { t } from './i18n.js'
 import { BoardForm, useBoards } from './boards.jsx'
 import { QUOTE_KIND_DOORS, doorForBoard, fieldsFor, showsField, splitPair } from './addFields.js'
@@ -1267,13 +1268,23 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
           <label className="tp-field" key={key}>
             <MonoLabel>{t('common.field.quote.label')}</MonoLabel>
             <textarea
-              className="tp-input"
+              // ONE className, AND IT NEARLY BECAME TWO. A second attribute does
+              // not merge — it REPLACES — so adding the language class on its own
+              // line silently dropped `tp-input` and the box lost its whole
+              // appearance. esbuild warns about the duplicate; nothing else would
+              // have.
+              //
+              // AND IT TAKES THE FACE WHILE YOU TYPE, off the language field in
+              // this same form: a reader who has set their German in a serif is
+              // writing German here, and a box that shows it in another face is
+              // the one place the app's own form would contradict the setting.
+              className={`tp-input ${languageClass(draft.language)}`.trim()}
               // VERSE KEEPS ITS SHAPE, and that is 0068's whole point: "its line
               // breaks are its text". Four rows for prose, seven for a poem, so
               // the breaks are visible as you type rather than after you save.
               rows={door === 'poem' || door === 'song' ? 7 : 4}
               placeholder={t('capture.form.quote.placeholder')}
-              style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'italic', fontSize: 'var(--type-display-17)', lineHeight: 1.55 }}
+              style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontStyle: 'italic', fontSize: 'var(--type-display-17)', lineHeight: 1.55 }}
               value={draft.quote}
               onChange={(e) => set({ quote: e.target.value })}
             />

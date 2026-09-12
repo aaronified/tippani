@@ -9,11 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **And the face now reaches the last four places it was missing**: a book or film
-  **search result** (their hits carried no language at all, so the setting was
-  invisible there even though the previous entry said otherwise), a **long** search
-  result whose match is windowed, the **film table view**, and an **anthology**
-  page. An anthology is a page of quotes and now reads like one.
+- **And the face reaches the rest of the app**: a book or film **search result**
+  (their hits carried no language at all, so the setting was invisible there even
+  though the previous entry said otherwise), a **long** search result whose match
+  is windowed, the **film table view**, an **anthology** page, the **import queue**
+  (a staged German highlight read in one face before approval and another after),
+  a **quiz answer**, and the **capture box as you type**. Counting them is what
+  kept being wrong — three separate entries have now claimed a surface was covered
+  when it was not — so this one names them instead.
 
 - **The per-language face now actually draws.** The picker shipped working and the
   type did not change: the rule that set your language's face lost, every time, to

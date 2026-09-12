@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { categoryName, categoryVar } from './theme.js'
 import { json, errText } from './api.js'
+import { QUOTE_FACE, languageClass } from './fonts.js'
 import { t, tNodes } from './i18n.js'
 import { quoteKindMeta } from './quoteKind.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
@@ -609,7 +610,12 @@ function StagedGroup({ work, items, sel, onToggle, onToggleGroup, onEdit, onOpen
 
 // StagedRow — one staged quote: the text, its locators, and the edit affordance.
 // Styled as the "row inside a work card" the search results already use.
-function StagedRow({ quote, selected, onToggle, onEdit }) {
+// EXPORTED FOR THE SUITE, as QuoteBlock, MatchWindow and SerendipityCard are: it
+// is a quote slot, and a quote slot has a rule to keep — defer to --font-quote
+// rather than name a face. The queue is not reachable in a test without the whole
+// import screen around it, and a case that cannot draw the row can only assert
+// that somebody wrote the right string.
+export function StagedRow({ quote, selected, onToggle, onEdit }) {
   // Every kind's locator on one line — a staged row shows whichever it has.
   // The three sets are disjoint by construction (a book quote has no speaker, a
   // standalone quote has no chapter), so no branch is needed to keep them apart.
@@ -648,9 +654,13 @@ function StagedRow({ quote, selected, onToggle, onEdit }) {
         <input type="checkbox" checked={selected} onChange={onToggle} aria-label={t('staging.row.select.aria')} style={{ marginTop: 3 }} />
       </Tooltip>
       <div className="min-w-0 flex-1">
+        {/* THE FACE ITS LANGUAGE IS SET IN, on the queue as on the card. A staged
+            row already HAS the language (import_staging.go carries it, and the
+            form below edits it), so an imported German highlight read in one face
+            here and another the moment it was approved. */}
         <p
-          className="whitespace-pre-wrap"
-          style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }}
+          className={`whitespace-pre-wrap ${languageClass(quote.language)}`.trim()}
+          style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }}
         >
           {quote.quote || quote.note}
         </p>
@@ -1309,8 +1319,8 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
   return (
     <div className="space-y-4">
       <p
-        className="whitespace-pre-wrap"
-        style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-17)' }}
+        className={`whitespace-pre-wrap ${languageClass(quote.language)}`.trim()}
+        style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-17)' }}
       >
         {t('staging.form.quoted', { text: quote.quote || quote.note })}
       </p>

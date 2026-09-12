@@ -652,6 +652,48 @@ func TestAReviewCardCarriesItsQuotesLanguage(t *testing.T) {
 	}
 }
 
+// AND THE OTHER TWO DECKS, which are three separate queries and were covered by
+// none of it. The case above walks kindUtterance only, so `bookCandidates` and
+// `screenCandidates` could each have their column replaced with ” and the suite
+// stayed green — a rater proved exactly that. Nothing on the server reads this
+// field, so a silently dropped column changes no behaviour the server can notice
+// and the client just falls back to the display face without complaining. Three
+// queries, three cases.
+func TestABookAndScreenCardCarryTheirQuotesLanguage(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Die Räuber", "author": "Friedrich Schiller"}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "Mir ekelt vor diesem tintenklecksenden Saeculum",
+		"language": "German",
+	}, http.StatusCreated)
+
+	movie := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Nosferatu"}, http.StatusCreated))
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": movie.ID, "quote": "Mir ekelt vor dem Morgen", "language": "German",
+	}, http.StatusCreated)
+
+	deck := decode[practiceDeckResp](t, c.mustDo("GET", "/review/practice", nil, 200))
+	seen := map[string]bool{}
+	for _, card := range deck.Items {
+		if card.Kind != kindBook && card.Kind != kindScreen {
+			continue
+		}
+		seen[card.Kind] = true
+		if card.Language != "German" {
+			t.Errorf("a %s card lost the quote's language: %q", card.Kind, card.Language)
+		}
+	}
+	// NEITHER KIND MAY BE ABSENT, or the loop above is true of nothing — which is
+	// the shape of the gap this case exists to close.
+	if !seen[kindBook] || !seen[kindScreen] {
+		t.Fatalf("the deck held no card of one kind to check: %v", seen)
+	}
+}
+
 // AND A QUOTE WITH NO LANGUAGE CARRIES NONE, rather than an invented one. The
 // field is omitempty: a reader who has never filled the box gets a card with no
 // language key at all, and the client's ladder falls through to the card's own

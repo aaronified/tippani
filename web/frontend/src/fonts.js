@@ -451,8 +451,15 @@ export function stackFor(roleKey, pick = fontChoice) {
 //
 // (The count reads "three components" and not "three files" on purpose — a rater
 // read it the other way, which is a fair reading of a sentence that named
-// neither. Library.jsx 1680/1694/1713/1838 and Movies.jsx 1850/1864/1943 are the
-// seven; the three prop signatures are what a style would have had to change.)
+// neither. The two files are Library.jsx and Movies.jsx; the three prop
+// signatures are what a style would have had to change.
+//
+// AND THE LINE NUMBERS THAT USED TO BE HERE ARE GONE, because they were wrong
+// within two commits of being written — a later rater checked them and found
+// every one off by seven. A line number in a comment is a fact with no guard on
+// it: nothing recompiles when it rots, and this file has now been the subject of
+// that lesson twice. The class is `tp-lang-*`, so `grep` finds the sites and is
+// never stale.)
 
 // QUOTE_FACE is what a quote slot puts in its inline `fontFamily`, and it is the
 // ONLY spelling of it: the language's face when one is set, the app's display

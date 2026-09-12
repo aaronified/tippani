@@ -999,7 +999,11 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
           ) : (
             <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
               <MonoLabel style={{ color: 'var(--faint)' }}>{t('quiz.cloze.answer.label')}</MonoLabel>
-              <p className="mt-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-17)', fontStyle: 'italic' }}>
+              {/* THE ANSWER IS QUOTE TEXT, so it takes the quote's face like the
+                  block above it. A cloze answer in one face directly under the
+                  same words in another is the disagreement this whole change is
+                  about, on one screen. */}
+              <p className={`mt-1 ${languageClass(card.language)}`.trim()} style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-17)', fontStyle: 'italic' }}>
                 {lastResp?.answer || attempt}
               </p>
               {/* WHICH OF THE TWO RIGHT ANSWERS THIS WAS. A synonym counts and

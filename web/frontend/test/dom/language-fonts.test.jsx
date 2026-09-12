@@ -368,6 +368,23 @@ describe('every quote slot defers to the language, rather than naming a face', (
       'an anthology entry ignores the face its language was set in').toContain('Literata')
   })
 
+  // THE IMPORT QUEUE, THE QUIZ ANSWER AND THE CAPTURE BOX — the three a fourth
+  // pass found, after a CHANGELOG entry had called the previous four "the last".
+  // Counting surfaces is what kept being wrong here, so these are named rather
+  // than totalled: three separate entries claimed a surface was covered when it
+  // was not, and the honest reply is a case per surface.
+  it('a staged import row resolves it', async () => {
+    const { StagedRow } = await import('../../src/StagingPage.jsx')
+    applyFonts({ fontsByLanguage: JSON.stringify({ german: 'literata' }) }, '')
+    const { container } = render(
+      <StagedRow quote={{ id: 1, quote: 'Der Mensch ist frei', language: 'German' }} onToggle={() => {}} onEdit={() => {}} />,
+    )
+    const el = textNode(container, 'Der Mensch ist frei')
+    expect(el, 'the staged row drew no quote').toBeTruthy()
+    expect(getComputedStyle(el).getPropertyValue('--font-quote'),
+      'an imported quote reads in one face in the queue and another after approval').toContain('Literata')
+  })
+
   // TranslationLine draws through the stylesheet rather than an inline style, so
   // it is the one slot where the class could have won on its own — and it is the
   // only one that did. Kept as its own claim so a future change that gives it an
