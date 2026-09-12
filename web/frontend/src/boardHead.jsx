@@ -37,14 +37,18 @@ import { categoryDotClass, categoryHidden, categoryName } from './theme.js'
 import {
   ANNOTATION_COLORS,
   ActionMenu,
+  ColorSwatches,
   FilterChip,
   IconSliders,
   IconSortAsc,
   IconSortDesc,
+  MobileSheet,
   MonoLabel,
   Scroller,
   Select,
+  SheetFooter,
   StickerButton,
+  ViewToggle,
 } from './ui.jsx'
 
 // CategoryFilter — which category the board is filtered to, named rather than
@@ -302,5 +306,75 @@ export function BoardStrip({ dims, sortDims, groupBy, onGroup, sort, onSort, chi
         {sort.dir === 'asc' ? <IconSortAsc size={16} /> : <IconSortDesc size={16} />}
       </button>
     </div>
+  )
+}
+
+// BoardSheet — the phone's filters, which are the desk's filters and no others.
+//
+// A PHONE THAT OFFERS ONE FILTER AND A DESK THAT OFFERS THREE is the divergence
+// these two screens kept finding in themselves, and the book board's own sheet
+// says so in as many words: "the list is written once and read twice". It was
+// written once per screen, so the film's sheet offered a favourites toggle and
+// the book's offered three chips.
+//
+// THE COLOUR IS SWATCHES HERE AND A NAMED LIST ON THE DESK, and that is not a
+// drift: a sheet has a caption above each control saying what it is for, so the
+// dots are not being asked to carry the meaning on their own — which is the one
+// thing the desk row cannot give them, and the whole argument for CategoryFilter.
+//
+// `extra` IS THE SLOT FOR WHAT ONE BOARD HAS AND THE OTHER DOES NOT — a film's
+// cast-completing filter box, say. Passed IN rather than kept as a second copy
+// of the sheet, which is the rule this file exists to keep.
+export function BoardSheet({
+  open, onClose, title,
+  countLabel, onReset,
+  color, onColor,
+  tags = [], tag, onTag, tagAllLabel,
+  chips = [],
+  view, onView,
+  extra = null,
+}) {
+  return (
+    <MobileSheet
+      open={open}
+      onClose={onClose}
+      title={title}
+      footer={<SheetFooter count={countLabel} onReset={onReset} onDone={onClose} />}
+    >
+      <div className="space-y-5">
+        {extra}
+        <div>
+          <MonoLabel className="mb-2 block">color</MonoLabel>
+          {/* Re-picking the active colour clears it — the list filter has an
+              "all" state the server has no equivalent for (see validColor). */}
+          <ColorSwatches value={color} onChange={(c) => onColor(c === color ? '' : c)} />
+        </div>
+        {tags.length > 0 && (
+          <div>
+            <MonoLabel className="mb-2 block">tag</MonoLabel>
+            <Select
+              ariaLabel={t('common.filters.tag.aria')}
+              value={tag}
+              onChange={onTag}
+              options={[['', tagAllLabel], ...tags.map((row) => [row.name, row.name])]}
+            />
+          </div>
+        )}
+        {chips.length > 0 && (
+          <div>
+            <MonoLabel className="mb-2 block">show only</MonoLabel>
+            <div className="flex flex-wrap items-center gap-2">
+              {chips.map((c) => (
+                <FilterChip key={c.label} active={c.on} label={c.label} tooltip={c.tip} onClick={() => c.set(!c.on)} />
+              ))}
+            </div>
+          </div>
+        )}
+        <div>
+          <MonoLabel className="mb-2 block">view</MonoLabel>
+          <ViewToggle value={view} onChange={onView} />
+        </div>
+      </div>
+    </MobileSheet>
   )
 }

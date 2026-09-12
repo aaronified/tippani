@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A film, a show and a game now have the board a book has had.** The bar above the
+  lines on a work page was a different bar from the one above a book's highlights, and
+  the difference was not decoration: there was **no grouping at all**, so lines could
+  not be gathered by character, by episode, by act or by quest — orders the app has
+  known about per medium for a long time and never offered. The order you chose reached
+  the **table only**; the board and the strip went on showing what the server sent. The
+  colour filter was six unlabelled dots you had to try one by one, where a book's names
+  the category it is filtering to. And where a book offers three filters — favourites,
+  has a note, has tags — a film offered one.
+
+  All of it is the same control now, on both screens and on the phone as well as the
+  desk: one arrangement field carrying the grouping and the sort, a named category
+  filter, the three chips, and one accented button that captures. Each medium offers the
+  dimensions it actually has — a book by chapter, a show by season and episode, a game
+  by act and quest — and the view moved into the screen's **⋯** on the film side, where
+  the book's already was.
+
 - **And the face reaches the rest of the app**: a book or film **search result**
   (their hits carried no language at all, so the setting was invisible there even
   though the previous entry said otherwise), a **long** search result whose match

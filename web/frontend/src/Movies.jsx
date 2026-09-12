@@ -29,8 +29,9 @@ import {
   useBoardWindow,
   wishFilter,
 } from './works.jsx'
-import { KINDS } from './workKinds.js'
-import { sortAnnotations } from './boardOrder.js'
+import { KINDS, specFor } from './workKinds.js'
+import { groupAnnotations, sortAnnotations } from './boardOrder.js'
+import { BoardHead, BoardSheet, BoardStrip } from './boardHead.jsx'
 import WorkDetail from './WorkDetail.jsx'
 import { QUOTE_FACE, languageClass } from './fonts.js'
 import { t } from './i18n.js'
@@ -54,11 +55,11 @@ import {
   FrameCode,
   frameCode,
   GhostButton,
+  IconCheckAll,
   HandCard,
   HandNote,
   IconMetadata,
   Masonry,
-  MobileSheet,
   MonoLabel,
   mulberry32,
   NameInput,
@@ -70,7 +71,6 @@ import {
   QuizSkipMark,
   Scroller,
   Select,
-  SheetFooter,
   Sprockets,
   TableActions,
   TagChip,
@@ -85,9 +85,10 @@ import {
   useFormHost,
   useFrameBase,
   useIsMobileScreen,
+  ViewIcon,
   usePersistedState,
+  useScreenBar,
   useReveal,
-  ViewToggle,
   PanelHost,
   usePanelStack,
   IconHeartOn,
@@ -1062,6 +1063,131 @@ export function dialogueState(d) {
 // edge row (TIPPANI · SAFETY FILM + runtime-random frame code) → frame cards
 // separated by divider rows carrying the next code → closing sprockets.
 // Server orders by (timestamp IS NULL), timestamp, id — rendered as served.
+// DialogueBoard — one set of lines, drawn in whichever view is chosen.
+//
+// IT EXISTS BECAUSE OF GROUPING, exactly as AnnotationBoard does on the book
+// side: a grouped board draws its view once per section, so three sibling blocks
+// in the middle of a screen had to stop being three sibling blocks. Two copies of
+// "how a line is drawn" is two places for a card prop to go missing, silently, in
+// the view the author was not looking at.
+//
+// The window and the sentinel stay OUTSIDE it, with the caller — an ungrouped
+// board windows its rows and a grouped one windows its sections, which is the
+// caller's decision and not this component's.
+function DialogueBoard({
+  rows, view, tagMap, stickerMap, stickers, reloadStickers, editingId, setEditingId,
+  save, patch, setAsking, copyOne, setShareTarget, openPerson, onOpenCharacter,
+  actorMap, creditSeps, clampLines, show, game, cast, dlgSelection, sort, toggleSort,
+  expandedId, toggleExpanded, tileCols, boardSeed, base, boardRef = null,
+}) {
+  if (view === 'tiles') {
+    return (
+        // Tiles read like the book board (§8.6): a masonry collage (1/2/3 cols by
+        // width, seeded off the movie so it never wobbles) whose cards keep the
+        // film-frame skin — book layout, film-negative theme. Laid out in SOURCE
+        // order so each card's seeded 3–5 line clamp — not a height sort — is what
+        // varies the board. Clicking a dialogue expands it in place (chevron
+        // affordance, no button); doing so collapses any other and locks the
+        // column order so the board never reshuffles. The strip decoration
+        // (sprockets/edge/dividers) belongs to the list view.
+        <Reveal>
+          <Masonry boardRef={boardRef} columns={tileCols} gap={12} seed={boardSeed} lockOrder={expandedId != null} order="source">
+            {rows.map((d, i) => (
+              <Frame
+                key={d.id}
+                d={d}
+                wrapClass=""
+                tagMap={tagMap}
+                stickerMap={stickerMap}
+                stickers={stickers}
+                reloadStickers={reloadStickers}
+                editing={editingId === d.id}
+                show={show}
+                game={game}
+                cast={cast}
+                onEdit={() => setEditingId(d.id)}
+                onCancelEdit={() => setEditingId(null)}
+                onSave={(fields) => save(d.id, fields)}
+                onPatch={(fields) => patch(d, fields)}
+                onDelete={() => setAsking(d)}
+                onCopy={() => copyOne(d)}
+                onShare={() => setShareTarget(d)}
+                onOpenPerson={openPerson}
+                onOpenCharacter={onOpenCharacter}
+                actorMap={actorMap}
+                seps={creditSeps}
+                quoteLines={clampLines[i]}
+                expanded={expandedId === d.id}
+                onToggleExpand={() => toggleExpanded(d.id)}
+                selection={dlgSelection}
+              />
+            ))}
+          </Masonry>
+        </Reveal>
+    )
+  }
+  if (view === 'list') {
+    return (
+        // List is the FILM STRIP (§6): strip container → sprockets → edge row →
+        // frames stacked vertically, divided by rows carrying the next frame code.
+        <Reveal className="film-strip">
+          <Sprockets count={15} />
+          <EdgeRow code={frameCode(base)} />
+          {rows.map((d, i) => (
+            <Fragment key={d.id}>
+              {i > 0 && <FrameDivider code={frameCode(base, i)} />}
+              <Frame
+                d={d}
+                tagMap={tagMap}
+                stickerMap={stickerMap}
+                stickers={stickers}
+                reloadStickers={reloadStickers}
+                editing={editingId === d.id}
+                show={show}
+                game={game}
+                cast={cast}
+                onEdit={() => setEditingId(d.id)}
+                onCancelEdit={() => setEditingId(null)}
+                onSave={(fields) => save(d.id, fields)}
+                onPatch={(fields) => patch(d, fields)}
+                onDelete={() => setAsking(d)}
+                onCopy={() => copyOne(d)}
+                onShare={() => setShareTarget(d)}
+                onOpenPerson={openPerson}
+                onOpenCharacter={onOpenCharacter}
+                actorMap={actorMap}
+                seps={creditSeps}
+                quoteLines={5}
+                selection={dlgSelection}
+              />
+            </Fragment>
+          ))}
+          <Sprockets count={15} />
+        </Reveal>
+    )
+  }
+  return (
+        <DialogueTable
+          rows={rows}
+          tagMap={tagMap}
+          stickers={stickers}
+          reloadStickers={reloadStickers}
+          sort={sort}
+          onSort={toggleSort}
+          editingId={editingId}
+          setEditingId={setEditingId}
+          save={save}
+          remove={setAsking}
+          show={show}
+          game={game}
+          cast={cast}
+          actorMap={actorMap}
+          onCopy={copyOne}
+          onShare={setShareTarget}
+        />
+  )
+}
+
 function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen, onMobileFilterOpen, onAdd, dataNonce, onOpenCharacter }) {
   // Only a series carries an episode locator: a film is one runtime, so its
   // timestamp already says where a line is. Drives the form fields, the Episode
@@ -1073,6 +1199,11 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   // (see DialogueForm). Derived here beside `show` and passed the same way, so the
   // two answers to "what kind of work is this" cannot disagree.
   const game = movie?.media_type === 'game'
+  // WHICH DIMENSIONS THIS BOARD MAY OFFER, read off the kind table rather than
+  // guessed: a film sorts by its runtime, a show by season and episode, a game by
+  // act and quest. The board used to hold none of this and grouped by nothing at
+  // all. `movie` is the fallback because a row with no media_type is a film.
+  const kind = specFor('movie', movie)
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
@@ -1087,6 +1218,10 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
   const [color, setColor] = useState('') // '' = all colours
+  // Client-side, like the book board's: the server has no has-a-note filter and
+  // does not need one, because the board already holds every row it is showing.
+  const [noted, setNoted] = useState(false)
+  const [tagged, setTagged] = useState(false)
   const [editingId, setEditingId] = useState(null)
 
   // A line captured through the shell's Add surface lands server-side without
@@ -1106,6 +1241,11 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   // A show's table opens grouped by episode, which is the order the list view is
   // served in; a film has only its runtime to sort by.
   const [sort, setSort] = useState({ col: show ? 'episode' : 'timestamp', dir: 'asc' })
+  // PER SIDE, AND DELIBERATELY NOT SHARED with the book's — the kind table says so
+  // in as many words, and the reason is that a `chapter` grouping arriving on a
+  // film board would be refused by groupAnnotations and leave the board looking
+  // ungrouped with the control saying otherwise.
+  const [groupBy, setGroupBy] = usePersistedState(kind.board.persist.group, 'none')
   // THE BOARD IS NOT THE WINDOW, and measuring the window is what put four
   // ~170px columns of syllables on a 1080p screen — the owner's report, twice:
   // "i see 4 columns in the board tile, all very skinny... the annotations need
@@ -1245,7 +1385,38 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
     else setItems((cur) => (cur || []).map((x) => (x.id === d.id ? { ...x, ...r.data } : x)))
   }
 
-  const filtering = tag || fav || color
+  const filtering = Boolean(tag || fav || color || noted || tagged)
+
+  // THREE CHIPS, NOT ONE, and every one of them announces its state. The book
+  // board has offered these three since they were drawn and this one offered a
+  // single hand-rolled <button> that carried its heart as a CHARACTER in the
+  // label — so the mark sized and coloured as text and was read out as a word.
+  // FilterChip sets aria-pressed; the list is written once here and read by both
+  // the desk row and the phone sheet.
+  const lineChips = [
+    { on: fav, set: setFav, label: t('common.filters.favourites.label'), tip: t('common.favourite.filter.tip') },
+    { on: noted, set: setNoted, label: t('common.filters.noted.label'), tip: t('common.filters.noted.tip', { noun: t('unit.line.other') }) },
+    { on: tagged, set: setTagged, label: t('common.filters.tagged.label'), tip: t('common.filters.tagged.tip', { noun: t('unit.line.other') }) },
+  ]
+  // The two client-side chips, applied before the sort so every view and the
+  // "N shown" count see the same set — the book board's own words, and its own
+  // filter: a line with a note and a line with tags are the same two questions.
+  const chipRows = useMemo(() => {
+    if (!items) return items
+    if (!noted && !tagged) return items
+    return items.filter(
+      (d) => (!noted || (d.note || '').trim().length > 0) && (!tagged || (d.tags || []).length > 0),
+    )
+  }, [items, noted, tagged])
+
+  // THE CHOSEN ORDER, IN EVERY VIEW. It used to be the table's alone: the tiles
+  // and the list rendered `items` as served, so a reader who set an order in the
+  // table went back to the board and found it ignored.
+  const sortedRows = useMemo(() => sortAnnotations(chipRows || [], sort), [chipRows, sort])
+  const groups = useMemo(
+    () => groupAnnotations(sortedRows, groupBy, kind.groupDims),
+    [sortedRows, groupBy, kind],
+  )
 
   // Build the normalised share payload from the chosen dialogue + its movie.
   const sharePayload = (d) =>
@@ -1273,22 +1444,92 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   // format would — same payload, same default ticks (see copyQuote).
   const copyOne = (d) => copyQuote(sharePayload(d))
 
+  // WHAT THE BOARD PUTS IN THE SCREEN'S ⋯ — the same section the book board
+  // publishes, for the same reason. The view lived in this bar as a 210px
+  // three-option strip wearing the accent gradient, so the loudest control in a
+  // row whose one verb ADDS something was a lens. The pack's argument moved the
+  // book's and it moves this one: "a setting that costs the most width and earns
+  // the least use belongs behind ⋯".
+  useScreenBar({
+    actions: () => [
+      { id: 'h-view', heading: t('common.mono.view.label') },
+      ...kind.views.map((v) => ({
+        id: `view-${v}`,
+        icon: <ViewIcon kind={v} />,
+        label: t(`common.view.${v}.label`),
+        checked: view === v,
+        onClick: () => setView(v),
+      })),
+      ...(dlgSelection.active
+        ? []
+        : [{ id: 'select', icon: <IconCheckAll />, label: t('film.lines.select.menu.label'), onClick: () => dlgSelection.begin('dialogue') }]),
+    ],
+  })
+
+  const countsLabel = !items
+    ? ''
+    : filtering
+      ? t('film.lines.counts.shown', { a: countOf(items.length, 'unit.line'), n: sortedRows.length })
+      : countOf(items.length, 'unit.line')
+
+  // ONE RENDERER FOR THE THREE VIEWS — see DialogueBoard. Everything a board
+  // needs that does not change between an ungrouped board and one section of a
+  // grouped one is gathered here and spread, so a prop cannot reach one and miss
+  // the other.
+  const board = {
+    view,
+    tagMap,
+    stickerMap,
+    stickers,
+    reloadStickers,
+    editingId,
+    setEditingId,
+    save,
+    patch,
+    setAsking,
+    copyOne,
+    setShareTarget,
+    openPerson,
+    onOpenCharacter,
+    actorMap,
+    creditSeps,
+    clampLines,
+    show,
+    game,
+    cast,
+    dlgSelection,
+    sort,
+    toggleSort,
+    expandedId,
+    toggleExpanded,
+    tileCols,
+    boardSeed,
+    base,
+  }
+
   return (
     <div className="space-y-4">
       {mobile && (
-        <MobileSheet
+        <BoardSheet
           open={mobileFilterOpen}
           onClose={() => onMobileFilterOpen?.(false)}
           title={t('film.lines.filter.title')}
-          footer={
-            <SheetFooter
-              count={items ? `${items.length} shown` : ''}
-              onReset={() => { setTag(''); setFav(false); setColor('') }}
-              onDone={() => onMobileFilterOpen?.(false)}
-            />
-          }
-        >
-          <div className="space-y-5">
+          countLabel={countsLabel}
+          onReset={() => { setTag(''); setFav(false); setColor(''); setNoted(false); setTagged(false) }}
+          color={color}
+          onColor={setColor}
+          tags={tags}
+          tag={tag}
+          onTag={setTag}
+          tagAllLabel={t('film.lines.filter.tag.all.label')}
+          chips={lineChips}
+          view={view}
+          onView={setView}
+          extra={
+            /* THE ONE CONTROL THE BOOK'S SHEET HAS NO USE FOR, so it is passed in
+               rather than built into the shared sheet: a box that completes on
+               the cast, for a reader who is looking for one character's lines and
+               remembers the name rather than the tag. */
             <div>
               <MonoLabel className="mb-2 block">character / tag</MonoLabel>
               <input
@@ -1299,52 +1540,36 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
                 onChange={(e) => setTag(e.target.value)}
               />
             </div>
-            <div>
-              <MonoLabel className="mb-2 block">show only</MonoLabel>
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" aria-pressed={!!fav} onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
-                  <IconHeartOn size={14} /> favourites
-                </button>
-                  </div>
-            </div>
-            <div>
-              <MonoLabel className="mb-2 block">colour</MonoLabel>
-              {/* Re-picking the active colour clears it — the list filter has an
-                  "all" state the server has no equivalent for (see validColor),
-                  matching how the Library's colour filter behaves. */}
-              <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
-            </div>
-            <div>
-              <MonoLabel className="mb-2 block">view</MonoLabel>
-              <ViewToggle value={view} onChange={setView} />
-            </div>
-          </div>
-        </MobileSheet>
+          }
+        />
+      )}
+      {mobile && (
+        <BoardStrip dims={kind.groupDims} sortDims={kind.sortDims} groupBy={groupBy} onGroup={setGroupBy} sort={sort} onSort={setSort}>
+          <MonoLabel>
+            {filtering
+              ? t('board.strip.shown.label', { n: sortedRows.length, total: items?.length || 0 })
+              : countOf(sortedRows.length, 'unit.line')}
+          </MonoLabel>
+        </BoardStrip>
       )}
       {!mobile && (
-        <div className="flex flex-wrap items-center gap-2">
-          <MonoLabel>Dialogues{items ? ` · ${items.length}` : ''}</MonoLabel>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <button type="button" aria-pressed={!!fav} onClick={() => setFav(!fav)} className={filterChipClass(fav)} title={t('common.favourite.filter.tip')}>
-              <IconHeartOn size={14} /> Favourites
-            </button>
-            <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
-            {tags.length > 0 && (
-              <Select
-                ariaLabel={t('common.filters.tag.aria')}
-                value={tag}
-                onChange={setTag}
-                options={[['', t('film.lines.filter.tag.all.label')], ...tags.map((row) => [row.name, row.name])]}
-              />
-            )}
-            <ViewToggle value={view} onChange={setView} />
-            {/* Both form factors now open the ONE Add surface, on Capture with
-                this title as the target — the shell's ＋ knows which page it is
-                on. This is the desktop route to it; the phone's is the ＋ in the
-                detail bar above. */}
-            <GhostButton onClick={() => onAdd?.('quote', { type: 'movie', id: movieId })}>{t('film.lines.capture.label')}</GhostButton>
-          </div>
-        </div>
+        <BoardHead
+          dims={kind.groupDims}
+          sortDims={kind.sortDims}
+          groupBy={groupBy}
+          onGroup={setGroupBy}
+          sort={sort}
+          onSort={setSort}
+          color={color}
+          onColor={setColor}
+          tags={tags}
+          tag={tag}
+          onTag={setTag}
+          tagAllLabel={t('film.lines.filter.tag.all.label')}
+          chips={lineChips}
+          captureLabel={t('film.lines.capture.label')}
+          onCapture={() => onAdd?.('quote', { type: 'movie', id: movieId })}
+        />
       )}
       {characters.length > 0 && (
         <datalist id={castListId}>
@@ -1370,108 +1595,27 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
           onEdit={setEditingId}
         />
       )}
-      {items && items.length > 0 && view === 'tiles' && (
-        // Tiles read like the book board (§8.6): a masonry collage (1/2/3 cols by
-        // width, seeded off the movie so it never wobbles) whose cards keep the
-        // film-frame skin — book layout, film-negative theme. Laid out in SOURCE
-        // order so each card's seeded 3–5 line clamp — not a height sort — is what
-        // varies the board. Clicking a dialogue expands it in place (chevron
-        // affordance, no button); doing so collapses any other and locks the
-        // column order so the board never reshuffles. The strip decoration
-        // (sprockets/edge/dividers) belongs to the list view.
-        <Reveal>
-          <Masonry boardRef={boardRef} columns={tileCols} gap={12} seed={boardSeed} lockOrder={expandedId != null} order="source">
-            {items.map((d, i) => (
-              <Frame
-                key={d.id}
-                d={d}
-                wrapClass=""
-                tagMap={tagMap}
-                stickerMap={stickerMap}
-                stickers={stickers}
-                reloadStickers={reloadStickers}
-                editing={editingId === d.id}
-                show={show}
-                game={game}
-                cast={cast}
-                onEdit={() => setEditingId(d.id)}
-                onCancelEdit={() => setEditingId(null)}
-                onSave={(fields) => save(d.id, fields)}
-                onPatch={(fields) => patch(d, fields)}
-                onDelete={() => setAsking(d)}
-                onCopy={() => copyOne(d)}
-                onShare={() => setShareTarget(d)}
-                onOpenPerson={openPerson}
-                onOpenCharacter={onOpenCharacter}
-                actorMap={actorMap}
-                seps={creditSeps}
-                quoteLines={clampLines[i]}
-                expanded={expandedId === d.id}
-                onToggleExpand={() => toggleExpanded(d.id)}
-                selection={dlgSelection}
+      {/* GROUPED, AND THE HEADINGS ARE THE BOOK BOARD'S HEADINGS — a reader who
+          has grouped a library by author and a show by episode has met one
+          control, not two. Each section holds the view the reader chose, so
+          grouping is orthogonal to it: a control that worked in one view and
+          silently did nothing in another would be worse than no control. */}
+      {items && items.length > 0 && groups && (
+        <div className="ann-groups" style={{ display: 'grid', gap: 'calc(var(--row) * 2.5)' }}>
+          {groups.map((g) => (
+            <section key={g.key}>
+              <GroupHeading
+                label={g.label}
+                count={g.items.length}
+                noun={t('unit.line.one')}
+                nounPlural={t('unit.line.other')}
               />
-            ))}
-          </Masonry>
-        </Reveal>
-      )}
-      {items && items.length > 0 && view === 'list' && (
-        // List is the FILM STRIP (§6): strip container → sprockets → edge row →
-        // frames stacked vertically, divided by rows carrying the next frame code.
-        <Reveal className="film-strip">
-          <Sprockets count={15} />
-          <EdgeRow code={frameCode(base)} />
-          {items.map((d, i) => (
-            <Fragment key={d.id}>
-              {i > 0 && <FrameDivider code={frameCode(base, i)} />}
-              <Frame
-                d={d}
-                tagMap={tagMap}
-                stickerMap={stickerMap}
-                stickers={stickers}
-                reloadStickers={reloadStickers}
-                editing={editingId === d.id}
-                show={show}
-                game={game}
-                cast={cast}
-                onEdit={() => setEditingId(d.id)}
-                onCancelEdit={() => setEditingId(null)}
-                onSave={(fields) => save(d.id, fields)}
-                onPatch={(fields) => patch(d, fields)}
-                onDelete={() => setAsking(d)}
-                onCopy={() => copyOne(d)}
-                onShare={() => setShareTarget(d)}
-                onOpenPerson={openPerson}
-                onOpenCharacter={onOpenCharacter}
-                actorMap={actorMap}
-                seps={creditSeps}
-                quoteLines={5}
-                selection={dlgSelection}
-              />
-            </Fragment>
+              <DialogueBoard {...board} rows={g.items} />
+            </section>
           ))}
-          <Sprockets count={15} />
-        </Reveal>
+        </div>
       )}
-      {items && items.length > 0 && view === 'table' && (
-        <DialogueTable
-          rows={sortAnnotations(items, sort)}
-          tagMap={tagMap}
-          stickers={stickers}
-          reloadStickers={reloadStickers}
-          sort={sort}
-          onSort={toggleSort}
-          editingId={editingId}
-          setEditingId={setEditingId}
-          save={save}
-          remove={setAsking}
-          show={show}
-          game={game}
-          cast={cast}
-          actorMap={actorMap}
-          onCopy={copyOne}
-          onShare={setShareTarget}
-        />
-      )}
+      {items && items.length > 0 && !groups && <DialogueBoard {...board} rows={sortedRows} boardRef={boardRef} />}
 
       {shareTarget && <ShareDialog share={sharePayload(shareTarget)} seen={{ kind: 'screen', id: shareTarget.id }} onClose={() => setShareTarget(null)} />}
       {/* Shows the LINE rather than naming the row, because that is the only

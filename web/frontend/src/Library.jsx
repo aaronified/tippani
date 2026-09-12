@@ -15,7 +15,7 @@ import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, w
 import { SelectionBar } from './SelectionBar.jsx'
 import { PeopleChips, PersonModal, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useTextOrder } from './textOrderHost.jsx'
-import { BoardHead, BoardStrip } from './boardHead.jsx'
+import { BoardHead, BoardSheet, BoardStrip } from './boardHead.jsx'
 import { annDate, groupAnnotations, sortAnnotations } from './boardOrder.js'
 import {
   GroupHeading,
@@ -59,7 +59,6 @@ import {
   IconSortAsc,
   IconSortDesc,
   Masonry,
-  MobileSheet,
   MonoLabel,
   mulberry32,
   parseYearInput,
@@ -69,7 +68,6 @@ import {
   QuizSkipMark,
   Scroller,
   Select,
-  SheetFooter,
   TableActions,
   TagChip,
   titleCaseGenre,
@@ -84,7 +82,6 @@ import {
   usePersistedState,
   useScreenBar,
   ViewIcon,
-  ViewToggle,
   PanelHost,
   usePanelStack,
   IconHeartOn,
@@ -1947,52 +1944,22 @@ function Annotations({ bookId, book, authorMap = {}, seps, onStats, mobileFilter
   return (
     <div className="space-y-4">
       {mobile && (
-        <MobileSheet
+        <BoardSheet
           open={mobileFilterOpen}
           onClose={() => onMobileFilterOpen?.(false)}
           title={t('book.quotes.filter.title')}
-          footer={
-            <SheetFooter
-              count={countsLabel}
-              onReset={() => { setColor(''); setTag(''); setFav(false) }}
-              onDone={() => onMobileFilterOpen?.(false)}
-            />
-          }
-        >
-          <div className="space-y-5">
-            <div>
-              <MonoLabel className="mb-2 block">color</MonoLabel>
-              <ColorSwatches value={color} onChange={(c) => setColor(c === color ? '' : c)} />
-            </div>
-            {tags.length > 0 && (
-              <div>
-                <MonoLabel className="mb-2 block">tag</MonoLabel>
-                <Select
-                  ariaLabel={t('common.filters.tag.aria')}
-                  value={tag}
-                  onChange={setTag}
-                  options={[['', t('common.filters.tag.all.label')], ...tags.map((row) => [row.name, row.name])]}
-                />
-              </div>
-            )}
-            <div>
-              {/* The same three the desktop row draws — see there for why they
-                  are FilterChips. A phone that offers one filter and a desktop
-                  that offers three is the divergence this screen keeps finding
-                  in itself; the list is written once and read twice. */}
-              <MonoLabel className="mb-2 block">show only</MonoLabel>
-              <div className="flex flex-wrap items-center gap-2">
-                {quoteChips.map((c) => (
-                  <FilterChip key={c.label} active={c.on} label={c.label} tooltip={c.tip} onClick={() => c.set(!c.on)} />
-                ))}
-              </div>
-            </div>
-            <div>
-              <MonoLabel className="mb-2 block">view</MonoLabel>
-              <ViewToggle value={view} onChange={setView} />
-            </div>
-          </div>
-        </MobileSheet>
+          countLabel={countsLabel}
+          onReset={() => { setColor(''); setTag(''); setFav(false) }}
+          color={color}
+          onColor={setColor}
+          tags={tags}
+          tag={tag}
+          onTag={setTag}
+          tagAllLabel={t('common.filters.tag.all.label')}
+          chips={quoteChips}
+          view={view}
+          onView={setView}
+        />
       )}
       {/* THE BOARD'S HEAD IS ONE ROW, and the pack switches wrapping OFF rather
           than tolerating it: "nothing left in it is wide enough to need a second
