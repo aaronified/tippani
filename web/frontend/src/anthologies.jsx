@@ -40,6 +40,12 @@ import { t, tNodes } from './i18n.js'
 import { quoteKindLabel } from './quoteKind.js'
 import { categoryVar } from './theme.js'
 import { usePractice } from './review.jsx'
+// THE SEARCH SCREEN'S OWN BOX, imported rather than rebuilt. See RuleDialog below:
+// a second way to ask one question is how two screens get to disagree about what
+// an author is.
+import { SearchBox } from './SearchPage.jsx'
+import { addChip, facetField, facetParams, makeChip, readSearchBox } from './facets.js'
+import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 import {
   Card,
   ConfirmDialog,
@@ -55,7 +61,7 @@ import {
   IconExport,
   IconPlus,
   useScreenBar,
-  IconQuiz, IconPractise, IconPrint, IconReading,
+  IconQuiz, IconPractise, IconPrint, IconReading, IconSearch,
   MonoLabel,
   MoreMenu,
   PageHeader,
@@ -116,6 +122,40 @@ const exportHref = (id) => apiURL(`/anthologies/${id}/export`)
 // `?format=` on the one above: these are two files with two media types and two
 // extensions, and what a browser does with a download is decided by the response.
 const epubHref = (id) => apiURL(`/anthologies/${id}/export.epub`)
+
+// ── THE RULE (0075). A way to FILL an anthology from a search, and not a way for
+// one to BE a search — see the migration for the argument, which is that a live
+// query anthology can hold neither an order nor your writing.
+//
+// BUILT FROM THE SEARCH BAR THE READER ALREADY KNOWS, literally: `SearchBox` is
+// the component the Search screen draws, with the same chips, the same field menu
+// and the same vocabulary. A second way to ask one question is how the two get to
+// disagree about what an author is — and this repo's directive is that a control
+// drawn on two screens has one behaviour living in one function.
+//
+// THE RULE ON THE WIRE IS THE SEARCH'S OWN QUERY STRING, assembled here by the
+// same `facetParams` the search URL is built from, so a rule can be read by a
+// person and pasted into the search bar to see exactly what it will take.
+const ruleQuery = (chips, freeText) => {
+  const params = new URLSearchParams()
+  for (const [field, value] of facetParams(chips)) params.append(field, value)
+  const q = String(freeText || '').trim()
+  if (q) params.set('q', q)
+  return params.toString()
+}
+
+// ruleChips reads a stored rule back into the box. The reverse of ruleQuery, and
+// the reason the two are next to each other: a rule that cannot be re-opened is a
+// rule the reader can only replace.
+const ruleChips = (rule) => {
+  const out = { chips: [], q: '' }
+  if (!rule) return out
+  for (const [field, value] of new URLSearchParams(rule)) {
+    if (field === 'q') out.q = value
+    else if (facetField(field)) out.chips = addChip(out.chips, makeChip(field, { value, label: value }))
+  }
+  return out
+}
 
 // FIELD_SWITCHES — everything an entry can show, in reading order rather than in
 // column order, because this is a list somebody reads top to bottom.
@@ -236,6 +276,108 @@ const personLine = (entry, fields = {}) =>
   PERSON_SWITCHES.filter((row) => fields?.[row.key] && entry.person?.[row.key])
     .map((row) => entry.person[row.key])
     .join(' · ')
+
+// RuleDialog — choose the search that fills this anthology, see what it would take,
+// and take it.
+//
+// THE PREVIEW IS THE FILL, ROLLED BACK. `POST …/fill {preview:true}` runs the real
+// write inside a transaction it abandons, so the number on this screen is the
+// number the button will produce rather than a second opinion about it. A preview
+// that counted differently would show the reader one answer and give them another.
+//
+// IT PREVIEWS ON PRESS AND NOT ON EVERY KEYSTROKE. The preview is a search over the
+// whole library plus an ownership check per candidate; running it as somebody types
+// would put that behind every letter. So the reader asks, which also makes the
+// number something they requested rather than something that flickers.
+//
+// AND THE NUMBER GOES STALE THE MOMENT THE RULE CHANGES, which is why it is cleared
+// on any edit: a count left on screen under a rule that no longer produced it is
+// the screen lying quietly.
+function RuleDialog({ anthology, onClose, onFilled }) {
+  const seed = ruleChips(anthology.rule)
+  const [chips, setChips] = useState(seed.chips)
+  const [q, setQ] = useState(seed.q)
+  const [auto, setAuto] = useState(!!anthology.rule_auto)
+  const [preview, setPreview] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [vocabulary, setVocabulary] = useState(() => cachedVocabulary() || {})
+  useEffect(() => { primeSearchVocabulary().then(setVocabulary).catch(() => {}) }, [])
+
+  const { draft, options, freeText } = readSearchBox(q, vocabulary)
+  const rule = ruleQuery(chips, freeText)
+  const edit = (fn) => (...args) => { setPreview(null); setError(''); fn(...args) }
+
+  async function run(isPreview) {
+    if (!rule) return setError(t('anthologies.rule.empty'))
+    setBusy(true)
+    const res = await json('POST', `/anthologies/${anthology.id}/fill`, { rule, auto, preview: isPreview })
+    setBusy(false)
+    if (!res.ok) return setError(errText(res))
+    if (isPreview) return setPreview(res.data)
+    onFilled(res.data)
+  }
+
+  return (
+    <FormModal open title={t('anthologies.rule.title')} onClose={onClose}>
+      <div className="space-y-3">
+        <p className="microcopy">{t('anthologies.rule.body')}</p>
+        <SearchBox
+          q={q}
+          setQ={edit(setQ)}
+          chips={chips}
+          setChips={edit(setChips)}
+          draft={draft}
+          options={options}
+        />
+        {/* WHAT THE CREDIT FACETS DO NOT REACH, said on the screen rather than left
+            to be discovered. `author`, `actor`, `character` and `speaker` match the
+            quote's or the work's own column and not the cast table (0048), so an
+            anthology OF AN ACTOR misses the lines where they are only in the film's
+            cast. A reader building exactly that will notice; this is the only place
+            that can tell them first. */}
+        <p className="microcopy opacity-80">{t('anthologies.rule.credits.note')}</p>
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0">
+            <MonoLabel>{t('anthologies.rule.auto.label')}</MonoLabel>
+            <p className="microcopy mt-0.5">{t('anthologies.rule.auto.hint')}</p>
+          </span>
+          <Toggle
+            ariaLabel={t('anthologies.rule.auto.label')}
+            value={auto ? 'on' : 'off'}
+            onChange={(v) => setAuto(v === 'on')}
+            options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
+          />
+        </div>
+        {/* THE THREE NUMBERS, and each answers a question the others do not:
+            how many the rule finds, how many of those are new here, and how many
+            were already in the anthology. "found 3, adds 0" and "found 3, adds 0,
+            all three are already here" are the same first number and completely
+            different news. */}
+        {preview && (
+          <p className="microcopy">
+            {t('anthologies.rule.preview', {
+              matched: preview.matched,
+              added: preview.added,
+              skipped: preview.skipped,
+            })}
+            {preview.capped ? ' ' + t('anthologies.rule.capped') : ''}
+          </p>
+        )}
+        <ErrorText>{error}</ErrorText>
+        <div className="flex items-center justify-end gap-2">
+          <GhostButton type="button" onClick={onClose}>{t('common.action.cancel.label')}</GhostButton>
+          <GhostButton type="button" icon={<IconSearch />} onClick={() => run(true)} disabled={busy || !rule}>
+            {t('anthologies.rule.preview.action')}
+          </GhostButton>
+          <button type="button" className="tp-btn tp-btn-primary tactile" onClick={() => run(false)} disabled={busy || !rule}>
+            {busy ? t('common.action.save.busy') : t('anthologies.rule.fill.action')}
+          </button>
+        </div>
+      </div>
+    </FormModal>
+  )
+}
 
 // FieldSwitch is one row of either list. ONE COMPONENT AND NOT TWO COPIES: the
 // repo's directive is that a control drawn on two surfaces has one behaviour living
@@ -734,6 +876,7 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [noting, setNoting] = useState(null)
+  const [ruling, setRuling] = useState(false)
   // A THEMED ROUND OVER THIS ANTHOLOGY. The engine has taken ?anthology= since
   // 0043 — it narrows the deck by a join on anthology_entries and excludes no
   // kind, so a mixed anthology practises as one deck — and for two releases there
@@ -818,6 +961,11 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
       // PDF endpoint by construction — see the print stylesheet's note — and
       // putting it in a menu of file formats without a word would imply one.
       ...(anthology ? [{ id: 'print', icon: <IconPrint />, label: t('common.action.print.label'), onClick: () => window.print() }] : []),
+      // THE RULE LIVES IN THE MENU AND NOT IN THE HEADER ROW, which already has
+      // five controls. It is also the one of them a reader touches once and then
+      // rarely — a rule is set, not used — so it does not earn a permanent button
+      // beside the four verbs that are used every time this screen is open.
+      ...(anthology ? [{ id: 'rule', icon: <IconSearch />, label: t('anthologies.rule.title'), onClick: () => setRuling(true) }] : []),
       ...(anthology ? [{ id: 'delete', icon: <IconDelete />, label: t('common.action.delete.label'), onClick: () => setDeleting(true), danger: true }] : []),
     ],
   })
@@ -931,6 +1079,20 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
             submitLabel={t('common.action.save.label')}
           />
         </FormModal>
+      )}
+      {ruling && anthology && (
+        <RuleDialog
+          anthology={anthology}
+          onClose={() => setRuling(false)}
+          onFilled={(res) => {
+            setRuling(false)
+            // THE TOAST CARRIES THE NUMBERS because the screen behind it is about to
+            // change by that much, and a reader who pressed Fill over an anthology
+            // of two hundred cannot count what arrived.
+            toast(t('anthologies.rule.filled', { added: res.added, skipped: res.skipped }))
+            reload()
+          }}
+        />
       )}
       {noting && <EntryNoteDialog entry={noting} onSave={saveNote} onCancel={() => setNoting(null)} />}
       {/* The round belongs to this page and unmounts with it — usePractice is a

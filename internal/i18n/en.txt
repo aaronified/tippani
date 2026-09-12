@@ -2377,6 +2377,22 @@ anthologies.form.fields.person.hint = Shown where you have a record of that pers
 # twice; EPUB is what the reader has to know to decide which they want.
 anthologies.action.epub.label = EPUB
 
+# THE RULE (0075) — a search that fills the anthology. Every string here answers a
+# question the reader will otherwise answer wrongly: what a rule is FOR (it fills;
+# it does not define), what it will not reach (the cast table), and what "keep it
+# fed" actually does (runs on open, not in the background).
+anthologies.rule.title = Fill from a search
+anthologies.rule.body = Anything the search bar takes. Matching quotes are added to the end — nothing here is removed or reordered, and your own writing on an entry is never touched.
+anthologies.rule.credits.note = Author, actor, character and speaker match the name written on the quote or its work. A line with nobody named on it will not be found by the performer's name, even where the film credits them.
+anthologies.rule.auto.label = Keep it fed
+anthologies.rule.auto.hint = Run this again when you open the anthology, and add anything new.
+anthologies.rule.preview.action = What would this take?
+anthologies.rule.fill.action = Fill
+anthologies.rule.preview = {matched} match. {added} would be added, {skipped} are already here.
+anthologies.rule.capped = Two hundred at a time; press again for the rest.
+anthologies.rule.filled = {added} added, {skipped} already here
+anthologies.rule.empty = Give the rule something to match.
+
 anthologies.toast.deleted = anthology deleted
 anthologies.toast.entry-removed = entry removed
 

@@ -110,10 +110,25 @@ describe('a dialog tells its tick what is at stake', () => {
   // are not a draft: nothing is held, so there is nothing for a count to count
   // and a ✓ would be a control with no act behind it. Verified rather than
   // assumed: it registers no form, so the sheet draws no tick.
+  // `RuleDialog` IS THE SAME SHAPE ONCE MORE, and its exemption is the one worth
+  // arguing because it looks most like a form: it has a search box, a switch and
+  // two buttons. It is not a draft. "What would this take?" asks the server a
+  // question and "Fill" performs an act on the library — two different verbs, and
+  // neither is "save what I typed". A ✓ would have to be one of them: as Preview it
+  // would be a tick that commits nothing, and as Fill it would be a second way to
+  // fire the act, which is the one place a second way is worse than none.
+  //
+  // AND THE COUNT WOULD HAVE TO LIE. The badge answers "how many fields this press
+  // will change"; the only honest number here is how many ENTRIES the fill will
+  // add, which is not known until a preview has run. A tick armed with a number
+  // the reader has not asked for yet, or unarmed until they do, is worse than no
+  // tick — the second would make the primary action unreachable without a preview,
+  // which is a worse product to satisfy a guard.
   const NO_FORM = [
     ['identityPicker.jsx', 'ChoosePicker'],
     ['identity.jsx', 'MergeSheet'],
     ['identity.jsx', 'AddWork'],
+    ['anthologies.jsx', 'RuleDialog'],
   ]
   const exempt = (f, src, at) => NO_FORM.some(([file, comp]) => {
     if (file !== f) return false

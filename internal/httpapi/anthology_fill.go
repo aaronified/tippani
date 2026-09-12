@@ -64,6 +64,15 @@ const anthologyFillScan = 5000
 
 type anthologyFillReq struct {
 	Rule string `json:"rule"`
+	// Preview asks what a fill WOULD do and writes nothing — the number the rule
+	// screen shows before the reader commits to it.
+	//
+	// IT IS THE SAME CODE PATH, ROLLED BACK, and that is the whole reason it is a
+	// flag here rather than a counting endpoint of its own. A preview that counts
+	// differently from the fill is the same drift this file exists to refuse, one
+	// layer up: the reader would be shown a number and then given a different one.
+	// So the fill runs inside a transaction and the transaction is abandoned.
+	Preview bool `json:"preview"`
 	// Auto stores "keep it fed" alongside the rule, because a reader who presses
 	// Fill with the switch on means both — and two requests to say one thing is how
 	// the switch and the rule get out of step.
@@ -87,6 +96,14 @@ type anthologyFillResp struct {
 	// true number is larger. Separate from Capped because they are different facts
 	// and a reader pressing Fill again wants to know which one they hit.
 	MatchedCapped bool `json:"matched_capped,omitempty"`
+}
+
+// fillExec is the half of a database handle appendFill needs. `*sql.DB` and
+// `*sql.Tx` both satisfy it, which is what lets one function serve the fill and its
+// preview without either knowing which it is.
+type fillExec interface {
+	QueryRow(string, ...any) *sql.Row
+	Exec(string, ...any) (sql.Result, error)
 }
 
 // anthologyFillItem is one candidate: the entry vocabulary, not the search's.
@@ -137,13 +154,38 @@ func (s *Server) handleFillAnthology(w http.ResponseWriter, r *http.Request) {
 	}
 	olog.Tracef("[anthologies] fill uid=%d id=%d matched=%d", uid, id, matched)
 
-	res, err := s.appendFill(uid, id, items)
-	if err != nil {
-		internalError(w, r, "fill anthology", err)
-		return
+	var res anthologyFillResp
+	if req.Preview {
+		// THE REAL WRITE, ABANDONED. A transaction that is never committed leaves
+		// nothing behind, and running it is the only way the preview's numbers are
+		// the fill's numbers rather than a second opinion about them.
+		tx, err := s.Store.DB.Begin()
+		if err != nil {
+			internalError(w, r, "preview fill", err)
+			return
+		}
+		res, err = appendFill(tx, uid, id, items)
+		_ = tx.Rollback()
+		if err != nil {
+			internalError(w, r, "preview fill", err)
+			return
+		}
+	} else {
+		res, err = appendFill(s.Store.DB, uid, id, items)
+		if err != nil {
+			internalError(w, r, "fill anthology", err)
+			return
+		}
 	}
 	res.Matched = matched
 	res.MatchedCapped = scanned
+	if req.Preview {
+		// A PREVIEW STORES NOTHING, not even the rule. The reader has not agreed to
+		// it yet, and a rule saved by looking at it is a rule that "keep it fed"
+		// would go on running.
+		writeJSON(w, http.StatusOK, res)
+		return
+	}
 	// THE RULE IS STORED BY THE FILL THAT RAN IT, not by a separate save. A rule the
 	// reader pressed Fill on is the rule they meant; storing it anywhere else means
 	// the stored rule and the last one actually run can differ, and "keep it fed"
@@ -226,13 +268,13 @@ func (s *Server) anthologyMatches(uid int64, rule string) ([]anthologyFillItem, 
 // already knows whether the row was there, and a pre-check would be both a second
 // query and a race — a quote added by another tab between the check and the insert
 // would be counted as added and not be.
-func (s *Server) appendFill(uid, id int64, items []anthologyFillItem) (anthologyFillResp, error) {
+func appendFill(db fillExec, uid, id int64, items []anthologyFillItem) (anthologyFillResp, error) {
 	res := anthologyFillResp{}
 	if len(items) == 0 {
 		return res, nil
 	}
 	var next float64
-	if err := s.Store.DB.QueryRow(
+	if err := db.QueryRow(
 		`SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_entries WHERE anthology_id = ?`, id).Scan(&next); err != nil {
 		return res, err
 	}
@@ -246,10 +288,10 @@ func (s *Server) appendFill(uid, id int64, items []anthologyFillItem) (anthology
 		// already scoped by user — and it stays for the reason the entry query's own
 		// redundant scope stays: the day it stops being redundant is the day an entry
 		// points somewhere it should not.
-		if !quoteOwned(s.Store.DB, uid, it.Kind, it.ItemID) {
+		if !quoteOwned(db, uid, it.Kind, it.ItemID) {
 			continue
 		}
-		r, err := s.Store.DB.Exec(
+		r, err := db.Exec(
 			`INSERT OR IGNORE INTO anthology_entries (anthology_id, position, kind, item_id) VALUES (?, ?, ?, ?)`,
 			id, next, it.Kind, it.ItemID)
 		if err != nil {

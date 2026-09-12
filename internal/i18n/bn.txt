@@ -2383,6 +2383,17 @@ anthologies.form.fields.work.hint = না বললে দেখাবে ন�
 anthologies.form.fields.person.label = যিনি বলেছেন, তাঁর কথা
 anthologies.form.fields.person.hint = যাঁদের রেকর্ড আপনার কাছে আছে, শুধু তাঁদেরটাই দেখাবে। বেশির ভাগেরই থাকবে না।
 anthologies.action.epub.label = EPUB
+anthologies.rule.title = সার্চ থেকে ভরুন
+anthologies.rule.body = সার্চ বারে যা যা লেখা যায়, সবই চলবে। যেগুলো মিলবে সেগুলো শেষে যোগ হবে — এখান থেকে কিছু বাদ যায় না, ক্রমও বদলায় না, আর কোনো লেখায় আপনি যা লিখেছেন তাতে হাত পড়ে না।
+anthologies.rule.credits.note = লেখক, অভিনেতা, চরিত্র আর বক্তা — এগুলো উদ্ধৃতিতে বা তার বই-ছবিতে যে নাম লেখা আছে, সেটাই মেলায়। যে সংলাপে কারও নাম লেখা নেই, ছবির কাস্টে থাকলেও তাঁর নাম দিয়ে সেটা পাওয়া যাবে না।
+anthologies.rule.auto.label = চালু রাখুন
+anthologies.rule.auto.hint = অ্যান্থোলজিটা খুললে আবার চালাবে, আর নতুন যা পাবে যোগ করবে।
+anthologies.rule.preview.action = কী কী আসবে?
+anthologies.rule.fill.action = ভরুন
+anthologies.rule.preview = {matched}টা মিলেছে। {added}টা যোগ হবে, {skipped}টা আগে থেকেই আছে।
+anthologies.rule.capped = একবারে দুশো; বাকিটার জন্য আবার চাপুন।
+anthologies.rule.filled = {added}টা যোগ হল, {skipped}টা আগে থেকেই ছিল
+anthologies.rule.empty = রুলে মেলানোর মতো কিছু দিন।
 
 anthologies.toast.deleted = সংকলন মোছা হয়েছে
 anthologies.toast.entry-removed = এন্ট্রি সরানো হয়েছে

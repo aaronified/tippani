@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   everything else on that list needs a work to read from. Shown only where you actually
   have a record of that person, which most passages will not have, and the line is
   simply absent rather than blank when you do not.
+- **And the rule is built in the search bar you already know.** "Fill from a search" on
+  an anthology opens the same box the Search screen uses — the same chips, the same field
+  menu, the same vocabulary — and **"What would this take?" tells you how many it found,
+  how many it would add and how many are already there, before you commit to any of it**.
+  The preview is the fill itself, run and thrown away, so the number you are shown is the
+  number you get. It also says plainly what author, actor, character and speaker will not
+  reach: a line with nobody named on it is not found by the performer's name, even where
+  the film credits them.
 - **An anthology can be filled from a search.** Give it a rule — a tag, an author, a
   word, any combination the search bar already takes — and every quote that matches is
   added to the end. **It finds exactly what the search bar finds**, because it runs the

@@ -213,3 +213,55 @@ func TestAFillCanMatchOnWords(t *testing.T) {
 		t.Errorf("the wrong quote was filled: %+v", entries)
 	}
 }
+
+// A PREVIEW IS THE FILL, ROLLED BACK. Two claims and both matter: the numbers are
+// identical to what the fill then does, and nothing at all is written — not the
+// entries, and not the rule, because a rule saved by LOOKING at it is a rule that
+// "keep it fed" would go on running against an anthology whose owner never agreed
+// to it.
+func TestAPreviewSaysWhatTheFillWillDoAndChangesNothing(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	taggedShelf(t, c)
+	a := newAnthology(t, c, "Stoics")
+
+	preview := decode[anthologyFillResp](t, c.mustDo("POST", "/anthologies/"+itoa(a.ID)+"/fill",
+		map[string]any{"rule": "tag=stoicism", "auto": true, "preview": true}, http.StatusOK))
+	if preview.Added != 3 || preview.Matched != 3 {
+		t.Fatalf("preview = %+v, want 3 matched and 3 addable", preview)
+	}
+	if n := len(getAnthology(t, c, a.ID).Entries); n != 0 {
+		t.Errorf("the preview added %d entries", n)
+	}
+	if got := getAnthology(t, c, a.ID).Anthology; got.Rule != "" || got.RuleAuto {
+		t.Errorf("the preview stored the rule: %+v", got)
+	}
+
+	// AND THE FILL THEN DOES EXACTLY THAT. A preview whose number the fill does not
+	// honour is worse than no preview: the reader was shown one answer and given
+	// another.
+	real := fill(t, c, a.ID, "tag=stoicism", true)
+	if real.Added != preview.Added || real.Matched != preview.Matched || real.Skipped != preview.Skipped {
+		t.Errorf("the fill did %+v after a preview promising %+v", real, preview)
+	}
+}
+
+// A PREVIEW OVER AN ANTHOLOGY THAT ALREADY HOLDS SOME OF THE MATCHES reports the
+// skips, which is the case a naive "count the matches" preview gets wrong — it
+// would promise three and add one.
+func TestAPreviewCountsWhatIsAlreadyThereAsSkipped(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	one, _, _, _ := taggedShelf(t, c)
+	a := newAnthology(t, c, "Stoics")
+	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": one}})
+
+	preview := decode[anthologyFillResp](t, c.mustDo("POST", "/anthologies/"+itoa(a.ID)+"/fill",
+		map[string]any{"rule": "tag=stoicism", "preview": true}, http.StatusOK))
+	if preview.Matched != 3 || preview.Added != 2 || preview.Skipped != 1 {
+		t.Errorf("preview = %+v, want matched 3, added 2, skipped 1", preview)
+	}
+	if n := len(getAnthology(t, c, a.ID).Entries); n != 1 {
+		t.Errorf("%d entries after a preview, want the 1 that was already there", n)
+	}
+}

@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "d218ee225296d636d2a475c4728164a53c16f5439c1d5cf02ac88c4d6f93e642",
-    "internal/i18n/en.txt": "f5d1fcb0babe2d09e3e691cf43460aea93cf2fb9c355facdeda78b9d946f376d",
+    "internal/i18n/bn.txt": "739489d3830c0789facd147c35609f304abb2f0ab4d5e22db69dc529499686cf",
+    "internal/i18n/en.txt": "f50892c36128bb5d1df13ef4b563ccd36736540ce1e7ec1d1f4ded3297e55dab",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "ae52734844923282963a5acdd6bfe710196fdfcf5bed06e944c9f4c638a24547",
     "web/frontend/package.json": "d985ed193616c275ad40b9788fd8dffc1d774ce4a59c2c1836a45effde06162e",
@@ -51,7 +51,7 @@
     "web/frontend/src/actions.jsx": "22618da63c55b7086fa8aff3fd7c94dfdd9558b5afdfb710e1809d57462992e4",
     "web/frontend/src/addFields.js": "019ab397d0c9ceb981542c350ad901d4d634e1f66dac323c364f6ee98fc27e81",
     "web/frontend/src/addModes.js": "f7c189ad6240ac15cad6c34e9b50a40c7c5cfb4b7b69abe2deed2b4f8e9a4297",
-    "web/frontend/src/anthologies.jsx": "1298b1b71ee71500f00d2a5fe0ad7e03018f833d46e8c7e6adde059f4dc7392b",
+    "web/frontend/src/anthologies.jsx": "8079039ab47529d6c006b1243305ca48c61b2e3e6cc181abc6000ae2bfb68b51",
     "web/frontend/src/api.js": "f7930824e8b6d7ba3f36932143ab5b203775ea9a551753c1767b1a8fd4f42b81",
     "web/frontend/src/attribution.js": "7c9522d8be08eedd964e5768796eacb68042a0d126d1dc24d068b9d86341cff4",
     "web/frontend/src/avatar.jsx": "5a9e6b5d73c2172ec47db12d9ab719cc76d37e29cf3ab63664f4bb817f15b071",

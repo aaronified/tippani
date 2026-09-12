@@ -21,9 +21,9 @@
 //     at an end must be absent rather than dead.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
-let CALLS, LIST, DETAIL
+let CALLS, LIST, DETAIL, FILL
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -31,11 +31,13 @@ vi.mock('../../src/api.js', async (orig) => ({
     CALLS.push([method, path, body])
     if (method === 'GET' && path === '/anthologies') return { ok: true, data: { anthologies: LIST } }
     if (method === 'GET' && /^\/anthologies\/\d+$/.test(path)) return { ok: true, data: DETAIL }
+    if (method === 'POST' && /\/fill$/.test(path)) return { ok: true, data: FILL }
     return { ok: true, data: {} }
   }),
 }))
 
 const { default: AnthologiesPage } = await import('../../src/anthologies.jsx')
+const { buildScreenActions } = await import('../../src/ui.jsx')
 
 const entry = (kind, itemID, position, note, quote, over = {}) => ({
   kind,
@@ -54,6 +56,7 @@ const entry = (kind, itemID, position, note, quote, over = {}) => ({
 
 beforeEach(() => {
   CALLS = []
+  FILL = { matched: 0, added: 0, skipped: 0, capped: false }
   LIST = [
     { id: 1, title: 'On keeping quiet', intro: 'Three people, one idea.', entries: 3, created_at: '', updated_at: '' },
     { id: 2, title: 'Beginnings', intro: '', entries: 0, created_at: '', updated_at: '' },
@@ -81,6 +84,15 @@ const list = (props = {}) =>
   render(<AnthologiesPage openId={null} onOpen={noop} onClose={noop} onOpenBook={noop} onOpenMovie={noop} {...props} />)
 const open = (props = {}) =>
   render(<AnthologiesPage openId={1} onOpen={noop} onClose={noop} onOpenBook={noop} onOpenMovie={noop} {...props} />)
+
+// THE SCREEN BAR IS THE SHELL'S AND NOT THIS PAGE'S, so an action that lives only
+// in the ⋯ menu is unreachable from a render of the page alone.
+//
+// `buildScreenActions` IS WHAT THE SHELL ITSELF CALLS when the menu opens — so
+// this reaches the action through the same path a thumb does, rather than through
+// a probe reading a copy of the list. A page that registered its builder wrongly
+// would be invisible to a probe and is not invisible to this.
+const barAction = (id) => buildScreenActions().find((a) => a.id === id)
 
 // The ⋯ for one entry, found through the quote it belongs to rather than by index,
 // so a reordering bug cannot make this helper agree with it.
@@ -371,6 +383,28 @@ describe('the fields a work lends its passages', () => {
     } finally {
       if (loc) Object.defineProperty(window, 'location', loc)
     }
+  })
+
+  it('previews a rule before it fills, and sends the search’s own query string', async () => {
+    // THREE CLAIMS IN ONE PRESS, and each is a way this screen could lie:
+    //   - the rule on the wire is the SEARCH's query string, so a reader can paste
+    //     it into the search bar and see exactly what it will take;
+    //   - a preview sends preview:true, so looking costs nothing;
+    //   - and the count on screen is the one the server returned, not a local sum.
+    FILL = { matched: 12, added: 9, skipped: 3, capped: false }
+    open()
+    await screen.findByText('We remember light.')
+    await act(async () => barAction('rule').onClick())
+
+    const box = await screen.findByPlaceholderText(/search/i)
+    fireEvent.change(box, { target: { value: 'death' } })
+    fireEvent.click(screen.getByText('What would this take?'))
+
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && /\/fill$/.test(p))).toBe(true))
+    const body = CALLS.find(([m, p]) => m === 'POST' && /\/fill$/.test(p))[2]
+    expect(body.rule).toBe('q=death')
+    expect(body.preview).toBe(true)
+    expect(await screen.findByText(/12 match\. 9 would be added, 3 are already here\./)).toBeTruthy()
   })
 
   it('prints through the browser, and leaves the furniture off the page', async () => {
