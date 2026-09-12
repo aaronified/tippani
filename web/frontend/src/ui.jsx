@@ -1,6 +1,6 @@
 // Shared visual primitives for the tippani UI (instructions §5–§6), plus thin
 // compatibility exports the pre-redesign pages still import — the page pass
-import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryHidden, categoryName, categoryVar } from './theme.js'
+import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryDotClass, categoryHidden, categoryName, categoryVar } from './theme.js'
 // replaces those call sites, then the compat block can shrink.
 import { Children, Component, Fragment, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -8091,14 +8091,9 @@ export const frameCode = (base, i = 0) => `${base + i}A`;
 // linkButtonClass, deleteButtonClass) had no caller anywhere once the page pass
 // finished, and an exported name for a button style is exactly the kind of
 // thing a later screen adopts by accident, giving one control two vocabularies.
-// These two have real callers, both in this file, so neither is exported.
+// It has real callers, all in this file, so it is not exported.
 
 const chipClass = "tp-chip";
-// Derived from the slot list rather than written out, so a colour added by a
-// migration cannot arrive with no dot class and render as an unstyled circle.
-// The class names follow the tokens by construction; index.css declares one
-// .dot-<token> per slot.
-const colorDotClass = Object.fromEntries(CATEGORY_SLOTS.map((tok) => [tok, "dot-" + tok]));
 
 // splitCommas turns a comma-separated input value into a trimmed string array.
 export function splitCommas(s) {
@@ -8979,7 +8974,7 @@ export function ColorSwatches({ value, onChange, ariaLabel, showAll = false, col
             onClick={() => onChange(c)}
             className="color-dot-btn"
           >
-            <span className={"color-dot " + colorDotClass[c] + (value === c ? " active" : "")} />
+            <span className={"color-dot " + categoryDotClass(c) + (value === c ? " active" : "")} />
           </button>
         </Tooltip>
       ))}
@@ -9071,7 +9066,7 @@ function ColorMenu({ value, offered, onChange, ariaLabel, disabled = false, fram
             <IconPalette />
           ) : (
             <>
-              <span className={"color-dot " + (colorDotClass[value] || "") + (value ? " active" : "")} />
+              <span className={"color-dot " + categoryDotClass(value) + (value ? " active" : "")} />
               <IconChevron open={open} size={14} />
             </>
           )}
@@ -9088,7 +9083,7 @@ function ColorMenu({ value, offered, onChange, ariaLabel, disabled = false, fram
               className="cs-menu-row"
               onClick={() => { onChange(c); close(); }}
             >
-              <span className={"color-dot " + colorDotClass[c] + (value === c ? " active" : "")} />
+              <span className={"color-dot " + categoryDotClass(c) + (value === c ? " active" : "")} />
               <span className="cs-menu-name">{categoryName(c)}</span>
             </button>
           ))}

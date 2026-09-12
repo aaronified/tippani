@@ -687,6 +687,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A book board's colour filter offered six identical grey circles.** Every option in
+  "Colour category" — on the phone and on the desk alike — drew the same colourless dot,
+  so the one control whose swatch is the only thing distinguishing its rows could not tell
+  them apart. The filter was painting each dot with a colour name that has never been a
+  colour in this app; the fill simply did not happen and the dot fell back to its own grey.
+  Every picker now draws through the one function that knows what a category looks like,
+  and a check holds that function and the stylesheet to each other, so a seventh slot
+  cannot arrive with no colour.
+
 - **Four fields were being wiped by the forms that should have been editing them.** Saving
   a game's line cleared the **pack** it came in. Saving a film's line cleared where the line
   **stops**. Saving any highlight, line or quote cleared **what it is in** — the language

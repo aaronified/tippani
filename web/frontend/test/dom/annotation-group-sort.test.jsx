@@ -120,6 +120,42 @@ describe('the category filter', () => {
     // Every option carries its dot beside its name.
     expect(opts[1].querySelector('.cat-opt-dot')).toBeTruthy()
   })
+
+  // THE DOT HAS TO BE THE COLOUR IT NAMES. This picker drew six identical grey
+  // circles because it painted with `var(--yellow)`, a custom property nothing
+  // in the app has ever defined — invalid at computed-value time, so the fill
+  // simply did not happen and the control offered the reader six ways to say
+  // the same nothing. Asserting the CLASS rather than a computed colour is
+  // deliberate: jsdom resolves neither var() nor the cascade across two
+  // stylesheets, so a colour assertion here would pass on the broken code.
+  // What the class buys is a name that index.css must declare, and
+  // category-dot-class.test.js holds it to that.
+  it('paints each option with its own category class, and the any row with none', async () => {
+    board()
+    const trigger = await waitFor(() => {
+      const el = document.querySelector('.board-head-left [aria-label="Colour category"]')
+      expect(el).toBeTruthy()
+      return el
+    })
+    fireEvent.click(trigger)
+    const opts = await screen.findAllByRole('option')
+    const dots = opts.map((o) => o.querySelector('.cat-opt-dot')).filter(Boolean)
+    expect(dots.length).toBeGreaterThan(1)
+    // The first row is "Any category" — no token, so no colour class.
+    expect(dots[0].className).toMatch(/\bcat-opt-none\b/)
+    // Every other row wears the slot's own class, and none of them fall back.
+    for (const dot of dots.slice(1)) {
+      expect(dot.className).toMatch(/\bdot-(yellow|blue|pink|orange|green|purple)\b/)
+      expect(dot.className).not.toMatch(/\bcat-opt-none\b/)
+    }
+    // Six slots, six DIFFERENT classes: a map that collapsed would still pass
+    // the check above.
+    const classes = dots.slice(1).map((d) => d.className.match(/dot-[a-z]+/)[0])
+    expect(new Set(classes).size).toBe(classes.length)
+    // And nothing paints inline any more — an inline fill outranks every class
+    // rule there is, so one left behind would put the bug back silently.
+    for (const dot of dots) expect(dot.getAttribute('style')).toBeNull()
+  })
 })
 
 describe('the board can be put in order', () => {

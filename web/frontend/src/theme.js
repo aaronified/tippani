@@ -673,6 +673,19 @@ export function categoryVar(token) {
   return i < 0 ? null : 'var(--hl-' + (i + 1) + ')'
 }
 
+// categoryDotClass is the CLASS a swatch wears, for the sites that draw a dot
+// rather than paint an arbitrary box. It lives beside categoryVar because both
+// answer "what colour is this token", and a screen that invents its own answer
+// gets it wrong silently: a `var(--yellow)` written by hand names a property
+// that has never existed, and an undefined custom property with no fallback is
+// invalid at computed-value time — so the dot draws its own background and the
+// picker offers six identical grey circles. index.css declares one .dot-<token>
+// per slot; the names follow the tokens by construction, so a colour added by a
+// migration cannot arrive with no class.
+export function categoryDotClass(token) {
+  return CATEGORY_SLOTS.indexOf(token) < 0 ? '' : 'dot-' + token
+}
+
 // categoryHex is the live hex for a token — what a canvas needs, and the ONE
 // place a real value is still required: ctx.fillStyle parses neither var() nor
 // color-mix(), so the share image cannot read the custom property that every

@@ -15,7 +15,7 @@ import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, w
 import { SelectionBar } from './SelectionBar.jsx'
 import { PeopleChips, PersonModal, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useTextOrder } from './textOrderHost.jsx'
-import { categoryHidden, categoryName } from './theme.js'
+import { categoryDotClass, categoryHidden, categoryName } from './theme.js'
 import {
   GroupHeading,
   WorkCard,
@@ -955,7 +955,7 @@ function CategoryFilter({ value, onChange }) {
   const opt = (tok, label) => [
     tok,
     <span className="cat-opt" key={tok}>
-      <span className="cat-opt-dot" style={tok ? { background: `var(--${tok})` } : undefined} aria-hidden="true" />
+      <span className={`cat-opt-dot ${tok ? categoryDotClass(tok) : 'cat-opt-none'}`} aria-hidden="true" />
       <span>{label}</span>
     </span>,
     label,
