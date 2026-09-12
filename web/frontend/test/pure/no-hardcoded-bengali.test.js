@@ -31,12 +31,16 @@ import { SRC, sourcesUnder } from '../src-files.js'
 //   language rather than copy addressed to a reader, which is the line this whole
 //   file draws.
 //
-//   THE LANGUAGE-MARK PALETTE USED TO BE ITS OWN ALLOWANCE and no longer needs one.
+//   and a language's own letter — ৰ, which Assamese writes where Bengali writes র.
+//   It is the same kind of string as an autonym for the same reason: it is a fact
+//   about a writing system, not a sentence addressed to a reader, and there is no
+//   locale in which it becomes a different letter.
+//
+//   THE LANGUAGE-MARK PALETTE USED TO BE A THIRD ALLOWANCE and no longer needs one.
 //   It was four letters typed by hand into `languages.jsx` — a single-rune exemption
 //   in that file — and since the starter list was retired the palette is DERIVED
-//   from the autonym at run time. There is no literal left to allow, so the entry
-//   went with the letters rather than being re-pointed at `iso639.js`, where it
-//   would have been a rule matching nothing.
+//   from the autonym at run time, so the only Bengali literals left in `iso639.js`
+//   are the two kinds above and one regex covers both.
 //
 // Anything else is a finding. Add a locale key instead; if the string turns out
 // to be dead, delete it — an orphan key fails the build, which is the lesson
@@ -44,7 +48,7 @@ import { SRC, sourcesUnder } from '../src-files.js'
 const ALLOWED = [
   { what: 'the wordmark', re: /^টিপ্পনী$/ },
   { what: 'the font probe', re: /^[ঀ-৿]{5,}$/, files: ['fonts.js'] },
-  { what: 'an autonym', re: /^[ঀ-৿]+$/, files: ['iso639.js'] },
+  { what: 'an autonym or a language’s own letter', re: /^[ঀ-৿]+$/, files: ['iso639.js'] },
 ]
 
 const BENGALI = /[ঀ-৿]/

@@ -431,13 +431,20 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
                 offer — a change from the ten hand-picked starters this row used to
                 open with.
 
-                NOT ALL EIGHTY-SIX. `iso639.js` knows that many and laying them out
+                NOT ALL NINETY-ONE. `iso639.js` knows that many and laying them out
                 here would be a wall of chips: the repo's own rule is that a row too
                 long to read scrolls under a fade with a button to the full set, and
-                a wrapped grid of eighty-six is neither. So the chips are the ones a
+                a wrapped grid of ninety-one is neither. So the chips are the ones a
                 reader would actually press — the languages their library is already
-                in, plus any this board has — and every other language arrives
-                through the box below, which offers all eighty-six as you type.
+                in, plus any this board has.
+
+                AND EVERY OTHER LANGUAGE IS TYPED, not offered — which this comment
+                claimed the other way round for a commit. It said the box below
+                "offers all eighty-six as you type", and that box is a plain Field
+                that offers nothing; the combobox that will make the claim true is
+                its own piece of work, noted at the box itself. A comment describing
+                a control the screen does not have is worse than no comment: the next
+                reader stops looking.
 
                 A reader whose library is empty sees no chips, which is honest: they
                 have no languages yet, and the box is how the first one is named. */}
@@ -462,7 +469,7 @@ export function BoardForm({ initial, onSubmit, onCancel, submitLabel = t('common
             })}
           </div>
           <div className="flex items-end gap-2 mt-2">
-            {/* STILL A PLAIN BOX, and the eighty-six are not offered in it yet.
+            {/* STILL A PLAIN BOX, and the ninety-one are not offered in it yet.
                 SuggestCombo is what belongs here — it is how every other name box
                 in this app offers the library's own values — but its contract is
                 that a commit fires on blur as well as on a pick, which for a box

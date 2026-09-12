@@ -35,14 +35,15 @@
 //
 // THE TEN HAND-PICKED STARTERS ARE GONE (the owner's ruling), and `iso639.js` is
 // what replaced them. Where this file used to hold ten names with four glyphs each,
-// typed by hand, it now asks that module — which knows eighty-six languages and takes
+// typed by hand, it now asks that module — which knows ninety-one languages and takes
 // each one's letters from its own name for itself.
 //
-// THE MARK IS THE FIRST OF THOSE LETTERS THAT NO EARLIER LANGUAGE OF THE SAME SCRIPT
-// HAS CLAIMED, and the tray is up to four starting from it. That clause is the
-// hand-picked rows' whole reason for existing, kept: four of the ten were written in
-// Latin, and a naive first-rune rule would have drawn one letter on all four covers,
-// because English and español both begin with an E. The objection is answered in that
+// THE MARK IS A LETTER NO OTHER LANGUAGE OF THAT SCRIPT WRITES where one exists —
+// ৰ for Assamese, where Bengali writes র — and otherwise the first letter of the
+// language's own name that no earlier language of the script has claimed. Both
+// clauses are the hand-picked rows' reasons for existing, kept: four of the ten were
+// written in Latin and a naive first-rune rule draws one letter on all four covers,
+// and a letter both languages of a script share identifies neither. Answered in that
 // module rather than accepted here.
 //
 // A TRAY CAN BE SHORTER THAN FOUR NOW, which it never was. Four was a floor while
@@ -236,7 +237,7 @@ export const currentLanguageEntries = () => {
 // language.
 //
 // A LANGUAGE THE MODULE HAS NEVER HEARD OF STILL GETS NO GLYPH, and that has not
-// changed with the list growing from ten to eighty-six. Deriving a mark from an
+// changed with the list growing from ten to ninety-one. Deriving a mark from an
 // unknown name would take its first letter — which for a language written in a
 // script the name is not written in puts a Latin S on a board of Sylheti proverbs.
 // Being confidently wrong about somebody's language is worse than being blank, and

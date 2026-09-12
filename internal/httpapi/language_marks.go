@@ -49,7 +49,7 @@ const (
 	// short enough that the blob cannot become a place to keep notes. It bounds
 	// both the KEY (the canonical language) and the reader's own display name.
 	languageNameMaxRunes = 40
-	// How many languages one reader may re-mark. Comfortably above the eighty-six
+	// How many languages one reader may re-mark. Comfortably above the ninety-one
 	// the client offers by name, which is not the bound this is for: a language is
 	// free text, so the set is open. A bound exists because this is one column of
 	// one row and an unbounded map in it is a storage bug waiting to happen.

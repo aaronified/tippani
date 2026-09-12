@@ -100,7 +100,7 @@ describe('the starter offer', () => {
   })
 
   // Not a closed list: a reader's proverbs are not limited to the languages their
-  // library already holds, nor to the eighty-six iso639.js knows.
+  // library already holds, nor to the ninety-one iso639.js knows.
   it('takes a language it has never heard of', async () => {
     render(<BoardList boards={BOARDS} total={0} reload={noop} onOpen={noop} />)
     await openNewBoard()

@@ -101,7 +101,7 @@ const isGrammar = (node) => !!node?.parentElement?.closest?.('[data-grammar]')
 //
 // IT IS THE SAME SHAPE AS `data-grammar` FOR THE SAME REASON: an attribute the
 // screen sets, not a list of strings here. A list would need keeping in step with
-// the language list — eighty-six rows now that STARTER_LANGUAGES' ten are gone, and
+// the language list — ninety-one rows now that STARTER_LANGUAGES' ten are gone, and
 // growing — and the day somebody adds one the list is what would be forgotten.
 //
 // WHAT IT MUST NOT BECOME. This says "the text inside is the reader's", and a

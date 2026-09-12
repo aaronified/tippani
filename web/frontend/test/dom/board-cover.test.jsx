@@ -15,7 +15,7 @@ import { BoardCover, glyphFor } from '../../src/boards.jsx'
 import { markFor as scriptMark } from '../../src/iso639.js'
 
 // A language nothing in this app has ever heard of. Yoruba used to play this part
-// and cannot: `iso639.js` knows eighty-six languages and Yoruba is one of them.
+// and cannot: `iso639.js` knows ninety-one languages and Yoruba is one of them.
 const UNKNOWN = 'Sylheti'
 
 const board = (over = {}) => ({ id: 1, name: 'A board', color: 'blue', kind: 'plain', languages: [], ...over })

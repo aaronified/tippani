@@ -9,10 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A language's mark is a letter that belongs to it, not just a letter nobody else
+  took.** Assamese wore **অ** — the first letter of অসমীয়া, and also the first vowel of
+  the script Bengali writes, so it told you the board was in *some* Bengali-script
+  language and stopped there. It wears **ৰ** now: the letter Assamese writes where
+  Bengali writes র. Around forty languages gained a letter of their own this way —
+  **ß** for German, **ł** for Polish, **ř** for Czech, **ښ** for Pashto, **ے**
+  for Urdu, **ѓ** for Macedonian, **ї** for Ukrainian, **ə** for Azerbaijani. Greek is
+  **Σ**. A language that genuinely has no letter of its own — Hindi and Nepali share an
+  alphabet entirely — keeps the first letter of its own name, and every language still
+  offers the rest of its name in the tray, so a mark you preferred is one tap away.
+- **Six pairs of languages were wearing the same letter, and nothing noticed.** When a
+  language's name offered no letter that was still free, the list quietly handed it one
+  already in use — so Slovak and Spanish, Latvian and Polish, Zulu and Italian, Basque
+  and Estonian, Galician and Tagalog, and Esperanto and English each drew the same
+  cover. Every mark is now unique, and a test compares all of them rather than trusting
+  the rule.
+- **Five more languages: Scottish Gaelic, Māori, Quechua, Inuktitut and Maa
+  (Maasai).** Irish was already here; Scottish Gaelic was not. Maa has no two-letter
+  ISO code at all, so the list now takes a three-letter one where that is the only
+  code a language has — which is what the web's own language-tagging rule asks for.
+
 - **Every language, not the ten the app picked.** The language list behind proverb
   boards and language marks was ten names chosen by hand — English, Mandarin, Hindi,
   Spanish, French, Arabic, Bengali, Portuguese, Russian and Urdu — each with four
-  letters somebody typed for it. It is **eighty-six** now, each with its own name for
+  letters somebody typed for it. It is **ninety-one** now, each with its own name for
   itself (বাংলা, हिन्दी, 中文, Ελληνικά) and letters taken from that name rather than
   chosen for it. A language is still free text everywhere: anything you type is
   accepted, stored and shown exactly as you typed it, and one this list has never

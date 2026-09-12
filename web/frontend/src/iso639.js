@@ -17,6 +17,12 @@
 // not matter; they are omitted because the honest form of a row nobody verified is
 // no row.
 //
+// A LANGUAGE WITH NO 639-1 CODE IS STILL A LANGUAGE. Maa has none — it is `mas` in
+// 639-3 — and BCP 47 (RFC 5646 §2.2.1) already says what to do: a primary language
+// subtag is the SHORTEST available code, 639-1 where one exists and 639-3 where none
+// does. So `code` is two letters or three, and a two-letter-only rule would not have
+// been stricter about the standard, it would have been wrong about it.
+//
 // ADDING ONE IS FOUR FIELDS AND NO CEREMONY. That is the design: `languageFor`
 // matches a stored value against a code, an English name or an autonym, so a reader
 // who typed "Sylheti" for two years goes on seeing "Sylheti" whether or not it is
@@ -48,54 +54,64 @@
 export const LANGUAGES = [
   // Latin
   { code: 'en', name: 'English', autonym: 'English', script: 'latin' },
-  { code: 'es', name: 'Spanish', autonym: 'español', script: 'latin' },
-  { code: 'fr', name: 'French', autonym: 'français', script: 'latin' },
+  { code: 'es', name: 'Spanish', autonym: 'español', script: 'latin', mark: 'ñ' },
+  { code: 'fr', name: 'French', autonym: 'français', script: 'latin', mark: 'œ' },
   { code: 'pt', name: 'Portuguese', autonym: 'português', script: 'latin' },
   { code: 'it', name: 'Italian', autonym: 'italiano', script: 'latin' },
-  { code: 'de', name: 'German', autonym: 'Deutsch', script: 'latin' },
+  { code: 'de', name: 'German', autonym: 'Deutsch', script: 'latin', mark: 'ß' },
   { code: 'nl', name: 'Dutch', autonym: 'Nederlands', script: 'latin' },
   { code: 'sv', name: 'Swedish', autonym: 'svenska', script: 'latin' },
   { code: 'no', name: 'Norwegian', autonym: 'norsk', script: 'latin' },
   { code: 'da', name: 'Danish', autonym: 'dansk', script: 'latin' },
   { code: 'fi', name: 'Finnish', autonym: 'suomi', script: 'latin' },
-  { code: 'is', name: 'Icelandic', autonym: 'íslenska', script: 'latin' },
-  { code: 'pl', name: 'Polish', autonym: 'polski', script: 'latin' },
-  { code: 'cs', name: 'Czech', autonym: 'čeština', script: 'latin' },
-  { code: 'sk', name: 'Slovak', autonym: 'slovenčina', script: 'latin' },
-  { code: 'hu', name: 'Hungarian', autonym: 'magyar', script: 'latin' },
-  { code: 'ro', name: 'Romanian', autonym: 'română', script: 'latin' },
+  { code: 'is', name: 'Icelandic', autonym: 'íslenska', script: 'latin', mark: 'þ' },
+  { code: 'pl', name: 'Polish', autonym: 'polski', script: 'latin', mark: 'ł' },
+  { code: 'cs', name: 'Czech', autonym: 'čeština', script: 'latin', mark: 'ř' },
+  { code: 'sk', name: 'Slovak', autonym: 'slovenčina', script: 'latin', mark: 'ľ' },
+  { code: 'hu', name: 'Hungarian', autonym: 'magyar', script: 'latin', mark: 'ő' },
+  { code: 'ro', name: 'Romanian', autonym: 'română', script: 'latin', mark: 'ț' },
   { code: 'hr', name: 'Croatian', autonym: 'hrvatski', script: 'latin' },
   { code: 'sl', name: 'Slovenian', autonym: 'slovenščina', script: 'latin' },
-  { code: 'sq', name: 'Albanian', autonym: 'shqip', script: 'latin' },
-  { code: 'lt', name: 'Lithuanian', autonym: 'lietuvių', script: 'latin' },
-  { code: 'lv', name: 'Latvian', autonym: 'latviešu', script: 'latin' },
+  { code: 'sq', name: 'Albanian', autonym: 'shqip', script: 'latin', mark: 'ë' },
+  { code: 'lt', name: 'Lithuanian', autonym: 'lietuvių', script: 'latin', mark: 'ė' },
+  { code: 'lv', name: 'Latvian', autonym: 'latviešu', script: 'latin', mark: 'ķ' },
   { code: 'et', name: 'Estonian', autonym: 'eesti', script: 'latin' },
-  { code: 'tr', name: 'Turkish', autonym: 'Türkçe', script: 'latin' },
-  { code: 'az', name: 'Azerbaijani', autonym: 'azərbaycan', script: 'latin' },
+  { code: 'tr', name: 'Turkish', autonym: 'Türkçe', script: 'latin', mark: 'ğ' },
+  { code: 'az', name: 'Azerbaijani', autonym: 'azərbaycan', script: 'latin', mark: 'ə' },
   { code: 'uz', name: 'Uzbek', autonym: 'oʻzbekcha', script: 'latin' },
-  { code: 'vi', name: 'Vietnamese', autonym: 'Tiếng Việt', script: 'latin' },
+  { code: 'vi', name: 'Vietnamese', autonym: 'Tiếng Việt', script: 'latin', mark: 'ơ' },
   { code: 'id', name: 'Indonesian', autonym: 'Bahasa Indonesia', script: 'latin' },
   { code: 'ms', name: 'Malay', autonym: 'Bahasa Melayu', script: 'latin' },
   { code: 'tl', name: 'Tagalog', autonym: 'Tagalog', script: 'latin' },
   { code: 'sw', name: 'Swahili', autonym: 'Kiswahili', script: 'latin' },
-  { code: 'ha', name: 'Hausa', autonym: 'Hausa', script: 'latin' },
-  { code: 'yo', name: 'Yoruba', autonym: 'Yorùbá', script: 'latin' },
-  { code: 'ig', name: 'Igbo', autonym: 'Igbo', script: 'latin' },
+  { code: 'ha', name: 'Hausa', autonym: 'Hausa', script: 'latin', mark: 'ɓ' },
+  { code: 'yo', name: 'Yoruba', autonym: 'Yorùbá', script: 'latin', mark: 'ṣ' },
+  { code: 'ig', name: 'Igbo', autonym: 'Igbo', script: 'latin', mark: 'ị' },
   { code: 'zu', name: 'Zulu', autonym: 'isiZulu', script: 'latin' },
   { code: 'af', name: 'Afrikaans', autonym: 'Afrikaans', script: 'latin' },
   { code: 'ca', name: 'Catalan', autonym: 'català', script: 'latin' },
   { code: 'eu', name: 'Basque', autonym: 'euskara', script: 'latin' },
-  { code: 'gl', name: 'Galician', autonym: 'galego', script: 'latin' },
+  { code: 'gl', name: 'Galician', autonym: 'galego', script: 'latin', mark: 'x' },
   { code: 'ga', name: 'Irish', autonym: 'Gaeilge', script: 'latin' },
-  { code: 'cy', name: 'Welsh', autonym: 'Cymraeg', script: 'latin' },
+  { code: 'cy', name: 'Welsh', autonym: 'Cymraeg', script: 'latin', mark: 'ŵ' },
   { code: 'la', name: 'Latin', autonym: 'Latina', script: 'latin' },
-  { code: 'eo', name: 'Esperanto', autonym: 'Esperanto', script: 'latin' },
+  { code: 'eo', name: 'Esperanto', autonym: 'Esperanto', script: 'latin', mark: 'ŭ' },
+  { code: 'gd', name: 'Scottish Gaelic', autonym: 'Gàidhlig', script: 'latin' },
+  { code: 'mi', name: 'Maori', autonym: 'Māori', script: 'latin', mark: 'ā' },
+  { code: 'qu', name: 'Quechua', autonym: 'Runasimi', script: 'latin', mark: 'q' },
+  // THE ONE THREE-LETTER CODE, and the reason it is allowed is the standard's own.
+  // Maa has no ISO 639-1 code — it is `mas` in 639-3 — and BCP 47 (RFC 5646 §2.2.1)
+  // says a primary language subtag is the SHORTEST AVAILABLE code: 639-1 where one
+  // exists, 639-3 where one does not. So refusing a three-letter row would not be
+  // stricter about the standard, it would be wrong about it, and it would lose a
+  // language for a reason that has nothing to do with the language.
+  { code: 'mas', name: 'Maasai', autonym: 'Maa', script: 'latin', mark: 'ɔ' },
 
   // Indic — the block this library is most likely to be full of.
   { code: 'bn', name: 'Bengali', autonym: 'বাংলা', script: 'bengali' },
-  { code: 'as', name: 'Assamese', autonym: 'অসমীয়া', script: 'bengali' },
+  { code: 'as', name: 'Assamese', autonym: 'অসমীয়া', script: 'bengali', mark: 'ৰ' },
   { code: 'hi', name: 'Hindi', autonym: 'हिन्दी', script: 'devanagari' },
-  { code: 'mr', name: 'Marathi', autonym: 'मराठी', script: 'devanagari' },
+  { code: 'mr', name: 'Marathi', autonym: 'मराठी', script: 'devanagari', mark: 'ळ' },
   { code: 'ne', name: 'Nepali', autonym: 'नेपाली', script: 'devanagari' },
   { code: 'sa', name: 'Sanskrit', autonym: 'संस्कृतम्', script: 'devanagari' },
   { code: 'gu', name: 'Gujarati', autonym: 'ગુજરાતી', script: 'gujarati' },
@@ -109,22 +125,22 @@ export const LANGUAGES = [
 
   // Arabic script
   { code: 'ar', name: 'Arabic', autonym: 'العربية', script: 'arabic' },
-  { code: 'ur', name: 'Urdu', autonym: 'اردو', script: 'arabic' },
-  { code: 'fa', name: 'Persian', autonym: 'فارسی', script: 'arabic' },
-  { code: 'ps', name: 'Pashto', autonym: 'پښتو', script: 'arabic' },
-  { code: 'sd', name: 'Sindhi', autonym: 'سنڌي', script: 'arabic' },
+  { code: 'ur', name: 'Urdu', autonym: 'اردو', script: 'arabic', mark: 'ے' },
+  { code: 'fa', name: 'Persian', autonym: 'فارسی', script: 'arabic', mark: 'پ' },
+  { code: 'ps', name: 'Pashto', autonym: 'پښتو', script: 'arabic', mark: 'ښ' },
+  { code: 'sd', name: 'Sindhi', autonym: 'سنڌي', script: 'arabic', mark: 'ڌ' },
 
   // Cyrillic
-  { code: 'ru', name: 'Russian', autonym: 'Русский', script: 'cyrillic' },
-  { code: 'uk', name: 'Ukrainian', autonym: 'Українська', script: 'cyrillic' },
-  { code: 'be', name: 'Belarusian', autonym: 'беларуская', script: 'cyrillic' },
+  { code: 'ru', name: 'Russian', autonym: 'Русский', script: 'cyrillic', mark: 'Ж' },
+  { code: 'uk', name: 'Ukrainian', autonym: 'Українська', script: 'cyrillic', mark: 'ї' },
+  { code: 'be', name: 'Belarusian', autonym: 'беларуская', script: 'cyrillic', mark: 'ў' },
   { code: 'bg', name: 'Bulgarian', autonym: 'български', script: 'cyrillic' },
-  { code: 'sr', name: 'Serbian', autonym: 'српски', script: 'cyrillic' },
-  { code: 'mk', name: 'Macedonian', autonym: 'македонски', script: 'cyrillic' },
-  { code: 'mn', name: 'Mongolian', autonym: 'Монгол', script: 'cyrillic' },
-  { code: 'kk', name: 'Kazakh', autonym: 'қазақ тілі', script: 'cyrillic' },
+  { code: 'sr', name: 'Serbian', autonym: 'српски', script: 'cyrillic', mark: 'ђ' },
+  { code: 'mk', name: 'Macedonian', autonym: 'македонски', script: 'cyrillic', mark: 'ѓ' },
+  { code: 'mn', name: 'Mongolian', autonym: 'Монгол', script: 'cyrillic', mark: 'ө' },
+  { code: 'kk', name: 'Kazakh', autonym: 'қазақ тілі', script: 'cyrillic', mark: 'ә' },
   { code: 'ky', name: 'Kyrgyz', autonym: 'кыргызча', script: 'cyrillic' },
-  { code: 'tg', name: 'Tajik', autonym: 'тоҷикӣ', script: 'cyrillic' },
+  { code: 'tg', name: 'Tajik', autonym: 'тоҷикӣ', script: 'cyrillic', mark: 'ҷ' },
 
   // East and Southeast Asian
   { code: 'zh', name: 'Chinese', autonym: '中文', script: 'han' },
@@ -134,11 +150,12 @@ export const LANGUAGES = [
   { code: 'lo', name: 'Lao', autonym: 'ລາວ', script: 'lao' },
   { code: 'km', name: 'Khmer', autonym: 'ខ្មែរ', script: 'khmer' },
   { code: 'my', name: 'Burmese', autonym: 'မြန်မာ', script: 'myanmar' },
+  { code: 'iu', name: 'Inuktitut', autonym: 'ᐃᓄᒃᑎᑐᑦ', script: 'syllabics' },
 
   // Their own scripts
-  { code: 'el', name: 'Greek', autonym: 'Ελληνικά', script: 'greek' },
+  { code: 'el', name: 'Greek', autonym: 'Ελληνικά', script: 'greek', mark: 'Σ' },
   { code: 'he', name: 'Hebrew', autonym: 'עברית', script: 'hebrew' },
-  { code: 'yi', name: 'Yiddish', autonym: 'ייִדיש', script: 'hebrew' },
+  { code: 'yi', name: 'Yiddish', autonym: 'ייִדיש', script: 'hebrew', mark: 'ײ' },
   { code: 'hy', name: 'Armenian', autonym: 'Հայերեն', script: 'armenian' },
   { code: 'ka', name: 'Georgian', autonym: 'ქართული', script: 'georgian' },
   { code: 'am', name: 'Amharic', autonym: 'አማርኛ', script: 'ethiopic' },
@@ -160,7 +177,7 @@ const fold = (s) => String(s || '').trim().toLowerCase()
 // THIS APP'S HISTORY, not about the language: nothing outside these lines should
 // have to know that a name was once spelled differently here. The one-time upgrade
 // that folds free-text languages onto codes reads the same map.
-const ALIASES = { mandarin: 'zh' }
+const ALIASES = { mandarin: 'zh', masai: 'mas', inuktut: 'iu' }
 
 // THE THREE WAYS A STORED VALUE CAN NAME A LANGUAGE, and all three have to work
 // because all three are already in somebody's library: the code (`bn`), the English
@@ -258,17 +275,60 @@ export function scriptOf(value) {
 // FEWER GLYPHS IS THE RIGHT PRICE. An abugida has fewer standalone letters in a
 // short word than a Latin alphabet does, so some rows offer two where English offers
 // four — which is honest, and better than four where two of them are unreadable.
-const standalone = (r) => !/[\s\p{P}\p{M}]/u.test(r)
+const standalone = (r) => !/[\s\p{P}\p{M}\p{Lm}]/u.test(r)
 
 const claimed = new Map() // script -> Set of folded runes
 const marks = new Map() // code -> mark
 
+// A ROW'S OWN `mark` WINS, AND EVERY ONE OF THEM IS CLAIMED BEFORE ANYTHING IS
+// DERIVED. Otherwise a language earlier in the list could derive ñ off its autonym
+// and Spanish would arrive to find its own letter taken — the explicit answer losing
+// to a guess, which is the wrong way round and would depend on list order to boot.
 for (const l of LANGUAGES) {
+  if (!l.mark) continue
+  if (!claimed.has(l.script)) claimed.set(l.script, new Set())
+  claimed.get(l.script).add(l.mark.toLowerCase())
+  marks.set(l.code, l.mark)
+}
+
+const freeRune = (word, taken) =>
+  [...word].filter(standalone).find((r) => !taken.has(r.toLowerCase())) || ''
+
+// EVERY LETTER THE SCRIPT'S OWN LANGUAGES ACTUALLY WRITE, in list order. Derived
+// from the autonyms rather than typed out, so adding a language adds its letters to
+// the pool and nothing has to be kept in step.
+const alphabet = (script) =>
+  LANGUAGES.filter((l) => l.script === script).flatMap((l) => [...l.autonym]).filter(standalone)
+
+// THE AUTONYM CAN RUN OUT, AND THE OLD LAST RESORT LIED ABOUT IT. Every rune of
+// galego — g, a, l, e, o — is already some other Latin language's mark by the time
+// Galician is reached, and the fallback was `usable[0]`, which took g whether or not
+// Tagalog had it. That silently broke the one thing this tie-break exists for: at
+// 8dc0a259 SIX pairs shared a mark (sk/es, lv/pl, zu/it, eu/et, gl/tl, eo/en) while
+// the comment above said they could not, and only a script that printed every mark
+// and compared them found it. The uniqueness test below is that script, kept.
+//
+// The English name is searched next, and ONLY for a Latin-script language, because
+// "Galician" is in the same script as "galego" while "Bengali" is not in the same
+// script as বাংলা. Taking a Latin G for a Bengali-script language is the
+// confidently-wrong answer this file exists to refuse.
+//
+// AND THE LAST RESORT IS THE SCRIPT'S OWN ALPHABET, because Latin has twenty-six
+// letters and this list has forty-three languages written in it — exhaustion is
+// structural there, not bad luck, and both galego and oʻzbekcha hit it. A letter
+// nothing in the language's own name offers is not evocative, and that is the right
+// trade: a mark that says little is a mark, and two boards wearing the SAME letter
+// is not. Ordered by the list so it is stable, and drawn from the autonyms so a new
+// language widens the pool without anyone maintaining one.
+for (const l of LANGUAGES) {
+  if (marks.has(l.code)) continue
   if (!claimed.has(l.script)) claimed.set(l.script, new Set())
   const taken = claimed.get(l.script)
   const runes = [...l.autonym]
-  const usable = runes.filter(standalone)
-  const pick = usable.find((r) => !taken.has(r.toLowerCase())) || usable[0] || runes[0] || ''
+  const pick = freeRune(l.autonym, taken)
+    || (l.script === 'latin' ? freeRune(l.name, taken) : '')
+    || alphabet(l.script).find((r) => !taken.has(r.toLowerCase()))
+    || runes.filter(standalone)[0] || runes[0] || ''
   taken.add(pick.toLowerCase())
   marks.set(l.code, pick)
 }
@@ -277,6 +337,26 @@ for (const l of LANGUAGES) {
 // '' for a language this file has never heard of — the caller falls back to whatever
 // it fell back to before, which for a proverb card is the first rune of what the
 // reader typed.
+//
+// NOT COLLIDING IS NOT THE SAME AS IDENTIFYING, and this file shipped believing it
+// was. The owner, on the answer the derivation gave: "Bengali ব vs Assamese অ,
+// assamese should get their r, that is uniquely assamese. Same for all languages."
+// অ is the first letter of অসমীয়া, so the derivation was working; it is also the
+// first vowel of the script BOTH languages write, so the tile said "a Bengali-script
+// language that is not Bengali" and stopped there.
+//
+// SO A ROW MAY NAME ITS OWN LETTER, and where it does that letter is one no other
+// listed language of its script writes: ৰ where Bengali writes র, ښ for Pashto, ѓ
+// for Macedonian, ß for German. Roughly half the list has one. A language that
+// genuinely has no letter of its own — Nepali and Hindi share an alphabet entirely,
+// and Galician shares Spanish's — keeps the derivation, which is the honest answer
+// rather than a letter invented to look decisive.
+//
+// BENGALI KEEPS ব RATHER THAN TAKING র, WHICH IS ALSO ITS OWN. The principled pair
+// would be (র, ৰ) — and those differ by one short diagonal, so two covers a reader
+// cannot tell apart at 22px, which is the same failure arrived at from the other
+// side. ব is the first letter of বাংলা and shares no shape with ৰ. Where the letter
+// that is technically unique is visually a twin, the legible one wins.
 export function markFor(value) {
   const l = languageFor(value)
   return (l && marks.get(l.code)) || ''
