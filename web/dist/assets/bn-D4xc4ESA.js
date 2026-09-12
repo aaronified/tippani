@@ -2379,6 +2379,8 @@ anthologies.form.fields.commentary.label = আপনার নিজের ক�
 anthologies.form.fields.colour.label = রঙের পটি
 anthologies.form.fields.work.label = বই বা ছবি থেকে
 anthologies.form.fields.work.hint = না বললে দেখাবে না। যে তথ্য যার বইয়ে আছে, শুধু সেটুকুই আসবে।
+anthologies.form.fields.person.label = যিনি বলেছেন, তাঁর কথা
+anthologies.form.fields.person.hint = যাঁদের রেকর্ড আপনার কাছে আছে, শুধু তাঁদেরটাই দেখাবে। বেশির ভাগেরই থাকবে না।
 
 anthologies.toast.deleted = সংকলন মোছা হয়েছে
 anthologies.toast.entry-removed = এন্ট্রি সরানো হয়েছে

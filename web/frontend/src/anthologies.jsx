@@ -170,7 +170,28 @@ const WORK_SWITCHES = [
   { key: 'media_type', work: true, label: 'common.field.media-type.label' },
 ]
 
-const ALL_SWITCHES = [...FIELD_SWITCHES, ...WORK_SWITCHES]
+// PERSON_SWITCHES — the life behind the name (0074). Whoever is answerable for the
+// passage: a book's author, a film line's actor, a standalone quote's speaker.
+//
+// THE ONLY GROUP ALL THREE KINDS CAN SHOW. Everything in WORK_SWITCHES needs a
+// parent work and a standalone quote has none, so this is the first thing a proverb
+// or a speech can print beyond its own attribution.
+//
+// A MISS IS THE ORDINARY STATE. `people` matches by exact name and a row exists
+// only where somebody looked the name up, so most entries show nothing here. The
+// line is simply absent for them — see personLine.
+const PERSON_SWITCHES = [
+  { key: 'bio', work: true, label: 'common.field.bio.label' },
+  { key: 'born', work: true, label: 'common.field.born.label' },
+  { key: 'died', work: true, label: 'common.field.died.label' },
+  { key: 'links', work: true, label: 'common.field.links.label' },
+]
+
+// `work: true` ON A PERSON ROW READS ODD AND IS RIGHT: the flag means "stored in
+// the `fields` object", not "read off the work". Everything added after 0045 lives
+// there whatever it reads from, and giving the two questions one flag each would be
+// a second thing to keep true for a distinction the form never makes.
+const ALL_SWITCHES = [...FIELD_SWITCHES, ...WORK_SWITCHES, ...PERSON_SWITCHES]
 
 // shown / stored — the two directions of that inversion, named so a reader of this
 // file can see there is exactly one of each. A work row has no inversion to do:
@@ -188,7 +209,7 @@ const splitFlags = (flags) => {
   const body = {}
   const fields = {}
   for (const row of FIELD_SWITCHES) body[row.key] = !!flags[row.key]
-  for (const row of WORK_SWITCHES) if (flags[row.key]) fields[row.key] = true
+  for (const row of [...WORK_SWITCHES, ...PERSON_SWITCHES]) if (flags[row.key]) fields[row.key] = true
   body.fields = fields
   return body
 }
@@ -200,6 +221,16 @@ const splitFlags = (flags) => {
 const workLine = (entry, fields = {}) =>
   WORK_SWITCHES.filter((row) => fields?.[row.key] && entry.work?.[row.key])
     .map((row) => entry.work[row.key])
+    .join(' · ')
+
+// personLine is the same rule over the `people` row. A SEPARATE LINE and not more
+// values on the work line, because they answer different questions — one is about
+// the book, the other about whoever wrote it — and a bio is a sentence rather than
+// a field, so running it in after "Parnassus Press · 1968" would read as one long
+// caption with a paragraph buried in it.
+const personLine = (entry, fields = {}) =>
+  PERSON_SWITCHES.filter((row) => fields?.[row.key] && entry.person?.[row.key])
+    .map((row) => entry.person[row.key])
     .join(' · ')
 
 // FieldSwitch is one row of either list. ONE COMPONENT AND NOT TWO COPIES: the
@@ -307,6 +338,17 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
         <p className="microcopy mt-0.5 mb-2">{t('anthologies.form.fields.work.hint')}</p>
         <div className="space-y-2.5">
           {WORK_SWITCHES.map((row) => (
+            <FieldSwitch key={row.key} row={row} flags={flags} setFlags={setFlags} />
+          ))}
+        </div>
+        {/* AND THE PERSON BEHIND IT — its own heading for the same reason as the
+            one above: "should this print the author's dates" is not the same
+            question as "should this print the publisher", and the answer for an
+            anthology of speeches is often yes to one and no to the other. */}
+        <MonoLabel className="mt-4 block">{t('anthologies.form.fields.person.label')}</MonoLabel>
+        <p className="microcopy mt-0.5 mb-2">{t('anthologies.form.fields.person.hint')}</p>
+        <div className="space-y-2.5">
+          {PERSON_SWITCHES.map((row) => (
             <FieldSwitch key={row.key} row={row} flags={flags} setFlags={setFlags} />
           ))}
         </div>
@@ -642,6 +684,12 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
               when both its halves are switched off. */}
           {workLine(entry, fields.fields) ? (
             <p className="microcopy mt-1 opacity-80">{workLine(entry, fields.fields)}</p>
+          ) : null}
+          {/* AND WHO IS ANSWERABLE FOR IT. Absent for most entries, because a
+              `people` row exists only where somebody looked the name up — which is
+              why this draws nothing rather than an empty line or a placeholder. */}
+          {personLine(entry, fields.fields) ? (
+            <p className="microcopy mt-1 opacity-80">{personLine(entry, fields.fields)}</p>
           ) : null}
           {/* The QUOTE's own note, which is a different thing from the entry's and
               can be non-empty at the same time: one is what the reader wrote when

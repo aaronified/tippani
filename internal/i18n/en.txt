@@ -2362,6 +2362,12 @@ anthologies.form.fields.colour.label = The colour bar
 anthologies.form.fields.work.label = From the book or film
 anthologies.form.fields.work.hint = Off unless you ask. A passage shows only what its own work knows.
 
+# AND THE PERSON BEHIND IT (0074) — the author, the actor, the speaker. Matched by
+# name against the people you have records for, so most passages show nothing here
+# and that is the ordinary state rather than a gap: the hint says so plainly.
+anthologies.form.fields.person.label = About who said it
+anthologies.form.fields.person.hint = Shown where you have a record of that person. Most will not have one.
+
 anthologies.toast.deleted = anthology deleted
 anthologies.toast.entry-removed = entry removed
 

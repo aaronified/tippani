@@ -324,4 +324,28 @@ describe('the fields a work lends its passages', () => {
     // And the line is drawn once, on the entry that owns it.
     expect(screen.getAllByText('Parnassus Press · 1968')).toHaveLength(1)
   })
+
+  it('draws the person on its own line, and nothing where there is no record', async () => {
+    DETAIL = {
+      anthology: { id: 1, title: 'On keeping quiet', intro: '', entries: 2, fields: { bio: true, born: true } },
+      entries: [
+        entry('book', 2, 1, '', 'Quiet is the presence of attention.', {
+          // `died` is on the record and switched OFF — the row carries everything so
+          // the view can honour a switch without refetching, which means "sent" and
+          // "shown" are two different things and only a test can tell them apart.
+          person: { bio: 'Wrote about anarchism and dragons.', born: '1929', died: '2018' },
+        }),
+        entry('utterance', 4, 2, '', 'Least said, soonest mended.', { work_id: 0, source: '', credit: 'Anon' }),
+      ],
+    }
+    open()
+    await screen.findByText('Quiet is the presence of attention.')
+    expect(screen.getByText('Wrote about anarchism and dragons. · 1929')).toBeTruthy()
+    expect(screen.queryByText(/2018/)).toBeNull()
+    // A SEPARATE LINE FROM THE WORK'S, which is why this is asserted as one string
+    // rather than by presence: a bio run in after a publisher would read as one
+    // caption with a paragraph buried in it.
+    const bare = screen.getByText('Least said, soonest mended.').closest('div')
+    expect(bare.textContent).not.toContain('anarchism')
+  })
 })

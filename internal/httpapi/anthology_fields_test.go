@@ -478,3 +478,70 @@ func TestAFieldNameTheRegistryDoesNotKnowIsDropped(t *testing.T) {
 		t.Errorf("a 0045 column was mirrored into the fields blob: %+v", got.Anthology.Extra)
 	}
 }
+
+// THE PERSON JOIN (0074) — the life behind the name, which is the first group of
+// fields a STANDALONE QUOTE can show: everything in the work join needs a parent
+// work and a proverb has none.
+//
+// THE MISS IS THE CLAIM WORTH TESTING. `people` matches by exact name and a row
+// exists only where somebody looked that name up, so most entries have none. A
+// second entry whose speaker has no record is in here for that reason: the failure
+// this guards is not "the bio is missing" but "the bio from the entry above it is
+// printed under this one", which a single-entry test cannot see.
+func TestThePersonBehindAPassage(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	c.mustDo("PUT", "/people", map[string]any{
+		"kind": "author", "name": "Ursula K. Le Guin",
+		"bio": "Wrote about anarchism and dragons.", "born": "1929", "died": "2018",
+	}, http.StatusOK)
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "A Wizard of Earthsea", "author": "Ursula K. Le Guin",
+	}, http.StatusCreated))
+	ann := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "Only in silence the word,",
+	}, http.StatusCreated))
+	// A speaker with NO record — the ordinary case.
+	utt := newUtterance(t, c, map[string]any{
+		"quote": "The sea is not a thing.", "speaker": "Someone Unrecorded",
+	})
+
+	a := newAnthology(t, c, "Silence")
+	addEntries(t, c, a.ID, []map[string]any{
+		{"kind": "book", "item_id": ann.ID},
+		{"kind": "utterance", "item_id": utt.ID},
+	})
+	setFields(t, c, a.ID, "Silence", map[string]any{
+		"fields": map[string]any{"bio": true, "born": true},
+	})
+
+	got := getAnthology(t, c, a.ID)
+	if p := got.Entries[0].Person; p["bio"] != "Wrote about anarchism and dragons." || p["born"] != "1929" {
+		t.Errorf("the author's record did not reach the entry: %+v", p)
+	}
+	// DIED IS IN THE RECORD AND SWITCHED OFF, so it must be joined and not written.
+	// Sent on the row — the reading view honours a switch without refetching — and
+	// absent from the file.
+	if p := got.Entries[0].Person; p["died"] != "2018" {
+		t.Errorf("the row should carry every field it has, switch or no switch: %+v", p)
+	}
+	if p := got.Entries[1].Person; len(p) != 0 {
+		t.Errorf("a speaker with no record carried a person: %+v", p)
+	}
+
+	md := exportAnthology(t, c, a.ID)
+	if !strings.Contains(md, "- bio: Wrote about anarchism and dragons.") {
+		t.Errorf("the bio did not reach the file:\n%s", md)
+	}
+	if !strings.Contains(md, "- born: 1929") {
+		t.Errorf("the birth year did not reach the file:\n%s", md)
+	}
+	if strings.Contains(md, "- died:") {
+		t.Errorf("a switched-off field was written:\n%s", md)
+	}
+	// Once, on the entry that owns it — not on the quote whose speaker has no row.
+	if n := strings.Count(md, "- bio:"); n != 1 {
+		t.Errorf("bio written %d times over two entries, want 1:\n%s", n, md)
+	}
+}

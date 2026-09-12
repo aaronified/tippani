@@ -160,7 +160,10 @@ func (f anthologyFields) shows(key string) bool {
 	if !ok {
 		return false
 	}
-	if def.fromWork() {
+	// `stored` AND NOT `fromWork`: the question here is WHERE THE SWITCH LIVES, not
+	// where the value comes from. They were the same predicate while every field
+	// past 0045 was a work field, and the person fields are the reason they are not.
+	if def.stored() {
 		return f.Extra[key]
 	}
 	switch key {
@@ -235,6 +238,16 @@ type anthologyEntryRow struct {
 	// when there is no kind — see the query, and quoteKindMeta on the client, which
 	// is the same fallback the cards use.
 	QuoteKind string `json:"quote_kind"`
+	// PersonName is whose record to look up in `people` — the author, the actor or
+	// the speaker, depending on the kind. NOT SENT: it is a join key, and what the
+	// client renders is Person below. The Credit beside it is a joined string and
+	// cannot be matched against a table that keys on an exact name.
+	PersonName string `json:"-"`
+	// Person is that record's fields, keyed by registry key, carrying only what is
+	// actually filled in. Absent where no `people` row matches the name, which is
+	// the ORDINARY case and not an error: a person row exists only where somebody
+	// looked the name up or typed it in.
+	Person map[string]string `json:"person,omitempty"`
 	// Work is everything the parent book or film knows, keyed by registry key and
 	// carrying only the fields that work actually has a value for (0074). Absent
 	// entirely for a standalone quote, which has no parent.
@@ -410,7 +423,16 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		                 THEN CASE WHEN COALESCE(a.chapter_no,0) <> 0 OR COALESCE(a.chapter,'') <> ''
 		                           THEN ' · ' ELSE '' END || a.location
 		                 ELSE '' END),
-		       DATE(COALESCE(NULLIF(TRIM(COALESCE(a.noted_at,'')), ''), a.created_at)), '', ''
+		       DATE(COALESCE(NULLIF(TRIM(COALESCE(a.noted_at,'')), ''), a.created_at)), '', '',
+		       -- WHOSE RECORD TO LOOK UP (0074). The Credit above is a joined STRING --
+		       -- "Fyodor Karamazov · Dostoevsky" -- and the people table matches a name
+		       -- verbatim, so the name has to travel on its own as well. A book's
+		       -- person is its AUTHOR, which mirrors what the Credit reads as when the
+		       -- highlight names no character.
+		       --
+		       -- NO BACKTICKS IN THIS COMMENT, and none anywhere in this string: it is
+		       -- a Go RAW string literal, so one would end the query here.
+		       COALESCE(b.author,'')
 		  FROM anthology_entries e
 		  JOIN annotations a ON a.id = e.item_id
 		  JOIN books b ON b.id = a.book_id
@@ -435,7 +457,11 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		              THEN ' · ' ELSE '' END ||
 		         COALESCE(d.timestamp,'')
 		       ),
-		       DATE(COALESCE(NULLIF(TRIM(COALESCE(d.noted_at,'')), ''), d.created_at)), '', ''
+		       DATE(COALESCE(NULLIF(TRIM(COALESCE(d.noted_at,'')), ''), d.created_at)), '', '',
+		       -- A film line's person is the ACTOR and not the director: the line was
+		       -- said by one of them, and people is one row per name either way. The
+		       -- director is a field of the WORK and has its own registry row.
+		       COALESCE(d.actor,'')
 		  FROM anthology_entries e
 		  JOIN dialogues d ON d.id = e.item_id
 		  JOIN movies m ON m.id = d.movie_id
@@ -459,7 +485,11 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		         THEN ' · ' ELSE '' END ||
 		         CASE WHEN COALESCE(u.kind,'') = '' THEN COALESCE(u.medium,'') ELSE '' END),
 		       DATE(COALESCE(NULLIF(TRIM(COALESCE(u.noted_at,'')), ''), u.created_at)),
-		       COALESCE(u.kind,''), COALESCE(u.work_title,'')
+		       COALESCE(u.kind,''), COALESCE(u.work_title,''),
+		       -- 0026 says it in the schema: "speaker matches people.name verbatim,
+		       -- the way books.author and dialogues.actor do -- free text, enriched by
+		       -- a people row when one exists, never a foreign key."
+		       COALESCE(u.speaker,'')
 		  FROM anthology_entries e
 		  JOIN utterances u ON u.id = e.item_id
 		 WHERE e.anthology_id = ? AND e.kind = 'utterance' AND u.user_id = ?
@@ -474,7 +504,7 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		var e anthologyEntryRow
 		if err := rows.Scan(&e.Kind, &e.ItemID, &e.Position, &e.Note,
 			&e.Quote, &e.QuoteNote, &e.Color, &e.Favorite, &e.Source, &e.Credit, &e.WorkID,
-			&e.Locator, &e.Date, &e.QuoteKind, &e.WorkTitle); err != nil {
+			&e.Locator, &e.Date, &e.QuoteKind, &e.WorkTitle, &e.PersonName); err != nil {
 			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] entry scan failed: %v", err)
 			continue
 		}
@@ -483,7 +513,10 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return out, s.attachWorkFields(uid, out)
+	if err := s.attachWorkFields(uid, out); err != nil {
+		return nil, err
+	}
+	return out, s.attachPersonFields(uid, out)
 }
 
 // attachWorkFields fills each entry's Work map — everything the BOOK or the FILM
@@ -526,6 +559,76 @@ func (s *Server) attachWorkFields(uid int64, out []anthologyEntryRow) error {
 	}
 	return s.readWorkFields(uid, kindScreen, byWork)
 }
+
+// attachPersonFields fills each entry's Person map from the `people` row whose name
+// matches the entry's author, actor or speaker (0074).
+//
+// THE NAME IS THE KEY AND THE MISS IS THE COMMON CASE. 0012 gave `people` a
+// UNIQUE(user_id, name) and 0026 says it in the utterances schema — "speaker
+// matches people.name verbatim… enriched by a people row when one exists, never a
+// foreign key". So an author nobody has looked up has no row, and this function
+// leaves that entry's Person nil. Reading that as an error, or drawing an empty
+// panel for it, would put a gap on the page for the ordinary state of a library.
+//
+// ONE QUERY OVER THE DISTINCT NAMES, not one per entry: thirty passages by one
+// author ask once. The map is keyed by name rather than by entry for the same
+// reason — the second passage by the same person is a lookup, not a read.
+func (s *Server) attachPersonFields(uid int64, out []anthologyEntryRow) error {
+	byName := map[string][]*anthologyEntryRow{}
+	for i := range out {
+		if n := strings.TrimSpace(out[i].PersonName); n != "" {
+			byName[n] = append(byName[n], &out[i])
+		}
+	}
+	if len(byName) == 0 {
+		return nil
+	}
+	args := []any{uid}
+	for name := range byName {
+		args = append(args, name)
+	}
+	rows, err := s.Store.DB.Query(
+		`SELECT name, COALESCE(bio,''), COALESCE(born,''), COALESCE(died,''), COALESCE(links,'')
+		   FROM people WHERE user_id = ? AND name IN (`+
+			strings.TrimSuffix(strings.Repeat("?,", len(args)-1), ",")+`)`, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		vals := make([]string, len(personFieldOrder))
+		targets := []any{&name}
+		for i := range vals {
+			targets = append(targets, &vals[i])
+		}
+		if err := rows.Scan(targets...); err != nil {
+			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] person scan failed: %v", err)
+			continue
+		}
+		m := map[string]string{}
+		for i, k := range personFieldOrder {
+			// Empty is LEFT OUT, as with the work fields: the map names what the
+			// record actually holds, so a renderer never has to tell "" from absent.
+			if vals[i] != "" {
+				m[k] = vals[i]
+			}
+		}
+		if len(m) == 0 {
+			continue
+		}
+		for _, e := range byName[name] {
+			e.Person = m
+		}
+	}
+	return rows.Err()
+}
+
+// personFieldOrder is the SELECT's column order above, as registry keys. It sits
+// next to nothing else on purpose: the two literals it has to agree with are three
+// lines apart, which is the only arrangement in which a column added to one and not
+// the other is visible rather than inferred.
+var personFieldOrder = []string{"bio", "born", "died", "links"}
 
 // workFieldQuery is the per-kind read, one row per work, columns in registry order.
 //

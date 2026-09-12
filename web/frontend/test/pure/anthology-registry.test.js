@@ -55,7 +55,13 @@ const jsList = (name) => {
 // registry key, so the six are mapped back before comparing. That mapping is the
 // `hide`/`show` prefix and nothing else — asserted below rather than assumed.
 const columnKeys = jsList('FIELD_SWITCHES')
+// The client splits what Go keeps in one list, because the FORM asks three
+// different questions — what the document shows, what the work knows, who is
+// answerable — and the registry only has to know where each field is stored. So
+// the comparison is against the union, and the split itself is asserted below.
 const workKeys = jsList('WORK_SWITCHES')
+const personKeys = jsList('PERSON_SWITCHES')
+const storedKeys = [...workKeys, ...personKeys]
 const unprefixed = (k) => k.replace(/^(hide|show)_/, '')
 
 describe('the two field lists name the same fields', () => {
@@ -66,6 +72,14 @@ describe('the two field lists name the same fields', () => {
     expect(goKeys.length).toBeGreaterThan(10)
     expect(columnKeys.length).toBe(6)
     expect(workKeys.length).toBeGreaterThan(0)
+    expect(personKeys.length).toBeGreaterThan(0)
+  })
+
+  it('splits the stored fields into two lists with nothing in both', () => {
+    // A key in WORK_SWITCHES and PERSON_SWITCHES would draw two toggles writing one
+    // flag: pressing either moves the other, which reads as the form fighting back.
+    const both = workKeys.filter((k) => personKeys.includes(k))
+    expect(both).toEqual([])
   })
 
   it('has the same six column-backed fields on both sides', () => {
@@ -73,9 +87,21 @@ describe('the two field lists name the same fields', () => {
     expect(columnKeys.map(unprefixed).sort()).toEqual(goCols)
   })
 
-  it('has the same work fields on both sides', () => {
-    const goWork = goRows.filter((r) => !r.col).map((r) => r.key).sort()
-    expect([...workKeys].sort()).toEqual(goWork)
+  it('has the same stored fields on both sides', () => {
+    const goStored = goRows.filter((r) => !r.col).map((r) => r.key).sort()
+    expect([...storedKeys].sort()).toEqual(goStored)
+  })
+
+  it('agrees with Go about which stored fields come off the person', () => {
+    // Go names them in `personFieldKeys` and the split decides which SELECT reads
+    // them; the client names them by which list they are in and the split decides
+    // which line they are drawn on. Either half naming a field the other does not
+    // is a field the form offers and the server never fills — a toggle that saves
+    // and then shows nothing, which looks like a broken record rather than a
+    // missing table row.
+    const body = GO.split('var personFieldKeys = map[string]bool{')[1].split('}')[0]
+    const goPerson = [...body.matchAll(/"([^"]+)"/g)].map((m) => m[1]).sort()
+    expect([...personKeys].sort()).toEqual(goPerson)
   })
 
   it('spells every column-backed switch hide_ or show_, and nothing else', () => {
@@ -89,9 +115,11 @@ describe('the two field lists name the same fields', () => {
     // A switch with no label draws an empty row, which is the sort of thing that
     // ships because the list still has the right LENGTH.
     const en = readFileSync(join(ROOT, 'internal', 'i18n', 'en.txt'), 'utf8')
-    const body = JSX.split('const WORK_SWITCHES = [')[1].split('\n]')[0]
-    const labels = [...body.matchAll(/\blabel:\s*'([^']+)'/g)].map((m) => m[1])
-    expect(labels.length).toBe(workKeys.length)
+    const labels = ['WORK_SWITCHES', 'PERSON_SWITCHES'].flatMap((name) => {
+      const body = JSX.split(`const ${name} = [`)[1].split('\n]')[0]
+      return [...body.matchAll(/\blabel:\s*'([^']+)'/g)].map((m) => m[1])
+    })
+    expect(labels.length).toBe(storedKeys.length)
     for (const key of labels) expect(en).toContain(`\n${key} = `)
   })
 })

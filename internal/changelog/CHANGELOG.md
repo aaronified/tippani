@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   already made reads and exports exactly as it did — and a passage shows only what its
   own work actually knows, so a film in a book anthology does not print a blank ISBN.
   What you see when you read it is still what you get when you export it.
+- **And it can print who is answerable for the passage.** Four more switches — the
+  biography, the birth and death years, and the links — taken from the record you have
+  for the book's author, the film line's actor, or the speaker of a standalone quote.
+  **This is the first thing a quote with no book and no film behind it can show**, since
+  everything else on that list needs a work to read from. Shown only where you actually
+  have a record of that person, which most passages will not have, and the line is
+  simply absent rather than blank when you do not.
 - **A large import shows how far it has got.** A 5 MB clippings file staging tens of
   thousands of highlights used to sit on "pending" from the first byte to the last, so
   there was no way to tell a slow upload from a stuck one. The drop target fills as the

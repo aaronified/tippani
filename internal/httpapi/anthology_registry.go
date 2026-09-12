@@ -97,9 +97,12 @@ type anthologyField struct {
 	// Kinds are the entry kinds this field can ever have a value for. A field is
 	// simply absent from an entry of another kind — not empty, not blank: absent.
 	Kinds []string
-	// Binding is the Markdown key it exports under. Never "" — a field that is
-	// shown and not written would break 0045's promise that the screen and the
-	// file are one document.
+	// Binding is the Markdown key it exports under, or "" for a field that is
+	// written some other way. Exactly one row is "" today: the commentary, which
+	// IS exported — as the entry's prose above the quote, where an anthology puts
+	// it — and so is not a `- key: value` line. "" means "not a binding", never
+	// "not written": a field that is shown and not written at all would break
+	// 0045's promise that the screen and the file are one document.
 	Binding string
 	// Label is the locale key the switch is drawn with. The six 0045 fields keep
 	// their own prose ("Who said it"), because they name parts of the DOCUMENT;
@@ -148,7 +151,42 @@ var anthologyRegistry = []anthologyField{
 	{Key: "isbn", Kinds: []string{kindBook}, Binding: "isbn", Label: "common.field.isbn.label"},
 	{Key: "pages", Kinds: []string{kindBook}, Binding: "pages", Label: "common.field.pages.label"},
 	{Key: "media_type", Kinds: []string{kindScreen}, Binding: "media_type", Label: "common.field.media-type.label"},
+
+	// THE PERSON JOIN. Whoever is answerable for the passage — the book's author,
+	// the film line's actor, the standalone quote's speaker — has a `people` row
+	// wherever somebody looked them up, and it holds a life the anthology has never
+	// been able to print.
+	//
+	// ALL THREE KINDS, unlike everything above it: a standalone quote has no parent
+	// work and DOES have a speaker, so this is the first group of fields a proverb
+	// or a speech can show.
+	//
+	// THE MATCH IS BY EXACT NAME AND THE MISS IS NORMAL. 0026 states it in the
+	// schema — "speaker matches people.name verbatim… free text, enriched by a
+	// people row when one exists, never a foreign key" — so an entry whose author
+	// nobody has looked up simply shows nothing here. That is not an error and must
+	// not read as one.
+	{Key: "bio", Kinds: allKinds, Binding: "bio", Label: "common.field.bio.label"},
+	{Key: "born", Kinds: allKinds, Binding: "born", Label: "common.field.born.label"},
+	{Key: "died", Kinds: allKinds, Binding: "died", Label: "common.field.died.label"},
+	{Key: "links", Kinds: allKinds, Binding: "links", Label: "common.field.links.label"},
 }
+
+// personFieldKeys are the registry rows read off the `people` row rather than off
+// the work. Named once here so `fromWork` stays the derivation it is and does not
+// become a three-way guess: a key in this set is a PERSON field, a key with a
+// column is a 0045 field, and everything else is a work field.
+var personFieldKeys = map[string]bool{"bio": true, "born": true, "died": true, "links": true}
+
+// PORTRAITS ARE NOT IN THAT LIST AND THE CAST JOIN IS NOT IN THIS COMMIT, which is
+// a scoping decision rather than an oversight. `people.image_path` and
+// `work_cast.image_url` are IMAGES, and the only renderer an anthology has today is
+// Markdown — where a portrait can only be written as a local path that means
+// nothing outside this install. A field whose exported form is useless is worse
+// than an absent one, because it is a promise on the form that the file does not
+// keep. Both belong with the EPUB writer, which can carry the bytes; the cast join
+// has no other field worth having (its `actor` column is the voice actor on a game
+// and is always empty on a book), so it goes there whole.
 
 // GENRES IS NOT IN THAT LIST AND THE REASON IS THE COLUMN, not the idea. Both
 // works tables carry `genre_text`, which is space-joined for FTS — "Fiction
@@ -168,10 +206,18 @@ func (f anthologyField) appliesTo(kind string) bool {
 }
 
 // fromWork says whether this field is read off the joined work rather than off the
-// entry row. It is derived from the row rather than stated on it: a field with no
-// 0045 column that is not one of the six IS a work field, and a second boolean
-// saying so is a second thing to keep true.
-func (f anthologyField) fromWork() bool { return f.Col == "" }
+// entry row or the person. Derived rather than stated: a second boolean saying so
+// is a second thing to keep true.
+func (f anthologyField) fromWork() bool { return f.Col == "" && !personFieldKeys[f.Key] }
+
+// fromPerson says whether it is read off the `people` row matched to the entry.
+func (f anthologyField) fromPerson() bool { return personFieldKeys[f.Key] }
+
+// stored says whether this field lives in the `fields` blob rather than in a column
+// of its own — which is every field added after 0045, whatever it reads from. The
+// two callers that care are `shows` and `encodeExtraFields`, and both were asking
+// `fromWork` before there was anything but work fields to ask about.
+func (f anthologyField) stored() bool { return f.Col == "" }
 
 // anthologyFieldByKey is the lookup, built once. A key that is not here is ignored
 // wherever it turns up — a stored `fields` array outliving a retired field must
@@ -198,7 +244,7 @@ func encodeExtraFields(on map[string]bool) string {
 	for k, v := range on {
 		// An unknown key is dropped rather than stored: the registry is the
 		// vocabulary, and a client inventing a name must not get it persisted.
-		if f, ok := anthologyFieldByKey[k]; v && ok && f.fromWork() {
+		if f, ok := anthologyFieldByKey[k]; v && ok && f.stored() {
 			keys = append(keys, k)
 		}
 	}
@@ -246,6 +292,9 @@ func decodeExtraFields(s string) map[string]bool {
 func anthologyFieldValue(e anthologyEntryRow, f anthologyField) string {
 	if f.fromWork() {
 		return e.Work[f.Key]
+	}
+	if f.fromPerson() {
+		return e.Person[f.Key]
 	}
 	switch f.Key {
 	case fieldCredit:
