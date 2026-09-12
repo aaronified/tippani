@@ -2354,6 +2354,14 @@ anthologies.form.fields.date.label = The day you saved it
 anthologies.form.fields.commentary.label = Your commentary
 anthologies.form.fields.colour.label = The colour bar
 
+# FROM THE WORK (0074). The six above are parts of the document; these are facts
+# about the book or the film the passage came out of, and they take the app's own
+# field names — Publisher, Year, ISBN — because that is what every other screen
+# calls them. All off by default, so an anthology nobody has configured reads and
+# exports exactly as it did before they existed.
+anthologies.form.fields.work.label = From the book or film
+anthologies.form.fields.work.hint = Off unless you ask. A passage shows only what its own work knows.
+
 anthologies.toast.deleted = anthology deleted
 anthologies.toast.entry-removed = entry removed
 

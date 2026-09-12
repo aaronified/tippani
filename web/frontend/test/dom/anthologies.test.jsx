@@ -121,9 +121,17 @@ describe('the anthology list', () => {
     // too: send the title alone and all six reset to their defaults, which reads to
     // the owner as a setting reverting by itself.
     //
-    // Asserted with toEqual rather than toMatchObject on purpose. A seventh switch
-    // added to the form and not to the submit body is exactly the bug this catches,
-    // and toMatchObject would pass through it.
+    // Asserted with toEqual rather than toMatchObject on purpose. A switch added to
+    // the form and not to the submit body is exactly the bug this catches, and
+    // toMatchObject would pass through it — which is how `fields` came to be in
+    // this list: 0074 added it, this assertion went red, and that is the whole
+    // point of the strict comparison.
+    //
+    // `fields: {}` IS SENT, EMPTY, and not omitted. The PUT is full-state, so an
+    // absent object and an empty one would have to mean the same thing on the
+    // server for an omission to be safe — and relying on that is how the next
+    // reader of this form discovers that turning every work switch back off does
+    // not persist.
     expect(post[2]).toEqual({
       title: 'On silence',
       intro: 'Because I keep finding it.',
@@ -133,6 +141,7 @@ describe('the anthology list', () => {
       hide_colour: false,
       show_locator: false,
       show_date: false,
+      fields: {},
     })
   })
 
@@ -260,5 +269,59 @@ describe('an anthology being read', () => {
     // The reference plus the note and nothing else: writing about one entry must not
     // resend the other twenty-nine.
     expect(put[2]).toEqual({ kind: 'book', item_id: 2, note: 'Rewritten.' })
+  })
+})
+
+// ── WHAT THE WORK KNOWS (0074). The switches were six and are eighteen, and the
+// eleven added live in a `fields` object rather than a column each. The two claims
+// worth a test are the two that fail silently: a switch that saves into the wrong
+// half of the body, and a reading view that prints a field the anthology was never
+// told to show.
+describe('the fields a work lends its passages', () => {
+  it('sends a work switch inside `fields` and never as a top-level key', async () => {
+    list()
+    await screen.findByText('On keeping quiet')
+    fireEvent.click(screen.getByText('New anthology'))
+    fireEvent.change(await screen.findByPlaceholderText('On grief'), { target: { value: 'Passages' } })
+    // The publisher row's own Show. Scoped through its label, because every row on
+    // this form draws the same Hide/Show pair and getByText('Show') would find the
+    // first of eighteen.
+    const row = screen.getByLabelText('Publisher').closest('div')
+    fireEvent.click(within(row).getByText('Show'))
+    fireEvent.click(screen.getByText('Create'))
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/anthologies')).toBe(true))
+    const body = CALLS.find(([m, p]) => m === 'POST' && p === '/anthologies')[2]
+    expect(body.fields).toEqual({ publisher: true })
+    // AND NOT ALSO AT THE TOP LEVEL, which is the shape the server would drop on
+    // the floor — the six columns are a closed set and `publisher` is not one.
+    expect(body.publisher).toBeUndefined()
+  })
+
+  it('prints only the work fields the anthology asked for, and nothing on a quote with no work', async () => {
+    DETAIL = {
+      anthology: { id: 1, title: 'On keeping quiet', intro: '', entries: 2, fields: { publisher: true, year: true } },
+      entries: [
+        entry('book', 2, 1, '', 'Quiet is the presence of attention.', {
+          // isbn is present on the WORK and switched OFF, which is the half a
+          // presence assertion cannot make: a view that drew everything the server
+          // sent would print it and still look right.
+          work: { publisher: 'Parnassus Press', year: '1968', isbn: '9780553383041' },
+        }),
+        entry('utterance', 4, 2, '', 'Least said, soonest mended.', { work_id: 0, source: '', credit: 'Anon' }),
+      ],
+    }
+    open()
+    await screen.findByText('Quiet is the presence of attention.')
+    expect(screen.getByText('Parnassus Press · 1968')).toBeTruthy()
+    expect(screen.queryByText(/9780553383041/)).toBeNull()
+    // The standalone quote has no work at all, so it draws no work line. Asserted
+    // on ITS OWN CARD rather than on the document, because every entry's
+    // attribution already reads "credit · source" — a document-wide search for a
+    // separator finds that and proves nothing.
+    const bare = screen.getByText('Least said, soonest mended.').closest('div')
+    expect(bare.textContent).not.toContain('1968')
+    expect(bare.textContent).not.toContain('Parnassus')
+    // And the line is drawn once, on the entry that owns it.
+    expect(screen.getAllByText('Parnassus Press · 1968')).toHaveLength(1)
   })
 })

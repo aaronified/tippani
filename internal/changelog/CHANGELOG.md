@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **An anthology can print what the book or the film knows.** Until now a passage in an
+  anthology could show six things — who said it, where it came from, the chapter or
+  timestamp, the day you saved it, your own commentary, and the colour bar. The work
+  behind it knew a great deal more and none of it ever reached the page. Eleven more
+  switches: the author, the director, the translator, the editor, the publisher, the
+  year, the series and its number, the subtitle, the ISBN, the page count, and whether
+  it is a film or a show. **Every one is off until you ask**, so an anthology you have
+  already made reads and exports exactly as it did — and a passage shows only what its
+  own work actually knows, so a film in a book anthology does not print a blank ISBN.
+  What you see when you read it is still what you get when you export it.
 - **A large import shows how far it has got.** A 5 MB clippings file staging tens of
   thousands of highlights used to sit on "pending" from the first byte to the last, so
   there was no way to tell a slow upload from a stuck one. The drop target fills as the

@@ -1,0 +1,34 @@
+-- 0074 — an anthology can show more than six things.
+--
+-- 0045 gave an anthology six switches, one column each: hide_credit, hide_source,
+-- hide_commentary, hide_colour, show_locator, show_date. They were the right six
+-- and they are not enough: an entry is joined to a work, and everything that work
+-- knows — who translated it, who published it, which year, which series, how many
+-- pages — reaches no part of the document the anthology exists to produce.
+--
+-- ONE COLUMN AND NOT ELEVEN MORE. The owner's answer to "which fields?" was
+-- EVERYTHING, and a column per switch is how that promise gets quietly capped at
+-- six again: the eleven below are the first tranche, the person and cast joins are
+-- the next, and an ALTER TABLE per field makes each of those a migration rather
+-- than a line in a list.
+--
+-- IT HOLDS THE KEYS THAT ARE **ON**, as a JSON array, sorted. Two consequences,
+-- both deliberate:
+--
+--   The zero value is '' — nothing extra shown — so an anthology nobody has
+--   touched exports byte for byte as it did before this column existed. That is
+--   the promise TestAnthologyFieldsDefaultToShowingWhatItAlwaysShowed holds, and
+--   it is why every field here defaults OFF while four of 0045's six default ON.
+--   The hide_/show_ asymmetry stops at the six; there is nothing to invert here.
+--
+--   Storing only the on keys means a field RETIRED from the registry leaves a
+--   name nobody reads rather than a column nobody drops. Reading it back is a
+--   lookup against the registry, so an unknown key is ignored rather than
+--   rendered.
+--
+-- WHY NOT A TABLE. anthology_fields(anthology_id, key) would be the normal answer
+-- and buys nothing here: nothing queries by field, nothing joins on one, and the
+-- whole value is read and written together with the row it belongs to. It would
+-- add a join to every read of an anthology to make a set of at most a few dozen
+-- flags addressable individually, which nothing asks for.
+ALTER TABLE anthologies ADD COLUMN fields TEXT NOT NULL DEFAULT '';

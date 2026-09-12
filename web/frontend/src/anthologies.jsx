@@ -113,17 +113,28 @@ export function useAnthologies() {
 // middle-click and "save link as" work on it.
 const exportHref = (id) => apiURL(`/anthologies/${id}/export`)
 
-// FIELD_SWITCHES — the six, in reading order rather than in column order, because
-// this is a list somebody reads top to bottom.
+// FIELD_SWITCHES — everything an entry can show, in reading order rather than in
+// column order, because this is a list somebody reads top to bottom.
 //
 // Each row names the THING and the toggle says whether it is shown, so the label
 // never has to be negated: a switch reading "Who said it — off" is legible in a way
 // "Hide who said it — on" is not. The `hide` flag is where the stored column is
 // inverted, and it is the only place that inversion lives.
 //
-// The columns are hide_* where the thing is shown today and show_* where it is not
-// (0045), so that every default is the zero value. That asymmetry stops here: the
-// form deals only in "shown".
+// The first six are 0045's columns — hide_* where the thing is shown today and
+// show_* where it is not, so that every default is the zero value. That asymmetry
+// stops here: the form deals only in "shown".
+//
+// `work: true` MARKS THE SECOND HOME. 0074 put everything after the six in one
+// `fields` object rather than a column each, so a row's flag is read out of
+// `initial.fields` and posted back inside `fields`. The key is the registry's own,
+// which is also the export's binding and the reading view's lookup — one spelling
+// from the switch to the file.
+//
+// THIS LIST AND THE GO REGISTRY ARE TWO TABLES SAYING ONE THING, which is a real
+// cost and the one the repo already pays for `addFields.js`. It is paid the same
+// way: `anthology-registry.test.js` reads anthology_registry.go and fails when
+// either list names a field the other does not.
 const FIELD_SWITCHES = [
   { key: 'hide_credit', hide: true, label: 'anthologies.form.fields.credit.label' },
   { key: 'hide_source', hide: true, label: 'anthologies.form.fields.source.label' },
@@ -133,10 +144,81 @@ const FIELD_SWITCHES = [
   { key: 'hide_colour', hide: true, label: 'anthologies.form.fields.colour.label' },
 ]
 
+// WORK_SWITCHES — what the book or the film the passage came out of knows (0074).
+//
+// A SECOND LIST AND NOT SIX MORE ROWS, because they are a different question. The
+// six above are parts of the DOCUMENT — whether it prints attributions, whether it
+// carries your marginalia. These are fields of the WORK, they are all off by
+// default, and they take the app's own field names (common.field.*) rather than
+// the six's hand-written prose, because "Publisher" is already what every other
+// screen calls it.
+//
+// AUTHOR AND DIRECTOR ARE TWO ROWS. They are the same idea and a single switch
+// would have to pick one of the two words, so an anthology of films would offer
+// "Author". A mixed anthology turns both on and each entry shows the one it has.
+const WORK_SWITCHES = [
+  { key: 'author', work: true, label: 'common.field.author.label' },
+  { key: 'director', work: true, label: 'common.field.director.label' },
+  { key: 'translator', work: true, label: 'common.field.translator.label' },
+  { key: 'editor', work: true, label: 'common.field.editor.label' },
+  { key: 'publisher', work: true, label: 'common.field.publisher.label' },
+  { key: 'year', work: true, label: 'common.field.year.label' },
+  { key: 'series', work: true, label: 'common.field.series.label' },
+  { key: 'subtitle', work: true, label: 'common.field.subtitle.label' },
+  { key: 'isbn', work: true, label: 'common.field.isbn.label' },
+  { key: 'pages', work: true, label: 'common.field.pages.label' },
+  { key: 'media_type', work: true, label: 'common.field.media-type.label' },
+]
+
+const ALL_SWITCHES = [...FIELD_SWITCHES, ...WORK_SWITCHES]
+
 // shown / stored — the two directions of that inversion, named so a reader of this
-// file can see there is exactly one of each.
+// file can see there is exactly one of each. A work row has no inversion to do:
+// every one of them is off at zero, which is what keeps a default export unchanged.
 const shown = (row, flags) => (row.hide ? !flags[row.key] : !!flags[row.key])
 const stored = (row, isShown) => (row.hide ? !isShown : isShown)
+
+// seeded reads a row's current value out of the anthology, from whichever of the
+// two homes it lives in. One function, so the split is stated once.
+const seeded = (row, a) => (row.work ? !!a?.fields?.[row.key] : !!a?.[row.key])
+
+// splitFlags turns the form's one flat map back into the shape the PUT takes: the
+// six at the top level where their columns are, the rest inside `fields`.
+const splitFlags = (flags) => {
+  const body = {}
+  const fields = {}
+  for (const row of FIELD_SWITCHES) body[row.key] = !!flags[row.key]
+  for (const row of WORK_SWITCHES) if (flags[row.key]) fields[row.key] = true
+  body.fields = fields
+  return body
+}
+
+// workLine is what an entry prints from its work: the switched-on fields it
+// actually has, in the list's own order, joined the way every other meta line on
+// this screen is. An entry with no work — a standalone quote — has nothing here,
+// and so does one whose work knows none of the chosen fields.
+const workLine = (entry, fields = {}) =>
+  WORK_SWITCHES.filter((row) => fields?.[row.key] && entry.work?.[row.key])
+    .map((row) => entry.work[row.key])
+    .join(' · ')
+
+// FieldSwitch is one row of either list. ONE COMPONENT AND NOT TWO COPIES: the
+// repo's directive is that a control drawn on two surfaces has one behaviour living
+// in one function, and a second copy here is how the work rows would quietly stop
+// honouring the hide/show inversion that the six still needed.
+function FieldSwitch({ row, flags, setFlags }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <MonoLabel>{t(row.label)}</MonoLabel>
+      <Toggle
+        ariaLabel={t(row.label)}
+        value={shown(row, flags) ? 'on' : 'off'}
+        onChange={(v) => setFlags((f) => ({ ...f, [row.key]: stored(row, v === 'on') }))}
+        options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
+      />
+    </div>
+  )
+}
 
 // AnthologyForm — new anthology, and editing one. Title, introduction, and what
 // each passage shows. The ENTRIES are not in the PUT (the server's own comment says
@@ -151,9 +233,12 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
   // The six as STORED, seeded from the row so an edit opens on what is set. A new
   // anthology starts at all-zero, which is "show everything except the locator and
   // the date" — exactly what an anthology looked like before 0045.
+  // ONE FLAT MAP IN THE FORM, two homes in the row. A switch is a switch while
+  // somebody is pressing it; where it is stored is splitFlags' problem and nothing
+  // in the rendering below has to know.
   const [flags, setFlags] = useState(() => {
     const out = {}
-    for (const row of FIELD_SWITCHES) out[row.key] = !!initial?.[row.key]
+    for (const row of ALL_SWITCHES) out[row.key] = seeded(row, initial)
     return out
   })
   const [error, setError] = useState('')
@@ -166,8 +251,10 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
     // EVERY FIELD, ALWAYS. The PUT is full-state — the fifth time this trap has
     // been laid in this app, see boards.jsx — so sending a renamed title without
     // the introduction beside it would silently delete the introduction, and
-    // sending it without the six switches would silently reset all six.
-    const msg = await onSubmit({ title: title.trim(), intro, ...flags })
+    // sending it without the switches would silently reset every one of them.
+    // `fields` is sent even when empty for exactly that reason: an omitted object
+    // and an empty one are the same wire value here, and the empty one is honest.
+    const msg = await onSubmit({ title: title.trim(), intro, ...splitFlags(flags) })
     setBusy(false)
     if (msg) setError(msg)
   }
@@ -208,15 +295,19 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
             never has to work out what "hide, off" means. */}
         <div className="space-y-2.5">
           {FIELD_SWITCHES.map((row) => (
-            <div key={row.key} className="flex items-center justify-between gap-3">
-              <MonoLabel>{t(row.label)}</MonoLabel>
-              <Toggle
-                ariaLabel={t(row.label)}
-                value={shown(row, flags) ? 'on' : 'off'}
-                onChange={(v) => setFlags((f) => ({ ...f, [row.key]: stored(row, v === 'on') }))}
-                options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
-              />
-            </div>
+            <FieldSwitch key={row.key} row={row} flags={flags} setFlags={setFlags} />
+          ))}
+        </div>
+        {/* FROM THE WORK (0074) — under its own heading rather than as five more
+            rows in the list above, because the question changes: everything above
+            is a part of the document, and everything here is a fact about the book
+            or the film. A reader scanning for "should this print the publisher"
+            should not have to read past "should this print my marginalia". */}
+        <MonoLabel className="mt-4 block">{t('anthologies.form.fields.work.label')}</MonoLabel>
+        <p className="microcopy mt-0.5 mb-2">{t('anthologies.form.fields.work.hint')}</p>
+        <div className="space-y-2.5">
+          {WORK_SWITCHES.map((row) => (
+            <FieldSwitch key={row.key} row={row} flags={flags} setFlags={setFlags} />
           ))}
         </div>
       </div>
@@ -541,6 +632,16 @@ function AnthologyEntry({ entry, fields = {}, first, last, onNote, onMove, onRem
                 .filter(Boolean)
                 .join(' · ')}
             </p>
+          ) : null}
+          {/* WHAT THE WORK KNOWS (0074), on its own line under the attribution.
+              0045's rule is that what you SEE when you read an anthology is what you
+              GET when you export it, so this line and the bindings the export writes
+              are driven by the same list in the same order — WORK_SWITCHES. An entry
+              whose work has none of the chosen fields draws no line at all rather
+              than an empty one, which is the same rule the attribution above follows
+              when both its halves are switched off. */}
+          {workLine(entry, fields.fields) ? (
+            <p className="microcopy mt-1 opacity-80">{workLine(entry, fields.fields)}</p>
           ) : null}
           {/* The QUOTE's own note, which is a different thing from the entry's and
               can be non-empty at the same time: one is what the reader wrote when

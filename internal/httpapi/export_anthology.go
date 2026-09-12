@@ -64,6 +64,7 @@ func (s *Server) handleExportAnthology(w http.ResponseWriter, r *http.Request) {
 	var fields anthologyFields
 	err := s.Store.DB.QueryRow(`SELECT title, intro, `+anthologyFieldCols+` FROM anthologies WHERE id = ? AND user_id = ?`,
 		id, uid).Scan(append([]any{&title, &intro}, fields.scanTargets()...)...)
+	fields.fromRow()
 	if err != nil {
 		// Not found and a read error are one answer here on purpose: an export is a
 		// read, and telling a caller which of the two it was would confirm that
@@ -111,42 +112,51 @@ func renderAnthologyExport(title, intro string, f anthologyFields, entries []ant
 		// The commentary is the reader's own writing about this passage, and hiding it
 		// is the switch most likely to be used in anger: an anthology made to send
 		// somebody is not always one you want your marginalia in.
-		if !f.HideCommentary && strings.TrimSpace(e.Note) != "" {
+		if f.shows("commentary") && strings.TrimSpace(e.Note) != "" {
 			sb.WriteString("\n")
 			sb.WriteString(strings.TrimRight(e.Note, "\n"))
 			sb.WriteString("\n")
 		}
 		sb.WriteString("\n")
 		writeQuoteBlock(&sb, e.Quote, e.QuoteNote, func(note string) {
-			// Source and credit are written as the two bindings the quotes format
-			// already has for them, whichever kind the entry actually is. A film
-			// line's `speaker` is its character (and its actor after a dot), which is
-			// the attribution a reader means by a film quote.
-			if !f.HideCredit {
-				writeBinding(&sb, "speaker", e.Credit)
-			}
-			if !f.HideSource {
-				writeBinding(&sb, "occasion", e.Source)
-				// AN ESSAY'S TITLE UNDER ITS OWN KEY, not folded into the occasion.
-				// `writeBinding` skips an empty value, so every export written before
-				// this still diffs clean; and the importer reads `work_title` back to
-				// the column it came from, which an `occasion:` binding would not.
-				writeBinding(&sb, "work_title", e.WorkTitle)
-			}
-			// Off by default, both of them, so an existing anthology exports byte for
-			// byte as it did before this feature — which is what keeps a re-export
-			// diffing clean against a file written last year.
-			if f.ShowLocator {
-				writeBinding(&sb, "locator", e.Locator)
-			}
-			if f.ShowDate {
-				writeBinding(&sb, "date", e.Date)
+			// THE REGISTRY DECIDES WHAT IS WRITTEN AND IN WHAT ORDER (0074), which is
+			// what keeps the reading view and this file one document: both walk the
+			// same list. Source and credit are still the two bindings the quotes
+			// format already had for them, whichever kind the entry actually is — a
+			// film line's `speaker` is its character (and its actor after a dot),
+			// which is the attribution a reader means by a film quote.
+			//
+			// TWO LOOPS WITH A FIXED MIDDLE, AND NOT ONE CLEAN PASS, because two of
+			// the bindings below answer to no switch: the quote's own `note` sits
+			// between the date and the colour, and `favorite` is last. Reordering
+			// them to make the loop tidy would rewrite every file this app has ever
+			// exported, which is the one thing 0045's byte-for-byte test forbids. The
+			// awkward shape is the compatibility.
+			for _, fd := range anthologyRegistry {
+				// A field with no binding (the commentary, written above the quote) and
+				// the colour (whose own condition is below) are the two exceptions.
+				if fd.Binding == "" || fd.Key == fieldColour {
+					continue
+				}
+				if !f.shows(fd.Key) || !fd.appliesTo(e.Kind) {
+					continue
+				}
+				writeBinding(&sb, fd.Binding, anthologyFieldValue(e, fd))
+				if fd.Key == fieldSource {
+					// AN ESSAY'S TITLE UNDER ITS OWN KEY, not folded into the occasion.
+					// `writeBinding` skips an empty value, so every export written
+					// before this still diffs clean; and the importer reads `work_title`
+					// back to the column it came from, which an `occasion:` binding
+					// would not. It rides with the source because it IS the source for
+					// a quote that has no occasion — see anthologyHeading.
+					writeBinding(&sb, "work_title", e.WorkTitle)
+				}
 			}
 			writeBinding(&sb, "note", note)
 			// The default colour is left out, so a file mentions colour only when one
 			// was chosen — the same rule all three other exports follow, and what
 			// keeps a re-export diffing clean against an older file.
-			if !f.HideColour && e.Color != "yellow" {
+			if f.shows(fieldColour) && e.Color != "yellow" {
 				writeBinding(&sb, "color", e.Color)
 			}
 			writeFavorite(&sb, e.Favorite)
@@ -180,10 +190,10 @@ func anthologyHeading(e anthologyEntryRow, i int, f anthologyFields) string {
 	if src == "" {
 		src = strings.TrimSpace(e.WorkTitle)
 	}
-	if src != "" && !f.HideSource {
+	if src != "" && f.shows(fieldSource) {
 		parts = append(parts, src)
 	}
-	if c := strings.TrimSpace(e.Credit); c != "" && !f.HideCredit {
+	if c := strings.TrimSpace(e.Credit); c != "" && f.shows(fieldCredit) {
 		parts = append(parts, c)
 	}
 	if len(parts) == 0 {

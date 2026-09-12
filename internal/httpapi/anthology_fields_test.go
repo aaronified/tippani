@@ -11,6 +11,7 @@ package httpapi
 
 import (
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -34,7 +35,12 @@ func TestAnthologyFieldsDefaultToShowingWhatItAlwaysShowed(t *testing.T) {
 	addEntries(t, c, a.ID, []map[string]any{{"kind": "book", "item_id": ann}})
 
 	got := getAnthology(t, c, a.ID)
-	if f := got.Anthology.anthologyFields; f != (anthologyFields{}) {
+	// DeepEqual AND NOT `!=`, since 0074 gave this struct a map. The claim is the
+	// same one it has always made — a new anthology has every switch at its zero
+	// value — and it is worth keeping the reason: `!=` stopped compiling the moment
+	// a field was not a bool, which is a better failure than a comparison that
+	// silently starts meaning something narrower.
+	if f := got.Anthology.anthologyFields; !reflect.DeepEqual(f, anthologyFields{}) {
 		t.Fatalf("a new anthology carries %+v, want every flag zero", f)
 	}
 
@@ -331,5 +337,144 @@ func TestAnEssayHeadsItsSectionByItsTitle(t *testing.T) {
 	}
 	if strings.Contains(md, "- occasion: Why Socialism?") {
 		t.Errorf("the title went out as an occasion, which re-imports into the wrong column:\n%s", md)
+	}
+}
+
+// THE WORK JOIN (0074) — everything the book or the film knows, which an entry has
+// carried the id of since 0043 and which no part of the anthology ever read.
+//
+// THREE CLAIMS, AND THE FIRST TWO ARE THE ONES THAT MATTER. A field that is off
+// appears nowhere (so a default export is unchanged, which the test at the top of
+// this file holds byte for byte); a field that is on appears in BOTH the reading
+// view's JSON and the exported Markdown (0045's promise that the screen and the
+// file are one document); and a field belonging to a kind the entry is not simply
+// does not print, rather than printing empty.
+func TestTheWorkFieldsAnAnthologyIsToldToShow(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "A Wizard of Earthsea", "author": "Ursula K. Le Guin",
+		"publisher": "Parnassus Press", "published_year": 1968,
+		"series": "Earthsea", "series_index": 1, "pages": 183,
+	}, http.StatusCreated))
+	ann := decode[annotationRow](t, c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "Only in silence the word,",
+	}, http.StatusCreated))
+	// A standalone quote in the same anthology, because the interesting failure is
+	// a work field printed on an entry that HAS no work.
+	utt := newUtterance(t, c, map[string]any{"quote": "The sea is not a thing.", "speaker": "Nobody"})
+
+	a := newAnthology(t, c, "Earthsea")
+	addEntries(t, c, a.ID, []map[string]any{
+		{"kind": "book", "item_id": ann.ID},
+		{"kind": "utterance", "item_id": utt.ID},
+	})
+
+	// OFF FIRST. The work is joined and sent regardless — the reading view has to
+	// be able to honour a switch without refetching — but nothing is WRITTEN.
+	md := exportAnthology(t, c, a.ID)
+	for _, k := range []string{"- publisher:", "- year:", "- series:", "- pages:"} {
+		if strings.Contains(md, k) {
+			t.Errorf("a default anthology exported %q:\n%s", k, md)
+		}
+	}
+
+	setFields(t, c, a.ID, "Earthsea", map[string]any{
+		"fields": map[string]any{"publisher": true, "year": true, "series": true, "pages": true},
+	})
+
+	got := getAnthology(t, c, a.ID)
+	if !got.Anthology.Extra["publisher"] {
+		t.Fatalf("the switch did not survive the round trip to the row: %+v", got.Anthology.Extra)
+	}
+	if w := got.Entries[0].Work; w["publisher"] != "Parnassus Press" || w["year"] != "1968" || w["pages"] != "183" {
+		t.Errorf("the entry did not carry its work's fields: %+v", w)
+	}
+	// SERIES AND ITS NUMBER ARE ONE FIELD, joined the way a reader writes it.
+	if w := got.Entries[0].Work; w["series"] != "Earthsea 1" {
+		t.Errorf("series = %q, want %q", w["series"], "Earthsea 1")
+	}
+	// A STANDALONE QUOTE HAS NO WORK AT ALL — not an empty map, absent.
+	if w := got.Entries[1].Work; len(w) != 0 {
+		t.Errorf("a standalone quote carried work fields: %+v", w)
+	}
+
+	md = exportAnthology(t, c, a.ID)
+	for _, want := range []string{
+		"- publisher: Parnassus Press",
+		"- year: 1968",
+		"- series: Earthsea 1",
+		"- pages: 183",
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("missing %q from:\n%s", want, md)
+		}
+	}
+	// AND NOT ON THE QUOTE THAT HAS NO BOOK. Counted rather than searched, because
+	// "contains publisher" would pass with it printed twice on the wrong entry.
+	if n := strings.Count(md, "- publisher:"); n != 1 {
+		t.Errorf("publisher written %d times over two entries, want 1:\n%s", n, md)
+	}
+}
+
+// A FIELD BELONGING TO THE OTHER KIND IS NOT WRITTEN, which is the registry's
+// `Kinds` list doing its job rather than the value happening to be empty. `isbn`
+// is a book's and `media_type` is a film's, and each is switched on over an
+// anthology holding both.
+func TestAWorkFieldOfTheOtherKindIsNotWritten(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	ann, dia, _ := threeKinds(t, c)
+	a := newAnthology(t, c, "Both")
+	addEntries(t, c, a.ID, []map[string]any{
+		{"kind": "book", "item_id": ann},
+		{"kind": "screen", "item_id": dia},
+	})
+	setFields(t, c, a.ID, "Both", map[string]any{
+		"fields": map[string]any{"isbn": true, "media_type": true, "director": true, "author": true},
+	})
+	md := exportAnthology(t, c, a.ID)
+	// The film has a director and the book does not; neither has an ISBN or a media
+	// type recorded, so the proof that Kinds is being read is the AUTHOR: it is a
+	// book field, the film's director is in the same registry slot under another
+	// key, and a registry that ignored Kinds would print the author's binding for
+	// the film entry with the director's value in it.
+	if !strings.Contains(md, "- author: Italo Calvino") {
+		t.Errorf("the book's author did not reach the file:\n%s", md)
+	}
+	if !strings.Contains(md, "- director: Andrei Tarkovsky") {
+		t.Errorf("the film's director did not reach the file:\n%s", md)
+	}
+	if n := strings.Count(md, "- author:"); n != 1 {
+		t.Errorf("author written %d times, want 1 — a film has no author:\n%s", n, md)
+	}
+	if n := strings.Count(md, "- director:"); n != 1 {
+		t.Errorf("director written %d times, want 1 — a book has no director:\n%s", n, md)
+	}
+}
+
+// AN UNKNOWN KEY IS NOT STORED. The `fields` column is the registry's vocabulary,
+// and a client inventing a name must not get it persisted — otherwise the column
+// accumulates whatever any version of any client ever posted, and the set of
+// things an anthology "shows" stops being answerable from the registry alone.
+func TestAFieldNameTheRegistryDoesNotKnowIsDropped(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+	a := newAnthology(t, c, "Vocabulary")
+	setFields(t, c, a.ID, "Vocabulary", map[string]any{
+		"fields": map[string]any{"publisher": true, "not_a_field": true},
+	})
+	got := getAnthology(t, c, a.ID)
+	if !got.Anthology.Extra["publisher"] {
+		t.Errorf("the known key did not survive: %+v", got.Anthology.Extra)
+	}
+	if got.Anthology.Extra["not_a_field"] {
+		t.Errorf("an invented key was stored: %+v", got.Anthology.Extra)
+	}
+	// AND NEITHER IS ONE OF THE SIX, which have columns of their own: accepting
+	// "credit" here would give the same switch two homes that could disagree.
+	setFields(t, c, a.ID, "Vocabulary", map[string]any{"fields": map[string]any{"credit": true}})
+	if got := getAnthology(t, c, a.ID); got.Anthology.Extra["credit"] {
+		t.Errorf("a 0045 column was mirrored into the fields blob: %+v", got.Anthology.Extra)
 	}
 }

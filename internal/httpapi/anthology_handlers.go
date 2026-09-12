@@ -96,21 +96,88 @@ type anthologyFields struct {
 	HideColour     bool `json:"hide_colour"`
 	ShowLocator    bool `json:"show_locator"`
 	ShowDate       bool `json:"show_date"`
+	// Extra is everything the registry added after 0045 — the work fields, and the
+	// person and cast fields to come — as key -> on. It is ONE column (0074) rather
+	// than one per switch, because the answer to "which fields?" was "everything"
+	// and an ALTER TABLE per field is how that gets capped at six again.
+	//
+	// A MAP HERE COST THIS STRUCT ITS COMPARABILITY, which the field test used to
+	// lean on with `f != (anthologyFields{})`. That test now says what it meant all
+	// along with reflect.DeepEqual against the zero value, which is the same claim
+	// and does not quietly stop compiling the day a field is not a bool.
+	//
+	// nil AND EMPTY ARE THE SAME ANSWER on purpose: a row written before 0074, a row
+	// nobody has configured, and a row whose every extra switch was turned back off
+	// are one state, and `shows` answers false for all three without a nil check at
+	// any call site.
+	Extra map[string]bool `json:"fields,omitempty"`
+	// extraRaw is where the `fields` column lands between the Scan and the decode.
+	// It is a struct field and not a local because scanTargets hands out a POINTER
+	// that has to outlive the call, and it is unexported with no json tag because
+	// it is a storage detail: the wire carries Extra, which is the decoded form.
+	extraRaw string
 }
 
 // anthologyFieldCols is the column list, in the order every Scan below reads them.
-// One constant so a seventh switch is one line here rather than four SELECTs that
-// have to be found.
-const anthologyFieldCols = `hide_credit, hide_source, hide_commentary, hide_colour, show_locator, show_date`
+// One constant so a new column is one line here rather than five SELECTs that have
+// to be found — and after 0074 a new FIELD is not a column at all, so this list is
+// finished at seven.
+const anthologyFieldCols = `hide_credit, hide_source, hide_commentary, hide_colour, show_locator, show_date, fields`
 
-// scanTargets returns the six pointers in the same order as anthologyFieldCols.
+// scanTargets returns the pointers in the same order as anthologyFieldCols.
+//
+// THE SEVENTH IS NOT A BOOL, so it lands in a scratch string and is decoded after
+// the Scan. `fromRow` is that second step, and every read below calls it — the two
+// are a pair, and a Scan without the decode leaves Extra nil, which reads as "no
+// extra field is on" rather than as an error. That is the failure mode worth
+// choosing: a missed decode shows as switches that do nothing, not as a 500.
 func (f *anthologyFields) scanTargets() []any {
-	return []any{&f.HideCredit, &f.HideSource, &f.HideCommentary, &f.HideColour, &f.ShowLocator, &f.ShowDate}
+	return []any{&f.HideCredit, &f.HideSource, &f.HideCommentary, &f.HideColour, &f.ShowLocator, &f.ShowDate, &f.extraRaw}
 }
 
-// values returns the six values in that same order, for an INSERT or UPDATE.
+// fromRow finishes what scanTargets started: the `fields` column is JSON and the
+// driver hands it over as text.
+func (f *anthologyFields) fromRow() {
+	f.Extra = decodeExtraFields(f.extraRaw)
+}
+
+// values returns the values in that same order, for an INSERT or UPDATE — the
+// seventh re-encoded to the column's canonical form.
 func (f anthologyFields) values() []any {
-	return []any{f.HideCredit, f.HideSource, f.HideCommentary, f.HideColour, f.ShowLocator, f.ShowDate}
+	return []any{f.HideCredit, f.HideSource, f.HideCommentary, f.HideColour, f.ShowLocator, f.ShowDate, encodeExtraFields(f.Extra)}
+}
+
+// shows answers the one question every renderer asks — "does this anthology show
+// this field?" — for both storage shapes, so no caller has to know which kind of
+// field it is holding.
+//
+// THE hide_/show_ INVERSION LIVES HERE AND IN ONE PLACE ON THE CLIENT, and nowhere
+// else. 0045 made four columns `hide_*` and two `show_*` so that every default is
+// the zero value; the cost of that is a negation, and the cost of a negation is
+// that somebody eventually forgets it. One function is how it stays one fact.
+func (f anthologyFields) shows(key string) bool {
+	def, ok := anthologyFieldByKey[key]
+	if !ok {
+		return false
+	}
+	if def.fromWork() {
+		return f.Extra[key]
+	}
+	switch key {
+	case "credit":
+		return !f.HideCredit
+	case "source":
+		return !f.HideSource
+	case "commentary":
+		return !f.HideCommentary
+	case "colour":
+		return !f.HideColour
+	case "locator":
+		return f.ShowLocator
+	case "date":
+		return f.ShowDate
+	}
+	return false
 }
 
 // anthologyEntryRow is one entry as the reading view needs it: the anthology's
@@ -168,6 +235,19 @@ type anthologyEntryRow struct {
 	// when there is no kind — see the query, and quoteKindMeta on the client, which
 	// is the same fallback the cards use.
 	QuoteKind string `json:"quote_kind"`
+	// Work is everything the parent book or film knows, keyed by registry key and
+	// carrying only the fields that work actually has a value for (0074). Absent
+	// entirely for a standalone quote, which has no parent.
+	//
+	// A MAP AND NOT FIFTEEN FIELDS, because which keys exist is a fact about the
+	// KIND and the registry already states it: a struct would have to carry every
+	// column of both tables on every row of both kinds, and a film entry would ship
+	// an empty `isbn` to say nothing.
+	//
+	// SENT WHOLE AND RENDERED PER SWITCH, exactly as Locator has been since 0045 —
+	// filtering server-side would mean the reading view could not honour a switch
+	// without refetching the anthology.
+	Work map[string]string `json:"work,omitempty"`
 	// Date is when the passage was SAVED — noted_at falling back to created_at, the
 	// same rule On this day settled on: created_at on an imported row is the day of
 	// the import, which is the same day for thousands of rows and tells a reader
@@ -273,6 +353,7 @@ func (s *Server) handleListAnthologies(w http.ResponseWriter, r *http.Request) {
 			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] row scan failed: %v", err)
 			continue
 		}
+		a.fromRow()
 		out = append(out, a)
 	}
 	if err := rows.Err(); err != nil {
@@ -399,7 +480,142 @@ func (s *Server) entriesFor(uid, id int64) ([]anthologyEntryRow, error) {
 		}
 		out = append(out, e)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, s.attachWorkFields(uid, out)
+}
+
+// attachWorkFields fills each entry's Work map — everything the BOOK or the FILM
+// knows, which the row has carried the id of since 0043 and never once looked at.
+//
+// A SECOND PASS AND NOT ELEVEN MORE COLUMNS ON THE UNION, which is the decision
+// worth arguing. entriesFor's own comment says the locator "is built per arm, in
+// SQL, and that is the only place it can be" — true of a value that is PER ENTRY
+// and has to survive an ORDER BY running across three kinds. A work field is
+// neither: it is per WORK, and it is read after the entries are already ordered.
+// Adding eleven columns to each of three arms would mean thirty-three pieces of
+// SQL kept in alignment by hand to express a mapping that the registry already
+// states once, in Go, where it can be read.
+//
+// TWO QUERIES, NOT ONE PER ENTRY. An anthology of two hundred passages from three
+// books is three reads, not two hundred — the ids are gathered first and each
+// table is asked once. An anthology of one entry costs one query, because a kind
+// with no entries is not asked at all.
+//
+// SCOPED BY user_id LIKE EVERY OTHER READ. The entry query already joins through
+// the owner's books and movies, so a foreign work cannot be in `out` — and this
+// repeats the scope anyway, because a second reader of this function should not
+// have to prove the first one's invariant to know this one is safe.
+func (s *Server) attachWorkFields(uid int64, out []anthologyEntryRow) error {
+	byWork := map[string][]*anthologyEntryRow{}
+	for i := range out {
+		if out[i].WorkID == 0 {
+			// A standalone quote has no parent, which is a fact about the kind and
+			// not a missing row: every work field is simply absent from it.
+			continue
+		}
+		key := out[i].Kind + ":" + strconv.FormatInt(out[i].WorkID, 10)
+		byWork[key] = append(byWork[key], &out[i])
+	}
+	if len(byWork) == 0 {
+		return nil
+	}
+	if err := s.readWorkFields(uid, kindBook, byWork); err != nil {
+		return err
+	}
+	return s.readWorkFields(uid, kindScreen, byWork)
+}
+
+// workFieldQuery is the per-kind read, one row per work, columns in registry order.
+//
+// THE COLUMN LIST AND THE KEY LIST ARE ONE LITERAL EACH AND SIT TOGETHER, because
+// the failure they guard against is a column added to one and not the other, which
+// SQLite reports as nothing at all — it fills the last field with the wrong value
+// and the document prints a publisher where its ISBN should be.
+//
+// SERIES AND ITS NUMBER ARE ONE FIELD. An index with no series names nothing and a
+// series with no index loses the position, so they are joined here the way a reader
+// writes them — "Earthsea 3" — and the join is server-side for the same reason the
+// locator's is: three clients must not each invent it.
+var workFieldQuery = map[string]struct {
+	sql  string
+	keys []string
+}{
+	kindBook: {
+		sql: `SELECT id, COALESCE(author,''), COALESCE(translator,''), COALESCE(editor,''),
+		             COALESCE(publisher,''), COALESCE(subtitle,''), COALESCE(isbn,''),
+		             CASE WHEN COALESCE(published_year,0) = 0 THEN '' ELSE CAST(published_year AS TEXT) END,
+		             CASE WHEN COALESCE(pages,0) = 0 THEN '' ELSE CAST(pages AS TEXT) END,
+		             TRIM(COALESCE(series,'') || CASE
+		               WHEN COALESCE(series,'') <> '' AND COALESCE(series_index,0) <> 0
+		               THEN ' ' || CAST(CAST(series_index AS INTEGER) AS TEXT) ELSE '' END)
+		        FROM books WHERE user_id = ? AND id IN `,
+		keys: []string{"author", "translator", "editor", "publisher", "subtitle", "isbn", "year", "pages", "series"},
+	},
+	kindScreen: {
+		sql: `SELECT id, COALESCE(director,''), COALESCE(publisher,''), COALESCE(media_type,''),
+		             CASE WHEN COALESCE(release_year,0) = 0 THEN '' ELSE CAST(release_year AS TEXT) END,
+		             TRIM(COALESCE(series,'') || CASE
+		               WHEN COALESCE(series,'') <> '' AND COALESCE(series_index,0) <> 0
+		               THEN ' ' || CAST(CAST(series_index AS INTEGER) AS TEXT) ELSE '' END)
+		        FROM movies WHERE user_id = ? AND id IN `,
+		keys: []string{"director", "publisher", "media_type", "year", "series"},
+	},
+}
+
+func (s *Server) readWorkFields(uid int64, kind string, byWork map[string][]*anthologyEntryRow) error {
+	q, ok := workFieldQuery[kind]
+	if !ok {
+		return nil
+	}
+	ids := []any{uid}
+	for key := range byWork {
+		if strings.HasPrefix(key, kind+":") {
+			id, err := strconv.ParseInt(strings.TrimPrefix(key, kind+":"), 10, 64)
+			if err != nil {
+				continue
+			}
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 1 {
+		return nil
+	}
+	rows, err := s.Store.DB.Query(q.sql+"("+strings.TrimSuffix(strings.Repeat("?,", len(ids)-1), ",")+")", ids...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		vals := make([]string, len(q.keys))
+		targets := make([]any, 0, len(q.keys)+1)
+		targets = append(targets, &id)
+		for i := range vals {
+			targets = append(targets, &vals[i])
+		}
+		if err := rows.Scan(targets...); err != nil {
+			olog.Warnf(olog.CodeAnthologyRowScan, "[anthologies] work scan failed: %v", err)
+			continue
+		}
+		for _, e := range byWork[kind+":"+strconv.FormatInt(id, 10)] {
+			m := make(map[string]string, len(q.keys))
+			for i, k := range q.keys {
+				// An empty field is LEFT OUT rather than stored as "", so the map a
+				// client receives names only what the work actually knows — and a
+				// renderer asking for a field the work has not got gets the zero
+				// value without having to tell "" from absent.
+				if vals[i] != "" {
+					m[k] = vals[i]
+				}
+			}
+			if len(m) > 0 {
+				e.Work = m
+			}
+		}
+	}
+	return rows.Err()
 }
 
 // GET /anthologies/{id}
@@ -416,6 +632,7 @@ func (s *Server) handleGetAnthology(w http.ResponseWriter, r *http.Request) {
 		SELECT id, title, intro, created_at, updated_at, `+anthologyFieldCols+` FROM anthologies
 		WHERE id = ? AND user_id = ?`, id, uid).
 		Scan(append([]any{&a.ID, &a.Title, &a.Intro, &a.CreatedAt, &a.UpdatedAt}, a.scanTargets()...)...)
+	a.fromRow()
 	if err == sql.ErrNoRows {
 		writeErr(w, http.StatusNotFound, "anthology not found")
 		return
@@ -451,10 +668,20 @@ func (s *Server) handleCreateAnthology(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[anthologies] create uid=%d title=%q", uid, req.Title)
-	// The six visibility flags are set at creation as well as on edit, so a client
-	// that offers them on the new-anthology form is not silently ignored.
+	// The visibility flags are set at creation as well as on edit, so a client that
+	// offers them on the new-anthology form is not silently ignored.
+	//
+	// TEN LITERAL PLACEHOLDERS, AND NOT A strings.Repeat OVER len(args), which is
+	// what this line briefly became when 0074 took the count from nine to ten. The
+	// computed form looks safer and is worse: TestEveryInsertBalancesItsColumnsAndValues
+	// reads the SQL as TEXT, resolves `anthologyFieldCols` from the package's own
+	// consts, and counts top-level commas on both sides — so a generated VALUES
+	// clause reads as one value against ten columns, and the guard that exists
+	// precisely to catch an arity mistake goes red on the code that cannot make one.
+	// Turning a checked literal into an unchecked expression is not a safety
+	// improvement; it is moving the check out of the repository.
 	args := append([]any{uid, req.Title, req.Intro}, req.values()...)
-	res, err := s.Store.DB.Exec(`INSERT INTO anthologies (user_id, title, intro, `+anthologyFieldCols+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
+	res, err := s.Store.DB.Exec(`INSERT INTO anthologies (user_id, title, intro, `+anthologyFieldCols+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
 	if err != nil {
 		internalError(w, r, "insert anthology", err)
 		return
@@ -473,6 +700,7 @@ func (s *Server) handleCreateAnthology(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "read back anthology", err)
 		return
 	}
+	a.fromRow()
 	writeJSON(w, http.StatusCreated, a)
 }
 

@@ -2377,6 +2377,8 @@ anthologies.form.fields.locator.label = অধ্যায়, পৃষ্ঠ�
 anthologies.form.fields.date.label = যেদিন তুলে রেখেছিলেন
 anthologies.form.fields.commentary.label = আপনার নিজের কথা
 anthologies.form.fields.colour.label = রঙের পটি
+anthologies.form.fields.work.label = বই বা ছবি থেকে
+anthologies.form.fields.work.hint = না বললে দেখাবে না। যে তথ্য যার বইয়ে আছে, শুধু সেটুকুই আসবে।
 
 anthologies.toast.deleted = সংকলন মোছা হয়েছে
 anthologies.toast.entry-removed = এন্ট্রি সরানো হয়েছে
