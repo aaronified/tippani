@@ -126,7 +126,17 @@ describe('answering many stray marks at once', () => {
 
     // One find survives the chip, so select-all is one — and the bar says one.
     await waitFor(() => expect(ticks()).toHaveLength(1))
-    fireEvent.click(ticks()[0])
+
+    // THE SELECT-ALL, NOT THE ROW'S OWN TICK, which is what this case pressed
+    // until a rater read its name against its body. `ticks()` is the per-find
+    // checkbox inside `.cleanup-finds`; the bar's control is a separate one at
+    // CleanupPage.jsx:365 and is the only thing that answers "what does ALL
+    // mean under a filter". Pressing a row selected one find and passed whether
+    // or not select-all was scoped — so dropping the rule filter left this
+    // green, which a rater proved by dropping it.
+    const all = screen.getByText(t('cleanup.select-all.label', { n: 1 })).closest('label').querySelector('input')
+    expect(all, 'no select-all in the bar').toBeTruthy()
+    fireEvent.click(all)
     fireEvent.click(screen.getByText(t('cleanup.bulk.ignore.label')))
 
     await waitFor(() => expect(posted('/cleanup/ignore')).toBeTruthy())

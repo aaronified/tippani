@@ -463,6 +463,52 @@ describe('what an option is drawn as', () => {
   })
 })
 
+// ---- a standalone quote's own meta line ------------------------------------
+//
+// WHERE AND WHERE-IN-THE-TEXT, which the card printed and nothing asserted. The
+// meta line under a quote card's attribution was the date alone until 0047's
+// `place` and `locator` were added to it (review.jsx:443), the CHANGELOG promised
+// both, and a rater reverted the line to the date and watched all 4,081 tests stay
+// green. A promise with no test is a promise the next refactor keeps by accident.
+describe('a standalone quote’s source lines', () => {
+  const speech = (over = {}) => ({
+    kind: 'utterance', id: 42, direction: 'quote', quote: 'give me blood',
+    speaker: 'Bose', occasion: 'a rally', occasion_date: '1944-07-04',
+    place: 'Rangoon', locator: 'page 3', color: 'yellow',
+    options: ['give me blood', 'a line of theirs', 'a third line'],
+    option_meta: [
+      { source: 'Bose', art: '', item_kind: 'utterance', item_id: 42 },
+      { source: 'Moby-Dick', art: '', item_kind: 'book', item_id: 20 },
+      { source: 'Middlemarch', art: '', item_kind: 'book', item_id: 21 },
+    ],
+    answer: 0, ...over,
+  })
+
+  it('prints where it was said and where in the text', () => {
+    const { container } = render(<QuizRunner mode="daily" cards={[speech()]} />)
+    const meta = container.textContent.replace(/\s+/g, ' ')
+    expect(meta, 'the place never reached the card').toContain('Rangoon')
+    expect(meta, 'the locator never reached the card').toContain('page 3')
+  })
+
+  // THE DATE THROUGH THE FORMATTER, not printed raw — a card showing '1944-07-04'
+  // is showing the reader the column rather than their own date, and the padded
+  // and BCE forms are why the formatter exists at all.
+  it('prints the date as a date rather than as the column', () => {
+    const { container } = render(<QuizRunner mode="daily" cards={[speech()]} />)
+    expect(container.textContent).not.toContain('1944-07-04')
+    expect(container.textContent.replace(/\s+/g, ' ')).toContain('1944')
+  })
+
+  // A card with neither says neither, rather than drawing an empty separator.
+  it('draws no stray separator when it has neither', () => {
+    const { container } = render(
+      <QuizRunner mode="daily" cards={[speech({ place: '', locator: '', occasion_date: '' })]} />,
+    )
+    expect(container.textContent).not.toContain('·')
+  })
+})
+
 // ---- "which quote?" names its options once it is answered ------------------
 describe('a “which quote is from this work?” card', () => {
   const which = (over = {}) => ({

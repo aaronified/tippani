@@ -12944,6 +12944,20 @@ entries are the sheet's own grip, thin by the owner's ruling that moved the drag
 the whole header bar. One defect, in a screen rebuilt from nothing, found by a gate that
 should have existed before the rebuild rather than after it.
 
+**AND THE BIGGEST DEPARTURE WAS THE OWNER'S OWN, WHICH THIS SECTION DID NOT LIST.** The
+plan forbids an `accept` filter outright — four separate clauses of it — and
+`ImportPage.jsx:182` ships `accept={IMPORT_ACCEPT}`. That is not drift. The owner
+overruled the plan in one line: *"Import: drop the accept filter, say what each file was
+read as, allow an override — no! do not drop the filter for bulk uploads. queue them in
+the checks page."*
+
+It was recorded on the task and not here, and the plan file itself was left alone on
+purpose: it belongs to the planning agent, and editing under it is not this session's
+call. That was the right restraint and the wrong record — a fold that lists two departures
+the CODE made and omits the one the OWNER made reads as though nobody had noticed, which
+is exactly what a rater concluded from it. The queue behind "queue them in the checks
+page" is `docs/plans/` work and still open.
+
 ## The six-item queue, and why two of its items had shipped nothing by 11 September
 
 The owner left a queue and went out: *"1. complete metadata 2. complete import review 3.

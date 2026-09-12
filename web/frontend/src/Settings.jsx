@@ -23,6 +23,7 @@ import { createPortal } from 'react-dom'
 import { t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
+  ariaLabelText,
   backdropClose,
   Card,
   ChipSwitches,
@@ -1767,7 +1768,7 @@ function PromptFrame({ title, closeLabel, closeTip, busy = false, maxWidth = 460
       className={SCRIM_CENTERED}
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-label={ariaLabelText(title)}
       onMouseDown={backdropClose(onClose, !busy)}
     >
       <div className="hand-card hc-r2 w-full" style={{ maxWidth, padding: '18px 20px 20px' }}>

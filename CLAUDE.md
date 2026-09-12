@@ -150,7 +150,7 @@ eight now exit 0 against a restored archive** (`sheet-drag`, `panel-depth`, `typ
 `run-with-server.sh --seed`, and `make controls`). `make controls` was the last of them:
 it exited 3 while the backup shelf had no ceiling recorded — the app came back clean and
 the touch floor was measured against nothing, which is exactly what 3 says. Both ceilings
-are recorded now (`small 0 / labelled 0` at 1280, `small 301 / labelled 24` at 390), so a
+are recorded now (`small 0 / labelled 0` at 1280, `small 302 / labelled 24` at 390), so a
 full run reports `ok` at both widths and takes about seventy minutes.
 **Exactly four names are read out of that file, and these are their spellings:**
 

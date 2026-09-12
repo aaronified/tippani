@@ -160,6 +160,15 @@ export function useResolvedDark() {
 // the other quietly stops.
 export const ariaLabelText = (title) => (typeof title === "string" ? title : undefined);
 
+// AND IT IS EVERY DIALOG, NOT THE TWO THAT PROMPTED IT. A rater found FormModal
+// guarding its sub-sheet branch and not its centred one — the same component,
+// the same prop, one line apart in behaviour — which is the exact failure the
+// paragraph above describes, committed by the commit that wrote the paragraph.
+// No caller passes a node title today, so the bug is latent rather than visible;
+// a latent bug behind a helper written to prevent it is still the helper not
+// being used. `test/pure/aria-label-text.test.js` counts the bare ones, and the
+// count is zero.
+
 export const MOBILE_SCREEN_QUERY = "(max-width: 768px)";
 
 export function isMobileScreen() {
@@ -5195,7 +5204,7 @@ export function ConfirmDialog({
         // them teaches the reader to ignore the interruption.
         role={danger || reversible === false ? 'alertdialog' : 'dialog'}
         aria-modal="true"
-        aria-label={title}
+        aria-label={ariaLabelText(title)}
         className="hand-card hc-r2 w-full max-w-md px-6 py-6"
       >
         {reversible === undefined ? null : (
@@ -6095,7 +6104,7 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={ariaLabelText(title)}
         className="hand-card hc-r2 w-full"
         style={{ maxWidth, padding: "18px 20px 20px" }}
       >
@@ -6711,7 +6720,7 @@ function InfoPopover({ anchor, title, pinned = true, onHold, onLeave, onClose, c
         <div
           className="info-pop info-pop-centred hand-card hc-r2"
           role="dialog"
-          aria-label={title}
+          aria-label={ariaLabelText(title)}
           onMouseDown={(e) => e.stopPropagation()}
         >
           {body}
@@ -6735,7 +6744,7 @@ function InfoPopover({ anchor, title, pinned = true, onHold, onLeave, onClose, c
         ref={cardRef}
         className={"info-pop info-pop-anchored hand-card hc-r2" + (pos?.below ? " is-below" : " is-above") }
         role="dialog"
-        aria-label={title}
+        aria-label={ariaLabelText(title)}
         style={pos ? { top: pos.top, left: pos.left, "--caret-x": `${pos.caret}px` } : { top: 0, left: 0, visibility: "hidden" }}
         // Reaching into the card to read or select must not close it: entering
         // cancels the pending close, leaving restarts it.
