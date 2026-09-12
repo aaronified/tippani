@@ -364,12 +364,32 @@ export function quoteShare({
     // italic, then when: the same epigraph order a book keeps.
     attribution: [
       { id: "speaker", label: t("share.field.speaker.label"), value: speaker || "", emphasis: "bold" },
-      // THE KIND'S COMPOSED PHRASE, under the `occasion` id it has always had.
-      // For a speech the phrase IS the occasion and the label still reads right;
-      // for a letter this toggle says "Occasion" over "Letter to Carl Seelig",
-      // which the owner chose over renaming the id — a rename resets the stored
-      // preference of every reader who had switched this off.
-      { id: "occasion", label: t("share.field.occasion.label"), value: line || occasion || "", emphasis: "italic" },
+      // THE KIND'S COMPOSED PHRASE, AND THEN WHAT IT DID NOT SPEAK FOR — which is
+      // exactly what the card prints, `[kindLine, ...unspoken].join(' · ')`.
+      //
+      // THE PHRASE ALONE WAS A SILENT LOSS. This read `line || occasion` for one
+      // commit: a letter's phrase names its recipient and does NOT consume the
+      // occasion, so a reader who had typed one watched it vanish from the share
+      // while the card went on showing it. A rater found it; no case here gave a
+      // row both a recipient and an occasion.
+      //
+      // AND JOINING THEM IS NOT THE CONCATENATION THE PLAN WARNS ABOUT. That
+      // warning is against gluing the kind's WORD to the recipient — "Letter ·
+      // Carl Seelig" where the phrase says "Letter to Carl Seelig". Joining a
+      // finished phrase to the facts it left unsaid is what band 3 has always
+      // been, on the card and now here.
+      //
+      // Under the `occasion` id it has always had: for a speech the phrase IS the
+      // occasion and the label reads right; for a letter the toggle says
+      // "Occasion" over "Letter to Carl Seelig · after the prize", which the owner
+      // chose over renaming the id, because a rename resets the stored preference
+      // of every reader who had switched this off.
+      {
+        id: "occasion",
+        label: t("share.field.occasion.label"),
+        value: [line, unspoken(occasion)].filter(Boolean).join(" · "),
+        emphasis: "italic",
+      },
       { id: "when", label: t("share.field.when.label"), value: when || "" },
     ],
     meta: [
@@ -404,7 +424,17 @@ export function quoteShare({
       {
         id: "proverb",
         label: t("share.field.proverb.label"),
-        value: kind === "proverb" && language ? language : "",
+        // AND THE LEGEND STANDS DOWN ONCE THE PHRASE SAYS IT. This entry exists
+        // because a shared proverb used to arrive as words from nowhere — no
+        // speaker, no occasion, no date, no place — so it supplied the one fact
+        // that answers "what is this". attribution.js now composes exactly that
+        // clause ("Bengali proverb") and puts it on the credit line, where a
+        // credit belongs. Drawing both gave a rater "occasion=Bengali proverb,
+        // proverb=Bengali, medium=Proverb" — one fact, three times.
+        //
+        // NOT DELETED, because the phrase is not guaranteed: a row with no `kind`
+        // has no phrase, and this is what such a proverb still shares with.
+        value: !line && kind === "proverb" && language ? language : "",
         phrase: "share.field.proverb.legend",
       },
       // A SPEECH'S PHRASE ALREADY NAMES ITS PLACE, so drawing this as well is the
@@ -414,7 +444,15 @@ export function quoteShare({
       // phrase names its page, so the entry is empty there and carries it for
       // every other kind. The book share's own word for the same fact.
       { id: "locator", label: t("share.field.location.label"), value: unspoken(row?.locator) },
-      { id: "medium", label: t("share.field.medium.label"), value: medium || "" },
+      // THE KIND IS ALREADY IN THE PHRASE, and printing it again is the original
+      // duplicate — "Letter" twice — on the surface this whole change was about.
+      // Every branch of attribution.js's `phrase()` falls back to the kind's own
+      // WORD when its shape has nothing to say, and its `default` arm returns
+      // quoteKindMeta — which is the very value this entry carries. So a phrase
+      // implies the kind by construction, which is why the card draws no separate
+      // medium at all. A rater caught this: a letter shared as "Letter to Carl
+      // Seelig … Letter", a proverb as "Bengali proverb … Bengali … Proverb".
+      { id: "medium", label: t("share.field.medium.label"), value: line ? "" : medium || "" },
       { id: "noted", label: t("share.field.noted.label"), value: date || "" },
     ],
     tags: tags || [],
@@ -439,7 +477,14 @@ export function quoteShare({
 // "the user anyway chooses what to put on the share image." Both parts are still
 // listed and still one tap away — a reader making an epigraph wants the year
 // in it. What changes is what they get without asking.
-const SHARE_OFF_BY_DEFAULT = new Set(["location", "noted", "published", "year"]);
+//
+// `locator` IS HERE FOR THE SAME REASON `location` IS, and a rater is what
+// noticed it was not: they are one fact under two ids — where in the source a
+// quote came from — labelled with the same word (`share.field.location.label`)
+// on a book highlight and on a standalone quote. A page that is off by default on
+// one and on by default on the other is the divergence this repo's own rule
+// against two things that look the same behaving differently is written to stop.
+const SHARE_OFF_BY_DEFAULT = new Set(["location", "locator", "noted", "published", "year"]);
 
 // fieldsOf lists the toggleable parts present in a payload, in output order.
 function fieldsOf(share) {

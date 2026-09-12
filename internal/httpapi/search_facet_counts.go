@@ -71,6 +71,7 @@ var facetCountKinds = map[string][]rowKind{
 	// which the test below walks rather than trusts.
 	"character": {rowAnnotation, rowDialogue},
 	"speaker":   {rowUtterance},
+	"language":  {rowAnnotation, rowDialogue, rowUtterance},
 	"favourite": {rowBook, rowAnnotation, rowMovie, rowDialogue, rowUtterance},
 	"note":      {rowAnnotation, rowDialogue, rowUtterance},
 	"wishlist":  {rowBook, rowMovie},
@@ -256,6 +257,10 @@ func (s *Server) countOneFacet(field string, k rowKind, q string, f searchFacets
 		expr = "COALESCE(" + self + ".character, '')"
 	case "speaker":
 		expr = "COALESCE(u.speaker, '')"
+	case "language":
+		// Three tables, one column name, so the arm reads `self` — the alias
+		// searchSources gave this row — exactly as `character` does.
+		expr = "COALESCE(" + self + ".language, '')"
 	case "favourite":
 		// The wire values are yes/no, so the SQL answers in those words rather
 		// than in 1/0 — otherwise the client would need a second mapping that

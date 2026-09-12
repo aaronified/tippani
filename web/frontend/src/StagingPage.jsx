@@ -443,18 +443,14 @@ export default function StagingPage({ onPending, onOpenBook, onOpenMovie, onAppr
         <button className="tp-btn tp-btn-primary" disabled={busy} onClick={() => approve(selectedIds)}>
           {t('staging.bulk.approve.label', { n })}
         </button>
-        <GhostButton
-          disabled={busy}
-          onClick={() =>
-            setConfirm({
-              // A real plural family; the title used to build its own -s.
-              title: t('staging.discard.confirm.title', { count: n, n }),
-              body: t('staging.discard.confirm.body'),
-              label: t('staging.discard.label'),
-              run: () => discard(selectedIds),
-            })
-          }
-        >
+        {/* THROUGH askDiscard, LIKE THE OTHER TWO SCOPES. This kept a verbatim
+            copy of the same four keys, and the commit that added the scoped verbs
+            claimed in its own body that the question was asked "through one
+            askDiscard … wherever it is raised" — which a rater checked and it was
+            not. Three copies of one question is three places for its wording to
+            drift, and the plural family in the title is exactly the kind of thing
+            that drifts. */}
+        <GhostButton disabled={busy} onClick={() => askDiscard(selectedIds)}>
           {t('staging.discard.label')}
         </GhostButton>
       </BulkBar>

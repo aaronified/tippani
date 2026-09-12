@@ -29,6 +29,13 @@ export const FACET_FIELDS = [
   { name: 'colour', vocab: 'colours', combine: 'or' },
   { name: 'author', vocab: 'authors', combine: 'or' },
   { name: 'speaker', vocab: 'speakers', combine: 'or' },
+  // THE FIELD THE LANGUAGE WORK WAS ABOUT, and the last one it was missing. Every
+  // quote kind carries a language and /search/vocabulary has shipped the distinct
+  // list since Settings needed a table of them — nothing consumed it for search,
+  // so a reader with a Bengali shelf and a Sanskrit one could narrow by fourteen
+  // other things and not by that. It unions for the reason colour does: a line is
+  // in ONE language, so naming two can only mean either.
+  { name: 'language', vocab: 'languages', combine: 'or' },
   { name: 'actor', vocab: 'actors', combine: 'or' },
   // The one credit field that is not a person. It combines like the rest — a
   // line has one speaker, so two characters means EITHER — and differs only in

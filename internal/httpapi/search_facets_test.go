@@ -231,6 +231,71 @@ func TestDirectorActorAndSpeakerFacets(t *testing.T) {
 	wantTitles(t, "speaker:Tagore", utteranceTexts(res.Quotes), []string{"here is another"})
 }
 
+// ---- the language facet ------------------------------------------------------
+
+// THE FIELD THE LANGUAGE WORK WAS ABOUT, AND THE LAST ONE IT WAS MISSING. Every
+// quote kind has carried a language for a while — utterances since 0035,
+// annotations and dialogues since 0071 — and `/search/vocabulary` has shipped the
+// distinct list since Settings needed a table of them. Nothing consumed it for
+// search, so a reader with a Bengali shelf and a Sanskrit one could narrow by tag,
+// colour, shelf and fourteen other things, and not by that.
+func TestTheLanguageFacetReachesAllThreeQuoteKinds(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[bookDetail](t, c.mustDo("POST", "/books", map[string]any{
+		"title": "Gitanjali", "author": "Rabindranath Tagore",
+	}, http.StatusCreated))
+	film := decode[movieDetail](t, c.mustDo("POST", "/movies", map[string]any{
+		"title": "Pather Panchali", "director": "Satyajit Ray",
+	}, http.StatusCreated))
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "here the highlight", "language": "Bengali",
+	}, http.StatusCreated)
+	c.mustDo("POST", "/annotations", map[string]any{
+		"book_id": book.ID, "quote": "here the other highlight", "language": "English",
+	}, http.StatusCreated)
+	c.mustDo("POST", "/dialogues", map[string]any{
+		"movie_id": film.ID, "quote": "here the line", "language": "Bengali",
+	}, http.StatusCreated)
+	newUtterance(t, c, map[string]any{"quote": "here the proverb", "language": "Bengali"})
+	newUtterance(t, c, map[string]any{"quote": "here the saying", "language": "Sanskrit"})
+
+	// All three kinds, one facet — the row set `tag` and `colour` already use.
+	res := searchWith(t, c, "q=here&language=Bengali")
+	wantTitles(t, "language:Bengali annotations", quoteTexts(res.Annotations), []string{"here the highlight"})
+	wantTitles(t, "language:Bengali dialogues", dialogueTexts(res.Dialogues), []string{"here the line"})
+	wantTitles(t, "language:Bengali quotes", utteranceTexts(res.Quotes), []string{"here the proverb"})
+
+	// Two languages UNION, for the reason two colours do: a line is in ONE
+	// language, so ANDing them asks for something nothing is.
+	both := searchWith(t, c, "q=here&scope=quotes&language=Bengali&language=Sanskrit")
+	wantTitles(t, "language:Bengali language:Sanskrit", utteranceTexts(both.Quotes),
+		[]string{"here the proverb", "here the saying"})
+}
+
+func TestTheLanguageFacetFoldsCaseAndMatchesWhole(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	// A language is FREE TEXT on the row, so one language can be stored two ways
+	// by a reader who typed it twice. /search/vocabulary folds the list it offers
+	// for exactly that reason; a facet that did not fold would hand back a chip
+	// drawn from that list and find half the rows behind it.
+	newUtterance(t, c, map[string]any{"quote": "here the first", "language": "Bengali"})
+	newUtterance(t, c, map[string]any{"quote": "here the second", "language": "bengali"})
+	res := searchWith(t, c, "q=here&scope=quotes&language=BENGALI")
+	wantTitles(t, "language:BENGALI", utteranceTexts(res.Quotes), []string{"here the first", "here the second"})
+
+	// AND IT IS A WHOLE-VALUE MATCH, NOT A CONTAINS. The credit facets tokenise
+	// and ask whether the column contains each word, which is right for a line
+	// holding several names and wrong here: a language is one value, and
+	// `language:English` must not drag in every row written in Old English.
+	newUtterance(t, c, map[string]any{"quote": "here the third", "language": "Old English"})
+	res = searchWith(t, c, "q=here&scope=quotes&language=English")
+	wantTitles(t, "language:English", utteranceTexts(res.Quotes), []string{})
+}
+
 // ---- work facets: genre, series, year, shelf -------------------------------
 
 func TestGenreSeriesAndYearFacets(t *testing.T) {
@@ -716,6 +781,11 @@ func TestAFacetEmptiesTheKindsItCannotDescribe(t *testing.T) {
 		// rewritten rather than extended.
 		{"character=Kestrel", []string{"books", "movies", "quotes"}},
 		{"speaker=Kestrel", []string{"books", "annotations", "movies", "dialogues"}},
+		// A LANGUAGE IS A PROPERTY OF THE LINE, NOT OF THE WORK. A book is not in a
+		// language — its highlights are, one each, and a translated edition is the
+		// case that makes the distinction real rather than pedantic. So this reaches
+		// the same three row kinds `tag`, `colour` and `note` do and neither work.
+		{"language=Kestrelish", []string{"books", "movies"}},
 		{"note=yes", []string{"books", "movies"}},
 		{"wishlist=no", []string{"annotations", "dialogues", "quotes"}},
 	} {

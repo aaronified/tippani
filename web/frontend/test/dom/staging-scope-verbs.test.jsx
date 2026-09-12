@@ -22,6 +22,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
+const { readSource } = await import('../src-files.js')
+
 // Every write the page makes, in order.
 let posts = []
 
@@ -158,5 +160,33 @@ describe('the two scopes are one control', () => {
     const work = groupFor('Ulysses')
     expect(approveIn(work).textContent.trim()).toBe(approveIn(file).textContent.trim())
     expect(discardIn(work).textContent.trim()).toBe(discardIn(file).textContent.trim())
+  })
+})
+
+// ---- and one question, asked one way -----------------------------------------
+//
+// THE COMMIT THAT ADDED THE SCOPED VERBS CLAIMED THIS AND IT WAS NOT TRUE. Its
+// body said a discard is asked "through one askDiscard … so the question is
+// worded the same way wherever it is raised", and the BulkBar kept a verbatim
+// copy of the same four keys — a rater read the file and found it. Three copies
+// of one question is three places for its wording to drift, and the plural family
+// in the title is exactly the kind of thing that drifts.
+//
+// A SOURCE CHECK, because this is about there being ONE of something. A behaviour
+// case can only show that each button asks; it cannot show that they ask through
+// the same function, which is the claim that was false.
+describe('a discard is asked for in one place', () => {
+  it('builds the confirm from staging.discard.confirm.* exactly once', () => {
+    const src = readSource('StagingPage.jsx')
+    const asks = [...src.matchAll(/staging\.discard\.confirm\.title/g)]
+    expect(
+      asks.length,
+      'a second copy of the discard question was written out instead of calling askDiscard',
+    ).toBe(1)
+  })
+
+  it('and the selection’s own Discard raises it too', () => {
+    // The behaviour half: whatever the BulkBar calls, it must still ask.
+    expect(readSource('StagingPage.jsx')).toMatch(/onClick=\{\(\) => askDiscard\(selectedIds\)\}/)
   })
 })

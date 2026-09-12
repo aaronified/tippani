@@ -39,6 +39,7 @@ const VOCAB = {
   series: ['Earthsea', 'Hainish'],
   authors: ['Neil Gaiman', 'Terry Pratchett', 'Ursula K. Le Guin'],
   speakers: ['Rabindranath Tagore'],
+  languages: ['Bengali', 'Sanskrit', 'Old English'],
   actors: ['Humphrey Bogart'],
   directors: ['Michael Curtiz'],
   shelves: ['reading', 'completed'],
@@ -54,7 +55,7 @@ describe('the field registry', () => {
   // renders happily and comes back a 400.
   it('names exactly the fields the server takes', () => {
     expect(FACET_NAMES).toEqual([
-      'tag', 'colour', 'author', 'speaker', 'actor', 'character', 'director',
+      'tag', 'colour', 'author', 'speaker', 'language', 'actor', 'character', 'director',
       'genre', 'series', 'shelf', 'year', 'favourite', 'note', 'wishlist',
       'book', 'movie', 'added_from', 'added_to',
     ])
@@ -637,5 +638,51 @@ describe('searchQueryString', () => {
   it('builds the query the server takes', () => {
     const got = QUERIES.map((c) => [c.name, searchQueryString(c.args)])
     expect(got).toEqual(QUERIES.map((c) => [c.name, c.want]))
+  })
+})
+
+// ---- the language facet ------------------------------------------------------
+//
+// THE FIELD THE LANGUAGE WORK WAS ABOUT, AND THE LAST ONE IT WAS MISSING. Every
+// quote kind carries a language and /search/vocabulary has shipped the distinct
+// list since Settings needed a table of them — nothing consumed it for search, so
+// a reader with a Bengali shelf and a Sanskrit one could narrow by fourteen other
+// things and not by that.
+//
+// THE SERVER HALF IS TESTED IN GO, where the SQL is: whole-value matching, a case
+// fold, and the three row kinds it reaches. What is checkable here is the half
+// this file is for — that the field is in the grammar, that its options come off
+// the vocabulary rather than a second list, and that a chip round-trips.
+describe('the language facet', () => {
+  it('takes its options straight from the vocabulary, unpaired', () => {
+    // Not a {key, name} vocabulary like colours or books: a language is one name
+    // and the wire carries the name, so value and label are the same string.
+    expect(facetOptions('language', VOCAB)).toEqual([
+      { value: 'Bengali', label: 'Bengali' },
+      { value: 'Sanskrit', label: 'Sanskrit' },
+      { value: 'Old English', label: 'Old English' },
+    ])
+  })
+
+  it('unions, the way colour does and tag does not', () => {
+    // A line is in ONE language, so naming two can only mean either — ANDing
+    // them would ask for something nothing is.
+    expect(facetField('language').combine).toBe('or')
+  })
+
+  it('round-trips through the querystring the server parses', () => {
+    const chips = withFacetValues([], 'language', ['Bengali', 'Sanskrit'])
+    const qs = searchQueryString({ chips })
+    expect(qs).toMatch(/language=Bengali/)
+    expect(qs).toMatch(/language=Sanskrit/)
+    expect(facetValues(chips, 'language')).toEqual(['Bengali', 'Sanskrit'])
+  })
+
+  it('offers a language with a space in it without splitting it', () => {
+    // The credit facets tokenise; this must not, or "Old English" becomes a
+    // narrowing by "Old" AND "English" and finds nothing stored under either.
+    const chips = withFacet([], 'language', 'Old English')
+    expect(facetValues(chips, 'language')).toEqual(['Old English'])
+    expect(searchQueryString({ chips })).toMatch(/language=Old\+English|language=Old%20English/)
   })
 })

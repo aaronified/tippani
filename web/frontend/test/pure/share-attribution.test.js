@@ -28,7 +28,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { quoteShare } from '../../src/share.jsx'
+import { quoteShare, shareDefaults } from '../../src/share.jsx'
 
 const valueOf = (share, id) =>
   [...share.attribution, ...share.meta].find((e) => e.id === id)?.value || ''
@@ -40,12 +40,24 @@ const letter = () => {
 
 describe('the phrase the card composes is the phrase the picture shares', () => {
   it('names a letter’s recipient, which reached nothing at all before', () => {
-    expect(valueOf(letter(), 'occasion')).toBe('Letter to Carl Seelig')
+    expect(valueOf(letter(), 'occasion')).toMatch(/^Letter to Carl Seelig\b/)
   })
 
-  it('and does not concatenate it — the phrase is a sentence, not a join', () => {
-    // "Letter · Carl Seelig" is what three flat entries would have produced.
-    expect(valueOf(letter(), 'occasion')).not.toMatch(/·/)
+  it('and keeps the occasion the phrase did not speak for', () => {
+    // A SILENT LOSS FOR ONE COMMIT, and a rater found it: this read
+    // `line || occasion`, and a letter's phrase names its recipient without
+    // consuming the occasion — so a typed occasion vanished from the share while
+    // the card went on showing it. The card prints
+    // `[kindLine, ...unspoken].join(' · ')` and so does this.
+    expect(valueOf(letter(), 'occasion')).toBe('Letter to Carl Seelig · after the prize')
+  })
+
+  it('and does not glue the kind’s word to the recipient', () => {
+    // "Letter · Carl Seelig" is what three flat entries would have produced, and
+    // is the concatenation docs/plans/quote-card-types.md warns against by name.
+    // Joining a finished phrase to the facts it left unsaid is a different thing
+    // and is what band 3 has always been.
+    expect(valueOf(letter(), 'occasion')).not.toMatch(/Letter · /)
   })
 
   it('names an essay by its title and page, both of which reached nothing', () => {
@@ -120,5 +132,53 @@ describe('the toggle ids a reader has already set', () => {
     expect(valueOf(share, 'occasion')).toBe('a letter to his son')
     expect(valueOf(share, 'place')).toBe('Princeton')
     expect(valueOf(share, 'locator')).toBe('p. 3')
+  })
+})
+
+// ---- what the phrase already said, and must not say twice ---------------------
+//
+// A RATER FOUND ALL OF THIS, on the surface the change was about. The first cut
+// composed the credit correctly and then printed the kind AGAIN beside it, so a
+// letter shared as "Letter to Carl Seelig … Letter" and a proverb as "Bengali
+// proverb … Bengali … Proverb" — one fact, three times, which is the exact
+// duplicate the attribution work exists to end.
+describe('the kind is in the phrase, so nothing prints it again', () => {
+  const share = (row, extra = {}) => quoteShare({ row, quote: 'x', ...extra })
+
+  it('draws no separate Kind beside a phrase', () => {
+    // Every branch of phrase() falls back to the kind's own WORD when its shape
+    // has nothing, and its default arm returns quoteKindMeta — the very value
+    // this entry carries. So a phrase implies the kind by construction, which is
+    // why the card draws no medium at all.
+    const s = share({ kind: 'letter', recipient: 'Carl Seelig' }, { medium: 'Letter' })
+    expect(valueOf(s, 'occasion')).toBe('Letter to Carl Seelig')
+    expect(valueOf(s, 'medium')).toBe('')
+  })
+
+  it('and draws no proverb legend beside one either', () => {
+    const s = share({ kind: 'proverb', language: 'Bengali' }, { kind: 'proverb', language: 'Bengali', medium: 'Proverb' })
+    expect(valueOf(s, 'occasion')).toMatch(/Bengali/)
+    expect(valueOf(s, 'proverb')).toBe('')
+    expect(valueOf(s, 'medium')).toBe('')
+  })
+
+  it('but keeps both where there is no phrase to say it', () => {
+    // A row with no `kind` has no phrase — the legend is then the only thing a
+    // shared proverb has, which is why it was added and why it is gated rather
+    // than deleted.
+    const s = quoteShare({ quote: 'x', kind: 'proverb', language: 'Bengali', medium: 'Proverb' })
+    expect(valueOf(s, 'proverb')).toBe('Bengali')
+    expect(valueOf(s, 'medium')).toBe('Proverb')
+  })
+})
+
+describe('a quote’s page defaults the way a book highlight’s does', () => {
+  it('is off until asked for, like `location`', () => {
+    // One fact under two ids, labelled with the same word on both surfaces. A
+    // rater noticed `locator` escaped the off-by-default set that `location` is
+    // in, so the same page was off on a book highlight and on on a quote.
+    const s = quoteShare({ row: { kind: 'letter', recipient: 'C', locator: 'p. 3' }, quote: 'x' })
+    expect(valueOf(s, 'locator')).toBe('p. 3')
+    expect(shareDefaults(s).locator, 'a page is on without being asked for').toBe(false)
   })
 })

@@ -75,6 +75,16 @@ type searchFacets struct {
 	actors     []string
 	characters []string
 	speakers   []string
+	// THE ONE FIELD THE LANGUAGE QUEUE ITSELF WAS ABOUT. Every quote kind has
+	// carried a language for a while — utterances since 0035, annotations and
+	// dialogues since 0071 — and `/search/vocabulary` has been shipping the
+	// distinct list since Settings needed a table of them. Nothing consumed it,
+	// so a reader with a Bengali shelf and a Sanskrit one could narrow by tag,
+	// colour, shelf and fourteen other things, and not by that.
+	//
+	// UNIONING, like colour and for the same reason: a line is in ONE language,
+	// so asking for two can only mean either.
+	languages []string
 	// One work, by id. These are what a search started from a work's own page
 	// narrows to: `book:The Dispossessed` shows the title and sends the id,
 	// because a title is not unique and an id is.
@@ -97,6 +107,7 @@ func (f searchFacets) any() bool {
 	return len(f.tags) > 0 || len(f.genres) > 0 || len(f.colours) > 0 || len(f.shelves) > 0 ||
 		len(f.series) > 0 || len(f.years) > 0 || len(f.authors) > 0 || len(f.directors) > 0 ||
 		len(f.actors) > 0 || len(f.characters) > 0 || len(f.speakers) > 0 ||
+		len(f.languages) > 0 ||
 		len(f.bookIDs) > 0 || len(f.movieIDs) > 0 ||
 		f.addedFrom != "" || f.addedTo != "" ||
 		f.favourite != nil || f.note != nil || f.wishlist != nil
@@ -172,6 +183,8 @@ func parseSearchFacets(vals url.Values) (searchFacets, error) {
 			f.characters = append(f.characters, nonEmpty(vs)...)
 		case "speaker":
 			f.speakers = append(f.speakers, nonEmpty(vs)...)
+		case "language":
+			f.languages = append(f.languages, nonEmpty(vs)...)
 		case "book", "movie":
 			for _, v := range nonEmpty(vs) {
 				n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
@@ -429,6 +442,29 @@ func (f searchFacets) where(k rowKind, uid int64) (string, []any, bool) {
 		}
 		c, a := creditAnyOf("u.speaker", f.speakers)
 		add(c, a...)
+	}
+	// LANGUAGE REACHES ALL THREE QUOTE KINDS and no work: a book is not in a
+	// language, its highlights are — the same row set `tag`, `colour` and `note`
+	// already use.
+	//
+	// AN EXACT MATCH, FOLDED FOR CASE, and not creditAnyOf. That function splits a
+	// value into tokens and asks whether the column CONTAINS each — right for a
+	// credit line, which holds several names, and wrong here: "Old English" would
+	// match a row in "English", and a language is one value rather than a list.
+	// The fold is case only, because that is the fold the rest of the app applies
+	// to a language name; two different spellings (Bengali, বাংলা) are two
+	// different values and the vocabulary list offers them as two.
+	if len(f.languages) > 0 {
+		switch k {
+		case rowAnnotation, rowDialogue, rowUtterance:
+		default:
+			return "", nil, false
+		}
+		lowered := make([]any, len(f.languages))
+		for i, v := range f.languages {
+			lowered[i] = strings.ToLower(strings.TrimSpace(v))
+		}
+		add("lower(TRIM("+self+".language)) IN ("+placeholders(len(f.languages))+")", lowered...)
 	}
 
 	// One work, by id — what a search started from a work's own page narrows to.

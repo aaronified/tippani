@@ -126,8 +126,11 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		// and `tag:` match a stored value with no NOCASE anywhere in the schema, so
 		// "Poetry" and "poetry" are two tag rows finding two different sets of
 		// quotes; offering one of them would hide half a library behind a chip that
-		// looks complete. There is no language facet to match against (#153), and
-		// when there is, it will be case-insensitive for the same reason this is.
+		// looks complete. The language facet matches case-insensitively for the same
+		// reason this list is folded — searchFacets.where lowers both sides — so a
+		// chip drawn from this list finds every spelling behind it. This note said
+		// "there is no language facet to match against, and when there is…" until
+		// there was one.
 		//
 		// GROUP BY, NOT DISTINCT, so an ORDER BY over an aggregate is available: the
 		// fold keeps the FIRST spelling written, which is the rule validateBoard

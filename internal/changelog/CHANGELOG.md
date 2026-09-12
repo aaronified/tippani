@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **You can search by language.** Every quote kind has carried one for a while and the
+  search box could not ask about it — eighteen fields to narrow by, and not the one the
+  language work is about. `language:` joins them, on highlights, on lines and on standalone
+  quotes, offered from the languages your own library actually uses. Two languages mean
+  either, the way two colours do, and it matches however you spelled it.
+
 - **The import queue can act on a whole file, and on a whole work.** It could act on
   everything — one button at the top — and on whatever you had ticked, and on nothing in
   between. A work in the queue carried a select-all box and no verb at all; taking a whole
@@ -723,10 +729,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   quote came from — reached no part of a share: not the picture, not the text. A letter
   went out as "— Albert Einstein, 1952" with the recipient missing entirely. The share now
   composes its credit the same way the card does, so it reads "Letter to Carl Seelig"
-  rather than gluing a word to a name — and it stops repeating itself, so a speech whose
-  credit already names where it was given no longer prints the place twice. The page gets
-  a line of its own, and its own switch, on every kind whose credit does not already say
-  it. Nothing you had switched off in the share dialog comes back on.
+  rather than gluing a word to a name — and it stops repeating itself. A letter no longer
+  prints "Letter" again beside that; a proverb says "a Bengali proverb" once instead of
+  three times; a speech whose credit already names where it was given no longer prints the
+  place twice. The page gets a line of its own, and its own switch, on every kind whose
+  credit does not already say it — off until you ask for it, the way a book highlight's
+  page already was. Nothing you had switched off in the share dialog comes back on.
 
 - **A work page's quotes stopped at two columns on any screen.** However wide the window,
   a book's or a film's board drew two — and the reason was two sensible numbers that had

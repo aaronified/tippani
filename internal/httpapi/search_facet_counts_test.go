@@ -186,6 +186,10 @@ func TestFacetCountKindsMatchTheFacetPredicates(t *testing.T) {
 		"actor":     {actors: []string{"x"}},
 		"character": {characters: []string{"x"}},
 		"speaker":   {speakers: []string{"x"}},
+		// THIS MAP IS THE LIST THE TEST WALKS, so a field missing from it is a field
+		// nobody checks — the mirror passes by not looking. `language` is here for
+		// that reason as much as for its own.
+		"language":  {languages: []string{"x"}},
 		"wishlist":  {wishlist: boolPtr(true)},
 		"note":      {note: boolPtr(true)},
 		"book":      {bookIDs: []int64{1}},

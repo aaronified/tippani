@@ -14009,3 +14009,55 @@ empty, so "is this value in rest" answers NO for everything and a place passed i
 directly vanished. `share.test.js` caught it on an existing case rather than a new
 one. The test is `line && !rest.includes(v)`: nothing spoke for anything, so
 everything stands.
+
+## The 6/10 pass, and the finding that was the original bug
+
+Five findings, and the first two are the same shape: the credit was composed
+correctly and then the old flat entries went on printing what it had already said.
+
+**THE SHARE PRINTED THE KIND TWICE, ON THE SURFACE THE CHANGE WAS ABOUT.** The
+`medium` entry carries `quoteKindMeta(row)` — the kind's own label — and nothing
+gated it, so a letter shared as "Letter to Carl Seelig … Letter" and a proverb as
+"Bengali proverb … Bengali … Proverb": one fact, three times, which is the exact
+duplicate `attribution.js` exists to end. The card has never done this; it draws
+`[kindLine, ...unspoken]` and no separate medium at all, and the reason is
+structural — every branch of `phrase()` falls back to the kind's own WORD when its
+shape has nothing, and its `default` arm returns `quoteKindMeta`. **A phrase
+implies the kind by construction.** Both entries are gated on `line` now, and the
+proverb legend is gated rather than deleted because a row with no `kind` has no
+phrase and the legend is then the only thing it shares with.
+
+**AND THE OCCASION WAS SILENTLY DROPPED.** The entry read `line || occasion`. For
+every kind except a speech the phrase does not consume the occasion, so a reader
+who had typed one watched it vanish from the share while the card went on showing
+it. It is `[line, unspoken(occasion)].join(' · ')` now — which is what the card
+prints. Joining a finished phrase to the facts it left unsaid is not the
+concatenation the plan file warns about; that warning is against gluing the kind's
+WORD to the recipient, "Letter · Carl Seelig" where the phrase says "Letter to
+Carl Seelig".
+
+**NO CASE COVERED IT**, and that is the part worth keeping: `share-attribution.js`
+gave a letter a recipient and gave a speech an occasion, and never gave one row
+both. The rater's line — "no case in share-attribution.test.js gives a row both a
+recipient and an occasion" — is the whole diagnosis.
+
+### Three smaller ones, and a claim that was false
+
+**`askDiscard` WAS NOT THE ONLY PLACE THAT ASKED.** The BulkBar kept a verbatim
+copy of the same four keys, while the commit body claimed the question was raised
+"through one askDiscard … wherever it is raised". It goes through it now, and a
+source case asserts `staging.discard.confirm.title` is built exactly once —
+because the claim is about there being ONE of something, which a behaviour case
+cannot show.
+
+**A PAGE DEFAULTED ONE WAY ON A QUOTE AND THE OTHER ON A HIGHLIGHT.** `locator`
+carries `share.field.location.label` — the same word a book highlight's `location`
+uses — and `SHARE_OFF_BY_DEFAULT` lists only `location`, so the same fact was off
+on one surface and on on the other. Both are in the set now.
+
+**AND ONE REPAIR WENT UNDISCLOSED.** `f8ea94b1` also rewrote
+`two-boards-one-bar.test.jsx`'s Auto case, which the previous commit had left
+asserting the pre-rater behaviour — so that commit's baseline was red and its body
+mentioned only the import work. Recorded here because a commit that quietly
+repairs something else is a commit whose body cannot be trusted to list what it
+touched.
