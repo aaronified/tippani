@@ -6,6 +6,7 @@
 // "Capture quote" tab of the single ＋ Add surface (top bar + drawer).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
+import { languageClass } from './fonts.js'
 import { chapterLabel, episodeLabel } from './text.js'
 import { locatorMeta } from './attribution.js'
 import { dateLine, greetingFor } from './greetings.js'
@@ -1211,7 +1212,12 @@ export function FavouriteTile({
                   ) : null}
                 </span>
               </span>
+              {/* THE FACE ITS LANGUAGE IS SET IN, on the raw row rather than on
+                  `f` — the shaped favourite carries the TEXT and not the language,
+                  and adding a fourth copy of the mapping to three shapers is how
+                  one of them stops matching the other two. `f.raw` is the row. */}
               <p
+                className={languageClass(f.raw?.language)}
                 style={{
                   fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
                   fontStyle: 'italic',
@@ -1658,7 +1664,13 @@ function SerendipityCard({ q, onOpen, people = {}, seps, onOpenPerson, actions }
             style={{ background: 'none', border: 'none', padding: 0 }}
             tabIndex={onOpen ? 0 : -1}
           >
-            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
+            {/* THE FACE THIS QUOTE'S LANGUAGE IS SET IN. Not through quoteTexts,
+                which also decides which of the two texts leads — this surface
+                prints the quote and only the quote, so the slot IS the quote and
+                the class needs no order. Without it a reader's German is Literata
+                on a work page and the display face on Home, which is the "two
+                things that look the same behave the same" rule read backwards. */}
+            <p className={languageClass(q.language)} style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
               {kind.quoted ? `“${q.quote}”` : q.quote}
             </p>
           </button>

@@ -931,12 +931,11 @@ function TypeSettings({ prefs, onSaved }) {
                             aria-pressed={on}
                             className={'tp-filter-chip tactile' + (on ? ' active' : '')}
                             onClick={() =>
-                              save(
-                                row.key + 'Style',
-                                serialiseFontStyles(
+                              save({
+                                [row.key + 'Style']: serialiseFontStyles(
                                   on ? row.styles.filter((x) => x !== st.id) : [...row.styles, st.id],
                                 ),
-                              )
+                              })
                             }
                           >
                             {t(st.label)}

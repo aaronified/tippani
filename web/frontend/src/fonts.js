@@ -426,11 +426,17 @@ export function stackFor(roleKey, pick = fontChoice) {
 //
 // A GENERATED STYLESHEET, AND NOT AN INLINE STYLE, and the choice is worth
 // stating because the other one is the obvious one. Every site that draws a quote
-// takes a CLASS from quoteTexts and passes it on — seven of them, across three
-// components — so a family that arrived as a style would mean a new prop on all
-// three and a merge at all seven, and one of those seven quietly not doing it is
-// exactly the drift the repo's "one function both call" rule exists to stop. A
-// rule per configured language keeps the contract at one word.
+// takes a CLASS from quoteTexts and passes it on — seven of them, in two files,
+// through three components: FlowQuote, ExpandableText and TranslationLine. A
+// family that arrived as a style would mean a new prop on all three of those and
+// a merge at all seven sites, and one of the seven quietly not doing it is exactly
+// the drift the repo's "one function both call" rule exists to stop. A rule per
+// configured language keeps the contract at one word.
+//
+// (The count reads "three components" and not "three files" on purpose — a rater
+// read it the other way, which is a fair reading of a sentence that named
+// neither. Library.jsx 1680/1694/1713/1838 and Movies.jsx 1850/1864/1943 are the
+// seven; the three prop signatures are what a style would have had to change.)
 //
 // THE CLASS IS HASHED AND NOT THE NAME. A language is free text — "বাংলা",
 // "Français", "Ancient Greek (Attic)" — and none of those is a CSS identifier.

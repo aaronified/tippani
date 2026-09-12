@@ -394,6 +394,38 @@ describe('the Type panel', () => {
         .toBeGreaterThanOrEqual(3)
     })
 
+    // THE CASE THAT WOULD HAVE CAUGHT THE ONE THING THIS COMMIT SHIPPED BROKEN.
+    // `save` changed from (field, value) to (changes), and the style chip's call
+    // site kept the old two-argument shape — so Object.entries over the STRING
+    // 'monoStyle' PUT {"0":"m","1":"o",…}: a silent no-op under the shared scope,
+    // and a 400 under a named one. Every other control on the card was covered;
+    // this one was not, and a contract test on fontPatch could not see it because
+    // fontPatch was never reached.
+    it('presses a style chip and saves the modifier, not the field name', async () => {
+      await openRole('Labels')
+      fireEvent.click(within(dialog()).getByRole('button', { name: 'Bold' }))
+      await waitFor(() => {
+        const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
+        expect(put[1].fontMonoStyle).toBe('bold')
+        // The shape that broke it: numeric keys from a spread string.
+        expect(put[1]['0'], 'the field NAME was spread into the patch').toBeUndefined()
+      })
+    })
+
+    it('and writes it into the blob under a named scope', async () => {
+      await page()
+      fireEvent.click(screen.getByRole('button', { name: 'Type' }))
+      fireEvent.click(within(dialog()).getByRole('button', { name: /These faces are for/i }))
+      fireEvent.click(screen.getAllByRole('option').at(-1))
+      fireEvent.click(within(dialog()).getByRole('button', { name: 'Labels' }))
+      fireEvent.click(within(dialog()).getByRole('button', { name: 'Bold' }))
+      await waitFor(() => {
+        const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
+        expect(put[1].fontMonoStyle, 'a per-language modifier hit the shared field').toBeUndefined()
+        expect(Object.values(JSON.parse(put[1].fontsByLocale))[0].monoStyle).toBe('bold')
+      })
+    })
+
     it('writes the flat field under the shared scope', async () => {
       await openRole('Labels')
       fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))

@@ -69,6 +69,26 @@ const mount = async () => {
   await act(async () => {})
 }
 
+// THE QUOTE'S FACE REACHES HOME TOO, and it did not for one commit. The
+// per-language type keys the face on the LANGUAGE (see language-fonts.test.jsx),
+// and every surface that draws a quote has to carry the class or the same German
+// quote reads in Literata on its work page and in the display face here — which
+// is the repo's "two things that look the same behave the same" rule read
+// backwards. A rater found this; the tile's own file had nothing to say about it.
+describe('a favourite carries the face its language is set in', () => {
+  it('tags the tile with the language class, not with nothing', async () => {
+    const { applyFonts, languageClass } = await import('../../src/fonts.js')
+    applyFonts({ fontsByLanguage: JSON.stringify({ german: 'literata' }) }, '')
+    UTTERANCES = [{ id: 3, quote: 'Der Mensch ist frei', language: 'German', speaker: 'Schiller', favorite: 1, tags: [], color: 'yellow', kind: 'quote' }]
+    await mount()
+    const p = await screen.findByText(/Der Mensch ist frei/)
+    const cls = languageClass('German')
+    expect(cls, 'the language has no face, so this case is proving nothing').toBeTruthy()
+    expect(p.className, 'Home draws the quote without its language’s face').toContain(cls)
+    applyFonts({}, '')
+  })
+})
+
 describe('the favourites wall', () => {
   // THE RECALL MARK IS ON THE RESTING TILE, and that is a different claim from
   // "Home draws the mark somewhere". This board's tile has two mutually exclusive
