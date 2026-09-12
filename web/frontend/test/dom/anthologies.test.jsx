@@ -459,6 +459,27 @@ describe('the fields a work lends its passages', () => {
     expect(CALLS.some(([m, p]) => m === 'POST' && /\/fill$/.test(p))).toBe(false)
   })
 
+  // THE RULE IS REACHABLE WITHOUT THE ⋯, which is what the owner could not find:
+  // "I cannot see any auto-anthology or export options. Where are those?"
+  //
+  // Export and EPUB were never the problem — they are visible buttons on this
+  // header (unless VITE_DEMO hides them). The RULE was the one verb that existed
+  // only as a menu entry, under an argument that a control "touched once and then
+  // rarely" does not earn a permanent button. It has to be FOUND once, though, and
+  // the only other sign of the feature is the "12 new" line, which draws only when
+  // a rule already exists and has already matched — so it was invisible to exactly
+  // the reader it was for.
+  //
+  // ASSERTED THROUGH THE BUTTON AND NOT `barAction`, deliberately: every other rule
+  // case in this file reaches the dialog through the ⋯, so all of them would have
+  // gone on passing with no visible door at all.
+  it('opens its rule from a button on the page, not only from the ⋯', async () => {
+    open()
+    await screen.findByText('We remember light.')
+    fireEvent.click(screen.getByRole('button', { name: /fill from a search/i }))
+    expect(await screen.findByPlaceholderText(/search/i)).toBeTruthy()
+  })
+
   it('previews a rule before it fills, and sends the search’s own query string', async () => {
     // THREE CLAIMS IN ONE PRESS, and each is a way this screen could lie:
     //   - the rule on the wire is the SEARCH's query string, so a reader can paste

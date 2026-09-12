@@ -1090,6 +1090,27 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
             <GhostButton icon={<IconEdit />} onClick={() => setEditing(true)} disabled={!anthology}>
               {t('common.action.edit.label')}
             </GhostButton>
+            {/* THE RULE HAS A BUTTON NOW, AND THE ARGUMENT AGAINST ONE IS KEPT
+                BECAUSE IT WAS REASONABLE. It said: the rule "lives in the menu and
+                not in the header row, which already has five controls. It is also
+                the one of them a reader touches once and then rarely — a rule is
+                set, not used — so it does not earn a permanent button beside the
+                four verbs that are used every time this screen is open."
+
+                Every clause of that is true and the conclusion still failed, which
+                is the useful part. The owner: "I cannot see any auto-anthology or
+                export options. Where are those?" A control touched once has to be
+                FOUND once, and a reader who has never set a rule has never seen the
+                menu entry either — the only other sign of the feature is the "12
+                new" line below, which draws only when a rule already exists and has
+                already matched something. So the whole feature was invisible to
+                exactly the reader it was for.
+
+                Beside Edit because it is the same kind of verb: both change what
+                this anthology IS rather than doing something with what it holds. */}
+            <GhostButton icon={<IconSearch />} onClick={() => setRuling(true)} disabled={!anthology}>
+              {t('anthologies.rule.title')}
+            </GhostButton>
             {!DEMO && (
               <GhostButton
                 icon={<IconExport />}

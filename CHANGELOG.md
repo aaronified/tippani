@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   typed. The one box that stays plain is the board form's "add a language", because
   there Enter and clicking away mean different things and a suggestion box cannot
   tell them apart.
+- **"Fill from a search" is a button on the anthology, not just a menu entry.** An
+  anthology can take its entries from a saved search and keep taking them as the
+  library grows — and the only way to reach that was the ⋯ menu, so a reader who
+  had never set one had never seen it. It sits beside Edit now. Export, EPUB and
+  Print were always buttons there; if you cannot see those two, the build has
+  `VITE_DEMO=1` set, which hides both.
 - **The phone's menu drops its "＋ Add" row.** The ＋ in the bar at the bottom is
   on screen at all times and does the same thing; reaching it through the menu
   meant opening the menu first.
