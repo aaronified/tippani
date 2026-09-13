@@ -34,15 +34,19 @@ const app = openApp()
 it('a reader who signs in is inside the app, not still at the door', async () => {
   await app.goto('/')
 
-  const onScreen = await app.page.evaluate(() => document.body.innerText)
-
-  // NOT STILL AT THE DOOR. A failed sign-in leaves the password box on screen,
-  // and a journey that only checked for "some text" would pass on it.
-  const stillAsking = await app.page.$(
-    'input[autocomplete="current-password"], input[autocomplete="new-password"]')
-  expect(stillAsking,
-    `the sign-in form is still on screen, so the reader never got in:\n${onScreen.slice(0, 400)}`)
-    .toBeNull()
+  // NOT STILL AT THE DOOR, SAID THE WAY A READER WOULD SAY IT. This sentence sits
+  // under the login form and nowhere else in the app: an admin can reset your
+  // password is advice for somebody who cannot get in. If the sign-in had not
+  // taken, it would be on the screen.
+  //
+  // IT USED TO BE A CSS SELECTOR HERE — `input[autocomplete="current-password"]`
+  // through app.page.$ — which is precisely the knowledge this tier forbids, and
+  // it was also the harness's OWN check said twice: ensureSession waits for
+  // `[data-screen-label]` to stop naming an auth screen before it returns. A
+  // journey that repeats the setup's private test adds nothing. What a journey
+  // can add is the READER's version of the same question, asked of the words on
+  // the screen rather than of an attribute nobody can see.
+  await app.gone('locked out?')
 
   // AND THE APP DREW ITSELF. Named by the places a reader can go, because "the
   // page is not empty" is also true of an error screen.
@@ -50,9 +54,8 @@ it('a reader who signs in is inside the app, not still at the door', async () =>
   // asserted 'Search' — reasonable, and wrong: that control carries a glyph and
   // no visible word on this screen, so six files went red at once. A journey may
   // only claim what somebody has actually seen on the screen.
-  for (const place of ['Home', 'Library']) {
-    expect(onScreen, `the app drew no way to reach ${place}`).toContain(place)
-  }
+  await app.see('Home')
+  await app.see('Library')
 
   // A SCREEN THAT THREW ON MOUNT CAN STILL LOOK RIGHT, because React keeps the
   // last good render around it. The page's own errors are collected for exactly

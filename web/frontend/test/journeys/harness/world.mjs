@@ -18,7 +18,8 @@
 // sign-in happens by pressing what is on the screen. The handle below gives a
 // journey a page and a URL and deliberately gives it no `api()`.
 
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -57,19 +58,41 @@ function required(name) {
   return v
 }
 
-export function openApp({ viewport = DESKTOP, theme = 'light' } = {}) {
+// `empty: true` IS FOR EXACTLY ONE JOURNEY, and it is the first thing a person
+// ever sees. Onboarding only happens on an instance with no accounts in it, so a
+// world restored from the golden library — which has one — can never reach that
+// screen. So this world skips the copy AND skips the sign-in: there is nobody to
+// sign in as yet, and making the account is the thing being tested.
+export function openApp({ viewport = DESKTOP, theme = 'light', empty = false } = {}) {
   const w = {}
 
   beforeAll(async () => {
     w.server = await startServer({
       binary: required('TIPPANI_JOURNEY_BINARY'),
-      goldenData: required('TIPPANI_JOURNEY_GOLDEN'),
+      goldenData: empty ? null : required('TIPPANI_JOURNEY_GOLDEN'),
     })
     const engine = findBrowser(null, process.env.TIPPANI_BROWSER || 'chrome')
     w.engine = engine
     w.browser = await launchBrowser(engine, { theme, headless: true, viewport })
     w.page = await w.browser.newPage()
     await w.page.setViewport(viewport)
+
+    // WHERE A DOWNLOAD LANDS, because the app's exports ARE downloads. `/export/*`
+    // streams Markdown, `downloadPost` turns the response into a blob and clicks a
+    // synthetic <a download> at it — so there is no navigation to intercept and no
+    // response to read off the wire. Chrome's own download manager is the only
+    // place the bytes appear, and this is how it is told where to put them.
+    //
+    // A DIRECTORY PER WORLD, removed with the world. Journeys run in parallel
+    // processes; one shared downloads folder would make "the file that appeared"
+    // ambiguous exactly when two files appeared.
+    w.downloadDir = await mkdtemp(join(tmpdir(), 'tippani-journey-dl-'))
+    const cdp = await w.page.createCDPSession()
+    await cdp.send('Browser.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: w.downloadDir,
+      eventsEnabled: true,
+    })
     await emulateEngineMedia(w.page, engine.browser, theme)
 
     // THE THREE PINS, BEFORE THE FIRST NAVIGATION. Each is the screenshot
@@ -101,12 +124,14 @@ export function openApp({ viewport = DESKTOP, theme = 'light' } = {}) {
     w.pageErrors = []
     w.page.on('pageerror', (err) => w.pageErrors.push(err.message))
 
-    await ensureSession(w.page, {
-      baseUrl: w.server.baseUrl,
-      username: required('TIPPANI_JOURNEY_USER'),
-      password: required('TIPPANI_JOURNEY_PASS'),
-      timeoutMs: 20000,
-    })
+    if (!empty) {
+      await ensureSession(w.page, {
+        baseUrl: w.server.baseUrl,
+        username: required('TIPPANI_JOURNEY_USER'),
+        password: required('TIPPANI_JOURNEY_PASS'),
+        timeoutMs: 20000,
+      })
+    }
   }, 180000)
 
   // A FAILING JOURNEY LEAVES EVIDENCE. What the reader saw, and what the server
@@ -130,6 +155,7 @@ export function openApp({ viewport = DESKTOP, theme = 'light' } = {}) {
   afterAll(async () => {
     await w.browser?.close().catch(() => {})
     await w.server?.stop().catch(() => {})
+    if (w.downloadDir) await rm(w.downloadDir, { recursive: true, force: true }).catch(() => {})
   })
 
   return {
@@ -143,6 +169,28 @@ export function openApp({ viewport = DESKTOP, theme = 'light' } = {}) {
     get page() { return w.page },
     get baseUrl() { return w.server.baseUrl },
     goto: (path) => w.page.goto(w.server.baseUrl + path, { waitUntil: 'networkidle0' }),
+
+    // downloaded — WAIT FOR THE FILE THE APP JUST HANDED THE READER, and give
+    // back what is in it. This is the only way to assert on an export: what a
+    // reader gets is a file, and a screen that says "exported" while writing an
+    // empty one is exactly the shape of failure this tier exists to catch.
+    //
+    // Chrome writes a `.crdownload` first and renames it when the transfer
+    // finishes, so a file still wearing that suffix is not finished and is
+    // skipped rather than read half-written.
+    downloaded: async (namePart, { timeout = 15000 } = {}) => {
+      const deadline = Date.now() + timeout
+      for (;;) {
+        const files = await readdir(w.downloadDir).catch(() => [])
+        const hit = files.find((f) => !f.endsWith('.crdownload') && f.toLowerCase().includes(namePart.toLowerCase()))
+        if (hit) return { name: hit, text: await readFile(join(w.downloadDir, hit), 'utf8'), path: join(w.downloadDir, hit) }
+        if (Date.now() > deadline) {
+          throw new Error(`waited ${timeout}ms for a downloaded file whose name holds "${namePart}". ` +
+            `The reader was handed: ${files.length ? files.join(', ') : 'nothing at all'}.`)
+        }
+        await new Promise((r) => setTimeout(r, 150))
+      }
+    },
     pageErrors: () => w.pageErrors,
     ...screenVerbs(() => w.page),
   }

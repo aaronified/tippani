@@ -14960,3 +14960,145 @@ What IS derivable is the STEM: a template whose pattern matches no key at all is
 pointing at a namespace that does not exist. Measured first — 55 templates, one matching
 nothing, and that one (`how.${i}`) is a scanner artefact rather than a defect, so it is
 named rather than pattern-excused. Misspelling a real stem now fails.
+
+## A suite that read the app, and the tier that uses it instead
+
+A feature shipped **100% dead**. The bulk season/episode control answered HTTP 400 on
+every press and wrote nothing, and two tests stayed green through the whole of it: one
+asserting the shape the client sends, one asserting the shape the server accepts, each
+right about its own half, nothing comparing them, and neither ever pressing the button.
+
+That is not a gap in coverage. It is a suite measuring the wrong thing, and the numbers
+said so before anyone looked at a single test:
+
+| | |
+|---|---|
+| vitest files reading SOURCE TEXT with regexes | **99 of 385** |
+| jsdom tests mocking the network entirely | **128 of 235** |
+| most-imported module in DOM tests | `ui.jsx`, in 56 files — components mounted by name |
+| browser tests in CI | **0** |
+| what `make test` ran | `go test ./...` — it did not run vitest at all |
+
+**THE GO SIDE WAS LARGELY NOT THE PROBLEM,** which is worth saying because it shaped what
+got rebuilt. About three-quarters of `internal/httpapi` already drives a real
+`http.Handler` against a real SQLite file, and real journeys already lived there —
+`TestQuotesRoundTripThroughMarkdown` goes create → export → upload → approve → verify;
+`TestOwnershipIsolation` spans two users. Only about five Go tests regex over source. The
+rot was in the frontend, so the frontend is where the new tier went.
+
+**AND THE REPO ALREADY KNEW.** `Makefile:46`, of a source scanner: *"jsdom has no layout,
+so the vitest suite cannot see this at all — `test/pure/screen-scroll-chain.test.js` guards
+the stylesheet half, and this measures the result."* It kept both — the scanner that checks
+the spelling and the probe that checks the result — and left the probe out of CI. The
+diagnosis was written down years before the cure.
+
+### The ruling
+
+Tests act like human users. They do not know what the code is, except in justifiably
+exceptional cases. A test may know the address it opens, what is on the screen, what a
+person can do to it, and what the app shows or keeps afterwards; it may not know a
+function's name, a module's path, a CSS class, a JSON field name, a Go type, or the text
+of any source file. Exceptions are declared in the file's own header. *"It would be
+slower"* is not a reason. The rule is in CLAUDE.md.
+
+### Four tiers, and what each one is now for
+
+`test/journeys/` is new and primary: a real browser, a real server, a real database, one
+sentence a person would say. The Go API journeys stay exactly as they are — they were
+already the good tier. `test/pure/` and `test/dom/` keep the cases where the function IS
+the observable unit: a partial-date parser, an FTS escaper, a scheduler. And the source
+scanners moved to `test/rules/`, out of `npm test` and into `npm run lint:rules` with its
+own CI step — so a broken design rule still fails the build while a green test count stops
+meaning "the app works".
+
+**THE SCANNERS ARE NOT DELETED AND THE DISTINCTION MATTERS.** Never truncate a name,
+spacing is a constant, no emoji glyphs, the typescale — every one of those is a real rule
+this app is held to, and a ratchet that counts the remaining violations is the only thing
+that has ever made those numbers fall. What they are not is evidence that the app works,
+because the app can be entirely broken and all 78 of them still pass: none of them runs it.
+
+### What the demotion actually found
+
+The plan said "move the 99". Seventy-one moved in the first tranche; measuring the rest
+turned up something the plan had not anticipated. Of the 29 files in `test/dom` that read
+source text, **25 also render** — they are hybrids, not scanners, and of the four that do
+not render, three still need a DOM for another reason (two read `getComputedStyle` after
+`applyTheme`, one drives real history). So the dom tier has essentially no pure scanners
+left to demote. `test/pure` had nine, of which seven moved; the two that stayed
+(`quote-texts`, `archive-header`) are hybrids of the same kind — they exercise a real
+parser AND scan a file, and the scanning half would have to be split out rather than moved.
+
+**ONE OF THE SEVEN IS AN AWKWARD CASE AND IS RECORDED AS SUCH.**
+`bulk-wire-shape.test.js` reads the Go struct's json tags and the client's field table and
+fails when they disagree. It is a scanner by mechanism and a contract by job — and it is
+the guard that would have caught the 400 this whole plan is named after. It moved, because
+`lint:rules` runs in CI as its own step so nothing is lost by it, and because the behaviour
+it stood in for now has a journey that presses the actual button. A contract lint and a
+test of the feature are different things, and the app is better off with both.
+
+### The acceptance test, and the commit the plan named wrongly
+
+The plan committed in advance to one check: revert the wire fix in a scratch tree and the
+bulk season/episode journey must go red. If it came back green, the plan had failed.
+
+It was run, in a detached worktree outside the repo, with the SPA rebuilt after the
+revert (confirmed: zero occurrences of `wire:"text"` in the rebuilt bundle):
+
+```
+fix in   -> 1 passed   (17.3s)
+fix out  -> 1 failed   (38.7s)  see('S2') waited its timeout; the six lines unchanged
+```
+
+**THE PLAN NAMED THE WRONG COMMIT.** It says "revert `216c4865`'s wire fix". `216c4865`
+is the SERVER-side `showPairProblem` validation that landed the same morning. The wire fix
+is `eb90a28b` — `wire: 'text'` on chapter_no/season/episode plus `asText` in
+`bulkFieldBody`. `git log -S"wire: 'text'" -- web/frontend/src/bulkOps.jsx` is what settles
+it, and a plan that names a commit should be checked against the log before it is acted on.
+
+**A 400 CAPTURED MID-DIAGNOSIS WAS NOT A LIVE DEFECT, AND THE THEORY IT LED TO WAS WRONG.**
+`POST /api/dialogues/bulk -> 400 body={"ids":[…],"season":2}` was real output, from a build
+that predated the rebuild. It sent this session chasing a hypothesis that the bundle held
+two `key:"season"` specs and the panel was reading the wrong one. It does hold two — the
+second is `workKinds.js`'s single-record form spec — but `bulkOps.jsx` never imports
+`workKinds`, `bulkFieldsFor` reads `BULK_QUOTE_FIELDS`, and that table's season carries
+`wire: 'text'` in the source and in the shipped bundle. Captured output is evidence about
+the build it came from and nothing else.
+
+### What the journeys caught about themselves
+
+The tier's first day is the argument for mutation-verifying every file in it, because four
+of its own journeys were vacuous or wrong and every one of them was green when written.
+
+One passed with its `press('Library')` deleted — Moby-Dick was on Home too. One asserted a
+search result that Home's own shuffle produced without the search. One agent-written file
+was a debugging probe wearing a test's clothes: every press in a `try`, an `it('probe')`,
+console.log throughout, incapable of failing. And one asserted the practice card's question
+exactly as `en.txt` spells it — "Where is this from?" — and could not find it, because
+`.mono-label` carries `text-transform: uppercase` and `innerText` reports text as RENDERED.
+The screen was shouting WHERE IS THIS FROM? and the journey printed a screen dump with the
+words plainly on it. That one was recorded in a commit as a possible accessibility defect —
+"the field appears to carry no accessible name at all" — which was false, and is the
+clearest case in this file of a conclusion drawn from a failure message instead of from the
+screen.
+
+So: `see`, `gone` and `pick` all fold case now, and every journey in the directory has been
+mutation-verified by deleting its decisive action and watching it go red. The mutation is
+named in the commit that added the journey.
+
+### Two harness gaps the work exposed
+
+**A MODAL TAKES THE SCREEN.** Pressing Export on a board opens a confirm dialog whose own
+button is also called Export; both matched, `press` refused the ambiguity as it should, and
+the only ways forward were to name a class or to guess. A reader has no such problem —
+there is one Export in front of them. `press`, `type` and `upload` now see only inside the
+topmost open `[role="dialog"][aria-modal="true"]`, which is ARIA's own rule about what a
+modal removes from the tree, and is what a scrim means. `see` deliberately does not scope:
+a scrim dims what is behind it, it does not delete it.
+
+**AN EXPORT IS A FILE, AND A FILE IS THE ONLY HONEST THING TO ASSERT ON.** The app's
+exports go out through a blob and a synthetic `<a download>`, so there is no navigation to
+intercept and no response to read off the wire. The world now sets Chrome's download
+directory over CDP and `app.downloaded(name)` waits for the file and hands back its text —
+which caught, on its first run, that the export the reader receives is 257KB of real
+Markdown rather than the empty shell a "your library was exported" toast would equally
+happily announce.

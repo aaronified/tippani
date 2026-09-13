@@ -28,7 +28,11 @@ it('a reader opens their library and finds a book Home was not showing', async (
   // the fixture gained a book.
   await app.press('Library')
 
-  await app.see('Library')
+  // NOT `see('Library')` — THAT LINE WAS HERE AND IT WAS VACUOUS. The nav item
+  // the press just used is itself named Library, so the word was on the screen
+  // before the press and would still be there if the press did nothing. Every
+  // line below names something only the full shelf carries.
+  //
   // A BOOK THAT SURVIVES A REGENERATION OF THE FIXTURE. Every other title in the
   // library is invented, so re-running the curator could change it; the four
   // public-domain books are kept verbatim and this is one of them. A journey

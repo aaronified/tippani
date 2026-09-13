@@ -94,8 +94,63 @@ export function screenVerbs(getPage) {
   // candidates — every visible thing of this kind, each paired with the name
   // Chrome computes for it. One CDP snapshot per element, which is the price of
   // asking the browser rather than guessing.
+  // A MODAL TAKES THE SCREEN, so a verb that acts on a control may only see what
+  // is inside it. This is ARIA's own rule, not a convenience: `aria-modal="true"`
+  // says everything outside the dialog is removed from the accessibility tree,
+  // and the app puts it on every dialog it draws. It is also what a reader
+  // experiences — a scrim over the rest, and nothing behind it answers a click.
+  //
+  // WITHOUT THIS, "Export" IS AMBIGUOUS AND A JOURNEY CANNOT SAY WHICH. Pressing
+  // Export on a board opens a confirm dialog whose own button is also "Export";
+  // both matched, `press` refused as it should, and the only ways out were to
+  // name a class or to guess. A reader has no such problem: there is one Export
+  // in front of them. The innermost open dialog is the screen.
+  //
+  // `see` DELIBERATELY DOES NOT SCOPE. A scrim dims what is behind it, it does
+  // not delete it — the reader can still read the list the dialog is asking
+  // about, and a journey checking they can is asking a fair question.
+  //
+  // AND THE SURFACE IS THE INNERMOST ONE, NOT SIMPLY THE DIALOG — because a menu
+  // the dialog itself opened does not live inside it. THE PORTAL TRAP, which this
+  // repo has already paid for once: `TokenInput`'s own blur handler carries a
+  // comment about it ("the menu is no longer a descendant of boxRef"). Scoping to
+  // the dialog alone made the bulk editor's field chooser unreachable — its
+  // listbox is `createPortal`'d to `<body>`, so "Season" sat outside the dialog
+  // that had opened it and `press` reported that nothing on the screen was named
+  // Season, over a menu with Season plainly in it.
+  //
+  // So the stack is read top down: an open menu sits ON a dialog, a dialog sits on
+  // the page, and whichever is innermost is what the reader is answering.
+  //
+  // ONE FUNCTION, BOTH CALLERS — the repo's rule about two things that look the
+  // same. `upload` asks the same question `candidates` does and must get the same
+  // answer, or a file picker inside a dialog would be found by a different set of
+  // rules from the button beside it.
+  async function surface() {
+    // Last in document order, because that is the one drawn on top.
+    for (const sel of ['[role="listbox"], [role="menu"]', '[role="dialog"][aria-modal="true"]']) {
+      const found = await page().$$(sel)
+      let top = null
+      for (const el of found) {
+        if (await el.isVisible().catch(() => false)) {
+          if (top) await top.dispose()
+          top = el
+        } else await el.dispose()
+      }
+      if (top) return top
+    }
+    return null
+  }
+
+  async function within(selector) {
+    const root = await surface()
+    const handles = root ? await root.$$(selector) : await page().$$(selector)
+    if (root) await root.dispose()
+    return handles
+  }
+
   async function candidates(kind) {
-    const handles = await page().$$(CSS_FOR[kind])
+    const handles = await within(CSS_FOR[kind])
     const roles = kind === 'press' ? PRESSABLE : FILLABLE
     const out = []
     for (const h of handles) {
@@ -198,6 +253,34 @@ export function screenVerbs(getPage) {
     }
   }
 
+  // upload — HAND THE APP A FILE, the way a reader hands it one through the
+  // picker their platform draws. Puppeteer's `uploadFile` is the only honest
+  // stand-in: a file chooser is the operating system's window, not the page's,
+  // so there is nothing on screen for `press` to press.
+  //
+  // IT LOOKS PAST `candidates`, AND THAT IS DELIBERATE. The app's own picker
+  // (`FilePick` in ui.jsx) keeps its `input[type=file]` `sr-only` — in the tree,
+  // focusable, off screen — precisely so a keyboard can reach it, and the
+  // visibility filter every other verb uses would throw it away. So this asks
+  // for file inputs by tag and matches on the `aria-label` the primitive puts on
+  // every one of them, which is the same name a screen reader announces.
+  async function upload(name, filePath) {
+    const inputs = await within('input[type="file"]')
+    const named = []
+    for (const h of inputs) {
+      const label = await h.evaluate((el) => el.getAttribute('aria-label') || '')
+      if (label) named.push({ handle: h, name: label })
+      else await h.dispose()
+    }
+    const { hit, error } = pick(named, name, 'hand a file to')
+    if (error) {
+      await Promise.all(named.map((c) => c.handle.dispose()))
+      throw new Error(`${error}\n\nThe screen said:\n\n${await onScreen()}`)
+    }
+    await hit.handle.uploadFile(filePath)
+    await Promise.all(named.map((c) => c.handle.dispose()))
+  }
+
   async function press(name, opts) {
     const el = await find('press', name, opts)
     try {
@@ -243,5 +326,5 @@ export function screenVerbs(getPage) {
     }
   }
 
-  return { onScreen, see, gone, press, pressAll, pressKey, type, valueOf }
+  return { onScreen, see, gone, press, pressAll, pressKey, type, upload, valueOf }
 }

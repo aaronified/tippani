@@ -134,6 +134,64 @@ prototypes for what a screen should look like. They live in the repo because an 
 does not survive a session reset: read them there rather than asking for them again.
 `docs/design/README.md` indexes the lot.
 
+## A test uses the app; it does not read the app
+
+**The ruling, and the measurement that forced it.** A feature shipped **100% dead** —
+the bulk season/episode control answered HTTP 400 on every press and wrote nothing —
+while two tests stayed green through it: one asserting the shape the client sends, one
+asserting the shape the server accepts, each right about its own half, nothing comparing
+them, and neither ever pressing the button. That is not a gap in coverage; it is a suite
+measuring the wrong thing. Measured at the time: **99 of 385** vitest files read SOURCE
+TEXT with regexes, **128 of 235** jsdom tests mocked the network entirely, and **0**
+tests drove a browser.
+
+So: **tests act like human users. They do not know what the code is, except in
+justifiably exceptional cases.**
+
+A test may know **the address it opens, what is on the screen, what a person can do to
+it, and what the app shows or keeps afterwards.**
+
+A test may **not** know a function's name, a module's path, a CSS class, a JSON field
+name, a Go type, or the text of any source file. Exceptions are declared in the file's
+own header, naming what it knows and why nothing observable could serve. *"It would be
+slower"* is not a reason.
+
+**FOUR TIERS, AND EACH ANSWERS A DIFFERENT QUESTION.**
+
+| | runs | what it is for |
+|---|---|---|
+| `test/journeys/` | `npm run journeys` | a real browser, a real server, a real database, one sentence a person would say |
+| Go `internal/httpapi` | `go test ./...` | the API journey — create → export → upload → approve → verify, against a real SQLite file |
+| `test/pure/`, `test/dom/` | `npm test` | where the function IS the observable unit: a date parser, an FTS escaper, a scheduler |
+| `test/rules/` | `npm run lint:rules` | the source scanners — design ratchets and cross-source contracts. **Not tests.** |
+
+`test/rules` is out of `npm test` on purpose and runs as its own CI step, so a broken
+design rule still fails the build while a green test count stops meaning "the app works".
+A scanner moves there; a scanner is deleted when a journey covers its ground.
+
+**A JOURNEY THAT PASSES WITH ITS DECISIVE ACTION DELETED PROVES NOTHING, so delete it
+and watch.** Every journey over the app has been mutation-verified that way, and the
+mutation is named in the commit that added it. (`harness-vocabulary.journey.mjs` is the
+one file this cannot be done to and the reason is not an excuse: its assertions are
+`rejects.toThrow` on a named message, so there is no passing-while-asserting-nothing state
+to mutate into. It also carries the directory's only declared exception — it knows the
+harness's own promises, because a guarantee nothing checks is a comment.) This is not a nicety: within this
+directory's own first day, one journey passed with its `press('Library')` removed (the
+book was on Home too), one asserted a search result that Home's shuffle produced by
+itself, and one agent-written file was a debugging probe — every press in a `try`, an
+`it('probe')` — that could not fail at all.
+
+**SETUP MAY USE THE API; THE JOURNEY MAY NOT.** Arranging the world is not the thing
+under test, and a reader does not curl their own library into existence either. What has
+to be user-like is the part being ASSERTED.
+
+**THE VOCABULARY IS THE POINT** (`test/journeys/harness/screen.mjs`): `see`, `gone`,
+`press`, `pressAll`, `pressKey`, `type`, `upload`, `valueOf`, `onScreen`, plus `goto` and
+`downloaded` on the world. Names come from Chrome's own accessible-name computation, so
+no journey ever names a class. `press` REFUSES an ambiguous name rather than guessing,
+and case is folded because `innerText` reports text as rendered — a label the stylesheet
+uppercases reaches a journey shouting.
+
 ## Testing against a real library
 
 **The seeded fixture hides a whole class of defect.** `scripts/screenshots/seed.mjs`
@@ -272,7 +330,9 @@ go build ./cmd/tippani                # or `make build`
 make run                              # go run ./cmd/tippani serve -> :8080, onboard in browser
 
 cd web/frontend && npm ci
-npm test                              # vitest
+npm test                              # vitest: the pure + dom projects
+npm run journeys                      # the browser tier — real server, real database
+npm run lint:rules                    # the source scanners, out of npm test on purpose
 npm run dev                           # Vite dev server, proxies /api -> 127.0.0.1:8080
 npm run build                         # -> ../dist, a COMMITTED artefact the binary embeds
 
