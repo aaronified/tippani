@@ -801,6 +801,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **neither changes anything until you set it**: leave them alone and every quote is drawn
   exactly as it was.
 
+- **A face made for dyslexia, offered rather than left to be found.** You could always
+  upload one — that has worked for releases — but only if you knew it existed and where to
+  get it, which is the wrong thing to ask of somebody it would help. **OpenDyslexic** is
+  now in the box, in **Settings → Type**, offered for the quote text *and* for the
+  interface: a reader who needs it to read a quote needs it to read the navigation too. It
+  is the app's own copy, like every other face here — nothing is fetched from the web, on
+  a screen about how your own words look. Nothing changes unless you pick it.
+
 - **A date the app refuses on one quote was accepted on a whole imported file — and then
   thrown away.** Typing `sometime in 1952` into a quote's occasion date has always come
   back refused, with a message naming the shapes it takes. Setting the same value across a

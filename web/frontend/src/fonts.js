@@ -98,15 +98,29 @@ export const FONT_ROLES = [
 // reversing somebody's choice is not the same as deleting it. Devanagari moves
 // the same way, on the same reader's milder version of the same complaint.
 export const FONT_FACES = {
+  // OPENDYSLEXIC IS LAST IN BOTH LISTS AND IS IN BOTH ON PURPOSE — the only face
+  // that appears twice. §6 access asks for it on the QUOTE text specifically, and
+  // the display role is what a quote reads; but a reader who needs it to read a
+  // quote needs it to read the navigation too, and offering it on one role only
+  // would be half a feature. Last because the lists are ordered by how often a
+  // reader wants them and this is a particular need, not a default.
+  //
+  // ITS LETTERFORMS ARE THE POINT: weighted bottoms, so a b and a d cannot be
+  // rotations of each other. The evidence that this speeds up reading is contested
+  // and that is not the argument for shipping it — the argument is that a reader
+  // who wants it should not have to know to go and find a font file. Uploading one
+  // has worked since 0039; being OFFERED is what was missing.
   display: [
     { id: 'newsreader', name: 'vocab.face.newsreader.name', family: 'Newsreader', note: 'vocab.face.newsreader.note' },
     { id: 'source-serif-4', name: 'vocab.face.source-serif-4.name', family: 'Source Serif 4', note: 'vocab.face.source-serif-4.note' },
     { id: 'literata', name: 'vocab.face.literata.name', family: 'Literata', note: 'vocab.face.literata.note' },
+    { id: 'opendyslexic', name: 'vocab.face.opendyslexic.name', family: 'OpenDyslexic', note: 'vocab.face.opendyslexic.note' },
   ],
   ui: [
     { id: 'hanken-grotesk', name: 'vocab.face.hanken-grotesk.name', family: 'Hanken Grotesk', note: 'vocab.face.hanken-grotesk.note' },
     { id: 'inter', name: 'vocab.face.inter.name', family: 'Inter', note: 'vocab.face.inter.note' },
     { id: 'public-sans', name: 'vocab.face.public-sans.name', family: 'Public Sans', note: 'vocab.face.public-sans.note' },
+    { id: 'opendyslexic', name: 'vocab.face.opendyslexic.name', family: 'OpenDyslexic', note: 'vocab.face.opendyslexic.note' },
   ],
   mono: [
     { id: 'ibm-plex-mono', name: 'vocab.face.ibm-plex-mono.name', family: 'IBM Plex Mono', note: 'vocab.face.ibm-plex-mono.note' },

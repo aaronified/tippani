@@ -8,7 +8,10 @@
 // them — which is the one thing about this file that is not obvious from
 // looking at it.
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { SRC } from '../src-files.js'
 import {
   applyFonts,
   hasScript,
@@ -29,12 +32,39 @@ import {
 beforeEach(() => applyFonts({}))
 
 describe('every role arrives with a face', () => {
-  it('offers a built-in and two alternates for all six', () => {
+  it('offers a built-in and at least two alternates for all six', () => {
+    // THE FLOOR IS THREE, NOT EXACTLY THREE, and the difference is the whole point
+    // of this assertion. It used to read `toBe(3)`, which described what happened
+    // to be there rather than what has to be true: every role arrives with a face,
+    // and a reader who dislikes it has somewhere to go. A role gaining a fourth is
+    // not a regression — §6 gave display and ui an accessibility face — so a test
+    // that failed on it was reporting a decision as a defect.
     expect(FONT_ROLES.length).toBe(6)
     for (const role of FONT_ROLES) {
       expect(FONT_FACES[role.key], `${role.key} has no faces`).toBeTruthy()
-      expect(FONT_FACES[role.key].length).toBe(3)
+      expect(FONT_FACES[role.key].length, `${role.key} offers no alternates`).toBeGreaterThanOrEqual(3)
+      // An id is the preference VALUE, so two faces sharing one inside a role would
+      // make a stored choice ambiguous.
+      const ids = FONT_FACES[role.key].map((f) => f.id)
+      expect(new Set(ids).size, `${role.key} has a duplicate face id`).toBe(ids.length)
     }
+  })
+
+  it('and only one face is offered on more than one role', () => {
+    // NAMED SO IT CANNOT QUIETLY BECOME A PATTERN. Faces are grouped by the job
+    // they do — serifs for reading, sans for the interface — and a face in two
+    // lists is a claim that it does both jobs. OpenDyslexic is the one that makes
+    // that claim, and it makes it for a reason that is not about taste: a reader
+    // who needs it to read a quote needs it to read the navigation as well. The
+    // preference is still per role, so choosing it for one does not touch the
+    // other.
+    const seen = {}
+    for (const role of FONT_ROLES) {
+      for (const f of FONT_FACES[role.key]) (seen[f.id] ||= []).push(role.key)
+    }
+    const shared = Object.entries(seen).filter(([, roles]) => roles.length > 1)
+    expect(Object.fromEntries(shared), 'a face is offered on roles this guard has not been told about')
+      .toEqual({ opendyslexic: ['display', 'ui'] })
   })
 
   // A preference that fails to resolve must never leave the app with no font.
@@ -171,5 +201,59 @@ describe('the script check on an uploaded font', () => {
   it('answers null rather than false when it cannot measure', () => {
     expect(hasScript('Nothing At All', 'bengali')).toBe(null)
     expect(verifyUpload('Nothing At All', 'bengali')).toBe(null)
+  })
+})
+
+// ---- the accessibility face (§6 access) --------------------------------------
+//
+// THE PLAN'S OWN VERIFICATION ROW asks for one thing above the rest: the face has
+// to reach the QUOTE text and not only the interface. A dyslexia face that styled
+// the navigation and left a reader's own words in Newsreader would be the feature
+// failing at exactly the place it exists for — and it would LOOK like it worked,
+// because the app would visibly change.
+//
+// THE GAP IT CLOSES IS AN OFFER, NOT A CAPABILITY. Uploading a font has worked
+// since 0039, so a reader who already knows about OpenDyslexic could always have
+// it. What they could not do is find it without knowing to look.
+describe('the dyslexia face', () => {
+  const src = (rel) => readFileSync(join(SRC, rel), 'utf8')
+
+  it('reaches the quote, which is the whole requirement', () => {
+    applyFonts({ fontDisplay: 'opendyslexic' })
+    expect(fontChoice('display').family).toBe('OpenDyslexic')
+    // The stack the quote text actually draws through, head first — a face further
+    // down is a fallback, not a choice.
+    expect(stackFor('display').startsWith("'OpenDyslexic'"),
+      `the quote stack leads with ${stackFor('display').slice(0, 40)}`).toBe(true)
+  })
+
+  it('and the interface too, without either choice touching the other', () => {
+    // Two roles, one family, two independent preferences. A reader may want it for
+    // their own words and keep the interface as it was, or the reverse.
+    applyFonts({ fontUi: 'opendyslexic' })
+    expect(stackFor('ui').startsWith("'OpenDyslexic'")).toBe(true)
+    expect(stackFor('display').startsWith("'OpenDyslexic'"),
+      'choosing it for the interface changed the quote as well').toBe(false)
+
+    applyFonts({ fontDisplay: 'opendyslexic' })
+    expect(stackFor('display').startsWith("'OpenDyslexic'")).toBe(true)
+    expect(stackFor('ui').startsWith("'OpenDyslexic'"),
+      'choosing it for the quote changed the interface as well').toBe(false)
+  })
+
+  it('is BUNDLED rather than fetched, in every weight it ships', () => {
+    // fonts.js's own standing rule: "Tippani never contacts the network on its own
+    // — no telemetry, no CDN, no phone-home — and a type picker that loaded Google
+    // Fonts would be the first thing in the app that did." A face named in the
+    // picker and not imported here would be a silent fallback to a system font,
+    // which reads as the setting not working.
+    const main = src('main.jsx')
+    for (const w of ['400', '700', '400-italic', '700-italic']) {
+      expect(main, `@fontsource/opendyslexic/${w}.css is not imported`)
+        .toContain(`@fontsource/opendyslexic/${w}.css`)
+    }
+    expect(readFileSync(join(SRC, '..', 'package.json'), 'utf8'),
+      'the face is offered but not a dependency, so a fresh checkout would not have it')
+      .toContain('"@fontsource/opendyslexic"')
   })
 })

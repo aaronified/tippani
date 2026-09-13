@@ -24,6 +24,14 @@ import '@fontsource/tiro-devanagari-hindi/400.css'
 // how your own words look. @fontsource splits every face by unicode-range, so a
 // subset is only DOWNLOADED when a codepoint in its range is actually drawn;
 // what grows unconditionally is the CSS and the image on disk. All OFL-1.1.
+// OPENDYSLEXIC IS THE ONE FACE HERE CHOSEN FOR WHO CAN READ IT rather than for
+// how it looks, which is why it is offered on BOTH the reading role and the
+// interface role below. It ships 400 and 700 only — no 500 or 600 — so a heading
+// asking for 600 gets 700, which is the browser's own rule and the right answer.
+import '@fontsource/opendyslexic/400.css'
+import '@fontsource/opendyslexic/700.css'
+import '@fontsource/opendyslexic/400-italic.css'
+import '@fontsource/opendyslexic/700-italic.css'
 import '@fontsource/source-serif-4/400.css'
 import '@fontsource/source-serif-4/600.css'
 import '@fontsource/source-serif-4/400-italic.css'
