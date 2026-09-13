@@ -27,13 +27,44 @@ import { SRC } from '../src-files.js'
 
 const GO = (f) => readFileSync(join(SRC, '..', '..', '..', 'internal', 'httpapi', f), 'utf8')
 
-// Every `Name Type `json:"key"`` in a struct, as { key: type }. The type is taken
-// verbatim so a *float64 and a *int stay distinguishable — both are numbers on the
-// wire, and the point here is number-vs-string, so they fold at the comparison
-// rather than at the read.
+// ONE STRUCT, BRACE-MATCHED — not a whole file, which is what this read for a
+// revision and is a defect with two halves. It MISSED: `handleBulkUpdateMovies`
+// declares its request inline in `bulk_handlers.go`, so reading `metadata_bulk.go`
+// for "the work request" found only the book half and every movie-only field —
+// `release_year`, `media_type`, `publisher` — went unchecked. Sending
+// `release_year` as text at a `*int` left every case green, which is precisely the
+// bug class this file exists for. And it could have LIED: a file-wide read mixes
+// every struct in the file, so two of them declaring one json key with different
+// types would leave whichever came last standing as the answer.
+function structBody(src, anchor) {
+  const at = src.indexOf(anchor)
+  if (at < 0) return null
+  const open = at + anchor.lastIndexOf('{')
+  let depth = 0
+  for (let i = open; i < src.length; i += 1) {
+    if (src[i] === '{') depth += 1
+    else if (src[i] === '}') {
+      depth -= 1
+      if (depth === 0) return src.slice(open + 1, i)
+    }
+  }
+  return null
+}
+
+// The `var req struct {…}` belonging to one handler. Three others in the same file
+// answer for delete, status and the merges, and none of them is the field editor.
+const reqOf = (src, fn) => {
+  const at = src.indexOf(fn)
+  return at < 0 ? null : structBody(src.slice(at), 'var req struct {')
+}
+
+// Every `Name Type `json:"key"`` in a struct body, as { key: type }. The type is
+// taken verbatim so a *float64 and a *int stay distinguishable — both are numbers
+// on the wire, and the point here is number-vs-string, so they fold at the
+// comparison rather than at the read.
 function declared(src) {
   const out = {}
-  for (const m of src.matchAll(/^\s*\w+\s+(\*?[\w.]+)\s+`json:"([a-z_]+)"/gm)) out[m[2]] = m[1]
+  for (const m of String(src).matchAll(/^\s*\w+\s+(\*?[\w.]+)\s+`json:"([a-z_]+)"/gm)) out[m[2]] = m[1]
   return out
 }
 
@@ -47,14 +78,36 @@ const wireOf = (goType) => {
   return null // []string and friends — this guard has nothing to say about them
 }
 
-const QUOTE_REQ = declared(GO('bulk_handlers.go'))
-const WORK_REQ = { ...declared(GO('metadata_bulk.go')) }
+const BULK_GO = GO('bulk_handlers.go')
+const QUOTE_REQ = declared(structBody(BULK_GO, 'type bulkTagReq struct {'))
+// THE WORK EDITOR HAS TWO DOORS AND THEY LIVE IN DIFFERENT FILES. A book's fields
+// are `handleBulkUpdateBooks` in metadata_bulk.go; a film's, a show's and a game's
+// are `handleBulkUpdateMovies`, declared inline in bulk_handlers.go.
+const WORK_BOOK = declared(reqOf(GO('metadata_bulk.go'), 'func (s *Server) handleBulkUpdateBooks('))
+const WORK_MOVIE = declared(reqOf(BULK_GO, 'func (s *Server) handleBulkUpdateMovies('))
+const WORK_REQ = { ...WORK_BOOK, ...WORK_MOVIE }
 
 describe('the bulk editor and its endpoint agree on every field', () => {
-  it('reads both structs at all', () => {
-    // A scan that matched nothing would pass every case below in silence.
+  it('reads all three structs at all', () => {
+    // A scan that matched nothing would pass every case below in silence, and one
+    // that matched the WRONG struct would pass them just as quietly — so each is
+    // pinned by a field only it declares.
     expect(Object.keys(QUOTE_REQ).length, 'bulkTagReq no longer parses the way this reads').toBeGreaterThan(15)
-    expect(WORK_REQ.published_year, 'the work request no longer declares published_year').toBeTruthy()
+    expect(WORK_BOOK.published_year, 'the book work request no longer declares published_year').toBeTruthy()
+    expect(WORK_MOVIE.release_year, 'the FILM work request was not read — it is inline in bulk_handlers.go').toBeTruthy()
+    // AND THE QUOTE SCAN STOPS AT ITS OWN STRUCT. `release_year` is a work field;
+    // finding it here means the read ran past `bulkTagReq`'s closing brace and is
+    // reporting some other handler's fields as the quote editor's.
+    expect(QUOTE_REQ.release_year, 'the quote scan ran past bulkTagReq into another struct').toBeFalsy()
+  })
+
+  it('and the two work doors do not declare one field two ways', () => {
+    // WORK_REQ merges them, so a key they disagreed about would silently become
+    // whichever was spread last — a guard giving a confident wrong answer.
+    const clash = Object.keys(WORK_BOOK)
+      .filter((k) => WORK_MOVIE[k] && WORK_MOVIE[k] !== WORK_BOOK[k])
+      .map((k) => `${k}: book ${WORK_BOOK[k]} vs film ${WORK_MOVIE[k]}`)
+    expect(clash, 'the two work requests declare a field with two different types').toEqual([])
   })
 
   for (const [name, fields, req] of [

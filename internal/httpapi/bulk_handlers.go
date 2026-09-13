@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 
 	"tippani/internal/olog"
@@ -364,23 +363,16 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 			return
 		}
 	}
-	// THE SAME TRAP, for the same reason, on the show pair. nullableCount maps
-	// anything it cannot parse to NULL — so "S2" sent across forty lines would
-	// CLEAR the season on all forty and report success, and nothing on screen
-	// would say so. A blank is the deliberate clear and passes; junk is a 400.
-	for _, p := range []struct {
-		name string
-		val  *string
-	}{{"season", req.Season}, {"episode", req.Episode}} {
-		if p.val == nil {
-			continue
-		}
-		if v := strings.TrimSpace(*p.val); v != "" {
-			if n, err := strconv.Atoi(v); err != nil || n < 0 {
-				writeErr(w, http.StatusBadRequest, p.name+" must be a whole number, or blank to clear it")
-				return
-			}
-		}
+	// THE SAME TRAP, for the same reason, on the show pair — and the rule is
+	// `showPairProblem`'s rather than this door's own, because this door HAD its
+	// own and it was a hand copy of the staged one with the ceiling dropped.
+	// `season: "20260913"` was stored across a whole selection while the single
+	// door refused it. nullableCount maps anything it cannot parse to NULL, so
+	// "S2" sent across forty lines would CLEAR the season on all forty and report
+	// success; a blank is the deliberate clear and passes, junk is a 400.
+	if msg := showPairProblem(req.Season, req.Episode); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
+		return
 	}
 	uid := userID(r)
 	// A sticker is a per-user row, so a borrowed id has to be refused rather than
@@ -522,6 +514,9 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	// maps anything unparseable to NULL, and that is exactly the silent-clear the
 	// 400 exists to prevent — which is why the guard is there and why the test
 	// asserts the refusal before it asserts the write.
+	//
+	// SEASON FIRST, THEN EPISODE, and the order is load-bearing — see
+	// bulkSetShowPair on why the episode write asks whether a season is there.
 	for _, p := range []struct {
 		col string
 		val *string
@@ -529,8 +524,19 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 		if p.val == nil {
 			continue
 		}
-		if err := bulkSetChild(tx, table, p.col, nullableCount(*p.val), owned); err != nil {
+		if err := bulkSetShowPair(tx, p.col, nullableCount(*p.val), owned); err != nil {
 			internalError(w, r, "bulk tag: "+p.col, err)
+			return
+		}
+	}
+	// CLEARING A SEASON CLEARS ITS EPISODE. Without this the clear MAKES the
+	// orphan the rule below refuses to create: a line left holding episode 4 and
+	// no season, which sorts ahead of every numbered season and which the single
+	// door would refuse outright. Only on an explicit clear — a season being SET
+	// leaves the episode where it was, which is the whole point of setting one.
+	if req.Season != nil && strings.TrimSpace(*req.Season) == "" {
+		if err := bulkSetShowPair(tx, "episode", nil, owned); err != nil {
+			internalError(w, r, "bulk tag: episode (with season cleared)", err)
 			return
 		}
 	}
@@ -649,6 +655,47 @@ func bulkSetChild(tx *sql.Tx, table, col string, val any, ids []int64) error {
 	}
 	_, err := tx.Exec(
 		`UPDATE `+table+` SET `+col+` = ?, updated_at = datetime('now') WHERE id IN (`+inClause(len(ids))+`)`, args...)
+	return err
+}
+
+// bulkSetShowPair writes season or episode across a selection. It is not
+// bulkSetChild because two of the rules here are about the ROW rather than the
+// value, and neither can be asked of a request that carries one field.
+//
+// A FILM'S LINE IS SKIPPED RATHER THAN REFUSED, which is `normalize`'s own choice
+// one row at a time (dialogue_handlers.go): it CLEARS the pair on anything that is
+// not a show, deliberately, because flipping a show to a film leaves its lines
+// holding numbers that no longer mean anything and a 400 would make every later
+// edit fail from a form that correctly does not offer the fields. A selection can
+// hold a show's lines and a film's together, so refusing the request would punish
+// the show half for the film half's company. Writing nothing to the film is the
+// bulk shape of that forgiveness — and clearing it here instead would be a second
+// thing the reader did not ask for.
+//
+// AND AN EPISODE NEEDS A SEASON, kept per row because per request it cannot be
+// asked: `req.Season == nil` at this door means "not touched", not "has none", so
+// the forty rows may each already carry one. The caller writes season first, so by
+// the time the episode write runs `season IS NOT NULL` is the whole question — a
+// row that had one, or just got one, takes the episode; a row with neither does
+// not. A clear (val nil) is exempt: removing an orphan is the repair, not the harm.
+//
+// THE RESPONSE STILL COUNTS THE SELECTION, not the rows this touched. That is true
+// of every other field too — setting a colour to the colour it already is changes
+// nothing and is counted — so a `skipped` tally is a change to what `updated` means
+// everywhere, which is a decision for its own commit rather than a side effect here.
+func bulkSetShowPair(tx *sql.Tx, col string, val any, ids []int64) error {
+	args := make([]any, 0, len(ids)+1)
+	args = append(args, val)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	where := `WHERE id IN (` + inClause(len(ids)) + `)
+	          AND movie_id IN (SELECT id FROM movies WHERE media_type = 'show')`
+	if col == "episode" && val != nil {
+		where += ` AND season IS NOT NULL`
+	}
+	_, err := tx.Exec(
+		`UPDATE dialogues SET `+col+` = ?, updated_at = datetime('now') `+where, args...)
 	return err
 }
 

@@ -1291,6 +1291,97 @@ func TestBulkSeasonAndEpisodeOnDialogues(t *testing.T) {
 		}
 	})
 
+	t.Run("the ceiling is the single door's, not a lower one or none at all", func(t *testing.T) {
+		// THIS DOOR HAD NO CEILING FOR A COMMIT. It was a hand copy of the staged
+		// door's block with the `max` column dropped, so `season: "20260913"` was
+		// accepted and written across a whole selection while the very same value
+		// at PUT /dialogues/{id} answered "season must be at most 999". Both now
+		// read showPairProblem, so there is one rule and nothing to drift.
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one, two}, "season": "3", "episode": "3"}, http.StatusOK)
+		for _, bad := range []map[string]any{
+			{"ids": []int64{one, two}, "season": "20260913"},
+			{"ids": []int64{one, two}, "season": itoa(int64(maxSeason) + 1)},
+			{"ids": []int64{one, two}, "episode": itoa(int64(maxEpisode) + 1)},
+		} {
+			c.mustDo("POST", "/dialogues/bulk", bad, http.StatusBadRequest)
+		}
+		// The staged door answers the same way about the same value, which is the
+		// point of the shared rule rather than two that agree today.
+		over := "20260913"
+		if msg := showPairProblem(&over, nil); msg == "" {
+			t.Fatal("showPairProblem accepts a season above the ceiling")
+		}
+		for _, id := range []int64{one, two} {
+			if s, e := get(id); s != 3 || e != 3 {
+				t.Fatalf("a refused request still wrote: season=%d episode=%d", s, e)
+			}
+		}
+		// AND THE CEILING ITSELF IS ACCEPTED. A guard that refused the boundary
+		// too would pass every case above while being wrong by one.
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one}, "season": itoa(int64(maxSeason)), "episode": itoa(int64(maxEpisode))}, http.StatusOK)
+		if s, e := get(one); s != maxSeason || e != maxEpisode {
+			t.Fatalf("the ceiling was refused: season=%d episode=%d", s, e)
+		}
+	})
+
+	t.Run("a film's line is left alone rather than given a season it cannot have", func(t *testing.T) {
+		// `normalize` CLEARS the pair on anything that is not a show, one row at a
+		// time, so the single door can never leave a film holding an episode. The
+		// bulk door wrote them anyway — and a selection legitimately spans a show
+		// and a film, so refusing the request would punish the show half for the
+		// film half's company. It writes nothing to the film instead.
+		film := newWork(t, c, "Heat", "movie")
+		line := idOf(t, c.mustDo("POST", "/dialogues",
+			map[string]any{"movie_id": film, "quote": "a guy told me one time"}, http.StatusCreated).Body.Bytes())
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{line, two}, "season": "5", "episode": "5"}, http.StatusOK)
+		if s, e := get(line); s != -1 || e != -1 {
+			t.Fatalf("a film's line was given season=%d episode=%d", s, e)
+		}
+		// And the show's line in the same request DID take it, or the assertion
+		// above passes for a request that wrote nothing at all.
+		if s, e := get(two); s != 5 || e != 5 {
+			t.Fatalf("the show's line in the same selection did not take it: season=%d episode=%d", s, e)
+		}
+	})
+
+	t.Run("an episode never lands on a line with no season, and a clear takes it with it", func(t *testing.T) {
+		// The single door's rule — "an episode needs the season it is in", because
+		// an episode alone sorts ahead of every numbered season. It cannot be asked
+		// of the REQUEST here (a nil season means "not touched", not "has none"), so
+		// it is asked of the ROW.
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one}, "season": "", "episode": ""}, http.StatusOK)
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one}, "episode": "9"}, http.StatusOK)
+		if s, e := get(one); s != -1 || e != -1 {
+			t.Fatalf("an episode landed on a line with no season: season=%d episode=%d", s, e)
+		}
+		// Season and episode together in one request DO both land — season is
+		// written first, so the episode write finds the season it needs.
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one}, "season": "1", "episode": "9"}, http.StatusOK)
+		if s, e := get(one); s != 1 || e != 9 {
+			t.Fatalf("the pair sent together did not land: season=%d episode=%d", s, e)
+		}
+		// An episode alone lands once the row already has a season, which is the
+		// commonest use of this control and the reason the rule is per row.
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one}, "episode": "10"}, http.StatusOK)
+		if s, e := get(one); s != 1 || e != 10 {
+			t.Fatalf("an episode did not land on an already-seasoned line: season=%d episode=%d", s, e)
+		}
+		// AND CLEARING THE SEASON TAKES THE EPISODE WITH IT. Otherwise the clear
+		// MAKES the orphan every rule above exists to prevent.
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one}, "season": ""}, http.StatusOK)
+		if s, e := get(one); s != -1 || e != -1 {
+			t.Fatalf("clearing the season left episode=%d behind (season=%d)", e, s)
+		}
+	})
+
 	t.Run("and a book is refused with a 400, not a 500 from inside the write", func(t *testing.T) {
 		// unsupportedQuoteField's own reason: without season and episode in
 		// bulkQuoteFieldPresent this reaches bulkSetChild and fails as `no such

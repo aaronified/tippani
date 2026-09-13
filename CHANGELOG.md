@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   happens if you walk away: nothing is queued from a file nothing could read, so it is not
   on Checks and not in the app at all. It has to be dropped again. The row says so.
 
-- **A film, a show and a game now have the board a book has had.** The bar above the
+- **A film, a show and a game now have the header a book's shelf has had.** The bar above the
   lines on a work page was a different bar from the one above a book's highlights, and
   the difference was not decoration: there was **no grouping at all**, so lines could
   not be gathered by character, by episode, by act or by quest — orders the app has
@@ -742,7 +742,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Setting a chapter number across a selection did nothing at all.** The bulk editor on
-  a book's board has offered **Chapter #** since chapters gained a number, and every press
+  a book's highlights has offered **Chapter #** since chapters gained a number, and every press
   of it was refused by the server before it reached a single row — the box sent a number
   where the server was reading a word, so the whole request was thrown out and nothing
   changed. No error said so; the panel closed and the highlights were as they were. It
@@ -889,7 +889,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that line the way the card does, so one quote reads the same wherever you find it.
 
 - **A work page's quotes stopped at two columns on any screen.** However wide the window,
-  a book's or a film's board drew two — and the reason was two sensible numbers that had
+  a book's page and a film's alike drew two — and the reason was two sensible numbers that had
   never been read together: the page holds each thing in its stream to a readable measure,
   and the board's column ladder is measured against the board, which lives inside that
   measure. The measure was narrower than the ladder's own three-column rung, so the third
@@ -909,7 +909,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   neighbour. Every box around it already knew to give way; the one holding the name
   did not. Reported from the owner's own screen.
 
-- **A book board's colour filter offered six identical grey circles.** Every option in
+- **The Library's colour filter offered six identical grey circles.** Every option in
   "Colour category" — on the phone and on the desk alike — drew the same colourless dot,
   so the one control whose swatch is the only thing distinguishing its rows could not tell
   them apart. The filter was painting each dot with a colour name that has never been a
@@ -2369,7 +2369,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because there it is what you are reading.
 
 
-- **A phone can arrange a book's board at all.** The whole board header was
+- **A phone can arrange a book's shelf at all.** The whole shelf header was
   desktop-only, so grouping, the sort column and the direction were reachable from one
   of two viewports — a phone-only reader sat permanently at the defaults. The pack's own
   band now sits between the description and the quotes: how many rows a filter is
@@ -2445,7 +2445,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   glyph key in a footer whose other control is a filled primary, so the one thing on the
   sheet that throws work away was also the quietest thing on it.
 
-- **A book's board header is one row of the things that arrange it.** The view moved
+- **A book's shelf header is one row of the things that arrange it.** The view moved
   into the screen's ⋯ (it was the widest control in the row and the least often
   changed), and the sort folded into the grouping's menu, where it states the current
   order without being opened. Grouping and ordering are one decision made twice —
@@ -3702,7 +3702,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   out exactly as it did rather than being balanced around a card they cannot see.
 
 - **A shelf of four hundred books asked for thirty-one megabytes of covers to show
-  eighteen.** Every tile on the Library board and the Catalogue's carried an eager
+  eighteen.** Every tile in the Library and the Catalogue carried an eager
   `<img>`, so opening either one fetched the artwork for the whole collection —
   measured in a real browser at 401 requests and 31.1 MB, on a viewport that holds
   about eighteen covers. Covers now load as they are approached: the same board asks

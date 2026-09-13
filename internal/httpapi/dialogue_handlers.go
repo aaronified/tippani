@@ -65,6 +65,44 @@ func (e *episodeRef) normalize(mediaType string) string {
 	return ""
 }
 
+// showPairProblem validates a season/episode pair arriving as OPTIONAL TEXT — the
+// shape both bulk doors use, where absent means "not touched", "" means "clear it",
+// and anything else must be a whole number inside the same ceiling `normalize`
+// enforces one row at a time. It returns "" when there is nothing to refuse.
+//
+// ONE FUNCTION BECAUSE THERE WERE TWO AND THEY HAD ALREADY DRIFTED. The staged door
+// carried the ceiling; the live door, written later as a hand copy of it, did not —
+// so `season: "20260913"` was accepted and stored across a whole selection while the
+// same value at PUT /dialogues/{id} answered "season must be at most 999". That is
+// the repo's own directive about two things that look the same, in its usual shape:
+// the copy went on being right until somebody edited one of them.
+//
+// IT DOES NOT CARRY `normalize`'s "an episode needs the season it is in", and the
+// reason is that nil means two different things. In a full PUT, `Season == nil` says
+// the line will HAVE no season. Here it says this REQUEST does not touch season, and
+// the rows it lands on may each already have one — so refusing would break setting an
+// episode across a selection that is already seasoned, which is the commonest use
+// there is. The invariant is kept per ROW instead, by the writer; see bulkSetShowPair.
+func showPairProblem(season, episode *string) string {
+	for _, f := range []struct {
+		val  *string
+		name string
+		max  int
+	}{
+		{season, "season", maxSeason},
+		{episode, "episode", maxEpisode},
+	} {
+		if f.val == nil || strings.TrimSpace(*f.val) == "" {
+			continue // absent, or an explicit clear
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(*f.val))
+		if err != nil || n < 0 || n > f.max {
+			return f.name + " must be a number between 0 and " + strconv.Itoa(f.max)
+		}
+	}
+	return ""
+}
+
 // gameRef is the game half of a dialogue's locator, and it is the same shape as
 // episodeRef for the same reason: a game is a movies row (0040), so the rule that
 // a game's lines are placed by ACT and QUEST while a film's are not cannot live in

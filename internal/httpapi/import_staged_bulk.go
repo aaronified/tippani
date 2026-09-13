@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"tippani/internal/olog"
@@ -177,21 +176,12 @@ func (req *stagedBulkReq) validate() string {
 			return msg
 		}
 	}
-	for _, f := range []struct {
-		val  *string
-		name string
-		max  int
-	}{
-		{req.Season, "season", maxSeason},
-		{req.Episode, "episode", maxEpisode},
-	} {
-		if f.val == nil || strings.TrimSpace(*f.val) == "" {
-			continue // absent, or an explicit clear
-		}
-		n, err := strconv.Atoi(strings.TrimSpace(*f.val))
-		if err != nil || n < 0 || n > f.max {
-			return f.name + " must be a number between 0 and " + strconv.Itoa(f.max)
-		}
+	// The ceiling this door has always had, now stated once for both bulk doors —
+	// the live one was a hand copy of this block with the ceiling dropped. See
+	// showPairProblem for why the single door's "an episode needs the season it is
+	// in" is NOT part of the shared rule.
+	if msg := showPairProblem(req.Season, req.Episode); msg != "" {
+		return msg
 	}
 	if req.Retarget != nil {
 		r := req.Retarget

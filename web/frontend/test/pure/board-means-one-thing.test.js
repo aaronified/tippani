@@ -40,6 +40,7 @@ import { SRC } from '../src-files.js'
 const I18N = join(SRC, '..', '..', '..', 'internal', 'i18n')
 const EN = readFileSync(join(I18N, 'en.txt'), 'utf8')
 const BN = readFileSync(join(I18N, 'bn.txt'), 'utf8')
+const CHANGELOG = readFileSync(join(I18N, '..', '..', 'CHANGELOG.md'), 'utf8')
 
 // Every `key = value` pair, as the reader would meet the value.
 function entries(txt) {
@@ -51,6 +52,21 @@ function entries(txt) {
 
 const EN_ENTRIES = entries(EN)
 const BN_ENTRIES = entries(BN)
+
+// AND THE CHANGELOG, WHICH IS PROSE A READER MEETS AND WAS NOT BEING READ. The
+// ruling landed with five entries in this very section calling the Library "a
+// book's board" — one of them written an hour after the bullet announcing it.
+//
+// THE UNRELEASED SECTION ONLY, and that is the whole judgement here: a shipped
+// entry describes what the app did when it shipped, and rewriting it would make
+// the log a worse record of its own history. What is unreleased is still a
+// promise, so it is still editable and still has to be right.
+const UNRELEASED = (() => {
+  const head = CHANGELOG.indexOf('## [Unreleased]')
+  if (head < 0) return ''
+  const next = CHANGELOG.indexOf('\n## [', head + 5)
+  return CHANGELOG.slice(head, next < 0 ? undefined : next)
+})()
 
 // "board" as a WORD, not as a piece of one — `clipboard`, `Dashboard` and
 // `keyboard` all contain it and none of them mean this.
@@ -68,10 +84,32 @@ const BOARD_WORD = /(?<![a-z])boards?(?![a-z])/i
 // own analogy, not a breach of it). Both are correct strings. That is the same
 // lesson as the cover above, and it is why (c) asks for a preposition rather
 // than for nearness.
-function callsAScreenABoard(value) {
+// THE STRUCTURAL HALF, split out because it is the only half long prose can bear.
+// (a) and (d) NAME the thing — a screen's name or a work noun glued straight onto
+// the word. (b) and (c) below are proximity, and proximity is informative in a UI
+// string, which is one sentence a reader meets whole, and NOT in a changelog
+// paragraph, which is many. Turned on the changelog, (b) and (c) reported five
+// entries of which THREE were correct: a language offered "on a film's own
+// settings and on a board", a bug report saying "a board and an anthology were
+// treated as a book", and a sentence about the Board menu beside the word book.
+// Each is right, and each sat within forty characters of the other word. That is
+// the cover lesson again, one file along.
+function namesAScreenABoard(value) {
   if (!BOARD_WORD.test(value)) return false
   // (a) the screen itself, named as a board.
   return /\b(Library|Catalogue) board\b/i.test(value)
+    // (d) THE POSSESSIVE, AND BARE ADJACENCY, WHICH NEED NO PREPOSITION AT ALL —
+    // "a book's board", "the titles board". Added because a rater found one in
+    // prose written an hour after the bullet announcing the ruling, and every
+    // pattern here missed it: no screen name, no work noun after `board`, and
+    // nothing between the two. Both apostrophes, because an editor supplies the
+    // curly one.
+    || /\b(book|film|show|title)s?(?:[’']s?)?\s+board\b/i.test(value)
+}
+
+function callsAScreenABoard(value) {
+  if (!BOARD_WORD.test(value)) return false
+  return namesAScreenABoard(value)
     // (b) a board said to HOLD works.
     || /\bboard\b[^.]{0,40}\b(book|film|show|title|shelf)s?\b/i.test(value)
     // (c) the same claim the other way round — a work said to SIT on one. This
@@ -112,6 +150,34 @@ describe('the words the ruling settled', () => {
     expect(offenders, 'an English string calls the Library or the Catalogue a board').toEqual([])
   })
 
+  it("and the changelog's unreleased entries say it too", () => {
+    // Read a PARAGRAPH at a time rather than a line: the file is hard-wrapped, so
+    // "a book's" can end one line and "board" begin the next, and a line-by-line
+    // scan would miss exactly the shape that got past the first version of this.
+    const offenders = UNRELEASED.split(/\n\s*\n/)
+      .map((para) => para.replace(/\s+/g, ' ').trim())
+      .filter((para) => para && namesAScreenABoard(para))
+      .map((para) => para.slice(0, 70) + '…')
+    expect(offenders, 'an unreleased changelog entry calls the Library or the Catalogue a board').toEqual([])
+  })
+
+  it('and the changelog scan is reading something', () => {
+    // A section it could not find would be an empty string, and an empty string
+    // satisfies the assertion above without looking at a word.
+    expect(UNRELEASED.length, 'the [Unreleased] section was not found in CHANGELOG.md').toBeGreaterThan(1000)
+    expect(namesAScreenABoard("The bulk editor on a book's board has offered Chapter #"),
+      'the changelog scan cannot see the exact line a rater found').toBe(true)
+    expect(namesAScreenABoard('Every tile on the Library board carried an eager img'),
+      'the changelog scan cannot see the plainest spelling of all').toBe(true)
+    // AND IT MUST NOT FIRE ON THE THREE CORRECT PARAGRAPHS proximity flagged.
+    for (const value of [
+      'a language shows on a film\u2019s own settings and on a board',
+      'a board and an anthology were treated as a book by the card',
+    ]) {
+      expect(namesAScreenABoard(value), `the changelog scan flags correct prose: "${value}"`).toBe(false)
+    }
+  })
+
   it('and the Bengali says the same, in its own grammar', () => {
     const offenders = BN_ENTRIES.filter(({ value }) => callsAScreenABoardBn(value)).map(({ key }) => key)
     expect(offenders, 'a Bengali string calls the Library or the Catalogue a board').toEqual([])
@@ -128,6 +194,9 @@ describe('the words the ruling settled', () => {
       'Every book on the board can be opened from here',
       'each film sits on a board of its own',
       'Open any title on the board',
+      "The bulk editor on a book's board has offered Chapter #",
+      'A film’s board drew two columns',
+      'the titles board',
     ]
     for (const value of en) {
       expect(callsAScreenABoard(value), `the English scan cannot see "${value.slice(0, 44)}…"`).toBe(true)

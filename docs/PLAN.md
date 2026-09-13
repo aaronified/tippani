@@ -14730,6 +14730,14 @@ the whole of what "counting goes stale; naming does not" means. They are replace
 by what the set IS. A number in prose needs the definition beside it or it is
 decoration that looks like evidence.
 
+**AND `7a4a0f1c`'S COMMIT MESSAGE STILL SAYS "all thirty-six of its strings". It
+stays wrong**, deliberately: it is pushed, and rewriting a published commit to
+correct a sentence invalidates every checkout below it. A repository's history is
+what happened, including what was believed at the time. THIS paragraph is the
+correction, and it is here rather than there because `docs/PLAN.md` is where a
+reader who followed that commit goes next — which is the only property that makes
+a correction worth writing.
+
 **THE GUARD, AND THE FALSE POSITIVE THAT IMPROVED IT.**
 `board-means-one-thing.test.js` reads both locale files, because a vocabulary
 ruling decays the moment somebody writes one more sentence and nothing about a
@@ -14792,6 +14800,39 @@ left the test green, and the first instinct was to strengthen the test. The righ
 was to check whether the two actually differ — they do not — and to fix the sentence that
 claimed they did. A test that cannot see a difference that does not exist is not a weak
 test.
+
+**AND THE DOOR ENFORCED LESS THAN EVERY OTHER DOOR ONTO THE SAME TWO COLUMNS**, which a
+rater found by posting at the real handler rather than by reading. `season: "20260913"`
+was accepted and stored across a whole selection while `PUT /dialogues/{id}` answered
+*"season must be at most 999"*; season and episode landed on a FILM's line, which
+`normalize` clears one row at a time; and an episode was written onto a line with no
+season, which the single door refuses outright.
+
+The cause is the one this session keeps finding: the block was a hand copy of the staged
+door's, with the ceiling dropped in the copying. **So the rule is `showPairProblem` now
+and both bulk doors read it**, which is the repo's own directive about two things that
+look the same applied to a validator instead of a control.
+
+**THE TWO PER-ROW RULES COULD NOT GO IN IT, AND THAT IS THE INTERESTING PART.** `nil`
+means different things at the two kinds of door. In a full PUT, `Season == nil` says the
+line will HAVE no season, so "an episode needs the season it is in" is answerable from
+the request. At a bulk door it says this REQUEST does not touch season, and the forty
+rows may each already have one — so porting the rule verbatim would have refused the
+commonest use of the control there is. It is asked of the ROW instead, in
+`bulkSetShowPair`: season is written first, so `season IS NOT NULL` is the whole question
+by the time the episode write runs. The film case is the same shape — `normalize` CLEARS
+rather than refuses, deliberately, so the bulk equivalent is to write nothing to the film
+and everything to the show in the same selection, rather than failing the request because
+of the company one row keeps.
+
+**AND CLEARING A SEASON CLEARS ITS EPISODE**, because otherwise the clear MAKES the orphan
+the rule above exists to prevent. Four mutations, each killed: drop the ceiling, drop the
+show gate, drop `season IS NOT NULL`, drop the cascade.
+
+**WHAT THE RESPONSE STILL DOES NOT SAY** is how many rows a write actually touched —
+`{"updated": len(owned)}` counts the selection. That is already true of every other field
+(setting a colour to the colour it is changes nothing and is counted), so a `skipped`
+tally is a change to what `updated` means everywhere and belongs in its own commit.
 
 ## Three loose ends, and two of them were about what a test cannot see
 
