@@ -513,6 +513,12 @@ export const QUOTE_TEXT = {
   textTransform: 'var(--font-display-case)',
   fontVariantNumeric: 'var(--font-display-figures)',
   lineHeight: 'var(--quote-leading)',
+  // THE MEASURE, and `none` until a reader asks for one — so this line changes
+  // nothing for anybody who never opens the dial. It is in `ch` of THIS element's
+  // own face, which is why it belongs in the object rather than on a wrapper: a
+  // column of prose is counted in its own characters, and the wrapper is set in
+  // the interface face at a different size.
+  maxWidth: 'var(--quote-measure)',
 }
 //
 // THE CLASS IS HASHED AND NOT THE NAME. A language is free text — "বাংলা",

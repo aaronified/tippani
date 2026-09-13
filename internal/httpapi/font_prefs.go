@@ -115,8 +115,36 @@ func normalizeFontStyles(raw string) (string, bool) {
 // unwritable without them knowing which field the server was rejecting.
 var sizeFactors = []int{0, 75, 100, 125, 150, 175}
 
-func validSizeFactor(n int) bool {
-	for _, ok := range sizeFactors {
+func validSizeFactor(n int) bool { return intIn(sizeFactors, n) }
+
+// The quote's own two reading-comfort dials (§6 access), and CLOSED SETS for the
+// reason sizeFactors is one: the value is arithmetic the client and the server
+// both have to agree about, and a leading of 1.37 is not a position the dial has.
+//
+// LEADING IS IN HUNDREDTHS because a line-height is a ratio and this struct is
+// flat integers — 155 is 1.55, which is the value the stylesheet has drawn since
+// before the dial existed. MEASURE IS IN `ch`, characters of the quote's OWN
+// face, because that is the unit the 45–75 rule is stated in and the repo forbids
+// measuring a box that holds text in px.
+//
+// 0 IS "NOT CHOSEN" IN BOTH. For leading it renders at 155; for measure it is
+// also the only spelling of "as wide as the box", which is what every screen has
+// always done — so the zero value of prefs is still exactly what the app drew
+// before these existed. QUOTE_LEADINGS and QUOTE_MEASURES in type.js are the
+// client's copy, and quote-dials.test.js walks the two against each other.
+var quoteLeadings = []int{0, 130, 145, 155, 170, 190}
+
+var quoteMeasures = []int{0, 45, 55, 66, 80}
+
+func validQuoteLeading(n int) bool { return intIn(quoteLeadings, n) }
+
+func validQuoteMeasure(n int) bool { return intIn(quoteMeasures, n) }
+
+// intIn is the membership test the three closed sets above share. Three copies of
+// a four-line loop is how one of them quietly stops matching the others, which is
+// the repo's own directive about controls read as a rule about code.
+func intIn(list []int, n int) bool {
+	for _, ok := range list {
 		if n == ok {
 			return true
 		}

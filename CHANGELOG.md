@@ -787,6 +787,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   between its lines is a single setting rather than a number typed into a dozen places.
   This is the groundwork for the reading-comfort dials, which need one thing to move.
 
+- **Two dials for how a quote is set, and they are the ones nobody offers.** Settings →
+  Appearance already had a text size; it now has **line height** and **line length** beside
+  it, and both set the quote text alone — the interface keeps its own size, because a
+  reader narrowing a column of prose is not asking for a narrower app. Line length is the
+  one worth knowing about: a line of roughly 45 to 75 characters is the easiest to read a
+  long passage in, and this app's paper and film looks are deliberately generous with
+  width, which is right for a card and wrong for a page of Proust. Set it to 55 and every
+  quote in the app wraps there — on the card, in a search result, in the recall deck, in
+  the anthology you print. Both are kept with your account rather than on one device, and
+  **neither changes anything until you set it**: leave them alone and every quote is drawn
+  exactly as it was.
+
 - **A date the app refuses on one quote was accepted on a whole imported file — and then
   thrown away.** Typing `sometime in 1952` into a quote's occasion date has always come
   back refused, with a message naming the shapes it takes. Setting the same value across a

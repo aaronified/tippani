@@ -233,3 +233,190 @@ func TestTheSizeDialAgreesWithTheClient(t *testing.T) {
 		t.Fatalf("the dial disagrees: type.js offers %v, the server accepts %v", client, server)
 	}
 }
+
+// TestTheQuoteReadingDialsPersist — §6 access's two, and the promise that matters
+// most is the FIRST clause: a fresh account stores 0 for both, and 0 renders as
+// what the app drew before either dial existed. A reading-comfort control that
+// restyles somebody's whole library on upgrade is worse than no control.
+func TestTheQuoteReadingDialsPersist(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	read := func() prefs {
+		return decode[struct {
+			Preferences prefs `json:"preferences"`
+		}](t, c.mustDo("GET", "/auth/me", nil, http.StatusOK)).Preferences
+	}
+
+	if p := read(); p.QuoteLeading != 0 || p.QuoteMeasure != 0 {
+		t.Fatalf("a fresh account has the quote dials already set: %+v", p)
+	}
+
+	// EVERY POSITION EACH DIAL OFFERS, read off the list rather than copied from
+	// it — the lesson the size test above records, where a withdrawn step made a
+	// behaviour test fail for a reason that had nothing to do with the behaviour.
+	for _, n := range quoteLeadings {
+		c.mustDo("PUT", "/auth/me/preferences", map[string]any{"quoteLeading": n}, http.StatusOK)
+		if p := read(); p.QuoteLeading != n {
+			t.Fatalf("leading %d did not persist: %+v", n, p)
+		}
+	}
+	for _, n := range quoteMeasures {
+		c.mustDo("PUT", "/auth/me/preferences", map[string]any{"quoteMeasure": n}, http.StatusOK)
+		if p := read(); p.QuoteMeasure != n {
+			t.Fatalf("measure %d did not persist: %+v", n, p)
+		}
+	}
+
+	// BOTH AT ONCE AND DIFFERENT, which the two loops cannot show: they set one
+	// field each, so a server that wrote either input into both would pass them.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"quoteLeading": 190, "quoteMeasure": 45}, http.StatusOK)
+	if p := read(); p.QuoteLeading != 190 || p.QuoteMeasure != 45 {
+		t.Fatalf("the two dials did not persist independently: %+v", p)
+	}
+
+	// A save about something else leaves them alone. This is the failure mode the
+	// Appearance card's own comments keep warning about — a full-state save wiping
+	// a field that rode in the same object — checked from the server's end.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"accent": "olive"}, http.StatusOK)
+	if p := read(); p.QuoteLeading != 190 || p.QuoteMeasure != 45 {
+		t.Fatalf("an unrelated save cleared a quote dial: %+v", p)
+	}
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"sizeUi": 125}, http.StatusOK)
+	if p := read(); p.QuoteLeading != 190 || p.QuoteMeasure != 45 {
+		t.Fatalf("a text-size save cleared a quote dial: %+v", p)
+	}
+
+	// A CLOSED SET on both, derived rather than listed: the question is not "is
+	// 1.37 refused" but "is anything the dial does not offer refused".
+	offeredLeading, offeredMeasure := map[int]bool{}, map[int]bool{}
+	for _, n := range quoteLeadings {
+		offeredLeading[n] = true
+	}
+	for _, n := range quoteMeasures {
+		offeredMeasure[n] = true
+	}
+	for _, bad := range []int{1, 137, 155000, -155, 200, 90} {
+		if offeredLeading[bad] {
+			t.Fatalf("%d is in quoteLeadings — this list holds values the dial does NOT have", bad)
+		}
+		c.mustDo("PUT", "/auth/me/preferences", map[string]any{"quoteLeading": bad}, http.StatusBadRequest)
+	}
+	for _, bad := range []int{1, 44, 100, -66, 75, 1000} {
+		if offeredMeasure[bad] {
+			t.Fatalf("%d is in quoteMeasures — this list holds values the dial does NOT have", bad)
+		}
+		c.mustDo("PUT", "/auth/me/preferences", map[string]any{"quoteMeasure": bad}, http.StatusBadRequest)
+	}
+	if p := read(); p.QuoteLeading != 190 || p.QuoteMeasure != 45 {
+		t.Fatalf("a refused save changed the stored dials: %+v", p)
+	}
+
+	// ONE DIAL AFTER THE OTHER, IN THAT ORDER, AND THIS IS THE CASE A RATER FOUND
+	// MISSING. Everything above sends the two together or sends one to a virgin
+	// field, so a leading write that silently cleared the measure survived every
+	// one of them: the "both at once" case sends both, the leading branch runs
+	// first, and the measure write that follows repairs the damage before anything
+	// reads it. Setting the measure, THEN the leading alone, is the only order that
+	// can see it.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"quoteMeasure": 66}, http.StatusOK)
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"quoteLeading": 130}, http.StatusOK)
+	if p := read(); p.QuoteMeasure != 66 || p.QuoteLeading != 130 {
+		t.Fatalf("writing the leading disturbed the measure: %+v", p)
+	}
+	// And the other way round, because a measure write clearing the leading is the
+	// same defect with the fields swapped.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"quoteMeasure": 80}, http.StatusOK)
+	if p := read(); p.QuoteLeading != 130 || p.QuoteMeasure != 80 {
+		t.Fatalf("writing the measure disturbed the leading: %+v", p)
+	}
+}
+
+// TestTheQuoteDialsAgreeWithTheClient — the same seam TestTheSizeDialAgreesWithThe
+// Client guards, for the two new lists: a step the picker offers and the server
+// refuses is a setting the reader can select and cannot store, and the only
+// symptom is a control that will not stick.
+//
+// THE ASYMMETRY IS ASSERTED RATHER THAN TOLERATED. Leading's server list carries
+// one extra value, 0, which means "never chosen" and is not a position — the
+// picker does not offer it because "not chosen" and "Normal" draw the same page.
+// Measure's lists are identical, because there 0 is "full width", a real answer a
+// reader picks on purpose.
+func TestTheQuoteDialsAgreeWithTheClient(t *testing.T) {
+	const src = "../../web/frontend/src/type.js"
+	body, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatalf("read %s: %v", src, err)
+	}
+	clientList := func(name string) []int {
+		m := regexp.MustCompile(`export const ` + name + ` = \[([0-9,\s]+)\]`).FindSubmatch(body)
+		if m == nil {
+			t.Fatalf("%s not found in %s — the pattern has gone stale", name, src)
+		}
+		out := []int{}
+		for _, part := range strings.Split(string(m[1]), ",") {
+			n, err := strconv.Atoi(strings.TrimSpace(part))
+			if err != nil {
+				t.Fatalf("unreadable step %q in %s", part, src)
+			}
+			out = append(out, n)
+		}
+		if len(out) < 3 {
+			t.Fatalf("only %d steps parsed for %s; the pattern has gone stale", len(out), name)
+		}
+		return out
+	}
+
+	// Leading: the server is the client's list plus 0, in order.
+	wantLeading := append([]int{0}, clientList("QUOTE_LEADINGS")...)
+	if !reflect.DeepEqual(quoteLeadings, wantLeading) {
+		t.Fatalf("the leading dial disagrees: type.js offers %v, the server accepts %v",
+			clientList("QUOTE_LEADINGS"), quoteLeadings)
+	}
+	// Measure: identical, 0 included.
+	if !reflect.DeepEqual(quoteMeasures, clientList("QUOTE_MEASURES")) {
+		t.Fatalf("the measure dial disagrees: type.js offers %v, the server accepts %v",
+			clientList("QUOTE_MEASURES"), quoteMeasures)
+	}
+}
+
+// TestAStoredQuoteDialOutsideTheSetReadsAsUnset — the READ half, and the endpoint
+// cannot reach it: the PUT refuses a value outside the set, so the only way a bad
+// one gets into the column is the way this test puts it there — a restore from a
+// newer client, a hand-edited blob, or a step this app withdraws later.
+//
+// loadPrefs' own rule, which this file's neighbours state for the review
+// preferences: normalised on READ as well as on write. Without it a leading of
+// 1.37 reaches <html> as a property nothing can draw, and the symptom is a page
+// of quotes set at the browser's default with no clue where it came from.
+func TestAStoredQuoteDialOutsideTheSetReadsAsUnset(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	_ = c
+
+	var uid int64
+	if err := srv.Store.DB.QueryRow(`SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&uid); err != nil {
+		t.Fatalf("read the account back: %v", err)
+	}
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE users SET preferences = ? WHERE id = ?`,
+		`{"quoteLeading":137,"quoteMeasure":12,"accent":"olive"}`, uid); err != nil {
+		t.Fatalf("plant the blob: %v", err)
+	}
+
+	p, err := srv.loadPrefs(uid)
+	if err != nil {
+		t.Fatalf("loadPrefs: %v", err)
+	}
+	if p.QuoteLeading != 0 || p.QuoteMeasure != 0 {
+		t.Fatalf("a stored value outside the set survived the read: leading %d, measure %d",
+			p.QuoteLeading, p.QuoteMeasure)
+	}
+	// AND THE REST OF THE BLOB IS UNTOUCHED, because the repair has to be the two
+	// fields rather than the preferences: a reader whose leading was written by a
+	// newer client must not also lose their accent.
+	if p.Accent != "olive" {
+		t.Fatalf("normalising a quote dial disturbed the rest: accent %q", p.Accent)
+	}
+}

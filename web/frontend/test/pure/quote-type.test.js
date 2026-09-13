@@ -187,15 +187,22 @@ describe('one way to set a quote', () => {
       .toEqual([])
   })
 
-  it('D — a quote slot drawn in CSS reads the leading token', () => {
+  it('D — a quote slot drawn in CSS reads both reading-comfort tokens', () => {
     const face = QUOTE_FACE.replace(/\s+/g, ' ')
     const rules = CSS.match(/[^{}]+\{[^}]*\}/g) || []
     const quoteRules = rules.filter((r) => r.replace(/\s+/g, ' ').includes(`font-family: ${face}`))
     expect(quoteRules.length, 'no CSS rule draws a quote any more — move this guard or the stylesheet, not silently')
       .toBeGreaterThanOrEqual(2)
-    const own = quoteRules
-      .filter((r) => !r.includes('line-height: var(--quote-leading)'))
-      .map((r) => r.slice(0, r.indexOf('{')).trim())
-    expect(own, 'a CSS quote slot sets its own leading, so the reading-comfort dial does not reach it').toEqual([])
+    // Both dials, because a CSS slot that reads one and not the other is the
+    // half-working control this whole file exists to stop: the reader moves a
+    // setting, most of the app answers, and the anthology or the translation does
+    // not — which reads as the setting being broken rather than as one rule.
+    for (const [what, decl] of [['leading', 'line-height: var(--quote-leading)'], ['measure', 'max-width: var(--quote-measure)']]) {
+      const own = quoteRules
+        .filter((r) => !r.includes(decl))
+        .map((r) => r.slice(0, r.indexOf('{')).trim())
+      expect(own, `a CSS quote slot does not read the ${what} token, so the reading-comfort dial does not reach it`)
+        .toEqual([])
+    }
   })
 })

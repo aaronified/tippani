@@ -2156,7 +2156,15 @@ function termPattern(terms, flags) {
 export function MatchWindow({ text, terms, style, className = '' }) {
   const s = String(text || '')
   // Honour the quote's own line breaks / paragraphs (matching the detail cards).
-  const qStyle = { whiteSpace: 'pre-wrap', ...style }
+  //
+  // AND `display: block`, WHICH IS NOT COSMETIC. `max-width` has NO EFFECT on a
+  // non-replaced inline element (CSS 2.1 §10.4), and QUOTE_TEXT carries the
+  // reader's measure as exactly that. So while these spans were inline, the
+  // reading-comfort dial reached every quote surface in the app EXCEPT the five
+  // search slots that call this — silently, because the leading went on working
+  // and only the width did not. It is first in the object so a caller can still
+  // override it; nothing does.
+  const qStyle = { display: 'block', whiteSpace: 'pre-wrap', ...style }
   const inner = <span className={className} style={qStyle}><Highlight text={s} terms={terms} /></span>
   if (!terms.length || s.length <= WINDOW_MAX) return inner
   const m = termPattern(terms, 'i').exec(s)

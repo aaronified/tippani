@@ -116,6 +116,11 @@
        that draw through CSS (`.quote-translation`, `.anthology-quote`) read the
        token here. */
     --quote-leading: 1.55;
+    /* The measure, off until a reader sets one: `none` is max-width's own off
+       switch, so an unset dial is the browser's default rather than a number
+       chosen to be bigger than any screen. type.js writes both onto <html>; these
+       are what a page draws before it has, and what the print stylesheet uses. */
+    --quote-measure: none;
 
     --font-display-weight: inherit; --font-display-style: inherit;
     --font-display-caps: inherit; --font-display-case: inherit; --font-display-figures: inherit;
@@ -2083,6 +2088,7 @@
     font-style: italic;
     font-size: var(--type-display-13);
     line-height: var(--quote-leading);
+    max-width: var(--quote-measure);
     color: var(--soft);
     margin-top: 3px;
   }
@@ -8602,6 +8608,7 @@ html[data-theme="dark"] .board-cover {
   font-variant-numeric: var(--font-display-figures);
   font-size: var(--type-display-17);
   line-height: var(--quote-leading);
+  max-width: var(--quote-measure);
   overflow-wrap: anywhere;
 }
 

@@ -179,4 +179,67 @@ export function applyTypeScale(prefs) {
   const ui = factorsFrom(prefs).ui
   if (ui > RAIL_WORDS_MAX) root.dataset.rail = 'icons'
   else delete root.dataset.rail
+  // The quote's leading and measure, written by the same applier for the same
+  // reason: one call site changes the page, so no screen has to re-render to
+  // answer a dial. They are defined at the foot of this file, away from the size
+  // scale, because typeTokens is a closed set and these are not part of it.
+  const quote = quoteTokens(prefs)
+  for (const name in quote) root.style.setProperty(name, quote[name])
+}
+
+// ---- the quote's own two dials: leading and measure --------------------------
+//
+// §6 access, and access.md's argument for the second one: "line length is the
+// single largest readability lever in a body of prose and the one no app offers".
+// The paper and film looks are deliberately generous with width — right for
+// reading, and exactly what somebody with low vision needs to be able to narrow.
+//
+// THEY ARE NOT SIZE DIALS AND DO NOT RIDE typeTokens. That function is asserted to
+// hold one token per step per role and NOTHING ELSE (typescale.test.js), which is
+// what keeps the size scale a closed set. These two are written beside it by the
+// same applier instead.
+//
+// LEADING IS STORED IN HUNDREDTHS because prefs is a comparable struct of flat
+// integers on the server and a line-height is a ratio: 155 is 1.55. The steps are
+// the readable range rather than the possible one — below about 1.3 the lines of a
+// serif at reading size start to touch, and above about 1.9 a short quote stops
+// reading as a block and starts reading as separate lines.
+export const QUOTE_LEADINGS = [130, 145, 155, 170, 190]
+export const QUOTE_LEADING_DEFAULT = 155
+
+// MEASURE IS IN `ch`, WHICH IS THE POINT AND NOT A UNIT CHOICE. The rule is
+// 45–75 characters for a column of prose, so the control has to be counted in
+// characters of the face actually drawing them — a px width would mean something
+// different at every size dial, and the repo's own rule forbids it ("no box that
+// holds text is measured in px").
+//
+// 0 IS "AS WIDE AS THE BOX" AND IS THE DEFAULT, so a reader who never opens this
+// sees exactly what the app has always drawn. It doubles as "not chosen", and here
+// those are honestly the same thing rather than two states sharing a slot.
+export const QUOTE_MEASURES = [0, 45, 55, 66, 80]
+export const QUOTE_MEASURE_DEFAULT = 0
+
+// Both clamp the way clampFactor does, and for its reason: a value written by a
+// newer client falls to the DEFAULT rather than to the nearest step, so a reader
+// sees the designed setting instead of a half-understood approximation of theirs.
+export function clampLeading(value) {
+  const n = Number(value)
+  return QUOTE_LEADINGS.includes(n) ? n : QUOTE_LEADING_DEFAULT
+}
+
+export function clampMeasure(value) {
+  const n = Number(value)
+  return QUOTE_MEASURES.includes(n) ? n : QUOTE_MEASURE_DEFAULT
+}
+
+// quoteTokens — the two custom properties, as CSS values. `none` rather than a
+// very large length for an unset measure: `max-width: none` is the property's own
+// off switch, so the unset state is the browser's default rather than a number
+// that happens to be bigger than any screen.
+export function quoteTokens(prefs) {
+  const measure = clampMeasure(prefs?.quoteMeasure)
+  return {
+    '--quote-leading': String(clampLeading(prefs?.quoteLeading) / 100),
+    '--quote-measure': measure ? `${measure}ch` : 'none',
+  }
 }

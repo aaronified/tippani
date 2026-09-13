@@ -379,7 +379,6 @@
       <ul class="sub">
         <li><a href="#access-reading-comfort">Reading comfort</a></li>
         <li><a href="#atrium-liquid-glass">Atrium (glass)</a></li>
-        <li><a href="#bulk-editors-one-table">Bulk editors, unified</a></li>
         <li><a href="#entry-helpers">Entry helpers</a></li>
         <li><a href="#episodes-name-and-order">Episode names &amp; order</a></li>
         <li><a href="#locators-from-files">Locators from files</a></li>
@@ -671,7 +670,7 @@
   <div class="sec-body">
   <ul>
     <li><strong>Ink and rule contrast to WCAG AA, and an in-app contrast switch.</strong> The textures already drop to zero under <code>prefers-contrast: more</code> and <code>prefers-reduced-transparency: reduce</code>, which covers the reader whose operating system is set that way and nobody else. What is left is the part that is not a media query: raising the contrast of text and hairlines to the standard, and a switch in Settings for a reader who cannot or will not set it at the OS level.</li>
-    <li><strong>Reading-comfort controls for the quote text</strong> — size, line height and measure, all three hard-coded, and reading passages is the entire purpose of the app. The face is the reader's already; the box lacks a sans.</li>
+    <li><strong>Line height and measure for the quote text</strong> — the two axes still fixed, and reading passages is the entire purpose of the app. Size is the reader's already: Settings &rarr; Type moves each role independently or all at once. What nothing moves is how the passage is <em>set</em> &mdash; how far apart the lines sit, and how long a line is allowed to run. Line length is the largest readability lever there is in a body of prose and the one almost nothing offers; the paper and film looks are deliberately generous, which is right for reading and exactly what somebody with low vision needs to be able to narrow. The face is the reader's too, though the quote box still offers only serifs.</li>
     <li><strong>A dyslexia-friendly font option</strong>, cheap given the existing self-hosted <code>@fontsource</code> setup, and asked for often by people who read a lot.</li>
     <li><strong>A named, focusable equivalent for every gesture</strong> added in <a href="#mobile-pwa">§2</a>.</li>
   </ul>
@@ -1061,25 +1060,6 @@
     transparency, an accent that stays a light rather than a colour, and a
     performance budget measured on a real board before a line of CSS ships, not
     assumed after.
-  </p>
-</div>
-
-<div class="card req" id="bulk-editors-one-table">
-  <h3>One field table for both bulk editors</h3>
-  <p>
-    The staged bulk editor and the live one read from two hand-written field lists
-    that have quietly drifted apart, and neither list is a superset of the other —
-    a season set before approval cannot be changed after, and a note added after
-    approval could never have been set before. One shared field table, in Go,
-    replaces both: every bulk-settable column named once, with the kinds it applies
-    to, its validation, and whether clearing it writes an empty value or leaves it
-    alone.
-  </p>
-  <p>
-    Both screens end up reading the <strong>same</strong> panel component, filtered
-    to the kinds actually selected in a mixed batch, long enough now to want a
-    scroller rather than a wall of checkboxes — and the tick still only lights, and
-    still only counts, the fields a press will actually change.
   </p>
 </div>
 

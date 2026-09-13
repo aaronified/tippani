@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
 import { ACCENTS, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
-import { SIZE_ROLES, TYPE_FACTORS, applyTypeScale, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
+import { QUOTE_LEADINGS, QUOTE_MEASURES, SIZE_ROLES, TYPE_FACTORS, applyTypeScale, clampLeading, clampMeasure, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
   applyFonts,
   faceFor,
@@ -2995,6 +2995,12 @@ function Appearance({ prefs, onPreferences }) {
             describes the four. It is derived from them and never stored, so the
             two panels cannot disagree about the size. */}
         <TextSizeField prefs={prefs} onPreferences={onPreferences} />
+        {/* §6 access, and beside the text size because they are the third and
+            fourth answers to the same question — how easy is this to read. They
+            set the QUOTE and nothing else: a reader narrowing a column of prose
+            is not asking for a narrower app, and the interface already has its
+            own dial one row up. */}
+        <QuoteReadingFields prefs={prefs} onPreferences={onPreferences} />
         <LabelDensity />
         {/* THE LANGUAGE, AND IT STAYS OUT OF `persist` ABOVE for the reason that
             function documents: the Appearance panel re-sends every theme field on
@@ -3085,6 +3091,66 @@ function TextSizeField({ prefs, onPreferences }) {
         width={124}
       />
     </div>
+  )
+}
+
+// THE LEADING IS NAMED AND THE MEASURE IS COUNTED, and that difference is not an
+// inconsistency. "1.55" is a ratio between a line box and a font size, which is
+// nothing a reader is holding in their head; "66 characters" is the thing the
+// typographic rule is actually stated in and the thing they can see on the page.
+// So one control shows five names and the other shows the number, because that is
+// which half of each is legible.
+const LEADING_NAMES = ['tight', 'snug', 'normal', 'relaxed', 'loose']
+
+// QuoteReadingFields — the quote's leading and measure, in the shape of the
+// fields around them.
+//
+// LIKE TextSizeField AND UNLIKE persist: each writes its ONE field. The Appearance
+// card's `persist` re-sends every theme field on any change, so a preference
+// riding in that object is wiped by an unrelated accent click — the same note
+// applyLabels and saveContrast already carry, for the same reason.
+function QuoteReadingFields({ prefs, onPreferences }) {
+  // Applied before the request, like every other control on this card: a round
+  // trip between the tap and the type is long enough to read as a broken control.
+  // The old preferences go back on if the server refuses, so the page never shows
+  // a setting the account does not have.
+  async function set(patch) {
+    applyTypeScale({ ...(prefs || {}), ...patch })
+    const r = await json('PUT', '/auth/me/preferences', patch)
+    if (!r.ok) {
+      applyTypeScale(prefs || {})
+      return
+    }
+    onPreferences?.(patch)
+  }
+
+  return (
+    <>
+      <div>
+        <MonoLabel className="mb-1.5 block">{t('settings.appearance.quote-leading.label')}</MonoLabel>
+        <Select
+          value={String(clampLeading(prefs?.quoteLeading))}
+          onChange={(v) => set({ quoteLeading: Number(v) })}
+          options={QUOTE_LEADINGS.map((n, i) => [String(n), t(`settings.appearance.quote-leading.${LEADING_NAMES[i]}`)])}
+          ariaLabel={t('settings.appearance.quote-leading.aria')}
+          width={124}
+        />
+      </div>
+      <div>
+        <MonoLabel className="mb-1.5 block">{t('settings.appearance.quote-measure.label')}</MonoLabel>
+        <Select
+          value={String(clampMeasure(prefs?.quoteMeasure))}
+          onChange={(v) => set({ quoteMeasure: Number(v) })}
+          options={QUOTE_MEASURES.map((n) => [
+            String(n),
+            n ? t('settings.appearance.quote-measure.chars', { n }) : t('settings.appearance.quote-measure.full'),
+          ])}
+          ariaLabel={t('settings.appearance.quote-measure.aria')}
+          width={124}
+        />
+      </div>
+      <p className="microcopy">{t('settings.appearance.quote.hint')}</p>
+    </>
   )
 }
 

@@ -1,6 +1,12 @@
 # Access and reading comfort — roadmap §6
 
-**Status:** designed, not built.
+**Status:** four of the six rows below are BUILT. Two remain, and both turned out
+smaller than this file assumed.
+
+Re-verified against `1db9672d` plus the working tree that adds the reading dials.
+Two rows were already wrong when this plan was written and are corrected below —
+i18n and the gesture equivalents — so read the table rather than the prose under
+it where the two disagree.
 
 Roadmap section [`#access`](../roadmap.html#access), issue #32.
 
@@ -13,11 +19,11 @@ Verified against `fb0271f`.
 | §6 item | State |
 | :-- | :-- |
 | Textures drop under `prefers-contrast: more` / `prefers-reduced-transparency: reduce` | **Built** — `index.css`, one media query covering both. |
-| Ink and rule contrast to WCAG AA, and an in-app switch | **Not built.** The media query changes textures, not text or hairline contrast, and there is no switch. |
-| Reading-comfort controls for the quote text | **Partly built, and much further along than the section says.** See below. |
-| A dyslexia-friendly font option | **Reachable today, not offered.** A reader can upload OpenDyslexic; nothing bundles or names it. |
-| A named, focusable equivalent for every gesture | Not built. |
-| Internationalisation scaffolding | **Not built.** No `i18n`, no extraction, no catalogue — the interface is English string literals throughout. |
+| Ink and rule contrast to WCAG AA, and an in-app switch | **Built.** Five text colours were measured below 4.5:1 and raised (`ae2d1d84`); the switch is Settings → Appearance and resolves to one state with the media query (`04c13c62`). `contrast.test.js` computes every pair. |
+| Reading-comfort controls for the quote text | **Built.** Size already shipped (four per-role dials, `type.js`); leading and measure are `--quote-leading` / `--quote-measure`, written by `applyTypeScale` and read by every quote slot. |
+| A dyslexia-friendly font option | **Reachable today, not offered** — unchanged, and the only row this plan got exactly right. A reader can upload one; nothing bundles or names it. THE LICENCE IS NOW SETTLED: `@fontsource/opendyslexic@5.3.0` ships an OFL-1.1 LICENSE naming Abbie Gonzalez with Reserved Font Name, which is the licence all eighteen bundled faces already carry. |
+| A named, focusable equivalent for every gesture | **Almost entirely built, and this row was wrong.** Of the eight gestures the app ships, SEVEN already have an equivalent: the drawer's swipe-close has a real `<button>` scrim (`App.jsx:1160`), the Toggle's thumb drag has `<button role="tab">` options (`ui.jsx:4533`), the Select's drag-to-pick has Arrow/Enter navigation, the touch tooltip has `onFocus` (`ui.jsx:6421`), and the card menu and the sheet step answer keys (`ui.jsx:10644`, `5831`, `11031`). ONE has nothing: dragging the seal (`flow.jsx:256`) is a bare `<span>` with no `tabIndex`, `role` or `onKeyDown`, and it persists `sticker_x`/`sticker_y` with no other door. |
+| Internationalisation scaffolding | **Built, and this row was wrong when it was written.** `internal/i18n/en.txt` and `bn.txt`, `t()` throughout, and `data/Locales` lets a reader add a language as a file. |
 
 ### What the verification pass changed
 
@@ -69,7 +75,7 @@ about.
 film-dark are the two the owner uses; paper-dark and film-light are the two most
 likely to be quietly failing.
 
-### Reading comfort
+### Reading comfort — BUILT; what follows is what it actually became
 
 Three controls on the quote text — **size, line height, measure** — plus the
 serif/sans choice the Type panel can already express.
@@ -78,6 +84,16 @@ They ride the existing mechanism exactly: `theme.js` writes
 `--quote-size` / `--quote-leading` / `--quote-measure`, the quote surfaces read
 them, and the preference is three more scalars in the flat prefs struct. No new
 plumbing, which is why this is the cheap half of the section.
+
+**FOUR CORRECTIONS, kept here because this paragraph is what the next reader will
+find first.** (1) It was TWO controls, not three: size already shipped. (2) There
+is no `--quote-size` and none is needed — size travels as `--type-display-*`
+through the four per-role dials. (3) They ride `type.js`, not `theme.js`, and
+deliberately NOT `typeTokens`, which is asserted to hold one token per step per
+role and nothing else. (4) The measure had to be in `ch` and had to land on a
+block: `max-width` does nothing on a non-replaced inline element, which is how it
+reached every quote surface except the five search slots for one commit. The full
+record is in `docs/PLAN.md`, "The quote's two reading dials".
 
 **Measure is the one worth defending**: line length is the single largest
 readability lever in a body of prose and the one no app offers, and the paper and

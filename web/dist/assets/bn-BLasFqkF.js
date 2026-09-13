@@ -1352,6 +1352,19 @@ settings.appearance.contrast.title = কনট্রাস্ট
 settings.appearance.contrast.aria = কনট্রাস্ট
 settings.appearance.contrast.more.label = বেশি
 settings.appearance.contrast.hint = বেশি কনট্রাস্টে দাগগুলো গাঢ় হয় আর কাগজের দানা সরে যায়। সিস্টেম যেমন মানে আপনার যন্ত্র যা বলে তাই।
+# --- চেহারা -> উদ্ধৃতির নিজের দুটি পড়ার ডায়াল (§৬ প্রবেশগম্যতা)।
+settings.appearance.quote-leading.label = উদ্ধৃতির লাইনের উচ্চতা
+settings.appearance.quote-leading.aria = উদ্ধৃতির লাইনগুলোর মধ্যে ফাঁক
+settings.appearance.quote-leading.tight = ঠাসা
+settings.appearance.quote-leading.snug = ঘন
+settings.appearance.quote-leading.normal = স্বাভাবিক
+settings.appearance.quote-leading.relaxed = খোলা
+settings.appearance.quote-leading.loose = ঢিলা
+settings.appearance.quote-measure.label = উদ্ধৃতির লাইনের দৈর্ঘ্য
+settings.appearance.quote-measure.aria = উদ্ধৃতির একটি লাইন কত লম্বা হতে পারে
+settings.appearance.quote-measure.full = পুরো চওড়া
+settings.appearance.quote-measure.chars = {n}টি অক্ষর
+settings.appearance.quote.hint = দুটিই কেবল উদ্ধৃতির লেখায় লাগে। লম্বা অংশ পড়তে ৪৫ থেকে ৭৫ অক্ষরের লাইন সবচেয়ে আরামের; পুরো চওড়ায় কার্ড যতটা দেয় ততটাই।
 # --- Appearance -> Material. Seven sets, each naming what four surfaces are
 # made of: the desk under everything, the furniture, the page you read, the
 # binding on a cover. Independent of light/dark -- every set works in both -- so

@@ -1348,6 +1348,21 @@ settings.appearance.contrast.title = Contrast
 settings.appearance.contrast.aria = Contrast
 settings.appearance.contrast.more.label = More
 settings.appearance.contrast.hint = More contrast darkens the rules and takes the paper grain off. Match system follows your device.
+# --- Appearance -> the quote's own two reading dials (§6 access). They set the
+# QUOTE text and nothing else: the interface has its own size dial above, and a
+# reader narrowing a column of prose is not asking for a narrower app.
+settings.appearance.quote-leading.label = Quote line height
+settings.appearance.quote-leading.aria = Space between the lines of a quote
+settings.appearance.quote-leading.tight = Tight
+settings.appearance.quote-leading.snug = Snug
+settings.appearance.quote-leading.normal = Normal
+settings.appearance.quote-leading.relaxed = Relaxed
+settings.appearance.quote-leading.loose = Loose
+settings.appearance.quote-measure.label = Quote line length
+settings.appearance.quote-measure.aria = How long a line of a quote is allowed to be
+settings.appearance.quote-measure.full = Full width
+settings.appearance.quote-measure.chars = {n} characters
+settings.appearance.quote.hint = Both set the quote text alone. A line of about 45 to 75 characters is the easiest to read a long passage in; full width uses whatever the card gives it.
 # --- Appearance -> Material. Seven sets, each naming what four surfaces are
 # made of: the desk under everything, the furniture, the page you read, the
 # binding on a cover. Independent of light/dark -- every set works in both -- so

@@ -422,6 +422,13 @@ type prefs struct {
 	SizeUI      int `json:"sizeUi"`
 	SizeMono    int `json:"sizeMono"`
 	SizeHand    int `json:"sizeHand"`
+	// The QUOTE's two reading-comfort dials, and they are not size dials: leading
+	// is a ratio in hundredths and measure is a line length in `ch` of the quote's
+	// own face. Both are 0 when unchosen, and 0 renders as what the app has always
+	// drawn — see quoteLeadings/quoteMeasures in font_prefs.go for the sets and
+	// the reasoning, and type.js for the client half.
+	QuoteLeading int `json:"quoteLeading"`
+	QuoteMeasure int `json:"quoteMeasure"`
 	// Locale: which language the interface is in. The file name in data/Locales, or
 	// "en"/"bn" for a language that ships in the box; "" means the client decides,
 	// which is what a device that has never chosen stores.
@@ -882,6 +889,17 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 		p.LanguageMarks = ""
 	}
 	p.TrashDays = normalizeTrashDays(p.TrashDays)
+	// The quote's two dials, normalised on READ as well as on write — the rule
+	// this function states a few lines down for the review preferences. A blob
+	// that predates a step, arrived through a restore, or was edited by hand falls
+	// back to "not chosen" rather than reaching a page as a leading nothing can
+	// draw.
+	if !validQuoteLeading(p.QuoteLeading) {
+		p.QuoteLeading = 0
+	}
+	if !validQuoteMeasure(p.QuoteMeasure) {
+		p.QuoteMeasure = 0
+	}
 	p.SRDaily = clampInt(p.SRDaily, 2, 10, reviewQuota)
 	if !srScopeValid(p.SRReviewScope) {
 		p.SRReviewScope = "both"
@@ -952,6 +970,8 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		FontMonoStyle       *string  `json:"fontMonoStyle"`
 		FontHandStyle       *string  `json:"fontHandStyle"`
 		FontBengaliStyle    *string  `json:"fontBengaliStyle"`
+		QuoteLeading        *int     `json:"quoteLeading"`
+		QuoteMeasure        *int     `json:"quoteMeasure"`
 		SizeDisplay         *int     `json:"sizeDisplay"`
 		SizeUI              *int     `json:"sizeUi"`
 		SizeMono            *int     `json:"sizeMono"`
@@ -1096,6 +1116,22 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		*sizeFactorPtrs(&cur)[i] = *want
+	}
+	// The quote's two dials, closed sets for the same reason and refused the same
+	// way. 0 is a real value in both and is how a reader clears one.
+	if in.QuoteLeading != nil {
+		if !validQuoteLeading(*in.QuoteLeading) {
+			writeErr(w, http.StatusBadRequest, "quote line height must be 130, 145, 155, 170 or 190, or 0 for the app's own")
+			return
+		}
+		cur.QuoteLeading = *in.QuoteLeading
+	}
+	if in.QuoteMeasure != nil {
+		if !validQuoteMeasure(*in.QuoteMeasure) {
+			writeErr(w, http.StatusBadRequest, "quote line length must be 45, 55, 66 or 80 characters, or 0 for the full width")
+			return
+		}
+		cur.QuoteMeasure = *in.QuoteMeasure
 	}
 	// Empty is a real value here too: it is "I have not chosen", which is what a
 	// reader who wants the client's own default stores. REFUSED rather than
