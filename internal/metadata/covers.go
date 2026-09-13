@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 )
 
 // coverHosts is the PLAN §6 allowlist: the only places cover/poster URLs from
@@ -171,12 +172,15 @@ func fetchImage(ctx context.Context, rawURL, destDir string, anyHost bool) (stri
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
+		// The SSRF guard wrapped in the offline gate, rather than either alone:
+		// this is the one client in the package that does not go through
+		// httpGet, so it needs TIPPANI_OFFLINE said to it directly.
+		Transport: outbound.Transport(&http.Transport{
 			// Control runs after DNS resolution, on the address actually
 			// dialed — a host that re-resolves to something internal between
 			// check and connect (DNS rebinding) is still refused.
 			DialContext: (&net.Dialer{Control: blockPrivateAddr}).DialContext,
-		},
+		}),
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) > 2 {
 				return errors.New("cover fetch: stopped after 2 redirects")

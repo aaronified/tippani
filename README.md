@@ -226,6 +226,7 @@ may add migrations a released build will not read back.
 | `TIPPANI_DOCKER_HOST` | *(unset)* | Engine API for updates: `tcp://dockerproxy:2375` for a socket proxy, or `unix:///path`. Wins over the socket path. |
 | `TIPPANI_DOCKER_SOCK` | `/var/run/docker.sock` | Where the mounted socket is, if not the default path. |
 | `TIPPANI_UPDATER_IMAGE` | `nickfedor/watchtower` | The one-shot image the update runs to recreate the container. Pin a digest if you like. The unmaintained `containrrr/watchtower` will not work: its last release speaks Engine API 1.25 and current daemons refuse anything below 1.40. |
+| `TIPPANI_OFFLINE` | `0` | `1` stops the app calling anything outside the machine: no Google Books, Open Library, TMDB, TVDB, IGDB, Fandom, Wikidata, Amazon, cover or poster downloads, and no update check. Every lookup fails immediately with "outbound network calls are switched off" instead of waiting on a firewall. Your own library is unaffected — nothing already stored needs the network to read. Anything set other than `0`/`false`/`no`/`off` counts as on. |
 | `TIPPANI_LOG_LEVEL` | `info` | `debug` for per-operation `[trace]` lines. Every logged `TIP-*` code has a row in [`docs/troubleshoot.md`](docs/troubleshoot.md). |
 | `GOMAXPROCS` · `GOMEMLIMIT` · `GOGC` | Go's defaults | Runtime caps for a busy NAS. The systemd unit ships `1` · `64MiB` · `200`; the reasoning is in the design log. |
 | **Commands** — `docker exec -i tippani /tippani …`, or the binary | | |

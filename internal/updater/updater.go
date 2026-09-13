@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"tippani/internal/outbound"
 )
 
 // DefaultGitHubAPI is the public API base; the handler passes it in (and tests
@@ -108,7 +110,11 @@ func getJSON(ctx context.Context, url string, into any) error {
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "tippani-update-check")
-	client := &http.Client{Timeout: 8 * time.Second}
+	// TIPPANI_OFFLINE reaches the update check too. CLAUDE.md says metadata is
+	// the only package allowed an outbound call and this line is the exception
+	// to it — a box switched offline must not still ask GitHub what it is
+	// missing.
+	client := &http.Client{Timeout: 8 * time.Second, Transport: outbound.Transport(nil)}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

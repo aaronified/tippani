@@ -116,10 +116,20 @@ const required = [
 ]
 
 // Named in any form the document plausibly uses: full path, without a trailing slash, or
-// the bare basename once its section has introduced the directory.
+// the bare basename once its section has introduced the directory — `changelog-entry.mjs`
+// and four workflows are referred to that way and would otherwise read as missing.
+//
+// A PACKAGE UNDER internal/ GETS NO BASENAME FALLBACK, and the reason is that it let one
+// through. `internal/outbound/` was absent from this document entirely and the check passed
+// `24 packages/scripts/workflows all covered`, because the word "outbound" appears six times
+// in ordinary prose about outbound calls. Every other package here is named by its full path
+// already, so requiring it costs nothing — and the packages most at risk are exactly the ones
+// whose names are also English: search, store, auth, importer, updater, changelog.
 const named = (p) => {
   const bare = p.replace(/\/$/, '')
-  return text.includes(bare) || text.includes(bare.split('/').pop())
+  if (text.includes(bare)) return true
+  if (bare.startsWith('internal/')) return false
+  return text.includes(bare.split('/').pop())
 }
 const missing = required.filter((p) => !named(p))
 

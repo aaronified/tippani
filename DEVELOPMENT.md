@@ -160,8 +160,9 @@ browser ──▶ web/dist (embedded SPA)          ← everything not under /api
 | `internal/store/` | The SQLite connection, the pragmas, the migrations, the dedupe rules. **The only package that opens the database.** |
 | `internal/search/` | Building safe FTS5 `MATCH` expressions, and the typo-correction pass. |
 | `internal/importer/` | One parser per source format, producing the package's shared intermediate shapes. Touches no database. |
-| `internal/metadata/` | Every outbound HTTP call in the app: Google Books, Open Library, TMDB, TheTVDB, Wikidata, Amazon, the two picture searches (`image_search.go`), plus the SSRF-guarded image fetcher. |
+| `internal/metadata/` | Every outbound call to a metadata provider: Google Books, Open Library, TMDB, TheTVDB, Wikidata, Amazon, the two picture searches (`image_search.go`), plus the SSRF-guarded image fetcher. It used to be described as every outbound call in the app and was one short — `internal/updater/` asks GitHub for the latest release. |
 | `internal/auth/` | Password hashing, cookie sessions, bearer device tokens, and the login rate limiter. |
+| `internal/outbound/` | The one answer to "may this request leave the machine?". A `http.RoundTripper` that refuses everything while `TIPPANI_OFFLINE` is set, wrapped around the three real clients — the shared provider client, the SSRF-guarded image fetcher, and the GitHub release check. A test names every `&http.Client{}` in the tree so a fourth cannot appear ungated. |
 | `internal/olog/` | Operational logging, and the registry of stable `TIP-*` operator codes. |
 | `internal/updater/` | The in-app self-update: the GitHub release check, and the Docker Engine calls that pull and recreate. |
 | `internal/changelog/` | The release history, embedded and parsed. Holds a **copy** of the root `CHANGELOG.md` because `//go:embed` cannot reach outside its own package; a drift test fails when the two differ. |

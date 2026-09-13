@@ -136,6 +136,7 @@ jobs:
           - ./internal/importer
           - ./internal/metadata
           - ./internal/olog
+          - ./internal/outbound
           - ./internal/search
           - ./internal/store
           - ./internal/updater

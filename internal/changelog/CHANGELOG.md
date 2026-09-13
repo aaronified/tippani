@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`TIPPANI_OFFLINE=1` stops the app phoning anybody.** A self-hosted library on a box that
+  does not go out, or that you would rather did not: set it, and every outbound call —
+  Google Books, Open Library, TMDB, TVDB, IGDB, Fandom, Wikidata, Amazon, every cover and
+  poster download, and the update check — is refused before it is dialled, with *"outbound
+  network calls are switched off"* instead of a thirty-second wait on a firewall. Nothing
+  already in your library needs the network to read, so everything you have keeps working.
+  The healthcheck and the Docker socket are untouched: neither leaves the machine.
+
 ### Changed
 
 - **You can search by language.** Every quote kind has carried one for a while and the

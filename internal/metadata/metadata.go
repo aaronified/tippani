@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 )
 
 // userAgent identifies us on all outbound calls; Open Library grants 3 req/s
@@ -29,7 +30,12 @@ const userAgent = "tippani/1.0 (+https://github.com/aaronified/tippani)"
 // 4 MB is generous headroom, not a real payload we expect.
 const maxJSONBody = 4 << 20
 
-var httpClient = &http.Client{Timeout: 10 * time.Second}
+// The transport, and not the default one, is what makes TIPPANI_OFFLINE real.
+// A client that takes http.DefaultTransport escapes the switch silently.
+var httpClient = &http.Client{
+	Timeout:   10 * time.Second,
+	Transport: outbound.Transport(nil),
+}
 
 // httpGet performs one hygienic outbound GET and returns body + HTTP status.
 // bearer, when non-empty, is sent as an Authorization: Bearer header (TMDB v4).
