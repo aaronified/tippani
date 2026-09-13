@@ -82,16 +82,17 @@
         "  both the quote text and the interface — it was always uploadable, never offered.",
         "</p>",
         "<p>",
-        "  <strong>Still to come.</strong> One interaction is still reachable only by",
-        "  dragging — positioning the seal on a quote — and it gains a control you can reach",
-        "  with a keyboard. The rest already have one: the drawer closes from a button, the",
-        "  toggles and pickers answer arrow keys, and the card menu answers the key every",
+        "  And the last interaction that could only be done by dragging — positioning the",
+        "  seal on a quote, which is <em>kept</em> with the quote — now answers the arrow",
+        "  keys. Every other gesture already had a way in: the drawer closes from a button,",
+        "  the toggles and pickers answer arrow keys, and the card menu answers the key every",
         "  desktop has for it.",
         "</p>"
       ],
       "id": "access-reading-comfort",
       "plan": "access.md",
-      "issue": 32
+      "issue": 32,
+      "shipped_in": "Unreleased"
     },
     {
       "title": "Anthologies that fill themselves, and export as a book",

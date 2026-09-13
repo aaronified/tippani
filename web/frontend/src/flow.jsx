@@ -21,6 +21,47 @@ import { ClampMore, onActivate } from './ui.jsx'
 // roughly half the gap between cards, so it breathes without touching a neighbour.
 const OVERFLOW = 10
 
+// clampSealCentre — where a seal is ALLOWED to sit, in one place.
+//
+// THERE WERE TWO COPIES OF THIS BEFORE THE KEYBOARD EXISTED — one in the relayout
+// and one in the drag — and they had already drifted: the drag floors its vertical
+// ceiling at `r` and the relayout did not, so on a block shorter than the seal is
+// wide the two put it up to OVERFLOW pixels apart. Adding a third copy for the
+// arrow keys would have made a reader's keyboard reach somewhere their pointer
+// could not, which is the repo's "two things that look the same behave the same"
+// read as a rule about arithmetic.
+//
+// THE DRAG'S VERSION WINS, because it is the one that cannot produce a ceiling
+// below its own floor. The relayout's behaviour changes only in that degenerate
+// case (a block shorter than one seal), only vertically, and by at most OVERFLOW.
+export function clampSealCentre(cx, cy, { r, W, naturalH }) {
+  return {
+    cx: Math.max(r - OVERFLOW, Math.min(W - r + OVERFLOW, cx)),
+    cy: Math.max(r - OVERFLOW, Math.min(Math.max(r, naturalH - r + OVERFLOW), cy)),
+  }
+}
+
+// sealNudge — where one arrow press puts the seal, or null if the press is not
+// one this control answers.
+//
+// THE STEP IS A SHARE OF THE BLOCK, not a pixel count, for the same reason the
+// stored coordinate is normalised: the seal's home is a fraction of the width, so
+// a step in pixels would mean a different distance on a phone and on a desk. 2%
+// plain and 10% with Shift — about fifty presses corner to corner, or ten.
+//
+// IT RETURNS THE STORED SHAPE (a fraction of the width, both axes) rather than
+// pixels, so the caller has nothing left to convert and cannot convert it
+// differently from the drag.
+export function sealNudge(st, key, big) {
+  if (!st || st.collapsed) return null // the small badge is not draggable either
+  const dx = { ArrowLeft: -1, ArrowRight: 1 }[key] || 0
+  const dy = { ArrowUp: -1, ArrowDown: 1 }[key] || 0
+  if (!dx && !dy) return null
+  const step = st.W * (big ? 0.1 : 0.02)
+  const { cx, cy } = clampSealCentre(st.cx + dx * step, st.cy + dy * step, st)
+  return { x: cx / st.W, y: cy / st.W }
+}
+
 // usePrefersReducedMotion — flowed layout is an enhancement; respect the OS
 // setting and fall back to plain text (with a floated seal) when it's on.
 function usePrefersReducedMotion() {
@@ -174,8 +215,7 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
         const p = posRef.current
         cx = p && typeof p.x === 'number' ? p.x * W : W - r // default: top-right
         cy = p && typeof p.y === 'number' ? p.y * W : r
-        cx = Math.max(r - OVERFLOW, Math.min(W - r + OVERFLOW, cx))
-        cy = Math.max(r - OVERFLOW, Math.min(naturalH - r + OVERFLOW, cy))
+        ;({ cx, cy } = clampSealCentre(cx, cy, { r, W, naturalH }))
       }
       const lines = computeLines(mod, text, font, lh, W, { cx, cy, r }, gap)
       if (!cancelled) setState({ lines, lh, r, W, cx, cy, naturalH, collapsed, clampable })
@@ -193,10 +233,7 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
   const onSealMove = useCallback((e) => {
     const d = dragRef.current
     if (!d) return
-    let cx = e.clientX - d.left - d.grabDx
-    let cy = e.clientY - d.top - d.grabDy
-    cx = Math.max(d.r - OVERFLOW, Math.min(d.W - d.r + OVERFLOW, cx))
-    cy = Math.max(d.r - OVERFLOW, Math.min(Math.max(d.r, d.naturalH - d.r + OVERFLOW), cy))
+    const { cx, cy } = clampSealCentre(e.clientX - d.left - d.grabDx, e.clientY - d.top - d.grabDy, d)
     posRef.current = { x: cx / d.W, y: cy / d.W }
     if (relayoutRef.current) relayoutRef.current()
   }, [])
@@ -230,12 +267,50 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
     window.removeEventListener('pointerup', onSealUp)
   }, [onSealMove, onSealUp])
 
+  // ---- and the same move from a keyboard (§6 access) --------------------------
+  //
+  // THE GESTURE THIS EXISTS FOR WAS THE LAST ONE IN THE APP WITH NO EQUIVALENT.
+  // An inventory of every gesture tippani ships found seven of eight already
+  // reachable another way — the drawer closes from a button, the toggles and
+  // pickers answer arrow keys, the card menu answers Shift+F10 — and exactly one
+  // that could only be done by dragging: putting the seal where you want it. The
+  // position PERSISTS (sticker_x/sticker_y), so this was not a flourish a reader
+  // could skip; it was a stored property of their own quote that some readers
+  // could not set at all.
+  //
+  // THE ARITHMETIC IS `sealNudge`, ABOVE AND PURE, and that split is deliberate
+  // rather than tidy. The seal only exists on the FLOWED path, which needs real
+  // text metrics and a dynamic import; jsdom reaches neither, so a render test
+  // would have exercised the fallback — which carries no drag at all — passed, and
+  // proved nothing about the path that has one. Everything that can be got wrong
+  // by thinking is in the function and tested against real numbers; what is left
+  // here is three side effects and a guard.
+  //
+  // ONE PRESS IS ONE MOVE AND ONE SAVE, which is the contract a drag already has:
+  // it also commits once, on release. Deliberately NOT a debounce or a
+  // commit-on-blur — both open a window where what you see and what is stored
+  // disagree, which is the window the tick/cross rule exists to close.
+  const onSealKey = useCallback((e) => {
+    if (!onMoveRef.current) return
+    const next = sealNudge(stateRef.current, e.key, e.shiftKey)
+    if (!next) return
+    e.preventDefault()
+    // The block is a `role="button"` when the quote is clampable, and an arrow
+    // that bubbled there would scroll the page as well as move the seal.
+    e.stopPropagation()
+    posRef.current = next
+    if (relayoutRef.current) relayoutRef.current()
+    onMoveRef.current(next.x, next.y)
+  }, [])
+
   const size = state ? state.r * 2 : radius * 2
   const allLines = state ? state.lines : []
   const collapsed = !!(state && state.collapsed)
   const shown = collapsed ? allLines.slice(0, maxLines) : allLines
   const canToggle = !!state && state.clampable
   const canDrag = !!onMove && !collapsed
+  // The element the seal is drawn as — see the note at its call site.
+  const Seal = canDrag ? 'button' : 'span'
   return (
     <div
       ref={ref}
@@ -251,8 +326,24 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
     >
       {state ? (
         <>
-          <span
+          {/* A BUTTON WHEN IT CAN BE MOVED, A SPAN WHEN IT CANNOT. The collapsed
+              badge and a card with no `onMove` are decoration, and a focus stop
+              on something that does nothing is worse than no focus stop.
+
+              KNOWN AND DELIBERATE: when the quote is ALSO clampable this button
+              sits inside the block's own `role="button"`, which is nested
+              interactive content and a real ARIA fault. It is shipped anyway
+              because the alternative is what was here before — a stored property
+              of somebody's own quote that a keyboard could not set at all — and a
+              warning is a smaller harm than a barrier. The proper fix is to give
+              the clamp toggle a control of its own so the block stops being a
+              button; `ClampMore` is `aria-hidden` decoration today, which is why
+              it cannot take that job yet. Recorded rather than left to be found. */}
+          <Seal
             className="flow-sticker"
+            {...(canDrag
+              ? { type: 'button', onKeyDown: onSealKey, 'aria-label': t('common.sticker.move.aria') }
+              : {})}
             onPointerDown={canDrag ? onSealDown : undefined}
             style={{
               position: 'absolute',
@@ -268,7 +359,7 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
             title={canDrag ? t('common.sticker.drag.tip') : undefined}
           >
             {sticker}
-          </span>
+          </Seal>
           <div style={{ height: shown.length * state.lh }}>
             {shown.map((ln, i) => (
               <div key={i} style={{ position: 'relative', height: state.lh }}>

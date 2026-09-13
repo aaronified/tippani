@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "aaa987a4ae090e6a8f6ff5ff5c1854cb77c0f37e3b7f28ca997d1bf3d2c0fda0",
-    "internal/i18n/en.txt": "4127f21d7029ccbbaae4681cbfa28c0a28660c1a03b72ee7a173384ce05d6307",
+    "internal/i18n/bn.txt": "0f485fe9f402d7a55b378a9aab3e592ffbb3301e265bd93cbf4ca8dadce6eab6",
+    "internal/i18n/en.txt": "1d114b741e68bb3ca743af2b3d65425e745d976a98cf3302d7a29ad5c96c195e",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "a4ccf3ffa82e82843709a3a355b7fd84025bbec780ad29fe2039d30635c45886",
@@ -67,7 +67,7 @@
     "web/frontend/src/epigraphs.js": "384159c5747441234080db78e3ea2e46f8108c5d8bf3712ba6f82b4a6ee758a7",
     "web/frontend/src/facets.js": "1dd1e0521a2d73f634148217b7d82b0ee5d76f8af014ca8d2451eb5591fce589",
     "web/frontend/src/fieldOffers.jsx": "f2fc72f646f6123a883c372d6dedcc4f2903f37024b54af69a9e592634dcbccc",
-    "web/frontend/src/flow.jsx": "1d4f7f7253a85d1fb6334649e3f71c334d46dd04b078932ee9d2411644482f72",
+    "web/frontend/src/flow.jsx": "c8267bbb33bc7fcd3acb60be767955a8f9eca1097ab75b77a1990872e04990d2",
     "web/frontend/src/fontPicker.jsx": "888ae9c7f62ca0f86367b2d925acfafd4d64ad8bd8a3bac33f8a23efc1ceede0",
     "web/frontend/src/fonts.js": "7e2839655306401d57e15d6c96a7a701d4997f2c2f62c8542b1328f4c7e5f3da",
     "web/frontend/src/gestures.jsx": "cb19d32f02fd1877afd565f4528fd807b2ce4c690e0a54492a1115df4dcf760e",

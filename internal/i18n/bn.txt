@@ -1041,6 +1041,7 @@ error.generic = কিছু একটা গোলমাল হয়েছে
 common.state.loading = লোড হচ্ছে…
 
 # The round sticker a quote flows around, on a board that lets you move it.
+common.sticker.move.aria = সিল সরান — টেনে নিন, বা তিরচিহ্ন কী ব্যবহার করুন
 common.sticker.drag.tip = টেনে সরান
 
 # ---------------------------------------------------------------------------

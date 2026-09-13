@@ -377,7 +377,6 @@
       <summary>From your requests</summary>
       <!-- ROADMAP:RAIL_FEATURES:START -->
       <ul class="sub">
-        <li><a href="#access-reading-comfort">Reading comfort</a></li>
         <li><a href="#atrium-liquid-glass">Atrium (glass)</a></li>
         <li><a href="#entry-helpers">Entry helpers</a></li>
         <li><a href="#episodes-name-and-order">Episode names &amp; order</a></li>
@@ -668,11 +667,21 @@
 <details class="sec" id="access">
   <summary><h3><a class="sec-n" data-for="access" href="https://github.com/aaronified/tippani/issues/32" title="Tracked as #32">§6</a>Access &amp; reading comfort</h3><a class="sec-issue" data-for="access" href="https://github.com/aaronified/tippani/issues/32" title="Track this on the issue tracker">#32</a></summary>
   <div class="sec-body">
+  <p>
+    <strong>Most of this has shipped.</strong> The contrast work is done in both halves:
+    ink and hairline contrast raised to WCAG AA across all four looks, and a switch in
+    Settings for a reader who cannot or will not set it at the operating-system level
+    &mdash; resolving to the same state as <code>prefers-contrast: more</code> rather than
+    competing with it. The quote text gained the two axes that were fixed,
+    <strong>line height</strong> and <strong>measure</strong>, beside the size dial that was
+    already there; line length is the largest readability lever there is in a body of prose,
+    and the paper and film looks are deliberately generous with it &mdash; right for reading
+    a card, and exactly what somebody with low vision needs to be able to narrow. And the
+    quote box no longer offers only serifs: <strong>OpenDyslexic</strong> is bundled and
+    named in Settings &rarr; Type, for the quote text and for the interface both.
+  </p>
   <ul>
-    <li><strong>Ink and rule contrast to WCAG AA, and an in-app contrast switch.</strong> The textures already drop to zero under <code>prefers-contrast: more</code> and <code>prefers-reduced-transparency: reduce</code>, which covers the reader whose operating system is set that way and nobody else. What is left is the part that is not a media query: raising the contrast of text and hairlines to the standard, and a switch in Settings for a reader who cannot or will not set it at the OS level.</li>
-    <li><strong>Line height and measure for the quote text</strong> — the two axes still fixed, and reading passages is the entire purpose of the app. Size is the reader's already: Settings &rarr; Type moves each role independently or all at once. What nothing moves is how the passage is <em>set</em> &mdash; how far apart the lines sit, and how long a line is allowed to run. Line length is the largest readability lever there is in a body of prose and the one almost nothing offers; the paper and film looks are deliberately generous, which is right for reading and exactly what somebody with low vision needs to be able to narrow. The face is the reader's too, though the quote box still offers only serifs.</li>
-    <li><strong>A dyslexia-friendly font option</strong>, cheap given the existing self-hosted <code>@fontsource</code> setup, and asked for often by people who read a lot.</li>
-    <li><strong>A named, focusable equivalent for every gesture</strong> added in <a href="#mobile-pwa">§2</a>.</li>
+    <li><strong>A named, focusable equivalent for every gesture</strong> added in <a href="#mobile-pwa">&sect;2</a>. The rule is settled, and each of the four gestures listed under <a href="#mobile-pwa">&sect;2</a>&rsquo;s ground rules now satisfies it: a scroller wears a button at its fade, the drawer closes from a button as well as a swipe, a control thumb is a real slider and answers the arrow keys, and the seal on a quote &mdash; the last thing here that could only be dragged, and a position <em>kept</em> with the quote rather than a flourish &mdash; answers them now too. What is left is holding each gesture &sect;2 adds to the same rule as it lands.</li>
   </ul>
   </div>
 </details>
@@ -1026,30 +1035,6 @@
   `node scripts/roadmap-data.mjs`.
 -->
 <!-- ROADMAP:FEATURES:START -->
-<div class="card req" id="access-reading-comfort">
-  <h3>Reading comfort and a contrast switch</h3>
-  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/32">#32</a></p>
-  <p>
-    <strong>Shipped so far.</strong> A contrast switch in Settings, and the palette
-    work it needed: ink and hairline contrast raised to WCAG AA in all four
-    aesthetics, resolving to the same state as the <code>prefers-contrast: more</code>
-    media query rather than fighting it. Then the quote text's own two reading dials —
-    <strong>line height</strong> and <strong>measure</strong>, the line length a long
-    passage is actually read at — beside the text-size dial that was already there.
-  </p>
-  <p>
-    Then <strong>OpenDyslexic</strong>, bundled and offered in Settings → Type for
-    both the quote text and the interface — it was always uploadable, never offered.
-  </p>
-  <p>
-    <strong>Still to come.</strong> One interaction is still reachable only by
-    dragging — positioning the seal on a quote — and it gains a control you can reach
-    with a keyboard. The rest already have one: the drawer closes from a button, the
-    toggles and pickers answer arrow keys, and the card menu answers the key every
-    desktop has for it.
-  </p>
-</div>
-
 <div class="card req" id="atrium-liquid-glass">
   <h3>Atrium, the glass material set</h3>
   <p>

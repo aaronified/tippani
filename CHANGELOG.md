@@ -809,6 +809,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is the app's own copy, like every other face here — nothing is fetched from the web, on
   a screen about how your own words look. Nothing changes unless you pick it.
 
+- **The seal on a quote can be moved with the arrow keys.** It is a small thing and it
+  was the only gesture left in the app you could not do another way. Every other one has
+  an equivalent — the sheet closes from a button, the pickers and toggles answer arrow
+  keys, a card's menu opens from the keyboard — and the seal could only be dragged. That
+  mattered more than it sounds: where you put it is **kept with the quote**, so it was not
+  a flourish to skip but a stored property of your own card that some readers could not
+  set at all. Focus it and press an arrow to move it a step; hold **Shift** for a long one.
+  It stays inside the card the same way a drag does, and each press saves, so there is no
+  moment where what you see and what is stored disagree.
+
 - **A date the app refuses on one quote was accepted on a whole imported file — and then
   thrown away.** Typing `sometime in 1952` into a quote's occasion date has always come
   back refused, with a message naming the shapes it takes. Setting the same value across a

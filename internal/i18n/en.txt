@@ -1034,6 +1034,7 @@ error.generic = something went wrong
 common.state.loading = loading…
 
 # The round sticker a quote flows around, on a board that lets you move it.
+common.sticker.move.aria = Move the seal — drag it, or use the arrow keys
 common.sticker.drag.tip = Drag to reposition
 
 # ---------------------------------------------------------------------------
