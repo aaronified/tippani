@@ -78,6 +78,30 @@ describe('what may be set over a selection', () => {
     }
   })
 
+  // WHAT THE WORDS MEAN, on every kind — 0035 gave a standalone quote a
+  // translation and 0051 gave the other two theirs.
+  //
+  // THE IMPORT QUEUE DELIBERATELY DOES NOT OFFER IT, and that asymmetry is the
+  // queue's own rule rather than a gap: that endpoint corrects where a line came
+  // from, never what it says, and names quote, note and translation as the three
+  // it will not touch. bulk_fields_test.go records it as a live-only gap with
+  // that reason, so closing it would have to be a deliberate edit in two places.
+  it('offers the translation on every kind of quote, and on no work', () => {
+    for (const kind of ['annotation', 'dialogue', 'quote']) {
+      expect(keys(kind), `${kind} must offer its translation`).toContain('translation')
+    }
+    for (const kind of ['book', 'movie']) {
+      expect(keys(kind), 'a work has no translation column').not.toContain('translation')
+    }
+    // A passage, so a box with room in it — the same call `note` makes.
+    const f = BULK_QUOTE_FIELDS.find((x) => x.key === 'translation')
+    expect(f.long, 'a translation is a passage, not a line').toBe(true)
+    // And never treated as a name: per-word capitals on a sentence is the defect
+    // `prose` exists for, and `long` fields take the textarea rather than Field,
+    // so the capitalisation never reaches them either way.
+    expect(f.prose, 'a translation is not a name').toBeFalsy()
+  })
+
   // WHEN IT WAS SAID, AND WHETHER THAT IS A GUESS — one row in the panel and two
   // columns on the wire. The tick is drawn inside the date control, because the
   // owner ruled that a flag about a field belongs with the field; a second row

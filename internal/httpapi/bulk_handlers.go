@@ -75,6 +75,10 @@ type bulkTagReq struct {
 	// are two optional fields rather than one struct.
 	OccasionDate  *string `json:"occasion_date"`
 	OccasionCirca *bool   `json:"occasion_circa"`
+	// 0035/0051, and live-only on purpose — see bulkFields. Clearing is the case
+	// it exists for: two quotes cannot share a translation, but two hundred can
+	// share a wrong one that an import put there.
+	Translation *string `json:"translation"`
 	Favorite *bool    `json:"favorite"`
 	// Colour became a six-slot, user-named category in 1.7.1, which made it the
 	// single most plausible reason to select forty quotes — and the bulk endpoints
@@ -251,6 +255,7 @@ func bulkQuoteFieldPtrs(req *bulkTagReq) map[string]*string {
 		// through nullable() — notNullQuoteCols carries that, from the same table
 		// this map's applicability is read out of.
 		"occasion_date": req.OccasionDate,
+		"translation":   req.Translation,
 	}
 }
 

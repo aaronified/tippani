@@ -89,11 +89,11 @@ func TestEveryBulkFieldSetsAndClearsOnItsOwnKind(t *testing.T) {
 		fields            []string
 	}{
 		{"annotation", "/annotations/bulk", "annotations", annID,
-			[]string{"note", "chapter", "location", "character"}},
+			[]string{"note", "translation", "chapter", "location", "character"}},
 		{"dialogue", "/dialogues/bulk", "dialogues", dlgID,
-			[]string{"note", "character", "actor", "timestamp", "act", "quest", "episode_name"}},
+			[]string{"note", "translation", "character", "actor", "timestamp", "act", "quest", "episode_name"}},
 		{"utterance", "/quotes/bulk", "utterances", quoteID,
-			[]string{"note", "speaker", "occasion", "place", "medium",
+			[]string{"note", "translation", "speaker", "occasion", "place", "medium",
 				"region", "recipient", "work_title", "locator"}},
 	} {
 		for _, field := range tc.fields {
@@ -550,8 +550,19 @@ func TestEveryBulkFieldKindInTheSharedTableIsAKindBulkTagKnows(t *testing.T) {
 func TestTheGapsBetweenTheTwoEditorsAreTheOnesOnRecord(t *testing.T) {
 	// Measured at the commit that introduced the shared table. Each is a field one
 	// editor can set and the other cannot, with the reason it is still open.
+	//
+	// TWO OF THESE HAD THE WRONG REASON, and a wrong reason on a ratchet is worse
+	// than none: it tells the next reader the gap is waiting to be closed when the
+	// endpoint has already refused to close it. `note` was recorded here as "parity
+	// says it should" while import_staged_bulk.go says the opposite in as many
+	// words — that it "corrects where a line CAME FROM, never what it SAYS", and
+	// names `quote`, `note` and `translation` as the three it will not touch. The
+	// reason written beside the code that enforces it is the one that stands.
 	liveOnly := map[string]string{
-		"note":   "the staged editor has no note field; parity says it should, and the plan records the doubt",
+		"note": "the queue does not edit a row's TEXT — import_staged_bulk.go names " +
+			"quote, note and translation as the three it will not touch",
+		"translation": "the same rule: a staged row records what the file said, and " +
+			"wording is fixed after approval on a row that is yours",
 		"medium": "0053 retired it — deliberate on both sides",
 		"kind":   "not yet wired to the staged endpoint",
 	}
@@ -934,6 +945,47 @@ func TestBulkOccasionDateKeepsItsShapeOnTheLiveEditor(t *testing.T) {
 	// And it did not half-apply: a refused request writes nothing.
 	if got := quoteNow(t, c, a.ID); got.OccasionDate != "-0399" {
 		t.Errorf("the refused date left %q behind", got.OccasionDate)
+	}
+}
+
+// A TRANSLATION SET IN BULK IS FINDABLE, which is the half a round-trip through
+// the row cannot see. `translation` is one of `utterances_fts`'s seven indexed
+// columns (0035, widened by 0047), so a write that does not reach the index
+// leaves the quote reading correctly on every screen and absent from the one
+// place a reader goes looking for it — a failure with no symptom until someone
+// searches.
+//
+// IT PASSES TODAY FOR A REASON WORTH NAMING: the FTS triggers are AFTER UPDATE ON
+// utterances, not UPDATE OF <columns>, so any write to the row reindexes it.
+// That is a property of the schema rather than of this endpoint, which is exactly
+// why it is asserted here — the bulk path never touches the triggers, so nothing
+// else in this file would notice if a future migration narrowed them.
+func TestABulkTranslationIsFindableAfterwards(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	a := newUtterance(t, c, map[string]any{"quote": "ঘরের খবর"})
+	b := newUtterance(t, c, map[string]any{"quote": "পরের খবর"})
+
+	// Not a word in either quote, so a hit can only have come through the index.
+	c.mustDo("POST", "/quotes/bulk", map[string]any{
+		"ids": []int64{a.ID, b.ID}, "translation": "news of the household",
+	}, http.StatusOK)
+
+	found := decode[searchResults](t, c.mustDo("GET", "/search?q=household", nil, http.StatusOK))
+	if len(found.Quotes) != 2 {
+		t.Fatalf("searching the translation found %d quotes, want 2 — the bulk write "+
+			"did not reach utterances_fts", len(found.Quotes))
+	}
+
+	// AND A CLEAR UNINDEXES IT. A stale index entry is the worse half: the quote
+	// goes on answering a search for words it no longer carries, and nothing on
+	// the row says why.
+	c.mustDo("POST", "/quotes/bulk",
+		map[string]any{"ids": []int64{a.ID}, "translation": ""}, http.StatusOK)
+	after := decode[searchResults](t, c.mustDo("GET", "/search?q=household", nil, http.StatusOK))
+	if len(after.Quotes) != 1 {
+		t.Fatalf("after clearing one translation the search found %d quotes, want 1", len(after.Quotes))
 	}
 }
 

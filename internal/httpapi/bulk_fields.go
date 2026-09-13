@@ -67,6 +67,18 @@ var bulkFields = map[string]bulkField{
 	// 0071. The most obviously bulk-settable thing in the app: forty highlights
 	// out of one Bengali book is one value on forty rows.
 	"language": {kinds: bulkAllKinds, live: "language", staged: "language", notNull: true},
+	// 0035 for a standalone quote, 0051 for the other two. LIVE ONLY, and the
+	// asymmetry is the queue's own rule rather than an oversight: import_staged_bulk
+	// says it "corrects where a line CAME FROM, never what it SAYS", and names
+	// `quote`, `note` and `translation` as the three it will not touch. A staged row
+	// is a record of what the file said.
+	//
+	// THE USE IS CLEARING, and saying so is the honest version. Two quotes cannot
+	// share a translation, so "set these forty to the same words" is not a thing
+	// anyone wants — but an import that mis-mapped a column onto two hundred rows
+	// is exactly what a bulk editor exists for, and without this the repair is two
+	// hundred rows by hand.
+	"translation": {kinds: bulkAllKinds, live: "translation", notNull: true},
 
 	// ── a book highlight's locators ──────────────────────────────────────────
 	"chapter": {kinds: []string{"annotation"}, live: "chapter", staged: "chapter"},

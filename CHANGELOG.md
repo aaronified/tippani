@@ -722,6 +722,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   page that did not mention the quote it was counting. The search now honours the scope
   too: a books-only search returns no quotes, and a quotes-only one returns no books.
 
+- **A translation can be corrected across a whole selection.** Two quotes never share
+  a translation, so this is not for setting the same words on forty rows — it is for
+  the import that put the wrong column there on two hundred of them, which until now
+  meant two hundred rows fixed by hand. It is offered on highlights, on film lines
+  and on standalone quotes alike, and a translation set or cleared this way is
+  searchable immediately. The **import queue does not offer it**, on purpose: that
+  screen corrects where a line came from, never what it says, and wording is fixed
+  after approval on a row that is yours.
+
 - **When a quote was said, and whether that is a guess, can now be set over a selection.**
   Almost everything else a standalone quote carries could be changed across a batch — its
   kind, its speaker, the work it came from, its colour, its tags — and the date was

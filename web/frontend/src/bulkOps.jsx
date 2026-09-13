@@ -313,6 +313,18 @@ export const BULK_QUOTE_FIELDS = [
   // languages in one press, and the box that offers what the library already holds
   // is the fix the single-record forms already have.
   { key: 'language', language: true, get label() { return t('common.field.language.label') } },
+  // AND WHAT THE WORDS MEAN, on all three kinds since 0051. `long` because it is a
+  // passage and not a line.
+  //
+  // CLEARING IS WHAT IT IS FOR, and the panel does not pretend otherwise: two
+  // quotes cannot share a translation, so nobody sets the same words on forty
+  // rows. An import that mis-mapped a column onto two hundred of them is the case
+  // — the repair without this is two hundred rows by hand.
+  //
+  // The import queue deliberately does NOT offer it: that endpoint corrects where
+  // a line came from, never what it says, and a staged row is a record of what
+  // the file held. Fixing wording happens after approval, on a row that is yours.
+  { key: 'translation', long: true, get label() { return t('common.field.translation.label') } },
   // WHEN IT WAS SAID, and it is ONE ROW because it is one fact. `occasion_date`
   // holds the date and `occasion_circa` the tick that says it is an estimate, and
   // `PartialDateField` has drawn the two as a single control since the owner
