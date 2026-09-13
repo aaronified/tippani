@@ -1344,6 +1344,10 @@ settings.appearance.theme.light.label = Light
 settings.appearance.theme.dark.label = Dark
 settings.appearance.match.label = Match system
 settings.appearance.match.aria = Match system theme
+settings.appearance.contrast.title = Contrast
+settings.appearance.contrast.aria = Contrast
+settings.appearance.contrast.more.label = More
+settings.appearance.contrast.hint = More contrast darkens the rules and takes the paper grain off. Match system follows your device.
 # --- Appearance -> Material. Seven sets, each naming what four surfaces are
 # made of: the desk under everything, the furniture, the page you read, the
 # binding on a cover. Independent of light/dark -- every set works in both -- so

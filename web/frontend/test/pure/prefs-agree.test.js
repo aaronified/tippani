@@ -59,6 +59,26 @@ describe('a preference the client offers is a preference the server accepts', ()
   // the list out; a message that had gone stale alongside the map would have said
   // "must be … or quarry" while quarry was no longer the last one — which is worse
   // than no list, because it reads like an authoritative answer.
+  // THE CONTRAST SWITCH IS THE THIRD OF THIS SHAPE, and it is here from the day it
+  // shipped rather than after it breaks. Its list is declared in theme.js —
+  // applyContrast is what decides an unknown value falls to 'auto' — and merely
+  // accepted by the server, which is the direction this whole file reads in.
+  it('the contrast settings agree', () => {
+    expect(goMapKeys('prefContrasts')).toEqual(['auto', 'more'])
+    // And the client really is the declaring side: applyContrast names both, and
+    // a third value added to the server alone would fail the line above rather
+    // than sit there unreachable.
+    const theme = readFileSync(join(REPO, 'web', 'frontend', 'src', 'theme.js'), 'utf8')
+    expect(theme, "applyContrast no longer names 'more'").toMatch(/pref === 'more' \? 'more' : 'auto'/)
+  })
+
+  it('the contrast refusal names both values', () => {
+    const line = go.match(/"contrast must be ([^"]+)"/)
+    expect(line, 'the contrast refusal no longer spells out its list').toBeTruthy()
+    const named = line[1].replace(/\bor\b/g, ',').split(',').map((x) => x.trim()).filter(Boolean).sort()
+    expect(named).toEqual(['auto', 'more'])
+  })
+
   it('the error message names every material set', () => {
     const line = go.match(/"materialSet must be ([^"]+)"/)
     expect(line, 'the materialSet refusal no longer spells out its list').toBeTruthy()

@@ -203,6 +203,17 @@ function wins(a, b) {
 // `@media (max-width: 768px)` competes because a phone in high-contrast mode is a
 // real reader, and the off switch must beat it there too.
 //
+// WHERE THE CONTRAST BLOCK LIVES, asked once so four suites cannot disagree about
+// it — which is the reason this file exists at all, stated in its own header.
+//
+// IT USED TO BE A MEDIA QUERY and three suites identified it that way. It is a
+// SELECTOR now: theme.js resolves `prefers-contrast: more` and the reader's own
+// Settings switch into one `html[data-contrast="more"]` before anything draws, so
+// the stylesheet asks the question once instead of carrying the block twice. The
+// suites' assertions are unchanged — only where they look for the rules.
+export const isContrastRule = (r) =>
+  r.selectors.some((sel) => sel.includes('[data-contrast="more"]'))
+
 // `skipContrast` is how a caller asks the OTHER question. The off switch is
 // `!important` in the first layer, so it wins every resolution it takes part in —
 // which is the point, and which would make "is this surface textured at all?"
@@ -221,7 +232,7 @@ function resolve(target, prop, { skipContrast = false, without = null } = {}) {
     const d = r.decls[prop]
     if (!d) continue
     if (without && r.media.some(excluded)) continue
-    if (skipContrast && r.media.some((m) => m.includes('prefers-contrast: more'))) continue
+    if (skipContrast && isContrastRule(r)) continue
     for (const sel of r.selectors) {
       if (!competes(sel, target)) continue
       const cand = { ...d, layer: r.layer, order: r.order, spec: specificity(sel), sel, media: r.media }

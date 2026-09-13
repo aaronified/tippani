@@ -36,7 +36,11 @@ func TestPreferences(t *testing.T) {
 	// SRTier is "medium" and not "": loadPrefs normalises it, and medium is the
 	// tier that behaves exactly as the quiz always has, so a fresh account is on
 	// it by arriving rather than by choosing.
-	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "system", Accent: "terracotta", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
+	// Contrast is "auto" for the same reason SRTier is "medium": loadPrefs
+	// normalises it, and `auto` is the behaviour the app had before the switch
+	// existed — a fresh account defers to the machine by arriving rather than by
+	// choosing.
+	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "system", Accent: "terracotta", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
 		t.Fatalf("default preferences: %+v", me.Preferences)
 	}
 
@@ -49,7 +53,7 @@ func TestPreferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "dark", Accent: "terracotta", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
+	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "dark", Accent: "terracotta", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
 		t.Fatalf("dark default material set: %+v", me.Preferences)
 	}
 
@@ -57,7 +61,7 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		prefs{MaterialSet: "film-assembly", Theme: "light", Accent: "ochre"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{MaterialSet: "film-assembly", Theme: "light", Accent: "ochre", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
+	if me.Preferences != (prefs{MaterialSet: "film-assembly", Theme: "light", Accent: "ochre", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
 		t.Fatalf("after PUT: %+v", me.Preferences)
 	}
 
@@ -67,7 +71,7 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		map[string]any{"materialSet": "manuscript", "theme": "light", "accent": "olive", "home": "movies", "navUtilities": "menu", "srGrow": 3.0, "srShrink": 0.5}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "light", Accent: "olive", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
+	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "light", Accent: "olive", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
 		t.Fatalf("after PUT with stale retired keys: %+v", me.Preferences)
 	}
 
@@ -970,6 +974,42 @@ func TestCoversRefetchReplacesLowRes(t *testing.T) {
 // the guard proves the two LISTS match, and this proves the value actually round
 // trips through the handler and the store. A set could be in both lists and still
 // fail to save.
+// A CLIENT THAT DOES NOT KNOW ABOUT A PREFERENCE MUST NOT BE REFUSED OVER IT.
+//
+// This endpoint takes the WHOLE preferences object, so a client that round-trips
+// it through a typed struct sends every field it has never heard of as that
+// field's zero value. `contrast` arriving as "" therefore means "I have no
+// opinion", not "I have an invalid one" — and refusing it would 400 every save
+// made by an older client, over a setting the reader never touched.
+//
+// TestAtriumIsAMaterialSetThatSaves is how this was found: it PUTs a bare
+// prefs{} literal, so the field went over the wire empty and the new validation
+// refused it. That is a real client shape, not a test artefact, which is why the
+// rule is asserted here in its own right rather than left implied by that case.
+func TestAnOlderClientSendingNoContrastIsNotRefused(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	// Exactly what a client built before the switch sends: the field, empty.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{
+		"materialSet": "manuscript", "theme": "dark", "accent": "slate", "contrast": "",
+	}, http.StatusOK)
+
+	me := decode[meResp](t, c.mustDo("GET", "/auth/me", nil, http.StatusOK))
+	if me.Preferences.Contrast != "auto" {
+		t.Fatalf("contrast = %q after an empty one was sent, want auto", me.Preferences.Contrast)
+	}
+	// And a value that is genuinely wrong is still refused, so the tolerance above
+	// is about ABSENCE rather than about giving up on the field.
+	rec := c.do("PUT", "/auth/me/preferences", map[string]any{
+		"materialSet": "manuscript", "theme": "dark", "accent": "slate", "contrast": "maximum",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("an unknown contrast: %d %s — empty is not an opinion, but a wrong value is",
+			rec.Code, rec.Body)
+	}
+}
+
 func TestAtriumIsAMaterialSetThatSaves(t *testing.T) {
 	srv := newTestServer(t)
 	c := signupAdmin(t, srv.Handler())

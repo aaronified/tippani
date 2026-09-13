@@ -1348,6 +1348,10 @@ settings.appearance.theme.light.label = হালকা
 settings.appearance.theme.dark.label = গাঢ়
 settings.appearance.match.label = সিস্টেম যেমন
 settings.appearance.match.aria = সিস্টেমের থিম মেনে চলুন
+settings.appearance.contrast.title = কনট্রাস্ট
+settings.appearance.contrast.aria = কনট্রাস্ট
+settings.appearance.contrast.more.label = বেশি
+settings.appearance.contrast.hint = বেশি কনট্রাস্টে দাগগুলো গাঢ় হয় আর কাগজের দানা সরে যায়। সিস্টেম যেমন মানে আপনার যন্ত্র যা বলে তাই।
 # --- Appearance -> Material. Seven sets, each naming what four surfaces are
 # made of: the desk under everything, the furniture, the page you read, the
 # binding on a cover. Independent of light/dark -- every set works in both -- so

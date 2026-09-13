@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
-import { ACCENTS, applyColors, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
+import { ACCENTS, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
 import { SIZE_ROLES, TYPE_FACTORS, applyTypeScale, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
   applyFonts,
@@ -2863,6 +2863,10 @@ function Appearance({ prefs, onPreferences }) {
   const [themePref, setThemePref] = useState(applied.theme)
   const [sysTheme, setSysTheme] = useState(prefersDark() ? 'dark' : 'light')
   const [accent, setAccent] = useState(applied.accent)
+  // Read from what is APPLIED rather than from a prop, for the reason labelsPref
+  // exists: a control initialised from a prop can be a render behind what the
+  // reader is looking at.
+  const [contrast, setContrast] = useState(contrastPrefValue())
   const base = useFrameBase()
 
   // Track the OS theme live so the specimens follow it while set to match system.
@@ -2880,6 +2884,18 @@ function Appearance({ prefs, onPreferences }) {
   // the session user stays current, and PUTs it. Every field rides along so changing
   // one never resets another — a full-state save means a field left out is a field
   // cleared.
+  // CONTRAST DOES NOT RIDE IN persist, and the reason is one line below it: that
+  // function re-sends every theme field on any change, so a preference travelling
+  // in the same object is wiped by an unrelated accent click. applyLabels' own
+  // note says the same thing about the same hazard. The endpoint takes a partial
+  // — its patch shape is pointers — so sending the one field changes the one
+  // field.
+  function saveContrast(v) {
+    setContrast(v)
+    applyContrast(v)
+    json('PUT', '/auth/me/preferences', { contrast: v })
+  }
+
   function persist(next) {
     const s = { materialSet, theme: themePref, accent, ...next }
     setMaterialSet(s.materialSet)
@@ -2906,6 +2922,22 @@ function Appearance({ prefs, onPreferences }) {
           ]}
         />
       </div>
+      {/* §6 access. Beside the theme because it answers the same kind of question
+          about the same surfaces, and it borrows the theme's own "Match system"
+          wording rather than inventing a second phrase for one idea. */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <MonoLabel>{t('settings.appearance.contrast.title')}</MonoLabel>
+        <Toggle
+          ariaLabel={t('settings.appearance.contrast.aria')}
+          value={contrast}
+          onChange={saveContrast}
+          options={[
+            ['auto', t('settings.appearance.match.label')],
+            ['more', t('settings.appearance.contrast.more.label')],
+          ]}
+        />
+      </div>
+      <p className="microcopy mb-4">{t('settings.appearance.contrast.hint')}</p>
       <MonoLabel className="mb-2 block">{t('settings.appearance.material.title')}</MonoLabel>
       <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
         {Object.keys(MAT_SETS).map((name, i) => (

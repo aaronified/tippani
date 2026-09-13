@@ -272,6 +272,13 @@ var (
 		"atelier": true, "bindery": true, "quarry": true, "atrium": true,
 	}
 	prefThemes  = map[string]bool{"light": true, "dark": true, "system": true}
+	// §6 access. TWO VALUES AND NOT THREE: `auto` defers to the operating system's
+	// own `prefers-contrast` / `prefers-reduced-transparency`, and `more` says so
+	// regardless of what the machine thinks. There is deliberately no explicit
+	// "normal": a reader who turns the switch off is back to asking the OS, which
+	// is `auto`, and a third value would be a second way to spell it that the two
+	// sides could then disagree about.
+	prefContrasts = map[string]bool{"auto": true, "more": true}
 	prefAccents = map[string]bool{"terracotta": true, "ochre": true, "olive": true, "slate": true}
 	// The single-medium scopes, and the legacy aliases. "both" predates
 	// standalone quotes and now means all three media — see scopeFlags.
@@ -357,6 +364,10 @@ type prefs struct {
 	MaterialSet string `json:"materialSet"`
 	Theme       string `json:"theme"`
 	Accent      string `json:"accent"`
+	// Stored on the ACCOUNT rather than the device, unlike label density: what a
+	// person can see follows them to every machine they open the library on, and
+	// `auto` already covers the per-device case by deferring to that machine's OS.
+	Contrast string `json:"contrast"`
 	// Per-slot texture overrides: one tile name each, or empty for "whatever the
 	// set says". A set is seven ready answers; these are for the reader who wants
 	// Manuscript with a stone floor, and they are also the only way the tiles no
@@ -807,6 +818,12 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	if !prefMaterialSets[p.MaterialSet] {
 		p.MaterialSet = "manuscript"
 	}
+	// An unset or unrecognised value reads as `auto`, which is the setting that
+	// asks the machine — so a reader who has never touched this gets exactly the
+	// behaviour the app had before the switch existed.
+	if !prefContrasts[p.Contrast] {
+		p.Contrast = "auto"
+	}
 	// A stored override that no longer has the SHAPE of a tile name reads as unset,
 	// which puts the slot back on the set's own material rather than on nothing.
 	for _, t := range []*string{&p.TileGround, &p.TileShell, &p.TileCard, &p.TileCover} {
@@ -912,6 +929,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		MaterialSet         *string  `json:"materialSet"`
 		Theme               *string  `json:"theme"`
 		Accent              *string  `json:"accent"`
+		Contrast            *string  `json:"contrast"`
 		TileGround          *string  `json:"tileGround"`
 		TileShell           *string  `json:"tileShell"`
 		TileCard            *string  `json:"tileCard"`
@@ -1001,6 +1019,20 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	if in.Accent != nil {
 		cur.Accent = *in.Accent
+	}
+	if in.Contrast != nil {
+		// EMPTY MEANS NOT SET, NOT INVALID, and that distinction is the whole of a
+		// compatibility bug this caught in its own test suite. This endpoint takes
+		// the WHOLE preferences object, so a client that round-trips it through a
+		// typed struct sends every field it does not know about as its zero value —
+		// and refusing "" would 400 every save made by a client built before this
+		// field existed, over a preference they never touched. `loadPrefs` already
+		// reads an unset stored value as `auto`; the wire says the same thing the
+		// same way.
+		cur.Contrast = *in.Contrast
+		if cur.Contrast == "" {
+			cur.Contrast = "auto"
+		}
 	}
 	// Optional fields: an empty/zero value means "leave unchanged", so a client
 	// PUTting only one field (or an older client omitting the newer ones) is
@@ -1244,6 +1276,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		return
 	case !prefAccents[cur.Accent]:
 		writeErr(w, http.StatusBadRequest, "accent must be terracotta, ochre, olive or slate")
+		return
+	case !prefContrasts[cur.Contrast]:
+		writeErr(w, http.StatusBadRequest, "contrast must be auto or more")
 		return
 	case cur.SRDaily < 2 || cur.SRDaily > 10:
 		writeErr(w, http.StatusBadRequest, "srDaily must be between 2 and 10")

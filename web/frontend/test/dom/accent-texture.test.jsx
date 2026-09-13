@@ -32,7 +32,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { CSS_TEXT as css, resolveOn as resolve, rightmost, rules } from '../css-cascade.js'
+import { CSS_TEXT as css, isContrastRule, resolveOn as resolve, rightmost, rules } from '../css-cascade.js'
 
 // THE CASCADE RESOLVER MOVED, and this file is where it was written. It reads the
 // stylesheet, tracks which layer and which media context every declaration is in,
@@ -48,7 +48,7 @@ import { CSS_TEXT as css, resolveOn as resolve, rightmost, rules } from '../css-
 // count as texture here: the aliases, and the one `:root` block that still holds
 // real url()s.
 const isTexture = (v) => /textures\/|feTurbulence|var\(--tile-/.test(v)
-const inContrast = (d) => !!d && d.media.some((m) => m.includes('prefers-contrast: more'))
+const inContrast = (d) => !!d && !!d.sel && d.sel.includes('[data-contrast="more"]')
 
 // A surface is off when it is faded to nothing, or when its fill no longer names a
 // tile. Both techniques are in use and both are correct: a ::before overlay can be
@@ -77,7 +77,7 @@ const LAYERED_FILL = ['.tp-toggle-thumb', '.tp-select-thumb', '.tp-filter-chip.a
 
 describe('the stylesheet parses into something worth resolving', () => {
   it('finds the contrast block, in a layer, and every declaration important', () => {
-    const inside = rules.filter((r) => r.media.some((m) => m.includes('prefers-contrast: more')))
+    const inside = rules.filter(isContrastRule)
     expect(inside.length, 'the contrast block was not found').toBeGreaterThan(2)
     // Cascade placement is the whole fix. Important declarations in the earliest
     // layer beat every later layer AND every unlayered rule; a normal declaration
@@ -146,7 +146,7 @@ describe('every texture is actually turned off, not merely mentioned', () => {
       if (!bg || !isTexture(bg.value)) return []
       // The off switch re-declares some of these fills; it is not a surface that
       // needs switching off.
-      if (r.media.some((m) => m.includes('prefers-contrast: more'))) return []
+      if (isContrastRule(r)) return []
       return r.selectors.map(rightmost)
     }),
   )].sort()

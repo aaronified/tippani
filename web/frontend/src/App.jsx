@@ -43,7 +43,7 @@ const Settings = lazy(() => import('./Settings.jsx'))
 const BinPage = lazy(() => import('./BinPage.jsx'))
 const CleanupPage = lazy(() => import('./CleanupPage.jsx'))
 const ChecksPage = lazy(() => import('./ChecksPage.jsx'))
-import { applyColors, applyTheme } from './theme.js'
+import { applyColors, applyContrast, applyTheme } from './theme.js'
 import { applyLocale, localeActive, useLocale } from './i18n.js'
 import { LanguagePicker } from './locale.jsx'
 import {
@@ -181,6 +181,11 @@ export default function App() {
     if (user) {
       applyTheme(user.preferences || {})
       applyColors(user.preferences || {})
+      // §6 access. Beside applyTheme rather than inside it for the reason applyLabels
+      // gives about staying out of it: Settings' Appearance card re-sends every theme
+      // field on any change, so a preference riding along in that object is wiped by
+      // an unrelated accent click.
+      applyContrast(user.preferences?.contrast)
       // The ACCOUNT is the authority on the language once there is a session, and
       // this is what carries the choice to the reader's other devices. applyLocale
       // writes the device-local mirror as a side effect, so the next boot's

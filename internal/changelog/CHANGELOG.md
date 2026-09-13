@@ -753,6 +753,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   credit does not already say it — off until you ask for it, the way a book highlight's
   page already was. Nothing you had switched off in the share dialog comes back on.
 
+- **You can ask for more contrast without changing your whole computer.** The app has
+  always honoured a device set to high contrast — the paper grain, the film dither and
+  every other decorative layer drop away — but only if you had set it there, which is a
+  system-wide change to make for one app. **Settings → Appearance** now has its own
+  contrast setting beside the theme, with the same **Match system** wording: leave it
+  alone and nothing changes, or choose **More** and this app alone takes the textures off
+  and draws its rules dark enough to see. The two never disagree, because they are the
+  same switch asked from two directions: a device already set to high contrast shows the
+  setting as matching it. Kept with your account rather than on one device, because what
+  you can see does not change when you pick up your phone.
+
 - **Five colours of text were too faint to meet the accessibility standard, in both
   looks.** Measured rather than judged by eye: the app's own palette was checked against
   WCAG's 4.5:1 floor on every surface a word can land on, and five failed — the faint grey

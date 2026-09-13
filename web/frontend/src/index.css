@@ -271,50 +271,87 @@
      adds tomorrow in a place nobody predicted. Chasing this with specificity
      would only have moved which rule won.
      them off. ---- */
-  @media (prefers-contrast: more), (prefers-reduced-transparency: reduce) {
-    .grain-overlay,
-    .scene-bg,
-    .hand-card::before,
-    .hand-card::after,
-    .film-frame::before,
-    .film-frame::after,
-    .preset-callout::before,
-    .btn-sticker::before,
-    .btn-film::before,
-    .tp-btn-primary::before,
-    .topbar-add-btn::before,
-    .user-chip::before,
-    .drawer::before,
-    .mobile-dock::before,
-    .rail::before,
-    .topbar::before,
-    .mobile-topbar::before,
-    .mobile-sticky-bar::before,
-    .mobile-sheet-footer::before {
-      opacity: 0 !important;
-    }
-    /* The layered fills carry their tile INSIDE background-image, so there is no
-       pseudo-element to fade — the middle layer is dropped by replacing the
-       stack with the scrim and the accent alone. */
-    .tp-toggle-thumb,
-    .tp-select-thumb,
-    .nav-toggle .tp-toggle-thumb,
-    .tp-filter-chip.active,
-    .drawer-item.active,
-    .mobile-dock-btn.active {
-      background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent)) !important;
-      background-size: auto, auto !important;
-      background-blend-mode: normal, normal !important;
-    }
-    html[data-theme="dark"] .tp-toggle-thumb,
-    html[data-theme="dark"] .tp-select-thumb,
-    html[data-theme="dark"] .nav-toggle .tp-toggle-thumb,
-    html[data-theme="dark"] .tp-filter-chip.active,
-    html[data-theme="dark"] .drawer-item.active,
-    html[data-theme="dark"] .mobile-dock-btn.active {
-      background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark)) !important;
-    }
+  /* ---- ONE SELECTOR, NOT A MEDIA QUERY AND A COPY OF IT ----
+     `html[data-contrast="more"]` is written by theme.js's applyContrastNow, which
+     resolves the OS query AND the reader's own Settings switch into one answer
+     before anything draws — so the query is asked there instead of here, once.
+     Duplicating these three rules so a switch could reach them is how one of two
+     copies quietly stops matching the other, and this block is already the file's
+     worked example of a rule that did nothing because of where it sat.
+
+     A selector already rooted at `html[data-theme="dark"]` takes the attribute on
+     that SAME element rather than a prefix, because an <html> inside an <html> is
+     a selector that matches nothing and looks right. ---- */
+
+  /* ---- AND THE HAIRLINES, which the texture drop never touched ----
+     This block's own header says "Nothing structural moves — the borders, the
+     lifts, the colours and the layout are untouched", and for the texture half
+     that is right. It is not right for a reader who asked for more contrast and
+     got a rule at 1.19:1.
+
+     `--line` IS THE SEPARATOR AT 186 CALL SITES and it stays soft by default on
+     purpose: it divides content that spacing and background already divide, so
+     WCAG 1.4.11 does not require 3:1 of it, and darkening it for everybody would
+     redraw every row in the app. Here, where the reader has ASKED, it goes to the
+     floor. Solved rather than picked: the lightest value clearing 3:1 against
+     every surface it can sit on — five per theme, not the one that came to mind.
+
+     `--frame-border` takes the same value rather than its own. It is a card's
+     edge, and under a setting whose whole meaning is "draw the boundaries" a
+     second, fainter answer to "what is a boundary" is the thing being asked
+     about. It is also stored as an alpha, and an alpha over an unknown surface
+     is a ratio nobody can state. ---- */
+  html[data-contrast="more"] {
+    --line: #8F887D !important;
+    --frame-border: #8F887D !important;
   }
+  html[data-contrast="more"][data-theme="dark"] {
+    --line: #7D766C !important;
+    --frame-border: #7D766C !important;
+  }
+  html[data-contrast="more"] .grain-overlay,
+  html[data-contrast="more"] .scene-bg,
+  html[data-contrast="more"] .hand-card::before,
+  html[data-contrast="more"] .hand-card::after,
+  html[data-contrast="more"] .film-frame::before,
+  html[data-contrast="more"] .film-frame::after,
+  html[data-contrast="more"] .preset-callout::before,
+  html[data-contrast="more"] .btn-sticker::before,
+  html[data-contrast="more"] .btn-film::before,
+  html[data-contrast="more"] .tp-btn-primary::before,
+  html[data-contrast="more"] .topbar-add-btn::before,
+  html[data-contrast="more"] .user-chip::before,
+  html[data-contrast="more"] .drawer::before,
+  html[data-contrast="more"] .mobile-dock::before,
+  html[data-contrast="more"] .rail::before,
+  html[data-contrast="more"] .topbar::before,
+  html[data-contrast="more"] .mobile-topbar::before,
+  html[data-contrast="more"] .mobile-sticky-bar::before,
+  html[data-contrast="more"] .mobile-sheet-footer::before {
+    opacity: 0 !important;
+  }
+  /* The layered fills carry their tile INSIDE background-image, so there is no
+     pseudo-element to fade — the middle layer is dropped by replacing the
+     stack with the scrim and the accent alone. */
+  html[data-contrast="more"] .tp-toggle-thumb,
+  html[data-contrast="more"] .tp-select-thumb,
+  html[data-contrast="more"] .nav-toggle .tp-toggle-thumb,
+  html[data-contrast="more"] .tp-filter-chip.active,
+  html[data-contrast="more"] .drawer-item.active,
+  html[data-contrast="more"] .mobile-dock-btn.active {
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in oklab, var(--accent), white 14%), var(--accent)) !important;
+    background-size: auto, auto !important;
+    background-blend-mode: normal, normal !important;
+  }
+  html[data-contrast="more"][data-theme="dark"] .tp-toggle-thumb,
+  html[data-contrast="more"][data-theme="dark"] .tp-select-thumb,
+  html[data-contrast="more"][data-theme="dark"] .nav-toggle .tp-toggle-thumb,
+  html[data-contrast="more"][data-theme="dark"] .tp-filter-chip.active,
+  html[data-contrast="more"][data-theme="dark"] .drawer-item.active,
+  html[data-contrast="more"][data-theme="dark"] .mobile-dock-btn.active {
+    background-image: linear-gradient(rgba(0,0,0,var(--sel-scrim,.12)), rgba(0,0,0,var(--sel-scrim,.12))), linear-gradient(180deg, color-mix(in oklab, var(--accent-dark), white 12%), var(--accent-dark)) !important;
+  }
+  
 }
 
 @layer components {

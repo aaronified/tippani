@@ -390,6 +390,61 @@ export function labelsPref() {
   return labelPref
 }
 
+// ---- contrast (§6 access) ----
+//
+// THE SWITCH AND THE MEDIA QUERY RESOLVE TO ONE STATE, which is the whole design
+// and not a detail. `prefers-contrast: more` and `prefers-reduced-transparency:
+// reduce` are the two ways an operating system says so; a reader who cannot or
+// will not set it there says so here. Two independent sources for one visual
+// property is the drift this repo keeps writing about, so they meet in one
+// resolved answer before anything draws.
+//
+// IT RESOLVES HERE FOR THE REASON applyLabelsNow GIVES ABOVE, verbatim in effect:
+// index.css needs ONE rule rather than a rule plus a duplicate inside a media
+// query, and a duplicated recipe is a thing that gets edited in one place only.
+// That block is twenty-odd selectors long, which makes a second copy of it the
+// worst version of this problem available.
+//
+// STORED ON THE ACCOUNT, unlike the label density beside it, and the difference is
+// what the preference is ABOUT. Label density answers "how wide is this screen",
+// which is a fact about the device, so it lives in localStorage. Contrast answers
+// "what can this person see", which follows them to every device they open the
+// library on. `auto` covers the per-device case by construction: it defers to
+// whatever that machine's OS is set to.
+const contrastMedia = window.matchMedia(
+  '(prefers-contrast: more), (prefers-reduced-transparency: reduce)')
+contrastMedia.addEventListener('change', applyContrastNow)
+
+let contrastPref = 'auto'
+
+// applyContrast(pref) — 'auto' | 'more'. Anything else is 'auto', for the reason
+// clampFactor gives about an unknown dial value: a preference written by a newer
+// client must fall to the documented default rather than to a half-understood
+// approximation of it.
+export function applyContrast(pref) {
+  contrastPref = pref === 'more' ? 'more' : 'auto'
+  applyContrastNow()
+}
+
+// TWO ATTRIBUTES, for the reason data-labels has two. `data-contrast` is the
+// resolved 'more' | 'normal' that every rule reads. `data-contrast-mode` is the
+// RAW preference, and Settings needs it to show which of the two the reader chose
+// rather than which one they are currently getting — 'auto' on a machine that
+// asks for more contrast looks identical to 'more' on screen, and a control that
+// cannot tell them apart reports the wrong answer back to the person who set it.
+function applyContrastNow() {
+  const more = contrastPref === 'more' || contrastMedia.matches
+  document.documentElement.dataset.contrast = more ? 'more' : 'normal'
+  document.documentElement.dataset.contrastMode = contrastPref
+}
+
+// contrastPrefValue returns the stored preference, for the reason labelsPref
+// exists: Settings initialises its control from what is applied rather than from
+// a prop that may be a render behind.
+export function contrastPrefValue() {
+  return contrastPref
+}
+
 // applyTheme({materialSet, theme, accent}) — all optional; defaults are theme
 // "system", set "manuscript", accent terracotta.
 //
