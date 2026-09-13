@@ -809,6 +809,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is the app's own copy, like every other face here — nothing is fetched from the web, on
   a screen about how your own words look. Nothing changes unless you pick it.
 
+- **Two words that meant one thing now mean the two things they name.** A **board** is
+  where a standalone quote is filed — "Bengali Proverbs" is one — standing to a quote
+  exactly as a book stands to a highlight. A **category** is a colour. The app had been
+  letting "board" drift into a loose word for any screen with a grid on it: help text
+  called the Library and the Catalogue boards, and the phone menu holding **Library,
+  Catalogue, Quotes and Anthologies** was itself labelled **Boards**, when three of those
+  four are not boards at all. That menu is called **Sections** now, and every sentence
+  that called a shelf of books a board says Library or Catalogue instead. Nothing about
+  your own boards changed — same names, same quotes, same covers.
+
 - **The seal on a quote can be moved with the arrow keys.** It is a small thing and it
   was the only gesture left in the app you could not do another way. Every other one has
   an equivalent — the sheet closes from a button, the colour and font pickers answer

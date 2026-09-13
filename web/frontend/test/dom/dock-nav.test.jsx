@@ -74,7 +74,7 @@ const dock = () => [...document.querySelectorAll('.mobile-dock button')]
 const screenNow = () => document.querySelector('[data-screen-label]')?.getAttribute('data-screen-label')
 const menuRows = () => [...document.querySelectorAll('[role=menu] [role=menuitem]')]
 
-// Travel the way a thumb does: through the dock's own boards key.
+// Travel the way a thumb does: through the dock's own sections key.
 const goVia = async (seat, rowText) => {
   fireEvent.click(dock()[seat])
   const row = await waitFor(() => {
@@ -100,7 +100,7 @@ const settledDock = async (want) => {
 }
 
 describe('a board asks for the nav seat and the shell fills it', () => {
-  it('gives the Library filter, then the way to the other boards', async () => {
+  it('gives the Library filter, then the way to the other sections', async () => {
     await mount()
     await waitFor(() => expect(dock()).toHaveLength(5))
     await goVia(3, /^Library$/)
@@ -112,10 +112,10 @@ describe('a board asks for the nav seat and the shell fills it', () => {
     const keys = await settledDock(/filter/i)
     expect(keys).toHaveLength(5)
     expect(keys[3].getAttribute('aria-label')).toMatch(/filter/i)
-    expect(keys[4].getAttribute('aria-label'), 'the nav placeholder reached the dock unswapped').toMatch(/boards/i)
+    expect(keys[4].getAttribute('aria-label'), 'the nav placeholder reached the dock unswapped').toMatch(/sections/i)
     expect(keys[4].getAttribute('aria-haspopup')).toBe('menu')
 
-    // And it opens the boards, not a dead control.
+    // And it opens the sections, not a dead control.
     fireEvent.click(keys[4])
     await waitFor(() => expect(menuRows().length).toBeGreaterThan(1))
     expect(menuRows().map((r) => r.textContent).join(' ')).toMatch(/Catalogue/)
@@ -156,7 +156,7 @@ describe('a screen with nothing of its own', () => {
       return k
     }, { timeout: 8000 })
 
-    expect(keys[3].getAttribute('aria-label'), 'seat four went blank off Home').toMatch(/boards/i)
+    expect(keys[3].getAttribute('aria-label'), 'seat four went blank off Home').toMatch(/sections/i)
     expect(keys[4].getAttribute('aria-label'), 'seat five went blank off Home').toMatch(/tools/i)
     expect(keys[3].getAttribute('aria-haspopup')).toBe('menu')
     expect(keys[4].getAttribute('aria-haspopup')).toBe('menu')

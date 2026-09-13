@@ -74,7 +74,7 @@ import {
   GhostButton,
   IconBack,
   IconBin,
-  IconBoards,
+  IconSections,
   IconChevron,
   IconChecks,
   IconMenu,
@@ -1920,26 +1920,33 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // choose between, so the key becomes that section's own door — its own rail
   // glyph, filled, because at that point it names a place rather than a list of
   // them — and a menu of one is the dead control this repo keeps arguing against.
-  const boardRows = SECTIONS.filter((sec) => sections[sec.tab])
-  // THE WAY TO THE OTHER BOARDS, as one seat. Built here rather than by the
+  const sectionRows = SECTIONS.filter((sec) => sections[sec.tab])
+  // THE WAY TO THE OTHER SECTIONS, as one seat. Built here rather than by the
   // screens because only the shell knows which sections are switched on and only
   // the shell can change tab — a screen that wanted this would have to be handed
   // both, which is two props to every screen for one key.
-  const boardsKey =
-    boardRows.length === 1
+  //
+  // SECTIONS, NOT "BOARDS", and the owner's ruling is why: a BOARD is what a
+  // standalone quote is filed on, standing to a quote exactly as a WORK stands to
+  // a highlight — "Bengali Proverbs" is a board. This menu holds Library,
+  // Catalogue, Quotes and Anthologies, and three of those four are not boards at
+  // all. `SECTIONS` is the list's own name and `nav.section.*.what` already
+  // describes them, so the word was here the whole time.
+  const sectionsKey =
+    sectionRows.length === 1
       ? {
-          id: 'boards',
-          label: t(boardRows[0].label),
-          icon: <NavIcon name={boardRows[0].tab} />,
-          onClick: () => selectTab(boardRows[0].tab),
+          id: 'sections',
+          label: t(sectionRows[0].label),
+          icon: <NavIcon name={sectionRows[0].tab} />,
+          onClick: () => selectTab(sectionRows[0].tab),
         }
       : {
-          id: 'boards',
+          id: 'sections',
           node: (
             <DockMenu
-              icon={<IconBoards />}
-              label={t('shell.dock.boards.label')}
-              items={boardRows.map((sec) => ({
+              icon={<IconSections />}
+              label={t('shell.dock.sections.label')}
+              items={sectionRows.map((sec) => ({
                 id: sec.tab,
                 icon: <NavIcon name={sec.tab} />,
                 label: t(sec.label),
@@ -1980,8 +1987,8 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // the Library, the Catalogue and the Quotes page keep their filter in the first
   // seat and get the way out in the second, without being handed `sections` and
   // `selectTab` to build it themselves.
-  const dockKeys = (barKeys || [boardsKey, toolsKey]).map((k) =>
-    k && k.id === 'nav' ? boardsKey : k,
+  const dockKeys = (barKeys || [sectionsKey, toolsKey]).map((k) =>
+    k && k.id === 'nav' ? sectionsKey : k,
   )
   // Back is dead on the first screen of a session. It is still drawn — see
   // MobileDock — so Search never slides into the seat it always occupies.

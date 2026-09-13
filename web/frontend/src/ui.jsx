@@ -9411,11 +9411,11 @@ export function IconSearch() { return <svg {...iconStroke}><circle cx="11" cy="1
 // four places is a control, and the place is the row you press inside it. Drawing
 // them solid would make two keys claim to be somewhere you already are.
 //
-// IconBoards — a card with two shorter rules stacked behind it: SEVERAL boards,
+// IconSections — a card with two shorter rules stacked behind it: SEVERAL sections,
 // one on top of another, none of them privileged. The alternative was a compass,
 // which says "navigate" but says nothing about what is being navigated, and the
 // four things behind this key are the only reason it exists.
-export function IconBoards() { return <svg {...iconStroke}><rect x="3" y="8.5" width="18" height="12.5" rx="2.5"/><path d="M6 5.5h12"/><path d="M8.5 2.5h7"/></svg> }
+export function IconSections() { return <svg {...iconStroke}><rect x="3" y="8.5" width="18" height="12.5" rx="2.5"/><path d="M6 5.5h12"/><path d="M8.5 2.5h7"/></svg> }
 // IconTools — the settings sliders, in outline. The rail's Settings row is the
 // filled version of this drawing (IconSliders), which is the point: the key opens
 // Settings, Stats and Metadata, so it wears the family the biggest of the three

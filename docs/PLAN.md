@@ -14690,3 +14690,54 @@ screen reader announces a gesture the widget does not honour. `ColorSwatches` ne
 implements it correctly — one tab stop at the chosen item, arrows moving focus with a
 wrap — so there is a pattern to copy rather than invent. It has its own task; widening
 this commit to reach it would be the thing the plan queue exists to stop.
+
+## Category and board name two different things, and the owner said which
+
+The ruling, 13 September, verbatim:
+
+> Category - colour categories
+> Board - the work equivalent for the quotes screen (like Bengali Proverbs in the backup)
+
+**THE SCHEMA WAS ALREADY RIGHT AND HAD BEEN SINCE 0036.** `boards` is a table,
+`utterances.board_id` references it, and that is exactly the relation the ruling
+describes: a board stands to a standalone quote as a WORK stands to a highlight.
+Nothing in the database had drifted, which is worth saying because it means this
+was never a data question — it was a prose question, and prose has no compiler.
+
+**WHERE IT HAD DRIFTED: "board" had become a loose word for "a screen with a grid
+on it".** Seven reader-visible strings in each locale used it for the Library or
+the Catalogue, and the worst of them was not a help string but a LABEL — the
+phone dock's menu holding Library, Catalogue, Quotes and Anthologies was called
+**Boards**, and three of those four are not boards at all. The honest word was
+sitting in the code the whole time: `SECTIONS` in `routes.js` is the list, and
+`nav.section.*.what` already describes each one. So `shell.dock.boards.label`
+became `shell.dock.sections.label`, with `boardRows`/`boardsKey`/`IconBoards`
+renamed to match rather than left as a name outliving its word.
+
+**CATEGORY NEEDED NOTHING.** Every one of its thirty-six strings was already
+about colour — `vocab.category.*` names the six slots, `settings.colours.*`
+renames them, `stats.colours.*` counts them. The ruling confirmed the existing
+use rather than correcting it, and the guard now pins that so the word cannot
+spread later.
+
+**THE GUARD, AND THE FALSE POSITIVE THAT IMPROVED IT.**
+`board-means-one-thing.test.js` reads both locale files, because a vocabulary
+ruling decays the moment somebody writes one more sentence and nothing about a
+wrong word fails. Its first draft treated "cover" as evidence that a nearby
+"board" meant a work — and it flagged `settings.languages.card.info.body`, which
+says a language's mark "stands in for that language on a board's cover". That
+string is CORRECT: it is about a proverb, a proverb lives on a board, and a board
+has a cover exactly as a book does. **A noun shared by both things cannot tell
+them apart**, so only the work-only nouns are evidence. Four mutations — the
+label reverted, the key reverted, the call site reverted, a fresh string calling
+the Catalogue a board — all fail the guard.
+
+**WHAT IS DELIBERATELY NOT DONE: `BoardHead` keeps its name.** It is the scaffold
+Library, Catalogue and Quotes all render through (#172–#175 made it one), so by
+the ruling it is a component named for one of the three things it serves. Renaming
+it is a refactor across `boardHead.jsx` and every caller, and the ruling asked for
+a vocabulary decision rather than a rename; an internal component name is also not
+a word the reader meets. **Recorded here rather than left to be discovered** — and
+the glossary's remaining uses of "the board" for that scaffold are describing the
+component under its real name, which is why they stay while the four sentences
+about the Library and the Catalogue specifically were corrected.

@@ -1142,7 +1142,7 @@ shell.drawer.role.user.label = self-hosted
 shell.add.work.label = Add or import
 shell.add.film.label = Add a film or show
 shell.add.quote.label = Capture a quote
-shell.dock.boards.label = Boards
+shell.dock.sections.label = Sections
 shell.dock.tools.label = Tools
 shell.sheet.grip.aria = Resize this sheet
 shell.totop.aria = Back to the top
@@ -3022,7 +3022,7 @@ common.work.resync.toast = re-synced from source
 
 # THE INFO DOT ON EACH BOOK FIELD.
 book.field.author.info = Multiple authors can share one line — Settings decides which separators split them into distinct people.
-book.field.translator.info = Who brought it into this language. They get a portrait and a page like an author does, and they appear on this book’s own page — but never on the Library board or on a quote, where one credit is the whole point of the line.
+book.field.translator.info = Who brought it into this language. They get a portrait and a page like an author does, and they appear on this book’s own page — but never in the Library or on a quote, where one credit is the whole point of the line.
 book.field.editor.info = Who chose what is in it — the credit an anthology or a collected edition is often bought for. Same separators as the author line.
 book.field.series.info = The series or franchise this book belongs to. Books group by it in the Library, and sort by the number below.
 book.field.isbn.info = Ten digits or thirteen, hyphens and all — an older book’s ten-digit ISBN is kept as its thirteen-digit form. Only used to look the book up: a better cover or description comes from a match on it.
@@ -5630,8 +5630,8 @@ library.help.wishlist.term = Wishlist / annotated
 library.help.wishlist.what = A book with nothing quoted yet counts as wishlist. Show everything, only those, or hide them to see what you have actually quoted.
 
 library.help.fold-wishlist.term = Fold wishlist
-library.help.fold-wishlist.what = Puts every book you have nothing from yet into ONE tile at the front of the board, wearing a collage of the first four covers.
-library.help.fold-wishlist.more = Nothing moves and nothing is stored — opening it is the same wishlist chip, and a book leaves the folder by itself the moment you save a quote from it. Off until you turn it on, and it stays on. It applies to the flat board only: inside the wishlist chip there is nothing to fold away from, and a Wishlist folder sitting inside the bucket for one author would mean something different in every group it appeared in.
+library.help.fold-wishlist.what = Puts every book you have nothing from yet into ONE tile at the front of the Library, wearing a collage of the first four covers.
+library.help.fold-wishlist.more = Nothing moves and nothing is stored — opening it is the same wishlist chip, and a book leaves the folder by itself the moment you save a quote from it. Off until you turn it on, and it stays on. Ungrouped Library only: inside the wishlist chip there is nothing to fold away from, and a Wishlist folder sitting inside the bucket for one author would mean something different in every group it appeared in.
 
 library.help.shelf-state.term = Shelf state
 library.help.shelf-state.what = Reading, paused, abandoned, completed — the coloured bar under each cover. Set it from the state chip on a book’s page.
@@ -5667,8 +5667,8 @@ movies.help.filters.what = Genre, wishlist scope, favourites, tagged, has-notes,
 
 # The filter that narrows the board to one person’s quoted lines.
 movies.help.actor.term = Actor
-movies.help.actor.what = Narrows the board to the titles you have quoted a line from, spoken by one person.
-movies.help.actor.more = It lists who is QUOTED, not the whole cast — a film whose cast you fetched and whose lines you have not saved is not under anybody, because the point of the filter is to find what somebody said. That is also what makes it agree with the search box: press Search from a board filtered to an actor and the same name goes with it, and search answers with that actor’s lines, grouped under the films they are from.
+movies.help.actor.what = Narrows the Catalogue to the titles you have quoted a line from, spoken by one person.
+movies.help.actor.more = It lists who is QUOTED, not the whole cast — a film whose cast you fetched and whose lines you have not saved is not under anybody, because the point of the filter is to find what somebody said. That is also what makes it agree with the search box: press Search from a Catalogue filtered to an actor and the same name goes with it, and search answers with that actor’s lines, grouped under the films they are from.
 
 movies.help.shelf-state.term = Shelf state
 movies.help.shelf-state.what = Watching, paused, abandoned, watched — the coloured bar under each poster.
@@ -6426,7 +6426,7 @@ common.help.favourite.more = The ♥ on the card does the same thing, but it onl
 
 # The right-click menu on a book, film or show cover.
 common.help.cover-menu.term = A cover’s own menu
-common.help.cover-menu.what = Right-click a book, film or show on its board — long-press on a phone — and it offers Select, Fill gaps, the quiz toggle, Edit and Delete.
+common.help.cover-menu.what = Right-click a book, film or show in the Library or the Catalogue — long-press on a phone — and it offers Select, Fill gaps, the quiz toggle, Edit and Delete.
 common.help.cover-menu.more = Everything there is something the selection bar could already do to exactly one thing you had picked, which is the point: the bar and the cover now read the same list. Delete asks first and says how many quotes go with the work, and the toast that follows has an Undo.
 
 # The selection-bar toggle that takes things out of the Daily Quiz.

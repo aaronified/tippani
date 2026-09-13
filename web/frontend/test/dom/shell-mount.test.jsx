@@ -164,7 +164,7 @@ describe('the logged-in shell', () => {
   })
 
   // ── HOME'S TWO SEATS. Home publishes none of its own and is where a session
-  // starts, so the dock's last two are the shell's: the boards, and the tools.
+  // starts, so the dock's last two are the shell's: the sections, and the tools.
   describe('the dock on Home', () => {
     const dockKeys = () => [...document.querySelectorAll('.mobile-dock button')]
 
@@ -177,11 +177,11 @@ describe('the logged-in shell', () => {
       expect(keys[4].getAttribute('aria-haspopup')).toBe('menu')
     })
 
-    it('offers the boards this reader has switched on, and nothing else', async () => {
+    it('offers the sections this reader has switched on, and nothing else', async () => {
       await mount()
-      const boards = dockKeys()[3]
-      expect(boards.getAttribute('aria-label')).toMatch(/boards/i)
-      fireEvent.click(boards)
+      const sections = dockKeys()[3]
+      expect(sections.getAttribute('aria-label')).toMatch(/sections/i)
+      fireEvent.click(sections)
       const rows = [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((el) => el.textContent)
       // The default preference bag: three sections on, anthologies off — so a
       // menu of three, and the one that is off is not in it.
