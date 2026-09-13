@@ -40,7 +40,10 @@ const PRESSABLE = ['button', 'link', 'tab', 'menuitem', 'menuitemcheckbox', 'men
 const FILLABLE = ['textbox', 'searchbox', 'combobox', 'spinbutton', 'listbox', 'slider']
 
 const CSS_FOR = {
-  press: 'button, a[href], summary, input[type="submit"], input[type="button"], [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="option"], [role="checkbox"], [role="radio"], [role="switch"]',
+  // NATIVE CHECKBOXES AND RADIOS BY TAG, not only by an explicit role attribute:
+  // <input type=checkbox> has the implicit role and carries no role=, so a list of
+  // them was invisible here while the accessibility tree named every one.
+  press: 'button, a[href], summary, input[type="submit"], input[type="button"], input[type="checkbox"], input[type="radio"], [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="option"], [role="checkbox"], [role="radio"], [role="switch"]',
   fill: 'input, textarea, select, [role="textbox"], [role="searchbox"], [role="combobox"], [role="spinbutton"], [role="listbox"], [role="slider"]',
 }
 
@@ -59,9 +62,22 @@ export function screenVerbs(getPage) {
   // fetch, the fetch redraws a list — so this polls until the words arrive or the
   // clock runs out. An assertion that reads the screen once is an assertion about
   // how fast the machine was.
+  //
+  // CASE IS NOT PART OF WHAT A SCREEN SAYS, for the same reason `pick` folds it
+  // and with a second proof. `innerText` reports text as RENDERED, so a CSS
+  // `text-transform: uppercase` reaches it: `.mono-label` carries that rule, so
+  // the practice card's question — `quiz.question.flip.stem`, written "Where is
+  // this from?" — arrives here as "WHERE IS THIS FROM?". A journey asserting the
+  // sentence the app's own locale file spells got "it never appeared", printed a
+  // screen dump with the words plainly on it, and read as a missing screen.
+  //
+  // So both verbs fold, and the pair stays honest: `gone` folding too means a
+  // word that comes back SHOUTING is still a word that came back.
+  const fold = (s) => s.toLowerCase()
+
   async function see(text, { timeout = DEFAULT_TIMEOUT } = {}) {
     try {
-      await page().waitForFunction((t) => document.body.innerText.includes(t), { timeout }, text)
+      await page().waitForFunction((t) => document.body.innerText.toLowerCase().includes(t), { timeout }, fold(text))
     } catch {
       throw new Error(`waited ${timeout}ms for "${text}" and it never appeared.\n\nThe screen said:\n\n${await onScreen()}`)
     }
@@ -69,7 +85,7 @@ export function screenVerbs(getPage) {
 
   async function gone(text, { timeout = DEFAULT_TIMEOUT } = {}) {
     try {
-      await page().waitForFunction((t) => !document.body.innerText.includes(t), { timeout }, text)
+      await page().waitForFunction((t) => !document.body.innerText.toLowerCase().includes(t), { timeout }, fold(text))
     } catch {
       throw new Error(`waited ${timeout}ms for "${text}" to go and it is still there.\n\nThe screen said:\n\n${await onScreen()}`)
     }
@@ -91,11 +107,24 @@ export function screenVerbs(getPage) {
     return out
   }
 
+  // CASE IS NOT PART OF A NAME, and finding that out cost a journey. This app
+  // styles its field labels in capitals, and the capitals reach the accessible
+  // name: the quote box is named "QUOTE", the note box "NOTE" — while the one
+  // beside them is "Chapter name" and another is "Tags". A journey that typed into
+  // 'Quote' got "nothing a person could type in is named Quote", which reads like
+  // a missing control and is a missing shift key. Worse, it read like an
+  // ACCESSIBILITY DEFECT: I recorded in a commit that the field appeared to carry
+  // no accessible name at all, and that was false.
+  //
+  // A person looking for the Quote box and a screen shouting QUOTE mean the same
+  // thing, and ambiguity is still an error rather than a guess — so folding case
+  // costs nothing and removes a whole class of unreadable failure.
   function pick(found, want, kind) {
+    const w = fold(want)
     const tiers = [
-      ['named exactly', found.filter((c) => c.name === want)],
-      ['whose name starts with', found.filter((c) => c.name.startsWith(want))],
-      ['whose name contains', found.filter((c) => c.name.includes(want))],
+      ['named exactly', found.filter((c) => fold(c.name) === w)],
+      ['whose name starts with', found.filter((c) => fold(c.name).startsWith(w))],
+      ['whose name contains', found.filter((c) => fold(c.name).includes(w))],
     ]
     for (const [how, hits] of tiers) {
       if (hits.length === 1) return { hit: hits[0] }
@@ -132,6 +161,41 @@ export function screenVerbs(getPage) {
       await sleep(150)
     }
     throw new Error(`${last}\n\nThe screen said:\n\n${await onScreen()}`)
+  }
+
+  // pressAll — TICK EVERY ONE OF THEM. A list of rows gives every row's checkbox
+  // the SAME accessible name ("Select this line", six times), and `press` refuses
+  // that on purpose: for two buttons sharing a name, picking one is a coin toss.
+  //
+  // BUT "TICK EVERY LINE" IS A REAL THING A PERSON DOES, and it is unambiguous in
+  // a way "press the Copy button" is not — the intent names the whole set rather
+  // than one of it. So it gets its own verb instead of an escape hatch into
+  // page.$$, and a journey that means one row still cannot express it, which is
+  // right: that journey should say which row by naming more of it.
+  //
+  // Returns how many it pressed, so a journey can assert it found what it expected
+  // rather than silently pressing nothing — an empty list is a passing no-op, and
+  // that is the vacuous shape this whole tier exists to end.
+  async function pressAll(name, { timeout = DEFAULT_TIMEOUT } = {}) {
+    const deadline = Date.now() + timeout
+    for (;;) {
+      const found = await candidates('press')
+      const hits = found.filter((c) => fold(c.name) === fold(name))
+      if (hits.length) {
+        for (const h of hits) {
+          await h.handle.scrollIntoView().catch(() => {})
+          await h.handle.click()
+        }
+        await Promise.all(found.map((c) => c.handle.dispose()))
+        return hits.length
+      }
+      await Promise.all(found.map((c) => c.handle.dispose()))
+      if (Date.now() > deadline) {
+        throw new Error(`nothing a person could press is named "${name}", so there was nothing to tick.` +
+          `\n\nThe screen said:\n\n${await onScreen()}`)
+      }
+      await sleep(150)
+    }
   }
 
   async function press(name, opts) {
@@ -179,5 +243,5 @@ export function screenVerbs(getPage) {
     }
   }
 
-  return { onScreen, see, gone, press, pressKey, type, valueOf }
+  return { onScreen, see, gone, press, pressAll, pressKey, type, valueOf }
 }

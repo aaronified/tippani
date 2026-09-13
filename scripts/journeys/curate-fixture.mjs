@@ -299,15 +299,25 @@ async function main() {
   // earning its keep: it has to carry the shapes the journeys need, not only the
   // shapes the archive happened to have.
   recipeMovies.push({
-    title: inventTitle('A Serial In Several Parts'),
+    // A FIXED TITLE, NOT A GENERATED ONE, and that is the whole difference between
+    // this work and every other in the recipe. The rest are derived from a real
+    // library, so their titles are invented and REGENERATE — a journey naming one
+    // would go red on a fixture rebuild that changed nothing about the app. This
+    // show is not derived from anything; it is added because the acceptance test
+    // needs a show with several lines and the archive has one with one. So it gets
+    // a name a journey can rely on, the way the four public-domain books do.
+    title: 'A Serial In Several Parts',
     media_type: 'show',
     release_year: 2019,
     poster: artFor('work-show-extra'),
     cast: [],
+    // Six lines, each distinguishable, none carrying a season or an episode —
+    // which is exactly the state the bulk editor exists to fix and the acceptance
+    // test exists to prove it fixes.
     dialogues: Array.from({ length: 6 }, (_, i) => ({
-      quote: inventProse('A line of dialogue somebody says in an episode of a television programme.'),
-      character: inventName('Somebody Else'),
-    })).map((d, i) => ({ ...d, quote: d.quote + ` ${'·'.repeat(i + 1)}` })),
+      quote: `A line from the serial, the ${['first', 'second', 'third', 'fourth', 'fifth', 'sixth'][i]} of six.`,
+      character: 'Somebody In The Serial',
+    })),
   })
 
   const recipe = {
