@@ -13,18 +13,19 @@
 // Each journey file then copies the directory and boots its own server against
 // the copy. See server.mjs for why the isolation is per file.
 //
-// ARTWORK IS SKIPPED (`--no-artwork`) and that is a REAL LOSS, named here rather
-// than buried. CLAUDE.md is explicit that the seeded fixture hides a class of
-// defect precisely because it has no cover artwork — a poster behind a medium
-// glyph is one of the things the owner reported from their own phone and none of
-// it reproduced here. Fetching it needs the network, every image request in this
-// container comes back 403, and a fixture that half-succeeds is worse than one
-// that consistently has none.
+// IT SEEDS THE CURATED FIXTURE, NOT THE SCREENSHOT SCAFFOLD'S. The difference
+// that matters is artwork: seed.mjs FETCHES its covers, every image request in
+// this container comes back 403, so its library has none — and CLAUDE.md is
+// explicit that a fixture with no artwork hides a class of defect, a poster
+// behind a medium glyph among them, reported from a real phone and never
+// reproducible here. The curated fixture carries its images as committed files,
+// so a journey can finally see one.
 //
-// THE CURATED FIXTURE IS WHAT FIXES THAT, and it is the next step of this plan:
-// real artwork committed as files, replayed from disk, so a journey can finally
-// see a poster. Until it lands, a journey may not assert anything about cover
-// images — there are none — and this comment is the reason.
+// It also carries the shapes that catch things: a 70-character title, a
+// 2,375-character quote, eleven cast rows, three writing systems, and a show with
+// six lines for the bulk season and episode journey to work on. See
+// scripts/journeys/curate-fixture.mjs for where all of that came from and what
+// was kept out of it.
 
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -32,6 +33,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { seedFixture } from './seed-fixture.mjs'
 import { startServer } from './server.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -65,14 +67,7 @@ export default async function setup() {
   }
 
   try {
-    await run('node', [
-      join(REPO, 'scripts', 'screenshots', 'seed.mjs'),
-      '--base-url', server.baseUrl,
-      '--username', ACCOUNT.username,
-      '--password', ACCOUNT.password,
-      '--no-artwork',
-      '--quiet',
-    ], { cwd: join(REPO, 'scripts', 'screenshots') })
+    await seedFixture({ baseUrl: server.baseUrl, ...ACCOUNT })
   } catch (err) {
     await server.stop({ keepData: true })
     await cleanup()

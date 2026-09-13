@@ -41,7 +41,7 @@ it('takes the whole name when a shorter one would be ambiguous', async () => {
   // "Library 22 | 13" and "Home" are both reachable; the prefix picks the one nav
   // item, and nothing else on the screen starts with "Library".
   await app.press('Library')
-  await app.see('Middlemarch')
+  await app.see('The Idiot')
 })
 
 it('types the way a person types, so the app notices', async () => {
@@ -51,15 +51,15 @@ it('types the way a person types, so the app notices', async () => {
   // own state; a box set from script fires no events, so the DOM and the screen
   // disagree and the app never searches. Reading the value back is not enough to
   // catch that — what catches it is that the app ACTS on what was typed.
-  await app.type('Search everything', 'Middlemarch')
-  expect(await app.valueOf('Search everything')).toBe('Middlemarch')
+  await app.type('Search everything', 'Dostoyevsky')
+  expect(await app.valueOf('Search everything')).toBe('Dostoyevsky')
 
   // AND THE SEARCH IS SUBMIT-ON-ENTER, which this test assumed away in its first
   // draft: it typed and then looked for results that never came, because nothing
   // had been asked yet. Pressing Enter is what a person does, and it is why the
   // vocabulary has a key verb at all.
   await app.pressKey('Enter')
-  await app.see('Middlemarch')
+  await app.see('The Idiot')
 
   // And the box can be emptied again.
   await app.type('Search everything', '')
