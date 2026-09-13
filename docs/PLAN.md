@@ -14862,8 +14862,8 @@ renders that form at all.
 **THE STAGED FORM'S HARDCODED ENGLISH LABELS ARE GONE**, fixed earlier by the import
 review work rather than by this plan.
 
-**AND THE KEYBOARD ROUTE CANNOT WORK AS THE PLAN DESIGNED IT.** This is the one item
-still unbuilt, and it is unbuilt for a reason rather than by omission.
+**AND THE KEYBOARD ROUTE COULD NOT WORK AS THE PLAN DESIGNED IT.** It is built, and
+it is built somewhere else.
 
 The plan settled on **Alt+1–9** on every offer chip, registered in `keys.js` with a
 `ctx: 'offer'`, and argued the case at length: bare digits cannot work because the
@@ -14878,15 +14878,37 @@ never about whether the registry could deliver it. `keys.js:299` is a second, sm
 obstacle — Alt is passed to the browser deliberately — and that one is a narrowing
 rather than a wall.
 
-So the route has to be LOCAL: the chip set owns a keydown handler on the form it sits
-in, with `keys.js` holding only the id and the label so the shortcuts sheet lists it
-once and the chip prints it. `prettyKey` would need an `alt` word, the same
-two-labels case it already handles for `mod`. That is a real design decision — where
-a shortcut lives, and whether the app wants a second dispatcher at all — so it is
-recorded here and put to the owner rather than chosen while nobody was looking. The
-repo's own rule about adding a global mechanism applies: a design discussion first.
+So the route is LOCAL, and the owner chose that over dropping it. `OfferChip` owns a
+`keydown` listener whose lifetime IS the binding's scope — the chip is rendered only
+while there is an offer, so there is no "is a chip showing" flag to keep in step with
+whether a chip is showing. `keys.js` keeps the half it is good at: the binding's id,
+its label, its place in the shortcuts sheet, and the key the chip prints through
+`Tooltip`'s `shortcut` prop. The repo's rule is that a shortcut is spelled out on the
+control that shares its job, and that rule is the registry's, not the dispatcher's.
+`prettyKey` gained an `alt` word — ⌥ on a Mac, Alt elsewhere, the same
+one-binding-two-labels case it already handles for `mod`.
 
-**WHAT THIS PASS BUILT**, all four with mutations run against them: the favourites
+**ONE BINDING, NOT NINE, AND THE DIFFERENCE IS A FEATURE THAT WAS NEVER BUILT.** The
+plan's nine were for its ambiguous case: a chapter name recorded against two numbers,
+offered as `3 · 4`. `chapterPatch` does not do that. It takes the FIRST match with the
+pool ordered commonest-first, and returns `{ field, value }` or null — "never both, by
+construction", its own words. At most one chip is ever on screen, so eight of the nine
+would have been rows in the shortcuts sheet for routes that could never fire. The day
+a chip set genuinely holds several, `offer-accept` becomes a numbered group.
+
+**AND THE TWO RETROFITS THE PLAN NAMED ARE NOT DONE**, for the same reason: the search
+facet chips and the cover candidates are chip SETS of more than one, so they need the
+numbered group that the single-offer case does not justify. They are a separate piece
+of work and are not claimed here.
+
+**A MUTATION CAUGHT A VACUOUS TEST OF MINE, and it is worth recording which.** The
+"a bare 1 still types a 1" case first asserted a value typed AFTER the key press —
+but `fireEvent.change` sets a box outright, so it overwrote an offer the bare key had
+wrongly taken and passed either way. Firing the handler without checking `altKey`
+walked straight past it. It asserts the box is UNCHANGED and the chip still mounted
+now, which is the actual claim.
+
+**WHAT THIS PASS BUILT**, all of it with mutations run against it: the favourites
 editor's dialogue form fetches its own cast when no host supplies one; a standalone
 quote's speaker and occasion draw on the library's own lists, one of which
 (`occasions`) had to be written on the server first; both bulk panels — the live one

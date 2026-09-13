@@ -750,6 +750,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   forty rows rather than one. Nothing is ever restricted to the list: a name nobody
   has used is typed and saved exactly as typed.
 
+- **The value a field offers you can be taken without leaving the box.** When you
+  type a chapter name and the library has it filed under a different number, a small
+  chip appears offering that number rather than overwriting what you typed. It was a
+  tap only. **Alt+1** (**⌥1** on a Mac) takes it now, with the caret still where you
+  were typing — a plain **1** still types a 1, which is why the key needs the
+  modifier at all. The chip says which key it is.
+
 - **Editing a film or show quote from your favourites offers its cast again.** The
   same line, edited from the work's own page, offered every character in it; edited
   from the tile on Home, it offered nothing — the form was being handed no cast

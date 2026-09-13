@@ -84,6 +84,38 @@ export const SHORTCUTS = [
   // fires while the field is NOT focused, so it can never eat a space you meant
   // to type.
   { id: 'focus-blank', ctx: 'cloze', keys: ['space'], label: 'shell.shortcut.focus-blank.label', group: 'shell.shortcut.group.cloze.label' },
+
+  // ---- the offer chip, and the one binding in this table that the dispatcher
+  // ---- below DELIBERATELY CANNOT FIRE ------------------------------------------
+  //
+  // An offer chip appears beside a field BECAUSE the caret is in that field —
+  // you typed a chapter name, and the number the library has for it disagrees
+  // with the one already there. Taking the offer without leaving the box is the
+  // whole point of a key for it.
+  //
+  // WHICH IS EXACTLY WHY THE GLOBAL DISPATCHER CANNOT DELIVER IT. `onKeyDown`
+  // returns on any typing target, so a binding routed through this registry is
+  // dead precisely where this feature lives. `docs/plans/entry-helpers.md`
+  // designed the route as a registry binding and argued at length about WHICH key
+  // — bare digits cannot work, because these fields are numeric inputs and `1` has
+  // to type `1` — without ever asking whether the registry could fire it. The key
+  // choice was right and the plumbing was not.
+  //
+  // SO THE FIRING IS LOCAL, in `OfferChip` (suggest.jsx), and this entry exists
+  // for its LABEL: the shortcuts sheet lists it once, and `Tooltip`'s `shortcut`
+  // prop resolves it so the chip prints its own key rather than hard-coding one.
+  // The repo's rule is that a shortcut is spelled out on the control that shares
+  // its job; this is the half of the registry that serves that rule.
+  //
+  // ONE BINDING, NOT THE NINE THE PLAN ASKED FOR, and the difference is a feature
+  // that was never built rather than a shortfall here. Nine were for the plan's
+  // ambiguous case — a name recorded against two numbers, offered as `3 · 4`.
+  // `chapterPatch` (text.js) does not do that: it takes the FIRST match, pool
+  // ordered commonest-first, and returns `{ field, value }` or null — "never both,
+  // by construction". At most one chip is ever on screen, so eight of nine keys
+  // would be entries in the shortcuts sheet for routes that can never fire. The
+  // day a chip set genuinely holds several, this becomes a numbered group.
+  { id: 'offer-accept', ctx: 'offer', keys: ['alt+1'], label: 'shell.shortcut.offer-accept.label', group: 'shell.shortcut.group.offer.label' },
 ]
 
 const BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]))
@@ -106,6 +138,10 @@ const isMac = (() => {
 // a tooltip that says nothing — it teaches a key that does not work.
 export function prettyKey(k) {
   if (k === 'mod') return t(isMac ? 'vocab.key.mod.mac.label' : 'vocab.key.mod.label')
+  // The same one-binding-two-labels case as `mod`, one modifier along: ⌥ on a Mac
+  // and Alt everywhere else, and a legend that said the wrong one would teach a key
+  // that does not work.
+  if (k === 'alt') return t(isMac ? 'vocab.key.alt.mac.label' : 'vocab.key.alt.label')
   if (k === 'space') return t('vocab.key.space.label')
   if (k === 'esc') return t('vocab.key.esc.label')
   if (k === 'shift') return t('vocab.key.shift.label')

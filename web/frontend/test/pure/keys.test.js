@@ -248,16 +248,44 @@ const read = (f) => readFileSync(join(SRC, f), 'utf8')
 // it bound a command palette, j/k, f, e and u with no handler behind any of
 // them. This is the assertion that stops that coming back.
 describe('nothing is listed that does not work', () => {
-  it('every action is dispatched by the shell or by the quiz', () => {
-    const wired = read('App.jsx') + read('review.jsx')
+  it('every action is dispatched by the shell, the quiz, or the chip', () => {
+    // A THIRD DISPATCHER, AND IT IS NOT A LOOSENING. `suggest.jsx` hears
+    // `offer-accept` itself, because the global dispatcher in keys.js RETURNS on
+    // any typing target and an offer chip appears precisely when the caret is in
+    // a field — so the shell could not deliver that binding however it were
+    // written. `docs/plans/entry-helpers.md` designed it as a registry binding
+    // without reading that line; docs/PLAN.md carries the finding.
+    //
+    // The registry still owns the binding's NAME and label, which is what this
+    // assertion is really about: an entry here is a promise printed on a button.
+    // Where the promise is kept moved; that it must be kept did not.
+    const wired = read('App.jsx') + read('review.jsx') + read('suggest.jsx')
     for (const s of SHORTCUTS) {
       // A FAMILY COUNTS AS WIRED. pick-1..4 are dispatched by prefix rather than
       // by four identical cases, which is the right code and would otherwise
       // fail a test looking only for literals.
       const family = s.id.replace(/-\d+$/, '-')
-      const ok = wired.includes(`'${s.id}'`) || wired.includes(`'${family}'`)
+      // EITHER QUOTE, because a dispatcher spells an id in a `case '...'` and a
+      // JSX attribute spells it in double quotes (`shortcut="offer-accept"`).
+      // Looking for one style only made the chip's own reference invisible.
+      const named = (id) => wired.includes(`'${id}'`) || wired.includes(`"${id}"`)
+      const ok = named(s.id) || named(family)
       expect(ok, `${s.id} is in the table with no handler`).toBe(true)
     }
+  })
+
+  it('and the locally-dispatched one is local for the reason it claims', () => {
+    // The exception above is worth exactly as much as its reason, and the reason
+    // is a line in keys.js: the dispatcher gives up on a typing target. If that
+    // ever stops being true, `offer-accept` belongs back in the shell with
+    // everything else, and this is what will say so.
+    const keys = read('keys.js')
+    expect(keys, 'the dispatcher no longer bails on a typing target — offer-accept could be global now')
+      .toMatch(/if \(isTypingTarget\(e\.target\)[^)]*\)[^\n]*return/)
+    // And the chip is where it is heard. A binding listed as local and dispatched
+    // nowhere would pass the assertion above through App.jsx's text alone.
+    expect(read('suggest.jsx'), 'OfferChip no longer listens for its own key')
+      .toMatch(/addEventListener\('keydown'/)
   })
 })
 

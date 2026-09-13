@@ -977,6 +977,8 @@ vocab.key.mod.label = Ctrl
 vocab.key.space.label = Space
 vocab.key.esc.label = Esc
 vocab.key.shift.label = Shift
+vocab.key.alt.mac.label = ⌥
+vocab.key.alt.label = Alt
 
 # ---------------------------------------------------------------------------
 # shell.shortcut.* — the keyboard registry. Nothing is listed here that does not
@@ -987,6 +989,7 @@ shell.shortcut.group.go-to.label = Go to
 shell.shortcut.group.mcq.label = Multiple choice
 shell.shortcut.group.flip.label = Flip card
 shell.shortcut.group.cloze.label = Fill in the blank
+shell.shortcut.group.offer.label = An offer beside a field
 shell.shortcut.search.label = Search
 shell.shortcut.capture.label = Capture a quote
 shell.shortcut.help.label = Keyboard shortcuts
@@ -1007,6 +1010,7 @@ shell.shortcut.reveal.label = Reveal the answer
 shell.shortcut.grade-forgot.label = Forgot
 shell.shortcut.grade-got.label = Got it
 shell.shortcut.focus-blank.label = Type in the blank
+shell.shortcut.offer-accept.label = Take the offered value
 
 # A control's tooltip with its key appended. {name} is the tooltip, {key} the cap.
 common.shortcut.suffix.label = {name} · {key}

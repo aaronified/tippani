@@ -984,6 +984,8 @@ vocab.key.mod.label = Ctrl
 vocab.key.space.label = Space
 vocab.key.esc.label = Esc
 vocab.key.shift.label = Shift
+vocab.key.alt.mac.label = ⌥
+vocab.key.alt.label = Alt
 
 # ---------------------------------------------------------------------------
 # shell.shortcut.* — the keyboard registry. Nothing is listed here that does not
@@ -994,6 +996,7 @@ shell.shortcut.group.go-to.label = যাতায়াত
 shell.shortcut.group.mcq.label = প্রশ্নোত্তর
 shell.shortcut.group.flip.label = উল্টে দেখার কার্ড
 shell.shortcut.group.cloze.label = শূন্যস্থান পূরণ
+shell.shortcut.group.offer.label = পাশে যা দেওয়া হচ্ছে
 shell.shortcut.search.label = খোঁজ
 shell.shortcut.capture.label = উদ্ধৃতি তুলে রাখুন
 shell.shortcut.help.label = কীবোর্ড শর্টকাট
@@ -1014,6 +1017,7 @@ shell.shortcut.reveal.label = উত্তর দেখান
 shell.shortcut.grade-forgot.label = ভুলে গেছি
 shell.shortcut.grade-got.label = পেরেছি
 shell.shortcut.focus-blank.label = শূন্যস্থানে লিখুন
+shell.shortcut.offer-accept.label = যা দেওয়া হচ্ছে সেটাই নিন
 
 # A control's tooltip with its key appended. {name} is the tooltip, {key} the cap.
 common.shortcut.suffix.label = {name} · {key}

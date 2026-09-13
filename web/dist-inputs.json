@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "d7b77e1e58ae32de9c756f74891c5e7213786332a4f796d82722e87be84ff616",
-    "internal/i18n/en.txt": "ff9900a0a49101526375efa52f411e49e3988e85b3ccebdcaa850a393f7498cf",
+    "internal/i18n/bn.txt": "a41f519d4d1a25b66865c3a7422433530d722c42fd9386d682068b81fcffa526",
+    "internal/i18n/en.txt": "dcdb1eef7603e055e31b0ee4067d3bab8020780b74dc8b8c20da02fadeec8e92",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "a4ccf3ffa82e82843709a3a355b7fd84025bbec780ad29fe2039d30635c45886",
@@ -84,7 +84,7 @@
     "web/frontend/src/importSources.js": "05bb471aafd26fccf9ec77530338104f1eb035bf215a0964136f4d614842774b",
     "web/frontend/src/index.css": "b7fd59e7492788f2d512bd4796913a461e4e8c7f688b80303018af06ca54b8f5",
     "web/frontend/src/iso639.js": "e0cd6c06ea999e9f63ddb27ffb1ac0cda4174f2f7a23df9b186545be091a5a34",
-    "web/frontend/src/keys.js": "75e1fd35adf3747681c0ddd7aff0b71d01d8961cd890e5525be6d4dd85d5fd9a",
+    "web/frontend/src/keys.js": "bac813e99f2c9a17ada53f0bd660b8a05842e1bcb70429ef708967854e51febf",
     "web/frontend/src/languages.jsx": "758127e272730e96799c0f1c8749f328d4f217f27ac67008c9443d397a841b65",
     "web/frontend/src/locale.jsx": "3c27a6f83604ccbaa173750f33fbd08ea2add93b6239ef1627af1969ea56b174",
     "web/frontend/src/main.jsx": "18eca4f50309eccc55c0faba5c34e93ca189606b15a3ddd2c96b8f33298a76e7",
@@ -104,7 +104,7 @@
     "web/frontend/src/sheetAnchors.js": "631d8954e79fa2845f992f7f05ec7404f0d0fcf54618feb9587d9031147c9a47",
     "web/frontend/src/silhouette.jsx": "1d74be254e8e4a71fe6a14101d79426a972139f84e2452a9fcb3ee2df89345a0",
     "web/frontend/src/stickers.jsx": "3fdbbbb633778215b5b0bfc4eb8ddf7c0a716294e334aac3d08454f7245ac66d",
-    "web/frontend/src/suggest.jsx": "f9bae4b561ddc8f0edb9aac16b7ea463b7ae1c33a1ca08ba5d76ccca055f153d",
+    "web/frontend/src/suggest.jsx": "ac42410ff8f465a70e9140d50e905b95b1213b06f86ee35ef3c66f2d5529b157",
     "web/frontend/src/text.js": "1bc60c4e43a08cb53a9d24a50fb11fa07792427bcbec3ef76b631c09b7f7915b",
     "web/frontend/src/textOrder.js": "3471a065a1335da2ea66732769fd882522cfba969a7ef296c51854273ee4b276",
     "web/frontend/src/textOrderField.jsx": "724c00c0f413bb3adc13e3a320433558f6de89741f673cd7f630e91b197a735e",

@@ -28,7 +28,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json } from './api.js'
-import { MonoLabel, useAnchoredPosition, useDismiss, useIsMobileScreen } from './ui.jsx'
+import { MonoLabel, Tooltip, useAnchoredPosition, useDismiss, useIsMobileScreen } from './ui.jsx'
 import { LANGUAGES, displayName } from './iso639.js'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 
@@ -494,12 +494,42 @@ function Combo({
 // reader saying they meant what they typed. A ✕ beside it would be a second
 // control for a state that clears itself, and this app has a standing rule against
 // a row that says a thing twice.
+//
+// AND A KEY FOR IT, FIRED HERE RATHER THAN BY THE REGISTRY. The chip exists
+// because the caret is in the field beside it, and `keys.js`'s global dispatcher
+// returns on any typing target — so a binding routed through it is dead exactly
+// where this control lives. `keys.js` still OWNS the binding: its label, its place
+// in the shortcuts sheet, and the key the chip prints all come from `offer-accept`
+// there, so the key is declared once and this is only where it is heard.
+//
+// MOUNTED IS LISTENING. The chip is rendered only while there is an offer, so the
+// effect's own lifetime is the binding's scope — there is no "is a chip showing"
+// flag to keep in step with whether a chip is showing.
+//
+// `e.code`, NOT `e.key`, FOR THE DIGIT — `eventCombo` in keys.js carries the
+// argument in full: Shift-1 reports "!" on a US layout and something else again on
+// the next, while `code` says Digit1 whichever keyboard is in front of you.
 export function OfferChip({ label, onAccept }) {
+  useEffect(() => {
+    if (!label || !onAccept) return undefined
+    const onKey = (e) => {
+      if (!e.altKey || e.code !== 'Digit1' || e.ctrlKey || e.metaKey) return
+      // Taken before the browser can: Alt-digit is a menu accelerator on some
+      // platforms, and an offer accepted AND a menu opened is one press doing two
+      // things.
+      e.preventDefault()
+      onAccept()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [label, onAccept])
   if (!label) return null
   return (
-    <button type="button" className="tp-chip tp-chip-btn offer-chip" onClick={onAccept}>
-      {label}
-    </button>
+    <Tooltip label={label} shortcut="offer-accept">
+      <button type="button" className="tp-chip tp-chip-btn offer-chip" onClick={onAccept}>
+        {label}
+      </button>
+    </Tooltip>
   )
 }
 
