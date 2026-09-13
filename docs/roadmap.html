@@ -379,7 +379,6 @@
       <ul class="sub">
         <li><a href="#access-reading-comfort">Reading comfort</a></li>
         <li><a href="#atrium-liquid-glass">Atrium (glass)</a></li>
-        <li><a href="#bulk-editors-one-table">Bulk editors, unified</a></li>
         <li><a href="#entry-helpers">Entry helpers</a></li>
         <li><a href="#episodes-name-and-order">Episode names &amp; order</a></li>
         <li><a href="#locators-from-files">Locators from files</a></li>
@@ -1061,25 +1060,6 @@
     transparency, an accent that stays a light rather than a colour, and a
     performance budget measured on a real board before a line of CSS ships, not
     assumed after.
-  </p>
-</div>
-
-<div class="card req" id="bulk-editors-one-table">
-  <h3>One field table for both bulk editors</h3>
-  <p>
-    The staged bulk editor and the live one read from two hand-written field lists
-    that have quietly drifted apart, and neither list is a superset of the other —
-    a season set before approval cannot be changed after, and a note added after
-    approval could never have been set before. One shared field table, in Go,
-    replaces both: every bulk-settable column named once, with the kinds it applies
-    to, its validation, and whether clearing it writes an empty value or leaves it
-    alone.
-  </p>
-  <p>
-    Both screens end up reading the <strong>same</strong> panel component, filtered
-    to the kinds actually selected in a mixed batch, long enough now to want a
-    scroller rather than a wall of checkboxes — and the tick still only lights, and
-    still only counts, the fields a press will actually change.
   </p>
 </div>
 

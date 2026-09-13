@@ -21,8 +21,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Twelve files sit here, and only some of them are plans** — the table at the foot of this
-file names the five that are not, leaving seven features.
+**Eleven files sit here, and only some of them are plans** — the table at the foot of this
+file names the five that are not, leaving six features.
 
 THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
 incremented it to "Eight" without counting the directory; a change that fixed THAT wrote
@@ -36,6 +36,8 @@ leaving took the count from thirteen to twelve and the plans from eight to seven
 numbers moved in the same change that removed the file — which is the whole of the lesson two
 paragraphs down, applied for once in the direction it is usually needed least. A directory
 shrinking behind its own index is as wrong as one growing behind it.
+`bulk-editors-one-field-table.md` left the same way, twelve to eleven and seven to six, in
+the change that folded it into `PLAN.md`.
 
 **AND THE FIFTH IS THE ONE THE LESSON BELOW DOES NOT COVER**, which is why it is worth its
 own sentence. `work-source-files.md` arrived and NOBODY EDITED THIS PARAGRAPH — the four
@@ -77,17 +79,28 @@ have since left by the front door**: the update shipped, the pair is folded into
 under one heading with a pass on the four places they turned out to be wrong, and neither
 file is here any more.
 
-So the plans proper are the seven the table does not name: `access.md` for roadmap §6,
+So the plans proper are the six the table does not name: `access.md` for roadmap §6,
 `entry-helpers.md` and `episodes.md`, which no roadmap section owns, and
-`atrium-liquid-glass.md`, `bulk-editors-one-field-table.md`, `locators-from-files.md` and
-`work-source-files.md` — the storage, mount and prune spine that
-`locators-from-files.md` already calls "the reader of these files" and cites by name.
+`atrium-liquid-glass.md`, `locators-from-files.md` and `work-source-files.md` — the
+storage, mount and prune spine that `locators-from-files.md` already calls "the reader of
+these files" and cites by name.
 
 **`import-one-drop-target.md` was the tenth and left by the front door**, which is the
 exit this file is about: it shipped, it is folded into `PLAN.md` with a pass on the one
 guard it asked for that cannot exist, and the file is gone. Its roadmap card is retired
 with it. The count above moved with the deletion rather than after it, which is the whole
 of the lesson three paragraphs up.
+
+**`bulk-editors-one-field-table.md` WENT OUT THE SAME DOOR**, and its exit is worth a line
+because what it retired on was a decision rather than a build. Its headline — one
+field-panel component read by both screens — was NOT built: the two panels do different
+jobs (many fields at once over a mixed selection, against one field with the control that
+field needs and a warning), and merging them loses one or the other. The drift it was
+written about is closed by the shared field table and by a guard per panel instead, which
+is what its own opening asked for. It is folded into `PLAN.md` with a pass on the seven
+places it turned out to be wrong, and **its roadmap card was rewritten to say what shipped
+rather than marked shipped over a promise that was not kept** — which is the failure this
+directory's exit rule exists to prevent, met in the one form the rule does not name.
 
 **`quote-card-types.md` HAS NOW LEFT BY THE FRONT DOOR**, and this paragraph used to
 explain why it was here: it had no roadmap card and was not on the skip table, which looked

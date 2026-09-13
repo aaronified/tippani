@@ -743,6 +743,116 @@ func TestEveryStagedColumnWrittenIsInTheSharedTable(t *testing.T) {
 	}
 }
 
+// AND THE STAGED PANEL GETS THE GUARD THE LIVE ONE HAS HAD, which is the last
+// piece of this drift with nothing watching it.
+//
+// TestEveryBulkSettableColumnIsOfferedByThePanel walks the LIVE endpoint against
+// `BULK_QUOTE_FIELDS`. Nothing walked the staged endpoint against its own panel:
+// `WRITABLE_FIELDS` (StagingPage.jsx) was read by no Go file at all, so a column
+// the queue accepts and its bulk panel never offers was invisible in exactly the
+// direction the live side's guard exists to cover — the endpoint answers a request
+// nobody makes, and the panel draws a list that is merely shorter than it should
+// be.
+//
+// THERE IS ALREADY ONE SUCH COLUMN, which is how this got written. `occasion_date`
+// and `occasion_circa` are accepted, validated and written by the staged endpoint,
+// and the bulk panel drops them — `FIELDS` there is `WRITABLE_FIELDS` minus
+// `when`. That was argued in a comment and checked by nothing.
+//
+// THE PLAN WANTED ONE PANEL FOR BOTH SCREENS AND THAT IS NOT WHAT SHIPPED. The two
+// controls do different jobs: the staged panel sets MANY fields at once over a
+// mixed-kind selection, so it is a checkbox grid; the live one sets ONE field
+// carefully with the right control for it — a date picker, a language combobox, a
+// kind chooser — and an overwrite warning. Merging them loses the multi-field pass
+// on one side or the rich controls on the other. The drift the plan was written
+// about is closed by the shared table and these two guards instead.
+func TestEveryStagedBulkColumnIsOfferedByItsPanel(t *testing.T) {
+	// The date pair, and the reason is the panel's CONTROL SHAPE rather than the
+	// column: a checkbox beside a free-text box cannot say "about 399 BCE", and a
+	// box that took the phrase would store it unparsed. The staged ROW editor does
+	// offer it, under the key `when`, converting to the canonical form on the way
+	// out — so the capability exists per row and not per selection.
+	deliberate := map[string]string{
+		"occasion_date":  "a partial date and a circa flag are one control; the bulk panel's row is a checkbox and a text box",
+		"occasion_circa": "the other half of that pair",
+	}
+	// Not field assignments — the same set the sibling guard names, for the same
+	// reasons.
+	notAField := map[string]bool{
+		"color": true, "favorite": true, "tags": true,
+		"location_orig": true, "timestamp_orig": true,
+		"book_id": true, "movie_id": true,
+	}
+
+	written := map[string]bool{}
+	src := stagedBulkSource(t)
+	for _, m := range regexp.MustCompile(`set\("([a-z_]+)"`).FindAllStringSubmatch(src, -1) {
+		written[m[1]] = true
+	}
+	for _, m := range regexp.MustCompile(`\{"([a-z_]+)",\s*req\.[A-Za-z]+\}`).FindAllStringSubmatch(src, -1) {
+		written[m[1]] = true
+	}
+	if len(written) < 20 {
+		t.Fatalf("only %d written columns parsed; the extraction is broken", len(written))
+	}
+
+	page, err := os.ReadFile(filepath.Join("..", "..", "web", "frontend", "src", "StagingPage.jsx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := string(page)
+	start := strings.Index(block, "export const WRITABLE_FIELDS = [")
+	if start < 0 {
+		t.Fatal("WRITABLE_FIELDS not found in StagingPage.jsx — did it move or get renamed?")
+	}
+	end := strings.Index(block[start:], "\n]")
+	if end < 0 {
+		t.Fatal("WRITABLE_FIELDS is not terminated by a line starting \"]\"")
+	}
+	offered := map[string]bool{}
+	for _, m := range regexp.MustCompile(`\['([a-z_]+)'`).
+		FindAllStringSubmatch(block[start:start+end], -1) {
+		offered[m[1]] = true
+	}
+	if len(offered) < 15 {
+		t.Fatalf("only %d keys parsed out of WRITABLE_FIELDS; the extraction is broken", len(offered))
+	}
+
+	// WHAT THE BULK PANEL DROPS, read from the filter rather than assumed — so
+	// dropping a SECOND field fails this instead of passing quietly. A filter that
+	// stops matching this shape is a failure too, which is the point: the test
+	// cannot silently stop knowing what the panel offers.
+	drop := regexp.MustCompile(`WRITABLE_FIELDS\.filter\(\(\[key\]\) => key !== '([a-z_]+)'\)`).
+		FindStringSubmatch(block)
+	if drop == nil {
+		t.Fatal("the bulk panel no longer builds its list as WRITABLE_FIELDS minus one key — " +
+			"reword this guard deliberately rather than letting it read a list that moved")
+	}
+	delete(offered, drop[1])
+
+	for col := range written {
+		if notAField[col] || offered[col] {
+			continue
+		}
+		if _, ok := deliberate[col]; ok {
+			continue
+		}
+		t.Errorf("the staged endpoint writes %q in bulk and its panel never offers it — add it to "+
+			"WRITABLE_FIELDS, or name it in `deliberate` above with the reason", col)
+	}
+	// A reason that stops being true is the failure this whole file is about.
+	for col, why := range deliberate {
+		if offered[col] {
+			t.Errorf("%q is named here as a deliberate absence (%s) and the panel offers it now — "+
+				"remove the entry rather than leaving a stale reason", col, why)
+		}
+		if !written[col] {
+			t.Errorf("%q is named here as a deliberate absence (%s) and the endpoint does not write "+
+				"it at all — remove the entry rather than leaving a reason nothing reads", col, why)
+		}
+	}
+}
+
 // THE notNull FLAGS ARE READ OFF THE SCHEMA, NOT TRANSCRIBED FROM IT.
 //
 // THE BUG THIS EXISTS FOR IS MINE. The shared table was built by extracting the

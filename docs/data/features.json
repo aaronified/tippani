@@ -148,14 +148,16 @@
         "  alone.",
         "</p>",
         "<p>",
-        "  Both screens end up reading the <strong>same</strong> panel component, filtered",
-        "  to the kinds actually selected in a mixed batch, long enough now to want a",
-        "  scroller rather than a wall of checkboxes — and the tick still only lights, and",
-        "  still only counts, the fields a press will actually change.",
+        "  Each screen keeps the control its job needs — the queue sets many fields at",
+        "  once across a mixed batch, the library sets one carefully with the right",
+        "  editor for it and a warning saying what it will overwrite. What they stop",
+        "  keeping is a private list: a test walks each panel against the table, in both",
+        "  directions, so a field one screen gains and the other loses fails the build",
+        "  instead of drifting for a release.",
         "</p>"
       ],
       "id": "bulk-editors-one-table",
-      "plan": "bulk-editors-one-field-table.md"
+      "shipped_in": "Unreleased"
     },
     {
       "title": "The library remembers what you already typed",
