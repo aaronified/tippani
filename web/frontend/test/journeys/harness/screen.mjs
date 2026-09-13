@@ -268,8 +268,15 @@ export function screenVerbs(getPage) {
     const inputs = await within('input[type="file"]')
     const named = []
     for (const h of inputs) {
-      const label = await h.evaluate((el) => el.getAttribute('aria-label') || '')
-      if (label) named.push({ handle: h, name: label })
+      // CHROME'S NAME, NOT THE `aria-label` ATTRIBUTE — the same computation every
+      // other verb here uses, and the reason is the app's own picker. `FilePick`
+      // draws a <label> that IS the button with the input inside it, so most of
+      // its inputs carry NO aria-label at all: the name comes from the label's
+      // own text, exactly as a screen reader would read it. Asking for the
+      // attribute found nothing on the import picker and would have read as a
+      // missing control, or worse as an accessibility defect in the app.
+      const snap = await page().accessibility.snapshot({ root: h }).catch(() => null)
+      if (snap?.name) named.push({ handle: h, name: snap.name })
       else await h.dispose()
     }
     const { hit, error } = pick(named, name, 'hand a file to')
