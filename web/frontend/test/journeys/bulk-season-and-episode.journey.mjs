@@ -44,5 +44,16 @@ it('a reader sets the season on every line of a show at once, and it sticks', as
 
   await app.see('S2')
 
+  // AND IT IS THE SERVER'S NOW, WHICH THIS JOURNEY OF ALL JOURNEYS HAS TO PROVE.
+  // The line above passes on an app that draws what you asked for and wrote
+  // nothing — and "wrote nothing" is the exact failure this file exists to
+  // catch: the control answered 400 on every press while two unit tests stayed
+  // green. Asserting only against the render the press produced would be the
+  // same shape of mistake one level up. This was the critic's finding, and it
+  // was right.
+  await app.goto('/catalogue')
+  await app.press('A Serial In Several Parts')
+  await app.see('S2')
+
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

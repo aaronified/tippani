@@ -52,7 +52,11 @@ function walk(dir, pred, out = []) {
 const goTestFiles = walk(REPO, (n) => n.endsWith('_test.go'))
 const goTestFuncs = goTestFiles.reduce(
   (n, f) => n + (readFileSync(f, 'utf8').match(/^func Test[A-Za-z0-9_]+/gm) || []).length, 0)
-const feTestFiles = walk(join(REPO, 'web', 'frontend'), (n) => /\.(test|spec)\./.test(n))
+// `.journey.` IS IN THE PATTERN, and leaving it out understated the tree by every
+// browser test in it. The journeys are the tier this document's own argument is
+// strongest about — only execution counts — and they were the one tier the count
+// could not see, because they are named `*.journey.mjs` rather than `*.test.*`.
+const feTestFiles = walk(join(REPO, 'web', 'frontend'), (n) => /\.(test|spec|journey)\./.test(n))
 
 // The claim, as one sentence: "N Go test functions and M frontend tests, across
 // K test files".

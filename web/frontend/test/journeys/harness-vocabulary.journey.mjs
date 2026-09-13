@@ -16,6 +16,15 @@ const app = openApp()
 
 const shortWait = { timeout: 2000 }
 
+// EVERY BLOCK ENDS THE SAME WAY, and it did not until the critic said so. These
+// four presses and types drive the real app, so a screen that throws on mount
+// while still LOOKING right would pass all four — React keeps the last good
+// render around the error. The vocabulary's guarantees are worth nothing over a
+// page that is on fire.
+const nothingThrew = () =>
+  expect(app.pageErrors(), 'the page threw while the vocabulary was being checked').toEqual([])
+
+
 it('refuses to press when several things share the name, rather than guessing', async () => {
   await app.goto('/')
 
@@ -26,6 +35,8 @@ it('refuses to press when several things share the name, rather than guessing', 
   // AND THE ERROR NAMES THEM, because "ambiguous" without the list sends somebody
   // to read the markup, which is the thing a journey is not supposed to do.
   await expect(app.press('Copy', shortWait)).rejects.toThrow(/They are: /)
+
+  nothingThrew()
 })
 
 it('says what IS pressable when the name matches nothing', async () => {
@@ -34,6 +45,8 @@ it('says what IS pressable when the name matches nothing', async () => {
   expect(err.message).toMatch(/nothing a person could press is named/)
   // The list is the useful half: it is how somebody finds the name they meant.
   expect(err.message).toMatch(/What is there: .*button/)
+
+  nothingThrew()
 })
 
 it('takes the whole name when a shorter one would be ambiguous', async () => {
@@ -42,6 +55,8 @@ it('takes the whole name when a shorter one would be ambiguous', async () => {
   // item, and nothing else on the screen starts with "Library".
   await app.press('Library')
   await app.see('The Idiot')
+
+  nothingThrew()
 })
 
 it('types the way a person types, so the app notices', async () => {
@@ -64,4 +79,6 @@ it('types the way a person types, so the app notices', async () => {
   // And the box can be emptied again.
   await app.type('Search everything', '')
   expect(await app.valueOf('Search everything')).toBe('')
+
+  nothingThrew()
 })

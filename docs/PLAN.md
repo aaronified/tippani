@@ -15102,3 +15102,91 @@ directory over CDP and `app.downloaded(name)` waits for the file and hands back 
 which caught, on its first run, that the export the reader receives is 257KB of real
 Markdown rather than the empty shell a "your library was exported" toast would equally
 happily announce.
+
+### The sixteen, and what reviewing them found
+
+The spine, one file each, all mutation-verified by deleting the decisive action and
+watching the file go red:
+
+| | the sentence it performs |
+|---|---|
+| `signing-in` | a reader who signs in is inside the app, not still at the door |
+| `onboarding` | the founder of a brand-new instance ends up signed in, not back at the login form |
+| `finding-a-book` | a reader opens their library and finds a book Home was not showing |
+| `searching-and-finding` | a phrase from a highlight is searched for, and the result names the book |
+| `capturing-a-highlight` | a line typed on a book is still there after a reload |
+| `capturing-a-film-line` | a line AND its character, on a show, still there after a reload |
+| `capturing-a-standalone-quote` | a quote that came from no book and no film is filed on its own |
+| `editing-a-quote` | the new wording is there and the old wording is gone |
+| `bulk-season-and-episode` | the season is set on six lines at once, and it survives a reload |
+| `reviewing-a-card` | a practice card is revealed and graded, and the app says "recalled" |
+| `importing-a-file` | a file is imported, and nothing reaches the library until it is approved |
+| `exporting-a-library` | the file the reader is handed actually holds their books |
+| `changing-a-setting` | the interface language changes, and survives a reload |
+| `per-user-isolation` | a second account sees an empty notebook, and the first gets its own back |
+| `working-with-no-internet` | a work added by hand saves and stays, with outbound calls off |
+| `harness-vocabulary` | the vocabulary's own guarantees, which nothing else checks |
+
+`npm run journeys`: 16 files, 20 tests, 48 seconds.
+
+**AND THE REVIEW OF THEM FOUND THE WORST DEFECT IN THE SET, IN THE ONE FILE THAT
+COULD LEAST AFFORD IT.** `bulk-season-and-episode` — the acceptance test of this
+whole plan, written against a feature that shipped 100% dead because the server
+wrote nothing — pressed Apply and then asserted `see('S2')` against the very render
+the press had produced. Every sibling reloads to rule out exactly that; the one
+journey whose entire stated purpose is to catch an optimistic-UI write that never
+lands was the one that skipped the check. It reloads now, and the acceptance test
+was re-run against the strengthened file: with `eb90a28b` reverted and the SPA
+rebuilt it is red at the first `see('S2')`, and the reload assertion never runs at
+all.
+
+Three smaller findings from the same pass, all acted on. `harness-vocabulary` was
+the only file with no `pageErrors()` check, so four blocks that drive the real app
+could have passed over a screen that threw on mount. `per-user-isolation` read
+`process.env.TIPPANI_JOURNEY_PASS` at the call site — the variable's name is the
+harness's business, and a journey that spells it knows one thing too many about how
+its world was built, so the account moved onto the world handle. And the list of
+"stable names a journey may pin" was stated too narrowly: the four public-domain
+books are kept verbatim by the curator, TITLE AND AUTHOR, so `Jacob Grimm` is
+exactly as safe as `Grimm's Fairy Stories`; it is the 23 derived works whose
+invented titles and invented people regenerate.
+
+### Two defects the browser tier found in its first day
+
+Neither is fixed here — both are outside this plan and both are recorded with the
+evidence rather than quietly patched.
+
+**A character typed into the capture form and not committed with Enter is silently
+lost on Save.** Verified by mutation: remove the one `pressKey('Enter')` and the
+name never appears, on the screen or after a reload. `TokenInput`'s own `onBlur`
+exists to prevent this and says so in a comment; it fires and the value still does
+not arrive. The diagnosis that fits every fact — including why the quote survives
+and the character does not — is that `saveState.save()` is a closure registered by
+an effect that has not re-run in the microseconds between the blur-commit and the
+click.
+
+**Two password boxes on the Profile screen compute to the same accessible name.**
+"new password (8–20)" under CHANGE PASSWORD and "new password (8–20)" under Add
+user, confirmed as two backendNodeIds with one name. A screen-reader user hears the
+same label for "change my own password" and "set the password on an account I am
+creating", one of which is destructive to their own login. It is also why
+`per-user-isolation` carries the only use of the `app.page` escape hatch in the
+whole directory: the journey could not name the field, so it names the unambiguous
+one, presses Tab, and types into what then has focus. Fixing the name removes the
+escape hatch with it.
+
+### What the round trip proved, in both directions
+
+The owner asked for import files built from the kept public-domain books, and for
+the export routes to be checked with them. Both halves are in, and the format was
+established from the app rather than guessed: press Export on the Library, read the
+bytes back through `app.downloaded`, and build the fixture to match what came out.
+
+  the app's own 257KB export, re-imported   ->  629 quotes staged, every book
+                                                matched to its existing counterpart
+  a two-quote fixture in the same shape     ->  2 quotes staged, "joins your
+                                                existing On the Shortness of Life"
+
+`fixture/imports/seneca-two-more.md` is public-domain Seneca, deliberately two lines
+this fixture's copy of that book does NOT already hold — so "the quote arrived" is a
+fact about the import rather than about what was already there.

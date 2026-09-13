@@ -170,6 +170,15 @@ export function openApp({ viewport = DESKTOP, theme = 'light', empty = false } =
     get baseUrl() { return w.server.baseUrl },
     goto: (path) => w.page.goto(w.server.baseUrl + path, { waitUntil: 'networkidle0' }),
 
+    // WHO THE READER IS, for the one journey that needs to sign in as them again.
+    // Switching accounts asks for a password every time — that is the app's rule,
+    // not an inconvenience — so a journey that switches away has to be able to
+    // switch back. It is on the handle rather than read out of process.env at the
+    // call site because the variable's NAME is the harness's business: a journey
+    // that spells TIPPANI_JOURNEY_PASS knows one thing too many about how its
+    // world was built, and the next journey to need it would copy the spelling.
+    account: { username: required('TIPPANI_JOURNEY_USER'), password: required('TIPPANI_JOURNEY_PASS') },
+
     // downloaded — WAIT FOR THE FILE THE APP JUST HANDED THE READER, and give
     // back what is in it. This is the only way to assert on an export: what a
     // reader gets is a file, and a screen that says "exported" while writing an

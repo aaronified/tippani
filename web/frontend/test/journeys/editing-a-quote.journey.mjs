@@ -54,6 +54,12 @@ const CORRECTED = 'Whoever agrees to the letter A has already promised the lette
 it('a reader edits a quote and the old wording is gone after a reload', async () => {
   await app.goto('/library')
   await app.press("Grimm's Fairy Stories")
+  // THE AUTHOR IS AS STABLE AS THE TITLE, and the list of stable names needed
+  // saying properly rather than extending by exception. The four public-domain
+  // books are kept verbatim by the curator — title AND author — so naming
+  // either is safe; it is the 23 DERIVED works whose invented titles and
+  // invented people regenerate. The fixture stores this one as "Jacob Grimm and
+  // Wilhelm Grimm", and `see` reads a substring, so the elder brother is enough.
   await app.see('Jacob Grimm')
 
   // The card's own overflow menu, then the verb inside it — the same two
