@@ -1,8 +1,12 @@
 // THE TWO DIALS REACH A QUOTE, AND SURVIVE A RELOAD.
 //
-// docs/plans/access.md's verification row for §6 (access.md:138) reads: "Size,
-// leading and measure reach the quote surfaces and survive a reload; the defaults
-// are unchanged for a reader who sets nothing." Size already shipped, so the two
+// docs/plans/access.md's verification row for §6 reads: "Size, leading and measure
+// reach the quote surfaces and survive a reload; the defaults are unchanged for a
+// reader who sets nothing." (Quoted rather than cited by line: the first draft of
+// this header said access.md:138 and the SAME COMMIT moved it, because that commit
+// edited access.md too. fonts.js records the rule — a line number in a comment is a
+// fact with no guard on it; the quoted words are greppable and never rot.) Size
+// already shipped, so the two
 // this change adds are leading and measure. quote-dials.test.js proves the
 // arithmetic and the defaults without a DOM; this proves the wiring — the
 // properties land on <html>, they inherit down to the words, and the slot is

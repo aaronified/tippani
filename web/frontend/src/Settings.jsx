@@ -3109,7 +3109,7 @@ const LEADING_NAMES = ['tight', 'snug', 'normal', 'relaxed', 'loose']
 // card's `persist` re-sends every theme field on any change, so a preference
 // riding in that object is wiped by an unrelated accent click — the same note
 // applyLabels and saveContrast already carry, for the same reason.
-function QuoteReadingFields({ prefs, onPreferences }) {
+export function QuoteReadingFields({ prefs, onPreferences }) {
   // Applied before the request, like every other control on this card: a round
   // trip between the tap and the type is long enough to read as a broken control.
   // The old preferences go back on if the server refuses, so the page never shows
@@ -3124,32 +3124,50 @@ function QuoteReadingFields({ prefs, onPreferences }) {
     onPreferences?.(patch)
   }
 
+  // EACH EXPLAINS ITSELF WITH AN InfoDot, LIKE BOTH ITS NEIGHBOURS, and the first
+  // draft got this wrong in a way only a layout would have shown. The shared
+  // sentence under the pair was a bare <p> in a `flex flex-wrap` row whose every
+  // other child is a <div>, and `.microcopy` carries no max-width — so a
+  // 150-character sentence became an unconstrained flex item, wide enough to force
+  // a wrap and push the fields after it onto a new line. The row's own rule is the
+  // repo's: a control drawn beside others behaves like them, and the two beside
+  // these (`TextSizeField`, `LabelDensity`) answer with a dot rather than prose.
+  const dial = (key, value, onChange, options) => (
+    <div>
+      <MonoLabel className="mb-1.5 flex items-center gap-1">
+        {t(`settings.appearance.${key}.label`)}
+        <InfoDot
+          text={t(`settings.appearance.${key}.info.body`)}
+          title={t(`settings.appearance.${key}.label`)}
+        />
+      </MonoLabel>
+      <Select
+        value={String(value)}
+        onChange={(v) => onChange(Number(v))}
+        options={options}
+        ariaLabel={t(`settings.appearance.${key}.aria`)}
+        width={124}
+      />
+    </div>
+  )
+
   return (
     <>
-      <div>
-        <MonoLabel className="mb-1.5 block">{t('settings.appearance.quote-leading.label')}</MonoLabel>
-        <Select
-          value={String(clampLeading(prefs?.quoteLeading))}
-          onChange={(v) => set({ quoteLeading: Number(v) })}
-          options={QUOTE_LEADINGS.map((n, i) => [String(n), t(`settings.appearance.quote-leading.${LEADING_NAMES[i]}`)])}
-          ariaLabel={t('settings.appearance.quote-leading.aria')}
-          width={124}
-        />
-      </div>
-      <div>
-        <MonoLabel className="mb-1.5 block">{t('settings.appearance.quote-measure.label')}</MonoLabel>
-        <Select
-          value={String(clampMeasure(prefs?.quoteMeasure))}
-          onChange={(v) => set({ quoteMeasure: Number(v) })}
-          options={QUOTE_MEASURES.map((n) => [
-            String(n),
-            n ? t('settings.appearance.quote-measure.chars', { n }) : t('settings.appearance.quote-measure.full'),
-          ])}
-          ariaLabel={t('settings.appearance.quote-measure.aria')}
-          width={124}
-        />
-      </div>
-      <p className="microcopy">{t('settings.appearance.quote.hint')}</p>
+      {dial(
+        'quote-leading',
+        clampLeading(prefs?.quoteLeading),
+        (n) => set({ quoteLeading: n }),
+        QUOTE_LEADINGS.map((n, i) => [String(n), t(`settings.appearance.quote-leading.${LEADING_NAMES[i]}`)]),
+      )}
+      {dial(
+        'quote-measure',
+        clampMeasure(prefs?.quoteMeasure),
+        (n) => set({ quoteMeasure: n }),
+        QUOTE_MEASURES.map((n) => [
+          String(n),
+          n ? t('settings.appearance.quote-measure.chars', { n }) : t('settings.appearance.quote-measure.full'),
+        ]),
+      )}
     </>
   )
 }

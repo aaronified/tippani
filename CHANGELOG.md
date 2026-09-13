@@ -795,7 +795,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   long passage in, and this app's paper and film looks are deliberately generous with
   width, which is right for a card and wrong for a page of Proust. Set it to 55 and every
   quote in the app wraps there — on the card, in a search result, in the recall deck, in
-  the anthology you print. Both are kept with your account rather than on one device, and
+  the anthology you print. The box you **type** a quote into is left alone: it is a form
+  field, and a narrow one beside full-width neighbours reads as broken rather than as a
+  setting. Both are kept with your account rather than on one device, and
   **neither changes anything until you set it**: leave them alone and every quote is drawn
   exactly as it was.
 

@@ -1362,7 +1362,8 @@ settings.appearance.quote-measure.label = Quote line length
 settings.appearance.quote-measure.aria = How long a line of a quote is allowed to be
 settings.appearance.quote-measure.full = Full width
 settings.appearance.quote-measure.chars = {n} characters
-settings.appearance.quote.hint = Both set the quote text alone. A line of about 45 to 75 characters is the easiest to read a long passage in; full width uses whatever the card gives it.
+settings.appearance.quote-leading.info.body = How much air sits between the lines of a quote. It sets the quote text alone, not the interface.
+settings.appearance.quote-measure.info.body = How long a line of a quote may run before it wraps, in characters of its own face. About 45 to 75 reads easiest for a long passage; full width is what the app has always drawn.
 # --- Appearance -> Material. Seven sets, each naming what four surfaces are
 # made of: the desk under everything, the furniture, the page you read, the
 # binding on a cover. Independent of light/dark -- every set works in both -- so

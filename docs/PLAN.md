@@ -14502,12 +14502,13 @@ and the other shows the number — which half of each is legible decided it, not
 
 **WHERE THE PLAN WAS WRONG, for the record `docs/plans/README.md` asks for.** Four places:
 
-1. **It said `theme.js` writes them** (`access.md:77`). They ride `type.js`, which is where
+1. **It said `theme.js` writes them** — "They ride the existing mechanism exactly: `theme.js`
+   writes `--quote-size` / `--quote-leading` / `--quote-measure`". They ride `type.js`, which is where
    the other type dials live — and deliberately NOT `typeTokens`, which `typescale.test.js`
    asserts holds one token per step per role and NOTHING ELSE. Folding two more in would
    have broken that guard or, worse, loosened it; they are written beside it by the same
    applier, which keeps both promises.
-2. **It named a `--quote-size` token** (`access.md:78`). There is none and none is needed:
+2. **It named a `--quote-size` token**, in the same sentence. There is none and none is needed:
    size already travels as `--type-display-*` through the four per-role dials, which is the
    same discovery that made this two controls instead of three.
 3. **It called all three unbuilt.** Size had shipped some releases earlier, and the public
@@ -14526,6 +14527,18 @@ whether the element carrying the measure is one a browser would apply it to. Ass
 `QUOTE_TEXT` carries a `maxWidth` could never have seen it — the object was right and the
 element could not obey it. Replaced elements (the capture `<textarea>`) are exempted, and
 that exemption is real rather than a loophole: `max-width` applies to them at any display.
+
+**THE CAPTURE BOX DECLINES THE MEASURE, AND THAT IS THE OTHER DECISION.** A `<textarea>` is
+a REPLACED element, so `max-width` reaches it whatever its display computes to — which means
+the reading measure would narrow the box a reader TYPES a quote into: 45ch inside a 620px
+modal, beside a title field and a language box that stay full width. A form field narrower
+than its neighbours reads as broken, and the dial is a READING preference; the words under
+it now promise as much ("the box you type a quote INTO is not narrowed — only the quote as
+you read it"). It keeps the face, the weight, the style and the leading, because seeing your
+words in the type they will be read in is the point of setting them there. It is the ONLY
+override of `QUOTE_TEXT` anywhere, `quote-type.test.js` knows it by name, and a second guard
+beside it fails if the override ever disappears — an allowance for something that has gone
+is what lets the next thing through unnoticed.
 
 **THE PRINTED ANTHOLOGY KEEPS THE MEASURE, AND THAT IS A DECISION.** `@media print`
 deliberately releases `.anthology-read`'s own `max-width` — paper has its own margins — but

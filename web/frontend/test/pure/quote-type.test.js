@@ -73,6 +73,38 @@ const DRAWN_BY_CSS = {
   },
 }
 
+// COMMENTS ARE SKIPPED, and that is not a nicety — it is a defect this file had.
+// A JSX prop list is full of `//` comments (this repo's are long), and one of them
+// contained the literal text `<textarea>`. The forward scan below read that `>` as
+// the end of the tag and stopped before the `style` attribute, so the walk reported
+// a slot as bare when it was not. The FALSE POSITIVE is the harmless direction; the
+// same slice could just as easily end a tag early and MISS a real violation, which
+// is the whole failure this file exists to prevent. So both scanners step over
+// comments rather than reading punctuation inside them.
+//
+// The scan is deliberately not a parser. It needs to answer one question — where
+// does this tag end — and a tag ends at the first `>` that is not inside braces,
+// a string, or a comment.
+function skipNoise(src, i) {
+  if (src[i] === '/' && src[i + 1] === '/') {
+    const nl = src.indexOf('\n', i)
+    return nl < 0 ? src.length : nl
+  }
+  if (src[i] === '/' && src[i + 1] === '*') {
+    const end = src.indexOf('*/', i + 2)
+    return end < 0 ? src.length : end + 2
+  }
+  if (src[i] === '"' || src[i] === "'" || src[i] === '`') {
+    const q = src[i]
+    for (let j = i + 1; j < src.length; j++) {
+      if (src[j] === '\\') { j++; continue }
+      if (src[j] === q) return j + 1
+    }
+    return src.length
+  }
+  return i
+}
+
 // The enclosing JSX tag for an index into a source file: back to the `<` that
 // opens it, forward to the `>` that closes it, with `{…}` depth ignored so an
 // arrow function inside an attribute cannot end the tag early.
@@ -84,6 +116,8 @@ function tagAround(src, at) {
   if (start < 0) return ''
   let depth = 0
   for (let i = start; i < src.length; i++) {
+    const skipped = skipNoise(src, i)
+    if (skipped !== i) { i = skipped - 1; continue }
     if (src[i] === '{') depth++
     else if (src[i] === '}') depth--
     else if (src[i] === '>' && depth === 0) return src.slice(start, i + 1)
@@ -147,6 +181,22 @@ describe('one way to set a quote', () => {
       'a slot’s enclosing tag could not be read, so its answer below means nothing').toEqual([])
   })
 
+  it('reads a tag whose props carry a comment that mentions another tag', () => {
+    // THE BUG THIS WALK HAD. A `//` comment in a prop list containing `<textarea>`
+    // ended the tag at that `>`, so everything after it — including the `style`
+    // that answers question B — was invisible. Asserted on a built string rather
+    // than on a file, so it goes on meaning something after the tree moves.
+    const src = [
+      '<textarea',
+      '  className={`a ${languageClass(x)}`}',
+      '  // a <textarea> is a replaced element, and 1 > 0',
+      "  style={{ ...QUOTE_TEXT, fontSize: 'x' }}",
+      '/>',
+    ].join('\n')
+    const tag = tagAround(src, src.indexOf('languageClass('))
+    expect(tag, 'the tag was cut short at a > inside a comment').toContain(SPREAD)
+  })
+
   it('A — QUOTE_FACE is fonts.js’s alone', () => {
     const named = sourcesUnder().filter((f) => f !== 'fonts.js' && read(f).includes('QUOTE_FACE'))
     expect(named, 'a module names the face directly; it reaches a slot through QUOTE_TEXT or not at all')
@@ -175,16 +225,36 @@ describe('one way to set a quote', () => {
     }
   })
 
-  it('C — and no spread restates what QUOTE_TEXT already says', () => {
+  it('C — and no spread restates what QUOTE_TEXT already says, bar one named override', () => {
     // `fontSize` is not in QUOTE_TEXT at all, so a caller adding one cannot clash;
     // everything the object DOES carry is the app's answer for every surface.
+    //
+    // THE ONE EXCEPTION, named here so it cannot quietly become two. The capture
+    // <textarea> is a REPLACED element, so the measure would reach it at any
+    // display and narrow the box a reader TYPES in — 45ch inside a 620px modal,
+    // beside fields that stay full width. It declines the measure and keeps
+    // everything else. A second entry in this map is a design decision and should
+    // be argued for, not added.
+    const ALLOWED = { 'AddSurface.jsx': { maxWidth: 'the capture box is written in, not read in — see the site' } }
     const said = []
     for (const s of spreads) {
       const after = s.obj.slice(s.obj.indexOf(SPREAD))
-      for (const k of Object.keys(QUOTE_TEXT)) if (after.includes(`${k}:`)) said.push(`${s.file}:${s.line} restates ${k}`)
+      for (const k of Object.keys(QUOTE_TEXT)) {
+        if (!after.includes(`${k}:`)) continue
+        if (ALLOWED[s.file]?.[k]) continue
+        said.push(`${s.file}:${s.line} restates ${k}`)
+      }
     }
     expect(said, 'a slot overrides part of QUOTE_TEXT; if a surface genuinely differs, the object is the place to say so')
       .toEqual([])
+  })
+
+  it('C — and the one override is still there, so the exemption is not stale', () => {
+    // An allowance for something that has gone is an allowance that will let the
+    // next thing through unnoticed. Same reason DRAWN_BY_CSS proves each of its
+    // entries above.
+    expect(read('AddSurface.jsx'), 'the capture box no longer declines the measure — drop it from ALLOWED')
+      .toContain("maxWidth: 'none'")
   })
 
   it('D — a quote slot drawn in CSS reads both reading-comfort tokens', () => {

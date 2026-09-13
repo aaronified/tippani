@@ -1284,7 +1284,20 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
               // the breaks are visible as you type rather than after you save.
               rows={door === 'poem' || door === 'song' ? 7 : 4}
               placeholder={t('capture.form.quote.placeholder')}
-              style={{ ...QUOTE_TEXT, fontSize: 'var(--type-display-17)' }}
+              // THE ONE SLOT THAT DECLINES THE MEASURE, and the only override of
+              // QUOTE_TEXT anywhere. A <textarea> is a REPLACED element, so
+              // max-width reaches it at any display — which means the reader's
+              // reading measure would narrow the box they TYPE in, to 45ch inside a
+              // 620px modal, beside a title field and a language box that stay full
+              // width. A form field that is narrower than its neighbours reads as
+              // broken, and the dial's own words promise otherwise: "the box you
+              // type a quote INTO is not narrowed — only the quote as you read it".
+              //
+              // IT KEEPS EVERYTHING ELSE — face, weight, style, leading — because
+              // seeing your words in the type they will be read in is the point of
+              // setting them here. quote-type.test.js knows about this one override
+              // by name; a second one is a failure.
+              style={{ ...QUOTE_TEXT, maxWidth: 'none', fontSize: 'var(--type-display-17)' }}
               value={draft.quote}
               onChange={(e) => set({ quote: e.target.value })}
             />

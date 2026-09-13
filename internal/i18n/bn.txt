@@ -1364,7 +1364,8 @@ settings.appearance.quote-measure.label = উদ্ধৃতির লাইন�
 settings.appearance.quote-measure.aria = উদ্ধৃতির একটি লাইন কত লম্বা হতে পারে
 settings.appearance.quote-measure.full = পুরো চওড়া
 settings.appearance.quote-measure.chars = {n}টি অক্ষর
-settings.appearance.quote.hint = দুটিই কেবল উদ্ধৃতির লেখায় লাগে। লম্বা অংশ পড়তে ৪৫ থেকে ৭৫ অক্ষরের লাইন সবচেয়ে আরামের; পুরো চওড়ায় কার্ড যতটা দেয় ততটাই।
+settings.appearance.quote-leading.info.body = উদ্ধৃতির লাইনগুলোর মধ্যে কতটা ফাঁক থাকবে। কেবল উদ্ধৃতির লেখায় লাগে, ইন্টারফেসে নয়।
+settings.appearance.quote-measure.info.body = উদ্ধৃতির লাইন কত লম্বা হয়ে র‍্যাপ করবে, নিজের ফন্টের অক্ষরে গোনা। লম্বা অংশে ৪৫–৭৫ অক্ষর সবচেয়ে আরামের; পুরো চওড়া মানে অ্যাপ চিরকাল যা এঁকেছে।
 # --- Appearance -> Material. Seven sets, each naming what four surfaces are
 # made of: the desk under everything, the furniture, the page you read, the
 # binding on a cover. Independent of light/dark -- every set works in both -- so
