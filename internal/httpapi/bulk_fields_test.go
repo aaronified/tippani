@@ -388,11 +388,10 @@ func TestEveryBulkSettableColumnIsOfferedByThePanel(t *testing.T) {
 	deliberate := map[string]string{
 		"medium": "0053 retired it; no form draws it and a bulk editor must not reintroduce one",
 	}
-	// Numbers the queue's own retarget already moves. Setting a season or an episode
-	// number across a mixed selection would renumber lines from different episodes
-	// alike, which is a data change disguised as a correction.
-	deliberate["season"] = "a number retarget owns"
-	deliberate["episode"] = "a number retarget owns"
+	// `season` and `episode` USED TO BE NAMED HERE and no longer need to be. They
+	// are staged-only entries in the shared table now, so they never reach
+	// `quoteFieldKinds` (which is the live view of it) and this walk never asks
+	// about them. The reason they carried was also false — see bulk_fields.go.
 
 	src, err := os.ReadFile(filepath.Join("..", "..", "web", "frontend", "src", "bulkOps.jsx"))
 	if err != nil {
@@ -442,6 +441,18 @@ func TestEveryBulkSettableColumnIsOfferedByThePanel(t *testing.T) {
 	for field := range offered {
 		if _, ok := quoteFieldKinds[field]; !ok {
 			t.Errorf("the panel offers %q and the endpoint refuses it: every press would be a 400", field)
+		}
+	}
+	// AND AN EXEMPTION FOR A FIELD THE ENDPOINT NO LONGER TAKES IS DEAD TEXT. The
+	// walk above only consults `deliberate` for fields in `quoteFieldKinds`, so an
+	// entry naming anything else is never read and never fails — it just sits
+	// there asserting a reason nobody checks. `season` and `episode` sat here that
+	// way, with a reason that had stopped being true. The staged-write exemptions
+	// next door have carried this check since they were written; this list did not.
+	for field, why := range deliberate {
+		if _, ok := quoteFieldKinds[field]; !ok {
+			t.Errorf("%q is named here as a deliberate absence (%s) and the endpoint does not take "+
+				"it at all — remove the entry rather than leaving a reason nothing reads", field, why)
 		}
 	}
 }
@@ -566,6 +577,16 @@ func TestTheGapsBetweenTheTwoEditorsAreTheOnesOnRecord(t *testing.T) {
 		"medium": "0053 retired it — deliberate on both sides",
 		"kind":   "not yet wired to the staged endpoint",
 	}
+	// AND THE OTHER DIRECTION, which this ratchet did not have and the plan named
+	// explicitly: "Neither list contains the other, so 'make staging match the live
+	// editor' would silently drop season, episode, remove_tags, retarget and
+	// formula — which is the same mistake in the other direction." A gap recorded
+	// one way round is half a ratchet.
+	stagedOnly := map[string]string{
+		"season": "the queue bulk-sets it; a Quotes selection can span works and episodes, " +
+			"so the same verb there would renumber lines from different episodes alike",
+		"episode": "the same argument",
+	}
 	for name, f := range bulkFields {
 		gap := f.live != "" && f.staged == ""
 		why, onRecord := liveOnly[name]
@@ -576,6 +597,17 @@ func TestTheGapsBetweenTheTwoEditorsAreTheOnesOnRecord(t *testing.T) {
 		if !gap && onRecord {
 			t.Errorf("bulkFields[%q] is named as a live-only gap (%s) but it has a staged column now "+
 				"— remove it from the list rather than leaving a stale reason", name, why)
+		}
+
+		back := f.staged != "" && f.live == ""
+		whyBack, backOnRecord := stagedOnly[name]
+		if back && !backOnRecord {
+			t.Errorf("bulkFields[%q] is staged-only and not on the record — either give it a live "+
+				"column or name it here with the reason", name)
+		}
+		if !back && backOnRecord {
+			t.Errorf("bulkFields[%q] is named as a staged-only gap (%s) but it has a live column now "+
+				"— remove it from the list rather than leaving a stale reason", name, whyBack)
 		}
 	}
 }
@@ -675,8 +707,6 @@ func TestEveryStagedColumnWrittenIsInTheSharedTable(t *testing.T) {
 		"timestamp_orig": "a snapshot written beside `timestamp`, likewise",
 		"book_id":        "retarget moves a row between works; it is not a field edit",
 		"movie_id":       "likewise",
-		"season":         "a number retarget owns — see the panel walk above",
-		"episode":        "a number retarget owns",
 	}
 
 	written := map[string]bool{}

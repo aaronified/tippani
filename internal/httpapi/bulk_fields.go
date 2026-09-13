@@ -1,7 +1,5 @@
 package httpapi
 
-import "slices"
-
 // ONE TABLE FOR EVERY FIELD EITHER BULK EDITOR CAN SET, and the reason it exists
 // is that there are two editors and they drifted.
 //
@@ -133,6 +131,27 @@ var bulkFields = map[string]bulkField{
 	// asks only about TEXT columns.
 	"occasion_date":  {kinds: []string{"utterance"}, live: "occasion_date", staged: "occasion_date", notNull: true},
 	"occasion_circa": {kinds: []string{"utterance"}, live: "occasion_circa", staged: "occasion_circa"},
+
+	// ── staged only, and on the record rather than exempted ──────────────────
+	//
+	// 0025. The import queue bulk-sets both; the Quotes screen does not. They are
+	// here so the asymmetry is a TABLE ENTRY rather than a hole — the plan's own
+	// point was that the two editors drifted because nothing named what each
+	// lacked, and a gap recorded in only one direction is half that fix.
+	//
+	// THE REASON THEY WERE EXEMPTED WAS FALSE. Two guards said "a number retarget
+	// already moves them". `stagedRetarget` moves a staged GROUP to another work;
+	// it never touches either column, and the staged endpoint writes them itself
+	// (import_staged_bulk.go, through nullableCount). What survives of that
+	// argument is the second half and it is about data safety, not ownership: a
+	// Quotes-screen selection can span works and episodes, so setting a season
+	// across it renumbers lines from different episodes alike — where a staged
+	// selection is scoped to the file being reviewed.
+	//
+	// Whether the live editor should offer them under a same-work guard is an open
+	// design question, not an oversight, and it is not decided here.
+	"season":  {kinds: []string{"dialogue"}, staged: "season"},
+	"episode": {kinds: []string{"dialogue"}, staged: "episode"},
 }
 
 // quoteFieldKinds names, per optional field, the kinds that actually have the
@@ -175,10 +194,13 @@ var notNullQuoteCols = func() map[string]bool {
 	return m
 }()
 
-// bulkFieldTakesKind answers the one question both endpoints ask of the table.
-// A field neither side declares is not applicable to anything, which is the safe
-// answer: an unknown field name must be refused, never quietly accepted.
-func bulkFieldTakesKind(name, kind string) bool {
-	f, ok := bulkFields[name]
-	return ok && slices.Contains(f.kinds, kind)
-}
+// THERE IS NO bulkFieldTakesKind, AND THERE WAS ONE. 933bbfa1 added a helper
+// whose comment read "answers the one question both endpoints ask of the table"
+// and which nothing ever called — `go vet` does not flag an unused package-level
+// function, so it sat here for three commits asserting a seam that did not exist.
+//
+// IT WAS ALSO WRONG AS WRITTEN. It checked `kinds` without checking `live`, so it
+// would have answered true for a staged-only field asked about on the live
+// endpoint — exactly the distinction quoteFieldKinds above exists to make.
+// `unsupportedQuoteField` asks the question correctly through that map, and a
+// second spelling of it is the two-lists defect this file's header is about.

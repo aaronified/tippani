@@ -274,9 +274,16 @@ export const BULK_QUOTE_FIELDS = [
   // A game's act and quest, and a show's episode name. All three place a line
   // inside a work rather than identifying it, so a run of lines from one quest or
   // one episode is one answer over many rows — which is the whole case for a bulk
-  // field. `season` and `episode` are absent for the opposite reason: they are
-  // NUMBERS the queue's own retarget already moves, and a panel that set them
-  // across a mixed selection would renumber lines from different episodes alike.
+  // field.
+  //
+  // `season` AND `episode` ARE ABSENT, and the reason written here for a long time
+  // was false: it said "the queue's own retarget already moves them". Retarget
+  // moves a staged GROUP to another work and never touches either column, and the
+  // import queue bulk-sets them itself. What is actually true is about this screen
+  // rather than that one — a Quotes selection can span works and episodes, so
+  // setting a season across it renumbers lines from different episodes alike,
+  // where a staged selection is scoped to the file being reviewed. Whether a
+  // same-work guard would make them safe here is an open question.
   { key: 'act', get label() { return t('common.field.act.label') }, kinds: ['dialogue'] },
   { key: 'quest', get label() { return t('common.field.quest.label') }, kinds: ['dialogue'] },
   { key: 'episode_name', get label() { return t('common.field.episode-name.label') }, kinds: ['dialogue'] },

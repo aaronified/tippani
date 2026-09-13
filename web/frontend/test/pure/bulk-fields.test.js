@@ -141,9 +141,13 @@ describe('what may be set over a selection', () => {
     expect(bulkFieldBody(year, '1851', false)).toEqual({ published_year: 1851 })
   })
 
-  // A number the import queue's own retarget already moves. Setting a season or an
-  // episode across a mixed selection renumbers lines from different episodes alike
-  // — a data change wearing the clothes of a correction.
+  // NOT BECAUSE A RETARGET OWNS THEM, which is what this said and what the Go side
+  // said too. Retarget moves a staged group to another work and never touches
+  // either column; the import queue bulk-sets them itself. The true reason is
+  // about the SELECTION: a Quotes selection can span works and episodes, so
+  // setting a season across it renumbers lines from different episodes alike — a
+  // data change wearing the clothes of a correction — where a staged selection is
+  // scoped to one file being reviewed.
   it('never a season or an episode number', () => {
     for (const key of ['season', 'episode']) {
       expect(keys('dialogue'), `${key} must not be bulk-settable`).not.toContain(key)
