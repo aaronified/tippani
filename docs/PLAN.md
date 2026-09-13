@@ -14662,3 +14662,31 @@ claim, one layer out, and it will recur on the next section that ships: **a card
 shipped and the one bullet that is genuinely still ahead — holding each gesture §2
 adds to the rule as it lands, which is the only part of the row that was ever about
 future work.
+
+**AND FOUR CLAIMS ABOUT THE *OTHER* CONTROLS, TWO OF WHICH WERE FALSE.** The seal's
+own behaviour was checked at every step; the sentences describing its NEIGHBOURS were
+taken from the inventory fan-out and written into five places — both CHANGELOG copies,
+the roadmap bullet, the features card and `flow.jsx`'s own header — before anybody
+opened the files. Two survived a grep and two did not:
+
+| Claim | Line | Verdict |
+|---|---|---|
+| the sheet closes from a button | `ui.jsx` `mobile-sheet-close`, labelled `common.sheet.close.tip` | true |
+| the pickers answer arrow keys | `ColorSwatches`' `onKey`, and `Select`'s listbox | true |
+| **the toggles answer arrow keys** | `Toggle` has no `onKeyDown` at all | **false** |
+| **a scroller wears a button at its fade** | `Scroller` renders the fade attribute and drag-to-scroll, no button | **false** |
+
+Neither false one weakens the row: a toggle's options are each a `<button role="tab">`,
+so the equivalent exists and only the mechanism was misnamed; and scrolling needs no
+app-provided equivalent at all, being the platform's own and keyboard-reachable
+already. But a public page and a changelog said them, which is the harm — and the
+pattern is now four-for-four this change: **every defect found here was in prose about
+code, never in the code.** The rule that catches it is the repo's own and it was
+applied to the change and not to its own description.
+
+THE TOGGLE GAP IS REAL AND IS NOT THIS CHANGE'S. An ARIA `tablist` whose tabs do not
+answer arrows gives a keyboard reader N tab stops where the pattern promises one, and a
+screen reader announces a gesture the widget does not honour. `ColorSwatches` next door
+implements it correctly — one tab stop at the chosen item, arrows moving focus with a
+wrap — so there is a pattern to copy rather than invent. It has its own task; widening
+this commit to reach it would be the thing the plan queue exists to stop.

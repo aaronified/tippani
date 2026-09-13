@@ -811,8 +811,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The seal on a quote can be moved with the arrow keys.** It is a small thing and it
   was the only gesture left in the app you could not do another way. Every other one has
-  an equivalent — the sheet closes from a button, the pickers and toggles answer arrow
-  keys, a card's menu opens from the keyboard — and the seal could only be dragged. That
+  an equivalent — the sheet closes from a button, the colour and font pickers answer
+  arrow keys, each option of a toggle is its own button you can tab to, a card's menu
+  opens from the keyboard — and the seal could only be dragged. That
   mattered more than it sounds: where you put it is **kept with the quote**, so it was not
   a flourish to skip but a stored property of your own card that some readers could not
   set at all. Focus it and press an arrow to move it a step; hold **Shift** for a long one.

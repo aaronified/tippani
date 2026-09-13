@@ -271,8 +271,9 @@ export function FlowQuote({ text, sticker, stickerKey = '', quoteStyle, radius =
   //
   // THE GESTURE THIS EXISTS FOR WAS THE LAST ONE IN THE APP WITH NO EQUIVALENT.
   // An inventory of every gesture tippani ships found seven of eight already
-  // reachable another way — the drawer closes from a button, the toggles and
-  // pickers answer arrow keys, the card menu answers Shift+F10 — and exactly one
+  // reachable another way — the drawer closes from a button, the pickers answer
+  // arrow keys, a toggle's options are each a <button role="tab">, the card menu
+  // answers Shift+F10 — and exactly one
   // that could only be done by dragging: putting the seal where you want it. The
   // position PERSISTS (sticker_x/sticker_y), so this was not a flourish a reader
   // could skip; it was a stored property of their own quote that some readers
