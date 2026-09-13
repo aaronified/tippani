@@ -46,22 +46,31 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   to do with a score; telling a rater what score to reach is how a rater stops being worth
   running.
 
-- **THE DIGEST IS ON A CLOCK, NOT ON A COUNTER, AND THE CLOCK IS 120 MINUTES.** The owner,
-  first: *"run it every 30 mins (other hooks to be similarly relaxed). and when i ask for
-  summaries, it will be run manually."* Then, on 11 September while leaving a long queue
-  running: *"digest bot can work every 120 mins for now."* `session_digest.py` fires on
-  whichever of three thresholds trips first — prompts, minutes, tool calls — so leaving the
-  other two at their defaults means a busy half-hour still produces four digests.
-  `.claude/settings.json`'s `env` block is where that is set:
-  `CLAUDE_KIT_DIGEST_MINUTES=120`, with `_EVERY` and `_TOOLS` pushed out of reach so the
-  clock is the only trigger left.
+- **THE DIGEST IS OFF. THE OWNER TURNED IT OFF, AND THE REASON IS THE INTERESTING
+  PART.** On 13 September: *"Not the session digest. Turn that off. It is picking up old
+  rubbish."* It was — twice it reported work that was finished and PUSHED (#162, #163,
+  #164, #169, #170, #171–175, #131–138) as "not started", because it compares the
+  ledger's old prompts against the CURRENT UNCOMMITTED DIFF. A session that commits as it
+  goes therefore looks, to the digest, like a session that has done nothing. A summary
+  that is wrong about finished work is worse than no summary: it invites re-doing it.
 
-  **AND THE PROJECT FILE IS NOT THE ONLY PLACE IT HAS TO BE SET.** In a headless or remote
-  session the project `env` block does not reach the hook process — `CLAUDE_KIT_DIGEST_TOOLS`
-  read back as unset and the hook used its own default of 60 tool calls, so digests fired on
-  a counter while this paragraph said they fired on a clock. The same three names are in
-  `/root/.claude/settings.json` for that reason. A setting that is true in one file and
-  inert in the process is the shape of thing this document exists to stop.
+  `session_digest.py` fires on whichever of three thresholds trips first — prompts,
+  minutes, tool calls — so switching it off means pushing **all three** out of reach, not
+  one. They are `CLAUDE_KIT_DIGEST_MINUTES`, `_EVERY` and `_TOOLS`, all at `100000`.
+
+  **AND THE PROJECT FILE IS NOT THE ONLY PLACE THEY HAVE TO BE SET.** In a headless or
+  remote session the project `env` block does not reach the hook process — the names read
+  back as unset and the hook uses its own defaults (60 tool calls), so a digest fires while
+  the project file says it cannot. The same three names are in `/root/.claude/settings.json`
+  for that reason, and that file is NOT in this repo, so a fresh machine needs them written
+  there by hand. A setting that is true in one file and inert in the process is the shape of
+  thing this document exists to stop.
+
+  History, kept because it is what the settings will look like if the digest is ever wanted
+  back: it ran on a clock rather than a counter, first at 30 minutes and then at 120
+  (*"digest bot can work every 120 mins for now"*), with `_EVERY` and `_TOOLS` already
+  pushed out of reach so the clock was the only trigger left. Summaries on request were
+  always the owner's preference: *"when i ask for summaries, it will be run manually."*
 
   `notify.py` needs nothing — it writes a log and a desktop toast and says nothing in the
   conversation, and its per-tool toast is off by default.
