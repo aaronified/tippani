@@ -34,6 +34,7 @@ import {
   noMotionScript,
   seedRandomScript,
 } from '../../../../../scripts/screenshots/capture.mjs'
+import { screenVerbs } from './screen.mjs'
 import { startServer } from './server.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -132,11 +133,17 @@ export function openApp({ viewport = DESKTOP, theme = 'light' } = {}) {
   })
 
   return {
-    // WHAT A JOURNEY MAY KNOW: the address it opens, and the page it is looking
-    // at. Not the server's data directory, not an api() — see the header.
+    // WHAT A JOURNEY MAY KNOW: the address it opens, the words on the screen, and
+    // the six verbs in screen.mjs. Not the server's data directory, not an api().
+    //
+    // `page` is here for the handful of things the vocabulary does not cover yet —
+    // a keyboard shortcut, a drag. It is an escape hatch and every use of it is a
+    // small debt: whatever it is doing either belongs in the vocabulary or is the
+    // journey reaching past what a reader can do.
     get page() { return w.page },
     get baseUrl() { return w.server.baseUrl },
     goto: (path) => w.page.goto(w.server.baseUrl + path, { waitUntil: 'networkidle0' }),
     pageErrors: () => w.pageErrors,
+    ...screenVerbs(() => w.page),
   }
 }
