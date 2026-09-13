@@ -85,8 +85,9 @@
         "  And the last interaction that could only be done by dragging — positioning the",
         "  seal on a quote, which is <em>kept</em> with the quote — now answers the arrow",
         "  keys. Every other gesture already had a way in: the drawer closes from a button,",
-        "  the colour and font pickers answer arrow keys, each option of a toggle is its own",
-        "  button, and the card menu answers the key every desktop has for it.",
+        "  the colour and font pickers answer arrow keys, a toggle is one tab stop whose",
+        "  options the arrow keys move between, and the card menu answers the key every",
+        "  desktop has for it.",
         "</p>"
       ],
       "id": "access-reading-comfort",

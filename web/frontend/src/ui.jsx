@@ -4382,6 +4382,37 @@ function nearestRow(opts, center) {
   return best;
 }
 
+// rovingFocusKey — ARROWS MOVE FOCUS ALONG A GROUP OF BUTTONS, in one place.
+//
+// TWO CONTROLS DO THIS AND THEY USED TO DO IT TWICE. `ColorSwatches` has rowed its
+// dots since it shipped; `Toggle` gained the same behaviour when it became a
+// proper tablist, and the commit that added it pasted a second copy of the verb
+// under a comment CITING the repo's "similar things behave similarly" rule. A
+// rater put both bodies side by side. Quoting the rule is not following it.
+//
+// WHAT IT OWNS: the four arrow keys on both axes, the wrap at either end,
+// `preventDefault` on a key it handled and on nothing else, and where a press
+// lands when focus is outside the group — `home`, which each caller sets to its
+// own chosen item (or the first, so the group can never fall out of tab order).
+//
+// WHAT IT DOES NOT OWN: activation. Both callers are MANUAL — arrows move focus,
+// the button's own onClick chooses — because a Toggle's options each write a
+// preference, so selecting as focus passed would save every setting arrowed
+// through. A caller wanting automatic activation asks at its own call site rather
+// than teaching this function a second mode.
+export function rovingFocusKey(e, ref, home) {
+  const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
+    : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1
+      : 0
+  if (!step) return
+  e.preventDefault()
+  const btns = ref.current?.querySelectorAll('button')
+  if (!btns?.length) return
+  const from = [...btns].indexOf(document.activeElement)
+  const next = (((from < 0 ? home : from) + step) % btns.length + btns.length) % btns.length
+  btns[next].focus()
+}
+
 export function Toggle({
   value,
   onChange,
@@ -4529,29 +4560,21 @@ export function Toggle({
   // every option arrowed THROUGH, and these toggles save: arrowing from the first
   // setting to the fourth would write three settings the reader never chose.
   const optIdx = Math.max(0, options.findIndex(([k]) => k === value));
-  const onKey = (e) => {
-    const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1
-      : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1
-        : 0;
-    // NO `disabled` CHECK, AND IT TOOK THREE GOES TO BE SURE. Every option carries
-    // `disabled={disabled}`, and a disabled <button> refuses focus in a browser —
-    // so no keydown can originate inside a disabled tablist and a check here would
-    // never run. jsdom muddies that (it honours `.focus()` on a disabled element),
-    // which briefly looked like a reachable path worth guarding; but userEvent
-    // will not DISPATCH to a disabled element either, so no test could be written
-    // that fails without the check. A guard nothing can reach, carrying a comment
-    // that says it protects something, is what this repo removed in #194.
-    //
-    // THE `disabled` PROP ON THE BUTTONS IS THE PROTECTION, and the case below
-    // asserts that rather than asserting this line.
-    if (!step) return;
-    e.preventDefault();
-    const btns = ref.current?.querySelectorAll("button");
-    if (!btns?.length) return;
-    const from = [...btns].indexOf(document.activeElement);
-    const next = (((from < 0 ? optIdx : from) + step) % btns.length + btns.length) % btns.length;
-    btns[next].focus();
-  };
+  // ONE VERB, SHARED WITH ColorSwatches — see `rovingFocusKey`. It used to be a
+  // second copy of the same twelve lines, added by a commit whose own comment
+  // cited the repo's "similar things behave similarly" rule. Quoting the rule is
+  // not following it, and a rater said so with both bodies side by side.
+  //
+  // NO `disabled` CHECK, AND IT TOOK THREE GOES TO BE SURE. Every option carries
+  // `disabled={disabled}`, and a disabled <button> refuses focus in a browser —
+  // so no keydown can originate inside a disabled tablist and a check would never
+  // run. jsdom muddies that (it honours `.focus()` on a disabled element), which
+  // briefly looked like a reachable path worth guarding; but userEvent will not
+  // DISPATCH to a disabled element either, so no test could be written that fails
+  // without the check. A guard nothing can reach, carrying a comment that says it
+  // protects something, is what this repo removed in #194. The `disabled` prop on
+  // the buttons is the protection.
+  const onKey = (e) => rovingFocusKey(e, ref, optIdx);
   const control = (
     <div
       ref={ref}
@@ -9020,21 +9043,8 @@ export function ColorSwatches({ value, onChange, ariaLabel, showAll = false, col
   // The tab stop is the picked dot, or the first when nothing is picked (a
   // filter sitting at "all") — the group must never fall out of tab order.
   const focusIndex = Math.max(0, offered.indexOf(value));
-  const onKey = (e) => {
-    const step =
-      e.key === "ArrowRight" || e.key === "ArrowDown"
-        ? 1
-        : e.key === "ArrowLeft" || e.key === "ArrowUp"
-          ? -1
-          : 0;
-    if (!step) return;
-    e.preventDefault();
-    const btns = ref.current?.querySelectorAll("button");
-    if (!btns?.length) return;
-    const from = [...btns].indexOf(document.activeElement);
-    const next = (((from < 0 ? focusIndex : from) + step) % btns.length + btns.length) % btns.length;
-    btns[next].focus();
-  };
+  // The same verb Toggle uses — see `rovingFocusKey`, which this body became.
+  const onKey = (e) => rovingFocusKey(e, ref, focusIndex);
   const dots = (
     <span
       ref={ref}

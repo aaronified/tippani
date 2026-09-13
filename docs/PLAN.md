@@ -14714,11 +14714,21 @@ sitting in the code the whole time: `SECTIONS` in `routes.js` is the list, and
 became `shell.dock.sections.label`, with `boardRows`/`boardsKey`/`IconBoards`
 renamed to match rather than left as a name outliving its word.
 
-**CATEGORY NEEDED NOTHING.** Every one of its thirty-six strings was already
+**CATEGORY NEEDED NOTHING.** Every string carrying the word was already
 about colour — `vocab.category.*` names the six slots, `settings.colours.*`
 renames them, `stats.colours.*` counts them. The ruling confirmed the existing
 use rather than correcting it, and the guard now pins that so the word cannot
 spread later.
+
+**TWO COUNTS CAME OUT OF THIS SECTION AND THE CHANGELOG, AND THE REASON IS THE
+REPO'S OWN RULE.** The first draft said "thirty-six" category strings here and
+"eighteen fields" in the changelog. A rater could reproduce NEITHER — it measured
+the category set at 6, 24, 15 and 25 under four defensible definitions, and the
+bulk field list at 24, 11, 13, 26 and 34 under five. Both numbers were real counts
+of something; neither said WHICH something, so neither could be checked, which is
+the whole of what "counting goes stale; naming does not" means. They are replaced
+by what the set IS. A number in prose needs the definition beside it or it is
+decoration that looks like evidence.
 
 **THE GUARD, AND THE FALSE POSITIVE THAT IMPROVED IT.**
 `board-means-one-thing.test.js` reads both locale files, because a vocabulary

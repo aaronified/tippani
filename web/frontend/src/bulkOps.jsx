@@ -256,7 +256,11 @@ export const BULK_WORK_FIELDS = [
 // `kinds` names the record kinds that HAVE the column; absent means all three.
 export const BULK_QUOTE_FIELDS = [
   { key: 'note', get label() { return t('common.field.note.label') }, long: true },
-  { key: 'chapter_no', get label() { return t('common.field.chapter-no.label') }, kinds: ['annotation'], number: true },
+  // `wire: 'text'` for the reason season and episode carry it, and this one has
+  // carried the mismatch far longer: `ChapterNo *string` has always been a string
+  // and this has always sent a number, so the bulk chapter-number control has been
+  // answering 400 and doing nothing. Found only when the show pair copied its shape.
+  { key: 'chapter_no', get label() { return t('common.field.chapter-no.label') }, kinds: ['annotation'], number: true, wire: 'text' },
   { key: 'chapter', get label() { return t('common.field.chapter-name.label') }, kinds: ['annotation'] },
   { key: 'location', get label() { return t('common.field.location.label') }, kinds: ['annotation'], prose: true },
   { key: 'character', get label() { return t('common.field.character.label') }, kinds: ['dialogue'] },
@@ -292,8 +296,8 @@ export const BULK_QUOTE_FIELDS = [
   // `number: true` because they are INTEGER columns (0025) — the server writes
   // them through nullableCount rather than the text loop, and refuses anything
   // unparseable rather than clearing forty rows and reporting success.
-  { key: 'season', get label() { return t('common.field.season.label') }, kinds: ['dialogue'], number: true },
-  { key: 'episode', get label() { return t('common.field.episode.label') }, kinds: ['dialogue'], number: true },
+  { key: 'season', get label() { return t('common.field.season.label') }, kinds: ['dialogue'], number: true, wire: 'text' },
+  { key: 'episode', get label() { return t('common.field.episode.label') }, kinds: ['dialogue'], number: true, wire: 'text' },
   { key: 'act', get label() { return t('common.field.act.label') }, kinds: ['dialogue'] },
   { key: 'quest', get label() { return t('common.field.quest.label') }, kinds: ['dialogue'] },
   { key: 'episode_name', get label() { return t('common.field.episode-name.label') }, kinds: ['dialogue'] },
@@ -380,7 +384,26 @@ export const BULK_QUOTE_FIELDS = [
 // selection looks right, sorts right, and never matches the one typed next time.
 export function bulkFieldBody(spec, value, circa) {
   if (!spec) return {}
-  const body = { [spec.key]: spec.number ? Number(value) || 0 : String(value).trim() }
+  // `number` SAYS THE INPUT IS NUMERIC. `wire: 'text'` SAYS THE SERVER TAKES A
+  // STRING ANYWAY, and the two are different questions — which is the whole of the
+  // bug this parameter exists to have stopped.
+  //
+  // WHAT WENT WRONG. season, episode and chapter_no are numeric columns whose
+  // request fields are `*string`, because absent / "" / "0" are THREE states and a
+  // *int holds two. This function saw `number: true` and sent a JSON number, so
+  // `decodeBody` answered 400 on every press and all three bulk controls did
+  // nothing — chapter_no since long before the show pair copied its shape.
+  //
+  // AND NOTHING NOTICED, which is the part worth writing down: the frontend test
+  // asserted the number shape, the Go test asserted the string shape, both were
+  // right about their own half, and no test crossed the boundary. One now does —
+  // bulk-wire-shape.test.js reads the Go struct and fails on a mismatch.
+  //
+  // `Number('') || 0` IS THE SECOND HALF. A blank sent 0, so "blank clears it"
+  // would have set season ZERO even once the type was right. A text wire carries
+  // the empty string the server reads as a clear.
+  const asText = !spec.number || spec.wire === 'text'
+  const body = { [spec.key]: asText ? String(value).trim() : Number(value) || 0 }
   // Sent whether or not the tick was touched — see `circaKey` above for why the
   // pair cannot travel separately.
   if (spec.circaKey) body[spec.circaKey] = !!circa

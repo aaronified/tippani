@@ -63,6 +63,21 @@ const factValue = (key) => {
   return null
 }
 
+// EVERY DATE THE SCHEDULE READS IS RELATIVE TO NOW, AND THREE OF THEM WERE NOT.
+//
+// `reviewStatus` compares ELAPSED DAYS against the floored half-life, so a
+// `last_reviewed_at` written as a calendar date is a fixture whose meaning
+// changes while the file sits still. One went off: a card pinned to 2026-09-06
+// with a 7d floor read "7d" every day until 2026-09-13, when elapsed reached 7
+// and the label became "due now" with no span in it at all. Green for a week,
+// then failing on a commit that touched nothing near it. The other two were the
+// same shape with 18 days left to run.
+//
+// `created_at` is NOT this hazard and is left alone: the grace window it feeds
+// is `elapsed < NEW_ITEM_DAYS`, and a fixture already outside it can only get
+// further outside, because time moves one way.
+const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 19).replace('T', ' ')
+
 // A card the reader has been quizzed on three times, with one lapse and one
 // practice run that moved nothing.
 const CARD = {
@@ -73,23 +88,23 @@ const CARD = {
   review_count: 3,
   lapse_count: 1,
   last_result: 'got',
-  last_reviewed_at: '2026-09-01 09:00:00',
+  last_reviewed_at: daysAgo(12),
   created_at: '2026-01-01 09:00:00',
   excluded: false,
   due: false,
   due_in_days: 21,
   logged: 3,
   history: [
-    { result: 'got', stability: 30, elapsed_days: 14, answered_at: '2026-09-01 09:00:00', mode: 'daily', counted: true },
-    { result: 'skip', stability: 7, elapsed_days: 4, answered_at: '2026-08-18 09:00:00', mode: 'practice', counted: false },
-    { result: 'forgot', stability: 7, elapsed_days: null, answered_at: '2026-08-14 09:00:00', mode: 'daily', counted: true },
+    { result: 'got', stability: 30, elapsed_days: 14, answered_at: daysAgo(12), mode: 'daily', counted: true },
+    { result: 'skip', stability: 7, elapsed_days: 4, answered_at: daysAgo(26), mode: 'practice', counted: false },
+    { result: 'forgot', stability: 7, elapsed_days: null, answered_at: daysAgo(30), mode: 'daily', counted: true },
   ],
 }
 
 // A highlight, a film line and a standalone quote, in the shape the list and
 // search payloads actually send: the parent id is always there, and the third
 // kind has no parent at all.
-const HIGHLIGHT = { id: 7, book_id: 3, quote: 'the sleeper must awaken', created_at: '2026-01-01 09:00:00', reviewed: true, stability: 30, last_reviewed_at: '2026-09-01 09:00:00', last_result: 'got' }
+const HIGHLIGHT = { id: 7, book_id: 3, quote: 'the sleeper must awaken', created_at: '2026-01-01 09:00:00', reviewed: true, stability: 30, last_reviewed_at: daysAgo(12), last_result: 'got' }
 const FILM_LINE = { id: 11, movie_id: 4, quote: 'a guy told me one time', created_at: '2026-01-01 09:00:00' }
 const SPEECH = { id: 19, quote: 'give me blood', created_at: '2026-01-01 09:00:00' }
 
@@ -195,13 +210,12 @@ describe('it asks about the card it is drawn on', () => {
   // already forgotten it, which is how the panel printed NaN. The states below
   // are the four the app knows, each reached by the input that produces it.
   it('answers with a usable half-life whichever state it reaches', () => {
-    const days = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 19).replace('T', ' ')
     const cases = {
-      'the grace week': { created_at: days(2), reviewed: true, stability: 12, last_reviewed_at: days(1), last_result: 'got' },
-      'never asked': { created_at: days(400), reviewed: false, stability: 0, last_reviewed_at: '', last_result: '' },
-      holding: { created_at: days(400), reviewed: true, stability: 40, last_reviewed_at: days(1), last_result: 'got' },
-      lapsed: { created_at: days(400), reviewed: true, stability: 8, last_reviewed_at: days(2), last_result: 'forgot' },
-      'below the floor': { created_at: days(400), reviewed: true, stability: 1, last_reviewed_at: days(1), last_result: 'got' },
+      'the grace week': { created_at: daysAgo(2), reviewed: true, stability: 12, last_reviewed_at: daysAgo(1), last_result: 'got' },
+      'never asked': { created_at: daysAgo(400), reviewed: false, stability: 0, last_reviewed_at: '', last_result: '' },
+      holding: { created_at: daysAgo(400), reviewed: true, stability: 40, last_reviewed_at: daysAgo(1), last_result: 'got' },
+      lapsed: { created_at: daysAgo(400), reviewed: true, stability: 8, last_reviewed_at: daysAgo(2), last_result: 'forgot' },
+      'below the floor': { created_at: daysAgo(400), reviewed: true, stability: 1, last_reviewed_at: daysAgo(1), last_result: 'got' },
     }
     for (const [what, item] of Object.entries(cases)) {
       const st = reviewStatus(item)
@@ -326,7 +340,7 @@ describe('what the panel says', () => {
   // printed the raw number would promise a review the quiz will not give — and
   // the tooltip a millimetre above it would say otherwise.
   it('agrees with the mark it was opened from about the half-life', async () => {
-    const brittle = { ...HIGHLIGHT, stability: 3, last_reviewed_at: '2026-09-06 09:00:00' }
+    const brittle = { ...HIGHLIGHT, stability: 3, last_reviewed_at: daysAgo(1) }
     answer = { ...CARD, stability: 3, history: CARD.history.slice(0, 1) }
     render(<ReviewDot item={brittle} />)
     const tip = mark().getAttribute('aria-label')
@@ -388,9 +402,8 @@ describe('what the panel says', () => {
   // enters the branch: the test asserting the mark and the panel agree about this
   // number could not reach the state where they disagree. This one starts there.
   it('names a real half-life for a quote that is inside its first week and already answered', async () => {
-    const days = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 19).replace('T', ' ')
-    const newborn = { id: 7, book_id: 3, quote: 'the sleeper must awaken', created_at: days(4), reviewed: true, stability: 12, last_reviewed_at: days(1), last_result: 'got' }
-    answer = { ...CARD, created_at: days(4), stability: 12, last_reviewed_at: days(1), due_in_days: 11, history: CARD.history.slice(0, 1) }
+    const newborn = { id: 7, book_id: 3, quote: 'the sleeper must awaken', created_at: daysAgo(4), reviewed: true, stability: 12, last_reviewed_at: daysAgo(1), last_result: 'got' }
+    answer = { ...CARD, created_at: daysAgo(4), stability: 12, last_reviewed_at: daysAgo(1), due_in_days: 11, history: CARD.history.slice(0, 1) }
     render(<ReviewDot item={newborn} />)
     press()
     await waitFor(() => expect(document.querySelector('.recall-facts')).toBeTruthy())

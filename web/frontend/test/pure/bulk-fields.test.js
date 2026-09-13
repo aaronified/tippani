@@ -152,19 +152,24 @@ describe('what may be set over a selection', () => {
   // `episode_name`, live since 0047: one press could rename the episode across
   // that same spanning selection. Refusing the number while accepting the name
   // was one field's exemption dressed as a safety rule.
-  it('offers the show pair on dialogues, as numbers, and nowhere else', () => {
+  it('offers the show pair on dialogues, as a numeric input, and nowhere else', () => {
     for (const key of ['season', 'episode']) {
       expect(keys('dialogue'), `${key} is not offered on a dialogue`).toContain(key)
       // A show pair on a book or a standalone quote would be a control whose every
       // press is a 400 from unsupportedQuoteField.
       expect(keys('annotation'), `${key} is offered on a book highlight`).not.toContain(key)
       expect(keys('quote'), `${key} is offered on a standalone quote`).not.toContain(key)
-      // `number: true` is what makes the panel send 2 rather than "2" — and the
-      // server's own guard refuses anything unparseable rather than clearing the
-      // column on every row of the selection.
+      // `number: true` IS THE INPUT, `wire: 'text'` IS THE WIRE, and this test
+      // said the first settled the second for a day. It does not: the handler
+      // declares `Season *string`, so a JSON number is a 400 from `decodeBody`
+      // before any guard of its own runs, and the whole feature was dead on
+      // arrival. The cross-boundary check is `bulk-wire-shape.test.js`, which is
+      // what was missing — this file asserts the client's half, `bulk_fields_test.go`
+      // asserts the server's, and neither could see the two disagreeing.
       const f = BULK_QUOTE_FIELDS.find((x) => x.key === key)
-      expect(f.number, `${key} would be sent as text`).toBe(true)
-      expect(bulkFieldBody(f, '2', false)).toEqual({ [key]: 2 })
+      expect(f.number, `${key} would draw a text box`).toBe(true)
+      expect(f.wire, `${key} would be sent as a JSON number the server refuses`).toBe('text')
+      expect(bulkFieldBody(f, ' 2 ', false)).toEqual({ [key]: '2' })
     }
   })
 

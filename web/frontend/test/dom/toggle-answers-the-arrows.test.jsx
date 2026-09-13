@@ -19,11 +19,14 @@
 // `ColorSwatches`. Selecting as focus passes would fire `onChange` for every
 // option arrowed THROUGH, and these toggles save — so arrowing from the first
 // setting to the fourth would write three settings the reader never chose.
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Toggle } from '../../src/ui.jsx'
+import { SRC } from '../src-files.js'
 
 const OPTIONS = [['a', 'Alpha'], ['b', 'Beta'], ['c', 'Gamma'], ['d', 'Delta']]
 
@@ -124,6 +127,21 @@ describe('the toggle a keyboard meets', () => {
     await userEvent.setup().keyboard('{ArrowRight}')
     expect(document.activeElement, 'a disabled toggle walked focus along the row').not.toBe(tabs[1])
     expect(onChange, 'a disabled toggle changed').not.toHaveBeenCalled()
+  })
+
+  it('and shares ONE roving verb with the colour swatches, not a second copy', () => {
+    // THE RULE THIS COMMIT'S FIRST DRAFT CITED AND BROKE. `ColorSwatches` had rowed
+    // its dots for releases; the toggle's arrows arrived as a paste of the same
+    // twelve lines, under a comment quoting "similar things behave similarly". A
+    // rater put the two bodies side by side. They are one function now, and this
+    // fails if a third copy appears — the arithmetic lives in exactly one place.
+    const src = readFileSync(join(SRC, 'ui.jsx'), 'utf8')
+    expect((src.match(/btns\[next\]\.focus\(\)/g) || []).length,
+      'the roving verb was written out by hand again instead of calling rovingFocusKey').toBe(1)
+    // `=>` so the DEFINITION does not count itself as a caller — the first draft
+    // of this line matched three and the third was `export function rovingFocusKey`.
+    expect((src.match(/=> rovingFocusKey\(e, ref,/g) || []).length,
+      'a caller stopped using the shared verb').toBe(2)
   })
 
   it('keeps the group named, so the arrows are announced as belonging to it', () => {

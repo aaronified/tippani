@@ -87,28 +87,41 @@ const CALL = /\.focus\b(?!-)/g
 // keeps this test working; a second helper does not, because the count catches it.
 const SHARED = /export function (\w+)\s*\([^)]*\)\s*\{\s*[^;{}]*\.focus\s*\??\.?\s*\(\s*\{[^}]*preventScroll[^}]*\}\s*\)\s*;?\s*\}/
 
-// EVERY FOCUS THAT IS A DESTINATION, counted. Eleven: two search boxes, a tag
-// card's field, a jump-to-field on the identity screen, the cloze blank, the tour
-// card, a chip row's own input, an inline editor, and three keyboard-roving calls
-// inside menus and button groups. Every one of them SHOULD scroll its target into
-// view — that is what a destination is.
+// EVERY FOCUS THAT IS A DESTINATION, NAMED. A bare number goes stale silently;
+// a list does not, because the next reader can check it. Each was read at its
+// own line:
 //
-// IT WAS TWELVE FOR ONE REVISION, and the twelfth was wrong. The action menu's
-// Tab-out was called a destination on the reasoning that Tab is a reader
-// navigating, and keyboard focus landing off screen is worse than a scroll. A rater
-// pointed at the line above it: that handler calls `preventDefault()`, so the Tab
-// navigates nowhere and focus lands on the same anchor Escape puts it on. Two
-// spellings of one act. The distinction was invented to explain a number, which is
-// the wrong direction to reason in.
+//   SearchPage.jsx  the search box, twice — after picking a facet value, and
+//                   after naming a field. Two answers, so two calls.
+//   TagsPage.jsx    the new tag card's field, once the card is scrolled to
+//   identity.jsx    `focusField`, the identity screen's jump-to-a-field
+//   review.jsx      the cloze blank
+//   tour.jsx        the tour card
+//   ui.jsx          `rovingFocusKey`, an arrow moving between the buttons of a
+//                   group; `TokenInput`'s input when its box is clicked; the
+//                   inline editor when it opens; and the action menu twice, its
+//                   first item on open and its arrows thereafter
 //
-// AND IT IS TWELVE AGAIN, for a reason that passes the test the eleventh failed.
-// `Toggle` became a proper ARIA tablist: one tab stop, arrows roving between the
-// options. Its `btns[next].focus()` is the FOURTH keyboard-roving call, the same
-// act as the three already counted here — a reader pressing an arrow to reach a
-// specific option, where focus landing off screen in a strip that scrolls is the
-// failure and a scroll is the fix. It is not a restore: nothing is being put back
-// where it was, and there is no anchor that may have moved.
-const DESTINATIONS = 12
+// Every one of them SHOULD scroll its target into view — that is what a
+// destination is.
+//
+// THE NUMBER HAS BEEN TWELVE TWICE AND WAS WRONG BOTH TIMES, in opposite ways,
+// which is the argument for the list above.
+//
+// It was twelve for the action menu's Tab-out, called a destination on the
+// reasoning that Tab is a reader navigating. A rater pointed at the line above
+// it: that handler calls `preventDefault()`, so the Tab navigates nowhere and
+// focus lands on the same anchor Escape puts it on. Two spellings of one act.
+// The distinction was invented to explain a number, which is the wrong
+// direction to reason in.
+//
+// It was twelve again when `Toggle` became a proper ARIA tablist and got a
+// `btns[next].focus()` of its own. That call was a real destination — but the
+// COPY was not: `ColorSwatches` already had the identical line, and the repo's
+// rule is that one verb lives in one function. Extracting `rovingFocusKey` for
+// both put this back at eleven, so the count FELL on a commit where a control
+// gained a keyboard. A number cannot say that and the list can.
+const DESTINATIONS = 11
 
 function counts() {
   let calls = 0

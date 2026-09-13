@@ -741,6 +741,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Setting a chapter number across a selection did nothing at all.** The bulk editor on
+  a book's board has offered **Chapter #** since chapters gained a number, and every press
+  of it was refused by the server before it reached a single row — the box sent a number
+  where the server was reading a word, so the whole request was thrown out and nothing
+  changed. No error said so; the panel closed and the highlights were as they were. It
+  works now, and a blank really does clear the field rather than setting chapter zero.
+
 - **A letter you shared did not name who it was to.** Three things you can record about a
   quote — a letter's **recipient**, an essay's or a poem's **title**, and the **page** a
   quote came from — reached no part of a share: not the picture, not the text. A letter
@@ -818,7 +825,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fourth no longer saves the two you passed through.
 
 - **Season and episode can be set across a selection.** The bulk editor on the Quotes
-  screen took eighteen fields and not these two — including, oddly, the episode's
+  screen took most of what a line carries and not these two — including, oddly, the episode's
   **name**, so one press could already rename an episode across forty lines while its
   number stayed untouchable. Both are there now. A blank clears them, **0** is season
   zero rather than a clear (where a series keeps its specials), and anything that is not
@@ -838,8 +845,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The seal on a quote can be moved with the arrow keys.** It is a small thing and it
   was the only gesture left in the app you could not do another way. Every other one has
   an equivalent — the sheet closes from a button, the colour and font pickers answer
-  arrow keys, each option of a toggle is its own button you can tab to, a card's menu
-  opens from the keyboard — and the seal could only be dragged. That
+  arrow keys, a toggle is one tab stop whose options the arrow keys move between, a
+  card's menu opens from the keyboard — and the seal could only be dragged. That
   mattered more than it sounds: where you put it is **kept with the quote**, so it was not
   a flourish to skip but a stored property of your own card that some readers could not
   set at all. Focus it and press an arrow to move it a step; hold **Shift** for a long one.

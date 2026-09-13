@@ -50,40 +50,109 @@ function entries(txt) {
 }
 
 const EN_ENTRIES = entries(EN)
+const BN_ENTRIES = entries(BN)
 
 // "board" as a WORD, not as a piece of one — `clipboard`, `Dashboard` and
 // `keyboard` all contain it and none of them mean this.
 const BOARD_WORD = /(?<![a-z])boards?(?![a-z])/i
+
+// THE OFFENCE IN ONE FUNCTION, so the floor below runs the same code the ceiling
+// does. Two copies of a predicate is how a floor comes to prove a pattern that
+// nothing actually uses.
+//
+// THREE SHAPES, AND THEY ARE DIRECTIONAL ON PURPOSE. A work noun merely NEAR the
+// word "board" is not evidence, and today's en.txt proves it twice: the widened
+// scan that treats proximity as evidence flags "shows the whole board"
+// (`quotes.help.languages.more`, where `shows` is a verb) and "shelf — a board"
+// (`quotes.help.delete-board.more`, which calls a board a shelf — the ruling's
+// own analogy, not a breach of it). Both are correct strings. That is the same
+// lesson as the cover above, and it is why (c) asks for a preposition rather
+// than for nearness.
+function callsAScreenABoard(value) {
+  if (!BOARD_WORD.test(value)) return false
+  // (a) the screen itself, named as a board.
+  return /\b(Library|Catalogue) board\b/i.test(value)
+    // (b) a board said to HOLD works.
+    || /\bboard\b[^.]{0,40}\b(book|film|show|title|shelf)s?\b/i.test(value)
+    // (c) the same claim the other way round — a work said to SIT on one. This
+    // used to be `on its board` and nothing else, so every other spelling of
+    // one idea walked past it.
+    || /\b(book|film|show|title)s?\b[^.]{0,25}\b(on|in|of|from|to)\s+(its|their|a|an|the)\s+board\b/i.test(value)
+}
+
+// THE BENGALI HALF, AND IT IS A DIFFERENT SCAN RATHER THAN A TRANSLATED ONE.
+// This file read en.txt only for a revision, which left the ruling unguarded in
+// half the app: a Bengali reader meets bn.txt and nothing looked at it.
+//
+// The English shapes do not transfer, because Bengali marks the relation with a
+// genitive ending glued to the noun — গ্রন্থাগারের বোর্ড, "the Library's board" —
+// rather than with word order and a preposition. Nor does proximity: the only two
+// strings in bn.txt holding বোর্ড beside a work noun are both CORRECT.
+// `quotes.help.boards.what` draws the ruling's own analogy (the Library is a list
+// of books as this screen is a list of boards) and `common.help.selecting.more`
+// is two clauses about two different selections. A scan wrong on every string it
+// matches is a scan worth nothing, so this asks for the genitive.
+//
+// কীবোর্ড is "keyboard" and ক্লিপবোর্ড is "clipboard". Both END in বোর্ড and
+// neither is one — Bengali writes no word boundary a regex could use here, so
+// both are excluded by name instead.
+const BN_BOARD = '(?<!কী)(?<!ক্লিপ)বোর্ড'
+// গ্রন্থাগার is the Library, ক্যাটালগ the Catalogue.
+const BN_SCREEN = new RegExp(`(গ্রন্থাগার|ক্যাটালগ)(ের|র)?\\s*${BN_BOARD}`)
+// বই book, সিনেমা and চলচ্চিত্র film, শো show.
+const BN_WORK = new RegExp(`(বই|সিনেমা|শো|চলচ্চিত্র)(য়ের|ের|র)?\\s*${BN_BOARD}`)
+const callsAScreenABoardBn = (value) => BN_SCREEN.test(value) || BN_WORK.test(value)
 
 describe('the words the ruling settled', () => {
   it('never calls the Library or the Catalogue a board', () => {
     // The screens have their own names — `nav.tab.library.label` is "Library"
     // and `nav.tab.movies.label` is "Catalogue" — so there was never a reason
     // to borrow this one.
-    const offenders = EN_ENTRIES.filter(({ value }) => {
-      if (!BOARD_WORD.test(value)) return false
-      return /\b(Library|Catalogue) board\b/i.test(value)
-        || /\bboard\b[^.]{0,40}\b(book|film|show|title|shelf)s?\b/i.test(value)
-        || /\b(book|film|show|title)s?\b[^.]{0,40}\bon its board\b/i.test(value)
-    }).map(({ key }) => key)
-    expect(offenders, 'a string calls the Library or the Catalogue a board').toEqual([])
+    const offenders = EN_ENTRIES.filter(({ value }) => callsAScreenABoard(value)).map(({ key }) => key)
+    expect(offenders, 'an English string calls the Library or the Catalogue a board').toEqual([])
   })
 
-  it('and this scan can fail, so an empty result means something', () => {
+  it('and the Bengali says the same, in its own grammar', () => {
+    const offenders = BN_ENTRIES.filter(({ value }) => callsAScreenABoardBn(value)).map(({ key }) => key)
+    expect(offenders, 'a Bengali string calls the Library or the Catalogue a board').toEqual([])
+  })
+
+  it('and both scans can fail, so an empty result means something', () => {
     // THE FLOOR. Every assertion above compares against [], which a scan that
-    // matches nothing also satisfies. These are the exact shapes that were in
-    // en.txt before the ruling was applied.
-    const planted = [
-      { key: 'planted.one', value: 'never on the Library board or on a quote' },
-      { key: 'planted.two', value: 'Right-click a book, film or show on its board — long-press on a phone' },
+    // matches nothing also satisfies. The first two English rows are the exact
+    // shapes that were in en.txt before the ruling was applied; the rest are the
+    // spellings a rater got past the narrower version of this file.
+    const en = [
+      'never on the Library board or on a quote',
+      'Right-click a book, film or show on its board — long-press on a phone',
+      'Every book on the board can be opened from here',
+      'each film sits on a board of its own',
+      'Open any title on the board',
     ]
-    for (const row of planted) {
-      const hit = BOARD_WORD.test(row.value) && (
-        /\b(Library|Catalogue) board\b/i.test(row.value)
-        || /\bboard\b[^.]{0,40}\b(book|film|show|title|shelf)s?\b/i.test(row.value)
-        || /\b(book|film|show|title)s?\b[^.]{0,40}\bon its board\b/i.test(row.value)
-      )
-      expect(hit, `the scan cannot see "${row.value.slice(0, 40)}…"`).toBe(true)
+    for (const value of en) {
+      expect(callsAScreenABoard(value), `the English scan cannot see "${value.slice(0, 44)}…"`).toBe(true)
+    }
+
+    const bn = [
+      'ক্যাটালগ বোর্ডে একটা সিনেমা খুঁজুন',
+      'গ্রন্থাগারের বোর্ড থেকে বইটা সরান',
+      'বইয়ের বোর্ডে ডান-ক্লিক করুন',
+    ]
+    for (const value of bn) {
+      expect(callsAScreenABoardBn(value), `the Bengali scan cannot see "${value.slice(0, 24)}…"`).toBe(true)
+    }
+
+    // AND THE STRINGS IT MUST NOT FIRE ON, which is the other half of a floor
+    // and the half this file has already got wrong once. A guard that reports a
+    // correct sentence teaches the next reader to stop reading its output.
+    for (const value of [
+      'Group by Language then breaks the board into a section per language',
+      'Nothing is deleted with the shelf — a board is where you filed something',
+    ]) {
+      expect(callsAScreenABoard(value), `the English scan flags a correct string: "${value.slice(0, 44)}…"`).toBe(false)
+    }
+    for (const value of ['কীবোর্ড শর্টকাট', 'ক্লিপবোর্ডে কপি করুন']) {
+      expect(callsAScreenABoardBn(value), `the Bengali scan reads a keyboard as a board: "${value}"`).toBe(false)
     }
   })
 
