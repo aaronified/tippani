@@ -42,14 +42,17 @@ export const ACCENTS = {
 // `sh` is the shadow's own colour as an RGB triple, and it is what lets ONE lift
 // recipe live in index.css instead of one per look. Four hardcoded box-shadow blocks
 // keyed on the aesthetic collapse into two alphas over rgba(var(--sh), a).
-const PALETTES = {
+// EXPORTED so contrast.test.js can measure them. A palette that nothing can read
+// is a palette whose contrast nobody checks, which is how five text colours sat
+// below AA across two looks without anything saying so.
+export const PALETTES = {
   light: {
     bg: '#F4EDDE', raised: '#FBF6EA', card: '#FFFEF9',
     'card-top': '#FFFFFC', 'card-bottom': '#FCF8ED',
     'topbar-top': '#F3EBDB', 'topbar-bottom': '#EDE3D1',
-    ink: '#221C16', soft: '#6A5F50', faint: '#8A7C68', line: '#E4DAC7',
+    ink: '#221C16', soft: '#6A5F50', faint: '#766A59', line: '#E4DAC7',
     'ink-border': 'rgba(41,38,29,.6)', 'frame-border': 'rgba(41,38,29,.35)',
-    amber: '#BE8A4E', note: '#221C16', error: '#A93B26', ok: '#3E8E5A',
+    amber: '#8A6439', note: '#221C16', error: '#A93B26', ok: '#35794D',
     strip: '#E9E1CC', holes: '#F7F2E6', 'holes-border': '#D3C7AB', 'holes-glow': 'none',
     sh: '41,38,29', 'bevel-hi': 'rgba(255,255,255,.75)', 'bevel-mid': 'rgba(255,255,255,.35)',
   },
@@ -57,9 +60,9 @@ const PALETTES = {
     bg: '#262019', raised: '#2A231C', card: '#2F2820',
     'card-top': '#352D23', 'card-bottom': '#2C251E',
     'topbar-top': '#2B241C', 'topbar-bottom': '#241E17',
-    ink: '#EFE6D4', soft: '#B3A48C', faint: '#9A8C74', line: '#453B2D',
+    ink: '#EFE6D4', soft: '#B3A48C', faint: '#A1937D', line: '#453B2D',
     'ink-border': 'rgba(239,230,212,.4)', 'frame-border': 'rgba(214,162,92,.3)',
-    amber: '#D6A25C', note: '#E8DCC2', error: '#C96B5B', ok: '#5FB47E',
+    amber: '#D6A25C', note: '#E8DCC2', error: '#D18072', ok: '#5FB47E',
     strip: '#1C1710', holes: 'rgba(239,230,212,.4)', 'holes-border': 'transparent', 'holes-glow': 'none',
     sh: '0,0,0', 'bevel-hi': 'rgba(255,255,255,.07)', 'bevel-mid': 'rgba(255,255,255,.05)',
   },

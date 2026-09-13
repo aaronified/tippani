@@ -126,9 +126,9 @@
     --bg: #F4EDDE; --raised: #FBF6EA; --card: #FFFEF9;
     --card-top: #FFFFFC; --card-bottom: #FCF8ED;
     --topbar-top: #F3EBDB; --topbar-bottom: #EDE3D1;
-    --ink: #221C16; --soft: #6A5F50; --faint: #8A7C68; --line: #E4DAC7;
+    --ink: #221C16; --soft: #6A5F50; --faint: #766A59; --line: #E4DAC7;
     --ink-border: rgba(41,38,29,.6); --frame-border: rgba(41,38,29,.35);
-    --amber: #BE8A4E; --note: #221C16; --error: #A93B26; --ok: #3E8E5A;
+    --amber: #8A6439; --note: #221C16; --error: #A93B26; --ok: #35794D;
     --strip: #E9E1CC; --holes: #F7F2E6; --holes-border: #D3C7AB; --holes-glow: none;
     --accent: #B4482D;
     --accent-dark: color-mix(in oklab, #B4482D, white 20%);

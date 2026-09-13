@@ -753,6 +753,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   credit does not already say it — off until you ask for it, the way a book highlight's
   page already was. Nothing you had switched off in the share dialog comes back on.
 
+- **Five colours of text were too faint to meet the accessibility standard, in both
+  looks.** Measured rather than judged by eye: the app's own palette was checked against
+  WCAG's 4.5:1 floor on every surface a word can land on, and five failed — the faint grey
+  used for microcopy, the green that marks something saved, the amber on a source label
+  and a hero count, and in the dark look the faint grey and the red that reports an error.
+  The worst was **2.6:1**, a little over half the standard. Each has been moved along its
+  own hue by the smallest step that clears the floor, so four of the five are changes you
+  would have to be looking for. The amber is the one you will notice: it is a little
+  deeper now, and it is the one that was furthest out.
+
 - **A date the app refuses on one quote was accepted on a whole imported file — and then
   thrown away.** Typing `sometime in 1952` into a quote's occasion date has always come
   back refused, with a message naming the shapes it takes. Setting the same value across a
