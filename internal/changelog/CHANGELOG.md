@@ -739,6 +739,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   independently, because the common case is that the dates are right and only the
   certainty is wrong.
 
+### Added
+
+- **Four more boxes now remember what you have already typed.** The app has been
+  offering your own prior values in the boxes you type a locator into — a chapter
+  name, a character, a game's pack — and four of them were left spelling things from
+  memory. A **standalone quote's speaker and occasion** now offer the ones your
+  library already holds; so does the **value box in the bulk editor**, on the Quotes
+  screen and in the import queue alike, which is the place a misspelling costs you
+  forty rows rather than one. Nothing is ever restricted to the list: a name nobody
+  has used is typed and saved exactly as typed.
+
+- **Editing a film or show quote from your favourites offers its cast again.** The
+  same line, edited from the work's own page, offered every character in it; edited
+  from the tile on Home, it offered nothing — the form was being handed no cast
+  there, and had no way to ask for one. It asks now, so both routes to the same quote
+  behave the same way.
+
 ### Fixed
 
 - **Setting a chapter number across a selection did nothing at all.** The bulk editor on

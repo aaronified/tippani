@@ -27,6 +27,7 @@ type vocabResp struct {
 	Actors     []string      `json:"actors"`
 	Characters []string      `json:"characters"`
 	Speakers   []string      `json:"speakers"`
+	Occasions  []string      `json:"occasions"`
 	Languages  []string      `json:"languages"`
 	Books      []vocabColour `json:"books"`
 	Movies     []vocabColour `json:"movies"`
@@ -68,7 +69,16 @@ func TestVocabularyListsWhatTheLibraryUses(t *testing.T) {
 		"movie_id": movieID, "quote": "a film line", "actor": "Humphrey Bogart",
 		"character": "Rick Blaine",
 	}, 201)
-	c.mustDo("POST", "/quotes", map[string]any{"quote": "a spoken line", "speaker": "Subhas Chandra Bose"}, 201)
+	// AN OCCASION CARRYING A CREDIT SEPARATOR, on purpose, and `&` specifically
+	// because that is the one this suite already proves splits ("Gaiman & Pratchett"
+	// becomes two authors two tests down). Every credit list above splits because
+	// those columns hold JOINED names. An occasion is ONE phrase that often carries
+	// the same punctuation for other reasons, so a split list would offer "the
+	// Lincoln" and "Douglas debate" as two whole answers, neither of which happened.
+	c.mustDo("POST", "/quotes", map[string]any{
+		"quote": "a spoken line", "speaker": "Subhas Chandra Bose",
+		"occasion": "the Lincoln & Douglas debate",
+	}, 201)
 
 	v := vocabOf(t, c)
 	for _, tc := range []struct {
@@ -84,6 +94,7 @@ func TestVocabularyListsWhatTheLibraryUses(t *testing.T) {
 		{"actors", v.Actors, "Humphrey Bogart"},
 		{"characters", v.Characters, "Rick Blaine"},
 		{"speakers", v.Speakers, "Subhas Chandra Bose"},
+		{"occasions", v.Occasions, "the Lincoln & Douglas debate"},
 	} {
 		if !has(tc.list, tc.want) {
 			t.Errorf("%s does not offer %q: %v", tc.name, tc.want, tc.list)
@@ -144,7 +155,9 @@ func TestVocabularyIsOnlyEverYourOwn(t *testing.T) {
 		"movie_id": adminMovie, "quote": "mine too", "actor": "Humphrey Bogart",
 		"character": "Rick Blaine",
 	}, 201)
-	admin.mustDo("POST", "/quotes", map[string]any{"quote": "mine as well", "speaker": "Bose"}, 201)
+	admin.mustDo("POST", "/quotes", map[string]any{
+		"quote": "mine as well", "speaker": "Bose", "occasion": "the surrender at Appomattox",
+	}, 201)
 
 	v := vocabOf(t, bob)
 	for _, tc := range []struct {
@@ -160,6 +173,7 @@ func TestVocabularyIsOnlyEverYourOwn(t *testing.T) {
 		{"actors", v.Actors, "Humphrey Bogart"},
 		{"characters", v.Characters, "Rick Blaine"},
 		{"speakers", v.Speakers, "Bose"},
+		{"occasions", v.Occasions, "the surrender at Appomattox"},
 	} {
 		if has(tc.list, tc.leak) {
 			t.Errorf("%s offered bob somebody else's %q: %v", tc.name, tc.leak, tc.list)
@@ -223,7 +237,7 @@ func TestVocabularyIsEmptyRatherThanNullOnAFreshAccount(t *testing.T) {
 	for name, list := range map[string][]string{
 		"tags": v.Tags, "genres": v.Genres, "series": v.Series, "authors": v.Authors,
 		"directors": v.Directors, "actors": v.Actors, "characters": v.Characters,
-		"speakers": v.Speakers, "shelves": v.Shelves,
+		"speakers": v.Speakers, "occasions": v.Occasions, "shelves": v.Shelves,
 	} {
 		if list == nil {
 			t.Errorf("%s came back null rather than an empty list", name)

@@ -2136,13 +2136,48 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
 //
 // Exported for Home's favourite-tile inline edit (same form, same contract).
 export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = false, game = false, cast = [], actorMap = {}, tagSuggestions = [], stickers = [], reloadStickers }) {
-  // character↔actor lookups from the movie's cast (case-insensitive keys).
+  // A GAME FOR ITS PACKS, OR ANY WORK WHOSE HOST HANDED US NO CAST.
+  //
+  // The first half is the saving: `useWorkSuggestions` fetches the cast alongside
+  // the pack list, and a work PAGE already hands this form a cast — so on a film
+  // or a show opened from there, this would be two requests for nothing.
+  //
+  // THE SECOND HALF IS THE HOST THAT HANDS US NOTHING, and it is why this form
+  // asks rather than only accepting. The favourites editor (Home.jsx) renders this
+  // through a per-kind registry and passes no `cast` at all, so editing a line
+  // from there offered no character while editing the SAME line from its work page
+  // offered the whole cast. That is the repo's rule about two things that look the
+  // same, failing at the seam between a form and its hosts — and the fix belongs
+  // here rather than in each host, because a fourth host would arrive with the
+  // same gap. `AnnotationForm` has always worked this way: it takes a `bookId` and
+  // fetches its own pool (Library.jsx), which is the pattern this now matches.
+  //
+  // `/movies/{id}/cast` runs `adoptQuoteCharacters`, so what comes back is the
+  // provider's cast UNION every character this work's own lines already name — a
+  // character typed by hand on one line is offered on the next.
+  const suggest = useWorkSuggestions(
+    initial?.movie_id && (game || !cast.length) ? { kind: 'screen', id: initial.movie_id } : null)
+  // The prop wins when there is one: a work page has already paid for that list,
+  // and re-reading the fetched copy would flicker the box as it arrived.
+  //
+  // NO TEST PINS THE ORDER, AND THAT IS NOT AN OMISSION. Flipping this ternary
+  // changes nothing observable, because the gate above makes "both lists non-empty"
+  // reachable in exactly one case — a GAME opened from its work page, which is
+  // handed a cast and fetches anyway for the pack list — and there the two lists are
+  // the same rows from the same endpoint. Everywhere else one of them is empty and
+  // both orderings pick the other. A mutation was written for this and could not be
+  // made to fail; it is recorded here rather than replaced with a contrived case,
+  // because a test that pins an arbitrary choice teaches the next reader that the
+  // choice mattered.
+  const castPool = cast.length ? cast : suggest.cast
+  // character↔actor lookups from the movie's cast (case-insensitive keys), off
+  // `castPool` rather than the prop — see it for which of the two this is.
   const charActor = useMemo(() => {
     const m = new Map()
-    for (const c of cast) if (c.character) m.set(c.character.trim().toLowerCase(), (c.actor || '').trim())
+    for (const c of castPool) if (c.character) m.set(c.character.trim().toLowerCase(), (c.actor || '').trim())
     return m
-  }, [cast])
-  const charSuggestions = useMemo(() => [...new Set(cast.map((c) => c.character).filter(Boolean))], [cast])
+  }, [castPool])
+  const charSuggestions = useMemo(() => [...new Set(castPool.map((c) => c.character).filter(Boolean))], [castPool])
 
   const [quote, setQuote] = useState(initial?.quote || '')
   // A line can be spoken by more than one character (entered like tags). Seed
@@ -2177,12 +2212,6 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
   // exactly as it does on the add surface. The owner's audit: "both should offer
   // the same entry support for the same fields."
   //
-  // ONLY FOR A GAME, and the saving is the point: `useWorkSuggestions` fetches the
-  // cast alongside the pool, and this form is already handed a cast by its parent —
-  // so on a film or a show, where there is no pack column at all, this would be two
-  // requests for nothing. A game's edit form pays one duplicate cast fetch to reach
-  // the list, which beats a second hook that fetches half of what this one does.
-  const suggest = useWorkSuggestions(game && initial?.movie_id ? { kind: 'screen', id: initial.movie_id } : null)
   // Kept as strings: '' is unset and '0' is season 0, and a number field cannot
   // hold both. ?? not ||, so a stored 0 seeds as "0" rather than blank.
   const [season, setSeason] = useState(initial?.season ?? '')

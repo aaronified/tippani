@@ -94,6 +94,18 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 		                SELECT DISTINCT a.character FROM annotations a JOIN books b ON b.id = a.book_id
 		                WHERE b.user_id = ? AND a.character <> ''`, true, false},
 		{"speakers", `SELECT DISTINCT speaker FROM utterances WHERE user_id = ? AND speaker <> ''`, true, false},
+		// AN OCCASION IS NOT A CREDIT, so it does NOT split. Every list above it that
+		// splits does so because the column holds JOINED names — "Gaiman & Pratchett"
+		// is two authors. An occasion is one phrase that often contains the same
+		// punctuation for other reasons: "the Nobel lecture, 1950" and "Lok Sabha,
+		// 15 August" are each ONE occasion, and splitting them would offer half a
+		// phrase as a whole answer.
+		//
+		// WHY IT WAS MISSING. The quote editor's Speaker and Occasion boxes sit side
+		// by side and neither had a pool; `speakers` was here because SEARCH asks for
+		// it (`speaker:`), and `occasion:` is not a facet. So the list nobody searched
+		// by was the list nobody had written, and the entry helper needed it first.
+		{"occasions", `SELECT DISTINCT occasion FROM utterances WHERE user_id = ? AND occasion <> ''`, false, false},
 		// THE LANGUAGES THE LIBRARY ACTUALLY USES, and the reason it is here rather
 		// than derived on a screen is that the screen that needs it holds no quotes.
 		// Settings' readable-languages chips were drawn from the ten starters plus

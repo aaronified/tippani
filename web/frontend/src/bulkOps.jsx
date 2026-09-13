@@ -201,6 +201,24 @@ export function useBulkOps({ kind, ids = [], onDone }) {
 // BULK_WORK_FIELDS / BULK_QUOTE_FIELDS — what may be set, per kind.
 // `kinds` names the record kinds that have the column; absent means all of them.
 //
+// `vocab: '<list>'` NAMES THE LIBRARY-WIDE LIST THAT SERVES THIS FIELD, and it is
+// library-wide rather than per-work because it has to be: a bulk selection SPANS
+// works by design — StagingPage's own note says "a reader can tick a book's rows and
+// a film's together, so there is no one door to ask" — so there is no single id to
+// hang a per-work pool on. `/search/vocabulary` is the pool that exists for them.
+//
+// A FIELD WITH NO ENTRY HERE DRAWS WHAT IT ALWAYS DREW, and that is the right
+// outcome rather than a shortfall. `chapter` has no library-wide list and could not
+// have a useful one — a chapter is per-work, so across a spanning selection it has
+// no single answer. `publisher`, `translator` and `editor` have no list on the
+// server at all; adding three queries to serve three boxes is a decision for
+// whoever wants them, not a side effect of this one.
+//
+// THE PAIRING AUTOFILL DELIBERATELY DOES NOT COME WITH IT. One value landing on
+// forty rows has forty different counterparts, so "the counterpart disagrees" is
+// forty questions with forty answers. Offering the pool is unambiguously useful and
+// costs nothing; autofilling across a selection is a separate feature with its own
+// confirmation design.
 // `prose: true` MEANS "THIS VALUE IS NOT A NAME". The panel draws one input for
 // whichever field is chosen, so the as-you-type capitalisation has to be decided
 // from the table rather than at the input — and it was decided by `!number`
@@ -214,10 +232,10 @@ export function useBulkOps({ kind, ids = [], onDone }) {
 // render time — after a locale has been applied, and again when it changes —
 // without any caller having to know a translation happened.
 export const BULK_WORK_FIELDS = [
-  { key: 'author', get label() { return t('common.field.author.label') }, kinds: ['book'] },
+  { key: 'author', get label() { return t('common.field.author.label') }, kinds: ['book'], vocab: 'authors' },
   { key: 'translator', get label() { return t('common.field.translator.label') }, kinds: ['book'] },
   { key: 'editor', get label() { return t('common.field.editor.label') }, kinds: ['book'] },
-  { key: 'director', get label() { return t('common.field.director.label') }, kinds: ['movie'] },
+  { key: 'director', get label() { return t('common.field.director.label') }, kinds: ['movie'], vocab: 'directors' },
   // A game's publisher (0042). The endpoint has taken it since 1.16.0 and no
   // control offered it — and its own comment on the server side argues it is
   // among the likeliest fields to want correcting across a shelf of imports.
@@ -240,8 +258,8 @@ export const BULK_WORK_FIELDS = [
   // keeps its small words small ("The Wheel of Time") and a director's name must
   // not, because half of those words are whole names in other languages. Every
   // other text field here holds a person.
-  { key: 'series', get label() { return t('common.field.series.label') }, kinds: ['book'], title: true },
-  { key: 'series', get label() { return t('common.field.collection.label') }, kinds: ['movie'], title: true },
+  { key: 'series', get label() { return t('common.field.series.label') }, kinds: ['book'], title: true, vocab: 'series' },
+  { key: 'series', get label() { return t('common.field.collection.label') }, kinds: ['movie'], title: true, vocab: 'series' },
   { key: 'series_index', get label() { return t('common.field.series-no.label') }, kinds: ['book'], number: true },
   { key: 'series_index', get label() { return t('common.field.collection-no.label') }, kinds: ['movie'], number: true },
   { key: 'description', get label() { return t('common.field.description.label') }, long: true },
@@ -263,8 +281,8 @@ export const BULK_QUOTE_FIELDS = [
   { key: 'chapter_no', get label() { return t('common.field.chapter-no.label') }, kinds: ['annotation'], number: true, wire: 'text' },
   { key: 'chapter', get label() { return t('common.field.chapter-name.label') }, kinds: ['annotation'] },
   { key: 'location', get label() { return t('common.field.location.label') }, kinds: ['annotation'], prose: true },
-  { key: 'character', get label() { return t('common.field.character.label') }, kinds: ['dialogue'] },
-  { key: 'actor', get label() { return t('common.field.actor.label') }, kinds: ['dialogue'] },
+  { key: 'character', get label() { return t('common.field.character.label') }, kinds: ['dialogue'], vocab: 'characters' },
+  { key: 'actor', get label() { return t('common.field.actor.label') }, kinds: ['dialogue'], vocab: 'actors' },
   { key: 'timestamp', get label() { return t('common.field.timestamp.label') }, kinds: ['dialogue'], prose: true },
   // 0070/0071's four, and their absence here was a promise the changelog made and
   // no screen kept: the endpoint has accepted all four since the migration
@@ -301,8 +319,8 @@ export const BULK_QUOTE_FIELDS = [
   { key: 'act', get label() { return t('common.field.act.label') }, kinds: ['dialogue'] },
   { key: 'quest', get label() { return t('common.field.quest.label') }, kinds: ['dialogue'] },
   { key: 'episode_name', get label() { return t('common.field.episode-name.label') }, kinds: ['dialogue'] },
-  { key: 'speaker', get label() { return t('common.field.speaker.label') }, kinds: ['quote'] },
-  { key: 'occasion', get label() { return t('common.field.occasion.label') }, kinds: ['quote'], prose: true },
+  { key: 'speaker', get label() { return t('common.field.speaker.label') }, kinds: ['quote'], vocab: 'speakers' },
+  { key: 'occasion', get label() { return t('common.field.occasion.label') }, kinds: ['quote'], prose: true, vocab: 'occasions' },
   { key: 'place', get label() { return t('common.field.place.label') }, kinds: ['quote'] },
   // 0053. The free-text `medium` it replaced is deliberately NOT here: it has no
   // box on any form any more, and a bulk editor is the wrong place to reintroduce

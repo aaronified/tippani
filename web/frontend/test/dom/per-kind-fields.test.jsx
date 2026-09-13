@@ -17,6 +17,10 @@ vi.mock('../../src/api.js', async (orig) => ({
     if (path.endsWith('/cast')) {
       return { ok: true, data: { cast: [{ character: 'Ahab', actor: '' }, { character: 'Ishmael', actor: '' }] } }
     }
+    // The library-wide pool, for the two boxes that have no work to ask.
+    if (path.startsWith('/search/vocabulary')) {
+      return { ok: true, data: { speakers: ['Subhas Chandra Bose'], occasions: ['the Azad Hind address'], languages: [] } }
+    }
     if (path.endsWith('/chapters')) {
       return { ok: true, data: { chapters: [{ no: 42, name: 'The Whale', count: 3 }, { no: 1, name: 'Loomings', count: 1 }] } }
     }
@@ -26,6 +30,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 
 const { AnnotationForm } = await import('../../src/Library.jsx')
 const { DialogueForm } = await import('../../src/Movies.jsx')
+const { UtteranceForm } = await import('../../src/Quotes.jsx')
 const { t } = await import('../../src/i18n.js')
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
@@ -113,6 +118,54 @@ describe('a book highlight', () => {
   })
 })
 
+// A HOST THAT HANDS THE FORM NO CAST STILL OFFERS ONE.
+//
+// `DialogueForm` took its characters from a `cast` prop, and the favourites editor
+// (Home.jsx) renders it through a per-kind registry that passes none — so editing a
+// line from Home offered nothing while editing the SAME line from its work page
+// offered the whole cast. Two spellings of one control, which is the rule this repo
+// keeps restating.
+//
+// THE FIX IS IN THE FORM, NOT IN THE HOST, and the reason is the fourth host: a new
+// screen rendering this form would arrive with the same gap. `AnnotationForm` has
+// always worked this way — it takes an id and fetches its own pool — so this is the
+// two of them agreeing rather than a new mechanism.
+describe('a dialogue form whose host passed no cast', () => {
+  it('fetches the work’s own characters rather than offering none', async () => {
+    // No `cast` prop at all — exactly what Home.jsx renders.
+    render(<DialogueForm initial={{ id: 9, movie_id: 4, quote: 'a bark' }} onSubmit={() => null} submitLabel="Save" />)
+    const box = screen.getByLabelText(t('film.line.form.characters.aria'))
+    fireEvent.focus(box)
+    fireEvent.change(box, { target: { value: 'Ah' } })
+    // `Ahab` comes from the mocked /cast above, so seeing it here means the form
+    // asked. Before the fix this list was empty whatever was typed.
+    expect(await screen.findByText('Ahab'), 'the form offered no character to a host that passed none').toBeTruthy()
+  })
+
+  it('and prefers the cast it WAS handed, without a second request', async () => {
+    // A work page has already paid for its cast list. Re-reading a fetched copy
+    // would flicker the box as it arrived, and would spend a request to learn what
+    // the caller already knew.
+    const { json } = await import('../../src/api.js')
+    json.mockClear()
+    render(
+      <DialogueForm
+        initial={{ id: 9, movie_id: 4, quote: 'a bark' }}
+        onSubmit={() => null}
+        submitLabel="Save"
+        cast={[{ character: 'Renault', actor: 'Claude Rains' }]}
+      />,
+    )
+    const box = screen.getByLabelText(t('film.line.form.characters.aria'))
+    fireEvent.focus(box)
+    fireEvent.change(box, { target: { value: 'Ren' } })
+    expect(await screen.findByText('Renault')).toBeTruthy()
+    await flush()
+    const castCalls = json.mock.calls.filter(([, path]) => String(path).endsWith('/cast'))
+    expect(castCalls, 'a cast was fetched over the one the caller supplied').toEqual([])
+  })
+})
+
 describe('a game’s line', () => {
   it('asks for the act and the quest, and not for a timestamp', () => {
     render(<DialogueForm initial={{ id: 9, quote: 'a bark' }} onSubmit={() => null} submitLabel="Save" game />)
@@ -167,5 +220,54 @@ describe('a game’s line', () => {
     // being cleared by a form that does not show them.
     expect(sent.act).toBe('kept')
     expect(sent.quest).toBe('kept')
+  })
+})
+
+// A STANDALONE QUOTE'S TWO BOXES, AND THE POOL THEY HAD TO BORROW.
+//
+// Speaker and occasion were the last pair in the app still typed from memory.
+// Every other locator gained a pool from the work it belongs to — and these two
+// have no work, which is what standalone means, so `useWorkSuggestions` could
+// never serve them. Their pool is the library's own.
+//
+// `occasions` DID NOT EXIST ON THE SERVER until this shipped. `speakers` was there
+// because SEARCH asks for it (`speaker:` is a facet) and `occasion:` is not — so
+// the list nobody could search by was the list nobody had written.
+describe('a standalone quote', () => {
+  const box = (key) => screen.getByLabelText(t(`common.field.${key}.label`))
+
+  it('offers the speakers the library already knows', async () => {
+    render(<UtteranceForm initial={{ id: 3, quote: 'a spoken line', kind: 'speech' }} onSubmit={() => null} onCancel={() => {}} submitLabel="Save" />)
+    const el = box('speaker')
+    fireEvent.focus(el)
+    fireEvent.change(el, { target: { value: 'Bos' } })
+    expect(await screen.findByText('Subhas Chandra Bose'), 'the speaker box offered nothing').toBeTruthy()
+  })
+
+  it('and the occasions too', async () => {
+    render(<UtteranceForm initial={{ id: 3, quote: 'a spoken line', kind: 'speech' }} onSubmit={() => null} onCancel={() => {}} submitLabel="Save" />)
+    const el = box('occasion')
+    fireEvent.focus(el)
+    fireEvent.change(el, { target: { value: 'Azad' } })
+    expect(await screen.findByText('the Azad Hind address'), 'the occasion box offered nothing').toBeTruthy()
+  })
+
+  it('but neither is a cage — a name nobody has used still types', async () => {
+    // Every field this serves is optional free text at the API. A pool that
+    // restricted would turn a helper into a form that refuses new answers, which
+    // is the one outcome worse than no helper.
+    let sent = null
+    render(
+      <UtteranceForm
+        initial={{ id: 3, quote: 'a spoken line', kind: 'speech' }}
+        onSubmit={(fields) => { sent = fields; return null }}
+        onCancel={() => {}}
+        submitLabel="Save"
+      />,
+    )
+    fireEvent.change(box('speaker'), { target: { value: 'Someone Entirely New' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await vi.waitFor(() => expect(sent, 'the form never submitted').toBeTruthy())
+    expect(sent.speaker, 'a speaker outside the pool did not survive the save').toBe('Someone Entirely New')
   })
 })

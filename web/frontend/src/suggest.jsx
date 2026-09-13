@@ -163,8 +163,8 @@ const fold = (v) => String(v || '').toLowerCase().trim()
 // field this serves is optional free text at the API, so a chapter you have never
 // recorded has to be typeable or the helper becomes a cage. Nothing is ever
 // restricted to the pool.
-export function SuggestCombo({ label, value, onChange, onCommit, placeholder, options = [], nameCase = true, inputRef, ariaLabel, inputMode }) {
-  return <Combo label={label} value={value} onChange={onChange} onCommit={onCommit} placeholder={placeholder} rows={options} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} inputMode={inputMode} />
+export function SuggestCombo({ label, value, onChange, onCommit, placeholder, options = [], nameCase = true, inputRef, ariaLabel, inputMode, disabled = false }) {
+  return <Combo label={label} value={value} onChange={onChange} onCommit={onCommit} placeholder={placeholder} rows={options} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} inputMode={inputMode} disabled={disabled} />
 }
 
 // CastCombo — SuggestCombo over a work's cast, which is where this component
@@ -178,6 +178,38 @@ export function CastCombo({ label, value, onChange, onCommit, placeholder, cast 
     [cast, field],
   )
   return <Combo label={label} value={value} onChange={onChange} onCommit={onCommit} placeholder={placeholder} rows={rows} nameCase={nameCase} inputRef={inputRef} ariaLabel={ariaLabel} />
+}
+
+// useVocabulary — one library-wide list from `/search/vocabulary`, by name.
+//
+// ONE HOOK RATHER THAN A COPY PER FIELD, and it is extracted rather than written
+// because `LanguageCombo` below had the only copy — read the cache, prime, set —
+// and copies are how one of two identical controls goes on being right while the
+// other quietly stops. Three fields want a library-wide pool now: a quote's
+// speaker, its occasion, and whichever field the bulk editor is pointed at.
+//
+// WHY LIBRARY-WIDE AND NOT PER-WORK, which is the whole difference from
+// `useWorkSuggestions`. A standalone quote has no work to ask about — that is what
+// makes it standalone — and a bulk selection spans works by design. Neither has a
+// single id to hang a per-work pool on, so the only pool that exists for them is
+// the library's.
+//
+// The cache is the session's (vocabulary.js); this re-reads it on every mount and
+// re-primes, so a value typed on one screen is offered on the next without a
+// reload. `key` may be null, which is a field with no pool rather than an error.
+export function useVocabulary(key) {
+  const [list, setList] = useState(() => (key && cachedVocabulary()?.[key]) || [])
+  useEffect(() => {
+    if (!key) {
+      setList([])
+      return undefined
+    }
+    let live = true
+    setList(cachedVocabulary()?.[key] || [])
+    primeSearchVocabulary().then((v) => { if (live) setList(v?.[key] || []) }).catch(() => {})
+    return () => { live = false }
+  }, [key])
+  return list
 }
 
 // LanguageCombo — SuggestCombo over the languages a reader might mean, and the one
@@ -215,12 +247,9 @@ export function CastCombo({ label, value, onChange, onCommit, placeholder, cast 
 // in this app is free text; this suggests, and a language nobody has heard of is
 // typed and stored exactly as typed.
 export function LanguageCombo({ label, value, onChange, onCommit, placeholder, nameCase = true, inputRef, ariaLabel }) {
-  const [inLibrary, setInLibrary] = useState(() => cachedVocabulary()?.languages || [])
-  useEffect(() => {
-    let live = true
-    primeSearchVocabulary().then((v) => { if (live) setInLibrary(v?.languages || []) }).catch(() => {})
-    return () => { live = false }
-  }, [])
+  // THE SAME VERB EVERY LIBRARY-WIDE POOL USES — see `useVocabulary`, which this
+  // body became. It was the only copy for a while and is now one of three callers.
+  const inLibrary = useVocabulary('languages')
   const rows = useMemo(() => {
     const row = (name) => {
       const own = displayName(name)
@@ -237,6 +266,12 @@ function Combo({
   label,
   value,
   onChange,
+  // disabled — the box is here but not yet answerable. The staged bulk panel pairs
+  // each field with a checkbox and disables the box until it is ticked, so a reader
+  // cannot type into a field the request will ignore. Passed through to the input
+  // AND used to hold the menu shut: a dropdown over a disabled box is an offer that
+  // cannot be accepted, which is worse than no offer.
+  disabled = false,
   // onCommit — THE EDIT IS FINISHED. Fired when a suggestion is picked, when
   // Enter takes a highlighted row, and when focus genuinely leaves the box;
   // never on a keystroke.
@@ -301,7 +336,7 @@ function Combo({
     [rows, q, cap],
   )
 
-  const menuOpen = open && matches.length > 0
+  const menuOpen = open && !disabled && matches.length > 0
   const { popRef, style } = useAnchoredPosition(menuOpen, boxRef, { matchWidth: true, minHeight: 120 })
   useDismiss(menuOpen, () => setOpen(false), [boxRef, popRef], { event: 'pointerdown' })
 
@@ -356,6 +391,7 @@ function Combo({
         id={inputID}
         className="tp-input"
         role="combobox"
+        disabled={disabled}
         // The per-word offer a phone's keyboard makes on any name box here —
         // see ui.jsx's "name casing". Nothing rewrites what is typed.
         autoCapitalize={nameCase ? 'words' : undefined}

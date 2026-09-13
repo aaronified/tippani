@@ -14,7 +14,7 @@
 // wrong.
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import { LanguageCombo } from './suggest.jsx'
+import { LanguageCombo, SuggestCombo, useVocabulary } from './suggest.jsx'
 import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
 import { t } from './i18n.js'
@@ -290,6 +290,12 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
   const [note, setNote] = useState(initial?.note || '')
   const [speaker, setSpeaker] = useState(initial?.speaker || '')
   const [occasion, setOccasion] = useState(initial?.occasion || '')
+  // The library's own two lists. `occasions` did not exist on the server until this
+  // shipped: `speakers` was there because SEARCH asks for it (`speaker:` is a
+  // facet) and `occasion:` is not, so the list nobody could search by was the list
+  // nobody had written.
+  const speakerPool = useVocabulary('speakers')
+  const occasionPool = useVocabulary('occasions')
   // partialDateInputValue, NOT the raw column: a BCE occasion is stored '-0399'
   // and a reader editing that would be shown the machine's spelling of their own
   // date. See the function's note.
@@ -433,21 +439,29 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
           one. `cl-grid` lays out whatever it is given. */}
       {(shows('speaker') || shows('occasion')) && (
         <div className="cl-grid">
+          {/* THE TWO BOXES A STANDALONE QUOTE IS MOSTLY MADE OF, and the last
+              pair in the app still typed from memory. Every other locator gained
+              a pool from the work it belongs to; these two have no work — that is
+              what standalone means — so their pool is the library's own, through
+              `useVocabulary`. Names, so `nameCase` on the speaker; an occasion is
+              a phrase ("the Nobel lecture, 1950") and is not capitalised per word. */}
           {shows('speaker') && (
-            <Field
+            <SuggestCombo
               label={t('common.field.speaker.label')}
-              nameCase
               placeholder={t('common.field.speaker.placeholder')}
               value={speaker}
-              onChange={(e) => setSpeaker(e.target.value)}
+              onChange={setSpeaker}
+              options={speakerPool.map((name) => ({ name }))}
             />
           )}
           {shows('occasion') && (
-            <Field
+            <SuggestCombo
               label={t('common.field.occasion.label')}
               placeholder={t('common.field.occasion.placeholder')}
               value={occasion}
-              onChange={(e) => setOccasion(e.target.value)}
+              onChange={setOccasion}
+              nameCase={false}
+              options={occasionPool.map((name) => ({ name }))}
             />
           )}
         </div>

@@ -19,6 +19,11 @@ vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
     CALLS.push([method, path, body])
+    // The library-wide pool the value box offers from. A bulk selection spans
+    // works, so this is the only pool that can serve it.
+    if (String(path).startsWith('/search/vocabulary')) {
+      return { ok: true, data: { series: ['Hainish', 'Earthsea'], authors: [], directors: [], characters: [], actors: [], speakers: [], occasions: [], languages: [] } }
+    }
     return { ok: true, data: { ...RESP, updated: body?.ids?.length || 0, trash_id: 91 } }
   }),
 }))
@@ -511,6 +516,26 @@ describe('setting one field over a selection', () => {
     // possible at all — a full-state body here would clear every other field on
     // both books.
     expect(Object.keys(body).sort()).toEqual(['ids', 'series'])
+  })
+
+  it('offers the series the library already has, and still takes a new one', async () => {
+    // THE BOX WAS BARE. Setting a series across forty works meant spelling it from
+    // memory, in the one place a misspelling costs forty rows — and the row editor
+    // beside it had offered its own values since import review gained suggestions.
+    pickTwo()
+    openDialog()
+    chooseField('Series')
+    const box = screen.getByLabelText(/^Series$/i)
+    fireEvent.focus(box)
+    fireEvent.change(box, { target: { value: 'Hain' } })
+    expect(await screen.findByText('Hainish'), 'the bulk value box offered nothing').toBeTruthy()
+
+    // AND IT IS NOT A CAGE. Every field this serves is free text at the API, so a
+    // series the library has never seen has to survive the save.
+    fireEvent.change(box, { target: { value: 'A Series Nobody Has' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    await waitFor(() => expect(sent('/books/bulk')).toBeTruthy())
+    expect(sent('/books/bulk')[2].series, 'a value outside the pool did not survive').toBe('A Series Nobody Has')
   })
 
   it('sends a number for a numeric field, not a string', async () => {

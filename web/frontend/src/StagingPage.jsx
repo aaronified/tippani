@@ -6,7 +6,7 @@ import { t, tNodes } from './i18n.js'
 import { quoteKindMeta } from './quoteKind.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
 import { chapterLabel, episodeLabel } from './text.js'
-import { CastCombo, LanguageCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
+import { CastCombo, LanguageCombo, SuggestCombo, useVocabulary, useWorkSuggestions } from './suggest.jsx'
 import { fieldKeys, QUOTE_KIND_DOORS } from './addFields.js'
 // THE APP'S ONE ANSWER to "a path stored is not a picture arriving" — the same
 // component every other face and cover in the app goes through, so a missing
@@ -790,6 +790,18 @@ function FieldsPanel({ n, busy, onApply }) {
   // behind a date control; a checkbox and a free-text box cannot say "about 399
   // BCE", and a bulk panel that took the phrase would store it unparsed.
   const FIELDS = WRITABLE_FIELDS.filter(([key]) => key !== 'when')
+  // ONE CALL PER LIST, NOT ONE PER FIELD, because a hook cannot run inside the map
+  // below — and because two fields share a list anyway (`actor` and `source_author`
+  // are both people the library already knows). The four are named literally rather
+  // than derived from FIELDS: a hook call built from a variable list would change in
+  // number between renders, which React forbids for exactly this reason.
+  const vocab = {
+    characters: useVocabulary('characters'),
+    actors: useVocabulary('actors'),
+    speakers: useVocabulary('speakers'),
+    occasions: useVocabulary('occasions'),
+    authors: useVocabulary('authors'),
+  }
   function submit() {
     const body = {}
     for (const [key] of FIELDS) if (on[key]) body[key] = (val[key] || '').trim()
@@ -806,22 +818,44 @@ function FieldsPanel({ n, busy, onApply }) {
           <span className="microcopy" style={{ minWidth: 76 }}>
             {t(labelKey)}
           </span>
-          <input
-            className="tp-input w-auto flex-1"
-            /* One frame with the field's own name dropped into it, LOWER-CASED BY
-               THE CALLER — the arrangement the bin's kind filter already uses, and
-               the reason the field label stays a single source of truth rather
-               than being written out however many fields there are. */
-            placeholder={t('staging.fields.set.placeholder', { field: t(labelKey).toLowerCase() })}
-            /* THE SAME KEYBOARD THE ROW EDITOR ASKS FOR. A raw <input> here rather
-               than Field, because the checkbox and the box are one row — so the hint
-               is set by hand from the table's own mark instead of being inherited,
-               and a name asks for capitals whichever control a reader reached for. */
-            autoCapitalize={opts?.name ? 'words' : undefined}
-            disabled={!on[key]}
-            value={val[key] || ''}
-            onChange={(e) => setVal({ ...val, [key]: e.target.value })}
-          />
+          {/* THE LIBRARY'S OWN VALUES WHERE THERE ARE ANY. The row editor beside
+              this panel has had them since import review gained suggestions, and
+              this panel — which is where an inconsistent name arrives in BULK, and
+              therefore has the most to gain — had a bare box. `vocab` names the
+              list; a field with none draws the box it always drew.
+
+              LIBRARY-WIDE RATHER THAN PER-WORK, and this panel's own note above
+              says why: a selection spans groups, so there is no one door to ask. */}
+          {opts?.vocab ? (
+            <div className="w-auto flex-1">
+              <SuggestCombo
+                value={val[key] || ''}
+                onChange={(v) => setVal({ ...val, [key]: v })}
+                placeholder={t('staging.fields.set.placeholder', { field: t(labelKey).toLowerCase() })}
+                ariaLabel={t(labelKey)}
+                nameCase={!!opts?.name}
+                disabled={!on[key]}
+                options={(vocab[opts.vocab] || []).map((name) => ({ name }))}
+              />
+            </div>
+          ) : (
+            <input
+              className="tp-input w-auto flex-1"
+              /* One frame with the field's own name dropped into it, LOWER-CASED BY
+                 THE CALLER — the arrangement the bin's kind filter already uses, and
+                 the reason the field label stays a single source of truth rather
+                 than being written out however many fields there are. */
+              placeholder={t('staging.fields.set.placeholder', { field: t(labelKey).toLowerCase() })}
+              /* THE SAME KEYBOARD THE ROW EDITOR ASKS FOR. A raw <input> here rather
+                 than Field, because the checkbox and the box are one row — so the hint
+                 is set by hand from the table's own mark instead of being inherited,
+                 and a name asks for capitals whichever control a reader reached for. */
+              autoCapitalize={opts?.name ? 'words' : undefined}
+              disabled={!on[key]}
+              value={val[key] || ''}
+              onChange={(e) => setVal({ ...val, [key]: e.target.value })}
+            />
+          )}
         </label>
       ))}
       <div className="grid gap-2 sm:grid-cols-2">
@@ -1098,8 +1132,8 @@ export const WRITABLE_FIELDS = [
   ['chapter_no', 'common.field.chapter-no.label'],
   ['chapter', 'common.field.chapter-name.label', { name: true }],
   ['location', 'common.field.location.label'],
-  ['character', 'common.field.character.label', { name: true }],
-  ['actor', 'common.field.actor.label', { name: true }],
+  ['character', 'common.field.character.label', { name: true, vocab: 'characters' }],
+  ['actor', 'common.field.actor.label', { name: true, vocab: 'actors' }],
   ['season', 'common.field.season.label'],
   ['episode', 'common.field.episode.label'],
   ['episode_name', 'common.field.episode-name.label', { name: true }],
@@ -1108,8 +1142,8 @@ export const WRITABLE_FIELDS = [
   ['act', 'common.field.act.label'],
   ['quest', 'common.field.quest.label', { name: true }],
   ['dlc', 'common.field.dlc.label', { name: true }],
-  ['speaker', 'common.field.speaker.label', { name: true }],
-  ['occasion', 'common.field.occasion.label'],
+  ['speaker', 'common.field.speaker.label', { name: true, vocab: 'speakers' }],
+  ['occasion', 'common.field.occasion.label', { vocab: 'occasions' }],
   // 'when' IS THE ONE THE BULK PANEL SKIPS, and its own note below says why: it is
   // a pair (a canonical date and a circa flag) drawn by a date control, not a text
   // box, so a checkbox and a free-text input cannot express it.
@@ -1119,7 +1153,7 @@ export const WRITABLE_FIELDS = [
   ['recipient', 'common.field.recipient.label', { name: true }],
   ['work_title', 'common.field.work-title.label', { name: true }],
   ['locator', 'common.field.locator.label'],
-  ['source_author', 'common.field.source-author.label', { name: true }],
+  ['source_author', 'common.field.source-author.label', { name: true, vocab: 'authors' }],
   ['language', 'common.field.language.label', { name: true }],
 ]
 const WRITABLE = new Set(WRITABLE_FIELDS.map(([k]) => k))

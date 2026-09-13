@@ -6,7 +6,7 @@ import { t, tNodes } from './i18n.js'
 import { MoveToBoardDialog } from './boards.jsx'
 import { KIND_ROUTES, bulkFieldBody, bulkFieldsFor, deletePhrase, overwriteWarning, useBulkOps } from './bulkOps.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
-import { LanguageCombo } from './suggest.jsx'
+import { LanguageCombo, SuggestCombo, useVocabulary } from './suggest.jsx'
 import { capKeyFor } from './works.jsx'
 import {
   useEscape,
@@ -567,6 +567,9 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
   // Recomputed per field, from the SELECTED rows the bar already holds — no
   // second fetch, and it changes the moment the field does.
   const warn = spec ? overwriteWarning(rows, key, spec.format) : null
+  // Null for a field with no list, which `useVocabulary` answers with [] rather
+  // than a fetch — so switching the panel to Chapter costs no request.
+  const vocabPool = useVocabulary(spec?.vocab || null)
 
   // The body is bulkOps' to build, not this dialog's — see bulkFieldBody. A date
   // sends its tick with it, because the two are one fact.
@@ -617,6 +620,29 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
               placeholder={t('common.field.language.placeholder')}
             />
           </div>
+        ) : spec?.vocab ? (
+          // THE LIBRARY'S OWN VALUES FOR THIS FIELD, and the argument is the one
+          // above about languages, one field along: a bulk edit that offered no list
+          // is the place a reader is asked to spell a name from memory while setting
+          // it on forty rows at once, which is the most expensive place to misspell
+          // one. `vocab` names which list in bulkOps.jsx's table.
+          //
+          // LIBRARY-WIDE, NOT PER-WORK, and that is forced rather than chosen — a
+          // selection spans works, so there is no one work to ask.
+          // `label` RATHER THAN A LOOSE MonoLabel BESIDE IT, which is what this
+          // branch drew first and is why three tests failed: Combo renders the
+          // label with an `htmlFor`, so the box's accessible name becomes the
+          // FIELD'S name ("Series") the way the plain `Field` below has always
+          // made it. A `MonoLabel` next to an input names nothing, and the
+          // generic "value" aria-label that went with it replaced a real name
+          // with a placeholder.
+          <SuggestCombo
+            label={spec.label}
+            value={value}
+            onChange={setValue}
+            options={vocabPool.map((name) => ({ name }))}
+            nameCase={!spec?.prose}
+          />
         ) : spec?.date ? (
           // The same control the single-record form draws, with its own tick —
           // never a plain text box. It parses `c. 1890`, offers the calendar, and
