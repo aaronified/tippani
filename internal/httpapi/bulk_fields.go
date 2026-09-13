@@ -139,19 +139,34 @@ var bulkFields = map[string]bulkField{
 	// point was that the two editors drifted because nothing named what each
 	// lacked, and a gap recorded in only one direction is half that fix.
 	//
-	// THE REASON THEY WERE EXEMPTED WAS FALSE. Two guards said "a number retarget
-	// already moves them". `stagedRetarget` moves a staged GROUP to another work;
-	// it never touches either column, and the staged endpoint writes them itself
-	// (import_staged_bulk.go, through nullableCount). What survives of that
-	// argument is the second half and it is about data safety, not ownership: a
+	// THE REASON THEY WERE EXEMPTED WAS FALSE, and the owner has now settled what
+	// was left. Two guards said "a number retarget already moves them".
+	// `stagedRetarget` moves a staged GROUP to another work; it never touches
+	// either column, and the staged endpoint writes them itself
+	// (import_staged_bulk.go, through nullableCount). What survived of that
+	// argument was a data-safety worry rather than an ownership one: a
 	// Quotes-screen selection can span works and episodes, so setting a season
-	// across it renumbers lines from different episodes alike — where a staged
-	// selection is scoped to the file being reviewed.
+	// across it renumbers lines from different episodes alike.
 	//
-	// Whether the live editor should offer them under a same-work guard is an open
-	// design question, not an oversight, and it is not decided here.
-	"season":  {kinds: []string{"dialogue"}, staged: "season"},
-	"episode": {kinds: []string{"dialogue"}, staged: "episode"},
+	// THE OWNER'S RULING, 13 September: "Season and episode in bulk edit:
+	// absolutely do that."
+	//
+	// AND THE WORRY DID NOT SURVIVE ITS OWN NEIGHBOUR. `episode_name` has been
+	// live since 0047 — so the app ALREADY lets one press rename the episode on a
+	// selection spanning two shows, which is the same act on the same rows through
+	// the same door. Refusing the number while accepting the name was not a safety
+	// position; it was one field's exemption dressed as one. The general answer to
+	// "this lands on everything you selected" is that it lands on everything you
+	// selected, which is what a bulk editor is.
+	//
+	// THEY ARE INTEGER COLUMNS (0025), so they do NOT ride bulkQuoteFieldPtrs's
+	// loop: they have their own write through nullableCount, the same helper the
+	// staged side uses, so the field is written one way either side of approval.
+	// (Not because the text loop would corrupt them — INTEGER affinity coerces
+	// "10" to 10 and sorts it numerically, measured. What protects them is the
+	// 400 on unparseable input; see bulk_handlers.go.)
+	"season":  {kinds: []string{"dialogue"}, live: "season", staged: "season"},
+	"episode": {kinds: []string{"dialogue"}, live: "episode", staged: "episode"},
 }
 
 // quoteFieldKinds names, per optional field, the kinds that actually have the

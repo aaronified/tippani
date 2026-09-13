@@ -582,11 +582,20 @@ func TestTheGapsBetweenTheTwoEditorsAreTheOnesOnRecord(t *testing.T) {
 	// editor' would silently drop season, episode, remove_tags, retarget and
 	// formula — which is the same mistake in the other direction." A gap recorded
 	// one way round is half a ratchet.
-	stagedOnly := map[string]string{
-		"season": "the queue bulk-sets it; a Quotes selection can span works and episodes, " +
-			"so the same verb there would renumber lines from different episodes alike",
-		"episode": "the same argument",
-	}
+	//
+	// IT IS EMPTY NOW, and that is the ratchet working rather than the ratchet
+	// going away. `season` and `episode` were its only two entries: they were
+	// staged-only because a Quotes selection can span works and episodes, so
+	// setting a season across it renumbers lines from different episodes alike.
+	// The owner settled it on 13 September — "Season and episode in bulk edit:
+	// absolutely do that" — and the argument had already been undercut by
+	// `episode_name`, live since 0047, which lets one press rename the episode
+	// across the same spanning selection through the same door.
+	//
+	// The map stays because the direction it guards is real: the next field given
+	// a staged column and no live one has to be named here with its reason, or
+	// this fails. An empty map is a stronger statement than a deleted one.
+	stagedOnly := map[string]string{}
 	for name, f := range bulkFields {
 		gap := f.live != "" && f.staged == ""
 		why, onRecord := liveOnly[name]
@@ -1195,4 +1204,111 @@ func TestTheStagedEditorRefusesAMalformedOccasionDate(t *testing.T) {
 			t.Errorf("the staged row has occasion_date %q, want -0399", q.OccasionDate)
 		}
 	}
+}
+
+// ── the show pair on the live editor (the owner's ruling, 13 September) ──────
+//
+// "Season and episode in bulk edit: absolutely do that."
+//
+// THEY ARE THE ONLY NUMERIC FIELDS THE LIVE EDITOR TAKES BESIDE chapter_no, and
+// that is the whole risk. Every other field rides bulkQuoteFieldPtrs' loop, which
+// writes TEXT; these are INTEGER columns (0025), so they have their own write
+// through nullableCount — and nullableCount maps ANYTHING it cannot parse to NULL.
+// A typo'd "S2" across forty lines would therefore CLEAR the season on all forty
+// and answer 200, with nothing on screen to say so. That is the failure this file
+// exists to make impossible, so it is asserted before the happy path.
+func TestBulkSeasonAndEpisodeOnDialogues(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	show := newWork(t, c, "Breaking Bad", "show")
+	book := createBook(t, c, "Moby-Dick")
+	one := idOf(t, c.mustDo("POST", "/dialogues",
+		map[string]any{"movie_id": show, "quote": "I am the one who knocks"}, http.StatusCreated).Body.Bytes())
+	two := idOf(t, c.mustDo("POST", "/dialogues",
+		map[string]any{"movie_id": show, "quote": "Say my name"}, http.StatusCreated).Body.Bytes())
+	annID := idOf(t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": "Call me Ishmael"}, http.StatusCreated).Body.Bytes())
+
+	// Read both columns off a row, as SQLite holds them: NULL comes back as -1 so
+	// "cleared" and "zero" cannot be confused, which is the distinction the whole
+	// *string-not-*int decision exists to preserve.
+	get := func(id int64) (int, int) {
+		var s, e int
+		if err := srv.Store.DB.QueryRow(
+			`SELECT COALESCE(season, -1), COALESCE(episode, -1) FROM dialogues WHERE id = ?`, id).Scan(&s, &e); err != nil {
+			t.Fatal(err)
+		}
+		return s, e
+	}
+
+	t.Run("junk is refused rather than quietly clearing the selection", func(t *testing.T) {
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one, two}, "season": "4", "episode": "6"}, http.StatusOK)
+		for _, bad := range []map[string]any{
+			{"ids": []int64{one, two}, "season": "S2"},
+			{"ids": []int64{one, two}, "episode": "six"},
+			{"ids": []int64{one, two}, "season": "-1"},
+			{"ids": []int64{one, two}, "episode": "3.5"},
+		} {
+			c.mustDo("POST", "/dialogues/bulk", bad, http.StatusBadRequest)
+		}
+		// AND NOTHING MOVED. A 400 that had already written half the selection
+		// would be the worse bug, because the status code would say it had not.
+		for _, id := range []int64{one, two} {
+			if s, e := get(id); s != 4 || e != 6 {
+				t.Fatalf("a refused request still wrote: season=%d episode=%d", s, e)
+			}
+		}
+	})
+
+	t.Run("a whole number lands on every row of the selection", func(t *testing.T) {
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one, two}, "season": "2", "episode": "7"}, http.StatusOK)
+		for _, id := range []int64{one, two} {
+			if s, e := get(id); s != 2 || e != 7 {
+				t.Fatalf("season=%d episode=%d after the bulk set", s, e)
+			}
+		}
+	})
+
+	t.Run("season 0 is a season, not a clear", func(t *testing.T) {
+		// Where a series keeps its specials. THIS is why the request field is a
+		// *string: absent, "" and "0" are three states and a *int holds two.
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one}, "season": "0", "episode": "0"}, http.StatusOK)
+		if s, e := get(one); s != 0 || e != 0 {
+			t.Fatalf("zero was not stored as zero: season=%d episode=%d", s, e)
+		}
+	})
+
+	t.Run("blank is the clear, and reaches NULL rather than zero", func(t *testing.T) {
+		c.mustDo("POST", "/dialogues/bulk",
+			map[string]any{"ids": []int64{one}, "season": "", "episode": ""}, http.StatusOK)
+		if s, e := get(one); s != -1 || e != -1 {
+			t.Fatalf("the clear did not reach NULL: season=%d episode=%d", s, e)
+		}
+	})
+
+	t.Run("and a book is refused with a 400, not a 500 from inside the write", func(t *testing.T) {
+		// unsupportedQuoteField's own reason: without season and episode in
+		// bulkQuoteFieldPresent this reaches bulkSetChild and fails as `no such
+		// column` after the ownership check — the most expensive place to find out.
+		for _, f := range []string{"season", "episode"} {
+			c.mustDo("POST", "/annotations/bulk",
+				map[string]any{"ids": []int64{annID}, f: "2"}, http.StatusBadRequest)
+		}
+	})
+
+	t.Run("the table agrees that they are live on dialogues and nowhere else", func(t *testing.T) {
+		for _, f := range []string{"season", "episode"} {
+			if bulkFields[f].live == "" {
+				t.Fatalf("bulkFields[%q] has no live column", f)
+			}
+			if got := quoteFieldKinds[f]; !slices.Equal(got, []string{"dialogue"}) {
+				t.Fatalf("quoteFieldKinds[%q] = %v, want [dialogue]", f, got)
+			}
+		}
+	})
 }

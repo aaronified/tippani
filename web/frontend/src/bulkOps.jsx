@@ -276,14 +276,24 @@ export const BULK_QUOTE_FIELDS = [
   // one episode is one answer over many rows — which is the whole case for a bulk
   // field.
   //
-  // `season` AND `episode` ARE ABSENT, and the reason written here for a long time
+  // `season` AND `episode` WERE ABSENT, and the reason written here for a long time
   // was false: it said "the queue's own retarget already moves them". Retarget
   // moves a staged GROUP to another work and never touches either column, and the
-  // import queue bulk-sets them itself. What is actually true is about this screen
-  // rather than that one — a Quotes selection can span works and episodes, so
-  // setting a season across it renumbers lines from different episodes alike,
-  // where a staged selection is scoped to the file being reviewed. Whether a
-  // same-work guard would make them safe here is an open question.
+  // import queue bulk-sets them itself. What survived was a worry about this
+  // screen — a Quotes selection can span works and episodes, so setting a season
+  // across it renumbers lines from different episodes alike.
+  //
+  // THE OWNER SETTLED IT, 13 September: "Season and episode in bulk edit:
+  // absolutely do that." And the worry did not survive its own neighbour either:
+  // `episode_name` is on the line below and has been for releases, so one press
+  // could already rename the episode across a selection spanning two shows. The
+  // number was exempted and the name was not, which is not a safety position.
+  //
+  // `number: true` because they are INTEGER columns (0025) — the server writes
+  // them through nullableCount rather than the text loop, and refuses anything
+  // unparseable rather than clearing forty rows and reporting success.
+  { key: 'season', get label() { return t('common.field.season.label') }, kinds: ['dialogue'], number: true },
+  { key: 'episode', get label() { return t('common.field.episode.label') }, kinds: ['dialogue'], number: true },
   { key: 'act', get label() { return t('common.field.act.label') }, kinds: ['dialogue'] },
   { key: 'quest', get label() { return t('common.field.quest.label') }, kinds: ['dialogue'] },
   { key: 'episode_name', get label() { return t('common.field.episode-name.label') }, kinds: ['dialogue'] },

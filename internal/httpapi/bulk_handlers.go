@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"tippani/internal/olog"
@@ -121,6 +122,13 @@ type bulkTagReq struct {
 	Act          *string `json:"act"`           // dialogue (a game's)
 	Quest        *string `json:"quest"`         // dialogue (a game's)
 	EpisodeName  *string `json:"episode_name"`  // dialogue (a show's)
+	// 0025, a show's. CARRIED AS STRINGS for the reason the staged editor's pair
+	// states and chapter_no repeats: absent (leave alone), "" (clear it) and "0"
+	// (season zero, where a series keeps its specials) are THREE states, and a
+	// *int holds two. They are written through nullableCount below rather than in
+	// the ptrs loop, because that loop writes TEXT and these are INTEGER columns.
+	Season  *string `json:"season"`  // dialogue (a show's)
+	Episode *string `json:"episode"` // dialogue (a show's)
 	// 0071. DLC is a dialogue's; LANGUAGE is all three kinds', because the column
 	// finally is — and it is the most obviously bulk-settable field in the app: a
 	// batch of highlights out of one Bengali book is one value on forty rows.
@@ -273,6 +281,12 @@ func bulkQuoteFieldPresent(req *bulkTagReq) map[string]bool {
 	return map[string]bool{
 		"chapter_no":     req.ChapterNo != nil,
 		"occasion_circa": req.OccasionCirca != nil,
+		// Numeric, so they cannot be in the ptrs map either — and without them
+		// here a season sent at a book would reach bulkSetChild and fail as
+		// `no such column` inside the transaction: a 500 where the caller
+		// should have had a 400, which is the exact shape this map exists for.
+		"season":  req.Season != nil,
+		"episode": req.Episode != nil,
 	}
 }
 
@@ -348,6 +362,24 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 		if msg := chapterNoProblem(*req.ChapterNo); msg != "" {
 			writeErr(w, http.StatusBadRequest, msg)
 			return
+		}
+	}
+	// THE SAME TRAP, for the same reason, on the show pair. nullableCount maps
+	// anything it cannot parse to NULL — so "S2" sent across forty lines would
+	// CLEAR the season on all forty and report success, and nothing on screen
+	// would say so. A blank is the deliberate clear and passes; junk is a 400.
+	for _, p := range []struct {
+		name string
+		val  *string
+	}{{"season", req.Season}, {"episode", req.Episode}} {
+		if p.val == nil {
+			continue
+		}
+		if v := strings.TrimSpace(*p.val); v != "" {
+			if n, err := strconv.Atoi(v); err != nil || n < 0 {
+				writeErr(w, http.StatusBadRequest, p.name+" must be a whole number, or blank to clear it")
+				return
+			}
 		}
 	}
 	uid := userID(r)
@@ -471,6 +503,34 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	if req.ChapterNo != nil {
 		if err := bulkSetChild(tx, table, "chapter_no", nullableMeasure(*req.ChapterNo), owned); err != nil {
 			internalError(w, r, "bulk tag: chapter_no", err)
+			return
+		}
+	}
+	// The show pair, kept out of the text loop above and written through
+	// nullableCount — the same helper the staged endpoint uses for these two
+	// columns, so one field is written one way on both sides of approval.
+	//
+	// AND THE REASON IS SYMMETRY, NOT CORRUPTION, which is worth stating because
+	// the obvious claim is wrong. A first draft of this comment said `nullable()`
+	// would leave the text "7" in a numeric column "which SQLite would accept and
+	// then sort as text", borrowing chapter_no's argument. MEASURED against this
+	// package's own driver, that is false for INTEGER affinity: binding "10", 9 and
+	// " 7 " all store `typeof()` = integer and `ORDER BY season` puts 7 first. The
+	// two writers are equivalent here.
+	//
+	// SO THE VALIDATION ABOVE IS WHAT PROTECTS THE DATA, not this line. nullableCount
+	// maps anything unparseable to NULL, and that is exactly the silent-clear the
+	// 400 exists to prevent — which is why the guard is there and why the test
+	// asserts the refusal before it asserts the write.
+	for _, p := range []struct {
+		col string
+		val *string
+	}{{"season", req.Season}, {"episode", req.Episode}} {
+		if p.val == nil {
+			continue
+		}
+		if err := bulkSetChild(tx, table, p.col, nullableCount(*p.val), owned); err != nil {
+			internalError(w, r, "bulk tag: "+p.col, err)
 			return
 		}
 	}

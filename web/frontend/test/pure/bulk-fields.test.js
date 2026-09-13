@@ -141,16 +141,30 @@ describe('what may be set over a selection', () => {
     expect(bulkFieldBody(year, '1851', false)).toEqual({ published_year: 1851 })
   })
 
-  // NOT BECAUSE A RETARGET OWNS THEM, which is what this said and what the Go side
-  // said too. Retarget moves a staged group to another work and never touches
-  // either column; the import queue bulk-sets them itself. The true reason is
-  // about the SELECTION: a Quotes selection can span works and episodes, so
-  // setting a season across it renumbers lines from different episodes alike — a
-  // data change wearing the clothes of a correction — where a staged selection is
-  // scoped to one file being reviewed.
-  it('never a season or an episode number', () => {
+  // THIS TEST USED TO ASSERT THE OPPOSITE, and the history is the point. Season
+  // and episode were held out of the live panel — first because "a retarget owns
+  // them" (false: retarget moves a staged group to another work and never touches
+  // either column), then because a Quotes selection can span works and episodes,
+  // so one season lands on lines from different episodes alike.
+  //
+  // THE OWNER SETTLED IT, 13 September: "Season and episode in bulk edit:
+  // absolutely do that." And the second reason had already been undercut by
+  // `episode_name`, live since 0047: one press could rename the episode across
+  // that same spanning selection. Refusing the number while accepting the name
+  // was one field's exemption dressed as a safety rule.
+  it('offers the show pair on dialogues, as numbers, and nowhere else', () => {
     for (const key of ['season', 'episode']) {
-      expect(keys('dialogue'), `${key} must not be bulk-settable`).not.toContain(key)
+      expect(keys('dialogue'), `${key} is not offered on a dialogue`).toContain(key)
+      // A show pair on a book or a standalone quote would be a control whose every
+      // press is a 400 from unsupportedQuoteField.
+      expect(keys('annotation'), `${key} is offered on a book highlight`).not.toContain(key)
+      expect(keys('quote'), `${key} is offered on a standalone quote`).not.toContain(key)
+      // `number: true` is what makes the panel send 2 rather than "2" — and the
+      // server's own guard refuses anything unparseable rather than clearing the
+      // column on every row of the selection.
+      const f = BULK_QUOTE_FIELDS.find((x) => x.key === key)
+      expect(f.number, `${key} would be sent as text`).toBe(true)
+      expect(bulkFieldBody(f, '2', false)).toEqual({ [key]: 2 })
     }
   })
 

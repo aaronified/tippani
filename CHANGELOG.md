@@ -809,6 +809,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is the app's own copy, like every other face here — nothing is fetched from the web, on
   a screen about how your own words look. Nothing changes unless you pick it.
 
+- **Season and episode can be set across a selection.** The bulk editor on the Quotes
+  screen took eighteen fields and not these two — including, oddly, the episode's
+  **name**, so one press could already rename an episode across forty lines while its
+  number stayed untouchable. Both are there now. A blank clears them, **0** is season
+  zero rather than a clear (where a series keeps its specials), and anything that is not
+  a whole number is refused outright rather than quietly wiping the field on every row
+  you picked.
+
 - **Two words that meant one thing now mean the two things they name.** A **board** is
   where a standalone quote is filed — "Bengali Proverbs" is one — standing to a quote
   exactly as a book stands to a highlight. A **category** is a colour. The app had been

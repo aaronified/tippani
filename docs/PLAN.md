@@ -14741,3 +14741,44 @@ a word the reader meets. **Recorded here rather than left to be discovered** —
 the glossary's remaining uses of "the board" for that scaffold are describing the
 component under its real name, which is why they stay while the four sentences
 about the Library and the Catalogue specifically were corrected.
+
+## Season and episode join the live bulk editor, and a claim about SQLite that was wrong
+
+The owner, 13 September: *"Season and episode in bulk edit: absolutely do that."*
+
+**WHAT HAD KEPT THEM OUT WAS ALREADY HALF-RETRACTED.** `#185` held them back citing two
+guards that said a number retarget already moved them; that was found false (retarget
+moves a staged GROUP and never touches either column). What survived was a data-safety
+worry: a Quotes selection can span works and episodes, so one season lands on lines from
+different episodes alike.
+
+**AND THAT WORRY DID NOT SURVIVE ITS OWN NEIGHBOUR.** `episode_name` has been live since
+0047 — the app already let one press rename the episode across a selection spanning two
+shows, through the same door, onto the same rows. Refusing the *number* while accepting
+the *name* was not a safety position; it was one field's exemption dressed as one.
+
+**THE RATCHET DID ITS JOB AND IS NOW EMPTY.** `bulk_fields_test.go` requires every
+staged-only field to be named with a reason — season and episode were its only two
+entries, and removing them from the table made the test demand they be removed from the
+record too. The empty map stays rather than being deleted: the direction it guards is
+still real, and an empty map is a stronger statement than a missing one.
+
+**A CLAIM I MADE ABOUT SQLITE, MEASURED AND WITHDRAWN.** The first draft of the write
+said these must avoid the text loop because `nullable()` would leave the text `"7"` in a
+numeric column "which SQLite would accept and then sort as text" — borrowed from
+`chapter_no`'s note one screen up. **Measured against this package's own driver, that is
+false for INTEGER affinity**: binding `"10"`, `9` and `" 7 "` all store `typeof()` =
+integer, and `ORDER BY season` puts 7 first. The two writers are equivalent here.
+
+So `nullableCount` is kept for SYMMETRY — the staged side writes these two columns the
+same way, and one field written one way either side of approval is worth having — and the
+comment now says that instead. **What actually protects the data is the 400**, because
+`nullableCount` maps anything unparseable to NULL: a typo'd `S2` across forty lines would
+otherwise clear the season on all forty and answer 200, with nothing on screen to say so.
+The test asserts the refusal, and that nothing moved, BEFORE it asserts the happy path.
+
+**A MUTATION THAT "MISSED" WAS THE FINDING.** Swapping `nullableCount` for `nullable`
+left the test green, and the first instinct was to strengthen the test. The right answer
+was to check whether the two actually differ — they do not — and to fix the sentence that
+claimed they did. A test that cannot see a difference that does not exist is not a weak
+test.
