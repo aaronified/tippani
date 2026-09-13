@@ -163,7 +163,7 @@ slower"* is not a reason.
 | `test/journeys/` | `npm run journeys` | a real browser, a real server, a real database, one sentence a person would say |
 | Go `internal/httpapi` | `go test ./...` | the API journey — create → export → upload → approve → verify, against a real SQLite file |
 | `test/pure/`, `test/dom/` | `npm test` | where the function IS the observable unit: a date parser, an FTS escaper, a scheduler |
-| `test/rules/` | `npm run lint:rules` | the source scanners — design ratchets and cross-source contracts. **Not tests.** |
+| `test/rules/` | `npm run lint:rules` | the source scanners — design ratchets and cross-source contracts, **Not tests.** |
 
 `test/rules` is out of `npm test` on purpose and runs as its own CI step, so a broken
 design rule still fails the build while a green test count stops meaning "the app works".

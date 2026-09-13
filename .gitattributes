@@ -70,3 +70,10 @@
 # test data actually holds those bytes. `text=auto eol=lf` above would rewrite
 # them to LF on commit and the two assertions would pass vacuously for ever.
 internal/i18n/testdata/agree.txt -text
+
+# A KINDLE WRITES CRLF, AND THE FIXTURE HAS TO KEEP IT. `My Clippings.txt` comes off
+# the device with Windows line endings, and `internal/importer/kindle_clippings.go`
+# reads STRUCTURE — the separator line, the leading "- ", the "|" splits — so a
+# fixture normalised to LF on checkout would stop being the thing it claims to be.
+# Git's own warning on `git add` is what caught this.
+web/frontend/test/journeys/fixture/imports/*.txt -text

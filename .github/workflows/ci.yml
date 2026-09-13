@@ -207,8 +207,8 @@ jobs:
         working-directory: web/frontend
       - run: npm test
         working-directory: web/frontend
-      # THE DESIGN RULES, RUN SEPARATELY AND STILL BLOCKING. Seventy-one files read
-      # the SOURCE TEXT and assert how it is spelled — never truncate a name,
+      # THE DESIGN RULES, RUN SEPARATELY AND STILL BLOCKING. The files in
+      # test/rules read the SOURCE TEXT and assert how it is spelled — never truncate a name,
       # spacing is a constant, no emoji glyphs, the typescale. They are worth
       # keeping and they were never tests: the app can be entirely broken and every
       # one of them still passes, because none of them runs it. A suite let a

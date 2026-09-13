@@ -15015,7 +15015,7 @@ meaning "the app works".
 spacing is a constant, no emoji glyphs, the typescale — every one of those is a real rule
 this app is held to, and a ratchet that counts the remaining violations is the only thing
 that has ever made those numbers fall. What they are not is evidence that the app works,
-because the app can be entirely broken and all 78 of them still pass: none of them runs it.
+because the app can be entirely broken and every one of them still passes: none of them runs it.
 
 ### What the demotion actually found
 
@@ -15121,13 +15121,14 @@ watching the file go red:
 | `bulk-season-and-episode` | the season is set on six lines at once, and it survives a reload |
 | `reviewing-a-card` | a practice card is revealed and graded, and the app says "recalled" |
 | `importing-a-file` | a file is imported, and nothing reaches the library until it is approved |
+| `importing-other-formats` | a Kindle's own clippings, a Bookcision export and a Readest export are each read |
 | `exporting-a-library` | the file the reader is handed actually holds their books |
 | `changing-a-setting` | the interface language changes, and survives a reload |
 | `per-user-isolation` | a second account sees an empty notebook, and the first gets its own back |
 | `working-with-no-internet` | a work added by hand saves and stays, with outbound calls off |
 | `harness-vocabulary` | the vocabulary's own guarantees, which nothing else checks |
 
-`npm run journeys`: 16 files, 20 tests, 48 seconds.
+`npm run journeys`: 17 files, 23 tests, 53 seconds.
 
 **AND THE REVIEW OF THEM FOUND THE WORST DEFECT IN THE SET, IN THE ONE FILE THAT
 COULD LEAST AFFORD IT.** `bulk-season-and-episode` — the acceptance test of this
@@ -15190,3 +15191,22 @@ bytes back through `app.downloaded`, and build the fixture to match what came ou
 `fixture/imports/seneca-two-more.md` is public-domain Seneca, deliberately two lines
 this fixture's copy of that book does NOT already hold — so "the quote arrived" is a
 fact about the import rather than about what was already there.
+
+**AND "ROUTES" IS PLURAL, WHICH THE FIRST PASS OF THIS WORK QUIETLY MADE SINGULAR.**
+A rater caught it: one file, one format, against an app that reads eight. Three more
+fixtures now sit beside it, each carrying one line taken verbatim from this fixture's
+own copy of a public-domain book, and each shaped from the importer's own testdata
+rather than from memory — a Kindle's `My Clippings.txt` (Grimm, with the CRLF line
+endings a real device writes), a Bookcision export (Dostoyevsky), and a Readest
+annotation export (Bhagat Singh). All three are read correctly: the app names the
+book each belongs to and shows the parsed line on the queue.
+
+**WHAT THOSE THREE ASSERT, AND WHERE THE LINE IS DRAWN.** The whole of a route is
+"the app read this file and understood it" — which book, and what the line says —
+and both are on the staging screen before anything is approved. Approving is proven
+end to end ONCE, in `importing-a-file`, because repeating it three times would be
+three copies of one check rather than three routes. What is NOT covered, and is
+said here rather than left to be discovered: the four HTML routes (Goodreads,
+Hardcover, IMDb, the saved Kindle notebook) have Go parser tests and no journey.
+They need a saved page of real markup to be honest about, which is a fixture
+question rather than a test-writing one.

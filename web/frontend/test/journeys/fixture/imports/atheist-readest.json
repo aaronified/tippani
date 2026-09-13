@@ -1,0 +1,26 @@
+{
+  "$format": "readest-annotations",
+  "version": 1,
+  "exportedAt": 1788707296898,
+  "book": {
+    "title": "Why I Am An Atheist and Other Works",
+    "author": "Bhagat Singh",
+    "hash": "t1ppan1",
+    "metaHash": "t1ppan1meta",
+    "format": "EPUB"
+  },
+  "annotations": [
+    {
+      "id": "one",
+      "type": "annotation",
+      "cfi": "epubcfi(/6/2!/4/2/2)",
+      "note": "",
+      "createdAt": 1767256200000,
+      "text": "“The sword of revolution is sharpened on the whetting stone of ideas.”",
+      "style": "highlight",
+      "color": "yellow"
+    }
+  ],
+  "progress": [12, 240],
+  "location": "epubcfi(/6/2!/4/2/2)"
+}

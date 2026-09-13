@@ -324,7 +324,7 @@ The shared modules do:
 | `internal/importer/testdata/` | Fixture files, one per format. Real exports, trimmed. |
 | `web/frontend/test/pure/` | Value-in, value-out tests. Node environment, no DOM, fast. |
 | `web/frontend/test/dom/` | Component tests. jsdom, and only where a component is genuinely under test. |
-| `web/frontend/test/rules/` | **Lint, not tests.** Seventy-eight files that read the SOURCE TEXT and assert how it is spelled — never truncate a name, spacing is a constant, no emoji glyphs, the typescale. Out of `npm test` and into `npm run lint:rules`, because the app can be entirely broken and every one of them still passes. Deleted one at a time as a journey covers its ground. |
+| `web/frontend/test/rules/` | **Lint, not tests.** The files here read the SOURCE TEXT and assert how it is spelled — never truncate a name, spacing is a constant, no emoji glyphs, the typescale. Out of `npm test` and into `npm run lint:rules`, because the app can be entirely broken and every one of them still passes. Deleted one at a time as a journey covers its ground. |
 | `web/frontend/test/journeys/` | A real browser against a real server. See "The journeys are the tier that presses buttons" below. |
 | `web/frontend/vitest.config.js` | Defines `pure`, `dom` and `rules`, pins `TZ=UTC`, and exports `TIPPANI_SRC` for the tests that read a source file rather than import it. `vitest.journeys.config.js` is separate so the fast suite never pays for the journeys' `go build` and seed. |
 | `web/frontend/test/setup-pure.js` | One shim: `window.matchMedia`, because `theme.js` calls it at module scope. |
@@ -514,7 +514,7 @@ for on anything concurrent; a race that shows up one run in four is still a race
 
 The frontend suite runs on **Vitest in three projects plus a fourth config**: `pure` for
 value-in, value-out logic in the node environment, `dom` for components under jsdom, which
-is paid for only where a component is genuinely under test, `rules` — seventy-eight files
+is paid for only where a component is genuinely under test, `rules` — the files
 that read the source text and assert how it is spelled — and `vitest.journeys.config.js`,
 which is a separate config rather than a project because it needs a globalSetup that
 builds the binary and seeds a library, and a timeout an order of magnitude longer than the
