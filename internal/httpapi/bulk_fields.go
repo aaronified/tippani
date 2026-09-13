@@ -113,6 +113,14 @@ var bulkFields = map[string]bulkField{
 	"work_title":    {kinds: []string{"utterance"}, live: "work_title", staged: "work_title", notNull: true},
 	"locator":       {kinds: []string{"utterance"}, live: "locator", staged: "locator", notNull: true},
 	"source_author": {kinds: []string{"utterance"}, live: "source_author", staged: "source_author", notNull: true},
+
+	// THE DATE AND ITS TICK, added together because they are one fact split in
+	// two: the date, and whether it is an estimate. 0047 made the flag an INTEGER
+	// NOT NULL DEFAULT 0, so it is written through boolToInt and never through
+	// nullable() — which is why it carries no `notNull`, and why the schema walk
+	// asks only about TEXT columns.
+	"occasion_date":  {kinds: []string{"utterance"}, live: "occasion_date", staged: "occasion_date", notNull: true},
+	"occasion_circa": {kinds: []string{"utterance"}, live: "occasion_circa", staged: "occasion_circa"},
 }
 
 // quoteFieldKinds names, per optional field, the kinds that actually have the

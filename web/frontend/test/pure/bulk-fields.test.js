@@ -12,7 +12,7 @@
 // anything, so it says nothing.
 
 import { describe, expect, it } from 'vitest'
-import { BULK_QUOTE_FIELDS, BULK_WORK_FIELDS, bulkFieldsFor, overwriteWarning } from '../../src/bulkOps.jsx'
+import { BULK_QUOTE_FIELDS, BULK_WORK_FIELDS, bulkFieldBody, bulkFieldsFor, overwriteWarning } from '../../src/bulkOps.jsx'
 
 const keys = (kind) => bulkFieldsFor(kind).map((f) => f.key)
 
@@ -76,6 +76,45 @@ describe('what may be set over a selection', () => {
     for (const kind of ['book', 'movie']) {
       expect(keys(kind)).not.toContain('language')
     }
+  })
+
+  // WHEN IT WAS SAID, AND WHETHER THAT IS A GUESS — one row in the panel and two
+  // columns on the wire. The tick is drawn inside the date control, because the
+  // owner ruled that a flag about a field belongs with the field; a second row
+  // for it would put the qualifier on a different screen from the thing it
+  // qualifies, which is the arrangement that ruling replaced.
+  it('offers the quote date, on quotes only, carrying its circa tick', () => {
+    expect(keys('quote'), 'a quote must be datable in bulk').toContain('occasion_date')
+    // A highlight and a film line are placed by a chapter or a runtime; neither
+    // table has the column, and offering it would be a 400 the panel sent itself.
+    for (const kind of ['annotation', 'dialogue']) {
+      expect(keys(kind), `${kind} has no occasion_date column`).not.toContain('occasion_date')
+    }
+    const f = BULK_QUOTE_FIELDS.find((x) => x.key === 'occasion_date')
+    expect(f.circaKey, 'the tick must name the column it writes').toBe('occasion_circa')
+    // Never a second row: the endpoint's own guard reads `circaKey` for exactly
+    // this reason, so a stray entry here would mean the panel offered the tick
+    // twice, once uselessly.
+    expect(keys('quote').filter((k) => k === 'occasion_circa')).toHaveLength(0)
+  })
+
+  // THE PAIR TRAVELS TOGETHER, ALWAYS. A date set across a selection against each
+  // row's OLD tick states the new date more or less precisely than it was meant —
+  // per row, and with nothing on screen to say so.
+  it('sends the tick with the date, touched or not', () => {
+    const date = BULK_QUOTE_FIELDS.find((x) => x.key === 'occasion_date')
+    expect(bulkFieldBody(date, '-0399', false)).toEqual({ occasion_date: '-0399', occasion_circa: false })
+    expect(bulkFieldBody(date, '-0399', true)).toEqual({ occasion_date: '-0399', occasion_circa: true })
+    // Clearing the date clears it, and the tick still travels: a row with no date
+    // and a live "about" flag is a qualifier with nothing to qualify.
+    expect(bulkFieldBody(date, '', false)).toEqual({ occasion_date: '', occasion_circa: false })
+    // And a field with no companion sends exactly one key, or every other field
+    // in the panel would quietly grow a second one.
+    const speaker = BULK_QUOTE_FIELDS.find((x) => x.key === 'speaker')
+    expect(bulkFieldBody(speaker, ' Ahab ', true)).toEqual({ speaker: 'Ahab' })
+    // A number field sends a number: "3" in a *float64 is a 400.
+    const year = BULK_WORK_FIELDS.find((x) => x.key === 'published_year')
+    expect(bulkFieldBody(year, '1851', false)).toEqual({ published_year: 1851 })
   })
 
   // A number the import queue's own retarget already moves. Setting a season or an
@@ -153,6 +192,26 @@ describe('the per-field warning', () => {
     expect(overwriteWarning([{ series_index: 0 }], 'series_index')).not.toBeNull()
     expect(overwriteWarning([{ favorite: false }], 'favorite')).not.toBeNull()
     expect(overwriteWarning([{ series_index: '' }], 'series_index')).toBeNull()
+  })
+
+  // A DATE IS SHOWN THE WAY THE APP SHOWS DATES, not the way the column stores
+  // them. `-0399` is the canonical form the board sorts on; a reader who typed
+  // "399 BCE" has never seen it, so a warning printing it is the storage format
+  // talking. The field carries its own renderer, and it reads the ROW as well as
+  // the value because a partial date's precision lives in a second column.
+  it('renders a stored date the way every other screen does', () => {
+    const fmt = BULK_QUOTE_FIELDS.find((f) => f.key === 'occasion_date').format
+    const rows = [{ occasion_date: '-0399', occasion_circa: false }]
+    const w = overwriteWarning(rows, 'occasion_date', fmt)
+    expect(w.text).toContain('399 BCE')
+    expect(w.text, 'the stored form must not reach the reader').not.toContain('-0399')
+    // And the tick changes what it says, which is why the row is passed at all:
+    // two rows holding the same digits with different certainty are two answers.
+    const mixed = [
+      { occasion_date: '-0399', occasion_circa: false },
+      { occasion_date: '-0399', occasion_circa: true },
+    ]
+    expect(overwriteWarning(mixed, 'occasion_date', fmt).distinct).toBe(2)
   })
 
   it('and survives an empty selection', () => {

@@ -133,33 +133,86 @@ func TestEveryBulkFieldSetsAndClearsOnItsOwnKind(t *testing.T) {
 // rule the widening must not have loosened. A game's act on a shelf of standalone
 // quotes is a request the caller has got wrong, and answering 200 to it reports a
 // narrowing that never happened.
+//
+// THIS WALKS THE TABLE RATHER THAN A LIST OF SEVEN PAIRS, and the change is not
+// tidiness. The seven were hand-picked, so a field added to `bulkFields` and
+// missed by `unsupportedQuoteField` was tested by nothing. `occasion_date` shipped
+// that way in this session's working tree: written by an `if` beside the shared
+// loop, it never reached the applicability check, so a date sent to
+// /annotations/bulk got past the 400 and failed as `no such column:
+// annotations.occasion_date` INSIDE the transaction — a 500 after the ownership
+// check, which is the exact failure this file's other guards exist to stop.
+//
+// THE BODY IS CHECKED, NOT ONLY THE STATUS, because four other 400s are reachable
+// on this endpoint (an unknown colour, an unknown kind, a malformed chapter
+// number, a malformed date) and any of them would make a broken applicability
+// check look tested. Every value below is therefore valid ON ITS OWN TERMS: the
+// only thing wrong with the request is the kind it is sent to.
 func TestABulkFieldTheKindHasNoColumnForIsStillRefused(t *testing.T) {
 	h := newTestServer(t).Handler()
 	c := signupAdmin(t, h)
 
 	book := createBook(t, c, "Moby-Dick")
-	annID := idOf(t, c.mustDo("POST", "/annotations",
-		map[string]any{"book_id": book, "quote": "a highlight"}, http.StatusCreated).Body.Bytes())
-	quoteID := newUtterance(t, c, map[string]any{"quote": "a standalone quote"}).ID
-
-	for _, tc := range []struct {
-		path  string
-		id    int64
-		field string
+	game := newWork(t, c, "Disco Elysium", "game")
+	rows := map[string]struct {
+		path string
+		id   int64
 	}{
-		// An annotation has no act, no quest and no actor: a novel has speakers,
-		// and nobody plays Ahab.
-		{"/annotations/bulk", annID, "act"},
-		{"/annotations/bulk", annID, "quest"},
-		{"/annotations/bulk", annID, "actor"},
-		{"/annotations/bulk", annID, "recipient"},
-		// A standalone quote has no chapter and no episode.
-		{"/quotes/bulk", quoteID, "chapter"},
-		{"/quotes/bulk", quoteID, "episode_name"},
-		{"/quotes/bulk", quoteID, "character"},
-	} {
-		c.mustDo("POST", tc.path,
-			map[string]any{"ids": []int64{tc.id}, tc.field: "x"}, http.StatusBadRequest)
+		"annotation": {"/annotations/bulk", idOf(t, c.mustDo("POST", "/annotations",
+			map[string]any{"book_id": book, "quote": "a highlight"}, http.StatusCreated).Body.Bytes())},
+		"dialogue": {"/dialogues/bulk", idOf(t, c.mustDo("POST", "/dialogues",
+			map[string]any{"movie_id": game, "quote": "a game line"}, http.StatusCreated).Body.Bytes())},
+		"utterance": {"/quotes/bulk", newUtterance(t, c, map[string]any{"quote": "a standalone quote"}).ID},
+	}
+	for kind := range quoteBulkKinds {
+		if _, ok := rows[kind]; !ok {
+			t.Fatalf("bulkTag knows kind %q and this case has no row of it to send", kind)
+		}
+	}
+
+	// A value each field accepts, so the refusal can only be about the kind. The
+	// default is a plain string; these are the ones with a shape of their own.
+	values := map[string]any{
+		"occasion_circa": true,
+		"chapter_no":     "7",
+		"kind":           "speech",  // one of quoteKinds, so 0053's check passes
+		"occasion_date":  "1952",    // a shape normalizeHistoricalDate accepts
+		"language":       "bn",
+	}
+
+	tried := 0
+	for name, f := range bulkFields {
+		if f.live == "" {
+			continue // staged-only: this endpoint has no opinion on it
+		}
+		for kind, row := range rows {
+			if slices.Contains(f.kinds, kind) {
+				continue
+			}
+			tried++
+			var val any = "x"
+			if v, ok := values[name]; ok {
+				val = v
+			}
+			rec := c.do("POST", row.path, map[string]any{"ids": []int64{row.id}, name: val})
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("%s on a %s: %d %s — the table says this kind has no such column, "+
+					"so it must be a 400 here and not a failure inside the transaction",
+					name, kind, rec.Code, strings.TrimSpace(rec.Body.String()))
+				continue
+			}
+			if want := name + " does not apply to this kind"; !strings.Contains(rec.Body.String(), want) {
+				t.Errorf("%s on a %s answered 400 with %s — wanted %q, so this 400 is "+
+					"some other check passing for the wrong reason",
+					name, kind, strings.TrimSpace(rec.Body.String()), want)
+			}
+		}
+	}
+	// A walk that finds nothing passes silently, which is how an extraction bug
+	// reads as a clean run. Measured at 45 pairs over the table as it stands; the
+	// floor is 40 so adding a field cannot quietly drop the walk to nothing.
+	if tried < 40 {
+		t.Fatalf("only %d field/kind pairs exercised; the walk is broken", tried)
 	}
 }
 
@@ -357,6 +410,16 @@ func TestEveryBulkSettableColumnIsOfferedByThePanel(t *testing.T) {
 	block = block[start : start+end]
 	offered := map[string]bool{}
 	for _, m := range regexp.MustCompile(`key:\s*'([a-z_]+)'`).FindAllStringSubmatch(block, -1) {
+		offered[m[1]] = true
+	}
+	// A COMPANION COLUMN IS OFFERED TOO, and it has to be, because it is drawn
+	// rather than listed. `occasion_circa` is the tick inside the date control —
+	// PartialDateField has drawn the two together since the owner ruled that a flag
+	// about a field belongs with the field — so the panel has one row and sends two
+	// columns. Without this the endpoint's column would read as unoffered and the
+	// only ways to green would be a second row nobody can pick usefully, or an
+	// entry in `deliberate` claiming an absence that is not one.
+	for _, m := range regexp.MustCompile(`circaKey:\s*'([a-z_]+)'`).FindAllStringSubmatch(block, -1) {
 		offered[m[1]] = true
 	}
 	// A walk that finds nothing makes a guard green while it checks nothing.
@@ -603,8 +666,6 @@ func TestEveryStagedColumnWrittenIsInTheSharedTable(t *testing.T) {
 		"movie_id":       "likewise",
 		"season":         "a number retarget owns — see the panel walk above",
 		"episode":        "a number retarget owns",
-		"occasion_date":  "not yet in the shared table; the live editor cannot set it either",
-		"occasion_circa": "likewise — the pair move together",
 	}
 
 	written := map[string]bool{}
@@ -669,9 +730,16 @@ func TestEveryNotNullFlagMatchesTheSchema(t *testing.T) {
 	// Column name -> is it NOT NULL, per the last migration that declared it.
 	// Both CREATE TABLE bodies and ALTER TABLE ... ADD COLUMN, over the four
 	// tables a bulk edit can reach.
+	// ONLY TEXT COLUMNS, and the restriction is the flag's own meaning rather than
+	// a convenience. `notNull` exists for one trap: nullable("") is nil, so
+	// clearing a NOT NULL text column that way is a constraint violation. An
+	// INTEGER flag never travels that path — `occasion_circa` and `favorite` are
+	// written through boolToInt and cannot be "cleared" at all — so demanding the
+	// flag on them would put columns in notNullQuoteCols that the write loop never
+	// consults, which is a table saying something untrue about itself.
 	notNull := map[string]bool{}
-	col := regexp.MustCompile(`(?m)^\s*([a-z_]+)\s+(?:TEXT|INTEGER|REAL|BLOB|NUMERIC)\b(.*)$`)
-	add := regexp.MustCompile(`(?i)ALTER TABLE\s+(?:utterances|annotations|dialogues|staged_quotes)\s+ADD COLUMN\s+([a-z_]+)\s+(?:TEXT|INTEGER|REAL|BLOB|NUMERIC)\b([^;]*)`)
+	col := regexp.MustCompile(`(?m)^\s*([a-z_]+)\s+TEXT\b(.*)$`)
+	add := regexp.MustCompile(`(?i)ALTER TABLE\s+(?:utterances|annotations|dialogues|staged_quotes)\s+ADD COLUMN\s+([a-z_]+)\s+TEXT\b([^;]*)`)
 	tables := regexp.MustCompile(`(?is)CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(?:utterances|annotations|dialogues|staged_quotes)\s*\((.*?)\n\);`)
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".sql") {
@@ -806,5 +874,133 @@ func TestBulkTagRemovalMatchesTheStagedEditorsAnswers(t *testing.T) {
 	if got := quoteTagsNow(t, c, both.ID); !slices.Equal(got, []string{"grief"}) {
 		t.Errorf("a tag both removed and added left %v, want it present — the staged editor "+
 			"drops then appends, so the addition wins, and one request must not mean two things", got)
+	}
+}
+
+// ── the occasion date over a selection, and the shape it must keep ──────────
+//
+// A DATE REFUSED ON ONE QUOTE CANNOT BE ACCEPTED ON TWO HUNDRED. The single-row
+// path runs `normalizeHistoricalDate` (utterance_handlers.go) and answers 400 to
+// anything that is not a year, YYYY-MM or YYYY-MM-DD with an optional leading '-'
+// for BCE. Measured before this landed: `POST /quotes` with "sometime in 1952"
+// gives a 400.
+//
+// THE STAGED EDITOR HAD THE SAME HOLE AND IT WAS OLDER. `normalizeHistoricalDate`
+// had exactly three callers — the importer and the single-row create/update — and
+// the staged bulk endpoint was not one of them. It length-checked the value and
+// stored it verbatim, and approval then dropped it: the importer runs the
+// validator this endpoint skipped, so the date vanished between the review screen
+// and the quote, with only a log line to say so.
+// Both bulk paths call it now — this case covers the LIVE one, and the staged one
+// has its own below, because a case named for both and exercising one is how a
+// half-guarded repair reads as guarded.
+func TestBulkOccasionDateKeepsItsShapeOnTheLiveEditor(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	a := newUtterance(t, c, map[string]any{"quote": "the speech"})
+	b := newUtterance(t, c, map[string]any{"quote": "the letter"})
+
+	// BCE, the form the whole feature exists for: 399 BCE is stored '-0399'.
+	c.mustDo("POST", "/quotes/bulk", map[string]any{
+		"ids": []int64{a.ID, b.ID}, "occasion_date": "-0399", "occasion_circa": true,
+	}, http.StatusOK)
+	for _, id := range []int64{a.ID, b.ID} {
+		got := quoteNow(t, c, id)
+		if got.OccasionDate != "-0399" {
+			t.Errorf("quote %d has occasion_date %q, want -0399", id, got.OccasionDate)
+		}
+		if !got.OccasionCirca {
+			t.Errorf("quote %d did not take the circa tick", id)
+		}
+	}
+
+	// AND THE PAIR MOVES INDEPENDENTLY. The dates can be right while only the
+	// certainty is wrong, which is a real thing to want over a selection.
+	c.mustDo("POST", "/quotes/bulk",
+		map[string]any{"ids": []int64{a.ID}, "occasion_circa": false}, http.StatusOK)
+	if got := quoteNow(t, c, a.ID); got.OccasionCirca || got.OccasionDate != "-0399" {
+		t.Errorf("clearing the tick alone gave circa=%v date=%q — the date should not move",
+			got.OccasionCirca, got.OccasionDate)
+	}
+
+	// THE REFUSAL IS THE SAME ONE THE SINGLE-ROW PATH GIVES.
+	rec := c.do("POST", "/quotes/bulk",
+		map[string]any{"ids": []int64{a.ID}, "occasion_date": "sometime in 1952"})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("a malformed date over a selection: %d %s — the single-row path answers 400",
+			rec.Code, rec.Body)
+	}
+	// And it did not half-apply: a refused request writes nothing.
+	if got := quoteNow(t, c, a.ID); got.OccasionDate != "-0399" {
+		t.Errorf("the refused date left %q behind", got.OccasionDate)
+	}
+}
+
+// quoteNow re-reads one quote from the account's list — see quoteTagsNow for why
+// there is no GET /quotes/{id} to use instead.
+func quoteNow(t *testing.T, c *testClient, id int64) utteranceRow {
+	t.Helper()
+	for _, u := range decode[struct {
+		Utterances []utteranceRow `json:"utterances"`
+	}](t, c.mustDo("GET", "/quotes", nil, http.StatusOK)).Utterances {
+		if u.ID == id {
+			return u
+		}
+	}
+	t.Fatalf("quote %d is not in the list", id)
+	return utteranceRow{}
+}
+
+// AND THE STAGED EDITOR REFUSES IT TOO, which needed saying separately: removing
+// the staged half of this fix failed NO test until this case existed. That is the
+// shape of defect this whole file is about — a repair with nothing holding it —
+// and it is worth the extra setup an import needs.
+//
+// THE CONSEQUENCE IF IT REGRESSES, measured rather than assumed — an earlier draft
+// of this comment claimed approve stores the bad value, and it does not.
+// `writeUtterances` (import_quotes.go) runs the same validator at approval and
+// DROPS a date it refuses, with an olog warning and nothing in the reply. So the
+// value survives in the queue, shows on the review screen, is approved, and the
+// date is gone from the quote that lands — no message, no 400, nothing the reader
+// sees. One screen refusing with a message while the other accepts and then
+// silently discards is worse than either answer given twice.
+func TestTheStagedEditorRefusesAMalformedOccasionDate(t *testing.T) {
+	h := newTestServer(t).Handler()
+	c := signupAdmin(t, h)
+
+	staged := stageQuotesMD(t, c, "quotes.md", "# Quotes\n\n> A line worth keeping.\n> — Someone\n")
+	if len(staged.Works) == 0 {
+		t.Fatal("the import staged nothing — the setup, not the endpoint, is wrong")
+	}
+	rows := decode[struct {
+		Quotes []struct {
+			ID           int64  `json:"id"`
+			OccasionDate string `json:"occasion_date"`
+		} `json:"quotes"`
+	}](t, c.mustDo("GET", "/import/staged", nil, http.StatusOK))
+	if len(rows.Quotes) == 0 {
+		t.Fatal("no staged quotes came back")
+	}
+	id := rows.Quotes[0].ID
+
+	// A shape the single-row path refuses, and this one used to store verbatim.
+	c.mustDo("POST", "/import/staged/bulk",
+		map[string]any{"ids": []int64{id}, "occasion_date": "sometime in 1952"},
+		http.StatusBadRequest)
+
+	// The legitimate forms still pass, so the check is a gate and not a wall.
+	c.mustDo("POST", "/import/staged/bulk",
+		map[string]any{"ids": []int64{id}, "occasion_date": "-0399"}, http.StatusOK)
+	after := decode[struct {
+		Quotes []struct {
+			ID           int64  `json:"id"`
+			OccasionDate string `json:"occasion_date"`
+		} `json:"quotes"`
+	}](t, c.mustDo("GET", "/import/staged", nil, http.StatusOK))
+	for _, q := range after.Quotes {
+		if q.ID == id && q.OccasionDate != "-0399" {
+			t.Errorf("the staged row has occasion_date %q, want -0399", q.OccasionDate)
+		}
 	}
 }

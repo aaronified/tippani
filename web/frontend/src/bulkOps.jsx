@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { json, errText } from './api.js'
 import { t } from './i18n.js'
 import { quoteKindOptions } from './quoteKind.js'
-import { toast } from './ui.jsx'
+import { formatPartialDate, toast } from './ui.jsx'
 
 // What acting on some rows actually DOES — the network half of the action
 // registry.
@@ -313,7 +313,50 @@ export const BULK_QUOTE_FIELDS = [
   // languages in one press, and the box that offers what the library already holds
   // is the fix the single-record forms already have.
   { key: 'language', language: true, get label() { return t('common.field.language.label') } },
+  // WHEN IT WAS SAID, and it is ONE ROW because it is one fact. `occasion_date`
+  // holds the date and `occasion_circa` the tick that says it is an estimate, and
+  // `PartialDateField` has drawn the two as a single control since the owner
+  // overruled their separation: "a flag about a field belongs with the field".
+  // Giving the panel two rows would put the tick on a different screen from the
+  // date it qualifies, which is the arrangement that was already rejected once.
+  //
+  // `circaKey` NAMES THE COMPANION COLUMN so the dialog knows to send it and the
+  // endpoint's guard knows this panel offers it — the alternative was a second
+  // entry nobody could pick usefully, or an undeclared absence, and the guard
+  // exists precisely to stop the second.
+  //
+  // SENT TOGETHER, ALWAYS, and not only when the reader touches the tick: a date
+  // set over a selection against an old tick is a date stated more or less
+  // precisely than it was meant. The control parses `c. 1890` into a ticked flag,
+  // so a reader who means "about" says so in the box and never has to find a
+  // checkbox for it.
+  { key: 'occasion_date', date: true, circaKey: 'occasion_circa', kinds: ['quote'],
+    get label() { return t('quotes.form.when.label') },
+    // Stored as '-0399'; nobody reads that. The overwrite warning says what the
+    // rest of the app says — "399 BCE", or "c. 40" where the row's own tick is on.
+    format: (v, row) => formatPartialDate(v, row?.occasion_circa) },
 ]
+
+// bulkFieldBody builds the request body for one field of the set-fields dialog.
+//
+// IT IS HERE AND NOT IN THE DIALOG because this table is the only thing that
+// knows a field can carry a companion column, and a body assembled inside the
+// component would be a second answer to a question the table already answers —
+// the shape this whole stretch of work has been closing, on both sides of the
+// approval line.
+//
+// A number sends a number: `"3"` in a *float64 is a 400, and Number('') is 0,
+// which is how both a year and a series index spell "unset". Everything else is
+// trimmed, like every single-record form — "The Hainish Cycle " stored across a
+// selection looks right, sorts right, and never matches the one typed next time.
+export function bulkFieldBody(spec, value, circa) {
+  if (!spec) return {}
+  const body = { [spec.key]: spec.number ? Number(value) || 0 : String(value).trim() }
+  // Sent whether or not the tick was touched — see `circaKey` above for why the
+  // pair cannot travel separately.
+  if (spec.circaKey) body[spec.circaKey] = !!circa
+  return body
+}
 
 export function bulkFieldsFor(kind) {
   const table = kind === 'book' || kind === 'movie' ? BULK_WORK_FIELDS : BULK_QUOTE_FIELDS
@@ -325,7 +368,11 @@ export function bulkFieldsFor(kind) {
 // Returns null when nothing would be lost — which is the case the owner asked
 // for by name: "fields that are empty across the full selection do not need
 // warnings". A blank being filled is not an overwrite.
-export function overwriteWarning(rows, key) {
+// `format` renders a stored value the way the reader sees it everywhere else, and
+// it takes the ROW as well as the value because a partial date's precision lives
+// in a second column. Without it a warning about a quote's date reads "-0399",
+// which is the storage format and not a date anyone typed.
+export function overwriteWarning(rows, key, format) {
   const present = []
   const seen = new Set()
   for (const r of rows || []) {
@@ -334,7 +381,7 @@ export function overwriteWarning(rows, key) {
     // count as empty. `== null` catches both null and undefined and nothing else.
     if (v == null || v === '') continue
     present.push(v)
-    seen.add(String(v))
+    seen.add(format ? format(v, r) : String(v))
   }
   if (present.length === 0) return null
   return {

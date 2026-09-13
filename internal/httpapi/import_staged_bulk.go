@@ -146,6 +146,23 @@ func (req *stagedBulkReq) validate() string {
 		if *f.val == nil {
 			continue
 		}
+		// A DATE IS CHECKED FOR SHAPE, NOT ONLY FOR LENGTH, and this line was
+		// missing for as long as the field existed. `normalizeHistoricalDate` had
+		// three callers — the importer and the single-row create/update — and this
+		// endpoint was not one of them, so `POST /quotes` refused "sometime in
+		// 1952" with a 400 while the same value set across a whole staged file was
+		// accepted and stored verbatim — then DROPPED at approval by the validator
+		// `writeUtterances` does run (import_quotes.go), with a log line and no
+		// message. The date does not reach the library; it just disappears.
+		// Validated before the length check, so the message a reader gets names
+		// the real fault rather than a cap they have not hit.
+		if f.name == "occasion_date" {
+			v := **f.val
+			if msg := normalizeHistoricalDate("occasion date", &v); msg != "" {
+				return msg
+			}
+			**f.val = v
+		}
 		trimmed, ok := trimCap(**f.val, 128)
 		if !ok {
 			return f.name + " too long (max 128 characters)"

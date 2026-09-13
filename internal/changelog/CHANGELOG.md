@@ -722,6 +722,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   page that did not mention the quote it was counting. The search now honours the scope
   too: a books-only search returns no quotes, and a quotes-only one returns no books.
 
+- **When a quote was said, and whether that is a guess, can now be set over a selection.**
+  Almost everything else a standalone quote carries could be changed across a batch — its
+  kind, its speaker, the work it came from, its colour, its tags — and the date was
+  one-row-at-a-time work. It takes the same shapes the single box does, a year before the
+  era included, and it refuses the same ones. The date and the **c.** tick move
+  independently, because the common case is that the dates are right and only the
+  certainty is wrong.
+
 ### Fixed
 
 - **A letter you shared did not name who it was to.** Three things you can record about a
@@ -735,6 +743,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   place twice. The page gets a line of its own, and its own switch, on every kind whose
   credit does not already say it — off until you ask for it, the way a book highlight's
   page already was. Nothing you had switched off in the share dialog comes back on.
+
+- **A date the app refuses on one quote was accepted on a whole imported file — and then
+  thrown away.** Typing `sometime in 1952` into a quote's occasion date has always come
+  back refused, with a message naming the shapes it takes. Setting the same value across a
+  batch of rows in the import queue was accepted, stored, and shown back on the review
+  screen as though it had taken. It had not: approving those rows quietly dropped the date,
+  because approval runs the check the batch editor skipped. The quote landed with no date,
+  no warning and no way to tell. The batch editor now answers the way the single box does,
+  before anything is stored.
 
 - **You can take a tag off a selection of quotes, not only put one on.** The import
   checks screen has always been able to remove a tag across a batch; the Quotes screen

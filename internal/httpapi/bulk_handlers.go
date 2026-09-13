@@ -67,6 +67,14 @@ type bulkTagReq struct {
 	// take a tag off a selection and the Quotes screen could only put one on.
 	// Same job, one side of approval apart.
 	RemoveTags []string `json:"remove_tags"`
+	// THE PAIR TRAVELS TOGETHER, which is why they are added together and sit on
+	// one line of the field table: `occasion_date` is the date and
+	// `occasion_circa` is the tick that says it is an estimate. Setting one
+	// without the other over a selection is a legitimate thing to want — the
+	// dates are right and only the certainty is wrong, or the reverse — so they
+	// are two optional fields rather than one struct.
+	OccasionDate  *string `json:"occasion_date"`
+	OccasionCirca *bool   `json:"occasion_circa"`
 	Favorite *bool    `json:"favorite"`
 	// Colour became a six-slot, user-named category in 1.7.1, which made it the
 	// single most plausible reason to select forty quotes — and the bulk endpoints
@@ -239,14 +247,37 @@ func bulkQuoteFieldPtrs(req *bulkTagReq) map[string]*string {
 		"place": req.Place, "medium": req.Medium, "kind": req.Kind,
 		"region": req.Region, "recipient": req.Recipient,
 		"work_title": req.WorkTitle, "locator": req.Locator,
+		// 0026. NOT NULL, so the loop writes it as trimmed text rather than
+		// through nullable() — notNullQuoteCols carries that, from the same table
+		// this map's applicability is read out of.
+		"occasion_date": req.OccasionDate,
+	}
+}
+
+// bulkQuoteFieldPresent answers "did the caller send this field" for the fields
+// whose JSON is NOT a *string, so bulkQuoteFieldPtrs cannot carry them.
+//
+// IT EXISTS SO unsupportedQuoteField CAN SEE THEM, and that is not a nicety: a
+// field the kind has no column for, missing from the applicability check, reaches
+// bulkSetChild and fails as `no such column` INSIDE the transaction, after the
+// ownership check — a 500 where the caller should have had a 400. occasion_date
+// had exactly that shape while it was written by a hand-rolled if beside the
+// loop, which is why it is in the map above now and this one exists for the two
+// that genuinely cannot be.
+func bulkQuoteFieldPresent(req *bulkTagReq) map[string]bool {
+	return map[string]bool{
+		"chapter_no":     req.ChapterNo != nil,
+		"occasion_circa": req.OccasionCirca != nil,
 	}
 }
 
 // unsupportedQuoteField returns the name of the first field this kind cannot
 // take, or "".
 func unsupportedQuoteField(kind string, req *bulkTagReq) string {
-	if req.ChapterNo != nil && !slices.Contains(quoteFieldKinds["chapter_no"], kind) {
-		return "chapter_no"
+	for name, sent := range bulkQuoteFieldPresent(req) {
+		if sent && !slices.Contains(quoteFieldKinds[name], kind) {
+			return name
+		}
 	}
 	for name, p := range bulkQuoteFieldPtrs(req) {
 		if p == nil {
@@ -345,6 +376,16 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	}
 	addTagsList := cleanNames(req.AddTags)
 	removeTagsList := cleanNames(req.RemoveTags)
+	// THE SAME CHECK THE SINGLE-ROW PATH RUNS (utterance_handlers.go), and it has
+	// to be the same one: a date this screen refuses on one quote cannot be
+	// accepted on two hundred. It normalises in place, so the value written below
+	// is the canonical form — '-0399' for 399 BCE — rather than whatever was typed.
+	if req.OccasionDate != nil {
+		if msg := normalizeHistoricalDate("occasion date", req.OccasionDate); msg != "" {
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
+	}
 
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
@@ -407,6 +448,12 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 		}
 		if err := bulkSetChild(tx, table, col, val, owned); err != nil {
 			internalError(w, r, "bulk tag: "+col, err)
+			return
+		}
+	}
+	if req.OccasionCirca != nil {
+		if err := bulkSetChild(tx, table, "occasion_circa", boolToInt(*req.OccasionCirca), owned); err != nil {
+			internalError(w, r, "bulk tag: occasion_circa", err)
 			return
 		}
 	}

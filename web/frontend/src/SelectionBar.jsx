@@ -4,7 +4,7 @@ import { ANTHOLOGY_KIND, AddToAnthologyDialog } from './anthologies.jsx'
 import { errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { MoveToBoardDialog } from './boards.jsx'
-import { KIND_ROUTES, bulkFieldsFor, deletePhrase, overwriteWarning, useBulkOps } from './bulkOps.jsx'
+import { KIND_ROUTES, bulkFieldBody, bulkFieldsFor, deletePhrase, overwriteWarning, useBulkOps } from './bulkOps.jsx'
 import { StickerPicker, useStickers } from './stickers.jsx'
 import { LanguageCombo } from './suggest.jsx'
 import { capKeyFor } from './works.jsx'
@@ -20,6 +20,7 @@ import {
   IconClose,
   MonoLabel,
   MoreMenu,
+  PartialDateField,
   Select,
   TokenInput,
   shelfLabel,
@@ -553,6 +554,10 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
   const fields = bulkFieldsFor(kind)
   const [key, setKey] = useState(fields[0]?.key || '')
   const [value, setValue] = useState('')
+  // The tick beside a partial date, held here rather than inside the control
+  // because it is a second column this dialog has to send. Reset with the value
+  // when the field changes, for the same reason the value is.
+  const [circa, setCirca] = useState(false)
   const spec = fields.find((f) => f.key === key)
   // A field whose column has no empty (see `required` in bulkOps.jsx). Two things
   // follow from it and both matter: the blank option is absent, and the hint that
@@ -561,15 +566,11 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
   const blank = !String(value).trim()
   // Recomputed per field, from the SELECTED rows the bar already holds — no
   // second fetch, and it changes the moment the field does.
-  const warn = spec ? overwriteWarning(rows, key) : null
+  const warn = spec ? overwriteWarning(rows, key, spec.format) : null
 
-  // A number field sends a number, because the server's field is one: `"3"` in a
-  // *float64 is a 400, and Number('') is 0, which is how both a year and a
-  // series index spell "unset".
-  // TRIMMED, like every single-record form. "The Hainish Cycle " stored across a
-  // whole selection is a value that looks right, sorts right, and never matches
-  // the one you type next time.
-  const send = () => onApply({ [key]: spec?.number ? Number(value) || 0 : String(value).trim() })
+  // The body is bulkOps' to build, not this dialog's — see bulkFieldBody. A date
+  // sends its tick with it, because the two are one fact.
+  const send = () => onApply(bulkFieldBody(spec, value, circa))
 
   return (
     <FormModal open onClose={onClose} title={t('common.selection.edit.title', { n: count, count })}>
@@ -583,6 +584,7 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
             onChange={(v) => {
               setKey(v)
               setValue('') // a value typed for one field is not a value for the next
+              setCirca(false)
             }}
             options={fields.map((f) => [f.key, f.label])}
           />
@@ -615,6 +617,20 @@ function SetFieldsDialog({ kind, count, rows, busy, onApply, onClose }) {
               placeholder={t('common.field.language.placeholder')}
             />
           </div>
+        ) : spec?.date ? (
+          // The same control the single-record form draws, with its own tick —
+          // never a plain text box. It parses `c. 1890`, offers the calendar, and
+          // takes a year alone as a complete answer, which is what makes a quote's
+          // date a PARTIAL date rather than a day picker to fight.
+          <PartialDateField
+            label={spec.label}
+            value={value}
+            onChange={setValue}
+            historical
+            circa={circa}
+            onCirca={setCirca}
+            circaLabel={t('quotes.form.circa.label')}
+          />
         ) : spec?.long ? (
           <label className="tp-field">
             <MonoLabel>{spec.label}</MonoLabel>
