@@ -100,7 +100,15 @@ const SHARED = /export function (\w+)\s*\([^)]*\)\s*\{\s*[^;{}]*\.focus\s*\??\.?
 // navigates nowhere and focus lands on the same anchor Escape puts it on. Two
 // spellings of one act. The distinction was invented to explain a number, which is
 // the wrong direction to reason in.
-const DESTINATIONS = 11
+//
+// AND IT IS TWELVE AGAIN, for a reason that passes the test the eleventh failed.
+// `Toggle` became a proper ARIA tablist: one tab stop, arrows roving between the
+// options. Its `btns[next].focus()` is the FOURTH keyboard-roving call, the same
+// act as the three already counted here — a reader pressing an arrow to reach a
+// specific option, where focus landing off screen in a strip that scrolls is the
+// failure and a scroll is the fix. It is not a restore: nothing is being put back
+// where it was, and there is no anchor that may have moved.
+const DESTINATIONS = 12
 
 function counts() {
   let calls = 0

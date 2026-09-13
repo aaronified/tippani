@@ -140,10 +140,27 @@ describe('every texture is actually turned off, not merely mentioned', () => {
   // lands. That is the invariant the hand-written list could only approximate: it
   // asserted that ten names appeared in a block, and could say nothing at all
   // about an eleventh.
+  //
+  // AND IT READS `mask-image` TOO, which it did not for a long time and which let
+  // the largest texture in the app out of scope entirely. `.grain-overlay` is a
+  // fixed full-screen layer at z-index 60 — over everything — and it paints its
+  // noise through a `mask-image` holding an feTurbulence SVG, with a flat
+  // background-color behind it. The walk only ever collected rules whose
+  // BACKGROUND-IMAGE was a texture, so the one surface covering the whole screen
+  // was the one surface nothing asserted was switched off: drop it from the
+  // contrast block and every case here still passes, while a reader who asked for
+  // more contrast keeps a grain layer over the entire app.
+  //
+  // `isTexture` already matched it — the predicate tests for `feTurbulence` — so
+  // this was not a gap in what counts as a texture. It was a gap in where the walk
+  // looked, which is the same shape as the bug this file's header records: an
+  // assertion that was right about what it examined and silent about what it did
+  // not.
+  const texturedDecls = ['background-image', 'mask-image', '-webkit-mask-image']
   const textured = [...new Set(
     rules.flatMap((r) => {
-      const bg = r.decls['background-image']
-      if (!bg || !isTexture(bg.value)) return []
+      const painted = texturedDecls.some((d) => r.decls[d] && isTexture(r.decls[d].value))
+      if (!painted) return []
       // The off switch re-declares some of these fills; it is not a surface that
       // needs switching off.
       if (isContrastRule(r)) return []

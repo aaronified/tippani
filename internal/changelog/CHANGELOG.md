@@ -809,6 +809,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is the app's own copy, like every other face here — nothing is fetched from the web, on
   a screen about how your own words look. Nothing changes unless you pick it.
 
+- **A toggle's options answer the arrow keys.** The segmented switches all over Settings
+  are built as tab strips, and the standard says a tab strip is *one* stop on the way
+  round and you move inside it with the arrows. This one made every option its own stop,
+  so reaching the fourth took four presses and the arrows did nothing. One stop now,
+  parked on whatever is chosen, arrows moving along it and wrapping at both ends —
+  and **nothing is chosen on the way past**, so arrowing from the first setting to the
+  fourth no longer saves the two you passed through.
+
 - **Season and episode can be set across a selection.** The bulk editor on the Quotes
   screen took eighteen fields and not these two — including, oddly, the episode's
   **name**, so one press could already rename an episode across forty lines while its

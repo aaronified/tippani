@@ -50,6 +50,37 @@ describe('the scan reaches the tree at all', () => {
     expect(SRC_KEYS.globs.length).toBeGreaterThan(0)
   })
 
+  // WHAT A TEMPLATE IS CHECKED FOR, AND WHAT IT IS NOT — because the file above
+  // reads as though it covers everything and it does not.
+  //
+  // A LITERAL is checked exactly: "every key the code asks for is in en.txt"
+  // walks `t('some.key')` call sites and fails on a missing one. A TEMPLATE is
+  // not, and cannot be: `t(`stem.${name}`)` names a key the scan can only see as
+  // a pattern, and nothing here knows which values `name` takes. So a leaf
+  // deleted from a family the template reaches — `…quote-leading.loose` while its
+  // four siblings survive — renders a humanised stub on screen and passes here.
+  // That is why the surfaces built on such families assert the RESOLVED WORDS
+  // against en.txt at their own call sites (see quote-dials-in-settings.test.jsx,
+  // whose header records exactly this hole); a test asserting that `t()` was
+  // called with the right key would pass on the placeholder too.
+  //
+  // WHAT *IS* DERIVABLE is the stem. A template whose pattern matches NO key in
+  // en.txt is pointing at nothing — a misspelt or renamed namespace — and that is
+  // a whole class of defect this can see, so it does.
+  it('and every template points at a namespace that exists', () => {
+    // `how.${i + 1}` is not a key stem: it is the tail of `${base}.how.${i}`,
+    // caught by the scan as a glob because it happens to start with a word. Named
+    // rather than pattern-excused, so a SECOND artefact has to be looked at
+    // rather than silently absorbed.
+    const NOT_A_STEM = ['/^how\\.[a-z0-9-]+$/']
+    const keys = enKeys()
+    const pointless = SRC_KEYS.globs
+      .filter((re) => !keys.some((k) => re.test(k)))
+      .map(String)
+      .filter((re) => !NOT_A_STEM.includes(re))
+    expect(pointless, 'a template builds keys under a namespace en.txt does not have').toEqual([])
+  })
+
   it('reads a file at all, and the file has the shape it should', () => {
     expect(enKeys().length).toBeGreaterThan(2000)
     expect(EN.bad, 'mangled lines in en.txt').toEqual([])

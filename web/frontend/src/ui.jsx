@@ -4513,6 +4513,45 @@ export function Toggle({
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
   };
+  // A TABLIST HAS TO ANSWER THE ARROW KEYS, and this one did not for releases.
+  //
+  // The thumb can be dragged and every option can be clicked, so the control was
+  // never unreachable — but ARIA's own tabs pattern puts ONE tab stop on a
+  // tablist and moves between its tabs with the arrows, and a screen reader
+  // announcing "tab, 2 of 4" was offering a gesture the widget ignored. Every
+  // option was its own tab stop instead, so reaching the fourth cost four presses.
+  //
+  // MANUAL ACTIVATION, AND THAT IS THE SAME SHAPE `ColorSwatches` ALREADY USES
+  // (one tab stop at the chosen item, arrows moving focus with a wrap, the
+  // existing onClick doing the choosing). Two reasons, and the repo's rule about
+  // similar things behaving similarly is only the first. The second is that
+  // AUTOMATIC activation — selecting as focus passes — would fire `onChange` for
+  // every option arrowed THROUGH, and these toggles save: arrowing from the first
+  // setting to the fourth would write three settings the reader never chose.
+  const optIdx = Math.max(0, options.findIndex(([k]) => k === value));
+  const onKey = (e) => {
+    const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1
+      : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1
+        : 0;
+    // NO `disabled` CHECK, AND IT TOOK THREE GOES TO BE SURE. Every option carries
+    // `disabled={disabled}`, and a disabled <button> refuses focus in a browser —
+    // so no keydown can originate inside a disabled tablist and a check here would
+    // never run. jsdom muddies that (it honours `.focus()` on a disabled element),
+    // which briefly looked like a reachable path worth guarding; but userEvent
+    // will not DISPATCH to a disabled element either, so no test could be written
+    // that fails without the check. A guard nothing can reach, carrying a comment
+    // that says it protects something, is what this repo removed in #194.
+    //
+    // THE `disabled` PROP ON THE BUTTONS IS THE PROTECTION, and the case below
+    // asserts that rather than asserting this line.
+    if (!step) return;
+    e.preventDefault();
+    const btns = ref.current?.querySelectorAll("button");
+    if (!btns?.length) return;
+    const from = [...btns].indexOf(document.activeElement);
+    const next = (((from < 0 ? optIdx : from) + step) % btns.length + btns.length) % btns.length;
+    btns[next].focus();
+  };
   const control = (
     <div
       ref={ref}
@@ -4521,13 +4560,18 @@ export function Toggle({
       className={`tp-toggle tactile${disabled ? " is-disabled" : ""} ${className}`}
       aria-disabled={disabled || undefined}
       onPointerDown={onPointerDown}
+      onKeyDown={onKey}
     >
       <span ref={thumbRef} className="tp-toggle-thumb" aria-hidden="true" />
-      {options.map(([k, lbl, tip]) => (
+      {options.map(([k, lbl, tip], i) => (
         <button
           key={k}
           type="button"
           role="tab"
+          // ONE TAB STOP for the group, at whichever option is chosen — or the
+          // first when the value matches none, so the group can never fall out
+          // of tab order entirely.
+          tabIndex={i === optIdx ? 0 : -1}
           aria-selected={value === k}
           aria-pressed={value === k}
           className={"tp-toggle-opt" + (value === k ? " is-on" : "")}
