@@ -151,6 +151,51 @@ jobs:
       # being allowed the same ceiling.
       - run: go test -race -timeout 60m ${{ matrix.pkg }}
 
+  # THE TIER THAT PRESSES BUTTONS. A real browser against a real server against a
+  # real SQLite database, signed in through the real login form. It is the only job
+  # here that would have caught the bulk season/episode control answering HTTP 400
+  # on every press while two tests stayed green — one asserting the client's shape,
+  # one the server's, neither ever pressing the button.
+  #
+  # ITS OWN JOB because it needs a browser and minutes rather than seconds, and
+  # because a failure here means something different from a unit failure: the app
+  # is broken, not a function. Chromium comes from Playwright's installer, which is
+  # the one this repo's other browser harness already discovers (capture.mjs's
+  # playwrightChromiums), so there is one place a browser is found.
+  journeys:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: npm ci
+        working-directory: web/frontend
+      # puppeteer-core never downloads a browser — that is the point of -core — so
+      # the scaffold's own install is cheap and the browser comes separately.
+      - run: npm ci
+        working-directory: scripts/screenshots
+      - name: a browser to drive
+        run: npx --yes playwright@1.49.0 install --with-deps chromium
+      - name: the journeys
+        run: npm run journeys
+        working-directory: web/frontend
+        env:
+          TIPPANI_BROWSER: chrome
+      # WHAT A FAILING JOURNEY LEAVES BEHIND: a full-page screenshot of what the
+      # reader was looking at, and what the server said while they looked. A red
+      # browser test with neither is a red test nobody can act on.
+      - name: what the reader saw
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journey-failures
+          path: web/frontend/journey-failures/
+          if-no-files-found: ignore
+
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -161,6 +206,16 @@ jobs:
       - run: npm ci
         working-directory: web/frontend
       - run: npm test
+        working-directory: web/frontend
+      # THE DESIGN RULES, RUN SEPARATELY AND STILL BLOCKING. Seventy-one files read
+      # the SOURCE TEXT and assert how it is spelled — never truncate a name,
+      # spacing is a constant, no emoji glyphs, the typescale. They are worth
+      # keeping and they were never tests: the app can be entirely broken and every
+      # one of them still passes, because none of them runs it. A suite let a
+      # feature ship 100% dead that way. So they are out of `npm test` and in their
+      # own step, which still fails the build — they just stop being counted as
+      # evidence that anything works.
+      - run: npm run lint:rules
         working-directory: web/frontend
       - run: npm run build
         working-directory: web/frontend

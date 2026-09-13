@@ -160,11 +160,22 @@ worth nothing here and only execution counts. What the repo actually runs:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
-  cd web/frontend && npm test                                            # frontend tests
+  cd web/frontend && npx vitest run                                      # frontend tests
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 279 Go files
   find ./web/frontend -path '*/node_modules' -prune -o \
        -type f \( -name '*.test.*' -o -name '*.spec.*' \) -print | wc -l # 386 frontend
   ```
+
+  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,435 is what
+  `npx vitest run` reports across all three vitest projects. `npm test` runs two of
+  them — 3,694 tests over 315 files — and the third, 741 assertions over 71 files,
+  runs as `npm run lint:rules`. Those 71 READ THE SOURCE TEXT and assert how it is
+  spelled: never truncate a name, spacing is a constant, no emoji glyphs, the
+  typescale. They are worth keeping and they were never tests, because the app can
+  be entirely broken and every one of them still passes — none of them runs it. A
+  suite let a feature ship 100% dead that way. CI runs `lint:rules` as its own step,
+  so a broken design rule still fails the build; it just stops being counted as
+  evidence that anything works.
 
   THREE OF THE FOUR ARE NOW CHECKED RATHER THAN TRUSTED. This paragraph has said
   "recount rather than trust it" for six recounts and gone stale after five of

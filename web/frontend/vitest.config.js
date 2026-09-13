@@ -3,7 +3,39 @@ import react from '@vitejs/plugin-react'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// Two projects, because the two kinds of test have very different costs.
+// THREE PROJECTS NOW, AND THE THIRD IS NOT A KIND OF TEST — IT IS A KIND OF LINT.
+//
+// `rules` holds the files that READ THE SOURCE TEXT and assert something about how
+// it is spelled: never truncate a name, spacing is a constant, no emoji glyphs, the
+// tick and cross pair, the typescale. Seventy-four of them.
+//
+// THEY ARE WORTH KEEPING AND THEY WERE NEVER TESTS. A suite let a feature ship 100%
+// dead — the bulk season/episode control answered HTTP 400 on every press and wrote
+// nothing, while two tests stayed green, one asserting the client's shape and one
+// the server's, neither ever pressing the button. Counting a source scan as a test
+// is what made a green count mean nothing: the app can be entirely broken and every
+// one of these still passes, because none of them runs it.
+//
+// So `npm test` runs `pure` and `dom`. `npm run lint:rules` runs these, and CI runs
+// it as its own step, so a broken design rule still fails the build — it just stops
+// being counted as evidence the app works. Each is deleted as a journey covers its
+// ground.
+//
+// NODE, NOT JSDOM, AND THAT WAS A MISTAKE WORTH RECORDING. jsdom looked like the
+// safe superset — four of these came from test/dom — and it broke a dozen of them
+// instantly: under jsdom `import.meta.url` is an HTTP url (the page's origin), so
+// `readFileSync(new URL('../../src/Library.jsx', import.meta.url))` resolves to
+// /src/Library.jsx and throws ENOENT. The comment on TIPPANI_SRC above says exactly
+// this and I chose jsdom anyway. A file that reads source text wants the node
+// environment by definition.
+//
+// THE OTHER TWENTY-ONE SCANNERS STAY IN `dom`, AND THAT IS DELIBERATE. They RENDER a
+// component and scan the source, both in one file; moving them would throw away the
+// render to relocate the scan. The plan said "the 99" and the measured split is 74
+// pure scanners and 21 mixed — the mixed ones are real tests carrying a lint
+// assertion, not lint pretending to be a test.
+//
+// Two projects before that, because the two kinds of test have very different costs.
 //
 // `pure` is the bulk of it: functions that take values and return values —
 // credit splitting, the forgetting curve, grouping, share formatting, routing,
@@ -114,6 +146,19 @@ export default defineConfig({
           // just twenty seconds later. It is the margin between "this code is
           // wrong" and "this laptop was busy", and only the first is worth a red
           // suite.
+          testTimeout: 20000,
+        },
+      },
+      {
+        plugins: [react()],
+        server: { fs },
+        test: {
+          name: 'rules',
+          environment: 'node',
+          include: ['test/rules/**/*.test.{js,jsx}'],
+          setupFiles: ['./test/setup-pure.js'],
+          // Same reasoning as the other two: several of these parse the whole
+          // source tree, so their cost is a function of how big the app is.
           testTimeout: 20000,
         },
       },

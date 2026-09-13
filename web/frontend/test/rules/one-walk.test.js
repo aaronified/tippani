@@ -83,14 +83,20 @@ function handRolled(dir = TESTS, base = '', out = []) {
 // without the branch, and a new harness is exactly what a fixed list does not
 // contain. Six became seven; the rule that the count may not rise is about the
 // SOURCE tree being walked twice, and this walks somewhere else.
+// SIX OF THESE MOVED FROM pure/ TO rules/ AND NOTHING ABOUT THEM CHANGED. The
+// files that read SOURCE TEXT and assert how it is spelled are lint rather than
+// test, and they now live in test/rules and run under `npm run lint:rules` — see
+// vitest.config.js. The paths here are how this guard names a file, so they move
+// with it; `dom/surface-readability.test.jsx` stayed because it renders as well
+// as reads, and a file that renders is a test.
 const KNOWN = [
   'dom/surface-readability.test.jsx', // src/textures — the paper images, not source
-  'pure/ai-counts.test.js',           // the whole REPO, counting Go and frontend test files
-  'pure/glossary-registry.test.js',   // web/dist/assets — the BUILT stylesheet
-  'pure/harness-archive.test.js',     // scripts/screenshots — the harnesses, not source
-  'pure/one-walk.test.js',            // test/ — this file counts itself, see above
-  'pure/pack-citations.test.js',      // docs/plans (its src half uses the shared walk)
-  'pure/prefixed-pairs-survive.test.js', // web/dist — the built CSS again
+  'rules/ai-counts.test.js',           // the whole REPO, counting Go and frontend test files
+  'rules/glossary-registry.test.js',   // web/dist/assets — the BUILT stylesheet
+  'rules/harness-archive.test.js',     // scripts/screenshots — the harnesses, not source
+  'rules/one-walk.test.js',            // test/ — this file counts itself, see above
+  'rules/pack-citations.test.js',      // docs/plans (its src half uses the shared walk)
+  'rules/prefixed-pairs-survive.test.js', // web/dist — the built CSS again
 ]
 
 describe('the walk over the source tree', () => {
