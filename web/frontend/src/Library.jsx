@@ -34,7 +34,7 @@ import {
 } from './works.jsx'
 import { KINDS, bookGenres } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
-import { QUOTE_FACE } from './fonts.js'
+import { QUOTE_TEXT } from './fonts.js'
 import { t } from './i18n.js'
 import {
   fmtDate,
@@ -88,7 +88,7 @@ import {
 } from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary' // aesthetic-aware primary (§6)
-const QUOTE_STYLE = { fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-17)', lineHeight: 1.55 }
+const QUOTE_STYLE = { ...QUOTE_TEXT, fontSize: 'var(--type-display-17)' }
 
 // Library is the books tab (§8.3): the cover grid, or a single book's detail
 // view (§8.5). Adding anything — a book, a highlight, an import — belongs to the

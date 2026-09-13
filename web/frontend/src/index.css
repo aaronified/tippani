@@ -109,6 +109,14 @@
        have been", which is exactly what an untouched preference should mean.
 
        fonts.js overwrites all of these on <html> at runtime. */
+    /* §6 access. The quote's leading, as one token so a reading-comfort dial has
+       one thing to move — and so no quote slot can go on disagreeing about it,
+       which most of them were. fonts.js's QUOTE_TEXT carries it to the slots that
+       draw through an inline style and records what the drift measured; the two
+       that draw through CSS (`.quote-translation`, `.anthology-quote`) read the
+       token here. */
+    --quote-leading: 1.55;
+
     --font-display-weight: inherit; --font-display-style: inherit;
     --font-display-caps: inherit; --font-display-case: inherit; --font-display-figures: inherit;
     --font-ui-weight: inherit; --font-ui-style: inherit;
@@ -2074,7 +2082,7 @@
     font-variant-numeric: var(--font-display-figures);
     font-style: italic;
     font-size: var(--type-display-13);
-    line-height: 1.42;
+    line-height: var(--quote-leading);
     color: var(--soft);
     margin-top: 3px;
   }
@@ -8587,12 +8595,13 @@ html[data-theme="dark"] .board-cover {
   /* QUOTE_FACE's spelling — an anthology entry IS a quote, so it reads in the
      face its language was set in like every other quote surface. */
   font-family: var(--font-quote, var(--font-display));
-  font-style: var(--font-display-style);
+  font-weight: var(--font-display-weight);
+  font-style: italic;
   font-variant-caps: var(--font-display-caps);
   text-transform: var(--font-display-case);
   font-variant-numeric: var(--font-display-figures);
   font-size: var(--type-display-17);
-  line-height: 1.5;
+  line-height: var(--quote-leading);
   overflow-wrap: anywhere;
 }
 

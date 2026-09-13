@@ -33,7 +33,7 @@ import { KINDS, specFor } from './workKinds.js'
 import { groupAnnotations, sortAnnotations } from './boardOrder.js'
 import { BoardHead, BoardSheet, BoardStrip, columnActions, measureStyle } from './boardHead.jsx'
 import WorkDetail from './WorkDetail.jsx'
-import { QUOTE_FACE, languageClass } from './fonts.js'
+import { QUOTE_TEXT, languageClass } from './fonts.js'
 import { t } from './i18n.js'
 import { quoteTexts } from './text.js'
 import { useTextOrder } from './textOrderHost.jsx'
@@ -1717,7 +1717,7 @@ function DialogueTable({ rows, tagMap, stickers = [], reloadStickers, sort, onSo
                     settle — but the slot IS the quote, so the language answers
                     with no order involved. Without this the same line reads in
                     two faces between the frame view and the table view. */}
-                <ExpandableText text={d.quote} lines={2} className={languageClass(d.language)} style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic' }} />
+                <ExpandableText text={d.quote} lines={2} className={languageClass(d.language)} style={{ ...QUOTE_TEXT }} />
                 {d.tags?.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {d.tags.map((name) => {
@@ -1955,7 +1955,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   // ♥ lives in the action row at the foot of the frame, where a book
   // annotation has always kept it (Library's ActionRow).
   const sticker = d.sticker_id != null ? stickerMap[d.sticker_id] : null
-  const quoteStyle = { fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-17)', lineHeight: 1.5, color: 'var(--ink)' }
+  const quoteStyle = { ...QUOTE_TEXT, fontSize: 'var(--type-display-17)', color: 'var(--ink)' }
   return (
     <>
       <FormModal open={editing} onClose={onCancelEdit} title={t('common.dialogue.edit.title')}>

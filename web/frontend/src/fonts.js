@@ -466,6 +466,54 @@ export function stackFor(roleKey, pick = fontChoice) {
 // face when it is not. Written once here so a new quote surface cannot invent a
 // version of it that answers to nothing.
 export const QUOTE_FACE = 'var(--font-quote, var(--font-display))'
+
+// QUOTE_TEXT is the REST of a quote slot's type, and it exists for the reason
+// QUOTE_FACE does one line up: there were FIFTEEN hand-written copies here and
+// two more in CSS, and they had drifted in two directions at once.
+//
+// MEASURED BEFORE IT WAS WRITTEN, because the drift is the argument. Counted off
+// the commit that introduced this object, over the fifteen inline slots:
+//
+//   fontStyle    12 said `italic`; three had picked up
+//                `var(--font-display-style)`, which resolves to `inherit` and
+//                renders UPRIGHT. One of the three is the film CARD — so a film
+//                line and a book highlight, the two surfaces this repo has spent a
+//                release making behave alike, set the same words differently. The
+//                other two are search rows beside rows that are italic.
+//   lineHeight   three at 1.55, nine at 1.5, three with none at all.
+//
+// AND SEARCHPAGE HELD BOTH ANSWERS TEN LINES APART: 1701 italic, 1711 upright,
+// the two branches of ONE result row. That is what a copied style object does
+// when only one copy is ever edited.
+//
+// THE TWO CSS SLOTS drifted the same way and are not exempt from the rule, only
+// from this object: `.anthology-quote` was upright at 1.5 — and it is what the
+// EXPORT and the print stylesheet draw — and `.quote-translation` was italic at
+// 1.42, the app's tightest leading on its smallest quote text, which is backwards.
+// Both read `--quote-leading` now, and quote-type.test.js holds them to it.
+//
+// ITALIC IS THE CONVENTION AND NOT THE DISPLAY FACE'S BUSINESS. A quote is set in
+// italic because that is how a quotation is set; `--font-display-style` is the
+// style a reader chose for HEADINGS, and letting it reach the quote means a
+// reader who wants upright titles silently loses the quotation convention. Ten of
+// the thirteen already agreed.
+//
+// THE LEADING IS A TOKEN so §6's reading-comfort dial has one thing to move. It
+// defaults to the value the CARDS carry — the surface where a quote is read one
+// at a time — rather than the row value that happened to be commoner.
+//
+// SIZE IS DELIBERATELY NOT HERE. It is the one part that genuinely differs by
+// surface (display-17 on a card, display-15 in a row), so it stays the caller's;
+// everything a quote slot should NOT be deciding for itself is in this object.
+export const QUOTE_TEXT = {
+  fontFamily: QUOTE_FACE,
+  fontWeight: 'var(--font-display-weight)',
+  fontStyle: 'italic',
+  fontVariantCaps: 'var(--font-display-caps)',
+  textTransform: 'var(--font-display-case)',
+  fontVariantNumeric: 'var(--font-display-figures)',
+  lineHeight: 'var(--quote-leading)',
+}
 //
 // THE CLASS IS HASHED AND NOT THE NAME. A language is free text — "বাংলা",
 // "Français", "Ancient Greek (Attic)" — and none of those is a CSS identifier.

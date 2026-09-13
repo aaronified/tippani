@@ -26,7 +26,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { json, errText } from './api.js'
 import { CastCombo, LanguageCombo, OfferChip, SuggestCombo, useTagNames, useWorkSuggestions } from './suggest.jsx'
-import { QUOTE_FACE, languageClass } from './fonts.js'
+import { QUOTE_TEXT, languageClass } from './fonts.js'
 import { t } from './i18n.js'
 import { BoardForm, useBoards } from './boards.jsx'
 import { QUOTE_KIND_DOORS, doorForBoard, fieldsFor, showsField, splitPair } from './addFields.js'
@@ -1284,7 +1284,7 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
               // the breaks are visible as you type rather than after you save.
               rows={door === 'poem' || door === 'song' ? 7 : 4}
               placeholder={t('capture.form.quote.placeholder')}
-              style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontStyle: 'italic', fontSize: 'var(--type-display-17)', lineHeight: 1.55 }}
+              style={{ ...QUOTE_TEXT, fontSize: 'var(--type-display-17)' }}
               value={draft.quote}
               onChange={(e) => set({ quote: e.target.value })}
             />

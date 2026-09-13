@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { categoryName, categoryVar } from './theme.js'
 import { json, errText } from './api.js'
-import { QUOTE_FACE, languageClass } from './fonts.js'
+import { QUOTE_TEXT, languageClass } from './fonts.js'
 import { t, tNodes } from './i18n.js'
 import { quoteKindMeta } from './quoteKind.js'
 import { WorkPicker, workFromBook, workFromMovie } from './AddSurface.jsx'
@@ -720,7 +720,7 @@ export function StagedRow({ quote, selected, onToggle, onEdit }) {
             here and another the moment it was approved. */}
         <p
           className={`whitespace-pre-wrap ${languageClass(quote.language)}`.trim()}
-          style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-15)', lineHeight: 1.5 }}
+          style={{ ...QUOTE_TEXT, fontSize: 'var(--type-display-15)' }}
         >
           {quote.quote || quote.note}
         </p>
@@ -1380,7 +1380,7 @@ function StagedQuoteForm({ quote, work, onSaved, onCancel }) {
     <div className="space-y-4">
       <p
         className={`whitespace-pre-wrap ${languageClass(quote.language)}`.trim()}
-        style={{ fontFamily: QUOTE_FACE, fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-17)' }}
+        style={{ ...QUOTE_TEXT, fontSize: 'var(--type-display-17)' }}
       >
         {t('staging.form.quoted', { text: quote.quote || quote.note })}
       </p>

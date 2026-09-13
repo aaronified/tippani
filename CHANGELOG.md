@@ -774,6 +774,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   would have to be looking for. The amber is the one you will notice: it is a little
   deeper now, and it is the one that was furthest out.
 
+- **A quote was set differently depending on which screen you read it on.** A film line
+  on its card, and two kinds of search result, drew **upright** where the same words on a
+  book's card drew italic — and an anthology you exported or printed drew upright and a
+  shade lighter than either. The spacing between lines disagreed four ways at once, and
+  the translation under a quote was set **tighter** than the quote above it, which is
+  backwards: it is the smaller text of the two. All of it came from every surface writing
+  the quote's type out by hand, one copy per screen, drifting apart as each was edited
+  alone — two branches of a single search result, ten lines apart in one file, had ended up
+  on opposite sides of it. There is one answer now and
+  every surface reads it, the exported page included: a quotation is italic, and the space
+  between its lines is a single setting rather than a number typed into a dozen places.
+  This is the groundwork for the reading-comfort dials, which need one thing to move.
+
 - **A date the app refuses on one quote was accepted on a whole imported file — and then
   thrown away.** Typing `sometime in 1952` into a quote's occasion date has always come
   back refused, with a message naming the shapes it takes. Setting the same value across a
