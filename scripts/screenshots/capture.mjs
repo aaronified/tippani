@@ -329,12 +329,38 @@ export async function emulateEngineMedia(page, browser, theme = 'light') {
   ])
 }
 
+// launchBrowser — THE ONE PLACE A BROWSER IS STARTED, and it is a function
+// because there are now two callers. main() below starts one per theme;
+// web/frontend/test/journeys starts one per journey file. A second copy would be
+// a second place for the root/--no-sandbox rule and the Firefox preference block
+// to be forgotten, and the repo's directive is that one verb lives in one
+// function that both callers call.
+//
+// THE IMPORT IS DYNAMIC because puppeteer-core is this scaffold's dependency and
+// not the repo's: every other export in this file works without it, which is what
+// lets test/pure/pick-film.test.js and the doc tooling import from here at all.
+export async function launchBrowser(engine, opts = {}) {
+  let puppeteer
+  try {
+    puppeteer = await import('puppeteer-core')
+  } catch (err) {
+    throw new Error(`puppeteer-core is not installed — run \`npm ci\` in scripts/screenshots/ (${err.message})`)
+  }
+  return puppeteer.launch(launchOptions(engine, opts))
+}
+
 // Kill CSS transitions/animations and the caret so no capture lands mid-motion —
 // screenshot-runner's "Animations" determinism rule. ui.prefersReducedMotion (set at
 // launch) makes the app's own matchMedia checks agree; this stylesheet is still needed
 // because a transition written without a reduced-motion guard ignores that query
 // entirely.
-const NO_MOTION_CSS = `
+// THE FOUR DETERMINISM PINS ARE EXPORTED, because the journeys need exactly the
+// same four and a second copy of any of them is a second thing to keep in step.
+// A journey run that did not seed Math.random found this out: Home shuffles what
+// it shows, so "is my book on the screen?" answered yes or no depending on which
+// four of twenty-two works the shuffle picked. Three of four parallel files failed
+// on identical code, which is the precise shape of flake this tier exists to end.
+export const NO_MOTION_CSS = `
   *, *::before, *::after {
     transition-duration: 0s !important;
     animation-duration: 0s !important;
@@ -353,7 +379,7 @@ const NO_MOTION_CSS = `
 // exists, so the listener is the live path — but on a document that has already parsed,
 // DOMContentLoaded has been and gone and waiting for it would mean the stylesheet never
 // lands at all, silently, leaving animations on.
-function noMotionScript(css) {
+export function noMotionScript(css) {
   return `(() => {
     const add = () => {
       const style = document.createElement('style')
@@ -383,7 +409,7 @@ function noMotionScript(css) {
 // one repeated element — a screenshot that is stable and unrepresentative. This is a real
 // generator with a fixed seed, so the app still gets varied values and gets the SAME
 // varied values every run.
-function seedRandomScript(seed) {
+export function seedRandomScript(seed) {
   return `(() => {
     let a = ${seed} >>> 0
     Math.random = () => {
@@ -399,7 +425,7 @@ function seedRandomScript(seed) {
 // Pins Date so a relative "2 minutes ago" label can't change the image between
 // runs — screenshot-runner's "Clock" determinism rule. Browser-side only; it never
 // touches the Go process's clock.
-function freezeClockScript(isoInstant) {
+export function freezeClockScript(isoInstant) {
   return `(() => {
     const FIXED = new Date(${JSON.stringify(isoInstant)}).getTime()
     const RealDate = Date
@@ -502,14 +528,6 @@ async function main() {
   const opts = parseArgs(process.argv.slice(2))
   mkdirSync(opts.out, { recursive: true })
 
-  let puppeteer
-  try {
-    puppeteer = await import('puppeteer-core')
-  } catch {
-    console.error('puppeteer-core is not installed here — run `npm ci` in scripts/screenshots/ first.')
-    process.exit(1)
-  }
-
   const engine = findBrowser(opts.firefox, opts.browser)
   console.log(`${engine.browser.padEnd(9)} ${engine.executablePath}`)
 
@@ -529,7 +547,7 @@ async function main() {
   for (const theme of opts.themes) {
     // One browser per theme — see THEME_PREF: Firefox reads preferences when the
     // profile starts, so a theme change is a relaunch and not a call on the page.
-    const browser = await puppeteer.launch(launchOptions(engine, { theme, headless: opts.headless }))
+    const browser = await launchBrowser(engine, { theme, headless: opts.headless })
     try {
       const page = await browser.newPage()
       // On Chrome the theme and the motion flag are per-page rather than in the

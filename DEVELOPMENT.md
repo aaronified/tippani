@@ -492,7 +492,19 @@ go vet ./...
 
 cd web/frontend && npm test          # the frontend suite (Vitest)
 npx vitest --root web/frontend run test/dom/icons.test.jsx    # one file
+
+cd web/frontend && npm run journeys  # the journeys: a real browser against a real server
 ```
+
+**The journeys are the tier that presses buttons.** Each file gets its own Tippani —
+its own binary, data directory, port and browser — signs in through the real login form,
+and then does everything by pressing what is on the screen. A journey may know the address
+it opens, what is on the screen, what a person can do to it, and what the app shows or
+keeps afterwards; it may not know a function name, a module path, a CSS class, a JSON
+field name, a Go type, or the text of any source file. Exceptions are declared in the
+file's own header. They are slow enough to have their own config
+(`vitest.journeys.config.js`) so `npm test` never pays for them, and their fixture is
+seeded once and copied per file.
 
 The Go tests run against **real HTTP handlers and a real SQLite database** — there are no
 mocks, and a test that needs one is usually a design smell. `-count=5` is worth reaching

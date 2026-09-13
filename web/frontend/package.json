@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "glossary": "node scripts/glossary-build.mjs",
-    "glossary:check": "node scripts/glossary-build.mjs --check"
+    "glossary:check": "node scripts/glossary-build.mjs --check",
+    "journeys": "vitest run --config vitest.journeys.config.js"
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.8",

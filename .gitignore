@@ -34,3 +34,8 @@ internal/importer/testdata/*_real/
 
 # The archive and its password, supplied per machine — never committed.
 scripts/screenshots/backup.env
+
+# What a failing journey leaves behind: a full-page screenshot of what the reader
+# was looking at, and what the server said while they looked. Written on failure
+# only, uploaded by CI as an artifact, and never committed.
+web/frontend/journey-failures/
