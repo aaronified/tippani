@@ -62,17 +62,19 @@ it('a second account sees an empty notebook, and the first gets its own back', a
   await app.see('The Idiot')
   await app.see('27 BOOKS')
 
-  // ADD A SECOND ACCOUNT FROM THE ADMIN'S OWN PROFILE SCREEN. The username and
-  // "new password" boxes under "USERS ON THIS SERVER" share their accessible
-  // name with the boxes in "CHANGE PASSWORD" above them — a real ambiguity a
-  // screen reader user would hit too — so after naming the account by its one
-  // unambiguous field, the password is typed by tabbing to the very next box
-  // and typing into whatever now has focus, exactly as a sighted person moving
-  // through the form with the keyboard would.
+  // ADD A SECOND ACCOUNT FROM THE ADMIN'S OWN PROFILE SCREEN, and both boxes can
+  // be named. THE FIRST DRAFT OF THIS JOURNEY COULD NOT DO THAT, and the reason
+  // was a real accessibility defect it found: the Add-user password box and the
+  // "new password" box under CHANGE PASSWORD above it computed to the SAME
+  // accessible name, so `type` refused the ambiguity — correctly — and the
+  // journey had to tab to the next box and type into whatever had focus, the
+  // only use of the `app.page` escape hatch in this whole directory. A screen
+  // reader user hit the same wall for real: one of those boxes changes your own
+  // login and one sets a stranger's, announced identically. The Add-user box has
+  // its own name now, so this reads the way it should have.
   await app.press('Profile — journey-reader')
   await app.type('username', 'second-reader')
-  await app.pressKey('Tab')
-  await app.page.keyboard.type('second-reader-pw')
+  await app.type('password for the new account', 'second-reader-pw')
   await app.press('Add user')
   await app.see('second-reader')
 

@@ -37,12 +37,27 @@ it('a reader reveals a practice card and says whether they recalled it', async (
   // card's own kind.
   await app.see('skip')
 
+  // LOOK, THEN PRESS — rather than press and treat the failure as an answer.
+  //
+  // THIS LOOP USED TO ASK `press('Show me', { timeout: 400 })` AND SKIP ON THE
+  // THROW, and that made the clock part of the logic: 400ms is how long the
+  // accessibility walk takes on an idle machine, so on a busy one `press` timed
+  // out over a "Show me" that was plainly there, the catch skipped the card it
+  // had been waiting for, and the round moved on underneath it. It failed exactly
+  // that way on a run with the whole dom suite going beside it — red at
+  // `see('Got it')`, because the card that got revealed was not the card still on
+  // screen. A test whose branch depends on how fast the machine is, is a test that
+  // reports the machine.
+  //
+  // Reading the screen costs one evaluate and answers the same question with no
+  // clock in it. When the reveal IS there, the press gets the full default wait,
+  // because by then we are not guessing.
   let revealed = false
   for (let tries = 0; tries < 40 && !revealed; tries++) {
-    try {
-      await app.press('Show me', { timeout: 400 })
+    if ((await app.onScreen()).toLowerCase().includes('show me')) {
+      await app.press('Show me')
       revealed = true
-    } catch {
+    } else {
       await app.press('skip')
     }
   }

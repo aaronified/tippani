@@ -503,6 +503,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it out would make the first screen lie about what the app holds, and it is pressable
   because a greyed-out control cannot tell you why it is grey.
 
+### Fixed
+
+- **A character typed on a capture form no longer vanishes when you press Save.** If you
+  typed a name into Character and went straight for Save — without pressing Enter to turn
+  it into a token first, which is what most people do — the line saved with no character at
+  all. No warning, nothing red, and gone after a reload too. The same shape of loss was
+  possible in every token box on that form. Save now reads the form as it is at the moment
+  you press it, rather than as it was a render earlier.
+- **The two password boxes on Profile can be told apart by a screen reader.** "New password"
+  under Change password and "new password" under Add user announced identically, which is
+  an unhappy thing to guess at when one of them changes your own login and the other sets a
+  stranger's. The second one says it is the password for the new account.
+
 ### Changed — importing
 
 - **Import is one drop target, and the file says what it is.** It was a wall of seven cards

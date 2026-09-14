@@ -4224,6 +4224,9 @@ account.users.delete.tip = {name} আর তার গ্রন্থাগা�
 account.users.delete.aria = {name} মুছুন
 account.users.delete.confirm = “{name}” ইউজারকে মুছবেন? তার বই আর উদ্ধৃতিও সঙ্গে যাবে।
 account.users.add = ইউজার যোগ করুন
+# ইংরেজি ফাইলের নোট দেখুন: উপরের "নতুন পাসওয়ার্ড" বাক্সের সঙ্গে এটির নাম এক হয়ে
+# যাচ্ছিল, তাই স্ক্রিন রিডারে দুটোকে আলাদা করা যেত না।
+account.users.add.password.placeholder = নতুন অ্যাকাউন্টের পাসওয়ার্ড ({min}–{max})
 
 # What went wrong, keyed by what failed.
 error.validate.name-cannot-be-blank = নাম ফাঁকা রাখা যায় না

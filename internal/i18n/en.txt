@@ -4247,6 +4247,12 @@ account.users.delete.tip = Delete {name} and their library
 account.users.delete.aria = Delete {name}
 account.users.delete.confirm = Delete user "{name}"? Their books and annotations are removed too.
 account.users.add = Add user
+# ITS OWN PLACEHOLDER, AND THE REASON IS NOT COSMETIC. This box and the "new
+# password" box under CHANGE PASSWORD above it computed to the SAME accessible
+# name, so a screen reader announced both as "new password (8-20)" — one of which
+# changes the reader's own login and one of which sets a stranger's. The headings
+# separate them for eyes and for nobody else.
+account.users.add.password.placeholder = password for the new account ({min}–{max})
 
 # What went wrong, keyed by what failed.
 error.validate.name-cannot-be-blank = name cannot be blank

@@ -1072,6 +1072,25 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
     ...(initialFields ? { tags: asTags(initialFields.tags) } : {}),
   }))
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
+  // THE DRAFT AS IT IS NOW, FOR THE ONE READER THAT IS NOT A RENDER.
+  //
+  // `save` is published UPWARD to the host's title bar (see the effect below), so
+  // the press that calls it is not this component's press and does not see this
+  // component's latest closure — it sees whichever one the last effect published.
+  // An effect runs AFTER paint, and there is one sequence where that is too late:
+  // a token box (`TokenInput`, `ui.jsx`) commits its typed text on BLUR, and the
+  // blur that matters is the one caused by mousedown on Save. So the order is
+  // mousedown, blur, commit, re-render, click — with the effect still queued. The
+  // click then ran a `save` closed over the draft from BEFORE the token landed,
+  // and a character typed but not confirmed with Enter vanished on Save with no
+  // error anywhere. TokenInput's own blur handler carries a comment promising
+  // this could not happen; it fired, and the value still did not arrive.
+  //
+  // A REF IS THE REPO'S OWN ANSWER to this shape — `usePanelStack` keeps one for
+  // exactly the same reason, with a comment saying the handler "is registered once
+  // and must not close over a stale stack". Same argument, one component over.
+  const draftRef = useRef(draft)
+  draftRef.current = draft
 
   const needsWork = door === 'annotation' || door === 'dialogue'
   const mediaType = door === 'dialogue' ? draft.target?.media_type || 'movie' : undefined
@@ -1145,19 +1164,32 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
   // The same predicate greys out Save and refuses the submit, so the button can
   // never be pressable in a state the handler would reject — and `why` is what its
   // tooltip says instead of leaving a dead control unexplained.
-  const missing = needsWork && !draft.target
-    ? t('error.validate.target-required')
-    : !draft.quote.trim()
-      // A book highlight may be a bare note ABOUT a page; nothing else can be,
-      // because there is no page for it to be about.
-      ? (door === 'annotation' && draft.note.trim() ? '' : t(door === 'annotation' ? 'error.validate.quote-or-note' : 'error.validate.quote-words'))
-      : draft.when && !isPartialDate(draft.when, { historical: true })
-        ? t('error.validate.date')
-        : door === 'dialogue' && mediaType === 'show' && countOrNull(draft.episode) != null && countOrNull(draft.season) == null
-          ? t('error.validate.season-required')
-          : ''
+  // A FUNCTION OF A DRAFT, not of this render, so `save` can ask it about the
+  // draft that exists at the moment of the press rather than the one it was
+  // published with. See `draftRef` above for why those differ.
+  function whatIsMissing(d) {
+    const media = door === 'dialogue' ? d.target?.media_type || 'movie' : undefined
+    return needsWork && !d.target
+      ? t('error.validate.target-required')
+      : !d.quote.trim()
+        // A book highlight may be a bare note ABOUT a page; nothing else can be,
+        // because there is no page for it to be about.
+        ? (door === 'annotation' && d.note.trim() ? '' : t(door === 'annotation' ? 'error.validate.quote-or-note' : 'error.validate.quote-words'))
+        : d.when && !isPartialDate(d.when, { historical: true })
+          ? t('error.validate.date')
+          : door === 'dialogue' && media === 'show' && countOrNull(d.episode) != null && countOrNull(d.season) == null
+            ? t('error.validate.season-required')
+            : ''
+  }
+  const missing = whatIsMissing(draft)
 
   async function save() {
+    // EVERYTHING BELOW READS THESE, NOT THE RENDER'S. Three names are shadowed on
+    // purpose: the draft this press is really about, the media type derived from
+    // it, and what is missing from it. Reading the outer ones is the bug.
+    const draft = draftRef.current
+    const mediaType = door === 'dialogue' ? draft.target?.media_type || 'movie' : undefined
+    const missing = whatIsMissing(draft)
     if (missing) return setErr(missing.toLowerCase())
     setBusy(true)
     setErr('')

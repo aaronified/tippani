@@ -13,7 +13,7 @@
 // have been green the whole time, the same trap shelf-menu.test.jsx describes for
 // moveLabel: the correction has to be watched arriving at the dialog.
 
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The row the detail opens, and the rows already holding its shelf. Set per test,
@@ -62,7 +62,26 @@ async function start() {
   fireEvent.click(await screen.findByRole('button', { name: /Wishlist|Shelve/ }))
   // The transitions are menuitems inside the chip's popover, not buttons in a
   // row — which is the difference this route is testing as much as the words.
-  fireEvent.click(await screen.findByRole('menuitem', { name: /^Mark as (playing|watching)$/ }))
+  //
+  // THE CLICK IS RE-FOUND EACH POLL, AND THAT IS NOT A LONGER SLEEP. This helper
+  // flaked twice under load — once on a machine running nine browsers beside it,
+  // once on a reviewer's own full run — and both times passed alone. It was never
+  // a short wait: `test/setup-dom.js` already sets asyncUtilTimeout to 8000, so
+  // the failure was eight seconds of a dialog that never arrived, not a race with
+  // the clock.
+  //
+  // What it is instead: `findByRole` hands back a NODE, and this screen is still
+  // resolving several fetches when it does. If any of them lands between the find
+  // and the click, React replaces that node and the click goes to a detached one
+  // — no error, no dialog, and then eight seconds of waiting for a press that
+  // never happened. Re-querying inside `waitFor` clicks whatever is live now, and
+  // stops as soon as the dialog is up: once it opens the popover is gone, so the
+  // query returns null and nothing is pressed twice.
+  await waitFor(() => {
+    const item = screen.queryByRole('menuitem', { name: /^Mark as (playing|watching)$/ })
+    if (item) fireEvent.click(item)
+    expect(screen.queryByText(/^Already (Playing|Watching) \d+$/)).toBeTruthy()
+  })
 }
 
 beforeEach(() => {

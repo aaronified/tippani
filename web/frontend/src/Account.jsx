@@ -590,7 +590,7 @@ export function UserManagement({ me }) {
         <input
           className="tp-input"
           style={{ flex: 1, minWidth: 130 }}
-          placeholder={t('account.password.new.placeholder', { min: PASSWORD_MIN, max: PASSWORD_MAX })}
+          placeholder={t('account.users.add.password.placeholder', { min: PASSWORD_MIN, max: PASSWORD_MAX })}
           type="password"
           value={password}
           autoComplete="new-password"

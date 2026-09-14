@@ -4,16 +4,23 @@
 //
 // This is the film half of what capturing-a-highlight.journey.mjs already does
 // for a book. A film's line is not a book's highlight with a different label: it
-// carries a character, and that character is not free text riding along with the
-// quote — it is its own field, entered into a token box that only becomes part
-// of the saved line once it is committed with Enter, exactly the way the app's
-// tag boxes work. A journey that only typed into the box and pressed Save would
-// have missed that, and did on the first pass writing this file: typing a
-// character name and saving without committing the token left the line
-// captured with no character at all, silently. That is not a guess about the
-// app — it is what this file's own probe run showed happening, and it is the
-// reason the journey below presses Enter after the Character field. The first
-// pass also carried a second, quieter mistake worth naming: its character name
+// carries a character, and that character is its own field — a token box, like
+// the app's tag boxes, where what you type becomes a token when you confirm it.
+//
+// THIS FILE FOUND A REAL BUG AND NOW GUARDS THE FIX, which is why it has two
+// cases rather than one. Typing a character and pressing Save WITHOUT confirming
+// it with Enter used to lose the name silently: no error, no warning, and gone
+// after a reload too. `TokenInput`'s own blur handler carries a comment promising
+// that could not happen — it fired, and the value still did not arrive, because
+// `save` is published upward to the host's title bar by an effect that runs after
+// paint, and the blur that commits the token is the one caused by mousedown on
+// Save. The closure the click ran was one render stale. `AddSurface.jsx` keeps a
+// ref of the draft now, the way `usePanelStack` already did for the same reason.
+//
+// So the second case below is the quick path — type, press Save, never confirm —
+// and it is the one that would go red if that ref were removed. The first is the
+// careful path, and both have to work. The first pass writing this file also
+// carried a quieter mistake worth naming: its character name
 // ("The Harbourmaster") was a case-folded substring of its own quote text
 // ("...the harbourmaster to agree"), so `see(CHARACTER)` passed whether or not
 // the character was ever actually saved — the quote text alone satisfied it.
@@ -91,6 +98,32 @@ it('a viewer captures a line of dialogue with its character, and both are still 
   await app.press('A Serial In Several Parts')
   await app.see(LINE)
   await app.see(CHARACTER)
+
+  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})
+
+// THE QUICK PATH, AND THE REGRESSION GUARD. A reader who types a character and
+// goes straight for Save — never pressing Enter, never thinking about tokens —
+// must keep the name. This is the case that was broken; delete the draft ref in
+// AddSurface.jsx and this goes red while the careful path above stays green,
+// which is exactly how the bug hid.
+const QUICK_LINE = 'The lamps were lit early that winter, and nobody said why.'
+const QUICK_CHARACTER = 'Perrin Vosschart'
+
+it('a viewer who types a character and goes straight for Save keeps the name', async () => {
+  await app.goto('/catalogue')
+  await app.press('A Serial In Several Parts')
+  await app.press('Capture a line')
+
+  await app.type('Quote', QUICK_LINE)
+  await app.type('Character', QUICK_CHARACTER)
+  // No Enter. Straight to Save, which is what most people do.
+  await app.press('Save')
+
+  await app.goto('/catalogue')
+  await app.press('A Serial In Several Parts')
+  await app.see(QUICK_LINE)
+  await app.see(QUICK_CHARACTER)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
