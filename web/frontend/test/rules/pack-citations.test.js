@@ -38,7 +38,7 @@ const PACK = join(REPO, 'docs', 'design', 'prototypes')
 // Every file that carries citations: the app's own source, and the planning
 // documents that argue departures.
 //
-// AND docs/PLAN.md ABOVE ALL, which this list left out for a while. CLAUDE.md
+// AND docs/wiki/Design-decisions.md ABOVE ALL, which this list left out for a while. CLAUDE.md
 // names it as WHERE a design departure goes, so it is the document whose
 // citations most need to be right — and three were written into it in a shape
 // the resolver could not even see, which passed as "no citations here" rather
@@ -52,7 +52,7 @@ const SOURCES = [
   ...readdirSync(join(REPO, 'docs', 'plans'))
     .filter((f) => f.endsWith('.md'))
     .map((f) => join('docs/plans', f)),
-  'docs/PLAN.md',
+  'docs/wiki/Design-decisions.md',
   // AND THE BROWSER PROBES, which cite the pack more than any source file does:
   // they exist to measure what an artboard draws, so their expectations ARE
   // citations. `frame-scroll.mjs` had two of its six hero rows asserting a rule

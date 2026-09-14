@@ -9,7 +9,7 @@ several files offers them on Checks. Same proposals, two doors.
 
 ## The boundary, and why this is inside it
 
-`docs/PLAN.md` §1 carries a decision that looks like a refusal of this feature and
+`docs/wiki/Design-decisions.md` §1 carries a decision that looks like a refusal of this feature and
 is not:
 
 > **Decided.** Tippani holds no book files. No reader, no OPDS catalogue, no sync
@@ -31,7 +31,7 @@ discarded when the handler returns."* The owner has since asked for the ebook to
 kept: *"for the epub part, the epub will also be stored, but for now, will not be
 read fully."*
 
-So the storage, the reversal `docs/PLAN.md` needs, the four doors a file arrives
+So the storage, the reversal `docs/wiki/Design-decisions.md` needs, the four doors a file arrives
 through and the context feature it unlocks are all **`docs/plans/work-source-files.md`**,
 and that plan is the spine this one hangs off. **This plan is now the reader**: it
 takes a file that is already stored against a work and answers where each quote sits
@@ -381,7 +381,7 @@ because a later reader deserves to see that the two sessions agreed.
 
 **A new column, `dialogues.timestamp_end TEXT NOT NULL DEFAULT ''`.**
 An end is a distinct fact, and 0047's precedent is that a fact gets a column. The
-bill is the one `docs/PLAN.md` already names as "the debt of a write-not-a-filter":
+bill is the one `docs/wiki/Design-decisions.md` already names as "the debt of a write-not-a-filter":
 every path that writes a dialogue owes it — the two create endpoints, the importers,
 approval out of staging, the merge — and *a debt paid at each site is a debt one
 site forgets*, which is how the review-exclusion flag went missing from one
@@ -553,7 +553,7 @@ the file a second time.
 
 ## The samples this needs before it can ship
 
-`docs/PLAN.md` is explicit that an unverified importer either waits or wears a
+`docs/wiki/Design-decisions.md` is explicit that an unverified importer either waits or wears a
 label: *"An importer that has never met a real file is a guess wearing the clothes
 of a feature."* So:
 
@@ -568,7 +568,7 @@ of a feature."* So:
 | A **second** book with stored page numbers | Whether the page fit above is a feature or a coincidence of one title |
 
 They install as gitignored `*_real.*` fixtures beside the parsers, per the
-convention (`.gitignore`, `PLAN.md`), with a committed synthetic twin for CI. Until
+convention (`.gitignore`, `Design-decisions.md`), with a committed synthetic twin for CI. Until
 the ebook samples land, the ebook half of this plan is **unverified and ships
 labelled experimental or not at all** — the same rule that held Kobo back and
 labelled Kindle clippings.
@@ -627,9 +627,9 @@ labelled Kindle clippings.
    the sample says what it is.** — `internal/ebook/mobi.go`
 9. **Help and infodots** — a fifth `checks.*` help entry for the new section, and
    the InfoDot beside the new button, in `en.txt` and `bn.txt`
-10. **Docs** — `docs/PLAN.md` (the boundary sentence, the end-time column, the
+10. **Docs** — `docs/wiki/Design-decisions.md` (the boundary sentence, the end-time column, the
    accept-all departure, and this plan folded in), `CHANGELOG.md`,
-   `docs/troubleshoot.md` for the new `TIP-META-*` code, `DEVELOPMENT.md`'s file
+   `docs/wiki/Troubleshooting.md` for the new `TIP-META-*` code, `Developing.md`'s file
    map for two new packages, `docs/ui-glossary.html` if the section is documented
 
 ## Verification

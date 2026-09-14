@@ -20,7 +20,7 @@
 //
 // WHY THE INVARIANT IS WORTH A SWEEP OF ITS OWN. CLAUDE.md: "Per-user isolation:
 // every query scoped by `user_id`; another user's row is `404`, never `403`", which
-// DEVELOPMENT.md calls a security property. Signing out of this app does not reload
+// Developing.md calls a security property. Signing out of this app does not reload
 // the document — it swaps the shell for the login screen in place — so a
 // module-scope binding is exactly as long-lived as the browser tab, not as the
 // session.

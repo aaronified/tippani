@@ -371,7 +371,7 @@ export function CharacterLocal({
           structurally could not, because it sat four rows below the credits among
           the character's own fields. On a two-hander that is the whole question.
           Every credit for this work is in the list above, `here`'s included, so
-          nothing became unreachable. See docs/PLAN.md. */}
+          nothing became unreachable. See docs/wiki/Design-decisions.md. */}
 
       {/* THE COUNTS ARE DOORS INTO SEARCH, on the owner's instruction: pressing one
           lands on the search screen with this character and this work already up as

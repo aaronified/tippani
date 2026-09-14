@@ -5,7 +5,7 @@ rather than in a chat attachment — they were re-sent three times across sessio
 an upload does not survive a reset and a fresh clone has never had one. Anything the
 owner sends that a future session will need to read belongs here.
 
-`docs/PLAN.md` says why the app is built the way it is. This directory is the other
+`docs/wiki/Design-decisions.md` says why the app is built the way it is. This directory is the other
 half: what it is being built *towards*, in the designer's own words.
 
 ## Prototypes

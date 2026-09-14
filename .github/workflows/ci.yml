@@ -221,7 +221,7 @@ jobs:
         working-directory: web/frontend
       # web/dist is a COMMITTED build artefact — the Go binary embeds it, so a
       # frontend change that ships without its rebuilt dist leaves the binary
-      # serving the old UI with nothing to say so. DEVELOPMENT.md has warned
+      # serving the old UI with nothing to say so. Developing.md has warned
       # about this in prose since the beginning and nothing enforced it. The
       # runner has just produced a fresh dist; if it differs from what was
       # committed, the commit is incomplete.
@@ -262,7 +262,7 @@ jobs:
         with:
           node-version: "22"
       - run: node scripts/roadmap-data.mjs --check
-      # DEVELOPMENT.md's file map is the answer to "where does this go", so a path in it
+      # Developing.md's file map is the answer to "where does this go", so a path in it
       # that has been renamed away is worse than no map at all — it sends someone
       # confidently to the wrong place. This asserts every path it names still exists,
       # and that no package, script or workflow has been added without the map hearing.

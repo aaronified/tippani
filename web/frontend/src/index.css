@@ -5297,7 +5297,7 @@
      as the window minus the rail minus the hero, capped at 880 for measure — so
      the page cap would only be bounding the hero and the gutters, and the 880
      already does the job the cap was doing. The cost is real and is stated in
-     PLAN.md: --container-max's own comment says the page body and the top bar
+     Design-decisions.md: --container-max's own comment says the page body and the top bar
      must not disagree about where the gutter is, and on this screen they now do. */
   html[data-scroll='screen'],
   html[data-scroll='screen'] body {
@@ -9282,7 +9282,7 @@ html[data-theme="dark"] .board-cover {
      THE PACK'S PIXEL SIZES ARE SNAPPED TO THE TYPE SCALE, on the owner's ruling:
      nine of its font sizes are half-steps (14.5, 12.5, 10.5 …) and the app's ten
      steps exist so every size answers the reader's text-size dial, which a raw px
-     cannot. Largest shift is 1px. See docs/PLAN.md.
+     cannot. Largest shift is 1px. See docs/wiki/Design-decisions.md.
 
      AND NO NAME ENDS IN AN ELLIPSIS, also the owner's ruling and the bigger
      departure: the pack sets `text-overflow: ellipsis` on a row's label, a
@@ -10012,7 +10012,7 @@ html[data-theme="dark"] .board-cover {
    ==========================================================================
 
    WHY NOW AND NOT AS PART OF A PDF WRITER. `docs/plans/anthology-update.md`
-   argues it and `PLAN.md` backs the argument with a rule: go.mod has three direct
+   argues it and `Design-decisions.md` backs the argument with a rule: go.mod has three direct
    requirements, and a PDF library is a typesetting engine — fonts, shaping,
    pagination — bought to print a thirty-entry anthology. This app sets Bengali and
    Devanagari, so the browser's own engine is not a compromise here, it is the

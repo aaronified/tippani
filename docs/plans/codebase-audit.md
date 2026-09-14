@@ -188,7 +188,7 @@ a schedule that does not lose to a frame callback.
 `scripts/screenshots/panel-depth.mjs` was described as the guard for the panel race.
 One run of it against the broken `requestAnimationFrame` version came back `ok`, and that
 single observation was generalised into "it does not discriminate" and written into four
-places — the probe's header, the jsdom test's header, `DEVELOPMENT.md` and this document.
+places — the probe's header, the jsdom test's header, `Developing.md` and this document.
 
 **Five controlled runs then failed five times**, with the embed verified by asset hash:
 `FAIL … left NOTHING open (depth 0)`, exit 1. Against the fix, `ok … depth 1`. So the
@@ -505,7 +505,7 @@ matters**; the rest are smaller and independent.
 | Portrait verbs | `Fetch` · `Upload` · `Paste URL` as three named buttons, then `Set for the identity` outlined red and dashed | all four, on this sheet and on both global cards; the fourth behind the pack's own confirmation | **FIXED** — and `Upload` had no backend anywhere in the app, so three routes were built for it. One measurement departs: the prototype's inline `min-height:38px` against the pack's own design system, which states 44 twice (`handoff/design-system.md:11`, `:180`). The floor wins and the code says why |
 | Picture size | `1280 × 720 px` above the verbs, inked `--error` under the floor | measured off the file itself, inked under 400 × 400 | **FIXED** — `PortraitBlock`, and the number is a measurement rather than the constant string two callers used to pass |
 | Header | glyph + name + `in Deathly Hallows – Part 2 · film` + ✕ on one header line | one line: the cover with the medium glyph over it, name above crumb, ✕ | **FIXED** — `ScreenHead` publishes upward through `usePanelHead` and draws nothing itself; `one-header.test.jsx` counts the bars |
-| Qualifier chip (`CHAR-FILM`) | present | absent | **Justified** — PLAN.md's eight rulings, #4: "Drop it — the crumb and the cover-with-glyph already say the scope" |
+| Qualifier chip (`CHAR-FILM`) | present | absent | **Justified** — Design-decisions.md's eight rulings, #4: "Drop it — the crumb and the cover-with-glyph already say the scope" |
 | Credit row | a portrait that opens the person picker, a name that opens their record, `[lang, note].join(' · ')` beneath, a ✎ and a ✕ | was: both controls opening the record, `note \|\| lang` so a dub with a note stopped naming its language, three literal characters for the glyphs, and two silent no-ops on a credit with nobody in it | **WAS WRONG HERE, NOW FIXED** — this row read **Match** on the strength of one detail (the sub-line renders) while three others were broken. The reading looked at what the row DREW and not at what its controls DID, which is the whole difference between a screenshot and a press. `credit-row.test.jsx`, 4 of whose 10 cases fail against the row as it shipped — **and that sentence was false until the rewrite**: the file rendered `CreditRow` with the finished props typed in by hand, so it asserted that a component calls the handler it was given, which no version of the app has got wrong. Every one of these defects lived in `creditRows()`, the step that BUILDS those props, and all eight cases stayed green against them. It drives `CharacterLocal` from a served cast row now, and the four failures are measured |
 | Credited as · the Played by / Voiced by pair · Part / First appears / Age here · the Note row · the two count tiles · The identity · Open the global record · Remove | — | — | Match |
 
@@ -544,7 +544,7 @@ Three things came out of building it that reading had not shown:
   the argument for why that has to be a component rather than a hook call at the top of
   the body.
 
-  **And a claim made here, in `docs/PLAN.md` and in `a94e141`'s message was false when it
+  **And a claim made here, in `docs/wiki/Design-decisions.md` and in `a94e141`'s message was false when it
   was written.** All three said the ✓ `PanelHost` draws "arms with a count" and that its
   ✕ is red. It did neither: a bare `IconButton`, no `tp-tick-slot`, no `is-armed`, no
   count badge, no `var(--error)` — those live in `FormModal` and nowhere else. So the
@@ -736,5 +736,5 @@ app renders, rather than the move being called a match.
 Per `README.md`'s rule: when the list is empty, delete it. Sections 1 and 3 empty by
 being fixed or by the owner ruling them intentional; section 2 empties as each hollow
 assertion is replaced by the observable named beside it; section 4 empties as each
-deviation is either built to the prototype or given its reason in PLAN.md, which is where
+deviation is either built to the prototype or given its reason in Design-decisions.md, which is where
 a departure the owner has ruled on belongs.

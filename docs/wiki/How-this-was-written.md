@@ -41,7 +41,7 @@ Tippani, so it comes first.
   data directory — nothing holds a copy but you.
 
 There is one AI *feature* under consideration, and it is in
-[the roadmap](docs/roadmap.html) under **Later / maybe** — not built, not started:
+[the roadmap](../roadmap.html) under **Later / maybe** — not built, not started:
 opt-in digest summaries against an **OpenAI-compatible endpoint you configure
 with your own key**, off unless you turn it on. If it is ever built it will be
 off by default and will say plainly what leaves the machine. Until then, the
@@ -116,12 +116,12 @@ my direction and then reconciling what came back, rather than by one session doi
 everything in order. Three examples from 2.1.x, all of them in the history:
 
 - **The Bengali interface** (2.1.1, 2,446 strings) was written by **six agents in
-  two passes**, each working from a committed style sheet — `docs/bengali-style.md`
+  two passes**, each working from a committed style sheet — `docs/wiki/Bengali-style.md`
   — rather than from the English alone, because six writers with no shared
   register produce six registers in one interface. The merge was then checked
   mechanically: key set, placeholder parity, nothing lost, and on the 442 keys
   where writers disagreed, that the file holds one of *their* readings rather than
-  an invented third. The register checks are in `docs/bengali-style.md`.
+  an invented third. The register checks are in `docs/wiki/Bengali-style.md`.
   In 2.2.x one agent rewrote every string again from a per-key dossier of the code
   that renders it, and a second, independent agent rated the result against the
   brief before it was committed.
@@ -130,7 +130,7 @@ everything in order. Three examples from 2.1.x, all of them in the history:
   overturned or amended **ten of thirty-three findings**. Acting on the first pass
   alone would have deleted real backlog items and kept stale ones, which is the
   whole argument for the second pass.
-- **Two decision entries in `docs/PLAN.md`** were drafted by agents from the plan
+- **Two decision entries in `docs/wiki/Design-decisions.md`** were drafted by agents from the plan
   documents and then verified line by line against the code before being inserted.
   One of them corrected a figure I had written and repeated: "1,299 of 2,446 keys
   carry a comment" had counted comment *lines*.
@@ -301,7 +301,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   the empty deck as correct. It also found two bugs that lived *between* two
   features and belonged to neither, which is the class no single spec and no
   single test was ever going to reach. The reconciliation is folded into
-  `docs/PLAN.md` §8.
+  `docs/wiki/Design-decisions.md` §8.
 
   The same release is also the clearest case for writing the plan first: the
   retired plan specified cloze grading word by word and said why in as many words
@@ -663,7 +663,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   tree rather than in a workflow. The input set outside `web/frontend/` is derived
   from the imports that escape it, because a hand-kept list is the same blind spot
   one level up.
-- **`docs/PLAN.md`** is a decision log: every design decision, the reasoning that
+- **`docs/wiki/Design-decisions.md`** is a decision log: every design decision, the reasoning that
   produced it, the alternative turned down, and — where it applies — the part I
   got wrong and what changed my mind. It used to be the design document I wrote
   before building, and it had drifted into describing a system that was partly
@@ -776,7 +776,7 @@ What that honestly does not cover:
   which is the ratchet working as intended rather than a number being relaxed. **Those two numbers are the honest
   measure of what is still undone here**, and they are asserted rather than described.
   Feeding the *prose* from `web/frontend/src/help.jsx` remains
-  [the roadmap's help &amp; density section](docs/roadmap.html#help-density).
+  [the roadmap's help &amp; density section](../roadmap.html#help-density).
   What 1.6.0 added is the cheaper
   half of that: `web/frontend/test/pure/help.test.jsx` asserts that every screen a
   nav list can reach has an entry, and that a control the app labels is a control
@@ -938,7 +938,7 @@ What can be stated from the tree:
 
 - **The dependency surface is deliberately tiny and fully declared** — three
   direct Go modules (`modernc.org/sqlite`, `golang.org/x/crypto`,
-  `golang.org/x/time`) in [`go.mod`](go.mod), and three runtime npm packages
+  `golang.org/x/time`) in [`go.mod`](../../go.mod), and three runtime npm packages
   (`react`, `react-dom`, `@chenglou/pretext`) in `web/frontend/package.json`.
   Everything else in the binary is standard library.
 - **What was borrowed is credited by name** in the README's *Attribution*
@@ -953,7 +953,7 @@ What can be stated from the tree:
   CDN would have been the first exception, on a screen about how your own words
   look.
 - **Design influences are named where they apply**, in the code and in
-  `docs/PLAN.md` — the Radarr-style status bar, the `*arr`-style cover folder — so
+  `docs/wiki/Design-decisions.md` — the Radarr-style status bar, the `*arr`-style cover folder — so
   an idea taken from elsewhere is attributed rather than passed off.
 
 If you spot something in here that belongs to someone else and is not credited,
@@ -967,7 +967,7 @@ I am responsible for this code — for what it does, for its bugs, and for the
 decision to ship it. "An AI wrote it" is an explanation of method, never an
 excuse, and it does not transfer to whoever runs the software.
 
-Tippani is **MIT licensed** (see [`LICENSE`](LICENSE)) and I hold the copyright,
+Tippani is **MIT licensed** (see [`LICENSE`](../../LICENSE)) and I hold the copyright,
 on the same terms as any other MIT project. If you find something wrong, open an
 issue — a bug report is as useful here as anywhere, and arguably more so.
 

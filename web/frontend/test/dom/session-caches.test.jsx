@@ -1,7 +1,7 @@
 // A CACHE IN FRONT OF A PER-USER QUERY BELONGS TO THAT USER.
 //
 // THE INVARIANT, from CLAUDE.md: "Per-user isolation: every query scoped by
-// `user_id`; another user's row is `404`, never `403`." DEVELOPMENT.md calls it a
+// `user_id`; another user's row is `404`, never `403`." Developing.md calls it a
 // security property.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW, and nothing about how it was arranged:

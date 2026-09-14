@@ -394,7 +394,7 @@ func setTags(tx *sql.Tx, kind string, userID, ownerID int64, names []string) err
 }
 
 // removeTags detaches names from one item and DELETES NO TAG. A tag carries a
-// colour and a style the reader chose, and `PLAN.md`'s own rule for the taxonomy
+// colour and a style the reader chose, and `Design-decisions.md`'s own rule for the taxonomy
 // sweep says so: "a tag dropping to zero uses is not a reason to throw away that
 // choice." So this unlinks and stops.
 //

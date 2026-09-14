@@ -206,7 +206,7 @@ function FieldDiffRow({ diff, picked, onToggle, onChoose }) {
                 {/* THE SUPPLIER'S OWN MARK, not only its name. The reader is
                     scanning a grid of four columns for "which of these did Google
                     write", and a mark is recognised without being read — which is
-                    the argument docs/PROVIDER-MARKS.md makes for carrying them at
+                    the argument docs/wiki/Provider-marks.md makes for carrying them at
                     all, and this is the densest place in the app it applies to. */}
                 <MonoLabel className="mb-1 flex items-center gap-1" style={{ fontSize: 'var(--type-ui-9)', color: on ? 'var(--accent-ui)' : 'var(--faint)' }}>
                   <ProviderMark source={a.source} size={13} />

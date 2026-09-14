@@ -106,7 +106,7 @@ const FIELDS = {
   // target: "there is not that much, and if we redesign right, all can be fitted in
   // one screen without scroll on phone." It is met on four of the eleven doors and
   // missed on the rest — `add-fields.test.js` records the count for every one of
-  // them and lets it fall and never rise. See docs/PLAN.md, "the phone-fit target,
+  // them and lets it fall and never rise. See docs/wiki/Design-decisions.md, "the phone-fit target,
   // met on four doors of eleven", for what a speech's eleven rows would cost to
   // reach and why nothing here pretends otherwise.
   annotation: {

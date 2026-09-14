@@ -1,12 +1,12 @@
 package olog
 
 // Code is a stable, greppable error identifier of the form TIP-<SUBSYS>-<NNN>.
-// It appears verbatim in `[error]`/`[warn]` log lines and in docs/troubleshoot.md,
+// It appears verbatim in `[error]`/`[warn]` log lines and in docs/wiki/Troubleshooting.md,
 // so an operator who sees a code in `docker logs` can look up its cause and fix.
 //
 // Rules (see the error-logging skill):
 //   - Every Code MUST have an entry in Registry below AND a row in
-//     docs/troubleshoot.md. TestCodesDocumented (codes_test.go) fails the build if
+//     docs/wiki/Troubleshooting.md. TestCodesDocumented (codes_test.go) fails the build if
 //     the two ever drift apart.
 //   - Codes are append-only within a subsystem: never renumber or reuse a code, so
 //     a code seen in an old log always means the same thing.
@@ -149,7 +149,7 @@ const (
 )
 
 // Registry maps every Code to a one-line description. It is the machine-readable
-// source of truth paired with docs/troubleshoot.md (human-readable cause+fix).
+// source of truth paired with docs/wiki/Troubleshooting.md (human-readable cause+fix).
 // Keep this and the doc in lockstep — the sync test enforces it.
 var Registry = map[Code]string{
 	CodeHTTPInternal:  "Unclassified internal server error (generic 500 fallback).",

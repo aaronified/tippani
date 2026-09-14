@@ -1,5 +1,5 @@
 // Tippani (ṭippaṇī, टिप्पणी: a marginal annotation) — self-hosted book
-// annotations. See docs/PLAN.md.
+// annotations. See docs/wiki/Design-decisions.md.
 //
 // Usage:
 //

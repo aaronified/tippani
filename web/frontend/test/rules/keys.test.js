@@ -254,7 +254,7 @@ describe('nothing is listed that does not work', () => {
     // any typing target and an offer chip appears precisely when the caret is in
     // a field — so the shell could not deliver that binding however it were
     // written. `docs/plans/entry-helpers.md` designed it as a registry binding
-    // without reading that line; docs/PLAN.md carries the finding.
+    // without reading that line; docs/wiki/Design-decisions.md carries the finding.
     //
     // The registry still owns the binding's NAME and label, which is what this
     // assertion is really about: an entry here is a promise printed on a button.

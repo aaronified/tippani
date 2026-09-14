@@ -10,7 +10,7 @@ type VocabTerm struct {
 }
 
 // Correct applies bounded typo correction to a query's tokens against the
-// indexed vocabulary, for the zero-hit fuzzy-search pass (docs/PLAN.md §4). It is
+// indexed vocabulary, for the zero-hit fuzzy-search pass (docs/wiki/Design-decisions.md §4). It is
 // a pure function: the handler harvests candidate terms from the fts5vocab
 // tables and passes them in; the corrected tokens flow back through PrefixQuery,
 // so the raw-input-never-reaches-MATCH invariant is preserved.

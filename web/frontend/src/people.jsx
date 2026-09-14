@@ -584,9 +584,9 @@ export function PersonCredit({ kind, name, person, size = 28, onOpen, nameClassN
 // that reflows moves every other chip when one name is long — and a scroller per
 // chip inside a row of chips is a gesture nobody would find. So a long name ends
 // in an ellipsis with the whole of it on the `title`, and this is recorded as a
-// departure in PLAN.md rather than left to look like an oversight.
+// departure in Design-decisions.md rather than left to look like an oversight.
 // The clip itself is in text.js — see the note there on why one number serves two
-// chip rows, and PLAN.md for the departure it is.
+// chip rows, and Design-decisions.md for the departure it is.
 
 export function PersonChip({ kind, name, person, onOpen, onPress, title, faceName, faceSrc, sub }) {
   if (!name) return null

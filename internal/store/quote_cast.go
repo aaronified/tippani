@@ -12,7 +12,7 @@ import (
 // were two things that happened to agree.
 //
 // The owner's ruling, in their words: "both of those should be the same thing
-// anyway in the backend". PLAN.md decided it when characters got their own table
+// anyway in the backend". Design-decisions.md decided it when characters got their own table
 // — "a quote's speaker points at the CAST ROW rather than at the character" —
 // and 0056 added `speaker_cast_id` to the two work-bound quote tables to hold it.
 // Nothing

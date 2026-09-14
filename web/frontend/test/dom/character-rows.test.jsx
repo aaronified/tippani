@@ -11,7 +11,7 @@
 // THE TWO DEPARTURES ARE THE FIRST ASSERTIONS HERE, because the owner's
 // instruction was that the screens resemble the pack exactly and that every
 // departure be reasoned and approved. Both are approved and recorded in
-// docs/PLAN.md; both are the kind of thing that silently reverts.
+// docs/wiki/Design-decisions.md; both are the kind of thing that silently reverts.
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import {

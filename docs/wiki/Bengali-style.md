@@ -1221,6 +1221,6 @@ Four more section names went the same way: **রূপচর্চা** for Appe
 **যন্ত্রপাতি** for Devices — the loanword rule does not reach that one — and **কী বদলেছে**
 for the Changelog, which is what a changelog is for.
 
-The full register is recorded in `docs/PLAN.md` under "The Bengali names, as the owner ruled
+The full register is recorded in `docs/wiki/Design-decisions.md` under "The Bengali names, as the owner ruled
 them", because a naming decision is the one design choice a later session cannot re-derive
 from the code.

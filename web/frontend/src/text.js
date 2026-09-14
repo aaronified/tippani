@@ -151,14 +151,14 @@ export function chapterLabel(a) {
 
 // ---- the one clip the app is allowed ----------------------------------------
 //
-// A DEPARTURE FROM "NEVER TRUNCATE A NAME", recorded in PLAN.md and granted by
+// A DEPARTURE FROM "NEVER TRUNCATE A NAME", recorded in Design-decisions.md and granted by
 // the owner in as many words: "we do not want wrap, long names can instead get a
 // … after a certain number of chars." The argument is the ROW rather than the
 // name — a row of chips that reflows moves every other chip when one name is
 // long, and a scroller inside each chip of a row of chips is a gesture nobody
 // would find. The whole name goes on the button's `title`.
 //
-// IN JS AT A CHARACTER COUNT, NOT `text-overflow`. Two reasons, and PLAN.md gives
+// IN JS AT A CHARACTER COUNT, NOT `text-overflow`. Two reasons, and Design-decisions.md gives
 // both: the ellipsis lands in the same place whatever the type dial says, and
 // `no-truncated-names.test.js` reads the stylesheet for that declaration on the
 // classes that hold names, so putting it in CSS would either trip that test or

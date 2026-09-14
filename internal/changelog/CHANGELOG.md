@@ -670,7 +670,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   decide without knowing what the quote is in. A Bengali couplet quoted inside an English
   novel is in Bengali; the book is in English. For two releases those two kinds carried a
   second text with nothing able to rank it. The old argument — that a highlight's language
-  is its book's — is recorded as wrong in `docs/PLAN.md` rather than quietly dropped.
+  is its book's — is recorded as wrong in `docs/wiki/Design-decisions.md` rather than quietly dropped.
   Bulk-settable too, which is the obvious case: forty highlights out of one Bengali book is
   one value on forty rows.
 - **Eleven more fields can be set over a whole selection.** The endpoint had accepted
@@ -2453,7 +2453,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   modern daemon refuses anything below 1.40; it died before doing any work, and because
   it runs detached and self-removing, Tippani never saw the error. The maintained fork
   is the default now. `TIPPANI_UPDATER_IMAGE` still overrides it, and
-  `docs/troubleshoot.md` describes the symptom for anyone on an older build.
+  `docs/wiki/Troubleshooting.md` describes the symptom for anyone on an older build.
 
 - **A merged character's picture reaches every book they are in — on the cast list as
   well as on the quotes.** Setting a character's default picture and then merging that
@@ -3913,7 +3913,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   restarted forever. All it printed was SQLite's `unable to open database file`, which
   names neither the directory nor the fix, and it happens before any log code or page
   exists to explain it. It now prints who owns the directory, who Tippani is running as,
-  and the exact `chown` to run on the host. `docs/troubleshoot.md` has the case too, in
+  and the exact `chown` to run on the host. `docs/wiki/Troubleshooting.md` has the case too, in
   a section for the failures that have no error code because nothing is up yet to emit
   one.
 
@@ -4001,7 +4001,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the classifier টা throughout, দুটো and কটা without the apostrophe. Where the English is a
   bare label the Bengali may say what the thing is for, because that is the sentence a
   Bengali speaker would use for the same job. The register and orthography in
-  `docs/bengali-style.md` stand, and three terms changed at the owner's word: a book
+  `docs/wiki/Bengali-style.md` stand, and three terms changed at the owner's word: a book
   highlight is an উদ্ধৃতি like any other quote (দাগ, which reads as a stain, is retired), the bin
   is the ডাস্টবিন, and the text of a quote is a বাক্য. Every term that changed is recorded at the
   sheet's foot under "v3 decisions". The tour's demo book is now the
@@ -6143,7 +6143,7 @@ watching the test fail.</sub>
   Two payloads are asserted to be reached *by their opening words*, so the widening cannot rot back
   to a tag-only scan. It found a fifth dot the moment it worked. Each is trimmed to what the control
   does plus the one consequence you would regret not knowing; the rest of the reasoning already has
-  a home in `docs/PLAN.md`, which can hold it at whatever length it needs.
+  a home in `docs/wiki/Design-decisions.md`, which can hold it at whatever length it needs.
 
 ### Added
 
@@ -6707,7 +6707,7 @@ because the reason they existed is more useful than the fact that they don't.
   costs, so anything that trips it is a fault and not a busy runner, and it fails
   while somebody is still watching.
 
-- **The test counts in `AI.md` were recounted**, having drifted from 645 Go test
+- **The test counts in `How-this-was-written.md` were recounted**, having drifted from 645 Go test
   functions, 1,293 frontend tests and 180 files to the actual 671, 1,380 and 187.
   That file's own instruction is to recount rather than trust the number, and it
   gave a command for the Go figure but none for the file count — the one that had
@@ -7414,7 +7414,7 @@ because the reason they existed is more useful than the fact that they don't.
   payload still describe the old record until you re-sync, which is the point of
   fixing the id first.
 
-- **`DEVELOPMENT.md` now maps the whole tree.** Its old `## The layout` was a
+- **`Developing.md` now maps the whole tree.** Its old `## The layout` was a
   nine-row table of the directories you were "most likely to touch", which left
   four packages — `auth`, `olog`, `updater`, `buildinfo` — with no mention at
   all, and answered none of the question a newcomer actually has. The new
@@ -7432,14 +7432,14 @@ because the reason they existed is more useful than the fact that they don't.
 
 - **`scripts/doc-map-check.mjs`, and a CI step that runs it.** A map is worse
   than no map once it is wrong, because it sends someone confidently to the
-  wrong place. The check asserts every path `DEVELOPMENT.md` names still exists,
+  wrong place. The check asserts every path `Developing.md` names still exists,
   and that no package, script or workflow has appeared that it never mentions —
   which is the failure that matters, since a path that is *added* and never
   documented has nothing to trip over and so stays invisible.
 
 ### Changed
 
-- **`docs/PLAN.md` is a decision log, not a design document.** It was the plan I
+- **`docs/wiki/Design-decisions.md` is a decision log, not a design document.** It was the plan I
   wrote before building, kept roughly current afterwards, and it had quietly
   stopped being either. Parts described a system that was never built
   (precompressed assets, a single-writer connection); parts described one that
@@ -7478,7 +7478,7 @@ because the reason they existed is more useful than the fact that they don't.
 
 - **The tree diagram is gone from `README.md`.** Two maps of the same repository
   disagree eventually, and these two already did. There is one now, in
-  `DEVELOPMENT.md`, which README links to. The module-rename incantation moved
+  `Developing.md`, which README links to. The module-rename incantation moved
   with it, into the forking appendix where the rest of the fork instructions
   already lived.
 
@@ -7488,7 +7488,7 @@ because the reason they existed is more useful than the fact that they don't.
   a whole section kept "for the reasoning" after the feature landed. That reads as
   scorekeeping and it crowds out the question the page exists to answer. Both are
   gone: the retrospective, and every shipped item and section. The reasoning the
-  shipped sections were being kept for belongs in `docs/PLAN.md`, which is the
+  shipped sections were being kept for belongs in `docs/wiki/Design-decisions.md`, which is the
   decision log, and it is not lost by being moved there.
 
 - **The backlog is in priority order, in three bands** — Next, After that, Further
@@ -7694,10 +7694,10 @@ because the reason they existed is more useful than the fact that they don't.
   demo library carrying a year. And a practice reset zeroed the score while the
   calendar went on serving a full synthetic year of dots beside it.
 
-- **The roadmap had stopped at 1.5.0**, and AI.md claimed a test count that had
+- **The roadmap had stopped at 1.5.0**, and How-this-was-written.md claimed a test count that had
   drifted by two thirds. The roadmap now covers what 1.6 and 1.7 actually were,
   including the six-colour release that its own §1 note had predicted would be
-  free and was not. AI.md says how to recount rather than replacing one number
+  free and was not. How-this-was-written.md says how to recount rather than replacing one number
   that will rot with another.
 
 ## [1.7.6] - 2026-08-09
@@ -9265,7 +9265,7 @@ being an all-or-nothing overwrite.
 - **`scripts/glossary-css.mjs`**, also in CI. `docs/ui-glossary.html` inlines the
   built stylesheet so its samples are styled by the rules the app really ships;
   every build renames `index-<hash>.css`, so that snapshot rotted silently and
-  AI.md had been admitting it for two releases. It is generated now, and
+  How-this-was-written.md had been admitting it for two releases. It is generated now, and
   `--check` fails when it is stale.
 
 ### Changed
@@ -9345,7 +9345,7 @@ The concurrent-write 500 is fixed, and it turned out not to be the bug I had wri
 down. The roadmap becomes something you can browse rather than scroll, and it stops being
 a list I keep by hand: what is on it is now decided by labels on the issue tracker, in
 public, and closing an issue is the only bookkeeping there is. There is also a
-`DEVELOPMENT.md`, for anyone who would rather fork this than file against it.
+`Developing.md`, for anyone who would rather fork this than file against it.
 
 Nothing in the running app changed except the database DSN, and that fix is the reason to
 upgrade: if you have ever seen a 500 saving a quote, this is why.
@@ -9421,7 +9421,7 @@ upgrade: if you have ever seen a 500 saving a quote, this is why.
   touch them. Every write keeps the previous page in `docs/roadmap.backup.html` and is
   refused outright if the render loses a marker, unbalances `<details>` or shrinks the
   page implausibly — so a bad run is a failed job, not a broken published page.
-- **`DEVELOPMENT.md`** — building and running it, the two rules the code enforces that are
+- **`Developing.md`** — building and running it, the two rules the code enforces that are
   easy to break, how migrations and the `_txlock=immediate` pragma constrain a new
   transaction, the pull-request conventions, and a list of every string that still says my
   name for anyone forking it into their own thing.
@@ -9512,7 +9512,7 @@ Markdown into a page you can actually read.
   and pending-import sections it had been missing since 1.2.0.
 
 - `docs/MILESTONE-3.md` removed — a one-off build record, referenced from nowhere.
-  `docs/PLAN.md` stays: it is cited from roughly 148 places in the code as the record
+  `docs/wiki/Design-decisions.md` stays: it is cited from roughly 148 places in the code as the record
   of *why*, and deleting it would orphan all of them.
 
 ## [1.3.0] - 2026-08-04
@@ -10380,7 +10380,7 @@ load-bearing enough that shipping 1.0 without them would have been dishonest.
   so films already in the library need no re-sync and cost no extra API call (a
   by-name TMDB search is the fallback); like actors, director photos and links
   need a TMDB key. The `/people` endpoints (`names`, `lookup`, `portrait`,
-  `rename`, re-verify) now accept `kind=director`. See `docs/PLAN.md` §7.
+  `rename`, re-verify) now accept `kind=director`. See `docs/wiki/Design-decisions.md` §7.
 
 ## [0.6.9] - 2026-07-18
 
@@ -10394,7 +10394,7 @@ load-bearing enough that shipping 1.0 without them would have been dishonest.
   are already valid prefixes untouched (so typeahead is unchanged), stays scoped
   to your own library, and degrades silently to the plain empty result if the
   vocabulary can't be read (`TIP-SRCH-004`). No new dependencies, no new index
-  data. See `docs/PLAN.md` §4.
+  data. See `docs/wiki/Design-decisions.md` §4.
 - **Restore during first-run onboarding.** Moving to a new box no longer needs a
   throwaway admin account: drop the backup archive into `<data>/backups` and the
   onboarding screen shows an "or restore a backup" card (with the backup's date)
@@ -10463,7 +10463,7 @@ load-bearing enough that shipping 1.0 without them would have been dishonest.
   swap, then the normal boot sequence (migrate → integrity → FTS self-heal).
   No Docker socket needed; the previous data dir survives as one
   `.pre-restore-<ts>` safety generation, a failed swap rolls back intact, and
-  new `TIP-BACKUP-001..006` codes land in `docs/troubleshoot.md`.
+  new `TIP-BACKUP-001..006` codes land in `docs/wiki/Troubleshooting.md`.
 - **Per-person work counts in the People console.** `GET /people/names` rows
   now carry `count` — books for authors, distinct titles for actors, tallied
   on the *split* credit components so a co-authored book counts once per
@@ -10610,7 +10610,7 @@ load-bearing enough that shipping 1.0 without them would have been dishonest.
 - **Structured, code-tagged error logging (ROADMAP §12).** Every handled failure
   now logs a stable code of the form `TIP-<SUBSYS>-NNN` (for example
   `TIP-SRCH-002`) to both stdout and stderr. Look any code up in the new
-  [`docs/troubleshoot.md`](docs/troubleshoot.md) for its cause and fix. Each
+  [`docs/wiki/Troubleshooting.md`](docs/wiki/Troubleshooting.md) for its cause and fix. Each
   request also carries a short correlation id so all of its log lines line up.
 - **`TIPPANI_LOG_LEVEL=debug`** turns on verbose `[trace]` per-operation logging
   for diagnosing an issue; it is off (quiet) by default, so normal deployments are

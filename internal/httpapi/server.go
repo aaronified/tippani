@@ -703,7 +703,7 @@ func logRequests(next http.Handler) http.Handler {
 }
 
 // codedError logs the real cause of a 500 server-side with a stable lookup code
-// (see internal/olog/codes.go + docs/troubleshoot.md), then returns the opaque
+// (see internal/olog/codes.go + docs/wiki/Troubleshooting.md), then returns the opaque
 // "internal error" to the client — the cause never leaks into the response
 // (ROADMAP §12). The line is `[error] TIP-XXX-NNN METHOD PATH (req rNNN): ctx: err`,
 // so an operator greps the code, and the req id ties it to the request's summary

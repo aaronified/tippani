@@ -31,7 +31,7 @@ there is no way to tell from inside it which 80%.
 So it is a log now. **A log is allowed to be wrong in public**, which is exactly the
 property the old document lacked: an entry that records a decision, and then records that
 the decision was wrong and what replaced it, stays true forever. The original is not
-deleted — it is in the git history at `docs/PLAN.md` before this commit, and several
+deleted — it is in the git history at `docs/wiki/Design-decisions.md` before this commit, and several
 entries below quote it against itself.
 
 ## How to read an entry
@@ -73,19 +73,19 @@ are touched rather than in one sweep.
 ## What this document is not
 
 It does not say how to build or test the app — that is
-[`DEVELOPMENT.md`](../DEVELOPMENT.md). It does not say what is coming — that is
-[the roadmap](roadmap.html). It does not say what a piece of the interface is called —
-that is [the UI glossary](ui-glossary.html). It records **why**, and only why.
+[`Developing.md`](Developing.md). It does not say what is coming — that is
+[the roadmap](../roadmap.html). It does not say what a piece of the interface is called —
+that is [the UI glossary](../ui-glossary.html). It records **why**, and only why.
 
 One thing it deliberately does contain: decisions about things **not built yet**, where
 the constraint was agreed before the code — and, just as often, where the decision was
 *not to build it*. Those are marked *planned* or *deferred* on the grey line, and they
-cite [the roadmap](roadmap.html). A constraint agreed in advance and then forgotten is how
+cite [the roadmap](../roadmap.html). A constraint agreed in advance and then forgotten is how
 a feature quietly arrives in the wrong shape; a deferral left unwritten is
 indistinguishable from an omission, and only one of the two is honest.
 
 **A feature's design is not one of those.** That lives in
-[`plans/`](plans/) while the feature is unbuilt, and is folded in here — with a pass on
+[`plans/`](../plans/) while the feature is unbuilt, and is folded in here — with a pass on
 what the plan got wrong — the moment it ships. The distinction is between a *constraint*
 ("semantic search is deferred, and here is the cost that decided it") and a *design*
 ("here is how the bin will work"). Three designs were left sitting in the forward
@@ -124,11 +124,11 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 **Decided.** The target host is stated at the top of the plan as a constraint, not as context: "Target host: a low-powered NAS also running ~100 other services → CPU frugality is a first-class requirement." It is restated in the contributing guide as "a requirement, not a preference", and in the README as the first sentence about the binary.
 
-**Why.** Every budget below is downstream of it. A constraint that lives only in my head gets traded away the first time a feature wants a timer; written into the plan, the README and `DEVELOPMENT.md`, it is something a patch has to argue against rather than something I have to remember to defend.
+**Why.** Every budget below is downstream of it. A constraint that lives only in my head gets traded away the first time a feature wants a timer; written into the plan, the README and `Developing.md`, it is something a patch has to argue against rather than something I have to remember to defend.
 
 **Approved.** Mine from the first line of the plan — I picked the host, so I own the budget, and I approved writing it down in three places rather than one.
 
-<sub>pre-1.0 — `docs/PLAN.md` · `DEVELOPMENT.md` · `README.md`</sub>
+<sub>pre-1.0 — `docs/wiki/Design-decisions.md` · `Developing.md` · `README.md`</sub>
 
 ### Hard runtime caps: `GOMAXPROCS=1`, `GOMEMLIMIT=64MiB`, `GOGC=200` — defensive towards the neighbours, not the app
 
@@ -140,19 +140,19 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 **Approved.** My call, and I stand by it: the numbers are conservative on purpose because the cost of being wrong lands on someone else's services, not mine.
 
-<sub>pre-1.0 — `deploy/tippani.service` · `docker-compose.yml` · `README.md` · `docs/PLAN.md`</sub>
+<sub>pre-1.0 — `deploy/tippani.service` · `docker-compose.yml` · `README.md` · `docs/wiki/Design-decisions.md`</sub>
 
 ### No background jobs, pollers, tickers or cron — cleanup and scheduling run on read
 
 **Decided.** Nothing in the binary wakes up on its own. There is no `time.Ticker` anywhere outside tests; the only goroutine in `main` is the listener. Expired sessions are deleted lazily inside `Sessions.Create`, and review scheduling is computed at query time.
 
-**Why.** Idle CPU has to be approximately zero on a box with a hundred neighbours, and a timer is the one thing that cannot be. `DEVELOPMENT.md` states it as a rejection criterion: "If a change needs something to wake up on its own, that is a design discussion before it is a patch."
+**Why.** Idle CPU has to be approximately zero on a box with a hundred neighbours, and a timer is the one thing that cannot be. `Developing.md` states it as a rejection criterion: "If a change needs something to wake up on its own, that is a design discussion before it is a patch."
 
 **Instead of.** A cleanup cron for expired sessions — rejected in the plan itself ("no cleanup cron"). Litestream for continuous backup — rejected for constant background CPU; nightly `VACUUM INTO` from the host's own cron is the answer instead, which is the user's timer and not mine.
 
 **Approved.** I signed this off as a hard line rather than a default, which is why it appears in the contributing guide as grounds for rejecting a patch.
 
-<sub>pre-1.0 — `internal/auth/auth.go` · `docs/PLAN.md` · `DEVELOPMENT.md` · `README.md`</sub>
+<sub>pre-1.0 — `internal/auth/auth.go` · `docs/wiki/Design-decisions.md` · `Developing.md` · `README.md`</sub>
 
 ### Pure-Go SQLite (modernc) over CGo mattn, buying `CGO_ENABLED=0` at ~1.5–2× per-query CPU
 
@@ -164,7 +164,7 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 **Approved.** Mine, taken with the CPU cost written down beside it so nobody later discovers it as a surprise. I approved paying it.
 
-<sub>pre-1.0 — `docs/PLAN.md` · `go.mod`</sub>
+<sub>pre-1.0 — `docs/wiki/Design-decisions.md` · `go.mod`</sub>
 
 ### Dependency budget: three direct Go modules, three runtime npm packages, everything else stdlib
 
@@ -172,9 +172,9 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 **Why.** A dependency on a NAS is a thing that has to be audited, updated and trusted forever. Concretely: CSRF is Go 1.25's `http.CrossOriginProtection` rather than a token library, response compression is `compress/gzip`, and backup sealing is AES-256-GCM and Argon2id out of the stdlib and `x/crypto`.
 
-**Approved.** I approved each of the six individually and treat the count as a budget — a seventh needs an argument, which is why "a new always-on dependency" is listed in `DEVELOPMENT.md` as grounds for rejection.
+**Approved.** I approved each of the six individually and treat the count as a budget — a seventh needs an argument, which is why "a new always-on dependency" is listed in `Developing.md` as grounds for rejection.
 
-<sub>pre-1.0 — `go.mod` · `web/frontend/package.json` · `DEVELOPMENT.md`</sub>
+<sub>pre-1.0 — `go.mod` · `web/frontend/package.json` · `Developing.md`</sub>
 
 ### Static assets are precompressed at build time; the NAS never runs Node and never gzips a byte at request time
 
@@ -186,7 +186,7 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 **Approved.** Both halves are mine. I approved the original plan and I approved overturning it once the phone made the cost visible; the honest summary is that I optimised for the wrong link.
 
-<sub>1.1.0 (reversal) — `docs/PLAN.md` · `web/frontend/vite.config.js` · `internal/httpapi/server.go` · `internal/httpapi/gzip.go` · `CHANGELOG.md`</sub>
+<sub>1.1.0 (reversal) — `docs/wiki/Design-decisions.md` · `web/frontend/vite.config.js` · `internal/httpapi/server.go` · `internal/httpapi/gzip.go` · `CHANGELOG.md`</sub>
 
 ### Layout work that can happen on the reader's device does: sticker text flow is client-side, code-split and lazy-loaded
 
@@ -198,7 +198,7 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 **Approved.** My call. The general rule I approved here is the one that decides the OCR and speech questions further down: if the reader's device can do it, the NAS does not.
 
-<sub>pre-1.0 — `web/frontend/src/flow.jsx` · `docs/PLAN.md`</sub>
+<sub>pre-1.0 — `web/frontend/src/flow.jsx` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Tippani never contacts the network on its own — every outbound call is one you triggered
 
@@ -206,21 +206,21 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 **Why.** It follows from the no-background-jobs rule, and it is also the honest reading of "self-hosted". A CSP of `default-src 'self'` with nothing external is what makes it checkable from the browser side rather than only from the source.
 
-**Approved.** I approved this and I approved saying it plainly in `AI.md` rather than leaving it to be inferred from the absence of code.
+**Approved.** I approved this and I approved saying it plainly in `How-this-was-written.md` rather than leaving it to be inferred from the absence of code.
 
-<sub>pre-1.0 — `AI.md` · `README.md` · `docs/PLAN.md`</sub>
+<sub>pre-1.0 — `How-this-was-written.md` · `README.md` · `docs/wiki/Design-decisions.md`</sub>
 
 ### No AI at runtime: not disabled by default, not present
 
 **Decided.** There is no OpenAI, Anthropic or local-inference code path in `internal/` or in the frontend, no model ships with the binary, and highlights are never sent to a model because they are never sent anywhere.
 
-**Why.** The distinction that matters is between "off by default" and "absent", and only the second is a property someone can verify. `AI.md` separates the two questions people conflate — was the code written with AI (yes, throughout) and does the app use AI (no) — and answers them apart, because they are not the same claim.
+**Why.** The distinction that matters is between "off by default" and "absent", and only the second is a property someone can verify. `How-this-was-written.md` separates the two questions people conflate — was the code written with AI (yes, throughout) and does the app use AI (no) — and answers them apart, because they are not the same claim.
 
 **Instead of.** Opt-in digest summaries against an OpenAI-compatible endpoint the user configures with their own key sits under *Later / maybe* on the roadmap: not built, not started, and if ever built, off by default and explicit about what leaves the machine.
 
 **Approved.** Mine, and I wrote the disclosure myself in the first person because a hedged version of this claim would be worse than none.
 
-<sub>pre-1.0 — `AI.md` · `README.md` · `docs/landing.html`</sub>
+<sub>pre-1.0 — `How-this-was-written.md` · `README.md` · `docs/landing.html`</sub>
 
 ### No built-in reader, no OPDS, no file sync — annotations are wanted, files are not
 
@@ -252,7 +252,7 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 **Instead of.** The share-target route remains the no-app answer for a phone, and is still planned.
 
-**Reversal.** The refusal stands; my reasoning around it did not. I had written it as though the server were the only place OCR could live, which made a hosting decision read as a feature judgement. The entry now says so and the feature moved to the roadmap's [Android app](roadmap.html#android) section rather than staying on the set-aside list.
+**Reversal.** The refusal stands; my reasoning around it did not. I had written it as though the server were the only place OCR could live, which made a hosting decision read as a feature judgement. The entry now says so and the feature moved to the roadmap's [Android app](../roadmap.html#android) section rather than staying on the set-aside list.
 
 **Approved.** I approved the original refusal and I approved correcting its scope. The correction is the point: what I got wrong was the boundary of my own argument, not its conclusion.
 
@@ -292,7 +292,7 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 **Instead of.** A shared/household library, deferred in §9 and never picked up — it would change §3 materially.
 
-<sub>`docs/PLAN.md` · `internal/store/migrations/0001_init.sql …`</sub>
+<sub>`docs/wiki/Design-decisions.md` · `internal/store/migrations/0001_init.sql …`</sub>
 
 ### Ownership lives inside the write statement, and a foreign row answers 404
 
@@ -308,7 +308,7 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 **Why.** Every table below `users` has a `user_id` foreign key with `ON DELETE CASCADE`, and every handler above it reads an identity out of the request context. Retrofitting either is a rewrite of the schema and of every handler at once. Doing it first means the ownership predicate is present in the first query anyone writes rather than being added to forty of them later. I signed this off before the first migration ran.
 
-<sub>`docs/PLAN.md`</sub>
+<sub>`docs/wiki/Design-decisions.md`</sub>
 
 ### bcrypt cost 10 for logins, Argon2id for archive keys
 
@@ -318,7 +318,7 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 **Instead of.** Argon2id everywhere (rejected on RSS); scrypt (never argued for).
 
-<sub>`internal/auth/auth.go` · `internal/httpapi/backup_crypto.go` · `docs/PLAN.md`</sub>
+<sub>`internal/auth/auth.go` · `internal/httpapi/backup_crypto.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Passwords are 8–20 characters of printable ASCII, because a password is a backup key
 
@@ -334,7 +334,7 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 **Why.** Storing the hash means a database read — a backup archive, a stolen file — does not yield a usable cookie. The sliding window keeps a daily user signed in; the absolute cap stops a token renewing itself indefinitely, which is the failure mode a purely sliding window has. The sweep runs inside `Create` rather than on a timer because a cleanup cron is a background process, and §8's CPU budget says idle CPU is approximately zero — a login is the only moment the table needs tidying and the only moment anyone is waiting on it anyway. My decision, approved with the constants written into `auth.go` rather than config, so a reader sees the policy and not a knob.
 
-<sub>`internal/auth/auth.go` · `docs/PLAN.md`</sub>
+<sub>`internal/auth/auth.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Device tokens have the opposite lifetime to sessions, on purpose
 
@@ -342,7 +342,7 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 **Why.** A browser cookie is ambient and long-lived by accident, so capping it and sweeping it on a password change is right. A paired phone is deliberate: you went and paired it. Silently unpairing every device on a routine password rotation gives the device no signal at all — from the phone it is indistinguishable from an outage — and that is worse than the threat it would mitigate. Unpairing is therefore its own explicit act, per device or all at once, in Settings → Devices. The revoke endpoint returns one error for "no such device" and "not yours" together, because distinguishing them turns it into an oracle for which device ids exist on other accounts. This is my call and I would make it again; it is the one place in the app where the less-secure-looking option is the correct one.
 
-<sub>`docs/PLAN.md` · `internal/auth/auth.go`</sub>
+<sub>`docs/wiki/Design-decisions.md` · `internal/auth/auth.go`</sub>
 
 ### Pairing codes live in memory: one-shot, five minutes, look-alike-free
 
@@ -362,7 +362,7 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 **Instead of.** Double-submit tokens (rejected: state, deps, and a stdlib answer exists).
 
-<sub>`internal/httpapi/server.go` · `internal/httpapi/bearer_auth_test.go` · `internal/httpapi/csrf_native_test.go` · `docs/PLAN.md`</sub>
+<sub>`internal/httpapi/server.go` · `internal/httpapi/bearer_auth_test.go` · `internal/httpapi/csrf_native_test.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### A present-but-unusable Authorization header fails closed
 
@@ -378,7 +378,7 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 **Why.** A single reverse proxy appends the real client IP to whatever the client already sent, so everything left of the last comma is client-forgeable. Reading the leftmost entry — the usual mistake — lets an attacker rotate a fake IP per request and mint a fresh limiter bucket each time, which defeats both the brute-force protection and the bcrypt-DoS protection it doubles as. Without a declared proxy the header is ignored entirely and `RemoteAddr` is used. Signup and onboarding restore ride the same limiter under their own key suffixes, because both are unauthenticated routes that spend real CPU. I approved this after the rightmost/leftmost distinction was written down as a test rather than a comment.
 
-<sub>`internal/httpapi/server.go` · `internal/httpapi/auth_handlers.go` · `internal/httpapi/security_test.go` · `docs/PLAN.md`</sub>
+<sub>`internal/httpapi/server.go` · `internal/httpapi/auth_handlers.go` · `internal/httpapi/security_test.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Roles are one `is_admin` flag, and the first user is the admin
 
@@ -386,7 +386,7 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 **Why.** Under per-user isolation there is nothing for finer-grained permissions to protect. An admin cannot read another account's library — no route exposes one — so the only privileged surface is instance management: add and remove users, metadata keys, backup and restore, maintenance. That is one bit of information. Anything more is a permissions model built for a sharing feature that does not exist, which is YAGNI in its purest form. Mine, and I have refused to widen it twice since.
 
-<sub>`docs/PLAN.md` · `internal/httpapi/admin_handlers.go`</sub>
+<sub>`docs/wiki/Design-decisions.md` · `internal/httpapi/admin_handlers.go`</sub>
 
 ### Admin hand-over is grant-only, because a role you can take is a race
 
@@ -430,7 +430,7 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 **Why.** §1's table states a flat "binds `127.0.0.1`" and that is no longer the whole truth, so §2 softens it explicitly rather than leaving the two in disagreement. A NAS app that is not reachable on the LAN is not a NAS app. The cost is named rather than buried: first-run onboarding is unauthenticated, because the first caller claims admin, so there is a window on a fresh box in which anyone on the LAN can become its administrator. The remedy is stated in the same breath — onboard promptly, or publish host-local behind a proxy until you have. After onboarding every route requires a credential. I approved shipping the window with the warning attached rather than shipping an app nobody can reach.
 
-<sub>`docs/PLAN.md` · `cmd/tippani/main.go`</sub>
+<sub>`docs/wiki/Design-decisions.md` · `cmd/tippani/main.go`</sub>
 
 ### Signup and first-run restore are serialised under one lock
 
@@ -452,7 +452,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Reversal.** This entry *is* a reversal of the plan. §8 now records the supersession in place rather than quietly reading as if it were built.
 
-<sub>0.6.4 — `internal/store/store.go` · `docs/PLAN.md`</sub>
+<sub>0.6.4 — `internal/store/store.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Graceful shutdown drains, then checkpoints the WAL
 
@@ -468,7 +468,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** Per-row or per-book commits, for finer failure granularity. Rejected: a half-imported file is worse than a rejected one.
 
-<sub>planned in §5/§8; held through the staging rework in 1.2.0 — `docs/PLAN.md` · `internal/httpapi/import_handlers.go`</sub>
+<sub>planned in §5/§8; held through the staging rework in 1.2.0 — `docs/wiki/Design-decisions.md` · `internal/httpapi/import_handlers.go`</sub>
 
 ### The planned single-writer connection, and a 500 left unpatched on purpose
 
@@ -478,7 +478,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Reversal.** Reversed in full by 3.5. The design I was protecting was not the fix.
 
-<sub>1.1.1 — `docs/PLAN.md`</sub>
+<sub>1.1.1 — `docs/wiki/Design-decisions.md`</sub>
 
 ### `_txlock=immediate` replaced the single-writer plan
 
@@ -526,11 +526,11 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 ### Migrations are forward-only, append-only, and never edited afterwards
 
-**Decided.** Files are `NNNN_description.sql`, embedded with `go:embed`, applied in lexical order, each in its own transaction, with the version row written inside that same transaction. A misnamed file is caught before anything is applied, because every version is parsed up front. The rule in `DEVELOPMENT.md` is one sentence and it is the important one: never edit a migration that has shipped — someone is already running it. I hold to this even when the fix would be trivial, and the one repair that genuinely could not be expressed as SQL (re-hashing dialogues that 1.3.0 wrote with a text-only dedupe hash) runs as an idempotent Go backfill from `Migrate` rather than as a rewritten migration.
+**Decided.** Files are `NNNN_description.sql`, embedded with `go:embed`, applied in lexical order, each in its own transaction, with the version row written inside that same transaction. A misnamed file is caught before anything is applied, because every version is parsed up front. The rule in `Developing.md` is one sentence and it is the important one: never edit a migration that has shipped — someone is already running it. I hold to this even when the fix would be trivial, and the one repair that genuinely could not be expressed as SQL (re-hashing dialogues that 1.3.0 wrote with a text-only dedupe hash) runs as an idempotent Go backfill from `Migrate` rather than as a rewritten migration.
 
 **Instead of.** Down-migrations. Never built; a downgrade path implies a downgrade is supported, and it is not (3.11).
 
-<sub>from 0.1.0 — `internal/store/migrate.go` · `DEVELOPMENT.md` · `AI.md`</sub>
+<sub>from 0.1.0 — `internal/store/migrate.go` · `Developing.md` · `How-this-was-written.md`</sub>
 
 ### An old build refuses to open a newer database
 
@@ -538,7 +538,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** Starting with a warning. Rejected: the warning is the thing nobody reads, and an empty screen is indistinguishable from data loss.
 
-<sub>1.7.3 — `internal/store/migrate.go` · `AI.md`</sub>
+<sub>1.7.3 — `internal/store/migrate.go` · `How-this-was-written.md`</sub>
 
 ### Column order in base tables is append-only
 
@@ -546,7 +546,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** Naming columns explicitly in `Recover`, which would decouple the two. That trades one silent failure for another: a copy that names columns by hand stops carrying the column added next release.
 
-<sub>1.2.0 (recorded), applies from 0001 — `internal/store/repair.go` · `internal/store/migrations/0023_import_staging.sql` · `docs/PLAN.md`</sub>
+<sub>1.2.0 (recorded), applies from 0001 — `internal/store/repair.go` · `internal/store/migrations/0023_import_staging.sql` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Open-ended vocabularies are validated in app code, never in a `CHECK`
 
@@ -554,7 +554,7 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** Rebuilding the table each time the vocabulary grows. Rejected on both costs above.
 
-<sub>0.4.x (migration 0004) — `internal/store/migrations/0004_quote_meta.sql` · `docs/PLAN.md`</sub>
+<sub>0.4.x (migration 0004) — `internal/store/migrations/0004_quote_meta.sql` · `docs/wiki/Design-decisions.md`</sub>
 
 ### No convenience trigger on a table backing an external-content FTS index
 
@@ -690,7 +690,7 @@ Tags and genres travel by NAME as well as by id for a related reason: both outli
 
 **Approved.** Mine, on the strength of the verification rather than the plan: the plan said "follow the cascade edges rather than a hand-written list", and the schema disagreed.
 
-<sub>1.8.0 — `internal/httpapi/trash.go` · `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash_test.go` · `AI.md`</sub>
+<sub>1.8.0 — `internal/httpapi/trash.go` · `internal/store/migrations/0031_trash.sql` · `internal/httpapi/trash_test.go` · `How-this-was-written.md`</sub>
 
 ### Ids are never reused, via an allocation floor rather than AUTOINCREMENT
 
@@ -814,17 +814,17 @@ Three kinds of quote — a book highlight, a screen line, and one belonging to n
 
 **Approved.** Mine, and I approved it at the time on exactly the reasoning above.
 
-<sub>Pre-1.0, in §3b as first written — `docs/PLAN.md` · `CHANGELOG.md`</sub>
+<sub>Pre-1.0, in §3b as first written — `docs/wiki/Design-decisions.md` · `CHANGELOG.md`</sub>
 
 ### Annotations and dialogues collapse to one shared shape
 
 **Decided.** Both kinds embed a common `quoteReq`/`quoteRow` (`internal/httpapi/quote.go`) — quote, note, colour, favourite, tags, stickers, `noted_at`, `source` and review state — and differ in exactly one respect: how a quote points back at its source. `TestQuoteKindsShareTheirFields` pins the boundary, requires the embed to be anonymous so the wire format stays flat, and **walks embedded structs rather than skipping them**.
 
-**Why.** Writing the two sides separately is what let them drift. The flattening rule is the load-bearing detail: `episodeRef` arrived as an embed and would otherwise have carried `season` and `episode` onto one kind unseen, which is precisely the failure the test exists to prevent. `AI.md` records the earlier version skipping embeds and staying green while two fields rode past it — found by reading the test, not by running it.
+**Why.** Writing the two sides separately is what let them drift. The flattening rule is the load-bearing detail: `episodeRef` arrived as an embed and would otherwise have carried `season` and `episode` onto one kind unseen, which is precisely the failure the test exists to prevent. `How-this-was-written.md` records the earlier version skipping embeds and staying green while two fields rode past it — found by reading the test, not by running it.
 
 **Approved.** My call, and I stand by it; the test is the half of the decision I care about.
 
-<sub>1.1.0, with the embed-flattening correction after it — `internal/httpapi/quote_parity_test.go` · `docs/PLAN.md` · `AI.md`</sub>
+<sub>1.1.0, with the embed-flattening correction after it — `internal/httpapi/quote_parity_test.go` · `docs/wiki/Design-decisions.md` · `How-this-was-written.md`</sub>
 
 ### Dialogue gained colour, noted_at and source; existing lines land on yellow
 
@@ -846,7 +846,7 @@ Three kinds of quote — a book highlight, a screen line, and one belonging to n
 
 **Approved.** Mine. I signed this off as the one difference worth keeping after the parity work removed every other one.
 
-<sub>1.1.0, extended to the third kind in 1.5.0 — `docs/PLAN.md` · `internal/store/migrations/0026_utterances.sql` · `internal/store/migrations/0029_six_colours.sql`</sub>
+<sub>1.1.0, extended to the third kind in 1.5.0 — `docs/wiki/Design-decisions.md` · `internal/store/migrations/0026_utterances.sql` · `internal/store/migrations/0029_six_colours.sql`</sub>
 
 ### A quote with no book and no film gets a third table
 
@@ -1024,7 +1024,7 @@ Three kinds of quote — a book highlight, a screen line, and one belonging to n
 
 **Approved.** Mine, and I approved removing the GC rather than making it smarter about what it kept.
 
-<sub>0.x, GC removed with the managed vocabulary — `docs/PLAN.md` · `internal/store/migrations/0026_utterances.sql`</sub>
+<sub>0.x, GC removed with the managed vocabulary — `docs/wiki/Design-decisions.md` · `internal/store/migrations/0026_utterances.sql`</sub>
 
 ### Nested tags are a display convention, not a parent id
 
@@ -1044,7 +1044,7 @@ Three kinds of quote — a book highlight, a screen line, and one belonging to n
 
 **Approved.** Mine at both stages. I approved leaving the two columns rather than tidying them, and the schema comment says they are inert so nobody reads them as live.
 
-<sub>0.4.3 and 0.8.5 — `CHANGELOG.md` · `docs/PLAN.md`</sub>
+<sub>0.4.3 and 0.8.5 — `CHANGELOG.md` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Reviving a rating is recorded as a reversal to weigh, not as planned work
 
@@ -1090,7 +1090,7 @@ The flag is the whole safety argument for the backfill. Without it the sweep run
 
 **Approved.** Mine, and I approved the split rather than folding the keys into the same blob for convenience.
 
-<sub>0.x — `internal/store/migrations/0005_ui_prefs.sql` · `docs/PLAN.md` · `CHANGELOG.md`</sub>
+<sub>0.x — `internal/store/migrations/0005_ui_prefs.sql` · `docs/wiki/Design-decisions.md` · `CHANGELOG.md`</sub>
 
 ### A board is a work, and /quotes is a two-level screen like the other two
 
@@ -1560,7 +1560,7 @@ Books, films and shows share one catalogue shape, and everything about where you
 
 ### 'Shelf' belongs to reading status, so the collections backlog section became 'tag shelves'
 
-**Decided.** The roadmap's [collections](roadmap.html#collections) section, formerly *Collections & shelves*, is now *Collections & tag shelves*.
+**Decided.** The roadmap's [collections](../roadmap.html#collections) section, formerly *Collections & shelves*, is now *Collections & tag shelves*.
 
 **Why.** "Shelf" now means where you stand with a work — reading, paused, completed. What that section builds is tags surfaced as first-class groupings, so it is tag shelves, and the plain word belongs to the other feature.
 
@@ -1572,7 +1572,7 @@ Books, films and shows share one catalogue shape, and everything about where you
 
 **Decided.** The shelf gives a status per work, a progress figure, a position and a read log with dates. All of it is your input, shown back to you, and nothing else consumes it. The specific temptations are listed: no read-log series in the Stats activity calendar; no "books finished this year" in the year in review; no reading-pace or completion charts; no progress- or completion-based achievements; no shelf status feeding the review deck's scheduling.
 
-**Why.** These are all plausible and all cheap-looking, which is why naming them individually is the only version of this boundary that survives. The roadmap's [serendipity](roadmap.html#serendipity) section carries a back-reference at the exact spot someone would first reach for it, because that is the first place anyone would.
+**Why.** These are all plausible and all cheap-looking, which is why naming them individually is the only version of this boundary that survives. The roadmap's [serendipity](../roadmap.html#serendipity) section carries a back-reference at the exact spot someone would first reach for it, because that is the first place anyone would.
 
 **Approved.** My call, recorded under "Considered and set aside" so the boundary stays a decision instead of being rediscovered later as an opportunity.
 
@@ -1586,7 +1586,7 @@ Books, films and shows share one catalogue shape, and everything about where you
 
 `'game'` needed no vocabulary change either, and that was by earlier design rather than luck: `media_type` has no CHECK (0006 validates it in app code and says so), `status` has none (0024), and `person_kinds` has none (0027). A studio therefore becomes a `people` row of kind `studio` with no DDL at all, inheriting image storage, the People panel, rename, merge and orphan GC. `0037` set the bar for a new person kind — it must have *behaviour*, not just a label — and a studio clears it: a logo, a click target, and its own slot on the overview page.
 
-**What I got wrong, and it is worth recording.** The plan this was built from stated the payoff as "eighteen Go files" and "~61 frontend `kind === 'movie'` switches". Recounted against the tree on 2026-08-16: **20 files**, and `kind === 'movie'` appears **9 times** (105 `'movie'` literals across 17 files). The conclusion was right and both supporting numbers were wrong, which is exactly the failure mode `AI.md` describes — confident documentation is not verified documentation. The corrected figures and the commands that reproduce them are in the migration header, where the next person to question the design will actually be standing.
+**What I got wrong, and it is worth recording.** The plan this was built from stated the payoff as "eighteen Go files" and "~61 frontend `kind === 'movie'` switches". Recounted against the tree on 2026-08-16: **20 files**, and `kind === 'movie'` appears **9 times** (105 `'movie'` literals across 17 files). The conclusion was right and both supporting numbers were wrong, which is exactly the failure mode `How-this-was-written.md` describes — confident documentation is not verified documentation. The corrected figures and the commands that reproduce them are in the migration header, where the next person to question the design will actually be standing.
 
 **The vocabulary stretch is deliberate and is the one real cost.** A game's studio lives in a column named `director`. That is defensible — a show already stores its *creator* there — but it means two person kinds share one column, told apart only by `media_type`, which is a hazard rather than a tidiness problem. See §6.
 
@@ -1860,7 +1860,7 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 **Why.** TMDB details use `append_to_response=credits`, so one call returns details, cast and crew. The film *is* the disambiguator: it is that film's cast, so there is no same-name problem to solve and nothing to ask a provider. The director's person id and `profile_path` are sitting in the raw credits even though only the name was flattened onto the movie row. Approved: the cheapest correct answer in the whole metadata layer, and it costs a JSON walk.
 
-<sub>`internal/httpapi/portrait_handlers.go` · `docs/PLAN.md`</sub>
+<sub>`internal/httpapi/portrait_handlers.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Wikidata was dropped as a metadata source, then re-admitted for one portrait fallback
 
@@ -1868,7 +1868,7 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 **Why.** What I rejected was Wikidata as a *search* surface, and that rejection still stands: a bare name query hits namesakes. What came back is different — the QID arrives from Open Library's remote ids on an author I have already disambiguated, so there is no fuzzy matching left to do. The narrow re-entry is the sparse-record case: an author with no Open Library photo and no wikidata link (David Reich is the standing example) is resolved by anchoring on a book they wrote and reading the work's author, P50, which is unambiguous where a name search is not. The portrait order is mine and deliberate: Open Library photo, then the Wikipedia lead image, then the P18. Two hosts were added to the cover allowlist for it. I approved the re-admission on the condition that it never runs from a name alone.
 
-<sub>`docs/PLAN.md` · `internal/metadata/people.go` · `internal/metadata/covers.go`</sub>
+<sub>`docs/wiki/Design-decisions.md` · `internal/metadata/people.go` · `internal/metadata/covers.go`</sub>
 
 ### Hardcover was dropped as an API integration, then re-entered as an HTML scraper
 
@@ -1876,7 +1876,7 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 **Why.** The integration was dropped for the right reason and the *data* was never the problem. A saved page carries everything HTML-escaped as JSON in the `data-page` attribute of the Inertia root div, so the parser scans between markers and decodes — no API, no token, no sync state, and no HTML-parser dependency. The structs mirror only the slice needed and are tolerant: missing fields stay zero, variable-shaped ones (`entry` is a string on quotes and null elsewhere, `tags` varies) are kept raw and parsed defensively per entry. Journals that are not quotes are ignored. Mine, and the second form is strictly better than the one I abandoned — it needs no credential at all.
 
-<sub>`docs/PLAN.md` · `internal/importer/hardcover.go` · `internal/httpapi/import_handlers.go`</sub>
+<sub>`docs/wiki/Design-decisions.md` · `internal/importer/hardcover.go` · `internal/httpapi/import_handlers.go`</sub>
 
 ### Metadata is fetched on demand only, and the one bulk path is admin-triggered and cursor-chunked
 
@@ -1884,7 +1884,7 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 **Why.** §8 sets an idle-CPU budget of approximately zero on a NAS sharing a box with a hundred other services, and a background enricher is a poller by another name. Chunking is not only about that budget: each HTTP request stays short, so a proxy timeout or a tab navigation can no longer silently abort a long run, and the client can draw real progress instead of a spinner that means nothing. The `total` is the full workload at that instant and `remaining` shrinks with the cursor. I approved the chunked shape after the un-chunked one died against a reverse proxy.
 
-<sub>`docs/PLAN.md` · `internal/httpapi/metadata_handlers.go` · `internal/httpapi/server.go`</sub>
+<sub>`docs/wiki/Design-decisions.md` · `internal/httpapi/metadata_handlers.go` · `internal/httpapi/server.go`</sub>
 
 ### TMDB ships a built-in application key, and the env var was dropped
 
@@ -1892,7 +1892,7 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 **Why.** TMDB rate-limits per client IP, at roughly 50 req/s, so a key shared by every install never pools into one quota — which is why the Jellyfin/Kodi pattern of embedding an app key works, and TMDB permits it for open-source apps with attribution. The env var went because a key that can be set in three places is a key whose effective value nobody can state; it is managed in-app, where the Settings page can also report which source is in effect. The constant is empty in the source tree, which the roadmap names as the first thing a new install hits. My call, and the removal of the env slot is the half I was least sure about at the time.
 
-<sub>`cmd/tippani/main.go` · `internal/httpapi/metadata_handlers.go` · `docs/PLAN.md`</sub>
+<sub>`cmd/tippani/main.go` · `internal/httpapi/metadata_handlers.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Provider secrets are booleans on read and pointers on write, and traces redact query-param keys
 
@@ -2020,7 +2020,7 @@ The GET's own comment had been describing this card since the release before it 
 
 **Why.** Hotlinking would put a third party in the render path of every board in the app: a runtime dependency on someone else's CDN, a leak of every reader's IP to it, and a CSP that has to name image hosts and then keep naming them. The cost is a few kilobytes stored per work, which on a library of any size is nothing next to the database. It also means a work keeps its art when the provider reorganises. My call, made in the plan and never revisited, and it is what lets the headers stay as short as they are.
 
-<sub>`docs/PLAN.md` · `internal/metadata/covers.go`</sub>
+<sub>`docs/wiki/Design-decisions.md` · `internal/metadata/covers.go`</sub>
 
 ### Cover fetches go through an SSRF host allowlist that follows redirects
 
@@ -2028,7 +2028,7 @@ The GET's own comment had been describing this card since the release before it 
 
 **Why.** Checking only the first URL is the classic hole — a permitted host that redirects to `169.254.169.254` is a permitted host. Checking at dial time rather than after a DNS resolution closes the rebinding gap, because the address the guard sees is the address the connection uses. The allowlist has grown honestly: `archive.org` and the `iaNNNNNN.us.archive.org` pattern are there because Open Library's cover service redirects through them and without them every OL cover died silently on the redirect hop. Two Amazon hosts, two Wikimedia hosts, TVDB's artwork host — each carries a comment saying which feature needs it. The relaxation for a pasted URL is deliberate and narrow: the user may point at any image host, but the private-IP guard, the size cap, the sniff and the redirect limit are not theirs to disable. I approved each host addition individually rather than widening the rule.
 
-<sub>`internal/metadata/covers.go` · `docs/PLAN.md`</sub>
+<sub>`internal/metadata/covers.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### The stored extension comes from the content sniff, never the URL
 
@@ -2174,7 +2174,7 @@ The GET's own comment had been describing this card since the release before it 
 
 **Why.** Both targets have a stable marker that carries everything needed, so a full parse buys nothing and costs a dependency — the plan holds Go direct deps at four, and a parser would be a fifth for two best-effort code paths. The `og:` tags in particular are the part of an Amazon page least likely to move, precisely because they exist for other people's crawlers. Both are explicitly fragile-proof rather than robust: an unreadable page returns an explanatory error rather than partial garbage, because half-scraped metadata written into a library is worse than none. I approved the regex approach with the fragility written down instead of denied.
 
-<sub>`internal/importer/hardcover.go` · `internal/metadata/amazon.go` · `docs/PLAN.md`</sub>
+<sub>`internal/importer/hardcover.go` · `internal/metadata/amazon.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### The Amazon cookie is opt-in, write-only, and its risk is stated rather than softened
 
@@ -2188,7 +2188,7 @@ The GET's own comment had been describing this card since the release before it 
 
 ### Fan-out to every source is slower and worse; a per-kind source picker is the planned answer
 
-**Decided.** Today a lookup fans out to whatever happens to be configured, in an order baked into the code, and you find out what it consulted by reading the result. The roadmap's [choose your metadata sources](roadmap.html#metadata-sources) section plans checkboxes per lookup, remembered per kind.
+**Decided.** Today a lookup fans out to whatever happens to be configured, in an order baked into the code, and you find out what it consulted by reading the result. The roadmap's [choose your metadata sources](../roadmap.html#metadata-sources) section plans checkboxes per lookup, remembered per kind.
 
 **Why.** Fan-out spends every provider's quota on every query and gives the reader no way to say "just Open Library", which is the honest answer to a source that is simply wrong about a particular book. It also makes an unkeyed provider look broken: TMDB and TheTVDB do nothing without a key — their rule, not mine — and an unkeyed instance answers a 503 from a lookup that looked like it should work. Half of that half has shipped: Settings now says the state out loud with a chip reading "Built-in key" or "No key" plus a chip for whether the last book lookup worked, so it is no longer discovered by a failed lookup. What is open is the picker itself. Recorded as mine and still owed.
 
@@ -2284,7 +2284,7 @@ Two routes are walked, because the credits sit in two places: the game's own `P7
 
 The rename's blast radius is the larger one: `metadata.ReplaceCredit` matches a name as a *component* inside a joined credit, and rename has no undo.
 
-**What this also exposed.** Two invariant tests written specifically to catch this class were passing vacuously. `TestEveryValidKindHasAReferenceQuery` and `TestEveryValidKindIsRenameableOrExplicitlyNot` both carried hand-written kind lists under comments claiming they were "kept in step with validPersonKind by construction" — one listed six kinds, the other four, against a vocabulary of six. A seventh would have passed both without being checked. That is the same defect as the parity test in `AI.md` that skipped embedded structs: **a test whose coverage is a copy of the thing under test agrees with it forever.** Both now enumerate `personKinds`, and a third test asserts the media-type predicate is present in all six director/studio query strings — a sweep rather than an example.
+**What this also exposed.** Two invariant tests written specifically to catch this class were passing vacuously. `TestEveryValidKindHasAReferenceQuery` and `TestEveryValidKindIsRenameableOrExplicitlyNot` both carried hand-written kind lists under comments claiming they were "kept in step with validPersonKind by construction" — one listed six kinds, the other four, against a vocabulary of six. A seventh would have passed both without being checked. That is the same defect as the parity test in `How-this-was-written.md` that skipped embedded structs: **a test whose coverage is a copy of the thing under test agrees with it forever.** Both now enumerate `personKinds`, and a third test asserts the media-type predicate is present in all six director/studio query strings — a sweep rather than an example.
 
 **Approved.** My call; the third-instance sweep was not in the plan and is the reason it was found.
 
@@ -2406,7 +2406,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** A contentless or self-contained FTS5 table, which stores the text again.
 
-<sub>from 0.1.0 — `docs/PLAN.md` · `internal/store/repair.go`</sub>
+<sub>from 0.1.0 — `docs/wiki/Design-decisions.md` · `internal/store/repair.go`</sub>
 
 ### Changing indexed columns means dropping and rebuilding the table
 
@@ -2430,7 +2430,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** Stripping operator characters rather than quoting tokens. Quoting preserves the user's words; stripping silently changes their query.
 
-<sub>from 0.1.0 — `internal/search/fts.go` · `docs/PLAN.md`</sub>
+<sub>from 0.1.0 — `internal/search/fts.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### `prefix='2 3'` and `remove_diacritics 2`, plus a 200 ms client debounce
 
@@ -2438,7 +2438,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** No prefix index and a trailing `*`, which term-expands at query time; that moves the cost from disk to CPU, which is backwards here.
 
-<sub>from 0.1.0 — `docs/PLAN.md` · `internal/store/migrations/0001_init.sql`</sub>
+<sub>from 0.1.0 — `docs/wiki/Design-decisions.md` · `internal/store/migrations/0001_init.sql`</sub>
 
 ### One `/search` endpoint for free text; structured filters stay on the lists
 
@@ -2446,7 +2446,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** One universal query endpoint doing both.
 
-<sub>from 0.1.0 — `docs/PLAN.md` · `internal/httpapi/search_handler.go`</sub>
+<sub>from 0.1.0 — `docs/wiki/Design-decisions.md` · `internal/httpapi/search_handler.go`</sub>
 
 ### Results are sectioned by what matched, with a cross-column fallback
 
@@ -2480,7 +2480,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** A stored spelling dictionary, or correcting on every query. The first is a table that can corrupt; the second is a search that overrules you.
 
-<sub>0.6.9 — `docs/PLAN.md` · `internal/httpapi/search_handler.go`</sub>
+<sub>0.6.9 — `docs/wiki/Design-decisions.md` · `internal/httpapi/search_handler.go`</sub>
 
 ### The last token is corrected in prefix mode with no upper length bound
 
@@ -2496,7 +2496,7 @@ Search is FTS5 external-content indexes maintained by triggers, which buys me no
 
 **Instead of.** Per-user vocab views, which fts5vocab cannot express, or filtering the harvest in Go, which would mean reading every user's terms anyway.
 
-<sub>0.6.9 — `internal/search/correct.go` · `docs/PLAN.md`</sub>
+<sub>0.6.9 — `internal/search/correct.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Structured facets parse the raw query only, never the fuzzy re-run
 
@@ -2675,7 +2675,7 @@ The third answer is the one worth naming, because it is the one nobody reaches f
 
 **Instead of.** Going straight to embeddings.
 
-<sub>planned — [search precision](roadmap.html#search-precision) — `docs/roadmap.html`</sub>
+<sub>planned — [search precision](../roadmap.html#search-precision) — `docs/roadmap.html`</sub>
 
 ### Semantic search and `sqlite-vec` deferred indefinitely, as a decision
 
@@ -2683,7 +2683,7 @@ The third answer is the one worth naming, because it is the one nobody reaches f
 
 **Instead of.** Shipping it; not writing it down.
 
-<sub>deferred from 0.1.0 — `docs/PLAN.md` · `docs/roadmap.html`</sub>
+<sub>deferred from 0.1.0 — `docs/wiki/Design-decisions.md` · `docs/roadmap.html`</sub>
 
 ### A feature nobody can find has not shipped
 
@@ -2789,7 +2789,7 @@ Spaced repetition is an exponential forgetting curve evaluated in SQL at query t
 
 **Approved.** Mine, and I approved it as the founding constraint of the whole feature rather than an implementation detail.
 
-<sub>0.4.0 — `internal/httpapi/review_handlers.go` · `docs/PLAN.md`</sub>
+<sub>0.4.0 — `internal/httpapi/review_handlers.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Review state lives in its own table
 
@@ -2799,7 +2799,7 @@ Spaced repetition is an exponential forgetting curve evaluated in SQL at query t
 
 **Approved.** My call; I approved the separate table over three columns on `annotations`.
 
-<sub>0.4.0 — `docs/PLAN.md` · `CHANGELOG.md`</sub>
+<sub>0.4.0 — `docs/wiki/Design-decisions.md` · `CHANGELOG.md`</sub>
 
 ### annotation_reviews became a polymorphic item_reviews
 
@@ -3027,7 +3027,7 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 
 **Approved.** The original control was mine and so was the mistake of not revisiting it when the third medium landed.
 
-<sub>Broken from 1.5.0, fixed in 1.7.0 — `CHANGELOG.md` · `AI.md`</sub>
+<sub>Broken from 1.5.0, fixed in 1.7.0 — `CHANGELOG.md` · `How-this-was-written.md`</sub>
 
 ### Review scope became three independent choices in one comma-separated string
 
@@ -3248,7 +3248,7 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 
 **Instead of.** Binding the multiplier as a SQL parameter rather than splicing it — rejected: `dueSQL` is a string five queries concatenate, so a parameter puts its position in five argument lists, which is five chances to get an offset wrong for a value derived from a constant and never from user text.
 
-**This is the prerequisite for `srTargetRetention`, which is NOT built.** The plan's step 4 makes the due point a preference. It was deferred, and the reason is recorded in `docs/spaced-repetition-difficulty.md` rather than left to be rediscovered: the dial's only consumer is the retention figure of step 10, which does not exist, and raising the target makes nearly everything due at once — a poor thing to land days before a launch. With the duplication gone the dial becomes a small change: the constant becomes the preference in one place.
+**This is the prerequisite for `srTargetRetention`, which is NOT built.** The plan's step 4 makes the due point a preference. It was deferred, and the reason is recorded in `docs/wiki/Spaced-repetition.md` rather than left to be rediscovered: the dial's only consumer is the retention figure of step 10, which does not exist, and raising the target makes nearly everything due at once — a poor thing to land days before a launch. With the duplication gone the dial becomes a small change: the constant becomes the preference in one place.
 
 **Approved.** Mine, as a refactor that had to happen whether or not the dial ships.
 
@@ -4327,11 +4327,11 @@ Imports used to parse and write in one shot, which meant a misdetected file was 
 
 ### Text cleanup belongs server-side and shared, not inside the OCR client
 
-**Decided.** De-hyphenating across line breaks, dropping page numbers and running heads, and normalising the quote marks and ligatures that get mangled in transit belong in [data hygiene](roadmap.html#data-hygiene), server-side and shared — not in the Android client where the Android section first listed them.
+**Decided.** De-hyphenating across line breaks, dropping page numbers and running heads, and normalising the quote marks and ligatures that get mangled in transit belong in [data hygiene](../roadmap.html#data-hygiene), server-side and shared — not in the Android client where the Android section first listed them.
 
 **Why.** Every import source produces some of it, not just OCR, and the typographic-folding normaliser already exists for the dedupe hash. Putting it in the app would mean one source got the cleanup and the other seven did not.
 
-**Reversal.** The work is listed in the [Android app](roadmap.html#android) section as OCR post-processing and I moved its home rather than its description. What I got wrong first time was locating a shared problem inside the feature that happened to surface it.
+**Reversal.** The work is listed in the [Android app](../roadmap.html#android) section as OCR post-processing and I moved its home rather than its description. What I got wrong first time was locating a shared problem inside the feature that happened to surface it.
 
 **Approved.** I approved the move and approved leaving the cross-reference in both sections, so neither reads as though the other forgot.
 
@@ -4359,7 +4359,7 @@ An export whose own re-import loses or duplicates data is not an export, so roun
 
 **Why.** Three renderers would drift, and drift in an exporter is invisible until someone re-imports a file written by the wrong one. Writing only non-default values keeps the file readable as a document rather than as a database dump — a file only mentions colour when a colour was chosen — and it is why the default colour is omitted everywhere. The filename rules exist because the zip has to extract on Windows as well as on the machine that made it. I approved the one-renderer shape before the second endpoint existed.
 
-<sub>`docs/PLAN.md` · `internal/httpapi/export_handlers.go`</sub>
+<sub>`docs/wiki/Design-decisions.md` · `internal/httpapi/export_handlers.go`</sub>
 
 ### Both exports must round-trip: re-importing either is a dedupe no-op
 
@@ -4367,7 +4367,7 @@ An export whose own re-import loses or duplicates data is not an export, so roun
 
 **Why.** An export that its own importer cannot read is a backup you find out is worthless at the worst moment, and one that duplicates on re-import is worse than one that fails, because it fails quietly. Making it a property rather than a habit is what catches the omissions — every field added to a work since has had to answer "does it survive the trip", and three of them did not. When import staging landed, the round-trip tests were kept asserting exactly what they asserted before, through an import-then-approve helper, rather than being relaxed to fit the new flow. Mine, and it is the single most useful invariant in the repository.
 
-<sub>`docs/PLAN.md` · `internal/httpapi/export_test.go`</sub>
+<sub>`docs/wiki/Design-decisions.md` · `internal/httpapi/export_test.go`</sub>
 
 ### Series and collections were silently lost on round-trip
 
@@ -4397,7 +4397,7 @@ An export whose own re-import loses or duplicates data is not an export, so roun
 
 **Why.** Season 0 is a real season — it is where a series keeps its specials and pilots — so the columns are nullable and *unset* is `null`, never `0`. A 0-means-unset integer would have made "the specials strand" and "nobody recorded an episode" the same fact, and would have dropped `S0E1` on every export. Reading the combined forms is a concession to how people actually write, not to how the exporter writes: the file the app produces is unambiguous, and the file a person types is the one that needs the tolerance. Mine.
 
-<sub>`docs/PLAN.md`</sub>
+<sub>`docs/wiki/Design-decisions.md`</sub>
 
 ### Status, progress, position and the read log round-trip, fill-empty-only
 
@@ -4587,9 +4587,9 @@ Copy keeps its words because copying is not sharing: it goes nowhere, it needs s
 
 ### Anthologies are the missing output of a commonplace book
 
-**Decided.** The roadmap's [anthologies](roadmap.html#anthologies) section: a named, ordered list of quotes drawn from anywhere in the library, carrying prose of its own — an introduction, and commentary between the entries. Exported as one Markdown file, and via [interop](roadmap.html#interop) as EPUB.
+**Decided.** The roadmap's [anthologies](../roadmap.html#anthologies) section: a named, ordered list of quotes drawn from anywhere in the library, carrying prose of its own — an introduction, and commentary between the entries. Exported as one Markdown file, and via [interop](../roadmap.html#interop) as EPUB.
 
-**Why.** Everything in Tippani today points inward: you file a passage, you find it again, you get asked about it. An anthology is what you make *from* the collection — a sequence you arranged, on a theme you chose, with the connective tissue that explains why these twelve passages belong next to each other. It is explicitly not a tag with a nicer hat: the two things a tag cannot do are hold an order and hold your writing, and those are the whole point. Letterboxd's lists are the closest proven form; the nearest thing in the annotation world is Zotero's extract-annotations-into-a-note, which is the most-used feature it has. It also reuses what exists — the bulk-select bar on three screens for composing, and the themed-deck [review loop](roadmap.html#review-loop). Mine, and it is the one planned feature I would call load-bearing for what the app is *for*.
+**Why.** Everything in Tippani today points inward: you file a passage, you find it again, you get asked about it. An anthology is what you make *from* the collection — a sequence you arranged, on a theme you chose, with the connective tissue that explains why these twelve passages belong next to each other. It is explicitly not a tag with a nicer hat: the two things a tag cannot do are hold an order and hold your writing, and those are the whole point. Letterboxd's lists are the closest proven form; the nearest thing in the annotation world is Zotero's extract-annotations-into-a-note, which is the most-used feature it has. It also reuses what exists — the bulk-select bar on three screens for composing, and the themed-deck [review loop](../roadmap.html#review-loop). Mine, and it is the one planned feature I would call load-bearing for what the app is *for*.
 
 <sub>`docs/roadmap.html`</sub>
 
@@ -4629,7 +4629,7 @@ Backup is a nightly `VACUUM INTO` snapshot with no streaming daemon, and restore
 
 **Instead of.** Litestream or an equivalent WAL-streaming daemon.
 
-<sub>from 0.1.0 — `docs/PLAN.md` · `README.md` · `internal/store/backup.go`</sub>
+<sub>from 0.1.0 — `docs/wiki/Design-decisions.md` · `README.md` · `internal/store/backup.go`</sub>
 
 ### Restore replaces the data directory in-process
 
@@ -4985,7 +4985,7 @@ The navigation shape is the single most re-litigated decision in the project, mo
 
 **Approved.** Mine, and I approved the silent ignore over a validation error.
 
-<sub>0.4.0 — `CHANGELOG.md` · `docs/PLAN.md`</sub>
+<sub>0.4.0 — `CHANGELOG.md` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Home is one narrow reading column at every size, and capture is not on it
 
@@ -5269,7 +5269,7 @@ Two mechanisms for explaining a control both widened the page and neither worked
 
 **The split was mechanical and the rewrites were not.** 86 entries had their tail folded by a script that moves sentences and never edits one — the copy was already front-loaded, so the first sentence was already the answer. Only 8 needed writing by hand: three whose first sentence was itself over budget, and five carrying a banned word. Doing it the other way round — rewriting 157 entries from scratch — would have lost detail nobody was asking to lose.
 
-**Assets, ranked by how they go stale.** A live-rendered control is first choice because it is not a picture of the app, it IS the app: the swatch row in the colour entries reads `var(--hl-N)`, so a reader who renamed or recoloured their categories sees theirs. A schematic SVG is second, because it states a relationship — the import queue is a gate — and a restyle cannot make a relationship wrong. Gesture clips are third and abstract for the same reason. **A screenshot is last and there are none**, because real pixels are the one class that silently shows last year's interface, which `AI.md` names as this repo's worst failure mode.
+**Assets, ranked by how they go stale.** A live-rendered control is first choice because it is not a picture of the app, it IS the app: the swatch row in the colour entries reads `var(--hl-N)`, so a reader who renamed or recoloured their categories sees theirs. A schematic SVG is second, because it states a relationship — the import queue is a gate — and a restyle cannot make a relationship wrong. Gesture clips are third and abstract for the same reason. **A screenshot is last and there are none**, because real pixels are the one class that silently shows last year's interface, which `How-this-was-written.md` names as this repo's worst failure mode.
 
 **Instead of.** A Help screen at its own route (help stops being beside the control), a task rail (the panel loses the one thing it knows for free — what screen you are on), a search box (it answers only when you already know the word for what you cannot find), and cutting the reasoning to the bone.
 
@@ -5662,7 +5662,7 @@ Library and Catalogue never met it because they pass `'annotation'` and `'dialog
 
 **Approved.** The reader's, from the question — *"is there any list which specifies what will constitute which language? i would suggest having a language name param in the template. which must always be unique. if duplicated results are found, we will have to handle them as well."*
 
-<sub>2.1.3 — `internal/i18n/i18n.go` · `web/frontend/src/i18n.js` · `internal/olog/codes.go` · `docs/troubleshoot.md`</sub>
+<sub>2.1.3 — `internal/i18n/i18n.go` · `web/frontend/src/i18n.js` · `internal/olog/codes.go` · `docs/wiki/Troubleshooting.md`</sub>
 
 <sub>2.1.0 → 2.1.1 (reversal) — `internal/i18n/i18n.go` · `internal/i18n/en.txt` · `internal/i18n/bn.txt` · `internal/i18n/README.md` · `web/frontend/src/i18n.js` · `web/frontend/src/locale.jsx` · `internal/httpapi/locale_handlers.go` · `scripts/locale-template.mjs` · `web/frontend/test/pure/locale-resolve.test.js` · `web/frontend/test/pure/help-budget.test.js` · `web/frontend/test/pure/translated-not-sliced.test.js` · `docs/plans/multilingual.md`</sub>
 
@@ -6502,7 +6502,7 @@ So the folder holds nothing. It is a rendering of a filter — open it and you a
 
 **Why.** The five-word rule works — of 162 tooltip labels only five exceed it, each by one word — but it has an unbounded consequence nobody had noticed: longer copy was told to go and live in an info dot, and nothing ever constrained an info dot. They grew to 400, 700, nearly a thousand characters, and what filled them was consistently RATIONALE rather than instruction. One spent 680 characters on a switch whose behaviour takes 90.
 
-**That reasoning already has a home — this file.** `docs/PLAN.md` exists to hold it at whatever length it needs. A popover attached to a control is not that place: it is read once, standing up, while the reader is deciding whether to press the thing.
+**That reasoning already has a home — this file.** `docs/wiki/Design-decisions.md` exists to hold it at whatever length it needs. A popover attached to a control is not that place: it is read once, standing up, while the reader is deciding whether to press the thing.
 
 **Mechanical, like the icon-geometry check, because "is this line necessary" is a judgement that quietly stops being made once nothing checks it.** Measured per BRANCH so a ternary whose book and film cases differ is not penalised for doing the right thing, and the suite asserts it found more than 25 dots — an extraction that silently matched nothing would turn the whole file into a no-op reporting success. It caught one of the rewrites at four sentences.
 
@@ -6688,7 +6688,7 @@ in 1.6.0 rather than with the accessibility work it belongs to, because 1.6.0 ad
 more textured surfaces and shipping those with no way off was not defensible. What is
 left — raising ink and hairline contrast to WCAG AA, and an in-app switch for a reader
 whose OS is not set that way — is on the roadmap under
-[access &amp; reading comfort](roadmap.html#access).
+[access &amp; reading comfort](../roadmap.html#access).
 
 **Approved.** Mine, and I approved pulling it forward rather than letting the release ship
 without it.
@@ -6941,7 +6941,7 @@ The HTTP surface is stdlib routing with compression and paging added without cha
 
 **Instead of.** Serving the API at the root and reserving path prefixes for the SPA, which makes every new route a potential collision.
 
-<sub>1.0.0 — `internal/httpapi/server.go` · `docs/PLAN.md`</sub>
+<sub>1.0.0 — `internal/httpapi/server.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### Response gzip from `compress/gzip`, decided at `WriteHeader`
 
@@ -6985,11 +6985,11 @@ The HTTP surface is stdlib routing with compression and paging added without cha
 
 ### Structured error codes `TIP-<SUBSYS>-NNN`, append-only, on both streams
 
-**Decided.** Every handled error carries a stable, greppable code of the form `TIP-<SUBSYS>-<NNN>`. Three rules make it worth having. Every code must have an entry in `olog.Registry` *and* a row in `docs/troubleshoot.md`, and `TestCodesDocumented` fails the build if the two ever drift — documentation that can go stale is documentation that will. Codes are append-only within a subsystem, never renumbered or reused, so a code in an old log always means the same thing. And lines go to both stdout and stderr, so `docker logs` shows them regardless of how the stream is captured. The whole scheme exists to serve one requirement: an operator with nothing but `docker logs` should be able to diagnose any failure this app knows how to have. I approved it, and the build-time test is the part that makes it real.
+**Decided.** Every handled error carries a stable, greppable code of the form `TIP-<SUBSYS>-<NNN>`. Three rules make it worth having. Every code must have an entry in `olog.Registry` *and* a row in `docs/wiki/Troubleshooting.md`, and `TestCodesDocumented` fails the build if the two ever drift — documentation that can go stale is documentation that will. Codes are append-only within a subsystem, never renumbered or reused, so a code in an old log always means the same thing. And lines go to both stdout and stderr, so `docker logs` shows them regardless of how the stream is captured. The whole scheme exists to serve one requirement: an operator with nothing but `docker logs` should be able to diagnose any failure this app knows how to have. I approved it, and the build-time test is the part that makes it real.
 
 **Instead of.** Free-text error messages, which are ungreppable and undocumentable.
 
-<sub>0.6.4 onward — `internal/olog/codes.go` · `docs/troubleshoot.md`</sub>
+<sub>0.6.4 onward — `internal/olog/codes.go` · `docs/wiki/Troubleshooting.md`</sub>
 
 ### A list-row scan error is logged loudly and never shortens a list
 
@@ -7099,7 +7099,7 @@ The HTTP surface is stdlib routing with compression and paging added without cha
 
 **Instead of.** Going straight to the native widget, which would be submitted into a decline.
 
-<sub>planned — [homepage widget](roadmap.html#homepage-widget) — `docs/roadmap.html`</sub>
+<sub>planned — [homepage widget](../roadmap.html#homepage-widget) — `docs/roadmap.html`</sub>
 
 ## 17. Verification, Release Engineering and Provenance
 
@@ -7113,7 +7113,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** Mine, and I approved the skip-when-absent shape rather than weakening the tests to the synthetic fixture alone.
 
-<sub>0.x onward — `internal/importer/testdata/` · `internal/importer/bookcision_test.go` · `docs/PLAN.md`</sub>
+<sub>0.x onward — `internal/importer/testdata/` · `internal/importer/bookcision_test.go` · `docs/wiki/Design-decisions.md`</sub>
 
 ### A test must not assert against the wall clock, or against being the newest migration
 
@@ -7143,7 +7143,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** Mine, and I approved the break-it-first procedure as the standing rule rather than a one-off audit.
 
-<sub>1.5.0 — `CHANGELOG.md` · `AI.md`</sub>
+<sub>1.5.0 — `CHANGELOG.md` · `How-this-was-written.md`</sub>
 
 ### A test whose invalid input silently becomes valid asserts nothing
 
@@ -7195,7 +7195,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** My call, and I approved the refusal over a smarter search — a generator that can write somewhere wrong should stop, not aim better.
 
-<sub>1.5.2 — `CHANGELOG.md` · `AI.md`</sub>
+<sub>1.5.2 — `CHANGELOG.md` · `How-this-was-written.md`</sub>
 
 ### Doc tests read the source, not the docs
 
@@ -7205,7 +7205,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** Mine, and I approved the source-reading version after the glossary generator had already demonstrated the self-agreeing failure.
 
-<sub>1.6.0 — `CHANGELOG.md` · `AI.md` · `web/frontend/test/pure/help.test.jsx`</sub>
+<sub>1.6.0 — `CHANGELOG.md` · `How-this-was-written.md` · `web/frontend/test/pure/help.test.jsx`</sub>
 
 ### A bug of omission needs a stylesheet invariant sweep, not a case
 
@@ -7215,7 +7215,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** My call, and I approved the exemption list being explicit so a future exemption is a decision rather than a silent miss.
 
-<sub>1.7.2, extended 1.7.6 — `CHANGELOG.md` · `AI.md`</sub>
+<sub>1.7.2, extended 1.7.6 — `CHANGELOG.md` · `How-this-was-written.md`</sub>
 
 ### Changing a default changes nothing if the default was ever written down
 
@@ -7225,7 +7225,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** Mine, and I approved the key retirement as part of the change rather than a follow-up.
 
-<sub>1.7.2 — `CHANGELOG.md` · `AI.md`</sub>
+<sub>1.7.2 — `CHANGELOG.md` · `How-this-was-written.md`</sub>
 
 ### Placement arithmetic is a pure exported function
 
@@ -7275,9 +7275,9 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Why.** It answers the API with dummy data so the Pages demo runs with no server, and nothing checked it against the handlers it imitates. `GET /auth/devices` and `/admin/backup` had no case and fell through to the catch-all, so the Devices card read a list field that was not there and threw, taking the whole Settings page down. Its backup response returned `created_at` where the server returns `created`, so the demo rendered "Invalid Date" for as long as that card existed. Nobody's data is at risk from a shim, which is exactly why it drifts: a fake that is close but not identical fails in the one place no test looks. The cover is partial — it asserts what the newest screen reads, not every route — so the risk is reduced rather than closed.
 
-**Approved.** My call, and I approved saying plainly in `AI.md` that the cover is partial.
+**Approved.** My call, and I approved saying plainly in `How-this-was-written.md` that the cover is partial.
 
-<sub>1.3.1 and 1.5.0 — `CHANGELOG.md` · `AI.md`</sub>
+<sub>1.3.1 and 1.5.0 — `CHANGELOG.md` · `How-this-was-written.md`</sub>
 
 ### The greeting tables are checked by exhaustive permutation
 
@@ -7287,7 +7287,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** Mine, and I approved the absent-rather-than-mislabelled rule as the answer wherever the tzdb cannot distinguish two countries.
 
-<sub>1.4.0 — `CHANGELOG.md` · `AI.md` · `web/frontend/test/pure/greetings.test.js`</sub>
+<sub>1.4.0 — `CHANGELOG.md` · `How-this-was-written.md` · `web/frontend/test/pure/greetings.test.js`</sub>
 
 ### The archive header is parsed in two languages and checked against itself
 
@@ -7297,7 +7297,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** My call, and I approved the refuse-unknown-version assertion as part of it, which is the half that protects a future format.
 
-<sub>1.4.2, moved into Vitest at 1.5.0 — `CHANGELOG.md` · `AI.md` · `web/frontend/test/pure/archive-header.test.js`</sub>
+<sub>1.4.2, moved into Vitest at 1.5.0 — `CHANGELOG.md` · `How-this-was-written.md` · `web/frontend/test/pure/archive-header.test.js`</sub>
 
 ### CI checks the committed web/dist and runs the race detector
 
@@ -7389,13 +7389,13 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** Mine, and I approved recording the wrong diagnosis alongside the right one.
 
-<sub>1.3.2 — `CHANGELOG.md` · `docs/PLAN.md` · `AI.md`</sub>
+<sub>1.3.2 — `CHANGELOG.md` · `docs/wiki/Design-decisions.md` · `How-this-was-written.md`</sub>
 
-### docs/PLAN.md stays; ROADMAP.md and MILESTONE-3.md go
+### docs/wiki/Design-decisions.md stays; ROADMAP.md and MILESTONE-3.md go
 
-**Decided.** `ROADMAP.md` was replaced by `docs/roadmap.html`, `docs/MILESTONE-3.md` was removed as a one-off build record referenced from nowhere, and `docs/PLAN.md` stays.
+**Decided.** `ROADMAP.md` was replaced by `docs/roadmap.html`, `docs/MILESTONE-3.md` was removed as a one-off build record referenced from nowhere, and `docs/wiki/Design-decisions.md` stays.
 
-**Why.** PLAN.md is cited from roughly 148 places in the code as the record of *why*, and deleting it would orphan all of them. Release history is not duplicated in the roadmap, since the changelog and the releases page already hold it.
+**Why.** Design-decisions.md is cited from roughly 148 places in the code as the record of *why*, and deleting it would orphan all of them. Release history is not duplicated in the roadmap, since the changelog and the releases page already hold it.
 
 **Approved.** My call on all three, and I approved keeping the one with inbound citations rather than the one that read best.
 
@@ -7419,7 +7419,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** Mine, and I approved acceptance being a human step on purpose.
 
-<sub>1.3.2 — `CHANGELOG.md` · `AI.md`</sub>
+<sub>1.3.2 — `CHANGELOG.md` · `How-this-was-written.md`</sub>
 
 ### Closing the issue is what takes an item off the roadmap, and something checks that now
 
@@ -7433,7 +7433,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** The owner's, who asked whether the roadmap culls had been closing the issues behind them — they had not — and for the closing to become part of the pass rather than something I remembered.
 
-<sub>1.16.x — `scripts/roadmap-tracker.mjs` · `DEVELOPMENT.md`</sub>
+<sub>1.16.x — `scripts/roadmap-tracker.mjs` · `Developing.md`</sub>
 
 ### Every roadmap write is guarded and keeps a backup
 
@@ -7457,7 +7457,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 ### A plan lives in docs/plans/ until it ships, then folds into this document and retires
 
-**Decided.** `docs/plans/` holds one file per feature that is **designed and not yet built**. The moment it ships, its decisions are folded into this log — with a pass recording where the plan was wrong — and the plan file is deleted. The directory is therefore always a list of what is coming, never an archive. `docs/PLAN.md` is the opposite: only work already released.
+**Decided.** `docs/plans/` holds one file per feature that is **designed and not yet built**. The moment it ships, its decisions are folded into this log — with a pass recording where the plan was wrong — and the plan file is deleted. The directory is therefore always a list of what is coming, never an archive. `docs/wiki/Design-decisions.md` is the opposite: only work already released.
 
 **Why.** They are different documents doing different jobs, and the separation was right. What was missing was the second half of it — an exit. A plan for a feature that shipped six releases ago is a design document sitting in a directory whose whole promise is "this is not built yet", and it goes stale in the one way that cannot be detected: every sentence in it was true when written, and some of them are still true, and nothing marks which. That is precisely the failure that turned this file from a design document into a log. Leaving the plans in place reintroduced it one directory over.
 
@@ -7465,11 +7465,11 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **Instead of.** Keeping the shipped plans as historical design records. Rejected on the argument above: git already holds them, and a file in a *forward* directory is read as forward whatever a header says.
 
-**Reversal.** Supplements the original decision rather than overturning it. The separation stands; what changes is that it now has a direction and an end. The earlier entry read: *"Forward build plans for unreleased features — `trash-and-undo.md` (1.8.0), `context-menu-and-multiselect.md` (1.9.0), `search-facets.md` (1.10.0) — live under `docs/plans/`. `docs/PLAN.md` stays where it is."* All three shipped; all three were folded in and deleted at 1.14.2, which is when the rule got its missing half.
+**Reversal.** Supplements the original decision rather than overturning it. The separation stands; what changes is that it now has a direction and an end. The earlier entry read: *"Forward build plans for unreleased features — `trash-and-undo.md` (1.8.0), `context-menu-and-multiselect.md` (1.9.0), `search-facets.md` (1.10.0) — live under `docs/plans/`. `docs/wiki/Design-decisions.md` stays where it is."* All three shipped; all three were folded in and deleted at 1.14.2, which is when the rule got its missing half.
 
 **Approved.** Mine. The separation I approved before the first plan was written; the retirement I approved after three had shipped and none had left.
 
-<sub>1.7.x · retired at 1.14.2 — `docs/PLAN.md` · `DEVELOPMENT.md`; the three plans are in git</sub>
+<sub>1.7.x · retired at 1.14.2 — `docs/wiki/Design-decisions.md` · `Developing.md`; the three plans are in git</sub>
 
 ### Verification against the tree changed the plans before any code was written
 
@@ -7499,17 +7499,17 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **Approved.** My call to run the reviews and my call to accept their verdict; I approved scrapping two designs before the third.
 
-<sub>1.4.2 — `AI.md` · `CHANGELOG.md`</sub>
+<sub>1.4.2 — `How-this-was-written.md` · `CHANGELOG.md`</sub>
 
 ### What is checked is published alongside what it does not cover
 
-**Decided.** `AI.md` states what runs — the Go tests over real HTTP handlers against a real SQLite database, the frontend suite, the CI gates — and then lists, at greater length, what that honestly does not cover.
+**Decided.** `How-this-was-written.md` states what runs — the Go tests over real HTTP handlers against a real SQLite database, the frontend suite, the CI gates — and then lists, at greater length, what that honestly does not cover.
 
 **Why.** "AI-assisted" describes everything from a tab-completed variable name to a wholly generated codebase, and a bare list of passing checks reads as a guarantee. The counter-list is the more useful half: passing tests are not proof, confident documentation is not verified documentation, consistency is not something you can review for, a bug report is a report of a symptom, and a confident diagnosis is worth no more than confident code. Counts are given with the command that produces them, because a number in a file like that one is stale the moment it is written.
 
 **Approved.** Mine, and I approved the second list being longer than the first.
 
-<sub>1.4.2 onward — `AI.md`</sub>
+<sub>1.4.2 onward — `How-this-was-written.md`</sub>
 
 ### The AI audit trail is the git history itself
 
@@ -7519,7 +7519,7 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **Approved.** My call, and I approved naming the four exceptions individually rather than rounding the number.
 
-<sub>1.4.2 onward — `AI.md`</sub>
+<sub>1.4.2 onward — `How-this-was-written.md`</sub>
 
 ### Attribution is a stated requirement, not a courtesy
 
@@ -7531,9 +7531,9 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **Approved.** Mine, and I approved treating an uncredited borrowing as a bug class rather than an oversight.
 
-<sub>? — `README.md` · `AI.md`</sub>
+<sub>? — `README.md` · `How-this-was-written.md`</sub>
 
-### DEVELOPMENT.md exists for people who would rather fork than file
+### Developing.md exists for people who would rather fork than file
 
 **Decided.** Building and running it, the two rules the code enforces that are easy to break, how migrations and the `_txlock=immediate` pragma constrain a new transaction, the pull-request conventions, and a list of every string that still says my name.
 
@@ -7541,7 +7541,7 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **Approved.** My call, and I approved the name list specifically — it is the part that assumes somebody will leave.
 
-<sub>1.3.2 — `CHANGELOG.md` · `DEVELOPMENT.md`</sub>
+<sub>1.3.2 — `CHANGELOG.md` · `Developing.md`</sub>
 
 ### The site root is a real HTML landing page; the demo moved down to /demo/
 
@@ -8364,7 +8364,7 @@ asserts the selector *string appears* in the block; it never resolves the cascad
 more selectors, and it ships as **2.2.9 on its own** so v3 is not blamed for a defect that
 predates it.
 
-<sub>v3.0.0 — `.claude/design-import/v3/` (not in git) · `docs/PLAN.md` · decided 2026-08-25</sub>
+<sub>v3.0.0 — `.claude/design-import/v3/` (not in git) · `docs/wiki/Design-decisions.md` · decided 2026-08-25</sub>
 
 ### The glossary is generated, because a document nothing executes cannot fail
 
@@ -8691,7 +8691,7 @@ to see a glyph change shape on a state change should find the reason rather than
   scanning for "which of these did Google write", and a category glyph cannot answer it —
   five of the twelve suppliers shared one drawing. A real mark is recognised without being
   read. The licensing the old note avoided is the price, and it is paid in
-  `docs/PROVIDER-MARKS.md`.
+  `docs/wiki/Provider-marks.md`.
 - **Masks, never `<img>`.** Each mark is an opaque black shape over a `background-color`,
   so it wears the row's ink and one file serves both themes. A dozen brand hues in one
   panel would be the loudest thing on a screen made of paper.
@@ -8728,7 +8728,7 @@ to see a glyph change shape on a state change should find the reason rather than
   candidate. Per-field provenance names one on every field row, and two tables of supplier
   names is how a picker and a field row come to call one company two things.
 
-<sub>Unreleased — `web/frontend/src/providerMarks.js` · `web/frontend/src/ui.jsx` · `web/frontend/src/WorkDetails.jsx` · `web/frontend/src/CoverPicker.jsx` · `internal/httpapi/book_handlers.go` · `internal/httpapi/movie_handlers.go` · `docs/PROVIDER-MARKS.md`</sub>
+<sub>Unreleased — `web/frontend/src/providerMarks.js` · `web/frontend/src/ui.jsx` · `web/frontend/src/WorkDetails.jsx` · `web/frontend/src/CoverPicker.jsx` · `internal/httpapi/book_handlers.go` · `internal/httpapi/movie_handlers.go` · `docs/wiki/Provider-marks.md`</sub>
 
 ### A single work's delete asks for the typed phrase, in English
 
@@ -9010,7 +9010,7 @@ to see a glyph change shape on a state change should find the reason rather than
   The multiplier lands just UNDER the floor at the ordinary setting (15.7 × 15px = 235.5px)
   so nothing moves until the reader turns the type up.
   The floor is the width the layout was drawn at; above it the rail tracks the dial.
-- **It multiplies `--type-ui-15` and not `em`,** which is the trap AI.md already records:
+- **It multiplies `--type-ui-15` and not `em`,** which is the trap How-this-was-written.md already records:
   `em` at `:root` resolves against the BROWSER root, and the type dial does not move the
   browser root — `applyTypeScale` writes finished pixels into `--type-*`. An `em` here
   would track a number nothing in this app ever changes.
@@ -9358,7 +9358,7 @@ existing guard passed while it was happening.*
   lines and fails when their left edges disagree, at eight widths from 1179 down to 780.
 
 <sub>Unreleased — `web/frontend/src/works.jsx` · `scripts/screenshots/frame-scroll.mjs` ·
-`DEVELOPMENT.md`</sub>
+`Developing.md`</sub>
 
 ### Full-state means the body is the record, not the form
 
@@ -9625,7 +9625,7 @@ another will open a popup with settings, stat, and metadata."*
   the card's confirmation and the sheet's into one node they already shared state with.
 
 <sub>Unreleased — `internal/updater/docker.go` · `internal/httpapi/cast_images.go` ·
-`web/frontend/src/index.css` · `Settings.jsx` · `docs/troubleshoot.md` ·
+`web/frontend/src/index.css` · `Settings.jsx` · `docs/wiki/Troubleshooting.md` ·
 `test/pure/sticky-hover.test.js` · `internal/httpapi/character_merge_test.go`</sub>
 
 ### Duplicate a quote, and a cluster that was asked for the wrong name
@@ -10047,7 +10047,7 @@ Every term below was decided by the owner reading the app in Bengali, not by tra
 `en.txt`. They are recorded here because a naming decision is the one kind of design choice
 that a later session cannot re-derive from the code: nothing in the file says why the Library
 is a গ্রন্থাগার and not a লাইব্রেরি, and a rater with a style sheet will happily argue the
-loanword back in. `docs/bengali-style.md` carries the reasoning; this is the register.
+loanword back in. `docs/wiki/Bengali-style.md` carries the reasoning; this is the register.
 
 Several of these reverse an earlier ruling in the same session. The last column says so where
 it happened, because the reversals are the entries most likely to be "corrected" back.
@@ -10266,7 +10266,7 @@ second of the three gaps the prototype sweep named.
   already means, and a button for it would be a second way to do nothing.
 - **The marks reached the reviewer too**, which is the other half of the owner's ask. Four
   columns of values under supplier names in small caps is the densest place in the app for
-  "which of these did Google write", and `docs/PROVIDER-MARKS.md` argues that a mark is
+  "which of these did Google write", and `docs/wiki/Provider-marks.md` argues that a mark is
   recognised without being read. It was already true of every field row and was not true of
   the one grid built for comparing suppliers.
 - **Two applier whitelists were lifted to package scope** so a test could hold them up
@@ -10870,7 +10870,7 @@ fails on both heads against the stylesheet as it shipped.
 *The owner's standing rule is that nothing deviates from the prototype unless it is
 expounded upon in detail. `character-popup.dc.html` is the artboard for this screen and
 three of its declarations are now reversed in `index.css`. This is the detail. It is
-written here because CLAUDE.md names `docs/PLAN.md` as where a design departure goes, and
+written here because CLAUDE.md names `docs/wiki/Design-decisions.md` as where a design departure goes, and
 the three had landed with the argument only in a CSS comment — which is the right place
 for the reader of that rule and the wrong place for anyone asking what the app owes the
 pack.*
@@ -10927,7 +10927,7 @@ noticed nothing.
 ### The phone sheet takes what it needs, where the pack takes a share
 
 *A second departure argued here rather than in a CSS comment, which is the lesson of the
-last one: `docs/PLAN.md` is where CLAUDE.md says a design departure goes, and a comment
+last one: `docs/wiki/Design-decisions.md` is where CLAUDE.md says a design departure goes, and a comment
 beside the line serves the reader of that line and nobody asking what the app owes the
 pack.*
 
@@ -12135,7 +12135,7 @@ the pseudo-locale gap that was the file's last real open item is closed — `scr
 mounts every screen `App` can route to under `qps` and fails on a readable plain-ASCII
 string, so what holds the coverage is a test rather than a paragraph.
 
-**The style sheet did not go with it.** `docs/bengali-style.md` — moved out of `docs/plans/`
+**The style sheet did not go with it.** `docs/wiki/Bengali-style.md` — moved out of `docs/plans/`
 in the same pass, on the owner's instruction that "it is implemented and the guideline needs
 to be kept recorded". That is the case the plan directory's delete-on-ship rule does not
 cover: a shipped plan whose text goes on *binding new work* is a guideline, and a guideline
@@ -13270,7 +13270,7 @@ fixed list. Two things follow, and both are deliberate:
 
 ### Where the plan turned out to be wrong
 
-There is no plan file for item 6 — it came out of the queue directly, and `PLAN.md` already
+There is no plan file for item 6 — it came out of the queue directly, and `Design-decisions.md` already
 records why writing one here would be inventing the queue. What follows is where the *task
 list's* one-line descriptions turned out to understate the work.
 
@@ -14180,7 +14180,7 @@ by construction — a rater deleted `place` from it and every case still passed.
 
 The plan is folded in here and its file deleted, which is what `docs/plans/README.md`
 requires of a plan that has shipped and what the owner ruled for this one in particular:
-it "retires into PLAN.md once the card work lands." It has landed. What follows is the
+it "retires into Design-decisions.md once the card work lands." It has landed. What follows is the
 verification pass — the part worth keeping, because a plan that was simply right teaches
 nothing.
 
@@ -14734,7 +14734,7 @@ decoration that looks like evidence.
 stays wrong**, deliberately: it is pushed, and rewriting a published commit to
 correct a sentence invalidates every checkout below it. A repository's history is
 what happened, including what was believed at the time. THIS paragraph is the
-correction, and it is here rather than there because `docs/PLAN.md` is where a
+correction, and it is here rather than there because `docs/wiki/Design-decisions.md` is where a
 reader who followed that commit goes next — which is the only property that makes
 a correction worth writing.
 

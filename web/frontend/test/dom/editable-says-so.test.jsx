@@ -13,7 +13,7 @@
 //
 // AND THE PACK DRAWS NO PENCIL HERE — `character-popup.dc.html:659` renders each
 // fact cell as a label and a value in a button and nothing else. This is a
-// departure from the prototype, argued in `docs/PLAN.md` per the owner's standing
+// departure from the prototype, argued in `docs/wiki/Design-decisions.md` per the owner's standing
 // rule, and it is the owner's own call overruling their artboard.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW: `FactsRow` takes `cells`, each `{ label,

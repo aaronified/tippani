@@ -2913,7 +2913,7 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		// the tier now in force, and on Random a round left open across UTC midnight
 		// is graded at the new day's tier. Both cost one card. The app cannot know
 		// otherwise without storing the width per card, and the two cheap ways of
-		// getting it here are both worse — see the entry in docs/PLAN.md.
+		// getting it here are both worse — see the entry in docs/wiki/Design-decisions.md.
 		at := tierForCard(pf.SRTier, req.Kind, req.ID, tierDaySeed())
 		_, answerText, ok := clozeSpan(text, req.Kind, req.ID,
 			clozeMaxWordsFor(stabilityNow, tierClozeThreshold(at, tuning.ClozeWords)))

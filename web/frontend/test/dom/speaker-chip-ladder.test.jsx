@@ -95,7 +95,7 @@ describe('a standalone quote, which has no cast at all', () => {
     })
     // ONE CHIP EACH is the rule; the full name is NOT, on this pill. `clip()` at
     // CHIP_CHARS shortens what a chip prints, and that is the owner's standing
-    // instruction — recorded twice in PLAN.md — because these pills must not
+    // instruction — recorded twice in Design-decisions.md — because these pills must not
     // wrap: a reflow moves every other chip on the row. So the count is what the
     // ladder promises, and an earlier draft of this case asserted the whole name
     // and failed against a deliberate ruling.

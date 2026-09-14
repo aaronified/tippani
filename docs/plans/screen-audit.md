@@ -9,7 +9,7 @@ This file exists because that list is the only part of the audit that cannot be
 recovered from the tree: a fixed defect leaves a commit, a test and a changelog
 entry behind it, and an unfixed one leaves nothing at all. It follows this
 directory's rule — **delete it when the list is empty**, and fold anything worth
-keeping into [`../PLAN.md`](../PLAN.md).
+keeping into [the decision log](../wiki/Design-decisions.md).
 
 It is not a feature plan, which is what the rest of this directory holds. It is
 here because the directory's promise — *this is not built yet* — is exactly true of

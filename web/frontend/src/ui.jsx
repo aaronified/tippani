@@ -10102,7 +10102,7 @@ export const sourceName = (slug) =>
 // the mark of whoever wrote it: at that density the reader is scanning for "which of
 // these did Google write", and a category glyph cannot answer it — five of the twelve
 // suppliers shared one drawing. A real mark is recognised without being read, which is
-// the job. The licensing that note avoided is the price, paid in docs/PROVIDER-MARKS.md.
+// the job. The licensing that note avoided is the price, paid in docs/wiki/Provider-marks.md.
 //
 // A SLUG WITH NO MARK IS NOT AN ERROR. `manual` has no supplier to draw, and a supplier
 // added tomorrow has no mark until somebody adds one; both fall back to the name.

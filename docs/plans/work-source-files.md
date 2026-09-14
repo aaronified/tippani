@@ -28,7 +28,7 @@ trusting it.
 
 ## The decision this reverses, and the honest way to reverse it
 
-`docs/PLAN.md` carries this under *Considered and set aside*:
+`docs/wiki/Design-decisions.md` carries this under *Considered and set aside*:
 
 > ### No built-in reader, no OPDS, no file sync — annotations are wanted, files are not
 >
@@ -1235,9 +1235,9 @@ destroys something on the reader's behalf and the reader presses it.
 12. **Help and infodots** — `en.txt` and `bn.txt`, which are a **frontend** change
    and force a `web/dist` rebuild in the same commit. The prune confirmation is the
    one that has to be written carefully: it destroys something.
-13. **Docs** — `docs/PLAN.md` gains the **Reversal paragraph** quoted at the top of
-   this file and an entry for the backup default; `CHANGELOG.md`; `DEVELOPMENT.md`'s
-   file map for the new packages; `docs/troubleshoot.md` for the new `TIP-*` codes;
+13. **Docs** — `docs/wiki/Design-decisions.md` gains the **Reversal paragraph** quoted at the top of
+   this file and an entry for the backup default; `CHANGELOG.md`; `Developing.md`'s
+   file map for the new packages; `docs/wiki/Troubleshooting.md` for the new `TIP-*` codes;
    `docs/ui-glossary.html` for the panel; and **`docker-compose.yml` gains the
    commented `:ro` library mount** beside the two opt-ins it already documents,
    which is where most readers will meet this feature at all.

@@ -42,7 +42,7 @@ Verified against `v3` at the commit this file lands on.
 | Difficulty today | Only as weights on the move: typed cloze 1.25 up / 0.85 down, synonym 0.5. **No tier, no setting** |
 | Per-answer history | **None.** `item_reviews` keeps current state only — stability, review_count, lapse_count, last_result, two timestamps |
 | Leeches | Derived at read time at 5 lapses; the card stays in the deck and an exclusion is offered |
-| Reserved already | `docs/PLAN.md` — *"the fixed ladder stays the default; adaptive intervals would ship beside it"*, and an approved-but-unshipped entry, *"Measured difficulty feeds the schedule"* |
+| Reserved already | `docs/wiki/Design-decisions.md` — *"the fixed ladder stays the default; adaptive intervals would ship beside it"*, and an approved-but-unshipped entry, *"Measured difficulty feeds the schedule"* |
 
 ### What the verification changed
 
@@ -65,7 +65,7 @@ failing grade when it is in fact the schedule working exactly as built. **The
 target makes it a choice rather than a constant**, and the score is read against it
 — see *The target, and the score against it*.
 
-**`docs/PLAN.md` already approved most of the difficulty work, unshipped.** The
+**`docs/wiki/Design-decisions.md` already approved most of the difficulty work, unshipped.** The
 entry *"Measured difficulty feeds the schedule"* says the deck should count its own
 plausible distractors per card and feed that to the grader, so *"a correct answer on
 a card the deck knows was easy does not earn the full step"* and *"a lapse on a card
@@ -137,7 +137,7 @@ rule already lets a value join the nearest rung at its next answer.
 A tier is chosen for a round (Daily takes the reader's default; Practice offers the
 picker). It changes **which directions are offered**, **how distractors are
 chosen**, **how wide the blank is**, and **what is shown beside the quote**. It does
-not become a column: like the difficulty signal `PLAN.md` already approved, it is a
+not become a column: like the difficulty signal `Design-decisions.md` already approved, it is a
 property of the round, applied when the pool is built.
 
 ### Easy — the floor, bought honestly
@@ -166,7 +166,7 @@ property of the round, applied when the pool is built.
      stem) as well as by parent-work similarity. No dependency, and the lures are
      always real language from the reader's own library.
   2. A **synonym/antonym dictionary**. A real one is a dependency, and `go.mod` has
-     exactly three direct requirements for reasons `PLAN.md` defends by name. A
+     exactly three direct requirements for reasons `Design-decisions.md` defends by name. A
      hand-curated list is affordable — the existing seven pairs are the seed — but it
      will always be thin, and thin coverage means the feature works on some cards
      and not others with no way for the reader to tell why.
@@ -257,9 +257,9 @@ become what a reader gets without choosing. The ladder stays available as the
 opt-in, because it is the version that can be explained in one sentence and some
 readers will prefer it.
 
-`PLAN.md` already reserved this shape and named the reason to move: *"a lapse
+`Design-decisions.md` already reserved this shape and named the reason to move: *"a lapse
 currently drops you to 7 from any rung, and that is the one place the loop is
-harsher than the science asks."* The builder records the switch in `docs/PLAN.md`
+harsher than the science asks."* The builder records the switch in `docs/wiki/Design-decisions.md`
 as a reversal of the 1.15.0 entry, with the ladder's continued availability as the
 part that is *not* reversed.
 
@@ -523,14 +523,14 @@ did not say:
   library — the exact opposite of what this step is for. A phrase carries no visible author,
   so the cap buys nothing here; it is about which TITLE is offered.
 
-**And Easy's chips shipped with a leak, which is recorded in `docs/PLAN.md` and belongs
+**And Easy's chips shipped with a leak, which is recorded in `docs/wiki/Design-decisions.md` and belongs
 here too because the plan's own sentence is what produced it.** "Never on a card that asks
 it" reads as a list of directions, and a fill-in-the-blank card asks who whenever the
 phrase it hides is a name: the chip was the answer, and the reader could type it and be
 graded right on a card never recalled. The rule is the mask, not the direction.
 
 **And Hard's same-series lures cannot be built at all yet**, which is recorded in
-`docs/PLAN.md` rather than here: there is no series term in `distractorScore` and no
+`docs/wiki/Design-decisions.md` rather than here: there is no series term in `distractorScore` and no
 `series` field on `workRef`. A separate entry proposes adding them.
 
 ### Step 5's leak is real, and narrower than described
@@ -569,7 +569,7 @@ never have fired on a Bengali line.
 2. **Ceiling to 365**, fourth rung, tuning range widened. No migration needed.
    — `review_handlers.go`, `review_tuning.go`
 3. **Adaptive as the default**, ladder kept as the opt-in. — `review_handlers.go`,
-   `review_tuning.go`, and the `PLAN.md` reversal entry
+   `review_tuning.go`, and the `Design-decisions.md` reversal entry
 4. **The target dial** — `srTargetRetention`, defaulting to 0.5 so nothing moves,
    and the due rule derived from it. Ships before the tiers because the retention
    figure is unreadable without it. — `review_handlers.go`, `review_tuning.go`,
@@ -590,9 +590,9 @@ never have fired on a Bengali line.
 10. **The score and the title** — computed from the log, shown with its
    target. — `review_handlers.go`, `StatsPage.jsx`, `review.jsx`
 11. **The infodots**, in `en.txt` and `bn.txt`.
-12. **Docs** — `docs/PLAN.md` §8 (the ceiling, the default switch as a reversal, the
+12. **Docs** — `docs/wiki/Design-decisions.md` §8 (the ceiling, the default switch as a reversal, the
    tiers, and the measured-difficulty entry this half-satisfies), `CHANGELOG.md`,
-   `docs/ui-glossary.html` if the tier picker is documented, `AI.md` if verification
+   `docs/ui-glossary.html` if the tier picker is documented, `How-this-was-written.md` if verification
    changes.
 
 ## Verification
@@ -634,7 +634,7 @@ read every infodot on the way past.
   (Reyna & Brainerd). A commonplace book may want "what was this about" more than
   "which word was missing" — a real question, a different feature, and one that
   would need question types the app does not have.
-- **Per-card measured difficulty** — `PLAN.md`'s approved entry. The tiers choose
+- **Per-card measured difficulty** — `Design-decisions.md`'s approved entry. The tiers choose
   what the pool gives; that entry measures what it gave. They compose, and it should
   ship after the log exists.
 - **A synonym/antonym dependency**, for the reason `go.mod` gives.

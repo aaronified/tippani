@@ -20,7 +20,7 @@
 // trace is gated behind TIPPANI_LOG_LEVEL=debug so deep per-operation tracing is
 // opt-in and never spams a normal deployment. Errors carry a stable Code
 // (TIP-<SUBSYS>-<NNN>, see codes.go) so any failure in `docker logs` is greppable
-// and looked up in docs/troubleshoot.md.
+// and looked up in docs/wiki/Troubleshooting.md.
 //
 // Both streams carry the standard "2006/01/02 15:04:05" timestamp prefix, so a
 // reader merging them back (which is what `docker logs` does) gets one ordered
@@ -81,7 +81,7 @@ func Alertf(format string, args ...any) {
 
 // Errorf logs a handled error with its lookup Code: `[error] TIP-XXX-NNN msg`.
 // Always emits (errors are never gated). Use at the point an error is handled
-// (not merely wrapped-and-returned); the code sends a reader to docs/troubleshoot.md.
+// (not merely wrapped-and-returned); the code sends a reader to docs/wiki/Troubleshooting.md.
 func Errorf(code Code, format string, args ...any) {
 	errPrintf("[error] "+string(code)+" "+format, args...)
 }

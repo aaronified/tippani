@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Keeps DEVELOPMENT.md's "Where things live" map honest, in the two ways it goes wrong.
+// Keeps Developing.md's "Where things live" map honest, in the two ways it goes wrong.
 //
 // It does NOT try to keep the document in sync with the code. The map is deliberately
 // written at an altitude where syncing is unnecessary — patterns and chokepoints, not an
@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const DOC = 'DEVELOPMENT.md'
+const DOC = 'docs/wiki/Developing.md'
 const WARN = process.argv.includes('--warn')
 
 // Directories with nothing to say about the source tree, or too much. Kept as entries so

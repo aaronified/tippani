@@ -107,7 +107,7 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   per item, never in coverage** — the list is short because each line is short, not because
   it was pruned, and an ask made this session that is not on it is the defect this rule
   exists to prevent. The reasoning still has to happen and still has to be recorded; it
-  goes in the commit body and `docs/PLAN.md`, where the house style already puts it and
+  goes in the commit body and `docs/wiki/Design-decisions.md`, where the house style already puts it and
   where it is read at the line it is about rather than scrolled past before work starts.
 
   AND THE PANEL IS NOT THE FILE. `/root/.claude/plans/<name>.md` can be rewritten and the
@@ -300,7 +300,7 @@ the report which fixture the run used.
 file per feature.** This session does not invent the queue and does not reorder it — work
 is fetched from there **one plan at a time** and finished before the next is started. The
 directory's own rule still holds (`docs/plans/README.md`): a plan describes something that
-is **not built yet**, and when it ships it is folded into `docs/PLAN.md` with a pass
+is **not built yet**, and when it ships it is folded into `docs/wiki/Design-decisions.md` with a pass
 recording where the plan turned out to be wrong, and the file here is deleted.
 
 **The roadmap has to keep up with that directory, and a sonnet subagent sweeps it.** The
@@ -338,7 +338,7 @@ npm run build                         # -> ../dist, a COMMITTED artefact the bin
 
 cd web/frontend && npm run glossary:check # docs/ui-glossary.html is generated — `make glossary`
 node scripts/roadmap-data.mjs --check     # docs/roadmap.html vs. docs/data/*.json
-node scripts/doc-map-check.mjs            # DEVELOPMENT.md's file map still matches the tree
+node scripts/doc-map-check.mjs            # the wiki's Developing page maps the tree
 ```
 
 Docker: `docker compose up` (see `docker-compose.yml`, `Dockerfile`). Daemon must be
@@ -357,7 +357,7 @@ running (`dockerd &` if not already up in this environment).
   name and reason. The two standing exemptions are loopback, not the internet: the
   `healthcheck` subcommand and the Docker Engine API.
   `internal/store/` is the only package that opens the database.
-- Seven canonical docs, one question each — see `DEVELOPMENT.md`'s "Which document
+- The canonical docs live in `docs/wiki/`, one question each — see Developing's "Which document
   answers what". Don't duplicate a fact across two of them.
 
 ## Conventions
@@ -371,8 +371,8 @@ running (`dockerd &` if not already up in this environment).
   Vite's `?raw`. `make frontend` rebuilds both `web/dist/` and `web/dist-inputs.json`;
   commit the two together. `go test ./...` fails on a stale `dist`.
 - Docs that go stale with a change and belong in the same PR: `CHANGELOG.md` (user-visible
-  changes), `docs/ui-glossary.html` (interface renames), `AI.md` (verification changes),
-  `docs/PLAN.md` (design departures).
+  changes), `docs/ui-glossary.html` (interface renames), `docs/wiki/How-this-was-written.md` (verification changes),
+  `docs/wiki/Design-decisions.md` (design departures).
 
 ## Standing UI rules
 
@@ -469,7 +469,7 @@ old work, so a screen that breaks one is a bug and not a variation.
 - **A subagent with `isolation: "worktree"` puts a full checkout of this repo at
   `.claude/worktrees/<id>`, INSIDE the tree.** Every sweep that walks the filesystem
   rather than git then sees the repo twice — `ai-counts` reported 3,016 Go test functions
-  against AI.md's 1,508, which reads like a wildly stale document and is a scratch
+  against the verification document's 1,508, which reads like a wildly stale document and is a scratch
   checkout nobody removed. It is gitignored, so `git status` says nothing. `git worktree
   list` is what shows it and `git worktree remove --force <path>` is what clears it (the
   harness only auto-cleans a worktree the agent left unchanged, and a rater that mutates
@@ -494,4 +494,4 @@ old work, so a screen that breaks one is a bug and not a variation.
 - `git diff --exit-code -- web/dist` failing on a whitespace-only diff is line endings —
   read `.gitattributes` before touching `core.eol`/`core.autocrlf`.
 - A Go test that passes suspiciously fast: check the `-run` filter actually matched.
-- An app-logged `TIP-*` code has a row in `docs/troubleshoot.md`.
+- An app-logged `TIP-*` code has a row in `docs/wiki/Troubleshooting.md`.

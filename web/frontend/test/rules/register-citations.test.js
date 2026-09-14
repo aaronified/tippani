@@ -23,8 +23,8 @@ import { describe, expect, it } from 'vitest'
 const ROOT = join(process.env.TIPPANI_SRC, '..', '..', '..')
 
 // EVERY DOCUMENT THAT CITES A COMMIT, not just the register. The first cut read
-// `open-defects.md` alone and passed while four dangling SHAs sat in `AI.md` and
-// `docs/PLAN.md` — a guard scoped to the file that happened to fail is a guard
+// `open-defects.md` alone and passed while four dangling SHAs sat in `How-this-was-written.md` and
+// `docs/wiki/Design-decisions.md` — a guard scoped to the file that happened to fail is a guard
 // that only ever catches the failure it was written after.
 // AND TWO DIFFERENT QUESTIONS, because the documents make two different claims.
 //
@@ -33,7 +33,7 @@ const ROOT = join(process.env.TIPPANI_SRC, '..', '..', '..')
 // the branch does not contain.
 //
 // THE OTHER THREE cite the project's history, which is wider than this branch:
-// `AI.md` names the commit that added an attribution, `PLAN.md` the release a
+// `How-this-was-written.md` names the commit that added an attribution, `Design-decisions.md` the release a
 // decision shipped in. Those are legitimately on other lines of history, and
 // demanding an ancestor of HEAD would fail four true citations. What is NOT
 // legitimate is a hash reachable from no ref at all — which is exactly what an
@@ -41,8 +41,8 @@ const ROOT = join(process.env.TIPPANI_SRC, '..', '..', '..')
 const DOCS = [
   ['docs/plans/open-defects.md', 'the defect register', 'ancestor'],
   ['docs/plans/codebase-audit.md', 'the fidelity audit', 'ancestor'],
-  ['AI.md', 'the verification document', 'reachable'],
-  ['docs/PLAN.md', 'the decision log', 'reachable'],
+  ['docs/wiki/How-this-was-written.md', 'the verification document', 'reachable'],
+  ['docs/wiki/Design-decisions.md', 'the decision log', 'reachable'],
 ]
 
 const citations = (file) => [...new Set(
@@ -69,7 +69,7 @@ const isAncestor = (sha) => {
 //
 // EVERY REF, NOT EVERY BRANCH, and this was `git branch -a --contains` for a day.
 // A branch is one kind of ref and a TAG is another: four true citations — commits
-// released in v0.3.0 and v1.7.3, named by AI.md and PLAN.md for exactly that
+// released in v0.3.0 and v1.7.3, named by How-this-was-written.md and Design-decisions.md for exactly that
 // reason — are reachable from dozens of release tags and from no branch at all.
 // They passed only while some stale topic branch happened to still contain them,
 // and failed the moment those branches were deleted, which is a guard that was

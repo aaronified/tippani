@@ -3,7 +3,7 @@ package httpapi
 // EPUB export for an anthology — the second format, and the first file this app
 // writes that another program has to OPEN rather than read.
 //
-// NO DEPENDENCY, WHICH IS THE ONLY REASON THIS IS PLAUSIBLE HERE. `PLAN.md`
+// NO DEPENDENCY, WHICH IS THE ONLY REASON THIS IS PLAUSIBLE HERE. `Design-decisions.md`
 // defends go.mod's three direct requirements by name, and an EPUB is a zip holding
 // four small XML files: `archive/zip` is already imported for the library export
 // and `html.EscapeString` is stdlib. The roadmap costed it as "archive/zip plus

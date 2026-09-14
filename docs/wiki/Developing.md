@@ -18,17 +18,17 @@ link to it by name, because a summary is a copy that drifts more quietly than it
 | Document | The one question it answers |
 | --- | --- |
 | `README.md` | Should I run this, and how do I run it? |
-| **`DEVELOPMENT.md`** (this file) | I want to change the code — where does it go, and how do I know it worked? |
-| `docs/PLAN.md` | Why is it built this way, what was rejected, and what did I get wrong? |
-| `docs/plans/*.md` | How will one specific unbuilt feature work? (Folded into `PLAN.md` and deleted once it ships — or once it is dropped.) |
+| **`Developing.md`** (this file) | I want to change the code — where does it go, and how do I know it worked? |
+| `docs/wiki/Design-decisions.md` | Why is it built this way, what was rejected, and what did I get wrong? |
+| `docs/plans/*.md` | How will one specific unbuilt feature work? (Folded into `Design-decisions.md` and deleted once it ships — or once it is dropped.) |
 | `docs/ui-glossary.html` | What is this bit of the interface called? |
 | [`docs/roadmap.html`](https://aaronified.github.io/tippani/roadmap.html) | What is coming next? (generated — never hand-edited) |
-| `AI.md` | How was this written, and what does that mean for trusting it? |
-| `docs/troubleshoot.md` | The app logged a `TIP-*` code at me — what now? |
+| `How-this-was-written.md` | How was this written, and what does that mean for trusting it? |
+| `docs/wiki/Troubleshooting.md` | The app logged a `TIP-*` code at me — what now? |
 
 This file says **where and how**. PLAN says **why and why-not**: if you are about to write
-a sentence explaining a design choice, it belongs there. AI.md states what verification
-exists, as a claim about the repository — so AI.md carries the counts and this file
+a sentence explaining a design choice, it belongs there. How-this-was-written.md states what verification
+exists, as a claim about the repository — so How-this-was-written.md carries the counts and this file
 carries the commands, and neither should carry the other.
 
 ## Contents
@@ -61,7 +61,7 @@ particular
 which lists what has been refused deliberately and why. A request from that list is still
 welcome; it just needs the argument rather than the vote.
 
-Refused on sight, with the reasoning on the roadmap or in `docs/PLAN.md`:
+Refused on sight, with the reasoning on the roadmap or in `docs/wiki/Design-decisions.md`:
 
 - **A new always-on dependency.** The Go side has three direct modules and the frontend
   has three runtime npm packages. A fourth needs a reason that survives being written down.
@@ -77,7 +77,7 @@ Refused on sight, with the reasoning on the roadmap or in `docs/PLAN.md`:
   entries under [Considered and set aside](https://aaronified.github.io/tippani/roadmap.html#aside).
 
 And one that catches people out: **some of what looks like a bug is a decision**, written
-up in `docs/PLAN.md`. The backup archive is keyed on your own credentials rather than a
+up in `docs/wiki/Design-decisions.md`. The backup archive is keyed on your own credentials rather than a
 built-in key, so a lost password really does lose the archive. The first highlight colour
 cannot be named, because it is also what an import writes when the source gave no colour.
 Read the decision before you fix the symptom.
@@ -260,7 +260,7 @@ reading before you add anything that downloads a URL. `credits.go` splits a join
 `ratelimit.go` (an in-memory token bucket keyed `ip|username`).
 
 `internal/olog/codes.go` is the registry of `TIP-<SUBSYS>-<NNN>` codes, and a test keeps
-it in lockstep with `docs/troubleshoot.md` — add a code and you add a row.
+it in lockstep with `docs/wiki/Troubleshooting.md` — add a code and you add a row.
 
 ### `web/` — the frontend
 
@@ -359,7 +359,7 @@ The shared modules do:
 | `screenshots/scratch-server.sh` | The cleanup every harness in that directory shares, and it was written in seven places and fixed in one. Each of them boots a Tippani against a `mktemp -d` and tore it down with `trap … EXIT`, which fires when the shell RETURNS — a run stopped with a TERM never gets there, so the server keeps its port and the data dir stays. `run-with-backup.sh` restores somebody's real library into one, so when nine such directories were found on disk its trap was widened to INT, TERM and HUP and given a sweep of what a SIGKILL leaves; the other six were not touched, and the reasoning applied to all of them. It bit as something else: a leaked server kept 127.0.0.1:8128, the next `make controls` could not bind, healthchecked the port anyway, and seeded, logged into and measured the DEAD RUN's library while reporting "account already holds 22 book(s)". So there are three functions and the third is the one that matters: `scratch_sweep` removes a mktemp holding a `tippani.db` that nothing is serving (and declines, loudly, where there is no `fuser` to ask), `scratch_trap` covers all four signals a shell can be sent, and **`scratch_require_free` refuses to run at all when something is already answering on the port** — a leaked process does not announce itself as a leaked process. |
 | `screenshots/controls.mjs` | Presses **every control on every screen** and asks two things of each: did anything at all change — a dialog, a panel, the route, focus, the scroll position, the surface's own text — and if not, did the control SAY it was disabled. A control answering no to both is a lie to the reader whatever the reason, and the reason is never visible from the outside. It also counts a menu's rows and flags one that opens empty, and at 390px it checks the 44px touch floor. Written as a PROPERTY rather than a regression: it knows about no particular defect, which is why its first run found the ⋯ opening an empty card on six of twelve screens — every screen rendered, the button opened, and the defect was the ABSENCE of rows in a box one line tall. Three of its own failure modes fail rather than pass quietly: a surface that drew almost nothing did not render, a control that moved between enumeration and the press was not tested, and the run exits non-zero on any of its five lists. Run it with `make controls`, which does both widths. |
 
-Third-party marks are recorded in `docs/PROVIDER-MARKS.md`: twelve suppliers' logos,
+Third-party marks are recorded in `docs/wiki/Provider-marks.md`: twelve suppliers' logos,
 vendored into `web/frontend/src/providerMarks.js` as `data:` URIs and painted as CSS
 masks. It names each mark's origin, its licence, the two deliberate substitutions, and
 why Amazon's is the letterform alone.
@@ -379,12 +379,12 @@ why Amazon's is the letterform alone.
 
 | Path | What it is |
 | --- | --- |
-| `docs/PLAN.md` | The decision log — every design decision, its reasoning, and the reversals. |
-| `docs/plans/*.md` | One file per designed-but-unbuilt feature, and nothing else — see its README. A shipped plan is folded into `docs/PLAN.md`, with a pass on what it got wrong, and deleted here; the directory is a list of what is coming, never an archive. The first three (the bin, context menus and multiselect, search facets) retired at 1.14.2, three more at 1.15.0, and speaker discovery at 1.16.0. Three more retired the other way in 1.16.0 — half shipped, the rest dropped with their roadmap sections — which is the directory’s second exit and is recorded in its README. |
+| `docs/wiki/Design-decisions.md` | The decision log — every design decision, its reasoning, and the reversals. |
+| `docs/plans/*.md` | One file per designed-but-unbuilt feature, and nothing else — see its README. A shipped plan is folded into `docs/wiki/Design-decisions.md`, with a pass on what it got wrong, and deleted here; the directory is a list of what is coming, never an archive. The first three (the bin, context menus and multiselect, search facets) retired at 1.14.2, three more at 1.15.0, and speaker discovery at 1.16.0. Three more retired the other way in 1.16.0 — half shipped, the rest dropped with their roadmap sections — which is the directory’s second exit and is recorded in its README. |
 | `docs/roadmap.html` · `docs/roadmap.backup.html` | The published roadmap, and its last known-good copy. Generated regions — do not hand-edit between the markers. |
 | `docs/ui-glossary.html` | Every part of the interface, named and rendered live in all four theme combinations. |
 | `docs/landing.html` | The published site's front page. Carries absolute canonical and social URLs. |
-| `docs/troubleshoot.md` | One row per `TIP-*` code. |
+| `docs/wiki/Troubleshooting.md` | One row per `TIP-*` code. |
 | `docs/data/` | The roadmap's four JSON files. `tracker.json` is generated; `bugs.json` and `features.json` are hand-written prose; `issue-map.json` maps a section slug to its issue. |
 | `docs/img/` | The README screenshots. |
 | `Makefile` · `Dockerfile` · `docker-compose.yml` | Build, image, and the shipped self-hosting default. |
@@ -525,7 +525,7 @@ still passes — a suite let a feature ship 100% dead exactly that way, which is
 journeys exist to end. `TZ` is pinned to UTC because several
 places call `toLocaleDateString` with an undefined locale and would otherwise pass here
 and fail on a runner set to anything else. Its dependencies are **devDependencies only** —
-the three runtime npm packages are a claim AI.md makes, and it has to stay true.
+the three runtime npm packages are a claim How-this-was-written.md makes, and it has to stay true.
 
 Two things to know before adding to it. The setup files exist because jsdom's silence is
 worse than its absence: `getBoundingClientRect` returns all zeros, so Masonry packs
@@ -683,7 +683,7 @@ maintainer".
 
 **Documents that go stale with a change**, and are expected in the same pull request:
 `CHANGELOG.md` for anything user-visible, `docs/ui-glossary.html` for anything the
-interface is named by, `AI.md` if you change how the repo is checked, and `docs/PLAN.md`
+interface is named by, `How-this-was-written.md` if you change how the repo is checked, and `docs/wiki/Design-decisions.md`
 if you depart from the design — recorded as a departure, with the reasoning, rather than
 silently.
 
@@ -719,7 +719,7 @@ Five failures that are self-inflicted rather than real, in the order they catch 
 - **`node scripts/roadmap-data.mjs --check` fails.** The page has drifted from
   `docs/data/*.json`. Run the script without `--check`. Never edit the page between the
   `ROADMAP:*` markers.
-- **The app logged a `TIP-*` code.** `docs/troubleshoot.md` has a row per code.
+- **The app logged a `TIP-*` code.** `docs/wiki/Troubleshooting.md` has a row per code.
 
 ## Maintainer: CI
 

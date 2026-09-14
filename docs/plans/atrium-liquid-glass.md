@@ -392,7 +392,7 @@ Each step is separately shippable, and the first two collide with nothing.
 2. **Measure.** A real-browser compositing trace with the blur forced on the rail
    and top bar, and on the detail hero over cover art. A number before a design.
    — a new probe under `scripts/screenshots/`, a `Makefile` target,
-   `DEVELOPMENT.md` (the file map fires on a new script), a note in
+   `Developing.md` (the file map fires on a new script), a note in
    `scripts/perf/README.md` about what it still cannot see
 3. **Finish the `--surf-*` migration** for the four slots, moving each surface's
    tile off its `::before` into the composite and spending the blur through a rule
@@ -410,11 +410,11 @@ Each step is separately shippable, and the first two collide with nothing.
    bars, the focus-ring companion stroke, the scroll edge effect and the background
    extension. — `theme.js`, `index.css`, `material-sets.test.jsx`,
    `surface-readability.test.jsx`, `text-readability.test.jsx`, `palette.test.jsx`
-7. **The docs the change goes stale without.** — `docs/PLAN.md` (the decision entry
+7. **The docs the change goes stale without.** — `docs/wiki/Design-decisions.md` (the decision entry
    and this plan folded in, per this directory's rule), `docs/ui-glossary.html`
    (generated), `web/frontend/scripts/glossary/catalogue.js` (its "Materials &
    physics" prose still describes the deleted paper/film aesthetics),
-   `CHANGELOG.md`, `AI.md`
+   `CHANGELOG.md`, `How-this-was-written.md`
 
 Stale comments to correct while passing: "Seven sets" in `auth_handlers.go`,
 `theme.js` and `en.txt`; the retired per-material physics described at

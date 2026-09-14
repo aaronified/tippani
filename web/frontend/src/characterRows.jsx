@@ -16,7 +16,7 @@
 // for `t()` would have to be told which scope it was in.
 //
 // TWO OWNER-RULED DEPARTURES FROM THE PACK ARE LANDED HERE, both recorded in
-// docs/PLAN.md:
+// docs/wiki/Design-decisions.md:
 //
 //   NO NAME ENDS IN AN ELLIPSIS. The pack sets `text-overflow: ellipsis` on a
 //   row's label, a credit's name and the header title; the standing rule forbids

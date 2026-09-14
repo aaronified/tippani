@@ -20,7 +20,7 @@ own context, neither one is about this request at all.
 
 | What I quoted | What it actually governs |
 |---|---|
-| `docs/PLAN.md` — "**Decided.** No background fetching, ever." | Its section is titled *"Metadata is fetched on demand only, and the one bulk path is admin-triggered and cursor-chunked"*, and its **Why** is §8's idle-CPU budget "on a NAS sharing a box with a hundred other services", where "a background enricher is a poller by another name". It is about the SERVER fetching third-party metadata on a schedule. |
+| `docs/wiki/Design-decisions.md` — "**Decided.** No background fetching, ever." | Its section is titled *"Metadata is fetched on demand only, and the one bulk path is admin-triggered and cursor-chunked"*, and its **Why** is §8's idle-CPU budget "on a NAS sharing a box with a hundred other services", where "a background enricher is a poller by another name". It is about the SERVER fetching third-party metadata on a schedule. |
 | "This app makes no network request the reader did not ask for" | Both places it appears are about **third parties**: a type picker that would phone a font CDN (`docs/ui-glossary.html`) and a links panel that would phone ten providers for their favicons (`book-detail-wide.dc.html`). Neither is about the app asking its own server for the reader's own rows. |
 | `App.jsx` — "There is no loading state… this app has never shown a spinner for a screen" | It sits on the `lazy()` route-chunk declarations, above a `Suspense fallback={null}`, and its own next sentence is about the chunk: "the screen still announces itself immediately and only its body arrives a beat later". It is about CODE, not data and not images. |
 
@@ -32,7 +32,7 @@ nothing anybody has written down.
 `App.jsx` already prefetches route chunks on idle — the paragraph directly above the
 house rule says so — and `usePortraitFill` (`credits.jsx`) already fires up to twenty
 unrequested `POST /people/portrait` for a screen the reader is merely looking at, and
-`PLAN.md` blesses fetching the search vocabulary on first focus. The rule as landed has
+`Design-decisions.md` blesses fetching the search vocabulary on first focus. The rule as landed has
 always meant *no outbound third-party call, and no poller*; it has never meant *no
 same-origin request without a press*.
 
@@ -45,7 +45,7 @@ rather than this paragraph:
 > party.
 
 That keeps intact the thing "ever" was protecting, which is §8's idle-CPU budget. It belongs
-in `docs/PLAN.md` beside the decision it narrows — amended in place, because the entry a
+in `docs/wiki/Design-decisions.md` beside the decision it narrows — amended in place, because the entry a
 future reader will quote back is the one that is already there.
 
 ## WHAT THE DESIGN PACK SAYS ABOUT WAITING
@@ -96,7 +96,7 @@ so it can be argued with:
   cannot tell "coming" from "there isn't one", which is precisely the distinction the
   owner's sentence is drawing and the pack's `.ph` rule insists on elsewhere.
 
-If the owner accepts that, the departure is one sentence in `docs/PLAN.md` and the loader is
+If the owner accepts that, the departure is one sentence in `docs/wiki/Design-decisions.md` and the loader is
 the pack's, with its trigger widened to a first fill. If they do not, the pack's behaviour
 is already correct and there is nothing to build for the image half at all.
 
@@ -120,15 +120,15 @@ Four things, all found in the tree rather than assumed.
 
 These are not caveats; two of them decide the shape, and neither has a number.
 
-1. **The threshold.** `PLAN.md` timed the server in-process — `GET /books` at 0.75 ms, `GET /annotations` at 5.8 ms — and concluded the server was never the wait. Nobody has timed a round trip from the owner's phone over the transport the complaint came from. Without one number there is no defensible answer to *how long may a wait go unannounced*, and a loader that appears at 0 ms is a flash on every fast load. The pack's only nearby numbers are a 400 ms tooltip delay and a 200 ms search debounce, both chosen for other reasons.
+1. **The threshold.** `Design-decisions.md` timed the server in-process — `GET /books` at 0.75 ms, `GET /annotations` at 5.8 ms — and concluded the server was never the wait. Nobody has timed a round trip from the owner's phone over the transport the complaint came from. Without one number there is no defensible answer to *how long may a wait go unannounced*, and a loader that appears at 0 ms is a flash on every fast load. The pack's only nearby numbers are a 400 ms tooltip delay and a 200 ms search debounce, both chosen for other reasons.
 2. **What expresses intent on a touch device.** Every defect in this repo comes from the owner's phone, where there is no hover. `pointerdown` gives an 80–150 ms head start for free and costs nothing speculative; a row entering a moving viewport costs one request per row scrolled past. This is the hinge, and it is the thing to measure first.
-3. **Whether "cheap" is true.** The premise is right in principle — these payloads are JSON of a few KB against covers of hundreds. Nobody has measured the BYTES of a detail payload for a real work, and a 1,500-highlight book is the case that matters. `PLAN.md` records that payload, not query time, is what decides whether the mobile client feels instant; the same arithmetic has never been done for a prefetch.
+3. **Whether "cheap" is true.** The premise is right in principle — these payloads are JSON of a few KB against covers of hundreds. Nobody has measured the BYTES of a detail payload for a real work, and a 1,500-highlight book is the case that matters. `Design-decisions.md` records that payload, not query time, is what decides whether the mobile client feels instant; the same arithmetic has never been done for a prefetch.
 4. **Whether "a page not yet fetched" is a state the app can see.** Server data lives in per-component `useState` with no shared store; the five contexts all carry form or navigation plumbing. A shell-level loader has to know a child's fetch is in flight and there is no channel for that. The plumbing is probably larger than the loader.
 5. **iOS Safari, for either half.** Unmeasured here, and it is the device every report comes from.
 
 ## THE ORDER TO BUILD IN
 
-**1. Stop the door blocking its own first paint.** **BUILT** — see `docs/PLAN.md`, *"No
+**1. Stop the door blocking its own first paint.** **BUILT** — see `docs/wiki/Design-decisions.md`, *"No
 prefetch, and a door that draws before its own count answers"*. `openCharacterDoor` awaited
 `GET /characters/{id}` before drawing anything, with no timeout — the count decides whether
 the global row appears, so a hung socket means a press that draws nothing at all. This is the
@@ -245,5 +245,5 @@ that adds the file". Arguing the exclusion in this file alone would have left th
 finding it unlisted and raising it every run, which is the failure that table exists to
 prevent.
 
-The exclusion lifts when the boundary sentence above is in `docs/PLAN.md`. At that point the
+The exclusion lifts when the boundary sentence above is in `docs/wiki/Design-decisions.md`. At that point the
 sentence is the promise and the card can name it.

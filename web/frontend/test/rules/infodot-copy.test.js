@@ -8,7 +8,7 @@
 // instruction: why the default is what it is, what was rejected, what a decision
 // costs. One dot spent 680 characters on a switch whose behaviour takes 90.
 //
-// That reasoning is worth keeping and already has a home — docs/PLAN.md exists to
+// That reasoning is worth keeping and already has a home — docs/wiki/Design-decisions.md exists to
 // hold exactly it, at whatever length it needs. A popover attached to a control is
 // not that place: it is read once, standing up, while the reader is trying to
 // decide whether to press the thing.

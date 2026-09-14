@@ -13,7 +13,7 @@
 //   node scripts/roadmap-tracker.mjs --audit
 //
 // which fails if an open issue has no section on the page, or a closed one still has one.
-// Run it in the same pass as any roadmap cull — see DEVELOPMENT.md.
+// Run it in the same pass as any roadmap cull — see Developing.md.
 //
 // THE TRACKER DECIDES WHAT IS ON THE ROADMAP. Nothing in the repo does. Three queries,
 // one per place an entry can land, and each needs a label only a maintainer can apply:

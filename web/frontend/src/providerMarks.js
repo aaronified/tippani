@@ -8,7 +8,7 @@
 //
 // AND VENDORED, NEVER HOTLINKED. A panel that phones a dozen companies to draw itself is
 // exactly the outbound request this app promises not to make. See the licence note in
-// `docs/PROVIDER-MARKS.md`.
+// `docs/wiki/Provider-marks.md`.
 //
 // KEYED BY THE APP'S SOURCE SLUGS, not by the marks' own file names, and that mapping is
 // the whole reason this file exists rather than the pack's object being dropped in: the

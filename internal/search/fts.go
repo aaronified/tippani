@@ -2,7 +2,7 @@
 //
 // User input passed to MATCH is parsed as FTS5 *query syntax* even when it is
 // parameter-bound (AND/OR/NOT/NEAR, col:, -, *, ^, quotes). Never pass raw
-// input; always go through Query. See docs/PLAN.md §4.
+// input; always go through Query. See docs/wiki/Design-decisions.md §4.
 package search
 
 import "strings"

@@ -188,7 +188,7 @@ describe('what each kind refuses to ask', () => {
   // ruling on the measurement — "move source pair behind the 'show more fields'".
   // Its two remaining pairing candidates were a source TITLE and a source AUTHOR,
   // both long, and "never truncate a name" outranks a row count, so moving them
-  // was the only way to spend those rows. docs/PLAN.md carries the reckoning.
+  // was the only way to spend those rows. docs/wiki/Design-decisions.md carries the reckoning.
   it('records how many rows each first screen costs a phone, and never grows one', () => {
     const CEILING = {
       annotation: 6,
@@ -222,7 +222,7 @@ describe('what each kind refuses to ask', () => {
     // this by simply not being listed.
     expect(Object.keys(measured).sort()).toEqual(Object.keys(CEILING).sort())
     for (const [door, ceiling] of Object.entries(CEILING)) {
-      expect(measured[door], `${door} grew a row — pair two of them, or say why in docs/PLAN.md`)
+      expect(measured[door], `${door} grew a row — pair two of them, or say why in docs/wiki/Design-decisions.md`)
         .toBeLessThanOrEqual(ceiling)
     }
   })

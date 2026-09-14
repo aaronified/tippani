@@ -45,7 +45,7 @@ describe('a speaker chip with an actor', () => {
   })
 
   it('clips a long name and keeps the whole of it on the title', () => {
-    // The departure from "never truncate a name", recorded in PLAN.md: these
+    // The departure from "never truncate a name", recorded in Design-decisions.md: these
     // chips must not wrap, because a reflow moves every other chip on the row.
     const long = 'Bartholomew Featherstonehaugh'
     render(<PersonChip kind="character" name={long} sub="Someone With A Long Name Too" onPress={() => {}} />)

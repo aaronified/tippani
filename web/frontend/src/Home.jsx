@@ -590,7 +590,7 @@ const FAV_KINDS = {
 export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary, onGoMovies, onGoQuotes, onPending, pendingImport, onReviewImport }) {
   const { ask, confirmDialog } = useConfirm()
   // HOME OPENS PANELS NOW. `usePanelStack` is the app's one idiom for a surface
-  // that opens another (PLAN.md: "a panel is a plain {title, render} descriptor,
+  // that opens another (Design-decisions.md: "a panel is a plain {title, render} descriptor,
   // and a factory takes the stack so a panel can push its sibling"), and Home was
   // the last screen drawing people and characters with nowhere to send a press.
   // The owner's ruling — every chip is a button — is what needed it.

@@ -1,7 +1,7 @@
 // EVERY CACHE IN FRONT OF A PER-USER QUERY, AND ONE PLACE THAT EMPTIES THEM ALL.
 //
 // THE INVARIANT THIS SERVES, from CLAUDE.md: "Per-user isolation: every query
-// scoped by `user_id`; another user's row is `404`, never `403`." DEVELOPMENT.md
+// scoped by `user_id`; another user's row is `404`, never `403`." Developing.md
 // calls it a security property. A cache in front of such a query has to be scoped
 // the same way, and the cheapest way to scope a module-scope cache by user is to
 // throw it away when the user changes.

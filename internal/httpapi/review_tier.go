@@ -12,7 +12,7 @@ import "math"
 // to get right.
 //
 // A TIER IS A PROPERTY OF THE ROUND, NOT A COLUMN, which is the same ruling
-// docs/PLAN.md already made for the measured difficulty signal: it is applied
+// docs/wiki/Design-decisions.md already made for the measured difficulty signal: it is applied
 // when the pool is built and nothing about it is stored per card. That keeps the
 // founding constraint of §8 intact — no due-date column, no sweep, everything
 // derived at query time — and it means changing tier is instant and reversible
@@ -88,7 +88,7 @@ func normalizeReviewTier(t string) string {
 // WHY RANDOM IS WORTH HAVING AT ALL. A fixed tier over a mixed library is either
 // too easy for the lines you know by heart or too hard for the ones you wrote
 // down yesterday. Per-card difficulty is what the measured signal in
-// docs/PLAN.md will eventually give; until it ships, a hash is the cheapest
+// docs/wiki/Design-decisions.md will eventually give; until it ships, a hash is the cheapest
 // approximation of it that is stable enough to be lived with.
 func tierForCard(tier, kind string, id, seed int64) string {
 	if tier != tierRandom {

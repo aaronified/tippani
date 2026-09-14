@@ -10,12 +10,12 @@ import (
 )
 
 // TestCodesDocumented enforces that the Code Registry (codes.go) and the operator
-// lookup (docs/troubleshoot.md) stay in lockstep: every registered code has a row
+// lookup (docs/wiki/Troubleshooting.md) stay in lockstep: every registered code has a row
 // in the doc, and every code mentioned in the doc is registered with a non-empty
 // description. This is what keeps "grep the log for the code, look it up" from
 // silently rotting as codes are added.
 func TestCodesDocumented(t *testing.T) {
-	const docPath = "../../docs/troubleshoot.md"
+	const docPath = "../../docs/wiki/Troubleshooting.md"
 	body, err := os.ReadFile(docPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", docPath, err)

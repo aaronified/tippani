@@ -640,7 +640,7 @@ func TestTheGapsBetweenTheTwoEditorsAreTheOnesOnRecord(t *testing.T) {
 // point, the chain is hand-written for fields that genuinely differ — `location`
 // and `timestamp` write an `_orig` snapshot beside themselves, `chapter_no` goes
 // through nullableMeasure, `season` and `episode` through nullableCount, and the
-// whole block runs before tags, formula and retarget in an order PLAN.md fixes.
+// whole block runs before tags, formula and retarget in an order Design-decisions.md fixes.
 // Folding those into a field table means encoding four write strategies and an
 // ordering into the registry, which buys less than it risks. The DEFECT is that
 // nothing checks the lists against each other; that is what is closed here.
@@ -989,7 +989,7 @@ func TestBulkRemoveTagsTakesATagOffASelection(t *testing.T) {
 	}
 
 	// THE TAG ITSELF SURVIVES. It carries a colour and a style the reader chose,
-	// and PLAN.md's taxonomy rule is explicit: "a tag dropping to zero uses is not
+	// and Design-decisions.md's taxonomy rule is explicit: "a tag dropping to zero uses is not
 	// a reason to throw away that choice."
 	var seen bool
 	for _, tg := range decode[struct {
