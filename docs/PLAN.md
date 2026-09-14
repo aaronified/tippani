@@ -15154,8 +15154,16 @@ invented titles and invented people regenerate.
 
 ### Two defects the browser tier found in its first day
 
-Neither is fixed here — both are outside this plan and both are recorded with the
-evidence rather than quietly patched.
+**BOTH ARE FIXED NOW, IN `be3f3717`, AND THIS PARAGRAPH USED TO SAY THEY WERE NOT.**
+It said "neither is fixed here — both are outside this plan and both are recorded
+with the evidence rather than quietly patched", which was true of the commit that
+wrote it and false the moment the owner read the list and said to fix them. Leaving
+it standing would have made this document assert, in the present tense, that a
+shipped fix had not shipped. The original judgement still holds and is why the
+defects are written up here at all: a browser tier's first job is to find things,
+and a finding recorded with its evidence is worth more than a finding quietly
+patched into an unrelated commit. What follows is each defect as the journeys found
+it, then what the fix turned out to be.
 
 **A character typed into the capture form and not committed with Enter is silently
 lost on Save.** Verified by mutation: remove the one `pressKey('Enter')` and the
@@ -15166,6 +15174,16 @@ and the character does not — is that `saveState.save()` is a closure registere
 an effect that has not re-run in the microseconds between the blur-commit and the
 click.
 
+THE DIAGNOSIS WAS RIGHT AND THE REPAIR IS ONE LINE OF IT. `AddSurface.jsx` keeps a
+`draftRef` that every render writes, and `save()` reads the draft out of that ref
+rather than out of the closure it was registered with — the same shape `usePanelStack`
+already uses for a handler registered once and called later. `whatIsMissing(d)` came
+out of the same change: the validity message was computed from the closure's draft
+too, so a form that had just gained its last required field could still refuse to
+save. Mutation-verified by reverting the ref and rebuilding the SPA: the journey's
+quick path goes red waiting for the character's name, while the careful path — which
+presses Enter — stays green, which is exactly the asymmetry the defect predicts.
+
 **Two password boxes on the Profile screen compute to the same accessible name.**
 "new password (8–20)" under CHANGE PASSWORD and "new password (8–20)" under Add
 user, confirmed as two backendNodeIds with one name. A screen-reader user hears the
@@ -15175,6 +15193,13 @@ creating", one of which is destructive to their own login. It is also why
 whole directory: the journey could not name the field, so it names the unambiguous
 one, presses Tab, and types into what then has focus. Fixing the name removes the
 escape hatch with it.
+
+FIXED BY GIVING THE ADD-USER BOX ITS OWN KEY rather than by renaming the profile one.
+`account.users.add.password.placeholder` — "password for the new account ({min}–{max})"
+— says whose password it sets, which is the fact a listener needed and the reason the
+two were indistinguishable. Reusing `account.password.new.placeholder` across both was
+the original defect and not a shortcut worth keeping: one string cannot answer two
+questions.
 
 ### What the round trip proved, in both directions
 
