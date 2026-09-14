@@ -38,7 +38,7 @@
   <a href="https://aaronified.github.io/tippani/roadmap.html#aside">set aside on purpose</a>;
   <a href="https://github.com/aaronified/tippani/issues/new?template=feature_request.yml">request a feature</a> ·
   <a href="https://github.com/aaronified/tippani/issues/new?template=bug_report.yml">report a bug</a><br>
-  📓 <a href="docs/wiki/Design-decisions.md"><strong>Design log</strong></a> — how it is built and why: one entry per decision, with the
+  📓 <a href="https://github.com/aaronified/tippani/wiki/Design-decisions"><strong>Design log</strong></a> — how it is built and why: one entry per decision, with the
   alternatives considered and the trade-offs behind it<br>
   🔤 <a href="https://aaronified.github.io/tippani/ui-glossary.html"><strong>UI glossary</strong></a> — every control in
   the interface, named and pressable, generated from the source rather than drawn by hand
@@ -51,7 +51,7 @@ SQLite with FTS5, **~25 MB idle RSS**, and **zero background jobs** — no polle
 plain HTTP on port 8080 for your LAN and takes TLS whichever way you already have it: a reverse proxy,
 Tailscale, or a PEM pair it serves and hot-reloads itself. No Node at runtime; metadata lookups are on-demand
 and optional; covers and posters are served from your own disk. Tippani was **written with AI assistance** and
-**contains no AI** — no model calls, nothing sent anywhere. Both halves are set out in [`How-this-was-written.md`](docs/wiki/How-this-was-written.md).
+**contains no AI** — no model calls, nothing sent anywhere. Both halves are set out in [How this was written](https://github.com/aaronified/tippani/wiki/How-this-was-written).
 
 ## Screenshots
 
@@ -86,8 +86,8 @@ accents, one combination per shot. Screenshots lag the interface now and then;
     <td valign="top">📨 <strong>Share a quote as an image</strong> — drawn on your own device in your paper or film theme, with the credited person's portrait as a backdrop, then straight to your phone's share sheet or a download. The same dialog also hands a quote out as Markdown, WhatsApp text, plain text or Reddit.</td>
   </tr>
   <tr>
-    <td valign="top">🧠 <strong>Scientific spaced repetition</strong> — every quote carries a memory half-life and returns along the Ebbinghaus forgetting curve, asked one of five ways including a server-graded fill-in-the-blank, in a Daily Quiz and an open Practice mode alike. <a href="docs/wiki/Spaced-repetition.md">The research behind it</a> — which curve, which scheduler, and what was measured before any of it shipped.</td>
-    <td valign="top">🌐 <strong>Multilingual by design</strong> — the app holds no source language: English and Bengali both ship in the box, neither a fallback for the other, and a quote can carry its own translation alongside the original script. A third language is one text file dropped in — nothing to rebuild, nothing to restart. <a href="docs/wiki/Bengali-style.md">The Bengali style sheet</a> is what a fourth would be written against.</td>
+    <td valign="top">🧠 <strong>Scientific spaced repetition</strong> — every quote carries a memory half-life and returns along the Ebbinghaus forgetting curve, asked one of five ways including a server-graded fill-in-the-blank, in a Daily Quiz and an open Practice mode alike. <a href="https://github.com/aaronified/tippani/wiki/Spaced-repetition">The research behind it</a> — which curve, which scheduler, and what was measured before any of it shipped.</td>
+    <td valign="top">🌐 <strong>Multilingual by design</strong> — the app holds no source language: English and Bengali both ship in the box, neither a fallback for the other, and a quote can carry its own translation alongside the original script. A third language is one text file dropped in — nothing to rebuild, nothing to restart. <a href="https://github.com/aaronified/tippani/wiki/Bengali-style">The Bengali style sheet</a> is what a fourth would be written against.</td>
     <td valign="top">✨ <strong>And the rest</strong> — <strong>Multi-user</strong> · <strong>Export</strong> · <strong>Encrypted backup</strong> · <strong>Detailed stats</strong></td>
   </tr>
 </table>
@@ -227,7 +227,7 @@ may add migrations a released build will not read back.
 | `TIPPANI_DOCKER_SOCK` | `/var/run/docker.sock` | Where the mounted socket is, if not the default path. |
 | `TIPPANI_UPDATER_IMAGE` | `nickfedor/watchtower` | The one-shot image the update runs to recreate the container. Pin a digest if you like. The unmaintained `containrrr/watchtower` will not work: its last release speaks Engine API 1.25 and current daemons refuse anything below 1.40. |
 | `TIPPANI_OFFLINE` | `0` | `1` stops the app calling anything outside the machine: no Google Books, Open Library, TMDB, TVDB, IGDB, Fandom, Wikidata, Amazon, cover or poster downloads, and no update check. Every lookup fails immediately with "outbound network calls are switched off" instead of waiting on a firewall. Your own library is unaffected — nothing already stored needs the network to read. Anything set other than `0`/`false`/`no`/`off` counts as on. |
-| `TIPPANI_LOG_LEVEL` | `info` | `debug` for per-operation `[trace]` lines. Every logged `TIP-*` code has a row in [`docs/wiki/Troubleshooting.md`](docs/wiki/Troubleshooting.md). |
+| `TIPPANI_LOG_LEVEL` | `info` | `debug` for per-operation `[trace]` lines. Every logged `TIP-*` code has a row in [Troubleshooting](https://github.com/aaronified/tippani/wiki/Troubleshooting). |
 | `GOMAXPROCS` · `GOMEMLIMIT` · `GOGC` | Go's defaults | Runtime caps for a busy NAS. The systemd unit ships `1` · `64MiB` · `200`; the reasoning is in the design log. |
 | **Commands** — `docker exec -i tippani /tippani …`, or the binary | | |
 | `serve` | the default | Start the server. |
@@ -261,7 +261,7 @@ printf '%s\n' 'a-long-password' | ./bin/tippani user add alice   # or bootstrap 
 [`deploy/tippani.service`](deploy/tippani.service) is a hardened non-root systemd unit with the runtime caps
 above, and [`deploy/Caddyfile.example`](deploy/Caddyfile.example) puts TLS and basic auth in front of it.
 Building, changing and forking — the map of the tree, the pull-request conventions, renaming the module — is
-[`Developing.md`](docs/wiki/Developing.md); release history is [`CHANGELOG.md`](CHANGELOG.md).
+[Developing](https://github.com/aaronified/tippani/wiki/Developing); release history is [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Attribution
 
@@ -310,7 +310,7 @@ say what is actually read, which is the honest version. Every logo here is the s
 committed unchanged, and none is recoloured, cropped or redrawn. The small monochrome
 glyphs *inside* the app are a different object doing a different job — a source indicator
 in the app's own ink, not an attribution mark — and their origins and licences are set out
-in [`docs/wiki/Provider-marks.md`](docs/wiki/Provider-marks.md).
+in [Provider marks](https://github.com/aaronified/tippani/wiki/Provider-marks).
 
 Standing on the shoulders of:
 

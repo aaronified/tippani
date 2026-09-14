@@ -267,6 +267,13 @@ jobs:
       # confidently to the wrong place. This asserts every path it names still exists,
       # and that no package, script or workflow has been added without the map hearing.
       - run: node scripts/doc-map-check.mjs
+      # docs/wiki/ is published to the GitHub wiki by wiki.yml, and there is no build
+      # step between those files and a reader — a dead link ships the moment it is
+      # pushed. This asserts every internal link resolves, that the navigation names
+      # only pages that exist, and that no page is published without something linking
+      # to it. Three broken links and eleven phantom nav entries existed on the day the
+      # directory was assembled, so none of the three is hypothetical.
+      - run: node scripts/wiki-check.mjs
       # The archive-header and greetings checks used to run here as standalone
       # node scripts, because this app had no frontend test runner. It has one
       # now, and both are Vitest tests under web/frontend/test/pure — covered by

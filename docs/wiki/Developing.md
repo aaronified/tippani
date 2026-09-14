@@ -344,6 +344,7 @@ The shared modules do:
 | `site-links.mjs` | Walks an assembled `_site/` and fails on any local `href` or `src` that does not resolve. |
 | `seed-issues.mjs` | Backfills a GitHub issue per roadmap item that predates the automation. |
 | `doc-map-check.mjs` | Checks this document against the tree: every path it names must exist, and every package, script and workflow must be named somewhere in it. |
+| `wiki-check.mjs` | Checks `docs/wiki/` before it is published: every internal link resolves, the navigation names only pages that exist, and no page is published without something linking to it. |
 | `dist-inputs.mjs` | Records every path `web/dist` is built from, with its hash, into `web/dist-inputs.json`. Run by `npm run build`, so the record cannot be forgotten. `--check` verifies it. The paths outside `web/frontend/` are derived from the imports that escape it, not listed by hand. |
 | `screenshots/typescale.mjs` | Turns every type dial to 200% and the root font size to 24px, then fails when a screen clips something it did not clip at rest. A DIFFERENCE rather than a threshold: parts of this app clip on purpose, so a check that failed on all clipping would fail on the design. Reuses `capture.mjs`'s screen roster and session helper rather than restating them. `scripts/screenshots/typescale-baseline.json` records what each screen still clips, and may fall but never rise. Run it with `make typescale`. |
 | `screenshots/frame-scroll.mjs` | Measures the work detail in Firefox. At 1440×900 and 1440×520 it fails if the locked page clips, if a column cannot scroll, or if a column with room below it wears no edge fade. Across eight widths from 1179 down to 780 it also fails if the **title's lines do not all start in the same place** — a float cutting into a name leaves it complete, unclipped and in two pieces, which every other guard in the repo passes. It exists because **jsdom has no layout** — `scrollHeight` there is a constant 0 — so the whole vitest suite is blind to a screen whose height chain is broken, and one shipped. The short window is part of the check: the fixture's books carry three quotes, which fit whatever the frame does, so at one size a broken stream and a working one report the same number. The stylesheet half of the same guard is `test/rules/screen-scroll-chain.test.js`. Run it with `make frame-scroll`. |
@@ -371,6 +372,7 @@ why Amazon's is the letterform alone.
 | `workflows/ci.yml` | The push and PR gate. Four jobs: `go`, `race`, `frontend`, `roadmap`. |
 | `workflows/roadmap-bugs.yml` | On every issue event, rebuilds the tracker snapshot, re-renders the roadmap, and commits if anything moved. |
 | `workflows/pages.yml` | Builds the demo and assembles the published site around it. |
+| `workflows/wiki.yml` | Copies `docs/wiki/*.md` to this repository's GitHub wiki. The repository is the source; an edit made in the wiki is overwritten by the next run. |
 | `workflows/release.yml` | Cuts the GitHub Release on a `v*` tag from that version's changelog section. |
 | `workflows/docker-publish.yml` | Builds the multi-arch image and pushes to GHCR. Decides which image tags may move. |
 | `ISSUE_TEMPLATE/` | The two issue forms and the no-blank-issues config that feed the roadmap pipeline. |
@@ -731,7 +733,7 @@ four jobs:
 | `go` | `go vet`, the full Go suite — which includes the check that `web/dist` is not stale — and a smoke test that boots the server and health-checks it. |
 | `race` | The five locking tests under `-race` on every push, and the whole suite on the nightly schedule. Asserts each named test actually ran. |
 | `frontend` | `npm test`, `npm run build`, and `git diff --exit-code -- web/dist web/dist-inputs.json`. |
-| `roadmap` | `roadmap-data.mjs --check` and `doc-map-check.mjs`. (The glossary check moved into the `frontend` job, which is where a fresh `web/dist` and `node_modules` exist.) |
+| `roadmap` | `roadmap-data.mjs --check`, `doc-map-check.mjs` and `wiki-check.mjs`. (The glossary check moved into the `frontend` job, which is where a fresh `web/dist` and `node_modules` exist.) |
 
 The other four workflows are described in [`.github/`](#github) above.
 

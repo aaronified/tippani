@@ -1,0 +1,102 @@
+name: wiki
+
+# Publish docs/wiki/ to this repository's GitHub wiki.
+#
+# WHY A WORKFLOW AND NOT A PERSON. The documentation lives in docs/wiki/ because
+# that is where CI can hold it: internal/olog's TestCodesDocumented keeps
+# Troubleshooting.md in lockstep with codes.go, doc-map-check.mjs checks
+# Developing.md's file map against the tree, ai-counts recounts
+# How-this-was-written.md, and wiki-check.mjs proves every internal link resolves.
+# None of those can see the wiki — it is a separate git repository with no CI of its
+# own. So the repository stays the source and this job copies it across, which is the
+# only arrangement where the published pages are the checked ones.
+#
+# THE WIKI IS THEREFORE DOWNSTREAM. An edit made in the browser is overwritten by the
+# next run of this job, and that is deliberate rather than unfortunate: the alternative
+# is a wiki that drifts from the guards silently. _Footer.md says so on every page.
+#
+# THE WIKI'S GIT REPOSITORY ONLY EXISTS ONCE ITS FIRST PAGE HAS BEEN CREATED. Turning
+# Wikis on in Settings is not enough — until somebody saves one page in the browser,
+# <repo>.wiki.git 404s and this job fails on the clone with a message that looks like
+# a permissions problem and is not. It only has to be done once, ever.
+
+on:
+  push:
+    branches: [main, v3]
+    paths:
+      - "docs/wiki/**"
+      - ".github/workflows/wiki.yml"
+  workflow_dispatch:
+
+# The wiki is one branch in one repository, so two runs pushing at once is a race
+# whose loser fails on a non-fast-forward. Queue them instead, and do not cancel a
+# run in flight — it may already have pushed.
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Fail here rather than three steps later with a git error nobody can read.
+      - name: The pages are there and their links resolve
+        run: |
+          set -euo pipefail
+          test -d docs/wiki || { echo "::error::docs/wiki does not exist"; exit 1; }
+          node scripts/wiki-check.mjs
+
+      - name: Clone the wiki
+        run: |
+          set -euo pipefail
+          if ! git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki 2>clone.err; then
+            cat clone.err
+            echo "::error::Could not clone ${GITHUB_REPOSITORY}.wiki.git. A wiki's git repository is not created until its FIRST PAGE is saved in the browser — enabling Wikis in Settings is not enough. Create one page at https://github.com/${GITHUB_REPOSITORY}/wiki and re-run; this job will overwrite it."
+            exit 1
+          fi
+
+      # Copy rather than sync, then let `git add -A` work out what changed. Removing
+      # the old pages first is what makes a DELETION propagate: a page dropped from
+      # docs/wiki/ would otherwise live on in the wiki forever, which is the failure
+      # mode this whole arrangement exists to prevent.
+      #
+      # Only *.md is touched. If anyone ever commits an image to the wiki by hand it
+      # survives, because nothing here claims to own the whole directory.
+      - name: Copy the pages across
+        run: |
+          set -euo pipefail
+          rm -f wiki/*.md
+          cp docs/wiki/*.md wiki/
+
+      - name: Commit and push, if anything actually changed
+        working-directory: wiki
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "wiki already matches docs/wiki — nothing to push"
+            exit 0
+          fi
+          git diff --cached --name-status
+          git commit -m "docs: mirror docs/wiki from ${GITHUB_SHA::7}
+
+          Published by .github/workflows/wiki.yml. The repository is the source:
+          an edit made in the wiki is overwritten by the next run."
+          # A retry, because this pushes to a repository whose only other writer is a
+          # human in a browser, and losing that race should cost a re-run rather than
+          # a red build.
+          for attempt in 1 2 3; do
+            if git push origin; then exit 0; fi
+            echo "push failed (attempt ${attempt}); refetching and retrying"
+            git fetch origin && git reset --soft origin/HEAD && git commit --amend --no-edit
+            sleep $((attempt * 5))
+          done
+          echo "::error::Could not push to the wiki after 3 attempts. If the failure is a 403 rather than a race, GITHUB_TOKEN is not permitted to write this wiki — add a PAT with 'repo' scope as a secret and use it in place of secrets.GITHUB_TOKEN in the clone step."
+          exit 1
