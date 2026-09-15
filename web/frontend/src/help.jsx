@@ -43,6 +43,7 @@ import {
   IconType,
   IconUpload,
   IconWarning,
+  GhostButton,
   useIsMobileScreen,
 } from './ui.jsx'
 import { Gesture } from './gestures.jsx'
@@ -565,10 +566,27 @@ export function helpGuide(touch = false) {
 // PageHelp — the "?" the shell's top bar carries. `variant` is passed through to
 // HelpButton: "pill" makes it match the Search button it sits beside in the
 // desktop bar.
-export function PageHelp({ screen, side = 'bottom', variant = 'ring' }) {
+export function PageHelp({ screen, side = 'bottom', variant = 'ring', onTour = null, tourSteps = 0 }) {
   const mobile = useIsMobileScreen()
   const h = helpFor(screen, mobile)
   if (!h) return null
+  // THE WALKTHROUGH FOR THIS SCREEN, ABOVE ITS GLOSSARY. The owner: "a button in the
+  // help screen that will go you through the features in that screen." Help is where
+  // the reader already is when they want showing, and it is the only door left now
+  // that the global onboarding card has gone from Settings.
+  //
+  // ABSENT WHERE THERE IS NOTHING TO WALK. `tourSteps` is how many steps this screen
+  // has; a button that opens a tour of nothing is worse than no button.
+  const lead = onTour && tourSteps > 0
+    ? (close) => (
+        <GhostButton
+          icon={<IconReading />}
+          onClick={() => { close(); onTour(screen) }}
+        >
+          {t('help.tour.label', { count: tourSteps, n: tourSteps })}
+        </GhostButton>
+      )
+    : null
   // The whole guide, opened at this screen. The title still names the screen,
   // because that is what the button promised before it opened.
   return (
@@ -578,6 +596,7 @@ export function PageHelp({ screen, side = 'bottom', variant = 'ring' }) {
       active={HELP[screen] ? screen : 'everywhere'}
       side={side}
       variant={variant}
+      lead={lead}
     />
   )
 }

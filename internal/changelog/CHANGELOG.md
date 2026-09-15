@@ -43,6 +43,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the two fields a new anthology actually needs. Nothing was removed: every switch is one
   press away, and the groups are the same three the form already drew.
 
+- **Every screen's "?" can walk you through that screen.** The guided tour was one
+  journey through the whole app, replayable only from a card in Settings — so the answer
+  to "how does *this* screen work" was a tour that started at the beginning and navigated
+  you somewhere else. Help now offers the steps belonging to the screen you are on, and
+  says how many there are before you press. Screens with nothing to walk show no button.
+
+- **Skip the tour, or turn it back on, from any step.** Skipping was already on every
+  step; getting it back meant finding a setting. Now the same slot offers it back once
+  you have skipped.
+
+- **Settings no longer has an Onboarding card.** The tour it replayed is on every screen's
+  "?" instead, which is where you are when you want it.
+
 - **Settings no longer shows the Devices card.** It pairs the Android app with your account,
   which is not something to do yet, and it was taking a column slot on every visit to
   Settings. Nothing about pairing has been removed — the routes still answer and the card is

@@ -117,7 +117,7 @@ import { PageHelp, ScreenHelpSheet } from './help.jsx'
 import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
 import { PASSPHRASE_MAX, PASSWORD_MAX, PASSWORD_MIN, passwordProblem, sniffArchiveKey } from './secret.js'
-import { FeatureTour } from './tour.jsx'
+import { FeatureTour, tourStepsForTab } from './tour.jsx'
 
 // DEMO: the read-only GitHub Pages build (VITE_DEMO=1). A fetch shim (demo/
 // install.js) serves dummy data and blocks writes; here it just suppresses URL
@@ -2079,7 +2079,12 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
                 {importBadge}
               </button>
             </Tooltip>
-            <PageHelp screen={help} variant="pill" />
+            <PageHelp
+              screen={help}
+              variant="pill"
+              onTour={(screenKey) => setTourState({ step: 0, onlyTab: screenKey })}
+              tourSteps={tourStepsForTab(user.is_admin, sections, help).length}
+            />
             {/* ＋ Add · ? · ⋯ — the thing you do most, the thing that explains the
                 screen, and everything else. Help keeps its own pill rather than
                 folding into the menu: it is one press from every screen today and
@@ -2265,7 +2270,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               onPreferences={onPreferences}
               update={update}
               onUpdateInfo={setUpdate}
-              onStartTour={(step) => setTourState({ step })}
             />
           </div>
         )}
@@ -2408,6 +2412,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         <FeatureTour
           user={user}
           startStep={tourState.step}
+          onlyTab={tourState.onlyTab || null}
           onNavigate={selectTab}
           onPreferences={onPreferences}
           onClose={() => setTourState(null)}

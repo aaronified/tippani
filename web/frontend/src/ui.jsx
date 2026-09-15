@@ -7371,7 +7371,7 @@ export function HelpGuide({ sections = [], active }) {
 // the avatar read as a control from a different set. The default ring is for the
 // two places the bar is not on screen: the work-detail ⋯ menu and the full-screen
 // Profile page.
-export function HelpButton({ title, entries = [], sections = null, active, side = "bottom", variant = "ring" }) {
+export function HelpButton({ title, entries = [], sections = null, active, side = "bottom", variant = "ring", lead = null }) {
   const [open, setOpen] = useState(false);
   // `sections` is the navigable guide; `entries` is the flat list. Both are
   // supported because two callers want each: the shell's "?" opens the guide, and a
@@ -7394,6 +7394,12 @@ export function HelpButton({ title, entries = [], sections = null, active, side 
         </button>
       </Tooltip>
       <HelpSheet open={open} title={title} wide={!!sections} onClose={() => setOpen(false)}>
+        {/* `lead` IS DRAWN ABOVE THE LIST AND CLOSES THE SHEET. The screen's own
+            walkthrough belongs at the top of its help, because a reader who opened
+            help wanted to be shown rather than to read a glossary — and it cannot
+            run underneath the sheet that launched it, which would spotlight
+            controls behind a scrim. */}
+        {lead ? <div className="help-lead">{lead(() => setOpen(false))}</div> : null}
         {sections ? <HelpGuide sections={sections} active={active} /> : <HelpList entries={entries} />}
       </HelpSheet>
     </>

@@ -2110,7 +2110,7 @@ error.validate.name-blank = name is required
 # Step "welcome".
 tour.step.welcome.title = Welcome to tippani
 tour.step.welcome.prose = Tippani is a home for the lines worth keeping — book highlights and film dialogue, with covers, tags, instant search and a daily memory quiz. This tour walks through every feature.
-tour.step.welcome.more = Next moves on step by step, “skip tour” ends it, and “finish later” saves your place — a Resume button waits in Settings → Onboarding. Nothing here needs your files: every example is built in. The top bar also carries a “?” that lists what every control on whichever screen you are looking at does — this tour is the once-over, that is the reference.
+tour.step.welcome.more = Next moves on step by step, “skip tour” ends it for good, and “finish later” saves your place. Either way the “?” on any screen can walk you through that screen whenever you want, and turn this back on if you skipped it. Nothing here needs your files: every example is built in. The top bar also carries a “?” that lists what every control on whichever screen you are looking at does — this tour is the once-over, that is the reference.
 
 # Step "add".
 tour.step.add.name = Add & import
@@ -2214,8 +2214,8 @@ tour.step.account.more = Admins manage users from the same screen: add, remove, 
 
 # Step "done".
 tour.step.done.title = That’s the tour
-tour.step.done.prose = You’ve seen everything. Replay this tour anytime from {em1}, and use the {em2} on any screen for what its controls do. Enjoy the margins.
-tour.step.done.em1.label = Settings → Onboarding
+tour.step.done.prose = You’ve seen everything. The {em2} on any screen lists what its controls do and will walk you through that screen again whenever you like — {em1} is where this tour now lives. Enjoy the margins.
+tour.step.done.em1.label = one screen at a time
 tour.step.done.em2.label = ?
 
 # The tour's own chrome. {done} of {total} counts steps, and {total} varies: an
@@ -2225,6 +2225,14 @@ tour.progress.label = {done} of {total}
 tour.later.label = finish later
 # Ends the tour for good.
 tour.skip.label = skip tour
+# THE WALKTHROUGH FOR ONE SCREEN, offered at the top of that screen's help. Plural
+# because the count is the honest thing to promise: "Show me around (3 steps)" tells
+# a reader what they are committing to, which a bare "Show me around" does not.
+help.tour.label.one = Show me around this screen (1 step)
+help.tour.label.other = Show me around this screen ({n} steps)
+# Where they skipped the tour and want it back — the same slot the skip was in.
+tour.reenable.label = Turn the tour back on
+tour.toast.reenabled = The tour is back on.
 tour.back.aria = Previous step
 tour.next.label = Next
 # The last step's Next.
@@ -5169,16 +5177,7 @@ settings.changelog.close.tip = Close the changelog
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.
 # ---------------------------------------------------------------------------
-settings.onboarding.title = Onboarding
-settings.onboarding.info.body = A guided tour of every feature. It runs once on first launch and never needs your files — a sample book quote and film dialogue are built in. Next skips a step, “finish later” parks it, and you pick it back up here.
-settings.onboarding.done.label = ✓ completed
 # The Resume button carries its own step count, which is why it keeps its words.
-settings.onboarding.resume.label = Resume tour · step {n} of {total}
-settings.onboarding.restart.label = Start over
-settings.onboarding.replay.label = Replay the tour
-settings.onboarding.start.label = Start the tour
-settings.onboarding.pick.label = Refresh one section
-settings.onboarding.pick.prose = The tour opens on that screen and carries on from there — Next moves to the next section, and “finish later” parks it back here.
 
 # ---------------------------------------------------------------------------
 # DEVICES — pair a phone with this account, and unpair it again.

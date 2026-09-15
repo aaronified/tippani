@@ -2227,8 +2227,8 @@ tour.step.account.more = অ্যাডমিনরা ওই একই স্�
 
 # Step "done".
 tour.step.done.title = ট্যুর এই পর্যন্তই
-tour.step.done.prose = সবই দেখা হল। ট্যুরটা যখন খুশি আবার চালাতে পারেন {em1} থেকে, আর কোন স্ক্রিনে কোনটা কী করে জানতে সেখানকার {em2} ট্যাপ করুন। মার্জিন ভরে উঠুক।
-tour.step.done.em1.label = সেটিংস → প্রথম পরিচয়
+tour.step.done.prose = সবই দেখা হল। যেকোনো স্ক্রিনের {em2} সেখানকার কন্ট্রোলগুলো কী করে তা বলে, আর চাইলে আবার ঘুরিয়েও দেখায় — ট্যুরটা এখন {em1} থাকে। মার্জিন ভরে উঠুক।
+tour.step.done.em1.label = এক-একটা স্ক্রিন ধরে
 tour.step.done.em2.label = ?
 
 # The tour's own chrome. {done} of {total} counts steps, and {total} varies: an
@@ -2238,6 +2238,10 @@ tour.progress.label = {done} / {total}
 tour.later.label = বাকিটা পরে
 # Ends the tour for good.
 tour.skip.label = ট্যুর বাদ দিন
+help.tour.label.one = এই পাতাটা ঘুরিয়ে দেখান (১টি ধাপ)
+help.tour.label.other = এই পাতাটা ঘুরিয়ে দেখান ({n}টি ধাপ)
+tour.reenable.label = ট্যুর আবার চালু করুন
+tour.toast.reenabled = ট্যুর আবার চালু হল।
 tour.back.aria = আগের ধাপ
 tour.next.label = পরেরটা
 # The last step's Next.
@@ -5095,16 +5099,7 @@ settings.changelog.close.tip = “কী বদলেছে” বন্ধ ক�
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.
 # ---------------------------------------------------------------------------
-settings.onboarding.title = প্রথম পরিচয়
-settings.onboarding.info.body = সব ফিচার ধরে ধরে দেখানো একটা ট্যুর। প্রথমবার চালু করলে একবারই চলে, আপনার ফাইল কখনও লাগে না — নমুনা হিসেবে একটা উদ্ধৃতি আর একটা সংলাপ ভিতরেই আছে। “পরেরটা” এক ধাপ এগোয়, “বাকিটা পরে” ট্যুর থামিয়ে রাখে, আর এখান থেকেই আবার ধরা যায়।
-settings.onboarding.done.label = ✓ শেষ
 # The Resume button carries its own step count, which is why it keeps its words.
-settings.onboarding.resume.label = ট্যুরে ফিরুন · ধাপ {n}/{total}
-settings.onboarding.restart.label = গোড়া থেকে শুরু করুন
-settings.onboarding.replay.label = ট্যুর আবার দেখুন
-settings.onboarding.start.label = ট্যুর শুরু করুন
-settings.onboarding.pick.label = একটা বিভাগ আবার দেখুন
-settings.onboarding.pick.prose = ট্যুর ওই স্ক্রিনে খুলে সেখান থেকেই চলে — “পরেরটা” পরের বিভাগে নিয়ে যায়, আর “বাকিটা পরে” ট্যুরটা আবার এখানেই রেখে দেয়।
 
 # ---------------------------------------------------------------------------
 # DEVICES — pair a phone with this account, and unpair it again.

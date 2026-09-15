@@ -18,7 +18,6 @@ import { SECTIONS, visibleSections } from './routes.js'
 import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
 import { languageMarksState } from './languages.jsx'
-import { tourFeatures, tourSteps } from './tour.jsx'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, REVIEW_TIERS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
 import { localeActive, localeCatalogue, t, tNodes } from './i18n.js'
@@ -120,6 +119,14 @@ function useColumnCount() {
 // sits under metadata: both are the corner of Settings you come to when something
 // has gone wrong — one for what you deleted, one for what a page left in your
 // quotes — and each is a tile in front of a page of its own.
+// ONBOARDING IS NOT IN THIS LIST EITHER, and for a different reason from Devices.
+// The owner: "no need for a global onboarding settings". The walkthrough did not go
+// away — it moved to where a reader asks for it, which is the "?" on the screen that
+// confused them, one screen's worth at a time. A card replaying the whole tour from
+// Settings was a door to the app's least-wanted journey, six cards down a scroll.
+// `OnboardingCard` is deleted rather than unregistered: unlike Devices, nothing is
+// coming back for it — Help's own button is a replacement, not a relocation.
+//
 // DEVICES IS NOT IN THIS LIST AND ITS CARD IS STILL IN THIS FILE. The owner: "hide
 // the devices settings. that was created for the app. not required right now (keep
 // the code and the backend, just no need to let it hog the screen space)." So the
@@ -127,7 +134,7 @@ function useColumnCount() {
 // its strings, and every `/auth/devices` route are untouched, and putting it back is
 // this one word. Registering it is what draws it — the same mechanism that leaves a
 // non-admin without Updates and Backup.
-export const SETTINGS_CARDS = ['onboard', 'features', 'colors', 'sr', 'trash', 'clean', 'upd', 'backup']
+export const SETTINGS_CARDS = ['features', 'colors', 'sr', 'trash', 'clean', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -181,11 +188,11 @@ export const SETTINGS_CARDS = ['onboard', 'features', 'colors', 'sr', 'trash', '
 export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
-    ['colors', 'onboard', 'backup'],
+    ['colors', 'backup'],
     ['sr', 'features', 'trash', 'clean', 'upd'],
   ],
   3: [
-    ['colors', 'onboard'],
+    ['colors'],
     ['sr', 'features', 'upd'],
     ['trash', 'clean', 'backup'],
   ],
@@ -200,7 +207,7 @@ export function settingsColumns(ncols, presentKeys) {
   return layout.map((col) => col.filter((k) => present.has(k)))
 }
 
-export default function Settings({ user, onPreferences, update, onUpdateInfo, onStartTour }) {
+export default function Settings({ user, onPreferences, update, onUpdateInfo }) {
   const mobile = useIsMobileScreen()
   const ncols = useColumnCount()
   // ── THE PHONE'S TWO SEATS, and they are the two verbs on this page.
@@ -230,7 +237,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     ] : null,
   })
   const cards = {
-    onboard: <OnboardingCard user={user} onStartTour={onStartTour} />,
     features: <FeaturesCard prefs={user.preferences} onSaved={onPreferences} />,
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
     colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
@@ -1888,25 +1894,6 @@ function PromptFrame({ title, closeLabel, closeTip, busy = false, maxWidth = 460
 // by a release. The roadmap link survives, in the Updates card, where "what
 // version am I on" and "what is coming" are the same question asked twice.
 
-// OnboardingCard — the guided tour's home (ROADMAP: onboarding). Starts,
-// replays or resumes the tour, and replays ONE step of it. The tour runs by
-// itself on a user's first launch; "finish later" parks it here as a Resume
-// button. The sample content is built in — onboarding never asks for the user's
-// files.
-//
-// THE LIST OF FEATURES IS GONE (1.15.2), and it is the second time this card has
-// tried to be a table of contents. It started as a dozen two-line rows, which
-// pushed the Start button off a phone screen; the blurbs went behind InfoDots,
-// which left a dozen names each trailing a dot — a list you cannot act on, above
-// the one button that does anything. A name in that list answered "is this
-// covered?", and nobody arrives at Settings → Onboarding asking that. They
-// arrive having forgotten how one screen works.
-//
-// So the list becomes a PICKER, behind the second button, where choosing a name
-// does the thing the name suggested. Same source (tourFeatures, so it still
-// cannot drift from the tour), one fewer standing wall of text, and the blurbs
-// come back as blurbs rather than as dots — a dialog has the room a 300px column
-// did not.
 // ---- Features: which sections the app shows you ----
 //
 // Not everybody keeps films, and not everybody keeps a quote that belongs to no
@@ -1992,74 +1979,6 @@ function FeaturesCard({ prefs, onSaved }) {
         onToggle={(tab, next) => set(SECTIONS.find((sec) => sec.tab === tab), next)}
       />
       {lastOne && <p className="microcopy mt-2">{t('settings.features.locked.prose')}</p>}
-    </Card>
-  )
-}
-
-function OnboardingCard({ user, onStartTour }) {
-  const state = user.preferences?.tour || ''
-  const step = user.preferences?.tourStep || 0
-  const [picking, setPicking] = useState(false)
-  // The same two arguments the tour itself passes, derived from the same
-  // preference bag — a picker offering a section the reader has hidden is a door
-  // into it, and an `at` computed over a different list opens the wrong step.
-  const sections = visibleSections(user.preferences)
-  const feats = tourFeatures(user.is_admin, sections)
-  const total = tourSteps(user.is_admin, sections).length
-  // `at` is the feature's index in tourSteps, which is what onStartTour takes —
-  // NOT its index in this filtered list. See tourFeatures.
-  const start = (at) => { setPicking(false); onStartTour?.(at) }
-  return (
-    <Card>
-      <SectionTitle
-        right={state === 'done' && <MonoLabel style={{ color: 'var(--ok)' }}>{t('settings.onboarding.done.label')}</MonoLabel>}
-        info={t('settings.onboarding.info.body')}
-        infoTitle={t('settings.onboarding.title')}
-      >
-        {t('settings.onboarding.title')}
-      </SectionTitle>
-      <div className="flex flex-wrap items-center gap-2">
-        {/* keepLabel on the primary: it carries the step count when it is a
-            Resume, and a bare flag on a phone would drop the only part of that
-            button anybody reads. */}
-        {state === 'postponed' ? (
-          <>
-            <StickerButton icon={<IconTour />} keepLabel onClick={() => start(step)}>
-              {t('settings.onboarding.resume.label', { n: Math.min(step + 1, total), total })}
-            </StickerButton>
-            <GhostButton icon={<IconRefresh />} onClick={() => start(0)}>{t('settings.onboarding.restart.label')}</GhostButton>
-          </>
-        ) : (
-          <StickerButton icon={<IconTour />} keepLabel onClick={() => start(0)}>
-            {t(state ? 'settings.onboarding.replay.label' : 'settings.onboarding.start.label')}
-          </StickerButton>
-        )}
-        {/* keepLabel for the same reason the two Appearance doors have it: this
-            is the only way to the picker, and an unlabelled bookmark on a phone
-            is a feature nobody finds. "Start over" above keeps none, and should
-            not — it is a secondary variant of the labelled button beside it, so
-            the row it sits in already says what it is about. */}
-        <GhostButton icon={<IconBookmark />} keepLabel onClick={() => setPicking(true)}>{t('settings.onboarding.pick.label')}</GhostButton>
-      </div>
-      <FormModal open={picking} onClose={() => setPicking(false)} title={t('settings.onboarding.pick.label')} maxWidth={520}>
-        <p className="microcopy mb-3">
-          {t('settings.onboarding.pick.prose')}
-        </p>
-        <div>
-          {feats.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className="tactile w-full text-left"
-              style={{ borderTop: '1px solid var(--line)', padding: '9px 2px' }}
-              onClick={() => start(f.at)}
-            >
-              <span style={{ fontSize: 'var(--type-ui-13)', fontWeight: 600 }}>{f.name}</span>
-              <span className="microcopy block">{f.blurb}</span>
-            </button>
-          ))}
-        </div>
-      </FormModal>
     </Card>
   )
 }
