@@ -16,15 +16,28 @@
 // chose Hope from a list. The assertion on "A tag: Hope" is the assertion that the
 // summary and the request are two views of one answer rather than two answers.
 //
+// AND IT READS THE ANTHOLOGY, WHICH FOR A WHILE IT ONLY CLAIMED TO. This file's
+// last line used to be `see('Everything hopeful')` — the anthology's own TITLE,
+// which the list prints whether the fill took anything or not — while the header
+// above it said the mutation would be caught by "the final `see` of a tagged
+// quote". A rating proved the gap by disabling the form's fill outright: this file
+// went on passing. So it opens the thing now and reads a Hope-tagged line out of
+// it, which is the claim the paragraphs above were already making.
+//
 // THE MUTATIONS: drop the press of "A tag" and the combobox never appears; drop the
-// typed value and the ✓ stays blocked, so the anthology comes out unfilled and the
-// final `see` of a tagged quote fails.
+// typed value and the ✓ stays blocked, so the anthology comes out unfilled; hand
+// the form an empty rule and it is created and opens empty. All three fail on the
+// last line, which is a passage rather than a title.
 
 import { expect, it } from 'vitest'
 
 import { openApp } from './harness/world.mjs'
 
 const app = openApp()
+
+// One of the two passages the fixture tags Hope, and the only line in the library
+// that reads this way.
+const HOPEFUL = 'Lantern sedge compass against harbour'
 
 it('a reader makes an anthology of a tag by choosing the tag', async () => {
   await app.goto('/anthologies')
@@ -54,7 +67,12 @@ it('a reader makes an anthology of a tag by choosing the tag', async () => {
   await app.see('A tag: Hope')
 
   await app.press('Create')
-  await app.see('Everything hopeful')
+
+  // WHAT THE SERVER KEPT, not what the client said. The anthology is opened and a
+  // line the reader tagged Hope is inside it — the fixture gives that tag two
+  // passages and nothing else in the library carries this one's words.
+  await app.press('Everything hopeful')
+  await app.see(HOPEFUL)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

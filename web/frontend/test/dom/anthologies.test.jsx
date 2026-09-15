@@ -485,14 +485,19 @@ describe('the fields a work lends its passages', () => {
   it('opens its rule from a button on the page, not only from the ⋯', async () => {
     open()
     await screen.findByText('We remember light.')
-    fireEvent.click(screen.getByRole('button', { name: /fill from a search/i }))
-    expect(await screen.findByPlaceholderText(/search/i)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /what goes in it/i }))
+    // AND IT ASKS THE QUESTION THE CREATE FORM ASKS. This used to look for a search
+    // box, because this door opened one while the form two screens away offered
+    // named sources — one question in two postures, which the repo's own directive
+    // forbids. The named sources are what proves the door leads to the same place.
+    expect(await screen.findByRole('button', { name: 'A tag' })).toBeTruthy()
   })
 
   it('previews a rule before it fills, and sends the search’s own query string', async () => {
     // THREE CLAIMS IN ONE PRESS, and each is a way this screen could lie:
-    //   - the rule on the wire is the SEARCH's query string, so a reader can paste
-    //     it into the search bar and see exactly what it will take;
+    //   - the rule on the wire is still the SEARCH's query string, so a reader can
+    //     paste it into the search bar and see exactly what it will take — that is
+    //     the wire format, and it did not change when the QUESTION did;
     //   - a preview sends preview:true, so looking costs nothing;
     //   - and the count on screen is the one the server returned, not a local sum.
     FILL = { matched: 12, added: 9, skipped: 3, capped: false }
@@ -500,13 +505,15 @@ describe('the fields a work lends its passages', () => {
     await screen.findByText('We remember light.')
     await act(async () => barAction('rule').onClick())
 
-    const box = await screen.findByPlaceholderText(/search/i)
-    fireEvent.change(box, { target: { value: 'death' } })
+    // POINTED AT A TAG RATHER THAN COMPOSED AS A QUERY. The reader picks the kind of
+    // thing and then which one; `scope=all&tag=stoicism` is what that becomes.
+    fireEvent.click(screen.getByRole('button', { name: 'A tag' }))
+    fireEvent.change(await screen.findByPlaceholderText('start typing'), { target: { value: 'stoicism' } })
     fireEvent.click(screen.getByText('What would this take?'))
 
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && /\/fill$/.test(p))).toBe(true))
     const body = CALLS.find(([m, p]) => m === 'POST' && /\/fill$/.test(p))[2]
-    expect(body.rule).toBe('q=death')
+    expect(body.rule).toBe('scope=all&tag=stoicism')
     expect(body.preview).toBe(true)
     expect(await screen.findByText(/12 match\. 9 would be added, 3 are already here\./)).toBeTruthy()
   })

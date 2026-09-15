@@ -90,6 +90,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because those decide what a passage prints. They say nothing about feeding, and a reader
   meeting them there had to work out which one meant "yes, keep going".
 
+- **An anthology's own rule asks the same question the form asks.** Making one offered
+  named sources — a book, a tag, an author, a colour — while changing one afterwards
+  opened a search box and asked for a query. One question in two postures, and the second
+  one meant that a reader who had pointed at a tag had to learn to write `tag=Hope` to
+  point at a different one. The ⋯ now opens the same chooser, under the same words. A rule
+  made from a selection or from a search is more than one choice, so it cannot be shown in
+  the chooser: it is printed as it stands, and picking a source replaces it.
+
 - **The anthology picker finds one or makes one.** It was a closed list, so with no
   anthologies it could only tell you to go to another screen and make one — losing whatever
   you had picked to get there. Type a name that does not exist and it is created; type one
@@ -581,6 +589,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The bulk bar on the Library and the Catalogue answers again.** Select some books and
+  the bar appeared, named the count, and then did nothing: the ⋯ would not open, the
+  shelf menu would not open, and neither would anything else on it once the page had been
+  scrolled. The bar pins itself to the top of the page, and it was pinning itself to the
+  same line the top bar occupies — so it sat behind the header, where a press lands on the
+  search box instead. **Set fields** has been unreachable that way since 1.16.0. It now
+  parks below the bar, as it already did on a phone.
 - **A character typed on a capture form no longer vanishes when you press Save.** If you
   typed a name into Character and went straight for Save — without pressing Enter to turn
   it into a token first, which is what most people do — the line saved with no character at

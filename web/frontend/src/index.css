@@ -20,6 +20,15 @@
        laptop and is still right on one. */
     --container-max: 1180px;
 
+    /* HOW TALL THE DESKTOP TOP BAR IS, stated once because two rules have to
+       agree about it and only one of them draws it. `.topbar` is sticky at
+       top: 0, so anything else that sticks to the top of the page has to start
+       below this or it parks behind a bar that answers every click first — see
+       `.selection-bar`, which did exactly that. A literal in both places is the
+       drift this block's next paragraph is about, and the phone already keeps
+       the same offset against `.mobile-topbar`. */
+    --topbar-h: 56px;
+
     /* ---- ROW and EDGE: spacing is a constant, never a literal ---------------
        EDGE is the page's horizontal margin and ROW is the vertical step between
        rows. A padding typed into a row is a bug rather than a decision: five
@@ -2525,7 +2534,19 @@
 
   .selection-bar {
     position: sticky;
-    top: 0;
+    /* UNDER THE TOP BAR, NOT UNDERNEATH IT. `top: 0` stuck this to the viewport's
+       top edge, which on a desktop is where `.topbar` already is — sticky, 56px
+       tall and z-index 40. So the moment the page scrolled past the toolbar the
+       whole selection bar slid behind it: still in the accessibility tree, still
+       reporting a box, and every control in it answering to nothing, because
+       `elementFromPoint` at the ⋯ returned the top bar's search box. That is why
+       "Set fields" has been unreachable in a browser since 1.16.0 and why a
+       journey over a work selection could not be written — it was read as a
+       harness limitation for as long as nobody measured it.
+       The phone half of this was already right (`top: 54px` below, mirroring
+       `.mobile-topbar`'s height the way `.mobile-sticky-bar` does); this is the
+       same offset for the bar a desktop actually has. */
+    top: var(--topbar-h);
     z-index: 30;
     display: flex;
     flex-wrap: wrap;
@@ -3576,6 +3597,16 @@
   /* ---- help popover contents ---- */
   .help-sheet-body { font-size: var(--type-ui-13); line-height: 1.6; color: var(--soft); }
   .help-body { font-size: var(--type-ui-15); line-height: 1.6; color: var(--soft); }
+  /* THE SCREEN'S OWN WALKTHROUGH, above the glossary it sits on top of. It is one
+     button and it had no rule at all for a release — the class was in the markup,
+     matched nothing, and the button landed flush against the first entry of the
+     list, which reads as the first row of the list rather than as the offer it is.
+     A rule separates the two halves of the sheet: a verb, then the reference. */
+  .help-lead {
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
   .help-list { display: flex; flex-direction: column; gap: 14px; }
   .help-row { display: flex; align-items: flex-start; gap: 11px; }
   .help-row-icon {
@@ -4895,7 +4926,7 @@
     display: flex;
     align-items: center;
     gap: 18px;
-    min-height: 56px;
+    min-height: var(--topbar-h);
     padding: 8px var(--edge);
   }
   .brand { display: flex; align-items: center; gap: 9px; flex: none; }

@@ -168,26 +168,20 @@ describe('the bar over a selection of works', () => {
     expect(screen.getByRole('button', { name: /1 title selected/ })).toBeTruthy()
   })
 
-  // A SELECTION OF BOOKS GATHERS ITS PASSAGES, which the bar refused until now.
+  // THE ROW THAT USED TO BE HERE IS A JOURNEY NOW — `gathering-several-books`.
   //
-  // The registry gated this on the selection NOT being works, with a comment reading
-  // "a book is not a passage, and an anthology of covers is not a thing". Both true;
-  // neither was the reason. `quoteOwned` settles the first — the server will not take
-  // a book as an entry — so what a selection of books can mean here is the highlights
-  // inside them, exactly as one book's own card menu already means, and ten books is
-  // ten works' worth of passages rather than the same act done ten times.
+  // It asserted that the ⋯ offers "Add to anthology" over a work selection, and it
+  // said in a paragraph why it could not be a journey: a work selection's ⋯ would
+  // not open in a browser. That turned out to be a stylesheet bug rather than a
+  // limit of the harness (`.selection-bar` stuck at `top: 0`, behind the sticky
+  // `.topbar`), so the reason expired and the test with it. What it checked — that
+  // the row renders — is now the weakest step of a journey that goes on to press it
+  // and read the passages back out of the anthology, which is the claim that
+  // mattered and the one nothing was making.
   //
-  // WHY THIS IS NOT A JOURNEY. It should be, and the browser cannot reach it: a work
-  // selection's ⋯ does not open in the harness. That is not this change — "Set
-  // fields" has been in that menu since 1.16.0 and is equally unreachable there, on
-  // both the Library and the Catalogue — so it is a defect of its own, recorded
-  // rather than papered over. jsdom opens the menu, so this is where the claim is
-  // held until that one is fixed.
-  it('offers to gather a selection of books into an anthology', () => {
-    open()
-    openMore()
-    expect(screen.getByRole('menuitem', { name: 'Add to anthology' })).toBeTruthy()
-  })
+  // The rest of this file stays: the four verbs a work selection offers and the
+  // quote-only ones it must not are a statement about the REGISTRY, and enumerating
+  // what is absent is not something a reader does.
 
   it('offers the four a work selection has, and none of the quote ones', () => {
     // The whole point of the split. A colour category is a note about a QUOTE and a
