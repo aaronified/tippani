@@ -22,7 +22,7 @@
 //
 // THE MUTATIONS: delete the `press('From the book or film')` and it fails on
 // 'Publisher', which is nowhere until that door is opened. Delete the `press('Save')`
-// and it fails on '11 of 11 shown', because the draft is discarded rather than
+// and it fails on '1 of 11 shown', because the draft is discarded rather than
 // committed. Revert the back-stack fix in `useBackToClose` and it fails on 'Title'
 // right after the ✓, because the form has gone.
 
@@ -50,21 +50,18 @@ it('a reader sets one switch behind a door and the form is still there with it s
   // The door states what is on behind it rather than restating its own heading.
   await app.see('0 of 11 shown')
 
-  await app.press('From the book or film')
+  await app.press('Also show about the book or film')
   await app.see('Publisher')
-  // ALL ELEVEN, because `press` refuses an ambiguous name and every row in this
-  // group draws the same Hide/Show pair — there is no way for a reader's
-  // vocabulary to say "the Show belonging to Publisher", and inventing one would
-  // mean this file knowing something about the markup. Turning the group on wholesale
-  // is a thing a person does anyway, and it makes the count below exact.
-  const shown = await app.pressAll('Show')
-  expect(shown, 'the work group should carry eleven switches').toBe(11)
+  // ONE CHIP PER FIELD NOW, each carrying a sample of what it prints, and pressing
+  // the chip IS the switch — so the press is on the field's own name rather than on
+  // one half of a Hide/Show pair that could have belonged to any of the eleven.
+  await app.press('Publisher')
 
   // THE ✓ ON THE POPUP, and then the form has to still be standing. This is the
   // half that was broken and that nothing below the browser could see.
   await app.press('Save')
   await app.see('Title')
-  await app.see('11 of 11 shown')
+  await app.see('1 of 11 shown')
 
   // And what the popup set reaches the server, not just the screen.
   await app.press('Create')
@@ -73,7 +70,7 @@ it('a reader sets one switch behind a door and the form is still there with it s
   // Only one anthology exists, so "More actions" names one control.
   await app.press('More actions')
   await app.press('Edit')
-  await app.see('11 of 11 shown')
+  await app.see('1 of 11 shown')
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

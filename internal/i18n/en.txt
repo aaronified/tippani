@@ -2403,12 +2403,68 @@ anthologies.entry.source.label = {source}
 # anthology itself: a collection of film lines wants its actors named and a book of
 # proverbs wants nothing but the words. Each label names the THING, because the
 # control beside it is what says on or off.
-anthologies.form.fields.label = What each passage shows
-anthologies.form.fields.hint = The same for what you read and what you export.
+anthologies.form.fields.label = Show with every passage
+anthologies.form.fields.hint = Whatever you turn on here is printed under each passage, when you read the anthology and when you export it.
 # WHAT THE DOOR SAYS. The three groups are behind a row each now — twenty-three
 # switches between the title box and the button that saves it was the complaint —
 # so each row carries the one fact its heading cannot: how many are on.
 anthologies.form.fields.count = {shown} of {total} shown
+
+# ── FILLING AN ANTHOLOGY FROM SOMETHING YOU ALREADY HAVE. The sources are named
+# rather than composed: a search bar is for asking a question, and this form is for
+# declaring what a thing is. Each one maps to a facet the search already indexes, so
+# what this row promises is exactly what the fill takes.
+anthologies.fill.title = What goes in it
+anthologies.fill.body = Pick where the passages come from. They are added now, and the anthology can keep taking them as more arrive.
+anthologies.fill.none = Nothing yet — you can add passages by hand from any quote's menu.
+anthologies.fill.set = {what}. Added when you create it.
+anthologies.fill.set.auto = {what}. Added when you create it, and kept fed after.
+anthologies.fill.of = {what}: {value}
+anthologies.fill.blocked = Choose which one.
+anthologies.fill.pick.placeholder = start typing
+anthologies.fill.all.label = Everything in the library
+anthologies.fill.book.label = A book
+anthologies.fill.movie.label = A film or show
+anthologies.fill.tag.label = A tag
+anthologies.fill.author.label = An author
+anthologies.fill.colour.label = A colour
+anthologies.fill.shelf.label = A shelf
+anthologies.fill.favourite.label = My favourites
+anthologies.fill.dates.label = Saved between
+anthologies.fill.from.label = From
+anthologies.fill.to.label = To
+anthologies.fill.dates.both = Saved between {from} and {to}
+anthologies.fill.dates.from = Saved since {date}
+anthologies.fill.dates.to = Saved up to {date}
+
+# WHAT EACH CHIP WOULD PRINT. The chips carry a sample of the line they draw, because
+# a field NAME does not say what turning it on puts on the page — "Who said it" could
+# be a name, a name and a role, or a name and dates. The samples are one book and one
+# person throughout, so a reader reads them as one imagined entry rather than as
+# twenty-three unrelated scraps.
+anthologies.eg.hide-credit = Seneca · author
+anthologies.eg.hide-source = On the Shortness of Life
+anthologies.eg.show-locator = ch. 4 · p. 112
+anthologies.eg.show-date = saved 3 March 2026
+anthologies.eg.hide-commentary = “the turn this line makes” — your note
+anthologies.eg.hide-colour = the yellow bar down the left
+anthologies.eg.author = Seneca
+anthologies.eg.director = Hrishikesh Mukherjee
+anthologies.eg.translator = C. D. N. Costa
+anthologies.eg.editor = Betty Radice
+anthologies.eg.publisher = Penguin
+anthologies.eg.year = 1969
+anthologies.eg.series = Great Ideas
+anthologies.eg.subtitle = and other essays
+anthologies.eg.isbn = 978-0-14-303795-9
+anthologies.eg.pages = 112 pages
+anthologies.eg.media-type = Paperback
+anthologies.eg.bio = Roman Stoic, tutor to Nero
+anthologies.eg.born = born 4 BC
+anthologies.eg.died = died AD 65
+anthologies.eg.links = Wikipedia
+anthologies.eg.portrait = their photograph beside the line
+anthologies.eg.character-portrait = the character’s face beside the line
 anthologies.form.fields.credit.label = Who said it
 anthologies.form.fields.source.label = Where it came from
 anthologies.form.fields.locator.label = Chapter, page or timestamp
@@ -2421,14 +2477,14 @@ anthologies.form.fields.colour.label = The colour bar
 # field names — Publisher, Year, ISBN — because that is what every other screen
 # calls them. All off by default, so an anthology nobody has configured reads and
 # exports exactly as it did before they existed.
-anthologies.form.fields.work.label = From the book or film
-anthologies.form.fields.work.hint = Off unless you ask. A passage shows only what its own work knows.
+anthologies.form.fields.work.label = Also show about the book or film
+anthologies.form.fields.work.hint = Printed under the passage, from the work it came out of. Off unless you ask, and a passage shows only what its own work knows.
 
 # AND THE PERSON BEHIND IT (0074) — the author, the actor, the speaker. Matched by
 # name against the people you have records for, so most passages show nothing here
 # and that is the ordinary state rather than a gap: the hint says so plainly.
-anthologies.form.fields.person.label = About who said it
-anthologies.form.fields.person.hint = Shown where you have a record of that person. Most will not have one.
+anthologies.form.fields.person.label = Also show about the person
+anthologies.form.fields.person.hint = Printed under the passage, about whoever is answerable for it — the author, the actor, the speaker. Only where you have a record of them, and most passages will not.
 
 # THE FORMAT IS NAMED because the control beside it is also an export and the two
 # hand over different files. "Export" twice would be the screen saying one thing
@@ -2460,8 +2516,6 @@ anthologies.rule.empty = Give the rule something to match.
 # WHAT THE FORM'S FOURTH DOOR SAYS. The rule IS the search's own query string —
 # 0075 chose that format so a person could read it and paste it into the search bar
 # — so the row shows it rather than paraphrasing it.
-anthologies.rule.set = {rule}
-anthologies.rule.none = Not set. The anthology holds only what you put in it.
 
 anthologies.toast.deleted = anthology deleted
 anthologies.toast.entry-removed = entry removed

@@ -53,6 +53,9 @@ import { usePractice } from './review.jsx'
 // an author is.
 import { SearchBox } from './SearchPage.jsx'
 import { addChip, facetField, facetParams, makeChip, readSearchBox } from './facets.js'
+// THE BOX THAT OFFERS WHAT YOU HAVE. The fill-from sheet picks a tag, an author or
+// a shelf out of the same vocabulary the search dropdown uses.
+import { SuggestCombo } from './suggest.jsx'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 import {
   Card,
@@ -100,7 +103,7 @@ const sameEntry = (a, b) => a.kind === b.kind && a.item_id === b.item_id
 // … from` sets up a pass-through and creates NO local binding, so this file's own
 // calls to `useAnthologies` would be a ReferenceError at render with nothing in
 // the module graph looking wrong.
-export { ANTHOLOGY_KIND, AddToAnthologyDialog } from './anthologyGather.jsx'
+export { ANTHOLOGY_KIND, AddToAnthologyDialog, workRule, worksRule } from './anthologyGather.jsx'
 import { gatherInto, useAnthologies } from './anthologyGather.jsx'
 export { gatherInto, useAnthologies }
 
@@ -171,12 +174,12 @@ const ruleChips = (rule) => {
 // way: `anthology-registry.test.js` reads anthology_registry.go and fails when
 // either list names a field the other does not.
 const FIELD_SWITCHES = [
-  { key: 'hide_credit', hide: true, label: 'anthologies.form.fields.credit.label' },
-  { key: 'hide_source', hide: true, label: 'anthologies.form.fields.source.label' },
-  { key: 'show_locator', hide: false, label: 'anthologies.form.fields.locator.label' },
-  { key: 'show_date', hide: false, label: 'anthologies.form.fields.date.label' },
-  { key: 'hide_commentary', hide: true, label: 'anthologies.form.fields.commentary.label' },
-  { key: 'hide_colour', hide: true, label: 'anthologies.form.fields.colour.label' },
+  { key: 'hide_credit', hide: true, label: 'anthologies.form.fields.credit.label', eg: 'anthologies.eg.hide-credit' },
+  { key: 'hide_source', hide: true, label: 'anthologies.form.fields.source.label', eg: 'anthologies.eg.hide-source' },
+  { key: 'show_locator', hide: false, label: 'anthologies.form.fields.locator.label', eg: 'anthologies.eg.show-locator' },
+  { key: 'show_date', hide: false, label: 'anthologies.form.fields.date.label', eg: 'anthologies.eg.show-date' },
+  { key: 'hide_commentary', hide: true, label: 'anthologies.form.fields.commentary.label', eg: 'anthologies.eg.hide-commentary' },
+  { key: 'hide_colour', hide: true, label: 'anthologies.form.fields.colour.label', eg: 'anthologies.eg.hide-colour' },
 ]
 
 // WORK_SWITCHES — what the book or the film the passage came out of knows (0074).
@@ -192,17 +195,17 @@ const FIELD_SWITCHES = [
 // would have to pick one of the two words, so an anthology of films would offer
 // "Author". A mixed anthology turns both on and each entry shows the one it has.
 const WORK_SWITCHES = [
-  { key: 'author', work: true, label: 'common.field.author.label' },
-  { key: 'director', work: true, label: 'common.field.director.label' },
-  { key: 'translator', work: true, label: 'common.field.translator.label' },
-  { key: 'editor', work: true, label: 'common.field.editor.label' },
-  { key: 'publisher', work: true, label: 'common.field.publisher.label' },
-  { key: 'year', work: true, label: 'common.field.year.label' },
-  { key: 'series', work: true, label: 'common.field.series.label' },
-  { key: 'subtitle', work: true, label: 'common.field.subtitle.label' },
-  { key: 'isbn', work: true, label: 'common.field.isbn.label' },
-  { key: 'pages', work: true, label: 'common.field.pages.label' },
-  { key: 'media_type', work: true, label: 'common.field.media-type.label' },
+  { key: 'author', work: true, label: 'common.field.author.label', eg: 'anthologies.eg.author' },
+  { key: 'director', work: true, label: 'common.field.director.label', eg: 'anthologies.eg.director' },
+  { key: 'translator', work: true, label: 'common.field.translator.label', eg: 'anthologies.eg.translator' },
+  { key: 'editor', work: true, label: 'common.field.editor.label', eg: 'anthologies.eg.editor' },
+  { key: 'publisher', work: true, label: 'common.field.publisher.label', eg: 'anthologies.eg.publisher' },
+  { key: 'year', work: true, label: 'common.field.year.label', eg: 'anthologies.eg.year' },
+  { key: 'series', work: true, label: 'common.field.series.label', eg: 'anthologies.eg.series' },
+  { key: 'subtitle', work: true, label: 'common.field.subtitle.label', eg: 'anthologies.eg.subtitle' },
+  { key: 'isbn', work: true, label: 'common.field.isbn.label', eg: 'anthologies.eg.isbn' },
+  { key: 'pages', work: true, label: 'common.field.pages.label', eg: 'anthologies.eg.pages' },
+  { key: 'media_type', work: true, label: 'common.field.media-type.label', eg: 'anthologies.eg.media-type' },
 ]
 
 // PERSON_SWITCHES — the life behind the name (0074). Whoever is answerable for the
@@ -216,17 +219,17 @@ const WORK_SWITCHES = [
 // only where somebody looked the name up, so most entries show nothing here. The
 // line is simply absent for them — see personLine.
 const PERSON_SWITCHES = [
-  { key: 'bio', work: true, label: 'common.field.bio.label' },
-  { key: 'born', work: true, label: 'common.field.born.label' },
-  { key: 'died', work: true, label: 'common.field.died.label' },
-  { key: 'links', work: true, label: 'common.field.links.label' },
+  { key: 'bio', work: true, label: 'common.field.bio.label', eg: 'anthologies.eg.bio' },
+  { key: 'born', work: true, label: 'common.field.born.label', eg: 'anthologies.eg.born' },
+  { key: 'died', work: true, label: 'common.field.died.label', eg: 'anthologies.eg.died' },
+  { key: 'links', work: true, label: 'common.field.links.label', eg: 'anthologies.eg.links' },
   // THE TWO PICTURES, and they are the only fields on this form that are not text.
   // They draw the file the app already serves at /covers/; the EPUB carries the
   // bytes; the Markdown writes neither, because a path is meaningless outside this
   // install. `character_portrait` is the face of whoever is NAMED on the line — a
   // standalone quote has no character column at all (0026), so it is absent there.
-  { key: 'portrait', work: true, label: 'common.field.portrait.label' },
-  { key: 'character_portrait', work: true, label: 'common.field.cast.label' },
+  { key: 'portrait', work: true, label: 'common.field.portrait.label', eg: 'anthologies.eg.portrait' },
+  { key: 'character_portrait', work: true, label: 'common.field.cast.label', eg: 'anthologies.eg.character-portrait' },
 ]
 
 // `work: true` ON A PERSON ROW READS ODD AND IS RIGHT: the flag means "stored in
@@ -381,52 +384,221 @@ function RuleFields({ box, auto, setAuto, onEdit }) {
   )
 }
 
-// RuleChooser — the same question on an anthology that does not exist yet, which is
-// what the create form's fourth door opens.
+// ── FILLING AN ANTHOLOGY FROM SOMETHING YOU ALREADY HAVE.
 //
-// IT COLLECTS AND DOES NOT RUN, and that is forced rather than chosen: the fill
-// endpoint is POST /anthologies/{id}/fill and there is no id until the form is
-// saved. So this hands the rule back to the form, and the form's own save runs the
-// fill once the anthology has landed — see AnthologyList's save.
+// WHAT THIS REPLACES, AND WHY. The form used to carry a door onto the search box —
+// the same one RuleDialog draws — and the owner's verdict was "the fill from a search
+// in the add anthology popup feels bad, drop it". It is right, and the reason is that
+// a search bar is a place to ASK A QUESTION, which is the wrong posture for a form
+// where you are DECLARING WHAT A THING IS. Nobody making an anthology of Seneca wants
+// to compose `author=Seneca`; they want to point at Seneca.
 //
-// WHICH ALSO MEANS NO PREVIEW HERE. RuleDialog can ask "what would this take?"
-// because it has an anthology to ask about; this cannot, and offering a dead
-// button would be worse than not offering one.
-function RuleChooser({ rule, auto: initialAuto, onApply, onClose }) {
-  const box = useRuleBox(rule)
-  const [auto, setAuto] = useState(!!initialAuto)
-  const changed = box.rule !== (rule || '') || !!auto !== !!initialAuto ? 1 : 0
+// SO THE SOURCES ARE NAMED, and each one is a thing the reader already has: a book, a
+// tag, an author, a colour, a shelf, their favourites, a stretch of time, or the whole
+// library. The owner's list, and the "etc." resolved to the facets the search grammar
+// already indexes — so every source below is a rule the fill honours EXACTLY, rather
+// than a promise this screen makes and the server interprets differently.
+//
+// A BOARD IS NOT IN THE LIST AND THAT IS NOT AN OVERSIGHT. There is no `board` facet:
+// boards hold standalone quotes only, so `board=X` would have to decide what it means
+// for highlights and film lines — every one of them, or none — and that is a change to
+// the shared search grammar rather than to this form. It is worth doing and it is not
+// this.
+//
+// `vocab` NAMES THE LIST TO OFFER, from /search/vocabulary, which is the same list the
+// search box's own dropdown uses. `pairs` marks the two that send an id and show a
+// name, because two editions and the film of the book can share a title and only an id
+// says which was meant.
+const FILL_SOURCES = [
+  { key: 'all', label: 'anthologies.fill.all.label' },
+  { key: 'book', label: 'anthologies.fill.book.label', field: 'book', vocab: 'books', pairs: true },
+  { key: 'movie', label: 'anthologies.fill.movie.label', field: 'movie', vocab: 'movies', pairs: true },
+  { key: 'tag', label: 'anthologies.fill.tag.label', field: 'tag', vocab: 'tags' },
+  { key: 'author', label: 'anthologies.fill.author.label', field: 'author', vocab: 'authors' },
+  { key: 'colour', label: 'anthologies.fill.colour.label', field: 'colour', vocab: 'colours', pairs: true },
+  { key: 'shelf', label: 'anthologies.fill.shelf.label', field: 'shelf', vocab: 'shelves' },
+  { key: 'favourite', label: 'anthologies.fill.favourite.label' },
+  { key: 'dates', label: 'anthologies.fill.dates.label' },
+]
+
+const fillSource = (key) => FILL_SOURCES.find((s) => s.key === key) || null
+
+// fillRule — the source and its value as the query string the fill takes.
+//
+// ONE FUNCTION, SO THE SUMMARY AND THE REQUEST CANNOT DISAGREE. The row on the form
+// says what will be taken and this says what is sent; building the string in two
+// places is how a form comes to promise one thing and do another.
+export function fillRule({ source, value, from, to }) {
+  const p = new URLSearchParams()
+  p.set('scope', 'all')
+  const spec = fillSource(source)
+  if (!spec) return ''
+  if (spec.key === 'favourite') p.set('favourite', 'yes')
+  else if (spec.key === 'dates') {
+    if (!from && !to) return ''
+    if (from) p.set('added_from', from)
+    if (to) p.set('added_to', to)
+  } else if (spec.field) {
+    if (!value) return ''
+    p.set(spec.field, value)
+  }
+  return p.toString()
+}
+
+// fillSummary — the choice in the reader's words, for the row on the form.
+//
+// NOT THE RULE STRING. `q=narwhal&tag=stoicism` is honest and it is a wire format;
+// the form's job is to say "everything tagged Stoicism" back to somebody who chose
+// Stoicism. The rule is still what goes to the server, and `fillRule` is still the
+// only thing that builds it — this is the same answer said the other way.
+export function fillSummary({ source, value, text, from, to } = {}) {
+  const spec = fillSource(source)
+  if (!spec) return ''
+  if (spec.key === 'dates') {
+    if (from && to) return t('anthologies.fill.dates.both', { from, to })
+    return t(from ? 'anthologies.fill.dates.from' : 'anthologies.fill.dates.to', { date: from || to })
+  }
+  if (!spec.field) return t(spec.label)
+  // The NAME they chose, not the id it resolved to — `book=4` is the wire value and
+  // "A book: 4" is not a sentence about anything.
+  return t('anthologies.fill.of', { what: t(spec.label), value: text || value })
+}
+
+// FillFromDialog — pick a source, then what of it.
+//
+// ONE POPUP AND NOT TWO. Choosing "a tag" and then being sent to a second sheet to
+// choose WHICH tag is the escalation this repo already argues against; the list of
+// values appears under the chosen source instead, in the same box, and the ✓ commits
+// both at once.
+function FillFromDialog({ initial, backTo, onApply, onClose }) {
+  const [source, setSource] = useState(initial?.source || '')
+  const [value, setValue] = useState(initial?.value || '')
+  // WHAT THEY TYPED, KEPT SEPARATELY FROM WHAT IT RESOLVED TO.
+  //
+  // The first cut derived the box's contents from `value` alone, so a keystroke that
+  // did not yet match a known title set `value` to '' and the box emptied itself
+  // under the reader's hands — and it did that reliably for the first word of every
+  // title, because a vocabulary arrives over the network and the box is typeable
+  // before it lands. A picker that eats what you type is worse than one with no
+  // suggestions at all.
+  const [text, setText] = useState(initial?.text || '')
+  const [from, setFrom] = useState(initial?.from || '')
+  const [to, setTo] = useState(initial?.to || '')
+  const [auto, setAuto] = useState(!!initial?.auto)
+  const [vocabulary, setVocabulary] = useState(() => cachedVocabulary() || {})
+  useEffect(() => { primeSearchVocabulary().then(setVocabulary).catch(() => {}) }, [])
+  const spec = fillSource(source)
+  const rule = fillRule({ source, value, from, to })
+  const changed = rule !== (initial?.rule || '') || !!auto !== !!initial?.auto ? 1 : 0
   return (
     <FormModal
       open
-      title={t('anthologies.rule.title')}
       onClose={onClose}
+      title={t('anthologies.fill.title')}
+      maxWidth={460}
       dirty={changed}
-      closeDanger
+      backTo={backTo}
     >
-      <RuleChooserForm box={box} auto={auto} setAuto={setAuto} onApply={() => onApply(box.rule, auto)} />
+      <FillFromForm
+        spec={spec}
+        source={source}
+        setSource={(k) => { setSource(k); setValue(''); setText('') }}
+        value={value}
+        setValue={setValue}
+        text={text}
+        setText={setText}
+        from={from}
+        setFrom={setFrom}
+        to={to}
+        setTo={setTo}
+        auto={auto}
+        setAuto={setAuto}
+        vocabulary={vocabulary}
+        rule={rule}
+        onApply={() => onApply({ source, value, text, from, to, auto, rule })}
+      />
     </FormModal>
   )
 }
 
-// The body, SEPARATE so `useFormHost` registers with THIS dialog — see the same
-// note on SwitchGroupForm and in identityPicker.jsx.
-function RuleChooserForm({ box, auto, setAuto, onApply }) {
-  const host = useFormHost('')
+// The body, SEPARATE so `useFormHost` registers with THIS dialog — the gotcha
+// identityPicker.jsx states and every sheet in this file obeys.
+function FillFromForm({ spec, source, setSource, value, setValue, text, setText, from, setFrom, to, setTo, auto, setAuto, vocabulary, rule, onApply }) {
+  const blocked = source && !rule ? t('anthologies.fill.blocked') : ''
+  const host = useFormHost(blocked)
+  // A pair list comes back as {key, name}; everything else as bare strings. The combo
+  // shows the name and the form keeps the key, which is what `book=4` needs.
+  const rows = spec?.vocab ? (vocabulary[spec.vocab] || []) : []
+  const options = rows.map((r) => (spec.pairs ? { name: r.name, key: r.key } : { name: r }))
   return (
     <form
       id={host?.formId}
       className="space-y-3"
-      onSubmit={(e) => {
-        e.preventDefault()
-        onApply()
-      }}
+      onSubmit={(e) => { e.preventDefault(); if (!blocked) onApply() }}
     >
-      <p className="microcopy">{t('anthologies.rule.body')}</p>
-      <RuleFields box={box} auto={auto} setAuto={setAuto} />
+      <p className="microcopy">{t('anthologies.fill.body')}</p>
+      <div className="flex flex-wrap gap-2">
+        {FILL_SOURCES.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            className={'tp-filter-chip tactile' + (source === s.key ? ' active' : '')}
+            aria-pressed={source === s.key}
+            onClick={() => setSource(source === s.key ? '' : s.key)}
+          >
+            {t(s.label)}
+          </button>
+        ))}
+      </div>
+      {/* WHICH ONE, under the chip that asked. Absent for the sources that need no
+          value — "everything" and "my favourites" are already complete questions. */}
+      {spec?.vocab && (
+        <SuggestCombo
+          label={t(spec.label)}
+          value={text}
+          onChange={(v) => {
+            setText(v)
+            // A NAME RESOLVES TO AN ID WHERE THERE IS ONE TO RESOLVE TO. Two editions
+            // and the film of the book can share a title, so `book=` wants the id —
+            // but the reader types a name, and until it matches one there is nothing
+            // to send. The tick stays blocked in that state rather than the box
+            // rewriting what they typed.
+            const hit = options.find((o) => String(o.name).toLowerCase() === v.trim().toLowerCase())
+            setValue(spec.pairs ? (hit ? String(hit.key) : '') : v.trim())
+          }}
+          placeholder={t('anthologies.fill.pick.placeholder')}
+          options={options.map((o) => ({ name: o.name }))}
+        />
+      )}
+      {spec?.key === 'dates' && (
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={t('anthologies.fill.from.label')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <Field label={t('anthologies.fill.to.label')} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+      )}
+      {/* KEEP IT FED, on every one of these. The owner: "all auto/search based
+          anthologies should allow auto-expand as new quotes/annotations come in." An
+          anthology of a tag is a standing question, so the offer to keep answering it
+          belongs beside the question rather than somewhere else. */}
+      {source && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="min-w-0">
+            <MonoLabel>{t('anthologies.rule.auto.label')}</MonoLabel>
+            <p className="microcopy mt-0.5">{t('anthologies.rule.auto.hint')}</p>
+          </span>
+          <Toggle
+            ariaLabel={t('anthologies.rule.auto.label')}
+            value={auto ? 'on' : 'off'}
+            onChange={(v) => setAuto(v === 'on')}
+            options={[['off', t('common.toggle.off.label')], ['on', t('common.toggle.on.label')]]}
+          />
+        </div>
+      )}
+      <p className="microcopy opacity-80">{t('anthologies.rule.credits.note')}</p>
     </form>
   )
 }
+
 
 function RuleDialog({ anthology, onClose, onFilled }) {
   const box = useRuleBox(anthology.rule)
@@ -488,17 +660,37 @@ function RuleDialog({ anthology, onClose, onFilled }) {
 // repo's directive is that a control drawn on two surfaces has one behaviour living
 // in one function, and a second copy here is how the work rows would quietly stop
 // honouring the hide/show inversion that the six still needed.
+// A CHIP THAT SHOWS WHAT IT WOULD PRINT, rather than a Hide/Show pair.
+//
+// The owner: "do not use the hide show buttons, instead use text buttons with the
+// labels. each label should also hold an example (e.g. the who said it button
+// should show the people pill / character pill)."
+//
+// TWO THINGS WERE WRONG WITH THE PAIR AND THE EXAMPLE FIXES BOTH. A row read "Who
+// said it — Hide | Show", so the reader answered a question about a FIELD NAME with
+// no idea what turning it on would put on the page: "Who said it" could be a name, a
+// name and a role, or a name and dates. And the pair spends a whole row saying a
+// thing a pressed state says for nothing.
+//
+// SO THE CHIP IS THE ANSWER AND THE STATE AT ONCE. It carries the label and a sample
+// of the line it draws, and being ON is the accent fill `.tp-filter-chip.active`
+// already means everywhere else in this app — the genre bar, the search scope. A
+// fourth way of saying on would be a new thing to learn for no new meaning.
 function FieldSwitch({ row, flags, setFlags }) {
+  const on = shown(row, flags)
   return (
-    <div className="flex items-center justify-between gap-3">
-      <MonoLabel>{t(row.label)}</MonoLabel>
-      <Toggle
-        ariaLabel={t(row.label)}
-        value={shown(row, flags) ? 'on' : 'off'}
-        onChange={(v) => setFlags((f) => ({ ...f, [row.key]: stored(row, v === 'on') }))}
-        options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
-      />
-    </div>
+    <button
+      type="button"
+      className={'tp-filter-chip tp-show-chip tactile' + (on ? ' active' : '')}
+      // `aria-pressed` AND NOT A CHECKBOX ROLE: this is a control that stays put and
+      // changes what the document prints, which is what pressed means. A screen
+      // reader then announces the label, the sample, and whether it is on.
+      aria-pressed={on}
+      onClick={() => setFlags((f) => ({ ...f, [row.key]: stored(row, !on) }))}
+    >
+      <span className="tp-show-chip-label">{t(row.label)}</span>
+      <span className="tp-show-chip-eg">{t(row.eg)}</span>
+    </button>
   )
 }
 
@@ -522,7 +714,11 @@ const countShown = (rows, flags) => rows.filter((row) => shown(row, flags)).leng
 // badge. Not the count of rows that are ON: the badge answers "how many fields
 // will this press change", and those are different numbers the moment a reader
 // turns something off.
-function SwitchGroupDialog({ group, flags, onApply, onClose }) {
+// A BACK KEY AND NOT A ✕ (`backTo`). This opened from the anthology form and returns
+// to it; a ✕ over a half-filled form reads as "discard the lot", which is not what
+// the press does. `closeDanger` went with it — the red belonged to the cross, and
+// there is no cross here now.
+function SwitchGroupDialog({ group, flags, backTo, onApply, onClose }) {
   const [draft, setDraft] = useState(flags)
   const changed = group.rows.filter((row) => shown(row, draft) !== shown(row, flags)).length
   return (
@@ -532,7 +728,7 @@ function SwitchGroupDialog({ group, flags, onApply, onClose }) {
       title={t(group.label)}
       maxWidth={460}
       dirty={changed}
-      closeDanger
+      backTo={backTo}
     >
       <SwitchGroupForm group={group} draft={draft} setDraft={setDraft} onApply={() => onApply(draft)} />
     </FormModal>
@@ -623,8 +819,11 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
   // added, 47 already here" to somebody who changed a title. It is the hazard 0075's
   // own migration comment argues against, one surface along.
   const isNew = !initial
-  const [rule, setRule] = useState('')
-  const [auto, setAuto] = useState(false)
+  // `fill` is the WHOLE answer — which source, which value, and whether to keep
+  // taking more — because the row has to say it back in words and the submit has to
+  // send it as a rule. Holding only the rule string would mean parsing it back to
+  // draw the row, which is the second grammar 0075 refused for the same reason.
+  const [fill, setFill] = useState(null)
   const [ruling, setRuling] = useState(false)
 
   async function submit(e) {
@@ -642,7 +841,7 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
     // always POST /anthologies/{id}/fill afterwards. It goes as a second argument so
     // the caller — which is the one that knows the id, and on a create only learns it
     // from the response — can run the fill once the anthology exists.
-    const msg = await onSubmit({ title: title.trim(), intro, ...splitFlags(flags) }, { rule, auto })
+    const msg = await onSubmit({ title: title.trim(), intro, ...splitFlags(flags) }, { rule: fill?.rule || '', auto: !!fill?.auto })
     setBusy(false)
     if (msg) setError(msg)
   }
@@ -684,24 +883,30 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
           they put twenty-three switches between the title box and the button that
           saves it. They are still a property of the anthology in the way its
           title is; they are simply not the thing you answer first. */}
-      {SWITCH_GROUPS.map((g) => (
-        <GroupDoor key={g.key} group={g} flags={flags} onOpen={() => setGroup(g)} />
-      ))}
-      {/* THE FOURTH DOOR, and it is the same shape as the other three on purpose:
-          "a question wears the same chrome as its answer", and a reader who has
-          learnt that a row here opens a popup should not meet a different kind of
-          control for the one question that happens to be newest. */}
+      {/* WHERE IT FILLS FROM — under the introduction and above what it shows, which
+          is the owner's own placement. It is the right one: the first two boxes say
+          what this anthology IS, this says what goes in it, and the three below say
+          how each passage is printed. That is the order somebody actually decides in.
+
+          The same door shape as the three below it, because "a question wears the
+          same chrome as its answer" and a reader who has learnt that a row here opens
+          a popup should not meet a different control for the newest question. */}
       {isNew && (
         <button type="button" className="tp-group-door tactile" onClick={() => setRuling(true)}>
           <span className="min-w-0">
-            <MonoLabel>{t('anthologies.rule.title')}</MonoLabel>
+            <MonoLabel>{t('anthologies.fill.title')}</MonoLabel>
             <p className="microcopy mt-0.5">
-              {rule ? t('anthologies.rule.set', { rule }) : t('anthologies.rule.none')}
+              {fill?.rule
+                ? t(fill.auto ? 'anthologies.fill.set.auto' : 'anthologies.fill.set', { what: fillSummary(fill) })
+                : t('anthologies.fill.none')}
             </p>
           </span>
           <IconChevron />
         </button>
       )}
+      {SWITCH_GROUPS.map((g) => (
+        <GroupDoor key={g.key} group={g} flags={flags} onOpen={() => setGroup(g)} />
+      ))}
       <ErrorText>{error}</ErrorText>
       <div className="flex items-center justify-end gap-2">
         <GhostButton type="button" onClick={onCancel}>
@@ -721,15 +926,16 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
         key={group.key}
         group={group}
         flags={flags}
+        backTo={t(isNew ? 'anthologies.form.new.title' : 'anthologies.form.edit.title')}
         onApply={(next) => { setFlags(next); setGroup(null) }}
         onClose={() => setGroup(null)}
       />
     )}
     {ruling && (
-      <RuleChooser
-        rule={rule}
-        auto={auto}
-        onApply={(nextRule, nextAuto) => { setRule(nextRule); setAuto(nextAuto); setRuling(false) }}
+      <FillFromDialog
+        initial={fill}
+        backTo={t('anthologies.form.new.title')}
+        onApply={(next) => { setFill(next.rule ? next : null); setRuling(false) }}
         onClose={() => setRuling(false)}
       />
     )}

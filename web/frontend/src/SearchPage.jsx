@@ -555,16 +555,14 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   // is the thing that has no control of its own, because it is the sum of them.
   // Absent when there is nothing to clear rather than greyed: a menu row cannot be
   // disabled, and "Clear" over an empty search does nothing visible.
-  // SEARCH'S SECOND SCREEN-LEVEL ACT, and the one the feature was missing. An
-  // anthology could be filled from a search since 0075, but only from inside an
-  // anthology that already existed — so the reader who has just found the thing,
-  // on the screen where they found it, had no way to keep it. That is the owner's
-  // report ("not visible in the search menu"), and this is the door.
+  // THE GATHER IS A BUTTON ON THE RESULTS, NOT A ROW HERE. It was both for a while,
+  // which is the same door twice within a thumb's reach of itself — and of the two
+  // the button is the right one: this menu answers "what can this SCREEN do", and
+  // gathering is about what the screen has just found. See the results header.
   useScreenBar({
     actions: () => (q || chips.length
       ? [
           { id: 'h-do', heading: t('common.mono.actions.label') },
-          { id: 'gather', icon: <IconAnthology />, label: t('common.anthology.gather.title'), onClick: () => setGathering(true) },
           { id: 'clear', icon: <IconRevert />, label: t('search.clear.label'), onClick: () => { setQ(''); setChips([]) } },
         ]
       : []),
@@ -741,8 +739,24 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
             setFiltersOpen(true)
           }}
         />
+        {/* GATHERING THIS SEARCH, as a control on the results rather than a row in the
+            screen's ⋯. The owner: "in the search results page, add one 'add to
+            anthology' button that will open a combobox to select / add an anthology."
+            It sits with the results because that is what it is about — the ⋯ is for
+            what the SCREEN can do, and this is about what the screen has just found.
+
+            Absent until there are results: an anthology of nothing is not an offer. */}
         {results && !empty && (
-          <span className="ml-auto flex items-center gap-3 view-toggle-row">
+          <GhostButton
+            className="ml-auto"
+            icon={<IconAnthology />}
+            onClick={() => setGathering(true)}
+          >
+            {t('common.action.anthology.label')}
+          </GhostButton>
+        )}
+        {results && !empty && (
+          <span className="flex items-center gap-3 view-toggle-row">
             {view !== 'table' && (
               <label className="flex items-center gap-2">
                 <MonoLabel>{t('common.mono.group.label')}</MonoLabel>

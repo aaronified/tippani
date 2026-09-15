@@ -14,17 +14,20 @@
 // not. `gathering-a-search` covers the other route they named, the search screen's
 // own menu.
 //
-// WHY A QUOTE IS WRITTEN FIRST AND THEN A SECOND ONE. "Keep it fed" cannot be seen
-// on the fill itself: the fill takes everything matching, so nothing is waiting the
-// moment it finishes, and an anthology with auto ON and auto OFF look identical
-// until something NEW matches. So the second quote is the whole point — it arrives
-// after the anthology was made, and only an anthology that was told to keep looking
-// offers it.
+// WHY A HIGHLIGHT IS WRITTEN AFTERWARDS. "Keep it fed" cannot be seen on the fill
+// itself: the fill takes everything matching, so nothing is waiting the moment it
+// finishes, and an anthology with auto ON and auto OFF look identical until
+// something NEW matches. So the highlight written at the end is the whole point — it
+// arrives after the anthology was made, and only an anthology that was told to keep
+// looking offers it.
 //
-// THE MUTATIONS, all three verified: force the rule to '' and the anthology comes
-// out empty (the first `see` of the line fails); force `auto` to false and the
-// "Add 1 waiting" offer never appears; skip the second quote and it never appears
-// either.
+// A BOOK IS THE SOURCE because a book is a thing you can add to afterwards. "My
+// favourites" would need the fixture's quotes favouriting first, and "everything in
+// the library" fills past the 200-a-time cap, which leaves a waiting count that is
+// about the cap rather than about the new line.
+//
+// THE MUTATIONS: force `auto` to false and the "Add 1 waiting" offer never appears;
+// skip the source and the ✓ is blocked, so the anthology comes out empty.
 
 import { expect, it } from 'vitest'
 
@@ -34,54 +37,51 @@ const app = openApp()
 
 // A word the fixture's generator cannot produce — its invented prose runs on
 // alder, bramble, cobble, ember and the like — so a match is never a coincidence.
-const FIRST = 'The narwhal keeps its own counsel.'
-const SECOND = 'A second narwhal, arriving later than the first.'
-
-async function writeAProverb(line) {
-  await app.goto('/quotes')
-  await app.press('Add or import')
-  await app.press('A quote')
-  await app.press('Proverb')
-  await app.type('Quote', line)
-  await app.press('Save')
-  // The capture form is gone, which is the app's own signal that Save ran.
-  await app.gone('Show every field')
-}
+// One of the four public-domain books the fixture keeps verbatim, so naming it
+// survives a regeneration of the derived ones. It carries five highlights.
+const BOOK = 'On the Shortness of Life'
+const LATER = 'A line written after the anthology already existed.'
 
 it('an anthology told to keep itself fed offers the quote written after it was made', async () => {
-  await writeAProverb(FIRST)
-
   // THE DOOR ON THE NEW-ANTHOLOGY FORM.
   await app.goto('/anthologies')
   await app.press('New anthology')
-  await app.type('Title', 'Narwhals')
-  await app.press('Fill from a search')
+  await app.type('Title', 'Seneca, kept')
+  await app.press('What goes in it')
 
-  // The rule is written in the search screen's own box — the same component, so a
-  // rule cannot ask a different question from the bar showing the same words.
-  await app.type('Search', 'narwhal')
-  // KEEP IT FED. Without this press the anthology is a one-off gather.
+  // A NAMED SOURCE. The search box is gone from this form — the owner's "the fill
+  // from a search in the add anthology popup feels bad, drop it" — so the anthology
+  // is pointed at a thing you already have rather than composed out of a query.
+  await app.press('A book')
+  // KEEP IT FED, pressed before the title is typed. Not an accident of ordering: the
+  // combobox opens its list of every book over the rest of the sheet, and the switch
+  // is under it until the list closes.
   await app.press('On')
+  await app.type('A book', BOOK)
   await app.press('Save')
   await app.press('Create')
 
-  // The fill took what already matched.
-  await app.press('Narwhals')
-  await app.see(FIRST)
+  // The fill took what the book already held.
+  await app.press('Seneca, kept')
+  await app.see(BOOK)
 
   // NOW SOMETHING NEW MATCHES, written after the anthology existed.
-  await writeAProverb(SECOND)
+  await app.goto('/library')
+  await app.press(BOOK)
+  await app.press('Capture a quote')
+  await app.type('Quote', LATER)
+  await app.press('Save')
 
   // And the anthology is holding it out to be taken. It is an OFFER and not an
   // arrival: the count is a control the reader presses, because an anthology that
   // grew by itself is a change that happened while they were not looking.
   await app.goto('/anthologies')
-  await app.press('Narwhals')
+  await app.press('Seneca, kept')
   await app.see('Add 1 waiting')
 
   // Pressing it is what actually adds, and then the line is in the reading order.
   await app.press('Add 1 waiting')
-  await app.see(SECOND)
+  await app.see(LATER)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

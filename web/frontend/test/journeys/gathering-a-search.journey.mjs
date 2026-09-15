@@ -15,9 +15,9 @@
 // which is the dead end the old dialog actually drew. The name typed below belongs
 // to no anthology, so this passes only if the combobox's create path works.
 //
-// THE MUTATION: delete the `press('Gather into an anthology')` and this fails on
-// the combobox that never opens. Delete the `type(...)` of the new name instead
-// and it fails at the end, on an anthology that was never made.
+// THE MUTATION: delete the `press('Add to anthology')` and this fails on the
+// combobox that never opens. Delete the `type(...)` of the new name instead and it
+// fails at the end, on an anthology that was never made.
 
 import { expect, it } from 'vitest'
 
@@ -34,10 +34,12 @@ it('a reader gathers a search into an anthology they name on the spot', async ()
   await app.pressKey('Enter')
   await app.see('Search')
 
-  // THE DOOR THIS JOURNEY EXISTS FOR. Before the change the screen's ⋯ held one
-  // row — Clear — and there was no way from a result to an anthology.
-  await app.press('Everything this screen can do')
-  await app.press('Gather into an anthology')
+  // THE DOOR THIS JOURNEY EXISTS FOR, and it is a BUTTON ON THE RESULTS rather than
+  // a row in the screen's ⋯. It was the row first; the owner moved it, and the move
+  // is right — the ⋯ answers "what can this SCREEN do" and this is about what the
+  // screen has just found. Before any of it there was no way from a result to an
+  // anthology at all.
+  await app.press('Add to anthology')
 
   // The box finds one or makes one, and this name belongs to none: typing it IS
   // the create path, which is what the old closed list could not do.

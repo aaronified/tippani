@@ -172,12 +172,16 @@ describe('the anthology list', () => {
     // THE SWITCHES ARE BEHIND THEIR GROUP'S DOOR NOW, so the press that opens it
     // is part of what a person does. The door states the count; the group's own ✓
     // is what carries the answer back to the form.
-    fireEvent.click(screen.getByText('What each passage shows'))
-    const row = (label) => screen.getByLabelText(label).closest('div')
-    // Hide the credit: stored as hide_credit = true.
-    fireEvent.click(within(row('Who said it')).getByText('Hide'))
-    // Show the date: stored as show_date = true.
-    fireEvent.click(within(row('The day you saved it')).getByText('Show'))
+    fireEvent.click(screen.getByText('Show with every passage'))
+    // EACH ROW IS ONE CHIP THAT TOGGLES, not a Hide/Show pair — so the press is on
+    // the thing itself, and what it is set to is `aria-pressed`. The chip carries a
+    // sample of the line under its name, so the name is matched rather than the
+    // whole text.
+    const chip = (label) => screen.getByText(label).closest('button')
+    // Turn the credit OFF: it starts on, so one press stores hide_credit = true.
+    fireEvent.click(chip('Who said it'))
+    // Turn the date ON: it starts off, so one press stores show_date = true.
+    fireEvent.click(chip('The day you saved it'))
     fireEvent.click(screen.getByLabelText('Save'))
 
     fireEvent.click(screen.getByText('Create'))
@@ -301,12 +305,9 @@ describe('the fields a work lends its passages', () => {
     fireEvent.click(screen.getByText('New anthology'))
     fireEvent.change(await screen.findByPlaceholderText('On grief'), { target: { value: 'Passages' } })
     // Through the work group's door — the eleven work switches are behind it now.
-    fireEvent.click(screen.getByText('From the book or film'))
-    // The publisher row's own Show. Scoped through its label, because every row in
-    // this group draws the same Hide/Show pair and getByText('Show') would find the
-    // first of eleven.
-    const row = screen.getByLabelText('Publisher').closest('div')
-    fireEvent.click(within(row).getByText('Show'))
+    fireEvent.click(screen.getByText('Also show about the book or film'))
+    // The publisher chip, pressed by its own name.
+    fireEvent.click(screen.getByText('Publisher').closest('button'))
     fireEvent.click(screen.getByLabelText('Save'))
     fireEvent.click(screen.getByText('Create'))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/anthologies')).toBe(true))

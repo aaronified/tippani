@@ -6157,7 +6157,20 @@ export const backdropClose = (onClose, when = true) => (e) => {
   if (when && e.target === e.currentTarget) onClose?.();
 };
 
-export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, dirty, closeDanger = false, children }) {
+// `backTo` NAMES WHAT THIS DIALOG RETURNS TO, AND TURNS ITS ✕ INTO A BACK KEY.
+//
+// A dialog opened from inside another one is not a thing you CLOSE — closing implies
+// the whole stack goes, and where the thing underneath is a half-filled form that is
+// exactly the fear a ✕ puts in somebody. The panel branch below has drawn a back key
+// naming its parent since it existed, on the reasoning that "a nested surface's two
+// exits are answer and back, and a third key that closes the lot is a destructive
+// control wearing a dismiss key's clothes". A modal nested in a modal is the same
+// shape and was still drawing the ✕.
+//
+// It is a prop rather than something read from the form host, because only the caller
+// knows the WORD — "New anthology" is what the reader is going back to, and a back key
+// that says nothing is a guess about where it lands.
+export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, dirty, closeDanger = false, backTo = null, children }) {
   const mobile = useIsMobileScreen();
   // A FORM OPENED FROM INSIDE A PANEL DOES NOT ESCALATE TO A SCREEN.
   //
@@ -6247,9 +6260,13 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
       surface.node,
     );
   }
+  // THE PHONE'S OWN BACK ARROW, for the same reason as the desktop key: a sheet
+  // opened from inside another surface steps back to it rather than dismissing the
+  // pair. MobileSheet draws one when given the verb, and its own useBackToClose then
+  // makes the device gesture agree with the arrow.
   if (sheet) {
     return createPortal(
-      <MobileSheet open={open} onClose={onClose} title={title} actions={save} closeDanger={closeDanger}>
+      <MobileSheet open={open} onClose={onClose} onBack={backTo ? onClose : undefined} title={title} actions={save} closeDanger={closeDanger}>
         <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
       </MobileSheet>,
       document.body,
@@ -6269,21 +6286,34 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
         style={{ maxWidth, padding: "18px 20px 20px" }}
       >
         <div className="mb-3 flex items-center gap-2">
+          {backTo && (
+            <button
+              type="button"
+              className="tp-panel-back tactile shrink-0"
+              aria-label={t("common.panel.back.aria", { title: backTo })}
+              onClick={onClose}
+            >
+              <IconBack />
+              <span className="tp-panel-back-word">{backTo}</span>
+            </button>
+          )}
           <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>
             {title}
           </h2>
           {save}
-          <IconButton
-            icon={<IconClose />}
-            ariaLabel={t("common.action.close.label")}
-            tooltip={t("common.form.close.tip")}
-            onClick={onClose}
-            style={{
-              width: 34, height: 34, padding: 0, flexShrink: 0,
-              ...(closeDanger ? { color: 'var(--error)' } : null),
-            }}
-            wrapClassName="shrink-0"
-          />
+          {!backTo && (
+            <IconButton
+              icon={<IconClose />}
+              ariaLabel={t("common.action.close.label")}
+              tooltip={t("common.form.close.tip")}
+              onClick={onClose}
+              style={{
+                width: 34, height: 34, padding: 0, flexShrink: 0,
+                ...(closeDanger ? { color: 'var(--error)' } : null),
+              }}
+              wrapClassName="shrink-0"
+            />
+          )}
         </div>
         <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
       </div>

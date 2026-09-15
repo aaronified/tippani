@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { atOverflow, atRow, bulkActionsFor, isWorkKind } from './actions.jsx'
-import { ANTHOLOGY_KIND, AddToAnthologyDialog, gatherInto } from './anthologies.jsx'
+import { ANTHOLOGY_KIND, AddToAnthologyDialog, gatherInto, worksRule } from './anthologies.jsx'
 import { errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { MoveToBoardDialog } from './boards.jsx'
@@ -191,7 +191,12 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     // ANTHOLOGY's own route and changes nothing about the quotes, so there is no
     // undo to register and no row to refresh. Offered for the three kinds of quote,
     // which is what ANTHOLOGY_KIND answers.
-    addToAnthology: ANTHOLOGY_KIND[kind] ? (_, anthologyID) => gather(anthologyID) : undefined,
+    // A SELECTION OF WORKS GATHERS THEIR PASSAGES, not the works — `quoteOwned`
+    // refuses a book as an entry, so ten selected books mean the highlights inside
+    // them. That goes as a RULE rather than as entries, because the ids in hand are
+    // books and the things wanted are the passages hanging off them, which only the
+    // server can enumerate.
+    addToAnthology: (ANTHOLOGY_KIND[kind] || isWork) ? (_, target, opts) => gather(target, opts) : undefined,
     // Works.
     fillGaps: isWork ? ops.fillGaps : undefined,
     // ONE FIELD ACROSS THE WHOLE SELECTION — the series on five books, the
@@ -240,9 +245,12 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
 
   // `target` is the picker's `{ id }` or `{ title }` — an anthology that exists, or
   // one the reader has just named and `gatherInto` will make.
-  const applyAnthology = (target) => {
+  // `opts` carries the keep-it-fed answer, which only the work case can offer —
+  // a selection of quotes is a list, not a question, so there is nothing for it to
+  // keep taking.
+  const applyAnthology = (target, opts) => {
     setGathering(false)
-    byID.anthology.run(target)
+    byID.anthology.run(target, opts)
   }
 
   const applyFields = (patch) => {
@@ -259,9 +267,10 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // going on being right while another quietly stops is exactly what a second copy
   // buys. What stays here is the part that is this bar's — turning a selection into
   // (kind, item_id) pairs, and saying what happened.
-  async function gather(target) {
-    const items = ids.map((itemID) => ({ kind: ANTHOLOGY_KIND[kind], item_id: itemID }))
-    const r = await gatherInto(target, { items })
+  async function gather(target, { auto = false } = {}) {
+    const items = isWork ? [] : ids.map((itemID) => ({ kind: ANTHOLOGY_KIND[kind], item_id: itemID }))
+    const rule = isWork ? worksRule(kind, ids) : ''
+    const r = await gatherInto(target, { items, rule, auto })
     if (!r.ok) return toast(r.error)
     // Two whole sentences rather than one plus an optional clause: the clause
     // does not necessarily come last in another language.
@@ -432,7 +441,13 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
         <MoveToBoardDialog count={count} busy={busy} onApply={applyBoard} onClose={() => setMoving(false)} />
       )}
       {gathering && (
-        <AddToAnthologyDialog count={count} busy={busy} onApply={applyAnthology} onClose={() => setGathering(false)} />
+        <AddToAnthologyDialog
+          count={count}
+          busy={busy}
+          rule={isWork ? worksRule(kind, ids) : ''}
+          onApply={applyAnthology}
+          onClose={() => setGathering(false)}
+        />
       )}
       {editingFields && (
         <SetFieldsDialog

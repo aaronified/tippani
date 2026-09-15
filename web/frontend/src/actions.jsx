@@ -515,15 +515,18 @@ export function bulkActionsFor(kind, items, ctx = {}) {
       where: OVERFLOW,
       icon: <IconAnthology />,
       form: BULK_ANTHOLOGY,
-      // THE ONLY DOOR INTO AN ANTHOLOGY, which is why it is here rather than on the
-      // anthologies screen: the add route takes (kind, item_id) pairs, and only a
-      // screen holding quotes can name them. Quotes only — a book is not a passage,
-      // and an anthology of covers is not a thing.
+      // A SELECTION OF BOOKS GATHERS ITS PASSAGES, which is why this is no longer
+      // gated on `!isWork`. The old comment said "a book is not a passage, and an
+      // anthology of covers is not a thing" — both still true, and neither was ever
+      // the reason to refuse: `quoteOwned` will not take a book as an entry, so what
+      // a work can mean here is the highlights inside it, exactly as a single work's
+      // own menu already means. Ten books selected is ten works' worth of passages,
+      // which is a thing people want and had to do ten times.
       //
       // Behind the ⋯ because it asks a question (which anthology) and because
       // gathering is a considered act rather than the reflex colour-and-tag pair the
       // row is reserved for.
-      available: !isWork && !!ctx.addToAnthology,
+      available: !!ctx.addToAnthology,
       run: (values) => ctx.addToAnthology(items, values),
     },
     {

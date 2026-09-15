@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An anthology can be filled from something you already have.** Point it at a book, a
+  tag, an author, a colour, a shelf, your favourites, a stretch of time, or the whole
+  library — on the new-anthology form, under the introduction. Turn on **Keep it fed** and
+  it goes on taking what matches as you add it. The search box that used to be here is
+  gone: a search bar is for asking a question, and this is where you say what a thing is.
+
+- **Select several books and gather everything you highlighted in them.** The bulk bar
+  refused a selection of works, on the grounds that a book is not a passage. True — so it
+  takes the passages inside them, which is what one book's own menu has always meant.
+
+- **The search results carry their own Add to anthology button.** It was a row in the
+  screen's ⋯; it belongs with the results, which is what it is about.
+
+- **The field switches show what they would print.** Each is now one chip carrying the
+  field's name and a sample of the line it draws — "Who said it · Seneca · author" — and
+  pressing it is the switch. The Hide/Show pair said nothing about what turning a thing on
+  would put on the page, which was the question.
+
+- **The three groups say that these things get shown.** "About who said it" did not say
+  that anything would be printed about the person; now it does, and so do the other two.
+
+- **A popup opened from a form steps back to it rather than closing.** The ✕ over a
+  half-filled form read as "discard the lot", which was never what it did.
+
 - **Keep a passage without selecting it first.** *Add to anthology* was a bulk action and
   nothing else, so keeping one line you had just read meant starting a selection, ticking
   the thing already in front of you, and choosing from a list of anthologies that had to

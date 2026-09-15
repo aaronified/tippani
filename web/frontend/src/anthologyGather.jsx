@@ -133,8 +133,19 @@ export function gatheredPhrase({ added = 0, skipped = 0 }) {
 // spelled by the same grammar the search bar writes and can be pasted into it. The
 // chip SENDS THE ID rather than the title, because two editions and the film of the
 // book can share a name and only an id says which one was meant — see workSeedChip.
-export const workRule = (kind, id) =>
-  searchQueryString({ scope: 'all', chips: [workSeedChip(kind, id, '')].filter(Boolean) })
+export const workRule = (kind, id) => worksRule(kind, [id])
+
+// worksRule — the same question over a SELECTION of works.
+//
+// `book` and `movie` both combine as OR (facets.js), so several ids in one rule mean
+// "the passages in any of these", which is what selecting ten books and gathering
+// them means. One function for one and for many, because a bar that selected one
+// book would otherwise take a different path from the card menu on that same book.
+export const worksRule = (kind, ids = []) =>
+  searchQueryString({
+    scope: 'all',
+    chips: ids.map((id) => workSeedChip(kind, id, '')).filter(Boolean),
+  })
 
 // useGatherDoor — the state, the dialog and the reporting, for any surface with
 // something to gather.

@@ -168,6 +168,27 @@ describe('the bar over a selection of works', () => {
     expect(screen.getByRole('button', { name: /1 title selected/ })).toBeTruthy()
   })
 
+  // A SELECTION OF BOOKS GATHERS ITS PASSAGES, which the bar refused until now.
+  //
+  // The registry gated this on the selection NOT being works, with a comment reading
+  // "a book is not a passage, and an anthology of covers is not a thing". Both true;
+  // neither was the reason. `quoteOwned` settles the first — the server will not take
+  // a book as an entry — so what a selection of books can mean here is the highlights
+  // inside them, exactly as one book's own card menu already means, and ten books is
+  // ten works' worth of passages rather than the same act done ten times.
+  //
+  // WHY THIS IS NOT A JOURNEY. It should be, and the browser cannot reach it: a work
+  // selection's ⋯ does not open in the harness. That is not this change — "Set
+  // fields" has been in that menu since 1.16.0 and is equally unreachable there, on
+  // both the Library and the Catalogue — so it is a defect of its own, recorded
+  // rather than papered over. jsdom opens the menu, so this is where the claim is
+  // held until that one is fixed.
+  it('offers to gather a selection of books into an anthology', () => {
+    open()
+    openMore()
+    expect(screen.getByRole('menuitem', { name: 'Add to anthology' })).toBeTruthy()
+  })
+
   it('offers the four a work selection has, and none of the quote ones', () => {
     // The whole point of the split. A colour category is a note about a QUOTE and a
     // book has never had one; a shelf is a fact about a work and a quote has none.

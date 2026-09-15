@@ -6378,6 +6378,39 @@
     white-space: nowrap;
   }
   .tp-filter-chip:hover:not(.active) { color: var(--ink); border-color: var(--ink-border); }
+
+  /* A SHOW-CHIP IS A FILTER CHIP THAT ANSWERS A QUESTION IN TWO LINES: the field's
+     name, and a sample of what it puts on the page. It takes the filter chip's face
+     and its accent-fill `.active`, so "on" is the one thing this app already means
+     by that fill — what it overrides is the single-line shape.
+
+     `white-space` is reset because the parent nowraps, which is right for a chip
+     holding one word and wrong for one holding an example. The sample line is
+     allowed to wrap rather than truncate: a shortened example and a short example
+     look alike, and the repo forbids the ellipsis for exactly that reason.
+
+     No px height. The box holds text at whatever size the type dials are set to, so
+     it is min-height in em with the §11 touch floor underneath it. */
+  .tp-show-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    min-height: max(44px, 3.6em);
+    padding: 7px 12px;
+    text-align: start;
+    white-space: normal;
+  }
+  .tp-show-chip-label { font-weight: 600; }
+  /* The sample is quieter than the name it is under — it is evidence, not a second
+     label. On an active chip both are on the accent, so the sample only softens. */
+  .tp-show-chip-eg {
+    font-weight: 400;
+    font-size: var(--type-ui-12);
+    opacity: .78;
+    font-style: italic;
+  }
   /* Active chip wears the toggle thumb's accent fill + leather/rubber grain, so
      the genre bar and search-scope filters read identically to Toggle/Select. */
   .tp-filter-chip.active {
