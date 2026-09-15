@@ -4,7 +4,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, IconArrow } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow } from './ui.jsx'
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, personPanel } from './identity.jsx'
 import { MetadataSources } from './MetadataSources.jsx'
@@ -788,6 +788,13 @@ function moviePasses(m, filter) {
 function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onOpenBook, onOpenMovie, onDone, onFlash, onReverify }) {
   const { ask, confirmDialog } = useConfirm()
   const [q, setQ] = useState('')
+  // THE SHELL'S FIELD DRIVES THIS ONE. The owner named this screen: "in metadata, it
+  // will search in metadata". The box below is still drawn and still works — it is
+  // this console's own and a reader who is looking at the console will use the
+  // nearest field — but they are now ONE piece of state, so the two cannot disagree
+  // about what is being filtered. Publishing the same setter is what makes that
+  // true, rather than a second `q` kept in step by hand.
+  useScreenSearch({ key: 'metadata', label: t('shell.search.where.metadata'), onQuery: setQ })
   const [lookupKey, setLookupKey] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -1705,6 +1712,10 @@ export function CharactersConsole({ rows = null, onReload = null }) {
   const mobile = useIsMobileScreen()
   const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
+  // The section a reader is IN is what the shell's field asks about — see
+  // CatalogueConsole for the argument. Three consoles, one context each, and only
+  // the one on screen is published.
+  useScreenSearch({ key: 'metadata-characters', label: t('shell.search.where.characters'), onQuery: setQ })
   // WHICH WORK, and it is the question this list could not answer.
   //
   // The backfill makes a character record PER WORK — eight films of one series
@@ -2110,6 +2121,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
   const [role, setRole] = useState('all')
   const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
+  useScreenSearch({ key: 'metadata-people', label: t('shell.search.where.people'), onQuery: setQ })
   const [busyID, setBusyID] = useState(0)
   const [bulk, setBulk] = useState(null) // {done, total} while bulk-fetching
   const [err, setErr] = useState('')

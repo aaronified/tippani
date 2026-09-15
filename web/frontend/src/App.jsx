@@ -104,6 +104,8 @@ import {
   useScreenScroll,
   useEdgeScroll,
   useScreenBarState,
+  useScreenSearchState,
+  currentScreenSearch,
   useFrameBase,
   useHideOnScrollDown,
   useFilePick,
@@ -864,23 +866,70 @@ function Breadcrumb({ tab, detail, title, onRoot }) {
 function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
   const [q, setQ] = useState('')
   const ref = useRef(null)
+  // WHAT THIS SCREEN SAYS ITS OWN SEARCH IS. Null on a screen that has not said —
+  // Home, where "search" can only sensibly mean the library — and then this bar
+  // behaves exactly as it did before, scope pill and all.
+  const here = useScreenSearchState()
   const scoped = scope !== 'all'
+  // THE SCREEN'S OWN SEARCH IS WHAT THE FIELD DOES, UNTIL THE READER SAYS OTHERWISE.
+  // `here.key` is the context; dropping it is the "library on demand" half, and it
+  // is the same press that used to drop a library scope — one control, one meaning:
+  // this pill says what I am inside, and its × takes me out of it.
+  const onScreen = !!here && !scoped
   const submit = (e) => {
     e.preventDefault()
+    if (onScreen) {
+      // Already narrowed as they typed; Enter is what closes the keyboard on a
+      // phone and must not throw the reader onto another screen.
+      currentScreenSearch()?.onQuery?.(q)
+      return
+    }
     onSearch(q, scoped ? scope : 'all')
+  }
+  const type = (v) => {
+    setQ(v)
+    // LIVE, BECAUSE THE SCREEN IS ALREADY IN FRONT OF THEM. A field that narrows a
+    // list you are looking at has nothing to wait for, and waiting for Enter is what
+    // makes a reader think the field is for somewhere else.
+    if (onScreen) currentScreenSearch()?.onQuery?.(v)
+  }
+  // The pill names the context and the helper text spells it out — the owner asked
+  // for both: "the helper text in the search bar will spell out what context there
+  // is, along with the pills."
+  const pill = onScreen ? here.label : scoped ? scopeLabel : ''
+  const hint = onScreen
+    ? t('shell.search.hint.screen', { where: here.label })
+    : t(scoped ? 'shell.search.hint.scoped' : 'shell.search.hint.all')
+  // THE NAME IS NOT THE HINT, and a first cut of this made it one. A placeholder is
+  // an invitation — "author, tag, a line you half remember…" — and an accessible name
+  // is what the field IS. Announcing the invitation as the name tells a screen
+  // reader user what to type and never what they are typing into, which is the one
+  // fact the sighted reader gets from the pill beside it.
+  const name = onScreen
+    ? t('shell.search.aria.screen', { where: here.label })
+    : t(scoped ? 'shell.search.aria.scoped' : 'shell.search.aria.all')
+  const leave = () => {
+    // Leaving a screen's own search must not carry its words over to the library:
+    // what narrowed a list of settings is not a quote anybody wrote.
+    if (onScreen) {
+      currentScreenSearch()?.onQuery?.('')
+      setQ('')
+    }
+    onDropScope()
   }
   return (
     <form className="topbar-search" onSubmit={submit} role="search">
       <span className="search-icon" aria-hidden="true"><IconSearch /></span>
-      {scoped && (
+      {pill && (
         <button
           type="button"
           className="scope-pill"
-          title={t('shell.search.scope.drop.tip')}
-          onClick={onDropScope}
+          title={t(onScreen ? 'shell.search.context.leave.tip' : 'shell.search.scope.drop.tip')}
+          aria-label={t(onScreen ? 'shell.search.context.leave.aria' : 'shell.search.scope.drop.tip', { where: pill })}
+          onClick={leave}
         >
           <span className="scope-key">{t('shell.search.scope.key')}</span>
-          <span className="scope-val">{scopeLabel}</span>
+          <span className="scope-val">{pill}</span>
           <span className="scope-x" aria-hidden="true"><IconClose size="1em" /></span>
         </button>
       )}
@@ -894,9 +943,9 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
         // with a name whose other end is in a different file.
         data-tour="search"
         value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={t(scoped ? 'shell.search.hint.scoped' : 'shell.search.hint.all')}
-        aria-label={t(scoped ? 'shell.search.aria.scoped' : 'shell.search.aria.all')}
+        onChange={(e) => type(e.target.value)}
+        placeholder={hint}
+        aria-label={name}
       />
       <span className="kbd-hint" aria-hidden="true">/</span>
     </form>

@@ -50,6 +50,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   next goes in by itself. (A book is not a passage, so the book itself never becomes an
   entry — its highlights do.)
 
+- **The search field says what it will search, and searches where you are.** It was one
+  field with one meaning wherever you stood: type, press Enter, leave for the search
+  screen. On Settings, on the metadata console, that made a field labelled Search into a
+  field that would take you somewhere else. Now the screen says what searching means
+  there — the words are in the field itself as well as in the pill beside it — and typing
+  narrows what is in front of you as you type. The pill's × is the way out to your whole
+  library, which is the same press that used to drop a scope.
+
+  **Settings can be searched**, which it never could: type "backup" and the page is the
+  cards that answer to it. **The metadata console's own box and the bar are one field**,
+  so the two cannot disagree about what is filtered, and the context follows the section
+  you are in — works, people or characters.
+
 - **`TIPPANI_OFFLINE=1` stops the app phoning anybody.** A self-hosted library on a box that
   does not go out, or that you would rather did not: set it, and every outbound call —
   Google Books, Open Library, TMDB, TVDB, IGDB, Fandom, Wikidata, Amazon, every cover and
@@ -598,6 +611,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because a greyed-out control cannot tell you why it is grey.
 
 ### Fixed
+
+- **The search field is announced by what it is, not by what to type in it.** Its
+  accessible name was the placeholder — "author, tag, a line you half remember…" — so a
+  screen reader said what to type and never what you were typing into, which is the one
+  fact the pill beside it gives everybody else.
 
 - **The tour's "Find any line again" step points at the search box again.** It had been
   pointing at nothing since the top bar was rebuilt on 31 August: the step still named the

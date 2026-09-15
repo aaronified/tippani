@@ -20,7 +20,7 @@ import { LanguagePicker } from './locale.jsx'
 import { languageMarksState } from './languages.jsx'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, REVIEW_TIERS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
-import { localeActive, localeCatalogue, t, tNodes } from './i18n.js'
+import { fullKeys, localeActive, localeCatalogue, t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
   ariaLabelText,
@@ -77,6 +77,7 @@ import {
   useFilePick,
   useIsMobileScreen,
   useScreenBar,
+  useScreenSearch,
 } from './ui.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
@@ -207,6 +208,53 @@ export function settingsColumns(ncols, presentKeys) {
   return layout.map((col) => col.filter((k) => present.has(k)))
 }
 
+// ---- searching Settings from the shell's own field --------------------------
+//
+// THE OWNER NAMED THIS SCREEN: "in metadata, it will search in metadata, in settings
+// it will search within settings as well. it should behave like an omnibar." So the
+// bar's field narrows this page as it is typed, and the words it matches are the
+// card's OWN words.
+//
+// DERIVED FROM THE CATALOGUE, NOT A LIST KEPT BESIDE IT. The obvious shape is a map
+// of card id -> search terms, and it is the shape this repo keeps writing warnings
+// about: it agrees with the screen on the day it is written and drifts on the next
+// rename, silently, because nothing renders it. Every string a card can draw already
+// lives under that card's own prefix, so the prefix IS the term list — rename a
+// label and the search follows it, add a control and the search finds it, with
+// nothing to keep in step.
+//
+// `.title` AND `.label` ONLY, which is the difference between searching an interface
+// and searching its prose. The explanatory paragraphs under these headings are where
+// most of the words on this page are; matching them would find "backup" on four
+// cards that merely mention it, and a filter that returns most of the page has told
+// the reader nothing.
+const SETTINGS_PREFIX = {
+  appearance: 'settings.appearance.',
+  features: 'settings.features.',
+  sr: 'settings.quiz.',
+  colors: 'settings.colours.',
+  upd: 'settings.updates.',
+  backup: 'settings.backup.',
+}
+
+// settingsMatches — does this card answer to what was typed?
+//
+// EXPORTED AND PURE, because it is the one part of this that is a function rather
+// than a screen: given a card and a query it either matches or it does not, and that
+// is checkable without mounting Settings at all.
+export function settingsMatches(cardKey, query) {
+  const q = String(query || '').trim().toLowerCase()
+  if (!q) return true
+  const prefix = SETTINGS_PREFIX[cardKey]
+  if (!prefix) return false
+  for (const key of fullKeys()) {
+    if (!key.startsWith(prefix)) continue
+    if (!key.endsWith('.title') && !key.endsWith('.label')) continue
+    if (t(key).toLowerCase().includes(q)) return true
+  }
+  return false
+}
+
 export default function Settings({ user, onPreferences, update, onUpdateInfo }) {
   const mobile = useIsMobileScreen()
   const ncols = useColumnCount()
@@ -224,6 +272,9 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
   // exists to prevent. What the key skips is the scrolling.
   const [backupNow, setBackupNow] = useState(false)
   const [updateNow, setUpdateNow] = useState(false)
+  // WHAT THE SHELL'S FIELD IS ASKING ABOUT WHILE THIS SCREEN IS UP.
+  const [q, setQ] = useState('')
+  useScreenSearch({ key: 'settings', label: t('shell.search.where.settings'), onQuery: setQ })
   useScreenBar({
     // WHO YOU ARE, UNDER THE WORD "SETTINGS". It was a mono label inside
     // .page-header, and on a phone that header has its <h1> visually hidden —
@@ -255,7 +306,15 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
         }
       : {}),
   }
-  const columns = settingsColumns(ncols, Object.keys(cards))
+  // NARROWED BEFORE THE LAYOUT IS RESOLVED, not after. `settingsColumns` places the
+  // cards that are PRESENT into a fixed layout, so handing it the matching set is
+  // the same operation a non-admin already performs — the columns come up shorter
+  // rather than the page rearranging itself, which is the whole reason that function
+  // takes the present keys instead of packing by height. See its own note.
+  const present = Object.keys(cards).filter((k) => settingsMatches(k, q))
+  const columns = settingsColumns(ncols, present)
+  const showAppearance = settingsMatches('appearance', q)
+  const nothing = !showAppearance && present.length === 0
   return (
     <section className="space-y-6">
       {/* NO PAGE HEADER ON A PHONE, not even an empty one. The shell's bar draws
@@ -270,7 +329,11 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
           counts={user.is_admin ? t('account.users.admin.chip') : user.username}
         />
       )}
-      <Appearance prefs={user.preferences} onPreferences={onPreferences} />
+      {/* SAY SO RATHER THAN GO BLANK. A page that empties under a typed word looks
+          like a page that broke, and the reader's next move is to reload rather than
+          to correct the word. */}
+      {nothing && <p className="microcopy">{t('settings.search.none', { q })}</p>}
+      {showAppearance && <Appearance prefs={user.preferences} onPreferences={onPreferences} />}
       {/* align-items:start so a short column stays short instead of stretching
           its last card to match the tallest column. */}
       <div

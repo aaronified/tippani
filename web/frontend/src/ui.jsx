@@ -619,6 +619,81 @@ export function buildScreenActions() {
   }
   return out
 }
+// ---- what the top bar's field is asking about ------------------------------
+//
+// THE OMNIBAR. The owner: "the searchbar should say the context it will search on.
+// in metadata, it will search in metadata, in settings it will search within
+// settings as well. it should behave like an omnibar." And, asked which way round:
+// SCREEN FIRST, LIBRARY ON DEMAND, on every screen, with the context spelled out in
+// words beside the pill that names it.
+//
+// SO A SCREEN SAYS WHAT SEARCHING MEANS HERE, and the shell asks rather than
+// guessing. The guess is what the bar did before: `searchScope` mapped four screens
+// onto three library scopes and answered "everything" for the other fifteen — so on
+// Settings, on Tags, on the Bin, in the metadata console, a field labelled Search
+// was a field that would leave.
+//
+// TWO STORES WOULD BE THE OBVIOUS SHAPE AND IT IS THE WRONG ONE. What the bar DRAWS
+// changes per screen; what the bar CALLS changes per keystroke, because the handler
+// closes over the screen's own filter state. Published on every render so the
+// handler is never one render behind, and subscribers woken only when `key` moves,
+// because `key` is what they draw. That is `screenActions`' lesson and `screenBar`'s
+// mechanism in one store rather than two that can disagree.
+let screenSearch = null
+const searchSubs = new Set()
+// THE STAMP IS EVERYTHING DRAWN, NOT THE KEY ALONE, and the first cut of this stamped
+// the key — which is the exact trap the paragraph above warns about, entered from the
+// other side. The handler was safe because it is re-pointed every render; the LABEL
+// was not, because a label change with the same key woke nobody. Switching the
+// interface to Bengali left the pill reading the English word, on a screen where
+// every other word had changed. A browser journey caught it; nothing below could,
+// because the string is right in the store and wrong on the screen.
+function publishSearch(v) {
+  const was = screenSearch ? `${screenSearch.key}\u0000${screenSearch.label}` : ''
+  screenSearch = v
+  const now = v ? `${v.key}\u0000${v.label}` : ''
+  if (now !== was) for (const fn of searchSubs) fn(v)
+}
+
+// useScreenSearch — the screen declares what its own search is.
+//
+// `key` names the context and is what the shell draws around; `label` is the words
+// it draws; `onQuery` is called as the reader types, so the screen narrows under
+// them rather than after a press. A screen that passes nothing publishes nothing and
+// the bar falls back to the library, which is the right answer for Home.
+//
+// NO DEPENDENCY ARRAY, DELIBERATELY, and the comment on `screenActions` above is the
+// argument: a handler covered by a stamp is a handler that goes stale the day
+// somebody adds state the stamp does not mention, and that is the bug nobody finds.
+// Re-pointing costs one assignment and cannot be a render behind.
+export function useScreenSearch(spec = null) {
+  useEffect(() => {
+    publishSearch(spec && spec.key ? spec : null)
+  })
+  // THE UNMOUNT IS SEPARATE FROM THE RE-POINT. Clearing in the same effect would
+  // publish null between every render and back again — two wake-ups a keystroke, and
+  // a bar that blinks its own label. This one runs once, on the way out.
+  useEffect(() => () => publishSearch(null), [])
+}
+
+// Called by the shell, for what to draw.
+export function useScreenSearchState() {
+  const [v, setV] = useState(screenSearch)
+  useEffect(() => {
+    searchSubs.add(setV)
+    setV(screenSearch)
+    return () => searchSubs.delete(setV)
+  }, [])
+  return v
+}
+
+// Called by the shell, at the moment of a keystroke or a press — never rendered
+// from, because this is the live one and reading it in a render would tie the bar's
+// paint to the screen's filter state.
+export function currentScreenSearch() {
+  return screenSearch
+}
+
 // Called by the shell.
 export function useScreenBarState() {
   const [v, setV] = useState(screenBar)
