@@ -15548,3 +15548,67 @@ has spotlighted empty space since 31 August.
 A class that styles nothing and a hook that anchors nothing are both **a name with no
 other end**, and neither the build nor any test notices. The only thing that finds
 them is asking, of each name, who answers it.
+
+## The omnibar reaches two screens, and the other sixteen are not pretending
+
+The ask was plain: "the searchbar should say the context it will search on. in
+metadata, it will search in metadata, in settings it will search within settings as
+well. it should behave like an omnibar." Asked which way round it should go, the
+owner settled it: screen first, library on demand, **all screens**, with the context
+spelled out in the helper text as well as worn as a pill.
+
+**WHAT SHIPPED IS TWO SCREENS.** Settings and the metadata console — the two the
+owner named — search themselves. Every other screen keeps the library context the bar
+has always had. That is a narrowing of what was asked for, and it is written here
+rather than left in a commit body because a commit body is read once by whoever wrote
+it.
+
+**WHY, AND IT IS NOT EFFORT.** A screen can only be searched if it has something to
+narrow. Settings had nothing and now has a filter of its own; the metadata console
+already had a box, and the work was to make the bar and that box one piece of state
+rather than two that drift. The remaining screens — Tags, the Bin, Anthologies,
+Checks, Cleanup, the import queue — have **no filter at all**. Publishing a context
+from them would draw a pill naming a place, spell that place out in the helper text,
+and then do nothing when the reader typed. A field that claims to narrow and does not
+is worse than a field that honestly says it searches the library: the first teaches a
+reader that the control is broken, the second teaches them where it goes.
+
+**THE SIX STRINGS WERE WRITTEN AND THEN DELETED**, which is the part worth recording.
+`shell.search.where.tags`, `.bin`, `.anthologies`, `.checks`, `.cleanup` and
+`.staging` all existed for an afternoon. `locale-complete.test.js` failed them as dead
+copy — nothing rendered them — and it was right twice over: they were dead, and they
+would have capped every translator below 100% for a feature that did not exist. A
+half-built feature that leaves its copy behind is how a locale file comes to describe
+an app that is not there.
+
+**WHAT FINISHING IT LOOKS LIKE**, so the next person does not have to re-derive it:
+each of those six is a list screen, so each needs a client-side filter over rows it
+has already loaded, and then one `useScreenSearch({ key, label, onQuery })` call
+pointed at that filter. The mechanism is done and takes one line per screen; the
+filters are the work. Checks, Cleanup and the import queue are the awkward three,
+because each composes two lists and would have to decide whether one field narrows
+both.
+
+## A dialog is not a screen, and Profile is a dialog
+
+Every screen's "?" offers a walk through that screen. Profile has a "?", so it looked
+like it should have one, and for one commit the CHANGELOG said it did.
+
+**IT CANNOT, AND THE REASON IS THE HISTORY STACK.** The account panel takes a history
+marker through `useBackToClose` and gives it back on unmount with `history.back()`.
+That pop is ASYNCHRONOUS. Opening a tour from inside the panel means closing the
+panel, so the sequence is: panel unmounts and schedules a pop, tour mounts and pushes
+its own marker, the pop arrives and `backPop` closes the thing now on top — the tour.
+The button drew, the press landed, and the walk vanished on the way in. Measured, not
+reasoned: the screen after the press was plain Home with no tour card on it.
+
+**AND NOT CLOSING THE PANEL IS WORSE.** The account step spotlights the avatar chip
+in the shell's own bar, which is behind the panel's scrim — a caption pointing at
+something the reader cannot see.
+
+**SO THE STEP STAYS WHERE IT WORKS.** It is in the welcome tour, anchored to a control
+that is on every screen, and Profile's "?" keeps its glossary. The general rule this
+leaves behind: `tourStepsForTab` answers for SCREENS, and a surface that has to
+dismiss itself to be walked is not one. `helpScreen` returning a key for it is not
+evidence to the contrary — the add surface answers `capture` and `import` the same way,
+and for the same reason has no walk either.

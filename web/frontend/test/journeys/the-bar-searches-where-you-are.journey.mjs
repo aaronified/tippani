@@ -84,3 +84,29 @@ it('the bar and the metadata console are one field, not two', async () => {
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
+
+// AND WHAT WAS TYPED DOES NOT FOLLOW THE READER OFF THE SCREEN.
+//
+// A RATING FOUND THIS, and it is the half a "does it narrow?" test cannot see. Type
+// into Settings' field and press Home: the pill goes, the field renames itself
+// "Search everything" — and the word stayed, so Enter would run a library search over
+// a word that was about a screen the reader had left. The clear was on the pill's ×,
+// which is one of the two ways out of a context; changing screens is the other.
+//
+// READ OFF THE FIELD ITSELF, because an empty field puts nothing in the page's text
+// and `see` could not tell this from any other empty screen.
+//
+// THE MUTATION: drop the effect that clears `q` on a context change and this fails
+// with 'backup' still in the box.
+it('what was typed for one screen does not follow the reader to the next', async () => {
+  await app.goto('/settings')
+  await app.type('Search settings', 'backup')
+  await app.see('Backup')
+
+  await app.press('Home')
+
+  // The field is the library's again, and it is empty.
+  expect(await app.valueOf('Search everything'), 'the word followed the reader').toBe('')
+
+  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})

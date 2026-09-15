@@ -88,8 +88,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Seven screens drew no button at all, because the only steps that existed were the
   welcome tour's: Quotes, Search, Anthologies, the Bin, Checks, Cleanup and the import
-  queue. All seven have their own walk now, and so do a book's own page, a film's own page
-  and Profile — which are screens with a "?" and no tab to their name.
+  queue. All seven have their own walk now, and so do a book's own page and a film's own
+  page — which are screens with a "?" and no tab to their name. (Profile does not: it is a
+  panel over a screen, and the step about it is in the welcome tour, pointing at the
+  avatar chip that opens it.)
 
   **And it works on a phone.** The walkthrough was offered by the desktop "?" pill only;
   a phone's help opens from the ⋯ instead, and drew nothing. That is also the help a book's
@@ -630,6 +632,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same line the top bar occupies — so it sat behind the header, where a press lands on the
   search box instead. **Set fields** has been unreachable that way since 1.16.0. It now
   parks below the bar, as it already did on a phone.
+
 - **A character typed on a capture form no longer vanishes when you press Save.** If you
   typed a name into Character and went straight for Save — without pressing Enter to turn
   it into a token first, which is what most people do — the line saved with no character at

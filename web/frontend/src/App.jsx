@@ -871,6 +871,14 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
   // behaves exactly as it did before, scope pill and all.
   const here = useScreenSearchState()
   const scoped = scope !== 'all'
+  // THE WORD DOES NOT FOLLOW THE READER OFF THE SCREEN. Typing `backup` into
+  // Settings and then pressing Home left `backup` sitting in a field that now says
+  // "Search everything" and whose pill is gone — so Enter ran a library search
+  // nobody asked for, over a word that was about a screen they had left. `leave()`
+  // cleared it on the pill's ×, which is only one of the two ways out of a context.
+  // This is the other: the context changed underneath the field.
+  const contextKey = here ? here.key : ''
+  useEffect(() => { setQ('') }, [contextKey])
   // THE SCREEN'S OWN SEARCH IS WHAT THE FIELD DOES, UNTIL THE READER SAYS OTHERWISE.
   // `here.key` is the context; dropping it is the "library on demand" half, and it
   // is the same press that used to drop a library scope — one control, one meaning:
@@ -1109,6 +1117,9 @@ function AccountOverlay({ user, onUser, onClose, logout }) {
           <span className="account-page-title">{t('nav.tab.profile.label')}</span>
           {/* This page covers the shell bar, so it carries its own "?" — the one
               screen that still does. */}
+          {/* NO WALKTHROUGH HERE, AND IT IS NOT AN OVERSIGHT — see the note on the
+              account step in tour.jsx. This panel is a dialog over a screen, and a
+              walk it has to close itself to run is not a walk of anything. */}
           <span className="ml-auto"><PageHelp screen="profile" /></span>
         </header>
         <div className="account-page-body">{body}</div>

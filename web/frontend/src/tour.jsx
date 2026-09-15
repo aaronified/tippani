@@ -206,9 +206,23 @@ const TOUR_STEPS = [
   {
     key: 'account',
     anchor: '[data-tour="account"]',
-    // The avatar chip is in the shell's bar, so this stays in the welcome tour; the
-    // panel it opens is a screen with a "?" of its own, so it is that screen's walk.
-    screen: 'profile',
+    // NO `screen: 'profile'`, AND THE REASON IS WORTH THE LINES because it looked
+    // like an oversight and was tried.
+    //
+    // Profile is a DIALOG over a screen, not a screen. Its overlay takes a history
+    // marker (`useBackToClose`) and gives it back on unmount with `history.back()`
+    // — and that pop is asynchronous, so it arrives AFTER a tour opened in the same
+    // press has pushed its own marker, and closes it. The walk button drew, the
+    // press landed, and the tour vanished on the way in.
+    //
+    // Deferring the open would be racing one scheduler against another. Not closing
+    // the panel is worse: this step spotlights the avatar chip in the shell's own
+    // bar, which the panel's scrim is sitting on top of — a caption pointing at
+    // something the reader cannot see.
+    //
+    // So the step stays where it works: in the welcome tour, anchored to a control
+    // that is on every screen. Profile's "?" keeps its glossary, which is what a
+    // dialog's help should be.
     get name() { return t('tour.step.account.name') },
     get blurb() { return t('tour.step.account.blurb') },
     get title() { return t('tour.step.account.title') },

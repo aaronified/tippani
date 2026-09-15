@@ -65,3 +65,38 @@ it('a reader gathers every passage inside a selection of books', async () => {
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
+
+// AND THE BAR'S MENU OPENS ON A SHELF LONG ENOUGH TO SCROLL, which is the case the
+// test above does NOT make.
+//
+// A RATING CAUGHT THAT, and it was the sharper half of this file's own story. The
+// stylesheet fix that made a work selection reachable at all — `.selection-bar`
+// parking behind the sticky top bar — had no guard: put `top: 0` back, rebuild, and
+// the journey above goes on passing. Three books do not fill a viewport, so the bar
+// never sticks, so the bug it was written for cannot reproduce inside it. A test that
+// cannot fail on the defect it documents is the shape this whole directory exists to
+// end, and it was sitting in the file whose header explains the defect.
+//
+// SO THIS ONE TAKES THE WHOLE SHELF. Every book on the Library is twenty-seven of
+// them; ticking them scrolls the page, the bar stickies to the top, and THAT is the
+// state where the header used to answer the press instead. It is also a plain thing
+// to want — select everything, then open the menu.
+//
+// IT ASSERTS THE MENU AND NOT THE GATHER, deliberately: the act is covered above, and
+// repeating it here would make a slow test slower for a claim already held. What is
+// new is only that the control ANSWERS.
+//
+// THE MUTATION: revert `.selection-bar` to `top: 0` and this fails — the ⋯ reports a
+// box, `press` clicks its centre, and the top bar's search field takes the click.
+it('the selection bar still answers once the shelf has scrolled under it', async () => {
+  await app.goto('/library')
+
+  const ticked = await app.pressAll('Select this book')
+  expect(ticked, 'the whole shelf should be more than a screenful').toBeGreaterThan(20)
+
+  await app.press(`More for the ${ticked} selected`)
+  // A row that only exists inside the menu, so seeing it IS the menu having opened.
+  await app.see('Add to anthology')
+
+  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})
