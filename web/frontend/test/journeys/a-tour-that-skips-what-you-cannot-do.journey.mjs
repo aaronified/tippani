@@ -21,10 +21,31 @@
 // `per-user-isolation` makes one: a reader added from the Profile screen is an
 // ordinary account, and ordinary is the case with no coverage.
 //
-// THE MUTATION: drop `!s.admin || isAdmin` from `tourSteps` and the second
-// account's button offers three steps instead of one, so the `see` of the
-// one-step wording fails; walk past it and the tour stops on Metadata keys,
-// which the `gone` refuses.
+// THERE ARE TWO ADMIN FILTERS AND THIS FILE USED TO GUARD ONE OF THEM.
+//
+// `tourSteps` builds the WELCOME tour and `tourStepsForTab` builds a screen's own
+// walk, and each applies `!s.admin || isAdmin` separately. The header here named the
+// first and the test exercised only the second: strike the filter out of `tourSteps`
+// and every one of the 4,425 vitest tests and all the journeys stayed green,
+// including this one — while a reader who is not an admin was walked through the
+// API-keys card and the Backup card on their very first launch, which is the precise
+// harm the paragraphs above describe. A second rating found it by mutating the line
+// this file had named. A header that claims a stronger test than the file contains is
+// worse than no header, and this is the second time that has been true in this
+// directory; so the welcome tour is now checked HERE, in the same file, rather than
+// left to the reader of a comment.
+//
+// THE COUNT IS THE CLAIM, AND IT IS EXACT ON PURPOSE. A fresh account's welcome tour
+// says "1 of 19" — nineteen being what is left after the two admin steps drop and the
+// sections a new reader has switched off drop with them. Remove either filter and the
+// number moves, which is a thing a journey can see without pressing Next nineteen
+// times. It also means adding a tour step updates this number, and that is the right
+// cost: the number IS what the reader is promised at the top of the tour.
+//
+// THE MUTATIONS: drop `!s.admin || isAdmin` from `tourSteps` and the welcome tour
+// below offers 21 steps rather than 19; drop it from `tourStepsForTab` and the
+// per-screen button offers three steps instead of one; walk past that and the tour
+// stops on Metadata keys, which the `gone` refuses.
 
 import { expect, it } from 'vitest'
 
@@ -58,8 +79,14 @@ it('a reader who is not an admin is walked past the cards only an admin has', as
   await app.press('Sign in')
   await app.see('empty notebook, plain-reader')
 
-  // A fresh account opens on the welcome tour, and it holds the route on Home
-  // until it is dismissed — see `per-user-isolation`, which pays the same toll.
+  // THE WELCOME TOUR, WHICH THIS ACCOUNT MEETS BEFORE ANYTHING ELSE. It opens by
+  // itself on a first launch, and what it promises is a length.
+  await app.see('1 of 19')
+  // And the first of the two steps it must not contain is not in it — read here
+  // rather than nineteen presses later, because the count above is what proves the
+  // whole list and this proves the count is about the right thing.
+  await app.gone(ADMIN_ONLY)
+
   await app.press('skip tour')
 
   // THE SAME BUTTON, ON THE SAME SCREEN, FOR SOMEBODY WHO IS NOT AN ADMIN.

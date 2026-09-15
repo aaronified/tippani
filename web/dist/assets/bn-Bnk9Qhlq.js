@@ -1167,7 +1167,7 @@ shell.search.scope.thisfilm = এই চলচ্চিত্র
 shell.search.scope.all = সবকিছু
 shell.search.scope.key = এর মধ্যে
 shell.search.scope.drop.tip = বরং সবকিছুতে খুঁজুন
-shell.search.hint.scoped = লেখক, ট্যাগ, আধা-মনে থাকা কোনও পঙ্‌ক্তি…
+shell.search.hint.within = {where} খুঁজুন — লেখক, ট্যাগ, আবছা মনে পড়া একটা লাইন…
 shell.search.hint.all = সবকিছু — সব বই, চলচ্চিত্র, উদ্ধৃতি…
 shell.search.hint.screen = {where} খুঁজুন — লিখলেই পর্দার জিনিস ছেঁকে আসবে
 shell.search.context.leave.tip = বদলে গোটা লাইব্রেরিতে খুঁজুন
@@ -1175,10 +1175,9 @@ shell.search.context.leave.aria = এখন {where} খোঁজা হচ্ছ
 # What each screen calls its own search, named here rather than in the screen so
 # the bar and the screen cannot come to disagree about what a place is called.
 shell.search.where.settings = সেটিংস
-shell.search.where.metadata = মানুষ আর তথ্য
+shell.search.where.works = বই আর ছবি
 shell.search.where.characters = এই লাইব্রেরির চরিত্র
 shell.search.where.people = এই লাইব্রেরির মানুষ
-shell.search.aria.scoped = যা দেখছেন তার মধ্যে খুঁজুন
 shell.search.aria.screen = {where} খুঁজুন
 shell.search.aria.all = সবকিছুতে খুঁজুন
 

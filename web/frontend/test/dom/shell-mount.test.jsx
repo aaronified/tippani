@@ -202,3 +202,43 @@ describe('the logged-in shell', () => {
     })
   })
 })
+
+describe('the search field says where it is pointed', () => {
+  // THE HELPER TEXT IS THE ONE PROMISE NO JOURNEY CAN CHECK, which is why this lives
+  // here and not beside the rest of the omnibar's coverage.
+  //
+  // The owner asked for the context in the helper text "along with the pills", twice.
+  // A journey may know what is on the screen and what a person can do to it — and a
+  // placeholder is in neither: it is not in `innerText`, so `see` cannot read it, and
+  // `type` finds a field by its accessible NAME, so a field whose name is right and
+  // whose placeholder has fallen back to generic advice passes every browser test in
+  // the suite. That was measured, not assumed: replacing the scoped hint with the
+  // "everything" one left all four cases of `the-bar-searches-where-you-are` green.
+  //
+  // So the NAME is held there, where a reader of a screen reader meets it, and the
+  // PLACEHOLDER is held here, where a sighted reader meets it. Two halves of one
+  // promise, each at the tier that can see it.
+  const placeholder = () => document.querySelector('.topbar-search input')?.getAttribute('placeholder')
+
+  it('offers the whole library on a screen with no scope of its own', async () => {
+    await mount()
+    // Home searches everything, and this has to stay the FALLBACK rather than
+    // becoming the answer everywhere — which is exactly what the defect was.
+    expect(placeholder()).toMatch(/everything/i)
+  })
+
+  it('names the scope once the reader is inside one', async () => {
+    await mount()
+    // Onto a scoped screen the way a reader gets there. The rail's row is named for
+    // the screen and carries its counts, so it is matched rather than spelled.
+    const row = [...document.querySelectorAll('.rail-nav .rail-row')]
+      .find((el) => /library/i.test(el.textContent || ''))
+    expect(row, 'no Library row in the rail').toBeTruthy()
+    fireEvent.click(row)
+    await waitFor(() => expect(placeholder()).toMatch(/library/i))
+    // AND IT IS NOT STILL THE GENERIC ONE. Asserting only the presence of "Library"
+    // would pass on a sentence that also said "everything — every book, film, quote",
+    // which is the fallback this is about.
+    expect(placeholder()).not.toMatch(/every book/i)
+  })
+})

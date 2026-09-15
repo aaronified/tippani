@@ -905,25 +905,37 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
   // for both: "the helper text in the search bar will spell out what context there
   // is, along with the pills."
   const pill = onScreen ? here.label : scoped ? scopeLabel : ''
+  // THE CONTEXT IS IN THE WORDS ON EVERY SCREEN THAT HAS ONE, which is what was
+  // asked for twice — "the helper text in the search bar will spell out what context
+  // there is, along with the pills". A scoped screen wore the pill and then offered
+  // "author, tag, a line you half remember…", which is a prompt about HOW to type
+  // and says nothing about where the typing goes. The pill said it and the sentence
+  // did not, on exactly the screens a reader spends most of their time.
   const hint = onScreen
     ? t('shell.search.hint.screen', { where: here.label })
-    : t(scoped ? 'shell.search.hint.scoped' : 'shell.search.hint.all')
+    : scoped
+      ? t('shell.search.hint.within', { where: scopeLabel })
+      : t('shell.search.hint.all')
   // THE NAME IS NOT THE HINT, and a first cut of this made it one. A placeholder is
   // an invitation — "author, tag, a line you half remember…" — and an accessible name
   // is what the field IS. Announcing the invitation as the name tells a screen
   // reader user what to type and never what they are typing into, which is the one
   // fact the sighted reader gets from the pill beside it.
-  const name = onScreen
-    ? t('shell.search.aria.screen', { where: here.label })
-    : t(scoped ? 'shell.search.aria.scoped' : 'shell.search.aria.all')
+  // AND THE NAME CARRIES THE SCOPE WHEREVER THERE IS ONE. "Search what you are
+  // looking at" was true and said nothing: a screen reader user got the same four
+  // words on the Library, the Catalogue, Quotes and a book's own page, which is
+  // exactly the set where the sighted reader is told which one by the pill.
+  const name = onScreen || scoped
+    ? t('shell.search.aria.screen', { where: onScreen ? here.label : scopeLabel })
+    : t('shell.search.aria.all')
+  // LEAVING A CONTEXT CARRIES WHAT WAS TYPED, and an earlier cut threw it away on
+  // both paths. Pressing × having typed something is a reader saying "not here —
+  // everywhere", and answering that with an empty search screen makes them type it a
+  // second time. The screen's own filter is still released, because they are no
+  // longer asking it anything; the WORD is the part that was never the screen's.
   const leave = () => {
-    // Leaving a screen's own search must not carry its words over to the library:
-    // what narrowed a list of settings is not a quote anybody wrote.
-    if (onScreen) {
-      currentScreenSearch()?.onQuery?.('')
-      setQ('')
-    }
-    onDropScope()
+    if (onScreen) currentScreenSearch()?.onQuery?.('')
+    onDropScope(q)
   }
   return (
     <form className="topbar-search" onSubmit={submit} role="search">
@@ -2074,8 +2086,10 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
       : 'shell.search.scope.all',
   )
   // Enter writes the query and the scope to the keys SearchPage already reads, then
-  // goes there. `q` is null when the pill's × is what called this — dropping a scope
-  // must not also wipe a query you have not typed yet.
+  // goes there. `q` is null when nothing was typed — leaving a scope must not wipe a
+  // query somebody set earlier from somewhere else. The pill's × now passes whatever
+  // is in the field instead, including the empty string, which is a reader asking for
+  // the library with nothing in mind and is different from not asking at all.
   const runSearch = (q, sc) => {
     try {
       if (q !== null) localStorage.setItem('tippani:search:q', JSON.stringify(q))
@@ -2126,7 +2140,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             scope={barScope}
             scopeLabel={scopeLabel(barScope)}
             onSearch={(q, sc) => runSearch(q, sc)}
-            onDropScope={() => runSearch(null, 'all')}
+            onDropScope={(carry) => runSearch(carry || '', 'all')}
           />
           {/* Add · Search · Help · chip — the same four, in the same order, as the
               phone bar below. Each of the first three reads the current route

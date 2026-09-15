@@ -77,7 +77,7 @@ it('the bar and the metadata console are one field, not two', async () => {
   // answer. A reader gets to it the same way.
   await app.press('Works')
 
-  await app.type('Search people and metadata', 'grimm')
+  await app.type('Search works and films', 'grimm')
 
   // The console's own box, which nobody typed into, is holding the word.
   expect(await app.valueOf('search…'), 'the two fields have drifted').toBe('grimm')
@@ -107,6 +107,39 @@ it('what was typed for one screen does not follow the reader to the next', async
 
   // The field is the library's again, and it is empty.
   expect(await app.valueOf('Search everything'), 'the word followed the reader').toBe('')
+
+  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})
+
+// THE SCOPED SCREENS SAY THEIR CONTEXT IN WORDS TOO, and for a release they did not.
+//
+// The owner asked for the helper text to spell out the context "along with the pills",
+// and the pill was on five screens while the sentence was on two: Library, Catalogue
+// and Quotes wore "in Library" and then offered "author, tag, a line you half
+// remember…", which is advice about how to type. A rating read it off the line.
+//
+// AND THE × CARRIES WHAT WAS TYPED. Pressing it having typed something used to land
+// the reader on an empty search screen, so the word had to be typed a second time.
+// Asking for the whole library is "not here — everywhere", not "forget it".
+//
+// THE MUTATIONS: name the field "Search what you are looking at" again and the `type`
+// cannot find it; drop the query from `onDropScope` and the search never runs, so
+// Seneca is not among the results.
+it('a scoped screen names its scope in the field, and × takes the word with it', async () => {
+  await app.goto('/library')
+
+  // The scope is in the sentence, not only in the pill — which is what `type`
+  // finding this field by that name proves.
+  await app.type('Search Library', 'seneca')
+
+  // OUT TO THE WHOLE LIBRARY, carrying the word rather than discarding it.
+  //
+  // ASSERTED ON THE RESULTS AND NOT ON THE BOX, which is the difference between a
+  // guard and a decoration. Under the defect the word IS in the box — measured — and
+  // the search has simply not run, so a reader sees what they typed and no answer and
+  // has to press Enter over it. Reading the box back would pass either way.
+  await app.press('Search everything instead')
+  await app.see('On the Shortness of Life')
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

@@ -56,7 +56,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   field that would take you somewhere else. Now the screen says what searching means
   there — the words are in the field itself as well as in the pill beside it — and typing
   narrows what is in front of you as you type. The pill's × is the way out to your whole
-  library, which is the same press that used to drop a scope.
+  library, which is the same press that used to drop a scope — and it takes what you have
+  typed with it. On the Library, the Catalogue and Quotes the field now names its scope in
+  words as well, rather than wearing it only as a pill.
 
   **Settings can be searched**, which it never could: type "backup" and the page is the
   cards that answer to it. **The metadata console's own box and the bar are one field**,
@@ -92,6 +94,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   page — which are screens with a "?" and no tab to their name. (Profile does not: it is a
   panel over a screen, and the step about it is in the welcome tour, pointing at the
   avatar chip that opens it.)
+
+  **The welcome tour grew with them, from fifteen steps to twenty-two.** A step belongs
+  to a screen and to the first-run walkthrough both, so seven new screens mean seven new
+  stops on the tour a new reader meets. That is a longer first run than before; *skip
+  tour* and *finish later* are on every step as they always were, and the per-screen
+  walks are what the "?" offers once the first run is behind you.
 
   **And it works on a phone.** The walkthrough was offered by the desktop "?" pill only;
   a phone's help opens from the ⋯ instead, and drew nothing. That is also the help a book's

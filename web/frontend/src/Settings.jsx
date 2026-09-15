@@ -135,7 +135,14 @@ function useColumnCount() {
 // its strings, and every `/auth/devices` route are untouched, and putting it back is
 // this one word. Registering it is what draws it — the same mechanism that leaves a
 // non-admin without Updates and Backup.
-export const SETTINGS_CARDS = ['features', 'colors', 'sr', 'trash', 'clean', 'upd', 'backup']
+// 'trash' AND 'clean' LEFT THIS LIST, AND THEY LEFT THE PAGE LONG AGO. The note
+// above still explains why the bin and stray-marks TILES were removed; the two ids
+// stayed behind in this list and in the layout below, naming cards the `cards` object
+// has not built since. Harmless, because `settingsColumns` places only what is
+// present — and so invisible, which is why they outlived the tiles by several
+// releases. Found by the scanner that pairs this list against the search prefixes:
+// two ids with nowhere to look them up.
+export const SETTINGS_CARDS = ['features', 'colors', 'sr', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -190,12 +197,12 @@ export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
     ['colors', 'backup'],
-    ['sr', 'features', 'trash', 'clean', 'upd'],
+    ['sr', 'features', 'upd'],
   ],
   3: [
     ['colors'],
     ['sr', 'features', 'upd'],
-    ['trash', 'clean', 'backup'],
+    ['backup'],
   ],
 }
 

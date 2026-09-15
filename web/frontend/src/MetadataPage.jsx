@@ -794,7 +794,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
   // nearest field — but they are now ONE piece of state, so the two cannot disagree
   // about what is being filtered. Publishing the same setter is what makes that
   // true, rather than a second `q` kept in step by hand.
-  useScreenSearch({ key: 'metadata', label: t('shell.search.where.metadata'), onQuery: setQ })
+  useScreenSearch({ key: 'metadata-works', label: t('shell.search.where.works'), onQuery: setQ })
   const [lookupKey, setLookupKey] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')

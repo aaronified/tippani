@@ -1160,7 +1160,7 @@ shell.search.scope.thisfilm = this film
 shell.search.scope.all = everything
 shell.search.scope.key = in
 shell.search.scope.drop.tip = Search everything instead
-shell.search.hint.scoped = author, tag, a line you half remember…
+shell.search.hint.within = Search {where} — author, tag, a line you half remember…
 shell.search.hint.all = everything — every book, film, quote…
 shell.search.hint.screen = Search {where} — type to narrow what is on screen
 shell.search.context.leave.tip = Search your whole library instead
@@ -1168,10 +1168,9 @@ shell.search.context.leave.aria = Searching {where}; press to search your whole 
 # What each screen calls its own search, named here rather than in the screen so
 # the bar and the screen cannot come to disagree about what a place is called.
 shell.search.where.settings = settings
-shell.search.where.metadata = people and metadata
+shell.search.where.works = works and films
 shell.search.where.characters = characters in this library
 shell.search.where.people = people in this library
-shell.search.aria.scoped = Search what you are looking at
 shell.search.aria.screen = Search {where}
 shell.search.aria.all = Search everything
 shell.search.global.aria = Search everything
