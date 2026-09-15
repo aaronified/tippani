@@ -368,7 +368,14 @@ function ColourCategoriesCard({ prefs, onSaved }) {
     // SectionTitle already lays a dot out on the heading's own line, which is
     // where it was wanted, and it carries the standing copy that a line of
     // microcopy underneath was repeating in shorter words.
-    <Card data-tour="categories">
+    //
+    // NO `data-tour` HERE ANY MORE. This card carried `data-tour="categories"` and
+    // no step ever named it — an anchor with nothing on the other end, which is the
+    // same defect as the tour step that named `[data-tour="search"]` after the
+    // element lost it, seen from the opposite side. Both cost nothing and do
+    // nothing, and neither the build nor any test says a word. If the colour
+    // categories ever earn a step, the attribute comes back with it.
+    <Card>
       <SectionTitle
         info={t('settings.colours.info.body')}
       >

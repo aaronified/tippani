@@ -120,6 +120,9 @@ const TOUR_STEPS = [
   {
     key: 'search',
     anchor: '[data-tour="search"]',
+    // NO `tab`, BECAUSE THE BOX IS IN THE SHELL and is on every screen already — but
+    // the screen it leads to is the one whose help should offer this.
+    screen: 'search',
     get name() { return t('tour.step.search.name') },
     get blurb() { return t('tour.step.search.blurb') },
     get title() { return t('tour.step.search.title') },
@@ -203,6 +206,9 @@ const TOUR_STEPS = [
   {
     key: 'account',
     anchor: '[data-tour="account"]',
+    // The avatar chip is in the shell's bar, so this stays in the welcome tour; the
+    // panel it opens is a screen with a "?" of its own, so it is that screen's walk.
+    screen: 'profile',
     get name() { return t('tour.step.account.name') },
     get blurb() { return t('tour.step.account.blurb') },
     get title() { return t('tour.step.account.title') },
@@ -212,6 +218,130 @@ const TOUR_STEPS = [
       })
     },
     get more() { return t('tour.step.account.more') },
+  },
+  {
+    key: 'boards',
+    tab: 'quotes',
+    get name() { return t('tour.step.boards.name') },
+    get blurb() { return t('tour.step.boards.blurb') },
+    get title() { return t('tour.step.boards.title') },
+    get body() {
+      return tNodes('tour.step.boards.prose', {
+        em1: <b key="em1">{t('tour.step.boards.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.boards.more') },
+  },
+  {
+    key: 'anthologies',
+    tab: 'anthologies',
+    get name() { return t('tour.step.anthologies.name') },
+    get blurb() { return t('tour.step.anthologies.blurb') },
+    get title() { return t('tour.step.anthologies.title') },
+    get body() {
+      return tNodes('tour.step.anthologies.prose', {
+        em1: <b key="em1">{t('tour.step.anthologies.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.anthologies.more') },
+  },
+  {
+    key: 'filters',
+    tab: 'search',
+    get name() { return t('tour.step.filters.name') },
+    get blurb() { return t('tour.step.filters.blurb') },
+    get title() { return t('tour.step.filters.title') },
+    get body() {
+      return tNodes('tour.step.filters.prose', {
+        em1: <b key="em1">{t('tour.step.filters.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.filters.more') },
+  },
+  {
+    key: 'bin',
+    tab: 'bin',
+    get name() { return t('tour.step.bin.name') },
+    get blurb() { return t('tour.step.bin.blurb') },
+    get title() { return t('tour.step.bin.title') },
+    get body() {
+      return tNodes('tour.step.bin.prose', {
+        em1: <b key="em1">{t('tour.step.bin.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.bin.more') },
+  },
+  {
+    key: 'checks',
+    tab: 'checks',
+    get name() { return t('tour.step.checks.name') },
+    get blurb() { return t('tour.step.checks.blurb') },
+    get title() { return t('tour.step.checks.title') },
+    get body() {
+      return tNodes('tour.step.checks.prose', {
+        em1: <b key="em1">{t('tour.step.checks.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.checks.more') },
+  },
+  {
+    key: 'cleanup',
+    tab: 'cleanup',
+    get name() { return t('tour.step.cleanup.name') },
+    get blurb() { return t('tour.step.cleanup.blurb') },
+    get title() { return t('tour.step.cleanup.title') },
+    get body() {
+      return tNodes('tour.step.cleanup.prose', {
+        em1: <b key="em1">{t('tour.step.cleanup.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.cleanup.more') },
+  },
+  {
+    key: 'staging',
+    tab: 'staging',
+    get name() { return t('tour.step.staging.name') },
+    get blurb() { return t('tour.step.staging.blurb') },
+    get title() { return t('tour.step.staging.title') },
+    get body() {
+      return tNodes('tour.step.staging.prose', {
+        em1: <b key="em1">{t('tour.step.staging.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.staging.more') },
+  },
+  // THE TWO SCREENS THAT ARE NOT TABS. `helpScreen` answers 'book-detail' and
+  // 'movie-detail' for a work you have open, so that is what their walks are keyed
+  // to — and `fullTour: false` keeps them out of the welcome sequence, which has
+  // nowhere to navigate a reader who has no book open. Library and Catalogue already
+  // carry that ground in the sequence.
+  {
+    key: 'book',
+    screen: 'book-detail',
+    fullTour: false,
+    get name() { return t('tour.step.book.name') },
+    get blurb() { return t('tour.step.book.blurb') },
+    get title() { return t('tour.step.book.title') },
+    get body() {
+      return tNodes('tour.step.book.prose', {
+        em1: <b key="em1">{t('tour.step.book.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.book.more') },
+  },
+  {
+    key: 'film',
+    screen: 'movie-detail',
+    fullTour: false,
+    get name() { return t('tour.step.film.name') },
+    get blurb() { return t('tour.step.film.blurb') },
+    get title() { return t('tour.step.film.title') },
+    get body() {
+      return tNodes('tour.step.film.prose', {
+        em1: <b key="em1">{t('tour.step.film.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.film.more') },
   },
   {
     key: 'done',
@@ -242,8 +372,17 @@ const TOUR_STEPS = [
 // findVisible returns nothing and the reader gets a caption pointing at empty
 // space. FeatureTour derives `sections` from the same user.preferences bag the nav
 // does rather than being handed it, so there is no prop to get out of step.
+//
+// `fullTour: false` IS HOW A STEP OPTS OUT OF THIS WALK WITHOUT LEAVING THE LIST.
+// The whole-app tour NAVIGATES, and it navigates by `tab`; a step about a book's own
+// page names no tab it could send anybody to, and the shelf it would land on already
+// has a step of its own. So those two live here for the per-screen walk and are not
+// in the sequence. It is a flag rather than a derived rule because the derived rule
+// wanted an exception immediately: `account` also names no tab, and belongs in the
+// welcome tour, because the control it spotlights is in the shell's own bar and is
+// therefore already on whatever screen the reader is standing on.
 export const tourSteps = (isAdmin, sections) =>
-  TOUR_STEPS.filter((s) => (!s.admin || isAdmin) && (!s.tab || sections?.[s.tab] !== false))
+  TOUR_STEPS.filter((s) => s.fullTour !== false && (!s.admin || isAdmin) && (!s.tab || sections?.[s.tab] !== false))
 
 // tourStepsForTab — the walk through ONE screen, which is what Help offers.
 //
@@ -256,11 +395,23 @@ export const tourSteps = (isAdmin, sections) =>
 // what a screen's features are.
 //
 // IT RETURNS [] FOR A SCREEN WITH NO STEPS, and the caller draws no button rather
-// than an empty tour. Quotes and Search have none today; a tour that opens and says
-// nothing is worse than an absent control, because the reader presses it twice
-// before deciding it is broken.
+// than an empty tour: a tour that opens and says nothing is worse than an absent
+// control, because the reader presses it twice before deciding it is broken. That
+// used to be seven screens — Quotes, Search, Anthologies, the Bin, Checks, Cleanup
+// and the import queue — and it is none of them now.
+//
+// `screen` OVERRIDES `tab`, AND MOST STEPS HAVE NO `screen` AT ALL. The two say
+// different things and the difference only shows where a screen is not a tab: `tab`
+// is where the whole-app tour NAVIGATES, `screen` is whose help offers this step. A
+// book's own page, a film's own page and the Profile panel are all screens with a
+// "?" of their own and no tab to their name, so `helpScreen` is what they answer to
+// and `screen` is how a step says so.
+//
+// IT IS NOT FILTERED BY `sections`, which `tourSteps` still does for the tab steps
+// it wraps. A reader can only ask for the walk through a screen they are already
+// standing on.
 export const tourStepsForTab = (isAdmin, sections, tab) =>
-  tourSteps(isAdmin, sections).filter((s) => s.tab === tab)
+  TOUR_STEPS.filter((s) => (!s.admin || isAdmin) && (s.screen || s.tab) === tab)
 
 // findVisible — the first match that actually renders (desktop and mobile
 // top bars both mount the same controls; CSS hides one set).

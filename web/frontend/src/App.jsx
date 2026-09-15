@@ -754,7 +754,7 @@ export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
 // twice in one corner of one bar. The phone bar has no room for a ? and keeps the
 // row, which is why this is a prop the CALLER answers rather than a media query:
 // each bar knows what else it is drawing.
-function ScreenMenu({ screen, className, glyph = 22, withHelp = true }) {
+function ScreenMenu({ screen, className, glyph = 22, withHelp = true, onTour = null, tourSteps = 0 }) {
   const [open, setOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const ref = useRef(null)
@@ -807,7 +807,13 @@ function ScreenMenu({ screen, className, glyph = 22, withHelp = true }) {
         </button>
       </Tooltip>
       <ActionMenu open={open} items={items} anchorRef={ref} onClose={() => setOpen(false)} returnFocusTo={ref} />
-      <ScreenHelpSheet screen={screen} open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <ScreenHelpSheet
+        screen={screen}
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        onTour={onTour}
+        tourSteps={tourSteps}
+      />
     </div>
   )
 }
@@ -880,6 +886,13 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
       )}
       <input
         ref={ref}
+        // THE TOUR'S OWN ANCHOR, and it was missing for a fortnight. The shell
+        // rewrite (046b9831) rebuilt this bar and dropped the attribute; the step in
+        // `tour.jsx` went on naming `[data-tour="search"]`, `findVisible` matched
+        // nothing, and the step about finding a line again spotlighted empty space.
+        // Nothing fails when a selector matches nothing, which is the whole problem
+        // with a name whose other end is in a different file.
+        data-tour="search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder={t(scoped ? 'shell.search.hint.scoped' : 'shell.search.hint.all')}
@@ -2119,7 +2132,17 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               to be the dock's second seat on a work's detail and nowhere at all on
               every other screen; the dock seat it vacates goes to a verb a thumb
               actually reaches for. */}
-          <ScreenMenu screen={help} className="mobile-topbar-btn" />
+          {/* THE WALK GOES THROUGH HERE ON A PHONE, because this ⋯ is the only help
+              door a phone has — the "?" pill is desktop-only. The desktop ⋯ below
+              does NOT carry it, for the reason it already passes `withHelp={false}`:
+              its own pill is two controls away and the same door twice in one
+              corner of one bar is clutter. */}
+          <ScreenMenu
+            screen={help}
+            className="mobile-topbar-btn"
+            onTour={(screenKey) => setTourState({ step: 0, onlyTab: screenKey })}
+            tourSteps={tourStepsForTab(user.is_admin, sections, help).length}
+          />
         </header>
         <ErrorBoundary key={tab} label={t('shell.error.boundary.screen.label', { name: tab })}>
         <div className="tab-panel">

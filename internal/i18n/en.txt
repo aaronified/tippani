@@ -2212,6 +2212,78 @@ tour.step.account.prose = The avatar chip opens your {em1} — photo, display na
 tour.step.account.em1.label = Profile
 tour.step.account.more = Admins manage users from the same screen: add, remove, grant or revoke admin. The last remaining admin cannot be demoted, so an instance can never be locked out of itself. To hand over, grant another user admin first, then revoke your own. Switching accounts asks for that account’s password every time — being an admin does not let you in without one.
 
+# Step "boards" — the Quotes screen.
+tour.step.boards.name = Boards
+tour.step.boards.blurb = lines that belong to no book and no film, filed on boards
+tour.step.boards.title = Lines from everywhere else
+tour.step.boards.prose = A speech, a letter, a song, a proverb, something a friend said. They live on {em1} here — one board each, chosen as you capture the line.
+tour.step.boards.em1.label = boards
+tour.step.boards.more = A board has a kind: a plain one holds anything, a proverb board prints the original, a transliteration and a translation together. Filter by colour, tag, speaker or language, group the way the Library groups, and export a board on its own. Hiding a board leaves its quotes alone; deleting one asks what to do with them.
+
+# Step "anthologies" — the Anthologies screen.
+tour.step.anthologies.name = Anthologies
+tour.step.anthologies.blurb = quotes gathered into a reading order, with your own words between them
+tour.step.anthologies.title = Make something out of them
+tour.step.anthologies.prose = An anthology is a piece of {em1} rather than a shelf: quotes in an order you chose, with your own words in between. Point one at a book, a tag, an author or a colour and it fills itself.
+tour.step.anthologies.em1.label = writing
+tour.step.anthologies.more = It is not a board and not a tag — a quote can be in any number of anthologies and never moves out of where it lives. Say what each passage shows and what its book lends it; tell it to keep itself fed and whatever you write afterwards is waiting the next time you open it. Export it as Markdown or as an EPUB.
+
+# Step "filters" — the Search screen.
+tour.step.filters.name = Search filters
+tour.step.filters.blurb = field chips, scopes and dates over the results
+tour.step.filters.title = Narrow it down
+tour.step.filters.prose = Type a field and a colon — tag, author, colour — and the box offers what you have. Chips stack, so {em1} narrow rather than widen, and the scope row says which side of the library you are asking.
+tour.step.filters.em1.label = two chips
+tour.step.filters.more = Escape a literal colon with a backslash. Colour names work, a day and a decade both work, and arriving from a filtered shelf brings that shelf's filters in as chips. Tick a set of results to tag, recolour or gather them into an anthology.
+
+# Step "bin" — the Bin screen.
+tour.step.bin.name = Bin
+tour.step.bin.blurb = what you deleted, restorable, until it ages out
+tour.step.bin.title = Nothing goes straight out
+tour.step.bin.prose = Deleting puts a thing here first — a book with all its quotes, a film with its lines, or one highlight on its own — and {em1} puts it back where it was.
+tour.step.bin.em1.label = restoring
+tour.step.bin.more = Each row says what kind of thing it was and when it was deleted. Purge one to be rid of it now, or empty the bin outright; otherwise everything ages out on its own after the number of days set in Settings.
+
+# Step "checks" — the Checks screen.
+tour.step.checks.name = Checks
+tour.step.checks.blurb = the two lists waiting on you — imports, and quotes that look odd
+tour.step.checks.title = What is waiting on you
+tour.step.checks.prose = Two lists on one screen: quotes that came in from a file and have not been okayed yet, and quotes something looks {em1} in.
+tour.step.checks.em1.label = odd
+tour.step.checks.more = Each list keeps its own screen and its own address as well, so a link to one still works. This is not the review the quiz does — nothing here is about remembering a line; it is about whether the text is right.
+
+# Step "cleanup" — the Cleanup screen.
+tour.step.cleanup.name = Cleanup
+tour.step.cleanup.blurb = what the page left on your quotes — page numbers, broken hyphens, footnote marks
+tour.step.cleanup.title = What the page left behind
+tour.step.cleanup.prose = Every quote read once, looking for what came from the {em1} rather than from the writer: a page number swept in with the text, a hyphen where a line broke, a footnote mark.
+tour.step.cleanup.em1.label = page
+tour.step.cleanup.more = It finds and lists; it never edits anything by itself. Filter by what a rule found, open a row to fix it in place, and note that a run is capped — press again for the rest of a very large library.
+
+# Step "staging" — the imports waiting room.
+tour.step.staging.name = Imports waiting
+tour.step.staging.blurb = an import lands here first and is approved out of it
+tour.step.staging.title = Nothing lands unseen
+tour.step.staging.prose = An import stops here and stays until you {em1} it, so a bad parse never reaches your library.
+tour.step.staging.em1.label = approve
+tour.step.staging.more = Fix a whole batch at once — the book it belongs to, a speaker's name, a colour — then approve the rows you want and drop the rest. Nothing on this screen is in your library yet.
+
+# Step "book" — a book's own page.
+tour.step.book.name = A book's own page
+tour.step.book.blurb = its details, its highlights, and what you can do to both
+tour.step.book.title = Everything about one book
+tour.step.book.prose = The book's own facts at the top and every highlight you kept below it. ＋ here means {em1}, not another book.
+tour.step.book.em1.label = a quote against this book
+tour.step.book.more = The counts double as filters, the ♥ marks the book and each quote separately, and the shelf chip says whether you are reading it. A highlight's colour is a note about that passage rather than about the book it came from. Copy, share and export work on one highlight or on a selection of them.
+
+# Step "film" — a film's own page.
+tour.step.film.name = A film's own page
+tour.step.film.blurb = cast, credits and every line you kept
+tour.step.film.title = Everything about one film
+tour.step.film.prose = Studio, publisher and the cast that {em1} resolve against, with every line you kept below.
+tour.step.film.em1.label = the speakers
+tour.step.film.more = A speaker typed as a name can be remapped onto the cast, and that is what makes a character chip open a person rather than sit there as a word. Voice cast is kept apart from the on-screen cast. ＋ here captures a line against this film.
+
 # Step "done".
 tour.step.done.title = That’s the tour
 tour.step.done.prose = You’ve seen everything. The {em2} on any screen lists what its controls do and will walk you through that screen again whenever you like — {em1} is where this tour now lives. Enjoy the margins.

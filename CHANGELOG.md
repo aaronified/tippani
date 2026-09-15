@@ -67,11 +67,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the two fields a new anthology actually needs. Nothing was removed: every switch is one
   press away, and the groups are the same three the form already drew.
 
-- **Every screen's "?" can walk you through that screen.** The guided tour was one
-  journey through the whole app, replayable only from a card in Settings — so the answer
-  to "how does *this* screen work" was a tour that started at the beginning and navigated
-  you somewhere else. Help now offers the steps belonging to the screen you are on, and
-  says how many there are before you press. Screens with nothing to walk show no button.
+- **Every screen's "?" can walk you through that screen — and now every screen has one.**
+  The guided tour was one journey through the whole app, replayable only from a card in
+  Settings — so the answer to "how does *this* screen work" was a tour that started at the
+  beginning and navigated you somewhere else. Help now offers the steps belonging to the
+  screen you are on, and says how many there are before you press.
+
+  Seven screens drew no button at all, because the only steps that existed were the
+  welcome tour's: Quotes, Search, Anthologies, the Bin, Checks, Cleanup and the import
+  queue. All seven have their own walk now, and so do a book's own page, a film's own page
+  and Profile — which are screens with a "?" and no tab to their name.
+
+  **And it works on a phone.** The walkthrough was offered by the desktop "?" pill only;
+  a phone's help opens from the ⋯ instead, and drew nothing. That is also the help a book's
+  and a film's page use at every width, so the two screens most likely to be read on a
+  phone could not reach a walkthrough on either.
 
 - **Skip the tour, or turn it back on, from any step.** Skipping was already on every
   step; getting it back meant finding a setting. Now the same slot offers it back once
@@ -588,6 +598,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because a greyed-out control cannot tell you why it is grey.
 
 ### Fixed
+
+- **The tour's "Find any line again" step points at the search box again.** It had been
+  pointing at nothing since the top bar was rebuilt on 31 August: the step still named the
+  search box, the box had lost the marker that identified it, and a marker that matches
+  nothing draws neither the highlight ring nor the dimming behind it. The step opened over
+  an undimmed page and singled out nothing at all.
 
 - **The bulk bar on the Library and the Catalogue answers again.** Select some books and
   the bar appeared, named the count, and then did nothing: the ⋯ would not open, the
