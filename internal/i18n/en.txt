@@ -2357,7 +2357,7 @@ anthologies.list.new.label = New anthology
 # The empty state names the way IN rather than reporting that the list is empty:
 # nothing on this screen can add an entry, by design. {em1} is the New anthology
 # button, {em2} the selection bar's Add to anthology.
-anthologies.list.empty = No anthologies yet. {em1} makes one; to fill it, select some quotes on the Library, the Catalogue or Quotes and choose {em2} from the selection bar.
+anthologies.list.empty = No anthologies yet. {em1} makes one; or find a passage you want to keep and choose {em2} from its own menu — the box there will make the anthology for you.
 
 # The form. A duplicate title is fine here, unlike a board, so there is no clash
 # warning to write.

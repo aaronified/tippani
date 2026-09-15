@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Keep a passage without selecting it first.** *Add to anthology* was a bulk action and
+  nothing else, so keeping one line you had just read meant starting a selection, ticking
+  the thing already in front of you, and choosing from a list of anthologies that had to
+  already exist. It is on the card's own menu now — a highlight, a film line, a standalone
+  quote, and a favourite on Home.
+
+- **Anthologies can be filled from the search screen.** Search for something, open the
+  screen's ⋯, and *Gather into an anthology* takes what the search found. Turn on **Keep it
+  fed** and anything matching that search later is offered too. The same door is on the
+  new-anthology form, so a rule can be set while you are making it rather than only
+  afterwards — which is where it has been since the feature shipped.
+
+- **A book's or film's own menu gathers its passages.** Right-click a cover and *Add to
+  anthology* takes everything highlighted in it; with **Keep it fed** on, what you highlight
+  next goes in by itself. (A book is not a passage, so the book itself never becomes an
+  entry — its highlights do.)
+
 - **`TIPPANI_OFFLINE=1` stops the app phoning anybody.** A self-hosted library on a box that
   does not go out, or that you would rather did not: set it, and every outbound call —
   Google Books, Open Library, TMDB, TVDB, IGDB, Fandom, Wikidata, Amazon, every cover and
@@ -18,6 +35,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The healthcheck and the Docker socket are untouched: neither leaves the machine.
 
 ### Changed
+
+- **The new-anthology form asks two questions, not twenty-five.** Title, an introduction,
+  and then twenty-three switches — what each passage shows, what its book lends it, what is
+  known about the person behind it — all of it between you and the button that saves. The
+  three groups are behind a row each now, and each row says how many are on, so the form is
+  the two fields a new anthology actually needs. Nothing was removed: every switch is one
+  press away, and the groups are the same three the form already drew.
+
+- **Settings no longer shows the Devices card.** It pairs the Android app with your account,
+  which is not something to do yet, and it was taking a column slot on every visit to
+  Settings. Nothing about pairing has been removed — the routes still answer and the card is
+  still written — it simply is not drawn.
+
+- **"Keep it fed" now reads On and Off.** The switch that decides whether an anthology keeps
+  taking what its search finds offered *Hide* and *Show* — the words the field switches use,
+  because those decide what a passage prints. They say nothing about feeding, and a reader
+  meeting them there had to work out which one meant "yes, keep going".
+
+- **The anthology picker finds one or makes one.** It was a closed list, so with no
+  anthologies it could only tell you to go to another screen and make one — losing whatever
+  you had picked to get there. Type a name that does not exist and it is created; type one
+  that does and it is chosen. It says which of the two the press will do before you make it.
 
 - **You can search by language.** Every quote kind has carried one for a while and the
   search box could not ask about it — eighteen fields to narrow by, and not the one the

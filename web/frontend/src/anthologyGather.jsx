@@ -276,7 +276,7 @@ function AnthologyPickerForm({ list, name, setName, typed, match, target, rule, 
             ariaLabel={t('anthologies.rule.auto.label')}
             value={auto ? 'on' : 'off'}
             onChange={(v) => setAuto(v === 'on')}
-            options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
+            options={[['off', t('common.toggle.off.label')], ['on', t('common.toggle.on.label')]]}
           />
         </div>
       )}

@@ -10,7 +10,7 @@ import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
-import { ANTHOLOGY_KIND, useGatherDoor, workRule } from './anthologyGather.jsx'
+import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
@@ -1245,7 +1245,18 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     // GATHERING ONE, without having to select it first. The picker finds an
     // anthology or makes one from the name typed into it, so the card menu finally
     // has somewhere to send a reader looking at a passage they want to keep.
-    addToAnthology: (row) => gather.open({ items: [{ kind: ANTHOLOGY_KIND.annotation, item_id: row.id }], count: 1 }),
+    //
+    // `selectKind` AND NOT THE WORD "annotation", WHICH IS A BUG THIS LINE HELD.
+    // THIS CARD IS NOT ONLY A HIGHLIGHT'S: Quotes draws it for standalone
+    // utterances (`selectKind="quote"`) and the search modal draws it for whatever
+    // the hit is. Naming the kind here sent an utterance's id up as `book`, and the
+    // server's `quoteOwned` then resolved it against the ANNOTATIONS table — so
+    // gathering a standalone quote silently put a different passage, one that
+    // happened to share an id, into the anthology. Nothing failed: the toast said
+    // "1 gathered", because the row it found was real and was the reader's own.
+    // `selectKind` is the kind this card was drawn as, which is the only thing that
+    // knows.
+    addToAnthology: (row) => gather.open({ items: [{ kind: ANTHOLOGY_KIND[selectKind], item_id: row.id }], count: 1 }),
     remove,
   })
   // SELECT IS THE FIRST ITEM IN THE MENU, and that is what makes the context menu

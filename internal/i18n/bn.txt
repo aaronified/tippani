@@ -2375,7 +2375,7 @@ anthologies.list.new.label = নতুন সংকলন
 # nothing on this screen can add an entry, by design. {em1} is the New anthology
 # button, {em2} the selection bar's Add to anthology.
 # bn: selection bar → বাছাই-বার, the strip that appears under a ticked selection.
-anthologies.list.empty = এখনও কোনও সংকলন নেই। {em1} একটা বানিয়ে দেয়; ভরতে হলে গ্রন্থাগার, ক্যাটালগ বা উক্তির পাতায় কয়েকটা উদ্ধৃতি বাছুন, তারপর নিচের বাছাই-বার থেকে {em2} বেছে নিন।
+anthologies.list.empty = এখনও কোনও সংকলন নেই। {em1} একটা বানিয়ে দেয়; বা যে উদ্ধৃতিটা রাখতে চান তার নিজের মেনু থেকে {em2} বেছে নিন — ওখানকার বাক্সই সংকলনটা বানিয়ে দেবে।
 
 # The form. A duplicate title is fine here, unlike a board, so there is no clash
 # warning to write.

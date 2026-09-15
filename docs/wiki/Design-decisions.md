@@ -13279,15 +13279,31 @@ moving parts each, which is the arithmetic that directive exists for.
 
 ### Where this turned out to be wrong twice
 
-**A nested `FormModal` was assumed to escalate, and does not.** The plan was to convert the
-form to a panel so the groups could open as in-panel subsheets, because `FormModal`'s own
-header describes an escalation defect — *"if the actor/char page is a popup, why is the sub
-entry of add links a separate screen altogether?"*. Reading the branch settles it: `sheet =
-mobile && !surface`, so a dialog opened from inside another dialog wears the same chrome as
-its parent at both widths — a card on a scrim over a card on a scrim, a sheet over a sheet.
-The escalation was popup→screen, and this is screen→screen. `useEscape` keeps a stack and
-runs only the top, so nesting was already safe. The panel conversion would have been a
-visible change nobody asked for, in service of a defect that was not there.
+**A nested `FormModal` wears the right chrome and did NOT dismiss correctly, and reading
+the code found only the first half.** The plan was to convert the form to a panel so the
+groups could open as in-panel subsheets, because `FormModal`'s own header describes an
+escalation defect — *"if the actor/char page is a popup, why is the sub entry of add links a
+separate screen altogether?"*. On chrome the reading holds: `sheet = mobile && !surface`, so
+a dialog opened from inside another wears its parent's clothes at both widths — a card on a
+scrim over a card on a scrim, a sheet over a sheet. The escalation was popup→screen and this
+is screen→screen, so the panel conversion would have been a visible change nobody asked for.
+
+**But "nesting was already safe" was the wrong conclusion, and it was drawn from the wrong
+hook.** `useEscape` does keep a stack and run only the top. `useBackToClose` kept none: every
+open overlay added its own `popstate` listener. Worse, an overlay that closes by any other
+means — ✓, ✕, Escape — hands its history marker back in its cleanup, and that `history.back()`
+raises a pop indistinguishable from the reader's own. So pressing ✓ on a group's popup closed
+the popup AND the form under it, discarding the title already typed. Nothing errored, no
+jsdom test saw it (jsdom delivers that pop on a later turn), and the first browser journey
+over the finished form found it in one press.
+
+So `useBackToClose` is now a stack like `useEscape`'s, plus a count of the pops that are our
+own unwind rather than a gesture — without the second half the parent simply answers the pop
+instead, because the child has already left the stack. `making-an-anthology.journey.mjs` is
+the guard: reverting either half fails it on the form that is no longer there. The lesson is
+narrower than "check the other hook": **two hooks answering two gestures for the same stack
+of surfaces will not stay in agreement unless something makes them**, and only one of them
+had been asked to.
 
 **And `export … from` does not create a local binding.** The picker, the list hook and the
 request moved to `anthologyGather.jsx` because `anthologies.jsx` imports `SearchBox` from
@@ -13296,6 +13312,15 @@ a cycle. Re-exporting them from `anthologies.jsx` for its two existing importers
 file's own calls unbound: a pass-through is not an import, so `useAnthologies` and
 `gatherInto` were `ReferenceError` at render with nothing in the module graph looking wrong.
 Both are now imported and re-exported on separate lines.
+
+**And the card the highlight menu was written on is not only a highlight's.** `Library`'s
+`AnnotationCard` is drawn by Quotes for standalone utterances and by the search modal for
+whatever the hit is, so naming the kind in its menu — `ANTHOLOGY_KIND.annotation` — sent an
+utterance's id up as `book`. `quoteOwned` then resolved it against the ANNOTATIONS table,
+where a row of the reader's own shared that id, so gathering a standalone quote silently put
+a DIFFERENT passage into the anthology and the toast said "1 gathered". A wrong answer that
+cannot fail is worse than an error; the kind now comes from `selectKind`, which is what the
+card was drawn as, and the search modal passes it rather than taking the default.
 
 **The work-card menu's rule was "no writes" and is not.** `work-card-menu.test.jsx` asserted
 that a board which cannot reload offers nothing that writes. *Add to anthology* writes, and

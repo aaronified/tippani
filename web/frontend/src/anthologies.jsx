@@ -374,7 +374,7 @@ function RuleFields({ box, auto, setAuto, onEdit }) {
           ariaLabel={t('anthologies.rule.auto.label')}
           value={auto ? 'on' : 'off'}
           onChange={(v) => setAuto(v === 'on')}
-          options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
+          options={[['off', t('common.toggle.off.label')], ['on', t('common.toggle.on.label')]]}
         />
       </div>
     </>
@@ -609,8 +609,22 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
   // open it, find the ⋯, and fill it. The owner's report is that it "cannot be
   // accessed from the anthology add menu". It is a door on this form now, beside
   // the other three.
-  const [rule, setRule] = useState(initial?.rule || '')
-  const [auto, setAuto] = useState(!!initial?.rule_auto)
+  //
+  // ON THE NEW-ANTHOLOGY FORM ONLY, AND BOTH REASONS ARE DEFECTS THE OTHER WAY
+  // ROUND COST. An existing anthology already has this door in its own ⋯ —
+  // `RuleDialog`, which can also preview what a rule WOULD take because it has an
+  // id to ask about — so drawing it here as well is two doors to one act, which
+  // this repo names as a bug in its own right.
+  //
+  // And the edit surface seeds `rule` from the row, so a form that carried it would
+  // hand a non-empty rule back on every save: renaming an anthology would re-run its
+  // fill. `INSERT OR IGNORE` makes that harmless, which is exactly what makes it bad
+  // — a write nobody asked for, on a path nobody thinks of as one, reporting "0
+  // added, 47 already here" to somebody who changed a title. It is the hazard 0075's
+  // own migration comment argues against, one surface along.
+  const isNew = !initial
+  const [rule, setRule] = useState('')
+  const [auto, setAuto] = useState(false)
   const [ruling, setRuling] = useState(false)
 
   async function submit(e) {
@@ -677,15 +691,17 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
           "a question wears the same chrome as its answer", and a reader who has
           learnt that a row here opens a popup should not meet a different kind of
           control for the one question that happens to be newest. */}
-      <button type="button" className="tp-group-door tactile" onClick={() => setRuling(true)}>
-        <span className="min-w-0">
-          <MonoLabel>{t('anthologies.rule.title')}</MonoLabel>
-          <p className="microcopy mt-0.5">
-            {rule ? t('anthologies.rule.set', { rule }) : t('anthologies.rule.none')}
-          </p>
-        </span>
-        <IconChevron />
-      </button>
+      {isNew && (
+        <button type="button" className="tp-group-door tactile" onClick={() => setRuling(true)}>
+          <span className="min-w-0">
+            <MonoLabel>{t('anthologies.rule.title')}</MonoLabel>
+            <p className="microcopy mt-0.5">
+              {rule ? t('anthologies.rule.set', { rule }) : t('anthologies.rule.none')}
+            </p>
+          </span>
+          <IconChevron />
+        </button>
+      )}
       <ErrorText>{error}</ErrorText>
       <div className="flex items-center justify-end gap-2">
         <GhostButton type="button" onClick={onCancel}>
@@ -867,8 +883,13 @@ function AnthologyList({ rows, reload, onOpen }) {
     // and on a create the id does not exist until this response. `gatherInto` is
     // the same function the other three doors use — on an anthology that now
     // certainly exists, so it never takes the create branch here.
+    //
+    // `isNew` GATES IT AS WELL AS `rule`, which is belt and braces on purpose: the
+    // form only draws the rule door when creating, so an edit hands back `''` — but
+    // a future caller that passed one would otherwise re-fill on every rename, and
+    // that failure is silent (`INSERT OR IGNORE` skips, the toast says "0 added").
     const id = isNew ? r.data?.id : editing.id
-    if (rule && id) {
+    if (isNew && rule && id) {
       const filled = await gatherInto({ id }, { rule, auto })
       if (!filled.ok) return filled.error
       toast(t('anthologies.rule.filled', { added: filled.added, skipped: filled.skipped }))
@@ -1186,16 +1207,13 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
     await reload()
   }
 
-  async function save(fields, { rule = '', auto = false } = {}) {
+  // NO RULE ARGUMENT HERE, and its absence is the point. This screen's form is the
+  // EDIT one, which does not draw the rule door — an anthology that exists has that
+  // door in this page's own ⋯, where it can also preview. A `{ rule }` parameter
+  // here would be dead code that reads like a feature.
+  async function save(fields) {
     const r = await json('PUT', `/anthologies/${id}`, fields)
     if (!r.ok) return errText(r, t('error.save.anthology'))
-    // The same second call as the list's save, for the same reason: PUT carries no
-    // rule. Here the anthology certainly exists, so this only ever fills.
-    if (rule) {
-      const filled = await gatherInto({ id }, { rule, auto })
-      if (!filled.ok) return filled.error
-      toast(t('anthologies.rule.filled', { added: filled.added, skipped: filled.skipped }))
-    }
     setEditing(false)
     await reload()
     return null

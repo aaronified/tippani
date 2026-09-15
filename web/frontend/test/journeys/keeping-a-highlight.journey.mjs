@@ -63,3 +63,40 @@ it('a reader keeps one highlight in a new anthology without selecting anything',
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
+
+// THE SAME ACT ON A STANDALONE QUOTE, AND IT IS A SEPARATE SENTENCE BECAUSE IT
+// FOUND A BUG THE FIRST ONE COULD NOT.
+//
+// The card is the same component — Quotes draws Library's `AnnotationCard` for
+// utterances — so the menu row appeared and worked, and the toast said "1
+// gathered". What it gathered was a HIGHLIGHT: the kind was hard-coded to the one
+// the card is named after, so an utterance's id went up as `book`, and the server
+// resolved it against the annotations table, where an unrelated row of the
+// reader's own happened to share that id. Nothing failed. Nothing could fail — the
+// row it found was real and was theirs.
+//
+// So the assertion that matters is not that SOMETHING landed but that THIS line
+// did. Reverting `ANTHOLOGY_KIND[selectKind]` to `ANTHOLOGY_KIND.annotation` puts
+// the wrong passage in the anthology and this fails on the text.
+it('a reader keeps a standalone quote, and it is that quote that lands', async () => {
+  await app.goto('/quotes')
+  // THE BOARD WITH EXACTLY ONE QUOTE ON IT, which is what makes "More actions"
+  // name one control rather than ten — `press` refuses an ambiguous name rather
+  // than guessing, and a board of proverbs offers a ⋯ per card.
+  await app.press('Speeches')
+
+  const LINE = 'Give me blood and I promise you freedom!'
+  await app.see(LINE)
+
+  await app.press('More actions')
+  await app.press('Add to anthology')
+  await app.type('Anthology', 'Speeches worth keeping')
+  await app.press('Save')
+  await app.see('gathered')
+
+  await app.goto('/anthologies')
+  await app.press('Speeches worth keeping')
+  await app.see(LINE)
+
+  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})

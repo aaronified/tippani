@@ -1271,6 +1271,11 @@ export function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMa
           <TextOrderScope value={parent?.text_order}>
           <AnnotationCard
             a={row}
+            // WHICH KIND THIS CARD IS DRAWN AS. It defaults to 'annotation', which
+            // was right for everything that reads it — until the card's menu grew a
+            // verb that has to name the row's kind on the wire. A standalone quote
+            // drawn here without this reached the anthology route as `book`.
+            selectKind={isQuote ? 'quote' : 'annotation'}
             meta={isQuote ? utteranceMeta(row) : undefined}
             form={isQuote ? UtteranceForm : undefined}
             variant={0}

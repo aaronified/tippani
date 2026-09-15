@@ -2167,6 +2167,37 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
 // The guard on our own marker matters for the same reason — if the parent
 // navigated, the entry on top is no longer ours and calling back() would undo the
 // navigation instead.
+// backStack — the open overlays that answer the Back gesture, newest last. Only
+// the top one runs: see the long note inside useBackToClose for the defect a
+// listener-each caused.
+const backStack = [];
+let backBound = false;
+
+// backPop — THE DEPTH THE POP LANDED ON DECIDES WHAT CLOSES, which is usePanelStack's
+// mechanism and is here for the same reason it is there.
+//
+// A COUNTER OF "OUR OWN" POPS WAS TRIED FIRST AND IS WRONG. An overlay that closes by
+// ✓, ✕ or Escape still has a marker to hand back, so its cleanup calls
+// `history.back()` and raises a pop nobody gestured for; counting those and skipping
+// them does work, until one is never delivered — jsdom does not always, and a
+// synthetic `popState` in a test never consumes an entry. Then the count is stuck
+// above zero and the NEXT real Back is swallowed, which is a dead gesture with no
+// error anywhere. A tally that must stay in step with something it cannot observe is
+// the wrong shape.
+//
+// The depth is observable. Each marker records how many overlays were open when it
+// was pushed, so a pop says where the reader has landed: everything deeper than that
+// closes, and nothing else does. Our own unwind lands on the parent's marker, whose
+// depth already equals the stack we are left with, so it closes nothing — and a real
+// Back over two overlays lands one shallower, so it closes exactly the top one.
+function backPop(e) {
+  const want = e?.state?.tpOverlayDepth || 0;
+  while (backStack.length > want) {
+    const top = backStack.pop();
+    top.run();
+  }
+}
+
 export function useBackToClose(active, onClose) {
   // THE VERB IS READ WHEN THE GESTURE ARRIVES, NOT WHEN THE MARKER WAS PUSHED.
   //
@@ -2191,14 +2222,39 @@ export function useBackToClose(active, onClose) {
     // replaced. pushState REPLACES the state object, so a marker that spelled
     // only its own flag would blank the number the in-app Back reads to tell
     // "there is a screen behind this" from "the reader arrived here directly".
-    window.history.pushState({ ...window.history.state, tpOverlay: true }, "");
-    const onPop = () => {
-      closedByPop = true;
-      verb.current?.();
-    };
-    window.addEventListener("popstate", onPop);
+    window.history.pushState(
+      { ...window.history.state, tpOverlay: true, tpOverlayDepth: backStack.length + 1 },
+      "",
+    );
+    // ONE GESTURE CLOSES ONE OVERLAY — THE TOP ONE — WHICH IS WHY THIS IS A STACK
+    // AND NOT A LISTENER EACH.
+    //
+    // Every open overlay used to add its own `popstate` handler, so one Back ran
+    // ALL of them. With a single overlay that is invisible; with two it is the
+    // defect `nested-dismiss.test.jsx` is named after, one layer further in —
+    // "dismissing a submenu must not dismiss its parent" — and it arrived the day
+    // a FormModal was first opened from inside another FormModal. Pressing ✓ on the
+    // inner one ran its cleanup, which walks history back, and the pop that came
+    // back closed the form underneath as well: the reader set some switches,
+    // confirmed them, and the half-filled anthology they were making vanished with
+    // the title they had typed. Nothing errored, and the jsdom test could not see
+    // it, because jsdom delivers that pop on a different turn.
+    //
+    // `useEscape` has been a stack since the first dialog needed one, for exactly
+    // this reason. This is the same shape: newest registration wins, runs alone,
+    // and leaves the layers below to the next press.
+    const entry = { run: () => { closedByPop = true; verb.current?.(); } };
+    backStack.push(entry);
+    if (!backBound) {
+      window.addEventListener("popstate", backPop);
+      backBound = true;
+    }
     return () => {
-      window.removeEventListener("popstate", onPop);
+      const i = backStack.indexOf(entry);
+      if (i >= 0) backStack.splice(i, 1);
+      // Taking our marker back raises a pop that looks exactly like the reader's
+      // Back. It lands on whatever is under us, whose recorded depth is the stack we
+      // have just become — so `backPop` closes nothing, which is the whole point.
       if (!closedByPop && window.history.state?.tpOverlay) window.history.back();
     };
   }, [active]); // eslint-disable-line react-hooks/exhaustive-deps

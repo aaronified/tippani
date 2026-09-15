@@ -120,7 +120,14 @@ function useColumnCount() {
 // sits under metadata: both are the corner of Settings you come to when something
 // has gone wrong — one for what you deleted, one for what a page left in your
 // quotes — and each is a tile in front of a page of its own.
-export const SETTINGS_CARDS = ['onboard', 'features', 'colors', 'sr', 'devices', 'trash', 'clean', 'upd', 'backup']
+// DEVICES IS NOT IN THIS LIST AND ITS CARD IS STILL IN THIS FILE. The owner: "hide
+// the devices settings. that was created for the app. not required right now (keep
+// the code and the backend, just no need to let it hog the screen space)." So the
+// card stops being registered and stops taking a column slot; `DevicesCard` below,
+// its strings, and every `/auth/devices` route are untouched, and putting it back is
+// this one word. Registering it is what draws it — the same mechanism that leaves a
+// non-admin without Updates and Backup.
+export const SETTINGS_CARDS = ['onboard', 'features', 'colors', 'sr', 'trash', 'clean', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -175,12 +182,12 @@ export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
     ['colors', 'onboard', 'backup'],
-    ['sr', 'features', 'devices', 'trash', 'clean', 'upd'],
+    ['sr', 'features', 'trash', 'clean', 'upd'],
   ],
   3: [
     ['colors', 'onboard'],
     ['sr', 'features', 'upd'],
-    ['devices', 'trash', 'clean', 'backup'],
+    ['trash', 'clean', 'backup'],
   ],
 }
 
@@ -227,7 +234,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     features: <FeaturesCard prefs={user.preferences} onSaved={onPreferences} />,
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
     colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
-    devices: <DevicesCard />,
     // THE BIN AND STRAY-MARKS TILES ARE GONE FROM HERE. Both were doors and
     // nothing else — a count, a state, and a button to a page that already showed
     // both. The rail and the ☰ menu now carry a counted row to each (stray marks
@@ -2067,7 +2073,10 @@ function OnboardingCard({ user, onStartTour }) {
 //
 // The code is shown as text rather than a QR: the QR only saves typing, and
 // there is no app to point a camera at it yet. It lands with the app.
-function DevicesCard() {
+// EXPORTED THOUGH NOTHING IN THIS FILE RENDERS IT. The card is hidden rather than
+// deleted (see SETTINGS_CARDS), and a hidden card with no test is a card that rots
+// quietly until somebody puts it back. `device-revoke.test.jsx` mounts it directly.
+export function DevicesCard() {
   const { ask, confirmDialog } = useConfirm()
   const [devices, setDevices] = useState(null)
   const [pair, setPair] = useState(null) // {code, expires_at} while pairing

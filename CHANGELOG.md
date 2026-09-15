@@ -43,6 +43,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the two fields a new anthology actually needs. Nothing was removed: every switch is one
   press away, and the groups are the same three the form already drew.
 
+- **Settings no longer shows the Devices card.** It pairs the Android app with your account,
+  which is not something to do yet, and it was taking a column slot on every visit to
+  Settings. Nothing about pairing has been removed — the routes still answer and the card is
+  still written — it simply is not drawn.
+
+- **"Keep it fed" now reads On and Off.** The switch that decides whether an anthology keeps
+  taking what its search finds offered *Hide* and *Show* — the words the field switches use,
+  because those decide what a passage prints. They say nothing about feeding, and a reader
+  meeting them there had to work out which one meant "yes, keep going".
+
 - **The anthology picker finds one or makes one.** It was a closed list, so with no
   anthologies it could only tell you to go to another screen and make one — losing whatever
   you had picked to get there. Type a name that does not exist and it is created; type one
