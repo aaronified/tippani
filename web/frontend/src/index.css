@@ -1854,6 +1854,34 @@
   .grid > .tp-field + .tp-field { margin-top: 0; }
   .tp-field > .mono-label { display: block; margin-bottom: 6px; }
 
+  /* A ROW THAT OPENS A GROUP — the anthology form's three doors, and whatever
+     asks the same question next. It is a row and not a .tp-btn: a button centres
+     its word and this states a heading with a count under it, left-aligned, with
+     the chevron at the far edge saying there is more behind it.
+
+     min-height rather than height, in max(px, em): the hit target is §11's 44px
+     floor and the box has to grow when the type dials do — a fixed height here is
+     the "no box that holds text is measured in px" rule broken in the one place
+     a reader would meet it, because the count sits on a second line. */
+  .tp-group-door {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--row);
+    width: 100%;
+    min-height: max(44px, 3.4em);
+    padding: 9px var(--row);
+    text-align: start;
+    border: 1.4px solid var(--ink-border);
+    border-radius: 9px;
+    background: linear-gradient(180deg, var(--card-top), transparent);
+    color: var(--ink);
+  }
+  .tp-group-door:hover { background: var(--raised); }
+  /* The chevron points the way out of the row and must not squash when the
+     heading is long enough to wrap. */
+  .tp-group-door > svg { flex-shrink: 0; color: var(--soft); }
+
   /* The annotation edit form renders inside a variable-width masonry tile, so a
      viewport breakpoint (sm:) is wrong — a narrow tile on a wide screen still
      forces two cramped columns. Make the form a container and split the

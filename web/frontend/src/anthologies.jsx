@@ -16,12 +16,19 @@
 // and-edit, same delete dialog that says what is actually lost — because a second
 // vocabulary for the same shape is how two screens start drifting apart.
 //
-// THE ONE DOOR IN IS THE SELECTION BAR. Nothing on this screen adds an entry,
-// because the server has no route that would: POST /anthologies/{id}/entries takes
-// (kind, item_id) pairs the reader has to have picked somewhere the quotes are. So
-// composing is a bulk action over a selection — see AddToAnthologyDialog at the
-// foot of this file and the `anthology` entry in actions.jsx — and this screen is
-// where the gathering is read, ordered and written about.
+// THE DOORS IN ARE ELSEWHERE, AND THERE ARE FOUR OF THEM NOW. Nothing on this
+// screen adds an entry, because the server has no route that would: POST
+// /anthologies/{id}/entries takes (kind, item_id) pairs the reader has to have
+// picked somewhere the passages are. So composing happens where they are — the
+// selection bar, a work's menu, an annotation's menu, and the search screen — all
+// four through `gatherInto` in anthologyGather.jsx, which is one function for the
+// reason the repo's own directive gives. This screen is where the gathering is
+// read, ordered and written about.
+//
+// THE SELECTION BAR WAS THE ONLY ONE FOR A LONG TIME and this header said so. It
+// meant that gathering was something you could only do having first made a
+// selection — so a reader looking at one passage they wanted to keep had to select
+// it, find the ⋯, and pick from a list of anthologies that had to already exist.
 //
 // WHAT THE SERVER OWNS, and this file must not second-guess:
 //   - the ORDER. Entries arrive sorted by position and are rendered in the order
@@ -54,7 +61,6 @@ import {
   Field,
   FormModal,
   GhostButton,
-  IconAnthology,
   IconBack,
   IconChevron,
   IconDelete,
@@ -66,9 +72,9 @@ import {
   MonoLabel,
   MoreMenu,
   PageHeader,
-  Select,
   toast,
   Toggle,
+  useFormHost,
 } from './ui.jsx'
 
 // The server's limits, mirrored so a field can stop you at the boundary instead of
@@ -85,34 +91,18 @@ const NOTE_MAX = 8000
 const entryRef = (e) => ({ kind: e.kind, item_id: e.item_id })
 const sameEntry = (a, b) => a.kind === b.kind && a.item_id === b.item_id
 
-// ANTHOLOGY_KIND maps a SELECTION's kind to the entry vocabulary. Two vocabularies
-// for the same three things, and both are load-bearing: the selection bar speaks
-// annotation / dialogue / quote (the tables), the anthology routes speak book /
-// screen / utterance (the item_reviews vocabulary). Exported so the bar can ask
-// whether a selection is gatherable at all rather than guessing.
-export const ANTHOLOGY_KIND = { annotation: 'book', dialogue: 'screen', quote: 'utterance' }
-
-// useAnthologies is the list plus its reload, in one place, because three things
-// need it: the list screen, the add-to dialog on the selection bar, and the
-// reading view's way back to a fresh count.
+// ANTHOLOGY_KIND, the list hook, the request and the picker all live in
+// anthologyGather.jsx now — see that file's header for why (this module imports
+// SearchBox from SearchPage.jsx, and the search screen needs the picker, which
+// would close that edge into a cycle).
 //
-// `rows` starts null and becomes an array, so the empty state can be gated on
-// "loaded AND empty" rather than flashing "nothing here yet" while the request is
-// still out.
-export function useAnthologies() {
-  const [rows, setRows] = useState(null)
-  const [error, setError] = useState('')
-  const reload = useCallback(async () => {
-    const r = await json('GET', '/anthologies')
-    if (!r.ok) return setError(errText(r, t('error.load.anthologies')))
-    setRows(r.data.anthologies || [])
-    setError('')
-  }, [])
-  useEffect(() => {
-    reload()
-  }, [reload])
-  return { rows, error, reload }
-}
+// IMPORTED AS WELL AS RE-EXPORTED, and the two lines are not redundant: `export
+// … from` sets up a pass-through and creates NO local binding, so this file's own
+// calls to `useAnthologies` would be a ReferenceError at render with nothing in
+// the module graph looking wrong.
+export { ANTHOLOGY_KIND, AddToAnthologyDialog } from './anthologyGather.jsx'
+import { gatherInto, useAnthologies } from './anthologyGather.jsx'
+export { gatherInto, useAnthologies }
 
 // exportHref is a plain URL rather than a helper call, because this export is the
 // one that is a GET: downloadPost in api.js posts a body of ids, and there is no
@@ -245,6 +235,25 @@ const PERSON_SWITCHES = [
 // a second thing to keep true for a distinction the form never makes.
 const ALL_SWITCHES = [...FIELD_SWITCHES, ...WORK_SWITCHES, ...PERSON_SWITCHES]
 
+// SWITCH_GROUPS — the three lists as a registry, because the form no longer draws
+// them and something has to say what the three doors open onto.
+//
+// TWENTY-THREE SWITCHES WERE THE WHOLE FORM. Title and introduction sat above six,
+// then eleven, then six more, and the two fields a new anthology actually needs
+// were a scroll away from the button that saves them. The owner's words are "the
+// anthology addition settings is too long"; the fix is not a shorter list but a
+// form that asks its two questions and offers the rest behind a door each.
+//
+// THE HEADINGS WERE ALREADY THE GROUPS. 0074's form drew these same three titles
+// with their own hints — the split is not invented here, it is the one the form
+// already made visually, now made structural. So a reader who knew where to look
+// still looks in the same place, and the keys below are the ones already shipped.
+const SWITCH_GROUPS = [
+  { key: 'passage', rows: FIELD_SWITCHES, label: 'anthologies.form.fields.label', hint: 'anthologies.form.fields.hint' },
+  { key: 'work', rows: WORK_SWITCHES, label: 'anthologies.form.fields.work.label', hint: 'anthologies.form.fields.work.hint' },
+  { key: 'person', rows: PERSON_SWITCHES, label: 'anthologies.form.fields.person.label', hint: 'anthologies.form.fields.person.hint' },
+]
+
 // shown / stored — the two directions of that inversion, named so a reader of this
 // file can see there is exactly one of each. A work row has no inversion to do:
 // every one of them is off at zero, which is what keeps a default export unchanged.
@@ -315,20 +324,118 @@ const portraitsOf = (entry, fields = {}) =>
 // AND THE NUMBER GOES STALE THE MOMENT THE RULE CHANGES, which is why it is cleared
 // on any edit: a count left on screen under a rule that no longer produced it is
 // the screen lying quietly.
-function RuleDialog({ anthology, onClose, onFilled }) {
-  const seed = ruleChips(anthology.rule)
+// useRuleBox — the box, its vocabulary and the query it comes to.
+//
+// TWO SURFACES ASK FOR A RULE NOW: this file's RuleDialog, on an anthology that
+// already exists, and the create form's own door, on one that does not. The repo's
+// directive is that a control drawn on two screens has one behaviour living in one
+// function "not in a line each, which is how one of them goes on being right while
+// the other quietly stops" — and the half that would drift here is the least
+// visible: `readSearchBox` strips a half-typed facet before the query is built, so
+// a second copy that forgot it would store `tag:sto` as free text and quietly
+// match nothing.
+function useRuleBox(initialRule) {
+  const seed = ruleChips(initialRule)
   const [chips, setChips] = useState(seed.chips)
   const [q, setQ] = useState(seed.q)
+  const [vocabulary, setVocabulary] = useState(() => cachedVocabulary() || {})
+  useEffect(() => { primeSearchVocabulary().then(setVocabulary).catch(() => {}) }, [])
+  const { draft, options, freeText } = readSearchBox(q, vocabulary)
+  return { chips, setChips, q, setQ, draft, options, rule: ruleQuery(chips, freeText) }
+}
+
+// RuleFields — what both surfaces draw: the search screen's own box, the warning
+// about what the credit facets do not reach, and the switch that keeps it fed.
+function RuleFields({ box, auto, setAuto, onEdit }) {
+  const edit = (fn) => (...args) => { onEdit?.(); fn(...args) }
+  return (
+    <>
+      <SearchBox
+        q={box.q}
+        setQ={edit(box.setQ)}
+        chips={box.chips}
+        setChips={edit(box.setChips)}
+        draft={box.draft}
+        options={box.options}
+      />
+      {/* WHAT THE CREDIT FACETS DO NOT REACH, said on the screen rather than left
+          to be discovered. `author`, `actor`, `character` and `speaker` match the
+          quote's or the work's own column and not the cast table (0048), so an
+          anthology OF AN ACTOR misses the lines where they are only in the film's
+          cast. A reader building exactly that will notice; this is the only place
+          that can tell them first. */}
+      <p className="microcopy opacity-80">{t('anthologies.rule.credits.note')}</p>
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0">
+          <MonoLabel>{t('anthologies.rule.auto.label')}</MonoLabel>
+          <p className="microcopy mt-0.5">{t('anthologies.rule.auto.hint')}</p>
+        </span>
+        <Toggle
+          ariaLabel={t('anthologies.rule.auto.label')}
+          value={auto ? 'on' : 'off'}
+          onChange={(v) => setAuto(v === 'on')}
+          options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
+        />
+      </div>
+    </>
+  )
+}
+
+// RuleChooser — the same question on an anthology that does not exist yet, which is
+// what the create form's fourth door opens.
+//
+// IT COLLECTS AND DOES NOT RUN, and that is forced rather than chosen: the fill
+// endpoint is POST /anthologies/{id}/fill and there is no id until the form is
+// saved. So this hands the rule back to the form, and the form's own save runs the
+// fill once the anthology has landed — see AnthologyList's save.
+//
+// WHICH ALSO MEANS NO PREVIEW HERE. RuleDialog can ask "what would this take?"
+// because it has an anthology to ask about; this cannot, and offering a dead
+// button would be worse than not offering one.
+function RuleChooser({ rule, auto: initialAuto, onApply, onClose }) {
+  const box = useRuleBox(rule)
+  const [auto, setAuto] = useState(!!initialAuto)
+  const changed = box.rule !== (rule || '') || !!auto !== !!initialAuto ? 1 : 0
+  return (
+    <FormModal
+      open
+      title={t('anthologies.rule.title')}
+      onClose={onClose}
+      dirty={changed}
+      closeDanger
+    >
+      <RuleChooserForm box={box} auto={auto} setAuto={setAuto} onApply={() => onApply(box.rule, auto)} />
+    </FormModal>
+  )
+}
+
+// The body, SEPARATE so `useFormHost` registers with THIS dialog — see the same
+// note on SwitchGroupForm and in identityPicker.jsx.
+function RuleChooserForm({ box, auto, setAuto, onApply }) {
+  const host = useFormHost('')
+  return (
+    <form
+      id={host?.formId}
+      className="space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onApply()
+      }}
+    >
+      <p className="microcopy">{t('anthologies.rule.body')}</p>
+      <RuleFields box={box} auto={auto} setAuto={setAuto} />
+    </form>
+  )
+}
+
+function RuleDialog({ anthology, onClose, onFilled }) {
+  const box = useRuleBox(anthology.rule)
   const [auto, setAuto] = useState(!!anthology.rule_auto)
   const [preview, setPreview] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [vocabulary, setVocabulary] = useState(() => cachedVocabulary() || {})
-  useEffect(() => { primeSearchVocabulary().then(setVocabulary).catch(() => {}) }, [])
-
-  const { draft, options, freeText } = readSearchBox(q, vocabulary)
-  const rule = ruleQuery(chips, freeText)
-  const edit = (fn) => (...args) => { setPreview(null); setError(''); fn(...args) }
+  const { rule } = box
+  const clearPreview = () => { setPreview(null); setError('') }
 
   async function run(isPreview) {
     if (!rule) return setError(t('anthologies.rule.empty'))
@@ -344,33 +451,9 @@ function RuleDialog({ anthology, onClose, onFilled }) {
     <FormModal open title={t('anthologies.rule.title')} onClose={onClose}>
       <div className="space-y-3">
         <p className="microcopy">{t('anthologies.rule.body')}</p>
-        <SearchBox
-          q={q}
-          setQ={edit(setQ)}
-          chips={chips}
-          setChips={edit(setChips)}
-          draft={draft}
-          options={options}
-        />
-        {/* WHAT THE CREDIT FACETS DO NOT REACH, said on the screen rather than left
-            to be discovered. `author`, `actor`, `character` and `speaker` match the
-            quote's or the work's own column and not the cast table (0048), so an
-            anthology OF AN ACTOR misses the lines where they are only in the film's
-            cast. A reader building exactly that will notice; this is the only place
-            that can tell them first. */}
-        <p className="microcopy opacity-80">{t('anthologies.rule.credits.note')}</p>
-        <div className="flex items-center justify-between gap-3">
-          <span className="min-w-0">
-            <MonoLabel>{t('anthologies.rule.auto.label')}</MonoLabel>
-            <p className="microcopy mt-0.5">{t('anthologies.rule.auto.hint')}</p>
-          </span>
-          <Toggle
-            ariaLabel={t('anthologies.rule.auto.label')}
-            value={auto ? 'on' : 'off'}
-            onChange={(v) => setAuto(v === 'on')}
-            options={[['off', t('common.action.hide.label')], ['on', t('common.action.show.label')]]}
-          />
-        </div>
+        {/* A count left on screen under a rule that no longer produced it is a lie,
+            so every edit to the box clears it — which is what `onEdit` is for. */}
+        <RuleFields box={box} auto={auto} setAuto={setAuto} onEdit={clearPreview} />
         {/* THE THREE NUMBERS, and each answers a question the others do not:
             how many the rule finds, how many of those are new here, and how many
             were already in the anthology. "found 3, adds 0" and "found 3, adds 0,
@@ -419,6 +502,81 @@ function FieldSwitch({ row, flags, setFlags }) {
   )
 }
 
+// countShown — how many of a group's rows are on, which is what its door says.
+//
+// A ROW SAYS A THING ONCE, so the door carries a COUNT and not a restatement of
+// its own label. "4 of 6" is the fact the reader cannot get from the heading, and
+// it is the one that decides whether they need to open the door at all.
+const countShown = (rows, flags) => rows.filter((row) => shown(row, flags)).length
+
+// SwitchGroupDialog — one group of switches, behind its own door.
+//
+// IT HOLDS A DRAFT AND COMMITS ON THE TICK, rather than writing into the form's
+// flags as each switch moves. Two reasons, and the second is the standing rule:
+// a reader who opens "From the book or film", flips four things and thinks better
+// of it needs a way back that undoes them — and the app's answer to that question
+// everywhere else is the ✓/✕ pair, where the cross is the discarding half. A
+// popup that wrote through would leave the cross meaning nothing.
+//
+// `dirty` IS THE COUNT OF CHANGED ROWS, which is what arms the tick and fills its
+// badge. Not the count of rows that are ON: the badge answers "how many fields
+// will this press change", and those are different numbers the moment a reader
+// turns something off.
+function SwitchGroupDialog({ group, flags, onApply, onClose }) {
+  const [draft, setDraft] = useState(flags)
+  const changed = group.rows.filter((row) => shown(row, draft) !== shown(row, flags)).length
+  return (
+    <FormModal
+      open
+      onClose={onClose}
+      title={t(group.label)}
+      maxWidth={460}
+      dirty={changed}
+      closeDanger
+    >
+      <SwitchGroupForm group={group} draft={draft} setDraft={setDraft} onApply={() => onApply(draft)} />
+    </FormModal>
+  )
+}
+
+// The body, SEPARATE because `useFormHost` reads the context `FormModal` puts
+// around its CHILDREN — called in the component that renders the modal it would
+// register with whatever surface is further out, and this dialog would draw no ✓
+// at all. The gotcha is stated in identityPicker.jsx and is the same one here.
+function SwitchGroupForm({ group, draft, setDraft, onApply }) {
+  const host = useFormHost('')
+  return (
+    <form
+      id={host?.formId}
+      className="space-y-2.5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onApply()
+      }}
+    >
+      <p className="microcopy mb-2">{t(group.hint)}</p>
+      {group.rows.map((row) => (
+        <FieldSwitch key={row.key} row={row} flags={draft} setFlags={setDraft} />
+      ))}
+    </form>
+  )
+}
+
+// GroupDoor — the row that opens one group, stating what is on behind it.
+function GroupDoor({ group, flags, onOpen }) {
+  return (
+    <button type="button" className="tp-group-door tactile" onClick={onOpen}>
+      <span className="min-w-0">
+        <MonoLabel>{t(group.label)}</MonoLabel>
+        <p className="microcopy mt-0.5">
+          {t('anthologies.form.fields.count', { shown: countShown(group.rows, flags), total: group.rows.length })}
+        </p>
+      </span>
+      <IconChevron />
+    </button>
+  )
+}
+
 // AnthologyForm — new anthology, and editing one. Title, introduction, and what
 // each passage shows. The ENTRIES are not in the PUT (the server's own comment says
 // so), so this form cannot accidentally clear them.
@@ -442,6 +600,18 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
   })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // Which group's door is open, or null. The dialog it opens is rendered OUTSIDE
+  // the form below — see the fragment at the return.
+  const [group, setGroup] = useState(null)
+  // THE RULE, ON THE FORM AT LAST. Filling from a search has existed since 0075 and
+  // could only be reached from an anthology that already existed — so the answer to
+  // "make me an anthology of everything tagged stoicism" was: make an empty one,
+  // open it, find the ⋯, and fill it. The owner's report is that it "cannot be
+  // accessed from the anthology add menu". It is a door on this form now, beside
+  // the other three.
+  const [rule, setRule] = useState(initial?.rule || '')
+  const [auto, setAuto] = useState(!!initial?.rule_auto)
+  const [ruling, setRuling] = useState(false)
 
   async function submit(e) {
     e.preventDefault()
@@ -453,12 +623,24 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
     // sending it without the switches would silently reset every one of them.
     // `fields` is sent even when empty for exactly that reason: an omitted object
     // and an empty one are the same wire value here, and the empty one is honest.
-    const msg = await onSubmit({ title: title.trim(), intro, ...splitFlags(flags) })
+    // THE RULE IS NOT IN THE BODY, because the routes do not take it: POST and PUT
+    // /anthologies carry title, intro and the visibility columns only, and a rule is
+    // always POST /anthologies/{id}/fill afterwards. It goes as a second argument so
+    // the caller — which is the one that knows the id, and on a create only learns it
+    // from the response — can run the fill once the anthology exists.
+    const msg = await onSubmit({ title: title.trim(), intro, ...splitFlags(flags) }, { rule, auto })
     setBusy(false)
     if (msg) setError(msg)
   }
 
+  // THE DIALOG IS A SIBLING OF THE FORM, AND THAT IS NOT A TIDINESS PREFERENCE.
+  // `FormModal` portals to document.body, so the group's own <form> is nowhere
+  // near this one in the DOM — but React propagates events along the REACT tree,
+  // portals included, so a submit raised inside the dialog would bubble into
+  // `submit` below and save the whole anthology the moment somebody pressed a
+  // group's ✓. A sibling cannot bubble into it.
   return (
+    <>
     <form onSubmit={submit} className="space-y-4">
       <Field
         label={t('common.field.title.label')}
@@ -482,45 +664,28 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
           onChange={(e) => setIntro(e.target.value)}
         />
       </label>
-      {/* WHAT EACH PASSAGE SHOWS — and therefore what the export writes. On the
-          form rather than on a menu behind the reading view, because it is a
-          property of the anthology in the same way its title is: you decide what
-          kind of document this is when you make it. */}
-      <div className="tp-field">
-        <MonoLabel>{t('anthologies.form.fields.label')}</MonoLabel>
-        <p className="microcopy mt-0.5 mb-2">{t('anthologies.form.fields.hint')}</p>
-        {/* The same Hide / Show pair the Features card uses, for the same reason:
-            these read POSITIVELY whatever the stored column is spelled, so a reader
-            never has to work out what "hide, off" means. */}
-        <div className="space-y-2.5">
-          {FIELD_SWITCHES.map((row) => (
-            <FieldSwitch key={row.key} row={row} flags={flags} setFlags={setFlags} />
-          ))}
-        </div>
-        {/* FROM THE WORK (0074) — under its own heading rather than as five more
-            rows in the list above, because the question changes: everything above
-            is a part of the document, and everything here is a fact about the book
-            or the film. A reader scanning for "should this print the publisher"
-            should not have to read past "should this print my marginalia". */}
-        <MonoLabel className="mt-4 block">{t('anthologies.form.fields.work.label')}</MonoLabel>
-        <p className="microcopy mt-0.5 mb-2">{t('anthologies.form.fields.work.hint')}</p>
-        <div className="space-y-2.5">
-          {WORK_SWITCHES.map((row) => (
-            <FieldSwitch key={row.key} row={row} flags={flags} setFlags={setFlags} />
-          ))}
-        </div>
-        {/* AND THE PERSON BEHIND IT — its own heading for the same reason as the
-            one above: "should this print the author's dates" is not the same
-            question as "should this print the publisher", and the answer for an
-            anthology of speeches is often yes to one and no to the other. */}
-        <MonoLabel className="mt-4 block">{t('anthologies.form.fields.person.label')}</MonoLabel>
-        <p className="microcopy mt-0.5 mb-2">{t('anthologies.form.fields.person.hint')}</p>
-        <div className="space-y-2.5">
-          {PERSON_SWITCHES.map((row) => (
-            <FieldSwitch key={row.key} row={row} flags={flags} setFlags={setFlags} />
-          ))}
-        </div>
-      </div>
+      {/* WHAT EACH PASSAGE SHOWS — and therefore what the export writes. BEHIND A
+          DOOR EACH, which is the only thing 0074's arrangement got wrong: the
+          three headings were already the right three questions, but drawn open
+          they put twenty-three switches between the title box and the button that
+          saves it. They are still a property of the anthology in the way its
+          title is; they are simply not the thing you answer first. */}
+      {SWITCH_GROUPS.map((g) => (
+        <GroupDoor key={g.key} group={g} flags={flags} onOpen={() => setGroup(g)} />
+      ))}
+      {/* THE FOURTH DOOR, and it is the same shape as the other three on purpose:
+          "a question wears the same chrome as its answer", and a reader who has
+          learnt that a row here opens a popup should not meet a different kind of
+          control for the one question that happens to be newest. */}
+      <button type="button" className="tp-group-door tactile" onClick={() => setRuling(true)}>
+        <span className="min-w-0">
+          <MonoLabel>{t('anthologies.rule.title')}</MonoLabel>
+          <p className="microcopy mt-0.5">
+            {rule ? t('anthologies.rule.set', { rule }) : t('anthologies.rule.none')}
+          </p>
+        </span>
+        <IconChevron />
+      </button>
       <ErrorText>{error}</ErrorText>
       <div className="flex items-center justify-end gap-2">
         <GhostButton type="button" onClick={onCancel}>
@@ -531,6 +696,28 @@ export function AnthologyForm({ initial, onSubmit, onCancel, submitLabel = t('co
         </button>
       </div>
     </form>
+    {group && (
+      // KEYED ON THE GROUP so a second door opens a fresh draft rather than
+      // re-seeding one in an effect — identityPicker's reasoning, and the same
+      // symptom if it is skipped: for one frame the draft is the previous group's
+      // and the tick flashes armed with a count of everything.
+      <SwitchGroupDialog
+        key={group.key}
+        group={group}
+        flags={flags}
+        onApply={(next) => { setFlags(next); setGroup(null) }}
+        onClose={() => setGroup(null)}
+      />
+    )}
+    {ruling && (
+      <RuleChooser
+        rule={rule}
+        auto={auto}
+        onApply={(nextRule, nextAuto) => { setRule(nextRule); setAuto(nextAuto); setRuling(false) }}
+        onClose={() => setRuling(false)}
+      />
+    )}
+    </>
   )
 }
 
@@ -672,10 +859,20 @@ function AnthologyList({ rows, reload, onOpen }) {
   // One function for create and edit, switched on `editing`, exactly as the board
   // list does it. It returns an error STRING rather than throwing, because the form
   // renders the message beside its own fields.
-  async function save(fields) {
+  async function save(fields, { rule = '', auto = false } = {}) {
     const isNew = editing === 'new'
     const r = await json(isNew ? 'POST' : 'PUT', isNew ? '/anthologies' : `/anthologies/${editing.id}`, fields)
     if (!r.ok) return errText(r, t('error.save.anthology'))
+    // THE FILL IS A SECOND CALL AND CAN ONLY BE ONE: neither route carries a rule,
+    // and on a create the id does not exist until this response. `gatherInto` is
+    // the same function the other three doors use — on an anthology that now
+    // certainly exists, so it never takes the create branch here.
+    const id = isNew ? r.data?.id : editing.id
+    if (rule && id) {
+      const filled = await gatherInto({ id }, { rule, auto })
+      if (!filled.ok) return filled.error
+      toast(t('anthologies.rule.filled', { added: filled.added, skipped: filled.skipped }))
+    }
     setEditing(null)
     await reload()
     return null
@@ -989,9 +1186,16 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
     await reload()
   }
 
-  async function save(fields) {
+  async function save(fields, { rule = '', auto = false } = {}) {
     const r = await json('PUT', `/anthologies/${id}`, fields)
     if (!r.ok) return errText(r, t('error.save.anthology'))
+    // The same second call as the list's save, for the same reason: PUT carries no
+    // rule. Here the anthology certainly exists, so this only ever fills.
+    if (rule) {
+      const filled = await gatherInto({ id }, { rule, auto })
+      if (!filled.ok) return filled.error
+      toast(t('anthologies.rule.filled', { added: filled.added, skipped: filled.skipped }))
+    }
     setEditing(false)
     await reload()
     return null
@@ -1237,49 +1441,6 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
         />
       )}
     </section>
-  )
-}
-
-// AddToAnthologyDialog — the door, and it lives on the selection bar rather than
-// here for the reason the header gives: only a screen holding quotes can name the
-// (kind, item_id) pairs the add route wants.
-//
-// It reports `added` and `skipped` separately because a duplicate is a SKIP on the
-// server, not an error. "3 added" over a selection of five where two were already
-// there is the truth; "5 added" is what a client that assumed would have said.
-export function AddToAnthologyDialog({ count, busy, onApply, onClose }) {
-  const { rows, error } = useAnthologies()
-  const list = rows || []
-  const [pick, setPick] = useState('')
-  const target = pick === '' ? null : Number(pick)
-  return (
-    <FormModal
-      open
-      onClose={onClose}
-      title={t('common.anthology.add.title', { count, n: count })}
-    >
-      <div className="space-y-3">
-        <p className="microcopy">{t('common.anthology.add.body', { count, n: count })}</p>
-        {rows != null && list.length === 0 ? (
-          // The switch is named as well as the screen, because this dialog is reachable
-          // with the section turned OFF — the bulk action is an action, not a door, so it
-          // stays — and naming only a screen the reader may have no tab for is a dead end.
-          <ErrorText>{t('common.anthology.add.empty')}</ErrorText>
-        ) : (
-          <Select
-            label={t('common.field.anthology.label')}
-            value={pick}
-            onChange={setPick}
-            options={list.map((a) => [String(a.id), a.title])}
-            placeholder={t('common.anthology.add.select.placeholder')}
-          />
-        )}
-        <ErrorText>{error}</ErrorText>
-        <GhostButton icon={<IconAnthology />} onClick={() => onApply(target)} disabled={busy || target == null}>
-          {t('common.action.add.label')}
-        </GhostButton>
-      </div>
-    </FormModal>
   )
 }
 

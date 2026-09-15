@@ -1943,6 +1943,7 @@ common.action.add-tags.label = Add tags
 common.action.seal.label = Seal
 common.action.shelf.label = Shelf
 common.action.anthology.label = Add to anthology
+common.action.anthology.tip = Gather {subject} into an anthology
 common.action.set-fields.label = Set fields
 
 # The select controls a card's own menu puts above its actions. {n} is how many
@@ -2396,6 +2397,10 @@ anthologies.entry.source.label = {source}
 # control beside it is what says on or off.
 anthologies.form.fields.label = What each passage shows
 anthologies.form.fields.hint = The same for what you read and what you export.
+# WHAT THE DOOR SAYS. The three groups are behind a row each now — twenty-three
+# switches between the title box and the button that saves it was the complaint —
+# so each row carries the one fact its heading cannot: how many are on.
+anthologies.form.fields.count = {shown} of {total} shown
 anthologies.form.fields.credit.label = Who said it
 anthologies.form.fields.source.label = Where it came from
 anthologies.form.fields.locator.label = Chapter, page or timestamp
@@ -2444,6 +2449,11 @@ anthologies.rule.filled = {added} added, {skipped} already here
 # would need a button beside it saying what this one already says.
 anthologies.rule.waiting = Add {n} waiting
 anthologies.rule.empty = Give the rule something to match.
+# WHAT THE FORM'S FOURTH DOOR SAYS. The rule IS the search's own query string —
+# 0075 chose that format so a person could read it and paste it into the search bar
+# — so the row shows it rather than paraphrasing it.
+anthologies.rule.set = {rule}
+anthologies.rule.none = Not set. The anthology holds only what you put in it.
 
 anthologies.toast.deleted = anthology deleted
 anthologies.toast.entry-removed = entry removed
@@ -2461,10 +2471,25 @@ common.anthology.add.title.one = Add this quote
 common.anthology.add.title.other = Add {n} quotes
 common.anthology.add.body.one = It goes to the end of the anthology. The quote itself does not move.
 common.anthology.add.body.other = All {n} go to the end of the anthology. The quotes themselves do not move.
-# Reachable with the Anthologies section switched OFF, which is why it names the
-# switch as well as the screen — a dead end otherwise.
-common.anthology.add.empty = No anthologies yet — make one on the Anthologies screen (Settings → Features).
-common.anthology.add.select.placeholder = choose an anthology
+# THE BOX FINDS ONE OR MAKES ONE, so there is no longer an empty state to write:
+# `common.anthology.add.empty` used to name the Anthologies screen and the switch
+# that reveals it, because with no anthologies a closed list had nothing to offer
+# and the reader had to leave — losing the selection that brought them here. Typing
+# a name is now the create path, so the dead end is gone rather than signposted.
+common.anthology.add.combo.placeholder = find one, or type a new name
+# What the ✓ is waiting for. FormModal shows it as the tick's tooltip.
+common.anthology.add.blocked = Name an anthology first.
+# WHICH OF THE TWO THIS PRESS WILL DO, while it is still cheap to change. A name one
+# letter off an existing anthology makes a second one, and nothing else on the
+# screen would say so until it had happened.
+common.anthology.add.existing = Goes into the one you already have by this name.
+common.anthology.add.creating = Makes a new anthology called “{title}”.
+
+# GATHERING A SEARCH, which is the same sheet with a query behind it — from the
+# search screen, or from a work whose passages are the query. The count is absent
+# here because what goes in is whatever the rule matches, not a selection.
+common.anthology.gather.title = Gather into an anthology
+common.anthology.gather.body = What this search finds goes to the end of the anthology. Nothing is removed or reordered, and your own writing on an entry is never touched.
 
 # Reordering an entry. No drag: a drag has no keyboard equivalent, and a menu row
 # is reachable by tab, by arrow key and by a thumb.

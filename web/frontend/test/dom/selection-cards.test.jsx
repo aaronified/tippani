@@ -246,7 +246,7 @@ describe('the card menu', () => {
     fireEvent.contextMenu(cards()[0], { clientX: 10, clientY: 10 })
     const labels = within(screen.getByRole('menu')).getAllByRole('menuitem').map((b) => b.textContent)
     expect(labels[0]).toBe('Select')
-    expect(labels).toEqual(['Select', 'Select all 3', 'Copy', 'Share', 'Edit', 'Favourite', 'Delete'])
+    expect(labels).toEqual(['Select', 'Select all 3', 'Copy', 'Share', 'Edit', 'Favourite', 'Add to anthology', 'Delete'])
   })
 
   // A MENU CLICK IS NOT A CARD CLICK, and the portal is what made that easy to

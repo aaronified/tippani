@@ -61,15 +61,23 @@ describe('the menu a cover opens', () => {
   // as long as every action on a work was a write. Practise is the first that is
   // not — it opens a themed round over the book, which reads the quote pool and
   // changes nothing this tile draws — so gating it on a reload callback would be
-  // coupling a read to a write for the symmetry of it. The rule the name states
-  // is the one checked: no writes.
-  it('offers nothing that writes when the board cannot reload', () => {
+  // coupling a read to a write for the symmetry of it.
+  //
+  // AND "NO WRITES" IS NOT QUITE THE RULE EITHER, which "Add to anthology" is what
+  // made plain. It writes, and writes properly — it gathers the work's passages
+  // into an anthology — but the thing it writes to is somewhere else, and this
+  // tile draws none of it. The hazard the callback guards against is a control
+  // that is "present and silently ineffective", and that is a write whose RESULT
+  // this surface would have to redraw to show. So the rule is about what the tile
+  // would have to catch up with, and the five below are the writes that qualify:
+  // every one of them changes the work this menu was opened on.
+  it('offers nothing the tile would have to redraw when the board cannot reload', () => {
     render(<WorkCard kind="book" item={BOOK} onOpen={() => {}} />)
     fireEvent.contextMenu(screen.getByTitle(BOOK.title))
     for (const write of ['Fill gaps', 'Skip in quiz', 'Add to quiz', 'Edit', 'Delete']) {
       expect(labels()).not.toContain(write)
     }
-    expect(labels()).toEqual(['Practise'])
+    expect(labels()).toEqual(['Practise', 'Add to anthology'])
   })
 
   it('offers a themed round over the book itself', () => {

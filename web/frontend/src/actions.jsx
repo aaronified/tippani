@@ -243,6 +243,34 @@ export function actionsFor(kind, item, ctx = {}) {
       run: () => ctx.setBoard(item),
     },
     {
+      id: 'anthology',
+      label: t('common.action.anthology.label'),
+      where: OVERFLOW,
+      icon: <IconAnthology />,
+      tooltip: t('common.action.anthology.tip', { subject }),
+      // AN ITEM ACTION AT LAST, AND THE OLD COMMENT HERE WAS HONEST ABOUT WHY IT
+      // WAS NOT: "gathering ONE quote is a real thing to want, but the selection is
+      // how you say which quotes, and the card menu has no picker in it". The
+      // picker is the part that has changed — `AddToAnthologyDialog` finds an
+      // anthology or makes one from the name you type, so the card menu now has
+      // somewhere to send you and the reader does not have to select a thing they
+      // are already looking at.
+      //
+      // ON A WORK IT MEANS ITS PASSAGES, which is not a liberty taken with the
+      // word. A book cannot BE an entry — `quoteOwned` accepts book, screen and
+      // utterance and returns false for anything else — so "add this book to an
+      // anthology" can only sensibly mean the highlights in it, and the surface
+      // that offers it says so. The owner chose that reading over the two
+      // alternatives.
+      //
+      // Gated on the CALLBACK and not on the kind, for the reason `board` gives
+      // three items up: the same card is rendered by screens that name the kind
+      // differently, and a kind test here is a control that is right on one screen
+      // and silently missing on another.
+      available: !!ctx.addToAnthology,
+      run: () => ctx.addToAnthology(item),
+    },
+    {
       id: 'delete',
       label: t('common.action.delete.label'),
       where: OVERFLOW,

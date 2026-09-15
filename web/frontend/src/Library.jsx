@@ -10,6 +10,7 @@ import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, bookShare, copyQuote } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
+import { ANTHOLOGY_KIND, useGatherDoor, workRule } from './anthologyGather.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
@@ -1217,6 +1218,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
           locatorMeta(a),
         ].filter(Boolean).join(' · ')
       : meta
+  const gather = useGatherDoor()
   const editForm = (
     <Form initial={a} onSubmit={(fields) => save(a.id, fields)} onCancel={() => setEditingId(null)} submitLabel={t('common.action.save.label')} tagSuggestions={tagSuggestions} stickers={stickers} reloadStickers={reloadStickers} bookId={a.book_id ?? null} />
   )
@@ -1240,6 +1242,10 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
     // this. A kind test here would be a control that is right about the board
     // and silently absent inside the search modal.
     duplicate: onDuplicate,
+    // GATHERING ONE, without having to select it first. The picker finds an
+    // anthology or makes one from the name typed into it, so the card menu finally
+    // has somewhere to send a reader looking at a passage they want to keep.
+    addToAnthology: (row) => gather.open({ items: [{ kind: ANTHOLOGY_KIND.annotation, item_id: row.id }], count: 1 }),
     remove,
   })
   // SELECT IS THE FIRST ITEM IN THE MENU, and that is what makes the context menu
@@ -1415,6 +1421,7 @@ export function AnnotationCard({ a, variant, tagMap, stickerMap = {}, stickers =
           <ActionRow acts={acts} item={a} color={color} onColor={pickColor} onFavourite={(v) => patch(a, { favorite: v })} actionsAlwaysVisible={actionsAlwaysVisible} className="pt-1.5" />
         </div>
       {menu}
+      {gather.node}
     </HandCard>
   )
 }

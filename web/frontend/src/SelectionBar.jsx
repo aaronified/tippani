@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { atOverflow, atRow, bulkActionsFor, isWorkKind } from './actions.jsx'
-import { ANTHOLOGY_KIND, AddToAnthologyDialog } from './anthologies.jsx'
+import { ANTHOLOGY_KIND, AddToAnthologyDialog, gatherInto } from './anthologies.jsx'
 import { errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { MoveToBoardDialog } from './boards.jsx'
@@ -238,9 +238,11 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
     byID.board.run(boardID)
   }
 
-  const applyAnthology = (anthologyID) => {
+  // `target` is the picker's `{ id }` or `{ title }` — an anthology that exists, or
+  // one the reader has just named and `gatherInto` will make.
+  const applyAnthology = (target) => {
     setGathering(false)
-    byID.anthology.run(anthologyID)
+    byID.anthology.run(target)
   }
 
   const applyFields = (patch) => {
@@ -252,18 +254,21 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // anthology — so the toast reports what the response says rather than assuming the
   // whole selection landed. Saying "5 added" over a selection where two were already
   // there is the kind of small lie that makes somebody stop trusting the count.
-  async function gather(anthologyID) {
+  // THE REQUEST IS `gatherInto`'s NOW, not this function's, for the reason that
+  // module's own header gives: four surfaces ask this question and one of them
+  // going on being right while another quietly stops is exactly what a second copy
+  // buys. What stays here is the part that is this bar's — turning a selection into
+  // (kind, item_id) pairs, and saying what happened.
+  async function gather(target) {
     const items = ids.map((itemID) => ({ kind: ANTHOLOGY_KIND[kind], item_id: itemID }))
-    const r = await json('POST', `/anthologies/${anthologyID}/entries`, { items })
-    if (!r.ok) return toast(errText(r, t('error.add.generic')))
-    const added = r.data?.added ?? 0
-    const skipped = r.data?.skipped ?? 0
+    const r = await gatherInto(target, { items })
+    if (!r.ok) return toast(r.error)
     // Two whole sentences rather than one plus an optional clause: the clause
     // does not necessarily come last in another language.
     toast(
-      skipped
-        ? t('common.selection.toast.gathered-some', { n: added, count: added, skipped })
-        : t('common.selection.toast.gathered', { n: added, count: added }),
+      r.skipped
+        ? t('common.selection.toast.gathered-some', { n: r.added, count: r.added, skipped: r.skipped })
+        : t('common.selection.toast.gathered', { n: r.added, count: r.added }),
     )
   }
 

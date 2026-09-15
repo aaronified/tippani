@@ -1952,6 +1952,7 @@ common.action.add-tags.label = ট্যাগ যোগ করুন
 common.action.seal.label = স্টিকার বসান
 common.action.shelf.label = তাক
 common.action.anthology.label = সংকলনে দিন
+common.action.anthology.tip = {subject} সংকলনে জড়ো করুন
 common.action.set-fields.label = ঘরে মান বসান
 
 # The select controls a card's own menu puts above its actions. {n} is how many
@@ -2415,6 +2416,7 @@ anthologies.entry.source.label = {source}
 # control beside it is what says on or off.
 anthologies.form.fields.label = প্রতিটা উদ্ধৃতির সঙ্গে কী কী দেখাবে
 anthologies.form.fields.hint = পড়ার সময় যা দেখবেন, এক্সপোর্টেও ঠিক তাই যাবে।
+anthologies.form.fields.count = {total}-এর মধ্যে {shown}টি দেখানো হচ্ছে
 anthologies.form.fields.credit.label = কে বলেছেন
 anthologies.form.fields.source.label = কোথা থেকে নেওয়া
 anthologies.form.fields.locator.label = অধ্যায়, পৃষ্ঠা বা সময়
@@ -2438,6 +2440,8 @@ anthologies.rule.capped = একবারে দুশো; বাকিটার
 anthologies.rule.filled = {added}টা যোগ হল, {skipped}টা আগে থেকেই ছিল
 anthologies.rule.waiting = অপেক্ষায় থাকা {n}টা যোগ করুন
 anthologies.rule.empty = রুলে মেলানোর মতো কিছু দিন।
+anthologies.rule.set = {rule}
+anthologies.rule.none = দেওয়া নেই। আপনি যা রাখবেন, সংকলনে কেবল তাই থাকবে।
 
 anthologies.toast.deleted = সংকলন মোছা হয়েছে
 anthologies.toast.entry-removed = এন্ট্রি সরানো হয়েছে
@@ -2457,8 +2461,13 @@ common.anthology.add.body.one = সংকলনের শেষে গিয়�
 common.anthology.add.body.other = {n}টাই সংকলনের শেষে গিয়ে বসবে। উদ্ধৃতিগুলো নিজেরা যেখানে আছে, সেখানেই থাকে।
 # Reachable with the Anthologies section switched OFF, which is why it names the
 # switch as well as the screen — a dead end otherwise.
-common.anthology.add.empty = এখনও কোনও সংকলন নেই — সংকলন স্ক্রিনে গিয়ে একটা তৈরি করুন (সেটিংস → ফিচার)।
-common.anthology.add.select.placeholder = একটা সংকলন বাছুন
+common.anthology.add.combo.placeholder = খুঁজুন, বা নতুন নাম লিখুন
+common.anthology.add.blocked = আগে একটা সংকলনের নাম দিন।
+common.anthology.add.existing = এই নামে আপনার যেটা আছে, তাতেই যাবে।
+common.anthology.add.creating = “{title}” নামে নতুন একটা সংকলন তৈরি হবে।
+
+common.anthology.gather.title = সংকলনে জড়ো করুন
+common.anthology.gather.body = এই খোঁজে যা মেলে তা সংকলনের শেষে যোগ হবে। কিছু বাদ যাবে না, ক্রমও বদলাবে না, আর কোনও এন্ট্রিতে আপনার নিজের লেখায় হাত পড়বে না।
 
 # Reordering an entry. No drag: a drag has no keyboard equivalent, and a menu row
 # is reachable by tab, by arrow key and by a thumb.

@@ -23,6 +23,10 @@ import { usePersonOpener } from './personOpen.jsx'
 // A REAL IMPORT BESIDE THE RE-EXPORT BELOW. `export … from` is not a local
 // binding, and useSearchVocabulary calls this — see no-free-names.test.js.
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
+// FROM anthologyGather.jsx AND NOT anthologies.jsx, which imports `SearchBox` out
+// of this file — reaching back into it would close that edge into a cycle. See
+// that module's header.
+import { AddToAnthologyDialog, gatherInto, gatheredPhrase } from './anthologyGather.jsx'
 
 // Re-exported so the callers that have always imported it from here still can.
 export { primeSearchVocabulary } from './vocabulary.js'
@@ -53,6 +57,7 @@ import {
   HandCard,
   HandNote,
   HighlightSpan,
+  IconAnthology,
   IconBooks,
   IconClose,
   IconDialogue,
@@ -82,6 +87,7 @@ import {
   IconRevert,
   usePersistedState,
   useScreenBar,
+  toast,
   useSort,
   ViewToggle,
   useBackToClose,
@@ -543,15 +549,22 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   const [nonce, setNonce] = useState(0) // bump to re-run the search after a bulk action
   const reload = () => setNonce((n) => n + 1)
   const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
+  const [gathering, setGathering] = useState(false) // the anthology picker, over this search
   // SEARCH'S ONE SCREEN-LEVEL ACT. Everything else on this page belongs to the
   // box — the field, the facet dropdown, each chip's own ×  — and clearing the lot
   // is the thing that has no control of its own, because it is the sum of them.
   // Absent when there is nothing to clear rather than greyed: a menu row cannot be
   // disabled, and "Clear" over an empty search does nothing visible.
+  // SEARCH'S SECOND SCREEN-LEVEL ACT, and the one the feature was missing. An
+  // anthology could be filled from a search since 0075, but only from inside an
+  // anthology that already existed — so the reader who has just found the thing,
+  // on the screen where they found it, had no way to keep it. That is the owner's
+  // report ("not visible in the search menu"), and this is the door.
   useScreenBar({
     actions: () => (q || chips.length
       ? [
           { id: 'h-do', heading: t('common.mono.actions.label') },
+          { id: 'gather', icon: <IconAnthology />, label: t('common.anthology.gather.title'), onClick: () => setGathering(true) },
           { id: 'clear', icon: <IconRevert />, label: t('search.clear.label'), onClick: () => { setQ(''); setChips([]) } },
         ]
       : []),
@@ -593,6 +606,24 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   // three separate pieces of it — and an array of chips cannot be a dep.
   const querystring = searchQueryString({ q: freeText, scope, chips })
   const nothingAsked = !freeText.trim() && chips.length === 0
+
+  // THE RULE IS THIS SEARCH WITHOUT ITS SCOPE, and the `scope: 'all'` is deliberate
+  // rather than a copy that forgot a variable.
+  //
+  // A rule cannot express a scope: `parseSearchFacets` treats `scope` as a reserved
+  // parameter and skips it, and the fill then runs all three kinds regardless (see
+  // anthologyMatches). So a rule built off a books-only view would quietly take film
+  // lines too — the wire value would say one thing and the fill do another. Writing
+  // `all` makes the stored rule true about what it will actually take, and it is
+  // also what makes a rule "bookmarkable and pasteable into the search bar", which
+  // is 0075's own claim for using the query string as the format.
+  const gatherRule = searchQueryString({ q: freeText, scope: 'all', chips })
+
+  async function gatherSearch(target, { auto }) {
+    setGathering(false)
+    const r = await gatherInto(target, { rule: gatherRule, auto })
+    toast(r.ok ? gatheredPhrase(r) : r.error)
+  }
 
   useEffect(() => {
     if (nothingAsked) {
@@ -1000,6 +1031,14 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
             onClose={() => setFiltersOpen(false)}
           />
         </FormModal>
+      )}
+
+      {gathering && (
+        <AddToAnthologyDialog
+          rule={gatherRule}
+          onApply={gatherSearch}
+          onClose={() => setGathering(false)}
+        />
       )}
 
       {quote && (

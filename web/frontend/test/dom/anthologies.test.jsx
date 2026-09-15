@@ -169,11 +169,16 @@ describe('the anthology list', () => {
     fireEvent.click(screen.getByText('New anthology'))
     fireEvent.change(await screen.findByPlaceholderText('On grief'), { target: { value: 'Passages' } })
 
+    // THE SWITCHES ARE BEHIND THEIR GROUP'S DOOR NOW, so the press that opens it
+    // is part of what a person does. The door states the count; the group's own ✓
+    // is what carries the answer back to the form.
+    fireEvent.click(screen.getByText('What each passage shows'))
     const row = (label) => screen.getByLabelText(label).closest('div')
     // Hide the credit: stored as hide_credit = true.
     fireEvent.click(within(row('Who said it')).getByText('Hide'))
     // Show the date: stored as show_date = true.
     fireEvent.click(within(row('The day you saved it')).getByText('Show'))
+    fireEvent.click(screen.getByLabelText('Save'))
 
     fireEvent.click(screen.getByText('Create'))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/anthologies')).toBe(true))
@@ -295,11 +300,14 @@ describe('the fields a work lends its passages', () => {
     await screen.findByText('On keeping quiet')
     fireEvent.click(screen.getByText('New anthology'))
     fireEvent.change(await screen.findByPlaceholderText('On grief'), { target: { value: 'Passages' } })
-    // The publisher row's own Show. Scoped through its label, because every row on
-    // this form draws the same Hide/Show pair and getByText('Show') would find the
-    // first of eighteen.
+    // Through the work group's door — the eleven work switches are behind it now.
+    fireEvent.click(screen.getByText('From the book or film'))
+    // The publisher row's own Show. Scoped through its label, because every row in
+    // this group draws the same Hide/Show pair and getByText('Show') would find the
+    // first of eleven.
     const row = screen.getByLabelText('Publisher').closest('div')
     fireEvent.click(within(row).getByText('Show'))
+    fireEvent.click(screen.getByLabelText('Save'))
     fireEvent.click(screen.getByText('Create'))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/anthologies')).toBe(true))
     const body = CALLS.find(([m, p]) => m === 'POST' && p === '/anthologies')[2]
