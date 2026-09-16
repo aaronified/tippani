@@ -59,12 +59,9 @@ export function seedRoute(path) {
 // otherwise Back would land on the screen it started from and look broken.
 export function pushRoute(path) {
   if (path === window.location.pathname) return false
-  window.history.pushState(stampSeq({ tpDepth: historyDepth() + 1 }), '', path)
-  // Everything at or above the new serial was a FORWARD entry, and the browser
-  // has just dropped those. The trail drops them too — otherwise a Back and then
-  // a fresh navigation would leave the abandoned rows in the list, each one
-  // pointing at an entry that no longer exists.
-  trimTrail(historySeq())
+  // The abandoned forward rows are dropped by `stampPush`, which every push goes
+  // through — a route's, a panel's and an overlay's alike.
+  window.history.pushState(stampPush({ tpDepth: historyDepth() + 1 }), '', path)
   return true
 }
 
@@ -147,7 +144,7 @@ export function popIsOverlay(showing) {
 // pushed from, panels and overlays included. The distance between two entries is
 // then the difference of their serials, exactly, and the trail only has to
 // remember which serials were screens. A pushState anywhere in this app that
-// skips `stampSeq` silently breaks that arithmetic — which is why there are only
+// skips `stampPush` silently breaks that arithmetic — which is why there are only
 // three push sites and `test/rules/history-seq.test.js` counts them.
 //
 // WHAT IT CANNOT DO, said rather than hidden: the entries above the one you pick
@@ -159,10 +156,30 @@ export function popIsOverlay(showing) {
 // for the same reason: nothing of ours is behind it.
 export const historySeq = () => Number(window.history.state?.tpSeq) || 0
 
-// stampSeq — the state object for an entry ABOUT TO BE PUSHED. Called as an
+// stampPush — the state object for an entry ABOUT TO BE PUSHED. Called as an
 // argument to pushState, so it reads the serial of the entry being pushed FROM.
-export function stampSeq(state) {
-  return { ...state, tpSeq: historySeq() + 1 }
+//
+// AND IT TRIMS, WHICH IS WHY IT IS NOT CALLED `stampSeq` ANY MORE. A push
+// destroys every forward entry, so any row the trail holds at or above the new
+// serial is pointing at an entry the browser has just dropped — the next entry to
+// take that serial is a different screen, or no screen at all.
+//
+// THE TRIM BELONGS TO EVERY PUSH, NOT TO `pushRoute`, AND THAT WAS THE FIRST CUT'S
+// BUG. A panel opened after a Back takes the abandoned serial without recording
+// anything, so the stale row sat BELOW the next route's serial where no trim on
+// `pushRoute` could reach it and no `noteRoute` would ever overwrite it. The menu
+// then offered "Quotes" for an entry that had become somebody's panel: pressing it
+// lands on the address that panel opened over, which is a row that goes to the
+// wrong screen — the one failure mode worse than a row that goes nowhere.
+//
+// A WRITE FROM AN ARGUMENT EXPRESSION, said out loud because it is unusual. It
+// runs before the pushState it is an argument to, which is exactly when the
+// forward entries are still there to be counted, and putting it here is what keeps
+// one verb in one function rather than a copy at each of the three push sites.
+export function stampPush(state) {
+  const next = historySeq() + 1
+  trimTrail(next)
+  return { ...state, tpSeq: next }
 }
 
 // sessionStorage, not a module variable, because tpSeq survives a reload and a
@@ -190,7 +207,7 @@ function writeTrail(a) {
   }
 }
 
-// trimTrail — drop everything from `from` upwards. Called by `pushRoute` alone,
+// trimTrail — drop everything from `from` upwards. Called by `stampPush` alone,
 // because a push is the only act that destroys forward entries: a popstate
 // travels among entries that all still exist, and a trail trimmed on every
 // arrival would forget the screens a Forward press can still reach.

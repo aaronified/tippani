@@ -33,7 +33,7 @@ import {
   pushRoute,
   recentRoutes,
   seedRoute,
-  stampSeq,
+  stampPush,
 } from '../../src/history.js'
 
 // A fresh stack and a fresh trail per case. jsdom keeps one history for the whole
@@ -55,7 +55,7 @@ const visit = (path, tab, detail, title) => {
 
 // An entry that is NOT a screen: a panel, a dialog, anything using
 // `useBackToClose`. Pushed with the url argument omitted, exactly as ui.jsx does.
-const overlay = () => window.history.pushState(stampSeq({ ...window.history.state, tpOverlay: true }), '')
+const overlay = () => window.history.pushState(stampPush({ ...window.history.state, tpOverlay: true }), '')
 
 describe('the list a held Back key offers', () => {
   it('is the screens behind this one, nearest first', () => {
@@ -162,6 +162,9 @@ describe('picking a row', () => {
 
 describe('a road not taken', () => {
   it('drops the rows a new navigation abandoned', async () => {
+    // THE WEAKER OF THE TWO, and said so here: with only one row abandoned, the
+    // upsert below would overwrite it even if nothing trimmed. The case after this
+    // one is what actually holds `trimTrail` up.
     seedRoute('/')
     noteRoute('home', null, null)
     visit('/library', 'library', null, null)
@@ -176,6 +179,37 @@ describe('a road not taken', () => {
     // the trail must too — a row pointing at an entry that no longer exists would
     // jump the reader to whatever took its place.
     visit('/metadata', 'metadata', null, null)
+    expect(recentRoutes(5).map((e) => e.tab)).toEqual(['library', 'home'])
+  })
+
+  it('drops a row whose serial a panel has since taken', async () => {
+    // THE CASE THAT HOLDS THE TRIM UP, and it is why the trim belongs to every
+    // push rather than to `pushRoute`.
+    //
+    // A panel opened after a Back takes the abandoned serial and records nothing,
+    // so the stale row ends up BELOW the next route's serial — out of reach of a
+    // trim that only runs on a route push, and never overwritten, because
+    // `noteRoute` only ever writes the serial it is standing on. The menu then
+    // offers a screen for an entry that has become somebody's panel, and a panel's
+    // entry carries the address it opened OVER: the row goes to the wrong screen,
+    // which is worse than a row that goes nowhere.
+    seedRoute('/')
+    noteRoute('home', null, null)
+    visit('/library', 'library', null, null)
+    visit('/quotes', 'boards', null, null)
+    visit('/metadata', 'metadata', null, null)
+
+    const land = popped()
+    window.history.go(-2)
+    await land
+    noteRoute('library', null, null)
+
+    // A panel over the shelf, taking the serial /quotes used to hold, and then a
+    // navigation out of it — which is how a panel's entry gets BURIED rather than
+    // popped (see `leaveTo` in ui.jsx for the same cost stated from the other end).
+    overlay()
+    visit('/checks', 'checks', null, null)
+
     expect(recentRoutes(5).map((e) => e.tab)).toEqual(['library', 'home'])
   })
 })

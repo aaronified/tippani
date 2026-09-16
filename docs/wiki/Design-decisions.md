@@ -15732,3 +15732,20 @@ removed: a disabled button raises no pointer events, so there was never anything
 the gesture to fail at. The case it was trying to be is a work opened cold — a live
 Back key, because it falls back to the shelf, with an empty trail behind it — and that
 one fails when the `rows.length` guard goes.
+
+**AND THE TRIM BELONGED TO EVERY PUSH, WHICH THE FIRST CUT GOT WRONG.** A rating
+found that `trimTrail` could be deleted from `pushRoute` with every case still green.
+Chasing why turned up the real defect rather than a missing test: a panel opened after
+a Back takes the abandoned serial and records nothing, so the stale row sits BELOW the
+next route's serial — out of reach of a trim that only runs on a route push, and never
+overwritten, because `noteRoute` only ever writes the serial it is standing on. The
+menu then offers a screen for an entry that has become somebody's panel, and a panel's
+entry carries the address it opened OVER. That is a row that goes to the WRONG screen,
+which is worse than the dead row the serials were introduced to prevent.
+
+A push is a push: it destroys the forward entries whether or not the thing pushing is a
+screen. So the trim moved into the function every push site already calls, which is now
+named `stampPush` rather than `stampSeq` because it does two things and the old name
+admitted to one. The case that holds it up goes back two, opens a panel, and navigates
+out of it — the path that buries a panel's entry rather than popping it, which `leaveTo`
+already documents from the other end.

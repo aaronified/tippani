@@ -5,7 +5,7 @@ import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryDotClass, categoryHidden,
 import { Children, Component, Fragment, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { isGestureClip } from "./gestures.jsx";
-import { stampSeq } from "./history.js";
+import { stampPush } from "./history.js";
 import { groupedShortcuts, withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 // `json` FOR ONE COMPONENT, AND IT IS THE RECALL PANEL. Nothing else in this file
@@ -2303,7 +2303,7 @@ export function useBackToClose(active, onClose) {
     // distance to a screen in entries rather than in tpDepth, and an overlay's
     // entry is one of the entries in between — see history.js.
     window.history.pushState(
-      stampSeq({ ...window.history.state, tpOverlay: true, tpOverlayDepth: backStack.length + 1 }),
+      stampPush({ ...window.history.state, tpOverlay: true, tpOverlayDepth: backStack.length + 1 }),
       "",
     );
     // ONE GESTURE CLOSES ONE OVERLAY — THE TOP ONE — WHICH IS WHY THIS IS A STACK
@@ -5692,7 +5692,7 @@ export function usePanelStack() {
       // The serial is this entry's own — a panel's entry sits between two screens'
       // entries in the stack, and the Back trail's arithmetic counts it.
       window.history.pushState(
-        stampSeq({ ...window.history.state, tpPanelDepth: next.length }), "",
+        stampPush({ ...window.history.state, tpPanelDepth: next.length }), "",
       );
       return next;
     });
