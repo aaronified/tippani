@@ -29,7 +29,20 @@ import { NewStickerCard, StickerList, useStickers } from './stickers.jsx'
 // each tag shown as a sample chip in its own style × colour with usage
 // counts, inline edit/delete, plus a New-tag card with live style previews.
 
-export default function TagsPage() {
+// `embedded` IS WHAT A SCREEN GIVES UP WHEN IT BECOMES A SECTION, and it is the flag
+// ChecksPage and StagingPage already take for the same reason: the page header and,
+// on a phone, the sticky bar that carries it. Both belong to a SCREEN. Inside the
+// metadata console this page is one section of one, so drawing them put two page
+// headers on the screen — "Metadata" and then "Tags" — and a second sticky row
+// directly under the console's own, which is precisely what that console's header
+// note says it removed.
+//
+// IT SHIPPED AS A PROP THIS COMPONENT DID NOT TAKE. `<TagsPage embedded />` is quiet
+// in React: an unknown prop on a function component is simply ignored, so the call
+// site read as correct and the screen went on drawing its own chrome. The counts
+// belong to the header, so they go with it — and the rail beside the section is where
+// a section's size is stated, which is the arrangement every other door already uses.
+export default function TagsPage({ embedded = false }) {
   const [tags, setTags] = useState(null)
   const [error, setError] = useState('')
   const [showTable, setShowTable] = useState(false)
@@ -72,14 +85,16 @@ export default function TagsPage() {
   })
   return (
     <section className="space-y-5">
-      <div className={mobile ? 'mobile-sticky-bar' : ''}>
-        <PageHeader
-          title={t('nav.tab.tags.label')}
-          counts={tags
-            ? t('tags.header.counts', { count: tags.length, n: tags.length, noun: t('unit.tag', { count: tags.length }) })
-            : undefined}
-        />
-      </div>
+      {!embedded && (
+        <div className={mobile ? 'mobile-sticky-bar' : ''}>
+          <PageHeader
+            title={t('nav.tab.tags.label')}
+            counts={tags
+              ? t('tags.header.counts', { count: tags.length, n: tags.length, noun: t('unit.tag', { count: tags.length }) })
+              : undefined}
+          />
+        </div>
+      )}
       <ErrorText>{error}</ErrorText>
       {/* Add-cards lead the page: side by side on desktop, stacked on a phone. */}
       <div className="grid gap-4 md:grid-cols-2">

@@ -3,8 +3,13 @@
 // THE RULE THIS PINS: a row that leads to a container and the things inside it
 // says both numbers. Library is books and their highlights, the Catalogue is
 // titles and their lines, Quotes is boards and their quotes, Anthologies is
-// anthologies and their entries, Tags is tags and their stickers. A row that
-// leads to one thing — a gap count, a streak, a version — still says one.
+// anthologies and their entries. A row that leads to one thing — a gap count, a
+// streak, a version — still says one.
+//
+// TAGS LEFT THIS FILE WITH ITS ROW. It is a section of the metadata console now, so
+// neither nav can ask about it and `navBadge` has no branch for it; the size of that
+// section is stated on the console's own rail. The assertions below went with the
+// branch rather than being left to test a key nothing passes.
 //
 // WHY IT IS WORTH A FILE. navBadge is the ONE place both navs read, and the whole
 // reason it exists is that two lists of counts is how a rail and a drawer come to
@@ -36,7 +41,6 @@ describe('a destination that holds things says how many of each', () => {
     ['library', '412 | 9310'],
     ['movies', '88 | 640'],
     ['quotes', '6 | 205'],
-    ['tags', '74 | 12'],
     ['anthologies', '3 | 47'],
   ])('%s', (key, want) => {
     expect(navBadge(key, { stats: STATS })).toBe(want)
@@ -47,7 +51,7 @@ describe('a destination that holds things says how many of each', () => {
     // the thing that must not diverge, because two different marks on one rail
     // read as two different kinds of fact.
     const seps = new Set(
-      ['library', 'movies', 'quotes', 'tags', 'anthologies']
+      ['library', 'movies', 'quotes', 'anthologies']
         .map((k) => navBadge(k, { stats: STATS }).replace(/[0-9]/g, ''))
         .concat(checksBadge(7, 4).replace(/[0-9]/g, '')),
     )
@@ -71,9 +75,8 @@ describe('a server that has not been upgraded yet', () => {
   // row must still draw its left-hand number rather than the word "undefined",
   // which is what a bare template literal would have printed.
   it('falls back to zero for a count the payload does not carry', () => {
-    const old = { books: 412, annotations: 9310, movies: 88, dialogues: 640, quotes: 205, tags: 74 }
+    const old = { books: 412, annotations: 9310, movies: 88, dialogues: 640, quotes: 205 }
     expect(navBadge('quotes', { stats: old })).toBe('0 | 205')
-    expect(navBadge('tags', { stats: old })).toBe('74 | 0')
   })
 
   // anthologies is the one that stays ABSENT rather than falling back — the row

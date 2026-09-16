@@ -141,6 +141,7 @@ const TOUR_STEPS = [
     // which for that section is 'metadata', and the step would have belonged to a
     // screen no "?" can name.
     tab: 'metadata',
+    section: 'tags',
     get name() { return t('tour.step.tags.name') },
     get blurb() { return t('tour.step.tags.blurb') },
     get title() { return t('tour.step.tags.title') },
@@ -497,6 +498,15 @@ export function FeatureTour({ user, startStep = 0, onlyTab = null, onNavigate, o
   // Entering a step: navigate its tab, then focus the card so screen readers
   // and the keyboard land on the new copy.
   useEffect(() => {
+    // A SCREEN BUILT OUT OF SECTIONS NEEDS THE SECTION NAMED TOO. Navigating to the
+    // tab lands on whichever door that screen was last left at — so the step titled
+    // "Tags & stickers" opened the metadata console on its OVERVIEW and talked about
+    // a list the reader could not see. `section` is written before the navigation,
+    // into the key that screen remembers its own door in, which is the same thing
+    // `TagsRedirect` does and for the same reason.
+    if (step.section) {
+      try { localStorage.setItem('tippani:metasection', JSON.stringify(step.section)) } catch { /* private mode: the console opens where it last was */ }
+    }
     if (step.tab) onNavigate(step.tab)
     cardRef.current?.focus({ preventScroll: true })
   }, [i]) // eslint-disable-line react-hooks/exhaustive-deps

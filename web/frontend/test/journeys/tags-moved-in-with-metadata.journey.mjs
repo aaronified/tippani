@@ -38,6 +38,35 @@ it('a reader finds Tags inside Metadata', async () => {
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
 
+it('Back still works after following the old Tags address', async () => {
+  // A REDIRECT REPLACES THE ENTRY IT LANDED ON; IT DOES NOT STACK ON TOP OF IT.
+  //
+  // The first cut of this pushed, so the history read library → tags → metadata with
+  // /tags still in the middle answering with the console — and Back from there went
+  // metadata, metadata, metadata for ever. The shelf was unreachable. A rating found
+  // it by pressing Back in a browser, which is the only place that stack exists: the
+  // route helpers can be read all day and the defect is in what they leave behind.
+  //
+  // THE MUTATION: swap `redirectTab` back for `selectTab` at the TagsRedirect call
+  // site and this fails — Back lands on the console again rather than the shelf.
+  await app.goto('/library')
+  await app.see('On the Shortness of Life')
+
+  await app.goto('/tags')
+  await app.see('Stickers')
+
+  // THE BROWSER'S OWN BACK, through the escape hatch the harness declares. There is
+  // no verb for it in the vocabulary and there should not be: `see`, `press` and the
+  // rest are things on a page, and Back is the CHROME around the page — a control
+  // the app does not draw and a reader uses constantly. world.mjs says every use of
+  // `page` is a small debt; this is the debt and this is the reason.
+  await app.page.goBack()
+  // Back from a redirect goes where the reader actually came from.
+  await app.see('On the Shortness of Life')
+
+  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})
+
 it('the address Tags used to have still goes there', async () => {
   // A BOOKMARK, TYPED THE WAY A BOOKMARK ARRIVES: straight at the old URL, with no
   // press beforehand to set anything up.

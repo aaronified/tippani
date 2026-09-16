@@ -714,7 +714,10 @@ export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
     if (key === 'library') return pair(stats.books, stats.annotations)
     if (key === 'movies') return pair(stats.movies, stats.dialogues)
     if (key === 'quotes') return pair(stats.boards ?? 0, stats.quotes)
-    if (key === 'tags') return pair(stats.tags, stats.stickers ?? 0)
+    // NO 'tags' HERE ANY MORE. It is a section of the metadata console, and a
+    // section's size is stated on the console's own rail rather than on a nav row
+    // that no longer exists. A branch for a key neither nav can ask about is a
+    // reader of this function being told a row exists that does not.
     // STILL GUARDED ON null, and the guard has been load-bearing: /stats never
     // sent this key until now, so the row has worn no count at all. An older
     // server behind a newer bundle is the case it goes on covering.
@@ -1876,6 +1879,22 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     setDetail(null)
   }
   function selectTab(key) { go(key, null) }
+  // REDIRECT, NOT NAVIGATION — and the difference is the reader's Back button.
+  //
+  // /tags is an address that resolves to somewhere else, so the entry it landed on
+  // must be REPLACED rather than pushed on top of. Pushed, the stack reads
+  // library → tags → metadata with /tags still in the middle answering with the
+  // console: measured, three Back presses from there gave /metadata, /metadata,
+  // /metadata and the shelf was unreachable. `seedRoute` is the existing replace —
+  // the same call a typed path that resolves elsewhere already goes through at boot,
+  // which is exactly what this is, one navigation later.
+  function redirectTab(key) {
+    if (!detail) rememberScroll(statePath(tab, null))
+    setTab(key)
+    setDetail(null)
+    if (DEMO) return
+    seedRoute(statePath(key, null))
+  }
   function openBook(id) { go('library', { type: 'book', id }) }
   function openMovie(id) { go('movies', { type: 'movie', id }) }
   // THE SAME TWO DOORS IN THE PANELS' OWN VOCABULARY. A person's screen and a
@@ -2367,7 +2386,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             addresses and a dead one is worse than the nav row it replaced.
             `TagsRedirect` writes the console's own remembered section and steps
             sideways; see routes.js, which keeps `tags` in ROUTE_TABS for this. */}
-        {tab === 'tags' && <TagsRedirect onGo={selectTab} />}
+        {tab === 'tags' && <TagsRedirect onGo={redirectTab} />}
         {tab === 'stats' && (
           <div data-screen-label="stats">
             <StatsPage onSearch={searchFor} />

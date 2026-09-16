@@ -641,6 +641,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Back works after following a link to `/tags`.** The address survives Tags becoming a
+  section, but it was arriving as a new step rather than as a redirect — so the history
+  read shelf → tags → console with the old address still in the middle answering with the
+  console, and Back from there went nowhere but the console, for ever. Whatever you were
+  reading before was unreachable.
+
+- **The Tags section no longer draws a second page header.** Inside the console it kept
+  the title and, on a phone, the sticky bar that a screen of its own would carry — so the
+  page said "Metadata" and then "Tags", with two sticky rows stacked on a phone.
+
 - **The search field is announced by what it is, not by what to type in it.** Its
   accessible name was the placeholder — "author, tag, a line you half remember…" — so a
   screen reader said what to type and never what you were typing into, which is the one

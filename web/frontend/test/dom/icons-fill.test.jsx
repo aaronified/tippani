@@ -29,7 +29,7 @@ const FILLED = {
   // sections have addresses, a rail of their own and counts beside them. IconNavMasks
   // is Characters and IconNavWorks is books-and-films; IconPerson and IconBooks keep
   // their outlines for the rows where a person or a book is the SUBJECT.
-  IconNavMasks: 'place', IconNavWorks: 'place',
+  IconNavMasks: 'place', IconNavWorks: 'place', IconNavSources: 'place',
   // The rail's two foot rows are destinations too — Checks is a place you go to
   // look things over, the Bin is a place things wait. IconDelete stays an OUTLINE
   // beside them, because that one is the verb on a row rather than a door.
