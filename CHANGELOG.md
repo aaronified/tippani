@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Hold the phone's Back key for the screens behind you.** A menu opens over the key
+  with the last five, and picking one really goes back — your phone's own Back carries
+  on from there rather than into the screens you just stepped over. (The ones above
+  stay reachable with Forward; a browser will not let anything delete them.)
+
 - **An anthology can be filled from something you already have.** Point it at a book, a
   tag, an author, a colour, a shelf, your favourites, a stretch of time, or the whole
   library — on the new-anthology form, under the introduction. Turn on **Keep it fed** and

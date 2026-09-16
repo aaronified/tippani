@@ -5,6 +5,7 @@ import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryDotClass, categoryHidden,
 import { Children, Component, Fragment, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { isGestureClip } from "./gestures.jsx";
+import { stampSeq } from "./history.js";
 import { groupedShortcuts, withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 // `json` FOR ONE COMPONENT, AND IT IS THE RECALL PANEL. Nothing else in this file
@@ -2297,8 +2298,12 @@ export function useBackToClose(active, onClose) {
     // replaced. pushState REPLACES the state object, so a marker that spelled
     // only its own flag would blank the number the in-app Back reads to tell
     // "there is a screen behind this" from "the reader arrived here directly".
+    //
+    // AND IT IS AN ENTRY, so it takes a serial. The dock's Back trail counts the
+    // distance to a screen in entries rather than in tpDepth, and an overlay's
+    // entry is one of the entries in between — see history.js.
     window.history.pushState(
-      { ...window.history.state, tpOverlay: true, tpOverlayDepth: backStack.length + 1 },
+      stampSeq({ ...window.history.state, tpOverlay: true, tpOverlayDepth: backStack.length + 1 }),
       "",
     );
     // ONE GESTURE CLOSES ONE OVERLAY — THE TOP ONE — WHICH IS WHY THIS IS A STACK
@@ -5684,8 +5689,10 @@ export function usePanelStack() {
       const next = s.concat(panel);
       // Carried forward, not replaced: pushState REPLACES the state object, and
       // App keeps its own depth in there for the in-app Back.
+      // The serial is this entry's own — a panel's entry sits between two screens'
+      // entries in the stack, and the Back trail's arithmetic counts it.
       window.history.pushState(
-        { ...window.history.state, tpPanelDepth: next.length }, "",
+        stampSeq({ ...window.history.state, tpPanelDepth: next.length }), "",
       );
       return next;
     });
@@ -6496,7 +6503,16 @@ const HOVER_HIDE_MS = 3000;
 // owner's rule that a shortcut "must always be spelled out in the corresponding
 // button's tooltip". Passing an id with no binding leaves the label untouched,
 // so any Tooltip can name an action speculatively.
-export function Tooltip({ label, side = "top", className = "", onContextMenu, shortcut, shiftKey = false, children }) {
+// `onHold` — what a touch long press MEANS on this control, where it means
+// something other than "say your label".
+//
+// IT REPLACES THE HINT RATHER THAN RACING IT, and that is why it is a prop here
+// instead of a second timer on the caller. A control wearing both would start two
+// clocks on one pointerdown and fire both at 500ms: the dock's Back key would
+// show its own name in a bubble and open a menu over the bubble, at the same
+// instant. The timer, the slop and the click-swallow below are already the right
+// mechanism; only the thing at the end of them changes.
+export function Tooltip({ label, side = "top", className = "", onContextMenu, onHold, shortcut, shiftKey = false, children }) {
   // The key is dropped from the bubble on a phone, for the reason Kbd gives: the
   // rule is that a shortcut must be spelled out on the control that shares its
   // job, and its purpose is teaching a binding to somebody who can press it.
@@ -6598,6 +6614,10 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
     timer.current = setTimeout(() => {
       fired.current = true;
       if (suppressed) return;
+      // `fired` is already set, so the click this press becomes is swallowed by
+      // onClickCapture below — which is what keeps a hold off the control's own
+      // verb. A Back key held for the trail must not also go back.
+      if (onHold) return onHold();
       // Read the box at FIRE time, not at press time: the hold lasts half a
       // second and a list can still be settling under the finger.
       hintToast(label, box(), side);
@@ -10501,12 +10521,20 @@ export function SourceIcon({ source, detail, side = "top", state = null, stateOf
 // activate (the items are real buttons, so that is free), Escape closes and focus
 // goes back to whatever opened it. Without that, a keyboard user can open this and
 // then only tab THROUGH it into the page behind.
-export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, returnFocusTo }) {
+export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, returnFocusTo, prefer = "below", align }) {
   const { popRef, style } = useAnchoredPosition(open, anchorRef, {
     // align 'end' when it hangs off a glyph at the right end of a row — opening
     // rightwards would need clamping immediately. A point-anchored menu opens
     // rightwards from the pointer, which is what every native menu does.
-    align: at ? "start" : "end",
+    //
+    // OVERRIDABLE, because neither default is true of a menu hanging off the
+    // LEFTMOST key of the phone dock: 'end' would open it leftwards off the
+    // screen and leave the clamp to rescue it, and 'below' would be asking for
+    // room under a bar that sits on the bottom edge. `placeAnchored` flips and
+    // clamps either way, but a placement that is only right because it was
+    // rescued is one viewport change from being wrong.
+    align: align || (at ? "start" : "end"),
+    prefer,
     minHeight: 100,
     at,
   })

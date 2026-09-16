@@ -60,7 +60,7 @@ import {
   searchScope,
   statePath,
 } from './routes.js'
-import { navigateBack, popIsOverlay, pushRoute, seedRoute } from './history.js'
+import { jumpBack, navigateBack, noteRoute, popIsOverlay, pushRoute, recentRoutes, seedRoute } from './history.js'
 import { DEMO, apiURL, coverImgURL, json, uploadWithProgress } from './api.js'
 import {
   useEscape,
@@ -1442,8 +1442,29 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
 // BACK IS RENDERED EVEN WHERE IT IS DEAD. On a top-level screen there is nothing
 // behind it, so it is disabled rather than absent: dropping it would slide Search
 // into the first seat and break the one promise this row makes.
-function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, addBadge, searchLabel, searchIcon, searchIsHere = false }) {
+//
+// AND BACK IS THE ONE KEY WITH A SECOND VERB. Held, it offers the screens behind
+// this one instead of the single one a press gives — see history.js for why the
+// app has to keep that list itself, and why picking a row is a real `go(-k)`
+// rather than a fresh navigation dressed up as one.
+function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd, addLabel, addBadge, searchLabel, searchIcon, searchIsHere = false }) {
   const [focused, setFocused] = useState(false)
+  // The menu anchors to the KEY, not to the bar: it is the Back key's own second
+  // verb, and a panel centred over the row would read as the dock's menu rather
+  // than as that one key's.
+  const backRef = useRef(null)
+  // null is shut. The rows are read when the hold fires rather than on every
+  // render — the trail changes with every navigation, and a list captured at
+  // render time would be the one from whichever screen last re-rendered the bar.
+  const [trail, setTrail] = useState(null)
+  const holdBack = () => {
+    const rows = onJumpBack ? recentRoutes(5) : []
+    // NOTHING OPENS ON AN EMPTY TRAIL. A menu with no rows is a press that
+    // appears to do nothing, which is worse than a hold that does nothing —
+    // the reader learns the gesture is broken rather than that there is
+    // nowhere to go.
+    if (rows.length) setTrail(rows)
+  }
   // The bar stays focusable while slid away, so focusing a key must bring it
   // back rather than leave focus on something off-screen.
   const away = hidden && !focused
@@ -1451,9 +1472,10 @@ function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, 
   // A seat the screen renders itself — see useScreenBar. MoreMenu is the reason:
   // it anchors to its own trigger, so the shell cannot draw the button for it.
   const key = (k) => k.node ? <Fragment key={k.id}>{k.node}</Fragment> : (
-    <Tooltip key={k.id} label={k.label} side="top">
+    <Tooltip key={k.id} label={k.label} side="top" onHold={k.hold} onContextMenu={k.hold ? k.hold : undefined}>
       <button
         type="button"
+        ref={k.btnRef}
         className="mobile-dock-btn"
         aria-label={k.label}
         aria-pressed={k.on === undefined ? undefined : !!k.on}
@@ -1486,6 +1508,12 @@ function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, 
         icon: <IconBack />,
         disabled: !canBack,
         onClick: onBack,
+        btnRef: backRef,
+        // Gated on canBack because the button is DISABLED when there is nothing
+        // behind — and a disabled button raises no pointer events, but the
+        // Tooltip span wrapping it does. Without the gate the hold would still
+        // fire on a key that is drawn dead.
+        hold: canBack ? holdBack : undefined,
       })}
       {key({ id: 'search', label: searchLabel, icon: searchIcon, onClick: onSearch, current: searchIsHere })}
       <Tooltip label={addLabel} side="top">
@@ -1506,6 +1534,32 @@ function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, 
           something that loud is a second divider doing the first one's job. The
           owner's call, and the row reads cleaner without it. */}
       {seats.map(key)}
+      {/* Above the key, and aligned to its leading edge: Back is the leftmost seat
+          on a bar sitting on the bottom edge, so neither of ActionMenu's defaults
+          is the right guess here. */}
+      <ActionMenu
+        open={!!trail}
+        anchorRef={backRef}
+        prefer="above"
+        align="start"
+        returnFocusTo={backRef}
+        onClose={() => setTrail(null)}
+        items={[
+          { heading: t('shell.nav.back.trail.title') },
+          ...(trail || []).map((e) => ({
+            id: `trail-${e.seq}`,
+            // The tab is what was stored, not a label — so this resolves in the
+            // reader's language every time the menu opens rather than in
+            // whichever one they were using when they walked past the screen.
+            label: e.title || t(screenTitleKey(e.tab)),
+            // Only where the row is a work, and then it says which shelf the work
+            // is on — something the title does not. A screen row would get its own
+            // name twice, which is the sub-line this app does not draw.
+            sub: e.title ? t(screenTitleKey(e.tab)) : undefined,
+            onClick: () => onJumpBack(e.seq),
+          })),
+        ]}
+      />
     </nav>
   )
 }
@@ -2042,6 +2096,19 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // function the old button used, so the field and the search screen cannot disagree
   // about what "here" means.
   const detailTitle = useCrumbTitle()
+  // THE TRAIL IS RECORDED HERE RATHER THAN INSIDE pushRoute, and the reason is the
+  // second argument. A work's name arrives AFTER the work does — `useCrumb`
+  // publishes it once the fetch lands — so a name taken at push time would be
+  // whatever the previous screen was called. An effect on the route and the crumb
+  // together fires again when the name arrives and corrects its own row.
+  //
+  // It also covers what a push site cannot: a popstate, the /tags redirect, and
+  // the replace `navigateBack` falls back to all arrive here, and all of them
+  // leave the reader on a screen the trail should know about.
+  useEffect(() => {
+    if (DEMO) return
+    noteRoute(tab, detail, detail ? detailTitle : null)
+  }, [tab, detail, detailTitle])
   // The phone header's sub-line and the dock's two screen seats, published by
   // whichever screen owns them. Both are null on a screen that publishes neither,
   // which is the resting state and draws nothing.
@@ -2483,6 +2550,11 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         // is the library, /catalogue/5 is the catalogue, and landing there is
         // what "back" means from a work you arrived at cold.
         onBack={() => goBack(tab)}
+        // jumpBack is a real traversal, so the popstate handler above is what sets
+        // the tab and the detail — the same single code path the in-app arrow and
+        // the device's gesture already share. Absent under DEMO, where nothing
+        // syncs the URL and there is no history of ours to walk.
+        onJumpBack={DEMO ? undefined : jumpBack}
         onSearch={openSearch}
         searchLabel={t(globalSearch ? 'shell.search.global.aria' : 'nav.tab.search.label')}
         // The Search key lands on the Search screen, so on the Search screen it

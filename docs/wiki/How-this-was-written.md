@@ -154,31 +154,31 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,738 Go test functions and 4,470 frontend tests, across 695 test files** — the
+- **1,738 Go test functions and 4,484 frontend tests, across 698 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
-  cd web/frontend && npx vitest run                                      # 4,428 of them
-  cd web/frontend && npm run journeys                                    # + 42 in the browser
+  cd web/frontend && npx vitest run                                      # 4,439 of them
+  cd web/frontend && npm run journeys                                    # + 45 in the browser
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 279 Go files
   find ./web/frontend -path '*/node_modules' -prune -o -type f \
        \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
-       -print | wc -l                                                    # 416 frontend
+       -print | wc -l                                                    # 419 frontend
   ```
 
-  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,428 is what
+  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,439 is what
   `npx vitest run` reports across the three vitest projects, and the browser tier is
   not among them — it has its own config, because it needs a globalSetup that builds
-  the binary and seeds a library. `npm test` runs two projects — 3,621 tests over 307
-  files; `npm run lint:rules` runs the third, 807 assertions over 80 files; and
-  `npm run journeys` runs 42 tests over 29 files against a real server in a real
+  the binary and seeds a library. `npm test` runs two projects — 3,629 tests over 308
+  files; `npm run lint:rules` runs the third, 810 assertions over 81 files; and
+  `npm run journeys` runs 45 tests over 30 files against a real server in a real
   browser, which is the tier that would have caught the bug all this is named after.
-  Those 80 READ THE SOURCE TEXT and assert how it is
+  Those 81 READ THE SOURCE TEXT and assert how it is
   spelled: never truncate a name, spacing is a constant, no emoji glyphs, the
   typescale. They are worth keeping and they were never tests, because the app can
-  be entirely broken and all 80 of them still pass — none of them runs it. A
+  be entirely broken and all 81 of them still pass — none of them runs it. A
   suite let a feature ship 100% dead that way. CI runs `lint:rules` as its own step,
   so a broken design rule still fails the build; it just stops being counted as
   evidence that anything works.
@@ -200,8 +200,8 @@ worth nothing here and only execution counts. What the repo actually runs:
   by 2.3.0, from 1,100 / 1,853 / 323 when they were recounted for 2.2.3, and most
   recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
   1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, from
-  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, from 1,494 / 3,431 / 542, from 1,494 / 3,434 / 543, from 1,494 / 3,435 / 543, from 1,494 / 3,436 / 543, from 1,494 / 3,439 / 543, from 1,494 / 3,448 / 543, from 1,494 / 3,449 / 543, from 1,494 / 3,450 / 543, from 1,494 / 3,562 / 551, from 1,508 / 3,590 / 555, from 1,508 / 3,595 / 556, from 1,508 / 3,610 / 558, from 1,508 / 3,616 / 559, from 1,508 / 3,624 / 561, from 1,509 / 3,626 / 562, from 1,509 / 3,631 / 563, from 1,512 / 3,633 / 563, from 1,513 / 3,642 / 564, from 1,514 / 3,645 / 565, from 1,522 / 3,645 / 565, from 1,524 / 3,646 / 565, from 1,533 / 3,648 / 566, from 1,538 / 3,652 / 567, from 1,542 / 3,652 / 567, from 1,685 / 4,102 / 633, from 1,685 / 4,135 / 636, from 1,687 / 4,137 / 636, from 1,690 / 4,142 / 636, from 1,690 / 4,151 / 636, from 1,692 / 4,154 / 636, from 1,692 / 4,156 / 636, from 1,692 / 4,157 / 636, from 1,692 / 4,158 / 636, from 1,703 / 4,188 / 638, from 1,703 / 4,191 / 638, from 1,705 / 4,198 / 638, from 1,707 / 4,201 / 638, from 1,708 / 4,202 / 638, from 1,708 / 4,209 / 639, from 1,708 / 4,219 / 640, from 1,708 / 4,234 / 641, from 1,708 / 4,245 / 642, from 1,708 / 4,248 / 643, from 1,708 / 4,257 / 644, from 1,708 / 4,265 / 644, from 1,708 / 4,272 / 645, from 1,708 / 4,281 / 646, from 1,710 / 4,292 / 646, from 1,713 / 4,296 / 647, from 1,713 / 4,299 / 647, from 1,713 / 4,312 / 648, from 1,731 / 4,430 / 660, from 1,738 / 4,430 / 664, from 1,738 / 4,435 / 665, and from
-  1,738 / 4,455 / 681 before this recount — which is why each one now sits beside the command that produces it.
+  1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, from 1,494 / 3,431 / 542, from 1,494 / 3,434 / 543, from 1,494 / 3,435 / 543, from 1,494 / 3,436 / 543, from 1,494 / 3,439 / 543, from 1,494 / 3,448 / 543, from 1,494 / 3,449 / 543, from 1,494 / 3,450 / 543, from 1,494 / 3,562 / 551, from 1,508 / 3,590 / 555, from 1,508 / 3,595 / 556, from 1,508 / 3,610 / 558, from 1,508 / 3,616 / 559, from 1,508 / 3,624 / 561, from 1,509 / 3,626 / 562, from 1,509 / 3,631 / 563, from 1,512 / 3,633 / 563, from 1,513 / 3,642 / 564, from 1,514 / 3,645 / 565, from 1,522 / 3,645 / 565, from 1,524 / 3,646 / 565, from 1,533 / 3,648 / 566, from 1,538 / 3,652 / 567, from 1,542 / 3,652 / 567, from 1,685 / 4,102 / 633, from 1,685 / 4,135 / 636, from 1,687 / 4,137 / 636, from 1,690 / 4,142 / 636, from 1,690 / 4,151 / 636, from 1,692 / 4,154 / 636, from 1,692 / 4,156 / 636, from 1,692 / 4,157 / 636, from 1,692 / 4,158 / 636, from 1,703 / 4,188 / 638, from 1,703 / 4,191 / 638, from 1,705 / 4,198 / 638, from 1,707 / 4,201 / 638, from 1,708 / 4,202 / 638, from 1,708 / 4,209 / 639, from 1,708 / 4,219 / 640, from 1,708 / 4,234 / 641, from 1,708 / 4,245 / 642, from 1,708 / 4,248 / 643, from 1,708 / 4,257 / 644, from 1,708 / 4,265 / 644, from 1,708 / 4,272 / 645, from 1,708 / 4,281 / 646, from 1,710 / 4,292 / 646, from 1,713 / 4,296 / 647, from 1,713 / 4,299 / 647, from 1,713 / 4,312 / 648, from 1,731 / 4,430 / 660, from 1,738 / 4,430 / 664, from 1,738 / 4,435 / 665, from
+  1,738 / 4,455 / 681, and from 1,738 / 4,470 / 695 before this recount — which is why each one now sits beside the command that produces it.
   The last of those drifts is worth naming because it was one work session: a number
   recounted honestly at the start of a stretch is stale by the end of it.
   The 2.2.4, 2.2.5 and 2.2.6 passes added forty-four cases between them, every one

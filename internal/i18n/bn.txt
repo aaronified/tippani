@@ -1124,6 +1124,12 @@ shell.restore.toast.done = ফিরিয়ে আনা হয়েছে ·
 shell.nav.primary.aria = মূল
 shell.nav.dock.aria = এই স্ক্রিনের কাজগুলো
 
+# --- what the dock's Back key offers when it is HELD rather than pressed: the
+# screens behind this one. "Go back to" rather than "Recent", because the list is
+# not a history of where you have been — it is a set of destinations, and every
+# row is strictly behind you.
+shell.nav.back.trail.title = পেছনের স্ক্রিন
+
 # --- the avatar chip, in both top bars and in the drawer's footer.
 shell.account.chip.tip = নিজের প্রোফাইল
 shell.account.chip.aria = প্রোফাইল — {name}

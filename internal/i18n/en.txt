@@ -1116,6 +1116,12 @@ shell.restore.toast.done = restored · log in again
 shell.nav.primary.aria = Primary
 shell.nav.dock.aria = Actions for this screen
 
+# --- what the dock's Back key offers when it is HELD rather than pressed: the
+# screens behind this one. "Go back to" rather than "Recent", because the list is
+# not a history of where you have been — it is a set of destinations, and every
+# row is strictly behind you.
+shell.nav.back.trail.title = Go back to
+
 # --- the avatar chip, in both top bars and in the drawer's footer.
 shell.account.chip.tip = Your profile
 shell.account.chip.aria = Profile — {name}
