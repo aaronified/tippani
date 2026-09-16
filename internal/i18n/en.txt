@@ -123,7 +123,6 @@ nav.tab.quotes.tip = Lines from anywhere else
 nav.tab.anthologies.label = Anthologies
 nav.tab.anthologies.tip = Quotes you have gathered
 nav.tab.tags.label = Tags
-nav.tab.tags.tip = Tags and stickers
 nav.tab.metadata.label = Metadata
 nav.tab.metadata.tip = Covers, people and duplicates
 nav.tab.stats.label = Stats

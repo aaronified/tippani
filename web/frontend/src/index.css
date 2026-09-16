@@ -7070,6 +7070,12 @@ html[data-theme="dark"] .mobile-dock-btn.active {
   white-space: nowrap; /* keep the subtext on one line so it can't offset the row label */
 }
 .drawer-divider { height: 1px; background: var(--line); margin: 5px 6px; flex: none; }
+/* THE DRAWER'S FOOT, which is the rail's foot on a phone. `.drawer-nav` takes the
+   slack (flex: 1), so anything below it is pinned to the bottom — and Checks and Bin
+   belong there, against the account row, rather than trailing the scrolling list with
+   the leftover height between them and it. `flex: none` so a long list never squeezes
+   them, and the same side padding as the list so the rows stay in one column. */
+.drawer-foot { flex: none; display: flex; flex-direction: column; gap: 1px; padding: 0 10px; }
 .drawer-footer {
   display: flex;
   align-items: center;

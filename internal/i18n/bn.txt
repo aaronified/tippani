@@ -132,7 +132,6 @@ nav.tab.quotes.tip = বই-সিনেমার বাইরের কথা
 nav.tab.anthologies.label = সংকলন
 nav.tab.anthologies.tip = বেছে বেছে জড়ো করা উদ্ধৃতি
 nav.tab.tags.label = ট্যাগ
-nav.tab.tags.tip = ট্যাগ আর স্টিকার
 nav.tab.metadata.label = মেটাডেটা
 nav.tab.metadata.tip = কভার, মানুষ আর ডুপ্লিকেট
 nav.tab.stats.label = পরিসংখ্যান

@@ -75,6 +75,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Tags is a section of the Metadata console, not a tab of its own.** It always
+  answered the question the rest of that console answers — what is written across your
+  library, and is it written consistently — while sitting in the nav beside Stats as if
+  it were somewhere you go to read. `/tags` still works: it opens the console at Tags,
+  so a bookmark or a link from anywhere else lands where it always did.
+
+- **Every section of the Metadata console wears its own glyph.** People and Characters
+  both drew a bare head, so two doors side by side were told apart only by the word
+  under them; People takes the filled people mark and Characters takes a drama mask,
+  which says *a part somebody plays* rather than *a person*. Works takes assorted
+  shapes — there is no glyph in the set for "books and films together", and borrowing
+  the Library's books or the Catalogue's reel would claim the section holds one kind
+  when it holds two.
+
+- **Checks and the Bin sit against your account in the ☰ drawer.** They were the last
+  two rows of the scrolling list with the account pinned below, so on any phone taller
+  than the list they were stranded halfway up with a field of nothing under them. The
+  desktop rail has always put them at its foot; the drawer does now too.
+
 - **The new-anthology form asks two questions, not twenty-five.** Title, an introduction,
   and then twenty-three switches — what each passage shows, what its book lends it, what is
   known about the person behind it — all of it between you and the button that saves. The

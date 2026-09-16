@@ -22,6 +22,11 @@
 // worklist you are sent to when something reads oddly, its only door is a tile in
 // Settings, and a permanent tab for "possible mistakes in your quotes" would be a
 // standing invitation to worry.
+// `tags` IS STILL A ROUTE AND IS NO LONGER A TAB. The owner: "tags should be a section
+// within metadata". It left CONTENT/UTILITY/DRAWER — there is no nav row for it any
+// more — and it stays here, because /tags is an address people have bookmarked and
+// linked to, and an address that stops resolving is worse than the row it replaced.
+// `tabForPath` sends it to the metadata console's own Tags section; see App's router.
 export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup', 'checks']
 
 // ---- the nav contract ----
@@ -60,7 +65,6 @@ export const CONTENT_TABS = [
   ['anthologies', 'nav.tab.anthologies.label', 'nav.tab.anthologies.tip'],
 ]
 export const UTILITY_TABS = [
-  ['tags', 'nav.tab.tags.label', 'nav.tab.tags.tip'],
   ['metadata', 'nav.tab.metadata.label', 'nav.tab.metadata.tip'],
   ['stats', 'nav.tab.stats.label', 'nav.tab.stats.tip'],
   ['settings', 'nav.tab.settings.label', 'nav.tab.settings.tip'],
@@ -79,7 +83,6 @@ export const DRAWER_TABS = [
   ['quotes', 'nav.tab.quotes.label'],
   ['anthologies', 'nav.tab.anthologies.label'],
   null,
-  ['tags', 'nav.tab.tags.label'],
   ['metadata', 'nav.tab.metadata.label'],
   ['stats', 'nav.tab.stats.label'],
   ['settings', 'nav.tab.settings.label'],

@@ -820,6 +820,25 @@ function ScreenMenu({ screen, className, glyph = 22, withHelp = true, onTour = n
   )
 }
 
+// TagsRedirect — /tags lands on the metadata console, open at Tags.
+//
+// A COMPONENT RATHER THAN A BRANCH IN THE SHELL'S BODY, because the redirect is an
+// EFFECT and the shell's body is a render. Writing the console's remembered section
+// during a render would be a side effect in the middle of one, and React is entitled
+// to run that twice.
+//
+// IT WRITES THE KEY THE CONSOLE ALREADY READS rather than taking a prop through three
+// components: `usePersistedState('tippani:metasection', …)` is where that screen keeps
+// which door it was last at, and arriving from /tags IS a reader choosing that door.
+// The shape has to match what the hook stores, which is JSON.
+function TagsRedirect({ onGo }) {
+  useEffect(() => {
+    try { localStorage.setItem('tippani:metasection', JSON.stringify('tags')) } catch { /* private mode: the console opens where it last was */ }
+    onGo('metadata')
+  }, [onGo])
+  return null
+}
+
 // Breadcrumb — where you are, in the bar the rail left empty.
 //
 // TWO LEVELS AND NO MORE. This app is never more than two deep: a screen, or a work
@@ -1306,7 +1325,24 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
               </button>
             ),
           )}
-          {/* CHECKS AND BIN, the two rows the rail has had since the rail
+        </div>
+        <div className="drawer-foot">
+          {/* CHECKS AND BIN SIT AT THE FOOT, AGAINST THE ACCOUNT ROW.
+
+              They were the last two rows INSIDE the scrolling list, and the account
+              is a footer pinned under it — so on any phone taller than the list they
+              were stranded halfway up with a field of nothing between them and the
+              thing they are supposed to sit beside. The owner: "checks and bin should
+              be right above the profile in the sidebar (both desktop and mobile)".
+
+              THE DESKTOP RAIL ALREADY DID THIS and the drawer did not, which is the
+              same divergence `.rail-foot` was built to end: one surface grew a foot
+              and the other kept its two rows in the list. This is that foot, in the
+              drawer's own dress — so the leftover height now falls ABOVE them, where
+              empty space belongs, instead of between them and the account.
+
+              The original note, kept because it is still why they are here at all:
+              the two rows the rail has had since the rail
               landed and the drawer did not. They were still buried in Settings
               here, so the phone had no door to either — and a waiting import is
               exactly the thing you want to find without going looking for it.
@@ -2325,11 +2361,13 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             />
           </div>
         )}
-        {tab === 'tags' && (
-          <div data-screen-label="tags">
-            <TagsPage />
-          </div>
-        )}
+        {/* /tags IS A REDIRECT NOW, NOT A SCREEN. Tags became a section of the
+            metadata console — the owner: "tags should be a section within metadata"
+            — and the address survives it, because people bookmark and link to
+            addresses and a dead one is worse than the nav row it replaced.
+            `TagsRedirect` writes the console's own remembered section and steps
+            sideways; see routes.js, which keeps `tags` in ROUTE_TABS for this. */}
+        {tab === 'tags' && <TagsRedirect onGo={selectTab} />}
         {tab === 'stats' && (
           <div data-screen-label="stats">
             <StatsPage onSearch={searchFor} />

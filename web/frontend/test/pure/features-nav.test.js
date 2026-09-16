@@ -196,8 +196,13 @@ describe('visibleTabs', () => {
     // filter keyed on truthiness would drop every one of them. Search left this
     // list when it became a dock key rather than a drawer row; it is still not
     // hideable, and ROUTE_TABS is where that is now asserted.
+    //
+    // TAGS LEFT IT TOO, and for a different reason: it is a SECTION of the metadata
+    // console now rather than a destination of its own, so there is no drawer row to
+    // pass through. /tags is still an address and still resolves — ROUTE_TABS keeps
+    // it and App redirects it — which is the claim `routes.test.js` holds.
     const kept = keys(visibleTabs(DRAWER_TABS, off('quotes')))
-    for (const tab of ['home', 'tags', 'metadata', 'stats', 'settings']) {
+    for (const tab of ['home', 'metadata', 'stats', 'settings']) {
       expect(kept, tab).toContain(tab)
     }
   })

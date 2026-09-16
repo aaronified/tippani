@@ -135,7 +135,12 @@ const TOUR_STEPS = [
   },
   {
     key: 'tags',
-    tab: 'tags',
+    // TAGS IS A SECTION OF THE METADATA CONSOLE NOW, so this step navigates there and
+    // joins that screen's own walk. Left as `tab: 'tags'` it would still have worked —
+    // /tags redirects — but the per-screen walk is keyed on what `helpScreen` answers,
+    // which for that section is 'metadata', and the step would have belonged to a
+    // screen no "?" can name.
+    tab: 'metadata',
     get name() { return t('tour.step.tags.name') },
     get blurb() { return t('tour.step.tags.blurb') },
     get title() { return t('tour.step.tags.title') },

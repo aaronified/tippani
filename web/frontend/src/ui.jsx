@@ -10086,6 +10086,24 @@ export function IconNavSearch({ size = ICON_SIZE }) { return <svg {...iconFill} 
 export function IconNavProfile({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 1.2 253.7 253.7" width={size} height={size}><path d="M112,120a16,16,0,1,1-16-16A16,16,0,0,1,112,120ZM232,56V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM135.75,166a39.76,39.76,0,0,0-17.19-23.34,32,32,0,1,0-45.12,0A39.84,39.84,0,0,0,56.25,166a8,8,0,0,0,15.5,4c2.64-10.25,13.06-18,24.25-18s21.62,7.73,24.25,18a8,8,0,1,0,15.5-4ZM200,144a8,8,0,0,0-8-8H152a8,8,0,0,0,0,16h40A8,8,0,0,0,200,144Zm0-32a8,8,0,0,0-8-8H152a8,8,0,0,0,0,16h40A8,8,0,0,0,200,112Z"/></svg> }
 // User management. IconUsers keeps the outline for its five non-nav callers.
 export function IconNavUsers({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-25.4 -25.4 306.8 306.8" width={size} height={size}><path d="M164.47,195.63a8,8,0,0,1-6.7,12.37H10.23a8,8,0,0,1-6.7-12.37,95.83,95.83,0,0,1,47.22-37.71,60,60,0,1,1,66.5,0A95.83,95.83,0,0,1,164.47,195.63Zm87.91-.15a95.87,95.87,0,0,0-47.13-37.56A60,60,0,0,0,144.7,54.59a4,4,0,0,0-1.33,6A75.83,75.83,0,0,1,147,150.53a4,4,0,0,0,1.07,5.53,112.32,112.32,0,0,1,29.85,30.83,23.92,23.92,0,0,1,3.65,16.47,4,4,0,0,0,3.95,4.64h60.3a8,8,0,0,0,7.73-5.93A8.22,8.22,0,0,0,252.38,195.48Z"/></svg> }
+// CHARACTERS. Phosphor `mask-happy`, fill — the owner named this one: "Character will
+// get the drama mask icon, filled in." It replaces IconPerson on that door, which drew
+// the same bare head as the People door beside it: two sections of the metadata
+// console, one glyph, and the only thing telling them apart was the word.
+export function IconNavMasks({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="0 0 256 256" width={size} height={size}><path d="M217,34.8a15.94,15.94,0,0,0-14.82-1.71C188.15,38.55,159.82,47.71,128,47.71S67.84,38.55,53.79,33.09A16,16,0,0,0,32,48v55.77c0,35.84,9.65,69.65,27.18,95.18,18.16,26.46,42.6,41,68.82,41s50.66-14.57,68.82-41C214.35,173.44,224,139.63,224,103.79V48A16,16,0,0,0,217,34.8ZM78,133.33A8,8,0,1,1,66,122.66C71.75,116.28,82.18,112,92,112s20.25,4.28,26,10.66A8,8,0,1,1,106,133.33c-2.68-3-8.85-5.33-14-5.33S80.64,130.34,78,133.33Zm90.49,47.86a52.9,52.9,0,0,1-80.9,0A8,8,0,1,1,99.72,170.8a36.89,36.89,0,0,0,56.56,0,8,8,0,0,1,12.17,10.39ZM189.34,134a8,8,0,0,1-11.3-.63c-2.68-3-8.85-5.33-14-5.33s-11.36,2.34-14,5.33A8,8,0,1,1,138,122.66c5.71-6.38,16.14-10.66,26-10.66s20.25,4.28,26,10.66A8,8,0,0,1,189.34,134Z"/></svg> }
+// WORKS — books AND films, which is the whole difficulty. Phosphor `shapes`, fill.
+//
+// The owner asked for "a mixture of film and books" and there is no such glyph: all
+// 3,060 names in phosphor-icons/core were read, and the library has `books` and it has
+// `film-reel` and it has nothing that is both. IconBooks and IconReel are also already
+// spent — on the Library and the Catalogue — so borrowing either would tell a reader
+// this section holds one kind when it holds two.
+//
+// `shapes` is a triangle, a circle and a square together, and its subject is SEVERAL
+// DIFFERENT KINDS AT ONCE, which is what this door leads to. It is abstract and leans
+// on the word beside it; that is the cost, and it is smaller than naming one medium on
+// a section that covers both.
+export function IconNavWorks({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="0 0 256 256" width={size} height={size}><path d="M111.59,181.47A8,8,0,0,1,104,192H24a8,8,0,0,1-7.59-10.53l40-120a8,8,0,0,1,15.18,0ZM208,76a52,52,0,1,0-52,52A52.06,52.06,0,0,0,208,76Zm16,68H136a8,8,0,0,0-8,8v56a8,8,0,0,0,8,8h88a8,8,0,0,0,8-8V152A8,8,0,0,0,224,144Z"/></svg> }
 // THE FAVOURITE, SET. review.jsx already flipped the LABEL between on and off while
 // drawing one icon, so the state lived in the words and nowhere else.
 export function IconHeartOn({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-8.6 -0.6 273.2 273.2" width={size} height={size}><path d="M240,102c0,70-103.79,126.66-108.21,129a8,8,0,0,1-7.58,0C119.79,228.66,16,172,16,102A62.07,62.07,0,0,1,78,40c20.65,0,38.73,8.88,50,23.89C139.27,48.88,157.35,40,178,40A62.07,62.07,0,0,1,240,102Z"/></svg> }
