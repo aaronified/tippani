@@ -5207,7 +5207,7 @@ metadata.remap.custom.label = custom…
 metadata.characters.title = Characters
 metadata.characters.info.body = Every character as a record of its own — the same one across a novel and its adaptation, with a different picture in each. A name appearing twice is something to look at: nothing here was merged by guessing.
 metadata.characters.column.works = works
-metadata.characters.column.sort = sorts as
+metadata.characters.sort.sub = Sorted as {name}
 metadata.characters.empty = No characters yet. They arrive with a film's cast, or you can add one on a work.
 metadata.characters.work.aria = Which work
 metadata.characters.work.all.label = every work
@@ -5253,7 +5253,7 @@ metadata.people.empty.speaker = nobody has said anything yet
 metadata.people.empty.all = no people in the library yet
 # The table. Name and Links are shared field names; the middle column's head
 # changes with the kind, because what it counts does.
-metadata.people.column.quotes = Quotes
+metadata.people.quotes.sub = {n} quotes
 metadata.people.column.roles = Roles
 metadata.people.column.works = Works
 metadata.people.also = also {names}

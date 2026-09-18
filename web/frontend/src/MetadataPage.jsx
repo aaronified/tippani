@@ -1801,62 +1801,35 @@ export function CharactersConsole({ rows = null, onReload = null }) {
         <EmptyState>{t('metadata.characters.empty')}</EmptyState>
       ) : (
         <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
-          <table className="ann-table">
-            <thead>
-              <tr>
-                <th>{t('common.field.name.label')}</th>
-                <th>{t('metadata.characters.column.works')}</th>
-                <th>{t('metadata.characters.column.sort')}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((c) => (
-                <tr key={c.id}>
-                  {/* THE FACE BESIDE THE NAME, where the record has chosen one. A
-                      list of forty characters is a list of forty names that look
-                      alike — "Narrator", "Narrator", "Narrator" — and the picture
-                      is the fastest thing in the row to tell two of them apart.
-                      Where there is none the slot is absent rather than a grey
-                      rectangle: an empty box in every row of a list is noise, and
-                      the works column already says which rows need work. */}
-                  {/* THE NAME IS THE DOOR, as it is one list over. A person's
-                      name in the People table opens their record; a character's
-                      was plain text, and the only way to the character's own
-                      screen was the pencil at the far right of the row — which is
-                      how a screen that exists comes to be reported as missing.
-                      Same control, same class, same panel the pencil opens. */}
-                  <td>
-                    <span className="char-name">
-                      <Face src={c.image_path} url={coverImgURL} fallback={null} name={c.name || ''} className="char-name-face" />
-                      <button
-                        type="button"
-                        className="tp-link"
-                        onClick={() => stack.open(characterPanel(stack, { id: c.id, name: c.name }))}
-                      >
-                        {c.name}
-                      </button>
-                    </span>
-                  </td>
-                  {/* A count of zero is stated rather than left blank: blank reads
-                      as "not loaded" and this is the row the list exists to surface. */}
-                  <td className="mono-label" style={{ color: c.works === 0 ? 'var(--error)' : 'var(--soft)' }}>
-                    {c.works}
-                  </td>
-                  <td className="microcopy" style={{ color: 'var(--soft)' }}>{c.sort_name || '—'}</td>
-                  <td>
-                    <Tooltip label={t('common.action.edit.label')}>
-                      <FieldIconButton
-                        icon={<IconEdit />}
-                        ariaLabel={t('common.action.edit.label')}
-                        onClick={() => stack.open(characterPanel(stack, { id: c.id, name: c.name }))}
-                      />
-                    </Tooltip>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* A LIST OF RECORDS, NOT A TABLE. It was `ann-table` with four columns —
+              name, works, sort name, a pencil — and the columns were doing less
+              work than they cost: two of them held one value each and the fourth
+              held a button. The v3 pack draws every console as rows, and the row
+              is `recordRow.jsx`, which the works console already uses. That is
+              also what closes the defect the decision log names: the person
+              console's portrait opened an editor while this one's opened nothing,
+              because they were two hand-rolled rows rather than one function. */}
+          <div>
+            {shown.map((c, i) => (
+              <RecordRow
+                key={c.id}
+                first={i === 0}
+                mark={<Face src={c.image_path} url={coverImgURL} fallback={null} name={c.name || ''} className="char-name-face" />}
+                name={c.name}
+                onOpen={() => stack.open(characterPanel(stack, { id: c.id, name: c.name }))}
+                sub={c.sort_name ? t('metadata.characters.sort.sub', { name: c.sort_name }) : null}
+                count={String(c.works)}
+                countTone={c.works === 0 ? 'warn' : 'plain'}
+                countTip={t('metadata.characters.column.works')}
+                actions={[{
+                  key: 'edit',
+                  icon: <IconEdit />,
+                  ariaLabel: t('common.action.edit.label'),
+                  onClick: () => stack.open(characterPanel(stack, { id: c.id, name: c.name })),
+                }]}
+              />
+            ))}
+          </div>
         </Scroller>
       )}
       {/* The counts on this list follow whatever the panel changed, so it reloads
@@ -2306,32 +2279,25 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
           axis={mobile ? 'x' : 'both'}
           style={mobile ? undefined : { maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}
         >
-          <table className="ann-table">
-            <thead>
-              <tr>
-                <th>{t('common.field.name.label')}</th>
-                <th>{t('metadata.people.column.roles')}</th>
-                <th>{t('metadata.people.column.works')}</th>
-                {!mobile && <th>{t('metadata.people.column.quotes')}</th>}
-                {!mobile && <th>{t('common.field.links.label')}</th>}
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((p) => (
-                <PersonRow
-                  key={p.id}
-                  p={p}
-                  busy={busyID === p.id || !!bulk}
-                  onOpen={() => stack.open(personPanel(stack, { id: p.id, name: p.name }))}
-                  onPortrait={() => setPerson({ kind: (p.kinds || [])[0] || 'author', name: p.name })}
-                  onSearch={onSearch}
-                  onFetch={() => fetchRow(p)}
-                  mobile={mobile}
-                />
-              ))}
-            </tbody>
-          </table>
+          {/* THE COLUMN HEADS WENT WITH THE COLUMNS. A row states what its numbers
+              are through their tooltips now, which is what a list of records does
+              and what let the roles and the links stop being two columns that a
+              phone had to drop. */}
+          <div>
+            {shown.map((p, i) => (
+              <PersonRow
+                key={p.id}
+                first={i === 0}
+                p={p}
+                busy={busyID === p.id || !!bulk}
+                onOpen={() => stack.open(personPanel(stack, { id: p.id, name: p.name }))}
+                onPortrait={() => setPerson({ kind: (p.kinds || [])[0] || 'author', name: p.name })}
+                onSearch={onSearch}
+                onFetch={() => fetchRow(p)}
+                mobile={mobile}
+              />
+            ))}
+          </div>
         </Scroller>
       )}
       <PanelHost stack={stack} />
@@ -2357,7 +2323,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
 // portrait exists and shows neither it nor a way to change it; a list of ninety
 // names is where a face is worth most, because it is the fastest thing in a row
 // to recognise.
-function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, mobile = false }) {
+function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, mobile = false, first = false }) {
   const face = p.image_path ? personImgURL(p.image_path) : ''
   const roles = (p.kinds || []).map((k) => [k, t(PEOPLE_ROLE_NOUN[k] || 'unit.person', { count: 1 })])
   const fetched = Object.keys(parseLinks(p.links).known).length > 0 || !!p.image_path
@@ -2366,84 +2332,68 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, mobile = fa
     : fetched
       ? t('metadata.people.row.refetch.label')
       : t('metadata.people.row.fetch.label')
+  // A LIST OF RECORDS, NOT A TABLE — the same move the character console made, and
+  // the one that closes the defect the decision log names. The two consoles had
+  // hand-rolled rows, which is how this one's portrait came to open an editor
+  // while that one's opened nothing: the same picture in the same position doing
+  // two different things. One function draws both now, and a difference between
+  // them has to be passed IN.
+  //
+  // WHAT THE ROLE MARKS AND THE PROVIDER CHIPS BECAME. They were two columns; they
+  // are chips on the row, which is what the pack draws and what lets the row wrap
+  // on a phone instead of dropping them. The quotes count went with the columns —
+  // it is one number the person's own record already states, and the name is the
+  // door to it.
   return (
-    <tr>
-      <td>
-        <span className="person-name-cell">
-          <button
-            type="button"
-            // NO `is-empty` FROM THE PATH. Nothing reads it any more: the plate
-            // and the colour are keyed on the stand-in itself, because a picture
-            // that failed to arrive is a row with no picture and a class set from
-            // the stored path cannot know that.
-            className="person-face-btn"
-            aria-label={t('metadata.people.portrait.aria', { name: p.name })}
-            onClick={onPortrait}
-          >
-            <Face src={face} name={p.name} url={(x) => x} className="person-face-inner" />
-          </button>
-          <span className="person-name-text">
-            <button type="button" className="tp-link" onClick={onOpen}>{p.name}</button>
-            {/* THE OTHER SPELLINGS, UNDER THE NAME. This is what one record standing
-                for four rows looks like, and without it the merged list reads as if
-                three names went missing. */}
-            {(p.spellings || []).length > 0 && (
-              <span className="microcopy" style={{ color: 'var(--faint)' }}>
-                {t('metadata.people.also', { names: p.spellings.join(' · ') })}
-              </span>
-            )}
-          </span>
-        </span>
-      </td>
-      <td className="person-roles-cell">
-        {roles.length === 0 ? (
-          <span className="microcopy" style={{ color: 'var(--faint)' }}>—</span>
-        ) : (
-          roles.map(([k, word]) => {
-            const Glyph = PEOPLE_ROLE_ICON[k] || IconPerson
-            return (
-              <Tooltip key={k} label={word} side="top">
-                <span className="person-role-mark" tabIndex={0}>
-                  <Glyph size={18} />
-                  <span className="sr-only">{word}</span>
-                </span>
-              </Tooltip>
-            )
-          })
-        )}
-      </td>
-      <td>
-        {/* Work count → search, which matches authors on book hits and actors on
-            dialogue hits. A record nothing references counts 0 — nothing to find. */}
-        {p.works > 0 && onSearch ? (
-          <Tooltip label={t('metadata.people.search.tip', { name: p.name })} side="top">
-            <button className="tp-link" onClick={() => onSearch(p.name)}>{p.works}</button>
-          </Tooltip>
-        ) : (
-          <span className="microcopy">{p.works || 0}</span>
-        )}
-      </td>
-      {/* THE TWO COLUMNS A PHONE DROPS. Quotes is a count the person's own panel
-          states, and the links cell is a wrapping strip of marks — the widest
-          thing in the row and the one that made rows two and three lines tall
-          for no reading anybody does from a list. Neither is lost: the name opens
-          the record, which holds both. */}
-      {!mobile && <td className="mono-label" style={{ color: 'var(--soft)' }}>{p.quotes || 0}</td>}
-      {!mobile && <td><ProviderChips links={p.links} /></td>}
-      <td className="col-actions">
-        {/* ONE glyph for both words. `fetch` and `refetch` are the same act — go
-            and get this person's photo and links — and the label flips only because
-            the row already has some. Two drawings for that would say the acts
-            differ.
-            And on a phone the word goes too: the glyph is the same one, the label
-            rides the tooltip and the aria-label, and the row gets the width. */}
-        <Tooltip label={fetchLabel} side="top">
-          <button className="tp-link tp-link-icon" disabled={busy} onClick={onFetch} aria-label={mobile ? fetchLabel : undefined}>
-            <IconRefresh />
-            {!mobile && <span>{fetchLabel}</span>}
-          </button>
-        </Tooltip>
-      </td>
-    </tr>
+    <RecordRow
+      first={first}
+      mark={
+        <button
+          type="button"
+          // NO `is-empty` FROM THE PATH. Nothing reads it any more: the plate and
+          // the colour are keyed on the stand-in itself, because a picture that
+          // failed to arrive is a row with no picture and a class set from the
+          // stored path cannot know that.
+          className="person-face-btn"
+          aria-label={t('metadata.people.portrait.aria', { name: p.name })}
+          onClick={onPortrait}
+        >
+          <Face src={face} name={p.name} url={(x) => x} className="person-face-inner" />
+        </button>
+      }
+      name={p.name}
+      onOpen={onOpen}
+      /* THE OTHER SPELLINGS, UNDER THE NAME. This is what one record standing for
+         four rows looks like, and without it the merged list reads as if three
+         names went missing. */
+      /* THE QUOTES COUNT LIVES HERE NOW, and it had to go somewhere: it was a
+         column, the columns are gone, and a first draft of this row simply
+         dropped it — which is losing a fact rather than moving it. It is the
+         record's OWN total across every spelling, which is the thing this console
+         exists to show, so it joins the sub-line beside the other spellings. */
+      sub={[
+        p.quotes ? t('metadata.people.quotes.sub', { n: p.quotes, count: p.quotes }) : null,
+        (p.spellings || []).length > 0 ? t('metadata.people.also', { names: p.spellings.join(' · ') }) : null,
+      ].filter(Boolean).join(' · ') || null}
+      chips={roles.map(([, word]) => ({ label: word }))}
+      chipsEmpty={null}
+      count={String(p.works || 0)}
+      countTip={p.works > 0 && onSearch ? t('metadata.people.search.tip', { name: p.name }) : t('metadata.people.column.works')}
+      /* The count is a door only where there is something behind it: a record
+         nothing references counts 0, and a search for it finds nothing. */
+      onCount={p.works > 0 && onSearch ? () => onSearch(p.name) : null}
+      actions={[{
+        key: 'fetch',
+        icon: <IconRefresh />,
+        /* ONE glyph for both words. `fetch` and `refetch` are the same act — go and
+           get this person's photo and links — and the label flips only because the
+           row already has some. Two drawings would say the acts differ. */
+        ariaLabel: fetchLabel,
+        tooltip: fetchLabel,
+        onClick: onFetch,
+      }]}
+    >
+      {!mobile && (p.links ? <div className="mt-1"><ProviderChips links={p.links} /></div> : null)}
+    </RecordRow>
   )
 }

@@ -71,7 +71,12 @@ const mount = async () => {
   render(<PeopleConsole onFlash={() => {}} onSearch={() => {}} />)
   await screen.findByText('Mikhail Bulgakov')
 }
-const row = (name) => screen.getByText(name).closest('tr')
+// A ROW IS A DIV NOW, NOT A `tr`. The people console was an `ann-table` with five
+// columns, two of which a phone dropped; it is a list of records drawn by
+// `recordRow.jsx` — the same function the works and character consoles use, which
+// is what stops this console's portrait and the character console's behaving
+// differently. The row is located by the name it contains either way.
+const row = (name) => screen.getByText(name).closest('.record-row')
 
 describe('one row per record', () => {
   it('names the other spellings under the canonical one', async () => {
@@ -84,8 +89,12 @@ describe('one row per record', () => {
   it('prints the record’s own works and quotes, not one spelling’s share', async () => {
     await mount()
     const r = row('Mikhail Bulgakov')
+    // The works count is the row's own number and still stands alone. The quotes
+    // count was a column that a phone already dropped; the columns are gone, so it
+    // sits in the sub-line beside the other spellings rather than being lost —
+    // which a first draft of this row did, and this line is what caught it.
     expect(within(r).getByText('12')).toBeTruthy()
-    expect(within(r).getByText('128')).toBeTruthy()
+    expect(within(r).getByText(/128 quotes/)).toBeTruthy()
   })
 
   it('reads /people/records and never the spelling list', async () => {
@@ -148,7 +157,11 @@ describe('the two doors on a row', () => {
 describe('fetching links onto a record', () => {
   it('writes them by id, never by name', async () => {
     await mount()
-    act(() => within(row('Oleg Basilashvili')).getByText(/^fetch$/).closest('button').click())
+    // BY ITS ACCESSIBLE NAME, NOT BY ITS VISIBLE WORD. The fetch control is a row
+    // action glyph now, like the ones on the works console — the word rides its
+    // aria-label and its tooltip, which is what a screen reader and a hover both
+    // get, and what this line reads.
+    act(() => within(row('Oleg Basilashvili')).getByRole('button', { name: /fetch/i }).click())
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/people/portrait')).toBe(true))
     // PUT /people upserts by (kind, name) and lands on the lowest id where two
     // records share one — so fetching for the second of two namesakes wrote onto

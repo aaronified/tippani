@@ -10221,3 +10221,11 @@ html[data-theme="dark"] .board-cover {
 .ground-swatch > span { position: absolute; display: block; border-radius: 2px; }
 .ground-swatch > span:first-of-type { inset: 22% 10% 10% 10%; }
 .ground-swatch > span:last-of-type { inset: 42% 22% 0 22%; }
+
+
+/* THE ROW EVERY LIST IN THE APP IS DRAWN WITH. It carries its rule and its padding
+   inline for now — those two are the only things it styles and they move with the
+   `first` flag — and this class exists so the row is NAMEABLE: a console's tests
+   locate it, and the day the inline pair becomes three declarations they have
+   somewhere to go that is not a style attribute. */
+.record-row { min-width: 0; }

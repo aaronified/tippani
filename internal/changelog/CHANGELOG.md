@@ -115,6 +115,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The people and character consoles are lists, not tables.** They were five- and
+  four-column tables, and a phone dropped two of the columns to fit — so the roles and the
+  reference links simply were not there on the screen most people use. Every console on
+  the Metadata page is now the same row: a picture, the name, a line under it, the chips,
+  the count and the things you can do. A person's quote count moved into that line rather
+  than being dropped with the column it lived in.
+
+
 - **Colour categories moved to the Metadata console.** What KIND of note a quote is —
   Fact, Voice, Craft, whatever you call yours — is a fact about your library rather than a
   preference about the app, so it sits with the tags, the languages and the people instead

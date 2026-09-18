@@ -37,8 +37,10 @@
 // NOTHING IS DEFINED HERE THAT NOTHING CALLS. An earlier draft shipped a swatch
 // mark, a per-row font override and a count-that-is-a-door, all three unreachable
 // and two of them with CSS and a decision-log entry describing them as in force.
-// They belong with the consoles that need them — the colour categories and the
-// tags sections — and they arrive with those callers.
+// A rater found it, and the rule since is that a prop arrives WITH the console
+// that needs it — which is what `count` and `onOpen` below are: the character
+// console counts the works a character appears in and opens its record from the
+// name, and both landed the day that console moved onto this row.
 import React from 'react'
 import { FieldIconButton, NameScroll, Tooltip } from './ui.jsx'
 
@@ -56,17 +58,41 @@ export function RowArt({ src, alt }) {
 export function RecordRow({
   mark = null,
   name,
+  // THE NAME IS THE DOOR WHERE THERE IS ONE. A list of forty characters is forty
+  // names that look alike, and the fastest way into one is the word itself —
+  // which the character console learned the hard way: its name was plain text and
+  // the only way to the record was a pencil at the far right of the row, so a
+  // screen that existed was reported as missing. Without `onOpen` the name stays
+  // text, because a button that goes nowhere is worse than a word.
+  onOpen = null,
   sub = null,
   chips = [],
   chipsEmpty = null,
+  // A COUNT OF PROBLEMS IS THE ONLY RED ONE. A library of 900 books is not a
+  // warning; a character in no work is. `countTone: 'warn'` says which this is.
+  count = null,
+  countTone = 'plain',
+  countTip = '',
+  // A COUNT OF PROBLEMS IS A DOOR, and a count of records is not always one. The
+  // people console's works count goes to a search for that person; the character
+  // console's works count goes nowhere, because a character in no work has
+  // nothing to search for. So the number is a button only where the caller gave
+  // it somewhere to go — never a button that does nothing, which teaches the
+  // reader that the numbers here are not pressable and costs the real doors their
+  // discoverability.
+  onCount = null,
   actions = [],
   // { checked, onChange, tip } — `tip` is the caller's words for the box, since
   // this module has none of its own.
   select = null,
+  // A RULE SEPARATES ROWS; IT DOES NOT OPEN A LIST. The works console draws its
+  // rows under a header that already closes with one, so every row there wears a
+  // top rule; a bare list does not want one above its first.
+  first = false,
   children = null,
 }) {
   return (
-    <div style={{ borderTop: '1px solid var(--line)', padding: '10px 0' }}>
+    <div className="record-row" style={{ borderTop: first ? 'none' : '1px solid var(--line)', padding: '10px 0' }}>
       <div className="flex flex-wrap items-center gap-3">
         {select && (
           <Tooltip label={select.tip} side="top">
@@ -75,7 +101,9 @@ export function RecordRow({
         )}
         {mark}
         <div className="min-w-0 flex-1">
-          <NameScroll as="p"><b>{name}</b></NameScroll>
+          <NameScroll as="p">
+            {onOpen ? <button type="button" className="tp-link" onClick={onOpen}><b>{name}</b></button> : <b>{name}</b>}
+          </NameScroll>
           {/* `.cs-row-sub`, WHICH THE REPO ALREADY HAD, and the first draft did not use.
               It was `.microcopy` — the mono label face at `--type-mono-11`, tracked and
               in `var(--faint)` — so moving the author off the name line ALSO turned it
@@ -86,6 +114,13 @@ export function RecordRow({
           {sub && <p className="cs-row-sub">{sub}</p>}
           <RowChips chips={chips} empty={chipsEmpty} />
         </div>
+        {count != null && count !== '' && (
+          <Tooltip label={countTip}>
+            {onCount
+              ? <button type="button" className="tp-link mono-label" onClick={onCount}>{count}</button>
+              : <span className="mono-label" style={{ color: countTone === 'warn' ? 'var(--error)' : 'var(--soft)' }}>{count}</span>}
+          </Tooltip>
+        )}
         {actions.length > 0 && (
           <span className="flex items-center gap-1">
             {actions.map((a) => (

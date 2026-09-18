@@ -161,7 +161,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npx vitest run                                      # 4,500 of them
-  cd web/frontend && npm run journeys                                    # + 51 in the browser
+  cd web/frontend && npm run journeys                                    # + 54 in the browser
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 279 Go files
   find ./web/frontend -path '*/node_modules' -prune -o -type f \
        \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
@@ -173,7 +173,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   not among them — it has its own config, because it needs a globalSetup that builds
   the binary and seeds a library. `npm test` runs two projects — 3,725 tests over 312
   files; `npm run lint:rules` runs the third, 810 assertions over 81 files; and
-  `npm run journeys` runs 51 tests over 35 files against a real server in a real
+  `npm run journeys` runs 54 tests over 38 files against a real server in a real
   browser, which is the tier that would have caught the bug all this is named after.
   Those 81 READ THE SOURCE TEXT and assert how it is
   spelled: never truncate a name, spacing is a constant, no emoji glyphs, the
