@@ -68,6 +68,112 @@ export const PALETTES = {
   },
 }
 
+// ---- the grounds ------------------------------------------------------------
+//
+// A GROUND IS A TRIAD, NOT A COLOUR, and that is the whole reason this table
+// exists rather than a single background field. Three surfaces are stacked on
+// every screen — the DESK the app sits on, the FURNITURE that holds the controls
+// (bars, rail, dock, drawer), and the PAGE a quote is written on — and one colour
+// spread over all three flattens the stack, which is the one thing the materials
+// are there to prevent. So each option is three close cousins in one family.
+//
+// THIS SUPERSEDES "ONE PALETTE PER MODE", which the comment over PALETTES states
+// as a fact about the build. It was a fact, and the v3 design pack changes it: the
+// owner chose four per mode over keeping the pair. What it does NOT change is that
+// the pair is still the SHIPPED look — Cream and Night are today's values hex for
+// hex, so an account that never opens this control sees exactly what it saw. The
+// other three per mode are cousins of them.
+//
+// WHAT A GROUND MAY SET, and the list is deliberately short: the three surfaces,
+// the two inks and the rule between them. Everything else in PALETTES — the
+// accent-adjacent tokens, the error and ok hues, the film-era chrome — is the
+// same in every ground, because a ground answers "what is this app sitting on"
+// and not "what does this app mean by wrong".
+//
+// THE ACCENT IS NOT IN THE TRIAD. It goes on the binding alone, which is why it
+// can stay one colour across every ground and both modes.
+export const GROUNDS = {
+  light: {
+    // Cream IS the shipped light palette. An empty override is not laziness: it
+    // means this ground applies PALETTES.light unchanged, hex for hex, so an
+    // account that never opens the control sees exactly what it saw — including
+    // the five hand-corrections contrast.test.js records in its own header.
+    cream: { label: 'vocab.ground.cream.label', tokens: {} },
+    white: { label: 'vocab.ground.white.label', tokens: {
+      bg: '#E9E9E4', raised: '#F5F4F0', card: '#FFFFFF',
+      'card-top': '#FFFFFF', 'card-bottom': '#F7F7F4',
+      'topbar-top': '#F2F2EE', 'topbar-bottom': '#E9E9E4',
+      ink: '#1D1C1A', soft: '#57554F', faint: '#4E4C47', line: '#DEDDD8',
+      // A SEMANTIC COLOUR IS TEXT AND HAS TO CLEAR ON THE GROUND IT IS ON. The
+      // shipped three were tuned against Cream, which is darker than every ground
+      // here; on a white desk they measure 4.32, 4.35 and pass respectively, so
+      // the two that miss are carried down by the smallest step that clears.
+      ok: '#2F6D45', amber: '#7C5A33',
+    } },
+    sepia: { label: 'vocab.ground.sepia.label', tokens: {
+      bg: '#E2D1B4', raised: '#EFE1C7', card: '#FAF1DE',
+      'card-top': '#FDF6E7', 'card-bottom': '#F4E9D2',
+      'topbar-top': '#EBDCC0', 'topbar-bottom': '#E2D1B4',
+      ink: '#241B11', soft: '#4C3D28', faint: '#3F3222', line: '#D8C4A4',
+      error: '#8E2F1D', ok: '#255A36', amber: '#6A4A26',
+    } },
+    grey: { label: 'vocab.ground.grey.label', tokens: {
+      bg: '#DDDDD9', raised: '#EAEAE7', card: '#F7F7F5',
+      'card-top': '#FBFBFA', 'card-bottom': '#F0F0ED',
+      'topbar-top': '#E5E5E2', 'topbar-bottom': '#DDDDD9',
+      ink: '#1E1F1E', soft: '#4F514D', faint: '#464843', line: '#D2D2CE',
+      ok: '#2B6640', amber: '#755435',
+    } },
+  },
+  dark: {
+    // Night IS the shipped dark palette, on the same terms as Cream.
+    night: { label: 'vocab.ground.night.label', tokens: {} },
+    ink: { label: 'vocab.ground.ink.label', tokens: {
+      bg: '#16161A', raised: '#1F1F24', card: '#27272D',
+      'card-top': '#2D2D34', 'card-bottom': '#232329',
+      'topbar-top': '#1F1F24', 'topbar-bottom': '#1A1A1F',
+      ink: '#EDE9E2', soft: '#ABA6A0', faint: '#9C9791', line: '#35353C',
+      error: '#E09184',
+    } },
+    soot: { label: 'vocab.ground.soot.label', tokens: {
+      bg: '#0F0F0F', raised: '#191919', card: '#222222',
+      'card-top': '#282828', 'card-bottom': '#1E1E1E',
+      'topbar-top': '#191919', 'topbar-bottom': '#141414',
+      ink: '#EDEAE6', soft: '#A6A29C', faint: '#979390', line: '#303030',
+      error: '#DC8E81',
+    } },
+    tobacco: { label: 'vocab.ground.tobacco.label', tokens: {
+      bg: '#211A11', raised: '#2C2218', card: '#372B1E',
+      'card-top': '#3E3123', 'card-bottom': '#32271B',
+      'topbar-top': '#2C2218', 'topbar-bottom': '#251C13',
+      ink: '#F0E5D0', soft: '#B7A588', faint: '#AC9B80', line: '#463726',
+      error: '#E09184',
+    } },
+  },
+}
+export const GROUND_DEFAULT = { light: 'cream', dark: 'night' }
+
+// groundFor resolves the chosen ground for a mode, falling back to the shipped
+// one. Exported so contrast.test.js can measure every ground rather than the two
+// that happen to be applied.
+export function groundFor(dark, prefs = {}) {
+  const side = dark ? 'dark' : 'light'
+  const want = dark ? prefs.groundDark : prefs.groundLight
+  return GROUNDS[side][want] || GROUNDS[side][GROUND_DEFAULT[side]]
+}
+
+// The palette a ground actually produces: the mode's base with the ground's own
+// tokens over it. A FLAT MERGE AND NOTHING COMPUTED — the first draft derived
+// `card-top`, `topbar-*` and `faint` from the three surfaces, and every one of
+// those derivations threw away a hand-correction: Cream's faint went back under
+// AA at 4.34:1, and Night's card-top came out lighter than the shipped value and
+// dragged --error to 4.06:1. The shipped palettes are hand-tuned against a
+// measurement; a formula that reproduces them approximately reproduces the bug
+// they were tuned to fix.
+export function paletteFor(dark, prefs = {}) {
+  return { ...PALETTES[dark ? 'dark' : 'light'], ...groundFor(dark, prefs).tokens }
+}
+
 // ---- the material sets ------------------------------------------------------
 //
 // [tile, coarse px, fine px, strength] — verbatim from the v3 design library. The
@@ -453,11 +559,16 @@ export function contrastPrefValue() {
 // looked wrong. One palette per mode means every set works in both, so the default is
 // a single answer instead of a branch.
 export function applyTheme(prefs = {}) {
-  const { materialSet, theme, accent } = prefs
+  const { materialSet, theme, accent, groundLight, groundDark } = prefs
   current = {
     materialSet,
     theme: theme || 'system',
     accent: accent || 'terracotta',
+    // The chosen ground per mode. Held as the KEY rather than the resolved
+    // palette, because `apply()` runs again when the device flips light/dark and
+    // has to answer with the other mode's ground rather than a stale copy.
+    groundLight: GROUNDS.light[groundLight] ? groundLight : GROUND_DEFAULT.light,
+    groundDark: GROUNDS.dark[groundDark] ? groundDark : GROUND_DEFAULT.dark,
     // Per-slot overrides, read straight off the preference object so a caller never
     // has to know the four names. Anything unrecognised is dropped here rather than
     // guarded at every use: an override naming a tile this build does not have puts
@@ -483,6 +594,8 @@ export function getResolvedTheme() {
     materialSet: MAT_SETS[s] ? s : MAT_SET_DEFAULT,
     theme: current.theme || 'system',
     accent: current.accent || 'terracotta',
+    groundLight: current.groundLight || GROUND_DEFAULT.light,
+    groundDark: current.groundDark || GROUND_DEFAULT.dark,
     tiles: (current.tiles || ['', '', '', '']).slice(),
   }
 }
@@ -521,8 +634,16 @@ function apply() {
   // not seeing it.
   root.dataset.matSet = matSet
   root.dataset.theme = dark ? 'dark' : 'light'
-  const palette = PALETTES[dark ? 'dark' : 'light']
+  // THE GROUND IS WHAT VARIES NOW, not the whole palette. `paletteFor` is the
+  // mode's base with the chosen ground's six surfaces over it and the four tokens
+  // that step off them re-derived, so a ground can never leave a page's own
+  // highlight belonging to the colour it replaced.
+  const palette = paletteFor(dark, { groundLight: current.groundLight, groundDark: current.groundDark })
   for (const [k, v] of Object.entries(palette)) root.style.setProperty('--' + k, v)
+  // Kept as an attribute for the same reason the material set is: a test and a
+  // person with dev tools both need to see WHICH ground is applied, and reading it
+  // back out of six custom properties is not seeing it.
+  root.dataset.ground = dark ? current.groundDark : current.groundLight
   const accent = ACCENTS[current.accent] || ACCENTS.terracotta
   const light = luminance(accent) > 0.32
   const accentUI = dark && !light ? `color-mix(in oklab, ${accent}, white 20%)` : accent

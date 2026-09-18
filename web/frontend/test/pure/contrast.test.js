@@ -26,11 +26,14 @@
 // and against it they were 4.21 and 4.20. A guard that checks one background is a
 // guard that agrees with whichever background you happened to think of.
 //
-// TWO PALETTES, NOT FOUR, and the plan's "four aesthetics" is out of date in
-// theme.js's own words: "THE FILM PALETTES ARE GONE, NOT MERGED. There is nothing
-// of film-light or film-dark in here." Colour comes from the theme; a material set
-// changes TEXTURE. So the axis this measures is two, and the eight material sets
-// multiply nothing.
+// EIGHT PALETTES NOW, NOT TWO, and that is the whole cost of the v3 grounds. A
+// ground replaces the three surfaces and the two inks, so every one of them is a
+// palette this app can actually apply and therefore a palette somebody has to be
+// able to read. Measuring the two that ship and trusting the six that do not is
+// how a sub-AA colour reaches a reader who chose Soot.
+//
+// The material sets still multiply nothing: colour comes from the ground, a set
+// changes TEXTURE.
 //
 // AND THE TEXTURES ARE WHY THIS IS FLAT-COLOUR MATH. A grain at 5.5% over the
 // background does perturb local luminance, and WCAG has no answer for it — but
@@ -38,7 +41,7 @@
 // so the reader who needs the ratio is looking at exactly these flat colours.
 
 import { describe, expect, it } from 'vitest'
-import { PALETTES } from '../../src/theme.js'
+import { GROUNDS, paletteFor } from '../../src/theme.js'
 
 const srgb = (c) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
 const channels = (hex) => [0, 2, 4].map((i) => parseInt(hex.replace('#', '').slice(i, i + 2), 16))
@@ -68,11 +71,17 @@ function ratio(fg, bg) {
 const SURFACES = ['bg', 'raised', 'card', 'card-top', 'card-bottom']
 const TEXT = ['ink', 'soft', 'faint', 'note', 'error', 'ok', 'amber']
 
+// Every ground this build can apply, as [name, palette] — the same merge
+// `applyTheme` performs, so what is measured is what lands on the root.
+const EVERY_GROUND = [
+  ...Object.keys(GROUNDS.light).map((k) => [`light/${k}`, paletteFor(false, { groundLight: k })]),
+  ...Object.keys(GROUNDS.dark).map((k) => [`dark/${k}`, paletteFor(true, { groundDark: k })]),
+]
+
 describe('every text colour clears WCAG AA on every surface it can sit on', () => {
-  for (const palette of Object.keys(PALETTES)) {
+  for (const [palette, p] of EVERY_GROUND) {
     for (const token of TEXT) {
       it(`${palette}: --${token}`, () => {
-        const p = PALETTES[palette]
         expect(p[token], `--${token} is not in the ${palette} palette`).toBeTruthy()
         for (const surface of SURFACES) {
           const back = flatten(p[surface], p.bg)
@@ -98,9 +107,8 @@ describe('every text colour clears WCAG AA on every surface it can sit on', () =
 // palette everyone gets. The same goes for `--frame-border`, `--strip` and
 // `--holes-border`, which draw a card's edge, a shelf band and a punch-hole margin.
 describe('the borders that identify a control clear 3:1', () => {
-  for (const palette of Object.keys(PALETTES)) {
+  for (const [palette, p] of EVERY_GROUND) {
     it(`${palette}: --ink-border on a card`, () => {
-      const p = PALETTES[palette]
       const back = flatten(p.card, p.bg)
       const got = ratio(flatten(p['ink-border'], back), back)
       expect(got, `--ink-border on --card in ${palette} is ${got.toFixed(2)}:1; it draws every ` +
@@ -109,13 +117,20 @@ describe('the borders that identify a control clear 3:1', () => {
   }
 })
 
-// A WALK THAT MEASURES NOTHING PASSES SILENTLY. Two palettes, seven text tokens,
-// five surfaces: 70 pairs, plus two borders.
-it('measured both palettes and every surface, rather than finding nothing to check', () => {
-  expect(Object.keys(PALETTES).sort()).toEqual(['dark', 'light'])
-  for (const p of Object.values(PALETTES)) {
+// A WALK THAT MEASURES NOTHING PASSES SILENTLY. Eight grounds, seven text tokens,
+// five surfaces: 280 pairs, plus eight borders.
+//
+// THE COUNT IS ASSERTED, not just the keys, because the failure this guards is a
+// ground quietly dropping out of the table and taking its measurements with it —
+// which looks exactly like a green run.
+it('measured every ground and every surface, rather than finding nothing to check', () => {
+  expect(EVERY_GROUND.map(([name]) => name).sort()).toEqual([
+    'dark/ink', 'dark/night', 'dark/soot', 'dark/tobacco',
+    'light/cream', 'light/grey', 'light/sepia', 'light/white',
+  ])
+  for (const [name, p] of EVERY_GROUND) {
     for (const key of [...TEXT, ...SURFACES, 'ink-border']) {
-      expect(p[key], `the palette lost --${key}, so this suite silently stopped checking it`).toBeTruthy()
+      expect(p[key], `${name} lost --${key}, so this suite silently stopped checking it`).toBeTruthy()
     }
   }
 })

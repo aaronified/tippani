@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
-import { ACCENTS, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
+import { ACCENTS, GROUNDS, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
 import { QUOTE_LEADINGS, QUOTE_MEASURES, SIZE_ROLES, TYPE_FACTORS, applyTypeScale, clampLeading, clampMeasure, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
   applyFonts,
@@ -3028,6 +3028,10 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
   }, [])
 
   const effectiveDark = themePref === 'system' ? sysTheme === 'dark' : themePref === 'dark'
+  // Seeded from the appearance actually applied, like the material set above it,
+  // so the control mirrors the screen rather than a prop that may be stale.
+  const [groundLight, setGroundLight] = useState(() => getResolvedTheme().groundLight)
+  const [groundDark, setGroundDark] = useState(() => getResolvedTheme().groundDark)
 
   // persist applies the change to the live DOM immediately (§4), lifts it to App so
   // the session user stays current, and PUTs it. Every field rides along so changing
@@ -3045,11 +3049,20 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
     json('PUT', '/auth/me/preferences', { contrast: v })
   }
 
+  // THE GROUNDS RIDE IN persist, AND THEY HAVE TO. That function re-sends every
+  // theme field on any change and then calls applyTheme with the result — so a
+  // ground left out of the object would be read back as unset and fall to the
+  // shipped one, which means picking Sepia and then clicking an accent would put
+  // you back on Cream with nothing saying why. Contrast escapes this by not going
+  // through persist at all; the grounds cannot, because they are part of the same
+  // full-state save the theme is.
   function persist(next) {
-    const s = { materialSet, theme: themePref, accent, ...next }
+    const s = { materialSet, theme: themePref, accent, groundLight, groundDark, ...next }
     setMaterialSet(s.materialSet)
     setThemePref(s.theme)
     setAccent(s.accent)
+    setGroundLight(s.groundLight)
+    setGroundDark(s.groundDark)
     applyTheme(s)
     onPreferences?.(s)
     json('PUT', '/auth/me/preferences', s)
@@ -3072,6 +3085,50 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
             ['system', t('settings.appearance.match.label')],
           ]}
         />
+      </div>
+      {/* THE GROUND, AND ONLY THE ONE YOU ARE LOOKING AT. Light and dark are
+          chosen independently — a reader who likes Sepia by day has said nothing
+          about their night — but offering both sets at once is eight swatches for
+          a choice about the four you can see. So the row follows the mode that is
+          actually on screen, which is also what makes each swatch an honest
+          preview: it is drawn in the ground it selects.
+
+          A SWATCH IS THE TRIAD, NOT A COLOUR. Each one draws all three surfaces
+          stacked — desk behind, furniture over it, page on top — because that is
+          what is being chosen, and a single square would show a third of it. */}
+      <div className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <MonoLabel>{t('settings.appearance.ground.title')}</MonoLabel>
+          <InfoDot
+            title={t('settings.appearance.ground.title')}
+            text={t('settings.appearance.ground.info.body')}
+          />
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {Object.entries(GROUNDS[effectiveDark ? 'dark' : 'light']).map(([key, g]) => {
+            const on = (effectiveDark ? groundDark : groundLight) === key
+            return (
+              <Tooltip key={key} label={t(g.label)}>
+                <button
+                  type="button"
+                  className="ground-swatch"
+                  aria-pressed={on}
+                  aria-label={t(g.label)}
+                  onClick={() => persist(effectiveDark ? { groundDark: key } : { groundLight: key })}
+                  style={{
+                    background: g.bg,
+                    boxShadow: on
+                      ? `0 0 0 2px var(--card), 0 0 0 4px var(--accent-ui)`
+                      : `inset 0 0 0 1px ${g.line}`,
+                  }}
+                >
+                  <span aria-hidden="true" style={{ background: g.raised }} />
+                  <span aria-hidden="true" style={{ background: g.card }} />
+                </button>
+              </Tooltip>
+            )
+          })}
+        </div>
       </div>
       {/* §6 access. Beside the theme because it answers the same kind of question
           about the same surfaces, and it borrows the theme's own "Match system"

@@ -154,26 +154,26 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,738 Go test functions and 4,501 frontend tests, across 703 test files** — the
+- **1,738 Go test functions and 4,551 frontend tests, across 704 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
-  cd web/frontend && npx vitest run                                      # 4,452 of them
-  cd web/frontend && npm run journeys                                    # + 49 in the browser
+  cd web/frontend && npx vitest run                                      # 4,500 of them
+  cd web/frontend && npm run journeys                                    # + 51 in the browser
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 279 Go files
   find ./web/frontend -path '*/node_modules' -prune -o -type f \
        \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
-       -print | wc -l                                                    # 424 frontend
+       -print | wc -l                                                    # 425 frontend
   ```
 
   **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,452 is what
   `npx vitest run` reports across the three vitest projects, and the browser tier is
   not among them — it has its own config, because it needs a globalSetup that builds
-  the binary and seeds a library. `npm test` runs two projects — 3,642 tests over 309
+  the binary and seeds a library. `npm test` runs two projects — 3,690 tests over 309
   files; `npm run lint:rules` runs the third, 810 assertions over 81 files; and
-  `npm run journeys` runs 49 tests over 34 files against a real server in a real
+  `npm run journeys` runs 51 tests over 35 files against a real server in a real
   browser, which is the tier that would have caught the bug all this is named after.
   Those 81 READ THE SOURCE TEXT and assert how it is
   spelled: never truncate a name, spacing is a constant, no emoji glyphs, the

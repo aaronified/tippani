@@ -10206,3 +10206,18 @@ html[data-theme="dark"] .board-cover {
     font: inherit !important;
   }
 }
+
+/* A GROUND SWATCH IS THE TRIAD, NOT A COLOUR. Three surfaces stacked the way the
+   app stacks them — the desk as the button's own ground, the furniture over it,
+   the page on top — because choosing a ground is choosing all three, and a single
+   square would show a third of the decision. Sized in em so it holds its
+   proportion against the reader's text-size dial. */
+.ground-swatch {
+  position: relative; display: block; flex: none;
+  width: max(46px, 3.4em); height: max(34px, 2.5em);
+  border: 0; padding: 0; cursor: pointer; border-radius: 7px 5px 8px 6px / 6px 8px 5px 7px;
+  overflow: hidden; transition: box-shadow .12s ease;
+}
+.ground-swatch > span { position: absolute; display: block; border-radius: 2px; }
+.ground-swatch > span:first-of-type { inset: 22% 10% 10% 10%; }
+.ground-swatch > span:last-of-type { inset: 42% 22% 0 22%; }

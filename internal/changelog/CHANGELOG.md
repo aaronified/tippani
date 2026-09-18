@@ -78,7 +78,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   already in your library needs the network to read, so everything you have keeps working.
   The healthcheck and the Docker socket are untouched: neither leaves the machine.
 
+### Added
+
+- **Four grounds for the app to sit on, in each mode.** Cream, White, Sepia and Light grey
+  by day; Night, Ink, Soot and Tobacco by night — chosen separately, because liking Sepia
+  in daylight says nothing about your evenings. A ground is three shades at once rather
+  than one colour: the desk behind everything, the furniture that holds the controls, and
+  the page a quote is written on. One colour over all three flattens them, which is the
+  thing the materials exist to prevent. Cream and Night are exactly what the app shipped
+  with, so nothing changes unless you pick.
+
 ### Changed
+
 
 - **You can put the sections in the order you want them.** Settings → Sections lists
   Library, Catalogue, Quotes and Anthologies with a pair of arrows each, and that order is

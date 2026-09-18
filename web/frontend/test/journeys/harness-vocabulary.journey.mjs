@@ -82,3 +82,23 @@ it('types the way a person types, so the app notices', async () => {
 
   nothingThrew()
 })
+
+// `chosen` REPORTS A STATE, AND ITS THIRD ANSWER IS THE ONE THAT MATTERS. A
+// control that announces nothing about itself gets `null`, not `false` — "this is
+// not a toggle" and "this toggle is off" are different facts, and collapsing them
+// would let a journey assert `false` against a plain button and pass while proving
+// nothing about a control that never had a state to report.
+it('reports a control that says nothing about itself as null, not as off', async () => {
+  await app.goto('/')
+  await app.press('Settings')
+  await app.press('Theme')
+  // A swatch is a real toggle and answers true or false.
+  expect(await app.chosen('Cream')).toBe(true)
+  expect(await app.chosen('Sepia')).toBe(false)
+  // The section rail's rows are tabs, and a tab announces itself the same way.
+  expect(await app.chosen('Theme')).toBe(true)
+  // A one-shot verb is not a toggle and must not pretend to be one. Type opens a
+  // panel; it has no state to announce, and it lives on the next section along.
+  await app.press('Language and font')
+  expect(await app.chosen('Type')).toBe(null)
+})

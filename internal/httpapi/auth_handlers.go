@@ -635,6 +635,17 @@ type prefs struct {
 	// a harmless stale value into a failed save, and a key this server has never
 	// heard of is exactly what a client one release ahead would send.
 	SectionOrder string `json:"sectionOrder"`
+	// THE GROUND EACH MODE SITS ON — a key into the four this build ships per
+	// mode, empty meaning the shipped one. Two fields rather than one, because
+	// light and dark are chosen independently and a reader who likes Sepia by day
+	// has said nothing about their night.
+	//
+	// UNVALIDATED HERE, like SectionOrder above and for the same reason: the client
+	// falls back to the shipped ground for a name it does not know, so a key from a
+	// build one release ahead is harmless, and rejecting it would turn a forward
+	// reference into a failed save.
+	GroundLight string `json:"groundLight"`
+	GroundDark  string `json:"groundDark"`
 	// Colour categories. A quote's colour is the one thing above tags in the
 	// hierarchy — it is what KIND of note this is — and until now the four were
 	// called yellow, blue, pink and orange, which describes a highlighter rather
@@ -1011,6 +1022,8 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		HideQuotes          *bool    `json:"hideQuotes"`
 		ShowAnthologies     *bool    `json:"showAnthologies"`
 		SectionOrder        *string  `json:"sectionOrder"`
+		GroundLight         *string  `json:"groundLight"`
+		GroundDark          *string  `json:"groundDark"`
 		// Pointer-typed like the rest, and for the same reason: a client sending
 		// one field must not clear the others. Unlike the rest, an EMPTY name or
 		// colour is a real value here — it means "back to the built-in" — so
@@ -1319,6 +1332,12 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	// means "back to the declared order", which is how a reset is spelled.
 	if in.SectionOrder != nil {
 		cur.SectionOrder = *in.SectionOrder
+	}
+	if in.GroundLight != nil {
+		cur.GroundLight = *in.GroundLight
+	}
+	if in.GroundDark != nil {
+		cur.GroundDark = *in.GroundDark
 	}
 	switch {
 	case badTileName(cur.TileGround), badTileName(cur.TileShell),

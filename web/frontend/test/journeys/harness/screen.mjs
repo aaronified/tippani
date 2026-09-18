@@ -1,4 +1,5 @@
-// THE WHOLE VOCABULARY A JOURNEY GETS: see, gone, press, hold, type, valueOf, onScreen.
+// THE WHOLE VOCABULARY A JOURNEY GETS: see, gone, press, hold, type, valueOf,
+// chosen, onScreen.
 //
 // IT IS DELIBERATELY SMALL, and what it leaves out is the point. There is no
 // `click('.tp-filter-chip')`, no `$('[data-testid=…]')`, no `evaluate(() =>
@@ -358,5 +359,36 @@ export function screenVerbs(getPage) {
     }
   }
 
-  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, upload, valueOf }
+  // IS THIS CONTROL THE CHOSEN ONE? A latch, a chosen swatch, a selected tab — the
+  // state a control announces about itself.
+  //
+  // IT IS IN THE VOCABULARY BECAUSE A PERSON CAN PERCEIVE IT, which is this
+  // harness's whole test for admission. `aria-pressed` and `aria-selected` are the
+  // accessibility tree, and the tree is what every other verb here already works
+  // from — a screen reader says "pressed" out loud, and a sighted reader sees the
+  // ring the same attribute drives.
+  //
+  // WITHOUT IT A WHOLE CLASS OF CHANGE IS UNREACHABLE FROM THIS TIER. A control
+  // whose entire effect is a colour — picking the ground the app sits on — has no
+  // words to assert, so a journey could press it and check nothing. The choice was
+  // between adding this verb and having no browser-tier coverage of any toggle at
+  // all; a vocabulary that cannot ask "did that take effect" is too small.
+  //
+  // IT RETURNS null RATHER THAN false WHEN THE CONTROL SAYS NOTHING, because "this
+  // is not a toggle" and "this toggle is off" are different facts, and collapsing
+  // them lets a journey assert `false` against a control that never had a state to
+  // report — which passes while proving nothing.
+  async function chosen(name, opts) {
+    const el = await find('press', name, opts)
+    try {
+      return await el.evaluate((e) => {
+        const v = e.getAttribute('aria-pressed') ?? e.getAttribute('aria-selected')
+        return v === null ? null : v === 'true'
+      })
+    } finally {
+      await el.dispose()
+    }
+  }
+
+  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, upload, valueOf, chosen }
 }
