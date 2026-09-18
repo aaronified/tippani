@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "73dd54c098d2126851537e216bcf651e6da26e2ffbf2a10dfbe33abc2570a9cf",
-    "internal/i18n/en.txt": "ec16e6025cdf2619159e63333ffaf1ff45d06723e32022b881bde0d817ed8557",
+    "internal/i18n/bn.txt": "af3b7a58f03cace74d5210da258c3806bcc190564e61d8181037ff3c51851414",
+    "internal/i18n/en.txt": "017b6b6670141e9a880d38f15e2eee340daee2e3b87aa7ae67f56b778001dd47",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -42,7 +42,7 @@
     "web/frontend/src/ReverifyReview.jsx": "74088e808bfae48f32eed5892a28798f8e7c53cb2cfbb80f1652feeb41ccb98d",
     "web/frontend/src/SearchPage.jsx": "a6393e085e6a11e8aff3734f3a18d8a1c93fffc275dba3da6e81970ac2ab40ae",
     "web/frontend/src/SelectionBar.jsx": "2d7c4821a89a557cebcc969f722cc86cf44dad5e0dbc8d79a15dfb62df90b913",
-    "web/frontend/src/Settings.jsx": "d64dc038b5a6340ec53a5faa47162e5ccfa79dbf972e75760df647c7ff629139",
+    "web/frontend/src/Settings.jsx": "108bdf70f79127d226b231e77025e7f60972b1e29ffbf4bfcfb955b28dc869e0",
     "web/frontend/src/StagingPage.jsx": "df61407fb08f0796edbc195a080a1772a3731723bf02b60b503f6bf5e95fec2d",
     "web/frontend/src/StatsPage.jsx": "ec749ff8a96783ce0183ea17f9727d00cbaa964a5d3c5d849617f649f9e9002e",
     "web/frontend/src/TagsPage.jsx": "c9f794eeec2e5c3f4e200b7ee31f9a74694ccddc14eaadadf78dcc2890c07d8d",
@@ -100,6 +100,7 @@
     "web/frontend/src/recordRow.jsx": "4b2e3ba6214f3529adc0d122e42f9ea0d1861c74821c871091aec5dae9d08281",
     "web/frontend/src/review.jsx": "f6d52274631a60b1a03dcc861b475ea7519503d7cce70dd598aca57f31484ec1",
     "web/frontend/src/routes.js": "93234264866f6bcfd1fa47b3507b017e414e066c977517d81072c7d727ec2104",
+    "web/frontend/src/savedThemes.js": "0ffd187da2bd03f950ef49324186bcb906bbc081d3fa9da17e84a896e8abf761",
     "web/frontend/src/secret.js": "f7f8a038ffa306f2d990f86f3af8dd64c6d05d4b4859df90353a13101511475c",
     "web/frontend/src/sectionRail.jsx": "c3b03ca1a08912a7cee033627dab146071d3b8a951849fbbec7e362c508389e5",
     "web/frontend/src/selection.jsx": "cc87f34ee5f39a6d3426bc0f7aabf32dd9ee23b31606530b21dd048349dd95f1",

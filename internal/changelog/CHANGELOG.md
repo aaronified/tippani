@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Save a look, and switch back to it in one press.** A look is both grounds, the accent,
+  the material set, its per-surface tiles and its dials — six decisions that belong
+  together, because a ground chosen against one accent is a different decision against
+  another. Name what you are wearing and it is there; four to a profile, which is a set you
+  switch between rather than a list you maintain. You can also export what you are wearing
+  as a file and paste somebody else's in.
+
+
 - **True glass, if you want it.** Glass that bends what is behind it rather than blurring
   it — most at the rim, not at all through the middle — on the rail, the top bar and the
   dock. It is real work for the machine on every scroll, so it is off until you turn it on

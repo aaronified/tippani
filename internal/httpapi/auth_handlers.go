@@ -658,6 +658,15 @@ type prefs struct {
 	// the answer for almost every account is "no" and an account that has never
 	// heard of it stores nothing.
 	TrueGlass bool `json:"trueGlass"`
+	// UP TO FOUR SAVED LOOKS, as one JSON array. Each holds both grounds, the
+	// accent, the material set, the per-slot tiles and the material dials — the
+	// six that travel together, because a ground chosen against one accent is a
+	// different decision against another.
+	//
+	// The cap is enforced on the client, not here, for the same reason the tile
+	// names are not validated: a value from a build one release ahead is a forward
+	// reference rather than an error, and the client already keeps the last four.
+	SavedThemes string `json:"savedThemes"`
 	// Colour categories. A quote's colour is the one thing above tags in the
 	// hierarchy — it is what KIND of note this is — and until now the four were
 	// called yellow, blue, pink and orange, which describes a highlighter rather
@@ -1038,6 +1047,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		GroundDark          *string  `json:"groundDark"`
 		TexTweak            *string  `json:"texTweak"`
 		TrueGlass           *bool    `json:"trueGlass"`
+		SavedThemes         *string  `json:"savedThemes"`
 		// Pointer-typed like the rest, and for the same reason: a client sending
 		// one field must not clear the others. Unlike the rest, an EMPTY name or
 		// colour is a real value here — it means "back to the built-in" — so
@@ -1358,6 +1368,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	if in.TrueGlass != nil {
 		cur.TrueGlass = *in.TrueGlass
+	}
+	if in.SavedThemes != nil {
+		cur.SavedThemes = *in.SavedThemes
 	}
 	switch {
 	case badTileName(cur.TileGround), badTileName(cur.TileShell),

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
-import { ACCENTS, GROUNDS, PHYS, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
+import { ACCENTS, GROUNDS, PHYS, parseTweaks, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
 import { QUOTE_LEADINGS, QUOTE_MEASURES, SIZE_ROLES, TYPE_FACTORS, applyTypeScale, clampLeading, clampMeasure, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
   applyFonts,
@@ -15,6 +15,7 @@ import {
 } from './fonts.js'
 import { FaceSelect } from './fontPicker.jsx'
 import { glassDialsFor } from './glassLens.js'
+import { applyFields, fromFile, parseSaved, removeTheme, SAVED_THEME_CAP, saveTheme, toFile } from './savedThemes.js'
 import { SECTIONS, sectionOrder, visibleSections } from './routes.js'
 import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
@@ -3091,6 +3092,44 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
   // Seeded from the appearance actually applied, like the material set above it,
   // so the control mirrors the screen rather than a prop that may be stale.
   const [physOpen, setPhysOpen] = useState(false)
+  const [saved, setSaved] = useState(() => parseSaved(prefs?.savedThemes))
+  const [themeName, setThemeName] = useState('')
+  const [importError, setImportError] = useState('')
+  function saveList(next) {
+    setSaved(next)
+    json('PUT', '/auth/me/preferences', { savedThemes: JSON.stringify(next) })
+  }
+  function wearTheme(entry) {
+    const fields = applyFields(entry, getResolvedTheme())
+    applyTheme(fields)
+    onPreferences?.(fields)
+    json('PUT', '/auth/me/preferences', fields)
+    setMaterialSet(fields.materialSet)
+    setAccent(fields.accent)
+    setGroundLight(fields.groundLight)
+    setGroundDark(fields.groundDark)
+    setTexTweak(parseTweaks(fields.texTweak))
+  }
+  function exportTheme() {
+    const blob = new Blob([toFile(getResolvedTheme(), themeName.trim() || t('settings.appearance.saved.export.default'))], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'tippani-theme.json'
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+  const importPick = useFilePick({
+    accept: 'application/json,.json',
+    ariaLabel: t('settings.appearance.saved.import.label'),
+    onFiles: async (files) => {
+      setImportError('')
+      const file = files && files[0]
+      if (!file) return
+      const got = fromFile(await file.text())
+      if (got.error) return setImportError(got.error)
+      wearTheme(got.theme)
+    },
+  })
   // Its own writer, for the reason `saveContrast` documents: `persist` re-sends
   // every theme field on any change, so a preference travelling in that object is
   // wiped by an unrelated accent click.
@@ -3270,6 +3309,65 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
           glass={trueGlass}
         />
       </FormModal>
+
+      {/* THE LOOKS YOU HAVE SAVED. Six fields travel together in one — both
+          grounds, the accent, the material set, the tiles and the dials — because
+          a ground chosen against one accent is a different decision against
+          another, so switching between two looks is one press instead of six.
+
+          FOUR IS THE CAP AND IT IS THE DESIGN. A fifth turns a set of looks you
+          switch between into a list you maintain: naming them, tidying them,
+          wondering which of two near-identical ones is the good one. */}
+      <div className="mt-7">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <MonoLabel>{t('settings.appearance.saved.title')}</MonoLabel>
+          <InfoDot title={t('settings.appearance.saved.title')} text={t('settings.appearance.saved.info.body')} />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {saved.map((s2) => (
+            <span key={s2.name} className="flex items-center gap-1">
+              <GhostButton onClick={() => wearTheme(s2)}>{s2.name}</GhostButton>
+              <FieldIconButton
+                icon={<IconDelete />}
+                danger
+                ariaLabel={t('settings.appearance.saved.remove.aria', { name: s2.name })}
+                tooltip={t('settings.appearance.saved.remove.aria', { name: s2.name })}
+                onClick={() => saveList(removeTheme(saved, s2.name))}
+              />
+            </span>
+          ))}
+          {saved.length === 0 && <p className="microcopy">{t('settings.appearance.saved.none')}</p>}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input
+            className="tp-input"
+            style={{ maxWidth: '18ch' }}
+            value={themeName}
+            onChange={(e) => setThemeName(e.target.value)}
+            placeholder={t('settings.appearance.saved.name.placeholder')}
+            aria-label={t('settings.appearance.saved.name.aria')}
+            maxLength={24}
+          />
+          {/* THE BUTTON IS DEAD UNTIL THERE IS A NAME, because a look saved as ""
+              draws a nameless row nobody can press. */}
+          <GhostButton
+            disabled={!themeName.trim() || (saved.length >= SAVED_THEME_CAP && !saved.some((x) => x.name === themeName.trim()))}
+            onClick={() => { saveList(saveTheme(saved, getResolvedTheme(), themeName.trim())); setThemeName('') }}
+          >
+            {t('settings.appearance.saved.save.label')}
+          </GhostButton>
+        </div>
+        {saved.length >= SAVED_THEME_CAP && <p className="microcopy mt-1">{t('settings.appearance.saved.full')}</p>}
+        {/* THE FILE. Export is ONE theme — what you are wearing — rather than the
+            list, because a file called "my theme" that turns out to hold four is a
+            file nobody can share a look with. */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <GhostButton icon={<IconExport />} onClick={exportTheme}>{t('settings.appearance.saved.export.label')}</GhostButton>
+          <GhostButton icon={<IconRestore />} onClick={() => importPick.open()}>{t('settings.appearance.saved.import.label')}</GhostButton>
+          {importPick.input}
+        </div>
+        {importError && <ErrorText>{t(`settings.appearance.saved.import.${importError}`)}</ErrorText>}
+      </div>
 
       {/* TRUE GLASS, AND IT IS OFF UNTIL ASKED FOR. A pane that really refracts
           needs a displacement field per surface, re-evaluated whenever anything
