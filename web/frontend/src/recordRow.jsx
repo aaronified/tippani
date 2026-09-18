@@ -76,7 +76,14 @@ export function RecordRow({
         {mark}
         <div className="min-w-0 flex-1">
           <NameScroll as="p"><b>{name}</b></NameScroll>
-          {sub && <p className="microcopy">{sub}</p>}
+          {/* `.cs-row-sub`, WHICH THE REPO ALREADY HAD, and the first draft did not use.
+              It was `.microcopy` — the mono label face at `--type-mono-11`, tracked and
+              in `var(--faint)` — so moving the author off the name line ALSO turned it
+              into a label and dimmed it, when the old single line had rendered it in body
+              type at `var(--soft)`. That is a worse row than the one this replaced, and it
+              breaks the standing instruction to reach for the element the repo already has:
+              `characterRows.jsx` renders its own sub-line with exactly this class. */}
+          {sub && <p className="cs-row-sub">{sub}</p>}
           <RowChips chips={chips} empty={chipsEmpty} />
         </div>
         {actions.length > 0 && (

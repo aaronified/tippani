@@ -48,6 +48,31 @@ describe('a latched glyph says so', () => {
     expect(screen.getByRole('button', { name: 'Edit' }).getAttribute('aria-pressed')).toBe('false')
   })
 
+  // AND THE DRAWN HALF, WHICH WAS UNGUARDED. A rater deleted `active={!!a.active}` from
+  // the component and the whole dom tier stayed green — 236 files, 2,553 tests — because
+  // the three assertions above test only what the latch SAYS. A latch that announces
+  // itself and does not light is as broken as one that lights and says nothing, and this
+  // row is the only thing standing between that defect and every console in the app.
+  it('lights a pressed toggle as well as announcing it', () => {
+    render(
+      <RecordRow
+        name="Pather Panchali"
+        actions={[{ key: 'edit', icon: <svg />, ariaLabel: 'Edit', active: true, pressed: true, onClick: () => {} }]}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Edit' }).className).toContain('is-active')
+  })
+
+  it('leaves an unlatched action unlit', () => {
+    render(
+      <RecordRow
+        name="Pather Panchali"
+        actions={[{ key: 'edit', icon: <svg />, ariaLabel: 'Edit', active: false, pressed: false, onClick: () => {} }]}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Edit' }).className).not.toContain('is-active')
+  })
+
   // AND THE OTHER HALF, which is not symmetry for its own sake: `aria-pressed="false"`
   // on a one-shot verb tells a reader the button is a toggle that is currently off,
   // which is a lie about what pressing it does. An action with no `pressed` is a
@@ -83,10 +108,18 @@ describe('the grammar', () => {
     expect(container.querySelectorAll('p')).toHaveLength(1)
   })
 
+  // THE WARN CHIP'S RED IS THE ASSERTION, not its presence. The same rater forced
+  // `warn = false` in the component and every chip lost its colour with the dom tier
+  // still green: a row that lists "No cover" in the same ink as "Library" has stopped
+  // distinguishing a finding from a fact, which is the entire job of a console whose
+  // filters are named after what is missing.
   it('draws the chips a row wears, and marks the ones that are findings', () => {
     render(<RecordRow name="Pather Panchali" chips={[{ label: 'No cover', warn: true }, 'Library']} />)
-    expect(screen.getByText('No cover')).toBeTruthy()
-    expect(screen.getByText('Library')).toBeTruthy()
+    const warn = screen.getByText('No cover')
+    const plain = screen.getByText('Library')
+    expect(warn.style.color).toContain('--error')
+    expect(warn.style.borderColor).toContain('--error')
+    expect(plain.style.color).toBe('')
   })
 
   // A row with nothing missing says so; a row whose caller has nothing worth saying

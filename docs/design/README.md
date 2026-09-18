@@ -33,8 +33,11 @@ because building them as drawn would lose working features:**
   door without building the room, so the port adds the section.
 - **No long press on the dock's Back key**, although the Settings prototype's own release
   notes claim *"a long press now means three things, decided by what is under your thumb."*
-  Its Back is a plain `history.back()`. The repo's is press-only too, so this is an
-  addition rather than a restoration, and the three meanings still have to be decided.
+  Its Back is a plain `history.back()`. **The app has one** — holding Back opens the last
+  five screens in a popup anchored over the key, and picking one is a real `history.go(-k)`
+  — so the prototype is behind the code here, not ahead of it. (This paragraph said the
+  repo's was press-only too. It was written from an inventory taken before that work was
+  merged, and was already false when it shipped.)
 - **The two prototypes disagree about the category palette.** Settings offers sixteen
   swatches, matching `CATEGORY_PALETTE` in `theme.js` hex for hex; Metadata offers eight,
   renamed (*Straw* for *Sun*). Sixteen is the repo's, and `palette.test.jsx` holds it there.

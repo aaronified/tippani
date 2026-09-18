@@ -15805,6 +15805,17 @@ punctuation, so reading the end of a title meant dragging past the author and th
 count. The pack puts the shelf, the year and the credit on the sub-line, and that is
 why.
 
+**AND THE SUB-LINE WEARS `.cs-row-sub`, WHICH THE FIRST DRAFT GOT WRONG IN A WAY THIS
+ENTRY THEN BLESSED.** It was `.microcopy` — the mono label face, tracked, in
+`var(--faint)` — so moving the author off the name line also turned it into a label and
+dimmed it, when the single line it replaced had rendered the author in body type at
+`var(--soft)`. The row got worse in exactly the respect the change was made to improve,
+this entry called it "the pack's arrangement", and the class the repo already had for a
+sub-line was sitting in `characterRows.jsx` — the very module this one names as its
+model. A rater found it. The lesson is narrower than "check the CSS": moving a thing
+between lines is also moving it between type roles, and the second move has to be chosen
+rather than inherited from whatever class was nearest.
+
 **A LATCHED GLYPH ANNOUNCES ITSELF, AND THAT LINE IS A REPAIR.** The hand-rolled
 cluster this replaced passed `aria-pressed` through `FieldIconButton`'s `...rest`.
 The first draft of the shared row enumerated the props it forwarded and dropped it,
