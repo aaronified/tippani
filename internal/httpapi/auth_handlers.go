@@ -444,6 +444,12 @@ type prefs struct {
 	// what carries the choice to the reader's other devices, and its localStorage
 	// mirror is what makes the login screen readable before this field can be read.
 	Locale string `json:"locale"`
+	// LocaleFallback is the language a missing line falls back to. A translation
+	// is never complete on the day it lands, so every interface language has a
+	// second one standing behind it — the app has always had that behaviour, and
+	// never a way for a reader to say which. Empty reads as English, which is what
+	// it has always fallen back to.
+	LocaleFallback string `json:"localeFallback"`
 	// LanguageMarks: the mark a proverb card wears where every other quote wears
 	// a face. A JSON object of folded language name -> glyph, stored as a STRING
 	// because prefs is a flat comparable struct (ui_test.go compares two with
@@ -907,6 +913,7 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	// falls back to a built-in for a code it cannot find, so the worst an unknown
 	// language can do is render the box's own words.
 	p.Locale = i18n.NormalizeCode(p.Locale)
+	p.LocaleFallback = i18n.NormalizeCode(p.LocaleFallback)
 	// A stored tier that is not one of the four reads as medium — the tier that
 	// changes none of the question dials — so a corrupt preference cannot change
 	// how hard the questions are.
@@ -1047,6 +1054,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRLadder            *bool    `json:"srLadder"`
 		SRTier              *string  `json:"srTier"`
 		SRStart             *string  `json:"srStart"`
+		LocaleFallback      *string  `json:"localeFallback"`
 		SRSubmit            *bool    `json:"srSubmit"`
 		Tour                *string  `json:"tour"`
 		TourStep            *int     `json:"tourStep"`
@@ -1333,6 +1341,11 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	if in.SRStart != nil {
 		cur.SRStart = normalizeReviewStart(*in.SRStart)
+	}
+	if in.LocaleFallback != nil {
+		// Normalised through the same function the locale itself is, so a code
+		// this build has never heard of reads as unset rather than as a language.
+		cur.LocaleFallback = i18n.NormalizeCode(*in.LocaleFallback)
 	}
 	if in.SRTier != nil {
 		cur.SRTier = normalizeReviewTier(*in.SRTier)

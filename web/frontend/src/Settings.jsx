@@ -241,7 +241,7 @@ export const SECTION_PREFS = {
     'quoteLeading', 'quoteMeasure',
   ],
   lang: [
-    'locale', 'textOrder', 'readLanguages', 'languageMarks',
+    'locale', 'localeFallback', 'textOrder', 'readLanguages', 'languageMarks',
     'fontsByLanguage', 'fontsByLocale',
     'fontDisplay', 'fontUi', 'fontMono', 'fontHand', 'fontBengali', 'fontDevanagari',
     'fontDisplayStyle', 'fontUiStyle', 'fontMonoStyle', 'fontHandStyle',
@@ -874,6 +874,51 @@ function SizeDial({ value, onChange, ariaLabel, width = 108 }) {
 const specimenSize = (roleKey) => {
   if (roleKey === 'mono') return 'var(--type-mono-13)'
   return SIZE_ROLES.includes(roleKey) ? `var(--type-${roleKey}-17)` : 'var(--type-display-17)'
+}
+
+// THE FOUR FACES THE INTERFACE IS SET IN, drawn where a reader chooses them.
+//
+// IT PICKS NOTHING ITSELF. Pressing a specimen opens the Type panel, which is
+// where a face is actually chosen along with everything that goes with choosing
+// one — the style modifiers, the script check, the per-language scope, the
+// uploads. Two places that both assign a face would be two writers for one
+// preference, and the repo has spent enough commits pulling those apart.
+//
+// SO WHAT IS IT FOR. Seeing. The section listed no faces at all, so the answer to
+// "what is this app set in" was behind a button, and the answer to "what would it
+// look like if I changed it" was behind a button inside that button. A specimen is
+// the one part of this that has to be on the page, because it is the part that
+// cannot be read as a name.
+function FaceSpecimens({ prefs, onOpen }) {
+  // '' is the scope every UI language inherits — the flat preference fields —
+  // which is what the interface is wearing now, as against a per-language
+  // override the panel's own scope picker reaches.
+  const rows = fontStateFor(prefs || {}, '').filter((r) => !r.script)
+  return (
+    <div className="face-specimens">
+      {rows.map((r) => (
+        <button key={r.key} type="button" className="face-specimen" onClick={onOpen}>
+          <span className="face-specimen-role">
+            <MonoLabel>{t(r.label)}</MonoLabel>
+            {/* THE FACE'S OWN NAME, because the specimen says what it looks like
+                and this says what to ask for. A row that showed only the drawing
+                could not be talked about. */}
+            <span className="face-specimen-name">{r.chosen.name}</span>
+          </span>
+          {/* dir="auto" and nothing else: the sample is the role's own words in
+              whatever language the interface is in, and the first strong character
+              decides which way it reads. */}
+          <span
+            className="face-specimen-sample"
+            dir="auto"
+            style={{ fontFamily: r.family, fontStyle: r.italic ? 'italic' : undefined }}
+          >
+            {t(r.sample)}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
 }
 
 function TypeSettings({ prefs, onSaved }) {
@@ -3740,6 +3785,52 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
                 because that panel already is a row per language and a second list of
                 the same languages would be two to keep in step. An account that still
                 has the old preference is migrated on read — see textOrderFrom. */}
+          {/* THE FOUR FACES ON THE PAGE, each with the words it will be set in.
+              The pack draws them here; this app had every one of them behind the
+              Type door, so the section a reader opens to choose a face showed a
+              language picker and a button. A specimen you cannot see is a face you
+              cannot choose, and choosing by name is choosing by reputation.
+
+              WHAT STAYS BEHIND THE DOOR is everything else it holds — uploading a
+              face, the per-role style modifiers, the size dials, the script check,
+              and the per-language scope. That is the owner's split: the faces come
+              out, the rest stays in, and the section stays a section rather than
+              becoming the panel with a heading.
+
+              THE ROWS ARE `fontStateFor`'s, THE SAME FUNCTION THE PANEL USES. It
+              is pure and exported and already returns each role with the face
+              chosen and the stack that role would draw with, so the specimen here
+              is the same specimen the panel shows rather than a second opinion
+              about what the type looks like.
+
+              AND ONLY THE FOUR THE INTERFACE IS SET IN. The role table also holds
+              Bengali and Devanagari, which are what a QUOTE in those scripts is
+              set in rather than anything the interface wears — they belong to the
+              panel's own scope picker and would read here as two more UI faces. */}
+          <FaceSpecimens prefs={prefs} onOpen={() => setTypeOpen(true)} />
+
+          {/* WHERE A MISSING LINE FALLS BACK TO, which the pack draws and this app
+              did not offer at all. A translation is never complete on the day it
+              lands, so every interface language has a second one standing behind
+              it; the app has always had that behaviour and never a way to say
+              which. */}
+          <PrefRow
+            label={t('settings.language.fallback.title')}
+            sub={t('settings.language.fallback.hint')}
+            changed={!!prefs?.localeFallback && prefs.localeFallback !== 'en'}
+            control={
+              <Toggle
+                ariaLabel={t('settings.language.fallback.title')}
+                value={prefs?.localeFallback || 'en'}
+                onChange={(v) => {
+                  onPreferences?.({ localeFallback: v })
+                  json('PUT', '/auth/me/preferences', { localeFallback: v })
+                }}
+                options={[['en', 'English'], ['bn', 'বাংলা']]}
+              />
+            }
+          />
+
       {/* The door, and it KEEPS ITS WORDS at every width.
 
           Button labels normally lets a glyphed button drop its text on a phone,

@@ -10223,6 +10223,29 @@ html[data-theme="dark"] .board-cover {
 .ground-swatch > span:last-of-type { inset: 42% 22% 0 22%; }
 
 
+/* THE FOUR FACES, SHOWN RATHER THAN NAMED. Each is a press into the Type panel,
+   so it is a button; it is laid out as a row of text because what it is FOR is
+   being read. The sample is measured in em so it moves with the reader's type
+   dial, and it wraps rather than truncating — a shortened specimen and a short
+   one look alike, which is the rule this whole file keeps. */
+.face-specimens { display: grid; gap: 2px; }
+.face-specimen {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px var(--edge, 12px);
+  width: 100%; padding: 10px 6px; border: 0;
+  border-top: 1px solid color-mix(in oklab, var(--line), transparent 45%);
+  background: none; cursor: pointer; text-align: start;
+}
+.face-specimen:hover { background: color-mix(in oklab, var(--raised), transparent 40%); }
+.face-specimen-role { display: flex; align-items: baseline; gap: 8px; flex: 0 0 auto; min-width: 12ch; }
+.face-specimen-name {
+  font-family: var(--font-mono); font-size: var(--type-mono-11);
+  font-variant-numeric: var(--font-mono-figures); color: var(--faint);
+}
+.face-specimen-sample {
+  flex: 1 1 18ch; min-width: 0; color: var(--ink);
+  font-size: var(--type-display-17); line-height: 1.4;
+}
+
 /* A SECTION'S OWN HEADER: what it is for, how much of it you have set, and the way
    back out. It wraps rather than scrolls, because the reset button losing its words
    would make the one irreversible-looking control on the screen a bare glyph. */

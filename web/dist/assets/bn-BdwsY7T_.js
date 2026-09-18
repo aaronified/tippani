@@ -52,6 +52,9 @@ _name = বাংলা
 # ===========================================================================
 
 # The Settings row that changes the language, in the Appearance card.
+settings.language.fallback.title = ফিরে যায়
+settings.language.fallback.hint = যে লাইন এখনও অনূদিত হয়নি, ইন্টারফেস সেটি এই ভাষায় পড়ে।
+
 settings.language.title = ভাষা
 settings.changed.count = {n}টি বদলানো
 settings.changed.none = সবই ডিফল্ট

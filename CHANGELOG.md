@@ -723,6 +723,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The four faces the interface is set in are on the Language section, each showing the
+  words it will be set in.** Every one of them used to be behind the Type button, so what
+  the app is set in was a press away and what it would look like changed was a press
+  inside that. Pressing a specimen opens Type, which is still where a face is chosen along
+  with everything that goes with choosing one.
+
+- **You can say what a missing line falls back to.** A translation is never complete on
+  the day it lands, and the interface has always read the untranslated line in another
+  language; now you can say which.
+
 - **New lines can start already mastered.** A line you have never been asked about
   normally enters the schedule as unseen — asked soon and often until you have it. If you
   are adding a library you already know, start them at the far end instead: they still

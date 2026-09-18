@@ -43,6 +43,9 @@ _name = English
 # ===========================================================================
 
 # The Settings row that changes the language, in the Appearance card.
+settings.language.fallback.title = Fall back to
+settings.language.fallback.hint = Where a line has not been translated yet, the interface reads it in this language instead.
+
 settings.language.title = Language
 # THE NUMBER ON A SECTION, and the one word for when there is no number. The pack
 # prints "3 changed" and "all default"; both are about preferences a reader has
