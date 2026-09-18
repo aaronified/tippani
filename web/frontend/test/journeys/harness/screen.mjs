@@ -1,4 +1,4 @@
-// THE WHOLE VOCABULARY A JOURNEY GETS: see, gone, press, type, valueOf, onScreen.
+// THE WHOLE VOCABULARY A JOURNEY GETS: see, gone, press, hold, type, valueOf, onScreen.
 //
 // IT IS DELIBERATELY SMALL, and what it leaves out is the point. There is no
 // `click('.tp-filter-chip')`, no `$('[data-testid=…]')`, no `evaluate(() =>
@@ -314,6 +314,31 @@ export function screenVerbs(getPage) {
     }
   }
 
+  // hold — A THUMB THAT STAYS DOWN. A second verb on a control that already has
+  // one: the dock's Back key goes back when pressed and offers the screens behind
+  // you when held.
+  //
+  // A REAL TOUCH, not a mouse press held open, and the app can tell the difference
+  // on purpose — every long press in this app guards on `pointerType === "touch"`,
+  // because a mouse has hover to say the same things with. A journey holding with
+  // the mouse would find nothing happens and report a dead gesture. So this goes
+  // through the touchscreen, and the world has to be a touch device for it: see
+  // PHONE in world.mjs.
+  //
+  // 700ms, where the app's threshold is 500. Long enough to clear it on a loaded
+  // machine, short enough that a journey which stops asserting still finishes.
+  async function hold(name, { timeout = DEFAULT_TIMEOUT, ms = 700 } = {}) {
+    const el = await find('press', name, { timeout })
+    try {
+      await el.scrollIntoView().catch(() => {})
+      await el.touchStart()
+      await sleep(ms)
+      await el.touchEnd()
+    } finally {
+      await el.dispose()
+    }
+  }
+
   // A KEY A READER PRESSES: Enter to submit, Escape to dismiss, Tab and the
   // arrows to move. It goes to whatever has focus, which after `type` is the box
   // just typed in.
@@ -333,5 +358,5 @@ export function screenVerbs(getPage) {
     }
   }
 
-  return { onScreen, see, gone, press, pressAll, pressKey, type, upload, valueOf }
+  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, upload, valueOf }
 }

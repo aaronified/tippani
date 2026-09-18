@@ -47,7 +47,11 @@ export const SCREENS = {
   search: [() => import('../src/SearchPage.jsx'), 'default', { onOpenBook: noop, onOpenMovie: noop, creditSeparators: ',;&' }],
   quotes: [() => import('../src/Quotes.jsx'), 'default', { creditSeparators: ',;&' }],
   anthologies: [() => import('../src/anthologies.jsx'), 'default', { openId: null, onOpen: noop, onClose: noop, onOpenBook: noop, onOpenMovie: noop }],
-  tags: [() => import('../src/TagsPage.jsx'), 'default', {}],
+  // TAGS IS NOT A SCREEN App ROUTES TO ANY MORE — it is a section of the metadata
+  // console, so it has no `data-screen-label` wrapper and `screenLabelsInApp` no longer
+  // names it. It is still mounted and still exercised: MetadataPage renders it, and
+  // that row above covers the frame it now lives in. The address survives as a
+  // redirect, which `tags-moved-in-with-metadata` holds in a browser.
   stats: [() => import('../src/StatsPage.jsx'), 'default', { onSearch: noop }],
   staging: [() => import('../src/StagingPage.jsx'), 'default', { onPending: noop, onOpenBook: noop, onOpenMovie: noop, onApproved: noop }],
   settings: [() => import('../src/Settings.jsx'), 'default', { user: USER, onPreferences: noop, update: null, onUpdateInfo: noop, onStartTour: noop }],

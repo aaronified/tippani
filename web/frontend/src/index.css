@@ -20,6 +20,15 @@
        laptop and is still right on one. */
     --container-max: 1180px;
 
+    /* HOW TALL THE DESKTOP TOP BAR IS, stated once because two rules have to
+       agree about it and only one of them draws it. `.topbar` is sticky at
+       top: 0, so anything else that sticks to the top of the page has to start
+       below this or it parks behind a bar that answers every click first — see
+       `.selection-bar`, which did exactly that. A literal in both places is the
+       drift this block's next paragraph is about, and the phone already keeps
+       the same offset against `.mobile-topbar`. */
+    --topbar-h: 56px;
+
     /* ---- ROW and EDGE: spacing is a constant, never a literal ---------------
        EDGE is the page's horizontal margin and ROW is the vertical step between
        rows. A padding typed into a row is a bug rather than a decision: five
@@ -1854,6 +1863,34 @@
   .grid > .tp-field + .tp-field { margin-top: 0; }
   .tp-field > .mono-label { display: block; margin-bottom: 6px; }
 
+  /* A ROW THAT OPENS A GROUP — the anthology form's three doors, and whatever
+     asks the same question next. It is a row and not a .tp-btn: a button centres
+     its word and this states a heading with a count under it, left-aligned, with
+     the chevron at the far edge saying there is more behind it.
+
+     min-height rather than height, in max(px, em): the hit target is §11's 44px
+     floor and the box has to grow when the type dials do — a fixed height here is
+     the "no box that holds text is measured in px" rule broken in the one place
+     a reader would meet it, because the count sits on a second line. */
+  .tp-group-door {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--row);
+    width: 100%;
+    min-height: max(44px, 3.4em);
+    padding: 9px var(--row);
+    text-align: start;
+    border: 1.4px solid var(--ink-border);
+    border-radius: 9px;
+    background: linear-gradient(180deg, var(--card-top), transparent);
+    color: var(--ink);
+  }
+  .tp-group-door:hover { background: var(--raised); }
+  /* The chevron points the way out of the row and must not squash when the
+     heading is long enough to wrap. */
+  .tp-group-door > svg { flex-shrink: 0; color: var(--soft); }
+
   /* The annotation edit form renders inside a variable-width masonry tile, so a
      viewport breakpoint (sm:) is wrong — a narrow tile on a wide screen still
      forces two cramped columns. Make the form a container and split the
@@ -2497,7 +2534,19 @@
 
   .selection-bar {
     position: sticky;
-    top: 0;
+    /* UNDER THE TOP BAR, NOT UNDERNEATH IT. `top: 0` stuck this to the viewport's
+       top edge, which on a desktop is where `.topbar` already is — sticky, 56px
+       tall and z-index 40. So the moment the page scrolled past the toolbar the
+       whole selection bar slid behind it: still in the accessibility tree, still
+       reporting a box, and every control in it answering to nothing, because
+       `elementFromPoint` at the ⋯ returned the top bar's search box. That is why
+       "Set fields" has been unreachable in a browser since 1.16.0 and why a
+       journey over a work selection could not be written — it was read as a
+       harness limitation for as long as nobody measured it.
+       The phone half of this was already right (`top: 54px` below, mirroring
+       `.mobile-topbar`'s height the way `.mobile-sticky-bar` does); this is the
+       same offset for the bar a desktop actually has. */
+    top: var(--topbar-h);
     z-index: 30;
     display: flex;
     flex-wrap: wrap;
@@ -3548,6 +3597,16 @@
   /* ---- help popover contents ---- */
   .help-sheet-body { font-size: var(--type-ui-13); line-height: 1.6; color: var(--soft); }
   .help-body { font-size: var(--type-ui-15); line-height: 1.6; color: var(--soft); }
+  /* THE SCREEN'S OWN WALKTHROUGH, above the glossary it sits on top of. It is one
+     button and it had no rule at all for a release — the class was in the markup,
+     matched nothing, and the button landed flush against the first entry of the
+     list, which reads as the first row of the list rather than as the offer it is.
+     A rule separates the two halves of the sheet: a verb, then the reference. */
+  .help-lead {
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
   .help-list { display: flex; flex-direction: column; gap: 14px; }
   .help-row { display: flex; align-items: flex-start; gap: 11px; }
   .help-row-icon {
@@ -4867,7 +4926,7 @@
     display: flex;
     align-items: center;
     gap: 18px;
-    min-height: 56px;
+    min-height: var(--topbar-h);
     padding: 8px var(--edge);
   }
   .brand { display: flex; align-items: center; gap: 9px; flex: none; }
@@ -6350,6 +6409,39 @@
     white-space: nowrap;
   }
   .tp-filter-chip:hover:not(.active) { color: var(--ink); border-color: var(--ink-border); }
+
+  /* A SHOW-CHIP IS A FILTER CHIP THAT ANSWERS A QUESTION IN TWO LINES: the field's
+     name, and a sample of what it puts on the page. It takes the filter chip's face
+     and its accent-fill `.active`, so "on" is the one thing this app already means
+     by that fill — what it overrides is the single-line shape.
+
+     `white-space` is reset because the parent nowraps, which is right for a chip
+     holding one word and wrong for one holding an example. The sample line is
+     allowed to wrap rather than truncate: a shortened example and a short example
+     look alike, and the repo forbids the ellipsis for exactly that reason.
+
+     No px height. The box holds text at whatever size the type dials are set to, so
+     it is min-height in em with the §11 touch floor underneath it. */
+  .tp-show-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    min-height: max(44px, 3.6em);
+    padding: 7px 12px;
+    text-align: start;
+    white-space: normal;
+  }
+  .tp-show-chip-label { font-weight: 600; }
+  /* The sample is quieter than the name it is under — it is evidence, not a second
+     label. On an active chip both are on the accent, so the sample only softens. */
+  .tp-show-chip-eg {
+    font-weight: 400;
+    font-size: var(--type-ui-12);
+    opacity: .78;
+    font-style: italic;
+  }
   /* Active chip wears the toggle thumb's accent fill + leather/rubber grain, so
      the genre bar and search-scope filters read identically to Toggle/Select. */
   .tp-filter-chip.active {
@@ -6978,6 +7070,12 @@ html[data-theme="dark"] .mobile-dock-btn.active {
   white-space: nowrap; /* keep the subtext on one line so it can't offset the row label */
 }
 .drawer-divider { height: 1px; background: var(--line); margin: 5px 6px; flex: none; }
+/* THE DRAWER'S FOOT, which is the rail's foot on a phone. `.drawer-nav` takes the
+   slack (flex: 1), so anything below it is pinned to the bottom — and Checks and Bin
+   belong there, against the account row, rather than trailing the scrolling list with
+   the leftover height between them and it. `flex: none` so a long list never squeezes
+   them, and the same side padding as the list so the rows stay in one column. */
+.drawer-foot { flex: none; display: flex; flex-direction: column; gap: 1px; padding: 0 10px; }
 .drawer-footer {
   display: flex;
   align-items: center;

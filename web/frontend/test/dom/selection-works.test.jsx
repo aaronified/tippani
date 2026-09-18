@@ -168,6 +168,21 @@ describe('the bar over a selection of works', () => {
     expect(screen.getByRole('button', { name: /1 title selected/ })).toBeTruthy()
   })
 
+  // THE ROW THAT USED TO BE HERE IS A JOURNEY NOW — `gathering-several-books`.
+  //
+  // It asserted that the ⋯ offers "Add to anthology" over a work selection, and it
+  // said in a paragraph why it could not be a journey: a work selection's ⋯ would
+  // not open in a browser. That turned out to be a stylesheet bug rather than a
+  // limit of the harness (`.selection-bar` stuck at `top: 0`, behind the sticky
+  // `.topbar`), so the reason expired and the test with it. What it checked — that
+  // the row renders — is now the weakest step of a journey that goes on to press it
+  // and read the passages back out of the anthology, which is the claim that
+  // mattered and the one nothing was making.
+  //
+  // The rest of this file stays: the four verbs a work selection offers and the
+  // quote-only ones it must not are a statement about the REGISTRY, and enumerating
+  // what is absent is not something a reader does.
+
   it('offers the four a work selection has, and none of the quote ones', () => {
     // The whole point of the split. A colour category is a note about a QUOTE and a
     // book has never had one; a shelf is a fact about a work and a quote has none.

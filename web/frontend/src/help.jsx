@@ -43,6 +43,7 @@ import {
   IconType,
   IconUpload,
   IconWarning,
+  GhostButton,
   useIsMobileScreen,
 } from './ui.jsx'
 import { Gesture } from './gestures.jsx'
@@ -565,10 +566,34 @@ export function helpGuide(touch = false) {
 // PageHelp — the "?" the shell's top bar carries. `variant` is passed through to
 // HelpButton: "pill" makes it match the Search button it sits beside in the
 // desktop bar.
-export function PageHelp({ screen, side = 'bottom', variant = 'ring' }) {
+// tourLead — THE WALKTHROUGH FOR THIS SCREEN, ABOVE ITS GLOSSARY. The owner: "a
+// button in the help screen that will go you through the features in that screen."
+// Help is where the reader already is when they want showing, and it is the only
+// door left now that the global onboarding card has gone from Settings.
+//
+// ABSENT WHERE THERE IS NOTHING TO WALK. `tourSteps` is how many steps this screen
+// has; a button that opens a tour of nothing is worse than no button.
+//
+// ONE FUNCTION FOR BOTH SURFACES, which is the repo's directive and was a real gap
+// rather than a tidying: the desktop "?" pill drew this and the phone's help — which
+// opens from the ⋯ as a sheet, and is ALSO what a book's and a film's own page use
+// at every width — drew nothing at all. So the per-screen tour was a desktop feature
+// on a phone-first app, and the two screens most likely to be read on a phone could
+// not reach it on either.
+function tourLead(screen, onTour, tourSteps) {
+  if (!onTour || tourSteps <= 0) return null
+  return (close) => (
+    <GhostButton icon={<IconReading />} onClick={() => { close(); onTour(screen) }}>
+      {t('help.tour.label', { count: tourSteps, n: tourSteps })}
+    </GhostButton>
+  )
+}
+
+export function PageHelp({ screen, side = 'bottom', variant = 'ring', onTour = null, tourSteps = 0 }) {
   const mobile = useIsMobileScreen()
   const h = helpFor(screen, mobile)
   if (!h) return null
+  const lead = tourLead(screen, onTour, tourSteps)
   // The whole guide, opened at this screen. The title still names the screen,
   // because that is what the button promised before it opened.
   return (
@@ -578,6 +603,7 @@ export function PageHelp({ screen, side = 'bottom', variant = 'ring' }) {
       active={HELP[screen] ? screen : 'everywhere'}
       side={side}
       variant={variant}
+      lead={lead}
     />
   )
 }
@@ -587,12 +613,14 @@ export function PageHelp({ screen, side = 'bottom', variant = 'ring' }) {
 // back arrow, a filter, a ＋ and a ⋯ , and a fifth 44px control would leave the
 // title about eighty pixels to live in. Help becomes a ⋯ row there instead, which
 // costs the bar nothing.
-export function ScreenHelpSheet({ screen, open, onClose }) {
+export function ScreenHelpSheet({ screen, open, onClose, onTour = null, tourSteps = 0 }) {
   const mobile = useIsMobileScreen()
   const h = helpFor(screen, mobile)
   if (!h || !open) return null
+  const lead = tourLead(screen, onTour, tourSteps)
   return (
     <HelpSheet open title={h.title} onClose={onClose}>
+      {lead ? <div className="help-lead">{lead(onClose)}</div> : null}
       <HelpList entries={h.entries} />
     </HelpSheet>
   )

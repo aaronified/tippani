@@ -51,6 +51,7 @@ import {
   useCardMenu,
 } from './ui.jsx'
 import { actionsFor } from './actions.jsx'
+import { ANTHOLOGY_KIND, useGatherDoor, workRule } from './anthologyGather.jsx'
 import { usePractice } from './review.jsx'
 import { deletePhrase, useBulkOps } from './bulkOps.jsx'
 import { selectionClick, selectionMenuItems } from './selection.jsx'
@@ -1126,6 +1127,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
   // "Quiz me on this one." The dialog belongs to the tile that opened it, so it
   // closes with the board rather than outliving it.
   const { practise, practiceDialog } = usePractice()
+  const gather = useGatherDoor()
   const acts = actionsFor(kind, item, {
     // Absent unless the board passes a reload — a surface that cannot refresh
     // after a write should not offer the write. That is the registry's rule and
@@ -1146,6 +1148,18 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
       : undefined,
     excluded: !!item.review_excluded,
     edit: onEdit ? () => onEdit(item.id) : undefined,
+    // A WORK'S PASSAGES, NOT THE WORK. A book cannot be an anthology entry —
+    // `quoteOwned` accepts book, screen and utterance and refuses everything else —
+    // so this hands the picker the query that means "everything highlighted in this
+    // one", and the picker's own switch decides whether the anthology keeps taking
+    // what you highlight next. That is the owner's reading of the ask, chosen over
+    // a one-off snapshot and over a subscription that gathers nothing now.
+    //
+    // NOT GATED ON `onChanged`, unlike its neighbours: those write to the WORK and
+    // a surface that cannot refresh should not offer them. This writes to an
+    // anthology somewhere else entirely and leaves the work untouched, so there is
+    // nothing on this screen for a reload to catch up with.
+    addToAnthology: () => gather.open({ rule: workRule(kind, item.id) }),
     remove: onChanged ? () => setAsking(true) : undefined,
     // NOT gated on onChanged, unlike its neighbours. Every other action here
     // writes, and a surface that cannot reload after a write should not offer
@@ -1269,6 +1283,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         {menu}
         {confirm}
         {practiceDialog}
+        {gather.node}
       </>
     )
   }
@@ -1283,6 +1298,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
       {menu}
       {confirm}
       {practiceDialog}
+      {gather.node}
     </div>
   )
 }

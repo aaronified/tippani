@@ -5,6 +5,7 @@ import { CATEGORY_DEFAULT_HEX, CATEGORY_SLOTS, categoryDotClass, categoryHidden,
 import { Children, Component, Fragment, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { isGestureClip } from "./gestures.jsx";
+import { stampPush } from "./history.js";
 import { groupedShortcuts, withShortcut } from "./keys.js";
 // Cover/Placeholder resolve stored cover/poster paths to the local /covers URL.
 // `json` FOR ONE COMPONENT, AND IT IS THE RECALL PANEL. Nothing else in this file
@@ -619,6 +620,81 @@ export function buildScreenActions() {
   }
   return out
 }
+// ---- what the top bar's field is asking about ------------------------------
+//
+// THE OMNIBAR. The owner: "the searchbar should say the context it will search on.
+// in metadata, it will search in metadata, in settings it will search within
+// settings as well. it should behave like an omnibar." And, asked which way round:
+// SCREEN FIRST, LIBRARY ON DEMAND, on every screen, with the context spelled out in
+// words beside the pill that names it.
+//
+// SO A SCREEN SAYS WHAT SEARCHING MEANS HERE, and the shell asks rather than
+// guessing. The guess is what the bar did before: `searchScope` mapped four screens
+// onto three library scopes and answered "everything" for the other fifteen — so on
+// Settings, on Tags, on the Bin, in the metadata console, a field labelled Search
+// was a field that would leave.
+//
+// TWO STORES WOULD BE THE OBVIOUS SHAPE AND IT IS THE WRONG ONE. What the bar DRAWS
+// changes per screen; what the bar CALLS changes per keystroke, because the handler
+// closes over the screen's own filter state. Published on every render so the
+// handler is never one render behind, and subscribers woken only when `key` moves,
+// because `key` is what they draw. That is `screenActions`' lesson and `screenBar`'s
+// mechanism in one store rather than two that can disagree.
+let screenSearch = null
+const searchSubs = new Set()
+// THE STAMP IS EVERYTHING DRAWN, NOT THE KEY ALONE, and the first cut of this stamped
+// the key — which is the exact trap the paragraph above warns about, entered from the
+// other side. The handler was safe because it is re-pointed every render; the LABEL
+// was not, because a label change with the same key woke nobody. Switching the
+// interface to Bengali left the pill reading the English word, on a screen where
+// every other word had changed. A browser journey caught it; nothing below could,
+// because the string is right in the store and wrong on the screen.
+function publishSearch(v) {
+  const was = screenSearch ? `${screenSearch.key}\u0000${screenSearch.label}` : ''
+  screenSearch = v
+  const now = v ? `${v.key}\u0000${v.label}` : ''
+  if (now !== was) for (const fn of searchSubs) fn(v)
+}
+
+// useScreenSearch — the screen declares what its own search is.
+//
+// `key` names the context and is what the shell draws around; `label` is the words
+// it draws; `onQuery` is called as the reader types, so the screen narrows under
+// them rather than after a press. A screen that passes nothing publishes nothing and
+// the bar falls back to the library, which is the right answer for Home.
+//
+// NO DEPENDENCY ARRAY, DELIBERATELY, and the comment on `screenActions` above is the
+// argument: a handler covered by a stamp is a handler that goes stale the day
+// somebody adds state the stamp does not mention, and that is the bug nobody finds.
+// Re-pointing costs one assignment and cannot be a render behind.
+export function useScreenSearch(spec = null) {
+  useEffect(() => {
+    publishSearch(spec && spec.key ? spec : null)
+  })
+  // THE UNMOUNT IS SEPARATE FROM THE RE-POINT. Clearing in the same effect would
+  // publish null between every render and back again — two wake-ups a keystroke, and
+  // a bar that blinks its own label. This one runs once, on the way out.
+  useEffect(() => () => publishSearch(null), [])
+}
+
+// Called by the shell, for what to draw.
+export function useScreenSearchState() {
+  const [v, setV] = useState(screenSearch)
+  useEffect(() => {
+    searchSubs.add(setV)
+    setV(screenSearch)
+    return () => searchSubs.delete(setV)
+  }, [])
+  return v
+}
+
+// Called by the shell, at the moment of a keystroke or a press — never rendered
+// from, because this is the live one and reading it in a render would tie the bar's
+// paint to the screen's filter state.
+export function currentScreenSearch() {
+  return screenSearch
+}
+
 // Called by the shell.
 export function useScreenBarState() {
   const [v, setV] = useState(screenBar)
@@ -2167,6 +2243,37 @@ export function useSheetDrag({ sheet, body, handle, head, enabled = true, onDism
 // The guard on our own marker matters for the same reason — if the parent
 // navigated, the entry on top is no longer ours and calling back() would undo the
 // navigation instead.
+// backStack — the open overlays that answer the Back gesture, newest last. Only
+// the top one runs: see the long note inside useBackToClose for the defect a
+// listener-each caused.
+const backStack = [];
+let backBound = false;
+
+// backPop — THE DEPTH THE POP LANDED ON DECIDES WHAT CLOSES, which is usePanelStack's
+// mechanism and is here for the same reason it is there.
+//
+// A COUNTER OF "OUR OWN" POPS WAS TRIED FIRST AND IS WRONG. An overlay that closes by
+// ✓, ✕ or Escape still has a marker to hand back, so its cleanup calls
+// `history.back()` and raises a pop nobody gestured for; counting those and skipping
+// them does work, until one is never delivered — jsdom does not always, and a
+// synthetic `popState` in a test never consumes an entry. Then the count is stuck
+// above zero and the NEXT real Back is swallowed, which is a dead gesture with no
+// error anywhere. A tally that must stay in step with something it cannot observe is
+// the wrong shape.
+//
+// The depth is observable. Each marker records how many overlays were open when it
+// was pushed, so a pop says where the reader has landed: everything deeper than that
+// closes, and nothing else does. Our own unwind lands on the parent's marker, whose
+// depth already equals the stack we are left with, so it closes nothing — and a real
+// Back over two overlays lands one shallower, so it closes exactly the top one.
+function backPop(e) {
+  const want = e?.state?.tpOverlayDepth || 0;
+  while (backStack.length > want) {
+    const top = backStack.pop();
+    top.run();
+  }
+}
+
 export function useBackToClose(active, onClose) {
   // THE VERB IS READ WHEN THE GESTURE ARRIVES, NOT WHEN THE MARKER WAS PUSHED.
   //
@@ -2191,14 +2298,43 @@ export function useBackToClose(active, onClose) {
     // replaced. pushState REPLACES the state object, so a marker that spelled
     // only its own flag would blank the number the in-app Back reads to tell
     // "there is a screen behind this" from "the reader arrived here directly".
-    window.history.pushState({ ...window.history.state, tpOverlay: true }, "");
-    const onPop = () => {
-      closedByPop = true;
-      verb.current?.();
-    };
-    window.addEventListener("popstate", onPop);
+    //
+    // AND IT IS AN ENTRY, so it takes a serial. The dock's Back trail counts the
+    // distance to a screen in entries rather than in tpDepth, and an overlay's
+    // entry is one of the entries in between — see history.js.
+    window.history.pushState(
+      stampPush({ ...window.history.state, tpOverlay: true, tpOverlayDepth: backStack.length + 1 }),
+      "",
+    );
+    // ONE GESTURE CLOSES ONE OVERLAY — THE TOP ONE — WHICH IS WHY THIS IS A STACK
+    // AND NOT A LISTENER EACH.
+    //
+    // Every open overlay used to add its own `popstate` handler, so one Back ran
+    // ALL of them. With a single overlay that is invisible; with two it is the
+    // defect `nested-dismiss.test.jsx` is named after, one layer further in —
+    // "dismissing a submenu must not dismiss its parent" — and it arrived the day
+    // a FormModal was first opened from inside another FormModal. Pressing ✓ on the
+    // inner one ran its cleanup, which walks history back, and the pop that came
+    // back closed the form underneath as well: the reader set some switches,
+    // confirmed them, and the half-filled anthology they were making vanished with
+    // the title they had typed. Nothing errored, and the jsdom test could not see
+    // it, because jsdom delivers that pop on a different turn.
+    //
+    // `useEscape` has been a stack since the first dialog needed one, for exactly
+    // this reason. This is the same shape: newest registration wins, runs alone,
+    // and leaves the layers below to the next press.
+    const entry = { run: () => { closedByPop = true; verb.current?.(); } };
+    backStack.push(entry);
+    if (!backBound) {
+      window.addEventListener("popstate", backPop);
+      backBound = true;
+    }
     return () => {
-      window.removeEventListener("popstate", onPop);
+      const i = backStack.indexOf(entry);
+      if (i >= 0) backStack.splice(i, 1);
+      // Taking our marker back raises a pop that looks exactly like the reader's
+      // Back. It lands on whatever is under us, whose recorded depth is the stack we
+      // have just become — so `backPop` closes nothing, which is the whole point.
       if (!closedByPop && window.history.state?.tpOverlay) window.history.back();
     };
   }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -5553,8 +5689,10 @@ export function usePanelStack() {
       const next = s.concat(panel);
       // Carried forward, not replaced: pushState REPLACES the state object, and
       // App keeps its own depth in there for the in-app Back.
+      // The serial is this entry's own — a panel's entry sits between two screens'
+      // entries in the stack, and the Back trail's arithmetic counts it.
       window.history.pushState(
-        { ...window.history.state, tpPanelDepth: next.length }, "",
+        stampPush({ ...window.history.state, tpPanelDepth: next.length }), "",
       );
       return next;
     });
@@ -6101,7 +6239,20 @@ export const backdropClose = (onClose, when = true) => (e) => {
   if (when && e.target === e.currentTarget) onClose?.();
 };
 
-export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, dirty, closeDanger = false, children }) {
+// `backTo` NAMES WHAT THIS DIALOG RETURNS TO, AND TURNS ITS ✕ INTO A BACK KEY.
+//
+// A dialog opened from inside another one is not a thing you CLOSE — closing implies
+// the whole stack goes, and where the thing underneath is a half-filled form that is
+// exactly the fear a ✕ puts in somebody. The panel branch below has drawn a back key
+// naming its parent since it existed, on the reasoning that "a nested surface's two
+// exits are answer and back, and a third key that closes the lot is a destructive
+// control wearing a dismiss key's clothes". A modal nested in a modal is the same
+// shape and was still drawing the ✕.
+//
+// It is a prop rather than something read from the form host, because only the caller
+// knows the WORD — "New anthology" is what the reader is going back to, and a back key
+// that says nothing is a guess about where it lands.
+export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip, dirty, closeDanger = false, backTo = null, children }) {
   const mobile = useIsMobileScreen();
   // A FORM OPENED FROM INSIDE A PANEL DOES NOT ESCALATE TO A SCREEN.
   //
@@ -6191,9 +6342,13 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
       surface.node,
     );
   }
+  // THE PHONE'S OWN BACK ARROW, for the same reason as the desktop key: a sheet
+  // opened from inside another surface steps back to it rather than dismissing the
+  // pair. MobileSheet draws one when given the verb, and its own useBackToClose then
+  // makes the device gesture agree with the arrow.
   if (sheet) {
     return createPortal(
-      <MobileSheet open={open} onClose={onClose} title={title} actions={save} closeDanger={closeDanger}>
+      <MobileSheet open={open} onClose={onClose} onBack={backTo ? onClose : undefined} title={title} actions={save} closeDanger={closeDanger}>
         <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
       </MobileSheet>,
       document.body,
@@ -6213,21 +6368,34 @@ export function FormModal({ open = true, onClose, title, maxWidth = 560, saveTip
         style={{ maxWidth, padding: "18px 20px 20px" }}
       >
         <div className="mb-3 flex items-center gap-2">
+          {backTo && (
+            <button
+              type="button"
+              className="tp-panel-back tactile shrink-0"
+              aria-label={t("common.panel.back.aria", { title: backTo })}
+              onClick={onClose}
+            >
+              <IconBack />
+              <span className="tp-panel-back-word">{backTo}</span>
+            </button>
+          )}
           <h2 className="display-title flex-1" style={{ fontSize: 'var(--type-ui-19)' }}>
             {title}
           </h2>
           {save}
-          <IconButton
-            icon={<IconClose />}
-            ariaLabel={t("common.action.close.label")}
-            tooltip={t("common.form.close.tip")}
-            onClick={onClose}
-            style={{
-              width: 34, height: 34, padding: 0, flexShrink: 0,
-              ...(closeDanger ? { color: 'var(--error)' } : null),
-            }}
-            wrapClassName="shrink-0"
-          />
+          {!backTo && (
+            <IconButton
+              icon={<IconClose />}
+              ariaLabel={t("common.action.close.label")}
+              tooltip={t("common.form.close.tip")}
+              onClick={onClose}
+              style={{
+                width: 34, height: 34, padding: 0, flexShrink: 0,
+                ...(closeDanger ? { color: 'var(--error)' } : null),
+              }}
+              wrapClassName="shrink-0"
+            />
+          )}
         </div>
         <FormHostContext.Provider value={host}>{children}</FormHostContext.Provider>
       </div>
@@ -6335,7 +6503,16 @@ const HOVER_HIDE_MS = 3000;
 // owner's rule that a shortcut "must always be spelled out in the corresponding
 // button's tooltip". Passing an id with no binding leaves the label untouched,
 // so any Tooltip can name an action speculatively.
-export function Tooltip({ label, side = "top", className = "", onContextMenu, shortcut, shiftKey = false, children }) {
+// `onHold` — what a touch long press MEANS on this control, where it means
+// something other than "say your label".
+//
+// IT REPLACES THE HINT RATHER THAN RACING IT, and that is why it is a prop here
+// instead of a second timer on the caller. A control wearing both would start two
+// clocks on one pointerdown and fire both at 500ms: the dock's Back key would
+// show its own name in a bubble and open a menu over the bubble, at the same
+// instant. The timer, the slop and the click-swallow below are already the right
+// mechanism; only the thing at the end of them changes.
+export function Tooltip({ label, side = "top", className = "", onContextMenu, onHold, shortcut, shiftKey = false, children }) {
   // The key is dropped from the bubble on a phone, for the reason Kbd gives: the
   // rule is that a shortcut must be spelled out on the control that shares its
   // job, and its purpose is teaching a binding to somebody who can press it.
@@ -6437,6 +6614,10 @@ export function Tooltip({ label, side = "top", className = "", onContextMenu, sh
     timer.current = setTimeout(() => {
       fired.current = true;
       if (suppressed) return;
+      // `fired` is already set, so the click this press becomes is swallowed by
+      // onClickCapture below — which is what keeps a hold off the control's own
+      // verb. A Back key held for the trail must not also go back.
+      if (onHold) return onHold();
       // Read the box at FIRE time, not at press time: the hold lasts half a
       // second and a list can still be settling under the finger.
       hintToast(label, box(), side);
@@ -7315,7 +7496,7 @@ export function HelpGuide({ sections = [], active }) {
 // the avatar read as a control from a different set. The default ring is for the
 // two places the bar is not on screen: the work-detail ⋯ menu and the full-screen
 // Profile page.
-export function HelpButton({ title, entries = [], sections = null, active, side = "bottom", variant = "ring" }) {
+export function HelpButton({ title, entries = [], sections = null, active, side = "bottom", variant = "ring", lead = null }) {
   const [open, setOpen] = useState(false);
   // `sections` is the navigable guide; `entries` is the flat list. Both are
   // supported because two callers want each: the shell's "?" opens the guide, and a
@@ -7338,6 +7519,12 @@ export function HelpButton({ title, entries = [], sections = null, active, side 
         </button>
       </Tooltip>
       <HelpSheet open={open} title={title} wide={!!sections} onClose={() => setOpen(false)}>
+        {/* `lead` IS DRAWN ABOVE THE LIST AND CLOSES THE SHEET. The screen's own
+            walkthrough belongs at the top of its help, because a reader who opened
+            help wanted to be shown rather than to read a glossary — and it cannot
+            run underneath the sheet that launched it, which would spotlight
+            controls behind a scrim. */}
+        {lead ? <div className="help-lead">{lead(() => setOpen(false))}</div> : null}
         {sections ? <HelpGuide sections={sections} active={active} /> : <HelpList entries={entries} />}
       </HelpSheet>
     </>
@@ -9919,6 +10106,43 @@ export function IconNavSearch({ size = ICON_SIZE }) { return <svg {...iconFill} 
 export function IconNavProfile({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 1.2 253.7 253.7" width={size} height={size}><path d="M112,120a16,16,0,1,1-16-16A16,16,0,0,1,112,120ZM232,56V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM135.75,166a39.76,39.76,0,0,0-17.19-23.34,32,32,0,1,0-45.12,0A39.84,39.84,0,0,0,56.25,166a8,8,0,0,0,15.5,4c2.64-10.25,13.06-18,24.25-18s21.62,7.73,24.25,18a8,8,0,1,0,15.5-4ZM200,144a8,8,0,0,0-8-8H152a8,8,0,0,0,0,16h40A8,8,0,0,0,200,144Zm0-32a8,8,0,0,0-8-8H152a8,8,0,0,0,0,16h40A8,8,0,0,0,200,112Z"/></svg> }
 // User management. IconUsers keeps the outline for its five non-nav callers.
 export function IconNavUsers({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-25.4 -25.4 306.8 306.8" width={size} height={size}><path d="M164.47,195.63a8,8,0,0,1-6.7,12.37H10.23a8,8,0,0,1-6.7-12.37,95.83,95.83,0,0,1,47.22-37.71,60,60,0,1,1,66.5,0A95.83,95.83,0,0,1,164.47,195.63Zm87.91-.15a95.87,95.87,0,0,0-47.13-37.56A60,60,0,0,0,144.7,54.59a4,4,0,0,0-1.33,6A75.83,75.83,0,0,1,147,150.53a4,4,0,0,0,1.07,5.53,112.32,112.32,0,0,1,29.85,30.83,23.92,23.92,0,0,1,3.65,16.47,4,4,0,0,0,3.95,4.64h60.3a8,8,0,0,0,7.73-5.93A8.22,8.22,0,0,0,252.38,195.48Z"/></svg> }
+// THE THREE BOXES BELOW ARE CROPPED, AND A RAW `0 0 256 256` IS THE WRONG-LOOKING
+// RIGHT ANSWER. Phosphor draws each glyph to its own margins, so dropped in straight
+// from the pack a key fills 0.84 of its box and a mask 0.75 — side by side in one
+// rail that reads as two different sizes rather than two different pictures. Every
+// nav fill in this file is cropped so its LONG side is 0.82 of the box, which is
+// uniform scaling: nothing is stretched and the drawing is still the pack's. These
+// three sit in the metadata console's rail beside IconStats, IconNavUsers and
+// IconNavTags, which were cropped that way already — so leaving them raw put three
+// normalised glyphs and three unnormalised ones in one row.
+// `icons.test.jsx` holds the 0.82 for the nav set; these were computed the same way.
+//
+// SOURCES. Phosphor `key`, fill — the metadata console's fifth door.
+//
+// IT IS A TWIN RATHER THAN A REPLACEMENT, because IconKey is a hand-drawn stroke
+// glyph with callers elsewhere where a key is the SUBJECT of a row rather than a
+// door. Standardising the rail on fills and leaving one outline in it was the
+// defect: five doors side by side, four solid and one wireframe, which reads as the
+// odd one being disabled rather than as the odd one being older.
+export function IconNavSources({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="0.3 -7.8 263.5 263.5" width={size} height={size}><path d="M216.57,39.43A80,80,0,0,0,83.91,120.78L28.69,176A15.86,15.86,0,0,0,24,187.31V216a16,16,0,0,0,16,16H72a8,8,0,0,0,8-8V208H96a8,8,0,0,0,8-8V184h16a8,8,0,0,0,5.66-2.34l9.56-9.57A79.73,79.73,0,0,0,160,176h.1A80,80,0,0,0,216.57,39.43ZM180,92a16,16,0,1,1,16-16A16,16,0,0,1,180,92Z"/></svg> }
+// CHARACTERS. Phosphor `mask-happy`, fill — the owner named this one: "Character will
+// get the drama mask icon, filled in." It replaces IconPerson on that door, which drew
+// the same bare head as the People door beside it: two sections of the metadata
+// console, one glyph, and the only thing telling them apart was the word.
+export function IconNavMasks({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 9.2 253.6 253.6" width={size} height={size}><path d="M217,34.8a15.94,15.94,0,0,0-14.82-1.71C188.15,38.55,159.82,47.71,128,47.71S67.84,38.55,53.79,33.09A16,16,0,0,0,32,48v55.77c0,35.84,9.65,69.65,27.18,95.18,18.16,26.46,42.6,41,68.82,41s50.66-14.57,68.82-41C214.35,173.44,224,139.63,224,103.79V48A16,16,0,0,0,217,34.8ZM78,133.33A8,8,0,1,1,66,122.66C71.75,116.28,82.18,112,92,112s20.25,4.28,26,10.66A8,8,0,1,1,106,133.33c-2.68-3-8.85-5.33-14-5.33S80.64,130.34,78,133.33Zm90.49,47.86a52.9,52.9,0,0,1-80.9,0A8,8,0,1,1,99.72,170.8a36.89,36.89,0,0,0,56.56,0,8,8,0,0,1,12.17,10.39ZM189.34,134a8,8,0,0,1-11.3-.63c-2.68-3-8.85-5.33-14-5.33s-11.36,2.34-14,5.33A8,8,0,1,1,138,122.66c5.71-6.38,16.14-10.66,26-10.66s20.25,4.28,26,10.66A8,8,0,0,1,189.34,134Z"/></svg> }
+// WORKS — books AND films, which is the whole difficulty. Phosphor `shapes`, fill.
+//
+// The owner asked for "a mixture of film and books" and there is no such glyph: all
+// 3,060 names in phosphor-icons/core were read, and the library has `books` and it has
+// `film-reel` and it has nothing that is both. IconBooks and IconReel are also already
+// spent — on the Library and the Catalogue — so borrowing either would tell a reader
+// this section holds one kind when it holds two.
+//
+// `shapes` is a triangle, a circle and a square together, and its subject is SEVERAL
+// DIFFERENT KINDS AT ONCE, which is what this door leads to. It is abstract and leans
+// on the word beside it; that is the cost, and it is smaller than naming one medium on
+// a section that covers both.
+export function IconNavWorks({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-7.7 -11.7 263.4 263.4" width={size} height={size}><path d="M111.59,181.47A8,8,0,0,1,104,192H24a8,8,0,0,1-7.59-10.53l40-120a8,8,0,0,1,15.18,0ZM208,76a52,52,0,1,0-52,52A52.06,52.06,0,0,0,208,76Zm16,68H136a8,8,0,0,0-8,8v56a8,8,0,0,0,8,8h88a8,8,0,0,0,8-8V152A8,8,0,0,0,224,144Z"/></svg> }
 // THE FAVOURITE, SET. review.jsx already flipped the LABEL between on and off while
 // drawing one icon, so the state lived in the words and nowhere else.
 export function IconHeartOn({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="-8.6 -0.6 273.2 273.2" width={size} height={size}><path d="M240,102c0,70-103.79,126.66-108.21,129a8,8,0,0,1-7.58,0C119.79,228.66,16,172,16,102A62.07,62.07,0,0,1,78,40c20.65,0,38.73,8.88,50,23.89C139.27,48.88,157.35,40,178,40A62.07,62.07,0,0,1,240,102Z"/></svg> }
@@ -9994,7 +10218,6 @@ export function NavIcon({ name }) {
     case 'metadata': return <IconRecords />
     case 'import': return <IconImport />
     case 'search': return <IconNavSearch />
-    case 'tags': return <IconNavTags />
     case 'stats': return <IconStats />
     case 'settings': return <IconSliders />
     case 'profile': return <IconNavProfile />
@@ -10298,12 +10521,20 @@ export function SourceIcon({ source, detail, side = "top", state = null, stateOf
 // activate (the items are real buttons, so that is free), Escape closes and focus
 // goes back to whatever opened it. Without that, a keyboard user can open this and
 // then only tab THROUGH it into the page behind.
-export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, returnFocusTo }) {
+export function ActionMenu({ open, items = [], anchorRef, at = null, onClose, returnFocusTo, prefer = "below", align }) {
   const { popRef, style } = useAnchoredPosition(open, anchorRef, {
     // align 'end' when it hangs off a glyph at the right end of a row — opening
     // rightwards would need clamping immediately. A point-anchored menu opens
     // rightwards from the pointer, which is what every native menu does.
-    align: at ? "start" : "end",
+    //
+    // OVERRIDABLE, because neither default is true of a menu hanging off the
+    // LEFTMOST key of the phone dock: 'end' would open it leftwards off the
+    // screen and leave the clamp to rescue it, and 'below' would be asking for
+    // room under a bar that sits on the bottom edge. `placeAnchored` flips and
+    // clamps either way, but a placement that is only right because it was
+    // rescued is one viewport change from being wrong.
+    align: align || (at ? "start" : "end"),
+    prefer,
     minHeight: 100,
     at,
   })

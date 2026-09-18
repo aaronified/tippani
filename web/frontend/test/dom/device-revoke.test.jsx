@@ -35,9 +35,8 @@ vi.mock('../../src/api.js', async (orig) => ({
   }),
 }))
 
-const { default: Settings } = await import('../../src/Settings.jsx')
+const { DevicesCard } = await import('../../src/Settings.jsx')
 
-const ADMIN = { username: 'alice', is_admin: true, version: '3.1.0', preferences: {} }
 
 beforeEach(() => {
   CALLS = []
@@ -48,12 +47,15 @@ beforeEach(() => {
 })
 afterEach(() => cleanup())
 
-// Settings draws every card; the devices one is reached by its own controls
-// rather than by a tab, so the row is found by the device's name.
+// MOUNTED DIRECTLY, BECAUSE SETTINGS NO LONGER DRAWS IT. The card is hidden rather
+// than deleted — the owner wanted the screen space back and the pairing kept — so
+// rendering Settings here would find nothing. What is under test is the card's own
+// behaviour, which is untouched, so the card is what gets mounted.
+// The row is found by the device's name.
 const rowFor = async (name) => (await screen.findByText(name)).closest('li') || (await screen.findByText(name)).closest('div')
 
 const mount = async () => {
-  render(<Settings user={ADMIN} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} />)
+  render(<DevicesCard />)
   await screen.findByText('Pixel 8')
 }
 

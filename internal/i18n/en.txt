@@ -123,7 +123,6 @@ nav.tab.quotes.tip = Lines from anywhere else
 nav.tab.anthologies.label = Anthologies
 nav.tab.anthologies.tip = Quotes you have gathered
 nav.tab.tags.label = Tags
-nav.tab.tags.tip = Tags and stickers
 nav.tab.metadata.label = Metadata
 nav.tab.metadata.tip = Covers, people and duplicates
 nav.tab.stats.label = Stats
@@ -1117,6 +1116,12 @@ shell.restore.toast.done = restored · log in again
 shell.nav.primary.aria = Primary
 shell.nav.dock.aria = Actions for this screen
 
+# --- what the dock's Back key offers when it is HELD rather than pressed: the
+# screens behind this one. "Go back to" rather than "Recent", because the list is
+# not a history of where you have been — it is a set of destinations, and every
+# row is strictly behind you.
+shell.nav.back.trail.title = Go back to
+
 # --- the avatar chip, in both top bars and in the drawer's footer.
 shell.account.chip.tip = Your profile
 shell.account.chip.aria = Profile — {name}
@@ -1160,9 +1165,18 @@ shell.search.scope.thisfilm = this film
 shell.search.scope.all = everything
 shell.search.scope.key = in
 shell.search.scope.drop.tip = Search everything instead
-shell.search.hint.scoped = author, tag, a line you half remember…
+shell.search.hint.within = Search {where} — author, tag, a line you half remember…
 shell.search.hint.all = everything — every book, film, quote…
-shell.search.aria.scoped = Search what you are looking at
+shell.search.hint.screen = Search {where} — type to narrow what is on screen
+shell.search.context.leave.tip = Search your whole library instead
+shell.search.context.leave.aria = Searching {where}; press to search your whole library instead
+# What each screen calls its own search, named here rather than in the screen so
+# the bar and the screen cannot come to disagree about what a place is called.
+shell.search.where.settings = settings
+shell.search.where.works = works and films
+shell.search.where.characters = characters in this library
+shell.search.where.people = people in this library
+shell.search.aria.screen = Search {where}
 shell.search.aria.all = Search everything
 shell.search.global.aria = Search everything
 
@@ -1345,6 +1359,7 @@ settings.labels.info.body = Buttons with a glyph can show their words or drop th
 settings.labels.auto.label = Auto
 
 # --- Appearance.
+settings.search.none = Nothing in Settings matches “{q}”.
 settings.appearance.title = Appearance
 settings.appearance.theme.title = Theme
 settings.appearance.theme.light.label = Light
@@ -1943,6 +1958,7 @@ common.action.add-tags.label = Add tags
 common.action.seal.label = Seal
 common.action.shelf.label = Shelf
 common.action.anthology.label = Add to anthology
+common.action.anthology.tip = Gather {subject} into an anthology
 common.action.set-fields.label = Set fields
 
 # The select controls a card's own menu puts above its actions. {n} is how many
@@ -2109,7 +2125,7 @@ error.validate.name-blank = name is required
 # Step "welcome".
 tour.step.welcome.title = Welcome to tippani
 tour.step.welcome.prose = Tippani is a home for the lines worth keeping — book highlights and film dialogue, with covers, tags, instant search and a daily memory quiz. This tour walks through every feature.
-tour.step.welcome.more = Next moves on step by step, “skip tour” ends it, and “finish later” saves your place — a Resume button waits in Settings → Onboarding. Nothing here needs your files: every example is built in. The top bar also carries a “?” that lists what every control on whichever screen you are looking at does — this tour is the once-over, that is the reference.
+tour.step.welcome.more = Next moves on step by step, “skip tour” ends it for good, and “finish later” saves your place. Either way the “?” on any screen can walk you through that screen whenever you want, and turn this back on if you skipped it. Nothing here needs your files: every example is built in. The top bar also carries a “?” that lists what every control on whichever screen you are looking at does — this tour is the once-over, that is the reference.
 
 # Step "add".
 tour.step.add.name = Add & import
@@ -2211,10 +2227,82 @@ tour.step.account.prose = The avatar chip opens your {em1} — photo, display na
 tour.step.account.em1.label = Profile
 tour.step.account.more = Admins manage users from the same screen: add, remove, grant or revoke admin. The last remaining admin cannot be demoted, so an instance can never be locked out of itself. To hand over, grant another user admin first, then revoke your own. Switching accounts asks for that account’s password every time — being an admin does not let you in without one.
 
+# Step "boards" — the Quotes screen.
+tour.step.boards.name = Boards
+tour.step.boards.blurb = lines that belong to no book and no film, filed on boards
+tour.step.boards.title = Lines from everywhere else
+tour.step.boards.prose = A speech, a letter, a song, a proverb, something a friend said. They live on {em1} here — one board each, chosen as you capture the line.
+tour.step.boards.em1.label = boards
+tour.step.boards.more = A board has a kind: a plain one holds anything, a proverb board prints the original, a transliteration and a translation together. Filter by colour, tag, speaker or language, group the way the Library groups, and export a board on its own. Hiding a board leaves its quotes alone; deleting one asks what to do with them.
+
+# Step "anthologies" — the Anthologies screen.
+tour.step.anthologies.name = Anthologies
+tour.step.anthologies.blurb = quotes gathered into a reading order, with your own words between them
+tour.step.anthologies.title = Make something out of them
+tour.step.anthologies.prose = An anthology is a piece of {em1} rather than a shelf: quotes in an order you chose, with your own words in between. Point one at a book, a tag, an author or a colour and it fills itself.
+tour.step.anthologies.em1.label = writing
+tour.step.anthologies.more = It is not a board and not a tag — a quote can be in any number of anthologies and never moves out of where it lives. Say what each passage shows and what its book lends it; tell it to keep itself fed and whatever you write afterwards is waiting the next time you open it. Export it as Markdown or as an EPUB.
+
+# Step "filters" — the Search screen.
+tour.step.filters.name = Search filters
+tour.step.filters.blurb = field chips, scopes and dates over the results
+tour.step.filters.title = Narrow it down
+tour.step.filters.prose = Type a field and a colon — tag, author, colour — and the box offers what you have. Chips stack, so {em1} narrow rather than widen, and the scope row says which side of the library you are asking.
+tour.step.filters.em1.label = two chips
+tour.step.filters.more = Escape a literal colon with a backslash. Colour names work, a day and a decade both work, and arriving from a filtered shelf brings that shelf's filters in as chips. Tick a set of results to tag, recolour or gather them into an anthology.
+
+# Step "bin" — the Bin screen.
+tour.step.bin.name = Bin
+tour.step.bin.blurb = what you deleted, restorable, until it ages out
+tour.step.bin.title = Nothing goes straight out
+tour.step.bin.prose = Deleting puts a thing here first — a book with all its quotes, a film with its lines, or one highlight on its own — and {em1} puts it back where it was.
+tour.step.bin.em1.label = restoring
+tour.step.bin.more = Each row says what kind of thing it was and when it was deleted. Purge one to be rid of it now, or empty the bin outright; otherwise everything ages out on its own after the number of days set in Settings.
+
+# Step "checks" — the Checks screen.
+tour.step.checks.name = Checks
+tour.step.checks.blurb = the two lists waiting on you — imports, and quotes that look odd
+tour.step.checks.title = What is waiting on you
+tour.step.checks.prose = Two lists on one screen: quotes that came in from a file and have not been okayed yet, and quotes something looks {em1} in.
+tour.step.checks.em1.label = odd
+tour.step.checks.more = Each list keeps its own screen and its own address as well, so a link to one still works. This is not the review the quiz does — nothing here is about remembering a line; it is about whether the text is right.
+
+# Step "cleanup" — the Cleanup screen.
+tour.step.cleanup.name = Cleanup
+tour.step.cleanup.blurb = what the page left on your quotes — page numbers, broken hyphens, footnote marks
+tour.step.cleanup.title = What the page left behind
+tour.step.cleanup.prose = Every quote read once, looking for what came from the {em1} rather than from the writer: a page number swept in with the text, a hyphen where a line broke, a footnote mark.
+tour.step.cleanup.em1.label = page
+tour.step.cleanup.more = It finds and lists; it never edits anything by itself. Filter by what a rule found, open a row to fix it in place, and note that a run is capped — press again for the rest of a very large library.
+
+# Step "staging" — the imports waiting room.
+tour.step.staging.name = Imports waiting
+tour.step.staging.blurb = an import lands here first and is approved out of it
+tour.step.staging.title = Nothing lands unseen
+tour.step.staging.prose = An import stops here and stays until you {em1} it, so a bad parse never reaches your library.
+tour.step.staging.em1.label = approve
+tour.step.staging.more = Fix a whole batch at once — the book it belongs to, a speaker's name, a colour — then approve the rows you want and drop the rest. Nothing on this screen is in your library yet.
+
+# Step "book" — a book's own page.
+tour.step.book.name = A book's own page
+tour.step.book.blurb = its details, its highlights, and what you can do to both
+tour.step.book.title = Everything about one book
+tour.step.book.prose = The book's own facts at the top and every highlight you kept below it. ＋ here means {em1}, not another book.
+tour.step.book.em1.label = a quote against this book
+tour.step.book.more = The counts double as filters, the ♥ marks the book and each quote separately, and the shelf chip says whether you are reading it. A highlight's colour is a note about that passage rather than about the book it came from. Copy, share and export work on one highlight or on a selection of them.
+
+# Step "film" — a film's own page.
+tour.step.film.name = A film's own page
+tour.step.film.blurb = cast, credits and every line you kept
+tour.step.film.title = Everything about one film
+tour.step.film.prose = Studio, publisher and the cast that {em1} resolve against, with every line you kept below.
+tour.step.film.em1.label = the speakers
+tour.step.film.more = A speaker typed as a name can be remapped onto the cast, and that is what makes a character chip open a person rather than sit there as a word. Voice cast is kept apart from the on-screen cast. ＋ here captures a line against this film.
+
 # Step "done".
 tour.step.done.title = That’s the tour
-tour.step.done.prose = You’ve seen everything. Replay this tour anytime from {em1}, and use the {em2} on any screen for what its controls do. Enjoy the margins.
-tour.step.done.em1.label = Settings → Onboarding
+tour.step.done.prose = You’ve seen everything. The {em2} on any screen lists what its controls do and will walk you through that screen again whenever you like — {em1} is where this tour now lives. Enjoy the margins.
+tour.step.done.em1.label = one screen at a time
 tour.step.done.em2.label = ?
 
 # The tour's own chrome. {done} of {total} counts steps, and {total} varies: an
@@ -2224,6 +2312,14 @@ tour.progress.label = {done} of {total}
 tour.later.label = finish later
 # Ends the tour for good.
 tour.skip.label = skip tour
+# THE WALKTHROUGH FOR ONE SCREEN, offered at the top of that screen's help. Plural
+# because the count is the honest thing to promise: "Show me around (3 steps)" tells
+# a reader what they are committing to, which a bare "Show me around" does not.
+help.tour.label.one = Show me around this screen (1 step)
+help.tour.label.other = Show me around this screen ({n} steps)
+# Where they skipped the tour and want it back — the same slot the skip was in.
+tour.reenable.label = Turn the tour back on
+tour.toast.reenabled = The tour is back on.
 tour.back.aria = Previous step
 tour.next.label = Next
 # The last step's Next.
@@ -2356,7 +2452,7 @@ anthologies.list.new.label = New anthology
 # The empty state names the way IN rather than reporting that the list is empty:
 # nothing on this screen can add an entry, by design. {em1} is the New anthology
 # button, {em2} the selection bar's Add to anthology.
-anthologies.list.empty = No anthologies yet. {em1} makes one; to fill it, select some quotes on the Library, the Catalogue or Quotes and choose {em2} from the selection bar.
+anthologies.list.empty = No anthologies yet. {em1} makes one; or find a passage you want to keep and choose {em2} from its own menu — the box there will make the anthology for you.
 
 # The form. A duplicate title is fine here, unlike a board, so there is no clash
 # warning to write.
@@ -2394,8 +2490,68 @@ anthologies.entry.source.label = {source}
 # anthology itself: a collection of film lines wants its actors named and a book of
 # proverbs wants nothing but the words. Each label names the THING, because the
 # control beside it is what says on or off.
-anthologies.form.fields.label = What each passage shows
-anthologies.form.fields.hint = The same for what you read and what you export.
+anthologies.form.fields.label = Show with every passage
+anthologies.form.fields.hint = Whatever you turn on here is printed under each passage, when you read the anthology and when you export it.
+# WHAT THE DOOR SAYS. The three groups are behind a row each now — twenty-three
+# switches between the title box and the button that saves it was the complaint —
+# so each row carries the one fact its heading cannot: how many are on.
+anthologies.form.fields.count = {shown} of {total} shown
+
+# ── FILLING AN ANTHOLOGY FROM SOMETHING YOU ALREADY HAVE. The sources are named
+# rather than composed: a search bar is for asking a question, and this form is for
+# declaring what a thing is. Each one maps to a facet the search already indexes, so
+# what this row promises is exactly what the fill takes.
+anthologies.fill.title = What goes in it
+anthologies.fill.body = Pick where the passages come from. They are added now, and the anthology can keep taking them as more arrive.
+anthologies.fill.none = Nothing yet — you can add passages by hand from any quote's menu.
+anthologies.fill.set = {what}. Added when you create it.
+anthologies.fill.set.auto = {what}. Added when you create it, and kept fed after.
+anthologies.fill.of = {what}: {value}
+anthologies.fill.blocked = Choose which one.
+anthologies.fill.pick.placeholder = start typing
+anthologies.fill.all.label = Everything in the library
+anthologies.fill.book.label = A book
+anthologies.fill.movie.label = A film or show
+anthologies.fill.tag.label = A tag
+anthologies.fill.author.label = An author
+anthologies.fill.colour.label = A colour
+anthologies.fill.shelf.label = A shelf
+anthologies.fill.favourite.label = My favourites
+anthologies.fill.dates.label = Saved between
+anthologies.fill.from.label = From
+anthologies.fill.to.label = To
+anthologies.fill.dates.both = Saved between {from} and {to}
+anthologies.fill.dates.from = Saved since {date}
+anthologies.fill.dates.to = Saved up to {date}
+
+# WHAT EACH CHIP WOULD PRINT. The chips carry a sample of the line they draw, because
+# a field NAME does not say what turning it on puts on the page — "Who said it" could
+# be a name, a name and a role, or a name and dates. The samples are one book and one
+# person throughout, so a reader reads them as one imagined entry rather than as
+# twenty-three unrelated scraps.
+anthologies.eg.hide-credit = Seneca · author
+anthologies.eg.hide-source = On the Shortness of Life
+anthologies.eg.show-locator = ch. 4 · p. 112
+anthologies.eg.show-date = saved 3 March 2026
+anthologies.eg.hide-commentary = “the turn this line makes” — your note
+anthologies.eg.hide-colour = the yellow bar down the left
+anthologies.eg.author = Seneca
+anthologies.eg.director = Hrishikesh Mukherjee
+anthologies.eg.translator = C. D. N. Costa
+anthologies.eg.editor = Betty Radice
+anthologies.eg.publisher = Penguin
+anthologies.eg.year = 1969
+anthologies.eg.series = Great Ideas
+anthologies.eg.subtitle = and other essays
+anthologies.eg.isbn = 978-0-14-303795-9
+anthologies.eg.pages = 112 pages
+anthologies.eg.media-type = Paperback
+anthologies.eg.bio = Roman Stoic, tutor to Nero
+anthologies.eg.born = born 4 BC
+anthologies.eg.died = died AD 65
+anthologies.eg.links = Wikipedia
+anthologies.eg.portrait = their photograph beside the line
+anthologies.eg.character-portrait = the character’s face beside the line
 anthologies.form.fields.credit.label = Who said it
 anthologies.form.fields.source.label = Where it came from
 anthologies.form.fields.locator.label = Chapter, page or timestamp
@@ -2408,14 +2564,14 @@ anthologies.form.fields.colour.label = The colour bar
 # field names — Publisher, Year, ISBN — because that is what every other screen
 # calls them. All off by default, so an anthology nobody has configured reads and
 # exports exactly as it did before they existed.
-anthologies.form.fields.work.label = From the book or film
-anthologies.form.fields.work.hint = Off unless you ask. A passage shows only what its own work knows.
+anthologies.form.fields.work.label = Also show about the book or film
+anthologies.form.fields.work.hint = Printed under the passage, from the work it came out of. Off unless you ask, and a passage shows only what its own work knows.
 
 # AND THE PERSON BEHIND IT (0074) — the author, the actor, the speaker. Matched by
 # name against the people you have records for, so most passages show nothing here
 # and that is the ordinary state rather than a gap: the hint says so plainly.
-anthologies.form.fields.person.label = About who said it
-anthologies.form.fields.person.hint = Shown where you have a record of that person. Most will not have one.
+anthologies.form.fields.person.label = Also show about the person
+anthologies.form.fields.person.hint = Printed under the passage, about whoever is answerable for it — the author, the actor, the speaker. Only where you have a record of them, and most passages will not.
 
 # THE FORMAT IS NAMED because the control beside it is also an export and the two
 # hand over different files. "Export" twice would be the screen saying one thing
@@ -2426,8 +2582,8 @@ anthologies.action.epub.label = EPUB
 # question the reader will otherwise answer wrongly: what a rule is FOR (it fills;
 # it does not define), what it will not reach (the cast table), and what "keep it
 # fed" actually does (runs on open, not in the background).
-anthologies.rule.title = Fill from a search
-anthologies.rule.body = Anything the search bar takes. Matching quotes are added to the end — nothing here is removed or reordered, and your own writing on an entry is never touched.
+anthologies.rule.now.label = Taking now
+anthologies.rule.now.hint = Made from a selection or a search, so it is more than one choice. Picking a source below replaces it.
 anthologies.rule.credits.note = Author, actor, character and speaker match the name written on the quote or its work. A line with nobody named on it will not be found by the performer's name, even where the film credits them.
 anthologies.rule.auto.label = Keep it fed
 # CHECKING AND NOT ADDING, and the wording matters: the anthology does not grow
@@ -2435,7 +2591,6 @@ anthologies.rule.auto.label = Keep it fed
 # in anthologies.jsx for why appending on open was refused.
 anthologies.rule.auto.hint = Count what is waiting when you open this, and offer it. Nothing is added until you say so.
 anthologies.rule.preview.action = What would this take?
-anthologies.rule.fill.action = Fill
 anthologies.rule.preview = {matched} match. {added} would be added, {skipped} are already here.
 anthologies.rule.capped = Two hundred at a time; press again for the rest.
 anthologies.rule.filled = {added} added, {skipped} already here
@@ -2444,6 +2599,9 @@ anthologies.rule.filled = {added} added, {skipped} already here
 # would need a button beside it saying what this one already says.
 anthologies.rule.waiting = Add {n} waiting
 anthologies.rule.empty = Give the rule something to match.
+# WHAT THE FORM'S FOURTH DOOR SAYS. The rule IS the search's own query string —
+# 0075 chose that format so a person could read it and paste it into the search bar
+# — so the row shows it rather than paraphrasing it.
 
 anthologies.toast.deleted = anthology deleted
 anthologies.toast.entry-removed = entry removed
@@ -2461,10 +2619,25 @@ common.anthology.add.title.one = Add this quote
 common.anthology.add.title.other = Add {n} quotes
 common.anthology.add.body.one = It goes to the end of the anthology. The quote itself does not move.
 common.anthology.add.body.other = All {n} go to the end of the anthology. The quotes themselves do not move.
-# Reachable with the Anthologies section switched OFF, which is why it names the
-# switch as well as the screen — a dead end otherwise.
-common.anthology.add.empty = No anthologies yet — make one on the Anthologies screen (Settings → Features).
-common.anthology.add.select.placeholder = choose an anthology
+# THE BOX FINDS ONE OR MAKES ONE, so there is no longer an empty state to write:
+# `common.anthology.add.empty` used to name the Anthologies screen and the switch
+# that reveals it, because with no anthologies a closed list had nothing to offer
+# and the reader had to leave — losing the selection that brought them here. Typing
+# a name is now the create path, so the dead end is gone rather than signposted.
+common.anthology.add.combo.placeholder = find one, or type a new name
+# What the ✓ is waiting for. FormModal shows it as the tick's tooltip.
+common.anthology.add.blocked = Name an anthology first.
+# WHICH OF THE TWO THIS PRESS WILL DO, while it is still cheap to change. A name one
+# letter off an existing anthology makes a second one, and nothing else on the
+# screen would say so until it had happened.
+common.anthology.add.existing = Goes into the one you already have by this name.
+common.anthology.add.creating = Makes a new anthology called “{title}”.
+
+# GATHERING A SEARCH, which is the same sheet with a query behind it — from the
+# search screen, or from a work whose passages are the query. The count is absent
+# here because what goes in is whatever the rule matches, not a selection.
+common.anthology.gather.title = Gather into an anthology
+common.anthology.gather.body = What this search finds goes to the end of the anthology. Nothing is removed or reordered, and your own writing on an entry is never touched.
 
 # Reordering an entry. No drag: a drag has no keyboard equivalent, and a menu row
 # is reachable by tab, by arrow key and by a thumb.
@@ -5144,16 +5317,7 @@ settings.changelog.close.tip = Close the changelog
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.
 # ---------------------------------------------------------------------------
-settings.onboarding.title = Onboarding
-settings.onboarding.info.body = A guided tour of every feature. It runs once on first launch and never needs your files — a sample book quote and film dialogue are built in. Next skips a step, “finish later” parks it, and you pick it back up here.
-settings.onboarding.done.label = ✓ completed
 # The Resume button carries its own step count, which is why it keeps its words.
-settings.onboarding.resume.label = Resume tour · step {n} of {total}
-settings.onboarding.restart.label = Start over
-settings.onboarding.replay.label = Replay the tour
-settings.onboarding.start.label = Start the tour
-settings.onboarding.pick.label = Refresh one section
-settings.onboarding.pick.prose = The tour opens on that screen and carries on from there — Next moves to the next section, and “finish later” parks it back here.
 
 # ---------------------------------------------------------------------------
 # DEVICES — pair a phone with this account, and unpair it again.

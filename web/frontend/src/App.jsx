@@ -60,7 +60,7 @@ import {
   searchScope,
   statePath,
 } from './routes.js'
-import { navigateBack, popIsOverlay, pushRoute, seedRoute } from './history.js'
+import { jumpBack, navigateBack, noteRoute, popIsOverlay, pushRoute, recentRoutes, seedRoute } from './history.js'
 import { DEMO, apiURL, coverImgURL, json, uploadWithProgress } from './api.js'
 import {
   useEscape,
@@ -104,6 +104,8 @@ import {
   useScreenScroll,
   useEdgeScroll,
   useScreenBarState,
+  useScreenSearchState,
+  currentScreenSearch,
   useFrameBase,
   useHideOnScrollDown,
   useFilePick,
@@ -117,7 +119,7 @@ import { PageHelp, ScreenHelpSheet } from './help.jsx'
 import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
 import { PASSPHRASE_MAX, PASSWORD_MAX, PASSWORD_MIN, passwordProblem, sniffArchiveKey } from './secret.js'
-import { FeatureTour } from './tour.jsx'
+import { FeatureTour, tourStepsForTab } from './tour.jsx'
 
 // DEMO: the read-only GitHub Pages build (VITE_DEMO=1). A fetch shim (demo/
 // install.js) serves dummy data and blocks writes; here it just suppresses URL
@@ -712,7 +714,10 @@ export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
     if (key === 'library') return pair(stats.books, stats.annotations)
     if (key === 'movies') return pair(stats.movies, stats.dialogues)
     if (key === 'quotes') return pair(stats.boards ?? 0, stats.quotes)
-    if (key === 'tags') return pair(stats.tags, stats.stickers ?? 0)
+    // NO 'tags' HERE ANY MORE. It is a section of the metadata console, and a
+    // section's size is stated on the console's own rail rather than on a nav row
+    // that no longer exists. A branch for a key neither nav can ask about is a
+    // reader of this function being told a row exists that does not.
     // STILL GUARDED ON null, and the guard has been load-bearing: /stats never
     // sent this key until now, so the row has worn no count at all. An older
     // server behind a newer bundle is the case it goes on covering.
@@ -754,7 +759,7 @@ export function navBadge(key, { stats, metaIssues, streak, version } = {}) {
 // twice in one corner of one bar. The phone bar has no room for a ? and keeps the
 // row, which is why this is a prop the CALLER answers rather than a media query:
 // each bar knows what else it is drawing.
-function ScreenMenu({ screen, className, glyph = 22, withHelp = true }) {
+function ScreenMenu({ screen, className, glyph = 22, withHelp = true, onTour = null, tourSteps = 0 }) {
   const [open, setOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const ref = useRef(null)
@@ -807,9 +812,34 @@ function ScreenMenu({ screen, className, glyph = 22, withHelp = true }) {
         </button>
       </Tooltip>
       <ActionMenu open={open} items={items} anchorRef={ref} onClose={() => setOpen(false)} returnFocusTo={ref} />
-      <ScreenHelpSheet screen={screen} open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <ScreenHelpSheet
+        screen={screen}
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        onTour={onTour}
+        tourSteps={tourSteps}
+      />
     </div>
   )
+}
+
+// TagsRedirect — /tags lands on the metadata console, open at Tags.
+//
+// A COMPONENT RATHER THAN A BRANCH IN THE SHELL'S BODY, because the redirect is an
+// EFFECT and the shell's body is a render. Writing the console's remembered section
+// during a render would be a side effect in the middle of one, and React is entitled
+// to run that twice.
+//
+// IT WRITES THE KEY THE CONSOLE ALREADY READS rather than taking a prop through three
+// components: `usePersistedState('tippani:metasection', …)` is where that screen keeps
+// which door it was last at, and arriving from /tags IS a reader choosing that door.
+// The shape has to match what the hook stores, which is JSON.
+function TagsRedirect({ onGo }) {
+  useEffect(() => {
+    try { localStorage.setItem('tippani:metasection', JSON.stringify('tags')) } catch { /* private mode: the console opens where it last was */ }
+    onGo('metadata')
+  }, [onGo])
+  return null
 }
 
 // Breadcrumb — where you are, in the bar the rail left empty.
@@ -858,32 +888,106 @@ function Breadcrumb({ tab, detail, title, onRoot }) {
 function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
   const [q, setQ] = useState('')
   const ref = useRef(null)
+  // WHAT THIS SCREEN SAYS ITS OWN SEARCH IS. Null on a screen that has not said —
+  // Home, where "search" can only sensibly mean the library — and then this bar
+  // behaves exactly as it did before, scope pill and all.
+  const here = useScreenSearchState()
   const scoped = scope !== 'all'
+  // THE WORD DOES NOT FOLLOW THE READER OFF THE SCREEN. Typing `backup` into
+  // Settings and then pressing Home left `backup` sitting in a field that now says
+  // "Search everything" and whose pill is gone — so Enter ran a library search
+  // nobody asked for, over a word that was about a screen they had left. `leave()`
+  // cleared it on the pill's ×, which is only one of the two ways out of a context.
+  // This is the other: the context changed underneath the field.
+  const contextKey = here ? here.key : ''
+  useEffect(() => { setQ('') }, [contextKey])
+  // THE SCREEN'S OWN SEARCH IS WHAT THE FIELD DOES, UNTIL THE READER SAYS OTHERWISE.
+  // `here.key` is the context; dropping it is the "library on demand" half, and it
+  // is the same press that used to drop a library scope — one control, one meaning:
+  // this pill says what I am inside, and its × takes me out of it.
+  const onScreen = !!here && !scoped
   const submit = (e) => {
     e.preventDefault()
+    if (onScreen) {
+      // Already narrowed as they typed; Enter is what closes the keyboard on a
+      // phone and must not throw the reader onto another screen.
+      currentScreenSearch()?.onQuery?.(q)
+      return
+    }
     onSearch(q, scoped ? scope : 'all')
+  }
+  const type = (v) => {
+    setQ(v)
+    // LIVE, BECAUSE THE SCREEN IS ALREADY IN FRONT OF THEM. A field that narrows a
+    // list you are looking at has nothing to wait for, and waiting for Enter is what
+    // makes a reader think the field is for somewhere else.
+    if (onScreen) currentScreenSearch()?.onQuery?.(v)
+  }
+  // The pill names the context and the helper text spells it out — the owner asked
+  // for both: "the helper text in the search bar will spell out what context there
+  // is, along with the pills."
+  const pill = onScreen ? here.label : scoped ? scopeLabel : ''
+  // THE CONTEXT IS IN THE WORDS ON EVERY SCREEN THAT HAS ONE, which is what was
+  // asked for twice — "the helper text in the search bar will spell out what context
+  // there is, along with the pills". A scoped screen wore the pill and then offered
+  // "author, tag, a line you half remember…", which is a prompt about HOW to type
+  // and says nothing about where the typing goes. The pill said it and the sentence
+  // did not, on exactly the screens a reader spends most of their time.
+  const hint = onScreen
+    ? t('shell.search.hint.screen', { where: here.label })
+    : scoped
+      ? t('shell.search.hint.within', { where: scopeLabel })
+      : t('shell.search.hint.all')
+  // THE NAME IS NOT THE HINT, and a first cut of this made it one. A placeholder is
+  // an invitation — "author, tag, a line you half remember…" — and an accessible name
+  // is what the field IS. Announcing the invitation as the name tells a screen
+  // reader user what to type and never what they are typing into, which is the one
+  // fact the sighted reader gets from the pill beside it.
+  // AND THE NAME CARRIES THE SCOPE WHEREVER THERE IS ONE. "Search what you are
+  // looking at" was true and said nothing: a screen reader user got the same four
+  // words on the Library, the Catalogue, Quotes and a book's own page, which is
+  // exactly the set where the sighted reader is told which one by the pill.
+  const name = onScreen || scoped
+    ? t('shell.search.aria.screen', { where: onScreen ? here.label : scopeLabel })
+    : t('shell.search.aria.all')
+  // LEAVING A CONTEXT CARRIES WHAT WAS TYPED, and an earlier cut threw it away on
+  // both paths. Pressing × having typed something is a reader saying "not here —
+  // everywhere", and answering that with an empty search screen makes them type it a
+  // second time. The screen's own filter is still released, because they are no
+  // longer asking it anything; the WORD is the part that was never the screen's.
+  const leave = () => {
+    if (onScreen) currentScreenSearch()?.onQuery?.('')
+    onDropScope(q)
   }
   return (
     <form className="topbar-search" onSubmit={submit} role="search">
       <span className="search-icon" aria-hidden="true"><IconSearch /></span>
-      {scoped && (
+      {pill && (
         <button
           type="button"
           className="scope-pill"
-          title={t('shell.search.scope.drop.tip')}
-          onClick={onDropScope}
+          title={t(onScreen ? 'shell.search.context.leave.tip' : 'shell.search.scope.drop.tip')}
+          aria-label={t(onScreen ? 'shell.search.context.leave.aria' : 'shell.search.scope.drop.tip', { where: pill })}
+          onClick={leave}
         >
           <span className="scope-key">{t('shell.search.scope.key')}</span>
-          <span className="scope-val">{scopeLabel}</span>
+          <span className="scope-val">{pill}</span>
           <span className="scope-x" aria-hidden="true"><IconClose size="1em" /></span>
         </button>
       )}
       <input
         ref={ref}
+        // THE TOUR'S OWN ANCHOR, and it was missing for a fortnight. The shell
+        // rewrite (046b9831) rebuilt this bar and dropped the attribute; the step in
+        // `tour.jsx` went on naming `[data-tour="search"]`, `findVisible` matched
+        // nothing, and the step about finding a line again spotlighted empty space.
+        // Nothing fails when a selector matches nothing, which is the whole problem
+        // with a name whose other end is in a different file.
+        data-tour="search"
         value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={t(scoped ? 'shell.search.hint.scoped' : 'shell.search.hint.all')}
-        aria-label={t(scoped ? 'shell.search.aria.scoped' : 'shell.search.aria.all')}
+        onChange={(e) => type(e.target.value)}
+        placeholder={hint}
+        aria-label={name}
       />
       <span className="kbd-hint" aria-hidden="true">/</span>
     </form>
@@ -1047,6 +1151,9 @@ function AccountOverlay({ user, onUser, onClose, logout }) {
           <span className="account-page-title">{t('nav.tab.profile.label')}</span>
           {/* This page covers the shell bar, so it carries its own "?" — the one
               screen that still does. */}
+          {/* NO WALKTHROUGH HERE, AND IT IS NOT AN OVERSIGHT — see the note on the
+              account step in tour.jsx. This panel is a dialog over a screen, and a
+              walk it has to close itself to run is not a walk of anything. */}
           <span className="ml-auto"><PageHelp screen="profile" /></span>
         </header>
         <div className="account-page-body">{body}</div>
@@ -1221,7 +1328,24 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
               </button>
             ),
           )}
-          {/* CHECKS AND BIN, the two rows the rail has had since the rail
+        </div>
+        <div className="drawer-foot">
+          {/* CHECKS AND BIN SIT AT THE FOOT, AGAINST THE ACCOUNT ROW.
+
+              They were the last two rows INSIDE the scrolling list, and the account
+              is a footer pinned under it — so on any phone taller than the list they
+              were stranded halfway up with a field of nothing between them and the
+              thing they are supposed to sit beside. The owner: "checks and bin should
+              be right above the profile in the sidebar (both desktop and mobile)".
+
+              THE DESKTOP RAIL ALREADY DID THIS and the drawer did not, which is the
+              same divergence `.rail-foot` was built to end: one surface grew a foot
+              and the other kept its two rows in the list. This is that foot, in the
+              drawer's own dress — so the leftover height now falls ABOVE them, where
+              empty space belongs, instead of between them and the account.
+
+              The original note, kept because it is still why they are here at all:
+              the two rows the rail has had since the rail
               landed and the drawer did not. They were still buried in Settings
               here, so the phone had no door to either — and a waiting import is
               exactly the thing you want to find without going looking for it.
@@ -1318,8 +1442,29 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
 // BACK IS RENDERED EVEN WHERE IT IS DEAD. On a top-level screen there is nothing
 // behind it, so it is disabled rather than absent: dropping it would slide Search
 // into the first seat and break the one promise this row makes.
-function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, addBadge, searchLabel, searchIcon, searchIsHere = false }) {
+//
+// AND BACK IS THE ONE KEY WITH A SECOND VERB. Held, it offers the screens behind
+// this one instead of the single one a press gives — see history.js for why the
+// app has to keep that list itself, and why picking a row is a real `go(-k)`
+// rather than a fresh navigation dressed up as one.
+function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd, addLabel, addBadge, searchLabel, searchIcon, searchIsHere = false }) {
   const [focused, setFocused] = useState(false)
+  // The menu anchors to the KEY, not to the bar: it is the Back key's own second
+  // verb, and a panel centred over the row would read as the dock's menu rather
+  // than as that one key's.
+  const backRef = useRef(null)
+  // null is shut. The rows are read when the hold fires rather than on every
+  // render — the trail changes with every navigation, and a list captured at
+  // render time would be the one from whichever screen last re-rendered the bar.
+  const [trail, setTrail] = useState(null)
+  const holdBack = () => {
+    const rows = onJumpBack ? recentRoutes(5) : []
+    // NOTHING OPENS ON AN EMPTY TRAIL. A menu with no rows is a press that
+    // appears to do nothing, which is worse than a hold that does nothing —
+    // the reader learns the gesture is broken rather than that there is
+    // nowhere to go.
+    if (rows.length) setTrail(rows)
+  }
   // The bar stays focusable while slid away, so focusing a key must bring it
   // back rather than leave focus on something off-screen.
   const away = hidden && !focused
@@ -1327,9 +1472,10 @@ function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, 
   // A seat the screen renders itself — see useScreenBar. MoreMenu is the reason:
   // it anchors to its own trigger, so the shell cannot draw the button for it.
   const key = (k) => k.node ? <Fragment key={k.id}>{k.node}</Fragment> : (
-    <Tooltip key={k.id} label={k.label} side="top">
+    <Tooltip key={k.id} label={k.label} side="top" onHold={k.hold} onContextMenu={k.hold ? k.hold : undefined}>
       <button
         type="button"
+        ref={k.btnRef}
         className="mobile-dock-btn"
         aria-label={k.label}
         aria-pressed={k.on === undefined ? undefined : !!k.on}
@@ -1362,6 +1508,12 @@ function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, 
         icon: <IconBack />,
         disabled: !canBack,
         onClick: onBack,
+        btnRef: backRef,
+        // Gated on canBack because the button is DISABLED when there is nothing
+        // behind — and a disabled button raises no pointer events, but the
+        // Tooltip span wrapping it does. Without the gate the hold would still
+        // fire on a key that is drawn dead.
+        hold: canBack ? holdBack : undefined,
       })}
       {key({ id: 'search', label: searchLabel, icon: searchIcon, onClick: onSearch, current: searchIsHere })}
       <Tooltip label={addLabel} side="top">
@@ -1382,6 +1534,32 @@ function MobileDock({ keys, hidden, canBack, onBack, onSearch, onAdd, addLabel, 
           something that loud is a second divider doing the first one's job. The
           owner's call, and the row reads cleaner without it. */}
       {seats.map(key)}
+      {/* Above the key, and aligned to its leading edge: Back is the leftmost seat
+          on a bar sitting on the bottom edge, so neither of ActionMenu's defaults
+          is the right guess here. */}
+      <ActionMenu
+        open={!!trail}
+        anchorRef={backRef}
+        prefer="above"
+        align="start"
+        returnFocusTo={backRef}
+        onClose={() => setTrail(null)}
+        items={[
+          { heading: t('shell.nav.back.trail.title') },
+          ...(trail || []).map((e) => ({
+            id: `trail-${e.seq}`,
+            // The tab is what was stored, not a label — so this resolves in the
+            // reader's language every time the menu opens rather than in
+            // whichever one they were using when they walked past the screen.
+            label: e.title || t(screenTitleKey(e.tab)),
+            // Only where the row is a work, and then it says which shelf the work
+            // is on — something the title does not. A screen row would get its own
+            // name twice, which is the sub-line this app does not draw.
+            sub: e.title ? t(screenTitleKey(e.tab)) : undefined,
+            onClick: () => onJumpBack(e.seq),
+          })),
+        ]}
+      />
     </nav>
   )
 }
@@ -1755,6 +1933,22 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     setDetail(null)
   }
   function selectTab(key) { go(key, null) }
+  // REDIRECT, NOT NAVIGATION — and the difference is the reader's Back button.
+  //
+  // /tags is an address that resolves to somewhere else, so the entry it landed on
+  // must be REPLACED rather than pushed on top of. Pushed, the stack reads
+  // library → tags → metadata with /tags still in the middle answering with the
+  // console: measured, three Back presses from there gave /metadata, /metadata,
+  // /metadata and the shelf was unreachable. `seedRoute` is the existing replace —
+  // the same call a typed path that resolves elsewhere already goes through at boot,
+  // which is exactly what this is, one navigation later.
+  function redirectTab(key) {
+    if (!detail) rememberScroll(statePath(tab, null))
+    setTab(key)
+    setDetail(null)
+    if (DEMO) return
+    seedRoute(statePath(key, null))
+  }
   function openBook(id) { go('library', { type: 'book', id }) }
   function openMovie(id) { go('movies', { type: 'movie', id }) }
   // THE SAME TWO DOORS IN THE PANELS' OWN VOCABULARY. A person's screen and a
@@ -1902,6 +2096,19 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // function the old button used, so the field and the search screen cannot disagree
   // about what "here" means.
   const detailTitle = useCrumbTitle()
+  // THE TRAIL IS RECORDED HERE RATHER THAN INSIDE pushRoute, and the reason is the
+  // second argument. A work's name arrives AFTER the work does — `useCrumb`
+  // publishes it once the fetch lands — so a name taken at push time would be
+  // whatever the previous screen was called. An effect on the route and the crumb
+  // together fires again when the name arrives and corrects its own row.
+  //
+  // It also covers what a push site cannot: a popstate, the /tags redirect, and
+  // the replace `navigateBack` falls back to all arrive here, and all of them
+  // leave the reader on a screen the trail should know about.
+  useEffect(() => {
+    if (DEMO) return
+    noteRoute(tab, detail, detail ? detailTitle : null)
+  }, [tab, detail, detailTitle])
   // The phone header's sub-line and the dock's two screen seats, published by
   // whichever screen owns them. Both are null on a screen that publishes neither,
   // which is the resting state and draws nothing.
@@ -2001,8 +2208,10 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
       : 'shell.search.scope.all',
   )
   // Enter writes the query and the scope to the keys SearchPage already reads, then
-  // goes there. `q` is null when the pill's × is what called this — dropping a scope
-  // must not also wipe a query you have not typed yet.
+  // goes there. `q` is null when nothing was typed — leaving a scope must not wipe a
+  // query somebody set earlier from somewhere else. The pill's × now passes whatever
+  // is in the field instead, including the empty string, which is a reader asking for
+  // the library with nothing in mind and is different from not asking at all.
   const runSearch = (q, sc) => {
     try {
       if (q !== null) localStorage.setItem('tippani:search:q', JSON.stringify(q))
@@ -2053,7 +2262,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             scope={barScope}
             scopeLabel={scopeLabel(barScope)}
             onSearch={(q, sc) => runSearch(q, sc)}
-            onDropScope={() => runSearch(null, 'all')}
+            onDropScope={(carry) => runSearch(carry || '', 'all')}
           />
           {/* Add · Search · Help · chip — the same four, in the same order, as the
               phone bar below. Each of the first three reads the current route
@@ -2079,7 +2288,12 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
                 {importBadge}
               </button>
             </Tooltip>
-            <PageHelp screen={help} variant="pill" />
+            <PageHelp
+              screen={help}
+              variant="pill"
+              onTour={(screenKey) => setTourState({ step: 0, onlyTab: screenKey })}
+              tourSteps={tourStepsForTab(user.is_admin, sections, help).length}
+            />
             {/* ＋ Add · ? · ⋯ — the thing you do most, the thing that explains the
                 screen, and everything else. Help keeps its own pill rather than
                 folding into the menu: it is one press from every screen today and
@@ -2114,7 +2328,17 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               to be the dock's second seat on a work's detail and nowhere at all on
               every other screen; the dock seat it vacates goes to a verb a thumb
               actually reaches for. */}
-          <ScreenMenu screen={help} className="mobile-topbar-btn" />
+          {/* THE WALK GOES THROUGH HERE ON A PHONE, because this ⋯ is the only help
+              door a phone has — the "?" pill is desktop-only. The desktop ⋯ below
+              does NOT carry it, for the reason it already passes `withHelp={false}`:
+              its own pill is two controls away and the same door twice in one
+              corner of one bar is clutter. */}
+          <ScreenMenu
+            screen={help}
+            className="mobile-topbar-btn"
+            onTour={(screenKey) => setTourState({ step: 0, onlyTab: screenKey })}
+            tourSteps={tourStepsForTab(user.is_admin, sections, help).length}
+          />
         </header>
         <ErrorBoundary key={tab} label={t('shell.error.boundary.screen.label', { name: tab })}>
         <div className="tab-panel">
@@ -2223,11 +2447,13 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             />
           </div>
         )}
-        {tab === 'tags' && (
-          <div data-screen-label="tags">
-            <TagsPage />
-          </div>
-        )}
+        {/* /tags IS A REDIRECT NOW, NOT A SCREEN. Tags became a section of the
+            metadata console — the owner: "tags should be a section within metadata"
+            — and the address survives it, because people bookmark and link to
+            addresses and a dead one is worse than the nav row it replaced.
+            `TagsRedirect` writes the console's own remembered section and steps
+            sideways; see routes.js, which keeps `tags` in ROUTE_TABS for this. */}
+        {tab === 'tags' && <TagsRedirect onGo={redirectTab} />}
         {tab === 'stats' && (
           <div data-screen-label="stats">
             <StatsPage onSearch={searchFor} />
@@ -2265,7 +2491,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               onPreferences={onPreferences}
               update={update}
               onUpdateInfo={setUpdate}
-              onStartTour={(step) => setTourState({ step })}
             />
           </div>
         )}
@@ -2325,6 +2550,11 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         // is the library, /catalogue/5 is the catalogue, and landing there is
         // what "back" means from a work you arrived at cold.
         onBack={() => goBack(tab)}
+        // jumpBack is a real traversal, so the popstate handler above is what sets
+        // the tab and the detail — the same single code path the in-app arrow and
+        // the device's gesture already share. Absent under DEMO, where nothing
+        // syncs the URL and there is no history of ours to walk.
+        onJumpBack={DEMO ? undefined : jumpBack}
         onSearch={openSearch}
         searchLabel={t(globalSearch ? 'shell.search.global.aria' : 'nav.tab.search.label')}
         // The Search key lands on the Search screen, so on the Search screen it
@@ -2408,6 +2638,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         <FeatureTour
           user={user}
           startStep={tourState.step}
+          onlyTab={tourState.onlyTab || null}
           onNavigate={selectTab}
           onPreferences={onPreferences}
           onClose={() => setTourState(null)}

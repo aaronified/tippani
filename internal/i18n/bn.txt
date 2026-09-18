@@ -132,7 +132,6 @@ nav.tab.quotes.tip = বই-সিনেমার বাইরের কথা
 nav.tab.anthologies.label = সংকলন
 nav.tab.anthologies.tip = বেছে বেছে জড়ো করা উদ্ধৃতি
 nav.tab.tags.label = ট্যাগ
-nav.tab.tags.tip = ট্যাগ আর স্টিকার
 nav.tab.metadata.label = মেটাডেটা
 nav.tab.metadata.tip = কভার, মানুষ আর ডুপ্লিকেট
 nav.tab.stats.label = পরিসংখ্যান
@@ -1125,6 +1124,12 @@ shell.restore.toast.done = ফিরিয়ে আনা হয়েছে ·
 shell.nav.primary.aria = মূল
 shell.nav.dock.aria = এই স্ক্রিনের কাজগুলো
 
+# --- what the dock's Back key offers when it is HELD rather than pressed: the
+# screens behind this one. "Go back to" rather than "Recent", because the list is
+# not a history of where you have been — it is a set of destinations, and every
+# row is strictly behind you.
+shell.nav.back.trail.title = পেছনের স্ক্রিন
+
 # --- the avatar chip, in both top bars and in the drawer's footer.
 shell.account.chip.tip = নিজের প্রোফাইল
 shell.account.chip.aria = প্রোফাইল — {name}
@@ -1167,9 +1172,18 @@ shell.search.scope.thisfilm = এই চলচ্চিত্র
 shell.search.scope.all = সবকিছু
 shell.search.scope.key = এর মধ্যে
 shell.search.scope.drop.tip = বরং সবকিছুতে খুঁজুন
-shell.search.hint.scoped = লেখক, ট্যাগ, আধা-মনে থাকা কোনও পঙ্‌ক্তি…
+shell.search.hint.within = {where} খুঁজুন — লেখক, ট্যাগ, আবছা মনে পড়া একটা লাইন…
 shell.search.hint.all = সবকিছু — সব বই, চলচ্চিত্র, উদ্ধৃতি…
-shell.search.aria.scoped = যা দেখছেন তার মধ্যে খুঁজুন
+shell.search.hint.screen = {where} খুঁজুন — লিখলেই পর্দার জিনিস ছেঁকে আসবে
+shell.search.context.leave.tip = বদলে গোটা লাইব্রেরিতে খুঁজুন
+shell.search.context.leave.aria = এখন {where} খোঁজা হচ্ছে; গোটা লাইব্রেরিতে খুঁজতে চাপুন
+# What each screen calls its own search, named here rather than in the screen so
+# the bar and the screen cannot come to disagree about what a place is called.
+shell.search.where.settings = সেটিংস
+shell.search.where.works = বই আর ছবি
+shell.search.where.characters = এই লাইব্রেরির চরিত্র
+shell.search.where.people = এই লাইব্রেরির মানুষ
+shell.search.aria.screen = {where} খুঁজুন
 shell.search.aria.all = সবকিছুতে খুঁজুন
 
 shell.search.global.aria = সব জায়গায় খুঁজুন
@@ -1349,6 +1363,7 @@ settings.labels.info.body = আইকনওয়ালা বোতাম প�
 settings.labels.auto.label = অটো
 
 # --- Appearance.
+settings.search.none = “{q}”-এর সঙ্গে সেটিংসের কিছু মিলছে না।
 settings.appearance.title = রূপচর্চা
 settings.appearance.theme.title = থিম
 settings.appearance.theme.light.label = হালকা
@@ -1952,6 +1967,7 @@ common.action.add-tags.label = ট্যাগ যোগ করুন
 common.action.seal.label = স্টিকার বসান
 common.action.shelf.label = তাক
 common.action.anthology.label = সংকলনে দিন
+common.action.anthology.tip = {subject} সংকলনে জড়ো করুন
 common.action.set-fields.label = ঘরে মান বসান
 
 # The select controls a card's own menu puts above its actions. {n} is how many
@@ -2224,10 +2240,82 @@ tour.step.account.prose = উপরের ছবির চিপে ট্যা
 tour.step.account.em1.label = প্রোফাইল
 tour.step.account.more = অ্যাডমিনরা ওই একই স্ক্রিন থেকে ইউজার সামলান: যোগ করা, সরানো, অ্যাডমিন করা বা অ্যাডমিন থেকে নামানো। শেষ অ্যাডমিনকে নামানো যায় না, তাই কোনও সার্ভার নিজের দরজায় নিজে তালা মেরে বসতে পারে না। ভার হাতবদল করতে আগে অন্য কাউকে অ্যাডমিন করুন, তারপর নিজেরটা তুলে নিন। অ্যাকাউন্ট বদলাতে গেলে প্রতিবারই ওই অ্যাকাউন্টের পাসওয়ার্ড লাগে — অ্যাডমিন বলে ছাড় নেই।
 
+# Step "boards" — the Quotes screen.
+tour.step.boards.name = বোর্ড
+tour.step.boards.blurb = যে লাইনগুলো কোনো বই বা ছবির নয়, সেগুলো বোর্ডে রাখা
+tour.step.boards.title = বাকি সব জায়গার লাইন
+tour.step.boards.prose = কোনো বক্তৃতা, চিঠি, গান, প্রবাদ, বন্ধুর বলা কথা। এখানে সেগুলো {em1} থাকে — লাইনটা তুলে রাখার সময়েই একটা বোর্ড বেছে নেওয়া হয়।
+tour.step.boards.em1.label = বোর্ডে
+tour.step.boards.more = প্রতিটি বোর্ডের একটা ধরন আছে: সাধারণ বোর্ডে যা খুশি রাখা যায়, প্রবাদের বোর্ডে মূল লেখা, তার প্রতিবর্ণীকরণ আর অনুবাদ একসঙ্গে ছাপা হয়। রং, ট্যাগ, বক্তা বা ভাষা দিয়ে ছেঁকে নিন, লাইব্রেরির মতো করেই দল বাঁধুন, আর চাইলে একটা বোর্ড আলাদা করে রপ্তানি করুন। বোর্ড লুকোলে তার উদ্ধৃতিগুলোর কিছু হয় না; মুছতে গেলে সেগুলো নিয়ে কী করা হবে জিজ্ঞেস করা হয়।
+
+# Step "anthologies" — the Anthologies screen.
+tour.step.anthologies.name = সংকলন
+tour.step.anthologies.blurb = উদ্ধৃতিগুলো একটা পড়ার ক্রমে সাজানো, মাঝে আপনার নিজের কথা
+tour.step.anthologies.title = এগুলো দিয়ে কিছু একটা বানান
+tour.step.anthologies.prose = সংকলন তাকের মতো নয়, এটা একটা {em1}: আপনার বেছে নেওয়া ক্রমে উদ্ধৃতি, মাঝে আপনার নিজের কথা। একটা বই, ট্যাগ, লেখক বা রঙের দিকে তাক করে দিন, নিজেই ভরে নেবে।
+tour.step.anthologies.em1.label = লেখা
+tour.step.anthologies.more = এটা বোর্ডও নয়, ট্যাগও নয় — একটা উদ্ধৃতি যত খুশি সংকলনে থাকতে পারে, আর যেখানে আছে সেখান থেকে নড়ে না। প্রতিটি অংশের সঙ্গে কী কী দেখানো হবে আর তার বই থেকে কী কী ধার নেওয়া হবে, সেটা আপনি বলে দেন; “চালু রাখুন” দিলে পরে যা লিখবেন তা পরের বার খুললেই অপেক্ষা করছে। মার্কডাউন বা EPUB হিসেবে রপ্তানি করা যায়।
+
+# Step "filters" — the Search screen.
+tour.step.filters.name = সার্চের ছাঁকনি
+tour.step.filters.blurb = ফলাফলের উপর ফিল্ড-চিপ, পরিধি আর তারিখ
+tour.step.filters.title = আরও ছোট করে আনুন
+tour.step.filters.prose = ফিল্ডের নাম আর কোলন লিখুন — tag, author, colour — বাক্সটা আপনার কাছে যা আছে তা-ই দেখাবে। চিপ জমতে থাকে, তাই {em1} পরিধি বাড়ায় না, ছোট করে; আর পরিধির সারিটা বলে দেয় আপনি লাইব্রেরির কোন দিকটা জিজ্ঞেস করছেন।
+tour.step.filters.em1.label = দুটো চিপ
+tour.step.filters.more = সত্যিকারের কোলন লিখতে হলে আগে ব্যাকস্ল্যাশ দিন। রঙের নাম চলে, একটা দিন বা একটা দশক দুটোই চলে, আর ছাঁকা তাক থেকে এলে সেই তাকের ছাঁকনিগুলো চিপ হয়ে সঙ্গে আসে। ফলাফলের একটা দল টিক দিয়ে ট্যাগ দিন, রং বদলান, বা সংকলনে তুলে নিন।
+
+# Step "bin" — the Bin screen.
+tour.step.bin.name = ঝুড়ি
+tour.step.bin.blurb = যা মুছেছেন, ফেরত আনা যায়, মেয়াদ শেষ না হওয়া পর্যন্ত
+tour.step.bin.title = কিছুই সরাসরি বেরিয়ে যায় না
+tour.step.bin.prose = মুছলে জিনিসটা আগে এখানে আসে — গোটা বই তার সব উদ্ধৃতি সমেত, ছবি তার সব সংলাপ সমেত, বা একলা একটা লাইন — আর {em1} সেটাকে যেখানে ছিল সেখানেই ফিরিয়ে দেয়।
+tour.step.bin.em1.label = ফিরিয়ে আনলে
+tour.step.bin.more = প্রতিটি সারি বলে সেটা কী ধরনের জিনিস ছিল আর কবে মোছা হয়েছিল। এখনই বিদায় করতে চাইলে একটা সারি নিশ্চিহ্ন করুন, বা গোটা ঝুড়ি খালি করুন; নইলে সেটিংসে ঠিক করা দিনসংখ্যার পরে সবই নিজে থেকে চলে যায়।
+
+# Step "checks" — the Checks screen.
+tour.step.checks.name = দেখে নেওয়া
+tour.step.checks.blurb = আপনার জন্য অপেক্ষা করা দুটো তালিকা — আমদানি, আর যেসব উদ্ধৃতিতে গোলমাল আছে
+tour.step.checks.title = কী কী আপনার জন্য অপেক্ষা করছে
+tour.step.checks.prose = এক পর্দায় দুটো তালিকা: ফাইল থেকে আসা যেসব উদ্ধৃতিতে এখনও সায় দেওয়া হয়নি, আর যেসবে কিছু একটা {em1} ঠেকছে।
+tour.step.checks.em1.label = গোলমেলে
+tour.step.checks.more = দুটো তালিকারই নিজস্ব পর্দা আর নিজস্ব ঠিকানা আছে, তাই কোনো একটার লিংক এখনও কাজ করে। কুইজ যে পুনরালোচনা করে এটা তা নয় — এখানে মনে রাখা নিয়ে কিছু নেই; এখানে প্রশ্ন হল লেখাটা ঠিক আছে কি না।
+
+# Step "cleanup" — the Cleanup screen.
+tour.step.cleanup.name = পরিষ্কার
+tour.step.cleanup.blurb = পাতা যা ছেড়ে গেছে — পৃষ্ঠাসংখ্যা, ভাঙা হাইফেন, পাদটীকার চিহ্ন
+tour.step.cleanup.title = পাতা যা ফেলে রেখে গেছে
+tour.step.cleanup.prose = প্রতিটি উদ্ধৃতি একবার করে পড়া হয়, খোঁজা হয় লেখকের নয় বরং {em1} থেকে আসা জিনিস: লেখার সঙ্গে ঢুকে পড়া পৃষ্ঠাসংখ্যা, লাইন ভাঙার জায়গার হাইফেন, পাদটীকার চিহ্ন।
+tour.step.cleanup.em1.label = পাতা
+tour.step.cleanup.more = এটা খুঁজে বার করে আর তালিকা বানায়; নিজে থেকে কিছু বদলায় না। কোন নিয়মে কী পাওয়া গেছে সেই অনুযায়ী ছেঁকে নিন, সারি খুলে সেখানেই ঠিক করুন, আর মনে রাখুন এক দফায় একটা সীমা আছে — খুব বড় লাইব্রেরির বাকিটার জন্য আবার চাপুন।
+
+# Step "staging" — the imports waiting room.
+tour.step.staging.name = অপেক্ষায় থাকা আমদানি
+tour.step.staging.blurb = আমদানি আগে এখানে নামে, সায় পেলে তবে বেরোয়
+tour.step.staging.title = না দেখে কিছু ঢোকে না
+tour.step.staging.prose = আমদানি এখানে থেমে থাকে, যতক্ষণ না আপনি {em1} — তাই ভুলভাবে পড়া কিছু কখনও আপনার লাইব্রেরিতে পৌঁছয় না।
+tour.step.staging.em1.label = সায় দেন
+tour.step.staging.more = গোটা গুচ্ছ একসঙ্গে ঠিক করুন — কোন বইয়ের, কার নামে বলা, কোন রং — তারপর যেগুলো চান সেগুলোয় সায় দিন আর বাকিগুলো বাদ দিন। এই পর্দার কোনো কিছুই এখনও আপনার লাইব্রেরিতে নেই।
+
+# Step "book" — a book's own page.
+tour.step.book.name = বইয়ের নিজের পাতা
+tour.step.book.blurb = তার খুঁটিনাটি, তার দাগানো অংশ, আর দুটোতেই যা করা যায়
+tour.step.book.title = একটা বই সম্পর্কে সব কিছু
+tour.step.book.prose = উপরে বইটার নিজের তথ্য, নিচে আপনার তুলে রাখা প্রতিটি অংশ। এখানে ＋ মানে {em1}, আরেকটা বই নয়।
+tour.step.book.em1.label = এই বই থেকে একটা উদ্ধৃতি
+tour.step.book.more = সংখ্যাগুলো ছাঁকনি হিসেবেও কাজ করে, ♥ বই আর প্রতিটি উদ্ধৃতিকে আলাদাভাবে চিহ্নিত করে, আর তাকের চিপ বলে আপনি এটা পড়ছেন কি না। দাগানো অংশের রং সেই অংশ নিয়ে একটা মন্তব্য, যে বই থেকে এসেছে তা নিয়ে নয়। কপি, ভাগ করা আর রপ্তানি একটা অংশে বা বেছে নেওয়া অনেকগুলোতে কাজ করে।
+
+# Step "film" — a film's own page.
+tour.step.film.name = ছবির নিজের পাতা
+tour.step.film.blurb = কুশীলব, কৃতজ্ঞতা আর আপনার তুলে রাখা প্রতিটি লাইন
+tour.step.film.title = একটা ছবি সম্পর্কে সব কিছু
+tour.step.film.prose = স্টুডিও, প্রকাশক আর যে কুশীলবদের সঙ্গে {em1} মেলানো হয়, আর নিচে আপনার তুলে রাখা প্রতিটি লাইন।
+tour.step.film.em1.label = বক্তাদের
+tour.step.film.more = নাম হিসেবে লেখা বক্তাকে কুশীলবদের সঙ্গে মিলিয়ে দেওয়া যায়, আর সেটাই চরিত্রের চিপকে নিছক একটা শব্দ না রেখে একজন মানুষের পাতায় নিয়ে যায়। কণ্ঠশিল্পীদের তালিকা পর্দার কুশীলবদের থেকে আলাদা রাখা হয়। এখানে ＋ এই ছবি থেকে একটা লাইন তুলে রাখে।
+
 # Step "done".
 tour.step.done.title = ট্যুর এই পর্যন্তই
-tour.step.done.prose = সবই দেখা হল। ট্যুরটা যখন খুশি আবার চালাতে পারেন {em1} থেকে, আর কোন স্ক্রিনে কোনটা কী করে জানতে সেখানকার {em2} ট্যাপ করুন। মার্জিন ভরে উঠুক।
-tour.step.done.em1.label = সেটিংস → প্রথম পরিচয়
+tour.step.done.prose = সবই দেখা হল। যেকোনো স্ক্রিনের {em2} সেখানকার কন্ট্রোলগুলো কী করে তা বলে, আর চাইলে আবার ঘুরিয়েও দেখায় — ট্যুরটা এখন {em1} থাকে। মার্জিন ভরে উঠুক।
+tour.step.done.em1.label = এক-একটা স্ক্রিন ধরে
 tour.step.done.em2.label = ?
 
 # The tour's own chrome. {done} of {total} counts steps, and {total} varies: an
@@ -2237,6 +2325,10 @@ tour.progress.label = {done} / {total}
 tour.later.label = বাকিটা পরে
 # Ends the tour for good.
 tour.skip.label = ট্যুর বাদ দিন
+help.tour.label.one = এই পাতাটা ঘুরিয়ে দেখান (১টি ধাপ)
+help.tour.label.other = এই পাতাটা ঘুরিয়ে দেখান ({n}টি ধাপ)
+tour.reenable.label = ট্যুর আবার চালু করুন
+tour.toast.reenabled = ট্যুর আবার চালু হল।
 tour.back.aria = আগের ধাপ
 tour.next.label = পরেরটা
 # The last step's Next.
@@ -2374,7 +2466,7 @@ anthologies.list.new.label = নতুন সংকলন
 # nothing on this screen can add an entry, by design. {em1} is the New anthology
 # button, {em2} the selection bar's Add to anthology.
 # bn: selection bar → বাছাই-বার, the strip that appears under a ticked selection.
-anthologies.list.empty = এখনও কোনও সংকলন নেই। {em1} একটা বানিয়ে দেয়; ভরতে হলে গ্রন্থাগার, ক্যাটালগ বা উক্তির পাতায় কয়েকটা উদ্ধৃতি বাছুন, তারপর নিচের বাছাই-বার থেকে {em2} বেছে নিন।
+anthologies.list.empty = এখনও কোনও সংকলন নেই। {em1} একটা বানিয়ে দেয়; বা যে উদ্ধৃতিটা রাখতে চান তার নিজের মেনু থেকে {em2} বেছে নিন — ওখানকার বাক্সই সংকলনটা বানিয়ে দেবে।
 
 # The form. A duplicate title is fine here, unlike a board, so there is no clash
 # warning to write.
@@ -2413,26 +2505,73 @@ anthologies.entry.source.label = {source}
 # anthology itself: a collection of film lines wants its actors named and a book of
 # proverbs wants nothing but the words. Each label names the THING, because the
 # control beside it is what says on or off.
-anthologies.form.fields.label = প্রতিটা উদ্ধৃতির সঙ্গে কী কী দেখাবে
-anthologies.form.fields.hint = পড়ার সময় যা দেখবেন, এক্সপোর্টেও ঠিক তাই যাবে।
+anthologies.form.fields.label = প্রতিটা উদ্ধৃতির সঙ্গে দেখান
+anthologies.form.fields.hint = এখানে যা চালু করবেন তা প্রতিটা উদ্ধৃতির নিচে ছাপা হবে — পড়ার সময়েও, এক্সপোর্টেও।
+anthologies.form.fields.count = {total}-এর মধ্যে {shown}টি দেখানো হচ্ছে
+
+anthologies.fill.title = এতে কী কী থাকবে
+anthologies.fill.body = উদ্ধৃতিগুলো কোথা থেকে আসবে বেছে নিন। এখনই যোগ হবে, আর চাইলে পরেও নতুনগুলো আসতে থাকবে।
+anthologies.fill.none = এখনও কিছু নয় — যেকোনো উদ্ধৃতির মেনু থেকে নিজে হাতে যোগ করতে পারেন।
+anthologies.fill.set = {what}। তৈরি করার সময়েই যোগ হবে।
+anthologies.fill.set.auto = {what}। তৈরি করার সময়ে যোগ হবে, আর পরেও আসতে থাকবে।
+anthologies.fill.of = {what}: {value}
+anthologies.fill.blocked = কোনটা, সেটা বাছুন।
+anthologies.fill.pick.placeholder = লিখতে শুরু করুন
+anthologies.fill.all.label = লাইব্রেরির সবকিছু
+anthologies.fill.book.label = একটি বই
+anthologies.fill.movie.label = একটি ছবি বা শো
+anthologies.fill.tag.label = একটি ট্যাগ
+anthologies.fill.author.label = একজন লেখক
+anthologies.fill.colour.label = একটি রং
+anthologies.fill.shelf.label = একটি তাক
+anthologies.fill.favourite.label = আমার পছন্দের
+anthologies.fill.dates.label = যে সময়ের মধ্যে রাখা
+anthologies.fill.from.label = থেকে
+anthologies.fill.to.label = পর্যন্ত
+anthologies.fill.dates.both = {from} থেকে {to}-র মধ্যে রাখা
+anthologies.fill.dates.from = {date} থেকে রাখা
+anthologies.fill.dates.to = {date} পর্যন্ত রাখা
+
+anthologies.eg.hide-credit = সেনেকা · লেখক
+anthologies.eg.hide-source = অন দ্য শর্টনেস অফ লাইফ
+anthologies.eg.show-locator = অধ্যায় ৪ · পৃ. ১১২
+anthologies.eg.show-date = ৩ মার্চ ২০২৬-এ রাখা
+anthologies.eg.hide-commentary = “এই লাইনটা যেখানে ঘোরে” — আপনার নোট
+anthologies.eg.hide-colour = বাঁ দিকের হলুদ দাগ
+anthologies.eg.author = সেনেকা
+anthologies.eg.director = হৃষীকেশ মুখোপাধ্যায়
+anthologies.eg.translator = সি. ডি. এন. কস্টা
+anthologies.eg.editor = বেটি র‍্যাডিস
+anthologies.eg.publisher = পেঙ্গুইন
+anthologies.eg.year = ১৯৬৯
+anthologies.eg.series = গ্রেট আইডিয়াজ
+anthologies.eg.subtitle = ও অন্যান্য রচনা
+anthologies.eg.isbn = 978-0-14-303795-9
+anthologies.eg.pages = ১১২ পৃষ্ঠা
+anthologies.eg.media-type = পেপারব্যাক
+anthologies.eg.bio = রোমান স্টোয়িক, নিরোর শিক্ষক
+anthologies.eg.born = জন্ম খ্রি.পূ. ৪
+anthologies.eg.died = মৃত্যু ৬৫ খ্রি.
+anthologies.eg.links = উইকিপিডিয়া
+anthologies.eg.portrait = লাইনের পাশে তাঁর ছবি
+anthologies.eg.character-portrait = লাইনের পাশে চরিত্রের মুখ
 anthologies.form.fields.credit.label = কে বলেছেন
 anthologies.form.fields.source.label = কোথা থেকে নেওয়া
 anthologies.form.fields.locator.label = অধ্যায়, পৃষ্ঠা বা সময়
 anthologies.form.fields.date.label = যেদিন তুলে রেখেছিলেন
 anthologies.form.fields.commentary.label = আপনার নিজের কথা
 anthologies.form.fields.colour.label = রঙের পটি
-anthologies.form.fields.work.label = বই বা ছবি থেকে
-anthologies.form.fields.work.hint = না বললে দেখাবে না। যে তথ্য যার বইয়ে আছে, শুধু সেটুকুই আসবে।
-anthologies.form.fields.person.label = যিনি বলেছেন, তাঁর কথা
-anthologies.form.fields.person.hint = যাঁদের রেকর্ড আপনার কাছে আছে, শুধু তাঁদেরটাই দেখাবে। বেশির ভাগেরই থাকবে না।
+anthologies.form.fields.work.label = বই বা ছবি সম্পর্কেও দেখান
+anthologies.form.fields.work.hint = যে বই বা ছবি থেকে উদ্ধৃতিটা এসেছে, তার কথা উদ্ধৃতির নিচে ছাপা হবে। না বললে বন্ধ, আর উদ্ধৃতি ততটুকুই দেখায় যতটা তার নিজের বই জানে।
+anthologies.form.fields.person.label = মানুষটি সম্পর্কেও দেখান
+anthologies.form.fields.person.hint = যাঁর কথা — লেখক, অভিনেতা, বক্তা — তাঁর কথা উদ্ধৃতির নিচে ছাপা হবে। কেবল যাঁদের রেকর্ড আপনার আছে, আর বেশিরভাগ ক্ষেত্রেই থাকবে না।
 anthologies.action.epub.label = EPUB
-anthologies.rule.title = সার্চ থেকে ভরুন
-anthologies.rule.body = সার্চ বারে যা যা লেখা যায়, সবই চলবে। যেগুলো মিলবে সেগুলো শেষে যোগ হবে — এখান থেকে কিছু বাদ যায় না, ক্রমও বদলায় না, আর কোনো লেখায় আপনি যা লিখেছেন তাতে হাত পড়ে না।
+anthologies.rule.now.label = এখন যা নিচ্ছে
+anthologies.rule.now.hint = বাছাই বা সার্চ থেকে তৈরি, তাই একটার বেশি শর্ত আছে। নিচে কোনো উৎস বাছলে এটা বদলে যাবে।
 anthologies.rule.credits.note = লেখক, অভিনেতা, চরিত্র আর বক্তা — এগুলো উদ্ধৃতিতে বা তার বই-ছবিতে যে নাম লেখা আছে, সেটাই মেলায়। যে সংলাপে কারও নাম লেখা নেই, ছবির কাস্টে থাকলেও তাঁর নাম দিয়ে সেটা পাওয়া যাবে না।
 anthologies.rule.auto.label = চালু রাখুন
 anthologies.rule.auto.hint = খুললেই দেখে নেবে কী কী জমেছে আর জানাবে। আপনি না বললে কিছু যোগ হবে না।
 anthologies.rule.preview.action = কী কী আসবে?
-anthologies.rule.fill.action = ভরুন
 anthologies.rule.preview = {matched}টা মিলেছে। {added}টা যোগ হবে, {skipped}টা আগে থেকেই আছে।
 anthologies.rule.capped = একবারে দুশো; বাকিটার জন্য আবার চাপুন।
 anthologies.rule.filled = {added}টা যোগ হল, {skipped}টা আগে থেকেই ছিল
@@ -2457,8 +2596,13 @@ common.anthology.add.body.one = সংকলনের শেষে গিয়�
 common.anthology.add.body.other = {n}টাই সংকলনের শেষে গিয়ে বসবে। উদ্ধৃতিগুলো নিজেরা যেখানে আছে, সেখানেই থাকে।
 # Reachable with the Anthologies section switched OFF, which is why it names the
 # switch as well as the screen — a dead end otherwise.
-common.anthology.add.empty = এখনও কোনও সংকলন নেই — সংকলন স্ক্রিনে গিয়ে একটা তৈরি করুন (সেটিংস → ফিচার)।
-common.anthology.add.select.placeholder = একটা সংকলন বাছুন
+common.anthology.add.combo.placeholder = খুঁজুন, বা নতুন নাম লিখুন
+common.anthology.add.blocked = আগে একটা সংকলনের নাম দিন।
+common.anthology.add.existing = এই নামে আপনার যেটা আছে, তাতেই যাবে।
+common.anthology.add.creating = “{title}” নামে নতুন একটা সংকলন তৈরি হবে।
+
+common.anthology.gather.title = সংকলনে জড়ো করুন
+common.anthology.gather.body = এই খোঁজে যা মেলে তা সংকলনের শেষে যোগ হবে। কিছু বাদ যাবে না, ক্রমও বদলাবে না, আর কোনও এন্ট্রিতে আপনার নিজের লেখায় হাত পড়বে না।
 
 # Reordering an entry. No drag: a drag has no keyboard equivalent, and a menu row
 # is reachable by tab, by arrow key and by a thumb.
@@ -5086,16 +5230,7 @@ settings.changelog.close.tip = “কী বদলেছে” বন্ধ ক�
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.
 # ---------------------------------------------------------------------------
-settings.onboarding.title = প্রথম পরিচয়
-settings.onboarding.info.body = সব ফিচার ধরে ধরে দেখানো একটা ট্যুর। প্রথমবার চালু করলে একবারই চলে, আপনার ফাইল কখনও লাগে না — নমুনা হিসেবে একটা উদ্ধৃতি আর একটা সংলাপ ভিতরেই আছে। “পরেরটা” এক ধাপ এগোয়, “বাকিটা পরে” ট্যুর থামিয়ে রাখে, আর এখান থেকেই আবার ধরা যায়।
-settings.onboarding.done.label = ✓ শেষ
 # The Resume button carries its own step count, which is why it keeps its words.
-settings.onboarding.resume.label = ট্যুরে ফিরুন · ধাপ {n}/{total}
-settings.onboarding.restart.label = গোড়া থেকে শুরু করুন
-settings.onboarding.replay.label = ট্যুর আবার দেখুন
-settings.onboarding.start.label = ট্যুর শুরু করুন
-settings.onboarding.pick.label = একটা বিভাগ আবার দেখুন
-settings.onboarding.pick.prose = ট্যুর ওই স্ক্রিনে খুলে সেখান থেকেই চলে — “পরেরটা” পরের বিভাগে নিয়ে যায়, আর “বাকিটা পরে” ট্যুরটা আবার এখানেই রেখে দেয়।
 
 # ---------------------------------------------------------------------------
 # DEVICES — pair a phone with this account, and unpair it again.

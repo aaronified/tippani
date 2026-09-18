@@ -44,7 +44,14 @@ const FAILURES = join(HERE, '..', '..', '..', 'journey-failures')
 // A phone is 390 and a desktop is 1280 — the two widths every probe in
 // scripts/screenshots measures at. A journey that is about a narrow layout says
 // so by asking for one; everything else gets the desktop.
-export const PHONE = { width: 390, height: 844 }
+//
+// hasTouch, BECAUSE A PHONE HAS ONE. It is not decoration: every long press in
+// this app guards on `pointerType === "touch"`, and Chrome only reports that
+// pointer type when touch emulation is on — so without this the `hold` verb
+// raises real touch events that the app correctly ignores, and the journey reads
+// as a dead gesture. It also lets `pointer: coarse` and `hover: none` answer the
+// way they do on the device, which is what the stylesheet is written for.
+export const PHONE = { width: 390, height: 844, hasTouch: true }
 export const DESKTOP = { width: 1280, height: 900 }
 
 function required(name) {

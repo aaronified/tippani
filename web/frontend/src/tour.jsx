@@ -47,11 +47,11 @@ export const SAMPLE_QUOTES = {
 // press Next; everything else is one tap away and still there.
 // EVERY FIELD BELOW IS A GETTER, and that is not decoration. This array is built
 // at module scope — before a locale has been applied — and Settings spreads it
-// ({...s} in tourFeatures) at render time. A getter is what makes the copy resolve
+// ({...s} when a step is rendered) at render time. A getter is what makes the copy resolve
 // then rather than now, and makes it follow a language change afterwards.
 //
-// A step with no `name` still has no name: tourFeatures filters on its presence,
-// so welcome and done deliberately have no name getter at all.
+// A step with no `name` is tour-only: welcome and done deliberately have no name
+// getter at all, because nothing lists them.
 const TOUR_STEPS = [
   {
     key: 'welcome',
@@ -120,6 +120,9 @@ const TOUR_STEPS = [
   {
     key: 'search',
     anchor: '[data-tour="search"]',
+    // NO `tab`, BECAUSE THE BOX IS IN THE SHELL and is on every screen already — but
+    // the screen it leads to is the one whose help should offer this.
+    screen: 'search',
     get name() { return t('tour.step.search.name') },
     get blurb() { return t('tour.step.search.blurb') },
     get title() { return t('tour.step.search.title') },
@@ -132,7 +135,13 @@ const TOUR_STEPS = [
   },
   {
     key: 'tags',
-    tab: 'tags',
+    // TAGS IS A SECTION OF THE METADATA CONSOLE NOW, so this step navigates there and
+    // joins that screen's own walk. Left as `tab: 'tags'` it would still have worked —
+    // /tags redirects — but the per-screen walk is keyed on what `helpScreen` answers,
+    // which for that section is 'metadata', and the step would have belonged to a
+    // screen no "?" can name.
+    tab: 'metadata',
+    section: 'tags',
     get name() { return t('tour.step.tags.name') },
     get blurb() { return t('tour.step.tags.blurb') },
     get title() { return t('tour.step.tags.title') },
@@ -203,6 +212,23 @@ const TOUR_STEPS = [
   {
     key: 'account',
     anchor: '[data-tour="account"]',
+    // NO `screen: 'profile'`, AND THE REASON IS WORTH THE LINES because it looked
+    // like an oversight and was tried.
+    //
+    // Profile is a DIALOG over a screen, not a screen. Its overlay takes a history
+    // marker (`useBackToClose`) and gives it back on unmount with `history.back()`
+    // — and that pop is asynchronous, so it arrives AFTER a tour opened in the same
+    // press has pushed its own marker, and closes it. The walk button drew, the
+    // press landed, and the tour vanished on the way in.
+    //
+    // Deferring the open would be racing one scheduler against another. Not closing
+    // the panel is worse: this step spotlights the avatar chip in the shell's own
+    // bar, which the panel's scrim is sitting on top of — a caption pointing at
+    // something the reader cannot see.
+    //
+    // So the step stays where it works: in the welcome tour, anchored to a control
+    // that is on every screen. Profile's "?" keeps its glossary, which is what a
+    // dialog's help should be.
     get name() { return t('tour.step.account.name') },
     get blurb() { return t('tour.step.account.blurb') },
     get title() { return t('tour.step.account.title') },
@@ -212,6 +238,130 @@ const TOUR_STEPS = [
       })
     },
     get more() { return t('tour.step.account.more') },
+  },
+  {
+    key: 'boards',
+    tab: 'quotes',
+    get name() { return t('tour.step.boards.name') },
+    get blurb() { return t('tour.step.boards.blurb') },
+    get title() { return t('tour.step.boards.title') },
+    get body() {
+      return tNodes('tour.step.boards.prose', {
+        em1: <b key="em1">{t('tour.step.boards.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.boards.more') },
+  },
+  {
+    key: 'anthologies',
+    tab: 'anthologies',
+    get name() { return t('tour.step.anthologies.name') },
+    get blurb() { return t('tour.step.anthologies.blurb') },
+    get title() { return t('tour.step.anthologies.title') },
+    get body() {
+      return tNodes('tour.step.anthologies.prose', {
+        em1: <b key="em1">{t('tour.step.anthologies.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.anthologies.more') },
+  },
+  {
+    key: 'filters',
+    tab: 'search',
+    get name() { return t('tour.step.filters.name') },
+    get blurb() { return t('tour.step.filters.blurb') },
+    get title() { return t('tour.step.filters.title') },
+    get body() {
+      return tNodes('tour.step.filters.prose', {
+        em1: <b key="em1">{t('tour.step.filters.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.filters.more') },
+  },
+  {
+    key: 'bin',
+    tab: 'bin',
+    get name() { return t('tour.step.bin.name') },
+    get blurb() { return t('tour.step.bin.blurb') },
+    get title() { return t('tour.step.bin.title') },
+    get body() {
+      return tNodes('tour.step.bin.prose', {
+        em1: <b key="em1">{t('tour.step.bin.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.bin.more') },
+  },
+  {
+    key: 'checks',
+    tab: 'checks',
+    get name() { return t('tour.step.checks.name') },
+    get blurb() { return t('tour.step.checks.blurb') },
+    get title() { return t('tour.step.checks.title') },
+    get body() {
+      return tNodes('tour.step.checks.prose', {
+        em1: <b key="em1">{t('tour.step.checks.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.checks.more') },
+  },
+  {
+    key: 'cleanup',
+    tab: 'cleanup',
+    get name() { return t('tour.step.cleanup.name') },
+    get blurb() { return t('tour.step.cleanup.blurb') },
+    get title() { return t('tour.step.cleanup.title') },
+    get body() {
+      return tNodes('tour.step.cleanup.prose', {
+        em1: <b key="em1">{t('tour.step.cleanup.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.cleanup.more') },
+  },
+  {
+    key: 'staging',
+    tab: 'staging',
+    get name() { return t('tour.step.staging.name') },
+    get blurb() { return t('tour.step.staging.blurb') },
+    get title() { return t('tour.step.staging.title') },
+    get body() {
+      return tNodes('tour.step.staging.prose', {
+        em1: <b key="em1">{t('tour.step.staging.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.staging.more') },
+  },
+  // THE TWO SCREENS THAT ARE NOT TABS. `helpScreen` answers 'book-detail' and
+  // 'movie-detail' for a work you have open, so that is what their walks are keyed
+  // to — and `fullTour: false` keeps them out of the welcome sequence, which has
+  // nowhere to navigate a reader who has no book open. Library and Catalogue already
+  // carry that ground in the sequence.
+  {
+    key: 'book',
+    screen: 'book-detail',
+    fullTour: false,
+    get name() { return t('tour.step.book.name') },
+    get blurb() { return t('tour.step.book.blurb') },
+    get title() { return t('tour.step.book.title') },
+    get body() {
+      return tNodes('tour.step.book.prose', {
+        em1: <b key="em1">{t('tour.step.book.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.book.more') },
+  },
+  {
+    key: 'film',
+    screen: 'movie-detail',
+    fullTour: false,
+    get name() { return t('tour.step.film.name') },
+    get blurb() { return t('tour.step.film.blurb') },
+    get title() { return t('tour.step.film.title') },
+    get body() {
+      return tNodes('tour.step.film.prose', {
+        em1: <b key="em1">{t('tour.step.film.em1.label')}</b>,
+      })
+    },
+    get more() { return t('tour.step.film.more') },
   },
   {
     key: 'done',
@@ -225,34 +375,63 @@ const TOUR_STEPS = [
   },
 ]
 
-// tourSteps — the steps a given user actually sees (admin-only steps drop out
-// for everyone else). tourFeatures — the named subset, for the Settings section
-// picker.
+// tourSteps — the steps a given user actually sees (admin-only steps drop out for
+// everyone else, and so do the screens they have switched off).
 //
-// EACH FEATURE CARRIES `at`, ITS INDEX IN tourSteps, and that index is taken
-// before the filter rather than after it. The two lists are not the same length:
-// `welcome` and `done` have no name, so the nth feature is not the nth step, and
-// `admin` drops two more steps for a non-admin. Settings starts the tour by
-// index (onStartTour(step) → FeatureTour startStep), so a picker built on the
-// filtered list would open the wrong screen for every feature after the first —
-// silently, because every index is still a valid step.
-// `sections` FILTERS ON THE SAME RULE AS THE NAV, and it has to go through the
-// same function the index is taken from. A tour step whose `tab` names a section
-// the reader has switched off (Settings → Features) is two failures at once: the
-// Settings picker offering it is a door into a hidden section, and the step itself
-// spotlights a nav tab that is not rendered — findVisible returns nothing and the
-// reader gets a caption pointing at empty space.
+// `tourFeatures` WAS HERE AND IS GONE WITH ITS ONLY CALLER. It carried each named
+// step's INDEX into this list so the Settings picker could start the tour at a
+// chosen feature, and the index had to be taken before the name filter rather than
+// after it — `welcome` and `done` have no name, so the nth feature was never the
+// nth step. That trap cost a paragraph to explain and a test to hold, and both were
+// in service of a picker the owner has since removed ("no need for a global
+// onboarding settings"). Help starts a tour by SCREEN now, not by index, so there
+// is no index to get wrong.
 //
-// Dropping steps shifts every index after them, which is exactly the trap the
-// paragraph above describes for `admin`. It is safe here for one reason only:
-// `at` is computed by tourFeatures over the SAME filtered list, so both callers
-// pass both arguments and neither can see a different list from the other. Settings
-// and FeatureTour derive `sections` from the same user.preferences bag rather than
-// being handed it, so there is no prop to get out of step.
+// `sections` FILTERS ON THE SAME RULE AS THE NAV. A tour step whose `tab` names a
+// section the reader has switched off spotlights a nav tab that is not rendered —
+// findVisible returns nothing and the reader gets a caption pointing at empty
+// space. FeatureTour derives `sections` from the same user.preferences bag the nav
+// does rather than being handed it, so there is no prop to get out of step.
+//
+// `fullTour: false` IS HOW A STEP OPTS OUT OF THIS WALK WITHOUT LEAVING THE LIST.
+// The whole-app tour NAVIGATES, and it navigates by `tab`; a step about a book's own
+// page names no tab it could send anybody to, and the shelf it would land on already
+// has a step of its own. So those two live here for the per-screen walk and are not
+// in the sequence. It is a flag rather than a derived rule because the derived rule
+// wanted an exception immediately: `account` also names no tab, and belongs in the
+// welcome tour, because the control it spotlights is in the shell's own bar and is
+// therefore already on whatever screen the reader is standing on.
 export const tourSteps = (isAdmin, sections) =>
-  TOUR_STEPS.filter((s) => (!s.admin || isAdmin) && (!s.tab || sections?.[s.tab] !== false))
-export const tourFeatures = (isAdmin, sections) =>
-  tourSteps(isAdmin, sections).map((s, at) => ({ ...s, at })).filter((s) => s.name)
+  TOUR_STEPS.filter((s) => s.fullTour !== false && (!s.admin || isAdmin) && (!s.tab || sections?.[s.tab] !== false))
+
+// tourStepsForTab — the walk through ONE screen, which is what Help offers.
+//
+// The owner: "the help section shall have the onboarding journey for each screen
+// separately. a button in the help screen that will go you through the features in
+// that screen." The steps already carry the screen they belong to — `tab` is what
+// navigates the shell when a step opens — so a per-screen tour is a filter over the
+// list that exists rather than a second list to keep in step with it. A second list
+// is how the whole-app tour and the per-screen one would come to disagree about
+// what a screen's features are.
+//
+// IT RETURNS [] FOR A SCREEN WITH NO STEPS, and the caller draws no button rather
+// than an empty tour: a tour that opens and says nothing is worse than an absent
+// control, because the reader presses it twice before deciding it is broken. That
+// used to be seven screens — Quotes, Search, Anthologies, the Bin, Checks, Cleanup
+// and the import queue — and it is none of them now.
+//
+// `screen` OVERRIDES `tab`, AND MOST STEPS HAVE NO `screen` AT ALL. The two say
+// different things and the difference only shows where a screen is not a tab: `tab`
+// is where the whole-app tour NAVIGATES, `screen` is whose help offers this step. A
+// book's own page, a film's own page and the Profile panel are all screens with a
+// "?" of their own and no tab to their name, so `helpScreen` is what they answer to
+// and `screen` is how a step says so.
+//
+// IT IS NOT FILTERED BY `sections`, which `tourSteps` still does for the tab steps
+// it wraps. A reader can only ask for the walk through a screen they are already
+// standing on.
+export const tourStepsForTab = (isAdmin, sections, tab) =>
+  TOUR_STEPS.filter((s) => (!s.admin || isAdmin) && (s.screen || s.tab) === tab)
 
 // findVisible — the first match that actually renders (desktop and mobile
 // top bars both mount the same controls; CSS hides one set).
@@ -301,9 +480,15 @@ function DemoQuote({ kind }) {
 // scroll/resize/layout shifts); the spotlight is a ring whose giant box-shadow
 // dims everything else while staying pointer-events: none, so the highlighted
 // UI stays fully usable (the keys step invites pasting keys mid-tour).
-export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, onClose }) {
+export function FeatureTour({ user, startStep = 0, onlyTab = null, onNavigate, onPreferences, onClose }) {
   const sections = useMemo(() => visibleSections(user.preferences), [user.preferences])
-  const steps = useMemo(() => tourSteps(user.is_admin, sections), [user.is_admin, sections])
+  // `onlyTab` IS WHAT MAKES THIS THE HELP TOUR RATHER THAN THE FIRST-RUN ONE. Same
+  // component, same steps, same spotlight — one screen's worth. A second component
+  // would be two tours to keep true about what a feature is.
+  const steps = useMemo(
+    () => (onlyTab ? tourStepsForTab(user.is_admin, sections, onlyTab) : tourSteps(user.is_admin, sections)),
+    [user.is_admin, sections, onlyTab],
+  )
   const [i, setI] = useState(() => Math.min(Math.max(0, startStep), steps.length - 1))
   const step = steps[i]
   const mobile = useIsMobileScreen()
@@ -313,6 +498,15 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
   // Entering a step: navigate its tab, then focus the card so screen readers
   // and the keyboard land on the new copy.
   useEffect(() => {
+    // A SCREEN BUILT OUT OF SECTIONS NEEDS THE SECTION NAMED TOO. Navigating to the
+    // tab lands on whichever door that screen was last left at — so the step titled
+    // "Tags & stickers" opened the metadata console on its OVERVIEW and talked about
+    // a list the reader could not see. `section` is written before the navigation,
+    // into the key that screen remembers its own door in, which is the same thing
+    // `TagsRedirect` does and for the same reason.
+    if (step.section) {
+      try { localStorage.setItem('tippani:metasection', JSON.stringify(step.section)) } catch { /* private mode: the console opens where it last was */ }
+    }
     if (step.tab) onNavigate(step.tab)
     cardRef.current?.focus({ preventScroll: true })
   }, [i]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -356,10 +550,17 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
     onPreferences?.(patch)
     json('PUT', '/auth/me/preferences', patch)
   }
+  // A SCREEN'S OWN WALK DOES NOT DECIDE WHETHER THE FIRST-RUN TOUR HAS HAPPENED.
+  // Reaching the end of Help's three Settings steps is not "I have seen the app",
+  // and postponing one is not a resume point for the whole thing — `tourStep` is an
+  // index into the UNFILTERED list, so writing one from here would resume the
+  // first-run tour at whatever position this screen's third step happened to hold.
+  // So in per-screen mode these two simply close. `skip` still writes, because it
+  // means the same thing wherever it is pressed.
   function finish() {
-    put({ tour: 'done', tourStep: 0 })
+    if (!onlyTab) put({ tour: 'done', tourStep: 0 })
     onClose()
-    toast(t('tour.toast.done'))
+    if (!onlyTab) toast(t('tour.toast.done'))
   }
   function skip() {
     put({ tour: 'skipped', tourStep: 0 })
@@ -367,9 +568,17 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
     toast(t('tour.toast.skipped'))
   }
   function later() {
-    put({ tour: 'postponed', tourStep: i })
+    if (!onlyTab) put({ tour: 'postponed', tourStep: i })
     onClose()
-    toast(t('tour.toast.postponed'))
+    if (!onlyTab) toast(t('tour.toast.postponed'))
+  }
+  // THE WAY BACK, from wherever they are. The owner: "if he has already skipped, on
+  // any one of them they should be able to manually enable them as well." The empty
+  // string is the never-seen state App auto-opens on, so this is not a fourth value
+  // to teach anything about — it is the tour put back where it started.
+  function unskip() {
+    put({ tour: '', tourStep: 0 })
+    toast(t('tour.toast.reenabled'))
   }
   const next = () => (i >= steps.length - 1 ? finish() : setI(i + 1))
   const back = () => i > 0 && setI(i - 1)
@@ -438,7 +647,16 @@ export function FeatureTour({ user, startStep = 0, onNavigate, onPreferences, on
         </div>
         {step.demo && <DemoQuote kind={step.demo} />}
         <div className="mt-4 flex items-center gap-2">
-          <button type="button" className="tp-link" onClick={skip}>{t('tour.skip.label')}</button>
+          {/* SKIP ALL IS ON EVERY STEP, whichever tour this is — the owner's "on any
+              of the onboarding screens the user can skip all". And where they
+              already have, the same slot is how they put it back rather than a
+              setting they would have to go and find. One control, two states,
+              because the reader's question in both is "do I want these or not". */}
+          {user.preferences?.tour === 'skipped' ? (
+            <button type="button" className="tp-link" onClick={unskip}>{t('tour.reenable.label')}</button>
+          ) : (
+            <button type="button" className="tp-link" onClick={skip}>{t('tour.skip.label')}</button>
+          )}
           <span className="flex-1" />
           {i > 0 && (
             <FieldIconButton

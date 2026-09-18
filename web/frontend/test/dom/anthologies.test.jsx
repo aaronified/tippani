@@ -169,11 +169,20 @@ describe('the anthology list', () => {
     fireEvent.click(screen.getByText('New anthology'))
     fireEvent.change(await screen.findByPlaceholderText('On grief'), { target: { value: 'Passages' } })
 
-    const row = (label) => screen.getByLabelText(label).closest('div')
-    // Hide the credit: stored as hide_credit = true.
-    fireEvent.click(within(row('Who said it')).getByText('Hide'))
-    // Show the date: stored as show_date = true.
-    fireEvent.click(within(row('The day you saved it')).getByText('Show'))
+    // THE SWITCHES ARE BEHIND THEIR GROUP'S DOOR NOW, so the press that opens it
+    // is part of what a person does. The door states the count; the group's own ✓
+    // is what carries the answer back to the form.
+    fireEvent.click(screen.getByText('Show with every passage'))
+    // EACH ROW IS ONE CHIP THAT TOGGLES, not a Hide/Show pair — so the press is on
+    // the thing itself, and what it is set to is `aria-pressed`. The chip carries a
+    // sample of the line under its name, so the name is matched rather than the
+    // whole text.
+    const chip = (label) => screen.getByText(label).closest('button')
+    // Turn the credit OFF: it starts on, so one press stores hide_credit = true.
+    fireEvent.click(chip('Who said it'))
+    // Turn the date ON: it starts off, so one press stores show_date = true.
+    fireEvent.click(chip('The day you saved it'))
+    fireEvent.click(screen.getByLabelText('Save'))
 
     fireEvent.click(screen.getByText('Create'))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/anthologies')).toBe(true))
@@ -295,11 +304,11 @@ describe('the fields a work lends its passages', () => {
     await screen.findByText('On keeping quiet')
     fireEvent.click(screen.getByText('New anthology'))
     fireEvent.change(await screen.findByPlaceholderText('On grief'), { target: { value: 'Passages' } })
-    // The publisher row's own Show. Scoped through its label, because every row on
-    // this form draws the same Hide/Show pair and getByText('Show') would find the
-    // first of eighteen.
-    const row = screen.getByLabelText('Publisher').closest('div')
-    fireEvent.click(within(row).getByText('Show'))
+    // Through the work group's door — the eleven work switches are behind it now.
+    fireEvent.click(screen.getByText('Also show about the book or film'))
+    // The publisher chip, pressed by its own name.
+    fireEvent.click(screen.getByText('Publisher').closest('button'))
+    fireEvent.click(screen.getByLabelText('Save'))
     fireEvent.click(screen.getByText('Create'))
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/anthologies')).toBe(true))
     const body = CALLS.find(([m, p]) => m === 'POST' && p === '/anthologies')[2]
@@ -476,14 +485,19 @@ describe('the fields a work lends its passages', () => {
   it('opens its rule from a button on the page, not only from the ⋯', async () => {
     open()
     await screen.findByText('We remember light.')
-    fireEvent.click(screen.getByRole('button', { name: /fill from a search/i }))
-    expect(await screen.findByPlaceholderText(/search/i)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /what goes in it/i }))
+    // AND IT ASKS THE QUESTION THE CREATE FORM ASKS. This used to look for a search
+    // box, because this door opened one while the form two screens away offered
+    // named sources — one question in two postures, which the repo's own directive
+    // forbids. The named sources are what proves the door leads to the same place.
+    expect(await screen.findByRole('button', { name: 'A tag' })).toBeTruthy()
   })
 
   it('previews a rule before it fills, and sends the search’s own query string', async () => {
     // THREE CLAIMS IN ONE PRESS, and each is a way this screen could lie:
-    //   - the rule on the wire is the SEARCH's query string, so a reader can paste
-    //     it into the search bar and see exactly what it will take;
+    //   - the rule on the wire is still the SEARCH's query string, so a reader can
+    //     paste it into the search bar and see exactly what it will take — that is
+    //     the wire format, and it did not change when the QUESTION did;
     //   - a preview sends preview:true, so looking costs nothing;
     //   - and the count on screen is the one the server returned, not a local sum.
     FILL = { matched: 12, added: 9, skipped: 3, capped: false }
@@ -491,13 +505,15 @@ describe('the fields a work lends its passages', () => {
     await screen.findByText('We remember light.')
     await act(async () => barAction('rule').onClick())
 
-    const box = await screen.findByPlaceholderText(/search/i)
-    fireEvent.change(box, { target: { value: 'death' } })
+    // POINTED AT A TAG RATHER THAN COMPOSED AS A QUERY. The reader picks the kind of
+    // thing and then which one; `scope=all&tag=stoicism` is what that becomes.
+    fireEvent.click(screen.getByRole('button', { name: 'A tag' }))
+    fireEvent.change(await screen.findByPlaceholderText('start typing'), { target: { value: 'stoicism' } })
     fireEvent.click(screen.getByText('What would this take?'))
 
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && /\/fill$/.test(p))).toBe(true))
     const body = CALLS.find(([m, p]) => m === 'POST' && /\/fill$/.test(p))[2]
-    expect(body.rule).toBe('q=death')
+    expect(body.rule).toBe('scope=all&tag=stoicism')
     expect(body.preview).toBe(true)
     expect(await screen.findByText(/12 match\. 9 would be added, 3 are already here\./)).toBeTruthy()
   })

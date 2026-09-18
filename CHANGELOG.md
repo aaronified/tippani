@@ -9,6 +9,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Hold the phone's Back key for the screens behind you.** A menu opens over the key
+  with the last five, and picking one really goes back — your phone's own Back carries
+  on from there rather than into the screens you just stepped over. (The ones above
+  stay reachable with Forward; a browser will not let anything delete them.)
+
+- **An anthology can be filled from something you already have.** Point it at a book, a
+  tag, an author, a colour, a shelf, your favourites, a stretch of time, or the whole
+  library — on the new-anthology form, under the introduction. Turn on **Keep it fed** and
+  it goes on taking what matches as you add it. The search box that used to be here is
+  gone: a search bar is for asking a question, and this is where you say what a thing is.
+
+- **Select several books and gather everything you highlighted in them.** The bulk bar
+  refused a selection of works, on the grounds that a book is not a passage. True — so it
+  takes the passages inside them, which is what one book's own menu has always meant.
+
+- **The search results carry their own Add to anthology button.** It was a row in the
+  screen's ⋯; it belongs with the results, which is what it is about.
+
+- **The field switches show what they would print.** Each is now one chip carrying the
+  field's name and a sample of the line it draws — "Who said it · Seneca · author" — and
+  pressing it is the switch. The Hide/Show pair said nothing about what turning a thing on
+  would put on the page, which was the question.
+
+- **The three groups say that these things get shown.** "About who said it" did not say
+  that anything would be printed about the person; now it does, and so do the other two.
+
+- **A popup opened from a form steps back to it rather than closing.** The ✕ over a
+  half-filled form read as "discard the lot", which was never what it did.
+
+- **Keep a passage without selecting it first.** *Add to anthology* was a bulk action and
+  nothing else, so keeping one line you had just read meant starting a selection, ticking
+  the thing already in front of you, and choosing from a list of anthologies that had to
+  already exist. It is on the card's own menu now — a highlight, a film line, a standalone
+  quote, and a favourite on Home.
+
+- **Anthologies can be filled from the search screen.** Search for something, open the
+  screen's ⋯, and *Gather into an anthology* takes what the search found. Turn on **Keep it
+  fed** and anything matching that search later is offered too. The same door is on the
+  new-anthology form, so a rule can be set while you are making it rather than only
+  afterwards — which is where it has been since the feature shipped.
+
+- **A book's or film's own menu gathers its passages.** Right-click a cover and *Add to
+  anthology* takes everything highlighted in it; with **Keep it fed** on, what you highlight
+  next goes in by itself. (A book is not a passage, so the book itself never becomes an
+  entry — its highlights do.)
+
+- **The search field says what it will search, and searches where you are.** It was one
+  field with one meaning wherever you stood: type, press Enter, leave for the search
+  screen. On Settings, on the metadata console, that made a field labelled Search into a
+  field that would take you somewhere else. Now the screen says what searching means
+  there — the words are in the field itself as well as in the pill beside it — and typing
+  narrows what is in front of you as you type. The pill's × is the way out to your whole
+  library, which is the same press that used to drop a scope — and it takes what you have
+  typed with it. On the Library, the Catalogue and Quotes the field now names its scope in
+  words as well, rather than wearing it only as a pill.
+
+  **Settings can be searched**, which it never could: type "backup" and the page is the
+  cards that answer to it. **The metadata console's own box and the bar are one field**,
+  so the two cannot disagree about what is filtered, and the context follows the section
+  you are in — works, people or characters.
+
 - **`TIPPANI_OFFLINE=1` stops the app phoning anybody.** A self-hosted library on a box that
   does not go out, or that you would rather did not: set it, and every outbound call —
   Google Books, Open Library, TMDB, TVDB, IGDB, Fandom, Wikidata, Amazon, every cover and
@@ -18,6 +79,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The healthcheck and the Docker socket are untouched: neither leaves the machine.
 
 ### Changed
+
+- **Tags is a section of the Metadata console, not a tab of its own.** It always
+  answered the question the rest of that console answers — what is written across your
+  library, and is it written consistently — while sitting in the nav beside Stats as if
+  it were somewhere you go to read. `/tags` still works: it opens the console at Tags,
+  so a bookmark or a link from anywhere else lands where it always did.
+
+- **Every section of the Metadata console wears its own glyph.** People and Characters
+  both drew a bare head, so two doors side by side were told apart only by the word
+  under them; People takes the filled people mark and Characters takes a drama mask,
+  which says *a part somebody plays* rather than *a person*. Works takes assorted
+  shapes — there is no glyph in the set for "books and films together", and borrowing
+  the Library's books or the Catalogue's reel would claim the section holds one kind
+  when it holds two.
+
+- **Checks and the Bin sit against your account in the ☰ drawer.** They were the last
+  two rows of the scrolling list with the account pinned below, so on any phone taller
+  than the list they were stranded halfway up with a field of nothing under them. The
+  desktop rail has always put them at its foot; the drawer does now too.
+
+- **The new-anthology form asks two questions, not twenty-five.** Title, an introduction,
+  and then twenty-three switches — what each passage shows, what its book lends it, what is
+  known about the person behind it — all of it between you and the button that saves. The
+  three groups are behind a row each now, and each row says how many are on, so the form is
+  the two fields a new anthology actually needs. Nothing was removed: every switch is one
+  press away, and the groups are the same three the form already drew.
+
+- **Every screen's "?" can walk you through that screen — and now every screen has one.**
+  The guided tour was one journey through the whole app, replayable only from a card in
+  Settings — so the answer to "how does *this* screen work" was a tour that started at the
+  beginning and navigated you somewhere else. Help now offers the steps belonging to the
+  screen you are on, and says how many there are before you press.
+
+  Seven screens drew no button at all, because the only steps that existed were the
+  welcome tour's: Quotes, Search, Anthologies, the Bin, Checks, Cleanup and the import
+  queue. All seven have their own walk now, and so do a book's own page and a film's own
+  page — which are screens with a "?" and no tab to their name. (Profile does not: it is a
+  panel over a screen, and the step about it is in the welcome tour, pointing at the
+  avatar chip that opens it.)
+
+  **The welcome tour grew with them, from fifteen steps to twenty-two.** A step belongs
+  to a screen and to the first-run walkthrough both, so seven new screens mean seven new
+  stops on the tour a new reader meets. That is a longer first run than before; *skip
+  tour* and *finish later* are on every step as they always were, and the per-screen
+  walks are what the "?" offers once the first run is behind you.
+
+  **And it works on a phone.** The walkthrough was offered by the desktop "?" pill only;
+  a phone's help opens from the ⋯ instead, and drew nothing. That is also the help a book's
+  and a film's page use at every width, so the two screens most likely to be read on a
+  phone could not reach a walkthrough on either.
+
+- **Skip the tour, or turn it back on, from any step.** Skipping was already on every
+  step; getting it back meant finding a setting. Now the same slot offers it back once
+  you have skipped.
+
+- **Settings no longer has an Onboarding card.** The tour it replayed is on every screen's
+  "?" instead, which is where you are when you want it.
+
+- **Settings no longer shows the Devices card.** It pairs the Android app with your account,
+  which is not something to do yet, and it was taking a column slot on every visit to
+  Settings. Nothing about pairing has been removed — the routes still answer and the card is
+  still written — it simply is not drawn.
+
+- **"Keep it fed" now reads On and Off.** The switch that decides whether an anthology keeps
+  taking what its search finds offered *Hide* and *Show* — the words the field switches use,
+  because those decide what a passage prints. They say nothing about feeding, and a reader
+  meeting them there had to work out which one meant "yes, keep going".
+
+- **An anthology's own rule asks the same question the form asks.** Making one offered
+  named sources — a book, a tag, an author, a colour — while changing one afterwards
+  opened a search box and asked for a query. One question in two postures, and the second
+  one meant that a reader who had pointed at a tag had to learn to write `tag=Hope` to
+  point at a different one. The ⋯ now opens the same chooser, under the same words. A rule
+  made from a selection or from a search is more than one choice, so it cannot be shown in
+  the chooser: it is printed as it stands, and picking a source replaces it.
+
+- **The anthology picker finds one or makes one.** It was a closed list, so with no
+  anthologies it could only tell you to go to another screen and make one — losing whatever
+  you had picked to get there. Type a name that does not exist and it is created; type one
+  that does and it is chosen. It says which of the two the press will do before you make it.
 
 - **A work's author now sits under its title on the metadata console, rather than beside
   it.** The row led with "Pather Panchali · Satyajit Ray · 12 quotes" on one line, and a
@@ -511,6 +652,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because a greyed-out control cannot tell you why it is grey.
 
 ### Fixed
+
+- **Back works after following a link to `/tags`.** The address survives Tags becoming a
+  section, but it was arriving as a new step rather than as a redirect — so the history
+  read shelf → tags → console with the old address still in the middle answering with the
+  console, and Back from there went nowhere but the console, for ever. Whatever you were
+  reading before was unreachable.
+
+- **The Tags section no longer draws a second page header.** Inside the console it kept
+  the title and, on a phone, the sticky bar that a screen of its own would carry — so the
+  page said "Metadata" and then "Tags", with two sticky rows stacked on a phone.
+
+- **The search field is announced by what it is, not by what to type in it.** Its
+  accessible name was the placeholder — "author, tag, a line you half remember…" — so a
+  screen reader said what to type and never what you were typing into, which is the one
+  fact the pill beside it gives everybody else.
+
+- **The tour's "Find any line again" step points at the search box again.** It had been
+  pointing at nothing since the top bar was rebuilt on 31 August: the step still named the
+  search box, the box had lost the marker that identified it, and a marker that matches
+  nothing draws neither the highlight ring nor the dimming behind it. The step opened over
+  an undimmed page and singled out nothing at all.
+
+- **The bulk bar on the Library and the Catalogue answers again.** Select some books and
+  the bar appeared, named the count, and then did nothing: the ⋯ would not open, the
+  shelf menu would not open, and neither would anything else on it once the page had been
+  scrolled. The bar pins itself to the top of the page, and it was pinning itself to the
+  same line the top bar occupies — so it sat behind the header, where a press lands on the
+  search box instead. **Set fields** has been unreachable that way since 1.16.0. It now
+  parks below the bar, as it already did on a phone.
 
 - **A character typed on a capture form no longer vanishes when you press Save.** If you
   typed a name into Character and went straight for Save — without pressing Enter to turn

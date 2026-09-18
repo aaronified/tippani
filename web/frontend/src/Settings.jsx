@@ -18,10 +18,9 @@ import { SECTIONS, visibleSections } from './routes.js'
 import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
 import { languageMarksState } from './languages.jsx'
-import { tourFeatures, tourSteps } from './tour.jsx'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, REVIEW_TIERS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
-import { localeActive, localeCatalogue, t, tNodes } from './i18n.js'
+import { fullKeys, localeActive, localeCatalogue, t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
 import {
   ariaLabelText,
@@ -78,6 +77,7 @@ import {
   useFilePick,
   useIsMobileScreen,
   useScreenBar,
+  useScreenSearch,
 } from './ui.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
@@ -120,7 +120,29 @@ function useColumnCount() {
 // sits under metadata: both are the corner of Settings you come to when something
 // has gone wrong — one for what you deleted, one for what a page left in your
 // quotes — and each is a tile in front of a page of its own.
-export const SETTINGS_CARDS = ['onboard', 'features', 'colors', 'sr', 'devices', 'trash', 'clean', 'upd', 'backup']
+// ONBOARDING IS NOT IN THIS LIST EITHER, and for a different reason from Devices.
+// The owner: "no need for a global onboarding settings". The walkthrough did not go
+// away — it moved to where a reader asks for it, which is the "?" on the screen that
+// confused them, one screen's worth at a time. A card replaying the whole tour from
+// Settings was a door to the app's least-wanted journey, six cards down a scroll.
+// `OnboardingCard` is deleted rather than unregistered: unlike Devices, nothing is
+// coming back for it — Help's own button is a replacement, not a relocation.
+//
+// DEVICES IS NOT IN THIS LIST AND ITS CARD IS STILL IN THIS FILE. The owner: "hide
+// the devices settings. that was created for the app. not required right now (keep
+// the code and the backend, just no need to let it hog the screen space)." So the
+// card stops being registered and stops taking a column slot; `DevicesCard` below,
+// its strings, and every `/auth/devices` route are untouched, and putting it back is
+// this one word. Registering it is what draws it — the same mechanism that leaves a
+// non-admin without Updates and Backup.
+// 'trash' AND 'clean' LEFT THIS LIST, AND THEY LEFT THE PAGE LONG AGO. The note
+// above still explains why the bin and stray-marks TILES were removed; the two ids
+// stayed behind in this list and in the layout below, naming cards the `cards` object
+// has not built since. Harmless, because `settingsColumns` places only what is
+// present — and so invisible, which is why they outlived the tiles by several
+// releases. Found by the scanner that pairs this list against the search prefixes:
+// two ids with nowhere to look them up.
+export const SETTINGS_CARDS = ['features', 'colors', 'sr', 'upd', 'backup']
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -174,13 +196,13 @@ export const SETTINGS_CARDS = ['onboard', 'features', 'colors', 'sr', 'devices',
 export const SETTINGS_LAYOUT = {
   1: [SETTINGS_CARDS],
   2: [
-    ['colors', 'onboard', 'backup'],
-    ['sr', 'features', 'devices', 'trash', 'clean', 'upd'],
+    ['colors', 'backup'],
+    ['sr', 'features', 'upd'],
   ],
   3: [
-    ['colors', 'onboard'],
+    ['colors'],
     ['sr', 'features', 'upd'],
-    ['devices', 'trash', 'clean', 'backup'],
+    ['backup'],
   ],
 }
 
@@ -193,7 +215,54 @@ export function settingsColumns(ncols, presentKeys) {
   return layout.map((col) => col.filter((k) => present.has(k)))
 }
 
-export default function Settings({ user, onPreferences, update, onUpdateInfo, onStartTour }) {
+// ---- searching Settings from the shell's own field --------------------------
+//
+// THE OWNER NAMED THIS SCREEN: "in metadata, it will search in metadata, in settings
+// it will search within settings as well. it should behave like an omnibar." So the
+// bar's field narrows this page as it is typed, and the words it matches are the
+// card's OWN words.
+//
+// DERIVED FROM THE CATALOGUE, NOT A LIST KEPT BESIDE IT. The obvious shape is a map
+// of card id -> search terms, and it is the shape this repo keeps writing warnings
+// about: it agrees with the screen on the day it is written and drifts on the next
+// rename, silently, because nothing renders it. Every string a card can draw already
+// lives under that card's own prefix, so the prefix IS the term list — rename a
+// label and the search follows it, add a control and the search finds it, with
+// nothing to keep in step.
+//
+// `.title` AND `.label` ONLY, which is the difference between searching an interface
+// and searching its prose. The explanatory paragraphs under these headings are where
+// most of the words on this page are; matching them would find "backup" on four
+// cards that merely mention it, and a filter that returns most of the page has told
+// the reader nothing.
+const SETTINGS_PREFIX = {
+  appearance: 'settings.appearance.',
+  features: 'settings.features.',
+  sr: 'settings.quiz.',
+  colors: 'settings.colours.',
+  upd: 'settings.updates.',
+  backup: 'settings.backup.',
+}
+
+// settingsMatches — does this card answer to what was typed?
+//
+// EXPORTED AND PURE, because it is the one part of this that is a function rather
+// than a screen: given a card and a query it either matches or it does not, and that
+// is checkable without mounting Settings at all.
+export function settingsMatches(cardKey, query) {
+  const q = String(query || '').trim().toLowerCase()
+  if (!q) return true
+  const prefix = SETTINGS_PREFIX[cardKey]
+  if (!prefix) return false
+  for (const key of fullKeys()) {
+    if (!key.startsWith(prefix)) continue
+    if (!key.endsWith('.title') && !key.endsWith('.label')) continue
+    if (t(key).toLowerCase().includes(q)) return true
+  }
+  return false
+}
+
+export default function Settings({ user, onPreferences, update, onUpdateInfo }) {
   const mobile = useIsMobileScreen()
   const ncols = useColumnCount()
   // ── THE PHONE'S TWO SEATS, and they are the two verbs on this page.
@@ -210,6 +279,9 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
   // exists to prevent. What the key skips is the scrolling.
   const [backupNow, setBackupNow] = useState(false)
   const [updateNow, setUpdateNow] = useState(false)
+  // WHAT THE SHELL'S FIELD IS ASKING ABOUT WHILE THIS SCREEN IS UP.
+  const [q, setQ] = useState('')
+  useScreenSearch({ key: 'settings', label: t('shell.search.where.settings'), onQuery: setQ })
   useScreenBar({
     // WHO YOU ARE, UNDER THE WORD "SETTINGS". It was a mono label inside
     // .page-header, and on a phone that header has its <h1> visually hidden —
@@ -223,11 +295,9 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
     ] : null,
   })
   const cards = {
-    onboard: <OnboardingCard user={user} onStartTour={onStartTour} />,
     features: <FeaturesCard prefs={user.preferences} onSaved={onPreferences} />,
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
     colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
-    devices: <DevicesCard />,
     // THE BIN AND STRAY-MARKS TILES ARE GONE FROM HERE. Both were doors and
     // nothing else — a count, a state, and a button to a page that already showed
     // both. The rail and the ☰ menu now carry a counted row to each (stray marks
@@ -243,7 +313,15 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
         }
       : {}),
   }
-  const columns = settingsColumns(ncols, Object.keys(cards))
+  // NARROWED BEFORE THE LAYOUT IS RESOLVED, not after. `settingsColumns` places the
+  // cards that are PRESENT into a fixed layout, so handing it the matching set is
+  // the same operation a non-admin already performs — the columns come up shorter
+  // rather than the page rearranging itself, which is the whole reason that function
+  // takes the present keys instead of packing by height. See its own note.
+  const present = Object.keys(cards).filter((k) => settingsMatches(k, q))
+  const columns = settingsColumns(ncols, present)
+  const showAppearance = settingsMatches('appearance', q)
+  const nothing = !showAppearance && present.length === 0
   return (
     <section className="space-y-6">
       {/* NO PAGE HEADER ON A PHONE, not even an empty one. The shell's bar draws
@@ -258,7 +336,11 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, on
           counts={user.is_admin ? t('account.users.admin.chip') : user.username}
         />
       )}
-      <Appearance prefs={user.preferences} onPreferences={onPreferences} />
+      {/* SAY SO RATHER THAN GO BLANK. A page that empties under a typed word looks
+          like a page that broke, and the reader's next move is to reload rather than
+          to correct the word. */}
+      {nothing && <p className="microcopy">{t('settings.search.none', { q })}</p>}
+      {showAppearance && <Appearance prefs={user.preferences} onPreferences={onPreferences} />}
       {/* align-items:start so a short column stays short instead of stretching
           its last card to match the tallest column. */}
       <div
@@ -356,7 +438,14 @@ function ColourCategoriesCard({ prefs, onSaved }) {
     // SectionTitle already lays a dot out on the heading's own line, which is
     // where it was wanted, and it carries the standing copy that a line of
     // microcopy underneath was repeating in shorter words.
-    <Card data-tour="categories">
+    //
+    // NO `data-tour` HERE ANY MORE. This card carried `data-tour="categories"` and
+    // no step ever named it — an anchor with nothing on the other end, which is the
+    // same defect as the tour step that named `[data-tour="search"]` after the
+    // element lost it, seen from the opposite side. Both cost nothing and do
+    // nothing, and neither the build nor any test says a word. If the colour
+    // categories ever earn a step, the attribute comes back with it.
+    <Card>
       <SectionTitle
         info={t('settings.colours.info.body')}
       >
@@ -1882,25 +1971,6 @@ function PromptFrame({ title, closeLabel, closeTip, busy = false, maxWidth = 460
 // by a release. The roadmap link survives, in the Updates card, where "what
 // version am I on" and "what is coming" are the same question asked twice.
 
-// OnboardingCard — the guided tour's home (ROADMAP: onboarding). Starts,
-// replays or resumes the tour, and replays ONE step of it. The tour runs by
-// itself on a user's first launch; "finish later" parks it here as a Resume
-// button. The sample content is built in — onboarding never asks for the user's
-// files.
-//
-// THE LIST OF FEATURES IS GONE (1.15.2), and it is the second time this card has
-// tried to be a table of contents. It started as a dozen two-line rows, which
-// pushed the Start button off a phone screen; the blurbs went behind InfoDots,
-// which left a dozen names each trailing a dot — a list you cannot act on, above
-// the one button that does anything. A name in that list answered "is this
-// covered?", and nobody arrives at Settings → Onboarding asking that. They
-// arrive having forgotten how one screen works.
-//
-// So the list becomes a PICKER, behind the second button, where choosing a name
-// does the thing the name suggested. Same source (tourFeatures, so it still
-// cannot drift from the tour), one fewer standing wall of text, and the blurbs
-// come back as blurbs rather than as dots — a dialog has the room a 300px column
-// did not.
 // ---- Features: which sections the app shows you ----
 //
 // Not everybody keeps films, and not everybody keeps a quote that belongs to no
@@ -1990,74 +2060,6 @@ function FeaturesCard({ prefs, onSaved }) {
   )
 }
 
-function OnboardingCard({ user, onStartTour }) {
-  const state = user.preferences?.tour || ''
-  const step = user.preferences?.tourStep || 0
-  const [picking, setPicking] = useState(false)
-  // The same two arguments the tour itself passes, derived from the same
-  // preference bag — a picker offering a section the reader has hidden is a door
-  // into it, and an `at` computed over a different list opens the wrong step.
-  const sections = visibleSections(user.preferences)
-  const feats = tourFeatures(user.is_admin, sections)
-  const total = tourSteps(user.is_admin, sections).length
-  // `at` is the feature's index in tourSteps, which is what onStartTour takes —
-  // NOT its index in this filtered list. See tourFeatures.
-  const start = (at) => { setPicking(false); onStartTour?.(at) }
-  return (
-    <Card>
-      <SectionTitle
-        right={state === 'done' && <MonoLabel style={{ color: 'var(--ok)' }}>{t('settings.onboarding.done.label')}</MonoLabel>}
-        info={t('settings.onboarding.info.body')}
-        infoTitle={t('settings.onboarding.title')}
-      >
-        {t('settings.onboarding.title')}
-      </SectionTitle>
-      <div className="flex flex-wrap items-center gap-2">
-        {/* keepLabel on the primary: it carries the step count when it is a
-            Resume, and a bare flag on a phone would drop the only part of that
-            button anybody reads. */}
-        {state === 'postponed' ? (
-          <>
-            <StickerButton icon={<IconTour />} keepLabel onClick={() => start(step)}>
-              {t('settings.onboarding.resume.label', { n: Math.min(step + 1, total), total })}
-            </StickerButton>
-            <GhostButton icon={<IconRefresh />} onClick={() => start(0)}>{t('settings.onboarding.restart.label')}</GhostButton>
-          </>
-        ) : (
-          <StickerButton icon={<IconTour />} keepLabel onClick={() => start(0)}>
-            {t(state ? 'settings.onboarding.replay.label' : 'settings.onboarding.start.label')}
-          </StickerButton>
-        )}
-        {/* keepLabel for the same reason the two Appearance doors have it: this
-            is the only way to the picker, and an unlabelled bookmark on a phone
-            is a feature nobody finds. "Start over" above keeps none, and should
-            not — it is a secondary variant of the labelled button beside it, so
-            the row it sits in already says what it is about. */}
-        <GhostButton icon={<IconBookmark />} keepLabel onClick={() => setPicking(true)}>{t('settings.onboarding.pick.label')}</GhostButton>
-      </div>
-      <FormModal open={picking} onClose={() => setPicking(false)} title={t('settings.onboarding.pick.label')} maxWidth={520}>
-        <p className="microcopy mb-3">
-          {t('settings.onboarding.pick.prose')}
-        </p>
-        <div>
-          {feats.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className="tactile w-full text-left"
-              style={{ borderTop: '1px solid var(--line)', padding: '9px 2px' }}
-              onClick={() => start(f.at)}
-            >
-              <span style={{ fontSize: 'var(--type-ui-13)', fontWeight: 600 }}>{f.name}</span>
-              <span className="microcopy block">{f.blurb}</span>
-            </button>
-          ))}
-        </div>
-      </FormModal>
-    </Card>
-  )
-}
-
 // DevicesCard — pair a phone with this account, and revoke one.
 //
 // A paired device carries a bearer token, not a session cookie: no expiry, and
@@ -2067,7 +2069,10 @@ function OnboardingCard({ user, onStartTour }) {
 //
 // The code is shown as text rather than a QR: the QR only saves typing, and
 // there is no app to point a camera at it yet. It lands with the app.
-function DevicesCard() {
+// EXPORTED THOUGH NOTHING IN THIS FILE RENDERS IT. The card is hidden rather than
+// deleted (see SETTINGS_CARDS), and a hidden card with no test is a card that rots
+// quietly until somebody puts it back. `device-revoke.test.jsx` mounts it directly.
+export function DevicesCard() {
   const { ask, confirmDialog } = useConfirm()
   const [devices, setDevices] = useState(null)
   const [pair, setPair] = useState(null) // {code, expires_at} while pairing

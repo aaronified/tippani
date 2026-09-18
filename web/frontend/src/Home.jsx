@@ -35,6 +35,7 @@ import {
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { actionsFor, atOverflow, atRow } from './actions.jsx'
+import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { useStickers } from './stickers.jsx'
 import {
   ANNOTATION_HEX,
@@ -1033,6 +1034,7 @@ export function FavouriteTile({
   authorMap = {}, actorMap = {}, speakerMap = {}, seps, onOpenPerson, onOpenCharacter,
 }) {
   const meta = FAV_KINDS[f.kind]
+  const gather = useGatherDoor()
   // From the registry (actions.jsx): a favourite is one of the three kinds of
   // quote seen from a different screen, so it gets the same set in the same order.
   const acts = actionsFor(meta.actionKind, f, {
@@ -1044,6 +1046,13 @@ export function FavouriteTile({
     // there means. `f.raw` is the stored row — `f` is the card's own shape.
     favourite: onPatch && (() => onPatch({ favorite: !f.raw?.favorite })),
     favourited: !!f.raw?.favorite,
+    // OFFERED HERE BECAUSE THE COMMENT ABOVE PROMISES IT: a favourite is one of the
+    // three kinds of quote seen from a different screen, and "the same set in the
+    // same order" is not the same set if the one screen a reader lands on first is
+    // the one that cannot keep anything. `f.raw.id` is the stored row's id, which is
+    // what the anthology route wants — `f.id` is the card's own shape.
+    addToAnthology: () =>
+      gather.open({ items: [{ kind: ANTHOLOGY_KIND[meta.actionKind], item_id: f.raw?.id }], count: 1 }),
     remove: onDelete && (() => onDelete()),
   })
   const { cardProps, menuClass, menu } = useCardMenu(acts.map((x) => ({ ...x, onClick: x.run })))
@@ -1437,6 +1446,7 @@ export function FavouriteTile({
           )}
         </>
       {menu}
+      {gather.node}
     </HandCard>
   )
 }

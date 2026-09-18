@@ -23,6 +23,10 @@ import { usePersonOpener } from './personOpen.jsx'
 // A REAL IMPORT BESIDE THE RE-EXPORT BELOW. `export … from` is not a local
 // binding, and useSearchVocabulary calls this — see no-free-names.test.js.
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
+// FROM anthologyGather.jsx AND NOT anthologies.jsx, which imports `SearchBox` out
+// of this file — reaching back into it would close that edge into a cycle. See
+// that module's header.
+import { AddToAnthologyDialog, gatherInto, gatheredPhrase } from './anthologyGather.jsx'
 
 // Re-exported so the callers that have always imported it from here still can.
 export { primeSearchVocabulary } from './vocabulary.js'
@@ -53,6 +57,7 @@ import {
   HandCard,
   HandNote,
   HighlightSpan,
+  IconAnthology,
   IconBooks,
   IconClose,
   IconDialogue,
@@ -82,6 +87,7 @@ import {
   IconRevert,
   usePersistedState,
   useScreenBar,
+  toast,
   useSort,
   ViewToggle,
   useBackToClose,
@@ -543,11 +549,16 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   const [nonce, setNonce] = useState(0) // bump to re-run the search after a bulk action
   const reload = () => setNonce((n) => n + 1)
   const [quote, setQuote] = useState(null) // { kind, hit } — a single quote opened from a result
+  const [gathering, setGathering] = useState(false) // the anthology picker, over this search
   // SEARCH'S ONE SCREEN-LEVEL ACT. Everything else on this page belongs to the
   // box — the field, the facet dropdown, each chip's own ×  — and clearing the lot
   // is the thing that has no control of its own, because it is the sum of them.
   // Absent when there is nothing to clear rather than greyed: a menu row cannot be
   // disabled, and "Clear" over an empty search does nothing visible.
+  // THE GATHER IS A BUTTON ON THE RESULTS, NOT A ROW HERE. It was both for a while,
+  // which is the same door twice within a thumb's reach of itself — and of the two
+  // the button is the right one: this menu answers "what can this SCREEN do", and
+  // gathering is about what the screen has just found. See the results header.
   useScreenBar({
     actions: () => (q || chips.length
       ? [
@@ -593,6 +604,24 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   // three separate pieces of it — and an array of chips cannot be a dep.
   const querystring = searchQueryString({ q: freeText, scope, chips })
   const nothingAsked = !freeText.trim() && chips.length === 0
+
+  // THE RULE IS THIS SEARCH WITHOUT ITS SCOPE, and the `scope: 'all'` is deliberate
+  // rather than a copy that forgot a variable.
+  //
+  // A rule cannot express a scope: `parseSearchFacets` treats `scope` as a reserved
+  // parameter and skips it, and the fill then runs all three kinds regardless (see
+  // anthologyMatches). So a rule built off a books-only view would quietly take film
+  // lines too — the wire value would say one thing and the fill do another. Writing
+  // `all` makes the stored rule true about what it will actually take, and it is
+  // also what makes a rule "bookmarkable and pasteable into the search bar", which
+  // is 0075's own claim for using the query string as the format.
+  const gatherRule = searchQueryString({ q: freeText, scope: 'all', chips })
+
+  async function gatherSearch(target, { auto }) {
+    setGathering(false)
+    const r = await gatherInto(target, { rule: gatherRule, auto })
+    toast(r.ok ? gatheredPhrase(r) : r.error)
+  }
 
   useEffect(() => {
     if (nothingAsked) {
@@ -710,8 +739,24 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
             setFiltersOpen(true)
           }}
         />
+        {/* GATHERING THIS SEARCH, as a control on the results rather than a row in the
+            screen's ⋯. The owner: "in the search results page, add one 'add to
+            anthology' button that will open a combobox to select / add an anthology."
+            It sits with the results because that is what it is about — the ⋯ is for
+            what the SCREEN can do, and this is about what the screen has just found.
+
+            Absent until there are results: an anthology of nothing is not an offer. */}
         {results && !empty && (
-          <span className="ml-auto flex items-center gap-3 view-toggle-row">
+          <GhostButton
+            className="ml-auto"
+            icon={<IconAnthology />}
+            onClick={() => setGathering(true)}
+          >
+            {t('common.action.anthology.label')}
+          </GhostButton>
+        )}
+        {results && !empty && (
+          <span className="flex items-center gap-3 view-toggle-row">
             {view !== 'table' && (
               <label className="flex items-center gap-2">
                 <MonoLabel>{t('common.mono.group.label')}</MonoLabel>
@@ -1002,6 +1047,14 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
         </FormModal>
       )}
 
+      {gathering && (
+        <AddToAnthologyDialog
+          rule={gatherRule}
+          onApply={gatherSearch}
+          onClose={() => setGathering(false)}
+        />
+      )}
+
       {quote && (
         <QuoteModal
           kind={quote.kind}
@@ -1232,6 +1285,11 @@ export function QuoteModal({ kind, hit, authorMap = {}, actorMap = {}, speakerMa
           <TextOrderScope value={parent?.text_order}>
           <AnnotationCard
             a={row}
+            // WHICH KIND THIS CARD IS DRAWN AS. It defaults to 'annotation', which
+            // was right for everything that reads it — until the card's menu grew a
+            // verb that has to name the row's kind on the wire. A standalone quote
+            // drawn here without this reached the anthology route as `book`.
+            selectKind={isQuote ? 'quote' : 'annotation'}
             meta={isQuote ? utteranceMeta(row) : undefined}
             form={isQuote ? UtteranceForm : undefined}
             variant={0}

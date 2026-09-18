@@ -243,6 +243,34 @@ export function actionsFor(kind, item, ctx = {}) {
       run: () => ctx.setBoard(item),
     },
     {
+      id: 'anthology',
+      label: t('common.action.anthology.label'),
+      where: OVERFLOW,
+      icon: <IconAnthology />,
+      tooltip: t('common.action.anthology.tip', { subject }),
+      // AN ITEM ACTION AT LAST, AND THE OLD COMMENT HERE WAS HONEST ABOUT WHY IT
+      // WAS NOT: "gathering ONE quote is a real thing to want, but the selection is
+      // how you say which quotes, and the card menu has no picker in it". The
+      // picker is the part that has changed — `AddToAnthologyDialog` finds an
+      // anthology or makes one from the name you type, so the card menu now has
+      // somewhere to send you and the reader does not have to select a thing they
+      // are already looking at.
+      //
+      // ON A WORK IT MEANS ITS PASSAGES, which is not a liberty taken with the
+      // word. A book cannot BE an entry — `quoteOwned` accepts book, screen and
+      // utterance and returns false for anything else — so "add this book to an
+      // anthology" can only sensibly mean the highlights in it, and the surface
+      // that offers it says so. The owner chose that reading over the two
+      // alternatives.
+      //
+      // Gated on the CALLBACK and not on the kind, for the reason `board` gives
+      // three items up: the same card is rendered by screens that name the kind
+      // differently, and a kind test here is a control that is right on one screen
+      // and silently missing on another.
+      available: !!ctx.addToAnthology,
+      run: () => ctx.addToAnthology(item),
+    },
+    {
       id: 'delete',
       label: t('common.action.delete.label'),
       where: OVERFLOW,
@@ -487,15 +515,18 @@ export function bulkActionsFor(kind, items, ctx = {}) {
       where: OVERFLOW,
       icon: <IconAnthology />,
       form: BULK_ANTHOLOGY,
-      // THE ONLY DOOR INTO AN ANTHOLOGY, which is why it is here rather than on the
-      // anthologies screen: the add route takes (kind, item_id) pairs, and only a
-      // screen holding quotes can name them. Quotes only — a book is not a passage,
-      // and an anthology of covers is not a thing.
+      // A SELECTION OF BOOKS GATHERS ITS PASSAGES, which is why this is no longer
+      // gated on `!isWork`. The old comment said "a book is not a passage, and an
+      // anthology of covers is not a thing" — both still true, and neither was ever
+      // the reason to refuse: `quoteOwned` will not take a book as an entry, so what
+      // a work can mean here is the highlights inside it, exactly as a single work's
+      // own menu already means. Ten books selected is ten works' worth of passages,
+      // which is a thing people want and had to do ten times.
       //
       // Behind the ⋯ because it asks a question (which anthology) and because
       // gathering is a considered act rather than the reflex colour-and-tag pair the
       // row is reserved for.
-      available: !isWork && !!ctx.addToAnthology,
+      available: !!ctx.addToAnthology,
       run: (values) => ctx.addToAnthology(items, values),
     },
     {

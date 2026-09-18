@@ -13240,6 +13240,206 @@ not build is the half of a plan that keeps its successor honest:
   group" caution, which the registry deliberately does not carry. See its own entry
   above.
 
+## An anthology is pointed at something, not composed out of a query
+
+Six asks in one pass, and the one that reframes the rest is the second: *"the fill from a
+search in the add anthology popup feels bad, drop it."*
+
+**It was right, and the reason is posture.** A search bar is where you ASK A QUESTION; a
+form is where you DECLARE WHAT A THING IS. Nobody making an anthology of Seneca wants to
+compose `author=Seneca` — they want to point at Seneca. So the sources are NAMED: the whole
+library, a book, a film, a tag, an author, a colour, a shelf, favourites, a stretch of time.
+Each maps to a facet the search already indexes, so what the row promises is exactly what
+the fill takes rather than a second grammar to keep in step.
+
+**A BOARD IS NOT AMONG THEM AND THAT IS NOT AN OVERSIGHT.** The owner chose it; there is no
+`board` facet. Boards hold standalone quotes only, so `board=X` would have to decide what it
+means for highlights and film lines — every one, or none — and that is a change to the
+shared search grammar rather than to this form. Recorded rather than quietly dropped.
+
+**The switch rows became chips that show their own output.** *"do not use the hide show
+buttons, instead use text buttons with the labels. each label should also hold an example."*
+Two things were wrong with the pair: a row read "Who said it — Hide | Show", so the reader
+answered a question about a FIELD NAME with no idea what turning it on would put on the page
+— "Who said it" could be a name, a name and a role, or a name and dates — and the pair spent
+a whole row saying what a pressed state says for nothing. The chip carries the label and a
+sample, and ON is the accent fill `.tp-filter-chip.active` already means everywhere else. A
+fourth way of saying on would be a new thing to learn for no new meaning.
+
+**And the headers stopped naming a category and started naming an act.** "About who said it"
+does not say anything gets PRINTED. "Also show about the person" does.
+
+**A selection of works gathers its passages.** The bulk bar gated this on the selection not
+being works, with a comment reading "a book is not a passage, and an anthology of covers is
+not a thing". Both true, and neither was the reason: `quoteOwned` settles the first, so what
+a selection of books can mean is the highlights inside them. It goes as a RULE and not as
+entries, because the ids in hand are books and the things wanted hang off them.
+
+**A nested popup steps back rather than closing.** `FormModal`'s in-panel branch has drawn a
+back key naming its parent since it existed, on the reasoning that "a nested surface's two
+exits are answer and back, and a third key that closes the lot is a destructive control
+wearing a dismiss key's clothes". A modal nested in a modal is the same shape and was still
+drawing the ✕ — over a half-filled form, which is where it reads worst.
+
+### Two defects found while building this, both in the new code
+
+**The picker ate what you typed.** The combobox derived its contents from the RESOLVED key,
+so a keystroke that did not yet match a known title set the value to empty and the box
+cleared itself under the reader's hands. It did that reliably for the first word of every
+title, because the vocabulary arrives over the network and the box is typeable before it
+lands. The typed text is now its own state and the key is resolved beside it; the tick stays
+blocked until a name matches, rather than the box rewriting what was typed.
+
+**A selection of works cannot open its own ⋯ in a browser.** This is NOT new and not this
+change: "Set fields" has been in that menu since 1.16.0 and is equally unreachable there, on
+the Library and the Catalogue alike, while jsdom opens it fine. So the bulk-works claim is
+held at the DOM tier with its reason written down, and the browser defect is recorded here
+rather than papered over by a journey that avoids it.
+
+<small>Unreleased — `web/frontend/src/anthologies.jsx`, `anthologyGather.jsx`, `actions.jsx`,
+`SelectionBar.jsx`, `SearchPage.jsx`, `ui.jsx`, `index.css`</small>
+
+## The tour goes to the screen the reader is on, and Settings stops holding it
+
+The owner, in two messages: *"the help section shall have the onboarding journey for each
+screen separately. a button in the help screen that will go you through the features in
+that screen"*, and then *"no need for a global onboarding settings"*.
+
+**The steps already knew which screen they were about.** Every entry in `TOUR_STEPS`
+carries a `tab` — it is what navigates the shell when a step opens — so a per-screen tour
+is a filter over the list that exists, not a second list. That matters more than the line
+of code it saves: a separate per-screen list would be the place where the app's idea of
+"what is on this screen" quietly stops matching the tour's.
+
+**Help is the right home because it is where the reader already is.** The "?" is one press
+from every screen and already names that screen. A reader confused by Metadata does not go
+to Settings; they press the thing next to what is confusing them. And the button states the
+count — *"Show me around this screen (3 steps)"* — because a walkthrough of unknown length
+is a commitment people decline.
+
+**A screen with no steps draws no button.** Quotes and Search have none. A control that
+opens an empty tour is worse than an absent one: it gets pressed twice before it is
+believed.
+
+**A screen's walk does not decide whether the first-run tour has happened.** `finish` and
+`later` write nothing in per-screen mode. `tourStep` is an index into the UNFILTERED list,
+so postponing Help's third Settings step would have resumed the whole tour at whatever
+step held that position — a resume point pointing at the wrong screen. `skip` still writes,
+because "skip all" means the same wherever it is pressed, which is the owner's *"on any of
+the onboarding screens the user can skip all"*.
+
+**And the way back is the same slot.** *"if he has already skipped, on any one of them they
+should be able to manually enable them as well."* Where `tour` is `skipped`, the control
+that would say "skip tour" says "turn the tour back on" and writes the empty string — the
+never-seen state the shell already auto-opens on, so this is the tour put back where it
+started rather than a fourth value to teach anything about.
+
+### What went with it
+
+`OnboardingCard` is deleted rather than hidden, and so is `tourFeatures`, which existed
+only to give that card each named step's INDEX into the unfiltered list. That index was
+delicate enough to need a paragraph and a test — `welcome` and `done` have no name, so the
+nth feature was never the nth step — and all of it was in service of starting the tour at a
+chosen feature. Help starts a tour by SCREEN, so there is no index to get wrong and nothing
+left to guard. `DevicesCard`, hidden in the same pass, is the contrast: unregistered and
+kept whole, because that one is coming back.
+
+<small>Unreleased — `web/frontend/src/tour.jsx`, `help.jsx`, `App.jsx`, `Settings.jsx`,
+`ui.jsx`</small>
+
+## An anthology has four doors instead of one, and a work's door means its passages
+
+The owner's three asks, one release: the add form "is too long", the fill-from-a-search
+rule "cannot be accessed from the anthology add menu and also not visible in the search
+menu (both routes should be there)", and works and annotations should offer "a popup with
+a combobox to search existing anthologies, or create new ones from the same combobox".
+
+**The picker had to change before any of the other two were worth building.** The old
+dialog drew a `Select` — a closed list — so with no anthologies it rendered an error
+naming the Anthologies screen and the Settings switch that reveals it. That is a dead end
+wearing a signpost: the reader leaves, makes one, and comes back having lost the selection
+that brought them there. `SuggestCombo` already existed for exactly this shape and says so
+in its own header — *"it is free text with suggestions, not a picker… nothing is ever
+restricted to the pool"* — so the name typed IS the create path. Every new door depends on
+that, because a door onto a dead end is worse than no door.
+
+**A work cannot be an anthology entry, so its menu had to mean something else.**
+`quoteOwned` accepts `book`, `screen` and `utterance` and returns false for anything else;
+an anthology of covers is not a thing, and the registry said so. Three readings were put to
+the owner — gather its passages now, set a rule that follows it, or both — and **both** was
+chosen: the work's door hands the picker `book=<id>` as a rule, which fills immediately and,
+with *Keep it fed* on, keeps taking what is highlighted later. One control, both halves,
+and no second mechanism.
+
+**The rule from the search screen drops the scope, deliberately.** A rule cannot express
+one: `parseSearchFacets` treats `scope` as reserved and skips it, and `anthologyMatches`
+then runs all three kinds regardless. So a rule built off a books-only view would store a
+wire value that says one thing and does another. `scope: 'all'` is written explicitly, which
+also keeps 0075's own claim true — that a rule is readable and pasteable into the search bar.
+
+**And the rule is never in the body of a create or an update.** Neither route carries one
+and the fill endpoint needs an id that does not exist until the create responds, so the
+form collects `{rule, auto}` and hands them to its caller as a second argument. Every door
+then goes through `gatherInto`, which is one function because the repo's directive says a
+control drawn on two screens has one behaviour — and here there are four surfaces and three
+moving parts each, which is the arithmetic that directive exists for.
+
+### Where this turned out to be wrong twice
+
+**A nested `FormModal` wears the right chrome and did NOT dismiss correctly, and reading
+the code found only the first half.** The plan was to convert the form to a panel so the
+groups could open as in-panel subsheets, because `FormModal`'s own header describes an
+escalation defect — *"if the actor/char page is a popup, why is the sub entry of add links a
+separate screen altogether?"*. On chrome the reading holds: `sheet = mobile && !surface`, so
+a dialog opened from inside another wears its parent's clothes at both widths — a card on a
+scrim over a card on a scrim, a sheet over a sheet. The escalation was popup→screen and this
+is screen→screen, so the panel conversion would have been a visible change nobody asked for.
+
+**But "nesting was already safe" was the wrong conclusion, and it was drawn from the wrong
+hook.** `useEscape` does keep a stack and run only the top. `useBackToClose` kept none: every
+open overlay added its own `popstate` listener. Worse, an overlay that closes by any other
+means — ✓, ✕, Escape — hands its history marker back in its cleanup, and that `history.back()`
+raises a pop indistinguishable from the reader's own. So pressing ✓ on a group's popup closed
+the popup AND the form under it, discarding the title already typed. Nothing errored, no
+jsdom test saw it (jsdom delivers that pop on a later turn), and the first browser journey
+over the finished form found it in one press.
+
+So `useBackToClose` is now a stack like `useEscape`'s, plus a count of the pops that are our
+own unwind rather than a gesture — without the second half the parent simply answers the pop
+instead, because the child has already left the stack. `making-an-anthology.journey.mjs` is
+the guard: reverting either half fails it on the form that is no longer there. The lesson is
+narrower than "check the other hook": **two hooks answering two gestures for the same stack
+of surfaces will not stay in agreement unless something makes them**, and only one of them
+had been asked to.
+
+**And `export … from` does not create a local binding.** The picker, the list hook and the
+request moved to `anthologyGather.jsx` because `anthologies.jsx` imports `SearchBox` from
+`SearchPage.jsx`, and the search screen needed the picker — reaching back would have closed
+a cycle. Re-exporting them from `anthologies.jsx` for its two existing importers left the
+file's own calls unbound: a pass-through is not an import, so `useAnthologies` and
+`gatherInto` were `ReferenceError` at render with nothing in the module graph looking wrong.
+Both are now imported and re-exported on separate lines.
+
+**And the card the highlight menu was written on is not only a highlight's.** `Library`'s
+`AnnotationCard` is drawn by Quotes for standalone utterances and by the search modal for
+whatever the hit is, so naming the kind in its menu — `ANTHOLOGY_KIND.annotation` — sent an
+utterance's id up as `book`. `quoteOwned` then resolved it against the ANNOTATIONS table,
+where a row of the reader's own shared that id, so gathering a standalone quote silently put
+a DIFFERENT passage into the anthology and the toast said "1 gathered". A wrong answer that
+cannot fail is worse than an error; the kind now comes from `selectKind`, which is what the
+card was drawn as, and the search modal passes it rather than taking the default.
+
+**The work-card menu's rule was "no writes" and is not.** `work-card-menu.test.jsx` asserted
+that a board which cannot reload offers nothing that writes. *Add to anthology* writes, and
+belongs there anyway: the hazard the callback guards is a control that is *"present and
+silently ineffective"*, which is a write whose result **this tile would have to redraw**. A
+gather writes somewhere else entirely. The test now states that rule and names the five
+writes that do qualify — the same refinement the file already made once, for Practise.
+
+<small>Unreleased — `web/frontend/src/anthologyGather.jsx`, `anthologies.jsx`,
+`SearchPage.jsx`, `actions.jsx`, `Library.jsx`, `Movies.jsx`, `works.jsx`, `Home.jsx`,
+`SelectionBar.jsx`, `index.css`</small>
+
 ## Ten hand-picked languages became eighty-six derived ones, and four rules changed shape underneath
 
 Item 6 of the queue starts here: `STARTER_LANGUAGES` — ten names, each with four glyphs
@@ -15235,6 +15435,320 @@ said here rather than left to be discovered: the four HTML routes (Goodreads,
 Hardcover, IMDb, the saved Kindle notebook) have Go parser tests and no journey.
 They need a saved page of real markup to be honest about, which is a fixture
 question rather than a test-writing one.
+
+## One question, two postures, and the bar that was hiding behind the header
+
+A rating of the anthology and per-screen-tour work came back at 7/10 with six
+findings. Two of them were the same kind of defect said twice — a claim nothing
+held — and one was a design departure nobody had written down. What follows is what
+each turned out to be, because three of the six were only half of what they looked
+like.
+
+### The bulk bar was never unreachable "in the harness"
+
+The finding: a selection of books offers *Add to anthology* and nothing asserts what
+pressing it does — mutate `SelectionBar`'s rule to `''` and the whole suite stays
+green over a feature that makes an empty anthology and reports success.
+
+The reason it had no journey was written into the jsdom test that stood in for one:
+"a work selection's ⋯ does not open in the harness". That had been believed for two
+releases, and it was **a stylesheet bug in the app**:
+
+```css
+.selection-bar { position: sticky; top: 0;  z-index: 30 }   /* the bulk bar */
+.topbar        { position: sticky; top: 0;  z-index: 40 }   /* 56px tall     */
+```
+
+Two things pinned to the same line, and the one that wins is the one drawn on top.
+Measured rather than argued: the ⋯ reported a 44×44 box at `y = 9`, and
+`document.elementFromPoint` at the button's own centre returned the top bar's search
+input. Every control on that bar was dead once the page had scrolled far enough for
+the bar to stick — the ⋯, the shelf menu, **Set fields**, all of it, since 1.16.0.
+
+**THE PHONE HALF WAS ALREADY RIGHT**, which is the part worth keeping in mind. A
+`@media` rule set `top: 54px` there, with a sibling comment explaining that a sticky
+bar has to clear `.mobile-topbar`. The desktop bar was simply never given the same
+offset, and a `--topbar-h` token now states the height once so the two rules cannot
+disagree about it again.
+
+**NO TIER BELOW A BROWSER COULD HAVE SEEN THIS.** jsdom has no layout: it opened the
+menu happily, which is exactly why the jsdom stand-in passed while the feature was
+unusable. The test that replaces it presses through a real browser, and the mutation
+the rating named now kills it.
+
+### A guard that went out with the thing it grew up beside
+
+`test/pure/tour-sections.test.js` held one claim: a step marked `admin` drops out for
+everyone else. It was deleted along with the Settings onboarding picker, because it
+sat in the same file — and nothing replaced it. Strike `!s.admin || isAdmin` out of
+`tourSteps` and vitest stays green, the new per-screen tour journey stays green, and
+a reader who is not an admin gets walked through the API-keys card and the Backup
+card: two panels their account does not draw.
+
+**THE HARNESS IS AN ADMIN, WHICH IS WHY THE JOURNEY COULD NOT SEE IT EITHER.** So the
+replacement makes a second account the way `per-user-isolation` does — from the
+Profile screen, which is how a person makes one — and reads the same button on the
+same screen: three steps for the admin, one for the reader. Then it walks that one
+and checks the two are not behind it.
+
+### A journey that asserted its own title
+
+`an-anthology-of-a-tag` ended on `see('Everything hopeful')`, which is the anthology's
+TITLE — printed by the list whether the fill took anything or not — while the header
+above it claimed the mutation would be caught by "the final `see` of a tagged quote".
+The rating proved the gap by disabling the form's fill outright and watching the file
+pass. It reads a Hope-tagged line out of the opened anthology now.
+
+**THE GENERAL LESSON, AND IT IS NOT "MUTATE MORE".** Every journey here is
+mutation-verified, and this one was too — against the mutations its header names,
+which were about the FORM. What nobody checked was whether the last line asserted the
+thing the paragraph above it said it asserted. A header that describes a stronger test
+than the file contains is worse than no header: it is the reason nobody looks again.
+
+### The departure: one question asked in two postures
+
+Making an anthology asked **What goes in it** and offered named sources — a book, a
+tag, an author, a colour, a shelf, favourites, a stretch of time. Changing an existing
+anthology's rule opened **the search screen's own box** and asked for a query. One
+question, two postures, and the owner has made the general case a repo directive:
+"similar things should act similarly… A control drawn by one component on two screens
+has ONE behaviour, and it lives in one function that both screens call."
+
+So the ⋯ opens the same chooser, under the same words, and `useRuleBox`, `RuleFields`,
+`ruleChips` and `ruleQuery` are gone with the box. What the edit surface genuinely
+needs beyond the create form — a line saying what the rule takes today, and a count
+before committing — is passed IN as `lead` and `extra` rather than drawn by a second
+copy of the question.
+
+**AND THERE IS A REAL ASYMMETRY UNDERNEATH THE DRIFT, WHICH IS WHY THIS IS WORTH
+WRITING DOWN RATHER THAN JUST FIXING.** The chooser expresses exactly one facet with
+one value, deliberately, because that is the shape of a question somebody answers
+while making a thing. A STORED rule can be anything the search grammar expresses: a
+selection of three books writes `book=4&book=9&book=12`, a gathered search writes
+`q=thistle&…`. So `fillSpecFromRule` returns null for most real rules, and the dialog
+prints the rule as it stands — it is the search's own query string by construction, so
+it can be pasted into the search bar — with the chooser below it replacing rather than
+editing it.
+
+**REPLACING IS NOT A CONCESSION.** An edit through the chooser replaces the rule in
+every case, including the ones it can express; the lead only says so where it is least
+obvious. What is lost is the ability to hand-edit one clause of a multi-clause rule,
+and that was never something the create path offered either.
+
+### The two smaller ones, which are the same defect in different files
+
+`.help-lead` was in the markup and matched no rule in the stylesheet — the same shape
+as the `is-on`/`active` gotcha this repo already documents, and with the same
+symptom: it looks fine until somebody renders it, at which point the screen's
+walkthrough button is flush against the first row of the glossary and reads as part
+of it. `data-tour="search"` is the mirror image: an anchor a tour step still names,
+on an element that lost the attribute in the shell rewrite (`046b9831`), so that step
+has spotlighted empty space since 31 August.
+
+A class that styles nothing and a hook that anchors nothing are both **a name with no
+other end**, and neither the build nor any test notices. The only thing that finds
+them is asking, of each name, who answers it.
+
+## The omnibar reaches two screens, and the other sixteen are not pretending
+
+The ask was plain: "the searchbar should say the context it will search on. in
+metadata, it will search in metadata, in settings it will search within settings as
+well. it should behave like an omnibar." Asked which way round it should go, the
+owner settled it: screen first, library on demand, **all screens**, with the context
+spelled out in the helper text as well as worn as a pill.
+
+**WHAT SHIPPED IS TWO SCREENS.** Settings and the metadata console — the two the
+owner named — search themselves. Every other screen keeps the library context the bar
+has always had. That is a narrowing of what was asked for, and it is written here
+rather than left in a commit body because a commit body is read once by whoever wrote
+it.
+
+**WHY, AND IT IS NOT EFFORT.** A screen can only be searched if it has something to
+narrow. Settings had nothing and now has a filter of its own; the metadata console
+already had a box, and the work was to make the bar and that box one piece of state
+rather than two that drift. The remaining screens — Tags, the Bin, Anthologies,
+Checks, Cleanup, the import queue — have **no filter at all**. Publishing a context
+from them would draw a pill naming a place, spell that place out in the helper text,
+and then do nothing when the reader typed. A field that claims to narrow and does not
+is worse than a field that honestly says it searches the library: the first teaches a
+reader that the control is broken, the second teaches them where it goes.
+
+**THE SIX STRINGS WERE WRITTEN AND THEN DELETED**, which is the part worth recording.
+`shell.search.where.tags`, `.bin`, `.anthologies`, `.checks`, `.cleanup` and
+`.staging` all existed for an afternoon. `locale-complete.test.js` failed them as dead
+copy — nothing rendered them — and it was right twice over: they were dead, and they
+would have capped every translator below 100% for a feature that did not exist. A
+half-built feature that leaves its copy behind is how a locale file comes to describe
+an app that is not there.
+
+**WHAT FINISHING IT LOOKS LIKE**, so the next person does not have to re-derive it:
+each of those six is a list screen, so each needs a client-side filter over rows it
+has already loaded, and then one `useScreenSearch({ key, label, onQuery })` call
+pointed at that filter. The mechanism is done and takes one line per screen; the
+filters are the work. Checks, Cleanup and the import queue are the awkward three,
+because each composes two lists and would have to decide whether one field narrows
+both.
+
+## A dialog is not a screen, and Profile is a dialog
+
+Every screen's "?" offers a walk through that screen. Profile has a "?", so it looked
+like it should have one, and for one commit the CHANGELOG said it did.
+
+**IT CANNOT, AND THE REASON IS THE HISTORY STACK.** The account panel takes a history
+marker through `useBackToClose` and gives it back on unmount with `history.back()`.
+That pop is ASYNCHRONOUS. Opening a tour from inside the panel means closing the
+panel, so the sequence is: panel unmounts and schedules a pop, tour mounts and pushes
+its own marker, the pop arrives and `backPop` closes the thing now on top — the tour.
+The button drew, the press landed, and the walk vanished on the way in. Measured, not
+reasoned: the screen after the press was plain Home with no tour card on it.
+
+**AND NOT CLOSING THE PANEL IS WORSE.** The account step spotlights the avatar chip
+in the shell's own bar, which is behind the panel's scrim — a caption pointing at
+something the reader cannot see.
+
+**SO THE STEP STAYS WHERE IT WORKS.** It is in the welcome tour, anchored to a control
+that is on every screen, and Profile's "?" keeps its glossary. The general rule this
+leaves behind: `tourStepsForTab` answers for SCREENS, and a surface that has to
+dismiss itself to be walked is not one. `helpScreen` returning a key for it is not
+evidence to the contrary — the add surface answers `capture` and `import` the same way,
+and for the same reason has no walk either.
+
+## Two copies of one filter, and the test that guarded the wrong one
+
+A rating scored this work 7/10 and its first finding is the one worth keeping: the
+guard written for the admin gate was guarding a different line from the one its own
+header named.
+
+`tourSteps` builds the WELCOME tour. `tourStepsForTab` builds a screen's own walk.
+Each applies `!s.admin || isAdmin` separately — two copies of one rule, which is the
+shape this repo has a file's worth of warnings about. The journey written to hold that
+rule (`a-tour-that-skips-what-you-cannot-do`) opens a screen's help and reads the step
+count, so it exercises the second copy. Its header said, in capitals, that the
+mutation it dies on is removing the filter from `tourSteps` — the FIRST copy.
+
+**AND THAT CLAIM WAS FALSE.** Strike the filter out of `tourSteps` and all 4,425
+vitest tests and all 39 journeys stay green, this file included, while a reader who is
+not an admin is walked through the API-keys card and the Backup card on their first
+launch — the exact harm the file's own prose describes at length.
+
+**THIS IS THE SECOND TIME IN THIS DIRECTORY.** The other was
+`an-anthology-of-a-tag`, whose last line asserted the anthology's TITLE while its
+header promised a tagged quote. Both files were mutation-verified when written — against
+the mutation each header happened to name, which in both cases was not the mutation the
+prose was about. So the rule this leaves behind is narrower and more useful than "mutate
+more": **the mutation named in a header is a claim, and it is checked by running it.**
+A header that describes a stronger test than the file contains is worse than no header,
+because it is the reason nobody looks again.
+
+**WHAT THE GUARD IS NOW.** A fresh account's welcome tour says "1 of 19" — nineteen
+being what survives both filters for a non-admin with default sections. Removing either
+one moves the number, which a journey can see without pressing Next nineteen times. It
+does mean adding a tour step updates the number; that is the right cost, because the
+number is what the reader is promised at the top of the tour.
+
+## The search bar's helper text, and a word that was thrown away
+
+Two more from the same rating, both small and both about the bar saying what it is
+doing.
+
+**THE WORDS WERE ON TWO SCREENS AND THE PILL WAS ON FIVE.** The ask was for the
+context in the helper text "along with the pills", and the scoped screens — Library,
+Catalogue, Quotes, and a work you have open — wore the pill and then offered "author,
+tag, a line you half remember…", which is advice about HOW to type and says nothing
+about where the typing goes. `shell.search.hint.within` names the scope in the sentence
+now, and `hint.scoped` is gone.
+
+**AND × THREW THE WORD AWAY.** Pressing the pill's × having typed something landed the
+reader on an empty search screen. Asking for the whole library is a reader saying "not
+here — everywhere", and answering it by discarding what they typed makes them type it
+twice. It carries now, on both paths; what the screen's own filter is holding is still
+released, because they have stopped asking the screen anything.
+
+**ONE LABEL WAS SIMPLY WRONG.** The metadata console published "people and metadata"
+while filtering the works-and-films list — a pill naming people over a list of books.
+It says "works and films", which is what that console holds.
+
+## Holding Back, and the number that had to be counted in entries
+
+The ask: *"phone bottom bar: the back button long press should give the user the list
+of last 5 pages (not as a sliding popup, but as a popup anchored over the back button).
+choosing one there will overwrite the device back history as well. first tell me if
+that is possible."*
+
+**MOSTLY YES, AND THE ONE LIMIT IS WORTH STATING BEFORE THE DESIGN.** The History API
+cannot be read: no browser will say what is behind the current entry, and none will
+delete or reorder entries. Both are anti-spoofing rules rather than omissions. What it
+does offer is `go(-k)`, which rewinds the real stack — so the list has to be the app's
+own, and picking a row is a genuine traversal rather than a navigation dressed up as
+one. What cannot be done is the tidying-up afterwards: the entries above the chosen one
+become FORWARD entries, and the device's Forward key still reaches them.
+
+**THE NUMBER IS THE WHOLE DESIGN, AND THE OBVIOUS ONE IS WRONG.** Every route entry
+already carried `tpDepth`, which looks exactly like the number to subtract. It is not.
+Panels and overlays push entries of their own — `usePanelStack.push` and
+`useBackToClose` — and both carry the route's depth FORWARD unchanged, because their
+entry is not a screen. Two screens three entries apart in the stack therefore read one
+apart in depth, and a jump computed that way stops short on somebody's panel entry. A
+panel's entry carries the address of the screen it opened OVER, so the address does not
+change, the shell reads the pop as an overlay dismissal and returns early, and the
+reader's press does nothing at all — which from the outside is a dead control rather
+than a wrong one.
+
+So every entry the app pushes carries `tpSeq`, one more than the entry it was pushed
+from, panels and overlays included, and the distance between two entries is the
+difference of their serials. `test/rules/history-seq.test.js` fails on a `pushState`
+that skips `stampSeq`, and on a second definition of it, because the arithmetic is only
+true while the count is of ENTRIES.
+
+**THE TRAIL IS RECORDED FROM THE SHELL, NOT FROM `pushRoute`, AND THE REASON IS THE
+NAME.** A work's title arrives after the work does — the screen publishes it through
+`useCrumb` once the fetch lands — so a name taken at push time would be whatever the
+previous screen was called. An effect on the route and the crumb together fires again
+when the name arrives and corrects its own row. It also covers what a push site cannot:
+a `popstate`, the /tags redirect, and the replace `navigateBack` falls back to all land
+there, and every one of them leaves the reader on a screen the list should know about.
+What is stored is the TAB rather than a finished label, so the menu resolves its words
+when it opens — the defect the top bar's context pill shipped with, where a Bengali
+switch left the pill speaking English.
+
+**THE HOLD IS A PROP ON `Tooltip` RATHER THAN A SECOND TIMER.** Every long press in
+this app already runs through that component's 500ms clock and its 10px slop, and the
+control being held wears a tooltip because every dock key does. A hold handler added
+beside it would start two clocks on one `pointerdown` and fire both: the key's own name
+in a bubble, and a menu drawn over the bubble, at the same instant. `onHold` replaces
+what happens at the end of the existing clock, and the click-swallow that was already
+there is what keeps the held key from also going back.
+
+**THE JOURNEY ENDS ON THE PRESS AFTER THE ARRIVAL, WHICH IS THE ONLY PART THAT CAN
+TELL THE TWO IMPLEMENTATIONS APART.** A menu that navigates to the chosen screen looks
+identical — right screen, right row, feature apparently working — and leaves a stack
+with the skipped screens still in it. Mutating the row to the shell's own `go(row.tab)`
+keeps the arrival correct and lands that final Back on Settings instead of Library,
+which is what the case asserts.
+
+**AND A THIRD CASE WAS WRITTEN AND DELETED.** Holding the Back key on a top-level
+screen reached cold, where the key is drawn disabled, passes with the hold itself
+removed: a disabled button raises no pointer events, so there was never anything for
+the gesture to fail at. The case it was trying to be is a work opened cold — a live
+Back key, because it falls back to the shelf, with an empty trail behind it — and that
+one fails when the `rows.length` guard goes.
+
+**AND THE TRIM BELONGED TO EVERY PUSH, WHICH THE FIRST CUT GOT WRONG.** A rating
+found that `trimTrail` could be deleted from `pushRoute` with every case still green.
+Chasing why turned up the real defect rather than a missing test: a panel opened after
+a Back takes the abandoned serial and records nothing, so the stale row sits BELOW the
+next route's serial — out of reach of a trim that only runs on a route push, and never
+overwritten, because `noteRoute` only ever writes the serial it is standing on. The
+menu then offers a screen for an entry that has become somebody's panel, and a panel's
+entry carries the address it opened OVER. That is a row that goes to the WRONG screen,
+which is worse than the dead row the serials were introduced to prevent.
+
+A push is a push: it destroys the forward entries whether or not the thing pushing is a
+screen. So the trim moved into the function every push site already calls, which is now
+named `stampPush` rather than `stampSeq` because it does two things and the old name
+admitted to one. The case that holds it up goes back two, opens a panel, and navigates
+out of it — the path that buries a panel's entry rather than popping it, which `leaveTo`
+already documents from the other end.
 
 ## One row for every list, and the line it moved off the name
 

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
+import TagsPage from './TagsPage.jsx'
 import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, IconArrow } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks } from './ui.jsx'
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, personPanel } from './identity.jsx'
 import { MetadataSources } from './MetadataSources.jsx'
@@ -49,12 +50,31 @@ import { editDistance } from './text.js'
 // component held in a loop variable and then rendered by that variable's name
 // reads to icon-imports.test.js as a component nothing imports — and that sweep
 // catches real omissions, so the cheaper move is to stop looking like one.
+// EVERY DOOR'S GLYPH IS THE APP'S OWN, and four of the five changed when the owner
+// went through them: "give icons to all the sections, from the icon sources, do not
+// make them up yourself. Tag has the icon. People: filled in people icon. Character
+// will get the drama mask icon, filled in. Sources and works: you decide."
+//
+// People and Characters BOTH DREW A HEAD before this — IconUsers and IconPerson, two
+// doors side by side distinguished only by their words. People takes the filled
+// IconNavUsers; Characters takes the drama mask, which is the one glyph in the set
+// that says "a part somebody plays" rather than "a person".
+//
+// Works and Sources were mine to pick. Works is `shapes` (see IconNavWorks for why a
+// mixture of books and films has no glyph and what was chosen instead); Sources is the
+// key, because that section is where the API keys are kept and a key is what a reader
+// goes there holding.
 const METADATA_SECTIONS = [
   ['overview', 'metadata.section.overview.label', <IconStats />],
-  ['works', 'metadata.section.works.label', <IconBooks />],
-  ['people', 'metadata.section.people.label', <IconUsers />],
-  ['characters', 'metadata.section.characters.label', <IconPerson />],
-  ['sources', 'metadata.section.sources.label', <IconKey />],
+  ['works', 'metadata.section.works.label', <IconNavWorks />],
+  ['people', 'metadata.section.people.label', <IconNavUsers />],
+  ['characters', 'metadata.section.characters.label', <IconNavMasks />],
+  // TAGS IS A SECTION HERE NOW AND NOT A TAB OF ITS OWN. The owner: "tags should be a
+  // section within metadata". It always answered the same question the rest of this
+  // console does — what is written across the library, and is it written consistently
+  // — and it sat in the nav beside Stats as if it were a place you go to read.
+  ['tags', 'nav.tab.tags.label', <IconNavTags />],
+  ['sources', 'metadata.section.sources.label', <IconNavSources />],
 ]
 
 // SectionRail — the doors, each wearing its own number.
@@ -319,6 +339,12 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     // The sources row carries no number. Every other door counts records or gaps;
     // this one is a set of settings, and "5 keys" answers a question nobody has.
     sources: null,
+    // NOR DOES TAGS, and for a reason of its own rather than the same one. The rail's
+    // numbers are fetched by THIS page so the door can print a size before it is
+    // opened; the tag list is fetched by the screen behind the door. Counting it here
+    // would mean a second fetch of the same list and two numbers that can disagree —
+    // which is the trap the characters and people counts are lifted up here to avoid.
+    tags: null,
   }
   // Built here rather than inside the sheet: the sheet is mounted only while open,
   // and the count belongs to the page whether or not anybody is looking at it.
@@ -433,6 +459,12 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             </>
           ) : sect === 'sources' ? (
             <MetadataSources user={user} onPreferences={onPreferences} />
+          ) : sect === 'tags' ? (
+            // THE WHOLE TAGS SCREEN, unchanged, inside this one's frame. It keeps its
+            // own loading, its own stickers and its own table — moving a screen into a
+            // section is a change of ADDRESS, not an invitation to rewrite what it
+            // does, and a reader who knew it as a tab should find the same page.
+            <TagsPage embedded />
           ) : sect === 'people' ? (
             <PeopleConsole records={people} onReload={loadPeople} onFlash={setFlash} onReverify={(who) => setReverify({ people: who })} onSearch={onSearch} />
           ) : (
@@ -772,6 +804,13 @@ function moviePasses(m, filter) {
 function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onOpenBook, onOpenMovie, onDone, onFlash, onReverify }) {
   const { ask, confirmDialog } = useConfirm()
   const [q, setQ] = useState('')
+  // THE SHELL'S FIELD DRIVES THIS ONE. The owner named this screen: "in metadata, it
+  // will search in metadata". The box below is still drawn and still works — it is
+  // this console's own and a reader who is looking at the console will use the
+  // nearest field — but they are now ONE piece of state, so the two cannot disagree
+  // about what is being filtered. Publishing the same setter is what makes that
+  // true, rather than a second `q` kept in step by hand.
+  useScreenSearch({ key: 'metadata-works', label: t('shell.search.where.works'), onQuery: setQ })
   const [lookupKey, setLookupKey] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -1654,6 +1693,10 @@ export function CharactersConsole({ rows = null, onReload = null }) {
   const mobile = useIsMobileScreen()
   const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
+  // The section a reader is IN is what the shell's field asks about — see
+  // CatalogueConsole for the argument. Three consoles, one context each, and only
+  // the one on screen is published.
+  useScreenSearch({ key: 'metadata-characters', label: t('shell.search.where.characters'), onQuery: setQ })
   // WHICH WORK, and it is the question this list could not answer.
   //
   // The backfill makes a character record PER WORK — eight films of one series
@@ -2059,6 +2102,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
   const [role, setRole] = useState('all')
   const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
+  useScreenSearch({ key: 'metadata-people', label: t('shell.search.where.people'), onQuery: setQ })
   const [busyID, setBusyID] = useState(0)
   const [bulk, setBulk] = useState(null) // {done, total} while bulk-fetching
   const [err, setErr] = useState('')

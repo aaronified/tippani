@@ -107,8 +107,11 @@ const tab = (name) => screen.getByRole('tab', { name })
 describe('the rail', () => {
   it('names every section, in the order of the question', async () => {
     await mount()
-    // The words, not the counts: the order is the claim.
-    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Sources'])
+    // The words, not the counts: the order is the claim. TAGS JOINED THEM, between
+    // Characters and Sources — it was a tab of its own and is a section here now, and
+    // it sits with the other lists of what is written across the library rather than
+    // beside the keys, which are settings.
+    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Tags', 'Sources'])
   })
 
   it('leaves the sources door with no number, because it counts no records', async () => {
@@ -235,12 +238,12 @@ describe('a section at a time', () => {
 describe('on a phone', () => {
   beforeEach(() => { WIDTH = 390 })
 
-  it('gets the same five doors', async () => {
+  it('gets the same six doors', async () => {
     await mount()
-    // A field, not a strip: five tabs at 390px show two and a half of themselves.
+    // A field, not a strip: six tabs at 390px show two and a half of themselves.
     expect(screen.queryAllByRole('tab')).toHaveLength(0)
     const doors = await phoneDoors()
-    expect(doors.map((s) => s.replace(/\s*·.*$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Sources'])
+    expect(doors.map((s) => s.replace(/\s*·.*$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Tags', 'Sources'])
   })
 
   it('carries each door\u2019s number into the field, because that is why it is a rail', async () => {

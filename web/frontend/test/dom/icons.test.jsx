@@ -296,7 +296,10 @@ describe('the nav glyphs carry the same optical weight', () => {
   // coordinates made a filled house measure 192x195 against a drawn one's 16x15 — ten
   // times the number for the same picture on screen. What matters is the SHARE of its
   // box a glyph occupies, which is what a reader actually sees.
-  const TABS = ['home', 'library', 'movies', 'quotes', 'anthologies', 'tags',
+  // 'tags' LEFT THIS LIST WITH ITS NAV ROW. It is a section of the metadata console
+  // now, so `NavIcon` has no case for it and rendering one returns nothing at all —
+  // which reached this test as `svg` being null rather than as a measurement.
+  const TABS = ['home', 'library', 'movies', 'quotes', 'anthologies',
     'metadata', 'stats', 'settings', 'search', 'import', 'profile', 'users']
   const share = (tab) => {
     const { container, unmount } = render(<ui.NavIcon name={tab} />)

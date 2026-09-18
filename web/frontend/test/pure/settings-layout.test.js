@@ -54,6 +54,20 @@ describe('SETTINGS_LAYOUT', () => {
     for (const n of WIDTHS) expect(flat(n), String(n)).not.toContain('meta')
   })
 
+  it('does not lay out a devices card, though the card itself is still written', () => {
+    // NOT THE SAME AS THE METADATA ONE ABOVE, and the difference is the point. That
+    // card MOVED; this one is hidden. The owner: "that was created for the app. not
+    // required right now (keep the code and the backend, just no need to let it hog
+    // the screen space)." So `DevicesCard` is still in Settings.jsx and every
+    // /auth/devices route still answers — what changed is that nothing registers it,
+    // which is the same mechanism that leaves a non-admin without Updates.
+    //
+    // This guards the hiding rather than the deletion: a key put back into either
+    // list would draw the card again, and on a screen nobody was looking at for it.
+    expect(SETTINGS_CARDS).not.toContain('devices')
+    for (const n of WIDTHS) expect(flat(n), String(n)).not.toContain('devices')
+  })
+
   it('leads a column with colours, which used to be the second half of a pair', () => {
     // Not decoration, and it is what is LEFT of a rule rather than the rule. The
     // pairing existed because both cards answered "what is this thing labelled

@@ -8,6 +8,7 @@ import { StickerImg, StickerPicker, useStickers } from './stickers.jsx'
 import { ShareDialog, copyQuote, movieShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { ActionRow, actionsFor } from './actions.jsx'
+import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
@@ -1788,6 +1789,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
   const frameClass = ['film-frame', wrapClass, 'px-5 py-4'].filter(Boolean).join(' ')
   // From the registry, like every other card (actions.jsx). A dialogue is an
   // annotation with different credits, so it gets the same set in the same places.
+  const gather = useGatherDoor()
   const acts = actionsFor('dialogue', d, {
     copy: onCopy && (() => onCopy()),
     share: onShare && (() => onShare()),
@@ -1796,6 +1798,10 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
     // about what favouriting is.
     favourite: onPatch && (() => onPatch({ favorite: !d.favorite })),
     favourited: !!d.favorite,
+    // A film line gathers exactly as a highlight does — "a dialogue is an
+    // annotation with different credits", as this file's own comment has it, and
+    // the registry would be lying about that if only one of them could be kept.
+    addToAnthology: () => gather.open({ items: [{ kind: ANTHOLOGY_KIND.dialogue, item_id: d.id }], count: 1 }),
     remove: onDelete && (() => onDelete()),
   })
   // The same list the row and the ⋯ render, on a right-click or Shift+F10; a long
@@ -2112,6 +2118,7 @@ export function Frame({ d, tagMap, stickerMap = {}, stickers = [], reloadSticker
         actionsAlwaysVisible={actionsAlwaysVisible}
       />
       {menu}
+      {gather.node}
     </article>
     </>
   )
