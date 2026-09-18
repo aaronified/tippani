@@ -902,8 +902,14 @@ function FaceSpecimens({ prefs, onOpen }) {
             <MonoLabel>{t(r.label)}</MonoLabel>
             {/* THE FACE'S OWN NAME, because the specimen says what it looks like
                 and this says what to ask for. A row that showed only the drawing
-                could not be talked about. */}
-            <span className="face-specimen-name">{r.chosen.name}</span>
+                could not be talked about.
+
+                RESOLVED, NOT PRINTED. `chosen.name` is a locale KEY — the face
+                list holds `vocab.face.newsreader.name` and friends — so this drew
+                four rows of raw key text down the middle of the section for one
+                build. The test asserted the role's label and its specimen and said
+                nothing about the name, which is how it passed. */}
+            <span className="face-specimen-name">{t(r.chosen.name)}</span>
           </span>
           {/* dir="auto" and nothing else: the sample is the role's own words in
               whatever language the interface is in, and the first strong character
@@ -2475,6 +2481,27 @@ function FeaturesCard({ prefs, onSaved }) {
           )
         })}
       </ul>
+      {/* HOW BIG THE THINGS IN THOSE SECTIONS ARE DRAWN. The two sliders sat at
+          the foot of the theme section among the accent and the text size — "cover,
+          poster height should be in sections" — and the pack puts its own pair
+          under Sections too (settings-restructured.dc.html:2731-2739), in groups
+          named for the shelf each one sizes.
+
+          THEY ARE DEVICE-LOCAL, which is why they carry a note rather than a
+          changed mark: a phone and a desk want different cover sizes, so these
+          live in this browser's storage and never in the account. That also keeps
+          them out of the section's changed count, which counts preferences the
+          server holds. */}
+      <div className="mt-7" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+        <div className="mb-2 flex items-center gap-1.5">
+          <MonoLabel>{t('settings.features.sizes.title')}</MonoLabel>
+          <InfoDot text={t('settings.features.sizes.info.body')} />
+        </div>
+        <div className="flex flex-wrap gap-x-10 gap-y-5">
+          <SizeSlider label={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} />
+          <SizeSlider label={t('settings.appearance.film-size.label')} storageKey="tippani:size:movies" def={150} />
+        </div>
+      </div>
     </Card>
   )
 }
@@ -3565,12 +3592,29 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
           A SWATCH IS THE TRIAD, NOT A COLOUR. Each one draws all three surfaces
           stacked — desk behind, furniture over it, page on top — because that is
           what is being chosen, and a single square would show a third of it. */}
+      {/* ONE ROW CALLED COLOURS, which is what the pack draws
+          (settings-restructured.dc.html:2590): light ground, dark ground and
+          accent together, under one heading, each swatch opening its own options.
+
+          IT WAS TWO, AND THE SECOND WAS AN INVENTION. A row labelled "Ground" sat
+          here and the accent lived twenty rows down among the size dials. "Ground"
+          appears nowhere in the pack as a control's name — only inside this row's
+          own sub-line — so a word describing the choice had been promoted into the
+          name of half of it. The owner: "Do not deviate so much that you start
+          randomly inventing new stuff."
+
+          The triads themselves are not the invention: four light and four dark
+          were asked for and approved. Where they SIT was. */}
       <PrefRow
-        label={t('settings.appearance.ground.title')}
+        label={t('settings.appearance.colours.title')}
+        sub={t('settings.appearance.colours.hint')}
         info={t('settings.appearance.ground.info.body')}
-        changed={(effectiveDark ? groundDark : groundLight) !== (effectiveDark ? 'night' : 'cream')}
+        changed={
+          (effectiveDark ? groundDark : groundLight) !== (effectiveDark ? 'night' : 'cream')
+          || accent !== 'terracotta'
+        }
         control={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
           {Object.entries(GROUNDS[effectiveDark ? 'dark' : 'light']).map(([key, g]) => {
             const on = (effectiveDark ? groundDark : groundLight) === key
             // THE SWATCH IS DRAWN FROM THE PALETTE THE GROUND PRODUCES, not from
@@ -3602,12 +3646,43 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
               </Tooltip>
             )
           })}
+          {/* THE ACCENT, IN THE SAME ROW, because the pack's sub-line names all
+              three together and because a reader choosing a look chooses them
+              against each other — a ground picked beside one accent is a different
+              decision beside another. A rule divides the two kinds of swatch: one
+              is a triad of surfaces, the other a single colour, and they would
+              otherwise read as eight choices of one kind. */}
+          <span className="colours-rule" aria-hidden="true" />
+          {Object.entries(ACCENTS).map(([name, hex]) => {
+            const on = accent === name
+            return (
+              <Tooltip key={name} label={t('settings.appearance.accent.tip', { name: t(`vocab.accent.${name}.label`) })} side="top">
+                <button
+                  type="button"
+                  className="accent-swatch"
+                  aria-label={t('settings.appearance.accent.aria', { name: t(`vocab.accent.${name}.label`) })}
+                  aria-pressed={on}
+                  onClick={() => persist({ accent: name })}
+                  style={{
+                    background: `linear-gradient(180deg, color-mix(in oklab, ${hex}, white 14%), ${hex})`,
+                    boxShadow: on ? '0 0 0 2px var(--card), 0 0 0 4px var(--accent-ui)' : 'none',
+                  }}
+                />
+              </Tooltip>
+            )
+          })}
           </div>
         }
       />
-      {/* §6 access. Beside the theme because it answers the same kind of question
-          about the same surfaces, and it borrows the theme's own "Match system"
-          wording rather than inventing a second phrase for one idea. */}
+      </PrefGroup>
+      {/* THE ACCESSIBILITY DIALS OF THIS SECTION, under their own heading. The
+          owner's: "Put them in an accessibility subsection under each relevant
+          section." Contrast is one — `§6 access`, added by commit 04c13c6 before
+          this remake and not in the pack at all, which is why it reads as a
+          stranger sitting in the pack's group 1. It is not this work's to remove
+          and it is not the pack's to place, so it gets a heading that says what it
+          is. */}
+      <PrefGroup title={t('settings.group.access.title')}>
       <PrefRow
         label={t('settings.appearance.contrast.title')}
         sub={t('settings.appearance.contrast.hint')}
@@ -3774,80 +3849,25 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
         }
       />
 
-      {/* Accent + the two size sliders share one wrapping row on desktop;
-          flex-wrap stacks them on narrow screens. */}
-      <div className="mt-7 flex flex-wrap gap-x-10 gap-y-5">
-        <div>
-          <MonoLabel className="mb-2 block">{t('settings.appearance.accent.title')}</MonoLabel>
-          <div className="flex items-center gap-3" style={{ minHeight: 44 }}>
-            {Object.entries(ACCENTS).map(([name, hex]) => {
-              const on = accent === name
-              return (
-                <Tooltip key={name} label={t('settings.appearance.accent.tip', { name: t(`vocab.accent.${name}.label`) })} side="top">
-                  <button
-                    type="button"
-                    aria-label={t('settings.appearance.accent.aria', { name: t(`vocab.accent.${name}.label`) })}
-                    aria-pressed={on}
-                    onClick={() => persist({ accent: name })}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 999,
-                      background: `linear-gradient(180deg, color-mix(in oklab, ${hex}, white 14%), ${hex})`,
-                      border: '1.4px solid var(--ink-border)',
-                      boxShadow: on ? '0 0 0 2px var(--card), 0 0 0 4px var(--accent-ui)' : 'none',
-                    }}
-                  />
-                </Tooltip>
-              )
-            })}
-          </div>
-        </div>
-        <SizeSlider label={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} />
-        <SizeSlider label={t('settings.appearance.film-size.label')} storageKey="tippani:size:movies" def={150} />
-        {/* THE GLOBAL TEXT SIZE, beside the two cover sliders because it is the
-            same kind of control — how big the thing you are looking at is — and
-            because "in appearance section itself" is where it was asked for.
+      {/* WHAT USED TO SIT HERE WAS A WRAPPING ROW OF WHATEVER WAS LEFT OVER: the
+          accent, two cover-size sliders, the global text size, the two quote
+          reading dials, label density and the language picker, in one flex wrap at
+          the foot of the theme section. The owner, looking at it: "what are the
+          random stuff doing in the last two rows?"
 
-            IT RENORMALISES RATHER THAN MULTIPLYING (type.js): moving it writes
-            itself into all four kinds of text, so 150% means every kind is at
-            150%. Tune one in Type afterwards and this reads as an em dash, which
-            is the honest answer — there is no longer a single number that
-            describes the four. It is derived from them and never stored, so the
-            two panels cannot disagree about the size. */}
-        <TextSizeField prefs={prefs} onPreferences={onPreferences} />
-        {/* §6 access, and beside the text size because they are the third and
-            fourth answers to the same question — how easy is this to read. They
-            set the QUOTE and nothing else: a reader narrowing a column of prose
-            is not asking for a narrower app, and the interface already has its
-            own dial one row up. */}
-        <QuoteReadingFields prefs={prefs} onPreferences={onPreferences} />
-        <LabelDensity />
-        {/* THE LANGUAGE, AND IT STAYS OUT OF `persist` ABOVE for the reason that
-            function documents: the Appearance panel re-sends every theme field on
-            any change, so a preference riding in that object would be wiped by an
-            unrelated accent click. One writer per concern. LanguagePicker applies
-            the choice itself and this supplies the save. */}
-        <LanguagePicker
-          titleKey="settings.language.title"
-          info
-          onPick={(code) => {
-            onPreferences?.({ locale: code })
-            json('PUT', '/auth/me/preferences', { locale: code })
-          }}
-        />
-        {/* WHICH LANGUAGES YOU CAN READ WAS HERE, and it is gone rather than
-            moved. The owner's ruling absorbed it: the four text-order states say
-            what the declaration said — declared meant the quotation leads,
-            undeclared meant the translation did — plus two things a yes/no could
-            not spell at all ("no translation", "no quotations"). Keeping both
-            would be one fact with two controls, and the second would silently
-            lose to the first.
-            The table that replaced it lives with the language marks on Metadata,
-            because that panel already is a row per language and a second list of
-            the same languages would be two to keep in step. An account that still
-            has the old preference is migrated on read — see textOrderFrom. */}
-      </div>
+          THEY HAVE GONE WHERE THEY BELONG, each by what it is about rather than by
+          what was left over. The accent joined the Colours row at the top, which is
+          where the pack has it. The two cover sliders are under Sections — they say
+          how the library and the catalogue are DRAWN, and the pack puts its own
+          pair there. Text size and the two quote dials are accessibility, so they
+          are under Language and font's own Accessibility heading, beside the faces
+          they resize. The language picker is under Language and font, which is the
+          section named for it.
+
+          LABEL DENSITY IS ALL THAT STAYS, and it is the only one that was ever in
+          the right place: it is the pack's own group 4, "How much a control says",
+          which is what this group is called. */}
+      <LabelDensity />
       </PrefGroup>
       </>
       )}
@@ -3938,6 +3958,26 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
               />
             }
           />
+
+          {/* THE ACCESSIBILITY DIALS OF THIS SECTION, under their own heading —
+              the owner's: "Put them in an accessibility subsection under each
+              relevant section."
+
+              THEY ARE HERE AND NOT UNDER THEME because all three are typesetting:
+              how big the interface's text is, and how a QUOTE is set when you read
+              one — the leading between its lines, and how wide its column runs
+              before it wraps. They sat at the foot of the theme section among the
+              cover-size sliders, where "quote line length" read as a phrase nobody
+              could place. Beside the faces, they are obviously about the same
+              thing the faces are about.
+
+              THE TWO QUOTE DIALS ARE `§6 access` IN THE SOURCE and the text size
+              answers the same question one scale up, which is what earns all three
+              the heading rather than a fourth loose row. */}
+          <PrefGroup title={t('settings.group.access.title')}>
+            <TextSizeField prefs={prefs} onPreferences={onPreferences} />
+            <QuoteReadingFields prefs={prefs} onPreferences={onPreferences} />
+          </PrefGroup>
 
       {/* The door, and it KEEPS ITS WORDS at every width.
 

@@ -1418,7 +1418,12 @@ settings.appearance.theme.dark.label = Dark
 settings.appearance.match.label = Match system
 settings.appearance.match.aria = Match system theme
 settings.appearance.contrast.title = Contrast
-settings.appearance.ground.title = Ground
+settings.appearance.colours.title = Colours
+settings.appearance.colours.hint = Light ground · dark ground · accent. Each one opens its own options.
+settings.group.access.title = Accessibility
+settings.features.sizes.title = How big they are drawn
+settings.features.sizes.info.body = Kept in this browser rather than on your account, because a phone and a desk want different sizes.
+
 settings.appearance.ground.info.body = What the app sits on, in three shades at once: the desk, the furniture holding the controls, and the page a quote is written on. Light and dark are chosen separately, so this row follows the one you can see.
 settings.appearance.phys.title = What the materials do with light
 settings.appearance.phys.readout = {n}%
@@ -1499,14 +1504,14 @@ settings.appearance.contrast.hint = More contrast darkens the rules and takes th
 # --- Appearance -> the quote's own two reading dials (§6 access). They set the
 # QUOTE text and nothing else: the interface has its own size dial above, and a
 # reader narrowing a column of prose is not asking for a narrower app.
-settings.appearance.quote-leading.label = Quote line height
+settings.appearance.quote-leading.label = Space between a quote's lines
 settings.appearance.quote-leading.aria = Space between the lines of a quote
 settings.appearance.quote-leading.tight = Tight
 settings.appearance.quote-leading.snug = Snug
 settings.appearance.quote-leading.normal = Normal
 settings.appearance.quote-leading.relaxed = Relaxed
 settings.appearance.quote-leading.loose = Loose
-settings.appearance.quote-measure.label = Quote line length
+settings.appearance.quote-measure.label = How wide a quote runs
 settings.appearance.quote-measure.aria = How long a line of a quote is allowed to be
 settings.appearance.quote-measure.full = Full width
 settings.appearance.quote-measure.chars = {n} characters
@@ -1525,7 +1530,6 @@ settings.material.atelier.label = Atelier
 settings.material.bindery.label = Bindery
 settings.material.quarry.label = Quarry
 settings.material.atrium.label = Atrium
-settings.appearance.accent.title = Accent
 # {name} is one of the vocab.accent.* words.
 settings.appearance.accent.tip = Use the {name} accent
 settings.appearance.accent.aria = {name} accent

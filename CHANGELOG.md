@@ -723,6 +723,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **One Colours row.** Light ground, dark ground and accent together under a single
+  heading, as the design pack draws them — a look is chosen against itself, and a ground
+  picked beside one accent is a different decision beside another.
+
+- **The odds and ends at the foot of Theme have gone where they belong.** The two
+  cover-size sliders are under Sections, which is what they size. Text size and the two
+  quote-reading dials are under Language and font, beside the faces, with an Accessibility
+  heading that says what they are; the quote pair is named for what it does now — the space
+  between a quote's lines, and how wide a quote runs — rather than "quote line length".
+  Contrast keeps its place in Theme under the same heading. The language picker is under
+  the section named for it.
+
 - **The settings tabs sit on one line, the way the design pack draws them.** Flat tabs on
   a shared baseline with an accent underline under the one you are on, rather than a row of
   outlined chips — and the section's "about" dot and its Reset ride at the right-hand end of

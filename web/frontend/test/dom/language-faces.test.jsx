@@ -40,6 +40,12 @@ describe('the faces the interface is set in', () => {
     for (const role of ui) {
       expect(screen.getByText(t(role.label)), `${role.key} should be named`).toBeTruthy()
       expect(screen.getByText(t(role.sample)), `${role.key} should show its specimen`).toBeTruthy()
+      // AND THE FACE'S NAME AS A WORD. `chosen.name` is a locale key, so a row
+      // that forgot to resolve it printed "vocab.face.newsreader.name" down the
+      // middle of the section — which this suite passed straight through, because
+      // it only ever looked at the label and the sample.
+      const row = screen.getByText(t(role.sample)).closest('button')
+      expect(row.textContent, `${role.key} is showing a raw locale key`).not.toMatch(/vocab\./)
     }
   })
 

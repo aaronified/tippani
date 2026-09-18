@@ -10277,6 +10277,20 @@ html[data-theme="dark"] .board-cover {
   font-family: var(--font-display); font-size: var(--type-display-15); line-height: 1.5;
 }
 
+/* THE COLOURS ROW HOLDS TWO KINDS OF SWATCH, and a rule between them says so. A
+   ground is a triad of surfaces stacked; an accent is one colour. Without the rule
+   they read as eight choices of one kind, and a reader would look for the accent
+   among the grounds. */
+.colours-rule {
+  flex: none; align-self: stretch; width: 1px; margin: 0 4px;
+  background: color-mix(in oklab, var(--line), transparent 30%);
+}
+.accent-swatch {
+  flex: none; width: max(32px, 2.2em); height: max(32px, 2.2em);
+  border-radius: 999px; border: 1.4px solid var(--ink-border);
+  padding: 0; cursor: pointer;
+}
+
 /* THE TAB ROW, AND WHAT RIDES AT ITS FAR END. The pack draws the tabs and the
    section's own two controls in ONE flex row over ONE bottom border; a second bar
    underneath repeated what the tab already said. The aside sits on the baseline of

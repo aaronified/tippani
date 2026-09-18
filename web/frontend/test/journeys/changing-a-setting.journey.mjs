@@ -59,6 +59,13 @@ it('a reader switches the interface language and it survives a reload', async ()
   await app.see('Settings')
   await app.see('Home')
 
+  // THE PICKER IS UNDER ITS OWN SECTION NOW. It used to sit at the foot of the
+  // theme section among the accent and the cover-size sliders — "what are the
+  // random stuff doing in the last two rows?" — and Settings opens on Theme, so
+  // reaching it is a press on the tab named for it. This journey is what reported
+  // the move: it asked for "Choose a language" on a screen that no longer draws
+  // one, and listed every control that was there instead.
+  await app.press('Language and font')
   await app.press('Choose a language')
   await app.press('বাংলা')
 
@@ -75,7 +82,10 @@ it('a reader switches the interface language and it survives a reload', async ()
   await app.gone('Settings')
   await app.gone('Home')
 
-  // Leave the world as it was found.
+  // Leave the world as it was found. The reload landed on Theme again, so the
+  // section is pressed again — in Bengali this time, which is its own small proof
+  // that the tab was translated along with everything else.
+  await app.press('ভাষা ও ফন্ট')
   await app.press('ভাষা বাছুন')
   await app.press('English')
 
