@@ -111,8 +111,16 @@ describe('the file', () => {
     expect(fromFile('{"kind":"tippani.theme","version":2,"theme":{"name":"x"}}').error).toBe('version')
   })
 
-  it('names an unnamed import rather than importing a nameless row', () => {
-    const got = fromFile('{"kind":"tippani.theme","version":1,"theme":{"accent":"olive"}}')
-    expect(got.theme.name).toBeTruthy()
+  // THE NAME COMES FROM THE CALLER, not from a literal in here. This app ships in
+  // English and Bengali, and a hard-coded English word is a string one reader gets
+  // in the wrong language — which is what a rater found in the first draft.
+  it('names an unnamed import with the words it was handed', () => {
+    const got = fromFile('{"kind":"tippani.theme","version":1,"theme":{"accent":"olive"}}', 'আমদানি করা')
+    expect(got.theme.name).toBe('আমদানি করা')
+  })
+
+  it('does not overwrite a name the file already carries', () => {
+    const got = fromFile('{"kind":"tippani.theme","version":1,"theme":{"name":"Dusk"}}', 'Imported')
+    expect(got.theme.name).toBe('Dusk')
   })
 })

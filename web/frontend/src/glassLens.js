@@ -36,7 +36,7 @@
 // backdrop's own alpha is a solid rectangle over the pane, and blurring it then
 // differencing two offset copies gives a SIGNED ramp — zero through the middle,
 // swinging hard at each edge — one per axis, packed into R and G.
-function filterMarkup({ bevel, scale, spread, gain, blur }) {
+function filterMarkup({ bevel, scale, spread, gain, blur, clarity }) {
   const sd = Math.max(1.5, bevel / 2).toFixed(2)
   const d = Math.max(1, bevel / 2).toFixed(2)
   const k = (0.5 * gain).toFixed(3)
@@ -75,7 +75,13 @@ function filterMarkup({ bevel, scale, spread, gain, blur }) {
     // reference when it sits in a list beside filter functions, which is the other
     // way this silently becomes frosting.
     `<feGaussianBlur in="${spread ? 'crgb' : 'bent'}" stdDeviation="${(blur / 2).toFixed(2)}" result="soft"/>` +
-    '<feColorMatrix in="soft" type="saturate" values="1.8"/>'
+    // CLARITY IS THE LAST STEP, and it is how much of the backdrop's own colour
+    // survives the pane. Real glass is not colour-neutral — it returns what is
+    // behind it slightly richer at the rim and slightly washed through the body —
+    // and a blur alone flattens that, which is one of the several ways a lens ends
+    // up reading as frost. 0 leaves the backdrop exactly as it was; the factory 48
+    // lands at the 1.8 this was hardcoded to before the dial reached it.
+    `<feColorMatrix in="soft" type="saturate" values="${(1 + clarity / 60).toFixed(2)}"/>`
   )
 }
 
@@ -132,9 +138,12 @@ export function lensFor(el, dials) {
   f.setAttribute('width', '100%')
   f.setAttribute('height', '100%')
   f.setAttribute('color-interpolation-filters', 'sRGB')
-  f.innerHTML = filterMarkup({ bevel, scale, spread, gain: dials.gain / 100, blur })
+  f.innerHTML = filterMarkup({ bevel, scale, spread, gain: dials.gain / 100, blur, clarity: dials.clarity })
   host.appendChild(f)
-  return { id, stamp: `${w}:${h}:${dials.refract}:${dials.bevel}:${dials.fringe}:${dials.blur}:${dials.gain}` }
+  // THE STAMP NAMES EVERY DIAL THE FIELD IS BUILT FROM. `clarity` was missing from
+  // it while it was missing from the filter too — so a pane whose only changed dial
+  // was clarity would have been skipped as unchanged even once the filter read it.
+  return { id, stamp: `${w}:${h}:${dials.refract}:${dials.bevel}:${dials.fringe}:${dials.blur}:${dials.gain}:${dials.clarity}` }
 }
 
 // GLASS_DIALS — the five that only mean anything with the lens, and the reason

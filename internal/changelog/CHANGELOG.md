@@ -723,6 +723,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The ground picker showed you four blank rectangles.** Light and dark each offer four
+  grounds now, and the control that offers them painted none of them: it asked each ground
+  for its colour and a ground does not carry one, it carries the set of colours it CHANGES
+  — and two of the eight change nothing at all, because Cream and Night are the palettes
+  the app already shipped. So every swatch came out transparent, three of them without so
+  much as a border, and the only one you could see was the one already chosen, which draws
+  its ring in the accent rather than in the ground. A picker you cannot see is not a
+  picker. Each swatch is now painted with the palette that ground actually produces — the
+  desk, the furniture and the page, the same three the theme applies when you press it.
+
+- **A comment was printing itself onto the Language and font screen.** The line that
+  explains why the Type panel wears no tick lost its opening mark in an edit, so the second
+  half of the sentence stopped being a comment and became words on the page.
+
 - **Back works after following a link to `/tags`.** The address survives Tags becoming a
   section, but it was arriving as a new step rather than as a redirect — so the history
   read shelf → tags → console with the old address still in the middle answering with the

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
-import { ACCENTS, GROUNDS, PHYS, parseTweaks, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
+import { ACCENTS, GROUNDS, PHYS, paletteFor, parseTweaks, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
 import { QUOTE_LEADINGS, QUOTE_MEASURES, SIZE_ROLES, TYPE_FACTORS, applyTypeScale, clampLeading, clampMeasure, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
   applyFonts,
@@ -2891,6 +2891,7 @@ function MaterialPhysics({ tiles, tweaks, onChange, glass = false }) {
   // That was the owner's ruling when the cost of the lens was put to them — the
   // glass dials ship with the toggle or not at all.
   const GLASS = [
+    ['clarity', 'settings.appearance.glass.clarity.label', 100],
     ['refract', 'settings.appearance.glass.refract.label', 200],
     ['bevel', 'settings.appearance.glass.bevel.label', 200],
     ['fringe', 'settings.appearance.glass.fringe.label', 200],
@@ -3126,7 +3127,7 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
       setImportError('')
       const file = files && files[0]
       if (!file) return
-      const got = fromFile(await file.text())
+      const got = fromFile(await file.text(), t('settings.appearance.saved.import.unnamed'))
       if (got.error) return setImportError(got.error)
       wearTheme(got.theme)
     },
@@ -3227,6 +3228,14 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
           <div className="flex flex-wrap gap-2">
           {Object.entries(GROUNDS[effectiveDark ? 'dark' : 'light']).map(([key, g]) => {
             const on = (effectiveDark ? groundDark : groundLight) === key
+            // THE SWATCH IS DRAWN FROM THE PALETTE THE GROUND PRODUCES, not from
+            // the ground's own override set. A ground is `{ label, tokens }` and
+            // two of the eight carry NO tokens at all — Cream and Night are the
+            // shipped palettes, which is the whole point of them — so a swatch
+            // reading `g.bg` painted every ground transparent and the shipped one
+            // hardest of all. `paletteFor` is the same merge `applyTheme` does, so
+            // the swatch is the ground, rather than a second opinion about it.
+            const pal = paletteFor(effectiveDark, effectiveDark ? { groundDark: key } : { groundLight: key })
             return (
               <Tooltip key={key} label={t(g.label)}>
                 <button
@@ -3236,14 +3245,14 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
                   aria-label={t(g.label)}
                   onClick={() => persist(effectiveDark ? { groundDark: key } : { groundLight: key })}
                   style={{
-                    background: g.bg,
+                    background: pal.bg,
                     boxShadow: on
                       ? `0 0 0 2px var(--card), 0 0 0 4px var(--accent-ui)`
-                      : `inset 0 0 0 1px ${g.line}`,
+                      : `inset 0 0 0 1px ${pal.line}`,
                   }}
                 >
-                  <span aria-hidden="true" style={{ background: g.raised }} />
-                  <span aria-hidden="true" style={{ background: g.card }} />
+                  <span aria-hidden="true" style={{ background: pal.raised }} />
+                  <span aria-hidden="true" style={{ background: pal.card }} />
                 </button>
               </Tooltip>
             )
@@ -3534,6 +3543,8 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
           <GhostButton icon={<IconType />} keepLabel onClick={() => setTypeOpen(true)}>{t('settings.type.title')}</GhostButton>
         </Tooltip>
       </div>
+
+      {/* No form registers with this dialog, so it grows no ✓: the panel saves on
           the tap, as it did as a card. The close is the only action. */}
       <FormModal open={typeOpen} onClose={() => setTypeOpen(false)} title={t('settings.type.title')} maxWidth={620}>
         <TypeSettings prefs={prefs} onSaved={onPreferences} />

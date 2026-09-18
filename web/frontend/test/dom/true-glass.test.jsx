@@ -143,6 +143,38 @@ describe('the five dials', () => {
     const g = glassDialsFor()
     expect(g.refract).toBe(72)
     expect(g.blur).toBe(210)
+    expect(g.clarity).toBe(48)
+  })
+
+  // CLARITY WAS STORAGE-ONLY, and a rater found it: defaulted, clamped, offered by
+  // nothing and read by nothing, so one of the ten approved dials was a number in
+  // a preference. It is the pane's last step now — how much of the backdrop's own
+  // colour survives it — and both halves of that are asserted, because a dial
+  // wired into the filter but left out of the STAMP would be skipped as unchanged.
+  it('reaches the filter, so the dial does something', () => {
+    const el = document.createElement('div')
+    el.setAttribute('data-glass', 'bar')
+    el.getBoundingClientRect = () => ({ width: 320, height: 48 })
+    document.body.appendChild(el)
+    dressGlass(glassDialsFor({ glass: { clarity: 0 } }))
+    const flat = document.querySelector('svg[data-tp-lens] filter:last-of-type feColorMatrix[type="saturate"]').getAttribute('values')
+    undressGlass()
+    document.body.innerHTML = ''
+    document.body.appendChild(el)
+    dressGlass(glassDialsFor({ glass: { clarity: 100 } }))
+    const rich = document.querySelector('svg[data-tp-lens] filter:last-of-type feColorMatrix[type="saturate"]').getAttribute('values')
+    expect(flat).not.toBe(rich)
+  })
+
+  it('is named in the stamp, so a pane is redrawn when only clarity moves', () => {
+    const el = document.createElement('div')
+    el.setAttribute('data-glass', 'bar')
+    el.getBoundingClientRect = () => ({ width: 320, height: 48 })
+    document.body.appendChild(el)
+    dressGlass(glassDialsFor())
+    const first = el.__tpLensId
+    dressGlass(glassDialsFor({ glass: { clarity: 12 } }))
+    expect(el.__tpLensId).not.toBe(first)
   })
 
   it('take an edit, and ignore one outside the range', () => {

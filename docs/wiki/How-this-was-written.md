@@ -154,24 +154,24 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,738 Go test functions and 4,551 frontend tests, across 711 test files** — the
+- **1,738 Go test functions and 4,616 frontend tests, across 713 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
-  cd web/frontend && npx vitest run                                      # 4,500 of them
+  cd web/frontend && npx vitest run                                      # 4,562 of them
   cd web/frontend && npm run journeys                                    # + 54 in the browser
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 279 Go files
   find ./web/frontend -path '*/node_modules' -prune -o -type f \
        \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
-       -print | wc -l                                                    # 432 frontend
+       -print | wc -l                                                    # 434 frontend
   ```
 
-  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,452 is what
+  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,562 is what
   `npx vitest run` reports across the three vitest projects, and the browser tier is
   not among them — it has its own config, because it needs a globalSetup that builds
-  the binary and seeds a library. `npm test` runs two projects — 3,738 tests over 313
+  the binary and seeds a library. `npm test` runs two projects — 3,752 tests over 315
   files; `npm run lint:rules` runs the third, 810 assertions over 81 files; and
   `npm run journeys` runs 54 tests over 38 files against a real server in a real
   browser, which is the tier that would have caught the bug all this is named after.

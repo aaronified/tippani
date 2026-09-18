@@ -82,7 +82,12 @@ export function toFile(resolved, name) {
 // fromFile returns the theme, or null with a reason. A REASON RATHER THAN A
 // THROW: this is somebody pasting a file into a box, and "that is not a tippani
 // theme" is something the screen has to be able to say.
-export function fromFile(text) {
+//
+// `fallbackName` IS PASSED IN RATHER THAN WRITTEN HERE. A file can arrive with no
+// name and the row still needs a word on it, and this module resolves no locale
+// key of its own — an English literal in an app that ships in two languages is a
+// string one reader gets in the wrong one, and a rater found exactly that.
+export function fromFile(text, fallbackName = 'Imported') {
   let v
   try { v = JSON.parse(text) } catch { return { error: 'parse' } }
   if (!v || typeof v !== 'object') return { error: 'parse' }
@@ -92,5 +97,5 @@ export function fromFile(text) {
   // is worse than saying no.
   if (typeof v.version !== 'number' || v.version > THEME_FILE_VERSION) return { error: 'version' }
   if (!v.theme || typeof v.theme !== 'object') return { error: 'shape' }
-  return { theme: { ...v.theme, name: typeof v.theme.name === 'string' && v.theme.name ? v.theme.name : 'Imported' } }
+  return { theme: { ...v.theme, name: typeof v.theme.name === 'string' && v.theme.name ? v.theme.name : fallbackName } }
 }
