@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Literata:opsz,wght@7..72,400;7..72,600&family=Atkinson+Hyperlegible+Next:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Caveat:wght@400;600&family=Noto+Serif+Bengali:wght@400;600&family=Hind+Siliguri:wght@400;600&family=Noto+Sans+Devanagari:wght@400;600&family=Noto+Naskh+Arabic:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: #DCD1BA; }
+    a { color: #B4482D; text-decoration: none; }
+    a:hover { color: #8F3823; }
+    input { font: inherit; color: inherit; }
+    input::placeholder { color: #8A7C68; }
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-thumb { background: rgba(41,38,29,.22); border-radius: 999px; }
+  </style>
+  <script src="icons.js"></script>
+  <script src="assets/glyphs/providers.js"></script>
+</helmet>
+
+<div style="--bg:#262019;--raised:#2A231C;--card:#2F2820;--card-top:#332B22;--card-bottom:#2B241C;--sunk:#221C16;--ink:#EFE6D4;--soft:#B3A48C;--faint:#8A7E6B;--line:#453B2D;--ink-border:rgba(239,230,212,.34);--accent:#B4482D;--accent-ui:#C36D57;--on-accent:#1C1710;--error:#C96B5B;--ok:#5FB47E;--amber:#BE8A4E;--hl-6:#8A7BC8;--strip:#241E17;--font-display:Newsreader,serif;--font-quote:Literata,serif;--font-ui:'Atkinson Hyperlegible Next',system-ui,sans-serif;--font-mono:'IBM Plex Mono',monospace;--font-hand:Caveat,cursive;display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start;padding:30px;background:#1B1610">
+
+  <!-- DESKTOP -->
+  <div style="width:1440px;height:880px;flex:none;position:relative;display:flex;border:1.6px solid var(--ink-border);border-radius:10px;overflow:hidden;background:var(--bg);box-shadow:0 18px 40px -20px rgba(0,0,0,.55)">
+    <div style="flex:none;width:236px;display:flex;flex-direction:column;background:var(--raised);border-right:1px solid var(--line)">
+      <div style="flex:none;display:flex;align-items:center;gap:9px;padding:16px 16px 14px">
+        <img src="web/dist/mark-dark.svg" alt="" width="34" height="34" style="display:block;width:34px;height:34px;flex:none" />
+        <span style="font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink)">tippani</span>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding:0 9px">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="10">
+          <div style="display:flex;flex-direction:column;min-width:0">
+            <sc-if value="{{ n.rule }}" hint-placeholder-val="{{ true }}">
+              <span style="height:1px;margin:9px 10px;background:color-mix(in oklab, var(--ink), transparent 86%)"></span>
+            </sc-if>
+            <sc-if value="{{ n.isRow }}" hint-placeholder-val="{{ true }}">
+              <button type="button" aria-current="{{ n.current }}" style="display:flex;align-items:center;gap:11px;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:9px;cursor:pointer;text-align:left;background:{{ n.bg }};color:{{ n.fg }};font-weight:{{ n.weight }}">
+                <span style="width:20px;flex:none;display:inline-flex;align-items:center;justify-content:center">{{ n.glyph }}</span>
+                <span style="flex:1;min-width:0;font-family:var(--font-ui);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.label }}</span>
+                <sc-if value="{{ n.count }}" hint-placeholder-val="{{ true }}">
+                  <span style="flex:none;font-family:var(--font-mono);font-size:11px;color:{{ n.countFg }}">{{ n.count }}</span>
+                </sc-if>
+              </button>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div style="flex:none;padding:6px 9px 12px;display:flex;align-items:center;gap:10px">
+        <span style="width:30px;height:30px;flex:none;border-radius:32%;border:1.4px solid var(--ink-border);background:linear-gradient(160deg,#C4573A,#9E3D24);color:var(--on-accent);font-family:var(--font-ui);font-size:13px;font-weight:600;display:inline-flex;align-items:center;justify-content:center">A</span>
+        <span style="flex:1;min-width:0;font-family:var(--font-ui);font-size:13px;color:var(--soft)">Aritra</span>
+      </div>
+    </div>
+
+    <div style="position:relative;flex:1;min-width:0;display:flex;flex-direction:column">
+      <div style="position:absolute;top:0;left:0;right:0;min-height:52px;display:flex;align-items:center;background:linear-gradient(180deg,var(--raised),var(--card-bottom));border-bottom:1px solid var(--line);z-index:3">
+        <div style="flex:1;min-width:0;display:flex;padding:0 34px">
+          <div style="flex:1;min-width:0;max-width:1120px;display:flex;align-items:center;gap:12px">
+            <span style="display:flex;align-items:center;gap:8px;min-width:0;flex:none">
+              <button type="button" style="border:0;background:none;padding:0;cursor:pointer;white-space:nowrap;font-family:var(--font-ui);font-size:13px;color:var(--soft)">Metadata</button>
+              <span style="font-family:var(--font-ui);font-size:13px;color:var(--faint)">/</span>
+              <span style="font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;min-width:max-content">{{ sec.label }}</span>
+            </span>
+            <span style="flex:1;min-width:0;display:flex;align-items:center;gap:7px;min-height:40px;padding:0 10px;border-radius:12px;background:var(--sunk);border:1px solid var(--line)">
+              <span style="display:inline-flex;color:var(--faint);flex:none">{{ icoSearch }}</span>
+              <span style="display:inline-flex;align-items:stretch;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--card);flex:none">
+                <span style="display:inline-flex;align-items:center;padding:0 7px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);background:color-mix(in oklab, var(--ink), transparent 94%)">in</span>
+                <span style="display:inline-flex;align-items:center;padding:0 9px;min-height:26px;font-family:var(--font-ui);font-size:12px;color:var(--ink);white-space:nowrap">Metadata</span>
+              </span>
+              <input value="{{ q }}" onInput="{{ onQ }}" placeholder="Search metadata — a name, a tag, a language…" style="flex:1;min-width:0;border:0;outline:0;background:none;padding:0 2px;font-family:var(--font-display);font-size:15px;color:var(--ink)" />
+              <span style="flex:none;font-family:var(--font-mono);font-size:9.5px;color:var(--faint);border:1px solid var(--line);border-radius:5px;padding:1px 6px">⌘K</span>
+            </span>
+            <button type="button" title="Add" style="width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:var(--soft);cursor:pointer">{{ icoAdd }}</button>
+            <button type="button" onClick="{{ openHelp }}" title="Help with this screen" aria-label="Help with this screen" style="width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:999px;background:transparent;font-family:var(--font-mono);font-size:14px;color:var(--soft);cursor:pointer">{{ icoHelp }}</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1;min-width:0;overflow-y:auto;padding:76px 34px 44px">
+        <div style="max-width:1120px;display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;align-items:flex-end;gap:18px;border-bottom:1px solid var(--line)">
+            <div role="tablist" onPointerDown="{{ onDown }}" onPointerMove="{{ onMove }}" onPointerUp="{{ onUp }}" onClickCapture="{{ onUp }}" style="flex:1;min-width:0;display:flex;align-items:flex-end;gap:26px;padding:2px 0 0;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)">
+              <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+                <button type="button" role="tab" aria-selected="{{ t.on }}" onClick="{{ t.pick }}" style="position:relative;flex:none;display:flex;align-items:center;gap:9px;min-height:44px;padding:0 1px 12px;border:none;background:none;cursor:pointer;color:{{ t.fg }}">
+                  <span style="flex:none;display:inline-flex">{{ t.glyph }}</span>
+                  <span style="font-family:var(--font-ui);font-size:15px;font-weight:{{ t.weight }};white-space:nowrap">{{ t.label }}</span>
+                  <span style="flex:none;font-family:var(--font-mono);font-size:11px;color:{{ t.countFg }}">{{ t.count }}</span>
+                  <span aria-hidden="true" style="position:absolute;left:0;right:0;bottom:-1px;height:{{ t.underH }};border-radius:2px 2px 0 0;background:{{ t.under }}"></span>
+                </button>
+              </sc-for>
+            </div>
+            <span style="flex:none;display:flex;align-items:center;gap:9px;padding-bottom:7px">
+              <button type="button" onClick="{{ sec.infoOpen }}" aria-label="About {{ sec.label }}" title="About {{ sec.label }}" style="width:26px;height:26px;flex:none;display:inline-flex;align-items:center;justify-content:center;padding:0;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--faint);font-family:var(--font-mono);font-size:11px;font-weight:500;cursor:help">i</button>
+              <button type="button" onClick="{{ sec.addAct }}" style="min-height:34px;padding:7px 13px;border-radius:9px;border:1.4px solid var(--ink-border);background:linear-gradient(180deg,var(--card-top),transparent);font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--ink);cursor:pointer">{{ sec.addLabel }}</button>
+            </span>
+          </div>
+
+          
+
+          <sc-if value="{{ sec.hasStrip }}" hint-placeholder-val="{{ true }}">
+            <div onPointerDown="{{ onDown }}" onPointerMove="{{ onMove }}" onPointerUp="{{ onUp }}" onClickCapture="{{ onUp }}" style="display:flex;align-items:center;gap:8px;min-width:0;max-width:100%;overflow-x:auto;padding:1px 0 3px;touch-action:pan-x;mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)">
+              <sc-for list="{{ sec.filters }}" as="f" hint-placeholder-count="4">
+                <button type="button" onClick="{{ f.pick }}" aria-pressed="{{ f.on }}" style="flex:none;min-height:44px;padding:8px 14px;border:1px solid {{ f.border }};border-radius:999px;background:{{ f.bg }};color:{{ f.fg }};font-family:var(--font-ui);font-size:13.5px;font-weight:600;white-space:nowrap;cursor:pointer">{{ f.label }}</button>
+              </sc-for>
+              <sc-if value="{{ sec.hasBoth }}" hint-placeholder-val="{{ true }}">
+                <span style="flex:none;width:1px;height:26px;background:var(--line);margin:0 3px"></span>
+              </sc-if>
+              <sc-for list="{{ sec.bulk }}" as="b" hint-placeholder-count="2">
+                <button type="button" onClick="{{ b.act }}" style="flex:none;min-height:44px;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--raised);font-family:var(--font-ui);font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;white-space:nowrap">
+                  <span style="display:inline-flex;color:var(--soft)">{{ b.glyph }}</span>
+                  <span>{{ b.label }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+          
+          <sc-if value="{{ sec.hasProgress }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span role="progressbar" aria-valuenow="{{ sec.progress.pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ sec.progress.label }}" style="height:6px;border-radius:999px;background:var(--sunk);border:1px solid var(--line);overflow:hidden">
+                <span style="display:block;height:100%;width:{{ sec.progress.pctCss }};background:var(--accent-ui)"></span>
+              </span>
+              <span style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;color:var(--faint)">{{ sec.progress.label }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ sec.hasLegend }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px">
+              <sc-for list="{{ sec.legend }}" as="l" hint-placeholder-count="4">
+                <span style="display:inline-flex;align-items:center;gap:7px">
+                  <span style="width:11px;height:11px;flex:none;border-radius:999px;background:{{ l.dot }}"></span>
+                  <span style="font-family:var(--font-ui);font-size:12.5px;color:var(--soft)">{{ l.label }}</span>
+                </span>
+              </sc-for>
+            </div>
+          </sc-if>
+        <sc-if value="{{ sec.hasIssues }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ sec.issues }}" as="is" hint-placeholder-count="2">
+                <button type="button" onClick="{{ is.act }}" style="display:flex;align-items:baseline;gap:12px;width:100%;min-height:44px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-family:var(--font-ui);font-size:15px;cursor:pointer">
+                  <span style="flex:1 1 auto;min-width:0;text-wrap:pretty">{{ is.label }}</span>
+                  <span style="flex:none;font-family:var(--font-mono);font-size:13px;color:var(--error)">{{ is.n }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <div style="display:grid;grid-template-columns:{{ sec.cols }};align-items:start;gap:22px 34px">
+            <sc-for list="{{ sec.groups }}" as="g" hint-placeholder-count="2">
+              <div style="{{ g.cellStyle }}">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                  <span style="font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);white-space:nowrap">{{ g.title }}</span>
+                  <span aria-hidden="{{ g.dotHidden }}" style="flex:none;width:7px;height:7px;border-radius:999px;background:{{ g.dotBg }}" title="{{ g.dotTitle }}"></span>
+                  <span style="flex:1;height:1px;background:var(--line)"></span>
+                  <sc-if value="{{ g.aside }}" hint-placeholder-val="{{ true }}">
+                    <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)">{{ g.aside }}</span>
+                  </sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;min-width:0">
+                  <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="4">
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;min-width:0;padding:11px 0;border-top:{{ r.topLine }}">
+                      <div style="flex:1 1 20ch;min-width:0;display:flex;align-items:center;gap:11px">
+                        <sc-if value="{{ r.swatch }}" hint-placeholder-val="{{ true }}">
+                          <button type="button" onClick="{{ r.pickColour }}" aria-label="Change the colour of {{ r.name }}" title="Change this colour" style="width:30px;height:30px;flex:none;border-radius:999px;border:1.4px solid {{ r.swatchRing }};background:{{ r.swatch }};cursor:pointer"></button>
+                        </sc-if>
+                        <sc-if value="{{ r.markFace }}" hint-placeholder-val="{{ true }}">
+                          <span role="img" aria-label="{{ r.markAria }}" title="{{ r.markAria }}" style="{{ r.markFace }}"></span>
+                        </sc-if>
+                        <sc-if value="{{ r.portrait }}" hint-placeholder-val="{{ true }}">
+                          <span style="{{ r.portrait }}"></span>
+                        </sc-if>
+                        <sc-if value="{{ r.coverFace }}" hint-placeholder-val="{{ true }}">
+                          <span style="{{ r.coverFace }}"></span>
+                        </sc-if>
+                        <span style="min-width:0;display:flex;flex-direction:column;gap:5px">
+                          <sc-if value="{{ r.chip }}" hint-placeholder-val="{{ true }}">
+                            <span style="align-self:flex-start;width:fit-content;max-width:100%;{{ r.chip.face }}"><sc-if value="{{ r.chip.reel }}" hint-placeholder-val="{{ true }}"><span style="{{ r.chip.hole }}"></span></sc-if><span style="font-family:{{ r.chip.font }}">{{ r.chip.text }}</span><sc-if value="{{ r.chip.reel }}" hint-placeholder-val="{{ true }}"><span style="{{ r.chip.hole }}"></span></sc-if></span>
+                          </sc-if>
+                          <sc-if value="{{ r.showName }}" hint-placeholder-val="{{ true }}">
+                            <span style="font-family:{{ r.nameFace }};font-size:15px;font-weight:600;color:var(--ink);text-wrap:pretty">{{ r.name }}</span>
+                          </sc-if>
+                          <sc-if value="{{ r.sub }}" hint-placeholder-val="{{ true }}">
+                            <span style="font-family:var(--font-ui);font-size:12.5px;color:var(--soft);text-wrap:pretty">{{ r.sub }}</span>
+                          </sc-if>
+                        </span>
+                      </div>
+                      <div style="flex:none;display:flex;align-items:center;gap:8px">
+                        <span style="display:flex;align-items:center;gap:6px">
+                          <sc-for list="{{ r.chips }}" as="c" hint-placeholder-count="2">
+                            <span style="display:inline-flex;align-items:center;min-height:24px;padding:3px 8px;border:1px solid {{ c.border }};border-radius:999px;background:{{ c.bg }};font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;color:{{ c.fg }};white-space:nowrap">{{ c.label }}</span>
+                          </sc-for>
+                          <sc-if value="{{ r.chipsEmpty }}" hint-placeholder-val="{{ true }}">
+                            <span style="font-family:var(--font-mono);font-size:11px;color:var(--faint)">{{ r.chipsEmpty }}</span>
+                          </sc-if>
+                        </span>
+                        <sc-if value="{{ r.count }}" hint-placeholder-val="{{ true }}">
+                          <span style="font-family:var(--font-mono);font-size:11px;color:{{ r.countFg }}" title="{{ r.countTitle }}">{{ r.count }}</span>
+                        </sc-if>
+                        <sc-for list="{{ r.acts }}" as="a" hint-placeholder-count="2">
+                          <button type="button" onClick="{{ a.act }}" aria-label="{{ a.aria }}" title="{{ a.aria }}" style="width:38px;height:38px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:9px;background:var(--raised);color:{{ a.fg }};cursor:pointer">{{ a.glyph }}</button>
+                        </sc-for>
+                        <sc-if value="{{ r.link }}" hint-placeholder-val="{{ true }}">
+                          <button type="button" onClick="{{ r.linkAct }}" style="min-height:38px;padding:8px 12px;border-radius:9px;border:1px solid var(--line);background:var(--raised);font-family:var(--font-ui);font-size:12.5px;font-weight:600;color:var(--accent-ui);cursor:pointer">{{ r.link }}</button>
+                        </sc-if>
+                      </div>
+                      <sc-if value="{{ r.styleOpen }}" hint-placeholder-val="{{ true }}">
+                        <span style="flex:1 1 100%;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:2px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--raised)">
+                          <sc-for list="{{ r.styleOpts }}" as="st" hint-placeholder-count="5">
+                            <button type="button" onClick="{{ st.pick }}" aria-label="{{ st.label }}" title="{{ st.label }}" style="min-height:44px;display:inline-flex;align-items:center;padding:4px;border:{{ st.ring }};border-radius:11px;background:none;cursor:pointer">
+                              <span style="{{ st.face }}"><sc-if value="{{ st.reel }}" hint-placeholder-val="{{ true }}"><span style="{{ st.hole }}"></span></sc-if><span>{{ st.label }}</span><sc-if value="{{ st.reel }}" hint-placeholder-val="{{ true }}"><span style="{{ st.hole }}"></span></sc-if></span>
+                            </button>
+                          </sc-for>
+                          <span style="width:1px;height:28px;background:var(--line)"></span>
+                          <sc-for list="{{ r.colourOpts }}" as="cl" hint-placeholder-count="4">
+                            <button type="button" onClick="{{ cl.pick }}" aria-label="{{ cl.name }}" title="{{ cl.name }}" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;cursor:pointer">
+                              <span style="width:26px;height:26px;border-radius:999px;background:{{ cl.hex }};border:{{ cl.ring }}"></span>
+                            </button>
+                          </sc-for>
+                        </span>
+                      </sc-if>
+                      <sc-if value="{{ r.colourOpen }}" hint-placeholder-val="{{ true }}">
+                        <span style="flex:1 1 100%;min-width:0;display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--raised)">
+                          <sc-for list="{{ r.palette }}" as="p" hint-placeholder-count="6">
+                            <button type="button" onClick="{{ p.pick }}" aria-label="{{ p.name }}" title="{{ p.name }}" style="display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:4px 13px 4px 5px;border-radius:999px;border:{{ p.ring }};background:var(--card);cursor:pointer">
+                              <span style="width:26px;height:26px;flex:none;border-radius:999px;background:{{ p.hex }};border:1px solid var(--ink-border)"></span>
+                              <span style="font-family:var(--font-ui);font-size:13px;color:var(--ink);white-space:nowrap">{{ p.name }}</span>
+                            </button>
+                          </sc-for>
+                        </span>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:absolute;inset:0;display:{{ infoDisplay }};align-items:center;justify-content:center;background:rgba(0,0,0,.36);z-index:8">
+      <div style="width:min(420px,86%);padding:15px 17px 16px;border:1px solid var(--ink-border);border-radius:11px;background:color-mix(in srgb, var(--card) 94%, transparent);backdrop-filter:blur(34px) saturate(140%);box-shadow:0 24px 46px -22px rgba(0,0,0,.6)">
+        <div style="font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:.11em;text-transform:uppercase;color:var(--accent-ui);margin-bottom:6px">{{ infoTitle }}</div>
+        <p style="margin:0 0 12px;font-family:var(--font-ui);font-size:13.5px;line-height:1.6;color:var(--soft);text-wrap:pretty">{{ infoBody }}</p>
+        <button type="button" onClick="{{ closeInfo }}" style="min-height:44px;padding:9px 15px;border-radius:9px;border:1.4px solid var(--ink-border);background:transparent;font-family:var(--font-ui);font-size:14px;font-weight:600;color:var(--ink);cursor:pointer">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHONE -->
+  <div style="width:406px;height:860px;flex:none;padding:8px;border-radius:42px;background:#1B1610;box-shadow:0 18px 40px -20px rgba(0,0,0,.6)">
+    <div style="position:relative;width:100%;height:100%;border-radius:34px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column">
+      <div style="position:absolute;top:0;left:0;right:0;z-index:5;height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--raised);font-family:var(--font-mono);font-size:11px;color:var(--soft)"><span>9:41</span><span>▮▮▮</span></div>
+      <div style="position:absolute;top:26px;left:0;right:0;z-index:4;min-height:52px;display:flex;align-items:center;gap:1px;padding:0 8px 0 4px;background:linear-gradient(180deg,var(--raised),var(--card-bottom));border-bottom:1px solid var(--line)">
+        <button type="button" style="width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;color:var(--soft);cursor:pointer" title="Menu">{{ icoMenu }}</button>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding-left:2px">
+          <span style="font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sec.label }}</span>
+          <span style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;color:var(--faint)">Metadata</span>
+        </span>
+        <button type="button" onClick="{{ openHelp }}" aria-label="Help" style="width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:999px;background:transparent;font-family:var(--font-mono);font-size:14px;color:var(--soft);cursor:pointer" title="Help">{{ icoHelp }}</button>
+      </div>
+
+      <div style="flex:1;min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;padding:86px 14px 96px;display:flex;flex-direction:column;gap:16px">
+        <div onPointerDown="{{ onDown }}" onPointerMove="{{ onMove }}" onPointerUp="{{ onUp }}" onClickCapture="{{ onUp }}" style="display:flex;gap:8px;min-width:0;max-width:100%;overflow-x:auto;padding:1px 0 4px;touch-action:pan-x;mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+            <button type="button" onClick="{{ t.pick }}" aria-pressed="{{ t.on }}" style="flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:7px 13px;border:1px solid {{ t.chipBorder }};border-radius:999px;background:{{ t.chipBg }};color:{{ t.chipFg }};cursor:pointer">
+              <span style="display:inline-flex">{{ t.glyph }}</span>
+              <span style="font-family:var(--font-ui);font-size:13.5px;font-weight:600;white-space:nowrap">{{ t.label }}</span>
+              <span style="font-family:var(--font-mono);font-size:11px;color:{{ t.chipCount }}">{{ t.count }}</span>
+            </button>
+          </sc-for>
+        </div>
+
+        
+
+        <sc-if value="{{ sec.hasStrip }}" hint-placeholder-val="{{ true }}">
+          <div onPointerDown="{{ onDown }}" onPointerMove="{{ onMove }}" onPointerUp="{{ onUp }}" onClickCapture="{{ onUp }}" style="display:flex;align-items:center;gap:8px;min-width:0;max-width:100%;overflow-x:auto;padding:1px 0 3px;touch-action:pan-x;mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)">
+            <sc-for list="{{ sec.filters }}" as="f" hint-placeholder-count="4">
+              <button type="button" onClick="{{ f.pick }}" aria-pressed="{{ f.on }}" style="flex:none;min-height:44px;padding:8px 14px;border:1px solid {{ f.border }};border-radius:999px;background:{{ f.bg }};color:{{ f.fg }};font-family:var(--font-ui);font-size:13.5px;font-weight:600;white-space:nowrap;cursor:pointer">{{ f.label }}</button>
+            </sc-for>
+            <sc-if value="{{ sec.hasBoth }}" hint-placeholder-val="{{ true }}">
+              <span style="flex:none;width:1px;height:26px;background:var(--line);margin:0 3px"></span>
+            </sc-if>
+            <sc-for list="{{ sec.bulk }}" as="b" hint-placeholder-count="2">
+              <button type="button" onClick="{{ b.act }}" style="flex:none;min-height:44px;display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line);border-radius:9px;background:var(--raised);font-family:var(--font-ui);font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;white-space:nowrap">
+                <span style="display:inline-flex;color:var(--soft)">{{ b.glyph }}</span>
+                <span>{{ b.label }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+        
+        <sc-if value="{{ sec.hasProgress }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span role="progressbar" aria-valuenow="{{ sec.progress.pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ sec.progress.label }}" style="height:6px;border-radius:999px;background:var(--sunk);border:1px solid var(--line);overflow:hidden">
+              <span style="display:block;height:100%;width:{{ sec.progress.pctCss }};background:var(--accent-ui)"></span>
+            </span>
+            <span style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;color:var(--faint)">{{ sec.progress.label }}</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sec.hasLegend }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px">
+            <sc-for list="{{ sec.legend }}" as="l" hint-placeholder-count="4">
+              <span style="display:inline-flex;align-items:center;gap:7px;min-width:0">
+                <span style="width:11px;height:11px;flex:none;border-radius:999px;background:{{ l.dot }}"></span>
+                <span style="font-family:var(--font-ui);font-size:12.5px;color:var(--soft);text-wrap:pretty">{{ l.label }}</span>
+              </span>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sec.hasIssues }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ sec.issues }}" as="is" hint-placeholder-count="2">
+              <button type="button" onClick="{{ is.act }}" style="display:flex;align-items:baseline;gap:12px;width:100%;min-height:44px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-family:var(--font-ui);font-size:15px;cursor:pointer">
+                <span style="flex:1 1 auto;min-width:0;text-wrap:pretty">{{ is.label }}</span>
+                <span style="flex:none;font-family:var(--font-mono);font-size:13px;color:var(--error)">{{ is.n }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-for list="{{ sec.groups }}" as="g" hint-placeholder-count="2">
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <span style="font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);white-space:nowrap">{{ g.title }}</span>
+              <span aria-hidden="{{ g.dotHidden }}" style="flex:none;width:7px;height:7px;border-radius:999px;background:{{ g.dotBg }}"></span>
+              <span style="flex:1;height:1px;background:var(--line)"></span>
+            </div>
+            <div style="min-width:0;display:flex;flex-direction:column">
+              <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="4">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;min-width:0;max-width:100%;padding:11px 0;border-top:{{ r.topLine }}">
+                  <sc-if value="{{ r.swatch }}" hint-placeholder-val="{{ true }}">
+                    <button type="button" onClick="{{ r.pickColour }}" aria-label="Change the colour of {{ r.name }}" style="width:30px;height:30px;flex:none;border-radius:999px;border:1.4px solid {{ r.swatchRing }};background:{{ r.swatch }};cursor:pointer"></button>
+                  </sc-if>
+                  <sc-if value="{{ r.markFace }}" hint-placeholder-val="{{ true }}">
+                    <span role="img" aria-label="{{ r.markAria }}" style="{{ r.markFace }}"></span>
+                  </sc-if>
+                  <sc-if value="{{ r.portrait }}" hint-placeholder-val="{{ true }}">
+                    <span style="{{ r.portrait }}"></span>
+                  </sc-if>
+                  <sc-if value="{{ r.coverFace }}" hint-placeholder-val="{{ true }}">
+                    <span style="{{ r.coverFace }}"></span>
+                  </sc-if>
+                  <span style="flex:1 1 12ch;min-width:0;display:flex;flex-direction:column;gap:5px">
+                    <sc-if value="{{ r.chip }}" hint-placeholder-val="{{ true }}">
+                      <span style="align-self:flex-start;width:fit-content;max-width:100%;{{ r.chip.face }}"><sc-if value="{{ r.chip.reel }}" hint-placeholder-val="{{ true }}"><span style="{{ r.chip.hole }}"></span></sc-if><span style="font-family:{{ r.chip.font }}">{{ r.chip.text }}</span><sc-if value="{{ r.chip.reel }}" hint-placeholder-val="{{ true }}"><span style="{{ r.chip.hole }}"></span></sc-if></span>
+                    </sc-if>
+                    <sc-if value="{{ r.showName }}" hint-placeholder-val="{{ true }}">
+                      <span style="font-family:{{ r.nameFace }};font-size:15px;font-weight:600;color:var(--ink);text-wrap:pretty">{{ r.name }}</span>
+                    </sc-if>
+                    <sc-if value="{{ r.sub }}" hint-placeholder-val="{{ true }}">
+                      <span style="font-family:var(--font-ui);font-size:12.5px;color:var(--soft);text-wrap:pretty">{{ r.sub }}</span>
+                    </sc-if>
+                  </span>
+                  <span style="flex:1 1 100%;min-width:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:7px">
+                    <span style="flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                      <sc-for list="{{ r.chips }}" as="c" hint-placeholder-count="2">
+                        <span style="display:inline-flex;align-items:center;min-height:24px;padding:3px 8px;border:1px solid {{ c.border }};border-radius:999px;background:{{ c.bg }};font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;color:{{ c.fg }};white-space:nowrap">{{ c.label }}</span>
+                      </sc-for>
+                      <sc-if value="{{ r.chipsEmpty }}" hint-placeholder-val="{{ true }}">
+                        <span style="font-family:var(--font-mono);font-size:11px;color:var(--faint)">{{ r.chipsEmpty }}</span>
+                      </sc-if>
+                    </span>
+                    <sc-if value="{{ r.count }}" hint-placeholder-val="{{ true }}">
+                      <span style="font-family:var(--font-mono);font-size:11px;color:{{ r.countFg }}">{{ r.count }}</span>
+                    </sc-if>
+                    <sc-for list="{{ r.acts }}" as="a" hint-placeholder-count="2">
+                      <button type="button" onClick="{{ a.act }}" aria-label="{{ a.aria }}" style="width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:9px;background:var(--raised);color:{{ a.fg }};cursor:pointer">{{ a.glyph }}</button>
+                    </sc-for>
+                  </span>
+                  <sc-if value="{{ r.styleOpen }}" hint-placeholder-val="{{ true }}">
+                    <span style="flex:1 1 100%;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:2px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--raised)">
+                      <sc-for list="{{ r.styleOpts }}" as="st" hint-placeholder-count="5">
+                        <button type="button" onClick="{{ st.pick }}" aria-label="{{ st.label }}" title="{{ st.label }}" style="min-height:44px;display:inline-flex;align-items:center;padding:4px;border:{{ st.ring }};border-radius:11px;background:none;cursor:pointer">
+                          <span style="{{ st.face }}"><sc-if value="{{ st.reel }}" hint-placeholder-val="{{ true }}"><span style="{{ st.hole }}"></span></sc-if><span>{{ st.label }}</span><sc-if value="{{ st.reel }}" hint-placeholder-val="{{ true }}"><span style="{{ st.hole }}"></span></sc-if></span>
+                        </button>
+                      </sc-for>
+                      <span style="width:1px;height:28px;background:var(--line)"></span>
+                      <sc-for list="{{ r.colourOpts }}" as="cl" hint-placeholder-count="4">
+                        <button type="button" onClick="{{ cl.pick }}" aria-label="{{ cl.name }}" title="{{ cl.name }}" style="width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;cursor:pointer">
+                          <span style="width:26px;height:26px;border-radius:999px;background:{{ cl.hex }};border:{{ cl.ring }}"></span>
+                        </button>
+                      </sc-for>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{ r.colourOpen }}" hint-placeholder-val="{{ true }}">
+                    <span style="flex:1 1 100%;min-width:0;display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--raised)">
+                      <sc-for list="{{ r.palette }}" as="p" hint-placeholder-count="6">
+                        <button type="button" onClick="{{ p.pick }}" aria-label="{{ p.name }}" style="display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:4px 13px 4px 5px;border-radius:999px;border:{{ p.ring }};background:var(--card);cursor:pointer">
+                          <span style="width:26px;height:26px;flex:none;border-radius:999px;background:{{ p.hex }};border:1px solid var(--ink-border)"></span>
+                          <span style="font-family:var(--font-ui);font-size:13px;color:var(--ink);white-space:nowrap">{{ p.name }}</span>
+                        </button>
+                      </sc-for>
+                    </span>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="position:absolute;left:16px;right:16px;bottom:18px;z-index:6;display:flex;align-items:center;gap:2px;padding:6px;border-radius:999px;border:1px solid var(--line);background:linear-gradient(180deg,var(--card-bottom),var(--raised));box-shadow:0 10px 28px -10px rgba(0,0,0,.6)">
+        <sc-for list="{{ dock }}" as="d" hint-placeholder-count="5">
+          <button type="button" onClick="{{ d.act }}" aria-label="{{ d.label }}" title="{{ d.label }}" style="flex:1;min-width:0;height:48px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:999px;background:{{ d.bg }};color:{{ d.fg }};cursor:pointer">{{ d.glyph }}</button>
+        </sc-for>
+      </div>
+
+      <div style="position:absolute;inset:0;display:{{ infoDisplay }};align-items:flex-end;background:rgba(0,0,0,.36);z-index:9">
+        <div style="width:100%;padding:16px 16px 22px;border-top:1px solid var(--ink-border);border-radius:14px 14px 0 0;background:color-mix(in srgb, var(--card) 94%, transparent);backdrop-filter:blur(34px) saturate(140%)">
+          <div style="font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:.11em;text-transform:uppercase;color:var(--accent-ui);margin-bottom:6px">{{ infoTitle }}</div>
+          <p style="margin:0 0 12px;font-family:var(--font-ui);font-size:13.5px;line-height:1.6;color:var(--soft);text-wrap:pretty">{{ infoBody }}</p>
+          <button type="button" onClick="{{ closeInfo }}" style="width:100%;min-height:44px;border-radius:9px;border:1.4px solid var(--ink-border);background:transparent;font-family:var(--font-ui);font-size:14px;font-weight:600;color:var(--ink);cursor:pointer">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  // METADATA IS THE OTHER HALF OF SETTINGS. Settings answers how the app looks and
+  // behaves; this answers what the library IS — the languages a quote can be in,
+  // the colour categories a mark can carry, the tags, the people. Both were on one
+  // screen and the seam showed: a category is not a preference.
+  //
+  // The idiom is the repo's own metadata page: a rail beside a body, and every
+  // section wearing its count, because a section is worth entering or not
+  // depending on how much is in it. The only red number is the count of GAPS —
+  // a library of 900 books is not a warning.
+  state = { sel: 'sources', q: '', info: null, colourOpen: null, cats: null,
+    filter: { people: 'all', works: 'all' }, busy: null, styleOpen: null, tagStyle: {} };
+
+  // CATEGORY_PALETTE, verbatim from the repo: six that are instantly
+  // distinguishable, and disjoint from the theme accents by construction so a
+  // category can never read as the app's own colour.
+  static PALETTE = [
+    ['#E5C355', 'Straw'], ['#7FA6C9', 'Slate blue'], ['#D98CA6', 'Rose'],
+    ['#DF9A5B', 'Amber'], ['#7CB342', 'Leaf'], ['#B5C05A', 'Moss'],
+    ['#B0806B', 'Clay'], ['#8C7F6E', 'Stone'],
+  ];
+
+
+  static PROVIDERS = { imdb: 'IMDb', tmdb: 'TMDB', wiki: 'Wikipedia', tvdb: 'TheTVDB', ol: 'OpenLibrary', gb: 'Google Books' };
+
+  static PEOPLE_FULL = [
+    ['Satyajit Ray', 'directors', 31, ['imdb', 'wiki', 'tmdb'], true],
+    ['Rabindranath Tagore', 'authors', 58, ['wiki', 'ol'], true],
+    ['Mahasweta Devi', 'authors', 12, [], false],
+    ['Soumitra Chatterjee', 'actors', 19, ['imdb', 'tmdb'], true],
+    ['Ritwik Ghatak', 'directors', 8, ['imdb'], false],
+    ['Bibhutibhushan Bandyopadhyay', 'authors', 7, ['wiki'], false],
+    ['Madhabi Mukherjee', 'actors', 6, [], false],
+    ['Sunil Gangopadhyay', 'speakers', 3, [], false],
+  ];
+
+  // A work, and what is missing from it. The filters ARE the issue tags.
+  static WORKS = [
+    ['Pather Panchali', 'Library · 1955 · Ray', []],
+    ['চারুলতা', 'Library · 1964 · Ray', ['lowres']],
+    ['The Cloud-Capped Star', 'Catalogue · Ghatak', ['nocover', 'noyear']],
+    ['গোরা', 'Library · 1910 · Tagore', []],
+    ['Aranyer Din Ratri', 'Catalogue · 1970 · Ray', ['nocover', 'nopeople']],
+    ['Nights of the Quarter Moon', 'Catalogue · Ray', ['noyear', 'nosynopsis']],
+    ['অপরাজিত', 'Library · 1932 · Bandyopadhyay', ['nopeople']],
+  ];
+
+  static ISSUE_TAGS = {
+    lowres: 'Low resolution', nocover: 'No cover', noyear: 'No year',
+    nopeople: 'No people', nosynopsis: 'No synopsis',
+  };
+
+  // Every source the app can ask, and what it needs to be asked.
+  // name · mark in SiteMarks · what it supplies · state · records supplied
+  static SOURCES = [
+    ['TMDB', 'themoviedatabase', 'films · people · posters', 'saved', 1204],
+    ['OpenLibrary', 'internetarchive', 'books · covers', 'builtin', 863],
+    ['Wikipedia', 'wikipedia', 'people · works', 'builtin', 412],
+    ['Google Books', 'google', 'books · synopses', 'needed', 0],
+    ['TheTVDB', 'thetvdb', 'series · episodes', 'needed', 0],
+    ['IMDb', 'imdb', 'films · people', 'optional', 96],
+    ['Goodreads', 'goodreads', 'books · ratings', 'optional', 0],
+    ['IGDB', 'igdb', 'games', 'needed', 0],
+    ['Letterboxd', 'letterboxd', 'films · lists', 'optional', 0],
+    ['Wikidata', 'wikidata', 'people · identifiers', 'builtin', 188],
+    ['Fandom', 'fandom', 'characters', 'optional', 24],
+    ['Amazon', 'amazon', 'editions', 'needed', 0],
+  ];
+  static SRC_STATE = {
+    saved: ['var(--ok)', 'key saved'],
+    optional: ['var(--amber)', 'optional — no key stored'],
+    needed: ['var(--error)', 'needs a key before it can be asked'],
+    builtin: ['var(--hl-6)', 'uses the key built into the app'],
+  };
+  // ProviderMark: the supplier's own artwork as a MASK, so a dozen brand marks
+  // wear the row's ink instead of a dozen brand hues.
+  markFace(id, colour) {
+    const url = (window.SiteMarks || {})[id];
+    if (!url) return 'width:22px;height:22px;flex:none;border-radius:6px;background:' + colour;
+    return 'width:22px;height:22px;flex:none;background-color:' + colour + ';' +
+      '-webkit-mask:url("' + url + '") center/contain no-repeat;' +
+      'mask:url("' + url + '") center/contain no-repeat';
+  }
+
+  static STICKERS = [
+    ['gold seal', 'seal', 41], ['margin tape', 'tape', 27],
+    ['reel', 'reel', 12], ['banner', 'banner', 6],
+  ];
+
+
+  static CHARS = [
+    ['Apu', 3, 2], ['Durga', 2, 2], ['Charulata', 1, 1],
+    ['Neeta', 1, 0], ['Feluda', 4, 1],
+  ];
+
+
+  static HL = ['#E5C355', '#7FA6C9', '#D98CA6', '#DF9A5B'];
+  static TAG_STYLES = ['sticker', 'banner', 'flyout', 'tape', 'reel'];
+
+  // Each tag carries the style and colour it actually wears in the app.
+  static TAGS_DRAWN = [
+    ['exile', 96, 'sticker', 0, false],
+    ['craft', 74, 'tape', 1, false],
+    ['monsoon', 51, 'flyout', 2, false],
+    ['on translation', 33, 'banner', 3, true],
+    ['translation', 28, 'sticker', 3, true],
+    ['childhood', 22, 'reel', 0, false],
+    ['ভাষা', 17, 'sticker', 1, false],
+    ['unsorted', 9, 'tape', 3, false],
+  ];
+
+  static TAGS = [
+    ['exile', 96, false], ['craft', 74, false], ['monsoon', 51, false],
+    ['on translation', 33, true], ['translation', 28, true],
+    ['childhood', 22, false], ['ভাষা', 17, false], ['unsorted', 9, false],
+  ];
+
+  static PEOPLE = [
+    ['Rabindranath Tagore', 'author · 58 works', true],
+    ['Satyajit Ray', 'director · 31 works', true],
+    ['Mikhail Bulgakov', 'author · 3 works', false],
+    ['Bibhutibhushan Bandyopadhyay', 'author · 7 works', false],
+    ['Ritwik Ghatak', 'director · 8 works', false],
+  ];
+
+  cats() {
+    return this.state.cats || [
+      { name: 'Unmarked — the default', hex: '#E5C355', fixed: true, n: 412 },
+      { name: 'Fact', hex: '#7FA6C9', n: 268 },
+      { name: 'Voice', hex: '#D98CA6', n: 151 },
+      { name: 'Craft', hex: '#DF9A5B', n: 96 },
+      { name: '', hex: '#7CB342', n: 24 },
+      { name: '', hex: '#8C7F6E', n: 0 },
+    ];
+  }
+
+  // The pack's own signature: icon(React, name, size, props).
+  // script → the face that actually covers it. The UI face is Latin-only, so a
+  // name outside Latin gets its own and falls back to the UI face after.
+  static FACES = {
+    latin: 'var(--font-ui)',
+    bengali: '"Noto Serif Bengali", var(--font-ui)',
+    devanagari: '"Noto Sans Devanagari", var(--font-ui)',
+    arabic: '"Noto Naskh Arabic", var(--font-ui)',
+  };
+  // And when all we have is the string, the codepoints say which script it is.
+  faceFor(text, script) {
+    const F = this.constructor.FACES;
+    if (script && F[script]) return F[script];
+    if (/[\u0980-\u09FF]/.test(text)) return F.bengali;
+    if (/[\u0900-\u097F]/.test(text)) return F.devanagari;
+    if (/[\u0600-\u06FF\u0750-\u077F]/.test(text)) return F.arabic;
+    return F.latin;
+  }
+
+  // A SCROLLING ROW MUST BE REACHABLE BY POINTER. overflow-x alone is a touch-only
+  // affordance, and these are phones drawn on a desk — so every scroller takes
+  // press-and-drag, with a drag past 3px swallowing the click so dragging a row of
+  // tabs never switches the tab you dragged.
+  dragDown = (e) => {
+    const el = e.currentTarget;
+    this._drag = { el, x: e.clientX, left: el.scrollLeft, moved: false };
+    // No pointer capture: capturing on the scroller makes the scroller the click
+    // target, and then no chip inside it can ever be tapped.
+    this._onWin = (ev) => this.dragMove(ev);
+    this._offWin = () => {
+      window.removeEventListener('pointermove', this._onWin);
+      window.removeEventListener('pointerup', this._offWin);
+    };
+    window.addEventListener('pointermove', this._onWin);
+    window.addEventListener('pointerup', this._offWin);
+  };
+  dragMove = (e) => {
+    const d = this._drag;
+    if (!d) return;
+    if (e.cancelable) e.preventDefault();
+    const dx = e.clientX - d.x;
+    if (Math.abs(dx) > 3) d.moved = true;
+    if (d.moved) d.el.scrollLeft = d.left - dx;
+  };
+  dragUp = (e) => {
+    const d = this._drag;
+    if (this._offWin) this._offWin();
+    // The click lands after pointerup, so the decision to swallow it has to
+    // outlive the drag record by one event.
+    if (e.type === 'pointerup') { this._ateDrag = !!(d && d.moved); this._drag = null; return; }
+    if (this._ateDrag) { e.preventDefault(); e.stopPropagation(); this._ateDrag = false; }
+  };
+
+  ico(name, size) {
+    const T = window.TippaniIcons;
+    if (!T || !T.ICONS[name]) return null;
+    return T.icon(React, name, size || 19, {});
+  }
+
+  componentDidMount() {
+    if (window.TippaniIcons) return;
+    // The glyph pack loads from the helmet, so the first render can precede it.
+    this._t = setInterval(() => {
+      if (window.TippaniIcons) { clearInterval(this._t); this.forceUpdate(); }
+    }, 50);
+  }
+  componentWillUnmount() { clearInterval(this._t); }
+
+  openInfo = (title, body) => () => this.setState({ info: { title, body } });
+
+  setCat = (i, hex) => {
+    this.setState((st) => {
+      const list = (st.cats || this.cats()).map((c, j) => (j === i ? { ...c, hex } : c));
+      return { cats: list, colourOpen: null };
+    });
+  };
+
+  // A row's own controls. Two glyphs at most: what you do to this record, and the
+  // destructive one, which always asks.
+  acts(list) {
+    return list.map(([glyph, aria, danger]) => ({
+      glyph: this.ico(glyph, 15), aria,
+      fg: danger ? 'var(--error)' : 'var(--soft)',
+      act: () => {},
+    }));
+  }
+
+  // .tag-chip + .ts-* + .tc-*, as one inline style.
+  tagFace(style, ci) {
+    const tc = this.constructor.HL[ci % 4];
+    const tilt = { sticker: '-0.9deg', banner: '.7deg', flyout: '-.7deg', tape: '-2.2deg', reel: '-0.9deg' }[style];
+    const base = 'display:inline-flex;align-items:center;gap:6px;padding:5px 10px;' +
+      'font-family:var(--font-mono);font-size:12px;font-weight:500;color:#221C16;white-space:nowrap;' +
+      'background:linear-gradient(180deg, color-mix(in oklab, ' + tc + ', white 22%), ' + tc + ');' +
+      'border:1.2px solid rgba(41,38,29,.55);border-radius:8px 5px 7px 6px / 6px 8px 5px 7px;' +
+      'box-shadow:inset 0 1px 0 rgba(255,255,255,.4);transform:rotate(' + tilt + ')';
+    if (style === 'sticker') return base + ';box-shadow:1.5px 1.5px 0 rgba(41,38,29,.25), inset 0 1px 0 rgba(255,255,255,.4)';
+    if (style === 'banner') return base + ';border:none;border-radius:3px;padding-right:17px;' +
+      'clip-path:polygon(0 0, 100% 0, calc(100% - 10px) 50%, 100% 100%, 0 100%)';
+    if (style === 'flyout') return base + ';border:none;border-radius:3px 3px 0 0;padding-bottom:10px;' +
+      'clip-path:polygon(0 0, 100% 0, 100% calc(100% - 8px), 50% 100%, 0 calc(100% - 8px))';
+    if (style === 'tape') return base + ';background:color-mix(in srgb, ' + tc + ' 50%, transparent);' +
+      'border:none;border-left:1.2px dashed rgba(41,38,29,.5);border-right:1.2px dashed rgba(41,38,29,.5);border-radius:2px';
+    return base + ';border-radius:999px;padding:3px 12px';
+  }
+  // .ts-reel::before / ::after — a reel without its sprockets is a pill.
+  holeFace() {
+    return 'width:6px;height:6px;flex:none;border-radius:2px;background:#F7F2E6;' +
+      'box-shadow:inset 0 0 0 1px rgba(41,38,29,.35)';
+  }
+
+  hatch() {
+    return 'width:34px;height:52px;flex:none;border-radius:3px;border:1px solid var(--line);' +
+      'background-color:var(--raised);background-image:repeating-linear-gradient(45deg,' +
+      'color-mix(in oklab, var(--ink), transparent 95%) 0 12px, transparent 12px 26px)';
+  }
+  silhouette(has) {
+    if (has) {
+      return 'width:34px;height:34px;flex:none;border-radius:32%;border:1px solid var(--line);' +
+        'background:linear-gradient(150deg, color-mix(in oklab, var(--accent), transparent 40%), var(--sunk))';
+    }
+    // A MISSING PERSON IS THE SILHOUETTE, never the hatch: a hatch where a face
+    // belongs reads as a broken tile.
+    return 'width:34px;height:34px;flex:none;border-radius:32%;border:1px solid var(--line);' +
+      'background:var(--faint);-webkit-mask:url(assets/person-silhouette.svg) center/78% no-repeat;' +
+      'mask:url(assets/person-silhouette.svg) center/78% no-repeat';
+  }
+
+  sections() {
+    const C = this.constructor;
+    const q = this.state.q.trim().toLowerCase();
+    const keep = (name) => !q || String(name).toLowerCase().includes(q);
+    const P = C.PALETTE;
+    const filt = this.state.filter;
+
+    // ── PEOPLE. Every author, actor, director and speaker the library refers to,
+    // with the pages that identify them. Rows stay listed even when nothing refers
+    // to them any more, so stale metadata stays manageable rather than vanishing.
+    const peopleAll = C.PEOPLE_FULL.filter(([n]) => keep(n));
+    const peopleRows = peopleAll
+      .filter(([, role]) => filt.people === 'all' || role === filt.people)
+      .map(([name, role, works, links, hasFace]) => ({
+        name, nameFace: this.faceFor(name),
+        sub: role.replace(/s$/, '') + ' · ' + works + (works === 1 ? ' work' : ' works'),
+        portrait: this.silhouette(hasFace),
+        chips: links.map((k) => ({ label: C.PROVIDERS[k] })),
+        chipsEmpty: links.length ? null : '—',
+        // ONE GLYPH ACROSS BOTH WORDS: fetching and refetching are the same act,
+        // and the label flips only because the row already has some.
+        acts: this.acts([['open', (links.length ? 'Refetch ' : 'Fetch ') + name + '’s photo and links']]),
+      }));
+
+    // ── COVERS. The one list in the app where a MISSING picture is the finding,
+    // which is why two of its filters are about exactly that.
+    // ── CHARACTERS. One record per character, however many works they turn up in;
+    // a face is chosen per work, because the same character wears a different one
+    // in each.
+    const charRows = C.CHARS.filter(([n]) => keep(n)).map(([name, works, faces]) => ({
+      name, nameFace: this.faceFor(name),
+      sub: works + (works === 1 ? ' work' : ' works') + ' · ' + faces + ' of ' + works + ' have a face',
+      portrait: this.silhouette(faces > 0),
+      count: faces < works ? String(works - faces) : '',
+      countFg: 'var(--error)',
+      countTitle: (works - faces) + ' appearances with no face chosen',
+      acts: this.acts([['selectMany', 'Choose faces for ' + name], ['merge', 'Merge ' + name], ['trash', 'Delete ' + name, true]]),
+    }));
+
+    const catRows = this.cats().map((c, i) => ({
+      name: c.name || 'Unnamed',
+      sub: c.name ? null : 'A colour with no name cannot be filtered on — give it one',
+      swatch: c.hex,
+      swatchRing: c.name ? 'var(--ink-border)' : 'var(--error)',
+      pickColour: () => this.setState({ colourOpen: this.state.colourOpen === i ? null : i }),
+      colourOpen: this.state.colourOpen === i,
+      palette: P.map(([hex, name]) => ({
+        hex, name,
+        ring: c.hex === hex ? '2.5px solid var(--ink)' : '1.4px solid var(--ink-border)',
+        pick: () => this.setCat(i, hex),
+      })),
+      count: String(c.n), countFg: c.name ? 'var(--faint)' : 'var(--error)',
+      countTitle: c.n + ' quotes carry this category',
+      acts: c.fixed
+        ? this.acts([['edit', 'Rename the default category']])
+        : this.acts([['edit', 'Rename ' + (c.name || 'this category')], ['trash', 'Delete ' + (c.name || 'this category'), true]]),
+    }));
+
+    const tagRows = C.TAGS_DRAWN.filter(([n]) => keep(n)).map(([name, n, style0, ci0, dupe], i) => {
+      const own = this.state.tagStyle[name] || {};
+      const style = own.style || style0;
+      const ci = own.ci == null ? ci0 : own.ci;
+      const write = (patch) => this.setState((st) => ({
+        tagStyle: { ...st.tagStyle, [name]: { style, ci, ...patch } },
+      }));
+      return {
+      name, nameFace: this.faceFor(name),
+      // The tag itself, in the style and colour it wears on a quote.
+      chip: { text: name, face: this.tagFace(style, ci), font: this.faceFor(name), reel: style === 'reel', hole: this.holeFace() },
+      sub: (dupe ? 'Looks like a duplicate — merge it · ' : '') + style,
+      count: String(n), countFg: dupe ? 'var(--error)' : 'var(--faint)',
+      countTitle: n + ' quotes tagged ' + name,
+      styleOpen: this.state.styleOpen === i,
+      styleOpts: C.TAG_STYLES.map((st) => ({
+        label: st, face: this.tagFace(st, ci), reel: st === 'reel', hole: this.holeFace(),
+        ring: st === style ? '2.5px solid var(--ink)' : '1.4px solid transparent',
+        pick: () => write({ style: st }),
+      })),
+      colourOpts: C.HL.map((hex, j) => ({
+        hex, name: ['Yellow', 'Blue', 'Pink', 'Orange'][j],
+        ring: j === ci ? '2.5px solid var(--ink)' : '1.4px solid var(--ink-border)',
+        pick: () => write({ ci: j }),
+      })),
+      acts: [
+        { glyph: this.ico('penStroke', 15), aria: 'Restyle ' + name, fg: 'var(--soft)',
+          act: () => this.setState({ styleOpen: this.state.styleOpen === i ? null : i }) },
+      ].concat(this.acts([['edit', 'Rename ' + name], ['merge', 'Merge ' + name], ['trash', 'Delete ' + name, true]])),
+      };
+    });
+
+    const noLinks = C.PEOPLE_FULL.filter((p) => !p[3].length).length;
+    const noFace = C.PEOPLE_FULL.filter((p) => !p[4]).length;
+    const charGaps = C.CHARS.reduce((a, c) => a + (c[1] - c[2]), 0);
+    const unnamed = this.cats().filter((c) => !c.name).length;
+    const dupes = C.TAGS.filter((t) => t[2]).length;
+
+    const seg = (key, opts) => opts.map(([id, label]) => ({
+      label, on: filt[key] === id,
+      pick: () => this.setState({ filter: { ...filt, [key]: id } }),
+    }));
+
+    // WORKS: every work in every library and catalogue, filtered by what is wrong
+    // with it — and the two bulk acts the dropped summary used to own, which belong
+    // where the records are.
+    const worksAll = C.WORKS.filter(([t]) => keep(t));
+    const worksRows = worksAll
+      .filter(([, , iss]) => filt.works === 'all' || (filt.works === 'ok' ? !iss.length : iss.includes(filt.works)))
+      .map(([title, where, iss]) => ({
+        name: title, nameFace: this.faceFor(title),
+        sub: where,
+        cover: iss.includes('nocover') ? 'none' : (iss.includes('lowres') ? 'low' : 'have'),
+        chips: iss.map((k) => ({ label: C.ISSUE_TAGS[k], warn: true })),
+        chipsEmpty: iss.length ? null : 'complete',
+        count: iss.length ? String(iss.length) : '',
+        countFg: 'var(--error)',
+        countTitle: iss.length + ' fields missing',
+        acts: this.acts([['open', 'Fetch metadata for ' + title], ['edit', 'Edit ' + title + ' by hand']]),
+      }));
+
+    const sourceRows = C.SOURCES.filter(([n]) => keep(n)).map(([name, mark, what, state, used]) => {
+      const [colour, says] = C.SRC_STATE[state];
+      return {
+        name, sub: what,
+        // The mark carries the state: a 1.5px ring of its own colour, as .src-mark
+        // .has-state does, and the words are in its label so the hue is never alone.
+        markFace: this.markFace(mark, colour) + ';box-shadow:inset 0 0 0 1.5px ' + colour,
+        markAria: name + ' — ' + says,
+        count: used ? String(used) : '',
+        countFg: state === 'needed' ? 'var(--error)' : 'var(--faint)',
+        countTitle: used + ' records came from ' + name,
+        chips: [{ label: says, tone: colour }],
+        acts: this.acts(state === 'builtin'
+          ? [['refresh', 'Test ' + name]]
+          : [['key', (state === 'saved' ? 'Replace ' : 'Add ') + name + '’s key'], ['refresh', 'Test ' + name]]),
+      };
+    });
+
+    const stickerRows = C.STICKERS.filter(([n]) => keep(n)).map(([name, style, used], i) => ({
+      name, sub: used + (used === 1 ? ' quote wears it' : ' quotes wear it') + ' · ' + style,
+      // A sticker is artwork, so the row shows the artwork.
+      chip: { text: name, face: this.tagFace(C.TAG_STYLES.includes(style) ? style : 'sticker', i), font: 'var(--font-mono)', reel: style === 'reel', hole: this.holeFace() },
+      count: '', acts: this.acts([['edit', 'Rename ' + name], ['upload', 'Replace ' + name + '’s artwork'], ['trash', 'Delete ' + name, true]]),
+    }));
+
+    const noKey = C.SOURCES.filter((x) => x[3] === 'needed').length;
+    const issueCount = C.WORKS.reduce((a, w) => a + w[2].length, 0);
+    const worksWithIssues = C.WORKS.filter((w) => w[2].length).length;
+
+    const seg2 = (key, opts) => opts.map(([id, label]) => ({
+      label, on: filt[key] === id,
+      pick: () => this.setState({ filter: { ...filt, [key]: id } }),
+    }));
+
+    return [
+      { id: 'sources', label: 'Metadata sources', glyph: 'archive', count: String(C.SOURCES.length),
+        gaps: noKey, addLabel: '＋ Test them all',
+        info: ['Metadata sources', 'Where fetched metadata comes from. A source with no key cannot be asked, which is why the count of those is the red one — everything else on this screen depends on at least one being on.'],
+        filters: [], bulk: [['Test every source', 'refresh']],
+        legend: Object.keys(C.SRC_STATE).map((k) => ({ dot: C.SRC_STATE[k][0], label: C.SRC_STATE[k][1] })),
+        issues: [[noKey + ' sources need a key before they can be asked', noKey]],
+        groups: [{ title: 'Who the app can ask', aside: 'records supplied', rows: sourceRows }] },
+
+      { id: 'works', label: 'Works', glyph: 'openBook', count: String(C.WORKS.length),
+        gaps: worksWithIssues, addLabel: '＋ Add a work',
+        info: ['Works', 'Every work in every library and catalogue, seen through what is MISSING from it rather than through its shelf. Pick an issue and the list becomes only the works that have it, so the bulk fetch below acts on exactly those — the summary screen this replaces could count the problems but not reach them.'],
+        filters: seg2('works', [['all', 'Everything'], ['nocover', 'No cover'], ['lowres', 'Low resolution'], ['noyear', 'No year'], ['nopeople', 'No people'], ['nosynopsis', 'No synopsis'], ['ok', 'Complete']]),
+        bulk: [['Fetch empty fields', 'download'], ['Re-verify filled fields', 'refresh']],
+        progress: { label: 'Fetching 3 of ' + worksWithIssues + ' · The Cloud-Capped Star', pct: 38 },
+        issues: [[issueCount + ' missing fields across ' + worksWithIssues + ' works', issueCount]],
+        groups: [{ title: 'Across every library and catalogue', aside: 'issues per work', rows: worksRows }] },
+
+      { id: 'people', label: 'People', glyph: 'users', count: String(C.PEOPLE_FULL.length),
+        gaps: noLinks + noFace, addLabel: '＋ A person',
+        info: ['People', 'Every author, actor, director and speaker the library refers to, and the pages that identify them. Fetching and refetching are one act — go and get this person’s photo and links — so the row keeps one glyph and only the label flips. Rows stay listed even when nothing refers to them any more, so stale records stay manageable.'],
+        filters: seg('people', [['all', 'Everyone'], ['authors', 'Authors'], ['actors', 'Actors'], ['directors', 'Directors'], ['speakers', 'Speakers']]),
+        bulk: [['Fetch missing', 'download'], ['Re-verify saved', 'refresh']],
+        progress: { label: 'Idle — nothing running', pct: 0 },
+        issues: [[noLinks + ' with no reference pages', noLinks], [noFace + ' with no portrait', noFace]],
+        groups: [{ title: 'Referenced in your library', aside: 'links per person', rows: peopleRows }] },
+
+      { id: 'chars', label: 'Characters', glyph: 'dramaMask', count: String(C.CHARS.length),
+        gaps: charGaps, addLabel: '＋ A character',
+        info: ['Characters', 'One record per character, however many works they appear in — and a face chosen per work, because the same character wears a different one in each. The count in red is appearances with no face yet.'],
+        filters: [], bulk: [],
+        issues: [[charGaps + ' appearances with no face chosen', charGaps]],
+        groups: [{ title: 'Across your library', aside: 'faces chosen', rows: charRows }] },
+
+      { id: 'tags', label: 'Tags', glyph: 'tag', count: String(C.TAGS.length + C.STICKERS.length),
+        gaps: dupes, addLabel: '＋ A tag',
+        info: ['Tags and stickers', 'A tag is a word you file by; a sticker is a mark you put ON a quote. They share a screen because they are both things you make and then have to keep tidy, which is why this console leads with the tags that look like each other.'],
+        filters: [], bulk: [['Merge duplicates', 'merge']],
+        issues: [[dupes + ' tags look like duplicates', dupes]],
+        twoUp: true,
+        groups: [
+          { title: 'Tags', aside: 'quotes per tag', rows: tagRows },
+          { title: 'Stickers', aside: 'artwork you can stick on a quote', rows: stickerRows },
+        ] },
+
+      { id: 'cats', label: 'Colour categories', glyph: 'palette', count: String(this.cats().length),
+        gaps: unnamed, addLabel: '＋ A category',
+        info: ['Colour categories', 'A tag says what a line is about; its colour says what KIND of note it is. Eight that are instantly distinguishable, disjoint from the theme accents so a category can never read as the app’s own colour. Naming one is what makes it filterable.'],
+        filters: [], bulk: [],
+        issues: [[unnamed + ' categories have a colour but no name', unnamed]],
+        groups: [{ title: 'Yours to name', aside: 'tap a colour to change it', rows: catRows }] },
+    ];
+  }
+
+  renderVals() {
+    const secs = this.sections();
+    const sec = secs.find((s) => s.id === this.state.sel) || secs[0];
+
+    return {
+      q: this.state.q,
+      onDown: this.dragDown, onMove: this.dragMove, onUp: this.dragUp,
+      onQ: (e) => this.setState({ q: e.target.value }),
+      icoSearch: this.ico('search', 17),
+      icoAdd: this.ico('add', 20),
+      icoHelp: '?',
+      icoMenu: this.ico('menu', 20),
+      openHelp: this.openInfo('Metadata',
+        'Four lists the whole library leans on: the languages a quote can be in, the colour categories a mark can carry, your tags, and the people behind the works. Settings borrows all four and keeps none of them.'),
+
+      tabs: secs.map((s) => {
+        const on = s.id === this.state.sel;
+        return {
+          label: s.label, glyph: this.ico(s.glyph, 18), on,
+          count: s.count,
+          countFg: s.gaps ? 'var(--error)' : 'var(--faint)',
+          fg: on ? 'var(--ink)' : 'var(--soft)',
+          weight: on ? '600' : '400',
+          under: on ? 'var(--accent-ui)' : 'transparent',
+          underH: on ? '2.5px' : '0px',
+          chipBg: on ? 'var(--accent-ui)' : 'var(--raised)',
+          chipFg: on ? 'var(--on-accent)' : 'var(--soft)',
+          chipBorder: on ? 'var(--accent-ui)' : 'var(--line)',
+          chipCount: on ? 'var(--on-accent)' : (s.gaps ? 'var(--error)' : 'var(--faint)'),
+          pick: () => this.setState({ sel: s.id, colourOpen: null }),
+        };
+      }),
+
+      sec: {
+        label: sec.label,
+        addLabel: sec.addLabel,
+        addAct: () => {},
+        // THE LEGEND IS A ROW, NOT AN INFO DOT — the repo's own correction: a
+        // colour code that needs a tap to decode is a code nobody decodes.
+        legend: sec.legend || [],
+        hasLegend: !!(sec.legend && sec.legend.length),
+        // Every count of a problem is a DOOR. The complaint that produced these was
+        // being able to read "3 with no author" and having no way to reach those three.
+        issues: (sec.issues || []).filter(([, n]) => n > 0).map(([label, n]) => ({
+          label, n: String(n), act: () => {},
+        })),
+        hasIssues: (sec.issues || []).some(([, n]) => n > 0),
+        filters: (sec.filters || []).map((f) => ({
+          ...f,
+          bg: f.on ? 'var(--accent-ui)' : 'transparent',
+          fg: f.on ? 'var(--on-accent)' : 'var(--soft)',
+          border: f.on ? 'var(--accent-ui)' : 'var(--line)',
+        })),
+        hasFilters: !!(sec.filters && sec.filters.length),
+        hasStrip: !!((sec.filters && sec.filters.length) || (sec.bulk && sec.bulk.length)),
+        hasBoth: !!(sec.filters && sec.filters.length && sec.bulk && sec.bulk.length),
+        bulk: (sec.bulk || []).map(([label, glyph]) => ({
+          label, glyph: this.ico(glyph, 15), act: () => {},
+        })),
+        hasBulk: !!(sec.bulk && sec.bulk.length),
+        progress: sec.progress ? { ...sec.progress, pctCss: sec.progress.pct + '%' } : null,
+        hasProgress: !!sec.progress,
+        infoOpen: this.openInfo(sec.info[0], sec.info[1]),
+        // A list of records reads down one measure; two columns of names invite
+        // reading across, which is the wrong direction for a name.
+        cols: sec.twoUp ? 'repeat(auto-fit, minmax(340px, 1fr))' : 'minmax(0, 1fr)',
+        groups: sec.groups.map((g, i) => ({
+          ...g,
+          title: (i + 1) + ' · ' + g.title,
+          dotBg: g.rows.some((r) => r.countFg === 'var(--error)') ? 'var(--error)' : 'transparent',
+          dotHidden: g.rows.some((r) => r.countFg === 'var(--error)') ? null : 'true',
+          dotTitle: 'Something here needs attention',
+          cellStyle: { minWidth: '0' },
+          rows: g.rows.map((r, j) => ({
+            nameFace: 'var(--font-ui)',
+            sub: null, count: '', countFg: 'var(--faint)', countTitle: '',
+            swatch: null, swatchRing: 'var(--ink-border)', portrait: null,
+            colourOpen: false, palette: [], link: null, linkAct: () => {},
+            chips: [], chipsEmpty: null, cover: null, chip: null,
+            styleOpen: false, styleOpts: [], colourOpts: [], restyle: () => {},
+            pickColour: () => {},
+            ...r,
+            showName: !r.chip,
+            chips: (r.chips || []).map((c) => ({
+              label: c.label,
+              fg: c.warn ? 'var(--error)' : 'var(--soft)',
+              border: c.warn ? 'color-mix(in oklab, var(--error), transparent 55%)' : 'var(--line)',
+              bg: c.warn ? 'color-mix(in oklab, var(--error), transparent 88%)' : 'color-mix(in oklab, var(--ink), transparent 94%)',
+            })),
+            coverFace: r.cover === 'have'
+              ? 'width:34px;height:52px;flex:none;border-radius:3px;border:1px solid var(--line);background:linear-gradient(160deg, color-mix(in oklab, var(--accent), transparent 30%), var(--sunk))'
+              : (r.cover ? this.hatch() : null),
+            topLine: j === 0 ? 'none' : '1px solid color-mix(in oklab, var(--line), transparent 45%)',
+          })),
+        })),
+      },
+
+      dock: [
+        ['Back', 'back', () => window.history.back(), false],
+        ['Search metadata', 'search', () => {}, false],
+        ['Add', 'add', () => {}, true],
+        ['Import', 'importBox', () => {}, false],
+        ['Settings', 'sliders', () => {}, false],
+      ].map(([label, g, act, accent]) => ({
+        label, act, glyph: this.ico(g, 20),
+        bg: accent ? 'var(--accent-ui)' : 'transparent',
+        fg: accent ? 'var(--on-accent)' : 'var(--soft)',
+      })),
+
+      // The app's own rail, in the app's own order — Metadata is where we are.
+      nav: [
+        ['search', 'Search', 'search'], ['home', 'Home', 'home'], null,
+        ['library', 'Library', 'shelf', '412'], ['catalogue', 'Catalogue', 'catalogue', '168'],
+        ['quotes', 'Quotes', 'quote', '1,204'], ['anthologies', 'Anthologies', 'anthology'], null,
+        ['metadata', 'Metadata', 'metadata'], ['import', 'Import', 'importBox'],
+        ['settings', 'Settings', 'sliders'],
+      ].map((row) => {
+        if (!row) return { rule: true, isRow: false };
+        const [id, label, glyph, count] = row;
+        const on = id === 'metadata';
+        return {
+          isRow: true, label, glyph: this.ico(glyph, 19),
+          current: on ? 'page' : null,
+          bg: on ? 'var(--accent-ui)' : 'transparent',
+          fg: on ? 'var(--on-accent)' : 'var(--soft)',
+          weight: on ? '600' : '400',
+          count: count || null,
+          countFg: on ? 'var(--on-accent)' : 'var(--faint)',
+        };
+      }),
+
+      infoDisplay: this.state.info ? 'flex' : 'none',
+      infoTitle: this.state.info ? this.state.info.title : '',
+      infoBody: this.state.info ? this.state.info.body : '',
+      closeInfo: () => this.setState({ info: null }),
+    };
+  }
+}
+</script>
+</body>
+</html>

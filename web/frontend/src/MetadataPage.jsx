@@ -9,6 +9,7 @@ import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, 
 import { characterPanel, personPanel } from './identity.jsx'
 import { MetadataSources } from './MetadataSources.jsx'
 import { Face } from './characterRows.jsx'
+import { RecordRow, RowArt } from './recordRow.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { editDistance } from './text.js'
 
@@ -698,23 +699,6 @@ function StatsStrip({ stats, onPick }) {
   )
 }
 
-function GapChips({ gaps }) {
-  if (gaps.length === 0) return <span className="microcopy" style={{ color: 'var(--accent-ui)' }}>{t('metadata.row.complete')}</span>
-  return (
-    <span className="flex flex-wrap gap-1.5">
-      {gaps.map((g) => (
-        <span
-          key={g}
-          className="tp-chip"
-          style={{ color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 40%, var(--line))' }}
-        >
-          {g}
-        </span>
-      ))}
-    </span>
-  )
-}
-
 // runPooled runs fn over items with a small concurrency cap (SQLite is a single
 // writer), each call caught so one failure can't reject the batch. Returns the
 // results in order ({ok:false} for a thrown request).
@@ -1020,57 +1004,44 @@ function InlineEdit({ kind, id, onDone, onCancel }) {
 // `noun` arrives ALREADY RESOLVED — the reader's word for the row, taken from the
 // app's own countable nouns — because two of the frames it lands in are shared
 // sentences ("Edit this {noun}") that must not care which screen called them.
-function ConsoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun }) {
-  return (
-    <span className="flex items-center gap-1">
-      <FieldIconButton
-        icon={<IconEdit />}
-        ariaLabel={editing ? t('metadata.row.edit.close.label') : t('common.action.edit.label')}
-        aria-pressed={editing}
-        onClick={onEdit}
-        tooltip={editing ? t('metadata.row.edit.close.label') : t('common.action.edit.row.tip', { noun })}
-        active={editing}
-      />
-      <FieldIconButton
-        icon={<IconSearch />}
-        ariaLabel={lookingUp ? t('metadata.row.lookup.close.label') : t('metadata.row.lookup.label')}
-        aria-pressed={lookingUp}
-        onClick={onLookup}
-        tooltip={lookingUp ? t('metadata.row.lookup.close.label') : t('metadata.row.lookup.tip')}
-        active={lookingUp}
-      />
-      {onOpen && (
-        <FieldIconButton
-          icon={<IconOpen />}
-          ariaLabel={t('metadata.row.open.aria')}
-          onClick={onOpen}
-          tooltip={t('metadata.row.open.tip', { noun })}
-        />
-      )}
-    </span>
-  )
+// A LIST OF ACTIONS, NOT A COMPONENT THAT DRAWS THEM. RecordRow owns the
+// cluster's spacing and its glyph button, so what a console hands over is which
+// three verbs this row has — which is also what lets the works console and the
+// people console differ by one entry instead of by a component each.
+function consoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun }) {
+  return [
+    {
+      key: 'edit',
+      icon: <IconEdit />,
+      ariaLabel: editing ? t('metadata.row.edit.close.label') : t('common.action.edit.label'),
+      tooltip: editing ? t('metadata.row.edit.close.label') : t('common.action.edit.row.tip', { noun }),
+      active: editing,
+      pressed: editing,
+      onClick: onEdit,
+    },
+    {
+      key: 'lookup',
+      icon: <IconSearch />,
+      ariaLabel: lookingUp ? t('metadata.row.lookup.close.label') : t('metadata.row.lookup.label'),
+      tooltip: lookingUp ? t('metadata.row.lookup.close.label') : t('metadata.row.lookup.tip'),
+      active: lookingUp,
+      pressed: lookingUp,
+      onClick: onLookup,
+    },
+    onOpen && {
+      key: 'open',
+      icon: <IconOpen />,
+      ariaLabel: t('metadata.row.open.aria'),
+      tooltip: t('metadata.row.open.tip', { noun }),
+      onClick: onOpen,
+    },
+  ].filter(Boolean)
 }
 
 // Exported for metadata-apply.test.jsx. `apply` is the most destructive request
 // the app makes — it rewrites a whole book from a search result — and reaching it
 // through the page means stubbing the console's own fetches to say nothing about
 // the one call under test.
-// RowArt — the work's own cover beside its row.
-//
-// THE LIST WHOSE SUBJECT IS THE PICTURE SHOWED NO PICTURES. This console exists to
-// answer "which of these is missing or wrong", one of its filters is `no_cover` and
-// another is `low_res`, and a reader checking a low-res flag had to open each row
-// to see the thing being flagged. A spine is also the fastest way to recognise a
-// row in a list of nine hundred titles.
-//
-// A MISSING COVER IS A MARKED SLOT AND NOT A BLANK ONE. This is the only list in
-// the app where "there is no picture" is the finding rather than a shrug, so the
-// gap keeps its space and says what it is — the row is in the list BECAUSE of it.
-function RowArt({ path, alt }) {
-  return path
-    ? <img className="meta-row-art" src={coverImgURL(path)} alt="" loading="lazy" />
-    : <span className="meta-row-art is-empty" role="img" aria-label={alt} />
-}
 
 export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, onDone }) {
   const [err, setErr] = useState('')
@@ -1129,30 +1100,21 @@ export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, 
     onDone()
   }
 
+  // THE AUTHOR AND THE COUNT LEFT THE NAME LINE FOR THE SUB-LINE, which is the
+  // v3 pack's arrangement and the reason the name can be trusted to scroll: a
+  // name line carrying " · Tagore · 12 quotes" is a name line whose overflow is
+  // mostly not the name, so the fade lands in the wrong place and the reader
+  // drags past the punctuation to reach the title they were looking for.
   return (
-    <div style={{ borderTop: '1px solid var(--line)', padding: '10px 0' }}>
-      <div className="flex flex-wrap items-center gap-3">
-        <Tooltip label={t('metadata.row.select.tip', { noun })} side="top">
-          <input type="checkbox" checked={checked} onChange={onCheck} />
-        </Tooltip>
-        <RowArt path={book.cover_path} alt={t('metadata.row.nocover.aria')} />
-        <div className="min-w-0 flex-1">
-          <NameScroll as="p">
-            <b>{book.title}</b>
-            {book.author && <span style={{ color: 'var(--soft)' }}> · {book.author}</span>}
-            <span className="microcopy"> · {t('common.count.phrase', { n: book.annotation_count, noun: t('unit.quote', { count: book.annotation_count }) })}</span>
-          </NameScroll>
-          <GapChips gaps={gaps} />
-        </div>
-        <ConsoleRowActions
-          editing={editing}
-          onEdit={() => setEditing((v) => !v)}
-          lookingUp={open}
-          onLookup={onToggleLookup}
-          onOpen={onOpen && (() => onOpen(book.id))}
-          noun={noun}
-        />
-      </div>
+    <RecordRow
+      mark={<RowArt src={book.cover_path ? coverImgURL(book.cover_path) : null} alt={t('metadata.row.nocover.aria')} />}
+      name={book.title}
+      sub={[book.author, t('common.count.phrase', { n: book.annotation_count, noun: t('unit.quote', { count: book.annotation_count }) })].filter(Boolean).join(' · ')}
+      chips={gaps.map((g) => ({ label: g, warn: true }))}
+      chipsEmpty={t('metadata.row.complete')}
+      select={{ checked, onChange: onCheck, tip: t('metadata.row.select.tip', { noun }) }}
+      actions={consoleRowActions({ editing, onEdit: () => setEditing((v) => !v), lookingUp: open, onLookup: onToggleLookup, onOpen: onOpen && (() => onOpen(book.id)), noun })}
+    >
       {editing && <InlineEdit kind="books" id={book.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
       {open && (
         <div className="mt-3">
@@ -1160,7 +1122,7 @@ export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, 
           <ErrorText>{err}</ErrorText>
         </div>
       )}
-    </div>
+    </RecordRow>
   )
 }
 
@@ -1182,34 +1144,21 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
   }
 
   return (
-    <div style={{ borderTop: '1px solid var(--line)', padding: '10px 0' }}>
-      <div className="flex flex-wrap items-center gap-3">
-        <Tooltip label={t('metadata.row.select.tip', { noun })} side="top">
-          <input type="checkbox" checked={checked} onChange={onCheck} />
-        </Tooltip>
-        <RowArt path={movie.poster_path} alt={t('metadata.row.noposter.aria')} />
-        <div className="min-w-0 flex-1">
-          <NameScroll as="p">
-            <b>{movie.title}</b>
-            {movie.release_year ? <span style={{ color: 'var(--soft)' }}> · {movie.release_year}</span> : null}
-            {/* metadata.count.dialogues rather than the shared unit.dialogue: that
-                noun now reads "film line", and this row has always counted
-                "dialogues". Migrating keys is not the place to change a word. */}
-            {movie.dialogue_count > 0 && (
-              <span className="microcopy"> · {t('metadata.count.dialogues', { count: movie.dialogue_count, n: movie.dialogue_count })}</span>
-            )}
-          </NameScroll>
-          <GapChips gaps={gaps} />
-        </div>
-        <ConsoleRowActions
-          editing={editing}
-          onEdit={() => setEditing((v) => !v)}
-          lookingUp={open}
-          onLookup={onToggleLookup}
-          onOpen={onOpen && (() => onOpen(movie.id))}
-          noun={noun}
-        />
-      </div>
+    <RecordRow
+      mark={<RowArt src={movie.poster_path ? coverImgURL(movie.poster_path) : null} alt={t('metadata.row.noposter.aria')} />}
+      name={movie.title}
+      // metadata.count.dialogues rather than the shared unit.dialogue: that noun
+      // now reads "film line", and this row has always counted "dialogues".
+      // Migrating keys is not the place to change a word.
+      sub={[
+        movie.release_year ? String(movie.release_year) : null,
+        movie.dialogue_count > 0 ? t('metadata.count.dialogues', { count: movie.dialogue_count, n: movie.dialogue_count }) : null,
+      ].filter(Boolean).join(' · ')}
+      chips={gaps.map((g) => ({ label: g, warn: true }))}
+      chipsEmpty={t('metadata.row.complete')}
+      select={{ checked, onChange: onCheck, tip: t('metadata.row.select.tip', { noun }) }}
+      actions={consoleRowActions({ editing, onEdit: () => setEditing((v) => !v), lookingUp: open, onLookup: onToggleLookup, onOpen: onOpen && (() => onOpen(movie.id)), noun })}
+    >
       {editing && <InlineEdit kind="movies" id={movie.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
       {open && (
         <div className="mt-3">
@@ -1217,7 +1166,7 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
           <ErrorText>{err}</ErrorText>
         </div>
       )}
-    </div>
+    </RecordRow>
   )
 }
 

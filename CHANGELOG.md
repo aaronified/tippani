@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A work's author now sits under its title on the metadata console, rather than beside
+  it.** The row led with "Pather Panchali · Satyajit Ray · 12 quotes" on one line, and a
+  long title in a list of nine hundred is exactly the case that line was worst at: the edge
+  fade landed somewhere inside the punctuation, so reading the end of a title meant dragging
+  past the author and the count to get there. Title on its own line, everything else on the
+  line below.
+
 - **You can search by language.** Every quote kind has carried one for a while and the
   search box could not ask about it — eighteen fields to narrow by, and not the one the
   language work is about. `language:` joins them, on highlights, on lines and on standalone
