@@ -352,8 +352,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           left column of a two-column screen and on a phone it is the row across
           the top. One element, two arrangements, and the section it selects is
           beside it rather than a scroll below it. */}
-      <div className="meta-frame">
-        <SectionRail
+      <SectionRail
           sections={METADATA_SECTIONS.map(([id, label, icon]) => ({
             id,
             label: t(label),
@@ -367,8 +366,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           onChange={setSection}
           ariaLabel={t('metadata.section.aria')}
           mobileInfo={{ title: t('metadata.mobile.info.title'), text: t('metadata.mobile.info.body') }}
-        />
-        <div className="meta-body">
+        >
+          <div>
           {!lib ? (
             <EmptyState>{t('common.state.loading')}</EmptyState>
           ) : sect === 'overview' ? (
@@ -464,8 +463,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
               <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
             </>
           )}
-        </div>
-      </div>
+          </div>
+      </SectionRail>
       {/* THE ISSUE SHEET, opened from the dock. Rows rather than tiles, because a
           390px screen fits one column and a tile wall wants three — and every row
           is a door, which is the half the phone's coverage lines never had. */}

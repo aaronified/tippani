@@ -721,6 +721,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it out would make the first screen lie about what the app holds, and it is pressable
   because a greyed-out control cannot tell you why it is grey.
 
+### Changed
+
+- **Settings and Metadata on a phone open on a list of their sections.** Every section
+  is on the screen, named, with its own number beside it; press one and it opens with a
+  way back. It was a dropdown before — one word visible, every other section behind a
+  press that opened a menu — and a menu you have to operate before you can navigate is
+  not navigation. Pressing a result that lives in another section, or an issue that
+  belongs to another console, now takes you into that section rather than leaving you on
+  the list wondering whether the press worked.
+
 ### Fixed
 
 - **The ground picker showed you four blank rectangles.** Light and dark each offer four

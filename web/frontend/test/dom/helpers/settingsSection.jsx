@@ -21,17 +21,19 @@
 // The convention those cases already use is `.at(-1)`: the screen mounted most
 // recently is the one under test. So this takes the last, and a single mount is
 // the same thing with a list of one.
-// AND THE PHONE HAS NO TABS AT ALL. Above a phone the rail is a row of tabs;
-// on one it is a field, because five tabs on a 390px screen show two and a half.
-// A helper that only knew the tabs would fail every phone-width case with
-// "cannot find role=tab", which reads like the rail is broken when it is doing
-// exactly what it was built to do.
+// AND THE PHONE HAS NO TABS AT ALL. Above a phone the rail is a row of tabs; on
+// one it is an INDEX — a list of the sections, one tall row each, which opens the
+// section it names. It was a field for a while and the owner rejected that: a
+// dropdown makes you operate a control before navigation begins. A helper that
+// only knew the tabs would fail every phone-width case with "cannot find
+// role=tab", which reads like the rail is broken when it is doing exactly what it
+// was built to do.
 //
 // A SECTION THAT IS NOT THERE IS AN ERROR, NOT A NO-OP. A non-admin has no
 // Server section, because the cards in it are theirs to not have — so asking for
 // it is a mistake in the test, and swallowing it would turn that mistake into a
 // case that passes while asserting nothing.
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 
 export async function openSettingsSection(name) {
   const tabs = screen.queryAllByRole('tab', { name })
@@ -40,18 +42,16 @@ export async function openSettingsSection(name) {
     fireEvent.click(tab)
     return tab
   }
-  // The phone's field: a trigger that opens a listbox, not a native <select>.
-  // Its own accessible name is the rail's aria-label, and the option carries the
-  // section's label — possibly with a count after it, which is why this matches
-  // the start rather than the whole string.
-  const triggers = screen.queryAllByRole('button', { name: /which settings to change/i })
-  if (triggers.length) {
-    fireEvent.click(triggers[triggers.length - 1])
-    const options = await screen.findAllByRole('option')
-    const option = options.find((o) => (o.textContent || '').startsWith(name))
-    if (option) {
-      fireEvent.click(option)
-      return option
+  // The phone's index: a navigation landmark holding one button per section. The
+  // row's text starts with the section's name and may carry a count after it,
+  // which is why this matches the start rather than the whole string.
+  const navs = screen.queryAllByRole('navigation', { name: /which settings to change/i })
+  if (navs.length) {
+    const rows = within(navs[navs.length - 1]).getAllByRole('button')
+    const row = rows.filter((r) => (r.textContent || '').trim().startsWith(name)).at(-1)
+    if (row) {
+      fireEvent.click(row)
+      return row
     }
   }
   // Fall through to the tab matcher's own error, which names what it looked for

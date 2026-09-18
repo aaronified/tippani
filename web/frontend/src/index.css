@@ -10223,6 +10223,52 @@ html[data-theme="dark"] .board-cover {
 .ground-swatch > span:last-of-type { inset: 42% 22% 0 22%; }
 
 
+/* THE PHONE'S SECTION INDEX, and the header of a section opened from it. The pack
+   draws these and this app drew a dropdown instead; a list of shortcuts IS the
+   navigation, where a field is a control you operate before navigation begins.
+
+   THE ROW IS SIZED IN em, NOT px, because it holds a section's name and the
+   standing rule is that a box holding text is measured in the text. The floor is
+   the touch target the rest of the app keeps. */
+.section-index-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 2px 2px 10px;
+}
+.section-index-total {
+  display: inline-flex; align-items: center; min-height: max(28px, 2em);
+  padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in oklab, var(--accent-ui), transparent 88%);
+  border: 1px solid var(--accent-ui);
+  font-family: var(--font-mono); font-weight: var(--font-mono-weight);
+  font-style: var(--font-mono-style); font-variant-caps: var(--font-mono-caps);
+  text-transform: uppercase; font-variant-numeric: var(--font-mono-figures);
+  font-size: var(--type-mono-11); letter-spacing: .11em;
+  color: var(--accent-ui); white-space: nowrap;
+}
+.section-index-row {
+  display: flex; width: 100%; align-items: center; gap: 13px;
+  min-height: max(62px, 4.2em); padding: 10px 6px;
+  border: none; border-top: 1px solid color-mix(in oklab, var(--line), transparent 40%);
+  background: transparent; cursor: pointer; text-align: start;
+}
+.section-index-icon { flex: none; display: inline-flex; color: var(--soft); }
+/* NO TRUNCATION. A section's name wraps rather than shortening, because a
+   shortened name and a short name look alike. */
+.section-index-label {
+  flex: 1; min-width: 0;
+  font-family: var(--font-ui); font-size: var(--type-ui-15); font-weight: 600;
+  color: var(--ink);
+}
+.section-index-chevron { flex: none; display: inline-flex; color: var(--faint); }
+.section-drill-head {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 0 0 var(--row, 12px);
+}
+.section-drill-title {
+  margin: 0; font-family: var(--font-display); font-size: var(--type-display-22);
+  font-weight: 600; color: var(--ink); min-width: 0;
+}
+
 /* THE ROW EVERY LIST IN THE APP IS DRAWN WITH. It carries its rule and its padding
    inline for now — those two are the only things it styles and they move with the
    `first` flag — and this class exists so the row is NAMEABLE: a console's tests

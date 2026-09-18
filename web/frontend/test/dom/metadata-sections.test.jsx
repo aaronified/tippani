@@ -84,23 +84,28 @@ afterEach(() => cleanup())
 const press = async (el) => { await act(async () => el.click()) }
 const mount = async () => {
   render(<><MetadataPage user={{ username: 'alice', is_admin: true }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} /><Probe /></>)
-  if (WIDTH <= 768) await screen.findByLabelText(/which metadata/i)
+  if (WIDTH <= 768) await screen.findByRole('navigation', { name: /which metadata/i })
   else await screen.findAllByRole('tab')
 }
 
-// ── THE PHONE'S RAIL IS A FIELD. Five tabs on a 390px strip showed two and a
-// half; the section a reader is not in was behind a scroll gesture with no
-// arrow. So the phone's doors are options, and a test opens them the way a thumb
-// does: press the field, then the row.
-const openSections = async () => { await press(screen.getByLabelText(/which metadata/i)) }
-const phoneDoors = async () => {
-  await openSections()
-  return screen.getAllByRole('option').map((o) => o.textContent)
-}
+// ── THE PHONE'S RAIL IS AN INDEX. Five tabs on a 390px strip showed two and a
+// half; the section a reader is not in was behind a scroll gesture with no arrow.
+// It was a FIELD for a while, and the owner rejected that — a dropdown hides every
+// section behind a press and shows one word, where the pack draws a list of
+// shortcuts that IS the navigation. So the phone's doors are rows on the screen,
+// and a test opens one the way a thumb does: press it.
+// The index is a navigation landmark and its rows are buttons — both of which
+// they have to be: an explicit list role would replace the implicit button one
+// and stop a row being announced as pressable at all.
+const index = () => screen.getByRole('navigation', { name: /which metadata/i })
+const phoneDoors = async () =>
+  within(index()).getAllByRole('button').map((o) => o.textContent)
 const phoneDoor = async (name) => {
-  await openSections()
-  await press(screen.getByRole('option', { name }))
+  const rows = within(index()).getAllByRole('button')
+  await press(rows.filter((r) => new RegExp(name).test((r.textContent || '').trim())).at(-1))
 }
+// Back out of a section to the index, the way the drill-down's own arrow does.
+const phoneBack = async () => { await press(screen.getByLabelText(/back to/i)) }
 const rail = () => screen.getAllByRole('tab').map((b) => b.textContent)
 const tab = (name) => screen.getByRole('tab', { name })
 
@@ -245,19 +250,19 @@ describe('on a phone', () => {
 
   it('gets the same eight doors', async () => {
     await mount()
-    // A field, not a strip: eight tabs at 390px show two and a half of themselves.
+    // An index, not a strip: eight tabs at 390px show two and a half of themselves.
     expect(screen.queryAllByRole('tab')).toHaveLength(0)
     const doors = await phoneDoors()
-    expect(doors.map((s) => s.replace(/\s*·.*$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Tags', 'Languages', 'Colours', 'Sources'])
+    expect(doors.map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Tags', 'Languages', 'Colours', 'Sources'])
   })
 
-  it('carries each door\u2019s number into the field, because that is why it is a rail', async () => {
+  it('carries each door\u2019s number onto its row, because that is why it is a rail', async () => {
     await mount()
     const doors = await phoneDoors()
-    // The counts do not survive being turned into a dropdown — they are the
-    // reason the rail is a rail and not a tab strip.
-    expect(doors.find((d) => d.startsWith('Works'))).toMatch(/·\s*2/)
-    expect(doors.find((d) => d.startsWith('Characters'))).toMatch(/·\s*2/)
+    // The counts ride on the rows — they are the reason the rail is a rail and
+    // not a tab strip, and a number you can see without opening anything.
+    expect(doors.find((d) => d.startsWith('Works'))).toMatch(/2$/)
+    expect(doors.find((d) => d.startsWith('Characters'))).toMatch(/2$/)
     // Sources counts settings, not records, so it still carries none.
     expect(doors.find((d) => d.startsWith('Sources'))).toBe('Sources')
   })
@@ -287,7 +292,7 @@ describe('on a phone', () => {
 
     it('offers no fetch to a reader who cannot run one', async () => {
       render(<><MetadataPage user={{ username: 'bob', is_admin: false }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} /><Probe /></>)
-      await screen.findByLabelText(/which metadata/i)
+      await screen.findByRole('navigation', { name: /which metadata/i })
       // Reading what is incomplete is a question anybody may ask; going out to
       // five providers and writing the answers back is not.
       //
@@ -318,7 +323,9 @@ describe('on a phone', () => {
 
       await press([...document.querySelectorAll('.meta-issue-row')].find((el) => /series/i.test(el.textContent)))
       // It lands on the works console, filtered to the gap it named.
-      expect(screen.getByLabelText(/which metadata/i).textContent).toMatch(/^Works/)
+      // The drill-down names the section it opened; there is no field to read it
+      // off any more, and the heading is what a reader actually sees.
+      expect(screen.getAllByRole('heading', { level: 2 })[0].textContent).toMatch(/^Works/)
     })
   })
 
@@ -327,7 +334,11 @@ describe('on a phone', () => {
     // for the catalogue here, so a tile would be a button that appears to do
     // nothing. The numbers are the same numbers either way.
     await mount()
-    // `find`, not `get`. `mount()` waits for the section field, which is drawn
+    // THE PHONE OPENS ON THE INDEX, so the coverage is one press away rather than
+    // already on screen — which is the whole point of the index and is what a
+    // reader does to reach it.
+    await phoneDoor('Overview')
+    // `find`, not `get`. `mount()` waits for the index, which is drawn
     // before the counts behind it arrive — so this line raced the fetch, and
     // under a full suite's load it lost: the case failed with "Unable to find
     // /coverage/i" over a screen that was still loading. That is a measurement

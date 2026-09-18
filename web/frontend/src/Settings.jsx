@@ -360,27 +360,20 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
           to correct the word. */}
       {liveSections.length === 0 && <p className="microcopy">{t('settings.search.none', { q })}</p>}
       {liveSections.length > 0 && (
-        <div className="meta-frame">
-          {/* THE RAIL CARRIES NO NUMBERS. Metadata's counts records and gaps, which
-              is what that console is for; a count beside "Theme" would have to be a
-              count of preferences, and nobody has ever wanted to know that there are
-              nine. `count` left undefined draws nothing at all. */}
-          <SectionRail
-            sections={liveSections.map(([id, label, glyph]) => ({
-              id,
-              label: t(label),
-              icon: SECTION_GLYPH[glyph],
-            }))}
-            value={current}
-            onChange={setSection}
-            ariaLabel={t('settings.section.aria')}
-          />
-          <div className="meta-body">
-            <div className="space-y-6">
-              {shown.map((k) => <div key={k}>{cardsByKey[k]}</div>)}
-            </div>
+        <SectionRail
+          sections={liveSections.map(([id, label, glyph]) => ({
+            id,
+            label: t(label),
+            icon: SECTION_GLYPH[glyph],
+          }))}
+          value={current}
+          onChange={setSection}
+          ariaLabel={t('settings.section.aria')}
+        >
+          <div className="space-y-6">
+            {shown.map((k) => <div key={k}>{cardsByKey[k]}</div>)}
           </div>
-        </div>
+        </SectionRail>
       )}
     </section>
   )
