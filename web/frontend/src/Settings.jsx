@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
 import { ACCENTS, GROUNDS, PHYS, paletteFor, parseTweaks, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
 import { QUOTE_LEADINGS, QUOTE_MEASURES, SIZE_ROLES, TYPE_FACTORS, applyTypeScale, clampLeading, clampMeasure, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
@@ -43,6 +43,7 @@ import {
   IconArrow,
   IconBookmark,
   IconCheck,
+  IconButton,
   IconChevron,
   IconClose,
   IconCopy,
@@ -1331,6 +1332,18 @@ function SRSettings({ user, onPreferences }) {
           <GhostButton icon={<IconQuiz />} keepLabel onClick={() => setDeep(true)}>{t('settings.quiz.in-depth.label')}</GhostButton>
         </Tooltip>
       </div>
+      {/* NEVER ASKED ABOUT, on the page rather than behind the in-depth door. It
+          is not a dial — it is a list of decisions the reader has already made and
+          may want back, and the only reason to look for it is not remembering
+          making them. Behind a door it would be findable only by somebody who
+          already knew it was there. */}
+      <div className="mt-7" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+        <div className="mb-2 flex items-center gap-1.5">
+          <MonoLabel>{t('settings.quiz.skipped.title')}</MonoLabel>
+          <InfoDot text={t('settings.quiz.skipped.info.body')} />
+        </div>
+        <NeverAsked />
+      </div>
       {deep && (
         <FormModal title={t('settings.quiz.panel.title')} onClose={() => setDeep(false)} maxWidth={620}>
           <SRDeepControls p={p} set={set} onClose={() => setDeep(false)} />
@@ -1355,6 +1368,95 @@ function SRSettings({ user, onPreferences }) {
 // disabled WITH ITS REASON on screen. The alternative — accept it, PUT it, and
 // have the server hand back the defaults — is a control that flips back under
 // your finger and explains nothing.
+// ── NEVER ASKED ABOUT: every quote you have told the deck to skip.
+//
+// WHY THE SCREEN EXISTS. Excluding a quote is a decision made one at a time, on a
+// card the reader may never open again, and its only trace afterwards is a card
+// that stops coming round. A deck that feels thin has either run out of material
+// or been narrowed by twenty decisions nobody remembers making, and until now
+// nothing on any screen could tell those apart. The v3 pack draws it here, under
+// Review, grouped by work.
+//
+// IT UNDOES THROUGH THE SAME ENDPOINT THAT DID IT. `review.jsx` excludes a card
+// with POST /<kind>s/bulk {ids, review:false}; this sends the same call with
+// `review: true`, for one quote or for a whole work's worth. A second writer for
+// one column is how the two come to disagree about what "excluded" means — which
+// is the exact failure 0033's own header records from the first time this flag
+// had two readers.
+//
+// A WORK'S BUTTON IS NOT THE WORK'S FLAG. It clears the quotes listed under it,
+// one bulk call with their ids, because that is what "put these back" means to
+// somebody reading this list. Clearing the work's own column as well would also
+// change what happens to quotes they add to it TOMORROW, which they have not
+// asked for and could not see here.
+function NeverAsked() {
+  const [groups, setGroups] = useState(null)
+  const [total, setTotal] = useState(0)
+  const [busy, setBusy] = useState(false)
+
+  const load = useCallback(async () => {
+    const r = await json('GET', '/review/excluded')
+    if (r.ok) {
+      setGroups(r.data.groups || [])
+      setTotal(r.data.total || 0)
+    }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  // The endpoint is per kind, and a group is all one kind, so a work's worth is
+  // one call. `kind` comes back on the row rather than being derived from the
+  // shape of it — the server already knows which source a row came from and
+  // guessing here would be a fourth place that has to learn about a new quote
+  // kind.
+  const KIND_PATH = { book: 'annotations', screen: 'dialogues', utterance: 'quotes' }
+  const restore = async (kind, ids) => {
+    setBusy(true)
+    await json('POST', `/${KIND_PATH[kind]}/bulk`, { ids, review: true })
+    await load()
+    setBusy(false)
+  }
+
+  if (groups === null) return <p className="microcopy">{t('common.state.loading')}</p>
+  if (groups.length === 0) return <p className="microcopy">{t('settings.quiz.skipped.none')}</p>
+
+  return (
+    <div className="space-y-4">
+      <p className="microcopy">{t('settings.quiz.skipped.count', { n: total })}</p>
+      {groups.map((g) => (
+        <div key={`${g.kind}:${g.work_id}:${g.quotes[0].id}`} className="skipped-group">
+          <div className="skipped-group-head">
+            {/* A STANDALONE QUOTE HAS NO WORK TO BE UNDER, and saying so is better
+                than printing an empty heading that reads as a bug. */}
+            <MonoLabel>{g.title || t('settings.quiz.skipped.standalone')}</MonoLabel>
+            <span className="grow" />
+            <GhostButton
+              icon={<IconRevert />}
+              disabled={busy}
+              onClick={() => restore(g.kind, g.quotes.map((q) => q.id))}
+            >
+              {t('settings.quiz.skipped.restore-work.label', { n: g.quotes.length })}
+            </GhostButton>
+          </div>
+          {g.quotes.map((q) => (
+            <div key={q.id} className="skipped-row">
+              {/* dir="auto": a skipped quote is in whatever language it was
+                  written in, and the first strong character decides. */}
+              <p className="skipped-quote" dir="auto">{q.text}</p>
+              <IconButton
+                icon={<IconRevert />}
+                ariaLabel={t('settings.quiz.skipped.restore-one.aria')}
+                tooltip={t('settings.quiz.skipped.restore-one.aria')}
+                disabled={busy}
+                onClick={() => restore(q.kind, [q.id])}
+              />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function SRDeepControls({ p, set, onClose }) {
   const [qs, setQs] = useState(() => parseQuestions(p.srQuestions))
   const [tune, setTune] = useState(() => parseTuning(p.srTuning))

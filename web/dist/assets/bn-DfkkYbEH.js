@@ -1356,6 +1356,14 @@ settings.quiz.adaptive.aria = অ্যাডাপ্টিভ ফাঁক
 settings.quiz.adaptive.info.body = অ্যাডাপ্টিভই এখন সাধারণ নিয়ম: ঠিক মনে পড়লে অর্ধায়ু 2.5 গুণ হয়, ভুল হলে অর্ধেক — চেনা উদ্ধৃতিতে একবার হোঁচট খেলে গোটা চড়াই আর হারায় না। সিঁড়ি মাথায় রাখা সহজ: 7 → 30 → 100 → 365 দিন, ভুললেই সোজা 7-এ।
 settings.quiz.adaptive.ladder.label = সিঁড়ি
 settings.quiz.adaptive.on.label = অ্যাডাপ্টিভ
+settings.quiz.skipped.title = কখনও জিজ্ঞাসা করা হয় না
+settings.quiz.skipped.info.body = যে উদ্ধৃতিগুলি বাদ দিতে বলেছেন, সেগুলি যে রচনা থেকে এসেছে তার নীচে সাজানো। বাদ দেওয়া হয় একটি একটি করে, এমন একটি কার্ডে যা আর কখনও নাও খুলতে পারেন — কী বাদ দিয়েছেন আর কোনটি ফেরাবেন, তা এখানে।
+settings.quiz.skipped.none = কিছুই বাদ পড়েনি। আপনার রাখা প্রতিটি উদ্ধৃতি ডেকে আছে।
+settings.quiz.skipped.count = {n}টি বাদ
+settings.quiz.skipped.standalone = নিজের মতো
+settings.quiz.skipped.restore-work.label = {n}টি ফেরান
+settings.quiz.skipped.restore-one.aria = এটি ডেকে ফিরিয়ে দিন
+
 settings.quiz.start.title = নতুন লাইন শুরু হয়
 settings.quiz.start.info.body = যে লাইন সম্পর্কে আপনাকে কখনও জিজ্ঞাসা করা হয়নি, সেটি এখান থেকে সূচিতে ঢোকে। "দেখা হয়নি" সাধারণ পথ: যতক্ষণ না আয়ত্তে আসে ততক্ষণ ঘন ঘন জিজ্ঞাসা করা হয়। "আয়ত্ত" সেটিকে শেষ প্রান্তে বসায় — যে সংগ্রহ আপনি আগেই জানেন তার জন্য। সেটি তবু ফিরবে, শুধু কদাচিৎ, আর একটি ভুল উত্তর সঙ্গে সঙ্গে ফিরিয়ে আনবে।
 settings.quiz.start.unseen.label = দেখা হয়নি

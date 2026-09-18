@@ -723,6 +723,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Never asked about.** Every quote you have told the deck to skip, listed under the work
+  it came from, with a way to put one back or all of a work's back. Skipping happens one
+  quote at a time, on a card you may never open again, and until now its only trace was a
+  card that stopped coming round — so a deck that felt thin had no explanation you could
+  read.
+
 - **The four faces the interface is set in are on the Language section, each showing the
   words it will be set in.** Every one of them used to be behind the Type button, so what
   the app is set in was a press away and what it would look like changed was a press

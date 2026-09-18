@@ -1354,6 +1354,14 @@ settings.quiz.adaptive.on.label = Adaptive
 # the dials, so an account that never opens this is asked its questions the same
 # way. That is a claim about the TIER and not about the release: the round's
 # same-author lure cap applies at every tier. See review_tier.go.
+settings.quiz.skipped.title = Never asked about
+settings.quiz.skipped.info.body = Quotes you have told the deck to skip, grouped under the work they came from. Skipping happens one quote at a time, on a card you may never open again — this is where to find what you skipped and put any of it back.
+settings.quiz.skipped.none = Nothing skipped. Every quote you keep is in the deck.
+settings.quiz.skipped.count = {n} skipped
+settings.quiz.skipped.standalone = On its own
+settings.quiz.skipped.restore-work.label = Put {n} back
+settings.quiz.skipped.restore-one.aria = Put this one back in the deck
+
 settings.quiz.start.title = New lines start at
 settings.quiz.start.info.body = A line you have never been asked about enters the schedule here. Not seen is the ordinary way in: it is asked soon and often until you have it. Mastered starts it at the far end, for a library you already know — it will still come round, just rarely, and a wrong answer brings it straight back.
 settings.quiz.start.unseen.label = Not seen
