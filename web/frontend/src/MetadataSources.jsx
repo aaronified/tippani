@@ -322,7 +322,6 @@ const keyLabel = (source, noun) =>
 
 export function MetadataSources({ user, onPreferences }) {
   const admin = user.is_admin
-  const [marksOpen, setMarksOpen] = useState(false)
   const [status, setStatus] = useState(null)
   const [keys, setKeys] = useState(null) // {tmdb_key_set, google_books_key_set, amazon_cookie_set, amazon_domain}
   const [error, setError] = useState('')
@@ -773,31 +772,13 @@ export function MetadataSources({ user, onPreferences }) {
           the foot of the keys card a rule was doing the whole job of saying "this
           is not about API keys", and a rule is a weaker signal than the thing
           every other subject on this page gets. */}
-      <Card>
-        {/* THE DOOR IS THE HEADING, and that is the whole card. A MonoLabel over a
-            button that repeats it is the defect the capture sheet was cured of an
-            hour ago — "the header has the work name already. Why do we still have
-            the name and changing option?" — and a first draft of this card had it
-            twice inside forty pixels, with the button renamed to "Open language
-            marks" to tell them apart. Renaming the control to escape a duplicate
-            heading is the wrong half to move. One control, one name: the InfoDot
-            carries what the heading's explanation would have said, and the tooltip
-            says what pressing it is for. */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Tooltip label={t('settings.languages.open.tip')}>
-            <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setMarksOpen(true)}>{t('settings.languages.title')}</GhostButton>
-          </Tooltip>
-          <InfoDot text={t('settings.languages.card.info.body')} />
-        </div>
-      </Card>
-
-      {/* IT IS NOT A COLUMN ITEM, whatever it looks like sitting here: FormModal
-          returns null while closed and a portal while open, so it never takes part
-          in this flow either way. Left inside the card above it would have read as
-          part of the keys; here it sits beside the door that opens it. */}
-      <FormModal open={marksOpen} onClose={() => setMarksOpen(false)} title={t('settings.languages.title')} maxWidth={560}>
-        <LanguageMarksSettings prefs={user.preferences} onSaved={onPreferences} />
-      </FormModal>
+      {/* THE LANGUAGE-MARKS DOOR IS GONE FROM HERE, and the table it opened is a
+          SECTION of this console now. It was a button on this card opening a
+          FormModal, which was the right shape while it was a corner of the sources
+          screen — and the wrong one the moment Settings started pointing at it for
+          what a quote's language is. A pop-up inside another section is not an
+          address another screen can send a reader to. The panel is unchanged; only
+          where it hangs. */}
     </div>
   )
 }
@@ -915,7 +896,12 @@ function CreditSeparators({ user, onPreferences }) {
 // gets the answer backwards twice and agrees with itself. A row the library holds
 // up cannot be removed; one that is only marked can be dropped, because dropping
 // it drops a mark and not a quote.
-function LanguageMarksSettings({ prefs, onSaved }) {
+// EXPORTED, because it is a SECTION of the Metadata console now rather than a
+// pop-up behind a button on this one. The Settings screen points here for what a
+// quote's language is — "read from the metadata language table, which is the only
+// place a quote's language is defined" — and a door to a modal inside another
+// section is not a place that sentence can point at.
+export function LanguageMarksSettings({ prefs, onSaved }) {
   // What the library holds, so the table opens populated rather than empty. Seeded
   // from the cache synchronously so a second opening draws the rows on the first
   // paint, then refreshed — this panel opens from a dialog, and a table that

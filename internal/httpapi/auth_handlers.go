@@ -618,6 +618,23 @@ type prefs struct {
 	// Requiring it would also be absurd in the other direction: a rule satisfied
 	// by a section that is off for every existing account is not a rule.
 	ShowAnthologies bool `json:"showAnthologies"`
+	// THE ORDER THE SECTIONS COME IN, as a comma-separated list of tab keys.
+	//
+	// A STRING RATHER THAN A LIST, and the reason is the same one that made the
+	// three above booleans: every field in this struct is a scalar, a slice would
+	// be the only one needing its own JSON shape and its own zero-value rule, and
+	// the keys are four short words from a closed set. The empty string is the
+	// default and means "the order the app declares", so an account that has never
+	// reordered anything stores nothing and the whole-struct literals in ui_test.go
+	// need no new field.
+	//
+	// NOT VALIDATED AGAINST THE KNOWN TABS HERE, deliberately. The client reads it
+	// through a function that keeps only the keys it recognises and appends
+	// anything it did not find, so a stale order written before a fifth section
+	// existed still places the four it knows. Rejecting it server-side would turn
+	// a harmless stale value into a failed save, and a key this server has never
+	// heard of is exactly what a client one release ahead would send.
+	SectionOrder string `json:"sectionOrder"`
 	// Colour categories. A quote's colour is the one thing above tags in the
 	// hierarchy — it is what KIND of note this is — and until now the four were
 	// called yellow, blue, pink and orange, which describes a highlighter rather
@@ -993,6 +1010,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		HideCatalogue       *bool    `json:"hideCatalogue"`
 		HideQuotes          *bool    `json:"hideQuotes"`
 		ShowAnthologies     *bool    `json:"showAnthologies"`
+		SectionOrder        *string  `json:"sectionOrder"`
 		// Pointer-typed like the rest, and for the same reason: a client sending
 		// one field must not clear the others. Unlike the rest, an EMPTY name or
 		// colour is a real value here — it means "back to the built-in" — so
@@ -1296,6 +1314,11 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	if in.ShowAnthologies != nil {
 		cur.ShowAnthologies = *in.ShowAnthologies
+	}
+	// Pointer-typed like the rest, and an EMPTY string is a real value here: it
+	// means "back to the declared order", which is how a reset is spelled.
+	if in.SectionOrder != nil {
+		cur.SectionOrder = *in.SectionOrder
 	}
 	switch {
 	case badTileName(cur.TileGround), badTileName(cur.TileShell),

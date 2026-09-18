@@ -1279,7 +1279,6 @@ vocab.script.latin.label = রোমান
 
 # --- Settings → Language marks. The mark a proverb board wears.
 settings.languages.title = ভাষার চিহ্ন
-settings.languages.open.tip = প্রবাদের গায়ে যে চিহ্ন
 # মেটাডেটা উৎস পাতার কার্ড: দরজাটা কীসের জন্য, আর দরজার নিজের কথা।
 settings.languages.card.info.body = প্রবাদের কৃতিত্ব দেওয়ার মতো কেউ নেই, তাই তার কার্ডে আগে আসে ভাষা, আর বোর্ডের মলাটে সেই ভাষার হয়ে দাঁড়ায় এই চিহ্ন। এখানে সেটি বদলান, বা কোনও ভাষাকে নিজের পছন্দের নাম ও চিহ্ন দিন।
 settings.languages.script.title = লিপি
@@ -1361,6 +1360,10 @@ settings.features.info.title = ফিচার
 settings.features.info.body = কোন বিভাগগুলো চোখের সামনে থাকবে। একটা লুকোলে তার ট্যাব, হোমের টাইল, খোঁজের চিপ আর ＋-এর নিচের ঘরটা সরে যায় — আর কিছুই না: বই, সিনেমা, উদ্ধৃতি যেখানে ছিল সেখানেই থাকে, লিংক বা বুকমার্ক দিয়ে খোলেও।
 settings.features.intro.prose = যেটা কাজে লাগে না, বন্ধ করে দিন; যেটা এখনও দেখেননি, চালু করুন। এতে চোখের সামনেরটা বদলায়, জমানো কিছুই নয়।
 settings.features.locked.prose = শেষ বিভাগটা থাকতেই হবে — আগে অন্য একটা চালু করুন।
+settings.features.order.title = এই ক্রমে
+settings.features.order.prose = এখানকার ক্রমই রেল, ড্রয়ার আর ＋ যা দেখায়। সবার উপরেরটিতেই অ্যাপ খোলে।
+settings.features.order.up.aria = {name} উপরে নিন
+settings.features.order.down.aria = {name} নিচে নিন
 
 # --- button labels: whether a glyph shows its words.
 settings.labels.title = বোতামের লেখা
@@ -4957,6 +4960,7 @@ metadata.section.works.label = বই ও ছবি
 metadata.section.people.label = মানুষ
 metadata.section.characters.label = চরিত্র
 metadata.section.sources.label = উৎস
+metadata.section.languages.label = ভাষা
 metadata.section.aria = কোন মেটাডেটা নিয়ে কাজ
 metadata.search.placeholder = খুঁজুন…
 metadata.catalogue.nomatch = কিছুই মিলল না।

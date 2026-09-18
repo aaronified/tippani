@@ -1271,7 +1271,6 @@ vocab.script.latin.label = Latin
 
 # --- Settings → Language marks. The mark a proverb board wears.
 settings.languages.title = Language marks
-settings.languages.open.tip = What a proverb wears
 # The card on Metadata sources: what the door is for, and the door's own word.
 settings.languages.card.info.body = A proverb has nobody to credit, so its card leads with the language it is in, and the mark stands in for that language on a board's cover. Change one here, or give a language a name and a mark of your own.
 settings.languages.script.title = script
@@ -1357,6 +1356,10 @@ settings.features.info.title = Features
 settings.features.info.body = Which sections you want to see. Hiding one takes away its tab, its tile on Home, its chip on Search and its offer under ＋ — and nothing else: every book, film and quote stays where it is, and a link or bookmark still opens it.
 settings.features.intro.prose = Turn off what you do not keep, and on what you have not tried yet. This changes what you see, never what you have.
 settings.features.locked.prose = The last section has to stay — turn another one on first.
+settings.features.order.title = In this order
+settings.features.order.prose = The order here is the rail, the drawer and what ＋ offers. The top one is where the app opens.
+settings.features.order.up.aria = Move {name} up
+settings.features.order.down.aria = Move {name} down
 
 # --- button labels: whether a glyph shows its words.
 settings.labels.title = Button labels
@@ -5023,6 +5026,7 @@ metadata.section.works.label = Works
 metadata.section.people.label = People
 metadata.section.characters.label = Characters
 metadata.section.sources.label = Sources
+metadata.section.languages.label = Languages
 metadata.section.aria = Which metadata to work on
 metadata.search.placeholder = search…
 metadata.catalogue.nomatch = nothing matches.

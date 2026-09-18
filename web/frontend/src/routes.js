@@ -175,7 +175,30 @@ export function visibleSections(prefs) {
 //
 // A key this answer says nothing about passes through, which is what keeps Home,
 // Search and the four utility tabs out of it.
-export function visibleTabs(rows, sections) {
+// THE ORDER THE SECTIONS ARE IN, and it is a preference now.
+//
+// `sectionOrder` is a comma-separated list of tab keys. Anything the preference
+// does not name keeps its declared position, so a stored order written before a
+// fifth section existed still places the four it knows and leaves the new one
+// where SECTIONS puts it — rather than dropping it, which is what an order that
+// assumed it was complete would do.
+export function sectionOrder(prefs) {
+  const declared = SECTIONS.map((s) => s.tab)
+  const stored = String(prefs?.sectionOrder || '').split(',').map((k) => k.trim()).filter(Boolean)
+  const named = stored.filter((k) => declared.includes(k))
+  return [...named, ...declared.filter((k) => !named.includes(k))]
+}
+
+// visibleTabs filters AND orders, because both answers have to reach all four
+// lists and a second function for the second answer would be the same
+// four-copies bug this one exists to prevent.
+//
+// ONLY THE CONTENT SECTIONS MOVE. Home, Search and the utility rows are not in
+// SECTIONS and pass through untouched, which is what keeps Settings from being
+// reorderable to the top of the rail. The divider keeps its position for the same
+// reason it always did: it separates groups, and a group that has been reordered
+// within itself is still that group.
+export function visibleTabs(rows, sections, order = null) {
   const out = []
   for (const row of rows) {
     // The drawer's null is a DIVIDER and it is positional — it separates the
@@ -190,6 +213,18 @@ export function visibleTabs(rows, sections) {
     out.push(row)
   }
   while (out.length && out[out.length - 1] === null) out.pop()
+  if (!order || !order.length) return out
+  // Reorder IN PLACE: the content rows are collected, sorted by the stored order,
+  // and put back into the same slots they occupied. That way a list whose content
+  // rows are interleaved with anything else — the drawer, with its divider —
+  // keeps every other row exactly where it was.
+  const slots = []
+  const movable = []
+  out.forEach((row, i) => {
+    if (row && order.includes(row[0])) { slots.push(i); movable.push(row) }
+  })
+  movable.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
+  slots.forEach((slot, i) => { out[slot] = movable[i] })
   return out
 }
 

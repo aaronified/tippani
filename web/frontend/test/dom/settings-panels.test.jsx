@@ -1,5 +1,12 @@
-// Type and Language marks: a button apiece with a pop-up behind it (1.15.2) —
-// Type on the Appearance card, Language marks on the Metadata sources block.
+// Type: a button with a pop-up behind it (1.15.2), on the Language and font
+// section of Settings.
+//
+// LANGUAGE MARKS IS NO LONGER ONE OF THESE, and the cases that paired the two
+// are now about Type alone. The marks table became a SECTION of the Metadata
+// console: Settings points at it for what a quote's language is — "the only place
+// a quote's language is defined" — and a pop-up inside another section is not an
+// address another screen can send a reader to. Its own behaviour is unchanged and
+// is covered by language-text-order.test.jsx, which mounts the panel directly.
 //
 // THEY ARE ON TWO SCREENS NOW. The sources block was a Settings card and moved to
 // the Metadata screen whole, taking the marks door with it — which is exactly what
@@ -51,7 +58,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: Settings } = await import('../../src/Settings.jsx')
-const { MetadataSources } = await import('../../src/MetadataSources.jsx')
+const { LanguageMarksSettings, MetadataSources } = await import('../../src/MetadataSources.jsx')
 const { applyLanguageMarks } = await import('../../src/languages.jsx')
 const { glyphsFor } = await import('../../src/iso639.js')
 
@@ -110,12 +117,9 @@ describe('the two panels are doors, not cards', () => {
     expect(screen.queryByText(/Or type one/)).toBeNull()
   })
 
-  it('offers both as buttons that name themselves', async () => {
+  it('offers it as a button that names itself', async () => {
     await page()
     expect(screen.getByRole('button', { name: 'Type' })).toBeTruthy()
-    cleanup()
-    await sources()
-    expect(screen.getByRole('button', { name: 'Language marks' })).toBeTruthy()
   })
 
   it('keeps both sets of words at every width', async () => {
@@ -123,7 +127,7 @@ describe('the two panels are doors, not cards', () => {
     // only way into two whole panels — a bare letterform on a phone is not an
     // unlabelled button, it is a screen nobody finds — so they opt out the way
     // primary submits and destructive confirms do.
-    for (const [open, name] of [[page, 'Type'], [sources, 'Language marks']]) {
+    for (const [open, name] of [[page, 'Type']]) {
       cleanup()
       await open()
       const b = screen.getByRole('button', { name })
@@ -142,18 +146,11 @@ describe('the two panels are doors, not cards', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Type' }))
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(dialog().getAttribute('aria-label')).toBe('Type')
-    cleanup()
-    await sources()
-    fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    expect(dialog().getAttribute('aria-label')).toBe('Language marks')
   })
 
-  it('puts the marks door on its own card, and Type under Language and font', async () => {
-    // WHERE each door is, which is the one thing the assertions above cannot see:
-    // they find a button on a page without caring what it sits under. A mark is
-    // what a quote with nobody to credit says it IS — the sources page's subject —
-    // and not how the app looks.
+  it('puts Type under Language and font, and the marks table nowhere on Settings', async () => {
+    // WHERE the door is, which is the one thing the assertions above cannot see:
+    // they find a button on a page without caring what it sits under.
     const card = (name) => screen.getByRole('button', { name }).closest('.hand-card')
     const heading = (name) => card(name)?.querySelector('h2')?.textContent || ''
     // TYPE MOVED OUT FROM UNDER APPEARANCE, which is what this line used to
@@ -163,34 +160,44 @@ describe('the two panels are doors, not cards', () => {
     // scroll's answer to having nowhere else to put it.
     await page()
     expect(heading('Type')).toBe('Language')
-    // AND IT IS NOT ON SETTINGS AT ALL ANY MORE, which is the half a heading
-    // check cannot state: the block left that page.
+    // AND THE MARKS TABLE IS NOT ON SETTINGS AT ALL, which is the half a heading
+    // check cannot state: the block left that page, and has now left the sources
+    // block too for a section of its own.
     expect(screen.queryByRole('button', { name: 'Language marks' })).toBeNull()
     cleanup()
     await sources()
-
-    // A CARD OF ITS OWN, which is what this used to assert the opposite of. It
-    // read `heading('Language marks')` === 'Metadata sources' — correct while the
-    // door hung off the foot of the keys card behind a rule, and the very thing
-    // that changed. The door IS the card's heading now, so its card has no h2:
-    // put it back inside the keys card and this fails on the next line.
-    expect(card('Language marks')).toBeTruthy()
-    expect(heading('Language marks')).toBe('')
-    // And the keys card is a different card, still on the same page.
-    expect(screen.getByText('Metadata sources').closest('.hand-card'))
-      .not.toBe(card('Language marks'))
+    // NOR IS IT A DOOR ON SOURCES ANY MORE. It was a card whose heading WAS the
+    // button; both are gone, because the table is a section beside this one now.
+    expect(screen.queryByRole('button', { name: 'Language marks' })).toBeNull()
+    // And the keys card is still here, which is what proves the screen rendered
+    // rather than the query having nothing to find.
+    expect(screen.getByText('Metadata sources')).toBeTruthy()
   })
 })
 
 describe('the language-mark tray', () => {
+  // THE PANEL IS THE SCOPE NOW, NOT A DIALOG. Every query below reads
+  // `within(dialog())` because the table used to be behind a pop-up; it is a
+  // section of the Metadata console now, so what those queries should be scoped
+  // to is simply what was rendered. Shadowing the name keeps twenty assertions
+  // saying exactly what they said before — the table did not change, its address
+  // did — and the Type panel above is still a real dialog, scoped by the outer
+  // definition.
+  const dialog = () => document.body
   const openTray = async (language = 'Bengali') => {
-    await sources()
-    fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
+    // THE PANEL DIRECTLY, not a door to it: the marks table is a section of the
+    // Metadata console now rather than a pop-up on the sources block, so there is
+    // no dialog to open and no button to open it with. Everything below this line
+    // is unchanged, which is the point — the table did not move, only its address.
+    render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
+    // The rows are the reader's own languages and arrive from /search/vocabulary,
+    // so the first one has to land before anything can be pressed.
+    await screen.findByRole('button', { name: new RegExp(`^${language}`) })
     // THE WHOLE ROW IS THE TRIGGER (1.16.0). It was a 22px disc beside a name
     // you could not press; the name is inside the button now, which is what this
     // query proves — getByRole matches on the accessible name, and the row's
     // name comes from the text it contains.
-    fireEvent.click(within(dialog()).getByRole('button', { name: new RegExp(`^${language}`) }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${language}`) }))
   }
 
   it('renders the field the crash was hiding', async () => {
@@ -201,8 +208,9 @@ describe('the language-mark tray', () => {
   })
 
   it('opens from the row rather than from the glyph', async () => {
-    await sources()
-    fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
+    // The panel directly: the marks table is a section of the Metadata console
+    // now, so there is no door on the sources block to press.
+    render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
     const row = within(dialog()).getByRole('button', { name: /^Bengali/ })
     expect(row.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(row)
@@ -284,8 +292,9 @@ describe('the language-mark tray', () => {
   // The mock's library holds Bengali and Hindi (see /search/vocabulary above), so
   // those two are refused and a marked-only language is not.
   it('refuses to remove a language the library is still holding up', async () => {
-    await sources()
-    fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
+    // The panel directly: the marks table is a section of the Metadata console
+    // now, so there is no door on the sources block to press.
+    render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
     const x = await within(dialog()).findByRole('button', { name: 'Remove Bengali' })
     expect(x.disabled, 'Bengali is in the library and its remove was live').toBe(true)
     fireEvent.click(x)
@@ -295,8 +304,9 @@ describe('the language-mark tray', () => {
 
   it('removes one the library is not, and drops its whole entry', async () => {
     applyLanguageMarks({ languageMarks: '{"sylheti":{"m":"✦"},"bengali":{"m":"ক"}}' })
-    await sources()
-    fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
+    // The panel directly: the marks table is a section of the Metadata console
+    // now, so there is no door on the sources block to press.
+    render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
     const x = await within(dialog()).findByRole('button', { name: 'Remove sylheti' })
     expect(x.disabled, 'a language no quote is stored in should be removable').toBe(false)
     fireEvent.click(x)
@@ -310,8 +320,9 @@ describe('the language-mark tray', () => {
   })
 
   it('adds a language the module never heard of', async () => {
-    await sources()
-    fireEvent.click(screen.getByRole('button', { name: 'Language marks' }))
+    // The panel directly: the marks table is a section of the Metadata console
+    // now, so there is no door on the sources block to press.
+    render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Add a language' }))
     const input = within(dialog()).getByPlaceholderText(/Yoruba, Swahili/)
     // Sylheti and not Yoruba, which iso639.js now knows — the case is about a

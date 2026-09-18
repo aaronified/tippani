@@ -14,7 +14,7 @@ import {
   verifyUpload,
 } from './fonts.js'
 import { FaceSelect } from './fontPicker.jsx'
-import { SECTIONS, visibleSections } from './routes.js'
+import { SECTIONS, sectionOrder, visibleSections } from './routes.js'
 import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
 import { languageMarksState } from './languages.jsx'
@@ -2096,6 +2096,23 @@ function FeaturesCard({ prefs, onSaved }) {
     onSaved?.(patch)
     json('PUT', '/auth/me/preferences', patch)
   }
+  // The order, and the one verb that changes it. Read through `sectionOrder` so a
+  // preference written before a section existed still places the ones it knows
+  // and leaves the new one where the table puts it.
+  const order = sectionOrder(prefs)
+  const move = (i, d) => {
+    const j = i + d
+    if (j < 0 || j >= order.length) return
+    const next = order.slice()
+    ;[next[i], next[j]] = [next[j], next[i]]
+    // A STRING, NOT AN ARRAY. Every other preference this endpoint takes is a
+    // scalar, and a list would be the only one needing its own shape on both
+    // sides; the keys are short and the set is closed, so a comma-separated line
+    // is the whole of it.
+    const patch = { sectionOrder: next.join(',') }
+    onSaved?.(patch)
+    json('PUT', '/auth/me/preferences', patch)
+  }
   return (
     <Card>
       <SectionTitle
@@ -2136,6 +2153,48 @@ function FeaturesCard({ prefs, onSaved }) {
         onToggle={(tab, next) => set(SECTIONS.find((sec) => sec.tab === tab), next)}
       />
       {lastOne && <p className="microcopy mt-2">{t('settings.features.locked.prose')}</p>}
+      {/* AND THE ORDER THEY COME IN, which the chips above cannot express: a chip
+          row says which sections exist and a reader dragging one would be guessing
+          whether they had moved it or switched it off. So the order is its own
+          list, with a pair of arrows per row.
+
+          ARROWS RATHER THAN A DRAG. A drag needs a pointer that can hover to
+          discover it is draggable, a keyboard equivalent invented from nothing,
+          and a touch target that does not fight the page's own scroll. Two
+          buttons are the same answer, reachable by every input the app supports,
+          and the repo has no drag-to-sort anywhere else to be consistent with.
+
+          THIS ORDER IS THE RAIL, THE DRAWER AND THE + MENU, because all four read
+          routes.js through one `visibleTabs` — which now orders as well as
+          filters, for the reason that file already gives about four lists that
+          have to agree. */}
+      <p className="mono-label mt-5">{t('settings.features.order.title')}</p>
+      <p className="microcopy">{t('settings.features.order.prose')}</p>
+      <ul className="mt-2" style={{ display: 'grid', gap: 2 }}>
+        {order.map((tab, i) => {
+          const sec = SECTIONS.find((x) => x.tab === tab)
+          if (!sec) return null
+          return (
+            <li key={tab} className="flex items-center gap-2" style={{ padding: '4px 0' }}>
+              <span className="grow min-w-0">{t(sec.label)}</span>
+              <FieldIconButton
+                icon={<IconArrow dir="up" />}
+                ariaLabel={t('settings.features.order.up.aria', { name: t(sec.label) })}
+                tooltip={t('settings.features.order.up.aria', { name: t(sec.label) })}
+                onClick={() => move(i, -1)}
+                disabled={i === 0}
+              />
+              <FieldIconButton
+                icon={<IconArrow dir="down" />}
+                ariaLabel={t('settings.features.order.down.aria', { name: t(sec.label) })}
+                tooltip={t('settings.features.order.down.aria', { name: t(sec.label) })}
+                onClick={() => move(i, 1)}
+                disabled={i === order.length - 1}
+              />
+            </li>
+          )
+        })}
+      </ul>
     </Card>
   )
 }

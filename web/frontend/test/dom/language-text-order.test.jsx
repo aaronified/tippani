@@ -42,7 +42,7 @@ vi.mock('../../src/api.js', async (orig) => ({
   }),
 }))
 
-const { MetadataSources } = await import('../../src/MetadataSources.jsx')
+const { LanguageMarksSettings } = await import('../../src/MetadataSources.jsx')
 const { forgetSessionCaches } = await import('../../src/sessionCaches.js')
 
 beforeEach(() => {
@@ -57,15 +57,18 @@ beforeEach(() => {
   forgetSessionCaches()
 })
 
+// THE TABLE IS A SECTION NOW, NOT A DOOR. It was a FormModal behind a button on
+// the sources card; Settings points at it for what a quote's language is, and a
+// pop-up inside another section is not an address. So the panel mounts directly
+// here — which is what this file was always about, the whole console around it
+// having been scaffolding.
 const open = async () => {
-  render(<MetadataSources user={{ username: 'a', is_admin: true, preferences: PREFS }} onPreferences={() => {}} />)
-  // The languages table is a door, as it was before this column was added — a row
-  // per language with a tray behind each is a column spent on a choice made once.
-  fireEvent.click(await screen.findByRole('button', { name: /language marks/i }))
+  render(<LanguageMarksSettings prefs={PREFS} onSaved={() => {}} />)
   // The MASTER, matched exactly: a loose /how much of the original/ also matches
   // every row's group, and findBy throws on more than one.
   return screen.findByRole('radiogroup', { name: /^how much of the original$/i })
 }
+
 
 // FOUR CHIPS, AND THESE CASES DROVE A SLIDER. The owner replaced it — "Sliders
 // are for when we have a gradient, not when we have 4-5 distinct options!" — so

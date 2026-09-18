@@ -52,6 +52,7 @@ import {
   SECTIONS,
   UTILITY_TABS,
   visibleSections,
+  sectionOrder,
   visibleTabs,
   addSection,
   helpScreen,
@@ -1010,7 +1011,7 @@ function TopBarSearch({ scope, scopeLabel, onSearch, onDropScope }) {
 // right shape for a row of peers and the wrong one for a column of destinations:
 // a segment implies "one of these", and this column also holds a rule, the bin and
 // an account. The rows are buttons and the rule is a span — see below.
-export function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChecks, brandDot = null, badges = {}, binCount = 0, checkCount = 0, strayCount = 0 }) {
+export function NavRail({ tab, onChange, sections, order = null, user, onAccount, onBin, onChecks, brandDot = null, badges = {}, binCount = 0, checkCount = 0, strayCount = 0 }) {
   const dark = useResolvedDark()
   const railRef = useRef(null)
   // Nine destinations in a short window outrun the column, and the app's own rule
@@ -1063,9 +1064,9 @@ export function NavRail({ tab, onChange, sections, user, onAccount, onBin, onChe
         </button>
       </div>
       <nav ref={railRef} className="rail-nav" aria-label={t('shell.nav.primary.aria')}>
-        {visibleTabs(CONTENT_TABS, sections).map(row)}
+        {visibleTabs(CONTENT_TABS, sections, order).map(row)}
         <span className="rail-rule" aria-hidden="true" />
-        {visibleTabs(UTILITY_TABS, sections).map(row)}
+        {visibleTabs(UTILITY_TABS, sections, order).map(row)}
       </nav>
       <div className="rail-foot">
         {/* CHECKS — one door to the two lists that ask something of you: imports
@@ -1208,7 +1209,7 @@ function rememberScroll(key) {
 // Drawer — the hamburger nav (§7 redesign): primary nav on mobile, opened by
 // the ☰ button or the avatar chip. Scrim tap / Escape / any navigation closes
 // it. Home carries the pending-review dot; Library/Catalogue show live counts.
-export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, metaIssues, dark, onUser, sections, binCount = 0, checkCount = 0, strayCount = 0 }) {
+export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccount, user, stats, pending, pendingImport, streak, metaIssues, dark, onUser, sections, order = null, binCount = 0, checkCount = 0, strayCount = 0 }) {
   // Metadata "issues" = items the console flags (a book with no cover or no
   // ids; a film/show with no poster, cast or source) — the same predicate the
   // Metadata page uses. Fetched lazily the first time the drawer opens (it's a
@@ -1304,7 +1305,7 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
               <span className="drawer-badge" style={{ color: 'var(--accent-ui)' }}>{pendingImport}</span>
             </button>
           )}
-          {visibleTabs(DRAWER_TABS, sections).map((row, i) =>
+          {visibleTabs(DRAWER_TABS, sections, order).map((row, i) =>
             row === null ? (
               <div key={`div-${i}`} className="drawer-divider" aria-hidden="true" />
             ) : (
@@ -2058,6 +2059,8 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // the phone bar, Home, the ＋, the scope chips and the shortcut legend all
   // answer one question with one answer.
   const sections = visibleSections(user.preferences)
+  // The order the reader put them in, read once and handed to every nav list.
+  const order = sectionOrder(user.preferences)
   // The Go-to keys whose destination has no visible door. The KEY still works —
   // hiding is cosmetic and G-then-C is the URL typed — it just stops being
   // advertised in a legend beside a tab that is not on screen. This is the only
@@ -2234,6 +2237,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         tab={tab}
         onChange={selectTab}
         sections={sections}
+        order={order}
         user={user}
         onAccount={() => setProfileOpen(true)}
         onBin={() => go('bin', null)}
@@ -2243,7 +2247,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         // section the reader has switched off is work done for a row that will not
         // be drawn, and features-nav.test.js is right to refuse the bare list.
         badges={Object.fromEntries(
-          [...visibleTabs(CONTENT_TABS, sections), ...visibleTabs(UTILITY_TABS, sections)]
+          [...visibleTabs(CONTENT_TABS, sections, order), ...visibleTabs(UTILITY_TABS, sections, order)]
             .map(([k]) => [k, navBadge(k, { stats, metaIssues, streak, version: user.version })])
             .filter(([, v]) => v),
         )}
@@ -2572,6 +2576,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         tab={tab}
         selectTab={selectTab}
         sections={sections}
+        order={order}
         // The drawer is the deliberately CONTEXT-FREE route to both: its Add
         // opens the plain look-up card with nothing pre-filled, and its Search
         // clears the scope rather than inheriting the last page's. The top bar's
@@ -2600,6 +2605,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         initialFields={addFields}
         pendingImport={pendingImport}
         sections={sections}
+        order={order}
         onReviewImport={() => { setAddOpen(false); selectTab('staging') }}
         onStaged={refreshPendingImport}
         onClose={() => setAddOpen(false)}

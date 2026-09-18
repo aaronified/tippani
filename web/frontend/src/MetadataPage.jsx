@@ -5,10 +5,10 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks } from './ui.jsx'
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, personPanel } from './identity.jsx'
-import { MetadataSources } from './MetadataSources.jsx'
+import { LanguageMarksSettings, MetadataSources } from './MetadataSources.jsx'
 import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
 import { SectionRail } from './sectionRail.jsx'
@@ -75,6 +75,14 @@ const METADATA_SECTIONS = [
   // console does — what is written across the library, and is it written consistently
   // — and it sat in the nav beside Stats as if it were a place you go to read.
   ['tags', 'nav.tab.tags.label', <IconNavTags />],
+  // LANGUAGES IS A SECTION, AND THE v3 PACK DOES NOT DRAW ONE. That is the pack
+  // being wrong rather than this being an invention: its own Settings prototype
+  // says the quote faces are "read from the metadata language table, which is the
+  // only place a quote's language is defined; Settings links there rather than
+  // keeping a second list" — so it removed the door and never built the room. The
+  // table was a FormModal behind a button inside Sources, which is not somewhere
+  // another screen can send a reader.
+  ['languages', 'metadata.section.languages.label', <IconLanguages />],
   ['sources', 'metadata.section.sources.label', <IconNavSources />],
 ]
 
@@ -415,6 +423,20 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
                   than in a console of their own halfway down a scroll. */}
               <DuplicatesPanel onDone={load} onFlash={setFlash} />
             </>
+          ) : sect === 'languages' ? (
+            // THE PANEL ITSELF, not a door to it. It was a FormModal behind a
+            // button on Sources; Settings now points at this section for what a
+            // quote's language is, and a pointer to a pop-up inside a different
+            // section is not an address.
+            <Card>
+              <SectionTitle
+                info={t('settings.languages.card.info.body')}
+                infoTitle={t('settings.languages.title')}
+              >
+                {t('settings.languages.title')}
+              </SectionTitle>
+              <LanguageMarksSettings prefs={user.preferences} onSaved={onPreferences} />
+            </Card>
           ) : sect === 'sources' ? (
             <MetadataSources user={user} onPreferences={onPreferences} />
           ) : sect === 'tags' ? (
