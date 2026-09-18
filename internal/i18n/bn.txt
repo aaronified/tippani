@@ -1387,6 +1387,13 @@ settings.labels.auto.label = অটো
 # --- Appearance.
 settings.search.none = “{q}”-এর সঙ্গে সেটিংসের কিছু মিলছে না।
 settings.appearance.title = রূপচর্চা
+settings.appearance.group.light.title = আলো আর অন্ধকার
+settings.appearance.group.light.aside = জোড়ায় সেট হয়
+settings.appearance.group.material.title = কী দিয়ে গড়া
+settings.appearance.group.saved.title = আপনার নিজের থিম
+settings.appearance.group.saved.aside = {cap}-এর মধ্যে {n}টি সংরক্ষিত
+settings.appearance.group.density.title = একটি কন্ট্রোল কতটা বলে
+
 settings.appearance.theme.title = থিম
 settings.appearance.theme.light.label = হালকা
 settings.appearance.theme.dark.label = গাঢ়
@@ -1490,7 +1497,6 @@ settings.appearance.quote-measure.info.body = উদ্ধৃতির লাই
 # binding on a cover. Independent of light/dark -- every set works in both -- so
 # these are PLACES, not moods. Translate each as the room it is, not word for
 # word: the English is already the room's name rather than a description.
-settings.appearance.material.title = নকশা
 settings.material.manuscript.label = পাণ্ডুলিপি
 settings.material.film-assembly.label = চলচ্চিত্রের রিল
 settings.material.office.label = অফিস

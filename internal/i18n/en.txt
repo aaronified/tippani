@@ -1387,6 +1387,13 @@ settings.labels.auto.label = Auto
 # --- Appearance.
 settings.search.none = Nothing in Settings matches “{q}”.
 settings.appearance.title = Appearance
+settings.appearance.group.light.title = Light and dark
+settings.appearance.group.light.aside = set as a pair
+settings.appearance.group.material.title = What it is made of
+settings.appearance.group.saved.title = A theme of your own
+settings.appearance.group.saved.aside = {n} of {cap} saved
+settings.appearance.group.density.title = How much a control says
+
 settings.appearance.theme.title = Theme
 settings.appearance.theme.light.label = Light
 settings.appearance.theme.dark.label = Dark
@@ -1492,7 +1499,6 @@ settings.appearance.quote-measure.info.body = How long a line of a quote may run
 # binding on a cover. Independent of light/dark -- every set works in both -- so
 # these are PLACES, not moods. Translate each as the room it is, not word for
 # word: the English is already the room's name rather than a description.
-settings.appearance.material.title = Material
 settings.material.manuscript.label = Manuscript
 settings.material.film-assembly.label = Film assembly
 settings.material.office.label = Office

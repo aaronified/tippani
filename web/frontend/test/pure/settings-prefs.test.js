@@ -76,11 +76,37 @@ describe('what counts as changed', () => {
     expect(changedIn({ texTweak: '{}', savedThemes: '[]' }, 'theme')).toBe(0)
   })
 
-  it('counts false and zero, because a reader chose them', () => {
-    // `hideLibrary: false` is only ever written by someone switching it back on,
-    // and a falsy test would silently drop it — which is the bug this case exists
-    // to stop rather than a hypothetical.
-    expect(changedIn({ hideLibrary: false }, 'sections')).toBe(1)
-    expect(changedIn({ quoteMeasure: 0 }, 'theme')).toBe(1)
+  it('does not count false or zero, because that is what unset looks like', () => {
+    // THIS CASE ASSERTED THE OPPOSITE AND WAS WRONG. The reasoning was that
+    // `hideLibrary: false` is only ever written by somebody switching the Library
+    // back on — true of a reader, false of the wire. Only two of the Go struct's
+    // seventy-four fields carry `omitempty`, so the server marshals the zero value
+    // for every untouched preference and `false` is what "never touched" looks
+    // like. A freshly created account read "7 changed" on Theme with this case
+    // green.
+    expect(changedIn({ hideLibrary: false }, 'sections')).toBe(0)
+    expect(changedIn({ quoteMeasure: 0, trueGlass: false }, 'theme')).toBe(0)
+  })
+
+  it('counts a boolean that is on, because every one of them is off by default', () => {
+    expect(changedIn({ hideLibrary: true }, 'sections')).toBe(1)
+    expect(changedIn({ trueGlass: true }, 'theme')).toBe(1)
+  })
+
+  it('reads a whole freshly-created account as untouched', () => {
+    // The shape the server actually sends a new account: every field present,
+    // every one of them a zero value. This is the case the capture found and the
+    // one that proves the fix, so it is written as the wire writes it rather than
+    // as a tidy subset.
+    const fresh = {}
+    for (const k of Object.values(SECTION_PREFS).flat()) {
+      fresh[k] = typeof k === 'string' && /^(hide|show|sr(Practice|Ladder|Submit)|trueGlass)/.test(k) ? false : ''
+    }
+    fresh.srDaily = 0
+    fresh.quoteLeading = 0
+    fresh.quoteMeasure = 0
+    for (const section of Object.keys(SECTION_PREFS)) {
+      expect(changedIn(fresh, section), `${section} should read as untouched`).toBe(0)
+    }
   })
 })

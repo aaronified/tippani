@@ -723,6 +723,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The Theme section is in four named groups.** "Light and dark", "What it is made of",
+  "A theme of your own", "How much a control says" — each numbered, and each saying the one
+  thing beside it a heading cannot: that the two grounds are set as a pair, which material
+  set is on, how many looks you have saved.
+
 - **Every settings section says how much of it you have set.** A number on its tab, the
   same number in words at the top of the section — "3 changed", or "all default" when
   there is nothing — and a Reset beside it that appears only where there is something to

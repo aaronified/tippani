@@ -14,7 +14,7 @@ import {
   verifyUpload,
 } from './fonts.js'
 import { FaceSelect } from './fontPicker.jsx'
-import { PrefRow } from './prefRow.jsx'
+import { PrefGroup, PrefRow } from './prefRow.jsx'
 import { glassDialsFor } from './glassLens.js'
 import { applyFields, fromFile, parseSaved, removeTheme, SAVED_THEME_CAP, saveTheme, toFile } from './savedThemes.js'
 import { SECTIONS, sectionOrder, visibleSections } from './routes.js'
@@ -278,10 +278,24 @@ export function changedIn(prefs, section) {
   const keys = SECTION_PREFS[section] || []
   return keys.filter((k) => {
     const v = (prefs || {})[k]
-    // Absent, and the two shapes the server sends for "nothing here": an empty
-    // string for a text field nobody filled, and an empty JSON blob for the
-    // packed ones. `false` and `0` ARE values a reader chose.
-    return !(v === undefined || v === null || v === '' || v === '{}' || v === '[]')
+    // WHAT "UNSET" LOOKS LIKE ON THE WIRE, and it is not absence. Two of the
+    // seventy-four fields in the Go struct carry `omitempty`; the rest marshal
+    // their zero value, so a preference nobody has touched arrives as `""`, `0`
+    // or `false` rather than as nothing at all.
+    //
+    // THIS PARAGRAPH SAID THE OPPOSITE AND THE SCREEN DISPROVED IT. The first
+    // version counted `false` and `0` on the reasoning that a reader had chosen
+    // them — true of a reader, false of the wire, because the server sends those
+    // for unset too and the two are indistinguishable here. A freshly created
+    // account rendered "7 changed" on Theme and "4 changed" on Language, which no
+    // test caught and one capture made obvious.
+    //
+    // EVERY BOOLEAN IN THE SET DEFAULTS TO FALSE — the four section switches, the
+    // three review flags, true glass, the category hides — so "true counts" is
+    // right for all of them rather than a convenient approximation. The day one
+    // defaults to true, it stops being right, and settings-prefs.test.js is where
+    // that would have to be handled.
+    return !(v === undefined || v === null || v === '' || v === '{}' || v === '[]' || v === false || v === 0)
   }).length
 }
 
@@ -3330,6 +3344,19 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
       <SectionTitle>{t(part === 'lang' ? 'settings.language.title' : 'settings.appearance.title')}</SectionTitle>
       {part !== 'lang' && (
       <>
+      {/* THE PACK'S FOUR NUMBERED GROUPS. The section was one flat run of rows and
+          the pack draws it as four, each numbered and each with an aside stating
+          the one fact about the group a heading cannot: which pair is set
+          together, which material set is on, how many looks are saved.
+
+          NOTHING FOLDS. The pack marks group 2 foldable; the owner chose the
+          headings without the fold, and the reason holds — a fold that hides the
+          material picker is a fold on the control most readers meet once, and a
+          collapsed group is a group nobody knows is there.
+
+          THE NUMBER IS DRAWN FROM POSITION, not typed, because a hand-typed
+          ordinal is what goes wrong the day a group is inserted. */}
+      <PrefGroup index={1} title={t('settings.appearance.group.light.title')} aside={t('settings.appearance.group.light.aside')}>
       <PrefRow
         label={t('settings.appearance.theme.title')}
         changed={themePref !== 'system'}
@@ -3415,7 +3442,12 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
           />
         }
       />
-      <MonoLabel className="mb-2 block">{t('settings.appearance.material.title')}</MonoLabel>
+      </PrefGroup>
+      {/* THE GROUP'S HEADING IS THE ONLY HEADING. "2 · What it is made of" sat
+          directly above a MonoLabel reading "Material", which is one thing said
+          twice — the standing rule, and visible as two stacked labels the moment
+          the groups landed. */}
+      <PrefGroup index={2} title={t('settings.appearance.group.material.title')} aside={t(MAT_SET_LABELS[materialSet])}>
       <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
         {Object.keys(MAT_SETS).map((name, i) => (
           <MaterialCard
@@ -3460,6 +3492,8 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
         />
       </FormModal>
 
+      </PrefGroup>
+      <PrefGroup index={3} title={t('settings.appearance.group.saved.title')} aside={t('settings.appearance.group.saved.aside', { n: saved.length, cap: SAVED_THEME_CAP })}>
       {/* THE LOOKS YOU HAVE SAVED. Six fields travel together in one — both
           grounds, the accent, the material set, the tiles and the dials — because
           a ground chosen against one accent is a different decision against
@@ -3519,6 +3553,15 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
         {importError && <ErrorText>{t(`settings.appearance.saved.import.${importError}`)}</ErrorText>}
       </div>
 
+      </PrefGroup>
+      {/* GROUP 4 IS THE PACK'S "HOW MUCH A CONTROL SAYS", AND IT CARRIES MORE THAN
+          THE PACK PUT IN IT. The pack's fourth group is label density alone. This
+          app's theme section also holds true glass, the two cover-size sliders, the
+          text size and the two quote-reading dials — none of which the pack's theme
+          section has, because the pack never had them. They are all answers to "how
+          much, and how big", which is what this group is about, so they are here
+          rather than in a fifth group invented to hold them. */}
+      <PrefGroup index={4} title={t('settings.appearance.group.density.title')}>
       {/* TRUE GLASS, AND IT IS OFF UNTIL ASKED FOR. A pane that really refracts
           needs a displacement field per surface, re-evaluated whenever anything
           behind it moves — and this repository already measured what that costs:
@@ -3623,6 +3666,7 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
             the same languages would be two to keep in step. An account that still
             has the old preference is migrated on read — see textOrderFrom. */}
       </div>
+      </PrefGroup>
       </>
       )}
 
