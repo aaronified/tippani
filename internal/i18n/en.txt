@@ -43,6 +43,8 @@ _name = English
 # ===========================================================================
 
 # The Settings row that changes the language, in the Appearance card.
+settings.language.fallback.en.label = English
+settings.language.fallback.bn.label = বাংলা
 settings.language.fallback.title = Fall back to
 settings.language.fallback.hint = Where a line has not been translated yet, the interface reads it in this language instead.
 
@@ -1363,7 +1365,7 @@ settings.quiz.skipped.restore-work.label = Put {n} back
 settings.quiz.skipped.restore-one.aria = Put this one back in the deck
 
 settings.quiz.start.title = New lines start at
-settings.quiz.start.info.body = A line you have never been asked about enters the schedule here. Not seen is the ordinary way in: it is asked soon and often until you have it. Mastered starts it at the far end, for a library you already know — it will still come round, just rarely, and a wrong answer brings it straight back.
+settings.quiz.start.info.body = Where a new line enters the schedule. Not seen asks it soon and often; Mastered starts it at the far end, for a library you already know — it still comes round, just rarely, and a wrong answer brings it back.
 settings.quiz.start.unseen.label = Not seen
 settings.quiz.start.mastered.label = Mastered
 

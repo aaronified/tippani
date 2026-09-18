@@ -9017,43 +9017,79 @@ html[data-theme="dark"] .board-cover {
 .meta-frame { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--row); }
 .meta-body { display: grid; gap: calc(var(--row) * 1.4); align-content: start; min-width: 0; }
 
+/* THE TAB ROW IS THE PACK'S, GEOMETRY FOR GEOMETRY. The owner's ruling: "you need
+   to follow it strictly in terms of the top bar. It has achieved perfection
+   visually. Only issues are in content terms, which tabs, what to name them and
+   what icons to use." So this is settings-restructured.dc.html:122-131 in tokens —
+   the gaps, the baseline, the underline — and the tab SET, its words and its
+   glyphs stay the app's own.
+
+   WHAT IT WAS: chips. A 9px radius, a 1px border, a background on hover and an
+   accent-coloured outline on the selected one. Four pills in a row reads as four
+   buttons; the pack's tabs read as one strip of a surface with the current one
+   standing on it, which is what a tab is.
+
+   THE TABS SIT ON THE ROW'S BASELINE, not centred in it, because the underline
+   belongs to the row's border rather than to the button — which is what makes the
+   selected tab look attached to the body below it. */
 .meta-rail {
-  display: flex; gap: 4px; min-width: 0;
-  /* A ROW FIRST, because that is the narrow case and the narrow case is the
-     default. The two-column arrangement below is the enhancement. */
+  display: flex; align-items: flex-end; gap: 26px; min-width: 0;
   flex-direction: row;
   overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
-  padding-bottom: 6px; border-bottom: 1px solid var(--line);
+  padding: 2px 0 0; border-bottom: 1px solid var(--line);
 }
 .meta-rail-item {
-  display: flex; align-items: center; gap: 8px; flex: none;
-  padding: 7px 11px; border-radius: 9px; border: 1px solid transparent;
-  color: var(--soft); background: none; cursor: pointer;
+  position: relative;
+  display: flex; align-items: center; gap: 9px; flex: none;
+  /* The touch floor is met by the row's own height rather than by padding, so the
+     underline can sit on the border instead of 12px above it. */
+  min-height: 44px; padding: 0 1px 12px;
+  border: 0; color: var(--soft); background: none; cursor: pointer;
   font-family: var(--font-ui); font-style: var(--font-ui-style);
   font-variant-caps: var(--font-ui-caps); text-transform: var(--font-ui-case);
   font-variant-numeric: var(--font-ui-figures);
   font-size: var(--type-ui-15);
-  /* NOT A NAME, so it may sit on one line: these are four fixed words this file
-     ships, and the rail scrolls when four of them do not fit. */
+  /* NOT A NAME, so it may sit on one line: these are a handful of fixed words this
+     file ships, and the rail scrolls when they do not fit. */
   white-space: nowrap;
 }
-.meta-rail-item:hover { color: var(--ink); background: var(--raised); }
-.meta-rail-item.is-on { color: var(--ink); font-weight: 600; border-color: var(--accent-ui); }
+.meta-rail-item:hover { color: var(--ink); }
+.meta-rail-item.is-on { color: var(--ink); font-weight: 600; }
+/* THE UNDERLINE IS THE WHOLE SELECTED STATE, and it overlaps the row's border by
+   a pixel so the two read as one line with a thicker stretch in it. */
+.meta-rail-item.is-on::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
+  height: 2.5px; border-radius: 2px 2px 0 0; background: var(--accent-ui);
+}
 .meta-rail-icon { display: inline-flex; color: currentColor; opacity: .75; }
 .meta-rail-icon svg { width: 1.15em; height: 1.15em; }
 /* The count reads as a figure rather than as more of the label: the app's mono
    face, a tier down, and pushed to the far edge on the desktop rail so a column
    of them lines up. */
+/* A ROUND BADGE, which the pack gives the accent fill on the selected tab and
+   leaves plain on the others — so the number belongs to the tab rather than
+   trailing after its label. */
 .meta-rail-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: max(22px, 1.5em); height: max(22px, 1.5em); padding: 0 6px;
+  border-radius: 999px;
   font-family: var(--font-mono); font-style: var(--font-mono-style);
   font-variant-caps: var(--font-mono-caps); text-transform: var(--font-mono-case);
   font-variant-numeric: var(--font-mono-figures);
-  font-size: var(--type-mono-11); color: var(--faint);
+  font-size: var(--type-mono-11); color: var(--soft);
 }
-.meta-rail-item.is-on .meta-rail-count { color: var(--soft); }
+.meta-rail-item.is-on .meta-rail-count {
+  background: var(--accent-ui); color: var(--on-accent);
+}
 /* THE ONLY RED NUMBER ON THE RAIL is the count of gaps, because it is the only
    one that is a count of problems. A library of 900 books is not a warning. */
 .meta-rail-count.is-warn { color: var(--error); }
+/* AND IT STAYS RED ON THE SELECTED TAB. Without this the accent fill wins by
+   order and a count of PROBLEMS reads as the ordinary count the moment you open
+   the section it belongs to — which is the one moment it matters. */
+.meta-rail-item.is-on .meta-rail-count.is-warn {
+  background: color-mix(in oklab, var(--error), transparent 86%); color: var(--error);
+}
 
 /* THE RAIL IS A ROW AT EVERY WIDTH ABOVE A PHONE. It used to become a 13.5rem
    left column at 900px and up — a sixth of a console screen spent on five words,
@@ -9066,7 +9102,11 @@ html[data-theme="dark"] .board-cover {
    reader has gone deep enough to want it. A row can do that too, and the row is
    the thing the phone's dropdown replaces one-for-one. */
 @media (min-width: 900px) {
-  .meta-rail {
+  /* THE WHOLE ROW STICKS, not the tablist inside it. The section's info dot and
+     its Reset ride at the far end of the same row now, and sticking only the
+     tablist would slide the tabs up under the top bar while leaving those two
+     behind on the page — one row coming apart into two as you scroll. */
+  .meta-rail-row {
     position: sticky; top: 0; z-index: 3;
     background: var(--bg); padding-top: calc(var(--row) * 0.25);
   }
@@ -10237,6 +10277,21 @@ html[data-theme="dark"] .board-cover {
   font-family: var(--font-display); font-size: var(--type-display-15); line-height: 1.5;
 }
 
+/* THE TAB ROW, AND WHAT RIDES AT ITS FAR END. The pack draws the tabs and the
+   section's own two controls in ONE flex row over ONE bottom border; a second bar
+   underneath repeated what the tab already said. The aside sits on the baseline of
+   the tabs rather than centred, because the tabs' labels are what the eye follows
+   across the row. */
+.meta-rail-row {
+  display: flex; align-items: flex-end; gap: var(--edge, 12px);
+  border-bottom: 1px solid var(--line);
+}
+.meta-rail-row > .meta-rail { flex: 1; min-width: 0; border-bottom: 0; }
+.meta-rail-aside {
+  flex: none; display: flex; align-items: center; gap: 9px;
+  padding-bottom: 7px;
+}
+
 /* THE FOUR FACES, SHOWN RATHER THAN NAMED. Each is a press into the Type panel,
    so it is a button; it is laid out as a row of text because what it is FOR is
    being read. The sample is measured in em so it moves with the reader's type
@@ -10260,32 +10315,28 @@ html[data-theme="dark"] .board-cover {
   font-size: var(--type-display-17); line-height: 1.4;
 }
 
-/* A SECTION'S OWN HEADER: what it is for, how much of it you have set, and the way
-   back out. It wraps rather than scrolls, because the reset button losing its words
-   would make the one irreversible-looking control on the screen a bare glyph. */
-.section-head {
-  display: flex; align-items: center; flex-wrap: wrap;
-  gap: 8px var(--edge, 12px);
-  padding-bottom: var(--row, 12px);
-  border-bottom: 1px solid color-mix(in oklab, var(--line), transparent 45%);
+/* THE FOUR FACES, SHOWN RATHER THAN NAMED. Each is a press into the Type panel,
+   so it is a button; it is laid out as a row of text because what it is FOR is
+   being read. The sample is measured in em so it moves with the reader's type
+   dial, and it wraps rather than truncating — a shortened specimen and a short
+   one look alike, which is the rule this whole file keeps. */
+.face-specimens { display: grid; gap: 2px; }
+.face-specimen {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px var(--edge, 12px);
+  width: 100%; padding: 10px 6px; border: 0;
+  border-top: 1px solid color-mix(in oklab, var(--line), transparent 45%);
+  background: none; cursor: pointer; text-align: start;
 }
-.section-head-pill {
-  display: inline-flex; align-items: center; min-height: max(24px, 1.8em);
-  padding: 2px 9px; border-radius: 999px;
-  font-family: var(--font-mono); font-weight: var(--font-mono-weight);
-  font-variant-caps: var(--font-mono-caps); text-transform: uppercase;
-  font-variant-numeric: var(--font-mono-figures);
-  font-size: var(--type-mono-11); letter-spacing: .08em;
-  color: var(--faint); white-space: nowrap;
+.face-specimen:hover { background: color-mix(in oklab, var(--raised), transparent 40%); }
+.face-specimen-role { display: flex; align-items: baseline; gap: 8px; flex: 0 0 auto; min-width: 12ch; }
+.face-specimen-name {
+  font-family: var(--font-mono); font-size: var(--type-mono-11);
+  font-variant-numeric: var(--font-mono-figures); color: var(--faint);
 }
-/* IT LIGHTS ONLY WHERE THERE IS SOMETHING TO UNDO, which is the same grammar the
-   tick uses: a control that looks armed when nothing has changed teaches the
-   reader to stop reading it. */
-.section-head:has(.tp-ghost-btn) .section-head-pill {
-  background: color-mix(in oklab, var(--accent-ui), transparent 88%);
-  color: var(--accent-ui);
+.face-specimen-sample {
+  flex: 1 1 18ch; min-width: 0; color: var(--ink);
+  font-size: var(--type-display-17); line-height: 1.4;
 }
-
 /* A COVERAGE NUMBER THAT IS A DOOR. It sits inside a sentence, so it is styled as
    the sentence's own emphasis rather than as a button: a pill in the middle of a
    line would break the reading. It underlines to say it is pressable, and takes

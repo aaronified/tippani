@@ -503,27 +503,26 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
           onChange={setSection}
           ariaLabel={t('settings.section.aria')}
           total={sectionPill(liveSections.reduce((a, [id]) => a + changedIn(prefs, id), 0))}
+          // THE TWO CONTROLS RIDE ON THE TAB ROW, which is where the pack puts them
+          // (settings-restructured.dc.html:134-138): the info dot and "Reset
+          // section" sit at the right-hand end of the same flex row as the tabs,
+          // sharing its bottom border. They were a SECOND BAR underneath for a
+          // while, carrying a repeat of the tab's own count — "a second header bar
+          // right under the tab… do not build redundant stuff". The number is
+          // already on the tab; a bar that exists to say it again is a bar that
+          // exists to hold two buttons.
+          aside={current && {
+            info: { title: t(liveSections.find(([id]) => id === current)[1]), text: t(sectionInfoKey(current)) },
+            action: changedIn(prefs, current) > 0 && (
+              <Tooltip label={t('settings.section.reset.tip', { section: t(liveSections.find(([id]) => id === current)[1]) })}>
+                <GhostButton icon={<IconRevert />} onClick={() => setResetting(current)}>
+                  {t('settings.section.reset.label')}
+                </GhostButton>
+              </Tooltip>
+            ),
+          }}
         >
           <div className="space-y-6">
-            {/* THE SECTION'S OWN HEADER, above its cards: what this section is for,
-                and the way back out of every decision in it. The pack puts both
-                here and not on the tab, because a tab is a place to go and this is
-                a thing to do to the place you are in. */}
-            {current && (
-              <div className="section-head">
-                <MonoLabel>{t(liveSections.find(([id]) => id === current)[1])}</MonoLabel>
-                <InfoDot title={t(liveSections.find(([id]) => id === current)[1])} text={t(sectionInfoKey(current))} />
-                <span className="grow" />
-                <span className="section-head-pill">{sectionPill(changedIn(prefs, current))}</span>
-                {changedIn(prefs, current) > 0 && (
-                  <Tooltip label={t('settings.section.reset.tip', { section: t(liveSections.find(([id]) => id === current)[1]) })}>
-                    <GhostButton icon={<IconRevert />} onClick={() => setResetting(current)}>
-                      {t('settings.section.reset.label')}
-                    </GhostButton>
-                  </Tooltip>
-                )}
-              </div>
-            )}
             {shown.map((k) => <div key={k}>{cardsByKey[k]}</div>)}
           </div>
         </SectionRail>
@@ -3928,7 +3927,14 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
                   onPreferences?.({ localeFallback: v })
                   json('PUT', '/auth/me/preferences', { localeFallback: v })
                 }}
-                options={[['en', 'English'], ['bn', 'বাংলা']]}
+                // A LANGUAGE NAMES ITSELF. Both labels are the same in en.txt
+                // and bn.txt on purpose — the point of the pair is that a reader
+                // recognises the one they want, and "Bengali" on a Bengali screen
+                // helps nobody.
+                options={[
+                  ['en', t('settings.language.fallback.en.label')],
+                  ['bn', t('settings.language.fallback.bn.label')],
+                ]}
               />
             }
           />

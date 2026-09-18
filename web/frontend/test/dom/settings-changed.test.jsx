@@ -49,16 +49,20 @@ describe('the number on a section', () => {
     expect(tab('Sections').textContent).toBe('Sections')
   })
 
-  it('says so in words in the section you are standing in', async () => {
+  // THE WORDING USED TO BE ASSERTED HERE TOO — "1 changed" and "all default" —
+  // because the count was repeated in a second bar under the tabs. That bar is
+  // gone: it was a full-width row restating what the tab above it already said.
+  // The number lives on the tab and nowhere else, which the three cases above
+  // hold.
+
+  it('puts the section\'s info and its Reset on the tab row, not in a bar of their own', async () => {
     page({ srDaily: 12 })
     await openSettingsSection('Review')
-    expect(screen.getByText(/1 changed/)).toBeTruthy()
-  })
-
-  it('says "all default" rather than a nought', async () => {
-    page({})
-    await openSettingsSection('Review')
-    expect(screen.getByText(/all default/i)).toBeTruthy()
+    // The pack draws both at the right-hand end of the same row as the tabs,
+    // sharing its bottom border. What this can check without knowing a class is
+    // that they are in the row the tablist is in.
+    const row = screen.getByRole('tablist').parentElement
+    expect(within(row).getByRole('button', { name: /reset section/i })).toBeTruthy()
   })
 })
 

@@ -52,7 +52,7 @@ import { t } from './i18n.js'
 //
 // `warn` marks a count that is a count of PROBLEMS. It is the only one that goes
 // red, because a library of 900 books is not a warning.
-export function SectionRail({ sections, value, onChange, ariaLabel, mobileInfo = null, total = null, children = null }) {
+export function SectionRail({ sections, value, onChange, ariaLabel, mobileInfo = null, total = null, aside = null, children = null }) {
   const mobile = useIsMobileScreen()
   // ENTERED IS THE PHONE'S ONLY EXTRA STATE, and it is deliberately not the
   // selected section. A reader who presses Back wants the index, not the previous
@@ -142,6 +142,13 @@ export function SectionRail({ sections, value, onChange, ariaLabel, mobileInfo =
 
   return (
     <div className="meta-frame">
+      {/* THE TABS AND WHATEVER RIDES AT THE FAR END SHARE ONE ROW, and one bottom
+          border, which is how the pack draws it
+          (settings-restructured.dc.html:122-138): a flex row holding the tablist
+          and, pushed to the right, the section's info dot and its Reset. They were
+          a second full-width bar underneath for a while, repeating the count the
+          tab already carried — "do not build redundant stuff". */}
+      <div className="meta-rail-row">
       <Scroller axis="x" className="meta-rail" role="tablist" aria-label={ariaLabel}>
         {sections.map((s) => {
           const on = value === s.id
@@ -163,6 +170,13 @@ export function SectionRail({ sections, value, onChange, ariaLabel, mobileInfo =
           )
         })}
       </Scroller>
+      {aside && (
+        <span className="meta-rail-aside">
+          {aside.info && <InfoDot side="bottom" title={aside.info.title} text={aside.info.text} />}
+          {aside.action}
+        </span>
+      )}
+      </div>
       <div className="meta-body">{children}</div>
     </div>
   )

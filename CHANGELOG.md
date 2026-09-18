@@ -723,6 +723,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The settings tabs sit on one line, the way the design pack draws them.** Flat tabs on
+  a shared baseline with an accent underline under the one you are on, rather than a row of
+  outlined chips — and the section's "about" dot and its Reset ride at the right-hand end of
+  that same row. The second full-width bar that used to sit under the tabs, repeating the
+  count the tab already showed, is gone.
+
 - **Never asked about.** Every quote you have told the deck to skip, listed under the work
   it came from, with a way to put one back or all of a work's back. Skipping happens one
   quote at a time, on a card you may never open again, and until now its only trace was a

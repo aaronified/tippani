@@ -52,6 +52,8 @@ _name = বাংলা
 # ===========================================================================
 
 # The Settings row that changes the language, in the Appearance card.
+settings.language.fallback.en.label = English
+settings.language.fallback.bn.label = বাংলা
 settings.language.fallback.title = ফিরে যায়
 settings.language.fallback.hint = যে লাইন এখনও অনূদিত হয়নি, ইন্টারফেস সেটি এই ভাষায় পড়ে।
 
@@ -1357,7 +1359,7 @@ settings.quiz.adaptive.info.body = অ্যাডাপ্টিভই এখ�
 settings.quiz.adaptive.ladder.label = সিঁড়ি
 settings.quiz.adaptive.on.label = অ্যাডাপ্টিভ
 settings.quiz.skipped.title = কখনও জিজ্ঞাসা করা হয় না
-settings.quiz.skipped.info.body = যে উদ্ধৃতিগুলি বাদ দিতে বলেছেন, সেগুলি যে রচনা থেকে এসেছে তার নীচে সাজানো। বাদ দেওয়া হয় একটি একটি করে, এমন একটি কার্ডে যা আর কখনও নাও খুলতে পারেন — কী বাদ দিয়েছেন আর কোনটি ফেরাবেন, তা এখানে।
+settings.quiz.skipped.info.body = যে উদ্ধৃতিগুলি বাদ দিতে বলেছেন, রচনা অনুসারে সাজানো। কী বাদ দিয়েছেন আর কোনটি ফেরাবেন, তা এখানেই।
 settings.quiz.skipped.none = কিছুই বাদ পড়েনি। আপনার রাখা প্রতিটি উদ্ধৃতি ডেকে আছে।
 settings.quiz.skipped.count = {n}টি বাদ
 settings.quiz.skipped.standalone = নিজের মতো
@@ -1365,7 +1367,7 @@ settings.quiz.skipped.restore-work.label = {n}টি ফেরান
 settings.quiz.skipped.restore-one.aria = এটি ডেকে ফিরিয়ে দিন
 
 settings.quiz.start.title = নতুন লাইন শুরু হয়
-settings.quiz.start.info.body = যে লাইন সম্পর্কে আপনাকে কখনও জিজ্ঞাসা করা হয়নি, সেটি এখান থেকে সূচিতে ঢোকে। "দেখা হয়নি" সাধারণ পথ: যতক্ষণ না আয়ত্তে আসে ততক্ষণ ঘন ঘন জিজ্ঞাসা করা হয়। "আয়ত্ত" সেটিকে শেষ প্রান্তে বসায় — যে সংগ্রহ আপনি আগেই জানেন তার জন্য। সেটি তবু ফিরবে, শুধু কদাচিৎ, আর একটি ভুল উত্তর সঙ্গে সঙ্গে ফিরিয়ে আনবে।
+settings.quiz.start.info.body = নতুন লাইন কোথা থেকে সূচিতে ঢোকে। "দেখা হয়নি" ঘন ঘন জিজ্ঞাসা করে; "আয়ত্ত" শেষ প্রান্তে বসায়, তবু ভুল উত্তরে ফিরে আসে।
 settings.quiz.start.unseen.label = দেখা হয়নি
 settings.quiz.start.mastered.label = আয়ত্ত
 
