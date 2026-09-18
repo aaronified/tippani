@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
-import { ACCENTS, GROUNDS, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
+import { ACCENTS, GROUNDS, PHYS, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
 import { QUOTE_LEADINGS, QUOTE_MEASURES, SIZE_ROLES, TYPE_FACTORS, applyTypeScale, clampLeading, clampMeasure, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
   applyFonts,
@@ -55,6 +55,7 @@ import {
   IconRefresh,
   IconRestore,
   IconRevert,
+  IconSliders,
   IconTour,
   IconType,
   FilePick,
@@ -2910,6 +2911,79 @@ function SizeSlider({ label, storageKey, def }) {
 // surfaceStyle(), the same function that dresses the app, so a specimen cannot drift
 // from what choosing it does. That is also why there is no `spec` table any more:
 // there is nothing left to tabulate that theme.js does not already know.
+// MaterialPhysics — the four dials, per tile, for the tiles the chosen set uses.
+//
+// FOUR SLOTS, NOT TWENTY-SEVEN TILES. The set you are wearing puts one material
+// on each of the desk, the furniture, the page and the binding, and those four
+// are what you are looking at. Offering all twenty-seven would be a list of
+// materials most of which are not on screen — and the way to reach one that is
+// not is to put it on a slot first, which is the control one row up.
+//
+// A DIAL IS A Slider, WHICH COMMITS ON RELEASE. A drag across a range would
+// otherwise be one PUT per step, and this preference is a whole JSON object.
+function MaterialPhysics({ tiles, tweaks, onChange }) {
+  const DIALS = [
+    ['hard', 'settings.appearance.phys.hard.label'],
+    ['sss', 'settings.appearance.phys.sss.label'],
+    ['diff', 'settings.appearance.phys.diff.label'],
+    ['refl', 'settings.appearance.phys.refl.label'],
+  ]
+  // The slots in order, de-duplicated: a set may put the same material on two of
+  // them, and two identical rows is the same control drawn twice.
+  const names = [...new Set(tiles)].filter((n) => n !== 'flat')
+  const set = (name, key, value) => onChange({ ...tweaks, [name]: { ...(tweaks[name] || {}), [key]: value } })
+  const reset = (name) => {
+    const next = { ...tweaks }
+    delete next[name]
+    onChange(next)
+  }
+  if (!names.length) {
+    // Atrium's material is none, so there is nothing for a dial to act on. Say so
+    // rather than draw an empty panel, which reads as a screen that failed to load.
+    return <p className="microcopy">{t('settings.appearance.phys.none')}</p>
+  }
+  return (
+    <div className="space-y-6">
+      {names.map((name) => {
+        const p = physFor(name, tweaks)
+        const dirty = physDirty(name, tweaks)
+        return (
+          <div key={name}>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <MonoLabel>{t(`vocab.tile.${name}.label`)}</MonoLabel>
+              {/* OFFERED ONLY WHERE THERE IS SOMETHING TO UNDO. A reset beside an
+                  untouched material is a control that does nothing, and a row of
+                  them teaches the reader that the controls here are inert. */}
+              {dirty && (
+                <FieldIconButton
+                  icon={<IconRevert />}
+                  ariaLabel={t('settings.appearance.phys.reset.aria', { name: t(`vocab.tile.${name}.label`) })}
+                  tooltip={t('settings.appearance.phys.reset.aria', { name: t(`vocab.tile.${name}.label`) })}
+                  onClick={() => reset(name)}
+                />
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {DIALS.map(([key, label]) => (
+                <Slider
+                  key={key}
+                  label={t(label)}
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={p[key]}
+                  format="settings.appearance.phys.readout"
+                  onCommit={(v) => set(name, key, v)}
+                />
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function MaterialCard({ name, dark, accentHex, code, selected, onClick }) {
   const accent = dark ? `color-mix(in oklab, ${accentHex}, white 20%)` : accentHex
   return (
@@ -3030,6 +3104,17 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
   const effectiveDark = themePref === 'system' ? sysTheme === 'dark' : themePref === 'dark'
   // Seeded from the appearance actually applied, like the material set above it,
   // so the control mirrors the screen rather than a prop that may be stale.
+  const [physOpen, setPhysOpen] = useState(false)
+  // The reader's edits to what each material does with light. NOT in `persist`,
+  // and for the reason that function documents about contrast: it re-sends every
+  // theme field on any change, so a preference riding in that object is wiped by
+  // an unrelated accent click. One writer per concern.
+  const [texTweak, setTexTweak] = useState(() => getResolvedTheme().texTweak)
+  function saveTweaks(next) {
+    setTexTweak(next)
+    applyTheme({ ...getResolvedTheme(), texTweak: JSON.stringify(next) })
+    json('PUT', '/auth/me/preferences', { texTweak: JSON.stringify(next) })
+  }
   const [groundLight, setGroundLight] = useState(() => getResolvedTheme().groundLight)
   const [groundDark, setGroundDark] = useState(() => getResolvedTheme().groundDark)
 
@@ -3160,6 +3245,35 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
           />
         ))}
       </div>
+
+      {/* WHAT THE MATERIALS DO WITH LIGHT, behind a door. Four dials per tile and
+          twenty-seven tiles is a hundred and eight numbers, and standing them open
+          under a picker most readers will use once would bury the accent and the
+          sizes below them. The door names the tile it is about, because the answer
+          to "less shiny" is almost always about ONE material rather than all of
+          them — which is also why an edit is stored per tile rather than as a
+          global multiplier.
+
+          THE FIVE GLASS DIALS ARE NOT HERE. Clarity, refraction, bevel, fringe and
+          gain only mean anything with the lens, and the lens ships with the
+          true-glass toggle or not at all. */}
+      <div className="mt-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tooltip label={t('settings.appearance.phys.open.tip')}>
+            <GhostButton icon={<IconSliders />} keepLabel onClick={() => setPhysOpen(true)}>
+              {t('settings.appearance.phys.title')}
+            </GhostButton>
+          </Tooltip>
+          <InfoDot title={t('settings.appearance.phys.title')} text={t('settings.appearance.phys.info.body')} />
+        </div>
+      </div>
+      <FormModal open={physOpen} onClose={() => setPhysOpen(false)} title={t('settings.appearance.phys.title')} maxWidth={620}>
+        <MaterialPhysics
+          tiles={MAT_SETS[materialSet]}
+          tweaks={texTweak}
+          onChange={saveTweaks}
+        />
+      </FormModal>
 
       {/* Accent + the two size sliders share one wrapping row on desktop;
           flex-wrap stacks them on narrow screens. */}

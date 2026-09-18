@@ -270,6 +270,145 @@ export const MAT_SET_LABELS = {
 // Written as custom properties rather than as classes because the arithmetic needs
 // the set, the mode and the accent at once, and all three live here. index.css spends
 // them: background-image: var(--surf-card-image).
+// ---- what a material DOES with light ----------------------------------------
+//
+// A TILE IS A PATTERN; THIS IS THE BEHAVIOUR UNDER IT. Until now every surface
+// got the same treatment — a veil of its own colour with the grain composited
+// over it — so marble and wool differed by their photograph and by nothing else.
+// They do not behave alike: stone returns the window in a small bright patch,
+// wool scatters it over most of its face and dim, brushed steel smears it along
+// the grain, paper glows faintly from within where the light is strong.
+//
+// FOUR NUMBERS, EACH 0–100, and they are what the v3 pack's texture dials set:
+//
+//   hard — how tight the specular highlight is. A hard surface returns the window
+//          as a small bright patch; a soft one spreads it wide and faint.
+//   sss  — subsurface scatter: light entering the material and coming back out,
+//          which is why paper and cotton glow slightly rather than just reflecting.
+//   diff — diffraction: chromatic spread in that one highlight, a cool edge to a
+//          warm core. Never a pattern of its own.
+//   refl — how much of the room the surface gives back, as a broad wash from the
+//          wall the window faces.
+//
+// ONE LIGHT FOR THE WHOLE APP, at LIGHT below, so two cards side by side agree
+// about where the window is. Nothing here invents grain: the only texture on a
+// surface is still its own tile.
+//
+// THE FIVE GLASS DIALS ARE NOT HERE. Clarity, refraction, bevel, fringe and gain
+// only mean anything with the lens, and the lens ships with the true-glass toggle
+// or not at all — the owner's ruling when the cost was put to them.
+export const PHYS = {
+  paper: { hard: 34, sss: 62, diff: 0, refl: 4 },
+  'paper-photo': { hard: 58, sss: 34, diff: 14, refl: 20 },
+  cardboard: { hard: 30, sss: 48, diff: 0, refl: 10 },
+  linen: { hard: 20, sss: 74, diff: 5, refl: 0 },
+  cotton: { hard: 14, sss: 80, diff: 0, refl: 0 },
+  canvas: { hard: 26, sss: 58, diff: 0, refl: 9 },
+  denim: { hard: 24, sss: 42, diff: 0, refl: 8 },
+  wool: { hard: 6, sss: 66, diff: 0, refl: 2 },
+  fabric: { hard: 18, sss: 70, diff: 4, refl: 6 },
+  leather: { hard: 44, sss: 52, diff: 6, refl: 15 },
+  'leather-suede': { hard: 12, sss: 72, diff: 0, refl: 4 },
+  'leather-pebbled': { hard: 50, sss: 46, diff: 8, refl: 18 },
+  'leather-tooled': { hard: 56, sss: 40, diff: 10, refl: 20 },
+  wood: { hard: 62, sss: 22, diff: 10, refl: 22 },
+  walnut: { hard: 66, sss: 20, diff: 12, refl: 23 },
+  pine: { hard: 54, sss: 30, diff: 8, refl: 19 },
+  marble: { hard: 88, sss: 44, diff: 18, refl: 30 },
+  granite: { hard: 92, sss: 10, diff: 14, refl: 16 },
+  sandstone: { hard: 70, sss: 26, diff: 0, refl: 25 },
+  concrete: { hard: 80, sss: 8, diff: 0, refl: 28 },
+  metal: { hard: 96, sss: 0, diff: 60, refl: 74 },
+  brushed: { hard: 90, sss: 0, diff: 72, refl: 52 },
+  satin: { hard: 74, sss: 12, diff: 46, refl: 34 },
+  matte: { hard: 46, sss: 8, diff: 4, refl: 5 },
+  rubber: { hard: 36, sss: 6, diff: 10, refl: 13 },
+  glass: { hard: 100, sss: 0, diff: 54, refl: 66 },
+  'glass-soft': { hard: 82, sss: 10, diff: 30, refl: 38 },
+  flat: { hard: 0, sss: 0, diff: 0, refl: 0 },
+}
+// The window is up and to the left, and it is the only one in the app.
+const LIGHT = '22% 6%'
+// The wall the window faces, which is what a reflective surface gives back.
+const LIGHT_BACK = '78% 96%'
+
+// physFor — the factory numbers for a tile, with the reader's own edits over them.
+// An edit is an edit to THIS material rather than a global multiplier that moves
+// all twenty-seven, which is the difference between "make my paper less shiny" and
+// "make everything less shiny".
+export function physFor(name, tweaks = {}) {
+  const base = PHYS[name] || PHYS.matte
+  const own = tweaks[name] || {}
+  const clamp = (v, d) => (typeof v === 'number' && v >= 0 && v <= 100 ? v : d)
+  return {
+    hard: clamp(own.hard, base.hard),
+    sss: clamp(own.sss, base.sss),
+    diff: clamp(own.diff, base.diff),
+    refl: clamp(own.refl, base.refl),
+  }
+}
+
+// physDirty — has this tile been edited away from the factory? The reset control
+// is offered only where there is something to undo.
+export function physDirty(name, tweaks = {}) {
+  const base = PHYS[name] || PHYS.matte
+  const own = tweaks[name] || {}
+  return ['hard', 'sss', 'diff', 'refl'].some((k) => typeof own[k] === 'number' && own[k] !== base[k])
+}
+
+// BANDING IS THE REASON EVERY FALLOFF BELOW IS FIVE STOPS ON A SQUARED CURVE. A
+// wide gradient with two stops steps in 1/255 jumps a reader can see on a dark
+// ground; five stops on a curve puts the steps under the tile's own noise.
+function ramp(rgb, peak) {
+  return [0, 0.25, 0.5, 0.75, 1]
+    .map((t) => `rgba(${rgb},${(peak * (1 - t) ** 2.2).toFixed(4)}) ${Math.round(t * 100)}%`)
+    .join(', ')
+}
+
+// lightLayers — what one material does with the one window, as background layers.
+// Returned newest-first so the caller can put them over the veil and the grain.
+export function lightLayers(name, tweaks, dark) {
+  // ATRIUM'S MATERIAL IS THE ABSENCE OF ONE, and the operator's identity element
+  // has to stay identity here too: a surface with nothing on it does nothing with
+  // the light. Without this line a flat slot still got a specular layer — every
+  // dial at zero, but a composite the compositor still has to draw.
+  if (name === 'flat') return { layers: [], modes: [] }
+  const p = physFor(name, tweaks)
+  const hard = p.hard / 100
+  const sss = p.sss / 100
+  const diff = p.diff / 100
+  const refl = p.refl / 100
+  const layers = []
+  const modes = []
+  // Specular: the one light, seen in the surface. Hard surfaces return it in a
+  // small bright patch, soft ones spread it over most of the face and dim.
+  const spread = Math.round(52 + 40 * (1 - hard))
+  const peak = (dark ? 0.012 : 0.018) + (dark ? 0.038 : 0.052) * hard
+  // Diffraction is a cool edge to a warm core, never a pattern of its own.
+  const warm = diff > 0.02
+    ? `${Math.round(255 - 10 * diff)},${Math.round(250 - 18 * diff)},${Math.round(242 - 6 * diff)}`
+    : '255,255,255'
+  if (peak > 0.004) {
+    layers.push(`radial-gradient(${spread}% ${spread}% at ${LIGHT}, ${ramp(warm, peak)})`)
+    modes.push('screen')
+  }
+  // Subsurface: light coming back OUT of the material, so it is warm, wide and
+  // centred on where the light lands rather than on the surface's own middle.
+  if (sss > 0.04) {
+    const s = (dark ? 0.020 : 0.030) * sss
+    layers.push(`radial-gradient(120% 120% at ${LIGHT}, ${ramp('255,242,214', s)})`)
+    modes.push('soft-light')
+  }
+  // Reflection: the wall opposite, as a broad wash. Only surfaces that actually
+  // return the room get one.
+  if (refl > 0.06) {
+    const r = (dark ? 0.016 : 0.024) * refl
+    layers.push(`radial-gradient(90% 90% at ${LIGHT_BACK}, ${ramp('236,240,248', r)})`)
+    modes.push('screen')
+  }
+  return { layers, modes }
+}
+
 const GLASSY = new Set(['glass', 'glass-soft'])
 // A surface with nothing on it. See TEXTILES.flat and the Atrium set.
 const FLAT = new Set(['flat'])
@@ -304,7 +443,7 @@ function glassProps(hex, tile, a, b, s, dark) {
 // Metal and brushed steel stay opaque but bleed a whisper of whatever accent is
 // nearby: a mirror-ish surface reflects its surroundings rather than holding a colour
 // of its own.
-function surfaceProps(hex, name, dark, accentUI) {
+function surfaceProps(hex, name, dark, accentUI, tweaks = {}) {
   const [tile, a, b, s] = TEXTILES[name] || TEXTILES.paper
   // NOT the veil at s = 0, which would be an opaque colour laid OVER two tile
   // layers the browser still fetches and still composites — the flat set exists
@@ -323,6 +462,16 @@ function surfaceProps(hex, name, dark, accentUI) {
       ` color-mix(in oklab, ${accentUI}, transparent 90%) 100%)`)
     size.push('auto')
     blend.push('soft-light')
+  }
+  // WHAT THE MATERIAL DOES WITH THE LIGHT, over the veil and the grain. These are
+  // the four dials, compiled to gradients here rather than resolved at paint time:
+  // the whole reason they cost nothing at runtime is that a change to one rewrites
+  // a custom property once and the compositor draws the same stack it always did.
+  const lit = lightLayers(name, tweaks, dark)
+  for (const [i, layer] of lit.layers.entries()) {
+    img.push(layer)
+    size.push('auto')
+    blend.push(lit.modes[i])
   }
   img.push(`linear-gradient(${v}, ${v})`, `var(--tile-${tile})`, `var(--tile-${tile})`)
   size.push('auto', `${a}px ${a}px`, `${b}px ${b}px`)
@@ -558,6 +707,17 @@ export function contrastPrefValue() {
 // paper for light, because the aesthetics carried their own palettes and a light film
 // looked wrong. One palette per mode means every set works in both, so the default is
 // a single answer instead of a branch.
+// parseTweaks — the stored edits, or nothing. A malformed value is NOT an error
+// worth surfacing: it means this reader's materials behave as the factory says,
+// which is the same thing an empty value means and is a working app either way.
+export function parseTweaks(raw) {
+  if (!raw) return {}
+  try {
+    const v = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return v && typeof v === 'object' ? v : {}
+  } catch { return {} }
+}
+
 export function applyTheme(prefs = {}) {
   const { materialSet, theme, accent, groundLight, groundDark } = prefs
   current = {
@@ -567,6 +727,10 @@ export function applyTheme(prefs = {}) {
     // The chosen ground per mode. Held as the KEY rather than the resolved
     // palette, because `apply()` runs again when the device flips light/dark and
     // has to answer with the other mode's ground rather than a stale copy.
+    // The reader's own edits to what each material does with light, stored as one
+    // JSON object keyed by tile name. A string on the wire for the same reason
+    // sectionOrder is: every other field this endpoint takes is a scalar.
+    texTweak: parseTweaks(prefs.texTweak),
     groundLight: GROUNDS.light[groundLight] ? groundLight : GROUND_DEFAULT.light,
     groundDark: GROUNDS.dark[groundDark] ? groundDark : GROUND_DEFAULT.dark,
     // Per-slot overrides, read straight off the preference object so a caller never
@@ -594,6 +758,7 @@ export function getResolvedTheme() {
     materialSet: MAT_SETS[s] ? s : MAT_SET_DEFAULT,
     theme: current.theme || 'system',
     accent: current.accent || 'terracotta',
+    texTweak: current.texTweak || {},
     groundLight: current.groundLight || GROUND_DEFAULT.light,
     groundDark: current.groundDark || GROUND_DEFAULT.dark,
     tiles: (current.tiles || ['', '', '', '']).slice(),
@@ -655,7 +820,7 @@ function apply() {
   // The set proposes and an override disposes, slot by slot.
   const names = MAT_SETS[matSet].map((n, i) => (current.tiles || [])[i] || n)
   for (const [i, slot] of SLOTS.entries()) {
-    const p = surfaceProps(palette[SLOT_COLOUR[slot]], names[i], dark, accentUI)
+    const p = surfaceProps(palette[SLOT_COLOUR[slot]], names[i], dark, accentUI, current.texTweak)
     for (const [k, v] of Object.entries(p)) root.style.setProperty(`--surf-${slot}-${k}`, v)
     // The slot's bare tile, aliased to the one index.css declares. Every texture
     // rule in the stylesheet reads --tile-card rather than a filename, so a set

@@ -123,7 +123,13 @@ describe('the operator writes a whole composite, not just a tile', () => {
     const img = prop('--surf-card-image')
     expect(img).toContain('90.0%')
     expect(img).toContain('var(--tile-paper)')
-    expect(prop('--surf-card-blend')).toBe('normal, overlay, normal')
+    // THE VEIL AND THE TWO GRAIN LAYERS ARE STILL THE LAST THREE, and that is what
+    // this line now says. What precedes them is the material's own behaviour under
+    // the one light — the four dials, compiled to gradients — so the list grew at
+    // the front. Asserting the tail rather than the whole string is deliberate:
+    // this case is about the OPERATOR, and pinning the lighting layers here would
+    // make it fail every time a dial's default moved.
+    expect(prop('--surf-card-blend').endsWith('normal, overlay, normal')).toBe(true)
     expect(prop('--surf-card-size')).toContain('220px 220px')
     expect(prop('--surf-card-size')).toContain('71px 71px')
   })
@@ -178,10 +184,20 @@ describe('the operator writes a whole composite, not just a tile', () => {
   it('bleeds the accent into metal and into nothing else', () => {
     // A mirror-ish surface reflects its surroundings rather than holding a colour
     // of its own. Film assembly's desk is metal; Atelier's is canvas.
+    // THE ACCENT BLEED IS THE FIRST LAYER AND STAYS THERE. It is a `soft-light`
+    // and the lighting layers that follow it are `screen` and `soft-light`, so
+    // "is there a soft-light" no longer distinguishes metal from canvas — what
+    // does is that metal's stack is LONGER by exactly that one leading layer.
     applyTheme({ materialSet: 'film-assembly', theme: 'light' })
-    expect(prop('--surf-ground-blend')).toBe('soft-light, normal, overlay, normal')
+    const metal = prop('--surf-ground-blend')
+    expect(metal.startsWith('soft-light')).toBe(true)
     applyTheme({ materialSet: 'atelier', theme: 'light' })
-    expect(prop('--surf-ground-blend')).toBe('normal, overlay, normal')
+    const canvas = prop('--surf-ground-blend')
+    expect(canvas.startsWith('soft-light')).toBe(false)
+    // And both still end in the operator's own three.
+    for (const stack of [metal, canvas]) {
+      expect(stack.endsWith('normal, overlay, normal')).toBe(true)
+    }
   })
 })
 

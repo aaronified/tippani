@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "a8ea84bee348b7008fea35ea6bb4dbdf78ef29baafe634b4c2c19ed57aeeb8b2",
-    "internal/i18n/en.txt": "e9d72df0ebd19744d9764440b46348009be71dd3681f17b28674b40c997e5380",
+    "internal/i18n/bn.txt": "0816e609693de362248ae1997a633bf5e6eda6701848b7a94282f9153a452bb7",
+    "internal/i18n/en.txt": "e4ee79c858d5974407292002124845ad1f770a5e478aac4cbac420ba0e0cfe7d",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -42,7 +42,7 @@
     "web/frontend/src/ReverifyReview.jsx": "74088e808bfae48f32eed5892a28798f8e7c53cb2cfbb80f1652feeb41ccb98d",
     "web/frontend/src/SearchPage.jsx": "a6393e085e6a11e8aff3734f3a18d8a1c93fffc275dba3da6e81970ac2ab40ae",
     "web/frontend/src/SelectionBar.jsx": "2d7c4821a89a557cebcc969f722cc86cf44dad5e0dbc8d79a15dfb62df90b913",
-    "web/frontend/src/Settings.jsx": "33a934f48ed0a476809d26c1c08124360627894fdd574c17979ab9b2736a7ea9",
+    "web/frontend/src/Settings.jsx": "cdc7fb5290639cf4bd0aeb3ec31cc5e8ba485a17b40170ee0cb6a42376536969",
     "web/frontend/src/StagingPage.jsx": "df61407fb08f0796edbc195a080a1772a3731723bf02b60b503f6bf5e95fec2d",
     "web/frontend/src/StatsPage.jsx": "ec749ff8a96783ce0183ea17f9727d00cbaa964a5d3c5d849617f649f9e9002e",
     "web/frontend/src/TagsPage.jsx": "c9f794eeec2e5c3f4e200b7ee31f9a74694ccddc14eaadadf78dcc2890c07d8d",
@@ -142,7 +142,7 @@
     "web/frontend/src/textures/walnut.png": "7e76acfaed0ab3613ef11949e4f72e73691dc247d8b102968a3ebf659d671049",
     "web/frontend/src/textures/wood.webp": "11a9abab508cd077bdfd1876cf00f4140c7fb51c282f3acd5503a34112e87956",
     "web/frontend/src/textures/wool.png": "fa8e6a461cc83516d15e5be21b34a3a8538e035b2c4bf8737644383e1010cd35",
-    "web/frontend/src/theme.js": "72442ce50d4aeecd09232fb9cf2bd3404440c6a54739a4d04b07e00936d787f5",
+    "web/frontend/src/theme.js": "b9bdbfeb060fc49ea9d718987cef6405994bbcd9af7c28a6cec0839da45f9883",
     "web/frontend/src/tokens.js": "a0aee4ab34d8521c5c858214a040e84ebeb8b7c509e8e4a7a633554ba54022c1",
     "web/frontend/src/tour.jsx": "fcc45d09bfb861167f363265453a5457ff341b6ce5bbeae077e4acd723036a61",
     "web/frontend/src/type.js": "3cf44432b2659f7c6101bf0f7196a7036fb377a94e7fe20bc2d614301e79064b",

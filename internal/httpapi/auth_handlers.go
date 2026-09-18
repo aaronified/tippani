@@ -646,6 +646,13 @@ type prefs struct {
 	// reference into a failed save.
 	GroundLight string `json:"groundLight"`
 	GroundDark  string `json:"groundDark"`
+	// WHAT EACH MATERIAL DOES WITH LIGHT, where the reader has changed it from the
+	// factory: a JSON object keyed by tile name, each value up to four numbers.
+	// Stored as a string for the same reason SectionOrder is — every other field
+	// here is a scalar — and unvalidated for the same reason too: the client parses
+	// it defensively and a malformed value means "the factory behaviour", which is
+	// a working app rather than an error worth failing a save over.
+	TexTweak string `json:"texTweak"`
 	// Colour categories. A quote's colour is the one thing above tags in the
 	// hierarchy — it is what KIND of note this is — and until now the four were
 	// called yellow, blue, pink and orange, which describes a highlighter rather
@@ -1024,6 +1031,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SectionOrder        *string  `json:"sectionOrder"`
 		GroundLight         *string  `json:"groundLight"`
 		GroundDark          *string  `json:"groundDark"`
+		TexTweak            *string  `json:"texTweak"`
 		// Pointer-typed like the rest, and for the same reason: a client sending
 		// one field must not clear the others. Unlike the rest, an EMPTY name or
 		// colour is a real value here — it means "back to the built-in" — so
@@ -1338,6 +1346,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	if in.GroundDark != nil {
 		cur.GroundDark = *in.GroundDark
+	}
+	if in.TexTweak != nil {
+		cur.TexTweak = *in.TexTweak
 	}
 	switch {
 	case badTileName(cur.TileGround), badTileName(cur.TileShell),

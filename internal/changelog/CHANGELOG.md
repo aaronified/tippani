@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Materials behave like materials now.** Stone returns the window in a small bright
+  patch; wool spreads it wide and dim; paper glows faintly from within where the light
+  falls. Every material has four dials — how hard it is, how much light comes back
+  through it, how far colour spreads in the highlight, how much of the room it reflects —
+  under *What the materials do with light* on Settings → Theme, set per material rather
+  than all at once. There is one window in the app and everything is lit from it, so two
+  cards side by side agree about where it is.
+
+
 - **Hold the phone's Back key for the screens behind you.** A menu opens over the key
   with the last five, and picking one really goes back — your phone's own Back carries
   on from there rather than into the screens you just stepped over. (The ones above
