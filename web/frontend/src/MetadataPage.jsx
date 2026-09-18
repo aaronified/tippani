@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import TagsPage from './TagsPage.jsx'
 import { t, tNodes } from './i18n.js'
@@ -181,6 +181,18 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // filters the second dropdown offers, plus the chosen filter.
   const [catType, setCatType] = useState('all')
   const [catFilter, setCatFilter] = useState('flagged')
+
+  // PICKING A GAP IS ONE VERB, AND IT WAS WRITTEN THREE TIMES. The desktop tiles,
+  // the phone's issue rows and now the phone's coverage numbers all mean the same
+  // thing — show me exactly the records with this problem — and each had its own
+  // copy of "set the type, set the filter, go to the section". Three copies is how
+  // one of them goes on being right while another quietly stops: the phone's
+  // numbers were the copy that did not exist at all, and nothing said so.
+  const pickGap = (type, filter, section = 'works') => {
+    if (type) setCatType(type)
+    if (filter) setCatFilter(filter)
+    setSection(section)
+  }
   const mobile = useIsMobileScreen()
 
   const stats = useMemo(() => {
@@ -373,11 +385,15 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           ) : sect === 'overview' ? (
             <>
               {/* THE TILES ON A DESK, THE SENTENCES ON A PHONE, and both of them
-                  say the same numbers. A tile is a filter button and there is a
-                  catalogue for it to filter; 390px has room for neither, so the
-                  phone gets the lines it always had — but now inside the same
-                  section rather than as the whole of a different screen. */}
-              {mobile ? <StatsLines stats={stats} /> : <StatsStrip stats={stats} onPick={(ty, f) => { setCatType(ty); setCatFilter(f); setSection('works') }} />}
+                  say the same numbers AND DO THE SAME THING. A tile is a filter
+                  button; the sentences were not, because a phone had no console
+                  beside them for a filter to act on. A section opens as its own
+                  screen now, so they are — and both widths hand the press to one
+                  function rather than keeping a copy of the verb each, which is
+                  how one of them goes on being right while the other stops. */}
+              {mobile
+                ? <StatsLines stats={stats} onPick={pickGap} />
+                : <StatsStrip stats={stats} onPick={pickGap} />}
               {/* THE TWO SWEEPS, AND ON EVERY SCREEN SIZE NOW. Re-verify at library
                   scale was reachable from a phone and from nowhere else — it was
                   drawn inside the mobile-only branch — so the screen built for
@@ -480,9 +496,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
                   type="button"
                   className="meta-issue-row"
                   onClick={() => {
-                    if (row.go.type) setCatType(row.go.type)
-                    if (row.go.filter) setCatFilter(row.go.filter)
-                    setSection(row.go.section)
+                    pickGap(row.go.type, row.go.filter, row.go.section)
                     setIssuesOpen(false)
                   }}
                 >
@@ -569,17 +583,27 @@ const gapLabel = (token) => t(GAP_KEYS[token])
 const BOOK_GAPS = ['no_cover', 'low_res', 'no_author', 'no_series', 'no_year', 'no_genre', 'no_source']
 const MOVIE_GAPS = ['no_poster', 'low_res', 'no_cast', 'no_director', 'no_year', 'no_genre', 'no_source']
 
-// StatsLines — the coverage tiles as plain text lines (§5, mobile): one line per
-// group listing only the non-zero gaps, so "what still needs work" reads at a
-// glance without the tap-to-filter tiles the mobile screen has no lists to feed.
-function StatsLines({ stats }) {
+// StatsLines — the coverage numbers as sentences (§5, mobile): one line per group
+// listing only the non-zero gaps, so "what still needs work" reads at a glance.
+//
+// AND EVERY NUMBER IS A DOOR NOW, which it was not. This said the phone had "no
+// lists to feed" a filter, and that was true while a section was a card on a long
+// scroll: pressing "22 no cover" would have set a filter on a console the reader
+// could not see. A phone opens a section as its own screen now, so the press has
+// somewhere to go — it filters the works console to exactly those rows and takes
+// the reader into it. The owner's ruling on the Overview section was that it stays
+// and every number becomes a door; the desktop tiles already were one, and these
+// were the numbers a phone reader actually sees.
+//
+// A ZERO IS NOT A DOOR. Pressing a gap nobody has is a press that lands on an
+// empty list, so only the non-zero gaps are drawn at all — which is what this
+// function already did, for the same reason one layer up.
+function StatsLines({ stats, onPick }) {
   // tNodes, not a value with a <b> in it: markup never goes in a locale string,
   // so the sentence carries {group} and {gaps} and the call site hands over the
   // bold node.
-  const line = (group, total, gaps) => {
-    const parts = gaps
-      .filter(([, n]) => n > 0)
-      .map(([label, n]) => t('common.count.phrase', { n, noun: label }))
+  const line = (group, total, gaps, type) => {
+    const parts = gaps.filter(([, n]) => n > 0)
     return (
       <p className="microcopy" style={{ color: 'var(--soft)' }}>
         {tNodes('metadata.coverage.line', {
@@ -588,7 +612,26 @@ function StatsLines({ stats }) {
               {t('metadata.coverage.group.count', { group, n: total })}
             </b>
           ),
-          gaps: parts.length ? parts.join(' · ') : t('metadata.coverage.complete'),
+          gaps: parts.length ? (
+            <>
+              {parts.map(([label, n, key], i) => (
+                <Fragment key={key || label}>
+                  {i > 0 && ' · '}
+                  {/* A DIALOGUE'S GAP HAS NO CONSOLE TO FILTER — the works console
+                      holds books and films — so that group's numbers stay text.
+                      Drawing them as presses that do nothing would be worse than
+                      drawing them as what they are. */}
+                  {type && onPick ? (
+                    <button type="button" className="coverage-gap" onClick={() => onPick(type, key)}>
+                      {t('common.count.phrase', { n, noun: label })}
+                    </button>
+                  ) : (
+                    t('common.count.phrase', { n, noun: label })
+                  )}
+                </Fragment>
+              ))}
+            </>
+          ) : t('metadata.coverage.complete'),
         })}
       </p>
     )
@@ -598,10 +641,10 @@ function StatsLines({ stats }) {
   return (
     <div className="space-y-1.5 pt-1">
       <MonoLabel className="block">{t('metadata.coverage.title')}</MonoLabel>
-      {line(t('metadata.coverage.group.books'), b.total, BOOK_GAPS.map((g) => [gapLabel(g), b[g]]))}
-      {line(t('metadata.coverage.group.movies'), m.total, MOVIE_GAPS.map((g) => [gapLabel(g), m[g]]))}
+      {line(t('metadata.coverage.group.books'), b.total, BOOK_GAPS.map((g) => [gapLabel(g), b[g], g]), 'book')}
+      {line(t('metadata.coverage.group.movies'), m.total, MOVIE_GAPS.map((g) => [gapLabel(g), m[g], g]), 'movie')}
       {line(t('metadata.coverage.group.dialogues'), stats.dialogues.total, [
-        [gapLabel('no_actor'), stats.dialogues.missing_actor],
+        [gapLabel('no_actor'), stats.dialogues.missing_actor, 'no_actor'],
       ])}
     </div>
   )

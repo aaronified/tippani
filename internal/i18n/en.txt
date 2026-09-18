@@ -44,6 +44,23 @@ _name = English
 
 # The Settings row that changes the language, in the Appearance card.
 settings.language.title = Language
+# THE NUMBER ON A SECTION, and the one word for when there is no number. The pack
+# prints "3 changed" and "all default"; both are about preferences a reader has
+# SET rather than about values that differ, because a default is written at the
+# point a card reads it and a second copy of those would go stale.
+settings.changed.count = {n} changed
+settings.changed.none = all default
+settings.section.reset.label = Reset section
+settings.section.reset.tip = Put every preference in {section} back to its default
+settings.section.reset.confirm.title = Reset {section}?
+settings.section.reset.confirm.body = Every preference in this section goes back to its default. Nothing on any other section changes.
+settings.section.reset.confirm.verb = Reset it
+settings.section.theme.info.body = How the app is made of: light or dark, the ground it stands on, the materials its surfaces are cut from, and the accent that marks what you chose.
+settings.section.lang.info.body = The language the interface speaks, what it falls back to where a line is missing, and the faces it is set in.
+settings.section.review.info.body = What the daily deck draws from, how much of it there is, how hard it asks, and how the schedule moves.
+settings.section.sections.info.body = Which parts of the app you want, and in what order they sit in the navigation.
+settings.section.server.info.body = The version you are running, your backups, and what changed in each release.
+
 settings.section.aria = Which settings to change
 settings.section.theme.label = Theme
 settings.section.lang.label = Language and font

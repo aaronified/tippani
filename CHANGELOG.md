@@ -721,7 +721,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it out would make the first screen lie about what the app holds, and it is pressable
   because a greyed-out control cannot tell you why it is grey.
 
+### Added
+
+- **Every settings section says how much of it you have set.** A number on its tab, the
+  same number in words at the top of the section — "3 changed", or "all default" when
+  there is nothing — and a Reset beside it that appears only where there is something to
+  undo and asks before it does it. Resetting a section clears its preferences and nothing
+  else; no other section moves.
+
 ### Changed
+
+- **Every coverage number on Metadata is now a door, on a phone as well as a desk.**
+  Pressing "22 with no cover" filters the works console to exactly those twenty-two and
+  takes you there. On a phone those numbers were a sentence you could read and not act
+  on — the tiles on a desk had always filtered, and the same fact on a smaller screen did
+  nothing.
 
 - **Settings and Metadata on a phone open on a list of their sections.** Every section
   is on the screen, named, with its own number beside it; press one and it opens with a

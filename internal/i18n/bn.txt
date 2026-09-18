@@ -53,6 +53,19 @@ _name = বাংলা
 
 # The Settings row that changes the language, in the Appearance card.
 settings.language.title = ভাষা
+settings.changed.count = {n}টি বদলানো
+settings.changed.none = সবই ডিফল্ট
+settings.section.reset.label = বিভাগ রিসেট
+settings.section.reset.tip = {section}-এর প্রতিটি পছন্দ ডিফল্টে ফেরান
+settings.section.reset.confirm.title = {section} রিসেট করবেন?
+settings.section.reset.confirm.body = এই বিভাগের প্রতিটি পছন্দ ডিফল্টে ফিরে যাবে। অন্য কোনও বিভাগ বদলাবে না।
+settings.section.reset.confirm.verb = রিসেট করুন
+settings.section.theme.info.body = অ্যাপটি কী দিয়ে গড়া: আলো না অন্ধকার, যে জমিনে দাঁড়ায়, যে উপকরণে তার পৃষ্ঠগুলি কাটা, আর আপনার বাছাই চিহ্নিত করা রং।
+settings.section.lang.info.body = ইন্টারফেস যে ভাষায় কথা বলে, কোনও লাইন না থাকলে যেখানে ফেরে, আর যে অক্ষরে সাজানো।
+settings.section.review.info.body = দৈনিক ডেক কোথা থেকে টানে, কতটা, কত কঠিন জিজ্ঞাসা করে, আর সূচি কীভাবে সরে।
+settings.section.sections.info.body = অ্যাপের কোন অংশগুলি আপনি চান, আর নেভিগেশনে সেগুলি কোন ক্রমে বসে।
+settings.section.server.info.body = আপনি যে সংস্করণ চালাচ্ছেন, আপনার ব্যাকআপ, আর প্রতিটি রিলিজে কী বদলেছে।
+
 settings.section.aria = কোন সেটিংস বদলাবেন
 settings.section.theme.label = থিম
 settings.section.lang.label = ভাষা ও ফন্ট

@@ -329,6 +329,21 @@ describe('on a phone', () => {
     })
   })
 
+  it('makes every coverage number a door, the way the tiles on a desk are', async () => {
+    // THE HALF THAT WAS MISSING. The sentences said "22 with no cover" and there
+    // was no way to reach those 22 — the desktop's tiles filtered the console and
+    // the phone's numbers did nothing, which is one control with two behaviours.
+    // The old reason was that a phone had no console beside them to filter; a
+    // section opens as its own screen now, so it has.
+    await mount()
+    await phoneDoor('Overview')
+    const gap = (await screen.findAllByRole('button')).find((b) => /no cover/i.test(b.textContent || ''))
+    expect(gap, 'the coverage numbers should be pressable').toBeTruthy()
+    await press(gap)
+    // It lands in the works console — the same place the desktop tile lands.
+    expect(screen.getAllByRole('heading', { level: 2 })[0].textContent).toMatch(/^Works/)
+  })
+
   it('reads the coverage as sentences rather than as filter tiles', async () => {
     // A tile is a button that filters the catalogue beside it; there is no room
     // for the catalogue here, so a tile would be a button that appears to do

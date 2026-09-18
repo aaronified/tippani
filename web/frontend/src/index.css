@@ -10223,6 +10223,45 @@ html[data-theme="dark"] .board-cover {
 .ground-swatch > span:last-of-type { inset: 42% 22% 0 22%; }
 
 
+/* A SECTION'S OWN HEADER: what it is for, how much of it you have set, and the way
+   back out. It wraps rather than scrolls, because the reset button losing its words
+   would make the one irreversible-looking control on the screen a bare glyph. */
+.section-head {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 8px var(--edge, 12px);
+  padding-bottom: var(--row, 12px);
+  border-bottom: 1px solid color-mix(in oklab, var(--line), transparent 45%);
+}
+.section-head-pill {
+  display: inline-flex; align-items: center; min-height: max(24px, 1.8em);
+  padding: 2px 9px; border-radius: 999px;
+  font-family: var(--font-mono); font-weight: var(--font-mono-weight);
+  font-variant-caps: var(--font-mono-caps); text-transform: uppercase;
+  font-variant-numeric: var(--font-mono-figures);
+  font-size: var(--type-mono-11); letter-spacing: .08em;
+  color: var(--faint); white-space: nowrap;
+}
+/* IT LIGHTS ONLY WHERE THERE IS SOMETHING TO UNDO, which is the same grammar the
+   tick uses: a control that looks armed when nothing has changed teaches the
+   reader to stop reading it. */
+.section-head:has(.tp-ghost-btn) .section-head-pill {
+  background: color-mix(in oklab, var(--accent-ui), transparent 88%);
+  color: var(--accent-ui);
+}
+
+/* A COVERAGE NUMBER THAT IS A DOOR. It sits inside a sentence, so it is styled as
+   the sentence's own emphasis rather than as a button: a pill in the middle of a
+   line would break the reading. It underlines to say it is pressable, and takes
+   the touch floor through padding so a thumb has something to land on without the
+   line growing taller than its neighbours. */
+.coverage-gap {
+  border: 0; padding: 4px 2px; margin: -4px 0; background: none;
+  font: inherit; color: var(--ink); cursor: pointer;
+  text-decoration: underline; text-decoration-color: color-mix(in oklab, var(--accent-ui), transparent 50%);
+  text-underline-offset: 3px;
+}
+.coverage-gap:hover { text-decoration-color: var(--accent-ui); }
+
 /* THE PHONE'S SECTION INDEX, and the header of a section opened from it. The pack
    draws these and this app drew a dropdown instead; a list of shortcuts IS the
    navigation, where a field is a control you operate before navigation begins.

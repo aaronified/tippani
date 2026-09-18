@@ -36,7 +36,11 @@
 import { fireEvent, screen, within } from '@testing-library/react'
 
 export async function openSettingsSection(name) {
-  const tabs = screen.queryAllByRole('tab', { name })
+  // A TAB CARRIES ITS COUNT NOW — "Sections 2" — so the name is matched at its
+  // start rather than whole. An exact match failed every case here the moment the
+  // changed-count badge landed, which reads like the rail broke and is the badge
+  // working.
+  const tabs = screen.queryAllByRole('tab', { name: new RegExp(`^${name}`) })
   if (tabs.length) {
     const tab = tabs[tabs.length - 1]
     fireEvent.click(tab)
@@ -56,5 +60,5 @@ export async function openSettingsSection(name) {
   }
   // Fall through to the tab matcher's own error, which names what it looked for
   // and prints the screen — a better failure than anything this could compose.
-  return screen.findByRole('tab', { name })
+  return screen.findByRole('tab', { name: new RegExp(`^${name}`) })
 }

@@ -32,6 +32,10 @@ import React from 'react'
 import { InfoDot, MonoLabel } from './ui.jsx'
 
 export function PrefRow({ label, sub = null, info = null, infoTitle = null, changed = false, control = null, children = null }) {
+  // The label is the row's identity. It is what the reader calls the row and what
+  // is unique within a section, and it means a row does not have to be handed a
+  // key that exists only so it can be counted.
+  useSaysChanged(label, changed)
   return (
     <div className="pref-row">
       <div className="pref-row-said">
@@ -81,4 +85,48 @@ export function PrefGroup({ title, index = null, aside = null, info = null, chil
 // without mounting anything.
 export function changedCount(rows) {
   return rows.filter(Boolean).length
+}
+
+// ── HOW MANY OF A SECTION'S ROWS YOU HAVE MOVED, and why it is counted here
+// rather than tabulated somewhere.
+//
+// THE PACK PUTS A NUMBER ON EVERY SECTION — "3 changed", or "all default" — on the
+// tab, in the section's own header and totalled on the phone's index. The obvious
+// way to produce it is a table of every preference each section owns with its
+// default beside it. That table is a SECOND copy of facts the cards already state
+// as `p.srDaily || 8`, and the day one of them moves the badge starts saying a
+// number that is wrong. A badge that is wrong is worse than no badge: it sends a
+// reader looking for a change nobody made.
+//
+// SO A ROW COUNTS ITSELF. `PrefRow` already takes `changed`, the section that
+// draws a row is by definition the section it belongs to, and this collects what
+// was actually rendered. There is no membership list to disagree with the screen,
+// because the screen is the list.
+//
+// AN UNREGISTERED ROW COUNTS AS UNCHANGED, which is the one weakness and is worth
+// stating plainly: a row that never passes `changed` can never be counted, so the
+// number is a floor rather than a total. It is a floor that only ever grows as
+// rows are wired, and it is never a claim about a row that does not exist.
+const SectionChanged = React.createContext(null)
+
+export function ChangedScope({ onCount, children }) {
+  // A ref rather than state: rows register during render, and setting state from a
+  // child's render is the loop React warns about. The count is published after the
+  // commit, when every row that was going to register has.
+  const seen = React.useRef(new Map())
+  seen.current = new Map()
+  const api = React.useMemo(() => ({
+    say: (id, changed) => { seen.current.set(id, !!changed) },
+  }), [])
+  React.useEffect(() => {
+    onCount([...seen.current.values()].filter(Boolean).length)
+  })
+  return <SectionChanged.Provider value={api}>{children}</SectionChanged.Provider>
+}
+
+// useSaysChanged — a row tells its section whether it has been moved. Outside a
+// scope it is a no-op, so a row drawn anywhere else is not an error.
+function useSaysChanged(id, changed) {
+  const scope = React.useContext(SectionChanged)
+  if (scope) scope.say(id, changed)
 }

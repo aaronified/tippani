@@ -36,6 +36,7 @@ import {
   formatPartialDate,
   FormModal,
   frameCode,
+  ConfirmDialog,
   GhostButton,
   IconArchive,
   IconArrow,
@@ -184,6 +185,12 @@ export const SETTINGS_SECTIONS = [
   ['server', 'settings.section.server.label', 'device'],
 ]
 
+// What each section's info dot says. Derived from the id rather than kept as a
+// sixth column, because a column that is `'settings.section.' + id + '.info.body'`
+// for every row is a rule, not data — and a rule typed five times is five chances
+// to typo one of them into a key that resolves to nothing.
+export const sectionInfoKey = (id) => `settings.section.${id}.info.body`
+
 // Which cards each section draws, in order. A card named here that the `cards`
 // object has not built — Updates and Backup for a non-admin — simply does not
 // appear, exactly as the column layout already behaved.
@@ -204,6 +211,85 @@ export const SECTION_CARDS = {
   review: ['sr'],
   sections: ['features'],
   server: ['upd', 'backup'],
+}
+
+// ── WHICH PREFERENCES EACH SECTION OWNS, and why this table exists at all.
+//
+// THE PACK PUTS A NUMBER ON EVERY TAB — "3 changed" — and a tab you are not
+// standing on draws no rows, so the count cannot be collected from what rendered.
+// It has to be computable from the stored preferences alone, which means knowing
+// which keys belong to which section.
+//
+// CHANGED MEANS SET, NOT DIFFERENT. A preference the reader has never touched is
+// ABSENT from the object the server sends; every card in this file reads its value
+// as `p.srDaily || 8`, with the default written at the point of use. Counting
+// "present" rather than "differs from default" therefore needs no second copy of
+// those defaults — and a second copy is exactly the thing that goes stale and
+// makes the badge state a number nobody can account for. The cost is that setting
+// a value back to its default still counts as changed, which is defensible: the
+// reader did go and set it.
+//
+// EVERY SERVER-STORED KEY IS NAMED HERE OR EXCLUDED BY NAME. `settings-prefs.test.js`
+// reads the Go struct and fails when a key is in neither list, so a preference
+// added later cannot quietly stop being counted.
+export const SECTION_PREFS = {
+  theme: [
+    'theme', 'accent', 'contrast', 'materialSet',
+    'groundLight', 'groundDark', 'texTweak', 'trueGlass', 'savedThemes',
+    'tileGround', 'tileShell', 'tileCard', 'tileCover',
+    'quoteLeading', 'quoteMeasure',
+  ],
+  lang: [
+    'locale', 'textOrder', 'readLanguages', 'languageMarks',
+    'fontsByLanguage', 'fontsByLocale',
+    'fontDisplay', 'fontUi', 'fontMono', 'fontHand', 'fontBengali', 'fontDevanagari',
+    'fontDisplayStyle', 'fontUiStyle', 'fontMonoStyle', 'fontHandStyle',
+    'fontBengaliStyle', 'fontDevanagariStyle',
+    'sizeDisplay', 'sizeUi', 'sizeMono', 'sizeHand',
+  ],
+  review: [
+    'srDaily', 'srReviewScope', 'srQuestions', 'srTuning', 'srSeen',
+    'srPracticeCounts', 'srLadder', 'srTier', 'srSubmit',
+  ],
+  sections: [
+    'hideLibrary', 'hideCatalogue', 'hideQuotes', 'showAnthologies', 'sectionOrder',
+  ],
+  server: ['trashDays'],
+}
+
+// NOT A SETTING A READER CHOSE, so not counted anywhere. Each of these is stored
+// on the same object and belongs to something other than a settings row:
+//
+// - `tour`/`tourStep` are where a reader got to in a tour, which is progress.
+// - `defaultBoardId` is chosen on the board, not here.
+// - `creditSeparators` is a Metadata-screen decision about how credits are written.
+// - the `cat*` triples are the colour categories, which left Settings for the
+//   Metadata console — counting them under Theme would put a number on a tab that
+//   has nothing to do with the screen the reader changed them on.
+export const UNCOUNTED_PREFS = [
+  'tour', 'tourStep', 'defaultBoardId', 'creditSeparators',
+  ...[1, 2, 3, 4, 5, 6].flatMap((n) => [`catName${n}`, `catColor${n}`, `catHidden${n}`]),
+]
+
+// changedIn — how many of a section's preferences the reader has set. Pure, so it
+// is checkable without mounting a screen, which is the half of this a render can
+// never prove.
+export function changedIn(prefs, section) {
+  const keys = SECTION_PREFS[section] || []
+  return keys.filter((k) => {
+    const v = (prefs || {})[k]
+    // Absent, and the two shapes the server sends for "nothing here": an empty
+    // string for a text field nobody filled, and an empty JSON blob for the
+    // packed ones. `false` and `0` ARE values a reader chose.
+    return !(v === undefined || v === null || v === '' || v === '{}' || v === '[]')
+  }).length
+}
+
+// sectionPill — the number as the reader reads it. "all default" rather than
+// "0 changed", because a zero invites you to look for the nine things that are not
+// zero, and what the reader wants to know is that there is nothing here to undo.
+export function sectionPill(n) {
+  return n > 0 ? t('settings.changed.count', { n }) : t('settings.changed.none')
 }
 
 // Which section a card lives in, derived rather than kept beside SECTION_CARDS:
@@ -335,6 +421,25 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
   // query drops out of the rail entirely, and if the section you were on is one of
   // them you are moved to the first that survived — because the alternative is
   // standing in the empty room you were just told about.
+  const prefs = user.preferences || {}
+
+  // RESETTING A SECTION IS UNSENDING EVERY DECISION IN IT, so it asks first. The
+  // repo's rule is that a destructive act wears a confirm, and this one is exactly
+  // as destructive as it looks: a reader who spent an evening on their theme can
+  // undo the evening with one press.
+  //
+  // IT SENDS EMPTY, NOT DEFAULTS. Every card reads its value as `p.x || <default>`
+  // with the default written at the point of use, so clearing a key is what
+  // restores it — and it is the only way to restore it that cannot disagree with
+  // the card. Sending a table of defaults would be a second copy of all of them.
+  const [resetting, setResetting] = useState(null)
+  const resetSection = (id) => {
+    const patch = {}
+    for (const k of SECTION_PREFS[id] || []) patch[k] = ''
+    onPreferences?.(patch)
+    setResetting(null)
+  }
+
   const matching = (key) => settingsMatches(key === 'language' ? 'appearance' : key, q)
   const liveSections = SETTINGS_SECTIONS.filter(([id]) =>
     (SECTION_CARDS[id] || []).some((k) => cardsByKey[k] && matching(k)))
@@ -365,16 +470,54 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
             id,
             label: t(label),
             icon: SECTION_GLYPH[glyph],
+            // A COUNT OF PREFERENCES YOU HAVE SET, and it is never a warning — a
+            // reader who has configured six things has not got six problems, so
+            // `warn` stays off and the number wears the ordinary count colour.
+            count: changedIn(prefs, id) || null,
+            info: t(sectionInfoKey(id)),
+            pill: sectionPill(changedIn(prefs, id)),
           }))}
           value={current}
           onChange={setSection}
           ariaLabel={t('settings.section.aria')}
+          total={sectionPill(liveSections.reduce((a, [id]) => a + changedIn(prefs, id), 0))}
         >
           <div className="space-y-6">
+            {/* THE SECTION'S OWN HEADER, above its cards: what this section is for,
+                and the way back out of every decision in it. The pack puts both
+                here and not on the tab, because a tab is a place to go and this is
+                a thing to do to the place you are in. */}
+            {current && (
+              <div className="section-head">
+                <MonoLabel>{t(liveSections.find(([id]) => id === current)[1])}</MonoLabel>
+                <InfoDot title={t(liveSections.find(([id]) => id === current)[1])} text={t(sectionInfoKey(current))} />
+                <span className="grow" />
+                <span className="section-head-pill">{sectionPill(changedIn(prefs, current))}</span>
+                {changedIn(prefs, current) > 0 && (
+                  <Tooltip label={t('settings.section.reset.tip', { section: t(liveSections.find(([id]) => id === current)[1]) })}>
+                    <GhostButton icon={<IconRevert />} onClick={() => setResetting(current)}>
+                      {t('settings.section.reset.label')}
+                    </GhostButton>
+                  </Tooltip>
+                )}
+              </div>
+            )}
             {shown.map((k) => <div key={k}>{cardsByKey[k]}</div>)}
           </div>
         </SectionRail>
       )}
+      {/* REVERSIBLE IS LEFT OUT DELIBERATELY. Nothing is destroyed — the section
+          goes back to what a new account sees, and every choice can be made again
+          in the place it was made. Saying "cannot be undone" over that would put
+          the bin's words on a settings screen. */}
+      <ConfirmDialog
+        open={!!resetting}
+        title={t('settings.section.reset.confirm.title', { section: resetting ? t(SETTINGS_SECTIONS.find(([id]) => id === resetting)[1]) : '' })}
+        body={t('settings.section.reset.confirm.body')}
+        confirmLabel={t('settings.section.reset.confirm.verb')}
+        onConfirm={() => resetSection(resetting)}
+        onCancel={() => setResetting(null)}
+      />
     </section>
   )
 }
