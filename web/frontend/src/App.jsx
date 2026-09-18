@@ -1036,7 +1036,7 @@ export function NavRail({ tab, onChange, sections, order = null, user, onAccount
   )
 
   return (
-    <aside className="rail">
+    <aside className="rail" data-glass="rail">
       <div className="rail-head">
         {/* Two files rather than one recoloured: a logo is not a glyph that takes
             currentColor, and tinting the light mark for dark mode is the kind of
@@ -1268,6 +1268,7 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
       <button type="button" className="drawer-scrim" aria-label={t('shell.drawer.close.aria')} onClick={onClose} />
       <nav
         className="drawer"
+        data-glass="bar"
         aria-label={t('shell.nav.primary.aria')}
         onPointerDown={onSwipeStart}
         onPointerMove={onSwipeMove}
@@ -1499,6 +1500,7 @@ function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd
   return (
     <nav
       className={'mobile-dock' + (away ? ' is-away' : '')}
+      data-glass="dock"
       aria-label={t('shell.nav.dock.aria')}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
@@ -2317,7 +2319,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             used to carry (＋, search, help, the avatar) moved to the dock or the
             drawer, and the space they freed is what the title and its sub-line
             are made of. */}
-        <header className="mobile-topbar">
+        <header className="mobile-topbar" data-glass="bar">
           <Tooltip label={t('shell.drawer.open.tip')} side="bottom" className="shrink-0">
             <button type="button" className="mobile-topbar-btn" aria-label={t('shell.drawer.open.aria')} onClick={() => setDrawerOpen(true)}>
               <IconMenu />

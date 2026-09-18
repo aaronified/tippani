@@ -20,6 +20,8 @@
 
 import { t } from './i18n.js'
 
+import { applyGlass } from './glassLens.js'
+
 export const ACCENTS = {
   terracotta: '#B4482D',
   ochre: '#C8992B',
@@ -719,6 +721,12 @@ export function parseTweaks(raw) {
 }
 
 export function applyTheme(prefs = {}) {
+  // TRUE GLASS RIDES WITH THE THEME, because it is part of the appearance and a
+  // second applier would be a second thing to remember. It is its own module —
+  // the lens is a renderer rather than a palette — and `applyGlass` does nothing
+  // but undress when the preference is off, which is the path almost every reader
+  // is on.
+  try { applyGlass(prefs.trueGlass === true || prefs.trueGlass === 'on', parseTweaks(prefs.texTweak)) } catch { /* a browser without ResizeObserver keeps the stylesheet's glass */ }
   const { materialSet, theme, accent, groundLight, groundDark } = prefs
   current = {
     materialSet,

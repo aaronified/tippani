@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **True glass, if you want it.** Glass that bends what is behind it rather than blurring
+  it — most at the rim, not at all through the middle — on the rail, the top bar and the
+  dock. It is real work for the machine on every scroll, so it is off until you turn it on
+  under Settings → Theme, and it stays off for anyone whose system asks for reduced
+  motion, whatever the switch says. Five dials come with it: how much it bends, how wide
+  the rim is, the rainbow at the edge, how steep the bend, and the softness behind it.
+
+
 - **Materials behave like materials now.** Stone returns the window in a small bright
   patch; wool spreads it wide and dim; paper glows faintly from within where the light
   falls. Every material has four dials — how hard it is, how much light comes back

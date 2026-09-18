@@ -14,6 +14,7 @@ import {
   verifyUpload,
 } from './fonts.js'
 import { FaceSelect } from './fontPicker.jsx'
+import { glassDialsFor } from './glassLens.js'
 import { SECTIONS, sectionOrder, visibleSections } from './routes.js'
 import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
@@ -2921,7 +2922,7 @@ function SizeSlider({ label, storageKey, def }) {
 //
 // A DIAL IS A Slider, WHICH COMMITS ON RELEASE. A drag across a range would
 // otherwise be one PUT per step, and this preference is a whole JSON object.
-function MaterialPhysics({ tiles, tweaks, onChange }) {
+function MaterialPhysics({ tiles, tweaks, onChange, glass = false }) {
   const DIALS = [
     ['hard', 'settings.appearance.phys.hard.label'],
     ['sss', 'settings.appearance.phys.sss.label'],
@@ -2937,13 +2938,54 @@ function MaterialPhysics({ tiles, tweaks, onChange }) {
     delete next[name]
     onChange(next)
   }
+  // THE FIVE GLASS DIALS, AND THEY APPEAR ONLY WITH THE LENS. They configure a
+  // renderer: with true glass off there is nothing for clarity, refraction, bevel,
+  // fringe or gain to act on, and a control that does nothing is worse than a
+  // missing one because it teaches the reader that the controls here are inert.
+  // That was the owner's ruling when the cost of the lens was put to them — the
+  // glass dials ship with the toggle or not at all.
+  const GLASS = [
+    ['refract', 'settings.appearance.glass.refract.label', 200],
+    ['bevel', 'settings.appearance.glass.bevel.label', 200],
+    ['fringe', 'settings.appearance.glass.fringe.label', 200],
+    ['gain', 'settings.appearance.glass.gain.label', 200],
+    ['blur', 'settings.appearance.glass.blur.label', 400],
+  ]
+  const g = glassDialsFor(tweaks)
+  const setGlass = (key, value) => onChange({ ...tweaks, glass: { ...(tweaks.glass || {}), [key]: value } })
+  const glassBlock = glass ? (
+    <div>
+      <MonoLabel className="mb-2 block">{t('settings.appearance.glass.dials.title')}</MonoLabel>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {GLASS.map(([key, label, max]) => (
+          <Slider
+            key={key}
+            label={t(label)}
+            min={0}
+            max={max}
+            step={1}
+            value={g[key]}
+            format="settings.appearance.phys.readout"
+            onCommit={(v) => setGlass(key, v)}
+          />
+        ))}
+      </div>
+    </div>
+  ) : null
+
   if (!names.length) {
     // Atrium's material is none, so there is nothing for a dial to act on. Say so
     // rather than draw an empty panel, which reads as a screen that failed to load.
-    return <p className="microcopy">{t('settings.appearance.phys.none')}</p>
+    return (
+      <div className="space-y-6">
+        <p className="microcopy">{t('settings.appearance.phys.none')}</p>
+        {glassBlock}
+      </div>
+    )
   }
   return (
     <div className="space-y-6">
+      {glassBlock}
       {names.map((name) => {
         const p = physFor(name, tweaks)
         const dirty = physDirty(name, tweaks)
@@ -3105,6 +3147,15 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
   // Seeded from the appearance actually applied, like the material set above it,
   // so the control mirrors the screen rather than a prop that may be stale.
   const [physOpen, setPhysOpen] = useState(false)
+  // Its own writer, for the reason `saveContrast` documents: `persist` re-sends
+  // every theme field on any change, so a preference travelling in that object is
+  // wiped by an unrelated accent click.
+  const [trueGlass, setTrueGlass] = useState(() => prefs?.trueGlass === true)
+  function saveGlass(on) {
+    setTrueGlass(on)
+    applyTheme({ ...getResolvedTheme(), texTweak: JSON.stringify(texTweak), trueGlass: on })
+    json('PUT', '/auth/me/preferences', { trueGlass: on })
+  }
   // The reader's edits to what each material does with light. NOT in `persist`,
   // and for the reason that function documents about contrast: it re-sends every
   // theme field on any change, so a preference riding in that object is wiped by
@@ -3272,8 +3323,38 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
           tiles={MAT_SETS[materialSet]}
           tweaks={texTweak}
           onChange={saveTweaks}
+          glass={trueGlass}
         />
       </FormModal>
+
+      {/* TRUE GLASS, AND IT IS OFF UNTIL ASKED FOR. A pane that really refracts
+          needs a displacement field per surface, re-evaluated whenever anything
+          behind it moves — and this repository already measured what that costs:
+          ONE `blur(10px)` on the sheet scrim blew the frame budget on a phone and
+          made the sheet drag stop tracking the finger. So it is a control rather
+          than a default, and the app is complete without it.
+
+          THE SWITCH IS NOT THE LAST WORD. A reader who has asked the system for
+          reduced motion does not get it whatever this says, because a lens that
+          warps the page as it scrolls underneath is exactly the load that
+          preference is about — and that preference is a standing instruction
+          where this toggle was set once. */}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <span className="flex items-center gap-1.5">
+          <MonoLabel>{t('settings.appearance.glass.title')}</MonoLabel>
+          <InfoDot title={t('settings.appearance.glass.title')} text={t('settings.appearance.glass.info.body')} />
+        </span>
+        <Toggle
+          ariaLabel={t('settings.appearance.glass.title')}
+          value={trueGlass ? 'on' : 'off'}
+          onChange={(v) => saveGlass(v === 'on')}
+          options={[
+            ['off', t('settings.appearance.glass.off.label')],
+            ['on', t('settings.appearance.glass.on.label')],
+          ]}
+        />
+      </div>
+      <p className="microcopy">{t('settings.appearance.glass.hint')}</p>
 
       {/* Accent + the two size sliders share one wrapping row on desktop;
           flex-wrap stacks them on narrow screens. */}

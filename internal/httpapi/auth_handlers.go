@@ -653,6 +653,11 @@ type prefs struct {
 	// it defensively and a malformed value means "the factory behaviour", which is
 	// a working app rather than an error worth failing a save over.
 	TexTweak string `json:"texTweak"`
+	// TRUE GLASS — the refracting lens, off unless the reader asks for it. A bool
+	// whose zero value is the default, like the three section flags above, because
+	// the answer for almost every account is "no" and an account that has never
+	// heard of it stores nothing.
+	TrueGlass bool `json:"trueGlass"`
 	// Colour categories. A quote's colour is the one thing above tags in the
 	// hierarchy — it is what KIND of note this is — and until now the four were
 	// called yellow, blue, pink and orange, which describes a highlighter rather
@@ -1032,6 +1037,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		GroundLight         *string  `json:"groundLight"`
 		GroundDark          *string  `json:"groundDark"`
 		TexTweak            *string  `json:"texTweak"`
+		TrueGlass           *bool    `json:"trueGlass"`
 		// Pointer-typed like the rest, and for the same reason: a client sending
 		// one field must not clear the others. Unlike the rest, an EMPTY name or
 		// colour is a real value here — it means "back to the built-in" — so
@@ -1349,6 +1355,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	}
 	if in.TexTweak != nil {
 		cur.TexTweak = *in.TexTweak
+	}
+	if in.TrueGlass != nil {
+		cur.TrueGlass = *in.TrueGlass
 	}
 	switch {
 	case badTileName(cur.TileGround), badTileName(cur.TileShell),
