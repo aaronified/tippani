@@ -5,9 +5,10 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks } from './ui.jsx'
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, personPanel } from './identity.jsx'
+import { ColourCategoriesCard } from './Settings.jsx'
 import { LanguageMarksSettings, MetadataSources } from './MetadataSources.jsx'
 import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
@@ -83,6 +84,10 @@ const METADATA_SECTIONS = [
   // table was a FormModal behind a button inside Sources, which is not somewhere
   // another screen can send a reader.
   ['languages', 'metadata.section.languages.label', <IconLanguages />],
+  // COLOUR CATEGORIES CAME OVER FROM SETTINGS. A category is what KIND of note a
+  // quote is — a fact about the library, like a tag or a language — and it sat in
+  // Settings only because Settings was where everything went.
+  ['categories', 'metadata.section.categories.label', <IconPalette />],
   ['sources', 'metadata.section.sources.label', <IconNavSources />],
 ]
 
@@ -423,6 +428,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
                   than in a console of their own halfway down a scroll. */}
               <DuplicatesPanel onDone={load} onFlash={setFlash} />
             </>
+          ) : sect === 'categories' ? (
+            <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />
           ) : sect === 'languages' ? (
             // THE PANEL ITSELF, not a door to it. It was a FormModal behind a
             // button on Sources; Settings now points at this section for what a

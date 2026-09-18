@@ -5085,6 +5085,7 @@ metadata.section.people.label = People
 metadata.section.characters.label = Characters
 metadata.section.sources.label = Sources
 metadata.section.languages.label = Languages
+metadata.section.categories.label = Colours
 metadata.section.aria = Which metadata to work on
 metadata.search.placeholder = search…
 metadata.catalogue.nomatch = nothing matches.

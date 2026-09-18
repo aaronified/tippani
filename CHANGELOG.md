@@ -107,6 +107,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Colour categories moved to the Metadata console.** What KIND of note a quote is —
+  Fact, Voice, Craft, whatever you call yours — is a fact about your library rather than a
+  preference about the app, so it sits with the tags, the languages and the people instead
+  of under Theme. Nothing about the card changed; only where it lives.
+
+
 
 - **You can put the sections in the order you want them.** Settings → Sections lists
   Library, Catalogue, Quotes and Anthologies with a pair of arrows each, and that order is

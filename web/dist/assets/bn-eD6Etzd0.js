@@ -5019,6 +5019,7 @@ metadata.section.people.label = মানুষ
 metadata.section.characters.label = চরিত্র
 metadata.section.sources.label = উৎস
 metadata.section.languages.label = ভাষা
+metadata.section.categories.label = রং
 metadata.section.aria = কোন মেটাডেটা নিয়ে কাজ
 metadata.search.placeholder = খুঁজুন…
 metadata.catalogue.nomatch = কিছুই মিলল না।

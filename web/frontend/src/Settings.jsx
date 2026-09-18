@@ -149,7 +149,11 @@ function useColumnCount() {
 // present — and so invisible, which is why they outlived the tiles by several
 // releases. Found by the scanner that pairs this list against the search prefixes:
 // two ids with nowhere to look them up.
-export const SETTINGS_CARDS = ['features', 'colors', 'sr', 'upd', 'backup']
+// 'colors' LEFT THIS LIST FOR THE METADATA CONSOLE. A colour category says what
+// KIND of note a quote is, which is a fact about the library rather than a
+// preference about the app — the same reason the language table and the tags are
+// over there. The card itself is unchanged and is exported from this file.
+export const SETTINGS_CARDS = ['features', 'sr', 'upd', 'backup']
 
 // ---- THE FIVE SECTIONS ------------------------------------------------------
 //
@@ -193,7 +197,7 @@ export const SECTION_GLYPH = {
 }
 
 export const SECTION_CARDS = {
-  theme: ['appearance', 'colors'],
+  theme: ['appearance'],
   lang: ['language'],
   review: ['sr'],
   sections: ['features'],
@@ -209,76 +213,13 @@ export function sectionOfCard(cardKey) {
   return null
 }
 
-// SETTINGS_LAYOUT — which column each card sits in, at each column count,
-// decided here rather than measured.
-//
-// Settings used the height-packing Masonry that every board uses, and this is
-// the one screen where that is the wrong tool. Masonry places cards
-// TALLEST-FIRST onto the currently-shortest column, off their real rendered
-// heights. Two cards on this page change height after they load: Updates grows
-// when a check finds a release, and Backup grows when an archive exists.
-//
-// So the page rearranges itself under you. The worst case is the one that
-// sounds like it should be safe — a phone, where there is only one column and
-// the columns therefore cannot change. The tallest-first ORDER still can: you
-// tap "check for updates", the answer arrives, the card grows, and it is
-// re-sorted somewhere else on the page while you are reading it. You then have
-// to go and find the thing you just asked for.
-//
-// A board of quotes has no natural order, so packing by height costs nothing
-// and buys a tidy board. A settings page has a natural order and seven cards.
-// The order is worth more than the packing.
-//
-// ADDING A CARD: put its key in SETTINGS_CARDS and in one column of every
-// layout below. It will not render until you do — the render walks the layout,
-// not the card list — which is a loud failure rather than a card appearing
-// somewhere unpredictable. settings-layout.test.js checks the three agree.
-// BALANCING IS BY MEASUREMENT, not by eye, and here is the measurement. Rendered
-// heights at three columns, in a browser, with every card an admin has:
-//
-//   colors 422  sr 283  onboard 136  features 189  upd 265
-//   devices 167  backup 321                        (24px between cards)
-//
-// METADATA IS NOT ON THIS PAGE ANY MORE. It was 780 of those pixels — half of one
-// column — and it moved to the Metadata screen's own Sources section, where the
-// keys sit beside the works they fetch for. Taking it out left the first column
-// holding Colours alone, so the layout below is not the old one minus a row: it is
-// redealt around what is left.
-//
-//   3 columns  582 | 785 | 512      (non-admin 582 | 496 | 167)
-//   2 columns  927 | 976            (non-admin 582 | 687)
-//
-// Re-measure before moving anything: any card that changes height changes the
-// answer, and the numbers above are the whole argument.
-//
-// THE COLOURS RULE WENT WITH METADATA. "Colours sits directly under Metadata"
-// held because both cards answered "what is this thing labelled with" — where a
-// work's facts come from, and what a highlight's colour is called — so one column
-// read as one subject. With Metadata gone the pairing has nothing to pair with,
-// and Colours leads its column on its own. Language marks went with it: it was a
-// pop-up off Metadata rather than off Appearance, for the same reason, and it is
-// still a pop-up off the same block on its new screen.
-export const SETTINGS_LAYOUT = {
-  1: [SETTINGS_CARDS],
-  2: [
-    ['colors', 'backup'],
-    ['sr', 'features', 'upd'],
-  ],
-  3: [
-    ['colors'],
-    ['sr', 'features', 'upd'],
-    ['backup'],
-  ],
-}
-
-// settingsColumns resolves the fixed layout against the cards actually present:
-// a non-admin has no Updates and no Backup, and their columns simply come up
-// shorter rather than everything below sliding up into the gap.
-export function settingsColumns(ncols, presentKeys) {
-  const layout = SETTINGS_LAYOUT[ncols] || SETTINGS_LAYOUT[1]
-  const present = new Set(presentKeys)
-  return layout.map((col) => col.filter((k) => present.has(k)))
-}
+// SETTINGS_LAYOUT AND settingsColumns ARE GONE, and what replaced them is
+// SECTION_CARDS above. They answered "which of nine cards does a reader scroll
+// past first" — a per-column-count table, plus a paragraph of rendered card
+// heights defending the balance, all in service of one long page. The page is
+// five named sections now and each draws its own cards in one column, so there is
+// no packing left to decide. Deleted rather than left unregistered: unlike the
+// Devices card, nothing is coming back for it.
 
 // ---- searching Settings from the shell's own field --------------------------
 //
@@ -304,7 +245,6 @@ const SETTINGS_PREFIX = {
   appearance: 'settings.appearance.',
   features: 'settings.features.',
   sr: 'settings.quiz.',
-  colors: 'settings.colours.',
   upd: 'settings.updates.',
   backup: 'settings.backup.',
 }
@@ -367,7 +307,6 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
   const cards = {
     features: <FeaturesCard prefs={user.preferences} onSaved={onPreferences} />,
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
-    colors: <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />,
     // THE BIN AND STRAY-MARKS TILES ARE GONE FROM HERE. Both were doors and
     // nothing else — a count, a state, and a button to a page that already showed
     // both. The rail and the ☰ menu now carry a counted row to each (stray marks
@@ -484,7 +423,12 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
 // be yellow because you chose it or because nobody chose anything. Naming it
 // would relabel every unmarked quote you have ever imported, so the field is not
 // offered and the server refuses it. Its colour is presentation and stays yours.
-function ColourCategoriesCard({ prefs, onSaved }) {
+// EXPORTED, BECAUSE IT IS A SECTION OF THE METADATA CONSOLE NOW. A colour
+// category is not a preference — it is what KIND of note a quote is, which is a
+// fact about the library in exactly the way a tag or a language is. It sat in
+// Settings because Settings was where everything went; the v3 pack files it with
+// the rest of what the library is made of, beside Tags and Languages.
+export function ColourCategoriesCard({ prefs, onSaved }) {
   const [rows, setRows] = useState(categoryState)
   const [picking, setPicking] = useState(null) // slot whose palette is open
   const [err, setErr] = useState('')

@@ -1,82 +1,54 @@
-// The Settings page's fixed tile layout.
+// WHICH SECTION EACH SETTINGS CARD IS ON.
 //
-// Settings used to lay its cards out with the height-packing Masonry, which
-// places them tallest-first onto the shortest column. Two cards on that page
-// change height after they load — Updates when a check finds a release, Backup
-// when an archive exists — so the page rearranged itself under you. On a phone,
-// where there is only one column and the columns therefore cannot change, the
-// tallest-first ORDER still could: you tapped "check for updates", the answer
-// arrived, and the card moved somewhere else while you were reading it.
-//
-// The layout is written down now instead of measured. These tests exist because
-// a hand-maintained layout has exactly one failure mode: someone adds a card and
-// forgets a column.
-
+// WHAT THIS FILE USED TO BE, because the change is the point. Settings was one
+// long page and this suite held a per-column-count layout table in agreement with
+// the card list — the question being which of nine cards a reader scrolled past
+// first. The page is five named sections now, so the packing question is gone and
+// the one that replaced it is "is every card reachable at all": a card registered
+// but placed on no section is a control nobody can find, and it fails silently
+// because the section that would have drawn it simply draws one fewer.
 import { describe, expect, it } from 'vitest'
-import { SETTINGS_CARDS, SETTINGS_LAYOUT, settingsColumns } from '../../src/Settings.jsx'
 
-const WIDTHS = [1, 2, 3]
-const flat = (n) => SETTINGS_LAYOUT[n].flat()
+import { SECTION_CARDS, SETTINGS_CARDS, SETTINGS_SECTIONS, sectionOfCard } from '../../src/Settings.jsx'
 
-describe('SETTINGS_LAYOUT', () => {
-  it('gives each layout as many columns as its name says', () => {
-    // useColumnCount returns 1 (mobile / narrow), 2 (>=768) or 3 (>=1280).
-    // toHaveLength throws on a missing layout, so this is also the check that
-    // one exists for every count useColumnCount can return.
-    for (const n of WIDTHS) expect(SETTINGS_LAYOUT[n], String(n)).toHaveLength(n)
+const PLACED = Object.values(SECTION_CARDS).flat()
+
+describe('every card has a section, and every section is real', () => {
+  it('places every registered card', () => {
+    for (const key of SETTINGS_CARDS) {
+      expect(sectionOfCard(key), `${key} is registered but on no section`).toBeTruthy()
+    }
   })
 
-  it('places every card, at every width', () => {
-    // The render walks the layout, not the card list, so a card missing from a
-    // layout does not move — it does not appear at all.
-    for (const n of WIDTHS) {
-      expect([...flat(n)].sort(), String(n)).toEqual([...SETTINGS_CARDS].sort())
+  // The other direction, which is the one that rots quietly: a section naming a
+  // card that no longer exists draws nothing and says nothing. 'appearance' and
+  // 'language' are the two halves of the Appearance card, which takes a `part`
+  // rather than being split into two components, so they are placed here without
+  // being in SETTINGS_CARDS.
+  it('names no card that nothing builds', () => {
+    const known = new Set([...SETTINGS_CARDS, 'appearance', 'language'])
+    for (const key of PLACED) {
+      expect(known.has(key), `${key} is placed on a section but nothing builds it`).toBe(true)
     }
   })
 
   it('places no card twice', () => {
-    for (const n of WIDTHS) {
-      const keys = flat(n)
-      expect(new Set(keys).size, String(n)).toBe(keys.length)
+    expect(new Set(PLACED).size).toBe(PLACED.length)
+  })
+
+  it('gives every section in the rail something to draw', () => {
+    for (const [id] of SETTINGS_SECTIONS) {
+      expect((SECTION_CARDS[id] || []).length, `${id} is a door to an empty room`).toBeGreaterThan(0)
     }
   })
 
-  it('shows the single column in the canonical order', () => {
-    expect(SETTINGS_LAYOUT[1][0]).toEqual(SETTINGS_CARDS)
-  })
-
-  it('does not lay out a metadata card, because there is not one any more', () => {
-    // The card moved to the Metadata screen's Sources section, where the keys sit
-    // beside the works they fetch for. A key left in a layout for a card that no
-    // longer exists renders nothing and fails nothing — the render walks the
-    // layout, so the gap is invisible until somebody counts columns.
-    expect(SETTINGS_CARDS).not.toContain('meta')
-    for (const n of WIDTHS) expect(flat(n), String(n)).not.toContain('meta')
-  })
-
-  it('does not lay out a devices card, though the card itself is still written', () => {
-    // NOT THE SAME AS THE METADATA ONE ABOVE, and the difference is the point. That
-    // card MOVED; this one is hidden. The owner: "that was created for the app. not
-    // required right now (keep the code and the backend, just no need to let it hog
-    // the screen space)." So `DevicesCard` is still in Settings.jsx and every
-    // /auth/devices route still answers — what changed is that nothing registers it,
-    // which is the same mechanism that leaves a non-admin without Updates.
-    //
-    // This guards the hiding rather than the deletion: a key put back into either
-    // list would draw the card again, and on a screen nobody was looking at for it.
-    expect(SETTINGS_CARDS).not.toContain('devices')
-    for (const n of WIDTHS) expect(flat(n), String(n)).not.toContain('devices')
-  })
-
-  it('leads a column with colours, which used to be the second half of a pair', () => {
-    // Not decoration, and it is what is LEFT of a rule rather than the rule. The
-    // pairing existed because both cards answered "what is this thing labelled
-    // with"; with the other half gone, what survives is that Colours is a heading
-    // a reader scans for, so it starts a column rather than sitting under one.
-    for (const n of WIDTHS) {
-      const col = SETTINGS_LAYOUT[n].find((c) => c.includes('colors'))
-      expect(col, `${n}: no column holds colors`).toBeTruthy()
-      if (n > 1) expect(col[0], `${n} columns`).toBe('colors')
-    }
+  // COLOURS LEFT THIS PAGE ALTOGETHER. What KIND of note a quote is is a fact
+  // about the library rather than a preference about the app, so the card is a
+  // section of the Metadata console now — the same move the language table and
+  // the tags made. Asserted here because a stale entry would place a card this
+  // file no longer builds.
+  it('no longer claims the colour categories', () => {
+    expect(SETTINGS_CARDS).not.toContain('colors')
+    expect(PLACED).not.toContain('colors')
   })
 })

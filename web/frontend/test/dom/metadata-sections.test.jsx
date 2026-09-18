@@ -116,7 +116,7 @@ describe('the rail', () => {
     // faces are read from "the metadata language table, which is the only place a
     // quote's language is defined". The table existed; it was a pop-up behind a
     // button inside Sources, which is not somewhere another screen can point.
-    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Tags', 'Languages', 'Sources'])
+    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Tags', 'Languages', 'Colours', 'Sources'])
   })
 
   it('leaves the sources door with no number, because it counts no records', async () => {
@@ -243,12 +243,12 @@ describe('a section at a time', () => {
 describe('on a phone', () => {
   beforeEach(() => { WIDTH = 390 })
 
-  it('gets the same seven doors', async () => {
+  it('gets the same eight doors', async () => {
     await mount()
-    // A field, not a strip: seven tabs at 390px show two and a half of themselves.
+    // A field, not a strip: eight tabs at 390px show two and a half of themselves.
     expect(screen.queryAllByRole('tab')).toHaveLength(0)
     const doors = await phoneDoors()
-    expect(doors.map((s) => s.replace(/\s*·.*$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Tags', 'Languages', 'Sources'])
+    expect(doors.map((s) => s.replace(/\s*·.*$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Tags', 'Languages', 'Colours', 'Sources'])
   })
 
   it('carries each door\u2019s number into the field, because that is why it is a rail', async () => {
