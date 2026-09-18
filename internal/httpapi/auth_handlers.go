@@ -534,6 +534,16 @@ type prefs struct {
 	// included; that is a lure rule and not one of these dials.) See
 	// review_tier.go.
 	SRTier string `json:"srTier"`
+	// SRStart is where a line ENTERS the schedule, which is a different question
+	// from SRTier above and was missing entirely: srTier is how hard the questions
+	// are once a line is being asked, and this is whether a line you have never
+	// been asked about starts as new or starts already known.
+	//
+	// TWO VALUES, NOT THE PACK'S THREE. The v3 prototype offers Fresh, Known and
+	// Mastered; the owner's ruling is "either at not seen or mastered (first
+	// tier)", so the middle rung is not offered. "unseen" is the default and is
+	// what every account has always done.
+	SRStart string `json:"srStart"`
 	// SRSubmit puts a Submit button between choosing an answer and committing it,
 	// so a misplaced tap can be corrected instead of costing a rung. Off by
 	// default: tapping to answer is one gesture instead of two, and that is the
@@ -901,6 +911,7 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	// changes none of the question dials — so a corrupt preference cannot change
 	// how hard the questions are.
 	p.SRTier = normalizeReviewTier(p.SRTier)
+	p.SRStart = normalizeReviewStart(p.SRStart)
 	// A bad blob already in the database reads as NO marks rather than failing the
 	// login. The PUT below is where a client's mistake is refused.
 	if norm, ok := normalizeReadLanguages(p.ReadLanguages); ok {
@@ -949,7 +960,7 @@ func (s *Server) loadPrefs(uid int64) (prefs, error) {
 	if !validQuoteMeasure(p.QuoteMeasure) {
 		p.QuoteMeasure = 0
 	}
-	p.SRDaily = clampInt(p.SRDaily, 2, 10, reviewQuota)
+	p.SRDaily = clampInt(p.SRDaily, 5, 20, reviewQuota)
 	if !srScopeValid(p.SRReviewScope) {
 		p.SRReviewScope = "both"
 	}
@@ -1035,6 +1046,7 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 		SRPracticeCounts    *bool    `json:"srPracticeCounts"`
 		SRLadder            *bool    `json:"srLadder"`
 		SRTier              *string  `json:"srTier"`
+		SRStart             *string  `json:"srStart"`
 		SRSubmit            *bool    `json:"srSubmit"`
 		Tour                *string  `json:"tour"`
 		TourStep            *int     `json:"tourStep"`
@@ -1319,6 +1331,9 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	if in.SRPracticeCounts != nil {
 		cur.SRPracticeCounts = *in.SRPracticeCounts
 	}
+	if in.SRStart != nil {
+		cur.SRStart = normalizeReviewStart(*in.SRStart)
+	}
 	if in.SRTier != nil {
 		cur.SRTier = normalizeReviewTier(*in.SRTier)
 	}
@@ -1391,8 +1406,12 @@ func (s *Server) handleUpdatePreferences(w http.ResponseWriter, r *http.Request)
 	case !prefContrasts[cur.Contrast]:
 		writeErr(w, http.StatusBadRequest, "contrast must be auto or more")
 		return
-	case cur.SRDaily < 2 || cur.SRDaily > 10:
-		writeErr(w, http.StatusBadRequest, "srDaily must be between 2 and 10")
+	// THE RANGE WIDENED FROM 2-10 TO 5-20 on the owner's instruction, the v3 pack
+	// having drawn 5-60. An account already holding 2, 3 or 4 keeps it — this
+	// validates what is being WRITTEN, and nothing rewrites a stored value — but
+	// cannot set one of those again without going through the slider's new floor.
+	case cur.SRDaily < 5 || cur.SRDaily > 20:
+		writeErr(w, http.StatusBadRequest, "srDaily must be between 5 and 20")
 		return
 	case catNameTooLong:
 		writeErr(w, http.StatusBadRequest,

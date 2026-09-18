@@ -221,3 +221,33 @@ func tierMinOptions(tier string) int {
 // because the two places that ask it must not drift apart — an Easy card that
 // drew far titles and close faces would be two tiers in one round.
 func tierPrefersFarLures(tier string) bool { return tier == tierEasy }
+
+// ── WHERE A LINE ENTERS THE SCHEDULE.
+//
+// A DIFFERENT QUESTION FROM THE TIER ABOVE, and the two were conflated once
+// already: `srTier` is how hard the QUESTIONS are for a line already in the
+// rotation, and this is what rung a line you have never been asked about starts
+// on. The v3 pack draws both and this app had only the first.
+//
+// TWO VALUES RATHER THAN THE PACK'S THREE. The prototype offers Fresh, Known and
+// Mastered; the owner's ruling is "either at not seen or mastered (first tier)",
+// so the middle rung is not offered. A reader who wants a line treated as half
+// known can answer it once.
+const (
+	startUnseen   = "unseen"
+	startMastered = "mastered"
+)
+
+var reviewStarts = []string{startUnseen, startMastered}
+
+// normalizeReviewStart falls back rather than refusing, the way the tier beside
+// it does: an unknown value is a client that is behind, and the honest answer to
+// that is the default rather than a 400 on a field the reader did not touch.
+func normalizeReviewStart(s string) string {
+	for _, v := range reviewStarts {
+		if s == v {
+			return s
+		}
+	}
+	return startUnseen
+}

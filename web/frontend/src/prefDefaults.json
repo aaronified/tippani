@@ -1,0 +1,13 @@
+{
+  "theme": "system",
+  "accent": "terracotta",
+  "materialSet": "manuscript",
+  "contrast": "auto",
+  "srDaily": 8,
+  "srReviewScope": "both",
+  "srSeen": 1,
+  "srTier": "medium",
+  "srStart": "unseen",
+  "trashDays": 30,
+  "creditSeparators": "comma,semicolon,amp,and"
+}

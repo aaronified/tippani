@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "12463763443d42144d5c4b9f18c5d01cd0c36b84797aa41445db2bbc9239c63e",
-    "internal/i18n/en.txt": "b468acfe512183ec376b02b2bff6e29b208e962d8bfc9b52414b56db5b197ebf",
+    "internal/i18n/bn.txt": "72d3bd4a1cecbc9fca0ca2e06660f76d7c22836d22c229892c283287298ff83d",
+    "internal/i18n/en.txt": "220a2448bb646ccfae042601d6194103beed7ff8a19087ad9b2aa7cbe2e2e872",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -42,7 +42,7 @@
     "web/frontend/src/ReverifyReview.jsx": "74088e808bfae48f32eed5892a28798f8e7c53cb2cfbb80f1652feeb41ccb98d",
     "web/frontend/src/SearchPage.jsx": "a6393e085e6a11e8aff3734f3a18d8a1c93fffc275dba3da6e81970ac2ab40ae",
     "web/frontend/src/SelectionBar.jsx": "2d7c4821a89a557cebcc969f722cc86cf44dad5e0dbc8d79a15dfb62df90b913",
-    "web/frontend/src/Settings.jsx": "d2c1a8a0cb4bb3c3d7d7c975b89f79e01bd46e78672ace634f9cbaaf21f95aea",
+    "web/frontend/src/Settings.jsx": "ff42d31c6b763116a21cc633fb338969b13dbf409584600f4018140b597d4225",
     "web/frontend/src/StagingPage.jsx": "df61407fb08f0796edbc195a080a1772a3731723bf02b60b503f6bf5e95fec2d",
     "web/frontend/src/StatsPage.jsx": "ec749ff8a96783ce0183ea17f9727d00cbaa964a5d3c5d849617f649f9e9002e",
     "web/frontend/src/TagsPage.jsx": "c9f794eeec2e5c3f4e200b7ee31f9a74694ccddc14eaadadf78dcc2890c07d8d",
@@ -92,6 +92,7 @@
     "web/frontend/src/main.jsx": "18eca4f50309eccc55c0faba5c34e93ca189606b15a3ddd2c96b8f33298a76e7",
     "web/frontend/src/people.jsx": "2ea9a98103e79df3d947c52df124e8dd934c71ebbc34f61bab1a89d9942c2963",
     "web/frontend/src/personOpen.jsx": "de4609c7ba92b8a90ae3184423c62e723aa57bd03a7f71f8faa67ed08f526cff",
+    "web/frontend/src/prefDefaults.json": "c74b2b826197ec28d6425656c4f24780729b1509b132a21f216b5d511f1c7a45",
     "web/frontend/src/prefRow.jsx": "eec2387c1b511aaedbf967b7e84d4642bdb92331e49a36082fbd0b5da01f7696",
     "web/frontend/src/providerMarks.js": "c6f313e15a06b400adfb5492edaf8d85222ddb277410c39ddd8038c6209fda1d",
     "web/frontend/src/quiz.js": "1be21028ff8933a92ec46eaebb4420c51cf007a7be371025c183c3e97fa64b08",

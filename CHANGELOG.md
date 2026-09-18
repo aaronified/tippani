@@ -723,6 +723,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **New lines can start already mastered.** A line you have never been asked about
+  normally enters the schedule as unseen — asked soon and often until you have it. If you
+  are adding a library you already know, start them at the far end instead: they still
+  come round, just rarely, and a wrong answer brings one straight back. It sits under
+  Review, beside how hard the questions are, which is a different question and was the
+  only one the app asked.
+
+- **The daily deck goes up to twenty.** The range was two to ten; it is five to twenty
+  now. A deck already set to two, three or four keeps it until you move it.
+
 - **The Theme section is in four named groups.** "Light and dark", "What it is made of",
   "A theme of your own", "How much a control says" — each numbered, and each saying the one
   thing beside it a heading cannot: that the two grounds are set as a pair, which material

@@ -40,7 +40,7 @@ func TestPreferences(t *testing.T) {
 	// normalises it, and `auto` is the behaviour the app had before the switch
 	// existed — a fresh account defers to the machine by arriving rather than by
 	// choosing.
-	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "system", Accent: "terracotta", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
+	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "system", Accent: "terracotta", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium, SRStart: startUnseen}) {
 		t.Fatalf("default preferences: %+v", me.Preferences)
 	}
 
@@ -53,7 +53,7 @@ func TestPreferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "dark", Accent: "terracotta", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
+	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "dark", Accent: "terracotta", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium, SRStart: startUnseen}) {
 		t.Fatalf("dark default material set: %+v", me.Preferences)
 	}
 
@@ -61,7 +61,7 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		prefs{MaterialSet: "film-assembly", Theme: "light", Accent: "ochre"}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{MaterialSet: "film-assembly", Theme: "light", Accent: "ochre", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
+	if me.Preferences != (prefs{MaterialSet: "film-assembly", Theme: "light", Accent: "ochre", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium, SRStart: startUnseen}) {
 		t.Fatalf("after PUT: %+v", me.Preferences)
 	}
 
@@ -71,7 +71,7 @@ func TestPreferences(t *testing.T) {
 	c.mustDo("PUT", "/auth/me/preferences",
 		map[string]any{"materialSet": "manuscript", "theme": "light", "accent": "olive", "home": "movies", "navUtilities": "menu", "srGrow": 3.0, "srShrink": 0.5}, 200)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, 200))
-	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "light", Accent: "olive", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium}) {
+	if me.Preferences != (prefs{MaterialSet: "manuscript", Theme: "light", Accent: "olive", Contrast: "auto", CreditSeparators: defaultCreditSeps, TrashDays: defaultTrashDays, SRDaily: 8, SRReviewScope: "both", SRSeen: 1, SRTier: tierMedium, SRStart: startUnseen}) {
 		t.Fatalf("after PUT with stale retired keys: %+v", me.Preferences)
 	}
 

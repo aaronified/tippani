@@ -16,6 +16,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
+import DEFAULTS from '../../src/prefDefaults.json'
 import { changedIn, SECTION_PREFS, UNCOUNTED_PREFS } from '../../src/Settings.jsx'
 
 // The struct, by name rather than by line number, so this does not break when the
@@ -93,6 +94,19 @@ describe('what counts as changed', () => {
     expect(changedIn({ trueGlass: true }, 'theme')).toBe(1)
   })
 
+  it('does not count a value the server itself put there', () => {
+    // WHAT loadPrefs SERVES A READER WHO HAS NEVER OPENED SETTINGS. These are not
+    // choices; they are the defaults the server fills in on read, and counting
+    // them put "4 changed" on Theme and on Review for a brand-new account.
+    expect(changedIn({ theme: 'system', accent: 'terracotta', materialSet: 'manuscript', contrast: 'auto' }, 'theme')).toBe(0)
+    expect(changedIn({ srDaily: 8, srReviewScope: 'both', srSeen: 1, srTier: 'medium', srStart: 'unseen' }, 'review')).toBe(0)
+  })
+
+  it('counts one the reader moved off that default', () => {
+    expect(changedIn({ accent: 'olive' }, 'theme')).toBe(1)
+    expect(changedIn({ srDaily: 12 }, 'review')).toBe(1)
+  })
+
   it('reads a whole freshly-created account as untouched', () => {
     // The shape the server actually sends a new account: every field present,
     // every one of them a zero value. This is the case the capture found and the
@@ -100,11 +114,13 @@ describe('what counts as changed', () => {
     // as a tidy subset.
     const fresh = {}
     for (const k of Object.values(SECTION_PREFS).flat()) {
-      fresh[k] = typeof k === 'string' && /^(hide|show|sr(Practice|Ladder|Submit)|trueGlass)/.test(k) ? false : ''
+      fresh[k] = /^(hide|show|sr(Practice|Ladder|Submit)|trueGlass)/.test(k) ? false : ''
     }
-    fresh.srDaily = 0
     fresh.quoteLeading = 0
     fresh.quoteMeasure = 0
+    // AND THE FIELDS THE SERVER FILLS IN, which is the half that made this case
+    // pass while the screen said "4 changed".
+    Object.assign(fresh, DEFAULTS)
     for (const section of Object.keys(SECTION_PREFS)) {
       expect(changedIn(fresh, section), `${section} should read as untouched`).toBe(0)
     }

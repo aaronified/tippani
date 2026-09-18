@@ -14,6 +14,7 @@ import {
   verifyUpload,
 } from './fonts.js'
 import { FaceSelect } from './fontPicker.jsx'
+import PREF_DEFAULTS from './prefDefaults.json'
 import { PrefGroup, PrefRow } from './prefRow.jsx'
 import { glassDialsFor } from './glassLens.js'
 import { applyFields, fromFile, parseSaved, removeTheme, SAVED_THEME_CAP, saveTheme, toFile } from './savedThemes.js'
@@ -249,7 +250,7 @@ export const SECTION_PREFS = {
   ],
   review: [
     'srDaily', 'srReviewScope', 'srQuestions', 'srTuning', 'srSeen',
-    'srPracticeCounts', 'srLadder', 'srTier', 'srSubmit',
+    'srPracticeCounts', 'srLadder', 'srTier', 'srStart', 'srSubmit',
   ],
   sections: [
     'hideLibrary', 'hideCatalogue', 'hideQuotes', 'showAnthologies', 'sectionOrder',
@@ -278,23 +279,29 @@ export function changedIn(prefs, section) {
   const keys = SECTION_PREFS[section] || []
   return keys.filter((k) => {
     const v = (prefs || {})[k]
-    // WHAT "UNSET" LOOKS LIKE ON THE WIRE, and it is not absence. Two of the
-    // seventy-four fields in the Go struct carry `omitempty`; the rest marshal
-    // their zero value, so a preference nobody has touched arrives as `""`, `0`
-    // or `false` rather than as nothing at all.
+    // A PREFERENCE HAS A DEFAULT WHERE THE SERVER GIVES IT ONE, and for the rest
+    // the default is the zero value it marshals.
     //
-    // THIS PARAGRAPH SAID THE OPPOSITE AND THE SCREEN DISPROVED IT. The first
-    // version counted `false` and `0` on the reasoning that a reader had chosen
-    // them — true of a reader, false of the wire, because the server sends those
-    // for unset too and the two are indistinguishable here. A freshly created
-    // account rendered "7 changed" on Theme and "4 changed" on Language, which no
-    // test caught and one capture made obvious.
+    // THIS WAS WRONG TWICE AND EACH VERSION LOOKED RIGHT. The first counted any
+    // value present; only two of the Go struct's seventy-four fields carry
+    // `omitempty`, so every untouched preference arrives as `""`, `0` or `false`
+    // and a fresh account read "7 changed". The second stopped counting those, and
+    // a fresh account still read "4 changed" per section — because `loadPrefs`
+    // FILLS DEFAULTS IN ON READ, so what reaches the browser for a reader who has
+    // never opened Settings is `theme: "system"`, `accent: "terracotta"`,
+    // `srDaily: 8`. The fact "they never set this" is destroyed on the server, on
+    // purpose, because every other consumer wants the effective value.
     //
-    // EVERY BOOLEAN IN THE SET DEFAULTS TO FALSE — the four section switches, the
-    // three review flags, true glass, the category hides — so "true counts" is
-    // right for all of them rather than a convenient approximation. The day one
-    // defaults to true, it stops being right, and settings-prefs.test.js is where
-    // that would have to be handled.
+    // SO THE DEFAULTS COME BACK AS DATA. `prefDefaults.json` holds the ones
+    // loadPrefs applies, and `pref_defaults_test.go` in the Go package reads that
+    // same file and fails the moment the two disagree — in either direction,
+    // including a field that starts being defaulted and has no entry here. Two
+    // copies of one fact that cannot be collapsed (Go cannot import a React module
+    // and a browser cannot call loadPrefs), so the next best thing is a test that
+    // will not let them drift.
+    //
+    // NEITHER SCREEN NOR SUITE CAUGHT EITHER VERSION. A capture did, both times.
+    if (k in PREF_DEFAULTS) return v !== undefined && v !== null && v !== PREF_DEFAULTS[k]
     return !(v === undefined || v === null || v === '' || v === '{}' || v === '[]' || v === false || v === 0)
   }).length
 }
@@ -1269,7 +1276,11 @@ function SRSettings({ user, onPreferences }) {
           the ladder behaves, whether Practice counts — is worth having and is
           not worth scrolling past every time you come here to change a font. */}
       <div className="space-y-5">
-        <Slider label={t('settings.quiz.per-day.label')} min={2} max={10} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
+        {/* 5 TO 20, widened from 2 to 10 on the owner's instruction; the v3 pack
+            draws 5 to 60. An account already holding 2, 3 or 4 keeps it — the
+            server validates what is written and rewrites nothing — but cannot get
+            back below five through this control. */}
+        <Slider label={t('settings.quiz.per-day.label')} min={5} max={20} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
         <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
         <Tooltip label={t('settings.quiz.in-depth.tip')}>
           <GhostButton icon={<IconQuiz />} keepLabel onClick={() => setDeep(true)}>{t('settings.quiz.in-depth.label')}</GhostButton>
@@ -1444,6 +1455,31 @@ function SRDeepControls({ p, set, onClose }) {
           {(p.srTier || 'medium') === 'easy' && (
             <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>{t('settings.quiz.tier.easy.note')}</p>
           )}
+        </div>
+        {/* WHERE A LINE ENTERS, which is not how hard it is asked. The tier above
+            says what KIND of question a line in the rotation gets; this says what
+            rung a line you have never been asked about starts on. The v3 pack
+            draws both and this app had only the first — and an audit of the two
+            paired them as the same control, which they are not.
+
+            TWO RUNGS, NOT THE PACK'S THREE. The pack offers Fresh, Known and
+            Mastered; the owner's ruling is "either at not seen or mastered (first
+            tier)", so the middle one is not offered — a reader who wants a line
+            treated as half known can answer it once. */}
+        <div>
+          <div className="mb-2 flex items-center gap-1.5">
+            <MonoLabel>{t('settings.quiz.start.title')}</MonoLabel>
+            <InfoDot text={t('settings.quiz.start.info.body')} />
+          </div>
+          <Toggle
+            ariaLabel={t('settings.quiz.start.title')}
+            value={p.srStart || 'unseen'}
+            onChange={(v) => set({ srStart: v })}
+            options={[
+              ['unseen', t('settings.quiz.start.unseen.label')],
+              ['mastered', t('settings.quiz.start.mastered.label')],
+            ]}
+          />
         </div>
         <div>
           <div className="mb-2 flex items-center gap-1.5">

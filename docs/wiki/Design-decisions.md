@@ -16384,3 +16384,55 @@ be worse than drawing them as what they are.
 
 *Unreleased — `web/frontend/src/MetadataPage.jsx`,
 `web/frontend/test/dom/metadata-sections.test.jsx`.*
+
+## Where a line enters is not how hard it is asked
+
+**TWO ROWS, AND AN AUDIT SAID THEY WERE ONE.** The v3 pack's review section draws "How
+hard" (Easy / Medium / Hard / Random) and, separately, "New lines start at". A comparison
+of the pack against this app reported the second as a divergence in the FIRST — that the
+app's tier control "offers four options where the pack offers three, with different
+names". It does not: the app's `srTier` is the pack's "How hard", option for option,
+Random included. What the app had no equivalent for was the other row, and pairing the two
+hid the real gap behind a false one.
+
+That is the whole argument for checking a finding at the line it cites. Three verifiers
+confirmed this one, because all three checked that the cited lines said what was claimed
+— and they did. What none of them checked was whether the two lines were about the same
+thing.
+
+**TWO RUNGS RATHER THAN THE PACK'S THREE.** The owner's ruling: *"new lines start at
+either at not seen or mastered (first tier)"*. Fresh / Known / Mastered becomes Not seen /
+Mastered. A reader who wants a line treated as half known can answer it once, and a middle
+rung nobody can describe the effect of is a control that gets set by coin toss.
+
+**AND THE DECK RANGE.** Two to ten becomes five to twenty, against the pack's five to
+sixty. The server validates what is written and rewrites nothing, so an account already
+holding two, three or four keeps it; it cannot get back below five through the slider.
+
+*Unreleased — `internal/httpapi/auth_handlers.go`, `internal/httpapi/review_tier.go`,
+`web/frontend/src/Settings.jsx`.*
+
+## The defaults are one file, because they could not be one place
+
+**loadPrefs FILLS DEFAULTS IN ON READ**, so what reaches the browser for a reader who has
+never opened Settings is `theme: "system"`, `accent: "terracotta"`, `srDaily: 8`. The fact
+"they never set this" is destroyed on the server, deliberately, because every other
+consumer wants the effective value.
+
+**THE CHANGED COUNT NEEDS THAT FACT BACK, AND GOT IT WRONG TWICE.** The first version
+counted any value present; only two of the struct's seventy-four fields carry `omitempty`,
+so every untouched preference arrives as `""`, `0` or `false` and a fresh account read
+"7 changed". The second stopped counting zero values and a fresh account still read
+"4 changed" per section — one for every field loadPrefs defaults. Each version passed a
+suite written to match its own reasoning. A capture found both.
+
+**SO THE DEFAULTS ARE DATA, IN A FILE BOTH SIDES READ.** `web/frontend/src/prefDefaults.json`
+holds the ones loadPrefs applies. Go cannot import a React module and a browser cannot call
+loadPrefs, so the two copies cannot be collapsed; `pref_defaults_test.go` reads that same
+file, signs up a fresh account, and fails when they disagree — in either direction. The
+reverse direction is the one that rots quietly: a field that starts being defaulted to
+something non-empty, with no entry on the client, reads there as a value the reader chose
+and puts a number on a tab nobody has opened. It caught `creditSeparators` on its first run.
+
+*Unreleased — `web/frontend/src/prefDefaults.json`,
+`internal/httpapi/pref_defaults_test.go`, `web/frontend/src/Settings.jsx`.*

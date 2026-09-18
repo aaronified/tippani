@@ -241,7 +241,9 @@ func TestLadderPrefRoundtrip(t *testing.T) {
 	}
 	// A partial PUT that never mentions srLadder must leave it alone — the
 	// preferences endpoint merges, and every other field relies on that.
-	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 4}, http.StatusOK)
+	// 6 rather than 4: the deck range widened to 5-20 and this case is about the
+	// MERGE, not about the number — any valid size proves the same thing.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srDaily": 6}, http.StatusOK)
 	me = decode[meResp](t, c.mustDo("GET", "/auth/me", nil, http.StatusOK))
 	if !me.Preferences.SRLadder {
 		t.Fatal("an unrelated preferences PUT cleared srLadder")

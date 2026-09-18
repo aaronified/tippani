@@ -1351,6 +1351,11 @@ settings.quiz.adaptive.on.label = Adaptive
 # the dials, so an account that never opens this is asked its questions the same
 # way. That is a claim about the TIER and not about the release: the round's
 # same-author lure cap applies at every tier. See review_tier.go.
+settings.quiz.start.title = New lines start at
+settings.quiz.start.info.body = A line you have never been asked about enters the schedule here. Not seen is the ordinary way in: it is asked soon and often until you have it. Mastered starts it at the far end, for a library you already know — it will still come round, just rarely, and a wrong answer brings it straight back.
+settings.quiz.start.unseen.label = Not seen
+settings.quiz.start.mastered.label = Mastered
+
 settings.quiz.tier.title = How hard the questions are
 settings.quiz.tier.info.body = Medium moves none of these, and is where you start. Easy offers two choices instead of four and keeps the wrong ones far apart; Hard leans on typing the words back; Random picks per card. A tier narrows what you allow, never empties it.
 settings.quiz.tier.easy.label = Easy
