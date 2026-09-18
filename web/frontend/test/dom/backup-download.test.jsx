@@ -17,6 +17,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let CALLS
 let BACKUP
@@ -77,6 +78,7 @@ const card = async () => {
       <ToastHost />
     </>,
   )
+  await openSettingsSection('Server')
   await screen.findByText('Backup & restore')
 }
 

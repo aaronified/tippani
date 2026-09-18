@@ -13,6 +13,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useScreenBarState } from '../../src/ui.jsx'
+import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 const AVAILABLE = {
   update_available: true,
@@ -129,6 +130,7 @@ describe('the Settings dock', () => {
   it('opens the backup prompt rather than making one', async () => {
     asPhone()
     page()
+    await openSettingsSection('Server')
     await waitFor(() => expect(keys()).toContain('backup'))
     press('backup')
     // The archive is sealed with a credential, and the key does not invent one.
@@ -138,6 +140,7 @@ describe('the Settings dock', () => {
   it('checks before it offers, and still asks for the word', async () => {
     asPhone()
     page()
+    await openSettingsSection('Server')
     await waitFor(() => expect(keys()).toContain('update'))
     press('update')
     // The check runs on open: a key that showed a stale "nothing to do" would be
@@ -171,6 +174,7 @@ describe('the Settings dock', () => {
   it('says a running update in prose, not on a control', async () => {
     asPhone()
     page()
+    await openSettingsSection('Server')
     await waitFor(() => expect(keys()).toContain('update'))
     press('update')
     const sheet = await waitFor(() => {
@@ -210,6 +214,7 @@ describe('the update key always checks', () => {
     asPhone()
     checks = 0
     page()
+    await openSettingsSection('Server')
     await waitFor(() => expect(keys()).toContain('update'))
 
     press('update')
@@ -245,6 +250,7 @@ describe('the update key always checks', () => {
     checks = 0
     applied = 0 // module-level, shared with the cases above
     page()
+    await openSettingsSection('Server')
     await waitFor(() => expect(keys()).toContain('update'))
     press('update')
     await waitFor(() => expect(checks).toBe(1))

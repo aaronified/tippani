@@ -14,6 +14,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let CALLS
 let CHECK // what GET /admin/update/check answers next
@@ -52,6 +53,7 @@ beforeEach(() => {
 
 async function openUpdates() {
   render(<Settings user={ADMIN} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} />)
+  await openSettingsSection('Server')
   fireEvent.click(await screen.findByText('Check for updates'))
   return await screen.findByText('pre-release')
 }
@@ -59,6 +61,7 @@ async function openUpdates() {
 describe('the release line', () => {
   it('is not offered at all until a check has said which line this build is on', async () => {
     render(<Settings user={ADMIN} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} />)
+    await openSettingsSection('Server')
     await screen.findByText('Check for updates')
     expect(screen.queryByText('release line')).toBeNull()
   })

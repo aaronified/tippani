@@ -11,6 +11,7 @@ import { characterPanel, personPanel } from './identity.jsx'
 import { MetadataSources } from './MetadataSources.jsx'
 import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
+import { SectionRail } from './sectionRail.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { editDistance } from './text.js'
 
@@ -84,68 +85,11 @@ const METADATA_SECTIONS = [
 // the more misleading of the two. The overview's number is the only one that is a
 // count of PROBLEMS rather than of records, so it is the only one that goes red.
 //
-// TABS ON TOP, ON EVERY WIDTH ABOVE A PHONE. It was a left column at 900px and
-// up, which spent 13.5rem of a console screen on five words — and the consoles
-// under it are TABLES, the one kind of content that wants every pixel of width it
-// can get. Five short words fit across the top of any desk.
-//
-// AND A DROPDOWN ON A PHONE. A scrolling strip of five tabs on a 390px screen
-// shows two and a half of them, so the section you are not in is behind a gesture
-// with no arrow — which is the edge-fade rule working exactly as designed and
-// still being the wrong control for this. A field states the section you are in
-// and opens the whole list, in the width of one row.
-function SectionRail({ value, onChange, counts, mobile }) {
-  if (mobile) {
-    const label = ([k, lbl]) => {
-      const n = counts[k]
-      return n == null ? t(lbl) : `${t(lbl)} · ${n}`
-    }
-    // The dot rides with the select rather than in a header, because the header
-    // is gone on a phone and this note is about the phone's own arrangement —
-    // one row, the control and the explanation of it.
-    return (
-      <div className="flex items-center gap-2">
-        <span className="grow min-w-0">
-          <Select
-            ariaLabel={t('metadata.section.aria')}
-            value={value}
-            onChange={onChange}
-            options={METADATA_SECTIONS.map((row) => [row[0], label(row), t(row[1])])}
-          />
-        </span>
-        <InfoDot
-          side="bottom"
-          title={t('metadata.mobile.info.title')}
-          text={t('metadata.mobile.info.body')}
-        />
-      </div>
-    )
-  }
-  return (
-    <Scroller axis="x" className="meta-rail" role="tablist" aria-label={t('metadata.section.aria')}>
-      {METADATA_SECTIONS.map(([k, label, icon]) => {
-        const n = counts[k]
-        const on = value === k
-        return (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            className={`meta-rail-item${on ? ' is-on' : ''}`}
-            onClick={() => onChange(k)}
-          >
-            <span className="meta-rail-icon" aria-hidden="true">{icon}</span>
-            <span className="meta-rail-label">{t(label)}</span>
-            {n != null && (
-              <span className={`meta-rail-count${k === 'overview' && n > 0 ? ' is-warn' : ''}`}>{n}</span>
-            )}
-          </button>
-        )
-      })}
-    </Scroller>
-  )
-}
+// The section rail is `sectionRail.jsx` now, and it is shared with Settings — the
+// v3 pack draws both screens the same way, and the repo's directive is that a
+// control on two screens lives in one function both call. What used to be this
+// function's body is that module; what stays here is the section table it is
+// handed and this screen's own words for it.
 
 
 export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences }) {
@@ -396,7 +340,21 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           the top. One element, two arrangements, and the section it selects is
           beside it rather than a scroll below it. */}
       <div className="meta-frame">
-        <SectionRail value={sect} onChange={setSection} counts={railCounts} mobile={mobile} />
+        <SectionRail
+          sections={METADATA_SECTIONS.map(([id, label, icon]) => ({
+            id,
+            label: t(label),
+            icon,
+            count: railCounts[id],
+            // ONLY THE OVERVIEW'S NUMBER IS A COUNT OF PROBLEMS. Every other door
+            // counts records, and a library of 900 books is not a warning.
+            warn: id === 'overview' && railCounts[id] > 0,
+          }))}
+          value={sect}
+          onChange={setSection}
+          ariaLabel={t('metadata.section.aria')}
+          mobileInfo={{ title: t('metadata.mobile.info.title'), text: t('metadata.mobile.info.body') }}
+        />
         <div className="meta-body">
           {!lib ? (
             <EmptyState>{t('common.state.loading')}</EmptyState>

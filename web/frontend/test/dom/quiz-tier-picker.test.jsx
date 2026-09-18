@@ -14,6 +14,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let SENT
 let PREFS
@@ -48,6 +49,7 @@ const mount = async (preferences = {}) => {
     />,
   )
   await act(async () => {})
+  await openSettingsSection('Review')
   // THE PICKER LIVES BEHIND "In-depth controls", which is collapsed on arrival —
   // the same fold the question repertoire and the tuning sliders sit in. Opened
   // here rather than in each case, because every one of them is about the

@@ -80,6 +80,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Settings is five named screens instead of one long scroll.** Theme, Language and font,
+  Review, Sections, Server — picked from a row across the top on a desk, or a field on a
+  phone, the same control the Metadata console already uses. Nothing was taken away and no
+  control changed: what changed is that finding one no longer means scrolling past every
+  other one. The section you were last on is where it opens next time. The type and font
+  settings moved out from under Appearance to sit with the interface language, which is
+  what they are about.
+
+
 - **Tags is a section of the Metadata console, not a tab of its own.** It always
   answered the question the rest of that console answers — what is written across your
   library, and is it written consistently — while sitting in the nav beside Stats as if

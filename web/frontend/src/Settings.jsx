@@ -48,6 +48,9 @@ import {
   IconEyeOff,
   IconKey,
   IconOpen,
+  IconLanguages,
+  IconMoveTo,
+  IconPalette,
   IconQuiz,
   IconRefresh,
   IconRestore,
@@ -78,7 +81,9 @@ import {
   useIsMobileScreen,
   useScreenBar,
   useScreenSearch,
+  usePersistedState,
 } from './ui.jsx'
+import { SectionRail } from './sectionRail.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
 // (admin only) Updates + Backup. Library stats now live on their own Stats page
@@ -143,6 +148,64 @@ function useColumnCount() {
 // releases. Found by the scanner that pairs this list against the search prefixes:
 // two ids with nowhere to look them up.
 export const SETTINGS_CARDS = ['features', 'colors', 'sr', 'upd', 'backup']
+
+// ---- THE FIVE SECTIONS ------------------------------------------------------
+//
+// Settings was one scrolling grid of cards and the v3 pack makes it five named
+// screens behind a rail. The reason is not tidiness: the page had grown to where
+// the only way to find a preference was to scroll past every other one, and the
+// pack's own note for it is that a setting you cannot find is a setting you do
+// not have.
+//
+// THE RAIL IS `sectionRail.jsx`, WHICH METADATA ALSO DRAWS. One control, one
+// behaviour, per the repo's directive — tabs across a desk, a field on a phone.
+//
+// THE CARDS ARE NOT REWRITTEN TO GET HERE, and that is deliberate. Every control
+// on this page keeps working exactly as it did; what changed is which screen it
+// is on. Decomposing a card into the pack's row grammar is worth doing and is
+// worth doing one section at a time, with the page working in between — a
+// rewrite of five cards and a shell in one step is a page nobody can bisect.
+//
+// `id` is a route-stable key: it is in the URL and in a bookmark, so renaming one
+// breaks somebody's link. The LABEL is a locale key and may be renamed freely.
+export const SETTINGS_SECTIONS = [
+  ['theme', 'settings.section.theme.label', 'palette'],
+  ['lang', 'settings.section.lang.label', 'languages'],
+  ['review', 'settings.section.review.label', 'quiz'],
+  ['sections', 'settings.section.sections.label', 'move'],
+  ['server', 'settings.section.server.label', 'device'],
+]
+
+// Which cards each section draws, in order. A card named here that the `cards`
+// object has not built — Updates and Backup for a non-admin — simply does not
+// appear, exactly as the column layout already behaved.
+// The rail's glyphs, resolved here rather than held as JSX in SETTINGS_SECTIONS:
+// that table is a plain data table a test can read, and an element in it would
+// make it a render.
+export const SECTION_GLYPH = {
+  palette: <IconPalette />,
+  languages: <IconLanguages />,
+  quiz: <IconQuiz />,
+  move: <IconMoveTo />,
+  device: <IconDevice />,
+}
+
+export const SECTION_CARDS = {
+  theme: ['appearance', 'colors'],
+  lang: ['language'],
+  review: ['sr'],
+  sections: ['features'],
+  server: ['upd', 'backup'],
+}
+
+// Which section a card lives in, derived rather than kept beside SECTION_CARDS:
+// two lists that have to agree is the shape this repo keeps having to pull apart.
+export function sectionOfCard(cardKey) {
+  for (const [sec, keys] of Object.entries(SECTION_CARDS)) {
+    if (keys.includes(cardKey)) return sec
+  }
+  return null
+}
 
 // SETTINGS_LAYOUT — which column each card sits in, at each column count,
 // decided here rather than measured.
@@ -277,6 +340,11 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
   // seals the archive and the update still asks for the word UPDATE typed out —
   // a one-tap update on a phone is precisely the accident that confirmation
   // exists to prevent. What the key skips is the scrolling.
+  // WHICH SECTION YOU WERE ON, KEPT. Metadata's rail does the same: a settings
+  // screen is somewhere you come back to, usually for the thing you were last
+  // looking at, and landing on Theme every time is a scroll the rail was supposed
+  // to have removed.
+  const [section, setSection] = usePersistedState('tippani:settings:section', 'theme')
   const [backupNow, setBackupNow] = useState(false)
   const [updateNow, setUpdateNow] = useState(false)
   // WHAT THE SHELL'S FIELD IS ASKING ABOUT WHILE THIS SCREEN IS UP.
@@ -313,15 +381,23 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
         }
       : {}),
   }
-  // NARROWED BEFORE THE LAYOUT IS RESOLVED, not after. `settingsColumns` places the
-  // cards that are PRESENT into a fixed layout, so handing it the matching set is
-  // the same operation a non-admin already performs — the columns come up shorter
-  // rather than the page rearranging itself, which is the whole reason that function
-  // takes the present keys instead of packing by height. See its own note.
-  const present = Object.keys(cards).filter((k) => settingsMatches(k, q))
-  const columns = settingsColumns(ncols, present)
-  const showAppearance = settingsMatches('appearance', q)
-  const nothing = !showAppearance && present.length === 0
+  const cardsByKey = { appearance: <Appearance prefs={user.preferences} onPreferences={onPreferences} part="theme" />,
+    language: <Appearance prefs={user.preferences} onPreferences={onPreferences} part="lang" />,
+    ...cards }
+
+  // WHAT THE TYPED WORD DOES TO A SECTIONED PAGE, and it is not what it did to a
+  // grid. Narrowing a single scroll meant hiding cards; narrowing five screens
+  // means some sections have nothing left in them, and a rail offering a door to
+  // an empty room is worse than no rail. So a section whose cards all fail the
+  // query drops out of the rail entirely, and if the section you were on is one of
+  // them you are moved to the first that survived — because the alternative is
+  // standing in the empty room you were just told about.
+  const matching = (key) => settingsMatches(key === 'language' ? 'appearance' : key, q)
+  const liveSections = SETTINGS_SECTIONS.filter(([id]) =>
+    (SECTION_CARDS[id] || []).some((k) => cardsByKey[k] && matching(k)))
+  const current = liveSections.some(([id]) => id === section) ? section : (liveSections[0] || [])[0]
+  const shown = current ? (SECTION_CARDS[current] || []).filter((k) => cardsByKey[k] && matching(k)) : []
+
   return (
     <section className="space-y-6">
       {/* NO PAGE HEADER ON A PHONE, not even an empty one. The shell's bar draws
@@ -339,26 +415,30 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
       {/* SAY SO RATHER THAN GO BLANK. A page that empties under a typed word looks
           like a page that broke, and the reader's next move is to reload rather than
           to correct the word. */}
-      {nothing && <p className="microcopy">{t('settings.search.none', { q })}</p>}
-      {showAppearance && <Appearance prefs={user.preferences} onPreferences={onPreferences} />}
-      {/* align-items:start so a short column stays short instead of stretching
-          its last card to match the tallest column. */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))`,
-          gap: 24,
-          alignItems: 'start',
-        }}
-      >
-        {columns.map((col, i) => (
-          <div key={i} className="space-y-6">
-            {col.map((k) => (
-              <div key={k}>{cards[k]}</div>
-            ))}
+      {liveSections.length === 0 && <p className="microcopy">{t('settings.search.none', { q })}</p>}
+      {liveSections.length > 0 && (
+        <div className="meta-frame">
+          {/* THE RAIL CARRIES NO NUMBERS. Metadata's counts records and gaps, which
+              is what that console is for; a count beside "Theme" would have to be a
+              count of preferences, and nobody has ever wanted to know that there are
+              nine. `count` left undefined draws nothing at all. */}
+          <SectionRail
+            sections={liveSections.map(([id, label, glyph]) => ({
+              id,
+              label: t(label),
+              icon: SECTION_GLYPH[glyph],
+            }))}
+            value={current}
+            onChange={setSection}
+            ariaLabel={t('settings.section.aria')}
+          />
+          <div className="meta-body">
+            <div className="space-y-6">
+              {shown.map((k) => <div key={k}>{cardsByKey[k]}</div>)}
+            </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -2852,7 +2932,12 @@ const prefersDark = () => typeof matchMedia !== 'undefined' && matchMedia('(pref
 // the Metadata card answers. Where it is drawn is appearance; what it says is a
 // fact about the quote. It is a door on Metadata now, unchanged apart from which
 // card it hangs off.
-function Appearance({ prefs, onPreferences }) {
+// `part` — 'theme', 'lang' or both. The v3 pack splits Settings into named
+// sections, and what the interface is WRITTEN IN belongs under its own heading
+// rather than beside what it LOOKS like. Both halves read this card's one
+// preferences object and go through its one writer, so the screen passes which
+// half it wants IN; there is no second component holding a copy of the other.
+function Appearance({ prefs, onPreferences, part = 'all' }) {
   const [typeOpen, setTypeOpen] = useState(false)
   // Seed from the appearance actually applied (getResolvedTheme reads the concrete
   // material set off the DOM + the raw theme preference).
@@ -2913,7 +2998,9 @@ function Appearance({ prefs, onPreferences }) {
 
   return (
     <Card data-tour="appearance">
-      <SectionTitle>{t('settings.appearance.title')}</SectionTitle>
+      <SectionTitle>{t(part === 'lang' ? 'settings.language.title' : 'settings.appearance.title')}</SectionTitle>
+      {part !== 'lang' && (
+      <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <MonoLabel>{t('settings.appearance.theme.title')}</MonoLabel>
         <Toggle
@@ -3032,7 +3119,43 @@ function Appearance({ prefs, onPreferences }) {
             the same languages would be two to keep in step. An account that still
             has the old preference is migrated on read — see textOrderFrom. */}
       </div>
+      </>
+      )}
 
+      {/* THE LANGUAGE AND THE TYPE DOOR ARE THE `lang` PART, and they are drawn
+          from this same function rather than from a second one. The v3 pack splits
+          Settings into named sections and puts what the interface is WRITTEN IN
+          under its own heading, away from what it LOOKS like — but the two halves
+          share this card's preferences object and its one writer, so copying them
+          into a `LanguageCard` beside this would be the second copy the repo's own
+          directive exists to prevent. The screen passes which part it wants IN; it
+          does not keep its own verb. */}
+      {part !== 'theme' && (
+        <>
+          {/* THE LANGUAGE, AND IT STAYS OUT OF `persist` ABOVE for the reason that
+                function documents: the Appearance panel re-sends every theme field on
+                any change, so a preference riding in that object would be wiped by an
+                unrelated accent click. One writer per concern. LanguagePicker applies
+                the choice itself and this supplies the save. */}
+            <LanguagePicker
+            titleKey="settings.language.title"
+            info
+            onPick={(code) => {
+                onPreferences?.({ locale: code })
+                json('PUT', '/auth/me/preferences', { locale: code })
+            }}
+        />
+            {/* WHICH LANGUAGES YOU CAN READ WAS HERE, and it is gone rather than
+                moved. The owner's ruling absorbed it: the four text-order states say
+                what the declaration said — declared meant the quotation leads,
+                undeclared meant the translation did — plus two things a yes/no could
+                not spell at all ("no translation", "no quotations"). Keeping both
+                would be one fact with two controls, and the second would silently
+                lose to the first.
+                The table that replaced it lives with the language marks on Metadata,
+                because that panel already is a row per language and a second list of
+                the same languages would be two to keep in step. An account that still
+                has the old preference is migrated on read — see textOrderFrom. */}
       {/* The door, and it KEEPS ITS WORDS at every width.
 
           Button labels normally lets a glyphed button drop its text on a phone,
@@ -3052,12 +3175,12 @@ function Appearance({ prefs, onPreferences }) {
           <GhostButton icon={<IconType />} keepLabel onClick={() => setTypeOpen(true)}>{t('settings.type.title')}</GhostButton>
         </Tooltip>
       </div>
-
-      {/* No form registers with this dialog, so it grows no ✓: the panel saves on
           the tap, as it did as a card. The close is the only action. */}
       <FormModal open={typeOpen} onClose={() => setTypeOpen(false)} title={t('settings.type.title')} maxWidth={620}>
         <TypeSettings prefs={prefs} onSaved={onPreferences} />
       </FormModal>
+        </>
+      )}
     </Card>
   )
 }

@@ -22,6 +22,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
+import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let PUTS
 
@@ -51,7 +52,7 @@ beforeEach(() => {
   PUTS = []
 })
 
-const page = (preferences = {}) => {
+const page = async (preferences = {}) => {
   const onPreferences = vi.fn()
   render(
     <Settings
@@ -63,6 +64,7 @@ const page = (preferences = {}) => {
       onOpenBin={() => {}}
     />,
   )
+  await openSettingsSection('Sections')
   return onPreferences
 }
 
@@ -80,8 +82,8 @@ const named2 = (name) => card().getByRole('button', { name })
 const pressed = (sec) => chip(sec).getAttribute('aria-pressed')
 
 describe('the Features card', () => {
-  it('renders at all, which means it is in every layout', () => {
-    page()
+  it('renders at all, which means it is in every layout', async () => {
+    await page()
     expect(screen.getByText('Features')).toBeTruthy()
   })
 
@@ -94,8 +96,8 @@ describe('the Features card', () => {
   //
   // Asserted over the whole card's text rather than per row, so a key leaking from
   // any other field here is caught by the same case.
-  it('renders no unresolved key anywhere in it', () => {
-    page()
+  it('renders no unresolved key anywhere in it', async () => {
+    await page()
     // THE WHOLE PAGE, not just this card. Scoping this to the Features card was
     // the first draft and it was worth less: run over all of Settings it
     // immediately found a THIRD leak nobody was looking for — the review-scope
@@ -122,76 +124,76 @@ describe('the Features card', () => {
     }
   })
 
-  it('offers one chip per section, named after the section', () => {
-    page()
+  it('offers one chip per section, named after the section', async () => {
+    await page()
     for (const sec of SECTIONS) {
       expect(chip(sec), `no chip for ${sec.label}`).toBeTruthy()
     }
   })
 
-  it('opens on each section’s own default, for a reader who has set nothing', () => {
+  it('opens on each section’s own default, for a reader who has set nothing', async () => {
     // NOT A BLANKET "shown" any more. Three sections are on until you turn them off
     // and Anthologies is off until you ask for it, so the expectation is read off
     // the row's polarity rather than assumed — a card that rendered every chip the
     // same way would pass a blanket assertion and be wrong about a quarter of them.
-    page()
+    await page()
     for (const sec of SECTIONS) {
       expect(pressed(sec), sec.label).toBe(sec.off ? 'false' : 'true')
     }
   })
 
-  it('opens showing an asked-for section as shown', () => {
+  it('opens showing an asked-for section as shown', async () => {
     // The other direction for the inverted row, and the one that catches a card
     // reading a show* key as though it were a hide* one.
-    page({ showAnthologies: true })
+    await page({ showAnthologies: true })
     expect(named2('Anthologies').getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('opens showing a hidden section as hidden', () => {
+  it('opens showing a hidden section as hidden', async () => {
     // The other direction, and the one that catches a card reading the wrong key:
     // a chip that is always lit would pass every assertion above.
-    page({ hideCatalogue: true })
+    await page({ hideCatalogue: true })
     expect(named2('Catalogue').getAttribute('aria-pressed')).toBe('false')
     expect(named2('Library').getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('writes the stored key the server reads, and only that key', () => {
+  it('writes the stored key the server reads, and only that key', async () => {
     // The whole point of the case. `hideCatalogue` is what the Go prefs struct
     // names; anything else is a 200 that stores nothing.
-    page()
+    await page()
     fireEvent.click(named2('Catalogue'))
     expect(prefsPuts().length, 'nothing was saved').toBeGreaterThan(0)
     expect(prefsPuts().at(-1)[1]).toEqual({ hideCatalogue: true })
   })
 
-  it('turns one back on by sending false rather than by dropping the key', () => {
+  it('turns one back on by sending false rather than by dropping the key', async () => {
     // An absent field means "leave it alone" to the merge handler, so turning a
     // section back on has to be an explicit false. Omitting it would make the chip
     // a one-way door and nothing would report it.
-    page({ hideQuotes: true })
+    await page({ hideQuotes: true })
     fireEvent.click(named2('Quotes'))
     expect(prefsPuts().at(-1)[1]).toEqual({ hideQuotes: false })
   })
 
-  it('writes an inverted section’s key the right way round', () => {
+  it('writes an inverted section’s key the right way round', async () => {
     // THE FAILURE THIS CASE EXISTS FOR. `{ [sec.pref]: !show }` was correct while
     // every section was spelled hide*, and for a show* key it sends the OPPOSITE of
     // what was pressed. The PUT handler takes the key at its word and returns 200,
     // and the shell updates optimistically — so the chip would light, stick, and
     // come back the other way round on the next reload, with nothing failing.
-    page()
+    await page()
     fireEvent.click(named2('Anthologies'))
     expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: true })
-    page({ showAnthologies: true })
+    await page({ showAnthologies: true })
     fireEvent.click(within(screen.getAllByRole('group', { name: t('settings.features.title') }).at(-1)).getByRole('button', { name: 'Anthologies' }))
     expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: false })
   })
 
-  it('never locks the inverted section, whatever the others are doing', () => {
+  it('never locks the inverted section, whatever the others are doing', async () => {
     // Anthologies is not a content section — it holds quotes that live in the other
     // three — so it can never be the last one standing, and the lock must not spill
     // onto it when one of the three is. It stays switchable while Quotes is locked.
-    page({ hideLibrary: true, hideCatalogue: true, showAnthologies: true })
+    await page({ hideLibrary: true, hideCatalogue: true, showAnthologies: true })
     expect(named2('Quotes').getAttribute('aria-disabled')).toBe('true')
     const gathered = named2('Anthologies')
     expect(gathered.getAttribute('aria-disabled'), 'the anthologies chip was locked too').toBe('false')
@@ -199,20 +201,20 @@ describe('the Features card', () => {
     expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: false })
   })
 
-  it('updates the shell optimistically as well as saving', () => {
+  it('updates the shell optimistically as well as saving', async () => {
     // The nav has to change under the reader's finger. Nothing re-fetches
     // /auth/me after a settings save, so the optimistic call is the only thing
     // that moves the strip.
-    const onPreferences = page()
+    const onPreferences = await page()
     fireEvent.click(named2('Library'))
     expect(onPreferences).toHaveBeenCalledWith({ hideLibrary: true })
   })
 
-  it('will not let the last section go', () => {
+  it('will not let the last section go', async () => {
     // Two already hidden, so Quotes is the only one left. Its chip refuses, and the
     // card says why IN WORDS under the row rather than only in a bubble a phone has
     // to be held down to open.
-    page({ hideLibrary: true, hideCatalogue: true })
+    await page({ hideLibrary: true, hideCatalogue: true })
     const last = named2('Quotes')
     expect(last.getAttribute('aria-disabled'), 'the last chip is still live').toBe('true')
     expect(screen.getByText(/last section has to stay/i)).toBeTruthy()
@@ -221,11 +223,11 @@ describe('the Features card', () => {
     expect(prefsPuts().length, 'the last section was hidden anyway').toBe(0)
   })
 
-  it('leaves the other two chips usable while one is locked', () => {
+  it('leaves the other two chips usable while one is locked', async () => {
     // The lock is on the last one STANDING, not on the card. Somebody who has hidden
     // two must still be able to turn one of them back on — which is the way out of
     // the locked state, so it cannot itself be locked.
-    page({ hideLibrary: true, hideCatalogue: true })
+    await page({ hideLibrary: true, hideCatalogue: true })
     fireEvent.click(named2('Library'))
     expect(prefsPuts().at(-1)[1]).toEqual({ hideLibrary: false })
   })

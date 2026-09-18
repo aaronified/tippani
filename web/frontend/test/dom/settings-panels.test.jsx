@@ -30,6 +30,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let PUTS
 
@@ -76,9 +77,13 @@ const lastPrefs = () => {
   return JSON.parse(puts.at(-1)[1].languageMarks || '{}')
 }
 
-const page = async () => {
+// THE DEFAULT IS THE SECTION THIS FILE IS ABOUT. Almost every case here opens
+// the Type panel, and Type lives under Language and font now that Settings is
+// sectioned — so the default section is that one, and a case wanting another
+// names it.
+const page = async (section = 'Language and font') => {
   render(<Settings user={USER} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} />)
-  await screen.findByText('Appearance')
+  await openSettingsSection(section)
 }
 // The other door's screen. The block is rendered on its own rather than through
 // the metadata page, for the same reason the key-row cases are: these are about
@@ -144,15 +149,20 @@ describe('the two panels are doors, not cards', () => {
     expect(dialog().getAttribute('aria-label')).toBe('Language marks')
   })
 
-  it('puts the marks door on its own card, and Type under Appearance', async () => {
+  it('puts the marks door on its own card, and Type under Language and font', async () => {
     // WHERE each door is, which is the one thing the assertions above cannot see:
     // they find a button on a page without caring what it sits under. A mark is
     // what a quote with nobody to credit says it IS — the sources page's subject —
     // and not how the app looks.
     const card = (name) => screen.getByRole('button', { name }).closest('.hand-card')
     const heading = (name) => card(name)?.querySelector('h2')?.textContent || ''
+    // TYPE MOVED OUT FROM UNDER APPEARANCE, which is what this line used to
+    // assert the opposite of. Settings is five named sections now, and what the
+    // interface is WRITTEN IN — its language and the four faces that draw it —
+    // is one of them. A font door filed under "Appearance" was the old single
+    // scroll's answer to having nowhere else to put it.
     await page()
-    expect(heading('Type')).toBe('Appearance')
+    expect(heading('Type')).toBe('Language')
     // AND IT IS NOT ON SETTINGS AT ALL ANY MORE, which is the half a heading
     // check cannot state: the block left that page.
     expect(screen.queryByRole('button', { name: 'Language marks' })).toBeNull()

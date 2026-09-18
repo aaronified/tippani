@@ -44,6 +44,12 @@ _name = English
 
 # The Settings row that changes the language, in the Appearance card.
 settings.language.title = Language
+settings.section.aria = Which settings to change
+settings.section.theme.label = Theme
+settings.section.lang.label = Language and font
+settings.section.review.label = Review
+settings.section.sections.label = Sections
+settings.section.server.label = Server
 # The information dot beside that row.
 settings.language.info.title = Language
 settings.language.info.body = English and Bengali ship with tippani. Any other is a file: copy data/Locales/_TEMPLATE.txt — the app puts it there — to fr.txt and fill it in. It appears here with no rebuild, at whatever percentage it covers.

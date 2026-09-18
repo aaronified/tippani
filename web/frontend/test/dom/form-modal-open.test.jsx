@@ -26,6 +26,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -85,7 +86,7 @@ describe('the contract', () => {
 })
 
 describe('the two dialogs that were dead', () => {
-  it('opens the in-depth quiz panel from Settings', () => {
+  it('opens the in-depth quiz panel from Settings', async () => {
     render(
       <Settings
         user={{ username: 'a', is_admin: false, preferences: {} }}
@@ -96,6 +97,7 @@ describe('the two dialogs that were dead', () => {
         onOpenBin={noop}
       />,
     )
+    await openSettingsSection('Review')
     // Nothing from the panel is on screen until the door is opened.
     expect(screen.queryByText(t('settings.quiz.tuning.title'))).toBeNull()
     fireEvent.click(screen.getByText(t('settings.quiz.in-depth.label')))

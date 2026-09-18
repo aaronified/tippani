@@ -15,6 +15,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let CALLS
 let RESP
@@ -50,15 +51,18 @@ beforeEach(() => {
 
 const openLog = async () => {
   render(<Settings user={ADMIN} />)
+  // The changelog's door is on the Server section now that Settings is sectioned.
+  await openSettingsSection('Server')
   fireEvent.click(screen.getByRole('button', { name: 'Changelog' }))
   await waitFor(() => expect(screen.getByText('1.12.0')).toBeTruthy())
 }
 
 describe('opening it', () => {
-  it('fetches nothing until it is asked for', () => {
+  it('fetches nothing until it is asked for', async () => {
     // A quarter of a megabyte of markdown, on every visit to Settings, for a
     // dialog nobody opened.
     render(<Settings user={ADMIN} />)
+    await openSettingsSection('Server')
     expect(CALLS.filter(([, p]) => p === '/changelog')).toEqual([])
   })
 

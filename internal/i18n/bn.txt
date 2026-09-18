@@ -53,6 +53,12 @@ _name = বাংলা
 
 # The Settings row that changes the language, in the Appearance card.
 settings.language.title = ভাষা
+settings.section.aria = কোন সেটিংস বদলাবেন
+settings.section.theme.label = থিম
+settings.section.lang.label = ভাষা ও ফন্ট
+settings.section.review.label = রিভিউ
+settings.section.sections.label = বিভাগ
+settings.section.server.label = সার্ভার
 # The information dot beside that row.
 settings.language.info.title = ভাষা
 settings.language.info.body = ইংরেজি আর বাংলা টিপ্পনীর সঙ্গেই আসে। অন্য ভাষা চাইলে data/Locales-এ অ্যাপের রাখা _TEMPLATE.txt ফাইলটা fr.txt-এর মতো নামে কপি করে ভরে ফেলুন। নতুন বিল্ড ছাড়াই সেটা এখানে চলে আসবে, কতটা অনুবাদ হয়েছে সেই শতাংশ পাশে নিয়ে।

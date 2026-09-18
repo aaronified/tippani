@@ -22,6 +22,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let TRASH
 let DAYS
@@ -289,6 +290,10 @@ describe('Settings has given the bin up entirely', () => {
   const settings = async () => {
     render(<Settings user={USER} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} />)
     await screen.findByText('Settings')
+    // Every section, because what this file asserts is an ABSENCE — a bin tile
+    // nowhere on the screen. Checking one section would pass while the tile sat
+    // on another.
+    for (const s of ['Theme', 'Language and font', 'Review', 'Sections']) await openSettingsSection(s)
   }
 
   it('carries no bin tile, and no piece of one', async () => {

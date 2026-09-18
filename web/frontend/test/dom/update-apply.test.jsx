@@ -16,6 +16,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 let VERSION // what GET /admin/update/state answers with, when it answers at all
 let DOWN // true while the container is being recreated
@@ -94,6 +95,7 @@ afterEach(() => {
 // Drive the card to the point where the update has been started.
 async function startUpdate() {
   render(<Settings user={ADMIN} onPreferences={() => {}} update={CHECK} onUpdateInfo={() => {}} onStartTour={() => {}} />)
+  await openSettingsSection('Server')
   const confirm = await screen.findByPlaceholderText('UPDATE')
   fireEvent.change(confirm, { target: { value: 'UPDATE' } })
   await act(async () => {
