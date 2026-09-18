@@ -14,6 +14,7 @@ import {
   verifyUpload,
 } from './fonts.js'
 import { FaceSelect } from './fontPicker.jsx'
+import { PrefRow } from './prefRow.jsx'
 import { glassDialsFor } from './glassLens.js'
 import { applyFields, fromFile, parseSaved, removeTheme, SAVED_THEME_CAP, saveTheme, toFile } from './savedThemes.js'
 import { SECTIONS, sectionOrder, visibleSections } from './routes.js'
@@ -3192,19 +3193,22 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
       <SectionTitle>{t(part === 'lang' ? 'settings.language.title' : 'settings.appearance.title')}</SectionTitle>
       {part !== 'lang' && (
       <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <MonoLabel>{t('settings.appearance.theme.title')}</MonoLabel>
-        <Toggle
-          ariaLabel={t('settings.appearance.match.aria')}
-          value={themePref}
-          onChange={(v) => persist({ theme: v })}
-          options={[
-            ['light', t('settings.appearance.theme.light.label')],
-            ['dark', t('settings.appearance.theme.dark.label')],
-            ['system', t('settings.appearance.match.label')],
-          ]}
-        />
-      </div>
+      <PrefRow
+        label={t('settings.appearance.theme.title')}
+        changed={themePref !== 'system'}
+        control={
+          <Toggle
+            ariaLabel={t('settings.appearance.match.aria')}
+            value={themePref}
+            onChange={(v) => persist({ theme: v })}
+            options={[
+              ['light', t('settings.appearance.theme.light.label')],
+              ['dark', t('settings.appearance.theme.dark.label')],
+              ['system', t('settings.appearance.match.label')],
+            ]}
+          />
+        }
+      />
       {/* THE GROUND, AND ONLY THE ONE YOU ARE LOOKING AT. Light and dark are
           chosen independently — a reader who likes Sepia by day has said nothing
           about their night — but offering both sets at once is eight swatches for
@@ -3215,15 +3219,12 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
           A SWATCH IS THE TRIAD, NOT A COLOUR. Each one draws all three surfaces
           stacked — desk behind, furniture over it, page on top — because that is
           what is being chosen, and a single square would show a third of it. */}
-      <div className="mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <MonoLabel>{t('settings.appearance.ground.title')}</MonoLabel>
-          <InfoDot
-            title={t('settings.appearance.ground.title')}
-            text={t('settings.appearance.ground.info.body')}
-          />
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2">
+      <PrefRow
+        label={t('settings.appearance.ground.title')}
+        info={t('settings.appearance.ground.info.body')}
+        changed={(effectiveDark ? groundDark : groundLight) !== (effectiveDark ? 'night' : 'cream')}
+        control={
+          <div className="flex flex-wrap gap-2">
           {Object.entries(GROUNDS[effectiveDark ? 'dark' : 'light']).map(([key, g]) => {
             const on = (effectiveDark ? groundDark : groundLight) === key
             return (
@@ -3247,24 +3248,28 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
               </Tooltip>
             )
           })}
-        </div>
-      </div>
+          </div>
+        }
+      />
       {/* §6 access. Beside the theme because it answers the same kind of question
           about the same surfaces, and it borrows the theme's own "Match system"
           wording rather than inventing a second phrase for one idea. */}
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <MonoLabel>{t('settings.appearance.contrast.title')}</MonoLabel>
-        <Toggle
-          ariaLabel={t('settings.appearance.contrast.aria')}
-          value={contrast}
-          onChange={saveContrast}
-          options={[
-            ['auto', t('settings.appearance.match.label')],
-            ['more', t('settings.appearance.contrast.more.label')],
-          ]}
-        />
-      </div>
-      <p className="microcopy mb-4">{t('settings.appearance.contrast.hint')}</p>
+      <PrefRow
+        label={t('settings.appearance.contrast.title')}
+        sub={t('settings.appearance.contrast.hint')}
+        changed={contrast !== 'auto'}
+        control={
+          <Toggle
+            ariaLabel={t('settings.appearance.contrast.aria')}
+            value={contrast}
+            onChange={saveContrast}
+            options={[
+              ['auto', t('settings.appearance.match.label')],
+              ['more', t('settings.appearance.contrast.more.label')],
+            ]}
+          />
+        }
+      />
       <MonoLabel className="mb-2 block">{t('settings.appearance.material.title')}</MonoLabel>
       <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
         {Object.keys(MAT_SETS).map((name, i) => (
@@ -3381,22 +3386,23 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
           warps the page as it scrolls underneath is exactly the load that
           preference is about — and that preference is a standing instruction
           where this toggle was set once. */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <span className="flex items-center gap-1.5">
-          <MonoLabel>{t('settings.appearance.glass.title')}</MonoLabel>
-          <InfoDot title={t('settings.appearance.glass.title')} text={t('settings.appearance.glass.info.body')} />
-        </span>
-        <Toggle
-          ariaLabel={t('settings.appearance.glass.title')}
-          value={trueGlass ? 'on' : 'off'}
-          onChange={(v) => saveGlass(v === 'on')}
-          options={[
-            ['off', t('settings.appearance.glass.off.label')],
-            ['on', t('settings.appearance.glass.on.label')],
-          ]}
-        />
-      </div>
-      <p className="microcopy">{t('settings.appearance.glass.hint')}</p>
+      <PrefRow
+        label={t('settings.appearance.glass.title')}
+        sub={t('settings.appearance.glass.hint')}
+        info={t('settings.appearance.glass.info.body')}
+        changed={trueGlass}
+        control={
+          <Toggle
+            ariaLabel={t('settings.appearance.glass.title')}
+            value={trueGlass ? 'on' : 'off'}
+            onChange={(v) => saveGlass(v === 'on')}
+            options={[
+              ['off', t('settings.appearance.glass.off.label')],
+              ['on', t('settings.appearance.glass.on.label')],
+            ]}
+          />
+        }
+      />
 
       {/* Accent + the two size sliders share one wrapping row on desktop;
           flex-wrap stacks them on narrow screens. */}

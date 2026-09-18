@@ -10229,3 +10229,29 @@ html[data-theme="dark"] .board-cover {
    locate it, and the day the inline pair becomes three declarations they have
    somewhere to go that is not a style attribute. */
 .record-row { min-width: 0; }
+
+/* THE ROW THAT SETS ONE PREFERENCE, and the group that holds a few of them.
+   Written here rather than inline because unlike `.record-row` this one has a
+   real layout: a said-half that wraps and a control-half that does not, which is
+   what keeps a Toggle on the same line as its label on a desk and puts it
+   underneath on a phone without either half being measured in px. */
+.pref-row {
+  display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: space-between; gap: var(--edge, 12px);
+  padding: 10px 0; min-width: 0;
+}
+.pref-row + .pref-row { border-top: 1px solid color-mix(in oklab, var(--line), transparent 45%); }
+.pref-row-said { display: grid; gap: 2px; min-width: 0; flex: 1 1 16ch; }
+.pref-row-control { flex: 0 1 auto; min-width: 0; }
+/* CHANGED IS A MARK. Sized in em so it holds against the reader's text dial, and
+   in the accent because that is what the app means by "you did this". */
+.pref-row-dot {
+  display: inline-block; flex: none;
+  width: max(6px, .45em); height: max(6px, .45em);
+  border-radius: 50%; background: var(--accent-ui);
+}
+.pref-group + .pref-group { margin-top: 22px; }
+.pref-group-head {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  justify-content: space-between; gap: 8px; margin-bottom: 4px;
+}
