@@ -128,6 +128,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The schedule is on the Review screen.** Whether intervals adapt, where a line you have
+  never been asked about starts, how much seeing one lengthens its half-life, and whether
+  practice moves the schedule at all — all four were behind a button called "Schedule
+  maths…". Only the ten multipliers are behind it now. The whole section reads as rows with
+  their names on the left, like every other settings screen.
+
 - **The interface stopped talking in a code font.** Every hint, empty state and
   explanatory line in the app was set in a monospace face; they are in the interface face
   now, which is what the type system always said they should be. The material sets on the

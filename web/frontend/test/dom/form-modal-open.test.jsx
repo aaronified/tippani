@@ -42,6 +42,7 @@ const { FormModal } = await import('../../src/ui.jsx')
 const { default: Settings } = await import('../../src/Settings.jsx')
 const { default: SearchPage } = await import('../../src/SearchPage.jsx')
 const { t } = await import('../../src/i18n.js')
+const { TUNING_FIELDS } = await import('../../src/quiz.js')
 
 const noop = () => {}
 
@@ -98,13 +99,18 @@ describe('the two dialogs that were dead', () => {
       />,
     )
     await openSettingsSection('Review')
-    // Nothing from the panel is on screen until the door is opened.
-    expect(screen.queryByText(t('settings.quiz.tuning.title'))).toBeNull()
+    // NOTHING FROM INSIDE THE PANEL IS ON SCREEN UNTIL THE DOOR IS OPENED — and
+    // what is asserted is a control from inside it rather than the door's own
+    // name. The door is a row now, and a row names what is behind it: "The
+    // numbers behind it" is ON the section, which is the point of a door that
+    // says what it holds.
+    expect(screen.queryByText(t('settings.quiz.panel.title'))).toBeNull()
+    expect(screen.queryByText(t(TUNING_FIELDS[0].label))).toBeNull()
     fireEvent.click(screen.getByText(t('settings.quiz.in-depth.label')))
     // The panel's own furniture, not the button that opened it: its title, the
     // tuning group, and one question toggle.
     expect(screen.getByText(t('settings.quiz.panel.title'))).toBeTruthy()
-    expect(screen.getByText(t('settings.quiz.tuning.title'))).toBeTruthy()
+    expect(screen.getByText(t(TUNING_FIELDS[0].label))).toBeTruthy()
     // Once per deck: the panel lists the repertoire for daily AND practice, and
     // cloze is offered in both. Two is the assertion — one would mean a deck
     // went missing and three would mean the list doubled.

@@ -1347,7 +1347,8 @@ settings.languages.name.placeholder = ইওরুবা, সোয়াহি�
 
 # --- the quiz panel.
 settings.quiz.group.deck.title = রোজকার তাস
-settings.quiz.group.asking.title = কীভাবে জিজ্ঞেস করে
+settings.quiz.group.schedule.title = সময়সূচি
+settings.quiz.skipped.aside = উদ্ধৃতি ধরে ধরে
 settings.quiz.per-day.label = দৈনিক অনুশীলনীতে দিনে কটা কার্ড
 settings.quiz.in-depth.label = সময়সূচির অঙ্ক…
 settings.quiz.in-depth.tip = একটা ব্যবধান কীভাবে সরে, আর তার পিছনের দশটা সংখ্যা

@@ -1349,7 +1349,8 @@ settings.languages.name.placeholder = Yoruba, Swahili, Tamil…
 
 # --- the quiz panel.
 settings.quiz.group.deck.title = The daily deck
-settings.quiz.group.asking.title = How it asks
+settings.quiz.group.schedule.title = Schedule
+settings.quiz.skipped.aside = quote-level flags
 settings.quiz.per-day.label = Daily quiz cards / day
 settings.quiz.in-depth.label = Schedule maths…
 settings.quiz.in-depth.tip = How an interval moves, and the ten numbers behind it

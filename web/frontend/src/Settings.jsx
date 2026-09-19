@@ -818,11 +818,19 @@ export function ReviewScope({ value, onChange }) {
   const on = parseScope(value)
   const last = on.length === 1
   return (
-    <div>
-      <div className="mb-2 flex items-center gap-1.5">
-        <MonoLabel>{t('settings.review-scope.title')}</MonoLabel>
-        <InfoDot title={t('settings.review-scope.info.title')} text={t('settings.review-scope.info.body')} />
-      </div>
+    /* A ROW, WITH THE CHIPS AS ITS SECOND LINE. This drew a mono label over a
+       wrapping row of chips, which is the shape every control on this section had
+       — so Review was the one screen in Settings where nothing lined up with
+       anything. The chips go under the name rather than beside it because there
+       are three of them and they wrap; the row's control slot is for a control
+       that fits. */
+    <PrefRow
+      label={t('settings.review-scope.title')}
+      info={t('settings.review-scope.info.body')}
+      infoTitle={t('settings.review-scope.info.title')}
+      changed={on.length !== REVIEW_MEDIA.length}
+    >
+      <div style={{ flexBasis: '100%' }}>
       {/* THE CHIPS THEMSELVES ARE SHARED NOW. They were hand-rolled here from
           filterChipClass and a Tooltip, and then the question toggles and the
           Features switches became the same control — three copies of one widget,
@@ -848,7 +856,8 @@ export function ReviewScope({ value, onChange }) {
           onChange(REVIEW_MEDIA.map((m) => m[0]).filter((k) => picked.includes(k)).join(','))
         }}
       />
-    </div>
+      </div>
+    </PrefRow>
   )
 }
 
@@ -1455,6 +1464,11 @@ function FontSections({ prefs, onSaved, onGo, index }) {
 // persists via the partial-merge preferences PUT.
 function SRSettings({ user, onPreferences }) {
   const p = user.preferences || {}
+  // WHETHER THE TEN NUMBERS HAVE BEEN MOVED, which is what the door's own dot
+  // answers. The blob is empty until somebody edits one, so its presence IS the
+  // change — no table of defaults to keep in step, which is the trap `changedIn`
+  // documents for the section counts.
+  const tuningTouched = !!String(p.srTuning || '').trim()
   const [deep, setDeep] = useState(false)
   function set(patch) {
     onPreferences?.(patch)
@@ -1477,28 +1491,50 @@ function SRSettings({ user, onPreferences }) {
           THE OWNER'S RULING, NOW THE REPO'S MANTRA: "Use the space available.
           Think like the user. Whatever will be used more needs to be up front."
 
-          SO THE SPLIT IS BY WHAT IS ASKED, NOT BY HOW FIDDLY IT LOOKS. Everything
-          about the QUESTION — how much of it, what it draws from, how hard, which
-          kinds, whether it confirms — is the screen. Everything about the
-          SCHEDULE — adaptive or ladder, where a new line enters, the seen
-          multiplier and the ten numbers — is behind the door, because it is one
-          decision a reader makes once and then lives inside. */}
+          AND THE PACK DRAWS THE LINE ONE STEP FURTHER IN THAN THIS DID. Its
+          group 2 is "Schedule" and it is ON the section — adaptive, practice,
+          where a new line starts, how soon a seen one comes back — with a single
+          door at the end of it: "The numbers behind the schedule → Open the
+          numbers". This card had every schedule control inside that door on the
+          reasoning that the schedule is one decision made once; which is true of
+          the ten multipliers and not of the four switches in front of them.
+          "Start new lines at mastered" is a decision about a library you have
+          already read, and "practice moves the schedule" is one people change the
+          first time practice stops feeling free. */}
+      <PrefColumns>
+      {/* THE PACK'S TWO COLUMNS AND ITS THREE GROUPS: what the deck asks on the
+          left, how the schedule moves on the right, and what is never asked at
+          full width under both. This section was one column of stacked
+          label-over-control blocks — the only Settings section that had not been
+          given rows at all. */}
       <PrefGroup index={1} title={t('settings.quiz.group.deck.title')}>
-        <div className="space-y-5">
-          {/* 5 TO 20, widened from 2 to 10 on the owner's instruction; the v3 pack
-              draws 5 to 60. An account already holding 2, 3 or 4 keeps it — the
-              server validates what is written and rewrites nothing — but cannot get
-              back below five through this control. */}
-          <Slider label={t('settings.quiz.per-day.label')} min={5} max={20} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
-          <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
-        </div>
+        {/* 5 TO 20, widened from 2 to 10 on the owner's instruction; the v3 pack
+            draws 5 to 60. An account already holding 2, 3 or 4 keeps it — the
+            server validates what is written and rewrites nothing — but cannot get
+            back below five through this control. */}
+        <PrefRow
+          label={t('settings.quiz.per-day.label')}
+          changed={(p.srDaily || 8) !== 8}
+          control={
+            <Slider
+              label={t('settings.quiz.per-day.label')}
+              hideLabel
+              min={5}
+              max={20}
+              step={1}
+              value={p.srDaily || 8}
+              onCommit={(v) => set({ srDaily: v })}
+              width={220}
+            />
+          }
+        />
+        <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
+        <HowItAsks p={p} set={set} />
+        <QuestionKinds p={p} set={set} />
       </PrefGroup>
-      <PrefGroup index={2} title={t('settings.quiz.group.asking.title')}>
-        <div className="space-y-5">
-          <HowItAsks p={p} set={set} />
-          <QuestionKinds p={p} set={set} />
-        </div>
-      </PrefGroup>
+      <PrefGroup index={2} title={t('settings.quiz.group.schedule.title')}>
+        <ScheduleRows p={p} set={set} />
+        <PracticeCounts p={p} set={set} />
       {/* STILL A DOOR, AND IT EARNS IT NOW — but NOT a numbered group of its own.
           What is behind it is one decision, how the interval moves, plus the ten
           numbers that decision is made of; a reader who has made it does not come
@@ -1507,27 +1543,129 @@ function SRSettings({ user, onPreferences }) {
           about: the first cut gave it one, and the group's title and the panel's
           were the same words twice on one press. The label says what it holds
           rather than how deep it is — "in-depth controls" describes the door. */}
-      <Tooltip label={t('settings.quiz.in-depth.tip')}>
-        <GhostButton icon={<IconQuiz />} keepLabel onClick={() => setDeep(true)}>{t('settings.quiz.in-depth.label')}</GhostButton>
-      </Tooltip>
+      {/* A DOOR IS A ROW, like every other door in Settings now, and the pack
+          draws this one too: "The numbers behind the schedule / Multipliers and
+          the fixed ladder — ten values, all mirrored by the server → Open the
+          numbers". It was a bare button under the groups. */}
+      <PrefRow
+        label={t('settings.quiz.tuning.title')}
+        sub={t('settings.quiz.in-depth.tip')}
+        info={t('settings.quiz.tuning.info.body')}
+        changed={tuningTouched}
+        control={
+          <GhostButton icon={<IconQuiz />} keepLabel onClick={() => setDeep(true)}>
+            {t('settings.quiz.in-depth.label')}
+          </GhostButton>
+        }
+      />
+      </PrefGroup>
       {/* NEVER ASKED ABOUT, on the page rather than behind the in-depth door. It
           is not a dial — it is a list of decisions the reader has already made and
           may want back, and the only reason to look for it is not remembering
           making them. Behind a door it would be findable only by somebody who
           already knew it was there. */}
-      <div className="mt-7" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-        <div className="mb-2 flex items-center gap-1.5">
-          <MonoLabel>{t('settings.quiz.skipped.title')}</MonoLabel>
-          <InfoDot text={t('settings.quiz.skipped.info.body')} />
-        </div>
+      <PrefGroup
+        index={3}
+        title={t('settings.quiz.skipped.title')}
+        info={t('settings.quiz.skipped.info.body')}
+        aside={t('settings.quiz.skipped.aside')}
+        wide
+      >
         <NeverAsked />
-      </div>
+      </PrefGroup>
+      </PrefColumns>
       {deep && (
         <FormModal title={t('settings.quiz.panel.title')} onClose={() => setDeep(false)} maxWidth={620}>
           <SRDeepControls p={p} set={set} onClose={() => setDeep(false)} />
         </FormModal>
       )}
     </Card>
+  )
+}
+
+// ScheduleRows — how the interval moves, on the section rather than behind the
+// door.
+//
+// THE PACK PUTS THEM ON THE SCREEN (settings-restructured.dc.html: group "2 ·
+// Schedule" — adaptive, practice, where a new line starts, how soon a seen one
+// comes back) and keeps ONE thing behind a door: the ten numbers, under "The
+// numbers behind the schedule → Open the numbers". This app had drawn the line
+// further out, with every schedule control inside the panel on the reasoning that
+// the schedule is "one decision a reader makes once and then lives inside".
+//
+// THAT READING LOSES THE FOUR CONTROLS SOMEBODY ACTUALLY COMES BACK FOR. "Start
+// new lines at mastered" is a decision about a library you have already read;
+// "practice moves the schedule" is one people change when practice stops feeling
+// free. A door is for the ten multipliers behind them, which is where the pack
+// puts it and where it stays.
+function ScheduleRows({ p, set }) {
+  return (
+    <>
+      <PrefRow
+        label={t('settings.quiz.adaptive.title')}
+        info={t('settings.quiz.adaptive.info.body')}
+        changed={!!p.srLadder}
+        control={
+          /* THE STORED FLAG IS THE LADDER, not adaptive, so the zero value is the
+             default the way it is for every other switch here. `srAdaptive` was a
+             flat bool in a JSON blob with no omitempty, so every account already
+             carried `false` whether the reader chose the ladder or never opened
+             this panel — a default that cannot be flipped. The two option values
+             stay in the reader's terms: off is adaptive. */
+          <Toggle
+            ariaLabel={t('settings.quiz.adaptive.aria')}
+            value={p.srLadder ? 'ladder' : 'adaptive'}
+            onChange={(v) => set({ srLadder: v === 'ladder' })}
+            options={[['adaptive', t('settings.quiz.adaptive.on.label')], ['ladder', t('settings.quiz.adaptive.ladder.label')]]}
+          />
+        }
+      />
+      {/* WHERE A LINE ENTERS, which is not how hard it is asked. The tier row says
+          what KIND of question a line in the rotation gets; this says what rung a
+          line you have never been asked about starts on. The pack draws both and
+          this app had only the first — an audit of the two paired them as the same
+          control, which they are not.
+
+          TWO RUNGS, NOT THE PACK'S THREE. The pack offers Fresh, Known and
+          Mastered; the owner's ruling is "either at not seen or mastered (first
+          tier)", so the middle one is not offered — a reader who wants a line
+          treated as half known can answer it once. */}
+      <PrefRow
+        label={t('settings.quiz.start.title')}
+        info={t('settings.quiz.start.info.body')}
+        changed={(p.srStart || 'unseen') !== 'unseen'}
+        control={
+          <Toggle
+            ariaLabel={t('settings.quiz.start.title')}
+            value={p.srStart || 'unseen'}
+            onChange={(v) => set({ srStart: v })}
+            options={[
+              ['unseen', t('settings.quiz.start.unseen.label')],
+              ['mastered', t('settings.quiz.start.mastered.label')],
+            ]}
+          />
+        }
+      />
+      <PrefRow
+        label={t('settings.quiz.seen.title')}
+        info={t('settings.quiz.seen.info.body')}
+        changed={(p.srSeen || 1) !== 1}
+        control={
+          <Slider
+            label={t('settings.quiz.seen.label')}
+            hideLabel
+            min={1}
+            max={1.5}
+            step={0.05}
+            value={p.srSeen || 1}
+            format="common.slider.multiplier.format"
+            decimals={2}
+            onCommit={(v) => set({ srSeen: v })}
+            width={220}
+          />
+        }
+      />
+    </>
   )
 }
 
@@ -1663,19 +1801,23 @@ function QuestionKinds({ p, set }) {
     set({ srQuestions: questionsBlob(next) })
   }
   return (
-    <div className="space-y-4">
+    <>
       {REVIEW_DECKS.map(([deck, deckLabel]) => (
-        <div key={deck}>
-          <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>{t('settings.quiz.deck.title', { name: deckLabel })}</MonoLabel>
-            <InfoDot
-              text={
-                deck === 'daily'
-                  ? t('settings.quiz.deck.daily.info.body')
-                  : t('settings.quiz.deck.practice.info.body')
-              }
-            />
-          </div>
+        /* A ROW PER DECK, with its chips as the row's own second line — the shape
+           every other control on this section now has, and the shape the pack
+           draws ("What you get asked"). It was a mono label over a wrapping chip
+           row, twice, which read as two unlabelled blocks of accent. */
+        <PrefRow
+          key={deck}
+          label={t('settings.quiz.deck.title', { name: deckLabel })}
+          info={
+            deck === 'daily'
+              ? t('settings.quiz.deck.daily.info.body')
+              : t('settings.quiz.deck.practice.info.body')
+          }
+          changed={qs[deck].length !== questionsFor(deck).length}
+        >
+          <div style={{ flexBasis: '100%' }}>
           {/* ONE ROW OF CHIPS, NOT FIVE ROWS OF YES/NO (1.17.0). Nine labelled
               rows, each with its own segmented switch and its own dot, filled
               this pop-up top to bottom — and the question they answered is a set
@@ -1706,9 +1848,10 @@ function QuestionKinds({ p, set }) {
             const stuck = questionsFor(deck).map((q) => lockedOff(qs, deck, q.id)).find(Boolean)
             return stuck ? <p className="microcopy mt-1.5">{stuck}</p> : null
           })()}
-        </div>
+          </div>
+        </PrefRow>
       ))}
-    </div>
+    </>
   )
 }
 
@@ -1722,55 +1865,67 @@ function QuestionKinds({ p, set }) {
 // None of the three is schedule maths, which is what is left behind the door.
 function HowItAsks({ p, set }) {
   return (
-    <div className="space-y-5">
+    <>
       {/* A THIRD AXIS, and not the same as either of the others: srQuestions says
           WHICH questions may be asked, srTuning says how much an answer moves the
           schedule, and neither makes the same card easier or harder to get right.
           Medium is what the quiz has always done. */}
-      <div>
-        <div className="mb-2 flex items-center gap-1.5">
-          <MonoLabel>{t('settings.quiz.tier.title')}</MonoLabel>
-          <InfoDot text={t('settings.quiz.tier.info.body')} />
-        </div>
-        <Toggle
-          ariaLabel={t('settings.quiz.tier.title')}
-          value={p.srTier || 'medium'}
-          onChange={(v) => set({ srTier: v })}
-          options={REVIEW_TIERS.map((k) => [k, t(`settings.quiz.tier.${k}.label`)])}
-        />
+      <PrefRow
+        label={t('settings.quiz.tier.title')}
+        info={t('settings.quiz.tier.info.body')}
+        changed={(p.srTier || 'medium') !== 'medium'}
+        control={
+          <Toggle
+            ariaLabel={t('settings.quiz.tier.title')}
+            value={p.srTier || 'medium'}
+            onChange={(v) => set({ srTier: v })}
+            options={REVIEW_TIERS.map((k) => [k, t(`settings.quiz.tier.${k}.label`)])}
+          />
+        }
+      >
         {/* THE COST OF THE FLOOR, SAID OUT LOUD. Close wrong answers teach more
             than obvious ones (Little et al., 2012); Easy gives that up on purpose,
             and a tier that only advertised its benefit would be selling the reader
             something. */}
         {(p.srTier || 'medium') === 'easy' && (
-          <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>{t('settings.quiz.tier.easy.note')}</p>
+          <p className="microcopy" style={{ flexBasis: '100%', lineHeight: 1.6 }}>{t('settings.quiz.tier.easy.note')}</p>
         )}
-      </div>
-      <div>
-        <div className="mb-2 flex items-center gap-1.5">
-          <MonoLabel>{t('settings.quiz.submit.title')}</MonoLabel>
-          <InfoDot text={t('settings.quiz.submit.info.body')} />
-        </div>
-        <Toggle
-          ariaLabel={t('settings.quiz.submit.aria')}
-          value={p.srSubmit ? 'on' : 'off'}
-          onChange={(v) => set({ srSubmit: v === 'on' })}
-          options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
-        />
-      </div>
-      <div>
-        <div className="mb-2 flex items-center gap-1.5">
-          <MonoLabel>{t('settings.quiz.practice-counts.title')}</MonoLabel>
-          <InfoDot text={t('settings.quiz.practice-counts.info.body')} />
-        </div>
+      </PrefRow>
+      <PrefRow
+        label={t('settings.quiz.submit.title')}
+        info={t('settings.quiz.submit.info.body')}
+        changed={!!p.srSubmit}
+        control={
+          <Toggle
+            ariaLabel={t('settings.quiz.submit.aria')}
+            value={p.srSubmit ? 'on' : 'off'}
+            onChange={(v) => set({ srSubmit: v === 'on' })}
+            options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
+          />
+        }
+      />
+    </>
+  )
+}
+
+// PracticeMovesTheSchedule — the one row of "how it asks" that is about the
+// SCHEDULE, so it is in the schedule's group and not with the questions. It is
+// the switch people reach for the first time practice stops feeling free.
+function PracticeCounts({ p, set }) {
+  return (
+    <PrefRow
+      label={t('settings.quiz.practice-counts.title')}
+      info={t('settings.quiz.practice-counts.info.body')}
+      changed={!!p.srPracticeCounts}
+      control={
         <Toggle
           ariaLabel={t('settings.quiz.practice-counts.aria')}
           value={p.srPracticeCounts ? 'on' : 'off'}
           onChange={(v) => set({ srPracticeCounts: v === 'on' })}
           options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
         />
-      </div>
-    </div>
+      }
+    />
   )
 }
 
@@ -1809,58 +1964,6 @@ function SRDeepControls({ p, set, onClose }) {
   }
   return (
     <div className="space-y-6">
-      <div className="space-y-5">
-        <div>
-          <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>{t('settings.quiz.adaptive.title')}</MonoLabel>
-            <InfoDot text={t('settings.quiz.adaptive.info.body')} />
-          </div>
-          {/* THE STORED FLAG IS THE LADDER, not adaptive, so the zero value is
-              the default the way it is for every other switch here. `srAdaptive`
-              was a flat bool in a JSON blob with no omitempty, so every account
-              already carried `false` whether the reader chose the ladder or never
-              opened this panel — a default that cannot be flipped. The two option
-              values stay 'off'/'on' in the reader's terms: off is adaptive. */}
-          <Toggle
-            ariaLabel={t('settings.quiz.adaptive.aria')}
-            value={p.srLadder ? 'ladder' : 'adaptive'}
-            onChange={(v) => set({ srLadder: v === 'ladder' })}
-            options={[['adaptive', t('settings.quiz.adaptive.on.label')], ['ladder', t('settings.quiz.adaptive.ladder.label')]]}
-          />
-        </div>
-        {/* WHERE A LINE ENTERS, which is not how hard it is asked. The tier above
-            says what KIND of question a line in the rotation gets; this says what
-            rung a line you have never been asked about starts on. The v3 pack
-            draws both and this app had only the first — and an audit of the two
-            paired them as the same control, which they are not.
-
-            TWO RUNGS, NOT THE PACK'S THREE. The pack offers Fresh, Known and
-            Mastered; the owner's ruling is "either at not seen or mastered (first
-            tier)", so the middle one is not offered — a reader who wants a line
-            treated as half known can answer it once. */}
-        <div>
-          <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>{t('settings.quiz.start.title')}</MonoLabel>
-            <InfoDot text={t('settings.quiz.start.info.body')} />
-          </div>
-          <Toggle
-            ariaLabel={t('settings.quiz.start.title')}
-            value={p.srStart || 'unseen'}
-            onChange={(v) => set({ srStart: v })}
-            options={[
-              ['unseen', t('settings.quiz.start.unseen.label')],
-              ['mastered', t('settings.quiz.start.mastered.label')],
-            ]}
-          />
-        </div>
-        <div>
-          <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>{t('settings.quiz.seen.title')}</MonoLabel>
-            <InfoDot text={t('settings.quiz.seen.info.body')} />
-          </div>
-          <Slider label={t('settings.quiz.seen.label')} hideLabel min={1} max={1.5} step={0.05} value={p.srSeen || 1} format="common.slider.multiplier.format" decimals={2} onCommit={(v) => set({ srSeen: v })} />
-        </div>
-      </div>
       {/* The numbers behind the schedule. Sliders rather than boxes because every
           one of them is bounded, and a bounded value typed into a box is a value
           that can be refused after the fact. */}

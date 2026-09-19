@@ -17093,3 +17093,31 @@ heading that already named it, with its controls loose underneath rather than in
 
 *Unreleased — `web/frontend/src/Settings.jsx`, `web/frontend/src/index.css`,
 `internal/i18n/en.txt`, `internal/i18n/bn.txt`.*
+
+
+## Review: the schedule comes out from behind the door, and the section gets rows
+
+**THE SECTION HAD NEVER BEEN GIVEN ROWS.** Every control on Review was a mono label over
+its own block — the slider, the scope chips, the tier, the confirm switch, both question
+repertoires — so it was the one screen in Settings where nothing lined up with anything,
+and the two chip rows read as unlabelled blocks of accent. They are `PrefRow`s now, in the
+pack's two columns: what the deck asks on the left, how the schedule moves on the right,
+what is never asked at full width under both.
+
+**AND THE DOOR WAS DRAWN ONE STEP FURTHER IN THAN THE PACK DRAWS IT.** The previous pass
+split the section by "the QUESTION is the screen, the SCHEDULE is behind the door", and
+recorded that ruling here. The pack disagrees, and the pack is right: its group 2 is
+"Schedule" and it is ON the section — adaptive, practice, where a new line starts, how soon
+a seen one comes back — with one door at the end of it, "The numbers behind the schedule →
+Open the numbers". The earlier reading is true of the ten multipliers and false of the four
+switches in front of them: *"start new lines at mastered"* is a decision about a library
+you have already read, and *"practice moves the schedule"* is one people change the first
+time practice stops feeling free.
+
+**THE DOOR IS A ROW, AND IT NAMES WHAT IS BEHIND IT.** It was a bare button under the
+groups. A row says what it holds and the button says what pressing it does, which is the
+pair every door in Settings now wears — and it carries its own changed dot, read from
+whether the tuning blob exists at all rather than from a second table of defaults.
+
+*Unreleased — `web/frontend/src/Settings.jsx`, `internal/i18n/en.txt`,
+`internal/i18n/bn.txt`.*
