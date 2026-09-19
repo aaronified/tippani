@@ -61,7 +61,12 @@ describe('the number on a section', () => {
     // The pack draws both at the right-hand end of the same row as the tabs,
     // sharing its bottom border. What this can check without knowing a class is
     // that they are in the row the tablist is in.
-    const row = screen.getByRole('tablist').parentElement
+    // THE SECTION RAIL'S tablist, not any other. Review's own screen draws
+    // toggles now — "how hard", "confirm each answer" — and Toggle is a tablist
+    // too, so `getByRole('tablist')` stopped being unambiguous the moment those
+    // came out from behind the in-depth door. The rail's is the first on the page
+    // and the only one whose label names the sections.
+    const row = screen.getByRole('tablist', { name: /which settings to change/i }).parentElement
     expect(within(row).getByRole('button', { name: /reset section/i })).toBeTruthy()
   })
 })

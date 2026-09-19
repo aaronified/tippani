@@ -1338,23 +1338,50 @@ function SRSettings({ user, onPreferences }) {
           are about how an interval moves, are on the rows they are about
           (Adaptive intervals, How the schedule moves) and in the section's own
           dot; a third copy over the whole card is the thing being consolidated. */}
-      {/* TWO CONTROLS ON THE CARD, the rest behind the door.
+      {/* THE SCREEN HOLDS WHAT A READER COMES HERE TO CHANGE, and the door keeps
+          the schedule's arithmetic. It used to hold two controls and a door.
+          "Two on the card, the rest behind the door" was the right answer to a
+          question that has since changed: Settings was one column of nine cards,
+          where every extra row was a scroll past on the way to the fonts. Review
+          is its own screen now, and the capture of it is three controls above
+          five hundred pixels of empty ground with ten more hidden.
 
-          The deck size and what it covers are the two a reader changes and then
-          stops thinking about. Everything else — which questions get asked, how
-          the ladder behaves, whether Practice counts — is worth having and is
-          not worth scrolling past every time you come here to change a font. */}
-      <div className="space-y-5">
-        {/* 5 TO 20, widened from 2 to 10 on the owner's instruction; the v3 pack
-            draws 5 to 60. An account already holding 2, 3 or 4 keeps it — the
-            server validates what is written and rewrites nothing — but cannot get
-            back below five through this control. */}
-        <Slider label={t('settings.quiz.per-day.label')} min={5} max={20} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
-        <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
-        <Tooltip label={t('settings.quiz.in-depth.tip')}>
-          <GhostButton icon={<IconQuiz />} keepLabel onClick={() => setDeep(true)}>{t('settings.quiz.in-depth.label')}</GhostButton>
-        </Tooltip>
-      </div>
+          THE OWNER'S RULING, NOW THE REPO'S MANTRA: "Use the space available.
+          Think like the user. Whatever will be used more needs to be up front."
+
+          SO THE SPLIT IS BY WHAT IS ASKED, NOT BY HOW FIDDLY IT LOOKS. Everything
+          about the QUESTION — how much of it, what it draws from, how hard, which
+          kinds, whether it confirms — is the screen. Everything about the
+          SCHEDULE — adaptive or ladder, where a new line enters, the seen
+          multiplier and the ten numbers — is behind the door, because it is one
+          decision a reader makes once and then lives inside. */}
+      <PrefGroup index={1} title={t('settings.quiz.group.deck.title')}>
+        <div className="space-y-5">
+          {/* 5 TO 20, widened from 2 to 10 on the owner's instruction; the v3 pack
+              draws 5 to 60. An account already holding 2, 3 or 4 keeps it — the
+              server validates what is written and rewrites nothing — but cannot get
+              back below five through this control. */}
+          <Slider label={t('settings.quiz.per-day.label')} min={5} max={20} step={1} value={p.srDaily || 8} onCommit={(v) => set({ srDaily: v })} />
+          <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
+        </div>
+      </PrefGroup>
+      <PrefGroup index={2} title={t('settings.quiz.group.asking.title')}>
+        <div className="space-y-5">
+          <HowItAsks p={p} set={set} />
+          <QuestionKinds p={p} set={set} />
+        </div>
+      </PrefGroup>
+      {/* STILL A DOOR, AND IT EARNS IT NOW — but NOT a numbered group of its own.
+          What is behind it is one decision, how the interval moves, plus the ten
+          numbers that decision is made of; a reader who has made it does not come
+          back. A group heading over a single button would have been a heading
+          saying what the button says, which is the repetition this whole pass is
+          about: the first cut gave it one, and the group's title and the panel's
+          were the same words twice on one press. The label says what it holds
+          rather than how deep it is — "in-depth controls" describes the door. */}
+      <Tooltip label={t('settings.quiz.in-depth.tip')}>
+        <GhostButton icon={<IconQuiz />} keepLabel onClick={() => setDeep(true)}>{t('settings.quiz.in-depth.label')}</GhostButton>
+      </Tooltip>
       {/* NEVER ASKED ABOUT, on the page rather than behind the in-depth door. It
           is not a dial — it is a list of decisions the reader has already made and
           may want back, and the only reason to look for it is not remembering
@@ -1480,41 +1507,35 @@ function NeverAsked() {
   )
 }
 
-function SRDeepControls({ p, set, onClose }) {
+// QuestionKinds — WHICH QUESTIONS EACH DECK MAY ASK, and it is on the Review
+// screen rather than behind a door.
+//
+// THE OWNER'S RULING, MADE THE REPO'S MANTRA: "Use the space available. Think like
+// the user. Whatever will be used more needs to be up front." This was the first
+// block inside "In-depth controls", and that door exists because Settings used to
+// be one column of nine cards where every extra row was a scroll past. Review is
+// its own screen now with most of a phone's height standing empty under three
+// controls — so the door was hiding things behind a constraint that no longer
+// exists.
+//
+// AND IT IS THE BLOCK WITH THE BEST CLAIM TO THE SPACE. Its own commit says why:
+// until 1.16.0 the deck's question types were a constant, so "somebody who cannot
+// bear multiple choice, or who wants the daily deck to be nothing but fill-in-the-
+// blank, had no way to say so." That is a want people actually have, and it was two
+// presses and a scroll away.
+//
+// ITS OWN COPY OF THE QUESTION SET, derived from the preferences it is handed —
+// which is what makes it drawable in two places without the two disagreeing. The
+// in-depth panel's "back to defaults" clears `srQuestions`, the optimistic apply
+// puts the cleared value on `p`, and this re-derives.
+function QuestionKinds({ p, set }) {
   const [qs, setQs] = useState(() => parseQuestions(p.srQuestions))
-  const [tune, setTune] = useState(() => parseTuning(p.srTuning))
   const commit = (next) => {
     setQs(next)
     set({ srQuestions: questionsBlob(next) })
   }
-  // THE LADDER HAS TO CLIMB, and the server reverts one that does not — silently,
-  // which would be three sliders that move and then do nothing. So the panel
-  // refuses and says why, the same way a question toggle does, and the PUT is
-  // simply not sent until it is legal again.
-  const tuneErr = tuningProblem(tune)
-  const commitTune = (key, v) => {
-    const next = { ...tune, [key]: v }
-    setTune(next)
-    if (!tuningProblem(next)) set({ srTuning: tuningBlob(next) })
-  }
-  const reset = () => {
-    setQs(parseQuestions(''))
-    setTune(parseTuning(''))
-    // Every review preference, not only the questions: a reader who presses
-    // "Back to defaults" inside the in-depth panel means the panel, and leaving
-    // three switches behind would make it the least trustworthy button here.
-    set({
-      srQuestions: '',
-      srTuning: '',
-      srPracticeCounts: false,
-      srSubmit: false,
-      srLadder: false,
-      srTier: 'medium',
-      srSeen: 1,
-    })
-  }
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {REVIEW_DECKS.map(([deck, deckLabel]) => (
         <div key={deck}>
           <div className="mb-2 flex items-center gap-1.5">
@@ -1559,31 +1580,108 @@ function SRDeepControls({ p, set, onClose }) {
           })()}
         </div>
       ))}
+    </div>
+  )
+}
+
+// HowItAsks — the three dials about the QUESTION, on the screen rather than behind
+// the door. See QuestionKinds for the ruling; these are the same argument.
+//
+// "How hard the questions are" is the control a reader reaches for the moment the
+// deck feels wrong in either direction, and it was three presses away. "Confirm
+// each answer" is how the quiz FEELS under the thumb, set once on the first day.
+// "Practice counts" is the one question somebody asks before they practise at all.
+// None of the three is schedule maths, which is what is left behind the door.
+function HowItAsks({ p, set }) {
+  return (
+    <div className="space-y-5">
+      {/* A THIRD AXIS, and not the same as either of the others: srQuestions says
+          WHICH questions may be asked, srTuning says how much an answer moves the
+          schedule, and neither makes the same card easier or harder to get right.
+          Medium is what the quiz has always done. */}
+      <div>
+        <div className="mb-2 flex items-center gap-1.5">
+          <MonoLabel>{t('settings.quiz.tier.title')}</MonoLabel>
+          <InfoDot text={t('settings.quiz.tier.info.body')} />
+        </div>
+        <Toggle
+          ariaLabel={t('settings.quiz.tier.title')}
+          value={p.srTier || 'medium'}
+          onChange={(v) => set({ srTier: v })}
+          options={REVIEW_TIERS.map((k) => [k, t(`settings.quiz.tier.${k}.label`)])}
+        />
+        {/* THE COST OF THE FLOOR, SAID OUT LOUD. Close wrong answers teach more
+            than obvious ones (Little et al., 2012); Easy gives that up on purpose,
+            and a tier that only advertised its benefit would be selling the reader
+            something. */}
+        {(p.srTier || 'medium') === 'easy' && (
+          <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>{t('settings.quiz.tier.easy.note')}</p>
+        )}
+      </div>
+      <div>
+        <div className="mb-2 flex items-center gap-1.5">
+          <MonoLabel>{t('settings.quiz.submit.title')}</MonoLabel>
+          <InfoDot text={t('settings.quiz.submit.info.body')} />
+        </div>
+        <Toggle
+          ariaLabel={t('settings.quiz.submit.aria')}
+          value={p.srSubmit ? 'on' : 'off'}
+          onChange={(v) => set({ srSubmit: v === 'on' })}
+          options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
+        />
+      </div>
+      <div>
+        <div className="mb-2 flex items-center gap-1.5">
+          <MonoLabel>{t('settings.quiz.practice-counts.title')}</MonoLabel>
+          <InfoDot text={t('settings.quiz.practice-counts.info.body')} />
+        </div>
+        <Toggle
+          ariaLabel={t('settings.quiz.practice-counts.aria')}
+          value={p.srPracticeCounts ? 'on' : 'off'}
+          onChange={(v) => set({ srPracticeCounts: v === 'on' })}
+          options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
+        />
+      </div>
+    </div>
+  )
+}
+
+function SRDeepControls({ p, set, onClose }) {
+  const [qs, setQs] = useState(() => parseQuestions(p.srQuestions))
+  const [tune, setTune] = useState(() => parseTuning(p.srTuning))
+  const commit = (next) => {
+    setQs(next)
+    set({ srQuestions: questionsBlob(next) })
+  }
+  // THE LADDER HAS TO CLIMB, and the server reverts one that does not — silently,
+  // which would be three sliders that move and then do nothing. So the panel
+  // refuses and says why, the same way a question toggle does, and the PUT is
+  // simply not sent until it is legal again.
+  const tuneErr = tuningProblem(tune)
+  const commitTune = (key, v) => {
+    const next = { ...tune, [key]: v }
+    setTune(next)
+    if (!tuningProblem(next)) set({ srTuning: tuningBlob(next) })
+  }
+  const reset = () => {
+    setQs(parseQuestions(''))
+    setTune(parseTuning(''))
+    // Every review preference, not only the questions: a reader who presses
+    // "Back to defaults" inside the in-depth panel means the panel, and leaving
+    // three switches behind would make it the least trustworthy button here.
+    set({
+      srQuestions: '',
+      srTuning: '',
+      srPracticeCounts: false,
+      srSubmit: false,
+      srLadder: false,
+      srTier: 'medium',
+      srSeen: 1,
+    })
+  }
+  return (
+    <div className="space-y-6">
       <div className="space-y-5">
-        <div>
-          <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>{t('settings.quiz.practice-counts.title')}</MonoLabel>
-            <InfoDot text={t('settings.quiz.practice-counts.info.body')} />
-          </div>
-          <Toggle
-            ariaLabel={t('settings.quiz.practice-counts.aria')}
-            value={p.srPracticeCounts ? 'on' : 'off'}
-            onChange={(v) => set({ srPracticeCounts: v === 'on' })}
-            options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
-          />
-        </div>
-        <div>
-          <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>{t('settings.quiz.submit.title')}</MonoLabel>
-            <InfoDot text={t('settings.quiz.submit.info.body')} />
-          </div>
-          <Toggle
-            ariaLabel={t('settings.quiz.submit.aria')}
-            value={p.srSubmit ? 'on' : 'off'}
-            onChange={(v) => set({ srSubmit: v === 'on' })}
-            options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
-          />
-        </div>
         <div>
           <div className="mb-2 flex items-center gap-1.5">
             <MonoLabel>{t('settings.quiz.adaptive.title')}</MonoLabel>
@@ -1601,30 +1699,6 @@ function SRDeepControls({ p, set, onClose }) {
             onChange={(v) => set({ srLadder: v === 'ladder' })}
             options={[['adaptive', t('settings.quiz.adaptive.on.label')], ['ladder', t('settings.quiz.adaptive.ladder.label')]]}
           />
-        </div>
-        {/* HOW HARD THE QUESTIONS ARE — a third axis, and not the same as either
-            of the two beside it: srQuestions says WHICH questions may be asked,
-            srTuning says how much an answer moves the schedule, and neither makes
-            the same card easier or harder to get right. Medium is what the quiz
-            has always done, so an account that never opens this sees no change. */}
-        <div>
-          <div className="mb-2 flex items-center gap-1.5">
-            <MonoLabel>{t('settings.quiz.tier.title')}</MonoLabel>
-            <InfoDot text={t('settings.quiz.tier.info.body')} />
-          </div>
-          <Toggle
-            ariaLabel={t('settings.quiz.tier.title')}
-            value={p.srTier || 'medium'}
-            onChange={(v) => set({ srTier: v })}
-            options={REVIEW_TIERS.map((k) => [k, t(`settings.quiz.tier.${k}.label`)])}
-          />
-          {/* THE COST OF THE FLOOR, SAID OUT LOUD. Close wrong answers teach more
-              than obvious ones (Little et al., 2012); Easy gives that up on
-              purpose, and a tier that only advertised its benefit would be
-              selling the reader something. */}
-          {(p.srTier || 'medium') === 'easy' && (
-            <p className="microcopy mt-2" style={{ lineHeight: 1.6 }}>{t('settings.quiz.tier.easy.note')}</p>
-          )}
         </div>
         {/* WHERE A LINE ENTERS, which is not how hard it is asked. The tier above
             says what KIND of question a line in the rotation gets; this says what

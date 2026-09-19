@@ -1327,10 +1327,12 @@ settings.languages.name.label = Language name
 settings.languages.name.placeholder = Yoruba, Swahili, Tamil…
 
 # --- the quiz panel.
+settings.quiz.group.deck.title = The daily deck
+settings.quiz.group.asking.title = How it asks
 settings.quiz.per-day.label = Daily quiz cards / day
-settings.quiz.in-depth.label = In-depth controls
-settings.quiz.in-depth.tip = Every question, both decks
-settings.quiz.panel.title = In-depth quiz controls
+settings.quiz.in-depth.label = Schedule maths…
+settings.quiz.in-depth.tip = How an interval moves, and the ten numbers behind it
+settings.quiz.panel.title = How the schedule moves
 # {name} is the deck — Daily quiz, or Practice.
 settings.quiz.deck.title = {name} asks
 settings.quiz.deck.daily.info.body = The daily deck is marked by the server from end to end, so it never offers a self-marked card. That is why the flip card is missing from this list rather than switched off in it.
@@ -1375,7 +1377,7 @@ settings.quiz.tier.easy.note = Close wrong answers teach more than obvious ones 
 settings.quiz.seen.title = Seeing lengthens half-life by
 settings.quiz.seen.label = Seeing lengthens half-life by
 settings.quiz.seen.info.body = “Seeing” a quote — practising it, sharing it, favouriting it, or meeting it among the choices on a card you answered — nudges its half-life up a little, separate from Daily Quiz recall. Leave at 1.0× to turn this off.
-settings.quiz.tuning.title = How the schedule moves
+settings.quiz.tuning.title = The numbers behind it
 settings.quiz.tuning.info.body = These multiply a quote's half-life on every answer, and are bounded rather than free: a multiplier below 1 would shorten a card every time you got it right, which never looks broken — it just asks the same quote for ever.
 settings.quiz.reset.label = Back to defaults
 settings.quiz.reset.tip = Undo every change on this panel

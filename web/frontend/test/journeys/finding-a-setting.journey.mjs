@@ -46,7 +46,12 @@ it('a reader opens Settings and reaches a control on another section', async () 
 
   // A second hop, to prove the rail is a rail rather than one door.
   await app.press('Review')
-  await app.see('In-depth controls')
+  // "How hard the questions are" rather than the door that used to be here. The
+  // door was called "In-depth controls" and held everything this section could be
+  // told — because Settings was one long scroll and every extra row was something
+  // to scroll past. Review is its own screen now, so what a reader comes here to
+  // change is ON it; the door keeps the schedule's arithmetic and nothing else.
+  await app.see('How hard the questions are')
   await app.gone('Back up now')
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])

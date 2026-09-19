@@ -1331,10 +1331,12 @@ settings.languages.name.label = ভাষার নাম
 settings.languages.name.placeholder = ইওরুবা, সোয়াহিলি, তামিল…
 
 # --- the quiz panel.
+settings.quiz.group.deck.title = রোজকার তাস
+settings.quiz.group.asking.title = কীভাবে জিজ্ঞেস করে
 settings.quiz.per-day.label = দৈনিক অনুশীলনীতে দিনে কটা কার্ড
-settings.quiz.in-depth.label = খুঁটিনাটি সেটিংস
-settings.quiz.in-depth.tip = দুই ডেকের প্রতিটা প্রশ্ন-ধরন
-settings.quiz.panel.title = অনুশীলনীর খুঁটিনাটি
+settings.quiz.in-depth.label = সময়সূচির অঙ্ক…
+settings.quiz.in-depth.tip = একটা ব্যবধান কীভাবে সরে, আর তার পিছনের দশটা সংখ্যা
+settings.quiz.panel.title = সময়সূচি কীভাবে সরে
 # {name} is the deck — Daily quiz, or Practice.
 settings.quiz.deck.title = {name} যা জিজ্ঞেস করে
 settings.quiz.deck.daily.info.body = দৈনিক ডেকের খাতা গোড়া থেকে শেষ পর্যন্ত সার্ভার দেখে, তাই নিজে-নম্বর-দেওয়ার কার্ড এখানে আসে না। সেই কারণেই উল্টে দেখার কার্ডটা এই তালিকায় বন্ধ করা নেই — একেবারেই নেই।
@@ -1375,7 +1377,7 @@ settings.quiz.tier.easy.note = কাছাকাছি ভুল উত্ত�
 settings.quiz.seen.title = চোখে পড়লে অর্ধায়ু বাড়ে
 settings.quiz.seen.label = চোখে পড়লে অর্ধায়ু বাড়ে
 settings.quiz.seen.info.body = উদ্ধৃতি “চোখে পড়া” বলতে — ঝালাই করা, শেয়ার করা, প্রিয়তে রাখা, বা উত্তর দেওয়া কোনও কার্ডের বিকল্পগুলোর মধ্যে সেটাকে পাওয়া — তাতে অর্ধায়ু একটু বাড়ে, দৈনিক অনুশীলনীর হিসেবের বাইরে। 1.0×-এ রাখলে এটা বন্ধ থাকে।
-settings.quiz.tuning.title = দিনপঞ্জি কীভাবে এগোয়
+settings.quiz.tuning.title = এর পিছনের সংখ্যাগুলো
 settings.quiz.tuning.info.body = প্রতিটা উত্তরে এগুলো উদ্ধৃতির অর্ধায়ুকে গুণ করে, আর এদের সীমা বাঁধা: 1-এর কম গুণক থাকলে ঠিক উত্তরেও ফাঁক ছোট হয়ে যেত — দেখে গোলমাল বোঝা যেত না, শুধু একই উদ্ধৃতি চিরকাল ঘুরেফিরে আসত।
 settings.quiz.reset.label = আগের মতো করুন
 settings.quiz.reset.tip = এই প্যানেলের সব বদল ফিরিয়ে দিন

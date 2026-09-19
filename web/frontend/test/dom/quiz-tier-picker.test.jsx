@@ -50,12 +50,12 @@ const mount = async (preferences = {}) => {
   )
   await act(async () => {})
   await openSettingsSection('Review')
-  // THE PICKER LIVES BEHIND "In-depth controls", which is collapsed on arrival —
-  // the same fold the question repertoire and the tuning sliders sit in. Opened
-  // here rather than in each case, because every one of them is about the
-  // control and none of them is about the fold.
-  const fold = screen.getByText(/in-depth controls/i)
-  await act(async () => { fireEvent.click(fold.closest('button') || fold) })
+  // THE PICKER IS ON THE SCREEN NOW, and opening a fold to reach it is what this
+  // helper used to do. "How hard the questions are" was the first block inside
+  // "In-depth controls", a door that existed because Settings was one long scroll
+  // — and it is the control a reader reaches for the moment the deck feels wrong
+  // in either direction. The owner's mantra: "Whatever will be used more needs to
+  // be up front." What is left behind the door is the schedule's arithmetic.
 }
 
 // The four options the toggle draws, found by the label each one shows rather

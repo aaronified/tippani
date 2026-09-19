@@ -115,6 +115,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The Review settings are on the Review screen.** Which kinds of question each deck asks,
+  how hard they are, and whether each answer is confirmed were behind a pop-up called
+  "In-depth controls" — put there when Settings was one long scroll. Review is its own screen
+  now, so they are simply on it, in two groups: the daily deck, and how it asks. The one
+  thing still behind a door is how the schedule itself moves, which is a decision you make
+  once.
+
 - **A settings or metadata section is an address now.** `/settings/review` opens Review, so
   you can link to it or bookmark it — and your phone's Back key leaves a section the way it
   leaves anything else, which is why the second back arrow the page used to draw is gone.
