@@ -115,6 +115,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Filter your works by "no people", "no synopsis" or "complete".** The works console
+  shows the library through what is missing from it, and three of the things a work can be
+  missing had no filter. "Complete" is the one worth having last: after a pass over the
+  covers or the years, it is how you see what you finished. Films can now say whether they
+  have a synopsis at all, which only books could before — and a film's row now names every
+  gap the filter can select it for, so a film picked out for having no year no longer reads
+  "Complete".
+
+- **"Fetch empty fields" over a selection.** Beside "Re-verify", which checks what is
+  already filled, this one goes and gets only what is blank — the same review before
+  anything is written, with nothing offered that would overwrite what you have. Filter to
+  the issue, press "select all shown", and it acts on exactly those.
+
+- **A character's row says how many of its faces you have chosen.** A character wears a
+  different picture in each work it appears in, and the list could not tell you which ones
+  were still blank — it showed the spelling it sorts under instead. Now each row reads
+  "3 works · 1 of 3 with a face chosen", with a red count of the appearances still without
+  one, so the ones worth opening stand out. Merging and deleting a character are on the row
+  as well; the backfill makes a separate record per work, so folding eight of them together
+  used to mean opening all eight.
+
 - **The people and character consoles are lists, not tables.** They were five- and
   four-column tables, and a phone dropped two of the columns to fit — so the roles and the
   reference links simply were not there on the screen most people use. Every console on

@@ -107,6 +107,11 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		HasDirector   bool `json:"has_director"`
 		HasYear       bool `json:"has_year"`
 		HasGenre      bool `json:"has_genre"`
+		// THE SYNOPSIS, WHICH THE BOOK ROW HAS CARRIED ALL ALONG. The works console
+		// filters on what a work is missing, and "no synopsis" is one of the pack's
+		// seven — it could not be offered over the whole library while half of it
+		// could not answer the question.
+		HasDescription bool `json:"has_description"`
 		DialogueCount int  `json:"dialogue_count"`
 	}
 	movies := []movieItem{}
@@ -124,6 +129,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		       (m.director IS NOT NULL AND m.director <> ''),
 		       (m.release_year IS NOT NULL AND m.release_year <> 0),
 		       EXISTS(SELECT 1 FROM movie_genres mg WHERE mg.movie_id = m.id),
+		       (m.description IS NOT NULL AND m.description <> ''),
 		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id)
 		FROM movies m WHERE m.user_id = ?
 		ORDER BY m.created_at DESC, m.id DESC`, uid)
@@ -138,7 +144,7 @@ func (s *Server) handleMetadataLibrary(w http.ResponseWriter, r *http.Request) {
 		if err := mrows.Scan(&it.ID, &it.Title, &it.MediaType, &it.ReleaseYear,
 			&it.TMDBID, &it.TVDBID,
 			&poster, &it.HasCast, &it.HasSource, &it.HasDirector, &it.HasYear, &it.HasGenre,
-			&it.DialogueCount); err != nil {
+			&it.HasDescription, &it.DialogueCount); err != nil {
 			olog.Warnf(olog.CodeMetaRowScan, "[meta] library movie row scan failed: %v", err)
 			continue
 		}

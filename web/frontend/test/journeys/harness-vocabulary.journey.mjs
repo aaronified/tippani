@@ -102,3 +102,28 @@ it('reports a control that says nothing about itself as null, not as off', async
   await app.press('Language and font')
   expect(await app.chosen('Type')).toBe(null)
 })
+
+// `choose` REFUSES AN OPTION THAT IS NOT OFFERED, rather than leaving the list on
+// whatever it was showing. A silent no-op here is the worst failure this verb can
+// have: the journey goes on asserting against the unfiltered screen, and passes.
+//
+// AND IT NAMES WHAT IS THERE, for the reason `press` does — "no such option"
+// without the list sends somebody to read the markup.
+it('refuses an option a list does not offer, and says what it does offer', async () => {
+  await app.goto('/')
+  await app.press('Metadata')
+  await app.press('Works')
+
+  await expect(app.choose('Which gap', 'no publisher', shortWait))
+    .rejects.toThrow(/offers no option named "no publisher"/)
+  await expect(app.choose('Which gap', 'no publisher', shortWait))
+    .rejects.toThrow(/What it offers: /)
+
+  // AND IT IS A LIST OF OPTIONS OR IT IS NOTHING. A text box is fillable too, and
+  // choosing from one is a request the harness cannot honour — so it says which
+  // kind of control it found rather than quietly doing nothing to it.
+  await expect(app.choose('search…', 'anything', shortWait))
+    .rejects.toThrow(/is not a list of options/)
+
+  nothingThrew()
+})

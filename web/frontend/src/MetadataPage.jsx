@@ -511,6 +511,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
       {reverify && (
         <ReverifyFlow
           selection={reverify}
+          fillsOnly={!!reverify.fills_only}
           onClose={() => setReverify(null)}
           onFlash={setFlash}
           onDone={load}
@@ -574,6 +575,17 @@ const GAP_KEYS = {
   no_cast: 'metadata.gap.no-cast.label',
   no_director: 'metadata.gap.no-director.label',
   no_actor: 'metadata.gap.no-actor.label',
+  // THE PACK'S TWO REMAINING ISSUES, and both cross the shelves rather than
+  // belonging to one. "No people" is a book with no author and a film with no
+  // cast — one question, two columns — and a filter that could only be offered
+  // per type would be the thing the works console exists NOT to be: a view of
+  // the library through its shelves rather than through what is missing.
+  no_people: 'metadata.gap.no-people.label',
+  no_synopsis: 'metadata.gap.no-synopsis.label',
+  // NOT A GAP AT ALL, and it sits here because the filter list is a list of gap
+  // tokens and this is the one entry that is the absence of them. A reader who
+  // has just worked a filter down to nothing wants to see what they finished.
+  ok: 'metadata.gap.ok.label',
 }
 const gapLabel = (token) => t(GAP_KEYS[token])
 
@@ -796,9 +808,12 @@ const typeOptions = () => CATALOGUE_TYPES.map(([v, key]) => [v, t(key)])
 
 // The filter dropdowns are lists of GAP TOKENS, named by GAP_KEYS above and
 // paired with their words at render.
-const BOOK_FILTERS = ['flagged', ...BOOK_GAPS, 'all']
-const MOVIE_FILTERS = ['flagged', ...MOVIE_GAPS, 'all']
-const ALL_FILTERS = ['flagged', 'low_res', 'no_year', 'no_genre', 'no_source', 'all']
+// `no_people` and `no_synopsis` are on all three lists, and `ok` closes each of
+// them: the pack's own order runs from the broadest issue to the narrowest and
+// ends on Complete (`metadata.dc.html:851`).
+const BOOK_FILTERS = ['flagged', ...BOOK_GAPS, 'no_people', 'no_synopsis', 'ok', 'all']
+const MOVIE_FILTERS = ['flagged', ...MOVIE_GAPS, 'no_people', 'no_synopsis', 'ok', 'all']
+const ALL_FILTERS = ['flagged', 'low_res', 'no_year', 'no_genre', 'no_source', 'no_people', 'no_synopsis', 'ok', 'all']
 function filtersForType(type) {
   if (type === 'book') return BOOK_FILTERS
   if (type === 'movie' || type === 'show') return MOVIE_FILTERS
@@ -806,12 +821,24 @@ function filtersForType(type) {
 }
 const filterOptions = (type) => filtersForType(type).map((v) => [v, gapLabel(v)])
 const catKey = (kind, id) => `${kind}:${id}`
+// `ok` IS "EVERY OTHER FILTER WOULD REJECT IT", not a predicate of its own, and
+// that is the only definition that cannot drift. A hand-written "complete" test
+// is a second list of what completeness means, and the day a gap is added it
+// becomes the stale one — a work missing the new field would go on being called
+// complete, which is the one answer this filter must never give wrongly.
+const completeBy = (gaps, passes) => (x) => !gaps.some((g) => passes(x, g))
+
 function bookPasses(b, filter) {
   const p = {
     flagged: (b) => !b.has_cover || !b.has_ids, no_cover: (b) => !b.has_cover,
     low_res: (b) => b.low_res_cover, no_author: (b) => !b.has_author,
     no_series: (b) => !b.has_series, no_year: (b) => !b.has_year,
     no_genre: (b) => !b.has_genre, no_source: (b) => !b.has_ids,
+    // A BOOK'S PEOPLE ARE ITS AUTHOR. The pack draws one "No people" over the
+    // whole library; each shelf answers it with the credit it actually has.
+    no_people: (b) => !b.has_author,
+    no_synopsis: (b) => !b.has_description,
+    ok: completeBy(BOOK_GAPS.concat('no_people', 'no_synopsis'), bookPasses),
   }[filter]
   return p ? p(b) : true
 }
@@ -821,6 +848,13 @@ function moviePasses(m, filter) {
     low_res: (m) => m.low_res_poster, no_cast: (m) => !m.has_cast,
     no_director: (m) => !m.has_director, no_year: (m) => !m.has_year,
     no_genre: (m) => !m.has_genre, no_source: (m) => !m.has_source,
+    // A FILM'S PEOPLE ARE ITS CAST, not its director — the pack's own fixture
+    // flags a Ray film with a director and no cast as `nopeople`
+    // (`metadata.dc.html:464`). A film credited to nobody on screen is the row
+    // worth reaching; one with no director is `no_director`, beside it.
+    no_people: (m) => !m.has_cast,
+    no_synopsis: (m) => !m.has_description,
+    ok: completeBy(MOVIE_GAPS.concat('no_people', 'no_synopsis'), moviePasses),
   }[filter]
   return p ? p(m) : true
 }
@@ -965,7 +999,12 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
             {typeOptions().map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
           <Tooltip label={t('metadata.catalogue.filter.tip')} side="top">
-            <select className="tp-input w-auto" value={filterVal} onChange={(e) => setFilter(e.target.value)}>
+            {/* A NAME, WHICH IT HAD NONE OF. The Tooltip carries words and adds no
+                attribute, so the one control this console is built around announced
+                itself as an unnamed combo box — the type selector beside it has had
+                a `title` all along. "Which gap" rather than the tooltip's sentence:
+                a name says what the control is, and the tooltip says what it does. */}
+            <select className="tp-input w-auto" title={t('metadata.catalogue.filter.aria')} value={filterVal} onChange={(e) => setFilter(e.target.value)}>
               {filterOpts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </Tooltip>
@@ -997,6 +1036,15 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
                 {t('metadata.actors.fill.label')}
               </GhostButton>
             )}
+            {/* THE PACK'S TWO BULK ACTS, in its own order: fetch what is empty,
+                then re-verify what is filled (`metadata.dc.html:852`). They are one
+                flow and its default — the review already ticks exactly the empty
+                fields — so the first is the second with every overwrite dropped
+                before the reader is asked, rather than a second code path over the
+                same writes. */}
+            <GhostButton icon={<IconMetadata />} disabled={busy} onClick={() => onReverify({ book_ids: selBookIds, movie_ids: selMovieIds, fills_only: true })}>
+              {t('metadata.fills.open.label')}
+            </GhostButton>
             <GhostButton icon={<IconRefresh />} disabled={busy} onClick={() => onReverify({ book_ids: selBookIds, movie_ids: selMovieIds })}>
               {t('metadata.reverify.open.label')}
             </GhostButton>
@@ -1124,6 +1172,7 @@ export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, 
     !book.has_year && gapLabel('no_year'),
     !book.has_genre && gapLabel('no_genre'),
     !book.has_ids && gapLabel('no_source'),
+    !book.has_description && gapLabel('no_synopsis'),
   ].filter(Boolean)
 
   async function apply(c) {
@@ -1198,7 +1247,21 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
   const [err, setErr] = useState('')
   const [editing, setEditing] = useState(false)
   const noun = t('unit.title', { count: 1 })
-  const gaps = [!movie.has_poster && gapLabel('no_poster'), movie.low_res_poster && gapLabel('low_res_poster'), !movie.has_cast && gapLabel('no_cast'), !movie.has_source && gapLabel('no_source')].filter(Boolean)
+  // EVERY GAP THE FILTER CAN SELECT ON, which this list was four short of. The
+  // dropdown has always offered no_director, no_year and no_genre over films, and
+  // the rows it returned carried no chip saying why — so a film filtered to "No
+  // year" drew `chipsEmpty`, which is the word "Complete". A row that answers the
+  // filter with its own contradiction is worse than one that answers nothing.
+  const gaps = [
+    !movie.has_poster && gapLabel('no_poster'),
+    movie.low_res_poster && gapLabel('low_res_poster'),
+    !movie.has_cast && gapLabel('no_cast'),
+    !movie.has_director && gapLabel('no_director'),
+    !movie.has_year && gapLabel('no_year'),
+    !movie.has_genre && gapLabel('no_genre'),
+    !movie.has_source && gapLabel('no_source'),
+    !movie.has_description && gapLabel('no_synopsis'),
+  ].filter(Boolean)
 
   async function resync(c) {
     setErr('')

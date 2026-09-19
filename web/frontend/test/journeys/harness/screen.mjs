@@ -315,6 +315,45 @@ export function screenVerbs(getPage) {
     }
   }
 
+  // choose — PICK ONE OF THE THINGS A LIST OFFERS.
+  //
+  // IT IS IN THE VOCABULARY BECAUSE IT IS SOMETHING A PERSON DOES, which is the
+  // only test for admission here, and because without it a whole control was
+  // unreachable from this tier. A native <select> is not pressable — a reader
+  // opens it and picks a word — and `type` cannot drive one either: it clicks,
+  // clears and types, and a select has nothing to clear. So the works console's
+  // filter, which is the control that console is FOR, could be looked at from a
+  // journey and never operated.
+  //
+  // IT NAMES THE OPTION BY ITS WORDS, never by its value. A journey that passed
+  // 'no_synopsis' would be naming a token the app stores rather than the words the
+  // reader reads, which is the line this whole vocabulary is drawn on. Case is
+  // folded for the reason `press` folds it.
+  //
+  // AND IT REFUSES AN OPTION THAT IS NOT THERE rather than leaving the list on
+  // whatever it was showing — a silent no-op is a journey that goes on asserting
+  // against the unfiltered screen and passes.
+  async function choose(label, option, opts) {
+    const el = await find('fill', label, opts)
+    try {
+      const picked = await el.evaluate((e, want) => {
+        if (!e.options) return null
+        const hit = [...e.options].find((o) => (o.textContent || '').trim().toLowerCase() === want)
+        if (!hit) return [...e.options].map((o) => (o.textContent || '').trim())
+        e.value = hit.value
+        e.dispatchEvent(new Event('input', { bubbles: true }))
+        e.dispatchEvent(new Event('change', { bubbles: true }))
+        return true
+      }, String(option).trim().toLowerCase())
+      if (picked === null) throw new Error(`"${label}" is not a list of options to choose from.`)
+      if (picked !== true) {
+        throw new Error(`"${label}" offers no option named "${option}".\nWhat it offers: ${picked.join(', ')}`)
+      }
+    } finally {
+      await el.dispose()
+    }
+  }
+
   // hold — A THUMB THAT STAYS DOWN. A second verb on a control that already has
   // one: the dock's Back key goes back when pressed and offers the screens behind
   // you when held.
@@ -390,5 +429,5 @@ export function screenVerbs(getPage) {
     }
   }
 
-  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, upload, valueOf, chosen }
+  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen }
 }

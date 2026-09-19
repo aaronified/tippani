@@ -4271,6 +4271,7 @@ error.cleanup.generic = could not read the library
 # more than two forms.
 # ---------------------------------------------------------------------------
 reverify.title = Re-verify metadata
+reverify.title.fills = Fetch empty fields
 reverify.checking.prose = re-checking each item against its pinned source — nothing is written until you approve it.
 reverify.checking.progress = checking · {done}/{total}
 # The tally across the top once the checking is done.
@@ -5119,6 +5120,9 @@ metadata.gap.no-series.label = no series
 metadata.gap.no-year.label = no year
 metadata.gap.no-genre.label = no genre
 metadata.gap.no-source.label = no source
+metadata.gap.no-people.label = no people
+metadata.gap.no-synopsis.label = no synopsis
+metadata.gap.ok.label = complete
 metadata.gap.no-cast.label = no cast
 metadata.gap.no-director.label = no director
 metadata.gap.no-actor.label = no actor
@@ -5138,6 +5142,7 @@ metadata.row.noposter.aria = No poster stored
 metadata.catalogue.title = Catalogue
 metadata.catalogue.type.all.label = all types
 metadata.catalogue.filter.tip = Show only these gaps
+metadata.catalogue.filter.aria = Which gap
 metadata.shown.count = {n} shown
 # THE SECTIONS. This screen was one long scroll of six consoles stacked on top
 # of each other — a catalogue, duplicates, people, characters, a speaker remap —
@@ -5162,6 +5167,7 @@ metadata.bulk.close.label = Close bulk edit
 metadata.actors.fill.label = Fill actors from cast
 metadata.actors.fill.disabled.tip = none of the selected titles have a cast to fill from
 metadata.reverify.open.label = Re-verify…
+metadata.fills.open.label = Fetch empty fields…
 # What each bulk action asks and reports. The failed tail hangs off whichever ran.
 metadata.delete.confirm.one = Delete {n} item and all its quotes/dialogues?
 metadata.delete.confirm.other = Delete {n} items and all their quotes/dialogues?

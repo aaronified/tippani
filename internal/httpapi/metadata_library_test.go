@@ -310,3 +310,39 @@ func TestRemapSpeakerComponents(t *testing.T) {
 		})
 	}
 }
+
+// A FILM'S SYNOPSIS IS A GAP LIKE A BOOK'S, and until now only half the library
+// could say so. The works console filters on what a work is missing, and "no
+// synopsis" is one of the seven the design pack draws over EVERY work — a filter
+// that films could not answer would have shown a shelf's worth of them as
+// complete when nothing was known about what they were about.
+func TestAFilmSaysWhetherItHasASynopsis(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	bare := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Northline"}, http.StatusCreated))
+	told := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "The Cloud-Capped Star",
+			"description": "A family displaced by partition, and the daughter who holds it up."},
+		http.StatusCreated))
+
+	type synopsisRow struct {
+		ID             int64 `json:"id"`
+		HasDescription bool  `json:"has_description"`
+	}
+	rows := decode[struct {
+		Movies []synopsisRow `json:"movies"`
+	}](t, c.mustDo("GET", "/metadata/library", nil, http.StatusOK)).Movies
+
+	seen := map[int64]bool{}
+	for _, m := range rows {
+		seen[m.ID] = m.HasDescription
+	}
+	if seen[bare.ID] {
+		t.Error("a film created with no description reports a synopsis")
+	}
+	if !seen[told.ID] {
+		t.Error("a film created with a description reports none")
+	}
+}

@@ -12,6 +12,7 @@ import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 
 import {
+  ariaLabelText,
   CloseButton,
   EmptyState,
   ErrorText,
@@ -278,7 +279,22 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
   )
 }
 
-export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
+// `fillsOnly` IS THE PACK'S "FETCH EMPTY FIELDS", and it is a filter on this flow
+// rather than a second one.
+//
+// The pack draws two bulk acts over the works console: fetch what is empty, and
+// re-verify what is filled (`metadata.dc.html:852`). The second is this flow
+// exactly. The first is this flow with everything that would OVERWRITE dropped —
+// the seed below already ticks precisely the empty-stored rows, so the two acts
+// were already one act and its default, with no way to ask for only the default.
+// A separate unattended endpoint was the alternative, and it would have been a
+// second trust boundary over the same writes: the reader would have no way to see
+// what a hundred works were about to be given.
+//
+// WHAT IT DOES NOT DO is apply without asking. A bulk act that writes to a
+// hundred records on one press is the thing the review step exists to prevent,
+// and the pack's own list of the works is what a reader wants to see first.
+export function ReverifyFlow({ selection, fillsOnly = false, onClose, onFlash, onDone }) {
   // ITS OWN BACK ENTRY — see PersonModal. A surface that pushes none is dismissed
   // by the press that was meant for it AND by whatever is underneath, because the
   // panel stack and the screen both keep entries and this one kept nothing.
@@ -331,8 +347,13 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
             break
           }
           for (const it of r.data.items || []) {
-            all.push(it)
-            for (const d of it.diffs || []) {
+            // DROPPED BEFORE THE ITEM IS KEPT, so an item whose every diff is an
+            // overwrite counts as clean rather than as an empty expander.
+            const diffs = fillsOnly
+              ? (it.diffs || []).filter((d) => emptyStored(d.stored))
+              : it.diffs
+            all.push({ ...it, diffs })
+            for (const d of diffs || []) {
               seed[`${itemKey(it)}|${d.field}`] = emptyStored(d.stored)
             }
           }
@@ -552,9 +573,14 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
     </div>
   )
 
+  // THE SURFACE SAYS WHICH ACT OPENED IT. Landing in a sheet headed "Re-verify"
+  // after pressing "Fetch empty fields" is the surface contradicting the button,
+  // and a reader cannot tell whether the overwrites are hidden or absent.
+  const title = fillsOnly ? t('reverify.title.fills') : t('reverify.title')
+
   if (mobile) {
     return (
-      <MobileSheet open onClose={onClose} title={t('reverify.title')} footer={footer}>
+      <MobileSheet open onClose={onClose} title={title} footer={footer}>
         {body}
       </MobileSheet>
     )
@@ -564,12 +590,12 @@ export function ReverifyFlow({ selection, onClose, onFlash, onDone }) {
       className={SCRIM}
       role="dialog"
       aria-modal="true"
-      aria-label={t('reverify.title')}
+      aria-label={ariaLabelText(title)}
       onMouseDown={backdropClose(onClose)}
     >
       <HandCard variant={1} className="mx-auto w-full max-w-3xl px-6 py-5">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="display-title text-xl">{t('reverify.title')}</h2>
+          <h2 className="display-title text-xl">{title}</h2>
           <CloseButton onClick={onClose} />
         </div>
         {body}

@@ -4216,6 +4216,7 @@ error.cleanup.generic = গ্রন্থাগার পড়া গেল �
 # more than two forms.
 # ---------------------------------------------------------------------------
 reverify.title = মেটাডেটা আবার মিলিয়ে দেখুন
+reverify.title.fills = ফাঁকা ঘরগুলো আনুন
 reverify.checking.prose = প্রতিটা বই-সিনেমা তার বাঁধা সূত্রের সঙ্গে আবার মিলিয়ে দেখা হচ্ছে — মেনে না নেওয়া পর্যন্ত কিছুই লেখা হবে না।
 reverify.checking.progress = দেখা হচ্ছে · {done}/{total}
 # The tally across the top once the checking is done.
@@ -5049,6 +5050,9 @@ metadata.gap.no-series.label = সিরিজ নেই
 metadata.gap.no-year.label = সাল নেই
 metadata.gap.no-genre.label = ঘরানা নেই
 metadata.gap.no-source.label = সূত্র নেই
+metadata.gap.no-people.label = কেউ নেই
+metadata.gap.no-synopsis.label = সারাংশ নেই
+metadata.gap.ok.label = সম্পূর্ণ
 metadata.gap.no-cast.label = কাস্ট নেই
 metadata.gap.no-director.label = পরিচালক নেই
 metadata.gap.no-actor.label = অভিনেতা নেই
@@ -5068,6 +5072,7 @@ metadata.row.noposter.aria = পোস্টার নেই
 metadata.catalogue.title = ক্যাটালগ
 metadata.catalogue.type.all.label = সব ধরন
 metadata.catalogue.filter.tip = শুধু এই ঘাটতিগুলো দেখান
+metadata.catalogue.filter.aria = কোন ফাঁক
 metadata.shown.count = {n}টা দেখাচ্ছে
 # THE SECTIONS. This screen was one long scroll of six consoles stacked on top
 # of each other — a catalogue, duplicates, people, characters, a speaker remap —
@@ -5092,6 +5097,7 @@ metadata.bulk.close.label = একসঙ্গে এডিট বন্ধ ক�
 metadata.actors.fill.label = কাস্ট থেকে অভিনেতা ভরান
 metadata.actors.fill.disabled.tip = বাছা টাইটেলগুলোর কোনওটায়ই কাস্ট নেই — ভরানোর কিছু নেই
 metadata.reverify.open.label = আবার মিলিয়ে দেখুন…
+metadata.fills.open.label = ফাঁকা ঘরগুলো আনুন…
 # What each bulk action asks and reports. The failed tail hangs off whichever ran.
 metadata.delete.confirm.one = {n}টা জিনিস আর তার সব উদ্ধৃতি ও সংলাপ মুছবেন?
 metadata.delete.confirm.other = {n}টা জিনিস আর তার সব উদ্ধৃতি ও সংলাপ মুছবেন?
