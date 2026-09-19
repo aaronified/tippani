@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "df415bb405ab0b2f9a90eff7b557efa617fbc35d5c1325f031b8394e609b603c",
-    "internal/i18n/en.txt": "817975a56c499982e279d2ee13f2c9715e5b48d45dcc242fad7ab76a48733e85",
+    "internal/i18n/bn.txt": "a1032be7de2c6cf1818c580657f70179fb72406a3b5969e2790bf1b9a2fe5dc5",
+    "internal/i18n/en.txt": "d362ec85b055f0e750a6f50c65d0e4247e168bfdd5d79b51802f14818ae06f2b",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -35,7 +35,7 @@
     "web/frontend/src/Home.jsx": "7c147472eef3b9375ae5ae6b71a9633bcf8450f538ebd4c03cfda4c4309d1298",
     "web/frontend/src/ImportPage.jsx": "4549c8e47626db680e1470401adc9b325a7dfff6dda5c1e8c8b906724979f635",
     "web/frontend/src/Library.jsx": "0a040d0b4badafff0655a62a8dc78287f56cc58878f39afd45da2ea61e08fb2a",
-    "web/frontend/src/MetadataPage.jsx": "d194f0ee371d5c361927635ed85a445f8646555d31738b4c0c6fd0b2bf6e58e0",
+    "web/frontend/src/MetadataPage.jsx": "73a24bc25b1efb24a77e0f79bfa9e30b6eb086dbee803e7601fb198eb0f7c098",
     "web/frontend/src/MetadataSources.jsx": "6a4bece4224e0a8f08751e2070b508cb4930ebcd674d6d04d20cc0587af3c3f8",
     "web/frontend/src/Movies.jsx": "1150bc9ccb6ae4f3ddbdb263142b9f361d1b581fab8daa73d3ecbd5138740d73",
     "web/frontend/src/Quotes.jsx": "835b610a711d76daab692c1b4c443e9da8d484d882d86dd5c7be6b18cfa867d9",
@@ -77,7 +77,7 @@
     "web/frontend/src/help.jsx": "48b7ea157ca4e37092d3bb0461c04efb92fe0c78ca11e7c7d4b7d53d1f9f7947",
     "web/frontend/src/history.js": "7feecd52ff1cc71b41888c2cfdabc906c430c113c87c4d4771239b33cf820704",
     "web/frontend/src/i18n.js": "6056197526bb55ee44f4a4c3be19304e9c48bf83af8e98f6c44dfa80fd82afe5",
-    "web/frontend/src/identity.jsx": "fb6ed0ce7658d4ee9e67eee50f79c07611b6a88b58011c72810bb32967234860",
+    "web/frontend/src/identity.jsx": "b1a1f95b7503abb13fa541dc5dec33f872da1ca58d2c881cf929d2e2ca0076d0",
     "web/frontend/src/identityGlobal.jsx": "9483e9694a56d889db9a5155729e4ff33e38060409081026fbebb19f68de401a",
     "web/frontend/src/identityLocal.jsx": "eca236e8ecb8c933a01629bd8a856f61edb886f6df785a061b017a76448f282b",
     "web/frontend/src/identityPicker.jsx": "a076dbe42064ed9a518b6d76e67f30f666ee5b6b93ca631ca5b70f3e1c8f073c",

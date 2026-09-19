@@ -7,7 +7,7 @@ import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
 import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks } from './ui.jsx'
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
-import { characterPanel, personPanel } from './identity.jsx'
+import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
 import { LanguageMarksSettings, MetadataSources } from './MetadataSources.jsx'
 import { Face } from './characterRows.jsx'
@@ -1699,6 +1699,73 @@ function PruneButton({ onDone, onFlash }) {
 // film share one, and so do two editions of the same book.
 const workRefKey = (w) => `${w.kind}:${w.id}`
 
+// CharacterRow — one character, and the question the console exists to answer.
+//
+// WHAT THE ROW SAYS NOW THAT IT DID NOT. It stated the character's name, its sort
+// name and how many works it turned up in — three facts, one of them a spelling
+// nobody reads a list for. The pack's row states something else entirely
+// (`metadata.dc.html:715-723`): how many of those appearances have a FACE. That is
+// the point of the whole table. A character wears a different face in every work —
+// the picture lives on the cast row, not on the character — so "three works, one of
+// them with a face" is the finding, and until `has_face` landed on the API the
+// client could not have drawn it.
+//
+// THE COUNT IS THE GAP, NOT THE TOTAL, and it prints only when there is one. A
+// library of forty characters is forty rows saying "3"; the same forty saying "2"
+// in red on nine of them is a list you can work down. The total moved into the
+// sub-line, which is where the pack puts it, and a row says a thing once.
+//
+// AND THE SORT NAME IS GONE FROM THE ROW. It is on the record's own screen, one
+// press away under the name, and it was taking the line the faces needed. A
+// spelling used for ordering is not what a reader scans a list of people for.
+//
+// THE SILHOUETTE IS THE PACK'S. The row passed `fallback={null}`, so a character
+// with no picture drew an empty gap in a column of faces — `silhouette(faces > 0)`
+// is the pack's own, and `Face`'s default already is one. Six of them, hashed off
+// the name, so a list does not read as one person repeated.
+//
+// TWO VERBS, NOT THE PACK'S THREE. It draws choose-faces, merge and delete; the
+// name and the portrait already open the record, and choosing a face per work is
+// what that record's appearance grid IS — so a third door to it would be the
+// redundancy the repo directive names. Merge and delete are the two acts the LIST
+// can do that the list could not reach, and both are the pack's.
+function CharacterRow({ c, first, onOpen, onMerge, onDelete }) {
+  const works = c.works || 0
+  const faced = (c.works_in || []).filter((w) => w.has_face).length
+  const gap = works - faced
+  return (
+    <RecordRow
+      first={first}
+      mark={<Face src={c.image_path} url={coverImgURL} name={c.name || ''} className="char-name-face" />}
+      name={c.name}
+      onOpen={onOpen}
+      /* "0 works · 0 of 0 with a face" is not a sentence. A character linked to
+         nothing has a different finding, and the red zero below says it. */
+      sub={works ? t('metadata.characters.faces.sub', { count: works, n: works, faced }) : null}
+      count={works === 0 ? '0' : gap ? String(gap) : null}
+      countTone={works === 0 || gap ? 'warn' : 'plain'}
+      countTip={works === 0
+        ? t('metadata.characters.column.works')
+        : t('metadata.characters.column.gap', { count: gap, n: gap })}
+      actions={[
+        {
+          key: 'merge',
+          icon: <IconMerge />,
+          ariaLabel: t('metadata.characters.action.merge.aria', { name: c.name }),
+          onClick: onMerge,
+        },
+        {
+          key: 'delete',
+          icon: <IconDelete />,
+          danger: true,
+          ariaLabel: t('metadata.characters.action.delete.aria', { name: c.name }),
+          onClick: onDelete,
+        },
+      ]}
+    />
+  )
+}
+
 // CharactersConsole — every character record in the library, with how many works
 // each is linked to.
 //
@@ -1738,6 +1805,17 @@ export function CharactersConsole({ rows = null, onReload = null }) {
   // found nowhere else at all.
   const [work, setWork] = useState('')
   const [err, setErr] = useState('')
+  // MERGE AND DELETE FROM THE LIST, which is the pack's row and is also where the
+  // work is. The backfill makes a character record PER WORK, so de-duplicating is
+  // eight rows at a time — and both verbs lived only behind the record's own
+  // screen, which meant opening each of the eight to fold it into the first.
+  //
+  // THE SAME SHEET THE RECORD OPENS, not a second one. `MergeSheet` is the search
+  // that identity.jsx's screens already use, and a merge started here has to mean
+  // exactly what a merge started there means — the repo's two-things-that-look-the
+  // -same rule, applied to the one act on this screen that cannot be undone.
+  const [merging, setMerging] = useState(null)
+  const { ask, confirmDialog } = useConfirm()
   // THE PANEL, NOT A FORM OF THIS SCREEN'S OWN. A character record is the same
   // thing whether you reach it from here or from a work's cast, and the app now
   // has one surface for a record — the three scopes, the aliases, and the
@@ -1761,6 +1839,22 @@ export function CharactersConsole({ rows = null, onReload = null }) {
     if (owned) load()
   }, [owned, load])
   const list = owned ? own : rows
+
+  // DELETE GOES TO THE BIN, which is what makes a row-level delete offerable at
+  // all: `binRecord` writes the record's snapshot before the row goes, so the
+  // confirm can promise the reader a way back rather than asking them to be sure.
+  const remove = async (c) => {
+    if (!(await ask(t('metadata.characters.delete.confirm.title', { name: c.name }), {
+      body: t('metadata.characters.delete.confirm.body'),
+      confirmLabel: t('common.action.delete.label'),
+      danger: true,
+      reversible: true,
+    }))) return
+    const r = await json('DELETE', `/characters/${c.id}`)
+    if (!r.ok) return setErr(errText(r))
+    toast(t('metadata.characters.delete.done', { name: c.name }))
+    load()
+  }
 
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -1853,22 +1947,13 @@ export function CharactersConsole({ rows = null, onReload = null }) {
               because they were two hand-rolled rows rather than one function. */}
           <div>
             {shown.map((c, i) => (
-              <RecordRow
+              <CharacterRow
                 key={c.id}
+                c={c}
                 first={i === 0}
-                mark={<Face src={c.image_path} url={coverImgURL} fallback={null} name={c.name || ''} className="char-name-face" />}
-                name={c.name}
                 onOpen={() => stack.open(characterPanel(stack, { id: c.id, name: c.name }))}
-                sub={c.sort_name ? t('metadata.characters.sort.sub', { name: c.sort_name }) : null}
-                count={String(c.works)}
-                countTone={c.works === 0 ? 'warn' : 'plain'}
-                countTip={t('metadata.characters.column.works')}
-                actions={[{
-                  key: 'edit',
-                  icon: <IconEdit />,
-                  ariaLabel: t('common.action.edit.label'),
-                  onClick: () => stack.open(characterPanel(stack, { id: c.id, name: c.name })),
-                }]}
+                onMerge={() => setMerging(c)}
+                onDelete={() => remove(c)}
               />
             ))}
           </div>
@@ -1876,6 +1961,16 @@ export function CharactersConsole({ rows = null, onReload = null }) {
       )}
       {/* The counts on this list follow whatever the panel changed, so it reloads
           when the stack empties rather than on every save inside it. */}
+      {merging ? (
+        <MergeSheet
+          into={merging}
+          table="characters"
+          onClose={() => setMerging(null)}
+          onMerged={() => { setMerging(null); load() }}
+          onError={setErr}
+        />
+      ) : null}
+      {confirmDialog}
       <PanelHost stack={stack} />
       <PanelReload stack={stack} onEmpty={load} />
     </section>

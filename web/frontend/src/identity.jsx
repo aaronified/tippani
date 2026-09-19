@@ -603,7 +603,7 @@ function AliasRow({ aliases, onAdd, onRemove, onSplit }) {
 //
 // Its own component so the exemption can be keyed on a NAME rather than on
 // `PersonBody`, which holds several other dialogs that are on the standing pair.
-function MergeSheet({ into, org = false, table = 'people', onClose, onMerged, onError }) {
+export function MergeSheet({ into, org = false, table = 'people', onClose, onMerged, onError }) {
   const title = table !== 'people'
     ? 'identity.row.merge.label.character'
     : org ? 'identity.row.merge.label.company' : 'identity.row.merge.label.person'

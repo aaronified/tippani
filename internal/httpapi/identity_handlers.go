@@ -688,6 +688,17 @@ type characterWorkRef struct {
 	// remember. Empty on a book, which has no performers at all.
 	MediaType string `json:"media_type,omitempty"`
 	CastRole  string `json:"cast_role,omitempty"`
+	// WHETHER THIS APPEARANCE HAS A FACE, which is the one thing the characters
+	// console could not say. A character wears a different face in every work —
+	// that is the whole reason the face lives on `work_cast` rather than on the
+	// character — so "how many of your appearances have one" is the question the
+	// console exists to answer, and it had no way to ask it: the client knew how
+	// many works and nothing about their faces.
+	//
+	// ON THE REF RATHER THAN AS A COUNT, because the count is derivable from the
+	// refs and the refs are not derivable from the count. A reader who wants to
+	// know WHICH work is missing one is asking the more useful question.
+	HasFace bool `json:"has_face"`
 }
 
 // attachCharacterWorks fills every row's WorksIn in one pass over work_cast.
@@ -697,14 +708,20 @@ type characterWorkRef struct {
 // deliberately answers the other question and counts rows.
 func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRow) error {
 	rows, err := db.Query(`
-		SELECT DISTINCT wc.character_id, 'book', b.id, b.title, '', ''
+		SELECT wc.character_id, 'book', b.id, b.title, '', '',
+		       MAX(CASE WHEN COALESCE(wc.character_image_path,'') <> ''
+		                  OR COALESCE(wc.character_image_url,'') <> '' THEN 1 ELSE 0 END)
 		  FROM work_cast wc JOIN books b ON b.id = wc.work_id
 		 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
+		 GROUP BY wc.character_id, b.id, b.title
 		UNION ALL
-		SELECT DISTINCT wc.character_id, 'movie', m.id, m.title,
-		       COALESCE(m.media_type, ''), COALESCE(m.cast_role, '')
+		SELECT wc.character_id, 'movie', m.id, m.title,
+		       COALESCE(m.media_type, ''), COALESCE(m.cast_role, ''),
+		       MAX(CASE WHEN COALESCE(wc.character_image_path,'') <> ''
+		                  OR COALESCE(wc.character_image_url,'') <> '' THEN 1 ELSE 0 END)
 		  FROM work_cast wc JOIN movies m ON m.id = wc.work_id
 		 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
+		 GROUP BY wc.character_id, m.id, m.title, m.media_type, m.cast_role
 		 ORDER BY 4 COLLATE NOCASE`, uid, uid)
 	if err != nil {
 		return err
@@ -713,9 +730,17 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 	for rows.Next() {
 		var cid int64
 		var ref characterWorkRef
-		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title, &ref.MediaType, &ref.CastRole); err != nil {
+		// GROUP BY, NOT DISTINCT, and the face flag is why. A character can be cast
+		// twice on one work — a role and its voice — and those two rows can differ
+		// in whether a face was chosen. DISTINCT would return the work twice, once
+		// each way, and the console would count one appearance as two. MAX over the
+		// group answers the question the row actually asks: does this appearance
+		// have a face anywhere on it.
+		var hasFace int
+		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title, &ref.MediaType, &ref.CastRole, &hasFace); err != nil {
 			return err
 		}
+		ref.HasFace = hasFace == 1
 		if r := byID[cid]; r != nil {
 			r.WorksIn = append(r.WorksIn, ref)
 		}
