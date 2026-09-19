@@ -133,10 +133,11 @@ describe('the two panels are doors, not cards', () => {
     // has-btn-icon is what data-labels="off" squares to 44px. A door into a whole
     // panel opts out of that the way primary submits and destructive confirms do:
     // a bare letterform on a phone is not an unlabelled button, it is a screen
-    // nobody finds. Two are left on this section — the language table, and the
-    // per-language quote faces.
+    // nobody finds. ONE is left on this section: the pack's general Metadata door
+    // went, because the panel behind this one carries a door to the language table
+    // itself and two doors to one screen is the repeat the owner asked not to make.
     await page()
-    for (const name of ['Open Metadata', 'Set fonts by language']) {
+    for (const name of ['Set fonts by language']) {
       const b = screen.getByRole('button', { name })
       expect(b.className, name).not.toContain('has-btn-icon')
       expect(b.querySelector('.btn-label-fixed')?.textContent, name).toBe(name)

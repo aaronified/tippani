@@ -1283,10 +1283,6 @@ settings.quote-faces.none = No languages yet — a quote carries the language yo
 settings.quote-faces.add.prose = Languages come from your quotes and from Metadata’s language table.
 settings.quote-faces.add.open = Open the language table
 # The door to the other half of "what is this written in".
-settings.lang.metadata.title = What your library is made of
-settings.lang.metadata.sub = Works, people, characters, tags, sources and the colours you file by
-settings.lang.metadata.open = Open Metadata
-settings.lang.metadata.info.body = What the interface is written in is a setting. What your library HOLDS — its works, the people and characters behind them, your tags, and where fetched facts come from — is metadata, and has its own screen.
 # Your own faces: the list, and the way one more gets in.
 settings.type.added.title = Added fonts
 settings.type.added.sub = Each one shown in its own face

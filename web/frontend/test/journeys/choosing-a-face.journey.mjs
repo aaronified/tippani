@@ -21,9 +21,11 @@
 // a screen that only ever set a React state variable and told the server nothing.
 // `app.goto` is a real navigation, so asking again after one is asking the server.
 //
-// THE MUTATION: delete the `json('PUT', …)` from FontSections' `save` and the
-// first reload fails — the picker comes back on Newsreader. Delete the door row's
-// `onClick` and the second half fails on `see('Quote fonts')`.
+// THE MUTATION, ONE PER HALF, because a file with two tests needs two: delete the
+// `json('PUT', …)` from FontSections' `save` and the first reload fails — the
+// picker comes back on Newsreader. Delete the one in `QuoteFaces.saveFace` and the
+// SECOND reload fails, which it did not before a rating pointed out that this half
+// never reloaded at all.
 //
 // It knows only the words on the screen and nothing else.
 
@@ -75,8 +77,20 @@ it('and gives one language a face of its own, without touching the rest', async 
   await app.press('Close')
   await app.see('Newsreader')
 
-  // Back to following, so the fixture is as it was found.
+  // THE RELOAD, AND THIS HALF WAS MISSING IT. A rating found that: with the PUT
+  // in the panel's own `saveFace` replaced by a bare `{ ok: true }`, both tests
+  // in this file stayed green, because the only thing either of them asked after
+  // choosing was the screen that had just changed its own mind. Per-language
+  // faces had exactly the client-shape/server-shape split this directory's ruling
+  // exists against — one mocked test asserting the patch, nothing asking the
+  // server what it kept.
+  await app.goto('/settings')
+  await app.press('Language and font')
   await app.press('Set fonts by language')
+  await app.see('Literata')
+
+  // Back to following, so the fixture is as it was found. The panel is the one
+  // the reload just opened, so there is nothing to open again.
   await app.press('Typeface for quotes in English')
   await app.press('Follows the Quotes face')
   await app.press('Close')

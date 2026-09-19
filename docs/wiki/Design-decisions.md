@@ -17002,6 +17002,19 @@ that is where every other face is chosen. The panel reads that table and sends a
 back to the table itself — not to Metadata's front page, which is eight sections and a
 direction rather than a door.
 
+**ONE DOOR TO METADATA, NOT TWO, AND THIS IS A DEPARTURE FROM THE PACK.** The pack draws
+`metaDoor` on this section — "What your library is made of", opening Metadata whole
+(`settings-restructured.dc.html:2643`) — and the quote-face panel now carries a door of its
+own to the language TABLE. Both shipped for one commit, which is two doors to one screen on
+a screen whose session had been asked not to repeat itself. The owner's words decide which
+survives: *"this sheet needs a window to the metadata languages section, not entire
+metadata. And that gate should be in the language fonts section, don't you think?"* The
+general one is the weaker of the pair twice over — Metadata is a destination in the
+navigation already, which a row cannot say better, and it lands a reader on an overview
+rather than on the table they wanted. A rating found the pair; the pack is departed from on
+purpose, which is why it is written down here rather than left to be rediscovered as an
+omission.
+
 **THE ROW LABEL LEFT MONO, AND THAT IS WHY THE SCREEN LOOKED FLAT.** `PrefRow` drew its
 label in `.mono-label` — 11px, uppercase, faint — which is the same drawing a GROUP title
 wears. A section was one run of small grey capitals with nothing saying which line was the

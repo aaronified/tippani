@@ -10346,7 +10346,6 @@ html[data-theme="dark"] .board-cover {
   padding-bottom: 7px;
 }
 
-
 /* A COVERAGE NUMBER THAT IS A DOOR. It sits inside a sentence, so it is styled as
    the sentence's own emphasis rather than as a button: a pill in the middle of a
    line would break the reading. It underlines to say it is pressable, and takes
@@ -10508,7 +10507,11 @@ html[data-theme="dark"] .board-cover {
 .font-pills { display: flex; flex-wrap: wrap; gap: 8px; }
 .font-pill {
   display: inline-flex; align-items: center; gap: 4px;
-  min-height: max(38px, 2.4em); padding: 4px 4px 4px 13px;
+  /* 44px, WHICH IS THE PACK'S OWN FLOOR (proto:197) and the app's everywhere
+     else. It was 38: a pill with a remove button in it is a control a thumb has
+     to land on, and "nearly the floor" is the shape of thing the touch ratchet
+     exists to catch. */
+  min-height: max(44px, 2.4em); padding: 4px 4px 4px 13px;
   border: 1px solid var(--line); border-radius: 999px;
   background: var(--raised); color: var(--ink);
   box-shadow: inset 0 1px var(--bevel-mid);

@@ -1157,14 +1157,15 @@ function QuoteFaces({ prefs, onSaved, onGo, open, onClose }) {
 }
 
 // FontSections — groups 2, 3 and 4 of Language and font: your own faces, the
-// interface's faces, and the two script faces.
+// faces the interface is set in, and the quote face each language carries.
 //
-// THE SCRIPT ROWS GET A GROUP OF THEIR OWN, which the pack does not draw and this
-// app cannot do without. Bengali and Devanagari are not interface faces — they are
-// what any text in those scripts is set in, wherever it appears — so listing them
-// under "Interface faces" would say something false about them, and dropping them
-// would delete a feature the pack simply never had. A named group is the smallest
-// honest place for them.
+// THE SCRIPT ROWS HAVE NO GROUP, and an earlier draft of this comment gave them
+// one — which is the failure mode a comment has that code does not: it went on
+// describing a group the same change deleted. Bengali and Devanagari are answered
+// by the two controls below instead. A reader who wants Bengali set their own way
+// picks the Bengali UI language in the scope, or the Bengali quote face in the
+// panel; "which face draws this script, in general, everywhere" is the question
+// neither of those is, and it is the one with no good answer.
 function FontSections({ prefs, onSaved, onGo, index }) {
   const { ask, confirmDialog } = useConfirm()
   const [err, setErr] = useState('')
@@ -4233,31 +4234,28 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
                 />
               }
             />
-            {/* TWO DIFFERENT THINGS, AND THE DOOR IS WHAT SAYS SO. What the
-                interface is written in is a setting; what your library HOLDS — its
-                works and their missing fields, the people behind them, your tags,
-                and where fetched metadata comes from — is metadata, and it has its
-                own screen. The pack draws this door here for exactly that reason,
-                and the app had nothing.
+            {/* THE PACK'S SECOND METADATA DOOR IS NOT DRAWN, and the owner's
+                ruling is why. It draws `metaDoor` here — "What your library is
+                made of", opening Metadata whole (proto:2643) — and the panel
+                below now carries a door of its own to the language TABLE, which
+                is what a reader on this screen is actually going to Metadata for:
+                "this sheet needs a window to the metadata languages section, not
+                entire metadata. And that gate should be in the language fonts
+                section, don't you think?"
 
-                IT KEEPS ITS WORDS at every width: a door to a whole screen that
-                loses its label is not an unlabelled button, it is a screen nobody
-                finds. */}
-            <PrefRow
-              label={t('settings.lang.metadata.title')}
-              sub={t('settings.lang.metadata.sub')}
-              info={t('settings.lang.metadata.info.body')}
-              control={
-                <GhostButton icon={<IconOpen />} keepLabel onClick={() => onGo?.('metadata')}>
-                  {t('settings.lang.metadata.open')}
-                </GhostButton>
-              }
-            />
+                TWO DOORS TO ONE SCREEN IS THE REPEAT the same session asked not
+                to make — and the general one is the weaker of the pair twice
+                over: Metadata is a destination in the navigation already, which
+                this row cannot say better, and it lands a reader on an overview
+                rather than on the table they wanted. So the specific door stays
+                and the general one goes. This is a departure from the pack,
+                recorded in Design-decisions.md rather than left to be rediscovered
+                as an omission. */}
           </PrefGroup>
 
-          {/* 2, 3 AND 4 — your own faces, the interface's faces, the script faces.
-              They are one component because they are one preferences object and
-              one writer; see FontSections. */}
+          {/* 2, 3 AND 4 — your own faces, the faces the interface is set in, and
+              the quote face each language carries. They are one component because
+              they are one preferences object and one writer; see FontSections. */}
           <FontSections prefs={prefs} onSaved={onPreferences} onGo={onGo} index={2} />
 
           {/* THE ACCESSIBILITY DIALS OF THIS SECTION, under their own heading —

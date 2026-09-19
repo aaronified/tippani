@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "7e681fadaf74c687c6f3a8fffe15061d59f3ee793cbd6544a113e96ab0345685",
-    "internal/i18n/en.txt": "9ba67e1345330b7a77ce05bec8ca00b6545f9bfadf028b869d183aeae40c4221",
+    "internal/i18n/bn.txt": "a595d4ec8e8458fd9b9cf0c11399b5bbf12cfc8b572c85d3188f732edbdbd445",
+    "internal/i18n/en.txt": "9c3f458dddb4dcc8ba81e04cba010386224bffce2d4d0f64ac69aa4bec49d97b",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -42,7 +42,7 @@
     "web/frontend/src/ReverifyReview.jsx": "d1971b7b7f3e44925a03b961b8b788d7e9499f1b736f5ad78fce91e9b451d167",
     "web/frontend/src/SearchPage.jsx": "a6393e085e6a11e8aff3734f3a18d8a1c93fffc275dba3da6e81970ac2ab40ae",
     "web/frontend/src/SelectionBar.jsx": "2d7c4821a89a557cebcc969f722cc86cf44dad5e0dbc8d79a15dfb62df90b913",
-    "web/frontend/src/Settings.jsx": "2de38f16628e6439864cf579729f0eba6b3d78ee299713e8bd8a2a4334ef670b",
+    "web/frontend/src/Settings.jsx": "7f916d56a82bd1b46c2c457536b1c26038099c0da609b823a1264916cf799253",
     "web/frontend/src/StagingPage.jsx": "df61407fb08f0796edbc195a080a1772a3731723bf02b60b503f6bf5e95fec2d",
     "web/frontend/src/StatsPage.jsx": "ec749ff8a96783ce0183ea17f9727d00cbaa964a5d3c5d849617f649f9e9002e",
     "web/frontend/src/TagsPage.jsx": "c9f794eeec2e5c3f4e200b7ee31f9a74694ccddc14eaadadf78dcc2890c07d8d",
@@ -84,7 +84,7 @@
     "web/frontend/src/identityScope.js": "f4f5c4cd0ea02ba000abfba48e0c2405dc9cc0c4bb90f3ed0d2e4c1b4941c3ca",
     "web/frontend/src/imageWait.js": "2711f9d98423daf1842f29351e663493914f078d7e942e4619d33262f42b6c54",
     "web/frontend/src/importSources.js": "05bb471aafd26fccf9ec77530338104f1eb035bf215a0964136f4d614842774b",
-    "web/frontend/src/index.css": "fa4a094ccff35523b2a8ff46c1fb265379d0915b02beda0bc95573b05df6389c",
+    "web/frontend/src/index.css": "6aefaeef70aff9e507b72e6adb95b1ff5e578d79f80a7343683fe1b64df33b01",
     "web/frontend/src/iso639.js": "e0cd6c06ea999e9f63ddb27ffb1ac0cda4174f2f7a23df9b186545be091a5a34",
     "web/frontend/src/keys.js": "bac813e99f2c9a17ada53f0bd660b8a05842e1bcb70429ef708967854e51febf",
     "web/frontend/src/languages.jsx": "758127e272730e96799c0f1c8749f328d4f217f27ac67008c9443d397a841b65",
