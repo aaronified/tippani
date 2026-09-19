@@ -115,6 +115,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A settings or metadata section is an address now.** `/settings/review` opens Review, so
+  you can link to it or bookmark it — and your phone's Back key leaves a section the way it
+  leaves anything else, which is why the second back arrow the page used to draw is gone.
+  The section's name is in the bar at the top with everything else that says where you are,
+  rather than in a header of its own underneath it.
+
+- **"All default" no longer takes up a row.** The count of what you have changed shows up
+  beside the section's name, and only when you have changed something.
+
 - **One heading per screen, not two.** Settings and Metadata were saying their own name
   twice — "Review" and then "Daily quiz & practice" underneath it, "Characters" over
   "Characters" — each with its own ⓘ. The section's name is the heading now, and its ⓘ is

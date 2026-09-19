@@ -308,11 +308,16 @@ export function changedIn(prefs, section) {
   }).length
 }
 
-// sectionPill — the number as the reader reads it. "all default" rather than
-// "0 changed", because a zero invites you to look for the nine things that are not
-// zero, and what the reader wants to know is that there is nothing here to undo.
+// sectionPill — the number as the reader reads it, AND NOTHING WHERE THERE IS NO
+// NUMBER. It used to answer "all default" for a section with nothing set, on the
+// reasoning that a zero invites you to look for the nine things that are not zero.
+// The owner, looking at it on a screen: *"The difference count 'all default' can be
+// absent (it says nothing of worth)."* They are right, and the reasoning was half a
+// thought: a pill that reads "all default" on four sections out of five is a pill a
+// reader stops reading, which costs the fifth one its meaning. The count is worth a
+// place only when there is something to undo.
 export function sectionPill(n) {
-  return n > 0 ? t('settings.changed.count', { n }) : t('settings.changed.none')
+  return n > 0 ? t('settings.changed.count', { n }) : null
 }
 
 // Which section a card lives in, derived rather than kept beside SECTION_CARDS:
@@ -378,7 +383,7 @@ export function settingsMatches(cardKey, query) {
   return false
 }
 
-export default function Settings({ user, onPreferences, update, onUpdateInfo }) {
+export default function Settings({ user, onPreferences, update, onUpdateInfo, section: routed = null, onSection = null }) {
   const mobile = useIsMobileScreen()
   const ncols = useColumnCount()
   // ── THE PHONE'S TWO SEATS, and they are the two verbs on this page.
@@ -393,11 +398,22 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
   // seals the archive and the update still asks for the word UPDATE typed out —
   // a one-tap update on a phone is precisely the accident that confirmation
   // exists to prevent. What the key skips is the scrolling.
-  // WHICH SECTION YOU WERE ON, KEPT. Metadata's rail does the same: a settings
-  // screen is somewhere you come back to, usually for the thing you were last
-  // looking at, and landing on Theme every time is a scroll the rail was supposed
-  // to have removed.
-  const [section, setSection] = usePersistedState('tippani:settings:section', 'theme')
+  // THE SECTION IS THE ADDRESS, AND THE LAST ONE IS REMEMBERED. Two facts, and
+  // they used to be one: the section lived only in localStorage, so it pushed no
+  // history — the dock's Back key walked out of the whole screen and the page grew
+  // its own second back arrow to make up for it, which is the second header the
+  // owner reported. It is a route now (`/settings/<section>`), so Back walks out of a
+  // section into the index and a section can be linked to.
+  //
+  // THE REMEMBERED ONE IS WHAT A BARE ADDRESS RESOLVES TO, not a replacement for
+  // the address: "somewhere you come back to, usually for the thing you were last
+  // looking at" is still true, and landing on Theme every time is the scroll the rail
+  // was supposed to have removed. So the address wins where there is one, the
+  // memory answers where there is not, and every change writes both.
+  const [remembered, remember] = usePersistedState('tippani:settings:section', 'theme')
+  const known = (id) => SETTINGS_SECTIONS.some(([k]) => k === id)
+  const section = known(routed) ? routed : known(remembered) ? remembered : 'theme'
+  const setSection = (id) => { remember(id); if (onSection) onSection(id) }
   const [backupNow, setBackupNow] = useState(false)
   const [updateNow, setUpdateNow] = useState(false)
   // WHAT THE SHELL'S FIELD IS ASKING ABOUT WHILE THIS SCREEN IS UP.
@@ -500,19 +516,26 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
             pill: sectionPill(changedIn(prefs, id)),
           }))}
           value={current}
+          // CONTROLLED ONLY WHERE THERE IS AN ADDRESS TO CONTROL IT WITH. Passing
+          // `!!routed` unconditionally pinned the rail shut on every mount that has
+          // no navigator — a test, a screen rendered on its own — because `false`
+          // is a controlled value and `undefined` is the ask to keep your own.
+          // Nine suites' worth of the phone flow reported the index where a section
+          // should have been, which is exactly what a reader would have got.
+          open={onSection ? !!routed : undefined}
           onChange={setSection}
           ariaLabel={t('settings.section.aria')}
           total={sectionPill(liveSections.reduce((a, [id]) => a + changedIn(prefs, id), 0))}
-          // THE TWO CONTROLS RIDE ON THE TAB ROW, which is where the pack puts them
-          // (settings-restructured.dc.html:134-138): the info dot and "Reset
-          // section" sit at the right-hand end of the same flex row as the tabs,
-          // sharing its bottom border. They were a SECOND BAR underneath for a
-          // while, carrying a repeat of the tab's own count — "a second header bar
-          // right under the tab… do not build redundant stuff". The number is
-          // already on the tab; a bar that exists to say it again is a bar that
-          // exists to hold two buttons.
+          // ONE CONTROL ON THE TAB ROW NOW, NOT TWO. The pack puts the info dot and
+          // "Reset section" together at the right-hand end of the tab row
+          // (settings-restructured.dc.html:134-138), and the dot was there because
+          // nothing else named the section. The crumb names it now and carries the
+          // dot with the name, which is where a reader looks for it; a second dot at
+          // the far end of a tab row is a dot beside nothing.
+          //
+          // RESET STAYS, and only when there is something to reset. It is the one
+          // control on this row that DOES anything.
           aside={current && {
-            info: { title: t(liveSections.find(([id]) => id === current)[1]), text: t(sectionInfoKey(current)) },
             action: changedIn(prefs, current) > 0 && (
               <Tooltip label={t('settings.section.reset.tip', { section: t(liveSections.find(([id]) => id === current)[1]) })}>
                 <GhostButton icon={<IconRevert />} onClick={() => setResetting(current)}>

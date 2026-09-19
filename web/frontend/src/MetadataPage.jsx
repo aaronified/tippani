@@ -111,7 +111,7 @@ const METADATA_SECTIONS = [
 // handed and this screen's own words for it.
 
 
-export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences }) {
+export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences, section: routed = null, onSection = null }) {
   const [lib, setLib] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -272,12 +272,27 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // Persisted per device, like every other view preference in this app: which
   // metadata you were last working on is a fact about this screen at this desk,
   // not about the account.
-  const [section, setSection] = usePersistedState('tippani:metasection', 'overview')
-  // A STORED SECTION THAT NO LONGER EXISTS FALLS BACK rather than rendering
-  // nothing. localStorage outlives a release, so a key written by a build whose
-  // section list was different is not a hypothetical — and the failure mode of an
-  // unguarded switch is a blank page with a rail that highlights no row.
-  const sect = METADATA_SECTIONS.some(([k]) => k === section) ? section : 'overview'
+  // THE SECTION IS THE ADDRESS, AND THE LAST ONE IS REMEMBERED. Two facts, and
+  // they used to be one: the section lived only in localStorage, so it pushed no
+  // history — the dock's Back key walked out of the whole screen and the page grew
+  // its own second back arrow to make up for it, which is the second header the
+  // owner reported. It is a route now (`/metadata/<section>`), so Back walks out of a
+  // section into the index and a section can be linked to.
+  //
+  // THE REMEMBERED ONE IS WHAT A BARE ADDRESS RESOLVES TO, not a replacement for
+  // the address: "somewhere you come back to, usually for the thing you were last
+  // looking at" is still true, and landing on Overview every time is the scroll the rail
+  // was supposed to have removed. So the address wins where there is one, the
+  // memory answers where there is not, and every change writes both.
+  //
+  // AND A SECTION THAT NO LONGER EXISTS FALLS BACK rather than rendering nothing —
+  // which is now true of a typed URL as well as of a stored key. localStorage
+  // outlives a release and so does a bookmark; the failure mode of an unguarded
+  // switch is a blank page with a rail that highlights no row.
+  const [remembered, remember] = usePersistedState('tippani:metasection', 'overview')
+  const known = (id) => METADATA_SECTIONS.some(([k]) => k === id)
+  const sect = known(routed) ? routed : known(remembered) ? remembered : 'overview'
+  const setSection = (id) => { remember(id); if (onSection) onSection(id) }
 
   // THE CHARACTER LIST IS THE PAGE'S, NOT THE CONSOLE'S, because the rail has to
   // print its size before the section is entered — and a list fetched twice is a
@@ -387,6 +402,13 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             warn: id === 'overview' && railCounts[id] > 0,
           }))}
           value={sect}
+          // CONTROLLED ONLY WHERE THERE IS AN ADDRESS TO CONTROL IT WITH. Passing
+          // `!!routed` unconditionally pinned the rail shut on every mount that has
+          // no navigator — a test, a screen rendered on its own — because `false`
+          // is a controlled value and `undefined` is the ask to keep your own.
+          // Nine suites' worth of the phone flow reported the index where a section
+          // should have been, which is exactly what a reader would have got.
+          open={onSection ? !!routed : undefined}
           onChange={setSection}
           ariaLabel={t('metadata.section.aria')}
           mobileInfo={{ title: t('metadata.mobile.info.title'), text: t('metadata.mobile.info.body') }}

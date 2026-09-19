@@ -44,14 +44,19 @@ it('a reader on a phone sees every settings section at once, opens one, and come
 
   await app.press('Review')
 
-  // Inside the section: its own name as the heading, and something only that
-  // section draws — so this cannot pass by the index still being on screen.
+  // Inside the section: its own name, now in the bar that names the screen rather
+  // than in a header of its own, and the other sections gone — so this cannot pass
+  // by the index still being on screen.
   await app.see('Review')
   await app.gone('Server')
 
-  // AND A WAY BACK, which is the half a drill-down gets wrong. Back to the index
-  // means the sections a reader did not choose are visible again.
-  await app.press('Back to')
+  // AND A WAY BACK, which is the half a drill-down gets wrong. It used to be a
+  // second back arrow drawn inside the page, directly under a top bar and directly
+  // above the dock's own Back key — the owner: "There is already a back key in the
+  // bottom bar." A section is an address now, so the dock's Back leaves it the way
+  // it leaves anything else, and the sections a reader did not choose are visible
+  // again.
+  await app.press('Back')
   await app.see('Server')
   await app.see('Theme')
 })

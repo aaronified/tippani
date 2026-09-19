@@ -275,6 +275,20 @@ export function parsePath(pathname) {
   // "capture a quote" is a surface rather than a screen. Neither is a tab, and
   // neither is written back to the bar — the Shell swaps both for Home and opens
   // the surface over it, so the URL you land on is the one you stay on.
+  // A SECTION IS AN ADDRESS, and it had to become one before the drill head could
+  // go. Settings and Metadata are twelve sections behind a rail, and the section
+  // lived in localStorage — so it pushed no history, the dock's Back key walked out
+  // of the whole screen rather than back to the index, and the only way back to the
+  // index was a second back arrow drawn inside the page. That arrow is the second
+  // header the owner reported; deleting it without this would strand a phone reader
+  // inside a section. A section is also the thing people want to link to.
+  //
+  // IT IS A `detail`, NOT A THIRD PATH SEGMENT'S WORTH OF NEW MACHINERY. The router
+  // already carries "a screen, and a thing open inside it"; a section is that shape
+  // exactly, so `statePath`, `go`, `goBack` and the popstate handler all work
+  // unchanged. An unknown section falls through to the bare screen, which lands the
+  // reader on the index — the right answer for a link to a section that was renamed.
+  if ((a === 'settings' || a === 'metadata') && b) return { tab: a, detail: { type: 'section', id: b } }
   if (a === 'import') return { tab: 'import', detail: null }
   if (a === 'capture') return { tab: 'capture', detail: null }
   if (a === 'pending') return { tab: 'staging', detail: null }
@@ -283,6 +297,7 @@ export function parsePath(pathname) {
 }
 
 export function statePath(tab, detail) {
+  if (detail?.type === 'section') return `/${tab}/${detail.id}`
   if (detail?.type === 'book') return `/books/${detail.id}`
   if (detail?.type === 'movie') return `/catalogue/${detail.id}`
   if (detail?.type === 'board') return `/quotes/${detail.id}`

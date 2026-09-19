@@ -4846,6 +4846,20 @@
   }
   .crumb:hover { color: var(--ink); }
   .crumb-sep { color: var(--faint); font-size: var(--type-ui-13); }
+  /* HOW MANY OF THIS SECTION'S SETTINGS DIFFER FROM STOCK, and it draws only when
+     one does. It replaced a pill inside the page that read "all default" on four
+     sections out of five — the owner: "it says nothing of worth" — and the count is
+     worth a place only where there is something to undo. Sized in em so it holds
+     against the reader's text dial; the padding is the only number here, and it is
+     the pill's own shape rather than a step in the page's rhythm. */
+  .crumb-badge {
+    font-family: var(--font-mono); font-size: var(--type-mono-11);
+    color: var(--accent-ui);
+    border: 1px solid color-mix(in oklab, var(--accent-ui), transparent 60%);
+    border-radius: 999px;
+    padding: 0.1em 0.5em;
+    white-space: nowrap;
+  }
   .crumb-here {
     font-family: var(--font-ui); font-size: var(--type-ui-13);
     color: var(--ink); font-weight: 600;
@@ -10427,14 +10441,13 @@ html[data-theme="dark"] .board-cover {
   color: var(--ink);
 }
 .section-index-chevron { flex: none; display: inline-flex; color: var(--faint); }
-.section-drill-head {
-  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
-  padding: 0 0 var(--row, 12px);
-}
-.section-drill-title {
-  margin: 0; font-family: var(--font-display); font-size: var(--type-display-22);
-  font-weight: 600; color: var(--ink); min-width: 0;
-}
+/* `.section-drill-head` AND `.section-drill-title` ARE GONE, and what they drew is
+   one row up. A phone in a section wore a header of its own — a back arrow the dock
+   already has, the section's name, its info dot and a pill — directly under a top
+   bar that had already named the screen. That is the second header the owner
+   reported: "There is already a back key in the bottom bar. The header title can be
+   in breadcrumbs." The name and the count are `.crumb-badge` and the top bar's
+   title now; the arrow is the dock's. */
 
 /* THE ROW EVERY LIST IN THE APP IS DRAWN WITH. It carries its rule and its padding
    inline for now — those two are the only things it styles and they move with the

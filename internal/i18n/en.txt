@@ -50,11 +50,10 @@ settings.language.fallback.hint = Where a line has not been translated yet, the 
 
 settings.language.title = Language
 # THE NUMBER ON A SECTION, and the one word for when there is no number. The pack
-# prints "3 changed" and "all default"; both are about preferences a reader has
+# prints "3 changed", and nothing at all where nothing differs — see sectionPill.
 # SET rather than about values that differ, because a default is written at the
 # point a card reads it and a second copy of those would go stale.
 settings.changed.count = {n} changed
-settings.changed.none = all default
 settings.section.reset.label = Reset section
 settings.section.reset.tip = Put every preference in {section} back to its default
 settings.section.reset.confirm.title = Reset {section}?

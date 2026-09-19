@@ -59,7 +59,6 @@ settings.language.fallback.hint = যে লাইন এখনও অনূদ�
 
 settings.language.title = ভাষা
 settings.changed.count = {n}টি বদলানো
-settings.changed.none = সবই ডিফল্ট
 settings.section.reset.label = বিভাগ রিসেট
 settings.section.reset.tip = {section}-এর প্রতিটি পছন্দ ডিফল্টে ফেরান
 settings.section.reset.confirm.title = {section} রিসেট করবেন?

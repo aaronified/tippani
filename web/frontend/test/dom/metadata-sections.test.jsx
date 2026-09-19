@@ -324,10 +324,15 @@ describe('on a phone', () => {
       expect(rows.some((r) => /portrait or link/i.test(r))).toBe(true)
 
       await press([...document.querySelectorAll('.meta-issue-row')].find((el) => /series/i.test(el.textContent)))
-      // It lands on the works console, filtered to the gap it named.
-      // The drill-down names the section it opened; there is no field to read it
-      // off any more, and the heading is what a reader actually sees.
-      expect(screen.getAllByRole('heading', { level: 2 })[0].textContent).toMatch(/^Works/)
+      // It lands on the works console, filtered to the gap it named — and what
+      // says so is the console's OWN control rather than a heading. This read the
+      // first `<h2>`, which was the phone's drill head; that head is gone (the
+      // section's name is in the top bar's crumb now), so the first heading on the
+      // screen became "Duplicate books" — the second console in the same section.
+      // "Duplicate books" is the OTHER console in this section and is drawn
+      // nowhere else in the app, so it says "the Works section arrived" without
+      // depending on which rows the gap filter left behind.
+      expect(await screen.findByText('Duplicate books'), 'the Works section should be on screen').toBeTruthy()
     })
   })
 
@@ -342,8 +347,10 @@ describe('on a phone', () => {
     const gap = (await screen.findAllByRole('button')).find((b) => /no cover/i.test(b.textContent || ''))
     expect(gap, 'the coverage numbers should be pressable').toBeTruthy()
     await press(gap)
-    // It lands in the works console — the same place the desktop tile lands.
-    expect(screen.getAllByRole('heading', { level: 2 })[0].textContent).toMatch(/^Works/)
+    // It lands in the works console — the same place the desktop tile lands, and
+    // the console's own filter is what says so. See the issues-sheet case above for
+    // why this is no longer a heading.
+    expect(screen.getByTitle('Which gap'), 'the works console should be on screen').toBeTruthy()
   })
 
   it('reads the coverage as sentences rather than as filter tiles', async () => {

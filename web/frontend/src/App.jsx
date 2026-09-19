@@ -78,6 +78,7 @@ import {
   IconSections,
   IconChevron,
   IconChecks,
+  InfoDot,
   IconMenu,
   IconClose,
   IconPlus,
@@ -849,7 +850,20 @@ function TagsRedirect({ onGo }) {
 // inside one. A crumb trail that can only ever be `root / leaf` is a label with a
 // door on it, and pretending otherwise would mean inventing hierarchy the routes do
 // not have.
-function Breadcrumb({ tab, detail, title, onRoot }) {
+//
+// THREE LEVELS ON TWO SCREENS, and the third is a section. When this said "two and
+// no more" that was true of the routes: `root / leaf`. Settings and Metadata are
+// twelve sections behind a rail now, each with an address of its own, and a phone
+// was drawing a whole second header bar to say which one you were in — a back arrow
+// the dock already has, the name, an info dot, a pill. The owner: "There is already
+// a back key in the bottom bar. The header title can be in breadcrumbs." So the
+// section is a crumb, and the hierarchy it states is one the routes really have.
+//
+// THE COUNT RIDES WITH IT, not as a control. Settings drew an "ALL DEFAULT" pill on
+// every section — a thing that "says nothing of worth", because the answer is
+// usually yes and a reader learns to stop reading it. What is worth saying is the
+// other case, and only then: this section has three settings that differ from stock.
+function Breadcrumb({ tab, detail, title, crumb, onRoot }) {
   const rootKey = detail?.type === 'movie' ? 'movies' : detail?.type === 'book' ? 'library' : null
   const rootLabel = rootKey ? t(`nav.tab.${rootKey === 'movies' ? 'movies' : 'library'}.label`) : t('shell.wordmark.label')
   const leaf = detail ? title : t(screenTitleKey(tab))
@@ -870,7 +884,20 @@ function Breadcrumb({ tab, detail, title, onRoot }) {
         {rootLabel}
       </button>
       <span className="crumb-sep" aria-hidden="true">/</span>
-      <span className="crumb-here" title={leaf}>{leaf}</span>
+      {crumb ? (
+        <>
+          {/* THE SCREEN BECOMES A DOOR when a section is open, because there is now
+              somewhere behind it to go: the section index. A crumb that is where you
+              are is text; a crumb with a level under it is the way back up. */}
+          <button type="button" className="crumb" onClick={() => onRoot(tab)}>{leaf}</button>
+          <span className="crumb-sep" aria-hidden="true">/</span>
+          <span className="crumb-here" title={crumb.label}>{crumb.label}</span>
+          {crumb.badge ? <span className="crumb-badge">{crumb.badge}</span> : null}
+          {crumb.info ? <InfoDot side="bottom" title={crumb.info.title} text={crumb.info.text} /> : null}
+        </>
+      ) : (
+        <span className="crumb-here" title={leaf}>{leaf}</span>
+      )}
     </nav>
   )
 }
@@ -2117,7 +2144,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // The phone header's sub-line and the dock's two screen seats, published by
   // whichever screen owns them. Both are null on a screen that publishes neither,
   // which is the resting state and draws nothing.
-  const { sub: barSub, keys: barKeys } = useScreenBarState()
+  const { sub: barSub, keys: barKeys, crumb: barCrumb } = useScreenBarState()
   // ── HOME'S TWO SEATS, and Home is the one screen that publishes none of its
   // own — it is where a session starts and where a thumb has nothing to reach
   // for but Back, Search and ＋ .
@@ -2263,7 +2290,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
       />
       <header className="topbar">
         <div className="topbar-inner">
-          <Breadcrumb tab={tab} detail={detail} title={detailTitle} onRoot={(key) => selectTab(key || 'home')} />
+          <Breadcrumb tab={tab} detail={detail} title={detailTitle} crumb={barCrumb} onRoot={(key) => selectTab(key || 'home')} />
           <TopBarSearch
             scope={barScope}
             scopeLabel={scopeLabel(barScope)}
@@ -2326,9 +2353,20 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               {brandDot}
             </button>
           </Tooltip>
+          {/* THE SECTION IS THE TITLE AND THE SCREEN IS THE LINE UNDER IT, which is
+              the swap the crumb makes on a phone. Standing in Settings → Review, the
+              thing a reader needs first is "Review"; "Settings" is context and goes
+              where the context line already was. That line used to say "admin", a
+              word that took a row to answer a question nobody had. */}
           <span className="mobile-topbar-titles">
-            <span className="mobile-topbar-title">{detailTitle || t(screenTitleKey(tab))}</span>
-            {barSub ? <span className="mobile-topbar-sub">{barSub}</span> : null}
+            <span className="mobile-topbar-title">
+              {barCrumb ? barCrumb.label : detailTitle || t(screenTitleKey(tab))}
+              {barCrumb?.badge ? <span className="crumb-badge">{barCrumb.badge}</span> : null}
+              {barCrumb?.info ? <InfoDot side="bottom" title={barCrumb.info.title} text={barCrumb.info.text} /> : null}
+            </span>
+            {barCrumb
+              ? <span className="mobile-topbar-sub">{t(screenTitleKey(tab))}</span>
+              : barSub ? <span className="mobile-topbar-sub">{barSub}</span> : null}
           </span>
           {/* The same ⋯ as the desktop bar, in the phone bar's own dress. It used
               to be the dock's second seat on a work's detail and nowhere at all on
@@ -2421,6 +2459,12 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               onOpenMovie={openMovie}
               onSearch={searchFor}
               onPreferences={onPreferences}
+              // THE SECTION COMES FROM THE ADDRESS NOW — see routes.js. It was
+              // localStorage, so it pushed no history and the dock's Back walked
+              // out of the whole screen; the page drew its own second back arrow to
+              // make up for it, and that arrow is the second header.
+              section={detail?.type === 'section' ? detail.id : null}
+              onSection={(id) => go('metadata', id ? { type: 'section', id } : null)}
             />
           </div>
         )}
@@ -2497,6 +2541,8 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               onPreferences={onPreferences}
               update={update}
               onUpdateInfo={setUpdate}
+              section={detail?.type === 'section' ? detail.id : null}
+              onSection={(id) => go('settings', id ? { type: 'section', id } : null)}
             />
           </div>
         )}

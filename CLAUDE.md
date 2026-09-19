@@ -376,6 +376,26 @@ running (`dockerd &` if not already up in this environment).
 
 ## Standing UI rules
 
+- **USE THE SPACE. PUT WHAT IS USED MOST IN FRONT. THINK LIKE THE READER.** The owner's,
+  made the mantra for every design decision in this repo: *"Use the space available. Think
+  like the user. Whatever will be used more needs to be up front. This is how to design an
+  intuitive ui."*
+
+  It binds hardest where a surface has MOVED. A control that was folded away because the
+  screen it sat on was one long scroll is not folded away because folding is right — it is
+  folded away because of a constraint that no longer exists. The Review section is the
+  worked example: its ten tuning numbers went behind an "In-depth controls" door when
+  Settings was a single column of nine cards, and Settings is five sections now, each its
+  own screen, with most of a phone's height standing empty under a card of three rows. The
+  door survived the reason for it.
+
+  So, at every screen: what does a reader come here to DO, how often, and is that thing the
+  first thing they can reach? What is genuinely rare goes behind a door; what is merely
+  detailed goes lower on the same screen. Empty space under a card is not restraint, it is
+  a surface not doing its job — and a door with four presses behind it costs more than the
+  rows it hides.
+
+
 These are the design pack's, landed in code — they bind new work rather than describing
 old work, so a screen that breaks one is a bug and not a variation.
 

@@ -42,7 +42,7 @@
 // the same string typed twice to honour a rule about not typing things twice.
 import React, { useEffect, useRef, useState } from 'react'
 
-import { IconArrow, IconBack, IconButton, InfoDot, Scroller, useIsMobileScreen } from './ui.jsx'
+import { IconArrow, InfoDot, Scroller, useIsMobileScreen, useScreenBar } from './ui.jsx'
 import { t } from './i18n.js'
 
 // `sections` — [{ id, label, icon, count, warn }]. `count` of null prints
@@ -52,36 +52,61 @@ import { t } from './i18n.js'
 //
 // `warn` marks a count that is a count of PROBLEMS. It is the only one that goes
 // red, because a library of 900 books is not a warning.
-export function SectionRail({ sections, value, onChange, ariaLabel, mobileInfo = null, total = null, aside = null, children = null }) {
+// `open` IS THE ADDRESS, AND IT REPLACED A FLAG. A phone shows the index or a
+// section, and which one used to be `entered`, a boolean this component kept —
+// with two effects to keep it honest: one to leave on a width change, one to enter
+// when something other than the index chose a section. A section is a route now
+// (`/settings/<id>`), so "am I in one" is a question the URL answers, both effects
+// are gone with the state they guarded, and the dock's Back key leaves a section
+// the same way it leaves anything else. That is what let the drill head go.
+//
+// CONTROLLED OR NOT, the ordinary React idiom rather than a special case: a caller
+// that owns the address passes `open` and this follows it; a caller that does not —
+// a test, a screen mounted on its own — passes nothing and this keeps the flag.
+// Without the second half, mounting either screen outside the shell stranded a
+// phone reader on the index with no way into a section, which is nine suites'
+// worth of the phone flow and would have been a real defect the day anything else
+// mounted one.
+export function SectionRail({ sections, value, open = undefined, onChange, ariaLabel, mobileInfo = null, total = null, aside = null, children = null }) {
   const mobile = useIsMobileScreen()
-  // ENTERED IS THE PHONE'S ONLY EXTRA STATE, and it is deliberately not the
-  // selected section. A reader who presses Back wants the index, not the previous
-  // section — so leaving is one flag going false rather than a second history of
-  // where they have been.
-  const [entered, setEntered] = useState(false)
   const chosen = sections.find((s) => s.id === value) || null
+  const [entered, setEntered] = useState(false)
+  const inSection = open === undefined ? entered : open
 
-  // Leaving a section by shrinking the window would strand a reader on a phone
-  // index they never asked for, so a width change only ever leaves.
-  useEffect(() => { if (!mobile) setEntered(false) }, [mobile])
-
-  // A SECTION CHOSEN FROM SOMEWHERE ELSE IS A SECTION YOU ARE IN. The index is
-  // not the only way into one: Metadata's issue sheet lands the reader on the
-  // console filtered to the gap they pressed, and a search result opens the
-  // section that holds it. Without this the address changed underneath a reader
-  // who was still looking at the index — the press appeared to do nothing, and
-  // the thing they asked for was one more press away for no reason they could
-  // see. First render is exempt, because arriving at the screen is not choosing
-  // a section and the index is where a phone starts.
+  // A SECTION CHOSEN FROM SOMEWHERE ELSE IS A SECTION YOU ARE IN, and this effect
+  // came back after being deleted. The index is not the only way into one:
+  // Metadata's issue sheet lands the reader on the console filtered to the gap they
+  // pressed, and a search result opens the section that holds it. Where the caller
+  // owns the address that is automatic — navigating IS entering — so this runs only
+  // where it does not, and deleting it wholesale sent the issue sheet's press back
+  // to the index it was pressed from.
+  //
+  // FIRST RENDER IS EXEMPT, because arriving at the screen is not choosing a
+  // section and the index is where a phone starts.
   const seen = useRef(value)
   useEffect(() => {
+    if (open !== undefined) return
     if (seen.current !== value) {
       seen.current = value
       if (mobile) setEntered(true)
     }
-  }, [value, mobile])
+  }, [value, mobile, open])
 
-  if (mobile && !entered) {
+  // WHERE YOU ARE, PUBLISHED UPWARD RATHER THAN DRAWN HERE. This component used to
+  // draw a header bar of its own on a phone — a back arrow, the section's name, its
+  // info dot and a pill — directly under a top bar that had already named the
+  // screen. The owner: "There is already a back key in the bottom bar. The header
+  // title can be in breadcrumbs." So the name goes to the bar that names the
+  // screen, the dot goes with it, and the arrow is the dock's.
+  useScreenBar({
+    crumb: mobile && !inSection ? null : chosen ? {
+      label: chosen.label,
+      info: chosen.info ? { title: chosen.label, text: chosen.info } : null,
+      badge: chosen.pill || null,
+    } : null,
+  })
+
+  if (mobile && !inSection) {
     return (
       <div className="section-index">
         {/* THE TOTAL RIDES WITH THE INDEX, not with a section, because it is the
@@ -121,20 +146,12 @@ export function SectionRail({ sections, value, onChange, ariaLabel, mobileInfo =
     )
   }
 
+  // NO DRILL HEAD. Everything it drew is one row up: the name and the count are in
+  // the top bar's crumb (above), the info dot travels with them, and Back is the
+  // dock's. What is left is the section.
   if (mobile) {
     return (
       <div className="meta-frame">
-        <div className="section-drill-head">
-          <IconButton
-            icon={<IconBack />}
-            ariaLabel={t('common.panel.back.aria', { title: ariaLabel })}
-            onClick={() => setEntered(false)}
-          />
-          <h2 className="section-drill-title">{chosen ? chosen.label : ''}</h2>
-          {chosen && chosen.info && <InfoDot side="bottom" title={chosen.label} text={chosen.info} />}
-          <span className="grow" />
-          {chosen && chosen.pill && <span className="section-index-total">{chosen.pill}</span>}
-        </div>
         <div className="meta-body">{children}</div>
       </div>
     )
@@ -159,7 +176,7 @@ export function SectionRail({ sections, value, onChange, ariaLabel, mobileInfo =
               role="tab"
               aria-selected={on}
               className={`meta-rail-item${on ? ' is-on' : ''}`}
-              onClick={() => onChange(s.id)}
+              onClick={() => { onChange(s.id); setEntered(true) }}
             >
               <span className="meta-rail-icon" aria-hidden="true">{s.icon}</span>
               <span className="meta-rail-label">{s.label}</span>

@@ -537,10 +537,22 @@ export function useScreenScroll() {
 // them to outlive its screen. Publishing null on unmount is not optional here
 // either — a dock still offering "Filter" for a work you closed is a key that
 // does nothing, which is worse than a key that is absent.
-let screenBar = { sub: null, keys: null }
+let screenBar = { sub: null, keys: null, crumb: null }
 const barSubs = new Set()
-function publishBar(v) {
-  screenBar = v
+// A PATCH, NOT A REPLACEMENT, and it had to become one the moment a second caller
+// existed. This overwrote the whole object, which was safe while exactly one screen
+// published — and the section rail now publishes the crumb while the screen around
+// it publishes the dock's verbs. The rail rendered second, so its publish wiped
+// `keys` and the Settings dock lost the Back up and Update keys entirely: the suite
+// reported "no sheet opened", which is a true thing to say about a button that was
+// not on the screen.
+//
+// EACH CALLER TOUCHES ONLY THE FIELDS IT PASSED, including on the way out — a
+// cleanup that cleared all three would be the same collision at unmount. Two
+// callers publishing the same field would still race, which is why the two that
+// exist are split by field rather than by who got there first.
+function publishBar(patch) {
+  screenBar = { ...screenBar, ...patch }
   for (const fn of barSubs) fn(screenBar)
 }
 
@@ -557,14 +569,32 @@ function publishBar(v) {
 // to own the element itself — a MoreMenu anchors its popover to its own trigger,
 // so a shell-rendered button could not open one. The shell still owns the SEAT;
 // what sits in it is the screen's.
-export function useScreenBar({ sub = null, keys = null, actions = null } = {}) {
+// `crumb` IS WHERE YOU ARE INSIDE THE SCREEN, and it is here because the app drew
+// it twice. Settings and Metadata are twelve sections behind a rail, and a phone
+// drew a whole second header bar for the one it was on — a back arrow the dock
+// already has, the section's name the top bar could hold, its info dot, and a
+// pill. Four rows of furniture stood between arriving and the first control. The
+// bar that names the screen is the place a reader already looks to find out where
+// they are, so the section's name goes there, after the screen's, with the one
+// number worth carrying: how many of its settings differ from stock.
+//
+// `{ label, info, badge }` — `info` is `{ title, text }` for the dot, `badge` a
+// string, and both are optional. A screen with no sections publishes none of it.
+export function useScreenBar({ sub = null, keys = null, actions = null, crumb = null } = {}) {
   // Serialised rather than compared by identity: a caller building its key array
   // inline would otherwise republish on every render and re-run every subscriber.
+  // The crumb is stamped the same way and for the same reason — it is rebuilt
+  // inline on every render of the screen that owns it.
   const stamp = keys ? keys.map((k) => k && k.id).join('|') : ''
+  const crumbStamp = crumb ? `${crumb.label}|${crumb.badge || ''}|${crumb.info?.text || ''}` : ''
   useEffect(() => {
-    publishBar({ sub, keys })
-    return () => publishBar({ sub: null, keys: null })
-  }, [sub, stamp]) // eslint-disable-line react-hooks/exhaustive-deps
+    const mine = {}
+    if (sub !== null) mine.sub = sub
+    if (keys !== null) mine.keys = keys
+    if (crumb !== null) mine.crumb = crumb
+    publishBar(mine)
+    return () => publishBar(Object.fromEntries(Object.keys(mine).map((k) => [k, null])))
+  }, [sub, stamp, crumbStamp]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // `actions` IS A BUILDER, NOT A LIST, AND IT IS NOT PUBLISHED.
   //
