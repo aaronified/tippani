@@ -87,6 +87,12 @@ const KNOWN = {
   // clamped thing is a preview OF the screen that holds it in full.
   'index.css:.anthology-tile-intro':
     'two lines of an anthology’s introduction on its tile; the anthology’s own page prints all of it',
+  'index.css:.cover-specimen-title':
+    'two lines of a work\u2019s title beside the cover-size slider, where the title is not the '
+    + 'subject — the specimen exists to show what a SIZE looks like, and the title is in it only '
+    + 'so the reader can see what the type does as the cover shrinks. The Library prints the '
+    + 'whole title, at the size this slider just set. Unclamped, one real book ran eleven lines '
+    + 'and pushed the poster slider off the screen',
   'index.css:.mobile-topbar-title':
     'two lines of a work’s title in the phone top bar; the hero heading below it is the same string, unclamped',
   'index.css:.tl-gap-line':

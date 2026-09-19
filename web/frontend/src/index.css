@@ -9101,16 +9101,19 @@ html[data-theme="dark"] .board-cover {
    page-length console, so the map would otherwise scroll away exactly when a
    reader has gone deep enough to want it. A row can do that too, and the row is
    the thing the phone's dropdown replaces one-for-one. */
-@media (min-width: 900px) {
-  /* THE WHOLE ROW STICKS, not the tablist inside it. The section's info dot and
-     its Reset ride at the far end of the same row now, and sticking only the
-     tablist would slide the tabs up under the top bar while leaving those two
-     behind on the page — one row coming apart into two as you scroll. */
-  .meta-rail-row {
-    position: sticky; top: 0; z-index: 3;
-    background: var(--bg); padding-top: calc(var(--row) * 0.25);
-  }
-}
+/* IT DOES NOT STICK, AND THAT IS WHY IT HAS NO BACKGROUND. The row was sticky at
+   900px and up, which forces a fill — content has to pass behind it — and the fill
+   was `var(--bg)`: a FLAT token laid over a page whose ground is a TEXTURE. So the
+   row read as a pale foreign panel sitting on the paper, which is exactly how the
+   owner described it: "the tab bar has a weird background… not in the prototype."
+
+   The pack's row is neither sticky nor filled — `display:flex;align-items:flex-end;
+   gap:18px;border-bottom:1px solid var(--line)` and nothing else — and the ruling
+   on this row is to follow the pack strictly. Painting the texture behind a sticky
+   row would mean reproducing the ground's tile, its size and its blend mode in a
+   second place, and a second copy of the ground is the thing that goes wrong the
+   day the ground changes. Not sticking costs a reader on a long section one scroll
+   back to the tabs; it is the cheaper of the two. */
 
 /* THE SOURCES TAB'S CARDS, PACKED INTO TWO COLUMNS ON A DESK.
    The owner's: "desktop view: two column masonry".
@@ -10275,6 +10278,29 @@ html[data-theme="dark"] .board-cover {
 .skipped-quote {
   flex: 1; min-width: 0; margin: 0; color: var(--soft);
   font-family: var(--font-display); font-size: var(--type-display-15); line-height: 1.5;
+}
+
+/* THE SIZE, DRAWN AT THE SIZE. Three works beside the slider, scaling with it —
+   cover, title and credit line together, because the part a number cannot tell you
+   is what the TYPE does when the cover shrinks. It wraps rather than scrolling: past
+   the room the column has, a work leaves the specimen, since a half-cut cover judges
+   nothing. */
+.cover-specimen {
+  display: flex; flex-wrap: wrap; align-items: flex-start;
+  gap: 14px; padding: 10px 0 2px; overflow: hidden;
+}
+.cover-specimen-cell { display: flex; flex-direction: column; gap: 7px; flex: none; min-width: 0; }
+/* THE TITLE IS CLAMPED HERE, AND THIS IS THE ONE PLACE THAT IS RIGHT. The standing
+   rule is that a name is never truncated — a shortened name and a short name look
+   alike, so an ellipsis destroys the thing a row exists to show. This row does not
+   exist to show the name. It exists to show a SIZE, and the title is in it only so
+   the reader can see what the type does as the cover shrinks. Unclamped, one real
+   book ran eleven lines and pushed the poster slider off the screen, which is the
+   specimen defeating the control it belongs to.
+   Two lines, and the full title is one press away on the shelf itself. */
+.cover-specimen-title {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 /* THE COLOURS ROW HOLDS TWO KINDS OF SWATCH, and a rule between them says so. A

@@ -48,6 +48,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: Settings } = await import('../../src/Settings.jsx')
+const { t } = await import('../../src/i18n.js')
 const { default: BinPage, expiryLabel, fmtDeleted } = await import('../../src/BinPage.jsx')
 
 const USER = { username: 'a', is_admin: false, preferences: {} }
@@ -289,7 +290,11 @@ describe('Settings has given the bin up entirely', () => {
   // time.
   const settings = async () => {
     render(<Settings user={USER} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onStartTour={() => {}} />)
-    await screen.findByText('Settings')
+    // THE TAB ROW, not the word "Settings": the screen no longer prints its own
+    // name — the shell's breadcrumb does — so waiting on the title waited for
+    // something that had gone, and every case here failed as "cannot find
+    // Settings" rather than as anything about the bin.
+    await screen.findByRole('tablist', { name: t('settings.section.aria') })
     // Every section, because what this file asserts is an ABSENCE — a bin tile
     // nowhere on the screen. Checking one section would pass while the tile sat
     // on another.

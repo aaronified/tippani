@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
+import { coverImgURL, DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
 import { ACCENTS, GROUNDS, PHYS, paletteFor, parseTweaks, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
 import { QUOTE_LEADINGS, QUOTE_MEASURES, SIZE_ROLES, TYPE_FACTORS, applyTypeScale, clampLeading, clampMeasure, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
@@ -71,6 +71,7 @@ import {
   MobileSheet,
   MonoLabel,
   PageHeader,
+  Placeholder,
   SCRIM_CENTERED,
   SectionTitle,
   Select,
@@ -470,18 +471,17 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo }) 
 
   return (
     <section className="space-y-6">
-      {/* NO PAGE HEADER ON A PHONE, not even an empty one. The shell's bar draws
-          "Settings" with a sub-line under it, and this header's <h1> is hidden
-          there — so once the caption moved to that sub-line, a whole sticky row
-          was being spent to say nothing, directly under the row that says it.
-          'admin' is a ROLE and the users list already names it, so the desktop
-          counts draws that same word rather than a second copy of it. */}
-      {!mobile && (
-        <PageHeader
-          title={t('nav.tab.settings.label')}
-          counts={user.is_admin ? t('account.users.admin.chip') : user.username}
-        />
-      )}
+      {/* NO PAGE HEADER AT ALL, on any width. It went from a phone first, for
+          being a sticky row restating the bar directly above it; the same was true
+          on a desk and took longer to see, because what survived there was a lone
+          word — "ADMIN" — floating over the tabs. The owner, looking at it: "there
+          is still a second header bar with 'admin'… Neither of which were in the
+          prototype."
+
+          THE PACK HAS NOTHING HERE: its desktop frame goes from the top bar
+          straight into the tab row (settings-restructured.dc.html:120-122), and
+          the shell's own breadcrumb already says Settings. A role is not a page
+          title, and the users list is where somebody looks up who is an admin. */}
       {/* SAY SO RATHER THAN GO BLANK. A page that empties under a typed word looks
           like a page that broke, and the reader's next move is to reload rather than
           to correct the word. */}
@@ -2386,6 +2386,36 @@ function FeaturesCard({ prefs, onSaved }) {
   // preference written before a section existed still places the ones it knows
   // and leaves the new one where the table puts it.
   const order = sectionOrder(prefs)
+
+  // THE READER'S OWN FIRST THREE OF EACH, for the size specimens below. The pack
+  // does the same and falls back to invented works; this has a real library to hand
+  // and there is no reason to show somebody a stranger's shelf when their own answers
+  // the question better — a cover they recognise at 96px tells them something an
+  // invented one cannot.
+  //
+  // ONE SMALL FETCH, AND THE SPECIMEN SIMPLY DOES NOT DRAW UNTIL IT LANDS. An empty
+  // library draws nothing rather than a row of hatches pretending to be a shelf.
+  const [shelf, setShelf] = useState({ book: [], poster: [] })
+  useEffect(() => {
+    let alive = true
+    const load = async () => {
+      const [b, m] = await Promise.all([json('GET', '/books?limit=3'), json('GET', '/movies?limit=3')])
+      if (!alive) return
+      const asWork = (w, metaOf) => ({
+        id: w.id,
+        title: w.title,
+        meta: metaOf(w),
+        cover: w.cover_path || w.poster_path ? coverImgURL(w.cover_path || w.poster_path) : '',
+      })
+      setShelf({
+        book: ((b.ok && b.data.books) || []).map((w) => asWork(w, (x) => x.author || '')),
+        poster: ((m.ok && m.data.movies) || []).map((w) => asWork(w, (x) => x.director || '')),
+      })
+    }
+    load()
+    return () => { alive = false }
+  }, [])
+
   const move = (i, d) => {
     const j = i + d
     if (j < 0 || j >= order.length) return
@@ -2495,8 +2525,8 @@ function FeaturesCard({ prefs, onSaved }) {
           <InfoDot text={t('settings.features.sizes.info.body')} />
         </div>
         <div className="flex flex-wrap gap-x-10 gap-y-5">
-          <SizeSlider label={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} />
-          <SizeSlider label={t('settings.appearance.film-size.label')} storageKey="tippani:size:movies" def={150} />
+          <SizeSlider label={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} kind="book" works={shelf.book} />
+          <SizeSlider label={t('settings.appearance.film-size.label')} storageKey="tippani:size:movies" def={150} kind="poster" works={shelf.poster} />
         </div>
       </div>
     </Card>
@@ -3178,7 +3208,59 @@ function BackupCard({ user, asking = false, onAsking }) {
 // read the same key on mount, so changing it here resizes their posters/covers.
 // (Replaces the old reel "roll" slider that sat in the toolbars — and never even
 // drove the movie grid.)
-function SizeSlider({ label, storageKey, def }) {
+// A SIZE YOU CAN SEE, which is the whole of what the pack's slider is and what this
+// one was not.
+//
+// WHAT WAS MISSING. The pack's two cover sliders carry `spec: 'book'` and
+// `spec: 'poster'` and draw three works beside the handle at the size the handle is
+// set to — cover, title and credit line, all of it scaling together
+// (settings-restructured.dc.html:2886-2913). This drew a bare range and the number
+// "165px". Nobody knows what 165px is. The owner: "Where are the sample cover
+// pictures? If i need to tell you everything, why have i made the prototype???" It
+// was in this branch's own divergence audit as a major finding and was neither built
+// nor raised.
+//
+// AND THERE IS NO ARTWORK TO SHIP. The pack's specimens are not photographs: the
+// cells are drawn from the material tile and the hatch, both of which this app
+// already has — `Placeholder` and its `.ph` class are the same hatch the pack
+// defines inline. So a reader's OWN first three works are drawn where they have
+// covers, and the hatch stands in where they do not, which is also the honest
+// picture: a shelf is mostly covers and some gaps.
+//
+// THE TYPE SCALES WITH THE COVER, because that is the part a number cannot tell you.
+// At 96px a title wraps to four lines and the credit line disappears into it; at
+// 240px it does not. The ratios are the pack's: 1.52 for a book, 1.5 for a poster.
+function CoverSpecimen({ size, kind, works }) {
+  const ratio = kind === 'poster' ? 1.5 : 1.52
+  // AS MANY AS FIT, NEVER A SCROLL — the pack's own note. Past the room this column
+  // has, a work leaves the specimen rather than the row sliding sideways: the size
+  // is the thing being judged and a half-cut cover judges nothing.
+  const cells = works.slice(0, 3)
+  if (cells.length === 0) return null
+  return (
+    <div className="cover-specimen" aria-hidden="true">
+      {cells.map((w, i) => (
+        <span key={w.id ?? i} className="cover-specimen-cell" style={{ width: size }}>
+          {w.cover ? (
+            <img src={w.cover} alt="" style={{ width: size, height: Math.round(size * ratio), borderRadius: 3, objectFit: 'cover', border: '1px solid var(--line)' }} />
+          ) : (
+            <Placeholder style={{ width: size, height: Math.round(size * ratio), borderRadius: 3 }} />
+          )}
+          <span className="cover-specimen-title" style={{ fontFamily: 'var(--font-display)', fontSize: Math.max(11, Math.round(size / 12)), fontWeight: 600, color: 'var(--ink)', lineHeight: 1.25 }}>
+            {w.title}
+          </span>
+          {w.meta && (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: Math.max(9, Math.round(size / 17)), letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {w.meta}
+            </span>
+          )}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function SizeSlider({ label, storageKey, def, kind, works }) {
   const [size, setSize] = useCoverSize(storageKey, def)
   return (
     <div>
@@ -3197,6 +3279,7 @@ function SizeSlider({ label, storageKey, def }) {
           {t('settings.type.size.format', { n: size })}
         </span>
       </div>
+      <CoverSpecimen size={size} kind={kind} works={works} />
     </div>
   )
 }

@@ -27,6 +27,21 @@ import { useScreenBarState } from '../../src/ui.jsx'
 // rows carries a control a thumb needs, not a repeated title.
 const SCREENS_WITHOUT_A_HEADER = ['settings', 'metadata', 'stats', 'bin']
 
+// AND SETTINGS DRAWS NONE ON A DESK EITHER, which is the one exception below.
+//
+// The desktop half of this file rests on "the desktop shell has no top bar of its
+// own to double". That stopped being true: the desktop bar carries a breadcrumb
+// whose leaf is `screenTitleKey(tab)` (App.jsx:855) — it names the screen. So the
+// page header is a second naming there too, and on Settings what survived of it was
+// a lone "ADMIN" floating above the tabs, since the <h1> is hidden.
+//
+// SETTINGS ALONE, because the v3 pack settles Settings and nothing else here: its
+// desktop frame goes from the top bar straight into the tab row
+// (settings-restructured.dc.html:120-122). The same argument plainly applies to
+// Metadata, Stats and Bin and is not this change's to make — they keep their headers
+// until somebody looks at them on purpose.
+const SCREENS_KEEPING_A_DESK_HEADER = SCREENS_WITHOUT_A_HEADER.filter((k) => k !== 'settings')
+
 let BAR = { sub: null, keys: null }
 const Probe = () => {
   BAR = useScreenBarState()
@@ -73,7 +88,7 @@ describe('on a phone, a screen draws no bar of its own', () => {
 })
 
 describe('on a desk, the same screens keep their header', () => {
-  for (const key of SCREENS_WITHOUT_A_HEADER) {
+  for (const key of SCREENS_KEEPING_A_DESK_HEADER) {
     it(`${key} draws one`, async () => {
       width(false)
       BAR = { sub: null, keys: null }
@@ -84,4 +99,11 @@ describe('on a desk, the same screens keep their header', () => {
       expect(BAR.sub).toBeNull()
     })
   }
+
+  it('settings draws none, because the breadcrumb already names it', async () => {
+    width(false)
+    BAR = { sub: null, keys: null }
+    await mount('settings')
+    expect(document.querySelectorAll('.page-header')).toHaveLength(0)
+  })
 })

@@ -98,16 +98,22 @@ describe('the Settings header on a phone', () => {
     await waitFor(() => expect(BAR.sub).toBe('aaron'))
   })
 
-  it('leaves the desktop header alone', async () => {
+  it('draws no header on a desk either, and still publishes no sub-line', async () => {
     window.matchMedia = (media) => ({
       matches: false, media, onchange: null,
       addEventListener() {}, removeEventListener() {},
       addListener() {}, removeListener() {}, dispatchEvent: () => false,
     })
     page()
-    // On a desk the <h1> is visible and the label sits beside it, which is the
-    // arrangement every other page header has.
-    await waitFor(() => expect(document.querySelector('.page-header .mono-label')).toBeTruthy())
+    // THIS ASSERTED THE HEADER WAS THERE, and it was — as a lone "ADMIN" over the
+    // tabs, because the <h1> beside it is hidden. The desktop bar's breadcrumb
+    // already names the screen (App.jsx:855) and the v3 pack goes from that bar
+    // straight into the tab row, so the header was naming Settings twice and
+    // showing a role label for the trouble. See no-second-topbar.test.jsx, which
+    // owns this rule for all four screens and records why Settings is the one
+    // exception on a desk.
+    await waitFor(() => expect(document.querySelector('[role="tablist"]')).toBeTruthy())
+    expect(document.querySelector('.page-header')).toBeNull()
     expect(BAR.sub).toBeNull()
   })
 })

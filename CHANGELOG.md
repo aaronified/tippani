@@ -723,6 +723,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The cover-size sliders show you the size.** Three of your own works beside each
+  slider, at the size the slider is set to — cover, title and credit line all scaling
+  together, because what a number cannot tell you is what happens to the type when the
+  cover shrinks. Nobody knows what 165px is.
+
+- **Settings no longer prints its own name, or a role.** The bar above already says
+  Settings, so the page header under it was saying it twice — and what showed of it was a
+  lone "ADMIN" floating over the tabs. The tab row has lost its pale band with it: it
+  stood on a flat fill laid over the page's own paper.
+
 - **Sections is one list, not two.** Each section has a row carrying its name, what it
   holds, its up-and-down arrows and its Show/Hide switch — where there used to be a row of
   chips for on-and-off and, underneath, a second list of the same four names for the order.
