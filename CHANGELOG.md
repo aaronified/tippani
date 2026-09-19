@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Both grounds, from either one.** Light ground, dark ground and accent are three doors
+  on the Theme section now, each opening its own options with every colour named — so you
+  can set your night look while standing in daylight, which you could not do before.
+
 - **Every typeface is on the Language and font screen, and chosen there.** The Type panel
   is gone: each face the interface uses is a row with a picker beside it, your uploaded
   fonts are listed where you can see and remove them, and uploading one is a button rather
@@ -126,6 +130,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with, so nothing changes unless you pick.
 
 ### Changed
+
+- **The interface stopped talking in a code font.** Every hint, empty state and
+  explanatory line in the app was set in a monospace face; they are in the interface face
+  now, which is what the type system always said they should be. The material sets on the
+  Theme section are drawn at the size they are meant to be, so you can see them all at
+  once instead of scrolling past eight.
+
 
 - **The Review settings are on the Review screen.** Which kinds of question each deck asks,
   how hard they are, and whether each answer is confirmed were behind a pop-up called

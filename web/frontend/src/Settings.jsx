@@ -3644,7 +3644,10 @@ function MaterialCard({ name, dark, accentHex, code, selected, onClick }) {
         style={{
           ...surfaceStyle(name, 'shell', dark, accentHex),
           position: 'relative',
-          height: 120,
+          // In em as well as px, because a box that holds text has to grow with
+          // the reader's type dial — the standing rule, and this box holds a
+          // specimen.
+          height: 'max(96px, 7em)',
           display: 'flex',
           flexDirection: 'column',
           border: '1px solid var(--line)',
@@ -3807,6 +3810,10 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
     applyTheme({ ...getResolvedTheme(), texTweak: JSON.stringify(next) })
     json('PUT', '/auth/me/preferences', { texTweak: JSON.stringify(next) })
   }
+  // WHICH OF THE THREE COLOUR DOORS IS OPEN, or null. One panel and not three:
+  // they ask the same question about three different things, and three components
+  // would be three places for that question to drift.
+  const [colourDoor, setColourDoor] = useState(null)
   const [groundLight, setGroundLight] = useState(() => getResolvedTheme().groundLight)
   const [groundDark, setGroundDark] = useState(() => getResolvedTheme().groundDark)
 
@@ -3878,10 +3885,14 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
             ariaLabel={t('settings.appearance.match.aria')}
             value={themePref}
             onChange={(v) => persist({ theme: v })}
+            // SYSTEM FIRST, WHICH IS THE PACK'S ORDER AND THE DEFAULT'S PLACE
+            // (settings-restructured.dc.html:2586). It was last, so the option
+            // every new account is already on sat at the far end of the control
+            // that is supposed to say where you are.
             options={[
+              ['system', t('settings.appearance.match.label')],
               ['light', t('settings.appearance.theme.light.label')],
               ['dark', t('settings.appearance.theme.dark.label')],
-              ['system', t('settings.appearance.match.label')],
             ]}
           />
         }
@@ -3913,103 +3924,145 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
         label={t('settings.appearance.colours.title')}
         sub={t('settings.appearance.colours.hint')}
         info={t('settings.appearance.ground.info.body')}
-        changed={
-          (effectiveDark ? groundDark : groundLight) !== (effectiveDark ? 'night' : 'cream')
-          || accent !== 'terracotta'
-        }
+        changed={groundLight !== 'cream' || groundDark !== 'night' || accent !== 'terracotta'}
         control={
-          <div className="flex flex-wrap items-center gap-2">
-          {Object.entries(GROUNDS[effectiveDark ? 'dark' : 'light']).map(([key, g]) => {
-            const on = (effectiveDark ? groundDark : groundLight) === key
-            // THE SWATCH IS DRAWN FROM THE PALETTE THE GROUND PRODUCES, not from
-            // the ground's own override set. A ground is `{ label, tokens }` and
-            // two of the eight carry NO tokens at all — Cream and Night are the
-            // shipped palettes, which is the whole point of them — so a swatch
-            // reading `g.bg` painted every ground transparent and the shipped one
-            // hardest of all. `paletteFor` is the same merge `applyTheme` does, so
-            // the swatch is the ground, rather than a second opinion about it.
-            const pal = paletteFor(effectiveDark, effectiveDark ? { groundDark: key } : { groundLight: key })
-            return (
-              <Tooltip key={key} label={t(g.label)}>
+          /* THREE DOORS, WHICH IS WHAT THE ROW'S OWN SUB-LINE HAS BEEN PROMISING:
+             "Light ground · dark ground · accent. Each one opens its own options."
+             It drew the palette inline instead — the four grounds of whichever
+             mode was on screen, then every accent beside them — so the sentence
+             was describing a control that did not exist, and the row carried
+             eight or nine swatches where the pack carries three
+             (settings-restructured.dc.html:2590, "Tap a colour for its options").
+
+             AND BOTH GROUNDS ARE REACHABLE NOW. Offering only the mode you are
+             standing in was defensible — a swatch is an honest preview only in
+             the ground it selects — but it also meant a reader on a dark screen
+             could not set their day look without switching the app to daylight
+             first. A door is not a preview, so it can offer the pair; the swatch
+             on each door is still drawn in the ground it stands for. */
+          <div className="colour-doors">
+            {[['light', false, groundLight], ['dark', true, groundDark]].map(([id, dark, key]) => {
+              // THE SWATCH IS DRAWN FROM THE PALETTE THE GROUND PRODUCES, not from
+              // the ground's own override set. A ground is `{ label, tokens }` and
+              // two of the eight carry NO tokens at all — Cream and Night are the
+              // shipped palettes, which is the whole point of them — so a swatch
+              // reading `g.bg` painted every ground transparent and the shipped
+              // one hardest of all. `paletteFor` is the same merge `applyTheme`
+              // does, so the swatch is the ground rather than an opinion about it.
+              const pal = paletteFor(dark, dark ? { groundDark: key } : { groundLight: key })
+              return (
                 <button
+                  key={id}
                   type="button"
-                  className="ground-swatch"
-                  aria-pressed={on}
-                  aria-label={t(g.label)}
-                  onClick={() => persist(effectiveDark ? { groundDark: key } : { groundLight: key })}
-                  style={{
-                    background: pal.bg,
-                    boxShadow: on
-                      ? `0 0 0 2px var(--card), 0 0 0 4px var(--accent-ui)`
-                      : `inset 0 0 0 1px ${pal.line}`,
-                  }}
+                  className="colour-door"
+                  onClick={() => setColourDoor(id)}
+                  aria-label={t(`settings.appearance.colours.${id}.aria`, { name: t(GROUNDS[dark ? 'dark' : 'light'][key].label) })}
                 >
-                  <span aria-hidden="true" style={{ background: pal.raised }} />
-                  <span aria-hidden="true" style={{ background: pal.card }} />
+                  <span
+                    className="ground-swatch"
+                    aria-hidden="true"
+                    style={{ background: pal.bg, boxShadow: `inset 0 0 0 1px ${pal.line}` }}
+                  >
+                    <span style={{ background: pal.raised }} />
+                    <span style={{ background: pal.card }} />
+                  </span>
+                  <MonoLabel>{t(`settings.appearance.colours.${id}.label`)}</MonoLabel>
                 </button>
-              </Tooltip>
-            )
-          })}
-          {/* THE ACCENT, IN THE SAME ROW, because the pack's sub-line names all
-              three together and because a reader choosing a look chooses them
-              against each other — a ground picked beside one accent is a different
-              decision beside another. A rule divides the two kinds of swatch: one
-              is a triad of surfaces, the other a single colour, and they would
-              otherwise read as eight choices of one kind. */}
-          <span className="colours-rule" aria-hidden="true" />
-          {Object.entries(ACCENTS).map(([name, hex]) => {
-            const on = accent === name
-            return (
-              <Tooltip key={name} label={t('settings.appearance.accent.tip', { name: t(`vocab.accent.${name}.label`) })} side="top">
-                <button
-                  type="button"
-                  className="accent-swatch"
-                  aria-label={t('settings.appearance.accent.aria', { name: t(`vocab.accent.${name}.label`) })}
-                  aria-pressed={on}
-                  onClick={() => persist({ accent: name })}
-                  style={{
-                    background: `linear-gradient(180deg, color-mix(in oklab, ${hex}, white 14%), ${hex})`,
-                    boxShadow: on ? '0 0 0 2px var(--card), 0 0 0 4px var(--accent-ui)' : 'none',
-                  }}
-                />
-              </Tooltip>
-            )
-          })}
+              )
+            })}
+            <button
+              type="button"
+              className="colour-door"
+              onClick={() => setColourDoor('accent')}
+              aria-label={t('settings.appearance.colours.accent.aria', { name: t(`vocab.accent.${accent}.label`) })}
+            >
+              <span
+                className="accent-swatch"
+                aria-hidden="true"
+                style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${ACCENTS[accent]}, white 14%), ${ACCENTS[accent]})` }}
+              />
+              <MonoLabel>{t('settings.appearance.colours.accent.label')}</MonoLabel>
+            </button>
           </div>
         }
       />
       </PrefGroup>
-      {/* THE ACCESSIBILITY DIALS OF THIS SECTION, under their own heading. The
-          owner's: "Put them in an accessibility subsection under each relevant
-          section." Contrast is one — `§6 access`, added by commit 04c13c6 before
-          this remake and not in the pack at all, which is why it reads as a
-          stranger sitting in the pack's group 1. It is not this work's to remove
-          and it is not the pack's to place, so it gets a heading that says what it
-          is. */}
-      <PrefGroup title={t('settings.group.access.title')}>
-      <PrefRow
-        label={t('settings.appearance.contrast.title')}
-        sub={t('settings.appearance.contrast.hint')}
-        changed={contrast !== 'auto'}
-        control={
-          <Toggle
-            ariaLabel={t('settings.appearance.contrast.aria')}
-            value={contrast}
-            onChange={saveContrast}
-            options={[
-              ['auto', t('settings.appearance.match.label')],
-              ['more', t('settings.appearance.contrast.more.label')],
-            ]}
-          />
-        }
-      />
-      </PrefGroup>
+      {/* WHAT A DOOR OPENS. One panel for the three of them: every option is a
+          swatch with its NAME under it, which a row of tooltipped squares could
+          not give — "Sepia" and "Tobacco" are recognisable words and unrecognisable
+          rectangles, and a reader choosing a look wants to be able to say which
+          one they chose.
+
+          IT STAYS OPEN ON A CHOICE. Picking a ground applies it to the app behind
+          the panel, so closing on the tap would take away the thing the reader is
+          looking at in order to show them it. The ✕ is the way out, and it is
+          plain: no form registers here, so there is nothing for a ✓ to confirm. */}
+      <FormModal
+        open={!!colourDoor}
+        onClose={() => setColourDoor(null)}
+        title={colourDoor ? t(`settings.appearance.colours.${colourDoor}.title`) : ''}
+        maxWidth={520}
+      >
+        <div className="colour-choices">
+          {colourDoor === 'accent'
+            ? Object.entries(ACCENTS).map(([name, hex]) => {
+                const on = accent === name
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    className={'colour-choice' + (on ? ' is-on' : '')}
+                    aria-pressed={on}
+                    onClick={() => persist({ accent: name })}
+                  >
+                    <span
+                      className="accent-swatch"
+                      aria-hidden="true"
+                      style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${hex}, white 14%), ${hex})` }}
+                    />
+                    <span className="colour-choice-name">{t(`vocab.accent.${name}.label`)}</span>
+                  </button>
+                )
+              })
+            : Object.entries(GROUNDS[colourDoor === 'dark' ? 'dark' : 'light']).map(([key, g]) => {
+                const dark = colourDoor === 'dark'
+                const on = (dark ? groundDark : groundLight) === key
+                const pal = paletteFor(dark, dark ? { groundDark: key } : { groundLight: key })
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={'colour-choice' + (on ? ' is-on' : '')}
+                    aria-pressed={on}
+                    onClick={() => persist(dark ? { groundDark: key } : { groundLight: key })}
+                  >
+                    <span
+                      className="ground-swatch"
+                      aria-hidden="true"
+                      style={{ background: pal.bg, boxShadow: `inset 0 0 0 1px ${pal.line}` }}
+                    >
+                      <span style={{ background: pal.raised }} />
+                      <span style={{ background: pal.card }} />
+                    </span>
+                    <span className="colour-choice-name">{t(g.label)}</span>
+                  </button>
+                )
+              })}
+        </div>
+      </FormModal>
       {/* THE GROUP'S HEADING IS THE ONLY HEADING. "2 · What it is made of" sat
           directly above a MonoLabel reading "Material", which is one thing said
           twice — the standing rule, and visible as two stacked labels the moment
           the groups landed. */}
       <PrefGroup index={2} title={t('settings.appearance.group.material.title')} aside={t(MAT_SET_LABELS[materialSet])}>
-      <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
+      {/* AS MANY AS FIT, NOT FOUR. Eight sets in a four-column grid on a 1280px
+          card drew cards three times the size the pack draws them
+          (settings-restructured.dc.html:2600-2620 fits seven across with room for
+          a ninth), and on a phone it meant two enormous cards a scroll apart. A
+          set is recognised by its material and its colour, both of which read
+          at a glance; the size was spending a screen to say so. auto-fill lets
+          the same rule give seven on a desk and three on a phone. */}
+      <div className="material-grid">
         {Object.keys(MAT_SETS).map((name, i) => (
           <MaterialCard
             key={name}
@@ -4023,106 +4076,12 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
         ))}
       </div>
 
-      {/* WHAT THE MATERIALS DO WITH LIGHT, behind a door. Four dials per tile and
-          twenty-seven tiles is a hundred and eight numbers, and standing them open
-          under a picker most readers will use once would bury the accent and the
-          sizes below them. The door names the tile it is about, because the answer
-          to "less shiny" is almost always about ONE material rather than all of
-          them — which is also why an edit is stored per tile rather than as a
-          global multiplier.
-
-          THE FIVE GLASS DIALS ARE NOT HERE. Clarity, refraction, bevel, fringe and
-          gain only mean anything with the lens, and the lens ships with the
-          true-glass toggle or not at all. */}
-      <div className="mt-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <Tooltip label={t('settings.appearance.phys.open.tip')}>
-            <GhostButton icon={<IconSliders />} keepLabel onClick={() => setPhysOpen(true)}>
-              {t('settings.appearance.phys.title')}
-            </GhostButton>
-          </Tooltip>
-          <InfoDot title={t('settings.appearance.phys.title')} text={t('settings.appearance.phys.info.body')} />
-        </div>
-      </div>
-      <FormModal open={physOpen} onClose={() => setPhysOpen(false)} title={t('settings.appearance.phys.title')} maxWidth={620}>
-        <MaterialPhysics
-          tiles={MAT_SETS[materialSet]}
-          tweaks={texTweak}
-          onChange={saveTweaks}
-          glass={trueGlass}
-        />
-      </FormModal>
-
-      </PrefGroup>
-      <PrefGroup index={3} title={t('settings.appearance.group.saved.title')} aside={t('settings.appearance.group.saved.aside', { n: saved.length, cap: SAVED_THEME_CAP })}>
-      {/* THE LOOKS YOU HAVE SAVED. Six fields travel together in one — both
-          grounds, the accent, the material set, the tiles and the dials — because
-          a ground chosen against one accent is a different decision against
-          another, so switching between two looks is one press instead of six.
-
-          FOUR IS THE CAP AND IT IS THE DESIGN. A fifth turns a set of looks you
-          switch between into a list you maintain: naming them, tidying them,
-          wondering which of two near-identical ones is the good one. */}
-      <div className="mt-7">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <MonoLabel>{t('settings.appearance.saved.title')}</MonoLabel>
-          <InfoDot title={t('settings.appearance.saved.title')} text={t('settings.appearance.saved.info.body')} />
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {saved.map((s2) => (
-            <span key={s2.name} className="flex items-center gap-1">
-              <GhostButton onClick={() => wearTheme(s2)}>{s2.name}</GhostButton>
-              <FieldIconButton
-                icon={<IconDelete />}
-                danger
-                ariaLabel={t('settings.appearance.saved.remove.aria', { name: s2.name })}
-                tooltip={t('settings.appearance.saved.remove.aria', { name: s2.name })}
-                onClick={() => saveList(removeTheme(saved, s2.name))}
-              />
-            </span>
-          ))}
-          {saved.length === 0 && <p className="microcopy">{t('settings.appearance.saved.none')}</p>}
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input
-            className="tp-input"
-            style={{ maxWidth: '18ch' }}
-            value={themeName}
-            onChange={(e) => setThemeName(e.target.value)}
-            placeholder={t('settings.appearance.saved.name.placeholder')}
-            aria-label={t('settings.appearance.saved.name.aria')}
-            maxLength={24}
-          />
-          {/* THE BUTTON IS DEAD UNTIL THERE IS A NAME, because a look saved as ""
-              draws a nameless row nobody can press. */}
-          <GhostButton
-            disabled={!themeName.trim() || (saved.length >= SAVED_THEME_CAP && !saved.some((x) => x.name === themeName.trim()))}
-            onClick={() => { saveList(saveTheme(saved, getResolvedTheme(), themeName.trim())); setThemeName('') }}
-          >
-            {t('settings.appearance.saved.save.label')}
-          </GhostButton>
-        </div>
-        {saved.length >= SAVED_THEME_CAP && <p className="microcopy mt-1">{t('settings.appearance.saved.full')}</p>}
-        {/* THE FILE. Export is ONE theme — what you are wearing — rather than the
-            list, because a file called "my theme" that turns out to hold four is a
-            file nobody can share a look with. */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <GhostButton icon={<IconExport />} onClick={exportTheme}>{t('settings.appearance.saved.export.label')}</GhostButton>
-          <GhostButton icon={<IconRestore />} onClick={() => importPick.open()}>{t('settings.appearance.saved.import.label')}</GhostButton>
-          {importPick.input}
-        </div>
-        {importError && <ErrorText>{t(`settings.appearance.saved.import.${importError}`)}</ErrorText>}
-      </div>
-
-      </PrefGroup>
-      {/* GROUP 4 IS THE PACK'S "HOW MUCH A CONTROL SAYS", AND IT CARRIES MORE THAN
-          THE PACK PUT IN IT. The pack's fourth group is label density alone. This
-          app's theme section also holds true glass, the two cover-size sliders, the
-          text size and the two quote-reading dials — none of which the pack's theme
-          section has, because the pack never had them. They are all answers to "how
-          much, and how big", which is what this group is about, so they are here
-          rather than in a fifth group invented to hold them. */}
-      <PrefGroup index={4} title={t('settings.appearance.group.density.title')}>
+      {/* TRUE GLASS SITS WITH THE MATERIALS, because it is one: a lens is what a
+          surface does with the light behind it, and the group it was in is named
+          "how much a control SAYS" — which is about words on buttons. It rode
+          there because that group had become the place for whatever was left over,
+          and the same sweep that emptied it of the cover sliders and the type
+          dials should have moved this too. */}
       {/* TRUE GLASS, AND IT IS OFF UNTIL ASKED FOR. A pane that really refracts
           needs a displacement field per surface, re-evaluated whenever anything
           behind it moves — and this repository already measured what that costs:
@@ -4153,6 +4112,137 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
         }
       />
 
+      {/* WHAT THE MATERIALS DO WITH LIGHT, behind a door. Four dials per tile and
+          twenty-seven tiles is a hundred and eight numbers, and standing them open
+          under a picker most readers will use once would bury the accent and the
+          sizes below them. The door names the tile it is about, because the answer
+          to "less shiny" is almost always about ONE material rather than all of
+          them — which is also why an edit is stored per tile rather than as a
+          global multiplier.
+
+          THE FIVE GLASS DIALS ARE NOT HERE. Clarity, refraction, bevel, fringe and
+          gain only mean anything with the lens, and the lens ships with the
+          true-glass toggle or not at all. */}
+      {/* A DOOR IS A ROW HERE, like the one on Language and font and like the
+          pack's own (settings-restructured.dc.html:2620): its name on the left,
+          what it is for under that, and the way in at the right-hand edge. It was
+          a button floating under the grid with an info dot beside it, which is the
+          shape every control on this section has stopped having. */}
+      <PrefRow
+        label={t('settings.appearance.phys.title')}
+        sub={t('settings.appearance.phys.open.tip')}
+        info={t('settings.appearance.phys.info.body')}
+        changed={MAT_SETS[materialSet].some((tile) => physDirty(tile, texTweak))}
+        control={
+          <GhostButton icon={<IconSliders />} keepLabel onClick={() => setPhysOpen(true)}>
+            {t('settings.appearance.phys.open.label')}
+          </GhostButton>
+        }
+      />
+      <FormModal open={physOpen} onClose={() => setPhysOpen(false)} title={t('settings.appearance.phys.title')} maxWidth={620}>
+        <MaterialPhysics
+          tiles={MAT_SETS[materialSet]}
+          tweaks={texTweak}
+          onChange={saveTweaks}
+          glass={trueGlass}
+        />
+      </FormModal>
+
+      </PrefGroup>
+      <PrefGroup
+        index={3}
+        title={t('settings.appearance.group.saved.title')}
+        info={t('settings.appearance.saved.info.body')}
+        aside={t('settings.appearance.group.saved.aside', { n: saved.length, cap: SAVED_THEME_CAP })}
+      >
+      {/* THE LOOKS YOU HAVE SAVED. Six fields travel together in one — both
+          grounds, the accent, the material set, the tiles and the dials — because
+          a ground chosen against one accent is a different decision against
+          another, so switching between two looks is one press instead of six.
+
+          FOUR IS THE CAP AND IT IS THE DESIGN. A fifth turns a set of looks you
+          switch between into a list you maintain: naming them, tidying them,
+          wondering which of two near-identical ones is the good one. */}
+      {/* NO SECOND HEADING. "3 · A theme of your own" was followed by a mono label
+          reading "Your saved looks", which is the same thing said twice at two
+          sizes — the group heading names the group, and the standing rule is that
+          a row says a thing once. What the reader needs here is not another title
+          but the looks themselves, so the list IS the group's first row. */}
+      {/* TWO ROWS, WHICH IS WHAT THE PACK DRAWS HERE (settings-restructured.dc.html
+          :2604-2609): the looks you have saved, and the file you can carry one out
+          in. They were a stack of loose controls under a second heading — chips,
+          then a box and a button, then two more buttons — on a section where
+          everything else had become a row with a name. */}
+      <PrefRow
+        label={t('settings.appearance.saved.title')}
+        sub={t('settings.appearance.saved.hint')}
+        changed={saved.length > 0}
+        control={
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              className="tp-input"
+              style={{ maxWidth: '18ch' }}
+              value={themeName}
+              onChange={(e) => setThemeName(e.target.value)}
+              placeholder={t('settings.appearance.saved.name.placeholder')}
+              aria-label={t('settings.appearance.saved.name.aria')}
+              maxLength={24}
+            />
+            {/* THE BUTTON IS DEAD UNTIL THERE IS A NAME, because a look saved as ""
+                draws a nameless row nobody can press. */}
+            <GhostButton
+              disabled={!themeName.trim() || (saved.length >= SAVED_THEME_CAP && !saved.some((x) => x.name === themeName.trim()))}
+              onClick={() => { saveList(saveTheme(saved, getResolvedTheme(), themeName.trim())); setThemeName('') }}
+            >
+              {t('settings.appearance.saved.save.label')}
+            </GhostButton>
+          </div>
+        }
+      >
+        {/* THE LOOKS THEMSELVES, at the row's full width: they are what the row is
+            about, and a name is as long as somebody's name for it. */}
+        <div className="flex flex-wrap items-center gap-2" style={{ flexBasis: '100%' }}>
+          {saved.map((s2) => (
+            <span key={s2.name} className="flex items-center gap-1">
+              <GhostButton onClick={() => wearTheme(s2)}>{s2.name}</GhostButton>
+              <FieldIconButton
+                icon={<IconDelete />}
+                danger
+                ariaLabel={t('settings.appearance.saved.remove.aria', { name: s2.name })}
+                tooltip={t('settings.appearance.saved.remove.aria', { name: s2.name })}
+                onClick={() => saveList(removeTheme(saved, s2.name))}
+              />
+            </span>
+          ))}
+          {saved.length === 0 && <p className="microcopy">{t('settings.appearance.saved.none')}</p>}
+          {saved.length >= SAVED_THEME_CAP && <p className="microcopy">{t('settings.appearance.saved.full')}</p>}
+        </div>
+      </PrefRow>
+      {/* THE FILE. Export is ONE theme — what you are wearing — rather than the
+          list, because a file called "my theme" that turns out to hold four is a
+          file nobody can share a look with. */}
+      <PrefRow
+        label={t('settings.appearance.saved.file.title')}
+        sub={t('settings.appearance.saved.file.hint')}
+        control={
+          <div className="flex flex-wrap items-center gap-2">
+            <GhostButton icon={<IconExport />} onClick={exportTheme}>{t('settings.appearance.saved.export.label')}</GhostButton>
+            <GhostButton icon={<IconRestore />} onClick={() => importPick.open()}>{t('settings.appearance.saved.import.label')}</GhostButton>
+            {importPick.input}
+          </div>
+        }
+      />
+      {importError && <ErrorText>{t(`settings.appearance.saved.import.${importError}`)}</ErrorText>}
+
+      </PrefGroup>
+      {/* GROUP 4 IS THE PACK'S "HOW MUCH A CONTROL SAYS", AND IT CARRIES MORE THAN
+          THE PACK PUT IN IT. The pack's fourth group is label density alone. This
+          app's theme section also holds true glass, the two cover-size sliders, the
+          text size and the two quote-reading dials — none of which the pack's theme
+          section has, because the pack never had them. They are all answers to "how
+          much, and how big", which is what this group is about, so they are here
+          rather than in a fifth group invented to hold them. */}
+      <PrefGroup index={4} title={t('settings.appearance.group.density.title')}>
       {/* WHAT USED TO SIT HERE WAS A WRAPPING ROW OF WHATEVER WAS LEFT OVER: the
           accent, two cover-size sliders, the global text size, the two quote
           reading dials, label density and the language picker, in one flex wrap at
@@ -4172,6 +4262,34 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
           the right place: it is the pack's own group 4, "How much a control says",
           which is what this group is called. */}
       <LabelDensity />
+      </PrefGroup>
+      {/* THE ACCESSIBILITY DIALS OF THIS SECTION, under their own heading, AT THE END. The
+          owner's: "Put them in an accessibility subsection under each relevant
+          section." Contrast is this section's one — `§6 access`, added before the
+          remake and not in the pack at all.
+
+          IT SAT BETWEEN GROUPS 1 AND 2, unnumbered, which made the numbering read
+          as a mistake: 1, a nameless interruption, 2. Numbered and last, it is
+          where Language and font already puts its own, so a reader who learns
+          where accessibility lives on one section knows where it is on the
+          other. */}
+      <PrefGroup index={5} title={t('settings.group.access.title')}>
+      <PrefRow
+        label={t('settings.appearance.contrast.title')}
+        sub={t('settings.appearance.contrast.hint')}
+        changed={contrast !== 'auto'}
+        control={
+          <Toggle
+            ariaLabel={t('settings.appearance.contrast.aria')}
+            value={contrast}
+            onChange={saveContrast}
+            options={[
+              ['auto', t('settings.appearance.match.label')],
+              ['more', t('settings.appearance.contrast.more.label')],
+            ]}
+          />
+        }
+      />
       </PrefGroup>
       </>
       )}
@@ -4446,18 +4564,24 @@ export function LabelDensity() {
     }
   }
   return (
-    <div>
-      <div className="mb-2 flex items-center gap-1.5">
-        <MonoLabel>{t('settings.labels.title')}</MonoLabel>
-        <InfoDot title={t('settings.labels.info.title')} text={t('settings.labels.info.body')} />
-      </div>
-      <Toggle
-        ariaLabel={t('settings.labels.info.title')}
-        value={pref}
-        onChange={pick}
-        options={[['auto', t('settings.labels.auto.label')], ['on', t('common.action.show.label')], ['off', t('common.action.hide.label')]]}
-      />
-    </div>
+    /* A ROW, LIKE THE ROWS AROUND IT. It drew its own label-over-control stack
+       while every other control in the section had become a row with its name on
+       the left and its answer on the right — so the one control this group is
+       named after was the one that did not look like it belonged in it. */
+    <PrefRow
+      label={t('settings.labels.title')}
+      info={t('settings.labels.info.body')}
+      infoTitle={t('settings.labels.info.title')}
+      changed={pref !== 'auto'}
+      control={
+        <Toggle
+          ariaLabel={t('settings.labels.info.title')}
+          value={pref}
+          onChange={pick}
+          options={[['auto', t('settings.labels.auto.label')], ['on', t('common.action.show.label')], ['off', t('common.action.hide.label')]]}
+        />
+      }
+    />
   )
 }
 

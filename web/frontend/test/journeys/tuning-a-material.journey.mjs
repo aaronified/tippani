@@ -30,7 +30,10 @@ it('a reader opens the material dials and finds the set they are wearing', async
   // — which is the arrangement being asserted, not an incidental.
   await app.gone('Hardness')
 
-  await app.press('What the materials do with light')
+  // The door's own words. The row is named for what is behind it — "What the
+  // materials do with light" — and the button says what pressing it does, which is
+  // the pair every door on this section now wears.
+  await app.press('Open the dials')
 
   // The four dials, and the material they are about. Manuscript is the shipped
   // set and its page is paper, so that is the row a reader lands on.

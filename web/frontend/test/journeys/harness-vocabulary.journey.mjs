@@ -92,9 +92,12 @@ it('reports a control that says nothing about itself as null, not as off', async
   await app.goto('/')
   await app.press('Settings')
   await app.press('Theme')
-  // A swatch is a real toggle and answers true or false.
+  // A swatch is a real toggle and answers true or false. They sit behind the
+  // ground's own door now, which the row's sub-line has always described.
+  await app.press('The light ground')
   expect(await app.chosen('Cream')).toBe(true)
   expect(await app.chosen('Sepia')).toBe(false)
+  await app.press('Close')
   // The section rail's rows are tabs, and a tab announces itself the same way.
   expect(await app.chosen('Theme')).toBe(true)
   // A one-shot verb is not a toggle and must not pretend to be one. Setting the

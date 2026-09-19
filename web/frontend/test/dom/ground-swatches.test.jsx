@@ -18,7 +18,7 @@
 // can tell a painted swatch from an unpainted one — which is exactly how three
 // invisible buttons passed everything.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { openSettingsSection } from './helpers/settingsSection.jsx'
 
 vi.mock('../../src/api.js', async (orig) => ({
@@ -41,43 +41,71 @@ async function openTheme() {
   await openSettingsSection('Theme')
 }
 
-// The light side is what a jsdom render is in: no `prefers-color-scheme`, so the
-// screen resolves to light and the picker offers the four light grounds. They are
-// found by the accessible name each ground carries rather than by a class, so a
-// ground that stops being offered is one fewer here rather than a selector that
-// silently matches nothing.
-function groundButtons() {
-  const names = new Set(Object.values(GROUNDS.light).map((g) => t(g.label).toLowerCase()))
+// THE GROUNDS ARE BEHIND A DOOR NOW, which is what the pack draws and what the
+// row's own sub-line has always said: "Light ground · dark ground · accent. Each
+// one opens its own options." So each case opens the door for the side it is
+// about — and BOTH sides are reachable, where the row used to offer only the mode
+// the screen happened to be in.
+async function openGrounds(side = 'light') {
+  await openTheme()
+  const door = screen.getAllByRole('button').find((b) =>
+    (b.getAttribute('aria-label') || '').startsWith(t(`settings.appearance.colours.${side}.title`)))
+  expect(door, `no ${side} ground door`).toBeTruthy()
+  fireEvent.click(door)
+  await screen.findByRole('dialog')
+}
+
+// Found by the name each ground carries rather than by a class, so a ground that
+// stops being offered is one fewer here rather than a selector that silently
+// matches nothing.
+function groundButtons(side = 'light') {
+  const names = new Set(Object.values(GROUNDS[side]).map((g) => t(g.label).toLowerCase()))
   return screen.getAllByRole('button').filter((b) => {
-    const label = (b.getAttribute('aria-label') || '').toLowerCase()
-    return b.getAttribute('aria-pressed') !== null && names.has(label)
+    const text = (b.textContent || '').trim().toLowerCase()
+    return b.getAttribute('aria-pressed') !== null && names.has(text)
   })
 }
 
 describe('the ground picker offers grounds you can see', () => {
   it('offers one press per light ground', async () => {
-    await openTheme()
+    await openGrounds('light')
     expect(groundButtons().length).toBe(Object.keys(GROUNDS.light).length)
   })
 
+  // THE OTHER SIDE, WHICH USED TO BE UNREACHABLE. The row offered the grounds of
+  // whichever mode was on screen, so a reader on a dark screen could not set their
+  // day look without switching the whole app to daylight first.
+  it('and one press per dark ground, without changing the app to find them', async () => {
+    await openGrounds('dark')
+    expect(groundButtons('dark').length).toBe(Object.keys(GROUNDS.dark).length)
+  })
+
   it('paints every one of them', async () => {
-    await openTheme()
+    await openGrounds('light')
     for (const b of groundButtons()) {
-      // The empty string is what an undefined inline colour leaves behind, and
-      // it is the exact state the defect produced.
-      expect(b.style.background, `${b.getAttribute('aria-label')} is unpainted`).not.toBe('')
-      const stripes = Array.from(b.querySelectorAll('span'))
+      // THE SWATCH IS INSIDE THE CHOICE NOW, because a choice carries its name as
+      // well as its colour — which is the other half of what this file is about:
+      // "Sepia" and "Tobacco" are recognisable words and unrecognisable squares.
+      const swatch = b.querySelector('.ground-swatch')
+      expect(swatch, `${b.textContent} has no swatch`).toBeTruthy()
+      // The empty string is what an undefined inline colour leaves behind, and it
+      // is the exact state the defect this file exists for produced.
+      expect(swatch.style.background, `${b.textContent} is unpainted`).not.toBe('')
+      const stripes = Array.from(swatch.querySelectorAll('span'))
       expect(stripes.length).toBe(2)
       for (const s of stripes) expect(s.style.background).not.toBe('')
     }
   })
 
   it('draws no two of them alike', async () => {
-    await openTheme()
+    await openGrounds('light')
     // A picker whose choices all look the same is a picker with one choice on
     // it. The triad — desk, furniture, page — is what distinguishes a ground, so
     // all three are part of the fingerprint.
-    const seen = groundButtons().map((b) => [b.style.background, ...Array.from(b.querySelectorAll('span')).map((s) => s.style.background)].join('|'))
+    const seen = groundButtons().map((b) => {
+      const swatch = b.querySelector('.ground-swatch')
+      return [swatch.style.background, ...Array.from(swatch.querySelectorAll('span')).map((s) => s.style.background)].join('|')
+    })
     expect(new Set(seen).size).toBe(seen.length)
   })
 })
