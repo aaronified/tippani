@@ -3962,8 +3962,13 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
                 <button
                   key={id}
                   type="button"
-                  className="colour-door"
-                  onClick={() => setColourDoor(id)}
+                  className={'colour-door' + (colourDoor === id ? ' is-open' : '')}
+                  // A SECOND PRESS CLOSES IT, which is what the pack does
+                  // (settings-restructured.dc.html:3127) and what a door that
+                  // shows no state cannot afford not to do: pressing the open one
+                  // again was a dead press, and the only way out was Hide.
+                  onClick={() => setColourDoor(colourDoor === id ? null : id)}
+                  aria-expanded={colourDoor === id}
                   aria-label={t(`settings.appearance.colours.${id}.aria`, { name: t(GROUNDS[dark ? 'dark' : 'light'][key].label) })}
                 >
                   <span
@@ -3980,8 +3985,9 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
             })}
             <button
               type="button"
-              className="colour-door"
-              onClick={() => setColourDoor('accent')}
+              className={'colour-door' + (colourDoor === 'accent' ? ' is-open' : '')}
+              onClick={() => setColourDoor(colourDoor === 'accent' ? null : 'accent')}
+              aria-expanded={colourDoor === 'accent'}
               aria-label={t('settings.appearance.colours.accent.aria', { name: t(`vocab.accent.${accent}.label`) })}
             >
               <span

@@ -68,8 +68,23 @@ it('a reader dresses the night while standing in the day, and it is kept', async
   await app.press('Hide the options')
 
   // AND THE DAY IS UNTOUCHED, which is what makes these two settings and not one.
+  //
+  // IT SETS THE DAY ITSELF RATHER THAN READING WHAT THE CASE ABOVE LEFT BEHIND.
+  // A rating caught that: this asserted Sepia, which the first test in this file
+  // happens to choose — so "the day is untouched" was really "the fixture still
+  // says Sepia", and the case would have gone on passing with the two settings
+  // wired to one field as long as nothing else moved.
   await app.press('The light ground')
-  expect(await app.chosen('Sepia'), 'the light ground moved with the dark one').toBe(true)
+  await app.press('White')
+  expect(await app.chosen('White')).toBe(true)
+  await app.press('Hide the options')
+
+  await app.press('The dark ground')
+  expect(await app.chosen('Tobacco'), 'setting the day moved the night').toBe(true)
+  await app.press('Hide the options')
+
+  await app.press('The light ground')
+  expect(await app.chosen('White'), 'the light ground moved with the dark one').toBe(true)
   await app.press('Hide the options')
 
   await app.goto('/settings')

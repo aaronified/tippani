@@ -32,14 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   switch between rather than a list you maintain. You can also export what you are wearing
   as a file and paste somebody else's in.
 
-
 - **True glass, if you want it.** Glass that bends what is behind it rather than blurring
   it — most at the rim, not at all through the middle — on the rail, the top bar and the
   dock. It is real work for the machine on every scroll, so it is off until you turn it on
   under Settings → Theme, and it stays off for anyone whose system asks for reduced
   motion, whatever the switch says. Five dials come with it: how much it bends, how wide
   the rim is, the rainbow at the edge, how steep the bend, and the softness behind it.
-
 
 - **Materials behave like materials now.** Stone returns the window in a small bright
   patch; wool spreads it wide and dim; paper glows faintly from within where the light
@@ -48,7 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   under *What the materials do with light* on Settings → Theme, set per material rather
   than all at once. There is one window in the app and everything is lit from it, so two
   cards side by side agree about where it is.
-
 
 - **Hold the phone's Back key for the screens behind you.** A menu opens over the key
   with the last five, and picking one really goes back — your phone's own Back carries
@@ -137,7 +134,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Theme section are drawn at the size they are meant to be, so you can see them all at
   once instead of scrolling past eight.
 
-
 - **The Review settings are on the Review screen.** Which kinds of question each deck asks,
   how hard they are, and whether each answer is confirmed were behind a pop-up called
   "In-depth controls" — put there when Settings was one long scroll. Review is its own screen
@@ -191,13 +187,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the count and the things you can do. A person's quote count moved into that line rather
   than being dropped with the column it lived in.
 
-
 - **Colour categories moved to the Metadata console.** What KIND of note a quote is —
   Fact, Voice, Craft, whatever you call yours — is a fact about your library rather than a
   preference about the app, so it sits with the tags, the languages and the people instead
   of under Theme. Nothing about the card changed; only where it lives.
-
-
 
 - **You can put the sections in the order you want them.** Settings → Sections lists
   Library, Catalogue, Quotes and Anthologies with a pair of arrows each, and that order is
@@ -209,7 +202,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   link to — and Settings' font rows point at it as the one place a quote's language is
   defined. Same table, unchanged; it just has an address now.
 
-
 - **Settings is five named screens instead of one long scroll.** Theme, Language and font,
   Review, Sections, Server — picked from a row across the top on a desk, or a field on a
   phone, the same control the Metadata console already uses. Nothing was taken away and no
@@ -217,7 +209,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   other one. The section you were last on is where it opens next time. The type and font
   settings moved out from under Appearance to sit with the interface language, which is
   what they are about.
-
 
 - **Tags is a section of the Metadata console, not a tab of its own.** It always
   answered the question the rest of that console answers — what is written across your
@@ -1538,7 +1529,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   out at 100 days: the two paragraphs that explain the ladder, and the Settings copy beside it,
   now say a year.
 
-
 - **A character in one work can be given another, from the screen you are already on.** A
   character credited in a single work has a row — *Also in another work* — that opens the
   same work chooser its global screen uses. Choosing one adds the credit, and the character
@@ -2771,7 +2761,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   back, so a short work never grows one — and drops into the dock's place when the dock
   slides away, so the corner never holds two things and never sits empty.
 
-
 - **A quote can be duplicated.** *Duplicate* in a quote's ⋯ opens the capture form on a
   copy — the words, the note, the colour, the tags and the locator all carried across —
   titled *Duplicate this quote*, with a line saying that Save writes a new one and the
@@ -2833,7 +2822,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   routinely taller than the thing it annotates. The quiz card's note still prints whole,
   because there it is what you are reading.
 
-
 - **A phone can arrange a book's shelf at all.** The whole shelf header was
   desktop-only, so grouping, the sort column and the direction were reachable from one
   of two viewports — a phone-only reader sat permanently at the defaults. The pack's own
@@ -2852,7 +2840,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on having a percentage, so a completed book, an abandoned one and one on the wishlist
   had no strip at all. Those are exactly the three the strip can report best. It carries
   a real label now too ("Reading — 62%").
-
 
 - **The quiz shows a face for every person a credit names.** A book by two authors asked
   the portrait map for somebody called "Le Guin & Lem" — nobody — so the option lost its
@@ -2891,7 +2878,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new image — this can take a few minutes…" was the *label* of a 140px button. It is
   a line of prose now, and the confirmation form goes while the update runs: once the
   pull has started there is nothing on that row left to decide.
-
 
 ### Changed
 
@@ -3323,7 +3309,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   be reachable only from there, so both named that door. Neither has lived in Settings
   since Checks was built — the rail, the phone drawer and Checks all reach them now — so
   the arrow pointed at a page that no longer contains them.
-
 
 - **Six tests that read the source now use the app instead.** Home's favourites wall,
   the shuffled quote card, the "quiz me on this" button and the Shuffle control's
