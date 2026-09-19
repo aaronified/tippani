@@ -97,7 +97,9 @@ const page = async (section = 'Language and font') => {
 // what is behind the button, and a whole console around it is scaffolding.
 const sources = async () => {
   render(<MetadataSources user={USER} onPreferences={() => {}} />)
-  await screen.findByText('Metadata sources')
+  // A ROW EVERY READER SEES — see settings-key-field.jsx. The title that used to
+  // stand here said "Metadata sources" under a tab that had just said "Sources".
+  await screen.findByText('Multi-author credits')
 }
 const dialog = () => screen.getByRole('dialog')
 
@@ -151,15 +153,19 @@ describe('the two panels are doors, not cards', () => {
   it('puts Type under Language and font, and the marks table nowhere on Settings', async () => {
     // WHERE the door is, which is the one thing the assertions above cannot see:
     // they find a button on a page without caring what it sits under.
-    const card = (name) => screen.getByRole('button', { name }).closest('.hand-card')
-    const heading = (name) => card(name)?.querySelector('h2')?.textContent || ''
-    // TYPE MOVED OUT FROM UNDER APPEARANCE, which is what this line used to
-    // assert the opposite of. Settings is five named sections now, and what the
-    // interface is WRITTEN IN — its language and the four faces that draw it —
-    // is one of them. A font door filed under "Appearance" was the old single
-    // scroll's answer to having nowhere else to put it.
+    // WHICH SECTION, NOT WHICH CARD. This read the heading off the `.hand-card`
+    // the Type button sits in and expected "Language" — and that heading is gone,
+    // because it was a second one under a rail tab that had already said "Language
+    // and font". The fact it was checking is unchanged and is now one level up: the
+    // chosen tab is what the reader is standing on, and it announces itself.
+    //
+    // TYPE MOVED OUT FROM UNDER APPEARANCE, which is what this line used to assert
+    // the opposite of. Settings is five named sections now, and what the interface
+    // is WRITTEN IN — its language and the four faces that draw it — is one of them.
     await page()
-    expect(heading('Type')).toBe('Language')
+    expect(screen.getByRole('button', { name: 'Type' })).toBeTruthy()
+    const chosenTab = screen.getAllByRole('tab').find((el) => el.getAttribute('aria-selected') === 'true')
+    expect(chosenTab?.textContent).toContain('Language and font')
     // AND THE MARKS TABLE IS NOT ON SETTINGS AT ALL, which is the half a heading
     // check cannot state: the block left that page, and has now left the sources
     // block too for a section of its own.
@@ -171,7 +177,7 @@ describe('the two panels are doors, not cards', () => {
     expect(screen.queryByRole('button', { name: 'Language marks' })).toBeNull()
     // And the keys card is still here, which is what proves the screen rendered
     // rather than the query having nothing to find.
-    expect(screen.getByText('Metadata sources')).toBeTruthy()
+    expect(screen.getByText('Multi-author credits')).toBeTruthy()
   })
 })
 

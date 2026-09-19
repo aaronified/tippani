@@ -215,9 +215,11 @@ describe('a section at a time', () => {
     // Fetch. It is the last door because it is a setting rather than a thing to
     // work on.
     await mount()
-    expect(screen.queryByText('Metadata sources')).toBeNull()
+    // THE CARD'S OWN ROWS, NOT ITS TITLE. The title said "Metadata sources" under a
+    // tab that had just said "Sources", so it went; a key row is what this card is.
+    expect(screen.queryByText('TMDB key')).toBeNull()
     await press(tab(/^Sources/))
-    expect(await screen.findByText('Metadata sources')).toBeTruthy()
+    expect(await screen.findByText('TMDB key')).toBeTruthy()
   })
 
   it('puts the character list behind the character door and nowhere else', async () => {

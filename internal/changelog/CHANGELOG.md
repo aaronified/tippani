@@ -115,6 +115,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **One heading per screen, not two.** Settings and Metadata were saying their own name
+  twice — "Review" and then "Daily quiz & practice" underneath it, "Characters" over
+  "Characters" — each with its own ⓘ. The section's name is the heading now, and its ⓘ is
+  the one that explains it; a heading inside a section only appears where there is more
+  than one thing under it to tell apart.
+
+- **The Metadata screen no longer scrolls sideways.** One very long book title was widening
+  the whole page on a desktop.
+
 - **Filter your works by "no people", "no synopsis" or "complete".** The works console
   shows the library through what is missing from it, and three of the things a work can be
   missing had no filter. "Complete" is the one worth having last: after a pass over the

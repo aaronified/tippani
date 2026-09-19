@@ -83,6 +83,15 @@ describe('every harness that fills a library prefers the archive', () => {
       const lines = code(f).split('\n')
       const ask = lines.findIndex((l) => /scratch_prefer_archive/.test(l))
       const boot = lines.findIndex((l) => /"\$BIN" serve|go build -o/.test(l))
+      // A RUNNER THAT BOOTS NOTHING CANNOT BOOT TOO EARLY, and `findIndex` answers
+      // -1 for one — which this read as "position -1", so a delegating runner
+      // failed with "expected 9 to be less than -1". `run-surfaces.sh` is that
+      // case: it asks for the archive and then hands the seeded path to
+      // `run-with-server.sh`, which is the only place in this directory the
+      // scratch server is started correctly. Requiring every runner to boot for
+      // itself would be this rule demanding the second copy that its own sibling
+      // case ("none of them reads TIPPANI_BACKUP at all") exists to forbid.
+      if (boot === -1) continue
       expect(ask, `${f} builds or boots before it asks for the archive`).toBeLessThan(boot)
     }
   })

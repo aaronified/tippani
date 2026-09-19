@@ -77,5 +77,17 @@ fi
 # has no use for a display either way. scripts/perf/run-with-server.sh has said this
 # since it was written; this one had not, so a capture run died at browser launch with
 # a message about $XAUTHORITY that says nothing about screenshots.
+# WHICH PROBE, because this file is the only place the scratch server is booted
+# correctly and a second copy of that is what the repo has already paid for twice
+# (`scratch_prefer_archive` exists for the same reason one layer up). The default is
+# the screen-by-screen capture this script was written for; `TIPPANI_PROBE` names
+# another, and it is a SCRIPT NAME in this directory rather than a command line, so
+# nothing here can be turned into arbitrary shell by an environment variable.
+PROBE="${TIPPANI_PROBE:-capture.mjs}"
+case "$PROBE" in
+  */*|*' '*) echo "TIPPANI_PROBE must be a script name in this directory, not a path or a command" >&2; exit 2 ;;
+esac
+[ -f "$PROBE" ] || { echo "no such probe: $PROBE" >&2; exit 2; }
+
 env -u XAUTHORITY -u DISPLAY -u WAYLAND_DISPLAY \
-  node capture.mjs --base-url "http://$BIND" ${ARGS[@]+"${ARGS[@]}"}
+  node "$PROBE" --base-url "http://$BIND" ${ARGS[@]+"${ARGS[@]}"}

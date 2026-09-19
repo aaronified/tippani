@@ -49,7 +49,9 @@ beforeEach(() => {
 
 const page = async () => {
   render(<MetadataSources user={ADMIN} onPreferences={() => {}} />)
-  await screen.findByText('Metadata sources')
+  // THE CARD'S OWN ROWS, NOT ITS TITLE — the title said "Metadata sources"
+  // under a tab that had just said "Sources", so it went.
+  await screen.findByText('TMDB key')
 }
 
 // WHERE "IS THIS KEY STORED" LIVES NOW. It was a badge — a floppy disc with a
@@ -382,7 +384,10 @@ describe('the Google scrape toggle', () => {
 
   it('and a reader who is not an admin is not offered it at all', async () => {
     render(<MetadataSources user={{ username: 'b', is_admin: false, preferences: {} }} onPreferences={() => {}} />)
-    await screen.findByText('Metadata sources')
+    // A ROW EVERY READER SEES, because the key rows are the admin's and this mount
+    // is not one. The title that used to stand here said "Metadata sources" under a
+    // tab that had just said "Sources", so it went.
+    await screen.findByText('Multi-author credits')
     await act(async () => {})
     expect(screen.queryByText('Google image results'), 'a non-admin is offered a switch whose PUT will 403')
       .toBeNull()
@@ -438,7 +443,7 @@ describe('multi-author credits', () => {
     // queryByText would have passed either way — it is just the other containment:
     // in a card, and NOT in the sources card.
     await page()
-    const sources = screen.getByText('Metadata sources').closest('.hand-card')
+    const sources = screen.getByText('TMDB key').closest('.hand-card')
     expect(sources, 'the sources card').toBeTruthy()
     expect(sources.textContent, 'the credits section is back inside the sources card')
       .not.toContain('Multi-author credits')

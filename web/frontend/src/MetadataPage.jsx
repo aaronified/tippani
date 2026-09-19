@@ -66,6 +66,12 @@ import { editDistance } from './text.js'
 // mixture of books and films has no glyph and what was chosen instead); Sources is the
 // key, because that section is where the API keys are kept and a key is what a reader
 // goes there holding.
+// What each section's info dot says. Derived from the id rather than kept as a
+// fourth column, for the reason `sectionInfoKey` gives in Settings.jsx: a column
+// that is the same expression for every row is a rule, not data — and a rule typed
+// eight times is eight chances to typo one into a key that resolves to nothing.
+const metadataSectionInfoKey = (id) => `metadata.section.${id}.info.body`
+
 const METADATA_SECTIONS = [
   ['overview', 'metadata.section.overview.label', <IconStats />],
   ['works', 'metadata.section.works.label', <IconNavWorks />],
@@ -369,6 +375,12 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             id,
             label: t(label),
             icon,
+            // WHAT THIS SECTION IS, and it is the dot the consoles below used to
+            // draw for themselves. Settings' rail has carried one per section
+            // since it was built; this one carried a single page-level dot, so
+            // every console answered "what am I looking at" a second time under a
+            // tab that had already named it.
+            info: t(metadataSectionInfoKey(id)),
             count: railCounts[id],
             // ONLY THE OVERVIEW'S NUMBER IS A COUNT OF PROBLEMS. Every other door
             // counts records, and a library of 900 books is not a warning.
@@ -451,12 +463,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             // quote's language is, and a pointer to a pop-up inside a different
             // section is not an address.
             <Card>
-              <SectionTitle
-                info={t('settings.languages.card.info.body')}
-                infoTitle={t('settings.languages.title')}
-              >
-                {t('settings.languages.title')}
-              </SectionTitle>
+              {/* THE SECTION IS THE HEADING — see CharactersConsole. The tab says
+                  "Languages" and carries the dot; this said "Language marks"
+                  underneath it with a second one. */}
               <LanguageMarksSettings prefs={user.preferences} onSaved={onPreferences} />
             </Card>
           ) : sect === 'sources' ? (
@@ -991,8 +1000,10 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
   return (
     <section className="space-y-3">
       {confirmDialog}
+      {/* THE SECTION IS THE HEADING — see CharactersConsole. This one said
+          "Catalogue" under a tab saying "Works", which is worse than a repeat: two
+          words for one thing, and the reader has to work out that they are one. */}
       <div className="flex flex-wrap items-center gap-2">
-        <h2 style={H2}>{t('metadata.catalogue.title')}</h2>
         <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <select className="tp-input w-auto" title={t('common.field.media-type.label')} value={type} onChange={(e) => { setType(e.target.value); setFilter('flagged') }}>
@@ -1054,7 +1065,19 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
           </BulkBar>
           {editing && selBookIds.length > 0 && <BulkEditForm n={selBookIds.length} busy={busy} onApply={bulkEdit} />}
           <ErrorText>{err}</ErrorText>
-          <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(30em, 60vh)', overflowY: 'auto' }}>
+{/* `axis="v"`, NOT `"both"`, AND THE PAGE SCROLLED SIDEWAYS UNTIL IT WAS.
+              `.ann-table-wrap` was written when this console was a TABLE — a table
+              is as wide as its columns and horizontal scroll was the honest answer.
+              It is a list of record rows now, and a record row's name scrolls inside
+              its OWN box (NameScroll), so there is nothing here that wants to be
+              wider than the screen. Leaving the horizontal axis on let one
+              seventeen-word public-domain title set the scroller's content width,
+              and with nothing capping the wrap it pushed the whole page out:
+              `surfaces.mjs` measured the Metadata screen at 1479 in 1280 — a
+              desktop page you can scroll off the side of. `min-width: 0` below is
+              the other half: a flex child defaults to its content's minimum, so the
+              cap has to be stated or the row simply refuses it. */}
+          <Scroller className="ann-table-wrap" axis="v" style={{ maxHeight: 'min(30em, 60vh)', overflowY: 'auto', minWidth: 0 }}>
             {shown.map((x) =>
               x.kind === 'book' ? (
                 <BookRow
@@ -1960,9 +1983,15 @@ export function CharactersConsole({ rows = null, onReload = null }) {
 
   return (
     <section className="space-y-3">
+      {/* NO HEADING AND NO DOT: THE SECTION IS BOTH. This console drew
+          "Characters" with an info dot directly under a rail that had just drawn
+          "Characters" with an info dot — two headings saying one word, two dots,
+          nothing between them. The owner: "In a lot of places, you have two levels
+          of headers, each with their own infodots. Consolidate as much as
+          possible." The dot's words moved up to the section, which is where the
+          reader's question ("what is this screen") is asked. What stays on this
+          line is what the SECTION cannot say: how many rows the filters left. */}
       <div className="flex flex-wrap items-center gap-2">
-        <h2 style={H2}>{t('metadata.characters.title')}</h2>
-        <InfoDot text={t('metadata.characters.info.body')} />
         <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Select
@@ -1999,7 +2028,8 @@ export function CharactersConsole({ rows = null, onReload = null }) {
       ) : shown.length === 0 ? (
         <EmptyState>{t('metadata.characters.empty')}</EmptyState>
       ) : (
-        <Scroller className="ann-table-wrap" axis="both" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}>
+        /* See CatalogueConsole: horizontal is not this list's axis. */
+        <Scroller className="ann-table-wrap" axis="v" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto', minWidth: 0 }}>
           {/* A LIST OF RECORDS, NOT A TABLE. It was `ann-table` with four columns —
               name, works, sort name, a pencil — and the columns were doing less
               work than they cost: two of them held one value each and the fourth
@@ -2386,10 +2416,8 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
 
   return (
     <section className="space-y-3">
+      {/* THE SECTION IS THE HEADING — see CharactersConsole. */}
       <div className="flex flex-wrap items-center gap-2">
-        <h2 style={H2}>{t('metadata.people.title')}</h2>
-        {/* §4: the verbose "what this fetches" copy now lives in a tooltip. */}
-        <InfoDot text={t('metadata.people.info.body')} />
         <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {/* ALL FIRST, because a record's roles are DERIVED from its credits and a
@@ -2474,10 +2502,13 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
            every gesture that starts over the table — which on a phone is all of
            them. The desk keeps it: there the window is short and the console is
            long, which is the case the box was measured for. */
+        /* AND NO HORIZONTAL AXIS EITHER — see CatalogueConsole for the page this
+           widened. A list of record rows has nothing that wants to be wider than
+           the screen; the name scrolls inside its own box. */
         <Scroller
           className="ann-table-wrap"
-          axis={mobile ? 'x' : 'both'}
-          style={mobile ? undefined : { maxHeight: 'min(28em, 60vh)', overflowY: 'auto' }}
+          axis="v"
+          style={mobile ? { minWidth: 0 } : { maxHeight: 'min(28em, 60vh)', overflowY: 'auto', minWidth: 0 }}
         >
           {/* THE COLUMN HEADS WENT WITH THE COLUMNS. A row states what its numbers
               are through their tooltips now, which is what a list of records does

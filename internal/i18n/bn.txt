@@ -1242,8 +1242,6 @@ settings.credits.chip.tip = এই চিহ্ন দেখলে নাম ভ
 settings.credits.off.prose = ভাগ করা বন্ধ — নামের লাইন যেমন আছে, এক জন মানুষ বলেই ধরা হবে
 
 # --- colour categories. Renaming changes the words and never the stored value.
-settings.colours.title = রঙের ঘর
-settings.colours.info.body = উদ্ধৃতিটা কী নিয়ে, তা বলে ট্যাগ; রং বলে নোটটা কোন জাতের। নাম বদলালে শুধু স্ক্রিনের কথাটা বদলায় — জমা থাকা মান নড়ে না, তাই এক্সপোর্ট করে ফেরালে সব অবিকল থাকে। কোনও ঘর লুকোলে সেই রঙের উদ্ধৃতিগুলোর কিছুই হয় না।
 # Slot 1 has no name, and its dot says so instead of offering a rename.
 settings.colours.fixed.tip = কিছু না বাছলে এই রং
 settings.colours.fixed.info.title = এটার নাম নেই কেন
@@ -1296,9 +1294,7 @@ settings.type.script-warning.prose = এই ফন্টে {field} হরফ �
 vocab.script.latin.label = রোমান
 
 # --- Settings → Language marks. The mark a proverb board wears.
-settings.languages.title = ভাষার চিহ্ন
 # মেটাডেটা উৎস পাতার কার্ড: দরজাটা কীসের জন্য, আর দরজার নিজের কথা।
-settings.languages.card.info.body = প্রবাদের কৃতিত্ব দেওয়ার মতো কেউ নেই, তাই তার কার্ডে আগে আসে ভাষা, আর বোর্ডের মলাটে সেই ভাষার হয়ে দাঁড়ায় এই চিহ্ন। এখানে সেটি বদলান, বা কোনও ভাষাকে নিজের পছন্দের নাম ও চিহ্ন দিন।
 settings.languages.script.title = লিপি
 settings.languages.glyphs.aria = {name} ভাষার লিপির অক্ষর
 settings.languages.no-script.prose = {name} ভাষার জন্য কোনও লিপির অক্ষর নেই — নিচে নিজের একটা চিহ্ন দিন।
@@ -1336,7 +1332,6 @@ settings.languages.name.label = ভাষার নাম
 settings.languages.name.placeholder = ইওরুবা, সোয়াহিলি, তামিল…
 
 # --- the quiz panel.
-settings.quiz.info.body = এগুলো দৈনিক অনুশীলনী আর ঝালাই — দুটোকেই চালায়। সাধারণভাবে মনে পড়লে অর্ধায়ু 2.5 গুণ হয়, ভুললে অর্ধেক, এক বছর পর্যন্ত। সিঁড়িতে ধাপে ধাপে ওঠে — 7, 30, 100, 365 দিন — আর ভুললেই সোজা 7-এ।
 settings.quiz.per-day.label = দৈনিক অনুশীলনীতে দিনে কটা কার্ড
 settings.quiz.in-depth.label = খুঁটিনাটি সেটিংস
 settings.quiz.in-depth.tip = দুই ডেকের প্রতিটা প্রশ্ন-ধরন
@@ -1387,8 +1382,6 @@ settings.quiz.reset.label = আগের মতো করুন
 settings.quiz.reset.tip = এই প্যানেলের সব বদল ফিরিয়ে দিন
 
 # --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
-settings.features.info.title = ফিচার
-settings.features.info.body = কোন বিভাগগুলো চোখের সামনে থাকবে। একটা লুকোলে তার ট্যাব, হোমের টাইল, খোঁজের চিপ আর ＋-এর নিচের ঘরটা সরে যায় — আর কিছুই না: বই, সিনেমা, উদ্ধৃতি যেখানে ছিল সেখানেই থাকে, লিংক বা বুকমার্ক দিয়ে খোলেও।
 settings.features.locked.prose = শেষ বিভাগটা থাকতেই হবে — আগে অন্য একটা চালু করুন।
 settings.features.show.label = দেখান
 settings.features.hide.label = লুকান
@@ -1406,7 +1399,6 @@ settings.labels.auto.label = অটো
 
 # --- Appearance.
 settings.search.none = “{q}”-এর সঙ্গে সেটিংসের কিছু মিলছে না।
-settings.appearance.title = রূপচর্চা
 settings.appearance.group.light.title = আলো আর অন্ধকার
 settings.appearance.group.light.aside = জোড়ায় সেট হয়
 settings.appearance.group.material.title = কী দিয়ে গড়া
@@ -5069,7 +5061,6 @@ metadata.row.noposter.aria = পোস্টার নেই
 # --- THE CATALOGUE, books and films and shows in one list. The type dropdown's
 # other three rows are unit.book / unit.film / unit.show — the app's own nouns,
 # not a second set for one screen.
-metadata.catalogue.title = ক্যাটালগ
 metadata.catalogue.type.all.label = সব ধরন
 metadata.catalogue.filter.tip = শুধু এই ঘাটতিগুলো দেখান
 metadata.catalogue.filter.aria = কোন ফাঁক
@@ -5078,6 +5069,14 @@ metadata.shown.count = {n}টা দেখাচ্ছে
 # of each other — a catalogue, duplicates, people, characters, a speaker remap —
 # so finding one meant scrolling past the other five, and nothing said how many
 # there were. Each kind of metadata is its own place now.
+metadata.section.overview.info.body = লাইব্রেরির সব ফাঁক এক নজরে, আর প্রতিটা সংখ্যাই একটা দরজা: চাপলে নিচের তালিকায় ঠিক সেই সৃষ্টিগুলোই থাকবে।
+metadata.section.works.info.body = সব লাইব্রেরি আর ক্যাটালগের প্রতিটা সৃষ্টি — কোন তাকে আছে তা দিয়ে নয়, কী নেই তা দিয়ে দেখা। একটা ফাঁক বাছুন, তালিকায় শুধু সেগুলোই থাকবে, আর বাল্ক কাজ ঠিক সেগুলোতেই পৌঁছবে।
+metadata.section.people.info.body = ছবি আর পরিচয়ের পাতা, ঠিক মানুষটার সঙ্গে মেলানো — লেখক তাঁর বই দিয়ে, অভিনেতা বা পরিচালক ছবির কুশীলব থেকে, স্টুডিও বা প্রকাশক গেম থেকে। আনা আর আবার আনা একই কাজ, তাই সারিতে একটাই চিহ্ন, শুধু কথাটা বদলায়।
+metadata.section.characters.info.body = প্রতিটা চরিত্র নিজস্ব রেকর্ড — উপন্যাস আর তার চলচ্চিত্ররূপে একই চরিত্র, প্রতিটাতে আলাদা ছবি। একই নাম দুবার থাকলে দেখুন: অনুমান করে কিছু মেলানো হয়নি।
+metadata.section.tags.info.body = লাইব্রেরি জুড়ে লেখা সব ট্যাগ, কোনটা উদ্ধৃতিতে কেমন দেখায়, আর কোনগুলো আসলে একই ট্যাগ দুরকম বানানে। স্টিকারগুলো পাশেই।
+metadata.section.languages.info.body = কোন উদ্ধৃতি কোন ভাষায়, আর প্রতিটা কীভাবে চিহ্নিত। উদ্ধৃতির নিজের ভাষাই ঠিক করে সেটা কোন দিকে পড়া হবে, তাই এখানেই সেটা স্থির হয় — অনুমান নয়।
+metadata.section.categories.info.body = ট্যাগ বলে উদ্ধৃতিটা কী নিয়ে; রং বলে সেটা কী ধরনের টীকা। নাম বদলালে শুধু পর্দার কথাটাই বদলায় — সঞ্চিত মানটা নড়ে না, তাই রপ্তানি অটুট থাকে।
+metadata.section.sources.info.body = আনা মেটাডেটা কোথা থেকে আসে। চাবি নেই এমন সূত্রকে কিছু জিজ্ঞেস করা যায় না, তাই সেই সংখ্যাটাই লাল — এই পর্দার বাকি সবই অন্তত একটা চালু থাকার উপর নির্ভর করে।
 metadata.section.overview.label = এক নজরে
 metadata.section.works.label = বই ও ছবি
 metadata.section.people.label = মানুষ
@@ -5184,8 +5183,6 @@ metadata.remap.keep.label = যেমন আছে তেমনই
 metadata.remap.nocharacter.label = (চরিত্র নেই)
 metadata.remap.cast.option = {character} — {actor}
 metadata.remap.custom.label = নিজে লিখুন…
-metadata.characters.title = চরিত্র
-metadata.characters.info.body = প্রতিটা চরিত্র নিজস্ব রেকর্ড — উপন্যাস আর তার চলচ্চিত্ররূপে একই চরিত্র, প্রতিটাতে আলাদা ছবি। একই নাম দুবার থাকলে দেখুন: অনুমান করে কিছু মেলানো হয়নি।
 metadata.characters.column.works = কাজ
 metadata.characters.faces.sub.one = {n}টা কাজ · {n}টার মধ্যে {faced}টায় মুখ বাছা আছে
 metadata.characters.faces.sub.other = {n}টা কাজ · {n}টার মধ্যে {faced}টায় মুখ বাছা আছে
@@ -5206,8 +5203,6 @@ metadata.characters.summary.other = {n}টা চরিত্র, {unpaired}ট�
 
 # --- PEOPLE. Every author, actor, director, studio and speaker the library
 # mentions, with a portrait and reference links.
-metadata.people.title = মানুষ
-metadata.people.info.body = ছবি আর তথ্যসূত্রের পাতা, ঠিক জনের সঙ্গে মিলিয়ে — লেখককে তাঁর বই দিয়ে, অভিনেতা বা পরিচালককে সিনেমার কাস্ট দিয়ে, স্টুডিও বা প্রকাশককে গেমের নামে। অভিনেতা-পরিচালকের জন্য TMDB, সংস্থার লোগোর জন্য IGDB; বাকিটা Wikidata।
 # The five toggles. Studios are their own row rather than folded in with
 # directors: the two share one stored column and are told apart only by media
 # type, so listing them together would offer a studio for renaming as a director.
@@ -5298,10 +5293,8 @@ metadata.people.merge.busy = এক করা হচ্ছে…
 settings.card.info.title = এটা কী
 
 # --- the quiz card's own heading, which was the last literal left on it.
-settings.quiz.title = দৈনিক অনুশীলনী আর ঝালাই
 
 # --- Features: the heading beside the dot that was already keyed.
-settings.features.title = ফিচার
 
 # --- the four credit separators. The CHIP draws the bare symbol — the character
 # the splitter matches — and this is the name a screen reader reads instead. It
@@ -5472,8 +5465,6 @@ settings.prompt.close.tip = বাতিল করে বন্ধ করুন
 # ---------------------------------------------------------------------------
 # THE METADATA CARD — the status chips, and the key fields under them.
 # ---------------------------------------------------------------------------
-settings.metadata.title = মেটাডেটার সূত্র
-settings.metadata.info.body = বইয়ের জন্য কোনও চাবি লাগে না: Google Books আর Open Library, দুটো মিলিয়ে। সিনেমা আর শো প্রথমে TheTVDB দেখে, তারপর TMDB; গেম চলে IGDB-র জোড়া চাবিতে, যার পিছনে সঙ্গে-আসা কিছু নেই। প্রতিটা ঘর আলাদা সেভ হয়, আর নিজে হাতে লেখা সবসময়ই চলে।
 # FAULTS ONLY. A chip here is something to act on, and the ones that merely
 # reported a working state — the built-in key behind TMDB and behind TheTVDB,
 # and the count of titles still pinned to the source that used to be default —

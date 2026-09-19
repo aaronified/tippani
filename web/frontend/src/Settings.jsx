@@ -631,11 +631,9 @@ export function ColourCategoriesCard({ prefs, onSaved }) {
     // nothing, and neither the build nor any test says a word. If the colour
     // categories ever earn a step, the attribute comes back with it.
     <Card>
-      <SectionTitle
-        info={t('settings.colours.info.body')}
-      >
-        {t('settings.colours.title')}
-      </SectionTitle>
+      {/* THE SECTION IS THE HEADING — see AppearanceCard. This card is mounted by
+          exactly one thing, Metadata's Colours section, whose tab had just said
+          "Colours" over a card saying "Colour categories". */}
       <div>
         {rows.map((row) => (
           <div key={row.token} className="inline-field">
@@ -1313,13 +1311,10 @@ function SRSettings({ user, onPreferences }) {
   }
   return (
     <Card>
-      <SectionTitle
-        right={
-          <InfoDot text={t('settings.quiz.info.body')} />
-        }
-      >
-        {t('settings.quiz.title')}
-      </SectionTitle>
+      {/* THE SECTION IS THE HEADING — see AppearanceCard. The dot's words, which
+          are about how an interval moves, are on the rows they are about
+          (Adaptive intervals, How the schedule moves) and in the section's own
+          dot; a third copy over the whole card is the thing being consolidated. */}
       {/* TWO CONTROLS ON THE CARD, the rest behind the door.
 
           The deck size and what it covers are the two a reader changes and then
@@ -2431,12 +2426,10 @@ function FeaturesCard({ prefs, onSaved }) {
   }
   return (
     <Card>
-      <SectionTitle
-        info={t('settings.features.info.body')}
-        infoTitle={t('settings.features.info.title')}
-      >
-        {t('settings.features.title')}
-      </SectionTitle>
+      {/* THE SECTION IS THE HEADING — see AppearanceCard. What this dot said that
+          the rail's did not — that hiding a section takes away its tab and its
+          tile and NOTHING else — moved into the section's own words, because that
+          is the fact a reader wants before they press anything here. */}
       {/* ONE LIST, NOT TWO, which is what the pack draws — `sectionRows()` at
           settings-restructured.dc.html:2477 returns one row per section carrying
           its name, its sub-line, `kind: 'toggle'` AND `sortable: true`. This card
@@ -3630,7 +3623,14 @@ function Appearance({ prefs, onPreferences, part = 'all' }) {
 
   return (
     <Card data-tour="appearance">
-      <SectionTitle>{t(part === 'lang' ? 'settings.language.title' : 'settings.appearance.title')}</SectionTitle>
+      {/* NO CARD HEADING: THE SECTION IS THE HEADING. The rail had just drawn
+          "Theme" with its own info dot and this card answered with "Appearance"
+          and nothing new — two headings, two words for one thing, and on the
+          phone they sat one line apart. The owner: "In a lot of places, you have
+          two levels of headers, each with their own infodots. Consolidate as much
+          as possible." A section holding exactly ONE card draws one heading, and
+          the rail owns it; where a section holds two (Server), the inner titles
+          are what tells them apart and they stay. */}
       {part !== 'lang' && (
       <>
       {/* THE PACK'S FOUR NUMBERED GROUPS. The section was one flat run of rows and

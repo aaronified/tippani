@@ -1238,8 +1238,6 @@ settings.credits.chip.tip = Split credits on this separator
 settings.credits.off.prose = splitting is off — every credit stays one person
 
 # --- colour categories. Renaming changes the words and never the stored value.
-settings.colours.title = Colour categories
-settings.colours.info.body = Tags say what a quote is about; its colour says what KIND of note it is. Renaming changes only the words on screen — the stored value never moves, so exports round-trip. Hiding one leaves every quote wearing it untouched.
 # Slot 1 has no name, and its dot says so instead of offering a rename.
 settings.colours.fixed.tip = The default colour
 settings.colours.fixed.info.title = Why this one has no name
@@ -1292,9 +1290,7 @@ settings.type.script-warning.prose = This font doesn’t look like it draws {fie
 vocab.script.latin.label = Latin
 
 # --- Settings → Language marks. The mark a proverb board wears.
-settings.languages.title = Language marks
 # The card on Metadata sources: what the door is for, and the door's own word.
-settings.languages.card.info.body = A proverb has nobody to credit, so its card leads with the language it is in, and the mark stands in for that language on a board's cover. Change one here, or give a language a name and a mark of your own.
 settings.languages.script.title = script
 settings.languages.glyphs.aria = Script letters for {name}
 settings.languages.no-script.prose = No script letters for {name} — give it a mark of your own below.
@@ -1332,7 +1328,6 @@ settings.languages.name.label = Language name
 settings.languages.name.placeholder = Yoruba, Swahili, Tamil…
 
 # --- the quiz panel.
-settings.quiz.info.body = These drive both the Daily Quiz and Practice. By default a card's interval multiplies by 2.5 on each recall and halves on a lapse, up to a year. On the ladder it steps 7, 30, 100, then 365 days, and a lapse drops it to 7.
 settings.quiz.per-day.label = Daily quiz cards / day
 settings.quiz.in-depth.label = In-depth controls
 settings.quiz.in-depth.tip = Every question, both decks
@@ -1387,8 +1382,6 @@ settings.quiz.reset.label = Back to defaults
 settings.quiz.reset.tip = Undo every change on this panel
 
 # --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
-settings.features.info.title = Features
-settings.features.info.body = Which sections you want to see. Hiding one takes away its tab, its tile on Home, its chip on Search and its offer under ＋ — and nothing else: every book, film and quote stays where it is, and a link or bookmark still opens it.
 settings.features.locked.prose = The last section has to stay — turn another one on first.
 settings.features.show.label = Show
 settings.features.hide.label = Hide
@@ -1406,7 +1399,6 @@ settings.labels.auto.label = Auto
 
 # --- Appearance.
 settings.search.none = Nothing in Settings matches “{q}”.
-settings.appearance.title = Appearance
 settings.appearance.group.light.title = Light and dark
 settings.appearance.group.light.aside = set as a pair
 settings.appearance.group.material.title = What it is made of
@@ -5139,7 +5131,6 @@ metadata.row.noposter.aria = No poster stored
 # --- THE CATALOGUE, books and films and shows in one list. The type dropdown's
 # other three rows are unit.book / unit.film / unit.show — the app's own nouns,
 # not a second set for one screen.
-metadata.catalogue.title = Catalogue
 metadata.catalogue.type.all.label = all types
 metadata.catalogue.filter.tip = Show only these gaps
 metadata.catalogue.filter.aria = Which gap
@@ -5148,6 +5139,14 @@ metadata.shown.count = {n} shown
 # of each other — a catalogue, duplicates, people, characters, a speaker remap —
 # so finding one meant scrolling past the other five, and nothing said how many
 # there were. Each kind of metadata is its own place now.
+metadata.section.overview.info.body = Every gap in the library at a glance, and every number is a door: press one and the list below becomes exactly the works that have it.
+metadata.section.works.info.body = Every work in every library and catalogue, seen through what is MISSING from it rather than through its shelf. Pick an issue and the list becomes only the works that have it, so a bulk act reaches exactly those.
+metadata.section.people.info.body = Photos and reference pages, matched to the right person — an author by their books, an actor or director from a film's credits, a studio or publisher from a game's. Fetching and refetching are one act.
+metadata.section.characters.info.body = Every character as a record of its own — the same one across a novel and its adaptation, with a different picture in each. A name appearing twice is something to look at: nothing here was merged by guessing.
+metadata.section.tags.info.body = Every tag written across the library, how each one looks on a quote, and which of them are the same tag spelled twice. Stickers stand beside them.
+metadata.section.languages.info.body = Which language a quote is in, and how each one is marked. A quote's own language decides which way it reads, so this is where that is settled rather than guessed.
+metadata.section.categories.info.body = Tags say what a quote is about; its colour says what KIND of note it is. Renaming changes only the words on screen — the stored value never moves, so exports round-trip.
+metadata.section.sources.info.body = Where fetched metadata comes from. A source with no key cannot be asked, which is why the count of those is the red one — everything else on this screen depends on at least one being on.
 metadata.section.overview.label = Overview
 metadata.section.works.label = Works
 metadata.section.people.label = People
@@ -5259,8 +5258,6 @@ metadata.remap.custom.label = custom…
 # --- the character review list (0056). Its own section beside the people one:
 # the two tables answer different questions, and a picker for who wrote a book
 # must never offer a character.
-metadata.characters.title = Characters
-metadata.characters.info.body = Every character as a record of its own — the same one across a novel and its adaptation, with a different picture in each. A name appearing twice is something to look at: nothing here was merged by guessing.
 metadata.characters.column.works = works
 metadata.characters.faces.sub.one = {n} work · {faced} of {n} with a face chosen
 metadata.characters.faces.sub.other = {n} works · {faced} of {n} with a face chosen
@@ -5279,8 +5276,6 @@ metadata.characters.work.filter.placeholder = Find a work
 metadata.characters.summary.one = {n} character, {unpaired} in no work
 metadata.characters.summary.other = {n} characters, {unpaired} in no work
 
-metadata.people.title = People
-metadata.people.info.body = Photos and reference pages, matched to the right person — an author by their books, an actor or director from a film's credits, a studio or publisher from a game's. Actor photos need a TMDB key, a company logo IGDB; the rest, Wikidata.
 # The five toggles. Studios are their own row rather than folded in with
 # directors: the two share one stored column and are told apart only by media
 # type, so listing them together would offer a studio for renaming as a director.
@@ -5372,10 +5367,8 @@ metadata.people.merge.busy = Merging…
 settings.card.info.title = About this
 
 # --- the quiz card's own heading, which was the last literal left on it.
-settings.quiz.title = Daily quiz & practice
 
 # --- Features: the heading beside the dot that was already keyed.
-settings.features.title = Features
 
 # --- the four credit separators. The CHIP draws the bare symbol — the character
 # the splitter matches — and this is the name a screen reader reads instead. It
@@ -5575,8 +5568,6 @@ settings.prompt.close.tip = Cancel and close
 # ---------------------------------------------------------------------------
 # THE METADATA CARD — the status chips, and the key fields under them.
 # ---------------------------------------------------------------------------
-settings.metadata.title = Metadata sources
-settings.metadata.info.body = Books need no key: Google Books and Open Library, merged. Films and shows try TheTVDB first, then TMDB; games run on an IGDB pair with no built-in behind it. Each field saves on its own, and manual entry always works.
 # FAULTS ONLY. A chip here is something to act on, and the ones that merely
 # reported a working state — the built-in key behind TMDB and behind TheTVDB,
 # and the count of titles still pinned to the source that used to be default —

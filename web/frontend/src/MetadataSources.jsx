@@ -429,9 +429,9 @@ export function MetadataSources({ user, onPreferences }) {
     // which THIS screen's rail already stops being a phone's.
     <div className="meta-columns">
     <Card data-tour="metadata-keys">
-      <SectionTitle info={t('settings.metadata.info.body')}>
-        {t('settings.metadata.title')}
-      </SectionTitle>
+      {/* THE SECTION IS THE HEADING — see Settings.jsx's AppearanceCard. Metadata's
+          Sources tab says "Sources" and carries the dot; this card said "Metadata
+          sources" underneath it with a second one. */}
 
       {/* WHAT THE COLOUR OF EACH SUPPLIER'S MARK MEANS.
           The owner's, correcting where this was going to live: "not infodot, use a
