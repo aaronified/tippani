@@ -1389,8 +1389,10 @@ settings.quiz.reset.tip = Undo every change on this panel
 # --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
 settings.features.info.title = Features
 settings.features.info.body = Which sections you want to see. Hiding one takes away its tab, its tile on Home, its chip on Search and its offer under ＋ — and nothing else: every book, film and quote stays where it is, and a link or bookmark still opens it.
-settings.features.intro.prose = Turn off what you do not keep, and on what you have not tried yet. This changes what you see, never what you have.
 settings.features.locked.prose = The last section has to stay — turn another one on first.
+settings.features.show.label = Show
+settings.features.hide.label = Hide
+
 settings.features.order.title = In this order
 settings.features.order.prose = The order here is the rail, the drawer and what ＋ offers. The top one is where the app opens.
 settings.features.order.up.aria = Move {name} up

@@ -2407,80 +2407,77 @@ function FeaturesCard({ prefs, onSaved }) {
       >
         {t('settings.features.title')}
       </SectionTitle>
-      <p className="microcopy">
-        {t('settings.features.intro.prose')}
-      </p>
-      {/* FOUR CHIPS, NOT FOUR ROWS (1.17.0). A section is shown when its chip is
-          lit, which is one line for the whole card where there were four blocks
-          of name-plus-switch-plus-blurb — and this card is read far more often
-          than it is changed, so the standing cost was the whole cost.
+      {/* ONE LIST, NOT TWO, which is what the pack draws — `sectionRows()` at
+          settings-restructured.dc.html:2477 returns one row per section carrying
+          its name, its sub-line, `kind: 'toggle'` AND `sortable: true`. This card
+          had a row of chips for on-and-off and, under it, a second list of the
+          same four names for the order: the same four things written twice, so a
+          reader wanting the Catalogue off and second looked in two places and
+          counted eight controls for four sections.
 
-          THE BLURBS GO INTO THE CHIPS' TOOLTIPS, resolved here, because
-          SECTIONS[].what is a KEY — it was rendered raw once and printed
-          `nav.section.library.what` on screen, while the SAME table resolved
-          correctly forty lines up in the Metadata card.
+          The owner: "Why have you added separate enable button and sorter? The
+          prototype had both together, right? Always try to make things simpler.
+          Not more cluttered."
 
-          THE LOCK STILL SPEAKS IN WORDS, under the row rather than in a bubble.
-          Only one section can ever be the last one standing, so one line says it;
-          a reader who cannot turn something off is owed the reason on the screen
-          they are looking at. */}
-      <ChipSwitches
-        className="mt-3"
-        ariaLabel={t('settings.features.title')}
-        options={SECTIONS.map((sec) => ({
-          key: sec.tab,
-          label: t(sec.label),
-          on: !!on[sec.tab],
-          hint: t(sec.what),
-          // The last one standing is the one that cannot go. Anthologies is never
-          // one of them (see lastOne), so the lock cannot spill onto it.
-          locked: lastOne && on[sec.tab] && !sec.off ? t('settings.features.locked.prose') : '',
-        }))}
-        onToggle={(tab, next) => set(SECTIONS.find((sec) => sec.tab === tab), next)}
-      />
-      {lastOne && <p className="microcopy mt-2">{t('settings.features.locked.prose')}</p>}
-      {/* AND THE ORDER THEY COME IN, which the chips above cannot express: a chip
-          row says which sections exist and a reader dragging one would be guessing
-          whether they had moved it or switched it off. So the order is its own
-          list, with a pair of arrows per row.
+          ARROWS RATHER THAN A DRAG, which is the one thing kept from the version
+          that had its own list. A drag needs a pointer that can hover to discover
+          it is draggable, a keyboard equivalent invented from nothing, and a touch
+          target that does not fight the page's own scroll. Two buttons answer every
+          input the app supports, and there is no drag-to-sort anywhere else here
+          to be consistent with.
 
-          ARROWS RATHER THAN A DRAG. A drag needs a pointer that can hover to
-          discover it is draggable, a keyboard equivalent invented from nothing,
-          and a touch target that does not fight the page's own scroll. Two
-          buttons are the same answer, reachable by every input the app supports,
-          and the repo has no drag-to-sort anywhere else to be consistent with.
-
-          THIS ORDER IS THE RAIL, THE DRAWER AND THE + MENU, because all four read
-          routes.js through one `visibleTabs` — which now orders as well as
-          filters, for the reason that file already gives about four lists that
-          have to agree. */}
-      <p className="mono-label mt-5">{t('settings.features.order.title')}</p>
-      <p className="microcopy">{t('settings.features.order.prose')}</p>
-      <ul className="mt-2" style={{ display: 'grid', gap: 2 }}>
+          AND THIS ORDER IS THE RAIL, THE DRAWER AND THE + MENU, because all four
+          read routes.js through one `visibleTabs`, which orders as well as
+          filters. */}
+      <PrefGroup title={t('settings.features.order.title')} info={t('settings.features.order.prose')}>
         {order.map((tab, i) => {
           const sec = SECTIONS.find((x) => x.tab === tab)
           if (!sec) return null
+          // The last one standing is the one that cannot go. Anthologies is never
+          // one of them (see lastOne), so the lock cannot spill onto it.
+          const locked = lastOne && on[sec.tab] && !sec.off
           return (
-            <li key={tab} className="flex items-center gap-2" style={{ padding: '4px 0' }}>
-              <span className="grow min-w-0">{t(sec.label)}</span>
-              <FieldIconButton
-                icon={<IconArrow dir="up" />}
-                ariaLabel={t('settings.features.order.up.aria', { name: t(sec.label) })}
-                tooltip={t('settings.features.order.up.aria', { name: t(sec.label) })}
-                onClick={() => move(i, -1)}
-                disabled={i === 0}
-              />
-              <FieldIconButton
-                icon={<IconArrow dir="down" />}
-                ariaLabel={t('settings.features.order.down.aria', { name: t(sec.label) })}
-                tooltip={t('settings.features.order.down.aria', { name: t(sec.label) })}
-                onClick={() => move(i, 1)}
-                disabled={i === order.length - 1}
-              />
-            </li>
+            <PrefRow
+              key={tab}
+              label={t(sec.label)}
+              sub={locked ? t('settings.features.locked.prose') : t(sec.what)}
+              changed={!!on[sec.tab] !== !sec.off || sectionOrder({}).indexOf(tab) !== i}
+              control={
+                <span className="flex items-center gap-2">
+                  {/* THE ORDER PAIR FIRST, then the switch: the arrows are about
+                      where this row sits and the switch is about whether it exists
+                      at all, so the bigger decision reads last, nearest the edge
+                      every other row's control sits at. */}
+                  <FieldIconButton
+                    icon={<IconArrow dir="up" />}
+                    ariaLabel={t('settings.features.order.up.aria', { name: t(sec.label) })}
+                    tooltip={t('settings.features.order.up.aria', { name: t(sec.label) })}
+                    onClick={() => move(i, -1)}
+                    disabled={i === 0}
+                  />
+                  <FieldIconButton
+                    icon={<IconArrow dir="down" />}
+                    ariaLabel={t('settings.features.order.down.aria', { name: t(sec.label) })}
+                    tooltip={t('settings.features.order.down.aria', { name: t(sec.label) })}
+                    onClick={() => move(i, 1)}
+                    disabled={i === order.length - 1}
+                  />
+                  <Toggle
+                    ariaLabel={t(sec.label)}
+                    value={on[sec.tab] ? 'on' : 'off'}
+                    onChange={(v) => set(sec, v === 'on')}
+                    disabled={locked}
+                    options={[
+                      ['off', t('settings.features.hide.label')],
+                      ['on', t('settings.features.show.label')],
+                    ]}
+                  />
+                </span>
+              }
+            />
           )
         })}
-      </ul>
+      </PrefGroup>
       {/* HOW BIG THE THINGS IN THOSE SECTIONS ARE DRAWN. The two sliders sat at
           the foot of the theme section among the accent and the text size — "cover,
           poster height should be in sections" — and the pack puts its own pair

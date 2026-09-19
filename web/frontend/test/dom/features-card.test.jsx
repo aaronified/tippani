@@ -70,15 +70,29 @@ const page = async (preferences = {}) => {
 
 const prefsPuts = () => PUTS.filter(([p]) => p === '/auth/me/preferences')
 
-// One section's chip, by its accessible name — SCOPED TO THE CARD'S OWN GROUP, and
-// that scope is not tidiness. The review-scope chips in the quiz card are named
-// after the same screens ("Library" is `nav.tab.library.label` in both places), so
-// an unscoped getByRole('button', {name: 'Library'}) matches two controls in two
-// cards that write two different preferences. The group is what ChipSwitches puts
-// the card's own name on.
-const card = () => within(screen.getByRole('group', { name: t('settings.features.title') }))
-const chip = (sec) => card().getByRole('button', { name: named(sec) })
-const named2 = (name) => card().getByRole('button', { name })
+// ONE ROW PER SECTION, holding its name, its switch AND its order arrows — which
+// is what the pack draws (`sectionRows()`, settings-restructured.dc.html:2477) and
+// what this card was rebuilt to. It used to be a row of chips with a second list
+// of the same four names underneath for the order: "Why have you added separate
+// enable button and sorter? The prototype had both together, right?"
+//
+// THE SWITCH IS FOUND THROUGH ITS ROW, not by an unscoped name. The review-scope
+// chips in the quiz card are named after the same screens ("Library" is
+// `nav.tab.library.label` in both places), so a bare getByRole('button', {name:
+// 'Library'}) matches two controls in two cards writing two different
+// preferences.
+const card = () => within(screen.getByRole('region', { name: t('settings.features.order.title') }))
+const row = (sec) => card().getByText(named(sec)).closest('.pref-row')
+// Toggle draws its options as tabs, and "Show" is the one that says this section
+// is on — `aria-pressed` on it is the switch's state.
+const chip = (sec) => within(row(sec)).getByRole('tab', { name: t('settings.features.show.label') })
+// Pressing a side of the switch by name. The chips this replaced were toggles —
+// one press meant "the other one" — and a two-sided switch is pressed by saying
+// which side you want, which is also what makes "turn it back on" an explicit
+// `false` rather than an omission.
+const side = (name, on) => within(card().getByText(name).closest('.pref-row'))
+  .getByRole('tab', { name: on ? t('settings.features.show.label') : t('settings.features.hide.label') })
+const named2 = (name) => side(name, true)
 const pressed = (sec) => chip(sec).getAttribute('aria-pressed')
 
 describe('the Features card', () => {
@@ -161,7 +175,7 @@ describe('the Features card', () => {
     // The whole point of the case. `hideCatalogue` is what the Go prefs struct
     // names; anything else is a 200 that stores nothing.
     await page()
-    fireEvent.click(named2('Catalogue'))
+    fireEvent.click(side('Catalogue', false))
     expect(prefsPuts().length, 'nothing was saved').toBeGreaterThan(0)
     expect(prefsPuts().at(-1)[1]).toEqual({ hideCatalogue: true })
   })
@@ -171,7 +185,7 @@ describe('the Features card', () => {
     // section back on has to be an explicit false. Omitting it would make the chip
     // a one-way door and nothing would report it.
     await page({ hideQuotes: true })
-    fireEvent.click(named2('Quotes'))
+    fireEvent.click(side('Quotes', true))
     expect(prefsPuts().at(-1)[1]).toEqual({ hideQuotes: false })
   })
 
@@ -182,10 +196,12 @@ describe('the Features card', () => {
     // and the shell updates optimistically — so the chip would light, stick, and
     // come back the other way round on the next reload, with nothing failing.
     await page()
-    fireEvent.click(named2('Anthologies'))
+    fireEvent.click(side('Anthologies', true))
     expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: true })
     await page({ showAnthologies: true })
-    fireEvent.click(within(screen.getAllByRole('group', { name: t('settings.features.title') }).at(-1)).getByRole('button', { name: 'Anthologies' }))
+    fireEvent.click(within(screen.getAllByRole('region', { name: t('settings.features.order.title') }).at(-1))
+      .getByText('Anthologies').closest('.pref-row')
+      .querySelector('[role="tab"][aria-pressed="false"]'))
     expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: false })
   })
 
@@ -194,9 +210,12 @@ describe('the Features card', () => {
     // three — so it can never be the last one standing, and the lock must not spill
     // onto it when one of the three is. It stays switchable while Quotes is locked.
     await page({ hideLibrary: true, hideCatalogue: true, showAnthologies: true })
-    expect(named2('Quotes').getAttribute('aria-disabled')).toBe('true')
-    const gathered = named2('Anthologies')
-    expect(gathered.getAttribute('aria-disabled'), 'the anthologies chip was locked too').toBe('false')
+    expect(side('Quotes', false).disabled, 'the last one standing should be locked').toBe(true)
+    const gathered = side('Anthologies', false)
+    // NATIVE `disabled`, not aria-disabled: the switch is a Toggle now and every
+    // option carries the real attribute, which is what stops a keydown originating
+    // inside a locked one in a browser.
+    expect(gathered.disabled, 'the anthologies switch was locked too').toBe(false)
     fireEvent.click(gathered)
     expect(prefsPuts().at(-1)[1]).toEqual({ showAnthologies: false })
   })
@@ -206,7 +225,7 @@ describe('the Features card', () => {
     // /auth/me after a settings save, so the optimistic call is the only thing
     // that moves the strip.
     const onPreferences = await page()
-    fireEvent.click(named2('Library'))
+    fireEvent.click(side('Library', false))
     expect(onPreferences).toHaveBeenCalledWith({ hideLibrary: true })
   })
 
@@ -215,8 +234,8 @@ describe('the Features card', () => {
     // card says why IN WORDS under the row rather than only in a bubble a phone has
     // to be held down to open.
     await page({ hideLibrary: true, hideCatalogue: true })
-    const last = named2('Quotes')
-    expect(last.getAttribute('aria-disabled'), 'the last chip is still live').toBe('true')
+    const last = side('Quotes', false)
+    expect(last.disabled, 'the last section is still switchable off').toBe(true)
     expect(screen.getByText(/last section has to stay/i)).toBeTruthy()
     // And pressing it anyway writes nothing.
     fireEvent.click(last)

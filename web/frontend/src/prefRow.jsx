@@ -29,7 +29,7 @@
 // way, and the repo's own components stay the only ones that draw anything.
 import React from 'react'
 
-import { InfoDot, MonoLabel } from './ui.jsx'
+import { ariaLabelText, InfoDot, MonoLabel } from './ui.jsx'
 
 export function PrefRow({ label, sub = null, info = null, infoTitle = null, changed = false, control = null, children = null }) {
   // The label is the row's identity. It is what the reader calls the row and what
@@ -63,7 +63,14 @@ export function PrefRow({ label, sub = null, info = null, infoTitle = null, chan
 // ordinal is the thing that goes wrong when a group is inserted.
 export function PrefGroup({ title, index = null, aside = null, info = null, children }) {
   return (
-    <section className="pref-group">
+    // NAMED, so it is a landmark rather than an anonymous box. The heading below
+    // is a MonoLabel and not an <h*> — it is a label for a group of rows, not a
+    // step in the document's outline — so nothing else gives this section a name,
+    // and a screen reader listing regions would have found a run of unlabelled
+    // ones. It is also what lets a test say "the switch in THIS group", which
+    // matters here: several cards name their controls after the same four
+    // screens.
+    <section className="pref-group" aria-label={ariaLabelText(title)}>
       <div className="pref-group-head">
         <span className="flex flex-wrap items-baseline gap-1.5">
           <MonoLabel>{index == null ? title : `${index} · ${title}`}</MonoLabel>

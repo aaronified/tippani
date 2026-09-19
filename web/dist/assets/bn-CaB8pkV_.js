@@ -1389,8 +1389,10 @@ settings.quiz.reset.tip = এই প্যানেলের সব বদল �
 # --- Settings → Features. Hiding a section is cosmetic: it takes away the doors.
 settings.features.info.title = ফিচার
 settings.features.info.body = কোন বিভাগগুলো চোখের সামনে থাকবে। একটা লুকোলে তার ট্যাব, হোমের টাইল, খোঁজের চিপ আর ＋-এর নিচের ঘরটা সরে যায় — আর কিছুই না: বই, সিনেমা, উদ্ধৃতি যেখানে ছিল সেখানেই থাকে, লিংক বা বুকমার্ক দিয়ে খোলেও।
-settings.features.intro.prose = যেটা কাজে লাগে না, বন্ধ করে দিন; যেটা এখনও দেখেননি, চালু করুন। এতে চোখের সামনেরটা বদলায়, জমানো কিছুই নয়।
 settings.features.locked.prose = শেষ বিভাগটা থাকতেই হবে — আগে অন্য একটা চালু করুন।
+settings.features.show.label = দেখান
+settings.features.hide.label = লুকান
+
 settings.features.order.title = এই ক্রমে
 settings.features.order.prose = এখানকার ক্রমই রেল, ড্রয়ার আর ＋ যা দেখায়। সবার উপরেরটিতেই অ্যাপ খোলে।
 settings.features.order.up.aria = {name} উপরে নিন

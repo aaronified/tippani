@@ -723,6 +723,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Sections is one list, not two.** Each section has a row carrying its name, what it
+  holds, its up-and-down arrows and its Show/Hide switch — where there used to be a row of
+  chips for on-and-off and, underneath, a second list of the same four names for the order.
+  Four rows in place of eight controls across two lists.
+
 - **One Colours row.** Light ground, dark ground and accent together under a single
   heading, as the design pack draws them — a look is chosen against itself, and a ground
   picked beside one accent is a different decision beside another.
