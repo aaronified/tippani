@@ -10346,51 +10346,7 @@ html[data-theme="dark"] .board-cover {
   padding-bottom: 7px;
 }
 
-/* THE FOUR FACES, SHOWN RATHER THAN NAMED. Each is a press into the Type panel,
-   so it is a button; it is laid out as a row of text because what it is FOR is
-   being read. The sample is measured in em so it moves with the reader's type
-   dial, and it wraps rather than truncating — a shortened specimen and a short
-   one look alike, which is the rule this whole file keeps. */
-.face-specimens { display: grid; gap: 2px; }
-.face-specimen {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px var(--edge, 12px);
-  width: 100%; padding: 10px 6px; border: 0;
-  border-top: 1px solid color-mix(in oklab, var(--line), transparent 45%);
-  background: none; cursor: pointer; text-align: start;
-}
-.face-specimen:hover { background: color-mix(in oklab, var(--raised), transparent 40%); }
-.face-specimen-role { display: flex; align-items: baseline; gap: 8px; flex: 0 0 auto; min-width: 12ch; }
-.face-specimen-name {
-  font-family: var(--font-mono); font-size: var(--type-mono-11);
-  font-variant-numeric: var(--font-mono-figures); color: var(--faint);
-}
-.face-specimen-sample {
-  flex: 1 1 18ch; min-width: 0; color: var(--ink);
-  font-size: var(--type-display-17); line-height: 1.4;
-}
 
-/* THE FOUR FACES, SHOWN RATHER THAN NAMED. Each is a press into the Type panel,
-   so it is a button; it is laid out as a row of text because what it is FOR is
-   being read. The sample is measured in em so it moves with the reader's type
-   dial, and it wraps rather than truncating — a shortened specimen and a short
-   one look alike, which is the rule this whole file keeps. */
-.face-specimens { display: grid; gap: 2px; }
-.face-specimen {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px var(--edge, 12px);
-  width: 100%; padding: 10px 6px; border: 0;
-  border-top: 1px solid color-mix(in oklab, var(--line), transparent 45%);
-  background: none; cursor: pointer; text-align: start;
-}
-.face-specimen:hover { background: color-mix(in oklab, var(--raised), transparent 40%); }
-.face-specimen-role { display: flex; align-items: baseline; gap: 8px; flex: 0 0 auto; min-width: 12ch; }
-.face-specimen-name {
-  font-family: var(--font-mono); font-size: var(--type-mono-11);
-  font-variant-numeric: var(--font-mono-figures); color: var(--faint);
-}
-.face-specimen-sample {
-  flex: 1 1 18ch; min-width: 0; color: var(--ink);
-  font-size: var(--type-display-17); line-height: 1.4;
-}
 /* A COVERAGE NUMBER THAT IS A DOOR. It sits inside a sentence, so it is styled as
    the sentence's own emphasis rather than as a button: a pill in the middle of a
    line would break the reading. It underlines to say it is pressable, and takes
@@ -10467,7 +10423,15 @@ html[data-theme="dark"] .board-cover {
   padding: 10px 0; min-width: 0;
 }
 .pref-row + .pref-row { border-top: 1px solid color-mix(in oklab, var(--line), transparent 45%); }
-.pref-row-said { display: grid; gap: 2px; min-width: 0; flex: 1 1 16ch; }
+/* THE BASIS IS WHAT DECIDES WHEN THE CONTROL DROPS TO ITS OWN LINE, and the two
+   widths want opposite answers. On a phone, 16ch kept the "Fall back to" row's
+   segmented control beside a sub-line squeezed into five ribbon-width lines — a
+   row is allowed to be two lines tall, a sentence is not allowed to be a column.
+   In a desk column, 22ch is wider than the label needs and pushed a face picker
+   onto its own line halfway down a group whose other rows kept theirs beside the
+   label, so the same group drew its rows two different shapes. */
+.pref-row-said { display: grid; gap: 2px; min-width: 0; flex: 1 1 22ch; }
+@media (min-width: 1024px) { .pref-row-said { flex-basis: 16ch; } }
 .pref-row-control { flex: 0 1 auto; min-width: 0; }
 /* CHANGED IS A MARK. Sized in em so it holds against the reader's text dial, and
    in the accent because that is what the app means by "you did this". */
@@ -10481,3 +10445,79 @@ html[data-theme="dark"] .board-cover {
   display: flex; flex-wrap: wrap; align-items: baseline;
   justify-content: space-between; gap: 8px; margin-bottom: 4px;
 }
+
+/* A ROW'S NAME, AND THE LEVEL ABOVE IT. `.mono-label` drew both a group head and
+   the rows under it, so a settings section was one run of 11px grey capitals with
+   nothing saying which line was the heading. The pack draws the row name in the
+   interface face at semibold and keeps mono for the head
+   (settings-restructured.dc.html:174 against :144). Sized in a token, like every
+   other box that holds text. */
+.pref-row-label {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-style: var(--font-ui-style);
+  font-variant-caps: var(--font-ui-caps);
+  text-transform: var(--font-ui-case);
+  font-variant-numeric: var(--font-ui-figures);
+  font-size: var(--type-ui-15);
+  line-height: 1.35;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* THE SECTION'S TWO COLUMNS (the pack's shape: Interface and Your own fonts side
+   by side, the face list spanning under both). One column under the desk
+   breakpoint, because two columns of settings on a phone is two settings screens
+   half a thumb wide.
+
+   `1024px` IS THE DESK BREAKPOINT THE SHELL ALREADY USES for its rail, so a
+   section grows its second column at the same width the app grows its furniture
+   — one threshold, not two that nearly agree. */
+.pref-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+.pref-columns > .pref-group + .pref-group { margin-top: 0; }
+@media (min-width: 1024px) {
+  .pref-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: calc(var(--edge) * 2); }
+  /* A GROUP OF FULL-MEASURE ROWS SPANS. A face list squeezed into half a card is
+     a specimen you cannot judge, which is the pack's own reason for marking that
+     group `wide: true`. */
+  .pref-columns > .pref-group.is-wide { grid-column: 1 / -1; }
+}
+
+/* ---- THE FACES, CHOSEN WHERE THEY ARE SHOWN -------------------------------
+   The specimen is the row's second line rather than a door into a panel: it is
+   the one part of a type list that cannot be read as a name, so it belongs beside
+   the picker that changes it. It wraps rather than truncating, and it is sized off
+   the role's own dial so turning Labels up grows the label specimen and nothing
+   else. */
+.font-specimen {
+  /* FULL MEASURE, UNDER THE ROW. Inline beside the picker it sat wherever the
+     picker's width left it, so six rows put six specimens at six different
+     x-positions and nothing in the group lined up. A specimen is a line of type
+     to be read, which is the one thing a ragged column of them prevents. */
+  flex-basis: 100%; width: 100%;
+  margin-top: 4px; color: var(--ink); line-height: 1.4;
+  overflow-wrap: anywhere; text-wrap: pretty;
+}
+/* The modifiers, under the row they modify. Never above the specimen: the chips
+   say what is being done TO the face, and a reader has to see the face first. */
+.font-styles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; flex-basis: 100%; }
+/* AN ADDED FACE WEARS ITSELF, with its own way out at the end of it — the pack's
+   pill (settings-restructured.dc.html:196-200). The name is drawn in the face it
+   names, because a list of uploads set in the interface font is a list of strings.
+   Never truncated: a shortened face name and a short one look alike. */
+.font-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.font-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: max(38px, 2.4em); padding: 4px 4px 4px 13px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--raised); color: var(--ink);
+  box-shadow: inset 0 1px var(--bevel-mid);
+  min-width: 0; overflow-wrap: anywhere;
+}
+.font-pill-name { font-size: var(--type-ui-15); line-height: 1.3; }
+
+/* The row's name line: the label, its dot, and the changed mark, in normal flow
+   so the dot stays with the last word when the label wraps. */
+.pref-row-name > * { vertical-align: middle; }
+.pref-row-name > .info-dot,
+.pref-row-name > .pref-row-dot { margin-inline-start: 6px; }

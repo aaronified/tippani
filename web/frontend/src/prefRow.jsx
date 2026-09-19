@@ -31,7 +31,12 @@ import React from 'react'
 
 import { ariaLabelText, InfoDot, MonoLabel } from './ui.jsx'
 
-export function PrefRow({ label, sub = null, info = null, infoTitle = null, changed = false, control = null, children = null }) {
+// `said` IS A THIRD LINE IN THE LABEL'S OWN COLUMN, under the sub-line — a type
+// specimen, and so far nothing else. It is not `children`: children sit outside
+// the label column, at the row's full width, which is where a wall of style chips
+// belongs and where a single line of type reads as a stray paragraph three lines
+// below the row it describes.
+export function PrefRow({ label, sub = null, said = null, info = null, infoTitle = null, changed = false, control = null, children = null }) {
   // The label is the row's identity. It is what the reader calls the row and what
   // is unique within a section, and it means a row does not have to be handed a
   // key that exists only so it can be counted.
@@ -39,8 +44,19 @@ export function PrefRow({ label, sub = null, info = null, infoTitle = null, chan
   return (
     <div className="pref-row">
       <div className="pref-row-said">
-        <span className="flex flex-wrap items-center gap-1.5">
-          <MonoLabel>{label}</MonoLabel>
+        {/* INLINE FLOW, NOT A FLEX ROW. As a flex row the info dot was a flex ITEM,
+            so a label that wrapped to two lines sent the dot to a third on its
+            own — a lone "i" under a sentence, which reads as a typo. In normal
+            flow it follows the last word the way a footnote mark does. */}
+        <span className="pref-row-name">
+          {/* THE ROW'S OWN NAME, IN THE INTERFACE FACE AND NOT IN MONO. It was a
+              MonoLabel — 11px, uppercase, faint — which is the same drawing a
+              GROUP title wears, so a section read as one flat run of small grey
+              capitals with no telling a heading from the row under it. The pack
+              sets a row label in the UI face at semibold and keeps mono for the
+              group head above it (settings-restructured.dc.html:174 against :144),
+              which is what gives the screen two levels instead of none. */}
+          <span className="pref-row-label">{label}</span>
           {/* A DOT ONLY WHERE THERE IS SOMETHING TO SAY. An info dot on every row
               is a row of dots, and a reader stops pressing any of them. */}
           {info && <InfoDot title={infoTitle || label} text={info} />}
@@ -51,6 +67,7 @@ export function PrefRow({ label, sub = null, info = null, infoTitle = null, chan
           {changed && <span className="pref-row-dot" aria-hidden="true" />}
         </span>
         {sub && <p className="cs-row-sub">{sub}</p>}
+        {said}
       </div>
       {control && <div className="pref-row-control">{control}</div>}
       {children}
@@ -61,7 +78,7 @@ export function PrefRow({ label, sub = null, info = null, infoTitle = null, chan
 // A GROUP IS A HEADING AND ITS ROWS. The pack numbers them — "1 · Light and dark"
 // — and the number is drawn from position rather than typed, because a hand-typed
 // ordinal is the thing that goes wrong when a group is inserted.
-export function PrefGroup({ title, index = null, aside = null, info = null, children }) {
+export function PrefGroup({ title, index = null, aside = null, info = null, wide = false, children }) {
   return (
     // NAMED, so it is a landmark rather than an anonymous box. The heading below
     // is a MonoLabel and not an <h*> — it is a label for a group of rows, not a
@@ -70,7 +87,7 @@ export function PrefGroup({ title, index = null, aside = null, info = null, chil
     // ones. It is also what lets a test say "the switch in THIS group", which
     // matters here: several cards name their controls after the same four
     // screens.
-    <section className="pref-group" aria-label={ariaLabelText(title)}>
+    <section className={'pref-group' + (wide ? ' is-wide' : '')} aria-label={ariaLabelText(title)}>
       <div className="pref-group-head">
         <span className="flex flex-wrap items-baseline gap-1.5">
           <MonoLabel>{index == null ? title : `${index} · ${title}`}</MonoLabel>
@@ -84,6 +101,22 @@ export function PrefGroup({ title, index = null, aside = null, info = null, chil
       <div className="pref-group-rows">{children}</div>
     </section>
   )
+}
+
+// TWO COLUMNS ON A DESK, ONE ON A PHONE — the pack's own shape for a section
+// (settings-restructured.dc.html draws Interface and Your own fonts side by side
+// and spans the font list under both). It is a wrapper rather than a class on the
+// card because the card does not know how many groups it is about to be handed,
+// and `wide` is the group's own say: a group of full-measure rows — a face list, a
+// run of sliders — is unreadable in half a card, which is the reason the pack
+// marks that one `wide: true`.
+//
+// WHY A SECTION NEEDED IT AT ALL. Language and font drew one narrow column down
+// the left of a 1280px card and left the other half empty: "use the space
+// available" is the standing rule, and a screen that uses 45% of its width is the
+// case it was written for.
+export function PrefColumns({ children }) {
+  return <div className="pref-columns">{children}</div>
 }
 
 // changedCount — how many of a section's rows the reader has moved off default.

@@ -244,12 +244,12 @@ vocab.font-role.hand.label = নোট
 vocab.font-role.hand.what = মার্জিনে লেখা আপনার নোট, আর রাউন্ড শেষের স্কোর — রোমান হরফে যেটুকু।
 vocab.font-role.hand.sample = the bit about the garden
 vocab.font-role.bengali.label = বাংলা
-vocab.font-role.bengali.what = বাংলা হরফে লেখা সবকিছু — উদ্ধৃতি থেকে এই ইন্টারফেস পর্যন্ত।
+vocab.font-role.bengali.what = ইন্টারফেস যেখানেই বাংলা হরফ আঁকে — শিরোনাম, লেবেল, নাম।
 # Already Bengali on the English side, and it has to stay Bengali: it is the
 # specimen for the Bengali face.
 vocab.font-role.bengali.sample = যে জীবন ফড়িঙের দোয়েলের
 vocab.font-role.devanagari.label = দেবনাগরী
-vocab.font-role.devanagari.what = হিন্দি, মরাঠি, সংস্কৃত — দেবনাগরী হরফে লেখা সবকিছু।
+vocab.font-role.devanagari.what = ইন্টারফেস যেখানেই দেবনাগরী হরফ আঁকে — হিন্দি, মরাঠি, সংস্কৃত।
 # Already Devanagari on the English side, for the same reason.
 vocab.font-role.devanagari.sample = जो बीत गई सो बात गई
 
@@ -1270,9 +1270,29 @@ settings.review-scope.quotes.tip = ভাষণ, চিঠি, আর বাক�
 settings.review-scope.stuck.tip = ডেকের অন্তত একটা লাগবে
 
 # --- Settings → Type. Six roles, three faces each, all bundled.
-settings.type.title = ফন্ট
-settings.type.open.tip = অ্যাপের সব ফন্ট
-settings.type.intro.prose = অ্যাপ যে যে ফন্ট ব্যবহার করে, প্রতিটা নিজের কাজটা করতে করতে দেখানো। প্রতিটার দুটো বিকল্প, সবই অ্যাপের সঙ্গে আসে আর ব্যবহারে কোনও বাধা নেই — বাইরে থেকে কিছুই টেনে আনা হয় না।
+# ভাষা ও ফন্ট পর্দার দলগুলোর নাম।
+settings.lang.group.interface.title = ইন্টারফেস
+settings.type.own.title = আপনার নিজের ফন্ট
+settings.type.faces.title = ইন্টারফেসের ফন্ট
+settings.quote-faces.title = উদ্ধৃতির ফন্ট
+settings.quote-faces.row.title = ভাষা ধরে ধরে ফন্ট
+settings.quote-faces.row.sub = উদ্ধৃতি বসে তার নিজের ভাষার জন্য বেছে দেওয়া ফন্টে। বাকি সব উপরের ইন্টারফেসের ফন্ট মেনে চলে।
+settings.quote-faces.row.open = ভাষা ধরে ফন্ট বসান
+settings.quote-faces.intro.prose = আপনার সংগ্রহে যত ভাষা আছে, আর প্রতিটির উদ্ধৃতি কোন ফন্টে বসে। প্রতিটি সারি নিজের ভাষার নামটাই লেখে, তাই যে ফন্টে সেই লিপি নেই সেটা বাছার জায়গাতেই ধরা পড়ে।
+settings.quote-faces.none = এখনও কোনও ভাষা নেই — উদ্ধৃতির সঙ্গে আপনি যে ভাষা দেন, সেগুলোই এখানে আসে।
+settings.quote-faces.add.prose = ভাষা আসে আপনার উদ্ধৃতি থেকে আর মেটাডেটার ভাষার তালিকা থেকে।
+settings.quote-faces.add.open = ভাষার তালিকা খুলুন
+settings.lang.metadata.title = আপনার সংগ্রহ কী দিয়ে তৈরি
+settings.lang.metadata.sub = বই-ছবি, মানুষ, চরিত্র, ট্যাগ, সূত্র আর যে রঙে আপনি সাজান
+settings.lang.metadata.open = মেটাডেটা খুলুন
+settings.lang.metadata.info.body = ইন্টারফেস কোন ভাষায় লেখা, সেটা একটা সেটিং। আপনার সংগ্রহে কী আছে — বই-ছবি, পিছনের মানুষ আর চরিত্র, আপনার ট্যাগ, আর আনা তথ্য কোথা থেকে আসে — সেটা মেটাডেটা, তার নিজের পর্দা আছে।
+settings.type.added.title = যোগ করা ফন্ট
+settings.type.added.sub = প্রতিটা নিজের চেহারাতেই দেখানো
+settings.type.added.none = এখনও কিছু নেই — নিচে একটা আপলোড করুন
+settings.type.add.title = একটা ফন্ট যোগ করুন
+settings.type.add.sub = woff2, woff, otf বা ttf — এটা এই সার্ভারেই থাকে
+settings.type.add.action = ফন্ট আপলোড করুন
+settings.type.style.aria = {name}-এর স্টাইল
 # WHOSE INTERFACE these faces are for. '' is the answer every UI language
 # inherits; a code is that language's own. Not "English" — the inherited answer
 # applies in every language, and English can overrule it like any other.
@@ -1281,7 +1301,6 @@ settings.type.scope.all = সব ভাষার জন্য
 settings.type.scope.revert.aria = {name}-এর জন্য সব ভাষার ফন্টেই ফিরুন
 settings.type.scope.revert.tip = সবার জন্য যেটা, সেটাতেই ফিরুন
 settings.type.style.title = স্টাইল
-settings.type.upload.label = ＋ আপলোড
 settings.type.face.aria = {name} লেখার ফন্ট
 settings.type.face.filter.placeholder = ফন্টের নাম লিখুন
 settings.type.font.remove.tip = এই ফন্ট সরান
@@ -1323,8 +1342,7 @@ settings.languages.rename.label = দেখাবে এই নামে (জম
 # What this language's QUOTES are set in — every face the app ships, because the
 # question is "what does my German look like" and the answer may be a sans or a
 # hand. "Follows the card" is a real answer and so is an option, not a clear button.
-settings.languages.face.title = এই ভাষার উদ্ধৃতির ফন্ট
-settings.languages.face.inherit = কার্ডের ফন্টেই থাকুক
+settings.languages.face.inherit = উদ্ধৃতির ফন্ট মেনে চলে
 settings.languages.face.aria = {name} ভাষার উদ্ধৃতির ফন্ট
 settings.languages.add.label = ভাষা যোগ করুন
 settings.languages.name.label = ভাষার নাম

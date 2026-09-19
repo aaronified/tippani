@@ -2543,6 +2543,12 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               onUpdateInfo={setUpdate}
               section={detail?.type === 'section' ? detail.id : null}
               onSection={(id) => go('settings', id ? { type: 'section', id } : null)}
+              // A DOOR OUT OF SETTINGS, which only the shell can open: a section
+              // cannot move the app to another tab, and `pushRoute` alone moves
+              // the address without moving the screen. It takes the section too,
+              // because "go to Metadata" and "go to the language table" are
+              // different asks and only one of them is a door.
+              onGo={(nextTab, id = null) => go(nextTab, id ? { type: 'section', id } : null)}
             />
           </div>
         )}

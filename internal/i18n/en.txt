@@ -229,12 +229,12 @@ vocab.font-role.hand.label = Notes
 vocab.font-role.hand.what = Your margin notes, and the score on a finished round.
 vocab.font-role.hand.sample = the bit about the garden
 vocab.font-role.bengali.label = Bengali
-vocab.font-role.bengali.what = Every Bengali quote, wherever it appears.
+vocab.font-role.bengali.what = Bengali letters anywhere the interface draws them — a title, a label, a name.
 # Already Bengali on the English side, and it has to stay Bengali: it is the
 # specimen for the Bengali face.
 vocab.font-role.bengali.sample = যে জীবন ফড়িঙের দোয়েলের
 vocab.font-role.devanagari.label = Devanagari
-vocab.font-role.devanagari.what = Hindi, Marathi, Sanskrit — anything in this script.
+vocab.font-role.devanagari.what = Devanagari letters anywhere the interface draws them — Hindi, Marathi, Sanskrit.
 # Already Devanagari on the English side, for the same reason.
 vocab.font-role.devanagari.sample = जो बीत गई सो बात गई
 
@@ -1265,10 +1265,36 @@ settings.review-scope.quotes.tip = Speeches, letters, anything else
 # The last scope standing cannot be turned off, or the deck empties.
 settings.review-scope.stuck.tip = The deck needs one
 
-# --- Settings → Type. Six roles, three faces each, all bundled.
-settings.type.title = Type
-settings.type.open.tip = Every face the app uses
-settings.type.intro.prose = Every face the app uses, each shown doing its own job. Two alternates apiece, all bundled with the app and free to use — nothing here is fetched from anywhere.
+# --- Settings → Language and font. Six roles, three faces each, all bundled.
+# THE GROUP HEADS OF THAT SECTION, in the pack's own order: what the interface
+# speaks, the faces you added yourself, the faces it is set in, and the two
+# scripts. Numbered from position in prefRow.jsx, never typed into these strings.
+settings.lang.group.interface.title = Interface
+settings.type.own.title = Your own fonts
+settings.type.faces.title = Interface faces
+# --- Quote faces, one per language. The list is Metadata's language table; this
+# only says what each language's QUOTES are set in.
+settings.quote-faces.title = Quote fonts
+settings.quote-faces.row.title = Fonts by language
+settings.quote-faces.row.sub = A quote is set in the face you give its own language. Everything else follows the interface faces above.
+settings.quote-faces.row.open = Set fonts by language
+settings.quote-faces.intro.prose = Every language your library holds, and the face its quotes are set in. Each one is shown writing its own name, so a face that cannot draw the script says so where you pick it.
+settings.quote-faces.none = No languages yet — a quote carries the language you give it, and every one you have used appears here.
+settings.quote-faces.add.prose = Languages come from your quotes and from Metadata’s language table.
+settings.quote-faces.add.open = Open the language table
+# The door to the other half of "what is this written in".
+settings.lang.metadata.title = What your library is made of
+settings.lang.metadata.sub = Works, people, characters, tags, sources and the colours you file by
+settings.lang.metadata.open = Open Metadata
+settings.lang.metadata.info.body = What the interface is written in is a setting. What your library HOLDS — its works, the people and characters behind them, your tags, and where fetched facts come from — is metadata, and has its own screen.
+# Your own faces: the list, and the way one more gets in.
+settings.type.added.title = Added fonts
+settings.type.added.sub = Each one shown in its own face
+settings.type.added.none = None yet — upload one below
+settings.type.add.title = Add a font
+settings.type.add.sub = woff2, woff, otf or ttf — it stays on this server
+settings.type.add.action = Upload a font
+settings.type.style.aria = Style modifiers for {name}
 # WHOSE INTERFACE these faces are for. '' is the answer every UI language
 # inherits; a code is that language's own. Not "English" — the inherited answer
 # applies in every language, and English can overrule it like any other.
@@ -1277,7 +1303,6 @@ settings.type.scope.all = Every language
 settings.type.scope.revert.aria = Follow every language for {name}
 settings.type.scope.revert.tip = Back to the shared answer
 settings.type.style.title = style
-settings.type.upload.label = ＋ Upload
 settings.type.face.aria = Typeface for {name}
 settings.type.face.filter.placeholder = Type a typeface name
 settings.type.font.remove.tip = Remove this font
@@ -1319,8 +1344,7 @@ settings.languages.rename.label = Shown as (stored as “{name}”)
 # What this language's QUOTES are set in — every face the app ships, because the
 # question is "what does my German look like" and the answer may be a sans or a
 # hand. "Follows the card" is a real answer and so is an option, not a clear button.
-settings.languages.face.title = Quotes in this language
-settings.languages.face.inherit = Follows the card
+settings.languages.face.inherit = Follows the Quotes face
 settings.languages.face.aria = Typeface for quotes in {name}
 settings.languages.add.label = Add a language
 settings.languages.name.label = Language name

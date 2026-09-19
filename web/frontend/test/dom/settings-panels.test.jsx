@@ -119,19 +119,24 @@ describe('the two panels are doors, not cards', () => {
     expect(screen.queryByText(/Or type one/)).toBeNull()
   })
 
-  it('offers it as a button that names itself', async () => {
+  it('offers the faces themselves, not a door to them', async () => {
+    // THE DOOR IS GONE AND THAT IS THE CHANGE. "Type" was the only way to a
+    // typeface, so choosing one cost four presses on the screen whose subject is
+    // typefaces. The pack draws a picker per row and no button at all.
     await page()
-    expect(screen.getByRole('button', { name: 'Type' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Type' }), 'the Type door is back').toBeNull()
+    expect(screen.getByRole('button', { name: /Typeface for Labels/i })).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('keeps both sets of words at every width', async () => {
-    // has-btn-icon is what data-labels="off" squares to 44px. These two are the
-    // only way into two whole panels — a bare letterform on a phone is not an
-    // unlabelled button, it is a screen nobody finds — so they opt out the way
-    // primary submits and destructive confirms do.
-    for (const [open, name] of [[page, 'Type']]) {
-      cleanup()
-      await open()
+  it('keeps a door\'s words at every width where a door is left', async () => {
+    // has-btn-icon is what data-labels="off" squares to 44px. A door into a whole
+    // panel opts out of that the way primary submits and destructive confirms do:
+    // a bare letterform on a phone is not an unlabelled button, it is a screen
+    // nobody finds. Two are left on this section — the language table, and the
+    // per-language quote faces.
+    await page()
+    for (const name of ['Open Metadata', 'Set fonts by language']) {
       const b = screen.getByRole('button', { name })
       expect(b.className, name).not.toContain('has-btn-icon')
       expect(b.querySelector('.btn-label-fixed')?.textContent, name).toBe(name)
@@ -141,39 +146,25 @@ describe('the two panels are doors, not cards', () => {
 
   it('opens exactly one dialog, on either screen', async () => {
     // Two stacked scrims trap the page, so what is asserted is that a door opens
-    // its own panel and only that. "One at a time" used to be a claim about two
-    // cards sharing a page; they are on two screens now, and the property that
-    // survives is per-screen.
+    // its own panel and only that.
     await page()
-    fireEvent.click(screen.getByRole('button', { name: 'Type' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Set fonts by language' }))
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    expect(dialog().getAttribute('aria-label')).toBe('Type')
+    expect(dialog().getAttribute('aria-label')).toBe('Quote fonts')
   })
 
-  it('puts Type under Language and font, and the marks table nowhere on Settings', async () => {
-    // WHERE the door is, which is the one thing the assertions above cannot see:
-    // they find a button on a page without caring what it sits under.
-    // WHICH SECTION, NOT WHICH CARD. This read the heading off the `.hand-card`
-    // the Type button sits in and expected "Language" — and that heading is gone,
-    // because it was a second one under a rail tab that had already said "Language
-    // and font". The fact it was checking is unchanged and is now one level up: the
-    // chosen tab is what the reader is standing on, and it announces itself.
-    //
-    // TYPE MOVED OUT FROM UNDER APPEARANCE, which is what this line used to assert
-    // the opposite of. Settings is five named sections now, and what the interface
-    // is WRITTEN IN — its language and the four faces that draw it — is one of them.
+  it('puts the faces under Language and font, and the marks table nowhere on Settings', async () => {
+    // WHERE they are, which is the one thing the assertions above cannot see:
+    // they find controls on a page without caring what those sit under.
     await page()
-    expect(screen.getByRole('button', { name: 'Type' })).toBeTruthy()
     const chosenTab = screen.getAllByRole('tab').find((el) => el.getAttribute('aria-selected') === 'true')
     expect(chosenTab?.textContent).toContain('Language and font')
-    // AND THE MARKS TABLE IS NOT ON SETTINGS AT ALL, which is the half a heading
-    // check cannot state: the block left that page, and has now left the sources
-    // block too for a section of its own.
+    expect(screen.getByRole('button', { name: /Typeface for Labels/i })).toBeTruthy()
+    // AND THE MARKS TABLE IS NOT ON SETTINGS AT ALL: the block left that page, and
+    // has now left the sources block too for a section of its own.
     expect(screen.queryByRole('button', { name: 'Language marks' })).toBeNull()
     cleanup()
     await sources()
-    // NOR IS IT A DOOR ON SOURCES ANY MORE. It was a card whose heading WAS the
-    // button; both are gone, because the table is a section beside this one now.
     expect(screen.queryByRole('button', { name: 'Language marks' })).toBeNull()
     // And the keys card is still here, which is what proves the screen rendered
     // rather than the query having nothing to find.
@@ -340,30 +331,31 @@ describe('the language-mark tray', () => {
   })
 })
 
-describe('the Type panel', () => {
-  const openRole = async (label) => {
-    await page()
-    fireEvent.click(screen.getByRole('button', { name: 'Type' }))
-    fireEvent.click(within(dialog()).getByRole('button', { name: label }))
+describe('the faces, on the section that shows them', () => {
+  // THE PANEL IS THE SECTION NOW. Every case below used to open a dialog and then
+  // expand a role inside it; the rows are on the page, so what they drive is the
+  // row itself. What each one asserts about the app is unchanged — the shape of
+  // the gesture is what got shorter.
+  const rowFor = (label) => screen.getByText(label).closest('.pref-row')
+  // The modifiers are one press off the row they modify: five chips across six
+  // rows is thirty chips on a screen whose job is showing four typefaces.
+  const openStyles = (label) => {
+    fireEvent.click(within(rowFor(label)).getByRole('button', { name: new RegExp(`Style modifiers for ${label}`, 'i') }))
+    return rowFor(label)
   }
 
   it('says nothing about monospace', async () => {
     // 1.15.2. The mono row answered a question nobody on that screen had asked,
     // every time it was opened. The reasoning survives in fonts.js, beside the
     // style table it is about.
-    await openRole('Labels')
-    expect(within(dialog()).queryByText(/monospace/i)).toBeNull()
+    await page()
+    expect(within(openStyles('Labels')).queryByText(/monospace/i)).toBeNull()
   })
 
-  it('still sets a face, through the dropdown that replaced the chips', async () => {
-    // THE CONTROL CHANGED SHAPE AND THIS CASE DID NOT NOTICE. It used to click the
-    // first unpressed .tp-filter-chip in the dialog, which was a typeface; the
-    // typefaces are a typeable dropdown now and the first chip it found was a
-    // STYLE. It passed, and it was testing something else — so it drives the real
-    // control by name.
-    await openRole('Labels')
-    fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))
-    // The panel portals to <body>, so it is NOT inside the dialog element.
+  it('sets a face through the dropdown that replaced the chips', async () => {
+    await page()
+    fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
+    // The list portals to <body>, so it is NOT inside the row.
     const opts = screen.getAllByRole('option')
     expect(opts.length, 'the dropdown offers no typefaces').toBeGreaterThan(1)
     fireEvent.click(opts[1])
@@ -373,8 +365,8 @@ describe('the Type panel', () => {
   it('narrows the list as you type, and Enter takes what is left', async () => {
     // The reason it is typeable at all: three bundled faces per role plus every
     // font you have ever uploaded is a list you cannot read your way down.
-    await openRole('Labels')
-    fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))
+    await page()
+    fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
     const all = screen.getAllByRole('option').length
     const box = screen.getByPlaceholderText(/Type a typeface name/i)
     fireEvent.change(box, { target: { value: 'jet' } }) // JetBrains Mono
@@ -390,8 +382,8 @@ describe('the Type panel', () => {
   })
 
   it('says so rather than emptying when nothing matches', async () => {
-    await openRole('Labels')
-    fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))
+    await page()
+    fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
     const box = screen.getByPlaceholderText(/Type a typeface name/i)
     fireEvent.change(box, { target: { value: 'zzzz' } })
     expect(screen.queryAllByRole('option')).toHaveLength(0)
@@ -401,14 +393,16 @@ describe('the Type panel', () => {
   // WHOSE INTERFACE, and it is the half of the owner's font spec that is about
   // the app's own words: "any language that the user adds in via translation
   // files should have a full ui font picker (revamp the font picker in settings
-  // for that)." The revamp is a scope above the six rows, not six more rows per
-  // language — a card that grew with somebody's translations folder would be
+  // for that)." The revamp is a scope above the rows, not a set of rows per
+  // language — a section that grew with somebody's translations folder would be
   // unreadable by the third file.
-  describe('the scope above the six rows', () => {
+  describe('the scope above the rows', () => {
+    const openScope = () =>
+      fireEvent.click(screen.getByRole('button', { name: /These faces are for/i }))
+
     it('offers every installed language, and the shared answer first', async () => {
       await page()
-      fireEvent.click(screen.getByRole('button', { name: 'Type' }))
-      fireEvent.click(within(dialog()).getByRole('button', { name: /These faces are for/i }))
+      openScope()
       const words = screen.getAllByRole('option').map((o) => o.textContent)
       // The first is NOT "English": it is what a reader with no per-language
       // opinion sees in every language, and English can overrule it like any other.
@@ -421,16 +415,14 @@ describe('the Type panel', () => {
         .toBeGreaterThanOrEqual(3)
     })
 
-    // THE CASE THAT WOULD HAVE CAUGHT THE ONE THING THIS COMMIT SHIPPED BROKEN.
+    // THE CASE THAT WOULD HAVE CAUGHT THE ONE THING A COMMIT SHIPPED BROKEN.
     // `save` changed from (field, value) to (changes), and the style chip's call
     // site kept the old two-argument shape — so Object.entries over the STRING
     // 'monoStyle' PUT {"0":"m","1":"o",…}: a silent no-op under the shared scope,
-    // and a 400 under a named one. Every other control on the card was covered;
-    // this one was not, and a contract test on fontPatch could not see it because
-    // fontPatch was never reached.
+    // and a 400 under a named one.
     it('presses a style chip and saves the modifier, not the field name', async () => {
-      await openRole('Labels')
-      fireEvent.click(within(dialog()).getByRole('button', { name: 'Bold' }))
+      await page()
+      fireEvent.click(within(openStyles('Labels')).getByRole('button', { name: 'Bold' }))
       await waitFor(() => {
         const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
         expect(put[1].fontMonoStyle).toBe('bold')
@@ -441,11 +433,9 @@ describe('the Type panel', () => {
 
     it('and writes it into the blob under a named scope', async () => {
       await page()
-      fireEvent.click(screen.getByRole('button', { name: 'Type' }))
-      fireEvent.click(within(dialog()).getByRole('button', { name: /These faces are for/i }))
+      openScope()
       fireEvent.click(screen.getAllByRole('option').at(-1))
-      fireEvent.click(within(dialog()).getByRole('button', { name: 'Labels' }))
-      fireEvent.click(within(dialog()).getByRole('button', { name: 'Bold' }))
+      fireEvent.click(within(openStyles('Labels')).getByRole('button', { name: 'Bold' }))
       await waitFor(() => {
         const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
         expect(put[1].fontMonoStyle, 'a per-language modifier hit the shared field').toBeUndefined()
@@ -454,8 +444,8 @@ describe('the Type panel', () => {
     })
 
     it('writes the flat field under the shared scope', async () => {
-      await openRole('Labels')
-      fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))
+      await page()
+      fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
       fireEvent.change(screen.getByPlaceholderText(/Type a typeface name/i), { target: { value: 'jet' } })
       fireEvent.keyDown(document, { key: 'Enter' })
       await waitFor(() => {
@@ -469,11 +459,9 @@ describe('the Type panel', () => {
     // must NOT write the field every other language reads.
     it('and the blob under a named one, leaving the flat field alone', async () => {
       await page()
-      fireEvent.click(screen.getByRole('button', { name: 'Type' }))
-      fireEvent.click(within(dialog()).getByRole('button', { name: /These faces are for/i }))
+      openScope()
       fireEvent.click(screen.getAllByRole('option').at(-1)) // the last installed language
-      fireEvent.click(within(dialog()).getByRole('button', { name: 'Labels' }))
-      fireEvent.click(within(dialog()).getByRole('button', { name: /Typeface for Labels/i }))
+      fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
       fireEvent.change(screen.getByPlaceholderText(/Type a typeface name/i), { target: { value: 'jet' } })
       fireEvent.keyDown(document, { key: 'Enter' })
       await waitFor(() => {
@@ -485,11 +473,15 @@ describe('the Type panel', () => {
     })
   })
 
-  it('offers Upload as its own control rather than as a fourth typeface', async () => {
-    // It was a chip in the row of faces, which reads as a face. It is not a face;
-    // it is a way of getting one.
-    await openRole('Labels')
-    const up = within(dialog()).getByText(/Upload$/i).closest('label')
+  it('offers Upload once, as its own control rather than as a fourth typeface', async () => {
+    // It was a chip in the row of faces, which reads as a face — and then it was
+    // six buttons, one per role, because uploading assigned. It is not a face and
+    // it is not a role's business: it is a way of getting one, and there is one
+    // of it.
+    await page()
+    const ups = screen.getAllByText(/Upload a font/i)
+    expect(ups, 'upload is drawn more than once').toHaveLength(1)
+    const up = ups[0].closest('label')
     expect(up, 'no Upload control').toBeTruthy()
     expect(up.className, 'Upload is still styled as a typeface chip').not.toContain('tp-filter-chip')
     expect(up.querySelector('input[type="file"]'), 'Upload takes no file').toBeTruthy()

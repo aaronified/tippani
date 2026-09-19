@@ -36,7 +36,12 @@ import { InfoDot, MonoLabel, Select } from "./ui.jsx";
 // this component's job and happens either way — the first-run screen has no
 // session to save to, and the Settings row does — so the applier is here and the
 // PUT is the caller's.
-export function LanguagePicker({ titleKey, info = false, onPick, width = 230 }) {
+// `bare` DRAWS THE SELECT AND NOTHING ELSE. The settings row supplies its own
+// label and info dot through `PrefRow` — the row IS the label — so the component's
+// own heading above the box would say the word twice, at two sizes, one of them in
+// the drawing a group head wears. The first-run screen has no row around it and
+// passes a `titleKey` instead.
+export function LanguagePicker({ titleKey, info = false, bare = false, onPick, width = 230 }) {
   // Subscribed rather than read once: the coverage numbers and the selected row
   // change when GET /locales lands, which happens after the first paint and for
   // no reason this component would otherwise re-render for.
@@ -51,10 +56,12 @@ export function LanguagePicker({ titleKey, info = false, onPick, width = 230 }) 
 
   return (
     <div>
-      <div className="mb-2 flex items-center gap-1.5">
-        <MonoLabel>{t(titleKey)}</MonoLabel>
-        {info && <InfoDot title={t("settings.language.info.title")} text={t("settings.language.info.body")} />}
-      </div>
+      {!bare && (
+        <div className="mb-2 flex items-center gap-1.5">
+          <MonoLabel>{t(titleKey)}</MonoLabel>
+          {info && <InfoDot title={t("settings.language.info.title")} text={t("settings.language.info.body")} />}
+        </div>
+      )}
       <Select
         ariaLabel={t("locale.picker.aria")}
         value={localeActive()}

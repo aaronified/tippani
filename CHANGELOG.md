@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Every typeface is on the Language and font screen, and chosen there.** The Type panel
+  is gone: each face the interface uses is a row with a picker beside it, your uploaded
+  fonts are listed where you can see and remove them, and uploading one is a button rather
+  than something you find inside a role you did not want to change. Changing a face is one
+  press and a choice.
+
+- **A font per language, for your quotes.** German in a serif and English in a sans, even
+  though both are Latin — set each language's quote face under Language and font → Quote
+  fonts. Each row writes its own name in the face you are choosing, so a font that cannot
+  draw the script says so where you pick it. The languages come from your library and from
+  Metadata's language table, which the panel links to.
+
 - **Save a look, and switch back to it in one press.** A look is both grounds, the accent,
   the material set, its per-surface tiles and its dials — six decisions that belong
   together, because a ground chosen against one accent is a different decision against

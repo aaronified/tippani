@@ -138,75 +138,12 @@ describe('the per-language table', () => {
   })
 })
 
-// WHAT THIS LANGUAGE'S QUOTES ARE SET IN, and it is in THIS table rather than in
-// the Type card on the panel's own stated rule: "A second table of the same
-// languages would be two lists to keep in step, and the first time somebody added
-// a language to one of them they would diverge." A language's mark, its name and
-// how much of the original it shows already live in its row; its face is the
-// fourth thing about it.
-describe('a language row carries its quotes\' face', () => {
-  // AWAITED, because a row arrives on a promise. Every case in this file now
-  // starts from an empty vocabulary cache (see beforeEach), so no case inherits
-  // rows another one fetched — which is what made this helper synchronous, and
-  // order-dependent, before.
-  const tray = async (name) => {
-    await open()
-    fireEvent.click(await screen.findByRole('button', { name }))
-    return screen.findByRole('button', { name: new RegExp(`Typeface for quotes in ${name}`, 'i') })
-  }
-
-  it('offers every face the app ships, not one role\'s three', async () => {
-    fireEvent.click(await tray('Bengali'))
-    const words = screen.getAllByRole('option').map((o) => o.textContent)
-    // A serif, a sans and a hand all in one list: the question is "what does my
-    // Bengali look like", and the answer is not confined to a role.
-    expect(words).toContain('Literata')
-    expect(words).toContain('Inter')
-    expect(words).toContain('Caveat')
-  })
-
-  // THE KEY IS WHAT THE LIBRARY STORES, NOT THE ISO NAME. A row carries both: its
-  // `key` is the fold of what the reader typed, its `canonical` is the English
-  // name iso639 knows it by. This control passed `canonical` for a commit, so a
-  // library whose quotes say `বাংলা` saved {"bengali":…} — which reads back as
-  // saved, looks right in the picker, and changes no card at all.
-  it('keys the face on what the library stores, not on the ISO name', async () => {
-    // THE VOCABULARY IS A SESSION CACHE, so a case that needs a different library
-    // has to forget the one the file's earlier cases primed — this panel's own
-    // header warns that only the FIRST case in a file races for it.
-    // THE ROW IS HEADED "Bengali" AND KEYED `বাংলা`, which is the whole trap: the
-    // row's NAME is what iso639 calls the language, and its KEY is what the
-    // library stores. A picker reading the name saves under the wrong one.
-    VOCAB = ['বাংলা']
-    fireEvent.click(await tray('Bengali'))
-    fireEvent.click(screen.getAllByRole('option').find((o) => o.textContent === 'Literata'))
-    await waitFor(() => {
-      const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
-      expect(JSON.parse(put[1].fontsByLanguage)).toEqual({ 'বাংলা': 'literata' })
-    })
-  })
-
-  it('saves the face against the language, not against a script', async () => {
-    fireEvent.click(await tray('Bengali'))
-    fireEvent.click(screen.getAllByRole('option').find((o) => o.textContent === 'Literata'))
-    await waitFor(() => {
-      const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
-      expect(JSON.parse(put[1].fontsByLanguage)).toEqual({ bengali: 'literata' })
-    })
-  })
-
-  // "Follows the card" is a real answer a reader has to be able to choose AGAIN,
-  // which is why it is the first option and not a clear button beside the list.
-  it('and takes the row back out when the reader chooses to follow the card', async () => {
-    PREFS = { fontsByLanguage: JSON.stringify({ bengali: 'literata' }) }
-    fireEvent.click(await tray('Bengali'))
-    fireEvent.click(screen.getAllByRole('option').find((o) => /Follows the card/i.test(o.textContent)))
-    await waitFor(() => {
-      const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
-      expect(put[1].fontsByLanguage).toBe('')
-    })
-  })
-})
+// WHAT THIS LANGUAGE'S QUOTES ARE SET IN HAS MOVED TO SETTINGS, and the cases
+// that held it moved with it — see language-faces.test.jsx. The reason is the one
+// this file's own table states from the other side: two controls writing
+// `fontsByLanguage`, one here and one under Language and font, are two writers for
+// one preference. The languages are still defined here, which is why Settings'
+// panel reads this table and sends a reader back to it to add one.
 
 describe('the master\'s custom state', () => {
   // "when other knobs are adjusted (custom), it will lose contrast."
