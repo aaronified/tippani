@@ -1269,7 +1269,8 @@ settings.review-scope.quotes.tip = ভাষণ, চিঠি, আর বাক�
 # The last scope standing cannot be turned off, or the deck empties.
 settings.review-scope.stuck.tip = ডেকের অন্তত একটা লাগবে
 
-# --- Settings → Type. Six roles, three faces each, all bundled.
+# --- Settings → Language and font. Four interface roles, three faces each; a
+# quote's own face is per language and lives under quote-faces below.
 # ভাষা ও ফন্ট পর্দার দলগুলোর নাম।
 settings.lang.group.interface.title = ইন্টারফেস
 settings.type.own.title = আপনার নিজের ফন্ট
@@ -4360,7 +4361,7 @@ import.read-as.placeholder = ফরম্যাট বাছুন
 import.read-as.unqueued = এই ফাইল থেকে কিছুই সারিতে যায়নি — কোথাও অপেক্ষা করছে না। উপরে একটা ফরম্যাট বাছুন, নয়তো এই পাতা ছাড়লে ফাইলটা আবার দিতে হবে।
 
 # WHAT THE FILE ACTUALLY IS. Each names the door that does take it — the screen
-# names are this file's own (settings.restore.title, settings.type.title).
+# names are this file's own (settings.restore.title, settings.section.lang.label).
 import.near-miss.backup = এটা টিপ্পনীর ব্যাকআপ — সেটিংস → ফিরিয়ে আনা দিয়ে ফেরান।
 import.near-miss.zip = এক্সপোর্টের আর্কাইভ গোটাটা ইমপোর্ট হয় না — unzip করে ভিতরের ফাইলগুলো ছাড়ুন।
 import.near-miss.epub = টিপ্পনী আপনার দাগ দেওয়া লাইন রাখে, গোটা বই নয় — রিডার থেকে অ্যানোটেশনগুলো এক্সপোর্ট করে আনুন।

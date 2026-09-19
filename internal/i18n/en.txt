@@ -1265,10 +1265,12 @@ settings.review-scope.quotes.tip = Speeches, letters, anything else
 # The last scope standing cannot be turned off, or the deck empties.
 settings.review-scope.stuck.tip = The deck needs one
 
-# --- Settings → Language and font. Six roles, three faces each, all bundled.
+# --- Settings → Language and font. Four interface roles, three faces each, all
+# bundled; a quote's own face is per LANGUAGE and lives under quote-faces below.
 # THE GROUP HEADS OF THAT SECTION, in the pack's own order: what the interface
-# speaks, the faces you added yourself, the faces it is set in, and the two
-# scripts. Numbered from position in prefRow.jsx, never typed into these strings.
+# speaks, the faces you added yourself, the faces it is set in, and the quote
+# face each language carries. Numbered from position in prefRow.jsx, never typed
+# into these strings.
 settings.lang.group.interface.title = Interface
 settings.type.own.title = Your own fonts
 settings.type.faces.title = Interface faces
@@ -1282,7 +1284,6 @@ settings.quote-faces.intro.prose = Every language your library holds, and the fa
 settings.quote-faces.none = No languages yet — a quote carries the language you give it, and every one you have used appears here.
 settings.quote-faces.add.prose = Languages come from your quotes and from Metadata’s language table.
 settings.quote-faces.add.open = Open the language table
-# The door to the other half of "what is this written in".
 # Your own faces: the list, and the way one more gets in.
 settings.type.added.title = Added fonts
 settings.type.added.sub = Each one shown in its own face

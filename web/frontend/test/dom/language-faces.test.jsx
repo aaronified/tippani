@@ -98,7 +98,12 @@ describe('the faces the interface is set in', () => {
     fireEvent.click(options[1])
     const saved = put.mock.calls.find(([method, path]) => method === 'PUT' && path === '/auth/me/preferences')
     expect(saved, 'choosing a face saved nothing').toBeTruthy()
-    expect(Object.keys(saved[2])).toContain(role.key === 'display' ? 'fontDisplay' : Object.keys(saved[2])[0])
+    // THE FIELD THE ROLE OWNS, derived from the role rather than asserted against
+    // the patch's own first key — which is what this line did, and a comparison
+    // of a value with itself is a test that passes whatever the app sends. It
+    // survived review because the branch it actually took was the real one.
+    const field = 'font' + role.key[0].toUpperCase() + role.key.slice(1)
+    expect(Object.keys(saved[2]), `the patch does not name ${field}`).toContain(field)
   })
 })
 

@@ -10,6 +10,7 @@ import {
   fontStateFor,
   quoteFaceFor,
   quoteFontPatch,
+  quoteFonts,
   registerUploads,
   serialiseFontStyles,
   stylesFor,
@@ -1410,7 +1411,12 @@ function FontSections({ prefs, onSaved, onGo, index }) {
         <PrefRow
           label={t('settings.quote-faces.row.title')}
           sub={t('settings.quote-faces.row.sub')}
-          changed={!!(prefs?.fontsByLanguage || '').trim()}
+          // A STORED "{}" IS NOT A DECISION. The writer clears the field to ''
+          // when the last language goes back to following, so this is latent —
+          // but a blob written by any earlier client, or by a hand, would light
+          // the dot on a row nobody has touched, and a mark that is wrong is
+          // worse than no mark.
+          changed={Object.keys(quoteFonts(prefs || {})).length > 0}
           control={
             <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setQuoteFacesOpen(true)}>
               {t('settings.quote-faces.row.open')}
@@ -4271,7 +4277,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
               thing the faces are about. */}
           {/* NOT `wide`, AND THAT IS THE POINT OF HAVING THE FLAG. Three short
               rows across a whole card put every control an arm's length from its
-              own label; in a column they sit beside it, and Script faces takes the
+              own label; in a column they sit beside it, and Quote fonts takes the
               other half of the same line instead of a run of empty texture. */}
           <PrefGroup index={5} title={t('settings.group.access.title')}>
             <TextSizeField prefs={prefs} onPreferences={onPreferences} />
