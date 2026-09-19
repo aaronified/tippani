@@ -200,7 +200,7 @@ async function checkScreen(page, screen, opts) {
       ? screen.path(screen.name === 'book-detail' ? opts.bookId : opts.movieId)
       : screen.path
   await page.goto(opts.baseUrl + path, { waitUntil: 'networkidle0' })
-  await page.waitForSelector(`[data-screen-label="${screen.name}"]`, { timeout: opts.timeoutMs })
+  await page.waitForSelector(`[data-screen-label="${screen.label || screen.name}"]`, { timeout: opts.timeoutMs })
   await settle(page)
 
   const before = await page.evaluate(PROBE)

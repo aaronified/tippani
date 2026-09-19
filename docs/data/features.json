@@ -310,6 +310,23 @@
       "id": "review-difficulty-tiers",
       "plan": "spaced-repetition-difficulty.md",
       "shipped_in": "2.2.9"
+    },
+    {
+      "title": "Change one surface yourself",
+      "railLabel": "One surface at a time",
+      "html": [
+        "<p>",
+        "  A material set dresses four surfaces at once — the desk, the furniture, the page and",
+        "  the binding. This is the other half: keep the set you like and swap just one of them,",
+        "  out of the twenty-seven tiles the app ships. What you leave alone stays the set's own",
+        "  material.",
+        "</p>",
+        "<p>",
+        "  Half of it is already in the app and none of it is reachable: a saved look carries",
+        "  per-surface tiles, and a theme file exported from another install can contain them.",
+        "  The missing piece is the picker.",
+        "</p>"
+      ]
     }
   ],
   "overrides": {

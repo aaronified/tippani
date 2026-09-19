@@ -28,7 +28,7 @@ it('a reader saves a look, wanders off, and comes back to it', async () => {
   // one opens its own options" — so seeing what is on is a press away.
   await app.press('The light ground')
   expect(await app.chosen('Cream')).toBe(true)
-  await app.press('Close')
+  await app.press('Hide the options')
 
   await app.type('Name for the look you are wearing', 'Daylight')
   await app.press('Save this look')
@@ -39,7 +39,7 @@ it('a reader saves a look, wanders off, and comes back to it', async () => {
   await app.press('Sepia')
   expect(await app.chosen('Sepia')).toBe(true)
   expect(await app.chosen('Cream')).toBe(false)
-  await app.press('Close')
+  await app.press('Hide the options')
 
   // And back, in one press.
   await app.press('Daylight')

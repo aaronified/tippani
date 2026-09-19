@@ -10,13 +10,21 @@
 // suite noticed, because every case about grounds was about the PALETTE the
 // ground produces and none was about the picker.
 //
-// WHAT IT KNOWS AND WHY. This file reads the swatch's own background colour,
-// which is a thing a test is not normally allowed to know. The exception is
-// declared here and it is narrow: a swatch's entire job is to BE the colour it
-// selects, so "what does it look like" is not an implementation detail of this
-// control, it is the control. There is no accessible-name or text assertion that
-// can tell a painted swatch from an unpainted one — which is exactly how three
-// invisible buttons passed everything.
+// WHAT IT KNOWS AND WHY. This file reads the swatch's own background colour AND
+// the class name `.ground-swatch` that finds it — two things a test is not
+// normally allowed to know, declared here because this directory's rule is that
+// an exception is named in the file's own header.
+//
+// The colour: a swatch's entire job is to BE the colour it selects, so "what does
+// it look like" is not an implementation detail of this control, it is the
+// control. There is no accessible-name or text assertion that can tell a painted
+// swatch from an unpainted one — which is exactly how three invisible buttons
+// passed everything.
+//
+// The class: a choice now carries its NAME as well as its colour, so the button's
+// text is the ground's name and the paint is on a child. Nothing observable
+// distinguishes that child from the name beside it, and this file's whole subject
+// is the paint.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { openSettingsSection } from './helpers/settingsSection.jsx'
@@ -52,7 +60,10 @@ async function openGrounds(side = 'light') {
     (b.getAttribute('aria-label') || '').startsWith(t(`settings.appearance.colours.${side}.title`)))
   expect(door, `no ${side} ground door`).toBeTruthy()
   fireEvent.click(door)
-  await screen.findByRole('dialog')
+  // THE OPTIONS OPEN IN THE ROW, not over the page — the pack's own shape — so
+  // there is no dialog to wait for. What says the panel is open is the heading it
+  // carries, which is the same string the door is named for.
+  await screen.findByText(t(`settings.appearance.colours.${side}.title`))
 }
 
 // Found by the name each ground carries rather than by a class, so a ground that

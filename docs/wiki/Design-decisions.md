@@ -17068,6 +17068,22 @@ a tag" — labels and counters, never sentences. Every explanatory line in the a
 in the interface face, which is one CSS rule and the single widest visual change in this
 sweep.
 
+**THE OPTIONS OPEN IN THE ROW, NOT OVER THE PAGE, AND THE FIRST CUT GOT THIS WRONG.** A
+rating caught it: the pack answers inside the row — a full-measure panel under the doors
+with its own Hide (`settings-restructured.dc.html:439-452`) — and this shipped a
+full-screen dialog instead. The pack's shape is not decoration. Choosing a ground is a
+comparison: you try one, look at the material under it, try the next, and a dialog is a
+scrim over the very thing being compared. What the dialog was buying — room for the names
+— the row gives anyway, because the panel runs the full measure.
+
+**AND THE PACK'S THIRD ROW IN THAT GROUP IS NOT BUILT.** "Change one surface yourself →
+Open the 27 tiles" (`:2597-2607`) has no equivalent in the app, and the machinery for it
+is already here and unreachable: `TILE_NAMES` exported with no caller, `applyTheme`
+reading `tileDesk`/`tileShell`/`tilePage`/`tileBinding`, a saved look carrying them. The
+session was told to keep notes rather than add features, so it is `docs/plans/tile-slots.md`
+with a roadmap entry, and `MaterialPhysics`'s comment no longer sends the next reader to
+"the control one row up", which was a sentence pointing at nothing.
+
 **AND THREE THINGS WERE IN THE WRONG GROUP.** True glass sat under "How much a control
 says" — a group about words on buttons — when a lens is what a surface does with the light
 behind it, so it is with the materials. The accessibility dial sat between groups 1 and 2,

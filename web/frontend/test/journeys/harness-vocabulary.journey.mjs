@@ -97,7 +97,7 @@ it('reports a control that says nothing about itself as null, not as off', async
   await app.press('The light ground')
   expect(await app.chosen('Cream')).toBe(true)
   expect(await app.chosen('Sepia')).toBe(false)
-  await app.press('Close')
+  await app.press('Hide the options')
   // The section rail's rows are tabs, and a tab announces itself the same way.
   expect(await app.chosen('Theme')).toBe(true)
   // A one-shot verb is not a toggle and must not pretend to be one. Setting the

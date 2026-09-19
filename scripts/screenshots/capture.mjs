@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 // Puppeteer scaffold: screenshots every screen of the running Tippani app.
 //
+// A ROW'S `name` IS WHAT IT IS CALLED IN A REPORT; `label` is the screen-label it
+// waits for, where the two differ. Tags is the case: it is a SECTION of the
+// metadata console, so the app sets "metadata" on it, and a probe waiting for
+// "tags" waits out its timeout — which is what made `make typescale` exit 1 on
+// every run until somebody read the log past the summary line.
+//
 // Screens are found by [data-screen-label="…"] — a hook the app already sets on every
 // top-level screen (see web/frontend/src/App.jsx and the *Page.jsx files), plus "login"
 // and "onboarding" for the auth gate. That means this script never has to guess a CSS
@@ -42,7 +48,14 @@ export const SCREENS = [
   { name: 'movies', path: '/catalogue' },
   { name: 'quotes', path: '/quotes/all' },
   { name: 'anthologies', path: '/anthologies' },
-  { name: 'tags', path: '/tags' },
+  // TAGS IS A SECTION OF METADATA, NOT A SCREEN, and this row pointed at the old
+  // address for long enough that `make typescale` exited 1 on every run: /tags
+  // redirects into the console (see TagsRedirect in App.jsx), so the screen label
+  // that arrives is "metadata" and a probe waiting for "tags" waited out its
+  // thirty seconds. The section is still worth visiting — it is the longest list
+  // of user-typed words in the app — so it keeps its row under the label the app
+  // actually sets.
+  { name: 'tags', path: '/metadata/tags', label: 'metadata' },
   { name: 'metadata', path: '/metadata' },
   { name: 'search', path: '/search' },
   { name: 'stats', path: '/stats' },
@@ -509,7 +522,7 @@ export async function ensureSession(page, opts) {
 async function captureScreen(page, screen, opts, theme) {
   const path = typeof screen.path === 'function' ? screen.path(screen.name === 'book-detail' ? opts.bookId : opts.movieId) : screen.path
   await page.goto(opts.baseUrl + path, { waitUntil: 'networkidle0' })
-  await page.waitForSelector(`[data-screen-label="${screen.name}"]`, { timeout: opts.timeoutMs })
+  await page.waitForSelector(`[data-screen-label="${screen.label || screen.name}"]`, { timeout: opts.timeoutMs })
   // The app loads its own woff2 faces (Hanken Grotesk, Caveat, Gloria Hallelujah). A
   // capture taken while a fallback is still substituted has different metrics for every
   // string on screen, so this waits for the real faces rather than hoping — the skill's

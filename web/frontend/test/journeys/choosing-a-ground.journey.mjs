@@ -65,12 +65,12 @@ it('a reader dresses the night while standing in the day, and it is kept', async
   await app.press('Tobacco')
   expect(await app.chosen('Tobacco'), 'the pressed ground should be the chosen one').toBe(true)
   expect(await app.chosen('Night'), 'the shipped ground should have let go').toBe(false)
-  await app.press('Close')
+  await app.press('Hide the options')
 
   // AND THE DAY IS UNTOUCHED, which is what makes these two settings and not one.
   await app.press('The light ground')
   expect(await app.chosen('Sepia'), 'the light ground moved with the dark one').toBe(true)
-  await app.press('Close')
+  await app.press('Hide the options')
 
   await app.goto('/settings')
   await app.press('Theme')
@@ -79,7 +79,7 @@ it('a reader dresses the night while standing in the day, and it is kept', async
 
   // Leave the world as it was found: this is a shared fixture.
   await app.press('Night')
-  await app.press('Close')
+  await app.press('Hide the options')
   await app.press('The light ground')
   await app.press('Cream')
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])

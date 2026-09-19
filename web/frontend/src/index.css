@@ -10335,10 +10335,7 @@ html[data-theme="dark"] .board-cover {
    ground is a triad of surfaces stacked; an accent is one colour. Without the rule
    they read as eight choices of one kind, and a reader would look for the accent
    among the grounds. */
-.colours-rule {
-  flex: none; align-self: stretch; width: 1px; margin: 0 4px;
-  background: color-mix(in oklab, var(--line), transparent 30%);
-}
+
 .accent-swatch {
   flex: none; width: max(32px, 2.2em); height: max(32px, 2.2em);
   border-radius: 999px; border: 1.4px solid var(--ink-border);
@@ -10578,6 +10575,25 @@ html[data-theme="dark"] .board-cover {
    three times the size the pack does and put two to a phone screen; the sets are
    recognised by their material and their colour, which read at a glance. */
 .material-grid {
+  /* FULL MEASURE INSIDE ITS ROW. The grid is the row's own second line — the row
+     carries the name and the explanation the pack gives it — and a grid left at
+     auto width in a flex row collapses to a column at the right-hand edge, which
+     is what the first cut of the named row shipped. */
+  flex-basis: 100%; width: 100%; min-width: 0; margin-top: 4px;
   display: grid; gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(max(104px, 7.5em), 1fr));
 }
+
+/* THE COLOUR OPTIONS, IN THE ROW THAT ASKED FOR THEM. The pack answers inside the
+   row — a full-measure panel under the doors with its own Hide
+   (settings-restructured.dc.html:439-452) — and that is not decoration: choosing
+   a ground is a comparison, and a dialog over the page is a scrim over the thing
+   being compared. */
+.colour-panel {
+  flex-basis: 100%; width: 100%; min-width: 0; margin-top: 10px;
+  display: grid; gap: 9px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--line); border-radius: 11px;
+  background: color-mix(in oklab, var(--raised), transparent 25%);
+}
+.colour-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 9px; }

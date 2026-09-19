@@ -3520,8 +3520,16 @@ function SizeSlider({ label, storageKey, def, kind, works }) {
 // FOUR SLOTS, NOT TWENTY-SEVEN TILES. The set you are wearing puts one material
 // on each of the desk, the furniture, the page and the binding, and those four
 // are what you are looking at. Offering all twenty-seven would be a list of
-// materials most of which are not on screen — and the way to reach one that is
-// not is to put it on a slot first, which is the control one row up.
+// materials most of which are not on screen.
+//
+// AND THE WAY TO PUT ONE ON A SLOT IS NOT BUILT. This said "the control one row
+// up", which does not exist on any screen: the pack draws it
+// (settings-restructured.dc.html:2597-2607 — "Change one surface yourself → Open
+// the 27 tiles") and the machinery is already here, `TILE_NAMES` exported with no
+// caller, applyTheme reading tileDesk/tileShell/tilePage/tileBinding, a saved look
+// carrying them — but nothing draws the picker. It is a pack feature this sweep
+// has not built, and it is written down in docs/plans/tile-slots.md rather than
+// left as a sentence pointing at nothing.
 //
 // A DIAL IS A Slider, WHICH COMMITS ON RELEASE. A drag across a range would
 // otherwise be one PUT per step, and this preference is a whole JSON object.
@@ -3985,71 +3993,84 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
             </button>
           </div>
         }
-      />
-      </PrefGroup>
-      {/* WHAT A DOOR OPENS. One panel for the three of them: every option is a
-          swatch with its NAME under it, which a row of tooltipped squares could
-          not give — "Sepia" and "Tobacco" are recognisable words and unrecognisable
-          rectangles, and a reader choosing a look wants to be able to say which
-          one they chose.
-
-          IT STAYS OPEN ON A CHOICE. Picking a ground applies it to the app behind
-          the panel, so closing on the tap would take away the thing the reader is
-          looking at in order to show them it. The ✕ is the way out, and it is
-          plain: no form registers here, so there is nothing for a ✓ to confirm. */}
-      <FormModal
-        open={!!colourDoor}
-        onClose={() => setColourDoor(null)}
-        title={colourDoor ? t(`settings.appearance.colours.${colourDoor}.title`) : ''}
-        maxWidth={520}
       >
-        <div className="colour-choices">
-          {colourDoor === 'accent'
-            ? Object.entries(ACCENTS).map(([name, hex]) => {
-                const on = accent === name
-                return (
-                  <button
-                    key={name}
-                    type="button"
-                    className={'colour-choice' + (on ? ' is-on' : '')}
-                    aria-pressed={on}
-                    onClick={() => persist({ accent: name })}
-                  >
-                    <span
-                      className="accent-swatch"
-                      aria-hidden="true"
-                      style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${hex}, white 14%), ${hex})` }}
-                    />
-                    <span className="colour-choice-name">{t(`vocab.accent.${name}.label`)}</span>
-                  </button>
-                )
-              })
-            : Object.entries(GROUNDS[colourDoor === 'dark' ? 'dark' : 'light']).map(([key, g]) => {
-                const dark = colourDoor === 'dark'
-                const on = (dark ? groundDark : groundLight) === key
-                const pal = paletteFor(dark, dark ? { groundDark: key } : { groundLight: key })
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    className={'colour-choice' + (on ? ' is-on' : '')}
-                    aria-pressed={on}
-                    onClick={() => persist(dark ? { groundDark: key } : { groundLight: key })}
-                  >
-                    <span
-                      className="ground-swatch"
-                      aria-hidden="true"
-                      style={{ background: pal.bg, boxShadow: `inset 0 0 0 1px ${pal.line}` }}
-                    >
-                      <span style={{ background: pal.raised }} />
-                      <span style={{ background: pal.card }} />
-                    </span>
-                    <span className="colour-choice-name">{t(g.label)}</span>
-                  </button>
-                )
-              })}
-        </div>
-      </FormModal>
+        {/* THE ANSWER SITS IN THE ROW THAT ASKED IT, which is how the pack draws
+            it: a full-measure panel under the doors with its own Hide
+            (settings-restructured.dc.html:439-452), not a dialog over the page.
+
+            AND THAT IS NOT A STYLE PREFERENCE. Choosing a ground is a comparison —
+            you try one, look at the material under it, try the next — and a
+            full-screen dialog is a scrim over the very thing being compared. The
+            first cut of this used a FormModal and a rating caught it against the
+            pack; what the modal was buying, room for the names, the row gives
+            anyway, because the panel runs the full measure. */}
+        {colourDoor && (
+          <div className="colour-panel">
+            <div className="colour-panel-head">
+              <MonoLabel>{t(`settings.appearance.colours.${colourDoor}.title`)}</MonoLabel>
+              {/* ITS OWN NAME, WHICH THE PACK ALSO GIVES IT (aria-label="Hide the
+                  options", settings-restructured.dc.html:444). "Hide" alone is
+                  the word on a label-density option three groups down, so the
+                  section had two controls a reader — or a journey — could not
+                  tell apart by name. */}
+              <GhostButton
+                icon={<IconChevron open />}
+                aria-label={t('settings.appearance.colours.hide.aria')}
+                onClick={() => setColourDoor(null)}
+              >
+                {t('common.action.hide.label')}
+              </GhostButton>
+            </div>
+            <div className="colour-choices">
+              {colourDoor === 'accent'
+                ? Object.entries(ACCENTS).map(([name, hex]) => {
+                    const on = accent === name
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        className={'colour-choice' + (on ? ' is-on' : '')}
+                        aria-pressed={on}
+                        onClick={() => persist({ accent: name })}
+                      >
+                        <span
+                          className="accent-swatch"
+                          aria-hidden="true"
+                          style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${hex}, white 14%), ${hex})` }}
+                        />
+                        <span className="colour-choice-name">{t(`vocab.accent.${name}.label`)}</span>
+                      </button>
+                    )
+                  })
+                : Object.entries(GROUNDS[colourDoor === 'dark' ? 'dark' : 'light']).map(([key, g]) => {
+                    const dark = colourDoor === 'dark'
+                    const on = (dark ? groundDark : groundLight) === key
+                    const pal = paletteFor(dark, dark ? { groundDark: key } : { groundLight: key })
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={'colour-choice' + (on ? ' is-on' : '')}
+                        aria-pressed={on}
+                        onClick={() => persist(dark ? { groundDark: key } : { groundLight: key })}
+                      >
+                        <span
+                          className="ground-swatch"
+                          aria-hidden="true"
+                          style={{ background: pal.bg, boxShadow: `inset 0 0 0 1px ${pal.line}` }}
+                        >
+                          <span style={{ background: pal.raised }} />
+                          <span style={{ background: pal.card }} />
+                        </span>
+                        <span className="colour-choice-name">{t(g.label)}</span>
+                      </button>
+                    )
+                  })}
+            </div>
+          </div>
+        )}
+      </PrefRow>
+      </PrefGroup>
       {/* THE GROUP'S HEADING IS THE ONLY HEADING. "2 · What it is made of" sat
           directly above a MonoLabel reading "Material", which is one thing said
           twice — the standing rule, and visible as two stacked labels the moment
@@ -4062,6 +4083,16 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
           set is recognised by its material and its colour, both of which read
           at a glance; the size was spending a screen to say so. auto-fill lets
           the same rule give seven on a desk and three on a phone. */}
+      {/* THE PACK NAMES THIS ROW (settings-restructured.dc.html:2596) and this app
+          drew the grid bare under the group heading — so the control the group
+          exists for was the only thing on the section with no name and no line
+          saying what it is. */}
+      <PrefRow
+        label={t('settings.appearance.matset.title')}
+        sub={t('settings.appearance.matset.hint')}
+        info={t('settings.appearance.matset.info.body')}
+        changed={materialSet !== 'manuscript'}
+      >
       <div className="material-grid">
         {Object.keys(MAT_SETS).map((name, i) => (
           <MaterialCard
@@ -4075,6 +4106,8 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
           />
         ))}
       </div>
+
+      </PrefRow>
 
       {/* TRUE GLASS SITS WITH THE MATERIALS, because it is one: a lens is what a
           surface does with the light behind it, and the group it was in is named
