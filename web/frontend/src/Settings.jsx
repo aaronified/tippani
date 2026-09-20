@@ -1530,11 +1530,19 @@ function SRSettings({ user, onPreferences }) {
         />
         <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
         <HowItAsks p={p} set={set} />
-        <QuestionKinds p={p} set={set} />
+        {/* THE DAILY DECK'S REPERTOIRE HERE, PRACTICE'S IN THE OTHER COLUMN. The
+            pack has one repertoire and this app has two, so following it
+            literally put both in the left column and left ~330px of empty ground
+            beside the schedule — on the screen the "use the space available"
+            ruling is the worked example for. Practice's questions sit with the
+            switch that says whether practice moves the schedule at all, which is
+            the other thing on this section about practice. */}
+        <QuestionKinds p={p} set={set} only="daily" />
       </PrefGroup>
       <PrefGroup index={2} title={t('settings.quiz.group.schedule.title')}>
         <ScheduleRows p={p} set={set} />
         <PracticeCounts p={p} set={set} />
+        <QuestionKinds p={p} set={set} only="practice" />
       {/* STILL A DOOR, AND IT EARNS IT NOW — but NOT a numbered group of its own.
           What is behind it is one decision, how the interval moves, plus the ten
           numbers that decision is made of; a reader who has made it does not come
@@ -1794,7 +1802,7 @@ function NeverAsked() {
 // which is what makes it drawable in two places without the two disagreeing. The
 // in-depth panel's "back to defaults" clears `srQuestions`, the optimistic apply
 // puts the cleared value on `p`, and this re-derives.
-function QuestionKinds({ p, set }) {
+function QuestionKinds({ p, set, only = null }) {
   const [qs, setQs] = useState(() => parseQuestions(p.srQuestions))
   const commit = (next) => {
     setQs(next)
@@ -1802,7 +1810,7 @@ function QuestionKinds({ p, set }) {
   }
   return (
     <>
-      {REVIEW_DECKS.map(([deck, deckLabel]) => (
+      {REVIEW_DECKS.filter(([deck]) => !only || deck === only).map(([deck, deckLabel]) => (
         /* A ROW PER DECK, with its chips as the row's own second line — the shape
            every other control on this section now has, and the shape the pack
            draws ("What you get asked"). It was a mono label over a wrapping chip

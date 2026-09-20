@@ -1346,12 +1346,12 @@ settings.languages.name.label = ভাষার নাম
 settings.languages.name.placeholder = ইওরুবা, সোয়াহিলি, তামিল…
 
 # --- the quiz panel.
-settings.quiz.group.deck.title = রোজকার তাস
+settings.quiz.group.deck.title = তাস আর সে কী জিজ্ঞেস করে
 settings.quiz.group.schedule.title = সময়সূচি
 settings.quiz.skipped.aside = উদ্ধৃতি ধরে ধরে
 settings.quiz.per-day.label = দৈনিক অনুশীলনীতে দিনে কটা কার্ড
-settings.quiz.in-depth.label = সময়সূচির অঙ্ক…
-settings.quiz.in-depth.tip = একটা ব্যবধান কীভাবে সরে, আর তার পিছনের দশটা সংখ্যা
+settings.quiz.in-depth.label = সংখ্যাগুলো খুলুন
+settings.quiz.in-depth.tip = গুণক আর বাঁধা মই — দশটা মান, সবকটাই সার্ভারেও আছে
 settings.quiz.panel.title = সময়সূচি কীভাবে সরে
 # {name} is the deck — Daily quiz, or Practice.
 settings.quiz.deck.title = {name} যা জিজ্ঞেস করে

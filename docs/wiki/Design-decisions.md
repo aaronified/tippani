@@ -16942,7 +16942,12 @@ way to the fonts. The constraint is gone and the door survived it.
 **THE SPLIT IS BY WHAT IS ASKED, NOT BY HOW FIDDLY IT LOOKS.** Everything about the QUESTION
 goes on the screen: how much of it, what it draws from, how hard it is, which kinds get asked,
 whether it confirms. Everything about the SCHEDULE stays behind the door: adaptive or ladder,
-where a new line enters, the seen multiplier, and the ten numbers. That is one decision a
+where a new line enters, the seen multiplier, and the ten numbers.
+
+> **SUPERSEDED — see "Review: the schedule comes out from behind the door" at the foot of
+> this file.** The second half of that sentence is no longer true and was wrong when it was
+> written: the pack keeps only the ten numbers behind the door, and adaptive, practice,
+> where a new line starts and the seen multiplier are on the section. The first half stands. That is one decision a
 reader makes once and then lives inside, and it is the only thing left that a door is for.
 
 **THE REPERTOIRE HAD THE BEST CLAIM OF THE LOT.** Its own commit says why: until 1.16.0 the
