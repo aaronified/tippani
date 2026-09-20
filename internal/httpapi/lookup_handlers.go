@@ -56,7 +56,7 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 		// GET /metadata/status surfaces this (§10). The COUNT goes with it now:
 		// a books search that works and finds nothing, over and over, is a fault
 		// the old boolean could not express — see metadata_faults.go.
-		s.recordBooksLookup(len(cands), searchErr)
+		s.recordBooksLookup(cands, searchErr)
 	}
 
 	// Amazon (opt-in): an ASIN + a stored session cookie. Best-effort and

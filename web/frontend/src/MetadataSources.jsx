@@ -376,7 +376,7 @@ function SourceRows({ admin, sources, onTested }) {
             nothing when there is nothing to say, which is this console's rule. */}
         {needKey > 0 && (
           <span className="microcopy" style={{ color: 'var(--error)' }}>
-            {t('settings.sources.need-key.prose', { n: needKey })}
+            {t('settings.sources.need-key.prose', { count: needKey })}
           </span>
         )}
         <span className="flex-1" />
@@ -423,7 +423,7 @@ function SourceRows({ admin, sources, onTested }) {
                 a reader is deciding whether to configure. */}
             <Tooltip
               label={row.records
-                ? t('settings.sources.records.tip', { n: row.records, source: name })
+                ? t('settings.sources.records.tip', { count: row.records, source: name })
                 : t('settings.sources.records.none.tip', { source: name })}
             >
               <span className={'src-row-count' + (row.state === 'needed' ? ' is-needed' : '')}>{row.records}</span>

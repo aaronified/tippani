@@ -83,15 +83,33 @@ var sourceAreas = []struct {
 }{
 	{"google", []string{faultAreaBooks}},
 	{"openlibrary", []string{faultAreaBooks}},
+	{"hardcover", []string{faultAreaBooks}},
+	{"amazon", []string{faultAreaBooks, faultAreaPictures}},
 	{"tmdb", []string{faultAreaFilms, faultAreaPictures}},
 	{"tvdb", []string{faultAreaFilms, faultAreaPictures}},
+	{"imdb", []string{faultAreaFilms}},
+	{"letterboxd", []string{faultAreaFilms}},
 	{"igdb", []string{faultAreaGames}},
 	{"wikidata", []string{faultAreaGames}},
-	{"amazon", []string{faultAreaPictures}},
 	{"google-images", []string{faultAreaPictures}},
 	{"wikimedia", []string{faultAreaPictures}},
-	{"fandom", []string{faultAreaPictures}},
+	{"fandom", []string{faultAreaFilms, faultAreaPictures}},
 }
+
+// everySourceHasARow is the contract sourceAreas has to keep, and it is checked
+// rather than remembered.
+//
+// A SUPPLIER WITH NO ROW IS A SUPPLIER WHOSE RECORDS ARE COUNTED INTO NOTHING.
+// `knownBookSource` and `knownMovieSource` in reverify_handlers.go are the two
+// whitelists that decide what may be written into `work_field_source` — which is
+// exactly the column this console counts — so a slug they accept and this list
+// omits is a supplier that filled in part of somebody's library and appears
+// nowhere on the screen that lists suppliers. A rating found four of them.
+//
+// `manual` IS THE ONE EXCLUSION AND IT IS NOT A SUPPLIER. It is the reader
+// themselves — `vocab.source.manual.label` reads "You" — and a row offering to
+// test whether you can be asked would be a joke the screen makes once.
+var sourceRowExempt = map[string]bool{"manual": true}
 
 // sourceState answers what the console's legend is about, from the same resolvers
 // the lookups use.
@@ -254,7 +272,7 @@ func (s *Server) testSource(ctx context.Context, uid int64, slug string) (source
 		// directly. A Test that reached past the seam would be a second way of
 		// asking, and the whole argument above is that there must not be one.
 		cands, err := s.searchBooks(ctx, "", probeBook, "", gkey)
-		s.recordBooksLookup(len(cands), err)
+		s.recordBooksLookup(cands, err)
 	case "tmdb":
 		client, _ := s.resolveTMDB()
 		if client == nil {

@@ -5587,8 +5587,10 @@ settings.keys.saved.tip = সেভ আছে
 
 settings.sources.group.title = অ্যাপ কাদের জিজ্ঞেস করতে পারে
 settings.sources.records.aside = যত রেকর্ড এসেছে
-settings.sources.need-key.prose = {n}টির জন্য আগে একটা কী লাগবে, তবেই জিজ্ঞেস করা যাবে
-settings.sources.records.tip = আপনার লাইব্রেরির {n}টি ঘর {source} থেকে এসেছে
+settings.sources.need-key.prose.one = {count}টির জন্য আগে একটা কী লাগবে, তবেই জিজ্ঞেস করা যাবে
+settings.sources.need-key.prose.other = {count}টির জন্য আগে কী লাগবে, তবেই জিজ্ঞেস করা যাবে
+settings.sources.records.tip.one = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
+settings.sources.records.tip.other = আপনার লাইব্রেরির {count}টি ঘর {source} থেকে এসেছে
 settings.sources.records.none.tip = {source} থেকে এখনও কিছু আসেনি
 settings.sources.test.aria = {source}-কে একটা পরীক্ষামূলক প্রশ্ন করুন
 settings.sources.test.tip = {source}-এর কাছে নিশ্চিত থাকা একটা জিনিস চেয়ে দেখা হবে, আর যা আসবে তা জানানো হবে

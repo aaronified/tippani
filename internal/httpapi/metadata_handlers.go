@@ -87,16 +87,37 @@ type lookupOutcome struct {
 // books lookup failed and could not say it worked and returned nothing, which is
 // precisely the state the owner is looking at on the picture ladder. `books_lookup`
 // keeps the two-state shape it always had; the registry gets the third.
-func (s *Server) recordBooksLookup(found int, err error) {
+func (s *Server) recordBooksLookup(cands []metadata.BookCandidate, err error) {
 	rec := &lookupOutcome{OK: err == nil, CheckedAt: time.Now().UTC().Format(time.RFC3339)}
 	if err != nil {
 		rec.Error = strings.ReplaceAll(err.Error(), "\n", "; ")
 	}
 	s.booksLookup.Store(rec)
+	// EACH SUPPLIER GETS ITS OWN ANSWER, because the search asks two of them.
+	// `SearchBooks` queries Google Books AND Open Library and hands back one
+	// merged list with `Source` on every candidate — so recording the total under
+	// "google" told the fault list that Open Library had never been asked, in an
+	// app that asks it on every book lookup. A rating found the consequence on the
+	// sources console: Open Library's row read "nothing has asked it yet" for
+	// ever, including immediately after a Test that had just asked it.
+	//
+	// AN ERROR BELONGS TO BOTH, because the error this search returns is the pair
+	// of them failing — `SearchBooks` composes "google books: …; open library: …"
+	// — and there is no way here to say which half died. Recording it against one
+	// would exonerate the other on no evidence.
+	//
 	// "google" AND NOT "google-books", because `vocab.source.google.label` already
 	// reads "Google Books" — the app named this supplier once and the fault list
 	// has no business naming it a second time in a slightly different way.
-	s.recordLookup(faultAreaBooks, "google", found, "", err)
+	for _, src := range []string{"google", "openlibrary"} {
+		found := 0
+		for _, c := range cands {
+			if c.Source == src {
+				found++
+			}
+		}
+		s.recordLookup(faultAreaBooks, src, found, "", err)
+	}
 }
 
 // resolveTMDB picks the effective TMDB client per request, in the PLAN §6

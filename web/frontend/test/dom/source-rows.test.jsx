@@ -13,6 +13,17 @@
 // AND THE BUTTON THAT COULD ONLY SAY NOTHING. Pressing Test on a supplier with no
 // key recorded nothing and reported nothing. It is not offered now, which is the
 // second case here.
+// DECLARED EXCEPTION, in the terms this repo asks for. This file knows the
+// module it renders and two CSS class shapes — `.is-src-<state>` and the mark's
+// own aria-label — and nothing observable could serve instead: what is under test
+// is precisely whether a state the SERVER can send is one the STYLESHEET has a
+// rule for, and a colour with no rule is invisible to a reader of the rendered
+// text. It mocks the network because the four states are a server's answer and
+// the point is to render all four, which no fixture holds at once. The seam
+// itself — that the two vocabularies are the same list — is held by
+// test/rules/source-state-enum.test.js, which compares the lists rather than
+// restating them; this file is the half that proves the screen can paint what it
+// is sent.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 
@@ -70,10 +81,13 @@ describe('a supplier row', () => {
   })
 
   it('says when nothing has asked a supplier yet, rather than leaving the row silent', async () => {
-    // Open Library is recorded only when the app actually uses it, so a row with
-    // no answer is the ordinary state — and a blank space there is
-    // indistinguishable from an answer that failed to render.
-    STATUS.sources = [row('openlibrary', 'optional')]
+    // A picture rung is recorded only when the app actually uses it, so a row
+    // with no answer is the ordinary state of a server that has just started —
+    // and a blank space there is indistinguishable from an answer that failed to
+    // render. (Open Library used to be the example here and was the wrong one: it
+    // is asked on every book lookup, and a rating found that the app was
+    // recording that answer under Google's name.)
+    STATUS.sources = [row('wikimedia', 'optional')]
     await page()
     expect(screen.getByText(/nothing has asked it yet/i)).toBeTruthy()
   })

@@ -131,9 +131,16 @@ func TestTestingASourceAsksItAndReportsWhatItSaid(t *testing.T) {
 	c := signupAdmin(t, h)
 
 	asked := ""
+	// A CANDIDATE CARRIES THE SUPPLIER THAT FOUND IT, because the search asks two
+	// of them and hands back one merged list — which is the whole reason the
+	// answers are recorded per source rather than lumped under Google's name.
 	srv.searchBooks = func(_ context.Context, _, title, _, _ string) ([]metadata.BookCandidate, error) {
 		asked = title
-		return []metadata.BookCandidate{{Title: "Dune"}}, nil
+		return []metadata.BookCandidate{
+			{Title: "Dune", Source: "google"},
+			{Title: "Dune", Source: "openlibrary"},
+			{Title: "Dune (again)", Source: "openlibrary"},
+		}, nil
 	}
 	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "google"}, http.StatusOK))
 	if asked == "" {
@@ -145,6 +152,15 @@ func TestTestingASourceAsksItAndReportsWhatItSaid(t *testing.T) {
 	last := got.Sources[0].Last
 	if last == nil || !last.OK || last.Found != 1 {
 		t.Fatalf("the row does not carry what the supplier said: %+v", last)
+	}
+
+	// AND OPEN LIBRARY GETS ITS OWN ANSWER FROM THE SAME SEARCH. It used to get
+	// none: the total went under "google", so Open Library's row read "nothing has
+	// asked it yet" for ever, in an app that asks it on every book lookup.
+	both := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
+	ol := sourceNamed(t, both.Sources, "openlibrary").Last
+	if ol == nil || ol.Found != 2 {
+		t.Errorf("Open Library was asked and its row says: %+v", ol)
 	}
 
 	// AND A FAILURE IS REPORTED AS ONE, on the row and in the fault list — which
@@ -241,5 +257,73 @@ func TestTestingASourceWithNoKeyIsRefusedRatherThanIgnored(t *testing.T) {
 	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]any{}, http.StatusOK))
 	if len(got.Sources) != 1 || got.Sources[0].Source != "google" {
 		t.Fatalf("want only the supplier that could be asked: %+v", got.Sources)
+	}
+}
+
+// EVERY SUPPLIER THAT CAN WRITE A FIELD HAS A ROW THAT COUNTS IT.
+//
+// `knownBookSource` and `knownMovieSource` are the whitelists that decide what may
+// be recorded in `work_field_source`, which is the column this console counts. A
+// slug they accept with no row here is a supplier that filled in part of a reader's
+// library and appears nowhere on the screen whose whole subject is suppliers — and
+// nothing else in the tree would notice, because each list is right about itself.
+// A rating found four such suppliers; this is the guard that stops the fifth.
+func TestEverySupplierThatCanWriteAFieldIsOnTheList(t *testing.T) {
+	rowed := map[string]bool{}
+	for _, src := range sourceAreas {
+		rowed[src.slug] = true
+	}
+	// The whitelists are switch statements, so they are asked rather than parsed:
+	// every slug either side accepts is offered to them and kept if it comes back.
+	candidates := []string{
+		"google", "openlibrary", "amazon", "hardcover",
+		"tmdb", "tvdb", "igdb", "wikidata", "imdb", "letterboxd", "fandom",
+		"manual", "nonsense",
+	}
+	missing := []string{}
+	accepted := 0
+	for _, slug := range candidates {
+		if knownBookSource(slug) == "" && knownMovieSource(slug) == "" {
+			continue
+		}
+		accepted++
+		if sourceRowExempt[slug] || rowed[slug] {
+			continue
+		}
+		missing = append(missing, slug)
+	}
+	if accepted < 10 {
+		t.Fatalf("the whitelists accepted only %d of the slugs offered — this case is checking almost nothing", accepted)
+	}
+	if len(missing) > 0 {
+		t.Errorf("these suppliers can write a field and have no row to count it: %v", missing)
+	}
+}
+
+// THE NEWEST ANSWER WINS WHEN A SUPPLIER ANSWERS IN TWO AREAS.
+//
+// TheTVDB answers film lookups AND picture searches, and the row shows one line —
+// what the reader is asking is "did this thing answer me recently", not "how is its
+// posters division". The two outcomes land milliseconds apart on a "test
+// everything" press, and the first version of this compared RFC3339 strings
+// truncated to the second, so they compared equal and the OLDER one won. A rating
+// coarsened the comparison to an hour and every case still passed, because nothing
+// recorded two areas for one supplier.
+func TestARowShowsTheNewestOfASuppliersTwoAreas(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// Films first and pictures second, in the same second.
+	srv.recordLookup(faultAreaFilms, "tvdb", 7, "", nil)
+	srv.recordLookup(faultAreaPictures, "tvdb", 3, "", nil)
+
+	got := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
+	last := sourceNamed(t, got.Sources, "tvdb").Last
+	if last == nil {
+		t.Fatal("a supplier that answered twice reports nothing")
+	}
+	if last.Found != 3 {
+		t.Errorf("the row shows %d found — the older of the two answers won", last.Found)
 	}
 }

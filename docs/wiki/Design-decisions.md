@@ -17836,7 +17836,7 @@ stored because nothing is needed" and "nothing is stored and nothing will answer
 identical.
 
 **THE STATE COMES FROM THE SAME RESOLVERS THE LOOKUPS CALL**, so a row cannot claim a key
-that a fetch would not find. Four words, the pack's: `saved`, `bundled`, `optional`,
+that a fetch would not find. Four words, the pack's: `saved`, `builtin`, `optional`,
 `needed`. The keyless suppliers are `optional` rather than `saved`, which is a reading
 worth stating — "key saved" would be a green light about a key that does not exist.
 
@@ -17872,13 +17872,35 @@ per-row Test button is drawn for the keyed suppliers only and mirrors the server
 `testableSources`: the server refuses the others by name, and a button a reader can press
 only to be told no is worse than one that is visibly not for them.
 
-**TWO OF THE PACK'S SOURCE ROW IS NOT DRAWN, AND BOTH ARE DELIBERATE.** It gives each row
-two verbs — "Add TMDB's key" and "Test TMDB" (`metadata.dc.html:819`) — and the key fields
-are already on this card, a few rows below: a per-row door to the field beside it is the
-repeat this pass has spent itself removing. The rows carry the Test; the fields carry the
-keys. The pack's "N sources need a key before they can be asked" line (`:846`) IS drawn, and
-was worth taking: everything else on the Metadata screen depends on at least one supplier
-being answerable, and a reader counting red marks by eye is a reader who miscounts.
+**FOUR OF THE PACK'S SOURCE ROW ARE NOT DRAWN, AND EACH FOR ITS OWN REASON.**
+
+- **The per-row key act** (`metadata.dc.html:819`). The key fields are already on this card,
+  a few rows below; a per-row door to the field beside it is the repeat this pass has spent
+  itself removing. The rows carry the Test; the fields carry the keys.
+- **The per-row state chip** (`:818`). The pack says the state twice — a ring on the mark and
+  a chip beside it — and this app already replaced exactly that chip with the ring and one
+  legend, for width: at 390px the row's own label was breaking mid-word. A row says a thing
+  once.
+- **A blank where the count is zero** (`:813`). The repo draws `0`, because a supplier that
+  has never supplied anything is the one a reader is deciding whether to configure, and a
+  blank reads as a number that failed to load.
+- **Four of its twelve suppliers** — IMDb, Wikipedia, Goodreads, Letterboxd — were listed
+  in the pack as an illustration rather than as a claim about this app. IMDb and Letterboxd
+  DO get rows, because `knownMovieSource` lets them write a field; Goodreads and Wikipedia
+  are not asked by this app at all, and a row for a supplier nothing can reach would be an
+  invitation to configure something that does not exist.
+
+**AND THE ROWS ARE NOT A HAND-TYPED LIST ANY MORE, they are a checked one.** A rating found
+four suppliers that could write into `work_field_source` and had no row — so their records
+were counted into nothing, on the one screen whose subject is suppliers.
+`TestEverySupplierThatCanWriteAFieldIsOnTheList` asks the two whitelists themselves rather
+than restating them.
+
+The pack's "N sources need a key before they can be asked" line (`:846`) IS drawn, beside the
+column's caption rather than in place of it — everything else on the Metadata screen depends
+on at least one supplier being answerable, and a reader counting red marks by eye is a reader
+who miscounts. A caption that vanishes when there is news leaves a column of unexplained
+integers exactly when the reader is reading hardest, which the journey caught.
 
 **AND A RATING CAUGHT THE STATE THE SCREEN COULD NOT PAINT.** The server named the
 built-in-key state `bundled`; the app's whole vocabulary for it is `builtin` — the
@@ -17887,9 +17909,13 @@ stylesheet's `.is-src-builtin`, `SRC_STATE_WORD`, `KEY_STATES`, and the pack's o
 compiled in, TMDB's mark therefore had no colour rule and its accessible name read "TMDB — "
 with the state missing out of the middle. NOTHING FAILED: the Go test asserted the word on
 the wire, the browser world has no built-in key, and each half was right about itself —
-which is the failure this repo's testing ruling is written against. The guard is now at the
-seam, in `test/dom/source-rows.test.jsx`, which renders each of the four states and asks the
-screen to paint it.
+which is the failure this repo's testing ruling is written against. THE FIRST ATTEMPT AT A GUARD DID NOT GUARD IT EITHER, and the second rating caught
+that: a dom case that renders four states hardcodes its own four strings, so putting the Go
+constant back to `bundled` left it green. What has to be compared is the three LISTS —
+`test/rules/source-state-enum.test.js` reads the Go constants, `SRC_STATE_WORD` and the
+stylesheet's `.is-src-*` rules and asks whether they are the same set.
+`test/dom/source-rows.test.jsx` is the other half: it renders each state and asks the screen
+to paint it.
 
 **A TEST ON A SUPPLIER WITH NO KEY USED TO DO NOTHING AT ALL** — no client, no call, no
 record, and a row handed back with nothing on it. That is the one thing a button must never
@@ -17904,3 +17930,14 @@ cannot test and the screen does not draw a button a reader could only press to b
 two lists that must agree, with nothing asking whether they did. `test/rules/testable-sources.test.js`
 reads both sources rather than holding a list of its own, because a list typed into a test
 would have been typed by whoever got the other two wrong.
+
+
+**AND OPEN LIBRARY'S ROW WAS TELLING A LIE THE WHOLE TIME.** `SearchBooks` asks Google Books
+AND Open Library on every book lookup and returns one merged list with `Source` on each
+candidate — and `recordBooksLookup` recorded the total under `"google"`. So Open Library's
+row read "nothing has asked it yet" for ever, including immediately after a Test that had
+just asked it, and a rating found the comment and the commit narrative both asserting that
+this was the honest state of a supplier nothing uses. It records per supplier now. An error
+is recorded against BOTH, because the error that search returns is the pair of them failing
+and there is no way to tell which half died; attributing it to one would exonerate the other
+on no evidence.

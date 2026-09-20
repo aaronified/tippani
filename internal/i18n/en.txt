@@ -5718,8 +5718,12 @@ settings.keys.saved.tip = Saved
 # vocab.source.* already does.
 settings.sources.group.title = Who the app can ask
 settings.sources.records.aside = records supplied
-settings.sources.need-key.prose = {n} need a key before they can be asked
-settings.sources.records.tip = {n} fields in your library came from {source}
+# PLURALISED, because "1 need a key" is what a {n} alone produces and the app has
+# the machinery (t's `count`). Both of these count things a reader can have one of.
+settings.sources.need-key.prose.one = {count} needs a key before it can be asked
+settings.sources.need-key.prose.other = {count} need a key before they can be asked
+settings.sources.records.tip.one = {count} field in your library came from {source}
+settings.sources.records.tip.other = {count} fields in your library came from {source}
 settings.sources.records.none.tip = Nothing in your library came from {source} yet
 settings.sources.test.aria = Ask {source} a test question
 settings.sources.test.tip = Ask {source} for something it certainly has, and report what came back
