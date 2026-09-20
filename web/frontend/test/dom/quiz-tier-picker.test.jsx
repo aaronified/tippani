@@ -67,8 +67,17 @@ const tierButtons = () =>
 const LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', random: 'Random' }
 const labelOf = (k) => LABELS[k]
 
-const easyNote = () =>
-  screen.queryByText(/close wrong answers teach more than obvious ones/i)
+const easyCost = () => screen.queryByText(/the cost is the close wrong answers/i)
+
+// THE LINE UNDER THE PICKER, whichever tier is chosen. Found by a phrase only
+// that tier's sentence contains, so a screen that printed one line for all four
+// cannot pass.
+const TIER_LINE = {
+  easy: /two choices instead of four/i,
+  medium: /four choices with close ones among them/i,
+  hard: /leans on typing the words back/i,
+  random: /a different tier on every card/i,
+}
 
 describe('the difficulty picker', () => {
   it('draws one button per tier the server knows', async () => {
@@ -104,11 +113,29 @@ describe('the difficulty picker', () => {
       .toBe(got[REVIEW_TIERS.indexOf('medium')])
   })
 
-  it('says what Easy costs, and only on Easy', async () => {
+  // FOUR ADJECTIVES ARE NOT AN EXPLANATION. The owner's ask: the toggle says
+  // Easy / Medium / Hard / Random, and a reader on Hard could read the whole row
+  // without learning that it means typing. One line, under whichever is chosen —
+  // the info dot describes all four, this describes the one in force.
+  it('says what the chosen tier actually does, for every tier', async () => {
+    for (const k of REVIEW_TIERS) {
+      await mount({ srTier: k })
+      expect(screen.queryByText(TIER_LINE[k]), `${k} is offered without saying what it does`).toBeTruthy()
+      // AND ONLY ITS OWN LINE. A screen that printed all four would "pass" the
+      // check above on every tier and tell the reader nothing.
+      for (const other of REVIEW_TIERS) {
+        if (other === k) continue
+        expect(screen.queryByText(TIER_LINE[other]), `${k} also shows ${other}'s line`).toBeNull()
+      }
+      cleanup()
+    }
+  })
+
+  it("and Easy's line names what it gives up, not only what it gives", async () => {
     await mount({ srTier: 'medium' })
-    expect(easyNote(), 'the Easy caveat is shown to a reader who is not on Easy').toBeNull()
+    expect(easyCost(), 'the Easy caveat is shown to a reader who is not on Easy').toBeNull()
     cleanup()
     await mount({ srTier: 'easy' })
-    expect(easyNote(), 'Easy is offered without saying what it gives up').toBeTruthy()
+    expect(easyCost(), 'Easy is offered without saying what it gives up').toBeTruthy()
   })
 })

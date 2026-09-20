@@ -296,6 +296,62 @@ export function verifyUpload(family, roleKey) {
   return hasScript(family, role?.script || 'latin')
 }
 
+// ---- a face's name, in the script it is being chosen for --------------------
+//
+// THE OWNER'S ASK, and the reason is the one thing a font list cannot say in
+// words: "if a font doesn't natively support a script, it is very hard to see
+// what it will show when chosen to render that script." A list of Latin names is
+// a list of Latin names whether or not the face behind each one has a single
+// Bengali glyph in it. Written in the script being chosen for, the answer is the
+// row itself — a face that can draw it draws its own name, and one that cannot is
+// shown in Latin rather than as a line of boxes.
+//
+// THESE ARE NOT i18n KEYS, and that is deliberate in a module where every other
+// label is one. A face's name in Bengali is the same fact on an English screen as
+// on a Bengali one — it is not a translation of the interface, it is what the
+// type founder calls the face in that script. A key would be one copy per locale
+// of a string that must never differ between them.
+//
+// A FACE WITH NO ENTRY IS A FACE WE DO NOT CLAIM CAN DRAW THE SCRIPT. The table
+// is the app's own knowledge about its own bundled faces; an uploaded face never
+// has one, so it keeps its Latin name and the measured check below is what says
+// whether it can draw anything.
+export const FACE_NAME_IN = {
+  'noto-serif-bengali': { bengali: 'নোটো সেরিফ বাংলা' },
+  'hind-siliguri': { bengali: 'হিন্দ শিলিগুড়ি' },
+  'tiro-bangla': { bengali: 'টিরো বাংলা' },
+  'noto-serif-devanagari': { devanagari: 'नोटो सेरिफ़ देवनागरी' },
+  hind: { devanagari: 'हिंद' },
+  'tiro-devanagari-hindi': { devanagari: 'टिरो देवनागरी हिंदी' },
+}
+
+// nativeFaceName — '' where this app does not know one, which every caller reads
+// as "use the Latin name".
+export const nativeFaceName = (id, script) => (FACE_NAME_IN[id] || {})[script] || ''
+
+// SCRIPT_SAMPLE — a line of real text per script this app can set, for the same
+// reason the role samples exist: a specimen in a script the reader does not read
+// tells them nothing, and a specimen in a script the FACE cannot draw tells them
+// something false — the fallback's letterforms wearing the chosen face's name.
+export const SCRIPT_SAMPLE = {
+  bengali: 'vocab.font-role.bengali.sample',
+  devanagari: 'vocab.font-role.devanagari.sample',
+}
+
+// specimenSample — which line this row should set, given the script it is being
+// chosen for and the face it is set in.
+//
+// IT MEASURES RATHER THAN ASSUMES, through hasScript, so an uploaded Bengali face
+// assigned to the interface role gets a Bengali specimen and a Latin one does
+// not. `null` from hasScript means "could not tell" — no canvas, no metrics — and
+// that falls back to the role's own line, because a specimen drawn in a script we
+// could not verify is the boxes this whole check exists to prevent.
+export function specimenSample(role, family, script) {
+  const key = SCRIPT_SAMPLE[script]
+  if (!key || !family) return role.sample
+  return hasScript(family, script) === true ? key : role.sample
+}
+
 // ---- the reader's choice ---------------------------------------------------
 
 let chosen = {}

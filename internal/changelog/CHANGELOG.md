@@ -192,6 +192,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **"Never asked about" is a shelf, not a list of titles.** Every work you have skipped a
+  quote from now shows its cover or its poster and the people behind it, with the quotes
+  folded behind it until you open one — and there are tick boxes, so putting a run of them
+  back is one press instead of one press each. A work's own box ticks everything under it.
+
+- **The difficulty of the questions says what it does.** Easy, Medium, Hard and Random are
+  four adjectives; under whichever you have chosen there is now a line saying what it
+  means for the cards you will be asked. Easy's still names what it gives up.
+
+- **Quote fonts are on the Language and font screen.** The panel behind "Set fonts by
+  language" is a card on the section itself, beside the interface faces, with a row per
+  language your library holds. One fewer door on a screen that had two.
+
+- **A typeface is named in the script you are choosing it for.** Pick the face for your
+  Bengali quotes and the Bengali faces write their own names in Bengali; a face with no
+  Bengali in it keeps its Latin name, which is the difference between one that will set
+  your quotes and one that will hand them to a fallback. The specimens follow the same
+  rule — a line in the script where the face can draw it, the Latin line where it cannot.
+
+- **The interface faces no longer ask which language they are for.** They are for the
+  language you are reading in, which is chosen in the card above, and the section says so
+  rather than asking again. Choosing a face while reading in one language still leaves the
+  others as they were.
+
+- **The Server screen reads as rows.** Version, Channel, Make a backup and Restore each
+  have their name on the left and their control on the right, like every other settings
+  screen — the last section that was still a stack of headings and buttons.
+
 - **The schedule is on the Review screen.** Whether intervals adapt, where a line you have
   never been asked about starts, how much seeing one lengthens its half-life, and whether
   practice moves the schedule at all — all four were behind a button called "Schedule

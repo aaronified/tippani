@@ -63,8 +63,10 @@ it('a reader changes the face their quotes are set in, and it is still set after
 it('and gives one language a face of its own, without touching the rest', async () => {
   await app.goto('/settings')
   await app.press('Language and font')
-  await app.press('Set fonts by language')
 
+  // NO DOOR. The panel this used to open is a card on the section — so the
+  // languages are simply here, under the interface faces, and the journey reaches
+  // them by scrolling rather than by pressing.
   await app.see('Quote fonts')
   // The languages are the library's own — this fixture holds quotes in English —
   // and each starts out following the face chosen above rather than having one.
@@ -74,7 +76,6 @@ it('and gives one language a face of its own, without touching the rest', async 
 
   // AND THE ONE ABOVE IS UNTOUCHED, which is the half that makes this a different
   // setting rather than a second way to write the first.
-  await app.press('Close')
   await app.see('Newsreader')
 
   // THE RELOAD, AND THIS HALF WAS MISSING IT. A rating found that: with the PUT
@@ -86,13 +87,10 @@ it('and gives one language a face of its own, without touching the rest', async 
   // server what it kept.
   await app.goto('/settings')
   await app.press('Language and font')
-  await app.press('Set fonts by language')
   await app.see('Literata')
 
-  // Back to following, so the fixture is as it was found. The panel is the one
-  // the reload just opened, so there is nothing to open again.
+  // Back to following, so the fixture is as it was found.
   await app.press('Typeface for quotes in English')
   await app.press('Follows the Quotes face')
-  await app.press('Close')
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

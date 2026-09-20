@@ -131,13 +131,13 @@ describe('the two panels are doors, not cards', () => {
 
   it('keeps a door\'s words at every width where a door is left', async () => {
     // has-btn-icon is what data-labels="off" squares to 44px. A door into a whole
-    // panel opts out of that the way primary submits and destructive confirms do:
+    // screen opts out of that the way primary submits and destructive confirms do:
     // a bare letterform on a phone is not an unlabelled button, it is a screen
-    // nobody finds. ONE is left on this section: the pack's general Metadata door
-    // went, because the panel behind this one carries a door to the language table
-    // itself and two doors to one screen is the repeat the owner asked not to make.
+    // nobody finds. ONE is left on this section, and it is no longer the one into
+    // Quote fonts — that panel is a card now — but the one out of it, to the
+    // language table on Metadata where a language is actually added.
     await page()
-    for (const name of ['Set fonts by language']) {
+    for (const name of ['Open the language table']) {
       const b = screen.getByRole('button', { name })
       expect(b.className, name).not.toContain('has-btn-icon')
       expect(b.querySelector('.btn-label-fixed')?.textContent, name).toBe(name)
@@ -145,13 +145,18 @@ describe('the two panels are doors, not cards', () => {
     }
   })
 
-  it('opens exactly one dialog, on either screen', async () => {
-    // Two stacked scrims trap the page, so what is asserted is that a door opens
-    // its own panel and only that.
+  it('opens no dialog at all, because both halves are on the screen', async () => {
+    // WHAT THIS USED TO ASSERT: that the Quote fonts door opened exactly one
+    // panel and not two stacked scrims. There is no door — the owner's ask folded
+    // the panel into the section as a card — so the stronger claim is available:
+    // nothing on this section opens a dialog to answer a question about type.
     await page()
-    fireEvent.click(screen.getByRole('button', { name: 'Set fonts by language' }))
-    expect(screen.getAllByRole('dialog')).toHaveLength(1)
-    expect(dialog().getAttribute('aria-label')).toBe('Quote fonts')
+    expect(screen.queryByRole('button', { name: 'Set fonts by language' }),
+      'the door into the Quote fonts panel is back').toBeNull()
+    expect(screen.queryAllByRole('dialog')).toHaveLength(0)
+    // And the card itself is here, which is what proves the rows did not vanish
+    // with the door.
+    expect(screen.getByRole('region', { name: /Quote fonts/i })).toBeTruthy()
   })
 
   it('puts the faces under Language and font, and the marks table nowhere on Settings', async () => {
@@ -378,7 +383,7 @@ describe('the faces, on the section that shows them', () => {
     fireEvent.keyDown(document, { key: 'Enter' })
     await waitFor(() => {
       const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
-      expect(put[1].fontMono).toBe('jetbrains-mono')
+      expect(JSON.parse(put[1].fontsByLocale).en.mono).toBe('jetbrains-mono')
     })
   })
 
@@ -394,26 +399,18 @@ describe('the faces, on the section that shows them', () => {
   // WHOSE INTERFACE, and it is the half of the owner's font spec that is about
   // the app's own words: "any language that the user adds in via translation
   // files should have a full ui font picker (revamp the font picker in settings
-  // for that)." The revamp is a scope above the rows, not a set of rows per
-  // language — a section that grew with somebody's translations folder would be
-  // unreadable by the third file.
-  describe('the scope above the rows', () => {
-    const openScope = () =>
-      fireEvent.click(screen.getByRole('button', { name: /These faces are for/i }))
-
-    it('offers every installed language, and the shared answer first', async () => {
+  // for that)." Every language still has one — AND THE WAY TO IT IS BEING IN THAT
+  // LANGUAGE, not a chooser above the rows. The owner's ask removed the chooser:
+  // "the interface faces do not need a 'these faces are for' because the language
+  // is selected above anyway." What the rows write is therefore the overlay of
+  // the language on screen, which is also the only scope whose specimens can be
+  // believed.
+  describe('the language the rows are for', () => {
+    it('is said as a fact and not asked as a question', async () => {
       await page()
-      openScope()
-      const words = screen.getAllByRole('option').map((o) => o.textContent)
-      // The first is NOT "English": it is what a reader with no per-language
-      // opinion sees in every language, and English can overrule it like any other.
-      expect(words[0]).toMatch(/Every language/i)
-      // BOTH BUILT-INS AND THE INHERITED ANSWER, at least. Asserted as a count
-      // rather than by name: `bn`'s strings are a lazy chunk, so a list rendered
-      // before ensureBuiltin resolves labels it with its CODE — which is
-      // localeName's own documented behaviour and not this picker's business.
-      expect(words.length, 'the picker offers fewer scopes than there are languages')
-        .toBeGreaterThanOrEqual(3)
+      expect(screen.queryByRole('button', { name: /These faces are for/i }),
+        'the scope chooser is back').toBeNull()
+      expect(screen.getByText(/The faces English is set in/i)).toBeTruthy()
     })
 
     // THE CASE THAT WOULD HAVE CAUGHT THE ONE THING A COMMIT SHIPPED BROKEN.
@@ -426,50 +423,24 @@ describe('the faces, on the section that shows them', () => {
       fireEvent.click(within(openStyles('Labels')).getByRole('button', { name: 'Bold' }))
       await waitFor(() => {
         const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
-        expect(put[1].fontMonoStyle).toBe('bold')
+        expect(Object.values(JSON.parse(put[1].fontsByLocale))[0].monoStyle).toBe('bold')
         // The shape that broke it: numeric keys from a spread string.
         expect(put[1]['0'], 'the field NAME was spread into the patch').toBeUndefined()
       })
     })
 
-    it('and writes it into the blob under a named scope', async () => {
+    // THE CASE THE SCOPE EXISTS FOR, and it survives the chooser going: a choice
+    // made while reading one language must not overwrite the answer every other
+    // language reads.
+    it('writes that language\'s overlay and leaves the shared field alone', async () => {
       await page()
-      openScope()
-      fireEvent.click(screen.getAllByRole('option').at(-1))
-      fireEvent.click(within(openStyles('Labels')).getByRole('button', { name: 'Bold' }))
-      await waitFor(() => {
-        const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
-        expect(put[1].fontMonoStyle, 'a per-language modifier hit the shared field').toBeUndefined()
-        expect(Object.values(JSON.parse(put[1].fontsByLocale))[0].monoStyle).toBe('bold')
-      })
-    })
-
-    it('writes the flat field under the shared scope', async () => {
-      await page()
-      fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
-      fireEvent.change(screen.getByPlaceholderText(/Type a typeface name/i), { target: { value: 'jet' } })
-      fireEvent.keyDown(document, { key: 'Enter' })
-      await waitFor(() => {
-        const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
-        expect(put[1].fontMono).toBe('jetbrains-mono')
-        expect(put[1].fontsByLocale, 'the shared scope wrote the per-language blob').toBeUndefined()
-      })
-    })
-
-    // THE CASE THE WHOLE SCOPE EXISTS FOR. Choosing a face under a named language
-    // must NOT write the field every other language reads.
-    it('and the blob under a named one, leaving the flat field alone', async () => {
-      await page()
-      openScope()
-      fireEvent.click(screen.getAllByRole('option').at(-1)) // the last installed language
       fireEvent.click(within(rowFor('Labels')).getByRole('button', { name: /Typeface for Labels/i }))
       fireEvent.change(screen.getByPlaceholderText(/Type a typeface name/i), { target: { value: 'jet' } })
       fireEvent.keyDown(document, { key: 'Enter' })
       await waitFor(() => {
         const put = PUTS.filter(([p]) => p === '/auth/me/preferences').at(-1)
         expect(put[1].fontMono, 'a per-language choice overwrote the shared answer').toBeUndefined()
-        const blob = JSON.parse(put[1].fontsByLocale)
-        expect(Object.values(blob)[0].mono).toBe('jetbrains-mono')
+        expect(JSON.parse(put[1].fontsByLocale).en.mono).toBe('jetbrains-mono')
       })
     })
   })

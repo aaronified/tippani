@@ -91,7 +91,7 @@ const PLATFORM = new Set([
   'Date', 'Number', 'String', 'Boolean', 'Object', 'Array', 'Map', 'Set', 'WeakMap',
   'Promise', 'RegExp', 'parseInt', 'parseFloat', 'encodeURIComponent', 'undefined',
   'Uint8Array', 'TextDecoder', 'CustomEvent', 'AbortSignal', 'Infinity', 'XMLHttpRequest',
-  'FontFace', 'DOMMatrix', 'HTMLInputElement', 'globalThis',
+  'FontFace', 'DOMMatrix', 'HTMLInputElement', 'globalThis', 'Blob', 'CSS',
 ])
 
 // EVERY unbound name in a file, before the allow-list is applied — because the

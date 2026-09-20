@@ -363,7 +363,10 @@ export function physDirty(name, tweaks = {}) {
 // ground; five stops on a curve puts the steps under the tile's own noise.
 function ramp(rgb, peak) {
   return [0, 0.25, 0.5, 0.75, 1]
-    .map((t) => `rgba(${rgb},${(peak * (1 - t) ** 2.2).toFixed(4)}) ${Math.round(t * 100)}%`)
+    // `stop`, NOT `t`: this module imports the resolver t(), and a parameter of
+    // that name shadows it silently — right here it happens to be arithmetic, but
+    // the next line added inside this callback would reach for the wrong t.
+    .map((stop) => `rgba(${rgb},${(peak * (1 - stop) ** 2.2).toFixed(4)}) ${Math.round(stop * 100)}%`)
     .join(', ')
 }
 

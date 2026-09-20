@@ -15,6 +15,7 @@ import {
   quoteFonts,
   registerUploads,
   serialiseFontStyles,
+  specimenSample,
   stylesFor,
   uploadedFonts,
   verifyUpload,
@@ -28,7 +29,7 @@ import { SECTIONS, sectionOrder, visibleSections } from './routes.js'
 import { RESTART_FAILED, RESTART_NEW, RESTART_SAME, waitForRestart } from './update.js'
 import { LanguagePicker } from './locale.jsx'
 import { languageMarksState } from './languages.jsx'
-import { languageFor } from './iso639.js'
+import { languageFor, scriptOf } from './iso639.js'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, REVIEW_DECKS, REVIEW_TIERS, taxonomy, toggle as toggleQuestion, TUNING_FIELDS, tuningBlob, tuningProblem } from './quiz.js'
 import { createPortal } from 'react-dom'
@@ -46,6 +47,7 @@ import {
   FormModal,
   frameCode,
   ConfirmDialog,
+  Cover,
   GhostButton,
   IconArchive,
   IconArrow,
@@ -81,6 +83,7 @@ import {
   PageHeader,
   Placeholder,
   SCRIM_CENTERED,
+  Scroller,
   SectionTitle,
   Select,
   Slider,
@@ -99,8 +102,12 @@ import {
   IconGrip,
   useScreenBar,
   useScreenSearch,
+  usePanelStack,
+  PanelHost,
   usePersistedState,
 } from './ui.jsx'
+import { PersonChip, PersonModal } from './people.jsx'
+import { usePersonOpener } from './personOpen.jsx'
 import { SectionRail } from './sectionRail.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
@@ -987,7 +994,7 @@ const specimenSize = (roleKey) => {
 // THE SPECIMEN IS THE ROW'S SECOND LINE and not a door. It is the one part of a
 // type list that cannot be read as a name, so it belongs beside the control that
 // changes it rather than one press away from it.
-function FontRow({ row, scope, factor, mine, warn, onFace, onStyle, onSize, onRevert }) {
+function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSize, onRevert }) {
   const [stylesOpen, setStylesOpen] = useState(false)
   const styles = stylesFor(row.key)
   return (
@@ -1009,6 +1016,7 @@ function FontRow({ row, scope, factor, mine, warn, onFace, onStyle, onSize, onRe
           <FaceSelect
             faces={row.faces}
             uploads={mine}
+            script={script}
             value={row.chosen.id}
             ariaLabel={t('settings.type.face.aria', { name: t(row.label) })}
             onChange={onFace}
@@ -1072,7 +1080,18 @@ function FontRow({ row, scope, factor, mine, warn, onFace, onStyle, onSize, onRe
             letterSpacing: row.key === 'mono' ? '.08em' : 0,
           }}
         >
-          {t(row.sample)}
+          {/* THE SPECIMEN FOLLOWS THE LANGUAGE, and only as far as the face can
+              carry it. The owner's report was that changing the interface language
+              left these lines in English — they are keyed, so they always followed
+              the INTERFACE, but the interface's own samples are Latin sentences
+              and three of them had never been translated. Both halves are fixed:
+              the lines are Bengali in Bengali now, and a row being chosen for a
+              non-Latin script sets that script's line instead — where the face can
+              draw it. Where it cannot, the Latin line stays, because a Bengali
+              specimen rendered by the fallback shows the fallback's letterforms
+              under the chosen face's name, which is worse than showing nothing
+              about Bengali at all. */}
+          {t(specimenSample(row, row.chosen?.family, script))}
         </p>
       }
     >
@@ -1132,15 +1151,14 @@ function FontRow({ row, scope, factor, mine, warn, onFace, onStyle, onSize, onRe
 // chosen: Deutsch in the serif you gave German, বাংলা in the Bengali face. It is
 // the same test the script check makes and a reader can make it by eye — a face
 // with no Bengali in it draws that row as boxes, on the row where it was picked.
-function QuoteFaces({ prefs, onSaved, onGo, open, onClose }) {
+function QuoteFaces({ prefs, onSaved, onGo, index }) {
   // What the library holds, seeded from the cache so a second opening draws the
   // rows on the first paint — this list arrives over the network, and a table that
   // lands a frame late reads as a panel with nothing in it.
   const [inLibrary, setInLibrary] = useState(() => cachedVocabulary()?.languages || [])
   useEffect(() => {
-    if (!open) return
     primeSearchVocabulary().then((v) => setInLibrary(v?.languages || [])).catch(() => {})
-  }, [open])
+  }, [])
   const [draft, setDraft] = useState(null)
   const [err, setErr] = useState('')
   const live = draft || prefs || {}
@@ -1166,8 +1184,7 @@ function QuoteFaces({ prefs, onSaved, onGo, open, onClose }) {
   }
 
   return (
-    <FormModal open={open} onClose={onClose} title={t('settings.quote-faces.title')} maxWidth={620}>
-      <p className="microcopy mb-3">{t('settings.quote-faces.intro.prose')}</p>
+    <PrefGroup index={index} title={t('settings.quote-faces.title')} sub={t('settings.quote-faces.intro.prose')} wide>
       {rows.length === 0 && <p className="microcopy">{t('settings.quote-faces.none')}</p>}
       {rows.map((row) => {
         const chosen = quoteFaceFor(live, row.key)
@@ -1192,6 +1209,12 @@ function QuoteFaces({ prefs, onSaved, onGo, open, onClose }) {
             control={
               <FaceSelect
                 faces={ALL_FACES}
+                // THE LANGUAGE'S OWN SCRIPT, FROM ITS ISO TAG — the owner's ask,
+                // and the place it matters most: this list is being chosen for
+                // ONE language, so a face that can write it should say so in the
+                // script it writes, and one that cannot should not pretend by
+                // wearing a Latin name beside the others.
+                script={scriptOf(row.key)}
                 value={chosen?.id || ''}
                 inheritLabel={t('settings.languages.face.inherit')}
                 ariaLabel={t('settings.languages.face.aria', { name: row.name })}
@@ -1204,18 +1227,24 @@ function QuoteFaces({ prefs, onSaved, onGo, open, onClose }) {
       {/* THE DOOR, AT THE FOOT OF THE LIST IT EXPLAINS. A language missing from
           this panel is missing because nothing in the library is in it and nobody
           has named it — which is a thing to do on Metadata, not here. */}
-      <div className="mt-4 flex flex-wrap items-center gap-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-        <p className="microcopy" style={{ flex: '1 1 18ch', minWidth: 0 }}>{t('settings.quote-faces.add.prose')}</p>
-        {/* THE LANGUAGE TABLE, NOT METADATA'S FRONT DOOR. A reader sent here
-            wants to add a language, and Metadata is eight sections; landing them
-            on the overview and letting them find Languages is the difference
-            between a door and a direction. */}
-        <GhostButton icon={<IconOpen />} keepLabel onClick={() => { onClose?.(); onGo?.('metadata', 'languages') }}>
-          {t('settings.quote-faces.add.open')}
-        </GhostButton>
-      </div>
+      {/* THE DOOR, AT THE FOOT OF THE LIST IT EXPLAINS. A language missing from
+          this list is missing because nothing in the library is in it and nobody
+          has named it — which is a thing to do on Metadata, not here.
+
+          THE LANGUAGE TABLE, NOT METADATA'S FRONT DOOR. A reader sent here wants
+          to add a language, and Metadata is eight sections; landing them on the
+          overview and letting them find Languages is the difference between a
+          door and a direction. */}
+      <PrefRow
+        label={t('settings.quote-faces.add.prose')}
+        control={
+          <GhostButton icon={<IconOpen />} keepLabel onClick={() => onGo?.('metadata', 'languages')}>
+            {t('settings.quote-faces.add.open')}
+          </GhostButton>
+        }
+      />
       <ErrorText>{err}</ErrorText>
-    </FormModal>
+    </PrefGroup>
   )
 }
 
@@ -1237,15 +1266,32 @@ function FontSections({ prefs, onSaved, onGo, index }) {
   // What the script check said about the face just assigned, per role. A WARNING
   // and never a refusal — see hasScript.
   const [warn, setWarn] = useState({})
-  // WHICH LANGUAGE'S INTERFACE THESE FACES ARE FOR. '' is the answer every UI
-  // language inherits — the six flat preference fields the app has always had —
-  // and a code is that language's own.
+  // WHICH LANGUAGE'S INTERFACE THESE FACES ARE FOR — AND IT IS THE ONE YOU ARE
+  // READING IN, never a chooser of its own. The owner's ask: "the interface faces
+  // do not need a 'these faces are for' because the language is selected above
+  // anyway." It is right, and the row it removes was the redundancy: a picker of
+  // languages sitting under a picker of languages, on a screen whose whole first
+  // group is choosing one.
   //
-  // THE OWNER'S SPEC: "tippani is meant to be highly translatable… any language
-  // can become the ui language… Any language that the user adds in via translation
-  // files should have a full ui font picker." So the picker did not gain a second
-  // copy per language; it gained a scope, and the rows under it are the same rows.
-  const [scope, setScope] = useState('')
+  // THE SPEC IT STILL ANSWERS: "tippani is meant to be highly translatable… any
+  // language that the user adds in via translation files should have a full ui
+  // font picker." Every language still gets one — you reach it by BEING in that
+  // language, which is also the only state in which the specimens below tell the
+  // truth about what you will be reading.
+  //
+  // `localeActive()` AND NOT `localePref()`: a stored preference can name a
+  // translation the operator has since removed, and the app then renders a
+  // built-in. Editing the faces of a language nothing is drawn in would be a
+  // control with no visible effect.
+  const scope = localeActive()
+  // THE SCRIPT THESE FACES ARE BEING CHOSEN FOR, which is what makes a name and a
+  // specimen answerable: a face is named in Bengali on a Bengali interface if it
+  // can draw Bengali, and in Latin if it cannot. `scriptOf` answers for all
+  // ninety-one languages; most come back 'latin', where nothing changes.
+  const script = scriptOf(scope)
+  // WHAT THE READER CALLS THIS LANGUAGE, from the same catalogue the picker above
+  // draws from — so the two always say the same word for the same locale.
+  const scopeName = localeCatalogue().find((l) => l.code === scope)?.name || scope
   // The optimistic copy, cleared when the parent's prefs catch up with it. A
   // change is applied before the PUT answers — the whole point of a type picker is
   // watching the type move — and the rows are derived from prefs rather than held
@@ -1269,7 +1315,6 @@ function FontSections({ prefs, onSaved, onGo, index }) {
   // those are questions with an answer. "Which face draws this script, in general,
   // everywhere" is not.
   const uiRows = rows.filter((r) => !r.script)
-  const [quoteFacesOpen, setQuoteFacesOpen] = useState(false)
 
   useEffect(() => { setDraft(null) }, [prefs])
 
@@ -1432,67 +1477,31 @@ function FontSections({ prefs, onSaved, onGo, index }) {
       {/* THE INTERFACE'S OWN FACES. Full measure — the pack marks this group
           `wide: true`, and a specimen squeezed into half a column is a specimen
           you cannot judge. */}
-      <PrefGroup index={index + 1} title={t('settings.type.faces.title')} wide>
-        {/* WHOSE INTERFACE, and it is one row above the rest rather than a second
-            copy of them per language. The app ships with two languages and takes
-            any number from data/Locales, so a picker that repeated itself per
-            language would be a screen that grows with somebody's translations
-            folder.
-
-            THE FIRST OPTION IS THE ANSWER EVERY LANGUAGE INHERITS, not "English".
-            Naming it English would be wrong twice over: it is what a reader with
-            no per-language opinion sees in EVERY language, and English itself can
-            take an answer of its own that overrules it. */}
-        <PrefRow
-          label={t('settings.type.scope.title')}
-          changed={!!scope}
-          control={
-            <Select
-              value={scope}
-              ariaLabel={t('settings.type.scope.title')}
-              width={230}
-              // THE WARNING GOES WITH THE SCOPE. It says something about the face
-              // assigned to one language's role, and a role key alone cannot tell
-              // two scopes apart — so switching scope drops it rather than leaving
-              // a sentence about a face this scope does not use.
-              onChange={(v) => { setScope(v); setWarn({}) }}
-              options={[
-                ['', t('settings.type.scope.all')],
-                ...localeCatalogue().map((l) => [l.code, l.name]),
-              ]}
-            />
-          }
-        />
+      {/* WHOSE INTERFACE — SAID, NOT ASKED. It was a row with a language picker
+          on it, under a group whose own first card picks the language; the owner's
+          ask was to drop it, and what is left is the fact itself as subtext, the
+          same shape the cover cards' "this device only" takes. */}
+      <PrefGroup
+        index={index + 1}
+        title={t('settings.type.faces.title')}
+        sub={t('settings.type.faces.sub', { language: scopeName })}
+        wide
+      >
         {uiRows.map(fontRow)}
       </PrefGroup>
 
       {/* WHAT A QUOTE IS SET IN, WHICH IS A QUESTION ABOUT ITS LANGUAGE and not
-          about this app's interface. One row, because the list behind it is as
-          long as the reader's library has languages. */}
-      <PrefGroup index={index + 2} title={t('settings.quote-faces.title')}>
-        <PrefRow
-          label={t('settings.quote-faces.row.title')}
-          sub={t('settings.quote-faces.row.sub')}
-          // A STORED "{}" IS NOT A DECISION. The writer clears the field to ''
-          // when the last language goes back to following, so this is latent —
-          // but a blob written by any earlier client, or by a hand, would light
-          // the dot on a row nobody has touched, and a mark that is wrong is
-          // worse than no mark.
-          changed={Object.keys(quoteFonts(prefs || {})).length > 0}
-          control={
-            <GhostButton icon={<IconLanguages />} keepLabel onClick={() => setQuoteFacesOpen(true)}>
-              {t('settings.quote-faces.row.open')}
-            </GhostButton>
-          }
-        />
-      </PrefGroup>
-      <QuoteFaces
-        prefs={prefs}
-        onSaved={onSaved}
-        onGo={onGo}
-        open={quoteFacesOpen}
-        onClose={() => setQuoteFacesOpen(false)}
-      />
+          about this app's interface — AND IT IS ON THE SCREEN NOW. The owner's
+          ask: "why is there still a quotes typeface chooser? That should have been
+          folded into fonts by language." It is the same argument the rest of this
+          pass has been making: the panel behind that button existed because
+          Settings was one long column where an unbounded list pushed everything
+          under it off the screen, and Language is its own screen now with a card
+          per subsection.
+
+          THE LIST IS STILL AS LONG AS YOUR LIBRARY HAS LANGUAGES, and that is why
+          this group is the one that grows rather than a fixed card above it. */}
+      <QuoteFaces prefs={prefs} onSaved={onSaved} onGo={onGo} index={index + 2} />
       <ErrorText>{err}</ErrorText>
     </>
   )
@@ -1560,7 +1569,11 @@ function SRSettings({ user, onPreferences }) {
           full width under both. This section was one column of stacked
           label-over-control blocks — the only Settings section that had not been
           given rows at all. */}
-      <PrefGroup index={1} title={t('settings.quiz.group.deck.title')}>
+      {/* THE DAILY DECK TAKES THE WHOLE WIDTH, on the owner's ask. It is the
+          longest group on the section — a slider, a scope chooser, a row of
+          question chips and the tier — and half a desktop column made every one
+          of those wrap where the schedule group beside it had rows to spare. */}
+      <PrefGroup index={1} title={t('settings.quiz.group.deck.title')} wide>
         {/* 5 TO 20, widened from 2 to 10 on the owner's instruction; the v3 pack
             draws 5 to 60. An account already holding 2, 3 or 4 keeps it — the
             server validates what is written and rewrites nothing — but cannot get
@@ -1769,15 +1782,34 @@ function ScheduleRows({ p, set }) {
 // is the exact failure 0033's own header records from the first time this flag
 // had two readers.
 //
-// A WORK'S BUTTON IS NOT THE WORK'S FLAG. It clears the quotes listed under it,
-// one bulk call with their ids, because that is what "put these back" means to
-// somebody reading this list. Clearing the work's own column as well would also
-// change what happens to quotes they add to it TOMORROW, which they have not
-// asked for and could not see here.
+// A WORK IS A ROW, AND THE QUOTES ARE BEHIND IT. The pack draws each work with
+// its cover or poster, the people behind it, a count, and a chevron
+// (settings-restructured.dc.html:381-403); this drew a mono label and nothing
+// else, which asks a reader to recognise their own books from a column of
+// strings. The tick boxes are the other half of the same ask: one press per
+// quote was the only way to put back a run of them, and a reader who skipped a
+// chapter's worth has no verb for what they actually want to say.
 function NeverAsked() {
   const [groups, setGroups] = useState(null)
   const [total, setTotal] = useState(0)
   const [busy, setBusy] = useState(false)
+  // WHICH WORKS ARE OPEN, AND NONE ARE AT FIRST. The pack draws this collapsed
+  // (settings-restructured.dc.html:2965) and the reason is the shape of the data:
+  // a reader who skipped forty quotes across six works meets six rows they can
+  // recognise, not forty lines of prose they have to read to find the one.
+  const [open, setOpen] = useState(() => new Set())
+  // THE PICKED SET IS QUOTES, NOT WORKS, even though a work's box ticks all of
+  // them. What the button does is restore quotes; a selection of works would
+  // have to be expanded into quotes before it could act, and then a work whose
+  // rows changed under it would restore something the reader never ticked.
+  const [picked, setPicked] = useState(() => new Set())
+  // A CREDIT IS A DOOR, everywhere in this app — the standing directive, and
+  // `person-router.test.jsx` holds every screen that draws one to it. A chip that
+  // named an author and did nothing would be the same picture as one that opens
+  // them, which is the failure that rule exists to prevent.
+  const personStack = usePanelStack()
+  const [person, setPerson] = useState(null)
+  const openPerson = usePersonOpener(personStack, setPerson)
 
   const load = useCallback(async () => {
     const r = await json('GET', '/review/excluded')
@@ -1794,50 +1826,170 @@ function NeverAsked() {
   // guessing here would be a fourth place that has to learn about a new quote
   // kind.
   const KIND_PATH = { book: 'annotations', screen: 'dialogues', utterance: 'quotes' }
-  const restore = async (kind, ids) => {
+  // WHAT THE NAME UNDER A TITLE IS, per source: a book's is its author, a film's
+  // its director, and a standalone quote's the person who said it. The person
+  // screen is reached by kind and name, so a wrong kind here opens the wrong
+  // record rather than failing visibly.
+  const CREDIT_KIND = { book: 'author', screen: 'director', utterance: 'speaker' }
+  const restore = async (pairs) => {
     setBusy(true)
-    await json('POST', `/${KIND_PATH[kind]}/bulk`, { ids, review: true })
+    // ONE CALL PER KIND, because the bulk route is per kind. A selection can
+    // span a book and a film, and sending the film's ids to /annotations/bulk
+    // would be a 404 on rows that exist — the scoping is by source table.
+    const byKind = new Map()
+    for (const [kind, id] of pairs) {
+      if (!byKind.has(kind)) byKind.set(kind, [])
+      byKind.get(kind).push(id)
+    }
+    for (const [kind, ids] of byKind) await json('POST', `/${KIND_PATH[kind]}/bulk`, { ids, review: true })
+    setPicked(new Set())
     await load()
     setBusy(false)
   }
+
+  const mark = (g) => `${g.kind}:${g.work_id}:${g.quotes[0].id}`
+  const qMark = (q) => `${q.kind}:${q.id}`
+  const pick = (marks, on) => setPicked((was) => {
+    const next = new Set(was)
+    for (const m of marks) { if (on) next.add(m); else next.delete(m) }
+    return next
+  })
+  const chosen = () => [...picked].map((m) => {
+    const [kind, id] = m.split(':')
+    return [kind, Number(id)]
+  })
 
   if (groups === null) return <p className="microcopy">{t('common.state.loading')}</p>
   if (groups.length === 0) return <p className="microcopy">{t('settings.quiz.skipped.none')}</p>
 
   return (
     <div className="space-y-4">
-      <p className="microcopy">{t('settings.quiz.skipped.count', { n: total })}</p>
-      {groups.map((g) => (
-        <div key={`${g.kind}:${g.work_id}:${g.quotes[0].id}`} className="skipped-group">
-          <div className="skipped-group-head">
-            {/* A STANDALONE QUOTE HAS NO WORK TO BE UNDER, and saying so is better
-                than printing an empty heading that reads as a bug. */}
-            <MonoLabel>{g.title || t('settings.quiz.skipped.standalone')}</MonoLabel>
+      {/* THE COUNT STAYS WHEN A SELECTION STARTS, and the chosen figure joins it
+          rather than replacing it. "12 chosen" alone cannot say chosen out of
+          what, and this list's whole job is telling a reader how much they have
+          quietly switched off. */}
+      <div className="skipped-bar">
+        <p className="microcopy">{t('settings.quiz.skipped.count', { n: total })}</p>
+        {picked.size > 0 && (
+          <>
             <span className="grow" />
-            <GhostButton
-              icon={<IconRevert />}
-              disabled={busy}
-              onClick={() => restore(g.kind, g.quotes.map((q) => q.id))}
-            >
-              {t('settings.quiz.skipped.restore-work.label', { n: g.quotes.length })}
+            <span className="microcopy">{t('settings.quiz.skipped.chosen', { n: picked.size })}</span>
+            <GhostButton icon={<IconRevert />} disabled={busy} onClick={() => restore(chosen())}>
+              {t('settings.quiz.skipped.restore-work.label', { n: picked.size })}
             </GhostButton>
-          </div>
-          {g.quotes.map((q) => (
-            <div key={q.id} className="skipped-row">
-              {/* dir="auto": a skipped quote is in whatever language it was
-                  written in, and the first strong character decides. */}
-              <p className="skipped-quote" dir="auto">{q.text}</p>
-              <IconButton
-                icon={<IconRevert />}
-                ariaLabel={t('settings.quiz.skipped.restore-one.aria')}
-                tooltip={t('settings.quiz.skipped.restore-one.aria')}
+            <GhostButton icon={<IconClose />} disabled={busy} onClick={() => setPicked(new Set())}>
+              {t('settings.quiz.skipped.clear.label')}
+            </GhostButton>
+          </>
+        )}
+      </div>
+      {groups.map((g) => {
+        const gk = mark(g)
+        const shown = open.has(gk)
+        const marks = g.quotes.map(qMark)
+        const all = marks.every((m) => picked.has(m))
+        // A STANDALONE QUOTE HAS NO WORK TO BE UNDER, and saying so is better
+        // than printing an empty heading that reads as a bug.
+        const title = g.title || t('settings.quiz.skipped.standalone')
+        return (
+          <div key={gk} className="skipped-group">
+            <div className="skipped-work">
+              <CheckBox
+                checked={all}
                 disabled={busy}
-                onClick={() => restore(q.kind, [q.id])}
+                ariaLabel={t('settings.quiz.skipped.pick-work.aria', { title })}
+                onChange={(on) => pick(marks, on)}
               />
+              {/* THE ART IS THE APP'S OWN COVER, hatch and all — a film's
+                  placeholder says POSTER and a book's says COVER, which is the
+                  one word that tells a reader what is missing. A standalone
+                  quote has no artwork at all and is sent none. */}
+              <Cover
+                path={g.art}
+                title={g.title}
+                badge={g.kind === 'screen' ? 'common.badge.poster' : 'common.badge.cover'}
+              />
+              <div className="skipped-work-said">
+                {/* THE TITLE IS THE DOOR. One control per row: a chevron beside a
+                    pressable title would be two ways to do one thing, and the
+                    repo's rule is that a control drawn twice is drawn once. */}
+                <button
+                  type="button"
+                  className="skipped-work-open"
+                  aria-expanded={shown}
+                  onClick={() => setOpen((was) => {
+                    const next = new Set(was)
+                    if (next.has(gk)) next.delete(gk); else next.add(gk)
+                    return next
+                  })}
+                >
+                  <span className="skipped-work-title">{title}</span>
+                  <span className="skipped-work-count">{t('settings.quiz.skipped.count', { n: g.quotes.length })}</span>
+                  <span className="skipped-work-chev" aria-hidden="true"><IconChevron open={shown} /></span>
+                </button>
+                {/* THE CHIPS SIT OUTSIDE THE BUTTON, not inside it as the pack
+                    draws them: a chip is itself a button here, and a button
+                    inside a button is markup no browser agrees about. */}
+                {(g.people || []).length > 0 && (
+                  <Scroller axis="x" className="skipped-work-people">
+                    {g.people.map((name) => (
+                      <PersonChip key={name} kind={CREDIT_KIND[g.kind]} name={name} onOpen={openPerson} />
+                    ))}
+                  </Scroller>
+                )}
+              </div>
             </div>
-          ))}
-        </div>
-      ))}
+            {shown && (
+              <>
+                {g.quotes.map((q) => (
+                  <div key={q.id} className="skipped-row">
+                    <CheckBox
+                      checked={picked.has(qMark(q))}
+                      disabled={busy}
+                      ariaLabel={t('settings.quiz.skipped.pick-one.aria')}
+                      onChange={(on) => pick([qMark(q)], on)}
+                    />
+                    {/* dir="auto": a skipped quote is in whatever language it was
+                        written in, and the first strong character decides. */}
+                    <p className="skipped-quote" dir="auto">{q.text}</p>
+                    <IconButton
+                      icon={<IconRevert />}
+                      ariaLabel={t('settings.quiz.skipped.restore-one.aria')}
+                      tooltip={t('settings.quiz.skipped.restore-one.aria')}
+                      disabled={busy}
+                      onClick={() => restore([[q.kind, q.id]])}
+                    />
+                  </div>
+                ))}
+                {/* A WORK'S BUTTON IS NOT THE WORK'S FLAG. It clears the quotes
+                    listed under it, one bulk call with their ids, because that is
+                    what "put these back" means to somebody reading this list.
+                    Clearing the work's own column as well would also change what
+                    happens to quotes they add to it TOMORROW, which they have not
+                    asked for and could not see here. */}
+                <div className="skipped-work-foot">
+                  <GhostButton
+                    icon={<IconRevert />}
+                    disabled={busy}
+                    onClick={() => restore(g.quotes.map((q) => [q.kind, q.id]))}
+                  >
+                    {t('settings.quiz.skipped.restore-work.label', { n: g.quotes.length })}
+                  </GhostButton>
+                </div>
+              </>
+            )}
+          </div>
+        )
+      })}
+      <PanelHost stack={personStack} />
+      {person && (
+        <PersonModal
+          kind={person.kind}
+          name={person.name}
+          onClose={() => setPerson(null)}
+          onSaved={() => setPerson(null)}
+        />
+      )}
     </div>
   )
 }
@@ -1966,13 +2118,20 @@ function HowItAsks({ p, set }) {
           />
         }
       >
-        {/* THE COST OF THE FLOOR, SAID OUT LOUD. Close wrong answers teach more
-            than obvious ones (Little et al., 2012); Easy gives that up on purpose,
-            and a tier that only advertised its benefit would be selling the reader
+        {/* A LINE FOR WHICHEVER TIER IS CHOSEN, on the owner's ask. Only Easy
+            carried one, which left three of the four options as adjectives: a
+            reader on Hard could read the whole row and not learn that it means
+            typing. The info dot says what the four are; this says what THIS one
+            does, which is the question a reader has while their finger is on the
+            control.
+
+            THE COST STAYS ON EASY'S LINE. Close wrong answers teach more than
+            obvious ones (Little et al., 2012); Easy gives that up on purpose, and
+            a tier that only advertised its benefit would be selling the reader
             something. */}
-        {(p.srTier || 'medium') === 'easy' && (
-          <p className="microcopy" style={{ flexBasis: '100%', lineHeight: 1.6 }}>{t('settings.quiz.tier.easy.note')}</p>
-        )}
+        <p className="microcopy" style={{ flexBasis: '100%', lineHeight: 1.6 }}>
+          {t(`settings.quiz.tier.${p.srTier || 'medium'}.note`)}
+        </p>
       </PrefRow>
       <PrefRow
         label={t('settings.quiz.submit.title')}
@@ -2391,9 +2550,19 @@ export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAski
     <>
       {updatePrompt}
       <PrefGroup index={1} title={t('settings.updates.title')}>
-        <div className="space-y-3">
+        {/* THE PACK'S TWO ROWS, IN THE SHAPE EVERY OTHER SECTION USES. It draws
+            Updates as a Version row carrying its own state and a Check now
+            button, then a Channel row (settings-restructured.dc.html:2749-2753);
+            this was a stack of bare divs and MonoLabels inside a group — the last
+            block on Settings that had not been given rows. What the pack has no
+            place for and this keeps: the release date, the roadmap line, and the
+            apply flow, which are this app's and sit under the rows they belong
+            to. */}
+        <PrefRow
+          label={t('settings.updates.version.label')}
+          said={
+            <div className="space-y-1">
         <div className="flex items-baseline gap-2">
-          <MonoLabel>{t('settings.updates.version.label')}</MonoLabel>
           {user?.releases_url ? (
             <Tooltip label={t('settings.updates.releases.tip')} side="bottom">
               <a
@@ -2442,6 +2611,24 @@ export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAski
               : t('settings.updates.released.unknown.label')}
           </span>
         </div>
+            </div>
+          }
+          control={
+            <GhostButton onClick={check} disabled={busy || phase === 'applying'}>
+              {busy ? t('settings.updates.check.busy') : t('settings.updates.check.label')}
+            </GhostButton>
+          }
+        >
+          {/* WHAT THE LAST CHECK SAID, under the row it is about — the pack's
+              "Up to date · checked four minutes ago". It was a MonoLabel beside
+              the button, which reads as a second control. */}
+          {info && !info.update_available && !info.check_error && (
+            <p className="microcopy" style={{ flexBasis: '100%', color: 'var(--ok)' }}>
+              {t('settings.updates.current.label')}
+            </p>
+          )}
+        </PrefRow>
+        <div className="space-y-3">
 
         {/* What shipped is in the release notes above; what is still ahead — and where to
             ask for something, or say what is broken — is the roadmap. It belongs here
@@ -2477,47 +2664,36 @@ export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAski
           </p>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-3">
-              <GhostButton onClick={check} disabled={busy || phase === 'applying'}>
-                {busy ? t('settings.updates.check.busy') : t('settings.updates.check.label')}
-              </GhostButton>
-              {/* THE CHANGELOG BUTTON IS GONE, and the log it opened is a group at
-                  the foot of this panel. It answered "what is in the version I am
-                  running" — a question a reader on the Server screen is already
-                  asking, on a screen with room under it. A door with one thing
-                  behind it, next to the thing it is about, is a press for nothing. */}
-              {info && !info.update_available && !info.check_error && (
-                <MonoLabel style={{ color: 'var(--ok)' }}>{t('settings.updates.current.label')}</MonoLabel>
-              )}
-            </div>
-
+            {/* THE CHANGELOG BUTTON IS GONE, and the log it opened is a group at
+                the foot of this panel. It answered "what is in the version I am
+                running" — a question a reader on the Server screen is already
+                asking, on a screen with room under it. A door with one thing
+                behind it, next to the thing it is about, is a press for nothing. */}
             {/* Only after a check: before one, there is nothing to say which
                 line this build is on, and a toggle that guesses would be
                 asserting the very thing the check is for. */}
             {info && (
-              <div>
-                <div className="mb-2 flex items-center gap-1.5">
-                  <MonoLabel>{t('settings.updates.channel.title')}</MonoLabel>
-                  <InfoDot text={t('settings.updates.channel.info.body')} />
-                </div>
-                <Toggle
-                  ariaLabel={t('settings.updates.channel.aria')}
-                  disabled={busy || phase === 'applying'}
-                  value={channel}
-                  onChange={setChannel}
-                  options={[
-                    ['stable', t('settings.updates.channel.stable.label')],
-                    ['prerelease', t('settings.updates.channel.prerelease.label')],
-                  ]}
-                />
-                {!info.channel_explicit && (
-                  <p className="microcopy" style={{ marginTop: 6, color: 'var(--soft)' }}>
-                    {t(channel === 'prerelease'
-                      ? 'settings.updates.channel.implied.prerelease.prose'
-                      : 'settings.updates.channel.implied.stable.prose')}
-                  </p>
-                )}
-              </div>
+              <PrefRow
+                label={t('settings.updates.channel.title')}
+                info={t('settings.updates.channel.info.body')}
+                sub={!info.channel_explicit
+                  ? t(channel === 'prerelease'
+                    ? 'settings.updates.channel.implied.prerelease.prose'
+                    : 'settings.updates.channel.implied.stable.prose')
+                  : null}
+                control={
+                  <Toggle
+                    ariaLabel={t('settings.updates.channel.aria')}
+                    disabled={busy || phase === 'applying'}
+                    value={channel}
+                    onChange={setChannel}
+                    options={[
+                      ['stable', t('settings.updates.channel.stable.label')],
+                      ['prerelease', t('settings.updates.channel.prerelease.label')],
+                    ]}
+                  />
+                }
+              />
             )}
 
             {info?.check_error && (
@@ -3669,7 +3845,32 @@ function BackupCard({ user, asking = false, onAsking }) {
         title={t('settings.backup.title')}
         info={t('settings.backup.info.body')}
       >
-      <div className="space-y-4" data-tour="backup">
+      <div data-tour="backup">
+        {/* THE PACK'S THREE ROWS. It draws Backup as "Make a backup", "Nightly
+            backup" and "Restore from an archive", each a row with its own
+            sub-line and its own control (settings-restructured.dc.html:2754-2759);
+            this was two stacks of divs under one heading. The middle row is NOT
+            here and its absence is recorded rather than faked: a nightly backup
+            needs something that wakes up at four in the morning, and this repo's
+            standing invariant is that no goroutine outlives its request. See
+            docs/plans/nightly-backup.md. */}
+        <PrefRow
+          label={t('settings.backup.make.label')}
+          said={loaded && (
+            <p className="microcopy">
+              {backup ? (
+                // tNodes: the date is bold, so the sentence carries a node. fmtSize
+                // renders MB/KB, which are symbols rather than words (§8) and stay.
+                tNodes('settings.backup.last.prose', {
+                  when: <b key="when">{fmtWhen(backup.created)}</b>,
+                  size: fmtSize(backup.size),
+                })
+              ) : (
+                t('settings.backup.empty.prose')
+              )}
+            </p>
+          )}
+          control={
         <div className="flex flex-wrap items-center gap-3">
           <GhostButton
             icon={<IconArchive />}
@@ -3697,29 +3898,17 @@ function BackupCard({ user, asking = false, onAsking }) {
             </a>
           )}
         </div>
-        {loaded && (
-          <p className="microcopy">
-            {backup ? (
-              // tNodes: the date is bold, so the sentence carries a node. fmtSize
-              // renders MB/KB, which are symbols rather than words (§8) and stay.
-              tNodes('settings.backup.last.prose', {
-                when: <b key="when">{fmtWhen(backup.created)}</b>,
-                size: fmtSize(backup.size),
-              })
-            ) : (
-              t('settings.backup.empty.prose')
-            )}
-          </p>
-        )}
+          }
+        />
 
-        <div className="space-y-2" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-          {/* One label, no second dot. What this one said — restoring replaces
-              everything and logs everyone out — is said twice more already: once
-              in the heading's dot above, and once in red inside RestorePrompt,
-              which is the moment it applies and the only place it is certain to
-              be read. A card that explains the same consequence three times is
-              not being three times as careful. */}
-          <MonoLabel>{t('settings.backup.restore-from.label')}</MonoLabel>
+        {/* One label, no second dot. What this one said — restoring replaces
+            everything and logs everyone out — is said twice more already: once
+            in the heading's dot above, and once in red inside RestorePrompt,
+            which is the moment it applies and the only place it is certain to
+            be read. A card that explains the same consequence three times is
+            not being three times as careful. */}
+        <PrefRow label={t('settings.backup.restore-from.label')}>
+          <div className="space-y-2" style={{ flexBasis: '100%', minWidth: 0 }}>
           {/* One control, two sources. Choosing the source is the whole difference
               between what used to be two separate restore blocks. */}
           {/* The picker's own words are the onboarding twin's (shell.restore.*):
@@ -3778,7 +3967,8 @@ function BackupCard({ user, asking = false, onAsking }) {
               <div style={{ height: '100%', width: `${pct}%`, background: 'currentColor', transition: 'width .15s' }} />
             </div>
           )}
-        </div>
+          </div>
+        </PrefRow>
       </div>
       </PrefGroup>
 

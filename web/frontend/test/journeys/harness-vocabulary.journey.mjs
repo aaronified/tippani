@@ -100,12 +100,13 @@ it('reports a control that says nothing about itself as null, not as off', async
   await app.press('Hide the options')
   // The section rail's rows are tabs, and a tab announces itself the same way.
   expect(await app.chosen('Theme')).toBe(true)
-  // A one-shot verb is not a toggle and must not pretend to be one. Setting the
-  // quote faces opens a panel; it has no state to announce, and it lives on the
-  // next section along. (It was the Type door until that door was dissolved onto
-  // the section — the verb this case is about is unchanged, the door is not.)
+  // A one-shot verb is not a toggle and must not pretend to be one. Opening the
+  // language table is a verb with nowhere to be on or off, and it lives on the
+  // next section along. (It was the Type door, then the Quote fonts door; both
+  // have been dissolved onto the section, and the verb this case is about has
+  // moved with them. What it asserts about `chosen` is unchanged.)
   await app.press('Language and font')
-  expect(await app.chosen('Set fonts by language')).toBe(null)
+  expect(await app.chosen('Open the language table')).toBe(null)
 })
 
 // `choose` REFUSES AN OPTION THAT IS NOT OFFERED, rather than leaving the list on

@@ -13,7 +13,7 @@
 // asked. A list of type names set in one typeface answers nothing.
 import { Select } from './ui.jsx'
 import { t } from './i18n.js'
-import { uploadedFonts } from './fonts.js'
+import { nativeFaceName, uploadedFonts } from './fonts.js'
 
 // faceOptions — a face list as Select's [value, label, search] triples.
 //
@@ -23,13 +23,26 @@ import { uploadedFonts } from './fonts.js'
 // YOUR OWN FACES ARE OFFERED EVERYWHERE, because only you know what you uploaded
 // one for — the script check on the Type card is what tells you whether it suits
 // the place you put it.
-export function faceOptions(faces, uploads = uploadedFonts()) {
+// `script` IS WHAT THIS LIST IS BEING CHOSEN FOR, and a face that can draw it is
+// named in it. The owner's reason is the one thing a list of Latin names cannot
+// say: "if a font doesn't natively support a script, it is very hard to see what
+// it will show when chosen to render that script." So the row IS the answer —
+// নোটো সেরিফ বাংলা for a face with Bengali in it, the Latin name for one without.
+//
+// TYPING STILL FINDS THE LATIN NAME. The third element is what the filter
+// searches, and it carries both spellings: a reader who knows the face as "Noto"
+// must not have to type Bengali to reach it, and one reading the Bengali row must
+// be able to type what they see.
+export function faceOptions(faces, uploads = uploadedFonts(), script = '') {
   return [
-    ...faces.map((f) => [
-      f.id,
-      <span key={f.id} style={{ fontFamily: `'${f.family}'` }}>{t(f.name)}</span>,
-      t(f.name),
-    ]),
+    ...faces.map((f) => {
+      const native = nativeFaceName(f.id, script)
+      return [
+        f.id,
+        <span key={f.id} style={{ fontFamily: `'${f.family}'` }}>{native || t(f.name)}</span>,
+        native ? `${native} ${t(f.name)}` : t(f.name),
+      ]
+    }),
     ...uploads.map((f) => [
       f.token,
       <span key={f.token} style={{ fontFamily: `'${f.family}'` }}>{f.name}</span>,
@@ -47,8 +60,8 @@ export function faceOptions(faces, uploads = uploadedFonts()) {
 // they belong in the same list rather than behind a clear button beside it.
 // Passing no `inheritLabel` leaves the list as faces only, which is what a role
 // row wants: a role always has a face.
-export function FaceSelect({ faces, value, onChange, ariaLabel, inheritLabel = '', uploads, width = 228 }) {
-  const options = faceOptions(faces, uploads)
+export function FaceSelect({ faces, value, onChange, ariaLabel, inheritLabel = '', uploads, width = 228, script = '' }) {
+  const options = faceOptions(faces, uploads, script)
   if (inheritLabel) options.unshift(['', inheritLabel, inheritLabel])
   return (
     <Select

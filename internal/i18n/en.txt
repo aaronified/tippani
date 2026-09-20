@@ -1277,9 +1277,6 @@ settings.type.faces.title = Interface faces
 # --- Quote faces, one per language. The list is Metadata's language table; this
 # only says what each language's QUOTES are set in.
 settings.quote-faces.title = Quote fonts
-settings.quote-faces.row.title = Fonts by language
-settings.quote-faces.row.sub = A quote is set in the face you give its own language. Everything else follows the interface faces above.
-settings.quote-faces.row.open = Set fonts by language
 settings.quote-faces.intro.prose = Every language your library holds, and the face its quotes are set in. Each one is shown writing its own name, so a face that cannot draw the script says so where you pick it.
 settings.quote-faces.none = No languages yet — a quote carries the language you give it, and every one you have used appears here.
 settings.quote-faces.add.prose = Languages come from your quotes and from Metadata’s language table.
@@ -1295,8 +1292,10 @@ settings.type.style.aria = Style modifiers for {name}
 # WHOSE INTERFACE these faces are for. '' is the answer every UI language
 # inherits; a code is that language's own. Not "English" — the inherited answer
 # applies in every language, and English can overrule it like any other.
-settings.type.scope.title = These faces are for
-settings.type.scope.all = Every language
+# WHOSE FACES THESE ARE — said under the heading, not asked in a row. The chooser
+# that used to ask it sat under the card that picks the interface language, which
+# is the same question twice.
+settings.type.faces.sub = The faces {language} is set in. Switch language above to set another one’s.
 settings.type.scope.revert.aria = Follow every language for {name}
 settings.type.scope.revert.tip = Back to the shared answer
 settings.type.style.title = style
@@ -1384,6 +1383,10 @@ settings.quiz.skipped.count = {n} skipped
 settings.quiz.skipped.standalone = On its own
 settings.quiz.skipped.restore-work.label = Put {n} back
 settings.quiz.skipped.restore-one.aria = Put this one back in the deck
+settings.quiz.skipped.chosen = {n} chosen
+settings.quiz.skipped.clear.label = Clear
+settings.quiz.skipped.pick-work.aria = Choose everything skipped from {title}
+settings.quiz.skipped.pick-one.aria = Choose this skipped quote
 
 settings.quiz.start.title = New lines start at
 settings.quiz.start.info.body = Where a new line enters the schedule. Not seen asks it soon and often; Mastered starts it at the far end, for a library you already know — it still comes round, just rarely, and a wrong answer brings it back.
@@ -1396,9 +1399,14 @@ settings.quiz.tier.easy.label = Easy
 settings.quiz.tier.medium.label = Medium
 settings.quiz.tier.hard.label = Hard
 settings.quiz.tier.random.label = Random
-# Shown under the picker only on Easy. A tier that advertised only its benefit
-# would be selling you something.
-settings.quiz.tier.easy.note = Close wrong answers teach more than obvious ones — you remember why each is wrong, not just why one is right. Easy gives that up on purpose, to make the question answerable when nothing else is.
+# One line under the picker, for WHICHEVER tier is chosen — the owner's ask: a
+# toggle whose options are four adjectives says nothing about what any of them
+# does. Easy's line still carries the cost rather than only the benefit: a tier
+# that advertised one side of itself would be selling you something.
+settings.quiz.tier.easy.note = Two choices instead of four, kept far apart — the cost is the close wrong answers, which teach more than obvious ones.
+settings.quiz.tier.medium.note = Four choices with close ones among them, and typing only where a line is short enough to type back.
+settings.quiz.tier.hard.note = Leans on typing the words back, and where it cannot, offers four choices that are all plausible.
+settings.quiz.tier.random.note = A different tier on every card, so no one kind of question becomes the thing you are practising.
 settings.quiz.seen.title = Seeing lengthens half-life by
 settings.quiz.seen.label = Seeing lengthens half-life by
 settings.quiz.seen.info.body = “Seeing” a quote — practising it, sharing it, favouriting it, or meeting it among the choices on a card you answered — nudges its half-life up a little, separate from Daily Quiz recall. Leave at 1.0× to turn this off.
@@ -5557,6 +5565,7 @@ settings.backup.passphrase.label = Passphrase · {min}–{max} characters
 settings.backup.passphrase.prose = Not tied to any account — and not recoverable. Lose it and the archive is lost.
 settings.backup.use-passphrase.label = Set a separate passphrase instead
 settings.backup.use-password.label = Use my account password instead
+settings.backup.make.label = Make a backup
 settings.backup.now.label = Back up now
 settings.backup.now.busy = Backing up…
 settings.backup.download.label = Download the last one

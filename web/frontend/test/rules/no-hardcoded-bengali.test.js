@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { SRC, sourcesUnder } from '../src-files.js'
+import { FACE_NAME_IN } from '../../src/fonts.js'
 
 // NO BENGALI IN THE SOURCE THAT ISN'T DATA, for the same reason there is no
 // English: copy belongs in internal/i18n/*.txt where a translator — or an
@@ -31,6 +32,15 @@ import { SRC, sourcesUnder } from '../src-files.js'
 //   language rather than copy addressed to a reader, which is the line this whole
 //   file draws.
 //
+//   a face's own name in a script it can draw — নোটো সেরিফ বাংলা is what that
+//   typeface is CALLED in Bengali, and it is the same string on an English screen
+//   as on a Bengali one: the list draws it so a reader can see, before choosing,
+//   whether the face has the script in it at all. A locale key would be one copy
+//   per locale of a string that must never differ between them. The allowance is
+//   not "Bengali in fonts.js" — it is exactly the values of FACE_NAME_IN, read
+//   from the module itself, so a fourth name added by hand somewhere else in that
+//   file is still a finding.
+//
 //   and a language's own letter — ৰ, which Assamese writes where Bengali writes র.
 //   It is the same kind of string as an autonym for the same reason: it is a fact
 //   about a writing system, not a sentence addressed to a reader, and there is no
@@ -45,10 +55,15 @@ import { SRC, sourcesUnder } from '../src-files.js'
 // Anything else is a finding. Add a locale key instead; if the string turns out
 // to be dead, delete it — an orphan key fails the build, which is the lesson
 // CATEGORY_OPTIONS taught.
+// Every native face name the module publishes, whatever script it is in: the
+// allowance is the data, not a pattern that happens to match it today.
+const FACE_NAMES = new Set(Object.values(FACE_NAME_IN).flatMap((byScript) => Object.values(byScript)))
+
 const ALLOWED = [
   { what: 'the wordmark', re: /^টিপ্পনী$/ },
   { what: 'the font probe', re: /^[ঀ-৿]{5,}$/, files: ['fonts.js'] },
   { what: 'an autonym or a language’s own letter', re: /^[ঀ-৿]+$/, files: ['iso639.js'] },
+  { what: 'a face’s own name in the script it draws', set: FACE_NAMES, files: ['fonts.js'] },
 ]
 
 const BENGALI = /[ঀ-৿]/
@@ -119,7 +134,7 @@ describe('no hardcoded Bengali', () => {
         const run = raw.trim()
         if (!run) continue
         const ok = ALLOWED.some(
-          (a) => a.re.test(run) && (!a.files || a.files.includes(file)),
+          (a) => (a.set ? a.set.has(run) : a.re.test(run)) && (!a.files || a.files.includes(file)),
         )
         if (!ok) findings.push(`${file}: ${run}`)
       }

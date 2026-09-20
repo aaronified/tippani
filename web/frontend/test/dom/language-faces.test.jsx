@@ -49,12 +49,11 @@ beforeEach(() => {
   forgetSessionCaches()
 })
 
-// The Quote fonts panel, open, with its rows arrived.
+// QUOTE FONTS IS A GROUP ON THE SECTION NOW, not a panel behind a button — so
+// what this returns is the card, found by the heading it wears.
 const quoteFaces = async (preferences = {}) => {
   await page(preferences)
-  fireEvent.click(screen.getByRole('button', { name: t('settings.quote-faces.row.open') }))
-  const panel = await screen.findByRole('dialog')
-  return panel
+  return (await screen.findByRole('region', { name: new RegExp(t('settings.quote-faces.title'), 'i') }))
 }
 const faceFor = async (panel, name) =>
   within(panel).findByRole('button', { name: new RegExp(`Typeface for quotes in ${name}`, 'i') })
@@ -89,7 +88,7 @@ describe('the faces the interface is set in', () => {
   it('changes a face where the face is shown, with nothing opened first', async () => {
     await page()
     const role = FONT_ROLES[0]
-    const row = screen.getByText(t(role.sample)).closest('.pref-row')
+    const row = screen.getAllByText(t(role.sample))[0].closest('.pref-row')
     const picker = within(row).getByRole('button', { name: t('settings.type.face.aria', { name: t(role.label) }) })
     fireEvent.click(picker)
     // The second face on the row: the first is what it is already set to, so
@@ -102,8 +101,28 @@ describe('the faces the interface is set in', () => {
     // the patch's own first key — which is what this line did, and a comparison
     // of a value with itself is a test that passes whatever the app sends. It
     // survived review because the branch it actually took was the real one.
-    const field = 'font' + role.key[0].toUpperCase() + role.key.slice(1)
-    expect(Object.keys(saved[2]), `the patch does not name ${field}`).toContain(field)
+    // THE LANGUAGE YOU ARE READING IN IS THE SCOPE, so the patch is that
+    // language's overlay rather than the flat field. The chooser that used to say
+    // so is gone — the owner's ask, because the language is picked in the card
+    // above — and what replaced it is this: the faces on screen are the faces of
+    // the interface you are actually looking at.
+    const patch = saved[2]
+    expect(Object.keys(patch), 'the patch should be the locale overlay').toContain('fontsByLocale')
+    // THE ROLE THE ROW OWNS, derived from the row rather than read back off the
+    // patch's own first key — a comparison of a value with itself is a test that
+    // passes whatever the app sends.
+    expect(Object.keys(JSON.parse(patch.fontsByLocale).en || {}), `the overlay does not name ${role.key}`)
+      .toContain(role.key)
+  })
+
+  // WHOSE FACES THESE ARE, SAID RATHER THAN ASKED. The row that asked it was a
+  // language picker under a language picker; what is left is the fact, as
+  // subtext, so a reader still knows the answer applies to English and not to
+  // every language at once.
+  it('says which language they are for, and offers no chooser for it', async () => {
+    await page()
+    expect(screen.queryByText(t('settings.type.scope.title')), 'the scope chooser is back').toBeNull()
+    expect(screen.getByText(t('settings.type.faces.sub', { language: 'English' }))).toBeTruthy()
   })
 })
 
@@ -112,12 +131,17 @@ describe('what a quote is set in', () => {
   // It is a question about a LANGUAGE, and the two script rows — Bengali,
   // Devanagari — were the first attempt at it: one face per script cannot tell
   // German from Swedish.
-  it('is a language at a time, behind the row that says so', async () => {
+  // AND IT IS ON THE SECTION, NOT BEHIND A BUTTON. The owner's ask: "why is there
+  // still a quotes typeface chooser? That should have been folded into fonts by
+  // language." The panel existed because Settings was one long column; it is five
+  // screens of cards now, and this is one of the cards.
+  it('is a language at a time, on the screen rather than behind a door', async () => {
     await page()
-    expect(screen.queryByRole('dialog')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: t('settings.quote-faces.row.open') }))
-    const panel = await screen.findByRole('dialog')
-    expect(panel.getAttribute('aria-label')).toBe(t('settings.quote-faces.title'))
+    expect(screen.queryByRole('dialog'), 'quote fonts still opens a panel').toBeNull()
+    expect(screen.queryByRole('button', { name: t('settings.quote-faces.row.open') }),
+      'the door to the panel is still drawn').toBeNull()
+    const card = await screen.findByRole('region', { name: new RegExp(t('settings.quote-faces.title'), 'i') })
+    expect(await faceFor(card, 'Bengali'), 'the language rows are not on the card').toBeTruthy()
   })
 
   it('offers the door to where languages are actually added', async () => {
@@ -127,9 +151,8 @@ describe('what a quote is set in', () => {
     const go = vi.fn()
     render(<Settings user={{ username: 'a', is_admin: false, preferences: {} }} onPreferences={() => {}} update={null} onUpdateInfo={() => {}} onGo={go} />)
     await openSettingsSection('Language and font')
-    fireEvent.click(screen.getByRole('button', { name: t('settings.quote-faces.row.open') }))
-    const panel = await screen.findByRole('dialog')
-    fireEvent.click(within(panel).getByRole('button', { name: t('settings.quote-faces.add.open') }))
+    const card = await screen.findByRole('region', { name: new RegExp(t('settings.quote-faces.title'), 'i') })
+    fireEvent.click(within(card).getByRole('button', { name: t('settings.quote-faces.add.open') }))
     // THE SECTION AND NOT THE SCREEN: Metadata is eight consoles, and a reader
     // sent to add a language has been given a direction rather than a door.
     expect(go).toHaveBeenCalledWith('metadata', 'languages')
@@ -187,6 +210,33 @@ describe('a language\'s own quote face', () => {
     fireEvent.click(await faceFor(panel, 'Bengali'))
     fireEvent.click(screen.getAllByRole('option').find((o) => o.textContent === 'Literata'))
     await waitFor(() => expect(JSON.parse(written().fontsByLanguage)).toEqual({ bengali: 'literata' }))
+  })
+
+  // THE OWNER'S ASK, AND THE REASON IS THE ONE THING A LATIN LIST CANNOT SAY:
+  // "if a font doesn't natively support a script, it is very hard to see what it
+  // will show when chosen to render that script." So a face that can write the
+  // language wears its own name in that language's script, and one that cannot
+  // keeps its Latin name — which is the difference, on the row, between a face
+  // that will draw your quotes and one that will hand them to a fallback.
+  it('names a face in the script it is being chosen for, and only where it can write it', async () => {
+    VOCAB = ['Bengali', 'English']
+    const card = await quoteFaces()
+    fireEvent.click(await faceFor(card, 'Bengali'))
+    const bengali = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(bengali, 'a Bengali face is not named in Bengali').toContain('নোটো সেরিফ বাংলা')
+    // AND THE LATIN-ONLY ONE IS NOT DRESSED UP. Literata has no Bengali in it, so
+    // it stays Literata — a transliterated name on a face that draws boxes would
+    // be the exact confusion this rule exists to remove.
+    expect(bengali, 'a Latin-only face was given a Bengali name').toContain('Literata')
+    expect(bengali).not.toContain('Noto Serif Bengali')
+    // The same list, chosen for English: every name back in Latin, because the
+    // script being chosen for is what decides and nothing else.
+    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.click(await faceFor(card, 'English'))
+    const english = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(english, 'the Bengali name followed a language that is not in that script')
+      .toContain('Noto Serif Bengali')
+    expect(english).not.toContain('নোটো সেরিফ বাংলা')
   })
 
   // Following the interface face is a real answer a reader has to be able to

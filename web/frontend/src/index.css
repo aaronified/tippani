@@ -10341,6 +10341,35 @@ html[data-theme="dark"] .board-cover {
   font-family: var(--font-display); font-size: var(--type-display-15); line-height: 1.5;
 }
 
+/* THE BAR ABOVE THE LIST. It holds the total at rest and grows the selection's
+   verbs when something is ticked, rather than sliding a second bar in: a row
+   that appears under the reader's finger moves the list they were aiming at. */
+.skipped-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* A WORK'S ROW: tick, artwork, the title that opens it, the people under it. */
+.skipped-work { display: flex; align-items: flex-start; gap: var(--edge, 12px); padding: 6px 0; }
+.skipped-work-said { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.skipped-work-open {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: max(44px, 2.8em); padding: 0; border: 0; background: none;
+  cursor: pointer; text-align: start; color: inherit;
+}
+/* IT WRAPS RATHER THAN CLIPPING. The standing rule: a shortened name and a short
+   name look alike, and this row exists so a reader recognises their own book. */
+.skipped-work-title {
+  flex: 1; min-width: 0; text-wrap: pretty;
+  font-family: var(--font-display); font-size: var(--type-display-15); font-weight: 600; color: var(--ink);
+}
+.skipped-work-count {
+  flex: none; white-space: nowrap; color: var(--faint);
+  font-family: var(--font-mono); font-size: var(--type-mono-11); letter-spacing: .09em; text-transform: uppercase;
+}
+.skipped-work-chev { flex: none; display: inline-flex; color: var(--faint); }
+/* IT SCROLLS UNDER THE FADE, which is what makes `Scroller` legal here: a row of
+   chips as wide as a work's cast cannot wrap without moving every row under it. */
+.skipped-work-people { display: flex; gap: 6px; min-width: 0; overflow-x: auto; overscroll-behavior: contain; }
+.skipped-work-foot { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; }
+
 /* THE SIZE, DRAWN AT THE SIZE. Three works beside the slider, scaling with it —
    cover, title and credit line together, because the part a number cannot tell you
    is what the TYPE does when the cover shrinks. It wraps rather than scrolling: past
