@@ -119,6 +119,18 @@ describe('the cover specimen', () => {
     await waitFor(() => expect(cellsIn()).toBe(1))
   })
 
+  // THE CASE THAT MAKES THE GAP READ LOAD-BEARING. Without one, mutating the
+  // component's `getComputedStyle(el).columnGap` to a flat 0 left every case in
+  // this file green — the fix was untested by the suite that was written for it.
+  // Two 165px cells cost 344 with the 14px gap and 330 without, so a 335px column
+  // holds one if the gap was read and two if it was not.
+  it('counts the gap it reads off the element, not one it assumed', async () => {
+    ROOM = 335
+    await openSections()
+    await waitFor(() => expect(document.querySelector('.cover-specimen')).toBeTruthy())
+    await waitFor(() => expect(cellsIn()).toBe(1))
+  })
+
   // AND IT ASKS AGAIN WHEN THE BOX CHANGES. The observer is the half a one-shot
   // measurement would miss — a rotation, a column appearing, the panel resizing.
   it('re-counts when its box changes size', async () => {

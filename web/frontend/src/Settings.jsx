@@ -2937,9 +2937,15 @@ function FeaturesCard({ prefs, onSaved }) {
           used to explain all that is gone: the aside is the fact, and a dot
           repeating it is the repetition this sweep is about.
 
-          WIDE, BOTH OF THEM. A specimen is three covers at up to 240px each, so
-          half a card cannot hold one; `wide` is the group's own say about that,
-          and it is exactly the case PrefColumns documents. */}
+          NEITHER IS WIDE, AND THE ORDER LIST ABOVE IS — which is the pack's own
+          rule and the opposite of what this comment said for one commit. It
+          spans the first group on this screen and pairs the tuners beneath it
+          (settings-restructured.dc.html:3311): "The list of sections is a list of
+          rows with controls at their ends: it reads across the whole measure, and
+          the tuners pair beneath it." The earlier reasoning — that a sample is
+          three covers at 240px so half a card cannot hold one — assumed the count
+          was fixed at three. It is not: the sample sizes itself to whatever column
+          it is given, which is what makes pairing them possible at all. */}
       <PrefGroup index={2} title={t('settings.features.covers.title')} aside={t('settings.features.sizes.aside')}>
         <SizeSlider ariaLabel={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} kind="book" works={shelf.book} />
       </PrefGroup>
@@ -3731,10 +3737,23 @@ function SizeSlider({ ariaLabel, storageKey, def, kind, works }) {
   return (
     <div>
       <div className="flex items-center gap-3" style={{ minHeight: 36 }}>
+        {/* THE PACK'S STEP, ON A FLOOR THAT MAKES IT REACHABLE. Its rows say
+            `min: 96, max: 240, step: 5` and then compare against defaults of 165
+            and 150 — but HTML steps from the MINIMUM, and 165 − 96 = 69 and
+            150 − 96 = 54 are not multiples of 5, so on the pack's own ladder
+            neither of the pack's own defaults can be selected. A browser snaps an
+            out-of-step value, so copying it exactly would have moved every stored
+            size and made the default unreachable.
+
+            A floor of 95 fixes it rather than dropping the step: 95, 100 … 150,
+            165 … 240 all land, the phone's own 100 lands, and the cost is one
+            pixel on a minimum nobody can perceive. That is a smaller departure
+            from the pack than losing the coarse drag it asked for. */}
         <input
           type="range"
-          min={96}
+          min={95}
           max={240}
+          step={5}
           value={size}
           aria-label={ariaLabel}
           onChange={(e) => setSize(Number(e.target.value))}

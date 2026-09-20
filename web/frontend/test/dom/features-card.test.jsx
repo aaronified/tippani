@@ -257,4 +257,33 @@ describe('the Features card', () => {
     fireEvent.click(named2('Library'))
     expect(prefsPuts().at(-1)[1]).toEqual({ hideLibrary: false })
   })
+
+  // WHICH GROUP SPANS THE CARD, which is a layout fact nothing else can hold.
+  //
+  // DECLARED EXCEPTION: this case reads a CLASS, `is-wide`. The rule here is that
+  // a test knows what a person can see, and the honest position is that this one
+  // cannot — a reader sees a wide group and a narrow one, and neither jsdom nor
+  // the accessibility tree has a width. The behaviour is real and expensive to get
+  // wrong: the pack spans the ORDER list across both columns and pairs the two
+  // size groups beneath it (settings-restructured.dc.html:3311, "it reads across
+  // the whole measure, and the tuners pair beneath it"), and this screen shipped
+  // with that rule applied to the wrong groups — measured at 1280, roughly
+  // 480x344 of the card's right half stood empty and the page ran 321px longer.
+  // A browser journey cannot see it either: the sample's column is half the card
+  // whichever group spans, so the count it draws is the same both ways
+  // (mutation-checked in putting-a-section-first.journey.mjs). So the class is the
+  // only thing left that changes, and a test that reads it is better than the
+  // silence that let the inversion ship.
+  it('spans the order list and pairs the two size groups beneath it', async () => {
+    await page()
+    const group = (name) => document.querySelector(`.pref-group[aria-label="${name}"]`)
+    const order = group('Show me, in this order')
+    expect(order, 'the order group is not on the screen at all').toBeTruthy()
+    expect(order.classList.contains('is-wide'), 'the order list no longer spans the card').toBe(true)
+    for (const name of ['Library covers', 'Catalogue posters']) {
+      const g = group(name)
+      expect(g, `${name} is not on the screen at all`).toBeTruthy()
+      expect(g.classList.contains('is-wide'), `${name} spans the card, so the two tuners cannot pair`).toBe(false)
+    }
+  })
 })

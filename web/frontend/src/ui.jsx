@@ -3849,7 +3849,11 @@ export function Hearts({ value, onChange }) {
 // useCoverSize persists a grid cell min-width (px) in localStorage per screen.
 // On mobile the default shrinks to 100px so covers aren't oversized
 // on a narrow viewport. Any previously-saved preference always wins.
-export function useCoverSize(key, def = 150, min = 96, max = 240) {
+// THE FLOOR IS 95 AND NOT 96, which looks arbitrary and is not: the size sliders
+// carry the pack's `step: 5`, and HTML steps from the minimum, so a floor of 96
+// would put 150 and 165 — the app's own two defaults — between rungs. 95 lands
+// every value this app uses on the ladder. See SizeSlider in Settings.jsx.
+export function useCoverSize(key, def = 150, min = 95, max = 240) {
   const [size, setSize] = useState(() => {
     const v = Number(
       typeof localStorage !== "undefined" && localStorage.getItem(key),

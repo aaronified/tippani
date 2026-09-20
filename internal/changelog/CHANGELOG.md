@@ -118,6 +118,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The cover and poster sliders move in steps of five.** Dragging one used to creep a
+  pixel at a time over a range of a hundred and fifty; it now moves in fives, which is what
+  the design called for and what makes the two ends reachable without a long drag.
+
 - **The cover and poster samples fit the screen they are on.** The size sliders under
   Sections drew three samples always, at whatever size you had set — so on a phone the
   third dropped onto a second line and the sample's shape changed as you dragged the one

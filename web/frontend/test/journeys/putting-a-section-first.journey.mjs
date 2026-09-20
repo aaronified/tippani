@@ -49,3 +49,26 @@ it('a reader moves the Catalogue above the Library, and the rail follows', async
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
+
+// AND THE SAMPLE FITS ITS COLUMN ON A DESK TOO. It draws as many covers as the
+// column holds, and on a desk the column is half the card — which takes two 165px
+// covers and not three.
+//
+// WHAT IT DOES NOT GUARD, stated because the first draft of this comment claimed
+// it did. It looked as though a third book appearing here would also catch the
+// spanning coming off the order group, since that was the shape that gave the
+// size groups the whole width. It does not: with the size groups no longer marked
+// wide, the sample's column is half the card whether the order list spans or not,
+// so removing the spanning leaves this passing. Mutation-checked, both ways —
+// only the first of the two below fails it. The layout itself is guarded in
+// `test/dom/features-card.test.jsx`, which can see which group carries the span.
+//
+// THE MUTATION: restore `works.slice(0, 3)` and this fails on the third book.
+it('a reader at a desk sees a sample that fits its half of the card', async () => {
+  await app.goto('/settings')
+  await app.press('Sections')
+  await app.see('Almanac Ember')
+  await app.see('Marram Ke')
+  await app.gone('Reed Reed Reed')
+  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})
