@@ -1411,7 +1411,7 @@ settings.features.locked.prose = The last section has to stay — turn another o
 settings.features.show.label = Show
 settings.features.hide.label = Hide
 
-settings.features.order.title = In this order
+settings.features.order.title = Show me, in this order
 settings.features.order.prose = The order here is the rail, the drawer and what ＋ offers. The top one is where the app opens.
 settings.features.order.up.aria = Move {name} up
 settings.features.order.down.aria = Move {name} down
@@ -1453,8 +1453,9 @@ settings.appearance.colours.dark.title = The dark ground
 settings.appearance.colours.accent.title = The accent
 settings.appearance.colours.hide.aria = Hide the options
 settings.group.access.title = Accessibility
-settings.features.sizes.title = How big they are drawn
-settings.features.sizes.info.body = Kept in this browser rather than on your account, because a phone and a desk want different sizes.
+settings.features.covers.title = Library covers
+settings.features.posters.title = Catalogue posters
+settings.features.sizes.aside = this device
 
 settings.appearance.ground.info.body = What the app sits on, in three shades at once: the desk, the furniture holding the controls, and the page a quote is written on. Light and dark are chosen separately, so this row follows the one you can see.
 settings.appearance.phys.title = What the materials do with light

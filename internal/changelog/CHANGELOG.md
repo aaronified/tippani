@@ -118,6 +118,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The cover and poster samples fit the screen they are on.** The size sliders under
+  Sections drew three samples always, at whatever size you had set — so on a phone the
+  third dropped onto a second line and the sample's shape changed as you dragged the one
+  control whose job is showing you a shape. It now draws as many as the room holds: three
+  on a desk, one or two on a phone depending on how big you have made them.
+
+- **Sections reads as three groups, like the rest of Settings.** "Show me, in this order",
+  then "Library covers" and "Catalogue posters", each saying "this device" — because those
+  two sizes live in this browser and not on your account. The two sliders had been sitting
+  under one heading in the last part of Settings that never became rows.
+
 - **"New lines start at" now does something.** Set it to Mastered and a line you have
   never been asked about enters the schedule at the far end, as the row has always said it
   would — for a library you already know. It was a control the app stored and then ignored:

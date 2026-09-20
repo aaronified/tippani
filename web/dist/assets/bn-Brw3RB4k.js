@@ -1405,7 +1405,7 @@ settings.features.locked.prose = শেষ বিভাগটা থাকতে
 settings.features.show.label = দেখান
 settings.features.hide.label = লুকান
 
-settings.features.order.title = এই ক্রমে
+settings.features.order.title = আমাকে দেখাও, এই ক্রমে
 settings.features.order.prose = এখানকার ক্রমই রেল, ড্রয়ার আর ＋ যা দেখায়। সবার উপরেরটিতেই অ্যাপ খোলে।
 settings.features.order.up.aria = {name} উপরে নিন
 settings.features.order.down.aria = {name} নিচে নিন
@@ -1447,8 +1447,9 @@ settings.appearance.colours.dark.title = রাতের জমি
 settings.appearance.colours.accent.title = বাঁধাইয়ের রং
 settings.appearance.colours.hide.aria = বিকল্পগুলো লুকোন
 settings.group.access.title = অভিগম্যতা
-settings.features.sizes.title = কত বড় আঁকা হয়
-settings.features.sizes.info.body = আপনার অ্যাকাউন্টে নয়, এই ব্রাউজারেই রাখা — ফোন আর ডেস্কে আলাদা মাপ লাগে।
+settings.features.covers.title = বইয়ের প্রচ্ছদ
+settings.features.posters.title = ক্যাটালগের পোস্টার
+settings.features.sizes.aside = এই ডিভাইসে
 
 settings.appearance.ground.info.body = অ্যাপ যার উপর বসে, একসঙ্গে তিন স্তরে: ডেস্ক, নিয়ন্ত্রণ ধরে রাখা আসবাব, আর যে পাতায় উদ্ধৃতি লেখা। আলো ও আঁধার আলাদা বাছা হয়, তাই আপনি যেটি দেখছেন এই সারি সেটিই অনুসরণ করে।
 settings.appearance.phys.title = উপকরণ আলো নিয়ে যা করে

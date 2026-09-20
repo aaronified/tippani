@@ -102,7 +102,10 @@ describe('the Features card', () => {
     // was the card's title — and that title was a second heading under a rail that
     // had just said "Sections", so it went. What proves this card is on the screen
     // is the one heading that is ITS and not the section's.
-    expect(screen.getByText('In this order')).toBeTruthy()
+    // The pack's words — "Show me, in this order" (settings-restructured.dc.html
+    // :2725), where this read "In this order", taken when the two size sliders
+    // below were given the pack's own two groups.
+    expect(screen.getByText(/Show me, in this order/)).toBeTruthy()
   })
 
   // SECTIONS[].what IS A KEY and this card rendered it raw, so the three lines of

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
+import { coversThatFit } from './coverFit.js'
 import { ACCENTS, GROUNDS, PHYS, paletteFor, parseTweaks, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
 import { QUOTE_LEADING_DEFAULT, QUOTE_LEADINGS, QUOTE_MEASURE_DEFAULT, QUOTE_MEASURES, SIZE_ROLES, TYPE_FACTORS, applyTypeScale, clampLeading, clampMeasure, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
@@ -2851,7 +2852,8 @@ function FeaturesCard({ prefs, onSaved }) {
           AND THIS ORDER IS THE RAIL, THE DRAWER AND THE + MENU, because all four
           read routes.js through one `visibleTabs`, which orders as well as
           filters. */}
-      <PrefGroup title={t('settings.features.order.title')} info={t('settings.features.order.prose')}>
+      <PrefColumns>
+      <PrefGroup index={1} title={t('settings.features.order.title')} info={t('settings.features.order.prose')}>
         {order.map((tab, i) => {
           const sec = SECTIONS.find((x) => x.tab === tab)
           if (!sec) return null
@@ -2900,27 +2902,39 @@ function FeaturesCard({ prefs, onSaved }) {
           )
         })}
       </PrefGroup>
-      {/* HOW BIG THE THINGS IN THOSE SECTIONS ARE DRAWN. The two sliders sat at
-          the foot of the theme section among the accent and the text size — "cover,
-          poster height should be in sections" — and the pack puts its own pair
-          under Sections too (settings-restructured.dc.html:2731-2739), in groups
-          named for the shelf each one sizes.
+      {/* HOW BIG THE THINGS IN THOSE SECTIONS ARE DRAWN — one group per shelf, as
+          the pack draws it (settings-restructured.dc.html:2729 and :2734). The two
+          sliders sat at the foot of the theme section among the accent and the
+          text size — "cover, poster height should be in sections" — and moving
+          them here was only half the job: they arrived as a hand-rolled block with
+          a rule above it, a MonoLabel, an info dot and both sliders side by side,
+          which is the one part of this screen that never became rows.
 
-          THEY ARE DEVICE-LOCAL, which is why they carry a note rather than a
-          changed mark: a phone and a desk want different cover sizes, so these
-          live in this browser's storage and never in the account. That also keeps
-          them out of the section's changed count, which counts preferences the
-          server holds. */}
-      <div className="mt-7" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-        <div className="mb-2 flex items-center gap-1.5">
-          <MonoLabel>{t('settings.features.sizes.title')}</MonoLabel>
-          <InfoDot text={t('settings.features.sizes.info.body')} />
-        </div>
-        <div className="flex flex-wrap gap-x-10 gap-y-5">
-          <SizeSlider label={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} kind="book" works={shelf.book} />
-          <SizeSlider label={t('settings.appearance.film-size.label')} storageKey="tippani:size:movies" def={150} kind="poster" works={shelf.poster} />
-        </div>
-      </div>
+          A GROUP EACH, BECAUSE THE GROUP TITLE IS THE LABEL. The pack gives each
+          slider `label: ''` and names the shelf in the heading above it, so
+          "Library covers" is said once instead of once as a heading and again as
+          "Library cover size" on the row under it. That is also why `SizeSlider`
+          no longer draws a label of its own — it keeps the words only as the
+          range's accessible name, which a heading cannot supply.
+
+          THEY ARE DEVICE-LOCAL, and the pack says so in an aside rather than an
+          info dot: "this device", at the far end of each heading. A phone and a
+          desk want different cover sizes, so these live in this browser's storage
+          and never in the account — which is also why they carry no changed mark,
+          the section's count being of preferences the server holds. The dot that
+          used to explain all that is gone: the aside is the fact, and a dot
+          repeating it is the repetition this sweep is about.
+
+          WIDE, BOTH OF THEM. A specimen is three covers at up to 240px each, so
+          half a card cannot hold one; `wide` is the group's own say about that,
+          and it is exactly the case PrefColumns documents. */}
+      <PrefGroup index={2} title={t('settings.features.covers.title')} aside={t('settings.features.sizes.aside')} wide>
+        <SizeSlider ariaLabel={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} kind="book" works={shelf.book} />
+      </PrefGroup>
+      <PrefGroup index={3} title={t('settings.features.posters.title')} aside={t('settings.features.sizes.aside')} wide>
+        <SizeSlider ariaLabel={t('settings.appearance.film-size.label')} storageKey="tippani:size:movies" def={150} kind="poster" works={shelf.poster} />
+      </PrefGroup>
+      </PrefColumns>
     </Card>
   )
 }
@@ -3624,13 +3638,47 @@ function BackupCard({ user, asking = false, onAsking }) {
 // 240px it does not. The ratios are the pack's: 1.52 for a book, 1.5 for a poster.
 function CoverSpecimen({ size, kind, works }) {
   const ratio = kind === 'poster' ? 1.5 : 1.52
-  // AS MANY AS FIT, NEVER A SCROLL — the pack's own note. Past the room this column
-  // has, a work leaves the specimen rather than the row sliding sideways: the size
-  // is the thing being judged and a half-cut cover judges nothing.
-  const cells = works.slice(0, 3)
-  if (cells.length === 0) return null
+  // AS MANY AS FIT, NEVER A SCROLL — the pack's own note, and for a while this was
+  // the note rather than the code. It took `works.slice(0, 3)` directly underneath
+  // it: three cells always, at up to 240px each, whatever the room. The owner
+  // reported it from their own phone — "we have 3 posters for the poster size
+  // panel, when no mobile screen can hold three at the lowest size even" — and the
+  // reason nothing here showed it is that `.cover-specimen` wraps, so the third
+  // cover does not overflow, it drops to a second line. That is not the failure
+  // the comment promised to avoid, and it is not what the pack draws either: a row
+  // of three at 96px that becomes two-and-one at 165px is a specimen whose SHAPE
+  // changes as you drag, on the one control whose whole job is showing you a shape.
+  //
+  // MEASURED, NOT GUESSED. The element reports its own width and the stylesheet's
+  // own gap, so this asks the same question the browser just answered rather than
+  // hard-coding a breakpoint that a card, a column or a font change would falsify.
+  // Before the first measurement it draws one — the honest floor, since one cover
+  // fits any width this app supports, and a first paint of three that immediately
+  // becomes one is the flicker the measurement exists to avoid.
+  // A CALLBACK REF, NOT A REF PLUS AN EFFECT, and the difference was a real defect
+  // this screen's own measurement caught. The shelf arrives from the network, so
+  // the FIRST render has no works and returns null — at which point a `useEffect`
+  // with an empty dependency list has already run, found `ref.current` null, and
+  // attached nothing. The works land, the element mounts, and the effect never
+  // runs again: the measured room stays 0 for ever and the specimen draws one
+  // cover on a 954px desk. A callback ref fires when the node itself appears,
+  // which is the question being asked.
+  const [room, setRoom] = useState(0)
+  const seen = useRef(null)
+  const box = useCallback((el) => {
+    if (seen.current) { seen.current.disconnect(); seen.current = null }
+    if (!el) return
+    setRoom(el.getBoundingClientRect().width)
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => setRoom(el.getBoundingClientRect().width))
+    ro.observe(el)
+    seen.current = ro
+  }, [])
+  const gap = 14 // .cover-specimen's own gap; see index.css
+  const cells = works.slice(0, coversThatFit(room, size, gap, 3))
+  if (works.length === 0) return null
   return (
-    <div className="cover-specimen" aria-hidden="true">
+    <div className="cover-specimen" ref={box} aria-hidden="true">
       {cells.map((w, i) => (
         <span key={w.id ?? i} className="cover-specimen-cell" style={{ width: size }}>
           {w.cover ? (
@@ -3652,18 +3700,23 @@ function CoverSpecimen({ size, kind, works }) {
   )
 }
 
-function SizeSlider({ label, storageKey, def, kind, works }) {
+// NO LABEL OF ITS OWN — the group heading above it names the shelf, which is how
+// the pack draws it (`label: ''` on both slider rows, the shelf named in the
+// group title). This drew a MonoLabel reading "Library cover size" under a
+// heading reading "Library covers", which is one fact twice. The words stay as
+// the range's ACCESSIBLE name, because a heading is not one: a screen reader
+// moving control to control would otherwise meet two unnamed sliders.
+function SizeSlider({ ariaLabel, storageKey, def, kind, works }) {
   const [size, setSize] = useCoverSize(storageKey, def)
   return (
     <div>
-      <MonoLabel className="mb-2 block">{label}</MonoLabel>
       <div className="flex items-center gap-3" style={{ minHeight: 36 }}>
         <input
           type="range"
           min={96}
           max={240}
           value={size}
-          aria-label={label}
+          aria-label={ariaLabel}
           onChange={(e) => setSize(Number(e.target.value))}
           style={{ width: 190, accentColor: 'var(--accent-ui)', cursor: 'pointer' }}
         />

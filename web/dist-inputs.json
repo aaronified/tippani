@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "100402a1f64edc938a7434bd64fab4f51a731f2aac9638642f2a7ae326c9686d",
-    "internal/i18n/en.txt": "12ac67cb6a15c2c6db9d047dd2986e31fed8425e40e2d662585ade4c75e9380f",
+    "internal/i18n/bn.txt": "1a589f91513cddc5c5adac75f040a9898876d15448556dc0b590647e1a00d659",
+    "internal/i18n/en.txt": "b3177ba472ed6b4660f091428cbaf13dbf75d393ecf1ef60bba768cf8b0252ba",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -42,7 +42,7 @@
     "web/frontend/src/ReverifyReview.jsx": "d1971b7b7f3e44925a03b961b8b788d7e9499f1b736f5ad78fce91e9b451d167",
     "web/frontend/src/SearchPage.jsx": "a6393e085e6a11e8aff3734f3a18d8a1c93fffc275dba3da6e81970ac2ab40ae",
     "web/frontend/src/SelectionBar.jsx": "2d7c4821a89a557cebcc969f722cc86cf44dad5e0dbc8d79a15dfb62df90b913",
-    "web/frontend/src/Settings.jsx": "07ff707b77c7ec7b8fc64f74d818abc31910e9fadf1e3298cac2ab861dc5dfd7",
+    "web/frontend/src/Settings.jsx": "e08d852a946c68073d8681567963b6dfdd6e42a92dea41a33e6a4d33fddfc872",
     "web/frontend/src/StagingPage.jsx": "df61407fb08f0796edbc195a080a1772a3731723bf02b60b503f6bf5e95fec2d",
     "web/frontend/src/StatsPage.jsx": "ec749ff8a96783ce0183ea17f9727d00cbaa964a5d3c5d849617f649f9e9002e",
     "web/frontend/src/TagsPage.jsx": "c9f794eeec2e5c3f4e200b7ee31f9a74694ccddc14eaadadf78dcc2890c07d8d",
@@ -62,6 +62,7 @@
     "web/frontend/src/bulkOps.jsx": "ae337bb3f896aedd8c89fbca62a30a24478ea5d929ec91414ed3f74f89183861",
     "web/frontend/src/cast.jsx": "05ae263e960e9d925fa601ad7be4442377025ea5b0c94ce82536d81cc38e6cea",
     "web/frontend/src/characterRows.jsx": "68d5fbd2e0bca67cd26746940d663e65e9ce180fcddba58dc66e8270c54bbf3c",
+    "web/frontend/src/coverFit.js": "86d51bdd7969fab2f8e41f82bc60f09cec3a703d5c67ec5eb9ba3616935b2558",
     "web/frontend/src/credits.jsx": "794001870b415e33c267e800067e29a0e49110eb075d790afc8f9640571ebea5",
     "web/frontend/src/daily.js": "b0c6328a5c8c769e6efbb19446c76dec0fc6c075c046a3e102cf73027fd7f0bb",
     "web/frontend/src/demo/install.js": "33229c25d56f45466ce22446ebd2c01326c032845b19fc0c5bb9051c7c4b8130",
