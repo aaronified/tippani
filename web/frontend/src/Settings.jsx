@@ -166,7 +166,7 @@ function useColumnCount() {
 // KIND of note a quote is, which is a fact about the library rather than a
 // preference about the app — the same reason the language table and the tags are
 // over there. The card itself is unchanged and is exported from this file.
-export const SETTINGS_CARDS = ['features', 'sr', 'upd', 'backup']
+export const SETTINGS_CARDS = ['features', 'sr', 'server']
 
 // ---- THE FIVE SECTIONS ------------------------------------------------------
 //
@@ -220,7 +220,7 @@ export const SECTION_CARDS = {
   lang: ['language'],
   review: ['sr'],
   sections: ['features'],
-  server: ['upd', 'backup'],
+  server: ['server'],
 }
 
 // ── WHICH PREFERENCES EACH SECTION OWNS, and why this table exists at all.
@@ -264,7 +264,14 @@ export const SECTION_PREFS = {
   sections: [
     'hideLibrary', 'hideCatalogue', 'hideQuotes', 'showAnthologies', 'sectionOrder',
   ],
-  server: ['trashDays'],
+  // SERVER OWNS NONE. `trashDays` was listed here and is not a Server control at
+  // all — it is set on the Bin, which is where a reader changes how long the bin
+  // keeps things. Counting it here put a "1 changed" on a tab for something not on
+  // it, and Reset section would have silently reset the Bin's retention from a
+  // screen that never showed it. What Server holds are ACTS (check, back up,
+  // restore) and one admin setting the server keeps itself (the release channel,
+  // via /admin/update/channel) — none of them a user preference this table is for.
+  server: [],
 }
 
 // NOT A SETTING A READER CHOSE, so not counted anywhere. Each of these is stored
@@ -277,6 +284,14 @@ export const SECTION_PREFS = {
 //   Metadata console — counting them under Theme would put a number on a tab that
 //   has nothing to do with the screen the reader changed them on.
 export const UNCOUNTED_PREFS = [
+  // `trashDays` IS SET ON THE BIN, NOT IN SETTINGS. It was listed under the Server
+  // section, which owns no screen it appears on: the reader changes how long the
+  // bin keeps things from the Bin itself. Counting it there put a "1 changed" on a
+  // tab for something not on it, and Reset section would have reached across and
+  // silently reset the Bin's retention. It is excused here rather than moved,
+  // because there is no Settings section it belongs to — the screen that owns it
+  // is not one of these five.
+  'trashDays',
   'tour', 'tourStep', 'defaultBoardId', 'creditSeparators',
   ...[1, 2, 3, 4, 5, 6].flatMap((n) => [`catName${n}`, `catColor${n}`, `catHidden${n}`]),
 ]
@@ -368,8 +383,11 @@ const SETTINGS_PREFIX = {
   appearance: 'settings.appearance.',
   features: 'settings.features.',
   sr: 'settings.quiz.',
-  upd: 'settings.updates.',
-  backup: 'settings.backup.',
+  // THREE PREFIXES FOR ONE CARD. Server is a single tile holding Updates, Backup
+  // and What changed, as the pack draws it — so the words a reader might search
+  // for live under three roots, and a card that could only declare one would go
+  // missing the moment somebody typed "backup".
+  server: ['settings.updates.', 'settings.backup.', 'settings.changelog.'],
 }
 
 // settingsMatches — does this card answer to what was typed?
@@ -380,10 +398,11 @@ const SETTINGS_PREFIX = {
 export function settingsMatches(cardKey, query) {
   const q = String(query || '').trim().toLowerCase()
   if (!q) return true
-  const prefix = SETTINGS_PREFIX[cardKey]
-  if (!prefix) return false
+  const declared = SETTINGS_PREFIX[cardKey]
+  if (!declared) return false
+  const prefixes = Array.isArray(declared) ? declared : [declared]
   for (const key of fullKeys()) {
-    if (!key.startsWith(prefix)) continue
+    if (!prefixes.some((p) => key.startsWith(p))) continue
     if (!key.endsWith('.title') && !key.endsWith('.label')) continue
     if (t(key).toLowerCase().includes(q)) return true
   }
@@ -451,8 +470,17 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
     // whichever bucket you last looked at.
     ...(user.is_admin
       ? {
-          upd: <UpdatesCard user={user} update={update} onUpdateInfo={onUpdateInfo} asking={updateNow} onAsking={setUpdateNow} />,
-          backup: <BackupCard user={user} asking={backupNow} onAsking={setBackupNow} />,
+          server: (
+            <ServerCard
+              user={user}
+              update={update}
+              onUpdateInfo={onUpdateInfo}
+              updateAsking={updateNow}
+              onUpdateAsking={setUpdateNow}
+              backupAsking={backupNow}
+              onBackupAsking={setBackupNow}
+            />
+          ),
         }
       : {}),
   }
@@ -2084,9 +2112,49 @@ function SRDeepControls({ p, set, onClose }) {
 // Exported for `update-released.test.jsx`, which drives the card from the fields
 // /auth/me actually sends. Mounting the whole Settings screen to read one row
 // would make the case fail for a dozen reasons that are not this row.
+// ── SERVER: ONE PANEL, THREE GROUPS, WHICH IS WHAT THE PACK DRAWS.
+//
+// WHAT THIS REPLACED. Server was the only section in Settings drawn as TWO tiles —
+// Updates and Backup, each with its own border and its own SectionTitle — where
+// every other section is one card of numbered groups and the pack draws this one
+// the same way: Updates, Backup, and "What changed" at the foot
+// (settings-restructured.dc.html:2749, :2754, :2760). Two bordered boxes for one
+// subject is the "tabbed vs single tile" call the owner's rule gives to the
+// prototype.
+//
+// AND IT IS ONE CARD KEY NOW, not two. The search index keys off a card's i18n
+// prefix, so a single tile covering three subjects declares three prefixes —
+// otherwise typing "backup" would hide the panel that holds it, which is the
+// disappearance `test/rules/settings-search-prefix.test.js` exists to catch.
+//
+// THE ADMIN GATE STAYS WHERE IT WAS: this whole panel is registered only for an
+// admin, the same as the two cards it replaces. Nothing here is drawn for anybody
+// else, so nothing here has to ask again.
+function ServerCard({ user, update, onUpdateInfo, updateAsking, onUpdateAsking, backupAsking, onBackupAsking }) {
+  const current = user?.version || t('settings.updates.version.dev')
+  return (
+    <Card>
+      <PrefColumns>
+        <UpdatesCard
+          user={user}
+          update={update}
+          onUpdateInfo={onUpdateInfo}
+          asking={updateAsking}
+          onAsking={onUpdateAsking}
+        />
+        <BackupCard user={user} asking={backupAsking} onAsking={onBackupAsking} />
+        {/* WIDE, because a release log is prose at full measure. A column of
+            entries broken to half a card is a changelog nobody finishes. */}
+        <PrefGroup index={3} title={t('settings.changelog.title')} wide>
+          <ChangelogList current={current} />
+        </PrefGroup>
+      </PrefColumns>
+    </Card>
+  )
+}
+
 export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAsking }) {
   const current = user?.version || t('settings.updates.version.dev')
-  const [logOpen, setLogOpen] = useState(false)
   const [info, setInfo] = useState(update || null) // check result (seeded from the shared session cache)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState('')
@@ -2311,11 +2379,16 @@ export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAski
     </PromptFrame>
   )
 
+  // A GROUP, NOT A CARD OF ITS OWN. Server used to be the only section drawn as
+  // two tiles — Updates and Backup, each with its own border and its own
+  // SectionTitle — where the pack draws one panel of three groups and every other
+  // section here is already one card. `ServerCard` is that panel; this returns its
+  // first group.
   return (
-    <Card>
+    <>
       {updatePrompt}
-      <SectionTitle>{t('settings.updates.title')}</SectionTitle>
-      <div className="space-y-3">
+      <PrefGroup index={1} title={t('settings.updates.title')}>
+        <div className="space-y-3">
         <div className="flex items-baseline gap-2">
           <MonoLabel>{t('settings.updates.version.label')}</MonoLabel>
           {user?.releases_url ? (
@@ -2405,11 +2478,11 @@ export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAski
               <GhostButton onClick={check} disabled={busy || phase === 'applying'}>
                 {busy ? t('settings.updates.check.busy') : t('settings.updates.check.label')}
               </GhostButton>
-              {/* Beside the check, not instead of the GitHub link above it: the
-                  link answers "what is in a version I have not installed", this
-                  answers "what is in the one I am running". Different questions,
-                  and only the second one works with the network off. */}
-              <GhostButton onClick={() => setLogOpen(true)}>{t('settings.changelog.title')}</GhostButton>
+              {/* THE CHANGELOG BUTTON IS GONE, and the log it opened is a group at
+                  the foot of this panel. It answered "what is in the version I am
+                  running" — a question a reader on the Server screen is already
+                  asking, on a screen with room under it. A door with one thing
+                  behind it, next to the thing it is about, is a press for nothing. */}
               {info && !info.update_available && !info.check_error && (
                 <MonoLabel style={{ color: 'var(--ok)' }}>{t('settings.updates.current.label')}</MonoLabel>
               )}
@@ -2502,12 +2575,9 @@ export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAski
             )}
           </>
         )}
-      </div>
-      {/* Mounted only while open: the history is a quarter of a megabyte of
-          markdown, and a card that fetched it on render would spend that on every
-          visit to Settings for a dialog nobody opened. */}
-      {logOpen && <ChangelogDialog current={current} onClose={() => setLogOpen(false)} />}
-    </Card>
+        </div>
+      </PrefGroup>
+    </>
   )
 }
 
@@ -2560,7 +2630,18 @@ function ChangelogEntry({ text }) {
   )
 }
 
-function ChangelogDialog({ current, onClose }) {
+// THE RELEASE LOG, ON THE SCREEN. It was behind a button called "Changelog" that
+// opened a dialog; the pack gives it a group of its own at the foot of Server —
+// "What changed", a log column (settings-restructured.dc.html:2760). A door with
+// one thing behind it, on a screen with room under it, is the shape this sweep has
+// been taking apart everywhere else: "what is genuinely rare goes behind a door;
+// what is merely detailed goes lower on the same screen."
+//
+// IT STILL FETCHES ONLY WHEN IT IS DRAWN, which was the dialog's own reason for
+// being lazy — the history is a quarter of a megabyte of markdown. It is drawn
+// only on the Server section, which is admin-only and is not where Settings opens,
+// so the cost is the same as it was: paid by the reader who came to look.
+function ChangelogList({ current }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   // Only the newest is open on arrival. Seventy releases expanded is a scroll bar
@@ -2584,13 +2665,25 @@ function ChangelogDialog({ current, onClose }) {
       return next
     })
 
+  // AN ANSWER WITH NO RELEASES IN IT IS NOT A CRASH, and this was one until the
+  // log came out from behind its door. `!data` caught a response that had not
+  // arrived; it did not catch one that arrived shaped differently, so `{}` fell
+  // through to `data.releases.map` and threw. As a dialog that was survivable —
+  // nothing rendered until somebody pressed the button, and a reader who never
+  // pressed it never met the throw. On the screen it renders on every visit to
+  // Server, so an old build, a proxy returning an empty object or a changelog
+  // that failed to parse would take the whole section down rather than show one
+  // line saying there is nothing to show.
+  const releases = Array.isArray(data?.releases) ? data.releases : null
   const body = error ? (
     <ErrorText>{error}</ErrorText>
   ) : !data ? (
     <p className="microcopy">{t('common.state.loading')}</p>
+  ) : !releases || releases.length === 0 ? (
+    <p className="microcopy">{t('settings.changelog.empty.prose')}</p>
   ) : (
     <div className="cl-list">
-      {data.releases.map((rel) => {
+      {releases.map((rel) => {
         const isOpen = open.has(rel.version)
         const running = rel.version === data.current
         return (
@@ -2636,17 +2729,7 @@ function ChangelogDialog({ current, onClose }) {
     </div>
   )
 
-  return (
-    <PromptFrame
-      title={t('settings.changelog.title')}
-      closeLabel={t('common.action.close.label')}
-      closeTip={t('settings.changelog.close.tip')}
-      maxWidth={640}
-      onClose={onClose}
-    >
-      {body}
-    </PromptFrame>
-  )
+  return body
 }
 
 // PromptFrame — the shape all four of this page's dialogs already were.
@@ -3487,15 +3570,17 @@ function BackupCard({ user, asking = false, onAsking }) {
             ? t('settings.backup.asks.unknown')
             : t('settings.backup.asks.unkeyed')
 
+  // THE SECOND GROUP OF THE SERVER PANEL — see UpdatesCard for why this is a group
+  // and no longer a card of its own. `data-tour` moves to the group, which is the
+  // element the tour was pointing at all along: the box around backup.
   return (
-    <Card data-tour="backup">
-      <SectionTitle
+    <>
+      <PrefGroup
+        index={2}
+        title={t('settings.backup.title')}
         info={t('settings.backup.info.body')}
-        infoTitle={t('settings.backup.title')}
       >
-        {t('settings.backup.title')}
-      </SectionTitle>
-      <div className="space-y-4">
+      <div className="space-y-4" data-tour="backup">
         <div className="flex flex-wrap items-center gap-3">
           <GhostButton
             icon={<IconArchive />}
@@ -3606,6 +3691,7 @@ function BackupCard({ user, asking = false, onAsking }) {
           )}
         </div>
       </div>
+      </PrefGroup>
 
       {asking && (
         <BackupPrompt me={user.username} busy={busy} onCancel={() => setAsking(false)} onConfirm={create} />
@@ -3619,7 +3705,7 @@ function BackupCard({ user, asking = false, onAsking }) {
           onConfirm={restore}
         />
       )}
-    </Card>
+    </>
   )
 }
 

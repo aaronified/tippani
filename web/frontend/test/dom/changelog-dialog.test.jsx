@@ -1,4 +1,11 @@
-// The changelog, in the app.
+// The changelog, in the app — on the Server screen, not behind a door.
+//
+// IT WAS A DIALOG. The pack gives the release log a group of its own at the foot
+// of Server ("What changed", settings-restructured.dc.html:2760), so the button
+// that opened it is gone and the list is simply there. What this file asserts did
+// not change — the ordering, the folding, the running mark, and above all the
+// hand-rolled inline renderer — because those are properties of the list and not
+// of the frame that used to hold it. Only the way in changed.
 //
 // The Updates card has always linked to GitHub's releases page, and that link is
 // the right answer to "what is in a version I have not installed". This is the
@@ -51,24 +58,37 @@ beforeEach(() => {
 
 const openLog = async () => {
   render(<Settings user={ADMIN} />)
-  // The changelog's door is on the Server section now that Settings is sectioned.
+  // No door to press any more: reaching the Server section IS reaching the log.
   await openSettingsSection('Server')
-  fireEvent.click(screen.getByRole('button', { name: 'Changelog' }))
   await waitFor(() => expect(screen.getByText('1.12.0')).toBeTruthy())
 }
 
 describe('opening it', () => {
-  it('fetches nothing until it is asked for', async () => {
-    // A quarter of a megabyte of markdown, on every visit to Settings, for a
-    // dialog nobody opened.
+  // STILL LAZY, JUST ON A DIFFERENT BOUNDARY. The history is a quarter of a
+  // megabyte of markdown and the old reason for not fetching it was "a dialog
+  // nobody opened". The reason now is "a section most readers are not on":
+  // Settings does not open on Server, and Server is admin-only. So the cost is
+  // still paid only by somebody who went looking.
+  it('fetches nothing while the reader is on another section', async () => {
     render(<Settings user={ADMIN} />)
-    await openSettingsSection('Server')
+    await openSettingsSection('Review')
     expect(CALLS.filter(([, p]) => p === '/changelog')).toEqual([])
   })
 
-  it('fetches once when opened', async () => {
+  it('fetches once when the section is reached', async () => {
     await openLog()
     expect(CALLS.filter(([, p]) => p === '/changelog')).toHaveLength(1)
+  })
+
+  // AND AN ANSWER WITH NO RELEASES IN IT SAYS SO RATHER THAN THROWING. As a
+  // dialog this could not happen to a reader who never pressed the button; on the
+  // screen it renders every time, and `{}` from an old build or a proxy used to
+  // reach `data.releases.map` and take the whole section down.
+  it('says there is nothing to show rather than throwing on an empty answer', async () => {
+    RESP = {}
+    render(<Settings user={ADMIN} />)
+    await openSettingsSection('Server')
+    await waitFor(() => expect(screen.getByText(/No releases to show/)).toBeTruthy())
   })
 
   it('lists the releases in the order the server sent them', async () => {

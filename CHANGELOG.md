@@ -118,6 +118,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Server is one panel, and what changed is on it.** Updates and Backup were two separate
+  boxes and the release log was behind a button; Server now reads as one screen of three
+  groups — Updates, Backup & restore, and What changed — with the log simply there at the
+  foot of it.
+
 - **A cover size saved before this release lands on the new ladder.** The sliders move in
   fives now, and a size saved when they moved by ones could sit between two stops — the
   handle on one number and the reading beside it on another. Yours is nudged to the nearest

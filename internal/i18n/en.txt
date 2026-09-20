@@ -5490,11 +5490,11 @@ settings.updates.toast.copied = command copied
 # ---------------------------------------------------------------------------
 # THE CHANGELOG DIALOG — the release history out of the binary itself.
 # ---------------------------------------------------------------------------
-settings.changelog.title = Changelog
+settings.changelog.title = What changed
+settings.changelog.empty.prose = No releases to show — this build was made outside a release.
 # Which release you are actually running, marked on its own row.
 settings.changelog.running.label = running
 settings.changelog.unlisted.prose = You are running {version}, which is not one of the versions above — a build made outside a release.
-settings.changelog.close.tip = Close the changelog
 
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.

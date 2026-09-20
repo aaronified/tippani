@@ -5393,11 +5393,11 @@ settings.updates.toast.copied = কমান্ড কপি হয়েছে
 # ---------------------------------------------------------------------------
 # THE CHANGELOG DIALOG — the release history out of the binary itself.
 # ---------------------------------------------------------------------------
-settings.changelog.title = কী বদলেছে
+settings.changelog.title = কী কী বদলেছে
+settings.changelog.empty.prose = দেখানোর মতো কোনো রিলিজ নেই — এই বিল্ডটি কোনো রিলিজের বাইরে তৈরি।
 # Which release you are actually running, marked on its own row.
 settings.changelog.running.label = চলছে
 settings.changelog.unlisted.prose = আপনি চালাচ্ছেন {version}, যা উপরের তালিকায় নেই — রিলিজের বাইরে বানানো একটা বিল্ড।
-settings.changelog.close.tip = “কী বদলেছে” বন্ধ করুন
 
 # ---------------------------------------------------------------------------
 # ONBOARDING — the guided tour's home.

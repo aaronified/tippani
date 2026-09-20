@@ -79,7 +79,12 @@ const card = async () => {
     </>,
   )
   await openSettingsSection('Server')
-  await screen.findByText('Backup & restore')
+  // THE HEADING CARRIES ITS NUMBER NOW. Server is one panel of numbered groups —
+  // "1 · Updates", "2 · Backup & restore", "3 · What changed" — where backup used
+  // to be a card with a bare SectionTitle, so an exact match on the words alone
+  // stopped finding it. The number is drawn from position rather than typed, which
+  // is exactly why this matches the words and not the ordinal.
+  await screen.findByText(/Backup & restore/)
 }
 
 // Fill the prompt and submit it.

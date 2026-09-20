@@ -31,12 +31,21 @@ const cards = (src.match(/export const SETTINGS_CARDS = \[([^\]]*)\]/) || [, '']
   .split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean)
 
 const prefixBlock = (src.match(/const SETTINGS_PREFIX = \{([\s\S]*?)\n\}/) || [, ''])[1]
-const prefixed = [...prefixBlock.matchAll(/^\s*([A-Za-z0-9_]+):\s*'([^']+)'/gm)].map((m) => m[1])
+// A CARD MAY DECLARE SEVERAL PREFIXES, so the scan accepts a bare string or a
+// bracketed list. Server is the case: it is one tile holding Updates, Backup and
+// What changed, and its searchable words live under three roots. Reading only
+// single-quoted scalars would have reported it as unprefixed — the scanner's own
+// failure mode, reported as the defect it exists to catch.
+const prefixed = [...prefixBlock.matchAll(/^\s*([A-Za-z0-9_]+):\s*(\[[^\]]*\]|'[^']+')/gm)].map((m) => m[1])
 
 describe('searching Settings', () => {
   it('found both lists at all, so this file cannot pass by finding nothing', () => {
-    expect(cards.length, 'SETTINGS_CARDS did not parse; the scan is broken').toBeGreaterThan(3)
-    expect(prefixed.length, 'SETTINGS_PREFIX did not parse; the scan is broken').toBeGreaterThan(3)
+    // THE FLOOR IS 3, NOT 4. It was 4 when Updates and Backup were two cards; they
+    // are one Server tile now, as the pack draws them, so the honest floor moved
+    // with them. What this case is for is a parse that found NOTHING — a regex
+    // that stopped matching after a rename — and zero still fails it.
+    expect(cards.length, 'SETTINGS_CARDS did not parse; the scan is broken').toBeGreaterThan(2)
+    expect(prefixed.length, 'SETTINGS_PREFIX did not parse; the scan is broken').toBeGreaterThan(2)
   })
 
   it('can reach every registered card', () => {
