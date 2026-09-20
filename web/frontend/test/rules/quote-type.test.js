@@ -3,7 +3,7 @@
 // WHY IT EXISTS. The app draws a quote on SEVENTEEN surfaces — fifteen through an
 // inline style, two through CSS — and each one used to write its own type out by
 // hand. They drifted, in two directions at once: thirteen said `italic` and four
-// had picked up `var(--font-display-style)`, which resolves to `inherit` and
+// had picked up `var(--font-quote-base-style)`, which resolves to `inherit` and
 // renders UPRIGHT. One of the four is the film CARD, so a film line and a book
 // highlight set the same words differently on two screens this repo spent a
 // release making behave alike; another is `.anthology-quote`, which is what the

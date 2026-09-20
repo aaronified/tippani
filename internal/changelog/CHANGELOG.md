@@ -192,6 +192,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The top bar is in your interface font, not your quote font.** One setting was doing both
+  jobs: the row labelled **Quotes** under Interface faces set the face for quotes *and* for
+  every heading, panel title and the top bar, so choosing a serif for your quotes put a serif
+  across the whole app and there was no way to separate them. The app's own furniture follows
+  your **Interface** face now; your words and your works' titles follow your quote face.
+
+- **The quote typeface is chosen in Quote fonts, and nowhere else.** The row left Interface
+  faces and sits at the head of the per-language table as **Every language** — the face your
+  quotes take unless a language says otherwise. Interface faces is now only the interface.
+
 - **Every Metadata console filters through a row of pills, and each pill says how many.**
   Works, People and Characters all carry the same row above their list — one pill per thing
   that can be wrong, each with the number of records it would leave, so the shape of what is

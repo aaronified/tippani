@@ -93,7 +93,28 @@
        reaches the Indic faces, and no Bengali codepoint stops at Newsreader.
        Listing them AFTER the Latin face is the whole trick; before it, their own
        Latin subsets would win and the app would change typeface. */
-    --font-display: 'Newsreader', 'Noto Serif Bengali', 'Noto Serif Devanagari', Georgia, 'Times New Roman', serif;
+    /* ── THE QUOTE FACE, AND IT USED TO BE THE TITLE FACE TOO ────────────────
+       One variable did two jobs under one of their names: the reader's QUOTE
+       face, and the app's own title face — the top bar, every heading, the
+       wordmark, the panel titles. The picker row that set it was labelled
+       "Quotes", so a reader who set their quotes in Newsreader got a serif top
+       bar over an interface set in Atkinson Hyperlegible Next, and no control
+       anywhere could separate them. The owner, reporting it: "the interface font
+       is atkinson hyperlegible next. Why is the top bar using newsreader, which
+       is set as the quote font". `docs/wiki/Design-decisions.md` carries the
+       full account, including the name it used to have.
+
+       SO THE NAME NOW SAYS THE JOB. This is the base face for the reader's own
+       words — what a quote is set in when its language has no face of its own.
+       Chrome reads `--font-ui`, because chrome is what you press. THE WORK'S NAME
+       IS CONTENT and stays here: a book's title belongs to the book, not to the
+       app drawing a list of them.
+
+       AND THERE IS NO ALIAS UNDER THE OLD NAME. An alias is how the two jobs get
+       merged again the first time somebody reaches for a title face and finds
+       something that answers. `test/rules/chrome-is-not-a-quote.test.js` fails on
+       one, and on the old name appearing anywhere at all. */
+    --font-quote-base: 'Newsreader', 'Noto Serif Bengali', 'Noto Serif Devanagari', Georgia, 'Times New Roman', serif;
     --font-ui: 'Hanken Grotesk', 'Noto Serif Bengali', 'Noto Serif Devanagari', system-ui, sans-serif;
     --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
     --font-hand: 'Caveat', 'Noto Serif Bengali', 'Noto Serif Devanagari', 'Segoe Script', cursive;
@@ -131,8 +152,8 @@
        are what a page draws before it has, and what the print stylesheet uses. */
     --quote-measure: none;
 
-    --font-display-weight: inherit; --font-display-style: inherit;
-    --font-display-caps: inherit; --font-display-case: inherit; --font-display-figures: inherit;
+    --font-quote-base-weight: inherit; --font-quote-base-style: inherit;
+    --font-quote-base-caps: inherit; --font-quote-base-case: inherit; --font-quote-base-figures: inherit;
     --font-ui-weight: inherit; --font-ui-style: inherit;
     --font-ui-caps: inherit; --font-ui-case: inherit; --font-ui-figures: inherit;
     --font-mono-weight: inherit; --font-mono-style: inherit;
@@ -1157,7 +1178,7 @@
     display: flex;
     align-items: center;
     min-height: 44px;
-    font-family: var(--font-display), serif;
+    font-family: var(--font-ui), serif;
     font-size: var(--type-ui-17);
     font-weight: 600;
     text-align: center;
@@ -1951,11 +1972,11 @@
     color: var(--faint);
   }
   .display-title {
-    font-family: var(--font-display);
-    font-style: var(--font-display-style);
-    font-variant-caps: var(--font-display-caps);
-    text-transform: var(--font-display-case);
-    font-variant-numeric: var(--font-display-figures);
+    font-family: var(--font-ui);
+    font-style: var(--font-ui-style);
+    font-variant-caps: var(--font-ui-caps);
+    text-transform: var(--font-ui-case);
+    font-variant-numeric: var(--font-ui-figures);
     font-weight: 600;
     letter-spacing: -0.01em;
     color: var(--ink);
@@ -2132,10 +2153,10 @@
        than an inline style. It reads the same variable for the same reason — a
        line that IS the quote (under "translations first" the original is the
        second line, and quoteTexts tags whichever slot holds it). */
-    font-family: var(--font-quote, var(--font-display));
-    font-weight: var(--font-display-weight);
-    font-variant-caps: var(--font-display-caps);
-    font-variant-numeric: var(--font-display-figures);
+    font-family: var(--font-quote, var(--font-quote-base));
+    font-weight: var(--font-quote-base-weight);
+    font-variant-caps: var(--font-quote-base-caps);
+    font-variant-numeric: var(--font-quote-base-figures);
     font-style: italic;
     font-size: var(--type-display-13);
     line-height: var(--quote-leading);
@@ -2444,11 +2465,11 @@
   .login-epigraph {
     margin: 10px auto 0;
     max-width: 34ch;
-    font-family: var(--font-display);
-    font-weight: var(--font-display-weight);
-    font-variant-caps: var(--font-display-caps);
-    text-transform: var(--font-display-case);
-    font-variant-numeric: var(--font-display-figures);
+    font-family: var(--font-quote-base);
+    font-weight: var(--font-quote-base-weight);
+    font-variant-caps: var(--font-quote-base-caps);
+    text-transform: var(--font-quote-base-case);
+    font-variant-numeric: var(--font-quote-base-figures);
     font-style: italic;
     font-size: var(--type-display-15);
     line-height: 1.5;
@@ -2472,10 +2493,10 @@
   .hero-counts { display: grid; gap: 2px; min-width: 0; }
   .hero-counts-lead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
   .hero-counts-total {
-    font-family: var(--font-display);
-    font-style: var(--font-display-style);
-    font-variant-caps: var(--font-display-caps);
-    font-variant-numeric: var(--font-display-figures);
+    font-family: var(--font-ui);
+    font-style: var(--font-ui-style);
+    font-variant-caps: var(--font-ui-caps);
+    font-variant-numeric: var(--font-ui-figures);
     font-size: var(--type-display-22);
     font-weight: 600;
     line-height: 1;
@@ -2691,12 +2712,12 @@
     flex: 1 1 auto;
     min-width: 0;
     white-space: nowrap;
-    font-family: var(--font-display);
-    font-weight: var(--font-display-weight);
-    font-style: var(--font-display-style);
-    font-variant-caps: var(--font-display-caps);
-    text-transform: var(--font-display-case);
-    font-variant-numeric: var(--font-display-figures);
+    font-family: var(--font-quote-base);
+    font-weight: var(--font-quote-base-weight);
+    font-style: var(--font-quote-base-style);
+    font-variant-caps: var(--font-quote-base-caps);
+    text-transform: var(--font-quote-base-case);
+    font-variant-numeric: var(--font-quote-base-figures);
     font-size: var(--type-display-15);
   }
   /* The disclosure control wears the kind, so the chevron has words to sit beside
@@ -2861,12 +2882,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-family: var(--font-display);
-    font-weight: var(--font-display-weight);
-    font-style: var(--font-display-style);
-    font-variant-caps: var(--font-display-caps);
-    text-transform: var(--font-display-case);
-    font-variant-numeric: var(--font-display-figures);
+    font-family: var(--font-quote-base);
+    font-weight: var(--font-quote-base-weight);
+    font-style: var(--font-quote-base-style);
+    font-variant-caps: var(--font-quote-base-caps);
+    text-transform: var(--font-quote-base-case);
+    font-variant-numeric: var(--font-quote-base-figures);
     font-size: var(--type-display-15);
     color: var(--ink);
   }
@@ -2898,11 +2919,11 @@
     margin: 3px 0 0;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    font-family: var(--font-display);
-    font-weight: var(--font-display-weight);
+    font-family: var(--font-quote-base);
+    font-weight: var(--font-quote-base-weight);
     font-style: italic;
-    font-variant-caps: var(--font-display-caps);
-    font-variant-numeric: var(--font-display-figures);
+    font-variant-caps: var(--font-quote-base-caps);
+    font-variant-numeric: var(--font-quote-base-figures);
     font-size: var(--type-display-13);
     color: var(--ink);
   }
@@ -2925,9 +2946,9 @@
 
   .cleanup-snippet {
     margin: 2px 0 0;
-    font-family: var(--font-display);
-    font-weight: var(--font-display-weight);
-    font-style: var(--font-display-style);
+    font-family: var(--font-quote-base);
+    font-weight: var(--font-quote-base-weight);
+    font-style: var(--font-quote-base-style);
     font-size: var(--type-display-13);
     line-height: 1.55;
     color: var(--soft);
@@ -2938,12 +2959,12 @@
   .trash-contents li {
     padding: 2px 0 2px 9px;
     border-left: 3px solid var(--hl-1);
-    font-family: var(--font-display);
-    font-weight: var(--font-display-weight);
-    font-style: var(--font-display-style);
-    font-variant-caps: var(--font-display-caps);
-    text-transform: var(--font-display-case);
-    font-variant-numeric: var(--font-display-figures);
+    font-family: var(--font-quote-base);
+    font-weight: var(--font-quote-base-weight);
+    font-style: var(--font-quote-base-style);
+    font-variant-caps: var(--font-quote-base-caps);
+    text-transform: var(--font-quote-base-case);
+    font-variant-numeric: var(--font-quote-base-figures);
     font-size: var(--type-display-13);
     color: var(--soft);
     overflow: hidden;
@@ -4119,7 +4140,7 @@
   .match-art { flex: none; width: max(44px, 3em); }
   .match-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(var(--row) * 0.16); }
   .match-title {
-    font-family: var(--font-display);
+    font-family: var(--font-quote-base);
     font-size: var(--type-ui-15);
     line-height: 1.25;
     text-wrap: pretty;
@@ -4179,7 +4200,7 @@
     background: color-mix(in srgb, var(--accent) 10%, var(--card));
   }
   .import-drop.is-busy { cursor: default; opacity: .62; }
-  .import-drop-label { font-family: var(--font-display); font-size: var(--type-ui-15); color: var(--ink); }
+  .import-drop-label { font-family: var(--font-ui); font-size: var(--type-ui-15); color: var(--ink); }
 
   /* The asides under it — where the files come from, what the queue does, why a
      saved page and not a URL. ONE RULE for the three, because they are one kind
@@ -4716,7 +4737,7 @@
   }
   .rail-head img { display: block; width: 34px; height: 34px; flex: none; }
   .rail-wordmark {
-    font-family: var(--font-display);
+    font-family: var(--font-ui);
     font-weight: 600;
     font-size: var(--type-display-17);
     color: var(--ink);
@@ -4936,7 +4957,7 @@
   .topbar-search input {
     flex: 1; min-width: 0;
     border: 0; outline: 0; background: none; padding: 0 2px;
-    font-family: var(--font-display); font-size: var(--type-display-15);
+    font-family: var(--font-ui); font-size: var(--type-display-15);
     color: var(--ink);
   }
   /* THE SCOPE IS DISMISSABLE, AND THAT IS THE WHOLE PATTERN. Dropping it IS global
@@ -4998,11 +5019,11 @@
   }
   .brand { display: flex; align-items: center; gap: 9px; flex: none; }
   .wordmark {
-    font-family: var(--font-display);
-    font-style: var(--font-display-style);
-    font-variant-caps: var(--font-display-caps);
-    text-transform: var(--font-display-case);
-    font-variant-numeric: var(--font-display-figures);
+    font-family: var(--font-ui);
+    font-style: var(--font-ui-style);
+    font-variant-caps: var(--font-ui-caps);
+    text-transform: var(--font-ui-case);
+    font-variant-numeric: var(--font-ui-figures);
     font-weight: 600;
     font-size: var(--type-display-17);
     letter-spacing: -0.02em;
@@ -6023,9 +6044,9 @@
      rule protects the row whose whole job is to show the name; this row's job is
      to say which page you are still on. */
   .work-hero-mini-title {
-    font-family: var(--font-display);
-    font-style: var(--font-display-style);
-    font-variant-caps: var(--font-display-caps);
+    font-family: var(--font-quote-base);
+    font-style: var(--font-quote-base-style);
+    font-variant-caps: var(--font-quote-base-caps);
     font-size: var(--type-display-15);
     font-weight: 600;
     line-height: 1.2;
@@ -6284,11 +6305,11 @@
     flex-wrap: wrap;
     margin: 26px 0 18px;
   }
-  .page-header h1 { font-family: var(--font-display);
- font-style: var(--font-display-style);
- font-variant-caps: var(--font-display-caps);
- text-transform: var(--font-display-case);
- font-variant-numeric: var(--font-display-figures); font-weight: 600; font-size: var(--type-display-26); letter-spacing: -0.01em; }
+  .page-header h1 { font-family: var(--font-ui);
+ font-style: var(--font-ui-style);
+ font-variant-caps: var(--font-ui-caps);
+ text-transform: var(--font-ui-case);
+ font-variant-numeric: var(--font-ui-figures); font-weight: 600; font-size: var(--type-display-26); letter-spacing: -0.01em; }
   .ph-left { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 
   /* THE SCREEN IS ALREADY NAMED, TWICE OVER: the breadcrumb says it on a desk and
@@ -6330,11 +6351,11 @@
     margin: 0 0 10px;
   }
   .section-header h2 {
-    font-family: var(--font-display);
-    font-style: var(--font-display-style);
-    font-variant-caps: var(--font-display-caps);
-    text-transform: var(--font-display-case);
-    font-variant-numeric: var(--font-display-figures);
+    font-family: var(--font-ui);
+    font-style: var(--font-ui-style);
+    font-variant-caps: var(--font-ui-caps);
+    text-transform: var(--font-ui-case);
+    font-variant-numeric: var(--font-ui-figures);
     font-weight: 600;
     font-size: var(--type-display-19);
     letter-spacing: -0.01em;
@@ -6716,12 +6737,12 @@
     color: var(--soft);
     font-style: italic;
   }
-  .share-preview .share-h { margin: .2em 0 .5em; font-family: var(--font-display);
- font-weight: var(--font-display-weight);
- font-style: var(--font-display-style);
- font-variant-caps: var(--font-display-caps);
- text-transform: var(--font-display-case);
- font-variant-numeric: var(--font-display-figures); line-height: 1.2; }
+  .share-preview .share-h { margin: .2em 0 .5em; font-family: var(--font-quote-base);
+ font-weight: var(--font-quote-base-weight);
+ font-style: var(--font-quote-base-style);
+ font-variant-caps: var(--font-quote-base-caps);
+ text-transform: var(--font-quote-base-case);
+ font-variant-numeric: var(--font-quote-base-figures); line-height: 1.2; }
   .share-preview .share-ul,
   .share-preview .share-ol { margin: 0 0 .6em; padding-left: 1.4em; }
   .share-preview .share-ul { list-style: disc; }
@@ -6897,7 +6918,7 @@ html[data-theme="dark"] .mobile-topbar {
   padding-left: 2px;
 }
 .mobile-topbar-title {
-  font-family: var(--font-display), serif;
+  font-family: var(--font-ui), serif;
   font-size: var(--type-display-17);
   font-weight: 600;
   line-height: 1.2;
@@ -7766,11 +7787,11 @@ html[data-theme="dark"] .mobile-sheet-header {
    the pair so the pair is what stretches. */
 .mobile-sheet-titles { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
 .mobile-sheet-title {
-  font-family: var(--font-display);
-  font-style: var(--font-display-style);
-  font-variant-caps: var(--font-display-caps);
-  text-transform: var(--font-display-case);
-  font-variant-numeric: var(--font-display-figures);
+  font-family: var(--font-ui);
+  font-style: var(--font-ui-style);
+  font-variant-caps: var(--font-ui-caps);
+  text-transform: var(--font-ui-case);
+  font-variant-numeric: var(--font-ui-figures);
   font-weight: 600;
   font-size: var(--type-display-19);
   min-width: 0;
@@ -8400,11 +8421,11 @@ html[data-theme="dark"] .mobile-sheet-footer {
   min-width: 0;
   max-width: 100%;
   text-align: center;
-  font-family: var(--font-display);
-  font-weight: var(--font-display-weight);
-  font-variant-caps: var(--font-display-caps);
-  text-transform: var(--font-display-case);
-  font-variant-numeric: var(--font-display-figures);
+  font-family: var(--font-ui);
+  font-weight: var(--font-ui-weight);
+  font-variant-caps: var(--font-ui-caps);
+  text-transform: var(--font-ui-case);
+  font-variant-numeric: var(--font-ui-figures);
   font-style: italic;
   font-size: var(--type-display-13);
   line-height: 1.35;
@@ -8683,11 +8704,11 @@ html[data-theme="dark"] .board-cover {
    than being treated as an icon. cap-height varies wildly between Han, Bengali
    and Latin, so it is centred on the box rather than on a baseline. */
 .board-cover-glyph {
-  font-family: var(--font-display);
-  font-style: var(--font-display-style);
-  font-variant-caps: var(--font-display-caps);
-  text-transform: var(--font-display-case);
-  font-variant-numeric: var(--font-display-figures);
+  font-family: var(--font-ui);
+  font-style: var(--font-ui-style);
+  font-variant-caps: var(--font-ui-caps);
+  text-transform: var(--font-ui-case);
+  font-variant-numeric: var(--font-ui-figures);
   font-size: clamp(28px, 34cqw, 58px);
   line-height: 1;
   font-weight: 500;
@@ -8695,11 +8716,11 @@ html[data-theme="dark"] .board-cover {
 }
 .board-cover-plain { color: var(--faint); background: var(--raised); }
 .board-tile-name {
-  font-family: var(--font-display);
-  font-style: var(--font-display-style);
-  font-variant-caps: var(--font-display-caps);
-  text-transform: var(--font-display-case);
-  font-variant-numeric: var(--font-display-figures);
+  font-family: var(--font-quote-base);
+  font-style: var(--font-quote-base-style);
+  font-variant-caps: var(--font-quote-base-caps);
+  text-transform: var(--font-quote-base-case);
+  font-variant-numeric: var(--font-quote-base-figures);
   font-weight: 600;
   font-size: var(--type-display-17);
   line-height: 1.25;
@@ -8787,12 +8808,12 @@ html[data-theme="dark"] .board-cover {
   border-left: 3px solid var(--entry-color, var(--line));
   /* QUOTE_FACE's spelling — an anthology entry IS a quote, so it reads in the
      face its language was set in like every other quote surface. */
-  font-family: var(--font-quote, var(--font-display));
-  font-weight: var(--font-display-weight);
+  font-family: var(--font-quote, var(--font-quote-base));
+  font-weight: var(--font-quote-base-weight);
   font-style: italic;
-  font-variant-caps: var(--font-display-caps);
-  text-transform: var(--font-display-case);
-  font-variant-numeric: var(--font-display-figures);
+  font-variant-caps: var(--font-quote-base-caps);
+  text-transform: var(--font-quote-base-case);
+  font-variant-numeric: var(--font-quote-base-figures);
   font-size: var(--type-display-17);
   line-height: var(--quote-leading);
   max-width: var(--quote-measure);
@@ -9545,7 +9566,7 @@ html[data-theme="dark"] .board-cover {
     color: var(--soft);
   }
   .cs-head-names { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .cs-title { font-family: var(--font-display); font-size: var(--type-display-19); line-height: 1.2; }
+  .cs-title { font-family: var(--font-quote-base); font-size: var(--type-display-19); line-height: 1.2; }
   .cs-crumb {
     font-family: var(--font-mono); font-size: var(--type-mono-11);
     color: var(--faint); letter-spacing: .1em;
@@ -9855,7 +9876,7 @@ html[data-theme="dark"] .board-cover {
   .cs-count:hover, .cs-count:focus-visible { border-color: var(--ink-border); }
   .cs-count-icon { color: var(--faint); display: inline-flex; flex: none; }
   .cs-count-fig {
-    font-family: var(--font-display); font-size: var(--type-display-19);
+    font-family: var(--font-ui); font-size: var(--type-display-19);
     line-height: 1; flex: none;
     min-width: 3ch; text-align: right;
   }
@@ -10356,7 +10377,7 @@ html[data-theme="dark"] .board-cover {
 }
 .skipped-quote {
   flex: 1; min-width: 0; margin: 0; color: var(--soft);
-  font-family: var(--font-display); font-size: var(--type-display-15); line-height: 1.5;
+  font-family: var(--font-quote-base); font-size: var(--type-display-15); line-height: 1.5;
 }
 
 /* THE BAR ABOVE THE LIST. It holds the total at rest and grows the selection's
@@ -10376,7 +10397,7 @@ html[data-theme="dark"] .board-cover {
    name look alike, and this row exists so a reader recognises their own book. */
 .skipped-work-title {
   flex: 1; min-width: 0; text-wrap: pretty;
-  font-family: var(--font-display); font-size: var(--type-display-15); font-weight: 600; color: var(--ink);
+  font-family: var(--font-quote-base); font-size: var(--type-display-15); font-weight: 600; color: var(--ink);
 }
 .skipped-work-count {
   flex: none; white-space: nowrap; color: var(--faint);

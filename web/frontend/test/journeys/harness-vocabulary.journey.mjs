@@ -120,9 +120,13 @@ it('refuses an option a list does not offer, and says what it does offer', async
   await app.press('Metadata')
   await app.press('Works')
 
-  await expect(app.choose('Which gap', 'no publisher', shortWait))
+  // `Type` RATHER THAN THE GAP FILTER, which was here until the gap filter became
+  // a row of pills. What this case is about is the VERB, so it needs any real list
+  // of options on a screen the harness can reach — and the one beside where the
+  // gap chooser used to be is the closest thing to what it was testing.
+  await expect(app.choose('Type', 'no publisher', shortWait))
     .rejects.toThrow(/offers no option named "no publisher"/)
-  await expect(app.choose('Which gap', 'no publisher', shortWait))
+  await expect(app.choose('Type', 'no publisher', shortWait))
     .rejects.toThrow(/What it offers: /)
 
   // AND IT IS A LIST OF OPTIONS OR IT IS NOTHING. A text box is fillable too, and

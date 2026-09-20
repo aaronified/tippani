@@ -845,7 +845,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           <h1
             className="mt-0.5"
             style={{
-              fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)',
+              fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)',
               fontWeight: 600,
               fontSize: 'var(--type-display-26)',
               letterSpacing: '-0.01em',
@@ -876,7 +876,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         {onGoLibrary && (
         <Tooltip label={t('home.tile.library.tip')} className="flex items-stretch">
           <HandCard variant={1} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoLibrary} onKeyDown={onActivate(onGoLibrary)} role="button" tabIndex={0}>
-            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
+            <p style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
               {stats ? stats.books : '–'}
             </p>
             <MonoLabel style={{ fontSize: 'var(--type-display-11)' }}>
@@ -888,7 +888,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
         {onGoMovies && (
         <Tooltip label={t('home.tile.movies.tip')} className="flex items-stretch">
           <HandCard variant={2} className="cursor-pointer w-full" style={{ padding: '13px 15px' }} onClick={onGoMovies} onKeyDown={onActivate(onGoMovies)} role="button" tabIndex={0}>
-            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
+            <p style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontWeight: 600, fontSize: 'var(--type-display-26)' }}>
               {stats ? stats.movies : '–'}
             </p>
             <MonoLabel style={{ fontSize: 'var(--type-display-11)', color: 'var(--amber)' }}>
@@ -921,7 +921,7 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
       {(favs.length > 0 || favsError) && (
         <section>
           <div className="mb-2.5 flex items-center gap-3">
-            <h2 style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)' }}>
+            <h2 style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)' }}>
               {t('home.favourites.title')}
             </h2>
             <span aria-hidden="true" className="h-px flex-1" style={{ background: 'var(--line)' }} />

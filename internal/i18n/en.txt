@@ -215,8 +215,9 @@ vocab.accent.slate.label = slate
 # --- vocab.font-role.* — the six jobs type does in this app, in Settings → Type.
 # `.sample` is the specimen line, set in the face being offered, so it must be
 # text this role would actually carry — not a translation of the English one.
-vocab.font-role.display.label = Quotes
-vocab.font-role.display.what = The words themselves, and every title.
+vocab.font-role.display.label = Every language
+vocab.font-role.display.aria = quotes in every language
+vocab.font-role.display.what = What a quote is set in unless its language says otherwise.
 vocab.font-role.display.sample = It is a truth universally acknowledged
 vocab.font-role.ui.label = Interface
 vocab.font-role.ui.what = Buttons, fields, everything you press.

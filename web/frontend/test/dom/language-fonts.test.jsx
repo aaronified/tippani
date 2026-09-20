@@ -140,9 +140,9 @@ describe('a UI language can have faces of its own', () => {
   // composing the ACTIVE locale is what keeps it harmless.
   it('leaves the app alone when the locale being edited is not the one rendering', () => {
     applyFonts(prefs, 'en')
-    expect(document.documentElement.style.getPropertyValue('--font-display')).toContain('Literata')
+    expect(document.documentElement.style.getPropertyValue('--font-quote-base')).toContain('Literata')
     applyFonts(prefs, 'bn')
-    expect(document.documentElement.style.getPropertyValue('--font-display')).toContain('Source Serif 4')
+    expect(document.documentElement.style.getPropertyValue('--font-quote-base')).toContain('Source Serif 4')
   })
 })
 
@@ -395,6 +395,6 @@ describe('every quote slot defers to the language, rather than naming a face', (
     const el = textNode(container, 'An English line')
     expect(getComputedStyle(el).getPropertyValue('--font-quote')).toBe('')
     // Still deferring: the fallback inside QUOTE_FACE is what draws it.
-    expect(el.closest('[style*="font-family"]').style.fontFamily).toContain('--font-display')
+    expect(el.closest('[style*="font-family"]').style.fontFamily).toContain('--font-quote-base')
   })
 })

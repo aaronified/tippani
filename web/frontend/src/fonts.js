@@ -40,8 +40,14 @@ import { scriptOf } from './iso639.js'
 // worth asking, which is how it looks doing THIS.
 export const FONT_ROLES = [
   {
+    // THE KEY STAYS `display` AND THE PROPERTY DOES NOT. `fontDisplay` is the
+    // stored preference name, and renaming it would silently reset the quote
+    // face of every reader who has set one — a rename in the database to fix a
+    // rename in the stylesheet. The VARIABLE is what was lying, so the variable
+    // is what changed: see `--font-quote-base` in index.css for the fault.
     key: 'display',
-    prop: '--font-display',
+    prop: '--font-quote-base',
+    aria: 'vocab.font-role.display.aria',
     label: 'vocab.font-role.display.label',
     what: 'vocab.font-role.display.what',
     sample: 'vocab.font-role.display.sample',
@@ -535,7 +541,7 @@ export function stackFor(roleKey, pick = fontChoice) {
 // ONLY spelling of it: the language's face when one is set, the app's display
 // face when it is not. Written once here so a new quote surface cannot invent a
 // version of it that answers to nothing.
-export const QUOTE_FACE = 'var(--font-quote, var(--font-display))'
+export const QUOTE_FACE = 'var(--font-quote, var(--font-quote-base))'
 
 // QUOTE_TEXT is the REST of a quote slot's type, and it exists for the reason
 // QUOTE_FACE does one line up: there were FIFTEEN hand-written copies here and
@@ -545,7 +551,7 @@ export const QUOTE_FACE = 'var(--font-quote, var(--font-display))'
 // the commit that introduced this object, over the fifteen inline slots:
 //
 //   fontStyle    12 said `italic`; three had picked up
-//                `var(--font-display-style)`, which resolves to `inherit` and
+//                `var(--font-quote-base-style)`, which resolves to `inherit` and
 //                renders UPRIGHT. One of the three is the film CARD — so a film
 //                line and a book highlight, the two surfaces this repo has spent a
 //                release making behave alike, set the same words differently. The
@@ -563,7 +569,7 @@ export const QUOTE_FACE = 'var(--font-quote, var(--font-display))'
 // Both read `--quote-leading` now, and quote-type.test.js holds them to it.
 //
 // ITALIC IS THE CONVENTION AND NOT THE DISPLAY FACE'S BUSINESS. A quote is set in
-// italic because that is how a quotation is set; `--font-display-style` is the
+// italic because that is how a quotation is set; `--font-quote-base-style` is the
 // style a reader chose for HEADINGS, and letting it reach the quote means a
 // reader who wants upright titles silently loses the quotation convention. Ten of
 // the thirteen already agreed.
@@ -577,11 +583,11 @@ export const QUOTE_FACE = 'var(--font-quote, var(--font-display))'
 // everything a quote slot should NOT be deciding for itself is in this object.
 export const QUOTE_TEXT = {
   fontFamily: QUOTE_FACE,
-  fontWeight: 'var(--font-display-weight)',
+  fontWeight: 'var(--font-quote-base-weight)',
   fontStyle: 'italic',
-  fontVariantCaps: 'var(--font-display-caps)',
-  textTransform: 'var(--font-display-case)',
-  fontVariantNumeric: 'var(--font-display-figures)',
+  fontVariantCaps: 'var(--font-quote-base-caps)',
+  textTransform: 'var(--font-quote-base-case)',
+  fontVariantNumeric: 'var(--font-quote-base-figures)',
   lineHeight: 'var(--quote-leading)',
   // THE MEASURE, and `none` until a reader asks for one — so this line changes
   // nothing for anybody who never opens the dial. It is in `ch` of THIS element's
@@ -712,8 +718,8 @@ export function anyFace(token) {
 // the reason a font swap needs no reload.
 //
 // The MODIFIER properties are companions to the family, one set per role:
-// --font-display-weight and so on. index.css consumes them beside every
-// `font-family: var(--font-display)`, so a modifier lands exactly where its role
+// --font-quote-base-weight and so on. index.css consumes them beside every
+// `font-family: var(--font-quote-base)`, so a modifier lands exactly where its role
 // is used and nowhere else. `inherit` is the off value rather than `normal`,
 // because a heading that is already 600 must not be flattened to 400 by a role
 // nobody has touched.

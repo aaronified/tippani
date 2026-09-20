@@ -266,8 +266,8 @@ export function SearchBox({ q, setQ, chips, setChips, mobile, draft, options, on
           // centres the glyphs in the field instead of seating them high.
           style={
             mobile
-              ? { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-19)', lineHeight: 1, padding: '10px 14px', width: '100%' }
-              : { fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-19)', lineHeight: 1, padding: '14px 18px', width: '100%' }
+              ? { fontFamily: 'var(--font-ui)', fontWeight: 'var(--font-ui-weight)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 'var(--type-display-19)', lineHeight: 1, padding: '10px 14px', width: '100%' }
+              : { fontFamily: 'var(--font-ui)', fontWeight: 'var(--font-ui-weight)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 'var(--type-display-19)', lineHeight: 1, padding: '14px 18px', width: '100%' }
           }
           placeholder={t('search.box.placeholder')}
           value={q}

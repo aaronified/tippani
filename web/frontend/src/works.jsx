@@ -1229,7 +1229,7 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         {isActive(kind, item) && <ReadingBadge kind={capKeyFor(kind, item)} stacked={isShow} />}
         {item.favorite && <FavBadge />}
       </HandCard>
-      <NameScroll as="p" className="mt-2.5" style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', color: 'var(--ink)' }}>
+      <NameScroll as="p" className="mt-2.5" style={{ fontFamily: 'var(--font-quote-base)', fontStyle: 'var(--font-quote-base-style)', fontVariantCaps: 'var(--font-quote-base-caps)', textTransform: 'var(--font-quote-base-case)', fontVariantNumeric: 'var(--font-quote-base-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', color: 'var(--ink)' }}>
         {item.title}
       </NameScroll>
       <div className="flex items-center gap-1.5">
@@ -1367,7 +1367,7 @@ export function WishlistFolder({ kind = 'book', items = [], onOpen }) {
             it is. */}
         <span className="wish-folder-tag tp-scrim-deep">{t('common.shelf.wishlist.book.label')}</span>
       </HandCard>
-      <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', color: 'var(--ink)' }}>
+      <p className="mt-2.5 truncate" style={{ fontFamily: 'var(--font-quote-base)', fontStyle: 'var(--font-quote-base-style)', fontVariantCaps: 'var(--font-quote-base-caps)', textTransform: 'var(--font-quote-base-case)', fontVariantNumeric: 'var(--font-quote-base-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', color: 'var(--ink)' }}>
         {t('common.shelf.wishlist.book.label')}
       </p>
       <div className="flex items-center gap-1.5">

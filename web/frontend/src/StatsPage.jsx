@@ -466,11 +466,11 @@ export function NameDoor({ tip, tipSide = 'bottom', name, onOpen, style }) {
         // name; block so the percentage has a width to be a percentage of.
         className="text-left min-w-0 max-w-full block"
         style={{
-          fontFamily: 'var(--font-display)',
-          fontStyle: 'var(--font-display-style)',
-          fontVariantCaps: 'var(--font-display-caps)',
-          textTransform: 'var(--font-display-case)',
-          fontVariantNumeric: 'var(--font-display-figures)',
+          fontFamily: 'var(--font-quote-base)',
+          fontStyle: 'var(--font-quote-base-style)',
+          fontVariantCaps: 'var(--font-quote-base-caps)',
+          textTransform: 'var(--font-quote-base-case)',
+          fontVariantNumeric: 'var(--font-quote-base-figures)',
           fontWeight: 600,
           fontSize: 'var(--type-display-15)',
           background: 'none',
@@ -1398,7 +1398,7 @@ export function SuperTile({ label, title, count, amber, cover, person, onOpen })
             ) : (
               <NameScroll
                 title={title || undefined}
-                style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', lineHeight: 1.3 }}
+                style={{ fontFamily: 'var(--font-quote-base)', fontStyle: 'var(--font-quote-base-style)', fontVariantCaps: 'var(--font-quote-base-caps)', textTransform: 'var(--font-quote-base-case)', fontVariantNumeric: 'var(--font-quote-base-figures)', fontWeight: 600, fontSize: 'var(--type-display-15)', lineHeight: 1.3 }}
               >
                 {title || '—'}
               </NameScroll>

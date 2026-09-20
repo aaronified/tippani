@@ -228,8 +228,9 @@ vocab.accent.slate.label = স্লেট
 # Latin stacks"). So each .what says which script the role governs, and the
 # specimens for those three stay Latin — a Bengali specimen would render in the
 # Bengali face and show the reader nothing about the face they are choosing.
-vocab.font-role.display.label = উদ্ধৃতি
-vocab.font-role.display.what = রোমান হরফে লেখা উদ্ধৃতি আর নাম — ইংরেজি বাক্যগুলো এই ফন্টে দেখা যায়।
+vocab.font-role.display.label = সব ভাষা
+vocab.font-role.display.aria = সব ভাষার উদ্ধৃতি
+vocab.font-role.display.what = ভাষা নিজে আলাদা কিছু না বললে উদ্ধৃতি এই হরফেই লেখা হয়।
 vocab.font-role.display.sample = It is a truth universally acknowledged
 vocab.font-role.ui.label = ইন্টারফেস
 vocab.font-role.ui.what = বোতাম, ঘর, যা যা ট্যাপ করেন — তার রোমান হরফ, আর সংখ্যা, ISBN, TMDB id-এর মতো অংশগুলো।

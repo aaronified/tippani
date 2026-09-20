@@ -63,7 +63,9 @@ describe('the faces the interface is set in', () => {
   it('shows every one of them without opening anything', async () => {
     await page()
     expect(screen.queryByRole('dialog')).toBeNull()
-    for (const role of FONT_ROLES.filter((r) => !r.script)) {
+    // `display` IS NOT ONE OF THEM ANY MORE — it is the quote face and it is
+    // asked about in Quote fonts; see the case at the foot of this file.
+    for (const role of FONT_ROLES.filter((r) => !r.script && r.key !== 'display')) {
       expect(screen.getByText(t(role.label)), `${role.key} should be named`).toBeTruthy()
       expect(screen.getByText(t(role.sample)), `${role.key} should show its specimen`).toBeTruthy()
       // AND NOT A RAW LOCALE KEY. `chosen.name` is a key, so a row that forgot to
@@ -89,7 +91,11 @@ describe('the faces the interface is set in', () => {
     await page()
     const role = FONT_ROLES[0]
     const row = screen.getAllByText(t(role.sample))[0].closest('.pref-row')
-    const picker = within(row).getByRole('button', { name: t('settings.type.face.aria', { name: t(role.label) }) })
+    // `role.aria || role.label` — one row's accessible name is not its label, for
+    // the reason Settings.jsx sets out at the call site: "Every language" heads
+    // the quote table and reads right under that heading, and an accessible name
+    // carries no heading with it.
+    const picker = within(row).getByRole('button', { name: t('settings.type.face.aria', { name: t(role.aria || role.label) }) })
     fireEvent.click(picker)
     // The second face on the row: the first is what it is already set to, so
     // choosing it would prove nothing about saving.
@@ -237,6 +243,29 @@ describe('a language\'s own quote face', () => {
     expect(english, 'the Bengali name followed a language that is not in that script')
       .toContain('Noto Serif Bengali')
     expect(english).not.toContain('নোটো সেরিফ বাংলা')
+  })
+
+  // ── AND THE QUOTE FACE IS ASKED ABOUT HERE, NOT UNDER "INTERFACE FACES".
+  //
+  // It sat in the interface group labelled "Quotes", writing the variable every
+  // heading and the top bar read — so setting quotes to a serif made the top bar a
+  // serif, and no control could separate them. The owner: "Why is there still a
+  // quote font? This has to be through the quote fonts section… the interface font
+  // is atkinson hyperlegible next. Why is the top bar using newsreader, which is
+  // set as the quote font".
+  //
+  // BOTH GROUPS ARE ASSERTED, because "it is in Quote fonts" does not say it left
+  // the other one — and a row drawn in both would be two controls for one setting,
+  // which is the shape of every bug this pass has been about. The stylesheet half
+  // of the fix is `test/rules/chrome-is-not-a-quote.test.js`.
+  it('asks what a quote is set in here, and no longer under the interface faces', async () => {
+    const card = await quoteFaces()
+    const role = FONT_ROLES.find((r) => r.key === 'display')
+    expect(within(card).getByText(t(role.label)), 'the default quote face should be in Quote fonts')
+      .toBeTruthy()
+    const faces = await screen.findByRole('region', { name: new RegExp(t('settings.type.faces.title'), 'i') })
+    expect(within(faces).queryByText(t(role.label)), 'the quote face is still in the interface group too')
+      .toBeNull()
   })
 
   // Following the interface face is a real answer a reader has to be able to

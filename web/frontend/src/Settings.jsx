@@ -1054,7 +1054,14 @@ function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSi
             uploads={mine}
             script={script}
             value={row.chosen.id}
-            ariaLabel={t('settings.type.face.aria', { name: t(row.label) })}
+            /* THE NAME A SCREEN READER HEARS, and for one row it is not the
+               label. "Every language" heads the quote table and reads right
+               under that heading — but an accessible name carries no heading with
+               it, so on its own it says nothing about quotes while the rows under
+               it all say "Typeface for quotes in German". `aria` on the role is
+               that one row's fuller name; every other row has none and uses its
+               label, which is already the whole answer. */
+            ariaLabel={t('settings.type.face.aria', { name: t(row.aria || row.label) })}
             onChange={onFace}
           />
           {/* THE SIZE DIAL IGNORES THE SCOPE BESIDE IT, which is why that row says
@@ -1103,7 +1110,7 @@ function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSi
           className="font-specimen"
           dir="auto"
           style={{
-            // THE SCOPE'S OWN STACK, not `var(--font-display)`. This section can
+            // THE SCOPE'S OWN STACK, not `var(--font-quote-base)`. This section can
             // edit the faces for a UI language the reader is not in, and the
             // custom property is what the app is actually drawing — so a specimen
             // reading it would show English while the row above said Bengali.
@@ -1193,7 +1200,7 @@ function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSi
 // chosen: Deutsch in the serif you gave German, বাংলা in the Bengali face. It is
 // the same test the script check makes and a reader can make it by eye — a face
 // with no Bengali in it draws that row as boxes, on the row where it was picked.
-function QuoteFaces({ prefs, onSaved, onGo, index }) {
+function QuoteFaces({ prefs, onSaved, onGo, index, defaultRow = null }) {
   // What the library holds, seeded from the cache so a second opening draws the
   // rows on the first paint — this list arrives over the network, and a table that
   // lands a frame late reads as a panel with nothing in it.
@@ -1227,6 +1234,12 @@ function QuoteFaces({ prefs, onSaved, onGo, index }) {
 
   return (
     <PrefGroup index={index} title={t('settings.quote-faces.title')} sub={t('settings.quote-faces.intro.prose')} wide>
+      {/* WHAT EVERY LANGUAGE FALLS BACK TO, at the head of the table it is the
+          default for. A per-language table with no default is a table that cannot
+          answer "what are my quotes set in" — only "what is my German set in" —
+          and the answer used to live two groups up under a heading about the
+          interface. */}
+      {defaultRow}
       {rows.length === 0 && <p className="microcopy">{t('settings.quote-faces.none')}</p>}
       {rows.map((row) => {
         const chosen = quoteFaceFor(live, row.key)
@@ -1356,7 +1369,22 @@ function FontSections({ prefs, onSaved, onGo, index }) {
   // the scope above, or the Bengali quote face in the panel below, and both of
   // those are questions with an answer. "Which face draws this script, in general,
   // everywhere" is not.
-  const uiRows = rows.filter((r) => !r.script)
+  //
+  // ── AND THE QUOTE ROW IS NOT ONE OF THEM. It sat here labelled "Quotes",
+  // under a group headed "The interface's own faces", writing the variable that
+  // every heading and the top bar read. The owner: "Why is there still a quote
+  // font? This has to be through the quote fonts section… the interface font is
+  // atkinson hyperlegible next. Why is the top bar using newsreader, which is set
+  // as the quote font".
+  //
+  // BOTH HALVES OF THAT ARE ONE FAULT, and it was in the stylesheet rather than
+  // here: one variable doing the quote job and the title job under the quote
+  // job's name (see `--font-quote-base` in index.css). Chrome reads `--font-ui`
+  // now, so the group above is what the interface is set in and nothing else
+  // leaks into it — and this row goes where its question is asked, at the head of
+  // the per-language quote table, as the answer every language falls back to.
+  const uiRows = rows.filter((r) => !r.script && r.key !== 'display')
+  const quoteBaseRow = rows.find((r) => r.key === 'display')
 
   useEffect(() => { setDraft(null) }, [prefs])
 
@@ -1550,7 +1578,20 @@ function FontSections({ prefs, onSaved, onGo, index }) {
 
           THE LIST IS STILL AS LONG AS YOUR LIBRARY HAS LANGUAGES, and that is why
           this group is the one that grows rather than a fixed card above it. */}
-      <QuoteFaces prefs={prefs} onSaved={onSaved} onGo={onGo} index={index + 2} />
+      <QuoteFaces
+        prefs={prefs}
+        onSaved={onSaved}
+        onGo={onGo}
+        index={index + 2}
+        /* THE DEFAULT ROW, DRAWN BY THE SAME FUNCTION AS EVERY OTHER FACE ROW.
+           `fontRow` carries the size dial, the style modifiers and the revert
+           glyph; a hand-rolled copy here would be the second place a face is
+           chosen, and the repo's directive is that a control on two screens lives
+           in one function both call. It is handed in rather than looked up inside
+           QuoteFaces because the save path is this section's — one preferences
+           object, one writer. */
+        defaultRow={quoteBaseRow ? fontRow(quoteBaseRow) : null}
+      />
       <ErrorText>{err}</ErrorText>
     </>
   )
@@ -4135,7 +4176,7 @@ function CoverSpecimen({ size, kind, works, reserve = false }) {
           ) : (
             <Placeholder style={{ width: size, height: Math.round(size * ratio), borderRadius: 3 }} />
           )}
-          <span className="cover-specimen-title" style={{ fontFamily: 'var(--font-display)', fontSize: Math.max(11, Math.round(size / 12)), fontWeight: 600, color: 'var(--ink)', lineHeight: 1.25 }}>
+          <span className="cover-specimen-title" style={{ fontFamily: 'var(--font-quote-base)', fontSize: Math.max(11, Math.round(size / 12)), fontWeight: 600, color: 'var(--ink)', lineHeight: 1.25 }}>
             {w.title}
           </span>
           {w.meta && (
@@ -4406,7 +4447,7 @@ function MaterialCard({ name, dark, accentHex, code, selected, onClick }) {
             padding: '10px 11px',
           }}
         >
-          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-12)', lineHeight: 1.35, color: 'var(--ink)' }}>
+          <p style={{ fontFamily: 'var(--font-quote-base)', fontWeight: 'var(--font-quote-base-weight)', fontVariantCaps: 'var(--font-quote-base-caps)', textTransform: 'var(--font-quote-base-case)', fontVariantNumeric: 'var(--font-quote-base-figures)', fontStyle: 'italic', fontSize: 'var(--type-display-12)', lineHeight: 1.35, color: 'var(--ink)' }}>
             {t('settings.appearance.preset.specimen.label')}
           </p>
           <div className="mt-2 flex items-center gap-2">

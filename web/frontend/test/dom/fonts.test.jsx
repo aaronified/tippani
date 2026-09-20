@@ -168,12 +168,12 @@ describe('what gets written onto the page', () => {
   it('sets a stack and five modifier properties per role', () => {
     applyFonts({ fontDisplay: 'literata', fontDisplayStyle: 'bold,allcaps' })
     const st = document.documentElement.style
-    expect(st.getPropertyValue('--font-display')).toContain('Literata')
-    expect(st.getPropertyValue('--font-display-weight')).toBe('700')
-    expect(st.getPropertyValue('--font-display-case')).toBe('uppercase')
+    expect(st.getPropertyValue('--font-quote-base')).toContain('Literata')
+    expect(st.getPropertyValue('--font-quote-base-weight')).toBe('700')
+    expect(st.getPropertyValue('--font-quote-base-case')).toBe('uppercase')
     // OFF IS `inherit`, NOT `normal`. A heading already set to 600 must not be
     // flattened to 400 by a role nobody has touched.
-    expect(st.getPropertyValue('--font-display-style')).toBe('inherit')
+    expect(st.getPropertyValue('--font-quote-base-style')).toBe('inherit')
     expect(st.getPropertyValue('--font-ui-weight')).toBe('inherit')
   })
 

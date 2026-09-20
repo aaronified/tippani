@@ -1305,7 +1305,7 @@ export function Drawer({ open, onClose, tab, selectTab, onSearch, onAdd, onAccou
         <div className="drawer-header">
           <img src={dark ? '/mark-dark.svg' : '/mark.svg'} alt="" width="34" height="34" />
           <div className="min-w-0">
-            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)', letterSpacing: '-0.02em' }}>
+            <p style={{ fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)', letterSpacing: '-0.02em' }}>
               tippani
             </p>
             <p className="bengali" style={{ fontSize: 'var(--type-display-12)', color: 'var(--amber)' }} aria-hidden="true">

@@ -244,7 +244,7 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
           onClick={onToggleOpen}
           aria-expanded={open}
         >
-          <NameScroll className="min-w-0 font-semibold" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-15)' }}>
+          <NameScroll className="min-w-0 font-semibold" style={{ fontFamily: 'var(--font-quote-base)', fontWeight: 'var(--font-quote-base-weight)', fontStyle: 'var(--font-quote-base-style)', fontVariantCaps: 'var(--font-quote-base-caps)', textTransform: 'var(--font-quote-base-case)', fontVariantNumeric: 'var(--font-quote-base-figures)', fontSize: 'var(--type-display-15)' }}>
             {item.title || item.name}
           </NameScroll>
           <MonoLabel style={{ fontSize: 'var(--type-display-9)', flex: 'none' }}>{kindChip}{item.source ? ` · ${item.source}` : ''}</MonoLabel>

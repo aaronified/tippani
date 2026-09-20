@@ -1,4 +1,10 @@
 /bin/
+# THE COMPILED BINARY, AT THE REPO ROOT. `go build ./cmd/tippani` from here
+# writes it beside the source, and one `git add -A` committed 14MB of it — a
+# rebuild then reports the tree dirty after every `make build`, and a reviewer's
+# diff is a wall of binary. `/bin/` above covers the tidy path; this covers the
+# one the command actually takes by default.
+/tippani
 /data/
 /_site/
 # Both, and not just the one that was expected. Running vitest from the repo

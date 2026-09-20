@@ -470,7 +470,7 @@ function SourceLines({ card, maps = {} }) {
           below — they are people, and this is where their credit belongs. */}
       {card.art && <WorkArt path={card.art} size={44} />}
       <div className="min-w-0 flex-1">
-        <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)', lineHeight: 1.2 }}>
+        <p style={{ fontFamily: 'var(--font-quote-base)', fontStyle: 'var(--font-quote-base-style)', fontVariantCaps: 'var(--font-quote-base-caps)', textTransform: 'var(--font-quote-base-case)', fontVariantNumeric: 'var(--font-quote-base-figures)', fontWeight: 600, fontSize: 'var(--type-display-19)', lineHeight: 1.2 }}>
           {card.title}
         </p>
         {people.length > 0 && (
@@ -1116,7 +1116,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
                 // a quote. Two cards offer words out of quotes — the whole line
                 // ("which quote?") and a phrase out of one ("fill the blank, with
                 // choices") — and both are the quote's own voice.
-                fontFamily: quoteOptions ? 'var(--font-display)' : 'var(--font-ui)',
+                fontFamily: quoteOptions ? 'var(--font-quote-base)' : 'var(--font-ui)',
                 fontStyle: quoteOptions ? 'italic' : 'normal',
                 fontSize: 'var(--type-ui-15)',
                 lineHeight: 1.4,

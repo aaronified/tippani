@@ -42,7 +42,7 @@ it('a reader changes the face their quotes are set in, and it is still set after
   // The row names the job, and the control beside it names the face. Opening the
   // list and taking one is the whole gesture — nothing is opened before that.
   await app.see('Newsreader')
-  await app.press('Typeface for Quotes')
+  await app.press('Typeface for quotes in every language')
   await app.press('Literata')
   await app.see('Literata')
   await app.gone('Newsreader')
@@ -54,7 +54,7 @@ it('a reader changes the face their quotes are set in, and it is still set after
 
   // Leave the world as it was found: this is a shared fixture, and the next
   // journey did not ask for a library set in Literata.
-  await app.press('Typeface for Quotes')
+  await app.press('Typeface for quotes in every language')
   await app.press('Newsreader')
   await app.see('Newsreader')
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])

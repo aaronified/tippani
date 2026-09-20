@@ -632,7 +632,7 @@ export function WorkPicker({ works, value, onChange, onCreate }) {
   if (value) {
     return (
       <div className="mt-1 flex flex-wrap items-center gap-2">
-        <span className="font-semibold" style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-display-weight)', fontStyle: 'var(--font-display-style)', fontVariantCaps: 'var(--font-display-caps)', textTransform: 'var(--font-display-case)', fontVariantNumeric: 'var(--font-display-figures)', fontSize: 'var(--type-display-17)' }}>{value.title}</span>
+        <span className="font-semibold" style={{ fontFamily: 'var(--font-quote-base)', fontWeight: 'var(--font-quote-base-weight)', fontStyle: 'var(--font-quote-base-style)', fontVariantCaps: 'var(--font-quote-base-caps)', textTransform: 'var(--font-quote-base-case)', fontVariantNumeric: 'var(--font-quote-base-figures)', fontSize: 'var(--type-display-17)' }}>{value.title}</span>
         {value.sub && <span className="microcopy">{value.sub}</span>}
         <span className="mono-label" style={{ fontSize: 'var(--type-display-9)', color: value.kind === 'book' ? 'var(--accent-ui)' : 'var(--amber)' }}>
           {value.tag}
