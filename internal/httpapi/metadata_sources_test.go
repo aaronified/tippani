@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"regexp"
 	"sort"
@@ -412,5 +413,46 @@ func TestEverySourceRowHasANameToDraw(t *testing.T) {
 				t.Errorf("%s has no %s, so the row draws the slug", name, key)
 			}
 		}
+	}
+}
+
+// WIKIDATA ANSWERS AND IS RECORDED, which was the last supplier answering into
+// silence.
+//
+// IT IS THE FLOOR UNDER IGDB — it runs only when the pair is missing or has
+// failed, which is exactly when a reader most needs to know whether the thing
+// catching them is itself working — and nothing recorded it, so its row read
+// "nothing has asked it yet" however many games it had found. A rating found the
+// fix had no test and proved it by deleting the line and watching the whole suite
+// pass, in a change where every other fix had a ratchet.
+func TestTheGameFallbackIsRecordedLikeEveryOtherSupplier(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// Wikidata's own search, answering with one game. Pointed at httptest so this
+	// case never leaves the machine.
+	wd := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("list") == "search" {
+			_, _ = w.Write([]byte(`{"query":{"search":[{"title":"Q7350","snippet":"1984 puzzle game"}]}}`))
+			return
+		}
+		// The claims hop, asked for the one hit above.
+		_, _ = w.Write([]byte(`{"entities":{"Q7350":{"labels":{"en":{"value":"Tetris"}},` +
+			`"claims":{"P31":[{"mainsnak":{"datavalue":{"value":{"id":"Q7889"}}}}]}}}}`))
+	}))
+	defer wd.Close()
+	metadata.SetWikidataBaseForTest(t, wd.URL)
+
+	// NO IGDB PAIR, which is the only state in which the floor runs at all.
+	if _, src := srv.resolveIGDB(); src != "none" {
+		t.Fatalf("this case needs an instance with no IGDB pair, got %q", src)
+	}
+	// The games arm of the film lookup — one endpoint, `media_type` picks the arm.
+	c.mustDo("POST", "/movies/lookup", map[string]any{"title": "Tetris", "media_type": "game"}, http.StatusOK)
+
+	got := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
+	if last := sourceNamed(t, got.Sources, "wikidata").Last; last == nil {
+		t.Error("the game fallback answered and its row still says nothing has asked it")
 	}
 }

@@ -369,7 +369,7 @@ function SourceRows({ admin, sources, onTested }) {
             column of unexplained integers exactly when the reader is reading
             hardest. The pack carries it as the group's `aside`. */}
         <span className="microcopy">{t('settings.sources.records.aside')}</span>
-        {/* AND THE PACK'S ISSUES LINE BESIDE IT (metadata.dc.html:846), which is
+        {/* AND THE PACK'S ISSUES LINE BESIDE IT (metadata.dc.html:845), which is
             the one number on this list worth leading with: everything else on the
             Metadata screen depends on at least one supplier being answerable, and
             a reader counting red marks by eye is a reader who miscounts. It says

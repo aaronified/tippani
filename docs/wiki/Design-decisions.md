@@ -17879,7 +17879,7 @@ only to be told no is worse than one that is visibly not for them.
 - **The per-row key act** (`metadata.dc.html:819`). The key fields are already on this card,
   a few rows below; a per-row door to the field beside it is the repeat this pass has spent
   itself removing. The rows carry the Test; the fields carry the keys.
-- **The per-row state chip** (`:818`). The pack says the state twice — a ring on the mark and
+- **The per-row state chip** (`:816`). The pack says the state twice — a ring on the mark and
   a chip beside it — and this app already replaced exactly that chip with the ring and one
   legend, for width: at 390px the row's own label was breaking mid-word. A row says a thing
   once.
@@ -17888,9 +17888,11 @@ only to be told no is worse than one that is visibly not for them.
   blank reads as a number that failed to load.
 *And the suppliers, which differ both ways:*
 
-- **Goodreads and Wikipedia are in the pack's twelve and get no row.** Nothing in this app
-  asks either of them, and a row for a supplier nothing can reach is an invitation to
-  configure something that does not exist. (IMDb and Letterboxd, also in the pack's twelve,
+- **Goodreads and Wikipedia are in the pack's twelve and get no row of their own.**
+  Nothing here asks Goodreads at all. Wikipedia IS reached — the picture ladder's Wikimedia
+  rung queries `en.wikipedia.org` (`internal/metadata/wikimedia_images.go`) — but it is one
+  rung, recorded under the name the ladder calls it, and a second row for the same requests
+  under a different name would be two rows reporting one thing. (IMDb and Letterboxd, also in the pack's twelve,
   DO get rows — `knownMovieSource` lets them write a field.)
 - **Google Images and Wikimedia get rows the pack has no line for.** They are rungs of the
   picture ladder, they answer without a key, and they are recorded every time the app uses
@@ -17911,7 +17913,7 @@ switch and watching the case stay green — the second time in this change a gua
 for something it did not guard. A list typed into a test is a list typed by whoever got the
 other one wrong.
 
-The pack's "N sources need a key before they can be asked" line (`:846`) IS drawn, beside the
+The pack's "N sources need a key before they can be asked" line (`:845`) IS drawn, beside the
 column's caption rather than in place of it — everything else on the Metadata screen depends
 on at least one supplier being answerable, and a reader counting red marks by eye is a reader
 who miscounts. A caption that vanishes when there is news leaves a column of unexplained
