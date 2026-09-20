@@ -193,6 +193,10 @@ func (s *Server) Handler() http.Handler {
 	// Settings-managed metadata keys + admin cover maintenance (§10).
 	mux.Handle("GET /admin/metadata-keys", s.requireAdmin(s.handleGetMetadataKeys))
 	mux.Handle("PUT /admin/metadata-keys", s.requireAdmin(s.handlePutMetadataKeys))
+	// ASK A SUPPLIER NOW, rather than waiting to find out through a fetch that
+	// came back thin. Admin because it spends the instance's quota against
+	// somebody else's API on a press. See metadata_sources.go.
+	mux.Handle("POST /admin/metadata/test", s.requireAdmin(s.handleMetadataTest))
 	mux.Handle("POST /covers/refetch", s.requireAdmin(s.handleCoversRefetch))
 	// Maintenance (admin): rebuild the search indexes (non-destructive) and the
 	// factory reset (destructive) behind Profile.

@@ -178,6 +178,20 @@ func (r *lookupRegistry) record(area, source string, found int, note string, err
 	r.m.Store(key, next)
 }
 
+// latest is one supplier's most recent outcome in one area, or nil when nothing
+// has asked it in this process.
+//
+// IT EXISTS FOR THE SOURCES LIST, WHICH ASKS THE OPPOSITE QUESTION TO `faults`.
+// That one answers "what is broken", and its silence is the healthy state; a row
+// per supplier has to say "answered, 12 found, a minute ago" as well, because a
+// Test that reported nothing on success would be a button with no result.
+func (r *lookupRegistry) latest(area, source string) *sourceOutcome {
+	if v, ok := r.m.Load(regKey(area, source)); ok {
+		return v.(*sourceOutcome)
+	}
+	return nil
+}
+
 // faults is every source whose last answer was a failure, or which has been
 // answering nothing for long enough to count.
 //

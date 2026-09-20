@@ -209,6 +209,12 @@ func (s *Server) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
 		// zero into a fault is a RUN, and a run is only visible to whatever saw
 		// every attempt. A client sees one page load.
 		"faults": s.lookups.faults(),
+		// EVERY SUPPLIER THE APP CAN ASK, broken or not — which is the opposite
+		// list to `faults` above and is why both are here. Faults answer "what
+		// should I do something about"; this answers "who does this app ask, and
+		// how much of my library came from each" — the question the console's own
+		// heading asks. See metadata_sources.go.
+		"sources": s.sourceRows(userID(r)),
 	}
 	if n := s.filmSourceNotice(userID(r)); n != nil {
 		out["film_source_notice"] = n

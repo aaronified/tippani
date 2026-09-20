@@ -17821,3 +17821,44 @@ own and is about the width of a phone.
 *Unreleased — `internal/httpapi/review_excluded.go`, `web/frontend/src/Settings.jsx`,
 `web/frontend/test/journeys/a-font-that-can-write-your-script.journey.mjs`,
 `web/frontend/test/journeys/putting-back-what-you-skipped.journey.mjs`.*
+
+## A row per supplier, and a way to ask one now
+
+**A LIST OF KEY FIELDS IS NOT A LIST OF SOURCES.** The Metadata sources console drew one row
+per CREDENTIAL — a TheTVDB key, a TheTVDB pin, an IGDB id, an IGDB secret — which is the
+shape of the form rather than the shape of the question. What a reader standing there is
+asking is "who does this app ask about my books, and are any of them broken": a list of
+suppliers, each with what it supplies, whether it can be asked at all, how much of this
+library came from it, and what it said last time. The pack draws exactly that and titles the
+group "Who the app can ask" (`metadata.dc.html:476-489, 805-821`). A supplier that needs no
+key — Open Library, Wikimedia — appeared nowhere at all on the old screen, so "nothing is
+stored because nothing is needed" and "nothing is stored and nothing will answer" looked
+identical.
+
+**THE STATE COMES FROM THE SAME RESOLVERS THE LOOKUPS CALL**, so a row cannot claim a key
+that a fetch would not find. Four words, the pack's: `saved`, `bundled`, `optional`,
+`needed`. The keyless suppliers are `optional` rather than `saved`, which is a reading
+worth stating — "key saved" would be a green light about a key that does not exist.
+
+**"RECORDS SUPPLIED" IS THE LIBRARY'S OWN RECORD, not a tally this feature keeps.**
+`work_field_source` already stores which supplier wrote each accepted field, so the number
+is a fact, and it is scoped by user like everything else on the console: a supplier that
+filled in somebody else's shelf did not fill in yours.
+
+**A TEST ASKS THE SUPPLIER THE WAY EVERYTHING ELSE ASKS IT.** The same client, the same
+`recordLookup`, a famous subject — Dune, Metropolis, Tetris — so that "nothing found" is an
+answer about the supplier rather than about the subject. It is deliberately NOT a bespoke
+health protocol: a second way of asking is a second thing that can disagree with the first,
+and a green Test over a broken lookup is worse than no Test at all. That is also why the
+result lands in the fault registry rather than beside it — one truth, read by the chips and
+by the rows.
+
+**AND ONLY THE SUPPLIERS A READER CAN CONFIGURE.** The picture ladder's rungs are scrapes of
+other people's sites; asking them a synthetic question on a button press is how an install
+earns a rate limit, and they already report themselves every time they are actually used. A
+Test names its refusal rather than returning a row it never asked — a green light about an
+unasked supplier is the failure this whole screen exists to prevent. The button is admin's,
+because it spends the instance's quota against somebody else's API.
+
+*Unreleased — `internal/httpapi/metadata_sources.go`,
+`internal/httpapi/metadata_faults.go`, `internal/httpapi/metadata_handlers.go`.*
