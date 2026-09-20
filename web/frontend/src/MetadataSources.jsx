@@ -327,8 +327,15 @@ const keyLabel = (source, noun) =>
 // this library came from it, or what it said last time — and a supplier that needs
 // no key (Open Library, Wikimedia) has no field, so it appeared on this screen
 // nowhere. The pack draws the list and titles it "Who the app can ask"
-// (metadata.dc.html:805-821); the fields below it stay, because adding a key is
-// still what a row's key action opens.
+// (metadata.dc.html:805-821).
+//
+// THE PACK'S PER-ROW KEY ACTION IS NOT DRAWN, and this comment claimed it was
+// until a rating read the line. The pack gives each row two verbs — "Add TMDB's
+// key" and "Test TMDB" — and the key fields are already on this card, six inches
+// below: a second door to the field beside it would be the repeat this whole pass
+// has been removing. So the rows carry the Test and the fields carry the keys, and
+// the deviation is recorded in Design-decisions.md rather than left to be
+// rediscovered as an omission.
 //
 // THE NUMBERS ARE THE LIBRARY'S OWN. `records` counts the fields `work_field_source`
 // says each supplier wrote, scoped to this reader — see metadata_sources.go.
@@ -352,11 +359,26 @@ function SourceRows({ admin, sources, onTested }) {
   }
 
   if (!sources?.length) return null
+  const needKey = sources.filter((x) => x.state === 'needed').length
   return (
     <div className="src-rows">
       <div className="src-rows-head">
         <MonoLabel>{t('settings.sources.group.title')}</MonoLabel>
+        {/* THE COLUMN'S CAPTION, ALWAYS — it is what the number on the right of
+            every row IS, and a caption that disappears when there is news is a
+            column of unexplained integers exactly when the reader is reading
+            hardest. The pack carries it as the group's `aside`. */}
         <span className="microcopy">{t('settings.sources.records.aside')}</span>
+        {/* AND THE PACK'S ISSUES LINE BESIDE IT (metadata.dc.html:846), which is
+            the one number on this list worth leading with: everything else on the
+            Metadata screen depends on at least one supplier being answerable, and
+            a reader counting red marks by eye is a reader who miscounts. It says
+            nothing when there is nothing to say, which is this console's rule. */}
+        {needKey > 0 && (
+          <span className="microcopy" style={{ color: 'var(--error)' }}>
+            {t('settings.sources.need-key.prose', { n: needKey })}
+          </span>
+        )}
         <span className="flex-1" />
         {admin && (
           <GhostButton
@@ -378,8 +400,12 @@ function SourceRows({ admin, sources, onTested }) {
         // per-supplier prose here to translate twelve times.
         const supplies = (row.areas || []).map((a) => t(`settings.metadata.area.${a}.label`)).join(' · ')
         const last = row.last
+        // NOTHING HAS ASKED IT YET IS A FACT, NOT A WARNING, and it is worth
+        // drawing: Open Library and the picture rungs are recorded only when the
+        // app actually uses them, so a quiet row would otherwise be
+        // indistinguishable from one whose answer failed to render.
         const said = !last
-          ? null
+          ? ['untried', t('settings.sources.untried.label')]
           : !last.ok
             ? ['failed', t('settings.sources.failed.label')]
             : last.found > 0
@@ -407,7 +433,11 @@ function SourceRows({ admin, sources, onTested }) {
                 icon={<IconRefresh />}
                 ariaLabel={t('settings.sources.test.aria', { source: name })}
                 tooltip={t('settings.sources.test.tip', { source: name })}
-                disabled={!!asking || !TESTABLE.includes(row.source)}
+                // AND NOT FOR A SOURCE THAT CANNOT BE ASKED AT ALL. A press
+                // that could only report "no key" is a press that tells the
+                // reader what the mark beside it already says — and it used to
+                // report nothing whatsoever, which a rating caught.
+                disabled={!!asking || !TESTABLE.includes(row.source) || row.state === 'needed'}
                 onClick={() => test(row.source)}
               />
             )}
@@ -416,7 +446,7 @@ function SourceRows({ admin, sources, onTested }) {
             {said && (
               <p className={'src-row-last is-' + said[0]}>
                 {asking === row.source ? t('settings.sources.testing.label') : said[1]}
-                {last.error ? ` — ${last.error}` : ''}
+                {last?.error ? ` — ${last.error}` : ''}
               </p>
             )}
           </div>

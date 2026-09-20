@@ -34,8 +34,16 @@ import (
 // (metadata.dc.html:490-495). They are not translated here: the client draws the
 // legend from its own locale files and these are the enum.
 const (
-	srcStateSaved    = "saved"    // a key of this instance's own is stored
-	srcStateBundled  = "bundled"  // running on the key built into the app
+	srcStateSaved = "saved" // a key of this instance's own is stored
+	// `builtin` AND NOT `bundled`, AND THE SPELLING IS THE WHOLE OF IT. The app
+	// already had this vocabulary — `SRC_STATE_WORD` in ui.jsx, `.is-src-builtin`
+	// in the stylesheet, `KEY_STATES` in the console, and the pack's own
+	// `SRC_STATE` (metadata.dc.html:494) — and a fifth word for the same state
+	// draws a mark with no colour rule and an accessible name with the word
+	// missing out of the middle of it. A rating caught it: the Go test asserted
+	// the wire and the journey world has no built-in key, so both halves passed
+	// while an official build would have shown a grey mark saying "TMDB — ".
+	srcStateBuiltin  = "builtin"  // running on the key built into the app
 	srcStateOptional = "optional" // answers without a key; one only improves it
 	srcStateNeeded   = "needed"   // cannot be asked at all until a key is stored
 )
@@ -100,7 +108,7 @@ func (s *Server) sourceState(slug string) string {
 		case "none":
 			return srcStateNeeded
 		case "builtin":
-			return srcStateBundled
+			return srcStateBuiltin
 		default:
 			return srcStateSaved
 		}
@@ -109,7 +117,7 @@ func (s *Server) sourceState(slug string) string {
 		case "none":
 			return srcStateNeeded
 		case "builtin":
-			return srcStateBundled
+			return srcStateBuiltin
 		default:
 			return srcStateSaved
 		}
@@ -180,24 +188,26 @@ func (s *Server) sourceRows(uid int64) []sourceRow {
 		// two areas — TheTVDB answers film lookups and picture searches — and the
 		// row shows the newest of them, because what the reader is asking is "did
 		// this thing answer me recently", not "how is its posters division".
+		// COMPARED AS TIMES AND NOT AS THE STRINGS THEY ARE SENT AS. RFC3339 is
+		// truncated to the second, so two outcomes in the same second compared
+		// equal and the older one won — which on a "Test every source" press,
+		// where the calls land milliseconds apart, is the wrong answer arriving
+		// silently.
+		var newest time.Time
 		for _, area := range src.areas {
-			if o := s.lookups.latest(area, src.slug); o != nil {
-				if row.Last == nil || o.CheckedAt.After(mustTime(row.Last.CheckedAt)) {
-					row.Last = &sourceLast{
-						OK: o.OK, Found: o.Found, Error: o.Err, Note: o.Note,
-						CheckedAt: o.CheckedAt.UTC().Format(time.RFC3339),
-					}
-				}
+			o := s.lookups.latest(area, src.slug)
+			if o == nil || (row.Last != nil && !o.CheckedAt.After(newest)) {
+				continue
+			}
+			newest = o.CheckedAt
+			row.Last = &sourceLast{
+				OK: o.OK, Found: o.Found, Error: o.Err, Note: o.Note,
+				CheckedAt: o.CheckedAt.UTC().Format(time.RFC3339),
 			}
 		}
 		out = append(out, row)
 	}
 	return out
-}
-
-func mustTime(s string) time.Time {
-	t, _ := time.Parse(time.RFC3339, s)
-	return t
 }
 
 // ── TESTING A SOURCE ─────────────────────────────────────────────────────────
@@ -228,7 +238,15 @@ const (
 
 // testSource asks one supplier, records the outcome where every other lookup
 // records it, and says what happened.
-func (s *Server) testSource(ctx context.Context, uid int64, slug string) sourceRow {
+// The second return is false when the supplier could not be asked at all — no key
+// — which is NOT the same as a supplier that was asked and did not answer.
+//
+// A RATING FOUND THIS SILENT. It used to fall through, record nothing, and hand
+// back a row with no `last` on it: pressing Test on a keyless TMDB said absolutely
+// nothing, which is the one thing a button must never do. The screen disables the
+// press for a row in that state, and this is the other half of the same fact, for
+// the race where a key is cleared between the render and the press.
+func (s *Server) testSource(ctx context.Context, uid int64, slug string) (sourceRow, bool) {
 	switch slug {
 	case "google":
 		gkey, _ := s.Store.GetSetting(settingGoogleBooksKey)
@@ -240,31 +258,31 @@ func (s *Server) testSource(ctx context.Context, uid int64, slug string) sourceR
 	case "tmdb":
 		client, _ := s.resolveTMDB()
 		if client == nil {
-			break
+			return sourceRow{}, false
 		}
 		cands, err := client.Search(ctx, probeFilm, 0)
 		s.recordLookup(faultAreaFilms, "tmdb", len(cands), "", err)
 	case "tvdb":
 		client, _ := s.resolveTVDB()
 		if client == nil {
-			break
+			return sourceRow{}, false
 		}
 		cands, err := client.Search(ctx, probeFilm, 0, "movie")
 		s.recordLookup(faultAreaFilms, "tvdb", len(cands), "", err)
 	case "igdb":
 		client, _ := s.resolveIGDB()
 		if client == nil {
-			break
+			return sourceRow{}, false
 		}
 		cands, err := client.Search(ctx, probeGame, 0)
 		s.recordLookup(faultAreaGames, "igdb", len(cands), "", err)
 	}
 	for _, row := range s.sourceRows(uid) {
 		if row.Source == slug {
-			return row
+			return row, true
 		}
 	}
-	return sourceRow{Source: slug}
+	return sourceRow{Source: slug}, true
 }
 
 // handleMetadataTest — POST /admin/metadata/test.
@@ -301,8 +319,26 @@ func (s *Server) handleMetadataTest(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	rows := make([]sourceRow, 0, len(want))
+	asked := 0
 	for _, slug := range want {
-		rows = append(rows, s.testSource(r.Context(), uid, slug))
+		row, ok := s.testSource(r.Context(), uid, slug)
+		if !ok {
+			// SKIPPED, NOT FAILED, when several were asked: "test everything"
+			// over an instance with one key is a useful press, and calling the
+			// keyless ones broken would be the card crying wolf about the
+			// ordinary state of a new install.
+			continue
+		}
+		asked++
+		rows = append(rows, row)
+	}
+	if asked == 0 {
+		// NAMED RATHER THAN ANSWERED WITH SILENCE. One source asked for by name,
+		// with no key behind it, gets a reason — the screen disables that press,
+		// so reaching here means the key went away between the render and the
+		// press and the reader deserves to be told which.
+		writeErr(w, http.StatusConflict, "that source has no key stored, so it cannot be asked")
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"sources": rows})
 }

@@ -55,8 +55,17 @@ func TestEverySourceSaysWhetherItCanBeAsked(t *testing.T) {
 
 	srv.TMDBBuiltin = "builtin-key"
 	got = decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
-	if st := sourceNamed(t, got.Sources, "tmdb").State; st != srcStateBundled {
+	if st := sourceNamed(t, got.Sources, "tmdb").State; st != srcStateBuiltin {
 		t.Errorf("running on the app's own key, the row says %q", st)
+	}
+	// AND THE WORD IS THE ONE THE SCREEN ALREADY DRAWS. The state is a class name
+	// (`.is-src-builtin`) and a locale key (`SRC_STATE_WORD`) on the other side of
+	// the wire, so a fifth spelling of it is a mark with no colour and a label
+	// with a hole in it — on official builds only, which is where nobody looks.
+	// The rating that found this had both halves green: the wire said "bundled"
+	// and the browser world had no built-in key.
+	if st := sourceNamed(t, got.Sources, "tmdb").State; st != "builtin" {
+		t.Errorf("the built-in state reaches the screen as %q, which it cannot draw", st)
 	}
 	srv.TMDBBuiltin = ""
 
@@ -167,10 +176,22 @@ func TestTestingEverySourceCoversTheOnesThatCanBeAsked(t *testing.T) {
 		return nil, nil
 	}
 
+	// EVERY SUPPLIER THAT COULD ACTUALLY BE ASKED. With a built-in film key in
+	// place that is TMDB as well as Google Books — the keyless ones are skipped
+	// rather than failed, which is what makes this press useful on a new install.
+	srv.TMDBBuiltin = "builtin-key"
 	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]any{}, http.StatusOK))
-	if len(got.Sources) != len(testableSources) {
-		t.Fatalf("want a row per testable source, got %d", len(got.Sources))
+	back := map[string]bool{}
+	for _, row := range got.Sources {
+		back[row.Source] = true
 	}
+	if !back["google"] || !back["tmdb"] {
+		t.Fatalf("want the suppliers that had a key: %+v", got.Sources)
+	}
+	if back["igdb"] {
+		t.Error("a supplier with no key was reported as asked")
+	}
+	srv.TMDBBuiltin = ""
 
 	// A SCRAPER IS NOT TESTABLE AND SAYS SO. Asking Fandom a synthetic question on
 	// a button press is how an install earns a rate limit; the refusal is named
@@ -192,4 +213,33 @@ func TestOnlyAnAdminCanSpendTheInstancesQuota(t *testing.T) {
 	// cover needs to see which suppliers can answer, even though only the owner
 	// can give one a key.
 	reader.mustDo("GET", "/metadata/status", nil, http.StatusOK)
+}
+
+// A SUPPLIER WITH NO KEY CANNOT BE ASKED, AND SAYS SO RATHER THAN SAYING NOTHING.
+//
+// It used to fall through: no client, no call, no record, and a row handed back
+// with nothing on it — so pressing Test on a keyless TMDB was a button that did
+// absolutely nothing, which is the one thing a button must never do. The screen
+// disables that press; this is the other half, for the race where a key is
+// cleared between the render and the press.
+func TestTestingASourceWithNoKeyIsRefusedRatherThanIgnored(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	srv.TMDB.Key = ""
+	srv.TMDBBuiltin = ""
+
+	c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "tmdb"}, http.StatusConflict)
+
+	// AND "TEST EVERYTHING" STILL WORKS OVER AN INSTANCE WITH ONE KEY. Skipping
+	// the keyless ones is not the same as failing: a new install has exactly one
+	// supplier that can answer, and a press that refused the lot would be the
+	// card crying wolf about its ordinary state.
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
+		return nil, nil
+	}
+	got := decode[sourcesResp](t, c.mustDo("POST", "/admin/metadata/test", map[string]any{}, http.StatusOK))
+	if len(got.Sources) != 1 || got.Sources[0].Source != "google" {
+		t.Fatalf("want only the supplier that could be asked: %+v", got.Sources)
+	}
 }

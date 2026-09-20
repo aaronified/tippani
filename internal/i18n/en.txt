@@ -5718,6 +5718,7 @@ settings.keys.saved.tip = Saved
 # vocab.source.* already does.
 settings.sources.group.title = Who the app can ask
 settings.sources.records.aside = records supplied
+settings.sources.need-key.prose = {n} need a key before they can be asked
 settings.sources.records.tip = {n} fields in your library came from {source}
 settings.sources.records.none.tip = Nothing in your library came from {source} yet
 settings.sources.test.aria = Ask {source} a test question
@@ -5728,6 +5729,7 @@ settings.sources.testing.label = Asking…
 settings.sources.answered.label = answered · {n} found
 settings.sources.empty.label = answered · found nothing
 settings.sources.failed.label = did not answer
+settings.sources.untried.label = nothing has asked it yet
 # {name} is a whole field name — "Google Books key" — and goes in unaltered.
 # These two replaced "Add a google books key", lower-cased in code.
 settings.keys.add.aria = Add the {name}

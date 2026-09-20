@@ -17871,3 +17871,36 @@ sends you to — what has gone is the pretence that the fields WERE the list of 
 per-row Test button is drawn for the keyed suppliers only and mirrors the server's own
 `testableSources`: the server refuses the others by name, and a button a reader can press
 only to be told no is worse than one that is visibly not for them.
+
+**TWO OF THE PACK'S SOURCE ROW IS NOT DRAWN, AND BOTH ARE DELIBERATE.** It gives each row
+two verbs — "Add TMDB's key" and "Test TMDB" (`metadata.dc.html:819`) — and the key fields
+are already on this card, a few rows below: a per-row door to the field beside it is the
+repeat this pass has spent itself removing. The rows carry the Test; the fields carry the
+keys. The pack's "N sources need a key before they can be asked" line (`:846`) IS drawn, and
+was worth taking: everything else on the Metadata screen depends on at least one supplier
+being answerable, and a reader counting red marks by eye is a reader who miscounts.
+
+**AND A RATING CAUGHT THE STATE THE SCREEN COULD NOT PAINT.** The server named the
+built-in-key state `bundled`; the app's whole vocabulary for it is `builtin` — the
+stylesheet's `.is-src-builtin`, `SRC_STATE_WORD`, `KEY_STATES`, and the pack's own
+`SRC_STATE` (`metadata.dc.html:490`). On an official build, the only kind with a key
+compiled in, TMDB's mark therefore had no colour rule and its accessible name read "TMDB — "
+with the state missing out of the middle. NOTHING FAILED: the Go test asserted the word on
+the wire, the browser world has no built-in key, and each half was right about itself —
+which is the failure this repo's testing ruling is written against. The guard is now at the
+seam, in `test/dom/source-rows.test.jsx`, which renders each of the four states and asks the
+screen to paint it.
+
+**A TEST ON A SUPPLIER WITH NO KEY USED TO DO NOTHING AT ALL** — no client, no call, no
+record, and a row handed back with nothing on it. That is the one thing a button must never
+do. The press is not offered for a row in that state, and the server answers 409 with a
+reason for the race where a key is cleared between the render and the press. "Test every
+source" SKIPS the keyless ones rather than failing them: a new install has one supplier that
+can answer, and a press that refused the lot would be the card crying wolf about its
+ordinary state.
+
+**AND THE TWO TESTABLE LISTS ARE HELD TOGETHER BY A SCANNER.** The server refuses a source it
+cannot test and the screen does not draw a button a reader could only press to be told no —
+two lists that must agree, with nothing asking whether they did. `test/rules/testable-sources.test.js`
+reads both sources rather than holding a list of its own, because a list typed into a test
+would have been typed by whoever got the other two wrong.
