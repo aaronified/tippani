@@ -94,12 +94,28 @@ func (s *Server) recordBooksLookup(cands []metadata.BookCandidate, err error) {
 	}
 	s.booksLookup.Store(rec)
 	// EACH SUPPLIER GETS ITS OWN ANSWER, because the search asks two of them.
-	// `SearchBooks` queries Google Books AND Open Library and hands back one
-	// merged list with `Source` on every candidate — so recording the total under
-	// "google" told the fault list that Open Library had never been asked, in an
-	// app that asks it on every book lookup. A rating found the consequence on the
-	// sources console: Open Library's row read "nothing has asked it yet" for
-	// ever, including immediately after a Test that had just asked it.
+	// `SearchBooks` queries Google Books AND Open Library and hands back one list
+	// — so recording the total under "google" told the fault list that Open
+	// Library had never been asked, in an app that asks it on every book lookup.
+	// Open Library's row on the sources console read "nothing has asked it yet"
+	// for ever, including immediately after a Test that had just asked it.
+	//
+	// COUNTED BY THE IDS AND NOT BY `Source`, and this is the correction to the
+	// first attempt at the fix. An ISBN search MERGES the two providers' answers
+	// into one record — they are half-describing the same book, so a reader should
+	// not have to pick a row and inherit its gaps — and the merged record keeps
+	// ONE `Source`, the Google one. Counting by that field therefore recorded Open
+	// Library as having answered and found NOTHING on the commonest path in the
+	// app, and three of those in a row is `emptyRunFault`: a working supplier on
+	// the fault list, which is worse than the silence it replaced. `GoogleID` and
+	// `OpenLibraryID` survive the merge precisely because a merged candidate has
+	// two identities, so they are what says who had a hand in it.
+	//
+	// WHAT THE NUMBER MEANS, EXACTLY: how many of the candidates the reader was
+	// offered this supplier contributed to. Not how many rows it returned — the
+	// list is merged and then cut to `maxBookCandidates` — and the difference is
+	// deliberate, because what the fault list is for is "did this supplier put
+	// anything in front of me", not "how big was its raw reply".
 	//
 	// AN ERROR BELONGS TO BOTH, because the error this search returns is the pair
 	// of them failing — `SearchBooks` composes "google books: …; open library: …"
@@ -109,15 +125,17 @@ func (s *Server) recordBooksLookup(cands []metadata.BookCandidate, err error) {
 	// "google" AND NOT "google-books", because `vocab.source.google.label` already
 	// reads "Google Books" — the app named this supplier once and the fault list
 	// has no business naming it a second time in a slightly different way.
-	for _, src := range []string{"google", "openlibrary"} {
-		found := 0
-		for _, c := range cands {
-			if c.Source == src {
-				found++
-			}
+	google, openLibrary := 0, 0
+	for _, c := range cands {
+		if c.GoogleID != "" || c.Source == "google" {
+			google++
 		}
-		s.recordLookup(faultAreaBooks, src, found, "", err)
+		if c.OpenLibraryID != "" || c.Source == "openlibrary" {
+			openLibrary++
+		}
 	}
+	s.recordLookup(faultAreaBooks, "google", google, "", err)
+	s.recordLookup(faultAreaBooks, "openlibrary", openLibrary, "", err)
 }
 
 // resolveTMDB picks the effective TMDB client per request, in the PLAN §6

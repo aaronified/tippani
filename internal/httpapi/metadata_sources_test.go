@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
+	"regexp"
+	"sort"
 	"testing"
 
 	"tippani/internal/metadata"
@@ -273,28 +276,38 @@ func TestEverySupplierThatCanWriteAFieldIsOnTheList(t *testing.T) {
 	for _, src := range sourceAreas {
 		rowed[src.slug] = true
 	}
-	// The whitelists are switch statements, so they are asked rather than parsed:
-	// every slug either side accepts is offered to them and kept if it comes back.
-	candidates := []string{
-		"google", "openlibrary", "amazon", "hardcover",
-		"tmdb", "tvdb", "igdb", "wikidata", "imdb", "letterboxd", "fandom",
-		"manual", "nonsense",
+	// THE SLUGS ARE READ OUT OF THE WHITELISTS' OWN SOURCE, not typed here. The
+	// first version of this case listed them by hand and therefore could not see a
+	// slug somebody added to the switch — a rating proved it by adding one and
+	// watching this stay green, which is the second time in this change a guard
+	// has been claimed for something it did not guard. A list typed into a test is
+	// a list typed by whoever got the other one wrong.
+	src, err := os.ReadFile("reverify_handlers.go")
+	if err != nil {
+		t.Fatal(err)
 	}
-	missing := []string{}
-	accepted := 0
-	for _, slug := range candidates {
-		if knownBookSource(slug) == "" && knownMovieSource(slug) == "" {
-			continue
+	accepted := map[string]bool{}
+	for _, fn := range []string{"knownBookSource", "knownMovieSource"} {
+		body := regexp.MustCompile(`(?s)func ` + fn + `\(source string\) string \{(.*?)\n\}`).FindSubmatch(src)
+		if body == nil {
+			t.Fatalf("no %s in reverify_handlers.go — it was renamed, and this case is checking nothing", fn)
 		}
-		accepted++
+		for _, m := range regexp.MustCompile(`"([a-z-]+)"`).FindAllSubmatch(body[1], -1) {
+			accepted[string(m[1])] = true
+		}
+	}
+	if len(accepted) < 10 {
+		t.Fatalf("read only %d slugs out of the whitelists — the scan is broken: %v", len(accepted), accepted)
+	}
+
+	missing := []string{}
+	for slug := range accepted {
 		if sourceRowExempt[slug] || rowed[slug] {
 			continue
 		}
 		missing = append(missing, slug)
 	}
-	if accepted < 10 {
-		t.Fatalf("the whitelists accepted only %d of the slugs offered — this case is checking almost nothing", accepted)
-	}
+	sort.Strings(missing)
 	if len(missing) > 0 {
 		t.Errorf("these suppliers can write a field and have no row to count it: %v", missing)
 	}
@@ -325,5 +338,79 @@ func TestARowShowsTheNewestOfASuppliersTwoAreas(t *testing.T) {
 	}
 	if last.Found != 3 {
 		t.Errorf("the row shows %d found — the older of the two answers won", last.Found)
+	}
+}
+
+// THE MERGED RECORD IS THE CASE THAT MATTERS, and the first fix got it wrong.
+//
+// An ISBN search MERGES both providers' answers into one candidate — they are
+// half-describing the same book — and the merged record keeps ONE `Source`, the
+// Google one. So counting by that field recorded Open Library as having answered
+// and found NOTHING on the commonest path in the app; three in a row is
+// `emptyRunFault`, which would have put a working supplier on the fault list. That
+// is worse than the silence it replaced, and the case that caught it did not exist
+// because the stub returned two candidates with distinct sources, which is the
+// title path and not the ISBN one.
+func TestABookBothSuppliersDescribedCountsForBoth(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// What `mergeSameBook` produces: one record, Google's `Source`, and BOTH ids —
+	// which is why the ids are what says who had a hand in it.
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
+		return []metadata.BookCandidate{{
+			Title: "Dune", Source: "google",
+			GoogleID: "g1", OpenLibraryID: "/works/OL1W",
+		}}, nil
+	}
+	c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "google"}, http.StatusOK)
+
+	got := decode[sourcesResp](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
+	for _, slug := range []string{"google", "openlibrary"} {
+		last := sourceNamed(t, got.Sources, slug).Last
+		if last == nil || !last.OK || last.Found != 1 {
+			t.Errorf("%s had a hand in the book and its row says %+v", slug, last)
+		}
+	}
+	// AND NOTHING IS ON THE FAULT LIST, which is the consequence this is really
+	// about: a supplier recorded as answering nothing, three times running, is
+	// reported broken.
+	for i := 0; i < 3; i++ {
+		c.mustDo("POST", "/admin/metadata/test", map[string]string{"source": "google"}, http.StatusOK)
+	}
+	faults := decode[struct {
+		Faults []faultRow `json:"faults"`
+	}](t, c.mustDo("GET", "/metadata/status", nil, http.StatusOK))
+	for _, f := range faults.Faults {
+		if f.Source == "openlibrary" {
+			t.Errorf("a supplier that answered every time is on the fault list: %+v", f)
+		}
+	}
+}
+
+// EVERY ROW CAN SAY ITS SUPPLIER'S NAME.
+//
+// The screen resolves a slug through `vocab.source.<slug>.label` and falls back to
+// the slug itself when the app has never named that supplier — which is right for
+// a fault list, which is open-ended by design, and wrong for this list, which this
+// file writes by hand. A rating found `hardcover` drawing the word "hardcover" in
+// lower case next to "Open Library".
+func TestEverySourceRowHasANameToDraw(t *testing.T) {
+	en, err := os.ReadFile("../i18n/en.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bn, err := os.ReadFile("../i18n/bn.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, src := range sourceAreas {
+		key := "vocab.source." + src.slug + ".label"
+		for name, file := range map[string][]byte{"en.txt": en, "bn.txt": bn} {
+			if !regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(key) + ` = \S`).Match(file) {
+				t.Errorf("%s has no %s, so the row draws the slug", name, key)
+			}
+		}
 	}
 }

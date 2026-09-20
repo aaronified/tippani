@@ -83,7 +83,6 @@ var sourceAreas = []struct {
 }{
 	{"google", []string{faultAreaBooks}},
 	{"openlibrary", []string{faultAreaBooks}},
-	{"hardcover", []string{faultAreaBooks}},
 	{"amazon", []string{faultAreaBooks, faultAreaPictures}},
 	{"tmdb", []string{faultAreaFilms, faultAreaPictures}},
 	{"tvdb", []string{faultAreaFilms, faultAreaPictures}},
@@ -106,10 +105,21 @@ var sourceAreas = []struct {
 // omits is a supplier that filled in part of somebody's library and appears
 // nowhere on the screen that lists suppliers. A rating found four of them.
 //
-// `manual` IS THE ONE EXCLUSION AND IT IS NOT A SUPPLIER. It is the reader
-// themselves — `vocab.source.manual.label` reads "You" — and a row offering to
-// test whether you can be asked would be a joke the screen makes once.
-var sourceRowExempt = map[string]bool{"manual": true}
+// TWO EXCLUSIONS, AND NEITHER IS SOMETHING THIS APP CAN ASK.
+//
+// `manual` is the reader themselves — `vocab.source.manual.label` reads "You" —
+// and a row offering to test whether you can be asked would be a joke the screen
+// makes once.
+//
+// `hardcover` ARRIVES THROUGH AN IMPORT AND IS NEVER QUERIED. It lives in
+// `internal/importer`, not `internal/metadata`: a Hardcover export can attribute a
+// field, which is why `knownBookSource` accepts it, but nothing in this app can
+// ask Hardcover anything. A row under a heading reading "Who the app can ask"
+// would be an invitation to configure something that does not exist, and it would
+// have drawn its own slug in lower case besides, because there is no
+// `vocab.source.hardcover.label` — the app has never had to name it on a screen.
+// Its records are visible where they belong: on the work whose field it filled.
+var sourceRowExempt = map[string]bool{"manual": true, "hardcover": true}
 
 // sourceState answers what the console's legend is about, from the same resolvers
 // the lookups use.

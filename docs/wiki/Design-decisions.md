@@ -17872,7 +17872,9 @@ per-row Test button is drawn for the keyed suppliers only and mirrors the server
 `testableSources`: the server refuses the others by name, and a button a reader can press
 only to be told no is worse than one that is visibly not for them.
 
-**FOUR OF THE PACK'S SOURCE ROW ARE NOT DRAWN, AND EACH FOR ITS OWN REASON.**
+**WHERE THIS LIST DEPARTS FROM THE PACK'S, IN BOTH DIRECTIONS.**
+
+*Three things the pack's row has and this one does not:*
 
 - **The per-row key act** (`metadata.dc.html:819`). The key fields are already on this card,
   a few rows below; a per-row door to the field beside it is the repeat this pass has spent
@@ -17884,17 +17886,30 @@ only to be told no is worse than one that is visibly not for them.
 - **A blank where the count is zero** (`:813`). The repo draws `0`, because a supplier that
   has never supplied anything is the one a reader is deciding whether to configure, and a
   blank reads as a number that failed to load.
-- **Four of its twelve suppliers** — IMDb, Wikipedia, Goodreads, Letterboxd — were listed
-  in the pack as an illustration rather than as a claim about this app. IMDb and Letterboxd
-  DO get rows, because `knownMovieSource` lets them write a field; Goodreads and Wikipedia
-  are not asked by this app at all, and a row for a supplier nothing can reach would be an
-  invitation to configure something that does not exist.
+*And the suppliers, which differ both ways:*
+
+- **Goodreads and Wikipedia are in the pack's twelve and get no row.** Nothing in this app
+  asks either of them, and a row for a supplier nothing can reach is an invitation to
+  configure something that does not exist. (IMDb and Letterboxd, also in the pack's twelve,
+  DO get rows — `knownMovieSource` lets them write a field.)
+- **Google Images and Wikimedia get rows the pack has no line for.** They are rungs of the
+  picture ladder, they answer without a key, and they are recorded every time the app uses
+  one — so a reader whose portraits have stopped arriving can see which rung went quiet.
+- **Hardcover is accepted by `knownBookSource` and gets no row**, which is the one exclusion
+  that needed thinking about. It arrives through an IMPORT and is never queried: a Hardcover
+  export can attribute a field, but nothing here can ask Hardcover anything, so a row under
+  "Who the app can ask" would be false — and it would have drawn its own slug in lower case
+  beside "Open Library", because the app has never had to name it on a screen.
+  `TestEverySourceRowHasANameToDraw` is the ratchet for that second half.
 
 **AND THE ROWS ARE NOT A HAND-TYPED LIST ANY MORE, they are a checked one.** A rating found
 four suppliers that could write into `work_field_source` and had no row — so their records
 were counted into nothing, on the one screen whose subject is suppliers.
-`TestEverySupplierThatCanWriteAFieldIsOnTheList` asks the two whitelists themselves rather
-than restating them.
+`TestEverySupplierThatCanWriteAFieldIsOnTheList` READS THE TWO WHITELISTS' OWN SOURCE. It
+listed the slugs by hand first, and a rating proved that could not work by adding one to the
+switch and watching the case stay green — the second time in this change a guard was claimed
+for something it did not guard. A list typed into a test is a list typed by whoever got the
+other one wrong.
 
 The pack's "N sources need a key before they can be asked" line (`:846`) IS drawn, beside the
 column's caption rather than in place of it — everything else on the Metadata screen depends
@@ -17941,3 +17956,20 @@ this was the honest state of a supplier nothing uses. It records per supplier no
 is recorded against BOTH, because the error that search returns is the pair of them failing
 and there is no way to tell which half died; attributing it to one would exonerate the other
 on no evidence.
+
+
+**AND OPEN LIBRARY'S ROW THEN LIED THE OTHER WAY, WHICH IS THE MORE INTERESTING HALF.** The
+first fix counted candidates by their `Source` field — and an ISBN search MERGES both
+providers' answers into one record, because they are half-describing the same book, keeping
+Google's `Source`. So on the commonest path in the app Open Library was recorded as having
+answered and found NOTHING, and three of those in a row is `emptyRunFault`: a working
+supplier reported broken, which is worse than the silence it replaced. The count is by
+`GoogleID` and `OpenLibraryID` now, which survive the merge precisely because a merged
+candidate has two identities. What the number means is stated where it is computed: how many
+of the candidates the reader was OFFERED this supplier had a hand in — not the size of its
+raw reply, because the list is merged and then cut to twelve.
+
+**WIKIDATA WAS THE LAST SUPPLIER ANSWERING INTO SILENCE.** It is the floor under IGDB — it
+runs when the pair is missing or has failed, which is exactly when a reader most needs to
+know whether the thing catching them is itself working — and nothing recorded it. One line at
+its call site.
