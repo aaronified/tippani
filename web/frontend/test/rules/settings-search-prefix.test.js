@@ -36,7 +36,11 @@ const prefixBlock = (src.match(/const SETTINGS_PREFIX = \{([\s\S]*?)\n\}/) || [,
 // What changed, and its searchable words live under three roots. Reading only
 // single-quoted scalars would have reported it as unprefixed — the scanner's own
 // failure mode, reported as the defect it exists to catch.
-const prefixed = [...prefixBlock.matchAll(/^\s*([A-Za-z0-9_]+):\s*(\[[^\]]*\]|'[^']+')/gm)].map((m) => m[1])
+// AN EMPTY LIST IS NOT A PREFIX. The first version of this widening accepted
+// `\[[^\]]*\]`, which matches `server: []` — a card declaring no searchable words
+// at all would have counted as prefixed and vanished on the first keystroke with
+// nothing failing. A list has to carry at least one quoted root to be one.
+const prefixed = [...prefixBlock.matchAll(/^\s*([A-Za-z0-9_]+):\s*(\[\s*'[^']+'[^\]]*\]|'[^']+')/gm)].map((m) => m[1])
 
 describe('searching Settings', () => {
   it('found both lists at all, so this file cannot pass by finding nothing', () => {

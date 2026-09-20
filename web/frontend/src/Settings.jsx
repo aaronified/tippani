@@ -2641,6 +2641,10 @@ function ChangelogEntry({ text }) {
 // being lazy — the history is a quarter of a megabyte of markdown. It is drawn
 // only on the Server section, which is admin-only and is not where Settings opens,
 // so the cost is the same as it was: paid by the reader who came to look.
+// HOW MANY RELEASES STAND AT REST. The pack's own tour of Server says it: "The
+// last two releases, with the rest behind Show more."
+const LOG_AT_REST = 2
+
 function ChangelogList({ current }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -2675,6 +2679,20 @@ function ChangelogList({ current }) {
   // that failed to parse would take the whole section down rather than show one
   // line saying there is nothing to show.
   const releases = Array.isArray(data?.releases) ? data.releases : null
+  // TWO RELEASES, AND THE REST BEHIND A PRESS — the pack's own shape for this
+  // group, stated in its tour of Server ("The last two releases, with the rest
+  // behind Show more") and drawn as a "Read the whole log" button under the list
+  // (settings-restructured.dc.html:614, :3111).
+  //
+  // IT IS ALSO WHAT LETS THE LIST STOP SCROLLING ITSELF. As a dialog body this had
+  // `max-height: 62vh; overflow-y: auto`, which was the dialog. On a page that is a
+  // bare nested scroller with no fade and no way out — a hundred entries in 523px
+  // inside a phone that already scrolls. Bounding the list is the repair the rule
+  // asks for: what is merely detailed goes lower on the same screen, and what is
+  // long gets a control rather than a second scrollbar.
+  const [wholeLog, setWholeLog] = useState(false)
+  const shown = releases ? (wholeLog ? releases : releases.slice(0, LOG_AT_REST)) : []
+  const more = releases ? releases.length - shown.length : 0
   const body = error ? (
     <ErrorText>{error}</ErrorText>
   ) : !data ? (
@@ -2683,7 +2701,7 @@ function ChangelogList({ current }) {
     <p className="microcopy">{t('settings.changelog.empty.prose')}</p>
   ) : (
     <div className="cl-list">
-      {releases.map((rel) => {
+      {shown.map((rel) => {
         const isOpen = open.has(rel.version)
         const running = rel.version === data.current
         return (
@@ -2729,7 +2747,22 @@ function ChangelogList({ current }) {
     </div>
   )
 
-  return body
+  return (
+    <>
+      {body}
+      {/* Only when there is something folded away. A button reading "Read the whole
+          log" over a log that is already whole is a press that does nothing. */}
+      {(more > 0 || wholeLog) && (
+        <GhostButton
+          icon={<IconChevron open={wholeLog} size={16} />}
+          keepLabel
+          onClick={() => setWholeLog((v) => !v)}
+        >
+          {wholeLog ? t('settings.changelog.fold.label') : t('settings.changelog.more.label', { n: more })}
+        </GhostButton>
+      )}
+    </>
+  )
 }
 
 // PromptFrame — the shape all four of this page's dialogs already were.
@@ -3571,8 +3604,10 @@ function BackupCard({ user, asking = false, onAsking }) {
             : t('settings.backup.asks.unkeyed')
 
   // THE SECOND GROUP OF THE SERVER PANEL — see UpdatesCard for why this is a group
-  // and no longer a card of its own. `data-tour` moves to the group, which is the
-  // element the tour was pointing at all along: the box around backup.
+  // and no longer a card of its own. `data-tour` sits on the rows rather than the
+  // group, so the tour's halo frames the controls and not the heading above them;
+  // an earlier draft of this comment said it had moved to the group, which it had
+  // not.
   return (
     <>
       <PrefGroup

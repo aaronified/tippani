@@ -47,7 +47,14 @@ it('a reader searches Settings from the top bar and stays in Settings', async ()
   await app.type('Search settings', 'backup')
 
   // NARROWED, AND IT IS THIS SCREEN THAT NARROWED.
-  await app.see('Backup')
+  //
+  // THE WORD "BACKUP" IS NOT THE ASSERTION, and for a while it was. When nothing
+  // matches, Settings says so in a sentence that QUOTES what was typed — "Nothing
+  // in Settings matches “backup”" — and `see` folds case, so a screen that found
+  // the card and a screen that found nothing both contain the word. This passed
+  // with the Backup card's own search prefix deleted. What only the card itself
+  // shows is the control on it.
+  await app.see('Back up now')
   // Appearance is gone with the rest: its words are not about backups.
   await app.gone('Theme')
 
@@ -101,7 +108,7 @@ it('the bar and the metadata console are one field, not two', async () => {
 it('what was typed for one screen does not follow the reader to the next', async () => {
   await app.goto('/settings')
   await app.type('Search settings', 'backup')
-  await app.see('Backup')
+  await app.see('Back up now')
 
   await app.press('Home')
 

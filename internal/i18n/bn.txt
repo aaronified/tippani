@@ -5296,7 +5296,7 @@ metadata.people.merge.busy = এক করা হচ্ছে…
 
 # ---------------------------------------------------------------------------
 # settings.* (part two) — the nine cards Settings.jsx still held in English:
-# Updates, the changelog dialog, Onboarding, Devices, the bin tile, Backup, the
+# Updates, the release log, Onboarding, Devices, the bin tile, Backup, the
 # restore prompt, the metadata-key fields and the Metadata card itself. The
 # cards migrated earlier — credits, colours, review scope, Type, language marks,
 # the quiz panel, Features, button labels and Appearance — are above.
@@ -5391,10 +5391,12 @@ settings.updates.toast.same = টিপ্পনী আবার চালু �
 settings.updates.toast.copied = কমান্ড কপি হয়েছে
 
 # ---------------------------------------------------------------------------
-# THE CHANGELOG DIALOG — the release history out of the binary itself.
+# THE RELEASE LOG — the release history out of the binary itself, on Server.
 # ---------------------------------------------------------------------------
 settings.changelog.title = কী কী বদলেছে
 settings.changelog.empty.prose = দেখানোর মতো কোনো রিলিজ নেই — এই বিল্ডটি কোনো রিলিজের বাইরে তৈরি।
+settings.changelog.more.label = পুরো তালিকা পড়ুন (আরও {n}টি)
+settings.changelog.fold.label = তালিকা গুটিয়ে নিন
 # Which release you are actually running, marked on its own row.
 settings.changelog.running.label = চলছে
 settings.changelog.unlisted.prose = আপনি চালাচ্ছেন {version}, যা উপরের তালিকায় নেই — রিলিজের বাইরে বানানো একটা বিল্ড।

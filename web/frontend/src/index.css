@@ -8021,11 +8021,20 @@ html[data-theme="dark"] .mobile-sheet-footer {
   right: 1px;
 }
 
-/* ---- the changelog dialog (1.12.0) ----
-   Seventy releases in one scroller, so the release HEADINGS are the landmarks
-   and everything else is quiet. Each heading is the full-width click target for
-   its own fold — a chevron alone is a 16px target for a row that is 640px wide. */
-.cl-list { display: flex; flex-direction: column; max-height: 62vh; overflow-y: auto; overscroll-behavior: contain; }
+/* ---- the release log (1.12.0; on the Server screen since v3) ----
+   The release HEADINGS are the landmarks and everything else is quiet. Each
+   heading is the full-width click target for its own fold — a chevron alone is a
+   16px target for a row that is 640px wide.
+
+   AND IT NO LONGER SCROLLS ITSELF. `max-height: 62vh; overflow-y: auto` was right
+   while this was a dialog body: the scroller WAS the dialog. On the Server screen
+   it became a bare nested scroller inside a page that already scrolls — 523px of
+   list holding a hundred entries inside an 844px phone, with no fade to say it
+   scrolls and no way to see the whole set. That is the standing rule twice over
+   ("an edge fade means it scrolls; a button at the fade opens the full set" and
+   "never bare overflow, which gives no signal"). The list is short now and the
+   page scrolls, which is the signal every other long thing here uses. */
+.cl-list { display: flex; flex-direction: column; }
 .cl-release { border-top: 1px solid var(--line); }
 .cl-release:first-child { border-top: 0; }
 .cl-head {
@@ -8080,8 +8089,6 @@ html[data-theme="dark"] .mobile-sheet-footer {
   border-radius: 4px;
   padding: 1px 4px;
 }
-/* A full-screen sheet IS the screen, so it scrolls itself. */
-.mobile-sheet .cl-list { max-height: none; overflow: visible; }
 
 /* ---- Stats timeline ------------------------------------------------------
    A band of stacked bars, one per bucket. The width rule is entirely CSS: a

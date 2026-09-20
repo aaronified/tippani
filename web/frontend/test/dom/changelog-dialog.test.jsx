@@ -91,13 +91,41 @@ describe('opening it', () => {
     await waitFor(() => expect(screen.getByText(/No releases to show/)).toBeTruthy())
   })
 
+  const versions = () => [...document.querySelectorAll('.cl-version')].map((n) => n.textContent)
+
   it('lists the releases in the order the server sent them', async () => {
     // "The latest release on top" is a property of the FILE, preserved by the
     // parser and then by this — not a client-side sort, which would be a second
     // opinion about ordering that could disagree with the changelog itself.
     await openLog()
-    const heads = [...document.querySelectorAll('.cl-version')].map((n) => n.textContent)
-    expect(heads).toEqual(['1.12.0', '1.11.2', '1.11.1'])
+    fireEvent.click(screen.getByRole('button', { name: /Read the whole log/ }))
+    expect(versions()).toEqual(['1.12.0', '1.11.2', '1.11.1'])
+  })
+
+  // TWO AT REST, AND THE REST BEHIND A PRESS — the pack's own shape for this group
+  // ("The last two releases, with the rest behind Show more"), and what lets the
+  // list stop scrolling inside itself. As a dialog body it carried a max-height and
+  // its own scrollbar; on a page that is a nested scroller with no fade and no way
+  // to see the whole set.
+  it('stands at two releases and opens to the whole log', async () => {
+    await openLog()
+    expect(versions()).toEqual(['1.12.0', '1.11.2'])
+
+    fireEvent.click(screen.getByRole('button', { name: /Read the whole log/ }))
+    expect(versions()).toEqual(['1.12.0', '1.11.2', '1.11.1'])
+
+    fireEvent.click(screen.getByRole('button', { name: /Fold the log/ }))
+    expect(versions()).toEqual(['1.12.0', '1.11.2'])
+  })
+
+  // AND NO BUTTON WHEN THERE IS NOTHING FOLDED AWAY. "Read the whole log" over a
+  // log that is already whole is a press that does nothing.
+  it('offers no control when every release is already shown', async () => {
+    RESP = { current: '1.12.0', current_listed: true, releases: [release('1.12.0')] }
+    render(<Settings user={ADMIN} />)
+    await openSettingsSection('Server')
+    await waitFor(() => expect(screen.getByText('1.12.0')).toBeTruthy())
+    expect(screen.queryByRole('button', { name: /Read the whole log/ })).toBeNull()
   })
 
   it('opens only the newest, and folds the rest', async () => {

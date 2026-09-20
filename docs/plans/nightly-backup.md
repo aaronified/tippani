@@ -1,7 +1,17 @@
 # Nightly backup
 
-**Not built. Nothing of it exists** — `grep -rni nightly internal/ --include='*.go'` returns
-nothing, and there is no scheduler in this app to hang it on.
+**Not built. Nothing of it exists** — no non-test Go source mentions it, and there is no
+scheduler in this app to hang it on:
+
+```bash
+grep -rni nightly internal/ --include='*.go' | grep -v _test   # no matches
+```
+
+(The unfiltered grep DOES match, in `internal/updater/updater_test.go`,
+`internal/olog/codes_test.go` and `internal/httpapi/update_test.go` — a release tagged
+`nightly` and CI's own nightly sweep, neither of which is this feature. An earlier draft of
+this file cited the unfiltered command and said it returned nothing, which was wrong about
+the command while right about the conclusion.)
 
 ## Where it comes from
 

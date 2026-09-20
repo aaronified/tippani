@@ -5376,7 +5376,7 @@ metadata.people.merge.busy = Merging…
 
 # ---------------------------------------------------------------------------
 # settings.* (part two) — the nine cards Settings.jsx still held in English:
-# Updates, the changelog dialog, Onboarding, Devices, the bin tile, Backup, the
+# Updates, the release log, Onboarding, Devices, the bin tile, Backup, the
 # restore prompt, the metadata-key fields and the Metadata card itself. The
 # cards migrated earlier — credits, colours, review scope, Type, language marks,
 # the quiz panel, Features, button labels and Appearance — are above.
@@ -5488,10 +5488,12 @@ settings.updates.toast.same = Tippani restarted, and it is running the same buil
 settings.updates.toast.copied = command copied
 
 # ---------------------------------------------------------------------------
-# THE CHANGELOG DIALOG — the release history out of the binary itself.
+# THE RELEASE LOG — the release history out of the binary itself, on Server.
 # ---------------------------------------------------------------------------
 settings.changelog.title = What changed
 settings.changelog.empty.prose = No releases to show — this build was made outside a release.
+settings.changelog.more.label = Read the whole log ({n} more)
+settings.changelog.fold.label = Fold the log
 # Which release you are actually running, marked on its own row.
 settings.changelog.running.label = running
 settings.changelog.unlisted.prose = You are running {version}, which is not one of the versions above — a build made outside a release.

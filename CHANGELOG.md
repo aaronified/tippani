@@ -118,6 +118,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The release log shows the last two, and opens to the whole thing.** It had become a
+  small box with its own scrollbar inside a page that already scrolls — a hundred entries in
+  half a phone screen, with nothing to say it scrolled. Two releases stand there now and
+  "Read the whole log" shows the rest.
+
 - **Server is one panel, and what changed is on it.** Updates and Backup were two separate
   boxes and the release log was behind a button; Server now reads as one screen of three
   groups — Updates, Backup & restore, and What changed — with the log simply there at the
