@@ -1353,10 +1353,13 @@ settings.quiz.group.schedule.title = Schedule
 settings.quiz.group.practice.title = Practice
 settings.quiz.skipped.aside = quote-level flags
 settings.quiz.per-day.label = Daily deck
-settings.quiz.in-depth.title = The numbers behind the schedule
-settings.quiz.in-depth.label = Open the numbers
-settings.quiz.in-depth.tip = Multipliers and the fixed ladder — ten values, all mirrored by the server
+# THE NUMBERS ARE A GROUP ON THE SECTION, NOT A DOOR. `in-depth.title` and
+# `panel.title` were the same words twice — the door's name and the room's, which
+# is how a reader knew they had arrived somewhere. There is one place now, so
+# there is one name; `in-depth.label` was the door's verb and went with it.
 settings.quiz.panel.title = The numbers behind the schedule
+settings.quiz.in-depth.tip = Multipliers and the fixed ladder — ten values, all mirrored by the server
+settings.quiz.tuning.changed.aside = edited
 # {name} is the deck — Daily quiz, or Practice.
 settings.quiz.deck.title = {name} asks
 settings.quiz.deck.question.aria = {question} — {name}
@@ -1482,6 +1485,9 @@ settings.appearance.saved.title = Your saved looks
 settings.appearance.saved.hint = Each one is the whole look — both grounds, the accent, the material set
 settings.appearance.saved.file.title = Theme file
 settings.appearance.saved.file.hint = Export what you are wearing, or paste someone else’s in
+settings.appearance.phys.open.sub = {what} — {dials}
+settings.appearance.phys.count.aside.one = {n} dial
+settings.appearance.phys.count.aside.other = {n} dials
 settings.appearance.phys.open.label = Open the dials
 settings.appearance.saved.info.body = A look is both grounds, the accent, the material set and its dials, saved together — so switching between two is one press rather than six. Four to a profile.
 settings.appearance.saved.none = Nothing saved yet. Name what you are wearing and it will be here.

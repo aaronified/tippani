@@ -1621,7 +1621,6 @@ function SRSettings({ user, onPreferences }) {
   // change — no table of defaults to keep in step, which is the trap `changedIn`
   // documents for the section counts.
   const tuningTouched = !!String(p.srTuning || '').trim()
-  const [deep, setDeep] = useState(false)
   function set(patch) {
     onPreferences?.(patch)
     json('PUT', '/auth/me/preferences', patch)
@@ -1632,27 +1631,27 @@ function SRSettings({ user, onPreferences }) {
           are about how an interval moves, are on the rows they are about
           (Adaptive intervals, The numbers behind the schedule) and in the section's own
           dot; a third copy over the whole card is the thing being consolidated. */}
-      {/* THE SCREEN HOLDS WHAT A READER COMES HERE TO CHANGE, and the door keeps
-          the schedule's arithmetic. It used to hold two controls and a door.
-          "Two on the card, the rest behind the door" was the right answer to a
-          question that has since changed: Settings was one column of nine cards,
-          where every extra row was a scroll past on the way to the fonts. Review
-          is its own screen now, and the capture of it is three controls above
-          five hundred pixels of empty ground with ten more hidden.
+      {/* EVERY CONTROL THIS SECTION HAS IS ON THIS SCREEN. There is no door left.
+          It began as two controls and a door — the right answer to a question that
+          has since changed: Settings was one column of nine cards, where every
+          extra row was a scroll past on the way to the fonts. Review is its own
+          screen now.
 
           THE OWNER'S RULING, NOW THE REPO'S MANTRA: "Use the space available.
           Think like the user. Whatever will be used more needs to be up front."
 
-          AND THE PACK DRAWS THE LINE ONE STEP FURTHER IN THAN THIS DID. Its
-          group 2 is "Schedule" and it is ON the section — adaptive, practice,
-          where a new line starts, how soon a seen one comes back — with a single
-          door at the end of it: "The numbers behind the schedule → Open the
-          numbers". This card had every schedule control inside that door on the
-          reasoning that the schedule is one decision made once; which is true of
-          the ten multipliers and not of the four switches in front of them.
-          "Start new lines at mastered" is a decision about a library you have
-          already read, and "practice moves the schedule" is one people change the
-          first time practice stops feeling free. */}
+          THE LINE MOVED TWICE. First the four switches came out of the door, on
+          the argument that "the schedule is one decision made once" is true of the
+          ten multipliers and not of them — "start new lines at mastered" is a
+          decision about a library you have already read, and "practice moves the
+          schedule" is one people change the first time practice stops feeling
+          free. Then the ten went too, because the surviving argument for keeping
+          them was about how OFTEN they are used, and the rule turns on something
+          else: what is genuinely RARE goes behind a door, what is merely DETAILED
+          goes lower on the same screen. The pack draws a door here
+          (settings-restructured.dc.html: "The numbers behind the schedule → Open
+          the numbers") and this screen does not; the pack's own reason for it was
+          the long scroll, which is the constraint this whole pass removed. */}
       <PrefColumns>
       {/* THE PACK'S TWO COLUMNS AND ITS THREE GROUPS: what the deck asks on the
           left, how the schedule moves on the right, and what is never asked at
@@ -1693,29 +1692,6 @@ function SRSettings({ user, onPreferences }) {
       </PrefGroup>
       <PrefGroup index={2} title={t('settings.quiz.group.schedule.title')}>
         <ScheduleRows p={p} set={set} />
-      {/* STILL A DOOR, AND IT EARNS IT NOW — but NOT a numbered group of its own.
-          What is behind it is one decision, how the interval moves, plus the ten
-          numbers that decision is made of; a reader who has made it does not come
-          back. A group heading over a single button would have been a heading
-          saying what the button says, which is the repetition this whole pass is
-          about: the first cut gave it one, and the group's title and the panel's
-          were the same words twice on one press. The label says what it holds
-          rather than how deep it is — "in-depth controls" describes the door. */}
-      {/* A DOOR IS A ROW, like every other door in Settings now, and the pack
-          draws this one too: "The numbers behind the schedule / Multipliers and
-          the fixed ladder — ten values, all mirrored by the server → Open the
-          numbers". It was a bare button under the groups. */}
-      <PrefRow
-        label={t('settings.quiz.in-depth.title')}
-        sub={t('settings.quiz.in-depth.tip')}
-        info={t('settings.quiz.tuning.info.body')}
-        changed={tuningTouched}
-        control={
-          <GhostButton icon={<IconQuiz />} keepLabel onClick={() => setDeep(true)}>
-            {t('settings.quiz.in-depth.label')}
-          </GhostButton>
-        }
-      />
       </PrefGroup>
       {/* PRACTICE IS ITS OWN GROUP, because the heading has to name everything
           under it. These two rows sat under "Schedule" — a heading that names
@@ -1732,13 +1708,47 @@ function SRSettings({ user, onPreferences }) {
         <PracticeCounts p={p} set={set} />
         <QuestionKinds p={p} set={set} only="practice" />
       </PrefGroup>
-      {/* NEVER ASKED ABOUT, on the page rather than behind the in-depth door. It
-          is not a dial — it is a list of decisions the reader has already made and
-          may want back, and the only reason to look for it is not remembering
-          making them. Behind a door it would be findable only by somebody who
-          already knew it was there. */}
+      {/* ── THE NUMBERS, ON THE SCREEN. THE DOOR IS GONE ──
+          It held the ten schedule numbers, and the paragraph that stood here
+          argued it had earned that: "one decision, how the interval moves… a
+          reader who has made it does not come back". That argument is about how
+          OFTEN a control is used, and the repo's rule turns on something else —
+          the owner's, now the mantra: "Use the space available. Think like the
+          user. Whatever will be used more needs to be up front." What is GENUINELY
+          RARE goes behind a door; what is merely DETAILED goes lower on the same
+          screen. Ten sliders are detailed. They are not rare enough to cost four
+          presses, and there was half a screen of empty ground under the card that
+          hid them.
+
+          THE DOOR WAS A CONSTRAINT'S SHADOW. It was built when Settings was one
+          column of nine cards, where every extra row was a scroll past on the way
+          to the fonts. Review is its own screen now. CLAUDE.md names this exact
+          door as the worked example of one that survived the reason for it.
+
+          LAST, AND WIDE, WHICH IS WHERE DETAIL BELONGS. It is the group a reader
+          scrolls TO rather than past — everything above it is what they came for
+          — and at full measure each row is a name, a range and a readout on one
+          line instead of a slider wrapping under its own label.
+
+          AND THE PANEL'S "Done" WENT WITH THE PANEL. It closed the door; there is
+          no door. Every row here commits on release, as every other row in
+          Settings does, so there was never anything for it to confirm. */}
       <PrefGroup
         index={4}
+        title={t('settings.quiz.panel.title')}
+        sub={t('settings.quiz.in-depth.tip')}
+        info={t('settings.quiz.tuning.info.body')}
+        aside={tuningTouched ? t('settings.quiz.tuning.changed.aside') : null}
+        wide
+      >
+        <SRTuning p={p} set={set} />
+      </PrefGroup>
+      {/* NEVER ASKED ABOUT: not a dial but a list of decisions the reader has
+          already made and may want back, and the only reason to look for it is
+          not remembering making them. It has never been behind a door, for the
+          same reason nothing here is now. */}
+      <PrefGroup
+        index={5}
         title={t('settings.quiz.skipped.title')}
         info={t('settings.quiz.skipped.info.body')}
         aside={t('settings.quiz.skipped.aside')}
@@ -1747,11 +1757,6 @@ function SRSettings({ user, onPreferences }) {
         <NeverAsked />
       </PrefGroup>
       </PrefColumns>
-      {deep && (
-        <FormModal title={t('settings.quiz.panel.title')} onClose={() => setDeep(false)} maxWidth={620}>
-          <SRDeepControls p={p} set={set} onClose={() => setDeep(false)} />
-        </FormModal>
-      )}
     </Card>
   )
 }
@@ -1769,8 +1774,12 @@ function SRSettings({ user, onPreferences }) {
 // THAT READING LOSES THE FOUR CONTROLS SOMEBODY ACTUALLY COMES BACK FOR. "Start
 // new lines at mastered" is a decision about a library you have already read;
 // "practice moves the schedule" is one people change when practice stops feeling
-// free. A door is for the ten multipliers behind them, which is where the pack
-// puts it and where it stays.
+// free.
+//
+// AND THE TEN WENT OUT AFTER THEM, so this file no longer has a door at all —
+// see the head of the section. This paragraph ended "which is where the pack
+// puts it and where it stays", and it did not stay: the pack's door was drawn
+// against a single scrolling column, and that column is gone.
 function ScheduleRows({ p, set }) {
   return (
     <>
@@ -1841,7 +1850,14 @@ function ScheduleRows({ p, set }) {
   )
 }
 
-// SRDeepControls — everything the two decks can be told, in one pop-up.
+// SRTuning — the ten numbers the schedule is made of, as rows on the section.
+//
+// IT WAS `SRDeepControls` AND IT WAS A POP-UP. Both halves of that name were
+// already stale before this change: the "controls" it held were down to the ten
+// numbers — the tier, the confirm switch, both repertoires, adaptive and the seen
+// multiplier had each moved out to a row of their own — and "deep" described a
+// door that no longer needed to exist. A name that describes where something used
+// to live is how the next reader learns the wrong shape of the screen.
 //
 // WHAT IS NEW HERE IS THE REPERTOIRE. Until 1.16.0 the deck's question types
 // were a constant: `directionsForMode` returned the same table for everybody,
@@ -2267,7 +2283,7 @@ function PracticeCounts({ p, set }) {
   )
 }
 
-function SRDeepControls({ p, set, onClose }) {
+function SRTuning({ p, set }) {
   // THE QUESTION MAP LEFT WITH THE REPERTOIRES. This panel held a copy of it long
   // after the chips moved onto the section, along with the writer that went with
   // it — a second writer for `srQuestions` that nothing on screen could reach,
@@ -2286,7 +2302,7 @@ function SRDeepControls({ p, set, onClose }) {
   }
   const reset = () => {
     setTune(parseTuning(''))
-    // WHAT THIS PANEL HOLDS, AND NOTHING ELSE. It used to clear every review
+    // WHAT THIS GROUP HOLDS, AND NOTHING ELSE. It used to clear every review
     // preference on the reasoning that "a reader who presses Back to defaults
     // inside the in-depth panel means the panel" — which was true when the panel
     // held the tier, the confirm switch, both repertoires, adaptive, the seen
@@ -2347,11 +2363,17 @@ function SRDeepControls({ p, set, onClose }) {
         ))}
         <ErrorText>{tuneErr}</ErrorText>
       </div>
-      <div className="flex justify-between gap-2 pt-1">
+      {/* THE RESET STAYS AND THE "Done" DOES NOT. Done closed the door, and there
+          is no door — every row here commits on release, the way every other row
+          in Settings does, so it never confirmed anything. The reset still has
+          work: ten sliders are ten things to put back by hand, and the blob's
+          absence is what lets a later change to the defaults reach an account
+          that never edited them. It sits at the start of the row rather than
+          across from a button that is gone. */}
+      <div className="flex gap-2 pt-1">
         <Tooltip label={t('settings.quiz.reset.tip')}>
           <GhostButton icon={<IconRevert />} keepLabel onClick={reset}>{t('settings.quiz.reset.label')}</GhostButton>
         </Tooltip>
-        <GhostButton onClick={onClose}>{t('common.action.done.label')}</GhostButton>
       </div>
     </div>
   )
@@ -4301,15 +4323,49 @@ function SizeSlider({ ariaLabel, storageKey, def, kind, works }) {
 //
 // A DIAL IS A Slider, WHICH COMMITS ON RELEASE. A drag across a range would
 // otherwise be one PUT per step, and this preference is a whole JSON object.
+// THE TWO DIAL TABLES, AT MODULE SCOPE. They were built inside `MaterialPhysics`
+// on every render, which was harmless until the door's row needed to COUNT them:
+// a count derived from a copy is a count that is right until somebody adds a dial
+// to one of the two lists. One list, two readers.
+const PHYS_DIALS = [
+  ['hard', 'settings.appearance.phys.hard.label'],
+  ['sss', 'settings.appearance.phys.sss.label'],
+  ['diff', 'settings.appearance.phys.diff.label'],
+  ['refl', 'settings.appearance.phys.refl.label'],
+]
+// THE FIVE GLASS DIALS — six, with blur — AND THEY APPEAR ONLY WITH THE LENS.
+// They configure a renderer: with true glass off there is nothing for clarity,
+// refraction, bevel, fringe or gain to act on, and a control that does nothing is
+// worse than a missing one because it teaches the reader that the controls here
+// are inert. That was the owner's ruling when the cost of the lens was put to
+// them — the glass dials ship with the toggle or not at all.
+const GLASS_DIALS = [
+  ['clarity', 'settings.appearance.glass.clarity.label', 100],
+  ['refract', 'settings.appearance.glass.refract.label', 200],
+  ['bevel', 'settings.appearance.glass.bevel.label', 200],
+  ['fringe', 'settings.appearance.glass.fringe.label', 200],
+  ['gain', 'settings.appearance.glass.gain.label', 200],
+  ['blur', 'settings.appearance.glass.blur.label', 400],
+]
+
+// physDialCount — how many sliders the door hides, so its row can say so.
+//
+// IT COUNTS THE SAME WAY `MaterialPhysics` DRAWS, and that is the whole point of
+// it being here rather than a number typed into a locale string: the set's slots
+// de-duplicated (a set may put one material on two of them, and two identical
+// rows would be one control drawn twice), `flat` dropped because Atrium's
+// material is none, four dials each, and the six glass dials only when the lens
+// is on. A count written by hand is a count that goes stale the first time a set
+// gains a slot, and nothing would fail.
+export function physDialCount(tiles, glass = false) {
+  const names = [...new Set(tiles)].filter((n) => n !== 'flat')
+  return names.length * PHYS_DIALS.length + (glass ? GLASS_DIALS.length : 0)
+}
+
 function MaterialPhysics({ tiles, tweaks, onChange, glass = false }) {
-  const DIALS = [
-    ['hard', 'settings.appearance.phys.hard.label'],
-    ['sss', 'settings.appearance.phys.sss.label'],
-    ['diff', 'settings.appearance.phys.diff.label'],
-    ['refl', 'settings.appearance.phys.refl.label'],
-  ]
   // The slots in order, de-duplicated: a set may put the same material on two of
-  // them, and two identical rows is the same control drawn twice.
+  // them, and two identical rows is the same control drawn twice. The same two
+  // lines are `physDialCount` above, which is why they are the same two lines.
   const names = [...new Set(tiles)].filter((n) => n !== 'flat')
   const set = (name, key, value) => onChange({ ...tweaks, [name]: { ...(tweaks[name] || {}), [key]: value } })
   const reset = (name) => {
@@ -4317,27 +4373,13 @@ function MaterialPhysics({ tiles, tweaks, onChange, glass = false }) {
     delete next[name]
     onChange(next)
   }
-  // THE FIVE GLASS DIALS, AND THEY APPEAR ONLY WITH THE LENS. They configure a
-  // renderer: with true glass off there is nothing for clarity, refraction, bevel,
-  // fringe or gain to act on, and a control that does nothing is worse than a
-  // missing one because it teaches the reader that the controls here are inert.
-  // That was the owner's ruling when the cost of the lens was put to them — the
-  // glass dials ship with the toggle or not at all.
-  const GLASS = [
-    ['clarity', 'settings.appearance.glass.clarity.label', 100],
-    ['refract', 'settings.appearance.glass.refract.label', 200],
-    ['bevel', 'settings.appearance.glass.bevel.label', 200],
-    ['fringe', 'settings.appearance.glass.fringe.label', 200],
-    ['gain', 'settings.appearance.glass.gain.label', 200],
-    ['blur', 'settings.appearance.glass.blur.label', 400],
-  ]
   const g = glassDialsFor(tweaks)
   const setGlass = (key, value) => onChange({ ...tweaks, glass: { ...(tweaks.glass || {}), [key]: value } })
   const glassBlock = glass ? (
     <div>
       <MonoLabel className="mb-2 block">{t('settings.appearance.glass.dials.title')}</MonoLabel>
       <div className="grid gap-3 sm:grid-cols-2">
-        {GLASS.map(([key, label, max]) => (
+        {GLASS_DIALS.map(([key, label, max]) => (
           <Slider
             key={key}
             label={t(label)}
@@ -4386,7 +4428,7 @@ function MaterialPhysics({ tiles, tweaks, onChange, glass = false }) {
               )}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              {DIALS.map(([key, label]) => (
+              {PHYS_DIALS.map(([key, label]) => (
                 <Slider
                   key={key}
                   label={t(label)}
@@ -4950,9 +4992,43 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
           what it is for under that, and the way in at the right-hand edge. It was
           a button floating under the grid with an info dot beside it, which is the
           shape every control on this section has stopped having. */}
+      {/* ── AND THIS IS THE ONE DOOR IN SETTINGS THAT STAYS. Every other went
+          when its section stopped being a card on a long scroll; the Review
+          section's ten numbers were the last, and the reasoning that took them
+          out is what keeps this one in.
+
+          THE RULE IS RARE VERSUS DETAILED, not "how many rows". What is merely
+          detailed goes lower on the same screen; what is genuinely rare goes
+          behind a door. Ten schedule numbers are detailed. This is rare AND
+          large: MEASURED, a set is four slots over three or four distinct
+          materials, four dials each, plus six more when the lens is on — twelve
+          to twenty-two sliders, on a section that already carries three groups,
+          three colour doors, an eight-tile grid and the saved looks. Unfolding it
+          would put the densest thing in Settings under the second densest.
+
+          AND IT IS REACHED FOR ONCE OR NEVER. The answer to "less shiny" is
+          almost always about ONE material, which is why an edit is stored per
+          tile rather than as a global multiplier — a reader who has made that
+          edit has made it.
+
+          THE COUNT IS ON THE ROW, because "a door with four presses behind it
+          costs more than the rows it hides" cuts both ways: a reader deciding
+          whether to press deserves to know what is back there, and the number
+          moves with the set they have chosen. */}
+      {/* THE COUNT IS IN THE SUB-LINE, AND THE FIRST CUT PUT IT IN AN `aside` — a
+          prop `PrefGroup` has and `PrefRow` does not, so React dropped it and the
+          row drew exactly as before. Nothing failed; the number simply was not
+          there. `door-count.test.jsx` found it on its first run, which is the
+          whole argument for writing the guard before believing the control. */}
       <PrefRow
         label={t('settings.appearance.phys.title')}
-        sub={t('settings.appearance.phys.open.tip')}
+        sub={(() => {
+          const n = physDialCount(MAT_SETS[materialSet], trueGlass)
+          return t('settings.appearance.phys.open.sub', {
+            what: t('settings.appearance.phys.open.tip'),
+            dials: t('settings.appearance.phys.count.aside', { count: n, n }),
+          })
+        })()}
         info={t('settings.appearance.phys.info.body')}
         changed={MAT_SETS[materialSet].some((tile) => physDirty(tile, texTweak))}
         control={

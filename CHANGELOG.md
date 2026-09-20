@@ -192,6 +192,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The schedule's numbers are on the Review screen, not behind a door.** All ten — the
+  multipliers and the four ladder rungs — are rows at the foot of the section. Review used
+  to be a card on one long scroll, which is why they were folded away; it is its own screen
+  now, and there was half a screen of empty ground under the card that hid them. Nothing in
+  Settings needs opening any more except the material dials, and that row now says how many
+  are behind it.
+
 - **The top bar is in your interface font, not your quote font.** One setting was doing both
   jobs: the row labelled **Quotes** under Interface faces set the face for quotes *and* for
   every heading, panel title and the top bar, so choosing a serif for your quotes put a serif

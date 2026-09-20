@@ -86,7 +86,17 @@ describe('the contract', () => {
 })
 
 describe('the two dialogs that were dead', () => {
-  it('opens the in-depth quiz panel from Settings', async () => {
+  // ── AND ONE OF THEM IS NOT A DIALOG ANY MORE.
+  //
+  // This case pressed "Open the numbers" and asserted a panel appeared. The door
+  // is gone: the ten schedule numbers are rows on the Review section, because
+  // what is merely DETAILED goes lower on the same screen and only what is
+  // genuinely RARE goes behind a door. So the case asserts the other side of the
+  // same fact — they are reachable with nothing pressed at all.
+  //
+  // IT IS THE SAME GUARD POINTING THE OTHER WAY, and it still fails if the door
+  // comes back: a row behind a modal is not on the screen when the section opens.
+  it('puts the schedule numbers on the Review section, with nothing to open', async () => {
     render(
       <Settings
         user={{ username: 'a', is_admin: false, preferences: {} }}
@@ -98,21 +108,22 @@ describe('the two dialogs that were dead', () => {
       />,
     )
     await openSettingsSection('Review')
-    // THE DOOR AND THE ROOM SHARE A NAME, so the name cannot be the test. The
-    // pack labels the row "The numbers behind the schedule" and titles the panel
-    // it opens the same words — deliberately, so a reader knows they arrived —
-    // which means that string is on the section BEFORE anything is pressed. This
-    // asserted on it in both directions and would now pass the "before" only by
-    // accident of which node matched first.
+    // A TUNING ROW, WHICH USED TO BE PANEL-ONLY. The first of the ten says this,
+    // and it is the string the old case waited for AFTER a press. Nothing is
+    // pressed here.
     //
-    // WHAT IS PANEL-ONLY IS A TUNING ROW, and the first of the ten says this.
     // (It read `t(TUNING_FIELDS[0].label)` — an import of `src/quiz.js` for a
     // value that is already a resolved string, since the field's `label` is a
     // getter that calls `t` itself. So the file knew a module path it has no
     // exception for, and resolved one key twice.)
-    expect(screen.queryByText('Correct answer stretches by')).toBeNull()
-    fireEvent.click(screen.getByText(t('settings.quiz.in-depth.label')))
-    expect(screen.getByText('Correct answer stretches by')).toBeTruthy()
+    expect(screen.getByText('Correct answer stretches by'), 'the schedule numbers should be on the section')
+      .toBeTruthy()
+    // AND THE LAST OF THE TEN, because "the first row rendered" does not say the
+    // group did: a door replaced by one stray row would pass on the line above.
+    expect(screen.getByText('Ladder rung 4'), 'the whole group should be on the section').toBeTruthy()
+    // AND NOTHING OPENS. `queryByRole('dialog')` is what a modal announces itself
+    // as, so this fails the moment the door comes back.
+    expect(screen.queryByRole('dialog'), 'the Review section should have no dialog on it').toBeNull()
     // AND THE TWO REPERTOIRES ARE ON THE SECTION, NOT IN HERE. This counted two
     // cloze labels and called them "the panel lists the repertoire for daily AND
     // practice" — but the panel holds the ten numbers and nothing else, and the

@@ -5,10 +5,17 @@
 // maths…", on the reasoning that the schedule is one decision a reader makes once
 // and then lives inside. That is true of the ten multipliers and false of the
 // four switches in front of them: "start new lines at mastered" is a decision
-// about a library you have already read, and the pack puts it on the section with
-// only the numbers behind a door. Nothing failed while it was hidden — the panel
-// had its own tests and they passed — because no test asked what a reader
+// about a library you have already read. Nothing failed while it was hidden — the
+// panel had its own tests and they passed — because no test asked what a reader
 // standing on Review could reach.
+//
+// AND THE TEN WENT OUT AFTER THEM, so this file now asserts the whole section
+// rather than a split. The surviving argument for keeping them was about how OFTEN
+// they are used, and the rule turns on something else: what is merely DETAILED
+// goes lower on the same screen, and only what is genuinely RARE earns a door.
+// This case ended `gone('Correct answer stretches by')` — the other half of the
+// split — and it says `see` now, over the same string, which is the same guard
+// pointing the other way and fails the day the door comes back.
 //
 // THE RELOAD IS THE POINT. Before it, "the control says Mastered" is also true of
 // a screen that only ever set its own state.
@@ -53,15 +60,18 @@ it('a reader sets where a new line starts, with nothing opened first', async () 
   await app.press('Review')
   expect(await app.chosen('Mastered'), 'the choice was not kept').toBe(true)
 
-  // AND THE TEN NUMBERS ARE STILL BEHIND THEIR DOOR, which is the other half of
-  // the split: what a reader comes back for is on the screen, what they set once
-  // is not.
+  // AND THE TEN NUMBERS ARE ON THE SCREEN TOO, with nothing pressed. Not the row
+  // this case set — a reader who scrolls to the foot of Review reaches the
+  // schedule's arithmetic without meeting a door.
   //
   // THE LABEL IS ONE THE APP ACTUALLY HAS. This read `gone('Recall multiplier')`,
   // a string that appears in no locale file, no source file and no prototype — so
   // it could not fail, and a rating caught it being sold as coverage. "Correct
   // answer stretches by" is the first of the ten.
-  await app.gone('Correct answer stretches by')
+  await app.see('Correct answer stretches by')
+  // AND THE LAST OF THEM, because the first row rendering does not say the group
+  // did: a door replaced by one stray row would pass on the line above.
+  await app.see('Ladder rung 4')
 
   // Leave the world as it was found: this is a shared fixture.
   await app.press('Not seen')
