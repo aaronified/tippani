@@ -192,6 +192,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Every Metadata console filters through a row of pills, and each pill says how many.**
+  Works, People and Characters all carry the same row above their list — one pill per thing
+  that can be wrong, each with the number of records it would leave, so the shape of what is
+  missing reads without a press. The works console's gap dropdown is one of them now. People
+  filter by no links, no photo, in no work and no quotes; characters by in no work, no quotes
+  and no picture. The row scrolls sideways under a fade where a phone cannot hold it.
+
+- **The number on each Metadata door counts what needs work, not what exists.** Works,
+  People and Characters used to badge the size of the library, which never falls and never
+  told you anything. Each now counts the records with something wrong, off the same tests the
+  pills behind the door use.
+
+- **A person's and a character's row says works, quotes and which works.** Two counts under
+  the name with an icon each, then the works themselves as pills you can scroll. It replaces
+  "3 works · 1 of 3 with a face chosen" on the character row, and the unlabelled red number
+  that sat beside it — that finding is a pill in the filter row now, where it can be pressed.
+  The character row counts quotes for the first time.
+
+- **Prune names who it will remove.** The confirm listed "23 records"; it lists all
+  twenty-three by name, people and characters apart, in a box that scrolls.
+
+- **Every portrait of a person or a character is round.** Console rows, cast rows, duplicate
+  cards, form thumbnails and a record's own photograph. Covers, posters and stills keep their
+  own shape — the outline is how a face is told from a work before either has loaded.
+
 - **Metadata → Sources lists who the app can ask.** A row per supplier — what it supplies,
   whether it can be asked at all, and how many fields in your library came from it — instead
   of a column of credential boxes. Suppliers that need no key are on the list too, which is

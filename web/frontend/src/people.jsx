@@ -973,7 +973,10 @@ function PersonView({ person, name, onEdit, onDelete, onPractise }) {
     </Tooltip>
   ) : (
     <div style={{ float: 'left', width: 104, margin: '2px 14px 8px 0' }}>
-      <Placeholder kind="" style={{ width: '100%', aspectRatio: '7 / 9' }} />
+      {/* SQUARE, BECAUSE THE PICTURE IT STANDS IN FOR IS A CIRCLE. A 7:9 gap
+          where a round portrait will land reflows the bio the moment one is
+          chosen, and reads as a cover in a column of faces. */}
+      <Placeholder kind="" style={{ width: '100%', aspectRatio: '1', borderRadius: 999 }} />
     </div>
   )
   return (

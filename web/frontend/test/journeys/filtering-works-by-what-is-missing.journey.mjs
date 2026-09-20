@@ -17,17 +17,24 @@
 //
 // THE MUTATIONS:
 //
-//   (1) Delete the `choose` of "no people" — red. The list stays at its full
-//       length, and the assertion that narrowing narrows is what catches it.
+//   (1) Delete the press of "no people" — red. The list stays at its full length,
+//       and the assertion that narrowing narrows is what catches it.
 //   (2) Make `ok` a hand-written predicate that forgets one gap — red on the
 //       Complete step, because a work missing that gap is then listed as finished.
 //   (3) Drop `no_synopsis` from a row's chip list — red on the chip assertion,
 //       green on everything else: the filtering still works and the row stops
 //       saying why it is there.
 //
+// AND THE FILTER IS A ROW OF PILLS NOW, not a combo box. The owner: "Works: well
+// covered already. But pills." That is not a re-skin as far as this file is
+// concerned — a pill CARRIES ITS COUNT, so every step below can assert the
+// stronger thing the dropdown could not be asked: not only that narrowing narrows,
+// but that it narrows to exactly the number the control promised before it was
+// pressed. A pill saying 40 that lands on 3 is worse than a dropdown saying
+// nothing, and the two numbers are computed in different places.
+//
 // It knows the words on the screen and nothing else — no route, no component, no
-// class, no field name. The one exception the vocabulary itself declares is
-// `choose`, which drives a native list of options; see harness/screen.mjs.
+// class, no field name.
 
 import { expect, it } from 'vitest'
 
@@ -42,31 +49,50 @@ async function shownCount() {
   return Number(m[1])
 }
 
+// A PILL IS ITS WORDS AND ITS NUMBER, so pressing one means reading the number
+// first — which is what a reader does too: the count is why they press it. The
+// count is read off the screen rather than pinned, because the golden library is
+// rebuilt by a curator and every one of these moves when it is.
+//
+// `\n<label>\n<digits>` AND NOT A LOOSE MATCH, because these words are drawn
+// twice on the works console: once on the pill and once as a chip on every row it
+// selected. The pill row is above the list, so the FIRST match is the pill — and
+// the anchors keep a chip's words from being read as a count that follows them.
+// The return value is the promise the press is then held to.
+async function pressPill(label) {
+  const seen = await app.onScreen()
+  const m = seen.match(new RegExp(`\\n${label}\\n(\\d+)`, 'i'))
+  expect(m, `the "${label}" filter should be on screen with its count`).toBeTruthy()
+  const promised = Number(m[1])
+  await app.press(`${label} ${promised}`)
+  expect(await shownCount(), `the "${label}" filter left a different number of rows than it promised`)
+    .toBe(promised)
+  return promised
+}
+
 it('a reader narrows the works to what is missing, and to what is done', async () => {
   await app.goto('/')
   await app.press('Metadata')
   await app.press('Works')
 
-  await app.choose('Which gap', 'all')
-  const everything = await shownCount()
+  const everything = await pressPill('all')
   expect(everything, 'the fixture library should have works in it').toBeGreaterThan(0)
 
   // EVERY ROW SAYS WHY IT IS HERE. The chip is the row's own answer to the filter,
   // and a row that cannot give one draws `chipsEmpty` — the word "Complete" —
   // under a filter that selected it for being incomplete.
-  await app.choose('Which gap', 'no synopsis')
-  // COUNTED, NOT MERELY PRESENT. The filter that was just chosen prints its own
-  // words — a closed list shows the option it is set to — so `toContain` passed
+  await pressPill('no synopsis')
+  // COUNTED, NOT MERELY PRESENT. The filter that was just pressed prints its own
+  // words — it is a pill and the pill stays on screen — so `toContain` passed
   // with every chip deleted, matching the control that had selected them. The
-  // rows have to say it too, and there are more rows than there is one dropdown.
+  // rows have to say it too, and there are more rows than there is one pill.
   const chipped = (await app.onScreen()).match(/no synopsis/gi) || []
   expect(chipped.length, 'the rows should say why they were selected, not only the filter')
     .toBeGreaterThan(1)
 
   // ONE ISSUE, AND ONLY THE WORKS THAT HAVE IT. Not the synopsis, which nothing in
   // this library has: a filter every row passes cannot show that it filtered.
-  await app.choose('Which gap', 'no people')
-  const nobody = await shownCount()
+  const nobody = await pressPill('no people')
   expect(nobody, 'narrowing to one issue cannot leave the list its full length')
     .toBeLessThan(everything)
   expect(nobody, 'the fixture library has a work credited to nobody').toBeGreaterThan(0)
@@ -75,8 +101,7 @@ it('a reader narrows the works to what is missing, and to what is done', async (
   // "Complete" is the absence of EVERY issue, so a work this library is missing
   // something from can never appear here — and it is missing a synopsis from all
   // of them. A predicate that forgot one gap would start listing works as done.
-  await app.choose('Which gap', 'complete')
-  expect(await shownCount(), 'nothing in this library has a synopsis, so nothing is complete')
+  expect(await pressPill('complete'), 'nothing in this library has a synopsis, so nothing is complete')
     .toBe(0)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
@@ -100,8 +125,7 @@ it('the bulk fetch reaches exactly the works the filter left on the screen', asy
   await app.press('Metadata')
   await app.press('Works')
 
-  await app.choose('Which gap', 'no people')
-  const nobody = await shownCount()
+  const nobody = await pressPill('no people')
 
   await app.press('select all shown')
   // The bulk bar counts what it is about to act on, and it is the filtered set.

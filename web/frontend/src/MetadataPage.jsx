@@ -15,6 +15,7 @@ import { RecordRow, RowArt } from './recordRow.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
 import { editDistance } from './text.js'
+import { IssuePills, RowCounts } from './issuePills.jsx'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
@@ -323,9 +324,26 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
         MOVIE_GAPS.reduce((n, g) => n + stats.movies[g], 0) +
         stats.dialogues.missing_actor
       : null,
-    works: lib ? lib.books.length + lib.movies.length : null,
-    people: people ? people.length : null,
-    characters: chars ? chars.length : null,
+    // ── A BADGE COUNTS WHAT IS WRONG, NOT WHAT IS THERE ──
+    //
+    // The owner, of the 189 on the Characters door: "The 189 badge on the top bar
+    // means nothing. It should show count characters with issues." It meant
+    // nothing because it was the size of the library, and the size of the library
+    // is not news — it is the same number tomorrow, it never goes down when you
+    // work, and a reader who wants it is one press from a list that says it.
+    //
+    // A NUMBER ON A DOOR IS A REASON TO OPEN IT. Every other badge in this app
+    // says "there is something here for you"; these three said "this exists". So
+    // all three count RECORDS WITH SOMETHING WRONG, off the same tables the pills
+    // behind each door are counted from — which is what makes the badge and the
+    // pills add up, and why they cannot drift apart.
+    //
+    // RECORDS, NOT FINDINGS. A film with no poster and no year is one film to go
+    // and look at. Overview is the exception and stays a count of findings: it is
+    // a list of gaps rather than of records, and its own rows are the findings.
+    works: lib ? worksWithIssues(lib) : null,
+    people: people ? withAnyIssue(PERSON_ISSUES, people) : null,
+    characters: chars ? withAnyIssue(CHARACTER_ISSUES, chars) : null,
     // The sources row carries no number. Every other door counts records or gaps;
     // this one is a set of settings, and "5 keys" answers a question nobody has.
     sources: null,
@@ -397,9 +415,11 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             // tab that had already named it.
             info: t(metadataSectionInfoKey(id)),
             count: railCounts[id],
-            // ONLY THE OVERVIEW'S NUMBER IS A COUNT OF PROBLEMS. Every other door
-            // counts records, and a library of 900 books is not a warning.
-            warn: id === 'overview' && railCounts[id] > 0,
+            // EVERY NUMBER ON THIS RAIL IS A COUNT OF PROBLEMS NOW, so every one
+            // of them warns when it is not zero. It used to be only Overview's,
+            // because the other three counted records — see railCounts for why
+            // that stopped.
+            warn: railCounts[id] > 0,
           }))}
           value={sect}
           // CONTROLLED ONLY WHERE THERE IS AN ADDRESS TO CONTROL IT WITH. Passing
@@ -736,6 +756,78 @@ function libraryIssues({ stats, people, chars }) {
   return out
 }
 
+// ── THE ISSUES A CONSOLE CAN FILTER TO ───────────────────────────────────────
+//
+// THE OWNER'S ASK, and its list: "The issue filters should be in work, people,
+// and character screens… Relevant issues for people: no links, no works, no
+// quotes, no photos. Characters: no works, no quotes, no images (only for
+// characters who has catalogue works, i.e. movies / shows / games)."
+//
+// A TABLE RATHER THAN A CHAIN OF `if`s, and it is one table per console because
+// the three consoles' issues have nothing in common but their shape. Each entry
+// is [token, locale key, predicate]; `issueOptions` turns a table and a list of
+// rows into the pills, and `issueTest` turns a chosen token back into the
+// predicate. One definition per issue, read by the filter, by the pill's count
+// and by the rail's badge — which is what stops the badge and the pill under it
+// disagreeing about how many people have no photograph.
+//
+// WHY NOT ONE TABLE FOR ALL THREE. The works console's issues are gap tokens
+// with their own per-shelf predicates (`bookPasses`, `moviePasses`) and an
+// ordering the pack fixes; folding them in here would mean a table whose entries
+// mean different things by row. `issueOptions` is shared instead — the counting
+// is the part that was worth writing once.
+
+// A PERSON'S FOUR. `no_works` and `no_quotes` are the two halves of "nothing in
+// the library points at this record", which is exactly what Prune sweeps — so a
+// reader can see the prune's candidates before pressing it.
+const PERSON_ISSUES = [
+  ['no_links', 'metadata.issue.no-links.label', (p) => Object.keys(parseLinks(p.links).known).length === 0],
+  ['no_photo', 'metadata.issue.no-photo.label', (p) => !p.image_path],
+  ['no_works', 'metadata.issue.no-works.label', (p) => !(p.works > 0)],
+  ['no_quotes', 'metadata.issue.no-quotes.label', (p) => !(p.quotes > 0)],
+]
+
+// A CHARACTER'S THREE, and the third is gated. A character in a NOVEL has no
+// picture to be missing — a book's cast rows carry no faces — so counting those
+// as an issue would put every literary character in the library behind a filter
+// named for a problem they cannot have. `kind === 'movie'` is the catalogue side
+// (films, shows and games all live in `movies`), which is the owner's own
+// qualification: "only for characters who has catalogue works".
+const CHARACTER_ISSUES = [
+  ['no_works', 'metadata.issue.no-works.label', (c) => !(c.works > 0)],
+  ['no_quotes', 'metadata.issue.no-quotes.label', (c) => !(c.quotes > 0)],
+  ['no_face', 'metadata.issue.no-face.label',
+    (c) => (c.works_in || []).some((w) => w.kind === 'movie' && !w.has_face)],
+]
+
+// worksWithIssues — how many works have anything wrong, for the Works door's
+// badge. `flagged` is the console's own broadest test and the pack's first
+// filter, so this is the count of the list a reader lands on when they open the
+// door: the badge names the list, rather than naming a number the screen does not
+// draw anywhere.
+function worksWithIssues(lib) {
+  return (lib.books || []).filter((b) => bookPasses(b, 'flagged')).length +
+    (lib.movies || []).filter((m) => moviePasses(m, 'flagged')).length
+}
+
+// issueOptions — the pills, counted over the rows the OTHER filters have already
+// left. Counting over the whole list would print 11 on a pill that lands on 3
+// rows, which is a number that teaches the reader to stop trusting the numbers.
+function issueOptions(defs, rows) {
+  return [
+    { key: '', label: t('metadata.issue.all.label'), n: rows.length },
+    ...defs.map(([key, label, test]) => ({ key, label: t(label), n: rows.filter(test).length })),
+  ]
+}
+const issueTest = (defs, key) => {
+  const d = defs.find(([k]) => k === key)
+  return d ? d[2] : () => true
+}
+// HOW MANY RECORDS HAVE ANYTHING WRONG, which is what a door's badge should say.
+// A record with three problems is one record to go and look at, so the badge
+// counts rows and not findings — the pills behind the door split it up.
+const withAnyIssue = (defs, rows) => (rows || []).filter((r) => defs.some(([, , test]) => test(r))).length
+
 const H2 = { fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 'var(--type-ui-17)', fontWeight: 600 }
 
 // Stat is a coverage tile. When onClick is set it's a filter button: clicking a
@@ -912,16 +1004,20 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
   const [sel, setSel] = useState(() => new Set()) // "book:id" / "movie:id" keys
 
   // Guard against a filter that isn't valid for the current type (e.g. after a
-  // type switch) so the <select> and predicates always agree.
+  // type switch) so the pills and the predicates always agree.
   const filterOpts = filterOptions(type)
   const filterVal = filterOpts.some(([v]) => v === filter) ? filter : 'flagged'
 
-  const shown = useMemo(() => {
+  // THE TYPE AND THE SEARCH, WITHOUT THE GAP FILTER. It is what the pills count
+  // over — see CharactersConsole — and `shown` is this narrowed by the chosen
+  // pill. Splitting the one loop in two is what let the counts exist at all: the
+  // old single pass had the gap test inside it, so there was no list to count
+  // against.
+  const base = useMemo(() => {
     const s = q.trim().toLowerCase()
     const out = []
     if (type === 'all' || type === 'book') {
       for (const b of books) {
-        if (!bookPasses(b, filterVal)) continue
         if (s && !(b.title.toLowerCase().includes(s) || (b.author || '').toLowerCase().includes(s))) continue
         out.push({ kind: 'book', item: b })
       }
@@ -931,13 +1027,27 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
         const mt = m.media_type || 'movie'
         if (type === 'movie' && mt !== 'movie') continue
         if (type === 'show' && mt !== 'show') continue
-        if (!moviePasses(m, filterVal)) continue
         if (s && !m.title.toLowerCase().includes(s)) continue
         out.push({ kind: 'movie', item: m })
       }
     }
     return out
-  }, [books, movies, type, filterVal, q])
+  }, [books, movies, type, q])
+  // ONE PREDICATE FOR BOTH SHELVES, keyed on the row's own kind. The pills and
+  // the list read it, so a pill's count is by construction the size of the list
+  // pressing it produces.
+  const gapPasses = useCallback(
+    (x, f) => (x.kind === 'book' ? bookPasses(x.item, f) : moviePasses(x.item, f)),
+    [],
+  )
+  const shown = useMemo(() => base.filter((x) => gapPasses(x, filterVal)), [base, filterVal, gapPasses])
+  // EVERY GAP THE TYPE OFFERS, COUNTED. `filterOpts` is already the pack's own
+  // order — broadest issue first, "complete" and "all" last — so the pills are it
+  // with a number on each.
+  const gapPills = useMemo(
+    () => filterOpts.map(([v, label]) => ({ key: v, label, n: base.filter((x) => gapPasses(x, v)).length })),
+    [filterOpts, base, gapPasses],
+  )
 
   const keys = shown.map((x) => catKey(x.kind, x.item.id))
   const selectedKeys = keys.filter((k) => sel.has(k))
@@ -1031,19 +1141,24 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
           <select className="tp-input w-auto" title={t('common.field.media-type.label')} value={type} onChange={(e) => { setType(e.target.value); setFilter('flagged') }}>
             {typeOptions().map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
-          <Tooltip label={t('metadata.catalogue.filter.tip')} side="top">
-            {/* A NAME, WHICH IT HAD NONE OF. The Tooltip carries words and adds no
-                attribute, so the one control this console is built around announced
-                itself as an unnamed combo box — the type selector beside it has had
-                a `title` all along. "Which gap" rather than the tooltip's sentence:
-                a name says what the control is, and the tooltip says what it does. */}
-            <select className="tp-input w-auto" title={t('metadata.catalogue.filter.aria')} value={filterVal} onChange={(e) => setFilter(e.target.value)}>
-              {filterOpts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </Tooltip>
           <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
+      {/* THE GAP FILTER, AS PILLS. The owner on this console: "Works: well covered
+          already. But pills." It was a combo box — eleven gaps behind one press,
+          none of them carrying a number, so finding out how many films had no
+          poster meant choosing it and reading the count above. Pressed open,
+          scrolled, chosen, read, and opened again for the next one.
+
+          THE SAME ELEVEN, IN THE SAME ORDER, each with the size of the list it
+          would give. The shape of what is missing is now readable without a
+          press, which is what this whole section is for. */}
+      <IssuePills
+        value={filterVal}
+        onChange={setFilter}
+        options={gapPills}
+        ariaLabel={t('metadata.catalogue.filter.aria')}
+      />
       {shown.length === 0 ? (
         <p className="microcopy">{t('metadata.catalogue.nomatch')}</p>
       ) : (
@@ -1753,23 +1868,49 @@ function RemapRow({ label, cast, value, onChange }) {
 // cannot check; "4 people and 19 characters" is one they can recognise, and the
 // characters are usually the surprise — the per-work backfill makes eight Harry
 // Potters and seven of them end up pointing at nothing.
+// THE CONFIRM NAMES THEM, and for two days it did not. The owner: "The prune
+// doesn't show whom I am going to prune." `GET /people/orphans` has always
+// returned the ROWS — its own handler says why, "a confirm that says 'remove 23
+// records' without naming one is a dialog a reader cannot answer" — and this
+// button read `.length` off both lists and threw the names away. The server was
+// right and the client was asking the reader to trust it.
+//
+// A DELETE CANNOT BE ANSWERED FROM A NUMBER. "23 records" is not a question
+// anybody can say yes to: the reader's actual question is whether the one person
+// they care about is in there, and only the list answers it.
 function PruneButton({ onDone, onFlash }) {
   const [orphans, setOrphans] = useState(null)
   const [busy, setBusy] = useState(false)
   const { ask, confirmDialog } = useConfirm()
   const load = useCallback(async () => {
     const r = await json('GET', '/people/orphans')
-    if (r.ok) setOrphans({ people: (r.data.people || []).length, characters: (r.data.characters || []).length })
+    if (r.ok) setOrphans({ people: r.data.people || [], characters: r.data.characters || [] })
   }, [])
   useEffect(() => { load() }, [load])
-  const total = orphans ? orphans.people + orphans.characters : 0
+  const total = orphans ? orphans.people.length + orphans.characters.length : 0
   if (total === 0) return null
+  // EVERY NAME, IN A BOX THAT SCROLLS. Not the first five and a "…and 18 more":
+  // the eighteen are exactly the ones the reader has not checked, and a list that
+  // hides them answers the question for the easy cases only. The box is capped in
+  // `em` so a prune of two is two lines and a prune of two hundred is still a
+  // dialog.
+  const nameList = (rows, heading) => rows.length > 0 && (
+    <div className="prune-group">
+      <MonoLabel>{heading}</MonoLabel>
+      <Scroller axis="v" className="prune-names">
+        {rows.map((o) => <span key={o.id} className="tp-chip">{o.name}</span>)}
+      </Scroller>
+    </div>
+  )
   const run = async () => {
     const ok = await ask(t('metadata.prune.confirm.title', { n: total }), {
-      body: t('metadata.prune.confirm.body', {
-        people: t('metadata.prune.confirm.people', { count: orphans.people, n: orphans.people }),
-        characters: t('metadata.prune.confirm.characters', { count: orphans.characters, n: orphans.characters }),
-      }),
+      body: (
+        <>
+          <p>{t('metadata.prune.confirm.body')}</p>
+          {nameList(orphans.people, t('metadata.prune.confirm.people', { count: orphans.people.length, n: orphans.people.length }))}
+          {nameList(orphans.characters, t('metadata.prune.confirm.characters', { count: orphans.characters.length, n: orphans.characters.length }))}
+        </>
+      ),
       confirmLabel: t('metadata.prune.confirm.cta'),
     })
     if (!ok) return
@@ -1807,6 +1948,13 @@ function PruneButton({ onDone, onFlash }) {
 // film share one, and so do two editions of the same book.
 const workRefKey = (w) => `${w.kind}:${w.id}`
 
+// HOW MANY WORK PILLS A ROW DRAWS. The server caps a PERSON's refs at six for the
+// same reason and the character list is uncapped, so the cap is applied here too
+// rather than trusting the wire: a character in forty films would otherwise draw
+// forty pills into a strip a reader has to drag past. The count beside the icon is
+// what says there are more, and the record's own screen lists them all.
+const MAX_ROW_WORK_PILLS = 6
+
 // CharacterRow — one character, and the question the console exists to answer.
 //
 // WHAT THE ROW SAYS NOW THAT IT DID NOT. It stated the character's name, its sort
@@ -1837,24 +1985,45 @@ const workRefKey = (w) => `${w.kind}:${w.id}`
 // what that record's appearance grid IS — so a third door to it would be the
 // redundancy the repo directive names. Merge and delete are the two acts the LIST
 // can do that the list could not reach, and both are the pack's.
+//
+// ── AND THEN THE OWNER READ IT ON A PHONE, and the row above is what they were
+// reading. Three reports, all of them about this row:
+//
+// "The characters show work, but not quotes." A character IS the thing that says
+// lines, so a row about one that counts everything except what they said is a row
+// missing its subject. `quotes` is served now and sits beside the works count.
+//
+// "the red 1 in the character row seems to only be taking up space without giving
+// any addl info" — and it was right. The number was `works - faced`, an
+// appearance with no picture chosen, painted in the danger colour at the far right
+// of every row. It could not be pressed, the sub-line beside it already said
+// "1 of 3 with a face chosen", and a colour the app reserves for destruction was
+// being spent on a missing thumbnail. It is a pill in the filter row now, where a
+// reader can ask for exactly those rows instead of scanning for red.
+//
+// "The subtitle should be like this: x <work_icon>•y <quote_icon> - <work names
+// like pills, with edgemask and sidescroll>" — verbatim, and `RowCounts` draws
+// exactly that. What it replaces is "3 works · 1 of 3 with a face chosen": a
+// sentence about a sub-count, written the long way round, where the shape of the
+// answer was wanted.
 function CharacterRow({ c, first, onOpen, onMerge, onDelete }) {
   const works = c.works || 0
-  const faced = (c.works_in || []).filter((w) => w.has_face).length
-  const gap = works - faced
   return (
     <RecordRow
       first={first}
       mark={<Face src={c.image_path} url={coverImgURL} name={c.name || ''} className="char-name-face" />}
       name={c.name}
       onOpen={onOpen}
-      /* "0 works · 0 of 0 with a face" is not a sentence. A character linked to
-         nothing has a different finding, and the red zero below says it. */
-      sub={works ? t('metadata.characters.faces.sub', { count: works, n: works, faced }) : null}
-      count={works === 0 ? '0' : gap ? String(gap) : null}
-      countTone={works === 0 || gap ? 'warn' : 'plain'}
-      countTip={works === 0
-        ? t('metadata.characters.column.works')
-        : t('metadata.characters.column.gap', { count: gap, n: gap })}
+      /* ZERO AND ZERO IS STILL THE ANSWER, so the counts draw whatever they are:
+         "0 works, 0 quotes" is the finding on a character nobody points at, and
+         it is the finding the filter row's own pills are counting. */
+      sub={<RowCounts
+        works={works}
+        quotes={c.quotes || 0}
+        worksLabel={t('metadata.row.works.label')}
+        quotesLabel={t('metadata.row.quotes.label')}
+        pills={(c.works_in || []).slice(0, MAX_ROW_WORK_PILLS).map((w) => ({ key: workRefKey(w), title: w.title }))}
+      />}
       actions={[
         {
           key: 'merge',
@@ -1912,6 +2081,9 @@ export function CharactersConsole({ rows = null, onReload = null }) {
   // nothing, which appears on no work's page by definition and can therefore be
   // found nowhere else at all.
   const [work, setWork] = useState('')
+  // WHICH ISSUE, as a row of pills above the list. See PERSON_ISSUES for the
+  // argument; '' is every row.
+  const [issue, setIssue] = useState('')
   const [err, setErr] = useState('')
   // MERGE AND DELETE FROM THE LIST, which is the pack's row and is also where the
   // work is. The backfill makes a character record PER WORK, so de-duplicating is
@@ -1964,18 +2136,16 @@ export function CharactersConsole({ rows = null, onReload = null }) {
     load()
   }
 
-  const shown = useMemo(() => {
+  // THE PILLS COUNT WHAT THE OTHER FILTERS LEFT, so `base` stops one step short
+  // of the issue filter and `shown` applies it. A pill counted over the whole
+  // library would say 40 and land on 3 the moment a work is chosen.
+  const base = useMemo(() => {
     const s = q.trim().toLowerCase()
     return (list || [])
       .filter((c) => !s || c.name.toLowerCase().includes(s))
-      .filter((c) => {
-        if (!work) return true
-        const in_ = c.works_in || []
-        if (work === '~none') return in_.length === 0
-        return in_.some((w) => workRefKey(w) === work)
-      })
+      .filter((c) => !work || (c.works_in || []).some((w) => workRefKey(w) === work))
   }, [list, q, work])
-  const unpaired = (list || []).filter((c) => c.works === 0).length
+  const shown = useMemo(() => base.filter(issueTest(CHARACTER_ISSUES, issue)), [base, issue])
 
   // THE WORKS THAT ACTUALLY HAVE CHARACTERS, built from the list itself rather
   // than from the library. A dropdown of nine hundred books, of which eleven have
@@ -1993,14 +2163,11 @@ export function CharactersConsole({ rows = null, onReload = null }) {
       }
     }
     const rowsOut = [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]))
-    return [
-      ['', t('metadata.characters.work.all.label')],
-      // Offered whatever the count, including zero: a list with none of these is
-      // a list where the reader learns the filter exists and that it is empty,
-      // which is the fact the summary line above states in words.
-      ['~none', t('metadata.characters.work.none.label')],
-      ...rowsOut,
-    ]
+    // NO "IN NO WORK" ROW ANY MORE. It was this dropdown's odd one out — every
+    // other row names a work and that one named the absence of every work — and
+    // it is a pill in the issue row now, beside the other two absences and
+    // carrying its own count, which a dropdown row could never do.
+    return [['', t('metadata.characters.work.all.label')], ...rowsOut]
   }, [list])
 
   return (
@@ -2036,15 +2203,21 @@ export function CharactersConsole({ rows = null, onReload = null }) {
           <PruneButton onDone={load} />
         </div>
       </div>
-      <ErrorText>{err}</ErrorText>
-      {/* "IN NO WORK" IS THE NUMBER WORTH SEEING, and it is not a column — a
-          character linked to nothing appears on no work's page by definition, so
-          this list is the only place it can be counted at all. */}
+      {/* THE ISSUE PILLS, AND THE SENTENCE THEY REPLACED. Under the line above,
+          this screen printed "189 characters, 0 in no work" — and the line above
+          it already said "189 SHOWN". The owner: "189 characters is written
+          twice." It was, and the second copy was carrying one extra fact in
+          prose. That fact is a pill now, with two more beside it, and every one
+          of them is pressable — which the sentence never was. */}
       {list && (
-        <p className="microcopy" style={{ color: unpaired ? 'var(--soft)' : 'var(--accent-ui)' }}>
-          {t('metadata.characters.summary', { count: list.length, n: list.length, unpaired })}
-        </p>
+        <IssuePills
+          value={issue}
+          onChange={setIssue}
+          options={issueOptions(CHARACTER_ISSUES, base)}
+          ariaLabel={t('metadata.issue.aria')}
+        />
       )}
+      <ErrorText>{err}</ErrorText>
       {!list ? (
         <EmptyState>{t('common.state.loading')}</EmptyState>
       ) : shown.length === 0 ? (
@@ -2312,6 +2485,8 @@ const PEOPLE_EMPTY = {
 export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, onReload = null }) {
   const mobile = useIsMobileScreen()
   const [role, setRole] = useState('all')
+  // WHICH ISSUE — see PERSON_ISSUES. '' is every row.
+  const [issue, setIssue] = useState('')
   const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
   useScreenSearch({ key: 'metadata-people', label: t('shell.search.where.people'), onQuery: setQ })
@@ -2339,7 +2514,9 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
   const rows = owned ? own : records
 
   const inRole = (p) => role === 'all' || (p.kinds || []).includes(role)
-  const shown = useMemo(() => {
+  // ROLE AND SEARCH FIRST, THE ISSUE PILL LAST — see CharactersConsole: the pills
+  // count over `base`, so a pill's number is what pressing it will actually give.
+  const base = useMemo(() => {
     const term = q.trim().toLowerCase()
     return (rows || []).filter(inRole).filter((p) => {
       if (!term) return true
@@ -2351,10 +2528,14 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, q, role])
+  const shown = useMemo(() => base.filter(issueTest(PERSON_ISSUES, issue)), [base, issue])
 
-  // A row still needs work if it has no provider links OR no stored portrait.
-  const noLinks = (p) => Object.keys(parseLinks(p.links).known).length === 0
-  const missing = shown.filter((p) => noLinks(p) || !p.image_path)
+  // WHAT THE BULK FETCH WOULD REACH: a row with no provider links OR no stored
+  // portrait, which is exactly the two pills a fetch can do something about. Read
+  // off PERSON_ISSUES rather than re-tested here, so the button and the pills
+  // cannot come to disagree about what "still needs work" means.
+  const fetchable = (p) => issueTest(PERSON_ISSUES, 'no_links')(p) || issueTest(PERSON_ISSUES, 'no_photo')(p)
+  const missing = shown.filter(fetchable)
 
   // Near-duplicate clusters over RECORDS, not spellings. The old list computed
   // them over printed names, so two spellings of one record looked like two people
@@ -2488,24 +2669,26 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
           <PruneButton onDone={load} onFlash={onFlash} />
         </div>
       </div>
+      {/* THE FOUR ISSUES, AS PILLS. The owner named them: "Relevant issues for
+          people: no links, no works, no quotes, no photos."
+
+          THEY REPLACE A SENTENCE THAT COULD NOT BE PRESSED. This line read "11
+          people still need photos or links" — one number over two problems, with
+          no way to reach either — and "all complete ✓" when there were none. Four
+          counted pills say which of the two, say the other two nobody was
+          counting, and each of them is a press. The finished state still reads:
+          four zeroes in a row is a clearer "nothing to do" than a tick, because it
+          says what was checked. */}
+      {rows && (
+        <IssuePills
+          value={issue}
+          onChange={setIssue}
+          options={issueOptions(PERSON_ISSUES, base)}
+          ariaLabel={t('metadata.issue.aria')}
+        />
+      )}
       <ErrorText>{err}</ErrorText>
       {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={t('metadata.people.fetch.progress', { done: bulk.done, total: bulk.total })} />}
-      {/* HOW MANY OF THESE STILL NEED WORK, in one sentence above the list. It was
-          the whole of what a phone got and nothing else had it, which is backwards:
-          a table of ninety rows is exactly where a reader cannot count the gaps by
-          eye. When there are none it says so rather than falling silent, because a
-          missing sentence and a finished list look identical. */}
-      {rows && (
-        <p className="microcopy" style={{ color: missing.length ? 'var(--soft)' : 'var(--accent-ui)' }}>
-          {missing.length
-            ? t('metadata.people.summary', {
-                count: missing.length,
-                n: missing.length,
-                noun: t('unit.person', { count: missing.length }),
-              })
-            : t('metadata.coverage.complete')}
-        </p>
-      )}
       {dupGroups.length > 0 && (
         <div className="space-y-2">
           <MonoLabel>{t('metadata.people.dups.count', { n: dupGroups.length })}</MonoLabel>
@@ -2619,22 +2802,36 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, mobile = fa
       /* THE OTHER SPELLINGS, UNDER THE NAME. This is what one record standing for
          four rows looks like, and without it the merged list reads as if three
          names went missing. */
-      /* THE QUOTES COUNT LIVES HERE NOW, and it had to go somewhere: it was a
-         column, the columns are gone, and a first draft of this row simply
-         dropped it — which is losing a fact rather than moving it. It is the
-         record's OWN total across every spelling, which is the thing this console
-         exists to show, so it joins the sub-line beside the other spellings. */
-      sub={[
-        p.quotes ? t('metadata.people.quotes.sub', { n: p.quotes, count: p.quotes }) : null,
-        (p.spellings || []).length > 0 ? t('metadata.people.also', { names: p.spellings.join(' · ') }) : null,
-      ].filter(Boolean).join(' · ') || null}
+      /* THE SAME SUB-LINE THE CHARACTER ROW DRAWS, and that is the point: two
+         lists of records, one shape — "similar things should act similarly" is a
+         repo directive, and it applies to what a row SAYS as hard as to what it
+         does. Counts, then the works themselves as pills.
+
+         THE WORKS COUNT CAME OUT OF THE FAR-RIGHT COLUMN to get here. It was a
+         number at the end of the row whose only tooltip said "works"; beside the
+         quotes count and under the titles it is counting, it needs no tooltip at
+         all. The search it opened is still a press away — the pills go to the
+         works themselves, which is the more direct version of the same trip.
+
+         THE SPELLINGS KEEP THEIR OWN LINE below, because they are not a count and
+         folding them into a row of numbers is how a row starts talking. */
+      sub={<>
+        <RowCounts
+          works={p.works || 0}
+          quotes={p.quotes || 0}
+          worksLabel={t('metadata.row.works.label')}
+          quotesLabel={t('metadata.row.quotes.label')}
+          /* WHAT PRESSING IT DOES, beside what the number is — see RowCounts. */
+          worksTip={p.works > 0 && onSearch ? t('metadata.people.search.tip', { name: p.name }) : ''}
+          pills={(p.works_in || []).slice(0, MAX_ROW_WORK_PILLS).map((w) => ({ key: `${w.kind}:${w.id}`, title: w.title }))}
+          onWorks={p.works > 0 && onSearch ? () => onSearch(p.name) : null}
+        />
+        {(p.spellings || []).length > 0 && (
+          <span className="block">{t('metadata.people.also', { names: p.spellings.join(' · ') })}</span>
+        )}
+      </>}
       chips={roles.map(([, word]) => ({ label: word }))}
       chipsEmpty={null}
-      count={String(p.works || 0)}
-      countTip={p.works > 0 && onSearch ? t('metadata.people.search.tip', { name: p.name }) : t('metadata.people.column.works')}
-      /* The count is a door only where there is something behind it: a record
-         nothing references counts 0, and a search for it finds nothing. */
-      onCount={p.works > 0 && onSearch ? () => onSearch(p.name) : null}
       actions={[{
         key: 'fetch',
         icon: <IconRefresh />,

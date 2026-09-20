@@ -89,12 +89,16 @@ describe('one row per record', () => {
   it('prints the record’s own works and quotes, not one spelling’s share', async () => {
     await mount()
     const r = row('Mikhail Bulgakov')
-    // The works count is the row's own number and still stands alone. The quotes
-    // count was a column that a phone already dropped; the columns are gone, so it
-    // sits in the sub-line beside the other spellings rather than being lost —
-    // which a first draft of this row did, and this line is what caught it.
-    expect(within(r).getByText('12')).toBeTruthy()
-    expect(within(r).getByText(/128 quotes/)).toBeTruthy()
+    // BOTH COUNTS, AND BY THE WORDS RATHER THAN THE DIGITS. The two numbers sit
+    // side by side under the name now — an icon each and no noun, the owner's own
+    // shape — so `getByText('12')` would no longer say WHICH count it found, and
+    // a row that printed the works count twice would pass it. The accessible name
+    // is what the icon stands for, and reading them is how this case tells the
+    // two apart. It is also what a reader who cannot see the icons is told.
+    const named = (re) => [...r.querySelectorAll('[aria-label]')]
+      .some((n) => re.test(n.getAttribute('aria-label') || ''))
+    expect(named(/^12 works/), 'the works count should be on the row, named').toBe(true)
+    expect(named(/^128 quotes/), 'the quotes count should be on the row, named').toBe(true)
   })
 
   it('reads /people/records and never the spelling list', async () => {

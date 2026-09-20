@@ -428,6 +428,26 @@ old work, so a screen that breaks one is a bug and not a variation.
   changed", the cross's colour answers "what does this press do", and one fact signalled
   twice leaves the second question unanswered. The tick is never red — the accent is not
   a warning.
+- **A FACE IS A CIRCLE AND A WORK IS A RECTANGLE.** The owner's, made a rule:
+  *"work images are rectangle, which is fine, but people and character images should
+  be circles. Consistency is key (note that down in claude.md as well)."*
+
+  The shape is the fastest thing on a row to read — faster than the picture, because
+  it is legible before a pixel of it has loaded, and legible at 20px where a face is
+  not. So it has to mean something, and what it means is WHICH KIND OF THING this is.
+  A character wearing a 2:3 box beside a poster wearing a 2:3 box makes the reader
+  read the label to tell a person from a film, which is the row's own caption doing
+  work the picture should have done.
+
+  Every portrait of a person or a character is `aspect-ratio: 1` and
+  `border-radius: 999px` — the console rows, the cast rows, the duplicate cards, the
+  form thumbnails and the record's own photograph. Every cover, poster and still
+  keeps its medium's ratio. **A circle needs a square**: `border-radius: 999px` on a
+  34×42 box draws an EGG, which reads as a broken picture rather than as a portrait,
+  so the box is squared in the same edit as the radius. And where a portrait has not
+  arrived yet, its PLACEHOLDER is square too — a 7:9 gap that becomes a circle
+  reflows the text beside it the moment a photo is chosen.
+
 - **A screen's glyphs are the app's own, never an emoji.** `NavIcon`, `Icon*` in
   `ui.jsx`, and nothing hand-picked beside them. An emoji is the platform's drawing: it
   changes with the reader's font, sits off the baseline every other glyph shares, and is

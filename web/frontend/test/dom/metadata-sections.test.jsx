@@ -350,7 +350,15 @@ describe('on a phone', () => {
     // It lands in the works console — the same place the desktop tile lands, and
     // the console's own filter is what says so. See the issues-sheet case above for
     // why this is no longer a heading.
-    expect(screen.getByTitle('Which gap'), 'the works console should be on screen').toBeTruthy()
+    // THE FILTER IS A ROW OF PILLS NOW, not a combo box, so this asks the stronger
+    // question the combo box could not be asked: not "is the works console here"
+    // but "is it showing the gap that was pressed". A pill announces its state
+    // through `aria-pressed`, which is what a reader's screen reader is told too.
+    const chosen = (await screen.findAllByRole('button'))
+      .filter((b) => b.getAttribute('aria-pressed') === 'true')
+      .map((b) => b.textContent || '')
+    expect(chosen.some((x) => /no cover/i.test(x)), 'the works console should have landed on the gap that was pressed')
+      .toBe(true)
   })
 
   it('reads the coverage as sentences rather than as filter tiles', async () => {

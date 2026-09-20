@@ -610,7 +610,11 @@ func (s *Server) handleCharacters(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(`
 		SELECT `+characterCols+`,
 		       (SELECT count(*) FROM work_cast wc WHERE wc.user_id = c.user_id AND wc.character_id = c.id
-		                                            AND wc.origin <> 'removed')
+		                                            AND wc.origin <> 'removed'),
+		       (SELECT count(*) FROM dialogues d JOIN work_cast wc ON wc.id = d.speaker_cast_id
+		         WHERE wc.user_id = c.user_id AND wc.character_id = c.id AND wc.origin <> 'removed')
+		     + (SELECT count(*) FROM annotations a JOIN work_cast wc ON wc.id = a.speaker_cast_id
+		         WHERE wc.user_id = c.user_id AND wc.character_id = c.id AND wc.origin <> 'removed')
 		  FROM characters c WHERE c.user_id = ?
 		 ORDER BY CASE WHEN c.sort_name <> '' THEN c.sort_name ELSE c.name END COLLATE NOCASE, c.id`, uid)
 	if err != nil {
@@ -628,7 +632,7 @@ func (s *Server) handleCharacters(w http.ResponseWriter, r *http.Request) {
 		// this destination list did not, so every read answered "expected 9
 		// destination arguments" and the character list came back empty.
 		if err := rows.Scan(&v.ID, &v.Name, &v.SortName, &v.Description, &v.ImagePath,
-			&v.Note, &v.Links, &v.Born, &v.Works); err != nil {
+			&v.Note, &v.Links, &v.Born, &v.Works, &v.Quotes); err != nil {
 			olog.Warnf(olog.CodePeopleRowScan, "[identity] character row scan failed: %v", err)
 			continue
 		}
@@ -653,6 +657,21 @@ func (s *Server) handleCharacters(w http.ResponseWriter, r *http.Request) {
 type characterListRow struct {
 	characterRow
 	Works int `json:"works"`
+	// HOW MANY QUOTES POINT AT THIS CHARACTER, which the console needs and the
+	// row could not say. A list that reports which works a character is in and
+	// not how many of their lines are saved answers the smaller half of "is this
+	// record worth anything" — and "no quotes" is one of the issue filters the
+	// screen now offers, so the number has to be a fact rather than a guess.
+	//
+	// COUNTED THROUGH THE LINK, `speaker_cast_id`, and that is the app's own
+	// definition rather than a convenience. A quote belongs to a character when
+	// it points at one of their cast rows; the app maintains that link on every
+	// save and a one-time pass filled it in for every line that predates it
+	// (onetime_3_1_0_quote_cast.go). Folding the `character` text column here
+	// instead would be a second, looser answer to a question the link already
+	// answers exactly — and the two would disagree the first time a name was
+	// spelled two ways.
+	Quotes int `json:"quotes"`
 	// WHICH works, not just how many. The console filters this list by work, and
 	// the count alone cannot answer "show me everybody in Solaris" — the
 	// alternative was one request per row to /characters/{id}, which on a library
@@ -742,6 +761,53 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 		}
 		ref.HasFace = hasFace == 1
 		if r := byID[cid]; r != nil {
+			r.WorksIn = append(r.WorksIn, ref)
+		}
+	}
+	return rows.Err()
+}
+
+// attachPersonWorks fills every row's WorksIn in one pass, the same shape and for
+// the same reason as attachCharacterWorks above: a read per person is a read per
+// person, and this is the screen with the most of them.
+//
+// BOTH WAYS A PERSON REACHES A WORK. `work_person` is the credit — author,
+// translator, editor, director — and `work_cast` is the performance. A list that
+// showed only the first would leave every actor's row empty under their name while
+// the count beside it said twelve.
+//
+// CAPPED PER PERSON, not per query, because the cap is about the ROW: the six the
+// scroller can show before its fade, with the count saying how many there are.
+func attachPersonWorks(db *sql.DB, uid int64, byID map[int64]*personRecord) error {
+	rows, err := db.Query(`
+		SELECT person_id, kind, id, title FROM (
+			SELECT wp.person_id AS person_id, 'book' AS kind, b.id AS id, b.title AS title
+			  FROM work_person wp JOIN books b ON b.id = wp.work_id
+			 WHERE wp.user_id = ? AND wp.kind = 'book'
+			UNION
+			SELECT wp.person_id, 'movie', m.id, m.title
+			  FROM work_person wp JOIN movies m ON m.id = wp.work_id
+			 WHERE wp.user_id = ? AND wp.kind = 'movie'
+			UNION
+			SELECT wc.actor_id, 'book', b.id, b.title
+			  FROM work_cast wc JOIN books b ON b.id = wc.work_id
+			 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND wc.actor_id IS NOT NULL
+			UNION
+			SELECT wc.actor_id, 'movie', m.id, m.title
+			  FROM work_cast wc JOIN movies m ON m.id = wc.work_id
+			 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND wc.actor_id IS NOT NULL
+		) ORDER BY title COLLATE NOCASE`, uid, uid, uid, uid)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var pid int64
+		var ref characterWorkRef
+		if err := rows.Scan(&pid, &ref.Kind, &ref.ID, &ref.Title); err != nil {
+			return err
+		}
+		if r := byID[pid]; r != nil && len(r.WorksIn) < maxRowWorkPills {
 			r.WorksIn = append(r.WorksIn, ref)
 		}
 	}
@@ -1546,7 +1612,25 @@ type personRecord struct {
 	Spellings []string `json:"spellings"`
 	Works     int      `json:"works"`
 	Quotes    int      `json:"quotes"`
+	// WHICH works, and not only how many — the same field the character list has
+	// carried since it was built, and for the same reason: a row that says "12"
+	// tells a reader the record is used and not what it is FOR. The console draws
+	// them as pills under the name, so a reader scanning for the Bulgakov that is
+	// their translator rather than their novelist can see it without opening
+	// anything.
+	//
+	// CAPPED, AND THE CAP IS ON THE WIRE RATHER THAN ON THE SCREEN. A prolific
+	// translator is credited on hundreds of works; sending all of them to draw a
+	// row that shows six is a payload nobody reads, per row, on every load. The
+	// row says how many there are — `works` above — and the record's own screen
+	// lists them all.
+	WorksIn []characterWorkRef `json:"works_in"`
 }
+
+// maxRowWorkPills is how many work names a list row carries. Six is what fits a
+// desktop row before the scroller's fade, and the count beside them is what says
+// there are more.
+const maxRowWorkPills = 6
 
 // handlePeopleRecords: GET /people/records — one row per record, not per spelling.
 //
@@ -1589,10 +1673,22 @@ func (s *Server) handlePeopleRecords(w http.ResponseWriter, r *http.Request) {
 			olog.Warnf(olog.CodePeopleRowScan, "[identity] person record scan failed: %v", err)
 			continue
 		}
+		v.WorksIn = []characterWorkRef{}
 		out = append(out, v)
 	}
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodePeopleRowScan, "[identity] person record iteration failed: %v", err)
+	}
+	byPerson := make(map[int64]*personRecord, len(out))
+	for i := range out {
+		byPerson[out[i].ID] = &out[i]
+	}
+	if err := attachPersonWorks(s.Store.DB, uid, byPerson); err != nil {
+		// A ROW WITHOUT ITS PILLS IS STILL A ROW. The name, the counts and every
+		// issue filter stand without this read, so a failure here logs and leaves
+		// the pills off rather than taking the console with it — the same
+		// reasoning the character list's own attach is written under.
+		olog.Warnf(olog.CodePeopleRowScan, "[identity] person works attach failed: %v", err)
 	}
 	// THE ROLES AND THE SPELLINGS IN THREE MORE QUERIES, NOT THREE PER PERSON.
 	//

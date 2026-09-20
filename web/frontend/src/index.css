@@ -3177,22 +3177,33 @@
   .stat-face-round svg { width: 100%; height: 100%; display: block; }
   .person-portrait-round img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .person-photo-zoom { display: block; width: 100%; }
+  /* THE RECORD'S OWN PORTRAIT, AND IT IS A CIRCLE LIKE EVERY OTHER FACE. 7:9
+     was chosen when this was the only picture of a person in the app; it now sits
+     one press from a list of round ones, and two shapes for one thing is the
+     inconsistency the rule at .char-name-face exists to end. A circle crops a
+     portrait harder than a 7:9 box does — that is the cost, and it is paid once
+     here rather than by every row that would otherwise have to match this. */
   .person-photo-zoom img {
-    display: block; width: 100%; aspect-ratio: 7 / 9; object-fit: cover;
-    border-radius: 8px; border: 1px solid var(--ink-border);
+    display: block; width: 100%; aspect-ratio: 1; object-fit: cover;
+    border-radius: 999px; border: 1px solid var(--ink-border);
   }
   .person-form-thumb { display: block; width: 4rem; }
-  .person-form-thumb img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 4px; }
+  .person-form-thumb img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 999px; }
 
+  /* A FACE IS A CIRCLE — see the rule at .char-name-face. 38px square, not
+     34x42: a border-radius of 999px on a 34x42 box draws an EGG, which is the
+     shape a reader reads as "the picture is the wrong ratio" rather than as a
+     portrait. The width grew by four rather than the height shrinking by eight,
+     because the row's other cells are already sized against this one. */
   .cast-face {
-    width: 34px; height: 42px; flex: none; object-fit: cover;
-    border-radius: 5px; border: 1px solid var(--ink-border);
+    width: 38px; height: 38px; flex: none; object-fit: cover;
+    border-radius: 999px; border: 1px solid var(--ink-border);
   }
   /* THE BOX IS THE WRAPPER AND THE PICTURE FILLS IT. `Face` draws both halves
      inside one span so the plate below can be keyed on WHICH half is on the
      screen — a picture that failed to arrive is a row with no picture, and the
      class this used to be keyed on was set from the stored path. */
-  .cast-face > img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+  .cast-face > img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 999px; }
   .cast-face.is-empty {
     display: grid; place-items: center; padding: 12% 18% 0;
     background: color-mix(in srgb, var(--soft) 16%, transparent);
@@ -3206,7 +3217,7 @@
      you want to change is the thing you press. */
   .cast-face-btn {
     position: relative; flex: none; padding: 0; border: 0; background: none;
-    line-height: 0; border-radius: 5px; cursor: pointer;
+    line-height: 0; border-radius: 999px; cursor: pointer;
   }
   .cast-face-btn:disabled { cursor: default; opacity: 0.55; }
   /* NOT `.cast-face` FLATLY. `.cast-face-btn .cast-face` and `.cast-face.is-empty`
@@ -9319,32 +9330,6 @@ html[data-theme="dark"] .board-cover {
   font-size: var(--type-mono-13); color: var(--error);
 }
 
-/* ---- the character page ----
-   The complete character destination: who they are, every work they are in with
-   that work's picture of them, and the acts that change either.
-   THE APPEARANCE IS A CARD BECAUSE IT IS A SHELF. It used to be one line per work
-   — a bold title, a performer's name if there was one — which hid the two facts
-   the screen exists to show: that a work holds a picture of this character, and
-   that the picture might be a different person's face. A shelf is recognised by
-   its spines, so the work's own cover is the card and the character's picture sits
-   on it, the way a still sits on a poster wall. */
-.char-head { display: flex; gap: var(--row); align-items: flex-start; }
-.char-head-face {
-  flex: none; width: max(64px, 4.5em); aspect-ratio: 2 / 3;
-  border-radius: 7px; border: 1px solid var(--ink-border); overflow: hidden;
-  background: color-mix(in srgb, var(--soft) 14%, transparent);
-}
-.char-head-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.char-head-face.is-empty { display: grid; place-items: end center; color: var(--faint); }
-.char-head-face.is-empty .tp-silhouette { width: 76%; height: 82%; }
-.char-head-facts { display: grid; gap: 3px; min-width: 0; align-content: start; }
-/* A NAME IS NEVER TRUNCATED — the standing rule. It wraps; the box grows. */
-.char-head-name {
-  font-family: var(--font-ui); font-style: var(--font-ui-style);
-  font-variant-caps: var(--font-ui-caps); text-transform: var(--font-ui-case);
-  font-size: var(--type-ui-19); font-weight: 600; line-height: 1.25;
-  overflow-wrap: anywhere;
-}
 
 /* ---- the three grains of an identity panel -------------------------------
    A character exists three times over and a reader has to be able to tell which
@@ -9413,12 +9398,17 @@ html[data-theme="dark"] .board-cover {
    and a percentage height against a height derived that way is the case the
    repo's own rule says to verify rather than assume. The picture takes the box's
    width and the same ratio, which is the thing that was wanted. */
-.char-name-face > img { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 2px; }
+/* A FACE IS A CIRCLE AND A WORK IS A RECTANGLE, everywhere in this app — the
+   owner's rule, and the reason is that the shape is the fastest thing on a row to
+   read. A 2:3 box says "this is a cover" before any pixel of it has loaded, and a
+   character wearing one beside a poster wearing the same one makes the reader
+   read the label to tell a person from a film. See CLAUDE.md. */
+.char-name-face > img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 999px; }
 .char-name-face {
   /* No `object-fit` here: this is the BOX now, and object-fit on a span does
      nothing. It is on the picture inside, where it always meant something. */
-  flex: none; width: max(20px, 1.5em); aspect-ratio: 2 / 3; overflow: hidden;
-  border-radius: 3px; border: 1px solid var(--ink-border);
+  flex: none; width: max(20px, 1.5em); aspect-ratio: 1; overflow: hidden;
+  border-radius: 999px; border: 1px solid var(--ink-border);
 }
 
 /* A person's portrait in the metadata list, and in a duplicate card.
@@ -9430,7 +9420,7 @@ html[data-theme="dark"] .board-cover {
 .person-name-text { display: grid; gap: 1px; min-width: 0; }
 .person-face-btn {
   flex: none; padding: 0; border: 0; background: none; line-height: 0; cursor: pointer;
-  border-radius: 4px;
+  border-radius: 999px;
 }
 /* DESCENDANT, NOT DIRECT CHILD. The picture and its stand-in are drawn by
    `Face` now — one function for every site, so a file that fails to arrive falls
@@ -9440,15 +9430,15 @@ html[data-theme="dark"] .board-cover {
    ones. The span itself carries no layout; these rules still size the picture. */
 .person-face-inner { display: contents; }
 .person-face-btn img, .person-face-btn svg {
-  display: block; width: max(24px, 1.8em); aspect-ratio: 3 / 4; object-fit: cover;
-  border-radius: 4px; border: 1px solid var(--ink-border);
+  display: block; width: max(24px, 1.8em); aspect-ratio: 1; object-fit: cover;
+  border-radius: 999px; border: 1px solid var(--ink-border);
 }
 /* AN SVG IN HERE IS THE STAND-IN, whatever put it there. Keyed on the class the
    caller set from the stored path, a portrait whose file had gone drew an
    unstyled glyph in a table of styled ones — the same mistake as the torn page,
    one layer down. */
 .person-face-btn svg {
-  padding: 8% 14% 0;
+  padding: 14% 16% 0;
   background: color-mix(in srgb, var(--soft) 16%, transparent);
   color: var(--faint);
 }
@@ -9465,10 +9455,10 @@ html[data-theme="dark"] .board-cover {
 /* The box, with the picture filling it — `Face` draws both halves inside a
    span of its own so a picture that fails to arrive can be told apart from
    one that is not there. */
-.person-dup-face > img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 2px; }
+.person-dup-face > img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 999px; }
 .person-dup-face {
-  width: max(20px, 1.5em); aspect-ratio: 3 / 4; overflow: hidden;
-  border-radius: 3px; border: 1px solid var(--ink-border);
+  width: max(20px, 1.5em); aspect-ratio: 1; overflow: hidden;
+  border-radius: 999px; border: 1px solid var(--ink-border);
 }
 /* One quote on a person's or a character's record. The text leads; who said it
    and where sit under it a tier down. */
@@ -10506,6 +10496,84 @@ html[data-theme="dark"] .board-cover {
    locate it, and the day the inline pair becomes three declarations they have
    somewhere to go that is not a style attribute. */
 .record-row { min-width: 0; }
+
+/* ── THE ISSUE PILLS, AND THE COUNTS UNDER A RECORD'S NAME ────────────────────
+   The owner's ask: "The issue filters should be in work, people, and character
+   screens. These will be pills, in one row. Edgemasked with sidescroll, if needed
+   on a small screen." Drawn by `issuePills.jsx`, which three consoles call.
+
+   ONE ROW, NEVER TWO. `nowrap` is the whole point: a filter bar that wraps to
+   three lines on a phone is what drove these behind a dropdown in the first
+   place. It is a `Scroller`, so the fade and the drag come from the measured
+   `data-scroll-x` every other scrolling row in the app wears — a row that fits
+   wears neither. */
+.issue-pills {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+  min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; padding-block: 2px;
+}
+/* THE PILL IS A FILTER CHIP THAT CARRIES ITS OWN NUMBER. It takes
+   `.tp-filter-chip`'s face and its accent `.active` — that fill is what this app
+   means by "chosen", everywhere — and adds only the gap between the words and the
+   count. */
+.issue-pill { display: inline-flex; align-items: center; gap: 7px; flex: none; }
+.issue-pill-label { min-width: 0; }
+/* THE COUNT IS THE ANSWER, so it is set in the app's figures rather than in the
+   label's face, and it sits in a plate so it reads as a number and not as a second
+   word. `em`, because it has to hold a figure at whatever size the type dials are
+   set to. */
+.issue-pill-count {
+  flex: none; min-width: 1.9em; padding: 0 .45em;
+  font-family: var(--font-mono); font-weight: var(--font-mono-weight);
+  font-variant-numeric: var(--font-mono-figures);
+  font-size: var(--type-mono-11); line-height: 1.7;
+  text-align: center; border-radius: 999px;
+  background: color-mix(in srgb, var(--soft) 16%, transparent);
+  color: var(--soft);
+}
+/* ON THE CHOSEN PILL the plate sits on the accent, so it borrows the text colour
+   the fill already forces rather than staying grey on it. */
+.issue-pill.active .issue-pill-count {
+  background: color-mix(in srgb, #000 22%, transparent); color: var(--on-accent);
+}
+/* A ZERO PILL IS DIMMED, NOT GONE. "None of my people are missing a photo" is the
+   state the screen is working towards and worth reading; a pill that vanished at
+   zero would take the news with it. Still pressable — a press that lands on an
+   empty list has answered the question. */
+.issue-pill.is-empty:not(.active) { opacity: .5; }
+
+/* ── WHO A PRUNE WOULD TAKE ──
+   The confirm lists every name rather than a tally, and the box scrolls rather
+   than capping the list: the ones a "…and 18 more" would hide are exactly the
+   ones the reader has not checked. `max-height` in `em` so a prune of two is two
+   lines tall and a prune of two hundred is still a dialog. */
+.prune-group { display: grid; gap: 5px; margin-top: 10px; }
+.prune-names {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  max-height: 9em; overflow-y: auto; overscroll-behavior-y: contain; min-width: 0;
+}
+
+/* ── WHAT A RECORD'S ROW SAYS UNDER ITS NAME ──
+   The owner's shape, verbatim: "x <work_icon> • y <quote_icon> - <work names like
+   pills, with edgemask and sidescroll>". */
+.row-counts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+/* THE ICON CARRIES THE NOUN so the number does not need a word beside it. */
+.row-count {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  font-variant-numeric: var(--font-ui-figures); color: var(--soft);
+}
+.row-count svg { display: block; flex: none; }
+.row-count-dot { color: var(--faint); flex: none; }
+/* THE WORK NAMES SCROLL RATHER THAN TRUNCATE, which is the standing rule: a
+   shortened title and a short title look alike. `flex: 1 1 8ch` lets the strip
+   take whatever the two counts leave and shrink below its content, which is what
+   makes the fade appear at all — a strip that cannot shrink never overflows. */
+.row-work-pills {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 5px;
+  flex: 1 1 8ch; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain;
+}
+.work-pill { flex: none; }
+button.work-pill { cursor: pointer; }
+button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 
 /* THE ROW THAT SETS ONE PREFERENCE, and the group that holds a few of them.
    Written here rather than inline because unlike `.record-row` this one has a

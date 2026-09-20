@@ -5169,7 +5169,23 @@ metadata.gap.no-cast.label = no cast
 metadata.gap.no-director.label = no director
 metadata.gap.no-actor.label = no actor
 metadata.issues.title = Everything that needs work
-metadata.issues.none = Nothing is missing. Every record this page can check is complete.
+metadata.issues.none = Nothing is missing.
+# --- THE ISSUE PILLS. One row above each console's list, one pill per thing that
+# can be wrong, each carrying how many rows have it. Lower case like the gap words
+# above, and for the same reason: they sit in a row together.
+metadata.issue.aria = Which issue
+metadata.issue.all.label = everything
+metadata.issue.no-links.label = no links
+metadata.issue.no-photo.label = no photo
+metadata.issue.no-works.label = in no work
+metadata.issue.no-quotes.label = no quotes
+# A CHARACTER'S PICTURE, and only on the catalogue side: a novel's cast rows hold
+# no faces, so a literary character cannot be missing one.
+metadata.issue.no-face.label = no picture
+# What a record's row counts under its name. Each is the accessible name of a
+# number the icon beside it has already drawn.
+metadata.row.works.label = works
+metadata.row.quotes.label = quotes
 metadata.issue.people-thin.label = people with no portrait or link
 metadata.issue.people-dup.label = people who may be the same person
 metadata.issue.chars-dup.label = characters who may be the same character
@@ -5182,8 +5198,7 @@ metadata.row.noposter.aria = No poster stored
 # other three rows are unit.book / unit.film / unit.show — the app's own nouns,
 # not a second set for one screen.
 metadata.catalogue.type.all.label = all types
-metadata.catalogue.filter.tip = Show only these gaps
-metadata.catalogue.filter.aria = Which gap
+metadata.catalogue.filter.aria = Which issue
 metadata.shown.count = {n} shown
 # THE SECTIONS. This screen was one long scroll of six consoles stacked on top
 # of each other — a catalogue, duplicates, people, characters, a speaker remap —
@@ -5308,23 +5323,15 @@ metadata.remap.custom.label = custom…
 # --- the character review list (0056). Its own section beside the people one:
 # the two tables answer different questions, and a picker for who wrote a book
 # must never offer a character.
-metadata.characters.column.works = works
-metadata.characters.faces.sub.one = {n} work · {faced} of {n} with a face chosen
-metadata.characters.faces.sub.other = {n} works · {faced} of {n} with a face chosen
-metadata.characters.column.gap.one = {n} appearance with no face chosen
-metadata.characters.column.gap.other = {n} appearances with no face chosen
 metadata.characters.action.merge.aria = Merge {name} into another character
 metadata.characters.action.delete.aria = Delete {name}
 metadata.characters.delete.confirm.title = Delete {name}?
-metadata.characters.delete.confirm.body = The record goes to the bin, so you can bring it back. The works it appears in keep their cast rows; they stop pointing at a record.
+metadata.characters.delete.confirm.body = It goes to the bin, so you can bring it back. Its works keep their cast rows; those rows stop naming a record.
 metadata.characters.delete.done = {name} is in the bin
-metadata.characters.empty = No characters yet. They arrive with a film's cast, or you can add one on a work.
+metadata.characters.empty = No characters yet. They arrive with a film's cast, or add one on a work.
 metadata.characters.work.aria = Which work
 metadata.characters.work.all.label = every work
-metadata.characters.work.none.label = in no work
 metadata.characters.work.filter.placeholder = Find a work
-metadata.characters.summary.one = {n} character, {unpaired} in no work
-metadata.characters.summary.other = {n} characters, {unpaired} in no work
 
 # The five toggles. Studios are their own row rather than folded in with
 # directors: the two share one stored column and are told apart only by media
@@ -5344,11 +5351,7 @@ metadata.people.fetch.flash = people: {ok} fetched · {failed} failed
 # is in the code, because the parser trims a value's ends.
 metadata.people.fetch.flash.reason = ({error})
 metadata.people.reverify.label = Re-verify saved
-metadata.people.reverify.tip = Re-check every saved person's identity, links and portrait against the live sources — review before anything is applied
-# The phone has no browsable list, so it says only how many still need work.
-# {noun} is the countable noun for whichever kind is showing.
-metadata.people.summary.one = {n} {noun} still needs photos or links
-metadata.people.summary.other = {n} {noun} still need photos or links
+metadata.people.reverify.tip = Re-check every saved person against the sources. You review the changes before any are written.
 # What an empty list says. FIVE, one per toggle: the studio line is new, because
 # the table this replaces had four rows and a studio list with nothing in it drew
 # an empty state with nothing in it.
@@ -5359,11 +5362,7 @@ metadata.people.empty.studio = no studios on any game yet
 metadata.people.empty.publisher = nothing in the library names a publisher yet
 metadata.people.empty.speaker = nobody has said anything yet
 metadata.people.empty.all = no people in the library yet
-# The table. Name and Links are shared field names; the middle column's head
-# changes with the kind, because what it counts does.
-metadata.people.quotes.sub = {n} quotes
 metadata.people.column.roles = Roles
-metadata.people.column.works = Works
 metadata.people.also = also {names}
 metadata.people.portrait.aria = Portrait for {name}
 metadata.people.search.tip = Search the library for “{name}”
@@ -7477,9 +7476,9 @@ book.select.menu.label = Select quotes
 # One endpoint, two consoles. The button draws nothing at zero, so every string
 # here is only ever seen when there is something to clear.
 metadata.prune.count.label = Prune {n}
-metadata.prune.tip = Remove every saved person and character that no work points at
+metadata.prune.tip = Bin every person and character no work points at
 metadata.prune.confirm.title = Prune {n} records?
-metadata.prune.confirm.body = {people} and {characters}, and nothing in your library points at any of them. Names, portraits and notes go to the bin, so this can be undone one record at a time.
+metadata.prune.confirm.body = Nothing in your library points at these. They go to the bin — bring any of them back one at a time.
 metadata.prune.confirm.people.one = {n} person
 metadata.prune.confirm.people.other = {n} people
 metadata.prune.confirm.characters.one = {n} character
