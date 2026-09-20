@@ -482,10 +482,31 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   // restores it — and it is the only way to restore it that cannot disagree with
   // the card. Sending a table of defaults would be a second copy of all of them.
   const [resetting, setResetting] = useState(null)
+  // AND IT WRITES — TO THE ROUTE THAT CAN CLEAR, WHICH THE ORDINARY PUT CANNOT.
+  //
+  // This called `onPreferences` and stopped: that is App's local `setUser`, so
+  // the press emptied the screen and kept nothing. Set How hard to Hard, press
+  // Reset section, reload, and Hard was back.
+  //
+  // ADDING THE ORDINARY PUT DID NOT FIX IT, and the reason is worth keeping. Its
+  // convention is that an empty value means "leave this alone" — `if in.SRDaily
+  // != nil && *in.SRDaily != 0`, and the same guard on every string and number —
+  // which is exactly what lets one card write its own field without clobbering
+  // another's, and exactly what makes it unable to clear. Sending "" for ten keys
+  // was a no-op for six of them and a 400 for the whole body because of the other
+  // four: `srSeen` is a float and `srPracticeCounts`, `srLadder` and `srSubmit`
+  // are bools, and none of them unmarshals from a string. So nothing was written,
+  // which is how a green suite and a working-looking button coexisted.
+  //
+  // The reset route DELETES the keys, and `loadPrefs` supplies each default on
+  // read — one home for every default, rather than a table of them here that
+  // would start lying the day one moved.
   const resetSection = (id) => {
+    const keys = SECTION_PREFS[id] || []
     const patch = {}
-    for (const k of SECTION_PREFS[id] || []) patch[k] = ''
+    for (const k of keys) patch[k] = ''
     onPreferences?.(patch)
+    json('POST', '/auth/me/preferences/reset', { keys })
     setResetting(null)
   }
 
@@ -1478,7 +1499,7 @@ function SRSettings({ user, onPreferences }) {
     <Card>
       {/* THE SECTION IS THE HEADING — see AppearanceCard. The dot's words, which
           are about how an interval moves, are on the rows they are about
-          (Adaptive intervals, How the schedule moves) and in the section's own
+          (Adaptive intervals, The numbers behind the schedule) and in the section's own
           dot; a third copy over the whole card is the thing being consolidated. */}
       {/* THE SCREEN HOLDS WHAT A READER COMES HERE TO CHANGE, and the door keeps
           the schedule's arithmetic. It used to hold two controls and a door.
@@ -1524,25 +1545,19 @@ function SRSettings({ user, onPreferences }) {
               step={1}
               value={p.srDaily || 8}
               onCommit={(v) => set({ srDaily: v })}
-              width={220}
             />
           }
         />
         <ReviewScope value={p.srReviewScope} onChange={(v) => set({ srReviewScope: v })} />
-        <HowItAsks p={p} set={set} />
-        {/* THE DAILY DECK'S REPERTOIRE HERE, PRACTICE'S IN THE OTHER COLUMN. The
-            pack has one repertoire and this app has two, so following it
-            literally put both in the left column and left ~330px of empty ground
-            beside the schedule — on the screen the "use the space available"
-            ruling is the worked example for. Practice's questions sit with the
-            switch that says whether practice moves the schedule at all, which is
-            the other thing on this section about practice. */}
+        {/* THE PACK'S ORDER, WHICH THIS HAD INVERTED: what it draws from, then
+            what it asks, then how hard it asks it (settings-restructured.dc.html
+            :2688-2695). Difficulty came second here, which puts the narrowest
+            decision above the one that decides what there is to be asked about. */}
         <QuestionKinds p={p} set={set} only="daily" />
+        <HowItAsks p={p} set={set} />
       </PrefGroup>
       <PrefGroup index={2} title={t('settings.quiz.group.schedule.title')}>
         <ScheduleRows p={p} set={set} />
-        <PracticeCounts p={p} set={set} />
-        <QuestionKinds p={p} set={set} only="practice" />
       {/* STILL A DOOR, AND IT EARNS IT NOW — but NOT a numbered group of its own.
           What is behind it is one decision, how the interval moves, plus the ten
           numbers that decision is made of; a reader who has made it does not come
@@ -1567,13 +1582,28 @@ function SRSettings({ user, onPreferences }) {
         }
       />
       </PrefGroup>
+      {/* PRACTICE IS ITS OWN GROUP, because the heading has to name everything
+          under it. These two rows sat under "Schedule" — a heading that names
+          one of the three things it held — which is the same defect this pass
+          had already fixed once in group 1 and then reintroduced here to keep
+          the columns even. The pack's group 2 is the schedule and nothing else
+          (settings-restructured.dc.html:2698-2712); it has no practice deck to
+          place, because it has one deck and this app has two. So the second deck
+          gets a heading of its own rather than borrowing one that is not about
+          it. Column balance is not a reason to file a row under the wrong name:
+          a reader looking for what practice asks would not look under Schedule,
+          and a reader reading Schedule is told a thing that is not the schedule. */}
+      <PrefGroup index={3} title={t('settings.quiz.group.practice.title')}>
+        <PracticeCounts p={p} set={set} />
+        <QuestionKinds p={p} set={set} only="practice" />
+      </PrefGroup>
       {/* NEVER ASKED ABOUT, on the page rather than behind the in-depth door. It
           is not a dial — it is a list of decisions the reader has already made and
           may want back, and the only reason to look for it is not remembering
           making them. Behind a door it would be findable only by somebody who
           already knew it was there. */}
       <PrefGroup
-        index={3}
+        index={4}
         title={t('settings.quiz.skipped.title')}
         info={t('settings.quiz.skipped.info.body')}
         aside={t('settings.quiz.skipped.aside')}
@@ -1669,7 +1699,6 @@ function ScheduleRows({ p, set }) {
             format="common.slider.multiplier.format"
             decimals={2}
             onCommit={(v) => set({ srSeen: v })}
-            width={220}
           />
         }
       />
@@ -1979,25 +2008,42 @@ function SRDeepControls({ p, set, onClose }) {
     // its own Reset. A button that reached out of its panel and turned five
     // visible rows back would be the least trustworthy control on the screen —
     // which is the same sentence as before, pointing the other way.
+    //
+    // AND "THE SECTION HAS ITS OWN RESET" WAS NOT TRUE WHEN THIS WAS WRITTEN.
+    // The button existed; the write behind it did not — `resetSection` cleared
+    // the keys into App's local state and sent no PUT, so pressing it restored
+    // nothing past the next load. Narrowing this reset on the strength of that
+    // sentence left five review preferences with no working restore at all. The
+    // sentence is true now because the PUT was added, not because it was
+    // checked; it is recorded here because the cost of the next unchecked
+    // "something else covers this" is the same.
     set({ srTuning: '' })
   }
   return (
     <div className="space-y-6">
-      {/* The numbers behind the schedule. Sliders rather than boxes because every
-          one of them is bounded, and a bounded value typed into a box is a value
-          that can be refused after the fact. */}
+      {/* THE ROOM IS ROWS TOO, which is where the last pass stopped. Sliders
+          rather than boxes because every one of these is bounded, and a bounded
+          value typed into a box is a value that can be refused after the fact —
+          but each one was drawn as an ALL-CAPS mono label over a full-width
+          slider, the exact label-over-block shape this section was just rid of,
+          ten times in a column. The pack draws them as rows: name in the UI face
+          at the left, the range beside it, the readout in mono at the end
+          (settings-restructured.dc.html:657-661). `PrefRow` is that shape and is
+          already what the section outside this door uses, so the room and the
+          screen it opened from now read as one thing.
+
+          AND THE GROUP HEADING IS GONE. "The numbers behind it" stood over its
+          only content, inside a panel already titled "The numbers behind the
+          schedule" — the same fact three times on one press. The panel's own
+          title is the heading; the door's info dot carries what the dot here
+          carried. The pack has no inner heading either, for the same reason. */}
       <div>
-        <div className="mb-2 flex items-center gap-1.5">
-          <MonoLabel>{t('settings.quiz.tuning.title')}</MonoLabel>
-          <InfoDot text={t('settings.quiz.tuning.info.body')} />
-        </div>
-        <div className="space-y-4">
-          {TUNING_FIELDS.map((f) => (
-            <div key={f.key}>
-              <div className="mb-1 flex items-center gap-1.5">
-                <MonoLabel style={{ fontSize: 'var(--type-ui-11)' }}>{f.label}</MonoLabel>
-                <InfoDot text={f.hint} />
-              </div>
+        {TUNING_FIELDS.map((f) => (
+          <PrefRow
+            key={f.key}
+            label={f.label}
+            info={f.hint}
+            control={
               <Slider
                 label={f.label}
                 hideLabel
@@ -2009,9 +2055,9 @@ function SRDeepControls({ p, set, onClose }) {
                 value={tune[f.key]}
                 onCommit={(v) => commitTune(f.key, v)}
               />
-            </div>
-          ))}
-        </div>
+            }
+          />
+        ))}
         <ErrorText>{tuneErr}</ErrorText>
       </div>
       <div className="flex justify-between gap-2 pt-1">

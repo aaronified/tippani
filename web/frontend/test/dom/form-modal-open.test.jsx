@@ -42,7 +42,6 @@ const { FormModal } = await import('../../src/ui.jsx')
 const { default: Settings } = await import('../../src/Settings.jsx')
 const { default: SearchPage } = await import('../../src/SearchPage.jsx')
 const { t } = await import('../../src/i18n.js')
-const { TUNING_FIELDS } = await import('../../src/quiz.js')
 
 const noop = () => {}
 
@@ -99,21 +98,27 @@ describe('the two dialogs that were dead', () => {
       />,
     )
     await openSettingsSection('Review')
-    // NOTHING FROM INSIDE THE PANEL IS ON SCREEN UNTIL THE DOOR IS OPENED — and
-    // what is asserted is a control from inside it rather than the door's own
-    // name. The door is a row now, and a row names what is behind it: "The
-    // numbers behind it" is ON the section, which is the point of a door that
-    // says what it holds.
-    expect(screen.queryByText(t('settings.quiz.panel.title'))).toBeNull()
-    expect(screen.queryByText(t(TUNING_FIELDS[0].label))).toBeNull()
+    // THE DOOR AND THE ROOM SHARE A NAME, so the name cannot be the test. The
+    // pack labels the row "The numbers behind the schedule" and titles the panel
+    // it opens the same words — deliberately, so a reader knows they arrived —
+    // which means that string is on the section BEFORE anything is pressed. This
+    // asserted on it in both directions and would now pass the "before" only by
+    // accident of which node matched first.
+    //
+    // WHAT IS PANEL-ONLY IS A TUNING ROW, and the first of the ten says this.
+    // (It read `t(TUNING_FIELDS[0].label)` — an import of `src/quiz.js` for a
+    // value that is already a resolved string, since the field's `label` is a
+    // getter that calls `t` itself. So the file knew a module path it has no
+    // exception for, and resolved one key twice.)
+    expect(screen.queryByText('Correct answer stretches by')).toBeNull()
     fireEvent.click(screen.getByText(t('settings.quiz.in-depth.label')))
-    // The panel's own furniture, not the button that opened it: its title, the
-    // tuning group, and one question toggle.
-    expect(screen.getByText(t('settings.quiz.panel.title'))).toBeTruthy()
-    expect(screen.getByText(t(TUNING_FIELDS[0].label))).toBeTruthy()
-    // Once per deck: the panel lists the repertoire for daily AND practice, and
-    // cloze is offered in both. Two is the assertion — one would mean a deck
-    // went missing and three would mean the list doubled.
+    expect(screen.getByText('Correct answer stretches by')).toBeTruthy()
+    // AND THE TWO REPERTOIRES ARE ON THE SECTION, NOT IN HERE. This counted two
+    // cloze labels and called them "the panel lists the repertoire for daily AND
+    // practice" — but the panel holds the ten numbers and nothing else, and the
+    // two matches are the section's own chip rows, visible the whole time. The
+    // count is worth keeping and the claim was not: one would mean a deck went
+    // missing, three would mean the list doubled.
     expect(screen.getAllByText(t('quiz.question.cloze.label')).length).toBe(2)
   })
 

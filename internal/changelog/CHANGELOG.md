@@ -116,6 +116,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   already in your library needs the network to read, so everything you have keeps working.
   The healthcheck and the Docker socket are untouched: neither leaves the machine.
 
+### Fixed
+
+- **Reset section now actually resets the section.** It cleared every preference on screen
+  and kept none of it: the next time you loaded Settings, everything you had just reset came
+  back. It is written to the server now, like every other change on those screens.
+
+- **The numbers behind the schedule read as rows.** Review → The numbers behind the schedule
+  drew its ten values as small capitals stacked over full-width sliders — the one room in
+  Settings that had not been given rows. Each is a row now, its name beside its slider, the
+  same as the screen you opened it from.
+
+- **Practice has its own heading.** How many practice cards you get and what practice asks
+  you were filed under "Schedule", which is neither. Review's groups read: the deck and what
+  it asks, the schedule, practice, and what is never asked about.
+
 ### Added
 
 - **Four grounds for the app to sit on, in each mode.** Cream, White, Sepia and Light grey

@@ -1260,8 +1260,8 @@ settings.colours.reset.tip = আগের রঙে ফিরুন
 
 # --- which quotes the quiz draws from. The chip names the SCREEN (nav.tab.*)
 # and the tooltip says what that screen's quotes are.
-settings.review-scope.title = অনুশীলনে যা যা থাকবে
-settings.review-scope.info.title = অনুশীলনে যা যা থাকবে
+settings.review-scope.title = যেখান থেকে নেওয়া
+settings.review-scope.info.title = যেখান থেকে নেওয়া
 settings.review-scope.info.body = দৈনিক অনুশীলনী আর ঝালাই কোন কোন ধরনের উদ্ধৃতি থেকে প্রশ্ন তুলবে — দুটোর জন্য আলাদা করে। বক্তাও নেই, উপলক্ষও নেই — এমন উদ্ধৃতি ডেকে ঢোকে না, কারণ কথাগুলো ছাড়া মনে রাখার কিছু নেই। গত এক সপ্তাহে রাখা কিছুও ঢোকে না।
 settings.review-scope.books.tip = বইয়ের উদ্ধৃতি
 settings.review-scope.movies.tip = সিনেমা, শো আর গেমের সংলাপ
@@ -1348,12 +1348,13 @@ settings.languages.name.placeholder = ইওরুবা, সোয়াহি�
 # --- the quiz panel.
 settings.quiz.group.deck.title = তাস আর সে কী জিজ্ঞেস করে
 settings.quiz.group.schedule.title = সময়সূচি
+settings.quiz.group.practice.title = অনুশীলন
 settings.quiz.skipped.aside = উদ্ধৃতি ধরে ধরে
 settings.quiz.per-day.label = দৈনিক অনুশীলনীতে দিনে কটা কার্ড
 settings.quiz.in-depth.title = সময়সূচির পিছনের সংখ্যাগুলো
 settings.quiz.in-depth.label = সংখ্যাগুলো খুলুন
 settings.quiz.in-depth.tip = গুণক আর বাঁধা মই — দশটা মান, সবকটাই সার্ভারেও আছে
-settings.quiz.panel.title = সময়সূচি কীভাবে সরে
+settings.quiz.panel.title = সময়সূচির পিছনের সংখ্যাগুলো
 # {name} is the deck — Daily quiz, or Practice.
 settings.quiz.deck.title = {name} যা জিজ্ঞেস করে
 settings.quiz.deck.question.aria = {question} — {name}
@@ -1395,7 +1396,6 @@ settings.quiz.tier.easy.note = কাছাকাছি ভুল উত্ত�
 settings.quiz.seen.title = চোখে পড়লে অর্ধায়ু বাড়ে
 settings.quiz.seen.label = চোখে পড়লে অর্ধায়ু বাড়ে
 settings.quiz.seen.info.body = উদ্ধৃতি “চোখে পড়া” বলতে — ঝালাই করা, শেয়ার করা, প্রিয়তে রাখা, বা উত্তর দেওয়া কোনও কার্ডের বিকল্পগুলোর মধ্যে সেটাকে পাওয়া — তাতে অর্ধায়ু একটু বাড়ে, দৈনিক অনুশীলনীর হিসেবের বাইরে। 1.0×-এ রাখলে এটা বন্ধ থাকে।
-settings.quiz.tuning.title = এর পিছনের সংখ্যাগুলো
 settings.quiz.tuning.info.body = প্রতিটা উত্তরে এগুলো উদ্ধৃতির অর্ধায়ুকে গুণ করে, আর এদের সীমা বাঁধা: 1-এর কম গুণক থাকলে ঠিক উত্তরেও ফাঁক ছোট হয়ে যেত — দেখে গোলমাল বোঝা যেত না, শুধু একই উদ্ধৃতি চিরকাল ঘুরেফিরে আসত।
 settings.quiz.reset.label = আগের মতো করুন
 settings.quiz.reset.tip = এই প্যানেলের সব বদল ফিরিয়ে দিন

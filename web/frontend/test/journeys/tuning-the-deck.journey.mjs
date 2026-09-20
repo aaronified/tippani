@@ -95,3 +95,41 @@ it('turns a question off in each deck, and both are still off after a reload', a
   await app.press('Who wrote this? — Practice')
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
+
+// AND "RESET SECTION" PUTS THE SECTION BACK — on the server, not just on screen.
+//
+// WHAT THIS GUARDS. `resetSection` cleared the keys into App's local `setUser`
+// and stopped there: no PUT. So the press emptied the screen, the reader saw
+// every row return to its default, and the next load brought all of it back.
+// A control whose whole promise is "put this back" that puts nothing back is
+// worse than an absent one, because the reader believes the work is done and
+// stops looking. It was pre-existing, and it became load-bearing the moment the
+// in-depth panel's own broad reset was narrowed to the ten numbers on the
+// reasoning that "the section has its own Reset" — which was true of the button
+// and not of the write behind it.
+//
+// THE MUTATION: delete the `json('PUT', …)` from `resetSection` and this fails on
+// the assertion after the reload — How hard comes back on Hard.
+it('resets the section, and the defaults are still there after a reload', async () => {
+  await app.goto('/settings')
+  await app.press('Review')
+
+  // Move something off its default, and confirm it moved. Reset has nothing to
+  // do on an untouched section — the control is not even drawn — so the change
+  // is what brings the button into existence.
+  await app.press('Hard')
+  expect(await app.chosen('Hard'), 'the difficulty did not change').toBe(true)
+
+  await app.press('Reset section')
+  await app.press('Reset it')
+
+  // On screen first, which is the half that always worked.
+  expect(await app.chosen('Hard'), 'the reset did not clear the screen').toBe(false)
+
+  // Then what the server kept, which is the half that did not.
+  await app.goto('/settings')
+  await app.press('Review')
+  expect(await app.chosen('Hard'), 'the reset was never written, so the old value came back').toBe(false)
+
+  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})

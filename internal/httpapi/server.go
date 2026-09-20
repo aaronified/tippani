@@ -170,6 +170,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /auth/me", s.requireAuth(s.handleMe))
 	mux.Handle("PUT /auth/me", s.requireAuth(s.handleUpdateMe))
 	mux.Handle("PUT /auth/me/preferences", s.requireAuth(s.handleUpdatePreferences))
+	mux.Handle("POST /auth/me/preferences/reset", s.requireAuth(s.handleResetPreferences))
 	mux.Handle("POST /auth/me/avatar", s.requireAuth(s.handleUploadAvatar))
 	mux.Handle("DELETE /auth/me/avatar", s.requireAuth(s.handleDeleteAvatar))
 	mux.Handle("POST /auth/password", s.requireAuth(s.handlePassword))

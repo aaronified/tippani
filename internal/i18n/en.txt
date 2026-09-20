@@ -1256,8 +1256,8 @@ settings.colours.reset.tip = Back to the original
 
 # --- which quotes the quiz draws from. The chip names the SCREEN (nav.tab.*)
 # and the tooltip says what that screen's quotes are.
-settings.review-scope.title = Review covers
-settings.review-scope.info.title = Review covers
+settings.review-scope.title = Drawn from
+settings.review-scope.info.title = Drawn from
 settings.review-scope.info.body = Which kinds of quote the Daily Quiz and Practice draw from, independently. A quote with no speaker and no occasion never joins the deck — there is nothing to recall but the words. Nor does anything saved in the last week.
 settings.review-scope.books.tip = Your book highlights
 settings.review-scope.movies.tip = Dialogue from films, shows and games
@@ -1350,12 +1350,13 @@ settings.languages.name.placeholder = Yoruba, Swahili, Tamil…
 # --- the quiz panel.
 settings.quiz.group.deck.title = The deck and what it asks
 settings.quiz.group.schedule.title = Schedule
+settings.quiz.group.practice.title = Practice
 settings.quiz.skipped.aside = quote-level flags
 settings.quiz.per-day.label = Daily quiz cards / day
 settings.quiz.in-depth.title = The numbers behind the schedule
 settings.quiz.in-depth.label = Open the numbers
 settings.quiz.in-depth.tip = Multipliers and the fixed ladder — ten values, all mirrored by the server
-settings.quiz.panel.title = How the schedule moves
+settings.quiz.panel.title = The numbers behind the schedule
 # {name} is the deck — Daily quiz, or Practice.
 settings.quiz.deck.title = {name} asks
 settings.quiz.deck.question.aria = {question} — {name}
@@ -1401,7 +1402,6 @@ settings.quiz.tier.easy.note = Close wrong answers teach more than obvious ones 
 settings.quiz.seen.title = Seeing lengthens half-life by
 settings.quiz.seen.label = Seeing lengthens half-life by
 settings.quiz.seen.info.body = “Seeing” a quote — practising it, sharing it, favouriting it, or meeting it among the choices on a card you answered — nudges its half-life up a little, separate from Daily Quiz recall. Leave at 1.0× to turn this off.
-settings.quiz.tuning.title = The numbers behind it
 settings.quiz.tuning.info.body = These multiply a quote's half-life on every answer, and are bounded rather than free: a multiplier below 1 would shorten a card every time you got it right, which never looks broken — it just asks the same quote for ever.
 settings.quiz.reset.label = Back to defaults
 settings.quiz.reset.tip = Undo every change on this panel

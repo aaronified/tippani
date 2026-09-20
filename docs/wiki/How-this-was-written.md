@@ -154,21 +154,21 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,746 Go test functions and 4,682 frontend tests, across 726 test files** — the
+- **1,749 Go test functions and 4,684 frontend tests, across 727 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
-  cd web/frontend && npx vitest run                                      # 4,618 of them
-  cd web/frontend && npm run journeys                                    # + 64 in the browser
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 283 Go files
+  cd web/frontend && npx vitest run                                      # 4,619 of them
+  cd web/frontend && npm run journeys                                    # + 65 in the browser
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 284 Go files
   find ./web/frontend -path '*/node_modules' -prune -o -type f \
        \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
        -print | wc -l                                                    # 443 frontend
   ```
 
-  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,618 is what
+  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,619 is what
   `npx vitest run` reports across the three vitest projects, and the browser tier is
   not among them — it has its own config, because it needs a globalSetup that builds
   the binary and seeds a library. `npm test` runs two projects — 3,785 tests over 319
