@@ -1407,6 +1407,7 @@ settings.features.hide.label = লুকান
 
 settings.features.order.title = আমাকে দেখাও, এই ক্রমে
 settings.features.order.prose = এখানকার ক্রমই রেল, ড্রয়ার আর ＋ যা দেখায়। সবার উপরেরটিতেই অ্যাপ খোলে।
+settings.features.order.drag.aria = {name} সরাতে টানুন
 settings.features.order.up.aria = {name} উপরে নিন
 settings.features.order.down.aria = {name} নিচে নিন
 
@@ -1419,23 +1420,22 @@ settings.labels.auto.label = অটো
 # --- Appearance.
 settings.search.none = “{q}”-এর সঙ্গে সেটিংসের কিছু মিলছে না।
 settings.appearance.group.light.title = আলো আর অন্ধকার
-settings.appearance.group.light.aside = জোড়ায় সেট হয়
 settings.appearance.group.material.title = কী দিয়ে গড়া
 settings.appearance.matset.title = উপকরণের সেট
 settings.appearance.matset.hint = দাঁড়ানোর একটা ঘর: ডেস্ক, আসবাব, পাতা আর বাঁধাই
 settings.appearance.matset.info.body = প্রতিটায় চারটে তল, আর প্রতিটা সেটই আলো-অন্ধকার দুটোতেই কাজ করে। অ্যাট্রিয়াম সাদামাটাটা — কোনও তলেই উপকরণ নেই, অ্যাপের সবচেয়ে দ্রুত পর্দা।
 settings.appearance.group.saved.title = আপনার নিজের থিম
 settings.appearance.group.saved.aside = {cap}-এর মধ্যে {n}টি সংরক্ষিত
-settings.appearance.group.density.title = একটি কন্ট্রোল কতটা বলে
 
 settings.appearance.theme.title = আপনি কোনটা দেখেন
+settings.appearance.theme.hint = ম্যাচ সিস্টেম আপনার ডিভাইসকে অনুসরণ করে, আর সেটি বদলালে এটিও বদলায়।
 settings.appearance.theme.light.label = হালকা
 settings.appearance.theme.dark.label = গাঢ়
 settings.appearance.match.label = সিস্টেম যেমন
 settings.appearance.match.aria = সিস্টেমের থিম মেনে চলুন
 settings.appearance.contrast.title = কনট্রাস্ট
 settings.appearance.colours.title = রং
-settings.appearance.colours.hint = হালকা জমিন · গাঢ় জমিন · অ্যাকসেন্ট। প্রতিটি নিজের বিকল্প খোলে।
+settings.appearance.colours.hint = জোড়ায় সেট করা: একটি হালকা জমিন আর একটি গাঢ়, সঙ্গে দুটিরই সাধারণ অ্যাকসেন্ট। উপরের সারিতে যেটি বাছা, আপনি সেটিই দেখছেন — অন্যটি তার পালার অপেক্ষায়।
 settings.appearance.colours.light.label = দিন
 settings.appearance.colours.dark.label = রাত
 settings.appearance.colours.accent.label = বাঁধাই
@@ -1449,7 +1449,7 @@ settings.appearance.colours.hide.aria = বিকল্পগুলো লুক
 settings.group.access.title = অভিগম্যতা
 settings.features.covers.title = বইয়ের প্রচ্ছদ
 settings.features.posters.title = ক্যাটালগের পোস্টার
-settings.features.sizes.aside = এই ডিভাইসে
+settings.features.sizes.aside = শুধু এই ডিভাইসে
 
 settings.appearance.ground.info.body = অ্যাপ যার উপর বসে, একসঙ্গে তিন স্তরে: ডেস্ক, নিয়ন্ত্রণ ধরে রাখা আসবাব, আর যে পাতায় উদ্ধৃতি লেখা। আলো ও আঁধার আলাদা বাছা হয়, তাই আপনি যেটি দেখছেন এই সারি সেটিই অনুসরণ করে।
 settings.appearance.phys.title = উপকরণ আলো নিয়ে যা করে

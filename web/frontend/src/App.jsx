@@ -2360,7 +2360,9 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               word that took a row to answer a question nobody had. */}
           <span className="mobile-topbar-titles">
             <span className="mobile-topbar-title">
-              {barCrumb ? barCrumb.label : detailTitle || t(screenTitleKey(tab))}
+              <span className="mobile-topbar-name">
+                {barCrumb ? barCrumb.label : detailTitle || t(screenTitleKey(tab))}
+              </span>
               {barCrumb?.badge ? <span className="crumb-badge">{barCrumb.badge}</span> : null}
               {barCrumb?.info ? <InfoDot side="bottom" title={barCrumb.info.title} text={barCrumb.info.text} /> : null}
             </span>

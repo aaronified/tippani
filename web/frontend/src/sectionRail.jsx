@@ -102,7 +102,13 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
     crumb: mobile && !inSection ? null : chosen ? {
       label: chosen.label,
       info: chosen.info ? { title: chosen.label, text: chosen.info } : null,
-      badge: chosen.pill || null,
+      // THE NUMBER, NOT THE SENTENCE. The crumb took the wordy pill — "3 changed" —
+      // while the desktop rail beside the same sections shows a bare "3", so the
+      // narrower screen carried the longer label. The owner: "In the mobile topbar,
+      // no need to spell out '3 changed'. Just 3 like desktop shall suffice."
+      // A screen reader still hears the whole sentence, because the count is
+      // labelled where it is rendered rather than in the string.
+      badge: chosen.count != null ? String(chosen.count) : (chosen.pill || null),
     } : null,
   })
 

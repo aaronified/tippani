@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, DEMO, json, errText, copyText, apiURL, upload as uploadFile, uploadWithProgress } from './api.js'
 import { coversThatFit } from './coverFit.js'
+import { useRowReorder } from './reorder.js'
 import { ACCENTS, GROUNDS, PHYS, paletteFor, parseTweaks, physDirty, physFor, applyColors, applyContrast, applyLabels, applyTheme, CAT_NAME_MAX, CATEGORY_PALETTE, categoryState, contrastPrefValue, getResolvedTheme, LABELS_KEY, labelsPref, MAT_SET_LABELS, MAT_SETS, surfaceStyle, UNSET_LABEL } from './theme.js'
 import { QUOTE_LEADING_DEFAULT, QUOTE_LEADINGS, QUOTE_MEASURE_DEFAULT, QUOTE_MEASURES, SIZE_ROLES, TYPE_FACTORS, applyTypeScale, clampLeading, clampMeasure, factorsFrom, globalOf, renormalise, sizePrefKey } from './type.js'
 import {
@@ -94,6 +95,8 @@ import {
   useFrameBase,
   useFilePick,
   useIsMobileScreen,
+  CheckBox,
+  IconGrip,
   useScreenBar,
   useScreenSearch,
   usePersistedState,
@@ -2927,6 +2930,21 @@ function FeaturesCard({ prefs, onSaved }) {
     return () => { alive = false }
   }, [])
 
+  const mobile = useIsMobileScreen()
+  // DRAG TO SORT, and on a phone it is the only way. `moveTo` is the general form
+  // — take the row out and put it back at an index — where `move` below swaps a
+  // pair, which is all the up/down buttons can express.
+  const moveTo = (a, b) => {
+    if (a === b || a < 0 || b < 0 || a >= order.length || b >= order.length) return
+    const next = order.slice()
+    const [row] = next.splice(a, 1)
+    next.splice(b, 0, row)
+    const patch = { sectionOrder: next.join(',') }
+    onSaved?.(patch)
+    json('PUT', '/auth/me/preferences', patch)
+  }
+  const drag = useRowReorder(moveTo)
+
   const move = (i, d) => {
     const j = i + d
     if (j < 0 || j >= order.length) return
@@ -2981,7 +2999,7 @@ function FeaturesCard({ prefs, onSaved }) {
           order group drew 457px and the two specimen groups 954px stacked under
           it, so about 480×344 of the card's right half stood empty beside the
           list — on the screen the "use the space available" ruling is for. */}
-      <PrefGroup index={1} title={t('settings.features.order.title')} info={t('settings.features.order.prose')} wide>
+      <PrefGroup index={1} title={t('settings.features.order.title')} info={t('settings.features.order.prose')} rowsRef={drag.listRef} wide>
         {order.map((tab, i) => {
           const sec = SECTIONS.find((x) => x.tab === tab)
           if (!sec) return null
@@ -2994,36 +3012,72 @@ function FeaturesCard({ prefs, onSaved }) {
               label={t(sec.label)}
               sub={locked ? t('settings.features.locked.prose') : t(sec.what)}
               changed={!!on[sec.tab] !== !sec.off || sectionOrder({}).indexOf(tab) !== i}
+              rowProps={drag.rowProps(i)}
+              // THE GRIP IS THE LEAD, at the row's left edge, because that is where
+              // a list says "take hold of me here", and because a sorter at the far
+              // right competes with the control that says what the row IS.
+              lead={
+                <button
+                  type="button"
+                  className="tp-grip"
+                  aria-label={t('settings.features.order.drag.aria', { name: t(sec.label) })}
+                  title={t('settings.features.order.drag.aria', { name: t(sec.label) })}
+                  {...drag.gripProps(i)}
+                >
+                  <IconGrip />
+                </button>
+              }
               control={
                 <span className="flex items-center gap-2">
-                  {/* THE ORDER PAIR FIRST, then the switch: the arrows are about
-                      where this row sits and the switch is about whether it exists
-                      at all, so the bigger decision reads last, nearest the edge
-                      every other row's control sits at. */}
-                  <FieldIconButton
-                    icon={<IconArrow dir="up" />}
-                    ariaLabel={t('settings.features.order.up.aria', { name: t(sec.label) })}
-                    tooltip={t('settings.features.order.up.aria', { name: t(sec.label) })}
-                    onClick={() => move(i, -1)}
-                    disabled={i === 0}
-                  />
-                  <FieldIconButton
-                    icon={<IconArrow dir="down" />}
-                    ariaLabel={t('settings.features.order.down.aria', { name: t(sec.label) })}
-                    tooltip={t('settings.features.order.down.aria', { name: t(sec.label) })}
-                    onClick={() => move(i, 1)}
-                    disabled={i === order.length - 1}
-                  />
-                  <Toggle
-                    ariaLabel={t(sec.label)}
-                    value={on[sec.tab] ? 'on' : 'off'}
-                    onChange={(v) => set(sec, v === 'on')}
-                    disabled={locked}
-                    options={[
-                      ['off', t('settings.features.hide.label')],
-                      ['on', t('settings.features.show.label')],
-                    ]}
-                  />
+                  {/* THE ARROWS ARE A DESK AFFORDANCE NOW. They stay there because
+                      they are the KEYBOARD's way to reorder — a grip is a pointer
+                      gesture and answers no key — and because a desk has the room.
+                      A phone has neither: two arrows, two words of toggle and the
+                      section's own name do not fit 390px, so the row wrapped and
+                      the list ran twice the height of the screen. The owner asked
+                      for exactly this split: "On phone, the drag bar will be the
+                      only sorter, no up down buttons are needed." */}
+                  {!mobile && (
+                    <>
+                      <FieldIconButton
+                        icon={<IconArrow dir="up" />}
+                        ariaLabel={t('settings.features.order.up.aria', { name: t(sec.label) })}
+                        tooltip={t('settings.features.order.up.aria', { name: t(sec.label) })}
+                        onClick={() => move(i, -1)}
+                        disabled={i === 0}
+                      />
+                      <FieldIconButton
+                        icon={<IconArrow dir="down" />}
+                        ariaLabel={t('settings.features.order.down.aria', { name: t(sec.label) })}
+                        tooltip={t('settings.features.order.down.aria', { name: t(sec.label) })}
+                        onClick={() => move(i, 1)}
+                        disabled={i === order.length - 1}
+                      />
+                    </>
+                  )}
+                  {/* A BOX ON A PHONE, THE NAMED PAIR ON A DESK. Hide/Show spells
+                      both states out, which is the better control where there is
+                      room for it; where there is not, a tick is the same decision
+                      in a quarter of the width. */}
+                  {mobile ? (
+                    <CheckBox
+                      checked={!!on[sec.tab]}
+                      onChange={(v) => set(sec, v)}
+                      disabled={locked}
+                      ariaLabel={t(sec.label)}
+                    />
+                  ) : (
+                    <Toggle
+                      ariaLabel={t(sec.label)}
+                      value={on[sec.tab] ? 'on' : 'off'}
+                      onChange={(v) => set(sec, v === 'on')}
+                      disabled={locked}
+                      options={[
+                        ['off', t('settings.features.hide.label')],
+                        ['on', t('settings.features.show.label')],
+                      ]}
+                    />
+                  )}
                 </span>
               }
             />
@@ -3062,10 +3116,10 @@ function FeaturesCard({ prefs, onSaved }) {
           three covers at 240px so half a card cannot hold one — assumed the count
           was fixed at three. It is not: the sample sizes itself to whatever column
           it is given, which is what makes pairing them possible at all. */}
-      <PrefGroup index={2} title={t('settings.features.covers.title')} aside={t('settings.features.sizes.aside')}>
+      <PrefGroup index={2} title={t('settings.features.covers.title')} sub={t('settings.features.sizes.aside')}>
         <SizeSlider ariaLabel={t('settings.features.book-size.label')} storageKey="tippani:size:books" def={165} kind="book" works={shelf.book} />
       </PrefGroup>
-      <PrefGroup index={3} title={t('settings.features.posters.title')} aside={t('settings.features.sizes.aside')}>
+      <PrefGroup index={3} title={t('settings.features.posters.title')} sub={t('settings.features.sizes.aside')}>
         <SizeSlider ariaLabel={t('settings.features.film-size.label')} storageKey="tippani:size:movies" def={150} kind="poster" works={shelf.poster} />
       </PrefGroup>
       </PrefColumns>
@@ -3775,7 +3829,7 @@ function BackupCard({ user, asking = false, onAsking }) {
 // THE TYPE SCALES WITH THE COVER, because that is the part a number cannot tell you.
 // At 96px a title wraps to four lines and the credit line disappears into it; at
 // 240px it does not. The ratios are the pack's: 1.52 for a book, 1.5 for a poster.
-function CoverSpecimen({ size, kind, works }) {
+function CoverSpecimen({ size, kind, works, reserve = false }) {
   const ratio = kind === 'poster' ? 1.5 : 1.52
   // AS MANY AS FIT, NEVER A SCROLL — the pack's own note, and for a while this was
   // the note rather than the code. It took `works.slice(0, 3)` directly underneath
@@ -3825,7 +3879,16 @@ function CoverSpecimen({ size, kind, works }) {
   const cells = works.slice(0, coversThatFit(box0.room, size, box0.gap, 3))
   if (works.length === 0) return null
   return (
-    <div className="cover-specimen" ref={box} aria-hidden="true">
+    <div
+      className="cover-specimen"
+      ref={box}
+      aria-hidden="true"
+      // THE TALLEST BOX THIS SPECIMEN COULD NEED, held only while the slider is in
+      // use — see SizeSlider for the measurement that made it necessary. 240 is
+      // the slider's own maximum and the title block under a cover runs to two
+      // lines, so this is the real ceiling rather than a guess with slack in it.
+      style={reserve ? { minHeight: `calc(${Math.round(240 * ratio)}px + 3.6em)` } : undefined}
+    >
       {cells.map((w, i) => (
         <span key={w.id ?? i} className="cover-specimen-cell" style={{ width: size }}>
           {w.cover ? (
@@ -3855,6 +3918,36 @@ function CoverSpecimen({ size, kind, works }) {
 // moving control to control would otherwise meet two unnamed sliders.
 function SizeSlider({ ariaLabel, storageKey, def, kind, works }) {
   const [size, setSize] = useCoverSize(storageKey, def)
+  // ── THE SLIDER MUST NOT MOVE WHILE IT IS BEING USED ─────────────────────────
+  //
+  // THE DEFECT, MEASURED. On a phone, with the page scrolled to its foot — which
+  // is exactly where the poster slider is, being the last thing on the screen —
+  // dragging from 150 to 95 shortened the page from 1298 to 1227. The browser has
+  // to clamp `scrollTop` when the document gets shorter than the current scroll
+  // position, so it fell 390 → 383 and the slider rose 7px OUT FROM UNDER THE
+  // FINGER. The owner: "the screen re-adjusts to accomodate the posters/covers.
+  // This moves the slider bar. That is a bad ux."
+  //
+  // IT IS NOT THE SPECIMEN PUSHING THE SLIDER. The specimen is below it, so its
+  // growth pushes what is under it and never the row above — and at mid-screen the
+  // slider measured rock still at 414px through a 250px swing in page height. It
+  // is only the clamp, and only at the bottom, which is why this took a
+  // measurement rather than a reading of the markup to find.
+  //
+  // SO THE PAGE DOES NOT SHORTEN WHILE THE CONTROL IS IN USE. While the reader is
+  // holding the slider — pointer down, or the keyboard focused on it — the
+  // specimen reserves the tallest box it could ever need, so the document's height
+  // is constant no matter which way the handle goes. Nothing clamps, nothing
+  // moves. Let go and it relaxes to the size actually chosen.
+  //
+  // RESERVING RATHER THAN CLIPPING, and the difference matters: a frozen box with
+  // `overflow: hidden` would hold the slider still and cut the top off the cover
+  // you are in the middle of judging, which defeats the specimen. Reserving makes
+  // the page LONGER at the moment of grabbing, and growth at the foot of a
+  // document moves nothing — only shrinking does.
+  const [holding, setHolding] = useState(false)
+  const hold = () => setHolding(true)
+  const release = () => setHolding(false)
   return (
     <div>
       <div className="flex items-center gap-3" style={{ minHeight: 36 }}>
@@ -3878,13 +3971,21 @@ function SizeSlider({ ariaLabel, storageKey, def, kind, works }) {
           value={size}
           aria-label={ariaLabel}
           onChange={(e) => setSize(Number(e.target.value))}
+          onPointerDown={hold}
+          onPointerUp={release}
+          onPointerCancel={release}
+          // THE KEYBOARD HOLDS IT TOO. Arrowing a range fires the same reflow, and
+          // a reader stepping it one rung at a time would watch the page twitch
+          // under every press.
+          onFocus={hold}
+          onBlur={release}
           style={{ width: 190, accentColor: 'var(--accent-ui)', cursor: 'pointer' }}
         />
         <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-12)', color: 'var(--faint)', minWidth: 42 }}>
           {t('settings.type.size.format', { n: size })}
         </span>
       </div>
-      <CoverSpecimen size={size} kind={kind} works={works} />
+      <CoverSpecimen size={size} kind={kind} works={works} reserve={holding} />
     </div>
   )
 }
@@ -4271,9 +4372,24 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
 
           THE NUMBER IS DRAWN FROM POSITION, not typed, because a hand-typed
           ordinal is what goes wrong the day a group is inserted. */}
-      <PrefGroup index={1} title={t('settings.appearance.group.light.title')} aside={t('settings.appearance.group.light.aside')}>
+      {/* NO ASIDE ON THE HEAD ANY MORE. It read "set as a pair" and sat directly
+          above the mode toggle, so it looked like a fact about the mode — which is
+          the one control here that is emphatically NOT a pair: you pick one of
+          three. The owner: "the header row says 'set as a pair'. That seems
+          misplaced. User only selects one." The words moved onto the Colours row,
+          which is where the pair actually is, and say what the mode row does to it. */}
+      {/* FOUR CARDS, TWO OF THEM HALF A ROW. The pack's own shape and the owner's
+          instruction for this screen: "In desktop, some cards will be full width
+          (like 'light and dark' and 'what is it made of' in the theme section),
+          and some half (like 'a theme of your own' and 'accessibility')." The two
+          full-width ones each hold a grid that needs the measure — three colour
+          doors and their options panel, eight material tiles. The two half ones
+          hold rows, and rows do not need 954px: "They do not need the width." */}
+      <PrefColumns>
+      <PrefGroup index={1} title={t('settings.appearance.group.light.title')} wide>
       <PrefRow
         label={t('settings.appearance.theme.title')}
+        sub={t('settings.appearance.theme.hint')}
         changed={themePref !== 'system'}
         control={
           <Toggle
@@ -4468,7 +4584,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
           directly above a MonoLabel reading "Material", which is one thing said
           twice — the standing rule, and visible as two stacked labels the moment
           the groups landed. */}
-      <PrefGroup index={2} title={t('settings.appearance.group.material.title')} aside={t(MAT_SET_LABELS[materialSet])}>
+      <PrefGroup index={2} title={t('settings.appearance.group.material.title')} aside={t(MAT_SET_LABELS[materialSet])} wide>
       {/* AS MANY AS FIT, NOT FOUR. Eight sets in a four-column grid on a 1280px
           card drew cards three times the size the pack draws them
           (settings-restructured.dc.html:2600-2620 fits seven across with room for
@@ -4668,27 +4784,6 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
           section has, because the pack never had them. They are all answers to "how
           much, and how big", which is what this group is about, so they are here
           rather than in a fifth group invented to hold them. */}
-      <PrefGroup index={4} title={t('settings.appearance.group.density.title')}>
-      {/* WHAT USED TO SIT HERE WAS A WRAPPING ROW OF WHATEVER WAS LEFT OVER: the
-          accent, two cover-size sliders, the global text size, the two quote
-          reading dials, label density and the language picker, in one flex wrap at
-          the foot of the theme section. The owner, looking at it: "what are the
-          random stuff doing in the last two rows?"
-
-          THEY HAVE GONE WHERE THEY BELONG, each by what it is about rather than by
-          what was left over. The accent joined the Colours row at the top, which is
-          where the pack has it. The two cover sliders are under Sections — they say
-          how the library and the catalogue are DRAWN, and the pack puts its own
-          pair there. Text size and the two quote dials are accessibility, so they
-          are under Language and font's own Accessibility heading, beside the faces
-          they resize. The language picker is under Language and font, which is the
-          section named for it.
-
-          LABEL DENSITY IS ALL THAT STAYS, and it is the only one that was ever in
-          the right place: it is the pack's own group 4, "How much a control says",
-          which is what this group is called. */}
-      <LabelDensity />
-      </PrefGroup>
       {/* THE ACCESSIBILITY DIALS OF THIS SECTION, under their own heading, AT THE END. The
           owner's: "Put them in an accessibility subsection under each relevant
           section." Contrast is this section's one — `§6 access`, added before the
@@ -4699,7 +4794,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
           where Language and font already puts its own, so a reader who learns
           where accessibility lives on one section knows where it is on the
           other. */}
-      <PrefGroup index={5} title={t('settings.group.access.title')}>
+      <PrefGroup index={4} title={t('settings.group.access.title')}>
       <PrefRow
         label={t('settings.appearance.contrast.title')}
         sub={t('settings.appearance.contrast.hint')}
@@ -4716,7 +4811,15 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
           />
         }
       />
+      {/* HOW MUCH A CONTROL SAYS, WHICH IS AN ACCESSIBILITY DIAL AND HAD A GROUP OF
+          ITS OWN. It was the pack's group 4 and it is one row — a heading, a
+          number and a full card's width for a single switch about whether controls
+          carry their words. The owner: "Button label toggle can go under
+          accessibility." It is the same kind of thing as contrast: neither changes
+          what the app can do, both change how much of itself it spells out. */}
+      <LabelDensity />
       </PrefGroup>
+      </PrefColumns>
       </>
       )}
 

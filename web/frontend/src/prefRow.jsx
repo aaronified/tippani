@@ -36,13 +36,19 @@ import { ariaLabelText, InfoDot, MonoLabel } from './ui.jsx'
 // the label column, at the row's full width, which is where a wall of style chips
 // belongs and where a single line of type reads as a stray paragraph three lines
 // below the row it describes.
-export function PrefRow({ label, sub = null, said = null, info = null, infoTitle = null, changed = false, control = null, children = null }) {
+// `lead` IS A SLOT BEFORE THE NAME, and so far only a drag grip lives in it. It is
+// not part of `control`: a control is what the row DOES, and sits at the far end
+// where every row's control sits; a lead is what you take hold OF, and a sorter at
+// the right-hand edge is a sorter nobody finds. The owner asked for it there —
+// "a drag bar ... to the left of each section".
+export function PrefRow({ label, sub = null, said = null, info = null, infoTitle = null, changed = false, lead = null, control = null, children = null, rowProps = null }) {
   // The label is the row's identity. It is what the reader calls the row and what
   // is unique within a section, and it means a row does not have to be handed a
   // key that exists only so it can be counted.
   useSaysChanged(label, changed)
   return (
-    <div className="pref-row">
+    <div className="pref-row" {...(rowProps || {})}>
+      {lead}
       <div className="pref-row-said">
         {/* INLINE FLOW, NOT A FLEX ROW. As a flex row the info dot was a flex ITEM,
             so a label that wrapped to two lines sent the dot to a third on its
@@ -78,7 +84,13 @@ export function PrefRow({ label, sub = null, said = null, info = null, infoTitle
 // A GROUP IS A HEADING AND ITS ROWS. The pack numbers them — "1 · Light and dark"
 // — and the number is drawn from position rather than typed, because a hand-typed
 // ordinal is the thing that goes wrong when a group is inserted.
-export function PrefGroup({ title, index = null, aside = null, info = null, wide = false, children }) {
+// `sub` IS A LINE UNDER THE HEADING, and `aside` is a word at the far end of it.
+// They are not interchangeable: an aside is a fact you glance at (which material
+// set is on, how many themes are saved), a sub is a sentence about the whole
+// group. "this device only" started as an aside and read as a fragment floating
+// at the right-hand edge — the owner: "They should read 'this device only' and be
+// placed as subtext below the subsection header."
+export function PrefGroup({ title, index = null, sub = null, aside = null, info = null, wide = false, rowsRef = null, children }) {
   return (
     // NAMED, so it is a landmark rather than an anonymous box. The heading below
     // is a MonoLabel and not an <h*> — it is a label for a group of rows, not a
@@ -98,7 +110,8 @@ export function PrefGroup({ title, index = null, aside = null, info = null, wide
             so the headings still line up down the left. */}
         {aside && <span className="microcopy">{aside}</span>}
       </div>
-      <div className="pref-group-rows">{children}</div>
+      {sub && <p className="pref-group-sub">{sub}</p>}
+      <div className="pref-group-rows" ref={rowsRef}>{children}</div>
     </section>
   )
 }

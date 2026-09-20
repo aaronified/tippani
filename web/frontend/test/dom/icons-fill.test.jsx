@@ -37,6 +37,10 @@ const FILLED = {
   // 3 — the subject is a silhouette in life. A mortarboard is recognised by its outer
   // shape; at 19px an outline turns that shape into a ring.
   IconPractise: 'silhouette',
+  // A grip is six dots, and a dot is the one shape an outline destroys: at r=1.7
+  // a stroked circle is a ring with a hole in it, which at 18px reads as noise
+  // rather than as the six-dot handle everybody already recognises.
+  IconGrip: 'silhouette',
   // 4 — the fill carries information: the palette's wells hold the category colours.
   IconPalette: 'carries-information',
   // The shelf marks are the ON state of a work: this one is underway. Same argument as

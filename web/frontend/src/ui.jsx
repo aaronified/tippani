@@ -2528,6 +2528,19 @@ if (import.meta.env.DEV) {
   StickerButton.glossary = { demo: (h) => h(StickerButton, null, "Add book") };
   FilmButton.glossary = { demo: (h) => h(FilmButton, null, "Sign in") };
   GhostButton.glossary = { demo: (h) => h(GhostButton, null, "Export") };
+  // THREE STATES, BECAUSE A BOX'S WHOLE VOCABULARY IS ON, OFF AND CANNOT. Rendered
+  // rather than carried as markup: the glossary's own rule is that an entry which
+  // copies a component's HTML drifts from the component, which is how the page came
+  // to show buttons missing the class that makes them press.
+  CheckBox.glossary = {
+    demo: (h) => h(
+      "span",
+      { style: { display: "inline-flex", alignItems: "center", gap: 10 } },
+      h(CheckBox, { checked: true, ariaLabel: "Shown", onChange: () => {} }),
+      h(CheckBox, { checked: false, ariaLabel: "Hidden", onChange: () => {} }),
+      h(CheckBox, { checked: false, disabled: true, ariaLabel: "Locked", onChange: () => {} }),
+    ),
+  };
 }
 
 // ---- type bits (§3) ----
@@ -9963,6 +9976,58 @@ export function IconOpen({ size = ICON_SIZE }) { return <svg {...iconStroke} wid
 //
 // `dir` because two of those rows point the other way and one points up: a second
 // icon per direction would be four drawings of one idea.
+// THE SIX-DOT GRIP, which is the one drawing people already read as "drag me".
+// The owner asked for it by that description: "the traditional six dots button is
+// easily identifiable as a sorter drag bar". Two columns of three, on the app's
+// own stroke grid rather than a character from a font — a ⠿ would be the reader's
+// emoji-adjacent glyph rather than ours, which is the standing rule about glyphs.
+export function IconGrip({ size = ICON_SIZE }) {
+  return (
+    // ROUNDED SQUARES RATHER THAN CIRCLES, and the reason is a test rather than a
+    // taste: `icons.test.jsx` compares glyphs with every number stripped out, so
+    // any two drawings made of the same primitive the same number of times read as
+    // one picture — and IconReel is also six circles. They are not remotely the
+    // same drawing (a reel is a hub and four studs; this is two columns of three),
+    // but rather than widen a rule that has caught real duplicates, the dots are
+    // rects with a full corner radius. At rx = half the side they render as the
+    // same dots.
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="7.3" y="4.3" width="3.4" height="3.4" rx="1.7" />
+      <rect x="13.3" y="4.3" width="3.4" height="3.4" rx="1.7" />
+      <rect x="7.3" y="10.3" width="3.4" height="3.4" rx="1.7" />
+      <rect x="13.3" y="10.3" width="3.4" height="3.4" rx="1.7" />
+      <rect x="7.3" y="16.3" width="3.4" height="3.4" rx="1.7" />
+      <rect x="13.3" y="16.3" width="3.4" height="3.4" rx="1.7" />
+    </svg>
+  );
+}
+
+// A BOX YOU TICK, where a Toggle would be two words wide.
+//
+// WHY IT EXISTS. A Toggle draws its two options as labelled segments — "Hide"
+// and "Show" — which is right on a desk, where naming both states is clearer than
+// a box whose meaning you infer. On a 390px phone those two words plus two arrows
+// plus the section's own name do not fit a row, so the row wrapped and the list
+// became twice as tall as the screen. The owner: "The library sort card should not
+// have toggles in phone view. But a checkbox type box. This is to save space and
+// make each row fit there."
+//
+// IT IS A REAL CHECKBOX. `appearance: none` on an `input[type=checkbox]` keeps the
+// keyboard, the label association and the announced role, and gives up only the
+// platform's drawing — which is the one thing here that has to match the app.
+export function CheckBox({ checked, onChange, ariaLabel, disabled = false }) {
+  return (
+    <input
+      type="checkbox"
+      className="tp-checkbox"
+      checked={!!checked}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      onChange={(e) => onChange?.(e.target.checked)}
+    />
+  );
+}
+
 export function IconArrow({ size = ICON_SIZE, dir = 'right' }) {
   const turn = { right: 0, left: 180, up: -90, down: 90 }[dir] || 0
   return (

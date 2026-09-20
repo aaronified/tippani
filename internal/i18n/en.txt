@@ -1413,6 +1413,7 @@ settings.features.hide.label = Hide
 
 settings.features.order.title = Show me, in this order
 settings.features.order.prose = The order here is the rail, the drawer and what ＋ offers. The top one is where the app opens.
+settings.features.order.drag.aria = Drag to move {name}
 settings.features.order.up.aria = Move {name} up
 settings.features.order.down.aria = Move {name} down
 
@@ -1425,23 +1426,22 @@ settings.labels.auto.label = Auto
 # --- Appearance.
 settings.search.none = Nothing in Settings matches “{q}”.
 settings.appearance.group.light.title = Light and dark
-settings.appearance.group.light.aside = set as a pair
 settings.appearance.group.material.title = What it is made of
 settings.appearance.matset.title = Material set
 settings.appearance.matset.hint = A room to stand in: the desk, the furniture, the page, the binding
 settings.appearance.matset.info.body = Four surfaces each, and every set works in light and dark. Atrium is the plain one — no material in any slot, and the fastest surface in the app.
 settings.appearance.group.saved.title = A theme of your own
 settings.appearance.group.saved.aside = {n} of {cap} saved
-settings.appearance.group.density.title = How much a control says
 
 settings.appearance.theme.title = Which one you see
+settings.appearance.theme.hint = Match system follows your device and changes when it does.
 settings.appearance.theme.light.label = Light
 settings.appearance.theme.dark.label = Dark
 settings.appearance.match.label = Match system
 settings.appearance.match.aria = Match system theme
 settings.appearance.contrast.title = Contrast
 settings.appearance.colours.title = Colours
-settings.appearance.colours.hint = Light ground · dark ground · accent. Each one opens its own options.
+settings.appearance.colours.hint = Set as a pair: a light ground and a dark one, plus the accent they share. You are looking at whichever the row above is on — the other is waiting for when it is.
 settings.appearance.colours.light.label = Light
 settings.appearance.colours.dark.label = Dark
 settings.appearance.colours.accent.label = Accent
@@ -1455,7 +1455,7 @@ settings.appearance.colours.hide.aria = Hide the options
 settings.group.access.title = Accessibility
 settings.features.covers.title = Library covers
 settings.features.posters.title = Catalogue posters
-settings.features.sizes.aside = this device
+settings.features.sizes.aside = this device only
 
 settings.appearance.ground.info.body = What the app sits on, in three shades at once: the desk, the furniture holding the controls, and the page a quote is written on. Light and dark are chosen separately, so this row follows the one you can see.
 settings.appearance.phys.title = What the materials do with light

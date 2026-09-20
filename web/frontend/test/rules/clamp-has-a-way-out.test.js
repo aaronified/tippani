@@ -93,8 +93,11 @@ const KNOWN = {
     + 'so the reader can see what the type does as the cover shrinks. The Library prints the '
     + 'whole title, at the size this slider just set. Unclamped, one real book ran eleven lines '
     + 'and pushed the poster slider off the screen',
-  'index.css:.mobile-topbar-title':
-    'two lines of a work’s title in the phone top bar; the hero heading below it is the same string, unclamped',
+  'index.css:.mobile-topbar-name':
+    'two lines of a work’s title in the phone top bar; the hero heading below it is the same string, unclamped. '
+    + 'It was `.mobile-topbar-title` until the bar\u2019s three parts — the name, its count and its info dot — '
+    + 'were spaced apart from each other: that made the title row a flex line, and `-webkit-box` on a flex '
+    + 'container clamps nothing, so the clamp moved onto the name itself',
   'index.css:.tl-gap-line':
     'one of the captions spread across an empty stretch of the reading timeline — the copy is '
     + 'this app\u2019s own line about a silence, so nothing of the reader\u2019s is hidden, and four lines of it '

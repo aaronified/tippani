@@ -118,6 +118,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Every part of a Settings screen is its own card.** A section was one long card with
+  headings ruled across it; each subsection now stands on its own, side by side on a desk
+  where two of them fit and stacked on a phone.
+
+- **Drag a section into place.** The list of sections has the familiar six-dot handle at the
+  left of each row. On a phone it is the whole sorter — the arrows and the wordy Hide/Show
+  pair are gone from there, replaced by a tick box, so each row fits the screen.
+
+- **The size slider stays under your finger.** Dragging the cover or poster size at the foot
+  of a phone screen used to shift the page as the samples resized, moving the slider away
+  mid-drag.
+
 - **The release log shows the last two, and opens to the whole thing.** It had become a
   small box with its own scrollbar inside a page that already scrolls — a hundred entries in
   half a phone screen, with nothing to say it scrolled. Two releases stand there now and

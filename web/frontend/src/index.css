@@ -6862,13 +6862,28 @@ html[data-theme="dark"] .mobile-topbar {
   font-size: var(--type-display-17);
   font-weight: 600;
   line-height: 1.2;
-  /* Two lines, then it stops. A title is the one string on this bar allowed to
-     wrap — cutting a work's name to one line is exactly the truncation the
-     edge-fade rule forbids, and a bar has no room for a fade. */
+  /* THE NAME, ITS COUNT AND ITS DOT ARE THREE THINGS, SPACED LIKE THREE THINGS.
+     They were inline siblings with nothing between them, so "Theme", the count
+     pill and the info dot ran together into one crowded lump — while the desktop
+     crumb row beside the same three puts 8px between them. The owner: "have some
+     spacing between the top bar elements, like you have on desktop."
+     `inline-flex` rather than `flex`, so the two-line clamp below still applies to
+     the name; the baseline alignment keeps the pill sitting on the title's line
+     rather than centred against a name that wrapped. */
+  display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  min-width: 0;
+}
+/* Two lines, then it stops. A title is the one string on this bar allowed to
+   wrap — cutting a work's name to one line is exactly the truncation the
+   edge-fade rule forbids, and a bar has no room for a fade. It clamps the NAME
+   now rather than the row, because the row became a flex line to space the badge
+   and the dot off it, and `-webkit-box` on a flex container clamps nothing. */
+.mobile-topbar-name {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  min-width: 0;
 }
 .mobile-topbar-sub {
   font-size: var(--type-ui-11);
@@ -10292,13 +10307,24 @@ html[data-theme="dark"] .board-cover {
    proportion against the reader's text-size dial. */
 .ground-swatch {
   position: relative; display: block; flex: none;
-  width: max(46px, 3.4em); height: max(34px, 2.5em);
-  border: 0; padding: 0; cursor: pointer; border-radius: 7px 5px 8px 6px / 6px 8px 5px 7px;
+  /* ROUND, AND THE SAME ROUND AS THE ACCENT'S. These three sat in one row —
+     Light, Dark, Accent — with the two grounds drawn as rounded rectangles and
+     the accent as a circle, so a row offering one kind of choice was drawn in two
+     shapes. The owner, of this screen: "The colours (light dark and accent) are
+     all the same shape. Follow the prototype there." The pack draws all three as
+     one 32px round swatch (settings-restructured.dc.html:433), and the shape is
+     the accent's because a circle is what a single colour reads as. */
+  width: max(32px, 2.2em); height: max(32px, 2.2em);
+  border: 0; padding: 0; cursor: pointer; border-radius: 999px;
   overflow: hidden; transition: box-shadow .12s ease;
 }
-.ground-swatch > span { position: absolute; display: block; border-radius: 2px; }
-.ground-swatch > span:first-of-type { inset: 22% 10% 10% 10%; }
-.ground-swatch > span:last-of-type { inset: 42% 22% 0 22%; }
+/* THE THREE SURFACES SURVIVE THE RESHAPING, which is the part that is not
+   decoration: a ground is the desk, the furniture and the page, and one flat
+   circle would show a third of the decision. They are concentric here rather
+   than stacked, because inside a circle an offset rectangle reads as a mistake. */
+.ground-swatch > span { position: absolute; display: block; border-radius: 999px; }
+.ground-swatch > span:first-of-type { inset: 18%; }
+.ground-swatch > span:last-of-type { inset: 38%; }
 
 
 /* THE QUOTES THE DECK IS TOLD TO SKIP. A quote WRAPS rather than truncating, for
@@ -10452,7 +10478,108 @@ html[data-theme="dark"] .board-cover {
   width: max(6px, .45em); height: max(6px, .45em);
   border-radius: 50%; background: var(--accent-ui);
 }
-.pref-group + .pref-group { margin-top: 22px; }
+/* ── A SUBSECTION IS A CARD ───────────────────────────────────────────────────
+   The owner's instruction for every settings screen: "you can make subsection
+   wise cards. For all screens. In desktop, some cards will be full width (like
+   'light and dark' and 'what is it made of' in the theme section), and some half
+   (like 'a theme of your own' and 'accessibility')."
+
+   WHAT IT REPLACED. A section was ONE card holding four or five groups separated
+   by 22px of air. At 954px that is a very tall sheet of paper with headings ruled
+   across it, and nothing but whitespace saying where one subject ends and the next
+   begins — so "1 · LIGHT AND DARK" and "2 · WHAT IT IS MADE OF" read as paragraphs
+   of one document rather than as two things you can deal with separately.
+
+   THE CHROME MOVES RATHER THAN DOUBLING. The wrapper the cards used to be keeps
+   its job — it is still what the section renderer hands a section — but gives up
+   its border, its fill and its padding to the groups inside it, because a card
+   inside a card is two frames around one thing. `:has()` scopes that to exactly
+   the wrappers that hold groups, so every other card in the app is untouched. */
+.hand-card:has(> .pref-columns > .pref-group),
+.hand-card:has(> .pref-group) {
+  background: none; border: 0; box-shadow: none; padding: 0; border-radius: 0;
+}
+.hand-card:has(> .pref-columns > .pref-group)::before,
+.hand-card:has(> .pref-group)::before { display: none; }
+
+.pref-group {
+  min-width: 0; max-width: 100%;
+  padding: 16px 18px 18px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
+  border: 1.6px solid var(--ink-border);
+  border-radius: 15px 9px 14px 10px / 9px 15px 10px 14px;
+  box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(41,38,29,.05);
+}
+html[data-theme="dark"] .pref-group {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 7%), color-mix(in srgb, var(--card), black 9%));
+  box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.06), inset 0 -1px 0 rgba(0,0,0,.25);
+}
+/* THE CARDS DO NOT ALL WEAR THE SAME CORNERS. Every other card in this app is
+   drawn with a slightly different hand-inked radius so a column of them does not
+   read as a printed grid; a stack of identical rounded rectangles is the one thing
+   the material sets exist to avoid. */
+.pref-group:nth-of-type(2n) { border-radius: 9px 15px 10px 14px / 14px 9px 15px 10px; }
+.pref-group:nth-of-type(3n) { border-radius: 13px 10px 15px 9px / 10px 14px 9px 15px; }
+
+/* THE GAP IS THE GRID'S NOW where a section uses one, and stays a margin where a
+   section still stacks its groups plainly. */
+.pref-group + .pref-group { margin-top: 16px; }
+.pref-columns > .pref-group + .pref-group { margin-top: 0; }
+/* THE BOX YOU TICK. The platform's own checkbox ignores the accent, ignores the
+   ink and is a different size on every OS, so it is redrawn here — keeping the
+   real input underneath for the keyboard and the announced role. 24px is the
+   drawing; the 44px touch target is the padding around it. */
+.tp-checkbox {
+  appearance: none; -webkit-appearance: none;
+  flex: none; margin: 0; cursor: pointer;
+  width: max(22px, 1.5em); height: max(22px, 1.5em);
+  border: 1.6px solid var(--ink-border); border-radius: 6px 4px 6px 5px / 5px 6px 4px 6px;
+  background: var(--raised);
+  box-shadow: inset 0 1px var(--bevel-mid);
+  display: inline-grid; place-content: center;
+  transition: background .12s ease, border-color .12s ease;
+}
+.tp-checkbox::before {
+  content: ""; width: 0.62em; height: 0.36em;
+  border-left: 2.2px solid var(--on-accent); border-bottom: 2.2px solid var(--on-accent);
+  transform: rotate(-45deg) translate(1px, -2px) scale(0);
+  transition: transform .12s ease;
+}
+.tp-checkbox:checked { background: var(--accent-ui); border-color: var(--accent-ui); }
+.tp-checkbox:checked::before { transform: rotate(-45deg) translate(1px, -2px) scale(1); }
+.tp-checkbox:disabled { opacity: .45; cursor: not-allowed; }
+.tp-checkbox:focus-visible { outline: 2px solid var(--accent-ui); outline-offset: 2px; }
+
+/* THE GRIP THAT SORTS A LIST. It is a button so it is reachable by keyboard and
+   announced, and it carries the 44px target the touch floor asks for while the
+   dots themselves stay small — a grip that looked like a button would compete
+   with the row's real controls. */
+.tp-grip {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: max(34px, 2.2em); min-height: max(44px, 2.8em);
+  padding: 0; border: 0; background: none; color: var(--faint);
+  cursor: grab; touch-action: none;
+  border-radius: 8px;
+}
+.tp-grip:hover { color: var(--soft); }
+.tp-grip:focus-visible { outline: 2px solid var(--accent-ui); outline-offset: -2px; }
+.tp-grip[data-dragging="1"] { cursor: grabbing; color: var(--accent-ui); }
+/* THE ROW BEING CARRIED. It lifts off the page rather than changing place
+   instantly, so the eye can follow where it went. */
+.pref-row[data-dragging="1"] {
+  background: var(--raised); border-radius: 9px;
+  box-shadow: var(--lift); position: relative; z-index: 2;
+}
+.pref-row[data-drop="1"] { background: color-mix(in oklab, var(--accent-ui), transparent 88%); border-radius: 9px; }
+
+/* A SENTENCE UNDER THE GROUP'S NAME, in the sub voice the rows already use, and
+   pulled up against the heading it belongs to rather than floating between it and
+   the first row. */
+.pref-group-sub {
+  font-family: var(--font-ui); font-size: var(--type-ui-12);
+  line-height: 1.45; color: var(--soft);
+  margin: -1px 0 8px;
+}
 .pref-group-head {
   display: flex; flex-wrap: wrap; align-items: baseline;
   justify-content: space-between; gap: 8px; margin-bottom: 4px;
@@ -10485,10 +10612,10 @@ html[data-theme="dark"] .board-cover {
    `1024px` IS THE DESK BREAKPOINT THE SHELL ALREADY USES for its rail, so a
    section grows its second column at the same width the app grows its furniture
    — one threshold, not two that nearly agree. */
-.pref-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+.pref-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 .pref-columns > .pref-group + .pref-group { margin-top: 0; }
 @media (min-width: 1024px) {
-  .pref-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: calc(var(--edge) * 2); }
+  .pref-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
   /* A GROUP OF FULL-MEASURE ROWS SPANS. A face list squeezed into half a card is
      a specimen you cannot judge, which is the pack's own reason for marking that
      group `wide: true`. */
@@ -10591,7 +10718,20 @@ html[data-theme="dark"] .board-cover {
      is what the first cut of the named row shipped. */
   flex-basis: 100%; width: 100%; min-width: 0; margin-top: 4px;
   display: grid; gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(max(104px, 7.5em), 1fr));
+  /* A COUNT, NOT A MINIMUM — and the measurement that forced it. `auto-fill` with
+     a 104px floor put SEVEN columns across a 954px card and left the eighth set
+     alone on a second row, at 126px a tile; the same grid on a 390px phone drew
+     two columns at 152px. The tile was BIGGER on the phone than on the desk, which
+     is the regression the owner reported ("Material sets look different on mobile
+     and desktop. The desktop design is a regression from what was there").
+     A tile here is a room you are being shown — a desk, a page, a line of type —
+     and shrinking it as the screen grows is the opposite of what the space is for.
+     Two and four divide the eight sets into whole rows at both widths, and the
+     desk's tile comes out around 225px: bigger than the phone's, as it should be. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 1024px) {
+  .material-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 }
 
 /* THE COLOUR OPTIONS, IN THE ROW THAT ASKED FOR THEM. The pack answers inside the
