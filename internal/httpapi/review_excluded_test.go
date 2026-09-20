@@ -3,6 +3,8 @@ package httpapi
 import (
 	"net/http"
 	"testing"
+
+	"tippani/internal/metadata"
 )
 
 // WHAT THE LIST HAS TO GET RIGHT, and it is not "returns rows".
@@ -159,11 +161,16 @@ func TestExcludedWorksCarryTheirArtworkAndTheirCredit(t *testing.T) {
 	}
 }
 
-// TWO NAMES, AND NOT FOUR. The row this feeds is a phone's width, so a work with
-// a long credit sends the first two and the work's own page shows the rest. The
-// cut is here rather than on the screen because a client that sliced it would be
-// the second place that has to know what a credit's separators are.
-func TestACrowdedCreditIsCutToTwoChips(t *testing.T) {
+// THE NAMES UNDER A TITLE ARE PEOPLE, AND EACH ONE IS A DOOR.
+//
+// This used to split by hand on comma, semicolon and ampersand, and a rating
+// measured what that did: "Martin Luther King, Jr." became two chips, the second
+// of them "Jr.", and "Gaiman and Pratchett" stayed one. A chip on this screen
+// opens a person, so a fragment is a press onto a record that does not exist.
+// The rule lives in metadata.SplitCredits and these are the cases that told the
+// two apart; the ceiling of two is this screen's own, because the row is a
+// phone's width.
+func TestTheNamesUnderASkippedWorkAreWholePeople(t *testing.T) {
 	for _, tc := range []struct {
 		credit string
 		want   []string
@@ -171,10 +178,15 @@ func TestACrowdedCreditIsCutToTwoChips(t *testing.T) {
 		{"", nil},
 		{"   ", nil},
 		{"Jean Meeus", []string{"Jean Meeus"}},
+		// THE SUFFIX RE-ATTACHES. Two chips here, the second reading "Jr.", is the
+		// finding this case exists for.
+		{"Martin Luther King, Jr.", []string{"Martin Luther King, Jr."}},
+		// AND " and " IS A SEPARATOR when both sides are names.
+		{"Neil Gaiman and Terry Pratchett", []string{"Neil Gaiman", "Terry Pratchett"}},
 		{"Gilbert & Sullivan", []string{"Gilbert", "Sullivan"}},
 		{"A. Smith, B. Jones; C. Ray, D. Fox", []string{"A. Smith", "B. Jones"}},
 	} {
-		got := creditNames(tc.credit)
+		got := creditNames(tc.credit, metadata.DefaultCreditSeps)
 		if len(got) != len(tc.want) {
 			t.Fatalf("%q -> %v, want %v", tc.credit, got, tc.want)
 		}
@@ -183,5 +195,45 @@ func TestACrowdedCreditIsCutToTwoChips(t *testing.T) {
 				t.Errorf("%q -> %v, want %v", tc.credit, got, tc.want)
 			}
 		}
+	}
+
+	// AND THE READER'S OWN SETTING IS HONOURED, which is the whole reason this
+	// calls the shared splitter rather than keeping its own rule: somebody whose
+	// shelf holds "Rowling, J. K." turns the comma off, and this list has to stop
+	// splitting on it too.
+	noComma := metadata.ParseCreditSeps("semicolon,amp")
+	if got := creditNames("Rowling, J. K.", noComma); len(got) != 1 || got[0] != "Rowling, J. K." {
+		t.Errorf("with the comma switched off: %v", got)
+	}
+}
+
+// AND THE ENDPOINT READS THE READER'S SETTING, which the case above cannot say.
+//
+// THE LESSON THIS REPO KEEPS RELEARNING: a pure test of a splitter proves the
+// splitter, not that anything calls it with the right argument. Swapping the
+// handler's `s.creditSeps(uid)` for the default set leaves every case above
+// green — so the preference is set here, through the route that stores it, and
+// asked of the route that reads it.
+func TestTheSkippedListSplitsCreditsTheWayTheReaderAsked(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	// A shelf whose names carry commas — the case creditSeparators exists for.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"creditSeparators": "semicolon,amp"}, http.StatusOK)
+
+	book := createBook(t, c, "Fantastic Beasts")
+	c.mustDo("PUT", "/books/"+itoa(book),
+		map[string]any{"title": "Fantastic Beasts", "author": "Rowling, J. K."}, http.StatusOK)
+	ann := decode[idResp](t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book, "quote": "a line to skip"}, http.StatusCreated))
+	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{ann.ID}, "review": false}, http.StatusOK)
+
+	got := decode[excludedResp](t, c.mustDo("GET", "/review/excluded", nil, http.StatusOK))
+	if len(got.Groups) != 1 {
+		t.Fatalf("want one group, got %d", len(got.Groups))
+	}
+	if p := got.Groups[0].People; len(p) != 1 || p[0] != "Rowling, J. K." {
+		t.Errorf("the comma was split on although the reader switched it off: %v", p)
 	}
 }

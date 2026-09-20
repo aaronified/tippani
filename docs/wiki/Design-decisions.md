@@ -17784,3 +17784,40 @@ request. See `docs/plans/nightly-backup.md`.
 *Unreleased — `internal/httpapi/review_excluded.go`, `web/frontend/src/Settings.jsx`,
 `web/frontend/src/fonts.js`, `web/frontend/src/fontPicker.jsx`,
 `web/frontend/src/index.css`, `internal/i18n/en.txt`, `internal/i18n/bn.txt`.*
+
+**AND A RATING FOUND THAT HALF OF IT WAS WIRED TO NOTHING.** `FontSections` computed
+`script` from the active locale and never handed it to `FontRow` — so inside the row it was
+`undefined`, every face kept its Latin name and every specimen its Latin line, in every
+language. Nothing failed, because the rows look identical when the answer is "could not
+tell": that is the same shape as the dead bulk control this repo shipped once before. What
+showed it was a journey that uploads a real Bengali face (`@fontsource`'s Noto Serif
+Bengali), gives it the interface, switches the app into Bengali and watches the specimen —
+the only way to see it, because the decision rests on a canvas MEASUREMENT and jsdom has no
+text metrics, so a jsdom test passes identically whether the app consults the measurement or
+ignores it.
+
+**THE MEASUREMENT ALSO NEEDED THE FONT TO BE THERE.** A canvas does not load a webfont, it
+measures what is already loaded — so a face the reader had just chosen measured as though it
+had no Bengali in it, and nothing re-rendered to correct that. `FontRow` now asks
+`document.fonts.load` for the probe string and bumps a counter when it resolves; the rest
+state is unchanged and correct on its own, the load merely arrives at it sooner.
+
+**AND THE INTERFACE ROWS' NAMES ARE STILL INERT, WHICH IS WORTH SAYING RATHER THAN LEAVING
+GREEN.** Every face this app offers for a Latin role is Latin-only and has no entry in
+`FACE_NAME_IN`, so the name half changes nothing there today.
+`font-script-names.test.js` pins that claim instead of the wire: the day a face with a native
+name is offered for one of those roles, it fails and names it.
+
+**THE CREDIT SPLIT WAS A FOURTH COPY OF A RULE THE REPO KEEPS IN LOCKSTEP.** `creditNames`
+split on comma, semicolon and ampersand by hand, with a comment arguing that honouring
+`creditSeparators` would load a preference into a list endpoint that needs none. Measured:
+"Martin Luther King, Jr." came back as two chips, the second of them "Jr."; "Gaiman and
+Pratchett" came back as one. Every chip here is a DOOR onto a person, so a bad split is a
+press that opens a record for somebody who does not exist. It calls `metadata.SplitCredits`
+with the reader's own separators now — the same function the credits table, the cast builder
+and the character console call — and keeps only the two-chip ceiling, which is this screen's
+own and is about the width of a phone.
+
+*Unreleased — `internal/httpapi/review_excluded.go`, `web/frontend/src/Settings.jsx`,
+`web/frontend/test/journeys/a-font-that-can-write-your-script.journey.mjs`,
+`web/frontend/test/journeys/putting-back-what-you-skipped.journey.mjs`.*

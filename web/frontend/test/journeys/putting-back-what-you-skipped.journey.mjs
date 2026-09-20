@@ -22,7 +22,8 @@
 // exact failure this screen exists to prevent.
 //
 // THE MUTATION: delete the `Art`/`People` fields from the group the server builds
-// and `see('Jacob Grimm')` fails; make the work's row draw its quotes without
+// and `see('Jacob Grimm')` fails; replace the chip's `onOpen` with a no-op and the
+// press below opens nothing, so the panel never appears; make the work's row draw its quotes without
 // being pressed and the `gone` before it fails; drop the `review: true` from the
 // restore and the reload at the end fails, because the line is still skipped.
 //
@@ -58,6 +59,21 @@ it('a reader skips a quote, finds the work on Settings, and puts it back', async
   await app.see("Grimm's Fairy Stories")
   await app.see('Jacob Grimm')
   await app.see('1 skipped')
+
+  // AND THE NAME IS A DOOR, which is the reason this screen mounts a panel host
+  // of its own: every credit in this app opens the person, and a chip that named
+  // an author and did nothing would be the same picture as one that works.
+  //
+  // TWO CHIPS, NOT ONE, and that is the shared splitter doing its job: the
+  // fixture stores this book's author as "Jacob Grimm and Wilhelm Grimm", and
+  // `metadata.SplitCredits` knows " and " between two full names is a list.
+  await app.press('Jacob Grimm')
+  // THE PERSON'S OWN SCREEN, named by something only it says. `see('Jacob
+  // Grimm')` would be true of the chip that was just pressed, which is how a
+  // dead door passes for a live one.
+  await app.see('Merge with another person')
+  await app.press('Close')
+  await app.gone('Merge with another person')
 
   // AND THE QUOTE IS NOT ON SCREEN until the work is opened — six works' worth of
   // prose is not a list anybody reads their way down.

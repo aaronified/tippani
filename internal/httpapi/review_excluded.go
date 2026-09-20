@@ -3,7 +3,8 @@ package httpapi
 import (
 	"database/sql"
 	"net/http"
-	"strings"
+
+	"tippani/internal/metadata"
 )
 
 // ── EVERY QUOTE YOU HAVE TOLD THE DECK TO SKIP, IN ONE PLACE.
@@ -56,42 +57,38 @@ type excludedGroup struct {
 
 // creditNames — a credit column into at most two names.
 //
-// IT SPLITS ON THE COMMON THREE AND NOT ON THE READER'S OWN SETTING, which is a
-// deliberate narrowing. `creditSeparators` is a preference because a library can
-// hold names that contain a comma ("Rowling, J. K.") and the reader knows which
-// their shelf uses; honouring it here would mean loading a preference into a list
-// endpoint that otherwise needs none. What this feeds is a row of chips under a
-// title — a hint at who wrote the thing, not the canonical credit — so the cost
-// of splitting a name that holds a comma is one chip too many on one row, and the
-// work's own page still shows it whole.
+// IT IS THE REPO'S OWN SPLITTER AND NOT A FOURTH COPY OF THE RULE. This function
+// used to split on comma, semicolon and ampersand by hand, with a comment arguing
+// that honouring `creditSeparators` would load a preference into a list endpoint
+// that needs none. The argument was wrong twice over, and a rating measured both:
+// "Martin Luther King, Jr." came back as two chips, the second of them "Jr.", and
+// "Gaiman and Pratchett" came back as one. Every chip on this screen is a DOOR
+// onto a person, so a bad split is not a cosmetic miss — it is a press that opens
+// a record for somebody who does not exist.
 //
-// TWO IS THE CEILING because the row it lands in is a phone's width. A work with
-// four authors shows two; the count is not printed, because "and 2 more" in a
-// chip row is a chip that answers nothing.
-func creditNames(credit string) []string {
-	if strings.TrimSpace(credit) == "" {
-		return nil
+// `metadata.SplitCredits` already answers all of it: the suffix table that
+// re-attaches Jr., Sr., III and Inc.; " and " splitting only in list context or
+// between two full names; "et al" dropped; case-insensitive dedupe. It is the
+// same function the credits table, the cast builder and the character console
+// call, and `people.jsx` mirrors it deliberately — a fifth copy here is exactly
+// what that lockstep exists to prevent.
+//
+// TWO IS STILL THE CEILING, because the row it lands in is a phone's width. A
+// work with four authors shows two; the count is not printed, because "and 2
+// more" in a chip row is a chip that answers nothing.
+func creditNames(credit string, seps metadata.CreditSeps) []string {
+	all := metadata.SplitCredits(credit, seps)
+	if len(all) > 2 {
+		return all[:2]
 	}
-	parts := strings.FieldsFunc(credit, func(r rune) bool {
-		return r == ',' || r == ';' || r == '&'
-	})
-	out := make([]string, 0, 2)
-	for _, p := range parts {
-		if n := strings.TrimSpace(p); n != "" {
-			out = append(out, n)
-			if len(out) == 2 {
-				break
-			}
-		}
-	}
-	return out
+	return all
 }
 
 // excludedFrom lists one source's excluded rows, newest work first. The text is
 // truncated by the CLIENT and not here: a row is a quote and the screen decides
 // how much of one it can draw, which is the difference between a list that can be
 // redesigned and a list whose shape is baked into a handler.
-func (s *Server) excludedFrom(uid int64, rs reviewSource) ([]excludedGroup, error) {
+func (s *Server) excludedFrom(uid int64, rs reviewSource, seps metadata.CreditSeps) ([]excludedGroup, error) {
 	// WHICH COLUMNS HOLD THE ART AND THE CREDIT, named per source rather than
 	// guessed from the table: a book has a cover and an author, a film has a
 	// poster and a director, and a standalone quote has neither. They are
@@ -154,7 +151,7 @@ func (s *Server) excludedFrom(uid int64, rs reviewSource) ([]excludedGroup, erro
 				// already has a setting for what those are — but this list is the
 				// one place that would have to learn it a second time. Two names
 				// is the honest ceiling for a chip row on a phone.
-				People: creditNames(credit),
+				People: creditNames(credit, seps),
 			})
 			at = len(out) - 1
 			byWork[key] = at
@@ -173,9 +170,12 @@ func (s *Server) excludedFrom(uid int64, rs reviewSource) ([]excludedGroup, erro
 // later.
 func (s *Server) handleReviewExcluded(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
+	// READ ONCE, FOR ALL THREE SOURCES. The reader's separators are one fact
+	// about them, not one per quote kind.
+	seps := s.creditSeps(uid)
 	var groups []excludedGroup
 	for _, rs := range []reviewSource{bookSource(), screenSource(), utteranceSource()} {
-		got, err := s.excludedFrom(uid, rs)
+		got, err := s.excludedFrom(uid, rs, seps)
 		if err != nil && err != sql.ErrNoRows {
 			writeErr(w, http.StatusInternalServerError, "could not read what is excluded")
 			return

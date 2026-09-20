@@ -14,6 +14,7 @@ import {
   quoteFontPatch,
   quoteFonts,
   registerUploads,
+  scriptProbe,
   serialiseFontStyles,
   specimenSample,
   stylesFor,
@@ -997,6 +998,31 @@ const specimenSize = (roleKey) => {
 function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSize, onRevert }) {
   const [stylesOpen, setStylesOpen] = useState(false)
   const styles = stylesFor(row.key)
+  // A MEASUREMENT IS NOT AN ANSWER UNTIL THE FONT IS LOADED, and the specimen
+  // below is decided by one. `hasScript` asks the canvas how wide this face sets
+  // a line of the script — and a canvas does not load a webfont, it only
+  // measures what is already there. So the face a reader has just chosen
+  // measures as though it had no Bengali in it, the row keeps its Latin line,
+  // and nothing re-renders to correct that: a journey that uploaded a Bengali
+  // face, gave it the interface and switched the app into Bengali watched the
+  // specimen stay in English, which is the bug this state exists to end.
+  //
+  // `document.fonts.load` IS THE ONLY THING THAT ASKS FOR IT. Bumping a counter
+  // when it resolves re-renders the row, which re-measures — so the rest state
+  // is correct on its own and the load merely arrives at it sooner. A browser
+  // with no font-loading API, or a face that fails to load, leaves the Latin
+  // line standing, which is the honest answer to "could not tell".
+  const [, setMeasured] = useState(0)
+  const family = row.chosen?.family
+  useEffect(() => {
+    if (!family || !script || typeof document === 'undefined' || !document.fonts?.load) return
+    let alive = true
+    document.fonts
+      .load(`40px "${family}"`, scriptProbe(script))
+      .then(() => { if (alive) setMeasured((n) => n + 1) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [family, script])
   return (
     <PrefRow
       label={t(row.label)}
@@ -1013,6 +1039,16 @@ function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSi
               both call; this section used to answer the question with a button
               into a panel instead, which is how one of them goes on being right
               while the other quietly stops. */}
+          {/* THE SCRIPT THE LIST IS BEING CHOSEN FOR — and, today, it names
+              nothing here. Every face offered for a Latin role is Latin-only and
+              has no entry in FACE_NAME_IN, so deleting this prop changes no pixel
+              and no test; a rating found exactly that and it is worth saying
+              rather than leaving a green suite to be read as proof. It stays
+              because the rule is the same rule the quote rows use, and the day a
+              face with a native name is offered for a role is the day a missing
+              prop would be a silent gap. `no-latin-role-has-a-native-name` in
+              test/pure/font-script-names.test.js fails on that day and points
+              here. */}
           <FaceSelect
             faces={row.faces}
             uploads={mine}
@@ -1082,15 +1118,21 @@ function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSi
         >
           {/* THE SPECIMEN FOLLOWS THE LANGUAGE, and only as far as the face can
               carry it. The owner's report was that changing the interface language
-              left these lines in English — they are keyed, so they always followed
-              the INTERFACE, but the interface's own samples are Latin sentences
-              and three of them had never been translated. Both halves are fixed:
-              the lines are Bengali in Bengali now, and a row being chosen for a
-              non-Latin script sets that script's line instead — where the face can
-              draw it. Where it cannot, the Latin line stays, because a Bengali
-              specimen rendered by the fallback shows the fallback's letterforms
-              under the chosen face's name, which is worse than showing nothing
-              about Bengali at all. */}
+              left these lines in English. They are keys and always followed the
+              interface — what was missing is that a LATIN-ONLY FACE CANNOT SHOW
+              BENGALI: a Bengali line set in Newsreader draws the fallback's
+              letterforms under Newsreader's name, which says something false about
+              the face being chosen. So the line switches to the script being
+              chosen for only where hasScript MEASURES that the face can draw it.
+
+              AND THE LATIN SAMPLES IN bn.txt STAY LATIN, deliberately. An earlier
+              draft of this comment claimed they had been translated; they have
+              not, and a rating caught the claim. Translating
+              vocab.font-role.display.sample into Bengali would put a Bengali
+              sentence on a row whose three faces are Latin-only, which is the
+              exact lie the rule above exists to prevent. `mono`'s is already
+              Bengali and that is why it is the one row a Bengali reader sees
+              change. */}
           {t(specimenSample(row, row.chosen?.family, script))}
         </p>
       }
@@ -1418,6 +1460,13 @@ function FontSections({ prefs, onSaved, onGo, index }) {
       key={row.key}
       row={row}
       scope={scope}
+      // THE SCRIPT WAS COMPUTED HERE AND NEVER HANDED DOWN, which made both
+      // halves of the script work dead on these rows: `script` was undefined
+      // inside FontRow, so every face kept its Latin name and every specimen its
+      // Latin line whatever language the reader was in. Nothing failed — the
+      // rows look identical when the answer is "could not tell" — and it took a
+      // journey uploading a real Bengali face to show it.
+      script={script}
       factor={factors[row.key]}
       mine={mine}
       warn={warn[row.key]}

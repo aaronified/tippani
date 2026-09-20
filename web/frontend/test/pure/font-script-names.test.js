@@ -12,7 +12,7 @@
 // script, it is very hard to see what it will show when chosen to render that
 // script."
 import { describe, expect, it } from 'vitest'
-import { FONT_ROLES, nativeFaceName, specimenSample } from '../../src/fonts.js'
+import { FONT_FACES, FONT_ROLES, FACE_NAME_IN, nativeFaceName, specimenSample } from '../../src/fonts.js'
 
 const role = (key) => FONT_ROLES.find((r) => r.key === key)
 
@@ -52,5 +52,34 @@ describe('the specimen a row sets', () => {
   it('falls back rather than guessing when the face cannot be measured', () => {
     expect(specimenSample(role('ui'), 'Inter', 'bengali')).toBe(role('ui').sample)
     expect(specimenSample(role('ui'), '', 'bengali')).toBe(role('ui').sample)
+  })
+})
+
+// THE RATCHET THAT MAKES THE INTERFACE ROWS' WIRING HONEST.
+//
+// Settings passes the active language's script to the face list on every row,
+// including the four Latin roles. Today that names nothing: every face offered
+// for display, ui, mono or hand is Latin-only and has no entry in FACE_NAME_IN,
+// so the prop could be deleted and the whole suite would stay green — a rating
+// measured that, and a green suite over a dead wire is worse than no test.
+//
+// SO THE CLAIM IS PINNED INSTEAD OF THE WIRE. The day somebody offers a face
+// with a native name for one of those roles, this fails and says which — and
+// whoever reads it is looking at the one screen where the name would have had to
+// follow the language and silently might not.
+describe('the faces offered for the Latin roles', () => {
+  it('have no native name, which is why nothing on those rows changes with the language', () => {
+    const latinRoles = FONT_ROLES.filter((r) => !r.script).map((r) => r.key)
+    const named = []
+    for (const role of latinRoles) {
+      for (const face of FONT_FACES[role] || []) {
+        if (FACE_NAME_IN[face.id]) named.push(`${role}: ${face.id}`)
+      }
+    }
+    expect(
+      named,
+      'a face with a native name is now offered for a Latin role — the interface rows pass the ' +
+      'active script to the picker, so check that it really reaches the list, and guard it',
+    ).toEqual([])
   })
 })
