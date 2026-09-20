@@ -8978,6 +8978,15 @@ export function ChipSwitches({ options, onToggle, ariaLabel, className = "" }) {
             // announces the lock in one of the two states is read as a plain
             // button half the time.
             aria-disabled={!!o.locked}
+            // A NAME OF ITS OWN WHERE THE WORDS ARE NOT UNIQUE. Review draws the
+            // same six questions twice — once for the daily deck, once for
+            // practice — so six pairs of buttons on one screen announced exactly
+            // the same thing, and the group label around them is context a
+            // screen reader gives on entry rather than on each button. The
+            // journey harness refuses an ambiguous name rather than guessing,
+            // which is how this surfaced; a reader on a screen reader had the
+            // same problem and no error message.
+            aria-label={o.ariaLabel || undefined}
             onClick={() => {
               if (o.locked) return;
               onToggle(o.key, !o.on);

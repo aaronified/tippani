@@ -1556,7 +1556,7 @@ function SRSettings({ user, onPreferences }) {
           the fixed ladder — ten values, all mirrored by the server → Open the
           numbers". It was a bare button under the groups. */}
       <PrefRow
-        label={t('settings.quiz.tuning.title')}
+        label={t('settings.quiz.in-depth.title')}
         sub={t('settings.quiz.in-depth.tip')}
         info={t('settings.quiz.tuning.info.body')}
         changed={tuningTouched}
@@ -1803,11 +1803,21 @@ function NeverAsked() {
 // in-depth panel's "back to defaults" clears `srQuestions`, the optimistic apply
 // puts the cleared value on `p`, and this re-derives.
 function QuestionKinds({ p, set, only = null }) {
-  const [qs, setQs] = useState(() => parseQuestions(p.srQuestions))
-  const commit = (next) => {
-    setQs(next)
-    set({ srQuestions: questionsBlob(next) })
-  }
+  // ONE SOURCE OF TRUTH, DERIVED, AND THIS COST A READER THEIR CHANGE. It held
+  // the whole question map — both decks — in a useState initialised once from the
+  // preferences and never re-derived. That was survivable while ONE of these was
+  // drawn; the moment the daily row and the practice row became two instances,
+  // each held its own copy of BOTH decks and each wrote the whole blob. So
+  // toggling a daily question and then a practice one PUT a daily list that had
+  // never heard about the first press: the reader's first change came back, in
+  // silence, and the chip on screen went on saying it had been made.
+  //
+  // `p` is the parent's preferences and `set` lifts every change into them, so
+  // deriving per render is both correct and optimistic — the same thing every
+  // other row on this section already does with p.srTier, p.srSubmit and the
+  // rest. There is nothing left for two instances to disagree about.
+  const qs = parseQuestions(p.srQuestions)
+  const commit = (next) => set({ srQuestions: questionsBlob(next) })
   return (
     <>
       {REVIEW_DECKS.filter(([deck]) => !only || deck === only).map(([deck, deckLabel]) => (
@@ -1843,6 +1853,10 @@ function QuestionKinds({ p, set, only = null }) {
             options={questionsFor(deck).map((q) => ({
               key: q.id,
               label: q.label,
+              // THE DECK IS PART OF THE NAME, because the words alone are not
+              // unique on this screen: the same six questions are offered to the
+              // daily deck and to practice, in two columns.
+              ariaLabel: t('settings.quiz.deck.question.aria', { question: q.label, name: deckLabel }),
               on: qs[deck].includes(q.id),
               // The hint, then the two axes the question sits on. Seven chips in
               // a row is a list you read as arbitrary unless something says which
@@ -1938,12 +1952,12 @@ function PracticeCounts({ p, set }) {
 }
 
 function SRDeepControls({ p, set, onClose }) {
-  const [qs, setQs] = useState(() => parseQuestions(p.srQuestions))
+  // THE QUESTION MAP LEFT WITH THE REPERTOIRES. This panel held a copy of it long
+  // after the chips moved onto the section, along with the writer that went with
+  // it — a second writer for `srQuestions` that nothing on screen could reach,
+  // which is the shape of thing that comes back to life the day somebody adds a
+  // row here.
   const [tune, setTune] = useState(() => parseTuning(p.srTuning))
-  const commit = (next) => {
-    setQs(next)
-    set({ srQuestions: questionsBlob(next) })
-  }
   // THE LADDER HAS TO CLIMB, and the server reverts one that does not — silently,
   // which would be three sliders that move and then do nothing. So the panel
   // refuses and says why, the same way a question toggle does, and the PUT is
@@ -1955,20 +1969,17 @@ function SRDeepControls({ p, set, onClose }) {
     if (!tuningProblem(next)) set({ srTuning: tuningBlob(next) })
   }
   const reset = () => {
-    setQs(parseQuestions(''))
     setTune(parseTuning(''))
-    // Every review preference, not only the questions: a reader who presses
-    // "Back to defaults" inside the in-depth panel means the panel, and leaving
-    // three switches behind would make it the least trustworthy button here.
-    set({
-      srQuestions: '',
-      srTuning: '',
-      srPracticeCounts: false,
-      srSubmit: false,
-      srLadder: false,
-      srTier: 'medium',
-      srSeen: 1,
-    })
+    // WHAT THIS PANEL HOLDS, AND NOTHING ELSE. It used to clear every review
+    // preference on the reasoning that "a reader who presses Back to defaults
+    // inside the in-depth panel means the panel" — which was true when the panel
+    // held the tier, the confirm switch, both repertoires, adaptive, the seen
+    // multiplier and the ten numbers. The panel is the ten numbers now; the rest
+    // are rows on the section, each with its own changed dot, and the section has
+    // its own Reset. A button that reached out of its panel and turned five
+    // visible rows back would be the least trustworthy control on the screen —
+    // which is the same sentence as before, pointing the other way.
+    set({ srTuning: '' })
   }
   return (
     <div className="space-y-6">

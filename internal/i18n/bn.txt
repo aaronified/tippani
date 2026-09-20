@@ -1350,11 +1350,13 @@ settings.quiz.group.deck.title = তাস আর সে কী জিজ্ঞ�
 settings.quiz.group.schedule.title = সময়সূচি
 settings.quiz.skipped.aside = উদ্ধৃতি ধরে ধরে
 settings.quiz.per-day.label = দৈনিক অনুশীলনীতে দিনে কটা কার্ড
+settings.quiz.in-depth.title = সময়সূচির পিছনের সংখ্যাগুলো
 settings.quiz.in-depth.label = সংখ্যাগুলো খুলুন
 settings.quiz.in-depth.tip = গুণক আর বাঁধা মই — দশটা মান, সবকটাই সার্ভারেও আছে
 settings.quiz.panel.title = সময়সূচি কীভাবে সরে
 # {name} is the deck — Daily quiz, or Practice.
 settings.quiz.deck.title = {name} যা জিজ্ঞেস করে
+settings.quiz.deck.question.aria = {question} — {name}
 settings.quiz.deck.daily.info.body = দৈনিক ডেকের খাতা গোড়া থেকে শেষ পর্যন্ত সার্ভার দেখে, তাই নিজে-নম্বর-দেওয়ার কার্ড এখানে আসে না। সেই কারণেই উল্টে দেখার কার্ডটা এই তালিকায় বন্ধ করা নেই — একেবারেই নেই।
 settings.quiz.deck.practice.info.body = ঝালাই শুরু হয় উল্টে দেখার কার্ড দিয়ে, বাকিগুলো ঘুরিয়ে ফিরিয়ে আসে। ঝালাইয়ে স্কোর চালু করলে ওই কার্ডটা বাদ পড়ে, কারণ নিজে দেওয়া নম্বর কেউ মিলিয়ে দেখে না।
 settings.quiz.practice-counts.title = ঝালাইতেও দিনপঞ্জি বদলায়

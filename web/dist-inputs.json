@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "d30bef718fcbae61a33cbf709c03237e4a6f08f29224559b7faaf0c0d3e7e713",
-    "internal/i18n/en.txt": "3e79f39e2258b7e24d6df5b66879da8e9c17fbcb33a5317538eb9247120b8455",
+    "internal/i18n/bn.txt": "0eefe3b73ab2047bc0fa6c64c6872e50986328cc2b555ae5392fa23841061bfd",
+    "internal/i18n/en.txt": "22796ba17d39f9c64a29554670130f4a76c61992c7e8719f766842d359b67246",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -42,7 +42,7 @@
     "web/frontend/src/ReverifyReview.jsx": "d1971b7b7f3e44925a03b961b8b788d7e9499f1b736f5ad78fce91e9b451d167",
     "web/frontend/src/SearchPage.jsx": "a6393e085e6a11e8aff3734f3a18d8a1c93fffc275dba3da6e81970ac2ab40ae",
     "web/frontend/src/SelectionBar.jsx": "2d7c4821a89a557cebcc969f722cc86cf44dad5e0dbc8d79a15dfb62df90b913",
-    "web/frontend/src/Settings.jsx": "2d286c039c49fa843b4ab043ff87f5827294acd098b845017e468d4bdf26ccf3",
+    "web/frontend/src/Settings.jsx": "ee58897219b1338af22bb5e7914c7a4f7d426f219ce951603c20e533246aaf9c",
     "web/frontend/src/StagingPage.jsx": "df61407fb08f0796edbc195a080a1772a3731723bf02b60b503f6bf5e95fec2d",
     "web/frontend/src/StatsPage.jsx": "ec749ff8a96783ce0183ea17f9727d00cbaa964a5d3c5d849617f649f9e9002e",
     "web/frontend/src/TagsPage.jsx": "c9f794eeec2e5c3f4e200b7ee31f9a74694ccddc14eaadadf78dcc2890c07d8d",
@@ -150,7 +150,7 @@
     "web/frontend/src/tokens.js": "a0aee4ab34d8521c5c858214a040e84ebeb8b7c509e8e4a7a633554ba54022c1",
     "web/frontend/src/tour.jsx": "fcc45d09bfb861167f363265453a5457ff341b6ce5bbeae077e4acd723036a61",
     "web/frontend/src/type.js": "3cf44432b2659f7c6101bf0f7196a7036fb377a94e7fe20bc2d614301e79064b",
-    "web/frontend/src/ui.jsx": "670c71f62d298205e47afb1559b949548c3f30e4df8d2d1fc168d33a6b544459",
+    "web/frontend/src/ui.jsx": "a9a74b818cfec94b85637dfc624ee84d79f60b0847a9518ac93ec92e3d211d3d",
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
     "web/frontend/src/update.js": "b30d91b8a80432e7e68145b3944a0a947f6a1685485cc00c95704ef276b40a42",
     "web/frontend/src/vocabulary.js": "9485138ce686ee2ca34e619f6087260bb0a68f032d864e6dddccdbf564ae70fb",

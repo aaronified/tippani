@@ -1352,11 +1352,13 @@ settings.quiz.group.deck.title = The deck and what it asks
 settings.quiz.group.schedule.title = Schedule
 settings.quiz.skipped.aside = quote-level flags
 settings.quiz.per-day.label = Daily quiz cards / day
+settings.quiz.in-depth.title = The numbers behind the schedule
 settings.quiz.in-depth.label = Open the numbers
 settings.quiz.in-depth.tip = Multipliers and the fixed ladder — ten values, all mirrored by the server
 settings.quiz.panel.title = How the schedule moves
 # {name} is the deck — Daily quiz, or Practice.
 settings.quiz.deck.title = {name} asks
+settings.quiz.deck.question.aria = {question} — {name}
 settings.quiz.deck.daily.info.body = The daily deck is marked by the server from end to end, so it never offers a self-marked card. That is why the flip card is missing from this list rather than switched off in it.
 settings.quiz.deck.practice.info.body = Practice leads with the flip card and varies the rest. Turn Practice scoring on and the flip card drops out, because nothing checks a self-marked answer.
 settings.quiz.practice-counts.title = Practice moves the schedule

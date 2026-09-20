@@ -46,9 +46,52 @@ it('a reader sets where a new line starts, with nothing opened first', async () 
   // AND THE TEN NUMBERS ARE STILL BEHIND THEIR DOOR, which is the other half of
   // the split: what a reader comes back for is on the screen, what they set once
   // is not.
-  await app.gone('Recall multiplier')
+  //
+  // THE LABEL IS ONE THE APP ACTUALLY HAS. This read `gone('Recall multiplier')`,
+  // a string that appears in no locale file, no source file and no prototype — so
+  // it could not fail, and a rating caught it being sold as coverage. "Correct
+  // answer stretches by" is the first of the ten.
+  await app.gone('Correct answer stretches by')
 
   // Leave the world as it was found: this is a shared fixture.
   await app.press('Not seen')
+  expect(app.pageErrors(), 'the page threw on the way').toEqual([])
+})
+
+// AND THE TWO REPERTOIRES ARE TWO SETTINGS, NOT ONE WRITTEN TWICE.
+//
+// WHAT THIS GUARDS, AND IT IS A DEFECT THIS SESSION SHIPPED. The daily deck's
+// questions and practice's are drawn by two instances of one component, in two
+// columns. That component used to hold the whole map — BOTH decks — in state
+// initialised once and never re-derived, and each instance wrote the whole blob.
+// So a reader who turned one daily question off and then touched a practice chip
+// had their first change silently restored by the second press, while the chip on
+// screen went on claiming it had been made. One deck's worth of presses could
+// never see it; this presses one in each.
+//
+// THE MUTATION: put `useState` back around the question map in QuestionKinds and
+// this fails on the daily assertion after the reload.
+it('turns a question off in each deck, and both are still off after a reload', async () => {
+  await app.goto('/settings')
+  await app.press('Review')
+
+  // EACH CHIP NAMES ITS DECK, because the same six questions are offered to both
+  // and "Who wrote this?" alone would be two controls with one name — which the
+  // harness refuses to guess between, and which a screen reader could not tell
+  // apart either.
+  await app.press('Who wrote this? — Daily quiz')
+  expect(await app.chosen('Who wrote this? — Daily quiz'), 'the daily question did not go off').toBe(false)
+
+  await app.press('Who wrote this? — Practice')
+  expect(await app.chosen('Who wrote this? — Practice')).toBe(false)
+
+  await app.goto('/settings')
+  await app.press('Review')
+  expect(await app.chosen('Who wrote this? — Daily quiz'), 'the daily change was undone by the practice press').toBe(false)
+  expect(await app.chosen('Who wrote this? — Practice'), 'the practice change was not kept').toBe(false)
+
+  // Leave the world as it was found.
+  await app.press('Who wrote this? — Daily quiz')
+  await app.press('Who wrote this? — Practice')
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })
