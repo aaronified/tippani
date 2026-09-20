@@ -17341,3 +17341,63 @@ gesture to discover, and the owner asked for one list rather than two; they stay
 *Unreleased — `web/frontend/src/Settings.jsx`, `web/frontend/src/coverFit.js`,
 `web/frontend/test/pure/cover-fit.test.js`, `web/frontend/test/dom/features-card.test.jsx`,
 `internal/i18n/en.txt`, `internal/i18n/bn.txt`.*
+
+## Sections, second pass: the pack's own layout, inverted
+
+**THE FIRST CUT HAD THE PACK'S WIDE RULE EXACTLY BACKWARDS, AND IT LEFT A HOLE.** The pack
+special-cases this one screen — `(g.wide || (s.id === 'sections' && i === 0))` at
+`settings-restructured.dc.html:3311` — spanning the ORDER list across both columns and
+letting the two tuners pair beneath it. Its reason is written beside it: *"The list of
+sections is a list of rows with controls at their ends: it reads across the whole measure,
+and the tuners pair beneath it."* The first cut marked the two slider groups `wide` and left
+the order list narrow, which is the same rule applied to the wrong groups.
+
+**MEASURED, BEFORE AND AFTER, AT 1280.** Before: the order group drew 457px at x=281 with the
+two specimen groups 954px stacked under it — roughly 480×344 of the card's right half empty
+beside the list, the page 1273px tall. After: the order group spans 954px, the two tuners sit
+side by side at 457px each, and the page is **952px** — 321px shorter, with nothing empty. At
+390 nothing changed, which is the point of the rule only applying to the first group.
+
+**AND THE SPECIMEN'S COUNT FOLLOWS THE COLUMN, WHICH IS THE ARGUMENT FOR MEASURING RATHER
+THAN COUNTING TO THREE.** In a 457px column a 165px cover fits twice, not three times
+(two cost 344 and three would need 523), so the desk now draws two and the phone one. A
+hard-coded three would have been wrong at BOTH widths after this layout change, not just on
+the phone the owner reported it from.
+
+**THE CORRECTION THIS OWES THE ENTRY ABOVE.** That entry records "at 1280 the specimen column
+is 954px and draws three covers at 165 and three posters at 150". That was true of the
+inverted layout and is not true now: the column is 457px and draws two of each. The numbers
+there are superseded by the ones here.
+
+**THE GAP IS ASKED FOR NOW, NOT REMEMBERED.** It was the literal `14` with a comment pointing
+at `.cover-specimen` in `index.css` — two copies of one number joined by nothing a tool can
+check, so a stylesheet edit would have left every count quietly one cover out. The element
+knows its own `column-gap` and a computed style resolves it to pixels, so the component asks.
+
+**THE WIRING HAS A TEST NOW, AND IT IS A DOM TEST RATHER THAN A JOURNEY, DELIBERATELY.** This
+repo reaches for the browser tier first, and here it cannot: the specimen is `aria-hidden`
+and correctly so — it is a picture of a size, not content, and a reader announcing three
+untitled covers under a slider would be noise. A journey sees the accessibility tree, so
+there is nothing in it to assert. The pure test owns the arithmetic and PASSED for the
+version that drew one cover on a 954px desk, because the defect was in the wiring rather than
+the sum. `test/dom/cover-specimen-fits.test.jsx` holds that half: the component measures
+AFTER the shelf arrives, measures again when its box changes, and reads its gap from the
+element. Putting the old ref-plus-mount-effect back fails two of its three cases.
+
+**THE PACK'S `step: 5` IS NOT CARRIED, AND THE ARITHMETIC IS THE REASON.** Its slider rows
+say `min: 96, max: 240, step: 5` (`:2731`, `:2736`) and, three lines later, compare against
+defaults of 165 and 150. With a minimum of 96 a step of 5 admits 96, 101, 106 … — and
+165 − 96 = 69 and 150 − 96 = 54, neither divisible by 5, so NEITHER OF THE PACK'S OWN
+DEFAULTS is reachable on the pack's own ladder. A browser snaps an out-of-step value to the
+nearest rung, so carrying it would silently move every stored size by up to two pixels and
+make the default unselectable. The pack is internally inconsistent here and the app keeps a
+step of 1 rather than copying the inconsistency.
+
+**AND THE CHANGED MARK, RECORDED RATHER THAN LEFT IMPLICIT.** The pack marks these sliders
+`changed: v.coverBooks !== 165`; the app draws no mark on either. They are device-local — held
+in this browser's storage, never on the account — and the section's changed count is of
+preferences the SERVER holds, so a mark here would put a number on the tab that the account
+cannot account for. The aside "this device" is what says it instead.
+
+*Unreleased — `web/frontend/src/Settings.jsx`,
+`web/frontend/test/dom/cover-specimen-fits.test.jsx`.*

@@ -2853,7 +2853,19 @@ function FeaturesCard({ prefs, onSaved }) {
           read routes.js through one `visibleTabs`, which orders as well as
           filters. */}
       <PrefColumns>
-      <PrefGroup index={1} title={t('settings.features.order.title')} info={t('settings.features.order.prose')}>
+      {/* THE ORDER LIST SPANS, AND THE TUNERS PAIR BENEATH IT — the pack's own
+          rule, which the first cut of this screen had exactly backwards. It
+          special-cases this one group: `(g.wide || (s.id === 'sections' && i ===
+          0))` at settings-restructured.dc.html:3311, with the reason written
+          beside it — "The list of sections is a list of rows with controls at
+          their ends: it reads across the whole measure, and the tuners pair
+          beneath it."
+
+          MARKING THE SLIDERS WIDE INSTEAD LEFT A HOLE. Measured at 1280: the
+          order group drew 457px and the two specimen groups 954px stacked under
+          it, so about 480×344 of the card's right half stood empty beside the
+          list — on the screen the "use the space available" ruling is for. */}
+      <PrefGroup index={1} title={t('settings.features.order.title')} info={t('settings.features.order.prose')} wide>
         {order.map((tab, i) => {
           const sec = SECTIONS.find((x) => x.tab === tab)
           if (!sec) return null
@@ -2928,10 +2940,10 @@ function FeaturesCard({ prefs, onSaved }) {
           WIDE, BOTH OF THEM. A specimen is three covers at up to 240px each, so
           half a card cannot hold one; `wide` is the group's own say about that,
           and it is exactly the case PrefColumns documents. */}
-      <PrefGroup index={2} title={t('settings.features.covers.title')} aside={t('settings.features.sizes.aside')} wide>
+      <PrefGroup index={2} title={t('settings.features.covers.title')} aside={t('settings.features.sizes.aside')}>
         <SizeSlider ariaLabel={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} kind="book" works={shelf.book} />
       </PrefGroup>
-      <PrefGroup index={3} title={t('settings.features.posters.title')} aside={t('settings.features.sizes.aside')} wide>
+      <PrefGroup index={3} title={t('settings.features.posters.title')} aside={t('settings.features.sizes.aside')}>
         <SizeSlider ariaLabel={t('settings.appearance.film-size.label')} storageKey="tippani:size:movies" def={150} kind="poster" works={shelf.poster} />
       </PrefGroup>
       </PrefColumns>
@@ -3663,19 +3675,27 @@ function CoverSpecimen({ size, kind, works }) {
   // runs again: the measured room stays 0 for ever and the specimen draws one
   // cover on a 954px desk. A callback ref fires when the node itself appears,
   // which is the question being asked.
-  const [room, setRoom] = useState(0)
+  // AND THE GAP IS ASKED FOR, NOT REMEMBERED. It was the literal 14 with a comment
+  // pointing at `.cover-specimen` in index.css — two copies of one number, joined
+  // by nothing a tool can check, so a stylesheet edit would leave every count
+  // quietly one cover out. The element knows its own gap; `column-gap` resolves to
+  // pixels in a computed style, so this asks it.
+  const [box0, setBox] = useState({ room: 0, gap: 0 })
   const seen = useRef(null)
   const box = useCallback((el) => {
     if (seen.current) { seen.current.disconnect(); seen.current = null }
     if (!el) return
-    setRoom(el.getBoundingClientRect().width)
+    const read = () => setBox({
+      room: el.getBoundingClientRect().width,
+      gap: parseFloat(getComputedStyle(el).columnGap) || 0,
+    })
+    read()
     if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => setRoom(el.getBoundingClientRect().width))
+    const ro = new ResizeObserver(read)
     ro.observe(el)
     seen.current = ro
   }, [])
-  const gap = 14 // .cover-specimen's own gap; see index.css
-  const cells = works.slice(0, coversThatFit(room, size, gap, 3))
+  const cells = works.slice(0, coversThatFit(box0.room, size, box0.gap, 3))
   if (works.length === 0) return null
   return (
     <div className="cover-specimen" ref={box} aria-hidden="true">
