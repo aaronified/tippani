@@ -1,12 +1,21 @@
 // The cover specimen draws as many covers as the room holds, and finds out how
 // much room there is.
 //
-// WHY THIS IS NOT A JOURNEY, which is the tier this repo reaches for first. The
-// specimen is `aria-hidden="true"` and correctly so: it is a picture of a size,
-// not content, and a screen reader announcing three untitled covers under a
-// slider would be noise. A journey sees the accessibility tree, so there is
-// nothing there for it to assert. The behaviour is real and needs a test, so it
-// gets the tier that can see it.
+// THERE IS A JOURNEY OVER THIS TOO, AND THE REASON FIRST GIVEN FOR THERE NOT
+// BEING ONE WAS WRONG. This header said: the specimen is `aria-hidden`, a journey
+// sees the accessibility tree, so there is nothing there to assert. The first half
+// is true; the second is not. `see` and `gone` poll `document.body.innerText`
+// (test/journeys/harness/screen.mjs), and `aria-hidden` hides an element from
+// assistive technology without taking its text out of the rendering — the sample
+// prints each work's title, so it was reachable all along.
+// `sizing-a-cover-on-a-phone.journey.mjs` and a case in
+// `putting-a-section-first.journey.mjs` cover the counts at 390 and 1280.
+//
+// WHAT IS LEFT FOR THIS FILE is the part a browser cannot be made to show on
+// demand: that the component measures AFTER its works arrive, measures AGAIN when
+// its box changes, and reads the gap off the element. A journey can see the count
+// at the two widths the harness runs; it cannot resize a box mid-test or make the
+// shelf arrive late.
 //
 // WHY NOT THE PURE TEST EITHER. `test/pure/cover-fit.test.js` owns the arithmetic
 // — a width, a size and a gap in, a count out — and it passed for the version of
@@ -129,6 +138,23 @@ describe('the cover specimen', () => {
     await openSections()
     await waitFor(() => expect(document.querySelector('.cover-specimen')).toBeTruthy())
     await waitFor(() => expect(cellsIn()).toBe(1))
+  })
+
+  // AND A SIZE STORED BEFORE THE SLIDER HAD A STEP IS PUT ON THE LADDER.
+  //
+  // THE PURE TEST IS NOT ENOUGH FOR THIS, which is the same gap this file already
+  // exists to close once: `coverSizeOnLadder` has its own cases in
+  // test/pure/cover-fit.test.js, and removing the call to it from `useCoverSize`
+  // leaves every one of them green. What has to be pinned is that the HOOK asks.
+  // A reader with 123 in storage otherwise sees a handle snapped to 125 by the
+  // browser and a readout still saying 123, with no press to blame it on.
+  it('puts a size stored before the slider had a step onto the ladder', async () => {
+    localStorage.setItem('tippani:size:books', '123')
+    ROOM = 954
+    await openSections()
+    await waitFor(() => expect(screen.getByText('125px')).toBeTruthy())
+    expect(screen.queryByText('123px'), 'the readout kept an off-ladder size').toBeNull()
+    localStorage.removeItem('tippani:size:books')
   })
 
   // AND IT ASKS AGAIN WHEN THE BOX CHANGES. The observer is the half a one-shot

@@ -2947,10 +2947,10 @@ function FeaturesCard({ prefs, onSaved }) {
           was fixed at three. It is not: the sample sizes itself to whatever column
           it is given, which is what makes pairing them possible at all. */}
       <PrefGroup index={2} title={t('settings.features.covers.title')} aside={t('settings.features.sizes.aside')}>
-        <SizeSlider ariaLabel={t('settings.appearance.book-size.label')} storageKey="tippani:size:books" def={165} kind="book" works={shelf.book} />
+        <SizeSlider ariaLabel={t('settings.features.book-size.label')} storageKey="tippani:size:books" def={165} kind="book" works={shelf.book} />
       </PrefGroup>
       <PrefGroup index={3} title={t('settings.features.posters.title')} aside={t('settings.features.sizes.aside')}>
-        <SizeSlider ariaLabel={t('settings.appearance.film-size.label')} storageKey="tippani:size:movies" def={150} kind="poster" works={shelf.poster} />
+        <SizeSlider ariaLabel={t('settings.features.film-size.label')} storageKey="tippani:size:movies" def={150} kind="poster" works={shelf.poster} />
       </PrefGroup>
       </PrefColumns>
     </Card>

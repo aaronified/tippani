@@ -17315,11 +17315,19 @@ shape. It is now measured from the element's own width, so the count answers the
 browser just answered rather than a breakpoint that a card, a column or a font change would
 falsify.
 
-**THE MEASUREMENTS, BOTH WIDTHS, AFTER.** At 1280 the specimen column is 954px and draws
-three covers at 165 and three posters at 150, one line each. At 390 the column is 316px and
-draws **one** cover at 165 but **two** posters at 150 — the two answers differing is the whole
-point, and is exactly what a hard-coded three could not get right for both. Neither width
-scrolls sideways and neither has a single element crossing the viewport.
+**THE MEASUREMENTS, BOTH WIDTHS, AFTER — AND BOTH OF THESE NUMBERS WERE LATER FOUND WRONG,
+so they are struck here rather than left to be quoted.** The paragraph read: at 1280 the
+column is 954px and draws three covers at 165 and three posters at 150; at 390 the column is
+316px and draws one cover at 165 but two posters at 150.
+
+The desktop figure was superseded by the layout correction in the next entry — the column is
+457px, not 954px. The PHONE figure was never right at all. `useCoverSize` defaults to 100 on
+a narrow screen and 165 otherwise; the probe that produced it ran the desk first, and the 165
+it stored there came back through `localStorage` on the phone pass. **A reader arriving on a
+phone gets 100px cells and sees TWO covers**, which is what
+`sizing-a-cover-on-a-phone.journey.mjs` asserts. What survives from the paragraph is the part
+that was measured rather than inferred: neither width scrolls sideways, and neither has an
+element crossing the viewport.
 
 **THE BUG IN THE FIX, CAUGHT BY MEASURING RATHER THAN BY READING.** The first version used a
 `useRef` plus a `useEffect` with an empty dependency list. The shelf arrives over the network,
@@ -17360,9 +17368,10 @@ side by side at 457px each, and the page is **952px** — 321px shorter, with no
 
 **AND THE SPECIMEN'S COUNT FOLLOWS THE COLUMN, WHICH IS THE ARGUMENT FOR MEASURING RATHER
 THAN COUNTING TO THREE.** In a 457px column a 165px cover fits twice, not three times
-(two cost 344 and three would need 523), so the desk now draws two and the phone one. A
-hard-coded three would have been wrong at BOTH widths after this layout change, not just on
-the phone the owner reported it from.
+(two cost 344 and three would need 523), so the desk now draws two. The phone draws two as
+well, and for a different reason — its cells start at 100px, so three would cost 328 against
+a 316px column. A hard-coded three would have been wrong at BOTH widths after this layout
+change, not just on the phone the owner reported it from.
 
 **THE CORRECTION THIS OWES THE ENTRY ABOVE.** That entry records "at 1280 the specimen column
 is 954px and draws three covers at 165 and three posters at 150". That was true of the
@@ -17441,3 +17450,47 @@ depending on whether the gap was read at all.
 `web/frontend/test/dom/features-card.test.jsx`,
 `web/frontend/test/dom/cover-specimen-fits.test.jsx`,
 `web/frontend/test/pure/cover-fit.test.js`.*
+
+## Sections, third pass: a stored size that disagreed with its own handle
+
+**CARRYING THE PACK'S `step: 5` CREATED A DEFECT NOBODY HAD LOOKED FOR, AND A RATING ASKED
+THE QUESTION THAT FOUND IT.** Sizes have been saved since long before the slider had a step,
+so a browser holding 123 is ordinary. A range with `min=95 step=5` SNAPS that to 125 in the
+DOM and fires no event — so the handle sat on 125 while React's state, the "123px" readout
+beside it and the two grids reading the same key all still said 123. Three places disagreeing
+with the control, with no press to blame it on, and nothing in the change or its documents
+mentioned it because the question "what happens to a reader already off the new ladder" was
+never asked.
+
+`useCoverSize` puts a stored size on the ladder on the way in. Such a reader moves by at most
+two pixels, once, and what is stored, what is drawn and where the handle sits are one number
+from the first paint.
+
+**AND THE TEST FOR IT IS IN TWO TIERS, FOR A REASON THIS PASS HAD ALREADY BEEN CAUGHT BY.**
+`coverSizeOnLadder` is arithmetic and has pure cases. Removing the call to it from the hook
+leaves every one of them green — which is exactly the shape of the gap found one pass earlier,
+where the gap read was untested by the suite written for it. So a dom case renders the screen
+with 123 in storage and reads the number off it. Pinning a function and pinning that anything
+CALLS it are two different tests, and the first is worthless alone.
+
+**THREE PIECES OF PROSE WERE WRONG AND ARE CORRECTED IN PLACE.** The entry two above still
+gave the phone as one cover at 165 — the measurement that came from probe ordering — and the
+entry above it still said "the desk now draws two and the phone one". Both are corrected
+where they stand rather than contradicted from further down the file, because a reader
+looking up this decision finds the first copy. The new journey's own title said "one sample
+cover" while its body asserted two, so a failing run would have printed a sentence that was
+not true. And `cover-specimen-fits.test.jsx` still opened with the refuted claim that a
+journey cannot see this: the wiki was corrected on that point in the previous commit and the
+test header was not.
+
+**THE TWO SIZE SLIDERS' LABELS ARE NAMED FOR THE SCREEN THEY ARE ON.** They were
+`settings.appearance.book-size.label` and `…film-size.label`, from when the sliders lived on
+Appearance; they are `settings.features.*` now. No reader sees the difference — the keys
+resolve to the same words, and the words are the ranges' accessible names — but a key that
+names the wrong screen is how the next person looking for this control fails to find it.
+
+*Unreleased — `web/frontend/src/ui.jsx`, `web/frontend/src/Settings.jsx`,
+`web/frontend/test/pure/cover-fit.test.js`,
+`web/frontend/test/dom/cover-specimen-fits.test.jsx`,
+`web/frontend/test/journeys/sizing-a-cover-on-a-phone.journey.mjs`,
+`internal/i18n/en.txt`, `internal/i18n/bn.txt`.*

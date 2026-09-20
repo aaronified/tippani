@@ -118,6 +118,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A cover size saved before this release lands on the new ladder.** The sliders move in
+  fives now, and a size saved when they moved by ones could sit between two stops — the
+  handle on one number and the reading beside it on another. Yours is nudged to the nearest
+  stop the first time you open Settings, by at most two pixels.
+
 - **The cover and poster sliders move in steps of five.** Dragging one used to creep a
   pixel at a time over a range of a hundred and fifty; it now moves in fives, which is what
   the design called for and what makes the two ends reachable without a long drag.

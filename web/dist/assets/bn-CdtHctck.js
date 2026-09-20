@@ -1561,8 +1561,8 @@ settings.material.quarry.label = খাদান
 settings.material.atrium.label = অলিন্দ
 # {name} is one of the vocab.accent.* words.
 settings.appearance.accent.aria = {name} অ্যাকসেন্ট
-settings.appearance.book-size.label = গ্রন্থাগারের কভারের মাপ
-settings.appearance.film-size.label = ক্যাটালগের পোস্টারের মাপ
+settings.features.book-size.label = গ্রন্থাগারের কভারের মাপ
+settings.features.film-size.label = ক্যাটালগের পোস্টারের মাপ
 
 # The global dial. It RENORMALISES rather than multiplying: moving it writes
 # itself into all four kinds (type.js).

@@ -1569,8 +1569,8 @@ settings.material.quarry.label = Quarry
 settings.material.atrium.label = Atrium
 # {name} is one of the vocab.accent.* words.
 settings.appearance.accent.aria = {name} accent
-settings.appearance.book-size.label = Library cover size
-settings.appearance.film-size.label = Catalogue poster size
+settings.features.book-size.label = Library cover size
+settings.features.film-size.label = Catalogue poster size
 
 # The global dial. It RENORMALISES rather than multiplying: moving it writes
 # itself into all four kinds (type.js).

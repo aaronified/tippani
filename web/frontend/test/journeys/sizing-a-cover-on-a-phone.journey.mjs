@@ -1,5 +1,6 @@
 // A reader on a phone opens Sections and sees a sample of their shelf at the size
-// it is set to — one cover, not a row of them broken over two lines.
+// it is set to — as many covers as the column holds, not a row of them broken
+// over two lines.
 //
 // WHY THIS EXISTS, AND WHY IT IS A JOURNEY AFTER ALL. The size sliders each draw a
 // sample of the reader's own first works at the size the handle is on. The sample
@@ -42,7 +43,7 @@ const FIRST = 'Almanac Ember'
 const SECOND = 'Marram Ke'
 const THIRD = 'Reed Reed Reed'
 
-it('a reader on a phone gets one sample cover, not a row that will not fit', async () => {
+it('a reader on a phone gets a sample that fits the column, not one that wraps', async () => {
   await app.goto('/settings')
   await app.press('Sections')
 

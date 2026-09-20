@@ -3853,12 +3853,24 @@ export function Hearts({ value, onChange }) {
 // carry the pack's `step: 5`, and HTML steps from the minimum, so a floor of 96
 // would put 150 and 165 — the app's own two defaults — between rungs. 95 lands
 // every value this app uses on the ladder. See SizeSlider in Settings.jsx.
-export function useCoverSize(key, def = 150, min = 95, max = 240) {
+// AND A STORED SIZE IS PUT ON THE LADDER BEFORE IT IS USED. Sizes were saved for
+// a long time before the slider had a step, so a browser holding 123 is ordinary.
+// A range with `min=95 step=5` SNAPS that to 125 in the DOM and fires no event,
+// so the handle sits on 125 while React's state, the "123px" readout beside it
+// and the grids reading this key all still say 123 — three places disagreeing
+// with the control, and no press to blame it on. Snapping on the way in means
+// what is stored, what is drawn and what the handle shows are one number from the
+// first paint. It moves such a reader by at most two pixels, once.
+export function coverSizeOnLadder(v, min, max, step) {
+  return Math.min(max, Math.max(min, min + Math.round((v - min) / step) * step));
+}
+
+export function useCoverSize(key, def = 150, min = 95, max = 240, step = 5) {
   const [size, setSize] = useState(() => {
     const v = Number(
       typeof localStorage !== "undefined" && localStorage.getItem(key),
     );
-    if (v >= min && v <= max) return v;
+    if (v >= min && v <= max) return coverSizeOnLadder(v, min, max, step);
     // No stored value — use a smaller default on narrow screens.
     return isMobileScreen() ? 100 : def;
   });
