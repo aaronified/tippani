@@ -118,6 +118,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **"New lines start at" now does something.** Set it to Mastered and a line you have
+  never been asked about enters the schedule at the far end, as the row has always said it
+  would — for a library you already know. It was a control the app stored and then ignored:
+  every first answer started at the same place whatever you had chosen. Get one wrong and
+  it comes straight back to the front, which is the other half of what the row promises.
+
 - **Reset section now actually resets the section.** It cleared every preference on screen
   and kept none of it: the next time you loaded Settings, everything you had just reset came
   back. It is written to the server now, like every other change on those screens.
@@ -127,9 +133,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Settings that had not been given rows. Each is a row now, its name beside its slider, the
   same as the screen you opened it from.
 
-- **Practice has its own heading.** How many practice cards you get and what practice asks
-  you were filed under "Schedule", which is neither. Review's groups read: the deck and what
-  it asks, the schedule, practice, and what is never asked about.
+- **Practice has its own heading.** Whether practice moves the schedule, and what practice
+  asks you, were filed under "Schedule" — which is the first of those and not the second.
+  Review's groups read: the deck and what it asks, the schedule, practice, and what is
+  never asked about.
 
 ### Added
 

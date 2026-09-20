@@ -2975,6 +2975,33 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// WHERE A LINE ENTERS THE SCHEDULE — the reader's `srStart`, which until now
+	// was stored, normalised, drawn as a row on the Review section and read by
+	// nothing. The row promised "Mastered starts it at the far end, for a library
+	// you already know — it still comes round, just rarely, and a wrong answer
+	// brings it back", and the schedule seeded every first answer at the floor
+	// whatever the reader had chosen.
+	//
+	// IT IS SEEDED HERE AND NOWHERE EARLIER, because "entering the schedule" is
+	// the first ANSWER and not the first sight: a card with no `item_reviews` row
+	// is what the deck's unseen bucket is made of, so writing a row ahead of time
+	// would take the line out of the bucket it is supposed to arrive through.
+	//
+	// AND A WRONG FIRST ANSWER GOES TO THE FLOOR IN BOTH MODES. The top rung here
+	// is an ASSUMPTION the reader made about their own library, not a half-life
+	// any answer earned, so it does not deserve the gentle treatment an earned one
+	// gets: adaptive's ordinary lapse would shrink 365 days to 182 and leave
+	// somebody who just got it wrong waiting half a year, which is not what the
+	// row says happens. A card that has been answered before is untouched by this
+	// and keeps whichever rule the reader is on.
+	if !found && pf.SRStart == startMastered {
+		if req.Result == "forgot" {
+			stability = tuning.Ladder1
+		} else {
+			stability = tuning.Ladder4
+		}
+	}
+
 	// Daily idempotency: the deck already excludes cards answered today, so a
 	// well-behaved client never re-answers one. A stale second device or a
 	// retried POST could, and re-applying growth would compound the half-life

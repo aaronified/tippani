@@ -1959,9 +1959,15 @@ function HowItAsks({ p, set }) {
   )
 }
 
-// PracticeMovesTheSchedule — the one row of "how it asks" that is about the
-// SCHEDULE, so it is in the schedule's group and not with the questions. It is
-// the switch people reach for the first time practice stops feeling free.
+// PracticeCounts — whether answering in Practice moves the schedule at all. It
+// is the switch people reach for the first time practice stops feeling free.
+//
+// IT IS IN THE PRACTICE GROUP, NOT THE SCHEDULE'S. This comment said the
+// opposite, and was left saying it for a commit after the row moved: the
+// argument was that a row about the schedule belongs with the schedule, which
+// reads well until you notice it puts the word "practice" under a heading that
+// says "Schedule". The row is about what PRACTICE does, and a reader looking for
+// it looks under practice.
 function PracticeCounts({ p, set }) {
   return (
     <PrefRow

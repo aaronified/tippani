@@ -13,6 +13,16 @@
 // THE RELOAD IS THE POINT. Before it, "the control says Mastered" is also true of
 // a screen that only ever set its own state.
 //
+// AND THIS TEST IS HALF THE GUARD, WHICH IS WORTH SAYING BECAUSE FOR A WHILE IT
+// WAS THE WHOLE OF IT. `srStart` was stored, normalised and drawn here, and read
+// by no review code at all — so this journey passed, in full, over a control that
+// did nothing, which is exactly the shape the repo's testing ruling exists to
+// stop. The half-life a first answer actually comes out with is now pinned in the
+// Go tier (`internal/httpapi/review_start_test.go`), where the schedule lives and
+// where the effect is observable as a number. What belongs HERE is the other
+// half: that a reader standing on Review can reach the control and that the
+// choice survives them leaving.
+//
 // THE MUTATION: delete the `json('PUT', …)` from SRSettings' `set` and the reload
 // fails — the control comes back on Not seen.
 //
@@ -108,8 +118,11 @@ it('turns a question off in each deck, and both are still off after a reload', a
 // reasoning that "the section has its own Reset" — which was true of the button
 // and not of the write behind it.
 //
-// THE MUTATION: delete the `json('PUT', …)` from `resetSection` and this fails on
-// the assertion after the reload — How hard comes back on Hard.
+// THE MUTATION: delete the `json('POST', '/auth/me/preferences/reset', …)` from
+// `resetSection` and this fails on the assertion after the reload — How hard
+// comes back on Hard. (It is a POST to a route of its own, not the ordinary
+// preferences PUT: that route's empty values mean "leave this alone", which is
+// exactly why it cannot clear anything and why this one exists.)
 it('resets the section, and the defaults are still there after a reload', async () => {
   await app.goto('/settings')
   await app.press('Review')
