@@ -4280,6 +4280,34 @@
      code nobody decodes. It WRAPS rather than scrolls: these are four short words
      and not names, so there is nothing here the "never truncate a name" rule is
      protecting, and a fade over a legend would suggest there is a fifth state. */
+  /* WHO THE APP CAN ASK: a row per supplier, its mark carrying its state.
+     A grid rather than a flex line because the row has a fixed shape — mark,
+     what it is, how much it gave, the verb — and the middle column is the only
+     one that may take what is left. */
+  .src-rows { display: grid; gap: 2px; margin-bottom: var(--row, 12px); }
+  .src-rows-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 4px; }
+  .src-row {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center;
+    gap: 10px; padding: 7px 0; border-top: 1px solid color-mix(in oklab, var(--line), transparent 55%);
+  }
+  .src-row-said { min-width: 0; display: grid; gap: 1px; }
+  /* IT WRAPS RATHER THAN CLIPPING, like every other name in this app. */
+  .src-row-name { text-wrap: pretty; color: var(--ink); font-size: var(--type-ui-15); font-weight: 600; }
+  .src-row-count {
+    font-family: var(--font-mono); font-size: var(--type-mono-12); color: var(--faint);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  /* A SUPPLIER THAT CANNOT BE ASKED HAS A RED NUMBER, because a zero from one
+     that simply has not been used yet means something else entirely. */
+  .src-row-count.is-needed { color: var(--error); }
+  /* WHAT IT SAID, ON ITS OWN LINE UNDER THE ROW — the full width of the grid, so
+     a provider's own error text wraps instead of squeezing the columns. */
+  .src-row-last {
+    grid-column: 1 / -1; margin: 2px 0 0; color: var(--soft);
+    font-family: var(--font-mono); font-size: var(--type-mono-11);
+  }
+  .src-row-last.is-failed { color: var(--error); }
+  .src-row-last.is-ok { color: var(--ok); }
   .src-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--edge); margin-bottom: 9px; }
   .src-legend-item { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--soft); }
   .src-legend-dot {

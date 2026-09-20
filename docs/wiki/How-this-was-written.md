@@ -154,7 +154,7 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,759 Go test functions and 4,727 frontend tests, across 736 test files** — the
+- **1,759 Go test functions and 4,728 frontend tests, across 737 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
@@ -165,7 +165,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 286 Go files
   find ./web/frontend -path '*/node_modules' -prune -o -type f \
        \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
-       -print | wc -l                                                    # 450 frontend
+       -print | wc -l                                                    # 451 frontend
   ```
 
   **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,654 is what

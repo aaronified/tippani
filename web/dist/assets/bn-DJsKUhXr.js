@@ -5584,6 +5584,19 @@ settings.keys.need.required.label = লাগবে
 settings.keys.need.optional.label = ইচ্ছেমতো
 settings.keys.legend.label = চিহ্ন যা বলে
 settings.keys.saved.tip = সেভ আছে
+
+settings.sources.group.title = অ্যাপ কাদের জিজ্ঞেস করতে পারে
+settings.sources.records.aside = যত রেকর্ড এসেছে
+settings.sources.records.tip = আপনার লাইব্রেরির {n}টি ঘর {source} থেকে এসেছে
+settings.sources.records.none.tip = {source} থেকে এখনও কিছু আসেনি
+settings.sources.test.aria = {source}-কে একটা পরীক্ষামূলক প্রশ্ন করুন
+settings.sources.test.tip = {source}-এর কাছে নিশ্চিত থাকা একটা জিনিস চেয়ে দেখা হবে, আর যা আসবে তা জানানো হবে
+settings.sources.test-all.label = সব উৎস পরীক্ষা করুন
+settings.sources.test-all.tip = যে উৎসগুলো কী নেয়, প্রত্যেককে জিজ্ঞেস করা হবে
+settings.sources.testing.label = জিজ্ঞেস করা হচ্ছে…
+settings.sources.answered.label = উত্তর এসেছে · {n}টি পাওয়া গেছে
+settings.sources.empty.label = উত্তর এসেছে · কিছু পাওয়া যায়নি
+settings.sources.failed.label = উত্তর আসেনি
 # {name} is a whole field name — "Google Books key" — and goes in unaltered.
 # These two replaced "Add a google books key", lower-cased in code.
 settings.keys.add.aria = {name} দিন

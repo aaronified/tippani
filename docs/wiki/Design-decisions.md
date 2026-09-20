@@ -17862,3 +17862,12 @@ because it spends the instance's quota against somebody else's API.
 
 *Unreleased — `internal/httpapi/metadata_sources.go`,
 `internal/httpapi/metadata_faults.go`, `internal/httpapi/metadata_handlers.go`.*
+
+**AND THE SCREEN READS IT.** The rows sit ABOVE the legend that explains their marks, which
+is a reversal: the legend used to lead because the marks it described were on the key rows.
+They are on the source rows now, and a legend above the thing it is about is a key to a map
+you have not seen. The key fields stay underneath, because adding a key is still what a row
+sends you to — what has gone is the pretence that the fields WERE the list of suppliers. The
+per-row Test button is drawn for the keyed suppliers only and mirrors the server's own
+`testableSources`: the server refuses the others by name, and a button a reader can press
+only to be told no is worse than one that is visibly not for them.

@@ -5711,6 +5711,23 @@ settings.keys.need.required.label = needed
 settings.keys.need.optional.label = optional
 settings.keys.legend.label = the mark says
 settings.keys.saved.tip = Saved
+
+# ── WHO THE APP CAN ASK ──────────────────────────────────────────────────────
+# One row per supplier, which is the question the console's heading asks. The
+# areas are settings.metadata.area.* above; nothing here names a supplier, because
+# vocab.source.* already does.
+settings.sources.group.title = Who the app can ask
+settings.sources.records.aside = records supplied
+settings.sources.records.tip = {n} fields in your library came from {source}
+settings.sources.records.none.tip = Nothing in your library came from {source} yet
+settings.sources.test.aria = Ask {source} a test question
+settings.sources.test.tip = Ask {source} for something it certainly has, and report what came back
+settings.sources.test-all.label = Test every source
+settings.sources.test-all.tip = Ask each supplier that takes a key
+settings.sources.testing.label = Asking…
+settings.sources.answered.label = answered · {n} found
+settings.sources.empty.label = answered · found nothing
+settings.sources.failed.label = did not answer
 # {name} is a whole field name — "Google Books key" — and goes in unaltered.
 # These two replaced "Add a google books key", lower-cased in code.
 settings.keys.add.aria = Add the {name}

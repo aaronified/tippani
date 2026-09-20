@@ -35,6 +35,7 @@ import {
   IconEdit,
   IconLanguages,
   IconPlus,
+  IconRefresh,
   IconRevert,
   InfoDot,
   MonoLabel,
@@ -318,6 +319,122 @@ const keyLabel = (source, noun) =>
     noun: t(`settings.keys.noun.${noun}`),
   })
 
+// SourceRows — one row per supplier the app can ask, which is the question this
+// console's heading has always asked and the key fields could never answer.
+//
+// A KEY FIELD KNOWS ONE THING: whether it is filled. It cannot say what the
+// supplier is FOR, whether it answers without a credential at all, how much of
+// this library came from it, or what it said last time — and a supplier that needs
+// no key (Open Library, Wikimedia) has no field, so it appeared on this screen
+// nowhere. The pack draws the list and titles it "Who the app can ask"
+// (metadata.dc.html:805-821); the fields below it stay, because adding a key is
+// still what a row's key action opens.
+//
+// THE NUMBERS ARE THE LIBRARY'S OWN. `records` counts the fields `work_field_source`
+// says each supplier wrote, scoped to this reader — see metadata_sources.go.
+function SourceRows({ admin, sources, onTested }) {
+  // WHICH ROW IS BEING ASKED, by slug, and '' for none. A single busy flag would
+  // grey out twelve rows because one of them is being tested.
+  const [asking, setAsking] = useState('')
+  const [err, setErr] = useState('')
+
+  async function test(slug) {
+    setAsking(slug || 'all')
+    setErr('')
+    const r = await json('POST', '/admin/metadata/test', slug ? { source: slug } : {})
+    setAsking('')
+    if (!r.ok) return setErr(errText(r, t('error.check.updates')))
+    // THE WHOLE STATUS, NOT THE ROWS THAT CAME BACK. A test changes the fault
+    // chips above as well — the registry it writes to is the one they read — and a
+    // screen that updated half of itself would show a row saying "did not answer"
+    // over a fault list that had not heard.
+    onTested?.()
+  }
+
+  if (!sources?.length) return null
+  return (
+    <div className="src-rows">
+      <div className="src-rows-head">
+        <MonoLabel>{t('settings.sources.group.title')}</MonoLabel>
+        <span className="microcopy">{t('settings.sources.records.aside')}</span>
+        <span className="flex-1" />
+        {admin && (
+          <GhostButton
+            icon={<IconRefresh />}
+            keepLabel
+            disabled={!!asking}
+            onClick={() => test('')}
+            tooltip={t('settings.sources.test-all.tip')}
+          >
+            {asking === 'all' ? t('settings.sources.testing.label') : t('settings.sources.test-all.label')}
+          </GhostButton>
+        )}
+      </div>
+      {sources.map((row) => {
+        const name = sourceName(row.source)
+        // WHAT IT SUPPLIES, COMPOSED FROM THE AREAS rather than written per
+        // supplier. The app already names the four areas for the fault chips, so a
+        // supplier that gains one says so without a new string — and there is no
+        // per-supplier prose here to translate twelve times.
+        const supplies = (row.areas || []).map((a) => t(`settings.metadata.area.${a}.label`)).join(' · ')
+        const last = row.last
+        const said = !last
+          ? null
+          : !last.ok
+            ? ['failed', t('settings.sources.failed.label')]
+            : last.found > 0
+              ? ['ok', t('settings.sources.answered.label', { n: last.found })]
+              : ['empty', t('settings.sources.empty.label')]
+        return (
+          <div className="src-row" key={row.source}>
+            <SourceIcon source={row.source} side="right" state={row.state} stateOf={name} />
+            <div className="src-row-said">
+              <span className="src-row-name">{name}</span>
+              <span className="microcopy">{supplies}</span>
+            </div>
+            {/* THE COUNT IS THE ROW'S ARGUMENT FOR ITSELF, so it is drawn even at
+                zero: a supplier that has never supplied anything is exactly the one
+                a reader is deciding whether to configure. */}
+            <Tooltip
+              label={row.records
+                ? t('settings.sources.records.tip', { n: row.records, source: name })
+                : t('settings.sources.records.none.tip', { source: name })}
+            >
+              <span className={'src-row-count' + (row.state === 'needed' ? ' is-needed' : '')}>{row.records}</span>
+            </Tooltip>
+            {admin && (
+              <FieldIconButton
+                icon={<IconRefresh />}
+                ariaLabel={t('settings.sources.test.aria', { source: name })}
+                tooltip={t('settings.sources.test.tip', { source: name })}
+                disabled={!!asking || !TESTABLE.includes(row.source)}
+                onClick={() => test(row.source)}
+              />
+            )}
+            {/* WHAT IT SAID, UNDER THE ROW IT IS ABOUT. A press with no visible
+                answer is a press a reader repeats. */}
+            {said && (
+              <p className={'src-row-last is-' + said[0]}>
+                {asking === row.source ? t('settings.sources.testing.label') : said[1]}
+                {last.error ? ` — ${last.error}` : ''}
+              </p>
+            )}
+          </div>
+        )
+      })}
+      <ErrorText>{err}</ErrorText>
+    </div>
+  )
+}
+
+// WHICH ROWS THE TEST BUTTON IS LIVE ON, and it mirrors `testableSources` in
+// metadata_sources.go on purpose rather than being sent down: the server refuses
+// the others by name, and a button that a reader can press only to be told no is
+// worse than one that is visibly not for them. The scrapers report themselves
+// whenever they are actually used; asking them a synthetic question on a press is
+// how an install earns a rate limit.
+const TESTABLE = ['google', 'tmdb', 'tvdb', 'igdb']
+
 export function MetadataSources({ user, onPreferences }) {
   const admin = user.is_admin
   const [status, setStatus] = useState(null)
@@ -437,6 +554,12 @@ export function MetadataSources({ user, onPreferences }) {
           opens, and the whole point of moving four words out of seven rows was to
           say them once — hiding them would have said them zero times.
           It reads as one line on a desk and wraps to two on a phone. */}
+      {/* THE SUPPLIERS FIRST, THEN THE LEGEND THAT EXPLAINS THEIR MARKS, then the
+          fields that fill them in. The legend used to lead because the marks it
+          described were on the key rows; they are on the source rows now, and a
+          legend above the thing it is about is a key to a map you have not seen. */}
+      <SourceRows admin={admin} sources={status?.sources} onTested={loadStatus} />
+
       <div className="src-legend">
         <MonoLabel>{t('settings.keys.legend.label')}</MonoLabel>
         {KEY_STATES.map(([state, word]) => (

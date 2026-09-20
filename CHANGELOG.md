@@ -192,6 +192,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Metadata → Sources lists who the app can ask.** A row per supplier — what it supplies,
+  whether it can be asked at all, and how many fields in your library came from it — instead
+  of a column of credential boxes. Suppliers that need no key are on the list too, which is
+  the half a list of key fields could never show. Press **Test** on a row (or *Test every
+  source*) and the app asks that supplier for something it certainly has, then says on the
+  row what came back. Only the suppliers that take a key can be tested: the rest are other
+  people's sites, and asking them a made-up question on a button press is how a server earns
+  a rate limit.
+
 - **"Never asked about" is a shelf, not a list of titles.** Every work you have skipped a
   quote from now shows its cover or its poster and the people behind it, with the quotes
   folded behind it until you open one — and there are tick boxes, so putting a run of them
