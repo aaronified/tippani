@@ -56,7 +56,10 @@ beforeEach(() => {
       kind: 'book',
       title: 'A Reference Manual',
       art: 'ref.jpg',
-      people: ['Jean Meeus'],
+      // A CREDIT IS A NAME AND A PATH, which is what the endpoint sends since the
+      // chips got their photographs: a bare string here would be a stub of a
+      // server that no longer exists.
+      people: [{ name: 'Jean Meeus', image_path: '' }],
       quotes: [
         { id: 11, kind: 'book', text: 'page 41, see appendix' },
         { id: 12, kind: 'book', text: 'table of conversions, inside cover' },
@@ -85,7 +88,11 @@ describe('never asked about', () => {
     // same — so the bar is asked directly, or this case would pass on a screen
     // that had lost the total entirely.
     await screen.findByText('A Reference Manual')
-    expect(within(document.querySelector('.skipped-bar')).getByText(/2 skipped/)).toBeTruthy()
+    // THE FIGURE AND ITS NOUN ARE TWO ELEMENTS since the count sweep — the figure
+    // so it can be set in the app's own figures, the word so it can be left out
+    // where the row has no space for it — so the bar's TEXT is what is read rather
+    // than any one node in it.
+    expect(document.querySelector('.skipped-bar').textContent).toMatch(/2 skipped/)
   })
 
   it('shows the work itself — its artwork and who wrote it — not just its title', async () => {

@@ -30,6 +30,8 @@ import {
   toast,
   useIsMobileScreen,
   useScreenBar,
+  Tally,
+  IconNavQuotes,
 } from './ui.jsx'
 
 // The bin — a page of its own since 1.11.2, and reachable from exactly one place.
@@ -527,8 +529,15 @@ export default function BinPage() {
                               </span>
                               <span className="trash-work-name">
                                 <NameScroll text={w.title} />
+                                {/* THE GLYPH: this is a row inside an expanded
+                                    entry, under a name that scrolls, beside a
+                                    cover — the tight case. */}
                                 <span className="microcopy">
-                                  {t('bin.row.work.quotes', { count: w.quotes, n: w.quotes })}
+                                  <Tally
+                                    n={w.quotes}
+                                    word={t('unit.quote', { count: w.quotes })}
+                                    icon={<IconNavQuotes />}
+                                  />
                                 </span>
                               </span>
                             </li>

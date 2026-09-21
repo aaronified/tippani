@@ -645,7 +645,10 @@ describe('merging two records into one', () => {
     // exists to resolve, so each hit says how much hangs off it.
     // SCOPED TO THE MERGE CONTROL. "2 works" is also the screen's own crumb now,
     // and the fact under test is what the CANDIDATE carries.
-    expect(within(document.getElementById('person-merge')).getByText('2 works')).toBeTruthy()
+    // The figure is text and the noun is the glyph's name — see the count sweep.
+    const merge = within(document.getElementById('person-merge'))
+    expect(merge.getByText('2')).toBeTruthy()
+    expect(merge.getByRole('img', { name: 'works' })).toBeTruthy()
 
     act(() => hit.click())
     await screen.findByText(/stops being a record/)
@@ -685,8 +688,11 @@ describe('merging two records into one', () => {
     const list = within(document.getElementById('person-merge'))
     await waitFor(() => expect(list.queryByText('M. Bulgakov')).toBeTruthy())
     // Merging a record into itself is refused by the server, so a row for it here
-    // would be a control whose only possible outcome is an error.
-    expect(list.queryByText('1 work')).toBeTruthy()
+    // would be a control whose only possible outcome is an error. The count is a
+    // figure and a glyph since the sweep, so the singular is asked for by the
+    // drawing's NAME — which is also the only thing telling it from the plural.
+    expect(list.queryByText('1')).toBeTruthy()
+    expect(list.queryByRole('img', { name: 'work' })).toBeTruthy()
     // Scoped for the same reason: this record's name is on its own header and in
     // its name row, and neither of those is an offer to merge into itself.
     expect(list.queryAllByText('Mikhail Bulgakov')).toHaveLength(0)

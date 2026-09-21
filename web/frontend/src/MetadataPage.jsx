@@ -5,7 +5,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
@@ -1395,7 +1395,16 @@ export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, 
     <RecordRow
       mark={<RowArt src={book.cover_path ? coverImgURL(book.cover_path) : null} alt={t('metadata.row.nocover.aria')} />}
       name={book.title}
-      sub={[book.author, t('common.count.phrase', { n: book.annotation_count, noun: t('unit.quote', { count: book.annotation_count }) })].filter(Boolean).join(' · ')}
+      /* THE COUNT WEARS ITS GLYPH, and the row's other fact keeps its words. This
+         is the tight case — a tick box, a cover, three action glyphs and a chip
+         row are already on it — and the people console beside it has drawn its
+         counts this way since RowCounts was built, so the two consoles now say
+         one number one way. */
+      sub={<>
+        {book.author && <span>{book.author}</span>}
+        {book.author && <span aria-hidden="true"> · </span>}
+        <Tally n={book.annotation_count} word={t('unit.quote', { count: book.annotation_count })} icon={<IconNavQuotes />} />
+      </>}
       chips={gaps.map((g) => ({ label: g, warn: true }))}
       chipsEmpty={t('metadata.row.complete')}
       select={{ checked, onChange: onCheck, tip: t('metadata.row.select.tip', { noun }), label: t('metadata.row.select.aria', { name: book.title }) }}
@@ -1450,10 +1459,17 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
       // metadata.count.dialogues rather than the shared unit.dialogue: that noun
       // now reads "film line", and this row has always counted "dialogues".
       // Migrating keys is not the place to change a word.
-      sub={[
-        movie.release_year ? String(movie.release_year) : null,
-        movie.dialogue_count > 0 ? t('metadata.count.dialogues', { count: movie.dialogue_count, n: movie.dialogue_count }) : null,
-      ].filter(Boolean).join(' · ')}
+      sub={<>
+        {movie.release_year ? <span>{movie.release_year}</span> : null}
+        {movie.release_year && movie.dialogue_count > 0 ? <span aria-hidden="true"> · </span> : null}
+        {movie.dialogue_count > 0 && (
+          <Tally
+            n={movie.dialogue_count}
+            word={t('metadata.count.dialogues', { count: movie.dialogue_count, n: movie.dialogue_count })}
+            icon={<IconNavQuotes />}
+          />
+        )}
+      </>}
       chips={gaps.map((g) => ({ label: g, warn: true }))}
       chipsEmpty={t('metadata.row.complete')}
       select={{ checked, onChange: onCheck, tip: t('metadata.row.select.tip', { noun }), label: t('metadata.row.select.aria', { name: movie.title }) }}
@@ -2359,7 +2375,8 @@ function DupCard({ group, onMerged }) {
                 folding the record with 12 books into the one with none loses
                 nothing, and the reader cannot tell which is which from the name. */}
             <span className="mono-label" style={{ color: 'var(--soft)' }}>
-              · {t('identity.merge.hit.works', { n: p.works || 0, count: p.works || 0 })}
+              {'· '}
+              <Tally n={p.works || 0} word={t('unit.work', { count: p.works || 0 })} icon={<IconNavLibrary />} />
             </span>
           </label>
         ))}

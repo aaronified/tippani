@@ -155,7 +155,7 @@ func TestExcludedWorksCarryTheirArtworkAndTheirCredit(t *testing.T) {
 		if g.Art != w[0] {
 			t.Errorf("%s: artwork is %q, want %q", g.Title, g.Art, w[0])
 		}
-		if len(g.People) != 1 || g.People[0] != w[1] {
+		if len(g.People) != 1 || g.People[0].Name != w[1] {
 			t.Errorf("%s: credit is %v, want %q", g.Title, g.People, w[1])
 		}
 	}
@@ -233,7 +233,92 @@ func TestTheSkippedListSplitsCreditsTheWayTheReaderAsked(t *testing.T) {
 	if len(got.Groups) != 1 {
 		t.Fatalf("want one group, got %d", len(got.Groups))
 	}
-	if p := got.Groups[0].People; len(p) != 1 || p[0] != "Rowling, J. K." {
+	if p := got.Groups[0].People; len(p) != 1 || p[0].Name != "Rowling, J. K." {
 		t.Errorf("the comma was split on although the reader switched it off: %v", p)
+	}
+}
+
+// THE TWO FACTS THE ROW PRINTS THAT ARE NOT THE QUOTES THEMSELVES.
+//
+// The screen draws "27 skipped of 28 quotes" and a chip carrying the author's
+// photograph. Neither can be computed from the rows this endpoint used to send:
+// the total is the WORK's count and the list only holds what is excluded, and the
+// credit was a bare string so every chip drew the grey stand-in. Both were
+// invisible defects — the fraction simply was not there, and a stand-in looks
+// exactly like a person nobody has fetched yet.
+func TestTheExcludedListCarriesTheWholeCountAndTheCreditsFace(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[idResp](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "The Long Walk", "author": "Slavomir Rawicz"}, http.StatusCreated))
+	var ids []int64
+	for _, q := range []string{"one", "two", "three", "four"} {
+		a := decode[idResp](t, c.mustDo("POST", "/annotations",
+			map[string]any{"book_id": book.ID, "quote": q}, http.StatusCreated))
+		ids = append(ids, a.ID)
+	}
+	// Three of the four, so the fraction has two different numbers in it: a test
+	// where everything is skipped passes against a handler that sends the excluded
+	// count twice.
+	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": ids[:3], "review": false}, http.StatusOK)
+
+	// A PHOTOGRAPH ON THE PEOPLE ROW. Written straight into the column rather than
+	// fetched: the app's own route for this takes an image URL and goes and gets
+	// it, which is an outbound call this container answers with 403 — and what is
+	// under test is whether the list CARRIES the path, not how it got there.
+	if _, err := srv.Store.DB.Exec(
+		`UPDATE people SET image_path = 'rawicz.jpg' WHERE name = 'Slavomir Rawicz'`); err != nil {
+		t.Fatalf("could not give the author a photograph: %v", err)
+	}
+
+	got := decode[excludedResp](t, c.mustDo("GET", "/review/excluded", nil, http.StatusOK))
+	if len(got.Groups) != 1 {
+		t.Fatalf("want one group, got %d", len(got.Groups))
+	}
+	g := got.Groups[0]
+	if len(g.Quotes) != 3 {
+		t.Fatalf("three skipped, the list holds %d", len(g.Quotes))
+	}
+	// THE DENOMINATOR IS THE WORK'S, NOT THE LIST'S. Four quotes exist; three are
+	// skipped. A handler that counted the rows it just selected would say 3 here,
+	// and the screen would read "3 of 3" over a book with one quote still in the
+	// deck.
+	if g.QuotesTotal != 4 {
+		t.Errorf("the work has four quotes; the group says %d", g.QuotesTotal)
+	}
+	if len(g.People) != 1 || g.People[0].Name != "Slavomir Rawicz" {
+		t.Fatalf("want the author as the credit: %+v", g.People)
+	}
+	if g.People[0].ImagePath != "rawicz.jpg" {
+		t.Errorf("the credit should carry the photograph the people row holds, got %q", g.People[0].ImagePath)
+	}
+}
+
+// A CREDIT NOBODY HAS FETCHED A PERSON FOR IS NOT A FAILURE. It comes back with an
+// empty path and the chip draws its own stand-in — which is also what the screen
+// showed for EVERY credit before this, and is why the defect was invisible.
+func TestACreditWithNoPersonRowStillArrives(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[idResp](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "An Unfetched Book", "author": "Nobody In Particular"}, http.StatusCreated))
+	a := decode[idResp](t, c.mustDo("POST", "/annotations",
+		map[string]any{"book_id": book.ID, "quote": "a line"}, http.StatusCreated))
+	c.mustDo("POST", "/annotations/bulk", map[string]any{"ids": []int64{a.ID}, "review": false}, http.StatusOK)
+
+	got := decode[excludedResp](t, c.mustDo("GET", "/review/excluded", nil, http.StatusOK))
+	if len(got.Groups) != 1 || len(got.Groups[0].People) != 1 {
+		t.Fatalf("want one group with one credit: %+v", got.Groups)
+	}
+	p := got.Groups[0].People[0]
+	if p.Name != "Nobody In Particular" {
+		t.Errorf("the name should arrive whether or not a person row exists: %q", p.Name)
+	}
+	if p.ImagePath != "" {
+		t.Errorf("no person row means no photograph, got %q", p.ImagePath)
 	}
 }

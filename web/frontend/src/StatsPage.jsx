@@ -5,7 +5,7 @@ import { coverImgURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { Face } from './characterRows.jsx'
 import { PersonPortrait, useCharacterFaces, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, ErrorText, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState, useScreenBar, IconHeartOn } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, ErrorText, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState, useScreenBar, IconHeartOn, Tally, IconNavLibrary, IconNavQuotes } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -552,7 +552,7 @@ function BreakdownRow({ r, rank, showWorks, art, personMap, characterMap, onSear
           </div>
         )}
         <p className="mono-label" style={{ marginTop: 3, fontSize: 'var(--type-ui-9)', color: 'var(--faint)' }}>
-          {showWorks ? t('stats.breakdown.works', { count: r.works, n: r.works }) : ''}
+          {showWorks ? <Tally n={r.works} word={t('unit.work', { count: r.works })} icon={<IconNavLibrary />} /> : ''}
           {showWorks && segs.length > 0 ? ' · ' : ''}
           {segs.map(statusText).join(' · ')}
         </p>
@@ -696,7 +696,10 @@ function Colors({ colors }) {
     <Card>
       <SectionHead
         label={t('stats.colours.title')}
-        right={<span className="mono-label">{t('stats.colours.counts.label', { n: total })}</span>}
+        /* A SECTION HEAD IS THE ROOMY CASE: the word stays and the glyph joins
+           it, which is where a reader learns the drawing that the rows below
+           print on their own. */
+        right={<span className="mono-label"><Tally n={total} word={t('unit.quote', { count: total })} icon={<IconNavQuotes />} showWord /></span>}
       />
       {total === 0 ? (
         <p className="tp-empty" style={{ padding: '16px 0' }}>{t('stats.colours.empty')}</p>

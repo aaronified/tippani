@@ -51,6 +51,7 @@ const (
 	CodePeopleRowScan    Code = "TIP-PEOPLE-001"
 	CodeReviewRowScan    Code = "TIP-REVIEW-001"
 	CodeReviewRecallLog  Code = "TIP-REVIEW-002"
+	CodeReviewFacesQuery Code = "TIP-REVIEW-003"
 	CodeExportRowScan    Code = "TIP-EXPORT-001"
 	CodeBulkRowScan      Code = "TIP-BULK-001"
 	CodeTagRowScan       Code = "TIP-TAG-001"
@@ -179,6 +180,7 @@ var Registry = map[Code]string{
 	CodeMovieRowScan:     "A movie list row failed to scan (SELECT/struct drift); dropped from the list.",
 	CodePeopleRowScan:    "A people list row failed to scan (SELECT/struct drift); dropped from the list.",
 	CodeReviewRowScan:    "A review/quiz candidate row failed to scan; dropped from the set.",
+	CodeReviewFacesQuery: "The photographs for the credits on Settings \u2192 Review \u2192 Never asked about could not be read. The list itself is unaffected \u2014 every chip draws its stand-in instead of a face.",
 	CodeReviewRecallLog:  "An answer could not be written to the recall history (0064's item_recalls). The grade itself was saved — the log is beside the schedule, not part of it — so the card is scheduled correctly and one row is missing from what the review popup can draw.",
 	CodeExportRowScan:    "An export row failed to scan; omitted from the export.",
 	CodeBulkRowScan:      "A bulk-selection id row failed to scan; omitted from the operation.",

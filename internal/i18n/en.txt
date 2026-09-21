@@ -1392,7 +1392,16 @@ settings.quiz.adaptive.on.label = Adaptive
 # same-author lure cap applies at every tier. See review_tier.go.
 settings.quiz.skipped.title = Never asked about
 settings.quiz.skipped.none = Nothing skipped. Every quote you keep is in the deck.
-settings.quiz.skipped.count = {n} skipped
+# THE NOUNS BEHIND THE GLYPHS on this list. A glyph is drawn; the word is what
+# everything that cannot see it gets, and what a subheader prints beside the
+# drawing so a reader learns which is which.
+settings.quiz.skipped.word = skipped
+settings.quiz.quotes.word.one = quote
+settings.quiz.quotes.word.other = quotes
+settings.quiz.works.word.one = work
+settings.quiz.works.word.other = works
+# The join between the two halves of the summary: "42 skipped in 2 works".
+settings.quiz.skipped.in = in
 settings.quiz.skipped.standalone = On its own
 settings.quiz.skipped.restore-work.label = Put {n} back
 settings.quiz.skipped.restore-one.aria = Put this one back in the deck
@@ -3711,8 +3720,6 @@ stats.breakdown.people.label = People
 stats.breakdown.best.label = best remembered: {name} · {n}
 stats.breakdown.worst.label = most forgotten: {name} · {n}
 # How many WORKS an entity spans — an author's books, a series' volumes.
-stats.breakdown.works.one = {n} work
-stats.breakdown.works.other = {n} works
 # One status and its count, spelled out under the bar. Never colour alone.
 stats.breakdown.status.label = {n} {name}
 stats.breakdown.name.tip = Search for this name
@@ -3720,7 +3727,6 @@ stats.breakdown.name.tip = Search for this name
 # THE COLOUR CATEGORIES — the fourth theme, and the only one with no page of its
 # own, which is why "quiz me on the ones I marked Disagreed" lives here.
 stats.colours.title = Colour categories
-stats.colours.counts.label = {n} quotes
 stats.colours.empty = no highlights yet
 # One magnitude row. {name} is the category as the READER named it.
 stats.bar.tip = {name}: {n}
@@ -4099,8 +4105,6 @@ movies.export.count.games.other = {n} games
 
 # A LOOKUP THAT FOUND SOMETHING YOU ALREADY HAVE. The two ways out are named
 # rather than implied: fill the gaps in what you have, or keep them apart.
-movies.duplicate.dialogues.one = {n} dialogue
-movies.duplicate.dialogues.other = {n} dialogues
 movies.duplicate.poster.yes = has poster
 movies.duplicate.poster.no = no poster
 movies.duplicate.enrich.label = Enrich this
@@ -7182,8 +7186,6 @@ identity.row.global.sub = Across every work
 identity.row.add-work.label = Also in another work
 identity.row.add-work.sub = One character in both, with a screen of its own
 identity.badge.global = global
-identity.row.global.works.one = {n} work
-identity.row.global.works.other = {n} works
 
 # AND THE WAY OUT, which is not a delete — hence a whole section rather than a
 # key beside the others. A book's reassurance is shorter than a film's because a
@@ -7406,8 +7408,6 @@ identity.merge.body = Two records for one human being become one, and this one �
 identity.merge.body.company = Two records for one company become one, and this one — {name} — is what survives.
 identity.merge.search.placeholder = find the other record…
 identity.merge.search.into = find the record to fold into {name}…
-identity.merge.hit.works.one = {n} work
-identity.merge.hit.works.other = {n} works
 identity.merge.confirm.title = Merge {name} into {into}?
 identity.merge.confirm.body = {name} stops being a record. Everything it is credited on moves to {into}, and its name becomes a spelling that finds it — so the next import will not make it again.
 identity.merge.confirm.covers = No cover changes. Every work goes on printing exactly the name it prints today.
@@ -7538,5 +7538,3 @@ error.prune = could not prune
 # ---- a bin entry's works, and the face an identity entry took ------------
 # One row per book or film inside an entry — a bulk delete is one entry, and the
 # title with its own count is the only thing in it a reader can recognise.
-bin.row.work.quotes.one = {n} quote
-bin.row.work.quotes.other = {n} quotes

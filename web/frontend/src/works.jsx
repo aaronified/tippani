@@ -23,6 +23,8 @@ import {
   IconFilter,
   MobileSheet,
   MonoLabel,
+  Tally,
+  IconNavQuotes,
   MoreMenu,
   MultiSelect,
   NameScroll,
@@ -1245,13 +1247,22 @@ export function WorkCard({ kind, item, index = 0, onOpen, people = {}, seps, sel
         </NameScroll>
       )}
       <div className="mt-0.5 flex items-center gap-2">
-        {isBook ? (
-          <MonoLabel style={{ color: 'var(--accent-ui)' }}>{t('common.work-card.count.quote', { count, n: count })}</MonoLabel>
-        ) : (
-          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-12)', color: 'var(--amber)' }}>
-            {t('common.work-card.count.dialogue', { count, n: count })}
-          </span>
-        )}
+        {/* THE GLYPH, NOT THE WORD, AND THE SAME GLYPH FOR BOTH. A card's meta
+            line is the tight case: it sits under a title that wraps, beside a
+            shelf mark and a menu, on a tile as narrow as a cover. What it is
+            counting is a quote either way — a film line IS a quote here — so the
+            drawing is the same one, and the thing that has always told a book's
+            count from a film's on this row goes on telling it: the colour. Two
+            glyphs would have said the two counts are different KINDS of thing,
+            which is the distinction the palette already draws and the app does
+            not otherwise make. */}
+        <span className="work-card-count" style={{ color: isBook ? 'var(--accent-ui)' : 'var(--amber)' }}>
+          <Tally
+            n={count}
+            word={t(isBook ? 'common.work-card.count.quote' : 'common.work-card.count.dialogue', { count, n: count })}
+            icon={<IconNavQuotes />}
+          />
+        </span>
         {/* IN THE COUNT ROW, NOT OVER THE ARTWORK. Every other mark this tile
             wears is a badge on the cover, and this one deliberately is not: the
             comment above is explicit that keeping the artwork unobscured is why

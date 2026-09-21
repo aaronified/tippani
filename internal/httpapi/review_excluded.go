@@ -3,8 +3,10 @@ package httpapi
 import (
 	"database/sql"
 	"net/http"
+	"strings"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
 )
 
 // ── EVERY QUOTE YOU HAVE TOLD THE DECK TO SKIP, IN ONE PLACE.
@@ -38,7 +40,7 @@ type excludedGroup struct {
 	// WorkID is 0 for a standalone quote, which has no parent — the same asymmetry
 	// every other part of the review code carries rather than inventing a parent
 	// row to make the shape uniform.
-	WorkID int64 `json:"work_id"`
+	WorkID int64  `json:"work_id"`
 	Kind   string `json:"kind"`
 	Title  string `json:"title"`
 	// ART AND CREDIT, so the list can be read as a shelf rather than as a column
@@ -50,9 +52,27 @@ type excludedGroup struct {
 	// EMPTY IS THE HONEST ANSWER for a standalone quote and for a work with no
 	// artwork — the client draws its own hatch rather than being sent a
 	// placeholder path that does not resolve.
-	Art    string          `json:"art"`
-	People []string        `json:"people"`
-	Quotes []excludedQuote `json:"quotes"`
+	Art string `json:"art"`
+	// A NAME AND THE FACE THAT GOES WITH IT. This was a list of bare strings, so
+	// every chip on the screen drew the grey stand-in — on a list whose whole
+	// argument is that a reader should RECOGNISE their own shelf. The photograph
+	// is already on the people row; nothing was asking for it.
+	People []excludedPerson `json:"people"`
+	// HOW MANY QUOTES THE WORK HAS, not how many are skipped. The row prints one
+	// against the other — 27 skipped of 28 — and a fraction needs a denominator
+	// that does not move when the reader puts one back. Counted over the same
+	// table the excluded rows came out of, so a work whose quotes were all
+	// skipped reads 28 of 28 rather than 28 of nothing.
+	QuotesTotal int             `json:"quotes_total"`
+	Quotes      []excludedQuote `json:"quotes"`
+}
+
+// A CREDIT AND ITS PHOTOGRAPH. `image_path` is empty for a name nobody has
+// fetched yet, which is the honest answer and the one the client already draws a
+// stand-in for.
+type excludedPerson struct {
+	Name      string `json:"name"`
+	ImagePath string `json:"image_path"`
 }
 
 // creditNames — a credit column into at most two names.
@@ -105,14 +125,19 @@ func (s *Server) excludedFrom(uid int64, rs reviewSource, seps metadata.CreditSe
 	var q string
 	if rs.parent == "" {
 		// A standalone quote's speaker is the nearest thing it has to a credit, and
-		// it has no artwork at all.
-		q = `SELECT 0, COALESCE(x.work_title, ''), '', COALESCE(x.speaker, ''), x.id,
+		// it has no artwork at all. Its own total is 1: it IS the work, so a
+		// fraction here can only ever read one of one.
+		q = `SELECT 0, COALESCE(x.work_title, ''), '', COALESCE(x.speaker, ''), 1, x.id,
 		            COALESCE(NULLIF(x.quote, ''), COALESCE(x.note, ''))
 		     FROM ` + rs.table + ` x
 		     WHERE x.user_id = ? AND COALESCE(x.review_excluded, 0) = 1
 		     ORDER BY x.id DESC`
 	} else {
-		q = `SELECT p.id, COALESCE(p.title, ''), COALESCE(` + art + `, ''), COALESCE(` + credit + `, ''), x.id,
+		// THE WORK'S WHOLE COUNT, correlated on the parent rather than joined:
+		// the outer query is already filtered to excluded rows, so a GROUP BY
+		// here would count what is left rather than what there is.
+		q = `SELECT p.id, COALESCE(p.title, ''), COALESCE(` + art + `, ''), COALESCE(` + credit + `, ''),
+		            (SELECT COUNT(*) FROM ` + rs.table + ` t WHERE t.` + rs.parentKey + ` = p.id), x.id,
 		            COALESCE(NULLIF(x.quote, ''), COALESCE(x.note, ''))
 		     FROM ` + rs.table + ` x JOIN ` + rs.parent + ` p ON p.id = x.` + rs.parentKey + `
 		     WHERE p.user_id = ? AND COALESCE(x.review_excluded, 0) = 1
@@ -131,8 +156,9 @@ func (s *Server) excludedFrom(uid int64, rs reviewSource, seps metadata.CreditSe
 	byWork := map[int64]int{}
 	for rows.Next() {
 		var workID, id int64
+		var whole int
 		var title, art, credit, text string
-		if err := rows.Scan(&workID, &title, &art, &credit, &id, &text); err != nil {
+		if err := rows.Scan(&workID, &title, &art, &credit, &whole, &id, &text); err != nil {
 			return nil, err
 		}
 		// A standalone quote groups by ITSELF rather than by work 0: they have no
@@ -144,14 +170,18 @@ func (s *Server) excludedFrom(uid int64, rs reviewSource, seps metadata.CreditSe
 		}
 		at, seen := byWork[key]
 		if !seen {
+			people := make([]excludedPerson, 0, 2)
+			// SPLIT HERE RATHER THAN ON THE SCREEN. A credit column holds one
+			// string with the reader's own separators in it, and the client
+			// already has a setting for what those are — but this list is the
+			// one place that would have to learn it a second time. Two names
+			// is the honest ceiling for a chip row on a phone.
+			for _, n := range creditNames(credit, seps) {
+				people = append(people, excludedPerson{Name: n})
+			}
 			out = append(out, excludedGroup{
 				WorkID: workID, Kind: rs.kind, Title: title, Art: art,
-				// SPLIT HERE RATHER THAN ON THE SCREEN. A credit column holds one
-				// string with the reader's own separators in it, and the client
-				// already has a setting for what those are — but this list is the
-				// one place that would have to learn it a second time. Two names
-				// is the honest ceiling for a chip row on a phone.
-				People: creditNames(credit, seps),
+				People: people, QuotesTotal: whole,
 			})
 			at = len(out) - 1
 			byWork[key] = at
@@ -185,9 +215,64 @@ func (s *Server) handleReviewExcluded(w http.ResponseWriter, r *http.Request) {
 	if groups == nil {
 		groups = []excludedGroup{}
 	}
+	s.fillExcludedFaces(uid, groups)
 	n := 0
 	for _, g := range groups {
 		n += len(g.Quotes)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"groups": groups, "total": n})
+}
+
+// fillExcludedFaces — the photograph for every credited name on the list, in one
+// query.
+//
+// ONE QUERY FOR THE WHOLE LIST, not one per group. A reader with forty skipped
+// quotes across a dozen works has at most two dozen distinct names, and asking
+// the people table twelve times for what is one `IN` is the shape of thing that
+// turns a settings screen into a slow one.
+//
+// A NAME WITH NO ROW KEEPS ITS EMPTY PATH, which is not a failure: a credit is a
+// string on the work until somebody fetches the person behind it, and the chip
+// draws its own stand-in. Matching is by name because that is the only key a
+// credit column has — the same join `cast.go` and the anthology screen make.
+func (s *Server) fillExcludedFaces(uid int64, groups []excludedGroup) {
+	want := map[string]bool{}
+	for _, g := range groups {
+		for _, p := range g.People {
+			if p.Name != "" {
+				want[p.Name] = true
+			}
+		}
+	}
+	if len(want) == 0 {
+		return
+	}
+	args := []any{uid}
+	for name := range want {
+		args = append(args, name)
+	}
+	rows, err := s.Store.DB.Query(
+		`SELECT name, COALESCE(image_path, '') FROM people WHERE user_id = ? AND name IN (`+
+			strings.TrimSuffix(strings.Repeat("?,", len(want)), ",")+`)`, args...)
+	if err != nil {
+		// THE LIST IS STILL WORTH DRAWING WITHOUT FACES. This is decoration on a
+		// screen whose subject is the quotes, so a failure here dims the chips
+		// rather than failing the request.
+		olog.Warnf(olog.CodeReviewFacesQuery, "[review] could not read faces for the skipped list: %v", err)
+		return
+	}
+	defer rows.Close()
+	faces := map[string]string{}
+	for rows.Next() {
+		var name, path string
+		if err := rows.Scan(&name, &path); err != nil {
+			continue
+		}
+		faces[name] = path
+	}
+	for i := range groups {
+		for j := range groups[i].People {
+			groups[i].People[j].ImagePath = faces[groups[i].People[j].Name]
+		}
+	}
 }

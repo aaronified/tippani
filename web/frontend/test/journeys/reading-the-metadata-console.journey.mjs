@@ -62,8 +62,13 @@ it('a reader opens the metadata console and reads what a work is missing', async
   // its line; the credit and the count share the one under it. A row that put all
   // three back on one line satisfies every `see` above and fails here.
   const screen = await app.onScreen()
+  // THE COUNT IS A FIGURE AND A GLYPH SINCE THE SWEEP, so the sub-line ends at the
+  // figure: "· 1" and a drawing that names itself "quote". What this assertion is
+  // about is unchanged — which LINE each fact is on — and the noun's own presence
+  // is asserted where it now lives, on the glyph.
   expect(screen, 'the title and its credit should be on separate lines')
-    .toMatch(/Grimm's Fairy Stories\s*\n\s*Jacob Grimm and Wilhelm Grimm · 1 quote/)
+    .toMatch(/Grimm's Fairy Stories\s*\n\s*Jacob Grimm and Wilhelm Grimm · 1\b/)
+  expect(await app.said('quote'), 'the figure should say what it is counting').toBe('quote')
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

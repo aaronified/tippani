@@ -1377,7 +1377,12 @@ settings.quiz.adaptive.ladder.label = সিঁড়ি
 settings.quiz.adaptive.on.label = অ্যাডাপ্টিভ
 settings.quiz.skipped.title = কখনও জিজ্ঞাসা করা হয় না
 settings.quiz.skipped.none = কিছুই বাদ পড়েনি। আপনার রাখা প্রতিটি উদ্ধৃতি ডেকে আছে।
-settings.quiz.skipped.count = {n}টি বাদ
+settings.quiz.skipped.word = বাদ
+settings.quiz.quotes.word.one = উক্তি
+settings.quiz.quotes.word.other = উক্তি
+settings.quiz.works.word.one = রচনা
+settings.quiz.works.word.other = রচনা
+settings.quiz.skipped.in = —
 settings.quiz.skipped.standalone = নিজের মতো
 settings.quiz.skipped.restore-work.label = {n}টি ফেরান
 settings.quiz.skipped.restore-one.aria = এটি ডেকে ফিরিয়ে দিন
@@ -3633,8 +3638,6 @@ stats.breakdown.people.label = মানুষ
 stats.breakdown.best.label = সবচেয়ে ভালো মনে আছে: {name} · {n}
 stats.breakdown.worst.label = সবচেয়ে বেশি ভুলেছেন: {name} · {n}
 # How many WORKS an entity spans — an author's books, a series' volumes.
-stats.breakdown.works.one = {n}টা উৎস
-stats.breakdown.works.other = {n}টা উৎস
 # One status and its count, spelled out under the bar. Never colour alone.
 stats.breakdown.status.label = {n} {name}
 stats.breakdown.name.tip = এই নামটা খুঁজুন
@@ -3642,7 +3645,6 @@ stats.breakdown.name.tip = এই নামটা খুঁজুন
 # THE COLOUR CATEGORIES — the fourth theme, and the only one with no page of its
 # own, which is why "quiz me on the ones I marked Disagreed" lives here.
 stats.colours.title = রঙের ঘর
-stats.colours.counts.label = {n}টা উদ্ধৃতি
 stats.colours.empty = এখনও কোনও উদ্ধৃতি নেই
 # One magnitude row. {name} is the category as the READER named it.
 stats.bar.tip = {name}: {n}
@@ -4024,8 +4026,6 @@ movies.export.count.games.other = {n}টা গেম
 
 # A LOOKUP THAT FOUND SOMETHING YOU ALREADY HAVE. The two ways out are named
 # rather than implied: fill the gaps in what you have, or keep them apart.
-movies.duplicate.dialogues.one = {n}টা সংলাপ
-movies.duplicate.dialogues.other = {n}টা সংলাপ
 movies.duplicate.poster.yes = পোস্টার আছে
 movies.duplicate.poster.no = পোস্টার নেই
 movies.duplicate.enrich.label = এটারই শূন্যস্থান পূরণ করুন
@@ -6954,8 +6954,6 @@ identity.row.global.sub = সব কাজ জুড়ে
 identity.row.add-work.label = আরও একটা কাজেও আছেন
 identity.row.add-work.sub = দুটোতেই একই চরিত্র, আর নিজের আলাদা পাতাও পাবে
 identity.badge.global = বিশ্বজনীন
-identity.row.global.works.one = {n}টা কাজ
-identity.row.global.works.other = {n}টা কাজ
 
 identity.section.remove.label = সরান
 identity.row.unlink.label.book = এই বই থেকে সরান
@@ -7096,8 +7094,6 @@ identity.merge.body = একজন মানুষের দুটো রেক�
 identity.merge.body.company = একটা সংস্থার দুটো রেকর্ড এক হয়ে যাবে, আর টিকে থাকবে এটাই — {name}।
 identity.merge.search.placeholder = অন্য রেকর্ডটা খুঁজুন…
 identity.merge.search.into = {name}-এর সঙ্গে যে রেকর্ড মেলাবেন…
-identity.merge.hit.works.one = {n}টা কাজ
-identity.merge.hit.works.other = {n}টা কাজ
 identity.merge.confirm.title = {name}-কে {into}-এ মেলাবেন?
 identity.merge.confirm.body = {name} আর আলাদা রেকর্ড থাকবে না। এর নামে যা যা আছে সব {into}-এ চলে যাবে, আর এর নামটা এমন এক বানান হবে যা একে খুঁজে দেয় — তাই পরের ইমপোর্টে আবার তৈরি হবে না।
 identity.merge.confirm.covers = কোনও প্রচ্ছদ বদলাবে না। প্রতিটা কাজ আজ যে নাম ছাপে, তা-ই ছাপবে।
@@ -7220,5 +7216,3 @@ metadata.prune.toast.other = {n}টা রেকর্ড সরানো হল
 error.prune = সরানো গেল না
 
 # ---- a bin entry's works, and the face an identity entry took ------------
-bin.row.work.quotes.one = {n}টা উদ্ধৃতি
-bin.row.work.quotes.other = {n}টা উদ্ধৃতি

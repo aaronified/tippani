@@ -96,6 +96,8 @@ import {
   IconHeartOn,
   IconSortAsc,
   IconSortDesc,
+  Tally,
+  IconNavQuotes,
 } from './ui.jsx'
 
 // The in-progress cap dialog's nouns now come from the kind table's `capWords`,
@@ -644,10 +646,9 @@ export function DuplicateConfirm({ confirm, busy, onEnrich, onAddSeparate, onCan
                 ) : null}
               </NameScroll>
               <p className="truncate text-xs" style={{ color: 'var(--faint)' }}>
-                {[
-                  t('movies.duplicate.dialogues', { count: e.dialogue_count, n: e.dialogue_count }),
-                  t(e.has_poster ? 'movies.duplicate.poster.yes' : 'movies.duplicate.poster.no'),
-                ].join(' · ')}
+                <Tally n={e.dialogue_count} word={t('unit.dialogue', { count: e.dialogue_count })} icon={<IconNavQuotes />} />
+                {' · '}
+                {t(e.has_poster ? 'movies.duplicate.poster.yes' : 'movies.duplicate.poster.no')}
               </p>
             </div>
             <GhostButton icon={<IconMetadata />} type="button" className="shrink-0" disabled={busy} onClick={() => onEnrich(e.id)}>

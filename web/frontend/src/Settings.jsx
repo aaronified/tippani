@@ -89,6 +89,10 @@ import {
   Select,
   Slider,
   StickerButton,
+  Tally,
+  IconQuizSkip,
+  IconNavQuotes,
+  IconNavLibrary,
   toast,
   Toggle,
   Tooltip,
@@ -1970,7 +1974,16 @@ function ScheduleRows({ p, set }) {
 // strings. The tick boxes are the other half of the same ask: one press per
 // quote was the only way to put back a run of them, and a reader who skipped a
 // chapter's worth has no verb for what they actually want to say.
-function NeverAsked() {
+// EXPORTED FOR ONE CASE, the way UpdatesCard is. What needs holding is that this
+// list hands each credit's PHOTOGRAPH down to the chip: the server sends a name
+// and a path, the chip draws `person.image_path`, and for as long as it was
+// handed a bare string every credit on this screen wore the grey stand-in — which
+// looks exactly like a person nobody has fetched yet, so nothing on the screen
+// said it was wrong. The journey beside it runs the real screen against a real
+// server, where the fixture has no portraits to draw (every image fetch in this
+// container answers 403), so the one tier that can put a path in front of this
+// component is the one that can invent the answer.
+export function NeverAsked() {
   const [groups, setGroups] = useState(null)
   const [total, setTotal] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -2050,7 +2063,19 @@ function NeverAsked() {
           what, and this list's whole job is telling a reader how much they have
           quietly switched off. */}
       <div className="skipped-bar">
-        <p className="microcopy">{t('settings.quiz.skipped.count', { n: total })}</p>
+        {/* THE SUMMARY KEEPS ITS WORDS AND TAKES THE GLYPHS TOO. This is the
+            roomy half of the rule — a subheader is where a reader learns that
+            this drawing means a skip and that one means a work, which is what
+            lets the rows below print the glyph alone. */}
+        <p className="microcopy skipped-tally">
+          <Tally n={total} word={t('settings.quiz.skipped.word')} icon={<IconQuizSkip />} showWord tone="warn" />
+          {/* REAL SPACES, NOT A FLEX GAP. The row is a sentence — "42 skipped in
+              2 works" — and a gap puts air between boxes while leaving the text
+              itself joined: it reached `innerText` as "42 skippedin2 works",
+              which is what a reader copies and what find-in-page searches. */}
+          <span> {t('settings.quiz.skipped.in')} </span>
+          <Tally n={groups.length} word={t('settings.quiz.works.word', { count: groups.length })} icon={<IconNavLibrary />} showWord />
+        </p>
         {picked.size > 0 && (
           <>
             <span className="grow" />
@@ -2084,12 +2109,24 @@ function NeverAsked() {
               {/* THE ART IS THE APP'S OWN COVER, hatch and all — a film's
                   placeholder says POSTER and a book's says COVER, which is the
                   one word that tells a reader what is missing. A standalone
-                  quote has no artwork at all and is sent none. */}
-              <Cover
-                path={g.art}
-                title={g.title}
-                badge={g.kind === 'screen' ? 'common.badge.poster' : 'common.badge.cover'}
-              />
+                  quote has no artwork at all and is sent none.
+
+                  AS TALL AS WHAT IS BESIDE IT. It was `h-14 w-10` — a 56px stamp
+                  against a title that wraps to three lines and a chip row under
+                  it, so the row read as a caption with a thumbnail rather than as
+                  a shelf. `hero` is the mode with no fixed size on it; the
+                  wrapper stretches to the row and the stylesheet drives the
+                  height from that, which is the only way the two can stay equal
+                  when the thing setting the height is a title nobody can
+                  measure in advance. */}
+              <span className="skipped-work-art">
+                <Cover
+                  hero
+                  path={g.art}
+                  title={g.title}
+                  badge={g.kind === 'screen' ? 'common.badge.poster' : 'common.badge.cover'}
+                />
+              </span>
               <div className="skipped-work-said">
                 {/* THE TITLE IS THE DOOR. One control per row: a chevron beside a
                     pressable title would be two ways to do one thing, and the
@@ -2105,7 +2142,18 @@ function NeverAsked() {
                   })}
                 >
                   <span className="skipped-work-title">{title}</span>
-                  <span className="skipped-work-count">{t('settings.quiz.skipped.count', { n: g.quotes.length })}</span>
+                  {/* THE FRACTION, NOT THE WORD. "27 SKIPPED" said one number and
+                      left the reader to guess whether that was most of the work or
+                      a corner of it — and this row already carries a tick box, a
+                      cover, a chevron and a chip row, which is exactly the
+                      crowding the glyph rule is for. So: how many are skipped, in
+                      the danger colour because that is the news, over how many the
+                      work has. The words are still in each half's name. */}
+                  <span className="skipped-work-count">
+                    <Tally n={g.quotes.length} word={t('settings.quiz.skipped.word')} icon={<IconQuizSkip />} tone="warn" />
+                    <span className="skipped-work-of" aria-hidden="true"> / </span>
+                    <Tally n={g.quotes_total || g.quotes.length} word={t('settings.quiz.quotes.word', { count: g.quotes_total || g.quotes.length })} icon={<IconNavQuotes />} />
+                  </span>
                   <span className="skipped-work-chev" aria-hidden="true"><IconChevron open={shown} /></span>
                 </button>
                 {/* THE CHIPS SIT OUTSIDE THE BUTTON, not inside it as the pack
@@ -2113,8 +2161,20 @@ function NeverAsked() {
                     inside a button is markup no browser agrees about. */}
                 {(g.people || []).length > 0 && (
                   <Scroller axis="x" className="skipped-work-people">
-                    {g.people.map((name) => (
-                      <PersonChip key={name} kind={CREDIT_KIND[g.kind]} name={name} onOpen={openPerson} />
+                    {/* `person` RIDES ALONG, which is the whole of the fix: the
+                        chip draws `person.image_path` and was handed a bare
+                        string, so every credit on this screen wore the grey
+                        stand-in — on a list whose argument is that a reader
+                        should recognise their own shelf. The path comes off the
+                        people row now, looked up once for the list. */}
+                    {g.people.map((p) => (
+                      <PersonChip
+                        key={p.name}
+                        kind={CREDIT_KIND[g.kind]}
+                        name={p.name}
+                        person={p.image_path ? { image_path: p.image_path } : null}
+                        onOpen={openPerson}
+                      />
                     ))}
                   </Scroller>
                 )}

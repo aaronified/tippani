@@ -61,6 +61,8 @@ import {
   Scroller,
   toast,
   Tooltip,
+  Tally,
+  IconNavLibrary,
 } from './ui.jsx'
 
 // A section's stack, from the app's own spacing constant rather than a typed step
@@ -314,7 +316,9 @@ export async function openCharacterDoor(stack, sp, { work = null, onSearch = nul
     key: 'global',
     label: sp.record_name || sp.name,
     sub: t('identity.choose.global.sub'),
-    meta: t('identity.row.global.works', { n: works, count: works }),
+    // THE GLYPH ON A ROW THAT ALREADY CARRIES A FACE, A NAME, A SUB-LINE AND A
+    // BADGE — the tight case, and the same drawing the works consoles use.
+    meta: <Tally n={works} word={t('unit.work', { count: works })} icon={<IconNavLibrary />} />,
     face: sp.image || '',
     onPick: () => stack.open(characterPanel(stack, {
       id: sp.character_id, name: sp.record_name || sp.name, onSearch,
@@ -693,7 +697,7 @@ function MergeControl({ into, onMerged, onError, table = 'people', org = false, 
                   called the same thing is the case this control exists to
                   resolve, and the name alone cannot tell them apart. */}
               <span className="microcopy" style={{ color: 'var(--soft)' }}>
-                {t('identity.merge.hit.works', { n: p.works || 0, count: p.works || 0 })}
+                <Tally n={p.works || 0} word={t('unit.work', { count: p.works || 0 })} icon={<IconNavLibrary />} />
               </span>
             </li>
           ))}

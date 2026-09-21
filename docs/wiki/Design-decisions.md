@@ -18455,3 +18455,99 @@ measured fade, not a truncation; `no-truncated-names.test.js` holds that class a
 green. What survived from that pair was the ONE real clip underneath them, on the cover
 specimen's credit line, which no scanner could see because it was written in a style
 attribute.
+
+## A count wears the glyph of what it counts
+
+The owner's rule, given when the sweep asked how far "everywhere" reached: *"when there
+is enough space (like in section subtitle or subheaders), the glyph will follow the text
+so the association is clear. where there is small space, like rows with buttons and lots
+of info, they will serve as a visual indicator of the nouns, just like they do for the
+verbs."*
+
+**TWO SHAPES AND ONE COMPONENT, because the second only works if the first has run.** A
+subheader reading "42 skipped ⏭ in 2 works 📚" is where a reader learns which drawing
+means what; a row reading "27 ⏭ / 28 ❝" spends what the subheader taught. Written as two
+components they would drift, and the day one changed its glyph the other would go on
+teaching the old one. `Tally` (ui.jsx) is both, and `showWord` is the only difference.
+
+**THE WORD IS ALWAYS IN THE NAME, DRAWN OR NOT**, which is the lesson the section rail
+paid for one commit earlier: a glyph alone is a picture to a screen reader and nothing at
+all. `showWord` decides whether the noun is PAINTED, never whether it is said.
+
+**AN `sr-only` WORD WAS THE FIRST ATTEMPT AND IT WAS WRONG TWICE.** Off-screen text is
+still `textContent`, which is what this repo's tests and the journey tier's view of a
+screen read — `settings-changed.test.jsx` went red on `"Review1 changed"` within the hour.
+And the same mistake has a second face: a flex `gap` puts air between two BOXES and
+nothing between two strings, and flex items are blockified, so "6 skipped" reached
+`innerText` as `"6\nskipped"` and a journey asking whether the screen said it was told no
+over a screen that plainly did. `.tally` is `display: inline` and the space between the
+figure and its noun is a real space in the markup. What a reader copies is the text.
+
+**RED IS FOR A COUNT THAT IS THE PROBLEM**, and it takes the figure AND the glyph. A red
+number beside a grey drawing says the number is the warning and the noun is neutral, which
+is not what a skipped count means.
+
+**WHERE THE GLYPH DID NOT GO, AND WHY.** `a-count-wears-its-glyph.test.js` is the list,
+and a new standalone count of a drawn noun has to join one column or the other. The
+reasons that recur: a count inside a SENTENCE (a confirm dialog's body, a flash) would be
+a rebus; an `<option>` can only hold text; a breadcrumb assembled by joining strings has
+nowhere to put an element; and "{n} characters" on the type screen means LETTERS, where
+the person glyph would say the opposite of the truth.
+
+## What the Never-asked-about list was not saying
+
+**A NUMBER WITH NO DENOMINATOR ANSWERS THE WRONG QUESTION.** The row said "27 SKIPPED"
+against a book, and the reader auditing their own exclusions wants to know whether that is
+the whole book or a corner of it. The pair needs a figure the endpoint was not sending —
+the work's own count, correlated on the parent rather than grouped, because the query is
+already filtered to excluded rows and a GROUP BY there counts what is left rather than
+what there is.
+
+**AND THE CREDITS WERE DRAWING THE GREY STAND-IN, on a list whose whole argument is that
+a reader should recognise their own shelf.** `PersonChip` draws `person.image_path` and
+was handed a bare string. It was invisible because a stand-in is also the right answer for
+a credit nobody has fetched a person for: the defect and the correct state are the same
+picture. The path comes off the people row now, looked up once for the whole list rather
+than once per group.
+
+**THE COVER'S HEIGHT IS THE TEXT'S HEIGHT, AND THE FIRST ATTEMPT AT THAT DREW A 453px
+COVER.** Stretching the row and asking the image for `height: 100%; width: auto` is
+circular — the row's height is its tallest item, the tallest item was the art, and the
+art's height came from its own width, so the cover took the column's full width and came
+out five times the height of the title beside it. The column carries the RATIO and is
+stretched; the picture is absolutely positioned inside it and contributes nothing back.
+A journey measuring the pair is what said so; by eye it is a big cover on a screen that
+scrolls.
+
+**AND THE MUTATION THAT PROVES IT IS NOT THE OBVIOUS ONE.** Putting `align-items:
+flex-start` back on the row changes nothing, because a child's `align-self` outranks its
+container's alignment — the load-bearing line is `align-self: stretch` on the art column.
+That was found by trying the obvious mutation and watching the case stay green, which is
+the whole reason the rule says to try it.
+
+## A bullet that was a control character and the digit 2
+
+`.cl-entry::before` had `content: "<U+0082>2"` — an invisible C1 control followed by a
+literal 2, which is `content: "\2022 "` with its backslash lost. Seventy releases of the
+changelog were marked with a tofu box and a numeral, reading as a list that starts at two
+and never counts up.
+
+**IT SURVIVED BECAUSE NOTHING CAN SEE GENERATED CONTENT.** It is not in the DOM, so no
+test in this repo can assert on it; at `var(--faint)` on a dense log a numeral two is
+plausible until somebody reads the declaration or looks closely at a capture. The capture
+sweep found it by doing the second. The trailing space in the replacement is part of the
+escape, not part of the bullet: CSS ends a unicode escape at the first non-hex character
+or at one space, which it then swallows.
+
+## A slider is the one control whose precision is its width
+
+`.pref-row-control` shrink-wraps, which is right for a toggle and a picker and wrong for a
+range: on a phone the row wraps, the track dropped to its own line, and it stopped at
+about a third of it — 39% measured — so a twenty-stop range had two stops under a thumb.
+The row asks what it is holding (`:has(.tp-slider)`) rather than every caller remembering
+to say, and only under the phone breakpoint: in a desk column the pack draws these as
+rows with the track beside the label, where it already has room.
+
+**IT IS A MEASUREMENT BECAUSE THERE IS NOTHING TO READ.** The screen says the same words
+at either width, and a screenshot of a short track looks like a screenshot of a slider —
+which is how it shipped.

@@ -27,9 +27,16 @@ import { ShelfControl, WorkCard } from '../../src/works.jsx'
 const tile = (kind, item) =>
   render(<WorkCard kind={kind} item={{ id: 1, title: 'x', ...item }} index={0} onOpen={() => {}} />)
 
-// The bar is the only role="img" on a tile — every glyph in the app is
-// aria-hidden — and its accessible name is the string under test.
-const barName = () => screen.getByRole('img').getAttribute('aria-label')
+// THE BAR IS NO LONGER THE ONLY role="img" ON A TILE, and the sentence that said
+// it was is why this helper is here rather than inline. Since the count sweep the
+// quote count is a figure and a glyph, and the glyph is an image named for the
+// noun it stands in for — so the bar is found by what it is about (a state and a
+// percentage) rather than by being the only one of its kind. Its accessible name
+// is still the string under test.
+const barName = () =>
+  screen.getAllByRole('img')
+    .map((el) => el.getAttribute('aria-label'))
+    .find((name) => name && !/^(quote|quotes|film line|film lines)$/.test(name))
 
 describe('the badge on the artwork of something in progress', () => {
   it('calls a game you are playing playing', () => {
@@ -124,6 +131,6 @@ describe('the colour bar under the artwork', () => {
     render(
       <ShelfControl kind="movie" item={{ id: 1, media_type: 'movie' }} status="watching" progress={55} onSelect={() => {}} />,
     )
-    expect(screen.getByRole('img').getAttribute('aria-label')).toBe('Watching — 55%')
+    expect(barName()).toBe('Watching — 55%')
   })
 })

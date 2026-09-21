@@ -486,8 +486,15 @@ describe('merging a duplicate in', () => {
     const field = [...document.querySelectorAll('[role=dialog] input')].find((i) => i.type !== 'file')
     expect(field, 'the row opened no editor').toBeTruthy()
     fireEvent.change(field, { target: { value: 'Woland' } })
-    const hit = await screen.findByText('4 works')
-    expect(hit).toBeTruthy()
+    // THE FIGURE IS TEXT AND THE NOUN IS THE GLYPH BESIDE IT, since the count
+    // sweep: a row this crowded prints "4" and a drawing that names itself, so
+    // the two halves are asked for separately.
+    const hit = await screen.findByText('4')
+    expect(hit, 'the candidate should say how much hangs off it').toBeTruthy()
+    expect(
+      await screen.findByRole('img', { name: 'works' }),
+      'and the drawing beside the figure should say what it is counting',
+    ).toBeTruthy()
     expect(CALLS.some(([m, p]) => m === 'GET' && p.startsWith('/characters/search'))).toBe(true)
     expect(CALLS.some(([, p]) => p.startsWith('/people/search'))).toBe(false)
   })

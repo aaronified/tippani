@@ -9611,7 +9611,12 @@ export function Slider({ label, hideLabel = false, min, max, step, value, format
   const num = decimals ? v.toFixed(decimals) : String(v);
   const show = readout != null ? readout : format ? t(format, { n: num, count: v }) : num;
   return (
-    <div>
+    // A CLASS, SO A ROW CAN TELL IT IS HOLDING ONE. This was an unclassed div, and
+    // a slider is the one control in Settings that wants the whole line on a phone
+    // — the readout sits above the track rather than beside it, so a track that
+    // stops at 55% of the row is 45% of a control nobody can aim at. `.pref-row`
+    // keys off this; nothing else styles it.
+    <div className="tp-slider">
       <div className="mb-1.5 flex items-baseline justify-between">
         {hideLabel ? <span /> : <MonoLabel>{label}</MonoLabel>}
         <span style={{ fontFamily: "var(--font-mono)", fontWeight: "var(--font-mono-weight)", fontStyle: "var(--font-mono-style)", fontVariantCaps: "var(--font-mono-caps)", textTransform: "var(--font-mono-case)", fontVariantNumeric: "var(--font-mono-figures)", fontSize: "var(--type-mono-12)", color: "var(--faint)" }}>{show}</span>
@@ -10206,6 +10211,80 @@ export function IconChecks({ size = ICON_SIZE }) { return <svg {...iconFill} vie
 // stays an outline: it is the VERB, on every row that can destroy something, and the
 // two must not be one drawing or a row's delete button would read as a destination.
 export function IconBin({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="1.2 -6.8 253.7 253.7" width={size} height={size}><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM112,168a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm0-120H96V40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8Z"/></svg> }
+// ── A COUNT WEARS THE GLYPH OF WHAT IT COUNTS ────────────────────────────────
+//
+// THE RULE, AND WHERE EACH HALF OF IT APPLIES. The owner's: "when there is enough
+// space (like in section subtitle or subheaders), the glyph will follow the text so
+// the association is clear. where there is small space, like rows with buttons and
+// lots of info, they will serve as a visual indicator of the nouns, just like they
+// do for the verbs."
+//
+// So there are two shapes and one component. In a subheader — "42 skipped ⏭ in
+// 2 works 📚" — the word stays and the glyph joins it, which is where a reader
+// LEARNS that this drawing means a work. In a row already carrying a checkbox, a
+// cover, a chevron and two numbers, the glyph stands in for the word: "27 ⏭ / 28 ❝".
+// The second only reads because the first taught it.
+//
+// THE WORD IS ALWAYS IN THE NAME, drawn or not. A glyph alone is a picture to a
+// screen reader and nothing at all; the last pass through this repo paid for that
+// lesson on the section rail, where "Works 44" was a figure with no noun. So `word`
+// is what the count is OF, always, and `showWord` only decides whether it is also
+// painted.
+//
+// `tone: 'warn'` is the app's danger colour on BOTH the figure and its glyph, for
+// the one case where the count is the problem rather than the inventory — the
+// skipped half of a fraction. It is not a general emphasis: a count of things the
+// reader owns is never red, which is the same argument the metadata rail's badges
+// were built on.
+export function Tally({ n, icon, word, showWord = false, tone = "plain", className = "" }) {
+  // THE LABEL IS ON THE GLYPH, NOT ON THE WHOLE THING, and the difference is what
+  // the rest of the app can still query. Labelling the wrapper `role="img"` reads
+  // correctly — "27 skipped" as one fact — but it makes every count in the app a
+  // second image on its screen, and the tile test whose helper says "the bar is
+  // the only role=img on a tile" was right until it was not. The glyph alone is the
+  // image here: it is the part standing in for a word, and giving it that word is
+  // the textbook pattern. The figure stays ordinary text, so it is read, copied and
+  // found in the page exactly as it is drawn.
+  //
+  // AND IT IS HIDDEN WHERE THE WORD IS PAINTED. With `showWord` the noun is already
+  // on the screen and in the text; a labelled glyph beside it would say it twice.
+  return (
+    <span className={`tally${tone === "warn" ? " is-warn" : ""}${className ? ` ${className}` : ""}`}>
+      <span className="tally-n">{n}</span>
+      {/* THE SPACE IS A CHARACTER, NOT A GAP, and that is not a detail. A flex
+          `gap` puts air between two boxes and NOTHING between two strings, so
+          "6 skipped" reached `innerText` as "6\nskipped" — flex items are
+          blockified — and a journey asking the screen whether it says "6 skipped"
+          was told no over a screen that plainly did. What a reader copies out of
+          this, and what the browser's own find-in-page matches, is the text; the
+          layout has to be made of text where the thing being laid out is words. */}
+      {showWord && <span className="tally-word"> {word}</span>}
+      <span
+        className="tally-icon"
+        role={showWord ? undefined : "img"}
+        aria-label={showWord ? undefined : word}
+        aria-hidden={showWord ? "true" : undefined}
+      >
+        {icon}
+      </span>
+    </span>
+  );
+}
+
+// A GLOSSARY ENTRY, because an exported component with none is what the registry
+// ratchet counts. The demo shows BOTH shapes at once, which is the whole of the
+// decision this component exists to carry: the subheader teaches the drawing with
+// the word beside it, and the row spends what the subheader taught.
+if (import.meta.env.DEV) {
+  Tally.glossary = {
+    demo: (h) =>
+      h("div", { style: { display: "grid", gap: 8 } }, [
+        h(Tally, { key: "a", n: 42, word: "skipped", icon: h(IconQuizSkip), showWord: true, tone: "warn" }),
+        h(Tally, { key: "b", n: 27, word: "quotes", icon: h(IconNavQuotes) }),
+      ]),
+  };
+}
+
 export function IconNavLibrary({ size = ICON_SIZE }) { return <svg {...iconFill} viewBox="14.1 2.1 243.9 243.9" width={size} height={size}><path d="M231.65,194.55,198.46,36.75a16,16,0,0,0-19-12.39L132.65,34.42a16.08,16.08,0,0,0-12.3,19l33.19,157.8A16,16,0,0,0,169.16,224a16.25,16.25,0,0,0,3.38-.36l46.81-10.06A16.09,16.09,0,0,0,231.65,194.55ZM136,50.15c0-.06,0-.09,0-.09l46.8-10,3.33,15.87L139.33,66Zm10,47.38-3.35-15.9,46.82-10.06,3.34,15.9Zm70,100.41-46.8,10-3.33-15.87L212.67,182,216,197.85C216,197.91,216,197.94,216,197.94ZM104,32H56A16,16,0,0,0,40,48V208a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V48A16,16,0,0,0,104,32ZM56,48h48V64H56Zm48,160H56V192h48v16Z"/></svg> }
 // The Catalogue. IconReel keeps the outline where a film is the subject rather than
 // the destination.

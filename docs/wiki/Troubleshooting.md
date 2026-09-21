@@ -126,6 +126,7 @@ the subsystem and the underlying error.
 | `TIP-PEOPLE-001` | People list / names / orphan images |
 | `TIP-REVIEW-001` | Quiz / practice candidate rows |
 | `TIP-REVIEW-002` | An answer's row in the recall history (`item_recalls`). **The grade itself was saved** — the log sits beside the schedule rather than inside it, so the card is scheduled correctly and the only loss is one row the review popup can draw. Nothing to do unless it repeats. |
+| `TIP-REVIEW-003` | The photographs for the credits on Settings → Review → Never asked about. The list itself is unaffected: every chip draws its stand-in instead of a face, which is also what a credit nobody has fetched a person for looks like. Nothing to do unless it repeats. |
 | `TIP-EXPORT-001` | Export rows |
 | `TIP-BULK-001` | Bulk-selection id rows |
 | `TIP-TAG-001` | Genres / tags list |

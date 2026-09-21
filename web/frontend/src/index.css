@@ -8153,7 +8153,24 @@ html[data-theme="dark"] .mobile-sheet-footer {
 }
 /* A drawn bullet rather than list-style, so a multi-paragraph entry keeps ONE
    mark at the top instead of the marker floating beside the middle of it. */
-.cl-entry::before { content: "2"; position: absolute; left: 2px; top: 0; color: var(--faint); }
+/* A BULLET, AND IT HAS BEEN A CONTROL CHARACTER AND THE DIGIT 2 THE WHOLE TIME.
+   The declaration read `content: "2"` — U+0082, an invisible C1 control, followed
+   by a literal 2. It is `content: "\2022 "` with its backslash lost somewhere in an
+   edit: CSS then read `\20` as a space and left `22`, or an encoding pass mangled the
+   escape into the control char; either way seventy releases of entries were marked
+   with a tofu box and a numeral, and every one of them read as a list that starts at
+   two and never counts up.
+
+   IT SURVIVED BECAUSE NOTHING CAN SEE IT. Generated content is not in the DOM, so no
+   test in this repo can assert on it, and at `var(--faint)` on a dense log a numeral
+   two is plausible until somebody reads the declaration or looks closely at the
+   screen. A capture sweep found it by doing the second.
+
+   THE TRAILING SPACE IS PART OF THE ESCAPE, not part of the bullet: CSS ends a
+   unicode escape at the first non-hex character or at one space, which it then
+   swallows. Without it, `\2022` followed by anything hex-shaped would read as a
+   different codepoint. */
+.cl-entry::before { content: "\2022 "; position: absolute; left: 2px; top: 0; color: var(--faint); }
 .cl-entry p { margin: 0; }
 .cl-entry p + p { margin-top: 7px; }
 .cl-entry b { color: var(--ink); font-weight: 600; }
@@ -10397,7 +10414,57 @@ html[data-theme="dark"] .board-cover {
 .skipped-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
 /* A WORK'S ROW: tick, artwork, the title that opens it, the people under it. */
-.skipped-work { display: flex; align-items: flex-start; gap: var(--edge, 12px); padding: 6px 0; }
+/* STRETCH, NOT flex-start, AND THAT IS THE WHOLE OF THE COVER FIX. The row's
+   height is set by the column of text — a title that wraps to three lines and a
+   chip row under it — and the art was a fixed 56px stamp beside it, so the row
+   read as a caption with a thumbnail rather than as a shelf. Stretching the row
+   lets the art take whatever height the text arrived at, which is the only way the
+   two stay equal when nothing can measure the title in advance. */
+.skipped-work { display: flex; align-items: stretch; gap: var(--edge, 12px); padding: 6px 0; }
+/* THE ART COLUMN: height from the row, width from the ratio. `width: auto` on an
+   image with a set height is what makes the picture keep its own shape — a book at
+   2:3 and a poster at 2:3 both land at two-thirds of whatever the text made the
+   row. The floor is there because a work with a one-word title and no credit makes
+   a very short row, and a 20px cover is a smudge rather than a picture. */
+/* THE ART COLUMN: height from the row, width from the ratio — and the picture
+   inside it TAKEN OUT OF THE FLOW so the two cannot argue.
+ 
+   THE CIRCLE THIS AVOIDS, measured rather than reasoned. The first cut stretched
+   the column and asked the image for `height: 100%; width: auto`: the row's
+   height is the tallest item's, the tallest item was now the art, and the art's
+   height came from its own width — so the cover took the column's full width and
+   came out 453px tall beside an 88px title. A journey measuring the pair is what
+   said so; by eye it is a big cover on a screen that scrolls.
+ 
+   So the column is stretched and carries the RATIO, which turns the row's height
+   into a width, and the picture is absolutely positioned inside it and therefore
+   contributes nothing back. `min-height` is the floor for a work with a one-word
+   title and no credit, where the text alone would draw a 20px smudge. */
+.skipped-work-art {
+  flex: none; position: relative; align-self: stretch;
+  aspect-ratio: 2 / 3; min-height: max(56px, 4em);
+  /* THE CEILING IS WHAT STOPS THE LOOP RUNNING AWAY, and without it this rule is
+     unstable at a phone's width. The art's WIDTH comes from the row's height and
+     the row's height comes from the title, whose wrapping depends on the width
+     LEFT OVER — so a long title on a narrow screen feeds itself: the text wraps
+     narrower, the row grows taller, the art grows wider, and it settles with a
+     title printed one letter per line down a column a character wide. That is
+     what it actually did, and a desktop-width journey converged and never saw it.
+     Capping the art bounds the feedback: the ratio holds exactly wherever there is
+     room for it, and where there is not the picture crops rather than eating the
+     words. THE CAP IS A PERCENTAGE AND A PIXEL FLOOR TOGETHER, because a
+     percentage alone was still too generous on a phone — a 120-character title
+     left the art 117px wide, which wrapped the title to fourteen lines, which made
+     the row tall enough to want it wider again. 92px is about a third of the room
+     a phone actually has for this row, and it is what keeps a pathological title
+     down to a handful of lines. */
+  max-width: min(30%, 92px);
+}
+.skipped-work-art img,
+.skipped-work-art .ph {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+}
 .skipped-work-said { flex: 1; min-width: 0; display: grid; gap: 6px; }
 .skipped-work-open {
   display: flex; align-items: center; gap: 10px; width: 100%;
@@ -10410,10 +10477,21 @@ html[data-theme="dark"] .board-cover {
   flex: 1; min-width: 0; text-wrap: pretty;
   font-family: var(--font-quote-base); font-size: var(--type-display-15); font-weight: 600; color: var(--ink);
 }
+/* THE FRACTION. Mono, because both halves are figures and a fraction whose two
+   numbers are set in a proportional face does not line up; no letter-spacing or
+   uppercase any more, because there are no letters left in it. */
+/* INLINE, for `.tally`'s reason one level up: a flex row here blockifies the two
+   tallies and the slash between them, and "5 / 5" stops being a string anybody can
+   read out of the page. The spaces around the slash are characters in the markup. */
 .skipped-work-count {
-  flex: none; white-space: nowrap; color: var(--faint);
-  font-family: var(--font-mono); font-size: var(--type-mono-11); letter-spacing: .09em; text-transform: uppercase;
+  flex: none; white-space: nowrap;
+  color: var(--faint);
+  font-family: var(--font-mono); font-size: var(--type-mono-11);
 }
+.skipped-work-of { opacity: .55; }
+/* AND THE SUMMARY ABOVE THE LIST, which keeps its words: this is where a reader
+   meets each glyph beside the noun it stands for, and the rows below spend that. */
+.skipped-tally { display: flex; flex-wrap: wrap; align-items: center; gap: .45em; }
 .skipped-work-chev { flex: none; display: inline-flex; color: var(--faint); }
 /* IT SCROLLS UNDER THE FADE, which is what makes `Scroller` legal here: a row of
    chips as wide as a work's cast cannot wrap without moving every row under it. */
@@ -10680,6 +10758,47 @@ html[data-theme="dark"] .board-cover {
 /* ── WHAT A RECORD'S ROW SAYS UNDER ITS NAME ──
    The owner's shape, verbatim: "x <work_icon> • y <quote_icon> - <work names like
    pills, with edgemask and sidescroll>". */
+/* ── A COUNT AND THE GLYPH OF WHAT IT COUNTS ─────────────────────────────────
+   The figure is set in the app's own figures so a row of them lines up, and the
+   glyph rides at the same optical size as the text rather than at an icon's
+   natural one — a 16px drawing beside an 11px number reads as a button somebody
+   forgot to finish. `em`, because both have to hold at whatever the type dials
+   are set to.
+
+   THE WHOLE THING TAKES THE TONE, figure and glyph together. A red number beside
+   a grey drawing says the number is the warning and the noun is neutral, which is
+   not what a skipped count means: it is the skipping that is the news. */
+/* INLINE, NOT INLINE-FLEX, for the reason the component's own comment gives: a
+   flex container blockifies its children, so the figure and its noun arrive in
+   `innerText` on separate lines and the row stops being copyable text — a journey
+   asking whether the screen says "6 skipped" was told no over a screen that
+   plainly did. The space between figure and word is a real space in the markup;
+   only the glyph needs a box of its own. */
+.tally { display: inline; white-space: nowrap; }
+/* THE FIGURE CARRIES THE FIGURES SETTING, not the whole tally: the word beside it
+   is prose and has no business being tabular. */
+.tally-n { font-variant-numeric: var(--font-ui-figures); }
+/* The noun, where it is painted at all. It takes the surrounding size and colour —
+   what makes it a noun rather than a label is that the glyph is next to it. */
+.tally-word { min-width: 0; }
+/* INLINE-BLOCK, AND THE SVG INSIDE IT TOO. A `display: block` child — which is
+   what every glyph in this app is drawn as — puts a line break either side of itself
+   in `innerText`, so a fraction came out as "5\n / 5" and the row stopped being a
+   string anybody could copy or search. The glyph still needs a box to be sized and
+   shifted onto the baseline; it does not need a block one. */
+.tally-icon { display: inline-block; margin-inline-start: .3em; vertical-align: -.18em; }
+/* A WORK CARD'S COUNT. The mono face, because it is a figure on a caption line,
+   and the colour comes from the card (accent for a book, amber for a film). */
+.work-card-count .tally {
+  font-family: var(--font-mono); font-weight: var(--font-mono-weight);
+  font-style: var(--font-mono-style); font-variant-caps: var(--font-mono-caps);
+  font-variant-numeric: var(--font-mono-figures);
+  font-size: var(--type-mono-12);
+}
+
+.tally-icon svg { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: top; }
+.tally.is-warn { color: var(--error); }
+
 .row-counts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 /* THE ICON CARRIES THE NOUN so the number does not need a word beside it. */
 .row-count {
@@ -10721,6 +10840,20 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .pref-row-said { display: grid; gap: 2px; min-width: 0; flex: 1 1 22ch; }
 @media (min-width: 1024px) { .pref-row-said { flex-basis: 16ch; } }
 .pref-row-control { flex: 0 1 auto; min-width: 0; }
+/* A SLIDER TAKES THE WHOLE LINE ON A PHONE. Every other control in Settings is
+   something you press or choose, and those are as wide as their words; a track is
+   as wide as the room it is given, and precision on it IS width — a 20-stop range
+   squeezed to 55% of a phone row is two stops under a thumb. `.pref-row-control`
+   shrink-wraps by default, which is right for the rest and wrong for this one, so
+   the row asks what it is holding rather than every caller remembering to say.
+
+   NOT AT EVERY WIDTH. In a desk column the pack draws these as rows — label left,
+   range beside it, readout in mono at the end — and there the track already has
+   room. This is the phone's answer to a row that cannot fit both. */
+@media (max-width: 768px) {
+  .pref-row:has(.tp-slider) { row-gap: 2px; }
+  .pref-row-control:has(.tp-slider) { flex: 1 1 100%; }
+}
 /* CHANGED IS A MARK. Sized in em so it holds against the reader's text dial, and
    in the accent because that is what the app means by "you did this". */
 .pref-row-dot {

@@ -34,7 +34,7 @@ import {
 } from './characterRows.jsx'
 import { quotePairCells } from './quotePair.jsx'
 import { t } from './i18n.js'
-import { NavIcon, IconDetails, IconEdit, IconHeart, IconPlus, IconQuote } from './ui.jsx'
+import { NavIcon, IconDetails, IconEdit, IconHeart, IconPlus, IconQuote, Tally, IconNavLibrary } from './ui.jsx'
 import { leadingRole } from './identityScope.js'
 
 // THE APP'S OWN ART, NOT AN EMOJI. The first version of this line invented four
@@ -434,7 +434,7 @@ export function CharacterLocal({
               face={record.image_path ? coverImgURL(record.image_path) : ''}
               faceName={record.name}
               badge={t('identity.badge.global')}
-              meta={t('identity.row.global.works', { n: workCount, count: workCount })}
+              meta={<Tally n={workCount} word={t('unit.work', { count: workCount })} icon={<IconNavLibrary />} />}
               onClick={onOpenGlobal}
             />
           ) : null}

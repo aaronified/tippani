@@ -442,5 +442,56 @@ export function screenVerbs(getPage) {
     return Math.max(0, de.scrollWidth - de.clientWidth)
   })
 
-  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen, sideways }
+  // said — WHAT THE SCREEN SAYS TO SOMEBODY WHO CANNOT SEE IT.
+  //
+  // `see` reads `innerText`, which is the right instrument for nearly everything
+  // and is blind to exactly one thing: a glyph. This app now prints counts as a
+  // figure and a drawing — "27 ⏭ / 28 ❝" — where the row is too tight for the
+  // noun, and the noun lives in the control's accessible NAME instead. A journey
+  // with no way to read that could only assert the digits, which is the half that
+  // was never in doubt.
+  //
+  // IT IS NOT A LICENCE TO READ MARKUP. What comes back is Chrome's own name
+  // computation, the same thing `press` matches on and the same thing a screen
+  // reader announces — a fact about the rendered screen, not about the source. A
+  // journey may still not ask for a class, a component or a field.
+  //
+  // REFUSES AN AMBIGUOUS MATCH, for `press`'s reason: two things called the same
+  // thing means the assertion is about whichever one the markup happened to put
+  // first.
+  async function said(want, { timeout = DEFAULT_TIMEOUT } = {}) {
+    // A STRING IS MATCHED WHOLE, unlike `see`. `see` reads a screen's text and a
+    // substring of it is a fair question; a NAME is one string the browser
+    // computed for one thing, and half of it is not that thing's name. Case still
+    // folds, for `press`'s reason.
+    const test = want instanceof RegExp ? (n) => want.test(n) : (n) => fold(n) === fold(want)
+    const deadline = Date.now() + timeout
+    for (;;) {
+      const tree = await page().accessibility.snapshot({ interestingOnly: false })
+      const names = []
+      const walk = (node) => {
+        if (!node) return
+        if (node.name) names.push(node.name.trim())
+        for (const c of node.children || []) walk(c)
+      }
+      walk(tree)
+      const hits = [...new Set(names.filter(test))]
+      if (hits.length === 1) return hits[0]
+      if (hits.length > 1) {
+        throw new Error(
+          `${hits.length} things on this screen are named like ${want}, so this journey would be ` +
+          `reading whichever one the markup happened to put first.\nThey are: ${hits.map((h) => JSON.stringify(h)).join(', ')}`,
+        )
+      }
+      if (Date.now() > deadline) {
+        throw new Error(
+          `nothing on this screen is named like ${want}.\n\nWhat is named:\n\n` +
+          [...new Set(names)].slice(0, 60).map((n) => `  ${JSON.stringify(n)}`).join('\n'),
+        )
+      }
+      await sleep(150)
+    }
+  }
+
+  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen, sideways, said }
 }

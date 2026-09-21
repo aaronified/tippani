@@ -108,8 +108,13 @@ describe('the duplicate card', () => {
 
   it('says how much hangs off each, because the names cannot say it', async () => {
     const box = await mount()
-    expect(within(box).getByText(/3 works/)).toBeTruthy()
-    expect(within(box).getByText(/1 work\b/)).toBeTruthy()
+    // The figures are text and the nouns are the glyphs beside them, which is
+    // also why the singular and the plural are asked for by NAME: the drawing is
+    // the same one either way and only its label says which.
+    expect(within(box).getByText('3')).toBeTruthy()
+    expect(within(box).getByText('1')).toBeTruthy()
+    expect(within(box).getByRole('img', { name: 'works' })).toBeTruthy()
+    expect(within(box).getByRole('img', { name: 'work' })).toBeTruthy()
   })
 
   it('has nothing to ask once the two spellings are one record', async () => {

@@ -118,6 +118,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A skipped work says how much of it you have switched off.** "Never asked about"
+  printed one number against a book — "27 skipped" — and left you to guess whether that
+  was the whole thing or a corner of it. It now reads 27 of the work's 28, the skipped
+  half in red, with the covers drawn at the height of the title and credit beside them and
+  the author's own photograph on the chip instead of a grey stand-in.
+
+- **The release log is bulleted again.** Every entry on Settings → Server was marked with
+  an invisible control character and the digit 2, which is what a bullet becomes when its
+  escape loses a backslash — seventy releases of a list that started at two and never
+  counted up.
+
+- **A tuning slider takes the whole width on a phone.** The ten numbers behind the
+  schedule each had a track stopping at about a third of the row, with the rest of the line
+  empty beside it — two stops under a thumb on a twenty-stop range.
+
 - **The metadata consoles fit the phone they are read on.** Works, People and Characters
   laid themselves out at the width of their longest title — the whole page slid left and
   right under a thumb, top bar, dock, cards and all, with the filter pills off one edge and
@@ -204,6 +219,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with, so nothing changes unless you pick.
 
 ### Changed
+
+- **A count shows what it is counting.** A number followed by a noun now carries that
+  noun's own glyph: beside the word where there is room to learn it, in place of the word
+  where the row is already full — work cards, the metadata consoles, the bin, Stats, the
+  duplicate pickers and the skipped list. A count of something the app has no drawing for
+  keeps its word.
 
 - **Your spelling is checked while you type a quote, a note or a translation.** Your browser's
   own dictionaries do it — nothing is downloaded and nothing is sent anywhere — and it is on
