@@ -459,6 +459,75 @@ old work, so a screen that breaks one is a bug and not a variation.
   changes with the reader's font, sits off the baseline every other glyph shares, and is
   the one picture `docs/ui-glossary.html` cannot document. A lookalike next to the real
   glyph is two pictures of one thing.
+- **A COUNT WEARS THE GLYPH OF WHAT IT COUNTS, AND WHERE IT SITS DECIDES WHETHER THE
+  WORD STAYS.** The owner's, asked how far "use them everywhere" reached: *"Everywhere a
+  glyph exists. when there is enough space (like in section subtitle or subheaders), the
+  glyph will follow the text so the association is clear. where there is small space, like
+  rows with buttons and lots of info, they will serve as a visual indicator of the nouns,
+  just like they do for the verbs."*
+
+  So there are two shapes and ONE component — `Tally` in `ui.jsx`, where `showWord` is the
+  only difference — written here in the owner's own notation, because the app's glyphs are
+  the app's own and an emoji standing in for one in this file would be the very thing the
+  rule above forbids on a screen:
+
+  | the site | what it draws |
+  |---|---|
+  | a section subtitle or subheader — room to spare | **the word AND the glyph**: `42 skipped <skip> in 2 works <work>` |
+  | a row already carrying buttons and several facts | **the glyph INSTEAD of the word**: `27 <skip> / 28 <quote>` |
+
+  THE ROOMY ONE IS NOT DECORATION — IT IS WHERE THE READER LEARNS THE DRAWING, and it is
+  the only reason the tight one reads at all. Written as two components they drift, and
+  the day one changes its glyph the other goes on teaching the old one.
+
+  **THE NOUN IS ALWAYS IN THE NAME, DRAWN OR NOT.** A glyph alone is a picture to a screen
+  reader and nothing at all; `showWord` decides whether the noun is PAINTED, never whether
+  it is said. The label goes on the GLYPH — the part standing in for a word — and the
+  figure stays ordinary text, so it is read, copied and found in the page as drawn.
+
+  TWO WAYS OF SAYING IT WERE TRIED AND BOTH WERE WRONG, each measured: an `sr-only` word
+  is still `textContent`, which is how this repo's tests and the journey tier read a screen
+  (`settings-changed.test.jsx` went red on "Review1 changed"); and an `aria-label` on the
+  wrapper makes every count in the app a second `role="img"` on its screen, which broke a
+  tile test whose helper said "the bar is the only role=img on a tile" and was right until
+  it was not.
+
+  **THE SPACE BETWEEN A FIGURE AND ITS NOUN IS A CHARACTER, NOT A FLEX GAP.** A gap puts
+  air between two boxes and nothing between two strings, and flex items are blockified — so
+  "6 skipped" reaches `innerText` as two lines, and a journey asking whether the screen says
+  it is told no over a screen that plainly does. What a reader copies is the text.
+
+  **RED IS FOR A COUNT THAT IS THE PROBLEM**, never for emphasis, and it takes the figure
+  AND its glyph: a red number beside a grey drawing says the number is the warning and the
+  noun is neutral. A count of things the reader owns is never red.
+
+  **A COUNT WHOSE NOUN HAS NO DRAWING KEEPS ITS WORD**, and
+  `test/rules/a-count-wears-its-glyph.test.js` is the list of which those are with the
+  reason each — a count inside a SENTENCE (a confirm body, a flash) would be a rebus, an
+  `<option>` can only hold text, a breadcrumb joined into a string has nowhere to put an
+  element. A new standalone count of a drawn noun joins one column or the other; it cannot
+  arrive in neither.
+
+- **A GLYPH SITS ON THE LINE OF THE TEXT BESIDE IT, AND ITS BASELINE IS ITS BOTTOM EDGE.**
+  The owner's, over the release log: *"The chevrons are slightly up compared to the version
+  numbers. This is an alignment problem i see app wide. This kind of things differentiate
+  casual from professional."*
+
+  An `<svg>` has no text in it, so its baseline is its bottom margin edge — which means a
+  glyph in an `align-items: baseline` flex row hangs its ENTIRE body above the text. That
+  is the cause, it is invisible by eye at three pixels, and it is why nothing in this repo
+  could find it. **The row stays baseline and only the glyph is centred** (`align-self:
+  center`): baseline is what makes two type sizes read as one line, so changing the row
+  fixes the glyph by breaking the pair beside it.
+
+  **MEASURE THE INK, NOT THE BOX.** `make glyph-align` reports the glyph's ink —
+  `getBBox()` mapped through the viewBox — against the painted rect of the text. A first
+  pass measured element boxes, reported every count in the app as within 1.5px and
+  disagreed with the owner, who was right: these are Phosphor fill icons with viewBoxes
+  cropped off centre, so a box centred to the pixel can still have its drawing three pixels
+  high. `glyph-align-baseline.json` records what is left with a reason per site and may
+  fall and never rise.
+
 - **Two things that look the same behave the same.** The owner's, made a
   directive: "the home favourite chips directly opens the character. the work page
   chips gives the option. both should behave similarly. in fact this should be a
