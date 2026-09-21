@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "fc2564c66617a6d4711fbc79ba9551905f3477eb26f6642b884fe250830e7e5e",
-    "internal/i18n/en.txt": "32552fcd440486d1dae9f9e5f6c3cc519abc501fd077117ea3315a24235612bd",
+    "internal/i18n/bn.txt": "dff67ddae940100648ceba5d0739dcd4ca97dcffe9b4c8fc194e8af734814c70",
+    "internal/i18n/en.txt": "044127af8b1ec7389fe972cc7a7459551e1fba1459b52fb790f9845ba9e63966",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -42,7 +42,7 @@
     "web/frontend/src/ReverifyReview.jsx": "8be04f5e2f0e7fb8cf9bc7a1d46f890093208a546a9788914de1c966b63ead1a",
     "web/frontend/src/SearchPage.jsx": "7593c35915a634b9823f25fd2238151e8a25ab36c24d9f0f70c15f69ae6b4e9f",
     "web/frontend/src/SelectionBar.jsx": "2d7c4821a89a557cebcc969f722cc86cf44dad5e0dbc8d79a15dfb62df90b913",
-    "web/frontend/src/Settings.jsx": "76b4966cf8394e3a4d303d1135a3633e42613c099e9b76bcf0e8169682c6c909",
+    "web/frontend/src/Settings.jsx": "f9bc5f1b7c09f882f49bf050c9fb5895f911b72d532cf4d3da94b5a127514f78",
     "web/frontend/src/StagingPage.jsx": "df61407fb08f0796edbc195a080a1772a3731723bf02b60b503f6bf5e95fec2d",
     "web/frontend/src/StatsPage.jsx": "67cee970f292efc84167d0770286c7e57bc1e30546e31b09967727d8aceec4ab",
     "web/frontend/src/TagsPage.jsx": "c9f794eeec2e5c3f4e200b7ee31f9a74694ccddc14eaadadf78dcc2890c07d8d",

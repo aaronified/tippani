@@ -1381,7 +1381,6 @@ settings.quiz.adaptive.on.label = Adaptive
 # way. That is a claim about the TIER and not about the release: the round's
 # same-author lure cap applies at every tier. See review_tier.go.
 settings.quiz.skipped.title = Never asked about
-settings.quiz.skipped.info.body = Quotes you have told the deck to skip, grouped under the work they came from. Skipping happens one quote at a time, on a card you may never open again — this is where to find what you skipped and put any of it back.
 settings.quiz.skipped.none = Nothing skipped. Every quote you keep is in the deck.
 settings.quiz.skipped.count = {n} skipped
 settings.quiz.skipped.standalone = On its own

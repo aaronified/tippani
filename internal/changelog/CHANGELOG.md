@@ -192,6 +192,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The info dots sit on the controls they explain, not on the headings above them.** Six
+  were on a heading, where the section's own dot already is and where nobody presses them.
+  Five came down onto the row they are about — what a backup archive is, what a saved look
+  holds, why a paired phone survives a password change — one became a line of standing text
+  under "Show me, in this order", and one was a caption of the list beneath it and went.
+  Nothing else was deleted: measured against the words already on its own row, no dot
+  restated more than a seventh of itself.
+
+- **Devices got the same shape as every other card.** It was the last one in Settings still
+  drawing its own heading, with the paired count beside it; it is a numbered group now, and
+  the count is where every other group puts one.
+
 - **The schedule's numbers are on the Review screen, not behind a door.** All ten — the
   multipliers and the four ladder rungs — are rows at the foot of the section. Review used
   to be a card on one long scroll, which is why they were folded away; it is its own screen

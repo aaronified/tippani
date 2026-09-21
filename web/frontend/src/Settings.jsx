@@ -1733,6 +1733,17 @@ function SRSettings({ user, onPreferences }) {
           AND THE PANEL'S "Done" WENT WITH THE PANEL. It closed the door; there is
           no door. Every row here commits on release, as every other row in
           Settings does, so there was never anything for it to confirm. */}
+      {/* ── THE ONE DOT IN SETTINGS STILL ON A HEADING, AND IT EARNS IT.
+          Every other group-level dot came down onto the control it was about, or
+          went: a dot on a heading is a dot nobody presses, and the section's own
+          dot already occupies that level. This one cannot come down, because what
+          it says is not true of any single row — it is the rule the whole group
+          obeys. Every one of the ten is BOUNDED rather than free, and the reason
+          is invisible at every slider: a multiplier below 1 would shorten a card
+          each time you got it right, which never looks broken, it just asks the
+          same quote for ever. Ten copies of that on ten rows is the repetition
+          this pass exists to remove. `settings-dots.test.js` names this group as
+          the one exception and fails on a second. */}
       <PrefGroup
         index={4}
         title={t('settings.quiz.panel.title')}
@@ -1747,10 +1758,16 @@ function SRSettings({ user, onPreferences }) {
           already made and may want back, and the only reason to look for it is
           not remembering making them. It has never been behind a door, for the
           same reason nothing here is now. */}
+      {/* NO DOT. Measured against the other twenty-three, this was the one whose
+          words a reader could get from the screen: "quotes you have told the deck
+          to skip, grouped under the work they came from… this is where to find
+          what you skipped and put any of it back" is a caption of the list
+          directly beneath it, which is grouped by work and carries the restore
+          controls. A dot that describes what is visible spends a press on
+          nothing, and teaches the reader that the dots here are decoration. */}
       <PrefGroup
         index={5}
         title={t('settings.quiz.skipped.title')}
-        info={t('settings.quiz.skipped.info.body')}
         aside={t('settings.quiz.skipped.aside')}
         wide
       >
@@ -3287,7 +3304,14 @@ function FeaturesCard({ prefs, onSaved }) {
           order group drew 457px and the two specimen groups 954px stacked under
           it, so about 480×344 of the card's right half stood empty beside the
           list — on the screen the "use the space available" ruling is for. */}
-      <PrefGroup index={1} title={t('settings.features.order.title')} info={t('settings.features.order.prose')} rowsRef={drag.listRef} wide>
+      {/* A SUB-LINE, NOT A DOT. Two short sentences that say what reordering these
+          rows actually DOES — it is the rail, the drawer and what ＋ offers, and
+          the top one is where the app opens — which is the consequence a reader
+          needs BEFORE they drag, not after they think to press something. A dot
+          asks to be pressed; a sub-line is already read. It is short enough to
+          stand, which is the test for moving a dot's words onto the screen rather
+          than onto the control below it. */}
+      <PrefGroup index={1} title={t('settings.features.order.title')} sub={t('settings.features.order.prose')} rowsRef={drag.listRef} wide>
         {order.map((tab, i) => {
           const sec = SECTIONS.find((x) => x.tab === tab)
           if (!sec) return null
@@ -3473,13 +3497,23 @@ export function DevicesCard() {
   return (
     <Card>
       {confirmDialog}
-      <SectionTitle
-        right={devices?.length ? <MonoLabel>{t('settings.devices.paired.count', { n: devices.length })}</MonoLabel> : null}
-        info={t('settings.devices.info.body')}
-        infoTitle={t('settings.devices.title')}
+      {/* ── THE LAST CARD IN SETTINGS DRAWING ITS OWN HEADING, and it kept a dot
+          up there with it. Every other card became `PrefGroup`s when the sections
+          were built; this one was missed, so the screen carried a heading in a
+          shape nothing else on it used, and a dot at the level the SECTION dot
+          already occupies.
+
+          THE DOT DID NOT GO — IT MOVED DOWN. What it says is a rule nobody can
+          see ("changing your password signs out browsers but deliberately leaves
+          phones alone"), and that rule is about the pairing control, not about a
+          heading. A dot on a heading is a dot nobody presses; a dot on the thing
+          it is about is read by the person deciding whether to press it. The
+          count moved to the group's aside, which is where a fact you glance at
+          goes. */}
+      <PrefGroup
+        title={t('settings.devices.title')}
+        aside={devices?.length ? t('settings.devices.paired.count', { n: devices.length }) : null}
       >
-        {t('settings.devices.title')}
-      </SectionTitle>
 
       {pair ? (
         <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
@@ -3518,19 +3552,25 @@ export function DevicesCard() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <StickerButton icon={<IconDevice />} keepLabel onClick={startPairing} disabled={busy}>
-            {t('settings.devices.pair.label')}
-          </StickerButton>
-          {devices?.length > 0 && (
-            <FieldIconButton
-              icon={<IconDelete />}
-              ariaLabel={t('settings.devices.revoke-all.aria')}
-              onClick={revokeAll}
-              danger
-            />
-          )}
-        </div>
+        <PrefRow
+          label={t('settings.devices.pair.label')}
+          info={t('settings.devices.info.body')}
+          control={
+            <div className="flex flex-wrap items-center gap-2">
+              <StickerButton icon={<IconDevice />} keepLabel onClick={startPairing} disabled={busy}>
+                {t('settings.devices.pair.label')}
+              </StickerButton>
+              {devices?.length > 0 && (
+                <FieldIconButton
+                  icon={<IconDelete />}
+                  ariaLabel={t('settings.devices.revoke-all.aria')}
+                  onClick={revokeAll}
+                  danger
+                />
+              )}
+            </div>
+          }
+        />
       )}
 
       {devices?.length > 0 && (
@@ -3564,6 +3604,7 @@ export function DevicesCard() {
         </p>
       )}
       <ErrorText>{err}</ErrorText>
+      </PrefGroup>
     </Card>
   )
 }
@@ -3955,7 +3996,6 @@ function BackupCard({ user, asking = false, onAsking }) {
       <PrefGroup
         index={2}
         title={t('settings.backup.title')}
-        info={t('settings.backup.info.body')}
       >
       <div data-tour="backup">
         {/* THE PACK'S THREE ROWS. It draws Backup as "Make a backup", "Nightly
@@ -3966,8 +4006,14 @@ function BackupCard({ user, asking = false, onAsking }) {
             needs something that wakes up at four in the morning, and this repo's
             standing invariant is that no goroutine outlives its request. See
             docs/plans/nightly-backup.md. */}
+        {/* THE DOT CAME DOWN FROM THE HEADING. What it says — one dated encrypted
+            archive, a passphrase one recoverable by nothing, and a restore that
+            replaces everything — is about the act this row performs, and it is the
+            kind of thing a reader wants in front of them at the moment they are
+            deciding to press, not one level up beside a title. */}
         <PrefRow
           label={t('settings.backup.make.label')}
+          info={t('settings.backup.info.body')}
           said={loaded && (
             <p className="microcopy">
               {backup ? (
@@ -5050,7 +5096,6 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
       <PrefGroup
         index={3}
         title={t('settings.appearance.group.saved.title')}
-        info={t('settings.appearance.saved.info.body')}
         aside={t('settings.appearance.group.saved.aside', { n: saved.length, cap: SAVED_THEME_CAP })}
       >
       {/* THE LOOKS YOU HAVE SAVED. Six fields travel together in one — both
@@ -5071,8 +5116,13 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
           in. They were a stack of loose controls under a second heading — chips,
           then a box and a button, then two more buttons — on a section where
           everything else had become a row with a name. */}
+      {/* THE DOT CAME DOWN FROM THE HEADING: what a look actually holds — both
+          grounds, the accent, the material set and its dials — is the thing a
+          reader needs before pressing Save, and the group's aside already carries
+          the only fact the heading needed ("2 of 4 saved"). */}
       <PrefRow
         label={t('settings.appearance.saved.title')}
+        info={t('settings.appearance.saved.info.body')}
         sub={t('settings.appearance.saved.hint')}
         changed={saved.length > 0}
         control={

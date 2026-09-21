@@ -1370,7 +1370,6 @@ settings.quiz.adaptive.info.body = অ্যাডাপ্টিভই এখ�
 settings.quiz.adaptive.ladder.label = সিঁড়ি
 settings.quiz.adaptive.on.label = অ্যাডাপ্টিভ
 settings.quiz.skipped.title = কখনও জিজ্ঞাসা করা হয় না
-settings.quiz.skipped.info.body = যে উদ্ধৃতিগুলি বাদ দিতে বলেছেন, রচনা অনুসারে সাজানো। কী বাদ দিয়েছেন আর কোনটি ফেরাবেন, তা এখানেই।
 settings.quiz.skipped.none = কিছুই বাদ পড়েনি। আপনার রাখা প্রতিটি উদ্ধৃতি ডেকে আছে।
 settings.quiz.skipped.count = {n}টি বাদ
 settings.quiz.skipped.standalone = নিজের মতো
