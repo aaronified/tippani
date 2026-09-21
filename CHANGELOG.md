@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Put all of Settings back, from one place.** The ⋯ menu on Settings — on the index and
+  on every section — now carries **Reset settings**, which returns every preference across
+  all five sections to what a new account sees, after telling you how many that is. The
+  per-section Reset is still on the tab row for when you only want the one. The row only
+  appears when you have something set, and nothing in your library is touched.
+
 - **Both grounds, from either one.** Light ground, dark ground and accent are three doors
   on the Theme section now, each opening its own options with every colour named — so you
   can set your night look while standing in daylight, which you could not do before.

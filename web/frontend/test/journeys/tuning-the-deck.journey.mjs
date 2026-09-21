@@ -154,5 +154,13 @@ it('resets the section, and the defaults are still there after a reload', async 
   await app.press('Review')
   expect(await app.chosen('Hard'), 'the reset was never written, so the old value came back').toBe(false)
 
+  // AND THE BUTTON IS GONE AGAIN, which is the other half of what the tab row
+  // promises: Reset section is drawn for the section you are ON and only while
+  // that section has something to undo. This comment claimed it for a while and
+  // nothing checked it — a control that is always there looks identical to one
+  // that is correctly gated right up to the moment a reader presses it on a
+  // section where it can do nothing.
+  await app.gone('Reset section')
+
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

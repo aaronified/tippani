@@ -257,6 +257,13 @@ export const SECTION_CARDS = {
 // EVERY SERVER-STORED KEY IS NAMED HERE OR EXCLUDED BY NAME. `settings-prefs.test.js`
 // reads the Go struct and fails when a key is in neither list, so a preference
 // added later cannot quietly stop being counted.
+// ALL_SECTIONS — the `resetting` state's value for "every section", and a name
+// rather than a bare '*' because it travels through three places: the menu row
+// that sets it, the confirm that words itself from it, and the reset that reads
+// which keys it means. A section id it could collide with would be a section
+// called '*'.
+export const ALL_SECTIONS = '*'
+
 export const SECTION_PREFS = {
   theme: [
     'theme', 'accent', 'contrast', 'materialSet',
@@ -343,6 +350,25 @@ export function changedIn(prefs, section) {
     if (k in PREF_DEFAULTS) return v !== undefined && v !== null && v !== PREF_DEFAULTS[k]
     return !(v === undefined || v === null || v === '' || v === '{}' || v === '[]' || v === false || v === 0)
   }).length
+}
+
+// changedEverywhere — the same count over every section at once, which is what a
+// whole-screen reset is offering to undo.
+//
+// OVER SECTION_PREFS AND NOT OVER `prefs`. A reset can only clear keys some
+// section claims, so counting anything else would arm the row for a preference
+// the press cannot touch. Sections are disjoint by construction — a key in two of
+// them would be counted twice here and cleared twice by the reset, which is the
+// same no-op — so this is a sum rather than a union.
+export function changedEverywhere(prefs) {
+  return Object.keys(SECTION_PREFS).reduce((a, id) => a + changedIn(prefs, id), 0)
+}
+
+// resetKeysEverywhere — every key a whole-screen reset clears. Deduplicated,
+// because the route deletes by name and sending one twice is a longer body saying
+// the same thing.
+export function resetKeysEverywhere() {
+  return [...new Set(Object.values(SECTION_PREFS).flat())]
 }
 
 // sectionPill — the number as the reader reads it, AND NOTHING WHERE THERE IS NO
@@ -471,6 +497,38 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
       { id: 'backup', label: t('settings.backup.now.label'), icon: <IconArchive />, onClick: () => setBackupNow(true) },
       { id: 'update', label: t('settings.updates.now.label'), icon: <IconRefresh />, onClick: () => setUpdateNow(true) },
     ] : null,
+    // RESET EVERY SECTION — the one verb this screen has that no card can carry,
+    // because it is about all five of them at once. The tab row's Reset section is
+    // scoped to the tab you are on and the phone has no tab row at all, so before
+    // this there was no way to undo a whole configuration except five presses and
+    // five confirms.
+    //
+    // ⋯ RATHER THAN A BUTTON ON THE SCREEN, and the rule is the repo's own: what
+    // is genuinely rare goes behind a door. A reader resets everything once, if
+    // ever; a control for it standing on the index would be the most prominent
+    // thing on a screen whose job is the five doors under it.
+    //
+    // ABSENT, NOT DISABLED, WHEN NOTHING IS SET. Same reasoning as the tab row's:
+    // it is the one row here that DOES something, and a greyed row a reader cannot
+    // press is a row they have to read to find that out. The menu still has Help,
+    // so it is never the empty card the shell's note warns about.
+    //
+    // ON EVERY SECTION PAGE AS WELL AS THE INDEX, because this builder belongs to
+    // the screen and the sections are not screens — they are this one, routed. The
+    // count in the row is app-wide either way, which is the point: from inside
+    // Review it says how much is set everywhere, not how much is set here.
+    actions: () => {
+      const n = changedEverywhere(user.preferences || {})
+      return n > 0
+        ? [{
+            id: 'reset-all',
+            icon: <IconRevert size={24} />,
+            label: t('settings.reset.all.label'),
+            danger: true,
+            onClick: () => setResetting(ALL_SECTIONS),
+          }]
+        : []
+    },
   })
   const cards = {
     features: <FeaturesCard prefs={user.preferences} onSaved={onPreferences} />,
@@ -545,8 +603,13 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   // The reset route DELETES the keys, and `loadPrefs` supplies each default on
   // read — one home for every default, rather than a table of them here that
   // would start lying the day one moved.
+  //
+  // `'*'` IS EVERY SECTION AT ONCE — the ⋯ menu's row. One function rather than
+  // two because the only difference between the two resets is which keys are
+  // named: the write, the local patch and the confirm are identical, and written
+  // twice the day one of them learns something the other would not.
   const resetSection = (id) => {
-    const keys = SECTION_PREFS[id] || []
+    const keys = id === ALL_SECTIONS ? resetKeysEverywhere() : (SECTION_PREFS[id] || [])
     const patch = {}
     for (const k of keys) patch[k] = ''
     onPreferences?.(patch)
@@ -632,9 +695,15 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
           the bin's words on a settings screen. */}
       <ConfirmDialog
         open={!!resetting}
-        title={t('settings.section.reset.confirm.title', { section: resetting ? t(SETTINGS_SECTIONS.find(([id]) => id === resetting)[1]) : '' })}
-        body={t('settings.section.reset.confirm.body')}
-        confirmLabel={t('settings.section.reset.confirm.verb')}
+        title={resetting === ALL_SECTIONS
+          ? t('settings.reset.all.confirm.title')
+          : t('settings.section.reset.confirm.title', { section: resetting ? t(SETTINGS_SECTIONS.find(([id]) => id === resetting)[1]) : '' })}
+        body={resetting === ALL_SECTIONS
+          ? t('settings.reset.all.confirm.body', { count: changedEverywhere(prefs) })
+          : t('settings.section.reset.confirm.body')}
+        confirmLabel={resetting === ALL_SECTIONS
+          ? t('settings.reset.all.confirm.verb')
+          : t('settings.section.reset.confirm.verb')}
         onConfirm={() => resetSection(resetting)}
         onCancel={() => setResetting(null)}
       />
