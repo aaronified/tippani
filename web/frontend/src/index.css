@@ -10562,6 +10562,69 @@ html[data-theme="dark"] .board-cover {
    empty list has answered the question. */
 .issue-pill.is-empty:not(.active) { opacity: .5; }
 
+/* ── TWO VOCABULARIES, SIDE BY SIDE ───────────────────────────────────────────
+   The pack marks the tags section `twoUp` and renders it
+   `repeat(auto-fit, minmax(340px, 1fr))` — the same line, because the point is
+   comparison: a tag is a word you file by and a sticker is a mark you put ON a
+   quote, and a reader tidying up wants both in view. They were stacked under a
+   horizontal rule, which put the stickers below the fold of a tag list that has
+   no ceiling.
+
+   `auto-fit` AND NOT A MEDIA QUERY, so the column count follows the space rather
+   than a width somebody guessed: one column under 700-odd pixels, two above,
+   with no breakpoint to keep in step with the rest of the stylesheet. */
+.tag-vocabularies {
+  display: grid;
+  gap: var(--row, 16px);
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  align-items: start;
+  min-width: 0;
+}
+
+/* THE FINDING, UNDER THE NAME IT IS ABOUT (metadata.dc.html:755). In the error
+   colour because it IS the error — this screen's only one — and at the sub-line
+   size, because it is a note about the row and not a second label for it. */
+.tag-dupe-note {
+  margin-top: 3px;
+  font-family: var(--font-ui); font-style: var(--font-ui-style);
+  font-variant-caps: var(--font-ui-caps); text-transform: var(--font-ui-case);
+  font-size: var(--type-ui-12);
+  color: var(--error);
+  line-height: 1.35;
+}
+
+/* One cluster of look-alike tags, and the choice of which to keep. */
+.tag-dupe-card {
+  display: grid; gap: 6px; min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--error) 30%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--error) 5%, transparent);
+}
+/* IT SCROLLS RATHER THAN WRAPS. A cluster has no ceiling — three near-identical
+   tags is the common case and four is not rare — and a name is never truncated,
+   which is the standing rule. `Scroller` measures, so a cluster of two wears no
+   fade. */
+.tag-dupe-picks {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+  min-width: 0; overflow-x: auto; overscroll-behavior-x: contain;
+  padding-block: 2px;
+}
+/* THE WHOLE PILL IS THE BUTTON, chip and count together: the count is what a
+   reader weighs when choosing which name survives, so it must not be a separate
+   thing beside a separate target. */
+.tag-dupe-pick {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  padding: 3px 8px 3px 4px;
+}
+.tag-dupe-pick:disabled { cursor: default; opacity: .55; }
+.tag-dupe-uses {
+  font-family: var(--font-mono); font-weight: var(--font-mono-weight);
+  font-variant-numeric: var(--font-mono-figures);
+  font-size: var(--type-mono-11);
+  color: var(--error);
+}
+
 /* ── WHO A PRUNE WOULD TAKE ──
    The confirm lists every name rather than a tally, and the box scrolls rather
    than capping the list: the ones a "…and 18 more" would hide are exactly the

@@ -14,8 +14,8 @@ import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
-import { editDistance } from './text.js'
 import { IssuePills, RowCounts } from './issuePills.jsx'
+import { nearDupGroups } from './nearDupes.js'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
 // books / films-shows lists with multi-select bulk actions (fill actors, delete,
@@ -2283,28 +2283,12 @@ function PanelReload({ stack, onEmpty }) {
 
 // ---- people console ----
 
-// nearDupGroups clusters names that look like the same person: equal once
-// normalised, or within a small edit distance (capped as a fraction of length so
-// short distinct names — "Poe" vs "Roe" — aren't flagged). Returns groups of 2+.
-function nearDupGroups(names) {
-  const norm = names.map(normName)
-  const parent = names.map((_, i) => i)
-  const find = (x) => {
-    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x] }
-    return x
-  }
-  for (let i = 0; i < names.length; i++) {
-    for (let j = i + 1; j < names.length; j++) {
-      const a = norm[i], b = norm[j]
-      if (!a || !b) continue
-      const same = a === b || (() => { const d = editDistance(a, b); return d > 0 && d <= 2 && d / Math.max(a.length, b.length) <= 0.25 })()
-      if (same) parent[find(i)] = find(j)
-    }
-  }
-  const groups = {}
-  names.forEach((n, i) => { const r = find(i); (groups[r] = groups[r] || []).push(n) })
-  return Object.values(groups).filter((g) => g.length >= 2)
-}
+// nearDupGroups MOVED TO `nearDupes.js` when the tags console needed the same
+// answer about a vocabulary that this one needs about records. See that file: a
+// thing two screens do lives in one function both call. It clusters names that
+// look like one name spelled twice — equal once normalised, or within a small
+// edit distance capped as a fraction of length so "Poe" and "Roe" stay two
+// people.
 
 // DupCard offers to merge one near-duplicate cluster: pick the record to keep,
 // and every other in the group is MERGED into it (POST /people/merge).

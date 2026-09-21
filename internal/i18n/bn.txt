@@ -2238,6 +2238,17 @@ tags.delete.confirm.body = “{name}” ট্যাগটা মুছবেন
 tags.delete.confirm.body-used = “{name}” ট্যাগটা মুছবেন? {n} {noun} থেকে খুলে যাবে — সেগুলো যেমন আছে থাকবে, শুধু ট্যাগটা থাকবে না।
 
 # THE STICKER LIBRARY, lower half of the same screen.
+tags.dupe.row.note = দেখে মনে হচ্ছে একই জিনিস — মিলিয়ে দিন
+tags.dupe.count.label.one = {n}টা ট্যাগ দেখে মনে হচ্ছে একই
+tags.dupe.count.label.other = {n}টা ট্যাগ দেখে মনে হচ্ছে একই
+tags.dupe.pick.prose = কোনটা রাখবেন? বাকিগুলোর সব উদ্ধৃতি সেটাতেই চলে যাবে।
+tags.dupe.keep.aria.one = {name} রাখুন, বাকিগুলো এতে মিলিয়ে দিন — {n}টা উদ্ধৃতি
+tags.dupe.keep.aria.other = {name} রাখুন, বাকিগুলো এতে মিলিয়ে দিন — {n}টা উদ্ধৃতি
+tags.dupe.merge.confirm.title = {name} রেখে বাকিগুলো এতে মিলিয়ে দেব?
+tags.dupe.merge.confirm.body.one = {losers} চলে যাবে, আর তার {n}টা উদ্ধৃতিতে বদলে {keep} বসবে। কোনও উদ্ধৃতি ট্যাগ হারাবে না, শুধু নামটা যাবে।
+tags.dupe.merge.confirm.body.other = {losers} চলে যাবে, আর তাদের {n}টা উদ্ধৃতিতে বদলে {keep} বসবে। কোনও উদ্ধৃতি ট্যাগ হারাবে না, শুধু নামগুলো যাবে।
+tags.dupe.merge.cta = মিলিয়ে দিন
+error.merge.tag = ট্যাগ মেলানো গেল না
 tags.sticker.section.title = স্টিকার
 tags.sticker.board.empty = এখনও কোনও স্টিকার নেই — উপরে একটা স্বচ্ছ PNG বা SVG আপলোড করুন
 tags.sticker.new.title = ＋ নতুন স্টিকার

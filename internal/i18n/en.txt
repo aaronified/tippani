@@ -2246,6 +2246,20 @@ tags.delete.confirm.body = Delete tag "{name}"?
 tags.delete.confirm.body-used = Delete tag "{name}"? It will be detached from {n} {noun} — they keep working, just untagged.
 
 # THE STICKER LIBRARY, lower half of the same screen.
+# --- TAGS THAT LOOK LIKE ONE TAG. A vocabulary grows by being typed, so it grows
+# duplicates; the console leads with them because they are the only thing on the
+# screen that is wrong rather than merely present.
+tags.dupe.row.note = Looks like a duplicate — merge it
+tags.dupe.count.label.one = {n} tag looks like a duplicate
+tags.dupe.count.label.other = {n} tags look like duplicates
+tags.dupe.pick.prose = Keep which one? Every quote under the others moves to it.
+tags.dupe.keep.aria.one = Keep {name} and merge the rest into it — {n} quote
+tags.dupe.keep.aria.other = Keep {name} and merge the rest into it — {n} quotes
+tags.dupe.merge.confirm.title = Keep {name} and merge the rest into it?
+tags.dupe.merge.confirm.body.one = {losers} goes, and its {n} quote is tagged {keep} instead. Nothing loses a tag; the name does.
+tags.dupe.merge.confirm.body.other = {losers} go, and their {n} quotes are tagged {keep} instead. Nothing loses a tag; the names do.
+tags.dupe.merge.cta = Merge
+error.merge.tag = could not merge the tags
 tags.sticker.section.title = Stickers
 tags.sticker.board.empty = no stickers yet — upload a transparent PNG or SVG above
 tags.sticker.new.title = ＋ New sticker

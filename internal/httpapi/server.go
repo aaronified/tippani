@@ -492,6 +492,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /genres", s.requireAuth(s.handleListGenres))
 	mux.Handle("GET /tags", s.requireAuth(s.handleListTags))
 	mux.Handle("POST /tags", s.requireAuth(s.handleCreateTag))
+	// BEFORE THE WILDCARD, the same ordering `/characters/merge` needs and for the
+	// same reason: Go's mux would otherwise read "merge" as an {id}.
+	mux.Handle("POST /tags/merge", s.requireAuth(s.handleMergeTags))
 	mux.Handle("PUT /tags/{id}", s.requireAuth(s.handleUpdateTag))
 	mux.Handle("DELETE /tags/{id}", s.requireAuth(s.handleDeleteTag))
 	// Stickers: uploaded images managed on the Tags page, one attachable per

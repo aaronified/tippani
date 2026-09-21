@@ -24,6 +24,7 @@ import {
   useSort,
 } from './ui.jsx'
 import { NewStickerCard, StickerList, useStickers } from './stickers.jsx'
+import { nearDupGroups } from './nearDupes.js'
 
 // Tags page (§8.10, mockups 23–24): the per-user tag vocabulary manager —
 // each tag shown as a sample chip in its own style × colour with usage
@@ -66,6 +67,34 @@ export default function TagsPage({ embedded = false }) {
   )
   const top = byUses.slice(0, 5)
 
+  // ── THE TAGS THAT LOOK LIKE EACH OTHER, which is what this console leads with.
+  //
+  // THE PACK'S OWN WORDS for why the two vocabularies share a screen: "they are
+  // both things you make and then have to keep tidy, which is why this console
+  // leads with the tags that look like each other."
+  //
+  // A VOCABULARY GROWS DUPLICATES BY BEING TYPED. "translation" and "on
+  // translation" are one idea under two names, and nothing on this screen said
+  // so — the table sorted by name put them adjacent and left the reader to
+  // notice. Worse, the only verb for the one they did not want was DELETE, which
+  // throws away which quotes carried it.
+  //
+  // THE SAME DETECTOR THE PEOPLE CONSOLE USES, from `nearDupes.js`, because "are
+  // these two the same thing spelled twice" is one question and the repo's
+  // directive is that it lives in one function both callers use. Clusters, not
+  // pairs: three near-identical tags are ONE duplicate to resolve, and offering
+  // them as two merges lets somebody do one and leave it half-tidied.
+  const dupGroups = useMemo(() => {
+    const byName = {}
+    for (const row of tags || []) byName[row.name] = row
+    return nearDupGroups(Object.keys(byName))
+      .map((names) => names.map((n) => byName[n]).filter(Boolean))
+      .filter((g) => g.length >= 2)
+  }, [tags])
+  // WHICH ROWS ARE IN ANY CLUSTER, so a row can ask in constant time rather than
+  // the page re-clustering per row.
+  const dupIds = useMemo(() => new Set(dupGroups.flat().map((row) => row.id)), [dupGroups])
+
   // Tags has no header controls at all — the "＋ New tag" card is a card in the
   // grid, which is right where it is and unreachable from anywhere else. The ⋯
   // gives it a name and a keyboard route, which is the whole argument for a menu
@@ -96,34 +125,128 @@ export default function TagsPage({ embedded = false }) {
         </div>
       )}
       <ErrorText>{error}</ErrorText>
-      {/* Add-cards lead the page: side by side on desktop, stacked on a phone. */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <NewTagCard ref={newTagRef} onCreated={load} />
-        <NewStickerCard onUploaded={reload} />
-      </div>
-      {tags && tags.length === 0 && (
-        <EmptyState>{t('tags.board.empty')}</EmptyState>
+      {/* THE DUPLICATES LEAD, because they are the only thing on this screen that
+          is WRONG rather than merely present. Silent at zero: a line reading "0
+          tags look like duplicates" is a line that trains the reader to stop
+          reading this spot, and the finished state is the common one. */}
+      {dupGroups.length > 0 && (
+        <DuplicateTags groups={dupGroups} onMerged={load} />
       )}
-      {tags && tags.length > 0 && (
-        <>
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {top.map((row, i) => (
-              <CompactTagCard key={row.id} tag={row} index={i} onChanged={load} />
-            ))}
-          </div>
-          {tags.length > 5 && (
-            <GhostButton type="button" onClick={() => setShowTable((v) => !v)}>
-              {showTable
-                ? t('tags.table.hide.label')
-                : t('tags.table.more.label', { n: tags.length - 5, count: tags.length - 5 })}
-            </GhostButton>
+      {/* ── TWO VOCABULARIES, SIDE BY SIDE. The pack marks this section `twoUp`
+          and the reason is comparison: a tag is a word you file by and a sticker
+          is a mark you put ON a quote, they are the two things you make yourself,
+          and a reader tidying up wants both in view. They were stacked under a
+          horizontal rule, which put the stickers below the fold of a tag list
+          that has no ceiling. `auto-fit` at the pack's own 340px minimum, so a
+          phone gets one column without a media query deciding for it. */}
+      <div className="tag-vocabularies">
+        <section className="space-y-4">
+          <NewTagCard ref={newTagRef} onCreated={load} />
+          {tags && tags.length === 0 && (
+            <EmptyState>{t('tags.board.empty')}</EmptyState>
           )}
-          {showTable && <TagTable tags={byUses} onChanged={load} />}
-        </>
-      )}
+          {tags && tags.length > 0 && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {top.map((row, i) => (
+                  <CompactTagCard key={row.id} tag={row} index={i} dupe={dupIds.has(row.id)} onChanged={load} />
+                ))}
+              </div>
+              {tags.length > 5 && (
+                <GhostButton type="button" onClick={() => setShowTable((v) => !v)}>
+                  {showTable
+                    ? t('tags.table.hide.label')
+                    : t('tags.table.more.label', { n: tags.length - 5, count: tags.length - 5 })}
+                </GhostButton>
+              )}
+              {showTable && <TagTable tags={byUses} dupIds={dupIds} onChanged={load} />}
+            </>
+          )}
+        </section>
+        <section className="space-y-4">
+          <NewStickerCard onUploaded={reload} />
+          <StickerList stickers={stickers} onChanged={reload} />
+        </section>
+      </div>
+    </section>
+  )
+}
 
-      <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '1.5rem 0 0.25rem' }} />
-      <StickerList stickers={stickers} onChanged={reload} />
+// DuplicateTags — one card per cluster of tags that look like one tag.
+//
+// THE PACK'S SHAPE, AND THE VERB IT ADDS. Until now the only thing a reader could
+// do about "translation" and "on translation" was delete one, which throws away
+// which quotes carried it. A merge keeps them: every quote under the loser gains
+// the survivor, and what goes is one of two names for one idea.
+//
+// THE READER PICKS THE SURVIVOR, and the counts are why the choice is theirs.
+// Neither "the one with more quotes" nor "the shorter name" is right often enough
+// to decide for them — "on translation" may be the better word and the rarer one.
+// So each name is a button carrying its own count, and pressing it is the choice.
+//
+// IT IS NOT UNDOABLE, AND THE CONFIRM SAYS SO rather than the code hoping nobody
+// notices. See the handler in `taxonomy_handlers.go` for why this app's tag verbs
+// are outright: deleting a tag already is, and a merge destroys strictly less.
+function DuplicateTags({ groups, onMerged }) {
+  const { ask, confirmDialog } = useConfirm()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const uses = (row) => row.annotations + row.dialogues
+
+  async function merge(group, keep) {
+    const losers = group.filter((row) => row.id !== keep.id)
+    // THE QUESTION NAMES BOTH SIDES AND THE COST. "Merge 2 tags?" is a question
+    // nobody can answer — what a reader needs is which name survives, which ones
+    // go, and how many quotes move.
+    const ok = await ask(t('tags.dupe.merge.confirm.title', { name: keep.name }), {
+      body: t('tags.dupe.merge.confirm.body', {
+        losers: losers.map((row) => row.name).join(', '),
+        keep: keep.name,
+        n: losers.reduce((sum, row) => sum + uses(row), 0),
+        count: losers.reduce((sum, row) => sum + uses(row), 0),
+      }),
+      confirmLabel: t('tags.dupe.merge.cta'),
+      danger: true,
+      reversible: false,
+    })
+    if (!ok) return
+    setBusy(true)
+    const r = await json('POST', '/tags/merge', { keep_id: keep.id, drop_ids: losers.map((row) => row.id) })
+    setBusy(false)
+    if (!r.ok) return setError(errText(r, t('error.merge.tag')))
+    setError('')
+    onMerged()
+  }
+
+  return (
+    <section className="space-y-2">
+      <MonoLabel>{t('tags.dupe.count.label', { count: groups.length, n: groups.length })}</MonoLabel>
+      <ErrorText>{error}</ErrorText>
+      {groups.map((group) => (
+        <div key={group.map((row) => row.id).join('-')} className="tag-dupe-card">
+          <p className="cs-row-sub">{t('tags.dupe.pick.prose')}</p>
+          {/* A SCROLLER, because a cluster has no ceiling and a name is never
+              truncated — the standing rule. Three near-identical tags is the
+              common case and four is not rare. */}
+          <Scroller axis="x" className="tag-dupe-picks">
+            {group.map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                className="tp-chip tp-chip-btn tactile tag-dupe-pick"
+                disabled={busy}
+                onClick={() => merge(group, row)}
+                aria-label={t('tags.dupe.keep.aria', { name: row.name, count: uses(row), n: uses(row) })}
+              >
+                <TagChip color={row.color} style={row.style}>{row.name}</TagChip>
+                <span className="tag-dupe-uses">{uses(row)}</span>
+              </button>
+            ))}
+          </Scroller>
+        </div>
+      ))}
+      {confirmDialog}
     </section>
   )
 }
@@ -147,7 +270,7 @@ async function deleteTag(tag, ask, onChanged, setError) {
 
 // CompactTagCard — the small top-row card: chip + counts + edit/delete, or the
 // inline edit form. Deliberately lighter than the old full card so ~5 fit a row.
-function CompactTagCard({ tag, index, onChanged }) {
+function CompactTagCard({ tag, index, dupe = false, onChanged }) {
   const { ask, confirmDialog } = useConfirm()
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
@@ -173,6 +296,11 @@ function CompactTagCard({ tag, index, onChanged }) {
       <TagChip color={tag.color} style={tag.style}>
         {t('tags.card.chip.label', { name: tag.name, n: uses })}
       </TagChip>
+      {/* THE PACK'S OWN SUB-LINE, on the card as well as in the table. A reader
+          who never presses "more" sees only these five, so a signal that lived
+          only in the table would be invisible to exactly the person who has not
+          gone looking. */}
+      {dupe && <p className="tag-dupe-note">{t('tags.dupe.row.note')}</p>}
       <ErrorText>{error}</ErrorText>
       <div className="mt-auto flex gap-3 pt-0.5">
         {/* Only where there is something to ask about. A tag attached to nothing
@@ -198,7 +326,7 @@ function CompactTagCard({ tag, index, onChanged }) {
 
 // TagTable — the full, sortable vocabulary (behind "more"). Scrolls inside its
 // own box so a huge tag list can't bury the sticker manager below it.
-function TagTable({ tags, onChanged }) {
+function TagTable({ tags, dupIds, onChanged }) {
   const { ask, confirmDialog } = useConfirm()
   const { sort, toggle, apply } = useSort('uses', 'desc')
   const [editingId, setEditingId] = useState(null)
@@ -226,9 +354,22 @@ function TagTable({ tags, onChanged }) {
           <tbody>
             {rows.map((row) => (
               <tr key={row.id}>
-                <td><TagChip color={row.color} style={row.style}>{row.name}</TagChip></td>
+                <td>
+                  <TagChip color={row.color} style={row.style}>{row.name}</TagChip>
+                  {/* THE PACK DRAWS IT UNDER THE NAME (metadata.dc.html:755) and
+                      that is where it belongs: the finding is about THIS tag, and
+                      a column of flags would be a column that is empty on most
+                      rows. */}
+                  {dupIds?.has(row.id) && <p className="tag-dupe-note">{t('tags.dupe.row.note')}</p>}
+                </td>
                 <td className="col-mono">{row.style}</td>
-                <td className="col-mono">{row.annotations + row.dialogues}</td>
+                {/* THE COUNT IN THE ERROR COLOUR ON A DUPLICATE — the pack's
+                    `countFg`. It is the number that matters when merging: it says
+                    how many quotes this name is holding, which is what a reader
+                    weighs when choosing which of the two to keep. */}
+                <td className="col-mono" style={dupIds?.has(row.id) ? { color: 'var(--error)' } : undefined}>
+                  {row.annotations + row.dialogues}
+                </td>
                 <td className="col-actions">
                   <TableActions
                     noun={t('unit.tag.one')}

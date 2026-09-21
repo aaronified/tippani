@@ -48,6 +48,16 @@
       "name": "Idea",
       "color": "orange",
       "style": "banner"
+    },
+    {
+      "name": "Solitude",
+      "color": "blue",
+      "style": "sticker"
+    },
+    {
+      "name": "Solitide",
+      "color": "blue",
+      "style": "sticker"
     }
   ],
   "books": [
@@ -65,7 +75,10 @@
           "color": "blue",
           "chapter": "Cobble Meadow",
           "chapter_no": 12,
-          "noted_at": "2026-09-03 02:34:52"
+          "noted_at": "2026-09-03 02:34:52",
+          "tags": [
+            "Solitide"
+          ]
         },
         {
           "quote": "Bramble harbour before cobble cinder marram willow vellum sedge sparrow harbour. Cobble and marram heather plover bramble. Ember in willow toward ember beneath quarry thistle and compass bramble shingle. Compass against cobble bracken.",
@@ -73,7 +86,11 @@
           "color": "blue",
           "chapter": "Cobble Meadow",
           "chapter_no": 12,
-          "noted_at": "2026-09-03 02:33:39"
+          "noted_at": "2026-09-03 02:33:39",
+          "tags": [
+            "Solitude",
+            "Solitide"
+          ]
         },
         {
           "quote": "Alder willow lantern cobble sedge in ember thistle. Willow harbour before vellum vellum sedge. Gable quarry alder.",

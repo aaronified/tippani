@@ -192,6 +192,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Tags that look like one tag say so, and can be merged.** "Solitude" and "Solitide" are
+  one idea under two names; the console now leads with them, marks each one in the list, and
+  offers the merge — you pick which name survives and every quote under the others moves to
+  it. Nothing loses its tagging: a quote that carried both keeps one. Until now the only verb
+  for a duplicate was Delete, which threw the tagging away.
+
+- **Tags and stickers stand side by side.** They were stacked under a rule, which put the
+  stickers below the fold of a tag list that has no ceiling. Two columns where there is room
+  for them, one where there is not.
+
 - **The info dots sit on the controls they explain, not on the headings above them.** Six
   were on a heading, where the section's own dot already is and where nobody presses them.
   Five came down onto the row they are about — what a backup archive is, what a saved look

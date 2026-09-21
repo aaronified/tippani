@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -434,4 +435,144 @@ func addTags(tx *sql.Tx, kind string, userID, ownerID int64, names []string) err
 		}
 	}
 	return nil
+}
+
+// ---- merging one tag into another ------------------------------------------
+//
+// WHY THIS EXISTS. A tag vocabulary grows by typing, so it grows duplicates:
+// "translation" and "on translation", the same word with a stray plural, the
+// same word twice in two scripts. Until now the only verb for that was DELETE,
+// which throws the quotes' tagging away — so a reader tidying up had to choose
+// between two names for one idea and losing which quotes carried the loser.
+//
+// IT IS NOT UNDOABLE, AND THAT IS DELIBERATE RATHER THAN UNFINISHED. Every other
+// merge in this app parks a reversal in the bin, and the case for doing the same
+// here is real. What decided it the other way is the neighbour: deleting a tag is
+// already outright in this app — its confirm says so in as many words — and a
+// merge destroys strictly LESS than that delete does. Every quote keeps a tag;
+// what goes is one of two names for one idea. Making the gentler act reversible
+// while the harsher one is not would be the inconsistency, and it would cost a
+// migration rebuilding `trash`'s CHECK over its kinds. The confirm is what
+// carries the weight instead, and it names the quotes that will move.
+//
+// THE JOIN ROWS ARE COPIED, NOT UPDATED, and this is the whole of the difficulty.
+// Both join tables are PRIMARY KEY (quote, tag), so a quote already carrying BOTH
+// tags — which is exactly what a near-duplicate pair produces — makes an
+// `UPDATE … SET tag_id` collide and abort the transaction. `INSERT OR IGNORE …
+// SELECT` adds the survivor wherever it is missing and says nothing where it is
+// already there; the loser's rows then go with the loser's row, by cascade.
+//
+// EVERY STATEMENT IS SCOPED BY user_id, including the ones that look like they
+// cannot need it. `annotation_tags` has no user column — it is scoped through the
+// tags table — so the sub-select carries the check, and a tag id belonging to
+// somebody else matches nothing rather than 404ing after the fact.
+
+type tagMergeReq struct {
+	KeepID  int64   `json:"keep_id"`
+	DropIDs []int64 `json:"drop_ids"`
+}
+
+// mergeTagInto moves one tag's quotes onto another and removes it. The caller
+// holds the transaction: a merge of three tags that half-ran would leave the
+// reader looking at a vocabulary nobody chose.
+func mergeTagInto(tx *sql.Tx, uid, keepID, dropID int64) (int, error) {
+	if dropID == keepID {
+		return 0, nil // merging a tag into itself is a no-op, not an error
+	}
+	var owned bool
+	if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM tags WHERE user_id = ? AND id = ?)`,
+		uid, dropID).Scan(&owned); err != nil {
+		return 0, err
+	}
+	if !owned {
+		return 0, nil
+	}
+	moved := 0
+	for _, q := range []struct{ table, col string }{
+		{"annotation_tags", "annotation_id"},
+		{"dialogue_tags", "dialogue_id"},
+	} {
+		res, err := tx.Exec(`
+			INSERT OR IGNORE INTO `+q.table+` (`+q.col+`, tag_id)
+			SELECT j.`+q.col+`, ?
+			  FROM `+q.table+` j
+			  JOIN tags d ON d.id = j.tag_id
+			 WHERE j.tag_id = ? AND d.user_id = ?`, keepID, dropID, uid)
+		if err != nil {
+			return 0, fmt.Errorf("merge tag %s: %w", q.table, err)
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		moved += int(n)
+	}
+	// The loser's own join rows go by cascade — see the FOREIGN KEY … ON DELETE
+	// CASCADE on both tables. Deleting them by hand first would be a second
+	// statement that has to stay in step with a constraint that already says so.
+	if _, err := tx.Exec(`DELETE FROM tags WHERE id = ? AND user_id = ?`, dropID, uid); err != nil {
+		return 0, fmt.Errorf("merge tag: drop %d: %w", dropID, err)
+	}
+	return moved, nil
+}
+
+// handleMergeTags: POST /tags/merge — fold one or more tags into one.
+//
+// A LIST RATHER THAN A PAIR, unlike the person and character merges, because the
+// thing a reader is looking at here is a CLUSTER: "translation", "on translation"
+// and "translations" are one duplicate, not two, and offering them as two pairwise
+// merges lets somebody do one of them and leave the vocabulary half-tidied.
+func (s *Server) handleMergeTags(w http.ResponseWriter, r *http.Request) {
+	uid := userID(r)
+	var req tagMergeReq
+	if !decodeBody(w, r, &req) {
+		return
+	}
+	if req.KeepID == 0 || len(req.DropIDs) == 0 {
+		writeErr(w, http.StatusBadRequest, "keep_id and at least one drop_id are required")
+		return
+	}
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		internalError(w, r, "begin", err)
+		return
+	}
+	defer tx.Rollback()
+
+	// THE SURVIVOR IS CHECKED FIRST AND BY ITSELF. Merging into a tag that is not
+	// yours, or not there, must not silently delete the others — which is what a
+	// loop that only checked the losers would do.
+	var keeps bool
+	if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM tags WHERE user_id = ? AND id = ?)`,
+		uid, req.KeepID).Scan(&keeps); err != nil {
+		internalError(w, r, "merge tags: read the survivor", err)
+		return
+	}
+	if !keeps {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	moved := 0
+	for _, id := range req.DropIDs {
+		n, err := mergeTagInto(tx, uid, req.KeepID, id)
+		if err != nil {
+			internalError(w, r, "merge tags", err)
+			return
+		}
+		moved += n
+	}
+	if err := tx.Commit(); err != nil {
+		internalError(w, r, "commit", err)
+		return
+	}
+	kept, err := s.fetchTag(uid, req.KeepID)
+	if err != nil {
+		internalError(w, r, "fetch tag", err)
+		return
+	}
+	// `moved` is the quotes that GAINED the surviving tag, which is smaller than
+	// the quotes touched: one already carrying both keeps one row and gains none.
+	// It is the number the toast says, so it has to mean the thing the reader
+	// would count — how many quotes now say something they did not say before.
+	writeJSON(w, http.StatusOK, map[string]any{"tag": kept, "moved": moved})
 }
