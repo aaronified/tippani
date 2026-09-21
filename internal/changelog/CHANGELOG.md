@@ -192,6 +192,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Your spelling is checked while you type a quote, a note or a translation.** Your browser's
+  own dictionaries do it — nothing is downloaded and nothing is sent anywhere — and it is on
+  only while you are in the box. A quote is somebody else's words, so a faithful transcription
+  of an archaic spelling stops being underlined the moment you leave the field. The field also
+  tells the browser which language it is in, so a Bengali quote is checked against Bengali
+  instead of coming back wrong word by word.
+
 - **A person's provider links show on a phone.** They were drawn only above a breakpoint, so
   on the one screen whose subject is which providers a person is linked to, a phone reader
   could see none of them. They sit in one line that scrolls sideways now, instead of wrapping

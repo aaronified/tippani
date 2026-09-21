@@ -18,6 +18,7 @@ import { LanguageCombo, SuggestCombo, useVocabulary } from './suggest.jsx'
 import { LanguageMark } from './languages.jsx'
 import { json, errText, downloadPost } from './api.js'
 import { t } from './i18n.js'
+import { ProseArea } from './proseField.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 // THE ONE SOURCE FOR WHAT A KIND CARRIES, read here as well as by the add
 // surface. See the note on `door` below for why this form drew everything.
@@ -428,11 +429,12 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
     <form id={host?.formId} onSubmit={submit} className="ann-form space-y-3">
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.quote.label')}</MonoLabel>
-        <textarea className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
+        {/* Spell-checked while it is being edited — see proseField.jsx. */}
+        <ProseArea language={language} className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
       </label>
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.note.label')}</MonoLabel>
-        <textarea className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />
+        <ProseArea language={language} className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
       {/* THE PAIRS SURVIVE A HALF, which is why each box is gated rather than each
           row: a poem has `when` and no `place`, so the row that held both draws
@@ -615,7 +617,7 @@ export function UtteranceForm({ initial, onSubmit, onCancel, submitLabel, tagSug
           other kinds' forms now offer the same control for the same field. */}
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.translation.label')}</MonoLabel>
-        <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
+        <ProseArea language={language} className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
                   value={translation} onChange={(e) => setTranslation(e.target.value)} />
       </label>
       <label className="block">

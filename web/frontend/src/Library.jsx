@@ -37,6 +37,7 @@ import { KINDS, bookGenres } from './workKinds.js'
 import WorkDetail from './WorkDetail.jsx'
 import { QUOTE_TEXT } from './fonts.js'
 import { t } from './i18n.js'
+import { ProseArea } from './proseField.jsx'
 import {
   fmtDate,
   QUOTE_COLUMNS_IN,
@@ -2249,7 +2250,9 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
     <form id={host?.formId} onSubmit={submit} className="ann-form space-y-3">
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.quote.label')}</MonoLabel>
-        <textarea className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
+        {/* Spell-checked while it is being edited, in the language this form
+            already carries — see proseField.jsx. */}
+        <ProseArea language={language} className="tp-input" rows="3" value={quote} onChange={(e) => setQuote(e.target.value)} />
       </label>
       {/* WHAT THE LINE IS IN, immediately above the translation because it is the
           fact that RANKS the two texts: without it the app cannot decide which of
@@ -2266,13 +2269,13 @@ export function AnnotationForm({ initial, onSubmit, onCancel, submitLabel, tagSu
           caps neither. */}
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.translation.label')}</MonoLabel>
-        <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
+        <ProseArea language={language} className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
                   value={translation} onChange={(e) => setTranslation(e.target.value)} />
       </label>
 
       <label className="block">
         <MonoLabel className="mb-1.5 block">{t('common.field.note.label')}</MonoLabel>
-        <textarea className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />
+        <ProseArea language={language} className="tp-input" rows="2" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
       {/* Number, then name, then where on the page — the order somebody reads a
           chapter in. Both chapter fields are optional and independent: a numbered

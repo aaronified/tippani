@@ -46,6 +46,7 @@ import { DEMO, apiURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { quoteKindLabel } from './quoteKind.js'
 import { languageClass } from './fonts.js'
+import { ProseArea } from './proseField.jsx'
 import { categoryVar } from './theme.js'
 import { usePractice } from './review.jsx'
 // THE SEARCH SCREEN'S OWN BOX, imported rather than rebuilt. See RuleDialog below:
@@ -999,7 +1000,15 @@ function EntryNoteDialog({ entry, onSave, onCancel }) {
         <p className="microcopy">{t('anthologies.entry.note.body')}</p>
         <label className="tp-field">
           <MonoLabel>{t('common.field.note.label')}</MonoLabel>
-          <textarea
+          {/* A ProseArea: spell-checked while it is being edited, in the entry's
+              own language — see proseField.jsx. THE SWEEP FOUND THIS ONE. It is an
+              anthology note rather than an add surface, so it was not in the
+              owner's "various add surfaces" by name and not in the twelve wired by
+              hand; `prose-fields-are-checked.test.js` named it on its first run,
+              which is the whole argument for deriving the list from the binding
+              rather than writing one out. */}
+          <ProseArea
+            language={entry.language}
             className="tp-input"
             rows={5}
             value={note}

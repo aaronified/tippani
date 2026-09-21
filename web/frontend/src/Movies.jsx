@@ -36,6 +36,7 @@ import { BoardHead, BoardSheet, BoardStrip, columnActions, measureStyle } from '
 import WorkDetail from './WorkDetail.jsx'
 import { QUOTE_TEXT, languageClass } from './fonts.js'
 import { t } from './i18n.js'
+import { ProseArea } from './proseField.jsx'
 import { quoteTexts } from './text.js'
 import { useTextOrder } from './textOrderHost.jsx'
 import { usePersonOpener } from './personOpen.jsx'
@@ -2329,7 +2330,9 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
 
   return (
     <form id={host?.formId} onSubmit={submit} className="space-y-2.5">
-      <textarea
+      {/* Spell-checked while it is being edited — see proseField.jsx. */}
+      <ProseArea
+        language={language}
         className="tp-input"
         rows="3"
         placeholder={t('film.line.form.quote.placeholder')}
@@ -2480,10 +2483,10 @@ export function DialogueForm({ initial, onSubmit, onCancel, submitLabel, show = 
         value={language}
         onChange={setLanguage}
       />
-      <textarea className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
+      <ProseArea language={language} className="tp-input" rows="2" placeholder={t('common.field.translation.placeholder')}
                 aria-label={t('common.field.translation.label')}
                 value={translation} onChange={(e) => setTranslation(e.target.value)} />
-      <textarea className="tp-input" rows="2" placeholder={t('common.field.note.label')} value={note} onChange={(e) => setNote(e.target.value)} />
+      <ProseArea language={language} className="tp-input" rows="2" placeholder={t('common.field.note.label')} value={note} onChange={(e) => setNote(e.target.value)} />
       <TokenInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder={t('common.field.tags.placeholder')} ariaLabel={t('common.field.tags.label')} />
       <div className="flex items-center gap-3">
         <MonoLabel>{t('common.mono.colour.label')}</MonoLabel>

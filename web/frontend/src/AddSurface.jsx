@@ -28,6 +28,7 @@ import { json, errText } from './api.js'
 import { CastCombo, LanguageCombo, OfferChip, SuggestCombo, useTagNames, useWorkSuggestions } from './suggest.jsx'
 import { QUOTE_TEXT, languageClass } from './fonts.js'
 import { t } from './i18n.js'
+import { ProseArea } from './proseField.jsx'
 import { BoardForm, useBoards } from './boards.jsx'
 import { QUOTE_KIND_DOORS, doorForBoard, fieldsFor, showsField, splitPair } from './addFields.js'
 import { ADD_MODES, doorsFor, modeIsHeld, modeNeedsTarget, soleDoor } from './addModes.js'
@@ -1299,7 +1300,13 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
         return (
           <label className="tp-field" key={key}>
             <MonoLabel>{t('common.field.quote.label')}</MonoLabel>
-            <textarea
+            {/* A ProseArea, NOT A BARE TEXTAREA: spell-checked while a finger is in
+                it and not after — see proseField.jsx. It takes the language this
+                form already knows, because a browser picks its dictionary from
+                `lang` and without one a Bengali quote comes back wrong word by
+                word. */}
+            <ProseArea
+              language={draft.language}
               // ONE className, AND IT NEARLY BECAME TWO. A second attribute does
               // not merge — it REPLACES — so adding the language class on its own
               // line silently dropped `tp-input` and the box lost its whole
@@ -1339,14 +1346,14 @@ export function QuoteForm({ door, initialTarget, initialBoard, initialFields, on
         return (
           <label className="tp-field" key={key}>
             <MonoLabel>{t('common.field.note.label')}</MonoLabel>
-            <textarea className="tp-input" rows={2} placeholder={t('capture.form.note.placeholder')} value={draft.note} onChange={(e) => set({ note: e.target.value })} />
+            <ProseArea language={draft.language} className="tp-input" rows={2} placeholder={t('capture.form.note.placeholder')} value={draft.note} onChange={(e) => set({ note: e.target.value })} />
           </label>
         )
       case 'translation':
         return (
           <label className="tp-field" key={key}>
             <MonoLabel>{t('common.field.translation.label')}</MonoLabel>
-            <textarea className="tp-input" rows={2} placeholder={t('common.field.translation.placeholder')} value={draft.translation} onChange={(e) => set({ translation: e.target.value })} />
+            <ProseArea language={draft.language} className="tp-input" rows={2} placeholder={t('common.field.translation.placeholder')} value={draft.translation} onChange={(e) => set({ translation: e.target.value })} />
           </label>
         )
       case 'board':
