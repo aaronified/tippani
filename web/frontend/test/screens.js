@@ -61,6 +61,10 @@ export const SCREENS = {
   // assumed covered by them: it is the screen a nav row actually opens, and the
   // composition is exactly what could throw while both halves mount fine.
   checks: [() => import('../src/ChecksPage.jsx'), 'default', { onPending: noop, onOpenBook: noop, onOpenMovie: noop, onApproved: noop, onOpenQuotes: noop }],
+  // PROFILE IS A SCREEN SINCE IT STOPPED BEING A DIALOG. It was mounted by
+  // nothing here while it was an overlay, which is the gap this file is named
+  // after — a surface reachable in the app and never once rendered by the suite.
+  profile: [() => import('../src/Account.jsx'), 'Profile', { user: USER, onUser: noop, logout: noop }],
   login: [() => import('../src/App.jsx'), 'Login', { onLogin: noop }],
   onboarding: [() => import('../src/App.jsx'), 'Onboarding', { onDone: noop, backup: null }],
 }

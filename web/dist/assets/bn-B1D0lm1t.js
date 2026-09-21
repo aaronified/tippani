@@ -1158,8 +1158,6 @@ shell.nav.back.trail.title = পেছনের স্ক্রিন
 # --- the avatar chip, in both top bars and in the drawer's footer.
 shell.account.chip.tip = নিজের প্রোফাইল
 shell.account.chip.aria = প্রোফাইল — {name}
-shell.account.back.tip = বন্ধ করে ফিরে যান
-shell.account.panel.close.tip = এই প্যানেল বন্ধ করুন
 # The profile screen's own name. It is a route rather than a nav tab, so it has
 # no strip entry — the avatar is its door.
 nav.tab.profile.label = প্রোফাইল

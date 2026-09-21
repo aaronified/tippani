@@ -51,10 +51,18 @@ describe('every screen you can reach has help', () => {
     expect(helpFor(helpScreen('movies', { type: 'movie', id: 1 }))?.title).toBe('Film, show or game')
   })
 
-  // Rendered with a literal screen= prop rather than through helpScreen, so not
-  // covered by the loop above.
+  // PROFILE IS NO LONGER ONE OF THESE, and the loop above is why. It was a
+  // dialog, so it drew its own header and asked for its help by name; it is a
+  // route now, so `helpScreen('profile')` answers and the ⋯ finds it the way it
+  // finds every other screen's. A case asserting App.jsx still spells
+  // `screen="profile"` would now fail over the screen being MORE reachable, which
+  // is a test pinning the workaround rather than the promise.
+  //
+  // The list is kept, empty, rather than deleted: the next surface to hardcode a
+  // screen key needs somewhere to be registered, and rediscovering that this
+  // shape of coverage gap exists is the expensive half.
   it('the surfaces with a hardcoded screen prop exist', () => {
-    for (const [file, key] of [['App.jsx', 'profile']]) {
+    for (const [file, key] of []) {
       expect(src(file)).toContain(`screen="${key}"`)
       expect(HELP[key]).toBeTruthy()
     }

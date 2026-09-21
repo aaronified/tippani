@@ -1159,56 +1159,6 @@ function AccountChip({ user, onOpen }) {
   )
 }
 
-// AccountOverlay frames Profile: a centered pop-up on desktop, a full-screen page
-// on phones. Escape / backdrop / back closes. It framed two views until 1.4.1
-// (Profile and User management); the second is a section of the first now, so
-// there is one title and one help entry.
-function AccountOverlay({ user, onUser, onClose, logout }) {
-  const mobile = useIsMobileScreen()
-  // Draws its own overlay rather than going through FormModal or MobileSheet, so
-  // it asks for the Back entry itself.
-  useBackToClose(true, onClose)
-  // ONE OWNER FOR ESCAPE — see useEscape in ui.jsx.
-  useEscape(true, onClose)
-  const body = <Profile user={user} onUser={onUser} logout={logout} />
-  if (mobile) {
-    return (
-      <div className="account-page" role="dialog" aria-label={t('nav.tab.profile.label')}>
-        <header className="account-page-bar">
-          <Tooltip label={t('shell.account.back.tip')} side="bottom"><button type="button" className="mobile-topbar-btn" onClick={onClose} aria-label={t('common.action.back.label')}><IconBack /></button></Tooltip>
-          <span className="account-page-title">{t('nav.tab.profile.label')}</span>
-          {/* This page covers the shell bar, so it carries its own "?" — the one
-              screen that still does. */}
-          {/* NO WALKTHROUGH HERE, AND IT IS NOT AN OVERSIGHT — see the note on the
-              account step in tour.jsx. This panel is a dialog over a screen, and a
-              walk it has to close itself to run is not a walk of anything. */}
-          <span className="ml-auto"><PageHelp screen="profile" /></span>
-        </header>
-        <div className="account-page-body">{body}</div>
-      </div>
-    )
-  }
-  return (
-    <div className="account-scrim" onMouseDown={onClose}>
-      {/* hand-card as well as account-modal: this was the ONE dialog in the app
-          that was not a card — a flat --card fill with a 14px radius and a plain
-          line border, while every other window in the app is a hand-card with a
-          material and an aesthetic. It sits directly under the avatar chip, so
-          it is also the dialog most likely to be opened by accident and noticed.
-          .account-modal keeps only what is genuinely its own: the width cap and
-          the overflow clip. */}
-      <div className="hand-card account-modal" role="dialog" aria-label={t('nav.tab.profile.label')} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="account-modal-bar">
-          <h2 className="account-modal-title">{t('nav.tab.profile.label')}</h2>
-          <PageHelp screen="profile" />
-          <CloseButton onClick={onClose} tooltip={t('shell.account.panel.close.tip')} />
-        </div>
-        <div className="account-modal-body">{body}</div>
-      </div>
-    </div>
-  )
-}
-
 // ---- client-side routing (History API) ----
 // Client routes own the root path space (the API lives under /api). A hard
 // refresh on /books/42 is served index.html by the server, then Shell restores
@@ -1682,9 +1632,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     // is a document that cannot scroll and nothing left to un-say it.
     return () => root.removeAttribute('data-scroll')
   }, [screenOwnsScroll])
-  // Profile is one screen with everything in it now (see AccountOverlay), so
-  // this is open/closed rather than which-of-two-views.
-  const [profileOpen, setProfileOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   // Whether the top bar's Search ignores where you are. A standing preference,
   // so it is persisted rather than per-visit: a reader who searches everything
@@ -1792,7 +1739,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   const { show: showTop, toTop } = useBackToTop({ enabled: mobile })
   const navHidden = useHideOnScrollDown({
     enabled: mobile,
-    forceShow: drawerOpen || addOpen || profileOpen || !!tourState,
+    forceShow: drawerOpen || addOpen || !!tourState,
     resetKey: tab,
   })
   useEffect(() => {
@@ -2055,7 +2002,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
       case 'go-settings': go('settings'); break
       // Profile is a panel rather than a tab — the account chip opens it in both
       // bars — so this opens the panel rather than navigating.
-      case 'go-profile': setProfileOpen(true); break
+      case 'go-profile': go('profile'); break
       case 'help': setShortcutsOpen(true); break
       default: break
     }
@@ -2268,7 +2215,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         sections={sections}
         order={order}
         user={user}
-        onAccount={() => setProfileOpen(true)}
+        onAccount={() => go('profile')}
         onBin={() => go('bin', null)}
         onChecks={() => go('checks', null)}
         brandDot={brandDot}
@@ -2554,6 +2501,16 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
             />
           </div>
         )}
+        {/* PROFILE IS A SCREEN, NOT A PANEL OVER ONE. It draws no bar of its own:
+            the shell's names it, the dock's Back leaves it, and the ⋯ finds its
+            help through helpScreen like every other screen — which is why the
+            hardcoded screen="profile" that used to sit in the overlay's own
+            header is gone rather than moved. */}
+        {tab === 'profile' && (
+          <div data-screen-label="profile">
+            <Profile user={user} onUser={onUser} logout={logout} />
+          </div>
+        )}
         {/* The bin is in no tab list — see ROUTE_TABS. It routes so that it
             bookmarks and survives a refresh, and its only door in is the tile in
             Settings, which is where its Back goes. */}
@@ -2640,7 +2597,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         // leave no way to escape a scope you did not choose.
         onSearch={() => searchScoped('all')}
         onAdd={() => openAdd('book')}
-        onAccount={() => setProfileOpen(true)}
+        onAccount={() => go('profile')}
         user={user}
         stats={stats}
         pending={pending}
@@ -2693,9 +2650,6 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
         onWorkCreated={refreshStats}
         onOpenMovie={openMovie}
       />
-      {profileOpen && (
-        <AccountOverlay user={user} onUser={onUser} logout={logout} onClose={() => setProfileOpen(false)} />
-      )}
       {tourState && (
         <FeatureTour
           user={user}

@@ -27,7 +27,21 @@
 // more — and it stays here, because /tags is an address people have bookmarked and
 // linked to, and an address that stops resolving is worse than the row it replaced.
 // `tabForPath` sends it to the metadata console's own Tags section; see App's router.
-export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup', 'checks']
+// `profile` IS A ROUTE AND NOT A NAV TAB, and it became one because it was
+// neither. It was a dialog with no address: the chip layered it over whatever
+// screen you were on, so the URL still said /settings, a refresh lost it, it
+// could not be linked to, and the owner's report was the two halves of that —
+// "it merely refreshes the screen… same page as I was before" and "I see no way
+// to get there". A screen the app has no name for is a screen that behaves like
+// an accident.
+//
+// AND AN ADDRESS IS WHAT TAKES IT OUT OF THE OVERLAY STACK, which is the part
+// that fixes the press rather than the bookmark. `useBackToClose` pushes a
+// history marker per open overlay and pops it on unmount; the drawer's footer
+// opened Profile and closed the drawer in ONE handler, so two of those markers
+// were being pushed and unwound against each other in a single commit. A screen
+// pushes one ordinary route entry and owns it.
+export const ROUTE_TABS = ['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup', 'checks', 'profile']
 
 // ---- the nav contract ----
 //

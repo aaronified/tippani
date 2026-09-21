@@ -86,7 +86,12 @@ const COVERS = [...new Set(
 
 describe('anything that covers the page', () => {
   it('is found at all, and the main one is among them', () => {
-    expect(COVERS.length, 'no rule in the stylesheet washes over the viewport any more').toBeGreaterThan(3)
+    // THE FLOOR IS 2, NOT THE COUNT. It guards against the stylesheet losing its
+    // covers entirely — a selector renamed, a block dropped — and a floor set to
+    // whatever today's number happens to be is a case that fails on every
+    // deliberate removal and teaches people to edit it. It came down from 3 when
+    // Profile stopped being a dialog and `.account-scrim` went with it.
+    expect(COVERS.length, 'no rule in the stylesheet washes over the viewport any more').toBeGreaterThan(2)
     // NAMED, because this file once passed with it missing: `.tp-scrim` is the
     // ground every modal, picker, panel and search overlay stands on, and a
     // derivation that skips it is a guard about the exceptions.

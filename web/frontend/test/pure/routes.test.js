@@ -41,7 +41,7 @@ describe('parsePath', () => {
   // nothing would fail. This is the only test protecting that table, so it has
   // to state the expected contents rather than read them.
   it('has exactly these plain tabs', () => {
-    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup', 'checks'])
+    expect(ROUTE_TABS).toEqual(['search', 'quotes', 'anthologies', 'tags', 'metadata', 'stats', 'settings', 'staging', 'bin', 'cleanup', 'checks', 'profile'])
   })
 
   it('routes every plain tab by name', () => {

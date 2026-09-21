@@ -1154,8 +1154,6 @@ shell.nav.back.trail.title = Go back to
 # --- the avatar chip, in both top bars and in the drawer's footer.
 shell.account.chip.tip = Your profile
 shell.account.chip.aria = Profile — {name}
-shell.account.back.tip = Close and go back
-shell.account.panel.close.tip = Close this panel
 # The profile screen's own name. It is a route rather than a nav tab, so it has
 # no strip entry — the avatar is its door.
 nav.tab.profile.label = Profile

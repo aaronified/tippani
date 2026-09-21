@@ -118,6 +118,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Your account is a screen you can get to, and get back to.** Pressing the chip with your
+  name on it at the foot of the drawer now takes you to Profile at its own address, so a
+  reload brings it back, a link reaches it, and Back leaves it the way it leaves any other
+  screen. It used to be a panel drawn over whatever you were looking at — which is why it
+  could read as nothing having happened, and why there was no way to return to it.
+
 - **Practice moves your schedule only when you have said it may.** "Practice moves the
   schedule" is now the whole of that decision. Before, a Practice answer also took the
   "Seeing lengthens half-life by" bump whatever that toggle said — so a reader who had
