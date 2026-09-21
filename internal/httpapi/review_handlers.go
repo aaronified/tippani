@@ -3591,11 +3591,13 @@ func (s *Server) handlePracticeReset(w http.ResponseWriter, r *http.Request) {
 // it — sharing it, favouriting it, or reading it among the choices on a Daily
 // Quiz card you answered — lengthens its half-life marginally. A Practice answer
 // is NOT one of these: it has a grade behind it, and srPracticeCounts is the one
-// setting that says whether that grade reaches the schedule. It only touches cards already in the schedule (an
-// unseen card has no half-life to grow, and creating one here would falsely read
-// as "remembered"); it never moves the recall clock or the last result, so a
-// lapsed card stays probably-forgotten. factor <= 1 (the default) is a no-op, so
-// the whole effect is opt-in.
+// setting that says whether that grade reaches the schedule.
+//
+// It only touches cards already in the schedule (an unseen card has no half-life
+// to grow, and creating one here would falsely read as "remembered"); it never
+// moves the recall clock or the last result, so a lapsed card stays
+// probably-forgotten. factor <= 1 (the default) is a no-op, so the whole effect
+// is opt-in.
 func (s *Server) bumpSeen(kind string, id int64, factor float64) {
 	if factor <= 1.0 {
 		return
