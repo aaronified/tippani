@@ -645,6 +645,9 @@ settings.credits.sep.and.symbol = “and”
 # What the Updates card shows for a build with no version stamped on it. A version
 # identifier, per §8 — never translated, and not a word about anything.
 settings.updates.version.dev = dev
+# The version an admin is on, beside Back up now and Update on the phone's
+# Settings index. {v} is the version string, or the word above on a dev build.
+settings.updates.version.now = You are on {v}
 
 # --- the tiles / list / table switch.
 common.view.toggle.aria = View

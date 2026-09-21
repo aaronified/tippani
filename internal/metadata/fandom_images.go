@@ -78,6 +78,70 @@ var romanTail = regexp.MustCompile(`(?i)(i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|x
 // instalment number or roman numeral removed. Deduped and ordered most specific
 // first, because a wiki dedicated to one instalment is a better answer than the
 // franchise's when both exist.
+// AND THE LADDER COULD NOT REACH A SERIES AT ALL, WHICH IS THE OWNER'S REPORT.
+// "I do not ever see shit from fandom about characters. The search is broken. It
+// cannot gather character names either. Even for very obvious ones, like
+// itkovian."
+//
+// Itkovian is in Malazan Book of the Fallen, whose wiki is `malazan`. Every
+// candidate above is derived from the VOLUME — "Memories of Ice" gives
+// `memoriesofice` and nothing else, since there is no subtitle to cut and no
+// numeral to drop — so no probe ever went near the wiki that holds him. The
+// paragraph above had the diagnosis exactly right ("the wiki is named for the
+// franchise, not the instalment") and then only ever fed it the instalment.
+//
+// A BOOK KNOWS ITS SERIES, so the series is an input now. Its ladder runs after
+// the title's, because a wiki dedicated to one volume is a better answer than the
+// franchise's when both exist — and then the series is shortened a WORD at a time,
+// because that is the shape franchise wikis take: `malazan` out of "Malazan Book
+// of the Fallen", `witcher` out of "The Witcher Saga". Trimming has to happen on
+// the TITLE and not on the slug: a slug is letters and digits with the spaces
+// already gone, so there is nothing left in it to cut on.
+//
+// CAPPED AT EIGHT, and the cap is the point rather than tidiness. Each candidate
+// is one existence probe, and this runs once per work — `FandomResolveWiki`'s
+// answer is stored by its caller — so eight is eight requests in the life of a
+// work. Uncapped, a long series name would spend a dozen on the vanishingly
+// unlikely middles ("malazanbookofthe"), which is latency charged to the reader
+// for guesses nobody would make.
+func FandomWikiCandidatesFor(title, series string) []string {
+	out := FandomWikiCandidates(title)
+	seen := map[string]bool{}
+	for _, s := range out {
+		seen[s] = true
+	}
+	add := func(v string) {
+		if v != "" && !seen[v] && len(out) < maxFandomWikiCandidates {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	words := strings.Fields(strings.TrimSpace(series))
+	// THE WHOLE SERIES NAME, THEN THE SHORTEST FORMS, THEN THE MIDDLES — and the
+	// order is load-bearing rather than cosmetic, because the cap decides what
+	// never gets probed.
+	//
+	// WRITTEN LONGEST-FIRST IT WAS WRONG, and its own test said so: a six-word
+	// series filled all eight slots with "…ofmanyseparate", "…ofmany", "…of" and
+	// dropped the first word entirely — the one candidate the whole change exists
+	// to reach. Specificity is the right instinct for TITLES, where a wiki about
+	// one volume beats the franchise's; it is exactly backwards inside a series
+	// name, where the franchise wiki is named for the FIRST word or two and every
+	// middle is a string nobody would ever register.
+	//
+	// So: the full name (it might be the wiki), then one word, two, three… and the
+	// long middles last, where the cap can cut them without costing anything.
+	add(fandomSlug(series))
+	for n := 1; n < len(words); n++ {
+		add(fandomSlug(strings.Join(words[:n], " ")))
+	}
+	return out
+}
+
+// maxFandomWikiCandidates caps the probes one work will ever spend finding its
+// wiki. See FandomWikiCandidatesFor.
+const maxFandomWikiCandidates = 8
+
 func FandomWikiCandidates(title string) []string {
 	title = strings.TrimSpace(title)
 	if title == "" {
@@ -113,14 +177,100 @@ func FandomWikiCandidates(title string) []string {
 // unresolved rather than remembered as such: a wiki that did not exist last month
 // may exist now, and being wrong costs one 404.
 func FandomResolveWiki(ctx context.Context, title string) string {
-	for _, slug := range FandomWikiCandidates(title) {
+	return FandomResolveWikiFor(ctx, title, "")
+}
+
+// FandomResolveWikiFor is the same probe over the series-aware ladder, with the
+// cross-wiki search behind it. See FandomWikiCandidatesFor for why a series is the
+// input that was missing.
+func FandomResolveWikiFor(ctx context.Context, title, series string) string {
+	for _, slug := range FandomWikiCandidatesFor(title, series) {
 		base := strings.Replace(fandomHostFmt, "%s", slug, 1)
 		_, status, err := httpGet(ctx, base+"/api.php?action=query&meta=siteinfo&format=json", "")
 		if err == nil && status == 200 {
 			return slug
 		}
 	}
+	// AND WHEN EVERY GUESS MISSES, ASK RATHER THAN GIVE UP. Every candidate above
+	// is a HOST spelled out of a title, so the whole ladder fails for any wiki whose
+	// name is not derivable from the work — `galactica` for Battlestar Galactica is
+	// the standing example, and the series ladder does not reach it either, because
+	// the series is not called that. Fandom's own index knows; nothing ever asked.
+	//
+	// LAST, NOT FIRST, and the order is the point. A derived host that answers is
+	// CERTAIN: that wiki exists and is named for this work. A search result is a
+	// ranking, and the top hit for a common title can easily be another franchise.
+	// So the search runs only where the certain answers have all missed, which is
+	// also where it costs nothing — those requests have already happened.
+	return fandomSearchWiki(ctx, strings.TrimSpace(series), strings.TrimSpace(title))
+}
+
+// fandomSearchWiki asks Fandom's cross-wiki index which wiki a work lives on and
+// returns the host of the best answer.
+//
+// THIS RUNG IS UNPROVEN AGAINST THE LIVE ENDPOINT, AND THAT IS SAID HERE RATHER
+// THAN LEFT TO BE DISCOVERED. Every outbound request from the container this was
+// written in comes back 403, so the parsing and the refusals below are checked
+// against recorded shapes and the endpoint itself is not. It is built to fail
+// CLOSED for exactly that reason: an error, any status but 200, a body it cannot
+// read, and any host that is not a plain `*.fandom.com` all return "" — which is
+// precisely what the caller did before this existed. A wrong guess here costs one
+// request and can never produce a wrong wiki.
+//
+// THE SERIES IS ASKED FIRST where there is one, because the index is a list of
+// WIKIS and a wiki is named for the franchise rather than the instalment.
+func fandomSearchWiki(ctx context.Context, terms ...string) string {
+	for _, term := range terms {
+		if term == "" {
+			continue
+		}
+		q := url.Values{"query": {term}, "limit": {"1"}}
+		body, status, err := httpGet(ctx, fandomSearchBase+"/api/v1/SearchSuggestions/List?"+q.Encode(), "")
+		if err != nil || status != 200 {
+			continue
+		}
+		var r struct {
+			Items []struct {
+				URL string `json:"url"`
+			} `json:"items"`
+		}
+		if json.Unmarshal(body, &r) != nil || len(r.Items) == 0 {
+			continue
+		}
+		if slug := fandomHostSlug(r.Items[0].URL); slug != "" {
+			return slug
+		}
+	}
 	return ""
+}
+
+// fandomSearchBase is the cross-wiki index, overridable for tests.
+var fandomSearchBase = "https://community.fandom.com"
+
+// fandomHostSlug takes the wiki out of a fandom.com address and refuses anything
+// else.
+//
+// WHATEVER THIS RETURNS BECOMES A HOST THE APP THEN TALKS TO and stores on the
+// work, so it is a whitelist by SHAPE — one third-level name under fandom.com —
+// rather than a blacklist of things that look wrong. `fandom.com.evil.example` is
+// why: it contains the string and is not Fandom.
+func fandomHostSlug(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	host := strings.ToLower(u.Host)
+	const suffix = ".fandom.com"
+	if !strings.HasSuffix(host, suffix) {
+		return ""
+	}
+	slug := strings.TrimSuffix(host, suffix)
+	// `community.fandom.com` is the index itself rather than a work's wiki, and a
+	// slug with a dot left in it is a deeper subdomain than this app addresses.
+	if slug == "" || slug == "community" || strings.Contains(slug, ".") {
+		return ""
+	}
+	return slug
 }
 
 // FandomCharacterImages asks the work's own wiki for a character's page image.

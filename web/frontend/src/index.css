@@ -10611,6 +10611,52 @@ html[data-theme="dark"] .board-cover {
   color: var(--ink);
 }
 .section-index-chevron { flex: none; display: inline-flex; color: var(--faint); }
+/* ── A SECTION'S OWN CONTROLS, ON THE INDEX ───────────────────────────────────
+   The standing rule: use the space, and put what is used most in front. Five
+   doors and then two-thirds of a phone's height standing empty is a surface not
+   doing its job, so each door carries the two or three controls a reader came to
+   this screen for.
+
+   THE CARD IS THE ROW'S WRAPPER, so the row keeps the border that separates it
+   from the next section and the card adds nothing where a section hands over no
+   controls — `.has-actions` is what earns the padding and the ground. A card drawn
+   around every row would put a box around the three sections that have nothing in
+   them.
+
+   THE CONTROLS ARE NOT INDENTED TO THE LABEL. An indent would read as "these
+   belong to the row above" and cost `--edge` of the width the controls are short
+   of already; the border at the top of the next row is what separates them, which
+   is the job it was already doing. */
+.section-index-card.has-actions {
+  padding-bottom: 12px;
+}
+.section-index-actions {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 0 6px;
+}
+/* EVERY CONTROL TAKES THE WHOLE WIDTH IT IS OFFERED. These are the app's own
+   rows, fields and toggles, drawn at a third of the width they have on the
+   section page — so a toggle that sizes to its content leaves two thirds of the
+   card empty and a thumb aiming at "Match" gets a target a few millimetres wide.
+   The same reasoning the sliders on this screen already won on. */
+.section-index-actions > * { min-width: 0; }
+.section-index-actions .tp-toggle,
+.section-index-actions .tp-input,
+.section-index-actions .tp-select { width: 100%; }
+/* TWO VERBS SHARE A LINE and each takes half of it, because they are a pair — back
+   up and update are the two things an admin comes to Server to press, and stacking
+   them costs a row for no gain. They wrap where a locale makes them too long to
+   share, which is why this is a wrapping flex rather than two columns. */
+.section-index-verbs {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+/* NAMED, NOT `> *`, AND THE REPO HAS A GOTCHA ABOUT EXACTLY THIS. `test/css-cascade.js`
+   resolves a universal child selector as "anything, anywhere", so `.section-index-verbs
+   > *` beat `.tp-panel-slot`'s own `flex` across the whole app — `header-hygiene`
+   went red on a panel header this rule has nothing to do with, reporting
+   `1 1 8em` where the slot declares `0 0`. The same mistake was made with
+   `.skipped-work-people > *` and caught the same way. */
+.section-index-verbs > .tp-btn { flex: 1 1 8em; }
 /* `.section-drill-head` AND `.section-drill-title` ARE GONE, and what they drew is
    one row up. A phone in a section wore a header of its own — a back arrow the dock
    already has, the section's name, its info dot and a pill — directly under a top

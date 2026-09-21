@@ -654,6 +654,7 @@ settings.credits.sep.and.symbol = “and”
 # What the Updates card shows for a build with no version stamped on it. A version
 # identifier, per §8 — never translated, and not a word about anything.
 settings.updates.version.dev = dev
+settings.updates.version.now = আপনি {v}-এ আছেন
 
 # --- the tiles / list / table switch.
 common.view.toggle.aria = ভিউ

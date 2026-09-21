@@ -79,9 +79,16 @@ type castPin struct {
 	// The Fandom wiki this work lives on: stored on the row once resolved, or
 	// typed by the reader. See fandomWikiFor.
 	FandomWiki string
-	WorkID     int64
-	MediaType  string
-	Character  string
+	// THE WORK'S SERIES, AND IT IS WHAT THE FANDOM LADDER WAS MISSING. A franchise
+	// wiki is named for the franchise — `malazan` holds every Malazan Book of the
+	// Fallen character — and every candidate the ladder derived came off the
+	// VOLUME, so a series whose books are titled nothing like it could never be
+	// reached. The owner's report is the case: "I do not ever see shit from fandom
+	// about characters… even for very obvious ones, like itkovian."
+	Series    string
+	WorkID    int64
+	MediaType string
+	Character string
 	// THE CHARACTER RECORD'S OWN LINKS, and the reason they are here is the whole
 	// of the owner's report. A Fandom wiki cannot be derived from a title —
 	// Battlestar Galactica lives at `galactica` — so the app's answer was always
@@ -126,15 +133,27 @@ func (s *Server) castPinFor(uid, castID int64) castPin {
 	// A BOOK'S CHARACTER HAS NO TheTVDB WORK, and that is not a failure either —
 	// it is the case the ladder's lower rungs exist for. Only a screen work
 	// carries the pin this rung needs.
+	//
+	// IT STILL HAS A SERIES, THOUGH, AND THIS RETURNED BEFORE READING IT. The
+	// Fandom rung runs for a book — it is gated on having a character's name and
+	// nothing else — so bailing out here left every book character with no wiki
+	// candidate but its own volume's title. That is the whole of the owner's
+	// Itkovian report: a `books` row carries `series`, and nobody asked it.
 	if kind != "movie" {
+		if err := s.Store.DB.QueryRow(
+			`SELECT COALESCE(series, '') FROM books WHERE id = ? AND user_id = ?`, p.WorkID, uid,
+		).Scan(&p.Series); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			olog.Warnf(olog.CodeCastRowScan, "[meta] image ladder: book %d series unreadable: %v", p.WorkID, err)
+		}
 		return p
 	}
 	var tvdbID int64
 	var mediaType string
 	if err := s.Store.DB.QueryRow(
-		`SELECT COALESCE(tvdb_id, 0), COALESCE(media_type, 'movie'), COALESCE(fandom_wiki, '')
+		`SELECT COALESCE(tvdb_id, 0), COALESCE(media_type, 'movie'), COALESCE(fandom_wiki, ''),
+		        COALESCE(series, '')
 		   FROM movies WHERE id = ? AND user_id = ?`, p.WorkID, uid,
-	).Scan(&tvdbID, &mediaType, &p.FandomWiki); err != nil {
+	).Scan(&tvdbID, &mediaType, &p.FandomWiki, &p.Series); err != nil {
 		return p
 	}
 	p.MediaType = mediaType
@@ -408,7 +427,7 @@ func (s *Server) fandomCharacterTier(uid int64, pin castPin, character, workTitl
 			s.rememberFandomWiki(uid, pin.WorkID, wiki)
 			return hits
 		}
-		wiki := s.fandomWikiFor(ctx, uid, pin.WorkID, pin.FandomWiki, workTitle)
+		wiki := s.fandomWikiFor(ctx, uid, pin.WorkID, pin.FandomWiki, workTitle, pin.Series)
 		if wiki == "" {
 			// WHICH SLUGS WERE TRIED, because "no wiki" is the answer a reader is
 			// most likely to disagree with and the one they can fix. The wiki for
@@ -416,7 +435,7 @@ func (s *Server) fandomCharacterTier(uid int64, pin castPin, character, workTitl
 			// title reaches — so the honest report is the guesses that failed,
 			// which is also the sentence that tells them to paste the address.
 			*note = "no wiki answered for " + workTitle + " — tried " +
-				strings.Join(metadata.FandomWikiCandidates(workTitle), ", ")
+				strings.Join(metadata.FandomWikiCandidatesFor(workTitle, pin.Series), ", ")
 			return nil
 		}
 		hits := metadata.FandomCharacterImages(ctx, character, wiki)
@@ -445,14 +464,14 @@ func (s *Server) fandomCharacterTier(uid int64, pin castPin, character, workTitl
 // Writing here rather than in a separate pass is deliberate: this runs inside a
 // request that is already talking to Fandom, and the alternative is a background
 // job, which this app does not have and does not want.
-func (s *Server) fandomWikiFor(ctx context.Context, uid, workID int64, stored, title string) string {
+func (s *Server) fandomWikiFor(ctx context.Context, uid, workID int64, stored, title, series string) string {
 	if w := strings.TrimSpace(stored); w != "" {
 		return w
 	}
 	if strings.TrimSpace(title) == "" {
 		return ""
 	}
-	wiki := metadata.FandomResolveWiki(ctx, title)
+	wiki := metadata.FandomResolveWikiFor(ctx, title, series)
 	if wiki == "" || workID == 0 {
 		return wiki
 	}

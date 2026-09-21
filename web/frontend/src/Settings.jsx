@@ -637,6 +637,60 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   const current = liveSections.some(([id]) => id === section) ? section : (liveSections[0] || [])[0]
   const shown = current ? (SECTION_CARDS[current] || []).filter((k) => cardsByKey[k] && matching(k)) : []
 
+  // ── WHAT EACH SECTION PUTS ON THE PHONE'S INDEX ─────────────────────────────
+  //
+  // The owner's ask, and the standing rule behind it: "use the space available,
+  // think like the user, whatever will be used more needs to be up front." The
+  // phone's Settings home was five doors and then most of a screen's height of
+  // nothing under them, so the handful of controls a reader actually opens
+  // Settings FOR sat one press behind an empty surface.
+  //
+  // PHONE ONLY, AND THE DESKTOP IS UNTOUCHED. A desk has the tab row and the
+  // section beside it in one view, so the same controls would be the same rows
+  // drawn twice on one screen — which is the "a row says a thing once" rule
+  // broken by a shortcut to something already visible.
+  //
+  // THE SECTION PAGE IS UNCHANGED TOO. These are shortcuts, not a move: every
+  // control here is still where it was, with everything around it that did not
+  // fit. A card that replaced the section would have cost the rows it cannot
+  // carry.
+  //
+  // EACH SLICE IS RENDERED BY THE COMPONENT THAT OWNS THE CONTROL, never by a
+  // copy of it here. That is the repo's "two things that look the same behave the
+  // same" — a second mode toggle written in this file would be right on the day
+  // it was written and quietly wrong from the first time the real one changed. So
+  // the four cards take a `compact` prop and answer with their own two or three
+  // rows; Server is the exception only because its verbs were already separate
+  // components and already wired to this screen's own prompts.
+  const sectionActions = mobile ? {
+    theme: <Appearance prefs={prefs} onPreferences={onPreferences} compact />,
+    lang: <Appearance prefs={prefs} onPreferences={onPreferences} part="lang" compact />,
+    review: <SRSettings user={user} onPreferences={onPreferences} compact />,
+    sections: <FeaturesCard prefs={prefs} onSaved={onPreferences} compact />,
+    // THE SAME TWO VERBS THE DOCK CARRIES, through the same state, so the
+    // confirm a reader meets is the one they would have met from the dock. The
+    // version rides with them because it is the fact those two presses are about
+    // — "am I behind?" is the question, and a button with no version beside it
+    // cannot answer it.
+    ...(user.is_admin ? {
+      server: (
+        <>
+          <div className="section-index-verbs">
+            <GhostButton icon={<IconArchive />} onClick={() => setBackupNow(true)}>
+              {t('settings.backup.now.label')}
+            </GhostButton>
+            <GhostButton icon={<IconRefresh />} onClick={() => setUpdateNow(true)}>
+              {t('settings.updates.now.label')}
+            </GhostButton>
+          </div>
+          <p className="microcopy">
+            {t('settings.updates.version.now', { v: user?.version || t('settings.updates.version.dev') })}
+          </p>
+        </>
+      ),
+    } : {}),
+  } : {}
+
   return (
     <section className="space-y-6">
       {/* NO PAGE HEADER AT ALL, on any width. It went from a phone first, for
@@ -667,6 +721,9 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
             countWord: t('settings.rail.count.word'),
             info: t(sectionInfoKey(id)),
             pill: sectionPill(changedIn(prefs, id)),
+            // Drawn under the row on a phone's index and nowhere else — the rail
+            // ignores it on a desk, where the section itself is already on screen.
+            actions: sectionActions[id] || null,
           }))}
           value={current}
           // CONTROLLED ONLY WHERE THERE IS AN ADDRESS TO CONTROL IT WITH. Passing
@@ -1458,7 +1515,7 @@ function QuoteFaces({ prefs, onSaved, onGo, index, defaultRow = null }) {
 // picks the Bengali UI language in the scope, or the Bengali quote face in the
 // panel; "which face draws this script, in general, everywhere" is the question
 // neither of those is, and it is the one with no good answer.
-function FontSections({ prefs, onSaved, onGo, index }) {
+function FontSections({ prefs, onSaved, onGo, index, compact = false }) {
   const { ask, confirmDialog } = useConfirm()
   const [err, setErr] = useState('')
   const [mine, setMine] = useState(uploadedFonts)
@@ -1653,6 +1710,24 @@ function FontSections({ prefs, onSaved, onGo, index }) {
     />
   )
 
+  // THE PHONE INDEX'S SLICE: the interface face, and only that one.
+  //
+  // THE OWNER NAMED IT — "language select + interface font" — and of the four
+  // faces it is the right one to lift: it is the face the reader is looking AT,
+  // on every screen, so the effect of changing it is immediate and total. The
+  // quote face matters more to how a quote reads and is a choice made while
+  // looking at quotes, which is what the section is for.
+  //
+  // THE SAME `FontRow` THE SECTION DRAWS, through the same `save`, `saveSize` and
+  // script check — so an uploaded face is still warned about here, and the
+  // optimistic apply still happens before the PUT answers, which is the whole
+  // point of a type picker. A second, simpler face picker would have been a
+  // picker that silently stopped warning.
+  if (compact) {
+    const ui = rows.find((r) => r.key === 'ui')
+    return ui ? fontRow(ui) : null
+  }
+
   return (
     <>
       {confirmDialog}
@@ -1759,7 +1834,7 @@ function FontSections({ prefs, onSaved, onGo, index }) {
 // review_handlers.go) is the opt-in, and the stored preference is srLadder
 // rather than srAdaptive for the reason that field's comment gives. Each knob
 // persists via the partial-merge preferences PUT.
-function SRSettings({ user, onPreferences }) {
+function SRSettings({ user, onPreferences, compact = false }) {
   const p = user.preferences || {}
   // WHETHER THE TEN NUMBERS HAVE BEEN MOVED, which is what the door's own dot
   // answers. The blob is empty until somebody edits one, so its presence IS the
@@ -1770,6 +1845,41 @@ function SRSettings({ user, onPreferences }) {
     onPreferences?.(patch)
     json('PUT', '/auth/me/preferences', patch)
   }
+
+  // THE PHONE INDEX'S SLICE: how hard the questions are, and whether practice is
+  // allowed to move the schedule. The owner named both.
+  //
+  // WHY THESE TWO OUT OF THE SECTION'S TWENTY-ODD ROWS. They are the two that
+  // change what a session FEELS like — one decides whether you are recognising or
+  // typing, the other whether an idle ten minutes costs you your schedule — and
+  // they are the two a reader comes back to. Everything else here is either set
+  // once (the deck size, the repertoires) or arithmetic (the ten multipliers),
+  // and both belong on the section where there is room to read what they do.
+  //
+  // THEY ARE THE SECTION'S OWN ROWS, through the same `set`, so what a press
+  // writes and what the row says about being changed are one implementation.
+  // `PracticeCounts` is literally the same component the section draws.
+  if (compact) {
+    return (
+      <>
+        <PrefRow
+          label={t('settings.quiz.tier.title')}
+          info={t('settings.quiz.tier.info.body')}
+          changed={(p.srTier || 'medium') !== 'medium'}
+          control={
+            <Toggle
+              ariaLabel={t('settings.quiz.tier.title')}
+              value={p.srTier || 'medium'}
+              onChange={(v) => set({ srTier: v })}
+              options={REVIEW_TIERS.map((k) => [k, t(`settings.quiz.tier.${k}.label`)])}
+            />
+          }
+        />
+        <PracticeCounts p={p} set={set} />
+      </>
+    )
+  }
+
   return (
     <Card>
       {/* THE SECTION IS THE HEADING — see AppearanceCard. The dot's words, which
@@ -3383,7 +3493,7 @@ function PromptFrame({ title, closeLabel, closeTip, busy = false, maxWidth = 460
 // that are on until you say otherwise, `showAnthologies` for the one that is off
 // until you ask. Every preference default in this app is the zero value, and that
 // is the rule those two spellings are both obeying. See the prefs struct.
-function FeaturesCard({ prefs, onSaved }) {
+function FeaturesCard({ prefs, onSaved, compact = false }) {
   const on = visibleSections(prefs)
   // The last one standing among the CONTENT sections. Anthologies is not one of
   // them — it holds quotes that live in the other three — so it can neither be the
@@ -3450,6 +3560,47 @@ function FeaturesCard({ prefs, onSaved }) {
     json('PUT', '/auth/me/preferences', patch)
   }
   const drag = useRowReorder(moveTo)
+
+  // THE PHONE INDEX'S SLICE: which sections the app offers, as one row of chips.
+  //
+  // THE OWNER NAMED THE SHAPE — "text buttons on/off per section (like the quiz's
+  // 'what to ask')" — so this is `ChipSwitches`, the control that row already
+  // uses, and not a second thing that looks like it. A set of on/off choices is
+  // what a lit chip states and what a column of switches makes you read one line
+  // at a time; five of these on the index would be five rows and most of a card.
+  //
+  // IT SHARES `set` AND `lastOne` WITH THE SECTION PAGE, which is the whole reason
+  // this branch lives inside the component rather than beside it. The polarity
+  // rule (`hideX` stores the opposite, `showX` stores the switch) and the last-one-
+  // standing lock are both subtle enough that a second copy would be right on the
+  // day it was written and quietly wrong after the next section arrives. What is
+  // written twice here is the arrangement; the verb is written once.
+  //
+  // NO REORDERING HERE. Dragging five rows into an order is not a shortcut — it
+  // needs the rows, the grips and the room to aim — so it stays on the section,
+  // which is what the chevron beside this card is for.
+  if (compact) {
+    return (
+      <ChipSwitches
+        ariaLabel={t('settings.features.order.title')}
+        options={order.map((tab) => {
+          const sec = SECTIONS.find((x) => x.tab === tab)
+          if (!sec) return null
+          return {
+            key: tab,
+            label: t(sec.label),
+            on: !!on[sec.tab],
+            locked: lastOne && on[sec.tab] && !sec.off ? t('settings.features.locked.prose') : '',
+            hint: t(sec.what),
+          }
+        }).filter(Boolean)}
+        onToggle={(tab) => {
+          const sec = SECTIONS.find((x) => x.tab === tab)
+          if (sec) set(sec, !on[sec.tab])
+        }}
+      />
+    )
+  }
 
   const move = (i, d) => {
     const j = i + d
@@ -4792,7 +4943,7 @@ const prefersDark = () => typeof matchMedia !== 'undefined' && matchMedia('(pref
 // rather than beside what it LOOKS like. Both halves read this card's one
 // preferences object and go through its one writer, so the screen passes which
 // half it wants IN; there is no second component holding a copy of the other.
-function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
+function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact = false }) {
   // Seed from the appearance actually applied (getResolvedTheme reads the concrete
   // material set off the DOM + the raw theme preference).
   //
@@ -4925,6 +5076,142 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
     json('PUT', '/auth/me/preferences', s)
   }
 
+  // ── THE THREE COLOUR DOORS, LIFTED OUT OF THE ROW ──────────────────────────
+  //
+  // Out of the Colours row's `control` so the phone index's Theme card can draw
+  // the SAME three doors rather than a second set beside them. The repo's rule:
+  // a control on two screens lives in one function, and where a screen needs
+  // something the other does not it passes that fact IN. Nothing here asks which
+  // screen is calling — the doors, the panel they open and the `persist` they
+  // write through are one implementation, so the day a fourth door arrives it
+  // arrives on both.
+  // ── THE PHONE INDEX'S TWO SLICES ────────────────────────────────────────────
+  //
+  // Declared before `colourDoors` is USED but after it is defined, which is why
+  // this branch sits below the helper rather than at the top of the component:
+  // an early return above a `const` arrow would reach it in its own dead zone.
+  //
+  // THEME: the mode and the colours, which are the two rows this section exists
+  // for. Everything else here — the material set, its five physics dials, the
+  // saved looks, the cover sizes — is either a once-ever decision or a
+  // fine-tuning pass, and neither is what a reader opens Settings on a phone to
+  // do. The owner named exactly this pair: "dark/light/match toggle + accent
+  // colour".
+  //
+  // LANGUAGE: the interface language and the face it is drawn in. `FontSections`
+  // answers for the face, with its own `compact`, so the row a reader gets is the
+  // section's row — uploads, script warning and optimistic apply included.
+  const compactSlice = () => part === 'lang' ? (
+    <>
+      <PrefRow
+        label={t('settings.language.title')}
+        control={
+          <LanguagePicker
+            bare
+            onPick={(code) => {
+              onPreferences?.({ locale: code })
+              json('PUT', '/auth/me/preferences', { locale: code })
+            }}
+          />
+        }
+      />
+      <FontSections prefs={prefs} onSaved={onPreferences} onGo={onGo} index={1} compact />
+    </>
+  ) : (
+    <>
+      <PrefRow
+        label={t('settings.appearance.theme.title')}
+        changed={themePref !== 'system'}
+        control={
+          <Toggle
+            ariaLabel={t('settings.appearance.match.aria')}
+            value={themePref}
+            onChange={(v) => persist({ theme: v })}
+            options={[
+              ['system', t('settings.appearance.match.label')],
+              ['light', t('settings.appearance.theme.light.label')],
+              ['dark', t('settings.appearance.theme.dark.label')],
+            ]}
+          />
+        }
+      />
+      <PrefRow
+        label={t('settings.appearance.colours.title')}
+        changed={groundLight !== 'cream' || groundDark !== 'night' || accent !== 'terracotta'}
+        control={colourDoors()}
+      />
+    </>
+  )
+
+  const colourDoors = () => (
+        /* THREE DOORS, WHICH IS WHAT THE ROW'S OWN SUB-LINE HAS BEEN PROMISING:
+           "Light ground · dark ground · accent. Each one opens its own options."
+           It drew the palette inline instead — the four grounds of whichever
+           mode was on screen, then every accent beside them — so the sentence
+           was describing a control that did not exist, and the row carried
+           eight or nine swatches where the pack carries three
+           (settings-restructured.dc.html:2590, "Tap a colour for its options").
+
+           AND BOTH GROUNDS ARE REACHABLE NOW. Offering only the mode you are
+           standing in was defensible — a swatch is an honest preview only in
+           the ground it selects — but it also meant a reader on a dark screen
+           could not set their day look without switching the app to daylight
+           first. A door is not a preview, so it can offer the pair; the swatch
+           on each door is still drawn in the ground it stands for. */
+        <div className="colour-doors">
+          {[['light', false, groundLight], ['dark', true, groundDark]].map(([id, dark, key]) => {
+            // THE SWATCH IS DRAWN FROM THE PALETTE THE GROUND PRODUCES, not from
+            // the ground's own override set. A ground is `{ label, tokens }` and
+            // two of the eight carry NO tokens at all — Cream and Night are the
+            // shipped palettes, which is the whole point of them — so a swatch
+            // reading `g.bg` painted every ground transparent and the shipped
+            // one hardest of all. `paletteFor` is the same merge `applyTheme`
+            // does, so the swatch is the ground rather than an opinion about it.
+            const pal = paletteFor(dark, dark ? { groundDark: key } : { groundLight: key })
+            return (
+              <button
+                key={id}
+                type="button"
+                className={'colour-door' + (colourDoor === id ? ' is-open' : '')}
+                // A SECOND PRESS CLOSES IT, which is what the pack does
+                // (settings-restructured.dc.html:3127) and what a door that
+                // shows no state cannot afford not to do: pressing the open one
+                // again was a dead press, and the only way out was Hide.
+                onClick={() => setColourDoor(colourDoor === id ? null : id)}
+                aria-expanded={colourDoor === id}
+                aria-label={t(`settings.appearance.colours.${id}.aria`, { name: t(GROUNDS[dark ? 'dark' : 'light'][key].label) })}
+              >
+                <span
+                  className="ground-swatch"
+                  aria-hidden="true"
+                  style={{ background: pal.bg, boxShadow: `inset 0 0 0 1px ${pal.line}` }}
+                >
+                  <span style={{ background: pal.raised }} />
+                  <span style={{ background: pal.card }} />
+                </span>
+                <MonoLabel>{t(`settings.appearance.colours.${id}.label`)}</MonoLabel>
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            className={'colour-door' + (colourDoor === 'accent' ? ' is-open' : '')}
+            onClick={() => setColourDoor(colourDoor === 'accent' ? null : 'accent')}
+            aria-expanded={colourDoor === 'accent'}
+            aria-label={t('settings.appearance.colours.accent.aria', { name: t(`vocab.accent.${accent}.label`) })}
+          >
+            <span
+              className="accent-swatch"
+              aria-hidden="true"
+              style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${ACCENTS[accent]}, white 14%), ${ACCENTS[accent]})` }}
+            />
+            <MonoLabel>{t('settings.appearance.colours.accent.label')}</MonoLabel>
+          </button>
+        </div>
+  )
+
+  if (compact) return compactSlice()
+
   return (
     <Card data-tour="appearance">
       {/* NO CARD HEADING: THE SECTION IS THE HEADING. The rail had just drawn
@@ -5014,70 +5301,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null }) {
         info={t('settings.appearance.ground.info.body')}
         changed={groundLight !== 'cream' || groundDark !== 'night' || accent !== 'terracotta'}
         control={
-          /* THREE DOORS, WHICH IS WHAT THE ROW'S OWN SUB-LINE HAS BEEN PROMISING:
-             "Light ground · dark ground · accent. Each one opens its own options."
-             It drew the palette inline instead — the four grounds of whichever
-             mode was on screen, then every accent beside them — so the sentence
-             was describing a control that did not exist, and the row carried
-             eight or nine swatches where the pack carries three
-             (settings-restructured.dc.html:2590, "Tap a colour for its options").
-
-             AND BOTH GROUNDS ARE REACHABLE NOW. Offering only the mode you are
-             standing in was defensible — a swatch is an honest preview only in
-             the ground it selects — but it also meant a reader on a dark screen
-             could not set their day look without switching the app to daylight
-             first. A door is not a preview, so it can offer the pair; the swatch
-             on each door is still drawn in the ground it stands for. */
-          <div className="colour-doors">
-            {[['light', false, groundLight], ['dark', true, groundDark]].map(([id, dark, key]) => {
-              // THE SWATCH IS DRAWN FROM THE PALETTE THE GROUND PRODUCES, not from
-              // the ground's own override set. A ground is `{ label, tokens }` and
-              // two of the eight carry NO tokens at all — Cream and Night are the
-              // shipped palettes, which is the whole point of them — so a swatch
-              // reading `g.bg` painted every ground transparent and the shipped
-              // one hardest of all. `paletteFor` is the same merge `applyTheme`
-              // does, so the swatch is the ground rather than an opinion about it.
-              const pal = paletteFor(dark, dark ? { groundDark: key } : { groundLight: key })
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  className={'colour-door' + (colourDoor === id ? ' is-open' : '')}
-                  // A SECOND PRESS CLOSES IT, which is what the pack does
-                  // (settings-restructured.dc.html:3127) and what a door that
-                  // shows no state cannot afford not to do: pressing the open one
-                  // again was a dead press, and the only way out was Hide.
-                  onClick={() => setColourDoor(colourDoor === id ? null : id)}
-                  aria-expanded={colourDoor === id}
-                  aria-label={t(`settings.appearance.colours.${id}.aria`, { name: t(GROUNDS[dark ? 'dark' : 'light'][key].label) })}
-                >
-                  <span
-                    className="ground-swatch"
-                    aria-hidden="true"
-                    style={{ background: pal.bg, boxShadow: `inset 0 0 0 1px ${pal.line}` }}
-                  >
-                    <span style={{ background: pal.raised }} />
-                    <span style={{ background: pal.card }} />
-                  </span>
-                  <MonoLabel>{t(`settings.appearance.colours.${id}.label`)}</MonoLabel>
-                </button>
-              )
-            })}
-            <button
-              type="button"
-              className={'colour-door' + (colourDoor === 'accent' ? ' is-open' : '')}
-              onClick={() => setColourDoor(colourDoor === 'accent' ? null : 'accent')}
-              aria-expanded={colourDoor === 'accent'}
-              aria-label={t('settings.appearance.colours.accent.aria', { name: t(`vocab.accent.${accent}.label`) })}
-            >
-              <span
-                className="accent-swatch"
-                aria-hidden="true"
-                style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${ACCENTS[accent]}, white 14%), ${ACCENTS[accent]})` }}
-              />
-              <MonoLabel>{t('settings.appearance.colours.accent.label')}</MonoLabel>
-            </button>
-          </div>
+          colourDoors()
         }
       >
         {/* THE ANSWER SITS IN THE ROW THAT ASKED IT, which is how the pack draws

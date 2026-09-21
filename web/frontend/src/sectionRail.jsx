@@ -157,20 +157,42 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
             navigation, the rows are buttons, and both halves are then true. */}
         <nav aria-label={ariaLabel}>
           {sections.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className="section-index-row"
-              aria-label={countedName(s)}
-              onClick={() => { onChange(s.id); setEntered(true) }}
-            >
-              <span className="section-index-icon" aria-hidden="true">{s.icon}</span>
-              <span className="section-index-label">{s.label}</span>
-              {s.count != null && (
-                <span className={`meta-rail-count${s.warn ? ' is-warn' : ''}`}>{s.count}</span>
-              )}
-              <span className="section-index-chevron" aria-hidden="true"><IconArrow /></span>
-            </button>
+            /* A SECTION'S MAIN CONTROLS SIT ON THE INDEX, UNDER ITS OWN ROW, and
+               `actions` is what a screen hands over to put them there. The owner's
+               standing rule is what asks for it: use the space, and put what is used
+               most in front. A phone's Settings index was five doors and then most of
+               a screen's height of nothing — so the two or three controls a reader
+               actually came for were always one press further away than the empty
+               space below them.
+
+               THE ROW IS STILL THE DOOR. The card is a wrapper, not a replacement:
+               the header stays a single button with the section's name, its count
+               and its chevron, so pressing the name still walks in and the whole
+               section is still there. What the card adds is the shortcut, and a
+               shortcut that replaced the door would have cost the rows it does not
+               carry.
+
+               AND THE CONTROLS ARE OUTSIDE THE BUTTON, which is why this is a card
+               rather than a taller row. A control nested inside a <button> is a
+               button inside a button — invalid, and in practice the outer one eats
+               the press, so every toggle on this screen would have navigated instead
+               of toggling. */
+            <div key={s.id} className={`section-index-card${s.actions ? ' has-actions' : ''}`}>
+              <button
+                type="button"
+                className="section-index-row"
+                aria-label={countedName(s)}
+                onClick={() => { onChange(s.id); setEntered(true) }}
+              >
+                <span className="section-index-icon" aria-hidden="true">{s.icon}</span>
+                <span className="section-index-label">{s.label}</span>
+                {s.count != null && (
+                  <span className={`meta-rail-count${s.warn ? ' is-warn' : ''}`}>{s.count}</span>
+                )}
+                <span className="section-index-chevron" aria-hidden="true"><IconArrow /></span>
+              </button>
+              {s.actions && <div className="section-index-actions">{s.actions}</div>}
+            </div>
           ))}
         </nav>
       </div>

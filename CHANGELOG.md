@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Settings on a phone: each section's main controls on the home screen.** The index was
+  five doors and then most of a screen's height of nothing under them. Each door now
+  carries what you came for — dark/light/match and the colour doors under Theme, your
+  language and the interface face under Language and font, how hard the questions are and
+  whether practice moves the schedule under Review, which sections the app offers as one
+  row of chips, and back up / update with the version you are on under Server. The doors
+  still open: every control is also still where it was, with everything around it that
+  does not fit on a card. Desktop is unchanged, where the tab row and the section are
+  already side by side.
+
 - **Put all of Settings back, from one place.** The ⋯ menu on Settings — on the index and
   on every section — now carries **Reset settings**, which returns every preference to what
   a new account sees, after telling you how many that is. The per-section Reset is still on
@@ -16,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   something set, and nothing in your library is touched.
 
 ### Fixed
+
+- **Character pictures from Fandom now find the right wiki.** A franchise wiki is named
+  for the franchise, and the app only ever guessed wiki addresses from the WORK — so a
+  character from a series whose books are titled nothing like it was unreachable, however
+  famous. Itkovian is in Malazan Book of the Fallen, whose wiki is `malazan`, and nothing
+  ever looked there. A work's series is now part of the guess, shortened a word at a time,
+  and where every guess still misses the app asks Fandom's own index which wiki the work
+  lives on. Books were the worst affected: the lookup returned before it had even read
+  their series.
 
 - **A reset no longer leaves Settings claiming you have unsaved choices.** Resetting a
   section put its preferences back correctly but told the screen they were *blank* rather
