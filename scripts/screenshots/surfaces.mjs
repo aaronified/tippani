@@ -65,13 +65,16 @@ const SETTINGS_DOORS = [
   ['Theme', 'Colours', 'settings-theme-colours'],
   ['Theme', 'Saved looks', 'settings-theme-saved'],
   ['Language and font', 'Choose a language', 'settings-lang-choose'],
-  ['Language and font', 'Type', 'settings-lang-type'],
-  ['Review', 'In-depth controls', 'settings-review-tuning'],
-  ['Server', 'Changelog', 'settings-server-changelog'],
+  // THREE DOORS THIS LIST OUTLIVED, and each one is a picture that is now IN the
+  // section's own capture rather than behind a press: the quotes typeface chooser
+  // was folded into fonts by language, the review tuning dials were unfolded onto
+  // the Review screen, and the release log is a card on Server. A probe entry for
+  // a door that has been opened for good is a MISS that reports the app broken.
+  ['Server', 'Read the whole log', 'settings-server-changelog'],
   ['Server', 'Restore…', 'settings-server-restore'],
 ]
 const METADATA_DOORS = [
-  ['Works', 'Look up', 'metadata-works-lookup'],
+  ['Works', 'Look up', 'metadata-works-lookup', { anyOf: true }],
 ]
 
 // A BULK BAR NEEDS A SELECTION, and the pack's two bulk acts are behind one. So
@@ -93,7 +96,12 @@ const engine = findBrowser(null, 'chrome')
 // The accessible name of every pressable thing, Chrome's own computation — the
 // journey harness's rule, restated here because a probe that named controls its own
 // way would disagree with the tier that guards them.
-const PRESS_CSS = 'button, a[href], summary, [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]'
+// A TICK BOX IS SOMETHING A PERSON PRESSES, and this list did not have one — so
+// the two bulk captures, whose first step is the console's own "select all shown",
+// reported it missing on a screen it is plainly on. The box is a bare
+// `input[type=checkbox]` inside its label, which is the right markup and matches
+// nothing above.
+const PRESS_CSS = 'button, a[href], summary, input[type="checkbox"], input[type="radio"], [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]'
 
 async function namesOn(page) {
   const handles = await page.$$(PRESS_CSS)
@@ -111,14 +119,28 @@ async function namesOn(page) {
 // press — REFUSES AN AMBIGUOUS NAME, and says what was there when it finds none.
 // Returns null on a miss rather than throwing, because one unreachable door must
 // not end a run of forty captures — it must be RECORDED as unreachable.
-async function press(page, want) {
+// `anyOf` — THE ONE PLACE REFUSING AN AMBIGUOUS NAME WOULD MEAN CAPTURING
+// NOTHING. A per-row control is one per row by construction: forty-four works
+// have forty-four look-ups, each named for its own title, and the picture wanted
+// is "a row with its look-up open" rather than any particular row's. So a door
+// may declare that the first match is the subject. Nothing else passes it, and a
+// door that forgets to is a MISS, which is the default this exists to keep.
+async function press(page, want, anyOf = false) {
   const deadline = Date.now() + 8000
   let seen = []
   for (;;) {
     const found = await namesOn(page)
     seen = found.map((f) => f.name)
-    const exact = found.filter((f) => f.name.toLowerCase() === want.toLowerCase())
-    const hits = exact.length ? exact : found.filter((f) => f.name.toLowerCase().includes(want.toLowerCase()))
+    // THREE TIERS, NOT TWO, AND THE MIDDLE ONE IS WHY. A tab carries its own
+    // count — "Works 44 needing attention" — so no control is named exactly
+    // "Works", and a bare substring sweep also catches whatever else on the page
+    // has the word in it. A name that BEGINS with what was asked for is the tab;
+    // a name that merely contains it is a tile that mentions it.
+    const lower = want.toLowerCase()
+    const exact = found.filter((f) => f.name.toLowerCase() === lower)
+    const starts = found.filter((f) => f.name.toLowerCase().startsWith(lower))
+    const all = exact.length ? exact : starts.length ? starts : found.filter((f) => f.name.toLowerCase().includes(lower))
+    const hits = anyOf && all.length > 1 ? [all[0]] : all
     if (hits.length === 1) {
       await hits[0].handle.scrollIntoView().catch(() => {})
       await hits[0].handle.click().catch(() => {})
@@ -192,13 +214,13 @@ async function runWidth(browser, width) {
       note(`${screen}/${section}`, width, await shot(page, `${screen}-${slug}`, width))
     }
 
-    for (const [section, door, name] of doors) {
+    for (const [section, door, name, doorOpts] of doors) {
       await page.goto(`${opts.baseUrl}/${screen}`, { waitUntil: 'networkidle0' })
       await settle(900)
       const toSection = await press(page, section)
       if (toSection !== true) { note(`${name}`, width, null, `could not reach ${section}: ${toSection}`); continue }
       await settle(700)
-      const toDoor = await press(page, door)
+      const toDoor = await press(page, door, !!doorOpts?.anyOf)
       if (toDoor !== true) { note(`${name}`, width, null, toDoor); continue }
       await settle(1000)
       note(name, width, await shot(page, name, width))

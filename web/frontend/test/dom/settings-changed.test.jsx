@@ -49,6 +49,24 @@ describe('the number on a section', () => {
     expect(tab('Sections').textContent).toBe('Sections')
   })
 
+  // AND WHAT THE NUMBER COUNTS, WHICH THE TAB SAID TO NOBODY. The digit is all an
+  // eye needs beside a word it can already read; everything else got "Review 1" — a
+  // figure with no noun — and the phone's top bar repeated it. The noun is in the
+  // tab's NAME rather than in its text, because off-screen text is still
+  // `textContent`: the first cut appended an `sr-only` word and the case above went
+  // red reading "Review1 changed". So this asserts the name and the case above
+  // asserts the text, and the two together are the whole of the decision.
+  it('says what the number counts, without putting the word on the screen', () => {
+    page({ srDaily: 12 })
+    const review = tab('Review')
+    expect(review.getAttribute('aria-label')).toBe('Review — 1 changed')
+    expect(review.textContent).toBe('Review1')
+    // AND NO NAME OF ITS OWN WHERE THERE IS NO NUMBER: a tab reading "Sections — 0
+    // changed" to a screen reader is furniture, and the label would then have to be
+    // maintained in two places for no gain.
+    expect(tab('Sections').hasAttribute('aria-label')).toBe(false)
+  })
+
   // THE WORDING USED TO BE ASSERTED HERE TOO — "1 changed" and "all default" —
   // because the count was repeated in a second bar under the tabs. That bar is
   // gone: it was a full-width row restating what the tab above it already said.

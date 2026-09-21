@@ -892,7 +892,7 @@ function Breadcrumb({ tab, detail, title, crumb, onRoot }) {
           <button type="button" className="crumb" onClick={() => onRoot(tab)}>{leaf}</button>
           <span className="crumb-sep" aria-hidden="true">/</span>
           <span className="crumb-here" title={crumb.label}>{crumb.label}</span>
-          {crumb.badge ? <span className="crumb-badge">{crumb.badge}</span> : null}
+          {crumb.badge ? <span className="crumb-badge">{crumb.badge}{crumb.badgeWord ? <span className="sr-only"> {crumb.badgeWord}</span> : null}</span> : null}
           {crumb.info ? <InfoDot side="bottom" title={crumb.info.title} text={crumb.info.text} /> : null}
         </>
       ) : (
@@ -2363,7 +2363,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               <span className="mobile-topbar-name">
                 {barCrumb ? barCrumb.label : detailTitle || t(screenTitleKey(tab))}
               </span>
-              {barCrumb?.badge ? <span className="crumb-badge">{barCrumb.badge}</span> : null}
+              {barCrumb?.badge ? <span className="crumb-badge">{barCrumb.badge}{barCrumb.badgeWord ? <span className="sr-only"> {barCrumb.badgeWord}</span> : null}</span> : null}
               {barCrumb?.info ? <InfoDot side="bottom" title={barCrumb.info.title} text={barCrumb.info.text} /> : null}
             </span>
             {barCrumb

@@ -54,6 +54,7 @@ settings.language.title = Language
 # SET rather than about values that differ, because a default is written at the
 # point a card reads it and a second copy of those would go stale.
 settings.changed.count = {n} changed
+settings.rail.count.word = changed
 settings.section.reset.label = Reset section
 settings.section.reset.tip = Put every preference in {section} back to its default
 settings.section.reset.confirm.title = Reset {section}?
@@ -5249,6 +5250,9 @@ metadata.section.sources.label = Sources
 metadata.section.languages.label = Languages
 metadata.section.categories.label = Colours
 metadata.section.aria = Which metadata to work on
+# THE NOUN BEHIND THE NUMBER ON A TAB. The digit is all an eye needs beside a
+# word it can already read; a screen reader gets "Works 44" and no reason for it.
+metadata.rail.count.word = needing attention
 metadata.search.placeholder = search…
 metadata.catalogue.nomatch = nothing matches.
 metadata.select-all.label = select all shown
@@ -5279,11 +5283,22 @@ metadata.actors.flash = filled {actors} across {titles}
 # the app's own word for the row, book or title.
 metadata.row.select.tip = Select this {noun}
 metadata.row.edit.close.label = Close the editor
-metadata.row.lookup.label = Look up
 metadata.row.lookup.close.label = Close the look-up
 metadata.row.lookup.tip = Look up the sources
-metadata.row.open.aria = Open
 metadata.row.open.tip = Open this {noun}
+# AND THE SAME FOUR WITH THE RECORD IN THEM, which is what a screen reader
+# actually gets. A console of forty-four works drew forty-four boxes with no name
+# at all and a hundred and thirty-two buttons reading "Edit", "Look up", "Open" —
+# one row's worth of words, repeated, with nothing tying any of them to the title
+# printed beside it. The probe found it by refusing to press: "Look up" matched
+# forty-four controls. A tooltip is not a name, and a tooltip is all these had.
+# The visible glyph and its tooltip are unchanged; only the name is.
+metadata.row.select.aria = Select {name}
+metadata.row.edit.aria = Edit {name}
+metadata.row.edit.close.aria = Close the editor for {name}
+metadata.row.lookup.aria = Look up {name}
+metadata.row.lookup.close.aria = Close the look-up for {name}
+metadata.row.open.aria = Open {name}
 # A film's own count. NOT unit.dialogue, which now reads "film line": this row has
 # always counted "dialogues", and migrating keys is not the place to rename a
 # thing.
@@ -5401,6 +5416,9 @@ metadata.people.search.tip = Search the library for “{name}”
 metadata.people.row.fetch.label = fetch
 metadata.people.row.refetch.label = refetch
 metadata.people.row.fetch.busy = fetching…
+metadata.people.row.fetch.aria = Fetch a photo and links for {name}
+metadata.people.row.fetch.busy.aria = Fetching {name}’s photo and links
+metadata.people.row.refetch.aria = Fetch {name}’s photo and links again
 metadata.people.row.error = {name}: {error}
 # Near-duplicate spellings of one person, offered as a one-click merge. Same
 # glyph and same act as the book merge above, and it rewrites names across the

@@ -186,8 +186,14 @@ under test, and a reader does not curl their own library into existence either. 
 to be user-like is the part being ASSERTED.
 
 **THE VOCABULARY IS THE POINT** (`test/journeys/harness/screen.mjs`): `see`, `gone`,
-`press`, `pressAll`, `pressKey`, `type`, `upload`, `valueOf`, `onScreen`, plus `goto` and
-`downloaded` on the world. Names come from Chrome's own accessible-name computation, so
+`press`, `pressAll`, `pressKey`, `hold`, `type`, `choose`, `chosen`, `upload`, `valueOf`,
+`onScreen`, `sideways`, plus `goto` and `downloaded` on the world. (This list had stopped
+counting at nine while the harness carried thirteen — `hold`, `choose` and `chosen` were
+missing before `sideways` was added, which is the same drift the numbers in
+`How-this-was-written.md` now have a guard for.) `sideways` is the only one that is a
+NUMBER rather than a word — how far the whole page slides left and right, 0 where it does
+not — because a page laid out three times wider than the phone it is on still looks like a
+phone in a picture, and there is nothing on the screen to read. Names come from Chrome's own accessible-name computation, so
 no journey ever names a class. `press` REFUSES an ambiguous name rather than guessing,
 and case is folded because `innerText` reports text as rendered — a label the stylesheet
 uppercases reaches a journey shouting.

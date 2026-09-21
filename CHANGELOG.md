@@ -118,6 +118,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The metadata consoles fit the phone they are read on.** Works, People and Characters
+  laid themselves out at the width of their longest title — the whole page slid left and
+  right under a thumb, top bar, dock, cards and all, with the filter pills off one edge and
+  a third of the screen empty at the other. They stay put now, and a row that is too wide
+  scrolls under its own fade as everything else in the app does.
+
+- **Every row's controls say which row they are on.** The tick box beside a work had no
+  name at all, and its edit, look-up and open buttons were called "Edit", "Look up" and
+  "Open" — the same three words on all forty-four rows, so a screen reader or a keyboard
+  had nothing to tell them apart. Each one now names its work or its person. The tabs and
+  the phone's top bar say what their number counts, too, instead of reading out a bare
+  figure.
+
 - **Every part of a Settings screen is its own card.** A section was one long card with
   headings ruled across it; each subsection now stands on its own, side by side on a desk
   where two of them fit and stacked on a phone.

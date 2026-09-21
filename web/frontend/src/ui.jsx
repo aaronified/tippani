@@ -586,7 +586,7 @@ export function useScreenBar({ sub = null, keys = null, actions = null, crumb = 
   // The crumb is stamped the same way and for the same reason — it is rebuilt
   // inline on every render of the screen that owns it.
   const stamp = keys ? keys.map((k) => k && k.id).join('|') : ''
-  const crumbStamp = crumb ? `${crumb.label}|${crumb.badge || ''}|${crumb.info?.text || ''}` : ''
+  const crumbStamp = crumb ? `${crumb.label}|${crumb.badge || ''}|${crumb.badgeWord || ''}|${crumb.info?.text || ''}` : ''
   useEffect(() => {
     const mine = {}
     if (sub !== null) mine.sub = sub

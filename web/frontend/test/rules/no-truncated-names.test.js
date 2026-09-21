@@ -125,6 +125,22 @@ const EXCEPTED = {
   // the desk copy alone: the same finding, one element over, on the half a reader
   // sees. Registered here rather than forbidden for the reason the pair above gives.
   'mobile-sheet-sub': 'the owner, 11 September',
+  // NOT AN OWNER'S RULING BUT THE STYLESHEET'S OWN ARGUMENT, and it is here because
+  // it was nowhere. The cover-size specimen prints a work's title and, under it, its
+  // AUTHOR — and clipped both, the title with a two-line clamp argued at its
+  // declaration and the credit with an ellipsis written in a style ATTRIBUTE, which
+  // no scanner in this directory can read. So the one clip in the app that lands on
+  // a person's name was the one clip outside every guard. A capture sweep found it
+  // by looking at the picture: "HENRY DAVID THORE…".
+  //
+  // It is excepted rather than fixed on the same argument its neighbour won on: the
+  // row is a specimen of a SIZE, redrawn as the slider is dragged, and every name in
+  // it belongs to a work on the reader's own shelf where it is printed in full. A
+  // real title unclamped ran eleven lines here and pushed the next control off the
+  // screen. What the exception costs is this entry: the clip now has to be honest,
+  // declared in the stylesheet, and visible to the sweep that would otherwise find
+  // it again in a year.
+  'cover-specimen-credit': 'the stylesheet, at its own declaration',
 }
 
 // The subset that is ITSELF the scrolling box. The others are typography classes

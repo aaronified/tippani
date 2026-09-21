@@ -415,6 +415,8 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             // tab that had already named it.
             info: t(metadataSectionInfoKey(id)),
             count: railCounts[id],
+            // WHAT THE NUMBER COUNTS, for everything that cannot see it is red.
+            countWord: t('metadata.rail.count.word'),
             // EVERY NUMBER ON THIS RAIL IS A COUNT OF PROBLEMS NOW, so every one
             // of them warns when it is not zero. It used to be only Overview's,
             // because the other three counted records — see railCounts for why
@@ -1284,12 +1286,19 @@ function InlineEdit({ kind, id, onDone, onCancel }) {
 // cluster's spacing and its glyph button, so what a console hands over is which
 // three verbs this row has — which is also what lets the works console and the
 // people console differ by one entry instead of by a component each.
-function consoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun }) {
+// THE NAME OF THE ROW IS IN EVERY ONE OF THESE NAMES, and the tooltips are
+// unchanged. A glyph beside a title reads as "look up THAT title" to an eye and
+// as "Look up" to everything else, so a console of forty-four works was
+// forty-four identical buttons three times over — nothing said which. The capture
+// probe is what found it: it presses by accessible name and refuses an ambiguous
+// one, so it could not reach the works look-up at all and said why. A tooltip is
+// hover-only and is not a name.
+function consoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun, name }) {
   return [
     {
       key: 'edit',
       icon: <IconEdit />,
-      ariaLabel: editing ? t('metadata.row.edit.close.label') : t('common.action.edit.label'),
+      ariaLabel: editing ? t('metadata.row.edit.close.aria', { name }) : t('metadata.row.edit.aria', { name }),
       tooltip: editing ? t('metadata.row.edit.close.label') : t('common.action.edit.row.tip', { noun }),
       active: editing,
       pressed: editing,
@@ -1298,7 +1307,7 @@ function consoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun 
     {
       key: 'lookup',
       icon: <IconSearch />,
-      ariaLabel: lookingUp ? t('metadata.row.lookup.close.label') : t('metadata.row.lookup.label'),
+      ariaLabel: lookingUp ? t('metadata.row.lookup.close.aria', { name }) : t('metadata.row.lookup.aria', { name }),
       tooltip: lookingUp ? t('metadata.row.lookup.close.label') : t('metadata.row.lookup.tip'),
       active: lookingUp,
       pressed: lookingUp,
@@ -1307,7 +1316,7 @@ function consoleRowActions({ editing, onEdit, lookingUp, onLookup, onOpen, noun 
     onOpen && {
       key: 'open',
       icon: <IconOpen />,
-      ariaLabel: t('metadata.row.open.aria'),
+      ariaLabel: t('metadata.row.open.aria', { name }),
       tooltip: t('metadata.row.open.tip', { noun }),
       onClick: onOpen,
     },
@@ -1389,8 +1398,8 @@ export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, 
       sub={[book.author, t('common.count.phrase', { n: book.annotation_count, noun: t('unit.quote', { count: book.annotation_count }) })].filter(Boolean).join(' · ')}
       chips={gaps.map((g) => ({ label: g, warn: true }))}
       chipsEmpty={t('metadata.row.complete')}
-      select={{ checked, onChange: onCheck, tip: t('metadata.row.select.tip', { noun }) }}
-      actions={consoleRowActions({ editing, onEdit: () => setEditing((v) => !v), lookingUp: open, onLookup: onToggleLookup, onOpen: onOpen && (() => onOpen(book.id)), noun })}
+      select={{ checked, onChange: onCheck, tip: t('metadata.row.select.tip', { noun }), label: t('metadata.row.select.aria', { name: book.title }) }}
+      actions={consoleRowActions({ editing, onEdit: () => setEditing((v) => !v), lookingUp: open, onLookup: onToggleLookup, onOpen: onOpen && (() => onOpen(book.id)), noun, name: book.title })}
     >
       {editing && <InlineEdit kind="books" id={book.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
       {open && (
@@ -1447,8 +1456,8 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
       ].filter(Boolean).join(' · ')}
       chips={gaps.map((g) => ({ label: g, warn: true }))}
       chipsEmpty={t('metadata.row.complete')}
-      select={{ checked, onChange: onCheck, tip: t('metadata.row.select.tip', { noun }) }}
-      actions={consoleRowActions({ editing, onEdit: () => setEditing((v) => !v), lookingUp: open, onLookup: onToggleLookup, onOpen: onOpen && (() => onOpen(movie.id)), noun })}
+      select={{ checked, onChange: onCheck, tip: t('metadata.row.select.tip', { noun }), label: t('metadata.row.select.aria', { name: movie.title }) }}
+      actions={consoleRowActions({ editing, onEdit: () => setEditing((v) => !v), lookingUp: open, onLookup: onToggleLookup, onOpen: onOpen && (() => onOpen(movie.id)), noun, name: movie.title })}
     >
       {editing && <InlineEdit kind="movies" id={movie.id} onDone={() => { setEditing(false); onDone() }} onCancel={() => setEditing(false)} />}
       {open && (
@@ -2751,6 +2760,18 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, first = fal
     : fetched
       ? t('metadata.people.row.refetch.label')
       : t('metadata.people.row.fetch.label')
+  // THE TOOLTIP IS A WORD AND THE NAME IS A SENTENCE, for the reason the works
+  // console's three glyphs were rewritten: "fetch" on every row of a list of
+  // people is one word repeated, and nothing outside a hover knows which person
+  // it belongs to.
+  const fetchName = busy
+    /* THE BUSY BRANCH KEEPS THE NAME TOO, and the first cut dropped it — which is
+       the one moment the name matters MOST: several rows fetch at once, so a
+       reader hearing "fetching…" three times is back where they started. */
+    ? t('metadata.people.row.fetch.busy.aria', { name: p.name })
+    : fetched
+      ? t('metadata.people.row.refetch.aria', { name: p.name })
+      : t('metadata.people.row.fetch.aria', { name: p.name })
   // A LIST OF RECORDS, NOT A TABLE — the same move the character console made, and
   // the one that closes the defect the decision log names. The two consoles had
   // hand-rolled rows, which is how this one's portrait came to open an editor
@@ -2821,7 +2842,7 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, first = fal
         /* ONE glyph for both words. `fetch` and `refetch` are the same act — go and
            get this person's photo and links — and the label flips only because the
            row already has some. Two drawings would say the acts differ. */
-        ariaLabel: fetchLabel,
+        ariaLabel: fetchName,
         tooltip: fetchLabel,
         onClick: onFetch,
       }]}

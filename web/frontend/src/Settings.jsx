@@ -583,6 +583,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
             // reader who has configured six things has not got six problems, so
             // `warn` stays off and the number wears the ordinary count colour.
             count: changedIn(prefs, id) || null,
+            countWord: t('settings.rail.count.word'),
             info: t(sectionInfoKey(id)),
             pill: sectionPill(changedIn(prefs, id)),
           }))}
@@ -4305,7 +4306,15 @@ function CoverSpecimen({ size, kind, works, reserve = false }) {
             {w.title}
           </span>
           {w.meta && (
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: Math.max(9, Math.round(size / 17)), letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            /* THE CLIP IS IN THE STYLESHEET, NOT IN THIS ATTRIBUTE, and that is the
+               whole of the change. This line holds an AUTHOR'S NAME and ended it in
+               an ellipsis from a style attribute — so the repo's own scanner for
+               exactly that, `no-truncated-names.test.js`, could not see it: it reads
+               index.css, and nothing in `test/rules` reads a style prop. An
+               argued exception in the stylesheet is a decision; the same clip
+               written here is a decision nothing can find. Only the SIZE stays,
+               because only the size is computed. */
+            <span className="cover-specimen-credit" style={{ fontSize: Math.max(9, Math.round(size / 17)) }}>
               {w.meta}
             </span>
           )}

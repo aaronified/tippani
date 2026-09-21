@@ -86,6 +86,22 @@ describe('a latched glyph says so', () => {
     )
     expect(screen.getByRole('button', { name: 'Open' }).hasAttribute('aria-pressed')).toBe(false)
   })
+
+  // THE TICK BOX IS NAMED, AND IT HAD NO NAME AT ALL. It wore a Tooltip and nothing
+  // else — and a tooltip is not an accessible name: it needs a pointer and a hover,
+  // so a list of forty-four rows was forty-four unnamed boxes to a keyboard and a
+  // screen reader. `getByRole` with a name is the only way to say that from here,
+  // because an unnamed checkbox is still a checkbox: a bare `getByRole('checkbox')`
+  // passes against the defect.
+  it('gives the tick box the caller\'s name for it', () => {
+    render(
+      <RecordRow
+        name="Pather Panchali"
+        select={{ checked: false, onChange: () => {}, tip: 'Select this film', label: 'Select Pather Panchali' }}
+      />,
+    )
+    expect(screen.getByRole('checkbox', { name: 'Select Pather Panchali' })).toBeTruthy()
+  })
 })
 
 describe('the grammar', () => {

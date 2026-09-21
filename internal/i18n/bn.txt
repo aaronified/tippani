@@ -59,6 +59,7 @@ settings.language.fallback.hint = যে লাইন এখনও অনূদ�
 
 settings.language.title = ভাষা
 settings.changed.count = {n}টি বদলানো
+settings.rail.count.word = বদলানো
 settings.section.reset.label = বিভাগ রিসেট
 settings.section.reset.tip = {section}-এর প্রতিটি পছন্দ ডিফল্টে ফেরান
 settings.section.reset.confirm.title = {section} রিসেট করবেন?
@@ -5150,6 +5151,7 @@ metadata.section.sources.label = উৎস
 metadata.section.languages.label = ভাষা
 metadata.section.categories.label = রং
 metadata.section.aria = কোন মেটাডেটা নিয়ে কাজ
+metadata.rail.count.word = মনোযোগ দরকার
 metadata.search.placeholder = খুঁজুন…
 metadata.catalogue.nomatch = কিছুই মিলল না।
 metadata.select-all.label = যা দেখাচ্ছে, সব বাছুন
@@ -5180,11 +5182,15 @@ metadata.actors.flash = {titles} জুড়ে {actors} ভরেছে
 # the app's own word for the row, book or title.
 metadata.row.select.tip = এই {noun} বাছুন
 metadata.row.edit.close.label = এডিটর বন্ধ করুন
-metadata.row.lookup.label = খুঁজে দেখুন
 metadata.row.lookup.close.label = খোঁজা বন্ধ করুন
 metadata.row.lookup.tip = সূত্রে খুঁজে দেখুন
-metadata.row.open.aria = খুলুন
 metadata.row.open.tip = এই {noun} খুলুন
+metadata.row.select.aria = {name} বাছুন
+metadata.row.edit.aria = {name} সম্পাদনা করুন
+metadata.row.edit.close.aria = {name}-এর সম্পাদক বন্ধ করুন
+metadata.row.lookup.aria = {name} খুঁজে দেখুন
+metadata.row.lookup.close.aria = {name}-এর খোঁজা বন্ধ করুন
+metadata.row.open.aria = {name} খুলুন
 # A film's own count. NOT unit.dialogue, which now reads "film line": this row has
 # always counted "dialogues", and migrating keys is not the place to rename a
 # thing.
@@ -5301,6 +5307,9 @@ metadata.people.search.tip = গ্রন্থাগারে “{name}” খ�
 metadata.people.row.fetch.label = আনুন
 metadata.people.row.refetch.label = আবার আনুন
 metadata.people.row.fetch.busy = আনা হচ্ছে…
+metadata.people.row.fetch.aria = {name}-এর ছবি ও লিংক আনুন
+metadata.people.row.fetch.busy.aria = {name}-এর ছবি ও লিংক আনা হচ্ছে
+metadata.people.row.refetch.aria = {name}-এর ছবি ও লিংক আবার আনুন
 metadata.people.row.error = {name}: {error}
 # Near-duplicate spellings of one person, offered as a one-click merge. Same
 # glyph and same act as the book merge above, and it rewrites names across the

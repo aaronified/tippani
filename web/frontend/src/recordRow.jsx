@@ -82,8 +82,10 @@ export function RecordRow({
   // discoverability.
   onCount = null,
   actions = [],
-  // { checked, onChange, tip } — `tip` is the caller's words for the box, since
-  // this module has none of its own.
+  // { checked, onChange, tip, label } — the caller's words for the box, since this
+  // module has none of its own. `tip` is what a pointer sees and `label` is the
+  // box's NAME: a tooltip is not one, and a row of unnamed checkboxes is what a
+  // screen reader got here until the capture probe could not tell them apart.
   select = null,
   // A RULE SEPARATES ROWS; IT DOES NOT OPEN A LIST. The works console draws its
   // rows under a header that already closes with one, so every row there wears a
@@ -96,7 +98,7 @@ export function RecordRow({
       <div className="flex flex-wrap items-center gap-3">
         {select && (
           <Tooltip label={select.tip} side="top">
-            <input type="checkbox" checked={select.checked} onChange={select.onChange} />
+            <input type="checkbox" aria-label={select.label} checked={select.checked} onChange={select.onChange} />
           </Tooltip>
         )}
         {mark}

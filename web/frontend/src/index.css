@@ -9126,6 +9126,17 @@ html[data-theme="dark"] .board-cover {
    spacing-debt.test.js, which counts the ones that are not. */
 .meta-frame { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--row); }
 .meta-body { display: grid; gap: calc(var(--row) * 1.4); align-content: start; min-width: 0; }
+/* AND ITS CHILDREN, WHICH IS THE LINE THE PHONE WAS MISSING. `min-width: 0` on a
+   grid CONTAINER says nothing about its items: a grid item's own `min-width`
+   defaults to `auto`, which is its min-content size, so one long book title made
+   the whole console 1223px wide inside a 390px screen — the page scrolled
+   sideways, every card and every row with it, and the measured fades on the
+   filter pills and the table never fired because nothing above them had shrunk.
+   It was not visible in a picture either: a screenshot of a page that is three
+   times too wide looks like a screenshot of a phone. The capture probe measures
+   `scrollWidth` beside every shot for exactly this, and reported it on Works,
+   People and Characters at 390 on the same run. */
+.meta-body > * { min-width: 0; }
 
 /* THE TAB ROW IS THE PACK'S, GEOMETRY FOR GEOMETRY. The owner's ruling: "you need
    to follow it strictly in terms of the top bar. It has achieved perfection
@@ -10430,6 +10441,25 @@ html[data-theme="dark"] .board-cover {
 .cover-specimen-title {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
   overflow: hidden;
+}
+/* AND THE CREDIT UNDER IT, ON THE SAME ARGUMENT AND FOR AN AUTHOR'S NAME, which is
+   the harder half of it: this is a PERSON, and the rule the paragraph above answers
+   protects a person's name hardest of all. It holds here for the reason the title's
+   clamp holds — the row is a specimen of a SIZE, redrawn as the slider moves, and
+   every name in it is printed in full on the shelf it was taken from. What it was
+   NOT is written anywhere a scanner could read: this clip lived in a style
+   attribute, so `no-truncated-names.test.js` — which exists to find exactly this —
+   read the stylesheet and found nothing. It is here now and registered there as an
+   exception, which is what makes it a decision rather than an oversight. */
+.cover-specimen-credit {
+  min-width: 0;
+  font-family: var(--font-mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .accent-swatch {

@@ -67,6 +67,23 @@ import { t } from './i18n.js'
 // phone reader on the index with no way into a section, which is nine suites'
 // worth of the phone flow and would have been a real defect the day anything else
 // mounted one.
+// countedName — WHAT THE TAB IS CALLED WHEN IT CARRIES A NUMBER. The digit is all
+// an eye needs beside a word it can already read; everything else got "Works 44",
+// a figure with no noun, and the phone's top bar said the same. The noun goes in
+// the control's NAME rather than into its text: an off-screen span would also be
+// read, but it lands in `textContent` too, which is what a list of tabs is
+// counted and compared by all over this repo's tests and in the journey tier's
+// own view of the screen. A name is the one place a fact can be said to a screen
+// reader without being said to everything else as well.
+//
+// The section's own word comes first, so the name still CONTAINS the label a
+// reader sees — which is what lets "press Works" go on meaning this tab, here, in
+// the journeys and in the capture probe alike.
+function countedName(s) {
+  if (s.count == null || !s.countWord) return undefined
+  return `${s.label} — ${s.count} ${s.countWord}`
+}
+
 export function SectionRail({ sections, value, open = undefined, onChange, ariaLabel, mobileInfo = null, total = null, aside = null, children = null }) {
   const mobile = useIsMobileScreen()
   const chosen = sections.find((s) => s.id === value) || null
@@ -109,6 +126,13 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
       // A screen reader still hears the whole sentence, because the count is
       // labelled where it is rendered rather than in the string.
       badge: chosen.count != null ? String(chosen.count) : (chosen.pill || null),
+      // AND THE WORD THAT SAYS WHAT THE NUMBER IS. The note above claimed a screen
+      // reader still heard the whole sentence "because the count is labelled where
+      // it is rendered" — it was not, in either place: the crumb badge and the rail
+      // count were both a bare figure, so the phone's top bar announced "Works 44"
+      // and the tab beside it said the same. The digit is what an eye needs and the
+      // noun is what everything else needs, so the noun is there and off screen.
+      badgeWord: chosen.count != null ? chosen.countWord : null,
     } : null,
   })
 
@@ -137,6 +161,7 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
               key={s.id}
               type="button"
               className="section-index-row"
+              aria-label={countedName(s)}
               onClick={() => { onChange(s.id); setEntered(true) }}
             >
               <span className="section-index-icon" aria-hidden="true">{s.icon}</span>
@@ -181,6 +206,7 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
               type="button"
               role="tab"
               aria-selected={on}
+              aria-label={countedName(s)}
               className={`meta-rail-item${on ? ' is-on' : ''}`}
               onClick={() => { onChange(s.id); setEntered(true) }}
             >

@@ -429,5 +429,18 @@ export function screenVerbs(getPage) {
     }
   }
 
-  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen }
+  // sideways — HOW FAR THE WHOLE SCREEN SLIDES LEFT AND RIGHT, in pixels, and 0
+  // where it does not. The one thing here that is not a word, because there is no
+  // word for it: a page laid out three times wider than the phone it is on still
+  // LOOKS like a phone screen in a picture, and the reader is the only one who
+  // finds out — every card, the top bar and the dock slide together under their
+  // thumb with nothing on screen saying why. This app's answer to a row that is
+  // too wide is a measured fade and a scroller inside it, so the page itself
+  // sliding is always a defect rather than a layout.
+  const sideways = () => page().evaluate(() => {
+    const de = document.scrollingElement
+    return Math.max(0, de.scrollWidth - de.clientWidth)
+  })
+
+  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen, sideways }
 }
