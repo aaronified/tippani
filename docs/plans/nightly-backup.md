@@ -59,6 +59,28 @@ ran would be the worst version of this: a promise with no receipt.
 4. **The row itself**, which is the smallest part: a `PrefRow` with a `Toggle` in the Backup
    group, its sub-line fed by (2).
 
+## Not on the roadmap, deliberately
+
+The roadmap sweep's own rule is that a plan with no entry gets one — and this one does not,
+because publishing it would be promising something the repo has already decided against.
+`docs/wiki/Design-decisions.md:151` is marked **Approved** and settles the mechanism:
+
+> Litestream for continuous backup — rejected for constant background CPU; nightly
+> `VACUUM INTO` from the host's own cron is the answer instead, **which is the user's timer
+> and not mine.**
+
+So the feature as the pack draws it — a switch inside the app that makes the app wake itself
+up — is not merely unbuilt, it is contrary to a signed-off line. A roadmap card saying
+"Nightly backup, coming" would be a promise nobody has agreed to make. The sweep's other rule
+covers exactly this: *"The sweep reports; it does not decide. Adding a plan to the roadmap is
+publishing a promise on a public page, so a sweep that is unsure says so rather than inventing
+a card."*
+
+**What could go on the roadmap without contradicting anything** is the smaller, honest half:
+the app RECORDING and SHOWING when the last archive was written, whoever wrote it — which is
+step 2 below and is what makes the operator's own cron auditable from the screen. That is the
+owner's call to make, not a sweep's.
+
 ## Where it goes when it is built
 
 `ServerCard`'s group 2, between *Make a backup* and *Restore from an archive*, which is the

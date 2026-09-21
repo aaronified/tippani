@@ -327,6 +327,42 @@
         "  The missing piece is the picker.",
         "</p>"
       ]
+    },
+    {
+      "title": "Change one surface yourself, per slot",
+      "railLabel": "Per-slot materials",
+      "html": [
+        "<p>",
+        "  A material set dresses four surfaces at once — the ground, the furniture, a card and a",
+        "  cover. Choosing one is a single decision, which is the point of the sets, but it leaves",
+        "  no way to say <em>this set, with a different card</em>.",
+        "</p>",
+        "<p>",
+        "  <strong>The machinery already exists</strong> and is reachable by nothing: a per-slot",
+        "  override is stored, resolved and drawn correctly, with no control anywhere that writes",
+        "  one. What is missing is the row — twenty-seven tiles, one slot at a time.",
+        "</p>"
+      ],
+      "id": "tile-slots",
+      "plan": "tile-slots.md"
+    },
+    {
+      "title": "Pictures that arrive before you scroll to them",
+      "railLabel": "Prefetch and loaders",
+      "html": [
+        "<p>",
+        "  On a slow connection a shelf fills in as you scroll, and a screen that is waiting looks",
+        "  the same as a screen that is empty. Two halves to it: fetch the next screen's pictures",
+        "  before they are asked for, which is cheap once they are on disk — and show something",
+        "  that says <em>this is coming</em> only when something actually is.",
+        "</p>",
+        "<p>",
+        "  A spinner that appears on every render teaches people to ignore spinners, so the second",
+        "  half is as much about when NOT to draw one.",
+        "</p>"
+      ],
+      "id": "prefetch-and-loaders",
+      "plan": "prefetch-and-loaders.md"
     }
   ],
   "overrides": {

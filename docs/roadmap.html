@@ -383,6 +383,8 @@
         <li><a href="#locators-from-files">Locators from files</a></li>
         <li><a href="#work-source-files">Source files</a></li>
         <li><a href="#req-change-one-surface-yourself">One surface at a time</a></li>
+        <li><a href="#tile-slots">Per-slot materials</a></li>
+        <li><a href="#prefetch-and-loaders">Prefetch and loaders</a></li>
         <li><a href="#req-7">Author portraits</a></li>
         <li><a href="#req-12">Audio review</a></li>
       </ul>
@@ -1146,6 +1148,34 @@
     Half of it is already in the app and none of it is reachable: a saved look carries
     per-surface tiles, and a theme file exported from another install can contain them.
     The missing piece is the picker.
+  </p>
+</div>
+
+<div class="card req" id="tile-slots">
+  <h3>Change one surface yourself, per slot</h3>
+  <p>
+    A material set dresses four surfaces at once — the ground, the furniture, a card and a
+    cover. Choosing one is a single decision, which is the point of the sets, but it leaves
+    no way to say <em>this set, with a different card</em>.
+  </p>
+  <p>
+    <strong>The machinery already exists</strong> and is reachable by nothing: a per-slot
+    override is stored, resolved and drawn correctly, with no control anywhere that writes
+    one. What is missing is the row — twenty-seven tiles, one slot at a time.
+  </p>
+</div>
+
+<div class="card req" id="prefetch-and-loaders">
+  <h3>Pictures that arrive before you scroll to them</h3>
+  <p>
+    On a slow connection a shelf fills in as you scroll, and a screen that is waiting looks
+    the same as a screen that is empty. Two halves to it: fetch the next screen's pictures
+    before they are asked for, which is cheap once they are on disk — and show something
+    that says <em>this is coming</em> only when something actually is.
+  </p>
+  <p>
+    A spinner that appears on every render teaches people to ignore spinners, so the second
+    half is as much about when NOT to draw one.
   </p>
 </div>
 
