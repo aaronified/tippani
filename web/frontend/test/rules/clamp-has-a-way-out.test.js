@@ -87,6 +87,11 @@ const KNOWN = {
   // clamped thing is a preview OF the screen that holds it in full.
   'index.css:.anthology-tile-intro':
     'two lines of an anthology’s introduction on its tile; the anthology’s own page prints all of it',
+  'index.css:.skipped-work-title':
+    'a work’s title on the skipped list — the owner’s ruling, 21 September ("uncommonly long titles will '
+    + 'also get 2 rows and then get ellipsised"). The way back is the work itself: every title here is on '
+    + 'the shelf it came from, and the row exists to put its quotes back rather than to identify it. The '
+    + 'row is also what the cover’s width is derived from, so an unbounded title fed itself.',
   'index.css:.cover-specimen-title':
     'two lines of a work\u2019s title beside the cover-size slider, where the title is not the '
     + 'subject — the specimen exists to show what a SIZE looks like, and the title is in it only '

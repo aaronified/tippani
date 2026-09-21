@@ -1,0 +1,63 @@
+{
+  "_why": "EVERY GLYPH THAT SITS BESIDE TEXT, AND HOW FAR OFF THE LINE IT IS, in pixels. Recorded by scripts/screenshots/glyph-align.mjs (make glyph-align) so the number can FALL and never RISE. Positive is LOW, negative is HIGH. The measurement is the glyph's INK against the text's painted rect — not the element box, because this app's fill glyphs are Phosphor icons with viewBoxes cropped off centre, and a box centred perfectly can still have its drawing sitting three pixels high. That is the difference the eye reads, and it is the whole reason this file is not a list of zeroes.",
+  "_ruling": "The owner, 21 September, over a screenshot of the release log: \"The chevrons are slightly up compared to the version numbers. This is an alignment problem i see app wide. This kind of things differentiate casual from professional.\" They were right and the cause was systematic: an svg's baseline is its BOTTOM EDGE, so a glyph in an align-items: baseline row hangs its whole body above the text. Three sites were fixed on that reading (.cl-head's chevron, .tp-filter-chip's icon, and .tally-icon's measured nudge); what is below is what is left.",
+  "_recorded": "2026-09-21, at a 0.8px tolerance, over 24 addresses at 390 and 1280.",
+  "_notCovered": "WHAT THIS CANNOT SEE, said here because a short list reads as \"the app is aligned\". It visits ROUTES and measures what is at rest on them: nothing behind a press — a panel, a sheet, a menu, a dialog — is ever opened. It compares a glyph only with text in its OWN control (at most a wrapper away), because a toolbar row holding three buttons otherwise measures one button's glyph against another's label and reported eleven pixels of nothing. It ignores a label this app has clipped away (clip: rect(0 0 0 0)), which is every icon-only control at phone width, for the same reason. And a glyph LEADING a block rather than sitting in a line is out of scope in both directions.",
+  "sites": {
+    ".hand-card.p-6 in .space-y-6": {
+      "off": 3.5,
+      "of": 2,
+      "why": "A glyph placed directly in a CARD beside its headline number, in a baseline row. It wants the same repair .cl-head got and has not had it: two sites on Stats, and the fix is a line. Recorded rather than claimed fine."
+    },
+    ".tp-silhouette in .person-chip-face.is-empty": {
+      "off": 2.5,
+      "of": 10,
+      "why": "NOT A GLYPH ON A LINE. It is a head-and-shoulders stand-in filling a circular plate, drawn to be cropped at the bottom like the photograph it stands in for — its ink sits low because a portrait's does. Centring the ink would lift the head off the plate."
+    },
+    ".btn-icon in .tp-btn.tactile.tp-btn-ghost.has-fixed-label": {
+      "off": 1.4,
+      "of": 6,
+      "why": "Under a pixel and a half on an 18px box: the glyph is centred and the residue is where the ink sits inside its own viewBox. Below the size at which a per-site nudge is worth the line it costs."
+    },
+    ".btn-icon in .tp-btn.tactile.btn-sticker.has-fixed-label": {
+      "off": 1.4,
+      "of": 2,
+      "why": "The same button, the sticker variant."
+    },
+    ".btn-icon in .tp-filter-chip.tactile.has-btn-icon": {
+      "off": 1.1,
+      "of": 1,
+      "why": "The same, in a chip."
+    },
+    ".trash-kind in .flex.items-center.gap-1.5": {
+      "off": 1,
+      "of": 4,
+      "why": "One pixel, and the glyph is centred: viewBox residue."
+    },
+    ".lang-row-btn in .inline-field-head.is-flush": {
+      "off": 1,
+      "of": 10,
+      "why": "One pixel, and the glyph is centred: viewBox residue."
+    },
+    ".tp-select-chev in .tp-select-trigger.tactile": {
+      "off": 1,
+      "of": 2,
+      "why": "One pixel on a chevron whose ink is 4px of a 16px box — the box is centred and the stroke sits where it is drawn."
+    },
+    ".btn-icon in .tp-btn.tactile.tp-btn-ghost.has-btn-icon": {
+      "off": 1,
+      "of": 1,
+      "why": "The same, labelled."
+    },
+    ".cl-head in .cl-release": {
+      "off": 0.9,
+      "of": 2,
+      "why": "Was 3.8px high and is 0.9px now: the chevron takes the line's centre while the version and the date keep their baselines. What is left is the chevron's own ink inside its box."
+    },
+    ".search-icon in .topbar-search": {
+      "off": 0.8,
+      "of": 25,
+      "why": "Under a pixel."
+    }
+  }
+}

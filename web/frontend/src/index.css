@@ -6481,6 +6481,15 @@
   }
   @media (prefers-reduced-motion: reduce) { .card-colors { transition: none; } }
   .tp-filter-chip {
+    /* A CHIP CENTRES WHAT IS IN IT, WHETHER OR NOT IT WAS TOLD IT HAS A GLYPH.
+       `.tp-filter-chip.has-btn-icon` below sets exactly this, and the plain chip —
+       which also gets glyphs — did not, so the same control drew its icon 4.5px
+       above the words on one screen and on the line on another. Measured by
+       `glyph-align.mjs`; the repo's own directive is that a control drawn twice
+       behaves once. */
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     min-height: 34px;
     padding: 5px 13px;
     font-family: var(--font-ui);
@@ -8124,6 +8133,15 @@ html[data-theme="dark"] .mobile-sheet-footer {
   text-align: left;
   color: var(--ink);
 }
+/* THE GLYPH TAKES THE LINE'S CENTRE AND THE WORDS KEEP THEIR BASELINES. An svg's
+   baseline is its BOTTOM EDGE, so in a baseline-aligned row a chevron hangs its
+   whole body above the text — 3.8px measured, which is what the owner saw: "the
+   chevrons are slightly up compared to the version numbers. This is an alignment
+   problem i see app wide."
+   THE ROW STAYS BASELINE, deliberately: the version is 13px mono and the date is
+   11px, and baseline is what makes two sizes read as one line. Only the thing with
+   no baseline of its own is centred. */
+.cl-head > svg { align-self: center; }
 .cl-head:hover .cl-version { color: var(--accent-ui); }
 .cl-version { font-family: var(--font-mono), monospace; font-weight: 600; font-size: var(--type-mono-13); }
 .cl-date { font-family: var(--font-mono), monospace; font-size: var(--type-mono-11); color: var(--faint); }
@@ -10471,10 +10489,25 @@ html[data-theme="dark"] .board-cover {
   min-height: max(44px, 2.8em); padding: 0; border: 0; background: none;
   cursor: pointer; text-align: start; color: inherit;
 }
-/* IT WRAPS RATHER THAN CLIPPING. The standing rule: a shortened name and a short
-   name look alike, and this row exists so a reader recognises their own book. */
+/* TWO LINES, THEN AN ELLIPSIS — the owner's ruling, 21 September, over a
+   screenshot of this row with a 120-character title down a dozen lines: "uncommonly
+   long titles will also get 2 rows and then get ellipsised."
+ 
+   IT USED TO WRAP WITHOUT LIMIT, on the standing rule that a shortened name and a
+   short name look alike. The rule stands; what the ruling grants is that this row
+   is a LIST ROW rather than the place a work is read — every one of these titles is
+   printed in full on the shelf it came from, and the reader is here to put the
+   work's quotes back rather than to identify it from scratch. Two lines is also
+   what keeps the row's height honest: the cover's width is derived from it, and an
+   unbounded title fed itself a dozen lines deep.
+ 
+   REGISTERED IN no-truncated-names.test.js, which is what makes it a decision: the
+   clip has to be real (a box that clips, a name that admits it is short) and
+   visible to the sweep that would otherwise find it again in a year. */
 .skipped-work-title {
   flex: 1; min-width: 0; text-wrap: pretty;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; text-overflow: ellipsis;
   font-family: var(--font-quote-base); font-size: var(--type-display-15); font-weight: 600; color: var(--ink);
 }
 /* THE FRACTION. Mono, because both halves are figures and a fraction whose two
@@ -10494,8 +10527,20 @@ html[data-theme="dark"] .board-cover {
 .skipped-tally { display: flex; flex-wrap: wrap; align-items: center; gap: .45em; }
 .skipped-work-chev { flex: none; display: inline-flex; color: var(--faint); }
 /* IT SCROLLS UNDER THE FADE, which is what makes `Scroller` legal here: a row of
-   chips as wide as a work's cast cannot wrap without moving every row under it. */
+   chips as wide as a work's cast cannot wrap without moving every row under it.
+   `Scroller` supplies the measured fade — `data-scroll-x` appears only when
+   something is actually behind an edge — and `flex: none` on the chips is what
+   makes there be something: a chip allowed to shrink would squeeze the row into
+   place rather than overflow it, and a fade that never fires is a row that clips
+   with nothing saying so. The owner's, of this row: "Author list will get
+   edgemasked." */
 .skipped-work-people { display: flex; gap: 6px; min-width: 0; overflow-x: auto; overscroll-behavior: contain; }
+/* THE CHIP BY NAME, NOT `> *`. A universal child selector reads as "anything,
+   anywhere" to the cascade resolver the dom tier uses to answer "what wins for
+   this element" — so `flex: none` here beat `.tp-panel-slot`'s own declaration on
+   the other side of the app and took two header assertions with it. The rule is
+   about a chip; it says chip. */
+.skipped-work-people > .person-chip { flex: none; }
 .skipped-work-foot { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; }
 
 /* THE SIZE, DRAWN AT THE SIZE. Three works beside the slider, scaling with it —
@@ -10786,7 +10831,13 @@ html[data-theme="dark"] .board-cover {
    in `innerText`, so a fraction came out as "5\n / 5" and the row stopped being a
    string anybody could copy or search. The glyph still needs a box to be sized and
    shifted onto the baseline; it does not need a block one. */
-.tally-icon { display: inline-block; margin-inline-start: .3em; vertical-align: -.18em; }
+/* THE SHIFT IS MEASURED, NOT CHOSEN. `glyph-align.mjs` reports the glyph's INK
+   against the painted rect of the figure beside it: -.18em put it 1.1px low across
+   all fifty-eight of these, and -.11em is that 1.1px back. It is the ink and not
+   the box because this app's fill glyphs are Phosphor icons with viewBoxes cropped
+   off centre, so a box aligned perfectly can still have its drawing sitting a
+   pixel out — which is the whole of the difference the eye reads here. */
+.tally-icon { display: inline-block; margin-inline-start: .3em; vertical-align: -.11em; }
 /* A WORK CARD'S COUNT. The mono face, because it is a figure on a caption line,
    and the colour comes from the card (accent for a book, amber for a film). */
 .work-card-count .tally {

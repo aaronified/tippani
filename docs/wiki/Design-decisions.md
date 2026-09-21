@@ -18551,3 +18551,81 @@ rows with the track beside the label, where it already has room.
 **IT IS A MEASUREMENT BECAUSE THERE IS NOTHING TO READ.** The screen says the same words
 at either width, and a screenshot of a short track looks like a screenshot of a slider —
 which is how it shipped.
+
+## A glyph's baseline is its bottom edge
+
+The owner, over a screenshot of the release log: *"The chevrons are slightly up compared
+to the version numbers. This is an alignment problem i see app wide. This kind of things
+differentiate casual from professional."*
+
+**THE CAUSE IS ONE SENTENCE AND IT IS NOT OBVIOUS.** An `<svg>` has no text in it, so its
+baseline is its bottom margin edge — which means a glyph in an `align-items: baseline`
+flex row hangs its ENTIRE body above the text baseline. `.cl-head` is exactly that: a
+button holding a chevron, a 13px version and an 11px date, aligned by baseline so the two
+type sizes read as one line. The chevron measured 3.8px high.
+
+**THE ROW STAYS BASELINE AND ONLY THE GLYPH IS CENTRED.** Baseline is what makes two type
+sizes look like one line, so changing the row would have fixed the chevron by breaking the
+pair beside it. `.cl-head > svg { align-self: center }` is the whole repair: the thing with
+no baseline of its own takes the line's centre instead.
+
+**THE SECOND CAUSE WAS A CONTROL THAT KNEW IT HAD A GLYPH AND A COPY THAT DID NOT.**
+`.tp-filter-chip.has-btn-icon` sets `display: inline-flex; align-items: center`; the plain
+`.tp-filter-chip`, which also gets glyphs, set neither — so the same control drew its icon
+4.5px high on one screen and on the line on another. That is the repo's own directive about
+a control drawn twice, found by measurement rather than by reading.
+
+## The ink, not the box — why a first pass measured nothing
+
+`glyph-align.mjs` reports the glyph's INK (`getBBox()` mapped through the viewBox) against
+the painted rect of the text beside it, on 24 addresses at both widths. **A first cut
+measured element boxes, reported every count in the app as within 1.5px, and disagreed with
+the owner.** The owner was right and the instrument was wrong: this app's fill glyphs are
+Phosphor icons with viewBoxes cropped off centre (`viewBox="14.1 2.1 243.9 243.9"`), so a
+box centred to the pixel can still have its drawing sitting three pixels high. What the eye
+reads is the ink.
+
+**AND THREE FILTERS EARN THEIR PLACE, EACH ADDED AFTER A WRONG READING** — which is the
+part worth recording, because each one was a number this probe reported with confidence:
+
+- A glyph and the words must belong to the same CONTROL. A toolbar row holds three buttons
+  and also holds an svg and the word "Export", so the row measured one button's glyph
+  against another button's label and reported **11.6px** of nothing.
+- The two rects must overlap vertically. A glyph that LEADS a block — a dock button over
+  its label, a clamp-more under a paragraph — is not an alignment question, and those came
+  back as 21px.
+- A label this app has clipped away is not text on the screen. Every icon-only control
+  keeps its words in the accessibility tree with `clip: rect(0 0 0 0)` rather than
+  `display: none`, and the text's line box is still laid out and still measurable — so a
+  height filter does not catch it. This is the one check in the probe that reads a style
+  rather than a rect, and it is there because there is nothing in the geometry to read.
+
+Thirteen findings became four real ones. `glyph-align-baseline.json` carries what is left
+with a reason per site, and a NEW site fails rather than being appended — the same
+instrument `typescale-baseline.json` is. Two entries in it are honest debt rather than
+argued exceptions, and say so.
+
+## Two lines, then an ellipsis, on a list row
+
+The owner, 21 September: *"uncommonly long titles will also get 2 rows and then get
+ellipsised. Author list will get edgemasked."*
+
+The standing rule is that a name is never truncated, and this is the eighth exception to
+it. It wins on the argument the panel headers won on — a list row is not where a work is
+read, and every title here is printed in full on the shelf it came from — plus one the
+headers did not have: **the cover's width is derived from this row's height**, so an
+unbounded title fed itself. Narrower column, taller row, wider cover, narrower column. It
+is registered in `no-truncated-names.test.js` and in `clamp-has-a-way-out.test.js`, which
+is what makes it a decision rather than a stylesheet edit.
+
+**THE CHIP ROW NEEDED ONE MORE LINE TO MAKE ITS FADE POSSIBLE.** `Scroller` only paints an
+edge mask when something is actually behind the edge, and a chip allowed to shrink squeezes
+the row into place instead of overflowing it — a fade that never fires is a row that clips
+with nothing saying so. `flex: none` on the chips is what gives the measurement something
+to measure.
+
+**AND THE SELECTOR FOR IT IS THE CHIP'S CLASS RATHER THAN `> *`**, which cost two header
+assertions to learn. A universal child selector reads as "anything, anywhere" to the
+cascade resolver `test/css-cascade.js` uses to answer "what wins for this element", so
+`flex: none` inside one chip row beat `.tp-panel-slot`'s own declaration on the other side
+of the app. The rule is about a chip; it says chip.

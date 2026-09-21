@@ -54,6 +54,16 @@ frame-scroll:
 panel-depth:
 	bash scripts/screenshots/run-panel-depth.sh
 
+## glyph-align: measure every glyph that sits beside text against the text's own
+## painted rect, on every screen at both widths, and fail when a site drifts past
+## what glyph-align-baseline.json records. THE INK, NOT THE BOX: this app's fill
+## glyphs are Phosphor icons with viewBoxes cropped off centre, so a box centred
+## perfectly can still have its drawing sitting three pixels high — which is the
+## only thing the eye is reading. An svg's baseline is its BOTTOM EDGE, so this is
+## also the one instrument that finds a glyph in a baseline-aligned row.
+glyph-align:
+	bash scripts/screenshots/run-glyph-align.sh
+
 ## hero-control: measure the heart beside a work's title against the title's own
 ## optical centre, for a one-line title AND a wrapped one. The pair is the point:
 ## a 44px tap target beside a 25px line hangs below it, and a two-line title hides

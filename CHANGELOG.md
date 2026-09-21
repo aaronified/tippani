@@ -118,6 +118,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A glyph sits on the line of the text beside it.** The chevrons in the release log
+  floated above their version numbers, and a filter chip's icon sat above its words on one
+  screen and on the line on another. An SVG's baseline is its bottom edge, so a glyph in a
+  row aligned by baseline hangs its whole body above the text — which is most of a pixel
+  on some rows and four on others. `make glyph-align` now measures every glyph in the app
+  against the text it sits beside, and what is left is written down with a reason each.
+
+- **A long title on "Never asked about" stops at two lines.** One with a hundred and twenty
+  characters ran down a dozen, and the cover beside it grew to match.
+
 - **A skipped work says how much of it you have switched off.** "Never asked about"
   printed one number against a book — "27 skipped" — and left you to guess whether that
   was the whole thing or a corner of it. It now reads 27 of the work's 28, the skipped

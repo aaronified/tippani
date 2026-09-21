@@ -141,6 +141,18 @@ const EXCEPTED = {
   // declared in the stylesheet, and visible to the sweep that would otherwise find
   // it again in a year.
   'cover-specimen-credit': 'the stylesheet, at its own declaration',
+  // The owner, 21 September, over a screenshot of Never-asked-about with a
+  // 120-character public-domain title running down a dozen lines beside a cover
+  // that had grown to match it: "uncommonly long titles will also get 2 rows and
+  // then get ellipsised."
+  //
+  // THE ARGUMENT IS THE SAME ONE THE HEADERS WON ON, one step along: this is a LIST
+  // ROW, not the place a work is read. Every title in it is printed in full on the
+  // shelf it came from, and a reader is here to put a work's quotes back rather than
+  // to identify it from nothing. What it adds is a second reason the headers did not
+  // have: the cover's WIDTH is derived from this row's height, so an unbounded title
+  // fed itself — narrower column, taller row, wider cover, narrower column.
+  'skipped-work-title': 'the owner, 21 September',
 }
 
 // The subset that is ITSELF the scrolling box. The others are typography classes
