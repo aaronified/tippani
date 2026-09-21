@@ -408,10 +408,32 @@ old work, so a screen that breaks one is a bug and not a variation.
 - **An edge fade means it scrolls; a button at the fade opens the full set.** Use
   `Scroller` or `useEdgeScroll` — never bare `overflow`, which gives no signal and no
   mouse gesture. The fade is measured, so a row that fits wears none.
-- **Never truncate a name.** A shortened name and a short name look alike, so an
-  ellipsis on one destroys the thing the row exists to show. It scrolls under the fade,
-  or it wraps. `scripts/screenshots/typescale-baseline.json` records the sites that
-  still do this; the number may fall and never rise.
+- **A NAME IS NOT TRUNCATED WHERE THE READER IS THERE TO READ IT — AND A MAINTENANCE
+  SCREEN IS NOT THAT PLACE.** The owner's, 21 September, over a metadata console
+  printing "The Witcher 3: Wild H": *"The work name truncation is fine. Delete that
+  fucking rule. It is not okay when the work is the main concern. It is fine when it is
+  used for maintenance."*
+
+  THE BLANKET BAN IS GONE AND THIS IS WHAT REPLACES IT. The old rule was right about
+  WHY — a shortened name and a short name look alike, so an ellipsis on one destroys
+  the thing the row exists to show — and wrong about WHERE, because it read that
+  reasoning as applying to every name in the app. It does not. On a shelf, a work's
+  detail, a quote card, a cast list, the name IS the content: the reader is identifying
+  a thing from what is printed, so it scrolls under the fade or it wraps. On a
+  maintenance console — the metadata sections, the bin, Checks, the review screen's
+  lists — the reader is not identifying anything. They came to fix a row they already
+  know, every one of those names is printed in full on the shelf it came from, and a
+  name that wraps to four lines there costs the density that makes a list of two hundred
+  usable at all.
+
+  So the question at each site is **what is the reader here to do**, not what kind of
+  string this is. A clip still has to be HONEST wherever it happens — a real
+  `overflow: hidden` with a real `text-overflow: ellipsis`, never a name cut off
+  mid-letter with nothing saying so — and that is what
+  `test/rules/no-truncated-names.test.js` enforces, over a list of the reading surfaces
+  where the rule binds. `scripts/screenshots/typescale-baseline.json` still records
+  clipping sites and its number may fall and never rise, which is a ratchet on drift
+  rather than a ban.
 - **Spacing is a constant.** `var(--edge)` and `var(--row)`, restated per screen if a
   screen genuinely differs. A step typed into a row is a bug, and
   `spacing-debt.test.js` counts how many remain.

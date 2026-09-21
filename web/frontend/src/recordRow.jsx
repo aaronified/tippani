@@ -28,9 +28,14 @@
 // the rules underneath it are the standing UI rules rather than this file's
 // inventions:
 //
-//   - THE NAME IS NEVER TRUNCATED. It scrolls under an edge fade (NameScroll) or
-//     it wraps. A shortened name and a short name look alike, and the row exists
-//     to show the name.
+//   - THE NAME CLIPS, ON ONE LINE, WITH AN ELLIPSIS. It used to scroll under an
+//     edge fade on the standing rule that a name is never truncated — and the
+//     owner scoped that rule out of maintenance on 21 September, which is all
+//     this component ever is. The clip has to be HONEST, which is the half of
+//     the rule that did not move: `overflow: hidden` and a real
+//     `text-overflow: ellipsis`, never a name cut off mid-letter with nothing
+//     saying so. See `.record-row-name` and
+//     `test/rules/no-truncated-names.test.js`.
 //   - A ROW SAYS A THING ONCE. `sub` has to carry something the name does not.
 //     The absence of a thing is not worth a sentence.
 //
@@ -42,7 +47,7 @@
 // console counts the works a character appears in and opens its record from the
 // name, and both landed the day that console moved onto this row.
 import React from 'react'
-import { FieldIconButton, NameScroll, Tooltip } from './ui.jsx'
+import { FieldIconButton, Tooltip } from './ui.jsx'
 
 // A work's cover. THE EMPTY SLOT KEEPS ITS SPACE AND WEARS A MARK: on a console
 // whose job is "what is missing", a missing picture is the finding rather than a
@@ -103,9 +108,23 @@ export function RecordRow({
         )}
         {mark}
         <div className="min-w-0 flex-1">
-          <NameScroll as="p">
+          {/* A CLIP, NOT A SIDEWAYS SCROLLER, AND THE OWNER RULED ON IT. This was a
+              `NameScroll`, so a long title faded out under an edge mask and had to be
+              dragged to be read — which is what "The Witcher 3: Wild H" was in the
+              screenshot that prompted the ruling: not a truncation, a scroller. The
+              owner, 21 September: "The work name truncation is fine. Delete that
+              fucking rule. It is not okay when the work is the main concern. It is
+              fine when it is used for maintenance."
+
+              THIS COMPONENT IS ONLY EVER MAINTENANCE — every one of its nine callers
+              is a metadata console — so the ruling covers the whole of it rather than
+              a site at a time. A reader here came to fix a row they already know, and
+              every one of these names is printed in full on the shelf it came from.
+              Dragging two hundred of them sideways to confirm what they are is the
+              cost the edge mask was charging for a certainty nobody needed. */}
+          <p className="record-row-name">
             {onOpen ? <button type="button" className="tp-link" onClick={onOpen}><b>{name}</b></button> : <b>{name}</b>}
-          </NameScroll>
+          </p>
           {/* `.cs-row-sub`, WHICH THE REPO ALREADY HAD, and the first draft did not use.
               It was `.microcopy` — the mono label face at `--type-mono-11`, tracked and
               in `var(--faint)` — so moving the author off the name line ALSO turned it

@@ -1,8 +1,24 @@
-// A NAME IS NEVER TRUNCATED — the standing rule, checked against the stylesheet.
+// A NAME IS NOT TRUNCATED WHERE THE READER IS THERE TO READ IT — checked against
+// the stylesheet.
 //
-// The rule's own words: "A shortened name and a short name look alike, so an
-// ellipsis on one destroys the thing the row exists to show. It scrolls under the
-// fade, or it wraps."
+// THE RULE WAS A BLANKET BAN AND IS NOT ANY MORE. The owner, 21 September, over a
+// metadata console printing "The Witcher 3: Wild H": "The work name truncation is
+// fine. Delete that fucking rule. It is not okay when the work is the main
+// concern. It is fine when it is used for maintenance."
+//
+// The old reasoning survives, scoped: "a shortened name and a short name look
+// alike, so an ellipsis on one destroys the thing the row exists to show" is true
+// wherever the reader is IDENTIFYING something from what is printed — a shelf, a
+// work's detail, a quote card, a cast list. It is not true on a maintenance
+// console, where they came to fix a row they already know and every name is
+// printed in full on the shelf it came from. So NAME_CLASSES below is a list of
+// the READING surfaces, not of every name in the app, and a maintenance clip
+// needs no entry and no argument.
+//
+// WHAT IS STILL ENFORCED EVERYWHERE IS HONESTY. A clip is a real `overflow:
+// hidden` with a real `text-overflow: ellipsis`; a name cut off mid-letter with
+// nothing saying so is worse than either way out, and that is what MAY_CLIP holds
+// the clipping classes to.
 //
 // WHY READ THE CSS RATHER THAN THE SCREEN. text-overflow only shows itself when
 // the text is actually too long — so a rule added to a name's own class is
@@ -15,12 +31,12 @@
 // a path, a URL and a piece of prose may all ellipsise — none of them is a thing
 // whose whole point is being read exactly.
 //
-// AND THERE IS ONE EXCEPTION, WHICH IS KEPT HERE RATHER THAN BEING DELETED FROM
-// THE LIST. A class the owner has ruled may ellipsise moves to EXCEPTED below,
-// with the ruling beside it, and is still required to be a real clip — because
-// the way it was failing before the ruling was neither scrolling NOR clipping,
-// which is worse than either. A quietly shortened list would have lost both the
-// exception and the reason for it.
+// A CLASS THAT MAY CLIP IS STILL LISTED, IN MAY_CLIP, AND STILL HAS TO CLIP
+// HONESTLY. The 21 September ruling removed the need to ARGUE a maintenance clip;
+// it did not remove the need to declare one. The way these were failing before
+// each was registered was neither scrolling NOR clipping, which is worse than
+// either — so the list is what makes an ellipsis a decision rather than an
+// accident, and it is kept for that and not as a quota.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -50,10 +66,19 @@ const NAME_CLASSES = [
   'cast-character',
   'cast-opt-name',
   'name-scroll',
+  // THE BIN IS A MAINTENANCE SURFACE, so the 21 September ruling means this one
+  // MAY clip whenever a clip is wanted there — it needs no argument, only a
+  // MAY_CLIP entry and an honest declaration. It is listed here because it does
+  // not clip today and scrolls instead, and deleting a guard over a correct
+  // implementation to make room for a change nobody has asked for is how a list
+  // stops describing the app.
   'trash-label',
 ]
 
-// The exceptions, each with the ruling that granted it. There are SIX, on two
+// The classes that clip, each with what allows it. The 21 September ruling covers
+// every maintenance surface at a stroke, so what is left here individually argued
+// are the clips on READING surfaces — where the rule does bind and an exception is
+// a real departure. There are SIX of those, on two
 // surfaces: the panel's head (the crumb and the title, one slot apart) and the add
 // surface's header (a title and a sub-line, drawn once for a phone and once for a
 // desk). Every one was granted on the same argument — the header is a signpost, and
@@ -65,7 +90,7 @@ const NAME_CLASSES = [
 // shape of thing this file exists to stop happening in the stylesheet. A seventh
 // still wants arguing; what it does not want is a sentence that has stopped
 // counting.
-const EXCEPTED = {
+const MAY_CLIP = {
   // The owner, 6 September, over a screenshot of "← V / William Ro" printed
   // across "Change who this is": "the back breadcrumbs sometimes do this.
   // ellipsis them". The crumb is a signpost back to a screen the reader has just
@@ -153,6 +178,18 @@ const EXCEPTED = {
   // have: the cover's WIDTH is derived from this row's height, so an unbounded title
   // fed itself — narrower column, taller row, wider cover, narrower column.
   'skipped-work-title': 'the owner, 21 September',
+  // THE MAINTENANCE RULING ITSELF, and it is the one entry here that needed no
+  // argument of its own. The owner, 21 September, over a metadata console printing
+  // "The Witcher 3: Wild H": "The work name truncation is fine. Delete that fucking
+  // rule. It is not okay when the work is the main concern. It is fine when it is
+  // used for maintenance."
+  //
+  // `RecordRow`'s nine callers are all metadata consoles, so the ruling covers the
+  // component whole. It is registered anyway — not to be argued, but because this
+  // list is what makes the clip a declaration rather than an accident, and because
+  // the thing it replaced was a sideways scroller that LOOKED like a clip and had a
+  // drag hidden behind the fade.
+  'record-row-name': 'the owner, 21 September',
 }
 
 // The subset that is ITSELF the scrolling box. The others are typography classes
@@ -182,8 +219,8 @@ describe('the classes that hold a name', () => {
   })
 })
 
-describe('the one class the owner has excepted', () => {
-  it.each(Object.keys(EXCEPTED))('%s is still a real clip, not an overflow', (cls) => {
+describe('every class that clips does so honestly', () => {
+  it.each(Object.keys(MAY_CLIP))('%s is still a real clip, not an overflow', (cls) => {
     // The exception is permission to SHORTEN a name, not permission to print it
     // over whatever is beside it. Before the ruling this class did neither: it
     // declared a scroller with no `min-width: 0`, so the word could not shrink,

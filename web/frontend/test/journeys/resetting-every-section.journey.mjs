@@ -59,6 +59,18 @@ it('a reader puts every section back from the screen menu', async () => {
   await app.see('Reset every section?')
   await app.press('Reset them all')
 
+  // GONE BEFORE THE RELOAD, WHICH IS THE ASSERTION THAT WAS MISSING AND THE ONE
+  // THAT CAUGHT A REAL DEFECT. The check further down runs after a `goto`, and a
+  // fresh load reads the preferences back from the server — so it was true of a
+  // screen whose own in-session state was wrong. It was: the reset patched local
+  // prefs with `''`, `changedIn` reads `''` as differing from a default like
+  // "system", and the row therefore went on offering itself over a confirm
+  // claiming nine preferences were set. Asking here, with no load in between, is
+  // asking the screen rather than the server.
+  await app.press('Everything this screen can do')
+  await app.gone('Reset settings')
+  await app.pressKey('Escape')
+
   // Not the state the press left behind — a fresh navigation, asking the server
   // what it actually kept.
   await app.goto('/settings')

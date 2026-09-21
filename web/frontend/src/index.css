@@ -10626,6 +10626,28 @@ html[data-theme="dark"] .board-cover {
    somewhere to go that is not a style attribute. */
 .record-row { min-width: 0; }
 
+/* ── A MAINTENANCE ROW'S NAME CLIPS ───────────────────────────────────────────
+   The owner, 21 September, over a metadata console: "The work name truncation is
+   fine. Delete that fucking rule. It is not okay when the work is the main
+   concern. It is fine when it is used for maintenance."
+
+   This is the maintenance case and nothing else — `RecordRow`'s only callers are
+   the metadata consoles. It replaced a `NameScroll`, which is why the screenshot
+   that prompted the ruling showed a name simply stopping: an edge mask is a fade
+   with a drag behind it, and dragging a title sideways to confirm a work you came
+   here to fix is a gesture spent on a certainty you already had.
+
+   `min-width: 0` IS LOAD-BEARING and is the half that makes the other two real. A
+   flex child defaults to its content's minimum width, so without it the name
+   refuses to narrow, the clip never happens, and the row widens the console
+   instead. `overflow: hidden` without it is a declaration that cannot fire. */
+.record-row-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* ── THE ISSUE PILLS, AND THE COUNTS UNDER A RECORD'S NAME ────────────────────
    The owner's ask: "The issue filters should be in work, people, and character
    screens. These will be pills, in one row. Edgemasked with sidescroll, if needed

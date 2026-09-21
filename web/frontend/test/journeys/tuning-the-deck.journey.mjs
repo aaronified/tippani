@@ -149,6 +149,15 @@ it('resets the section, and the defaults are still there after a reload', async 
   // On screen first, which is the half that always worked.
   expect(await app.chosen('Hard'), 'the reset did not clear the screen').toBe(false)
 
+  // AND THE BUTTON IS ALREADY GONE, WITH NO RELOAD IN BETWEEN. The check at the
+  // foot of this case runs after a `goto`, so it asked the server rather than the
+  // screen — and the screen was wrong: the reset patched local prefs with `''`,
+  // which `changedIn` reads as differing from a default like "system", so the
+  // section still counted as changed and its Reset stayed on the row. A control
+  // that survives its own press is the arming rule broken at the moment it
+  // matters most.
+  await app.gone('Reset section')
+
   // Then what the server kept, which is the half that did not.
   await app.goto('/settings')
   await app.press('Review')

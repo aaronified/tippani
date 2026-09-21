@@ -610,8 +610,22 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   // twice the day one of them learns something the other would not.
   const resetSection = (id) => {
     const keys = id === ALL_SECTIONS ? resetKeysEverywhere() : (SECTION_PREFS[id] || [])
+    // THE LOCAL PATCH IS THE DEFAULT, NOT AN EMPTY STRING, AND THAT WAS A BUG THIS
+    // CONTROL MADE VISIBLE. `changedIn` counts a key as changed when its value
+    // differs from `PREF_DEFAULTS[k]` — and `''` differs from `"system"`, so
+    // clearing a key locally made it read as SET. The screen therefore went on
+    // offering the reset it had just performed, over a confirm reading "9
+    // preferences go back to their defaults" with nothing set, and the tab row's
+    // pill read "9 changed" for a section that was stock. It corrected itself on
+    // the next load, which is the shape of defect a reload hides: both `gone`
+    // assertions were written after a `goto` and passed straight over it.
+    //
+    // WHAT THE SERVER WILL HAND BACK IS THE ONLY RIGHT VALUE HERE. The route
+    // DELETES the keys and `loadPrefs` supplies each default on read, so the local
+    // state that agrees with the server is the default — `''` only for the keys
+    // that have none, where the zero value IS the default.
     const patch = {}
-    for (const k of keys) patch[k] = ''
+    for (const k of keys) patch[k] = k in PREF_DEFAULTS ? PREF_DEFAULTS[k] : ''
     onPreferences?.(patch)
     json('POST', '/auth/me/preferences/reset', { keys })
     setResetting(null)
