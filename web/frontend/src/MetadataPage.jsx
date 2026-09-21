@@ -2714,7 +2714,6 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
                 onPortrait={() => setPerson({ kind: (p.kinds || [])[0] || 'author', name: p.name })}
                 onSearch={onSearch}
                 onFetch={() => fetchRow(p)}
-                mobile={mobile}
               />
             ))}
           </div>
@@ -2743,7 +2742,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
 // portrait exists and shows neither it nor a way to change it; a list of ninety
 // names is where a face is worth most, because it is the fastest thing in a row
 // to recognise.
-function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, mobile = false, first = false }) {
+function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, first = false }) {
   const face = p.image_path ? personImgURL(p.image_path) : ''
   const roles = (p.kinds || []).map((k) => [k, t(PEOPLE_ROLE_NOUN[k] || 'unit.person', { count: 1 })])
   const fetched = Object.keys(parseLinks(p.links).known).length > 0 || !!p.image_path
@@ -2827,7 +2826,12 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, mobile = fa
         onClick: onFetch,
       }]}
     >
-      {!mobile && (p.links ? <div className="mt-1"><ProviderChips links={p.links} /></div> : null)}
+      {/* AT EVERY WIDTH, WHICH IT WAS NOT. This was `{!mobile && …}` — so on the
+          one screen whose subject is which providers a person is linked to, a
+          phone reader could not see it. The wrap that gate was hiding is fixed in
+          `ProviderChips` itself now: it scrolls under a measured fade, which is
+          the repo's rule for a row that can overflow. */}
+      {p.links ? <div className="mt-1"><ProviderChips links={p.links} /></div> : null}
     </RecordRow>
   )
 }

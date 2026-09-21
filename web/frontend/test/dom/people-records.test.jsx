@@ -49,6 +49,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { PeopleConsole } = await import('../../src/MetadataPage.jsx')
+const { MOBILE_SCREEN_QUERY } = await import('../../src/ui.jsx')
 
 const rec = (over) => ({
   id: 1, name: 'Mikhail Bulgakov', sort_name: '', bio: '', image_path: '', born: '', died: '',
@@ -62,7 +63,15 @@ beforeEach(() => {
     rec({ id: 2, name: 'Oleg Basilashvili', kinds: ['actor'], works: 3, quotes: 41 }),
     // A RECORD IN NO ROLE AT ALL, which is the row the old default hid: nothing
     // credits it, so nothing derives a role for it.
-    rec({ id: 3, name: 'Somebody Nobody Credits', kinds: [], works: 0, quotes: 0 }),
+    // PROVIDER LINKS, on the one row no other case drives. They went on Oleg
+    // first and broke the fetch case eight cases down: `fetchOne` skips its PUT
+    // when the links it finds equal the ones already stored, so a record that
+    // HAS links takes a different path through the act that case is about. A
+    // fixture row is shared state.
+    rec({
+      id: 3, name: 'Somebody Nobody Credits', kinds: [], works: 0, quotes: 0,
+      links: 'https://www.imdb.com/name/nm0001/\nhttps://www.wikidata.org/wiki/Q123',
+    }),
   ]
 })
 afterEach(() => cleanup())
@@ -172,5 +181,68 @@ describe('fetching links onto a record', () => {
     // the first. The record endpoint cannot make that mistake.
     await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people/id/2')).toBe(true))
     expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people')).toBe(false)
+  })
+})
+
+// ── THE PROVIDER LINKS ARE ON THE ROW AT EVERY WIDTH.
+//
+// They were drawn behind `{!mobile && …}`, so on a phone — on the one screen
+// whose whole subject is which providers a person is linked to — a reader could
+// see none of them. The pack draws them as part of the row at every width.
+//
+// THE GATE WAS TREATING A SYMPTOM: five chips in a wrapping flex take three lines
+// at 390px, so the row was fixed by deleting the content. `ProviderChips` scrolls
+// under a measured fade now, which is the repo's rule for a row that can overflow.
+//
+// BOTH WIDTHS ARE ASSERTED, because "the chips are there on a phone" does not say
+// the desk kept them — and a change that moved them out of one width into the
+// other would pass a single-width case either way.
+describe('a record’s provider links', () => {
+  let realMatchMedia
+  const asPhone = () => {
+    realMatchMedia = window.matchMedia
+    // Only the mobile query answers true: other hooks ask this same function
+    // about reduced motion and must keep getting their own answer.
+    window.matchMedia = (media) => ({
+      matches: media === MOBILE_SCREEN_QUERY,
+      media,
+      onchange: null,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent: () => false,
+    })
+  }
+  afterEach(() => { if (realMatchMedia) { window.matchMedia = realMatchMedia; realMatchMedia = undefined } })
+
+  it('are on the row on a desk', async () => {
+    await mount()
+    const r = row('Somebody Nobody Credits')
+    expect(within(r).getByRole('link', { name: /imdb/i }), 'the IMDb link should be on the row').toBeTruthy()
+    expect(within(r).getByRole('link', { name: /wikidata/i })).toBeTruthy()
+  })
+
+  it('and on the row on a phone, which is where they used to vanish', async () => {
+    asPhone()
+    await mount()
+    const r = row('Somebody Nobody Credits')
+    expect(within(r).getByRole('link', { name: /imdb/i }), 'a phone reader cannot see which providers this person has')
+      .toBeTruthy()
+    expect(within(r).getByRole('link', { name: /wikidata/i })).toBeTruthy()
+  })
+
+  // AND THE ROW IS NOT A PARAGRAPH: the chips sit in one scrolling line rather
+  // than wrapping. That the strip EXISTS is all this tier can say — jsdom loads
+  // no stylesheet, so `getComputedStyle(...).flexWrap` here reads the initial
+  // value whatever index.css declares. A case asserting `nowrap` in this file
+  // passed with the rule changed to `wrap`, which is the vacuous pass the repo's
+  // testing ruling exists to end. The `nowrap` itself is held in the tier that
+  // reads the stylesheet: `x-scrollers-do-not-wrap.test.js`.
+  it('sit in a scroller of their own rather than loose in the row', async () => {
+    asPhone()
+    await mount()
+    expect(row('Somebody Nobody Credits').querySelector('.provider-chips'), 'the chips should be in a scroller')
+      .toBeTruthy()
   })
 })

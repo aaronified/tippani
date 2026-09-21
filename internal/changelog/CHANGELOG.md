@@ -192,6 +192,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A person's provider links show on a phone.** They were drawn only above a breakpoint, so
+  on the one screen whose subject is which providers a person is linked to, a phone reader
+  could see none of them. They sit in one line that scrolls sideways now, instead of wrapping
+  a ninety-row list into paragraphs.
+
+- **A colour category you made can be un-made.** One press puts its name, its colour and its
+  hiding back to what the app shipped — it took three separate acts, one of them selecting
+  text in a field and deleting it. No quote changes: anything filed under that colour stays
+  filed under it, under the app's own name again.
+
 - **Tags that look like one tag say so, and can be merged.** "Solitude" and "Solitide" are
   one idea under two names; the console now leads with them, marks each one in the list, and
   offers the merge — you pick which name survives and every quote under the others moves to

@@ -1256,6 +1256,11 @@ settings.colours.offer.tip = আবার দেখান
 # Two categories is the floor, so the second-to-last cannot be hidden.
 settings.colours.keep-two.tip = অন্তত দুটো ঘর রাখতেই হয়
 settings.colours.hide.tip = আর দেখাবেন না
+settings.colours.unmake.aria = {name} মুছে দিন — অ্যাপের নিজের নাম আর রঙে ফিরে যাবে
+settings.colours.unmake.tip = অ্যাপের নিজের নাম আর রঙে ফিরিয়ে দিন
+settings.colours.unmake.confirm.title = {name} মুছে দেব?
+settings.colours.unmake.confirm.body = এর নাম, রঙ আর লুকোনো — সব অ্যাপের নিজের অবস্থায় ফিরে যাবে। কোনও উদ্ধৃতি বদলাবে না; এই রঙে রাখা সবকিছু এই রঙেই থাকবে, শুধু অ্যাপের নিজের নামে।
+settings.colours.unmake.cta = মুছে দিন
 settings.colours.reset.aria = এই রং আগের মতো করুন
 settings.colours.reset.tip = আগের রঙে ফিরুন
 

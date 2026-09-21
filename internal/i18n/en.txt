@@ -1252,6 +1252,15 @@ settings.colours.offer.tip = Offer this again
 # Two categories is the floor, so the second-to-last cannot be hidden.
 settings.colours.keep-two.tip = Keep two categories
 settings.colours.hide.tip = Stop offering this
+# UN-MAKING A COLOUR CATEGORY. A category is one of eight SLOTS, not a row, so
+# there is nothing to remove — "delete" means it stops being one you made: name,
+# colour and hiding all back to what the app shipped. No quote changes; the stored
+# value never moves, which is what makes exports round-trip.
+settings.colours.unmake.aria = Un-make {name} — back to the app's own name and colour
+settings.colours.unmake.tip = Back to the app's own name and colour
+settings.colours.unmake.confirm.title = Un-make {name}?
+settings.colours.unmake.confirm.body = Its name, colour and hiding go back to what the app shipped. No quote changes — anything filed under this colour stays filed under it, under the app's own name again.
+settings.colours.unmake.cta = Un-make
 settings.colours.reset.aria = Reset this colour
 settings.colours.reset.tip = Back to the original
 

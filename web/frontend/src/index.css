@@ -10625,6 +10625,17 @@ html[data-theme="dark"] .board-cover {
   color: var(--error);
 }
 
+/* THE PROVIDER LINKS ON A PERSON'S ROW. Five chips in a wrapping flex take three
+   lines at 390px, which turns every row of a ninety-row list into a paragraph —
+   so they used to be deleted below a breakpoint instead. They scroll now, which
+   is the repo's rule for a row that can overflow, and `Scroller` measures: a
+   person with one link wears no fade at all. */
+.provider-chips {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+  min-width: 0; overflow-x: auto; overscroll-behavior-x: contain;
+}
+.provider-chips > a { flex: none; }
+
 /* ── WHO A PRUNE WOULD TAKE ──
    The confirm lists every name rather than a tally, and the box scrolls rather
    than capping the list: the ones a "…and 18 more" would hide are exactly the

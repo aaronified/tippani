@@ -452,18 +452,30 @@ export function mergeLinks(text, fetched) {
 
 // ProviderChips — the compact inline form of the link set (Metadata console
 // cells): one small anchor chip per recognised provider.
+//
+// IT SCROLLS RATHER THAN WRAPS, AND THAT IS WHAT LET IT ONTO A PHONE. The people
+// console drew this behind `{!mobile && …}`, so a phone reader could not see which
+// providers a person was linked to at all — on the one screen whose whole subject
+// is which providers a person is linked to. The pack draws them at every width.
+//
+// THE GATE WAS TREATING A SYMPTOM. Five chips in a wrapping flex take three lines
+// at 390px, which turns every row of a ninety-row list into a paragraph — so the
+// row was fixed by deleting the content. The repo's own rule is the other repair:
+// a row that can overflow scrolls under a measured edge fade, never bare
+// `overflow` and never a wrap. `Scroller` measures, so a person with one link
+// wears no fade and a desk at full width is unchanged.
 export function ProviderChips({ links }) {
   const { known } = parseLinks(links)
   const items = PROVIDERS.filter(([slug]) => known[slug])
   if (items.length === 0) return <span className="microcopy">—</span>
   return (
-    <span className="flex flex-wrap items-center gap-1.5">
+    <Scroller as="span" axis="x" className="provider-chips">
       {items.map(([slug, labelKey]) => (
         <a key={slug} className="tp-chip tp-chip-btn" href={known[slug]} target="_blank" rel="noopener noreferrer">
           {t(labelKey)}
         </a>
       ))}
-    </span>
+    </Scroller>
   )
 }
 

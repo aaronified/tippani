@@ -685,14 +685,18 @@ export function ColourCategoriesCard({ prefs, onSaved }) {
   const [rows, setRows] = useState(categoryState)
   const [picking, setPicking] = useState(null) // slot whose palette is open
   const [err, setErr] = useState('')
+  const { ask, confirmDialog } = useConfirm()
 
   // Re-seed when the session prefs change under us — another tab, or the
   // account switching. categoryState reads the applied values, so this stays in
   // step with what is on screen rather than with a stale prop.
   useEffect(() => { setRows(categoryState()) }, [prefs])
 
-  async function save(patch) {
-    const next = { ...collect(rows), ...patch }
+  // `from` — WHICH ROWS TO COLLECT, because `unmake` clears a name in state and
+  // then saves in the same tick: `rows` is still the old array inside this
+  // closure, so collecting from it would put the cleared name straight back.
+  async function save(patch, from = rows) {
+    const next = { ...collect(from), ...patch }
     applyColors({ ...prefs, ...next })
     setRows(categoryState())
     const r = await json('PUT', '/auth/me/preferences', next)
@@ -709,6 +713,29 @@ export function ColourCategoriesCard({ prefs, onSaved }) {
   }
 
   const visible = rows.filter((r) => !r.hidden).length
+
+  // unmake — one save, not three. `save` merges a patch over `collect(rows)`, so
+  // the name has to be cleared in the ROWS as well as in the patch: collect reads
+  // the live input value, and a patch alone would be overwritten by the field the
+  // reader has not touched.
+  async function unmake(row) {
+    if (!(await ask(t('settings.colours.unmake.confirm.title', { name: row.label }), {
+      body: t('settings.colours.unmake.confirm.body'),
+      confirmLabel: t('settings.colours.unmake.cta'),
+      danger: true,
+      // NOTHING ABOUT A QUOTE CHANGES, so this is not the one-way act the bin
+      // glyph otherwise promises — and the dialog's own reversibility line is
+      // where the app says that everywhere else.
+      reversible: true,
+    }))) return
+    const cleared = rows.map((r) => (r.slot === row.slot ? { ...r, name: '' } : r))
+    setRows(cleared)
+    await save({
+      [`catName${row.slot}`]: '',
+      [`catColor${row.slot}`]: '',
+      [`catHidden${row.slot}`]: false,
+    }, cleared)
+  }
 
   return (
     // The dot goes THROUGH SectionTitle rather than beside it. Wrapping the
@@ -780,6 +807,35 @@ export function ColourCategoriesCard({ prefs, onSaved }) {
                   tooltip={t('settings.colours.reset.tip')}
                 />
               )}
+              {/* ── UN-MAKE THE CATEGORY, which the pack draws as a trash act on
+                  every non-fixed row (metadata.dc.html:741) and this card had no
+                  verb for at all.
+
+                  A CATEGORY IS A SLOT, NOT A ROW, so there is nothing to remove —
+                  eight positions exist whether or not you have used them. What a
+                  reader means by "delete this one" is that it stops being one they
+                  MADE: its name, its colour and its hiding all go back to what the
+                  app shipped. That took three separate acts, one of which was
+                  selecting the text in a field and deleting it.
+
+                  IT IS OFFERED ONLY ON A SLOT SOMEBODY HAS TOUCHED, because on an
+                  untouched one it would do nothing — and a row of controls that do
+                  nothing is what teaches a reader the controls here are inert.
+
+                  AND NO QUOTE CHANGES, which is why the confirm says so rather than
+                  the bin implying otherwise. The stored value never moves — this
+                  section's own dot promises exactly that, so exports round-trip —
+                  and a quote filed under this colour goes on being filed under it,
+                  wearing the app's default name again. */}
+              {!row.fixed && (row.name || row.custom || row.hidden) && (
+                <FieldIconButton
+                  icon={<IconDelete />}
+                  danger
+                  ariaLabel={t('settings.colours.unmake.aria', { name: row.label })}
+                  onClick={() => unmake(row)}
+                  tooltip={t('settings.colours.unmake.tip')}
+                />
+              )}
             </div>
             {picking === row.slot && (
               <div className="cat-palette" role="listbox" aria-label={t('settings.colours.palette.aria', { name: row.label })}>
@@ -802,6 +858,7 @@ export function ColourCategoriesCard({ prefs, onSaved }) {
         ))}
       </div>
       <ErrorText>{err}</ErrorText>
+      {confirmDialog}
     </Card>
   )
 }
