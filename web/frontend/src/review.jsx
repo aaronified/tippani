@@ -787,9 +787,14 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
   // on `card.id` instead would look tighter and would silently be a lie the day a
   // second card for the same row appeared; keying it on the object and
   // remembering what has already been reported is the honest version.
+  //
+  // AND NOT IN PRACTICE AT ALL. Practice moves a schedule only when the reader
+  // has said it may, and three lengthened neighbours per card is the same move
+  // through a door that toggle does not lock: a deck answered with "Practice
+  // moves the schedule" off would still have rewritten most of the library.
   const seenPosted = useRef(new Set())
   useEffect(() => {
-    if (!answered) return
+    if (!answered || mode === 'practice') return
     const key = `${card.kind}:${card.id}`
     if (seenPosted.current.has(key)) return
     seenPosted.current.add(key)
@@ -798,7 +803,7 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
       if (om.item_kind === card.kind && om.item_id === card.id) continue
       json('POST', '/review/seen', { kind: om.item_kind, id: om.item_id }).catch(() => {})
     }
-  }, [answered, card]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [answered, card, mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function advance() {
     posRef.current = i + 1

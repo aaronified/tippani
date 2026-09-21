@@ -691,9 +691,10 @@ func TestReviewScores(t *testing.T) {
 	}
 }
 
-// The "seeing" effect (srSeen): practising (not skipping), sharing, or
-// favouriting a card lengthens its half-life marginally — separate from Daily
-// Quiz recall, off by default, and never touching an unseen card.
+// The "seeing" effect (srSeen): sharing or favouriting a card lengthens its
+// half-life marginally — separate from Daily Quiz recall, off by default, and
+// never touching an unseen card. PRACTICE IS NOT SEEING, and that leg of this
+// test is the one that used to assert the opposite.
 func TestReviewSeen(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -731,28 +732,51 @@ func TestReviewSeen(t *testing.T) {
 	if s := stabilityOf(ids[0]); !near(s, 8.4) {
 		t.Fatalf("after share-seen: %v (want 8.4)", s)
 	}
-	// Practising (default: not counting) still counts as seeing: 8.4 × 1.2 = 10.08
+	// PRACTICE IS NOT SEEING. With srPracticeCounts off — the default — a Practice
+	// answer moves nothing at all, so 8.4 stands. It used to read 8.4 × 1.2, which
+	// is a reader who said "Practice moves the schedule: No" watching it move.
 	answer(t, c, kindBook, ids[0], "got", "practice")
-	if s := stabilityOf(ids[0]); !near(s, 10.08) {
-		t.Fatalf("after practice-seen: %v (want 10.08)", s)
+	if s := stabilityOf(ids[0]); !near(s, 8.4) {
+		t.Fatalf("a practice answer counted as seeing: %v (want 8.4, unchanged)", s)
 	}
-	// Favouriting (false→true) counts as seeing: 10.08 × 1.2 = 12.096
+	// And a FORGOTTEN practice card is not lengthened either — the shape that made
+	// the old rule indefensible rather than merely surprising.
+	answer(t, c, kindBook, ids[0], "forgot", "practice")
+	if s := stabilityOf(ids[0]); !near(s, 8.4) {
+		t.Fatalf("a forgotten practice card was lengthened: %v (want 8.4, unchanged)", s)
+	}
+	// Favouriting (false→true) counts as seeing: 8.4 × 1.2 = 10.08
 	favBody := map[string]any{"quote": "Dune passage 0", "color": "yellow", "favorite": true}
 	c.mustDo("PUT", fmt.Sprintf("/annotations/%d", ids[0]), favBody, 200)
-	if s := stabilityOf(ids[0]); !near(s, 12.096) {
-		t.Fatalf("after favourite-seen: %v (want 12.096)", s)
+	if s := stabilityOf(ids[0]); !near(s, 10.08) {
+		t.Fatalf("after favourite-seen: %v (want 10.08)", s)
 	}
 	// Re-saving an already-favourite card is not a fresh "seeing".
 	c.mustDo("PUT", fmt.Sprintf("/annotations/%d", ids[0]), favBody, 200)
-	if s := stabilityOf(ids[0]); !near(s, 12.096) {
-		t.Fatalf("re-saving a favourite re-credited seeing: %v (want 12.096)", s)
+	if s := stabilityOf(ids[0]); !near(s, 10.08) {
+		t.Fatalf("re-saving a favourite re-credited seeing: %v (want 10.08)", s)
 	}
 
-	// A skipped practice card is not "seeing".
+	// A skipped practice card moves nothing either (it never did).
 	before := stabilityOf(ids[0])
 	c.mustDo("POST", "/review/answer", map[string]any{"kind": kindBook, "id": ids[0], "result": "skip", "mode": "practice"}, 200)
 	if s := stabilityOf(ids[0]); !near(s, before) {
 		t.Fatalf("a skip counted as seeing: %v -> %v", before, s)
+	}
+
+	// AND PRACTICE-THAT-COUNTS MOVES THE SCHEDULE EXACTLY ONCE. With
+	// srPracticeCounts on, the grade drives the half-life the way the Daily Quiz
+	// does — and srSeen adds nothing on top, so the two settings never compound.
+	c.mustDo("PUT", "/auth/me/preferences", map[string]any{"srPracticeCounts": true}, 200)
+	before = stabilityOf(ids[0])
+	answer(t, c, kindBook, ids[0], "got", "practice")
+	// The recall multiplier and nothing else. The compounded value — which is what
+	// this used to be — is `want * 1.2`, so the two are told apart by the number
+	// rather than by which line of the handler ran.
+	want := before * reviewGrow
+	if s := stabilityOf(ids[0]); !near(s, want) {
+		t.Fatalf("a counting practice answer: %v (want %v — the recall multiplier alone, "+
+			"not %v with the seeing bump on top)", s, want, want*1.2)
 	}
 
 	// Ownership: another user can't "see" this card.

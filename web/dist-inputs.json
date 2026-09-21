@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "0f695cf174b82761f4500a4266e80a18ad09360580bb98c39dbe753044e4efba",
-    "internal/i18n/en.txt": "a06d61cb22cb3a70fc52c584e6c616529197cbf0c9ab279f76470de1bc825fa4",
+    "internal/i18n/bn.txt": "7148bcb05d0694d8f7432f24e0635f1aff1586919bf8ebaff58d565f225781b0",
+    "internal/i18n/en.txt": "dd7875e7084db6ad9ebc6defd0b0797ef115b78e0c206aba84a3e4fc09aa293f",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -105,7 +105,7 @@
     "web/frontend/src/quotePair.jsx": "c111530893f78e52b84a14fa038db583549c06a1144e258b0461553b83b9fa3a",
     "web/frontend/src/recordRow.jsx": "1d5f108a4ce6930b362ecd6e76bc6d7c43edf102b199b2dc2913010fed6f802e",
     "web/frontend/src/reorder.js": "b9d0e690cc55e1328f45cc3adc0d4fcdb40ad0ae82967c67b05133ea60e9317b",
-    "web/frontend/src/review.jsx": "7cdaa17b03a0d98f77fe552f63285fced965bc2a3c857fe5d7e6fbbd0df131e7",
+    "web/frontend/src/review.jsx": "804cb8512025f97b2056a258d3d3db2651e872517bab3dd110f0129526a43a4b",
     "web/frontend/src/routes.js": "022b5ab6861e2efa9f083d9109d019a1ae7c90a35534e6328fda9ea47efa6075",
     "web/frontend/src/savedThemes.js": "ae498031d1a0c121a14f397e0f3743199e4989956c3d363659de15ee49cbc8ea",
     "web/frontend/src/secret.js": "f7f8a038ffa306f2d990f86f3af8dd64c6d05d4b4859df90353a13101511475c",

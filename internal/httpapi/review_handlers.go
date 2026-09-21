@@ -3144,12 +3144,17 @@ func (s *Server) handleReviewAnswer(w http.ResponseWriter, r *http.Request) {
 		respLastReviewed = sql.NullString{}
 		respLastResult = req.Result
 	}
-	// Practicing a card (a non-skip answer) counts as "seeing" it — a marginal
-	// half-life bump on top of any schedule move. The Daily Quiz is not "seeing":
-	// its got/forgot already drive the schedule in full.
-	if req.Mode == "practice" && req.Result != "skip" {
-		s.bumpSeen(req.Kind, req.ID, pf.SRSeen)
-	}
+	// PRACTICE IS NOT A "SEEING" EVENT, AND THAT IS THE WHOLE OF ITS GATE.
+	// It used to be: a Practice answer bumped the half-life by srSeen whatever
+	// srPracticeCounts said, so a reader who had answered "No" to "Practice moves
+	// the schedule" watched it move anyway, 5% a card, and the toggle that was
+	// supposed to say so was not the one deciding. Worse, the bump was gated on
+	// non-skip rather than on the grade, so a card you had just FORGOTTEN in
+	// Practice was halved and then lengthened.
+	//
+	// So Practice answers to moveSchedule and to nothing else. Seeing keeps the
+	// encounters that have no grade behind them to contradict — sharing and
+	// favouriting — where a marginal nudge is the only signal there is.
 	s.answerResponse(w, r, uid, req.Mode, offset, req.Kind, req.ID, req.Result, clozeAnswer, clozeSynonym, stability, age, lapses, respLastReviewed, respLastResult, pf, found || moveSchedule)
 }
 
@@ -3582,9 +3587,11 @@ func (s *Server) handlePracticeReset(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// bumpSeen applies the "seeing" effect (srSeen): being shown a card outside the
-// Daily Quiz — practice (not skipped), sharing, or favouriting it — lengthens
-// its half-life marginally. It only touches cards already in the schedule (an
+// bumpSeen applies the "seeing" effect (srSeen): meeting a card without grading
+// it — sharing it, favouriting it, or reading it among the choices on a Daily
+// Quiz card you answered — lengthens its half-life marginally. A Practice answer
+// is NOT one of these: it has a grade behind it, and srPracticeCounts is the one
+// setting that says whether that grade reaches the schedule. It only touches cards already in the schedule (an
 // unseen card has no half-life to grow, and creating one here would falsely read
 // as "remembered"); it never moves the recall clock or the last result, so a
 // lapsed card stays probably-forgotten. factor <= 1 (the default) is a no-op, so
@@ -3600,8 +3607,9 @@ func (s *Server) bumpSeen(kind string, id int64, factor float64) {
 	}
 }
 
-// applySeen is the fire-and-forget wrapper used by non-quiz "seeing" events
-// (favouriting): it verifies ownership, loads the srSeen factor, and bumps.
+// applySeen is the fire-and-forget wrapper used by "seeing" events that arrive
+// on another route (favouriting): it verifies ownership, loads the srSeen
+// factor, and bumps.
 func (s *Server) applySeen(uid int64, kind string, id int64) {
 	owned, err := s.ownsItem(uid, kind, id)
 	if err != nil || !owned {
@@ -3615,8 +3623,10 @@ func (s *Server) applySeen(uid int64, kind string, id int64) {
 }
 
 // handleReviewSeen records a "seeing" event from a client-side action that has
-// no other server round-trip — sharing a quote. POST /review/seen {kind,id}.
-// (Practice and favouriting are hooked where they already hit the server.)
+// no other server round-trip — sharing a quote, and the three quotes a graded
+// Daily Quiz card showed beside the answer. POST /review/seen {kind,id}.
+// (Favouriting is hooked where it already hits the server; Practice is not a
+// seeing event at all — see bumpSeen.)
 func (s *Server) handleReviewSeen(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Kind string `json:"kind"`

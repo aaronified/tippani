@@ -118,6 +118,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Practice moves your schedule only when you have said it may.** "Practice moves the
+  schedule" is now the whole of that decision. Before, a Practice answer also took the
+  "Seeing lengthens half-life by" bump whatever that toggle said — so a reader who had
+  turned Practice off the schedule watched it move anyway, a little at a time; a quote you
+  had just *forgotten* in Practice came away lengthened; and with Practice scoring on the
+  two multiplied together. Seeing keeps what it is for: sharing a quote, favouriting it, or
+  reading it among the choices on a Daily Quiz card you answered.
+
 - **A glyph sits on the line of the text beside it.** The chevrons in the release log
   floated above their version numbers, and a filter chip's icon sat above its words on one
   screen and on the line on another. An SVG's baseline is its bottom edge, so a glyph in a

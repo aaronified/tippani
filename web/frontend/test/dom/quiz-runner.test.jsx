@@ -567,6 +567,17 @@ describe('a “which quote is from this work?” card', () => {
     expect(seen()).toHaveLength(2)
   })
 
+  // AND NOT IN PRACTICE, whatever the reader set srSeen to. Practice moves a
+  // schedule only when "Practice moves the schedule" says it may, and three
+  // lengthened neighbours a card is that move through a door the toggle does not
+  // lock. The graded card is already exempt above; this is the other three.
+  it('reports nothing as seen in Practice', async () => {
+    render(<QuizRunner mode="practice" cards={[which()]} />)
+    fireEvent.click(screen.getByText('a line of ours'))
+    await waitFor(() => expect(posted()).toHaveLength(1))
+    expect(seen()).toHaveLength(0)
+  })
+
   it('reports them once, however long the card stays on screen', async () => {
     render(<QuizRunner mode="daily" cards={[which()]} />)
     fireEvent.click(screen.getByText('a line of ours'))

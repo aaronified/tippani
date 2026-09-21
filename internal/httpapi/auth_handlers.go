@@ -506,9 +506,12 @@ type prefs struct {
 	// multiply a half-life on every answer, so a bad one produces a quietly
 	// useless schedule rather than a visible error. See review_tuning.go.
 	SRTuning string `json:"srTuning"`
-	// SRSeen is the "seeing" multiplier — practising (not skipping), sharing, or
-	// favouriting a card lengthens its half-life marginally. 1.0 = off (default),
-	// so this reinforcement is entirely opt-in.
+	// SRSeen is the "seeing" multiplier — sharing or favouriting a card, or
+	// meeting it among the choices on a Daily Quiz card, lengthens its half-life
+	// marginally. 1.0 = off (default), so this reinforcement is entirely opt-in.
+	// PRACTICE IS NOT A SEEING EVENT: whether Practice moves a schedule is
+	// srPracticeCounts' question alone, and two settings answering it is how a
+	// reader gets a schedule neither of them describes.
 	SRSeen           float64 `json:"srSeen"`
 	SRPracticeCounts bool    `json:"srPracticeCounts"`
 	// SRLadder puts a reader back on the fixed 7 → 30 → 100 → 365 ladder, where a
