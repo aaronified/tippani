@@ -675,11 +675,20 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
     ...(user.is_admin ? {
       server: (
         <>
+          {/* `keepLabel`, MATCHING THE SECTION'S OWN COPIES OF THESE TWO VERBS.
+              The Server section draws Back up now with `keepLabel` on the standing
+              reasoning that a primary or destructive act keeps its words at every
+              width — "neither 'save this' nor 'delete this permanently' is
+              something a person should have to have learned already". The same
+              verb on the index is the same decision, and the repo's rule is that
+              two things that look the same behave the same. Without it these two
+              would collapse to glyphs under the label preference while their twins
+              one press away kept their words. */}
           <div className="section-index-verbs">
-            <GhostButton icon={<IconArchive />} onClick={() => setBackupNow(true)}>
+            <GhostButton icon={<IconArchive />} keepLabel onClick={() => setBackupNow(true)}>
               {t('settings.backup.now.label')}
             </GhostButton>
-            <GhostButton icon={<IconRefresh />} onClick={() => setUpdateNow(true)}>
+            <GhostButton icon={<IconRefresh />} keepLabel onClick={() => setUpdateNow(true)}>
               {t('settings.updates.now.label')}
             </GhostButton>
           </div>

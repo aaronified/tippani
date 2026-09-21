@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Hold a glyph button and it tells you what it is.** With button words turned off, a
+  verb collapsed to a bare drawing with no way to learn it: a phone has no hover, and
+  nothing was listening for a press-and-hold. The Button labels row had been promising
+  otherwise — "every glyph names itself on hover or long-press" — and that was true only
+  of controls built on a tooltip, not of the ordinary buttons that make up most of the
+  app. Holding one now raises its own words under your thumb, and letting go does not
+  press it.
+
 - **Character pictures from Fandom now find the right wiki.** A franchise wiki is named
   for the franchise, and the app only ever guessed wiki addresses from the WORK — so a
   character from a series whose books are titled nothing like it was unreachable, however

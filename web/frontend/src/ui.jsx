@@ -2467,11 +2467,106 @@ export function BulkBar({ n, onClear, children }) {
 // two meanings: `has-btn-icon` must keep matching only the collapsible buttons,
 // or `[data-labels="off"]` would square the opt-outs with their words inside —
 // the bug this comment was originally written about.
+// useHoldToName — hold a glyph-only control and it says its own name.
+//
+// THE DEFECT THIS EXISTS FOR, IN THE OWNER'S WORDS: "all glyph buttons longpress
+// toast thing". A button with `icon` and no `keepLabel` has its words CLIPPED
+// under `html[data-labels="off"]` — see PlayfulButton's note — and that was
+// chosen so the words survive in the accessibility tree: "an icon-only row still
+// reads as Share, Edit, Delete to a screen reader instead of three unnamed
+// buttons." Which is true, and covers exactly one kind of reader. A sighted thumb
+// got a 44px drawing, no hover (there is no hover on a phone) and no way at all
+// to find out what it did short of pressing it.
+//
+// NO WRAPPER, WHICH IS WHY THIS IS A HOOK AND NOT `<Tooltip>`. Tooltip renders a
+// `.tp-tip-wrap` span, and that span is `inline-flex` — so wrapping the app's
+// ~180 collapsible buttons would make the SPAN the flex item everywhere and quietly
+// drop every `flex` rule written for the buttons themselves. Toggle already met
+// this and answered it the same way: "the bubble is script-driven, so it can be
+// asked for directly, with no DOM at all."
+//
+// THE NAME COMES FROM THE WORDS THE BUTTON ALREADY HAS, never a second prop. A
+// label passed in beside the children is a label that stops matching them, and
+// this control's whole problem is words that are present but unreadable.
+//
+// TOOLTIP IS NOT MIGRATED ONTO THIS AND THAT IS NOT AN OVERSIGHT. Its version of
+// the same timer is braided through hover, keyboard focus, shortcut rendering and
+// an `onHold` override; pulling those apart is its own piece of work, and doing it
+// badly would cost the hover path that every desktop control depends on. What is
+// shared today is the mechanism underneath both — `hintToast`, `LONG_PRESS_MS`,
+// `LONG_PRESS_SLOP` — and the duplication left is the twenty lines of timer below.
+function useHoldToName(name) {
+  const timer = useRef(null);
+  const fired = useRef(false);
+  const origin = useRef(null);
+  const clear = () => {
+    clearTimeout(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => () => clearTimeout(timer.current), []);
+  if (!name) return {};
+  return {
+    onPointerDown: (e) => {
+      // TOUCH ONLY. A mouse has hover, and a held mouse button on a desktop is a
+      // drag or a selection rather than a question.
+      if (e.pointerType !== "touch") return;
+      fired.current = false;
+      origin.current = { x: e.clientX, y: e.clientY };
+      clear();
+      timer.current = setTimeout(() => {
+        fired.current = true;
+        // Read the box at FIRE time rather than at press time: half a second is
+        // long enough for a list to still be settling, and a bubble anchored to
+        // where the control WAS points at nothing.
+        hintToast(name, e.currentTarget?.getBoundingClientRect?.() || null, "top");
+      }, LONG_PRESS_MS);
+    },
+    onPointerMove: (e) => {
+      // A drag is a scroll, not a question — otherwise every flick down a list
+      // flashes labels on the way past.
+      if (e.pointerType !== "touch" || !timer.current || !origin.current) return;
+      if (
+        Math.abs(e.clientX - origin.current.x) > LONG_PRESS_SLOP ||
+        Math.abs(e.clientY - origin.current.y) > LONG_PRESS_SLOP
+      ) {
+        clear();
+      }
+    },
+    onPointerUp: clear,
+    onPointerCancel: clear,
+    onClickCapture: (e) => {
+      // A HOLD ASKS WHAT THIS IS; IT DOES NOT PRESS IT. Holding Delete to find
+      // out what it does must never also delete the thing — the same contract
+      // Tooltip's own hold keeps.
+      if (!fired.current) return;
+      fired.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+  };
+}
+
 function PlayfulButton({ base, className = "", icon, keepLabel, onClick, children, ...rest }) {
   const { play, animClass, onAnimationEnd } = usePlayful("anim-btn", 3);
+  // HOLD IT AND IT SAYS ITS NAME — but only where the name can actually be gone.
+  //
+  // The gate is `icon && !keepLabel`, which is exactly the condition that sets
+  // `has-btn-icon`, which is exactly what `html[data-labels="off"]` squares to
+  // 44px with its words clipped. A `keepLabel` button keeps its words at every
+  // width, so a hold there would name something already printed under the thumb;
+  // a button with no icon never collapses at all. Tying the hold to the same
+  // expression as the collapse means the two cannot drift — a button that starts
+  // losing its words starts answering for them in the same edit.
+  //
+  // THE WORDS THEMSELVES, and only when they are words. `children` is a string
+  // for the overwhelming majority of these; where a caller passes an element the
+  // hook gets nothing and does nothing, which is honest — a bubble cannot say a
+  // React tree, and inventing a name for one is how a label starts lying.
+  const hold = useHoldToName(typeof children === "string" ? children : "");
   return (
     <button
       {...rest}
+      {...(icon && !keepLabel ? hold : {})}
       className={`tp-btn tactile ${base} ${animClass}${icon && !keepLabel ? " has-btn-icon" : ""}${icon && keepLabel ? " has-fixed-label" : ""} ${className}`}
       onClick={(e) => {
         play();
