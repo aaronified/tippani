@@ -95,7 +95,12 @@ describe('the role chips', () => {
     const clashes = []
     for (const k of ROLES) {
       const g = chipGlyph(row(WHO[k]), k)
-      const art = g ? g.innerHTML : `(none: ${k})`
+      // A CONSTANT FOR THE MISSING CASE, NOT THE ROLE'S NAME. Keyed on `(none: k)`
+      // every blank was unique, so a run with EVERY glyph deleted read as eight
+      // distinct pictures and this case passed — the presence case above caught it,
+      // but a case that only works because its neighbour does is a case that will
+      // be wrong the first time the neighbour changes.
+      const art = g ? g.innerHTML : '(nothing drawn)'
       if (seen.has(art)) clashes.push(`${seen.get(art)} and ${k}`)
       else seen.set(art, k)
     }

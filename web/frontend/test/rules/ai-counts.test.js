@@ -78,6 +78,54 @@ describe('the counts How-this-was-written.md opens with', () => {
       `(${goTestFiles.length} Go + ${feTestFiles.length} frontend)`).toBe(total)
   })
 
+  // THE THREE FILE COUNTS FURTHER DOWN THE PARAGRAPH, and they are here because
+  // they went stale the one time only the two above were guarded. The commit that
+  // added two test files bumped 767→769 and 478→480 — exactly what this file read
+  // — and left "329 files", "91 files" and two more "91"s behind, in the same
+  // paragraph, saying the wrong thing about the same two files. A guard that
+  // covers half a paragraph teaches a writer that the paragraph is covered.
+  //
+  // THE TEST COUNTS THEMSELVES STAY UNGUARDED and that is a real gap, stated
+  // rather than papered over: knowing that `npm test` reports 3,863 means running
+  // it, and a source scanner that boots vitest is no longer a source scanner. The
+  // FILE counts need only the tree, so they are checkable for free, and they are
+  // the ones that drift when work adds a suite — which is how this rotted.
+  //
+  // MUTATION-VERIFIED, one site at a time, each restored before the next:
+  //   "over 330 files" -> 329   => "the doc says npm test covers 329 files; there
+  //       are 330".
+  //   "over 92 files"  -> 91, "Those 92 READ" -> 91, "all 92 of them" -> 91
+  //       => one failure each, so no site is riding on another's coverage.
+  //   "3,863 tests"    -> 3,858 => NO failure, correctly: that is a test count and
+  //       this guard says above that it does not read them. Recorded because a
+  //       mutation that does not fire is only honest if it was predicted to not
+  //       fire, and this one was.
+  it('and the per-half FILE counts in the prose below them', () => {
+    const projectFiles = (pred) => feTestFiles.filter(pred).length
+    // `npm test` is the pure and dom projects; `lint:rules` is test/rules. The
+    // journeys are counted separately in the sentence after and are not ours.
+    const rules = projectFiles((f) => /(^|\/)test\/rules\//.test(f))
+    const npmTest = projectFiles((f) => /(^|\/)test\/(pure|dom)\//.test(f))
+
+    const m = AI.match(/`npm test` runs two projects — [\d,]+ tests over (\d+)\s*\n?\s*files/)
+    expect(m, 'the npm test file count is no longer in the shape this reads').toBeTruthy()
+    expect(Number(m[1]), `the doc says npm test covers ${m[1]} files; there are ${npmTest}`).toBe(npmTest)
+
+    const r = AI.match(/runs the third, [\d,]+ assertions over (\d+) files/)
+    expect(r, 'the lint:rules file count is no longer in the shape this reads').toBeTruthy()
+    expect(Number(r[1]), `the doc says lint:rules covers ${r[1]} files; there are ${rules}`).toBe(rules)
+
+    // AND THE SAME NUMBER WHEREVER THE PARAGRAPH REPEATS IT. Two of the three
+    // stale "91"s were prose rather than a figure in a list — "Those 91 READ THE
+    // SOURCE TEXT", "all 91 of them still pass" — so a guard reading only the
+    // first occurrence would have called the paragraph correct.
+    for (const re of [/Those (\d+) READ THE SOURCE TEXT/, /all (\d+) of them still pass/]) {
+      const hit = AI.match(re)
+      expect(hit, `a sentence this guard reads is gone: ${re}`).toBeTruthy()
+      expect(Number(hit[1]), `the prose says ${hit[1]} source scanners; there are ${rules}`).toBe(rules)
+    }
+  })
+
   it('and the per-half counts in the commands beside them', () => {
     // The comments on those command lines carry their own numbers, and they went
     // stale independently of the sentence above at least once.

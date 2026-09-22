@@ -21,6 +21,9 @@
 //       AND "IconUpdate is exported and nothing draws it" — two cases, because a
 //       reverted call site is both an arrow in the wrong place and a verb with
 //       nowhere left to appear.
+//   the same two again but written `<IconRefresh size={18} />` => both fail now.
+//       Under the first cut's regex they PASSED, which is the finding that made
+//       the boundary match above worth writing down rather than just fixing.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -39,8 +42,17 @@ const read = (f) => readFileSync(join(SRC, f), 'utf8')
 // or an import list is not, and counting those would make this scanner fire on the
 // paragraph above explaining itself — the same trap the gesture suite's `cls-1`
 // guard fell into and had to be scoped out of.
+//
+// AND IT HAS TO SEE A CALL SITE THAT CARRIES A PROP, which the first cut did not:
+// it matched `<IconRefresh />` and not `<IconRefresh size={18} />`, so the exact
+// regression this file exists to catch walked through it — a rater put the arrow
+// back on a provider fetch with a size on it and all three cases stayed green.
+// It was wrong in the other direction too, calling a verb undrawn when its only
+// call site had a prop, and `Settings.jsx` has shipped `<IconReset size={24} />`
+// the whole time. The boundary is what matters: `<Name` followed by anything that
+// is not another name character.
 const uses = (glyph) => {
-  const re = new RegExp(`<${glyph}\\s*/?>|icon:\\s*<${glyph}\\s*/?>`, 'g')
+  const re = new RegExp(`<${glyph}(\\s[^>]*)?/?>`, 'g')
   const out = []
   for (const f of files) {
     if (f === 'ui.jsx') continue // where they are DEFINED, and one may draw another
