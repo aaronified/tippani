@@ -852,9 +852,21 @@
   }
   /* THE FACE CHOOSER IS THE ONLY THING THAT GIVES UP WIDTH. Both it and the size
      dial are Selects, so the rule is on the face's own name rather than on the
-     element or its position — the dial is four characters and must keep them. */
+     element or its position — the dial is four characters and must keep them.
+
+     AND THE HOLD-YOUR-SIZE RULE HAS TO EXCLUDE IT BY NAME, which is the whole of
+     a bug the owner photographed: the face is `.tp-select.font-row-face`, so it
+     matched BOTH rules at the same specificity and the later one won. It took
+     `flex: none`, kept its 228px, and the row could not fit a phone — so the
+     style gear was pushed outside the card and the whole page slid sideways under
+     the thumb, which is the one thing this app treats as always a defect.
+
+     `:not()` RATHER THAN REORDERING. Swapping the two rules fixes it today and
+     breaks again the first time somebody sorts the stylesheet or adds a third
+     rule between them. Saying "everything except the face" is the actual
+     intention, and it cannot be undone by moving lines. */
   .font-row-controls > .font-row-face { flex: 1 1 6em; min-width: 0; }
-  .font-row-controls > .tp-select,
+  .font-row-controls > .tp-select:not(.font-row-face),
   .font-row-controls > .tp-btn,
   .font-row-controls > .tp-tip-wrap { flex: none; }
 

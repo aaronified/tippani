@@ -80,6 +80,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   doors and left the panel they open behind on the section page, so pressing one did
   nothing at all.
 
+- **Settings stops sliding sideways on a phone.** The typeface row could not fit a
+  390px screen, so the style button was pushed outside its card and the whole page
+  slid left and right under a thumb — the top bar, the dock and every card together,
+  with the left edge of every heading cut off. Two stylesheet rules disagreed about
+  the same chooser at the same strength and the wrong one was winning, so it kept a
+  width it was supposed to give up.
+
 - **The typeface row stays one row, and a long face name no longer wraps.** "Atkinson
   Hyperlegible Next Regular" ran to two lines inside its own chooser and pushed the style
   and revert buttons onto a line of their own. The name is clipped to one line now — it

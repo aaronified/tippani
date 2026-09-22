@@ -154,18 +154,18 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,777 Go test functions and 4,758 frontend tests, across 766 test files** — the
+- **1,777 Go test functions and 4,758 frontend tests, across 767 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
   cd web/frontend && npx vitest run                                      # 4,758 of them
-  cd web/frontend && npm run journeys                                    # + 83 in the browser
+  cd web/frontend && npm run journeys                                    # + 85 in the browser
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 289 Go files
   find ./web/frontend -path '*/node_modules' -prune -o -type f \
        \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
-       -print | wc -l                                                    # 477 frontend
+       -print | wc -l                                                    # 478 frontend
   ```
 
   **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,758 is what
@@ -173,7 +173,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   not among them — it has its own config, because it needs a globalSetup that builds
   the binary and seeds a library. `npm test` runs two projects — 3,858 tests over 329
   files; `npm run lint:rules` runs the third, 900 assertions over 91 files; and
-  `npm run journeys` runs 83 tests over 57 files against a real server in a real
+  `npm run journeys` runs 85 tests over 58 files against a real server in a real
   browser, which is the tier that would have caught the bug all this is named after.
   Those 91 READ THE SOURCE TEXT and assert how it is
   spelled: never truncate a name, spacing is a constant, no emoji glyphs, the
