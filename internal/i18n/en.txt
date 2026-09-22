@@ -4655,6 +4655,7 @@ error.switch.account = could not switch account
 error.reindex.failed = could not rebuild the search index
 error.reset.failed = could not reset the database
 error.load.users = could not load users
+error.open.person = could not open this person
 error.add.user = could not add user
 error.save.role = could not change role
 error.delete.user = could not delete user
@@ -4677,32 +4678,15 @@ error.delete.user = could not delete user
 people.lifespan.range = {born} – {died}
 people.lifespan.died = d. {died}
 
-people.photo.zoom.tip = View this photo full screen
-people.photo.zoom.aria = View photo of {name} full screen
-people.links.heading = reference pages
-people.source.via = via {source}
-people.state.nothing-saved = nothing saved yet
-people.add-details = Add details
-people.links.fetching = looking up reference pages…
-people.links.refetch = refetch links
 
 # The edit form. Bio and Links reuse common.field.*; these are the ones this
 # form words for itself.
-people.form.photo.remove = remove photo
 people.form.founded.label = Founded
 people.form.closed.label = Closed
-people.form.born.placeholder = e.g. 1982
-people.form.died.placeholder = e.g. 2001
-people.form.closed.placeholder = e.g. 2011
-people.form.photo-url.label = Photo URL
-people.form.logo-url.label = Logo URL
 people.form.image-search = search images
 # The strip of candidates the search comes back with, when this install has a
 # picture source configured. Without one the button opens a web search in a tab
 # instead, exactly as it always did, and none of these three are shown.
-people.form.image-pick.prose = Pick one, or paste an address below
-people.form.image-pick.none = Nothing came back — try the name on its own, or paste an address below
-people.form.image-pick.use = Use this picture from {source}
 # The same strip on a cast row, where the picture is of a ROLE — an actor in
 # costume — rather than of a person. Only shown when a picture source is
 # configured; without one the button opens a web search in a tab as before.
@@ -4719,32 +4703,17 @@ cast.picture.pick.use = Use this picture from {source}
 # The same strip on a cast row, where the picture is of a ROLE — an actor in
 # costume — rather than of a person. Only shown when a picture source is
 # configured; without one the button opens a web search in a tab as before.
-people.form.image-url.placeholder = https://… paste an image link
 # Two lines of example, joined by the code — the file format is one value per
 # line, so a two-line placeholder is two keys. URLs, so unchanged in any
 # language.
-people.form.links.placeholder.1 = https://en.wikipedia.org/wiki/…
-people.form.links.placeholder.2 = https://openlibrary.org/authors/…
-people.form.links.hint = one link per line — known sites (Wikipedia, Open Library, IMDb, TMDB, TheTVDB) are labelled automatically; anything else shows as-is.
 
 # The library-wide rename: the fix for two transliterations of one person.
-people.rename.label = Rename across your library
-people.rename.action = Rename everywhere
-people.rename.busy = Renaming…
 # {noun} is the plural this person is counted in, {entity} the singular row that
 # carries the credit — both from unit.*.
-people.rename.confirm = Rename “{from}” to “{to}” across all your {noun}? This updates every {entity} crediting them.
 # Two keys rather than one with an it/them switch in the code: English grammar
 # living in a ternary is exactly what a locale file is for.
-people.rename.hint.person = rewrites this name on every {entity} that credits them and merges the saved details — use it to unify two spellings.
-people.rename.hint.org = rewrites this name on every {entity} that credits it and merges the saved details — use it to unify two spellings.
 
-people.delete.confirm = Remove saved {kind} metadata for “{name}”?
 
-error.validate.born-date = born must be a year, YYYY-MM or YYYY-MM-DD
-error.validate.died-date = died must be a year, YYYY-MM or YYYY-MM-DD
-error.lookup.none = no reference pages found for this name
-error.save.links = could not save links
 
 # ---------------------------------------------------------------------------
 # COVERS AND POSTERS — CoverPicker.jsx. The picker under every work's image
@@ -5426,6 +5395,10 @@ metadata.people.row.fetch.label = fetch
 metadata.people.row.refetch.label = refetch
 metadata.people.row.fetch.busy = fetching…
 metadata.people.row.fetch.aria = Fetch a photo and links for {name}
+metadata.people.action.delete.aria = Delete {name}
+metadata.people.delete.confirm.title = Delete {name}?
+metadata.people.delete.confirm.body = It goes to the bin, so you can bring it back. The works they are credited on keep those credits; the credits stop naming a record.
+metadata.people.delete.done = {name} is in the bin
 metadata.people.row.fetch.busy.aria = Fetching {name}’s photo and links
 metadata.people.row.refetch.aria = Fetch {name}’s photo and links again
 metadata.people.row.error = {name}: {error}

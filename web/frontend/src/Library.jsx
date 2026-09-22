@@ -14,7 +14,7 @@ import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
-import { PeopleChips, PersonModal, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { PeopleChips, SpeakerChips, chipRows, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { useTextOrder } from './textOrderHost.jsx'
 import { BoardHead, BoardSheet, BoardStrip, columnActions, measureStyle } from './boardHead.jsx'
 import { annDate, groupAnnotations, sortAnnotations } from './boardOrder.js'
@@ -261,14 +261,13 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
   const [coverSize] = useCoverSize('tippani:size:books', 165) // set from Settings
   const mobile = useIsMobileScreen()
   const authors = usePeople('author') // name→metadata, for author-group portraits
-  const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
   // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. A shelf's author credits
   // was handed `setPerson` straight, so it opened the older panel whatever the
   // person's record held — this screen had no panel host at all, which is why the
   // pack's person screen looked absent rather than unreachable. See
   // personOpen.jsx: the id decides which of the two surfaces answers.
   const personStack = usePanelStack()
-  const openPerson = usePersonOpener(personStack, setPerson)
+  const openPerson = usePersonOpener(personStack)
 
   // A search started from a filtered shelf searches the filtered shelf. The
   // board publishes what it is currently showing; the shell reads it at the
@@ -487,14 +486,7 @@ function BookList({ onOpen, onOpenMovie, creditSeparators, dataNonce }) {
       }
       extraModals={
         <>
-          {/* THE HOST FOR THE PERSON'S OWN SCREEN, OUTSIDE the legacy modal's
-              guard. Inside it the host mounts only while the OLD panel is open,
-              so the new one opens into nothing — a dead press, which is the exact
-              failure this whole change is about. */}
           <PanelHost stack={personStack} />
-          {person && (
-            <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} onSaved={authors.reload} />
-          )}
           {editWork != null && (
             <EditWorkModal
               kind="books"

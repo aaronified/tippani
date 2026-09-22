@@ -730,6 +730,18 @@ type characterWorkRef struct {
 	// one ever set is a shape every caller has to branch on to ask a question it
 	// does not have.
 	ArtPath string `json:"art_path,omitempty"`
+	// WHO PLAYED THEM IN THIS ONE, because a character IS their performers as far
+	// as the console is concerned. The owner, asked what a character's row should
+	// carry where a person's carries roles: "medium and performers (full list of
+	// chip with clickable pills, edgemasked)".
+	//
+	// THE ID COMES WITH THE NAME so the pill can be a door. A name alone would be
+	// a chip that looks pressable and is not, or a press that has to search for
+	// the person it is already looking at — and this app's rule is that a control
+	// that goes nowhere is not drawn. Empty for a book, which has no performers,
+	// and empty where a cast row names a performer nobody has a record for.
+	ActorID   int64  `json:"actor_id,omitempty"`
+	ActorName string `json:"actor_name,omitempty"`
 }
 
 // attachCharacterWorks fills every row's WorksIn in one pass over work_cast.
@@ -742,8 +754,10 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 		SELECT wc.character_id, 'book', b.id, b.title, '', '',
 		       MAX(CASE WHEN COALESCE(wc.character_image_path,'') <> ''
 		                  OR COALESCE(wc.character_image_url,'') <> '' THEN 1 ELSE 0 END),
-		       COALESCE(b.cover_path, '')
+		       COALESCE(b.cover_path, ''),
+		       COALESCE(MAX(wc.actor_id), 0), COALESCE(MAX(ab.name), '')
 		  FROM work_cast wc JOIN books b ON b.id = wc.work_id
+		  LEFT JOIN people ab ON ab.id = wc.actor_id AND ab.user_id = wc.user_id
 		 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
 		 GROUP BY wc.character_id, b.id, b.title, b.cover_path
 		UNION ALL
@@ -751,8 +765,10 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 		       COALESCE(m.media_type, ''), COALESCE(m.cast_role, ''),
 		       MAX(CASE WHEN COALESCE(wc.character_image_path,'') <> ''
 		                  OR COALESCE(wc.character_image_url,'') <> '' THEN 1 ELSE 0 END),
-		       COALESCE(m.poster_path, '')
+		       COALESCE(m.poster_path, ''),
+		       COALESCE(MAX(wc.actor_id), 0), COALESCE(MAX(am.name), '')
 		  FROM work_cast wc JOIN movies m ON m.id = wc.work_id
+		  LEFT JOIN people am ON am.id = wc.actor_id AND am.user_id = wc.user_id
 		 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
 		 GROUP BY wc.character_id, m.id, m.title, m.media_type, m.cast_role, m.poster_path
 		 ORDER BY 4 COLLATE NOCASE`, uid, uid)
@@ -770,7 +786,7 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 		// group answers the question the row actually asks: does this appearance
 		// have a face anywhere on it.
 		var hasFace int
-		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title, &ref.MediaType, &ref.CastRole, &hasFace, &ref.ArtPath); err != nil {
+		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title, &ref.MediaType, &ref.CastRole, &hasFace, &ref.ArtPath, &ref.ActorID, &ref.ActorName); err != nil {
 			return err
 		}
 		ref.HasFace = hasFace == 1

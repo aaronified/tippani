@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Fetch on a person's or character's picture now shows what it found.** The block
+  that draws the candidates was only rendered while the Paste-URL box was open, which
+  was true of the old inline link and is not true of the pack's named Fetch button —
+  so on the person panel and both character sheets, pressing Fetch sent the request,
+  got the pictures back, and left the screen exactly as it was.
+
 - **A game lookup falls back to Wikidata when IGDB finds nothing.** It only fell back
   when IGDB was unconfigured, refused, or errored — so a search that worked perfectly
   and simply matched no game fell through every branch, and the reader got an empty
@@ -28,6 +34,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   called from one place in the whole app: the old modal. The panel that replaced it —
   the surface every credit now opens — never called it, so a person reached that way
   was never looked up at all, for any role.
+
+- **A character's row says who played them, and each performer is a door.** The row
+  carries its media and the full list of its performers as pills, so a character is
+  described the way the console describes a person: what it is to your library, then
+  where it came from.
+
+- **The people console's row can delete a person, and the record goes to the bin.**
+  The character console's row has had that verb for a while; this one had none, so a
+  person could only be removed in bulk and only once nothing credited them.
+
+- **The old person modal is gone.** Every credit in the app opens the design pack's
+  person screen, which edits every field the modal did and is reached by id. The
+  modal survived one release as a fallback for a press that could not be served —
+  answering a server it could not reach by opening a screen whose first act was to
+  ask that server again. A press that cannot be served now says so.
 
 - **The people console's rows are rebuilt to the shape they were asked for.** The
   name, then the counts with the person's ROLES as glyphs beside them, then the

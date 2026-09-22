@@ -111,7 +111,7 @@ import {
   PanelHost,
   usePersistedState,
 } from './ui.jsx'
-import { PersonChip, PersonModal } from './people.jsx'
+import { PersonChip } from './people.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { SectionRail } from './sectionRail.jsx'
 
@@ -2211,8 +2211,7 @@ export function NeverAsked() {
   // named an author and did nothing would be the same picture as one that opens
   // them, which is the failure that rule exists to prevent.
   const personStack = usePanelStack()
-  const [person, setPerson] = useState(null)
-  const openPerson = usePersonOpener(personStack, setPerson)
+  const openPerson = usePersonOpener(personStack)
 
   const load = useCallback(async () => {
     const r = await json('GET', '/review/excluded')
@@ -2432,14 +2431,6 @@ export function NeverAsked() {
         )
       })}
       <PanelHost stack={personStack} />
-      {person && (
-        <PersonModal
-          kind={person.kind}
-          name={person.name}
-          onClose={() => setPerson(null)}
-          onSaved={() => setPerson(null)}
-        />
-      )}
     </div>
   )
 }

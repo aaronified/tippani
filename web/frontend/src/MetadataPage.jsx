@@ -5,7 +5,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconFetch, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconFetch, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
 import { personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
@@ -643,7 +643,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
                   to be up front." */}
               <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
               {/* Beside the people list and never inside it — see CharactersConsole. */}
-              <CharactersConsole rows={chars} onReload={loadChars} />
+              <CharactersConsole rows={chars} onReload={loadChars} onOpenWork={(w) => (w.kind === 'movie' ? onOpenMovie : onOpenBook)?.(w.id)} />
             </>
           )}
           </div>
@@ -2270,8 +2270,39 @@ const MAX_ROW_WORK_PILLS = 6
 // exactly that. What it replaces is "3 works · 1 of 3 with a face chosen": a
 // sentence about a sub-count, written the long way round, where the shape of the
 // answer was wanted.
-function CharacterRow({ c, first, onOpen, onMerge, onDelete }) {
+// THE MEDIA A CHARACTER TURNS UP IN, as glyphs, one per distinct medium. The
+// owner, asked what a character's row should carry where a person's carries
+// roles: "medium and performers (full list of chip with clickable pills,
+// edgemasked)."
+//
+// `kind` IS THE MEDIUM AND `media_type` IS THE SHAPE OF IT. A row's appearances
+// are books or movies, and a movie row may be a film, a show or a game — which is
+// a distinction the catalogue already draws and the reason a clapper board is not
+// enough on its own. A character in two films draws ONE clapper; a character in a
+// novel and its adaptation draws two glyphs, which is the fact worth seeing.
+const CHARACTER_MEDIA = {
+  book: [IconBooks, 'unit.book'],
+  movie: [IconReel, 'unit.film'],
+  game: [IconNavCatalogue, 'unit.game'],
+}
+const characterMedia = (worksIn) => {
+  const seen = new Map()
+  for (const w of worksIn || []) {
+    const key = w.kind === 'movie' && w.media_type === 'game' ? 'game' : w.kind
+    if (CHARACTER_MEDIA[key] && !seen.has(key)) seen.set(key, CHARACTER_MEDIA[key])
+  }
+  return [...seen.entries()]
+}
+
+function CharacterRow({ c, first, onOpen, onMerge, onDelete, onWork = null, onPerson = null }) {
   const works = c.works || 0
+  const media = characterMedia(c.works_in)
+  // ONE PILL PER PERFORMER, not per appearance: an actor who plays a character in
+  // four films is one person, and four identical pills would be the row counting
+  // appearances in a place that is naming people.
+  const performers = [...new Map((c.works_in || [])
+    .filter((w) => w.actor_id && w.actor_name)
+    .map((w) => [w.actor_id, { id: w.actor_id, name: w.actor_name }])).values()]
   return (
     <RecordRow
       first={first}
@@ -2281,13 +2312,56 @@ function CharacterRow({ c, first, onOpen, onMerge, onDelete }) {
       /* ZERO AND ZERO IS STILL THE ANSWER, so the counts draw whatever they are:
          "0 works, 0 quotes" is the finding on a character nobody points at, and
          it is the finding the filter row's own pills are counting. */
-      sub={<RowCounts
-        works={works}
-        quotes={c.quotes || 0}
-        worksLabel={t('metadata.row.works.label')}
-        quotesLabel={t('metadata.row.quotes.label')}
-        pills={(c.works_in || []).slice(0, MAX_ROW_WORK_PILLS).map((w) => ({ key: workRefKey(w), title: w.title }))}
-      />}
+      /* THE SAME TWO LINES THE PERSON ROW DRAWS, with the facts a character has
+         instead of the ones a person has. "Characters need to be redesigned like
+         this as well" — and the repo's own directive says why the SHAPE must
+         match even though the contents do not: two lists of records, one form. */
+      sub={<>
+        <span className="record-row-line">
+          <RowCounts
+            works={works}
+            quotes={c.quotes || 0}
+            worksLabel={t('metadata.row.works.label')}
+            quotesLabel={t('metadata.row.quotes.label')}
+          />
+          {media.length > 0 && (
+            <span className="row-role-marks">
+              {media.map(([key, [Glyph, word]]) => (
+                <Tooltip key={key} label={t(word, { count: 1 })}>
+                  <span className="row-role-mark" role="img" aria-label={t(word, { count: 1 })}>
+                    <Glyph size={15} />
+                  </span>
+                </Tooltip>
+              ))}
+            </span>
+          )}
+        </span>
+        <span className="record-row-line">
+          {performers.length > 0 && (
+            <Scroller axis="x" className="row-work-pills">
+              {performers.map((a) => (
+                /* A PERFORMER PILL IS A DOOR TO THE PERSON, which is what makes it
+                   worth being a pill rather than a word: a character and the people
+                   who played them are two records, and this row is the only place in
+                   the app where the pair is drawn together. A performer the library
+                   has no record for is not drawn at all — see actor_id on the wire. */
+                <button
+                  key={a.id}
+                  type="button"
+                  className="tp-chip work-pill tactile"
+                  onClick={() => onPerson?.(a)}
+                >
+                  <span className="work-pill-title">{a.name}</span>
+                </button>
+              ))}
+            </Scroller>
+          )}
+          <WorkPills
+            works={(c.works_in || []).slice(0, MAX_ROW_WORK_PILLS)}
+            onOpen={onWork}
+          />
+        </span>
+      </>}
       actions={[
         {
           key: 'merge',
@@ -2326,7 +2400,7 @@ function CharacterRow({ c, first, onOpen, onMerge, onDelete }) {
 // the reader made and has not paired yet, or one whose last cast row went — and
 // both are things only this list can show, because a character with no works
 // appears on no work's page by definition.
-export function CharactersConsole({ rows = null, onReload = null }) {
+export function CharactersConsole({ rows = null, onReload = null, onOpenWork = null }) {
   const mobile = useIsMobileScreen()
   const [own, setOwn] = useState(null)
   const [q, setQ] = useState('')
@@ -2507,6 +2581,15 @@ export function CharactersConsole({ rows = null, onReload = null }) {
                 onOpen={() => stack.open(characterPanel(stack, { id: c.id, name: c.name }))}
                 onMerge={() => setMerging(c)}
                 onDelete={() => remove(c)}
+                /* THE SAME TWO DOORS THE PERSON ROW OPENS, which is the point of
+                   the pair being one shape: a work pill goes to that work's
+                   details, a performer pill goes to that person's record. */
+                onWork={(w) => stack.open(workDetailsPanel(stack, {
+                  kind: w.kind,
+                  item: { id: w.id, title: w.title },
+                  onGoToWork: onOpenWork ? () => onOpenWork(w) : null,
+                }))}
+                onPerson={(a) => stack.open(personPanel(stack, { id: a.id, name: a.name }))}
               />
             ))}
           </div>
@@ -2753,6 +2836,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
   // {kind, name} captured at click time, for the portrait editor.
   const [face, setFace] = useState(null) // the portrait being shown full screen
   const stack = usePanelStack()
+  const { ask, confirmDialog } = useConfirm()
 
   // HANDED IN OR FETCHED, decided by the caller — the same arrangement the
   // character console has and for the same reason: the metadata page prints this
@@ -2769,6 +2853,30 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
     if (owned) load()
   }, [owned, load])
   const rows = owned ? own : records
+
+  // DELETE GOES TO THE BIN — the same promise the character console's row-level
+  // delete makes, and for the same reason it can be offered at all:
+  // `handleDeletePerson` calls `binRecord` before the row goes, so the confirm can
+  // say there is a way back instead of asking the reader to be sure.
+  //
+  // WHAT IT DOES NOT TAKE is worth the confirm's second sentence. A person is a
+  // record ABOUT a credit, not the credit itself: the books and films keep their
+  // author and cast text, and what is lost is the photo, the bio, the dates and
+  // the links. A reader who reads "delete" as "unwrite them from twelve works"
+  // will not press it, and one who presses it expecting that gets a surprise the
+  // bin cannot undo the shape of.
+  const remove = async (p) => {
+    if (!(await ask(t('metadata.people.delete.confirm.title', { name: p.name }), {
+      body: t('metadata.people.delete.confirm.body'),
+      confirmLabel: t('common.action.delete.label'),
+      danger: true,
+      reversible: true,
+    }))) return
+    const r = await json('DELETE', `/people/${p.id}`)
+    if (!r.ok) return setErr(errText(r))
+    toast(t('metadata.people.delete.done', { name: p.name }))
+    load()
+  }
 
   const inRole = (p) => role === 'all' || (p.kinds || []).includes(role)
   // ROLE AND SEARCH FIRST, THE ISSUE PILL LAST — see CharactersConsole: the pills
@@ -2893,6 +3001,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
 
   return (
     <section className="space-y-3">
+      {confirmDialog}
       {/* THE SECTION IS THE HEADING — see CharactersConsole. */}
       <ConsoleFilterRow
         count={shown.length}
@@ -3027,6 +3136,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
                 onPortrait={p.image_path ? () => setFace({ src: personImgURL(p.image_path), title: p.name }) : null}
                 onSearch={onSearch}
                 onFetch={() => fetchRow(p)}
+                onDelete={() => remove(p)}
                 /* A PILL OPENS THE WORK'S DETAILS, with a way out to the work
                    itself in the panel's top bar — the owner's spec for this row.
                    The seed is what the pill already carries; WorkDetails loads
@@ -3065,7 +3175,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
 // portrait exists and shows neither it nor a way to change it; a list of ninety
 // names is where a face is worth most, because it is the fastest thing in a row
 // to recognise.
-function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, onWork = null, first = false }) {
+function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, onDelete, onWork = null, first = false }) {
   const face = p.image_path ? personImgURL(p.image_path) : ''
   const roles = (p.kinds || []).map((k) => [k, t(PEOPLE_ROLE_NOUN[k] || 'unit.person', { count: 1 })])
   const fetched = Object.keys(parseLinks(p.links).known).length > 0 || !!p.image_path
@@ -3191,16 +3301,38 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, onWork = nu
       </>}
       chips={[]}
       chipsEmpty={null}
-      actions={[{
-        key: 'fetch',
-        icon: <IconFetch />,
-        /* ONE glyph for both words. `fetch` and `refetch` are the same act — go and
-           get this person's photo and links — and the label flips only because the
-           row already has some. Two drawings would say the acts differ. */
-        ariaLabel: fetchName,
-        tooltip: fetchLabel,
-        onClick: onFetch,
-      }]}
+      /* THE SAME TWO-VERB TAIL THE CHARACTER ROW HAS, and the delete half is here
+         because retiring the old modal took the app's only way to delete a person
+         with it. `DELETE /people/{id}` had exactly one caller in the whole app and
+         it was inside `PersonModal`; every credit in the app now opens the pack's
+         panel instead, which edits every field and deletes nothing. So a record
+         the reader could remove last release became one they could only prune in
+         bulk, and only if it had no credits left.
+
+         "similar things should act similarly" decides where it goes rather than
+         what it is: the character console draws merge and delete at the end of its
+         row, this list is the same list of the other table, and a delete that
+         lives on one and not the other is the pair of consoles disagreeing about
+         what a record row is. */
+      actions={[
+        {
+          key: 'fetch',
+          icon: <IconFetch />,
+          /* ONE glyph for both words. `fetch` and `refetch` are the same act — go and
+             get this person's photo and links — and the label flips only because the
+             row already has some. Two drawings would say the acts differ. */
+          ariaLabel: fetchName,
+          tooltip: fetchLabel,
+          onClick: onFetch,
+        },
+        {
+          key: 'delete',
+          icon: <IconDelete />,
+          danger: true,
+          ariaLabel: t('metadata.people.action.delete.aria', { name: p.name }),
+          onClick: onDelete,
+        },
+      ]}
     />
   )
 }

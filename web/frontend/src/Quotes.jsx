@@ -27,7 +27,7 @@ import { QUOTE_KINDS, quoteKindLabel, quoteKindMeta, quoteKindOptions } from './
 import { attributionParts } from './attribution.js'
 import { AnnotationCard, fmtDate } from './Library.jsx'
 import { TextOrderScope } from './textOrderHost.jsx'
-import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonModal, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CreditFaces, DEFAULT_CREDIT_SEPS, PersonName, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { ShareDialog, copyQuote, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { useSelection } from './selection.jsx'
@@ -881,15 +881,14 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
   // share image — the same enrichment authors and actors get, now that
   // `speaker` is a people kind. reload matters: saving a portrait in the panel
   // has to repaint the chip behind it, the way Library reloads its authors.
-  const { map: speakerMap, reload: reloadSpeakers } = usePeople('speaker')
-  const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
+  const { map: speakerMap } = usePeople('speaker')
   // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. A standalone quote's speaker
   // was handed `setPerson` straight, so it opened the older panel whatever the
   // person's record held — this screen had no panel host at all, which is why the
   // pack's person screen looked absent rather than unreachable. See
   // personOpen.jsx: the id decides which of the two surfaces answers.
   const personStack = usePanelStack()
-  const openPerson = usePersonOpener(personStack, setPerson)
+  const openPerson = usePersonOpener(personStack)
   const seps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
   const mobile = useIsMobileScreen()
   const columns = useColumnsAt(QUOTE_COLUMNS)
@@ -1281,19 +1280,7 @@ function BoardQuotes({ boardId, boards, reloadBoards, creditSeparators, onClose 
               onClose={() => setShareFor(null)}
             />
           )}
-          {/* THE HOST FOR THE PERSON'S OWN SCREEN, OUTSIDE the legacy modal's
-              guard. Inside it the host mounts only while the OLD panel is open,
-              so the new one opens into nothing — a dead press, which is the exact
-              failure this whole change is about. */}
           <PanelHost stack={personStack} />
-          {person && (
-            <PersonModal
-              kind={person.kind}
-              name={person.name}
-              onClose={() => setPerson(null)}
-              onSaved={reloadSpeakers}
-            />
-          )}
         </>
       }
     >

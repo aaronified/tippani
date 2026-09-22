@@ -4568,6 +4568,7 @@ error.switch.account = অ্যাকাউন্ট বদলানো গে�
 error.reindex.failed = খোঁজের ইনডেক্স আবার বানানো গেল না
 error.reset.failed = ডেটাবেস মোছা গেল না
 error.load.users = ইউজারদের তালিকা আনা গেল না
+error.open.person = এই ব্যক্তিকে খোলা গেল না
 error.add.user = ইউজার যোগ করা গেল না
 error.save.role = অ্যাডমিনের ভার বদলানো গেল না
 error.delete.user = ইউজার মোছা গেল না
@@ -4590,32 +4591,15 @@ error.delete.user = ইউজার মোছা গেল না
 people.lifespan.range = {born} – {died}
 people.lifespan.died = মৃ. {died}
 
-people.photo.zoom.tip = ছবিটা পুরো স্ক্রিনে দেখুন
-people.photo.zoom.aria = {name} — ছবি পুরো স্ক্রিনে দেখুন
-people.links.heading = তথ্যসূত্রের পাতা
-people.source.via = সূত্র: {source}
-people.state.nothing-saved = এখনও কিছু রাখা হয়নি
-people.add-details = খুঁটিনাটি যোগ করুন
-people.links.fetching = তথ্যসূত্রের পাতা খোঁজা হচ্ছে…
-people.links.refetch = লিংক আবার আনুন
 
 # The edit form. Bio and Links reuse common.field.*; these are the ones this
 # form words for itself.
-people.form.photo.remove = ছবি সরান
 people.form.founded.label = প্রতিষ্ঠা
 people.form.closed.label = বন্ধ
-people.form.born.placeholder = যেমন 1982
-people.form.died.placeholder = যেমন 2001
-people.form.closed.placeholder = যেমন 2011
-people.form.photo-url.label = ছবির URL
-people.form.logo-url.label = লোগোর URL
 people.form.image-search = ছবি খুঁজুন
 # The strip of candidates the search comes back with, when this install has a
 # picture source configured. Without one the button opens a web search in a tab
 # instead, exactly as it always did, and none of these three are shown.
-people.form.image-pick.prose = একটা বেছে নিন, বা নিচে ঠিকানা বসান
-people.form.image-pick.none = কিছুই এল না — শুধু নামটা দিয়ে দেখুন, বা নিচে ঠিকানা বসান
-people.form.image-pick.use = {source} থেকে এই ছবিটা নিন
 # The same strip on a cast row, where the picture is of a ROLE — an actor in
 # costume — rather than of a person. Only shown when a picture source is
 # configured; without one the button opens a web search in a tab as before.
@@ -4626,33 +4610,18 @@ cast.picture.pick.none = কিছুই এল না — অভিনেতা
 cast.picture.tried.row.one = {source}: {n}টি ছবি
 cast.picture.tried.row.other = {source}: {n}টি ছবি
 cast.picture.pick.use = {source} থেকে এই ছবিটা নিন
-people.form.image-url.placeholder = https://… ছবির লিংক বসান
 # Two lines of example, joined by the code — the file format is one value per
 # line, so a two-line placeholder is two keys. URLs, so unchanged in any
 # language.
-people.form.links.placeholder.1 = https://en.wikipedia.org/wiki/…
-people.form.links.placeholder.2 = https://openlibrary.org/authors/…
-people.form.links.hint = প্রতি লাইনে একটা লিংক — চেনা সাইট (Wikipedia, Open Library, IMDb, TMDB, TheTVDB) নিজে থেকেই নাম পায়; বাকিগুলো যেমন আছে তেমনই দেখায়।
 
 # The library-wide rename: the fix for two transliterations of one person.
-people.rename.label = গোটা গ্রন্থাগার জুড়ে নাম বদলান
-people.rename.action = সব জায়গায় বদলান
-people.rename.busy = বদলানো হচ্ছে…
 # {noun} is the plural this person is counted in, {entity} the singular row that
 # carries the credit — both from unit.*.
 # bn: {noun} and {entity} arrive from unit.* and could be any of six nouns, so the holes stay bare (§5.4).
-people.rename.confirm = সব {noun} জুড়ে “{from}” বদলে “{to}” করবেন? এই নাম যেখানে যেখানে আছে — প্রতিটা {entity} — সবই বদলে যাবে।
 # Two keys rather than one with an it/them switch in the code: English grammar
 # living in a ternary is exactly what a locale file is for.
-people.rename.hint.person = এই নাম যে {entity}-গুলোয় আছে, সবগুলোয় বদলে দেয়, আর রাখা খুঁটিনাটি এক করে দেয় — দুটো বানান মেলাতে কাজে লাগে।
-people.rename.hint.org = এই নাম যে {entity}-গুলোয় আছে, সবগুলোয় বদলে দেয়, আর রাখা খুঁটিনাটি এক করে দেয় — দুটো বানান মেলাতে কাজে লাগে।
 
-people.delete.confirm = “{name}”-এর জন্য রাখা {kind} মেটাডেটা সরিয়ে দেবেন?
 
-error.validate.born-date = জন্ম: সাল, YYYY-MM বা YYYY-MM-DD আকারে লিখুন
-error.validate.died-date = মৃত্যু: সাল, YYYY-MM বা YYYY-MM-DD আকারে লিখুন
-error.lookup.none = এই নামে কোনও তথ্যসূত্রের পাতা পাওয়া গেল না
-error.save.links = লিংক সেভ করা গেল না
 
 # ---------------------------------------------------------------------------
 # COVERS AND POSTERS — CoverPicker.jsx. The picker under every work's image
@@ -5311,6 +5280,10 @@ metadata.people.row.fetch.label = আনুন
 metadata.people.row.refetch.label = আবার আনুন
 metadata.people.row.fetch.busy = আনা হচ্ছে…
 metadata.people.row.fetch.aria = {name}-এর ছবি ও লিংক আনুন
+metadata.people.action.delete.aria = {name}-কে মুছুন
+metadata.people.delete.confirm.title = {name}-কে মুছবেন?
+metadata.people.delete.confirm.body = এটি বিনে যাবে, তাই আবার ফিরিয়ে আনা যাবে। যেসব কাজে তাঁর কৃতিত্ব আছে সেগুলি কৃতিত্ব রাখে; কৃতিত্বগুলি আর কোনো রেকর্ডের নাম বলে না।
+metadata.people.delete.done = {name} বিনে আছে
 metadata.people.row.fetch.busy.aria = {name}-এর ছবি ও লিংক আনা হচ্ছে
 metadata.people.row.refetch.aria = {name}-এর ছবি ও লিংক আবার আনুন
 metadata.people.row.error = {name}: {error}

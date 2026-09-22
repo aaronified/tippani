@@ -14,7 +14,7 @@ import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, w
 import { SelectionBar } from './SelectionBar.jsx'
 import { useCharacterArt } from './cast.jsx'
 import { LanguageCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
-import { CreditFaces, PersonModal, PersonName, SpeakerChips, chipRows, creditsNotOnChips, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
+import { CreditFaces, PersonName, SpeakerChips, chipRows, creditsNotOnChips, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
 import {
   GroupHeading,
   WorkCard,
@@ -1210,14 +1210,13 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
   const [items, setItems] = useState(null)
   const [tags, setTags] = useState([]) // tag objects: {id, name, color, style, …}
   const [shareTarget, setShareTarget] = useState(null) // dialogue being shared
-  const [person, setPerson] = useState(null) // actor metadata panel ({ kind, name })
   // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. A film's PLAYED BY line and its director
   // was handed `setPerson` straight, so it opened the older panel whatever the
   // person's record held — this screen had no panel host at all, which is why the
   // pack's person screen looked absent rather than unreachable. See
   // personOpen.jsx: the id decides which of the two surfaces answers.
   const personStack = usePanelStack()
-  const openPerson = usePersonOpener(personStack, setPerson)
+  const openPerson = usePersonOpener(personStack)
   const [tag, setTag] = useState('') // filter by NAME, '' = all
   const [fav, setFav] = useState(false)
   const [color, setColor] = useState('') // '' = all colours
@@ -1641,7 +1640,6 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
           above opens a panel into nothing, which is a dead press — the exact
           failure this whole change is about. */}
       <PanelHost stack={personStack} />
-      {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </div>
   )
 }

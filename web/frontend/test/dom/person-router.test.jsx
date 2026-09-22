@@ -1,15 +1,22 @@
 // ONE DOOR TO A PERSON, and the two halves of the rule that broke it.
 //
-// THE BUG THIS PINS. Two surfaces name a person: `personPanel` is reached BY ID
-// and is the design pack's screen; `PersonModal` is reached by kind+name and is
-// the only surface that can CREATE a `people` row for a credited name nobody has
-// saved. The routing between them lived in ONE screen's closure, and eighteen
+// THE BUG THIS PINS. Two surfaces named a person: `personPanel` is reached BY ID
+// and is the design pack's screen; `PersonModal` was reached by kind+name and was
+// the only surface that could CREATE a `people` row for a credited name nobody
+// had saved. The routing between them lived in ONE screen's closure, and eighteen
 // other call sites handed their raw `setPerson` straight to the credit — so from
 // twelve other places a name opened the older panel however complete its record
 // was, and the pack's screen looked absent rather than unreachable.
 //
+// THERE IS ONE SURFACE NOW. `PersonModal` is deleted and `POST /people/ensure`
+// files the row a credit never had, so every press lands on the pack's screen and
+// the two cases that used to assert a fallback assert a REFUSAL instead: a press
+// that cannot be served says so and opens nothing. That is the stronger promise —
+// a second person screen nobody looked at was never a good answer to a server
+// that could not be reached, and its own first act was to ask that server again.
+//
 // WHY BOTH TESTS. The first exercises the router: given a record it opens the
-// panel, given none it opens the modal. The second is an inventory over every
+// panel, given none it scaffolds one. The second is an inventory over every
 // screen, because the router being correct is worth nothing if a screen bypasses
 // it — which is precisely what happened, and what no behavioural test of the
 // router alone could have caught.
@@ -29,9 +36,15 @@ vi.mock('../../src/identity.jsx', () => ({
   personPanel: (_stack, arg) => { asked.push(arg); return { title: arg.name, render: () => null } },
 }))
 
-// THE SCAFFOLD THE ROUTER NOW CALLS FOR A CREDIT WITH NO RECORD. `SCAFFOLD` lets
-// one case make it fail, which is the only remaining route to the older surface
-// from a screen that HAS a panel stack.
+// THE SCAFFOLD THE ROUTER CALLS FOR A CREDIT WITH NO RECORD. `SCAFFOLD` lets one
+// case make it fail, which is the press that cannot be served.
+//
+// AND THE TOAST IS WHAT A REFUSED PRESS LEAVES BEHIND, so it is what those cases
+// read. `toast` writes to a sink a host component registers, and a bare render
+// mounts no host — so with the real function a refused press is indistinguishable
+// from a press that did nothing at all, which is the exact difference these two
+// cases exist to hold. Only `toast` is replaced; everything else in ui.jsx is the
+// real module.
 let SENT = []
 let SCAFFOLD = { ok: true, data: { id: 99, name: 'Herman Melville' } }
 vi.mock('../../src/api.js', async (orig) => ({
@@ -43,6 +56,12 @@ vi.mock('../../src/api.js', async (orig) => ({
   },
 }))
 
+const SAID = []
+vi.mock('../../src/ui.jsx', async (orig) => ({
+  ...(await orig()),
+  toast: (msg) => SAID.push(msg),
+}))
+
 // STATE, NOT A RENDER-LOCAL ARRAY. The first version of this harness pushed
 // into arrays declared in the render body: nothing re-rendered, both outputs
 // stayed empty, and the two router cases failed for the harness's reason rather
@@ -50,17 +69,14 @@ vi.mock('../../src/api.js', async (orig) => ({
 // passing for the wrong reason.
 function Harness({ person }) {
   const [opened, setOpened] = useState([])
-  const [legacy, setLegacy] = useState([])
   const stack = useMemo(() => ({ open: (p) => setOpened((o) => o.concat(p)) }), [])
-  const toLegacy = useCallback((p) => setLegacy((l) => l.concat(p)), [])
-  const open = usePersonOpener(stack, toLegacy)
+  const open = usePersonOpener(stack)
   return (
     <>
       <button type="button" onClick={() => open({ kind: 'author', name: 'Herman Melville', person })}>
         press the credit
       </button>
       <output data-testid="opened">{opened.map((p) => p.title).join(',')}</output>
-      <output data-testid="legacy">{legacy.map((p) => p.name).join(',')}</output>
     </>
   )
 }
@@ -76,7 +92,7 @@ describe('the person router', () => {
     // which makes the open a microtask later than the press.
     await waitFor(() => expect(screen.getByTestId('opened').textContent).toBe('Herman Melville'))
     expect(asked[0]).toMatchObject({ id: 42 })
-    expect(screen.getByTestId('legacy').textContent).toBe('')
+    expect(SAID, 'a press that worked said something went wrong').toEqual([])
   })
 
   // THE CASE THAT USED TO ASSERT THE OPPOSITE, and it was the whole of a report:
@@ -102,43 +118,49 @@ describe('the person router', () => {
     expect(put.body).toMatchObject({ kind: 'author', name: 'Herman Melville' })
     expect(asked[0], 'the panel was opened by something other than the scaffolded id')
       .toMatchObject({ id: 99 })
-    expect(screen.getByTestId('legacy').textContent).toBe('')
+    expect(SAID, 'a press that worked said something went wrong').toEqual([])
   })
 
-  // AND THE OLDER SURFACE IS STILL THERE FOR THE PRESS THAT CANNOT BE SERVED.
-  // A scaffold that fails must not be a dead press, which is the rule the
-  // no-stack case below already stands for.
-  it('falls back to the older surface when the record cannot be written', async () => {
-    SCAFFOLD = { ok: false, error: 'nope' }
+  // THE PRESS THAT CANNOT BE SERVED SAYS SO, AND OPENS NOTHING.
+  //
+  // This case asserted the opposite until the older surface was deleted: a failed
+  // scaffold used to open it. That was never the safe answer it looked like — the
+  // scaffold fails because the server could not be reached or refused the kind,
+  // and the surface being opened would have asked the same server for the same
+  // person on mount. A refusal the reader can read beats a second screen that
+  // fails more slowly.
+  it('says so and opens nothing when the record cannot be written', async () => {
+    SAID.length = 0
+    // THE SERVER'S SHAPE, NOT A SHORTHAND: `errText` reads `data.error`, so a
+    // fixture putting the message at the top level tests the fallback instead of
+    // the thing this case is about.
+    SCAFFOLD = { ok: false, data: { error: 'no such kind' } }
     const user = userEvent.setup()
     render(<Harness person={undefined} />)
     await user.click(screen.getByText('press the credit'))
-    await waitFor(() => expect(screen.getByTestId('legacy').textContent).toBe('Herman Melville'))
-    expect(screen.getByTestId('opened').textContent).toBe('')
+    await waitFor(() => expect(SAID.length).toBe(1))
+    // THE SERVER'S OWN WORDS WHERE IT GAVE ANY — `ensure` names a bad kind and a
+    // blank name, and those are the two answers a reader can act on.
+    expect(SAID[0]).toBe('no such kind')
+    expect(screen.getByTestId('opened').textContent, 'a press that could not be served opened a panel anyway').toBe('')
     SCAFFOLD = { ok: true, data: { id: 99, name: 'Herman Melville' } }
   })
 
-  it('falls back rather than throwing when a screen has no panel stack', async () => {
-    // Not the goal — a screen that draws credits should mount a PanelHost — but a
-    // missing stack must not be a dead press, which is what the whole change is
-    // about.
+  it('says so rather than throwing when a screen has no panel stack', async () => {
+    // Not the goal — a screen that draws credits should mount a PanelHost, and all
+    // eight of the app's call sites do — but a missing stack must not throw over
+    // the screen. This is the shape of a ninth caller's first day.
+    SAID.length = 0
     const Bare = () => {
-      const [seen, setSeen] = useState('')
-      const open = usePersonOpener(null, (p) => setSeen(p.name))
-      return (
-        <>
-          <button type="button" onClick={() => open({ kind: 'author', name: 'X', person: { id: 7 } })}>go</button>
-          <output data-testid="bare">{seen}</output>
-        </>
-      )
+      const open = usePersonOpener(null)
+      return <button type="button" onClick={() => open({ kind: 'author', name: 'X', person: { id: 7 } })}>go</button>
     }
     const user = userEvent.setup()
     render(<Bare />)
     await user.click(screen.getByText('go'))
-    // Even WITH a record: no stack means no panel to open into, so the older
-    // surface answers rather than the press dying. It is now the ONLY route into
-    // that surface from a press, together with a scaffold that fails.
-    await waitFor(() => expect(screen.getByTestId('bare').textContent).toBe('X'))
+    // Even WITH a record: no stack means no panel to open into, so the press
+    // reports rather than dying silently.
+    await waitFor(() => expect(SAID.length).toBe(1))
   })
 })
 

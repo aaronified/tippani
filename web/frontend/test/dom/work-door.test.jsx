@@ -20,8 +20,8 @@
 //   broken.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW: the paragraph above, plus that the screens
-// which open a person write `usePersonOpener(stack, setPerson)` — the two
-// arguments every one of the app's seven call sites passes today.
+// which open a person write `usePersonOpener(stack)` — the one argument every one
+// of the app's eight call sites passes today.
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -61,12 +61,12 @@ beforeEach(() => {
 })
 afterEach(() => cleanup())
 
-// A SCREEN, WRITTEN THE WAY THE APP'S SCREENS ARE WRITTEN. Two arguments to the
+// A SCREEN, WRITTEN THE WAY THE APP'S SCREENS ARE WRITTEN. One argument to the
 // opener and no mention of a work anywhere: Library, Movies, Quotes, Search,
 // Home, WorkDetail and cast.jsx each say exactly this much.
-function Screen({ onLegacy = () => {} }) {
+function Screen() {
   const stack = usePanelStack()
-  const openPerson = usePersonOpener(stack, onLegacy)
+  const openPerson = usePersonOpener(stack)
   const [done, setDone] = useState(false)
   useEffect(() => {
     if (done) return

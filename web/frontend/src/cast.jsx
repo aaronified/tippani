@@ -29,7 +29,7 @@ import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
 import { Face } from './characterRows.jsx'
 import { usePersonOpener } from './personOpen.jsx'
-import { PersonModal, personImgURL, usePeople, usePortraitFill } from './people.jsx'
+import { personImgURL, usePeople, usePortraitFill } from './people.jsx'
 import {
   ErrorText,
   Field,
@@ -119,14 +119,13 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
   // the only thing the header's ✕ does.
   const [open, setOpen] = useState(true)
   const [adding, setAdding] = useState(false)
-  const [person, setPerson] = useState(null) // the actor whose own panel is open
   // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. The performer behind a cast row
   // was handed `setPerson` straight, so it opened the older panel whatever the
   // person's record held — this screen had no panel host at all, which is why the
   // pack's person screen looked absent rather than unreachable. See
   // personOpen.jsx: the id decides which of the two surfaces answers.
   const personStack = usePanelStack()
-  const openPerson = usePersonOpener(personStack, setPerson)
+  const openPerson = usePersonOpener(personStack)
   // ONLY WHERE THERE IS AN ACTOR TO LOOK UP. This map exists to put a headshot
   // beside a cast row's second column, and a book has no second column — the API
   // refuses one — so asking for a book's people was a request per opening whose
@@ -312,25 +311,7 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
         />
       )}
 
-      {/* THE HOST FOR THE PERSON'S OWN SCREEN, OUTSIDE the legacy modal's
-          guard. Inside it the host mounts only while the OLD panel is open,
-          so the new one opens into nothing — a dead press, which is the exact
-          failure this whole change is about. */}
       <PanelHost stack={personStack} />
-      {person && (
-        <PersonModal
-          kind={person.kind}
-          name={person.name}
-          onClose={() => setPerson(null)}
-          // NOT setPerson(null). PersonModal fires onSaved from its own
-          // auto-enrichment effect the first time an actor with no stored photo is
-          // opened — not only when somebody presses Save — so closing on it shut
-          // the actor editor the instant it opened, which made "edit … both actor
-          // and character images" unreachable from the section built for it. The
-          // other seven call sites in this app reload and leave the modal alone.
-          onSaved={() => reloadActors()}
-        />
-      )}
     </div>
   )
 }
@@ -430,6 +411,23 @@ export function usePicturePicker({
       return
     }
     setPics(r.data?.images || [])
+    // AND THE BLOCK THAT DRAWS THEM HAS TO BE OPEN, which is the whole of a
+    // defect that shipped on three surfaces.
+    //
+    // The strip lives inside `pictureEditor`, and `pictureEditor` is gated on
+    // `urlOpen`. That was right while the only way to reach `findPicture` was the
+    // INLINE link — which is drawn inside that same block, so pressing it means
+    // the block is already open. The pack's NAMED verb row put a second way in:
+    // `Fetch` sits beside the portrait, outside the block, so pressing it set
+    // `pics` into a container nothing was rendering. The request went out, the
+    // candidates came back, and the screen did not move.
+    //
+    // Reported as "character pages silently fail the fetch images", and the same
+    // press is on the person panel and both character sheets. A control reached
+    // from two places cannot have its result drawn in only one of them — so the
+    // find opens what shows the finding, and the inline path, where it is already
+    // open, is unchanged.
+    setUrlOpen(true)
   }
 
   const faceButton = (

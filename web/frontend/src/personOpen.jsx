@@ -7,10 +7,10 @@
 //   is the screen: every spelling of the name, how it files, when they were born
 //   or the company founded, the links, and every work they are credited on.
 //
-//   `PersonModal` (people.jsx) predates it. It is reached by kind + name, and it
-//   is the only surface that can CREATE a `people` row for a credited name
-//   nobody has saved yet — it fetches a portrait and a bio on open and writes
-//   the row.
+//   `PersonModal` (people.jsx) predated it. It was reached by kind + name, and it
+//   was the only surface that could CREATE a `people` row for a credited name
+//   nobody had saved yet — it fetched a portrait and a bio on open and wrote the
+//   row. It is deleted; see the paragraph below that says what replaced each half.
 //
 // — and the routing between them existed in exactly ONE place, Home's own
 // `openPerson`. Every other screen passed its raw `setPerson` straight to the
@@ -36,10 +36,23 @@
 // because the people had no kind", and that is the whole of it: no row, or a row
 // filed under another role, and `GET /people?kind=` filters by a join.
 //
-// SO THE LEGACY MODAL IS NOW A FALLBACK AND NOTHING ELSE — a screen with no panel
-// stack, or a scaffold that could not be written. It is not deleted here: it is
-// still the surface a reader reaches from its own screens, and retiring the
-// component is a separate change from retiring the ROUTE into it.
+// AND THE LEGACY MODAL IS NOW GONE, which is the second half of that change and
+// the reason this function no longer takes a setter. It survived one release as a
+// fallback for two cases, and neither turned out to be a case: every one of the
+// seven screens that calls this mounts a `PanelHost`, so `!stack` was unreachable,
+// and the other branch was an `ensure` that failed — a server the app could not
+// reach, answered by opening a 640-line surface whose own first act is to fetch
+// from that server. A fallback that needs the thing that just failed is not a
+// fallback; it is a second way to show the same error, in a shape nobody has
+// looked at since the panel replaced it. The press says what went wrong instead.
+//
+// WHAT WENT WITH IT, said out loud because one of them was load-bearing and this
+// is where a reader will come looking: `PersonModal` carried the app's only
+// `DELETE /people/{id}`, so retiring it took the only way to delete one person by
+// hand. That verb is now on the People console's row, beside the character
+// console's — see `PersonRow` in MetadataPage.jsx. Its editing did NOT need
+// replacing: the pack's panel already writes every field it did, through
+// `PUT /people/id/{id}`.
 //
 // WHY THE IMPORT IS DYNAMIC. `identity.jsx` imports `Movies.jsx` (for
 // `movieState`) and `cast.jsx`, so a static import of it here would close a cycle
@@ -48,7 +61,9 @@
 // stays a leaf and every screen can use it. The chunk is the one the panel is
 // about to render anyway.
 import { createContext, useCallback, useContext, useEffect, useRef } from 'react'
-import { json } from './api.js'
+import { errText, json } from './api.js'
+import { t } from './i18n.js'
+import { toast } from './ui.jsx'
 
 // THE SHELL'S DOOR TO A WORK, PROVIDED ONCE INSTEAD OF THREADED SEVEN TIMES.
 //
@@ -119,13 +134,14 @@ export function useSearchDoor(explicit = null) {
   return explicit || provided || null
 }
 
-// usePersonOpener — hand it the screen's panel stack and its legacy-modal setter,
-// get back the one handler every `onOpenPerson` should be given.
+// usePersonOpener — hand it the screen's panel stack, get back the one handler
+// every `onOpenPerson` should be given.
 //
-// `stack` may be null on a screen that has no panel host yet: the opener then
-// always falls to the legacy modal rather than throwing, which is the behaviour
-// that screen already had. It is not the goal — a screen that draws credits
-// should mount a `PanelHost` — but a missing stack must not be a dead press.
+// `stack` may be null on a screen that has no panel host yet. There is nowhere to
+// open a panel into then, so the press says so rather than throwing over the
+// screen — a credit that cannot be opened is a smaller fault than a blank page,
+// and all seven of the app's callers mount a `PanelHost`, so this is the shape of
+// an eighth caller's first day rather than anything a reader meets.
 // `onOpenWork(kind, id)` IS THE THIRD DOOR, and it now comes from `WorkDoor`
 // above rather than from an argument each caller has to remember — see that
 // header for what the argument shape actually cost. A person's screen lists the
@@ -139,7 +155,7 @@ export function useSearchDoor(explicit = null) {
 // PERSON" — so that press pushed a byte-identical copy of the screen you were
 // already on, with a back arrow. The owner's report: "clicking on the work cover
 // brings us to the same exact page, but now with a back breadcrumb".
-export function usePersonOpener(stack, openLegacy, explicitOpenWork = null) {
+export function usePersonOpener(stack, explicitOpenWork = null) {
   // Read here rather than at the seven call sites: see WorkDoor above for what
   // asking each of them to remember cost.
   const onOpenWork = useWorkDoor(explicitOpenWork)
@@ -157,29 +173,28 @@ export function usePersonOpener(stack, openLegacy, explicitOpenWork = null) {
   // while the code still reads as though it were given. The methods inside the
   // object are themselves stable; only the wrapper is new, so the ref costs
   // nothing and the handler becomes what it claims to be.
-  const latest = useRef({ stack, openLegacy, onOpenWork })
-  useEffect(() => { latest.current = { stack, openLegacy, onOpenWork } })
+  const latest = useRef({ stack, onOpenWork })
+  useEffect(() => { latest.current = { stack, onOpenWork } })
   return useCallback(async (p) => {
-    const { stack: s, openLegacy: legacy, onOpenWork: openWork } = latest.current
+    const { stack: s, onOpenWork: openWork } = latest.current
     const name = p?.name
-    // NO STACK IS THE ONE CASE THE SCAFFOLD CANNOT HELP: there is nothing to open
-    // a panel into, so the older surface answers rather than the press dying.
-    if (!s) {
-      legacy({ kind: p?.kind, name })
-      return
-    }
+    // NO STACK, NO PANEL. See the header: an eighth caller that forgot its
+    // `PanelHost` hears about it here rather than in a stack trace.
+    if (!s || !name) return toast(t('error.open.person'))
     let id = p?.person?.id
-    if (!id && name) {
+    if (!id) {
       // THE ROW THE CREDIT NEVER HAD. Written on the press, which is a write on a
       // read gesture and is said out loud in handleEnsurePerson — the modal this
       // replaces did the same and fetched a portrait besides.
       const r = await json('POST', '/people/ensure', { kind: p?.kind, name })
-      if (r.ok) id = r.data?.id
+      // THE SERVER'S OWN WORDS WHERE IT GAVE ANY. `ensure` refuses a kind it does
+      // not know and a blank name by name, and those are the two answers a caller
+      // can actually act on — a generic line here would hide the one useful thing
+      // in the response.
+      if (!r.ok) return toast(errText(r, t('error.open.person')))
+      id = r.data?.id
     }
-    if (!id) {
-      legacy({ kind: p?.kind, name })
-      return
-    }
+    if (!id) return toast(t('error.open.person'))
     const { personPanel } = await import('./identity.jsx')
     s.open(personPanel(s, { id, name, onOpenWork: openWork }))
   }, [])

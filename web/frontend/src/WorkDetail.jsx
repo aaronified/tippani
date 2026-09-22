@@ -43,7 +43,7 @@ import { publishSearchSeed, workSeedChip } from './facets.js'
 import { t } from './i18n.js'
 import { nameFor } from './languages.jsx'
 import { TextOrderScope } from './textOrderHost.jsx'
-import { PersonChip, PersonModal, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { PersonChip, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { usePractice } from './review.jsx'
 import {
   Cover,
@@ -155,13 +155,12 @@ export default function WorkDetail({
     }))
   }
   const [error, setError] = useState('')
-  const [person, setPerson] = useState(null) // a credit's LEGACY metadata panel
   // A CREDIT CHIP OPENS THE PERSON'S OWN SCREEN. It was handed `setPerson`
   // directly, so every author, translator, editor, director and studio on this
   // page opened the older panel however complete their record was — and this
   // screen has had a panel stack since the details panel landed, so the surface
   // was one line away the whole time.
-  const openPerson = usePersonOpener(detailsStack, setPerson)
+  const openPerson = usePersonOpener(detailsStack)
   const [mobileFilter, setMobileFilter] = useState(false)
   // Live unfiltered quote counts, reported up by the board — total, plus how many
   // are favourited / noted / tagged. The total drives the Wishlist tag, so this
@@ -781,7 +780,6 @@ export default function WorkDetail({
       {/* At two columns the stream is inside the frame above; here it is the page
           continuing below the hero, which is what it has always been. */}
       {!wide && streamBlock}
-      {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
       {/* Phone-only route into this screen's help: the sticky bar has no room for
           a "?", so the ⋯ menu opens the same panel the desktop button does. */}
       {practiceDialog}

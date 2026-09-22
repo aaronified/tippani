@@ -38,7 +38,7 @@ import { UtteranceForm, utteranceMeta, utteranceState } from './Quotes.jsx'
 import { ShareDialog, bookShare, copyQuote, movieShare, quoteShare } from './share.jsx'
 import { deleteWithUndo } from './undo.jsx'
 import { BULK_FIELDS, BULK_TAGS, bulkActionsFor } from './actions.jsx'
-import { CharacterFaces, CreditFaces, PersonCredit, PersonModal, PersonPortrait, creditsNotOnChips, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
+import { CharacterFaces, CreditFaces, PersonCredit, PersonPortrait, creditsNotOnChips, parseCreditSeps, splitCredits, usePeople } from './people.jsx'
 import { groupWorks } from './works.jsx'
 import { useStickers } from './stickers.jsx'
 import { categoryVar } from './theme.js'
@@ -571,14 +571,13 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
   const directors = usePeople('director') // name→metadata for director/creator chips
   const actors = usePeople('actor') // name→metadata for actor chips on dialogue hits
   const speakers = usePeople('speaker') // name→metadata for speaker chips on quote hits
-  const [person, setPerson] = useState(null) // { kind, name } open in the metadata panel
   // THE PERSON'S OWN SCREEN, REACHABLE FROM HERE AT LAST. All twelve credit sites on this screen
   // was handed `setPerson` straight, so it opened the older panel whatever the
   // person's record held — this screen had no panel host at all, which is why the
   // pack's person screen looked absent rather than unreachable. See
   // personOpen.jsx: the id decides which of the two surfaces answers.
   const personStack = usePanelStack()
-  const openPerson = usePersonOpener(personStack, setPerson)
+  const openPerson = usePersonOpener(personStack)
   const mobile = useIsMobileScreen()
   const creditSeps = useMemo(() => parseCreditSeps(creditSeparators), [creditSeparators])
 
@@ -1070,23 +1069,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
           onChanged={reload}
         />
       )}
-      {/* THE HOST FOR THE PERSON'S OWN SCREEN, OUTSIDE the legacy modal's
-          guard. Inside it the host mounts only while the OLD panel is open,
-          so the new one opens into nothing — a dead press, which is the exact
-          failure this whole change is about. */}
       <PanelHost stack={personStack} />
-      {person && (
-        <PersonModal
-          kind={person.kind}
-          name={person.name}
-          onClose={() => setPerson(null)}
-          onSaved={() => {
-            authors.reload()
-            directors.reload()
-            actors.reload()
-          }}
-        />
-      )}
     </section>
   )
 }

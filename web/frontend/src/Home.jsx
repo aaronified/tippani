@@ -24,7 +24,6 @@ import { dailyDeck } from './daily.js'
 import {
   CreditFaces,
   PersonCredit,
-  PersonModal,
   PeopleChips,
   SpeakerChips,
   creditsNotOnChips,
@@ -615,13 +614,12 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
   const { map: authorMap } = usePeople('author') // author faces: favourite chips + share payloads
   const { map: actorMap } = usePeople('actor') // actor faces: favourite chips + share payloads
   const { map: speakerMap } = usePeople('speaker') // speaker faces on standalone-quote favourites
-  const [person, setPerson] = useState(null) // {kind, name} open in the LEGACY metadata panel
 
   // A PILL OPENS THE PACK'S PERSON SCREEN, not the panel that predates it — and
   // the routing lives in personOpen.jsx now rather than here. It was written on
   // this screen and used by this screen alone, which is why the pack's person
   // screen was reachable from Home and from nowhere else in the app.
-  const openPerson = usePersonOpener(stack, setPerson)
+  const openPerson = usePersonOpener(stack)
   const seps = parseCreditSeps(user?.preferences?.creditSeparators)
   // "Where you stand" lives in the Daily Quiz card but is fed by BOTH cards —
   // every /review/answer response carries fresh counts, so the row ticks live.
@@ -1012,7 +1010,6 @@ export default function Home({ user, stats, onOpenBook, onOpenMovie, onGoLibrary
           onClose={() => setShareFav(null)}
         />
       )}
-      {person && <PersonModal kind={person.kind} name={person.name} onClose={() => setPerson(null)} />}
     </div>
   )
 }

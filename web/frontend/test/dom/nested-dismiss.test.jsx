@@ -143,7 +143,6 @@ describe('a submenu over a panel', () => {
 // callers gate (FormModal and MobileSheet both register for themselves).
 describe('every dismissible overlay owns a back entry', () => {
   const OVERLAYS = [
-    ['people.jsx', 'PersonModal'],
     ['AddSurface.jsx', 'ManualPopup'],
     ['AddSurface.jsx', 'AddSurface'],
     ['ReverifyReview.jsx', 'ReverifyFlow'],
