@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A card wears its material again, and the eight sets stop looking alike.** Every
+  texture in the app has had a measured scale and a measured strength since the
+  material sets shipped — paper 220px at .10, satin 210px at .07, cotton 300px at
+  .12 — and the rule that drew them on a card threw both away for one size and one
+  opacity. Eight materials rendered identically were eight names for one grey wash:
+  measured over the same card in all eight sets, five of them landed on the same
+  mean to two decimal places across four *different* materials. Each one is drawn
+  at its own scale and its own strength now, so switching set changes what the
+  cards are made of instead of only what colour they are.
+
 - **Three verbs where there was one circular arrow, and eight role marks where there
   were none.** `IconRefresh` sat on fetching from a provider, resetting a
   field and installing a release alike — three questions with one picture between them,

@@ -124,6 +124,25 @@ for (const set of SETS) {
   console.log(`      ${set}: ${JSON.stringify(diag)}`)
   const file = `${opts.out}/${set.toLowerCase().replace(/\s+/g, '-')}.png`
   await card.screenshot({ path: file })
+  // AND THE SAME CARD WITH THE MATERIAL TAKEN OFF. Comparing two sets' cards
+  // directly does not measure the material: the card carries CONTENT, the content
+  // differs between visits, and the first cut of this probe duly reported two
+  // different BEFORE readings for the same commit. The difference between a card
+  // and ITSELF with the tile suppressed is the material's own contribution, and
+  // nothing else in the frame can move it.
+  // THROUGH THE APP'S OWN PROPERTY, not an injected stylesheet: a Content
+  // Security Policy blocks the style tag ("Could not load style"), and the rule
+  // already reads --tile-card, so setting it to `none` on the root turns exactly
+  // the one layer off and nothing else.
+  const prev = await page.evaluate(() => {
+    const v = document.documentElement.style.getPropertyValue('--tile-card')
+    document.documentElement.style.setProperty('--tile-card', 'none')
+    return v
+  })
+  await new Promise((r) => setTimeout(r, 250))
+  await card.screenshot({ path: file.replace('.png', '-bare.png') })
+  await page.evaluate((v) => document.documentElement.style.setProperty('--tile-card', v), prev)
+  await new Promise((r) => setTimeout(r, 250))
   console.log(`ok    ${set} -> ${file}`)
   rows.push({ set, file })
   if (!(await pressByWords('Theme'))) { console.log('MISS  could not return to Theme'); break }

@@ -839,6 +839,21 @@ function apply() {
     // material's name. --surf-* above is the full composite for the same slot and
     // the surfaces move onto it one at a time.
     root.style.setProperty(`--tile-${slot}`, `var(--tile-${TEXTILES[names[i]][0]})`)
+    // AND THE TWO NUMBERS THAT GO WITH IT, which the slot's tile was drawn
+    // WITHOUT until now. Every texture in TEXTILES carries a measured scale and a
+    // measured strength — paper 220px at .10, satin 210px at .07, cotton 300px at
+    // .12 — and the rules that drew them threw both away for one --grain-card:
+    // 300px at one opacity: .16. Four different materials rendered through one
+    // size and one strength are four names for one grey wash, which is what the
+    // owner reported: "they now look identical in all material sets".
+    //
+    // Measured, the same Review card in eight sets: office, school, atelier,
+    // bindery and quarry all landed at mean 223.59 with standard deviations
+    // inside 0.24 of each other, over FOUR different card materials. See
+    // scripts/screenshots/cardmaterial.mjs, which is the probe that found it.
+    const [, big, , strength] = TEXTILES[names[i]]
+    root.style.setProperty(`--tile-${slot}-size`, `${big}px`)
+    root.style.setProperty(`--tile-${slot}-strength`, String(strength))
   }
   // THE SELECTION FILLS GET THE SHELL SLOT'S STRENGTH, NOT ITS TILE ALONE.
   // They composite --tile-shell directly and used to do it at full weight, which

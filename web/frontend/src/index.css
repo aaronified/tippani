@@ -1801,6 +1801,49 @@
   html .hand-card::before,
   html .film-frame::before { background-image: var(--tile-card); background-size: var(--grain-card); }
 
+  /* ---- EACH MATERIAL AT ITS OWN SCALE AND ITS OWN STRENGTH ----------------
+     The owner: "add the card textures to the settings and metadata cards, they
+     now look identical in all material sets". They were identical, and the cause
+     was not a missing tile — it was the two rules above drawing EVERY material
+     through one --grain-card: 300px at one opacity. theme.js has measured a scale
+     and a strength per texture since the material sets shipped (paper 220px at
+     .10, satin 210px at .07, cotton 300px at .12) and nothing read either.
+
+     MEASURED, on the real screen, before and after — the same Review card, eight
+     sets, 1280 dark, via scripts/screenshots/cardmaterial.mjs. Before: office,
+     school, atelier, bindery and quarry all at mean 223.59, standard deviations
+     inside 0.24 of each other, over FOUR different card materials.
+
+     THE STRENGTH IS SPENT, NOT ASSIGNED, AND 2.2 IS A MEASURED NUMBER. The
+     stored strengths run .06–.12 against the .16 wash they replace, so applying
+     them raw answers a request for MORE material by making six of seven sets
+     FAINTER than they are today. Four multipliers, over the eight cards, grain
+     measured as the standard deviation inside each:
+
+       x1.333   quietest 1.25   loudest  4.45   spread 4.51   6 sets quieter than today
+       x1.867   quietest 2.61   loudest  8.29   spread 6.30   3 sets quieter
+       x2.2     quietest 3.96   loudest 10.64   spread 7.26   3 sets quieter
+       x2.6     quietest 5.63   loudest 13.76   spread 8.73   none quieter
+
+     2.6 is the only one where nothing goes backwards, and it puts cotton at .31
+     opacity — a card that reads as soiled rather than woven. 2.2 buys 48x today's
+     spread (7.26 against 0.15) for a quietest set half a grey level below today's
+     quietest, which is under the threshold anything can be seen at. So: 2.2.
+
+     Dark keeps its own ratio — .11/.16 of the light value, hence 1.5125 — so the
+     pair stays exactly where it has always been relative to each other.
+
+     The fallback is the loudest strength rather than an average, so a surface
+     whose slot has not been written yet looks like today rather than fainter —
+     a missing custom property should not silently dim a card. ---- */
+  html .hand-card::before {
+    background-size: var(--tile-card-size, var(--grain-card));
+    opacity: calc(var(--tile-card-strength, .12) * 2.2);
+  }
+  html[data-theme="dark"] .hand-card::before {
+    opacity: calc(var(--tile-card-strength, .12) * 1.5125);
+  }
+
   /* Fine noise dither — breaks up 8-bit banding in the card's low-contrast
      vertical gradient (visible on tall dark cards). Overlay blend + very low
      opacity: perturbs values across step boundaries without reading as grain.
