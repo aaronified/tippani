@@ -22,7 +22,7 @@
 // takes the stack so a panel can push its sibling. The person panel pushes a
 // character; the character panel pushes the performer. Neither knows how deep it
 // is, and Back is the browser's.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { coverImgURL, errText, json, uploadWithProgress } from './api.js'
 import { t } from './i18n.js'
 import { useCharacterPicture, usePicturePicker } from './cast.jsx'
@@ -1051,6 +1051,38 @@ function PersonBody({ stack, id, work, onOpenWork: given = null }) {
       note: data.note || '',
     })
   }, [data, work])
+
+  // ── LOOK THE PERSON UP, ONCE, WHEN THE PANEL FIRST SEES THEM ────────────────
+  //
+  // THIS IS THE ADAM SMITH BUG. The owner, over a person's panel: "It can't even
+  // look up adam smith!" — and the cause was not the lookup. `POST /people/portrait`
+  // pins a person to a stable identity and stores their photo and reference links,
+  // and it was called from exactly one place in the whole app: `PersonModal`, on
+  // mount, whenever a person had no photo or no bio. This panel — the surface that
+  // replaced it, and the one every credit in the app now opens — never called it at
+  // all. A person opened here was therefore never looked up, for any role.
+  //
+  // GATED ON WHAT IS MISSING, NOT ON HAVING RUN. The bio needs the one provider
+  // call inside the portrait fetch, so a person with a photo and no bio still wants
+  // it; the server's upsert fills an empty bio and never overwrites a set one, so
+  // re-running is safe. `enriched` stops it firing twice for one open — the record
+  // reloads after a successful fetch, and without the ref that reload would ask
+  // again.
+  const enriched = useRef(false)
+  useEffect(() => {
+    if (!data || enriched.current) return
+    if (data.image_path && data.bio) return
+    enriched.current = true
+    ;(async () => {
+      const r = await json('POST', '/people/portrait', { kind: (data.kinds || [])[0] || 'author', name: data.name })
+      // BEST-EFFORT, AND SILENT ON A MISS. A provider that does not know this
+      // person is the ordinary case, not an error to put on the screen: the manual
+      // photo field and the paste-a-link box are both right there, and a red line
+      // over them saying a lookup found nothing would be the panel complaining
+      // about a question the reader never asked.
+      if (r.ok && (r.data?.person || r.data?.links)) load()
+    })()
+  }, [data, load])
 
   // THE SAME THREE VERBS ON THE PERSON'S CARD. `Portrait` below already builds a
   // picker for the panel's own form; this is the RECORD card's, which had one

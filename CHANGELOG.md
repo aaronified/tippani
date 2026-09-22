@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A person's portrait fills their row, and pressing it shows the photograph.** It
+  was a thumbnail beside three lines of content, and pressing it opened a second
+  editing surface for a record the panel already edits. The picture is the row's full
+  height now — the fastest thing in a row to recognise, at a size worth recognising
+  — and it opens the photograph full screen. The name is the door to the record.
+
+- **A person opened from the panel is looked up.** `POST /people/portrait` pins a
+  person to a stable identity and stores their photo and reference links, and it was
+  called from one place in the whole app: the old modal. The panel that replaced it —
+  the surface every credit now opens — never called it, so a person reached that way
+  was never looked up at all, for any role.
+
 - **The people console's rows are rebuilt to the shape they were asked for.** The
   name, then the counts with the person's ROLES as glyphs beside them, then the
   suppliers as their own marks and the works as pills carrying each work's cover or

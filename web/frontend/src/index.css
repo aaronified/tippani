@@ -9473,9 +9473,33 @@ html[data-theme="dark"] .board-cover {
    worth most — it is the fastest thing in a row to recognise. */
 .person-name-cell { display: inline-flex; align-items: flex-start; gap: 9px; min-width: 0; }
 .person-name-text { display: grid; gap: 1px; min-width: 0; }
+/* ── THE IMAGE CHIP IS THE ROW'S FULL HEIGHT ──────────────────────────────────
+   The owner's spec opens with it: "Column1: image chip, full height." It was
+   `max(24px, 1.8em)` — a thumbnail beside three lines of content, so column one
+   was mostly empty and the face, which is the fastest thing in a row to
+   recognise, was the smallest thing on it.
+
+   `align-self: stretch` rather than a height in px, because the row's height is
+   whatever its content comes to and a number typed here would be that number
+   wrong the first time a person has no work pills. The picture then takes the
+   height it is given and its own square from `aspect-ratio`, which is the rule
+   for every portrait in this app: a face is a circle, and a circle needs a
+   square or it draws an egg. */
 .person-face-btn {
   flex: none; padding: 0; border: 0; background: none; line-height: 0; cursor: pointer;
   border-radius: 999px;
+  /* THE SQUARE IS ON THE BUTTON, NOT ON THE PICTURE INSIDE IT, and the first cut
+     had it the other way round and drew an EGG. `height: 100%` on the picture
+     resolves against a parent whose own height is `auto`, so it was ignored and
+     `width: auto` fell back to the stand-in's intrinsic ratio — a tall rounded
+     rectangle, which is precisely what this repo's portrait rule exists to stop.
+     The button is the element the flex row stretches, so it is the one that knows
+     the row's height; `aspect-ratio` on it turns that height into a width, and
+     the picture simply fills what it is given. */
+  align-self: stretch;
+  aspect-ratio: 1;
+  min-height: max(34px, 2.4em);
+  max-height: 72px;
 }
 /* DESCENDANT, NOT DIRECT CHILD. The picture and its stand-in are drawn by
    `Face` now — one function for every site, so a file that fails to arrive falls
@@ -9485,7 +9509,7 @@ html[data-theme="dark"] .board-cover {
    ones. The span itself carries no layout; these rules still size the picture. */
 .person-face-inner { display: contents; }
 .person-face-btn img, .person-face-btn svg {
-  display: block; width: max(24px, 1.8em); aspect-ratio: 1; object-fit: cover;
+  display: block; width: 100%; height: 100%; object-fit: cover;
   border-radius: 999px; border: 1px solid var(--ink-border);
 }
 /* AN SVG IN HERE IS THE STAND-IN, whatever put it there. Keyed on the class the

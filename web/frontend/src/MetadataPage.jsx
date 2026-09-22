@@ -5,8 +5,8 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconFetch, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
-import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconFetch, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
+import { personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
 import { LanguageMarksSettings, MetadataSources } from './MetadataSources.jsx'
@@ -2751,7 +2751,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
   const [bulk, setBulk] = useState(null) // {done, total} while bulk-fetching
   const [err, setErr] = useState('')
   // {kind, name} captured at click time, for the portrait editor.
-  const [person, setPerson] = useState(null)
+  const [face, setFace] = useState(null) // the portrait being shown full screen
   const stack = usePanelStack()
 
   // HANDED IN OR FETCHED, decided by the caller — the same arrangement the
@@ -3018,7 +3018,13 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
                 p={p}
                 busy={busyID === p.id || !!bulk}
                 onOpen={() => stack.open(personPanel(stack, { id: p.id, name: p.name }))}
-                onPortrait={() => setPerson({ kind: (p.kinds || [])[0] || 'author', name: p.name })}
+                /* THE PICTURE, FULL SCREEN — not a second surface for the record.
+                   The owner: "Clicking on it now brings on the person modal. That
+                   needs to be completely retired. Only the person popup. Image
+                   chip will show the image in full screen." So the chip does the
+                   one thing a picture can do that a panel cannot, and the NAME is
+                   the door to the record, which is the row's own row 1. */
+                onPortrait={p.image_path ? () => setFace({ src: personImgURL(p.image_path), title: p.name }) : null}
                 onSearch={onSearch}
                 onFetch={() => fetchRow(p)}
                 /* A PILL OPENS THE WORK'S DETAILS, with a way out to the work
@@ -3037,16 +3043,17 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
       )}
       <PanelHost stack={stack} />
       <PanelReload stack={stack} onEmpty={load} />
-      {/* onSaved must reload: a portrait or a link change from inside the modal
-          changes this console's rows. */}
-      {person && (
-        <PersonModal
-          kind={person.kind}
-          name={person.name}
-          onClose={() => setPerson(null)}
-          onSaved={() => load()}
-        />
-      )}
+      {/* ── THE PICTURE, AND NOTHING ELSE ──────────────────────────────────────
+          A `PersonModal` stood here, opened by the row's portrait, and the owner
+          retired it: "your person modal just crops up randomly instead of the
+          panel, always when the panel already exists." It edited a bio and a
+          photo under a (kind, name) pair while the panel edits the RECORD, so two
+          surfaces disagreed about what a person is — and the modal was the one
+          that could not merge, split, or show a credit.
+
+          What is left is the one thing the panel does not do: show the photograph
+          at the size a photograph is worth looking at. */}
+      {face && <Lightbox src={face.src} title={face.title} onClose={() => setFace(null)} />}
     </section>
   )
 }

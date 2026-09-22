@@ -63,6 +63,19 @@ describe('every portrait of a person or a character', () => {
   it('and where it declares its own width and height, they are the same', () => {
     const uneven = portraits()
       .map((r) => [r.sel, decl(r.body, 'width'), decl(r.body, 'height')])
+      // THIS WAS WIDENED TO ACCEPT `aspect-ratio: 1` AND THE WIDENING WAS WRONG,
+      // which is worth the four lines because the reasoning sounded right. The
+      // argument was that a rule stating the ratio has already answered the
+      // question, so `width: auto; height: 100%; aspect-ratio: 1` should pass.
+      // It passed, and it drew an egg: `height: 100%` resolves against a parent
+      // whose own height is `auto`, so it was dropped and `auto` fell back to the
+      // stand-in's intrinsic ratio. The guard was right and the CSS was wrong.
+      //
+      // A DECLARATION IS NOT AN OUTCOME. `aspect-ratio` only squares a box whose
+      // other axis actually resolves, and this file cannot see whether it does —
+      // so it goes on asking for the thing it CAN check. The fix was to put the
+      // ratio on the element the flex row stretches, which has a real height, and
+      // let the picture fill it at 100% x 100%.
       .filter(([, w, h]) => w && h && w !== h && !/%$/.test(w))
       .map(([sel, w, h]) => `${sel} (${w} x ${h})`)
     expect(uneven, 'these draw a face in a rectangle').toEqual([])
