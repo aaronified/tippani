@@ -2783,22 +2783,30 @@ const PEOPLE_ROLES = [
   ['speaker', 'metadata.people.kind.speaker.label'],
 ]
 
-// THE ROLE AS A GLYPH, because the cell holding it is a table column and the words
-// are three of the longest in this app's vocabulary. "author · translator · editor"
-// wraps to three lines in a narrow column, which is what made a list of people
-// look raggedly spaced — some rows one line tall and some three.
+// THE ROLE AS A GLYPH, because the words are three of the longest in this app's
+// vocabulary. "author · translator · editor" wraps to three lines in a narrow
+// column, which is what made a list of people look raggedly spaced — some rows one
+// line tall and some three.
 //
-// THE WORD IS PRINTED BESIDE THE GLYPH, which is what makes the glyph learnable
-// and is why there is no tooltip and no sr-only span here: this is the ROOMY half
-// of the count rule, where the noun is drawn AND said, so a reader meets the
-// drawing next to the word it stands for. An earlier version of this comment
-// claimed a tooltip and an sr-only span that were never written — the glyph-only
-// form, which is the half that would need them, belongs with the three-column row
-// redesign and is not built yet.
+// THE GLYPH STANDS ALONE HERE, WHICH IS THE TIGHT HALF OF THE COUNT RULE. This
+// comment said the opposite for two commits — that the word is printed beside the
+// drawing and so needs no tooltip, and that the glyph-only form "is not built yet"
+// — while `PersonRow` below rendered precisely the glyph-only form, wrapped in a
+// `Tooltip` and carrying the role word as its `aria-label`. Every clause of it was
+// false about the only site that uses this map.
+//
+// The row earns the tight half: it already carries two counts, a row of provider
+// marks and a strip of work pills, which is the rule's own test for where the word
+// goes. The owner said where the legend lives instead — "The icon will be explained
+// in the person popup" — so a reader meets the drawing beside its word on the
+// panel, and meets it alone on the row once they have.
+//
+// THE NOUN IS NEVER DROPPED, ONLY UNDRAWN. It is the mark's accessible name and its
+// tooltip, which is the half of the count rule that does not move: a glyph alone is
+// a picture to a screen reader and nothing at all.
 //
 // One rendering, both viewports. A cell drawn as words on a desk and as glyphs on
-// a phone is two cells to keep in step, and the desk wants the width just as much
-// — the thing under this heading is a table.
+// a phone is two cells to keep in step, and the desk wants the width just as much.
 const PEOPLE_ROLE_ICON = {
   // EIGHT ROLES, EIGHT DRAWINGS, and it was four drawings for eight roles until the
   // owner chose this set themselves. An author wore the shelf of books that also
