@@ -1368,7 +1368,7 @@ settings.quiz.deck.title = {name} যা জিজ্ঞেস করে
 settings.quiz.deck.question.aria = {question} — {name}
 settings.quiz.deck.daily.info.body = দৈনিক ডেকের খাতা গোড়া থেকে শেষ পর্যন্ত সার্ভার দেখে, তাই নিজে-নম্বর-দেওয়ার কার্ড এখানে আসে না। সেই কারণেই উল্টে দেখার কার্ডটা এই তালিকায় বন্ধ করা নেই — একেবারেই নেই।
 settings.quiz.deck.practice.info.body = ঝালাই শুরু হয় উল্টে দেখার কার্ড দিয়ে, বাকিগুলো ঘুরিয়ে ফিরিয়ে আসে। ঝালাইয়ে স্কোর চালু করলে ওই কার্ডটা বাদ পড়ে, কারণ নিজে দেওয়া নম্বর কেউ মিলিয়ে দেখে না।
-settings.quiz.practice-counts.title = ঝালাইতেও দিনপঞ্জি বদলায়
+settings.quiz.practice-counts.title = প্র্যাকটিস গোনা হয়
 settings.quiz.practice-counts.aria = ঝালাইতেও দিনপঞ্জি বদলায়
 settings.quiz.practice-counts.info.body = এমনিতে ঝালাই শুধু ঝালিয়ে নেওয়ার জন্য। এটা চালু করলে ঝালাইয়ের ঠিক উত্তরও দৈনিক অনুশীলনীর মতোই স্মৃতির অর্ধায়ু বাড়িয়ে দেয়।
 settings.quiz.submit.title = প্রতিটা উত্তর নিশ্চিত করুন
@@ -5216,13 +5216,14 @@ metadata.bulk.genres.label = ঘরানা যোগ করুন
 metadata.bulk.genres.placeholder = কমা দিয়ে আলাদা — যোগ হবে, আগেরগুলো থাকবে
 metadata.bulk.apply.label = {n}টায় বসান
 
-# --- DUPLICATE BOOKS. One copy imported and one added by hand is the case this
-# finds; merging moves the quotes onto the copy you keep.
-metadata.duplicates.title = ডুপ্লিকেট বই
+# --- DUPLICATE WORKS. One copy imported and one added by hand is the case this
+# finds, and it is as common for a film as for a book; merging moves the quotes
+# onto the copy you keep. Each kind is compared only against its own.
+metadata.duplicates.title = একই রচনা দুবার
 metadata.duplicates.info.body = নাম আর লেখক এতটা মিলে যায় যে আসলে একই বই দুবার — সাধারণত একটা ইমপোর্ট করা, একটা হাতে যোগ করা — সেগুলো খুঁজে দেয়। এক করলে সব উদ্ধৃতি যেটা রাখছেন তার নিচে আসে, বাকিগুলো মুছে যায়; সবচেয়ে বেশি উদ্ধৃতি যার, সেটাই আগে থেকে বাছা।
 metadata.duplicates.groups.one = {n}টা গ্রুপ
 metadata.duplicates.groups.other = {n}টা গ্রুপ
-metadata.duplicates.scan.label = ডুপ্লিকেট বই খুঁজুন
+metadata.duplicates.scan.label = একই রচনা খুঁজুন
 metadata.duplicates.rescan.aria = ডুপ্লিকেট আবার খুঁজুন
 metadata.duplicates.rescan.tip = আবার খুঁজুন
 metadata.duplicates.none = কোনও ডুপ্লিকেট পাওয়া গেল না ✓
@@ -5257,6 +5258,7 @@ metadata.speakers.remapped.flash = {n}টা মেলানো হল
 metadata.speakers.refilled.flash.one = , {n}টায় অভিনেতা বসেছে
 metadata.speakers.refilled.flash.other = , {n}টায় অভিনেতা বসেছে
 # One label's row: what it maps onto, or nothing, or a name you type yourself.
+metadata.remap.row.aria = {name} পুনঃনির্ধারণ
 metadata.remap.keep.label = যেমন আছে তেমনই
 metadata.remap.nocharacter.label = (চরিত্র নেই)
 metadata.remap.cast.option = {character} — {actor}

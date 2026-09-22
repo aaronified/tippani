@@ -1383,7 +1383,7 @@ settings.quiz.deck.title = {name} asks
 settings.quiz.deck.question.aria = {question} — {name}
 settings.quiz.deck.daily.info.body = The daily deck is marked by the server from end to end, so it never offers a self-marked card. That is why the flip card is missing from this list rather than switched off in it.
 settings.quiz.deck.practice.info.body = Practice leads with the flip card and varies the rest. Turn Practice scoring on and the flip card drops out, because nothing checks a self-marked answer.
-settings.quiz.practice-counts.title = Practice moves the schedule
+settings.quiz.practice-counts.title = Practice counts
 settings.quiz.practice-counts.aria = Practice affects schedule
 settings.quiz.practice-counts.info.body = By default Practice is study only. Turn this on to let correct Practice answers stretch half-lives just like the Daily Quiz does.
 settings.quiz.submit.title = Confirm each answer
@@ -5330,16 +5330,17 @@ metadata.bulk.genres.label = add genres
 metadata.bulk.genres.placeholder = comma-separated — added, not replaced
 metadata.bulk.apply.label = Apply to {n}
 
-# --- DUPLICATE BOOKS. One copy imported and one added by hand is the case this
-# finds; merging moves the quotes onto the copy you keep.
-metadata.duplicates.title = Duplicate books
-metadata.duplicates.info.body = Finds books whose title and author match closely enough to be the same book twice — usually one imported, one added by hand. Merging moves every quote onto the copy you keep and deletes the rest, defaulting to the one with most quotes.
+# --- DUPLICATE WORKS. One copy imported and one added by hand is the case this
+# finds, and it is as common for a film as for a book; merging moves the quotes
+# onto the copy you keep. Each kind is compared only against its own.
+metadata.duplicates.title = Duplicate works
+metadata.duplicates.info.body = Finds works whose title and maker match closely enough to be the same thing twice. Each kind is compared only against its own, so a novel and its film are left alone. Merging moves every quote onto the copy you keep and deletes the rest.
 metadata.duplicates.groups.one = {n} group
 metadata.duplicates.groups.other = {n} groups
-metadata.duplicates.scan.label = Scan for duplicate books
+metadata.duplicates.scan.label = Scan for duplicate works
 metadata.duplicates.rescan.aria = Scan again for duplicates
 metadata.duplicates.rescan.tip = Scan again
-metadata.duplicates.none = no duplicate titles found ✓
+metadata.duplicates.none = no duplicate works found ✓
 # The keeper, and the confirm before the others go. BOTH HALVES of that sentence
 # have to agree with the count, so each form is written whole rather than as a
 # shared head and a tail.
@@ -5370,6 +5371,7 @@ metadata.speakers.remapped.flash = {n} remapped
 metadata.speakers.refilled.flash.one = , {n} actor filled
 metadata.speakers.refilled.flash.other = , {n} actors filled
 # One label's row: what it maps onto, or nothing, or a name you type yourself.
+metadata.remap.row.aria = Remap {name}
 metadata.remap.keep.label = keep as-is
 metadata.remap.nocharacter.label = (no character)
 metadata.remap.cast.option = {character} — {actor}

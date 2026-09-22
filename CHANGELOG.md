@@ -41,6 +41,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Every dropdown in the app is the app's.** Eight of them were still the
+  operating system's — the import re-read chooser, the Works media filter, the film
+  picker on Speaker & character remap and each of its rows, both Stats choosers, the
+  share format on a phone, and the finished/abandoned outcome on a reading log. Each
+  one opened a list in the platform's own face, ignoring the type dials, the material
+  set and the accent, and on a phone a wheel over the bottom third of the screen. They
+  are the app's own now, which also gives them its arrow keys, its drag-to-pick and its
+  Escape — and the film picker, which can run to hundreds of rows, can be typed into.
+
+- **Character pictures are searched for as the thing they are.** A character's own sheet
+  sent nothing but a name — no work, no medium — so every supplier that needs a work was
+  skipped, and the one that was left asked for the character as a *film*: a novel's
+  character went to Google as "Itkovian character movie", which correctly found nothing.
+  The sheet now sends the work it already knew about, and an unfamiliar medium adds no
+  word at all rather than guessing at one. Fandom and TheTVDB can answer from that screen
+  for the first time.
+
+- **Duplicate works covers films, shows and games.** The finder read the books table
+  alone, so a film imported twice — the commonest way to end up with two of something —
+  was invisible to the one control whose job is finding exactly that. Each kind is
+  compared only against its own, so a novel and its adaptation are left alone.
+
+- **The colours on the phone's Theme card open again.** The card drew the three colour
+  doors and left the panel they open behind on the section page, so pressing one did
+  nothing at all.
+
+- **The typeface row stays one row, and a long face name no longer wraps.** "Atkinson
+  Hyperlegible Next Regular" ran to two lines inside its own chooser and pushed the style
+  and revert buttons onto a line of their own. The name is clipped to one line now — it
+  is in full in the list the chooser opens — and only the chooser gives up width, so the
+  buttons stay where they were. On the section page as well as the card.
+
+- **The Settings sections on a phone look like cards.** They had a list item's hairline
+  and nothing else, so five of them read as one screen ruled into bands rather than as
+  five things.
+
+- **The practice row's changed dot stays on its own line.** "Practice moves the schedule"
+  filled the row, so the red dot that says you have changed it fell to the line below and
+  read as belonging to the next row. The row is "Practice counts" now; what it counts
+  towards is in the line under it and in the info dot beside it.
+
+- **The arrow into a section says where to press.** It was a faint glyph at the margin
+  that read as punctuation; it has a target now, and it lights with the row.
+
 - **Hold a glyph button and it tells you what it is.** With button words turned off, a
   verb collapsed to a bare drawing with no way to learn it: a phone has no hover, and
   nothing was listening for a press-and-hold. The Button labels row had been promising
