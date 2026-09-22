@@ -320,6 +320,11 @@ Standing on the shoulders of:
   solid glyphs: the nav rail, the favourite, the three shelf marks in their ON state, the practise mortarboard
   and the colour palette. Everything else is drawn by hand in `ui.jsx`, and a fill has to argue its way in —
   see the *Icons* section of [the UI glossary](https://aaronified.github.io/tippani/ui-glossary.html).
+- **[Atlas Icons](https://atlasicons.vectoricons.net/)** by Ramy Wafaa — the **MIT**-licensed `hand-gesture`
+  pack, behind the seven touch gestures drawn in the help guide: the long press, the four swipes and the two
+  pinches. Recoloured to the app's own ink, and nothing else changed — see
+  [Provider marks](https://github.com/aaronified/tippani/wiki/Provider-marks) for what that means and why the
+  four directional two-finger gestures were dropped rather than drawn.
 - **[CC0 Textures](https://cc0-textures.com/)** — the public-domain texture packs behind the paper · wood ·
   metal · glass surfaces of the two skins.
 - **[Bookcision](https://bookcision.readwise.io/)** and **[Readest](https://github.com/readest/readest)** —

@@ -297,7 +297,7 @@ vocab.font-style.allcaps.label = All caps
 # `font-variant-numeric: tabular-nums` — figures that line up in a column.
 vocab.font-style.figures.label = Tabular figures
 
-# --- vocab.gesture.* — the eleven touch gestures, drawn as a clip with the word
+# --- vocab.gesture.* — the seven touch gestures, drawn as a hand with the word
 # beside it. It names the gesture, never the instruction: "Long press", not
 # "press and hold for half a second".
 vocab.gesture.long-press.label = Long press
@@ -307,10 +307,6 @@ vocab.gesture.swipe-up.label = Swipe up
 vocab.gesture.swipe-down.label = Swipe down
 vocab.gesture.pinch-in.label = Pinch in
 vocab.gesture.pinch-out.label = Pinch out
-vocab.gesture.two-finger-left.label = Two fingers left
-vocab.gesture.two-finger-right.label = Two fingers right
-vocab.gesture.two-finger-up.label = Two fingers up
-vocab.gesture.two-finger-down.label = Two fingers down
 
 # --- vocab.tag-style.* — the five shapes a tag chip can take, offered as live
 # previews in TagsPage's StylePicker. TAG_STYLES in ui.jsx holds the storage

@@ -1,6 +1,22 @@
-// The gesture clips, and the rule that keeps them honest.
+// The gesture drawings, and the rule that keeps them honest.
 //
-// Eleven clips exist as a library; the app binds two. The failure this file exists
+// THESE WERE ANIMATED CLIPS AND ARE NOW VENDORED HANDS — Atlas Icons' hand-gesture
+// pack, which the owner chose: "the static icons look better than our existing
+// animations. retire them." Seven of the checks below went with the motion, and
+// they are named here rather than deleted quietly, because each was guarding a
+// real defect and a reader should be able to tell a retired check from a lost one:
+// the ring on long-press, the moving tip and trail on a swipe, the four swipes
+// animating four ways, the pinch pair's opposite signs, the two-finger pair, and
+// both prefers-reduced-motion rules. Every one of them asserted something about
+// movement. There is no movement now, so there is nothing for them to be right
+// about — and the reduced-motion branch is MOOT rather than unhandled, which is the
+// distinction worth keeping: a still drawing needs no rule to stop it.
+//
+// WHAT REPLACES THEM is below, under "what each drawing is": that the art is real
+// and distinct per gesture, which is the property the animation checks were
+// circling all along.
+//
+// Seven drawings exist as a library; the app binds four. The failure this file exists
 // to prevent is the one `keys.js` already had caught for it once — a legend printed
 // for something with no handler behind it. Five unbound keys were listed in the
 // first cut of the shortcut sheet, and every one of them was a promise printed on a
@@ -24,8 +40,12 @@ const SRC = process.env.TIPPANI_SRC || join(process.cwd(), 'src')
 const src = (f) => readFileSync(join(SRC, f), 'utf8')
 
 describe('the library', () => {
-  it('holds all eleven, each with a label', () => {
-    expect(GESTURES).toHaveLength(11)
+  it('holds all seven, each with a label', () => {
+    // SEVEN AND NOT ELEVEN. The four directional two-finger gestures went with the
+    // animation, because Atlas has no icon that tells a two-finger left from a
+    // two-finger right — only one generic two-finger hand. Four names against one
+    // picture is worse than four names against none, and none of the four was bound.
+    expect(GESTURES).toHaveLength(7)
     for (const k of GESTURES) {
       expect(GESTURE_LABEL[k], `${k} has no label`).toBeTruthy()
     }
@@ -90,7 +110,7 @@ describe('the library', () => {
   })
 })
 
-describe('what each clip draws', () => {
+describe('what each drawing is', () => {
   const svg = (kind) => render(<Gesture kind={kind} />).container.querySelector('svg')
 
   it('labels itself for a screen reader with the gesture name', () => {
@@ -98,64 +118,46 @@ describe('what each clip draws', () => {
     expect(svg('swipe-left').getAttribute('role')).toBe('img')
   })
 
-  it('gives long press a ring, because its meaning is duration not travel', () => {
-    expect(svg('long-press').querySelector('.g-ring')).toBeTruthy()
-    expect(svg('long-press').querySelector('.g-move')).toBeNull()
+  // THE CHECK THE ANIMATION ONES WERE CIRCLING. What they really asserted, through
+  // the motion, was that no two gestures draw the same picture — a swipe left that
+  // animated like a swipe right was the defect, and a swipe left that IS a swipe
+  // right is the same defect with the movement taken out. So this compares the art
+  // directly, and it is the single reason four of the eleven were dropped rather
+  // than pointed at Atlas's one generic two-finger hand.
+  it('draws a different picture for every gesture', () => {
+    const drawn = GESTURES.map((k) => svg(k).innerHTML)
+    expect(new Set(drawn).size, 'two gestures share one drawing').toBe(GESTURES.length)
   })
 
-  it('gives a swipe a moving tip and a trail to move along', () => {
-    const s = svg('swipe-left')
-    expect(s.querySelector('.g-move')).toBeTruthy()
-    expect(s.querySelector('line')).toBeTruthy()
-    expect(s.querySelector('.g-ring')).toBeNull()
-  })
-
-  it('points the four swipes in four different directions', () => {
-    const dir = (k) => {
+  it('has real art for every gesture, not an empty frame', () => {
+    for (const k of GESTURES) {
       const s = svg(k)
-      return `${s.style.getPropertyValue('--gd')},${s.style.getPropertyValue('--gdy')}`
-    }
-    const dirs = ['swipe-left', 'swipe-right', 'swipe-up', 'swipe-down'].map(dir)
-    expect(new Set(dirs).size, `two swipes animate the same way: ${dirs}`).toBe(4)
-  })
-
-  it('gives a pinch two tips, and in and out opposite signs', () => {
-    expect(svg('pinch-in').querySelectorAll('.g-pinch')).toHaveLength(2)
-    // THE BUG THIS CAUGHT. pinch-in matches no swipe prefix, so the first cut fell
-    // through to the default direction and both pinch clips animated identically —
-    // the one thing that distinguishes them, lost to a fallback.
-    const sign = (k) => svg(k).style.getPropertyValue('--gd')
-    expect(sign('pinch-in')).not.toBe(sign('pinch-out'))
-  })
-
-  it('gives a two-finger swipe two tips that travel', () => {
-    const s = svg('two-finger-right')
-    expect(s.querySelectorAll('.g-move')).toHaveLength(2)
-  })
-})
-
-describe('motion is an enhancement, not the message', () => {
-  // A GIF cannot do this at all, which is why these are SVG. The assertion is on
-  // the STYLESHEET rather than on a rendered frame, because jsdom computes no
-  // animations — so what is checked is that the rule exists and that what it leaves
-  // behind is a pose rather than a blank.
-  const css = src('index.css')
-  const block = css.slice(css.indexOf('/* ---- gesture clips (help) ----'))
-
-  it('stops every clip under prefers-reduced-motion', () => {
-    const reduced = block.slice(block.indexOf('@media (prefers-reduced-motion: reduce)'))
-    for (const cls of ['g-ring', 'g-hold', 'g-pinch', 'g-move']) {
-      expect(reduced, `${cls} keeps animating with motion off`).toContain(cls)
+      expect(s.querySelectorAll('path, line, polyline, circle').length,
+        `${k} has nothing drawn in it`).toBeGreaterThan(0)
     }
   })
 
-  it('leaves a held pose rather than an invisible one', () => {
-    const reduced = block.slice(block.indexOf('@media (prefers-reduced-motion: reduce)'))
-    // g-move's keyframe starts AND ends at opacity 0, so a bare `animation: none`
-    // would render the tip invisible — the still frame has to be set explicitly.
-    expect(reduced).toMatch(/\.gesture \.g-move\s*\{[^}]*opacity:\s*0\.9/)
-    expect(reduced).toMatch(/\.gesture \.g-move\s*\{[^}]*transform:\s*translate/)
-    expect(reduced).toMatch(/\.gesture \.g-ring\s*\{[^}]*opacity:\s*0\.45/)
+  // VENDORED ART ARRIVES IN SOMEBODY ELSE'S COLOUR. Atlas ships these with a
+  // `.cls-1` class whose stylesheet hardcodes #020202 — black, which on this app's
+  // dark theme is a gesture nobody can see. The class is stripped on the way in and
+  // the stroke is the app's own currentColor; this fails if either creeps back.
+  it('takes the app\u2019s ink rather than the pack\u2019s black', () => {
+    // THE ART BLOCK ONLY, and the first cut read the whole file — which failed on
+    // this module's own comment explaining that `.cls-1` was stripped. A guard that
+    // cannot tell prose about a defect from the defect is a guard that punishes
+    // writing the prose.
+    const file = src('gestures.jsx')
+    const art = file.slice(file.indexOf('const ART = {'), file.indexOf('export function Gesture'))
+    expect(art, 'the pack\u2019s stylesheet class survived the import').not.toContain('cls-1')
+    expect(art, 'a hardcoded hex is in the art').not.toMatch(/#[0-9a-f]{3,6}\b/i)
+    expect(svg('long-press').getAttribute('stroke')).toBe('currentColor')
+  })
+
+  // A HAND IS MORE LINE THAN A NAV GLYPH, so it is drawn lighter — see the note on
+  // Gesture. This pins the decision rather than the number's rightness: at the
+  // app's 1.85 the fingers close up at chip size.
+  it('is drawn lighter than a nav glyph, because a hand is more line', () => {
+    expect(Number(svg('long-press').getAttribute('stroke-width'))).toBeLessThan(1.85)
   })
 })
 

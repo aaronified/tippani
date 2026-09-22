@@ -54,6 +54,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The help gestures are hands now, and they stopped moving.** A long press, the
+  four swipes and the two pinches were abstract animated clips — a disc for the
+  fingertip, a trail for the travel, a ring for the wait — looping beside the prose.
+  They are drawings of a hand instead, still. A reader who has not met a gesture
+  learns more from one picture of two fingers than from two discs travelling, and
+  the motion was never carrying the meaning. The four directional two-finger
+  gestures went with them: no pack has an icon that tells a two-finger left from a
+  two-finger right, none of the four was reachable in the app, and four names
+  against one picture is worse than four names against none.
+
 - **Every dropdown in the app is the app's.** Eight of them were still the
   operating system's — the import re-read chooser, the Works media filter, the film
   picker on Speaker & character remap and each of its rows, both Stats choosers, the

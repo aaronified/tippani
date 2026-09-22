@@ -6,33 +6,37 @@
 // So the gesture is a picture and the words beside it are only ever the OUTCOME —
 // "the card's menu", "closes the drawer".
 //
-// WHY INLINE SVG AND NOT A GIF, which is what was asked for and what this is
-// visually indistinguishable from:
+// THESE WERE ANIMATED CLIPS AND THE OWNER RETIRED THEM. The eleven were abstract
+// by design — a disc for the fingertip, a trail for the travel, a ring for the
+// wait — and each one moved, with a `prefers-reduced-motion` rule that left the
+// held pose behind. The argument for that art is still in the history and it was
+// not a bad argument. It was simply beaten: "the static icons look better than our
+// existing animations. retire them."
 //
-//   1-2 KB each instead of 10-30, and it lives in a diff rather than in git-lfs.
-//   ONE FILE PER CLIP, not one per theme: every stroke is currentColor, so a clip
-//   is correct in paper-light and film-dark without anybody exporting twice.
-//   IT CAN STOP. A playing GIF ignores prefers-reduced-motion completely; here the
-//   media query is inside the component, and what it leaves behind is the held
-//   pose — still legible, because the animation was never carrying the meaning on
-//   its own.
+// WHAT THAT TRADE ACTUALLY COST, recorded so nobody reinstates the clips by
+// accident thinking something was overlooked. Gone: the motion, and with it the
+// reduced-motion branch, which is now moot rather than unhandled — there is
+// nothing left to stop. Gained: a hand. The abstract discs never showed WHICH
+// hand shape a gesture wanted, and a reader who has not met a two-finger swipe
+// learns more from one drawing of two fingers than from two discs travelling.
 //
-// WHY THE ART IS ABSTRACT — a disc for the fingertip, a trail for the travel, a
-// ring for the wait — and never a screenshot with a hand over it: an abstract clip
-// is not tied to the interface, so it cannot go stale in a restyle and one clip
-// serves every context that gesture ever appears in. That is the whole reason this
-// file can be a fixed library rather than a maintenance surface.
+// THE ART IS VENDORED, NOT DRAWN HERE. Atlas Icons' hand-gesture pack, 50 icons by
+// Ramy Wafaa, MIT — the owner chose it and named the source. Their own files carry
+// a `.cls-1` stylesheet hardcoding #020202, which is black on a dark screen; the
+// class is stripped and the stroke is `currentColor` like every other glyph in
+// this app, so one file is correct in paper-light and film-dark alike. See
+// `docs/wiki/Provider-marks.md` for how this repo records vendored artwork.
 //
-// ELEVEN CLIPS, FOUR OF THEM REACHABLE. `IMPLEMENTED` is the list the app actually
-// binds, and gestures.test.jsx fails if the interface references anything else —
-// the rule keys.js already enforces on the shortcut sheet, where five keys with no
-// handler behind them were caught before they shipped. The other nine are data,
-// costing a few hundred bytes each, so that the day a swipe is bound the help for
-// it is a one-line reference and not a new asset pipeline.
+// SEVEN, NOT ELEVEN, AND THE FOUR THAT WENT ARE THE POINT. Atlas has no
+// directional two-finger icon — a generic `two-finger` and a `two-finger-point`,
+// and nothing that says left from right. Mapping all four onto the one drawing
+// would put four identical pictures against four different names, which is this
+// repo's own "a row says a thing once" broken four ways at once. None of the four
+// was ever bound, so nothing on any screen lost a picture; what went was data
+// waiting for a day that would have arrived without art. The day a two-finger
+// swipe IS bound, it needs an icon before it needs a key.
 
 import { t } from './i18n.js'
-
-const VB = 72 // one square viewBox for every clip, so they line up in a row
 
 // IMPLEMENTED — what the app binds today, and where.
 //
@@ -46,10 +50,10 @@ const VB = 72 // one square viewBox for every clip, so they line up in a row
 //                downward release dismisses, through the same guarded exit as the
 //                ✕ — so unsaved typing asks its question before the sheet goes
 //
-// A clip's presence in GESTURES is not permission to show it. This is.
+// A drawing's presence in GESTURES is not permission to show it. This is.
 export const IMPLEMENTED = ['long-press', 'swipe-left', 'swipe-up', 'swipe-down']
 
-// The eleven. `label` is what the gesture is called, never an instruction.
+// The seven. `label` is what the gesture is called, never an instruction.
 export const GESTURES = [
   'long-press',
   'swipe-left',
@@ -58,10 +62,6 @@ export const GESTURES = [
   'swipe-down',
   'pinch-in',
   'pinch-out',
-  'two-finger-left',
-  'two-finger-right',
-  'two-finger-up',
-  'two-finger-down',
 ]
 
 // Keys, not words: this table is built at import, before the language is known,
@@ -74,120 +74,114 @@ export const GESTURE_LABEL = {
   'swipe-down': 'vocab.gesture.swipe-down.label',
   'pinch-in': 'vocab.gesture.pinch-in.label',
   'pinch-out': 'vocab.gesture.pinch-out.label',
-  'two-finger-left': 'vocab.gesture.two-finger-left.label',
-  'two-finger-right': 'vocab.gesture.two-finger-right.label',
-  'two-finger-up': 'vocab.gesture.two-finger-up.label',
-  'two-finger-down': 'vocab.gesture.two-finger-down.label',
 }
 
-// The travel vector per swipe, in viewBox units. One table, so a direction cannot
-// be drawn one way in the trail and another in the animation.
-const DIR = {
-  left: [-1, 0],
-  right: [1, 0],
-  up: [0, -1],
-  down: [0, 1],
+// THE PINCH PAIR READS BACKWARDS FROM THE FILE NAMES, on purpose. A pinch IN — two
+// fingers drawn together — is what makes a picture SMALLER, which the pack calls
+// zoom-out; a pinch out is zoom-in. Naming the key after what the hand does and the
+// file after what the screen does is the right way round for both, and this comment
+// is here because the mapping looks like a mistake until you think about it.
+const ART = {
+  // long-press — atlas/hold
+  'long-press': (
+    <>
+      <path d="M7.24,22.52,2.09,17.38a2,2,0,0,1,1.44-3.47,2,2,0,0,1,1.43.6l1.32,1.32V6.37A2,2,0,0,1,8,4.35a1.94,1.94,0,0,1,2.08,1.91V12l5.05.72a1.92,1.92,0,0,1,1.64,1.9h0A17.25,17.25,0,0,1,15,22.34l-.09.18"/>
+      <path d="M10.11,10.64a4.54,4.54,0,0,0,1.47-1,4.79,4.79,0,1,0-6.77,0,4.54,4.54,0,0,0,1.47,1"/>
+      <path d="M20,5.14l-.33.16-.32-.16a2.86,2.86,0,0,1-1.59-2.57V1.48h3.83V2.57A2.88,2.88,0,0,1,20,5.14Z"/>
+      <line x1="15.85" y1="1.48" x2="23.5" y2="1.48"/>
+      <path d="M19.35,5.47l.32-.17.33.17A2.87,2.87,0,0,1,21.59,8v1.1H17.76V8A2.85,2.85,0,0,1,19.35,5.47Z"/>
+      <line x1="23.5" y1="9.13" x2="15.85" y2="9.13"/>
+    </>
+  ),
+  // swipe-left — atlas/move-left
+  'swipe-left': (
+    <>
+      <path d="M13,22.5,7.82,17.36a2,2,0,0,1-.59-1.43,2,2,0,0,1,2-2,2,2,0,0,1,1.43.59L12,15.82V6.38a2,2,0,0,1,1.74-2,1.87,1.87,0,0,1,1.51.56,1.83,1.83,0,0,1,.57,1.34V12l5,.72a1.91,1.91,0,0,1,1.64,1.89h0a17.18,17.18,0,0,1-1.82,7.71l-.09.18"/>
+      <polyline points="4.36 7.23 1.5 4.36 4.36 1.5"/>
+      <line x1="9.14" y1="4.36" x2="1.5" y2="4.36"/>
+    </>
+  ),
+  // swipe-right — atlas/move-right
+  'swipe-right': (
+    <>
+      <path d="M8,23,2.62,17.62a2.12,2.12,0,0,1,3-3L7,16V6.11A2.08,2.08,0,0,1,8.82,4,2,2,0,0,1,11,6v6l5.28.75a2,2,0,0,1,1.72,2h0a18,18,0,0,1-1.91,8.09L16,23"/>
+      <polyline points="19 7 22 4 19 1"/>
+      <line x1="14" y1="4" x2="22" y2="4"/>
+    </>
+  ),
+  // swipe-up — atlas/move-up
+  'swipe-up': (
+    <>
+      <path d="M13,22.52,7.82,17.39A2,2,0,0,1,7.23,16a2.07,2.07,0,0,1,.59-1.44,2,2,0,0,1,1.43-.59,2,2,0,0,1,1.43.59L12,15.84V6.4a2,2,0,0,1,1.74-2A1.87,1.87,0,0,1,15.25,5a1.84,1.84,0,0,1,.57,1.35V12l5,.72a1.91,1.91,0,0,1,1.64,1.89h0a17.25,17.25,0,0,1-1.82,7.72l-.09.17"/>
+      <polyline points="1.5 5.34 4.36 2.48 7.23 5.34"/>
+      <line x1="4.36" y1="12.02" x2="4.36" y2="2.48"/>
+    </>
+  ),
+  // swipe-down — atlas/move-down
+  'swipe-down': (
+    <>
+      <path d="M13,22.48,7.82,17.34a2,2,0,0,1,2.86-2.86L12,15.8V6.36a2,2,0,0,1,1.74-2,1.92,1.92,0,0,1,2.08,1.9V12l5,.72a1.91,1.91,0,0,1,1.64,1.89h0a17.18,17.18,0,0,1-1.82,7.71l-.09.18"/>
+      <polyline points="7.23 7.21 4.36 10.07 1.5 7.21"/>
+      <line x1="4.36" y1="0.52" x2="4.36" y2="10.07"/>
+    </>
+  ),
+  // pinch-in — atlas/zoom-out
+  'pinch-in': (
+    <>
+      <path d="M12.87,22,8,17.13a1.91,1.91,0,0,1-.57-1.37,1.94,1.94,0,0,1,3.31-1.37L12,15.65v-9A1.89,1.89,0,0,1,13.62,4.7a1.84,1.84,0,0,1,2,1.82V12l4.82.69A1.83,1.83,0,0,1,22,14.5h0a16.54,16.54,0,0,1-1.74,7.37l-.09.17"/>
+      <polyline points="10.13 5.61 6.48 5.61 6.48 1.96"/>
+      <polyline points="1 7.43 4.65 7.43 4.65 11.09"/>
+      <line x1="4.65" y1="7.43" x2="1" y2="11.09"/>
+      <line x1="6.48" y1="5.61" x2="10.13" y2="1.96"/>
+    </>
+  ),
+  // pinch-out — atlas/zoom-in
+  'pinch-out': (
+    <>
+      <path d="M13,22.5,7.82,17.36a2,2,0,0,1-.59-1.43,2,2,0,0,1,2-2,2,2,0,0,1,1.43.59L12,15.82V6.38a2,2,0,0,1,1.74-2,1.87,1.87,0,0,1,1.51.56,1.83,1.83,0,0,1,.57,1.34V12l5,.72a1.91,1.91,0,0,1,1.64,1.89h0a17.18,17.18,0,0,1-1.82,7.71l-.09.18"/>
+      <polyline points="5.32 10.09 1.5 10.09 1.5 6.27"/>
+      <polyline points="6.27 1.5 10.09 1.5 10.09 5.32"/>
+      <line x1="5.32" y1="6.27" x2="1.5" y2="10.09"/>
+      <line x1="6.27" y1="5.32" x2="10.09" y2="1.5"/>
+    </>
+  ),
 }
 
-// dirOf resolves a kind to the [x, y] the animation travels along.
-//
-// A PINCH IS A DIRECTION TOO, and it has to be handled here rather than left to
-// the fallback: `pinch-in` matches none of the swipe prefixes, so the first cut of
-// this returned DIR.right for both pinch kinds and the two clips animated
-// identically — the one difference between them lost to a default. +1 draws the
-// tips toward each other (in), -1 apart (out); the keyframes read it as a sign.
-const dirOf = (kind) => {
-  if (kind === 'pinch-in') return [1, 0]
-  if (kind === 'pinch-out') return [-1, 0]
-  const d = kind.replace('swipe-', '').replace('two-finger-', '')
-  return DIR[d] || DIR.right
-}
-
-// Gesture draws one clip.
+// Gesture draws one hand.
 //
 // `kind` is a key from GESTURES. Unknown keys render nothing rather than a box with
 // a question mark in it: a missing asset should be invisible, not an error message
 // aimed at the reader.
 //
-// `size` is the CSS box, and the DRAWING is smaller than it: the surface rect is
-// inset 8 of 72 viewBox units a side, so the frame a reader actually sees is 56/72
-// of the box. The default is the help-entry size, because that is where a clip is
-// something you watch — 68 leaves a ~53px frame, which is a finger-sized thing
-// rather than a mark. GestureChip overrides it down to label height.
+// `size` is the CSS box. The default is the help-entry size, where a gesture is
+// something a reader studies; GestureChip overrides it down to label height.
+//
+// STROKE 1.4 AND NOT THE APP'S 1.85. These carry far more line than a nav glyph —
+// a whole hand, knuckles and all — so at the app's own weight the fingers close up
+// into a blob at chip size. Verified by eye at 28px, which is the smallest this is
+// ever drawn.
 export function Gesture({ kind, size = 68, className = '' }) {
   if (!GESTURES.includes(kind)) return null
-  const label = t(GESTURE_LABEL[kind])
-  const two = kind.startsWith('two-finger')
-  const pinch = kind.startsWith('pinch')
-  const swipe = kind.startsWith('swipe') || two
-  const [dx, dy] = dirOf(kind)
-
   return (
     <svg
       className={`gesture ${className}`}
-      viewBox={`0 0 ${VB} ${VB}`}
       width={size}
       height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       role="img"
-      aria-label={label}
-      // The surface the finger is on: a rounded rectangle at low opacity, which is
-      // what makes a disc read as a fingertip rather than as a dot.
-      style={{ '--gd': `${dx}`, '--gdy': `${dy}` }}
+      aria-label={t(GESTURE_LABEL[kind])}
     >
-      <rect
-        x="8"
-        y="8"
-        width={VB - 16}
-        height={VB - 16}
-        rx="10"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        opacity="0.22"
-      />
-
-      {/* The travel trail, drawn for the swipes: a dashed line the finger runs
-          along, so the direction is legible in the still frame too. */}
-      {swipe && (
-        <line
-          x1={36 - dx * 16}
-          y1={36 - dy * 16}
-          x2={36 + dx * 16}
-          y2={36 + dy * 16}
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeDasharray="3 3"
-          opacity="0.35"
-        />
-      )}
-
-      {/* Long press: the ring is the wait. It is the only clip whose meaning is
-          duration rather than travel, which is why it gets a growing ring rather
-          than a trail — and why its reduced-motion pose is the ring at full size. */}
-      {kind === 'long-press' && (
-        <circle className="g-ring" cx="36" cy="36" r="18" fill="none" stroke="currentColor" strokeWidth="2" />
-      )}
-
-      {/* The fingertips. Two discs for a two-finger gesture and for a pinch; one
-          otherwise. A pinch moves them along one axis toward or away from each
-          other, which is the whole of what distinguishes in from out. */}
-      {pinch || two ? (
-        <>
-          <circle className={`g-tip g-a ${pinch ? 'g-pinch' : 'g-move'}`} cx="24" cy="36" r="7" fill="currentColor" />
-          <circle className={`g-tip g-b ${pinch ? 'g-pinch' : 'g-move'}`} cx="48" cy="36" r="7" fill="currentColor" />
-        </>
-      ) : (
-        <circle className={`g-tip ${swipe ? 'g-move' : 'g-hold'}`} cx="36" cy="36" r="8" fill="currentColor" />
-      )}
+      {ART[kind]}
     </svg>
   )
 }
 
-// isGestureClip — is this help asset a clip? The one question a help entry's layout
-// has to ask about its asset, and it lives here because the answer is "is it this
-// component". A clip is square and small, so the prose can wrap around it; the other
-// assets help carries are wide (a swatch row, a 240px import schematic) and would
-// leave an unreadable ribbon of text beside them.
+// isGestureClip — whether a help entry's picture is one of these.
 //
 // Derived rather than declared: help.jsx says what an entry's picture IS, and how
 // wide a picture may be is a layout fact, not a help fact.
@@ -195,7 +189,7 @@ export function isGestureClip(node) {
   return !!node && node.type === Gesture
 }
 
-// GestureChip — the clip with its name beside it, which is how it appears in help.
+// GestureChip — the drawing with its name beside it, which is how it appears in help.
 //
 // The NAME and not an instruction, and the caller supplies the outcome:
 //

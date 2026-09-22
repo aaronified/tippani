@@ -46,6 +46,19 @@ const FILLED = {
   // The shelf marks are the ON state of a work: this one is underway. Same argument as
   // the heart, applied to three media rather than one.
   IconReading: 'on-state', IconWatching: 'on-state', IconPlaying: 'on-state',
+  // The share sheet's five, and they are silhouettes for two different reasons that
+  // land in the same place. WhatsApp and Reddit are SERVICE MARKS: a logo is its solid
+  // shape, and a brand redrawn as an outline is no longer the brand — the same argument
+  // `providerMarks.js` makes for every supplier mark in the app. The three file shapes
+  // beside them are filled because they SIT beside those two: five options in one row
+  // are five equals, and two solid marks next to three hollow ones would make the pair
+  // look like a different kind of choice from the trio.
+  //
+  // They are also the only glyphs here authored outside the app, in a 1088 box with the
+  // y axis flipped, and renormalising somebody's path data to fit the house grid is how
+  // a curve quietly changes shape. See the note above ShareMark in ui.jsx.
+  IconShareWhatsApp: 'silhouette', IconShareReddit: 'silhouette',
+  IconSharePlain: 'silhouette', IconShareImage: 'silhouette', IconShareMarkdown: 'silhouette',
 }
 const REASONS = new Set(['on-state', 'place', 'silhouette', 'carries-information'])
 

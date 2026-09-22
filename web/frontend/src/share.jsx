@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen, useEscape, useBackToClose, SCRIM, backdropClose } from "./ui.jsx";
+import { useBodyScrollLock, ANNOTATION_HEX, CloseButton, FieldIconButton, GhostButton, IconShare, IconShareImage, IconShareMarkdown, IconSharePlain, IconShareReddit, IconShareWhatsApp, InfoDot, MonoLabel, Select, Toggle, toast, usePersistedState, useIsMobileScreen, useEscape, useBackToClose, SCRIM, backdropClose } from "./ui.jsx";
 import { buildModel, drawQuoteCard, ensureFonts, loadFaceImages, loadTileImage, readTheme, tileImage } from "./quoteImage.js";
 import { t } from "./i18n.js";
 import { DEFAULT_CREDIT_SEPS, splitCredits } from "./people.jsx";
@@ -1166,7 +1166,34 @@ export function ShareDialog({ share, seen, onClose }) {
   // "Image" is a format alongside the text ones — same field-picking, rendered
   // to a PNG instead of copyable text (ROADMAP §10).
   const isImage = format === "image";
-  const formatOptions = [["image", t("share.format.image.name")], ...SHARE_FORMATS.map((f) => [f.id, f.name])];
+  // EACH FORMAT WEARS ITS OWN MARK, and the row is five equals rather than five
+  // words. The owner drew them and sent them in: two service marks and three file
+  // shapes, in one frame so no one of the five reads as a different kind of choice.
+  //
+  // THE LABEL IS A NODE AND THE THIRD ELEMENT IS THE WORD. Select matches typing
+  // against that third element, because a label that is an element would otherwise
+  // be String()'d into "[object Object]" and match nothing — the same reason the
+  // typeface picker carries one. Toggle takes the same triples and reads [1].
+  //
+  // AND THE NOUN IS STILL SAID. The mark is aria-hidden and the format's name is
+  // real text beside it, so this is a picture ADDED to a word rather than one
+  // standing in for it — a share sheet is not a place to make somebody guess.
+  const formatMark = {
+    image: <IconShareImage size={17} />,
+    whatsapp: <IconShareWhatsApp size={17} />,
+    plaintext: <IconSharePlain size={17} />,
+    markdown: <IconShareMarkdown size={17} />,
+    reddit: <IconShareReddit size={17} />,
+  };
+  const formatOption = (id, name) => [
+    id,
+    <span key={id} className="share-format-option">{formatMark[id]}{name}</span>,
+    name,
+  ];
+  const formatOptions = [
+    formatOption("image", t("share.format.image.name")),
+    ...SHARE_FORMATS.map((f) => formatOption(f.id, f.name)),
+  ];
 
   // Regenerate the source whenever the format or the chosen fields change.
   // Manual edits to the textarea persist until the next such change.

@@ -100,3 +100,37 @@ A supplier with no mark is not a bug — the caller falls back to the supplier's
 To add one: take the CC0 SVG, percent-encode it into a `data:` URI, and add it to
 `PROVIDER_MARKS` under **the app's own slug** (`vocab.source.<slug>.label` in
 `internal/i18n/en.txt`), with a row here naming its origin.
+
+## The gesture hands, which are not site marks at all
+
+`gestures.jsx` carries seven drawings of a hand — long press, the four swipes, and
+the two pinches — and they are here rather than in their own document because this
+is the page that records vendored artwork and a second page for one more pack would
+be the duplication `docs/wiki/Developing.md` warns about.
+
+**Atlas Icons, `hand-gesture` pack — 50 icons by Ramy Wafaa, MIT.** The owner chose
+it and named the source. Seven are used; the file is the pack's own, unedited except
+for two things done to every one of them:
+
+- **The `.cls-1` class is stripped.** Atlas ships each icon with a `<defs><style>`
+  block hardcoding `stroke:#020202`, which is black — invisible on this app's dark
+  theme and wrong on its light one, where the ink is not pure black either. The
+  stroke is `currentColor` on the wrapping `<svg>` instead, like every other glyph
+  here, so one drawing is right in both themes and follows the accent when a row
+  tints it.
+- **The stroke is 1.4, not the app's 1.85.** A hand is far more line than a nav
+  glyph, and at the app's own weight the fingers close into a blob at the 28px a
+  help chip draws them.
+
+THESE REPLACED ANIMATED CLIPS, and what that cost is recorded in `gestures.jsx`'s
+own header rather than repeated here. The one fact worth having on this page: the
+four directional two-finger gestures were DROPPED rather than drawn, because Atlas
+has one generic two-finger hand and nothing that tells left from right. Four names
+against one picture is worse than four names against none — and none of the four was
+ever bound to anything, so no screen lost a drawing.
+
+To add another gesture: take the pack's SVG, delete its `<defs>` and every
+`class="cls-1"`, and add the remaining elements to `ART` in `gestures.jsx` under a
+key that has a `vocab.gesture.<key>.label`. A key with no drawing is not allowed —
+`test/dom/gestures.test.jsx` fails on an empty frame and on two gestures sharing one
+picture.
