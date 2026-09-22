@@ -5,7 +5,7 @@ import { coverImgURL, errText, json } from './api.js'
 import { t, tNodes } from './i18n.js'
 import { Face } from './characterRows.jsx'
 import { PersonPortrait, useCharacterFaces, usePeople } from './people.jsx'
-import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, ErrorText, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState, useScreenBar, IconHeartOn, Tally, IconNavLibrary, IconNavQuotes } from './ui.jsx'
+import { ANNOTATION_COLORS, ANNOTATION_HEX, Card, ErrorText, FieldIconButton, fmtHalfLife, IconPractise, IconQuiz, MonoLabel, MONTH_KEYS, mulberry32, NameScroll, PageHeader, Scroller, Select, STATUS_META, toast, Toggle, Tooltip, useEdgeScroll, useIsMobileScreen, usePersistedState, useScreenBar, IconHeartOn, Tally, IconNavLibrary, IconNavQuotes } from './ui.jsx'
 
 // StatsPage (§ insights) — a dedicated library-analytics screen, the richer
 // successor to the old Settings "Library stats" card and the intended basis for
@@ -576,15 +576,13 @@ function BreakdownCard({ breakdown, personMaps, characterMap, onSearch }) {
     <Card>
       <div className="mb-3 flex items-center justify-between gap-3">
         <MonoLabel>{t('stats.breakdown.title', { n: k.count })}</MonoLabel>
-        <select
-          className="tp-input"
-          aria-label={t('stats.breakdown.kind.aria')}
+        <Select
+          ariaLabel={t('stats.breakdown.kind.aria')}
           value={kind}
-          onChange={(e) => setKind(e.target.value)}
-          style={{ maxWidth: 140, paddingTop: 5, paddingBottom: 5, fontSize: 'var(--type-ui-13)' }}
-        >
-          {BREAKDOWN_KINDS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
-        </select>
+          onChange={setKind}
+          width={140}
+          options={BREAKDOWN_KINDS.map((m) => [m.key, m.label])}
+        />
       </div>
       {(k.most_remembered || k.most_forgotten) && (
         <p className="microcopy mb-3" style={{ lineHeight: 1.6 }}>
@@ -1221,11 +1219,12 @@ function TimelineCard({ timeline, onSearch }) {
     <Card>
       <div className="mb-3 flex items-center justify-between gap-3">
         <MonoLabel>{t('stats.timeline.counts.title', { n: buckets.length })}</MonoLabel>
-        <select className="tp-input" aria-label={t('stats.timeline.scale.aria')} value={scale} onChange={(e) => setScale(e.target.value)} style={{ width: 'auto' }}>
-          {TIMELINE_SCALES.map((x) => (
-            <option key={x.key} value={x.key}>{x.label}</option>
-          ))}
-        </select>
+        <Select
+          ariaLabel={t('stats.timeline.scale.aria')}
+          value={scale}
+          onChange={setScale}
+          options={TIMELINE_SCALES.map((x) => [x.key, x.label])}
+        />
       </div>
       <Scroller className="tl-scroll">
         <div className="tl-row">

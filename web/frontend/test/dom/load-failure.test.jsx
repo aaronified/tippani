@@ -29,6 +29,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { pickFrom } from './helpers/pickFrom.jsx'
 
 // `FAIL` is the set of path prefixes this test wants to break; everything else
 // answers normally. Failing one route at a time is the point — a test that fails
@@ -294,9 +295,11 @@ describe('the speaker remap', () => {
     await act(async () => {})
   }
 
-  const pick = async () => {
-    fireEvent.change(document.querySelector('select'), { target: { value: '4' } })
-  }
+  // PICKED BY NAME, THE WAY A READER PICKS IT. These used to fire a change at the
+  // native element carrying the film's ROW ID — a number nowhere on the screen, at
+  // an element the app no longer draws. The chooser is the app's own now: open it,
+  // press the title.
+  const pick = (title = /The Master and Margarita/) => pickFrom('Speaker & character remap', title)
 
   // THE SPEAKER LABELS, and not the page text. A first pass asserted on the whole
   // body and passed for the wrong reason: every cast row is also an <option> in
@@ -308,7 +311,8 @@ describe('the speaker remap', () => {
   it('does not say a title has no cast before it has read the title', async () => {
     await mount()
     const release = hold('/movies/', '/dialogues')
-    await act(async () => { pick() })
+    pick()
+    await act(async () => {})
     // THE FRAME THE READER SEES ON A SLOW LINK, held open on purpose. Both claims
     // were on the screen here — in amber — about a title the panel had not read a
     // byte of, and both were then taken back.
@@ -320,7 +324,8 @@ describe('the speaker remap', () => {
   it('says it is reading rather than saying nothing', async () => {
     await mount()
     const release = hold('/movies/', '/dialogues')
-    await act(async () => { pick() })
+    pick()
+    await act(async () => {})
     expect(body()).toMatch(/reading this title/i)
     await release()
   })
@@ -331,16 +336,16 @@ describe('the speaker remap', () => {
     // second film's name — offering labels to remap that the chosen film does not
     // contain.
     await mount()
-    await act(async () => { pick() })
+    pick()
+    await act(async () => {})
     await waitFor(() => expect(labelRows().join(' ')).toMatch(/Woland/))
     const release = hold('/movies/', '/dialogues')
     // A DIFFERENT FILM, and that is the whole fixture. A first pass went 4 → '' →
     // 4 inside one act; React collapsed that to no change at all, the effect never
     // re-ran, and the case passed under the mutation because there was nothing for
     // it to clear.
-    await act(async () => {
-      fireEvent.change(document.querySelector('select'), { target: { value: '5' } })
-    })
+    pick(/Stalker/)
+    await act(async () => {})
     expect(labelRows().join(' '), "the first title's speaker survived the change").not.toMatch(/Woland/)
     await release()
   })
@@ -353,13 +358,13 @@ describe('the speaker remap', () => {
     // and arrives by a different road.
     await mount()
     const releaseFirst = hold('/movies/', '/dialogues')
-    await act(async () => { pick() })
+    pick()
+    await act(async () => {})
 
     // The second pick, answered immediately, while the first is still held.
     HOLD = null
-    await act(async () => {
-      fireEvent.change(document.querySelector('select'), { target: { value: '5' } })
-    })
+    pick(/Stalker/)
+    await act(async () => {})
     await waitFor(() => expect(labelRows().join(' ')).toMatch(/the Stalker/))
 
     // Now the first lands. It is the answer to a question nobody is asking.
@@ -376,12 +381,12 @@ describe('the speaker remap', () => {
     // sitting under an error about the second, offering labels to remap that the
     // selected title does not contain.
     await mount()
-    await act(async () => { pick() })
+    pick()
+    await act(async () => {})
     await waitFor(() => expect(labelRows().join(' ')).toMatch(/Woland/))
     FAIL = ['/movies/']
-    await act(async () => {
-      fireEvent.change(document.querySelector('select'), { target: { value: '5' } })
-    })
+    pick(/Stalker/)
+    await act(async () => {})
     await waitFor(() => expect(body()).toMatch(/server said no/i))
     expect(labelRows().join(' '), "the previous title's speakers outlived the failure").not.toMatch(/Woland/)
   })
@@ -389,7 +394,8 @@ describe('the speaker remap', () => {
   it('does not turn a failed read into an empty cast', async () => {
     FAIL = ['/movies/']
     await mount()
-    await act(async () => { pick() })
+    pick()
+    await act(async () => {})
     await waitFor(() => expect(body()).toMatch(/server said no/i))
     // The amber line tells a reader to go and fill in a cast. Over a failure that
     // is advice to fix something that may not be broken.
@@ -398,7 +404,8 @@ describe('the speaker remap', () => {
 
   it('shows the cast once it has arrived', async () => {
     await mount()
-    await act(async () => { pick() })
+    pick()
+    await act(async () => {})
     await waitFor(() => expect(body()).not.toMatch(/reading this title/i))
     expect(body()).not.toMatch(/no cast/i)
     expect(labelRows().join(' ')).toMatch(/Woland/)

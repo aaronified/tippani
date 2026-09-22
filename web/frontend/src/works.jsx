@@ -707,15 +707,16 @@ function ReadForm({ initial, busy, onCancel, onSave, onDelete }) {
         placeholder={t('common.read-log.finished.placeholder')}
         aria-label={t('common.field.finished.label')}
       />
-      <select
-        className="tp-input read-outcome"
+      <Select
+        className="read-outcome"
         value={outcome}
-        onChange={(e) => setOutcome(e.target.value)}
-        aria-label={t('common.field.outcome.label')}
-      >
-        <option value="finished">{t('common.read-log.outcome.finished.label')}</option>
-        <option value="abandoned">{t('common.read-log.outcome.abandoned.label')}</option>
-      </select>
+        onChange={setOutcome}
+        ariaLabel={t('common.field.outcome.label')}
+        options={[
+          ['finished', t('common.read-log.outcome.finished.label')],
+          ['abandoned', t('common.read-log.outcome.abandoned.label')],
+        ]}
+      />
       <button
         type="button"
         className="read-edit"

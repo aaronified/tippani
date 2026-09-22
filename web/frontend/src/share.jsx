@@ -1228,18 +1228,12 @@ export function ShareDialog({ share, seen, onClose }) {
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <MonoLabel>{t("share.format.label")}</MonoLabel>
           {mobile ? (
-            <select
-              className="tp-input"
-              aria-label={t("share.format.aria")}
+            <Select
+              ariaLabel={t("share.format.aria")}
               value={format}
-              onChange={(e) => setFormat(e.target.value)}
-            >
-              {formatOptions.map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
-            </select>
+              onChange={setFormat}
+              options={formatOptions}
+            />
           ) : (
             <div className="share-format-toggle">
               <Toggle

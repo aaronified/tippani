@@ -12,6 +12,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { pickFrom } from './helpers/pickFrom.jsx'
 
 let STATS
 
@@ -85,10 +86,15 @@ describe('the other two scales offer no door', () => {
   // Years: the query box cannot carry a bare year, because "1984" is a book.
   // Centuries: "1900s" parses as a decade, so the answer would be ten years of a
   // hundred and would look complete.
-  for (const [value, tick] of [['year', '1994'], ['century', '1900s']]) {
-    it(`${value} draws the tick as plain text`, async () => {
+  // CHOSEN BY PRESSING, NOT BY FIRING A VALUE AT IT. These three used to set the
+  // scale with `fireEvent.change(..., { target: { value: 'year' } })` — a token
+  // that is nowhere on the screen, at an element the app no longer draws. The
+  // chooser is the app's own now, so the scale is picked the way a reader picks
+  // it: open it, press the row that reads "Years".
+  for (const [scale, tick] of [['Years', '1994'], ['Centuries', '1900s']]) {
+    it(`${scale.toLowerCase()} draws the tick as plain text`, async () => {
       await page(vi.fn())
-      fireEvent.change(screen.getByLabelText('Timeline scale'), { target: { value } })
+      pickFrom('Timeline scale', scale)
       await waitFor(() => expect(screen.getByText(tick)).toBeTruthy())
       expect(screen.queryByRole('button', { name: /view in search/ })).toBeNull()
     })
@@ -96,7 +102,7 @@ describe('the other two scales offer no door', () => {
 
   it('and year scale stops writing decades that do not exist', async () => {
     await page(vi.fn())
-    fireEvent.change(screen.getByLabelText('Timeline scale'), { target: { value: 'year' } })
+    pickFrom('Timeline scale', 'Years')
     await waitFor(() => expect(screen.getByText('1994')).toBeTruthy())
     expect(screen.queryByText('1994s')).toBeNull()
   })

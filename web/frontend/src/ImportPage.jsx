@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { errText, uploadWithProgress } from './api.js'
 import { t, tNodes } from './i18n.js'
-import { FilePick, IconArrow, IconImport, IconWarning, ProgressBar } from './ui.jsx'
+import { FilePick, IconArrow, IconImport, IconWarning, ProgressBar, Select } from './ui.jsx'
 import { IMPORT_ACCEPT, sourceTitle } from './importSources.js'
 
 // ONE TARGET, AND THE BYTES SAY WHAT THE FILE IS.
@@ -266,18 +266,14 @@ function BatchResults({ rows, summary, staged, busy, onReviewImport, onReread })
           {r.unclaimed && (
             <label className="microcopy flex flex-wrap items-center gap-2">
               {t('import.read-as.label')}
-              <select
-                className="tp-input w-auto"
+              <Select
                 value={r.as || ''}
                 disabled={busy}
-                aria-label={t('import.read-as.aria')}
-                onChange={(e) => e.target.value && onReread(i, e.target.value)}
-              >
-                <option value="">{t('import.read-as.placeholder')}</option>
-                {READ_AS.map((o) => (
-                  <option key={o.as} value={o.as}>{sourceTitle(o.kind)}</option>
-                ))}
-              </select>
+                ariaLabel={t('import.read-as.aria')}
+                placeholder={t('import.read-as.placeholder')}
+                options={READ_AS.map((o) => [o.as, sourceTitle(o.kind)])}
+                onChange={(v) => v && onReread(i, v)}
+              />
             </label>
           )}
           {/* AND WHAT HAPPENS IF YOU WALK AWAY, which nothing said. A file no

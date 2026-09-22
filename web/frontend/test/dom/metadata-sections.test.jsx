@@ -328,11 +328,11 @@ describe('on a phone', () => {
       // says so is the console's OWN control rather than a heading. This read the
       // first `<h2>`, which was the phone's drill head; that head is gone (the
       // section's name is in the top bar's crumb now), so the first heading on the
-      // screen became "Duplicate books" — the second console in the same section.
-      // "Duplicate books" is the OTHER console in this section and is drawn
+      // screen became "Duplicate works" — the second console in the same section.
+      // "Duplicate works" is the OTHER console in this section and is drawn
       // nowhere else in the app, so it says "the Works section arrived" without
       // depending on which rows the gap filter left behind.
-      expect(await screen.findByText('Duplicate books'), 'the Works section should be on screen').toBeTruthy()
+      expect(await screen.findByText('Duplicate works'), 'the Works section should be on screen').toBeTruthy()
     })
   })
 

@@ -17,6 +17,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { HelpList } from '../../src/ui.jsx'
 import { SOURCES, sourceTitle } from '../../src/importSources.js'
 import { helpFor } from '../../src/help.jsx'
+import { pickFrom } from './helpers/pickFrom.jsx'
 
 const uploads = []
 // The progress callbacks, kept OUT of `uploads` because two cases compare a
@@ -114,12 +115,15 @@ describe('the one import target', () => {
     reply = { ok: false, data: { error: 'server words', near_miss: '' } }
     render(<ImportPage />)
     drop(well(), textFile('mystery.txt'))
-    const pick = await screen.findByLabelText('Read this file as a format you pick')
+    await screen.findByLabelText('Read this file as a format you pick')
     reply = { ok: true, data: { staged: 2, works: [] } }
-    // The slug is the SERVER'S — `importSources` is keyed by the importer's own
-    // constants, not by the hyphenated route names — so this is the pairing that
-    // answers "unknown import source" for a file that was fine.
-    fireEvent.change(pick, { target: { value: 'goodreads_html' } })
+    // PRESSED BY NAME, AND THE SLUG IS STILL THE THING UNDER TEST. The chooser is
+    // the app's own now, so it is opened and the row reading "Goodreads" is
+    // pressed — but the assertion below is unchanged, and it is the whole point:
+    // `importSources` is keyed by the importer's own constants, not by the
+    // hyphenated route names, so what the row SENDS is the pairing that answers
+    // "unknown import source" for a file that was fine.
+    pickFrom('Read this file as a format you pick', 'Goodreads')
     await waitFor(() => expect(uploads).toHaveLength(2))
     expect(uploads[1]).toEqual({ path: '/import/auto', name: 'mystery.txt', fields: { as: 'goodreads_html' } })
     // And the run is re-tallied off the re-read row rather than left reporting

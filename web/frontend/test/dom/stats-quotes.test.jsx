@@ -14,6 +14,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
+import { t } from '../../src/i18n.js'
+import { pickFrom } from './helpers/pickFrom.jsx'
+
 let STATS
 let CHARACTERS
 let PEOPLE
@@ -94,13 +97,23 @@ describe('the header total', () => {
 
 describe('the breakdown dropdown', () => {
   it('offers the kinds the server actually sends', async () => {
-    // The failure was an absence in a <select>: two kinds arriving on every
+    // The failure was an absence in the chooser: two kinds arriving on every
     // response with nothing to display them.
+    //
+    // READ OFF THE OPEN PANEL, IN THE WORDS ON IT. This used to collect the
+    // `value` of every `<option>` — a token nowhere on the screen, at an element
+    // the app no longer draws. The chooser is the app's own now, so the panel is
+    // opened and its rows are read the way a reader reads them. The one thing the
+    // screen cannot supply is which WORD answers to which server key, so the
+    // locale is asked for that and nothing else.
     await page()
-    const select = screen.getByLabelText('Breakdown kind')
-    const offered = within(select).getAllByRole('option').map((o) => o.value)
+    fireEvent.click(screen.getByLabelText('Breakdown kind'))
+    const panel = screen.getByRole('listbox')
     for (const k of Object.keys(STATS.breakdown)) {
-      expect(offered, `the server sends ${k}`).toContain(k)
+      expect(
+        within(panel).queryByRole('option', { name: t(`stats.breakdown.${k}.label`) }),
+        `the server sends ${k} and the chooser does not offer it`,
+      ).toBeTruthy()
     }
   })
 })
@@ -138,7 +151,7 @@ describe('the superlatives', () => {
     await page()
     // The card shows one breakdown at a time and opens on authors, so the kind
     // has to be chosen the way a reader chooses it.
-    fireEvent.change(screen.getByLabelText(/breakdown/i), { target: { value: 'characters' } })
+    pickFrom('Breakdown kind', t('stats.breakdown.characters.label'))
     expect(await screen.findByText('Delia Surridge'), 'the character row did not render').toBeTruthy()
     await waitFor(() => expect(document.querySelector('.stat-face-round img')).toBeTruthy())
   })
@@ -153,7 +166,7 @@ describe('the superlatives', () => {
     // exactly as the first one did, and 3,405 tests would say nothing.
     arrange()
     await page()
-    fireEvent.change(screen.getByLabelText(/breakdown/i), { target: { value: kindKey } })
+    pickFrom('Breakdown kind', t(`stats.breakdown.${kindKey}.label`))
     expect(await screen.findByText(who), 'the row did not render at all').toBeTruthy()
     await waitFor(() => expect(document.querySelector('.stats-breakdown img, .breakdown-row img, img')).toBeTruthy())
   })

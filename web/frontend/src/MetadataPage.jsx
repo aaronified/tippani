@@ -1212,9 +1212,12 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
         icon={<IconNavWorks />}
         word={t('unit.work', { count: shown.length })}
       >
-        <select className="tp-input w-auto" title={t('common.field.media-type.label')} value={type} onChange={(e) => { setType(e.target.value); setFilter('flagged') }}>
-          {typeOptions().map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
+        <Select
+          ariaLabel={t('common.field.media-type.label')}
+          value={type}
+          onChange={(v) => { setType(v); setFilter('flagged') }}
+          options={typeOptions()}
+        />
         <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
       </ConsoleFilterRow>
       {/* THE GAP FILTER, AS PILLS. The owner on this console: "Works: well covered
@@ -1632,13 +1635,19 @@ function DuplicatesPanel({ onDone, onFlash }) {
     else setErr(errText(r, t('error.scan.duplicates')))
   }
 
-  async function merge(into, from) {
+  // `kind` IS THE GROUP'S, NOT A GUESS. The scan covers every work now, so a
+  // group is books or screen works and the two merge through different endpoints
+  // — different child table, different genre join, different orphan sweep. The
+  // row says which it is and this passes it on; deriving it here from anything
+  // else would be this screen having an opinion about which table a record came
+  // from, which is the server's to state and did, in `kind`.
+  async function merge(into, from, kind) {
     // "book(s)" became a plural family, and the second half of the sentence has
     // to agree with it — hence a whole message per form, not a shared tail.
     if (!(await ask(t('metadata.duplicates.merge.confirm', { count: from.length, n: from.length })))) return
     setBusy(true)
     setErr('')
-    const r = await json('POST', '/books/merge', { into, from })
+    const r = await json('POST', kind === 'movie' ? '/movies/merge' : '/books/merge', { into, from })
     setBusy(false)
     if (!r.ok) return setErr(errText(r, t('error.merge.failed')))
     onFlash(t('metadata.duplicates.merge.flash', { count: r.data.merged, n: r.data.merged }))
@@ -1700,7 +1709,7 @@ function DuplicateGroup({ group, busy, onMerge }) {
           icon={<IconMerge />}
           keepLabel
           disabled={busy}
-          onClick={() => onMerge(keep, group.filter((b) => b.id !== keep).map((b) => b.id))}
+          onClick={() => onMerge(keep, group.filter((b) => b.id !== keep).map((b) => b.id), group[0].kind)}
         >
           {t('metadata.duplicates.merge.label')}
         </GhostButton>
@@ -1835,17 +1844,18 @@ export function SpeakerRemap({ movies, onDone, user }) {
         <h2 style={H2}>{t('metadata.speakers.title')}</h2>
         <InfoDot title={t('metadata.speakers.title')} text={t('metadata.speakers.info.body')} />
       </div>
-      <select className="tp-input w-auto" value={movieId} onChange={(e) => setMovieId(e.target.value)}>
-        <option value="">{t('metadata.speakers.pick.placeholder')}</option>
-        {movies.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.title}
-            {m.release_year ? ` ${t('metadata.speakers.option.year', { year: m.release_year })}` : ''}
-            {' · '}
-            {t('metadata.count.dialogues', { count: m.dialogue_count, n: m.dialogue_count })}
-          </option>
-        ))}
-      </select>
+      <Select
+        value={movieId}
+        onChange={setMovieId}
+        ariaLabel={t('metadata.speakers.title')}
+        placeholder={t('metadata.speakers.pick.placeholder')}
+        filter
+        options={movies.map((m) => [
+          String(m.id),
+          `${m.title}${m.release_year ? ` ${t('metadata.speakers.option.year', { year: m.release_year })}` : ''}`
+            + ` · ${t('metadata.count.dialogues', { count: m.dialogue_count, n: m.dialogue_count })}`,
+        ])}
+      />
 
       {/* AT PANEL LEVEL, and it used to sit inside the `labels.length > 0` block
           below — so the one failure that leaves no labels, a failed read, was the
@@ -1902,11 +1912,10 @@ function RemapRow({ label, cast, value, onChange }) {
         <span className="microcopy"> · {label.count}</span>
       </NameScroll>
       <span className="microcopy" aria-hidden="true"><IconArrow size={13} /></span>
-      <select
-        className="tp-input w-auto"
+      <Select
         value={sel}
-        onChange={(e) => {
-          const v = e.target.value
+        ariaLabel={t('metadata.remap.row.aria', { name: label.name })}
+        onChange={(v) => {
           if (v === '') onChange(undefined)
           else if (v === 'custom') onChange({ character: label.name, actor: '', custom: true })
           else {
@@ -1914,18 +1923,15 @@ function RemapRow({ label, cast, value, onChange }) {
             onChange({ character: cast[i].character, actor: cast[i].actor })
           }
         }}
-      >
-        <option value="">{t('metadata.remap.keep.label')}</option>
-        {cast.map((c, i) => {
-          const character = c.character || t('metadata.remap.nocharacter.label')
-          return (
-            <option key={i} value={`cast:${i}`}>
-              {c.actor ? t('metadata.remap.cast.option', { character, actor: c.actor }) : character}
-            </option>
-          )
-        })}
-        <option value="custom">{t('metadata.remap.custom.label')}</option>
-      </select>
+        options={[
+          ['', t('metadata.remap.keep.label')],
+          ...cast.map((c, i) => {
+            const character = c.character || t('metadata.remap.nocharacter.label')
+            return [`cast:${i}`, c.actor ? t('metadata.remap.cast.option', { character, actor: c.actor }) : character]
+          }),
+          ['custom', t('metadata.remap.custom.label')],
+        ]}
+      />
       {value?.custom && (
         <>
           <NameInput

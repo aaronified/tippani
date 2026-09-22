@@ -476,6 +476,18 @@ old work, so a screen that breaks one is a bug and not a variation.
   arrived yet, its PLACEHOLDER is square too — a 7:9 gap that becomes a circle
   reflows the text beside it the moment a photo is chosen.
 
+- **EVERY DROPDOWN IN THE APP WEARS THE APP'S OWN THEME.** The owner's: *"app
+  dropdowns shall all be app themed. Always."* A native `<select>` does not draw its
+  list — the operating system does, in its own face, its own row height, its own
+  highlight, on iOS a wheel that takes the bottom third of the screen. None of the
+  app's type dials reach it, none of its material sets, none of its accent, so the
+  one control in a themed row that ignores the theme is the one that looks broken.
+  And it is not only looks: `Select` in `ui.jsx` carries the arrow keys, the
+  drag-to-pick thumb, the Escape and outside-click rules, the ARIA, and a `filter`
+  that a list of two hundred films needs and a native one cannot have.
+  `test/rules/dropdowns-are-the-apps-own.test.js` is a ban rather than a ratchet —
+  the count is zero and the replacement exists for every case.
+
 - **A screen's glyphs are the app's own, never an emoji.** `NavIcon`, `Icon*` in
   `ui.jsx`, and nothing hand-picked beside them. An emoji is the platform's drawing: it
   changes with the reader's font, sits off the baseline every other glyph shares, and is
