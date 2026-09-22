@@ -441,6 +441,53 @@ func TestGameLookupDoesNotConsultWikidataWhenIGDBAnswers(t *testing.T) {
 	}
 }
 
+// THE CASE THE GATE LET THROUGH TO AN EMPTY SCREEN, and it is the commonest one
+// there is: IGDB configured, answering, healthy — and finding nothing.
+//
+// The fallback used to run only `if igdb == nil || searchErr != nil`: unconfigured,
+// refused, or errored. A search that worked and matched no game fell through all
+// three, so a reader who typed a title IGDB does not carry got no candidates and no
+// fallback, which is what "plain search almost never succeeds" looks like from the
+// outside. The three cases were always one case — the reader typed a title and got
+// nothing — and this is the fourth face of it.
+//
+// The sibling above pins the other direction: Wikidata is a FLOOR, so it must stay
+// untouched while IGDB is actually answering. The two together are the whole rule.
+//
+// MUTATION-VERIFIED: putting `if igdb == nil || searchErr != nil` back around the
+// fallback fails this with its own sentence — "IGDB found nothing and Wikidata was
+// never asked — the reader gets an empty screen" — while the sibling above stays
+// green, which is what says the two cases are independent.
+func TestGameLookupFallsBackToWikidataWhenIGDBFindsNothing(t *testing.T) {
+	srv := newTestServer(t)
+	wd := wikidataGameServer(t, "Obscure Indie Game")
+	defer wd.Close()
+	metadata.SetWikidataBaseForTest(t, wd.URL)
+
+	// Healthy, configured, and empty-handed — the combination the old gate read as
+	// "nothing to fall back from".
+	igdb := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "token") {
+			_, _ = w.Write([]byte(`{"access_token":"t","expires_in":3600}`))
+			return
+		}
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer igdb.Close()
+	srv.IGDB = &metadata.IGDB{ClientID: "id", ClientSecret: "secret", BaseURL: igdb.URL, TokenURL: igdb.URL + "/token"}
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	got := decode[lookupResp](t, c.mustDo("POST", "/movies/lookup",
+		map[string]any{"title": "Obscure Indie Game", "media_type": "game"}, http.StatusOK))
+	if len(got.Candidates) == 0 {
+		t.Fatal("IGDB found nothing and Wikidata was never asked — the reader gets an empty screen")
+	}
+	if got.Candidates[0].Source != "wikidata" {
+		t.Fatalf("the candidate must say it came from the floor: %+v", got.Candidates)
+	}
+}
+
 // A studio stops claiming it came from Open Library (0041).
 //
 // Fixing the two code paths stopped NEW rows being written that way and did

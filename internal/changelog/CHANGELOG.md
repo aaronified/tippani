@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A game lookup falls back to Wikidata when IGDB finds nothing.** It only fell back
+  when IGDB was unconfigured, refused, or errored — so a search that worked perfectly
+  and simply matched no game fell through every branch, and the reader got an empty
+  screen with no fallback. That is the commonest way a lookup comes up short, and it
+  was the one case the floor declined to catch.
+
 ### Added
 
 - **A phone shows two columns of tags and four of stickers.** Both were one column:

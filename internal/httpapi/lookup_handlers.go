@@ -374,32 +374,39 @@ func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string
 	// so the picker can say where a record came from and the reader can see that
 	// this one is the fallback before choosing it.
 	//
-	// The THREE cases are one case: unconfigured (igdb == nil), refused
-	// credentials, and a query that errored all leave the reader with nothing,
-	// which is the only thing this is for.
+	// The FOUR cases are one case, and for a long time this counted three.
+	// Unconfigured (igdb == nil), refused credentials, and a query that errored
+	// were the three; the fourth is IGDB answering perfectly well and finding
+	// NOTHING, which is the commonest of the lot and was the one the gate let
+	// through to an empty screen.
+	//
+	// It is the same sentence either way from where the reader sits: they typed a
+	// title and got no candidates. `len(cands) == 0` already says that — the inner
+	// test could only ever narrow it to the three ways of failing that are not
+	// simply "no match", and a fallback that declines to run precisely when the
+	// supplier above it is healthy is a fallback for the rarest case instead of
+	// the usual one.
 	if len(cands) == 0 && title != "" {
-		if igdb == nil || searchErr != nil {
-			wd, wdErr := metadata.SearchGamesWikidata(r.Context(), title, year)
-			if wdErr != nil {
-				olog.Tracef("[meta] game lookup wikidata fallback %q failed: %v", title, wdErr)
-			} else {
-				add(wd)
-			}
-			// RECORDED LIKE EVERY OTHER SUPPLIER, and it was the only one that was
-			// not. Wikidata is the floor under IGDB — it runs when the pair is
-			// missing or failed, which is exactly when a reader most needs to know
-			// whether the thing catching them is itself working — and it answered
-			// into silence: its row on the sources console read "nothing has asked
-			// it yet" however many games it had found. That is the same defect as
-			// Open Library's, one screen along, and a rating found it in the same
-			// pass.
-			s.recordLookup(faultAreaGames, "wikidata", len(wd), "", wdErr)
-			if len(cands) > 0 {
-				olog.Tracef("[meta] game lookup %q served %d candidate(s) from wikidata", title, len(cands))
-				// The fallback answering is not an error, so a search failure that
-				// it covered for must not be reported as one below.
-				searchErr, pinMsg = nil, ""
-			}
+		wd, wdErr := metadata.SearchGamesWikidata(r.Context(), title, year)
+		if wdErr != nil {
+			olog.Tracef("[meta] game lookup wikidata fallback %q failed: %v", title, wdErr)
+		} else {
+			add(wd)
+		}
+		// RECORDED LIKE EVERY OTHER SUPPLIER, and it was the only one that was
+		// not. Wikidata is the floor under IGDB — it runs when the pair is
+		// missing or failed, which is exactly when a reader most needs to know
+		// whether the thing catching them is itself working — and it answered
+		// into silence: its row on the sources console read "nothing has asked
+		// it yet" however many games it had found. That is the same defect as
+		// Open Library's, one screen along, and a rating found it in the same
+		// pass.
+		s.recordLookup(faultAreaGames, "wikidata", len(wd), "", wdErr)
+		if len(cands) > 0 {
+			olog.Tracef("[meta] game lookup %q served %d candidate(s) from wikidata", title, len(cands))
+			// The fallback answering is not an error, so a search failure that
+			// it covered for must not be reported as one below.
+			searchErr, pinMsg = nil, ""
 		}
 	}
 
