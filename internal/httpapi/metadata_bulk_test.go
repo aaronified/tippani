@@ -154,3 +154,74 @@ func TestDuplicatesAndMerge(t *testing.T) {
 		t.Fatalf("merged genres = %v, want 2 (scifi+classic)", g)
 	}
 }
+
+// THE DUPLICATE FINDER COVERS EVERY WORK, NOT JUST BOOKS. The owner, over the
+// Works console: it should "cover all works". It read the books table alone, so
+// a film imported twice — the commonest way to acquire a duplicate, since two
+// sources spell a title differently — was invisible to the one control whose
+// whole job is finding exactly that.
+//
+// THE THREE CASES THAT MATTER, and two of them are about NOT grouping:
+//
+//   - two spellings of one film DO group, on the same fuzzy title rule books use;
+//   - a film and a SHOW of the same name do NOT, because the remake, the
+//     adaptation and the tie-in are different works and offering to merge them is
+//     offering to destroy one;
+//   - a novel and its adaptation do NOT, which is the case a single keyspace
+//     would have got wrong by default — a book and its film share a title almost
+//     by definition.
+//
+// THE MUTATION: drop the media type from the screen-work group key and the
+// film/show case fails — they land in one group of two. Drop the "book"/
+// "movie" prefixes and the novel joins its own adaptation.
+func TestDuplicateScanCoversEveryKindOfWork(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	// Two spellings of one film, plus a distinct film that must stand alone.
+	mkMovie(t, c, "Blade Runner")
+	mkMovie(t, c, "Blade Runner: The Final Cut")
+	mkMovie(t, c, "Heat")
+
+	// A book with the same title as a film. Not a duplicate of anything.
+	mkBook(t, c, map[string]any{"title": "Heat"})
+
+	dups := decode[struct {
+		Groups [][]dupBook `json:"groups"`
+	}](t, c.mustDo("GET", "/metadata/duplicates", nil, 200))
+
+	if len(dups.Groups) != 1 {
+		t.Fatalf("want exactly one duplicate group (the two Blade Runners); got %+v", dups.Groups)
+	}
+	g := dups.Groups[0]
+	if len(g) != 2 {
+		t.Fatalf("the group should hold both spellings of the film; got %+v", g)
+	}
+	for _, w := range g {
+		if w.Kind != "movie" {
+			t.Errorf("a screen work's row should say so; got kind %q for %q", w.Kind, w.Title)
+		}
+		if w.MediaType == "" {
+			t.Errorf("a screen work's row should carry its media type; got none for %q", w.Title)
+		}
+	}
+}
+
+// AND A FILM DOES NOT GROUP WITH A SHOW OF THE SAME NAME. Split from the case
+// above because it needs a work whose media_type differs, and because it is the
+// half a single title key would silently get wrong.
+func TestDuplicateScanKeepsFilmsAndSeriesApart(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+	mkMovie(t, c, "Fargo") // the film
+	// "show", which is this app's word for it — the first draft of this test said
+	// "series" and the server refused it, which is the vocabulary check earning
+	// its place.
+	c.mustDo("POST", "/movies", map[string]any{"title": "Fargo", "media_type": "show"}, 201)
+	dups := decode[struct {
+		Groups [][]dupBook `json:"groups"`
+	}](t, c.mustDo("GET", "/metadata/duplicates", nil, 200))
+	if len(dups.Groups) != 0 {
+		t.Fatalf("a film and a show sharing a name are two works, not a duplicate; got %+v", dups.Groups)
+	}
+}

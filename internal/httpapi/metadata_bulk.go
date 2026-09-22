@@ -140,12 +140,12 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 		// bulk set of any of them either fails on the constraint or points five
 		// books at one record, which is a worse lie than a wrong author because
 		// every later re-sync then rewrites all five from it.
-		Translator    *string  `json:"translator"`
-		Editor        *string  `json:"editor"`
-		PublishedYear *int     `json:"published_year"`
+		Translator     *string `json:"translator"`
+		Editor         *string `json:"editor"`
+		PublishedYear  *int    `json:"published_year"`
 		PublishedCirca *bool   `json:"published_circa"`
-		Description   *string  `json:"description"`
-		Favorite      *bool    `json:"favorite"`
+		Description    *string `json:"description"`
+		Favorite       *bool   `json:"favorite"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -264,12 +264,26 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 // ---- duplicate detection + merge ----
 
 type dupBook struct {
-	ID              int64  `json:"id"`
-	Title           string `json:"title"`
-	Author          string `json:"author"`
-	Year            int    `json:"year"`
-	HasCover        bool   `json:"has_cover"`
-	AnnotationCount int    `json:"annotation_count"`
+	ID    int64  `json:"id"`
+	Title string `json:"title"`
+	// THE MAKER, whichever kind of work this is: a book's author, a film's
+	// director, a game's studio. One field rather than three because the row
+	// prints it in one place and the console does not care which it was — what
+	// tells two same-titled works apart is who made them, and the noun for that
+	// is the only part that changes.
+	Author   string `json:"author"`
+	Year     int    `json:"year"`
+	HasCover bool   `json:"has_cover"`
+	// HOW MANY QUOTES WOULD MOVE. A book's live in `annotations` and a screen
+	// work's in `dialogues`; the name stays as it was because it is what the
+	// console reads, and what it means — "this is what a merge would carry" — is
+	// the same on both.
+	AnnotationCount int `json:"annotation_count"`
+	// WHICH TABLE THIS ROW IS FROM, so the console can say what it is looking at
+	// and a merge knows which endpoint to call. "book" or "movie".
+	Kind string `json:"kind"`
+	// FILM, SERIES OR GAME, for a screen work. Empty for a book.
+	MediaType string `json:"media_type,omitempty"`
 }
 
 // handleBookDuplicates groups the user's books by fuzzy title (normalizeTitle:
@@ -298,14 +312,60 @@ func (s *Server) handleBookDuplicates(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		b.Title = title
+		b.Kind = "book"
 		key := normalizeTitle(title)
 		if key == "" {
 			continue
 		}
-		groups[key] = append(groups[key], b)
+		// "book\x00" keeps a novel out of its own adaptation's group; see the
+		// screen-work pass below for why the keyspaces are separate.
+		groups["book\x00"+key] = append(groups["book\x00"+key], b)
 	}
 	if err := rows.Err(); err != nil {
 		olog.Warnf(olog.CodeMetaRowScan, "[meta] duplicates book row iteration failed: %v", err)
+	}
+
+	// AND THE SCREEN WORKS, WHICH THIS NEVER ASKED ABOUT. The owner, over the
+	// Works console: the duplicate finder should "cover all works". It read the
+	// books table and nothing else, so a film imported twice — the commonest way
+	// to get a duplicate, since two sources spell a title differently — was
+	// invisible to the one control whose whole job is finding that.
+	//
+	// KEYED BY MEDIA TYPE AS WELL AS TITLE. A film and a series can share a name
+	// honestly — the remake, the adaptation, the tie-in game — and offering to
+	// merge those would be offering to destroy one of them. `findSimilarMovies`
+	// scopes its own search the same way for the same reason.
+	//
+	// A SEPARATE KEYSPACE FROM THE BOOKS, deliberately: a novel and its film
+	// adaptation share a title almost by definition, and they are two works. The
+	// prefix is what keeps them out of each other's groups.
+	mrows, merr := s.Store.DB.Query(`
+		SELECT m.id, m.title, COALESCE(m.director, ''), COALESCE(m.release_year, 0),
+		       m.poster_path IS NOT NULL, COALESCE(m.media_type, 'movie'),
+		       (SELECT count(*) FROM dialogues d WHERE d.movie_id = m.id)
+		FROM movies m WHERE m.user_id = ? ORDER BY m.id`, uid)
+	if merr != nil {
+		internalError(w, r, "duplicates: query screen works", merr)
+		return
+	}
+	defer mrows.Close()
+	for mrows.Next() {
+		var m dupBook
+		var title string
+		if err := mrows.Scan(&m.ID, &title, &m.Author, &m.Year, &m.HasCover, &m.MediaType, &m.AnnotationCount); err != nil {
+			olog.Warnf(olog.CodeMetaRowScan, "[meta] duplicates screen-work row scan failed: %v", err)
+			continue
+		}
+		m.Title = title
+		m.Kind = "movie"
+		key := normalizeTitle(title)
+		if key == "" {
+			continue
+		}
+		groups[m.MediaType+"\x00"+key] = append(groups[m.MediaType+"\x00"+key], m)
+	}
+	if err := mrows.Err(); err != nil {
+		olog.Warnf(olog.CodeMetaRowScan, "[meta] duplicates screen-work row iteration failed: %v", err)
 	}
 
 	out := [][]dupBook{}
