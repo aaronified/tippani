@@ -2298,13 +2298,28 @@ const CHARACTER_MEDIA = {
 // a picture nobody has seen standing for a distinction the word already makes — the
 // app's rule is that a screen's glyphs are its own. Both keys stay because the map
 // carries the NOUN as well, and the noun is the half that was wrong.
+//
+// SO THE ROW GROUPS BY THE DRAWING, NOT BY THE KEY, and that is the other half.
+// A character in a film AND a show would otherwise draw two identical clappers
+// side by side, told apart only by a tooltip nobody has hovered — which is this
+// repo's own "a lookalike next to the real glyph is two pictures of one thing",
+// and reads as a rendering fault rather than as a fact. One clapper, and its name
+// lists what it stands for here: "films and shows" where the row has both, "show"
+// where it has only the one. The count rule's own logic — the glyph is the
+// picture, the noun is what it is a picture OF — so a drawing that covers two
+// nouns says two nouns.
 const characterMedia = (worksIn) => {
-  const seen = new Map()
+  const byGlyph = new Map()
   for (const w of worksIn || []) {
     const key = w.kind === 'movie' && CHARACTER_MEDIA[w.media_type] ? w.media_type : w.kind
-    if (CHARACTER_MEDIA[key] && !seen.has(key)) seen.set(key, CHARACTER_MEDIA[key])
+    const entry = CHARACTER_MEDIA[key]
+    if (!entry) continue
+    const [Glyph, word] = entry
+    const got = byGlyph.get(Glyph)
+    if (!got) byGlyph.set(Glyph, [key, [word]])
+    else if (!got[1].includes(word)) got[1].push(word)
   }
-  return [...seen.entries()]
+  return [...byGlyph.entries()].map(([Glyph, [key, words]]) => [key, [Glyph, words]])
 }
 
 function CharacterRow({ c, first, onOpen, onMerge, onDelete, onWork = null, onPerson = null }) {
@@ -2344,13 +2359,20 @@ function CharacterRow({ c, first, onOpen, onMerge, onDelete, onWork = null, onPe
           />
           {media.length > 0 && (
             <span className="row-role-marks">
-              {media.map(([key, [Glyph, word]]) => (
-                <Tooltip key={key} label={t(word, { count: 1 })}>
-                  <span className="row-role-mark" role="img" aria-label={t(word, { count: 1 })}>
-                    <Glyph size={15} />
-                  </span>
-                </Tooltip>
-              ))}
+              {media.map(([key, [Glyph, words]]) => {
+                // ` · ` IS THIS FILE'S OWN SEPARATOR for a list inside one label —
+                // the spellings sub-line and the fetch flash both use it — so a
+                // mark covering two media reads the way every other list here does,
+                // and no new string is invented for a case with two members.
+                const label = words.map((w) => t(w, { count: 1 })).join(' · ')
+                return (
+                  <Tooltip key={key} label={label}>
+                    <span className="row-role-mark" role="img" aria-label={label}>
+                      <Glyph size={15} />
+                    </span>
+                  </Tooltip>
+                )
+              })}
             </span>
           )}
         </span>

@@ -9,9 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A character in a novel and its adaptation is two rows on their record, not one.** The
+  two are counted from tables that number themselves independently, so a book and a film
+  that happened to share an id were folded together — the film's title, its glyph and its
+  performer all disappeared into the book's row.
+
 - **A character in a television series is called a show, not a film.** The medium glyph
   on a character's row read its media type for games only, so every series drew a clapper
-  board labelled "film".
+  board labelled "film". A character in both a film and a show now draws one clapper
+  naming both, rather than the same drawing twice.
 
 - **Fetch on a person's or character's picture now shows what it found.** The block
   that draws the candidates was only rendered while the Paste-URL box was open, which

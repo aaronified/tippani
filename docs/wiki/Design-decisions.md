@@ -18753,17 +18753,40 @@ appearance per work. `hasFace` is OR-ed across them for the reason it was a MAX 
 row asks whether this appearance has a face anywhere on it, and splitting the group without
 carrying that forward would let a second, faceless performer's row answer for both.
 
+**AND THE KEY THAT MERGED THEM LOST THE WORK'S KIND, which is the second defect this
+section records and the more expensive one.** Grouping by `(character, work_id)` is not
+grouping by work: `books` and `movies` number themselves independently, so book 1 and movie
+1 both exist in any library holding one of each, and the map folded them into a single row.
+A character in a novel and its adaptation — the case the medium glyphs exist FOR — came
+back as the novel alone, with the film's performer hung on it. The fix commit's own body
+said "a novel and its adaptation draws two glyphs" while breaking exactly that.
+
+It is worth stating how it was found, because the answer is not a test: the three tests
+written in the same commit all passed over it, and a rating pass reading the merge loop
+caught it. The test exists now
+(`TestACharacterInANovelAndItsFilmIsTwoAppearances`) and its first fixture ALSO passed over
+the bug — billing one character on two works files two records, one per work, and two
+records never collide. It needed a merge first. A test whose fixture cannot reach the state
+it names is a test that reports on nothing.
+
 **A SHOW WAS LABELLED A FILM ON EVERY ROW THAT HAD ONE.** `media_type` is `'movie' |
 'show'` since migration 0006, with `'game'` layered on top, and the medium table read only
 the game branch — so a character in a television series drew a clapper board whose tooltip
 and accessible name said "film", in an app whose catalogue has drawn that distinction for
-sixty migrations and whose `unit.show` string was already written. Both keys draw the SAME
-clapper: there is one in the set, and inventing a second would be a picture nobody has seen
-standing for a distinction the word already makes. Only the noun was wrong, and the noun is
-the half a reader believes.
+sixty migrations and whose `unit.show` string was already written.
+
+**Both media draw the SAME clapper, and the row groups by the DRAWING rather than by the
+key.** There is one clapper in the set, and inventing a second would be a picture nobody
+has seen standing for a distinction the word already makes. But keying the marks on the
+medium meant a character in a film AND a show drew that one clapper TWICE, side by side,
+told apart only by a tooltip nobody has hovered — which is this repo's own "a lookalike
+next to the real glyph is two pictures of one thing", and on a row it reads as a rendering
+fault rather than as a fact. One mark, and its name lists what it covers, joined by the
+` · ` this file already uses for a list inside a label.
 
 <sub>v3.0.0 — `internal/httpapi/identity_handlers.go` · `web/frontend/src/MetadataPage.jsx` ·
-`internal/httpapi/metadata_rows_test.go` · `web/frontend/test/dom/console-rows-act.test.jsx`</sub>
+`internal/httpapi/metadata_rows_test.go` · `web/frontend/test/dom/console-rows-act.test.jsx` ·
+`web/frontend/test/journeys/who-played-this-character.journey.mjs`</sub>
 
 
 ## One person screen, and the verb the second one was carrying

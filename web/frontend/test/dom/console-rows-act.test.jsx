@@ -10,8 +10,16 @@
 //
 // THESE PRESS THINGS. The row is rendered by its own console, from records the
 // server would send, and every assertion is something a reader can see or do: a
-// name on screen, a press that opens a person, a glyph that is absent. Nothing
-// here reads a class, a path or a component name.
+// name on screen, a press that opens a person, a glyph that is absent. No assertion
+// reads a class, a source path or a component's name.
+//
+// THE DECLARED EXCEPTION, because the header above would otherwise be a claim this
+// file breaks in its own setup: it MOCKS `src/api.js` and imports the two consoles
+// by path. That is knowing what the code is, and the reason nothing observable
+// serves is that a jsdom render has no server to answer it. What it buys is a
+// case that can hold the ABSENCE of the delete glyph over a credited row — a state
+// the journey fixture would have to be built to contain. The end-to-end half, with
+// a real server and a real browser, is `who-played-this-character.journey.mjs`.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
@@ -83,6 +91,29 @@ describe('a character row', () => {
     // second would be a picture nobody has seen. The NOUN is what was wrong.
     expect(screen.queryByLabelText(t('unit.show', { count: 1 })), 'a show is not labelled a show').toBeTruthy()
     expect(screen.queryByLabelText(t('unit.film', { count: 1 })), 'a show is labelled a film').toBeNull()
+  })
+
+  // ONE DRAWING, HOWEVER MANY MEDIA IT COVERS. A film and a show share the clapper,
+  // so a character in both would draw it TWICE side by side, told apart only by a
+  // tooltip nobody has hovered — "a lookalike next to the real glyph is two
+  // pictures of one thing", and on a row it reads as a rendering fault rather than
+  // as a fact. One mark, and its name says what it stands for here.
+  it('draws one clapper for a character in a film and a show, naming both', async () => {
+    CHARACTERS = [character({
+      name: 'Jack Ryan',
+      works_in: [
+        { kind: 'movie', id: 4, title: 'The Hunt for Red October', media_type: 'movie', actors: [] },
+        { kind: 'movie', id: 5, title: 'Tom Clancy’s series', media_type: 'show', actors: [] },
+      ],
+    })]
+    render(<CharactersConsole rows={CHARACTERS} onReload={() => {}} />)
+    await screen.findByText('Jack Ryan')
+
+    const both = `${t('unit.film', { count: 1 })} · ${t('unit.show', { count: 1 })}`
+    expect(screen.queryAllByLabelText(both), 'the two media are not one mark').toHaveLength(1)
+    // And neither medium is also drawn on its own, which is what two marks means.
+    expect(screen.queryByLabelText(t('unit.film', { count: 1 }))).toBeNull()
+    expect(screen.queryByLabelText(t('unit.show', { count: 1 }))).toBeNull()
   })
 })
 

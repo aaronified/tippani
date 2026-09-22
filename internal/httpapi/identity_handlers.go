@@ -803,8 +803,24 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 	// in whether a face was chosen; the row is asking whether this appearance has a
 	// face ANYWHERE on it. Splitting the group without carrying that forward would
 	// have let the second performer's faceless row decide for both.
-	type pair struct{ cid, workID int64 }
-	at := map[pair]*characterWorkRef{}
+	// THE KIND IS PART OF THE KEY AND LEAVING IT OUT LOST A WHOLE APPEARANCE.
+	// `books` and `movies` number themselves independently, so book 1 and movie 1
+	// both exist in any library with one of each — and a key of (character, id)
+	// folded them into one row. A character in a novel and its adaptation, which is
+	// the case this row's two glyphs exist FOR, came back as the novel alone with
+	// the film's performer hung on it. Every id in this map is (kind, id) or it is
+	// not an id at all.
+	type appearance struct {
+		cid    int64
+		kind   string
+		workID int64
+	}
+	// AN INDEX, NOT A POINTER INTO THE SLICE. `append` reallocates, and a pointer
+	// taken before a reallocation addresses the old array — so a performer landing
+	// after one would be written into a copy nothing reads. Adjacent ordering makes
+	// that unreachable today, which is exactly the kind of guarantee that stops
+	// being true when somebody changes an ORDER BY.
+	at := map[appearance]int{}
 	for rows.Next() {
 		var cid int64
 		var ref characterWorkRef
@@ -814,19 +830,20 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 			return err
 		}
 		ref.HasFace = hasFace == 1
-		key := pair{cid, ref.ID}
-		got := at[key]
-		if got == nil {
-			r := byID[cid]
-			if r == nil {
-				continue
-			}
-			r.WorksIn = append(r.WorksIn, ref)
-			got = &r.WorksIn[len(r.WorksIn)-1]
-			at[key] = got
-		} else if ref.HasFace {
-			got.HasFace = true
+		r := byID[cid]
+		if r == nil {
+			continue
 		}
+		key := appearance{cid, ref.Kind, ref.ID}
+		i, seen := at[key]
+		if !seen {
+			r.WorksIn = append(r.WorksIn, ref)
+			i = len(r.WorksIn) - 1
+			at[key] = i
+		} else if ref.HasFace {
+			r.WorksIn[i].HasFace = true
+		}
+		got := &r.WorksIn[i]
 		// A CAST ROW WITH NO PERFORMER IS NOT A PERFORMER. `actor_id` is nullable —
 		// a character can be recorded on a work with nobody named for it — and a
 		// pill with id 0 and no name would be a door to nothing.

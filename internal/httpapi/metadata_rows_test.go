@@ -201,3 +201,104 @@ func TestACharacterRowNamesEveryPerformerOnOneWork(t *testing.T) {
 		t.Fatalf("the row names %v, want both performers", names)
 	}
 }
+
+// A NOVEL AND ITS ADAPTATION ARE TWO APPEARANCES, THOUGH THEIR IDS ARE THE SAME.
+//
+// THE REGRESSION THIS PINS, and it was introduced by the fix for the one above.
+// Merging the actor-split rows back into one appearance per work needs a key, and
+// the first key was (character, work_id) — which is not a work. `books` and
+// `movies` number themselves independently, so book 1 and movie 1 both exist in
+// any library holding one of each, and the map folded them into a single row: the
+// film's title, its clapper glyph and the whole appearance vanished, and its
+// performer was hung on the novel.
+//
+// IT IS THE CASE THE FEATURE EXISTS FOR, which is what makes it worth its own
+// test rather than a line in another. The medium glyphs are on the row precisely
+// so "a character in a novel and its adaptation draws two glyphs" — the commit
+// that broke this said so in its own body while breaking it.
+//
+// THE IDS ARE ASSERTED EQUAL rather than assumed: two fresh tables in a fresh
+// database both start at 1, but a test that silently stopped exercising the
+// collision would go on passing over the bug it was written for.
+func TestACharacterInANovelAndItsFilmIsTwoAppearances(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := decode[struct {
+		ID int64 `json:"id"`
+	}](t, c.mustDo("POST", "/books",
+		map[string]any{"title": "Dune", "author": "Frank Herbert"}, http.StatusCreated))
+	film := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Dune (2021)", "media_type": "movie"}, http.StatusCreated))
+	if book.ID != film.ID {
+		t.Fatalf("book %d and film %d do not share an id, so this is not testing the collision",
+			book.ID, film.ID)
+	}
+	c.mustDo("POST", "/books/"+itoa(book.ID)+"/cast",
+		map[string]any{"character": "Paul Atreides"}, http.StatusCreated)
+	c.mustDo("POST", "/movies/"+itoa(film.ID)+"/cast",
+		map[string]any{"character": "Paul Atreides", "actor": "Timothee Chalamet"}, http.StatusCreated)
+
+	// MERGED INTO ONE RECORD, WHICH IS THE WHOLE FIXTURE. Billing a character on
+	// two works files two records — one per work — and two records never share a
+	// merge key, so a test that stopped here would pass over the bug whichever way
+	// the key was written. The reader merges them, as the console's own merge verb
+	// does, and THEN one character stands on a book and a film whose ids are equal.
+	ids := characterIDs(t, c, "Paul Atreides")
+	if len(ids) != 2 {
+		t.Fatalf("billing one character on two works filed %d records, want 2", len(ids))
+	}
+	c.mustDo("POST", "/characters/merge",
+		map[string]any{"keep_id": ids[0], "drop_id": ids[1]}, http.StatusOK)
+
+	list := decode[struct {
+		Characters []struct {
+			Name    string `json:"name"`
+			WorksIn []struct {
+				Kind  string `json:"kind"`
+				Title string `json:"title"`
+			} `json:"works_in"`
+		} `json:"characters"`
+	}](t, c.mustDo("GET", "/characters", nil, http.StatusOK))
+
+	// ONE ROW, because the merge made one record — a second row here would mean the
+	// merge did not take and the collision is not being exercised.
+	var rows int
+	var seen []string
+	for _, ch := range list.Characters {
+		if ch.Name != "Paul Atreides" {
+			continue
+		}
+		rows++
+		for _, w := range ch.WorksIn {
+			seen = append(seen, w.Kind+":"+w.Title)
+		}
+	}
+	if rows != 1 {
+		t.Fatalf("the merged character is %d rows, so the two ids never met in one record", rows)
+	}
+	sort.Strings(seen)
+	if len(seen) != 2 || seen[0] != "book:Dune" || seen[1] != "movie:Dune (2021)" {
+		t.Fatalf("the character is in %v, want the novel and the film as two appearances", seen)
+	}
+}
+
+// characterIDs — every record filed under a name, newest last. The console's merge
+// sheet asks the same question of the same endpoint.
+func characterIDs(t *testing.T, c *testClient, name string) []int64 {
+	t.Helper()
+	list := decode[struct {
+		Characters []struct {
+			ID   int64  `json:"id"`
+			Name string `json:"name"`
+		} `json:"characters"`
+	}](t, c.mustDo("GET", "/characters", nil, http.StatusOK))
+	var out []int64
+	for _, ch := range list.Characters {
+		if ch.Name == name {
+			out = append(out, ch.ID)
+		}
+	}
+	return out
+}
