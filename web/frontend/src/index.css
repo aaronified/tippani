@@ -10672,6 +10672,54 @@ html[data-theme="dark"] .board-cover {
    somewhere to go that is not a style attribute. */
 .record-row { min-width: 0; }
 
+/* ── THE FILTER ROW AT THE HEAD OF A CONSOLE ──────────────────────────────────
+   Works, People and Characters, from one component — see ConsoleFilterRow.
+
+   ONE LINE, NEVER TWO, which is what the owner asked for on People: "1. single
+   line". `nowrap` is the whole of it, and the row scrolls under `Scroller`'s
+   measured fade where it does not fit — this repo's standing answer to a row
+   longer than its screen, and the same one the issue pills beside it already use.
+   Wrapping is what it replaced: five controls over three lines, above a table
+   that is already the densest thing on the screen.
+
+   FLUSH LEFT, WHICH IS THE GAP THE OWNER CIRCLED. The old row led with a SHOWN
+   count and pushed its controls right with `ml-auto` inside a wrapping flex — so
+   the moment the controls wrapped to their own line they kept the auto margin and
+   sat shoved to the right, with a gap where the row should start. There is no
+   auto margin here and nothing before the first control.
+
+   `min-width: 0` ON THE CHILDREN because a flex item defaults to its content's
+   minimum: without it a long Select refuses to narrow and pushes the row wider
+   than the scroller instead of scrolling inside it. */
+.console-filters {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: nowrap; overflow-x: auto; min-width: 0;
+  /* A SCROLL THAT STOPS AT ITS OWN EDGE. Without this, reaching the end of the
+     filter row hands the gesture to the page behind it — so a thumb flicking
+     through the filters scrolls the console away instead. `scroll-containment`
+     caught this the moment the row became a scroller, which is what that
+     invariant is for: the failure is one of omission, and it is invisible until
+     somebody's finger runs off the end. */
+  overscroll-behavior-x: contain;
+}
+/* NAMED CHILDREN, NOT `> *`, AND THIS IS THE THIRD TIME. `test/css-cascade.js`
+   resolves a universal child selector as "anything, anywhere", so
+   `.console-filters > *` beat `.tp-panel-slot`'s own flex and `NameScroll`'s
+   min-width across the whole app — two suites went red on a panel header and a
+   scrolling name that have nothing to do with this row. The pills row one screen
+   over already had the answer: put the rule on the child's OWN class. */
+.console-filters > select,
+.console-filters > input,
+.console-filters > .tp-select,
+.console-filters > .tp-btn,
+.console-filters > .tp-tip-wrap,
+.console-filters > .console-filters-count { flex: none; min-width: 0; }
+/* THE COUNT IS AN OUTCOME, NOT A HEADING, so it sits after the controls rather
+   than leading them. It is a `Tally` — a figure wearing the glyph of what it
+   counts, which is this app's drawing for a count everywhere else — and it never
+   shrinks: "17 works" clipped out of "177 works" would be worse than no count. */
+.console-filters-count { flex: none; margin-inline-start: 6px; white-space: nowrap; }
+
 /* ── A MAINTENANCE ROW'S NAME CLIPS ───────────────────────────────────────────
    The owner, 21 September, over a metadata console: "The work name truncation is
    fine. Delete that fucking rule. It is not okay when the work is the main

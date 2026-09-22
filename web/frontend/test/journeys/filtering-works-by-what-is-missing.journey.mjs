@@ -43,9 +43,19 @@ import { openApp } from './harness/world.mjs'
 const app = openApp()
 
 // The console prints how many rows are shown; this is that number.
+//
+// IT READS "3 works" NOW AND NOT "3 SHOWN", because the count was redrawn. The
+// owner on the old one: "It looks bad. Design it better then, so that it
+// integrates with the visual style." It was a grey uppercase mono label — this
+// app's drawing for a count before it had one — and every other count had since
+// moved to a figure wearing the glyph of what it counts. So it says the noun now,
+// which is also what tells this assertion it is reading the WORKS console's count
+// rather than some other number that happens to be on the screen — the bare noun
+// was not enough, and a first pass of this read landed on 127 where the filter had
+// left 41, because "works" appears more than once on this page.
 async function shownCount() {
-  const m = (await app.onScreen()).match(/(\d+)\s+SHOWN/i)
-  expect(m, 'the console should say how many rows it is showing').toBeTruthy()
+  const m = (await app.onScreen()).match(/(\d+)\s+works?\s+shown/i)
+  expect(m, 'the console should say how many works it is showing').toBeTruthy()
   return Number(m[1])
 }
 

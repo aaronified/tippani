@@ -784,6 +784,8 @@ unit.item.one = জিনিস
 unit.item.other = জিনিস
 unit.work.one = উৎস
 unit.work.other = উৎস
+unit.character.one = চরিত্র
+unit.character.other = চরিত্র
 work.people.more.one = আরও {n} জন
 work.people.more.other = আরও {n} জন
 unit.issue.one = সমস্যা
@@ -5134,7 +5136,8 @@ metadata.row.noposter.aria = পোস্টার নেই
 # not a second set for one screen.
 metadata.catalogue.type.all.label = সব ধরন
 metadata.catalogue.filter.aria = কোন সমস্যা
-metadata.shown.count = {n}টা দেখাচ্ছে
+# The trailing word on a console's filter row: "3 works shown".
+metadata.shown.word = দেখানো হচ্ছে
 # THE SECTIONS. This screen was one long scroll of six consoles stacked on top
 # of each other — a catalogue, duplicates, people, characters, a speaker remap —
 # so finding one meant scrolling past the other five, and nothing said how many

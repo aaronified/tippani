@@ -482,6 +482,14 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             </>
           ) : sect === 'works' ? (
             <>
+              {/* DUPLICATES FIRST, AND THAT IS WHERE THE OWNER PUT IT: "should be
+                  on top". It sat under the catalogue — below a list that is
+                  hundreds of rows on a real library — so the one control on this
+                  screen that FINDS something you did not know about was the one
+                  you had to scroll past everything to reach. A list you browse
+                  can wait; a problem you did not know you had cannot announce
+                  itself from the bottom of a scroll. */}
+              <DuplicatesPanel onDone={load} onFlash={setFlash} />
               <CatalogueConsole
                 books={lib.books}
                 movies={lib.movies}
@@ -495,9 +503,6 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
                 onFlash={setFlash}
                 onReverify={(selection) => setReverify(selection)}
               />
-              {/* DUPLICATES ARE A WORKS PROBLEM, so they live under works rather
-                  than in a console of their own halfway down a scroll. */}
-              <DuplicatesPanel onDone={load} onFlash={setFlash} />
             </>
           ) : sect === 'categories' ? (
             <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />
@@ -989,6 +994,64 @@ function moviePasses(m, filter) {
 // dropdown picks the type and reshapes the second (filter) dropdown; rows render
 // as BookRow / MovieRow by kind, and the bulk bar splits the (kind-namespaced)
 // selection back into per-kind actions.
+// ConsoleFilterRow — the row of filters at the head of Works, People and
+// Characters. One component because it is one row: three consoles drew it from
+// three copies of the same markup, and the owner's rule is that things which look
+// the same behave the same.
+//
+// IT FIXES THREE ANNOTATIONS AT ONE SITE, which is how the copies gave themselves
+// away. Each console drew a `SHOWN` count and then pushed its controls right with
+// `ml-auto` inside a wrapping flex. At phone width the wrapper wraps to its own
+// line and KEEPS the auto margin — so the controls sit shoved to the right with a
+// gap on the left ("why gap?", circled on Characters and true on Works), and
+// People's five controls spill onto a second line where the owner asked for one.
+//
+// ONE LINE, AND IT SCROLLS UNDER A FADE WHERE IT HAS TO. That is this repo's
+// standing answer to a row too long for its screen — "an edge fade means it
+// scrolls; a button at the fade opens the full set" — and the fade is measured, so
+// a row that fits wears none. Wrapping was the alternative and it is what the
+// owner asked to be rid of: a filter bar three lines tall above a dense table is
+// the shape that drove these controls behind a dropdown in the first place.
+//
+// THE COUNT IS A `Tally` NOW, NOT A MONO LABEL, and that is the owner's second
+// pass on it: "It looks bad. Design it better then, so that it integrates with
+// the visual style." They were right twice over. "3 SHOWN" in grey uppercase
+// mono was this app's drawing for a count BEFORE it had one — the standing rule
+// since is that a count wears the glyph of what it counts, and every other count
+// in the app had moved while this one sat in the old face.
+//
+// THE ROOMY FORM, WITH THE WORD, and the rule's own test is why. Its tight form
+// is for "rows with buttons and lots of info", where the glyph stands in for the
+// noun because there is no room for both. There IS room here: this sits at the
+// END of a row that SCROLLS rather than compresses, so nothing is competing for
+// the space, and the roomy form is where a reader learns what the drawing means.
+// `3 works`, `177 people`, `189 characters` — the noun says which console you are
+// on without the row having to repeat its own name.
+//
+// IT GOES AFTER THE CONTROLS rather than before them. As a lead it was a label
+// the eye had to get past to reach the first control; it is an OUTCOME of the
+// filters, not a heading for them.
+function ConsoleFilterRow({ count = null, icon = null, word = null, children }) {
+  return (
+    <Scroller axis="x" className="console-filters">
+      {children}
+      {count != null && (
+        <span className="console-filters-count">
+          {/* "3 works shown", NOT "3 works". The bare noun is wrong twice on a
+              filtered console: it reads as a claim about the LIBRARY — three works
+              in total — when it is a claim about what the filters left, and it is
+              not even unique on the page, which is how a journey reading it landed
+              on someone else's number. The trailing word is what makes it an
+              outcome, and it is the same word the string has always carried. */}
+          <Tally n={count} icon={icon} word={word} showWord />
+          {' '}
+          {t('metadata.shown.word')}
+        </span>
+      )}
+    </Scroller>
+  )
+}
+
 function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onOpenBook, onOpenMovie, onDone, onFlash, onReverify }) {
   const { ask, confirmDialog } = useConfirm()
   const [q, setQ] = useState('')
@@ -1137,15 +1200,23 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
       {/* THE SECTION IS THE HEADING — see CharactersConsole. This one said
           "Catalogue" under a tab saying "Works", which is worse than a repeat: two
           words for one thing, and the reader has to work out that they are one. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <select className="tp-input w-auto" title={t('common.field.media-type.label')} value={type} onChange={(e) => { setType(e.target.value); setFilter('flagged') }}>
-            {typeOptions().map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-          <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-      </div>
+      {/* THE COUNT STAYS HERE FOR NOW, MOVED RATHER THAN DROPPED, and the reason
+          is worth the line. The owner marked "3 SHOWN" irrelevant on this console
+          and they are right about what it looks like — a list of three visible
+          rows telling you there are three. But it is also the instrument a journey
+          uses to check that a pill promising 40 rows lands on 40, which is a real
+          defect class and one the pills' own numbers cannot check themselves.
+          Deleting it quietly would trade a guard for a line of text. Asked. */}
+      <ConsoleFilterRow
+        count={shown.length}
+        icon={<IconNavWorks />}
+        word={t('unit.work', { count: shown.length })}
+      >
+        <select className="tp-input w-auto" title={t('common.field.media-type.label')} value={type} onChange={(e) => { setType(e.target.value); setFilter('flagged') }}>
+          {typeOptions().map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+        <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
+      </ConsoleFilterRow>
       {/* THE GAP FILTER, AS PILLS. The owner on this console: "Works: well covered
           already. But pills." It was a combo box — eleven gaps behind one press,
           none of them carrying a number, so finding out how many films had no
@@ -2205,9 +2276,11 @@ export function CharactersConsole({ rows = null, onReload = null }) {
           possible." The dot's words moved up to the section, which is where the
           reader's question ("what is this screen") is asked. What stays on this
           line is what the SECTION cannot say: how many rows the filters left. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+      <ConsoleFilterRow
+        count={shown.length}
+        icon={<IconNavMasks />}
+        word={t('unit.character', { count: shown.length })}
+      >
           <Select
             ariaLabel={t('metadata.characters.work.aria')}
             value={work}
@@ -2226,8 +2299,7 @@ export function CharactersConsole({ rows = null, onReload = null }) {
           {/* The same button as the people console's, and the same sweep — a
               character in no work is the other half of what it clears. */}
           <PruneButton onDone={load} />
-        </div>
-      </div>
+      </ConsoleFilterRow>
       {/* THE ISSUE PILLS, AND THE SENTENCE THEY REPLACED. Under the line above,
           this screen printed "189 characters, 0 in no work" — and the line above
           it already said "189 SHOWN". The owner: "189 characters is written
@@ -2630,9 +2702,11 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
   return (
     <section className="space-y-3">
       {/* THE SECTION IS THE HEADING — see CharactersConsole. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <MonoLabel>{t('metadata.shown.count', { n: shown.length })}</MonoLabel>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+      <ConsoleFilterRow
+        count={shown.length}
+        icon={<IconNavUsers />}
+        word={t('unit.person', { count: shown.length })}
+      >
           {/* ALL FIRST, because a record's roles are DERIVED from its credits and a
               record with none — one the reader made, or one whose last credit went
               — belongs to no chip. Filtering to a role by default hid exactly the
@@ -2677,8 +2751,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
             </GhostButton>
           )}
           <PruneButton onDone={load} onFlash={onFlash} />
-        </div>
-      </div>
+      </ConsoleFilterRow>
       {/* THE FOUR ISSUES, AS PILLS. The owner named them: "Relevant issues for
           people: no links, no works, no quotes, no photos."
 

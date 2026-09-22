@@ -783,6 +783,8 @@ unit.item.one = item
 unit.item.other = items
 unit.work.one = work
 unit.work.other = works
+unit.character.one = character
+unit.character.other = characters
 
 # The hero column's credits row scrolls under its fade; this is the button AT
 # the fade that opens the whole set (the standing rule's second half).
@@ -5239,7 +5241,8 @@ metadata.row.noposter.aria = No poster stored
 # not a second set for one screen.
 metadata.catalogue.type.all.label = all types
 metadata.catalogue.filter.aria = Which issue
-metadata.shown.count = {n} shown
+# The trailing word on a console's filter row: "3 works shown".
+metadata.shown.word = shown
 # THE SECTIONS. This screen was one long scroll of six consoles stacked on top
 # of each other — a catalogue, duplicates, people, characters, a speaker remap —
 # so finding one meant scrolling past the other five, and nothing said how many

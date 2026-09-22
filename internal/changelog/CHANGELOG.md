@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **One filter row on Works, People and Characters, and it starts where the screen
+  does.** The three consoles each drew their own copy of the same row, and each pushed
+  its controls to the right behind a `SHOWN` label — so on a phone the controls wrapped
+  onto a second line and sat shoved right with a gap where the row should begin, and
+  People's five controls needed three lines above an already dense table. It is one row
+  now, flush left, on one line, scrolling under an edge fade where it does not fit. The
+  count moved to the end and reads "177 people shown" in the app's own count style
+  instead of grey uppercase mono — it is an outcome of the filters, not a heading for
+  them.
+
+- **Duplicate books is the first thing on Works, not the last.** It sat under a
+  catalogue that runs to hundreds of rows, so the one control that finds a problem you
+  did not know you had was the one you had to scroll past everything to reach.
+
 - **Settings on a phone: each section's main controls on the home screen.** The index was
   five doors and then most of a screen's height of nothing under them. Each door now
   carries what you came for — dark/light/match and the colour doors under Theme, your
