@@ -832,6 +832,38 @@
   .tp-select-ph { color: var(--faint); }
   .tp-select-chev { color: var(--soft); transition: transform .22s ease; flex: none; }
   .tp-select-trigger[aria-expanded="true"] .tp-select-chev { transform: rotate(180deg); }
+  /* THE CHOSEN VALUE, ON ONE LINE. See the span's own comment: a long face name
+     wrapped inside the trigger and made a two-line control out of a one-line row.
+     `min-width: 0` is the half that makes the clip possible at all — a flex child
+     defaults to its content's minimum, so without it the name refuses to narrow
+     and widens the trigger instead of clipping inside it. */
+  /* ── A TYPEFACE ROW'S CONTROLS, ON ONE LINE ─────────────────────────────────
+     The chooser, the size dial, the style gear and the revert. It was a wrapping
+     flex, so at phone width the gear and the revert fell to a second line under
+     the chooser and read as belonging to nothing.
+
+     ONLY THE CHOOSER FLEXES. It is the one control here whose width is arbitrary
+     — a face's name is as long as the face's name — and the others are fixed
+     targets a thumb has to hit. So the chooser gives up the width and clips its
+     value (see `.tp-select-value`), and the buttons keep their size. */
+  .font-row-controls {
+    display: flex; flex-wrap: nowrap; align-items: center; gap: 8px;
+    min-width: 0; width: 100%;
+  }
+  /* THE FACE CHOOSER IS THE ONLY THING THAT GIVES UP WIDTH. Both it and the size
+     dial are Selects, so the rule is on the face's own name rather than on the
+     element or its position — the dial is four characters and must keep them. */
+  .font-row-controls > .font-row-face { flex: 1 1 6em; min-width: 0; }
+  .font-row-controls > .tp-select,
+  .font-row-controls > .tp-btn,
+  .font-row-controls > .tp-tip-wrap { flex: none; }
+
+  .tp-select-value {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
   /* Placed by useAnchoredPosition (matchWidth: 'min' supplies the trigger width
      that `min-width: 100%` used to mean — and which means nothing once this is
      a child of <body>). */
@@ -10610,7 +10642,32 @@ html[data-theme="dark"] .board-cover {
   font-family: var(--font-ui); font-size: var(--type-ui-15); font-weight: 600;
   color: var(--ink);
 }
-.section-index-chevron { flex: none; display: inline-flex; color: var(--faint); }
+/* THE CHEVRON HAS TO LOOK LIKE A PRESS, AND LIKE WHERE THE PRESS IS. The owner:
+   "The more options arrow is not very clear on where to click." It was a faint
+   glyph floating at the right margin with nothing around it — so it read as
+   decoration marking the row's end rather than as the control that opens the
+   section, and the fact that the WHOLE row is pressable was invisible too.
+
+   A SEAT, NOT A BRIGHTER GLYPH. Making it darker would have said "this matters"
+   without saying "press here"; giving it a disc says where the target is and how
+   big it is, which is the actual question. It is the row's own affordance, so it
+   lights with the row rather than on its own. */
+.section-index-chevron {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: max(32px, 2.2em);
+  block-size: max(32px, 2.2em);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ink), transparent 94%);
+  color: var(--soft);
+}
+.section-index-row:hover .section-index-chevron,
+.section-index-row:focus-visible .section-index-chevron {
+  background: color-mix(in oklab, var(--accent-ui), transparent 86%);
+  color: var(--accent-ui);
+}
 /* ── A SECTION'S OWN CONTROLS, ON THE INDEX ───────────────────────────────────
    The standing rule: use the space, and put what is used most in front. Five
    doors and then two-thirds of a phone's height standing empty is a surface not
@@ -10627,6 +10684,34 @@ html[data-theme="dark"] .board-cover {
    belong to the row above" and cost `--edge` of the width the controls are short
    of already; the border at the top of the next row is what separates them, which
    is the job it was already doing. */
+/* THEY ARE CARDS, NOT ONE LONG SCREEN. The owner on the first cut: "These do not
+   look like cards. They look like one screen. Make them cards."
+
+   They were right, and the cause was that the row kept the hairline it had as a
+   plain list item and gained nothing else — so five sections read as one surface
+   ruled into bands. A card needs its own ground, its own edge and air between it
+   and the next one; the hairline was doing the job of all three and doing none of
+   them, because a divider says "the list continues" where a card says "this is a
+   thing".
+
+   THE GROUND IS THE CARD'S, one step up from the page, which is the same move
+   every other card in the app makes — see `.hand-card`. The separating border
+   goes: two cards with a gap between them need nothing drawn to tell them
+   apart. */
+.section-index-card {
+  /* The app's own card skin, so these read as the same kind of object as every
+     other card rather than as a new one invented for this screen: the same
+     gradient over --card, the same ink border, the same hand-drawn radius. */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
+  border: 1.6px solid var(--ink-border);
+  border-radius: 15px 9px 14px 10px / 9px 15px 10px 14px;
+  margin-bottom: 10px;
+}
+/* THE RADII ALTERNATE so five cards in a column do not read as one extruded
+   shape — the same trick `.hc-r1`/`.hc-r2` play wherever cards are stacked. */
+.section-index-card:nth-child(3n + 2) { border-radius: 9px 15px 10px 14px / 14px 9px 15px 10px; }
+.section-index-card:nth-child(3n) { border-radius: 13px 10px 15px 9px / 10px 14px 9px 15px; }
+.section-index-card > .section-index-row { border-top: none; }
 .section-index-card.has-actions {
   padding-bottom: 12px;
 }

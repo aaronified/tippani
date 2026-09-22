@@ -1243,7 +1243,13 @@ function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSi
       // nothing above it for a row to differ from.
       changed={!!scope && !!row.own}
       control={
-        <div className="flex flex-wrap items-center gap-2">
+        /* ONE ROW, AND THE BUTTONS STAY IN IT. This wrapped, so on a phone the
+           style gear and the revert dropped onto a line of their own under the
+           chooser — the owner: "the settings button should stay in the same row".
+           The chooser is the only part that can give up width, so it is the only
+           part that flexes; everything else holds its size and the row stays one
+           row. */
+        <div className="font-row-controls">
           {/* THE SAME CONTROL THE LANGUAGE TABLE USES for the same question —
               `FaceSelect`, drawing every option in its own face. The repo's
               directive is that a control on two screens lives in one function
@@ -1261,6 +1267,7 @@ function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSi
               test/pure/font-script-names.test.js fails on that day and points
               here. */}
           <FaceSelect
+            className="font-row-face"
             faces={row.faces}
             uploads={mine}
             script={script}
@@ -5148,8 +5155,96 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
         label={t('settings.appearance.colours.title')}
         changed={groundLight !== 'cream' || groundDark !== 'night' || accent !== 'terracotta'}
         control={colourDoors()}
-      />
+      >
+        {/* THE ANSWER, WHICH THE FIRST CUT OF THIS CARD LEFT BEHIND. The doors
+            were rendered and the panel they open was not, so pressing one set a
+            state nothing drew — "Clicking on those colours in the theme area does
+            nothing", and it was exactly that. A control and the thing it opens
+            travel together. */}
+        {colourPanel()}
+      </PrefRow>
     </>
+  )
+
+  // ── THE PANEL THE DOORS OPEN, AS A HELPER ─────────────────────────────────
+  //
+  // OUT OF THE ROW FOR THE SAME REASON `colourDoors` WAS, AND BECAUSE LEAVING IT
+  // BEHIND WAS A BUG THE OWNER FOUND: "Clicking on those colours in the theme
+  // area does nothing." They were right and the cause was exactly this — the
+  // phone card rendered the doors through `colourDoors()` and nothing else, while
+  // the panel that answers them was a CHILD of the section's PrefRow, which the
+  // card's early return never reaches. So every door set its state and no screen
+  // drew the result: three controls that looked live and were inert.
+  //
+  // A control and the thing it opens are one decision, so they are one pair of
+  // helpers now, and a caller that draws the first without the second is the
+  // shape of mistake this split exists to make impossible to repeat quietly.
+  const colourPanel = () => (
+    colourDoor && (
+        <div className="colour-panel">
+          <div className="colour-panel-head">
+            <MonoLabel>{t(`settings.appearance.colours.${colourDoor}.title`)}</MonoLabel>
+            {/* ITS OWN NAME, WHICH THE PACK ALSO GIVES IT (aria-label="Hide the
+                options", settings-restructured.dc.html:444). "Hide" alone is
+                the word on a label-density option three groups down, so the
+                section had two controls a reader — or a journey — could not
+                tell apart by name. */}
+            <GhostButton
+              icon={<IconChevron open />}
+              aria-label={t('settings.appearance.colours.hide.aria')}
+              onClick={() => setColourDoor(null)}
+            >
+              {t('common.action.hide.label')}
+            </GhostButton>
+          </div>
+          <div className="colour-choices">
+            {colourDoor === 'accent'
+              ? Object.entries(ACCENTS).map(([name, hex]) => {
+                  const on = accent === name
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      className={'colour-choice' + (on ? ' is-on' : '')}
+                      aria-pressed={on}
+                      onClick={() => persist({ accent: name })}
+                    >
+                      <span
+                        className="accent-swatch"
+                        aria-hidden="true"
+                        style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${hex}, white 14%), ${hex})` }}
+                      />
+                      <span className="colour-choice-name">{t(`vocab.accent.${name}.label`)}</span>
+                    </button>
+                  )
+                })
+              : Object.entries(GROUNDS[colourDoor === 'dark' ? 'dark' : 'light']).map(([key, g]) => {
+                  const dark = colourDoor === 'dark'
+                  const on = (dark ? groundDark : groundLight) === key
+                  const pal = paletteFor(dark, dark ? { groundDark: key } : { groundLight: key })
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={'colour-choice' + (on ? ' is-on' : '')}
+                      aria-pressed={on}
+                      onClick={() => persist(dark ? { groundDark: key } : { groundLight: key })}
+                    >
+                      <span
+                        className="ground-swatch"
+                        aria-hidden="true"
+                        style={{ background: pal.bg, boxShadow: `inset 0 0 0 1px ${pal.line}` }}
+                      >
+                        <span style={{ background: pal.raised }} />
+                        <span style={{ background: pal.card }} />
+                      </span>
+                      <span className="colour-choice-name">{t(g.label)}</span>
+                    </button>
+                  )
+                })}
+          </div>
+        </div>
+    )
   )
 
   const colourDoors = () => (
@@ -5323,71 +5418,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
             first cut of this used a FormModal and a rating caught it against the
             pack; what the modal was buying, room for the names, the row gives
             anyway, because the panel runs the full measure. */}
-        {colourDoor && (
-          <div className="colour-panel">
-            <div className="colour-panel-head">
-              <MonoLabel>{t(`settings.appearance.colours.${colourDoor}.title`)}</MonoLabel>
-              {/* ITS OWN NAME, WHICH THE PACK ALSO GIVES IT (aria-label="Hide the
-                  options", settings-restructured.dc.html:444). "Hide" alone is
-                  the word on a label-density option three groups down, so the
-                  section had two controls a reader — or a journey — could not
-                  tell apart by name. */}
-              <GhostButton
-                icon={<IconChevron open />}
-                aria-label={t('settings.appearance.colours.hide.aria')}
-                onClick={() => setColourDoor(null)}
-              >
-                {t('common.action.hide.label')}
-              </GhostButton>
-            </div>
-            <div className="colour-choices">
-              {colourDoor === 'accent'
-                ? Object.entries(ACCENTS).map(([name, hex]) => {
-                    const on = accent === name
-                    return (
-                      <button
-                        key={name}
-                        type="button"
-                        className={'colour-choice' + (on ? ' is-on' : '')}
-                        aria-pressed={on}
-                        onClick={() => persist({ accent: name })}
-                      >
-                        <span
-                          className="accent-swatch"
-                          aria-hidden="true"
-                          style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${hex}, white 14%), ${hex})` }}
-                        />
-                        <span className="colour-choice-name">{t(`vocab.accent.${name}.label`)}</span>
-                      </button>
-                    )
-                  })
-                : Object.entries(GROUNDS[colourDoor === 'dark' ? 'dark' : 'light']).map(([key, g]) => {
-                    const dark = colourDoor === 'dark'
-                    const on = (dark ? groundDark : groundLight) === key
-                    const pal = paletteFor(dark, dark ? { groundDark: key } : { groundLight: key })
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        className={'colour-choice' + (on ? ' is-on' : '')}
-                        aria-pressed={on}
-                        onClick={() => persist(dark ? { groundDark: key } : { groundLight: key })}
-                      >
-                        <span
-                          className="ground-swatch"
-                          aria-hidden="true"
-                          style={{ background: pal.bg, boxShadow: `inset 0 0 0 1px ${pal.line}` }}
-                        >
-                          <span style={{ background: pal.raised }} />
-                          <span style={{ background: pal.card }} />
-                        </span>
-                        <span className="colour-choice-name">{t(g.label)}</span>
-                      </button>
-                    )
-                  })}
-            </div>
-          </div>
-        )}
+        {colourPanel()}
       </PrefRow>
       </PrefGroup>
       {/* THE GROUP'S HEADING IS THE ONLY HEADING. "2 · What it is made of" sat

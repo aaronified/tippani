@@ -60,12 +60,19 @@ export function faceOptions(faces, uploads = uploadedFonts(), script = '') {
 // they belong in the same list rather than behind a clear button beside it.
 // Passing no `inheritLabel` leaves the list as faces only, which is what a role
 // row wants: a role always has a face.
-export function FaceSelect({ faces, value, onChange, ariaLabel, inheritLabel = '', uploads, width = 228, script = '' }) {
+export function FaceSelect({ faces, value, onChange, ariaLabel, inheritLabel = '', uploads, width = 228, script = '', className = '' }) {
   const options = faceOptions(faces, uploads, script)
   if (inheritLabel) options.unshift(['', inheritLabel, inheritLabel])
   return (
     <Select
       filter
+      // A NAME OF ITS OWN, so a row can say which of its choosers is the one that
+      // may give up width. A typeface row holds two Selects — this and the size
+      // dial — and they want opposite things: a face's name is arbitrarily long
+      // and shrinks, a size is four characters and must not. Without a name to
+      // tell them apart the rule had to be positional, which is the kind of thing
+      // that stops being true the first time a row gains a control.
+      className={className}
       width={width}
       value={value || ''}
       ariaLabel={ariaLabel}

@@ -5354,7 +5354,15 @@ export function Select({
           setOpen((o) => !o);
         }}
       >
-        <span className={idx >= 0 ? "" : "tp-select-ph"}>{label}</span>
+        {/* ONE LINE, CLIPPED. A face's name runs long — "AtkinsonHyperlegibleNext
+            Regular" — and without this it wrapped inside its own trigger, making
+            a two-line control in a row of one-line ones and pushing whatever sat
+            beside it onto a line of its own. The owner: "The font needs to be
+            ellipsised in one line (inside the section as well)." A chooser's
+            trigger states the CURRENT answer; the full name is in the list it
+            opens, one press away, which is the same argument the panel headers
+            won their clip on. */}
+        <span className={`tp-select-value${idx >= 0 ? "" : " tp-select-ph"}`}>{label}</span>
         <svg
           className="tp-select-chev"
           width="14"

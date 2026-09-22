@@ -64,6 +64,16 @@ it('a reader changes the theme from the phone settings home, without opening a s
   await app.see('Review')
   await app.see('Server')
 
+  // AND THE COLOURS OPEN, WHICH THEY DID NOT. The first cut of this card drew the
+  // three colour doors and left the panel they open behind on the section page —
+  // so pressing one set a state nothing rendered: "Clicking on those colours in
+  // the theme area does nothing." A door is only a door if something is on the
+  // other side, so this presses one and looks.
+  await app.press('Accent')
+  await app.see('Hide')
+  await app.press('Hide')
+  await app.gone('Hide')
+
   // THE SECTION AGREES. One preference, one writer: the card and the section page
   // draw the same control through the same save, so the section is where a reader
   // would notice if they had drifted apart.
