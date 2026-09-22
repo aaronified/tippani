@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A phone shows two columns of tags and four of stickers.** Both were one column:
+  a tag card is a word and a use count — the narrowest card in the app — and a
+  sticker is a small square mark, so a vocabulary of twenty was twenty screens of
+  scrolling with most of every line empty. The breakpoints that set two and three
+  only began at 640px, where there was already room.
+
+- **The API keys are a card of their own on Sources.** They were the bottom half of
+  the supplier card, so one card carried two questions — which suppliers answer,
+  which anyone can read, and what secrets this server holds, which only an admin can
+  see at all. For everyone else the card simply stopped early with nothing saying
+  why.
+
+- **The Languages section stops repeating itself down the page.** The four
+  text-order options are drawn once per language, and they wrapped into a two-row
+  block under every name — measured at 390 with six languages, a 1,350px card where
+  the names account for about 260. They are one line that scrolls now, with the
+  chosen option brought into view, and the card is 726px. A reader with twenty
+  languages was looking at a page four thousand pixels long.
+
 - **The speaker remap moves to the top of Characters.** It is the tool that MAKES
   the rows under it — it points a film's speaker names at that film's cast, which
   is the one place in the app where a quote's speaker becomes a character — and it

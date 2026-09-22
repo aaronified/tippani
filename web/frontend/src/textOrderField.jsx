@@ -40,7 +40,8 @@
 // work of Bengali quotes and one of English quotes inherit different answers. So
 // the chips say which of the four, and the revert glyph says whether the work has
 // an opinion at all.
-import { FieldIconButton, IconReset, MonoLabel } from './ui.jsx'
+import { useEffect, useRef } from 'react'
+import { FieldIconButton, IconReset, MonoLabel, Scroller } from './ui.jsx'
 import { t } from './i18n.js'
 import { TEXT_ORDERS, TEXT_ORDER_DEFAULT, TEXT_ORDER_WORD } from './textOrder.js'
 
@@ -94,14 +95,60 @@ export function TextOrderField({ value, onChange, inherited = TEXT_ORDER_DEFAULT
 // exclusive by construction, so they say so. The chip CLASS is unchanged, because
 // the directive is that two things which look the same behave the same, and these
 // look like every other chosen chip in the app.
+//
+// ONE LINE THAT SCROLLS, NOT FOUR CHIPS THAT WRAP — and this is the whole of the
+// Languages section's redesign, because that section draws this control once per
+// language. `flex-wrap` folded the four into a 2x2 block at a phone's width, and a
+// 2x2 block is TWO ROWS TALL under every language name: measured at 390, six
+// languages made a 1,350px card where the names themselves account for about 260.
+// A reader with twenty languages got a page four thousand pixels long to answer
+// one question twenty times.
+//
+// The owner asked for the shape this now has, and the note in MetadataSources
+// recorded the words while the code did something else: "a table, where i add
+// languages as rows, and I can slide across the 4 options beside it". Beside it —
+// on the row, not under it.
+//
+// `Scroller` RATHER THAN A BARE overflow, which is the app's standing rule: an
+// edge fade is how this app says a row continues, and the fade is measured, so
+// the desk — where all four fit — wears none.
+//
+// ITS OWN CLASS LEADS THE LIST, which is a convention `scroller-boxes.test.js`
+// enforces and this file broke on the first try: that guard reads the FIRST class
+// on a Scroller and checks it declares an overflow, so `"flex gap-2
+// text-order-choice"` made it look for `.flex` and report a row that "can never
+// scroll". The rule is right — the row's own class is the one that owns its
+// scrolling — and the diagnosis is exactly what a reader needs.
 export function TextOrderChoice({ value, onChange, ariaLabel }) {
+  // THE CHOSEN CHIP BRINGS ITSELF INTO VIEW, and without this the row was worse
+  // than the wrap it replaced. Four options whose words are "translation only",
+  // "translation first", "quotation first" and "quotation only" cannot all sit on
+  // 390px, so the third one — which is the DEFAULT, and therefore what most rows
+  // are set to — sat half off the right edge reading "quotati". A row where the
+  // only unreadable chip is the selected one answers the question it was asked to
+  // ask.
+  //
+  // scrollLeft ON THE SCROLLER ITSELF, not scrollIntoView: the latter walks every
+  // scrollable ancestor and will happily drag the whole card, and this control is
+  // drawn once per language — a mount that scrolls the page six times is a screen
+  // that jumps while you read it.
+  const box = useRef(null)
+  const chip = useRef(null)
+  useEffect(() => {
+    const b = box.current
+    const c = chip.current
+    if (!b || !c) return
+    const left = c.offsetLeft - (b.clientWidth - c.offsetWidth) / 2
+    b.scrollLeft = Math.max(0, left)
+  }, [value])
   return (
-    <div role="radiogroup" aria-label={ariaLabel} className="flex flex-wrap gap-2">
+    <Scroller axis="x" innerRef={box} role="radiogroup" aria-label={ariaLabel} className="text-order-choice flex gap-2">
       {TEXT_ORDERS.map((k) => {
         const on = value === k
         return (
           <button
             key={k}
+            ref={on ? chip : null}
             type="button"
             role="radio"
             aria-checked={on}
@@ -112,6 +159,6 @@ export function TextOrderChoice({ value, onChange, ariaLabel }) {
           </button>
         )
       })}
-    </div>
+    </Scroller>
   )
 }

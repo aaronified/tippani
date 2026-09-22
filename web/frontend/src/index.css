@@ -10828,6 +10828,24 @@ html[data-theme="dark"] .board-cover {
    answer rather than as the list's heading. */
 .console-filters-count-row { margin-block-start: 6px; }
 
+/* ── THE FOUR TEXT-ORDER CHIPS, ON ONE LINE ───────────────────────────────────
+   See TextOrderChoice: the Languages section draws this control once per
+   language, so every line it wraps to is a line per language. Measured at 390
+   with six languages, wrapping cost 1,350px of card where the names themselves
+   are about 260. `nowrap` plus the Scroller's own measured fade is the app's
+   standing answer for a row that does not fit: the desk, where all four sit
+   comfortably, wears no fade at all. */
+.text-order-choice {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  min-width: 0;
+  /* A flick through the options must not hand the gesture to the card behind
+     them — the same containment the console filter row needed the day it
+     became a scroller. */
+  overscroll-behavior-x: contain;
+}
+.text-order-choice > .tp-filter-chip { flex: none; }
+
 /* ── A MAINTENANCE ROW'S NAME CLIPS ───────────────────────────────────────────
    The owner, 21 September, over a metadata console: "The work name truncation is
    fine. Delete that fucking rule. It is not okay when the work is the main

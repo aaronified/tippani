@@ -5609,6 +5609,8 @@ settings.keys.need.bundled.label = সঙ্গেই আছে
 settings.keys.need.required.label = লাগবে
 settings.keys.need.optional.label = ইচ্ছেমতো
 settings.keys.legend.label = চিহ্ন যা বলে
+settings.keys.card.title = কি ও পরিচয়পত্র
+settings.keys.card.info = অনুসন্ধান করার জন্য এই সার্ভার যে গোপন তথ্যগুলি রাখে। সেগুলি আপনার অ্যাকাউন্টে নয়, সার্ভারে রাখা হয় — তাই এই ইনস্ট্যান্স ব্যবহার করা সকলের জন্য একই, এবং সেই কারণেই কেবল একজন অ্যাডমিন সেগুলি দেখতে বা বদলাতে পারেন।
 settings.keys.saved.tip = সেভ আছে
 
 settings.sources.group.title = অ্যাপ কাদের জিজ্ঞেস করতে পারে

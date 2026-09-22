@@ -147,7 +147,14 @@ export default function TagsPage({ embedded = false }) {
           )}
           {tags && tags.length > 0 && (
             <>
-              <div className="grid gap-3 sm:grid-cols-2">
+              {/* TWO COLUMNS ON A PHONE, NOT ONE. The owner: "Tags: two columns
+                  for tags, four for stickers on the phone." A tag card is a word
+                  and a use count — the narrowest card in the app — and one per
+                  line turned a vocabulary of twenty into twenty screens of
+                  scrolling with two thirds of every line empty. `sm:grid-cols-2`
+                  was doing nothing a phone could see, because it only began at
+                  640px where there was already room for two. */}
+              <div className="grid grid-cols-2 gap-3">
                 {top.map((row, i) => (
                   <CompactTagCard key={row.id} tag={row} index={i} dupe={dupIds.has(row.id)} onChanged={load} />
                 ))}

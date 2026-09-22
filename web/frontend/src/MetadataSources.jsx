@@ -674,9 +674,32 @@ export function MetadataSources({ user, onPreferences }) {
         </p>
       )}
 
-      {/* One flat list. Every field says which service it is for, so grouping
-          them added a heading and two rows of air per group and no meaning. */}
-      {admin && (
+    </Card>
+
+    {/* ── THE CREDENTIALS, ON THEIR OWN CARD ───────────────────────────────────
+        The owner: "Sources: split the API keys into their own subsection with
+        cards." They were the bottom half of the card above, under the supplier
+        rows and the legend explaining those rows' marks — so one card carried two
+        questions: WHICH SUPPLIERS ANSWER, which everybody can read, and WHAT
+        SECRETS THIS SERVER HOLDS, which only an admin can see at all.
+
+        That second question is why the split is right rather than merely tidy.
+        Every field below is `admin`-gated, so a reader who is not one watched the
+        card above simply stop, with nothing saying why; one who is got six secret
+        fields with no heading between them and a legend about coloured dots.
+        A card is how this app says "different subject", and these are two.
+
+        IT KEEPS THE FLAT LIST INSIDE ITSELF. The note that used to sit here —
+        "every field says which service it is for, so grouping them added a
+        heading and two rows of air per group and no meaning" — was about grouping
+        the keys BY SUPPLIER, and it still holds: one heading now, not six.
+
+        THE GOOGLE OPT-IN COMES WITH THEM, and its own note below says why it
+        belongs at the foot of this card rather than inside Amazon's block. It was
+        already `admin`-gated separately; that guard is this card's now. ── */}
+    {admin && (
+      <Card data-tour="metadata-keys">
+        <SectionTitle info={t('settings.keys.card.info')}>{t('settings.keys.card.title')}</SectionTitle>
         <div className="mt-3">
           <KeyField
             label={keyLabel('google', 'key')}
@@ -779,11 +802,10 @@ export function MetadataSources({ user, onPreferences }) {
             </p>
           )}
         </div>
-      )}
 
-      {/* Amazon (advanced): cover-by-ASIN needs nothing; the optional cookie
-          adds description/genres by scraping the product page. */}
-      {admin && (
+        {/* Amazon (advanced): cover-by-ASIN needs nothing; the optional cookie
+            adds description/genres by scraping the product page. Its own
+            `admin` guard is gone because the whole card carries one now. */}
         <div>
           <div>
             {/* .caveat, NOT .hint, and deliberately: this one runs to 440
@@ -825,7 +847,6 @@ export function MetadataSources({ user, onPreferences }) {
             />
           </div>
         </div>
-      )}
 
       {/* THE SCRAPE'S OPT-IN, LAST, AND THE ONLY CONTROL ON THIS CARD THAT IS NOT
           A CREDENTIAL.
@@ -849,7 +870,6 @@ export function MetadataSources({ user, onPreferences }) {
           lifting it out of that block's own guard, which is the half a move like this
           loses silently — the control would have drawn for everybody and 403'd on
           press. */}
-      {admin && (
         <div className="mt-4">
           <div className="mb-2 flex items-center gap-1.5">
             {/* SHORT ON THE PAGE, WHOLE IN THE ACCESSIBLE NAME. "Google image
@@ -876,11 +896,14 @@ export function MetadataSources({ user, onPreferences }) {
             options={[['off', t('vocab.no.label')], ['on', t('vocab.yes.label')]]}
           />
         </div>
-      )}
 
-      <ErrorText>{error}</ErrorText>
-
-    </Card>
+        {/* THE SAVE ERROR BELONGS TO THE CARD THAT SAVES. Every write on this
+            screen is a key field or the toggle above, so the one line that says a
+            write failed goes with them rather than under the supplier list, which
+            writes nothing. */}
+        <ErrorText>{error}</ErrorText>
+      </Card>
+    )}
 
       {/* A CARD OF ITS OWN NOW, on the owner's ruling: "multi author credits:
           separate card."

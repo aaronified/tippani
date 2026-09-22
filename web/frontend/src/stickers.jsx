@@ -162,7 +162,15 @@ export function StickerList({ stickers, onChanged }) {
         <EmptyState>{t('tags.sticker.board.empty')}</EmptyState>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {/* FOUR ON A PHONE. The owner's, in the same breath as the tags beside
+              them: "two columns for tags, four for stickers on the phone." A
+              sticker IS its picture — a small square mark you put on a quote — so
+              four of them read at 390 where four tag cards would not, and one per
+              line was a column of stamps down the left of an empty screen.
+              `sm:grid-cols-3` is gone rather than kept: three at 640px is FEWER
+              than four at 390, and a grid that thins as the screen grows is the
+              one shape a reader can be certain is a mistake. */}
+          <div className="grid grid-cols-4 gap-3 lg:grid-cols-5">
             {latest.map((s, i) => (
               <StickerCard key={s.id} sticker={s} index={i} onChanged={onChanged} />
             ))}
