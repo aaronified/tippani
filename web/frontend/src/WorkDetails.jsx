@@ -1273,9 +1273,28 @@ export function workLinksPanel(stack, props) {
 // `onClose` closes the WHOLE stack rather than walking back one: the field list's
 // own ✓ means "I am finished here", and a Details panel is never opened from
 // inside another one.
-export function workDetailsPanel(stack, { kind, item, onChanged, onDelete }) {
+export function workDetailsPanel(stack, { kind, item, onChanged, onDelete, onGoToWork = null }) {
   return {
     title: t('common.work.details.title'),
+    // A WAY OUT TO THE WORK ITSELF, where the caller gave one. The owner asked for
+    // it on the pills that open this panel from a person's row: "These pills will
+    // open the work details popup (which when opened from here, will have a go to
+    // work button in the top bar)."
+    //
+    // AND ONLY WHERE THE CALLER GAVE ONE. Opened from the work's own page this
+    // panel is already AT the work, so the button would point at the screen behind
+    // it — which is why it is a prop rather than something this file derives. The
+    // repo's rule for a door that goes nowhere is not to draw it.
+    ...(onGoToWork ? {
+      headVerb: (
+        <IconButton
+          icon={<IconOpen />}
+          ariaLabel={t('metadata.work.goto.aria', { title: item?.title || '' })}
+          tooltip={t('metadata.work.goto.label')}
+          onClick={() => { stack.close(); onGoToWork() }}
+        />
+      ),
+    } : null),
     wide: true,
     saveTip: t('common.work.details.done.tip'),
     render: () => (

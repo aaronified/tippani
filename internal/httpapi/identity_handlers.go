@@ -718,6 +718,18 @@ type characterWorkRef struct {
 	// refs and the refs are not derivable from the count. A reader who wants to
 	// know WHICH work is missing one is asking the more useful question.
 	HasFace bool `json:"has_face"`
+	// THE WORK'S OWN PICTURE, so a pill can wear it. The owner's spec for the
+	// people and character rows: "work pills with cover/poster, edgemasked".
+	// A pill carrying a title and nothing else makes a reader read six titles to
+	// find the one film they meant; a cover is the fastest thing in a row to
+	// recognise, which is the same argument that put a face on the row itself.
+	//
+	// ONE FIELD FOR BOTH, because a book's cover and a film's poster are the same
+	// thing from the pill's side — the picture of the work — and `Kind` already
+	// says which it is for anything that cares. Two nullable fields with exactly
+	// one ever set is a shape every caller has to branch on to ask a question it
+	// does not have.
+	ArtPath string `json:"art_path,omitempty"`
 }
 
 // attachCharacterWorks fills every row's WorksIn in one pass over work_cast.
@@ -729,18 +741,20 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 	rows, err := db.Query(`
 		SELECT wc.character_id, 'book', b.id, b.title, '', '',
 		       MAX(CASE WHEN COALESCE(wc.character_image_path,'') <> ''
-		                  OR COALESCE(wc.character_image_url,'') <> '' THEN 1 ELSE 0 END)
+		                  OR COALESCE(wc.character_image_url,'') <> '' THEN 1 ELSE 0 END),
+		       COALESCE(b.cover_path, '')
 		  FROM work_cast wc JOIN books b ON b.id = wc.work_id
 		 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
-		 GROUP BY wc.character_id, b.id, b.title
+		 GROUP BY wc.character_id, b.id, b.title, b.cover_path
 		UNION ALL
 		SELECT wc.character_id, 'movie', m.id, m.title,
 		       COALESCE(m.media_type, ''), COALESCE(m.cast_role, ''),
 		       MAX(CASE WHEN COALESCE(wc.character_image_path,'') <> ''
-		                  OR COALESCE(wc.character_image_url,'') <> '' THEN 1 ELSE 0 END)
+		                  OR COALESCE(wc.character_image_url,'') <> '' THEN 1 ELSE 0 END),
+		       COALESCE(m.poster_path, '')
 		  FROM work_cast wc JOIN movies m ON m.id = wc.work_id
 		 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
-		 GROUP BY wc.character_id, m.id, m.title, m.media_type, m.cast_role
+		 GROUP BY wc.character_id, m.id, m.title, m.media_type, m.cast_role, m.poster_path
 		 ORDER BY 4 COLLATE NOCASE`, uid, uid)
 	if err != nil {
 		return err
@@ -756,7 +770,7 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 		// group answers the question the row actually asks: does this appearance
 		// have a face anywhere on it.
 		var hasFace int
-		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title, &ref.MediaType, &ref.CastRole, &hasFace); err != nil {
+		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title, &ref.MediaType, &ref.CastRole, &hasFace, &ref.ArtPath); err != nil {
 			return err
 		}
 		ref.HasFace = hasFace == 1
@@ -780,20 +794,21 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 // scroller can show before its fade, with the count saying how many there are.
 func attachPersonWorks(db *sql.DB, uid int64, byID map[int64]*personRecord) error {
 	rows, err := db.Query(`
-		SELECT person_id, kind, id, title FROM (
-			SELECT wp.person_id AS person_id, 'book' AS kind, b.id AS id, b.title AS title
+		SELECT person_id, kind, id, title, art FROM (
+			SELECT wp.person_id AS person_id, 'book' AS kind, b.id AS id, b.title AS title,
+			       COALESCE(b.cover_path, '') AS art
 			  FROM work_person wp JOIN books b ON b.id = wp.work_id
 			 WHERE wp.user_id = ? AND wp.kind = 'book'
 			UNION
-			SELECT wp.person_id, 'movie', m.id, m.title
+			SELECT wp.person_id, 'movie', m.id, m.title, COALESCE(m.poster_path, '')
 			  FROM work_person wp JOIN movies m ON m.id = wp.work_id
 			 WHERE wp.user_id = ? AND wp.kind = 'movie'
 			UNION
-			SELECT wc.actor_id, 'book', b.id, b.title
+			SELECT wc.actor_id, 'book', b.id, b.title, COALESCE(b.cover_path, '')
 			  FROM work_cast wc JOIN books b ON b.id = wc.work_id
 			 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND wc.actor_id IS NOT NULL
 			UNION
-			SELECT wc.actor_id, 'movie', m.id, m.title
+			SELECT wc.actor_id, 'movie', m.id, m.title, COALESCE(m.poster_path, '')
 			  FROM work_cast wc JOIN movies m ON m.id = wc.work_id
 			 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND wc.actor_id IS NOT NULL
 		) ORDER BY title COLLATE NOCASE`, uid, uid, uid, uid)
@@ -804,7 +819,7 @@ func attachPersonWorks(db *sql.DB, uid int64, byID map[int64]*personRecord) erro
 	for rows.Next() {
 		var pid int64
 		var ref characterWorkRef
-		if err := rows.Scan(&pid, &ref.Kind, &ref.ID, &ref.Title); err != nil {
+		if err := rows.Scan(&pid, &ref.Kind, &ref.ID, &ref.Title, &ref.ArtPath); err != nil {
 			return err
 		}
 		if r := byID[pid]; r != nil && len(r.WorksIn) < maxRowWorkPills {

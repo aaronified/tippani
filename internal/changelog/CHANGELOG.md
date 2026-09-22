@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The people console's rows are rebuilt to the shape they were asked for.** The
+  name, then the counts with the person's ROLES as glyphs beside them, then the
+  suppliers as their own marks and the works as pills carrying each work's cover or
+  poster. The provider name chips are gone — eight suppliers spelled out was most of
+  a row spent on a vocabulary the marks already say — and the links they drew on a
+  line of their own below the row have moved onto it, so one fact is drawn in one
+  place. A work pill opens that work's details, with a way out to the work itself in
+  the panel's top bar.
+
 - **A phone shows two columns of tags and four of stickers.** Both were one column:
   a tag card is a word and a use count — the narrowest card in the app — and a
   sticker is a small square mark, so a vocabulary of twenty was twenty screens of

@@ -14,7 +14,8 @@ import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
-import { IssuePills, RowCounts } from './issuePills.jsx'
+import { IssuePills, RowCounts, WorkPills } from './issuePills.jsx'
+import { workDetailsPanel } from './WorkDetails.jsx'
 import { nearDupGroups } from './nearDupes.js'
 
 // Metadata tab — a management console: coverage stats up top, then filterable
@@ -622,6 +623,10 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
               onFlash={setFlash}
               onReverify={(who) => setReverify({ people: who })}
               onSearch={onSearch}
+              /* ONE DOOR FOR BOTH MEDIA, because a work pill carries its own kind
+                 and the page already holds a way to open each. Threading the pair
+                 down would make every row below re-derive which one to call. */
+              onOpenWork={(w) => (w.kind === 'movie' ? onOpenMovie : onOpenBook)?.(w.id)}
               arriveFetching={intent === 'fetch'}
               onArrived={() => setIntent(null)}
             />
@@ -2734,7 +2739,7 @@ const PEOPLE_EMPTY = {
 // the split — was not reachable from this screen at all. It is the name's
 // destination now, and the modal keeps the portrait, reached from the row's own
 // face.
-export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, onReload = null, arriveFetching = false, onArrived = null }) {
+export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null, records = null, onReload = null, arriveFetching = false, onArrived = null }) {
   const mobile = useIsMobileScreen()
   const [role, setRole] = useState('all')
   // WHICH ISSUE — see PERSON_ISSUES. '' is every row.
@@ -3016,6 +3021,15 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
                 onPortrait={() => setPerson({ kind: (p.kinds || [])[0] || 'author', name: p.name })}
                 onSearch={onSearch}
                 onFetch={() => fetchRow(p)}
+                /* A PILL OPENS THE WORK'S DETAILS, with a way out to the work
+                   itself in the panel's top bar — the owner's spec for this row.
+                   The seed is what the pill already carries; WorkDetails loads
+                   the rest for itself, which is why a title and an id are enough. */
+                onWork={(w) => stack.open(workDetailsPanel(stack, {
+                  kind: w.kind,
+                  item: { id: w.id, title: w.title },
+                  onGoToWork: onOpenWork ? () => onOpenWork(w) : null,
+                }))}
               />
             ))}
           </div>
@@ -3044,7 +3058,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
 // portrait exists and shows neither it nor a way to change it; a list of ninety
 // names is where a face is worth most, because it is the fastest thing in a row
 // to recognise.
-function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, first = false }) {
+function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, onWork = null, first = false }) {
   const face = p.image_path ? personImgURL(p.image_path) : ''
   const roles = (p.kinds || []).map((k) => [k, t(PEOPLE_ROLE_NOUN[k] || 'unit.person', { count: 1 })])
   const fetched = Object.keys(parseLinks(p.links).known).length > 0 || !!p.image_path
@@ -3112,29 +3126,63 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, first = fal
 
          THE SPELLINGS KEEP THEIR OWN LINE below, because they are not a count and
          folding them into a row of numbers is how a row starts talking. */
+      /* ── THE OWNER'S TWO CONTENT LINES ──────────────────────────────────────
+         Their spec, verbatim: "Row1: name (path to the person popup). Row2: work
+         and quote counts (as is) • role (e.g. author) icons. Row3: provider icons
+         • work pills with cover/poster, edgemasked."
+
+         The name is the row's own (row 1). These are rows 2 and 3, and the split
+         is the point: the counts and the ROLES answer "what is this person to my
+         library", the providers and the WORKS answer "where did they come from
+         and where do they appear". They were one run before, so a reader looking
+         for either read both.
+
+         THE ROLE IS A GLYPH ALONE HERE, which is the tight half of the count rule
+         — this line already carries two counts and a row of marks, and the word
+         is what a hover or a hold gives back. The chip with its word beside it is
+         gone from the row; the person's own panel is where the legend lives, and
+         the owner said so: "The icon will be explained in the person popup". */
       sub={<>
-        <RowCounts
-          works={p.works || 0}
-          quotes={p.quotes || 0}
-          worksLabel={t('metadata.row.works.label')}
-          quotesLabel={t('metadata.row.quotes.label')}
-          /* WHAT PRESSING IT DOES, beside what the number is — see RowCounts. */
-          worksTip={p.works > 0 && onSearch ? t('metadata.people.search.tip', { name: p.name }) : ''}
-          pills={(p.works_in || []).slice(0, MAX_ROW_WORK_PILLS).map((w) => ({ key: `${w.kind}:${w.id}`, title: w.title }))}
-          onWorks={p.works > 0 && onSearch ? () => onSearch(p.name) : null}
-        />
+        <span className="record-row-line">
+          <RowCounts
+            works={p.works || 0}
+            quotes={p.quotes || 0}
+            worksLabel={t('metadata.row.works.label')}
+            quotesLabel={t('metadata.row.quotes.label')}
+            /* WHAT PRESSING IT DOES, beside what the number is — see RowCounts. */
+            worksTip={p.works > 0 && onSearch ? t('metadata.people.search.tip', { name: p.name }) : ''}
+            onWorks={p.works > 0 && onSearch ? () => onSearch(p.name) : null}
+          />
+          {roles.length > 0 && (
+            <span className="row-role-marks">
+              {roles.map(([k, word]) => {
+                const Glyph = PEOPLE_ROLE_ICON[k]
+                return Glyph
+                  ? <Tooltip key={k} label={word}><span className="row-role-mark" role="img" aria-label={word}><Glyph size={15} /></span></Tooltip>
+                  : <span key={k} className="tp-chip">{word}</span>
+              })}
+            </span>
+          )}
+        </span>
+        <span className="record-row-line">
+          {/* THE PROVIDERS MOVED UP HERE FROM A LINE OF THEIR OWN below the row,
+              and became MARKS on the way. They were a third block under the
+              record — drawn at every width, which was itself a repair — and the
+              owner's spec puts them on the row's own second line beside the works
+              they were fetched from: "Row3: provider icons • work pills". Two
+              places drawing one fact is how one of them goes stale; there is one
+              now. */}
+          <ProviderChips links={p.links} marks />
+          <WorkPills
+            works={(p.works_in || []).slice(0, MAX_ROW_WORK_PILLS)}
+            onOpen={onWork}
+          />
+        </span>
         {(p.spellings || []).length > 0 && (
           <span className="block">{t('metadata.people.also', { names: p.spellings.join(' · ') })}</span>
         )}
       </>}
-      /* THE WORD AND THE DRAWING, in that order — the chip is the roomy site, so
-         this is where a reader learns which glyph means which role before meeting
-         it anywhere tighter. A role with no drawing of its own falls back to none
-         rather than to somebody else's. */
-      chips={roles.map(([k, word]) => {
-        const Glyph = PEOPLE_ROLE_ICON[k]
-        return { label: word, icon: Glyph ? <Glyph size={14} /> : null }
-      })}
+      chips={[]}
       chipsEmpty={null}
       actions={[{
         key: 'fetch',
@@ -3146,13 +3194,6 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, first = fal
         tooltip: fetchLabel,
         onClick: onFetch,
       }]}
-    >
-      {/* AT EVERY WIDTH, WHICH IT WAS NOT. This was `{!mobile && …}` — so on the
-          one screen whose subject is which providers a person is linked to, a
-          phone reader could not see it. The wrap that gate was hiding is fixed in
-          `ProviderChips` itself now: it scrolls under a measured fade, which is
-          the repo's rule for a row that can overflow. */}
-      {p.links ? <div className="mt-1"><ProviderChips links={p.links} /></div> : null}
-    </RecordRow>
+    />
   )
 }

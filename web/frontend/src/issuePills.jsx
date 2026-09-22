@@ -26,6 +26,7 @@
 // standing rule for a row that can overflow: `Scroller` measures, so a row that
 // fits wears no fade and a row that does not says so and can be dragged.
 import { IconNavLibrary, IconNavQuotes, Scroller } from './ui.jsx'
+import { coverImgURL } from './api.js'
 
 // options: [{ key, label, n }] — `key` is the caller's filter token, `label` its
 // words, `n` how many rows it would leave. The caller owns all three, because
@@ -87,6 +88,48 @@ export function IssuePills({ value, onChange, options, ariaLabel }) {
 // which is two sentences welded at a number. `worksTip` is the hover; the name is
 // what the number IS, with the verb appended as its own clause so a reader hears
 // the count first and the door second.
+// WorkPills — the works a person or a character appears in, each wearing the
+// work's own cover or poster.
+//
+// THE OWNER'S SPEC, verbatim: "work pills with cover/poster, edgemasked. These
+// pills will open the work details popup". A pill that carries only a title makes
+// a reader read six titles to find the one film they meant; the picture is the
+// fastest thing in a row to recognise, which is the same argument that put a face
+// on the row itself.
+//
+// EDGE-MASKED IS THE ROW, NOT THE PILL. "edgemasked" names what this app does
+// wherever a row continues past its edge — a measured fade, drawn by `Scroller`,
+// which is also what makes the row draggable with a mouse. The pill's own art is
+// simply clipped to the pill's radius.
+//
+// A PILL WITH NO ART IS STILL A PILL. Most works in a fresh library have no cover
+// yet, and a pill that collapsed to its title when the picture is missing would
+// make the row jump about as art arrives. The slot keeps its width and stays
+// empty, which is the same rule `RowArt` keeps one component over.
+export function WorkPills({ works = [], onOpen = null }) {
+  if (works.length === 0) return null
+  return (
+    <Scroller axis="x" className="row-work-pills">
+      {works.map((w) => {
+        const key = `${w.kind}:${w.id}`
+        const art = w.art_path ? coverImgURL(w.art_path) : ''
+        const body = <>
+          <span className={'work-pill-art' + (art ? '' : ' is-empty')} aria-hidden="true">
+            {art ? <img src={art} alt="" loading="lazy" /> : null}
+          </span>
+          <span className="work-pill-title">{w.title}</span>
+        </>
+        // A DOOR WHERE THE CALLER GAVE IT ONE, and plain text where it did not —
+        // never a button that goes nowhere, which is the rule the record row
+        // already keeps for its name and its count.
+        return onOpen
+          ? <button key={key} type="button" className="tp-chip work-pill tactile" onClick={() => onOpen(w)}>{body}</button>
+          : <span key={key} className="tp-chip work-pill">{body}</span>
+      })}
+    </Scroller>
+  )
+}
+
 export function RowCounts({ works, quotes, worksLabel, quotesLabel, worksTip = '', pills = [], onPill = null, onWorks = null }) {
   const worksBody = <>
     <IconNavLibrary size={13} />

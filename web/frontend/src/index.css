@@ -10846,6 +10846,58 @@ html[data-theme="dark"] .board-cover {
 }
 .text-order-choice > .tp-filter-chip { flex: none; }
 
+/* ── A SUPPLIER'S MARK AS THE LINK ITSELF ─────────────────────────────────────
+   The people console draws one per stored link, in place of the name chips the
+   owner asked to replace: "Instead of name chips for providers, can't you use
+   icons?" The target is the app's own 34px touch floor rather than the mark's
+   16px — a picture small enough to read in a row is not a picture big enough to
+   press, and `controls.mjs` counts anything under that floor. */
+.provider-mark-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  color: var(--soft);
+}
+.provider-mark-link:hover { color: var(--ink); background: var(--hover); }
+.provider-chips-marks { gap: 2px; }
+
+/* ── A WORK PILL WEARS THE WORK'S PICTURE ─────────────────────────────────────
+   See WorkPills. The art sits at the pill's leading edge and is clipped to its
+   radius; the row it sits in is the thing that carries the measured edge fade,
+   which is what "edgemasked" names everywhere else in this app.
+
+   THE SLOT KEEPS ITS WIDTH WHEN THERE IS NO PICTURE. Most works in a fresh
+   library have no cover yet, and a pill that shrank to its title until one
+   arrived would make the whole row shuffle as the fetches land — the same reason
+   `RowArt` holds its space on a console whose job is finding what is missing. */
+.work-pill { display: inline-flex; align-items: center; gap: 6px; padding-inline-start: 3px; }
+.work-pill-art {
+  flex: none;
+  width: 16px;
+  height: 22px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--raised);
+  display: block;
+}
+.work-pill-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.work-pill-art.is-empty { border: 1px solid var(--line); }
+/* THE TITLE MAY CLIP; THE PICTURE MAY NOT. This is a maintenance console, which
+   is where the owner scoped truncation as fine — and a pill is a pointer to a
+   work rather than the place the work is read. */
+.work-pill-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 14ch; }
+
+/* The two content lines the owner's row spec asks for: counts and roles, then
+   suppliers and works. Each is its own line so a reader looking for either does
+   not have to read both. */
+.record-row-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.row-role-marks { display: inline-flex; align-items: center; gap: 2px; }
+.row-role-mark { display: inline-flex; align-items: center; color: var(--soft); }
+
 /* ── A MAINTENANCE ROW'S NAME CLIPS ───────────────────────────────────────────
    The owner, 21 September, over a metadata console: "The work name truncation is
    fine. Delete that fucking rule. It is not okay when the work is the main

@@ -1,4 +1,12 @@
-// A ROLE CHIP DRAWS THE ROLE'S OWN GLYPH, AND NO TWO ROLES SHARE ONE.
+// A ROLE MARK DRAWS THE ROLE'S OWN GLYPH, AND NO TWO ROLES SHARE ONE.
+//
+// IT WAS A CHIP WITH ITS WORD BESIDE IT AND IS A MARK ALONE, which is the owner's
+// row spec landing: "Row2: work and quote counts (as is) • role (e.g. author)
+// icons. The icon will be explained in the person popup." The roomy half of the
+// count rule moved to the panel, where a reader meets the legend; the row is the
+// tight half and draws the glyph only. The word did not disappear — it is the
+// mark's accessible name and its tooltip, which is the half of that rule that
+// never moves.
 //
 // WHY THIS FILE EXISTS, AND IT IS THE RATER'S FINDING RATHER THAN A HUNCH. The
 // commit that gave the eight roles their drawings shipped with NOTHING holding
@@ -63,14 +71,15 @@ const mount = async () => {
   await screen.findByText(WHO.author)
 }
 const row = (name) => screen.getByText(name).closest('.record-row')
-// The chip is the element carrying the role word; the glyph is the svg inside it.
-// Located through the WORD rather than through a class, because the word is what a
-// reader sees and a class is this file knowing what the code is.
+// The mark is located by the NAME it answers to, which is the role's word — what a
+// reader hears, what a hover says, and what survives the next change of chrome.
+// Not by a class: a class is this file knowing what the code is.
 const chipGlyph = (r, word) => {
-  const chip = [...r.querySelectorAll('*')].find(
-    (n) => n.children.length <= 2 && (n.textContent || '').trim().toLowerCase() === word && n.querySelector('svg'),
+  const mark = [...r.querySelectorAll('[aria-label], [title]')].find(
+    (n) => (n.getAttribute('aria-label') || n.getAttribute('title') || '').trim().toLowerCase() === word
+      && n.querySelector('svg'),
   )
-  return chip ? chip.querySelector('svg') : null
+  return mark ? mark.querySelector('svg') : null
 }
 
 describe('the role chips', () => {
@@ -107,20 +116,22 @@ describe('the role chips', () => {
     expect(clashes, 'two roles drawn alike').toEqual([])
   })
 
-  it('and the word stays beside the drawing', async () => {
+  it('and the word is still SAID, even though it is no longer drawn', async () => {
     await mount()
     // The roomy half of the count rule: the glyph is learnable only because the
     // noun is printed next to it. A future change to the glyph-only form belongs
     // on rows already carrying buttons and facts, not here, and would have to
     // move this case deliberately rather than by accident.
-    // CASE-FOLDED, because the word is the locale's and the stylesheet's to
-    // capitalise. Asserting the exact casing would make this a test of the
-    // wording rather than of the word being there, and it already failed once
-    // that way on "translator".
+    // A GLYPH ALONE IS A PICTURE TO A SCREEN READER AND NOTHING AT ALL. The row
+    // stopped PAINTING the noun when the owner's spec moved the legend to the
+    // panel; it must never stop saying it. Case-folded, because the capital is
+    // the locale's and the stylesheet's to choose — asserting it would make this
+    // a test of the wording rather than of the word being there, which is how it
+    // failed once already on "translator".
     for (const k of ROLES) {
-      const found = [...row(WHO[k]).querySelectorAll('*')]
-        .some((n) => (n.textContent || '').trim().toLowerCase() === k)
-      expect(found, `${k} lost its word`).toBe(true)
+      const said = [...row(WHO[k]).querySelectorAll('[aria-label], [title]')]
+        .some((n) => (n.getAttribute('aria-label') || n.getAttribute('title') || '').trim().toLowerCase() === k)
+      expect(said, `${k} is drawn but never named`).toBe(true)
     }
   })
 })

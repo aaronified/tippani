@@ -5766,6 +5766,8 @@ settings.keys.need.required.label = needed
 settings.keys.need.optional.label = optional
 settings.keys.legend.label = the mark says
 settings.keys.card.title = Keys and credentials
+metadata.work.goto.label = Go to the work
+metadata.work.goto.aria = Go to {title}
 settings.keys.card.info = The secrets this server holds so a lookup can be made at all. They are stored on the server rather than in your account, so they are the same for everybody who uses this instance — which is why only an admin can see or change them.
 settings.keys.saved.tip = Saved
 

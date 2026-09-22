@@ -5,7 +5,7 @@ import { clipChipName as clip } from './text.js'
 import { Face } from './characterRows.jsx'
 import { personImgURL, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconFetch, IconSearch, formatYear, isPartialDate, parsePartialDate, partialDateValue, partialDateInputValue, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Scroller, Tooltip, useConfirm, useEscape, useBackToClose, SCRIM, backdropClose} from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconFetch, IconSearch, formatYear, isPartialDate, parsePartialDate, partialDateValue, partialDateInputValue, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, ProviderMark, Scroller, Tooltip, useConfirm, useEscape, useBackToClose, SCRIM, backdropClose} from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -464,10 +464,46 @@ export function mergeLinks(text, fetched) {
 // a row that can overflow scrolls under a measured edge fade, never bare
 // `overflow` and never a wrap. `Scroller` measures, so a person with one link
 // wears no fade and a desk at full width is unchanged.
-export function ProviderChips({ links }) {
+export function ProviderChips({ links, marks = false }) {
   const { known } = parseLinks(links)
   const items = PROVIDERS.filter(([slug]) => known[slug])
   if (items.length === 0) return <span className="microcopy">—</span>
+  // MARKS, NOT WORDS, WHERE THE ROW IS TIGHT. The owner, on the people console:
+  // "Instead of name chips for providers, can't you use icons?" Eight suppliers
+  // spelled out — IMDb, TMDB, TheTVDB, Letterboxd, Wikipedia, Wikidata, Open
+  // Library, Google Books — is most of a row's width spent on a vocabulary the
+  // reader already knows by its marks, and the marks are already vendored and
+  // already drawn beside every source on the Sources console.
+  //
+  // THE NAME IS STILL SAID. `ProviderMark` is a CSS mask and therefore a picture
+  // with nothing in it, so the supplier's word moves to the link's accessible
+  // name and its tooltip rather than being dropped — the same shape the count
+  // rule takes everywhere else in this app: the drawing replaces the WORD on
+  // screen, never the word in the name.
+  //
+  // `marks` IS OPT-IN because this component also draws on a record's own screen,
+  // where there is room for the words and a reader is reading rather than
+  // scanning. Two things that look the same behave the same; these deliberately
+  // do not look the same, because the two sites are not the same question.
+  if (marks) {
+    return (
+      <Scroller as="span" axis="x" className="provider-chips provider-chips-marks">
+        {items.map(([slug, labelKey]) => (
+          <Tooltip key={slug} label={t(labelKey)}>
+            <a
+              className="provider-mark-link tactile"
+              href={known[slug]}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t(labelKey)}
+            >
+              <ProviderMark source={slug} size={16} />
+            </a>
+          </Tooltip>
+        ))}
+      </Scroller>
+    )
+  }
   return (
     <Scroller as="span" axis="x" className="provider-chips">
       {items.map(([slug, labelKey]) => (
