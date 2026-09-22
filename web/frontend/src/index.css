@@ -10795,16 +10795,38 @@ html[data-theme="dark"] .board-cover {
    scrolling name that have nothing to do with this row. The pills row one screen
    over already had the answer: put the rule on the child's OWN class. */
 .console-filters > select,
-.console-filters > input,
 .console-filters > .tp-select,
 .console-filters > .tp-btn,
 .console-filters > .tp-tip-wrap,
 .console-filters > .console-filters-count { flex: none; min-width: 0; }
+/* THE SEARCH FIELD IS THE ONE THING ON THE ROW THAT MAY GIVE GROUND. Everything
+   else is a fixed word or a 44px glyph and shrinking either clips it; a field
+   narrower than it would like is still a field you can type in, and the text
+   scrolls inside it the way every text input already does.
+
+   IT IS WHAT WAS LEFT AFTER THE VERBS CAME OFF. Measured on the People console:
+   the row ran 399px past its own edge at 1280, the three verbs collapsing to
+   glyphs took that to 64px, and this takes it to nothing. Without it the row
+   still scrolls sideways at a width where it plainly need not, which is the
+   thing the owner asked to stop: "one line for the filter row". */
+/* THE ROLE CHOOSER WAS TRIED AND PUT BACK. On a phone the six role chips fold
+   into one `Select`, and 12px of overflow was left at 390 after the verbs and the
+   duplicate search box came off — so the obvious next move was to let that field
+   shrink too. `min-width: 11ch` is WIDER than the chooser already was, so it
+   pushed the row from 12px over to 28px over. A field only gives ground if the
+   floor you set it is below where it was standing; the measurement is the only
+   thing that says which. The 12px stays. */
+.console-filters > input { flex: 0 1 auto; min-width: 8ch; }
 /* THE COUNT IS AN OUTCOME, NOT A HEADING, so it sits after the controls rather
    than leading them. It is a `Tally` — a figure wearing the glyph of what it
    counts, which is this app's drawing for a count everywhere else — and it never
    shrinks: "17 works" clipped out of "177 works" would be worse than no count. */
 .console-filters-count { flex: none; margin-inline-start: 6px; white-space: nowrap; }
+/* ITS OWN LINE ON A PHONE. See ConsoleFilterRow: at 390 the row cannot hold the
+   controls and the count together, and the count is the one thing on it that is
+   not a control. It keeps the row's own left edge so it reads as that row's
+   answer rather than as the list's heading. */
+.console-filters-count-row { margin-block-start: 6px; }
 
 /* ── A MAINTENANCE ROW'S NAME CLIPS ───────────────────────────────────────────
    The owner, 21 September, over a metadata console: "The work name truncation is

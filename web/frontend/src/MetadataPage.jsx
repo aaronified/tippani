@@ -1130,6 +1130,32 @@ function moviePasses(m, filter) {
 // the eye had to get past to reach the first control; it is an OUTCOME of the
 // filters, not a heading for them.
 function ConsoleFilterRow({ count = null, icon = null, word = null, children }) {
+  // THE COUNT LEAVES THE ROW ON A PHONE, AND ONLY ON A PHONE. The owner asked for
+  // "one line for the filter row" and 390px does not hold one: measured on People,
+  // the controls and the count together run 60px past the edge even after the
+  // verbs have collapsed to glyphs and the duplicate search box has gone. Something
+  // has to leave, and the count is the only thing on the row that is not a control
+  // — it is the OUTCOME of the filters rather than one of them, so it reads just as
+  // well on the line below, and this way nothing is hidden behind a scroll.
+  //
+  // On a desk it stays where it was: there is room, and a figure at the end of the
+  // row it belongs to is where a reader looks for it.
+  const mobile = useIsMobileScreen()
+  const tally = count != null && (
+    <span className="console-filters-count">
+      <Tally n={count} icon={icon} word={word} showWord />
+      {' '}
+      {t('metadata.shown.word')}
+    </span>
+  )
+  if (mobile) {
+    return (
+      <>
+        <Scroller axis="x" className="console-filters">{children}</Scroller>
+        {tally != null && <div className="console-filters-count-row">{tally}</div>}
+      </>
+    )
+  }
   return (
     <Scroller axis="x" className="console-filters">
       {children}
@@ -2142,16 +2168,28 @@ function PruneButton({ onDone, onFlash }) {
   }
   return (
     <>
-      <GhostButton
+      {/* GLYPH ONLY, AND ITS COUNT IS IN THE NAME. The People console's filter row
+          did not fit on one line — measured, it overflowed 283px at 390 and 399px
+          at 1280, so a third of it sat off-screen behind a sideways scroll. The
+          owner asked for both halves of the repair in one sentence: "one line for
+          the filter row, and long-press names a glyph button." The words come off
+          so the row fits; the hold puts them back, count and all. */}
+      <IconButton
         icon={<IconDelete />}
+        /* THE FIGURE STAYS DRAWN; ONLY THE WORD COMES OFF. That is the count rule
+           as written: on a row already carrying buttons and several facts, the
+           glyph stands in for the noun and the number remains ordinary text a
+           reader can read, copy and find. A first cut put the whole label in the
+           accessible name and three cases went red for the right reason — the
+           button had stopped saying how many it would take. */
+        label={total > 0 ? String(total) : ''}
         keepLabel
         disabled={busy}
-        style={{ color: 'var(--error)' }}
-        title={t('metadata.prune.tip')}
+        className="tp-btn-danger"
+        ariaLabel={t('metadata.prune.count.label', { n: total })}
+        tooltip={t('metadata.prune.tip')}
         onClick={run}
-      >
-        {t('metadata.prune.count.label', { n: total })}
-      </GhostButton>
+      />
       {confirmDialog}
     </>
   )
@@ -2872,26 +2910,42 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
               </button>
             ))
           )}
-          <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
+          {/* AND NOT ON A PHONE, WHERE IT IS THE SECOND COPY OF ITSELF. The shell's
+              own field already drives this console's `q` — `useScreenSearch` above
+              publishes the same setter — so on a screen with room for both, a
+              reader uses whichever is nearer and they cannot disagree. On 390 there
+              is no room for both: with the field in, the row still ran 221px past
+              its edge after the verbs came off, and what was hidden was the verbs.
+              A duplicate of a control one row up is the cheapest thing on the row
+              to lose. */}
+          {!mobile && (
+            <input className="tp-input w-auto" placeholder={t('metadata.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
+          )}
           {/* IconMetadata, the same arrow-landing-in-a-record the covers console
               uses: this fills fields on rows that already exist, which is what
               that drawing says and what tells it apart from IconExport. */}
-          <GhostButton icon={<IconMetadata />} disabled={!!bulk || missing.length === 0} onClick={fetchMissing}>
-            {missing.length > 0
+          <IconButton
+            icon={<IconMetadata />}
+            /* Same shape as Prune beside it: the number is drawn, the word is in
+               the name a hold or a hover answers with. */
+            label={missing.length > 0 ? String(missing.length) : ''}
+            keepLabel
+            disabled={!!bulk || missing.length === 0}
+            onClick={fetchMissing}
+            ariaLabel={missing.length > 0
               ? t('metadata.people.fetch.count.label', { n: missing.length })
               : t('metadata.people.fetch.label')}
-          </GhostButton>
+          />
           {onReverify && (
             /* IconFetch, matching the re-verify button on the works bulk bar
                above — the same act against a different kind of row. */
-            <GhostButton
+            <IconButton
               icon={<IconFetch />}
               disabled={!!bulk || shown.length === 0}
-              title={t('metadata.people.reverify.tip')}
+              ariaLabel={t('metadata.people.reverify.label')}
+              tooltip={t('metadata.people.reverify.tip')}
               onClick={() => onReverify(shown.map((p) => ({ kind: (p.kinds || [])[0] || 'author', name: p.name })))}
-            >
-              {t('metadata.people.reverify.label')}
-            </GhostButton>
+            />
           )}
           <PruneButton onDone={load} onFlash={onFlash} />
       </ConsoleFilterRow>

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The People console's filter row fits on one line.** It did not: measured, it ran
+  283px past its own edge on a phone and 399px on a desk, so a third of it — the
+  fetch, re-verify and prune buttons — sat off-screen behind a sideways scroll on a
+  row whose whole job is showing what the filters are. The three verbs are glyphs
+  now, each keeping its count and answering with its full name on a hover or a long
+  press; the phone drops the console's own search box, which was a second copy of
+  the one in the bar above it, and puts the "N people shown" figure on the line
+  below. Both widths now fit exactly.
+
 - **A card wears its material again, and the eight sets stop looking alike.** Every
   texture in the app has had a measured scale and a measured strength since the
   material sets shipped — paper 220px at .10, satin 210px at .07, cotton 300px at

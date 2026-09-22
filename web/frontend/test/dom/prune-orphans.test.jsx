@@ -46,25 +46,34 @@ beforeEach(() => {
   ORPHANS = { people: [], characters: [] }
 })
 
+// LOCATED BY ITS NAME, NOT BY A `title` ATTRIBUTE. The button was a GhostButton
+// carrying a native `title`, and these cases reached for it through that — which
+// is the file reading the app's markup rather than using it. When the row was put
+// on one line the control became an `IconButton`, which names itself through the
+// accessible name and a `Tooltip` instead, and all three cases went red over a
+// button that was plainly still on the screen doing its job.
+//
+// The name is the better handle anyway: it is what a person hears, what a hold on
+// a phone answers with, and what survives the next change of chrome.
 describe('the prune button', () => {
   it('does not draw when nothing is stranded', async () => {
     await mount()
     await waitFor(() => expect(calls).toContain('GET /people/orphans'))
-    expect(screen.queryByTitle(/no work points at/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /prune/i })).toBeNull()
   })
 
   it('says how many it would take', async () => {
     ORPHANS = { people: [{ id: 1, name: 'Nobody' }], characters: [{ id: 2, name: 'Woland' }] }
     await mount()
-    await waitFor(() => expect(screen.getByTitle(/no work points at/i)).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('button', { name: /prune/i })).toBeTruthy())
     // Two, not one of each and not the character count alone.
-    expect(screen.getByTitle(/no work points at/i).textContent).toMatch(/2/)
+    expect(screen.getByRole('button', { name: /prune/i }).textContent).toMatch(/2/)
   })
 
   it('asks before it sweeps, and names both kinds', async () => {
     ORPHANS = { people: [{ id: 1, name: 'Nobody' }], characters: [{ id: 2, name: 'Woland' }] }
     await mount()
-    const btn = await waitFor(() => screen.getByTitle(/no work points at/i))
+    const btn = await waitFor(() => screen.getByRole('button', { name: /prune/i }))
     await act(async () => { fireEvent.click(btn) })
     // Nothing has been deleted yet — the dialog is open and unanswered.
     expect(calls).not.toContain('POST /people/prune')
@@ -76,7 +85,7 @@ describe('the prune button', () => {
   it('sweeps once the dialog is answered', async () => {
     ORPHANS = { people: [{ id: 1, name: 'Nobody' }], characters: [] }
     await mount()
-    const btn = await waitFor(() => screen.getByTitle(/no work points at/i))
+    const btn = await waitFor(() => screen.getByRole('button', { name: /prune/i }))
     await act(async () => { fireEvent.click(btn) })
     const confirm = [...document.querySelectorAll('button')].find((b) => /^prune$/i.test(b.textContent.trim()))
     expect(confirm, 'the confirm has a Prune button').toBeTruthy()
