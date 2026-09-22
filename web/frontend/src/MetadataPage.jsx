@@ -2616,9 +2616,13 @@ const PEOPLE_ROLES = [
 // wraps to three lines in a narrow column, which is what made a list of people
 // look raggedly spaced — some rows one line tall and some three.
 //
-// A GLYPH IS NOT ENOUGH ON ITS OWN, so each carries the word in a tooltip and in
-// an sr-only span: this is the app's rule for every icon-only control, and a role
-// is exactly the kind of thing a reader has no prior drawing for.
+// THE WORD IS PRINTED BESIDE THE GLYPH, which is what makes the glyph learnable
+// and is why there is no tooltip and no sr-only span here: this is the ROOMY half
+// of the count rule, where the noun is drawn AND said, so a reader meets the
+// drawing next to the word it stands for. An earlier version of this comment
+// claimed a tooltip and an sr-only span that were never written — the glyph-only
+// form, which is the half that would need them, belongs with the three-column row
+// redesign and is not built yet.
 //
 // One rendering, both viewports. A cell drawn as words on a desk and as glyphs on
 // a phone is two cells to keep in step, and the desk wants the width just as much
