@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The speaker remap moves to the top of Characters.** It is the tool that MAKES
+  the rows under it — it points a film's speaker names at that film's cast, which
+  is the one place in the app where a quote's speaker becomes a character — and it
+  was sitting below them, so a reader with forty characters scrolled past all forty
+  to reach the thing that fixes them.
+
 - **The People console's filter row fits on one line.** It did not: measured, it ran
   283px past its own edge on a phone and 399px on a desk, so a third of it — the
   fetch, re-verify and prune buttons — sat off-screen behind a sideways scroll on a

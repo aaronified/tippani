@@ -627,12 +627,18 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             />
           ) : (
             <>
+              {/* THE REMAP IS CHARACTER WORK AND IT GOES FIRST. It takes the speaker
+                  names a film's lines carry and points them at that film's cast,
+                  which is the one place in the app where a quote's speaker becomes
+                  a character — so it is what MAKES the rows underneath it, and it
+                  was sitting below them where a reader with forty characters had to
+                  scroll past all forty to find the tool that fixes them. The
+                  owner's standing rule, and the reason this moved: "Use the space
+                  available. Think like the user. Whatever will be used more needs
+                  to be up front." */}
+              <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
               {/* Beside the people list and never inside it — see CharactersConsole. */}
               <CharactersConsole rows={chars} onReload={loadChars} />
-              {/* THE REMAP IS CHARACTER WORK. It takes the speaker names a film's
-                  lines carry and points them at that film's cast, which is the one
-                  place in the app where a quote's speaker becomes a character. */}
-              <SpeakerRemap movies={lib.movies.filter((m) => m.dialogue_count > 0)} onDone={load} user={user} />
             </>
           )}
           </div>
