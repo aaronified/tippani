@@ -5141,8 +5141,6 @@ metadata.counts.desktop = stats · filters · bulk actions
 
 # --- the phone. A dot rather than an apology: the big filterable lists are
 # desktop-only, so the screen says so.
-metadata.mobile.info.title = Metadata on a phone
-metadata.mobile.info.body = This is the trimmed-down maintenance view. Open Tippani on a desktop for the full metadata console — coverage stats, filterable book & film lists, and bulk actions.
 
 # --- FETCH COVERS & METADATA, the admin-only run over the whole library. The
 # endpoint is chunked, so the bar is a real fraction — except before the first

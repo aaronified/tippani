@@ -19,6 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of grey uppercase mono — it is an outcome of the filters, not a heading for
   them.
 
+- **The Metadata home on a phone carries each section's main verb.** It was eight
+  doors and nothing else. Overview now fetches what is missing, Works scans for
+  duplicates and People fetches and prunes, from the index itself. The two that
+  produce a list to act on — the duplicate scan and the people fetch — walk into
+  their section and start there, so the answer appears where the controls for it
+  already are. The other five sections have no single act a reader comes for and
+  gained nothing, deliberately.
+
+- **The Metadata home's info dot is gone.** It said this was the trimmed-down
+  maintenance view and to open a desktop for the full console, which stopped being
+  true when the phone got the full consoles — and every section row below it
+  already carries a dot naming what that section is.
+
 - **Duplicate books is the first thing on Works, not the last.** It sat under a
   catalogue that runs to hundreds of rows, so the one control that finds a problem you
   did not know you had was the one you had to scroll past everything to reach.

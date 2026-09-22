@@ -5043,8 +5043,6 @@ metadata.counts.desktop = হিসেব · ফিল্টার · একস�
 
 # --- the phone. A dot rather than an apology: the big filterable lists are
 # desktop-only, so the screen says so.
-metadata.mobile.info.title = ফোনে মেটাডেটা
-metadata.mobile.info.body = এটা ছোট করে আনা দেখভালের স্ক্রিন। পুরো মেটাডেটা কনসোলের জন্য — ঘাটতির হিসেব, বই আর সিনেমার ফিল্টার করা তালিকা, একসঙ্গে অনেক কাজ — ডেস্কটপে টিপ্পনী খুলুন।
 
 # --- FETCH COVERS & METADATA, the admin-only run over the whole library. The
 # endpoint is chunked, so the bar is a real fraction — except before the first

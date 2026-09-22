@@ -120,6 +120,24 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // Force-fetch & re-verify (ROADMAP §2): {book_ids, movie_ids, people} or null.
   const [reverify, setReverify] = useState(null)
 
+  // WHAT THE READER CAME TO DO, CARRIED IN WITH THEM.
+  //
+  // The phone's index rows carry their section's headline verb, and two of those
+  // verbs cannot be run from the index: a duplicate scan renders a list of groups
+  // to merge, and a people fetch renders a progress bar over rows the console has
+  // filtered. Lifting either BUTTON alone onto the index would give a press that
+  // does its work somewhere the reader cannot see, which is worse than the extra
+  // press it saves.
+  //
+  // SO THE VERB IS A DOOR THAT ARRIVES RUNNING. Pressing it walks into the section
+  // and starts the act there, where its results, its errors and its confirms
+  // already live. One press instead of two, and nothing moved.
+  //
+  // IT IS CONSUMED ON ARRIVAL rather than held: a section that kept its intent
+  // would re-scan every time the reader walked back into it, which is a control
+  // that cannot be un-pressed.
+  const [intent, setIntent] = useState(null)
+
   async function load() {
     const r = await json('GET', '/metadata/library')
     if (r.ok) setLib(r.data)
@@ -294,6 +312,64 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   const known = (id) => METADATA_SECTIONS.some(([k]) => k === id)
   const sect = known(routed) ? routed : known(remembered) ? remembered : 'overview'
   const setSection = (id) => { remember(id); if (onSection) onSection(id) }
+  // Walk into a section with something to do on arrival — see `intent` above.
+  const enter = (id, why = null) => { setIntent(why); setSection(id) }
+
+  // THE HEADLINE VERB OF EACH SECTION, ON THE PHONE'S INDEX.
+  //
+  // The owner's standing rule is what asks for it — use the space, put what is
+  // used most in front — and Settings' index already answers it that way. This is
+  // the same answer for the same reason, which is also the repo's directive that
+  // two things which look the same behave the same: one index component, one
+  // shape of row, one place a shortcut lives.
+  //
+  // ONE VERB PER SECTION AND NOT A SECOND CONSOLE. The alternative was to lift
+  // each console's whole filter row up here, which fills every row and costs the
+  // thing that makes an index readable: eight live consoles above eight doors,
+  // each needing its own loaded state, and the door below each one no longer the
+  // way in. A shortcut that replaces the door has to carry everything the door
+  // did.
+  //
+  // FIVE ROWS GAIN NOTHING, DELIBERATELY. Tags, Languages, Categories, Sources and
+  // Characters have no single act a reader comes for — they are lists you read and
+  // edit a row of — and inventing a verb to make the index look even would put a
+  // button on a screen to balance a layout. An uneven index is the honest shape of
+  // an uneven set of sections.
+  //
+  // PRUNE IS ON PEOPLE AND NOT ALSO ON CHARACTERS, though it deletes both: it is
+  // ONE act against one endpoint, and a row says a thing once. Two buttons that do
+  // the same thing teach the reader that one of them does something else.
+  const sectionActions = mobile ? {
+    ...(user?.is_admin ? {
+      overview: (
+        <div className="section-index-verbs">
+          <GhostButton icon={<IconMetadata />} disabled={busy} onClick={() => fetchMissingCovers(true)}>
+            {t('metadata.fetch.label')}
+          </GhostButton>
+        </div>
+      ),
+    } : {}),
+    works: (
+      <div className="section-index-verbs">
+        <GhostButton icon={<IconSearch />} onClick={() => enter('works', 'scan')}>
+          {t('metadata.duplicates.scan.label')}
+        </GhostButton>
+      </div>
+    ),
+    people: (
+      <div className="section-index-verbs">
+        <GhostButton icon={<IconMetadata />} onClick={() => enter('people', 'fetch')}>
+          {t('metadata.people.fetch.label')}
+        </GhostButton>
+        {/* THE SAME COMPONENT THE CONSOLE DRAWS, not a copy of its press. It reads
+            its own orphan list, renders its own confirm naming every name, and
+            RETURNS NULL when there is nothing to prune — so the index carries it
+            only on a library that has something to remove, which is the behaviour
+            a shortcut wants and the reason this one could be lifted whole. */}
+        <PruneButton onDone={() => { load(); loadPeople(); loadChars() }} onFlash={setFlash} />
+      </div>
+    ),
+  } : {}
 
   // THE CHARACTER LIST IS THE PAGE'S, NOT THE CONSOLE'S, because the rail has to
   // print its size before the section is entered — and a list fetched twice is a
@@ -422,6 +498,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             // because the other three counted records — see railCounts for why
             // that stopped.
             warn: railCounts[id] > 0,
+            actions: sectionActions[id] || null,
           }))}
           value={sect}
           // CONTROLLED ONLY WHERE THERE IS AN ADDRESS TO CONTROL IT WITH. Passing
@@ -433,7 +510,15 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           open={onSection ? !!routed : undefined}
           onChange={setSection}
           ariaLabel={t('metadata.section.aria')}
-          mobileInfo={{ title: t('metadata.mobile.info.title'), text: t('metadata.mobile.info.body') }}
+          /* NO PAGE-LEVEL DOT, and Settings' identical rail never had one. The
+             index carried a dot saying "this is the trimmed-down maintenance
+             view — open Tippani on a desktop for the full metadata console",
+             which was two wrongs at once: every row below it already carries its
+             own dot naming what that section is, and the sentence stopped being
+             true when the v3 work put the whole console on the phone. A dot that
+             answers a question the rows have answered is the noise the one-dot-
+             per-section rule was made to remove; one that answers it wrongly is
+             worse than noise. */
         >
           <div>
           {!lib ? (
@@ -489,7 +574,12 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
                   you had to scroll past everything to reach. A list you browse
                   can wait; a problem you did not know you had cannot announce
                   itself from the bottom of a scroll. */}
-              <DuplicatesPanel onDone={load} onFlash={setFlash} />
+              <DuplicatesPanel
+                onDone={load}
+                onFlash={setFlash}
+                arriveScanning={intent === 'scan'}
+                onArrived={() => setIntent(null)}
+              />
               <CatalogueConsole
                 books={lib.books}
                 movies={lib.movies}
@@ -526,7 +616,15 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             // does, and a reader who knew it as a tab should find the same page.
             <TagsPage embedded />
           ) : sect === 'people' ? (
-            <PeopleConsole records={people} onReload={loadPeople} onFlash={setFlash} onReverify={(who) => setReverify({ people: who })} onSearch={onSearch} />
+            <PeopleConsole
+              records={people}
+              onReload={loadPeople}
+              onFlash={setFlash}
+              onReverify={(who) => setReverify({ people: who })}
+              onSearch={onSearch}
+              arriveFetching={intent === 'fetch'}
+              onArrived={() => setIntent(null)}
+            />
           ) : (
             <>
               {/* Beside the people list and never inside it — see CharactersConsole. */}
@@ -1618,7 +1716,7 @@ function BulkEditForm({ n, busy, onApply }) {
 
 // DuplicatesPanel loads fuzzy-title duplicate groups and lets you merge each
 // group into a chosen keeper (annotations move over, dupes drop, sources delete).
-function DuplicatesPanel({ onDone, onFlash }) {
+function DuplicatesPanel({ onDone, onFlash, arriveScanning = false, onArrived = null }) {
   const { ask, confirmDialog } = useConfirm()
   const [groups, setGroups] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -1634,6 +1732,21 @@ function DuplicatesPanel({ onDone, onFlash }) {
     if (r.ok) setGroups(r.data.groups)
     else setErr(errText(r, t('error.scan.duplicates')))
   }
+
+  // ARRIVED WITH A SCAN ALREADY ASKED FOR, from the phone index's Works verb.
+  // The intent is cleared FIRST and on the page that owns it, so walking back
+  // into this section later is an ordinary arrival rather than a second scan —
+  // an effect that re-fires on every entry is a control the reader cannot
+  // un-press. `scanning` is a ref rather than state because clearing the intent
+  // re-renders this component, and a guard held in state would not have been
+  // written yet when the effect ran again.
+  const scanning = useRef(false)
+  useEffect(() => {
+    if (!arriveScanning || scanning.current) return
+    scanning.current = true
+    onArrived?.()
+    scan()
+  }, [arriveScanning])
 
   // `kind` IS THE GROUP'S, NOT A GUESS. The scan covers every work now, so a
   // group is books or screen works and the two merge through different endpoints
@@ -2570,7 +2683,7 @@ const PEOPLE_EMPTY = {
 // the split — was not reachable from this screen at all. It is the name's
 // destination now, and the modal keeps the portrait, reached from the row's own
 // face.
-export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, onReload = null }) {
+export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, onReload = null, arriveFetching = false, onArrived = null }) {
   const mobile = useIsMobileScreen()
   const [role, setRole] = useState('all')
   // WHICH ISSUE — see PERSON_ISSUES. '' is every row.
@@ -2704,6 +2817,23 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
     )
     load()
   }
+
+  // ARRIVED WITH A FETCH ALREADY ASKED FOR, from the phone index's People verb.
+  //
+  // IT WAITS FOR THE ROWS. `missing` is derived from the rows this console has
+  // loaded and filtered, so firing on mount would run over an empty list and
+  // report "0 fetched" about a library full of gaps — the shape of bug where the
+  // screen is right and the answer is wrong. `rows` is null until the read lands.
+  //
+  // AND IT CLEARS THE INTENT EVEN WHEN THERE IS NOTHING TO FETCH, because the
+  // press was answered either way and a held intent would fire on the next visit.
+  const fetching = useRef(false)
+  useEffect(() => {
+    if (!arriveFetching || fetching.current || !rows) return
+    fetching.current = true
+    onArrived?.()
+    if (missing.length > 0) fetchMissing()
+  }, [arriveFetching, rows, missing.length])
 
   return (
     <section className="space-y-3">

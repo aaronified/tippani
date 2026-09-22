@@ -42,8 +42,19 @@ import { openApp } from './harness/world.mjs'
 const app = openApp()
 
 // The console prints how many rows are shown; this is that number.
+//
+// IT READS "41 CHARACTERS SHOWN" AND IT USED TO READ "41 SHOWN". The consoles'
+// filter rows put the count behind a grey uppercase `SHOWN` label; it is at the
+// end of the row now, in the app's own count style, wearing the glyph of the
+// thing it counts and saying the noun out loud — a figure with no noun was the
+// complaint that moved it. So the noun sits between the digits and the word, and
+// a pattern that expected them adjacent matches nothing.
+//
+// THE NOUN IS NOT PINNED HERE, only allowed for: this console counts characters,
+// but the helper is about reading a count off a filter row and the row's own
+// wording is not what these cases are asserting.
 async function shownCount() {
-  const m = (await app.onScreen()).match(/(\d+)\s+SHOWN/i)
+  const m = (await app.onScreen()).match(/(\d+)\s+\S+\s+SHOWN/i)
   expect(m, 'the console should say how many rows it is showing').toBeTruthy()
   return Number(m[1])
 }

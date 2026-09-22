@@ -98,6 +98,18 @@ const mount = async () => {
 // they have to be: an explicit list role would replace the implicit button one
 // and stop a row being announced as pressable at all.
 const index = () => screen.getByRole('navigation', { name: /which metadata/i })
+// EVERY BUTTON ON THE INDEX, WHICH IS NO LONGER ONE PER SECTION. Each card now
+// carries its section's headline verb beside the row that opens it, so the list
+// this returns interleaves doors and verbs — and the test below names both,
+// rather than filtering, because "what can be pressed here" is the thing worth
+// pinning and a filter would stop a stray control being noticed at all.
+//
+// A FILTER WAS TRIED AND IT WAS WRONG. Keeping only the buttons with an
+// `aria-label` looked like it named the rows: `countedName` puts "Works — 3 with
+// issues" on a row, because a figure beside a word needs its noun said. But it
+// returns nothing for a row with no count, so four real doors — Tags, Languages,
+// Colours, Sources — vanished from the list and the test read four doors where
+// the screen plainly draws eight.
 const phoneDoors = async () =>
   within(index()).getAllByRole('button').map((o) => o.textContent)
 const phoneDoor = async (name) => {
@@ -250,12 +262,27 @@ describe('a section at a time', () => {
 describe('on a phone', () => {
   beforeEach(() => { WIDTH = 390 })
 
-  it('gets the same eight doors', async () => {
+  it('gets the same eight doors, each with its own headline verb under it', async () => {
     await mount()
     // An index, not a strip: eight tabs at 390px show two and a half of themselves.
     expect(screen.queryAllByRole('tab')).toHaveLength(0)
     const doors = await phoneDoors()
-    expect(doors.map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Tags', 'Languages', 'Colours', 'Sources'])
+    // THE ORDER IS THE CLAIM, and the verbs are part of it now. Three sections
+    // carry the one act a reader comes to them for; the other five carry nothing,
+    // because they have no single act and a button invented to even out a layout
+    // is a button that means nothing. Prune is absent here and that is correct —
+    // it draws itself only over a library with orphans to remove, and this
+    // fixture has none.
+    expect(doors.map((s) => s.replace(/\d+$/, ''))).toEqual([
+      'Overview', 'Fetch',
+      'Works', 'Scan for duplicate works',
+      'People', 'Fetch missing',
+      'Characters',
+      'Tags',
+      'Languages',
+      'Colours',
+      'Sources',
+    ])
   })
 
   it('carries each door\u2019s number onto its row, because that is why it is a rail', async () => {

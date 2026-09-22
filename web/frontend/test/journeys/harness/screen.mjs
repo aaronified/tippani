@@ -319,11 +319,22 @@ export function screenVerbs(getPage) {
   //
   // IT IS IN THE VOCABULARY BECAUSE IT IS SOMETHING A PERSON DOES, which is the
   // only test for admission here, and because without it a whole control was
-  // unreachable from this tier. A native <select> is not pressable — a reader
-  // opens it and picks a word — and `type` cannot drive one either: it clicks,
-  // clears and types, and a select has nothing to clear. So the works console's
-  // filter, which is the control that console is FOR, could be looked at from a
-  // journey and never operated.
+  // unreachable from this tier: the works console's filter, which is the control
+  // that console is FOR, could be looked at from a journey and never operated.
+  //
+  // IT OPENS THE LIST AND PRESSES A ROW, WHICH IS WHAT A READER DOES — and this is
+  // the second thing it has done. It used to reach into a native <select>, set
+  // `value` and fire `input` and `change`, because that is the only way to drive
+  // one: a select's list is the operating system's window and there is nothing on
+  // the page to click. THE APP HAS NO NATIVE SELECTS LEFT. Every dropdown is the
+  // app's own now — the owner's "app dropdowns shall all be app themed. Always." —
+  // which is a trigger you press and a panel of rows you press one of. The old
+  // body found no `.options` on any control in the app and said so, which read
+  // like the control was gone.
+  //
+  // THE NEW BODY IS ALSO MORE HONEST ABOUT WHAT A PERSON DOES. Setting `value` and
+  // dispatching two events is three things no reader can do; pressing twice is
+  // what the screen asks for, and it fails when either press stops working.
   //
   // IT NAMES THE OPTION BY ITS WORDS, never by its value. A journey that passed
   // 'no_synopsis' would be naming a token the app stores rather than the words the
@@ -332,26 +343,51 @@ export function screenVerbs(getPage) {
   //
   // AND IT REFUSES AN OPTION THAT IS NOT THERE rather than leaving the list on
   // whatever it was showing — a silent no-op is a journey that goes on asserting
-  // against the unfiltered screen and passes.
+  // against the unfiltered screen and passes. It closes the panel on the way out
+  // of that refusal, so the next step meets the screen it expects rather than one
+  // with a list hanging open over it.
   async function choose(label, option, opts) {
-    const el = await find('fill', label, opts)
+    // A CHOOSER IS PRESSABLE AND A TEXT BOX IS NOT, and the difference has to
+    // survive as its own message. "Choose from the search box" is a request the
+    // harness cannot honour, and the useful answer names the kind of control it
+    // found rather than reporting that nothing pressable has that name — which is
+    // what a bare `find('press')` says, and which reads like the chooser is gone.
+    let trigger
     try {
-      const picked = await el.evaluate((e, want) => {
-        if (!e.options) return null
-        const hit = [...e.options].find((o) => (o.textContent || '').trim().toLowerCase() === want)
-        if (!hit) return [...e.options].map((o) => (o.textContent || '').trim())
-        e.value = hit.value
-        e.dispatchEvent(new Event('input', { bubbles: true }))
-        e.dispatchEvent(new Event('change', { bubbles: true }))
-        return true
-      }, String(option).trim().toLowerCase())
-      if (picked === null) throw new Error(`"${label}" is not a list of options to choose from.`)
-      if (picked !== true) {
-        throw new Error(`"${label}" offers no option named "${option}".\nWhat it offers: ${picked.join(', ')}`)
+      trigger = await find('press', label, opts)
+    } catch (pressErr) {
+      const fillable = await find('fill', label, opts).catch(() => null)
+      if (fillable) {
+        await fillable.dispose()
+        throw new Error(`"${label}" is not a list of options to choose from.`)
       }
-    } finally {
-      await el.dispose()
+      throw pressErr
     }
+    try {
+      await trigger.scrollIntoView().catch(() => {})
+      await trigger.click()
+    } finally {
+      await trigger.dispose()
+    }
+    const want = String(option).trim().toLowerCase()
+    const result = await page().evaluate((w) => {
+      const panel = document.querySelector('[role="listbox"]')
+      if (!panel) return { ok: false, offers: null }
+      const rows = [...panel.querySelectorAll('[role="option"]')]
+      const hit = rows.find((o) => (o.innerText || o.textContent || '').trim().toLowerCase() === w)
+      if (!hit) return { ok: false, offers: rows.map((o) => (o.innerText || o.textContent || '').trim()) }
+      hit.click()
+      return { ok: true }
+    }, want)
+    if (result.ok) return
+    // Leave nothing hanging open over the next step.
+    await page().keyboard.press('Escape').catch(() => {})
+    if (result.offers === null) {
+      throw new Error(`"${label}" is not a list of options to choose from.\n\nThe screen said:\n\n${await onScreen()}`)
+    }
+    throw new Error(
+      `"${label}" offers no option named "${option}".\nWhat it offers: ${result.offers.join(', ')}`,
+    )
   }
 
   // hold — A THUMB THAT STAYS DOWN. A second verb on a control that already has
