@@ -84,7 +84,7 @@ import {
   useColumnsAt,
   useDismiss,
   useIsMobileScreen,
-  IconRevert,
+  IconReset,
   usePersistedState,
   useScreenBar,
   toast,
@@ -563,7 +563,7 @@ export default function SearchPage({ onOpenBook, onOpenMovie, creditSeparators, 
     actions: () => (q || chips.length
       ? [
           { id: 'h-do', heading: t('common.mono.actions.label') },
-          { id: 'clear', icon: <IconRevert />, label: t('search.clear.label'), onClick: () => { setQ(''); setChips([]) } },
+          { id: 'clear', icon: <IconReset />, label: t('search.clear.label'), onClick: () => { setQ(''); setChips([]) } },
         ]
       : []),
   })

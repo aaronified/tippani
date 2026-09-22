@@ -5,7 +5,7 @@ import { clipChipName as clip } from './text.js'
 import { Face } from './characterRows.jsx'
 import { personImgURL, PersonPortrait, splitCredits, usePeople } from './credits.jsx'
 import { usePractice } from './review.jsx'
-import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconRefresh, IconSearch, formatYear, isPartialDate, parsePartialDate, partialDateValue, partialDateInputValue, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Scroller, Tooltip, useConfirm, useEscape, useBackToClose, SCRIM, backdropClose} from './ui.jsx'
+import { useBodyScrollLock, CloseButton, ErrorText, ExpandableDescription, Field, GhostButton, IconCheck, IconClose, IconDelete, IconEdit, IconMerge, IconPlus, IconQuiz, IconPractise, IconFetch, IconSearch, formatYear, isPartialDate, parsePartialDate, partialDateValue, partialDateInputValue, Lightbox, MonoLabel, NameInput, NameScroll, PartialDateField, Placeholder, Scroller, Tooltip, useConfirm, useEscape, useBackToClose, SCRIM, backdropClose} from './ui.jsx'
 
 const PRIMARY = 'tp-btn tp-btn-primary'
 
@@ -1577,7 +1577,7 @@ export function PersonModal({ kind, name, onClose, onSaved }) {
             {fetching && <p className="microcopy">{t('people.links.fetching')}</p>}
             {!fetching && fetchNote && <p className="microcopy">{fetchNote}</p>}
             <button className="tp-link tp-link-icon" disabled={fetching} onClick={() => fetchLinks(person)}>
-              <IconRefresh />
+              <IconFetch />
               <span>{t('people.links.refetch')}</span>
             </button>
           </div>

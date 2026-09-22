@@ -136,13 +136,13 @@ describe('component coverage', () => {
   })
 
   it('does not get worse for icon glyphs', () => {
-    expect(icons.length).toBeLessThanOrEqual(37)
+    expect(icons.length).toBeLessThanOrEqual(35)
   })
 
   it('and a new component cannot arrive undocumented without moving one of those numbers', () => {
     // The guard on the guard: if someone raises a ceiling above, this states the total
     // the two are allowed to add up to, so raising one means lowering the other.
-    expect(rest.length + icons.length).toBeLessThanOrEqual(56)
+    expect(rest.length + icons.length).toBeLessThanOrEqual(54)
   })
 })
 

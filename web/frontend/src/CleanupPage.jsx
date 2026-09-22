@@ -15,6 +15,7 @@ import {
   IconOpen,
   IconQuote,
   IconRefresh,
+  IconReset,
   InfoDot,
   MonoLabel,
   SectionHead,
@@ -401,7 +402,7 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
               </>
             ) : (
               <GhostButton
-                icon={<IconRefresh />}
+                icon={<IconReset />}
                 keepLabel
                 disabled={busy}
                 onClick={() => setIgnored(picked.map((x) => target(x.it, x.f)), false)}
@@ -504,7 +505,7 @@ export default function CleanupPage({ onOpenBook, onOpenMovie, onOpenQuotes, emb
                               </>
                             ) : (
                               <GhostButton
-                                icon={<IconRefresh />}
+                                icon={<IconReset />}
                                 keepLabel
                                 disabled={busy}
                                 onClick={() => setIgnored([target(it, f)], false)}

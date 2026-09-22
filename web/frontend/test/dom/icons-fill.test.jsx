@@ -1,9 +1,9 @@
-// A glyph may be solid only if it can name which of the four reasons lets it be.
+// A glyph may be solid only if it can name which of the five reasons lets it be.
 //
 // WHY THIS IS A TEST AND NOT A PARAGRAPH. "The app is wireframe" was true by accident for
 // most of its life — every glyph used `iconStroke` because that is what the one beside it
 // used, and nothing would have objected to a filled one arriving. The moment a pack of 82
-// filled icons is on hand, "only four arguments count" stops being an observation about
+// filled icons is on hand, "only a named argument counts" stops being an observation about
 // the set and becomes a rule somebody has to keep — which is the kind of rule that lasts
 // exactly as long as the person who wrote it is the one adding glyphs.
 //
@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest'
 import * as ui from '../../src/ui.jsx'
 import { CONTENT_TABS, DRAWER_TABS, UTILITY_TABS } from '../../src/routes.js'
 
-// The declared exceptions. The KEY is the exported glyph; the VALUE is which of the four
+// The declared exceptions. The KEY is the exported glyph; the VALUE is which of the five
 // arguments it is making. Adding a row here is the deliberate act the rule asks for.
 const FILLED = {
   // 1 — it is the ON state of a pair.
@@ -57,10 +57,33 @@ const FILLED = {
   // They are also the only glyphs here authored outside the app, in a 1088 box with the
   // y axis flipped, and renormalising somebody's path data to fit the house grid is how
   // a curve quietly changes shape. See the note above ShareMark in ui.jsx.
-  IconShareWhatsApp: 'silhouette', IconShareReddit: 'silhouette',
-  IconSharePlain: 'silhouette', IconShareImage: 'silhouette', IconShareMarkdown: 'silhouette',
+  IconShareWhatsApp: 'drawn-elsewhere', IconShareReddit: 'drawn-elsewhere',
+  IconSharePlain: 'drawn-elsewhere', IconShareImage: 'drawn-elsewhere',
+  IconShareMarkdown: 'drawn-elsewhere',
+  // 5 — and the fifth reason is what the five above were really making all along.
+  // They were filed under 'silhouette' when they arrived, and the paragraph over them
+  // already argued something else: that they are authored OUTSIDE this app, in someone
+  // else's box, and that renormalising a path to fit the house grid is how a curve
+  // quietly changes shape. That is not the silhouette argument — a mortarboard is
+  // filled because of what it looks like, and these are filled because of where they
+  // came from. Two different claims sharing one word is how a declared exception stops
+  // being a declaration.
+  //
+  // So the reason has its own name now, and the glyphs below join it. The owner drew
+  // the three verbs and sent them in the share sheet's geometry; the two Phosphor
+  // roles are vendored from a pack that draws in fills; the two traced roles are the
+  // owner's own drawings and the fill IS the line, because that is what tracing a line
+  // drawing produces. None of them could be stroked without redrawing somebody else's
+  // picture — which is the one thing this repo's icon rules have never allowed.
+  //
+  // IT IS NOT A LOOPHOLE, and the shape of it is what keeps it from becoming one: it
+  // can only be claimed by art this app did not draw. A glyph written here in strokes,
+  // the way the other ~90 are, cannot reach for it.
+  IconFetch: 'drawn-elsewhere', IconReset: 'drawn-elsewhere', IconUpdate: 'drawn-elsewhere',
+  IconRoleAuthor: 'drawn-elsewhere', IconRoleDirector: 'drawn-elsewhere',
+  IconRoleActor: 'drawn-elsewhere', IconRoleTranslator: 'drawn-elsewhere',
 }
-const REASONS = new Set(['on-state', 'place', 'silhouette', 'carries-information'])
+const REASONS = new Set(['on-state', 'place', 'silhouette', 'carries-information', 'drawn-elsewhere'])
 
 const glyphs = Object.entries(ui)
   .filter(([n, v]) => /^Icon[A-Z]/.test(n) && typeof v === 'function' && n !== 'IconButton')
@@ -74,12 +97,12 @@ const isFilled = (Comp) => {
 }
 
 describe('the fill rule', () => {
-  it('every solid glyph names one of the four reasons', () => {
+  it('every solid glyph names one of the five reasons', () => {
     const undeclared = glyphs.filter(([n, C]) => isFilled(C) && !FILLED[n]).map(([n]) => n)
     expect(undeclared, 'a glyph filled without an argument for it').toEqual([])
   })
 
-  it('and every declared reason is one of the four', () => {
+  it('and every declared reason is one of the five', () => {
     expect(Object.entries(FILLED).filter(([, r]) => !REASONS.has(r))).toEqual([])
   })
 

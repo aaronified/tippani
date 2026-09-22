@@ -76,6 +76,14 @@ describe('the icon set', () => {
       // inline beside their own words. Everything on the 24 grid is 1.85.
       if (g.box !== '0 0 24 24') continue
       if (g.filled) continue // IconQuote is filled, not stroked — see its comment
+      // THE ONE EXCEPTION, NAMED RATHER THAN SKIPPED. IconRoleStudio is a TRACE of
+      // a drawing the owner sent, and a trace is the outline of the ink rather than
+      // a path drawn down its middle — so its stroke is doubled by construction and
+      // 1.85 closes the lamp head up entirely. The owner asked for it stroked:
+      // "studio light needs to be no fill". Filled it collapses into a blob below
+      // 32px; at 1.1 it still reads at 20. One name, not a range: a second glyph
+      // wanting its own weight has to argue for it here.
+      if (name === 'IconRoleStudio') continue
       if (g.stroke !== '1.85') offenders.push(`${name} @ ${g.stroke}`)
     }
     expect(offenders).toEqual([])

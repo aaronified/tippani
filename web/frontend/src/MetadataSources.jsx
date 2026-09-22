@@ -35,8 +35,8 @@ import {
   IconEdit,
   IconLanguages,
   IconPlus,
-  IconRefresh,
-  IconRevert,
+  IconFetch,
+  IconReset,
   InfoDot,
   MonoLabel,
   SectionTitle,
@@ -382,7 +382,7 @@ function SourceRows({ admin, sources, onTested }) {
         <span className="flex-1" />
         {admin && (
           <GhostButton
-            icon={<IconRefresh />}
+            icon={<IconFetch />}
             keepLabel
             disabled={!!asking}
             onClick={() => test('')}
@@ -430,7 +430,7 @@ function SourceRows({ admin, sources, onTested }) {
             </Tooltip>
             {admin && (
               <FieldIconButton
-                icon={<IconRefresh />}
+                icon={<IconFetch />}
                 ariaLabel={t('settings.sources.test.aria', { source: name })}
                 tooltip={t('settings.sources.test.tip', { source: name })}
                 // AND NOT FOR A SOURCE THAT CANNOT BE ASKED AT ALL. A press
@@ -1271,7 +1271,7 @@ export function LanguageMarksSettings({ prefs, onSaved }) {
                 </button>
                 {(row.mark || row.renamed) && (
                   <FieldIconButton
-                    icon={<IconRevert />}
+                    icon={<IconReset />}
                     ariaLabel={t('settings.languages.reset.aria', { name: row.canonical })}
                     onClick={() => save(row.key, { mark: '', name: '' })}
                     tooltip={t('settings.languages.reset.tip')}

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Three verbs where there was one circular arrow, and eight role marks where there
+  were four drawings.** `IconRefresh` sat on fetching from a provider, resetting a
+  field and installing a release alike — three questions with one picture between them,
+  so the picture answered none of them. There is a **fetch** mark now (arrows coming
+  down), a **reset** mark, and an **update** mark that appears only where the app
+  replaces itself. On the people console the role chips carry their own glyphs: an
+  author's fountain pen, a director's clapper board, a publisher's newspaper, a
+  speaker's microphone, the actor's masks, the translator's two scripts, a studio light,
+  and the app's own marker for an editor. Author and director wore the Library tab's
+  shelf and the catalogue's reel; studio and publisher wore the *same* company mark.
+
 - **One filter row on Works, People and Characters, and it starts where the screen
   does.** The three consoles each drew their own copy of the same row, and each pushed
   its controls to the right behind a `SHOWN` label — so on a phone the controls wrapped

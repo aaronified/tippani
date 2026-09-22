@@ -43,7 +43,7 @@ import {
   IconOpen,
   IconPicture,
   IconPlus,
-  IconRefresh,
+  IconFetch,
   IconSearch,
   IconUpload,
   useFilePick,
@@ -584,7 +584,7 @@ export function usePicturePicker({
         className="cs-verb"
         disabled={busy || picsBusy}
         title={t('identity.picture.fetch.tip')}
-        icon={<IconRefresh />}
+        icon={<IconFetch />}
         onClick={findPicture}
       >
         {picsBusy ? t('common.state.loading') : t('identity.picture.fetch.label')}

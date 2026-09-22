@@ -186,6 +186,12 @@ function RowChips({ chips, empty }) {
       {chips.map((c) => {
         const warn = typeof c === 'string' ? false : !!c.warn
         const label = typeof c === 'string' ? c : c.label
+        // A ROLE CHIP CARRIES ITS DRAWING, and the WORD STAYS. This is the roomy
+        // half of the count rule — a chip has room, so the glyph follows the text
+        // and the association is learnable; the tight half, glyph alone, is for
+        // rows already carrying buttons and several facts. A chip with no glyph
+        // (an issue flag, a spelling) simply passes none and draws as it always did.
+        const icon = typeof c === 'string' ? null : c.icon
         return (
           <span
             key={label}
@@ -193,6 +199,7 @@ function RowChips({ chips, empty }) {
             style={warn ? { color: 'var(--error)', borderColor: 'color-mix(in srgb, var(--error) 40%, var(--line))' } : undefined}
           >
             {label}
+            {icon}
           </span>
         )
       })}

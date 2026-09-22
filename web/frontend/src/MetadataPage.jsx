@@ -5,7 +5,7 @@ import { t, tNodes } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconRefresh, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconFetch, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
 import { PersonModal, personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
@@ -1367,7 +1367,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
             <GhostButton icon={<IconMetadata />} disabled={busy} onClick={() => onReverify({ book_ids: selBookIds, movie_ids: selMovieIds, fills_only: true })}>
               {t('metadata.fills.open.label')}
             </GhostButton>
-            <GhostButton icon={<IconRefresh />} disabled={busy} onClick={() => onReverify({ book_ids: selBookIds, movie_ids: selMovieIds })}>
+            <GhostButton icon={<IconFetch />} disabled={busy} onClick={() => onReverify({ book_ids: selBookIds, movie_ids: selMovieIds })}>
               {t('metadata.reverify.open.label')}
             </GhostButton>
             <GhostButton icon={<IconDelete />} keepLabel disabled={busy} style={{ color: 'var(--error)' }} onClick={del}>
@@ -2624,18 +2624,21 @@ const PEOPLE_ROLES = [
 // a phone is two cells to keep in step, and the desk wants the width just as much
 // — the thing under this heading is a table.
 const PEOPLE_ROLE_ICON = {
-  author: IconBooks, // they wrote the books
-  actor: IconPerson, // they appear in them
-  director: IconReel, // they made them
-  studio: IconUsers, // an organisation rather than a person, which is the whole distinction
-  // A COMPANY WEARS THE COMPANY GLYPH, and the publisher shares the studio's
-  // deliberately: both are organisations, which is the distinction this column
-  // draws, and the vendored set has no second company mark to spend on the
-  // difference between making a thing and putting it out. The word is what tells
-  // them apart — every glyph here carries it in a tooltip and an sr-only span,
-  // which is the rule stated above and is doing real work in this one row.
-  publisher: IconUsers,
-  speaker: IconQuote, // a quote's speaker
+  // EIGHT ROLES, EIGHT DRAWINGS, and it was four drawings for eight roles until the
+  // owner chose this set themselves. An author wore the shelf of books that also
+  // means the Library tab, a director wore the reel that also means the catalogue,
+  // and studio and publisher wore the SAME company mark — so the one column whose
+  // job is telling roles apart was answering three of them with one picture. The
+  // words underneath were doing all the work, which is what a glyph column is for
+  // not doing. Each glyph's provenance is on its export in ui.jsx.
+  author: IconRoleAuthor, // a fountain pen
+  actor: IconRoleActor, // the theatre masks
+  director: IconRoleDirector, // a clapper board
+  studio: IconRoleStudio, // a studio light
+  publisher: IconRolePublisher, // a newspaper — what they put out
+  speaker: IconRoleSpeaker, // a microphone
+  translator: IconRoleTranslator, // two scripts and the arrows between them
+  editor: IconHighlight, // the app's own marker, which the owner kept
 }
 
 // The countable noun a role is named by, one per row. Shared nouns, because a
@@ -2875,10 +2878,10 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, records = null, o
               : t('metadata.people.fetch.label')}
           </GhostButton>
           {onReverify && (
-            /* IconRefresh, matching the re-verify button on the works bulk bar
+            /* IconFetch, matching the re-verify button on the works bulk bar
                above — the same act against a different kind of row. */
             <GhostButton
-              icon={<IconRefresh />}
+              icon={<IconFetch />}
               disabled={!!bulk || shown.length === 0}
               title={t('metadata.people.reverify.tip')}
               onClick={() => onReverify(shown.map((p) => ({ kind: (p.kinds || [])[0] || 'author', name: p.name })))}
@@ -3060,11 +3063,18 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, first = fal
           <span className="block">{t('metadata.people.also', { names: p.spellings.join(' · ') })}</span>
         )}
       </>}
-      chips={roles.map(([, word]) => ({ label: word }))}
+      /* THE WORD AND THE DRAWING, in that order — the chip is the roomy site, so
+         this is where a reader learns which glyph means which role before meeting
+         it anywhere tighter. A role with no drawing of its own falls back to none
+         rather than to somebody else's. */
+      chips={roles.map(([k, word]) => {
+        const Glyph = PEOPLE_ROLE_ICON[k]
+        return { label: word, icon: Glyph ? <Glyph size={14} /> : null }
+      })}
       chipsEmpty={null}
       actions={[{
         key: 'fetch',
-        icon: <IconRefresh />,
+        icon: <IconFetch />,
         /* ONE glyph for both words. `fetch` and `refetch` are the same act — go and
            get this person's photo and links — and the label flips only because the
            row already has some. Two drawings would say the acts differ. */

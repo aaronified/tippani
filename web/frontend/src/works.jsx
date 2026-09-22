@@ -19,7 +19,7 @@ import {
   IconBack,
   IconButton,
   IconExport,
-  IconRevert,
+  IconReset,
   IconFilter,
   MobileSheet,
   MonoLabel,
@@ -2147,7 +2147,7 @@ export function WorkListScaffold({
       if (mobile && (hasGenre || hasStates || hasSeries || hasCredit || hasWish || hasSort)) {
         out.push({ id: 'filters', icon: <IconFilter />, label: t('common.filters.label'), onClick: () => setMobileFilter(true) })
       }
-      if (onReset) out.push({ id: 'reset', icon: <IconRevert />, label: t('common.filters.reset.label'), onClick: onReset })
+      if (onReset) out.push({ id: 'reset', icon: <IconReset />, label: t('common.filters.reset.label'), onClick: onReset })
       if (!DEMO && onExport) {
         out.push({ id: 'export', icon: <IconExport />, label: t('common.action.export.label'), onClick: onExport })
       }

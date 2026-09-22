@@ -40,7 +40,7 @@
 // work of Bengali quotes and one of English quotes inherit different answers. So
 // the chips say which of the four, and the revert glyph says whether the work has
 // an opinion at all.
-import { FieldIconButton, IconRevert, MonoLabel } from './ui.jsx'
+import { FieldIconButton, IconReset, MonoLabel } from './ui.jsx'
 import { t } from './i18n.js'
 import { TEXT_ORDERS, TEXT_ORDER_DEFAULT, TEXT_ORDER_WORD } from './textOrder.js'
 
@@ -60,7 +60,7 @@ export function TextOrderField({ value, onChange, inherited = TEXT_ORDER_DEFAULT
             reader who has met it in Settings has met it here. */}
         {own && (
           <FieldIconButton
-            icon={<IconRevert />}
+            icon={<IconReset />}
             ariaLabel={t('common.field.text-order.inherit.action')}
             onClick={() => onChange('')}
             tooltip={t('common.field.text-order.inherit.action')}

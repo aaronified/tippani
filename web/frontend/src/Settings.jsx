@@ -69,9 +69,9 @@ import {
   IconMoveTo,
   IconPalette,
   IconQuiz,
-  IconRefresh,
+  IconUpdate,
   IconRestore,
-  IconRevert,
+  IconReset,
   IconSliders,
   IconTour,
   IconType,
@@ -495,7 +495,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
     sub: mobile ? (user.is_admin ? t('account.users.admin.chip') : user.username) : null,
     keys: mobile && user.is_admin ? [
       { id: 'backup', label: t('settings.backup.now.label'), icon: <IconArchive />, onClick: () => setBackupNow(true) },
-      { id: 'update', label: t('settings.updates.now.label'), icon: <IconRefresh />, onClick: () => setUpdateNow(true) },
+      { id: 'update', label: t('settings.updates.now.label'), icon: <IconUpdate />, onClick: () => setUpdateNow(true) },
     ] : null,
     // RESET EVERY SECTION — the one verb this screen has that no card can carry,
     // because it is about all five of them at once. The tab row's Reset section is
@@ -522,7 +522,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
       return n > 0
         ? [{
             id: 'reset-all',
-            icon: <IconRevert size={24} />,
+            icon: <IconReset size={24} />,
             label: t('settings.reset.all.label'),
             danger: true,
             onClick: () => setResetting(ALL_SECTIONS),
@@ -688,7 +688,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
             <GhostButton icon={<IconArchive />} keepLabel onClick={() => setBackupNow(true)}>
               {t('settings.backup.now.label')}
             </GhostButton>
-            <GhostButton icon={<IconRefresh />} keepLabel onClick={() => setUpdateNow(true)}>
+            <GhostButton icon={<IconUpdate />} keepLabel onClick={() => setUpdateNow(true)}>
               {t('settings.updates.now.label')}
             </GhostButton>
           </div>
@@ -757,7 +757,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
           aside={current && {
             action: changedIn(prefs, current) > 0 && (
               <Tooltip label={t('settings.section.reset.tip', { section: t(liveSections.find(([id]) => id === current)[1]) })}>
-                <GhostButton icon={<IconRevert />} onClick={() => setResetting(current)}>
+                <GhostButton icon={<IconReset />} onClick={() => setResetting(current)}>
                   {t('settings.section.reset.label')}
                 </GhostButton>
               </Tooltip>
@@ -955,7 +955,7 @@ export function ColourCategoriesCard({ prefs, onSaved }) {
               )}
               {row.custom && (
                 <FieldIconButton
-                  icon={<IconRevert />}
+                  icon={<IconReset />}
                   ariaLabel={t('settings.colours.reset.aria')}
                   onClick={() => save({ [`catColor${row.slot}`]: '' })}
                   tooltip={t('settings.colours.reset.tip')}
@@ -1311,7 +1311,7 @@ function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSi
               an unset one look alike; this is what tells them apart. */}
           {scope && row.own && (
             <FieldIconButton
-              icon={<IconRevert />}
+              icon={<IconReset />}
               ariaLabel={t('settings.type.scope.revert.aria', { name: t(row.label) })}
               onClick={onRevert}
               tooltip={t('settings.type.scope.revert.tip')}
@@ -2289,7 +2289,7 @@ export function NeverAsked() {
           <>
             <span className="grow" />
             <span className="microcopy">{t('settings.quiz.skipped.chosen', { n: picked.size })}</span>
-            <GhostButton icon={<IconRevert />} disabled={busy} onClick={() => restore(chosen())}>
+            <GhostButton icon={<IconReset />} disabled={busy} onClick={() => restore(chosen())}>
               {t('settings.quiz.skipped.restore-work.label', { n: picked.size })}
             </GhostButton>
             <GhostButton icon={<IconClose />} disabled={busy} onClick={() => setPicked(new Set())}>
@@ -2403,7 +2403,7 @@ export function NeverAsked() {
                         written in, and the first strong character decides. */}
                     <p className="skipped-quote" dir="auto">{q.text}</p>
                     <IconButton
-                      icon={<IconRevert />}
+                      icon={<IconReset />}
                       ariaLabel={t('settings.quiz.skipped.restore-one.aria')}
                       tooltip={t('settings.quiz.skipped.restore-one.aria')}
                       disabled={busy}
@@ -2419,7 +2419,7 @@ export function NeverAsked() {
                     asked for and could not see here. */}
                 <div className="skipped-work-foot">
                   <GhostButton
-                    icon={<IconRevert />}
+                    icon={<IconReset />}
                     disabled={busy}
                     onClick={() => restore(g.quotes.map((q) => [q.kind, q.id]))}
                   >
@@ -2716,7 +2716,7 @@ function SRTuning({ p, set }) {
           across from a button that is gone. */}
       <div className="flex gap-2 pt-1">
         <Tooltip label={t('settings.quiz.reset.tip')}>
-          <GhostButton icon={<IconRevert />} keepLabel onClick={reset}>{t('settings.quiz.reset.label')}</GhostButton>
+          <GhostButton icon={<IconReset />} keepLabel onClick={reset}>{t('settings.quiz.reset.label')}</GhostButton>
         </Tooltip>
       </div>
     </div>
@@ -4842,7 +4842,7 @@ function MaterialPhysics({ tiles, tweaks, onChange, glass = false }) {
                   them teaches the reader that the controls here are inert. */}
               {dirty && (
                 <FieldIconButton
-                  icon={<IconRevert />}
+                  icon={<IconReset />}
                   ariaLabel={t('settings.appearance.phys.reset.aria', { name: t(`vocab.tile.${name}.label`) })}
                   tooltip={t('settings.appearance.phys.reset.aria', { name: t(`vocab.tile.${name}.label`) })}
                   onClick={() => reset(name)}

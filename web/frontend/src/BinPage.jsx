@@ -21,7 +21,7 @@ import {
   IconPerson,
   IconQuote,
   IconReel,
-  IconRevert,
+  IconReset,
   InfoDot,
   MonoLabel,
   PageHeader,
@@ -481,7 +481,7 @@ export default function BinPage() {
                     <NameScroll className="trash-label">{e.label || t('bin.row.untitled.label')}</NameScroll>
                     <span className="ml-auto flex items-center gap-1">
                       <FieldIconButton
-                        icon={<IconRevert />}
+                        icon={<IconReset />}
                         ariaLabel={t('bin.row.restore.aria', { label: e.label || t('bin.row.this.label') })}
                         disabled={busy}
                         onClick={() => putBack(e)}
