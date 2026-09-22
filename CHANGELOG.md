@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A character in a television series is called a show, not a film.** The medium glyph
+  on a character's row read its media type for games only, so every series drew a clapper
+  board labelled "film".
+
 - **Fetch on a person's or character's picture now shows what it found.** The block
   that draws the candidates was only rendered while the Paste-URL box was open, which
   was true of the old inline link and is not true of the pack's named Fetch button —
@@ -36,13 +40,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was never looked up at all, for any role.
 
 - **A character's row says who played them, and each performer is a door.** The row
-  carries its media and the full list of its performers as pills, so a character is
+  carries its medium and the full list of its performers as pills, so a character is
   described the way the console describes a person: what it is to your library, then
-  where it came from.
+  who it is. A character played by two people in one film — the young and the old Vito,
+  a role and its voice — names both.
 
-- **The people console's row can delete a person, and the record goes to the bin.**
-  The character console's row has had that verb for a while; this one had none, so a
-  person could only be removed in bulk and only once nothing credited them.
+- **The people console's row can delete a person who is not credited, and the record
+  goes to the bin.** The character console's row has had that verb for a while; this one
+  had none, so a person could only be removed in bulk. It is offered only where it would
+  succeed: a record a work still credits cannot be deleted, and the glyph is not drawn
+  over a press the server would refuse.
 
 - **The old person modal is gone.** Every credit in the app opens the design pack's
   person screen, which edits every field the modal did and is reached by id. The

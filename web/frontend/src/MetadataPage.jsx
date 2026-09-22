@@ -2280,15 +2280,28 @@ const MAX_ROW_WORK_PILLS = 6
 // a distinction the catalogue already draws and the reason a clapper board is not
 // enough on its own. A character in two films draws ONE clapper; a character in a
 // novel and its adaptation draws two glyphs, which is the fact worth seeing.
+//
+// AND A SHOW IS NOT A FILM, which the first cut said on every row that had one.
+// `media_type` is 'movie' | 'show' (migration 0006) with 'game' layered on top, and
+// the table read only the 'game' branch — so a character in a television series drew
+// a clapper board labelled "film", in an app whose catalogue has said "show" since
+// 0006 and whose `unit.show` string was already written. A medium glyph that names
+// the wrong medium is worse than no glyph: the reader has no reason to doubt it.
 const CHARACTER_MEDIA = {
   book: [IconBooks, 'unit.book'],
   movie: [IconReel, 'unit.film'],
+  show: [IconReel, 'unit.show'],
   game: [IconNavCatalogue, 'unit.game'],
 }
+// THE SAME DRAWING FOR A FILM AND A SHOW, DELIBERATELY, and only the word differs.
+// There is one clapper board in the set and inventing a second glyph here would be
+// a picture nobody has seen standing for a distinction the word already makes — the
+// app's rule is that a screen's glyphs are its own. Both keys stay because the map
+// carries the NOUN as well, and the noun is the half that was wrong.
 const characterMedia = (worksIn) => {
   const seen = new Map()
   for (const w of worksIn || []) {
-    const key = w.kind === 'movie' && w.media_type === 'game' ? 'game' : w.kind
+    const key = w.kind === 'movie' && CHARACTER_MEDIA[w.media_type] ? w.media_type : w.kind
     if (CHARACTER_MEDIA[key] && !seen.has(key)) seen.set(key, CHARACTER_MEDIA[key])
   }
   return [...seen.entries()]
@@ -2301,8 +2314,13 @@ function CharacterRow({ c, first, onOpen, onMerge, onDelete, onWork = null, onPe
   // four films is one person, and four identical pills would be the row counting
   // appearances in a place that is naming people.
   const performers = [...new Map((c.works_in || [])
-    .filter((w) => w.actor_id && w.actor_name)
-    .map((w) => [w.actor_id, { id: w.actor_id, name: w.actor_name }])).values()]
+    // EVERY PERFORMER ON EVERY APPEARANCE. An appearance carries a LIST — a work
+    // can bill one character twice, a role and its voice, and the server sent the
+    // higher id alone for one commit. De-duplicated by id across works, because a
+    // reader wants the cast of the character rather than a pill per film.
+    .flatMap((w) => w.actors || [])
+    .filter((a) => a.id && a.name)
+    .map((a) => [a.id, a])).values()]
   return (
     <RecordRow
       first={first}
@@ -2859,12 +2877,21 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
   // `handleDeletePerson` calls `binRecord` before the row goes, so the confirm can
   // say there is a way back instead of asking the reader to be sure.
   //
+  // AND IT IS ONLY OFFERED WHERE IT WOULD SUCCEED, which the character console did
+  // not have to think about and this one does. `DELETE /characters/{id}` always
+  // goes through; `DeletePersonRecord` REFUSES a record still credited on a work,
+  // with a 409 naming the count. The first cut copied the character row verbatim,
+  // so on a real library — mostly credited authors — the glyph was a dead press
+  // ending in an error banner, under a confirm that had just promised the bin. The
+  // row carries `credits` now, spelled by the server exactly as the refusal spells
+  // it, and `canRemove` is that and nothing inferred.
+  //
   // WHAT IT DOES NOT TAKE is worth the confirm's second sentence. A person is a
-  // record ABOUT a credit, not the credit itself: the books and films keep their
-  // author and cast text, and what is lost is the photo, the bio, the dates and
-  // the links. A reader who reads "delete" as "unwrite them from twelve works"
-  // will not press it, and one who presses it expecting that gets a surprise the
-  // bin cannot undo the shape of.
+  // record ABOUT a credit, not the credit itself: the cast rows on their films
+  // survive and keep naming them, and what is lost is the photo, the bio, the
+  // dates and the links. A reader who reads "delete" as "unwrite them from twelve
+  // works" will not press it, and one who presses it expecting that gets a
+  // surprise the bin cannot undo the shape of.
   const remove = async (p) => {
     if (!(await ask(t('metadata.people.delete.confirm.title', { name: p.name }), {
       body: t('metadata.people.delete.confirm.body'),
@@ -2873,6 +2900,10 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
       reversible: true,
     }))) return
     const r = await json('DELETE', `/people/${p.id}`)
+    // THE 409 IS STILL HANDLED THOUGH THE GLYPH IS GATED, because the gate is a
+    // number read when the list loaded: a credit added in another tab between the
+    // load and the press makes a refusal the row could not have predicted. The
+    // server's own words say how many works, which is the thing to act on.
     if (!r.ok) return setErr(errText(r))
     toast(t('metadata.people.delete.done', { name: p.name }))
     load()
@@ -3136,7 +3167,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
                 onPortrait={p.image_path ? () => setFace({ src: personImgURL(p.image_path), title: p.name }) : null}
                 onSearch={onSearch}
                 onFetch={() => fetchRow(p)}
-                onDelete={() => remove(p)}
+                onDelete={(p.credits || 0) === 0 ? () => remove(p) : null}
                 /* A PILL OPENS THE WORK'S DETAILS, with a way out to the work
                    itself in the panel's top bar — the owner's spec for this row.
                    The seed is what the pill already carries; WorkDetails loads
@@ -3325,13 +3356,19 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, onDelete, o
           tooltip: fetchLabel,
           onClick: onFetch,
         },
-        {
+        // NOT DRAWN WHERE IT CANNOT WORK. `onDelete` is null for a person the
+        // server would refuse, and a control the app knows is a dead press is not
+        // a control — see the console's `remove`. Disabled rather than absent was
+        // the other option and is worse here: a greyed glyph on most of a list of
+        // authors reads as the app being broken, and the reason it is grey is a
+        // rule about credits that no tooltip on a 34px square can teach.
+        ...(onDelete ? [{
           key: 'delete',
           icon: <IconDelete />,
           danger: true,
           ariaLabel: t('metadata.people.action.delete.aria', { name: p.name }),
           onClick: onDelete,
-        },
+        }] : []),
       ]}
     />
   )

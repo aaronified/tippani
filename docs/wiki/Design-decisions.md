@@ -18726,6 +18726,46 @@ cannot pass however well it renders: the reader presses the chip, lands on the a
 `web/frontend/src/index.css` · `web/frontend/test/journeys/reaching-your-account-on-a-phone.journey.mjs` ·
 `web/frontend/test/pure/routes.test.js` · `web/frontend/test/rules/help.test.jsx`</sub>
 
+## A character is their performers, and the row says so
+
+The owner, asked what a character's row should carry where a person's carries roles:
+*"medium and performers (full list of chip with clickable pills, edgemasked)"*. So the row
+is two content lines under the name, the same shape the person row took: the counts and
+the MEDIUM answer "what is this to my library", the performers answer "who is it".
+
+**THE ID TRAVELS WITH THE NAME, which is what makes a pill a door.** `characterWorkRef`
+carries `actors` — id and name per performer — rather than a name the row would have to
+resolve. A chip that looks pressable and is not is the failure this repo has a rule about,
+and a press that has to go and search for the person it is already looking at is the same
+failure with a delay in front of it.
+
+**IT WAS `MAX(actor_id)` FOR ONE COMMIT, AND THAT IS THE INTERESTING PART.** The query
+grouped by (character, work) and took the highest actor id, which answers "one of the
+performers" while reading as though it answered "the performer". `idx_work_cast_pair` is
+UNIQUE on (kind, work_id, character_key, actor_key) — the actor is IN the key — so two
+performers of one character on one work are legal and ordinary: the young Vito and the old
+Vito, a role and its voice, a part recast across a run. The owner asked for the "full
+list"; a silent MAX is the half of that which looks complete from the outside, and the
+only thing separating it from the real answer was a name nobody would think to count.
+
+The grouping now names the actor and the Go loop merges the split rows back into one
+appearance per work. `hasFace` is OR-ed across them for the reason it was a MAX before: the
+row asks whether this appearance has a face anywhere on it, and splitting the group without
+carrying that forward would let a second, faceless performer's row answer for both.
+
+**A SHOW WAS LABELLED A FILM ON EVERY ROW THAT HAD ONE.** `media_type` is `'movie' |
+'show'` since migration 0006, with `'game'` layered on top, and the medium table read only
+the game branch — so a character in a television series drew a clapper board whose tooltip
+and accessible name said "film", in an app whose catalogue has drawn that distinction for
+sixty migrations and whose `unit.show` string was already written. Both keys draw the SAME
+clapper: there is one in the set, and inventing a second would be a picture nobody has seen
+standing for a distinction the word already makes. Only the noun was wrong, and the noun is
+the half a reader believes.
+
+<sub>v3.0.0 — `internal/httpapi/identity_handlers.go` · `web/frontend/src/MetadataPage.jsx` ·
+`internal/httpapi/metadata_rows_test.go` · `web/frontend/test/dom/console-rows-act.test.jsx`</sub>
+
+
 ## One person screen, and the verb the second one was carrying
 
 `PersonModal` is deleted — 639 lines, the app's second person screen, reached by kind and

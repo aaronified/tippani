@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "3d950d35f7dc8eb35b029ab14d21614c36a6b1a861cc3f73b73d5c2e29b2f54e",
-    "internal/i18n/en.txt": "a5eb979f88a0fdaa6f2ec4d65678db21423876bbcdc9e122112e6641c7ab49da",
+    "internal/i18n/bn.txt": "bc3e51789d66c68d2da903580cad96bc02facf2d832577a6c31f6af165f5dbc7",
+    "internal/i18n/en.txt": "016c55eaa49d04549e717377a348891cd3fdb0861b3597aad968b92acc25478c",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -35,7 +35,7 @@
     "web/frontend/src/Home.jsx": "10e6dea1fba1aa00ae3a5fe987f278d3ba58acd5e30bf344899646d31a334679",
     "web/frontend/src/ImportPage.jsx": "6f477a0702eb85787ef5137bdbd4790293ba15a1795b4410fbacd9e270fdfc4c",
     "web/frontend/src/Library.jsx": "5f6bf50aa045826a8e518573d5d957cf72f66fc8c274acb4ee0833726bbb6a9c",
-    "web/frontend/src/MetadataPage.jsx": "e30d9ccaf2d872f90f3eb22235f288c4bf7e9c7427275e2bf5355660bfc557ca",
+    "web/frontend/src/MetadataPage.jsx": "72e3ff6cfd499230ed64a8f98ddadbb27d9feb21832ab1a56b98da7f8921daba",
     "web/frontend/src/MetadataSources.jsx": "e227a905ae2a7385d62b4ac5b2033ebf6ac2d5ab6f28b6609bbc1e297e31008b",
     "web/frontend/src/Movies.jsx": "a10fdb274bc9a08f07edff596efd531e8ee5daacc33401c96444e5cf505fa43e",
     "web/frontend/src/Quotes.jsx": "8d078197e7b38b0b0893e7ce311d28c0610c72fdb4ee8dc3b862d82e3e3c8480",

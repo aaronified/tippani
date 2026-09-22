@@ -162,6 +162,7 @@ type personRecordResp struct {
 	Kinds     []string `json:"kinds"`
 	Spellings []string `json:"spellings"`
 	Works     int      `json:"works"`
+	Credits   int      `json:"credits"`
 	Quotes    int      `json:"quotes"`
 }
 
@@ -460,4 +461,68 @@ func TestACastRowCarriesTheRecordIdsItPointsAt(t *testing.T) {
 	if list.Cast[0].PersonID != "" {
 		t.Fatalf("a reader-typed row has a provider id: %q", list.Cast[0].PersonID)
 	}
+}
+
+// THE CONSOLE'S DELETE IS OFFERED EXACTLY WHERE IT WOULD SUCCEED, and this is the
+// test that keeps two queries saying one thing.
+//
+// WHY IT IS NEEDED. `DeletePersonRecord` refuses a record still credited, counting
+// DISTINCT (kind, work_id) over work_person alone. The People console draws its
+// delete glyph on `credits` from GET /people/records, which is a SECOND spelling of
+// that same count, in a different file. Nothing but this test makes them agree, and
+// the failure when they disagree is silent in the worst direction: a glyph offered
+// over a press that 409s, under a confirm that has just promised the bin.
+//
+// `works` IS NOT THAT NUMBER AND THE PERFORMER PROVES IT. A person's `works` counts
+// credits PLUS cast appearances, so an actor with a film and no writing credit reads
+// works=1, credits=0 — and IS deletable. A console gating on `works` would hide the
+// verb from exactly the people it works for, which is why this asserts both columns
+// on both rows rather than only the one it acts on.
+func TestAPersonsDeleteIsOfferedExactlyWhereItWouldSucceed(t *testing.T) {
+	srv := newTestServer(t)
+	c := signupAdmin(t, srv.Handler())
+
+	// A CREDITED AUTHOR: the refusal's case.
+	createTestBook(t, c, "Dune", "Frank Herbert")
+	// AN UNCREDITED PERFORMER: a cast row is a performance, not a credit. Billed
+	// through the cast endpoint rather than inferred from a line, because THAT is
+	// what puts an `actor_id` on a work_cast row — a dialogue's actor lands in the
+	// people table with a quote to their name and no work link at all, which reads
+	// works=0 and would let this case pass without ever separating the two columns.
+	m := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "Jurassic Park"}, http.StatusCreated))
+	c.mustDo("POST", "/movies/"+itoa(m.ID)+"/cast",
+		map[string]any{"character": "Muldoon", "actor": "Bob Peck"}, http.StatusCreated)
+
+	list := decode[struct {
+		People []personRecordResp `json:"people"`
+	}](t, c.mustDo("GET", "/people/records", nil, 200))
+	byName := map[string]personRecordResp{}
+	for _, p := range list.People {
+		byName[p.Name] = p
+	}
+
+	author, ok := byName["Frank Herbert"]
+	if !ok {
+		t.Fatalf("the author is not on the console: %+v", list.People)
+	}
+	if author.Credits == 0 {
+		t.Fatalf("the console offers a delete on %q, whose credits read 0 — the server refuses it", author.Name)
+	}
+	c.mustDo("DELETE", "/people/"+itoa(author.ID), nil, http.StatusConflict)
+
+	performer, ok := byName["Bob Peck"]
+	if !ok {
+		t.Fatalf("the performer is not on the console: %+v", list.People)
+	}
+	// The distinction the whole field exists for: they HAVE a work and NO credit.
+	// The distinction the whole field exists for: they HAVE a work and NO credit.
+	if performer.Works == 0 {
+		t.Fatalf("the performer reads 0 works, so this case is not separating works from credits")
+	}
+	if performer.Credits != 0 {
+		t.Fatalf("the console hides the delete on %q, whose credits read %d — the server allows it",
+			performer.Name, performer.Credits)
+	}
+	c.mustDo("DELETE", "/people/"+itoa(performer.ID), nil, http.StatusOK)
 }

@@ -740,8 +740,23 @@ type characterWorkRef struct {
 	// the person it is already looking at — and this app's rule is that a control
 	// that goes nowhere is not drawn. Empty for a book, which has no performers,
 	// and empty where a cast row names a performer nobody has a record for.
-	ActorID   int64  `json:"actor_id,omitempty"`
-	ActorName string `json:"actor_name,omitempty"`
+	//
+	// A LIST, AND IT WAS A SINGLE FOR ONE COMMIT. The first cut read
+	// `MAX(wc.actor_id)` under a GROUP BY that did not include the actor, which
+	// answers "one of the performers, the one with the higher id" and cannot say
+	// so. `idx_work_cast_pair` is UNIQUE on (kind, work_id, character_key,
+	// actor_key) — the actor is IN the key — so two performers of one character on
+	// one work are a legal, ordinary pair: a role and its voice, a part recast
+	// across a series' run. The owner asked for the "full list of chip", and a
+	// silent MAX is the half of that which looks complete.
+	Actors []workActor `json:"actors,omitempty"`
+}
+
+// workActor — a performer on one appearance, id first because the id is what
+// makes the pill a door.
+type workActor struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 // attachCharacterWorks fills every row's WorksIn in one pass over work_cast.
@@ -755,43 +770,68 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 		       MAX(CASE WHEN COALESCE(wc.character_image_path,'') <> ''
 		                  OR COALESCE(wc.character_image_url,'') <> '' THEN 1 ELSE 0 END),
 		       COALESCE(b.cover_path, ''),
-		       COALESCE(MAX(wc.actor_id), 0), COALESCE(MAX(ab.name), '')
+		       COALESCE(wc.actor_id, 0), COALESCE(ab.name, '')
 		  FROM work_cast wc JOIN books b ON b.id = wc.work_id
 		  LEFT JOIN people ab ON ab.id = wc.actor_id AND ab.user_id = wc.user_id
 		 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
-		 GROUP BY wc.character_id, b.id, b.title, b.cover_path
+		 GROUP BY wc.character_id, b.id, b.title, b.cover_path, wc.actor_id, ab.name
 		UNION ALL
 		SELECT wc.character_id, 'movie', m.id, m.title,
 		       COALESCE(m.media_type, ''), COALESCE(m.cast_role, ''),
 		       MAX(CASE WHEN COALESCE(wc.character_image_path,'') <> ''
 		                  OR COALESCE(wc.character_image_url,'') <> '' THEN 1 ELSE 0 END),
 		       COALESCE(m.poster_path, ''),
-		       COALESCE(MAX(wc.actor_id), 0), COALESCE(MAX(am.name), '')
+		       COALESCE(wc.actor_id, 0), COALESCE(am.name, '')
 		  FROM work_cast wc JOIN movies m ON m.id = wc.work_id
 		  LEFT JOIN people am ON am.id = wc.actor_id AND am.user_id = wc.user_id
 		 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND wc.character_id IS NOT NULL
-		 GROUP BY wc.character_id, m.id, m.title, m.media_type, m.cast_role, m.poster_path
+		 GROUP BY wc.character_id, m.id, m.title, m.media_type, m.cast_role, m.poster_path, wc.actor_id, am.name
 		 ORDER BY 4 COLLATE NOCASE`, uid, uid)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
+	// ONE APPEARANCE PER (CHARACTER, WORK), ASSEMBLED HERE rather than in the
+	// query, because the query now groups by the PERFORMER as well — that is what
+	// makes every performer survive instead of the highest id winning a MAX. The
+	// grouping and the row are no longer the same thing, so the merge is explicit:
+	// the first row for a pair makes the appearance, and every later row for it
+	// adds its performer.
+	//
+	// `hasFace` IS OR-ED ACROSS THEM FOR THE REASON IT WAS A MAX. A character can
+	// be cast twice on one work — a role and its voice — and those rows can differ
+	// in whether a face was chosen; the row is asking whether this appearance has a
+	// face ANYWHERE on it. Splitting the group without carrying that forward would
+	// have let the second performer's faceless row decide for both.
+	type pair struct{ cid, workID int64 }
+	at := map[pair]*characterWorkRef{}
 	for rows.Next() {
 		var cid int64
 		var ref characterWorkRef
-		// GROUP BY, NOT DISTINCT, and the face flag is why. A character can be cast
-		// twice on one work — a role and its voice — and those two rows can differ
-		// in whether a face was chosen. DISTINCT would return the work twice, once
-		// each way, and the console would count one appearance as two. MAX over the
-		// group answers the question the row actually asks: does this appearance
-		// have a face anywhere on it.
 		var hasFace int
-		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title, &ref.MediaType, &ref.CastRole, &hasFace, &ref.ArtPath, &ref.ActorID, &ref.ActorName); err != nil {
+		var actor workActor
+		if err := rows.Scan(&cid, &ref.Kind, &ref.ID, &ref.Title, &ref.MediaType, &ref.CastRole, &hasFace, &ref.ArtPath, &actor.ID, &actor.Name); err != nil {
 			return err
 		}
 		ref.HasFace = hasFace == 1
-		if r := byID[cid]; r != nil {
+		key := pair{cid, ref.ID}
+		got := at[key]
+		if got == nil {
+			r := byID[cid]
+			if r == nil {
+				continue
+			}
 			r.WorksIn = append(r.WorksIn, ref)
+			got = &r.WorksIn[len(r.WorksIn)-1]
+			at[key] = got
+		} else if ref.HasFace {
+			got.HasFace = true
+		}
+		// A CAST ROW WITH NO PERFORMER IS NOT A PERFORMER. `actor_id` is nullable —
+		// a character can be recorded on a work with nobody named for it — and a
+		// pill with id 0 and no name would be a door to nothing.
+		if actor.ID != 0 && actor.Name != "" {
+			got.Actors = append(got.Actors, actor)
 		}
 	}
 	return rows.Err()
@@ -1643,6 +1683,18 @@ type personRecord struct {
 	Spellings []string `json:"spellings"`
 	Works     int      `json:"works"`
 	Quotes    int      `json:"quotes"`
+	// WHAT STOPS A DELETE, AND IT IS NOT `Works`. `DeletePersonRecord` refuses a
+	// record that is still credited, counting DISTINCT (kind, work_id) over
+	// `work_person` ALONE — a cast row is a performance and does not hold the
+	// record down. `Works` above is credits PLUS cast appearances, so it answers a
+	// different question by a wide margin: an actor with eleven films and no
+	// writing credit has Works=11 and Credits=0, and is deletable.
+	//
+	// SO THE ROW CANNOT WORK THE ANSWER OUT and must be told. The console draws its
+	// delete on this and nothing else; the first cut drew it unconditionally, over
+	// a list that on a real library is mostly credited authors, and every press on
+	// one ended in a 409 under a confirm that had just promised the bin.
+	Credits int `json:"credits"`
 	// WHICH works, and not only how many — the same field the character list has
 	// carried since it was built, and for the same reason: a row that says "12"
 	// tells a reader the record is used and not what it is FOR. The console draws
@@ -1686,6 +1738,12 @@ func (s *Server) handlePeopleRecords(w http.ResponseWriter, r *http.Request) {
 		       (SELECT count(*) FROM work_person wp WHERE wp.user_id = p.user_id AND wp.person_id = p.id)
 		     + (SELECT count(*) FROM work_cast   wc WHERE wc.user_id = p.user_id AND wc.actor_id  = p.id
 		                                              AND wc.origin <> 'removed'),
+		       -- THE DELETE'S OWN NUMBER, spelled exactly as DeletePersonRecord
+		       -- spells it: DISTINCT (kind, work_id) over work_person. Two queries
+		       -- for one rule is a drift hazard and the reason
+		       -- TestAPersonsDeleteIsOfferedExactlyWhereItWouldSucceed exists.
+		       (SELECT count(*) FROM (SELECT DISTINCT wp2.kind, wp2.work_id FROM work_person wp2
+		                               WHERE wp2.user_id = p.user_id AND wp2.person_id = p.id)),
 		       (SELECT count(*) FROM utterances u WHERE u.user_id = p.user_id AND u.speaker_id = p.id)
 		     + (SELECT count(*) FROM dialogues d JOIN movies m ON m.id = d.movie_id
 		         WHERE m.user_id = p.user_id AND d.actor_id = p.id)
@@ -1700,7 +1758,7 @@ func (s *Server) handlePeopleRecords(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var v personRecord
 		if err := rows.Scan(&v.ID, &v.Name, &v.Bio, &v.ImagePath, &v.Born, &v.Died,
-			&v.Links, &v.Source, &v.SourceID, &v.SortName, &v.Works, &v.Quotes); err != nil {
+			&v.Links, &v.Source, &v.SourceID, &v.SortName, &v.Works, &v.Credits, &v.Quotes); err != nil {
 			olog.Warnf(olog.CodePeopleRowScan, "[identity] person record scan failed: %v", err)
 			continue
 		}

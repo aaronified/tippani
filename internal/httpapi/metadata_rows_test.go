@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"sort"
 	"testing"
 )
 
@@ -129,5 +130,74 @@ func TestAPersonRowNamesTheWorksTheyAreOn(t *testing.T) {
 	// THE PERFORMER IS THE HALF A CREDIT-ONLY QUERY LOSES.
 	if len(seen["Yuri Yakovlev"]) != 1 || seen["Yuri Yakovlev"][0] != "Ivan Vasilievich" {
 		t.Errorf("the actor's row names %v", seen["Yuri Yakovlev"])
+	}
+}
+
+// A CHARACTER'S ROW CARRIES EVERY PERFORMER, NOT THE ONE WITH THE HIGHER ID.
+//
+// THE DEFECT THIS PINS, because it shipped and looked complete. The first cut read
+// `COALESCE(MAX(wc.actor_id), 0)` under a GROUP BY that did not name the actor,
+// which answers "one of them" and has no way to say so. `idx_work_cast_pair` is
+// UNIQUE on (kind, work_id, character_key, actor_key) — the actor is IN the key —
+// so two performers of one character on one work are legal and ordinary: a role
+// and its voice, or a part recast. The owner asked the row to carry the "full list
+// of chip", and one silently-chosen name is the half of that which looks right.
+//
+// THE ID IS ASSERTED AND NOT ONLY THE NAME, because the id is what makes the pill
+// a door. A list of two names with one usable id would draw two chips, one of them
+// pressing nothing.
+func TestACharacterRowNamesEveryPerformerOnOneWork(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	film := decode[movieDetail](t, c.mustDo("POST", "/movies",
+		map[string]any{"title": "The Godfather Part II"}, http.StatusCreated))
+	// ONE CHARACTER, ONE FILM, TWO PERFORMERS — the young Vito and the old Vito,
+	// which is the pair migration 0063's own note names as the reason the actor is
+	// part of the uniqueness key.
+	c.mustDo("POST", "/movies/"+itoa(film.ID)+"/cast",
+		map[string]any{"character": "Vito Corleone", "actor": "Robert De Niro"}, http.StatusCreated)
+	c.mustDo("POST", "/movies/"+itoa(film.ID)+"/cast",
+		map[string]any{"character": "Vito Corleone", "actor": "Marlon Brando"}, http.StatusCreated)
+
+	list := decode[struct {
+		Characters []struct {
+			Name    string `json:"name"`
+			WorksIn []struct {
+				Title  string `json:"title"`
+				Actors []struct {
+					ID   int64  `json:"id"`
+					Name string `json:"name"`
+				} `json:"actors"`
+			} `json:"works_in"`
+		} `json:"characters"`
+	}](t, c.mustDo("GET", "/characters", nil, http.StatusOK))
+
+	var appearances int
+	var names []string
+	for _, ch := range list.Characters {
+		if ch.Name != "Vito Corleone" {
+			continue
+		}
+		for _, w := range ch.WorksIn {
+			appearances++
+			for _, a := range w.Actors {
+				if a.ID == 0 {
+					t.Fatalf("a performer pill has no id to open: %+v", a)
+				}
+				names = append(names, a.Name)
+			}
+		}
+	}
+	// ONE APPEARANCE. Splitting the query by actor must not split the ROW — the
+	// console counts works from this list, and two rows for one film would say the
+	// character is in two.
+	if appearances != 1 {
+		t.Fatalf("one character on one film is %d appearances, want 1", appearances)
+	}
+	sort.Strings(names)
+	if len(names) != 2 || names[0] != "Marlon Brando" || names[1] != "Robert De Niro" {
+		t.Fatalf("the row names %v, want both performers", names)
 	}
 }
