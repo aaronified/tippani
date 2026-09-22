@@ -340,7 +340,16 @@ func imageSearchQuery(kind, subject, author, actor, title, mediaType string, yea
 		if mediaType == "game" {
 			parts = append(parts, "game cover art")
 		} else {
-			parts = append(parts, mediaNoun(mediaType)+" poster")
+			// A POSTER ALWAYS HAS A MEDIUM WORTH NAMING — this branch is only
+			// reached for a screen work — so where the caller said nothing, the
+			// branch itself knows enough to say "movie". That is the one place
+			// the old default in mediaNoun was earning its keep, and it belongs
+			// here, where "this is a screen work" is a fact rather than a guess.
+			noun := mediaNoun(mediaType)
+			if noun == "" {
+				noun = "movie"
+			}
+			parts = append(parts, noun+" poster")
 		}
 	case imageKindPortrait:
 		parts = append(parts, "portrait photo")
@@ -363,7 +372,25 @@ func imageSearchQuery(kind, subject, author, actor, title, mediaType string, yea
 		if tt := strings.TrimSpace(title); tt != "" {
 			parts = append(parts, "in", tt)
 		}
-		parts = append(parts, mediaNoun(mediaType))
+		// SKIPPED WHERE THERE IS NO NOUN, or the join leaves a double space in the
+		// middle of the query — which Google forgives and a reader reading the
+		// trace does not.
+		//
+		// AN ACTOR IS ITSELF A MEDIUM. Nobody is credited with playing a novel's
+		// character, so a role that names a performer is a screen role whatever
+		// the caller managed to say about the medium — and "X as Y in Z movie"
+		// is the caption a still is published under. That inference is the whole
+		// difference between this and the case the rule was written for: the
+		// character sheet sent a bare name with nobody credited, and a bare name
+		// is where a guessed noun turns a miss into a search for a film that was
+		// never made.
+		n := mediaNoun(mediaType)
+		if n == "" && strings.TrimSpace(actor) != "" {
+			n = "movie"
+		}
+		if n != "" {
+			parts = append(parts, n)
+		}
 	}
 	// A YEAR DISAMBIGUATES A WORK AND NOT A FACE. Two films share a title far
 	// more often than two people share a name, and a portrait search narrowed by
@@ -374,9 +401,31 @@ func imageSearchQuery(kind, subject, author, actor, title, mediaType string, yea
 	return strings.Join(parts, " ")
 }
 
-// mediaNoun is what to call the work in a search sentence. "movie" is the
-// default because it is the word an image search is indexed under, whatever the
-// app calls a film elsewhere.
+// mediaNoun is what to call the work in a search sentence, and it ANSWERS ONLY
+// WHAT IT WAS TOLD — an unknown medium gets no noun. It used to answer "movie".
+//
+// That default is how a book character's search became a search for a film. A
+// caller with nothing to say about the medium — and the character sheet was one,
+// sending only a name — got "movie" appended to its query, so "Itkovian" went to
+// Google as "Itkovian character movie" and came back with nothing, correctly.
+// The owner: "WHY DOES ITKOVIAN YIELD ZERO HITS?"
+//
+// A WRONG NOUN IS WORSE THAN NO NOUN. Two of these words narrow a search usefully
+// and one of them narrowed it to a film that does not exist — and the caller that
+// triggered it was not a film caller answering badly, it was a caller with nothing
+// to say. Silence is what "I do not know" should produce; guessing the commonest
+// case is what makes a miss look like an honest empty result.
+//
+// THE DEFAULT WAS NOT WRONG EVERYWHERE, WHICH IS WHY IT MOVED RATHER THAN DIED.
+// Deleting it outright broke the two callers that could justify it and a suite
+// caught both: a poster search is only ever made for a screen work, and a role
+// naming a credited performer is a screen role whatever the payload said, because
+// nobody is credited with playing a novel's character. Both now supply "movie"
+// themselves, at the site where it is a fact rather than a guess. A default in
+// here could not tell those two from the one that had nothing to say.
+//
+// The callers that DO know still say so, and the one that did not now does — see
+// the character sheet's `search()`.
 func mediaNoun(mediaType string) string {
 	switch mediaType {
 	case "show":
@@ -385,8 +434,10 @@ func mediaNoun(mediaType string) string {
 		return "game"
 	case "book":
 		return "book"
-	default:
+	case "movie":
 		return "movie"
+	default:
+		return ""
 	}
 }
 

@@ -1735,7 +1735,39 @@ function CharacterBody({ stack, id, work, onSearch: givenSearch = null, onOpenWo
     onPicked: (url) => setRecordImage(url),
     onUpload: (file) => uploadPicture(`/characters/${id}/image/upload`, file),
     fallbackQuery: data?.name || '',
-    search: () => ({ kind: 'character', name: data?.name || '' }),
+    // THE WORK THIS CHARACTER IS IN, WHICH THIS SENT NOTHING OF — and that is the
+    // whole of "Itkovian yields zero hits".
+    //
+    // A name alone reaches the server with no title, no medium and no cast row,
+    // and three things then go wrong at once. Every PINNED rung is skipped for
+    // want of a work: Fandom cannot pick a wiki, TheTVDB has no role to look up.
+    // The search sentence loses its subject — "Itkovian character in …" has no
+    // "in". And the medium falls back to the server's default, which is `movie`,
+    // so the one rung that does run asks Google for "Itkovian character movie":
+    // a book character, searched for as a film that does not exist.
+    //
+    // THE RECORD ALREADY KNOWS. `appearances` is on the payload this sheet is
+    // drawn from and carries the cast row, the work's title, its kind and its
+    // media type — everything the ladder needs, thrown away at the last step.
+    //
+    // THE FIRST APPEARANCE, and that is a choice rather than an oversight: a
+    // character in six works has six equally true answers and no screen has asked
+    // which. The list is ordered by the work, so the first is stable; a reader who
+    // wants a particular one opens that work's cast row, where the picker already
+    // sends everything. What it must not do is send nothing.
+    search: () => {
+      const where = (data?.appearances || [])[0]
+      return {
+        kind: 'character',
+        name: data?.name || '',
+        title: where?.work_title || '',
+        // A book's appearance leaves media_type empty because its `kind` says
+        // everything — so the kind is what answers here, and only a screen work
+        // has a finer noun to give.
+        media_type: where ? (where.kind === 'book' ? 'book' : where.media_type || 'movie') : '',
+        cast_id: where?.cast_id || 0,
+      }
+    },
   })
 
   // /whos-in-it, once per work, for the two counts the sheet prints. Guarded on
