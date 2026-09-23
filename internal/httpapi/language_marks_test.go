@@ -53,10 +53,28 @@ func TestLanguageMarksNormalise(t *testing.T) {
 			`{"bengali":{"n":"Bengali"}}`, true},
 		{"an added language keeps the capitals it was typed with", `{"yoruba":{"n":"Yoruba"}}`,
 			`{"yoruba":{"n":"Yoruba"}}`, true},
+		// A NAME LONGER THAN A MARK. The name was checked against the mark's
+		// eight-rune cap, so any language longer than "Bengali" by two letters was
+		// refused with a message about marks.
+		{"a name longer than a mark survives", `{"ancient greek":{"n":"Ancient Greek","i":"grc"}}`,
+			`{"ancient greek":{"n":"Ancient Greek","i":"grc"}}`, true},
 		{"an entry with nothing in it drops", `{"bengali":{}}`, "", true},
 		{"duplicate customs collapse", `{"bengali":{"c":["✦","✦"]}}`, `{"bengali":{"c":["✦"]}}`, true},
 		{"a blank custom is skipped, not stored", `{"bengali":{"m":"ক","c":["","✦"]}}`,
 			`{"bengali":{"m":"ক","c":["✦"]}}`, true},
+
+		// ---- the ISO 639-3 link ----------------------------------------------
+		//
+		// A row may carry the language's three-letter registry code. It is checked
+		// by shape only — which codes exist is the client's table — and it keeps a
+		// row on its own, the same way a display name does.
+		{"an ISO 639-3 code survives", `{"bengali":{"n":"Bengali","i":"ben"}}`,
+			`{"bengali":{"n":"Bengali","i":"ben"}}`, true},
+		{"a code alone keeps the row", `{"sylheti":{"i":"syl"}}`, `{"sylheti":{"i":"syl"}}`, true},
+		{"a code folds to lower case", `{"bengali":{"i":"BEN"}}`, `{"bengali":{"i":"ben"}}`, true},
+		{"a two-letter code is not a 639-3 code", `{"bengali":{"i":"bn"}}`, "", false},
+		{"a code with a digit", `{"bengali":{"i":"b3n"}}`, "", false},
+		{"a code that is a word", `{"bengali":{"i":"bengali"}}`, "", false},
 
 		{"not JSON", `bengali=flag`, "", false},
 		{"not an object", `["bengali"]`, "", false},

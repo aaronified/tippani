@@ -2414,6 +2414,12 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               // make up for it, and that arrow is the second header.
               section={detail?.type === 'section' ? detail.id : null}
               onSection={(id) => go('metadata', id ? { type: 'section', id } : null)}
+              // A retired section's address resolves to a live one by REPLACING
+              // the entry, the same way /tags does — see redirectTab.
+              onRedirectSection={(id) => {
+                setDetail({ type: 'section', id })
+                if (!DEMO) seedRoute(statePath('metadata', { type: 'section', id }))
+              }}
             />
           </div>
         )}

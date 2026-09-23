@@ -16,6 +16,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because the new release requires it. No behaviour change.
 
 ### Changed
+- **Metadata › Languages is one row per language, linked to its ISO 639-3 code.** How much of
+  the original a quote shows is four icons per row, with words only on the All languages default
+  above them. Each row shows the language's three-letter ISO 639-3 code (Ancient Greek is grc,
+  Sylheti syl), and adding a language searches the full registry of about 7,900 codes by name or
+  code, or keeps a name with no code. Name, code and mark are edited in one editor that is the
+  same shape for every language, with every mark the same size in one grid; removing a language
+  asks first.
+
+- **Metadata and Settings have more room.** Cards sit further apart, further from the screen
+  edge and the top bar, with more padding inside, on desktop and phone; Settings a notch less
+  than Metadata. No card changed shape or order.
+
+- **Works, People and Characters use the whole screen height.** The list is no longer a box
+  capped at about 60% of the window; the page scrolls, and the filters, issue pills, select-all
+  and bulk bar stick under the top bar, painting a background only once they are stuck. The
+  character remap card stays above the list rather than at the end of it.
+
 
 - **Info dots and long explanations rewritten to say what each screen actually has.**
   Info dots, help entries, hints and long messages were rewritten to what the control
@@ -36,6 +53,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and Devices cards now points where the control actually is.
 
 ### Fixed
+- **A language mark is drawn as the character you chose.** With the interface face set to All
+  caps or Small caps, the mark took the face's case, so German's ß was drawn as "SS" (a small
+  "ss" in small caps) on every German quote. Marks now ignore the face's case settings
+  everywhere they appear — quote cards, the language rows and the mark editor.
+
+- **Two tabs editing language settings rarely undo each other now.** A save re-reads
+  the stored settings first instead of writing back the copy the tab loaded with, which
+  narrows the overlap to a single request.
+
+- **A language name longer than eight letters is kept.** The server checked names against the
+  mark's length limit, so a rename to "Ancient Greek" was refused; names now allow 40
+  characters.
+
 
 - **A character in a novel and its adaptation is two rows on their record, not one.** The
   two are counted from tables that number themselves independently, so a book and a film
@@ -4524,6 +4554,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   much room as it had.
 
 ### Removed
+- **Metadata no longer has an Overview section.** Everything it offered is on the section it
+  belongs to: Fetch stays on the header and the ⋯ menu (the dock on a phone), library-wide
+  Re-verify is Works → select all shown → Re-verify, and the coverage numbers are Works' issue
+  pills and the phone's issues sheet. On a phone, Metadata opens on its index; on desktop it
+  opens the section you used last, else Works. An old /metadata/overview link lands on Works.
+
 
 - **The Google Programmable Search key and engine id are gone from Settings.** Google
   closed that API to new customers and retires it on 1 January 2027, so the two fields

@@ -43,7 +43,7 @@ it('a reader searches Settings from the top bar and stays in Settings', async ()
   // whose NAME is its invitation tells a screen reader user what to do and never
   // what they are doing it to. An earlier cut of this journey typed into the
   // placeholder and passed, because the field's name was wrongly the same string.
-  await app.see('Theme')
+  await app.see('Which one you see')
   await app.type('Search settings', 'backup')
 
   // NARROWED, AND IT IS THIS SCREEN THAT NARROWED.
@@ -56,7 +56,14 @@ it('a reader searches Settings from the top bar and stays in Settings', async ()
   // shows is the control on it.
   await app.see('Back up now')
   // Appearance is gone with the rest: its words are not about backups.
-  await app.gone('Theme')
+  //
+  // BY A ROW OF ITS OWN, NOT BY THE WORD "THEME". This watched for "Theme" to go,
+  // and the card that stays — Server — carries the release log, whose newest
+  // release mentions the Theme section more than once. The log loads after the
+  // card, so the check passed only while it ran first: a race that went on
+  // winning until the day it did not. "Which one you see" is drawn by the Theme
+  // card and nowhere else.
+  await app.gone('Which one you see')
 
   // AND NOBODY WENT ANYWHERE. Settings draws the signed-in account beside its own
   // title and no other screen does, so this is the assertion that the press did not
@@ -79,9 +86,8 @@ it('a reader searches Settings from the top bar and stays in Settings', async ()
 it('the bar and the metadata console are one field, not two', async () => {
   await app.goto('/metadata')
   // THE SECTION IS THE CONTEXT, which is what "search where you are" means on a
-  // screen built out of consoles: the overview has no list to narrow, so the bar
-  // correctly offers the library there, and Works is where the question has an
-  // answer. A reader gets to it the same way.
+  // screen built out of consoles: Works is where the question has an answer, and
+  // a reader who last used another section gets to it the same way.
   await app.press('Works')
 
   await app.type('Search works and films', 'grimm')

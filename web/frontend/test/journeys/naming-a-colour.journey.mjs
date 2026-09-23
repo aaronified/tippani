@@ -8,7 +8,7 @@
 // their own suites, and the control is simply somewhere else.
 //
 // THE MUTATION. Delete `press('Colours')` and it goes red — Metadata opens on
-// Overview, and the category names are not on it.
+// Works, and the category names are not on it (re-run with Overview gone).
 //
 // AND ITS LANDMARK IS A ROW, NOT A HEADING, which is the second thing this file
 // has now been through. It watched for the card's title "Colour categories"; that

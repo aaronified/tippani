@@ -10,7 +10,7 @@
 // that gap required.
 //
 // THE MUTATION. Delete `press('Languages')` and it goes red: Metadata opens on
-// Overview, and no language row is on that screen.
+// Works, and no language row is on that screen (re-run with Overview gone).
 //
 // It knows the words on the screen and nothing else — no route, no component, no
 // preference key.

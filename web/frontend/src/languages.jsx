@@ -52,6 +52,7 @@
 
 import { t } from './i18n.js'
 import { glyphsFor, languageFor, markFor as scriptMark } from './iso639.js'
+import { iso6393For, isISO6393Shape } from './iso6393.js'
 
 // How many of the reader's own glyphs one language may keep. A bound rather than
 // a limit for its own sake: the custom bar sits under a row of four and reads as
@@ -81,7 +82,8 @@ const clean = (s) => String(s || '').replace(/[\u0000-\u001F\u007F]/g, '').trim(
 // shape applyTheme and applyColors already use. A card three screens deep needs
 // the mark and has no business being handed the whole user to get it.
 //
-// An entry is { mark, customs[], name } keyed by the FOLDED language name.
+// An entry is { mark, customs[], name, iso } keyed by the FOLDED language name —
+// `iso` being the ISO 639-3 code the reader linked the row to, or "".
 let entries = {}
 
 // normEntry accepts both shapes the preference has ever held.
@@ -94,11 +96,12 @@ let entries = {}
 function normEntry(v) {
   if (typeof v === 'string') {
     const mark = clean(v)
-    return mark ? { mark, customs: [], name: '' } : null
+    return mark ? { mark, customs: [], name: '', iso: '' } : null
   }
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null
   const mark = clean(v.m)
   const name = clean(v.n)
+  const iso = clean(v.i).toLowerCase()
   const customs = []
   for (const c of Array.isArray(v.c) ? v.c : []) {
     const g = clean(c)
@@ -107,8 +110,13 @@ function normEntry(v) {
     if (g && runes(g) <= MARK_MAX_RUNES && !customs.includes(g)) customs.push(g)
     if (customs.length >= MAX_CUSTOM_MARKS) break
   }
-  if (!mark && !name && customs.length === 0) return null
-  return { mark: runes(mark) <= MARK_MAX_RUNES ? mark : '', customs, name: runes(name) <= LANGUAGE_NAME_MAX_RUNES ? name : '' }
+  if (!mark && !name && customs.length === 0 && !isISO6393Shape(iso)) return null
+  return {
+    mark: runes(mark) <= MARK_MAX_RUNES ? mark : '',
+    customs,
+    name: runes(name) <= LANGUAGE_NAME_MAX_RUNES ? name : '',
+    iso: isISO6393Shape(iso) ? iso : '',
+  }
 }
 
 // applyLanguageMarks parses the stored blob. Bad JSON is no marks rather than a
@@ -169,7 +177,7 @@ export function languageMarksState(extra = []) {
     else if (!seen.has(key) || seen.get(key) === key) seen.set(key, name)
   }
   return [...seen.entries()].map(([key, canonical]) => {
-    const e = entries[key] || { mark: '', customs: [], name: '' }
+    const e = entries[key] || { mark: '', customs: [], name: '', iso: '' }
     return {
       key,
       // The canonical name is what quotes are matched on and never changes; the
@@ -192,6 +200,11 @@ export function languageMarksState(extra = []) {
       // worth protecting is one the library would put straight back.
       inLibrary: inLibrary.has(key),
       resolved: e.mark || scriptMark(canonical),
+      // THE REGISTRY CODE, linked or implied. `isoLinked` is what the reader chose
+      // themselves; `iso` falls back to the code iso639.js implies, so Bengali says
+      // `ben` without anybody having to link it.
+      isoLinked: e.iso || '',
+      iso: iso6393For(canonical, e.iso),
     }
   })
 }
@@ -205,7 +218,7 @@ export function languageMarksBlob(next) {
   for (const [k, v] of Object.entries(next || {})) {
     const key = fold(k)
     if (!key || runes(key) > LANGUAGE_NAME_MAX_RUNES) continue
-    const e = normEntry(typeof v === 'string' ? v : { m: v?.mark, c: v?.customs, n: v?.name })
+    const e = normEntry(typeof v === 'string' ? v : { m: v?.mark, c: v?.customs, n: v?.name, i: v?.iso })
     if (!e) continue
     const row = {}
     if (e.mark) row.m = e.mark
@@ -224,6 +237,7 @@ export function languageMarksBlob(next) {
     // the key — so storage keeps the row and the row still knows it was not
     // renamed.
     if (e.name) row.n = e.name
+    if (e.iso) row.i = e.iso
     if (Object.keys(row).length) out[key] = row
   }
   return Object.keys(out).length ? JSON.stringify(out) : ''
@@ -233,7 +247,7 @@ export function languageMarksBlob(next) {
 // and re-serialise the rest.
 export const currentLanguageEntries = () => {
   const out = {}
-  for (const [k, v] of Object.entries(entries)) out[k] = { mark: v.mark, customs: [...v.customs], name: v.name }
+  for (const [k, v] of Object.entries(entries)) out[k] = { mark: v.mark, customs: [...v.customs], name: v.name, iso: v.iso }
   return out
 }
 
@@ -323,7 +337,13 @@ export function LanguageMark({ languages, size = 20, ring = 'var(--card)', class
         // A typed emoji is an emoji and a script letter is type. Leaving the
         // font to the cascade lets each render as itself instead of forcing one
         // voice onto both.
-        fontFamily: 'var(--font-ui)', fontWeight: 'var(--font-ui-weight)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)',
+        //
+        // BUT NOT THE FACE'S CASE DIALS. A mark is one character the reader
+        // chose, and "all caps" or "small caps" on the interface face case-maps
+        // it: German's ß upper-cases to "SS", so a reader who picked ß got a
+        // small "ss" on every German quote. Weight and style change how a glyph
+        // looks; case changes WHICH glyph it is.
+        fontFamily: 'var(--font-ui)', fontWeight: 'var(--font-ui-weight)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'normal', textTransform: 'none', fontVariantNumeric: 'var(--font-ui-figures)',
       }}
     >
       {mark}

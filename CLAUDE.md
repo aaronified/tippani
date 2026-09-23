@@ -187,7 +187,10 @@ to be user-like is the part being ASSERTED.
 
 **THE VOCABULARY IS THE POINT** (`test/journeys/harness/screen.mjs`): `see`, `gone`,
 `press`, `pressAll`, `pressKey`, `hold`, `type`, `choose`, `chosen`, `upload`, `valueOf`,
-`onScreen`, `sideways`, plus `goto` and `downloaded` on the world. (This list had stopped
+`onScreen`, `sideways`, `inReach`, `said`, plus `goto` and `downloaded` on the world. (`said` was
+in the harness and missing here; `inReach` — can a thumb press this without scrolling —
+arrived when `press` began centring its target, which made a press unable to tell whether a
+control had followed the reader down.) (This list had stopped
 counting at nine while the harness carried thirteen — `hold`, `choose` and `chosen` were
 missing before `sideways` was added, which is the same drift the numbers in
 `How-this-was-written.md` now have a guard for.) `sideways` is the only one that is a

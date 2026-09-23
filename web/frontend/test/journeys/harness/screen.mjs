@@ -239,7 +239,7 @@ export function screenVerbs(getPage) {
       const hits = found.filter((c) => fold(c.name) === fold(name))
       if (hits.length) {
         for (const h of hits) {
-          await h.handle.scrollIntoView().catch(() => {})
+          await reach(h.handle)
           await h.handle.click()
         }
         await Promise.all(found.map((c) => c.handle.dispose()))
@@ -289,10 +289,32 @@ export function screenVerbs(getPage) {
     await Promise.all(named.map((c) => c.handle.dispose()))
   }
 
+  // reach — SCROLL A CONTROL CLEAR OF WHATEVER IS DRAWN OVER IT, then press.
+  // Puppeteer's own scroll only asks whether the box is inside the viewport, and
+  // the phone's dock is inside the viewport too: a door at y=744 of 844 counted as
+  // "in view" while the dock's accent key sat over its middle, so the click went
+  // to the dock and the journey reported the wrong screen. A thumb scrolls the
+  // thing it wants into the open first, so this centres it, and if something is
+  // STILL on top of it — a screen that cannot scroll its last row out from under
+  // a fixed bar — that is the app's defect and it is named rather than pressed.
+  async function reach(el) {
+    const cover = await el.evaluate((node) => {
+      node.scrollIntoView({ block: 'center', inline: 'nearest' })
+      const r = node.getBoundingClientRect()
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      if (!top || node === top || node.contains(top) || top.contains(node)) return null
+      // A <label> wrapping an input, or a control inside a styled box, reaches the
+      // same control when pressed — only something unrelated counts as a cover.
+      if (top.closest('label')?.contains(node)) return null
+      return (top.getAttribute('aria-label') || top.innerText || top.tagName).trim().slice(0, 60)
+    }).catch(() => null)
+    if (cover) throw new Error(`something else is drawn over it — "${cover}" — and a person could not press it.`)
+  }
+
   async function press(name, opts) {
     const el = await find('press', name, opts)
     try {
-      await el.scrollIntoView().catch(() => {})
+      await reach(el)
       await el.click()
     } finally {
       await el.dispose()
@@ -438,7 +460,8 @@ export function screenVerbs(getPage) {
   // state a control announces about itself.
   //
   // IT IS IN THE VOCABULARY BECAUSE A PERSON CAN PERCEIVE IT, which is this
-  // harness's whole test for admission. `aria-pressed` and `aria-selected` are the
+  // harness's whole test for admission. `aria-pressed`, `aria-selected` and
+  // `aria-checked` are the
   // accessibility tree, and the tree is what every other verb here already works
   // from — a screen reader says "pressed" out loud, and a sighted reader sees the
   // ring the same attribute drives.
@@ -457,7 +480,11 @@ export function screenVerbs(getPage) {
     const el = await find('press', name, opts)
     try {
       return await el.evaluate((e) => {
-        const v = e.getAttribute('aria-pressed') ?? e.getAttribute('aria-selected')
+        // aria-checked TOO, which a radio announces ("checked") and the first
+        // cut of this verb did not read: a radio group's chosen option reported
+        // null — "not a toggle" — and a journey could not ask which of four
+        // radios was the one in force.
+        const v = e.getAttribute('aria-pressed') ?? e.getAttribute('aria-selected') ?? e.getAttribute('aria-checked')
         return v === null ? null : v === 'true'
       })
     } finally {
@@ -477,6 +504,29 @@ export function screenVerbs(getPage) {
     const de = document.scrollingElement
     return Math.max(0, de.scrollWidth - de.clientWidth)
   })
+
+  // inReach — CAN A THUMB PRESS THIS WITHOUT SCROLLING? True when the control a
+  // person would press by that name is inside the window and nothing is drawn over
+  // its middle. `press` cannot answer it, on purpose: `press` scrolls its target
+  // clear first, as a person does, so "press it after scrolling away" passes
+  // whether or not the control followed the reader down. A toolbar that sticks and
+  // a list that fills the screen are both facts about WHERE something is, and this
+  // is the one question about where that a person asks without a ruler.
+  async function inReach(name, opts) {
+    const el = await find('press', name, opts)
+    try {
+      return await el.evaluate((node) => {
+        const r = node.getBoundingClientRect()
+        const x = r.left + r.width / 2
+        const y = r.top + r.height / 2
+        if (r.width === 0 || y < 0 || y > innerHeight || x < 0 || x > innerWidth) return false
+        const top = document.elementFromPoint(x, y)
+        return !!top && (node === top || node.contains(top) || top.contains(node))
+      })
+    } finally {
+      await el.dispose()
+    }
+  }
 
   // said — WHAT THE SCREEN SAYS TO SOMEBODY WHO CANNOT SEE IT.
   //
@@ -529,5 +579,5 @@ export function screenVerbs(getPage) {
     }
   }
 
-  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen, sideways, said }
+  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen, sideways, inReach, said }
 }

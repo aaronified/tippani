@@ -19,7 +19,7 @@
 // components with the same copy; what changed is the screen they are on. A move
 // that also rewrites is a move nobody can review.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { json, errText } from './api.js'
 import { localeActive, placeholderFor, t } from './i18n.js'
 import {
@@ -30,13 +30,14 @@ import {
   FormModal,
   GhostButton,
   IconCheck,
-  IconChevron,
   IconClose,
+  IconDelete,
   IconEdit,
-  IconLanguages,
   IconPlus,
   IconFetch,
   IconReset,
+  IconSearch,
+  IconTextOrder,
   InfoDot,
   MonoLabel,
   SectionTitle,
@@ -44,6 +45,8 @@ import {
   toast,
   Toggle,
   Tooltip,
+  useConfirm,
+  useFormHost,
 } from './ui.jsx'
 import {
   applyLanguageMarks,
@@ -51,14 +54,14 @@ import {
   LANGUAGE_NAME_MAX_RUNES,
   languageMarksBlob,
   languageMarksState,
-  LanguageMark,
   MARK_MAX_RUNES,
   MAX_CUSTOM_MARKS,
 } from './languages.jsx'
-import { TEXT_ORDERS, TEXT_ORDER_DEFAULT, TEXT_ORDER_WORD, masterIsCustom } from './textOrder.js'
-import { TextOrderChoice } from './textOrderField.jsx'
+import { TEXT_ORDER_DEFAULT, masterIsCustom } from './textOrder.js'
+import { TextOrderPicker } from './textOrderField.jsx'
 import { textOrderFrom } from './textOrderHost.jsx'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
+import { iso6393Name, loadISO6393, searchISO6393 } from './iso6393.js'
 
 // StatusChip came with the block: after the move Settings had no other caller for
 // it, and a component left behind in the file that stopped using it is the shape
@@ -1078,99 +1081,83 @@ function CreditSeparators({ user, onPreferences }) {
 export function LanguageMarksSettings({ prefs, onSaved }) {
   // What the library holds, so the table opens populated rather than empty. Seeded
   // from the cache synchronously so a second opening draws the rows on the first
-  // paint, then refreshed — this panel opens from a dialog, and a table that
-  // arrives one frame late reads as a screen that has nothing on it.
+  // paint, then refreshed.
   const [inLibrary, setInLibrary] = useState(() => cachedVocabulary()?.languages || [])
   useEffect(() => {
     primeSearchVocabulary().then((v) => setInLibrary(v?.languages || [])).catch(() => {})
   }, [])
   const [rows, setRows] = useState(() => languageMarksState(inLibrary))
-  // HOW MUCH OF THE ORIGINAL, per language and for all of them.
-  //
-  // THE SAME ROWS, ONE MORE COLUMN. The owner asked for "a table, where i add
-  // languages as rows, and I can slide across the 4 options beside it" — and this
-  // panel already IS that table: a row per language with an add box under it. A
-  // second table of the same languages would be two lists to keep in step, and
-  // the first time somebody added a language to one of them they would diverge.
+  // HOW MUCH OF THE ORIGINAL, per language and for all of them — the owner's "a
+  // table, where i add languages as rows, and I can slide across the 4 options
+  // beside it", now with the four drawn as icons so a row stays one row.
   const [order, setOrder] = useState(() => textOrderFrom(prefs))
   useEffect(() => { setOrder(textOrderFrom(prefs)) }, [prefs])
-  const [picking, setPicking] = useState(null) // the language whose tray is open
-  const [draft, setDraft] = useState('') // the "add your own" box, per open tray
-  const [adding, setAdding] = useState('') // the new-language box, '' = closed
+  const [editing, setEditing] = useState(null) // the key of the language in the editor
+  const [adding, setAdding] = useState(false)
   const [err, setErr] = useState('')
+  const { ask, confirmDialog } = useConfirm()
 
   // Re-seed when the session prefs change under us — another tab, or the account
   // switching. Reads the APPLIED marks, so this stays in step with what is on
-  // screen rather than with a stale prop, exactly as the colour card does.
+  // screen rather than with a stale prop.
   useEffect(() => { setRows(languageMarksState(inLibrary)) }, [prefs, inLibrary])
 
-  // save takes the WHOLE next entry rather than a mark, because every control in
-  // the tray changes a different field of one row and a mark-shaped save would
-  // have to be three of them.
+  // THE BLOB IS READ BACK FROM THE SERVER BEFORE IT IS REWRITTEN. The preference
+  // is one string holding every language, so a save writes all of them — and a
+  // second tab (or a second journey on the same account) that saved in between
+  // would be overwritten by this page's copy from when it loaded. Measured: two
+  // journeys on one account, one adding Ancient Greek and one marking Hindi, and
+  // whichever saved last erased the other's row. Reading first narrows that to
+  // the width of one request.
+  async function latest() {
+    const r = await json('GET', '/auth/me')
+    if (r.ok && r.data?.preferences) applyLanguageMarks(r.data.preferences)
+  }
+
+  // save takes a PATCH of one entry, because the editor changes several fields of
+  // one row at once and a save per field would be several requests for one ✓.
   async function save(key, patch) {
+    await latest()
     const all = currentLanguageEntries()
-    const cur = all[key] || { mark: '', customs: [], name: '' }
+    const cur = all[key] || { mark: '', customs: [], name: '', iso: '' }
     all[key] = { ...cur, ...patch }
-    const blob = languageMarksBlob(all)
+    return commit(languageMarksBlob(all))
+  }
+
+  // remove DROPS THE WHOLE ENTRY — its mark, its name and its code. What it does
+  // not touch is the quotes: a language lives in a free-text column on every
+  // annotation, dialogue and utterance, so a row the library still holds comes
+  // straight back, which is why removing one is refused there.
+  async function remove(key) {
+    await latest()
+    const all = currentLanguageEntries()
+    delete all[key]
+    return commit(languageMarksBlob(all))
+  }
+
+  // THE ROWS COME BACK OFF THE APPLIED BLOB, not off the map just written — an
+  // entry emptied of everything normalises away, and naming it here would leave a
+  // row on screen that a reload does not draw.
+  async function commit(blob) {
     applyLanguageMarks({ languageMarks: blob })
-    // THE ROWS COME BACK OFF THE APPLIED BLOB, not off `all`. This used to pass
-    // `Object.keys(all)` as well, to keep a just-added language on screen — which
-    // it no longer needs to do, since the stored name keeps the row (see
-    // languageMarksBlob), and which would have been wrong the other way: an entry
-    // emptied of its mark, its customs AND its name normalises away, and naming it
-    // here would leave a row on screen that a reload does not draw.
     setRows(languageMarksState(inLibrary))
     const r = await json('PUT', '/auth/me/preferences', { languageMarks: blob })
     if (!r.ok) {
       setErr(errText(r, t('error.save.generic')))
-      // Back to what the server still believes, so the panel can never show a
+      // Back to what the server still believes, so the table can never show a
       // mark that was refused.
       applyLanguageMarks(prefs || {})
       setRows(languageMarksState(inLibrary))
-      return
+      return false
     }
     setErr('')
     onSaved?.({ languageMarks: blob })
-  }
-
-  // remove DROPS THE WHOLE ENTRY, which `save` cannot express: it merges a patch,
-  // and there is no patch that means "this row is not a setting any more". Clearing
-  // every field would come to the same thing through normalizeLanguageMarks — an
-  // entry with no mark, no customs and no name is dropped whole — but saying it by
-  // deletion is saying what is meant, and it does not depend on that rule holding.
-  //
-  // WHAT IT DOES NOT TOUCH IS THE QUOTES. A language lives in a free-text column on
-  // every annotation, dialogue and utterance; this panel holds marks and renames.
-  // So removing a row un-marks a language, and the row comes back the moment the
-  // library still holds one — which is exactly why the control is refused there
-  // rather than allowed to appear to work.
-  async function remove(key) {
-    const all = currentLanguageEntries()
-    delete all[key]
-    const blob = languageMarksBlob(all)
-    applyLanguageMarks({ languageMarks: blob })
-    setRows(languageMarksState(inLibrary))
-    const r = await json('PUT', '/auth/me/preferences', { languageMarks: blob })
-    if (!r.ok) {
-      setErr(errText(r, t('error.save.generic')))
-      applyLanguageMarks(prefs || {})
-      setRows(languageMarksState(inLibrary))
-      return
-    }
-    setErr('')
-    onSaved?.({ languageMarks: blob })
+    return true
   }
 
   // saveOrder writes the whole blob, because the master and the rows are one
   // setting: moving the master rewrites every row (the owner's "it will push all
-  // knobs to align with it"), and a per-field save would have to be one request
-  // per language.
-  //
-  // THE SERVER DROPS WHAT AGREES, so this does not have to. Pushing every row to
-  // the master sends a row per language and gets back a blob with none of them —
-  // see normalizeTextOrder, which is where "a row that agrees with the master is
-  // not a setting" is enforced. Doing it in both places would be one rule in two
-  // spellings.
+  // knobs to align with it"). The server drops a row that agrees with the master.
   async function saveOrder(next) {
     const blob = JSON.stringify(next)
     setOrder(next)
@@ -1184,301 +1171,423 @@ export function LanguageMarksSettings({ prefs, onSaved }) {
     onSaved?.({ textOrder: blob })
   }
 
-  // THE MASTER IS A DEFAULT, A BULK SETTER AND AN INDICATOR, which is three jobs
-  // and all three are in the owner's two sentences. Moving it stores it AND puts
-  // every row on it; a row moved on its own leaves it stored but drawn dim.
+  // THE MASTER IS A DEFAULT, A BULK SETTER AND AN INDICATOR. Moving it stores it
+  // AND puts every row on it; a row moved on its own leaves it stored but drawn dim.
   const master = order.master || TEXT_ORDER_DEFAULT
   const custom = masterIsCustom(master, order.byLanguage)
-  const moveMaster = (at) => saveOrder({ master: TEXT_ORDERS[at], byLanguage: {} })
-  const moveRow = (key, at) => saveOrder({
-    master: order.master,
-    byLanguage: { ...order.byLanguage, [key]: TEXT_ORDERS[at] },
-  })
+  const moveMaster = (k) => saveOrder({ master: k, byLanguage: {} })
+  // A ROW'S CHOICE IS MERGED INTO WHAT THE SERVER HOLDS, for the reason `latest`
+  // gives above: drawn at once, then written on top of the stored setting rather
+  // than on top of this page's copy of it.
+  async function moveRow(key, k) {
+    setOrder((o) => ({ ...o, byLanguage: { ...o.byLanguage, [key]: k } }))
+    const r = await json('GET', '/auth/me')
+    const base = r.ok && r.data?.preferences ? textOrderFrom(r.data.preferences) : order
+    saveOrder({ master: base.master, byLanguage: { ...base.byLanguage, [key]: k } })
+  }
 
-  // addCustom appends to this language's own marks and selects it. Selecting is
-  // not a convenience: somebody who has just typed a mark has said which one they
-  // want, and leaving it unselected would make adding a two-step act with an
-  // invisible second step.
-  function addCustom(row, raw) {
-    const g = String(raw || '').trim()
-    setDraft('')
-    if (!g) return
-    if (row.customs.includes(g)) return save(row.key, { mark: g })
-    if (row.customs.length >= MAX_CUSTOM_MARKS) {
-      setErr(t('error.validate.marks-full', { name: row.name, n: MAX_CUSTOM_MARKS }))
+  // ADDING IS A SEARCH OF THE REGISTRY, with free text as the last resort. A
+  // language picked from ISO 639-3 arrives with its code; one the registry does
+  // not have (a dialect, a period spelling) is still a language and is added as
+  // typed. A language already on the list opens instead of doubling.
+  async function addLanguage({ name, iso = '' }) {
+    setAdding(false)
+    const clean = String(name || '').trim()
+    if (!clean) return
+    const key = clean.toLowerCase()
+    const already = rows.find((r) => r.key === key || (iso && r.iso === iso))
+    if (already) {
+      if (iso && !already.isoLinked) await save(already.key, { iso })
+      setEditing(already.key)
       return
     }
-    return save(row.key, { customs: [...row.customs, g], mark: g })
+    await save(key, { name: clean, iso })
   }
 
-  // Removing the mark currently in use falls back to the script letter rather
-  // than leaving the row drawing something it no longer offers.
-  function removeCustom(row, g) {
-    const customs = row.customs.filter((c) => c !== g)
-    return save(row.key, { customs, mark: row.mark === g ? '' : row.mark })
+  async function removeRow(row) {
+    const yes = await ask(t('settings.languages.remove.confirm.title', { name: row.name }), {
+      body: t('settings.languages.remove.confirm.body'),
+      confirmLabel: t('settings.languages.remove.label'),
+      danger: true,
+    })
+    if (!yes) return
+    setEditing(null)
+    await remove(row.key)
   }
 
-  function addLanguage(raw) {
-    const name = String(raw || '').trim()
-    setAdding('')
-    if (!name) return
-    const key = name.toLowerCase()
-    if (rows.some((r) => r.key === key)) {
-      setPicking(key)
-      return
-    }
-    // A language is added by being GIVEN something to store — a display name is
-    // the only field an unmarked language has, and without one the entry would
-    // serialise to nothing and the row would vanish on the next reload.
-    setPicking(key)
-    return save(key, { name })
-  }
+  const open = rows.find((r) => r.key === editing) || null
+  const allName = t('settings.languages.order.all.label')
 
   return (
     <>
-      {/* NO PROSE AT THE TOP, and there were two full paragraphs of it — one
-          explaining what a mark is, one explaining what the chooser below does.
-          The owner, over a phone screenshot of this sheet: "What is this long ass
-          prose?? ... Lose the prose." On a 390px screen they were the whole first
-          view: a reader who opened this to change one letter met four hundred words
-          first.
-
-          WHERE THE WORDS WENT. The first paragraph is the card's InfoDot on
-          Metadata sources — the door explains itself where the door is, which is
-          before you commit to opening it. The second described a control that now
-          says four words on its own face; four chips reading "translation first",
-          "quotation first" and their companions do not need a paragraph saying that
-          a quote and its translation are two texts. The master's dimming keeps its
-          tooltip, because that one IS invisible. */}
-      <div
-        className="mb-4"
-        style={{ borderBottom: '1px solid var(--line)', paddingBottom: 12, opacity: custom ? 0.55 : 1 }}
-        title={custom ? t('settings.languages.order.custom.tip') : undefined}
-      >
-        <MonoLabel className="mb-1.5 block">{t('settings.languages.order.title')}</MonoLabel>
-        <TextOrderChoice
-          value={master}
-          onChange={(k) => moveMaster(TEXT_ORDERS.indexOf(k))}
-          ariaLabel={t('settings.languages.order.title')}
-        />
+      {/* THE DEFAULT, AND THE ONLY PLACE THE FOUR ARE WORDED. The rows below draw
+          the same four as icons, so this is where the drawing is learned — the
+          key beside it names what a solid and an outlined bar stand for. */}
+      <div className="lang-master" title={custom ? t('settings.languages.order.custom.tip') : undefined}>
+        <div className="lang-master-head">
+          <MonoLabel>{t('settings.languages.order.title')}</MonoLabel>
+          <span className="lang-master-name">{allName}</span>
+          <span className="lang-key">
+            <span className="lang-key-item"><IconTextOrder order="quote-only" size={18} />{t('settings.languages.key.quote')}</span>
+            <span className="lang-key-item"><IconTextOrder order="trans-only" size={18} />{t('settings.languages.key.trans')}</span>
+          </span>
+        </div>
+        <TextOrderPicker value={master} onChange={moveMaster} name={allName} showWord dim={custom} />
       </div>
-      <div>
+
+      <ul className="lang-rows">
         {rows.map((row) => {
-          const open = picking === row.key
-          const full = row.customs.length >= MAX_CUSTOM_MARKS
+          const value = order.byLanguage?.[row.key] || master
+          const own = value !== master
           return (
-            <div key={row.key} className="inline-field">
-              {/* THE ROW IS THE TRIGGER. The mark and the name are inside one
-                  button that fills the row; the reset stays outside it, because
-                  a control nested in a control is invalid markup and, worse,
-                  ambiguous to press. */}
-              <div className={'inline-field-head' + (open ? '' : ' is-flush')} style={{ gap: 6 }}>
-                <button
-                  type="button"
-                  className="lang-row-btn"
-                  aria-expanded={open}
-                  // Named explicitly, because the mark inside it carries its own
-                  // "in Bengali" label for the quote cards and a row announcing
-                  // "in Bengali Bengali" is the glyph's label leaking into a
-                  // context it was not written for.
-                  aria-label={row.name}
-                  onClick={() => { setPicking(open ? null : row.key); setDraft('') }}
-                >
-                  <LanguageMark languages={[row.canonical]} size={22} ring="var(--card)" />
-                  <span className="min-w-0 flex-1 text-left" style={{ fontWeight: 600 }}>{row.name}</span>
-                  {/* The canonical name stays visible on a renamed row. Quotes
-                      are still stored and matched under it, so hiding it would
-                      make "why does my Bangla board say Bengali" unanswerable. */}
-                  {row.renamed && <MonoLabel style={{ color: 'var(--faint)' }}>{row.canonical}</MonoLabel>}
-                  <IconChevron open={open} size={18} />
-                </button>
-                {(row.mark || row.renamed) && (
-                  <FieldIconButton
-                    icon={<IconReset />}
-                    ariaLabel={t('settings.languages.reset.aria', { name: row.canonical })}
-                    onClick={() => save(row.key, { mark: '', name: '' })}
-                    tooltip={t('settings.languages.reset.tip')}
-                  />
-                )}
-                {/* REMOVE, AND IT IS DRAWN EVEN WHERE IT IS REFUSED. The other way —
-                    show the ✕ only on removable rows — leaves a reader comparing two
-                    rows that look different for a reason nothing on screen gives. A
-                    disabled control with a tooltip that says WHY is this repo's own
-                    idiom (characterRows.jsx: "`disabled`, so the row stays readable
-                    and its title still explains").
-
-                    IT SAYS "IN USE" AND NOT A COUNT, because there is no count here
-                    to say. The vocabulary endpoint returns the language NAMES a
-                    library holds, not how many quotes are in each; inventing "12
-                    quotes" from a list of names is the confidently-wrong answer this
-                    whole module was built to refuse. */}
-                <FieldIconButton
-                  icon={<IconClose />}
-                  disabled={row.inLibrary}
-                  ariaLabel={t('settings.languages.remove.aria', { name: row.canonical })}
-                  onClick={() => remove(row.key)}
-                  tooltip={row.inLibrary
-                    ? t('settings.languages.remove.in-use.tip', { name: row.canonical })
-                    : t('settings.languages.remove.tip')}
-                  danger={!row.inLibrary}
-                />
-                {/* BESIDE THE TRIGGER AND NOT INSIDE IT. The row is one button
-                    that fills its width, and this file's own note says why the
-                    reset sits outside it: "a control nested in a control is
-                    invalid markup and, worse, ambiguous to press." A slider is
-                    the same case and more so — a drag inside a button would open
-                    the tray on release.
-                    It has room because `.inline-field-head` wraps, so at a phone's
-                    width this drops to a line of its own rather than squeezing
-                    the language's name, which is a name and may not be shortened. */}
-                <div style={{ flex: '1 1 11em', minWidth: '9em' }}>
-                  <TextOrderChoice
-                    value={order.byLanguage?.[row.key] || master}
-                    onChange={(k) => moveRow(row.key, TEXT_ORDERS.indexOf(k))}
-                    ariaLabel={t('settings.languages.order.row.aria', { name: row.name })}
-                  />
-                </div>
-              </div>
-              {open && (
-                <div className="space-y-3 pb-2">
-                  {row.glyphs.length > 0 ? (
-                    <div>
-                      <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>{t('settings.languages.script.title')}</MonoLabel>
-                      <div className="cat-palette" role="listbox" aria-label={t('settings.languages.glyphs.aria', { name: row.canonical })}>
-                        {row.glyphs.map((g, i) => (
-                          <button
-                            key={g}
-                            type="button"
-                            role="option"
-                            // The first is the default, so an unset mark selects
-                            // it: the row is already drawing it.
-                            aria-selected={row.mark === g || (!row.mark && i === 0)}
-                            aria-label={g}
-                            className={'cat-swatch' + (row.mark === g || (!row.mark && i === 0) ? ' is-on' : '')}
-                            style={{ background: 'var(--raised)', fontSize: 'var(--type-ui-15)', lineHeight: 1 }}
-                            onClick={() => save(row.key, { mark: i === 0 ? '' : g })}
-                          >
-                            {g}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    // A language the app has never heard of has no script to
-                    // offer, and guessing one would put a Latin A on a board of
-                    // Yoruba proverbs. It gets the custom bar and nothing else.
-                    <p className="microcopy">
-                      {t('settings.languages.no-script.prose', { name: row.canonical })}
-                    </p>
-                  )}
-
-                  <div>
-                    <MonoLabel className="mb-1 block" style={{ color: 'var(--faint)' }}>
-                      {t('settings.languages.customs.title', { done: row.customs.length, total: MAX_CUSTOM_MARKS })}
-                    </MonoLabel>
-                    {row.customs.length > 0 && (
-                      <div className="cat-palette" role="listbox" aria-label={t('settings.languages.customs.aria', { name: row.canonical })}>
-                        {row.customs.map((g) => (
-                          <span key={g} className="lang-custom">
-                            <button
-                              type="button"
-                              role="option"
-                              aria-selected={row.mark === g}
-                              aria-label={g}
-                              className={'cat-swatch' + (row.mark === g ? ' is-on' : '')}
-                              style={{ background: 'var(--raised)', fontSize: 'var(--type-ui-15)', lineHeight: 1 }}
-                              onClick={() => save(row.key, { mark: g })}
-                            >
-                              {g}
-                            </button>
-                            <FieldIconButton
-                              icon={<IconClose />}
-                              ariaLabel={t('settings.languages.mark.remove.aria', { name: g, field: row.canonical })}
-                              onClick={() => removeCustom(row, g)}
-                              tooltip={t('settings.languages.mark.remove.tip')}
-                              danger
-                            />
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {/* The box goes away when the bar is full rather than
-                        refusing on submit: a field you can type into and cannot
-                        save from is worse than no field. */}
-                    {full ? (
-                      <p className="microcopy">
-                        {t('settings.languages.full.prose', { name: row.canonical, n: MAX_CUSTOM_MARKS })}
-                      </p>
-                    ) : (
-                      <Field
-                        label={t('settings.languages.add-mark.label')}
-                        value={draft}
-                        placeholder={t('settings.languages.add-mark.placeholder')}
-                        maxLength={MARK_MAX_RUNES}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onBlur={(e) => addCustom(row, e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }}
-                      />
-                    )}
-                  </div>
-
-                  {/* RENAMING IS A DISPLAY NAME AND NOTHING ELSE. The quote keeps
-                      the language it was stored with, so calling Bengali "বাংলা"
-                      cannot orphan a quote, cannot break the board form's
-                      matching, and round-trips through an export untouched —
-                      the same rule the colour categories have always followed. */}
-                  <Field
-                    label={t('settings.languages.rename.label', { name: row.canonical })}
-                    defaultValue={row.name}
-                    key={`name-${row.key}-${row.name}`}
-                    placeholder={row.canonical}
-                    maxLength={LANGUAGE_NAME_MAX_RUNES}
-                    onBlur={(e) => {
-                      const v = e.target.value.trim()
-                      if (v !== row.name) save(row.key, { name: v })
-                    }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                  />
-
-                  {/* WHAT THIS LANGUAGE'S QUOTES ARE SET IN LIVES IN SETTINGS NOW,
-                      and it is one control rather than two writers for one
-                      preference. This tray held a face picker per language while
-                      Settings → Language and font held a face picker per SCRIPT,
-                      so "what does my German look like" was answered in a place
-                      nobody looking at fonts would find, and "what does Bengali
-                      look like" was answered twice, differently. The owner's
-                      ruling put the fonts together: the languages are added here,
-                      where a language IS defined, and every face for them is
-                      chosen there, where every other face is chosen. */}
-                </div>
-              )}
-            </div>
+            <li key={row.key} className="lang-row">
+              {/* THE MARK AND THE NAME ARE ONE DOOR, to the one editor every
+                  language shares. Reset and remove went in there with the mark
+                  picker, so a row carries only what it is and how it reads. */}
+              <button
+                type="button"
+                className="lang-row-open"
+                aria-label={t('settings.languages.edit.aria', { name: row.name })}
+                onClick={() => setEditing(row.key)}
+              >
+                <span className={'lang-mark-tile' + (row.resolved ? '' : ' is-blank')} aria-hidden="true">
+                  {row.resolved || [...row.name][0]}
+                </span>
+                <span className="lang-row-text">
+                  <span className="lang-row-name">{row.name}</span>
+                  <span className="lang-row-meta">
+                    {/* THE REGISTRY CODE, and the association this section was
+                        missing: which language, exactly, the row is. */}
+                    <span className={'lang-iso' + (row.iso ? '' : ' is-none')}>{row.iso || t('settings.languages.iso.none')}</span>
+                    {row.renamed && <span>{row.canonical}</span>}
+                    {own && <span className="lang-own">{t('settings.languages.order.own.label')}</span>}
+                  </span>
+                </span>
+              </button>
+              <TextOrderPicker value={value} onChange={(k) => moveRow(row.key, k)} name={row.name} own={own} />
+            </li>
           )
         })}
-      </div>
+      </ul>
 
-      {/* Adding a language, because the ten built in are the ten most spoken and
-          not the ten anybody's library is in. A board form already accepts any
-          language as free text; this is the same list reached from the side that
-          edits it, so a language typed there can be marked here without having
-          to go and find a quote in it first. */}
-      <div className="mt-3">
-        {adding === null ? null : adding === '' ? (
-          <GhostButton icon={<IconPlus />} onClick={() => setAdding(' ')}>{t('settings.languages.add.label')}</GhostButton>
-        ) : (
-          <Field
-            label={t('settings.languages.name.label')}
+      <div className="lang-add">
+        {adding ? (
+          <ISO6393Search
+            label={t('settings.languages.add.search.label')}
             autoFocus
-            value={adding.trimStart()}
-            placeholder={t('settings.languages.name.placeholder')}
-            maxLength={LANGUAGE_NAME_MAX_RUNES}
-            onChange={(e) => setAdding(e.target.value || ' ')}
-            onBlur={(e) => addLanguage(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setAdding('') }}
+            allowFree
+            onPick={(pick) => addLanguage(pick)}
+            onCancel={() => setAdding(false)}
           />
+        ) : (
+          <GhostButton icon={<IconPlus />} keepLabel onClick={() => setAdding(true)}>{t('settings.languages.add.label')}</GhostButton>
         )}
       </div>
       <ErrorText>{err}</ErrorText>
+
+      {open && (
+        <LanguageEditorModal
+          key={open.key}
+          row={open}
+          onClose={() => setEditing(null)}
+          onSave={async (d) => { if (await save(open.key, d)) setEditing(null) }}
+          onReset={async () => { if (await save(open.key, { mark: '', name: '' })) setEditing(null) }}
+          onRemove={() => removeRow(open)}
+        />
+      )}
+      {/* AFTER THE EDITOR, because the remove confirm is asked FROM it: two
+          dialogs on one layer stack in document order, and drawn first it sat
+          behind the editor that opened it. */}
+      {confirmDialog}
     </>
+  )
+}
+
+// A registry name carries its period in brackets — "Ancient Greek (to 1453)" — and
+// a reader's list names the language, so the bracket is the registry's and not the
+// row's. The code keeps the precision.
+const plainName = (name) => String(name || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+
+// What a registry row is, when it is not simply a living language — said beside
+// the name so "Old English" and "English" are not two lines that look alike.
+const ISO_TYPE_KEYS = {
+  E: 'settings.languages.iso.type.extinct',
+  A: 'settings.languages.iso.type.ancient',
+  H: 'settings.languages.iso.type.historical',
+  C: 'settings.languages.iso.type.constructed',
+}
+
+// ISO6393Search — find a language in ISO 639-3 by name or code.
+//
+// THE REGISTRY LOADS WHEN THIS MOUNTS, which is when somebody asked to search it:
+// 150KB nobody downloads unless they add or link a language.
+//
+// `allowFree` ENDS THE LIST WITH THE TYPED TEXT ITSELF, because a language is still
+// free text in this app — Kentish, a period spelling, a family's own name for how
+// they speak — and a registry that could refuse one would lose it.
+function ISO6393Search({ label, onPick, onCancel, allowFree = false, autoFocus = false }) {
+  const [q, setQ] = useState('')
+  const [list, setList] = useState(null)
+  const [active, setActive] = useState(0)
+  const id = useId()
+  useEffect(() => { loadISO6393().then(setList).catch(() => setList([])) }, [])
+  const hits = useMemo(() => searchISO6393(list, q, 8), [list, q])
+  const typed = q.trim()
+  const options = [
+    ...hits.map((r) => ({ key: r.code, code: r.code, name: plainName(r.name), full: r.name, type: r.type, macro: r.macro })),
+    ...(allowFree && typed && !hits.some((h) => plainName(h.name).toLowerCase() === typed.toLowerCase())
+      ? [{ key: '\u0000free', free: true, name: typed }]
+      : []),
+  ]
+  useEffect(() => { setActive(0) }, [q])
+  const pick = (o) => { if (o) onPick(o.free ? { name: o.name, iso: '' } : { name: o.name, iso: o.code }) }
+  function onKeyDown(e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(i + 1, options.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter') { e.preventDefault(); pick(options[active]) }
+    else if (e.key === 'Escape') { e.preventDefault(); onCancel?.() }
+  }
+  const typeWord = (o) => [ISO_TYPE_KEYS[o.type] ? t(ISO_TYPE_KEYS[o.type]) : '', o.macro ? t('settings.languages.iso.type.macro') : '']
+    .filter(Boolean).join(' · ')
+  return (
+    <div className="iso-search">
+      <label className="tp-field">
+        <MonoLabel>{label}</MonoLabel>
+        <input
+          className="tp-input"
+          role="combobox"
+          aria-expanded={!!typed}
+          aria-controls={id}
+          aria-autocomplete="list"
+          aria-activedescendant={typed && options[active] ? `${id}-${active}` : undefined}
+          autoFocus={autoFocus}
+          value={q}
+          placeholder={t('settings.languages.iso.search.placeholder')}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={onKeyDown}
+        />
+      </label>
+      {typed && (
+        list === null ? (
+          <p className="microcopy">{t('common.state.loading')}</p>
+        ) : options.length === 0 ? (
+          <p className="microcopy">{t('settings.languages.iso.nomatch')}</p>
+        ) : (
+          <div id={id} role="listbox" aria-label={label} className="iso-results">
+            {options.map((o, i) => (
+              <button
+                key={o.key}
+                id={`${id}-${i}`}
+                type="button"
+                role="option"
+                aria-selected={i === active}
+                // NAMED AS A PERSON WOULD SAY IT — "Sylheti (syl)" — rather than
+                // as the spans run together in the markup.
+                aria-label={o.free ? undefined : `${o.full} (${o.code})`}
+                className={'iso-option' + (i === active ? ' is-active' : '')}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => pick(o)}
+              >
+                {o.free ? (
+                  <span className="iso-option-name">{t('settings.languages.add.free', { name: o.name })}</span>
+                ) : (
+                  <>
+                    <span className="iso-code">{o.code}</span>
+                    <span className="iso-option-name">{o.full}</span>
+                    {typeWord(o) && <span className="iso-option-type">{typeWord(o)}</span>}
+                  </>
+                )}
+              </button>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
+// LanguageEditorModal — ONE EDITOR FOR EVERY LANGUAGE. The tray it replaces opened
+// inline under a row in whatever shape that language's glyphs made it; this is the
+// same panel for all of them — name, registry code, one grid of marks — on the
+// app's own form chrome, with the tick armed only when something changed.
+function LanguageEditorModal({ row, onClose, onSave, onReset, onRemove }) {
+  const [d, setD] = useState({ name: row.name, mark: row.mark, customs: row.customs, iso: row.isoLinked })
+  const dirty =
+    (d.name.trim() !== row.name ? 1 : 0) +
+    (d.mark !== row.mark ? 1 : 0) +
+    (d.customs.join('\u0000') !== row.customs.join('\u0000') ? 1 : 0) +
+    (d.iso !== row.isoLinked ? 1 : 0)
+  return (
+    <FormModal open title={row.name} dirty={dirty} onClose={onClose} closeDanger maxWidth={540}>
+      <LanguageEditorForm row={row} d={d} setD={setD} onSubmit={() => onSave({ ...d, name: d.name.trim() })} onReset={onReset} onRemove={onRemove} />
+    </FormModal>
+  )
+}
+
+// The form half, a CHILD of the modal so useFormHost finds the modal's host — see
+// the Gotchas in CLAUDE.md: called from the component that renders the modal, it
+// registers with whatever surface is further out and the modal draws no ✓.
+function LanguageEditorForm({ row, d, setD, onSubmit, onReset, onRemove }) {
+  const host = useFormHost('')
+  const [draft, setDraft] = useState(null) // null = the ＋ cell is closed
+  const [linking, setLinking] = useState(false)
+  const [isoName, setIsoName] = useState('')
+  const iso = d.iso || row.iso
+  useEffect(() => {
+    if (!iso) { setIsoName(''); return }
+    loadISO6393().then(() => setIsoName(iso6393Name(iso))).catch(() => {})
+  }, [iso])
+  const full = d.customs.length >= MAX_CUSTOM_MARKS
+  // The first script letter is the default, so an unset mark selects it.
+  const chosen = (g, i, fromScript) => d.mark === g || (fromScript && !d.mark && i === 0)
+  function addCustom(raw) {
+    const g = String(raw || '').trim()
+    setDraft(null)
+    if (!g) return
+    if (d.customs.includes(g)) return setD({ ...d, mark: g })
+    if (full) return
+    setD({ ...d, customs: [...d.customs, g], mark: g })
+  }
+  const dropCustom = (g) => setD({ ...d, customs: d.customs.filter((c) => c !== g), mark: d.mark === g ? '' : d.mark })
+  // EVERY BUTTON IN HERE SAYS type="button" EXCEPT THE HEADER'S TICK. A button
+  // inside a form submits it unless told otherwise, and "Remove language" saved
+  // the row instead of asking to remove it until the test for it said so.
+  return (
+    <form id={host?.formId} onSubmit={(e) => { e.preventDefault(); onSubmit() }} className="lang-editor">
+      <Field
+        label={t('settings.languages.name.label')}
+        value={d.name}
+        placeholder={row.canonical}
+        maxLength={LANGUAGE_NAME_MAX_RUNES}
+        onChange={(e) => setD({ ...d, name: e.target.value })}
+      />
+
+      {/* WHICH LANGUAGE, EXACTLY. A row's name is what the reader calls it; the
+          ISO 639-3 code is which language that is — Ancient Greek is `grc`, not
+          `el`, and Sylheti has no two-letter code at all. */}
+      <div className="lang-editor-block">
+        <MonoLabel>{t('settings.languages.iso.label')}</MonoLabel>
+        {linking ? (
+          <ISO6393Search
+            label={t('settings.languages.iso.label')}
+            autoFocus
+            onPick={(p) => { setD({ ...d, iso: p.iso }); setLinking(false) }}
+            onCancel={() => setLinking(false)}
+          />
+        ) : (
+          <div className="lang-iso-line">
+            {iso ? (
+              <>
+                <span className="iso-code">{iso}</span>
+                <span className="lang-iso-name">{isoName}</span>
+              </>
+            ) : (
+              <span className="microcopy">{t('settings.languages.iso.none')}</span>
+            )}
+            <GhostButton type="button" icon={<IconSearch />} onClick={() => setLinking(true)}>
+              {t(iso ? 'settings.languages.iso.change.label' : 'settings.languages.iso.link.label')}
+            </GhostButton>
+            {d.iso && (
+              <FieldIconButton
+                type="button"
+                icon={<IconClose />}
+                ariaLabel={t('settings.languages.iso.clear.aria')}
+                tooltip={t('settings.languages.iso.clear.aria')}
+                onClick={() => setD({ ...d, iso: '' })}
+              />
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="lang-editor-block">
+        <MonoLabel>{t('settings.languages.mark.title')}</MonoLabel>
+        {row.glyphs.length === 0 && (
+          <p className="microcopy">{t('settings.languages.no-script.prose', { name: row.canonical })}</p>
+        )}
+        {/* ONE GRID, EQUAL CELLS: the script's letters, then the reader's own, then
+            the cell that adds one. Every language's picker is this shape. */}
+        {/* A RADIO GROUP, not a listbox: one mark is chosen out of a set that is
+            always open. A listbox is a popup's role, and the app's own journey
+            harness reads an open one as the menu a reader is answering. */}
+        <div className="mark-grid" role="radiogroup" aria-label={t('settings.languages.glyphs.aria', { name: row.canonical })}>
+          {row.glyphs.map((g, i) => (
+            <button
+              key={`s-${g}`}
+              type="button"
+              role="radio"
+              aria-checked={chosen(g, i, true)}
+              aria-label={g}
+              className={'mark-cell' + (chosen(g, i, true) ? ' is-on' : '')}
+              onClick={() => setD({ ...d, mark: i === 0 ? '' : g })}
+            >
+              {g}
+            </button>
+          ))}
+          {d.customs.map((g) => (
+            <span key={`c-${g}`} className="mark-cell-wrap">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={d.mark === g}
+                aria-label={g}
+                className={'mark-cell is-custom' + (d.mark === g ? ' is-on' : '')}
+                onClick={() => setD({ ...d, mark: g })}
+              >
+                {g}
+              </button>
+              <button
+                type="button"
+                className="mark-cell-remove"
+                aria-label={t('settings.languages.mark.remove.aria', { name: g, field: row.canonical })}
+                onClick={() => dropCustom(g)}
+              >
+                <IconClose size={11} />
+              </button>
+            </span>
+          ))}
+          {!full && (draft === null ? (
+            <button
+              type="button"
+              className="mark-cell is-add"
+              aria-label={t('settings.languages.add-mark.aria')}
+              onClick={() => setDraft('')}
+            >
+              <IconPlus size={18} />
+            </button>
+          ) : (
+            <input
+              className="mark-cell is-typing"
+              autoFocus
+              aria-label={t('settings.languages.add-mark.aria')}
+              value={draft}
+              maxLength={MARK_MAX_RUNES}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={(e) => addCustom(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addCustom(e.currentTarget.value) }
+                if (e.key === 'Escape') { e.preventDefault(); setDraft(null) }
+              }}
+            />
+          ))}
+        </div>
+        {full && <p className="microcopy">{t('settings.languages.full.prose', { name: row.canonical, n: MAX_CUSTOM_MARKS })}</p>}
+      </div>
+
+      <div className="lang-editor-foot">
+        {(row.mark || row.renamed) && (
+          <GhostButton type="button" icon={<IconReset />} onClick={onReset}>{t('settings.languages.reset.label')}</GhostButton>
+        )}
+        <span className="flex-1" />
+        {/* DRAWN EVEN WHERE IT IS REFUSED, and saying why: a language the library
+            holds comes straight back, so removing it would be a control that
+            undoes itself. */}
+        <Tooltip label={row.inLibrary ? t('settings.languages.remove.in-use.tip', { name: row.canonical }) : null} side="top">
+          <GhostButton type="button" icon={<IconDelete />} keepLabel disabled={row.inLibrary} style={row.inLibrary ? undefined : { color: 'var(--error)' }} onClick={onRemove}>
+            {t('settings.languages.remove.label')}
+          </GhostButton>
+        </Tooltip>
+      </div>
+    </form>
   )
 }

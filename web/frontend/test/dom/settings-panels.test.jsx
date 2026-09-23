@@ -178,77 +178,44 @@ describe('the two panels are doors, not cards', () => {
   })
 })
 
-describe('the language-mark tray', () => {
-  // THE PANEL IS THE SCOPE NOW, NOT A DIALOG. Every query below reads
-  // `within(dialog())` because the table used to be behind a pop-up; it is a
-  // section of the Metadata console now, so what those queries should be scoped
-  // to is simply what was rendered. Shadowing the name keeps twenty assertions
-  // saying exactly what they said before — the table did not change, its address
-  // did — and the Type panel above is still a real dialog, scoped by the outer
-  // definition.
-  const dialog = () => document.body
-  const openTray = async (language = 'Bengali') => {
-    // THE PANEL DIRECTLY, not a door to it: the marks table is a section of the
-    // Metadata console now rather than a pop-up on the sources block, so there is
-    // no dialog to open and no button to open it with. Everything below this line
-    // is unchanged, which is the point — the table did not move, only its address.
+describe('the language editor', () => {
+  // ONE EDITOR FOR EVERY LANGUAGE. The tray these cases drove opened inline under
+  // a row, in whatever shape that language's letters made it; the owner: "each
+  // option opens up things in different shapes and sizes." It is one dialog now —
+  // name, ISO 639-3 code, one grid of marks — and every guarantee the tray had is
+  // asserted here against it: the letters are the language's own, no flags, a
+  // typed mark is kept and chosen, a rename leaves the stored language alone, and
+  // a language the library holds cannot be removed.
+  const openEditor = async (language = 'Bengali') => {
     render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
-    // The rows are the reader's own languages and arrive from /search/vocabulary,
-    // so the first one has to land before anything can be pressed.
-    await screen.findByRole('button', { name: new RegExp(`^${language}`) })
-    // THE WHOLE ROW IS THE TRIGGER (1.16.0). It was a 22px disc beside a name
-    // you could not press; the name is inside the button now, which is what this
-    // query proves — getByRole matches on the accessible name, and the row's
-    // name comes from the text it contains.
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${language}`) }))
+    const door = await screen.findByRole('button', { name: new RegExp(`^Edit ${language}`, 'i') })
+    fireEvent.click(door)
+    return screen.findByRole('radiogroup', { name: new RegExp(`Script letters for ${language}`, 'i') })
   }
+  const save = () => fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-  it('renders the field the crash was hiding', async () => {
-    // The reported bug, exactly: "when i try to change the language glyphs in
-    // Language marks section in settings, it throws: Field is not defined".
-    await openTray()
-    expect(within(dialog()).getByLabelText(/Add one of your own/i)).toBeTruthy()
-  })
-
-  it('opens from the row rather than from the glyph', async () => {
-    // The panel directly: the marks table is a section of the Metadata console
-    // now, so there is no door on the sources block to press.
-    render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
-    const row = within(dialog()).getByRole('button', { name: /^Bengali/ })
-    expect(row.getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(row)
-    expect(within(dialog()).getByRole('button', { name: /^Bengali/ }).getAttribute('aria-expanded')).toBe('true')
+  it('opens from the row, with the mark grid and a way to add one of your own', async () => {
+    await openEditor()
+    expect(screen.getByRole('button', { name: /Add a mark of your own/i })).toBeTruthy()
   })
 
   it('offers the letters of the language’s own name and no flags', async () => {
-    // FOUR HAND-TYPED LETTERS BECAME THE LETTERS OF বাংলা. The tray used to be a
-    // row somebody chose for each of ten languages; it is derived from the
-    // language's own autonym now, which for Bengali is two distinct letters and
-    // not four. Asserted against `glyphsFor` rather than a literal so this stays a
-    // test of what the TRAY RENDERS — the derivation has its own cases in
-    // iso639.test.js, and spelling the answer out here would be one rule in two
-    // places, the second of which nobody updates.
-    await openTray()
-    const tray = within(dialog()).getByRole('listbox', { name: 'Script letters for Bengali' })
-    const offered = within(tray).getAllByRole('option').map((o) => o.textContent)
+    // Asserted against `glyphsFor` rather than a literal so this stays a test of
+    // what the EDITOR RENDERS — the derivation has its own cases in iso639.test.js.
+    const grid = await openEditor()
+    const offered = within(grid).getAllByRole('radio').map((o) => o.textContent)
     expect(offered).toEqual(glyphsFor('bn'))
     expect(offered.length).toBeGreaterThan(0)
-    expect(offered.filter((g) => /\p{Regional_Indicator}/u.test(g))).toEqual([])
+    expect(document.body.textContent).not.toMatch(/\p{Regional_Indicator}/u)
   })
 
-  it('offers no flag tray anywhere in the panel', async () => {
-    // The whole point of 1.16.0. Asserted over the rendered dialog rather than
-    // over one language's row, because a flag grid left behind on any other row
-    // is the same screen it used to be.
-    await openTray()
-    expect(dialog().textContent).not.toMatch(/\p{Regional_Indicator}/u)
-  })
-
-  it('adds a typed mark to that language’s own bar and selects it', async () => {
-    await openTray()
-    const input = within(dialog()).getByPlaceholderText(/any letter, symbol or emoji/)
+  it('adds a typed mark to that language’s own marks and chooses it', async () => {
+    await openEditor()
+    fireEvent.click(screen.getByRole('button', { name: /Add a mark of your own/i }))
+    const input = screen.getByRole('textbox', { name: /Add a mark of your own/i })
     fireEvent.change(input, { target: { value: '✦' } })
-    fireEvent.blur(input)
+    fireEvent.keyDown(input, { key: 'Enter' })
+    save()
     await waitFor(() => {
       const blob = lastPrefs()
       expect(blob.bengali.c).toEqual(['✦'])
@@ -256,14 +223,13 @@ describe('the language-mark tray', () => {
     })
   })
 
-  it('sets a script letter without adding it to the custom bar', async () => {
+  it('sets a script letter without adding it to the reader’s own', async () => {
     // The SECOND letter, so this is a choice and not the default the row already
-    // wears — pressing the one that is already selected would save nothing and
-    // the case would pass on a tray that does not work.
-    await openTray()
+    // wears — the first would save nothing and pass on an editor that did not work.
+    const grid = await openEditor()
     const letter = glyphsFor('bn')[1]
-    const tray = within(dialog()).getByRole('listbox', { name: 'Script letters for Bengali' })
-    fireEvent.click(within(tray).getByRole('option', { name: letter }))
+    fireEvent.click(within(grid).getByRole('radio', { name: letter }))
+    save()
     await waitFor(() => {
       const blob = lastPrefs()
       expect(blob.bengali.m).toBe(letter)
@@ -272,68 +238,87 @@ describe('the language-mark tray', () => {
   })
 
   it('renames a language without touching what quotes are stored as', async () => {
-    await openTray()
-    const name = within(dialog()).getByLabelText(/Shown as/)
-    fireEvent.change(name, { target: { value: 'বাংলা' } })
-    fireEvent.blur(name)
-    await waitFor(() => {
-      // The KEY is still the canonical language. A rename that moved the key
-      // would orphan every quote stored under the old one.
-      expect(lastPrefs().bengali.n).toBe('বাংলা')
-    })
+    await openEditor()
+    fireEvent.change(screen.getByLabelText(/Language name/i), { target: { value: 'বাংলা' } })
+    save()
+    // The KEY is still the canonical language. A rename that moved the key would
+    // orphan every quote stored under the old one.
+    await waitFor(() => expect(lastPrefs().bengali.n).toBe('বাংলা'))
   })
 
-  // ── REMOVING ONE, and the refusal that is the whole point of the control.
-  //
-  // WHAT REMOVAL DROPS IS A MARK AND A RENAME, never a quote — a language lives in a
-  // free-text column on every annotation, dialogue and utterance, and this panel does
-  // not touch it. So a row the library is still holding up would come back on the
-  // next open, and a control that undoes itself is a control that lies. It is drawn
-  // and disabled rather than hidden, so the reader is told WHY one row differs from
-  // another instead of comparing two rows and guessing.
-  //
-  // The mock's library holds Bengali and Hindi (see /search/vocabulary above), so
-  // those two are refused and a marked-only language is not.
+  it('arms the tick only once something has changed', async () => {
+    await openEditor()
+    expect(document.querySelector('.tp-tick-count')).toBeNull()
+    fireEvent.change(screen.getByLabelText(/Language name/i), { target: { value: 'বাংলা' } })
+    expect(document.querySelector('.tp-tick-count')?.textContent).toBe('1')
+  })
+
+  // ── REMOVING ONE, and the refusal that is the whole point of the control. What
+  // removal drops is a mark, a name and a code — never a quote — so a row the
+  // library is still holding up would come straight back. It is drawn and disabled
+  // rather than hidden, so the reader is told WHY. The mock's library holds
+  // Bengali and Hindi.
   it('refuses to remove a language the library is still holding up', async () => {
-    // The panel directly: the marks table is a section of the Metadata console
-    // now, so there is no door on the sources block to press.
-    render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
-    const x = await within(dialog()).findByRole('button', { name: 'Remove Bengali' })
+    await openEditor()
+    const x = screen.getByRole('button', { name: /Remove language/i })
     expect(x.disabled, 'Bengali is in the library and its remove was live').toBe(true)
     fireEvent.click(x)
-    // Nothing saved: a disabled control that still fires is the bug this asserts.
     expect(PUTS.filter(([p]) => p === '/auth/me/preferences')).toHaveLength(0)
   })
 
-  it('removes one the library is not, and drops its whole entry', async () => {
+  it('removes one the library is not, after asking, and drops its whole entry', async () => {
     applyLanguageMarks({ languageMarks: '{"sylheti":{"m":"✦"},"bengali":{"m":"ক"}}' })
-    // The panel directly: the marks table is a section of the Metadata console
-    // now, so there is no door on the sources block to press.
     render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
-    const x = await within(dialog()).findByRole('button', { name: 'Remove sylheti' })
-    expect(x.disabled, 'a language no quote is stored in should be removable').toBe(false)
-    fireEvent.click(x)
+    fireEvent.click(await screen.findByRole('button', { name: /^Edit sylheti/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /Remove language/i }))
+    // IT ASKS FIRST: the confirm names the same act, so there are two buttons of
+    // that name once it is up, and its own is the last.
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /Remove language/i })).toHaveLength(2))
+    expect(PUTS.filter(([p]) => p === '/auth/me/preferences'), 'it removed before asking').toHaveLength(0)
+    fireEvent.click(screen.getAllByRole('button', { name: /Remove language/i }).at(-1))
     await waitFor(() => {
       const blob = lastPrefs()
-      // THE WHOLE ENTRY, not an emptied one — and Bengali is untouched beside it,
-      // which is what says this removed a row rather than the map.
       expect(blob.sylheti).toBeUndefined()
       expect(blob.bengali.m).toBe('ক')
     })
   })
+})
 
-  it('adds a language the module never heard of', async () => {
-    // The panel directly: the marks table is a section of the Metadata console
-    // now, so there is no door on the sources block to press.
+describe('adding a language', () => {
+  // ADDING IS A SEARCH OF ISO 639-3, the registry of every language with a code
+  // — the association the owner found missing: "these languages are supposed to
+  // be from the ISO languages list (the larger 3 digit list)." A language the
+  // registry has arrives with its code; one it does not is still added as typed,
+  // because a language is free text in this app.
+  const search = async (q) => {
     render(<LanguageMarksSettings prefs={USER.preferences} onSaved={() => {}} />)
-    fireEvent.click(within(dialog()).getByRole('button', { name: 'Add a language' }))
-    const input = within(dialog()).getByPlaceholderText(/Yoruba, Swahili/)
-    // Sylheti and not Yoruba, which iso639.js now knows — the case is about a
-    // language the app has NEVER heard of keeping its row, and a known one would
-    // be testing a different branch under the old name.
-    fireEvent.change(input, { target: { value: 'Sylheti' } })
-    fireEvent.blur(input)
-    await waitFor(() => expect(lastPrefs().sylheti.n).toBe('Sylheti'))
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a language' }))
+    fireEvent.change(screen.getByRole('combobox', { name: /Find a language/i }), { target: { value: q } })
+  }
+
+  it('finds Sylheti in the registry and keeps its code', async () => {
+    await search('Sylheti')
+    fireEvent.click(await screen.findByRole('option', { name: 'Sylheti (syl)' }))
+    await waitFor(() => {
+      const blob = lastPrefs()
+      expect(blob.sylheti.n).toBe('Sylheti')
+      expect(blob.sylheti.i).toBe('syl')
+    })
+  })
+
+  it('finds a language by its code as well as by its name', async () => {
+    await search('grc')
+    expect(await screen.findByRole('option', { name: 'Ancient Greek (to 1453) (grc)' })).toBeTruthy()
+  })
+
+  it('adds a language the registry never heard of, as typed and without a code', async () => {
+    await search('Tippanese')
+    fireEvent.click(await screen.findByRole('option', { name: /Add “Tippanese” without a code/ }))
+    await waitFor(() => {
+      const blob = lastPrefs()
+      expect(blob.tippanese.n).toBe('Tippanese')
+      expect(blob.tippanese.i).toBeUndefined()
+    })
   })
 })
 

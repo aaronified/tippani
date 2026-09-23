@@ -39,6 +39,26 @@ it('refuses to press when several things share the name, rather than guessing', 
   nothingThrew()
 })
 
+// A CONTROL WITH SOMETHING DRAWN OVER IT IS NOT PRESSED THROUGH. Before this,
+// the phone's dock sat over a Settings door at y=744 and the click landed on the
+// dock — the journey went red on the wrong screen, and one with a weaker
+// assertion after it would have gone green on it. The cover here is laid over the
+// page from setup, the one place in this directory that touches the DOM, because
+// no screen of the app covers a control on purpose and a guarantee needs a case.
+it('refuses to press a control something else is drawn over', async () => {
+  await app.goto('/')
+  await app.see('Library')
+  await app.page.evaluate(() => {
+    const cover = document.createElement('div')
+    cover.setAttribute('aria-label', 'a sheet laid over everything')
+    cover.style.cssText = 'position:fixed;inset:0;z-index:2147483647'
+    document.body.append(cover)
+  })
+  await expect(app.press('Library', shortWait)).rejects.toThrow(/drawn over it — "a sheet laid over everything"/)
+
+  nothingThrew()
+})
+
 it('says what IS pressable when the name matches nothing', async () => {
   await app.goto('/')
   const err = await app.press('Absolutely Not A Control', shortWait).catch((e) => e)

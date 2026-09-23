@@ -1315,32 +1315,20 @@ vocab.script.latin.label = রোমান
 
 # --- Settings → Language marks. The mark a proverb board wears.
 # মেটাডেটা উৎস পাতার কার্ড: দরজাটা কীসের জন্য, আর দরজার নিজের কথা।
-settings.languages.script.title = লিপি
 settings.languages.glyphs.aria = {name} ভাষার লিপির অক্ষর
 settings.languages.no-script.prose = {name} ভাষার জন্য কোনও লিপির অক্ষর নেই — নিচে নিজের একটা চিহ্ন দিন।
 # The reader's own marks, and how many of the allowance are used. {done}/{total}.
-settings.languages.customs.title = নিজের · {done}/{total}
-settings.languages.customs.aria = {name} ভাষার জন্য নিজের চিহ্ন
 settings.languages.mark.remove.aria = {field} থেকে {name} সরান
-settings.languages.mark.remove.tip = এই চিহ্ন সরান
 settings.languages.full.prose = {name} ভাষার নিজের চিহ্ন বড়জোর {n}টা — নতুন দিতে হলে একটা সরান।
-settings.languages.add-mark.label = নিজের একটা দিন
-settings.languages.add-mark.placeholder = যে কোনও অক্ষর, চিহ্ন বা ইমোজি
 settings.languages.order.title = মূলের কতটা
-settings.languages.order.row.aria = {name}-এর জন্য মূলের কতটা দেখাবে
 settings.languages.order.custom.tip = কিছু ভাষার আলাদা সেটিং আছে; এটা বদলালে সেগুলোও এর সঙ্গে মিলে যাবে।
 vocab.textorder.trans-only.label = শুধু অনুবাদ
 vocab.textorder.trans-first.label = আগে অনুবাদ
 vocab.textorder.quote-first.label = আগে উদ্ধৃতি
 vocab.textorder.quote-only.label = শুধু উদ্ধৃতি
-settings.languages.reset.aria = {name} ভাষার চিহ্ন আগের মতো করুন
-settings.languages.reset.tip = লিপির অক্ষরে ফিরুন
-settings.languages.remove.aria = {name} সরান
-settings.languages.remove.tip = এই ভাষাটা সরান
 settings.languages.remove.in-use.tip = {name} ব্যবহারে আছে — আপনার উদ্ধৃতি বা বই এই ভাষায় রয়েছে
 # Renaming a language is a DISPLAY name. The stored name stays and is shown
 # beside it, so "why does my Bangla board say Bengali" stays answerable.
-settings.languages.rename.label = দেখাবে এই নামে (জমা আছে “{name}” নামে)
 # What this language's QUOTES are set in — every face the app ships, because the
 # question is "what does my German look like" and the answer may be a sans or a
 # hand. "Follows the card" is a real answer and so is an option, not a clear button.
@@ -1348,7 +1336,31 @@ settings.languages.face.inherit = উদ্ধৃতির ফন্ট মে�
 settings.languages.face.aria = {name} ভাষার উদ্ধৃতির ফন্ট
 settings.languages.add.label = ভাষা যোগ করুন
 settings.languages.name.label = ভাষার নাম
-settings.languages.name.placeholder = ইওরুবা, সোয়াহিলি, তামিল…
+settings.languages.order.all.label = সব ভাষা
+settings.languages.order.own.label = নিজস্ব সেটিং
+settings.languages.key.quote = উদ্ধৃতি, যেমন লেখা
+settings.languages.key.trans = অনুবাদ
+settings.languages.edit.aria = {name} এডিট করুন: নাম, কোড আর চিহ্ন
+settings.languages.iso.label = ISO 639-3 কোড
+settings.languages.iso.none = ISO কোড নেই
+settings.languages.iso.link.label = কোড যুক্ত করুন
+settings.languages.iso.change.label = বদলান
+settings.languages.iso.clear.aria = ISO কোড সরিয়ে দিন
+settings.languages.iso.search.placeholder = নাম বা কোড, যেমন Sylheti বা syl
+settings.languages.iso.nomatch = ISO 639-3-এ এর সঙ্গে মেলে এমন কোনও ভাষা নেই।
+settings.languages.iso.type.extinct = বিলুপ্ত
+settings.languages.iso.type.ancient = প্রাচীন
+settings.languages.iso.type.historical = ঐতিহাসিক
+settings.languages.iso.type.constructed = কৃত্রিম
+settings.languages.iso.type.macro = ভাষাগুচ্ছ
+settings.languages.add.search.label = ভাষা খুঁজুন
+settings.languages.add.free = কোড ছাড়াই “{name}” যোগ করুন
+settings.languages.mark.title = উক্তির কার্ডে এর চিহ্ন
+settings.languages.add-mark.aria = নিজের একটা চিহ্ন যোগ করুন
+settings.languages.reset.label = চিহ্ন আর নাম আগের মতো করুন
+settings.languages.remove.label = ভাষাটা সরান
+settings.languages.remove.confirm.title = {name} সরাবেন?
+settings.languages.remove.confirm.body = এর চিহ্ন, নাম আর কোড মুছে যাবে। কোনও উক্তি বদলাবে না।
 
 # --- the quiz panel.
 settings.quiz.group.deck.title = কুইজ আর তার প্রশ্ন
@@ -1599,7 +1611,6 @@ vocab.no.label = না
 error.delete.font = ফন্টটা সরানো গেল না
 # A language may keep only so many marks of its own. {name} is the language,
 # {n} the allowance.
-error.validate.marks-full = {name} ভাষায় নিজের {n}টা চিহ্ন আছেই — আগে একটা সরান।
 
 
 # ===========================================================================
@@ -5002,7 +5013,6 @@ staging.card.review.label = {n}টা দেখে নিন
 # --- the page header. The title is nav.tab.metadata.label, the tab's own name;
 # these are the two subtitles, one per form factor.
 metadata.counts.mobile = দেখভাল
-metadata.counts.desktop = হিসেব · ফিল্টার · একসঙ্গে কাজ
 
 # --- the phone. A dot rather than an apology: the big filterable lists are
 # desktop-only, so the screen says so.
@@ -5030,27 +5040,12 @@ metadata.fetch.flash.uptodate = সব আগে থেকেই ঠিক আ�
 # is 259 characters and the info-dot budget is 240, and cutting a true caveat to
 # fit a role name is the wrong way round. Nothing measures .desc, which is the
 # point; both are held to the same voice by hand.
-metadata.mobile.run.label = চালান
-metadata.mobile.fetch.title = কভার আর মেটাডেটা আনুন
-metadata.mobile.fetch.desc = এখানকার সব সংগ্রহে যা নেই তা ভরে দেয় — কভার, পোস্টার, লেখক, বিবরণ, সাল আর ধরন। শুধু ফাঁকা ঘর ভরে, আর প্রতিটায় সর্বোচ্চ পাঁচটা ধরন যোগ করে।
-metadata.mobile.reverify.title = মেটাডেটা আবার মিলিয়ে দেখুন
-metadata.mobile.reverify.desc = উৎসের সঙ্গে জোড়া প্রতিটা বই, সিনেমা আর শো আবার মিলিয়ে দেখে। আপনি প্রতিটা বদল মেনে না নেওয়া পর্যন্ত কিছুই সেভ হয় না।
-metadata.reverify.label = আবার মিলিয়ে দেখুন
 
 # --- COVERAGE. Tiles on a desktop, the same numbers as plain lines on a phone.
 # {group} is one of the three group names and {gaps} the run of non-zero gaps;
 # the bold half is a node the code supplies, which is why the line has a hole in
 # it rather than markup.
-metadata.coverage.title = ঘাটতি
-metadata.coverage.group.books = বই
-metadata.coverage.group.movies = সিনেমা আর শো
-metadata.coverage.group.dialogues = সংলাপ
-metadata.coverage.group.count = {group} ({n})
-metadata.coverage.line = {group} — {gaps}
-metadata.coverage.complete = সব পুরো ✓
-metadata.coverage.total.label = মোট
 # A tile is also a filter button; {label} is the gap it would filter to.
-metadata.coverage.tile.tip = শুধু {label} দেখান
 
 # --- THE GAP WORDS, one set for the tiles, the two filter dropdowns and the row
 # chips. The two long ones are what a ROW says, where a bare "low-res" would not
@@ -5103,7 +5098,6 @@ metadata.shown.word = দেখানো হচ্ছে
 # of each other — a catalogue, duplicates, people, characters, a speaker remap —
 # so finding one meant scrolling past the other five, and nothing said how many
 # there were. Each kind of metadata is its own place now.
-metadata.section.overview.info.body = সংগ্রহে কোথায় কী নেই, তার হিসেব। কোনো সংখ্যায় চাপলে “বই ও ছবি”-তে ঠিক সেগুলোই ছেঁকে দেখায়।
 metadata.section.works.info.body = সব বই, সিনেমা, শো আর গেম — কোনটাতে কী নেই সেই হিসেবে। একটা সমস্যা বাছলে শুধু সেগুলো তালিকায় থাকে, তারপর একসঙ্গে সবার কাজ সেরে ফেলুন।
 metadata.section.people.info.body = লেখক, অভিনেতা, পরিচালক, স্টুডিও আর প্রকাশকের ছবি ও তথ্যসূত্রের লিংক। “আনুন” চাপলে যা নেই তা ভরে, যা আছে তা হালনাগাদ হয়।
 metadata.section.characters.info.body = প্রতিটা চরিত্র — বই আর তার রূপান্তরে একই চরিত্র একটা রেকর্ডে। একই নামের দুজন নিজে থেকে মেলানো হয় না, এখানে দেখে নিন।
@@ -5111,7 +5105,6 @@ metadata.section.tags.info.body = আপনার সব ট্যাগ, উদ
 metadata.section.languages.info.body = আপনার উদ্ধৃতিগুলো কোন কোন ভাষায়, আর প্রতিটা কীভাবে চিহ্নিত। উদ্ধৃতির ভাষাই ঠিক করে লেখা কোন দিক থেকে পড়া হবে।
 metadata.section.categories.info.body = উদ্ধৃতির রং বলে সেটা কী ধরনের নোট। নাম বদলালে শুধু দেখানো নামটাই বদলায়; রপ্তানিতে আসল মান যেমন ছিল থাকে।
 metadata.section.sources.info.body = আনা তথ্য কোথা থেকে আসে। যে উৎসের চাবি লাগে, চাবি না দেওয়া পর্যন্ত সেটা বাদ থাকে।
-metadata.section.overview.label = এক নজরে
 metadata.section.works.label = বই ও ছবি
 metadata.section.people.label = মানুষ
 metadata.section.characters.label = চরিত্র

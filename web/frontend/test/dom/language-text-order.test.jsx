@@ -64,47 +64,44 @@ beforeEach(() => {
 // having been scaffolding.
 const open = async () => {
   render(<LanguageMarksSettings prefs={PREFS} onSaved={() => {}} />)
-  // The MASTER, matched exactly: a loose /how much of the original/ also matches
-  // every row's group, and findBy throws on more than one.
-  return screen.findByRole('radiogroup', { name: /^how much of the original$/i })
+  return screen.findByRole('radiogroup', { name: /^all languages$/i })
 }
 
-
-// FOUR CHIPS, AND THESE CASES DROVE A SLIDER. The owner replaced it — "Sliders
-// are for when we have a gradient, not when we have 4-5 distinct options!" — so
-// the GESTURE changed and not one of the guarantees below: a row still saves what
-// it is set to, the master still pulls every row back into line, and a row with
-// nothing of its own still shows the master's answer. Each case says the same
-// thing about the app; only the way a reader says it to the control is different.
-//
-// AWAITED, BECAUSE A ROW ARRIVES ON A PROMISE. The table used to open with ten
-// starters — present on the first paint, synchronously, for every account — and
-// its rows are now the languages the library holds, which is a fetch. Only the
-// FIRST case in a file actually races: the vocabulary is cached at module scope,
-// so every case after it finds the rows already there. That is the shape of an
-// order-dependent suite, which this file has been bitten by before.
-const rowFor = (name) => screen.findByRole('radiogroup', { name: new RegExp(`how much of the original for ${name}`, 'i') })
-const master = () => screen.getByRole('radiogroup', { name: /^how much of the original$/i })
+// THE FOUR ARE ICONS ON A ROW NOW, and words only on the default above them — the
+// owner: "The 4 repeated text buttons can be replaced with icons. The top general
+// one can have both icon and legend, all others icon only." Every guarantee below
+// is unchanged; what changed is how a reader names the choice. On a row it is the
+// name the icon announces, "Bengali: translation only", which is the language and
+// the word together — the icon alone would be a picture to a screen reader.
+const rowFor = (name) => screen.findByRole('radiogroup', { name: new RegExp(`^${name}$`, 'i') })
+const master = () => screen.getByRole('radiogroup', { name: /^all languages$/i })
 const written = () => PUTS.filter(([p]) => p === '/auth/me/preferences').map(([, b]) => JSON.parse(b.textOrder))
 
-// Pick one of the four, by the word on its face — which is the whole of the
-// reader's gesture now, and needs no release event to commit.
 const pick = (group, word) =>
-  fireEvent.click(within(group).getByRole('radio', { name: word }))
-// Which of the four a group is currently showing.
-const chosen = (group) =>
-  within(group).getAllByRole('radio').find((b) => b.getAttribute('aria-checked') === 'true')?.textContent
+  fireEvent.click(within(group).getByRole('radio', { name: new RegExp(`${word}$`, 'i') }))
+// Which of the four a group is currently showing, by the word it announces.
+const chosen = (group) => {
+  const on = within(group).getAllByRole('radio').find((b) => b.getAttribute('aria-checked') === 'true')
+  return (on?.getAttribute('aria-label') || on?.textContent || '').replace(/^.*: /, '')
+}
 
 describe('the per-language table', () => {
   it('has a chooser for every language and one above them all', async () => {
     await open()
     expect(master()).toBeTruthy()
     expect(await rowFor('Bengali')).toBeTruthy()
-    // FOUR, and all four reachable — which is what the old `max="3"` stood for. A
-    // chooser missing a chip silently refuses a state the app can store, the same
-    // defect a slider with the wrong max used to have.
+    // FOUR, and all four reachable. A chooser missing one silently refuses a state
+    // the app can store.
     expect(within(master()).getAllByRole('radio')).toHaveLength(4)
     expect(within(await rowFor('Bengali')).getAllByRole('radio')).toHaveLength(4)
+  })
+
+  it('names every icon on a row with its language and its word', async () => {
+    await open()
+    const names = within(await rowFor('Bengali')).getAllByRole('radio').map((b) => b.getAttribute('aria-label'))
+    expect(names).toEqual([
+      'Bengali: translation only', 'Bengali: translation first', 'Bengali: quotation first', 'Bengali: quotation only',
+    ])
   })
 
   it('saves the state a row is set to', async () => {
@@ -115,9 +112,7 @@ describe('the per-language table', () => {
   })
 
   // THE OWNER'S "IT WILL PUSH ALL KNOBS TO ALIGN WITH IT". The master is not a
-  // fallback the rows read; moving it CLEARS them, so a language set on its own
-  // comes back into line rather than quietly out-ranking the thing that looks
-  // like it just changed everything.
+  // fallback the rows read; moving it CLEARS them.
   it('and moving the master puts every row back in line with it', async () => {
     PREFS = { textOrder: JSON.stringify({ master: 'quote-first', byLanguage: { bengali: 'trans-only' } }) }
     await open()
@@ -132,36 +127,32 @@ describe('the per-language table', () => {
   it('and a row with nothing of its own shows what the master says', async () => {
     PREFS = { textOrder: JSON.stringify({ master: 'trans-only' }) }
     await open()
-    // Not the app default — the master's value, which is the whole point of it
-    // being a default rather than only a bulk setter.
     expect(chosen(await rowFor('Bengali'))).toBe('translation only')
   })
 })
 
-// WHAT THIS LANGUAGE'S QUOTES ARE SET IN HAS MOVED TO SETTINGS, and the cases
-// that held it moved with it — see language-faces.test.jsx. The reason is the one
-// this file's own table states from the other side: two controls writing
-// `fontsByLanguage`, one here and one under Language and font, are two writers for
-// one preference. The languages are still defined here, which is why Settings'
-// panel reads this table and sends a reader back to it to add one.
+// WHAT THIS LANGUAGE'S QUOTES ARE SET IN HAS MOVED TO SETTINGS — see
+// language-faces.test.jsx.
 
-describe('the master\'s custom state', () => {
-  // "when other knobs are adjusted (custom), it will lose contrast."
-  it('is at full contrast while every row agrees', async () => {
+describe('a row with a setting of its own', () => {
+  it('says nothing while every row agrees', async () => {
     PREFS = { textOrder: JSON.stringify({ master: 'trans-only' }) }
-    const el = await open()
-    const box = el.closest('div[title], div')
-    expect(box.parentElement.style.opacity || '1').toBe('1')
+    await open()
+    await rowFor('Bengali')
+    expect(screen.queryByText(/own setting/i)).toBeNull()
+    expect(document.querySelector('[title]')).toBeNull()
   })
 
-  it('and dims, with an explanation, once one does not', async () => {
+  it('says so in words beside its name, and the default explains why it looks dimmed', async () => {
     PREFS = { textOrder: JSON.stringify({ master: 'quote-first', byLanguage: { bengali: 'trans-only' } }) }
     await open()
-    // THE TOOLTIP IS PART OF THE SIGNAL. A dimmed control with nothing to say
-    // reads as disabled, which is the opposite of true: it is the one control that
-    // still does something to every row.
-    const dimmed = document.querySelector('div[title]')
-    expect(dimmed, 'nothing carries the custom-state explanation').toBeTruthy()
-    expect(Number(dimmed.style.opacity)).toBeLessThan(1)
+    await rowFor('Bengali')
+    // COLOUR IS NOT THE ONLY SIGNAL. The accent on the chosen icon says it to an
+    // eye; the words say it to everything else.
+    expect(screen.getAllByText(/own setting/i)).toHaveLength(1)
+    // AND THE DEFAULT'S TOOLTIP IS PART OF THE SIGNAL: a dimmed control with
+    // nothing to say reads as disabled, when it is the one control that still
+    // does something to every row.
+    expect(document.querySelector('[title]')?.getAttribute('title')).toMatch(/own setting/i)
   })
 })

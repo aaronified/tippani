@@ -1326,32 +1326,20 @@ vocab.script.latin.label = Latin
 
 # --- Settings → Language marks. The mark a proverb board wears.
 # The card on Metadata sources: what the door is for, and the door's own word.
-settings.languages.script.title = script
 settings.languages.glyphs.aria = Script letters for {name}
 settings.languages.no-script.prose = No script letters for {name} — give it a mark of your own below.
 # The reader's own marks, and how many of the allowance are used. {done}/{total}.
-settings.languages.customs.title = your own · {done}/{total}
-settings.languages.customs.aria = Your own marks for {name}
 settings.languages.mark.remove.aria = Remove {name} from {field}
-settings.languages.mark.remove.tip = Remove this mark
 settings.languages.full.prose = {name} keeps {n} marks of its own — remove one to add another.
-settings.languages.add-mark.label = Add one of your own
-settings.languages.add-mark.placeholder = any letter, symbol or emoji
 settings.languages.order.title = how much of the original
-settings.languages.order.row.aria = How much of the original for {name}
 settings.languages.order.custom.tip = Some languages have their own setting; changing this resets them to match.
 vocab.textorder.trans-only.label = translation only
 vocab.textorder.trans-first.label = translation first
 vocab.textorder.quote-first.label = quotation first
 vocab.textorder.quote-only.label = quotation only
-settings.languages.reset.aria = Reset the {name} mark
-settings.languages.reset.tip = Back to the script letter
-settings.languages.remove.aria = Remove {name}
-settings.languages.remove.tip = Remove this language
 settings.languages.remove.in-use.tip = {name} is in use — quotes or books of yours are in it
 # Renaming a language is a DISPLAY name. The stored name stays and is shown
 # beside it, so "why does my Bangla board say Bengali" stays answerable.
-settings.languages.rename.label = Shown as (stored as “{name}”)
 # What this language's QUOTES are set in — every face the app ships, because the
 # question is "what does my German look like" and the answer may be a sans or a
 # hand. "Follows the card" is a real answer and so is an option, not a clear button.
@@ -1359,7 +1347,31 @@ settings.languages.face.inherit = Follows the Quotes face
 settings.languages.face.aria = Typeface for quotes in {name}
 settings.languages.add.label = Add a language
 settings.languages.name.label = Language name
-settings.languages.name.placeholder = Yoruba, Swahili, Tamil…
+settings.languages.order.all.label = All languages
+settings.languages.order.own.label = own setting
+settings.languages.key.quote = quotation, as written
+settings.languages.key.trans = translation
+settings.languages.edit.aria = Edit {name}: name, code and mark
+settings.languages.iso.label = ISO 639-3 code
+settings.languages.iso.none = no ISO code
+settings.languages.iso.link.label = Link a code
+settings.languages.iso.change.label = Change
+settings.languages.iso.clear.aria = Unlink the ISO code
+settings.languages.iso.search.placeholder = name or code, e.g. Sylheti or syl
+settings.languages.iso.nomatch = No ISO 639-3 language matches that.
+settings.languages.iso.type.extinct = extinct
+settings.languages.iso.type.ancient = ancient
+settings.languages.iso.type.historical = historical
+settings.languages.iso.type.constructed = constructed
+settings.languages.iso.type.macro = macrolanguage
+settings.languages.add.search.label = Find a language
+settings.languages.add.free = Add “{name}” without a code
+settings.languages.mark.title = mark on its quote cards
+settings.languages.add-mark.aria = Add a mark of your own
+settings.languages.reset.label = Reset mark and name
+settings.languages.remove.label = Remove language
+settings.languages.remove.confirm.title = Remove {name}?
+settings.languages.remove.confirm.body = Its mark, name and code are forgotten. No quote changes.
 
 # --- the quiz panel.
 settings.quiz.group.deck.title = The deck and what it asks
@@ -1626,7 +1638,6 @@ vocab.no.label = No
 error.delete.font = could not remove that font
 # A language may keep only so many marks of its own. {name} is the language,
 # {n} the allowance.
-error.validate.marks-full = {name} already keeps {n} marks of its own — remove one first.
 
 
 # ===========================================================================
@@ -5100,7 +5111,6 @@ staging.card.review.label = Review {n}
 # --- the page header. The title is nav.tab.metadata.label, the tab's own name;
 # these are the two subtitles, one per form factor.
 metadata.counts.mobile = maintenance
-metadata.counts.desktop = stats · filters · bulk actions
 
 # --- the phone. A dot rather than an apology: the big filterable lists are
 # desktop-only, so the screen says so.
@@ -5128,27 +5138,12 @@ metadata.fetch.flash.uptodate = everything already up to date
 # is 259 characters and the info-dot budget is 240, and cutting a true caveat to
 # fit a role name is the wrong way round. Nothing measures .desc, which is the
 # point; both are held to the same voice by hand.
-metadata.mobile.run.label = Run
-metadata.mobile.fetch.title = Fetch covers & metadata
-metadata.mobile.fetch.desc = Fills missing covers, posters, authors, descriptions, years and genres across every library here. It only fills blanks and adds at most five genres per item.
-metadata.mobile.reverify.title = Re-verify metadata
-metadata.mobile.reverify.desc = Re-checks every linked book, film and show against its source. Nothing is saved until you accept each change.
-metadata.reverify.label = Re-verify
 
 # --- COVERAGE. Tiles on a desktop, the same numbers as plain lines on a phone.
 # {group} is one of the three group names and {gaps} the run of non-zero gaps;
 # the bold half is a node the code supplies, which is why the line has a hole in
 # it rather than markup.
-metadata.coverage.title = Coverage
-metadata.coverage.group.books = Books
-metadata.coverage.group.movies = Films & shows
-metadata.coverage.group.dialogues = Dialogues
-metadata.coverage.group.count = {group} ({n})
-metadata.coverage.line = {group} — {gaps}
-metadata.coverage.complete = all complete ✓
-metadata.coverage.total.label = total
 # A tile is also a filter button; {label} is the gap it would filter to.
-metadata.coverage.tile.tip = Show only {label}
 
 # --- THE GAP WORDS, one set for the tiles, the two filter dropdowns and the row
 # chips. The two long ones are what a ROW says, where a bare "low-res" would not
@@ -5208,7 +5203,6 @@ metadata.shown.word = shown
 # of each other — a catalogue, duplicates, people, characters, a speaker remap —
 # so finding one meant scrolling past the other five, and nothing said how many
 # there were. Each kind of metadata is its own place now.
-metadata.section.overview.info.body = Counts of what the library is missing. Press a number to open Works filtered to exactly those.
 metadata.section.works.info.body = Every book, film, show and game, by what is missing. Pick an issue to list only those, then act on them all at once.
 metadata.section.people.info.body = Photos and reference links for authors, actors, directors, studios and publishers. Fetch fills what is missing, or refreshes what is there.
 metadata.section.characters.info.body = Every character, with one record across a book and its adaptations. Two with the same name are not merged automatically — check them here.
@@ -5216,7 +5210,6 @@ metadata.section.tags.info.body = All your tags, how each looks on a quote, and 
 metadata.section.languages.info.body = The languages your quotes are in, and how each is marked. A quote's language also sets which way it reads.
 metadata.section.categories.info.body = A quote's colour says what kind of note it is. Renaming changes only the label shown; exports keep the stored value.
 metadata.section.sources.info.body = Where fetched details come from. A source that needs a key is skipped until it has one.
-metadata.section.overview.label = Overview
 metadata.section.works.label = Works
 metadata.section.people.label = People
 metadata.section.characters.label = Characters

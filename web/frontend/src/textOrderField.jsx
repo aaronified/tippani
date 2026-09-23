@@ -41,7 +41,7 @@
 // the chips say which of the four, and the revert glyph says whether the work has
 // an opinion at all.
 import { useEffect, useRef } from 'react'
-import { FieldIconButton, IconReset, MonoLabel, Scroller } from './ui.jsx'
+import { FieldIconButton, IconReset, IconTextOrder, MonoLabel, Scroller, Tooltip } from './ui.jsx'
 import { t } from './i18n.js'
 import { TEXT_ORDERS, TEXT_ORDER_DEFAULT, TEXT_ORDER_WORD } from './textOrder.js'
 
@@ -160,5 +160,56 @@ export function TextOrderChoice({ value, onChange, ariaLabel }) {
         )
       })}
     </Scroller>
+  )
+}
+
+// TextOrderPicker — the same four, drawn as ICONS, for the one place they repeat:
+// a row per language in Metadata › Languages.
+//
+// THE OWNER'S SHAPE: "The 4 repeated text buttons can be replaced with icons. The
+// top general one can have both icon and legend, all others icon only. So that
+// each language can fit in one row." Four worded chips per language were what put
+// every row on two lines at a phone's width and a scroller under every name.
+//
+// ONE COMPONENT, `showWord` THE ONLY DIFFERENCE — the same rule a count follows
+// (see Tally): the labelled one at the top is where the reader learns the drawing,
+// and it is the only reason the icon-only rows read at all. Written as two they
+// would drift, and the day one changed its glyph the other would go on teaching
+// the old one.
+//
+// THE NOUN IS ALWAYS IN THE NAME. Icon-only, each option's accessible name is
+// "<language>: <word>", and a hover or a hold names it too.
+//
+// `own` IS WHETHER THIS ROW HAS A SETTING OF ITS OWN. A row following the
+// default draws its choice on a quiet fill; a row that differs draws it in the
+// accent — and says so in words beside the name, because colour is not the only
+// signal.
+export function TextOrderPicker({ value, onChange, name, showWord = false, own = false, dim = false }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={name}
+      className={'text-order-picker' + (showWord ? ' has-words' : '') + (dim ? ' is-dim' : '')}
+    >
+      {TEXT_ORDERS.map((k) => {
+        const on = value === k
+        const word = t(TEXT_ORDER_WORD[k])
+        const btn = (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            aria-label={showWord ? undefined : `${name}: ${word}`}
+            className={'text-order-opt' + (on ? ' is-on' : '') + (on && own ? ' is-own' : '')}
+            onClick={() => onChange(k)}
+          >
+            <IconTextOrder order={k} size={20} />
+            {showWord && <span>{word}</span>}
+          </button>
+        )
+        return showWord ? btn : <Tooltip key={k} label={word} side="top">{btn}</Tooltip>
+      })}
+    </div>
   )
 }

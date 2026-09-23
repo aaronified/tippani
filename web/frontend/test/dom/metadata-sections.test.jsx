@@ -26,6 +26,7 @@
 // be able to render a blank page. localStorage outlives a release.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import React from 'react'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 
 let LIB
@@ -82,8 +83,18 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 const press = async (el) => { await act(async () => el.click()) }
-const mount = async () => {
-  render(<><MetadataPage user={{ username: 'alice', is_admin: true }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} /><Probe /></>)
+// ROUTED mounts the page the way the shell does: the section is an address held
+// outside it. The issue sheet's press has to be tested through that path — with
+// Overview gone the sheet's target, Works, is also the remembered default, so an
+// unrouted page has no change of value to enter a section on, and the shell is the
+// only place a phone reader ever meets the sheet.
+function Routed() {
+  const [sect, setSect] = React.useState(null)
+  return <MetadataPage user={{ username: 'alice', is_admin: true }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} section={sect} onSection={setSect} />
+}
+
+const mount = async ({ routed = false } = {}) => {
+  render(<>{routed ? <Routed /> : <MetadataPage user={{ username: 'alice', is_admin: true }} onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} />}<Probe /></>)
   if (WIDTH <= 768) await screen.findByRole('navigation', { name: /which metadata/i })
   else await screen.findAllByRole('tab')
 }
@@ -133,7 +144,9 @@ describe('the rail', () => {
     // faces are read from "the metadata language table, which is the only place a
     // quote's language is defined". The table existed; it was a pop-up behind a
     // button inside Sources, which is not somewhere another screen can point.
-    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Overview', 'Works', 'People', 'Characters', 'Tags', 'Languages', 'Colours', 'Sources'])
+    // OVERVIEW LEFT THEM. The owner: "remove the overview screen completely. We
+    // are not going to miss it. All options are available on other screens."
+    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Works', 'People', 'Characters', 'Tags', 'Languages', 'Colours', 'Sources'])
   })
 
   it('leaves the sources door with no number, because it counts no records', async () => {
@@ -161,15 +174,10 @@ describe('the rail', () => {
     })
   })
 
-  it('counts PROBLEMS on the overview, not records, and marks them', async () => {
+  it('has no Overview door, because every number it drew is a Works pill', async () => {
     await mount()
-    // Two books, each missing a cover and a series: four gaps. Not "2", which is
-    // how many works there are — the overview row answers "how much is wrong".
-    // Waited for, per the note above: this one was observed failing as
-    // "expected 'Overview0' to contain '4'" — the rail drawn from a library read
-    // that had not landed yet.
-    await waitFor(() => expect(tab(/^Overview/).textContent).toContain('4'))
-    expect(tab(/^Overview/).querySelector('.meta-rail-count').className).toContain('is-warn')
+    expect(screen.queryByRole('tab', { name: /overview/i })).toBeNull()
+    expect(screen.queryByText(/coverage/i)).toBeNull()
   })
 
   it('says nothing where a count has not arrived', async () => {
@@ -182,18 +190,18 @@ describe('the rail', () => {
 })
 
 describe('a section at a time', () => {
-  it('opens on the overview, with the catalogue not rendered at all', async () => {
+  it('opens on Works when nothing is remembered, since Overview is gone', async () => {
     await mount()
-    expect(tab(/^Overview/).getAttribute('aria-selected')).toBe('true')
-    expect(screen.queryByText(/A Wizard of Earthsea/)).toBeNull()
+    expect(tab(/^Works/).getAttribute('aria-selected')).toBe('true')
+    expect(await screen.findByText(/A Wizard of Earthsea/)).toBeTruthy()
   })
 
-  it('shows the works section only once its door is used', async () => {
+  it('shows one section at a time: another door takes the works list away', async () => {
     await mount()
-    await press(tab(/^Works/))
-    expect(await screen.findByText(/A Wizard of Earthsea/)).toBeTruthy()
-    // And the overview is gone rather than merely scrolled past.
-    expect(screen.queryByText(/all complete/i)).toBeNull()
+    await screen.findByText(/A Wizard of Earthsea/)
+    await press(tab(/^Characters/))
+    expect(await screen.findByText('Woland')).toBeTruthy()
+    expect(screen.queryByText(/A Wizard of Earthsea/)).toBeNull()
   })
 
   it('shows each work’s own cover, and marks the gap where there is none', async () => {
@@ -255,14 +263,20 @@ describe('a section at a time', () => {
     // with no row lit and a body with nothing in it.
     localStorage.setItem('tippani:metasection', JSON.stringify('quizzes'))
     await mount()
-    expect(tab(/^Overview/).getAttribute('aria-selected')).toBe('true')
+    expect(tab(/^Works/).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('and a remembered Overview, from before it was removed, falls back the same way', async () => {
+    localStorage.setItem('tippani:metasection', JSON.stringify('overview'))
+    await mount()
+    expect(tab(/^Works/).getAttribute('aria-selected')).toBe('true')
   })
 })
 
 describe('on a phone', () => {
   beforeEach(() => { WIDTH = 390 })
 
-  it('gets the same eight doors, each with its own headline verb under it', async () => {
+  it('gets the same seven doors, each with its own headline verb under it', async () => {
     await mount()
     // An index, not a strip: eight tabs at 390px show two and a half of themselves.
     expect(screen.queryAllByRole('tab')).toHaveLength(0)
@@ -274,7 +288,6 @@ describe('on a phone', () => {
     // it draws itself only over a library with orphans to remove, and this
     // fixture has none.
     expect(doors.map((s) => s.replace(/\d+$/, ''))).toEqual([
-      'Overview', 'Fetch',
       'Works', 'Scan for duplicate works',
       'People', 'Fetch missing',
       'Characters',
@@ -334,7 +347,7 @@ describe('on a phone', () => {
     })
 
     it('lists only what is actually wrong, and every row is a door', async () => {
-      await mount()
+      await mount({ routed: true })
       await act(async () => dockKey('issues').onClick())
       const rows = [...document.querySelectorAll('.meta-issue-row')].map((el) => el.textContent)
       // The fixture's two books have no cover and no series; everything else
@@ -361,49 +374,5 @@ describe('on a phone', () => {
       // depending on which rows the gap filter left behind.
       expect(await screen.findByText('Duplicate works'), 'the Works section should be on screen').toBeTruthy()
     })
-  })
-
-  it('makes every coverage number a door, the way the tiles on a desk are', async () => {
-    // THE HALF THAT WAS MISSING. The sentences said "22 with no cover" and there
-    // was no way to reach those 22 — the desktop's tiles filtered the console and
-    // the phone's numbers did nothing, which is one control with two behaviours.
-    // The old reason was that a phone had no console beside them to filter; a
-    // section opens as its own screen now, so it has.
-    await mount()
-    await phoneDoor('Overview')
-    const gap = (await screen.findAllByRole('button')).find((b) => /no cover/i.test(b.textContent || ''))
-    expect(gap, 'the coverage numbers should be pressable').toBeTruthy()
-    await press(gap)
-    // It lands in the works console — the same place the desktop tile lands, and
-    // the console's own filter is what says so. See the issues-sheet case above for
-    // why this is no longer a heading.
-    // THE FILTER IS A ROW OF PILLS NOW, not a combo box, so this asks the stronger
-    // question the combo box could not be asked: not "is the works console here"
-    // but "is it showing the gap that was pressed". A pill announces its state
-    // through `aria-pressed`, which is what a reader's screen reader is told too.
-    const chosen = (await screen.findAllByRole('button'))
-      .filter((b) => b.getAttribute('aria-pressed') === 'true')
-      .map((b) => b.textContent || '')
-    expect(chosen.some((x) => /no cover/i.test(x)), 'the works console should have landed on the gap that was pressed')
-      .toBe(true)
-  })
-
-  it('reads the coverage as sentences rather than as filter tiles', async () => {
-    // A tile is a button that filters the catalogue beside it; there is no room
-    // for the catalogue here, so a tile would be a button that appears to do
-    // nothing. The numbers are the same numbers either way.
-    await mount()
-    // THE PHONE OPENS ON THE INDEX, so the coverage is one press away rather than
-    // already on screen — which is the whole point of the index and is what a
-    // reader does to reach it.
-    await phoneDoor('Overview')
-    // `find`, not `get`. `mount()` waits for the index, which is drawn
-    // before the counts behind it arrive — so this line raced the fetch, and
-    // under a full suite's load it lost: the case failed with "Unable to find
-    // /coverage/i" over a screen that was still loading. That is a measurement
-    // of the machine rather than of the code, and it passed on its own every
-    // time, which is the shape of failure this config's own header warns about.
-    expect(await screen.findByText(/coverage/i)).toBeTruthy()
-    expect(document.querySelector('.hand-card')).toBeTruthy() // the sweep cards
   })
 })

@@ -46,6 +46,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
     "@vitejs/plugin-react": "^4.3.0",
+    "iso-639-3": "^3.0.1",
     "jsdom": "^30.0.1",
     "tailwindcss": "^4.0.0",
     "vite": "^6.0.0",

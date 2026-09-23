@@ -10008,6 +10008,23 @@ export function IconLink() { return <svg {...iconStroke}><path d="M10 13.5a3.5 3
 export function IconMetadata() { return <svg {...iconStroke}><rect x="3.5" y="11" width="17" height="9.5" rx="2.5"/><path d="M12 3v5.6"/><path d="m9 5.8 3 3 3-3"/><path d="M7.5 15h9"/><path d="M7.5 18h5"/></svg> }
 export function IconMenu() { return <svg {...iconStroke}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h12"/></svg> }
 export function IconCheck({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M5 13l4 4L19 7"/></svg> }
+// IconTextOrder — how much of a quote's original shows, and in which order. A
+// SOLID bar is the quotation as written, an OUTLINED one its translation, and the
+// top one is shown first; one bar means only that half shows. Drawn rather than
+// worded because it repeats on every language row, and four worded chips per row
+// were what pushed each language onto two lines.
+export function IconTextOrder({ order, size = ICON_SIZE }) {
+  const solid = (y) => <rect x="3.5" y={y} width="17" height="6.4" rx="1.9" fill="currentColor" stroke="none" />
+  const hollow = (y) => <rect x="4.4" y={y} width="15.2" height="4.6" rx="1.6" />
+  return (
+    <svg {...iconStroke} width={size} height={size}>
+      {order === 'trans-only' && hollow(9.7)}
+      {order === 'trans-first' && <>{hollow(5)}{solid(13.6)}</>}
+      {order === 'quote-first' && <>{solid(4)}{hollow(14.5)}</>}
+      {order === 'quote-only' && solid(8.8)}
+    </svg>
+  )
+}
 export function IconClose({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M6 6l12 12M18 6 6 18"/></svg> }
 // THE PAIR THAT ACTS ON A WHOLE LIST, and they are two glyphs rather than the two
 // above because one picture may not hold two jobs.

@@ -1,11 +1,11 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import TagsPage from './TagsPage.jsx'
-import { t, tNodes } from './i18n.js'
+import { t } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconCheck, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconMore, IconOpen, IconPerson, IconFetch, IconSearch, IconStats, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconOpen, IconPerson, IconFetch, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
 import { personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
@@ -75,7 +75,6 @@ import { nearDupGroups } from './nearDupes.js'
 const metadataSectionInfoKey = (id) => `metadata.section.${id}.info.body`
 
 const METADATA_SECTIONS = [
-  ['overview', 'metadata.section.overview.label', <IconStats />],
   ['works', 'metadata.section.works.label', <IconNavWorks />],
   ['people', 'metadata.section.people.label', <IconNavUsers />],
   ['characters', 'metadata.section.characters.label', <IconNavMasks />],
@@ -113,7 +112,7 @@ const METADATA_SECTIONS = [
 // handed and this screen's own words for it.
 
 
-export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences, section: routed = null, onSection = null }) {
+export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences, section: routed = null, onSection = null, onRedirectSection = null }) {
   const [lib, setLib] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -309,9 +308,21 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // which is now true of a typed URL as well as of a stored key. localStorage
   // outlives a release and so does a bookmark; the failure mode of an unguarded
   // switch is a blank page with a rail that highlights no row.
-  const [remembered, remember] = usePersistedState('tippani:metasection', 'overview')
+  //
+  // OVERVIEW IS GONE, AND WORKS IS WHERE A BARE ADDRESS FALLS BACK TO. The owner:
+  // "remove the overview screen completely. We are not going to miss it. All
+  // options are available on other screens." Its numbers are the Works issue pills,
+  // its Fetch is the header's, and library-wide Re-verify is Works' select-all.
+  const [remembered, remember] = usePersistedState('tippani:metasection', 'works')
   const known = (id) => METADATA_SECTIONS.some(([k]) => k === id)
-  const sect = known(routed) ? routed : known(remembered) ? remembered : 'overview'
+  const sect = known(routed) ? routed : known(remembered) ? remembered : 'works'
+  // AN ADDRESS FOR A SECTION THAT NO LONGER EXISTS IS REPLACED, not pushed over —
+  // a bookmarked /metadata/overview lands on the section it resolves to, and Back
+  // from there leaves Metadata instead of walking into a dead address.
+  useEffect(() => {
+    if (routed && !known(routed) && onRedirectSection) onRedirectSection(sect)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routed])
   const setSection = (id) => { remember(id); if (onSection) onSection(id) }
   // Walk into a section with something to do on arrival — see `intent` above.
   const enter = (id, why = null) => { setIntent(why); setSection(id) }
@@ -341,15 +352,6 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // ONE act against one endpoint, and a row says a thing once. Two buttons that do
   // the same thing teach the reader that one of them does something else.
   const sectionActions = mobile ? {
-    ...(user?.is_admin ? {
-      overview: (
-        <div className="section-index-verbs">
-          <GhostButton icon={<IconMetadata />} disabled={busy} onClick={() => fetchMissingCovers(true)}>
-            {t('metadata.fetch.label')}
-          </GhostButton>
-        </div>
-      ),
-    } : {}),
     works: (
       <div className="section-index-verbs">
         <GhostButton icon={<IconSearch />} onClick={() => enter('works', 'scan')}>
@@ -393,14 +395,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     loadPeople()
   }, [loadChars, loadPeople])
 
-  // The overview's number is a count of GAPS, not of records: it is the sum of
-  // every warned tile, which is the same arithmetic the tiles draw one at a time.
   const railCounts = {
-    overview: stats
-      ? BOOK_GAPS.reduce((n, g) => n + stats.books[g], 0) +
-        MOVIE_GAPS.reduce((n, g) => n + stats.movies[g], 0) +
-        stats.dialogues.missing_actor
-      : null,
     // ── A BADGE COUNTS WHAT IS WRONG, NOT WHAT IS THERE ──
     //
     // The owner, of the 189 on the Characters door: "The 189 badge on the top bar
@@ -416,8 +411,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     // pills add up, and why they cannot drift apart.
     //
     // RECORDS, NOT FINDINGS. A film with no poster and no year is one film to go
-    // and look at. Overview is the exception and stays a count of findings: it is
-    // a list of gaps rather than of records, and its own rows are the findings.
+    // and look at.
     works: lib ? worksWithIssues(lib) : null,
     people: people ? withAnyIssue(PERSON_ISSUES, people) : null,
     characters: chars ? withAnyIssue(CHARACTER_ISSUES, chars) : null,
@@ -445,7 +439,6 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
       {!mobile && (
         <PageHeader
           title={t('nav.tab.metadata.label')}
-          counts={t('metadata.counts.desktop')}
           right={
             user?.is_admin && (
               <IconButton
@@ -521,51 +514,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
              per-section rule was made to remove; one that answers it wrongly is
              worse than noise. */
         >
-          <div>
+          <div className="meta-stack">
           {!lib ? (
             <EmptyState>{t('common.state.loading')}</EmptyState>
-          ) : sect === 'overview' ? (
-            <>
-              {/* THE TILES ON A DESK, THE SENTENCES ON A PHONE, and both of them
-                  say the same numbers AND DO THE SAME THING. A tile is a filter
-                  button; the sentences were not, because a phone had no console
-                  beside them for a filter to act on. A section opens as its own
-                  screen now, so they are — and both widths hand the press to one
-                  function rather than keeping a copy of the verb each, which is
-                  how one of them goes on being right while the other stops. */}
-              {mobile
-                ? <StatsLines stats={stats} onPick={pickGap} />
-                : <StatsStrip stats={stats} onPick={pickGap} />}
-              {/* THE TWO SWEEPS, AND ON EVERY SCREEN SIZE NOW. Re-verify at library
-                  scale was reachable from a phone and from nowhere else — it was
-                  drawn inside the mobile-only branch — so the screen built for
-                  doing metadata at scale was missing the one action that is
-                  entirely about scale. */}
-              {user?.is_admin && (
-                <MobileAction
-                  title={t('metadata.mobile.fetch.title')}
-                  desc={t('metadata.mobile.fetch.desc')}
-                  actionLabel={t('metadata.fetch.label')}
-                  icon={<IconMetadata />}
-                  busy={busy}
-                  onClick={() => fetchMissingCovers(true)}
-                />
-              )}
-              <MobileAction
-                title={t('metadata.mobile.reverify.title')}
-                desc={t('metadata.mobile.reverify.desc')}
-                actionLabel={t('metadata.reverify.label')}
-                icon={<IconCheck />}
-                busy={!!reverify}
-                onClick={() =>
-                  setReverify({
-                    book_ids: lib.books.filter((b) => b.has_ids).map((b) => b.id),
-                    movie_ids: lib.movies.filter((m) => m.has_source).map((m) => m.id),
-                    people: [],
-                  })
-                }
-              />
-            </>
           ) : sect === 'works' ? (
             <>
               {/* DUPLICATES FIRST, AND THAT IS WHERE THE OWNER PUT IT: "should be
@@ -602,7 +553,7 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             // button on Sources; Settings now points at this section for what a
             // quote's language is, and a pointer to a pop-up inside a different
             // section is not an address.
-            <Card>
+            <Card className="lang-card">
               {/* THE SECTION IS THE HEADING — see CharactersConsole. The tab says
                   "Languages" and carries the dot; this said "Language marks"
                   underneath it with a second one. */}
@@ -688,30 +639,6 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   )
 }
 
-// MobileAction — a compact action card for the stripped-down mobile Metadata
-// screen (§5): a title, a one-line what-it-does, and a single run button.
-function MobileAction({ title, desc, actionLabel, icon, busy, onClick, disabled }) {
-  // The fallback word is resolved HERE rather than defaulted in the signature: a
-  // default parameter is the one remaining place a word would sit in the source.
-  const label = actionLabel || t('metadata.mobile.run.label')
-  return (
-    <HandCard className="flex items-center gap-3 p-4">
-      <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <h2 style={H2}>{title}</h2>
-        {desc && <InfoDot title={title} text={desc} />}
-      </div>
-      <IconButton
-          icon={busy ? <IconMore /> : icon || <IconMetadata />}
-          ariaLabel={label}
-          className="shrink-0"
-          disabled={busy || disabled}
-          onClick={onClick}
-        tooltip={label}
-      />
-    </HandCard>
-  )
-}
-
 // GAP_KEYS — the server's gap token, to the word this screen calls it. ONE table
 // for the coverage tiles, both filter dropdowns and the per-row chips, because a
 // gap is called the same thing in all three places and three tables would be
@@ -726,7 +653,6 @@ function MobileAction({ title, desc, actionLabel, icon, busy, onClick, disabled 
 // bare "low-res" a tile and a filter say. None of these is a field NAME — each is
 // a whole phrase about a missing field — so common.field.* is not their home.
 const GAP_KEYS = {
-  total: 'metadata.coverage.total.label',
   flagged: 'metadata.gap.flagged.label',
   all: 'metadata.gap.all.label',
   no_cover: 'metadata.gap.no-cover.label',
@@ -762,86 +688,11 @@ const gapLabel = (token) => t(GAP_KEYS[token])
 const BOOK_GAPS = ['no_cover', 'low_res', 'no_author', 'no_series', 'no_year', 'no_genre', 'no_source']
 const MOVIE_GAPS = ['no_poster', 'low_res', 'no_cast', 'no_director', 'no_year', 'no_genre', 'no_source']
 
-// StatsLines — the coverage numbers as sentences (§5, mobile): one line per group
-// listing only the non-zero gaps, so "what still needs work" reads at a glance.
-//
-// AND EVERY NUMBER IS A DOOR NOW, which it was not. This said the phone had "no
-// lists to feed" a filter, and that was true while a section was a card on a long
-// scroll: pressing "22 no cover" would have set a filter on a console the reader
-// could not see. A phone opens a section as its own screen now, so the press has
-// somewhere to go — it filters the works console to exactly those rows and takes
-// the reader into it. The owner's ruling on the Overview section was that it stays
-// and every number becomes a door; the desktop tiles already were one, and these
-// were the numbers a phone reader actually sees.
-//
-// A ZERO IS NOT A DOOR. Pressing a gap nobody has is a press that lands on an
-// empty list, so only the non-zero gaps are drawn at all — which is what this
-// function already did, for the same reason one layer up.
-function StatsLines({ stats, onPick }) {
-  // tNodes, not a value with a <b> in it: markup never goes in a locale string,
-  // so the sentence carries {group} and {gaps} and the call site hands over the
-  // bold node.
-  const line = (group, total, gaps, type) => {
-    const parts = gaps.filter(([, n]) => n > 0)
-    return (
-      <p className="microcopy" style={{ color: 'var(--soft)' }}>
-        {tNodes('metadata.coverage.line', {
-          group: (
-            <b style={{ color: 'var(--ink)' }}>
-              {t('metadata.coverage.group.count', { group, n: total })}
-            </b>
-          ),
-          gaps: parts.length ? (
-            <>
-              {parts.map(([label, n, key], i) => (
-                <Fragment key={key || label}>
-                  {i > 0 && ' · '}
-                  {/* A DIALOGUE'S GAP HAS NO CONSOLE TO FILTER — the works console
-                      holds books and films — so that group's numbers stay text.
-                      Drawing them as presses that do nothing would be worse than
-                      drawing them as what they are. */}
-                  {type && onPick ? (
-                    <button type="button" className="coverage-gap" onClick={() => onPick(type, key)}>
-                      {t('common.count.phrase', { n, noun: label })}
-                    </button>
-                  ) : (
-                    t('common.count.phrase', { n, noun: label })
-                  )}
-                </Fragment>
-              ))}
-            </>
-          ) : t('metadata.coverage.complete'),
-        })}
-      </p>
-    )
-  }
-  const b = stats.books
-  const m = stats.movies
-  return (
-    <div className="space-y-1.5 pt-1">
-      <MonoLabel className="block">{t('metadata.coverage.title')}</MonoLabel>
-      {line(t('metadata.coverage.group.books'), b.total, BOOK_GAPS.map((g) => [gapLabel(g), b[g], g]), 'book')}
-      {line(t('metadata.coverage.group.movies'), m.total, MOVIE_GAPS.map((g) => [gapLabel(g), m[g], g]), 'movie')}
-      {line(t('metadata.coverage.group.dialogues'), stats.dialogues.total, [
-        [gapLabel('no_actor'), stats.dialogues.missing_actor, 'no_actor'],
-      ])}
-    </div>
-  )
-}
-
 // ── EVERYTHING THAT NEEDS WORK, IN ONE LIST.
 //
-// The desktop answers this with StatsStrip: a wall of tiles, each a filter button
-// into the console below it. A phone has room for neither the wall nor the console
-// beside it, so it had StatsLines — the same numbers as sentences, and nothing to
-// press. Reading "3 with no author" and having no way to reach those three is the
-// worst half of both designs.
-//
-// SO THE PHONE GETS THE LIST AS ROWS, and every row is a door. It is a superset of
-// the tiles, because the tiles only ever covered the CATALOGUE: three of these
-// six groups are problems in the people and character records, which the strip
-// has never counted and which are exactly the kind of thing nobody goes looking
-// for.
+// THE PHONE GETS THE LIST AS ROWS, and every row is a door. It covers the
+// catalogue AND the people and character records, which are exactly the kind of
+// thing nobody goes looking for.
 //
 // ONLY WHAT IS ACTUALLY WRONG. A row reading "0" is a row that teaches a reader
 // to stop reading the list, and a sheet of fourteen zeroes says nothing at all —
@@ -946,69 +797,33 @@ const withAnyIssue = (defs, rows) => (rows || []).filter((r) => defs.some(([, , 
 
 const H2 = { fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 'var(--type-ui-17)', fontWeight: 600 }
 
-// Stat is a coverage tile. When onClick is set it's a filter button: clicking a
-// "missing X" tile filters the console below to exactly those rows.
-function Stat({ n, label, warn, onClick }) {
-  const bad = warn && n > 0
-  const clickable = !!onClick && (n > 0 || !warn)
-  return (
-    <Tooltip label={clickable ? t('metadata.coverage.tile.tip', { label }) : null} side="bottom">
-      <button
-        type="button"
-        onClick={clickable ? onClick : undefined}
-        disabled={!clickable}
-        style={{
-          textAlign: 'left',
-          background: 'var(--raised)',
-          border: `1px solid ${bad ? 'color-mix(in srgb, var(--error) 40%, var(--line))' : 'var(--line)'}`,
-          borderRadius: 9,
-          padding: '8px 13px',
-          minWidth: 74,
-          cursor: clickable ? 'pointer' : 'default',
-        }}
-      >
-        <div style={{ fontFamily: 'var(--font-mono)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)', fontSize: 'var(--type-mono-19)', fontWeight: 500, lineHeight: 1, color: bad ? 'var(--error)' : 'var(--ink)' }}>
-          {n}
-        </div>
-        <div className="mono-label" style={{ marginTop: 4, color: bad ? 'var(--error)' : undefined }}>
-          {label}
-        </div>
-      </button>
-    </Tooltip>
-  )
-}
-
-function StatsStrip({ stats, onPick }) {
-  const group = (label, tiles) => (
-    <div>
-      <MonoLabel className="mb-2 block">{label}</MonoLabel>
-      <div className="flex flex-wrap gap-2">{tiles}</div>
-    </div>
-  )
-  const b = stats.books
-  const m = stats.movies
-  return (
-    <HandCard className="p-5">
-      <div className="flex flex-wrap gap-x-8 gap-y-4">
-        {group(t('metadata.coverage.group.books'), [
-          <Stat key="total" n={b.total} label={gapLabel('total')} onClick={() => onPick('book', 'all')} />,
-          ...BOOK_GAPS.map((g) => (
-            <Stat key={g} n={b[g]} label={gapLabel(g)} warn onClick={() => onPick('book', g)} />
-          )),
-        ])}
-        {group(t('metadata.coverage.group.movies'), [
-          <Stat key="total" n={m.total} label={gapLabel('total')} onClick={() => onPick('movie', 'all')} />,
-          ...MOVIE_GAPS.map((g) => (
-            <Stat key={g} n={m[g]} label={gapLabel(g)} warn onClick={() => onPick('movie', g)} />
-          )),
-        ])}
-        {group(t('metadata.coverage.group.dialogues'), [
-          <Stat key="total" n={stats.dialogues.total} label={gapLabel('total')} />,
-          <Stat key="no_actor" n={stats.dialogues.missing_actor} label={gapLabel('no_actor')} warn />,
-        ])}
-      </div>
-    </HandCard>
-  )
+// ConsoleToolbar — the filter row, the issue pills and the bulk bar of a console,
+// stuck under the top bar while the list scrolls under it.
+//
+// THE GROUND APPEARS ONLY WHILE IT IS STUCK. At rest the toolbar sits on the
+// page like any other row, and a solid band there reads as a stripe painted
+// over the paper; once rows pass under it the band is what keeps them from
+// showing through. Measured, not guessed: the observer watches the toolbar
+// cross its own sticky line.
+function ConsoleToolbar({ children }) {
+  const ref = useRef(null)
+  const [stuck, setStuck] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined
+    const top = parseFloat(getComputedStyle(el).top) || 0
+    // CLIPPED AT THE TOP, NOT MERELY CLIPPED. A ratio under 1 is also what a
+    // toolbar reports when the window's BOTTOM cuts it — a short window, or a
+    // desk toolbar carrying pills and a bulk bar — and it painted its band at rest
+    // there (measured at 1440×420: top 318, `is-stuck`).
+    const io = new IntersectionObserver(([e]) => setStuck(e.intersectionRatio < 1 && e.boundingClientRect.top <= (e.rootBounds?.top ?? top + 1)), {
+      rootMargin: `-${top + 1}px 0px 0px 0px`,
+      threshold: [1],
+    })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  return <div ref={ref} className={'console-toolbar' + (stuck ? ' is-stuck' : '')}>{children}</div>
 }
 
 // runPooled runs fn over items with a small concurrency cap (SQLite is a single
@@ -1342,6 +1157,10 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
           uses to check that a pill promising 40 rows lands on 40, which is a real
           defect class and one the pills' own numbers cannot check themselves.
           Deleting it quietly would trade a guard for a line of text. Asked. */}
+      {/* THE TOOLBAR STICKS, because the list under it is the whole library now
+          rather than a thirty-row box — a filter you have to scroll four hundred
+          rows back up to reach is a filter nobody changes. */}
+      <ConsoleToolbar>
       <ConsoleFilterRow
         count={shown.length}
         icon={<IconNavWorks />}
@@ -1370,9 +1189,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
         options={gapPills}
         ariaLabel={t('metadata.catalogue.filter.aria')}
       />
-      {shown.length === 0 ? (
-        <p className="microcopy">{t('metadata.catalogue.nomatch')}</p>
-      ) : (
+      {shown.length > 0 && (
         <>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 microcopy" style={{ cursor: 'pointer' }}>
@@ -1411,21 +1228,22 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
               {t('common.action.delete.label')}
             </GhostButton>
           </BulkBar>
+        </>
+      )}
+      </ConsoleToolbar>
+      {shown.length === 0 ? (
+        <p className="microcopy">{t('metadata.catalogue.nomatch')}</p>
+      ) : (
+        <>
           {editing && selBookIds.length > 0 && <BulkEditForm n={selBookIds.length} busy={busy} onApply={bulkEdit} />}
           <ErrorText>{err}</ErrorText>
-{/* `axis="v"`, NOT `"both"`, AND THE PAGE SCROLLED SIDEWAYS UNTIL IT WAS.
-              `.ann-table-wrap` was written when this console was a TABLE — a table
-              is as wide as its columns and horizontal scroll was the honest answer.
-              It is a list of record rows now, and a record row's name scrolls inside
-              its OWN box (NameScroll), so there is nothing here that wants to be
-              wider than the screen. Leaving the horizontal axis on let one
-              seventeen-word public-domain title set the scroller's content width,
-              and with nothing capping the wrap it pushed the whole page out:
-              `surfaces.mjs` measured the Metadata screen at 1479 in 1280 — a
-              desktop page you can scroll off the side of. `min-width: 0` below is
-              the other half: a flex child defaults to its content's minimum, so the
-              cap has to be stated or the row simply refuses it. */}
-          <Scroller className="ann-table-wrap" axis="v" style={{ maxHeight: 'min(30em, 60vh)', overflowY: 'auto', minWidth: 0 }}>
+{/* NOT A SCROLLER ANY MORE, IN EITHER AXIS. The vertical box went when the
+              page took over the scroll (see ConsoleToolbar); the horizontal axis
+              went before that, because one seventeen-word title set the
+              scroller's content width and pushed a 1280 desk to 1479. A record
+              row's name scrolls inside its own box (NameScroll). `min-width: 0`
+              is still needed: a flex child defaults to its content's minimum. */}
+          <div className="ann-table-wrap" style={{ minWidth: 0 }}>
             {shown.map((x) =>
               x.kind === 'book' ? (
                 <BookRow
@@ -1451,7 +1269,7 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
                 />
               ),
             )}
-          </Scroller>
+          </div>
         </>
       )}
     </section>
@@ -2558,6 +2376,7 @@ export function CharactersConsole({ rows = null, onReload = null, onOpenWork = n
           possible." The dot's words moved up to the section, which is where the
           reader's question ("what is this screen") is asked. What stays on this
           line is what the SECTION cannot say: how many rows the filters left. */}
+      <ConsoleToolbar>
       <ConsoleFilterRow
         count={shown.length}
         icon={<IconNavMasks />}
@@ -2596,14 +2415,15 @@ export function CharactersConsole({ rows = null, onReload = null, onOpenWork = n
           ariaLabel={t('metadata.issue.aria')}
         />
       )}
+      </ConsoleToolbar>
       <ErrorText>{err}</ErrorText>
       {!list ? (
         <EmptyState>{t('common.state.loading')}</EmptyState>
       ) : shown.length === 0 ? (
         <EmptyState>{t('metadata.characters.empty')}</EmptyState>
       ) : (
-        /* See CatalogueConsole: horizontal is not this list's axis. */
-        <Scroller className="ann-table-wrap" axis="v" style={{ maxHeight: 'min(28em, 60vh)', overflowY: 'auto', minWidth: 0 }}>
+        /* See CatalogueConsole: the page scrolls, not this list. */
+        <div className="ann-table-wrap" style={{ minWidth: 0 }}>
           {/* A LIST OF RECORDS, NOT A TABLE. It was `ann-table` with four columns —
               name, works, sort name, a pencil — and the columns were doing less
               work than they cost: two of them held one value each and the fourth
@@ -2633,7 +2453,7 @@ export function CharactersConsole({ rows = null, onReload = null, onOpenWork = n
               />
             ))}
           </div>
-        </Scroller>
+        </div>
       )}
       {/* The counts on this list follow whatever the panel changed, so it reloads
           when the stack empties rather than on every save inside it. */}
@@ -3064,6 +2884,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
     <section className="space-y-3">
       {confirmDialog}
       {/* THE SECTION IS THE HEADING — see CharactersConsole. */}
+      <ConsoleToolbar>
       <ConsoleFilterRow
         count={shown.length}
         icon={<IconNavUsers />}
@@ -3148,6 +2969,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
           ariaLabel={t('metadata.issue.aria')}
         />
       )}
+      </ConsoleToolbar>
       <ErrorText>{err}</ErrorText>
       {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={t('metadata.people.fetch.progress', { done: bulk.done, total: bulk.total })} />}
       {dupGroups.length > 0 && (
@@ -3163,19 +2985,11 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
       ) : shown.length === 0 ? (
         <EmptyState>{t(role === 'all' ? 'metadata.people.empty.all' : PEOPLE_EMPTY[role])}</EmptyState>
       ) : (
-        /* NO INNER VERTICAL SCROLLER ON A PHONE. A 60vh box inside a page that
-           also scrolls is two scrolls under one thumb, and the inner one wins
-           every gesture that starts over the table — which on a phone is all of
-           them. The desk keeps it: there the window is short and the console is
-           long, which is the case the box was measured for. */
-        /* AND NO HORIZONTAL AXIS EITHER — see CatalogueConsole for the page this
-           widened. A list of record rows has nothing that wants to be wider than
-           the screen; the name scrolls inside its own box. */
-        <Scroller
-          className="ann-table-wrap"
-          axis="v"
-          style={mobile ? { minWidth: 0 } : { maxHeight: 'min(28em, 60vh)', overflowY: 'auto', minWidth: 0 }}
-        >
+        /* NO INNER VERTICAL SCROLLER, ON ANY SCREEN. A 60vh box inside a page
+           that also scrolls is two scrolls under one hand, and on a desk it left
+           most of the window empty under a list cut off at row five. The page
+           scrolls and the toolbar above sticks — see `.console-toolbar`. */
+        <div className="ann-table-wrap" style={{ minWidth: 0 }}>
           {/* THE COLUMN HEADS WENT WITH THE COLUMNS. A row states what its numbers
               are through their tooltips now, which is what a list of records does
               and what let the roles and the links stop being two columns that a
@@ -3210,7 +3024,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
               />
             ))}
           </div>
-        </Scroller>
+        </div>
       )}
       <PanelHost stack={stack} />
       <PanelReload stack={stack} onEmpty={load} />

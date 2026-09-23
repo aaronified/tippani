@@ -99,7 +99,7 @@ export function RecordRow({
   children = null,
 }) {
   return (
-    <div className="record-row" style={{ borderTop: first ? 'none' : '1px solid var(--line)', padding: '10px 0' }}>
+    <div className="record-row" style={{ borderTop: first ? 'none' : '1px solid var(--line)', padding: 'calc(var(--meta-gap, 16px) * 0.6) 0' }}>
       <div className="flex flex-wrap items-center gap-3">
         {select && (
           <Tooltip label={select.tip} side="top">

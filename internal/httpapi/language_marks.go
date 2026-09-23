@@ -76,6 +76,46 @@ type langEntry struct {
 	Mark    string   `json:"m,omitempty"`
 	Customs []string `json:"c,omitempty"`
 	Name    string   `json:"n,omitempty"`
+	// ISO is the language's ISO 639-3 code — the three-letter registry of every
+	// language SIL maintains, not the 184-code 639-1 list — which is what ties a
+	// reader's row to a language the world has a name for. Optional: a language
+	// is still free text, and a Kentish nobody coded is still a row.
+	ISO string `json:"i,omitempty"`
+}
+
+// okISO6393 accepts an ISO 639-3 identifier by SHAPE and nothing more: three
+// lower-case ASCII letters, or none. Which codes exist is the client's table —
+// the same line this file already draws for which languages exist at all — so
+// the server checks only that it was handed a code and not a sentence.
+func okISO6393(s string) (string, bool) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "" {
+		return "", true
+	}
+	if len(s) != 3 {
+		return "", false
+	}
+	for _, r := range s {
+		if r < 'a' || r > 'z' {
+			return "", false
+		}
+	}
+	return s, true
+}
+
+// okName is okMark's rule at a language name's length: no control characters,
+// and at most languageNameMaxRunes.
+func okName(s string) (string, bool) {
+	s = strings.TrimSpace(s)
+	if len([]rune(s)) > languageNameMaxRunes {
+		return "", false
+	}
+	for _, r := range s {
+		if unicode.IsControl(r) {
+			return "", false
+		}
+	}
+	return s, true
 }
 
 // okMark returns the trimmed mark and whether it is storable at all. A mark that
@@ -140,8 +180,12 @@ func normalizeLanguageMarks(raw string) (string, bool) {
 		if !ok {
 			return "", false
 		}
-		display, ok := okMark(e.Name)
-		if !ok || len([]rune(display)) > languageNameMaxRunes {
+		// A NAME IS NOT A MARK, and it was checked as one: okMark caps at eight
+		// runes, so "Portuguese" and "Ancient Greek" were refused outright while
+		// the length check after it — the name's own, forty — never ran on
+		// anything it could fail. okName is the same rule at the name's length.
+		display, ok := okName(e.Name)
+		if !ok {
 			return "", false
 		}
 		// WHETHER A DISPLAY NAME IS REDUNDANT IS NOT THIS LAYER'S CALL, and an
@@ -180,13 +224,17 @@ func normalizeLanguageMarks(raw string) (string, bool) {
 				customs = append(customs, g)
 			}
 		}
+		iso, ok := okISO6393(e.ISO)
+		if !ok {
+			return "", false
+		}
 		// An entry with nothing in it is dropped, not stored — the absence IS the
 		// default, and an empty object would be a row the client re-renders
 		// forever for a language nobody has touched.
-		if mark == "" && display == "" && len(customs) == 0 {
+		if mark == "" && display == "" && len(customs) == 0 && iso == "" {
 			continue
 		}
-		out[key] = langEntry{Mark: mark, Customs: customs, Name: display}
+		out[key] = langEntry{Mark: mark, Customs: customs, Name: display, ISO: iso}
 	}
 	if len(out) == 0 {
 		return "", true

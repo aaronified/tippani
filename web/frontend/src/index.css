@@ -28,6 +28,11 @@
        drift this block's next paragraph is about, and the phone already keeps
        the same offset against `.mobile-topbar`. */
     --topbar-h: 56px;
+    /* Where a sticky bar parks under the PHONE's top bar: the bar's 48px plus its
+       max(4px, notch) top padding — `.mobile-sticky-bar`'s own sum — and 2px for the
+       hairline. Two bars typed 54px here, which is right only on a phone with no
+       notch; on one with a notch they parked under the bar. */
+    --phone-bar-h: calc(50px + max(4px, env(safe-area-inset-top, 0px)));
 
     /* ---- ROW and EDGE: spacing is a constant, never a literal ---------------
        EDGE is the page's horizontal margin and ROW is the vertical step between
@@ -2665,7 +2670,7 @@
        "Set fields" has been unreachable in a browser since 1.16.0 and why a
        journey over a work selection could not be written — it was read as a
        harness limitation for as long as nobody measured it.
-       The phone half of this was already right (`top: 54px` below, mirroring
+       The phone half of this was already right (`top: var(--phone-bar-h)` below, mirroring
        `.mobile-topbar`'s height the way `.mobile-sticky-bar` does); this is the
        same offset for the bar a desktop actually has. */
     top: var(--topbar-h);
@@ -6643,44 +6648,163 @@
   }
   .color-dot-btn:hover .color-dot { opacity: 1; }
 
-  /* ---- language marks (Appearance → Language marks) ---------------------- */
-  /* THE WHOLE ROW IS THE TRIGGER. It was a 22px disc beside a name you could not
-     press — a target you have to aim at, next to the thing that looks like the
-     subject. The button now fills the row and carries the mark, the name, the
-     stored name when it has been renamed, and the chevron; only the reset glyph
-     stays outside it, because a control nested in a control is invalid markup
-     and ambiguous to press.
+  /* ---- Metadata › Languages ---------------------------------------------- */
+  /* ONE ROW PER LANGUAGE, AND IT STAYS ONE ROW. The owner, over the old table:
+     the four order options repeated as words on every row "take up space", and a
+     mark tray opened in a different shape for every language. So the default at
+     the top is the one place the four are worded; every row draws them as icons,
+     and every language opens the same editor. */
+  /* A table of short rows reads across a measure, not across a desk: the
+     icons stay within reach of the name they belong to. */
+  .lang-card { max-inline-size: 58em; }
+  .lang-master {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: calc(var(--meta-gap, 18px) * .6) var(--meta-gap, 18px);
+    padding-bottom: calc(var(--meta-gap, 18px) * .8);
+    border-bottom: 1px solid var(--line);
+  }
+  .lang-master-head { display: grid; gap: 4px; min-width: 0; }
+  .lang-master-name { font-family: var(--font-ui); font-size: var(--type-ui-17); font-weight: 600; color: var(--ink); }
+  .lang-key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--type-ui-13); color: var(--soft); }
+  .lang-key-item { display: inline-flex; align-items: center; gap: 6px; }
+  .lang-key-item svg { align-self: center; }
+  .lang-rows { list-style: none; margin: 0; padding: 0; }
+  .lang-row {
+    display: flex; align-items: center; gap: calc(var(--meta-gap, 18px) * .6);
+    padding: calc(var(--meta-gap, 18px) * .5) 0;
+    border-bottom: 1px solid var(--line);
+    min-width: 0;
+  }
+  .lang-row-open {
+    display: flex; align-items: center; gap: calc(var(--meta-gap, 18px) * .55);
+    flex: 1 1 auto; min-width: 0;
+    padding: 6px; margin: -6px;
+    border: 0; background: none; border-radius: 12px;
+    cursor: pointer; color: inherit; font: inherit; text-align: start;
+  }
+  .lang-row-open:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  /* A MARK IS ROUND, like the face it stands in for on a quote card. */
+  .lang-mark-tile {
+    flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    inline-size: max(36px, 2.4em); block-size: max(36px, 2.4em);
+    border-radius: 999px;
+    background: var(--raised);
+    border: 1.4px solid var(--frame-border);
+    font-family: var(--font-ui); font-size: var(--type-ui-19); line-height: 1; color: var(--ink);
+  }
+  /* No mark and no script letter: the name's own first letter, faint, so the
+     tile is never an empty circle that reads as a broken picture. */
+  .lang-mark-tile.is-blank { color: var(--faint); }
+  .lang-row-text { display: grid; gap: 2px; min-width: 0; }
+  /* A NAME ON A READING SURFACE WRAPS; it is never cut. */
+  .lang-row-name { font-family: var(--font-ui); font-size: var(--type-ui-15); font-weight: 600; overflow-wrap: anywhere; }
+  .lang-row-meta {
+    display: flex; flex-wrap: wrap; gap: 2px 10px;
+    font-family: var(--font-mono); font-size: var(--type-mono-11); letter-spacing: .08em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  .lang-iso { text-transform: none; letter-spacing: .04em; color: var(--soft); }
+  .lang-iso.is-none { color: var(--faint); text-transform: none; }
+  .lang-own { color: var(--accent-ui); }
+  .lang-add { padding-top: calc(var(--meta-gap, 18px) * .6); }
 
-     Transparent and borderless at rest: this is a list of languages, and a row
-     of ten outlined buttons reads as a form rather than as a list. The hover
-     tint is the whole affordance, which is what the settings rows beside it do. */
-  .lang-row-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 1 1 auto;
-    min-width: 0;
-    padding: 8px 6px;
-    margin: -8px -6px;
-    border: 0;
-    background: none;
-    border-radius: 10px;
+  /* THE FOUR, AS A SEGMENTED CONTROL. Icon-only on a row; with words on the
+     default, where the drawing is learned. A choice that follows the default sits
+     on a quiet fill; a row's own choice takes the accent. */
+  .text-order-picker {
+    flex: none;
+    display: inline-flex; gap: 2px; padding: 3px;
+    background: var(--raised);
+    border: 1.4px solid var(--frame-border);
+    border-radius: 11px;
+  }
+  .text-order-picker.has-words { flex-wrap: wrap; }
+  .text-order-picker.is-dim .text-order-opt.is-on { opacity: .55; }
+  .text-order-opt {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-inline-size: max(38px, 2.4em); block-size: max(36px, 2.3em);
+    padding: 0 8px;
+    border: 0; border-radius: 8px;
+    background: transparent; color: var(--faint);
+    font-family: var(--font-ui); font-size: var(--type-ui-13); font-weight: 500;
     cursor: pointer;
-    color: inherit;
-    font: inherit;
-    text-align: left;
   }
-  .lang-row-btn:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
-  .lang-row-btn svg { flex: none; color: var(--faint); }
-  /* A custom mark and its remove ✕ travel as one unit inside the palette grid,
-     so the ✕ cannot wrap onto a line away from the swatch it belongs to. */
-  .lang-custom {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    min-width: 0;
+  .text-order-opt svg { align-self: center; flex: none; }
+  .text-order-opt:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .text-order-opt.is-on { background: color-mix(in oklab, var(--ink), transparent 88%); color: var(--ink); }
+  .text-order-opt.is-on.is-own,
+  .text-order-picker.has-words .text-order-opt.is-on { background: var(--accent-ui); color: var(--card); }
+  .has-words .text-order-opt { padding: 0 12px; }
+  @media (max-width: 768px) {
+    .text-order-picker.has-words { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); inline-size: 100%; }
+    .text-order-picker.has-words .text-order-opt { justify-content: flex-start; }
   }
-  .lang-custom .cat-swatch { flex: 1 1 auto; }
+
+  /* THE REGISTRY SEARCH. A listbox under the field, each option a real button so
+     a press, a tap and a screen reader all reach it. */
+  .iso-search { display: grid; gap: 6px; min-width: 0; }
+  .iso-results {
+    display: grid; gap: 2px; padding: 4px;
+    max-block-size: 20em; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .iso-option {
+    display: flex; align-items: baseline; gap: 10px; min-width: 0;
+    padding: 9px 10px; border: 0; border-radius: 8px;
+    background: transparent; color: var(--ink); text-align: start;
+    font-family: var(--font-ui); font-size: var(--type-ui-13); cursor: pointer;
+  }
+  .iso-option.is-active { background: color-mix(in oklab, var(--accent-ui), transparent 88%); }
+  .iso-code {
+    flex: none; min-inline-size: 3.2ch;
+    font-family: var(--font-mono); font-size: var(--type-mono-13); color: var(--accent-ui);
+  }
+  .iso-option-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .iso-option-type { flex: none; font-size: var(--type-ui-12); color: var(--faint); }
+
+  /* THE ONE EDITOR. Name, code, marks, then the two acts that are not a save. */
+  .lang-editor { display: grid; gap: var(--row, 18px); }
+  .lang-editor-block { display: grid; gap: 8px; min-width: 0; }
+  .lang-iso-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+  .lang-iso-name { font-family: var(--font-ui); font-size: var(--type-ui-15); overflow-wrap: anywhere; }
+  .lang-editor-foot {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding-top: var(--row, 18px); border-top: 1px solid var(--line);
+  }
+  /* ONE GRID, EQUAL SQUARE CELLS, for every language: the script's letters, the
+     reader's own marks, then the cell that adds one. */
+  .mark-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(max(44px, 2.75em), 1fr));
+    gap: 8px;
+  }
+  /* A MARK IS THE CHARACTER THE READER CHOSE, never a case-mapped copy of it.
+     These tiles and cells are buttons, and a button already resets the "all caps"
+     dial (`text-transform`) in the browser's own stylesheet — measured — but not
+     "small caps", which would still draw German's ß as a small "ss". */
+  .lang-mark-tile, .mark-cell { font-variant-caps: normal; }
+  .mark-cell-wrap { position: relative; display: grid; }
+  .mark-cell {
+    aspect-ratio: 1; inline-size: 100%; min-width: 0; box-sizing: border-box;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 12px;
+    border: 1.4px solid var(--frame-border);
+    background: var(--raised); color: var(--ink);
+    font-family: var(--font-ui); font-size: var(--type-ui-19); line-height: 1; text-align: center;
+    cursor: pointer;
+  }
+  .mark-cell.is-custom { background: var(--card); }
+  .mark-cell.is-on { border: 2.4px solid var(--accent-ui); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-ui), transparent 84%); }
+  .mark-cell.is-add { border-style: dashed; background: transparent; color: var(--soft); }
+  .mark-cell.is-typing { padding: 0; outline: none; border-color: var(--accent-ui); }
+  .mark-cell-remove {
+    position: absolute; inset-block-start: -6px; inset-inline-end: -6px;
+    inline-size: 20px; block-size: 20px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 999px;
+    background: var(--error); color: var(--card); cursor: pointer;
+  }
   .color-dot.active { opacity: 1; outline: 2px solid var(--accent-ui); outline-offset: 2px; }
   .tp-error { font-size: var(--type-ui-13); color: var(--error); }
   /* A WARNING IS NOT AN ERROR. Nothing has gone wrong — this is what pressing the
@@ -8054,7 +8178,7 @@ html[data-theme="dark"] .mobile-sheet-footer {
 
   /* Under the phone's own top bar rather than at the very top of the viewport,
      which is where .mobile-topbar already is. */
-  .selection-bar { top: 54px; }
+  .selection-bar { top: var(--phone-bar-h); }
 
   /* No hover on a phone, so the quick-pick and the copy/share pair stand beside
      the ♥. Edit and delete still fold behind the ⋯. */
@@ -9147,8 +9271,65 @@ html[data-theme="dark"] .board-cover {
    dashboard that happens to navigate.
    SPACING IS THE CONSTANT, not a step typed per rule — see the standing rule and
    spacing-debt.test.js, which counts the ones that are not. */
-.meta-frame { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--row); }
-.meta-body { display: grid; gap: calc(var(--row) * 1.4); align-content: start; min-width: 0; }
+.meta-frame { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--meta-gap, var(--row)); }
+.meta-body { display: grid; gap: var(--meta-gap, var(--row)); align-content: start; min-width: 0; padding-top: var(--section-top, 0px); }
+/* THE AIR THESE SCREENS WERE BUILT WITHOUT. Both were one long page once, and a
+   long page packs its cards tight so the next one is always in view; each section
+   is its own screen now, and the owner asked for them to be "as airy as the
+   annotation boards" — about 24px between cards, about as much inside one, and
+   the first card clear of the bar above it (on a desk the rail's own gap does
+   that; on a phone there is no rail, so the body pads itself). The numbers are RESTATED PER SCREEN,
+   which is the standing rule's own escape hatch, so a card elsewhere in the app
+   does not move because Metadata changed. A token of their own rather than --row,
+   because a panel opened from a console reads --row too and must not double. Settings is a notch lighter: its cards
+   are dense rows of controls, and the same gap there reads as gaps rather than
+   air. */
+[data-screen-label="metadata"] { --meta-gap: 24px; --card-pad: 24px; --section-top: 0px; }
+[data-screen-label="settings"] { --meta-gap: 22px; --card-pad: 22px; --section-top: 0px; }
+@media (max-width: 768px) {
+  [data-screen-label="metadata"],
+  [data-screen-label="settings"] { --meta-gap: 18px; --card-pad: 18px; --section-top: 20px; }
+  /* A PHONE'S GUTTER IS 12px APP-WIDE, and a card of controls that close to the
+     glass reads as cramped rather than as full-width. The shell owns --edge, so
+     the extra comes from the frame rather than from restating the token under it. */
+  [data-screen-label="metadata"] .meta-frame,
+  [data-screen-label="metadata"] .section-index,
+  [data-screen-label="settings"] .meta-frame,
+  [data-screen-label="settings"] .section-index { padding-inline: max(0px, calc(16px - var(--edge))); }
+  [data-screen-label="metadata"] .section-index,
+  [data-screen-label="settings"] .section-index { padding-top: var(--section-top); }
+}
+/* THE SECTION'S BLOCKS STAND APART. A console's first card (Duplicates, the
+   remap) used to sit three pixels above its filter row, because the section
+   drew them inside a bare wrapper that the grid gap above never reached. */
+.meta-stack { display: grid; gap: var(--meta-gap, var(--row)); align-content: start; min-width: 0; }
+.meta-stack > * { min-width: 0; }
+[data-screen-label="metadata"] .meta-stack > .hand-card,
+[data-screen-label="metadata"] .meta-stack > * > .hand-card { padding: var(--card-pad); }
+/* A CONSOLE'S TOOLBAR STICKS UNDER THE TOP BAR. Works, People and Characters
+   list the whole library on the page itself now — the 60vh box they scrolled in
+   left most of a desk empty under a list cut off at row five — so the filters,
+   the issue pills and the bulk bar ride along instead of being four hundred rows
+   back up. The ground is the page's, bled out to the gutter, so rows passing
+   under it are covered rather than seen through. */
+.console-toolbar {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 20;
+  display: grid;
+  gap: calc(var(--meta-gap, var(--row)) / 2);
+  margin-inline: calc(var(--edge) * -1);
+  padding: calc(var(--meta-gap, var(--row)) / 2) var(--edge);
+  transition: background-color .15s, box-shadow .15s;
+}
+.console-toolbar > * { min-width: 0; }
+.console-toolbar.is-stuck {
+  background: var(--bg);
+  box-shadow: 0 1px 0 var(--line), 0 8px 16px -12px rgba(41,38,29,.28);
+}
+@media (max-width: 768px) {
+  .console-toolbar { top: var(--phone-bar-h); }
+}
 /* AND ITS CHILDREN, WHICH IS THE LINE THE PHONE WAS MISSING. `min-width: 0` on a
    grid CONTAINER says nothing about its items: a grid item's own `min-width`
    defaults to `auto`, which is its min-content size, so one long book title made
@@ -10730,7 +10911,7 @@ html[data-theme="dark"] .board-cover {
   background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
   border: 1.6px solid var(--ink-border);
   border-radius: 15px 9px 14px 10px / 9px 15px 10px 14px;
-  margin-bottom: 10px;
+  margin-bottom: var(--meta-gap, 10px);
 }
 /* THE RADII ALTERNATE so five cards in a column do not read as one extruded
    shape — the same trick `.hc-r1`/`.hc-r2` play wherever cards are stacked. */
@@ -11151,7 +11332,7 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .pref-row {
   display: flex; flex-wrap: wrap; align-items: center;
   justify-content: space-between; gap: var(--edge, 12px);
-  padding: 10px 0; min-width: 0;
+  padding: calc(var(--meta-gap, 18px) * .56) 0; min-width: 0;
 }
 .pref-row + .pref-row { border-top: 1px solid color-mix(in oklab, var(--line), transparent 45%); }
 /* THE BASIS IS WHAT DECIDES WHEN THE CONTROL DROPS TO ITS OWN LINE, and the two
@@ -11211,7 +11392,7 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 
 .pref-group {
   min-width: 0; max-width: 100%;
-  padding: 16px 18px 18px;
+  padding: var(--card-pad, 16px) calc(var(--card-pad, 16px) + 2px) calc(var(--card-pad, 16px) + 2px);
   background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
   border: 1.6px solid var(--ink-border);
   border-radius: 15px 9px 14px 10px / 9px 15px 10px 14px;
@@ -11230,7 +11411,7 @@ html[data-theme="dark"] .pref-group {
 
 /* THE GAP IS THE GRID'S NOW where a section uses one, and stays a margin where a
    section still stacks its groups plainly. */
-.pref-group + .pref-group { margin-top: 16px; }
+.pref-group + .pref-group { margin-top: var(--meta-gap, 16px); }
 .pref-columns > .pref-group + .pref-group { margin-top: 0; }
 /* THE BOX YOU TICK. The platform's own checkbox ignores the accent, ignores the
    ink and is a different size on every OS, so it is redrawn here — keeping the
@@ -11319,10 +11500,10 @@ html[data-theme="dark"] .pref-group {
    `1024px` IS THE DESK BREAKPOINT THE SHELL ALREADY USES for its rail, so a
    section grows its second column at the same width the app grows its furniture
    — one threshold, not two that nearly agree. */
-.pref-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.pref-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--meta-gap, 16px); align-items: start; }
 .pref-columns > .pref-group + .pref-group { margin-top: 0; }
 @media (min-width: 1024px) {
-  .pref-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .pref-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--meta-gap, 18px); }
   /* A GROUP OF FULL-MEASURE ROWS SPANS. A face list squeezed into half a card is
      a specimen you cannot judge, which is the pack's own reason for marking that
      group `wide: true`. */
