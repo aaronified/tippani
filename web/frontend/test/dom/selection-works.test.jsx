@@ -248,7 +248,7 @@ describe('the bar over a selection of works', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }))
     expect(screen.getByText('Delete 1 book?')).toBeTruthy()
     expect(screen.getByText('delete 1 book')).toBeTruthy()
-    expect(screen.getByText(/every quote saved from them/)).toBeTruthy()
+    expect(screen.getByText(/with all their quotes/)).toBeTruthy()
     expect(CALLS, 'nothing should have been sent yet').toEqual([])
   })
 })

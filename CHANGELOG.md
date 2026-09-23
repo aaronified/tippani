@@ -15,6 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`internal/httpapi/backup_crypto.go`). `golang.org/x/sys` moves from v0.46.0 to v0.47.0
   because the new release requires it. No behaviour change.
 
+### Changed
+
+- **Info dots and long explanations rewritten to say what each screen actually has.**
+  Info dots, help entries, hints and long messages were rewritten to what the control
+  does plus one consequence. Copy that described things no longer there is gone — the
+  Overview's "list below" (its numbers open Works), the "In-depth controls" door, the Bin
+  and Checks being reachable only from a Settings tile (both are in the sidebar and the ☰
+  menu), and version history nobody needs on the screen. The Bengali was rewritten
+  alongside in plain Bengali rather than translated word for word.
+
+- **Help entries that did not help are removed.** The ? sheet no longer carries entries
+  explaining why something is named or built the way it is, "Getting here" on the page
+  you are already on, or the Home greeting. Settings' sheet drops Users, Onboarding,
+  Devices and the Bin and Stray marks tiles, none of which are in Settings any more; the
+  API keys, IGDB, language marks, multi-author credits and colour names entries move to
+  Metadata, where those controls are. Two ladder sliders lose an info dot that only
+  repeated their label. Copy that sent you to Settings for something now in Metadata —
+  the author separators, the IGDB keys, the colour names — or to the retired Onboarding
+  and Devices cards now points where the control actually is.
+
 ### Fixed
 
 - **A character in a novel and its adaptation is two rows on their record, not one.** The

@@ -108,7 +108,7 @@ describe('the missing-key warning', () => {
   it('names IGDB on Game when only the game supplier is unconfigured', async () => {
     STATUS = { tmdb: { source: 'custom' }, igdb: { source: 'none' } }
     render(<AddLookup initialKind="game" onAdded={() => {}} />)
-    const msg = await screen.findByText(/no IGDB key/)
+    const msg = await screen.findByText(/no IGDB key/i)
     expect(msg.textContent).toMatch(/Wikidata/)
     expect(screen.queryByText(/no movie-lookup key configured/)).toBeNull()
   })

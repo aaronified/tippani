@@ -158,7 +158,7 @@ describe('opening it', () => {
     RESP = { ...RESP, current: 'dev', current_listed: false }
     await openLog()
     expect(document.querySelectorAll('.cl-running')).toHaveLength(0)
-    expect(screen.getByText(/not one of the versions above/)).toBeTruthy()
+    expect(screen.getByText(/isn't a listed release/)).toBeTruthy()
   })
 })
 

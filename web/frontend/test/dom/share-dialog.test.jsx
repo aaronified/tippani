@@ -173,9 +173,9 @@ describe('the prose in the share dialog', () => {
     // Pick a text format first — the dialog opens on Image now. Its syntax
     // reference is then reachable, not resident.
     fireEvent.click(screen.getByRole('tab', { name: 'WhatsApp' }))
-    expect(logicOf('WhatsApp chat formatting')).toBeNull()
+    expect(logicOf("WhatsApp's own formatting")).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'More information: WhatsApp' }))
-    expect(logicOf('WhatsApp chat formatting')).not.toBeNull()
+    expect(logicOf("WhatsApp's own formatting")).not.toBeNull()
     // "the formatter suggestions as well" — the mono token sample went in with
     // the sentence it belongs to, not left behind on its own.
     expect(screen.getByText((t) => t.includes('~strike~')).className).toContain('share-hint')
@@ -206,6 +206,6 @@ describe('the prose in the share dialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More information: Image theme' }))
     // Matched on the opening words rather than the whole sentence, so trimming the
     // copy to its budget does not fail a test about whether the dot OPENS.
-    expect(logicOf('The picture')).not.toBeNull()
+    expect(logicOf('Light or dark')).not.toBeNull()
   })
 })

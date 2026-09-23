@@ -147,7 +147,7 @@ describe('the one import target', () => {
     render(<ImportPage />)
     drop(well(), textFile('mystery.txt'))
     await screen.findByLabelText('Read this file as a format you pick')
-    expect(await screen.findByText(/not waiting anywhere/i)).toBeTruthy()
+    expect(await screen.findByText(/nothing was queued from this file/i)).toBeTruthy()
   })
 
   it('and says it only where the file actually failed', async () => {
@@ -158,7 +158,7 @@ describe('the one import target', () => {
     render(<ImportPage />)
     drop(well(), textFile('mine.tpbk'))
     await screen.findByText(/restore it from/i)
-    expect(screen.queryByText(/not waiting anywhere/i)).toBeNull()
+    expect(screen.queryByText(/nothing was queued from this file/i)).toBeNull()
   })
 
   // THE HOW-TOS ARE HELP NOW, and both halves of that are asserted, because only

@@ -110,7 +110,7 @@ describe('deleting one work from its cover', () => {
       // 'Undo' is not a count-varying claim; it is asserted here because this is
       // the row where the dialog is doing its full job.
       { name: 'twelve saved', count: 12, contains: ['12 quotes', 'Undo'], absent: [] },
-      { name: 'exactly one', count: 1, contains: ['1 quote saved'], absent: ['1 quotes'] },
+      { name: 'exactly one', count: 1, contains: ['1 quote,'], absent: ['1 quotes'] },
       // An empty book has no subtree to warn about, and a sentence about "the 0
       // quotes saved from it" is worse than no sentence.
       { name: 'nothing saved', count: 0, contains: [], absent: ['0 quote'] },

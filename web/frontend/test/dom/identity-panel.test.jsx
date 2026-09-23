@@ -651,7 +651,7 @@ describe('merging two records into one', () => {
     expect(merge.getByRole('img', { name: 'works' })).toBeTruthy()
 
     act(() => hit.click())
-    await screen.findByText(/stops being a record/)
+    await screen.findByText(/is merged into/)
     expect(screen.getByText(/No cover changes/)).toBeTruthy()
     // THE FACT, NOT THE SENTENCE. This read `/bin holds the way back/` and broke on
     // a prose pass that changed nothing about the behaviour — the owner's rule for

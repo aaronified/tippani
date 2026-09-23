@@ -89,7 +89,7 @@ describe('un-making a colour category', () => {
     // THE CONFIRM'S OWN WORDS. The stored token never moves — a quote filed under
     // this colour stays filed under it — and a bin glyph implies the opposite, so
     // the dialog has to say so. A reader deciding whether to press reads this.
-    expect(await screen.findByText(new RegExp('no quote changes', 'i')),
+    expect(await screen.findByText(new RegExp('quotes filed under this colour stay under it', 'i')),
       'the confirm should say that nothing on a quote moves').toBeTruthy()
   })
 

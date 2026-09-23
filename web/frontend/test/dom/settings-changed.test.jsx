@@ -107,6 +107,6 @@ describe('putting a section back', () => {
     await openSettingsSection('Review')
     fireEvent.click(screen.getByRole('button', { name: /reset section/i }))
     expect(screen.getByRole('dialog')).toBeTruthy()
-    expect(within(screen.getByRole('dialog')).getByText(/every preference in this section/i)).toBeTruthy()
+    expect(within(screen.getByRole('dialog')).getByText(/every setting in this section/i)).toBeTruthy()
   })
 })

@@ -71,7 +71,7 @@ describe('the release line', () => {
     expect(screen.getByText('release line')).toBeTruthy()
     // The distinguishing half: the reader is told WHY it is on this line, so a
     // branch build's "pre-release" does not read as somebody else's setting.
-    expect(screen.getByText(/you are running a pre-release build/)).toBeTruthy()
+    expect(screen.getByText(/you're running a pre-release/i)).toBeTruthy()
   })
 
   it('sends the override and re-checks, so the release on screen belongs to the new line', async () => {
@@ -90,6 +90,6 @@ describe('the release line', () => {
       expect(CALLS.filter(([m, p]) => m === 'GET' && p === '/admin/update/check')).toHaveLength(2)
     })
     // And the implication note is gone, because it is a choice now.
-    await waitFor(() => expect(screen.queryByText(/you are running a pre-release build/)).toBeNull())
+    await waitFor(() => expect(screen.queryByText(/you're running a pre-release/i)).toBeNull())
   })
 })

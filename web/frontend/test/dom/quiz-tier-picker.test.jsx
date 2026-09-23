@@ -67,16 +67,16 @@ const tierButtons = () =>
 const LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', random: 'Random' }
 const labelOf = (k) => LABELS[k]
 
-const easyCost = () => screen.queryByText(/the cost is the close wrong answers/i)
+const easyCost = () => screen.queryByText(/miss the close wrong answers/i)
 
 // THE LINE UNDER THE PICKER, whichever tier is chosen. Found by a phrase only
 // that tier's sentence contains, so a screen that printed one line for all four
 // cannot pass.
 const TIER_LINE = {
-  easy: /two choices instead of four/i,
-  medium: /four choices with close ones among them/i,
-  hard: /leans on typing the words back/i,
-  random: /a different tier on every card/i,
+  easy: /two clearly different choices instead of four/i,
+  medium: /four choices, some of them close/i,
+  hard: /mostly typing the words back/i,
+  random: /a different level on each card/i,
 }
 
 describe('the difficulty picker', () => {

@@ -172,7 +172,7 @@ describe('the download control on the card', () => {
   it('says where the archive lives, now that creating one does not hand it over', async () => {
     BACKUP = { name: 'x.tpbk', created: '2026-08-14T09:00:00Z', size: 2 << 20, key: 'password', account: 'a', recoverable: true }
     await card()
-    expect(await screen.findByText(/kept on this server until the next one replaces it/)).toBeTruthy()
+    expect(await screen.findByText(/kept on this server until the next one/)).toBeTruthy()
   })
 })
 

@@ -75,8 +75,8 @@ const mountWith = async (preferences) => {
 
 // The two paragraphs are told apart by what they say the rule DOES, not by a
 // marker put there for the test: adaptive multiplies, the ladder steps.
-const MULTIPLIES = /two and a half times/i
-const STEPS = /climbs a fixed ladder/i
+const MULTIPLIES = /grows 2\.5×/i
+const STEPS = /climbs fixed steps/i
 
 describe('the rule the explainer describes', () => {
   it('is adaptive for a reader who has chosen nothing', async () => {

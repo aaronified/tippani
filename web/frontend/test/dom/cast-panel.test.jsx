@@ -516,7 +516,7 @@ describe('the cast fetches', () => {
     LOOKUP = [{ source: 'tmdb', source_id: '1', title: 'Suicide Squad', release_year: 2016 }]
     render(<CastFills item={{ ...FILM, tvdb_id: 0 }} onFilled={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: /Cast from TheTVDB/ }))
-    expect(await screen.findByText(/no record matching this title/i)).toBeTruthy()
+    expect(await screen.findByText(/no match for this title/i)).toBeTruthy()
   })
 
   it('hides TheTVDB for a game, which has no record there at all', () => {

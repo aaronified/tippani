@@ -226,7 +226,7 @@ describe('the chooser', () => {
   it('says plainly that the anthology door is not open yet', async () => {
     surface({ initialSection: 'standalone' })
     fireEvent.click(await screen.findByRole('button', { name: 'An anthology' }))
-    expect(await screen.findByText(/being reworked/i)).toBeTruthy()
+    expect(await screen.findByText(/not available yet/i)).toBeTruthy()
   })
 
   it('does not ask when the ＋ was pressed somewhere that already answered', async () => {

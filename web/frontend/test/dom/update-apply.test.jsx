@@ -101,7 +101,7 @@ async function startUpdate() {
   await act(async () => {
     screen.getByText('Update & restart now').closest('button').click()
   })
-  await screen.findByText(/updating & restarting/)
+  await screen.findByText(/updating and restarting/i)
 }
 
 // One poll turn: the card waits three seconds, then asks.
@@ -120,7 +120,7 @@ describe('waiting for the new version', () => {
     // code reloaded on the first of them.
     await tick(5)
     expect(RELOAD).not.toHaveBeenCalled()
-    expect(screen.getByText(/updating & restarting/)).toBeTruthy()
+    expect(screen.getByText(/updating and restarting/i)).toBeTruthy()
   })
 
   it('reloads once the version answering is a different one', async () => {
@@ -164,7 +164,7 @@ describe('waiting for the new version', () => {
     expect(await screen.findByText(/inspect self: docker 404/)).toBeTruthy()
     expect(TOASTS.join(' ')).toContain('docker 404')
     // And it is over: no more waiting for a restart that was never started.
-    expect(screen.queryByText(/updating & restarting/)).toBeNull()
+    expect(screen.queryByText(/updating and restarting/i)).toBeNull()
   })
 
   it('does not stop for a step the apply is still inside', async () => {
@@ -174,7 +174,7 @@ describe('waiting for the new version', () => {
     await startUpdate()
     PHASE = 'pulling'
     await tick(4)
-    expect(screen.getByText(/updating & restarting/)).toBeTruthy()
+    expect(screen.getByText(/updating and restarting/i)).toBeTruthy()
     expect(RELOAD).not.toHaveBeenCalled()
   })
 
@@ -188,7 +188,7 @@ describe('waiting for the new version', () => {
     await tick(1)
 
     expect(RELOAD).not.toHaveBeenCalled()
-    expect(TOASTS.join(' ')).toMatch(/running the same build/)
+    expect(TOASTS.join(' ')).toMatch(/on the same build/)
   })
 
   // ONE FAILED POLL IS NOT A RESTART. A dropped request is at least as likely as
@@ -201,6 +201,6 @@ describe('waiting for the new version', () => {
     DOWN = false
     await tick(3)
     expect(RELOAD).not.toHaveBeenCalled()
-    expect(screen.getByText(/updating & restarting/)).toBeTruthy()
+    expect(screen.getByText(/updating and restarting/i)).toBeTruthy()
   })
 })

@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "bc3e51789d66c68d2da903580cad96bc02facf2d832577a6c31f6af165f5dbc7",
-    "internal/i18n/en.txt": "016c55eaa49d04549e717377a348891cd3fdb0861b3597aad968b92acc25478c",
+    "internal/i18n/bn.txt": "746d487e49a43aded1399b6f950c180518f29b74334509b0ec5a9b51d3668d12",
+    "internal/i18n/en.txt": "a39e7a9fdd523f20c8cae43dd5e0161da81e5d96fda9574e481ffb096ec00fff",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "781e4b26c386726d788c69359847e9e3e2e66838da33d28c31ff76aa4ace3ab8",
     "web/frontend/package.json": "466f6f9d1d216676518cacaf3adc3829cbf47c9146a2fdedc309379bc15de5be",
@@ -75,7 +75,7 @@
     "web/frontend/src/gestures.jsx": "24e2737c309fbb81ef87e4e33e0af30dff2b87860332d9eb1626527eb27ef50d",
     "web/frontend/src/glassLens.js": "17debf85f33334444f12f3b36f83cc2152a40f23da7571a2fe3245789d9c70e1",
     "web/frontend/src/greetings.js": "1a184c8c27ddcd6127886f14f7ce0a5d59c1d694408bb567599209098099d358",
-    "web/frontend/src/help.jsx": "98cf1417b6b129fd9464478fe058bd0a3e42226c52f36df0f132b885134bfa9d",
+    "web/frontend/src/help.jsx": "222a2b203eaa039a22349318ca51aa256c691c8b8c35209aa21384b52fb58e21",
     "web/frontend/src/history.js": "7feecd52ff1cc71b41888c2cfdabc906c430c113c87c4d4771239b33cf820704",
     "web/frontend/src/i18n.js": "6056197526bb55ee44f4a4c3be19304e9c48bf83af8e98f6c44dfa80fd82afe5",
     "web/frontend/src/identity.jsx": "7857abaadb17753a88d20ecaa20fe7a0004cf790ad988076a020d6c36681bcf8",
@@ -99,7 +99,7 @@
     "web/frontend/src/prefRow.jsx": "0f214e2357062ea0e2acc3e7e0bb13262bb60d030b3237db2130a5e10a0d4178",
     "web/frontend/src/proseField.jsx": "0f777c98ad19cec28105e2194c54f9bc4cfe2bc7f6b11503a8347e8fc3c9392f",
     "web/frontend/src/providerMarks.js": "c6f313e15a06b400adfb5492edaf8d85222ddb277410c39ddd8038c6209fda1d",
-    "web/frontend/src/quiz.js": "1be21028ff8933a92ec46eaebb4420c51cf007a7be371025c183c3e97fa64b08",
+    "web/frontend/src/quiz.js": "b465e6e4272ee712c974d75cf042a0a90d1d6d87fe4b71e1c4d950fdf9a78777",
     "web/frontend/src/quoteImage.js": "b00a85a784e7e2dfdaeae767c6727891ad6f52bc8cc02c5eee28fb5db8dd7807",
     "web/frontend/src/quoteKind.js": "286cb45fed727fb2d2af5062ac3d0113bcebb137e83fb6ba0790783512f37659",
     "web/frontend/src/quotePair.jsx": "c111530893f78e52b84a14fa038db583549c06a1144e258b0461553b83b9fa3a",
