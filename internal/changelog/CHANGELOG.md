@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **`golang.org/x/crypto` upgraded from v0.53.0 to v0.56.0**, picking up the fixes
+  released in v0.55.0 and v0.56.0 for vulnerabilities reported against v0.53.0. The app
+  uses the module for password hashing (`internal/auth`) and for sealing backup archives
+  (`internal/httpapi/backup_crypto.go`). `golang.org/x/sys` moves from v0.46.0 to v0.47.0
+  because the new release requires it. No behaviour change.
+
 ### Fixed
 
 - **A character in a novel and its adaptation is two rows on their record, not one.** The
