@@ -21,8 +21,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Eleven files sit here, and only some of them are plans** — the table at the foot of this
-file names the five that are not, leaving six features.
+**Twelve files sit here, and only some of them are plans** — the table at the foot of this
+file names the five that are not, leaving seven features.
 
 THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
 incremented it to "Eight" without counting the directory; a change that fixed THAT wrote
@@ -79,11 +79,12 @@ have since left by the front door**: the update shipped, the pair is folded into
 under one heading with a pass on the four places they turned out to be wrong, and neither
 file is here any more.
 
-So the plans proper are the six the table does not name: `access.md` for roadmap §6,
+So the plans proper are the seven the table does not name: `access.md` for roadmap §6,
 `entry-helpers.md` and `episodes.md`, which no roadmap section owns, and
 `atrium-liquid-glass.md`, `locators-from-files.md` and `work-source-files.md` — the
 storage, mount and prune spine that `locators-from-files.md` already calls "the reader of
-these files" and cites by name.
+these files" and cites by name — and `jobs.md`, a brief the owner asked for before anything
+is designed, which touches the no-goroutine invariant and so is a design discussion first.
 
 **`import-one-drop-target.md` was the tenth and left by the front door**, which is the
 exit this file is about: it shipped, it is folded into `Design-decisions.md` with a pass on the one
