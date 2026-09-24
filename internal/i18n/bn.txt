@@ -1239,7 +1239,6 @@ error.restore.failed = ফিরিয়ে আনা গেল না
 
 # --- multi-author credits.
 settings.credits.title = একাধিক লেখকের নাম
-settings.credits.info.title = একাধিক লেখকের নাম
 settings.credits.info.body = “Gaiman & Pratchett”-এর মতো একসঙ্গে লেখা নাম আপনার বাছা চিহ্ন ধরে আলাদা মানুষে ভাগ হয়। বইয়ে লেখা নাম যেমন আছে তেমনই থাকে। নাম “পদবি, নাম” ধাঁচে লিখলে কমা বন্ধ রাখুন।
 settings.credits.chip.tip = এই চিহ্ন দেখলে নাম ভাগ হবে
 settings.credits.off.prose = ভাগ করা বন্ধ — নামের লাইন যেমন আছে, এক জন মানুষ বলেই ধরা হবে

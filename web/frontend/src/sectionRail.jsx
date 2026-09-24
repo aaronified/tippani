@@ -42,6 +42,7 @@
 // the same string typed twice to honour a rule about not typing things twice.
 import React, { useEffect, useRef, useState } from 'react'
 import { useStuck } from './stuck.js'
+import { useCardNumbers } from './cardNumbers.js'
 
 import { IconArrow, InfoDot, Scroller, useIsMobileScreen, useScreenBar } from './ui.jsx'
 import { t } from './i18n.js'
@@ -142,6 +143,8 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
   // below can park under it rather than under the top bar.
   const frameRef = useRef(null)
   const rowRef = useRef(null)
+  const bodyRef = useRef(null)
+  useCardNumbers(bodyRef)
   const sticks = stickyRail && !mobile
   const railStuck = useStuck(rowRef, sticks)
   useEffect(() => {
@@ -222,7 +225,7 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
   if (mobile) {
     return (
       <div className="meta-frame">
-        <div className="meta-body">{children}</div>
+        <div className="meta-body" ref={bodyRef}>{children}</div>
       </div>
     )
   }
@@ -265,7 +268,7 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
         </span>
       )}
       </div>
-      <div className="meta-body">{children}</div>
+      <div className="meta-body" ref={bodyRef}>{children}</div>
     </div>
   )
 }

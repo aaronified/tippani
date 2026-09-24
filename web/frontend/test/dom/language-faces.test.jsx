@@ -69,7 +69,11 @@ describe('the faces the interface is set in', () => {
     // `display` IS NOT ONE OF THEM ANY MORE — it is the quote face and it is
     // asked about in Quote fonts; see the case at the foot of this file.
     for (const role of FONT_ROLES.filter((r) => !r.script && r.key !== 'display')) {
-      expect(screen.getByText(t(role.label)), `${role.key} should be named`).toBeTruthy()
+      // THE ROW'S NAME, not the card's: the Interface group's head says
+      // "Interface" too, and since the head's number became a span of its own the
+      // head's text is the bare word.
+      const named = screen.getAllByText(t(role.label)).filter((n) => n.closest('.pref-row'))
+      expect(named.length, `${role.key} should be named`).toBe(1)
       expect(screen.getByText(t(role.sample)), `${role.key} should show its specimen`).toBeTruthy()
       // AND NOT A RAW LOCALE KEY. `chosen.name` is a key, so a row that forgot to
       // resolve it printed "vocab.face.newsreader.name" down the middle of the

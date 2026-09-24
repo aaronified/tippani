@@ -1237,7 +1237,6 @@ error.restore.failed = restore failed
 
 # --- multi-author credits.
 settings.credits.title = Multi-author credits
-settings.credits.info.title = Multi-author credits
 settings.credits.info.body = Splits a credit like “Gaiman & Pratchett” into separate people, on the separators you tick. The stored author line is not changed. Untick the comma if you write authors as “Last, First”.
 settings.credits.chip.tip = Split credits on this separator
 settings.credits.off.prose = splitting is off — every credit stays one person

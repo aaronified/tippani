@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because the new release requires it. No behaviour change.
 
 ### Changed
+- **Metadata and Settings cards share one head and one paper.** Every card on both screens
+  opens with the same small-caps label, numbered by its place in the section ("1 · Light and
+  dark") when the section holds more than one card and left unnumbered when it stands alone.
+  The numbers are counted from the screen, so a card that appears later renumbers the rest.
+  Settings cards now carry the chosen material's texture, as Metadata's always did. On
+  Categories, Colours, Tags and Stickers are three cards rather than three headings.
+
 - **The Metadata index on a phone says what is behind each door.** Works, People and Characters
   show their open issues as pills that open the console filtered to that issue; the Scan and
   Fetch buttons carry their words; Languages shows the languages in their marks and Categories

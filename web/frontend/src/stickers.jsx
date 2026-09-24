@@ -154,10 +154,9 @@ export function StickerList({ stickers, onChanged }) {
   const latest = stickers.slice(0, 5) // API returns newest-first
 
   return (
+    // ITS HEADING IS THE CARD'S, drawn by whoever holds the list (the Stickers
+    // card in Metadata's Categories), so it matches every other card's head.
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>
-        {t('tags.sticker.section.title')}
-      </h2>
       {stickers.length === 0 ? (
         <EmptyState>{t('tags.sticker.board.empty')}</EmptyState>
       ) : (

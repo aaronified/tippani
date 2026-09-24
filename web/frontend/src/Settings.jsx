@@ -23,7 +23,7 @@ import {
 } from './fonts.js'
 import { FaceSelect } from './fontPicker.jsx'
 import PREF_DEFAULTS from './prefDefaults.json'
-import { PrefColumns, PrefGroup, PrefRow } from './prefRow.jsx'
+import { CardHead, PrefColumns, PrefGroup, PrefRow } from './prefRow.jsx'
 import { glassDialsFor } from './glassLens.js'
 import { applyFields, fromFile, parseSaved, removeTheme, SAVED_THEME_CAP, saveTheme, toFile } from './savedThemes.js'
 import { SECTIONS, sectionOrder, visibleSections } from './routes.js'
@@ -905,10 +905,12 @@ export function ColourCategoriesCard({ prefs, onSaved }) {
     // element lost it, seen from the opposite side. Both cost nothing and do
     // nothing, and neither the build nor any test says a word. If the colour
     // categories ever earn a step, the attribute comes back with it.
-    <Card>
-      {/* THE SECTION IS THE HEADING — see AppearanceCard. This card is mounted by
-          exactly one thing, Metadata's Colours section, whose tab had just said
-          "Colours" over a card saying "Colour categories". */}
+    <Card pad="" className="pref-group">
+      {/* ITS HEAD IS "COLOURS", beside Tags and Stickers in Metadata's
+          Categories section — the one thing that mounts this card. It was
+          "Colour categories" under a tab that said "Colours"; the tab says
+          Categories now, and this names which kind of category. */}
+      <CardHead title={t('metadata.categories.colours.title')} />
       <div>
         {rows.map((row) => (
           <div key={row.token} className="inline-field">
@@ -1479,9 +1481,9 @@ export function QuoteFaceSelect({ languageKey, name, value, onChange }) {
 // metadata/languages (on desktop, a half width card)." A face is a fact about a
 // language, and the languages live in one table; two lists of them would disagree
 // the first time a language was added to one.
-function QuoteFontsLink({ onGo, index }) {
+function QuoteFontsLink({ onGo }) {
   return (
-    <PrefGroup index={index} title={t('settings.quote-faces.title')}>
+    <PrefGroup title={t('settings.quote-faces.title')}>
       <PrefRow
         label={t('settings.quote-faces.link.prose')}
         control={
@@ -1504,7 +1506,7 @@ function QuoteFontsLink({ onGo, index }) {
 // picks the Bengali UI language in the scope, or the Bengali quote face in the
 // panel; "which face draws this script, in general, everywhere" is the question
 // neither of those is, and it is the one with no good answer.
-export function FontSections({ prefs, onSaved, onGo, index, compact = false, quoteDefault = false }) {
+export function FontSections({ prefs, onSaved, onGo, compact = false, quoteDefault = false }) {
   const { ask, confirmDialog } = useConfirm()
   const [err, setErr] = useState('')
   const [mine, setMine] = useState(uploadedFonts)
@@ -1730,7 +1732,7 @@ export function FontSections({ prefs, onSaved, onGo, index, compact = false, quo
       {confirmDialog}
       {/* YOUR OWN FACES, WHICH EVERY LIST BELOW IS DRAWN FROM — so they come
           first, as the pack has them (group 2, beside the language rows). */}
-      <PrefGroup index={index} title={t('settings.type.own.title')}>
+      <PrefGroup title={t('settings.type.own.title')}>
         <PrefRow label={t('settings.type.added.title')} sub={t('settings.type.added.sub')}>
           <div className="font-pills" style={{ flexBasis: '100%' }}>
             {mine.length === 0 && <p className="microcopy">{t('settings.type.added.none')}</p>}
@@ -1776,7 +1778,6 @@ export function FontSections({ prefs, onSaved, onGo, index, compact = false, quo
           ask was to drop it, and what is left is the fact itself as subtext, the
           same shape the cover cards' "this device only" takes. */}
       <PrefGroup
-        index={index + 1}
         title={t('settings.type.faces.title')}
         sub={t('settings.type.faces.sub', { language: scopeName })}
         wide
@@ -1788,7 +1789,7 @@ export function FontSections({ prefs, onSaved, onGo, index, compact = false, quo
           languages are one table in Metadata — so this group is only the door to
           it, half width, and the faces are chosen beside the rest of each
           language's settings. */}
-      <QuoteFontsLink onGo={onGo} index={index + 2} />
+      <QuoteFontsLink onGo={onGo} />
       <ErrorText>{err}</ErrorText>
     </>
   )
@@ -1894,7 +1895,7 @@ function SRSettings({ user, onPreferences, compact = false }) {
           longest group on the section — a slider, a scope chooser, a row of
           question chips and the tier — and half a desktop column made every one
           of those wrap where the schedule group beside it had rows to spare. */}
-      <PrefGroup index={1} title={t('settings.quiz.group.deck.title')} wide>
+      <PrefGroup title={t('settings.quiz.group.deck.title')} wide>
         {/* 5 TO 20, widened from 2 to 10 on the owner's instruction; the v3 pack
             draws 5 to 60. An account already holding 2, 3 or 4 keeps it — the
             server validates what is written and rewrites nothing — but cannot get
@@ -1922,7 +1923,7 @@ function SRSettings({ user, onPreferences, compact = false }) {
         <QuestionKinds p={p} set={set} only="daily" />
         <HowItAsks p={p} set={set} />
       </PrefGroup>
-      <PrefGroup index={2} title={t('settings.quiz.group.schedule.title')}>
+      <PrefGroup title={t('settings.quiz.group.schedule.title')}>
         <ScheduleRows p={p} set={set} />
       </PrefGroup>
       {/* PRACTICE IS ITS OWN GROUP, because the heading has to name everything
@@ -1936,7 +1937,7 @@ function SRSettings({ user, onPreferences, compact = false }) {
           it. Column balance is not a reason to file a row under the wrong name:
           a reader looking for what practice asks would not look under Schedule,
           and a reader reading Schedule is told a thing that is not the schedule. */}
-      <PrefGroup index={3} title={t('settings.quiz.group.practice.title')}>
+      <PrefGroup title={t('settings.quiz.group.practice.title')}>
         <PracticeCounts p={p} set={set} />
         <QuestionKinds p={p} set={set} only="practice" />
       </PrefGroup>
@@ -1977,7 +1978,6 @@ function SRSettings({ user, onPreferences, compact = false }) {
           this pass exists to remove. `settings-dots.test.js` names this group as
           the one exception and fails on a second. */}
       <PrefGroup
-        index={4}
         title={t('settings.quiz.panel.title')}
         sub={t('settings.quiz.in-depth.tip')}
         info={t('settings.quiz.tuning.info.body')}
@@ -1998,7 +1998,6 @@ function SRSettings({ user, onPreferences, compact = false }) {
           controls. A dot that describes what is visible spends a press on
           nothing, and teaches the reader that the dots here are decoration. */}
       <PrefGroup
-        index={5}
         title={t('settings.quiz.skipped.title')}
         aside={t('settings.quiz.skipped.aside')}
         wide
@@ -2715,7 +2714,7 @@ function ServerCard({ user, update, onUpdateInfo, updateAsking, onUpdateAsking, 
         <BackupCard user={user} asking={backupAsking} onAsking={onBackupAsking} />
         {/* WIDE, because a release log is prose at full measure. A column of
             entries broken to half a card is a changelog nobody finishes. */}
-        <PrefGroup index={3} title={t('settings.changelog.title')} wide>
+        <PrefGroup title={t('settings.changelog.title')} wide>
           <ChangelogList current={current} />
         </PrefGroup>
       </PrefColumns>
@@ -2957,7 +2956,7 @@ export function UpdatesCard({ user, update, onUpdateInfo, asking = false, onAski
   return (
     <>
       {updatePrompt}
-      <PrefGroup index={1} title={t('settings.updates.title')}>
+      <PrefGroup title={t('settings.updates.title')}>
         {/* THE PACK'S TWO ROWS, IN THE SHAPE EVERY OTHER SECTION USES. It draws
             Updates as a Version row carrying its own state and a Check now
             button, then a Channel row (settings-restructured.dc.html:2749-2753);
@@ -3631,7 +3630,7 @@ function FeaturesCard({ prefs, onSaved, compact = false }) {
           asks to be pressed; a sub-line is already read. It is short enough to
           stand, which is the test for moving a dot's words onto the screen rather
           than onto the control below it. */}
-      <PrefGroup index={1} title={t('settings.features.order.title')} sub={t('settings.features.order.prose')} rowsRef={drag.listRef} wide>
+      <PrefGroup title={t('settings.features.order.title')} sub={t('settings.features.order.prose')} rowsRef={drag.listRef} wide>
         {order.map((tab, i) => {
           const sec = SECTIONS.find((x) => x.tab === tab)
           if (!sec) return null
@@ -3748,10 +3747,10 @@ function FeaturesCard({ prefs, onSaved, compact = false }) {
           three covers at 240px so half a card cannot hold one — assumed the count
           was fixed at three. It is not: the sample sizes itself to whatever column
           it is given, which is what makes pairing them possible at all. */}
-      <PrefGroup index={2} title={t('settings.features.covers.title')} sub={t('settings.features.sizes.aside')}>
+      <PrefGroup title={t('settings.features.covers.title')} sub={t('settings.features.sizes.aside')}>
         <SizeSlider ariaLabel={t('settings.features.book-size.label')} storageKey="tippani:size:books" def={165} kind="book" works={shelf.book} />
       </PrefGroup>
-      <PrefGroup index={3} title={t('settings.features.posters.title')} sub={t('settings.features.sizes.aside')}>
+      <PrefGroup title={t('settings.features.posters.title')} sub={t('settings.features.sizes.aside')}>
         <SizeSlider ariaLabel={t('settings.features.film-size.label')} storageKey="tippani:size:movies" def={150} kind="poster" works={shelf.poster} />
       </PrefGroup>
       </PrefColumns>
@@ -4314,7 +4313,6 @@ function BackupCard({ user, asking = false, onAsking }) {
   return (
     <>
       <PrefGroup
-        index={2}
         title={t('settings.backup.title')}
       >
       <div data-tour="backup">
@@ -5083,7 +5081,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
           />
         }
       />
-      <FontSections prefs={prefs} onSaved={onPreferences} onGo={onGo} index={1} compact />
+      <FontSections prefs={prefs} onSaved={onPreferences} onGo={onGo} compact />
     </>
   ) : (
     <>
@@ -5306,7 +5304,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
           doors and their options panel, eight material tiles. The two half ones
           hold rows, and rows do not need 954px: "They do not need the width." */}
       <PrefColumns>
-      <PrefGroup index={1} title={t('settings.appearance.group.light.title')} wide>
+      <PrefGroup title={t('settings.appearance.group.light.title')} wide>
       <PrefRow
         label={t('settings.appearance.theme.title')}
         sub={t('settings.appearance.theme.hint')}
@@ -5377,7 +5375,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
           directly above a MonoLabel reading "Material", which is one thing said
           twice — the standing rule, and visible as two stacked labels the moment
           the groups landed. */}
-      <PrefGroup index={2} title={t('settings.appearance.group.material.title')} aside={t(MAT_SET_LABELS[materialSet])} wide>
+      <PrefGroup title={t('settings.appearance.group.material.title')} aside={t(MAT_SET_LABELS[materialSet])} wide>
       {/* AS MANY AS FIT, NOT FOUR. Eight sets in a four-column grid on a 1280px
           card drew cards three times the size the pack draws them
           (settings-restructured.dc.html:2600-2620 fits seven across with room for
@@ -5519,7 +5517,6 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
 
       </PrefGroup>
       <PrefGroup
-        index={3}
         title={t('settings.appearance.group.saved.title')}
         aside={t('settings.appearance.group.saved.aside', { n: saved.length, cap: SAVED_THEME_CAP })}
       >
@@ -5625,7 +5622,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
           where Language and font already puts its own, so a reader who learns
           where accessibility lives on one section knows where it is on the
           other. */}
-      <PrefGroup index={4} title={t('settings.group.access.title')}>
+      <PrefGroup title={t('settings.group.access.title')}>
       <PrefRow
         label={t('settings.appearance.contrast.title')}
         sub={t('settings.appearance.contrast.hint')}
@@ -5669,7 +5666,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
               in where it has not been translated, and the door to the other half
               of this question — what your LIBRARY is written in, which is metadata
               and has its own screen. */}
-          <PrefGroup index={1} title={t('settings.lang.group.interface.title')}>
+          <PrefGroup title={t('settings.lang.group.interface.title')}>
             {/* THE LANGUAGE, AND IT STAYS OUT OF `persist` ABOVE for the reason
                 that function documents: the Appearance panel re-sends every theme
                 field on any change, so a preference riding in that object would be
@@ -5740,7 +5737,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
           {/* 2, 3 AND 4 — your own faces, the faces the interface is set in, and
               the quote face each language carries. They are one component because
               they are one preferences object and one writer; see FontSections. */}
-          <FontSections prefs={prefs} onSaved={onPreferences} onGo={onGo} index={2} />
+          <FontSections prefs={prefs} onSaved={onPreferences} onGo={onGo} />
 
           {/* THE ACCESSIBILITY DIALS OF THIS SECTION, under their own heading —
               the owner's: "Put them in an accessibility subsection under each
@@ -5757,7 +5754,7 @@ function Appearance({ prefs, onPreferences, part = 'all', onGo = null, compact =
               rows across a whole card put every control an arm's length from its
               own label; in a column they sit beside it, and Quote fonts takes the
               other half of the same line instead of a run of empty texture. */}
-          <PrefGroup index={5} title={t('settings.group.access.title')}>
+          <PrefGroup title={t('settings.group.access.title')}>
             <TextSizeField prefs={prefs} onPreferences={onPreferences} />
             <QuoteReadingFields prefs={prefs} onPreferences={onPreferences} />
           </PrefGroup>

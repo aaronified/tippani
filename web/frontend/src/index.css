@@ -4410,7 +4410,6 @@
      what it is, how much it gave, the verb — and the middle column is the only
      one that may take what is left. */
   .src-rows { display: grid; gap: 2px; margin-bottom: var(--row, 12px); }
-  .src-rows-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 4px; }
   .src-row {
     display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center;
     gap: 10px; padding: 7px 0; border-top: 1px solid color-mix(in oklab, var(--line), transparent 55%);
@@ -11525,7 +11524,7 @@ html[data-theme="dark"] .pref-group {
 /* THE GAP IS THE GRID'S NOW where a section uses one, and stays a margin where a
    section still stacks its groups plainly. */
 .pref-group + .pref-group { margin-top: var(--meta-gap, 16px); }
-.pref-columns > .pref-group + .pref-group { margin-top: 0; }
+:is(.pref-columns, .meta-columns, .meta-stack) > .pref-group + .pref-group { margin-top: 0; }
 /* THE BOX YOU TICK. The platform's own checkbox ignores the accent, ignores the
    ink and is a different size on every OS, so it is redrawn here — keeping the
    real input underneath for the keyboard and the announced role. 24px is the
@@ -11585,6 +11584,9 @@ html[data-theme="dark"] .pref-group {
   display: flex; flex-wrap: wrap; align-items: baseline;
   justify-content: space-between; gap: 8px; margin-bottom: 4px;
 }
+/* THE FAR END OF A CARD HEAD: a fact, then any controls, together. */
+.card-head { align-items: center; }
+.card-head-end { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-inline-start: auto; }
 
 /* A ROW'S NAME, AND THE LEVEL ABOVE IT. `.mono-label` drew both a group head and
    the rows under it, so a settings section was one run of 11px grey capitals with

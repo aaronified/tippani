@@ -82,16 +82,47 @@ export function PrefRow({ label, sub = null, said = null, info = null, infoTitle
   )
 }
 
-// A GROUP IS A HEADING AND ITS ROWS. The pack numbers them — "1 · Light and dark"
-// — and the number is drawn from position rather than typed, because a hand-typed
-// ordinal is the thing that goes wrong when a group is inserted.
+// CardHead — the head of every card on Metadata and Settings, one component so
+// the two screens cannot drift. The owner, shown three styles side by side (a
+// bold title on Metadata, a mono label on Settings, a number on some Settings
+// cards and not others): "equalise. metadata and settings cards shall be
+// similar." The mono label won because it is what most cards already wore and
+// what the design pack draws.
+//
+// THE NUMBER IS DRAWN FROM POSITION, NOT TYPED. `.card-num` is empty here and
+// SectionRail fills it — "1 · ", "2 · " — by counting the heads in its section,
+// and leaves it empty when the section has only one card, where "1 ·" counts
+// nothing. The typed `index` it replaces had already gone wrong: Accessibility
+// was "4 ·" on a screen with three other groups and "5 ·" on another, and six
+// groups carried no number at all.
+//
+// `aside` is a fact at the far end (which material set is on, how many groups
+// were found); `children` are controls at the far end, after it.
+export function CardHead({ title, info = null, aside = null, children = null }) {
+  return (
+    <div className="pref-group-head card-head">
+      <span className="flex flex-wrap items-baseline gap-1.5">
+        <MonoLabel><span className="card-num" />{title}</MonoLabel>
+        {info && <InfoDot title={title} text={info} />}
+      </span>
+      {(aside || children) && (
+        <span className="card-head-end">
+          {aside && <span className="microcopy">{aside}</span>}
+          {children}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// A GROUP IS A HEADING AND ITS ROWS.
 // `sub` IS A LINE UNDER THE HEADING, and `aside` is a word at the far end of it.
 // They are not interchangeable: an aside is a fact you glance at (which material
 // set is on, how many themes are saved), a sub is a sentence about the whole
 // group. "this device only" started as an aside and read as a fragment floating
 // at the right-hand edge — the owner: "They should read 'this device only' and be
 // placed as subtext below the subsection header."
-export function PrefGroup({ title, index = null, sub = null, aside = null, info = null, wide = false, rowsRef = null, children }) {
+export function PrefGroup({ title, sub = null, aside = null, info = null, wide = false, rowsRef = null, children }) {
   return (
     // NAMED, so it is a landmark rather than an anonymous box. The heading below
     // is a MonoLabel and not an <h*> — it is a label for a group of rows, not a
@@ -100,17 +131,11 @@ export function PrefGroup({ title, index = null, sub = null, aside = null, info 
     // ones. It is also what lets a test say "the switch in THIS group", which
     // matters here: several cards name their controls after the same four
     // screens.
-    <section className={'pref-group' + (wide ? ' is-wide' : '')} aria-label={ariaLabelText(title)}>
-      <div className="pref-group-head">
-        <span className="flex flex-wrap items-baseline gap-1.5">
-          <MonoLabel>{index == null ? title : `${index} · ${title}`}</MonoLabel>
-          {info && <InfoDot title={title} text={info} />}
-        </span>
-        {/* THE ASIDE IS A FACT ABOUT THE GROUP, not a second heading: which
-            material set is on, how many themes are saved. It sits at the far end
-            so the headings still line up down the left. */}
-        {aside && <span className="microcopy">{aside}</span>}
-      </div>
+    // `hand-card` TOO, so the material a card is drawn in — its texture, its
+    // glass, its contrast escape — reaches a Settings group exactly as it reaches
+    // a Metadata card. It did not: the two screens' cards were different paper.
+    <section className={'hand-card pref-group' + (wide ? ' is-wide' : '')} aria-label={ariaLabelText(title)}>
+      <CardHead title={title} info={info} aside={aside} />
       {sub && <p className="pref-group-sub">{sub}</p>}
       <div className="pref-group-rows" ref={rowsRef}>{children}</div>
     </section>

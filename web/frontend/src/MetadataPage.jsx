@@ -13,6 +13,7 @@ import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard,
 import { personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
+import { CardHead } from './prefRow.jsx'
 import { LanguageMarksSettings, MetadataSources } from './MetadataSources.jsx'
 import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
@@ -837,7 +838,6 @@ const issueTest = (defs, key) => {
 // counts rows and not findings — the pills behind the door split it up.
 const withAnyIssue = (defs, rows) => (rows || []).filter((r) => defs.some(([, , test]) => test(r))).length
 
-const H2 = { fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 'var(--type-ui-17)', fontWeight: 600 }
 
 // ConsoleToolbar — the filter row, the issue pills and the bulk bar of a console,
 // stuck under the tab row while the list scrolls under it.
@@ -1672,22 +1672,23 @@ function DuplicatesPanel({ onDone, onFlash, arriveScanning = false, onArrived = 
   }
 
   return (
-    <HandCard className="space-y-3 p-5">
+    <HandCard className="pref-group space-y-3">
       {confirmDialog}
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 style={H2}>{t('metadata.duplicates.title')}</h2>
-        <InfoDot title={t('metadata.duplicates.title')} text={t('metadata.duplicates.info.body')} />
-        {/* Was a JavaScript ternary picking between "group" and "groups", which is
-            a plural rule written in the one place that cannot hold it. */}
-        {groups && <MonoLabel>{t('metadata.duplicates.groups', { count: groups.length, n: groups.length })}</MonoLabel>}
+      {/* Was a JavaScript ternary picking between "group" and "groups", which is
+          a plural rule written in the one place that cannot hold it. */}
+      <CardHead
+        title={t('metadata.duplicates.title')}
+        info={t('metadata.duplicates.info.body')}
+        aside={groups ? t('metadata.duplicates.groups', { count: groups.length, n: groups.length }) : null}
+      >
         <IconButton
-            icon={<IconSearch />}
-            ariaLabel={open ? t('metadata.duplicates.rescan.aria') : t('metadata.duplicates.scan.label')}
-            disabled={busy}
-            onClick={scan}
-          tooltip={open ? t('metadata.duplicates.rescan.tip') : t('metadata.duplicates.scan.label')} wrapClassName="ml-auto"
+          icon={<IconSearch />}
+          ariaLabel={open ? t('metadata.duplicates.rescan.aria') : t('metadata.duplicates.scan.label')}
+          disabled={busy}
+          onClick={scan}
+          tooltip={open ? t('metadata.duplicates.rescan.tip') : t('metadata.duplicates.scan.label')}
         />
-      </div>
+      </CardHead>
       <ErrorText>{err}</ErrorText>
       {open && groups && groups.length === 0 && <p className="microcopy">{t('metadata.duplicates.none')}</p>}
       {groups && groups.length > 0 && (
@@ -1855,11 +1856,8 @@ export function SpeakerRemap({ movies, onDone, user }) {
   }
 
   return (
-    <HandCard className="space-y-3 p-5">
-      <div className="flex items-center gap-1.5">
-        <h2 style={H2}>{t('metadata.speakers.title')}</h2>
-        <InfoDot title={t('metadata.speakers.title')} text={t('metadata.speakers.info.body')} />
-      </div>
+    <HandCard className="pref-group space-y-3">
+      <CardHead title={t('metadata.speakers.title')} info={t('metadata.speakers.info.body')} />
       <Select
         value={movieId}
         onChange={setMovieId}

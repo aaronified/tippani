@@ -89,12 +89,10 @@ describe('the control', () => {
 })
 
 describe('a group of them', () => {
-  it('numbers from position rather than from a typed ordinal', () => {
-    render(<PrefGroup title="Light and dark" index={1}><PrefRow label="Mode" /></PrefGroup>)
-    expect(screen.getByText('1 · Light and dark')).toBeTruthy()
-  })
-
-  it('leaves the number off where the caller did not ask for one', () => {
+  // THE NUMBER IS THE SECTION'S TO GIVE (useCardNumbers, counting the cards on
+  // the screen), so a group alone draws only its title. The numbering itself is
+  // asked of a real screen: test/journeys/cards-counted-where-they-stand.
+  it('draws its title and no number of its own', () => {
     render(<PrefGroup title="Light and dark"><PrefRow label="Mode" /></PrefGroup>)
     expect(screen.getByText('Light and dark')).toBeTruthy()
   })

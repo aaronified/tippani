@@ -40,7 +40,6 @@ import {
   IconTextOrder,
   InfoDot,
   MonoLabel,
-  SectionTitle,
   SourceIcon,
   toast,
   Toggle,
@@ -64,6 +63,7 @@ import { textOrderFrom } from './textOrderHost.jsx'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 import { anyFace as faceById } from './fonts.js'
 import { useMasonry } from './masonry.js'
+import { CardHead } from './prefRow.jsx'
 import { FontSections, QuoteFaceSample, QuoteFaceSelect, useQuoteFaces } from './Settings.jsx'
 import { iso6393Name, loadISO6393, searchISO6393 } from './iso6393.js'
 
@@ -369,24 +369,19 @@ function SourceRows({ admin, sources, onTested }) {
   const needKey = sources.filter((x) => x.state === 'needed').length
   return (
     <div className="src-rows">
-      <div className="src-rows-head">
-        <MonoLabel>{t('settings.sources.group.title')}</MonoLabel>
-        {/* THE COLUMN'S CAPTION, ALWAYS — it is what the number on the right of
-            every row IS, and a caption that disappears when there is news is a
-            column of unexplained integers exactly when the reader is reading
-            hardest. The pack carries it as the group's `aside`. */}
-        <span className="microcopy">{t('settings.sources.records.aside')}</span>
-        {/* AND THE PACK'S ISSUES LINE BESIDE IT (metadata.dc.html:845), which is
-            the one number on this list worth leading with: everything else on the
-            Metadata screen depends on at least one supplier being answerable, and
-            a reader counting red marks by eye is a reader who miscounts. It says
-            nothing when there is nothing to say, which is this console's rule. */}
+      {/* THE COLUMN'S CAPTION, ALWAYS — it is what the number on the right of
+          every row IS, and a caption that disappears when there is news is a
+          column of unexplained integers exactly when the reader is reading
+          hardest. The pack carries it as the group's `aside`.
+          AND THE PACK'S ISSUES LINE BESIDE IT (metadata.dc.html:845), which is
+          the one number on this list worth leading with. It says nothing when
+          there is nothing to say, which is this console's rule. */}
+      <CardHead title={t('settings.sources.group.title')} aside={t('settings.sources.records.aside')}>
         {needKey > 0 && (
           <span className="microcopy" style={{ color: 'var(--error)' }}>
             {t('settings.sources.need-key.prose', { count: needKey })}
           </span>
         )}
-        <span className="flex-1" />
         {admin && (
           <GhostButton
             icon={<IconFetch />}
@@ -398,7 +393,7 @@ function SourceRows({ admin, sources, onTested }) {
             {asking === 'all' ? t('settings.sources.testing.label') : t('settings.sources.test-all.label')}
           </GhostButton>
         )}
-      </div>
+      </CardHead>
       {sources.map((row) => {
         const name = sourceName(row.source)
         // WHAT IT SUPPLIES, COMPOSED FROM THE AREAS rather than written per
@@ -581,7 +576,7 @@ export function MetadataSources({ user, onPreferences }) {
     // See index.css for why the breakpoint is 900px — it is the width at which THIS
     // screen's rail already stops being a phone's.
     <div className="meta-columns" ref={packed}>
-    <Card data-tour="metadata-keys">
+    <Card pad="" className="pref-group" data-tour="metadata-keys">
       {/* THE SECTION IS THE HEADING — see Settings.jsx's AppearanceCard. Metadata's
           Sources tab says "Sources" and carries the dot; this card said "Metadata
           sources" underneath it with a second one. */}
@@ -706,8 +701,8 @@ export function MetadataSources({ user, onPreferences }) {
         belongs at the foot of this card rather than inside Amazon's block. It was
         already `admin`-gated separately; that guard is this card's now. ── */}
     {admin && (
-      <Card data-tour="metadata-keys">
-        <SectionTitle info={t('settings.keys.card.info')}>{t('settings.keys.card.title')}</SectionTitle>
+      <Card pad="" className="pref-group" data-tour="metadata-keys">
+        <CardHead title={t('settings.keys.card.title')} info={t('settings.keys.card.info')} />
         <div className="mt-3">
           <KeyField
             label={keyLabel('google', 'key')}
@@ -928,7 +923,7 @@ export function MetadataSources({ user, onPreferences }) {
           the facts come from"; this is "what does one of those facts MEAN" — a
           lookup hands back "Gaiman & Pratchett" as one string and this decides
           whether that is one person or two. */}
-      <Card>
+      <Card pad="" className="pref-group">
         <CreditSeparators user={user} onPreferences={onPreferences} />
       </Card>
 
@@ -1013,11 +1008,8 @@ function CreditSeparators({ user, onPreferences }) {
     json('PUT', '/auth/me/preferences', { creditSeparators: value })
   }
   return (
-    <div className="settings-subsection">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <MonoLabel>{t('settings.credits.title')}</MonoLabel>
-        <InfoDot title={t('settings.credits.info.title')} text={t('settings.credits.info.body')} />
-      </div>
+    <div>
+      <CardHead title={t('settings.credits.title')} info={t('settings.credits.info.body')} />
       <div className="flex flex-wrap items-center gap-2">
         {CREDIT_SEP_OPTIONS.map(([key, symbol, aria]) => (
           <Tooltip key={key} label={t('settings.credits.chip.tip')} side="top">

@@ -24,6 +24,7 @@ import {
   useSort,
 } from './ui.jsx'
 import { NewStickerCard, StickerList, useStickers } from './stickers.jsx'
+import { CardHead } from './prefRow.jsx'
 import { nearDupGroups } from './nearDupes.js'
 import { useMasonry } from './masonry.js'
 
@@ -149,14 +150,9 @@ export default function TagsPage({ embedded = false, lead = null }) {
         {/* EACH OF THE THREE KINDS IS NAMED, THE SAME WAY. Stickers always had
             its heading; merged onto one page, colours and tags without theirs were
             two unnamed blocks beside a named one. */}
-        {lead && (
-          <section className="space-y-4">
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>{t('metadata.categories.colours.title')}</h2>
-            {lead}
-          </section>
-        )}
-        <section className="space-y-4">
-          {embedded && <h2 className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>{t('nav.tab.tags.label')}</h2>}
+        {lead}
+        <section className={embedded ? 'hand-card pref-group space-y-4' : 'space-y-4'} aria-label={t('nav.tab.tags.label')}>
+          {embedded && <CardHead title={t('nav.tab.tags.label')} />}
           <NewTagCard ref={newTagRef} onCreated={load} />
           {tags && tags.length === 0 && (
             <EmptyState>{t('tags.board.empty')}</EmptyState>
@@ -186,7 +182,8 @@ export default function TagsPage({ embedded = false, lead = null }) {
             </>
           )}
         </section>
-        <section className="space-y-4">
+        <section className={embedded ? 'hand-card pref-group space-y-4' : 'space-y-4'} aria-label={t('tags.sticker.section.title')}>
+          <CardHead title={t('tags.sticker.section.title')} />
           <NewStickerCard onUploaded={reload} />
           <StickerList stickers={stickers} onChanged={reload} />
         </section>
