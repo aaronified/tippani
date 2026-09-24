@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Settings cards now carry the chosen material's texture, as Metadata's always did. On
   Categories, Colours, Tags and Stickers are three cards rather than three headings.
 
+- **Every console says what medium each row is, and filters by it.** Works, People and
+  Characters rows carry a glyph for each medium their works are in (book, film, show, game),
+  with the medium's name beside it on a desk. Characters and People gain a type dropdown, and
+  Works' type list gains games. A character or person in several media appears under each.
+
 - **People filters its roles with a dropdown,** as Works filters its type and Characters its
   work, so every console reads: a dropdown for the kind, then chips for what is wrong. On a desk
   a person's or character's work chips print the full title and scroll under the fade instead

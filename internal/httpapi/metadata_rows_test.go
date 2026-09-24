@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"slices"
 	"sort"
 	"testing"
 )
@@ -39,6 +40,7 @@ type peopleRecordsResp struct {
 			Title string   `json:"title"`
 			Roles []string `json:"roles"`
 		} `json:"works_in"`
+		Media []string `json:"media"`
 	} `json:"people"`
 }
 
@@ -335,5 +337,35 @@ func TestAPersonRowSaysTheirRoleOnEachWork(t *testing.T) {
 	}
 	if len(roles["Stalker"]) != 1 || roles["Stalker"][0] != "director" {
 		t.Errorf("the film should say director, got %v", roles["Stalker"])
+	}
+}
+
+// A person row names every medium their works are in, so the People console's
+// type dropdown can keep a writer whose one show is not among the six works the
+// row draws. THE MUTATION: stop appending to Media in attachPersonWorks and both
+// assertions fail.
+func TestAPersonRowSaysWhichMediaTheirWorksAreIn(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := createBook(t, c, "Sculpting in Time")
+	c.mustDo("PUT", "/books/"+itoa(book),
+		map[string]any{"title": "Sculpting in Time", "author": "Andrei Tarkovsky"}, http.StatusOK)
+	c.mustDo("POST", "/movies",
+		map[string]any{"title": "The Mirror Hour", "director": "Andrei Tarkovsky", "media_type": "show"}, http.StatusCreated)
+
+	got := decode[peopleRecordsResp](t, c.mustDo("GET", "/people/records", nil, http.StatusOK))
+	var media []string
+	for _, p := range got.People {
+		if p.Name == "Andrei Tarkovsky" {
+			media = p.Media
+		}
+	}
+	if !slices.Contains(media, "book") {
+		t.Errorf("a person credited on a book should be in books, got %v", media)
+	}
+	if !slices.Contains(media, "show") {
+		t.Errorf("a person credited on a show should be in shows, got %v", media)
 	}
 }

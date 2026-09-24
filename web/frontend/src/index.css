@@ -11195,6 +11195,15 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
    then the work. Two doors in one chip, so the chip is a frame and its halves are
    the buttons. */
 .credit-pill { gap: 6px; }
+/* A MEDIUM'S NAME RIDES BESIDE ITS GLYPH ON A DESK — the owner: "on desktop,
+   these glyphs will also have the type name … desktop has space, that deserves
+   utilisation." On a phone the glyph stands alone and the word stays its name. */
+.media-mark { display: inline-flex; align-items: center; gap: 4px; }
+.media-mark-glyph { display: inline-flex; }
+.media-mark-word { display: none; font-size: var(--type-ui-12); color: var(--soft); }
+@media (min-width: 769px) {
+  .media-mark-word { display: inline; }
+}
 /* ON A DESK THE CHIP ROW IS A WHOLE LINE — the owner's "the second row can have
    the work names (edgemasked, but will utilise the full width)". The 14ch cap is
    for rows that share their line; here it cut "Sunset Boulev…" beside 900px of

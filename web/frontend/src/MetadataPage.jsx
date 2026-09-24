@@ -905,6 +905,7 @@ const CATALOGUE_TYPES = [
   ['book', 'unit.book.other'],
   ['movie', 'unit.film.other'],
   ['show', 'unit.show.other'],
+  ['game', 'unit.game.other'],
 ]
 const typeOptions = () => CATALOGUE_TYPES.map(([v, key]) => [v, t(key)])
 
@@ -918,7 +919,7 @@ const MOVIE_FILTERS = ['flagged', ...MOVIE_GAPS, 'no_people', 'no_synopsis', 'ok
 const ALL_FILTERS = ['flagged', 'low_res', 'no_year', 'no_genre', 'no_source', 'no_people', 'no_synopsis', 'ok', 'all']
 function filtersForType(type) {
   if (type === 'book') return BOOK_FILTERS
-  if (type === 'movie' || type === 'show') return MOVIE_FILTERS
+  if (type === 'movie' || type === 'show' || type === 'game') return MOVIE_FILTERS
   return ALL_FILTERS
 }
 const filterOptions = (type) => filtersForType(type).map((v) => [v, gapLabel(v)])
@@ -1085,11 +1086,10 @@ function CatalogueConsole({ books, movies, type, setType, filter, setFilter, onO
         out.push({ kind: 'book', item: b })
       }
     }
-    if (type === 'all' || type === 'movie' || type === 'show') {
+    if (type === 'all' || type === 'movie' || type === 'show' || type === 'game') {
       for (const m of movies) {
         const mt = m.media_type || 'movie'
-        if (type === 'movie' && mt !== 'movie') continue
-        if (type === 'show' && mt !== 'show') continue
+        if (type !== 'all' && mt !== type) continue
         if (s && !m.title.toLowerCase().includes(s)) continue
         out.push({ kind: 'movie', item: m })
       }
@@ -1470,6 +1470,7 @@ export function BookRow({ book, checked, onCheck, open, onToggleLookup, onOpen, 
     <RecordRow
       mark={<RowArt src={book.cover_path ? coverImgURL(book.cover_path) : null} alt={t('metadata.row.nocover.aria')} />}
       name={book.title}
+      head={<MediaMarks works={[{ kind: 'book' }]} />}
       /* THE COUNT WEARS ITS GLYPH, and the row's other fact keeps its words. This
          is the tight case — a tick box, a cover, three action glyphs and a chip
          row are already on it — and the people console beside it has drawn its
@@ -1531,6 +1532,7 @@ function MovieRow({ movie, checked, onCheck, open, onToggleLookup, onOpen, onDon
     <RecordRow
       mark={<RowArt src={movie.poster_path ? coverImgURL(movie.poster_path) : null} alt={t('metadata.row.noposter.aria')} />}
       name={movie.title}
+      head={<MediaMarks works={[{ kind: 'movie', media_type: movie.media_type }]} />}
       // metadata.count.dialogues rather than the shared unit.dialogue: that noun
       // now reads "film line", and this row has always counted "dialogues".
       // Migrating keys is not the place to change a word.
@@ -2172,10 +2174,14 @@ const CHARACTER_MEDIA = {
 // where it has only the one. The count rule's own logic — the glyph is the
 // picture, the noun is what it is a picture OF — so a drawing that covers two
 // nouns says two nouns.
+// WHICH MEDIUM A WORK IS: a book, or a film, show or game (all three are rows
+// of `movies`, told apart by `media_type`).
+const MEDIA_KEYS = ['book', 'movie', 'show', 'game']
+const mediaKeyOf = (w) => (w.kind === 'movie' ? (CHARACTER_MEDIA[w.media_type] ? w.media_type : 'movie') : w.kind)
 const characterMedia = (worksIn) => {
   const byGlyph = new Map()
   for (const w of worksIn || []) {
-    const key = w.kind === 'movie' && CHARACTER_MEDIA[w.media_type] ? w.media_type : w.kind
+    const key = mediaKeyOf(w)
     const entry = CHARACTER_MEDIA[key]
     if (!entry) continue
     const [Glyph, word] = entry
@@ -2186,9 +2192,48 @@ const characterMedia = (worksIn) => {
   return [...byGlyph.entries()].map(([Glyph, [key, words]]) => [key, [Glyph, words]])
 }
 
+// THE TYPE DROPDOWN every console shares — the owner: "defects will be filtered
+// via chips, type will be via dropdown". '' is every medium. A record whose works
+// span two media (a novel and its film) is in both, so the test is `some`.
+const mediaTypeOptions = () => [
+  ['', t('metadata.catalogue.type.all.label')],
+  ...MEDIA_KEYS.map((k) => [k, t(CHARACTER_MEDIA[k][1], { count: 2 })]),
+]
+const inMedium = (worksIn, medium) => !medium || (worksIn || []).some((w) => mediaKeyOf(w) === medium)
+
+// MediaMarks — the medium of every work on a row, one glyph per drawing.
+//
+// THE WORD RIDES WITH THE GLYPH ON A DESK. The owner: "on desktop, these glyphs
+// will also have the type name … simply, desktop has space, that deserves
+// utilisation." On a phone the row is already three lines and the glyph stands
+// alone; the word is still the glyph's name, so a screen reader hears it at every
+// width. The painted word is `aria-hidden` for that reason — it would otherwise be
+// said twice.
+function MediaMarks({ works }) {
+  const media = characterMedia(works)
+  if (media.length === 0) return null
+  return (
+    <span className="row-role-marks media-marks">
+      {media.map(([key, [Glyph, words]]) => {
+        // ` · ` IS THIS FILE'S OWN SEPARATOR for a list inside one label — the
+        // spellings sub-line and the fetch flash both use it — so a mark covering
+        // two media reads the way every other list here does.
+        const label = words.map((w) => t(w, { count: 1 })).join(' · ')
+        return (
+          <Tooltip key={key} label={label}>
+            <span className="row-role-mark media-mark">
+              <span role="img" aria-label={label} className="media-mark-glyph"><Glyph size={15} /></span>
+              <span className="media-mark-word" aria-hidden="true">{label}</span>
+            </span>
+          </Tooltip>
+        )
+      })}
+    </span>
+  )
+}
+
 function CharacterRow({ c, first, onOpen, onMerge, onDelete, onWork = null, onPerson = null }) {
   const works = c.works || 0
-  const media = characterMedia(c.works_in)
   // A PERFORMER AND THE WORK THEY PLAYED THE PART IN ARE ONE CHIP — the owner:
   // "performer and work shall be in the same chip, as they are interdependent."
   // Two strips, one of people and one of works, could not say who played the part
@@ -2229,23 +2274,7 @@ function CharacterRow({ c, first, onOpen, onMerge, onDelete, onWork = null, onPe
           worksLabel={t('metadata.row.works.label')}
           quotesLabel={t('metadata.row.quotes.label')}
         />
-        {media.length > 0 && (
-          <span className="row-role-marks">
-            {media.map(([key, [Glyph, words]]) => {
-              // ` · ` IS THIS FILE'S OWN SEPARATOR for a list inside one label —
-              // the spellings sub-line and the fetch flash both use it — so a
-              // mark covering two media reads the way every other list here does.
-              const label = words.map((w) => t(w, { count: 1 })).join(' · ')
-              return (
-                <Tooltip key={key} label={label}>
-                  <span className="row-role-mark" role="img" aria-label={label}>
-                    <Glyph size={15} />
-                  </span>
-                </Tooltip>
-              )
-            })}
-          </span>
-        )}
+        <MediaMarks works={c.works_in} />
       </>}
       sub={<CreditPills items={items} onOpen={onWork} />}
       actions={[
@@ -2305,6 +2334,8 @@ export function CharactersConsole({ rows = null, onReload = null, onOpenWork = n
   // nothing, which appears on no work's page by definition and can therefore be
   // found nowhere else at all.
   const [work, setWork] = useState('')
+  // WHICH MEDIUM — see mediaTypeOptions.
+  const [medium, setMedium] = useState('')
   // WHICH ISSUE, as a row of pills above the list. See PERSON_ISSUES for the
   // argument; '' is every row.
   const [issue, setIssue] = useState('')
@@ -2368,7 +2399,8 @@ export function CharactersConsole({ rows = null, onReload = null, onOpenWork = n
     return (list || [])
       .filter((c) => !s || c.name.toLowerCase().includes(s))
       .filter((c) => !work || (c.works_in || []).some((w) => workRefKey(w) === work))
-  }, [list, q, work])
+      .filter((c) => inMedium(c.works_in, medium))
+  }, [list, q, work, medium])
   const shown = useMemo(() => base.filter(issueTest(CHARACTER_ISSUES, issue)), [base, issue])
 
   // THE WORKS THAT ACTUALLY HAVE CHARACTERS, built from the list itself rather
@@ -2410,6 +2442,12 @@ export function CharactersConsole({ rows = null, onReload = null, onOpenWork = n
         icon={<IconNavMasks />}
         word={t('unit.character', { count: shown.length })}
       >
+          <Select
+            ariaLabel={t('common.field.media-type.label')}
+            value={medium}
+            onChange={setMedium}
+            options={mediaTypeOptions()}
+          />
           <Select
             ariaLabel={t('metadata.characters.work.aria')}
             value={work}
@@ -2721,6 +2759,9 @@ const PEOPLE_EMPTY = {
 export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null, records = null, onReload = null, arriveFetching = false, onArrived = null }) {
   const mobile = useIsMobileScreen()
   const [role, setRole] = useState('all')
+  // WHICH MEDIUM — see mediaTypeOptions. Read from `media`, which the server
+  // counts over every work rather than the six the row draws.
+  const [medium, setMedium] = useState('')
   // WHICH ISSUE — see PERSON_ISSUES. '' is every row.
   const [issue, setIssue] = useState('')
   const [own, setOwn] = useState(null)
@@ -2792,7 +2833,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
   // count over `base`, so a pill's number is what pressing it will actually give.
   const base = useMemo(() => {
     const term = q.trim().toLowerCase()
-    return (rows || []).filter(inRole).filter((p) => {
+    return (rows || []).filter(inRole).filter((p) => !medium || (p.media || []).includes(medium)).filter((p) => {
       if (!term) return true
       // THE SPELLINGS ARE SEARCHED TOO, which is the point of storing them: a
       // reader looking for "M. Bulgakov" is looking for the record that answers to
@@ -2801,7 +2842,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
       return p.name.toLowerCase().includes(term) || (p.spellings || []).some((sp) => sp.toLowerCase().includes(term))
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, q, role])
+  }, [rows, q, role, medium])
   const shown = useMemo(() => base.filter(issueTest(PERSON_ISSUES, issue)), [base, issue])
 
   // WHAT THE BULK FETCH WOULD REACH: a row with no provider links OR no stored
@@ -2933,6 +2974,12 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
             value={role}
             onChange={setRole}
             options={PEOPLE_ROLES.map(([k, label]) => [k, t(label)])}
+          />
+          <Select
+            ariaLabel={t('common.field.media-type.label')}
+            value={medium}
+            onChange={setMedium}
+            options={mediaTypeOptions()}
           />
           {/* AND NOT ON A PHONE, WHERE IT IS THE SECOND COPY OF ITSELF. The shell's
               own field already drives this console's `q` — `useScreenSearch` above
@@ -3183,6 +3230,7 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, onDelete, o
         {looseRoles.length > 0 && (
           <span className="row-role-marks">{looseRoles.map(roleMark)}</span>
         )}
+        <MediaMarks works={(p.media || []).map((m) => (m === 'book' ? { kind: 'book' } : { kind: 'movie', media_type: m }))} />
         <ProviderChips links={p.links} marks />
         {/* THE OTHER SPELLINGS RIDE THE NAME'S LINE, so the row stays two lines on
             a desk ("two rows only in desktop") — they are about the name. */}

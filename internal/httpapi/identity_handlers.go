@@ -875,21 +875,23 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 // scroller can show before its fade, with the count saying how many there are.
 func attachPersonWorks(db *sql.DB, uid int64, byID map[int64]*personRecord) error {
 	rows, err := db.Query(`
-		SELECT person_id, kind, id, title, art, role FROM (
+		SELECT person_id, kind, id, title, art, role, media FROM (
 			SELECT wp.person_id AS person_id, 'book' AS kind, b.id AS id, b.title AS title,
-			       COALESCE(b.cover_path, '') AS art, wp.role AS role
+			       COALESCE(b.cover_path, '') AS art, wp.role AS role, 'book' AS media
 			  FROM work_person wp JOIN books b ON b.id = wp.work_id
 			 WHERE wp.user_id = ? AND wp.kind = 'book'
 			UNION
-			SELECT wp.person_id, 'movie', m.id, m.title, COALESCE(m.poster_path, ''), wp.role
+			SELECT wp.person_id, 'movie', m.id, m.title, COALESCE(m.poster_path, ''), wp.role,
+			       COALESCE(NULLIF(m.media_type, ''), 'movie')
 			  FROM work_person wp JOIN movies m ON m.id = wp.work_id
 			 WHERE wp.user_id = ? AND wp.kind = 'movie'
 			UNION
-			SELECT wc.actor_id, 'book', b.id, b.title, COALESCE(b.cover_path, ''), 'actor'
+			SELECT wc.actor_id, 'book', b.id, b.title, COALESCE(b.cover_path, ''), 'actor', 'book'
 			  FROM work_cast wc JOIN books b ON b.id = wc.work_id
 			 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND wc.actor_id IS NOT NULL
 			UNION
-			SELECT wc.actor_id, 'movie', m.id, m.title, COALESCE(m.poster_path, ''), 'actor'
+			SELECT wc.actor_id, 'movie', m.id, m.title, COALESCE(m.poster_path, ''), 'actor',
+			       COALESCE(NULLIF(m.media_type, ''), 'movie')
 			  FROM work_cast wc JOIN movies m ON m.id = wc.work_id
 			 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND wc.actor_id IS NOT NULL
 		) ORDER BY title COLLATE NOCASE, kind, id, role`, uid, uid, uid, uid)
@@ -909,13 +911,21 @@ func attachPersonWorks(db *sql.DB, uid int64, byID map[int64]*personRecord) erro
 	for rows.Next() {
 		var pid int64
 		var ref characterWorkRef
-		var role string
-		if err := rows.Scan(&pid, &ref.Kind, &ref.ID, &ref.Title, &ref.ArtPath, &role); err != nil {
+		var role, media string
+		if err := rows.Scan(&pid, &ref.Kind, &ref.ID, &ref.Title, &ref.ArtPath, &role, &media); err != nil {
 			return err
 		}
 		r := byID[pid]
 		if r == nil {
 			continue
+		}
+		// EVERY MEDIUM, BEFORE THE CAP: the row's type filter asks it of all the
+		// person's works, and the six refs below are only the ones a row can show.
+		if !slices.Contains(r.Media, media) {
+			r.Media = append(r.Media, media)
+		}
+		if ref.Kind == "movie" {
+			ref.MediaType = media
 		}
 		k := key{pid, ref.Kind, ref.ID}
 		if i, ok := at[k]; ok {
@@ -1759,6 +1769,11 @@ type personRecord struct {
 	// row says how many there are — `works` above — and the record's own screen
 	// lists them all.
 	WorksIn []characterWorkRef `json:"works_in"`
+	// EVERY MEDIUM THE PERSON'S WORKS ARE IN — 'book', 'movie', 'show', 'game' —
+	// counted over all of them rather than the capped six above, because the
+	// console's type dropdown filters on it and a translator whose one film is
+	// their seventh work is still in films.
+	Media []string `json:"media,omitempty"`
 }
 
 // maxRowWorkPills is how many work names a list row carries. Six is what fits a
