@@ -392,6 +392,13 @@ export function screenVerbs(getPage) {
       await trigger.dispose()
     }
     const want = String(option).trim().toLowerCase()
+    // THE PANEL IS WAITED FOR, NOT ASSUMED. The first body read the page the
+    // instant the click returned, and on a loaded run the panel had not painted
+    // yet — so a list that was about to open was reported as "not a list of
+    // options", once in a full journey run and once under a mutation that should
+    // have said "offers no option named". A panel that never comes still ends in
+    // that refusal, after the timeout.
+    await page().waitForSelector('[role="listbox"]', { timeout: opts?.timeout ?? DEFAULT_TIMEOUT }).catch(() => {})
     const result = await page().evaluate((w) => {
       const panel = document.querySelector('[role="listbox"]')
       if (!panel) return { ok: false, offers: null }

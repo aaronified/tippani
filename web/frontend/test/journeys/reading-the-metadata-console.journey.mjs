@@ -66,8 +66,11 @@ it('a reader opens the metadata console and reads what a work is missing', async
   // figure: "· 1" and a drawing that names itself "quote". What this assertion is
   // about is unchanged — which LINE each fact is on — and the noun's own presence
   // is asserted where it now lives, on the glyph.
+  // AND THE MEDIUM'S WORD SITS ON THE TITLE'S OWN LINE ON A DESK — the owner:
+  // "on desktop, these glyphs will also have the type name" — so the credit is
+  // the line after "book", not the line after the title.
   expect(screen, 'the title and its credit should be on separate lines')
-    .toMatch(/Grimm's Fairy Stories\s*\n\s*Jacob Grimm and Wilhelm Grimm · 1\b/)
+    .toMatch(/Grimm's Fairy Stories\s*\n\s*book\s*\n\s*Jacob Grimm and Wilhelm Grimm · 1\b/)
   expect(await app.said('quote'), 'the figure should say what it is counting').toBe('quote')
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
