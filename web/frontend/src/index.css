@@ -11632,7 +11632,6 @@ html[data-theme="dark"] .pref-group {
    section grows its second column at the same width the app grows its furniture
    — one threshold, not two that nearly agree. */
 .pref-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--meta-gap, 16px); align-items: start; }
-.pref-columns > .pref-group + .pref-group { margin-top: 0; }
 @media (min-width: 1024px) {
   .pref-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--meta-gap, 18px); }
   /* A GROUP OF FULL-MEASURE ROWS SPANS. A face list squeezed into half a card is
