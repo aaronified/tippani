@@ -4,7 +4,8 @@
 (*"Write a plan first"*) rather than designed here. The asks are quoted exactly; the
 facts about the codebase below were checked at the lines cited. The questions it first left
 open were put to the owner and are closed under **Decided** at the end, each with the
-owner's answer; what is left for the planning agent is the design, not the choices.
+owner's answer. The tables, endpoints and screen layout are not settled here: the owner's
+ruling is that they are *"decided during implementation, depending on the circumstances."*
 
 ## The asks, in the owner's words
 
