@@ -84,7 +84,8 @@ So the plans proper are the seven the table does not name: `access.md` for roadm
 `atrium-liquid-glass.md`, `locators-from-files.md` and `work-source-files.md` — the
 storage, mount and prune spine that `locators-from-files.md` already calls "the reader of
 these files" and cites by name — and `jobs.md`, a brief the owner asked for before anything
-is designed, which touches the no-goroutine invariant and so is a design discussion first.
+is designed. Its open questions, the no-goroutine invariant among them, have been put to the
+owner and closed in the file.
 
 **`import-one-drop-target.md` was the tenth and left by the front door**, which is the
 exit this file is about: it shipped, it is folded into `Design-decisions.md` with a pass on the one
