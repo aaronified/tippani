@@ -7,7 +7,7 @@
 // change that unit tests cannot see: both screens still render, both still pass
 // their own suites, and the control is simply somewhere else.
 //
-// THE MUTATION. Delete `press('Colours')` and it goes red — Metadata opens on
+// THE MUTATION. Delete `press('Categories')` (it was Colours until Tags and Colours merged) and it goes red — Metadata opens on
 // Works, and the category names are not on it (re-run with Overview gone).
 //
 // AND ITS LANDMARK IS A ROW, NOT A HEADING, which is the second thing this file
@@ -28,7 +28,7 @@ it('a reader finds the colour categories on Metadata, not in Settings', async ()
   await app.goto('/')
 
   await app.press('Metadata')
-  await app.press('Colours')
+  await app.press('Categories')
   // THE ROW THAT ONLY THIS SECTION DRAWS, not a heading. This read
   // `see('Colour categories')` — the card's own title — and that title is gone: it
   // sat directly under a tab already saying "Colours", two headings with an info

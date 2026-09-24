@@ -146,7 +146,9 @@ describe('the rail', () => {
     // button inside Sources, which is not somewhere another screen can point.
     // OVERVIEW LEFT THEM. The owner: "remove the overview screen completely. We
     // are not going to miss it. All options are available on other screens."
-    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Works', 'People', 'Characters', 'Tags', 'Languages', 'Colours', 'Sources'])
+    // TAGS AND COLOURS BECAME ONE: "Categories" — the owner: "merge the tags and
+    // the colours metadata pages into one".
+    expect(rail().map((s) => s.replace(/\d+$/, ''))).toEqual(['Works', 'People', 'Characters', 'Languages', 'Categories', 'Sources'])
   })
 
   it('leaves the sources door with no number, because it counts no records', async () => {
@@ -276,24 +278,24 @@ describe('a section at a time', () => {
 describe('on a phone', () => {
   beforeEach(() => { WIDTH = 390 })
 
-  it('gets the same seven doors, each with its own headline verb under it', async () => {
+  it('gets every door, each carrying what is behind it', async () => {
     await mount()
     // An index, not a strip: eight tabs at 390px show two and a half of themselves.
     expect(screen.queryAllByRole('tab')).toHaveLength(0)
     const doors = await phoneDoors()
-    // THE ORDER IS THE CLAIM, and the verbs are part of it now. Three sections
-    // carry the one act a reader comes to them for; the other five carry nothing,
-    // because they have no single act and a button invented to even out a layout
-    // is a button that means nothing. Prune is absent here and that is correct —
-    // it draws itself only over a library with orphans to remove, and this
-    // fixture has none.
+    // THE ORDER IS THE CLAIM, and what each door carries is part of it. The owner,
+    // of the index that was a name and an arrow: "the metadata phone index page
+    // looks like shit". So a console's door carries its open issues — each a door
+    // into the console filtered to it — then its verbs, in words. Prune is absent and that is correct: it draws
+    // itself only over a library with orphans, and this fixture has none.
     expect(doors.map((s) => s.replace(/\d+$/, ''))).toEqual([
-      'Works', 'Scan for duplicate works',
-      'People', 'Fetch missing',
+      'Works', 'no cover', 'no series', 'Scan for duplicate works',
+      'People', 'people with no portrait or link', 'Fetch missing',
       'Characters',
-      'Tags',
       'Languages',
-      'Colours',
+      // The colours ride on Categories' door as a preview, not as buttons: each would
+      // open the same section, and a chip that looks like a filter should be one.
+      'Categories',
       'Sources',
     ])
   })

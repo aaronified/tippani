@@ -47,6 +47,7 @@ import {
   Tooltip,
   useConfirm,
   useFormHost,
+  useIsMobileScreen,
 } from './ui.jsx'
 import {
   applyLanguageMarks,
@@ -61,6 +62,9 @@ import { TEXT_ORDER_DEFAULT, masterIsCustom } from './textOrder.js'
 import { TextOrderPicker } from './textOrderField.jsx'
 import { textOrderFrom } from './textOrderHost.jsx'
 import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
+import { anyFace as faceById } from './fonts.js'
+import { useMasonry } from './masonry.js'
+import { FontSections, QuoteFaceSample, QuoteFaceSelect, useQuoteFaces } from './Settings.jsx'
 import { iso6393Name, loadISO6393, searchISO6393 } from './iso6393.js'
 
 // StatusChip came with the block: after the move Settings had no other caller for
@@ -562,6 +566,7 @@ export function MetadataSources({ user, onPreferences }) {
     return true
   }
 
+  const packed = useMasonry()
   return (
     // TWO COLUMNS ON A DESK, ONE ON A PHONE, AND THE CARDS DECIDE WHERE THEY BREAK.
     //
@@ -569,13 +574,13 @@ export function MetadataSources({ user, onPreferences }) {
     // six-row key list, a four-chip footnote and (after the language work) a door is
     // three boxes of wildly different heights — a grid would pad the short ones out
     // to the tall one's height, which is a column of whitespace where the reader is
-    // looking for the next thing. Multicol packs them.
+    // looking for the next thing. Masonry packs them — the same `useMasonry` as
+    // Settings' cards, which replaced the multicol this was: multicol reads down
+    // each column, and "masonry, not grid" on both screens should mean one packing.
     //
-    // `.meta-columns` is CSS and not a component on purpose: what is actually being
-    // said is "these siblings flow", and a wrapper component would be a new name for
-    // `display`. See index.css for why the breakpoint is 900px — it is the width at
-    // which THIS screen's rail already stops being a phone's.
-    <div className="meta-columns">
+    // See index.css for why the breakpoint is 900px — it is the width at which THIS
+    // screen's rail already stops being a phone's.
+    <div className="meta-columns" ref={packed}>
     <Card data-tour="metadata-keys">
       {/* THE SECTION IS THE HEADING — see Settings.jsx's AppearanceCard. Metadata's
           Sources tab says "Sources" and carries the dot; this card said "Metadata
@@ -1096,6 +1101,14 @@ export function LanguageMarksSettings({ prefs, onSaved }) {
   const [adding, setAdding] = useState(false)
   const [err, setErr] = useState('')
   const { ask, confirmDialog } = useConfirm()
+  // THE QUOTE FACES, CHOSEN HERE NOW. The owner: "the quote font selection can be
+  // added to the metadata language screen. on phone, this will be part of the
+  // popup, on desktop, we can add new columns to the existing list." A face is a
+  // fact about a language, so it sits with the language's other facts; Settings
+  // keeps only a door here. The writer is Settings' own (`useQuoteFaces`), so a
+  // face is still written in one place.
+  const faces = useQuoteFaces(prefs, onSaved)
+  const mobile = useIsMobileScreen()
 
   // Re-seed when the session prefs change under us — another tab, or the account
   // switching. Reads the APPLIED marks, so this stays in step with what is on
@@ -1234,6 +1247,13 @@ export function LanguageMarksSettings({ prefs, onSaved }) {
         </div>
         <TextOrderPicker value={master} onChange={moveMaster} name={allName} showWord dim={custom} />
       </div>
+      {/* AND THE DEFAULT FACE, IN THE SAME TOP AREA — the owner's "default font
+          selection will be in the top area where we now have the global toggles".
+          Settings' own face row (size dial, style chips, revert) through
+          Settings' own save, not a copy of it. */}
+      <div className="lang-master lang-master-face">
+        <FontSections prefs={prefs} onSaved={onSaved} quoteDefault />
+      </div>
 
       <ul className="lang-rows">
         {rows.map((row) => {
@@ -1254,17 +1274,33 @@ export function LanguageMarksSettings({ prefs, onSaved }) {
                   {row.resolved || [...row.name][0]}
                 </span>
                 <span className="lang-row-text">
-                  <span className="lang-row-name">{row.name}</span>
+                  <span className="lang-row-name">
+                    {row.name}
+                    {/* A ROW WITH A SETTING OF ITS OWN WEARS THE DOT, not the words.
+                        The owner: "own settings need not be spelled out. you can use
+                        the dot" — the same mark a Settings row wears when it has been
+                        moved off its default. The words are still said: to a pointer
+                        in the tooltip, to a screen reader in the row chooser's name. */}
+                    {own && <span className="pref-row-dot" title={t('settings.languages.order.own.label')} aria-hidden="true" />}
+                  </span>
                   <span className="lang-row-meta">
                     {/* THE REGISTRY CODE, and the association this section was
                         missing: which language, exactly, the row is. */}
                     <span className={'lang-iso' + (row.iso ? '' : ' is-none')}>{row.iso || t('settings.languages.iso.none')}</span>
                     {row.renamed && <span>{row.canonical}</span>}
-                    {own && <span className="lang-own">{t('settings.languages.order.own.label')}</span>}
                   </span>
                 </span>
               </button>
-              <TextOrderPicker value={value} onChange={(k) => moveRow(row.key, k)} name={row.name} own={own} />
+              {/* TWO COLUMNS ON A DESK: the language writing its own name in its
+                  face, and the face. On a phone the row has no room for either,
+                  so the face is chosen in the editor instead. */}
+              {!mobile && (
+                <span className="lang-row-face">
+                  <QuoteFaceSample languageKey={row.key} name={row.name} face={faces.faceFor(row.key)} />
+                  <QuoteFaceSelect languageKey={row.key} name={row.name} value={faces.faceFor(row.key)?.id} onChange={(id) => faces.saveFace(row.key, id)} />
+                </span>
+              )}
+              <TextOrderPicker value={value} onChange={(k) => moveRow(row.key, k)} name={row.name} own={own} groupLabel={own ? `${row.name}, ${t('settings.languages.order.own.label')}` : undefined} />
             </li>
           )
         })}
@@ -1283,14 +1319,20 @@ export function LanguageMarksSettings({ prefs, onSaved }) {
           <GhostButton icon={<IconPlus />} keepLabel onClick={() => setAdding(true)}>{t('settings.languages.add.label')}</GhostButton>
         )}
       </div>
-      <ErrorText>{err}</ErrorText>
+      <ErrorText>{err || faces.err}</ErrorText>
 
       {open && (
         <LanguageEditorModal
           key={open.key}
           row={open}
+          face={mobile ? (faces.faceFor(open.key)?.id || '') : null}
           onClose={() => setEditing(null)}
-          onSave={async (d) => { if (await save(open.key, d)) setEditing(null) }}
+          onSave={async ({ face, ...d }) => {
+            // The face is a font preference, not part of the language's entry, so
+            // it goes to its own writer — and only when it moved.
+            if (face != null && face !== (faces.faceFor(open.key)?.id || '')) await faces.saveFace(open.key, face)
+            if (await save(open.key, d)) setEditing(null)
+          }}
           onReset={async () => { if (await save(open.key, { mark: '', name: '' })) setEditing(null) }}
           onRemove={() => removeRow(open)}
         />
@@ -1410,9 +1452,12 @@ function ISO6393Search({ label, onPick, onCancel, allowFree = false, autoFocus =
 // inline under a row in whatever shape that language's glyphs made it; this is the
 // same panel for all of them — name, registry code, one grid of marks — on the
 // app's own form chrome, with the tick armed only when something changed.
-function LanguageEditorModal({ row, onClose, onSave, onReset, onRemove }) {
-  const [d, setD] = useState({ name: row.name, mark: row.mark, customs: row.customs, iso: row.isoLinked })
+function LanguageEditorModal({ row, face = null, onClose, onSave, onReset, onRemove }) {
+  // `face` is null where the editor does not carry the face (a desk, where it is a
+  // column of the row) and the stored face id — "" for none — where it does.
+  const [d, setD] = useState({ name: row.name, mark: row.mark, customs: row.customs, iso: row.isoLinked, face })
   const dirty =
+    (face != null && d.face !== face ? 1 : 0) +
     (d.name.trim() !== row.name ? 1 : 0) +
     (d.mark !== row.mark ? 1 : 0) +
     (d.customs.join('\u0000') !== row.customs.join('\u0000') ? 1 : 0) +
@@ -1499,6 +1544,16 @@ function LanguageEditorForm({ row, d, setD, onSubmit, onReset, onRemove }) {
           </div>
         )}
       </div>
+
+      {d.face != null && (
+        <div className="lang-editor-block">
+          <MonoLabel>{t('settings.quote-faces.title')}</MonoLabel>
+          <div className="lang-face-line">
+            <QuoteFaceSample languageKey={row.key} name={row.name} face={faceById(d.face)} />
+            <QuoteFaceSelect languageKey={row.key} name={row.name} value={d.face} onChange={(id) => setD({ ...d, face: id || '' })} />
+          </div>
+        </div>
+      )}
 
       <div className="lang-editor-block">
         <MonoLabel>{t('settings.languages.mark.title')}</MonoLabel>

@@ -30,6 +30,7 @@
 import React from 'react'
 
 import { ariaLabelText, InfoDot, MonoLabel } from './ui.jsx'
+import { useMasonry } from './masonry.js'
 
 // `said` IS A THIRD LINE IN THE LABEL'S OWN COLUMN, under the sub-line — a type
 // specimen, and so far nothing else. It is not `children`: children sit outside
@@ -128,8 +129,13 @@ export function PrefGroup({ title, index = null, sub = null, aside = null, info 
 // the left of a 1280px card and left the other half empty: "use the space
 // available" is the standing rule, and a screen that uses 45% of its width is the
 // case it was written for.
+//
+// PACKED AS MASONRY, NOT A GRID — the owner's "use masonry packing on desktop" —
+// so a short card beside a long one no longer leaves the long one's height of
+// empty paper under it. See masonry.js for why it keeps reading order.
 export function PrefColumns({ children }) {
-  return <div className="pref-columns">{children}</div>
+  const ref = useMasonry()
+  return <div className="pref-columns" ref={ref}>{children}</div>
 }
 
 // changedCount — how many of a section's rows the reader has moved off default.

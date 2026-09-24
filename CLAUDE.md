@@ -218,10 +218,10 @@ in your claude.md to use it for all tests."*
 `backup-env.sh` reads it and `scratch-server.sh` sources that, so every harness in the
 directory picks the archive up with no flags at all — `make controls`, `make sheet-drag`,
 `make typescale`, `make panel-depth`, `make frame-scroll`, `make hero-control`,
-`make overlay-scroll`, and `run-with-server.sh --seed`. Each says which library it is
+`make overlay-scroll`, `make metadata-layout`, and `run-with-server.sh --seed`. Each says which library it is
 against on its first line. The WIRING is checked by
-`test/pure/harness-archive.test.js`; the WORKING was checked by running them — **all
-eight now exit 0 against a restored archive** (`sheet-drag`, `panel-depth`, `typescale`,
+`test/rules/harness-archive.test.js`; the WORKING was checked by running them — **all
+eight now exit 0 against a restored archive** (`metadata-layout` is newer and has run only against the seeded fixture; `sheet-drag`, `panel-depth`, `typescale`,
 `frame-scroll`, `hero-control`, `overlay-scroll`, a capture from
 `run-with-server.sh --seed`, and `make controls`). `make controls` was the last of them:
 it exited 3 while the backup shelf had no ceiling recorded — the app came back clean and
@@ -256,7 +256,7 @@ seeding and says so on its first line.
 **AND THE PROMISE IN THIS PARAGRAPH WAS A PROMISE, NOT A CODE PATH, FOR A DAY.** The branch
 was written into `run-controls.sh` alone while these lines claimed all seven had it, and
 five went on calling `seed.mjs` unconditionally. It is now one function —
-`scratch_prefer_archive` in `scratch-server.sh` — and `test/pure/harness-archive.test.js`
+`scratch_prefer_archive` in `scratch-server.sh` — and `test/rules/harness-archive.test.js`
 fails when a harness seeds without calling it, when it calls it after booting a server, or
 when it keeps its own copy of the branch. The account had the same shape of defect one
 layer down: the `TIPPANI_USER` override was a line in `controls.mjs`, so that probe reached

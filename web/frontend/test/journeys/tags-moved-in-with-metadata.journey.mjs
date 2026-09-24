@@ -13,10 +13,12 @@
 // the reader's evidence is a broken link rather than a moved door. So the route stays
 // and redirects, and that is what the second half of this checks.
 //
-// THE MUTATIONS: take the tags entry out of METADATA_SECTIONS and the door is not there
-// to press; drop the `tags` branch that renders the screen and the section opens on
-// whatever the final `else` draws, so 'Stickers' never appears; remove the redirect and
-// /tags renders nothing at all.
+// AND IT IS PART OF CATEGORIES NOW, with the colours — the owner: "merge the tags and
+// the colours metadata pages into one" — so the door is Categories.
+//
+// THE MUTATIONS: take the categories entry out of METADATA_SECTIONS and the door is not
+// there to press; render the categories branch without TagsPage and 'Stickers' never
+// appears; remove the redirect and /tags renders nothing at all.
 
 import { expect, it } from 'vitest'
 
@@ -28,7 +30,7 @@ it('a reader finds Tags inside Metadata', async () => {
   await app.goto('/metadata')
 
   // The door, in the console's own rail of sections.
-  await app.press('Tags')
+  await app.press('Categories')
 
   // AND IT IS THE TAGS SCREEN, not a heading that says Tags. Stickers are the half
   // of that screen nothing else in the app draws, so naming one is the assertion

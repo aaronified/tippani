@@ -13,9 +13,9 @@
 // AND THE SECOND HALF IS THE FEATURE THE FIRST ONE IS NOT. "I may want my german
 // to have serifs, but not english" is a question about a LANGUAGE, and the app's
 // answer used to be a face per SCRIPT — which cannot tell German from Swedish,
-// both being Latin. The languages come from the library; the faces are chosen
-// here; and a reader who wants a language that is not listed is sent to the table
-// where a language is actually defined.
+// both being Latin. The languages come from the library, and since the owner's
+// "the quote font selection can be added to the metadata language screen" the
+// faces — the default and each language's — are chosen in that table.
 //
 // THE RELOAD IS THE POINT. Before it, "the picker says Literata" is also true of
 // a screen that only ever set a React state variable and told the server nothing.
@@ -23,9 +23,9 @@
 //
 // THE MUTATION, ONE PER HALF, because a file with two tests needs two: delete the
 // `json('PUT', …)` from FontSections' `save` and the first reload fails — the
-// picker comes back on Newsreader. Delete the one in `QuoteFaces.saveFace` and the
-// SECOND reload fails, which it did not before a rating pointed out that this half
-// never reloaded at all.
+// picker comes back on Newsreader. Delete the one in `useQuoteFaces`' `saveFace`
+// and the SECOND reload fails, which it did not before a rating pointed out that
+// this half never reloaded at all. (Both re-run with the faces in Metadata.)
 //
 // It knows only the words on the screen and nothing else.
 
@@ -36,8 +36,7 @@ import { openApp } from './harness/world.mjs'
 const app = openApp()
 
 it('a reader changes the face their quotes are set in, and it is still set after a reload', async () => {
-  await app.goto('/settings')
-  await app.press('Language and font')
+  await app.goto('/metadata/languages')
 
   // The row names the job, and the control beside it names the face. Opening the
   // list and taking one is the whole gesture — nothing is opened before that.
@@ -47,8 +46,7 @@ it('a reader changes the face their quotes are set in, and it is still set after
   await app.see('Literata')
   await app.gone('Newsreader')
 
-  await app.goto('/settings')
-  await app.press('Language and font')
+  await app.goto('/metadata/languages')
   await app.see('Literata')
   await app.gone('Newsreader')
 
@@ -61,13 +59,10 @@ it('a reader changes the face their quotes are set in, and it is still set after
 })
 
 it('and gives one language a face of its own, without touching the rest', async () => {
-  await app.goto('/settings')
-  await app.press('Language and font')
+  await app.goto('/metadata/languages')
 
-  // NO DOOR. The panel this used to open is a card on the section — so the
-  // languages are simply here, under the interface faces, and the journey reaches
-  // them by scrolling rather than by pressing.
-  await app.see('Quote fonts')
+  // IN THE LANGUAGE TABLE NOW, a column of each language's row — the owner:
+  // "the quote font selection can be added to the metadata language screen".
   // The languages are the library's own — this fixture holds quotes in English —
   // and each starts out following the face chosen above rather than having one.
   await app.press('Typeface for quotes in English')
@@ -85,8 +80,7 @@ it('and gives one language a face of its own, without touching the rest', async 
   // faces had exactly the client-shape/server-shape split this directory's ruling
   // exists against — one mocked test asserting the patch, nothing asking the
   // server what it kept.
-  await app.goto('/settings')
-  await app.press('Language and font')
+  await app.goto('/metadata/languages')
   await app.see('Literata')
 
   // Back to following, so the fixture is as it was found.

@@ -96,10 +96,17 @@ export function RecordRow({
   // rows under a header that already closes with one, so every row there wears a
   // top rule; a bare list does not want one above its first.
   first = false,
+  // WHAT SITS ON THE NAME'S OWN LINE ON A DESK — the people and character rows'
+  // counts and marks. The owner: "on desktop, the people and the characters can
+  // have a larger font size and have a single row for name, count, and metadata
+  // icons… two rows only in desktop, unlike mobile which has 3." So it is one
+  // slot, beside the name where there is room and under it on a phone.
+  head = null,
+  className = '',
   children = null,
 }) {
   return (
-    <div className="record-row" style={{ borderTop: first ? 'none' : '1px solid var(--line)', padding: 'calc(var(--meta-gap, 16px) * 0.6) 0' }}>
+    <div className={'record-row' + (className ? ` ${className}` : '')} style={{ borderTop: first ? 'none' : '1px solid var(--line)', padding: 'calc(var(--meta-gap, 16px) * 0.6) 0' }}>
       <div className="flex flex-wrap items-center gap-3">
         {select && (
           <Tooltip label={select.tip} side="top">
@@ -122,9 +129,12 @@ export function RecordRow({
               every one of these names is printed in full on the shelf it came from.
               Dragging two hundred of them sideways to confirm what they are is the
               cost the edge mask was charging for a certainty nobody needed. */}
-          <p className="record-row-name">
-            {onOpen ? <button type="button" className="tp-link" onClick={onOpen}><b>{name}</b></button> : <b>{name}</b>}
-          </p>
+          <div className="record-row-head">
+            <p className="record-row-name">
+              {onOpen ? <button type="button" className="tp-link" onClick={onOpen}><b>{name}</b></button> : <b>{name}</b>}
+            </p>
+            {head && <span className="record-row-head-extra">{head}</span>}
+          </div>
           {/* `.cs-row-sub`, WHICH THE REPO ALREADY HAD, and the first draft did not use.
               It was `.microcopy` — the mono label face at `--type-mono-11`, tracked and
               in `var(--faint)` — so moving the author off the name line ALSO turned it

@@ -41,6 +41,7 @@
 // resolved this way in a dozen places. Threading it in from both callers would be
 // the same string typed twice to honour a rule about not typing things twice.
 import React, { useEffect, useRef, useState } from 'react'
+import { useStuck } from './stuck.js'
 
 import { IconArrow, InfoDot, Scroller, useIsMobileScreen, useScreenBar } from './ui.jsx'
 import { t } from './i18n.js'
@@ -84,7 +85,7 @@ function countedName(s) {
   return `${s.label} — ${s.count} ${s.countWord}`
 }
 
-export function SectionRail({ sections, value, open = undefined, onChange, ariaLabel, mobileInfo = null, total = null, aside = null, children = null }) {
+export function SectionRail({ sections, value, open = undefined, onChange, ariaLabel, mobileInfo = null, total = null, aside = null, stickyRail = false, children = null }) {
   const mobile = useIsMobileScreen()
   const chosen = sections.find((s) => s.id === value) || null
   const [entered, setEntered] = useState(false)
@@ -135,6 +136,22 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
       badgeWord: chosen.count != null ? chosen.countWord : null,
     } : null,
   })
+
+  // A STICKY TAB ROW, where the caller asks for one (Metadata's three long
+  // lists). Its height is published to the frame as --rail-stuck-h so the toolbar
+  // below can park under it rather than under the top bar.
+  const frameRef = useRef(null)
+  const rowRef = useRef(null)
+  const sticks = stickyRail && !mobile
+  const railStuck = useStuck(rowRef, sticks)
+  useEffect(() => {
+    const row = rowRef.current
+    const frame = frameRef.current
+    if (!sticks || !row || !frame || typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(() => frame.style.setProperty('--rail-stuck-h', `${row.getBoundingClientRect().height}px`))
+    ro.observe(row)
+    return () => { ro.disconnect(); frame.style.removeProperty('--rail-stuck-h') }
+  }, [sticks])
 
   if (mobile && !inSection) {
     return (
@@ -211,14 +228,14 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
   }
 
   return (
-    <div className="meta-frame">
+    <div className={'meta-frame' + (sticks ? ' has-sticky-rail' : '')} ref={frameRef}>
       {/* THE TABS AND WHATEVER RIDES AT THE FAR END SHARE ONE ROW, and one bottom
           border, which is how the pack draws it
           (settings-restructured.dc.html:122-138): a flex row holding the tablist
           and, pushed to the right, the section's info dot and its Reset. They were
           a second full-width bar underneath for a while, repeating the count the
           tab already carried — "do not build redundant stuff". */}
-      <div className="meta-rail-row">
+      <div className={'meta-rail-row' + (railStuck ? ' is-stuck' : '')} ref={rowRef}>
       <Scroller axis="x" className="meta-rail" role="tablist" aria-label={ariaLabel}>
         {sections.map((s) => {
           const on = value === s.id

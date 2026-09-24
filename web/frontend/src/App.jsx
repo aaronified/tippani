@@ -838,7 +838,7 @@ function ScreenMenu({ screen, className, glyph = 22, withHelp = true, onTour = n
 // The shape has to match what the hook stores, which is JSON.
 function TagsRedirect({ onGo }) {
   useEffect(() => {
-    try { localStorage.setItem('tippani:metasection', JSON.stringify('tags')) } catch { /* private mode: the console opens where it last was */ }
+    try { localStorage.setItem('tippani:metasection', JSON.stringify('categories')) } catch { /* private mode: the console opens where it last was */ }
     onGo('metadata')
   }, [onGo])
   return null

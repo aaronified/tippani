@@ -221,7 +221,7 @@ vocab.accent.slate.label = slate
 # --- vocab.font-role.* — the six jobs type does in this app, in Settings → Type.
 # `.sample` is the specimen line, set in the face being offered, so it must be
 # text this role would actually carry — not a translation of the English one.
-vocab.font-role.display.label = Every language
+vocab.font-role.display.label = All languages
 vocab.font-role.display.aria = quotes in every language
 vocab.font-role.display.what = What a quote is set in unless its language says otherwise.
 vocab.font-role.display.sample = It is a truth universally acknowledged
@@ -1292,9 +1292,7 @@ settings.type.faces.title = Interface faces
 # --- Quote faces, one per language. The list is Metadata's language table; this
 # only says what each language's QUOTES are set in.
 settings.quote-faces.title = Quote fonts
-settings.quote-faces.intro.prose = Each language in your library and the font its quotes use. Each is shown writing its own name, so a font that cannot draw the script shows it here.
-settings.quote-faces.none = No languages yet. Each language you give a quote appears here.
-settings.quote-faces.add.prose = Languages come from your quotes and from Metadata’s language table.
+settings.quote-faces.link.prose = Each language’s quote font is set in Metadata › Languages, beside its other settings.
 settings.quote-faces.add.open = Open the language table
 # Your own faces: the list, and the way one more gets in.
 settings.type.added.title = Added fonts
@@ -5206,16 +5204,16 @@ metadata.shown.word = shown
 metadata.section.works.info.body = Every book, film, show and game, by what is missing. Pick an issue to list only those, then act on them all at once.
 metadata.section.people.info.body = Photos and reference links for authors, actors, directors, studios and publishers. Fetch fills what is missing, or refreshes what is there.
 metadata.section.characters.info.body = Every character, with one record across a book and its adaptations. Two with the same name are not merged automatically — check them here.
-metadata.section.tags.info.body = All your tags, how each looks on a quote, and which are the same tag spelled twice. Stickers are here too.
 metadata.section.languages.info.body = The languages your quotes are in, and how each is marked. A quote's language also sets which way it reads.
-metadata.section.categories.info.body = A quote's colour says what kind of note it is. Renaming changes only the label shown; exports keep the stored value.
+metadata.section.categories.info.body = Colours say what kind of note a quote is, tags what it is about, and stickers are marks you put on one. Renaming a colour changes only its label; exports keep the stored value.
 metadata.section.sources.info.body = Where fetched details come from. A source that needs a key is skipped until it has one.
 metadata.section.works.label = Works
 metadata.section.people.label = People
 metadata.section.characters.label = Characters
 metadata.section.sources.label = Sources
 metadata.section.languages.label = Languages
-metadata.section.categories.label = Colours
+metadata.section.categories.label = Categories
+metadata.categories.colours.title = Colours
 metadata.section.aria = Which metadata to work on
 # THE NOUN BEHIND THE NUMBER ON A TAB. The digit is all an eye needs beside a
 # word it can already read; a screen reader gets "Works 44" and no reason for it.
@@ -5460,7 +5458,7 @@ settings.appearance.preset.specimen.label = the margins, wider than the text…
 # UPDATES (admin only). Checked on demand, never in the background.
 # ---------------------------------------------------------------------------
 settings.updates.title = Updates
-settings.updates.version.label = version
+settings.updates.version.label = Version
 settings.updates.releases.tip = Release notes on GitHub
 # WHEN THE RUNNING BUILD WAS RELEASED, out of the changelog embedded in the
 # binary. The date itself is composed by formatPartialDate from common.month.*
@@ -5593,7 +5591,7 @@ settings.backup.download.label = Download the last one
 settings.backup.last.prose = last backup: {when} · {size} · kept on this server until the next one
 settings.backup.empty.prose = no backup on this server yet
 # A mono label above the source picker, whose own words are shell.restore.*.
-settings.backup.restore-from.label = restore from
+settings.backup.restore-from.label = Restore from
 # What the chosen archive will ask for, said before you commit to it.
 settings.backup.asks.passphrase = asks for its passphrase
 settings.backup.asks.password = asks for your password

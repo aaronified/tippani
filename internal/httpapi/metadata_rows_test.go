@@ -35,8 +35,9 @@ type peopleRecordsResp struct {
 		Works   int    `json:"works"`
 		Quotes  int    `json:"quotes"`
 		WorksIn []struct {
-			Kind  string `json:"kind"`
-			Title string `json:"title"`
+			Kind  string   `json:"kind"`
+			Title string   `json:"title"`
+			Roles []string `json:"roles"`
 		} `json:"works_in"`
 	} `json:"people"`
 }
@@ -301,4 +302,38 @@ func characterIDs(t *testing.T, c *testClient, name string) []int64 {
 		}
 	}
 	return out
+}
+
+// AND EACH WORK SAYS WHAT THE PERSON DID ON IT.
+//
+// The people console draws a role and its work as one chip — the owner: they "shall
+// be in the same chip, as they are interdependent". A person-wide list of roles
+// cannot say which work was written and which directed, so the role travels on the
+// work. One person, credited two ways on two works, is the case that tells.
+func TestAPersonRowSaysTheirRoleOnEachWork(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+
+	book := createBook(t, c, "Sculpting in Time")
+	c.mustDo("PUT", "/books/"+itoa(book),
+		map[string]any{"title": "Sculpting in Time", "author": "Andrei Tarkovsky"}, http.StatusOK)
+	c.mustDo("POST", "/movies", map[string]any{"title": "Stalker", "director": "Andrei Tarkovsky"}, http.StatusCreated)
+
+	got := decode[peopleRecordsResp](t, c.mustDo("GET", "/people/records", nil, http.StatusOK))
+	roles := map[string][]string{}
+	for _, p := range got.People {
+		if p.Name != "Andrei Tarkovsky" {
+			continue
+		}
+		for _, w := range p.WorksIn {
+			roles[w.Title] = w.Roles
+		}
+	}
+	if len(roles["Sculpting in Time"]) != 1 || roles["Sculpting in Time"][0] != "author" {
+		t.Errorf("the book should say author, got %v", roles["Sculpting in Time"])
+	}
+	if len(roles["Stalker"]) != 1 || roles["Stalker"][0] != "director" {
+		t.Errorf("the film should say director, got %v", roles["Stalker"])
+	}
 }

@@ -38,7 +38,7 @@ const app = openApp()
 
 it('a reader is shown the tag that is a duplicate, and merges it away', async () => {
   await app.goto('/metadata')
-  await app.press('Tags')
+  await app.press('Categories')
 
   // THE FINDING, BEFORE ANY PRESS. Not the tag names — those are on screen either
   // way, because a list of tags lists them. What is new is the console saying

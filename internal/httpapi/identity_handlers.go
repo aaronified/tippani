@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"tippani/internal/olog"
@@ -750,6 +751,13 @@ type characterWorkRef struct {
 	// across a series' run. The owner asked for the "full list of chip", and a
 	// silent MAX is the half of that which looks complete.
 	Actors []workActor `json:"actors,omitempty"`
+	// WHAT THE PERSON DID ON THIS WORK — author, translator, actor — because the
+	// people console draws a role and its work as ONE chip. The owner: "the
+	// role-type-icons and work chip in people screen" shall be "in the same chip,
+	// as they are interdependent". A person-wide list of roles beside a row of
+	// works cannot say that Bulgakov WROTE one and TRANSLATED the other. Empty on
+	// a character's ref, whose performers are its per-work fact instead.
+	Roles []string `json:"roles,omitempty"`
 }
 
 // workActor — a performer on one appearance, id first because the id is what
@@ -867,37 +875,63 @@ func attachCharacterWorks(db *sql.DB, uid int64, byID map[int64]*characterListRo
 // scroller can show before its fade, with the count saying how many there are.
 func attachPersonWorks(db *sql.DB, uid int64, byID map[int64]*personRecord) error {
 	rows, err := db.Query(`
-		SELECT person_id, kind, id, title, art FROM (
+		SELECT person_id, kind, id, title, art, role FROM (
 			SELECT wp.person_id AS person_id, 'book' AS kind, b.id AS id, b.title AS title,
-			       COALESCE(b.cover_path, '') AS art
+			       COALESCE(b.cover_path, '') AS art, wp.role AS role
 			  FROM work_person wp JOIN books b ON b.id = wp.work_id
 			 WHERE wp.user_id = ? AND wp.kind = 'book'
 			UNION
-			SELECT wp.person_id, 'movie', m.id, m.title, COALESCE(m.poster_path, '')
+			SELECT wp.person_id, 'movie', m.id, m.title, COALESCE(m.poster_path, ''), wp.role
 			  FROM work_person wp JOIN movies m ON m.id = wp.work_id
 			 WHERE wp.user_id = ? AND wp.kind = 'movie'
 			UNION
-			SELECT wc.actor_id, 'book', b.id, b.title, COALESCE(b.cover_path, '')
+			SELECT wc.actor_id, 'book', b.id, b.title, COALESCE(b.cover_path, ''), 'actor'
 			  FROM work_cast wc JOIN books b ON b.id = wc.work_id
 			 WHERE wc.user_id = ? AND wc.kind = 'book' AND wc.origin <> 'removed' AND wc.actor_id IS NOT NULL
 			UNION
-			SELECT wc.actor_id, 'movie', m.id, m.title, COALESCE(m.poster_path, '')
+			SELECT wc.actor_id, 'movie', m.id, m.title, COALESCE(m.poster_path, ''), 'actor'
 			  FROM work_cast wc JOIN movies m ON m.id = wc.work_id
 			 WHERE wc.user_id = ? AND wc.kind = 'movie' AND wc.origin <> 'removed' AND wc.actor_id IS NOT NULL
-		) ORDER BY title COLLATE NOCASE`, uid, uid, uid, uid)
+		) ORDER BY title COLLATE NOCASE, kind, id, role`, uid, uid, uid, uid)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
+	// ONE REF PER WORK, WITH EVERY ROLE ON IT. The union yields a row per (work,
+	// role), so a director who also wrote the film arrives twice; the cap counts
+	// works, and the second row adds its role to the ref the first one made.
+	type key struct {
+		pid  int64
+		kind string
+		id   int64
+	}
+	at := map[key]int{}
 	for rows.Next() {
 		var pid int64
 		var ref characterWorkRef
-		if err := rows.Scan(&pid, &ref.Kind, &ref.ID, &ref.Title, &ref.ArtPath); err != nil {
+		var role string
+		if err := rows.Scan(&pid, &ref.Kind, &ref.ID, &ref.Title, &ref.ArtPath, &role); err != nil {
 			return err
 		}
-		if r := byID[pid]; r != nil && len(r.WorksIn) < maxRowWorkPills {
-			r.WorksIn = append(r.WorksIn, ref)
+		r := byID[pid]
+		if r == nil {
+			continue
 		}
+		k := key{pid, ref.Kind, ref.ID}
+		if i, ok := at[k]; ok {
+			if role != "" && !slices.Contains(r.WorksIn[i].Roles, role) {
+				r.WorksIn[i].Roles = append(r.WorksIn[i].Roles, role)
+			}
+			continue
+		}
+		if len(r.WorksIn) >= maxRowWorkPills {
+			continue
+		}
+		if role != "" {
+			ref.Roles = []string{role}
+		}
+		at[k] = len(r.WorksIn)
+		r.WorksIn = append(r.WorksIn, ref)
 	}
 	return rows.Err()
 }

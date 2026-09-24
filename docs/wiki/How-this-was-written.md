@@ -154,26 +154,26 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,781 Go test functions and 4,784 frontend tests, across 778 test files** — the
+- **1,782 Go test functions and 4,783 frontend tests, across 780 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
-  cd web/frontend && npx vitest run                                      # 4,784 of them
-  cd web/frontend && npm run journeys                                    # + 94 in the browser
+  cd web/frontend && npx vitest run                                      # 4,783 of them
+  cd web/frontend && npm run journeys                                    # + 96 in the browser
   find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 289 Go files
   find ./web/frontend -path '*/node_modules' -prune -o -type f \
        \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
-       -print | wc -l                                                    # 489 frontend
+       -print | wc -l                                                    # 491 frontend
   ```
 
-  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,784 is what
+  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,783 is what
   `npx vitest run` reports across the three vitest projects, and the browser tier is
   not among them — it has its own config, because it needs a globalSetup that builds
-  the binary and seeds a library. `npm test` runs two projects — 3,870 tests over 331
+  the binary and seeds a library. `npm test` runs two projects — 3,869 tests over 331
   files; `npm run lint:rules` runs the third, 914 assertions over 93 files; and
-  `npm run journeys` runs 94 tests over 65 files against a real server in a real
+  `npm run journeys` runs 96 tests over 67 files against a real server in a real
   browser, which is the tier that would have caught the bug all this is named after.
   Those 93 READ THE SOURCE TEXT and assert how it is
   spelled: never truncate a name, spacing is a constant, no emoji glyphs, the
@@ -319,10 +319,13 @@ worth nothing here and only execution counts. What the repo actually runs:
   every way it can break is silent: a greeting rendering `{name}` literally, a
   commemoration wishing you a happy one, or a country resolving to its neighbour's
   time zone. None of those throw, and none of them fail a build.
-- **Eight harnesses run a real browser rather than a DOM emulator**, because what they
+- **Ten harnesses run a real browser rather than a DOM emulator**, because what they
   measure does not exist in jsdom: `make perf`, `make typescale`, `make frame-scroll`,
-  `make panel-depth`, `make hero-control`, `make glyph-align`, `make controls`, `make sheet-drag` and
-  `make overlay-scroll`. The last is the newest and the clearest case for the whole
+  `make panel-depth`, `make hero-control`, `make glyph-align`, `make controls`, `make sheet-drag`,
+  `make metadata-layout` and `make overlay-scroll`. (This line said eight while it listed
+  nine.) `make metadata-layout` measures the Metadata and Settings desk layout (tab height,
+  underline overhang, portrait size, two-line records, masonry holes), and each of its five
+  checks was mutation-verified. The last is the newest and the clearest case for the whole
   category: it asks whether dismissing an overlay leaves the page where the reader left
   it, and NEITHER of the two ways that broke is observable in jsdom — it has no layout,
   and `focus()` there scrolls nothing whatever you pass it, so a restore that moves the
@@ -547,7 +550,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   seeded fixture — asked the archive for a page that is not a film. Three layers, one
   shape: **a rule written once, in one of the places that needs it.**
 
-  `test/pure/harness-archive.test.js` is the guard, and it checks the shape rather than
+  `test/rules/harness-archive.test.js` is the guard, and it checks the shape rather than
   the run: every harness that seeds calls the one shared decision, calls it before
   anything is built or booted, and keeps no copy of the branch; the account is decided in
   exactly one file and that file lets the environment win; and the `backup.env` parser is

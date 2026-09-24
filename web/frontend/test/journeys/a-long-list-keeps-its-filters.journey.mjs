@@ -15,6 +15,8 @@
 // THE MUTATIONS, each run:
 //   - drop `position: sticky` from `.console-toolbar` in index.css and the second
 //     `inReach('flagged')` fails — the pills went up with the page;
+//   - drop `position: sticky` from `.has-sticky-rail .meta-rail-row` and the
+//     `inReach('People')` fails — the tabs went up with the page;
 //   - put the list back in its box (`maxHeight: 'min(28em, 60vh)'` with
 //     `overflowY: 'auto'` on the works list wrapper in MetadataPage.jsx) and the
 //     `inReach('Edit Almanac Ember')` after End stays true — the page has almost
@@ -37,6 +39,9 @@ it('the filters stay in reach at the bottom of a long works list', async () => {
 
   expect(await app.inReach('Edit Almanac Ember'), 'the page did not scroll the list — is it back in a box of its own?').toBe(false)
   expect(await app.inReach('flagged'), 'the filters scrolled away with the list').toBe(true)
+  // AND THE TABS ABOVE THEM — the owner: the sticky panel "should not hide the
+  // tabs". A reader 400 rows down can still change section.
+  expect(await app.inReach('People'), 'the tabs scrolled away under the filters').toBe(true)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])
 })

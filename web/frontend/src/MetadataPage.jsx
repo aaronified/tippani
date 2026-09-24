@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useStuck } from './stuck.js'
+import { CATEGORY_SLOTS, categoryHidden, categoryName, categoryVar } from './theme.js'
+import { languageMarksState } from './languages.jsx'
+import { cachedVocabulary, primeSearchVocabulary } from './vocabulary.js'
 import { coverImgURL, errText, json } from './api.js'
 import TagsPage from './TagsPage.jsx'
 import { t } from './i18n.js'
 import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
-import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconPalette, IconMetadata, IconOpen, IconPerson, IconFetch, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, PageHeader, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
+import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconMetadata, IconOpen, IconPerson, IconFetch, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
 import { personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
@@ -14,7 +18,7 @@ import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
-import { IssuePills, RowCounts, WorkPills } from './issuePills.jsx'
+import { CreditPills, IssuePills, RowCounts, WorkPills } from './issuePills.jsx'
 import { workDetailsPanel } from './WorkDetails.jsx'
 import { nearDupGroups } from './nearDupes.js'
 
@@ -74,15 +78,13 @@ import { nearDupGroups } from './nearDupes.js'
 // eight times is eight chances to typo one into a key that resolves to nothing.
 const metadataSectionInfoKey = (id) => `metadata.section.${id}.info.body`
 
+// An address for a section that was folded into another.
+const SECTION_ALIASES = { tags: 'categories' }
+
 const METADATA_SECTIONS = [
   ['works', 'metadata.section.works.label', <IconNavWorks />],
   ['people', 'metadata.section.people.label', <IconNavUsers />],
   ['characters', 'metadata.section.characters.label', <IconNavMasks />],
-  // TAGS IS A SECTION HERE NOW AND NOT A TAB OF ITS OWN. The owner: "tags should be a
-  // section within metadata". It always answered the same question the rest of this
-  // console does — what is written across the library, and is it written consistently
-  // — and it sat in the nav beside Stats as if it were a place you go to read.
-  ['tags', 'nav.tab.tags.label', <IconNavTags />],
   // LANGUAGES IS A SECTION, AND THE v3 PACK DOES NOT DRAW ONE. That is the pack
   // being wrong rather than this being an invention: its own Settings prototype
   // says the quote faces are "read from the metadata language table, which is the
@@ -91,10 +93,15 @@ const METADATA_SECTIONS = [
   // table was a FormModal behind a button inside Sources, which is not somewhere
   // another screen can send a reader.
   ['languages', 'metadata.section.languages.label', <IconLanguages />],
-  // COLOUR CATEGORIES CAME OVER FROM SETTINGS. A category is what KIND of note a
-  // quote is — a fact about the library, like a tag or a language — and it sat in
-  // Settings only because Settings was where everything went.
-  ['categories', 'metadata.section.categories.label', <IconPalette />],
+  // CATEGORIES: THE COLOURS AND THE TAGS, ONE SECTION. The owner: "merge the tags
+  // and the colours metadata pages into one". Both are labels a reader makes and
+  // files quotes under — a colour says what KIND of note a quote is, a tag what it
+  // is ABOUT — and stickers ride with the tags as they always have. Tags had been a
+  // section of its own since it left the nav ("tags should be a section within
+  // metadata"); colour categories came over from Settings. The id stays
+  // `categories`, so the colours' address still works and /metadata/tags is an
+  // alias of it (SECTION_ALIASES).
+  ['categories', 'metadata.section.categories.label', <IconNavTags />],
   ['sources', 'metadata.section.sources.label', <IconNavSources />],
 ]
 
@@ -315,7 +322,10 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   // its Fetch is the header's, and library-wide Re-verify is Works' select-all.
   const [remembered, remember] = usePersistedState('tippani:metasection', 'works')
   const known = (id) => METADATA_SECTIONS.some(([k]) => k === id)
-  const sect = known(routed) ? routed : known(remembered) ? remembered : 'works'
+  // A SECTION FOLDED INTO ANOTHER LANDS ON THE ONE THAT HOLDS IT: Tags is part of
+  // Categories now, so an old /metadata/tags goes there rather than to Works.
+  const aliased = (id) => SECTION_ALIASES[id] || id
+  const sect = known(aliased(routed)) ? aliased(routed) : known(aliased(remembered)) ? aliased(remembered) : 'works'
   // AN ADDRESS FOR A SECTION THAT NO LONGER EXISTS IS REPLACED, not pushed over —
   // a bookmarked /metadata/overview lands on the section it resolves to, and Back
   // from there leaves Metadata instead of walking into a dead address.
@@ -326,53 +336,6 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
   const setSection = (id) => { remember(id); if (onSection) onSection(id) }
   // Walk into a section with something to do on arrival — see `intent` above.
   const enter = (id, why = null) => { setIntent(why); setSection(id) }
-
-  // THE HEADLINE VERB OF EACH SECTION, ON THE PHONE'S INDEX.
-  //
-  // The owner's standing rule is what asks for it — use the space, put what is
-  // used most in front — and Settings' index already answers it that way. This is
-  // the same answer for the same reason, which is also the repo's directive that
-  // two things which look the same behave the same: one index component, one
-  // shape of row, one place a shortcut lives.
-  //
-  // ONE VERB PER SECTION AND NOT A SECOND CONSOLE. The alternative was to lift
-  // each console's whole filter row up here, which fills every row and costs the
-  // thing that makes an index readable: eight live consoles above eight doors,
-  // each needing its own loaded state, and the door below each one no longer the
-  // way in. A shortcut that replaces the door has to carry everything the door
-  // did.
-  //
-  // FIVE ROWS GAIN NOTHING, DELIBERATELY. Tags, Languages, Categories, Sources and
-  // Characters have no single act a reader comes for — they are lists you read and
-  // edit a row of — and inventing a verb to make the index look even would put a
-  // button on a screen to balance a layout. An uneven index is the honest shape of
-  // an uneven set of sections.
-  //
-  // PRUNE IS ON PEOPLE AND NOT ALSO ON CHARACTERS, though it deletes both: it is
-  // ONE act against one endpoint, and a row says a thing once. Two buttons that do
-  // the same thing teach the reader that one of them does something else.
-  const sectionActions = mobile ? {
-    works: (
-      <div className="section-index-verbs">
-        <GhostButton icon={<IconSearch />} onClick={() => enter('works', 'scan')}>
-          {t('metadata.duplicates.scan.label')}
-        </GhostButton>
-      </div>
-    ),
-    people: (
-      <div className="section-index-verbs">
-        <GhostButton icon={<IconMetadata />} onClick={() => enter('people', 'fetch')}>
-          {t('metadata.people.fetch.label')}
-        </GhostButton>
-        {/* THE SAME COMPONENT THE CONSOLE DRAWS, not a copy of its press. It reads
-            its own orphan list, renders its own confirm naming every name, and
-            RETURNS NULL when there is nothing to prune — so the index carries it
-            only on a library that has something to remove, which is the behaviour
-            a shortcut wants and the reason this one could be lifted whole. */}
-        <PruneButton onDone={() => { load(); loadPeople(); loadChars() }} onFlash={setFlash} />
-      </div>
-    ),
-  } : {}
 
   // THE CHARACTER LIST IS THE PAGE'S, NOT THE CONSOLE'S, because the rail has to
   // print its size before the section is entered — and a list fetched twice is a
@@ -418,42 +381,109 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     // The sources row carries no number. Every other door counts records or gaps;
     // this one is a set of settings, and "5 keys" answers a question nobody has.
     sources: null,
-    // NOR DOES TAGS, and for a reason of its own rather than the same one. The rail's
-    // numbers are fetched by THIS page so the door can print a size before it is
-    // opened; the tag list is fetched by the screen behind the door. Counting it here
-    // would mean a second fetch of the same list and two numbers that can disagree —
-    // which is the trap the characters and people counts are lifted up here to avoid.
-    tags: null,
+    // NOR DOES CATEGORIES, whose tags are fetched by the screen behind the door —
+    // counting them here would be a second fetch of the same list and two numbers
+    // that can disagree, the trap the character and people counts are lifted to avoid.
+    categories: null,
   }
   // Built here rather than inside the sheet: the sheet is mounted only while open,
   // and the count belongs to the page whether or not anybody is looking at it.
   const issues = libraryIssues({ stats, people, chars })
+
+  // WHAT EACH DOOR CARRIES ON THE PHONE'S INDEX — and it was a name, an arrow and
+  // for two of them a button wearing only its glyph. The owner: "the metadata phone
+  // index page looks like shit", beside a Settings index whose every card carries
+  // the controls a reader comes for. The standing rule is the same one: use the
+  // space, and put in front what is used most.
+  //
+  // SO EACH DOOR SAYS WHAT IS BEHIND IT. The three consoles show their open issues
+  // as pills, and a pill is a door straight to the console filtered to that issue —
+  // the numbers the issues sheet counts, where the reader was already looking. The
+  // verbs keep their words (Scan, Fetch, Prune). Languages shows the languages in
+  // their marks; Categories shows the colours by name. Sources has no summary that
+  // does not need its own fetch, so it stays a door.
+  // ONE PILL PER NAME. Books and films both have a "no source" gap, and two pills
+  // reading "no source 22" side by side are two doors a reader cannot tell apart;
+  // merged, the count is both and the door is Works across every type.
+  const doorPills = (section) => {
+    const byLabel = new Map()
+    for (const i of issues.filter((x) => x.go.section === section)) {
+      const got = byLabel.get(i.label)
+      if (!got) byLabel.set(i.label, i)
+      else byLabel.set(i.label, { ...got, n: got.n + i.n, go: { ...got.go, type: 'all' } })
+    }
+    return [...byLabel.values()]
+  }
+  // The library's languages, from the session cache and then fresh — the index is
+  // often the first screen that asks, so reading the cache alone drew nothing.
+  const [vocabLanguages, setVocabLanguages] = useState(() => cachedVocabulary()?.languages || [])
+  useEffect(() => {
+    if (!mobile) return
+    primeSearchVocabulary().then((v) => setVocabLanguages(v?.languages || [])).catch(() => {})
+  }, [mobile])
+  const doorLanguages = mobile ? languageMarksState(vocabLanguages) : []
+  const sectionActions = mobile ? {
+    works: (
+      <div className="section-index-body">
+        <IssueDoors rows={doorPills('works')} onPick={pickGap} />
+        <div className="section-index-verbs">
+          <GhostButton icon={<IconSearch />} keepLabel onClick={() => enter('works', 'scan')}>
+            {t('metadata.duplicates.scan.label')}
+          </GhostButton>
+        </div>
+      </div>
+    ),
+    people: (
+      <div className="section-index-body">
+        <IssueDoors rows={doorPills('people')} onPick={pickGap} />
+        <div className="section-index-verbs">
+          <GhostButton icon={<IconMetadata />} keepLabel onClick={() => enter('people', 'fetch')}>
+            {t('metadata.people.fetch.label')}
+          </GhostButton>
+          {/* THE SAME COMPONENT THE CONSOLE DRAWS, not a copy of its press — and it
+              returns null when there is nothing to prune. */}
+          <PruneButton onDone={() => { load(); loadPeople(); loadChars() }} onFlash={setFlash} />
+        </div>
+      </div>
+    ),
+    characters: doorPills('characters').length > 0 ? (
+      <div className="section-index-body"><IssueDoors rows={doorPills('characters')} onPick={pickGap} /></div>
+    ) : null,
+    languages: doorLanguages.length > 0 ? (
+      <div className="section-index-body">
+        {/* A PREVIEW, NOT A ROW OF DOORS: every chip would open the same section,
+            so they are drawn as what is there and the door is the row's arrow. */}
+        <Scroller axis="x" className="issue-pills section-index-pills">
+          {doorLanguages.map((row) => (
+            <span key={row.key} className="section-index-preview">
+              <span className="section-index-lang-mark" aria-hidden="true">{row.resolved || [...row.name][0]}</span>
+              {row.name}
+            </span>
+          ))}
+        </Scroller>
+      </div>
+    ) : null,
+    categories: (
+      <div className="section-index-body">
+        <Scroller axis="x" className="issue-pills section-index-pills">
+          {CATEGORY_SLOTS.filter((c) => !categoryHidden(c)).map((c) => (
+            <span key={c} className="section-index-preview">
+              <span className="section-index-swatch" style={{ background: categoryVar(c) }} aria-hidden="true" />
+              {categoryName(c)}
+            </span>
+          ))}
+        </Scroller>
+      </div>
+    ),
+  } : {}
   return (
     <section className="space-y-6">
-      {/* NO HEADER ON A PHONE. The shell bar draws "Metadata" and takes the count
-          as its sub-line, so this header was a second sticky row saying the same
-          two things one row lower. The phone's note about this being the
-          scaled-down console went with it, to the dot beside the section select
-          — where the thing it explains actually is. The tab's own name for the
-          title, not a second copy of the word. */}
-      {!mobile && (
-        <PageHeader
-          title={t('nav.tab.metadata.label')}
-          right={
-            user?.is_admin && (
-              <IconButton
-                icon={<IconMetadata />}
-                label={t('metadata.fetch.label')}
-                ariaLabel={t('metadata.fetch.aria')}
-                tooltip={t('metadata.fetch.tip')}
-                tipSide="bottom"
-                onClick={() => fetchMissingCovers(false)}
-                disabled={busy}
-              />
-            )
-          }
-        />
-      )}
+      {/* NO HEADER ROW AT ALL. The phone lost it first, for restating the shell
+          bar; on a desk it survived as a row holding nothing but Fetch, which put
+          Metadata's tabs a button's height lower than Settings' — the owner: "the
+          space between the topbar and the tabs is not uniform… this seems to be
+          the effect of the stray fetch button. that can be in the tab row itself."
+          Fetch rides at the tab row's far end now, where Settings keeps Reset. */}
       <ErrorText>{error}</ErrorText>
       {busy && progress && (
         <ProgressBar
@@ -504,6 +534,22 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           open={onSection ? !!routed : undefined}
           onChange={setSection}
           ariaLabel={t('metadata.section.aria')}
+          // THE TABS STAY ON SCREEN over the three long lists, above their stuck
+          // toolbar, so a reader 400 rows down can still change section.
+          stickyRail={sect === 'works' || sect === 'people' || sect === 'characters'}
+          aside={user?.is_admin ? {
+            action: (
+              <IconButton
+                icon={<IconMetadata />}
+                label={t('metadata.fetch.label')}
+                ariaLabel={t('metadata.fetch.aria')}
+                tooltip={t('metadata.fetch.tip')}
+                tipSide="bottom"
+                onClick={() => fetchMissingCovers(false)}
+                disabled={busy}
+              />
+            ),
+          } : null}
           /* NO PAGE-LEVEL DOT, and Settings' identical rail never had one. The
              index carried a dot saying "this is the trimmed-down maintenance
              view — open Tippani on a desktop for the full metadata console",
@@ -547,7 +593,9 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
               />
             </>
           ) : sect === 'categories' ? (
-            <ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />
+            // THE TAGS SCREEN WITH THE COLOURS AS ITS FIRST CARD, packed as
+            // masonry like every other section's cards.
+            <TagsPage embedded lead={<ColourCategoriesCard prefs={user.preferences} onSaved={onPreferences} />} />
           ) : sect === 'languages' ? (
             // THE PANEL ITSELF, not a door to it. It was a FormModal behind a
             // button on Sources; Settings now points at this section for what a
@@ -561,12 +609,6 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
             </Card>
           ) : sect === 'sources' ? (
             <MetadataSources user={user} onPreferences={onPreferences} />
-          ) : sect === 'tags' ? (
-            // THE WHOLE TAGS SCREEN, unchanged, inside this one's frame. It keeps its
-            // own loading, its own stickers and its own table — moving a screen into a
-            // section is a change of ADDRESS, not an invitation to rewrite what it
-            // does, and a reader who knew it as a tab should find the same page.
-            <TagsPage embedded />
           ) : sect === 'people' ? (
             <PeopleConsole
               records={people}
@@ -798,32 +840,38 @@ const withAnyIssue = (defs, rows) => (rows || []).filter((r) => defs.some(([, , 
 const H2 = { fontFamily: 'var(--font-ui)', fontStyle: 'var(--font-ui-style)', fontVariantCaps: 'var(--font-ui-caps)', textTransform: 'var(--font-ui-case)', fontVariantNumeric: 'var(--font-ui-figures)', fontSize: 'var(--type-ui-17)', fontWeight: 600 }
 
 // ConsoleToolbar — the filter row, the issue pills and the bulk bar of a console,
-// stuck under the top bar while the list scrolls under it.
+// stuck under the tab row while the list scrolls under it.
 //
-// THE GROUND APPEARS ONLY WHILE IT IS STUCK. At rest the toolbar sits on the
-// page like any other row, and a solid band there reads as a stripe painted
-// over the paper; once rows pass under it the band is what keeps them from
-// showing through. Measured, not guessed: the observer watches the toolbar
-// cross its own sticky line.
+// A CARD WHILE IT IS STUCK, NOTHING AT REST. At rest the toolbar sits on the page
+// like any other row; stuck, it is the lower half of one card whose upper half is
+// the stuck tab row — the owner: "it should not hide the tabs. and the sticky
+// panel should look like a card, not the angular rectangle it is now."
 function ConsoleToolbar({ children }) {
   const ref = useRef(null)
-  const [stuck, setStuck] = useState(false)
-  useEffect(() => {
-    const el = ref.current
-    if (!el || typeof IntersectionObserver === 'undefined') return undefined
-    const top = parseFloat(getComputedStyle(el).top) || 0
-    // CLIPPED AT THE TOP, NOT MERELY CLIPPED. A ratio under 1 is also what a
-    // toolbar reports when the window's BOTTOM cuts it — a short window, or a
-    // desk toolbar carrying pills and a bulk bar — and it painted its band at rest
-    // there (measured at 1440×420: top 318, `is-stuck`).
-    const io = new IntersectionObserver(([e]) => setStuck(e.intersectionRatio < 1 && e.boundingClientRect.top <= (e.rootBounds?.top ?? top + 1)), {
-      rootMargin: `-${top + 1}px 0px 0px 0px`,
-      threshold: [1],
-    })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
+  const stuck = useStuck(ref)
   return <div ref={ref} className={'console-toolbar' + (stuck ? ' is-stuck' : '')}>{children}</div>
+}
+
+// IssueDoors — a console's open issues as pills on the phone's index, each a door
+// into that console filtered to the issue. At module level so the index does not
+// remount it on every render.
+function IssueDoors({ rows, onPick }) {
+  if (rows.length === 0) return null
+  return (
+    <Scroller axis="x" className="issue-pills section-index-pills">
+      {rows.map((row) => (
+        <button
+          key={row.id}
+          type="button"
+          className="tp-filter-chip issue-pill tactile"
+          onClick={() => onPick(row.go.type, row.go.filter, row.go.section)}
+        >
+          <span className="issue-pill-label">{row.label}</span>
+          <span className="issue-pill-count">{row.n}</span>
+        </button>
+      ))}
+    </Scroller>
+  )
 }
 
 // runPooled runs fn over items with a small concurrency cap (SQLite is a single
@@ -2143,83 +2191,65 @@ const characterMedia = (worksIn) => {
 function CharacterRow({ c, first, onOpen, onMerge, onDelete, onWork = null, onPerson = null }) {
   const works = c.works || 0
   const media = characterMedia(c.works_in)
-  // ONE PILL PER PERFORMER, not per appearance: an actor who plays a character in
-  // four films is one person, and four identical pills would be the row counting
-  // appearances in a place that is naming people.
-  const performers = [...new Map((c.works_in || [])
-    // EVERY PERFORMER ON EVERY APPEARANCE. An appearance carries a LIST — a work
-    // can bill one character twice, a role and its voice, and the server sent the
-    // higher id alone for one commit. De-duplicated by id across works, because a
-    // reader wants the cast of the character rather than a pill per film.
-    .flatMap((w) => w.actors || [])
-    .filter((a) => a.id && a.name)
-    .map((a) => [a.id, a])).values()]
+  // A PERFORMER AND THE WORK THEY PLAYED THE PART IN ARE ONE CHIP — the owner:
+  // "performer and work shall be in the same chip, as they are interdependent."
+  // Two strips, one of people and one of works, could not say who played the part
+  // in which film. Every performer on an appearance is listed (a work can bill a
+  // role and its voice), each a door to the person; a book has none, and its chip
+  // is the plain work.
+  const items = (c.works_in || []).slice(0, MAX_ROW_WORK_PILLS).map((w) => {
+    const actors = (w.actors || []).filter((a) => a.id && a.name)
+    return {
+      work: w,
+      lead: actors.length > 0 && actors.map((a) => (
+        <button key={a.id} type="button" className="credit-pill-person tactile" onClick={() => onPerson?.(a)}>{a.name}</button>
+      )),
+    }
+  })
   return (
     <RecordRow
       first={first}
-      mark={<Face src={c.image_path} url={coverImgURL} name={c.name || ''} className="char-name-face" />}
+      className="record-row-lg"
+      /* THE SAME PORTRAIT AS A PERSON'S — the owner: "character images in the
+         character page are still small, they should be the same size as the images
+         in the people page." Same box, same full-row height, same circle; a
+         character's face opens nothing, so it is a plain span in that box. */
+      mark={
+        <span className="person-face-btn is-static">
+          <Face src={c.image_path} url={coverImgURL} name={c.name || ''} className="person-face-inner" />
+        </span>
+      }
       name={c.name}
       onOpen={onOpen}
       /* ZERO AND ZERO IS STILL THE ANSWER, so the counts draw whatever they are:
          "0 works, 0 quotes" is the finding on a character nobody points at, and
          it is the finding the filter row's own pills are counting. */
-      /* THE SAME TWO LINES THE PERSON ROW DRAWS, with the facts a character has
-         instead of the ones a person has. "Characters need to be redesigned like
-         this as well" — and the repo's own directive says why the SHAPE must
-         match even though the contents do not: two lists of records, one form. */
-      sub={<>
-        <span className="record-row-line">
-          <RowCounts
-            works={works}
-            quotes={c.quotes || 0}
-            worksLabel={t('metadata.row.works.label')}
-            quotesLabel={t('metadata.row.quotes.label')}
-          />
-          {media.length > 0 && (
-            <span className="row-role-marks">
-              {media.map(([key, [Glyph, words]]) => {
-                // ` · ` IS THIS FILE'S OWN SEPARATOR for a list inside one label —
-                // the spellings sub-line and the fetch flash both use it — so a
-                // mark covering two media reads the way every other list here does,
-                // and no new string is invented for a case with two members.
-                const label = words.map((w) => t(w, { count: 1 })).join(' · ')
-                return (
-                  <Tooltip key={key} label={label}>
-                    <span className="row-role-mark" role="img" aria-label={label}>
-                      <Glyph size={15} />
-                    </span>
-                  </Tooltip>
-                )
-              })}
-            </span>
-          )}
-        </span>
-        <span className="record-row-line">
-          {performers.length > 0 && (
-            <Scroller axis="x" className="row-work-pills">
-              {performers.map((a) => (
-                /* A PERFORMER PILL IS A DOOR TO THE PERSON, which is what makes it
-                   worth being a pill rather than a word: a character and the people
-                   who played them are two records, and this row is the only place in
-                   the app where the pair is drawn together. A performer the library
-                   has no record for is not drawn at all — see actor_id on the wire. */
-                <button
-                  key={a.id}
-                  type="button"
-                  className="tp-chip work-pill tactile"
-                  onClick={() => onPerson?.(a)}
-                >
-                  <span className="work-pill-title">{a.name}</span>
-                </button>
-              ))}
-            </Scroller>
-          )}
-          <WorkPills
-            works={(c.works_in || []).slice(0, MAX_ROW_WORK_PILLS)}
-            onOpen={onWork}
-          />
-        </span>
+      head={<>
+        <RowCounts
+          works={works}
+          quotes={c.quotes || 0}
+          worksLabel={t('metadata.row.works.label')}
+          quotesLabel={t('metadata.row.quotes.label')}
+        />
+        {media.length > 0 && (
+          <span className="row-role-marks">
+            {media.map(([key, [Glyph, words]]) => {
+              // ` · ` IS THIS FILE'S OWN SEPARATOR for a list inside one label —
+              // the spellings sub-line and the fetch flash both use it — so a
+              // mark covering two media reads the way every other list here does.
+              const label = words.map((w) => t(w, { count: 1 })).join(' · ')
+              return (
+                <Tooltip key={key} label={label}>
+                  <span className="row-role-mark" role="img" aria-label={label}>
+                    <Glyph size={15} />
+                  </span>
+                </Tooltip>
+              )
+            })}
+          </span>
+        )}
       </>}
+      sub={<CreditPills items={items} onOpen={onWork} />}
       actions={[
         {
           key: 'merge',
@@ -3052,7 +3082,17 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
 // to recognise.
 function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, onDelete, onWork = null, first = false }) {
   const face = p.image_path ? personImgURL(p.image_path) : ''
-  const roles = (p.kinds || []).map((k) => [k, t(PEOPLE_ROLE_NOUN[k] || 'unit.person', { count: 1 })])
+  // A ROLE AS ITS GLYPH, with its word as the name — the tight half of the count
+  // rule, since a chip or a row line has no room for the word.
+  const roleMark = (k) => {
+    const word = t(PEOPLE_ROLE_NOUN[k] || 'unit.person', { count: 1 })
+    const Glyph = PEOPLE_ROLE_ICON[k]
+    return Glyph
+      ? <Tooltip key={k} label={word}><span className="row-role-mark" role="img" aria-label={word}><Glyph size={15} /></span></Tooltip>
+      : <span key={k} className="row-role-word">{word}</span>
+  }
+  const onWorks = new Set((p.works_in || []).flatMap((w) => w.roles || []))
+  const looseRoles = (p.kinds || []).filter((k) => !onWorks.has(k))
   const fetched = Object.keys(parseLinks(p.links).known).length > 0 || !!p.image_path
   const fetchLabel = busy
     ? t('metadata.people.row.fetch.busy')
@@ -3086,6 +3126,7 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, onDelete, o
   return (
     <RecordRow
       first={first}
+      className="record-row-lg"
       mark={
         <button
           type="button"
@@ -3134,45 +3175,41 @@ function PersonRow({ p, busy, onOpen, onPortrait, onSearch, onFetch, onDelete, o
          is what a hover or a hold gives back. The chip with its word beside it is
          gone from the row; the person's own panel is where the legend lives, and
          the owner said so: "The icon will be explained in the person popup". */
-      sub={<>
-        <span className="record-row-line">
-          <RowCounts
-            works={p.works || 0}
-            quotes={p.quotes || 0}
-            worksLabel={t('metadata.row.works.label')}
-            quotesLabel={t('metadata.row.quotes.label')}
-            /* WHAT PRESSING IT DOES, beside what the number is — see RowCounts. */
-            worksTip={p.works > 0 && onSearch ? t('metadata.people.search.tip', { name: p.name }) : ''}
-            onWorks={p.works > 0 && onSearch ? () => onSearch(p.name) : null}
-          />
-          {roles.length > 0 && (
-            <span className="row-role-marks">
-              {roles.map(([k, word]) => {
-                const Glyph = PEOPLE_ROLE_ICON[k]
-                return Glyph
-                  ? <Tooltip key={k} label={word}><span className="row-role-mark" role="img" aria-label={word}><Glyph size={15} /></span></Tooltip>
-                  : <span key={k} className="tp-chip">{word}</span>
-              })}
-            </span>
-          )}
-        </span>
-        <span className="record-row-line">
-          {/* THE PROVIDERS MOVED UP HERE FROM A LINE OF THEIR OWN below the row,
-              and became MARKS on the way. They were a third block under the
-              record — drawn at every width, which was itself a repair — and the
-              owner's spec puts them on the row's own second line beside the works
-              they were fetched from: "Row3: provider icons • work pills". Two
-              places drawing one fact is how one of them goes stale; there is one
-              now. */}
-          <ProviderChips links={p.links} marks />
-          <WorkPills
-            works={(p.works_in || []).slice(0, MAX_ROW_WORK_PILLS)}
-            onOpen={onWork}
-          />
-        </span>
-        {(p.spellings || []).length > 0 && (
-          <span className="block">{t('metadata.people.also', { names: p.spellings.join(' · ') })}</span>
+      head={<>
+        <RowCounts
+          works={p.works || 0}
+          quotes={p.quotes || 0}
+          worksLabel={t('metadata.row.works.label')}
+          quotesLabel={t('metadata.row.quotes.label')}
+          /* WHAT PRESSING IT DOES, beside what the number is — see RowCounts. */
+          worksTip={p.works > 0 && onSearch ? t('metadata.people.search.tip', { name: p.name }) : ''}
+          onWorks={p.works > 0 && onSearch ? () => onSearch(p.name) : null}
+        />
+        {/* A ROLE NO WORK CARRIES STAYS ON THE NAME LINE — a speaker's quotes, a
+            role saved on the record with no credit behind it — so moving the
+            glyphs into the work chips cannot drop one. */}
+        {looseRoles.length > 0 && (
+          <span className="row-role-marks">{looseRoles.map(roleMark)}</span>
         )}
+        <ProviderChips links={p.links} marks />
+        {/* THE OTHER SPELLINGS RIDE THE NAME'S LINE, so the row stays two lines on
+            a desk ("two rows only in desktop") — they are about the name. */}
+        {(p.spellings || []).length > 0 && (
+          <span className="cs-row-sub">{t('metadata.people.also', { names: p.spellings.join(' · ') })}</span>
+        )}
+      </>}
+      /* ONE STRIP: EACH WORK WITH WHAT THIS PERSON DID ON IT. The owner: "same
+         thing for the role-type-icons and work chip in people screen" — the role
+         and the work are one chip, because a row of role glyphs beside a row of
+         works could not say which book was written and which translated. */
+      sub={<>
+        <CreditPills
+          items={(p.works_in || []).slice(0, MAX_ROW_WORK_PILLS).map((w) => ({
+            work: w,
+            lead: (w.roles || []).length > 0 && <span className="row-role-marks">{w.roles.map(roleMark)}</span>,
+          }))}
+          onOpen={onWork}
+        />
       </>}
       chips={[]}
       chipsEmpty={null}

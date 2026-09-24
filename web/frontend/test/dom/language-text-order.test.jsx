@@ -73,7 +73,7 @@ const open = async () => {
 // is unchanged; what changed is how a reader names the choice. On a row it is the
 // name the icon announces, "Bengali: translation only", which is the language and
 // the word together — the icon alone would be a picture to a screen reader.
-const rowFor = (name) => screen.findByRole('radiogroup', { name: new RegExp(`^${name}$`, 'i') })
+const rowFor = (name) => screen.findByRole('radiogroup', { name: new RegExp(`^${name}(, own setting)?$`, 'i') })
 const master = () => screen.getByRole('radiogroup', { name: /^all languages$/i })
 const written = () => PUTS.filter(([p]) => p === '/auth/me/preferences').map(([, b]) => JSON.parse(b.textOrder))
 
@@ -143,16 +143,22 @@ describe('a row with a setting of its own', () => {
     expect(document.querySelector('[title]')).toBeNull()
   })
 
-  it('says so in words beside its name, and the default explains why it looks dimmed', async () => {
+  it('wears the dot beside its name, says so to a screen reader, and the default explains why it looks dimmed', async () => {
     PREFS = { textOrder: JSON.stringify({ master: 'quote-first', byLanguage: { bengali: 'trans-only' } }) }
     await open()
     await rowFor('Bengali')
-    // COLOUR IS NOT THE ONLY SIGNAL. The accent on the chosen icon says it to an
-    // eye; the words say it to everything else.
-    expect(screen.getAllByText(/own setting/i)).toHaveLength(1)
+    // THE DOT, NOT THE WORDS — the owner: "own settings need not be spelled out.
+    // you can use the dot." So the words are not painted on the row…
+    expect(screen.queryByText(/own setting/i)).toBeNull()
+    // …but they are still SAID, in the name of the one row's chooser that has a
+    // setting of its own — what a screen reader announces on the way in.
+    expect(screen.getByRole('radiogroup', { name: 'Bengali, own setting' })).toBeTruthy()
+    expect(screen.queryByRole('radiogroup', { name: /^(hindi|english), own setting$/i })).toBeNull()
     // AND THE DEFAULT'S TOOLTIP IS PART OF THE SIGNAL: a dimmed control with
     // nothing to say reads as disabled, when it is the one control that still
     // does something to every row.
-    expect(document.querySelector('[title]')?.getAttribute('title')).toMatch(/own setting/i)
+    const tips = [...document.querySelectorAll('[title]')].map((e) => e.getAttribute('title'))
+    expect(tips.some((tip) => tip.length > 'own setting'.length && /own setting/i.test(tip)),
+      'the dimmed default says nothing about why').toBe(true)
   })
 })

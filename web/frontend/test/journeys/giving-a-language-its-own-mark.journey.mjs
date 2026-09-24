@@ -26,6 +26,10 @@ it('a reader gives a language a mark of their own and the row wears it', async (
   await app.type('Add a mark of your own', '✦')
   await app.pressKey('Enter')
   await app.press('Save')
+  // THE EDITOR CLOSES WHEN THE SAVE HAS LANDED — it re-reads what is stored, then
+  // writes — so wait for that, as a person does, before leaving the page: a
+  // navigation straight after the press can abort the write in flight.
+  await app.gone('Add a mark of your own')
 
   await app.goto('/metadata/languages')
   await app.see('✦')

@@ -16,6 +16,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because the new release requires it. No behaviour change.
 
 ### Changed
+- **The Metadata index on a phone says what is behind each door.** Works, People and Characters
+  show their open issues as pills that open the console filtered to that issue; the Scan and
+  Fetch buttons carry their words; Languages shows the languages in their marks and Categories
+  its colours.
+
+- **Metadata and Settings cards pack as masonry on a desk,** in reading order, so a short card
+  beside a long one no longer leaves an empty column under it. Fetch moved into Metadata's tab
+  row, so every section's tabs sit at the same height; a selected tab's underline reaches the
+  same distance past the word whether or not the tab carries a count.
+
+- **The Works, People and Characters tabs stay on screen while their lists scroll,** above the
+  stuck filter bar, and the two draw as one card rather than a flat band.
+
+- **People and Characters rows are two lines on a desk.** The name is larger and shares its line
+  with the counts and marks; the second line is one strip of chips, each pairing a work with
+  what goes with it — the performers who played the part in it, or the person's role on it.
+  Character portraits are the same size as people's.
+
+- **Quote fonts are chosen in Metadata › Languages.** Each language's quote font is a column of
+  its row on a desk (with the language's own name drawn in that face) and a field in its editor
+  on a phone; the default font sits at the top beside the default for how much of the original a
+  quote shows. Settings keeps a half-width card that links there. A row with its own setting now
+  wears a dot rather than the words "own setting".
+
+- **Tags and Colours are one Metadata section, Categories.** The colour categories, the tags and
+  the stickers sit together as cards, each under its own heading; an old /metadata/tags address
+  lands there.
+
 - **Metadata › Languages is one row per language, linked to its ISO 639-3 code.** How much of
   the original a quote shows is four icons per row, with words only on the All languages default
   above them. Each row shows the language's three-letter ISO 639-3 code (Ancient Greek is grc,
@@ -53,6 +81,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and Devices cards now points where the control actually is.
 
 ### Fixed
+- **Three English labels matched the rest:** "Version" and "Restore from" on Server were
+  lower-case, and the default quote font was called "Every language" beside an order default
+  called "All languages".
+
 - **A language mark is drawn as the character you chose.** With the interface face set to All
   caps or Small caps, the mark took the face's case, so German's ß was drawn as "SS" (a small
   "ss" in small caps) on every German quote. Marks now ignore the face's case settings

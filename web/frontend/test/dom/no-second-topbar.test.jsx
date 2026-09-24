@@ -40,7 +40,10 @@ const SCREENS_WITHOUT_A_HEADER = ['settings', 'metadata', 'stats', 'bin']
 // (settings-restructured.dc.html:120-122). The same argument plainly applies to
 // Metadata, Stats and Bin and is not this change's to make — they keep their headers
 // until somebody looks at them on purpose.
-const SCREENS_KEEPING_A_DESK_HEADER = SCREENS_WITHOUT_A_HEADER.filter((k) => k !== 'settings')
+// SETTINGS AND METADATA DRAW NO DESK HEADER: the breadcrumb names them, and
+// Metadata's only header content — Fetch — moved into its tab row (the owner:
+// "that can be in the tab row itself").
+const SCREENS_KEEPING_A_DESK_HEADER = SCREENS_WITHOUT_A_HEADER.filter((k) => k !== 'settings' && k !== 'metadata')
 
 let BAR = { sub: null, keys: null }
 const Probe = () => {
@@ -100,10 +103,12 @@ describe('on a desk, the same screens keep their header', () => {
     })
   }
 
-  it('settings draws none, because the breadcrumb already names it', async () => {
-    width(false)
-    BAR = { sub: null, keys: null }
-    await mount('settings')
-    expect(document.querySelectorAll('.page-header')).toHaveLength(0)
-  })
+  for (const key of ['settings', 'metadata']) {
+    it(`${key} draws none, because the breadcrumb already names it`, async () => {
+      width(false)
+      BAR = { sub: null, keys: null }
+      await mount(key)
+      expect(document.querySelectorAll('.page-header')).toHaveLength(0)
+    })
+  }
 })

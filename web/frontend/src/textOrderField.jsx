@@ -184,11 +184,15 @@ export function TextOrderChoice({ value, onChange, ariaLabel }) {
 // default draws its choice on a quiet fill; a row that differs draws it in the
 // accent — and says so in words beside the name, because colour is not the only
 // signal.
-export function TextOrderPicker({ value, onChange, name, showWord = false, own = false, dim = false }) {
+export function TextOrderPicker({ value, onChange, name, showWord = false, own = false, dim = false, groupLabel = undefined }) {
   return (
     <div
       role="radiogroup"
-      aria-label={name}
+      // `groupLabel` is how a row says what its dot says to an eye — "English, own
+      // setting" — in the group's NAME, where a screen reader announces it on the
+      // way in. The options keep the plain `name`, so each still reads
+      // "English: translation first".
+      aria-label={groupLabel || name}
       className={'text-order-picker' + (showWord ? ' has-words' : '') + (dim ? ' is-dim' : '')}
     >
       {TEXT_ORDERS.map((k) => {

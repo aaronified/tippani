@@ -1402,40 +1402,26 @@ function FontRow({ row, scope, script, factor, mine, warn, onFace, onStyle, onSi
 // should always have serif, while english is sans serif… And this is only for the
 // quotes themselves. All else go by the ui fonts section."
 //
-// WHY IT IS A POP-UP AND NOT A GROUP. The list is as long as the reader's library
-// has languages — one row each, with no ceiling — and a section that grows without
-// bound pushes every fixed row on the screen below the fold. The pack's own note
-// says Settings should "read from the metadata language table… rather than keeping
-// a second list"; this keeps no list. It reads that table and writes the faces.
+// WHERE IT IS CHOSEN MOVED TWICE. A pop-up behind a button, then a group on
+// this screen, and now a column of the language table in Metadata — the one list
+// of languages there is. What stays here is the writer and the pieces the table
+// draws with, so the save path is still this file's.
+
+// useQuoteFaces — the one writer for a language's quote face, shared by the
+// language table in Metadata, which is where the faces are chosen now. It was the
+// body of a Settings group; the owner moved the choosing ("the quote font
+// selection can be added to the metadata language screen") and a second copy of
+// the save would be the second place a face is written.
 //
-// AND THE LANGUAGES ARE ADDED SOMEWHERE ELSE, which is why the panel carries a
-// door rather than an add box. A language exists because a quote is in it or
-// because it was named in Metadata; inventing one here would be a second way to
-// create the same row, and the two would disagree the first time anybody used the
-// other.
-//
-// THE SAMPLE IS THE LANGUAGE'S OWN NAME FOR ITSELF, drawn in the face being
-// chosen: Deutsch in the serif you gave German, বাংলা in the Bengali face. It is
-// the same test the script check makes and a reader can make it by eye — a face
-// with no Bengali in it draws that row as boxes, on the row where it was picked.
-function QuoteFaces({ prefs, onSaved, onGo, index, defaultRow = null }) {
-  // What the library holds, seeded from the cache so a second opening draws the
-  // rows on the first paint — this list arrives over the network, and a table that
-  // lands a frame late reads as a panel with nothing in it.
-  const [inLibrary, setInLibrary] = useState(() => cachedVocabulary()?.languages || [])
-  useEffect(() => {
-    primeSearchVocabulary().then((v) => setInLibrary(v?.languages || [])).catch(() => {})
-  }, [])
+// Applied first and asked after, like every other type control: the point of a
+// face picker is watching the type move.
+export function useQuoteFaces(prefs, onSaved) {
   const [draft, setDraft] = useState(null)
   const [err, setErr] = useState('')
   const live = draft || prefs || {}
   useEffect(() => { setDraft(null) }, [prefs])
-  const rows = languageMarksState(inLibrary)
-
-  // Applied first and asked after, like every other type control here: the point
-  // of a face picker is watching the type move.
-  async function saveFace(row, token) {
-    const patch = quoteFontPatch(live, row.key, token)
+  async function saveFace(key, token) {
+    const patch = quoteFontPatch(live, key, token)
     const next = { ...live, ...patch }
     setDraft(next)
     applyFonts(next, localeActive())
@@ -1449,74 +1435,61 @@ function QuoteFaces({ prefs, onSaved, onGo, index, defaultRow = null }) {
     setErr('')
     onSaved?.(patch)
   }
+  return { live, err, saveFace, faceFor: (key) => quoteFaceFor(live, key) }
+}
 
+// THE SAMPLE IS THE LANGUAGE'S OWN NAME FOR ITSELF, drawn in the face being
+// chosen: Deutsch in the serif you gave German, বাংলা in the Bengali face. It is
+// the same test the script check makes and a reader can make it by eye — a face
+// with no Bengali in it draws that row as boxes, on the row where it was picked.
+export function QuoteFaceSample({ languageKey, name, face }) {
+  // The autonym where this app knows one, and what the reader calls the language
+  // where it does not: a sample has to be IN the script to say anything.
+  const sample = languageFor(languageKey)?.autonym || name
   return (
-    <PrefGroup index={index} title={t('settings.quote-faces.title')} sub={t('settings.quote-faces.intro.prose')} wide>
-      {/* WHAT EVERY LANGUAGE FALLS BACK TO, at the head of the table it is the
-          default for. A per-language table with no default is a table that cannot
-          answer "what are my quotes set in" — only "what is my German set in" —
-          and the answer used to live two groups up under a heading about the
-          interface. */}
-      {defaultRow}
-      {rows.length === 0 && <p className="microcopy">{t('settings.quote-faces.none')}</p>}
-      {rows.map((row) => {
-        const chosen = quoteFaceFor(live, row.key)
-        // The autonym where this app knows one, and what the reader calls the
-        // language where it does not: a sample has to be IN the script to say
-        // anything about a face that draws it.
-        const sample = languageFor(row.key)?.autonym || row.name
-        return (
-          <PrefRow
-            key={row.key}
-            label={row.name}
-            changed={!!chosen}
-            said={
-              <p
-                className="font-specimen"
-                dir="auto"
-                style={{ fontFamily: chosen ? `'${chosen.family}'` : undefined, fontSize: 'var(--type-display-17)' }}
-              >
-                {sample}
-              </p>
-            }
-            control={
-              <FaceSelect
-                faces={ALL_FACES}
-                // THE LANGUAGE'S OWN SCRIPT, FROM ITS ISO TAG — the owner's ask,
-                // and the place it matters most: this list is being chosen for
-                // ONE language, so a face that can write it should say so in the
-                // script it writes, and one that cannot should not pretend by
-                // wearing a Latin name beside the others.
-                script={scriptOf(row.key)}
-                value={chosen?.id || ''}
-                inheritLabel={t('settings.languages.face.inherit')}
-                ariaLabel={t('settings.languages.face.aria', { name: row.name })}
-                onChange={(id) => saveFace(row, id)}
-              />
-            }
-          />
-        )
-      })}
-      {/* THE DOOR, AT THE FOOT OF THE LIST IT EXPLAINS. A language missing from
-          this panel is missing because nothing in the library is in it and nobody
-          has named it — which is a thing to do on Metadata, not here. */}
-      {/* THE DOOR, AT THE FOOT OF THE LIST IT EXPLAINS. A language missing from
-          this list is missing because nothing in the library is in it and nobody
-          has named it — which is a thing to do on Metadata, not here.
+    <span
+      className="font-specimen quote-face-sample"
+      dir="auto"
+      style={{ fontFamily: face ? `'${face.family}'` : undefined }}
+    >
+      {sample}
+    </span>
+  )
+}
 
-          THE LANGUAGE TABLE, NOT METADATA'S FRONT DOOR. A reader sent here wants
-          to add a language, and Metadata is eight sections; landing them on the
-          overview and letting them find Languages is the difference between a
-          door and a direction. */}
+// QuoteFaceSelect — which face one language's quotes are set in. THE LANGUAGE'S
+// OWN SCRIPT, FROM ITS ISO TAG: this list is chosen for ONE language, so a face
+// that can write it says so in the script it writes, and one that cannot does not
+// pretend by wearing a Latin name beside the others.
+export function QuoteFaceSelect({ languageKey, name, value, onChange }) {
+  return (
+    <FaceSelect
+      faces={ALL_FACES}
+      script={scriptOf(languageKey)}
+      value={value || ''}
+      inheritLabel={t('settings.languages.face.inherit')}
+      ariaLabel={t('settings.languages.face.aria', { name })}
+      onChange={onChange}
+    />
+  )
+}
+
+// QuoteFontsLink — what is left of the quote-face group on Settings: the door.
+// The owner: "in settings, the quote font card will only carry the link to
+// metadata/languages (on desktop, a half width card)." A face is a fact about a
+// language, and the languages live in one table; two lists of them would disagree
+// the first time a language was added to one.
+function QuoteFontsLink({ onGo, index }) {
+  return (
+    <PrefGroup index={index} title={t('settings.quote-faces.title')}>
       <PrefRow
-        label={t('settings.quote-faces.add.prose')}
+        label={t('settings.quote-faces.link.prose')}
         control={
           <GhostButton icon={<IconOpen />} keepLabel onClick={() => onGo?.('metadata', 'languages')}>
             {t('settings.quote-faces.add.open')}
           </GhostButton>
         }
       />
-      <ErrorText>{err}</ErrorText>
     </PrefGroup>
   )
 }
@@ -1531,7 +1504,7 @@ function QuoteFaces({ prefs, onSaved, onGo, index, defaultRow = null }) {
 // picks the Bengali UI language in the scope, or the Bengali quote face in the
 // panel; "which face draws this script, in general, everywhere" is the question
 // neither of those is, and it is the one with no good answer.
-function FontSections({ prefs, onSaved, onGo, index, compact = false }) {
+export function FontSections({ prefs, onSaved, onGo, index, compact = false, quoteDefault = false }) {
   const { ask, confirmDialog } = useConfirm()
   const [err, setErr] = useState('')
   const [mine, setMine] = useState(uploadedFonts)
@@ -1743,6 +1716,14 @@ function FontSections({ prefs, onSaved, onGo, index, compact = false }) {
     const ui = rows.find((r) => r.key === 'ui')
     return ui ? fontRow(ui) : null
   }
+  // THE DEFAULT QUOTE FACE, FOR THE LANGUAGE TABLE. Metadata › Languages draws it
+  // at the head of its table, beside the default for how much of the original a
+  // quote shows — the owner's "default font selection will be in the top area".
+  // The same `fontRow`, so its size dial, style chips and revert come with it and
+  // through this section's one save path.
+  if (quoteDefault) {
+    return quoteBaseRow ? <>{fontRow(quoteBaseRow)}<ErrorText>{err}</ErrorText></> : null
+  }
 
   return (
     <>
@@ -1803,31 +1784,11 @@ function FontSections({ prefs, onSaved, onGo, index, compact = false }) {
         {uiRows.map(fontRow)}
       </PrefGroup>
 
-      {/* WHAT A QUOTE IS SET IN, WHICH IS A QUESTION ABOUT ITS LANGUAGE and not
-          about this app's interface — AND IT IS ON THE SCREEN NOW. The owner's
-          ask: "why is there still a quotes typeface chooser? That should have been
-          folded into fonts by language." It is the same argument the rest of this
-          pass has been making: the panel behind that button existed because
-          Settings was one long column where an unbounded list pushed everything
-          under it off the screen, and Language is its own screen now with a card
-          per subsection.
-
-          THE LIST IS STILL AS LONG AS YOUR LIBRARY HAS LANGUAGES, and that is why
-          this group is the one that grows rather than a fixed card above it. */}
-      <QuoteFaces
-        prefs={prefs}
-        onSaved={onSaved}
-        onGo={onGo}
-        index={index + 2}
-        /* THE DEFAULT ROW, DRAWN BY THE SAME FUNCTION AS EVERY OTHER FACE ROW.
-           `fontRow` carries the size dial, the style modifiers and the revert
-           glyph; a hand-rolled copy here would be the second place a face is
-           chosen, and the repo's directive is that a control on two screens lives
-           in one function both call. It is handed in rather than looked up inside
-           QuoteFaces because the save path is this section's — one preferences
-           object, one writer. */
-        defaultRow={quoteBaseRow ? fontRow(quoteBaseRow) : null}
-      />
+      {/* WHAT A QUOTE IS SET IN IS A QUESTION ABOUT ITS LANGUAGE, and the
+          languages are one table in Metadata — so this group is only the door to
+          it, half width, and the faces are chosen beside the rest of each
+          language's settings. */}
+      <QuoteFontsLink onGo={onGo} index={index + 2} />
       <ErrorText>{err}</ErrorText>
     </>
   )

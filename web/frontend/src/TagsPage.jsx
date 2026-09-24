@@ -25,6 +25,7 @@ import {
 } from './ui.jsx'
 import { NewStickerCard, StickerList, useStickers } from './stickers.jsx'
 import { nearDupGroups } from './nearDupes.js'
+import { useMasonry } from './masonry.js'
 
 // Tags page (§8.10, mockups 23–24): the per-user tag vocabulary manager —
 // each tag shown as a sample chip in its own style × colour with usage
@@ -43,12 +44,13 @@ import { nearDupGroups } from './nearDupes.js'
 // site read as correct and the screen went on drawing its own chrome. The counts
 // belong to the header, so they go with it — and the rail beside the section is where
 // a section's size is stated, which is the arrangement every other door already uses.
-export default function TagsPage({ embedded = false }) {
+export default function TagsPage({ embedded = false, lead = null }) {
   const [tags, setTags] = useState(null)
   const [error, setError] = useState('')
   const [showTable, setShowTable] = useState(false)
   const mobile = useIsMobileScreen()
   const { stickers, reload } = useStickers()
+  const packed = useMasonry()
 
   async function load() {
     const r = await json('GET', '/tags')
@@ -139,8 +141,22 @@ export default function TagsPage({ embedded = false }) {
           horizontal rule, which put the stickers below the fold of a tag list
           that has no ceiling. `auto-fit` at the pack's own 340px minimum, so a
           phone gets one column without a media query deciding for it. */}
-      <div className="tag-vocabularies">
+      {/* INSIDE METADATA IT IS ONE SECTION WITH THE COLOURS — "Categories", the
+          owner's merge of the two pages: the colour categories (`lead`), the tags
+          and the stickers are three kinds of label a reader makes, so they are
+          three cards packed the way every other section's cards are. */}
+      <div className={embedded ? 'meta-columns categories-grid' : 'tag-vocabularies'} ref={embedded ? packed : undefined}>
+        {/* EACH OF THE THREE KINDS IS NAMED, THE SAME WAY. Stickers always had
+            its heading; merged onto one page, colours and tags without theirs were
+            two unnamed blocks beside a named one. */}
+        {lead && (
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>{t('metadata.categories.colours.title')}</h2>
+            {lead}
+          </section>
+        )}
         <section className="space-y-4">
+          {embedded && <h2 className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>{t('nav.tab.tags.label')}</h2>}
           <NewTagCard ref={newTagRef} onCreated={load} />
           {tags && tags.length === 0 && (
             <EmptyState>{t('tags.board.empty')}</EmptyState>

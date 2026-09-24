@@ -161,3 +161,41 @@ export function RowCounts({ works, quotes, worksLabel, quotesLabel, worksTip = '
     </span>
   )
 }
+
+// CreditPills — a work and what goes with it, as ONE chip. The owner, over the
+// people and character rows: the performer and the work "shall be in the same
+// chip, as they are interdependent. same thing for the role-type-icons and work
+// chip in people screen." A row of performers beside a row of works could not say
+// who played the part in WHICH film, and a person's role glyphs beside their works
+// could not say which one they wrote and which they translated.
+//
+// Each item: `{ work, lead }`. `lead` is what the chip opens with — performer
+// buttons for a character, role glyphs for a person — and may be empty, which
+// leaves the plain work pill. The chip holds two kinds of door, so it is a span
+// holding buttons rather than one button: pressing a performer goes to the person,
+// pressing the title goes to the work. One strip, edge-masked, across the row.
+export function CreditPills({ items = [], onOpen = null }) {
+  if (items.length === 0) return null
+  return (
+    <Scroller axis="x" className="row-work-pills row-credit-pills">
+      {items.map(({ work: w, lead = null }) => {
+        const key = `${w.kind}:${w.id}`
+        const art = w.art_path ? coverImgURL(w.art_path) : ''
+        const body = <>
+          <span className={'work-pill-art' + (art ? '' : ' is-empty')} aria-hidden="true">
+            {art ? <img src={art} alt="" loading="lazy" /> : null}
+          </span>
+          <span className="work-pill-title">{w.title}</span>
+        </>
+        return (
+          <span key={key} className="tp-chip work-pill credit-pill">
+            {lead && <span className="credit-pill-lead">{lead}</span>}
+            {onOpen
+              ? <button type="button" className="credit-pill-work tactile" onClick={() => onOpen(w)}>{body}</button>
+              : <span className="credit-pill-work">{body}</span>}
+          </span>
+        )
+      })}
+    </Scroller>
+  )
+}

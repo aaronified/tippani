@@ -3293,7 +3293,7 @@
   /* THE RECORD'S OWN PORTRAIT, AND IT IS A CIRCLE LIKE EVERY OTHER FACE. 7:9
      was chosen when this was the only picture of a person in the app; it now sits
      one press from a list of round ones, and two shapes for one thing is the
-     inconsistency the rule at .char-name-face exists to end. A circle crops a
+     inconsistency the rule at .person-face-btn exists to end. A circle crops a
      portrait harder than a 7:9 box does — that is the cost, and it is paid once
      here rather than by every row that would otherwise have to match this. */
   .person-photo-zoom img {
@@ -3303,7 +3303,7 @@
   .person-form-thumb { display: block; width: 4rem; }
   .person-form-thumb img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 999px; }
 
-  /* A FACE IS A CIRCLE — see the rule at .char-name-face. 38px square, not
+  /* A FACE IS A CIRCLE — see the rule at .person-face-btn. 38px square, not
      34x42: a border-radius of 999px on a 34x42 box draws an EGG, which is the
      shape a reader reads as "the picture is the wrong ratio" rather than as a
      portrait. The width grew by four rather than the height shrinking by eight,
@@ -6654,9 +6654,9 @@
      mark tray opened in a different shape for every language. So the default at
      the top is the one place the four are worded; every row draws them as icons,
      and every language opens the same editor. */
-  /* A table of short rows reads across a measure, not across a desk: the
-     icons stay within reach of the name they belong to. */
-  .lang-card { max-inline-size: 58em; }
+  /* FULL WIDTH. It was capped at 58em so the icons stayed near their name; the
+     owner overruled that ("the card can use the full width"), and the quote-face
+     columns now fill the middle of the row that the cap was guarding. */
   .lang-master {
     display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
     gap: calc(var(--meta-gap, 18px) * .6) var(--meta-gap, 18px);
@@ -6706,8 +6706,24 @@
   }
   .lang-iso { text-transform: none; letter-spacing: .04em; color: var(--soft); }
   .lang-iso.is-none { color: var(--faint); text-transform: none; }
-  .lang-own { color: var(--accent-ui); }
+  .lang-row-name > .pref-row-dot { margin-inline-start: 6px; vertical-align: middle; }
   .lang-add { padding-top: calc(var(--meta-gap, 18px) * .6); }
+  /* THE QUOTE FACE, AS TWO COLUMNS OF THE ROW ON A DESK: the language writing its
+     own name in its face, then the face. The sample takes the slack between the
+     name and the picker, so the row stays one row at any width a desk has. */
+  .lang-row-face {
+    flex: 1 1 22em; min-width: 0;
+    display: flex; align-items: center; gap: calc(var(--meta-gap, 18px) * .6);
+  }
+  .quote-face-sample {
+    flex: 1 1 0; min-width: 0;
+    font-size: var(--type-display-17); color: var(--ink); overflow-wrap: anywhere;
+  }
+  .lang-row-face > :last-child, .lang-face-line > :last-child { flex: 0 0 min(15em, 45%); min-width: 0; }
+  .lang-face-line { display: flex; align-items: center; gap: calc(var(--meta-gap, 18px) * .6); }
+  /* The default face under the default order, in the same top area and ruled off
+     from the rows the same way. */
+  .lang-master-face { display: block; padding-top: calc(var(--meta-gap, 18px) * .6); }
 
   /* THE FOUR, AS A SEGMENTED CONTROL. Icon-only on a row; with words on the
      default, where the drawing is learned. A choice that follows the default sits
@@ -9314,19 +9330,45 @@ html[data-theme="dark"] .board-cover {
    under it are covered rather than seen through. */
 .console-toolbar {
   position: sticky;
-  top: var(--topbar-h);
+  /* Under the top bar, and under the tab row where the tab row sticks too
+     (--rail-stuck-h, measured by SectionRail; 0 where it does not). */
+  top: calc(var(--topbar-h) + var(--rail-stuck-h, 0px));
   z-index: 20;
   display: grid;
   gap: calc(var(--meta-gap, var(--row)) / 2);
-  margin-inline: calc(var(--edge) * -1);
-  padding: calc(var(--meta-gap, var(--row)) / 2) var(--edge);
+  /* The stuck card reaches this far past the content on each side — a card's own
+     padding, not the page gutter, which ran it into the window edge. */
+  --sticky-bleed: 12px;
+  margin-inline: calc(var(--sticky-bleed) * -1);
+  padding: calc(var(--meta-gap, var(--row)) / 2) var(--sticky-bleed);
+  border-radius: 14px;
   transition: background-color .15s, box-shadow .15s;
 }
 .console-toolbar > * { min-width: 0; }
-.console-toolbar.is-stuck {
-  background: var(--bg);
-  box-shadow: 0 1px 0 var(--line), 0 8px 16px -12px rgba(41,38,29,.28);
+/* STUCK, IT IS A CARD — the card's own face and lift, its edge drawn as an inset
+   ring so nothing moves by a border's width when it sticks. The owner: "the sticky
+   panel should look like a card, not the angular rectangle it is now." */
+.console-toolbar.is-stuck,
+.has-sticky-rail .meta-rail-row.is-stuck {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 5%));
+  box-shadow: inset 0 0 0 1.6px var(--ink-border), var(--lift);
 }
+html[data-theme="dark"] .console-toolbar.is-stuck,
+html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 8%), color-mix(in srgb, var(--card), black 10%));
+}
+/* THE TABS STICK ABOVE IT on the three long lists, so the toolbar no longer hides
+   them — and the two stuck halves are ONE card: the tabs its top, the filters its
+   bottom, joined on the tab row's own rule. */
+.has-sticky-rail .meta-rail-row {
+  position: sticky; top: var(--topbar-h); z-index: 21;
+  --sticky-bleed: 12px;
+  margin-inline: calc(var(--sticky-bleed) * -1);
+  padding-inline: var(--sticky-bleed);
+  border-radius: 14px 14px 0 0;
+}
+.meta-frame:not(:has(.console-toolbar.is-stuck)) .meta-rail-row.is-stuck { border-radius: 14px; }
+.has-sticky-rail .console-toolbar.is-stuck { border-radius: 0 0 14px 14px; }
 @media (max-width: 768px) {
   .console-toolbar { top: var(--phone-bar-h); }
 }
@@ -9358,10 +9400,16 @@ html[data-theme="dark"] .board-cover {
    belongs to the row's border rather than to the button — which is what makes the
    selected tab look attached to the body below it. */
 .meta-rail {
+  /* The badge's side padding, named because the selected line's overhang is
+     measured from it: one number, so the two cannot drift apart. */
+  --rail-count-pad: 6px;
   display: flex; align-items: flex-end; gap: 26px; min-width: 0;
   flex-direction: row;
   overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
-  padding: 2px 0 0; border-bottom: 1px solid var(--line);
+  /* Room for the first and last tab's line overhang inside a box that clips
+     sideways, given back as margin so the labels stay on the cards' edge. */
+  padding: 2px var(--rail-count-pad) 0; margin-inline: calc(var(--rail-count-pad) * -1);
+  border-bottom: 1px solid var(--line);
 }
 .meta-rail-item {
   position: relative;
@@ -9383,9 +9431,16 @@ html[data-theme="dark"] .board-cover {
 /* THE UNDERLINE IS THE WHOLE SELECTED STATE, and it overlaps the row's border by
    a pixel so the two read as one line with a thicker stretch in it. */
 .meta-rail-item.is-on::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
+  content: ''; position: absolute; left: calc(var(--rail-count-pad) * -1); right: calc(var(--rail-count-pad) * -1); bottom: -1px;
   height: 2.5px; border-radius: 2px 2px 0 0; background: var(--accent-ui);
 }
+/* THE SAME OVERHANG WITH OR WITHOUT A NUMBER. A counted tab's line ran under the
+   badge's own padding and a bare tab's stopped at its last letter, so the selected
+   line changed length with the tab rather than with the word — the owner: "when
+   there are numbers, the line also covers the extra width added by the background
+   of the numbers". So every line reaches the badge's padding past both ends of the
+   label, and a counted tab keeps its right edge where the badge already ends it. */
+.meta-rail-item.is-on:has(.meta-rail-count)::after { right: 0; }
 .meta-rail-icon { display: inline-flex; color: currentColor; opacity: .75; }
 .meta-rail-icon svg { width: 1.15em; height: 1.15em; }
 /* The count reads as a figure rather than as more of the label: the app's mono
@@ -9396,7 +9451,7 @@ html[data-theme="dark"] .board-cover {
    trailing after its label. */
 .meta-rail-count {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: max(22px, 1.5em); height: max(22px, 1.5em); padding: 0 6px;
+  min-width: max(22px, 1.5em); height: max(22px, 1.5em); padding: 0 var(--rail-count-pad);
   border-radius: 999px;
   font-family: var(--font-mono); font-style: var(--font-mono-style);
   font-variant-caps: var(--font-mono-caps); text-transform: var(--font-mono-case);
@@ -9470,18 +9525,20 @@ html[data-theme="dark"] .board-cover {
   margin-bottom: var(--row);
 }
 @media (min-width: 900px) {
+  /* A GRID PACKED AS MASONRY (masonry.js), not multicol: multicol read down each
+     column, and Settings' cards — numbered — needed row order, so both screens
+     share one packing. The margin stays on the card so the gap is inside its
+     measured height and its span. */
   .meta-columns {
-    columns: 2;
-    column-gap: var(--row);
-  }
-  /* A CARD IS NOT SAWN IN HALF BY A COLUMN BREAK. Without this the browser is free
-     to leave three key fields at the foot of the left column and the rest at the
-     head of the right, under no heading — which reads as two cards, one of them
-     unlabelled. */
-  .meta-columns > * {
-    break-inside: avoid;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--row); align-items: start;
   }
 }
+/* MASONRY MODE, set by masonry.js once the grid has two columns: small rows, and
+   each card spans as many as its own height needs. No row-gap — the gap is in the
+   span, so a wide card lands a gap below the taller column rather than two. */
+:is(.pref-columns, .meta-columns).is-masonry { grid-auto-rows: 4px; row-gap: 0; align-items: start; }
+:is(.pref-columns, .meta-columns).is-masonry > * { align-self: start; }
 
 /* ── THE PHONE'S ARRANGEMENT STRIP.
    A band between the hero and the stream: a hairline top and bottom, and inside
@@ -9639,14 +9696,6 @@ html[data-theme="dark"] .board-cover {
    read. A 2:3 box says "this is a cover" before any pixel of it has loaded, and a
    character wearing one beside a poster wearing the same one makes the reader
    read the label to tell a person from a film. See CLAUDE.md. */
-.char-name-face > img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 999px; }
-.char-name-face {
-  /* No `object-fit` here: this is the BOX now, and object-fit on a span does
-     nothing. It is on the picture inside, where it always meant something. */
-  flex: none; width: max(20px, 1.5em); aspect-ratio: 1; overflow: hidden;
-  border-radius: 999px; border: 1px solid var(--ink-border);
-}
-
 /* A person's portrait in the metadata list, and in a duplicate card.
    THE FACE IS THE PORTRAIT EDITOR, the same call the cast row makes: it used to
    be the word "· photo" beside the name, which says a portrait exists and shows
@@ -10795,8 +10844,16 @@ html[data-theme="dark"] .board-cover {
 }
 .meta-rail-row > .meta-rail { flex: 1; min-width: 0; border-bottom: 0; }
 .meta-rail-aside {
-  flex: none; display: flex; align-items: center; gap: 9px;
-  padding-bottom: 7px;
+  /* IT CANNOT MAKE THE ROW TALLER, WHATEVER IT HOLDS. A button plus its 7px was
+     taller than a tab, so the row grew to fit it and every section with a far-end
+     control (Fetch on Metadata, Reset on a changed Settings section) put its tabs
+     lower than one without — the owner's "the space between the topbar and the
+     tabs is not uniform". A negative margin sized to today's button fixed it for
+     that button only; a box of no height, whose contents sit on its floor and rise
+     out of the top, fixes it for any. */
+  flex: none; display: flex; align-items: flex-end; gap: 9px;
+  height: 0; overflow: visible; align-self: flex-end;
+  margin-bottom: 7px;
 }
 
 /* A COVERAGE NUMBER THAT IS A DOOR. It sits inside a sentence, so it is styled as
@@ -10948,6 +11005,26 @@ html[data-theme="dark"] .board-cover {
    `1 1 8em` where the slot declares `0 0`. The same mistake was made with
    `.skipped-work-people > *` and caught the same way. */
 .section-index-verbs > .tp-btn { flex: 1 1 8em; }
+/* WHAT A METADATA DOOR CARRIES: its open issues as pills (each a door into the
+   console filtered to that issue), then its verbs — or, for Languages and
+   Categories, the languages in their marks and the colours by name. One strip
+   each, edge-masked, so a door is never taller than what it has to say. */
+.section-index-body { display: grid; gap: 10px; min-width: 0; }
+.section-index-pills { padding-block: 2px; }
+.section-index-preview {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  font-size: var(--type-ui-13); color: var(--soft); padding: 2px 4px;
+}
+.section-index-lang-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  inline-size: max(20px, 1.4em); block-size: max(20px, 1.4em); border-radius: 999px;
+  background: var(--raised); border: 1px solid var(--frame-border);
+  font-size: var(--type-ui-12); text-transform: none; font-variant-caps: normal;
+}
+.section-index-swatch {
+  inline-size: max(12px, .8em); block-size: max(12px, .8em); border-radius: 999px;
+  border: 1px solid var(--ink-border); flex: none;
+}
 /* `.section-drill-head` AND `.section-drill-title` ARE GONE, and what they drew is
    one row up. A phone in a section wore a header of its own — a back arrow the dock
    already has, the section's name, its info dot and a pill — directly under a top
@@ -11100,6 +11177,40 @@ html[data-theme="dark"] .board-cover {
    suppliers and works. Each is its own line so a reader looking for either does
    not have to read both. */
 .record-row-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+/* THE NAME'S LINE, AND WHAT RIDES ON IT ON A DESK. The owner: people and
+   characters get "a single row for name, count, and metadata icons… two rows only
+   in desktop, unlike mobile which has 3" — so the extra sits beside the name where
+   there is room and drops to its own line on a phone. */
+.record-row-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; min-width: 0; }
+.record-row-head-extra { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; min-width: 0; }
+@media (max-width: 768px) {
+  .record-row-head { display: grid; gap: 2px; }
+}
+@media (min-width: 769px) {
+  /* "a larger font size" for the two record lists, on a desk only. */
+  /* On the link too: `.tp-link` sets its own 13px, which is why the first cut of
+     this rule changed nothing a reader could see. */
+  .record-row-lg .record-row-name, .record-row-lg .record-row-name .tp-link { font-size: var(--type-ui-17); }
+}
+/* A WORK AND WHAT GOES WITH IT, AS ONE CHIP: performers or role glyphs, a rule,
+   then the work. Two doors in one chip, so the chip is a frame and its halves are
+   the buttons. */
+.credit-pill { gap: 6px; }
+.credit-pill-lead {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  padding-inline-end: 6px; border-inline-end: 1px solid var(--line);
+}
+.credit-pill-person, .credit-pill-work {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 0; padding: 0; background: none; font: inherit; color: inherit;
+}
+button.credit-pill-person, button.credit-pill-work { cursor: pointer; }
+button.credit-pill-person:hover, button.credit-pill-work:hover { color: var(--ink); }
+.credit-pill-person + .credit-pill-person::before { content: '·'; margin-inline-end: 6px; color: var(--faint); }
+.row-role-word { font-size: var(--type-ui-12); color: var(--soft); }
+/* A character's face opens nothing; it takes the person portrait's box only. */
+.person-face-btn.is-static { cursor: default; }
+.person-face-btn.is-static:hover img, .person-face-btn.is-static:hover svg { border-color: var(--ink-border); }
 .row-role-marks { display: inline-flex; align-items: center; gap: 2px; }
 .row-role-mark { display: inline-flex; align-items: center; color: var(--soft); }
 
@@ -11119,6 +11230,8 @@ html[data-theme="dark"] .board-cover {
    refuses to narrow, the clip never happens, and the row widens the console
    instead. `overflow: hidden` without it is a declaration that cannot fire. */
 .record-row-name {
+  /* In the head's flex line it may shrink, which is what lets the clip fire. */
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;

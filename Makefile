@@ -12,7 +12,7 @@ TVDB_TOKEN ?=
 LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) \
 	-X main.defaultTMDBKey=$(TMDB_TOKEN) -X main.defaultTVDBKey=$(TVDB_TOKEN)
 
-.PHONY: build frontend glossary changelog test run clean typescale frame-scroll panel-depth hero-control controls sheet-drag overlay-scroll
+.PHONY: build frontend glossary changelog test run clean typescale frame-scroll panel-depth hero-control controls sheet-drag overlay-scroll metadata-layout
 
 ## build: static binary with the currently built (or placeholder) frontend embedded
 build:
@@ -45,6 +45,12 @@ typescale:
 ## and this measures the result.
 frame-scroll:
 	bash scripts/screenshots/run-frame-scroll.sh
+
+## metadata-layout: measure the Metadata and Settings screens on a desk — tabs level
+## on every section, the selected underline even on both sides, a character's face the
+## size of a person's, People and Characters rows two lines, masonry cards packed.
+metadata-layout:
+	bash scripts/screenshots/run-metadata-layout.sh
 
 ## panel-depth: press a door a PANEL itself offers and fail if the second panel is
 ## not on screen afterwards. `open()` walks history back before pushing, and jsdom

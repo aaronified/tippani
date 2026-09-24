@@ -29,6 +29,7 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: Settings } = await import('../../src/Settings.jsx')
+const { LanguageMarksSettings } = await import('../../src/MetadataSources.jsx')
 const { FONT_ROLES } = await import('../../src/fonts.js')
 const { t } = await import('../../src/i18n.js')
 const { forgetSessionCaches } = await import('../../src/sessionCaches.js')
@@ -49,11 +50,13 @@ beforeEach(() => {
   forgetSessionCaches()
 })
 
-// QUOTE FONTS IS A GROUP ON THE SECTION NOW, not a panel behind a button — so
-// what this returns is the card, found by the heading it wears.
+// THE FACES ARE CHOSEN IN METADATA › LANGUAGES NOW — the owner's "the quote font
+// selection can be added to the metadata language screen" — so the cases about
+// choosing one mount that section, and Settings keeps only the door to it.
 const quoteFaces = async (preferences = {}) => {
-  await page(preferences)
-  return (await screen.findByRole('region', { name: new RegExp(t('settings.quote-faces.title'), 'i') }))
+  render(<LanguageMarksSettings prefs={preferences} onSaved={() => {}} />)
+  await screen.findByRole('radiogroup', { name: /^all languages$/i })
+  return document.body
 }
 const faceFor = async (panel, name) =>
   within(panel).findByRole('button', { name: new RegExp(`Typeface for quotes in ${name}`, 'i') })
@@ -89,7 +92,7 @@ describe('the faces the interface is set in', () => {
 
   it('changes a face where the face is shown, with nothing opened first', async () => {
     await page()
-    const role = FONT_ROLES[0]
+    const role = FONT_ROLES.find((r) => !r.script && r.key !== 'display')
     const row = screen.getAllByText(t(role.sample))[0].closest('.pref-row')
     // `role.aria || role.label` — one row's accessible name is not its label, for
     // the reason Settings.jsx sets out at the call site: "Every language" heads
@@ -141,13 +144,14 @@ describe('what a quote is set in', () => {
   // still a quotes typeface chooser? That should have been folded into fonts by
   // language." The panel existed because Settings was one long column; it is five
   // screens of cards now, and this is one of the cards.
-  it('is a language at a time, on the screen rather than behind a door', async () => {
+  it('is chosen in the language table, and Settings keeps only the door', async () => {
     await page()
-    expect(screen.queryByRole('dialog'), 'quote fonts still opens a panel').toBeNull()
-    expect(screen.queryByRole('button', { name: t('settings.quote-faces.row.open') }),
-      'the door to the panel is still drawn').toBeNull()
     const card = await screen.findByRole('region', { name: new RegExp(t('settings.quote-faces.title'), 'i') })
-    expect(await faceFor(card, 'Bengali'), 'the language rows are not on the card').toBeTruthy()
+    expect(within(card).queryByRole('button', { name: /Typeface for quotes in/i }),
+      'Settings still carries a face picker per language').toBeNull()
+    expect(within(card).getByRole('button', { name: t('settings.quote-faces.add.open') })).toBeTruthy()
+    const table = await quoteFaces()
+    expect(await faceFor(table, 'Bengali'), 'the language table has no face picker').toBeTruthy()
   })
 
   it('offers the door to where languages are actually added', async () => {
@@ -258,11 +262,15 @@ describe('a language\'s own quote face', () => {
   // the other one — and a row drawn in both would be two controls for one setting,
   // which is the shape of every bug this pass has been about. The stylesheet half
   // of the fix is `test/rules/chrome-is-not-a-quote.test.js`.
-  it('asks what a quote is set in here, and no longer under the interface faces', async () => {
-    const card = await quoteFaces()
+  it('asks what a quote is set in beside the languages, and no longer under the interface faces', async () => {
     const role = FONT_ROLES.find((r) => r.key === 'display')
-    expect(within(card).getByText(t(role.label)), 'the default quote face should be in Quote fonts')
-      .toBeTruthy()
+    await quoteFaces()
+    // THE DEFAULT SITS IN THE TABLE'S TOP AREA, beside the default order — the
+    // owner's "default font selection will be in the top area".
+    expect(screen.getByRole('button', { name: t('settings.type.face.aria', { name: t(role.aria || role.label) }) }),
+      'the default quote face should head the language table').toBeTruthy()
+    cleanup()
+    await page()
     const faces = await screen.findByRole('region', { name: new RegExp(t('settings.type.faces.title'), 'i') })
     expect(within(faces).queryByText(t(role.label)), 'the quote face is still in the interface group too')
       .toBeNull()

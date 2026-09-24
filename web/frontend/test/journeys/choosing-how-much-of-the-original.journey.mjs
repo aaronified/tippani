@@ -20,15 +20,16 @@ const app = openApp()
 it('a reader sets one language to translation first and it stays that way', async () => {
   await app.goto('/metadata/languages')
 
-  await app.gone('own setting')
   await app.press('English: translation first')
-  await app.see('own setting')
   expect(await app.chosen('English: translation first')).toBe(true)
+  // THE ROW SAYS IT HAS A SETTING OF ITS OWN — a dot to an eye, and to a screen
+  // reader the chooser's name, which is what this reads.
+  await app.said('English, own setting')
   // The others follow the default and say nothing of their own.
   expect(await app.chosen('Hindi: quotation first')).toBe(true)
 
   await app.goto('/metadata/languages')
-  await app.see('own setting')
+  await app.said('English, own setting')
   expect(await app.chosen('English: translation first')).toBe(true)
 
   expect(app.pageErrors(), 'the page threw on the way').toEqual([])

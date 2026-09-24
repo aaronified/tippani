@@ -44,6 +44,10 @@ it('a mark keeps the character the reader chose when the interface is in capital
   await app.type('Add a mark of your own', 'ß')
   await app.pressKey('Enter')
   await app.press('Save')
+  // THE EDITOR CLOSES WHEN THE SAVE HAS LANDED — it re-reads what is stored, then
+  // writes — so wait for that, as a person does, before leaving the page: a
+  // navigation straight after the press can abort the write in flight.
+  await app.gone('Add a mark of your own')
 
   await app.goto('/metadata/languages')
   await app.see('ß')

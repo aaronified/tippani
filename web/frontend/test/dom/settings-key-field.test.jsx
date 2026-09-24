@@ -414,18 +414,16 @@ describe('the two columns on a desk', () => {
   // other CSS suites use; asking it "what wins for this selector, and inside which
   // queries" cannot be fooled by whitespace, by comment text that happens to name
   // the property, or by a rule that was moved out of its media block.
-  it('flows the cards in multicol rather than stretching them in a grid', () => {
-    expect(valueOf('.meta-columns', 'columns'), '.meta-columns no longer goes to two columns at any width')
-      .toBe('2')
-    // AND IT IS BEHIND A WIDTH, which is the half that keeps a phone at one column:
-    // two columns of key fields at 390px is two columns of nothing.
-    expect(mediaOf('.meta-columns', 'columns').join(' '), 'the two columns are unconditional, so a phone gets them too')
+  // MASONRY NOW, NOT MULTICOL — the owner's "use masonry packing on desktop, not
+  // grid", shared with Settings' cards (masonry.js): a two-column grid whose cards
+  // each span their own height, so reading order runs across the row. A grid cannot
+  // saw a card in half, which is why the column-break case that stood here went.
+  it('packs the cards in two columns on a desk', () => {
+    expect(valueOf('.meta-columns', 'grid-template-columns'), '.meta-columns no longer goes to two columns at any width')
+      .toMatch(/repeat\(2/)
+    // AND IT IS BEHIND A WIDTH, which is the half that keeps a phone at one column.
+    expect(mediaOf('.meta-columns', 'grid-template-columns').join(' '), 'the two columns are unconditional, so a phone gets them too')
       .toMatch(/min-width/)
-  })
-
-  it('and forbids a card being sawn in half by a column break', () => {
-    expect(valueOf('.meta-columns > *', 'break-inside'), 'a card may now break across the column gap, under no heading')
-      .toBe('avoid')
   })
 })
 
