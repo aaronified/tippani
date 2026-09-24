@@ -29,6 +29,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { pickFrom } from './helpers/pickFrom.jsx'
 
 let RECORDS
 let CALLS
@@ -124,8 +125,10 @@ describe('one row per record', () => {
   })
 })
 
-describe('the role chips', () => {
-  it('start on All, so a record in no role is visible', async () => {
+describe('the role filter', () => {
+  // A DROPDOWN, NOT CHIPS — the owner's "defects will be filtered via chips,
+  // type will be via dropdown". A role is the type of a record.
+  it('starts on all roles, so a record in no role is visible', async () => {
     await mount()
     // The row the old author-first default hid. A role is derived from a credit,
     // so a record nothing credits belongs to no chip.
@@ -134,7 +137,7 @@ describe('the role chips', () => {
 
   it('filter to one role when asked', async () => {
     await mount()
-    act(() => screen.getByText('Actors').click())
+    pickFrom('Roles', 'Actors')
     await waitFor(() => expect(screen.queryByText('Mikhail Bulgakov')).toBeNull())
     expect(screen.getByText('Oleg Basilashvili')).toBeTruthy()
     expect(screen.queryByText('Somebody Nobody Credits')).toBeNull()

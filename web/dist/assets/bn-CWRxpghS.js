@@ -5230,7 +5230,7 @@ metadata.characters.work.filter.placeholder = সৃষ্টি খুঁজু
 # directors: the two share one stored column and are told apart only by media
 # type, so listing them together would offer a studio for renaming as a director.
 metadata.people.kind.author.label = লেখক
-metadata.people.kind.all.label = সবাই
+metadata.people.kind.all.label = সব ভূমিকা
 metadata.people.kind.actor.label = অভিনেতা
 metadata.people.kind.director.label = পরিচালক
 metadata.people.kind.studio.label = স্টুডিও

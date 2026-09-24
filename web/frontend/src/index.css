@@ -11195,6 +11195,13 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
    then the work. Two doors in one chip, so the chip is a frame and its halves are
    the buttons. */
 .credit-pill { gap: 6px; }
+/* ON A DESK THE CHIP ROW IS A WHOLE LINE — the owner's "the second row can have
+   the work names (edgemasked, but will utilise the full width)". The 14ch cap is
+   for rows that share their line; here it cut "Sunset Boulev…" beside 900px of
+   nothing. The row scrolls under its fade instead, which is what the mask is for. */
+@media (min-width: 769px) {
+  .record-row-lg .work-pill-title { max-width: none; }
+}
 .credit-pill-lead {
   display: inline-flex; align-items: center; gap: 6px; flex: none;
   padding-inline-end: 6px; border-inline-end: 1px solid var(--line);

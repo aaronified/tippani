@@ -2922,24 +2922,18 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
               record with none — one the reader made, or one whose last credit went
               — belongs to no chip. Filtering to a role by default hid exactly the
               rows this list exists to surface. */}
-          {/* SIX CHIPS WRAP TO THREE LINES AT 390px, above a table that is already
-              the densest thing on the screen. A field states the role you are
-              filtered to and opens the rest — the same call the section rail
-              makes one level up, and for the same reason. */}
-          {mobile ? (
-            <Select
-              ariaLabel={t('metadata.people.column.roles')}
-              value={role}
-              onChange={setRole}
-              options={PEOPLE_ROLES.map(([k, label]) => [k, t(label)])}
-            />
-          ) : (
-            PEOPLE_ROLES.map(([k, label]) => (
-              <button key={k} className={'tp-filter-chip' + (role === k ? ' active' : '')} onClick={() => setRole(k)}>
-                {t(label)}
-              </button>
-            ))
-          )}
+          {/* A DROPDOWN AT EVERY WIDTH, because a role is a TYPE and the chips are
+              for defects — the owner's: "defects will be filtered via chips, type
+              will be via dropdown." Works filters its media type the same way and
+              Characters its work, so all three consoles now read field, then
+              defect pills. It was chips on a desk and a field on a phone, which
+              also made one control two shapes. */}
+          <Select
+            ariaLabel={t('metadata.people.column.roles')}
+            value={role}
+            onChange={setRole}
+            options={PEOPLE_ROLES.map(([k, label]) => [k, t(label)])}
+          />
           {/* AND NOT ON A PHONE, WHERE IT IS THE SECOND COPY OF ITSELF. The shell's
               own field already drives this console's `q` — `useScreenSearch` above
               publishes the same setter — so on a screen with room for both, a

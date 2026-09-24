@@ -5347,7 +5347,7 @@ metadata.characters.work.filter.placeholder = Find a work
 # directors: the two share one stored column and are told apart only by media
 # type, so listing them together would offer a studio for renaming as a director.
 metadata.people.kind.author.label = Authors
-metadata.people.kind.all.label = All
+metadata.people.kind.all.label = all roles
 metadata.people.kind.actor.label = Actors
 metadata.people.kind.director.label = Directors
 metadata.people.kind.studio.label = Studios

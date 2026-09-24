@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Settings cards now carry the chosen material's texture, as Metadata's always did. On
   Categories, Colours, Tags and Stickers are three cards rather than three headings.
 
+- **People filters its roles with a dropdown,** as Works filters its type and Characters its
+  work, so every console reads: a dropdown for the kind, then chips for what is wrong. On a desk
+  a person's or character's work chips print the full title and scroll under the fade instead
+  of cutting at fourteen characters.
+
 - **The Metadata index on a phone says what is behind each door.** Works, People and Characters
   show their open issues as pills that open the console filtered to that issue; the Scan and
   Fetch buttons carry their words; Languages shows the languages in their marks and Categories
