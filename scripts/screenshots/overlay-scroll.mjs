@@ -59,16 +59,15 @@ function parseArgs(argv) {
 const WIDTH = 390
 const HEIGHT = 844
 const opts = parseArgs(process.argv.slice(2))
-const browser = await puppeteer.launch({
-  ...launchOptions(findBrowser(process.env.TIPPANI_BROWSER_PATH, process.env.TIPPANI_BROWSER), { viewport: null }),
-})
+const engine = findBrowser(process.env.TIPPANI_BROWSER_PATH, process.env.TIPPANI_BROWSER)
+const browser = await puppeteer.launch({ ...launchOptions(engine, { viewport: null }) })
 const fails = []
 const notes = []
 
 try {
   const page = await browser.newPage()
   await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 2, hasTouch: true, isMobile: true })
-  await emulateEngineMedia(page, process.env.TIPPANI_BROWSER)
+  await emulateEngineMedia(page, engine.browser)
   await ensureSession(page, { ...opts, ...HARNESS_ACCOUNT })
 
   // THE DELAY IS ON ONE ROUTE ONLY. Slowing everything would tell us about the
