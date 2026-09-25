@@ -163,6 +163,10 @@ jobs:
   # in the step that checks for it, and that step says why it has to be named.
   journeys:
     runs-on: ubuntu-latest
+    # NAMED ONCE, for the step that checks it and the harness that launches it.
+    # findBrowser reads CHROME_PATH, so the two cannot come to disagree.
+    env:
+      CHROME_PATH: /usr/bin/google-chrome
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
@@ -182,30 +186,37 @@ jobs:
       # ubuntu-latest (24.04) forbids unprivileged user namespaces through AppArmor,
       # and Chrome's sandbox is built on one. AppArmor's own shipped `chrome` profile
       # grants it to /opt/google/chrome/chrome; the runner image's Chromium snapshot
-      # and Playwright's build are covered by nothing. This job used to install
-      # Playwright's Chromium and leave the harness to find it, and the harness never
-      # did: Playwright installs into ~/.cache/ms-playwright, and capture.mjs searches
-      # PLAYWRIGHT_BROWSERS_PATH or /opt/pw-browsers. So it fell through to
-      # /usr/bin/chromium, the image's snapshot build, and all 79 files died at launch
-      # with "No usable sandbox!" before a single press.
+      # and Playwright's build are covered by nothing. /usr/bin/google-chrome
+      # resolves to the .deb's wrapper script in /opt/google/chrome, which execs that
+      # binary, so the profile attaches. A Chrome installed anywhere else gets no
+      # sandbox, so the path is checked and printed here rather than assumed.
+      #
+      # This job used to install Playwright's Chromium and leave the harness to find
+      # it, and the harness never did: Playwright installs into ~/.cache/ms-playwright,
+      # and capture.mjs searches PLAYWRIGHT_BROWSERS_PATH or /opt/pw-browsers. So it
+      # fell through to /usr/bin/chromium, the image's snapshot build, and all 79
+      # files died at launch with "No usable sandbox!" before a single press. That
+      # also means the playwright@1.49.0 pin never reached the harness. The browser
+      # already moved with the runner image, so nothing pinned is given up by naming
+      # this one. The version is printed so that a journey that goes red with no
+      # change in the repo is read against it first.
       #
       # REJECTED: lifting the restriction with the
       # kernel.apparmor_restrict_unprivileged_userns sysctl, writing an AppArmor
       # profile for Playwright's build, and --no-sandbox. Each takes a protection
       # away so a test can start, and naming the browser the OS already trusts takes
-      # nothing away. The cost is that Chrome's version moves with the runner image
-      # instead of being pinned. So this step prints it, and a journey that goes red
-      # with no change in the repo is read against that version first.
+      # nothing away.
       - name: the browser to drive
         run: |
-          test -x /usr/bin/google-chrome || { echo "::error::no Google Chrome at /usr/bin/google-chrome on this runner"; exit 1; }
-          /usr/bin/google-chrome --version
+          test -x "$CHROME_PATH" || { echo "::error::no Google Chrome at $CHROME_PATH on this runner"; exit 1; }
+          echo "$CHROME_PATH -> $(readlink -f "$CHROME_PATH")"
+          ls -l /etc/apparmor.d/chrome /opt/google/chrome/chrome-sandbox || true
+          "$CHROME_PATH" --version
       - name: the journeys
         run: npm run journeys
         working-directory: web/frontend
         env:
           TIPPANI_BROWSER: chrome
-          CHROME_PATH: /usr/bin/google-chrome
       # WHAT A FAILING JOURNEY LEAVES BEHIND: a full-page screenshot of what the
       # reader was looking at, and what the server said while they looked. A red
       # browser test with neither is a red test nobody can act on.
