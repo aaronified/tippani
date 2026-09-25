@@ -335,8 +335,19 @@ export function launchOptions({ browser, executablePath }, { theme = 'light', he
 
 // emulateEngineMedia — the Chrome half of the same two facts, applied per page.
 // A no-op on Firefox, where the profile already carries them.
+//
+// IT TAKES THE ENGINE'S NAME OR findBrowser'S RESULT, AND REFUSES ANYTHING ELSE.
+// It used to return quietly on any value but the string 'chrome', and four
+// probes passed something else: three the whole findBrowser result, one a raw
+// TIPPANI_BROWSER that might say 'chromium' or 'Chrome'. Each captured in the
+// browser's default colour scheme with nothing to say so, which is the quiet
+// wrong answer launchOptions' comment above warns about.
 export async function emulateEngineMedia(page, browser, theme = 'light') {
-  if (browser !== 'chrome') return
+  const name = browser && typeof browser === 'object' ? browser.browser : browser
+  if (name !== 'chrome' && name !== 'firefox') {
+    throw new Error(`emulateEngineMedia wants 'chrome' or 'firefox' (or findBrowser's result), got ${JSON.stringify(browser)}`)
+  }
+  if (name !== 'chrome') return
   await page.emulateMediaFeatures([
     { name: 'prefers-color-scheme', value: theme === 'dark' ? 'dark' : 'light' },
     { name: 'prefers-reduced-motion', value: 'reduce' },
