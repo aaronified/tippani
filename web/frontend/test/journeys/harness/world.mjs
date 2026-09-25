@@ -175,7 +175,14 @@ export function openApp({ viewport = DESKTOP, theme = 'light', empty = false } =
     // journey reaching past what a reader can do.
     get page() { return w.page },
     get baseUrl() { return w.server.baseUrl },
-    goto: (path) => w.page.goto(w.server.baseUrl + path, { waitUntil: 'networkidle0' }),
+    // A SAVE STILL IN FLIGHT IS LET LAND FIRST. The app draws a change before its
+    // write returns, so "see it, then reload" could navigate mid-PUT and abort it —
+    // on a loaded run, linking-a-language-to-its-code lost its added row that way
+    // one run in several. A reader's reload is never that fast; a journey's is.
+    goto: async (path) => {
+      await w.page.waitForNetworkIdle({ idleTime: 100, timeout: 15000 }).catch(() => {})
+      return w.page.goto(w.server.baseUrl + path, { waitUntil: 'networkidle0' })
+    },
 
     // WHO THE READER IS, for the one journey that needs to sign in as them again.
     // Switching accounts asks for a password every time — that is the app's rule,
