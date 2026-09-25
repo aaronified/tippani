@@ -10938,11 +10938,10 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
    doing its job, so each door carries the two or three controls a reader came to
    this screen for.
 
-   THE CARD IS THE ROW'S WRAPPER, so the row keeps the border that separates it
-   from the next section and the card adds nothing where a section hands over no
-   controls — `.has-actions` is what earns the padding and the ground. A card drawn
-   around every row would put a box around the three sections that have nothing in
-   them.
+   EVERY SECTION IS A CARD, controls or not — the same .hand-card, the same inset
+   on every side — because the owner read the index as "one screen" until each
+   door was a card of its own. A section with no controls is a card holding its
+   row and nothing else.
 
    THE CONTROLS ARE NOT INDENTED TO THE LABEL. An indent would read as "these
    belong to the row above" and cost `--edge` of the width the controls are short
@@ -10985,7 +10984,14 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
 .section-index-card:nth-child(3n + 2) { border-radius: 9px 15px 10px 14px / 14px 9px 15px 10px; }
 .section-index-card:nth-child(3n) { border-radius: 13px 10px 15px 9px / 10px 14px 9px 15px; }
 .section-index-card > .section-index-row { border-top: none; }
-.section-index-card > .section-index-row { padding: 0; min-height: 44px; }
+.section-index-card > .section-index-row {
+  padding: 0; min-height: 44px;
+  /* THE INK, NOT THE BOX, SITS AT THE INSET. The row is 44px for the thumb and its
+     tallest drawing, the chevron disc, is max(32px, 2.2em) — so the painted top sat
+     6px deeper than the sides. The row reaches into the padding by that difference,
+     never more than it: a row whose disc outgrows the floor keeps its own height. */
+  margin-block: min(0px, calc((max(32px, 2.2em) - 44px) / 2));
+}
 .section-index-card > .section-index-actions { margin-top: calc(var(--card-pad, 18px) * .6); }
 .section-index-actions {
   display: flex; flex-direction: column; gap: 10px;
