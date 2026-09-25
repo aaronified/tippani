@@ -13,91 +13,50 @@ prompts to install the plugin the first time; in a headless/remote session it do
 auto-install. Prefer the kit's skills/agents (e.g. `test-summary`, `git-sync`,
 `screenshot-runner`, `repo-doc-set`) over ad hoc equivalents when one already fits the task.
 
-**IN A REMOTE SESSION, `claude plugin install claude-kit@claude-kit` ALONE FAILS, and this
-paragraph said it was enough.** Measured 25 September: it answers *Plugin "claude-kit" not
-found in marketplace*, because nothing has cloned the marketplace yet; and `claude plugin
-marketplace add aaronified/claude-kit` then fails on HTTPS authentication, because the kit
-is a private repository the session's git proxy serves only once it is one of the session's
-repositories. What worked, in this order: attach `aaronified/claude-kit` to the session
-(pick it at session start, or `add_repo` mid-session), then `claude plugin marketplace add
-aaronified/claude-kit`, then `claude plugin install claude-kit@claude-kit`.
+**IN A CLOUD SESSION THE KIT IS NOT INSTALLED FOR YOU, AND INSTALLING IT BY HAND REACHES ONLY
+THE CONTAINER IT RAN IN.** The cloud docs: a session does not install the plugins a repo
+turns on under `enabledPlugins`, and each session is a fresh VM
+(code.claude.com/docs/en/cloud-environments). The kit is a private repository, which the
+session's git proxy serves only once it is attached to the session. By hand, in this order:
+attach `aaronified/claude-kit` (at session start, or `add_repo`), `claude plugin
+marketplace add aaronified/claude-kit`, `claude plugin install claude-kit@claude-kit` —
+`install` alone answers *Plugin "claude-kit" not found in marketplace*. What it installs
+does not load in the session that ran it.
 
-**DONE BY HAND, THOSE THREE STEPS REACH NO CLOUD SESSION.** The install does not load in the
-session that ran it: the installing session went on running `Bash` for an hour, the kit's
-activity log — which records every `Bash` call — was never written, and none of the kit's
-skills appeared in it; only a `claude -p` started afterwards in the same container loaded
-it. Nor does a start install it on its own: the cloud docs say a cloud session does not
-install the plugins a repository turns on under `enabledPlugins`
-(code.claude.com/docs/en/cloud-environments, *What carries over from your setup*), and with
-the install record emptied and the cache moved aside, a nested start fired no hook and
-recorded no install. And the next session is not in this container: each cloud session gets
-a fresh VM, and installs made mid-session "don't carry over to other sessions" (same page), so
-it starts without the install, the digest settings below or the per-clone pieces. **A session
-STARTED with the kit and this repo together is multi-repository, and the same table says
-such a session starts above the clones and reads no repo's `.claude/settings.json`** — so
-this repo's `enabledPlugins` and `env` block do not apply there, and it needs the install at
-user scope and the thresholds outside the repo. Attaching the kit mid-session with
-`add_repo` is not that case: the session that did it went on reading this file, and an edit
-to its `env` block reached the session's own shell.
+**`scripts/claude-kit-setup.sh` IS FOR THE ENVIRONMENT'S SETUP SCRIPT**, which the owner
+pastes in (not done as of 25 September). A setup script runs once per environment cache,
+before Claude Code launches, so the session that builds the cache must be started with the
+kit picked. That route has not run end to end, so check rather than assume:
 
-**`scripts/claude-kit-setup.sh` IS THE INTENDED ROUTE: the owner pastes it into the
-environment's setup script** (not done as of 25 September), which runs before Claude Code
-launches. **It runs once per environment cache**, not per session: at the environment's
-first session, and again only when the setup script or the allowed hosts change or the cache
-expires after about seven days (same page, *Environment caching*); every other session starts
-from that snapshot. So the session that builds the cache must be STARTED with the kit picked
-— an `add_repo` comes after the setup script has run — or the script prints its failure,
-exits 0 (a setup script that exits non-zero stops the session starting), and the cache holds
-no kit until the next rebuild. **None of this route has run end to end yet**, so two things
-are not known: whether a cache that holds the kit loads it (the docs list the hooks an
-Anthropic-hosted session runs — the repo's and server-managed ones — and name no
-plugin's), and whether the hook and exclude line the script writes survive into later
-sessions, which each start from a fresh clone (same page). Two checks, then:
+- **Before relying on the kit,** its skills (`work-rating`, `pre-commit-gate`) are in the
+  session's skill list. `claude plugin list` reports what is on disk, not what loaded.
+- **Before the first commit,** with nothing staged,
+  `sh "$(git rev-parse --path-format=absolute --git-path hooks)/pre-commit"` prints
+  `kit-guard: clean`. Anything else: run the script, after attaching the kit if its plugin
+  cache is missing.
 
-- **Whether the kit loaded:** the session's skill list has the kit's skills
-  (`work-rating`, `pre-commit-gate`). `claude plugin list` does not answer this — it
-  reports what is on disk, and showed claude-kit enabled in a session that had loaded none
-  of it. If they are missing, say so to the owner rather than work around it; a rebuild is
-  theirs to make.
-- **Before the first commit, whether the guard runs:** `sh .git/hooks/pre-commit` with
-  nothing staged prints `kit-guard: clean`. No hook, or one that prints `kit-guard: guard
-  script not found at … - skipping`, means run the script — after an `add_repo` of the
-  kit if the plugin cache has no copy of the guard. The plugin it installs loads only in a
-  `claude -p` started in the same container.
-
-A repo `SessionStart` hook could make the second check every session, and the docs suggest
-one for per-session setup; it is not built, because it would not run in a session started
-with the kit picked (such sessions read no repo settings) and would run on the owner's own
-machine too — the owner's call. What the script was tested against, and what not, is in
+What was measured, what the script was tested against, and what is still unknown are in
 `docs/wiki/How-this-was-written.md`.
 
-**PER CLONE, TWO LOCAL PIECES THAT GIT NEVER COMMITS**, both the kit's own instructions:
-`/.visual-verify/` in `.git/info/exclude`, because `visual-verify` writes its working
-screenshots there and a `git add -A` after a run would commit them; and the kit's commit
-guard as `.git/hooks/pre-commit` (`kit_guard.py --hook`), which refuses a commit carrying a
-file it recognises as the kit's and skips itself when the plugin has moved. It recognises
-fewer than the kit ships: its built-in list of names predates `work-rating`, `prose-style`
-and several more, so a copied `work-rating/SKILL.md` is only flagged for review. That list
-is the kit's to fix (`kit_guard.py --names-file` is its stopgap).
+**PER CLONE, TWO LOCAL PIECES THAT GIT NEVER COMMITS**, both the kit's instructions:
+`/.visual-verify/` in `.git/info/exclude`, where `visual-verify` writes its working
+screenshots, and the kit's commit guard as the pre-commit hook. The guard knows the kit's
+files by a built-in list of names that predates `work-rating`, `prose-style` and several
+more, so a plain copy of one of those is only flagged for review; the list is the kit's to
+fix.
 
-**FIREFOX CANNOT BE HAD IN THE CLOUD CONTAINER, AND THE KIT SAYS NOT TO TRY.** Why the
-container has none, and why the harness stays Firefox-first anyway, is the comment above
-`CHROME_CANDIDATES` in `scripts/screenshots/capture.mjs`. What that comment does not say is
-the kit's rule: `visual-verify` forbids installing a browser to reach Firefox, so captures
-there take the pre-installed Chromium with `TIPPANI_BROWSER=chrome` and the report names the
-engine.
+**FIREFOX CANNOT BE HAD IN THE CLOUD CONTAINER** (the comment above `CHROME_CANDIDATES` in
+`scripts/screenshots/capture.mjs` says why), **AND THE KIT SAYS NOT TO TRY**: `visual-verify`
+forbids installing a browser to reach Firefox. Captures there take the pre-installed
+Chromium with `TIPPANI_BROWSER=chrome`, and the report names the engine.
 
 **THE KIT'S `AI.md` IS `docs/wiki/How-this-was-written.md`**, moved there and not copied
-(the wiki's Home says so), **and it carries no census block.** So `pre-commit-gate` stage 0's
-`ai_census.py --check` exits 2 here twice over: as the stage writes it, it looks for `AI.md`
-or `docs/AI.md` and finds neither; pointed at the page with `--ai-file
-docs/wiki/How-this-was-written.md`, it finds no `## Measured as of` heading to compare.
-**Whether the page takes a census block is the owner's decision, and it has not been
-made** — the block is figures the gate then re-stamps on every commit, and on a shallow
-clone they are wrong: the census says they understate by an unknown amount until `git fetch
---unshallow`, which has not been tried through this environment's proxy. Until the decision
-is made, that exit is expected. Creating an `AI.md` to quiet it would put a second copy
-beside the page the wiki says has none.
+(the wiki's Home says so), **and it carries no census block**, so `pre-commit-gate` stage
+0's `ai_census.py --check` exits 2 here, with or without `--ai-file` pointing at it.
+**Whether the page takes a census block is the owner's decision, not yet made**: the block
+is figures the gate re-stamps on every commit, and this shallow clone would understate them
+until `git fetch --unshallow` (not tried here). Until then that exit is expected. An `AI.md`
+made to quiet it would be a second copy of a page the wiki says has none.
 
 Two of the kit's rules bind work in this repo even when no kit skill is running:
 

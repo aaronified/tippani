@@ -982,7 +982,17 @@ What that honestly does not cover:
   cache, the marketplace clone and the user settings aside: it installed the kit,
   wrote the thresholds, the hook, the exclude line and both `npm ci`s, a nested
   `claude -p` started after it fired the kit's hooks, and a second run changed
-  nothing. **What has not been run is the one thing the script is
+  nothing. What else was measured there, since CLAUDE.md now carries only the
+  instructions: `claude plugin install` before a `marketplace add` answers "not found
+  in marketplace", and the add fails on HTTPS authentication until the private kit is
+  attached to the session; the session that installed the kit then ran `Bash` for an
+  hour without the kit's activity log ever being written and with none of its skills
+  in its list, while `claude plugin list` showed it enabled; with the install record
+  emptied and the cache moved aside, a nested start installed nothing; a nested
+  `claude -p` started with every `CLAUDE_KIT_*` stripped from its environment read the
+  project settings' `env` block and the user settings' alike; and a staged copy of the
+  kit's `work-rating/SKILL.md` was only flagged "review only" by the guard, whose
+  built-in names predate it. **What has not been run is the one thing the script is
   for**: executing AS a cloud environment's setup script, before Claude Code launches,
   in a session started with the kit attached. Whether its per-clone half survives into
   later sessions, which each start from a fresh clone, is unknown with it.
