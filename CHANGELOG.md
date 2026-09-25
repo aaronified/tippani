@@ -78,8 +78,8 @@ identity provider. Every change, with the reasons behind it, is in
   pictures were kept; its contents cannot be opened there, and the question that deletes one
   says it waits there sealed.
 - A password an admin sets (a new account, or any reset with `tippani user passwd`, the admin's
-  own included) is temporary: its owner chooses a new one at their next sign-in, and nothing else
-  opens until they do.
+  own included) is temporary: its owner chooses a new one the next time they open Tippani, and
+  nothing else opens until they do.
 - Restore and factory reset begin by downloading a fresh backup of everything they replace, and
   the server refuses either until that download has finished. Each download covers a single
   restore or reset.
