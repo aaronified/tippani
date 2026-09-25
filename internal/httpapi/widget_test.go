@@ -31,6 +31,13 @@ func TestWidgetReportsTheFourNumbers(t *testing.T) {
 	ageSeededItems(t, srv)
 	c.mustDo("POST", "/review/answer", map[string]any{"kind": kindBook, "id": ids[0], "result": "got", "mode": "daily"}, http.StatusOK)
 	c.mustDo("POST", "/review/answer", map[string]any{"kind": kindBook, "id": ids[1], "result": "forgot", "mode": "daily"}, http.StatusOK)
+	// A line still on the top rung whose last answer was a miss: forgotten, and
+	// so NOT mastered. Written directly because no single answer lands here —
+	// which is exactly why the rung alone cannot be the test for "mastered".
+	c.mustDo("POST", "/review/answer", map[string]any{"kind": kindBook, "id": ids[2], "result": "got", "mode": "daily"}, http.StatusOK)
+	if _, err := srv.Store.DB.Exec(`UPDATE item_reviews SET last_result = 'forgot' WHERE kind = ? AND item_id = ?`, kindBook, ids[2]); err != nil {
+		t.Fatal(err)
+	}
 
 	// No key yet: the endpoint answers nobody.
 	if rec := widgetGet(h, "Authorization", "Bearer tpw_nothing"); rec.Code != http.StatusUnauthorized {
@@ -48,10 +55,18 @@ func TestWidgetReportsTheFourNumbers(t *testing.T) {
 			t.Fatalf("%s: %d %s", hdr, rec.Code, rec.Body)
 		}
 		got := decode[widgetCounts](t, rec)
-		want := widgetCounts{Works: 2, Quotes: 4, Forgot: 1, Mastered: 1}
+		want := widgetCounts{Works: 2, Quotes: 4, Forgot: 2, Mastered: 1}
 		if got != want {
 			t.Fatalf("%s: got %+v, want %+v", hdr, got, want)
 		}
+	}
+
+	// Never on the query string: the request log prints the URI.
+	qreq := httptest.NewRequest("GET", "/api/widget?key="+key, nil)
+	qrec := httptest.NewRecorder()
+	h.ServeHTTP(qrec, qreq)
+	if qrec.Code != http.StatusUnauthorized {
+		t.Fatalf("a key in the query string was accepted: %d", qrec.Code)
 	}
 
 	// A key opens four numbers and nothing else.

@@ -253,6 +253,31 @@ func TestOIDCAutoCreateMakesAnAccountAndFirstIsAdmin(t *testing.T) {
 	}
 }
 
+// An account single sign-on made has a password nobody was shown. Unlinking it
+// would leave no way in, so the server refuses — and a password set by the
+// operator lifts the refusal.
+func TestOIDCUnlinkRefusedWhenNoPasswordIsKnown(t *testing.T) {
+	srv := newTestServer(t)
+	idp := withOIDC(t, srv)
+	srv.OIDCAutoCreate = true
+	h := srv.Handler()
+	_, cookie := signInWithOIDC(t, h, idp, "", nil)
+	if cookie == nil {
+		t.Fatal("auto-create: no session")
+	}
+	browser := &testClient{t: t, h: h, cookie: cookie}
+	browser.mustDo("DELETE", "/auth/oidc/link", nil, http.StatusConflict)
+	if _, c := signInWithOIDC(t, h, idp, "", nil); c == nil {
+		t.Fatal("a refused unlink still unlinked the account")
+	}
+
+	// What `tippani user passwd` writes.
+	if _, err := srv.Store.DB.Exec(`UPDATE users SET password_unknown = 0 WHERE username = 'alice'`); err != nil {
+		t.Fatal(err)
+	}
+	browser.mustDo("DELETE", "/auth/oidc/link", nil, 200)
+}
+
 func TestOIDCLinkByUsernameIsOptIn(t *testing.T) {
 	srv := newTestServer(t)
 	idp := withOIDC(t, srv)

@@ -53,11 +53,6 @@
       "off": 0.9,
       "of": 2,
       "why": "Was 3.8px high and is 0.9px now: the chevron takes the line's centre while the version and the date keep their baselines. What is left is the chevron's own ink inside its box."
-    },
-    ".search-icon in .topbar-search": {
-      "off": 0.8,
-      "of": 25,
-      "why": "Under a pixel."
     }
   }
 }

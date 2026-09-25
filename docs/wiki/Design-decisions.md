@@ -19195,3 +19195,20 @@ carries on, and returns the joined errors so the cron job still exits non-zero. 
 names may be absent from the ID token (some providers serve them only from userinfo), so the
 client asks userinfo once when both `preferred_username` and `email` are missing, and accepts the
 answer only when its `sub` matches the token's (Core §5.3.2).
+
+**Three gaps closed before 3.0.0, found by the release rating.** Each was already a task in
+`docs/plans/admin-and-profile.md`, and the rating's point was that a known exposure should not
+ship in a release. Two of the three have left the plan for that reason; the third is new.
+*Fetch reads only the admin's own library.* `POST /covers/refetch` is admin-gated, and the gate
+had been read as permission to walk every account's shelf. It was the one confirmed place where
+an admin's press wrote into another reader's rows, and its finish message told the admin the
+total across every library. Every query in the handler now carries `user_id`, and
+`TestCoversRefetch` puts a fetchable book and film in bob's library and fails if either URL is
+requested (red with the scoping removed). *An unlink that would lock the account out is
+refused.* Accounts that SSO creates get a random password nobody sees, so removing the link
+left no way in. The hash cannot say whether anyone knows the password, so migration 0077 records
+it: `password_unknown` is 1 from SSO creation until `tippani user passwd` sets a password. The
+route answers 409 while it is 1. Rejected: a check in the Profile card only, because a button is
+not a guard. *The widget key travels only in a header.* `?key=` was accepted but never
+documented. The request log prints the full URI, so a dashboard polling it would have written the
+key to the log on every poll. The query form is gone, and the widget test asserts it is refused.

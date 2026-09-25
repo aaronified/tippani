@@ -713,7 +713,9 @@ func driveRefetch(t *testing.T, c *testClient) refetchResp {
 	}
 }
 
-// POST /covers/refetch is admin-only and runs over ALL users' rows: books
+// POST /covers/refetch is admin-only and runs over the ADMIN'S OWN rows — an
+// admin never touches another reader's library, so bob's book and film are
+// neither fetched, counted nor written. Books
 // re-fetch from the cover_url cached in source_metadata, movies rebuild the
 // TMDB poster URL from the cached payload; rows without a usable URL are
 // skipped and per-row failures don't abort the pass.
@@ -736,8 +738,11 @@ func TestCoversRefetch(t *testing.T) {
 	}
 	// Admin's book: missing cover with a cached URL -> fetched.
 	exec(`INSERT INTO books (user_id, title, source_metadata) VALUES (1, 'A', '{"cover_url":"https://books.google.com/a.jpg"}')`)
-	// Bob's book: the fetch fails -> failed (and proves the all-users scope).
-	exec(`INSERT INTO books (user_id, title, source_metadata) VALUES (?, 'B', '{"cover_url":"https://books.google.com/b.jpg"}')`, bobID)
+	// Admin's book whose fetch fails -> failed.
+	exec(`INSERT INTO books (user_id, title, source_metadata) VALUES (1, 'B', '{"cover_url":"https://books.google.com/b.jpg"}')`)
+	// Bob's rows: fetchable, and out of the admin's reach.
+	exec(`INSERT INTO books (user_id, title, source_metadata) VALUES (?, 'Bob', '{"cover_url":"https://books.google.com/bob.jpg"}')`, bobID)
+	exec(`INSERT INTO movies (user_id, title, source_metadata) VALUES (?, 'BobFilm', '{"id":605,"poster_path":"/bob.jpg"}')`, bobID)
 	// Skipped rows: cover already present / no URL in metadata / no metadata.
 	exec(`INSERT INTO books (user_id, title, cover_path, source_metadata) VALUES (1, 'C', '00000000000000ff.jpg', '{"cover_url":"https://books.google.com/c.jpg"}')`)
 	exec(`INSERT INTO books (user_id, title, source_metadata) VALUES (1, 'D', '{"title":"D"}')`)
@@ -788,6 +793,11 @@ func TestCoversRefetch(t *testing.T) {
 	if len(urls) != 3 {
 		t.Fatalf("fetched urls: %v", urls)
 	}
+	for _, u := range urls {
+		if strings.Contains(u, "bob.jpg") {
+			t.Fatalf("the admin's refetch reached bob's library: %v", urls)
+		}
+	}
 	// The successful rows were updated; the failed one stays NULL for retry.
 	var n int
 	if err := srv.Store.DB.QueryRow(`SELECT count(*) FROM books WHERE cover_path IS NOT NULL`).Scan(&n); err != nil || n != 2 {
@@ -797,7 +807,7 @@ func TestCoversRefetch(t *testing.T) {
 		t.Fatalf("movies with posters: %d, %v", n, err)
 	}
 
-	// Second pass: only bob's still-missing cover is attempted, fails again.
+	// Second pass: only the admin's still-missing cover is attempted, fails again.
 	res = driveRefetch(t, admin)
 	if res.Fetched != 0 || res.Failed != 1 {
 		t.Fatalf("second pass: %+v", res)

@@ -29,14 +29,14 @@ import (
 
 const widgetKeyPrefix = "tpw_"
 
+// HEADERS ONLY, NEVER THE QUERY STRING. The request log prints the full URI, so
+// a `?key=` polled by a dashboard every few seconds would write the key into the
+// log on every poll.
 func widgetKeyFrom(r *http.Request) string {
 	if t, _ := bearerToken(r); t != "" {
 		return t
 	}
-	if k := r.Header.Get("X-API-Key"); k != "" {
-		return k
-	}
-	return r.URL.Query().Get("key")
+	return r.Header.Get("X-API-Key")
 }
 
 func (s *Server) handleWidget(w http.ResponseWriter, r *http.Request) {

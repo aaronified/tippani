@@ -422,7 +422,7 @@ func userCmd(args []string) {
 	case "passwd":
 		hash := readPasswordHash()
 		res, err := st.DB.Exec(
-			`UPDATE users SET password_hash = ? WHERE username = ?`, hash, name,
+			`UPDATE users SET password_hash = ?, password_unknown = 0 WHERE username = ?`, hash, name,
 		)
 		if err != nil {
 			log.Fatalf("passwd: %v", err)

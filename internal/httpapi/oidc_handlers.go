@@ -280,8 +280,8 @@ func (s *Server) oidcAccount(c auth.Claims) (int64, string, error) {
 		}
 		// The first account is the admin, the same rule onboarding and
 		// `tippani user add` follow.
-		res, err := s.Store.DB.Exec(`INSERT INTO users (username, password_hash, is_admin, oidc_subject)
-			SELECT ?, ?, CASE WHEN NOT EXISTS (SELECT 1 FROM users) THEN 1 ELSE 0 END, ?
+		res, err := s.Store.DB.Exec(`INSERT INTO users (username, password_hash, is_admin, oidc_subject, password_unknown)
+			SELECT ?, ?, CASE WHEN NOT EXISTS (SELECT 1 FROM users) THEN 1 ELSE 0 END, ?, 1
 			WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = ?)`, name, hash, c.Subject, name)
 		if err != nil {
 			return 0, "", err
@@ -302,6 +302,18 @@ func (s *Server) oidcAccount(c auth.Claims) (int64, string, error) {
 // the provider created has a password nobody knows (see oidcAccount), so the
 // Profile row warns before this is pressed; an admin can still reset it.
 func (s *Server) handleOIDCUnlink(w http.ResponseWriter, r *http.Request) {
+	// REFUSED WHEN IT WOULD LOCK THE ACCOUNT OUT. An account single sign-on made
+	// has a password nobody was shown; without the link it has no way in at all.
+	// Checked here and not in the client, because a button is not a guard.
+	var unknown bool
+	if err := s.Store.DB.QueryRow(`SELECT password_unknown FROM users WHERE id = ?`, userID(r)).Scan(&unknown); err != nil {
+		internalError(w, r, "read password state", err)
+		return
+	}
+	if unknown {
+		writeErr(w, http.StatusConflict, "this account has no password yet, so unlinking would lock it out; ask your admin to set one first")
+		return
+	}
 	if _, err := s.Store.DB.Exec(`UPDATE users SET oidc_subject = NULL WHERE id = ?`, userID(r)); err != nil {
 		internalError(w, r, "unlink oidc", err)
 		return

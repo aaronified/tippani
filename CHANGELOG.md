@@ -69,6 +69,11 @@ identity provider. Every change, with the reasons behind it, is in
 ### Security
 
 - `golang.org/x/crypto` upgraded from v0.53.0 to v0.56.0.
+- Metadata → Fetch now reads and writes only the admin's own library, not every account's.
+- Unlinking single sign-on is refused for an account that has no password yet, so it cannot
+  lock itself out.
+- The dashboard widget takes its key only in a header, never in the URL, so it stays out of
+  the request log.
 
 ## [2.2.9] - 2026-08-25
 

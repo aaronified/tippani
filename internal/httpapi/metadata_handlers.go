@@ -487,10 +487,14 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	// total is the full workload at this instant (all books get a backfill
 	// pass; sourced movies get a poster pass — missing or low-res). The client
 	// captures it from the first response; remaining shrinks with the cursor.
-	const movieWhere = `source_metadata IS NOT NULL`
+	// THE CALLER'S OWN LIBRARY ONLY. The route is admin-gated, and that gate once
+	// read as licence to walk every account's shelf; an admin never touches
+	// another reader's rows, so every query below is scoped like any other.
+	uid := userID(r)
+	const movieWhere = `user_id = ? AND source_metadata IS NOT NULL`
 	var total int
-	if err := s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books) +
-		(SELECT COUNT(*) FROM movies WHERE ` + movieWhere + `)`).Scan(&total); err != nil {
+	if err := s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books WHERE user_id = ?) +
+		(SELECT COUNT(*) FROM movies WHERE `+movieWhere+`)`, uid, uid).Scan(&total); err != nil {
 		internalError(w, r, "count refetch total", err)
 		return
 	}
@@ -520,7 +524,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Store.DB.Query(`SELECT id, user_id, title, COALESCE(author,''), COALESCE(isbn,''), COALESCE(asin,''),
 		COALESCE(cover_path,''), COALESCE(source_metadata,''),
 		(SELECT COUNT(*) FROM book_genres bg WHERE bg.book_id = books.id)
-		FROM books WHERE ? = 'books' AND id > ? ORDER BY id LIMIT ?`, phase, after, req.Limit)
+		FROM books WHERE user_id = ? AND ? = 'books' AND id > ? ORDER BY id LIMIT ?`, uid, phase, after, req.Limit)
 	if err != nil {
 		internalError(w, r, "query books", err)
 		return
@@ -705,7 +709,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	var movies []movieTarget
 	mScanned := 0 // chunk fullness = rows scanned, not posters found
 	mrows, err := s.Store.DB.Query(`SELECT id, COALESCE(poster_path, ''), COALESCE(source_metadata, '') FROM movies
-		WHERE `+movieWhere+` AND ? = 'movies' AND id > ? ORDER BY id LIMIT ?`, phase, after, req.Limit)
+		WHERE `+movieWhere+` AND ? = 'movies' AND id > ? ORDER BY id LIMIT ?`, uid, phase, after, req.Limit)
 	if err == nil {
 		for mrows.Next() {
 			var id int64
@@ -780,13 +784,13 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	case next == "":
 		// done
 	case strings.HasPrefix(next, "books:"):
-		if s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books WHERE id > ?) +
-			(SELECT COUNT(*) FROM movies WHERE `+movieWhere+`)`, lastID).Scan(&remaining) != nil {
+		if s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books WHERE user_id = ? AND id > ?) +
+			(SELECT COUNT(*) FROM movies WHERE `+movieWhere+`)`, uid, lastID, uid).Scan(&remaining) != nil {
 			remaining = 0
 		}
 	default: // movies:N
 		if s.Store.DB.QueryRow(`SELECT COUNT(*) FROM movies WHERE `+movieWhere+` AND id > ?`,
-			lastID).Scan(&remaining) != nil {
+			uid, lastID).Scan(&remaining) != nil {
 			remaining = 0
 		}
 	}
@@ -799,7 +803,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	// per-chunk counts are the client's to sum, so the message names the run's
 	// size rather than a total this request never saw.
 	if next == "" && total >= notifyFetchMin {
-		s.notifyAfter(w, r, userID(r), "fetch", "Metadata fetch finished",
+		s.notifyAfter(w, r, uid, "fetch", "Metadata fetch finished",
 			"Covers and details checked for "+countOf(total, "work", "works")+".")
 	}
 }

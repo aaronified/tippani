@@ -580,7 +580,7 @@ function BreakdownCard({ breakdown, personMaps, characterMap, onSearch }) {
           ariaLabel={t('stats.breakdown.kind.aria')}
           value={kind}
           onChange={setKind}
-          width={140}
+          width="max(140px, 10em)"
           options={BREAKDOWN_KINDS.map((m) => [m.key, m.label])}
         />
       </div>

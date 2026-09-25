@@ -15,7 +15,6 @@ Not built. Tasks, one per ask:
 - [ ] Let a `TIPPANI_OIDC_*` variable still win over the card, shown as a locked "set by the environment" field.
 - [ ] Make the client secret write-only in the card: replaceable, never shown back.
 - [ ] Keep `TIPPANI_COOKIE_SECURE` and `TIPPANI_TRUSTED_PROXY` as environment variables only.
-- [ ] Refuse an SSO unlink, on the server, when the account has no password anyone knows.
 - [ ] Add an optional per-account "SSO only" switch in Admin, which can never be set on the last admin with a password.
 - [ ] Never allow the admin's own password sign-in to be switched off from the app.
 - [ ] Move API keys to Profile: each reader makes their own named keys, each reading only that reader's own library.
@@ -27,7 +26,6 @@ Not built. Tasks, one per ask:
 - [ ] Move the Maintenance card (reindex, factory reset) from Profile to Admin.
 - [ ] Make restore and factory reset take a fresh backup and download it first, as a step of the same flow, before anything is replaced.
 - [ ] Keep a deleted account's bin entry opaque to the admin: its name and item count only, no quotes or titles; restoring it returns it whole to its owner.
-- [ ] Scope Fetch (cover and metadata refetch) to the admin's own library.
 - [ ] Reuse a cover, poster or portrait already on disk when the same image is needed again, instead of downloading or storing another copy.
 - [ ] Replace the "Keep them in profile" entry in Design-decisions with these placements.
 
