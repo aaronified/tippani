@@ -43,6 +43,13 @@ func (s *Server) handleResetDatabase(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, `confirmation required: send {"confirm":"RESET"}`)
 		return
 	}
+	// Under backupMu, like a restore: the note is checked and spent inside the
+	// lock, so a reset and a restore — or two resets — cannot both pass one copy.
+	if !s.backupMu.TryLock() {
+		writeErr(w, http.StatusConflict, "a backup or restore is already running")
+		return
+	}
+	defer s.backupMu.Unlock()
 	if !s.safety.fresh(userID(r)) {
 		writeErr(w, http.StatusPreconditionRequired, errNoSafetyBackup)
 		return

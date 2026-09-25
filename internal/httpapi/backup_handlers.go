@@ -501,7 +501,7 @@ func (n *safetyNote) clear() {
 const errNoSafetyBackup = "download a fresh backup first — this replaces everything on the server"
 
 // errSafetySpent is what the last-moment guard returns when the note went stale
-// or was spent while this restore waited: the early check ran before backupMu,
+// or was spent between the early check and backupMu: the early check runs first,
 // so a restore that finished in between has already used the copy this one
 // was relying on.
 var errSafetySpent = errors.New(errNoSafetyBackup)
@@ -939,7 +939,8 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 
 	// Last-moment re-guard, still holding backupMu. Onboarding: a signup can only
 	// have committed while the lock was free, so re-checking now sees it. Admin:
-	// a restore that finished while this one waited has spent the safety note.
+	// a restore that finished between this one's first check and the lock has
+	// spent the safety note.
 	if guard != nil {
 		if err := guard(); err != nil {
 			if errors.Is(err, errOnboardingClosed) {

@@ -5,14 +5,19 @@
 // this, but must take a backup and download it before this can be done (as part
 // of the process of the reset)."
 //
-// ONE DECLARED EXCEPTION, the one per-user-isolation.journey.mjs makes: the copy
-// is sealed with the admin's own password, read from TIPPANI_JOURNEY_PASS, which
-// the harness itself signs in with. No screen prints a password.
+// TWO DECLARED EXCEPTIONS. The one per-user-isolation.journey.mjs makes: the
+// copy is sealed with the admin's own password, read from TIPPANI_JOURNEY_PASS,
+// which the harness itself signs in with. No screen prints a password. And where
+// focus is: the RESET box has no label, only the word it asks for as its
+// placeholder, so the focused element's placeholder is read — a keyboard reader
+// knows where focus is and the vocabulary has no verb for it.
 //
-// Mutation: with `press('Download a backup first')` deleted, the reset button
-// stays shut and "Welcome to tippani" never appears.
+// Mutations: with `press('Download a backup first')` deleted, the reset button
+// stays shut and "Welcome to tippani" never appears; with the safety step's focus
+// hand-off deleted, focus is not on the RESET box after the download.
 //
-// It knows the words on the screen, the file it is handed, and that password.
+// It knows the words on the screen, the file it is handed, that password, and
+// where focus is.
 
 import { expect, it } from 'vitest'
 
@@ -35,6 +40,10 @@ it('a factory reset waits for a downloaded backup, then goes', async () => {
   const copy = await app.downloaded('safety-copy')
   expect(copy.name).toMatch(/\.tpbk$/)
   await app.see('Copy downloaded')
+
+  // THE KEYBOARD IS HANDED ON to the step that comes next: the RESET box.
+  const focused = await app.page.evaluate(() => document.activeElement?.getAttribute('placeholder'))
+  expect(focused, 'focus was left behind by the download').toBe('RESET')
 
   await app.press('Delete everything & restart')
   await app.see('Welcome to tippani')

@@ -770,22 +770,60 @@ func TestRestoreAndResetWaitForAFreshDownloadedBackup(t *testing.T) {
 	fresh.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusPreconditionRequired)
 }
 
-// The first check runs before backupMu is taken, so a restore that finished in
-// between could have spent the note this one relied on. The late guard re-reads
-// it under the lock and answers the same 428.
-func TestARestoreWhoseNoteWasSpentWhileItWaitedIsRefused(t *testing.T) {
+// The first check runs before backupMu is taken, so a restore that finished
+// between that check and the lock could have spent the note this one relied on.
+// The late guard re-reads it under the lock and answers the same 428.
+//
+// DECLARED EXCEPTION: the test clears the note itself (srv.safety.clear) at the
+// moment a finishing restore would. No HTTP request can do it there — the upload
+// holds backupMu, so a second restore or a reset would get a 409 instead. The
+// upload is fed through a pipe so the clear lands after the handler has passed
+// its first check and taken the lock, and before the swap: a pipe write returns
+// only once the handler has read it.
+func TestAnUploadRestoreWhoseNoteWasSpentBeforeTheSwapIsRefused(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	admin := signupAdmin(t, h)
 	backupNow(admin)
+	archive := admin.mustDo("GET", "/admin/backup/download", nil, 200).Body.Bytes()
 	safetyBackup(t, admin)
-	guard := srv.safetyGuard(1)
-	srv.safety.clear() // what a restore finishing in between does
 
-	rec := httptest.NewRecorder()
-	srv.restoreFromNewest(rec, "test", guard, backupCreds{Password: testPw, RecoveryOK: true}, true)
-	if rec.Code != http.StatusPreconditionRequired {
-		t.Fatalf("a restore past a spent note: %d %s", rec.Code, rec.Body)
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	_ = mw.WriteField("password", testPw)
+	fw, _ := mw.CreateFormFile("file", "backup"+backupExt)
+	_, _ = fw.Write(archive)
+	_ = mw.Close()
+	body := buf.Bytes()
+
+	pr, pw := io.Pipe()
+	done := make(chan *httptest.ResponseRecorder)
+	go func() { done <- admin.doRaw("POST", "/admin/restore/upload", pr, mw.FormDataContentType()) }()
+	if _, err := pw.Write(body[:64]); err != nil { // read by the handler: it is past the check
+		t.Fatal(err)
+	}
+	srv.safety.clear()
+	go func() { _, _ = pw.Write(body[64:]); _ = pw.Close() }()
+
+	if rec := <-done; rec.Code != http.StatusPreconditionRequired {
+		t.Fatalf("an upload restore past a spent note: %d %s", rec.Code, rec.Body)
 	}
 	admin.mustDo("GET", "/books", nil, 200) // the session still works: nothing was swapped
+}
+
+// A reset takes backupMu like a restore, so the two cannot both pass one note,
+// and neither can two resets. DECLARED EXCEPTION: the test holds the lock itself,
+// standing in for a restore in flight, which HTTP cannot hold open on demand.
+func TestAResetWaitsForARestoreInFlight(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	admin.mustDo("POST", "/books", map[string]any{"title": "Kept", "author": "Someone"}, 201)
+	safetyBackup(t, admin)
+	srv.backupMu.Lock()
+	admin.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusConflict)
+	srv.backupMu.Unlock()
+	if rec := admin.mustDo("GET", "/books", nil, 200); !bytes.Contains(rec.Body.Bytes(), []byte("Kept")) {
+		t.Fatal("a reset refused for a restore in flight still wiped the library")
+	}
 }

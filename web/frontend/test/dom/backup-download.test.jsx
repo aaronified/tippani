@@ -215,3 +215,35 @@ describe('every button on the card has a glyph', () => {
     }
   })
 })
+
+// THE SAFETY COPY'S PASSWORD FILLS THE RESTORE ONLY WHERE IT OPENS THE ARCHIVE.
+// An archive this server made opens with the current password, so typing it twice
+// is ceremony; one sealed somewhere else wants the password of its own era, and a
+// box already filled with today's reads as answered when it is wrong.
+describe('the password typed for the safety copy', () => {
+  const takeCopy = async (recoverable) => {
+    BACKUP = { name: 'x.tpbk', created: '2026-08-14T09:00:00Z', size: 2 << 20, key: 'password', account: 'someone-else', recoverable }
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      headers: { get: () => 'attachment; filename="c-safety-copy.tpbk"' },
+      blob: async () => new Blob(['x']),
+    }))
+    URL.createObjectURL = vi.fn(() => 'blob:x')
+    URL.revokeObjectURL = vi.fn()
+    await card()
+    fireEvent.click(screen.getByRole('button', { name: /Restore…/ }))
+    const dialog = await screen.findByRole('dialog', { name: 'Restore' })
+    fireEvent.change(within(dialog).getByLabelText(/to seal the copy/), { target: { value: 'hunter2' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: /Download a backup first/ }))
+    await within(dialog).findByText(/Copy downloaded/)
+    return within(dialog).getByLabelText(/^Your password(?!,)/)
+  }
+
+  it('fills the restore when this server made the archive', async () => {
+    expect((await takeCopy(true)).value).toBe('hunter2')
+  })
+
+  it('leaves it empty when the archive was sealed somewhere else', async () => {
+    expect((await takeCopy(false)).value).toBe('')
+  })
+})
