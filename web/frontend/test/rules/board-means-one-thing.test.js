@@ -61,9 +61,14 @@ const BN_ENTRIES = entries(BN)
 // entry describes what the app did when it shipped, and rewriting it would make
 // the log a worse record of its own history. What is unreleased is still a
 // promise, so it is still editable and still has to be right.
+// AND ON RELEASE DAY THE TOP SECTION IS THE VERSION BEING CUT. Cutting a release
+// renames [Unreleased] to that version, so "the unreleased entries" are then the
+// newest section, not no section — which is what the floor below failed on the
+// day 3.0.0 was cut. So: [Unreleased] when there is one, else the first release.
 const UNRELEASED = (() => {
-  const head = CHANGELOG.indexOf('## [Unreleased]')
-  if (head < 0) return ''
+  let head = CHANGELOG.indexOf('## [Unreleased]')
+  if (head < 0) head = CHANGELOG.indexOf('\n## [') + 1
+  if (head <= 0) return ''
   const next = CHANGELOG.indexOf('\n## [', head + 5)
   return CHANGELOG.slice(head, next < 0 ? undefined : next)
 })()
@@ -164,7 +169,7 @@ describe('the words the ruling settled', () => {
   it('and the changelog scan is reading something', () => {
     // A section it could not find would be an empty string, and an empty string
     // satisfies the assertion above without looking at a word.
-    expect(UNRELEASED.length, 'the [Unreleased] section was not found in CHANGELOG.md').toBeGreaterThan(1000)
+    expect(UNRELEASED.length, 'no [Unreleased] or newest release section was found in CHANGELOG.md').toBeGreaterThan(1000)
     expect(namesAScreenABoard("The bulk editor on a book's board has offered Chapter #"),
       'the changelog scan cannot see the exact line a rater found').toBe(true)
     expect(namesAScreenABoard('Every tile on the Library board carried an eager img'),
