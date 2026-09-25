@@ -934,6 +934,6 @@ gh label create accepted   --color 3E8E5A --description "Accepted; appears on th
 
 `bug`, `enhancement`, `duplicate` and `wontfix` already exist in a new GitHub repository.
 
-Then enable Pages (Settings → Pages → Source: GitHub Actions; `pages.yml` also does this
-itself on first run), and check that Actions has write permission for contents so the
-roadmap workflow can commit.
+Then enable Pages (Settings → Pages → Source: GitHub Actions). `pages.yml` cannot do it for
+you: configure-pages' `enablement` needs a token other than `GITHUB_TOKEN`. Check that Actions
+has write permission for contents, so the roadmap workflow can commit.

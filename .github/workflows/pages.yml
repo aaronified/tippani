@@ -1,11 +1,16 @@
 name: pages
 
 # Build the read-only demo (VITE_DEMO=1 → dummy-data fetch shim, relative base)
-# and publish it to GitHub Pages at https://<owner>.github.io/tippani/. Rebuilt
-# on a push to main that touches something the site is built or checked from:
-# the paths below are that list, and they have to be kept as one. A push that
-# touches none of them deploys nothing, so dispatch the workflow by hand.
-# Enable once in repo Settings → Pages → Source: "GitHub Actions".
+# and publish it to GitHub Pages at https://<owner>.github.io/tippani/. Rebuilt on
+# a push to main that touches something the site is built or checked from, and
+# only then: a push that changes none of it would republish the same site and
+# re-date every <lastmod> the sitemap step writes. The paths below are that list,
+# so a new input is added to them. A hand dispatch is for re-running a deploy
+# that went red or was cancelled when the push that fixes it touches none of
+# them. And a push made with GITHUB_TOKEN starts no workflow even when it does
+# touch them, which is why roadmap-bugs.yml dispatches this one after its commit.
+# Pages is turned on once by hand, in Settings → Pages → Source: "GitHub
+# Actions"; the configure-pages step says why this job cannot do it.
 on:
   push:
     branches: [main]
@@ -13,6 +18,9 @@ on:
       - "web/frontend/**"
       - "docs/landing.html"
       - "docs/roadmap.html"
+      # The glossary step also copies files out of web/dist/, which is not listed.
+      # Its asset names are content hashes, so a change to one rewrites this file,
+      # and its mark is built from web/frontend/public/, which is.
       - "docs/ui-glossary.html"
       - "docs/img/**"
       - ".github/workflows/pages.yml"
@@ -31,6 +39,9 @@ on:
       # without this list learning its name. The glob above stays, because the
       # manifest only moves in a push that includes the rebuild.
       - "web/dist-inputs.json"
+  # roadmap-bugs.yml dispatches this after its own commit. That push is made with
+  # GITHUB_TOKEN, which starts no workflow, so the docs/roadmap.html path above
+  # never fires for it. Removing this trigger or renaming this file breaks that job.
   workflow_dispatch:
 
 permissions:
@@ -146,8 +157,10 @@ jobs:
       - name: Every local link on the site resolves
         run: node scripts/site-links.mjs _site
 
-      # enablement: turn Pages on (source = GitHub Actions) the first time this
-      # runs, so no manual Settings toggle is needed.
+      # `enablement` only works with a token other than GITHUB_TOKEN
+      # (configure-pages' own action.yml says so), and this job has only
+      # GITHUB_TOKEN. So on a fresh repo or a fork, Pages is turned on once in
+      # Settings, as the header says; here it is a no-op on a site that exists.
       - uses: actions/configure-pages@v5
         with:
           enablement: true
