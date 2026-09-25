@@ -7575,7 +7575,7 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **Approved.** Mine, and I approved the floor as the part that keeps the sweep honest about itself.
 
-<sub>1.7.6 · corrected 3.0.0 — `scripts/site-links.mjs` · `.github/workflows/pages.yml` · `CHANGELOG.md`</sub>
+<sub>1.7.6, corrected in 3.0.0 — `scripts/site-links.mjs` · `.github/workflows/pages.yml` · `CHANGELOG.md` · `docs/changelog/3.0.0.md`</sub>
 
 ### The demo's install manifest is rewritten in place, and the app's copy is left alone
 
