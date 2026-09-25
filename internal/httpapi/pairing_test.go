@@ -304,6 +304,7 @@ func TestDeviceTokensSurviveBackupRestore(t *testing.T) {
 	admin.mustDo("POST", "/auth/devices/revoke-all", nil, http.StatusNoContent)
 	phone.mustDo("GET", "/books", nil, http.StatusUnauthorized)
 
+	safetyBackup(t, admin)
 	rec := admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("restore: %s", rec.Body)

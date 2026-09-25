@@ -4,6 +4,7 @@ import { Card, ErrorText, Field, FieldIconButton, FilePick, GhostButton, IconDel
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
+import { SafetyBackupStep } from './safetyBackup.jsx'
 import { Notifications, SingleSignOn, WidgetKey } from './connections.jsx'
 
 // The display name's ceiling. Not a security bound — just the width the greeting
@@ -311,6 +312,7 @@ function MaintenanceCard() {
   const [err, setErr] = useState('')
   const [showReset, setShowReset] = useState(false)
   const [confirm, setConfirm] = useState('')
+  const [safe, setSafe] = useState(false)
 
   async function reindex() {
     setBusy('reindex')
@@ -378,6 +380,7 @@ function MaintenanceCard() {
             </GhostButton>
           ) : (
             <div className="mt-2 space-y-2">
+              <SafetyBackupStep done={safe} onDone={() => setSafe(true)} />
               <p className="microcopy">
                 {/* RESET is the word the server compares — never translated. */}
                 {tNodes('account.reset.confirm.prose', { word: <b>RESET</b> })}
@@ -393,13 +396,14 @@ function MaintenanceCard() {
                 <button
                   type="button"
                   className="tp-btn"
-                  style={{ background: 'var(--error)', color: '#fff', opacity: confirm === 'RESET' && busy !== 'reset' ? 1 : 0.55 }}
-                  disabled={confirm !== 'RESET' || busy === 'reset'}
+                  style={{ background: 'var(--error)', color: '#fff', opacity: safe && confirm === 'RESET' && busy !== 'reset' ? 1 : 0.55 }}
+                  disabled={!safe || confirm !== 'RESET' || busy === 'reset'}
+                  title={!safe ? t('settings.safety.first.reason') : undefined}
                   onClick={reset}
                 >
                   {busy === 'reset' ? t('account.reset.busy') : t('account.reset.submit')}
                 </button>
-                <GhostButton onClick={() => { setShowReset(false); setConfirm('') }}>
+                <GhostButton onClick={() => { setShowReset(false); setConfirm(''); setSafe(false) }}>
                   {t('common.action.cancel.label')}
                 </GhostButton>
               </div>

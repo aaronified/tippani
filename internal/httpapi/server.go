@@ -112,6 +112,9 @@ type Server struct {
 	// backupMu serializes backup/restore (backup_handlers.go) — concurrent runs
 	// would race on the backups dir and the swap. TryLock → 409 when busy.
 	backupMu sync.Mutex
+	// safety records the admin who just downloaded a fresh backup on the way to a
+	// restore or a reset; both refuse without it (handleSafetyBackup).
+	safety safetyNote
 
 	// updateMu serializes POST /admin/update/apply (update_handlers.go). Two
 	// concurrent applies launch two one-shot recreaters at the same container.
@@ -237,6 +240,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/backup", s.requireAdmin(s.handleBackupStatus))
 	mux.Handle("POST /admin/backup", s.requireAdmin(s.handleBackupCreate))
 	mux.Handle("GET /admin/backup/download", s.requireAdmin(s.handleBackupDownload))
+	mux.Handle("POST /admin/backup/safety", s.requireAdmin(s.handleSafetyBackup))
 	mux.Handle("POST /admin/restore", s.requireAdmin(s.handleRestore))
 	mux.Handle("POST /admin/restore/upload", s.requireAdmin(s.handleRestoreUpload))
 	// Updates (admin): check GitHub for a newer release, and (Docker socket

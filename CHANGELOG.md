@@ -78,6 +78,8 @@ identity provider. Every change, with the reasons behind it, is in
   cannot be opened there.
 - A password an admin sets (a new account, or a reset from the command line) is temporary: the
   reader chooses their own at first sign-in, and nothing else opens until they do.
+- Restore and factory reset begin by downloading a fresh backup of everything they replace, and
+  the server refuses both until that download has finished.
 
 ## [2.2.9] - 2026-08-25
 

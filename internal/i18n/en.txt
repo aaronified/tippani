@@ -5683,6 +5683,13 @@ settings.restore.warn.dated.prose = Replaces everything on this server with the 
 # The account password, as against a passphrase — which is why it is not just
 # common.field.password.label.
 settings.restore.password.label = Your password
+settings.safety.why.prose = First, download a copy of everything on this server as it is now. It is sealed like any backup and is not kept here.
+settings.safety.done.prose = Copy downloaded. Keep it until you are sure the new data is right.
+settings.safety.action = Download a backup first
+settings.safety.busy = Preparing the copy…
+settings.safety.first.reason = Download a backup first
+settings.safety.password.label = Your password, to seal the copy
+settings.safety.passphrase.label = Passphrase, to seal the copy
 settings.restore.password.recoverable.prose = This server made this archive, so your current password opens it.
 settings.restore.password.named.prose = Made by ‘{name}’ on another server, so it needs that account's password from that time.
 settings.restore.password.era.prose = Made on another server, so it needs the password in use when it was made.

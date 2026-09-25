@@ -702,6 +702,7 @@ func TestABackupAndRestoreKeepsEveryNewField(t *testing.T) {
 		t.Fatalf("the divergence did not take, so the restore below proves nothing: %+v", got)
 	}
 
+	safetyBackup(t, admin)
 	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
 
 	// The old session may be stale — log in fresh against the restored DB, as

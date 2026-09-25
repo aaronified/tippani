@@ -19230,3 +19230,15 @@ their password. While it is set, `requireAuth` answers 403 to everything except 
 path prefix. `mustChangePassword` fails closed on a read error. The app shows only "Choose your
 own password" in the sign-in frame. Choosing the given password again is refused, since it would
 leave the admin holding a working password.
+*Restore and reset begin with a downloaded backup.* The obvious build was to press "Back up"
+first. It fails for restore-from-server: the server keeps one archive, so the fresh backup
+would replace the archive the restore was about to read, and the restore would put back
+exactly what was there. So `POST /admin/backup/safety` seals a copy the same way a backup is
+sealed (`sealBackup`, now shared with `handleBackupCreate`), streams it, and deletes it. The
+server records the download only when `io.Copy` has sent the whole file, and only for that
+admin. `/admin/restore`, `/admin/restore/upload` and `/admin/reset` answer 428 without a
+record from the last 30 minutes. The record lives in memory, so a restart fails closed. The
+onboarding restore is exempt, because an empty server has nothing to lose. In the app, one
+`SafetyBackupStep` heads both the restore dialog and the factory reset. Its password box is
+named for the copy ("Your password, to seal the copy"), so it cannot be confused with the
+restore's own.

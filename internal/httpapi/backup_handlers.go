@@ -13,7 +13,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"tippani/internal/auth"
@@ -320,29 +322,8 @@ func (s *Server) handleBackupStatus(w http.ResponseWriter, r *http.Request) {
 // perfectly valid archive that nothing can ever open, and you would not find out
 // until the day you needed it.
 func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
-	var req struct {
-		Password   string `json:"password"`
-		Passphrase string `json:"passphrase"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-
-	mode := backupModePassword
-	account := username(r)
-	secret := ""
-	switch {
-	case req.Passphrase != "":
-		if msg := passphraseProblem(req.Passphrase); msg != "" {
-			writeErr(w, http.StatusBadRequest, msg)
-			return
-		}
-		mode = backupModePassphrase
-		account = ""
-		secret = req.Passphrase
-	case req.Password != "":
-		secret = req.Password
-	default:
-		writeErr(w, http.StatusBadRequest, "confirm your password, or set a passphrase, to seal the archive")
+	mode, account, secret, ok := sealCredentials(w, r)
+	if !ok {
 		return
 	}
 
@@ -358,50 +339,8 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	// session already authorises this — because a typo would produce a perfectly
 	// valid archive that nothing can ever open, and you would find out on the day
 	// you needed it.
-	if mode == backupModePassword {
-		var hash string
-		if err := s.Store.DB.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, userID(r)).Scan(&hash); err != nil {
-			internalError(w, r, "look up caller", err)
-			return
-		}
-		if !auth.CheckPassword(hash, req.Password) {
-			writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
-			return
-		}
-	}
-
-	// The instance recovery key, created on first use. Taken BEFORE the snapshot
-	// on purpose: it must exist and be settled on disk before anything is written,
-	// and it is deliberately NOT inside the snapshot (controlEntry excludes it), so
-	// no archive ever carries the key that opens it. A passphrase archive gets none
-	// — that is what choosing a passphrase means.
-	var instKey []byte
-	if mode == backupModePassword {
-		var err error
-		if instKey, err = s.ensureRecoveryKey(); err != nil {
-			olog.Errorf(olog.CodeBackupArchive, "[backup] recovery key: %v", err)
-			writeErr(w, http.StatusInternalServerError, "the instance recovery key could not be read or created")
-			return
-		}
-	}
-	// Deliberately logs the MODE and never the key: an operator debugging "why
-	// will this not open" needs to know which credential it wants, and nothing
-	// more. Same reason there is no key material in any error message.
-	olog.Printf("[backup] backup requested by user %d (%s), sealed with %s", userID(r), account, keyModeName(mode))
-
-	staging, err := os.MkdirTemp(s.DataDir, ".backup-")
-	if err != nil {
-		olog.Errorf(olog.CodeBackupArchive, "[backup] staging dir: %v", err)
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	defer os.RemoveAll(staging)
-
-	// Consistent live snapshot: VACUUM INTO (no WAL sidecars, writers unaffected).
-	snap := filepath.Join(staging, "tippani.db")
-	if err := s.Store.VacuumInto(snap); err != nil {
-		olog.Errorf(olog.CodeBackupSnapshot, "[backup] snapshot failed: %v", err)
-		writeErr(w, http.StatusInternalServerError, "database snapshot failed")
+	if mode == backupModePassword && !s.passwordIsCallers(r, secret) {
+		writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
 		return
 	}
 
@@ -413,11 +352,7 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	name := backupPrefix + time.Now().UTC().Format(backupTimeLayout) + backupExt
 	final := filepath.Join(s.backupsDir(), name)
 	partial := final + ".partial"
-
-	if err := s.writeBackupArchive(partial, snap, mode, account, secret, instKey); err != nil {
-		_ = os.Remove(partial)
-		olog.Errorf(olog.CodeBackupArchive, "[backup] archive write failed: %v", err)
-		writeErr(w, http.StatusInternalServerError, "backup archive could not be written")
+	if !s.sealBackup(w, r, mode, account, secret, partial) {
 		return
 	}
 	_ = os.Remove(final) // same-second re-create: Windows rename won't overwrite
@@ -452,6 +387,158 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"backup": s.backupMetaAt(s.backupsDir(), name, info)})
 	s.notifyAfter(w, r, userID(r), "backup", "Backup ready",
 		name+" ("+humanBytes(info.Size())+") is on the server.")
+}
+
+// sealBackup snapshots the live database and writes it, sealed with the caller's
+// chosen credential, to dest. Its caller holds backupMu and has verified the
+// credential. It writes its own error response; false means one was written.
+func (s *Server) sealBackup(w http.ResponseWriter, r *http.Request, mode byte, account, secret, dest string) bool {
+	// The instance recovery key, created on first use. Taken BEFORE the snapshot
+	// on purpose: it must exist and be settled on disk before anything is written,
+	// and it is deliberately NOT inside the snapshot (controlEntry excludes it), so
+	// no archive ever carries the key that opens it. A passphrase archive gets none
+	// — that is what choosing a passphrase means.
+	var instKey []byte
+	if mode == backupModePassword {
+		var err error
+		if instKey, err = s.ensureRecoveryKey(); err != nil {
+			olog.Errorf(olog.CodeBackupArchive, "[backup] recovery key: %v", err)
+			writeErr(w, http.StatusInternalServerError, "the instance recovery key could not be read or created")
+			return false
+		}
+	}
+	// Deliberately logs the MODE and never the key: an operator debugging "why
+	// will this not open" needs to know which credential it wants, and nothing
+	// more. Same reason there is no key material in any error message.
+	olog.Printf("[backup] backup requested by user %d (%s), sealed with %s", userID(r), account, keyModeName(mode))
+
+	staging, err := os.MkdirTemp(s.DataDir, ".backup-")
+	if err != nil {
+		olog.Errorf(olog.CodeBackupArchive, "[backup] staging dir: %v", err)
+		writeErr(w, http.StatusInternalServerError, "internal error")
+		return false
+	}
+	defer os.RemoveAll(staging)
+
+	// Consistent live snapshot: VACUUM INTO (no WAL sidecars, writers unaffected).
+	snap := filepath.Join(staging, "tippani.db")
+	if err := s.Store.VacuumInto(snap); err != nil {
+		olog.Errorf(olog.CodeBackupSnapshot, "[backup] snapshot failed: %v", err)
+		writeErr(w, http.StatusInternalServerError, "database snapshot failed")
+		return false
+	}
+
+	if err := s.writeBackupArchive(dest, snap, mode, account, secret, instKey); err != nil {
+		_ = os.Remove(dest)
+		olog.Errorf(olog.CodeBackupArchive, "[backup] archive write failed: %v", err)
+		writeErr(w, http.StatusInternalServerError, "backup archive could not be written")
+		return false
+	}
+	return true
+}
+
+// sealCredentials reads how an archive is to be sealed: the caller's password, or
+// a passphrase of their choosing. It writes its own 400; false means it did.
+func sealCredentials(w http.ResponseWriter, r *http.Request) (mode byte, account, secret string, ok bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
+	var req struct {
+		Password   string `json:"password"`
+		Passphrase string `json:"passphrase"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	switch {
+	case req.Passphrase != "":
+		if msg := passphraseProblem(req.Passphrase); msg != "" {
+			writeErr(w, http.StatusBadRequest, msg)
+			return 0, "", "", false
+		}
+		return backupModePassphrase, "", req.Passphrase, true
+	case req.Password != "":
+		return backupModePassword, username(r), req.Password, true
+	}
+	writeErr(w, http.StatusBadRequest, "confirm your password, or set a passphrase, to seal the archive")
+	return 0, "", "", false
+}
+
+// SAFETY BACKUP — THE COPY TAKEN ON THE WAY TO A RESTORE OR A RESET. The owner:
+// an admin "must take a backup and download it before this can be done (as part
+// of the process of the reset)". It is streamed to the admin and NEVER KEPT: the
+// server keeps one archive, and a restore from the kept one would otherwise
+// restore the copy just taken of what it is about to replace. The server notes
+// that the download finished, for that admin, and restore and reset refuse
+// without a note younger than safetyBackupTTL. The note lives in memory, so a
+// restart forgets it and the next attempt asks again: failing closed.
+const safetyBackupTTL = 30 * time.Minute
+
+type safetyNote struct {
+	mu  sync.Mutex
+	uid int64
+	at  time.Time
+}
+
+func (n *safetyNote) set(uid int64) {
+	n.mu.Lock()
+	n.uid, n.at = uid, time.Now()
+	n.mu.Unlock()
+}
+
+// fresh reports whether uid downloaded a safety backup within safetyBackupTTL.
+func (n *safetyNote) fresh(uid int64) bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.uid == uid && time.Since(n.at) < safetyBackupTTL
+}
+
+// errNoSafetyBackup is the refusal restore and reset answer without one.
+const errNoSafetyBackup = "download a fresh backup first — this replaces everything on the server"
+
+func (s *Server) handleSafetyBackup(w http.ResponseWriter, r *http.Request) {
+	mode, account, secret, ok := sealCredentials(w, r)
+	if !ok {
+		return
+	}
+	if !s.backupMu.TryLock() {
+		writeErr(w, http.StatusConflict, "a backup or restore is already running")
+		return
+	}
+	defer s.backupMu.Unlock()
+	if mode == backupModePassword && !s.passwordIsCallers(r, secret) {
+		writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
+		return
+	}
+	tmp, err := os.CreateTemp(s.DataDir, ".safety-*"+backupExt)
+	if err != nil {
+		internalError(w, r, "safety backup temp", err)
+		return
+	}
+	dest := tmp.Name()
+	_ = tmp.Close()
+	defer os.Remove(dest)
+	if !s.sealBackup(w, r, mode, account, secret, dest) {
+		return
+	}
+	f, err := os.Open(dest)
+	if err != nil {
+		internalError(w, r, "open safety backup", err)
+		return
+	}
+	defer f.Close()
+	info, _ := f.Stat()
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+	name := backupPrefix + time.Now().UTC().Format(backupTimeLayout) + "-safety-copy" + backupExt
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+	if info != nil {
+		w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	}
+	// NOTED ONLY WHEN THE WHOLE FILE LEFT. A copy that stopped halfway is not a
+	// backup, and the note is what lets the destructive step run.
+	if _, err := io.Copy(w, f); err != nil {
+		olog.Warnf(olog.CodeBackupArchive, "[backup] safety backup download cut short: %v", err)
+		return
+	}
+	s.safety.set(userID(r))
+	olog.Printf("[backup] safety backup downloaded by user %d (%s)", userID(r), username(r))
 }
 
 // humanBytes is a size for a sentence: one decimal, binary units.
@@ -609,6 +696,10 @@ func (s *Server) handleBackupDownload(w http.ResponseWriter, r *http.Request) {
 // for a sealed one, producing the key IS the deliberate act, and asking for a
 // typed word on top of a password is ceremony rather than a guard.
 func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
+	if !s.safety.fresh(userID(r)) {
+		writeErr(w, http.StatusPreconditionRequired, errNoSafetyBackup)
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBody)
 	var req struct {
 		Confirm    string `json:"confirm"`
@@ -629,6 +720,10 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 // → swap pipeline; the schema-version gate is what makes a foreign server's DB
 // safe, and the envelope is what makes carrying it between boxes safe.
 func (s *Server) handleRestoreUpload(w http.ResponseWriter, r *http.Request) {
+	if !s.safety.fresh(userID(r)) {
+		writeErr(w, http.StatusPreconditionRequired, errNoSafetyBackup)
+		return
+	}
 	s.restoreFromUpload(w, r, true, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil)
 }
 

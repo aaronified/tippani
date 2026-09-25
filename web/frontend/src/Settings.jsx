@@ -36,6 +36,7 @@ import { lockedOff, parseQuestions, parseTuning, questionsBlob, questionsFor, RE
 import { createPortal } from 'react-dom'
 import { fullKeys, localeActive, localeCatalogue, t, tNodes } from './i18n.js'
 import { PASSPHRASE_MAX, PASSPHRASE_MIN, PASSWORD_MAX, passphraseProblem, sniffArchiveKey } from './secret.js'
+import { SafetyBackupStep } from './safetyBackup.jsx'
 import {
   ariaLabelText,
   backdropClose,
@@ -3966,11 +3967,13 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
   const [password, setPassword] = useState('')
   const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
+  // STEP ONE IS A COPY OF WHAT IS HERE NOW — see SafetyBackupStep.
+  const [safe, setSafe] = useState(false)
 
   // The same three validate reasons the onboarding twin uses (App.jsx), through
   // the same keys: two dialogs for one operation should not own two vocabularies
   // for "you have not typed the thing yet".
-  const missing =
+  const missing = !safe ? t('settings.safety.first.reason') :
     key === 'passphrase'
       ? passphrase ? '' : t('error.validate.archive-passphrase-required')
       : key === 'password'
@@ -3998,6 +4001,7 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
           ? t('settings.restore.warn.dated.prose', { date: fmtWhen(meta.created) })
           : t('settings.restore.warn.prose')}
       </p>
+      <SafetyBackupStep done={safe} onDone={() => setSafe(true)} />
       {key === 'passphrase' && (
         <label className="tp-field">
           <MonoLabel>{t('common.field.passphrase.label')}</MonoLabel>

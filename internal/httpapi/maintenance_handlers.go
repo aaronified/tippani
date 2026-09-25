@@ -43,6 +43,10 @@ func (s *Server) handleResetDatabase(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, `confirmation required: send {"confirm":"RESET"}`)
 		return
 	}
+	if !s.safety.fresh(userID(r)) {
+		writeErr(w, http.StatusPreconditionRequired, errNoSafetyBackup)
+		return
+	}
 	olog.Alertf("[admin] FACTORY RESET requested by user %d (%s) — deleting ALL data and settings", userID(r), username(r))
 
 	if err := s.Store.Reset(); err != nil {

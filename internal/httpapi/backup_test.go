@@ -304,6 +304,7 @@ func TestRestoreRoundTrip(t *testing.T) {
 	// Guards: the key IS the guard for a sealed archive. No credential is a 401,
 	// a wrong one is a 401, and neither touches the live data (checked below by the
 	// "Extra" book still being there when the real restore removes it).
+	safetyBackup(t, admin)
 	if rec := admin.do("POST", "/admin/restore", nil); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("restore with no credential: %d %s", rec.Code, rec.Body)
 	}
@@ -480,6 +481,7 @@ func TestRestoreValidation(t *testing.T) {
 	admin := signupAdmin(t, h)
 
 	// No backup on the server yet.
+	safetyBackup(t, admin)
 	if rec := admin.do("POST", "/admin/restore", map[string]any{"password": testPw}); rec.Code != http.StatusBadRequest {
 		t.Fatalf("restore without backup: %d", rec.Code)
 	}
@@ -553,6 +555,7 @@ func TestRestoreUpload(t *testing.T) {
 	// boxes) and does not weaken the check: "wrongpassword" is neither account's.
 	// The target has no recovery key of its own yet, so the durable path is not in
 	// play here either — see TestRecoveryKeyNotSharedAcrossInstances for that.
+	safetyBackup(t, admin)
 	if rec := admin.restoreUpload("/admin/restore/upload", nil, archive); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("upload with no credential: %d %s", rec.Code, rec.Body)
 	}
@@ -628,6 +631,7 @@ func TestRestoreTwiceSameSecond(t *testing.T) {
 	// Two back-to-back restores (well within one second) both succeed; the swap
 	// expires the caller's cookie, so log back in between rounds.
 	for i := 0; i < 2; i++ {
+		safetyBackup(t, admin)
 		if rec := admin.do("POST", "/admin/restore", map[string]any{"password": testPw}); rec.Code != 200 {
 			t.Fatalf("restore #%d: %d %s", i+1, rec.Code, rec.Body)
 		}
@@ -701,4 +705,49 @@ func TestOnboardRestoreUpload(t *testing.T) {
 	if rec := anon.restoreUpload("/auth/restore/upload", pwUpload(), archive); rec.Code != http.StatusForbidden {
 		t.Fatalf("upload restore after onboarding: %d", rec.Code)
 	}
+}
+
+// safetyBackup is the step every restore and reset now begins with: a fresh
+// archive taken and downloaded by the admin who is about to replace everything.
+// A passphrase seals it, so the step does not depend on the caller's password.
+func safetyBackup(t *testing.T, c *testClient) {
+	t.Helper()
+	c.mustDo("POST", "/admin/backup/safety", map[string]string{"passphrase": "safety-copy-1"}, http.StatusOK)
+}
+
+// Restore and factory reset replace everything, so each begins with a fresh
+// backup the admin has downloaded. The server refuses both until that download
+// has finished, and the copy is streamed to the admin rather than kept, so it
+// never replaces the archive a restore is about to read.
+func TestRestoreAndResetWaitForAFreshDownloadedBackup(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	admin.mustDo("POST", "/books", map[string]any{"title": "Kept", "author": "Someone"}, 201)
+	backupNow(admin)
+	kept, _ := srv.newestBackup()
+
+	for _, try := range []func() *httptest.ResponseRecorder{
+		func() *httptest.ResponseRecorder { return admin.do("POST", "/admin/restore", map[string]any{"password": testPw}) },
+		func() *httptest.ResponseRecorder { return admin.do("POST", "/admin/reset", map[string]string{"confirm": "RESET"}) },
+	} {
+		if rec := try(); rec.Code != http.StatusPreconditionRequired {
+			t.Fatalf("destructive step without a fresh download: %d %s", rec.Code, rec.Body)
+		}
+	}
+	if rec := admin.mustDo("GET", "/books", nil, 200); !bytes.Contains(rec.Body.Bytes(), []byte("Kept")) {
+		t.Fatal("a refused reset still wiped the library")
+	}
+
+	rec := admin.mustDo("POST", "/admin/backup/safety", map[string]string{"password": testPw}, 200)
+	if rec.Body.Len() == 0 || !strings.Contains(rec.Header().Get("Content-Disposition"), "attachment") {
+		t.Fatalf("the safety backup did not arrive as a download: %q", rec.Header().Get("Content-Disposition"))
+	}
+	if now, _ := srv.newestBackup(); now != kept {
+		t.Fatalf("the safety copy replaced the kept archive: %s -> %s", kept, now)
+	}
+	// A wrong password seals nothing and notes nothing.
+	admin.mustDo("POST", "/admin/backup/safety", map[string]string{"password": "not-it-at-all"}, http.StatusUnauthorized)
+
+	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, 200)
 }

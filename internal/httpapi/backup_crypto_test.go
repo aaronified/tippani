@@ -515,6 +515,7 @@ func TestBackupStatusReportsRecoverable(t *testing.T) {
 		t.Fatalf("passphrase archive metadata = %+v", st2.Backup)
 	}
 	// And the instance key does not open it, however local it is.
+	safetyBackup(t, admin)
 	if rec := admin.do("POST", "/admin/restore", map[string]any{"password": testPw}); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("a password opened a passphrase archive: %d %s", rec.Code, rec.Body)
 	}

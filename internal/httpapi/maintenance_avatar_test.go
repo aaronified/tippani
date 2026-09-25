@@ -618,6 +618,7 @@ func TestResetDatabaseEmptiesEverything(t *testing.T) {
 		t.Fatalf("avatar %q should exist before the reset", avatar)
 	}
 
+	safetyBackup(t, alice)
 	rec := alice.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusOK)
 	if !decode[struct {
 		OK bool `json:"ok"`

@@ -23,7 +23,6 @@ Not built. Tasks, one per ask:
 - [ ] Keep the Devices card hidden; when it returns, it returns to Profile, with a monitoring-only list in Admin.
 - [ ] Keep Notifications on Profile only.
 - [ ] Move the Maintenance card (reindex, factory reset) from Profile to Admin.
-- [ ] Make restore and factory reset take a fresh backup and download it first, as a step of the same flow, before anything is replaced.
 - [ ] Reuse a cover, poster or portrait already on disk when the same image is needed again, instead of downloading or storing another copy.
 - [ ] When these ship, update the placement entry in Design-decisions ("Where the three live") to say they are built.
 
