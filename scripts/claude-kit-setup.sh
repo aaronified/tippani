@@ -12,10 +12,12 @@
 # script or the allowed hosts change or the cache expires after about seven days (same page,
 # Environment caching). So the session that builds the cache must be started with the kit
 # picked (add_repo comes too late), or the cache holds no kit until the next rebuild. A
-# session whose skill list has none of the kit's skills needs that rebuild: change the setup
-# script and start a session with the kit picked. Run from a session, this adds the hook and
-# the exclude line for that session; the plugin it installs loads only in a `claude -p`
-# started in the same container, since every cloud session is a fresh VM.
+# session whose skill list has none of the kit's skills needs that rebuild, which is the
+# owner's to do: change the setup script, start a session with the kit picked. A session
+# with no .git/hooks/pre-commit can run this itself (after an add_repo of the kit if the
+# cache has none) to add the hook and the exclude line to its own clone; the plugin it
+# installs loads only in a `claude -p` started in the same container, since every cloud
+# session is a fresh VM.
 set -u
 failed=0
 warn() { echo "claude-kit: $*" >&2; failed=$((failed + 1)); }
@@ -74,15 +76,30 @@ EOF
     # Written beside it and moved, so a failed write never leaves a truncated hook.
     mkdir -p "$HOOKS" && printf '%s\n' "$NEW" > "$H.tmp" && chmod +x "$H.tmp" && mv "$H.tmp" "$H" \
       || { rm -f "$H.tmp"; warn "commit guard not written"; }
-  elif ! { grep -Eq '^[^#]*kit_guard\.py' "$H" && grep -Eq '^[^#]*--staged' "$H"; }; then
-    # Someone else's hook, and no uncommented line names the guard and its --staged mode
-    # (a call through a variable counts; a line that only prints the call fools this check,
-    # which reads text and cannot run the hook to find out). Not edited, though the kit says
-    # to append: a hook ending in `exec` never reaches an appended line, and a script that
-    # rewrites someone's hook gets disabled. The printed line names the installed guard and
-    # skips itself when that file is gone, as the kit's own hook does.
-    warn "$H is someone else's hook and was left alone; add this line to it:"
-    printf '  KIT_GUARD=%s; [ ! -f "$KIT_GUARD" ] || python3 "$KIT_GUARD" --staged || exit 1\n' "$G" >&2
+  else
+    # Someone else's hook, or a kit hook whose text has drifted. Not edited, though the kit
+    # says to append: a hook ending in `exec` never reaches an appended line, and a script
+    # that rewrites someone's hook gets disabled. It counts as guarded when an uncommented
+    # line runs --staged and a guard it names (literal, `~` or glob) is on disk: a guard of
+    # any version that runs is better than none, and one whose file is gone skips itself and
+    # guards nothing. This reads text: a line that only prints such a call still fools it.
+    state=$(python3 - "$H" <<'EOF'
+import glob, os, re, sys
+code = [l for l in open(sys.argv[1], errors="replace") if not l.lstrip().startswith("#")]
+named = [os.path.expanduser(t) for l in code for t in re.findall(r"~?[^\s\"'=;()$]*kit_guard\.py", l)]
+staged = any("--staged" in l for l in code)
+print("guarded" if staged and any(glob.glob(t) for t in named) else "dead" if named else "none")
+EOF
+)
+    # The line to add finds whichever kit version is installed and skips itself when none is.
+    line='  KIT_GUARD=$(ls ~/.claude/plugins/cache/claude-kit/claude-kit/*/skills/git-sync/scripts/kit_guard.py 2>/dev/null | sort -V | tail -1); [ -z "$KIT_GUARD" ] || python3 "$KIT_GUARD" --staged || exit 1'
+    case $state in
+      guarded) ;;
+      dead) warn "$H names a kit guard that is no longer on disk, so it guards nothing; replace that call with:"
+            echo "$line" >&2 ;;
+      *)    warn "$H is someone else's hook and was left alone; add this line to it:"
+            echo "$line" >&2 ;;
+    esac
   fi
   mkdir -p "$(dirname "$EXCLUDE")"
   if ! grep -qx '/.visual-verify/' "$EXCLUDE" 2>/dev/null; then
