@@ -75,8 +75,7 @@ identity provider. Every change, with the reasons behind it, is in
 - The dashboard widget takes its key only in a header, never in the URL, so it stays out of
   the request log.
 - A deleted account waits in the admin's bin as its name and quote count only; its contents
-  cannot be opened there. The delete question now says so, where it used to warn that the
-  account could not be brought back.
+  cannot be opened there, and the question that deletes one says it waits there sealed.
 - A password an admin sets (a new account, or a reset from the command line) is temporary: the
   reader chooses their own at first sign-in, and nothing else opens until they do.
 - Restore and factory reset begin by downloading a fresh backup of everything they replace, and

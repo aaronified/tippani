@@ -4696,8 +4696,8 @@ account.users.only-admin = only admin
 account.users.their-own = their own
 account.users.delete.tip = Delete {name} and their library
 account.users.delete.aria = Delete {name}
-account.users.delete.confirm = Delete user "{name}"? Their books and annotations are removed too.
-account.users.delete.note = The account and its library wait in your bin, sealed, until you empty it. Restoring gives them back to their owner.
+account.users.delete.confirm = Delete user "{name}" and their library?
+account.users.delete.note = The account waits in your bin, sealed, for as long as the bin keeps anything else. Restoring it gives it back to its owner, whole.
 account.users.add = Add user
 # ITS OWN PLACEHOLDER, AND THE REASON IS NOT COSMETIC. This box and the "new
 # password" box under CHANGE PASSWORD above it computed to the SAME accessible

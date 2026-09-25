@@ -61,7 +61,7 @@ it("a deleted account shows its name in the bin but not what it holds", async ()
   await app.goto('/profile')
   await app.press('Delete sealed-reader')
   // The question says where it goes: the account is binned, not destroyed.
-  await app.see('wait in your bin')
+  await app.see('waits in your bin')
   await app.press('Confirm')
 
   // THE BIN HOLDS IT BY NAME, AND KEEPS IT SHUT.
