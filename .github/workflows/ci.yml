@@ -243,6 +243,11 @@ jobs:
           node-version: "22"
       - run: npm ci
         working-directory: web/frontend
+      # NO `npm ci` IN scripts/screenshots HERE, ON PURPOSE. controls-ratchet.test.js
+      # runs controls.mjs to watch it refuse a missing or unknown --fixture, and those
+      # refusals have to work on a clone that installed only web/frontend. If that
+      # case goes red with exit 1, a puppeteer-core import has crept back above
+      # them, and installing here would hide it.
       - run: npm test
         working-directory: web/frontend
       # THE DESIGN RULES, RUN SEPARATELY AND STILL BLOCKING. The files in
