@@ -11473,6 +11473,8 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   padding: calc(var(--meta-gap, 18px) * .56) 0; min-width: 0;
 }
 .pref-row + .pref-row { border-top: 1px solid color-mix(in oklab, var(--line), transparent 45%); }
+.pref-group .pref-row:last-child,
+.section-index-actions .pref-row:last-child { padding-bottom: 0; }
 /* THE BASIS IS WHAT DECIDES WHEN THE CONTROL DROPS TO ITS OWN LINE, and the two
    widths want opposite answers. On a phone, 16ch kept the "Fall back to" row's
    segmented control beside a sub-line squeezed into five ribbon-width lines — a
@@ -11530,15 +11532,16 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 
 .pref-group {
   min-width: 0; max-width: 100%;
-  padding: var(--card-pad, 16px) calc(var(--card-pad, 16px) + 2px) calc(var(--card-pad, 16px) + 2px);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
-  border: 1.6px solid var(--ink-border);
+  /* ONE NUMBER ON EVERY SIDE, and the last row gives up its own bottom padding
+     (below) so that number is the whole inset. It was card-pad on top and two more
+     on the other three sides, plus a last row's half-gap: 22 on top against 36-44
+     at the bottom on desktop, the bottom-heavy card the audit measured. */
+  padding: var(--card-pad, 16px);
+  /* THE FACE IS .hand-card's, which every group already is (PrefGroup, Card and
+     HandCard all render one). This rule used to redraw the gradient, border and
+     shadows a shade off the card's own — dark at 7%/9% against 8%/10% — so Settings
+     cards were the one set of cards not quite the quote cards' face. */
   border-radius: 15px 9px 14px 10px / 9px 15px 10px 14px;
-  box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(41,38,29,.05);
-}
-html[data-theme="dark"] .pref-group {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 7%), color-mix(in srgb, var(--card), black 9%));
-  box-shadow: var(--lift), inset 0 1px 0 rgba(255,255,255,.06), inset 0 -1px 0 rgba(0,0,0,.25);
 }
 /* THE CARDS DO NOT ALL WEAR THE SAME CORNERS. Every other card in this app is
    drawn with a slightly different hand-inked radius so a column of them does not
