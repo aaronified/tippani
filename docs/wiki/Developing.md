@@ -654,9 +654,9 @@ with `TIPPANI_DEV_API`.
 
 `web/dist/` is committed because the Go binary embeds it, so a frontend change needs the
 rebuilt `dist` beside the source by the time it is pushed: in the same commit, or, as the
-maintainer's sessions do (`CLAUDE.md`), in one rebuild commit ending the push. If you change the frontend and
-do not rebuild, the binary keeps serving the old UI and nothing will tell you — which is
-why CI runs `git diff --exit-code -- web/dist` after building.
+maintainer's sessions do (`CLAUDE.md`), in one rebuild commit ending the push. If you
+change the frontend and do not rebuild, the binary keeps serving the old UI and nothing
+will tell you — which is why CI runs `git diff --exit-code -- web/dist` after building.
 
 **What counts as a frontend change is wider than `web/frontend/`.** `src/i18n.js` imports
 `internal/i18n/en.txt` and `bn.txt` with Vite's `?raw` — every user-facing string in the
