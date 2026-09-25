@@ -240,11 +240,7 @@ export default function App() {
       screen = (
         <ChooseOwnPassword
           onDone={async () => setUser(await refreshMe())}
-          onLogout={async () => {
-            await globalThis.fetch(apiURL('/auth/logout'), { method: 'POST' })
-            forgetSessionCaches()
-            setUser(null)
-          }}
+          onLogout={() => { forgetSessionCaches(); setUser(null) }}
         />
       )
     }
@@ -641,7 +637,7 @@ export function Login({ onLogin, oidc = null }) {
 // set it knows it, so the server keeps the library shut until the reader picks
 // one of their own; this is the same change-password form Profile carries, in the
 // sign-in screen's frame, because the reader has not arrived yet.
-function ChooseOwnPassword({ onDone, onLogout }) {
+export function ChooseOwnPassword({ onDone, onLogout }) {
   useEffect(() => {
     applyTheme({ materialSet: 'film-assembly', theme: 'dark' })
   }, [])
@@ -655,7 +651,16 @@ function ChooseOwnPassword({ onDone, onLogout }) {
           <h1 className="wordmark" style={{ fontSize: 'var(--type-ui-22)' }}>{t('shell.password.temporary.title')}</h1>
           <p className="microcopy">{t('shell.password.temporary.prose')}</p>
           <PasswordForm onDone={onDone} />
-          <FilmButton type="button" className="w-full" onClick={onLogout}>{t('account.logout.action')}</FilmButton>
+          <FilmButton
+            type="button"
+            className="w-full"
+            onClick={async () => {
+              await globalThis.fetch(apiURL('/auth/logout'), { method: 'POST' })
+              onLogout()
+            }}
+          >
+            {t('account.logout.action')}
+          </FilmButton>
         </div>
         <Sprockets />
       </div>

@@ -65,6 +65,7 @@ export const SCREENS = {
   // nothing here while it was an overlay, which is the gap this file is named
   // after — a surface reachable in the app and never once rendered by the suite.
   profile: [() => import('../src/Account.jsx'), 'Profile', { user: USER, onUser: noop, logout: noop }],
+  'choose-password': [() => import('../src/App.jsx'), 'ChooseOwnPassword', { onDone: noop, onLogout: noop }],
   login: [() => import('../src/App.jsx'), 'Login', { onLogin: noop }],
   onboarding: [() => import('../src/App.jsx'), 'Onboarding', { onDone: noop, backup: null }],
 }
