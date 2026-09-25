@@ -377,7 +377,7 @@ why Amazon's is the letterform alone.
 
 | File | What it does |
 | --- | --- |
-| `workflows/ci.yml` | The push and PR gate. Four jobs: `go`, `race`, `frontend`, `roadmap`. |
+| `workflows/ci.yml` | The push and PR gate. Six jobs: `go`, `race`, `race-nightly`, `journeys`, `frontend`, `roadmap`. |
 | `workflows/roadmap-bugs.yml` | On every issue event, rebuilds the tracker snapshot, re-renders the roadmap, and commits if anything moved. |
 | `workflows/pages.yml` | Builds the demo and assembles the published site around it. |
 | `workflows/wiki.yml` | Copies `docs/wiki/*.md` to this repository's GitHub wiki. The repository is the source; an edit made in the wiki is overwritten by the next run. |
@@ -736,17 +736,19 @@ Five failures that are self-inflicted rather than real, in the order they catch 
 
 ## Maintainer: CI
 
-`.github/workflows/ci.yml` runs on push and pull request, plus a 03:00 UTC schedule, in
-four jobs:
+`.github/workflows/ci.yml` runs on pushes to `main` and on pull requests, plus a 03:00 UTC
+schedule, in six jobs:
 
 | Job | What it runs |
 | --- | --- |
 | `go` | `go vet`, the full Go suite — which includes the check that `web/dist` is not stale — and a smoke test that boots the server and health-checks it. |
-| `race` | The five locking tests under `-race` on every push, and the whole suite on the nightly schedule. Asserts each named test actually ran. |
-| `frontend` | `npm test`, `npm run build`, and `git diff --exit-code -- web/dist web/dist-inputs.json`. |
+| `race` | The five locking tests under `-race`, on every push and pull request. Asserts each named test actually ran. |
+| `race-nightly` | The whole suite under `-race`, on the schedule only, one job per package so a race or a timeout in one does not hide another. |
+| `journeys` | `npm run journeys` in the runner's Google Chrome, with its sandbox on. A failing journey uploads what the reader saw and what the server said. |
+| `frontend` | `npm test`, `npm run lint:rules`, `npm run build`, `git diff --exit-code -- web/dist web/dist-inputs.json`, `npm run glossary:check` and `iso6393-data.mjs --check`. It checks out the whole history, which the citation guard in `lint:rules` reads. |
 | `roadmap` | `roadmap-data.mjs --check`, `doc-map-check.mjs` and `wiki-check.mjs`. (The glossary check moved into the `frontend` job, which is where a fresh `web/dist` and `node_modules` exist.) |
 
-The other four workflows are described in [`.github/`](#github) above.
+The other five workflows are described in [`.github/`](#github) above.
 
 ## Maintainer: the roadmap pipeline
 
