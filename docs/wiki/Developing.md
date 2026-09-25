@@ -267,7 +267,7 @@ it in lockstep with `docs/wiki/Troubleshooting.md` — add a code and you add a 
 | Path | What it is |
 | --- | --- |
 | `web/embed.go` | `//go:embed all:dist`. The one line that makes the binary self-contained. |
-| `web/dist/` | The built SPA. **A committed build artefact** — rebuild and commit it whenever you change the frontend. |
+| `web/dist/` | The built SPA. **A committed build artefact** — a pull request's head must carry it rebuilt; CI checks. |
 | `web/frontend/index.html` | The SPA shell, carrying an absolute `og:image`. |
 | `web/frontend/public/` | The manifest, the icon set, and the two SVG marks. Copied verbatim into `dist/`. |
 | `web/frontend/vite.config.js` | Builds into `../dist` and proxies `/api` during development. |
@@ -652,8 +652,9 @@ npm run build:demo          # -> _site, the read-only demo with a fetch shim
 Run `make run` in one terminal and `npm run dev` in another. Point the proxy elsewhere
 with `TIPPANI_DEV_API`.
 
-`web/dist/` is committed because the Go binary embeds it, so a frontend change is two
-things in one commit: the source, and the rebuilt `dist`. If you change the frontend and
+`web/dist/` is committed because the Go binary embeds it, so a frontend change needs the
+rebuilt `dist` beside the source by the time it is pushed: in the same commit, or, as the
+maintainer's sessions do (`CLAUDE.md`), in one rebuild commit ending the push. If you change the frontend and
 do not rebuild, the binary keeps serving the old UI and nothing will tell you — which is
 why CI runs `git diff --exit-code -- web/dist` after building.
 

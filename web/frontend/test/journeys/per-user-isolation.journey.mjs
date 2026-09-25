@@ -97,12 +97,10 @@ it('a second account sees an empty notebook, and the first gets its own back', a
   await app.type('repeat new password', 'second-own-pw')
   await app.press('Update password')
 
-  // NOW SIGNED IN AS THE SECOND ACCOUNT. This greeting names the signed-in
-  // account inside the page's own text, which nothing but an actual switch of
-  // session could cause — the nav also renames its Profile button to match,
-  // but that name lives in an aria-label, not in anything `see` can read.
-  // Home, signed in as second-reader. Not the greeting: on 1 January (the harness's
-  // clock) it is one of several holiday lines, and which one varies by run.
+  // NOW SIGNED IN AS THE SECOND ACCOUNT, on Home ("Daily quiz"), with the account's
+  // name in the page's own text — the greeting carries it, and nothing but an actual
+  // switch of session could put it there. The greeting's WORDING is not asserted:
+  // on 1 January, the harness's clock, it is one of several holiday lines.
   await app.see('Daily quiz')
   await app.see('second-reader')
 
