@@ -92,6 +92,8 @@ jobs:
           # ../web/dist/…, and from the site root that is outside the site: every
           # one of them was a 404 on github.io. Copy exactly the files it names,
           # at the same paths under _site, and drop the "../".
+          # The class stops where site-links.mjs's CSS_URL does, and at ? and #, which
+          # name no file; change one and change the other.
           { grep -oE "\.\./web/dist/[^\"')&?#[:space:]]+" _site/ui-glossary.html || true; } | sort -u |
             while read -r ref; do
               mkdir -p "_site/$(dirname "${ref#../}")"
