@@ -343,22 +343,23 @@ export async function emulateEngineMedia(page, browser, theme = 'light') {
   ])
 }
 
-// launchBrowser — THE ONE PLACE A BROWSER IS STARTED, and it is a function
-// because more than one thing starts a browser: main() below, once per theme;
-// the journeys, once per file; and the probes here that call it (`git grep
-// 'launchBrowser('` lists them, and a list typed here would be the next thing to
-// go stale). A second copy would be a second place for the root/--no-sandbox rule
-// and the Firefox preference block to be forgotten, and the repo's directive is
-// that one verb lives in one function that every caller calls.
+// launchBrowser — puppeteer.launch with puppeteer-core loaded lazily. main() below
+// (once per theme), the journeys (once per openApp) and the probes that must load
+// without this directory installed call it (`git grep -F 'launchBrowser('` lists
+// them); other probes here still import puppeteer-core and call puppeteer.launch
+// themselves. Every launch goes through launchOptions, which is the one place the
+// root/--no-sandbox rule and the Firefox preference block live, so a launch that
+// bypasses launchOptions is the copy to refuse.
 //
 // THE IMPORT IS DYNAMIC because puppeteer-core is this scaffold's dependency and
 // not the repo's, and every other export in this file works without it. That is
-// load-bearing for controls.mjs: controls-ratchet.test.js runs it in CI's
-// frontend job, which never installs this directory, to watch it refuse a
-// missing or unknown --fixture before any browser starts. The journeys import
-// this file too (harness/world.mjs and screen.mjs) and DO need the install: CI's
-// journeys job runs `npm ci` here first, and a local `npm run journeys` needs
-// the same.
+// load-bearing wherever this file is imported without the install: controls.mjs,
+// which controls-ratchet.test.js runs in CI's frontend job to watch it refuse a
+// missing or unknown --fixture, and test/pure/one-tree-per-look.test.js, which
+// `npm test` runs in the same job (`git grep -lF "capture.mjs'" -- web/frontend`
+// lists the importers outside this directory). The journeys need the install
+// because they launch: CI's journeys job runs `npm ci` here first, and a local
+// `npm run journeys` needs the same.
 export async function launchBrowser(engine, opts = {}) {
   let puppeteer
   try {
