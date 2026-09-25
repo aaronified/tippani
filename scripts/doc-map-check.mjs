@@ -133,15 +133,32 @@ const named = (p) => {
 }
 const missing = required.filter((p) => !named(p))
 
+// AND THE CI TABLE NAMES EVERY CI JOB. This document said "four jobs" while
+// race-nightly (6869b0a1) and journeys (b0fa2f04) were added, and this check passed
+// throughout: it asks for every workflow FILE and not for what is in one. The
+// Maintainer: CI table is where someone reading a red run learns what a job is for,
+// so a job it never names is the MISSING failure one level down. It reads the job
+// keys by their indentation under `jobs:`, which is all ci.yml's shape needs, and it
+// refuses to pass having found none.
+const ciJobs = [...(readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8').split(/^jobs:\s*$/m)[1] ?? '')
+  .matchAll(/^ {2}([a-z][a-z0-9-]*):\s*$/gm)].map((m) => m[1])
+const ciSection = text.split(/^## Maintainer: CI\s*$/m)[1]?.split(/^## /m)[0] ?? ''
+if (!ciJobs.length || !ciSection) {
+  console.error(`${DOC}: found ${ciJobs.length} jobs in ci.yml and ${ciSection ? 'a' : 'no'} "Maintainer: CI" section — the extractor is broken`)
+  process.exit(2)
+}
+const unlisted = ciJobs.filter((j) => !ciSection.includes(`\`${j}\``))
+
 for (const p of stale) console.error(`${DOC}: names \`${p}\`, which matches nothing in the tree`)
 for (const p of missing) console.error(`${DOC}: never mentions ${p}`)
+for (const j of unlisted) console.error(`${DOC}: the CI table never names ci.yml's job \`${j}\``)
 
-if (!stale.length && !missing.length) {
+if (!stale.length && !missing.length && !unlisted.length) {
   console.log(
     `${DOC} up to date — ${claims.length} paths named and all resolve, ` +
-      `${required.length} packages/scripts/workflows all covered`,
+      `${required.length} packages/scripts/workflows all covered, ${ciJobs.length} CI jobs in the CI table`,
   )
   process.exit(0)
 }
-console.error(`${DOC}: ${stale.length} stale, ${missing.length} uncovered`)
+console.error(`${DOC}: ${stale.length} stale, ${missing.length} uncovered, ${unlisted.length} CI jobs unlisted`)
 process.exit(WARN ? 0 : 1)
