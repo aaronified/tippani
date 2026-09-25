@@ -5,19 +5,19 @@
 #
 # Always exits 0. The cloud docs: "if the script exits non-zero, the session fails to start"
 # (code.claude.com/docs/en/cloud-environments, Script requirements), and a session without
-# the kit is better than no session. A failed step is printed as it happens and counted in
-# the last line, so the setup log says what is missing.
+# the kit is better than no session. A step that failed, or that it could not verify, is
+# printed as it happens and counted in the last line, so the setup log says what is missing.
 #
 # The environment runs this once per cache: at its first session, and again when the setup
 # script or the allowed hosts change or the cache expires after about seven days (same page,
 # Environment caching). So the session that builds the cache must be started with the kit
-# picked (add_repo comes too late), or the cache holds no kit until the next rebuild. A
-# session whose skill list has none of the kit's skills needs that rebuild, which is the
-# owner's to do: change the setup script, start a session with the kit picked. A session
-# with no .git/hooks/pre-commit can run this itself (after an add_repo of the kit if the
-# cache has none) to add the hook and the exclude line to its own clone; the plugin it
-# installs loads only in a `claude -p` started in the same container, since every cloud
-# session is a fresh VM.
+# picked (add_repo comes too late), or the cache holds no kit until the next rebuild. This
+# route has not yet run end to end; tippani's CLAUDE.md says what that leaves unknown and
+# how a session checks whether the kit loaded and whether the guard runs. A session whose
+# guard does not run can run this itself (after an add_repo of the kit if the plugin cache
+# has no copy of the guard) to add the hook and the exclude line to its own clone; the
+# plugin it installs loads only in a `claude -p` started in the same container, since every
+# cloud session is a fresh VM. scripts/claude-kit-setup-check.sh checks this script.
 set -u
 failed=0
 warn() { echo "claude-kit: $*" >&2; failed=$((failed + 1)); }
@@ -77,29 +77,16 @@ EOF
     mkdir -p "$HOOKS" && printf '%s\n' "$NEW" > "$H.tmp" && chmod +x "$H.tmp" && mv "$H.tmp" "$H" \
       || { rm -f "$H.tmp"; warn "commit guard not written"; }
   else
-    # Someone else's hook, or a kit hook whose text has drifted. Not edited, though the kit
-    # says to append: a hook ending in `exec` never reaches an appended line, and a script
-    # that rewrites someone's hook gets disabled. It counts as guarded when an uncommented
-    # line runs --staged and a guard it names (literal, `~` or glob) is on disk: a guard of
-    # any version that runs is better than none, and one whose file is gone skips itself and
-    # guards nothing. This reads text: a line that only prints such a call still fools it.
-    state=$(python3 - "$H" <<'EOF'
-import glob, os, re, sys
-code = [l for l in open(sys.argv[1], errors="replace") if not l.lstrip().startswith("#")]
-named = [os.path.expanduser(t) for l in code for t in re.findall(r"~?[^\s\"'=;()$]*kit_guard\.py", l)]
-staged = any("--staged" in l for l in code)
-print("guarded" if staged and any(glob.glob(t) for t in named) else "dead" if named else "none")
-EOF
-)
-    # The line to add finds whichever kit version is installed and skips itself when none is.
-    line='  KIT_GUARD=$(ls ~/.claude/plugins/cache/claude-kit/claude-kit/*/skills/git-sync/scripts/kit_guard.py 2>/dev/null | sort -V | tail -1); [ -z "$KIT_GUARD" ] || python3 "$KIT_GUARD" --staged || exit 1'
-    case $state in
-      guarded) ;;
-      dead) warn "$H names a kit guard that is no longer on disk, so it guards nothing; replace that call with:"
-            echo "$line" >&2 ;;
-      *)    warn "$H is someone else's hook and was left alone; add this line to it:"
-            echo "$line" >&2 ;;
-    esac
+    # Someone else's hook, or a kit hook from a version whose text differs. Left alone:
+    # a script that rewrites someone's hook gets disabled, and a line appended to one that
+    # ends in `exec` never runs. And not judged: whether a hook runs the guard cannot be
+    # read from its text - a path behind a variable, a call that is only printed, a guard
+    # whose file has gone, an early `exit 0` above it - so it is reported on every run
+    # rather than passed on a guess. The line offered finds whichever kit version is
+    # installed and skips itself when none is.
+    warn "$H is not the kit's hook, so this script cannot tell whether it runs the guard." \
+      "If it is an older kit hook, delete it and run this again; otherwise make sure it runs:"
+    echo '  KIT_GUARD=$(ls ~/.claude/plugins/cache/claude-kit/claude-kit/*/skills/git-sync/scripts/kit_guard.py 2>/dev/null | sort -V | tail -1); [ -z "$KIT_GUARD" ] || python3 "$KIT_GUARD" --staged || exit 1' >&2
   fi
   mkdir -p "$(dirname "$EXCLUDE")"
   if ! grep -qx '/.visual-verify/' "$EXCLUDE" 2>/dev/null; then
@@ -126,7 +113,7 @@ else
 fi
 
 if [ "$failed" -gt 0 ]; then
-  echo "claude-kit: $failed step(s) failed - see the lines above" >&2
+  echo "claude-kit: $failed step(s) need attention - see the lines above" >&2
 else
   echo "claude-kit: set up"
 fi

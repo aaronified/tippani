@@ -953,30 +953,28 @@ What that honestly does not cover:
   is the browser's back gesture, so a nav that navigates away. The same sweep
   showed the other half was worse than the report: eleven full-viewport overlays,
   and seven of them never froze the page behind them at all.
-- **`scripts/claude-kit-setup.sh` is checked by running it, not by a suite, and one
-  thing about it has never been run at all.** It has no test file: its subject is a
-  cloud container's `~/.claude` and a clone's `.git`, and a test that stubbed both
-  would be testing the stubs. Its first version was run for real in the cloud
-  container on 25 September, against a fresh state made by moving the plugin records,
-  the plugin cache, the marketplace clone and the user settings aside, with the
-  per-clone half aimed at a scratch clone: it installed the kit, wrote the thresholds,
-  the hook, the exclude line and both `npm ci`s, a nested `claude -p` started after it
-  fired the kit's hooks, and a second run changed nothing. The version as it stands
-  was run in a sandbox under `env -i` — its own `HOME` with a copy of the kit's guard in
-  a fake plugin cache, stub `claude` and `npm`, a real `git init` — through a clean run
-  and a rerun, then `claude` failing; a `settings.json` that is not JSON; a pre-commit
-  hook that is not the kit's, the same hook with the printed line added — which then
-  refused a commit carrying a staged kit file, and went on refusing it after the kit
-  moved to a new version, and under a `HOME` containing a space — one that names the
-  guard only in a comment, one that calls it through a variable, and one with the
-  guard appended under the kit's own comment line; the kit's hook naming an old
-  version's path; an old kit hook whose text has drifted, with its guard gone and with
-  it still on disk; the guard missing from the cache; a plugin record naming an
-  older version than the newest cached, and no record; the guard's audit finding a
-  tracked kit file, and failing to run; an exclude file with no final newline; a
-  linked worktree; `core.hooksPath`; and a directory that is not a clone. **What has
-  not been run is the one thing it is for**: executing AS a cloud environment's setup
-  script, before Claude Code launches, in a session started with the kit attached.
+- **`scripts/claude-kit-setup.sh` is checked by `scripts/claude-kit-setup-check.sh`, and
+  the one thing it is for has never been run.** The check is a sandbox, not a stub
+  suite: its own `HOME` holding a copy of the installed kit's real guard, a real `git
+  init`, and stubs only for `claude` and `npm`, the two commands that would reach the
+  network. It runs the setup script through the cases its history broke on — a hook
+  that is not the kit's, the kit's hook naming a version that is gone, one whose text
+  has drifted, the kit's text under someone's own commands, a plugin record naming an
+  older version than the newest cached, a `settings.json` that is not JSON, an exclude
+  file with no final newline, a linked worktree, `core.hooksPath`, a `HOME` with a
+  space — and runs the written hook and the line it offers with a copied kit file
+  staged, expecting exit 1, including after the kit moves to a new version. It is
+  run by hand; CI cannot fetch the private kit the guard comes from. Mutation-checked:
+  five edits to the setup script — overwriting any hook, dropping the audit, exiting
+  with the failure count, dropping the newline repair, preferring the newest cache
+  to the record — each turned it red. The script's first version was also run for
+  real in the cloud container on 25 September, against a fresh state made by moving
+  the plugin records, the plugin cache, the marketplace clone and the user settings
+  aside: it installed the kit, wrote the thresholds, the hook, the exclude line and
+  both `npm ci`s, a nested `claude -p` started after it fired the kit's hooks, and a
+  second run changed nothing. **What has not been run is the one thing it is for**:
+  executing AS a cloud environment's setup script, before Claude Code launches, in a
+  session started with the kit attached.
 
 ---
 
