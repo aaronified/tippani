@@ -7,6 +7,8 @@
 # (code.claude.com/docs/en/cloud-environments, Script requirements), and a session without
 # the kit is better than no session. A step that failed, or that it could not verify, is
 # printed as it happens and counted in the last line, so the setup log says what is missing.
+# The same page asks for it to finish within about five minutes; its slowest steps, the
+# two npm ci runs, took seconds in this container.
 #
 # The environment runs this once per cache: at its first session, and again when the setup
 # script or the allowed hosts change or the cache expires after about seven days (same page,
@@ -108,8 +110,10 @@ EOF
     esac
   fi
 else
-  # The setup script may run before the clone. Run this again from the session to add them.
-  echo "claude-kit: $R is not a clone yet - skipped the commit guard, the exclude line and npm ci" >&2
+  # The setup script may run before the clone. Counted, so the last line does not say "set up"
+  # over a half that never ran.
+  warn "$R is not a clone yet - skipped the commit guard, the exclude line and npm ci;" \
+    "run this again from the session once it is"
 fi
 
 if [ "$failed" -gt 0 ]; then
