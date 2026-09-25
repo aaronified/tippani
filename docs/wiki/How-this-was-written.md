@@ -963,16 +963,17 @@ What that honestly does not cover:
   the hook, the exclude line and both `npm ci`s, a nested `claude -p` started after it
   fired the kit's hooks, and a second run changed nothing. The version as it stands
   was run in a sandbox under `env -i` — its own `HOME` with a copy of the kit's guard in
-  a fake plugin cache, stub `claude` and `npm`, a real `git init` — through every case
-  its rater reports named, plus a clean run and a rerun: `claude` failing, a `settings.json` that is not JSON, a
-  pre-commit hook that is not the kit's (and the same hook once the printed line is
-  added, and one that names the guard only in a comment), a failed guard write, a
-  stale kit hook, a plugin record naming an older version than the newest cached, no
-  plugin record, an exclude file with no final newline, a linked worktree,
-  `core.hooksPath`, a tracked kit file, and a directory that is not a clone. **What
-  has not been run is the one thing it is for**: executing AS a cloud environment's
-  setup script, before Claude Code launches, with the kit attached to the session
-  that builds the cache.
+  a fake plugin cache, stub `claude` and `npm`, a real `git init` — through a clean run
+  and a rerun, then `claude` failing; a `settings.json` that is not JSON; a pre-commit
+  hook that is not the kit's, the same hook with the printed line added, one that
+  names the guard only in a comment, one that calls it through a variable, and one
+  with the guard appended under the kit's own comment line; the kit's hook naming an
+  old version's path; the guard missing from the cache; a plugin record naming an
+  older version than the newest cached, and no record; the guard's audit finding a
+  tracked kit file, and failing to run; an exclude file with no final newline; a
+  linked worktree; `core.hooksPath`; and a directory that is not a clone. **What has
+  not been run is the one thing it is for**: executing AS a cloud environment's setup
+  script, before Claude Code launches, in a session started with the kit attached.
 
 ---
 

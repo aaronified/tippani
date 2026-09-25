@@ -19,39 +19,43 @@ found in marketplace*, because nothing has cloned the marketplace yet; and `clau
 marketplace add aaronified/claude-kit` then fails on HTTPS authentication, because the kit
 is a private repository the session's git proxy serves only once it is one of the session's
 repositories. What worked, in this order: attach `aaronified/claude-kit` to the session
-(pick it at session start, or `add_repo`), then `claude plugin marketplace add
+(pick it at session start, or `add_repo` mid-session), then `claude plugin marketplace add
 aaronified/claude-kit`, then `claude plugin install claude-kit@claude-kit`.
 
-**DONE BY HAND, THOSE THREE STEPS REACH NO CLOUD SESSION.** The install takes effect at the
-next session start, not in the session that ran it: the installing session went on running
-`Bash` for an hour, the kit's activity log — which records every `Bash` call — was never
-written, and none of the kit's skills appeared in it, while a `claude -p` started afterwards
-in the same container fired the kit's hooks. Nor does a start install it on its own: the
-cloud docs say a cloud session does not install the plugins a repository turns on under
-`enabledPlugins` (code.claude.com/docs/en/cloud-environments, *What carries over from your
-setup*), and with the install record emptied and the cache moved aside, a nested start
-fired no hook and recorded no install. And the container is ephemeral — reclaimed after
-inactivity, nothing outside a pushed commit surviving it, by the environment's own
-description rather than a test here — so the next session starts in a new container without
-the install, the digest settings below or the per-clone pieces. **A session STARTED with the
-kit and this repo together is multi-repository, and the same table says such a session
-starts above the clones and reads no repo's `.claude/settings.json`** — so this repo's
-`enabledPlugins` and `env` block do not apply there, and it needs the install at user scope
-and the thresholds outside the repo. Attaching the kit mid-session with `add_repo` is not
-that case: the session that did it went on reading this file, and an edit to its `env`
-block reached the session's own shell.
+**DONE BY HAND, THOSE THREE STEPS REACH NO CLOUD SESSION.** The install does not load in the
+session that ran it: the installing session went on running `Bash` for an hour, the kit's
+activity log — which records every `Bash` call — was never written, and none of the kit's
+skills appeared in it; only a `claude -p` started afterwards in the same container loaded
+it. Nor does a start install it on its own: the cloud docs say a cloud session does not
+install the plugins a repository turns on under `enabledPlugins`
+(code.claude.com/docs/en/cloud-environments, *What carries over from your setup*), and with
+the install record emptied and the cache moved aside, a nested start fired no hook and
+recorded no install. And the next session is not in this container: each cloud session gets
+a fresh VM, and "installs mid-session don't carry over to other sessions" (same page), so it
+starts without the install, the digest settings below or the per-clone pieces. **A session
+STARTED with the kit and this repo together is multi-repository, and the same table says
+such a session starts above the clones and reads no repo's `.claude/settings.json`** — so
+this repo's `enabledPlugins` and `env` block do not apply there, and it needs the install at
+user scope and the thresholds outside the repo. Attaching the kit mid-session with
+`add_repo` is not that case: the session that did it went on reading this file, and an edit
+to its `env` block reached the session's own shell.
 
-**`scripts/claude-kit-setup.sh` IS THE INTENDED ROUTE**, for the environment's setup script,
-which runs before Claude Code launches. **It runs once per environment cache**, not per
-session: at the environment's first session, and again only when the setup script or the
-allowed hosts change or the cache expires after about seven days (same page, *Environment
-caching*); every other session starts from that snapshot. So the session that builds the
-cache must have the kit attached — without it the script prints its failure, exits 0 (a
-setup script that exits non-zero stops the session starting), and the cache holds no kit
-until the next rebuild. In any session, no claude-kit in `claude plugin list`, or no
-`.git/hooks/pre-commit`, means run the script from the session: the per-clone pieces apply at
-once, the plugin at the next start. What it was tested against, and what not, is in
-`docs/wiki/How-this-was-written.md`.
+**`scripts/claude-kit-setup.sh` IS THE INTENDED ROUTE, AND IT IS NOT IN PLACE YET: the owner
+pastes it into the environment's setup script**, which runs before Claude Code launches.
+**It runs once per environment cache**, not per session: at the environment's first session,
+and again only when the setup script or the allowed hosts change or the cache expires after
+about seven days (same page, *Environment caching*); every other session starts from that
+snapshot. So the session that builds the cache must be STARTED with the kit picked — an
+`add_repo` comes after the setup script has already run — or the script prints its failure,
+exits 0 (a setup script that exits non-zero stops the session starting), and the cache
+holds no kit until the next rebuild. The sign in a session is that none of the kit's skills
+(`work-rating`, `pre-commit-gate`) are in its skill list — not `claude plugin list`, which
+says what is installed on disk and was showing claude-kit enabled in a session that had
+loaded none of it. Then: to give later sessions the kit, rebuild the cache — change the
+setup script and start a session with the kit picked; to cover this session's commits, run
+the script from it, which adds the hook and the exclude line at once (the plugin it
+installs loads only in a `claude -p` started in the same container). What it was tested
+against, and what not, is in `docs/wiki/How-this-was-written.md`.
 
 **PER CLONE, TWO LOCAL PIECES THAT GIT NEVER COMMITS**, both the kit's own instructions:
 `/.visual-verify/` in `.git/info/exclude`, because `visual-verify` writes its working
