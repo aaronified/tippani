@@ -378,7 +378,6 @@
       <!-- ROADMAP:RAIL_FEATURES:START -->
       <ul class="sub">
         <li><a href="#atrium-liquid-glass">Atrium (glass)</a></li>
-        <li><a href="#entry-helpers">Entry helpers</a></li>
         <li><a href="#episodes-name-and-order">Episode names &amp; order</a></li>
         <li><a href="#locators-from-files">Locators from files</a></li>
         <li><a href="#work-source-files">Source files</a></li>
@@ -909,11 +908,13 @@
     without a token.
   </p>
   <p>
-    <strong>Tiers 1 and 2 shipped in 3.0.0</strong>
+    <strong>Tier 2 and most of tier 1 shipped in 3.0.0</strong>
     (<a href="https://github.com/aaronified/tippani/issues/25">#25</a>, closed): Profile →
     Dashboard widget makes a read-only key, <code>GET /api/widget</code> answers four numbers
     (works, quotes, forgotten, mastered) for that reader's own library, and the README has the
-    <code>services.yaml</code> to paste. What is left is tier 3.
+    <code>services.yaml</code> to paste. Tier 1 landed as that README section rather than a
+    docs page, and without the optional <code>homepage.*</code> compose labels. What is left is
+    those labels and tier 3.
   </p>
   <p>The three tiers, as planned:</p>
   <ol>
@@ -1071,25 +1072,6 @@
   </p>
 </div>
 
-<div class="card req" id="entry-helpers">
-  <h3>The library remembers what you already typed</h3>
-  <p>
-    Every locator in this app is free text, and free text typed twice is typed
-    differently — "The Fall" beside "the fall", chapter 3 beside chapter 03. This
-    offers back your own prior values as you type — on the add form, the edit form,
-    import review and bulk edit — and where two fields are paired, picking one can
-    fill the other.
-  </p>
-  <p>
-    Filling is careful rather than eager: a blank field fills silently, a field
-    that already disagrees is offered as a chip and never overwritten without a
-    tap. Every offer chip carries its own <strong>Alt+1–9</strong>, so the keyboard
-    route never collides with the numeric field the chip sits beside.
-    Season-and-episode pairing waits on
-    <a href="#episodes-name-and-order">episode names</a> existing to pair with.
-  </p>
-</div>
-
 <div class="card req" id="episodes-name-and-order">
   <h3>Episode names, and up to three orderings</h3>
   <p>
@@ -1104,8 +1086,8 @@
     library already trusts, never automatically and never overwriting a name typed
     by hand. Reordering gets a real drag control, built once and shared with the
     anthology entry list, with a keyboard route from the outset rather than added
-    later. It splits off <a href="#entry-helpers">the entry-form work</a> that
-    discovered the gap, and either can ship first.
+    later. It split off the entry-form work that discovered the gap, which has
+    shipped (3.0.0).
   </p>
 </div>
 
@@ -1236,9 +1218,9 @@
 
 <div class="card req" id="req-12">
   <h3>Quotes read aloud, in the browser only</h3>
-  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/12">#12</a> · sits beside §2 The review loop</p>
+  <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/12">#12</a></p>
   <p>
-    Reading a due card aloud, using the browser's own <code>SpeechSynthesis</code>. It
+    Reading a quote aloud, using the browser's own <code>SpeechSynthesis</code>. It
     costs the server nothing, needs no key, and works offline once <a
     href="#mobile-pwa">§5</a>'s service worker
     exists — which is the entire reason this can be accepted while server-side speech
@@ -1249,8 +1231,11 @@
   <p>
     Accepted rather than parked because the line it sat next to turned out to be drawn
     in the right place already — see
-    <a href="#aside-ocr">OCR, and speech, on the server</a>. Scope, widened by the owner in
-    3.0.0 (<code>docs/plans/read-aloud.md</code>): a play control on every quote card, a quote's detail and a review card, whole anthologies and boards read in order, each quote in its own language. No stored audio, no transcription, no server route.
+    <a href="#aside-ocr">OCR, and speech, on the server</a>. Not built yet; the owner widened
+    the plan (<code>docs/plans/read-aloud.md</code>) from the review card to every quote card and a
+    quote's detail, whole anthologies and boards read in order, each quote in its own language with
+    a voice the reader picks per language, and no control at all where the device has no voices.
+    No stored audio, no transcription, no server route.
   </p>
 </div>
 <!-- ROADMAP:FEATURES:END -->

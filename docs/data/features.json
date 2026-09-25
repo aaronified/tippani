@@ -188,7 +188,8 @@
         "</p>"
       ],
       "id": "entry-helpers",
-      "plan": "entry-helpers.md"
+      "plan": "entry-helpers.md",
+      "shipped_in": "3.0.0"
     },
     {
       "title": "Episode names, and up to three orderings",
@@ -206,8 +207,8 @@
         "  library already trusts, never automatically and never overwriting a name typed",
         "  by hand. Reordering gets a real drag control, built once and shared with the",
         "  anthology entry list, with a keyboard route from the outset rather than added",
-        "  later. It splits off <a href=\"#entry-helpers\">the entry-form work</a> that",
-        "  discovered the gap, and either can ship first.",
+        "  later. It split off the entry-form work that discovered the gap, which has",
+        "  shipped (3.0.0).",
         "</p>"
       ],
       "id": "episodes-name-and-order",
@@ -424,10 +425,9 @@
     "12": {
       "title": "Quotes read aloud, in the browser only",
       "railLabel": "Read aloud",
-      "near": "§2 The review loop",
       "html": [
         "<p>",
-        "  Reading a due card aloud, using the browser's own <code>SpeechSynthesis</code>. It",
+        "  Reading a quote aloud, using the browser's own <code>SpeechSynthesis</code>. It",
         "  costs the server nothing, needs no key, and works offline once <a",
         "  href=\"#mobile-pwa\">§5</a>'s service worker",
         "  exists — which is the entire reason this can be accepted while server-side speech",
@@ -438,8 +438,11 @@
         "<p>",
         "  Accepted rather than parked because the line it sat next to turned out to be drawn",
         "  in the right place already — see",
-        "  <a href=\"#aside-ocr\">OCR, and speech, on the server</a>. Scope, widened by the owner in",
-        "  3.0.0 (<code>docs/plans/read-aloud.md</code>): a play control on every quote card, a quote's detail and a review card, whole anthologies and boards read in order, each quote in its own language. No stored audio, no transcription, no server route.",
+        "  <a href=\"#aside-ocr\">OCR, and speech, on the server</a>. Not built yet; the owner widened",
+        "  the plan (<code>docs/plans/read-aloud.md</code>) from the review card to every quote card and a",
+        "  quote's detail, whole anthologies and boards read in order, each quote in its own language with",
+        "  a voice the reader picks per language, and no control at all where the device has no voices.",
+        "  No stored audio, no transcription, no server route.",
         "</p>"
       ]
     },

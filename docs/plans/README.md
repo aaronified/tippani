@@ -186,7 +186,7 @@ as many words, and the code that shipped banded the budget across the whole
 string until a docs pass three commits later compared the two.
 
 
-## What is not a plan, and never gets a roadmap card
+## What gets no roadmap card
 
 The periodic sweep (`CLAUDE.md`, "The plan queue") reads every file here and gives
 each one an entry in `docs/data/features.json`'s `manual[]` so the roadmap says what
@@ -194,7 +194,7 @@ is coming. **Adding a card publishes a promise on a public page**, so the files
 below are named here rather than judged again each night — a sweep that re-decides
 the same exclusions nightly will eventually decide one of them differently.
 
-| File | Why it is not a plan |
+| File | Why it gets no card |
 |---|---|
 | `README.md` | This file |
 | `open-defects.md` | A defect register: the owner's reports and what was done about each. Nothing in it is a promise about the future |
