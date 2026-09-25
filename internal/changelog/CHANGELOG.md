@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Tippani 3 is a redesign from top to bottom: a new look, a Metadata console for keeping a large
 library tidy, a smarter quiz, anthologies you can put on an e-reader, and sign-in through your own
 identity provider. Every change, with the reasons behind it, is in
-[docs/changelog/3.0.0.md](docs/changelog/3.0.0.md).
+[docs/changelog/3.0.0.md](https://github.com/aaronified/tippani/blob/v3.0.0/docs/changelog/3.0.0.md).
 
 ### Added
 
