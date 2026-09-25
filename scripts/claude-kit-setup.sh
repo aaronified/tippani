@@ -7,6 +7,12 @@
 # (code.claude.com/docs/en/cloud-environments, Script requirements), and a session without
 # the kit is better than no session. A failed step is printed as it happens and counted in
 # the last line, so the setup log says what is missing.
+#
+# The environment runs this once per cache: at its first session, and again when the setup
+# script or the allowed hosts change or the cache expires after about seven days (same page,
+# Environment caching). So the session that builds the cache needs the kit attached, or the
+# cache holds no kit until the next rebuild. In any session, no claude-kit in
+# `claude plugin list` or no .git/hooks/pre-commit means: run this from the session.
 set -u
 failed=0
 warn() { echo "claude-kit: $*" >&2; failed=$((failed + 1)); }
@@ -27,8 +33,11 @@ except ValueError as e:
 s.setdefault("env", {}).update(
     {k: "100000" for k in ("CLAUDE_KIT_DIGEST_MINUTES", "CLAUDE_KIT_DIGEST_EVERY", "CLAUDE_KIT_DIGEST_TOOLS")})
 os.makedirs(os.path.dirname(p), exist_ok=True)
-with open(p, "w") as fh:
+# Beside it and moved: this file also holds enabledPlugins, and a failed write must not
+# leave it truncated.
+with open(p + ".tmp", "w") as fh:
     json.dump(s, fh, indent=2)
+os.replace(p + ".tmp", p)
 EOF
 
 # Per-clone pieces the kit asks for, and the dependencies its test and capture skills drive.
@@ -37,7 +46,17 @@ if git -C "$R" rev-parse --git-dir >/dev/null 2>&1; then
   # --git-path follows a linked worktree and core.hooksPath.
   HOOKS=$(cd "$R" && git rev-parse --path-format=absolute --git-path hooks)
   EXCLUDE=$(cd "$R" && git rev-parse --path-format=absolute --git-path info/exclude)
-  K=$(ls -d ~/.claude/plugins/cache/claude-kit/claude-kit/*/ 2>/dev/null | sort -V | tail -1)
+  # The installed copy, as the plugin record names it; the newest cached one if there is no
+  # record, since the cache can hold a version that is no longer installed.
+  K=$(python3 - <<'EOF' 2>/dev/null
+import json, os
+d = json.load(open(os.path.expanduser("~/.claude/plugins/installed_plugins.json")))
+rows = sorted(d["plugins"]["claude-kit@claude-kit"], key=lambda r: r.get("lastUpdated", ""))
+print(rows[-1]["installPath"].rstrip("/") + "/")
+EOF
+)
+  [ -n "$K" ] && [ -d "$K" ] \
+    || K=$(ls -d ~/.claude/plugins/cache/claude-kit/claude-kit/*/ 2>/dev/null | sort -V | tail -1)
   H="$HOOKS/pre-commit"
   if [ -z "$K" ]; then
     warn "plugin cache not found - commit guard not written"
@@ -48,9 +67,12 @@ if git -C "$R" rev-parse --git-dir >/dev/null 2>&1; then
       && python3 "${K}skills/git-sync/scripts/kit_guard.py" --hook > "$H.tmp" \
       && chmod +x "$H.tmp" && mv "$H.tmp" "$H" \
       || { rm -f "$H.tmp"; warn "commit guard not written"; }
-  elif ! grep -q 'kit_guard.py' "$H"; then
-    # Someone else's hook. Not edited: the line to add finds whichever kit version is
-    # installed and skips itself when none is, as the kit's own hook does.
+  elif ! grep -Eq '^[^#]*kit_guard\.py.*--staged' "$H"; then
+    # Someone else's hook, not already calling the guard (a comment naming it does not
+    # count). Not edited, though the kit says to append: a hook that ends in `exec` never
+    # reaches an appended line, and a script that rewrites someone's hook gets disabled.
+    # The line to add finds whichever kit version is installed and skips itself when none
+    # is, as the kit's own hook does.
     warn "$H is someone else's hook and was left alone; add this line to it:"
     echo '  G=$(ls ~/.claude/plugins/cache/claude-kit/claude-kit/*/skills/git-sync/scripts/kit_guard.py 2>/dev/null | sort -V | tail -1); [ -z "$G" ] || python3 "$G" --staged || exit 1' >&2
   fi
@@ -62,6 +84,11 @@ if git -C "$R" rev-parse --git-dir >/dev/null 2>&1; then
   fi
   (cd "$R/web/frontend" && npm ci --no-audit --no-fund) || warn "npm ci failed in web/frontend"
   (cd "$R/scripts/screenshots" && npm ci --no-audit --no-fund) || warn "npm ci failed in scripts/screenshots"
+  # The kit's audit half: no kit file may be tracked, at any path.
+  if [ -n "$K" ]; then
+    (cd "$R" && python3 "${K}skills/git-sync/scripts/kit_guard.py" --tracked) \
+      || warn "kit_guard --tracked found kit files tracked in $R (listed above)"
+  fi
 else
   # The setup script may run before the clone. Run this again from the session to add them.
   echo "claude-kit: $R is not a clone yet - skipped the commit guard, the exclude line and npm ci" >&2
