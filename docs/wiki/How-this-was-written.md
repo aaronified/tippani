@@ -526,7 +526,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   The part worth keeping is WHY it was invisible. The probe deliberately does not fail on
   a missing ceiling — failing there is how a ratchet gets deleted rather than filled in —
   so a fixture name that misses the baseline turns the ratchet off and the run still exits
-  0. `test/pure/controls-ratchet.test.js` is the second control: it asserts, in 200ms,
+  0. `test/rules/controls-ratchet.test.js` is the second control: it asserts, in 200ms,
   that the shelf the harness names has a ceiling at every width the harness runs. Two
   fifty-minute runs cannot notice what a file-shape check finds instantly.
 
