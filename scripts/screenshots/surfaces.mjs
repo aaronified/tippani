@@ -23,7 +23,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import puppeteer from 'puppeteer-core'
-import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions, noMotionScript, NO_MOTION_CSS } from './capture.mjs'
+import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions, noMotionScript, NO_MOTION_CSS, oneTreePerLook } from './capture.mjs'
 
 const opts = {
   baseUrl: 'http://127.0.0.1:8080',
@@ -103,16 +103,19 @@ const engine = findBrowser(null, 'chrome')
 // nothing above.
 const PRESS_CSS = 'button, a[href], summary, input[type="checkbox"], input[type="radio"], [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]'
 
+// One accessibility tree per look, as the journeys read it; see oneTreePerLook.
 async function namesOn(page) {
   const handles = await page.$$(PRESS_CSS)
   const out = []
-  for (const h of handles) {
-    const vis = await h.isVisible?.().catch(() => false) ?? await h.boundingBox().then((b) => !!b).catch(() => false)
-    if (!vis) { await h.dispose(); continue }
-    const snap = await page.accessibility.snapshot({ root: h }).catch(() => null)
-    if (snap && snap.name) out.push({ name: snap.name.trim(), handle: h })
-    else await h.dispose()
-  }
+  await oneTreePerLook(page, async (snapshot) => {
+    for (const h of handles) {
+      const vis = await h.isVisible?.().catch(() => false) ?? await h.boundingBox().then((b) => !!b).catch(() => false)
+      if (!vis) { await h.dispose(); continue }
+      const snap = await snapshot(h).catch(() => null)
+      if (snap && snap.name) out.push({ name: snap.name.trim(), handle: h })
+      else await h.dispose()
+    }
+  })
   return out
 }
 
