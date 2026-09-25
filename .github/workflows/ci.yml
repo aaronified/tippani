@@ -165,8 +165,8 @@ jobs:
   journeys:
     runs-on: ubuntu-latest
     # NAMED ONCE, for the step that checks it and the harness that launches it.
-    # findBrowser reads CHROME_PATH unless PUPPETEER_EXECUTABLE_PATH outranks it,
-    # and the check step refuses that variable, so the two cannot disagree.
+    # The check step asks findBrowser itself which binary it would launch, so the
+    # two cannot disagree however findBrowser orders its overrides.
     env:
       CHROME_PATH: /usr/bin/google-chrome
     steps:
@@ -213,15 +213,28 @@ jobs:
       # nothing away.
       - name: the browser to drive
         run: |
-          test -z "${PUPPETEER_EXECUTABLE_PATH:-}" || { echo "::error::PUPPETEER_EXECUTABLE_PATH=$PUPPETEER_EXECUTABLE_PATH outranks CHROME_PATH in findBrowser"; exit 1; }
           test -x "$CHROME_PATH" || { echo "::error::no Google Chrome at $CHROME_PATH on this runner"; exit 1; }
+          node --input-type=module -e "
+            import { findBrowser } from './scripts/screenshots/capture.mjs'
+            const p = findBrowser(null, 'chrome').executablePath
+            if (p !== process.env.CHROME_PATH) { console.log('::error::the harness would launch ' + p + ', not ' + process.env.CHROME_PATH); process.exit(1) }
+            console.log('the harness launches ' + p)"
           echo "$CHROME_PATH -> $(readlink -f "$CHROME_PATH")"
           "$CHROME_PATH" --version
-          sysctl kernel.apparmor_restrict_unprivileged_userns || true
-          if timeout 60 "$CHROME_PATH" --headless --disable-setuid-sandbox --dump-dom about:blank >/dev/null 2>&1; then
-            echo "the namespace sandbox starts, so AppArmor's chrome profile is what lets it"
+          restrict=$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo absent)
+          echo "kernel.apparmor_restrict_unprivileged_userns=$restrict"
+          if err=$(timeout 60 "$CHROME_PATH" --headless --disable-setuid-sandbox --dump-dom about:blank 2>&1 >/dev/null); then
+            if [ "$restrict" = 1 ]; then
+              echo "the namespace sandbox starts, and AppArmor's chrome profile is what lets it"
+            else
+              echo "the namespace sandbox starts; user namespaces are not restricted here"
+            fi
+          elif grep -q 'No usable sandbox' <<<"$err"; then
+            ls -l "$(dirname "$(readlink -f "$CHROME_PATH")")/chrome-sandbox" || true
+            echo "::warning::the namespace sandbox does not start here; Chrome falls back to its setuid chrome-sandbox"
           else
-            echo "::warning::the namespace sandbox does not start here; Chrome is on its setuid chrome-sandbox"
+            printf '%s\n' "$err" | tail -n 20
+            echo "::warning::the sandbox probe failed for a reason other than the sandbox (above)"
           fi
       - name: the journeys
         run: npm run journeys
