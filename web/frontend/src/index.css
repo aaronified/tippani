@@ -9307,11 +9307,17 @@ html[data-theme="dark"] .board-cover {
    because a panel opened from a console reads --row too and must not double. Settings is a notch lighter: its cards
    are dense rows of controls, and the same gap there reads as gaps rather than
    air. */
+/* THE INSET IS ONE NUMBER ON BOTH SCREENS, and it grew rather than shrank. The
+   owner: "The horizontal spaces are still too thin … Horizontal and vertical
+   spacing should match." Settings' sides were card-pad + 2 (24 on a desk, 20 on a
+   phone) with a thinner top; making the four sides match by cutting the sides to
+   the top's number answered the second sentence by undoing the first. So the
+   token takes the sides' old width and the top grows to meet it. */
 [data-screen-label="metadata"] { --meta-gap: 24px; --card-pad: 24px; --section-top: 0px; }
-[data-screen-label="settings"] { --meta-gap: 22px; --card-pad: 22px; --section-top: 0px; }
+[data-screen-label="settings"] { --meta-gap: 22px; --card-pad: 24px; --section-top: 0px; }
 @media (max-width: 768px) {
   [data-screen-label="metadata"],
-  [data-screen-label="settings"] { --meta-gap: 18px; --card-pad: 18px; --section-top: 20px; }
+  [data-screen-label="settings"] { --meta-gap: 18px; --card-pad: 20px; --section-top: 20px; }
   /* A PHONE'S GUTTER IS 12px APP-WIDE, and a card of controls that close to the
      glass reads as cramped rather than as full-width. The shell owns --edge, so
      the extra comes from the frame rather than from restating the token under it. */
@@ -10994,12 +11000,18 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
 .section-index-card:nth-child(3n) { border-radius: 13px 10px 15px 9px / 10px 14px 9px 15px; }
 .section-index-card > .section-index-row { border-top: none; }
 .section-index-card > .section-index-row {
-  padding: 0; min-height: 44px;
-  /* THE INK, NOT THE BOX, SITS AT THE INSET. The row is 44px for the thumb and its
-     tallest drawing, the chevron disc, is max(32px, 2.2em) — so the painted top sat
-     6px deeper than the sides. The row reaches into the padding by that difference,
-     never more than it: a row whose disc outgrows the floor keeps its own height. */
-  margin-block: min(0px, calc((max(32px, 2.2em) - 44px) / 2));
+  /* THE INK, NOT THE BOX, SITS AT THE INSET — and the ink on the top edge is the
+     chevron disc, max(32px, 2.2em), not the section's name, whose letters sit a
+     few pixels lower inside their line box. The row is 44px for the thumb, so the
+     disc sat 6px deeper than the sides. The half-difference goes on as padding
+     and comes off as margin: the row still spans 44px for the thumb, its content
+     box starts exactly at the card's inset, and a name that wraps taller than
+     the disc grows the content box downward instead of reaching into the
+     padding. (The first cut was the margin alone, which pulled a wrapped name
+     6px up past the inset.) A disc that outgrows the floor makes both zero. */
+  --index-row-slack: max(0px, calc((44px - max(32px, 2.2em)) / 2));
+  padding: var(--index-row-slack) 0; min-height: 44px;
+  margin-block: calc(var(--index-row-slack) * -1);
 }
 .section-index-card > .section-index-actions { margin-top: calc(var(--card-pad, 18px) * .6); }
 .section-index-actions {
@@ -11510,6 +11522,11 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
    NOT AT EVERY WIDTH. In a desk column the pack draws these as rows — label left,
    range beside it, readout in mono at the end — and there the track already has
    room. This is the phone's answer to a row that cannot fit both. */
+/* A RANGE IS A BLOCK. Left inline, it sat on the text baseline of its wrapper and
+   carried the line's descender space under it — about 7px of air below the
+   drawing, so a card ending on a slider (Review's "Schedule") was the one card
+   heavier at the bottom than on its other three sides. */
+.tp-slider input[type="range"] { display: block; margin: 0; }
 @media (max-width: 768px) {
   .pref-row:has(.tp-slider) { row-gap: 2px; }
   .pref-row-control:has(.tp-slider) { flex: 1 1 100%; }

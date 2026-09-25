@@ -19252,3 +19252,14 @@ fix padded the sides and bottom and left the top to the row's height, which matc
 coincidence (15px against 18). All four sides are the token now, and the row inside a card is
 44px, the touch floor, with no padding of its own. Measured at 390: 19px on every side of every
 card (18 plus the border).
+
+*A third rating pass corrected three things.* Matching the four sides had been done by cutting
+Settings' sides to the top's number — the owner's first sentence was that the sides were too
+thin, so that answered the second by undoing the first. `--card-pad` took the sides' old width
+instead, 24 on a desk and 20 on a phone on both screens, and the top grew to meet it. A card
+ending on a slider was still 7px heavier at the bottom: the range input was inline and carried
+the line's descender space; it is a block now. And the index row's pull-up became padding with
+an equal negative margin, so a section name that wraps taller than the chevron disc grows the
+row downward instead of reaching 6px past the inset. The inset journey had measured a bordered
+row's whole box as painted, which is why it passed over the slider card; a border now counts
+only the edge it draws, and the journey checks the right edge where nothing scrolls sideways.
