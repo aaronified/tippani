@@ -704,7 +704,9 @@ silently.
 2. **Branch off `main`.** Keep it to one concern.
 3. **Write the commit message body.** The why, and the alternative you rejected.
 4. **`go vet ./...` and `go test ./...` must pass**, `npm test` if you touched the
-   frontend, and a frontend change must include the rebuilt `web/dist/`.
+   frontend, and the pull request's head must carry the rebuilt `web/dist/` (CI
+   checks it). The maintainer's own sessions commit features without it and add
+   one rebuild commit before each push; see `CLAUDE.md`.
 5. **Update the docs that go stale** — the list is in [Conventions](#conventions).
 
 ## When your own build fails

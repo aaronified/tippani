@@ -125,11 +125,13 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   them against the list below, reporting each line as seen or not seen. The pass table above
   applies per commit.
 
-  **The visual guideline.**
+  **The visual guideline.** The owner asked for one; the items are the session's, drawn from
+  the owner's reports (the first three) and from the Standing UI rules below.
   - *Feature list*: every ask the commit answers, found on screen and pressed, not read in the
     diff.
   - *Hygiene*, on every screen the commit touches, measured where a number exists:
-    - A card's content is inset the same on all four sides (`--card-pad`).
+    - A card's content is inset the same on all four sides, measured (`--card-pad` where the
+      screen defines it: Settings and Metadata).
     - Every card wears `.hand-card`'s material, the same as a quote card.
     - The phone dock slides away on scroll.
     - No horizontal page scroll at 390 (`sideways` = 0).
