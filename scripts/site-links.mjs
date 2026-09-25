@@ -25,12 +25,14 @@ if (!existsSync(ROOT)) {
   process.exit(2)
 }
 
-function htmlFiles(dir) {
+// The pages AND the stylesheets: the demo's CSS is Vite's output and names its
+// own fonts and textures by url(), relative to itself.
+function siteFiles(dir) {
   const out = []
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name)
-    if (e.isDirectory()) out.push(...htmlFiles(p))
-    else if (e.name.endsWith('.html')) out.push(p)
+    if (e.isDirectory()) out.push(...siteFiles(p))
+    else if (e.name.endsWith('.html') || e.name.endsWith('.css')) out.push(p)
   }
   return out
 }
@@ -42,7 +44,7 @@ const ATTR = /(?<![\w-])(?:href|src)\s*=\s*"([^"]+)"/g
 
 // And CSS url(), in a <style> or a style attribute, bare or quoted, where a quote
 // inside an attribute arrives as &quot; or &#39;. The glossary inlines the built
-// stylesheet, so its faces and material textures are all references of this kind.
+// stylesheet, so its fonts and material textures are all references of this kind.
 const CSS_URL = /url\(\s*(?:&quot;|&#39;|["'])?([^"')&]+)/g
 
 // Not our problem: other origins, and the schemes that are not file lookups.
@@ -57,7 +59,7 @@ const decoded = (s) => {
 const problems = []
 let checked = 0
 
-for (const file of htmlFiles(ROOT)) {
+for (const file of siteFiles(ROOT)) {
   const html = readFileSync(file, 'utf8')
   const refs = [...html.matchAll(ATTR), ...html.matchAll(CSS_URL)].map((m) => m[1].trim())
   for (const raw of refs) {

@@ -71,11 +71,11 @@ jobs:
           cp docs/landing.html _site/index.html
           cp docs/roadmap.html docs/ui-glossary.html _site/
           # THE GLOSSARY POINTS INTO THE REPO. It is generated to be opened from
-          # docs/, so its faces, its material textures and its mark are
+          # docs/, so its fonts, its material textures and its mark are
           # ../web/dist/…, and from the site root that is outside the site: every
           # one of them was a 404 on github.io. Copy exactly the files it names,
           # at the same paths under _site, and drop the "../".
-          { grep -oE '\.\./web/dist/[^")&[:space:]]+' _site/ui-glossary.html || true; } | sort -u |
+          { grep -oE "\.\./web/dist/[^\"')&?#[:space:]]+" _site/ui-glossary.html || true; } | sort -u |
             while read -r ref; do
               mkdir -p "_site/$(dirname "${ref#../}")"
               cp "${ref#../}" "_site/${ref#../}"
