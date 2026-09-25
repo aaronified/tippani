@@ -197,7 +197,7 @@ export function SectionRail({ sections, value, open = undefined, onChange, ariaL
                button inside a button — invalid, and in practice the outer one eats
                the press, so every toggle on this screen would have navigated instead
                of toggling. */
-            <div key={s.id} className={`section-index-card${s.actions ? ' has-actions' : ''}`}>
+            <div key={s.id} className={`section-index-card hand-card${s.actions ? ' has-actions' : ''}`}>
               <button
                 type="button"
                 className="section-index-row"

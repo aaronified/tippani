@@ -10963,12 +10963,17 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
    goes: two cards with a gap between them need nothing drawn to tell them
    apart. */
 .section-index-card {
-  /* The app's own card skin, so these read as the same kind of object as every
-     other card rather than as a new one invented for this screen: the same
-     gradient over --card, the same ink border, the same hand-drawn radius. */
-  background: linear-gradient(180deg, color-mix(in srgb, var(--card), white 6%), color-mix(in srgb, var(--card), black 4%));
-  border: 1.6px solid var(--ink-border);
-  border-radius: 15px 9px 14px 10px / 9px 15px 10px 14px;
+  /* THE CARD IS A .hand-card, not a copy of its gradient. The copy had the skin
+     and none of the material: the texture tile and the dither live in the
+     class's ::before and ::after, so these cards stayed flat in every material
+     set while the quote cards beside them wore paper, satin or cotton. The owner:
+     "the cards there still doesn't match the card textures elsewhere".
+
+     AND ITS INSET IS ONE NUMBER ON EVERY SIDE. The row's height gave the card
+     about 18px of air above and below its content, while the row and the verbs
+     sat 6px in from the side border — chips and buttons nearly touching the
+     ink. The owner: "Horizontal and vertical spacing should match." */
+  padding-inline: var(--card-pad, 18px);
   margin-bottom: var(--meta-gap, 10px);
 }
 /* THE RADII ALTERNATE so five cards in a column do not read as one extruded
@@ -10977,11 +10982,12 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
 .section-index-card:nth-child(3n) { border-radius: 13px 10px 15px 9px / 10px 14px 9px 15px; }
 .section-index-card > .section-index-row { border-top: none; }
 .section-index-card.has-actions {
-  padding-bottom: 12px;
+  padding-bottom: var(--card-pad, 18px);
 }
+.section-index-card > .section-index-row { padding-inline: 0; }
 .section-index-actions {
   display: flex; flex-direction: column; gap: 10px;
-  padding: 0 6px;
+  padding: 0;
 }
 /* EVERY CONTROL TAKES THE WHOLE WIDTH IT IS OFFERED. These are the app's own
    rows, fields and toggles, drawn at a third of the width they have on the
