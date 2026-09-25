@@ -36,7 +36,10 @@ function htmlFiles(dir) {
 }
 
 // href/src on any element, plus the CSS url() forms that reference real files.
-const ATTR = /(?:href|src)\s*=\s*"([^"]+)"/g
+// The lookbehind keeps `data-src="google"` out: the glossary's source marks carry
+// the source's NAME in a data attribute, and without it the tail of that attribute
+// read as a link to a file called `google`.
+const ATTR = /(?<![\w-])(?:href|src)\s*=\s*"([^"]+)"/g
 
 // Not our problem: other origins, and the schemes that are not file lookups.
 const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|mailto:|data:)/i
