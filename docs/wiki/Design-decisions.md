@@ -19216,33 +19216,32 @@ documented. The request log prints the full URI, so a dashboard polling it would
 key to the log on every poll. The query form is gone, and the widget test asserts it is refused.
 
 **Two more gaps closed before 3.0.0, at the owner's choice.** Asked whether to tag with the
-admin-data gaps planned or to build them first, the owner chose to build them.
-*A deleted account is opaque in the admin's bin.* The snapshot has to live in the deleting
-admin's bin, because a row in its owner's own would cascade away with them. That placement is
-custody, not access. So `GET /trash/{id}` answers an `account` entry with its name and count
-and no contents, and the Bin draws no chevron for it. Hiding it only in the client was
-rejected: the route would still have served the quotes to anyone who asked.
-*A password somebody else chose is temporary.* Migration 0078 adds `must_change_password`. It is
-set when an admin makes an account and by `tippani user passwd`, and by `user add` for every
-account after the first (the first is the operator's own). It is cleared when the reader changes
-their password. While it is set, `requireAuth` answers 403 to everything except `GET /auth/me`,
-`POST /auth/password`, `POST /auth/logout`, and the reader's own fonts (`GET /fonts` and
-`GET /fonts/{id}/file`, which the app loads before any screen), keyed on the matched route
-pattern rather than a path prefix. `mustChangePassword` fails closed on a read error. The app shows only "Choose your
-own password" in the sign-in frame. Choosing the given password again is refused, since it would
-leave the admin holding a working password.
-*Restore and reset begin with a downloaded backup.* The obvious build was to press "Back up"
-first. It fails for restore-from-server: the server keeps one archive, so the fresh backup
-would replace the archive the restore was about to read, and the restore would put back
-exactly what was there. So `POST /admin/backup/safety` seals a copy the same way a backup is
-sealed (`sealBackup`, now shared with `handleBackupCreate`), streams it, and deletes it. The
-server records the download only when `io.Copy` has sent the whole file, and only for that
-admin. `/admin/restore`, `/admin/restore/upload` and `/admin/reset` answer 428 without a
-record from the last 30 minutes. The record lives in memory, so a restart fails closed. The
-onboarding restore is exempt, because an empty server has nothing to lose. In the app, one
-`SafetyBackupStep` heads both the restore dialog and the factory reset. Its password box is
-named for the copy ("Your password, to seal the copy"), so it cannot be confused with the
-restore's own.
+admin-data gaps planned or to build them first, the owner chose to build them. *A deleted
+account is opaque in the admin's bin.* The snapshot has to live in the deleting admin's bin,
+because a row in its owner's own would cascade away with them. That placement is custody, not
+access. So `GET /trash/{id}` answers an `account` entry with its name and count and no
+contents, and the Bin draws no chevron for it. Hiding it only in the client was rejected: the
+route would still have served the quotes to anyone who asked. *A password somebody else chose
+is temporary.* Migration 0078 adds `must_change_password`. It is set when an admin makes an
+account and by `tippani user passwd`, and by `user add` for every account after the first (the
+first is the operator's own). It is cleared when the reader changes their password. While it is
+set, `requireAuth` answers 403 to everything except `GET /auth/me`, `POST /auth/password`,
+`POST /auth/logout`, and the reader's own fonts (`GET /fonts` and `GET /fonts/{id}/file`, which
+the app loads before any screen), keyed on the matched route pattern rather than a path prefix.
+`mustChangePassword` fails closed on a read error. The app shows only "Choose your own
+password" in the sign-in frame. Choosing the given password again is refused, since it would
+leave the admin holding a working password. *Restore and reset begin with a downloaded backup.*
+The obvious build was to press "Back up" first. It fails for restore-from-server: the server
+keeps one archive, so the fresh backup would replace the archive the restore was about to read,
+and the restore would put back exactly what was there. So `POST /admin/backup/safety` seals a
+copy the same way a backup is sealed (`sealBackup`, now shared with `handleBackupCreate`),
+streams it, and deletes it. The server records the download only when `io.Copy` has sent the
+whole file, and only for that admin. `/admin/restore`, `/admin/restore/upload` and
+`/admin/reset` answer 428 without a record from the last 30 minutes. The record lives in
+memory, so a restart fails closed. The onboarding restore is exempt, because an empty server
+has nothing to lose. In the app, one `SafetyBackupStep` heads both the restore dialog and the
+factory reset. Its password box is named for the copy ("Your password, to seal the copy"), so
+it cannot be confused with the restore's own.
 
 **The phone's section index cards are `.hand-card`s, inset by `--card-pad` on all four sides.**
 They had copied `.hand-card`'s gradient and border but not the class. The material tile and

@@ -4996,8 +4996,10 @@
     body { padding-left: var(--rail); }
     /* NO RAIL, NO ROOM FOR ONE. The sign-in, onboarding and choose-a-password
        screens draw no rail, so the padding pushed their centred frame 118px right
-       of the page's middle at 1280. */
-    body:has(main:is([data-screen-label="login"], [data-screen-label="onboarding"], [data-screen-label="choose-password"])) { padding-left: 0; }
+       of the page's middle at 1280. Keyed on the rail's absence rather than on
+       those three screens' names, so a fourth screen drawn outside the shell
+       cannot bring the offset back. */
+    body:not(:has(.rail)) { padding-left: 0; }
   }
 
   /* ---- the top bar's contents (§ design v3.1) -----------------------------

@@ -8,9 +8,16 @@
 //
 // Mutations: with `press('Update password')` for the new password deleted, the
 // library never opens and "Daily quiz" waits in vain; with the Log out
-// request removed, "Sign in" never appears.
+// request removed, "Sign in" never appears; with the welcome toast allowed on
+// the locked screen, "welcome back" is on it; with the no-rail padding rule
+// removed, the frame sits off the page's middle.
 //
-// It knows the words on the screen and nothing else.
+// ONE DECLARED EXCEPTION: where the frame sits. The screen draws no rail, so its
+// frame belongs in the middle of the page, and a frame pushed sideways still
+// reads as a frame — there are no words to check. The heading's painted box is
+// measured against the window's middle.
+//
+// It knows the words on the screen, and where the password frame is drawn.
 
 import { expect, it } from 'vitest'
 
@@ -33,6 +40,14 @@ it('a reader given a password by the admin must choose their own before the libr
   await app.see('Choose your own password')
   await app.gone('Daily quiz')
 
+  // IN THE MIDDLE OF THE PAGE. No rail is drawn here, so no room is kept for one.
+  const offset = await app.page.evaluate(() => {
+    const h = [...document.querySelectorAll('h1, h2')].find((e) => /choose your own password/i.test(e.innerText))
+    const r = h.getBoundingClientRect()
+    return Math.abs((r.left + r.right) / 2 - innerWidth / 2)
+  })
+  expect(offset, 'the password frame sits off the page\'s middle').toBeLessThan(4)
+
   // THE WAY OUT WORKS, and signs out for real: back at the sign-in form, and
   // signing in again lands on the same screen, not in the library.
   await app.press('Log out')
@@ -45,6 +60,11 @@ it('a reader given a password by the admin must choose their own before the libr
   await app.type('password', 'from-the-admin')
   await app.press('Sign in')
   await app.see('Choose your own password')
+  // Through the sign-in form this time, which is where the welcome is said —
+  // and nothing has opened, so nothing welcomes them back yet. A SHORT WAIT, on
+  // purpose: a toast goes by itself after a few seconds, so an ordinary `gone`
+  // would pass by waiting it out. This asks whether it is there now.
+  await app.gone('welcome back', { timeout: 500 })
 
   // The admin's password again is not a password of one's own.
   await app.type('current password', 'from-the-admin')
