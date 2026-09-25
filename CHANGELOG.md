@@ -15,16 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sign-on; `TIPPANI_OIDC_AUTO_CREATE=1` makes accounts for new identities instead. Works with
   Authelia, Authentik, Keycloak, Pocket ID and any provider that publishes discovery.
 
-- **A dashboard widget.** Settings → Server → Dashboard widget makes a read-only key and shows the
+- **A dashboard widget.** Profile → Dashboard widget makes a read-only key and shows the
   gethomepage `services.yaml` entry to paste. The widget shows four numbers: works, quotes,
   forgotten and mastered.
 
-- **Every account keeps its own.** Single sign-on is on Profile; Pushover and the widget key
-  live under Settings → Server, which every account now opens — Updates, Backup and the release
-  log there stay admin-only. Each reader links their own identity, brings their own Pushover
-  key and makes their own widget key; none of it is shared with another account.
+- **Every account keeps its own.** Single sign-on, Pushover and the widget key are Profile
+  cards. Each reader links their own identity, brings their own Pushover key and makes their
+  own widget key; none of it is shared with another account.
 
-- **Pushover notifications.** Add your Pushover user key under Settings → Server → Notifications to get a
+- **Pushover notifications.** Add your Pushover user key under Profile → Notifications to get a
   message when the day's review deck is ready, when a large import is staged or approved, when a
   long metadata fetch finishes, and when a backup is written. Each can be switched off. The
   daily message is sent by `tippani notify daily`, run from the host's cron;

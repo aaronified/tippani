@@ -1,4 +1,4 @@
-// A reader makes a dashboard key under Settings → Server, copies what the screen gives them
+// A reader makes a dashboard key on Profile, copies what the screen gives them
 // into their dashboard, and the dashboard can read their library's four numbers
 // with it — until they revoke it, and then it cannot.
 //
@@ -26,8 +26,8 @@ async function dashboard(key) {
   return { status: r.status, body: r.status === 200 ? await r.json() : null }
 }
 
-it('a key made under Settings → Server lets a dashboard read four numbers, and revoking it stops that', async () => {
-  await app.goto('/settings/server')
+it('a key made on Profile lets a dashboard read four numbers, and revoking it stops that', async () => {
+  await app.goto('/profile')
   await app.see('Dashboard widget')
   await app.press('Make a key')
   await app.see('Copy it now')

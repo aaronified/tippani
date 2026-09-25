@@ -234,7 +234,7 @@ may add migrations a released build will not read back.
 | `TIPPANI_OIDC_SCOPES` | `profile email` | Extra scopes beside `openid`, space-separated. |
 | `TIPPANI_OIDC_AUTO_CREATE` | `0` | `1` creates an account for an identity nobody has linked. Off by default: without it, a reader signs in with their password once and links the provider from Profile → Single sign-on. The first account created this way on an empty instance is the admin. |
 | `TIPPANI_OIDC_LINK_USERNAME` | `0` | `1` links an unlinked identity to the existing account whose username equals its `preferred_username`. Only turn it on if your provider does not let people choose that name themselves. |
-| `TIPPANI_PUSHOVER_TOKEN` | *(unset)* | A [Pushover](https://pushover.net) application token shared by every reader, so each only enters their own user key (Settings → Server → Notifications). A reader may bring their own token instead. |
+| `TIPPANI_PUSHOVER_TOKEN` | *(unset)* | A [Pushover](https://pushover.net) application token shared by every reader, so each only enters their own user key (Profile → Notifications). A reader may bring their own token instead. |
 | `TIPPANI_LOG_LEVEL` | `info` | `debug` for per-operation `[trace]` lines. Every logged `TIP-*` code has a row in [Troubleshooting](https://github.com/aaronified/tippani/wiki/Troubleshooting). |
 | `GOMAXPROCS` · `GOMEMLIMIT` · `GOGC` | Go's defaults | Runtime caps for a busy NAS. The systemd unit ships `1` · `64MiB` · `200`; the reasoning is in the design log. |
 | **Commands** — `docker exec -i tippani /tippani …`, or the binary | | |
@@ -331,7 +331,7 @@ Each account sets up its own phone; nothing is shared between readers.
    application called Tippani and copy its **API token**. Either the operator sets it once for everyone as
    `TIPPANI_PUSHOVER_TOKEN` (then readers only need step 2), or each reader pastes their own in step 3.
 2. **Your user key** is on the front page of [pushover.net](https://pushover.net) once you are signed in.
-3. In Tippani open **Settings → Server → Notifications**, paste the user key (and the token, if the server has
+3. In Tippani open **Profile** (the avatar in the top bar) → **Notifications**, paste the user key (and the token, if the server has
    none), press **Save keys**, then **Send a test**.
 4. Choose what reaches you: **Daily review ready**, **Large imports** (50 or more quotes staged or approved),
    **Long metadata fetches** (20 or more works) and, for an admin, **Backups**.
@@ -354,7 +354,7 @@ Four numbers from your library on a [gethomepage](https://gethomepage.dev) dashb
 **forgot** (quotes whose recall dot reads *probably forgotten*) and **mastered** (quotes at the review
 schedule's top rung with no miss since). Each account makes its own key and sees only its own library.
 
-1. Open **Settings → Server → Dashboard widget** and press **Make a key**.
+1. Open **Profile → Dashboard widget** and press **Make a key**.
 2. Copy the YAML it shows — the key is displayed **once** — into gethomepage's `services.yaml`. It looks like:
 
    ```yaml
