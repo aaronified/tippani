@@ -4,16 +4,18 @@
 // broken versions from the fixed one. A cache that swapped `send` in and out around
 // each look passed all 114 journeys, and so did this one, because the failure only
 // shows when two looks overlap: a journey that timed out keeps polling while the
-// next one starts, and the second look to finish put back a wrapper holding the
-// first look's tree for the rest of the file. That is a property of the function,
-// so the function is what this drives.
+// next one starts, and when the look started later also finished last, it put
+// back the earlier look's wrapper, still holding that look's tree, for the rest of
+// the file. That is a property of the function, so the function is what this
+// drives.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW, declared because a test here may not know a
 // function's name: this file knows `oneTreePerLook` in
 // scripts/screenshots/capture.mjs, and the one piece of Puppeteer wiring it
 // relies on, that `page.accessibility.snapshot` sends Accessibility.getFullAXTree
-// through `page.mainFrame().client`. The page below is a stand-in with that shape
-// and nothing else. Nothing observable could serve instead: the browser gives the
+// through `page.mainFrame().client`, and that Puppeteer's Firefox browser says
+// `cdpSupported: false`. The page below is a stand-in with that shape and nothing
+// else. Nothing observable could serve instead: the browser gives the
 // same names either way, which is the point.
 
 import { join } from 'node:path'
@@ -77,9 +79,33 @@ describe('one accessibility tree per look', () => {
       .rejects.toThrow(/no longer sends Accessibility.getFullAXTree/)
   })
 
-  it('refuses a page with no CDP session, rather than failing somewhere inside', async () => {
+  it('asks again after a refused tree, inside the same look', async () => {
     const page = chromePage()
-    page.mainFrame = () => ({})
-    await expect(oneTreePerLook(page, async () => {})).rejects.toThrow(/needs a page with a CDP session/)
+    const send = page.client.send
+    let refuse = true
+    page.client.send = async function (method, params) {
+      if (method === 'Accessibility.getFullAXTree' && refuse) {
+        refuse = false
+        page.trees++
+        throw new Error('Target closed')
+      }
+      return send.call(this, method, params)
+    }
+    await oneTreePerLook(page, async (snapshot) => {
+      await expect(snapshot({})).rejects.toThrow(/Target closed/)
+      await snapshot({})
+    })
+    expect(page.trees, 'a refused tree was kept, so the rest of the look was served the refusal').toBe(2)
+  })
+
+  // Puppeteer's Firefox page, as it is built: its frame DOES have a client, whose
+  // send refuses, and its browser says so. A page with no client at all is a shape
+  // no Puppeteer page has.
+  it('refuses Firefox, whose frame has a session that cannot send', async () => {
+    const page = chromePage()
+    page.browser = () => ({ protocol: 'webDriverBiDi', cdpSupported: false })
+    page.client.send = async () => { throw new Error('CDP support is required for this feature.') }
+    await expect(oneTreePerLook(page, async (snapshot) => { await snapshot({}) }))
+      .rejects.toThrow(/needs a page with a CDP session/)
   })
 })

@@ -379,9 +379,9 @@ export async function launchBrowser(engine, opts = {}) {
 // answer per frame: the page as it stood at the look's first snapshot. So `fn`
 // only reads. A press or a wait inside a look is still named from the screen
 // before it, and a caller that needs the screen after takes a new look, which is
-// what `find` does each time it polls. Puppeteer still decides every name and role, by its own rules
-// for what is interesting and which node a root stands for, and no copy of those
-// rules lives here. What this knows is Puppeteer's wiring: `page.accessibility`
+// what `find` does each time it polls. Puppeteer still decides every name and
+// role, by its own rules for what is interesting and which node a root stands
+// for, and no copy of those rules lives here. What this knows is Puppeteer's wiring: `page.accessibility`
 // is the main frame's, and it sends through `mainFrame().client`. The wiring is
 // pinned by package-lock.json and checked on every look. A look that took
 // snapshots and saw no tree request throws, rather than quietly paying a full
@@ -398,11 +398,14 @@ const WRAPPED = new WeakSet()
 
 export async function oneTreePerLook(page, fn) {
   const client = page.mainFrame().client
-  // CHROME ONLY, and not by choice here. Puppeteer's Firefox frame carries a
-  // BidiCdpSession whose send throws UnsupportedOperation, and
-  // page.accessibility.snapshot sends through it, so a snapshot fails on Firefox
-  // with this wrapper or without it. Said plainly rather than left to fail inside.
-  if (typeof client?.send !== 'function') {
+  // CHROME ONLY, and not by choice here. Puppeteer's Firefox frame DOES carry a
+  // client, a BidiCdpSession, but its send throws UnsupportedOperation when the
+  // browser has no CDP, and page.accessibility.snapshot sends through it. So
+  // whether a client exists cannot tell the two apart; the browser's own
+  // cdpSupported can, and only Puppeteer's Firefox browser defines it. Refused
+  // here, because both callers catch a failed snapshot per control, and a look
+  // on Firefox would otherwise come back empty and read as "nothing to press".
+  if (typeof client?.send !== 'function' || page.browser?.()?.cdpSupported === false) {
     throw new Error('oneTreePerLook needs a page with a CDP session (Chrome): page.accessibility.snapshot cannot read a tree without one')
   }
   if (!WRAPPED.has(client)) {
