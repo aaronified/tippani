@@ -19,6 +19,10 @@ on:
       # landed: its push touched nothing above, so the fix went unexercised until
       # a hand-dispatched run.
       - "scripts/site-links.mjs"
+      # src/i18n.js imports these with ?raw, so every word of the demo is built from
+      # them, and a locale-only push changes the published demo. The * stops at a
+      # slash, so internal/i18n/testdata/ stays out.
+      - "internal/i18n/*.txt"
   workflow_dispatch:
 
 permissions:
