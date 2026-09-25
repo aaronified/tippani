@@ -40,15 +40,17 @@ function siteFiles(dir) {
 // href/src on any element. The lookbehind keeps `data-src="google"` out: the
 // glossary's source marks carry the source's NAME in a data attribute, and
 // without it the tail of that attribute read as a link to a file called `google`.
-// Pages only: a stylesheet has no attributes, and a selector like a[href="/"] in
-// one is not a link.
+// Markup only: CSS has no attributes, whether it is a .css file or a page's
+// <style> (the glossary inlines the app's whole stylesheet), and a selector like
+// a[href="/"] in either is not a link.
 const ATTR = /(?<![\w-])(?:href|src)\s*=\s*"([^"]+)"/g
 
 // And CSS url(), in a <style> or a style attribute, bare or quoted, where a quote
 // inside an attribute arrives as &quot; or &#39;. The glossary inlines the built
 // stylesheet, so its fonts and material textures are all references of this kind.
-// pages.yml's glossary copy stops a path at these same characters, and at ? and #;
-// change one and change the other.
+// pages.yml's glossary copy stops a path at these same characters, and also at
+// ? and # and whitespace, none of which is part of a file name here; change one
+// and change the other.
 const CSS_URL = /url\(\s*(?:&quot;|&#39;|["'])?([^"')&]+)/g
 
 // Not our problem: other origins, and the schemes that are not file lookups.
@@ -65,7 +67,8 @@ let checked = 0
 
 for (const file of siteFiles(ROOT)) {
   const html = readFileSync(file, 'utf8')
-  const refs = [...(file.endsWith('.html') ? html.matchAll(ATTR) : []), ...html.matchAll(CSS_URL)].map((m) => m[1].trim())
+  const markup = file.endsWith('.html') ? html.replace(/<style\b[\s\S]*?<\/style>/gi, '') : ''
+  const refs = [...markup.matchAll(ATTR), ...html.matchAll(CSS_URL)].map((m) => m[1].trim())
   for (const raw of refs) {
     if (!raw || EXTERNAL.test(raw) || EXTERNAL.test(decoded(raw))) continue
     // Strip the query and fragment; neither affects which file is served.
