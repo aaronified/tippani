@@ -160,11 +160,13 @@ jobs:
   # ITS OWN JOB because it needs a browser and minutes rather than seconds, and
   # because a failure here means something different from a unit failure: the app
   # is broken, not a function. The browser is the runner's own Google Chrome, named
-  # in the step that checks for it, and that step says why it has to be named.
+  # once in the job's env, and the step that checks for it says why it has to be
+  # named.
   journeys:
     runs-on: ubuntu-latest
     # NAMED ONCE, for the step that checks it and the harness that launches it.
-    # findBrowser reads CHROME_PATH, so the two cannot come to disagree.
+    # findBrowser reads CHROME_PATH unless PUPPETEER_EXECUTABLE_PATH outranks it,
+    # and the check step refuses that variable, so the two cannot disagree.
     env:
       CHROME_PATH: /usr/bin/google-chrome
     steps:
@@ -188,8 +190,11 @@ jobs:
       # grants it to /opt/google/chrome/chrome; the runner image's Chromium snapshot
       # and Playwright's build are covered by nothing. /usr/bin/google-chrome
       # resolves to the .deb's wrapper script in /opt/google/chrome, which execs that
-      # binary, so the profile attaches. A Chrome installed anywhere else gets no
-      # sandbox, so the path is checked and printed here rather than assumed.
+      # binary, so the profile can attach and Chrome's preferred namespace sandbox
+      # can start. The .deb's setuid chrome-sandbox beside it is Chrome's fallback.
+      # A build at another path has neither unless something else grants it, so
+      # the step below does not assume: it starts Chrome once with the setuid
+      # fallback switched off and says which of the two the sandbox rests on.
       #
       # This job used to install Playwright's Chromium and leave the harness to find
       # it, and the harness never did: Playwright installs into ~/.cache/ms-playwright,
@@ -208,10 +213,16 @@ jobs:
       # nothing away.
       - name: the browser to drive
         run: |
+          test -z "${PUPPETEER_EXECUTABLE_PATH:-}" || { echo "::error::PUPPETEER_EXECUTABLE_PATH=$PUPPETEER_EXECUTABLE_PATH outranks CHROME_PATH in findBrowser"; exit 1; }
           test -x "$CHROME_PATH" || { echo "::error::no Google Chrome at $CHROME_PATH on this runner"; exit 1; }
           echo "$CHROME_PATH -> $(readlink -f "$CHROME_PATH")"
-          ls -l /etc/apparmor.d/chrome /opt/google/chrome/chrome-sandbox || true
           "$CHROME_PATH" --version
+          sysctl kernel.apparmor_restrict_unprivileged_userns || true
+          if timeout 60 "$CHROME_PATH" --headless --disable-setuid-sandbox --dump-dom about:blank >/dev/null 2>&1; then
+            echo "the namespace sandbox starts, so AppArmor's chrome profile is what lets it"
+          else
+            echo "::warning::the namespace sandbox does not start here; Chrome is on its setuid chrome-sandbox"
+          fi
       - name: the journeys
         run: npm run journeys
         working-directory: web/frontend
