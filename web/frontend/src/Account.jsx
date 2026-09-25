@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { json, errText, coverImgURL, upload } from './api.js'
 import { Card, ErrorText, Field, FieldIconButton, FilePick, GhostButton, IconDelete, IconKey, IconLogout, IconSwitchUser, IconUserPlus, InfoDot, MonoLabel, NameInput, StickerButton, Tooltip, useConfirm, IconClose } from './ui.jsx'
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
@@ -313,6 +313,10 @@ function MaintenanceCard() {
   const [showReset, setShowReset] = useState(false)
   const [confirm, setConfirm] = useState('')
   const [safe, setSafe] = useState(false)
+  // The word box waits for the copy: focused on open it took the keyboard past a
+  // step that must come first, and after the download focus has nowhere to be.
+  const confirmRef = useRef(null)
+  useEffect(() => { if (safe) confirmRef.current?.focus() }, [safe])
 
   async function reindex() {
     setBusy('reindex')
@@ -388,8 +392,8 @@ function MaintenanceCard() {
               </p>
               <input
                 className="tp-input"
+                ref={confirmRef}
                 value={confirm}
-                autoFocus
                 placeholder="RESET"
                 onChange={(e) => setConfirm(e.target.value)}
               />

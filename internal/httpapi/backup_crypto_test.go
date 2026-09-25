@@ -489,7 +489,10 @@ func TestRecoveryKeyNotSharedAcrossInstances(t *testing.T) {
 	if !bytes.Contains(rec.Body.Bytes(), []byte("not made on this server")) {
 		t.Fatalf("the refusal does not explain that the archive is foreign: %s", rec.Body)
 	}
-	// The donor's own password does open it — the portable path travels.
+	// The donor's own password does open it — the portable path travels. A
+	// refused restore leaves the note unspent; the copy is taken again here so
+	// this line does not lean on that.
+	safetyBackup(t, admin)
 	if rec := admin.restoreUpload("/admin/restore/upload", pwUpload(), archive); rec.Code != 200 {
 		t.Fatalf("a foreign archive with its own password: %d %s", rec.Code, rec.Body)
 	}

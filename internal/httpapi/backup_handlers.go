@@ -500,6 +500,22 @@ func (n *safetyNote) clear() {
 // errNoSafetyBackup is the refusal restore and reset answer without one.
 const errNoSafetyBackup = "download a fresh backup first — this replaces everything on the server"
 
+// errSafetySpent is what the last-moment guard returns when the note went stale
+// or was spent while this restore waited: the early check ran before backupMu,
+// so a restore that finished in between has already used the copy this one
+// was relying on.
+var errSafetySpent = errors.New(errNoSafetyBackup)
+
+// safetyGuard re-reads the note under backupMu, for restoreArchive's late check.
+func (s *Server) safetyGuard(uid int64) func() error {
+	return func() error {
+		if !s.safety.fresh(uid) {
+			return errSafetySpent
+		}
+		return nil
+	}
+}
+
 func (s *Server) handleSafetyBackup(w http.ResponseWriter, r *http.Request) {
 	mode, account, secret, ok := sealCredentials(w, r)
 	if !ok {
@@ -717,7 +733,7 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	creds := backupCreds{Password: req.Password, Passphrase: req.Passphrase, Confirm: req.Confirm}
 	creds.RecoveryOK = s.passwordIsCallers(r, req.Password)
-	s.restoreFromNewest(w, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil, creds, true)
+	s.restoreFromNewest(w, fmt.Sprintf("user %d (%s)", userID(r), username(r)), s.safetyGuard(userID(r)), creds, true)
 }
 
 // handleRestoreUpload: POST /admin/restore/upload — restore from an archive the
@@ -732,7 +748,7 @@ func (s *Server) handleRestoreUpload(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusPreconditionRequired, errNoSafetyBackup)
 		return
 	}
-	s.restoreFromUpload(w, r, true, fmt.Sprintf("user %d (%s)", userID(r), username(r)), nil)
+	s.restoreFromUpload(w, r, true, fmt.Sprintf("user %d (%s)", userID(r), username(r)), s.safetyGuard(userID(r)))
 }
 
 // passwordIsCallers reports whether `pw` is the caller's own current password.
@@ -921,12 +937,15 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 		return
 	}
 
-	// Last-moment re-guard (onboarding): a signup can only have committed while
-	// backupMu was free, so re-checking now — still holding the lock — sees it.
+	// Last-moment re-guard, still holding backupMu. Onboarding: a signup can only
+	// have committed while the lock was free, so re-checking now sees it. Admin:
+	// a restore that finished while this one waited has spent the safety note.
 	if guard != nil {
 		if err := guard(); err != nil {
 			if errors.Is(err, errOnboardingClosed) {
 				writeErr(w, http.StatusConflict, err.Error())
+			} else if errors.Is(err, errSafetySpent) {
+				writeErr(w, http.StatusPreconditionRequired, err.Error())
 			} else {
 				olog.Errorf(olog.CodeHTTPInternal, "[backup] restore guard check failed: %v", err)
 				writeErr(w, http.StatusInternalServerError, "internal error")

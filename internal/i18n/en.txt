@@ -5898,7 +5898,7 @@ error.revoke.devices = could not revoke devices
 
 # Backup and restore. "data intact" is the load-bearing half: a restore that
 # failed changed nothing.
-error.backup.failed = backup failed
+error.backup.failed = Backup failed
 error.restore.intact = restore failed — data intact
 
 # An uploaded typeface the server would not take.

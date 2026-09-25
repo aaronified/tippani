@@ -760,4 +760,32 @@ func TestRestoreAndResetWaitForAFreshDownloadedBackup(t *testing.T) {
 	again := &testClient{t: t, h: h}
 	again.cookie = cookieOf(t, again.mustDo("POST", "/auth/login", map[string]string{"username": "alice", "password": testPw}, 200))
 	again.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusPreconditionRequired)
+
+	// A reset spends it too. The account that onboards the emptied server gets
+	// the same id back, so an unspent note would let it reset again, copy-less,
+	// for the rest of the half hour.
+	safetyBackup(t, again)
+	again.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, 200)
+	fresh := signupAdmin(t, h)
+	fresh.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusPreconditionRequired)
+}
+
+// The first check runs before backupMu is taken, so a restore that finished in
+// between could have spent the note this one relied on. The late guard re-reads
+// it under the lock and answers the same 428.
+func TestARestoreWhoseNoteWasSpentWhileItWaitedIsRefused(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	backupNow(admin)
+	safetyBackup(t, admin)
+	guard := srv.safetyGuard(1)
+	srv.safety.clear() // what a restore finishing in between does
+
+	rec := httptest.NewRecorder()
+	srv.restoreFromNewest(rec, "test", guard, backupCreds{Password: testPw, RecoveryOK: true}, true)
+	if rec.Code != http.StatusPreconditionRequired {
+		t.Fatalf("a restore past a spent note: %d %s", rec.Code, rec.Body)
+	}
+	admin.mustDo("GET", "/books", nil, 200) // the session still works: nothing was swapped
 }

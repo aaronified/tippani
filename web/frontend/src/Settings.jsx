@@ -3970,10 +3970,17 @@ function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm 
   // STEP ONE IS A COPY OF WHAT IS HERE NOW — see SafetyBackupStep. Held by the
   // card, so a refusal from the server (the copy is older than it accepts) can
   // send the reader back to this step.
+  // The copy's password fills the restore's only when it can open the archive
+  // (`recoverable`): an archive sealed in another era wants THAT password, and a
+  // box filled with the wrong one reads as already answered.
   const tookCopy = (creds) => {
     onSafe(true)
-    if (key === 'password' && creds?.password) setPassword(creds.password)
+    if (key === 'password' && recoverable && creds?.password) setPassword(creds.password)
   }
+  // Focus follows the step: the copy's own box had it, and the download leaves
+  // it nowhere, so a keyboard reader lands on the field that is now the question.
+  const nextRef = useRef(null)
+  useEffect(() => { if (safe) nextRef.current?.focus() }, [safe])
 
   // The same three validate reasons the onboarding twin uses (App.jsx), through
   // the same keys: two dialogs for one operation should not own two vocabularies
@@ -4013,6 +4020,7 @@ function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm 
           <input
             className="tp-input"
             type="password"
+            ref={nextRef}
             maxLength={PASSPHRASE_MAX}
             value={passphrase}
             onChange={(e) => setPassphrase(e.target.value)}
@@ -4025,6 +4033,7 @@ function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm 
           <input
             className="tp-input"
             type="password"
+            ref={nextRef}
             autoComplete="current-password"
             maxLength={PASSWORD_MAX}
             value={password}
@@ -4047,6 +4056,7 @@ function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm 
           <input
             className="tp-input"
             style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
+            ref={nextRef}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
           />
