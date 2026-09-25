@@ -2,7 +2,9 @@ name: pages
 
 # Build the read-only demo (VITE_DEMO=1 → dummy-data fetch shim, relative base)
 # and publish it to GitHub Pages at https://<owner>.github.io/tippani/. Rebuilt
-# on every push to main so the demo never drifts from the current frontend.
+# on a push to main that touches something the site is built or checked from:
+# the paths below are that list, and they have to be kept as one. A push that
+# touches none of them deploys nothing, so dispatch the workflow by hand.
 # Enable once in repo Settings → Pages → Source: "GitHub Actions".
 on:
   push:
@@ -15,9 +17,9 @@ on:
       - "docs/img/**"
       - ".github/workflows/pages.yml"
       # The deploy's own gate. A fix to it that does not re-run the deploy leaves
-      # the last red run standing and the site unpublished, which is how aa0340fb
-      # landed: its push touched nothing above, so the fix went unexercised until
-      # a hand-dispatched run.
+      # the last red run standing and the site on its last good deploy, which is
+      # how aa0340fb landed: its push touched nothing above, so the fix went
+      # unexercised until a hand-dispatched run.
       - "scripts/site-links.mjs"
       # src/i18n.js imports these with ?raw, so every word of the demo is built from
       # them, and a locale-only push changes the published demo. The * stops at a
