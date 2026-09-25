@@ -10,9 +10,12 @@
 #
 # The environment runs this once per cache: at its first session, and again when the setup
 # script or the allowed hosts change or the cache expires after about seven days (same page,
-# Environment caching). So the session that builds the cache needs the kit attached, or the
-# cache holds no kit until the next rebuild. In any session, no claude-kit in
-# `claude plugin list` or no .git/hooks/pre-commit means: run this from the session.
+# Environment caching). So the session that builds the cache must be started with the kit
+# picked (add_repo comes too late), or the cache holds no kit until the next rebuild. A
+# session whose skill list has none of the kit's skills needs that rebuild: change the setup
+# script and start a session with the kit picked. Run from a session, this adds the hook and
+# the exclude line for that session; the plugin it installs loads only in a `claude -p`
+# started in the same container, since every cloud session is a fresh VM.
 set -u
 failed=0
 warn() { echo "claude-kit: $*" >&2; failed=$((failed + 1)); }
@@ -57,24 +60,29 @@ EOF
 )
   [ -n "$K" ] && [ -d "$K" ] \
     || K=$(ls -d ~/.claude/plugins/cache/claude-kit/claude-kit/*/ 2>/dev/null | sort -V | tail -1)
+  G=${K:+${K}skills/git-sync/scripts/kit_guard.py}
   H="$HOOKS/pre-commit"
-  if [ -z "$K" ]; then
-    warn "plugin cache not found - commit guard not written"
-  elif [ ! -e "$H" ] || grep -q 'claude-kit pre-commit guard' "$H"; then
-    # Absent, or the kit's own hook, rewritten so it names the installed version. Written
-    # beside it and moved, so a failed write never leaves a truncated hook.
-    mkdir -p "$HOOKS" \
-      && python3 "${K}skills/git-sync/scripts/kit_guard.py" --hook > "$H.tmp" \
-      && chmod +x "$H.tmp" && mv "$H.tmp" "$H" \
+  NEW=${G:+$(python3 "$G" --hook 2>/dev/null)}
+  # The kit's own hook is exactly what --hook prints, give or take the version path it
+  # names. Anything else is someone else's, however much of the kit's text it carries - a
+  # hook with the guard appended under the kit's comment included. A kit hook from a version
+  # whose text differs is treated as someone else's too: left alone, with a warning.
+  unpath() { sed 's#/[^ ]*/kit_guard\.py#KIT_GUARD#g'; }
+  if [ -z "$NEW" ]; then
+    warn "commit guard not written - no plugin cache, or kit_guard.py --hook failed"
+  elif [ ! -e "$H" ] || [ "$(unpath < "$H")" = "$(printf '%s\n' "$NEW" | unpath)" ]; then
+    # Written beside it and moved, so a failed write never leaves a truncated hook.
+    mkdir -p "$HOOKS" && printf '%s\n' "$NEW" > "$H.tmp" && chmod +x "$H.tmp" && mv "$H.tmp" "$H" \
       || { rm -f "$H.tmp"; warn "commit guard not written"; }
-  elif ! grep -Eq '^[^#]*kit_guard\.py.*--staged' "$H"; then
-    # Someone else's hook, not already calling the guard (a comment naming it does not
-    # count). Not edited, though the kit says to append: a hook that ends in `exec` never
-    # reaches an appended line, and a script that rewrites someone's hook gets disabled.
-    # The line to add finds whichever kit version is installed and skips itself when none
-    # is, as the kit's own hook does.
+  elif ! { grep -Eq '^[^#]*kit_guard\.py' "$H" && grep -Eq '^[^#]*--staged' "$H"; }; then
+    # Someone else's hook, and no uncommented line names the guard and its --staged mode
+    # (a call through a variable counts; a line that only prints the call fools this check,
+    # which reads text and cannot run the hook to find out). Not edited, though the kit says
+    # to append: a hook ending in `exec` never reaches an appended line, and a script that
+    # rewrites someone's hook gets disabled. The printed line names the installed guard and
+    # skips itself when that file is gone, as the kit's own hook does.
     warn "$H is someone else's hook and was left alone; add this line to it:"
-    echo '  G=$(ls ~/.claude/plugins/cache/claude-kit/claude-kit/*/skills/git-sync/scripts/kit_guard.py 2>/dev/null | sort -V | tail -1); [ -z "$G" ] || python3 "$G" --staged || exit 1' >&2
+    printf '  KIT_GUARD=%s; [ ! -f "$KIT_GUARD" ] || python3 "$KIT_GUARD" --staged || exit 1\n' "$G" >&2
   fi
   mkdir -p "$(dirname "$EXCLUDE")"
   if ! grep -qx '/.visual-verify/' "$EXCLUDE" 2>/dev/null; then
@@ -84,10 +92,16 @@ EOF
   fi
   (cd "$R/web/frontend" && npm ci --no-audit --no-fund) || warn "npm ci failed in web/frontend"
   (cd "$R/scripts/screenshots" && npm ci --no-audit --no-fund) || warn "npm ci failed in scripts/screenshots"
-  # The kit's audit half: no kit file may be tracked, at any path.
-  if [ -n "$K" ]; then
-    (cd "$R" && python3 "${K}skills/git-sync/scripts/kit_guard.py" --tracked) \
-      || warn "kit_guard --tracked found kit files tracked in $R (listed above)"
+  # The kit's audit half: no kit file may be tracked, at any path. Its exit codes: 1 means
+  # kit files found, 2 means it could not run.
+  if [ -n "$G" ]; then
+    rc=0
+    (cd "$R" && python3 "$G" --tracked) || rc=$?
+    case $rc in
+      0) ;;
+      1) warn "kit_guard --tracked found kit files tracked in $R (listed above)" ;;
+      *) warn "kit_guard --tracked could not run in $R (exit $rc)" ;;
+    esac
   fi
 else
   # The setup script may run before the clone. Run this again from the session to add them.
