@@ -48,26 +48,37 @@ expires after about seven days (same page, *Environment caching*); every other s
 from that snapshot. So the session that builds the cache must be STARTED with the kit picked
 — an `add_repo` comes after the setup script has run — or the script prints its failure,
 exits 0 (a setup script that exits non-zero stops the session starting), and the cache holds
-no kit until the next rebuild. And each session starts from a fresh clone (same page), so
-whether the hook and exclude line the script writes into the clone reach later sessions is
-not known. Two signs, then, in any session:
+no kit until the next rebuild. **None of this route has run end to end yet**, so two things
+are not known: whether a cache that holds the kit loads it (the docs list the hooks an
+Anthropic-hosted session runs — the repo's and server-managed ones — and name no
+plugin's), and whether the hook and exclude line the script writes survive into later
+sessions, which each start from a fresh clone (same page). Two checks, then:
 
-- **None of the kit's skills (`work-rating`, `pre-commit-gate`) in the session's skill
-  list** — not `claude plugin list`, which reports what is on disk and showed claude-kit
-  enabled in a session that had loaded none of it. The cache has no kit, and only the owner
-  can fix that: change the setup script, then start a session with the kit picked.
-- **No `.git/hooks/pre-commit`.** The per-clone pieces are missing, and the session can fix
-  that itself: run the script — after an `add_repo` of the kit, if its skills are missing
-  too, or the guard has no copy to write from. The plugin it installs loads only in a
+- **Whether the kit loaded:** the session's skill list has the kit's skills
+  (`work-rating`, `pre-commit-gate`). `claude plugin list` does not answer this — it
+  reports what is on disk, and showed claude-kit enabled in a session that had loaded none
+  of it. If they are missing, say so to the owner rather than work around it; a rebuild is
+  theirs to make.
+- **Before the first commit, whether the guard runs:** `sh .git/hooks/pre-commit` with
+  nothing staged prints `kit-guard: clean`. No hook, or one that prints `kit-guard: guard
+  script not found at … - skipping`, means run the script — after an `add_repo` of the
+  kit if the plugin cache has no copy of the guard. The plugin it installs loads only in a
   `claude -p` started in the same container.
 
-What it was tested against, and what not, is in `docs/wiki/How-this-was-written.md`.
+A repo `SessionStart` hook could make the second check every session, and the docs suggest
+one for per-session setup; it is not built, because it would not run in a session started
+with the kit picked (such sessions read no repo settings) and would run on the owner's own
+machine too — the owner's call. What the script was tested against, and what not, is in
+`docs/wiki/How-this-was-written.md`.
 
 **PER CLONE, TWO LOCAL PIECES THAT GIT NEVER COMMITS**, both the kit's own instructions:
 `/.visual-verify/` in `.git/info/exclude`, because `visual-verify` writes its working
 screenshots there and a `git add -A` after a run would commit them; and the kit's commit
 guard as `.git/hooks/pre-commit` (`kit_guard.py --hook`), which refuses a commit carrying a
-kit file and skips itself when the plugin has moved.
+file it recognises as the kit's and skips itself when the plugin has moved. It recognises
+fewer than the kit ships: its built-in list of names predates `work-rating`, `prose-style`
+and several more, so a copied `work-rating/SKILL.md` is only flagged for review. That list
+is the kit's to fix (`kit_guard.py --names-file` is its stopgap).
 
 **FIREFOX CANNOT BE HAD IN THE CLOUD CONTAINER, AND THE KIT SAYS NOT TO TRY.** Why the
 container has none, and why the harness stays Firefox-first anyway, is the comment above
