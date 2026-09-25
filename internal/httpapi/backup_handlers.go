@@ -466,8 +466,9 @@ func sealCredentials(w http.ResponseWriter, r *http.Request) (mode byte, account
 // server keeps one archive, and a restore from the kept one would otherwise
 // restore the copy just taken of what it is about to replace. The server notes
 // that the download finished, for that admin, and restore and reset refuse
-// without a note younger than safetyBackupTTL. The note lives in memory, so a
-// restart forgets it and the next attempt asks again: failing closed.
+// without a note younger than safetyBackupTTL, and a successful one spends it.
+// The note lives in memory, so a restart forgets it and the next attempt asks
+// again: failing closed.
 const safetyBackupTTL = 30 * time.Minute
 
 type safetyNote struct {
@@ -487,6 +488,13 @@ func (n *safetyNote) fresh(uid int64) bool {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	return n.uid == uid && time.Since(n.at) < safetyBackupTTL
+}
+
+// clear spends the note: one download buys one restore or reset.
+func (n *safetyNote) clear() {
+	n.mu.Lock()
+	n.uid, n.at = 0, time.Time{}
+	n.mu.Unlock()
 }
 
 // errNoSafetyBackup is the refusal restore and reset answer without one.
@@ -987,6 +995,10 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 	// Success: repoint the auth stores at the reopened DB, keep exactly this
 	// one safety generation.
 	s.rebindDB()
+	// ONE DOWNLOAD, ONE REPLACEMENT. The copy covered what was here before this
+	// restore; a second restore replaces what this one put back, which nobody
+	// has a copy of.
+	s.safety.clear()
 	preBase := filepath.Base(preDir)
 	if entries, err := os.ReadDir(s.DataDir); err == nil {
 		for _, e := range entries {

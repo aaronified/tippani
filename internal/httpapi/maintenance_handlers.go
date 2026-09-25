@@ -56,6 +56,7 @@ func (s *Server) handleResetDatabase(w http.ResponseWriter, r *http.Request) {
 	// The session store captured the OLD *sql.DB at construction; repoint it at
 	// the fresh handle so auth works against the new database.
 	s.Sessions.DB = s.Store.DB
+	s.safety.clear() // the copy covered what this reset removed; it is spent
 
 	// Drop orphaned media (covers/posters/avatars) — the rows that referenced
 	// them are gone, so a true reset clears them too. Best-effort.

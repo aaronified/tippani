@@ -338,6 +338,7 @@ function MaintenanceCard() {
       return
     }
     setBusy('')
+    if (r.status === 428) setSafe(false) // the server holds no recent download: step one again
     setErr(errText(r, t('error.reset.failed')))
   }
 

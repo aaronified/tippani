@@ -28,28 +28,37 @@ export function SafetyBackupStep({ done, onDone }) {
     if (missing || busy) return
     setBusy(true)
     setErr('')
-    const r = await globalThis.fetch(apiURL('/admin/backup/safety'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(usePhrase ? { passphrase: secret } : { password: secret }),
-    })
-    if (!r.ok) {
+    const creds = usePhrase ? { passphrase: secret } : { password: secret }
+    // A DROPPED CONNECTION IS A FAILURE, NOT A HANG. Without the catch a rejected
+    // fetch or a body that stops arriving left the button on "Preparing…" for good.
+    try {
+      const r = await globalThis.fetch(apiURL('/admin/backup/safety'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(creds),
+      })
+      if (!r.ok) {
+        setErr((await r.json().catch(() => ({}))).error || t('error.backup.failed'))
+        return
+      }
+      const name = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') || '')?.[1] || 'tippani-backup.tpbk'
+      const href = URL.createObjectURL(await r.blob())
+      const a = document.createElement('a')
+      a.href = href
+      a.download = name
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(href), 60_000)
+      setSecret('')
+      // The credential goes up with the news, so a restore that asks for the same
+      // password does not ask for it twice.
+      onDone(creds)
+    } catch {
+      setErr(t('error.backup.failed'))
+    } finally {
       setBusy(false)
-      setErr((await r.json().catch(() => ({}))).error || t('error.backup.failed'))
-      return
     }
-    const name = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') || '')?.[1] || 'tippani-backup.tpbk'
-    const href = URL.createObjectURL(await r.blob())
-    const a = document.createElement('a')
-    a.href = href
-    a.download = name
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(href), 60_000)
-    setBusy(false)
-    setSecret('')
-    onDone()
   }
 
   if (done) return <p className="microcopy">{t('settings.safety.done.prose')}</p>
@@ -61,6 +70,7 @@ export function SafetyBackupStep({ done, onDone }) {
         <input
           className="tp-input"
           type="password"
+          autoFocus
           autoComplete={usePhrase ? 'off' : 'current-password'}
           maxLength={usePhrase ? PASSPHRASE_MAX : PASSWORD_MAX}
           value={secret}
@@ -68,12 +78,18 @@ export function SafetyBackupStep({ done, onDone }) {
           onKeyDown={(e) => { if (e.key === 'Enter') take(e) }}
         />
       </label>
-      <button type="button" className="tp-link" onClick={() => { setUsePhrase((v) => !v); setSecret('') }}>
-        {t(usePhrase ? 'settings.backup.use-password.label' : 'settings.backup.use-passphrase.label')}
-      </button>
-      <StickerButton type="button" icon={<IconExport />} keepLabel disabled={!!missing || busy} title={missing || undefined} onClick={take}>
-        {busy ? t('settings.safety.busy') : t('settings.safety.action')}
-      </StickerButton>
+      {/* Each on its own row: side by side at desktop width the link sat below the
+          button's middle with only a word space between them. */}
+      <div>
+        <button type="button" className="tp-link" onClick={() => { setUsePhrase((v) => !v); setSecret('') }}>
+          {t(usePhrase ? 'settings.backup.use-password.label' : 'settings.backup.use-passphrase.label')}
+        </button>
+      </div>
+      <div>
+        <StickerButton type="button" icon={<IconExport />} keepLabel disabled={!!missing || busy} title={missing || undefined} onClick={take}>
+          {busy ? t('settings.safety.busy') : t('settings.safety.action')}
+        </StickerButton>
+      </div>
       <ErrorText>{err}</ErrorText>
     </div>
   )

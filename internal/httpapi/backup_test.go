@@ -728,8 +728,12 @@ func TestRestoreAndResetWaitForAFreshDownloadedBackup(t *testing.T) {
 	kept, _ := srv.newestBackup()
 
 	for _, try := range []func() *httptest.ResponseRecorder{
-		func() *httptest.ResponseRecorder { return admin.do("POST", "/admin/restore", map[string]any{"password": testPw}) },
-		func() *httptest.ResponseRecorder { return admin.do("POST", "/admin/reset", map[string]string{"confirm": "RESET"}) },
+		func() *httptest.ResponseRecorder {
+			return admin.do("POST", "/admin/restore", map[string]any{"password": testPw})
+		},
+		func() *httptest.ResponseRecorder {
+			return admin.do("POST", "/admin/reset", map[string]string{"confirm": "RESET"})
+		},
 	} {
 		if rec := try(); rec.Code != http.StatusPreconditionRequired {
 			t.Fatalf("destructive step without a fresh download: %d %s", rec.Code, rec.Body)
@@ -750,4 +754,10 @@ func TestRestoreAndResetWaitForAFreshDownloadedBackup(t *testing.T) {
 	admin.mustDo("POST", "/admin/backup/safety", map[string]string{"password": "not-it-at-all"}, http.StatusUnauthorized)
 
 	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, 200)
+
+	// Spent: a second restore would replace what the first put back, of which
+	// there is no copy, so it asks for a fresh download.
+	again := &testClient{t: t, h: h}
+	again.cookie = cookieOf(t, again.mustDo("POST", "/auth/login", map[string]string{"username": "alice", "password": testPw}, 200))
+	again.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusPreconditionRequired)
 }

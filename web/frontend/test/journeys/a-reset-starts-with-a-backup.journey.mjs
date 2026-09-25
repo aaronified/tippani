@@ -25,10 +25,10 @@ it('a factory reset waits for a downloaded backup, then goes', async () => {
   await app.press('Reset all data…')
   await app.type('RESET', 'RESET')
 
-  // Not yet: nothing has been saved of what this deletes.
-  await app.press('Delete everything & restart')
-  await app.see('Download a backup first')
-  await app.gone('Welcome to tippani')
+  // The refusal without a download is the server's (Go:
+  // TestRestoreAndResetWaitForAFreshDownloadedBackup); a press on the shut button
+  // here would only prove the button is shut, and the mutation below is what
+  // shows the download is the step that opens it.
 
   await app.type('Your password, to seal the copy', app.account.password)
   await app.press('Download a backup first')

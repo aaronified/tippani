@@ -3950,7 +3950,7 @@ function fmtStamp(s) {
 // The consequence line lives here rather than on the card: this is the moment it
 // applies, and a warning you have to scroll past on the way to something else is
 // a warning nobody reads.
-function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
+function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm }) {
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is
   // still scrolled when you close this. Ref-counted, so a dialog opened from
@@ -3967,8 +3967,13 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
   const [password, setPassword] = useState('')
   const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
-  // STEP ONE IS A COPY OF WHAT IS HERE NOW — see SafetyBackupStep.
-  const [safe, setSafe] = useState(false)
+  // STEP ONE IS A COPY OF WHAT IS HERE NOW — see SafetyBackupStep. Held by the
+  // card, so a refusal from the server (the copy is older than it accepts) can
+  // send the reader back to this step.
+  const tookCopy = (creds) => {
+    onSafe(true)
+    if (key === 'password' && creds?.password) setPassword(creds.password)
+  }
 
   // The same three validate reasons the onboarding twin uses (App.jsx), through
   // the same keys: two dialogs for one operation should not own two vocabularies
@@ -4001,14 +4006,13 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
           ? t('settings.restore.warn.dated.prose', { date: fmtWhen(meta.created) })
           : t('settings.restore.warn.prose')}
       </p>
-      <SafetyBackupStep done={safe} onDone={() => setSafe(true)} />
+      <SafetyBackupStep done={safe} onDone={tookCopy} />
       {key === 'passphrase' && (
         <label className="tp-field">
           <MonoLabel>{t('common.field.passphrase.label')}</MonoLabel>
           <input
             className="tp-input"
             type="password"
-            autoFocus
             maxLength={PASSPHRASE_MAX}
             value={passphrase}
             onChange={(e) => setPassphrase(e.target.value)}
@@ -4021,7 +4025,6 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
           <input
             className="tp-input"
             type="password"
-            autoFocus
             autoComplete="current-password"
             maxLength={PASSWORD_MAX}
             value={password}
@@ -4044,7 +4047,6 @@ function RestorePrompt({ meta, me, busyLabel, onCancel, onConfirm }) {
           <input
             className="tp-input"
             style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-mono-weight)', fontStyle: 'var(--font-mono-style)', fontVariantCaps: 'var(--font-mono-caps)', textTransform: 'var(--font-mono-case)', fontVariantNumeric: 'var(--font-mono-figures)' }}
-            autoFocus
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
           />
@@ -4197,6 +4199,7 @@ function BackupCard({ user, asking = false, onAsking }) {
   const [prompt, setPrompt] = useState(false) // restore prompt open
   const [phase, setPhase] = useState('idle') // idle | uploading | restoring
   const [pct, setPct] = useState(0)
+  const [safe, setSafe] = useState(false) // step one of the restore, see SafetyBackupStep
   // The restore picker, through the shared primitive: one input, one place the
   // value is cleared so the same archive can be chosen twice.
   const restorePick = useFilePick({
@@ -4274,6 +4277,9 @@ function BackupCard({ user, asking = false, onAsking }) {
       }
       if (!r.ok) {
         setPhase('idle')
+        // 428: the server has no note of a recent download (it restarted, or the
+        // copy is older than it accepts), so the reader is back at step one.
+        if (r.status === 428) setSafe(false)
         return toast(errText(r, t('error.restore.intact')))
       }
       toast(t('settings.backup.toast.restored'))
@@ -4460,7 +4466,9 @@ function BackupCard({ user, asking = false, onAsking }) {
           meta={target}
           me={user.username}
           busyLabel={busyLabel}
-          onCancel={() => { setPrompt(false); setPhase('idle') }}
+          safe={safe}
+          onSafe={setSafe}
+          onCancel={() => { setPrompt(false); setPhase('idle'); setSafe(false) }}
           onConfirm={restore}
         />
       )}
