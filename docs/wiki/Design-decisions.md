@@ -19242,3 +19242,13 @@ onboarding restore is exempt, because an empty server has nothing to lose. In th
 `SafetyBackupStep` heads both the restore dialog and the factory reset. Its password box is
 named for the copy ("Your password, to seal the copy"), so it cannot be confused with the
 restore's own.
+
+**The phone's section index cards are `.hand-card`s, inset by `--card-pad` on all four sides.**
+They had copied `.hand-card`'s gradient and border but not the class. The material tile and
+the dither live in the class's `::before` and `::after`, so these cards stayed flat in every
+material set, and the owner saw the difference beside the quote cards. Their content also sat
+6px from the side border while the row's height left about 18px above and below. The first
+fix padded the sides and bottom and left the top to the row's height, which matched by
+coincidence (15px against 18). All four sides are the token now, and the row inside a card is
+44px, the touch floor, with no padding of its own. Measured at 390: 19px on every side of every
+card (18 plus the border).

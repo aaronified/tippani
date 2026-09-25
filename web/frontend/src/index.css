@@ -10972,8 +10972,12 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
      AND ITS INSET IS ONE NUMBER ON EVERY SIDE. The row's height gave the card
      about 18px of air above and below its content, while the row and the verbs
      sat 6px in from the side border — chips and buttons nearly touching the
-     ink. The owner: "Horizontal and vertical spacing should match." */
-  padding-inline: var(--card-pad, 18px);
+     ink. The owner: "Horizontal and vertical spacing should match."
+
+     ALL FOUR SIDES ARE THE TOKEN, not the row's height. The first cut set only the
+     sides and the bottom and left the top to the row's min-height, which matched
+     by coincidence (15px against 18) and would drift with the type dials. */
+  padding: var(--card-pad, 18px);
   margin-bottom: var(--meta-gap, 10px);
 }
 /* THE RADII ALTERNATE so five cards in a column do not read as one extruded
@@ -10981,10 +10985,8 @@ html[data-theme="dark"] .has-sticky-rail .meta-rail-row.is-stuck {
 .section-index-card:nth-child(3n + 2) { border-radius: 9px 15px 10px 14px / 14px 9px 15px 10px; }
 .section-index-card:nth-child(3n) { border-radius: 13px 10px 15px 9px / 10px 14px 9px 15px; }
 .section-index-card > .section-index-row { border-top: none; }
-.section-index-card.has-actions {
-  padding-bottom: var(--card-pad, 18px);
-}
-.section-index-card > .section-index-row { padding-inline: 0; }
+.section-index-card > .section-index-row { padding: 0; min-height: 44px; }
+.section-index-card > .section-index-actions { margin-top: calc(var(--card-pad, 18px) * .6); }
 .section-index-actions {
   display: flex; flex-direction: column; gap: 10px;
   padding: 0;
