@@ -187,7 +187,7 @@ const found = new Map()
 for (const width of opts.widths) {
   const page = await browser.newPage()
   await page.setViewport({ width, height: 2000 })
-  await emulateEngineMedia(page, engine, opts.theme)
+  await emulateEngineMedia(page, engine.browser, opts.theme)
   await page.evaluateOnNewDocument(noMotionScript(NO_MOTION_CSS))
   await ensureSession(page, opts)
   for (const place of PLACES) {

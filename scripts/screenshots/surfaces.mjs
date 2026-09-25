@@ -192,7 +192,7 @@ async function runWidth(browser, width) {
   // without the width lie `fullPage` tells; anything longer than that is a finding
   // in itself and shows as a cut.
   await page.setViewport({ width, height: 2400 })
-  await emulateEngineMedia(page, engine, opts.theme)
+  await emulateEngineMedia(page, engine.browser, opts.theme)
   // A REST STATE IS WHAT IS BEING PHOTOGRAPHED. An entrance animation caught
   // half-way is a picture of a frame nobody sees, and the repo's own rule is that
   // the content is there with every animation disabled.

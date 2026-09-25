@@ -20,7 +20,7 @@ mkdirSync(opts.out, { recursive: true })
 const engine = findBrowser(null, 'chrome')
 const browser = await puppeteer.launch(launchOptions(engine, { viewport: { width: opts.width, height: 1600 } }))
 const page = await browser.newPage()
-await emulateEngineMedia(page, engine, 'dark')
+await emulateEngineMedia(page, engine.browser, 'dark')
 await ensureSession(page, opts)
 
 const settle = async (ms = 2600) => new Promise((r) => setTimeout(r, ms))
