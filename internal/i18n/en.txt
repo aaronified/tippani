@@ -69,7 +69,7 @@ settings.section.theme.info.body = Light or dark, the colours, the surface mater
 settings.section.lang.info.body = The interface language, its fallback, and the fonts it uses.
 settings.section.review.info.body = What the daily quiz draws from, how many cards, how hard, and how the schedule moves.
 settings.section.sections.info.body = Which parts of the app you use, and their order in the navigation.
-settings.section.server.info.body = The running version, backups, and what changed in each release.
+settings.section.server.info.body = Your own notifications and dashboard key; for an admin, also the running version, backups, and what changed in each release.
 
 settings.section.aria = Which settings to change
 settings.section.theme.label = Theme
@@ -1114,6 +1114,8 @@ shell.login.microcopy.prose = locked out? an admin can reset your password
 shell.login.toast.welcome = welcome back, {name}
 # What the toast calls somebody whose account has no username to read.
 shell.login.reader.fallback = reader
+# {name} is the operator's provider, TIPPANI_OIDC_NAME — "Authelia", "Authentik".
+shell.login.sso.cta = Sign in with {name}
 # A blocked button prints its reason as a sentence underneath. {reason} is one of
 # the error.validate.* messages, and this key is what puts the full stop on it.
 common.form.reason.sentence = {reason}.
@@ -4603,6 +4605,62 @@ account.logout.title = Log out
 account.logout.info.title = Log out
 account.logout.info.body = Signs out this browser only. Other browsers stay signed in.
 account.logout.action = Log out
+
+# Single sign-on — the operator's OpenID Connect provider, named {name}.
+account.sso.label = Single sign-on
+account.sso.info.body = Sign in with your {name} account instead of a password. Linking needs you signed in here and at {name}, so nobody can attach an account they do not own.
+account.sso.linked = Linked to {name}. You can sign in with either.
+account.sso.unlinked = Not linked. Link it to sign in with {name}.
+account.sso.link.action = Link {name}
+account.sso.unlink.action = Unlink
+account.sso.linked.flash = Linked.
+account.sso.off = Not set up on this server.
+account.sso.off.info = Single sign-on is switched on by the operator with the TIPPANI_OIDC_* settings; the README's "Single sign-on" section walks through Authelia.
+account.sso.unlink.confirm.title = Unlink {name}?
+account.sso.unlink.confirm.body = You will need this account's password to sign in. An account {name} created has no password you know — ask an admin to set one first.
+
+# A read-only key for a dashboard widget (gethomepage's Custom API widget).
+settings.widget.label = Dashboard widget
+settings.widget.info.body = A key a dashboard such as gethomepage uses to show four numbers from your library: works, quotes, forgotten and mastered. It opens nothing else.
+settings.widget.none = No key yet.
+settings.widget.exists = A key is active.
+settings.widget.once = Copy it now — the key is shown only once.
+settings.widget.yaml.aria = gethomepage services.yaml entry
+settings.widget.copy = Copy YAML
+settings.widget.copied = Copied
+settings.widget.make.action = Make a key
+settings.widget.rotate.action = Replace key
+settings.widget.rotate.confirm.title = Replace the widget key?
+settings.widget.rotate.confirm.body = The old key stops working at once; update your dashboard with the new one.
+settings.widget.revoke.action = Revoke
+settings.widget.field.works = Works
+settings.widget.field.quotes = Quotes
+settings.widget.field.forgot = Forgot
+settings.widget.field.mastered = Mastered
+
+# Pushover messages on the reader's phone.
+settings.notify.label = Notifications
+settings.notify.info.body = Messages on your phone through Pushover: when the day's review is ready, and when a long import, fetch or backup finishes. Your user key is on pushover.net after you sign in.
+settings.notify.user.label = Pushover user key
+settings.notify.user.placeholder = Pushover user key
+settings.notify.token.label = Pushover application token
+settings.notify.token.placeholder = application token
+settings.notify.token.placeholder.set = application token (saved — type to replace)
+settings.notify.token.placeholder.server = application token (optional — the server has one)
+settings.notify.save = Save keys
+settings.notify.saved = Saved.
+settings.notify.token.clear = Use the server's token
+settings.notify.token.cleared = Your own token is removed.
+settings.notify.test.action = Send a test
+settings.notify.test.sent = Sent — check your phone.
+settings.notify.event.daily.title = Daily review ready
+settings.notify.event.daily.sub = Once a day, when your deck has cards. Needs the server's daily job.
+settings.notify.event.import.title = Large imports
+settings.notify.event.import.sub = When 50 or more quotes wait for review, and when they land.
+settings.notify.event.fetch.title = Long metadata fetches
+settings.notify.event.fetch.sub = When a fetch over 20 or more works finishes.
+settings.notify.event.backup.title = Backups
+settings.notify.event.backup.sub = When a backup archive has been written.
 
 account.maintenance.label = Maintenance
 account.reindex.title = Rebuild search index

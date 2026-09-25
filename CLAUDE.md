@@ -358,13 +358,16 @@ running (`dockerd &` if not already up in this environment).
 - `internal/` — all Go backend code; `web/frontend/` — the React SPA; `web/dist/` — its
   committed build output, embedded via `web/embed.go`.
 - `internal/metadata/` is where an outbound HTTP call to a provider belongs, and
-  `internal/updater/` is the single exception — it asks GitHub for the latest release.
+  `internal/updater/` is an exception — it asks GitHub for the latest release — and so is
+  `internal/httpapi/notify.go`, which posts to Pushover.
   THIS LINE SAID "THE ONLY PACKAGE" FOR A LONG TIME AND WAS ONE PACKAGE SHORT.
-  Both go through `internal/outbound`, which is what makes `TIPPANI_OFFLINE` real; a new
+  All three go through `internal/outbound`, which is what makes `TIPPANI_OFFLINE` real; a new
   `&http.Client{}` anywhere under `internal/` or `cmd/` fails
   `TestEveryOutboundClientCarriesTheGate` until it is either gated or excused there by
-  name and reason. The two standing exemptions are loopback, not the internet: the
-  `healthcheck` subcommand and the Docker Engine API.
+  name and reason. The standing exemptions are the operator's own machines, not the
+  internet: the `healthcheck` subcommand and the Docker Engine API (loopback), and the
+  OIDC provider in `internal/auth/oidc.go` — switching the app offline must not lock
+  everyone out of sign-in.
   `internal/store/` is the only package that opens the database.
 - The canonical docs live in `docs/wiki/`, one question each — see Developing's "Which document
   answers what". Don't duplicate a fact across two of them.

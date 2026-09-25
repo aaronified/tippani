@@ -252,6 +252,10 @@ func (s *Server) replyStaged(w http.ResponseWriter, r *http.Request, source stri
 		reply[k] = v
 	}
 	writeJSON(w, http.StatusOK, reply)
+	if staged >= notifyImportMin {
+		s.notifyAfter(w, r, userID(r), "import", "Import ready to review",
+			countOf(staged, "quote", "quotes")+" waiting in the import queue.")
+	}
 }
 
 func insertImportBatch(tx *sql.Tx, uid int64, source, filename string, extra map[string]any) (int64, error) {
@@ -1216,6 +1220,10 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, reply)
+	if tAdd >= notifyImportMin {
+		s.notifyAfter(w, r, uid, "import", "Import finished",
+			countOf(tAdd, "quote", "quotes")+" added to your library.")
+	}
 }
 
 // stagedWorkForApproval is a staged work plus the batch's source, everything the

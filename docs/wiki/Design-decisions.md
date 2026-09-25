@@ -19108,3 +19108,90 @@ would send hundreds of refs per prolific translator to draw a row that shows six
 
 **Works gains games.** Its type list stopped at shows, although games are rows of `movies` like
 the other two. A game was reachable only under "all types".
+
+## Single sign-on, a dashboard widget, and Pushover
+
+**The ask.** *"Add OIDC support and support for a custom homepage widget that will show: Work
+count, quote count, forgot count, mastered count. Also add support for pushover (mainly for
+"new spaced repetition deck is ready" message everyday, but also for the completion of large
+imports, or large fetches, you decide what else)."*
+
+**OIDC is the code flow with PKCE, in the standard library.** `internal/auth/oidc.go` fetches
+discovery, sends the browser to the provider with `state`, `nonce` and an S256 challenge, and
+exchanges the code at the token endpoint. The ID token's signature is **not** verified, and
+that is the spec's own allowance rather than a shortcut: Core 1.0 §3.1.3.7 lets a token
+received directly from the token endpoint over TLS rely on TLS in place of the JWS. Every claim
+that binds the token to this login — `iss`, `aud`, `azp`, `exp`, `nonce` — is checked.
+Rejected: a JOSE dependency and a JWKS cache, which would defend a hop TLS already defends and
+add a key-rotation story to a module list of three. The state rides a cookie as well as the
+URL, so a callback completes only in the browser that started it
+(`TestOIDCCallbackNeedsTheBrowserThatStartedIt`).
+
+**An identity meets an account in one of three ways, and two are opt-in.** An account linked to
+`issuer|sub` signs in. A signed-in reader can link from Profile, proving both halves at once.
+Otherwise nothing, unless the operator set `TIPPANI_OIDC_LINK_USERNAME` (match
+`preferred_username` to a username) or `TIPPANI_OIDC_AUTO_CREATE`. Both trust the provider's
+idea of a name, and a provider that lets people choose `preferred_username` would hand them any
+account they can spell — so both default off. The link key is `sub`, never the username or the
+email, because `sub` is the one claim OIDC promises is stable. The provider's client is **not**
+gated by `TIPPANI_OFFLINE`: it is the operator's own box, and switching the app offline must not
+lock everyone out. It is named in `ungated` in `internal/outbound/clients_test.go`.
+
+**"Homepage widget" is read as gethomepage's Custom API widget.** It fetches a URL with headers
+you choose and maps JSON fields onto four blocks, which is exactly the four numbers asked for.
+`GET /api/widget` answers `{works, quotes, forgot, mastered}` against a per-account key
+(`widget_keys`, stored hashed). It is not a device token: a device token opens the whole API,
+and a key pasted into dashboard YAML should open four numbers. *Forgot* is the recall dot's
+probably-forgotten count — a lapse on the last answer or overdue on the curve — so it agrees
+with the Stats page. *Mastered* is a card at the schedule's top rung (`reviewCeilingFor`) with
+no miss since, which is where "start new lines at Mastered" puts a line; the word means one
+thing in the app. Both are earned by answering the quiz in `TestWidgetReportsTheFourNumbers`.
+Mutation: dropping the rung and lapse conditions from the mastered query reports 2 for 1.
+
+**The daily message has no timer in the app.** The approved decision "No background jobs,
+pollers, tickers or cron" settles it — the host's cron is "the user's timer and not mine": `tippani notify daily` is run by
+the host's cron, and `notify_settings.last_daily_day` makes a cron that fires twice send once.
+It counts the deck with `dailyDeck`, the function `GET /review/daily` now calls, so the phone
+and the screen cannot disagree about how many cards wait. Mutation: removing the
+`last_daily_day` check sends a second message in `TestSendDailyDecksOncePerDay`.
+
+**What else sends, and why those.** The rule was: the reader has plausibly left the screen, and
+the thing is finished or waiting on them. A large import (50+ quotes) when it is staged and when
+it is approved; a long metadata run (20+ works) — the whole-library cover refetch on its last
+chunk, and a bulk fill whose client names the run's size on its last chunk because no single
+15-item request knows the run is over; and a written backup archive. Rejected: a message per
+quiz answer, per metadata fault, or on update availability — each either happens while the
+reader is looking at it or is a nag rather than news. Messages are sent inside the request
+that finished the work, after the response is flushed, with a five-second timeout and never in
+a goroutine — nothing outlives its request. A failing Pushover logs `TIP-NOTIFY-001` and never
+fails the import that caused it. Pushover itself is gated by `TIPPANI_OFFLINE`.
+
+**Where the three live: SSO on Profile, the other two on Settings → Server, one set per
+account.** The first cut put all three on Profile, on the reading that each is a credential. The
+owner moved them to Server — *"The server tab will host these settings … Every profile will have
+separate OIDC, pushover and widgets"* — and then, on reflection, split them: *"SSO must be under
+profile. Notification and Homepage cards can move to Settings>server."* The split has a reason
+the first cut half-had: single sign-on is a way INTO the account and belongs beside the password
+it replaces, while a phone and a dashboard are places the account reports OUT to. Server was an
+admin-only section — Updates, Backup, the release log — so it now opens for every account, and
+the two cards (`Connections` in `connections.jsx`) draw for everyone while the admin panel below
+them stays gated exactly as before. Nothing is shared between
+accounts: the SSO link is a column on the reader's own `users` row, and `notify_settings` and
+`widget_keys` are keyed by `user_id`. What is server-wide is only what the operator sets in the
+environment — which provider, and an optional shared Pushover application token — and the cards
+say when those are missing rather than hiding. Where-to-find-it is in the README: three how-to
+sections, one per feature, with Authelia as the worked provider.
+
+**What the rater found, and where the first cut was wrong.** The login-CSRF test passed with the
+cookie check deleted: it never visited the provider's authorize step, so the token exchange
+failed for its own reasons whatever the cookie did. It now runs the full flow with the cookie
+(control) and without it. Three guards had no test at all — the `azp` check, username linking's
+`oidc_subject IS NULL` (which stops a second identity taking an already-linked account), and the
+link-collision refusal — and each is now named with its mutation in `oidc_test.go`. The fetch and
+backup messages had no test; `TestPushoverOnLongMetadataRuns` and `TestPushoverOnBackup` fail
+with their call sites removed. And `SendDailyDecks` returned on the first reader's error, so one
+bad row cost everyone after it their message; it now records the error on that reader's line,
+carries on, and returns the joined errors so the cron job still exits non-zero. Beside those:
+names may be absent from the ID token (some providers serve them only from userinfo), so the
+client asks userinfo once when both `preferred_username` and `email` are missing, and accepts the
+answer only when its `sub` matches the token's (Core §5.3.2).

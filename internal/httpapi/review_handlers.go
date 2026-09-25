@@ -2598,22 +2598,23 @@ func choicesFromQuotes(answer quoteRef, distractors []quoteRef, n int, rng *rand
 	return opts, 0
 }
 
-// handleDailyQuiz serves GET /review/daily?offset=N — the rest of today's due
-// deck: most-forgotten cards first, then unseen ones in a per-day shuffle,
-// capped at the unspent daily quota, across the configured scope. An empty pool
-// or a spent quota both come back as items: [] with today's tally alongside.
-func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
-	offset, ok := tzOffset(r.URL.Query().Get("offset"))
-	if !ok {
-		writeErr(w, http.StatusBadRequest, "offset must be UTC offset minutes between -720 and 840")
-		return
-	}
-	uid := userID(r)
-	olog.Tracef("[review] handleDailyQuiz uid=%d offset=%d", uid, offset)
+// dailyDeckState is the day's deck and the tallies it was built from.
+type dailyDeckState struct {
+	pf                    prefs
+	scope                 reviewScope
+	day                   string
+	items                 []reviewCard
+	answered, got, forgot int
+}
+
+// dailyDeck builds today's deck for a reader: what GET /review/daily serves,
+// and what `tippani notify daily` counts — one function, so the message on the
+// phone and the deck on the screen cannot disagree about how many cards wait.
+func (s *Server) dailyDeck(uid int64, offset int) (dailyDeckState, error) {
+	var d dailyDeckState
 	pf, err := s.loadPrefs(uid)
 	if err != nil {
-		internalError(w, r, "daily quiz prefs", err)
-		return
+		return d, fmt.Errorf("daily quiz prefs: %w", err)
 	}
 	scope := scopeFlags(pf.SRReviewScope)
 	// The reader'''s repertoire for THIS deck (review_questions.go). Read once per
@@ -2624,15 +2625,13 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 	day, seed, mod := reviewDay(offset)
 	answered, got, forgot, err := s.dailyTally(uid, day)
 	if err != nil {
-		internalError(w, r, "daily quiz tally", err)
-		return
+		return d, fmt.Errorf("daily quiz tally: %w", err)
 	}
 	items := []reviewCard{}
 	if slots := pf.SRDaily - answered; slots > 0 {
 		pools, err := s.quizPools(uid, scope, seed)
 		if err != nil {
-			internalError(w, r, "daily quiz pools", err)
-			return
+			return d, fmt.Errorf("daily quiz pools: %w", err)
 		}
 		// The two buckets are fetched SEPARATELY, each with its own limit. One
 		// query ordered seen-before-unseen let the due backlog fill the whole
@@ -2646,13 +2645,11 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 		// can read and argue with.
 		due, err := s.deckCandidates(uid, bucketDue, scope, reviewTheme{}, mod, day, seed, fetch)
 		if err != nil {
-			internalError(w, r, "daily quiz due", err)
-			return
+			return d, fmt.Errorf("daily quiz due: %w", err)
 		}
 		unseen, err := s.deckCandidates(uid, bucketUnseen, scope, reviewTheme{}, mod, day, seed, fetch)
 		if err != nil {
-			internalError(w, r, "daily quiz unseen", err)
-			return
+			return d, fmt.Errorf("daily quiz unseen: %w", err)
 		}
 		for _, c := range mergeDeck(due, unseen, slots, reviewUnseenShare) {
 			if len(items) >= slots {
@@ -2665,6 +2662,30 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	d.pf, d.scope, d.day, d.items = pf, scope, day, items
+	d.answered, d.got, d.forgot = answered, got, forgot
+	return d, nil
+}
+
+// handleDailyQuiz serves GET /review/daily?offset=N — the rest of today's due
+// deck: most-forgotten cards first, then unseen ones in a per-day shuffle,
+// capped at the unspent daily quota, across the configured scope. An empty pool
+// or a spent quota both come back as items: [] with today's tally alongside.
+func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
+	offset, ok := tzOffset(r.URL.Query().Get("offset"))
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "offset must be UTC offset minutes between -720 and 840")
+		return
+	}
+	uid := userID(r)
+	olog.Tracef("[review] handleDailyQuiz uid=%d offset=%d", uid, offset)
+	deck, err := s.dailyDeck(uid, offset)
+	if err != nil {
+		internalError(w, r, "daily quiz", err)
+		return
+	}
+	pf, scope, day, items := deck.pf, deck.scope, deck.day, deck.items
+	answered, got, forgot := deck.answered, deck.got, deck.forgot
 	// The Easy tier's chips, after every card is built — see fillEasyChips.
 	s.fillEasyChips(uid, items)
 	states, err := s.reviewStates(uid, scope)

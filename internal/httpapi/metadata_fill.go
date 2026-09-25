@@ -102,6 +102,12 @@ func (s *Server) handleMetadataFill(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		BookIDs  []int64 `json:"book_ids"`
 		MovieIDs []int64 `json:"movie_ids"`
+		// A bulk fill is chunked by the client (maxReverifyItems per call), so no
+		// single request knows the run is over. The LAST chunk says so: RunTotal
+		// is how many works the whole run covered and RunFields how many fields
+		// the earlier chunks filled. Only a notification reads either.
+		RunTotal  int `json:"run_total"`
+		RunFields int `json:"run_fields"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -149,6 +155,10 @@ func (s *Server) handleMetadataFill(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"results": results, "checked": len(results), "filled": filled, "fields": fields, "failed": failed,
 	})
+	if req.RunTotal >= notifyFetchMin {
+		s.notifyAfter(w, r, uid, "fetch", "Metadata fill finished",
+			countOf(req.RunFields+fields, "field", "fields")+" filled across "+countOf(req.RunTotal, "work", "works")+".")
+	}
 }
 
 // countFill tallies one result. "Filled nothing" is not a failure — a library

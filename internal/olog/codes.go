@@ -147,6 +147,12 @@ const (
 	CodeBackupRollback Code = "TIP-BACKUP-005" // restore rollback failed; the server exited for a clean boot
 	CodeBackupCleanup  Code = "TIP-BACKUP-006" // cleanup of backup/restore temp files failed (leftovers consume disk)
 	CodeBackupUpload   Code = "TIP-BACKUP-007" // an uploaded restore archive could not be spooled to disk
+
+	// AUTH — single sign-on (OpenID Connect).
+	CodeOIDC Code = "TIP-AUTH-001" // an OIDC sign-in could not start or its answer failed validation
+
+	// NOTIFY — Pushover messages.
+	CodeNotifySend Code = "TIP-NOTIFY-001" // a Pushover message was not accepted
 )
 
 // Registry maps every Code to a one-line description. It is the machine-readable
@@ -247,4 +253,7 @@ var Registry = map[Code]string{
 	CodeBackupRollback: "The restore rollback failed; the server exited so Docker restarts it cleanly — previous data is in .pre-restore-<ts>.",
 	CodeBackupCleanup:  "Backup/restore temporary files could not be cleaned up; leftovers consume disk space.",
 	CodeBackupUpload:   "An uploaded restore archive could not be spooled to disk (server-side I/O, or the disk is full).",
+
+	CodeOIDC:       "A single sign-on could not start (provider unreachable, discovery mismatch) or its answer failed validation (issuer, audience, expiry, nonce).",
+	CodeNotifySend: "A Pushover message was not accepted (network, TIPPANI_OFFLINE, or a bad user key / app token). The action that triggered it still completed.",
 }

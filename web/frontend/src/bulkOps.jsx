@@ -121,7 +121,13 @@ export function useBulkOps({ kind, ids = [], onDone }) {
     let fields = 0
     let failed = 0
     for (let i = 0; i < ids.length; i += FILL_CHUNK) {
-      const r = await json('POST', '/metadata/fill', { [key]: ids.slice(i, i + FILL_CHUNK) })
+      const body = { [key]: ids.slice(i, i + FILL_CHUNK) }
+      // The last chunk of a run that spans several tells the server the run is
+      // over, so a long fill can say so on the reader's phone (Pushover) — no
+      // single chunk knows otherwise. A one-chunk run is over before a phone
+      // would buzz, and sends the plain body.
+      if (ids.length > FILL_CHUNK && i + FILL_CHUNK >= ids.length) Object.assign(body, { run_total: ids.length, run_fields: fields })
+      const r = await json('POST', '/metadata/fill', body)
       if (!r.ok) {
         setBusy(false)
         return toast(errText(r, t('error.fill.generic')))

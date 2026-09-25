@@ -795,4 +795,11 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		"fetched": fetched, "failed": failed, "enriched": enriched, "skipped": skipped,
 		"next_cursor": next, "done": next == "", "total": total, "remaining": remaining,
 	})
+	// The LAST chunk of a run is the only one that knows the run is over; the
+	// per-chunk counts are the client's to sum, so the message names the run's
+	// size rather than a total this request never saw.
+	if next == "" && total >= notifyFetchMin {
+		s.notifyAfter(w, r, userID(r), "fetch", "Metadata fetch finished",
+			"Covers and details checked for "+countOf(total, "work", "works")+".")
+	}
 }

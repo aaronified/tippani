@@ -39,6 +39,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -66,6 +67,8 @@ func main() {
 		serve()
 	case "user":
 		userCmd(args[1:])
+	case "notify":
+		notifyCmd(args[1:])
 	case "healthcheck":
 		healthcheck()
 	case "version":
@@ -234,6 +237,7 @@ func serve() {
 		cookieSecure,
 		os.Getenv("TIPPANI_TRUSTED_PROXY") == "1",
 	)
+	configureOutside(srv)
 	srv.TMDBBuiltin = defaultTMDBKey // last fallback before 503 (key otherwise set in Settings)
 	srv.TVDBBuiltin = defaultTVDBKey // ditto for TheTVDB, which is the default film/show source
 
@@ -253,9 +257,9 @@ func serve() {
 	// running version and what's wired without leaking secrets (presence only).
 	// Per-request lines follow (logRequests).
 	log.Printf("tippani %s (%s)", buildinfo.Version, buildinfo.Image())
-	log.Printf("config: data=%s tmdb(builtin=%t) tls=%t cookie_secure=%t trusted_proxy=%t",
+	log.Printf("config: data=%s tmdb(builtin=%t) tls=%t cookie_secure=%t trusted_proxy=%t oidc=%t pushover_token=%t",
 		dataDir, defaultTMDBKey != "", tlsOn,
-		cookieSecure, os.Getenv("TIPPANI_TRUSTED_PROXY") == "1")
+		cookieSecure, os.Getenv("TIPPANI_TRUSTED_PROXY") == "1", srv.OIDC.Enabled(), srv.PushoverToken != "")
 
 	bind := envOr("TIPPANI_BIND", "127.0.0.1:8080") // localhost-only by default (PLAN §2)
 	httpServer := &http.Server{
@@ -319,6 +323,71 @@ func serve() {
 		} else {
 			log.Printf("wal checkpointed into main database — clean shutdown")
 		}
+	}
+}
+
+// configureOutside reads the settings for the three things that reach outside
+// the app — single sign-on and Pushover — from the environment. Shared by
+// serve and notify so the two cannot read them differently.
+func configureOutside(srv *httpapi.Server) {
+	if iss := os.Getenv("TIPPANI_OIDC_ISSUER"); iss != "" {
+		srv.OIDC = &auth.OIDC{
+			Issuer:       iss,
+			ClientID:     os.Getenv("TIPPANI_OIDC_CLIENT_ID"),
+			ClientSecret: os.Getenv("TIPPANI_OIDC_CLIENT_SECRET"),
+			RedirectURL:  os.Getenv("TIPPANI_OIDC_REDIRECT_URL"),
+			Name:         os.Getenv("TIPPANI_OIDC_NAME"),
+			Scopes:       strings.Fields(os.Getenv("TIPPANI_OIDC_SCOPES")),
+		}
+		if srv.OIDC.ClientID == "" {
+			log.Fatal("TIPPANI_OIDC_ISSUER is set but TIPPANI_OIDC_CLIENT_ID is not")
+		}
+	}
+	srv.OIDCAutoCreate = os.Getenv("TIPPANI_OIDC_AUTO_CREATE") == "1"
+	srv.OIDCLinkByUsername = os.Getenv("TIPPANI_OIDC_LINK_USERNAME") == "1"
+	srv.PushoverToken = os.Getenv("TIPPANI_PUSHOVER_TOKEN")
+}
+
+// notifyCmd is the host-cron half of Pushover: the app has no timer of its
+// own (CLAUDE.md's invariants), so the operator's cron runs this once a day.
+//
+//	tippani notify daily [-offset MINUTES]
+//
+// offset is the readers' UTC offset in minutes, as the browser sends it; it
+// defaults to this process's local zone, so TZ=Asia/Kolkata on the container
+// is enough. Running it twice in a day sends once.
+func notifyCmd(args []string) {
+	if len(args) < 1 || args[0] != "daily" {
+		fmt.Fprintln(os.Stderr, "usage: tippani notify daily [-offset MINUTES]")
+		os.Exit(2)
+	}
+	_, secs := time.Now().Zone()
+	offset := secs / 60
+	if len(args) == 3 && args[1] == "-offset" {
+		n, err := strconv.Atoi(args[2])
+		if err != nil || n < -720 || n > 840 {
+			log.Fatal("-offset must be minutes between -720 and 840")
+		}
+		offset = n
+	} else if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: tippani notify daily [-offset MINUTES]")
+		os.Exit(2)
+	}
+	st, dataDir := openStore()
+	defer st.Close()
+	srv := httpapi.New(st, nil, dataDir, false, false)
+	configureOutside(srv)
+	results, err := srv.SendDailyDecks(context.Background(), offset)
+	for _, r := range results {
+		switch {
+		case r.Sent:
+			fmt.Printf("%s: sent (%d cards)\n", r.Username, r.Cards)
+		default:
+			fmt.Printf("%s: not sent — %s\n", r.Username, r.Skipped)
+		}
+	}
+	if err != nil {
+		log.Fatalf("notify daily: %v", err)
 	}
 }
 

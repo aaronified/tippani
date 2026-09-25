@@ -450,6 +450,22 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	// Same shape GET /admin/backup returns — including how it is keyed — so the
 	// card can render the new archive without a second round trip.
 	writeJSON(w, http.StatusOK, map[string]any{"backup": s.backupMetaAt(s.backupsDir(), name, info)})
+	s.notifyAfter(w, r, userID(r), "backup", "Backup ready",
+		name+" ("+humanBytes(info.Size())+") is on the server.")
+}
+
+// humanBytes is a size for a sentence: one decimal, binary units.
+func humanBytes(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for m := n / unit; m >= unit; m /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
 }
 
 // keyModeName names a key mode for logs and for the JSON the UI reads.

@@ -158,6 +158,8 @@ export default function App() {
   // The kept server-side backup archive, reported by /auth/status only while
   // onboarding is open — offered there as restore-instead-of-signup.
   const [onboardBackup, setOnboardBackup] = useState(null)
+  // The operator's single sign-on provider ({name}) or null, from /auth/status.
+  const [oidc, setOIDC] = useState(null)
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
@@ -170,6 +172,7 @@ export default function App() {
           .then((s) => {
             setNeedsOnboarding(s.needs_onboarding)
             setOnboardBackup(s.backup || null)
+            setOIDC(s.oidc || null)
           })
       })
       .finally(() => setChecking(false))
@@ -255,7 +258,7 @@ export default function App() {
       )
     }
     else if (needsOnboarding) screen = <Onboarding onDone={setUser} backup={onboardBackup} />
-    else screen = <Login onLogin={setUser} />
+    else screen = <Login onLogin={setUser} oidc={oidc} />
   }
   return (
     <>
@@ -294,7 +297,7 @@ async function refreshMe() {
 
 // CredentialForm is the shared username/password form for login and
 // onboarding; `film` picks the film-dark primary button (§6).
-function CredentialForm({ header, action, cta, microcopy, film = false, onSuccess }) {
+function CredentialForm({ header, action, cta, microcopy, film = false, onSuccess, footer = null }) {
   // Signing up sets a password; logging in only proves one. The rules apply to
   // the former (see `missing` below).
   const signup = action !== '/auth/login'
@@ -364,6 +367,7 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
         {cta}
       </Primary>
       {missing && password.length > 0 && <p className="microcopy mt-2 text-center">{t('common.form.reason.sentence', { reason: missing })}</p>}
+      {footer}
       {microcopy && <p className="microcopy mt-5 text-center">{microcopy}</p>}
     </form>
   )
@@ -574,7 +578,7 @@ export function Onboarding({ onDone, backup }) {
 
 // Login — film-dark strip with sprockets + frame code + Bengali subtitle (§8.2).
 // Exported for the same reason as Onboarding, above.
-export function Login({ onLogin }) {
+export function Login({ onLogin, oidc = null }) {
   useEffect(() => {
     applyTheme({ materialSet: 'film-assembly', theme: 'dark' })
   }, [])
@@ -609,6 +613,7 @@ export function Login({ onLogin }) {
               </>
             }
             action="/auth/login"
+            footer={oidc && <SingleSignOnButton name={oidc.name} />}
             cta={t('shell.login.cta.label')}
             microcopy={t('shell.login.microcopy.prose')}
             onSuccess={onLogin}
@@ -617,6 +622,21 @@ export function Login({ onLogin }) {
         <Sprockets />
       </div>
     </main>
+  )
+}
+
+// SingleSignOnButton — the provider's door beside the password one. A
+// navigation rather than a fetch: the provider has to see the browser, and it
+// sends it back to "/" signed in, or with ?oidc_error=… saying why not.
+function SingleSignOnButton({ name }) {
+  const error = new URLSearchParams(globalThis.location?.search || '').get('oidc_error') || ''
+  return (
+    <div className="mt-3">
+      <FilmButton type="button" className="w-full" onClick={() => globalThis.location.assign(apiURL('/auth/oidc/login'))}>
+        {t('shell.login.sso.cta', { name })}
+      </FilmButton>
+      {error && <div className="mt-2"><ErrorText>{error}</ErrorText></div>}
+    </div>
   )
 }
 

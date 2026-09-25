@@ -114,6 +114,7 @@ import {
 import { PersonChip } from './people.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { SectionRail } from './sectionRail.jsx'
+import { Connections } from './connections.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
 // (admin only) Updates + Backup. Library stats now live on their own Stats page
@@ -181,7 +182,7 @@ function useColumnCount() {
 // KIND of note a quote is, which is a fact about the library rather than a
 // preference about the app — the same reason the language table and the tags are
 // over there. The card itself is unchanged and is exported from this file.
-export const SETTINGS_CARDS = ['features', 'sr', 'server']
+export const SETTINGS_CARDS = ['features', 'sr', 'connections', 'server']
 
 // ---- THE FIVE SECTIONS ------------------------------------------------------
 //
@@ -235,7 +236,8 @@ export const SECTION_CARDS = {
   lang: ['language'],
   review: ['sr'],
   sections: ['features'],
-  server: ['server'],
+  // Connections first: every account has it, and the admin panel follows.
+  server: ['connections', 'server'],
 }
 
 // ── WHICH PREFERENCES EACH SECTION OWNS, and why this table exists at all.
@@ -429,6 +431,7 @@ const SETTINGS_PREFIX = {
   // for live under three roots, and a card that could only declare one would go
   // missing the moment somebody typed "backup".
   server: ['settings.updates.', 'settings.backup.', 'settings.changelog.'],
+  connections: ['settings.notify.', 'settings.widget.'],
 }
 
 // settingsMatches — does this card answer to what was typed?
@@ -533,6 +536,11 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   const cards = {
     features: <FeaturesCard prefs={user.preferences} onSaved={onPreferences} />,
     sr: <SRSettings user={user} onPreferences={onPreferences} />,
+    // EVERY ACCOUNT'S, NOT THE ADMIN'S. Pushover and the widget key are per
+    // account, and they live on Server by the owner's ruling — so
+    // this card is what opens the Server section to a reader who is not an
+    // admin, and the admin panel below stays gated as it was.
+    connections: <Connections user={user} />,
     // THE BIN AND STRAY-MARKS TILES ARE GONE FROM HERE. Both were doors and
     // nothing else — a count, a state, and a button to a page that already showed
     // both. The rail and the ☰ menu now carry a counted row to each (stray marks

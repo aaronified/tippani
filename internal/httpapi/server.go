@@ -48,6 +48,20 @@ type Server struct {
 
 	loginLimiter *auth.KeyedLimiter
 
+	// OIDC is the operator's single sign-on provider; nil or unconfigured means
+	// the button is not offered. The two flags are what an unknown identity may
+	// do — see oidc_handlers.go for why both default off.
+	OIDC               *auth.OIDC
+	OIDCAutoCreate     bool
+	OIDCLinkByUsername bool
+	oidc               oidcState
+
+	// PushoverToken is the operator's Pushover application token, used for any
+	// reader who has not brought their own. PushoverAPI is the endpoint, a seam
+	// for tests. See notify.go.
+	PushoverToken string
+	PushoverAPI   string
+
 	// pairingLimiter throttles the one unauthenticated route that hands out a
 	// credential (POST /auth/devices/claim), on the same reasoning as the login
 	// limiter: a short pairing code is only unguessable while guessing is slow.
@@ -167,6 +181,21 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /auth/restore/upload", s.handleOnboardRestoreUpload)
 	mux.HandleFunc("POST /auth/login", s.handleLogin)
 	mux.Handle("POST /auth/logout", s.requireAuth(s.handleLogout))
+	// Single sign-on. Both GETs are browser navigations, not fetches: login
+	// redirects to the provider and the provider redirects back to callback.
+	mux.HandleFunc("GET /auth/oidc/login", s.handleOIDCLogin)
+	mux.HandleFunc("GET /auth/oidc/callback", s.handleOIDCCallback)
+	mux.Handle("DELETE /auth/oidc/link", s.requireAuth(s.handleOIDCUnlink))
+	// A dashboard's read key (gethomepage's Custom API widget). The GET is
+	// authenticated by the key itself, not a session — see widget_handlers.go.
+	mux.HandleFunc("GET /widget", s.handleWidget)
+	mux.Handle("GET /auth/widget-key", s.requireAuth(s.handleWidgetKeyStatus))
+	mux.Handle("POST /auth/widget-key", s.requireAuth(s.handleWidgetKeyCreate))
+	mux.Handle("DELETE /auth/widget-key", s.requireAuth(s.handleWidgetKeyDelete))
+	// Pushover (notify.go).
+	mux.Handle("GET /auth/notifications", s.requireAuth(s.handleGetNotify))
+	mux.Handle("PUT /auth/notifications", s.requireAuth(s.handlePutNotify))
+	mux.Handle("POST /auth/notifications/test", s.requireAuth(s.handleTestNotify))
 	mux.Handle("GET /auth/me", s.requireAuth(s.handleMe))
 	mux.Handle("PUT /auth/me", s.requireAuth(s.handleUpdateMe))
 	mux.Handle("PUT /auth/me/preferences", s.requireAuth(s.handleUpdatePreferences))

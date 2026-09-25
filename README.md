@@ -226,7 +226,15 @@ may add migrations a released build will not read back.
 | `TIPPANI_DOCKER_HOST` | *(unset)* | Engine API for updates: `tcp://dockerproxy:2375` for a socket proxy, or `unix:///path`. Wins over the socket path. |
 | `TIPPANI_DOCKER_SOCK` | `/var/run/docker.sock` | Where the mounted socket is, if not the default path. |
 | `TIPPANI_UPDATER_IMAGE` | `nickfedor/watchtower` | The one-shot image the update runs to recreate the container. Pin a digest if you like. The unmaintained `containrrr/watchtower` will not work: its last release speaks Engine API 1.25 and current daemons refuse anything below 1.40. |
-| `TIPPANI_OFFLINE` | `0` | `1` stops the app calling anything outside the machine: no Google Books, Open Library, TMDB, TVDB, IGDB, Fandom, Wikidata, Amazon, cover or poster downloads, and no update check. Every lookup fails immediately with "outbound network calls are switched off" instead of waiting on a firewall. Your own library is unaffected — nothing already stored needs the network to read. Anything set other than `0`/`false`/`no`/`off` counts as on. |
+| `TIPPANI_OFFLINE` | `0` | `1` stops the app calling anything outside the machine: no Google Books, Open Library, TMDB, TVDB, IGDB, Fandom, Wikidata, Amazon, cover or poster downloads, no update check and no Pushover. Every lookup fails immediately with "outbound network calls are switched off" instead of waiting on a firewall. Your own library is unaffected — nothing already stored needs the network to read. Anything set other than `0`/`false`/`no`/`off` counts as on. |
+| `TIPPANI_OIDC_ISSUER` | *(unset)* | Your OpenID Connect provider (Authelia, Authentik, Keycloak, Pocket ID…), e.g. `https://auth.example.com`. Setting it puts a **Sign in with …** button on the login screen. Register the redirect URI `https://<tippani>/api/auth/oidc/callback` with the provider, client auth `client_secret_basic` (or `post`), PKCE `S256`. The provider is reached even with `TIPPANI_OFFLINE` on — it is your own infrastructure. |
+| `TIPPANI_OIDC_CLIENT_ID` / `TIPPANI_OIDC_CLIENT_SECRET` | *(unset)* | The client the provider issued. The id is required with the issuer; the secret may be empty for a public client. |
+| `TIPPANI_OIDC_NAME` | `single sign-on` | The provider's name on the button. |
+| `TIPPANI_OIDC_REDIRECT_URL` | derived | Set it when a proxy rewrites the host and `TIPPANI_TRUSTED_PROXY` is off; otherwise the callback is built from the request (and `X-Forwarded-Proto`/`-Host` behind a trusted proxy). |
+| `TIPPANI_OIDC_SCOPES` | `profile email` | Extra scopes beside `openid`, space-separated. |
+| `TIPPANI_OIDC_AUTO_CREATE` | `0` | `1` creates an account for an identity nobody has linked. Off by default: without it, a reader signs in with their password once and links the provider from Profile → Single sign-on. The first account created this way on an empty instance is the admin. |
+| `TIPPANI_OIDC_LINK_USERNAME` | `0` | `1` links an unlinked identity to the existing account whose username equals its `preferred_username`. Only turn it on if your provider does not let people choose that name themselves. |
+| `TIPPANI_PUSHOVER_TOKEN` | *(unset)* | A [Pushover](https://pushover.net) application token shared by every reader, so each only enters their own user key (Settings → Server → Notifications). A reader may bring their own token instead. |
 | `TIPPANI_LOG_LEVEL` | `info` | `debug` for per-operation `[trace]` lines. Every logged `TIP-*` code has a row in [Troubleshooting](https://github.com/aaronified/tippani/wiki/Troubleshooting). |
 | `GOMAXPROCS` · `GOMEMLIMIT` · `GOGC` | Go's defaults | Runtime caps for a busy NAS. The systemd unit ships `1` · `64MiB` · `200`; the reasoning is in the design log. |
 | **Commands** — `docker exec -i tippani /tippani …`, or the binary | | |
@@ -234,6 +242,7 @@ may add migrations a released build will not read back.
 | `user add <name>` | | Create a user, password read from stdin — the CLI way to bootstrap an empty instance. |
 | `user passwd <name>` | | Reset a password, read from stdin. |
 | `user del <name>` | | Delete a user and everything in their library. |
+| `notify daily [-offset MINUTES]` | | Send each reader who asked for it a Pushover message that today's review deck is ready — once per day however often it runs. Tippani has no timer of its own, so schedule it from the host: `0 8 * * * docker exec tippani /tippani notify daily`. The day and the deck follow the container's `TZ` unless `-offset` (minutes east of UTC, e.g. `330`) says otherwise. |
 | `healthcheck` | | Probe `/healthz` on the configured port and exit 0 when healthy. The image runs it every 30 s. |
 | `version` | | Print the build version. |
 
@@ -247,6 +256,127 @@ may add migrations a released build will not read back.
 **A plain-file backup too.** Beside the in-app archive, `sqlite3 tippani.db "VACUUM INTO 'backup.db'"` from
 cron, off-peak, gives you a database file you can inspect — run it on the host against the `/data` mount, since
 the image is distroless and carries no `sqlite3`.
+
+### Single sign-on with OpenID Connect (Authelia example)
+
+Any provider that publishes `/.well-known/openid-configuration` works — Authelia, Authentik, Keycloak,
+Pocket ID, Zitadel. Tippani uses the authorization-code flow with PKCE (`S256`) and a confidential client.
+Sign-on is **per account**: every reader links their own identity, and nobody can sign in to an account they
+have not linked.
+
+**1. Register Tippani with the provider.** In Authelia's `configuration.yml`, under an `identity_providers.oidc`
+block you already have (its `hmac_secret` and `jwks` are Authelia's own set-up, not Tippani's):
+
+```yaml
+identity_providers:
+  oidc:
+    clients:
+      - client_id: 'tippani'
+        client_name: 'Tippani'
+        # the DIGEST of the secret — see the command below
+        client_secret: '$pbkdf2-sha512$310000$…'
+        public: false
+        authorization_policy: 'two_factor'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://tippani.example.com/api/auth/oidc/callback'
+        scopes: ['openid', 'profile', 'email']
+        response_types: ['code']
+        grant_types: ['authorization_code']
+        token_endpoint_auth_method: 'client_secret_basic'
+```
+
+Make the secret and its digest with
+`authelia crypto hash generate pbkdf2 --variant sha512 --random --random.length 72 --random.charset rfc3986`:
+the **random password** it prints goes to Tippani, the **digest** goes in `client_secret` above. Restart
+Authelia. The redirect URI must be exactly Tippani's public address followed by `/api/auth/oidc/callback`.
+
+**2. Point Tippani at it.**
+
+```yaml
+    environment:
+      TIPPANI_OIDC_ISSUER: "https://auth.example.com"   # Authelia's own public URL, no trailing path
+      TIPPANI_OIDC_CLIENT_ID: "tippani"
+      TIPPANI_OIDC_CLIENT_SECRET: "<the random password from step 1>"
+      TIPPANI_OIDC_NAME: "Authelia"                      # the button reads "Sign in with Authelia"
+      TIPPANI_COOKIE_SECURE: "1"                         # behind an HTTPS proxy
+      TIPPANI_TRUSTED_PROXY: "1"                         # so the callback URL is built from X-Forwarded-*
+```
+
+If your proxy rewrites the host and you do not trust its headers, set `TIPPANI_OIDC_REDIRECT_URL` to the exact
+redirect URI instead. The container log's `config:` line says `oidc=true` once it is picked up.
+
+**3. Link each account.** Every reader signs in once with their password, opens **Profile** (the avatar in
+the top bar) and, under **Single sign-on**, presses **Link Authelia**. Authelia asks them to log in, and they come back linked. From then on
+the login screen's **Sign in with Authelia** button opens their library. **Unlink** reverses it; the password
+keeps working either way.
+
+**Optional: let the provider create accounts.** `TIPPANI_OIDC_AUTO_CREATE=1` makes a new account for an
+identity nobody has linked, named from its `preferred_username` (or the part of its email before the `@`),
+with no password anyone knows. On an empty instance the first one becomes the admin, so this can replace
+onboarding entirely. `TIPPANI_OIDC_LINK_USERNAME=1` instead matches an identity to the existing account whose
+username equals its `preferred_username` — turn it on only if your users cannot change that name themselves
+in the provider. Some providers, recent Authelia releases among them, leave names out of the ID token; Tippani
+then asks the userinfo endpoint for them, so no claims-policy change should be needed.
+
+If a sign-in fails, the login screen says why and the log carries `TIP-AUTH-001` naming the check that failed
+(see [Troubleshooting](https://github.com/aaronified/tippani/wiki/Troubleshooting)).
+
+### Pushover notifications
+
+Each account sets up its own phone; nothing is shared between readers.
+
+1. **An application token.** At [pushover.net/apps/build](https://pushover.net/apps/build) create an
+   application called Tippani and copy its **API token**. Either the operator sets it once for everyone as
+   `TIPPANI_PUSHOVER_TOKEN` (then readers only need step 2), or each reader pastes their own in step 3.
+2. **Your user key** is on the front page of [pushover.net](https://pushover.net) once you are signed in.
+3. In Tippani open **Settings → Server → Notifications**, paste the user key (and the token, if the server has
+   none), press **Save keys**, then **Send a test**.
+4. Choose what reaches you: **Daily review ready**, **Large imports** (50 or more quotes staged or approved),
+   **Long metadata fetches** (20 or more works) and, for an admin, **Backups**.
+
+**The daily message needs one cron line on the host**, because Tippani has no timer of its own:
+
+```cron
+# every morning at 08:00, in the container's time zone
+0 8 * * * docker exec tippani /tippani notify daily
+```
+
+It messages every reader who has the daily switch on and cards waiting, and runs at most once per reader per
+day however often it fires. The day follows the container's `TZ` (for example `TZ: Asia/Kolkata`); add
+`-offset 330` to say minutes east of UTC explicitly. Its output names each reader and whether they were sent
+one. `TIPPANI_OFFLINE=1` stops Pushover too.
+
+### Dashboard widget (gethomepage)
+
+Four numbers from your library on a [gethomepage](https://gethomepage.dev) dashboard: **works**, **quotes**,
+**forgot** (quotes whose recall dot reads *probably forgotten*) and **mastered** (quotes at the review
+schedule's top rung with no miss since). Each account makes its own key and sees only its own library.
+
+1. Open **Settings → Server → Dashboard widget** and press **Make a key**.
+2. Copy the YAML it shows — the key is displayed **once** — into gethomepage's `services.yaml`. It looks like:
+
+   ```yaml
+   - Tippani:
+       href: https://tippani.example.com
+       widget:
+         type: customapi
+         url: https://tippani.example.com/api/widget
+         headers:
+           X-API-Key: tpw_…
+         mappings:
+           - { field: works, label: Works }
+           - { field: quotes, label: Quotes }
+           - { field: forgot, label: Forgot }
+           - { field: mastered, label: Mastered }
+   ```
+
+3. **Replace key** issues a new one and stops the old at once; **Revoke** stops it without a replacement.
+
+The key opens `GET /api/widget` and nothing else — not your library, not your account. Anything that can send
+a header can use it: `curl -H "X-API-Key: tpw_…" https://tippani.example.com/api/widget` answers
+`{"works":412,"quotes":3190,"forgot":57,"mastered":880}`. `Authorization: Bearer tpw_…` works too.
 
 ### Without Docker
 

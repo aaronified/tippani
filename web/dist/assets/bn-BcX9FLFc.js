@@ -74,7 +74,7 @@ settings.section.theme.info.body = অ্যাপ হালকা না গা
 settings.section.lang.info.body = অ্যাপ কোন ভাষায় কথা বলবে, কোনো লাইন না থাকলে কোন ভাষায় ফিরবে, আর কোন ফন্টে লেখা দেখাবে।
 settings.section.review.info.body = রোজকার কুইজ কোন উদ্ধৃতি থেকে প্রশ্ন নেবে, কটা কার্ড, কতটা কঠিন, আর কখন কোনটা আবার ফিরবে।
 settings.section.sections.info.body = অ্যাপের কোন অংশগুলো রাখবেন, আর নেভিগেশনে সেগুলো কোন ক্রমে থাকবে।
-settings.section.server.info.body = কোন সংস্করণ চলছে, ব্যাকআপ, আর প্রতিটা রিলিজে কী বদলেছে।
+settings.section.server.info.body = আপনার নিজের বিজ্ঞপ্তি আর ড্যাশবোর্ড চাবি; অ্যাডমিনের জন্য চলতি সংস্করণ, ব্যাকআপ আর প্রতিটি রিলিজে কী বদলেছে।
 
 settings.section.aria = কোন সেটিংস বদলাবেন
 settings.section.theme.label = থিম
@@ -1115,6 +1115,7 @@ shell.login.microcopy.prose = ঢুকতে পারছেন না? অ্�
 shell.login.toast.welcome = ফিরে এলেন, {name}
 # What the toast calls somebody whose account has no username to read.
 shell.login.reader.fallback = পাঠক
+shell.login.sso.cta = {name} দিয়ে লগ ইন
 # A blocked button prints its reason as a sentence underneath. {reason} is one of
 # the error.validate.* messages, and this key is what puts the full stop on it.
 common.form.reason.sentence = {reason}।
@@ -4519,6 +4520,59 @@ account.logout.title = লগ আউট
 account.logout.info.title = লগ আউট
 account.logout.info.body = শুধু এই ব্রাউজার থেকে বেরোয়। অন্য ব্রাউজারে লগ ইন থেকে যায়।
 account.logout.action = লগ আউট
+
+account.sso.label = সিঙ্গল সাইন-অন
+account.sso.info.body = পাসওয়ার্ডের বদলে আপনার {name} অ্যাকাউন্ট দিয়ে লগ ইন করুন। যুক্ত করতে এখানে আর {name}-এ দুই জায়গাতেই লগ ইন থাকতে হয়, তাই অন্যের অ্যাকাউন্ট কেউ জুড়তে পারে না।
+account.sso.linked = {name}-এর সঙ্গে যুক্ত। যেকোনোটা দিয়ে লগ ইন করা যায়।
+account.sso.unlinked = যুক্ত নয়। {name} দিয়ে লগ ইন করতে যুক্ত করুন।
+account.sso.link.action = {name} যুক্ত করুন
+account.sso.unlink.action = বিচ্ছিন্ন করুন
+account.sso.linked.flash = যুক্ত হয়েছে।
+account.sso.off = এই সার্ভারে চালু করা নেই।
+account.sso.off.info = সিঙ্গল সাইন-অন অপারেটর TIPPANI_OIDC_* সেটিং দিয়ে চালু করেন; README-র "Single sign-on" অংশে Authelia দিয়ে ধাপে ধাপে দেখানো আছে।
+account.sso.unlink.confirm.title = {name} বিচ্ছিন্ন করবেন?
+account.sso.unlink.confirm.body = লগ ইন করতে এই অ্যাকাউন্টের পাসওয়ার্ড লাগবে। {name} যে অ্যাকাউন্ট বানিয়েছে তার পাসওয়ার্ড আপনার জানা নেই — আগে অ্যাডমিনকে দিয়ে একটা বসিয়ে নিন।
+
+settings.widget.label = ড্যাশবোর্ড উইজেট
+settings.widget.info.body = gethomepage-এর মতো ড্যাশবোর্ড এই চাবি দিয়ে আপনার সংগ্রহের চারটে সংখ্যা দেখায়: রচনা, উদ্ধৃতি, ভুলে যাওয়া আর আয়ত্ত। এটা আর কিছু খোলে না।
+settings.widget.none = এখনো কোনো চাবি নেই।
+settings.widget.exists = একটা চাবি চালু আছে।
+settings.widget.once = এখনই কপি করুন — চাবিটা একবারই দেখানো হয়।
+settings.widget.yaml.aria = gethomepage services.yaml-এর অংশ
+settings.widget.copy = YAML কপি করুন
+settings.widget.copied = কপি হয়েছে
+settings.widget.make.action = চাবি বানান
+settings.widget.rotate.action = চাবি বদলান
+settings.widget.rotate.confirm.title = উইজেটের চাবি বদলাবেন?
+settings.widget.rotate.confirm.body = পুরনো চাবি সঙ্গে সঙ্গে অচল হবে; ড্যাশবোর্ডে নতুনটা বসান।
+settings.widget.revoke.action = বাতিল করুন
+settings.widget.field.works = রচনা
+settings.widget.field.quotes = উদ্ধৃতি
+settings.widget.field.forgot = ভুলে গেছি
+settings.widget.field.mastered = আয়ত্ত
+
+settings.notify.label = বিজ্ঞপ্তি
+settings.notify.info.body = Pushover দিয়ে আপনার ফোনে বার্তা: দিনের রিভিউ তৈরি হলে, আর বড় ইমপোর্ট, ফেচ বা ব্যাকআপ শেষ হলে। pushover.net-এ লগ ইন করলে আপনার ইউজার কি পাবেন।
+settings.notify.user.label = Pushover ইউজার কি
+settings.notify.user.placeholder = Pushover ইউজার কি
+settings.notify.token.label = Pushover অ্যাপ্লিকেশন টোকেন
+settings.notify.token.placeholder = অ্যাপ্লিকেশন টোকেন
+settings.notify.token.placeholder.set = অ্যাপ্লিকেশন টোকেন (রাখা আছে — বদলাতে টাইপ করুন)
+settings.notify.token.placeholder.server = অ্যাপ্লিকেশন টোকেন (ঐচ্ছিক — সার্ভারে একটা আছে)
+settings.notify.save = চাবি রাখুন
+settings.notify.saved = রাখা হয়েছে।
+settings.notify.token.clear = সার্ভারের টোকেন ব্যবহার করুন
+settings.notify.token.cleared = আপনার নিজের টোকেন সরানো হয়েছে।
+settings.notify.test.action = পরীক্ষা পাঠান
+settings.notify.test.sent = পাঠানো হয়েছে — ফোন দেখুন।
+settings.notify.event.daily.title = দিনের রিভিউ তৈরি
+settings.notify.event.daily.sub = দিনে একবার, ডেকে কার্ড থাকলে। সার্ভারের দৈনিক কাজ চালু থাকা চাই।
+settings.notify.event.import.title = বড় ইমপোর্ট
+settings.notify.event.import.sub = ৫০ বা তার বেশি উদ্ধৃতি রিভিউয়ের অপেক্ষায় থাকলে, আর সেগুলো যোগ হলে।
+settings.notify.event.fetch.title = লম্বা মেটাডেটা ফেচ
+settings.notify.event.fetch.sub = ২০ বা তার বেশি রচনার ফেচ শেষ হলে।
+settings.notify.event.backup.title = ব্যাকআপ
+settings.notify.event.backup.sub = ব্যাকআপ আর্কাইভ লেখা হয়ে গেলে।
 
 account.maintenance.label = দেখভাল
 account.reindex.title = খোঁজের ইনডেক্স আবার বানান

@@ -986,8 +986,13 @@ var accountTables = []string{
 //	               re-arming a bearer token is not a decision to make for
 //	               somebody.
 //	quiz_sessions  today's quiz, which is a day's scratch state and not data.
+//	widget_keys    a dashboard's read key — a bearer credential like a device's.
+//	notify_settings a Pushover user key and app token; the same reasoning: a
+//	               restored account should not start messaging a phone again
+//	               without somebody choosing to.
 var accountSkipTables = map[string]bool{
 	"sessions": true, "device_tokens": true, "quiz_sessions": true,
+	"widget_keys": true, "notify_settings": true,
 }
 
 // binAccount snapshots an entire account and its library into ONE bin entry,

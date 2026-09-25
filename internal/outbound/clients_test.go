@@ -39,6 +39,7 @@ var ungated = map[string]struct {
 	why   string
 }{
 	"cmd/tippani/main.go":        {1, "the healthcheck subcommand probes 127.0.0.1/healthz — its own loopback port, not the internet"},
+	"internal/auth/oidc.go":      {1, "the operator's own OpenID Connect provider, named by TIPPANI_OIDC_ISSUER — usually on the same LAN, and switching the app offline must not lock every account out of sign-in"},
 	"internal/updater/docker.go": {2, "the Docker Engine API over a mounted unix socket or a local docker-socket-proxy; local infrastructure, and a box switched offline still has a daemon"},
 }
 

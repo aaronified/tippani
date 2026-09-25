@@ -4,6 +4,7 @@ import { Card, ErrorText, Field, FieldIconButton, FilePick, GhostButton, IconDel
 import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
+import { SingleSignOn } from './connections.jsx'
 
 // The display name's ceiling. Not a security bound — just the width the greeting
 // and the user list can lay out without wrapping into two lines.
@@ -439,6 +440,8 @@ export function Profile({ user, onUser, logout }) {
         </div>
       </Card>
       <Card pad="p-5"><PasswordForm /></Card>
+      {/* Beside the password it is the other way in to. */}
+      <SingleSignOn user={user} />
       {/* Admin sections. User management was its own chip-menu destination until
           1.4.1; it is a section here because "the accounts on this server" is
           part of the same answer as "my account", and a menu of two screens is

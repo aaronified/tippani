@@ -83,7 +83,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "count users", err)
 		return
 	}
-	resp := map[string]any{"needs_onboarding": n == 0}
+	resp := map[string]any{"needs_onboarding": n == 0, "oidc": s.oidcStatus()}
 	if n == 0 {
 		resp["backup"] = nil
 		if name, info := s.newestBackup(); name != "" {
@@ -194,13 +194,18 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var avatar string
-	_ = s.Store.DB.QueryRow(`SELECT avatar_path FROM users WHERE id = ?`, userID(r)).Scan(&avatar)
+	var linked bool
+	_ = s.Store.DB.QueryRow(`SELECT avatar_path, oidc_subject IS NOT NULL FROM users WHERE id = ?`, userID(r)).Scan(&avatar, &linked)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":          userID(r),
 		"username":    username(r),
 		"is_admin":    isAdmin(r),
 		"preferences": p,
 		"avatar_path": avatar,
+		// Single sign-on: whether the provider is configured, and whether this
+		// account is linked to it — the Settings row needs both.
+		"oidc":        s.oidcStatus(),
+		"oidc_linked": linked,
 		"version":     buildinfo.Version, // running build, for the Settings → Updates card
 		// WHEN THAT BUILD CAME OUT, from the history embedded in the binary — see
 		// releaseDate. "" for anything that is not a finished release, which the
