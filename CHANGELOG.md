@@ -74,12 +74,15 @@ identity provider. Every change, with the reasons behind it, is in
   lock itself out.
 - The dashboard widget takes its key only in a header, never in the URL, so it stays out of
   the request log.
-- A deleted account waits in the admin's bin as its name and quote count only; its contents
-  cannot be opened there, and the question that deletes one says it waits there sealed.
-- A password an admin sets (a new account, or a reset from the command line) is temporary: the
-  reader chooses their own at first sign-in, and nothing else opens until they do.
+- A deleted account waits in the admin's bin as its name, its quote count and whether any
+  pictures were kept; its contents cannot be opened there, and the question that deletes one
+  says it waits there sealed.
+- A password an admin sets (a new account, or any reset with `tippani user passwd`, the admin's
+  own included) is temporary: its owner chooses a new one at their next sign-in, and nothing else
+  opens until they do.
 - Restore and factory reset begin by downloading a fresh backup of everything they replace, and
-  the server refuses both until that download has finished.
+  the server refuses either until that download has finished. Each download covers a single
+  restore or reset.
 
 ## [2.2.9] - 2026-08-25
 
