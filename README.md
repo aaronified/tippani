@@ -43,7 +43,7 @@
   </tr>
 </table>
 
-<p align="center"><sub>Scroll sideways for more. The <a href="https://aaronified.github.io/tippani/demo/">demo</a> is always the latest interface.</sub></p>
+<p align="center"><sub>The <a href="https://aaronified.github.io/tippani/demo/">demo</a> is always the latest interface.</sub></p>
 
 ## What it does
 
