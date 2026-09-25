@@ -19166,21 +19166,23 @@ that finished the work, after the response is flushed, with a five-second timeou
 a goroutine — nothing outlives its request. A failing Pushover logs `TIP-NOTIFY-001` and never
 fails the import that caused it. Pushover itself is gated by `TIPPANI_OFFLINE`.
 
-**Where the three live: Profile, one set per account.** The placement moved three times and
-the record is kept because the middle two are the ones somebody will propose again. The first cut
-put all three on Profile, on the reading that each is a credential belonging to the account. The
-owner then asked for Settings → Server (*"The server tab will host these settings … Every profile
-will have separate OIDC, pushover and widgets"*), which meant opening an admin-only section to
-every account; then split them — SSO on Profile, the other two on Server; and finally settled it:
-*"Keep them in profile. That's the better home for all of them."* The reason it is the better
-home is the one the per-account rule already implies: every card here reads and writes the
-signed-in account's own row, and Profile is the account's screen, while Settings → Server is
-the instance's — Updates, Backup, the release log — and stays admin-only as it always was.
-Nothing is shared between accounts: the SSO link is a column on the reader's own `users` row,
-and `notify_settings` and `widget_keys` are keyed by `user_id`. What is server-wide is only what
-the operator sets in the environment — which provider, and an optional shared Pushover
-application token — and the cards say when those are missing rather than hiding. Where to find
-each is in the README: three how-to sections, with Authelia as the worked provider.
+**Where the three live: Profile, one set per account.** The placement moved four times. The
+record is kept in order because the middle steps are the ones somebody will propose again.
+First, Settings → Server (*"The server tab will host these settings"*). Then, before that
+shipped, back to Profile (*"Nooo! Keep them in profile. That's the better home for all of
+them."*). Then a split: SSO on Profile, Notifications and the widget on Server (*"SSO must be
+under profile. Notification and Homepage cards can move to Settings>server"*). Last, the owner
+refined the split: Notifications on Profile only, because it is a profile-level setting, and
+API keys made on Profile, each reading only its maker's library (*"strictly profile level"*). The
+admin sees only that keys exist. So the code's placement is the final one: all three are Profile
+cards. What the refinement adds is planned in `docs/plans/admin-and-profile.md` and not built
+in 3.0.0: Server renamed Admin, the users card moved there with SSO flags, an in-app SSO setup
+card, and multiple named API keys. Nothing is shared between accounts. The SSO link is a column
+on the reader's own `users` row, and `notify_settings` and `widget_keys` are keyed by `user_id`.
+The only server-wide settings are the ones the operator sets in the environment (which provider,
+and an optional shared Pushover application token), and the cards say when those are missing
+rather than hiding. Where to find each is in the README: three how-to sections, with Authelia as
+the worked provider.
 
 **What the rater found, and where the first cut was wrong.** The login-CSRF test passed with the
 cookie check deleted: it never visited the provider's authorize step, so the token exchange

@@ -27,6 +27,6 @@ Not built. Tasks, one per ask:
 - [ ] Make restore and factory reset take a fresh backup and download it first, as a step of the same flow, before anything is replaced.
 - [ ] Keep a deleted account's bin entry opaque to the admin: its name and item count only, no quotes or titles; restoring it returns it whole to its owner.
 - [ ] Reuse a cover, poster or portrait already on disk when the same image is needed again, instead of downloading or storing another copy.
-- [ ] Replace the "Keep them in profile" entry in Design-decisions with these placements.
+- [ ] When these ship, update the placement entry in Design-decisions ("Where the three live") to say they are built.
 
 Decided and kept as is: the whole-server backup stays sealed with the admin's own password, accepting that an admin who downloads it can read every library outside the app.
