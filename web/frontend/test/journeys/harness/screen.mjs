@@ -385,8 +385,18 @@ export function screenVerbs(getPage) {
       }
       throw pressErr
     }
+    // WHAT THE CLICK LANDED ON, kept for the refusal below. A trigger that is found
+    // but covered (a sticky bar, a toast) takes the click on whatever is on top, the
+    // list never opens, and "not a list of options" alone cannot say why.
+    let landed = ''
     try {
       await trigger.scrollIntoView().catch(() => {})
+      landed = await trigger.evaluate((el) => {
+        const r = el.getBoundingClientRect()
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        const say = (n) => (n ? `<${n.tagName.toLowerCase()}${n.className && typeof n.className === 'string' ? ` class="${n.className}"` : ''}> "${(n.getAttribute('aria-label') || n.innerText || '').trim().slice(0, 60)}"` : 'nothing')
+        return top === el || el.contains(top) ? '' : `the click point is covered by ${say(top)}; the trigger is ${say(el)}`
+      }).catch(() => '')
       await trigger.click()
     } finally {
       await trigger.dispose()
@@ -412,7 +422,7 @@ export function screenVerbs(getPage) {
     // Leave nothing hanging open over the next step.
     await page().keyboard.press('Escape').catch(() => {})
     if (result.offers === null) {
-      throw new Error(`"${label}" is not a list of options to choose from.\n\nThe screen said:\n\n${await onScreen()}`)
+      throw new Error(`"${label}" is not a list of options to choose from.${landed ? `\n${landed}` : ''}\n\nThe screen said:\n\n${await onScreen()}`)
     }
     throw new Error(
       `"${label}" offers no option named "${option}".\nWhat it offers: ${result.offers.join(', ')}`,

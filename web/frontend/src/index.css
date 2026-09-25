@@ -3568,6 +3568,8 @@
   .info-pop-body { font-size: var(--type-ui-13); line-height: 1.6; color: var(--soft); }
 
   .info-pop-anchored { width: min(320px, calc(100vw - 24px)); }
+  /* A hover-opened card lets the click through to what is under it — see InfoPopover. */
+  .info-pop-anchored.is-hover { pointer-events: none; }
 
   /* ---- the recall panel behind the repetition mark ------------------------
      The owner asked for it "like the infodots", so it arrives in the same

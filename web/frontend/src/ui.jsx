@@ -7218,7 +7218,12 @@ function InfoPopover({ anchor, title, pinned = true, onHold, onLeave, onClose, c
       {pinned && <div className="info-pop-catcher" onMouseDown={onClose} role="presentation" />}
       <div
         ref={cardRef}
-        className={"info-pop info-pop-anchored hand-card hc-r2" + (pos?.below ? " is-below" : " is-above") }
+        // AN UNPINNED CARD IS CLICK-THROUGH. It opens below its dot, which puts it on
+        // top of whatever the card's own content starts with — on Works, the Type
+        // dropdown. A pointer crossing it on the way there kept it open, so the
+        // click landed on the explanation and the dropdown never opened. Hover is
+        // for a glance; reading, scrolling or copying is what the pinning click is for.
+        className={"info-pop info-pop-anchored hand-card hc-r2" + (pos?.below ? " is-below" : " is-above") + (pinned ? "" : " is-hover")}
         role="dialog"
         aria-label={ariaLabelText(title)}
         style={pos ? { top: pos.top, left: pos.left, "--caret-x": `${pos.caret}px` } : { top: 0, left: 0, visibility: "hidden" }}
