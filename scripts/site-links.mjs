@@ -16,7 +16,7 @@
 // Run against an assembled _site: `node scripts/site-links.mjs [dir]`.
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, dirname, resolve, relative } from 'node:path'
+import { join, dirname, resolve, relative, sep } from 'node:path'
 
 const ROOT = resolve(process.argv[2] || '_site')
 
@@ -35,23 +35,33 @@ function htmlFiles(dir) {
   return out
 }
 
-// href/src on any element, plus the CSS url() forms that reference real files.
-// The lookbehind keeps `data-src="google"` out: the glossary's source marks carry
-// the source's NAME in a data attribute, and without it the tail of that attribute
-// read as a link to a file called `google`.
+// href/src on any element. The lookbehind keeps `data-src="google"` out: the
+// glossary's source marks carry the source's NAME in a data attribute, and
+// without it the tail of that attribute read as a link to a file called `google`.
 const ATTR = /(?<![\w-])(?:href|src)\s*=\s*"([^"]+)"/g
+
+// And CSS url(), in a <style> or a style attribute, bare or quoted, where a quote
+// inside an attribute arrives as &quot; or &#39;. The glossary inlines the built
+// stylesheet, so its faces and material textures are all references of this kind.
+const CSS_URL = /url\(\s*(?:&quot;|&#39;|["'])?([^"')&]+)/g
 
 // Not our problem: other origins, and the schemes that are not file lookups.
 const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|mailto:|data:)/i
+
+// A path on disk, not a URL: %23 is a '#', and the url(%23n) inside an inline SVG
+// data URI is a fragment, not a file called "%23n".
+const decoded = (s) => {
+  try { return decodeURIComponent(s) } catch { return s }
+}
 
 const problems = []
 let checked = 0
 
 for (const file of htmlFiles(ROOT)) {
   const html = readFileSync(file, 'utf8')
-  for (const m of html.matchAll(ATTR)) {
-    const raw = m[1].trim()
-    if (!raw || EXTERNAL.test(raw)) continue
+  const refs = [...html.matchAll(ATTR), ...html.matchAll(CSS_URL)].map((m) => m[1].trim())
+  for (const raw of refs) {
+    if (!raw || EXTERNAL.test(raw) || EXTERNAL.test(decoded(raw))) continue
     // Strip the query and fragment; neither affects which file is served.
     const path = raw.split('#')[0].split('?')[0]
     if (!path) continue
@@ -65,7 +75,17 @@ for (const file of htmlFiles(ROOT)) {
       continue
     }
 
-    const target = resolve(dirname(file), path)
+    const target = resolve(dirname(file), decoded(path))
+    // OUTSIDE THE SITE IS BROKEN EVEN WHEN THE FILE IS THERE. The check runs in the
+    // repo checkout, with _site inside it, so `../web/dist/mark.svg` from the
+    // glossary found the repo's own copy and passed. The published glossary asked
+    // github.io for /web/dist/mark.svg and got a 404.
+    const inSite = relative(ROOT, target)
+    if (inSite === '..' || inSite.startsWith('..' + sep)) {
+      checked++
+      problems.push(`${relative(ROOT, file)} → ${raw}  (outside the site)`)
+      continue
+    }
     // A directory link (…/demo/) is served by its index.html.
     const candidates = path.endsWith('/') ? [join(target, 'index.html')] : [target, join(target, 'index.html')]
     checked++

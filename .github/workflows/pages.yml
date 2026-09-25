@@ -64,6 +64,17 @@ jobs:
           mkdir -p _site/img
           cp docs/landing.html _site/index.html
           cp docs/roadmap.html docs/ui-glossary.html _site/
+          # THE GLOSSARY POINTS INTO THE REPO. It is generated to be opened from
+          # docs/, so its faces, its material textures and its mark are
+          # ../web/dist/…, and from the site root that is outside the site: every
+          # one of them was a 404 on github.io. Copy exactly the files it names,
+          # at the same paths under _site, and drop the "../".
+          { grep -oE '\.\./web/dist/[^")&[:space:]]+' _site/ui-glossary.html || true; } | sort -u |
+            while read -r ref; do
+              mkdir -p "_site/$(dirname "${ref#../}")"
+              cp "${ref#../}" "_site/${ref#../}"
+            done
+          sed -i 's#\.\./web/dist/#web/dist/#g' _site/ui-glossary.html
           cp docs/img/*.jpg _site/img/
           # The social card. og:image must be absolute and must resolve from the
           # Pages origin — the README's screenshots live on raw.githubusercontent,
