@@ -392,6 +392,7 @@ func TestRecoveryKeySurvivesPasswordChange(t *testing.T) {
 
 	// The OLD password no longer exists as a login, and the archive predates the
 	// new one — in 1.4.1 that archive was scrap. Here the new password opens it.
+	safetyBackup(t, admin)
 	if rec := admin.mustDo("POST", "/admin/restore", map[string]any{"password": newPw}, 200); !bytes.Contains(rec.Body.Bytes(), []byte(`"ok":true`)) {
 		t.Fatalf("restore after a password change: %s", rec.Body)
 	}
@@ -448,6 +449,7 @@ func TestRecoveryKeyIsNeverArchived(t *testing.T) {
 	}
 
 	// Survives a restore: the swap moves everything else aside around it.
+	safetyBackup(t, admin)
 	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, 200)
 	after, err := os.ReadFile(keyPath)
 	if err != nil {
@@ -479,6 +481,7 @@ func TestRecoveryKeyNotSharedAcrossInstances(t *testing.T) {
 	// the one under test rather than "no key yet".
 	backupNow(admin)
 
+	safetyBackup(t, admin)
 	rec := admin.restoreUpload("/admin/restore/upload", map[string]string{"password": "notthedonors"}, archive)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("a foreign archive with a wrong password: %d %s", rec.Code, rec.Body)
