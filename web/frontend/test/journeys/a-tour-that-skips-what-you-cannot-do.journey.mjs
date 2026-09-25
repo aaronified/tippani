@@ -77,12 +77,17 @@ it('a reader who is not an admin is walked past the cards only an admin has', as
   await app.type('account name', 'plain-reader')
   await app.type('their password', 'plain-reader-pw')
   await app.press('Sign in')
-  // The admin's password is temporary; the reader picks their own first.
+  // The admin's password is temporary; the reader picks their own first. The
+  // switch reloads the page, so the screen is waited for before anything is typed.
+  await app.see('Choose your own password')
   await app.type('current password', 'plain-reader-pw')
   await app.type('new password (8–20)', 'plain-own-pw')
   await app.type('repeat new password', 'plain-own-pw')
   await app.press('Update password')
-  await app.see('empty notebook, plain-reader')
+  // Home, signed in as plain-reader. Not the greeting: on 1 January (the harness's
+  // clock) it is one of several holiday lines, and which one varies by run.
+  await app.see('Daily quiz')
+  await app.see('plain-reader')
 
   // THE WELCOME TOUR, WHICH THIS ACCOUNT MEETS BEFORE ANYTHING ELSE. It opens by
   // itself on a first launch, and what it promises is a length.

@@ -101,7 +101,10 @@ it('a second account sees an empty notebook, and the first gets its own back', a
   // account inside the page's own text, which nothing but an actual switch of
   // session could cause — the nav also renames its Profile button to match,
   // but that name lives in an aria-label, not in anything `see` can read.
-  await app.see('empty notebook, second-reader')
+  // Home, signed in as second-reader. Not the greeting: on 1 January (the harness's
+  // clock) it is one of several holiday lines, and which one varies by run.
+  await app.see('Daily quiz')
+  await app.see('second-reader')
 
   // A FRESH ACCOUNT OPENS ON THE WELCOME TOUR, AND THE TOUR KEEPS PULLING THE
   // ROUTE BACK TO HOME FOR AS LONG AS IT IS OPEN — a `goto('/library')` lands
@@ -122,7 +125,10 @@ it('a second account sees an empty notebook, and the first gets its own back', a
   await app.type('account name', 'journey-reader')
   await app.type('their password', app.account.password)
   await app.press('Sign in')
-  await app.see('empty notebook, journey-reader')
+  // Home, signed in as journey-reader. Not the greeting: on 1 January (the harness's
+  // clock) it is one of several holiday lines, and which one varies by run.
+  await app.see('Daily quiz')
+  await app.see('journey-reader')
 
   // AND THE FIRST ACCOUNT'S OWN SHELF IS EXACTLY WHAT IT WAS — not merely
   // non-empty, which a library that had picked up the second account's rows
