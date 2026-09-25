@@ -103,7 +103,10 @@ const engine = findBrowser(null, 'chrome')
 // nothing above.
 const PRESS_CSS = 'button, a[href], summary, input[type="checkbox"], input[type="radio"], [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"]'
 
-// One accessibility tree per look, as the journeys read it; see oneTreePerLook.
+// A whole tree per control is what took the journeys past their minute, and here it
+// would spend press()'s wait on one look at a long console, so a control that
+// renders a beat late would be recorded as a MISS. One tree per look, shared with
+// the journeys; oneTreePerLook in capture.mjs says how.
 async function namesOn(page) {
   const handles = await page.$$(PRESS_CSS)
   const out = []

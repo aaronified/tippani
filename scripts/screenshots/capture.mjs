@@ -344,18 +344,21 @@ export async function emulateEngineMedia(page, browser, theme = 'light') {
 }
 
 // launchBrowser — THE ONE PLACE A BROWSER IS STARTED, and it is a function
-// because there are several callers: main() below, one per theme; the journeys'
-// world.mjs, one per journey file; controls.mjs; and glass-cost.mjs. A second
-// copy would be a second place for the root/--no-sandbox rule and the Firefox
-// preference block to be forgotten, and the repo's directive is that one verb
-// lives in one function that every caller calls.
+// because more than one thing starts a browser: main() below, once per theme;
+// the journeys, once per file; and the probes here that call it (`git grep
+// 'launchBrowser('` lists them, and a list typed here would be the next thing to
+// go stale). A second copy would be a second place for the root/--no-sandbox rule
+// and the Firefox preference block to be forgotten, and the repo's directive is
+// that one verb lives in one function that every caller calls.
 //
 // THE IMPORT IS DYNAMIC because puppeteer-core is this scaffold's dependency and
 // not the repo's, and every other export in this file works without it. That is
 // load-bearing for controls.mjs: controls-ratchet.test.js runs it in CI's
 // frontend job, which never installs this directory, to watch it refuse a
-// missing or unknown --fixture before any browser starts. The world.mjs
-// journeys import this file too, and they install it.
+// missing or unknown --fixture before any browser starts. The journeys import
+// this file too (harness/world.mjs and screen.mjs) and DO need the install: CI's
+// journeys job runs `npm ci` here first, and a local `npm run journeys` needs
+// the same.
 export async function launchBrowser(engine, opts = {}) {
   let puppeteer
   try {
