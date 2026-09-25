@@ -37,6 +37,9 @@ it("a deleted account shows its name in the bin but not what it holds", async ()
   await app.type('account name', 'sealed-reader')
   await app.type('their password', 'from-the-admin')
   await app.press('Sign in')
+  // The switch reloads the page; typing before the new screen is up types into
+  // the old document, which is gone.
+  await app.see('Choose your own password')
   await app.type('current password', 'from-the-admin')
   await app.type('new password (8–20)', 'sealed-own-pw')
   await app.type('repeat new password', 'sealed-own-pw')
