@@ -633,14 +633,19 @@ export function Login({ onLogin, oidc = null }) {
   )
 }
 
+// signOut ends the session on the server and then in the app. One function for
+// both ways out — the shell's and the password screen's — so the two cannot
+// drift apart.
+async function signOut(onLogout) {
+  await globalThis.fetch(apiURL('/auth/logout'), { method: 'POST' })
+  onLogout()
+}
+
 // ChooseOwnPassword — the only screen a temporary password opens. The admin who
 // set it knows it, so the server keeps the library shut until the reader picks
 // one of their own; this is the same change-password form Profile carries, in the
 // sign-in screen's frame, because the reader has not arrived yet.
 export function ChooseOwnPassword({ onDone, onLogout }) {
-  useEffect(() => {
-    applyTheme({ materialSet: 'film-assembly', theme: 'dark' })
-  }, [])
   const base = useFrameBase()
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10" data-screen-label="choose-password">
@@ -651,16 +656,11 @@ export function ChooseOwnPassword({ onDone, onLogout }) {
           <h1 className="wordmark" style={{ fontSize: 'var(--type-ui-22)' }}>{t('shell.password.temporary.title')}</h1>
           <p className="microcopy">{t('shell.password.temporary.prose')}</p>
           <PasswordForm onDone={onDone} />
-          <FilmButton
-            type="button"
-            className="w-full"
-            onClick={async () => {
-              await globalThis.fetch(apiURL('/auth/logout'), { method: 'POST' })
-              onLogout()
-            }}
-          >
+          {/* The way out is the lesser button: choosing a password is what this
+              screen is for. */}
+          <GhostButton type="button" className="w-full" onClick={() => signOut(onLogout)}>
             {t('account.logout.action')}
-          </FilmButton>
+          </GhostButton>
         </div>
         <Sprockets />
       </div>
@@ -2093,10 +2093,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
     })
   }
 
-  async function logout() {
-    await globalThis.fetch(apiURL('/auth/logout'), { method: 'POST' })
-    onLogout()
-  }
+  const logout = () => signOut(onLogout)
 
   const brandDot = pending > 0 && <span className="review-dot" aria-hidden="true" />
   // The ＋ Add pill carries the staging count, because that is where imports

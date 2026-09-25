@@ -214,6 +214,12 @@ func TestAnAdminSetPasswordMustBeChangedBeforeTheLibraryOpens(t *testing.T) {
 		t.Fatal("/auth/me does not say the password is temporary")
 	}
 	cara.mustDo("GET", "/books", nil, http.StatusForbidden)
+	// What stays open: the fonts the app loads first, and the way out.
+	cara.mustDo("GET", "/fonts", nil, 200)
+	leaver := &testClient{t: t, h: h}
+	rec2 := leaver.do("POST", "/auth/login", map[string]string{"username": "cara", "password": "given-by-admin"})
+	leaver.cookie = cookieOf(t, rec2)
+	leaver.mustDo("POST", "/auth/logout", nil, 200)
 	cara.mustDo("POST", "/books", map[string]any{"title": "Nope"}, http.StatusForbidden)
 	// Choosing the given password again is not choosing one's own.
 	cara.mustDo("POST", "/auth/password", map[string]string{"current": "given-by-admin", "new": "given-by-admin"}, http.StatusBadRequest)

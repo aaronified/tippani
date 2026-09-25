@@ -915,6 +915,10 @@ var passwordGateOpen = map[string]bool{
 	"GET /auth/me":        true,
 	"POST /auth/password": true,
 	"POST /auth/logout":   true,
+	// The reader's own uploaded faces: the app loads them before any screen,
+	// and refusing them only filled the console with 403s.
+	"GET /fonts":           true,
+	"GET /fonts/{id}/file": true,
 }
 
 // requireAdmin is requireAuth plus an is_admin check, for user management.

@@ -203,10 +203,15 @@ describe('a module that remembers a server response', () => {
   // half of it; a registry nothing calls is a list.
   it('is emptied by signing out, which is the only path that does not reload', () => {
     const app = code(read('App.jsx'))
-    const logout = app.match(/onLogout=\{[^}]*\}/)
-    expect(logout, 'App no longer wires a sign-out, so this rule has nothing to attach to').toBeTruthy()
-    expect(logout[0],
-      'signing out does not empty the enrolled caches — and it is the one way out of an account that leaves the document standing, since switching account sets the address and reloads')
-      .toMatch(/forgetSessionCaches\s*\(/)
+    // EVERY WIRING, NOT THE FIRST. This read only the first `onLogout` for a
+    // while, and when the password screen's came first the shell's — the one
+    // every ordinary sign-out goes through — was no longer checked at all.
+    const wirings = [...app.matchAll(/onLogout=\{[^}]*\}/g)].map((m) => m[0])
+    expect(wirings.length, 'App no longer wires a sign-out, so this rule has nothing to attach to').toBeGreaterThan(0)
+    for (const w of wirings) {
+      expect(w,
+        'signing out does not empty the enrolled caches — and it is the one way out of an account that leaves the document standing, since switching account sets the address and reloads')
+        .toMatch(/forgetSessionCaches\s*\(/)
+    }
   })
 })
