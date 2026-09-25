@@ -8,11 +8,46 @@ anywhere else. Ships as one static Go binary with the SPA embedded — no Node a
 This project references [claude-kit](https://github.com/aaronified/claude-kit) (agents,
 skills, commands, hooks) in **Reference mode** via `.claude/settings.json`
 (`extraKnownMarketplaces` + `enabledPlugins`). Nothing from the kit is copied into this
-repo, so there is nothing here to exclude or keep in sync. In an interactive session,
-Claude Code prompts to install the plugin the first time; in a headless/remote session it
-does not auto-install — run `claude plugin install claude-kit@claude-kit` there once.
-Prefer the kit's skills/agents (e.g. `test-summary`, `git-sync`, `screenshot-runner`,
-`repo-doc-set`) over ad hoc equivalents when one already fits the task.
+repo, so there is nothing here to keep in sync. In an interactive session, Claude Code
+prompts to install the plugin the first time; in a headless/remote session it does not
+auto-install. Prefer the kit's skills/agents (e.g. `test-summary`, `git-sync`,
+`screenshot-runner`, `repo-doc-set`) over ad hoc equivalents when one already fits the task.
+
+**IN A REMOTE SESSION, `claude plugin install claude-kit@claude-kit` ALONE FAILS, and this
+paragraph said it was enough.** Measured 25 September: it answers *Plugin "claude-kit" not
+found in marketplace*, because nothing has cloned the marketplace yet; and `claude plugin
+marketplace add aaronified/claude-kit` then fails on HTTPS authentication, because the kit
+is a private repository the session's git proxy serves only once it is one of the session's
+repositories. What worked, in this order: attach `aaronified/claude-kit` to the session
+(pick it at session start, or `add_repo`), then `claude plugin marketplace add
+aaronified/claude-kit`, then `claude plugin install claude-kit@claude-kit`. **The install
+takes effect at the NEXT session start, not in the session that ran it** — a nested
+`claude -p` in the same container fired the kit's `SessionStart` hook and the installing
+session never did. Nor does a start install it on its own once the marketplace is cloned:
+with the install record emptied and the cache moved aside, a nested start fired no hook and
+recorded no install. The container is ephemeral — reclaimed after inactivity, with nothing
+outside a pushed commit surviving it, by the environment's own description rather than a
+test here — so the install, the digest settings below and the two per-clone lines go with
+it.
+
+**PER CLONE, TWO LOCAL LINES THAT GIT NEVER COMMITS**, both the kit's own instructions:
+`/.visual-verify/` in `.git/info/exclude`, because `visual-verify` writes its working
+screenshots there and a `git add -A` after a run would commit them; and the kit's commit
+guard as `.git/hooks/pre-commit` (`kit_guard.py --hook`), which refuses a commit carrying a
+kit file and skips itself when the plugin has moved.
+
+**FIREFOX CANNOT BE HAD IN THE CLOUD CONTAINER, AND THE KIT SAYS NOT TO TRY.** The screenshot
+harness defaults to Firefox because `visual-verify` puts it first, but the container has
+none, apt offers only the snap stub, and the environment's proxy refuses every Mozilla
+download host (403). `visual-verify` forbids installing a browser to reach Firefox — take
+the next one in its order and say why — so captures there run on the pre-installed Chromium
+with `TIPPANI_BROWSER=chrome`, and the report names the engine.
+
+**THE KIT'S `AI.md` IS `docs/wiki/How-this-was-written.md`**, moved there and not copied
+(the wiki's Home says so). `pre-commit-gate` stage 0 runs `ai_census.py --check`, which looks
+only for `AI.md` or `docs/AI.md`, so it exits 2 here — and the page carries no census block
+to compare anyway. That exit is the layout, not drift. Creating an `AI.md` to quiet it would
+put a second copy of a page beside the one the wiki says has none.
 
 Two of the kit's rules bind work in this repo even when no kit skill is running:
 
