@@ -199,7 +199,13 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 because register-citations.test.js asks git whether every
+      # commit the registers cite is an ancestor of HEAD, or reachable from some
+      # branch or tag. A depth-1 checkout has one commit and no tags, so every
+      # citation in all four documents reads as dangling.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
