@@ -1520,9 +1520,10 @@ function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd
   // be stranded off-screen, which is what :focus-visible says.
   //
   // So the flag holds exactly "a keyboard focus is inside the bar": set from the
-  // focus event's own :focus-visible, cleared when focus leaves for somewhere
-  // outside, and cleared when Back turns disabled — the one way focus leaves the
-  // bar without a blur. A render-time read of the DOM was tried and missed the
+  // focus event's own :focus-visible, cleared on every blur (a move between two
+  // keys blurs one and focuses the next, and the focus sets it again), and
+  // cleared when Back turns disabled — the one way focus leaves the bar without
+  // a blur. A render-time read of the DOM was tried and missed the
   // keyboard case: nothing re-rendered when focus arrived, so the bar stayed away.
   const navRef = useRef(null)
   useEffect(() => {
@@ -1563,7 +1564,7 @@ function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd
       data-glass="dock"
       aria-label={t('shell.nav.dock.aria')}
       onFocus={(e) => setFocused(e.target.matches(':focus-visible'))}
-      onBlur={(e) => setFocused(!!navRef.current?.contains(e.relatedTarget) && e.relatedTarget.matches(':focus-visible'))}
+      onBlur={() => setFocused(false)}
     >
       {key({
         id: 'back',
