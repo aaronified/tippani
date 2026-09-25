@@ -232,13 +232,6 @@ jobs:
           node-version: "22"
       - run: npm ci
         working-directory: web/frontend
-      # controls-ratchet.test.js RUNS scripts/screenshots/controls.mjs to watch it
-      # refuse a missing or unknown --fixture with exit 2. The probe imports
-      # puppeteer-core at the top, so without this install it dies on the import
-      # with exit 1 before it can refuse anything. puppeteer-core downloads no
-      # browser, so this is as cheap here as it is in the journeys job.
-      - run: npm ci
-        working-directory: scripts/screenshots
       - run: npm test
         working-directory: web/frontend
       # THE DESIGN RULES, RUN SEPARATELY AND STILL BLOCKING. The files in

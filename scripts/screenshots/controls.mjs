@@ -33,9 +33,11 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import puppeteer from 'puppeteer-core'
-
-import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions } from './capture.mjs'
+// NO puppeteer-core IMPORT HERE: the browser starts through capture.mjs's
+// launchBrowser, which loads it lazily. So the refusals below run on a clone
+// where scripts/screenshots was never installed, which controls-ratchet.test.js
+// relies on.
+import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchBrowser } from './capture.mjs'
 import { canRecord, exitCode, failing, judge, say } from './ratchet.mjs'
 
 const opts = {
@@ -354,7 +356,7 @@ async function resolveSurfaces(page, baseUrl) {
 }
 
 const engine = findBrowser(null, 'chrome')
-const browser = await puppeteer.launch(launchOptions(engine, { viewport: { width: opts.width, height: opts.height } }))
+const browser = await launchBrowser(engine, { viewport: { width: opts.width, height: opts.height } })
 const findings = { dead: [], small: [], empty: [], blank: [], unreachable: [], sideways: [], notaroute: [], labelled: [], head: [] }
 
 // HOW MUCH OF THE APP THIS RUN ACTUALLY LOOKED AT. Module-level because the
