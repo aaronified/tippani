@@ -37,9 +37,10 @@ on:
       - "scripts/roadmap-tracker.mjs"
   workflow_dispatch:
 
-# actions: write is NOT here. Only the publish job below needs it, and this job
-# handles an outside reporter's issue title and body and runs two node scripts, so
-# none of that runs holding a token that can dispatch release.yml.
+# The workflow's default. The label job adds issues: write, which labelling needs,
+# and the publish job alone holds actions: write, which dispatching needs, so the
+# render job, which runs two node scripts and saves its token in .git/config at
+# checkout, holds neither.
 permissions:
   contents: write
   issues: read
@@ -51,18 +52,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  render:
+  label:
+    if: github.event_name == 'issues'
     runs-on: ubuntu-latest
-    outputs:
-      page_moved: ${{ steps.commit.outputs.page_moved }}
+    permissions:
+      issues: write
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: main
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-
       # An issue form's `labels:` is applied with the AUTHOR's permissions, and applying
       # a label needs Triage. So the one case this whole pipeline exists for — someone
       # outside the repo reporting a bug — is the one case where `labels: ["bug"]` does
@@ -70,14 +65,15 @@ jobs:
       # the form's own field headings, which are the most reliable evidence of which
       # template was used (the title prefix is only a prefill and can be edited away).
       #
-      # This lives here, as a step, rather than in a workflow of its own: an action
+      # This lives in this workflow rather than one of its own: an action
       # authenticated with GITHUB_TOKEN does not trigger further workflow runs, so a
-      # separate labelling workflow would apply `bug` and never wake this one. Labelling
-      # first, in the same job, means the tracker read below already sees it.
+      # separate labelling workflow would apply `bug` and never wake this one. It is a
+      # job of its own, before render, because adding a label needs issues: write and
+      # nothing else in the workflow does, and render needs it first so the tracker
+      # read there already sees the label.
       #
       # Only ever ADDS. A label a maintainer removed on purpose stays removed.
       - name: Recover the label the form could not apply
-        if: github.event_name == 'issues'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NUMBER: ${{ github.event.issue.number }}
@@ -102,6 +98,22 @@ jobs:
           echo "applying '$want' to #$NUMBER"
           gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "$want"
 
+  render:
+    needs: label
+    # Runs after label, and also when label was skipped (a push or a dispatch) or
+    # failed: a label it could not add is no reason to leave the page stale.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    outputs:
+      page_moved: ${{ steps.commit.outputs.page_moved }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
       - name: Read the tracker
         run: node scripts/roadmap-tracker.mjs
         env:
@@ -124,7 +136,8 @@ jobs:
             exit 0
           fi
           # tracker.json and the backup are not published, so a change to them alone
-          # redeploys an identical site; only the page itself asks for a deploy.
+          # would redeploy an unchanged page, with only the sitemap's dates moved;
+          # only the page itself asks for a deploy.
           page_moved=false
           git diff --quiet -- docs/roadmap.html || page_moved=true
           git config user.name  "github-actions[bot]"
