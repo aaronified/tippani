@@ -193,7 +193,7 @@ func TestDisplayNameAndRoles(t *testing.T) {
 }
 
 // A password the admin chose is temporary: until its owner picks their own, the
-// session answers who-am-I, the change itself and sign-out, and nothing else —
+// session answers who-am-I, the change itself, sign-out and the reader's own fonts, and nothing else —
 // the admin who knows the password must not be able to read the library with it.
 func TestAnAdminSetPasswordMustBeChangedBeforeTheLibraryOpens(t *testing.T) {
 	srv := newTestServer(t)
@@ -216,6 +216,8 @@ func TestAnAdminSetPasswordMustBeChangedBeforeTheLibraryOpens(t *testing.T) {
 	cara.mustDo("GET", "/books", nil, http.StatusForbidden)
 	// What stays open: the fonts the app loads first, and the way out.
 	cara.mustDo("GET", "/fonts", nil, 200)
+	// Past the gate to the handler: a font that does not exist is a 404, not the 403.
+	cara.mustDo("GET", "/fonts/999/file", nil, http.StatusNotFound)
 	leaver := &testClient{t: t, h: h}
 	rec2 := leaver.do("POST", "/auth/login", map[string]string{"username": "cara", "password": "given-by-admin"})
 	leaver.cookie = cookieOf(t, rec2)

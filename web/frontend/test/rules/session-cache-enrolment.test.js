@@ -206,6 +206,9 @@ describe('a module that remembers a server response', () => {
     // EVERY WIRING, NOT THE FIRST. This read only the first `onLogout` for a
     // while, and when the password screen's came first the shell's — the one
     // every ordinary sign-out goes through — was no longer checked at all.
+    // `[^}]*` stops at the first closing brace, so a wiring written inline with an
+    // object literal inside it is cut short. That is why the wirings stay one-line
+    // calls: cut short, a wiring FAILS here rather than slipping through.
     const wirings = [...app.matchAll(/onLogout=\{[^}]*\}/g)].map((m) => m[0])
     expect(wirings.length, 'App no longer wires a sign-out, so this rule has nothing to attach to').toBeGreaterThan(0)
     for (const w of wirings) {

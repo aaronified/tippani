@@ -19226,8 +19226,9 @@ rejected: the route would still have served the quotes to anyone who asked.
 set when an admin makes an account and by `tippani user passwd`, and by `user add` for every
 account after the first (the first is the operator's own). It is cleared when the reader changes
 their password. While it is set, `requireAuth` answers 403 to everything except `GET /auth/me`,
-`POST /auth/password` and `POST /auth/logout`, keyed on the matched route pattern rather than a
-path prefix. `mustChangePassword` fails closed on a read error. The app shows only "Choose your
+`POST /auth/password`, `POST /auth/logout`, and the reader's own fonts (`GET /fonts` and
+`GET /fonts/{id}/file`, which the app loads before any screen), keyed on the matched route
+pattern rather than a path prefix. `mustChangePassword` fails closed on a read error. The app shows only "Choose your
 own password" in the sign-in frame. Choosing the given password again is refused, since it would
 leave the admin holding a working password.
 *Restore and reset begin with a downloaded backup.* The obvious build was to press "Back up"

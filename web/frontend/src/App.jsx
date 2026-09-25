@@ -327,7 +327,9 @@ function CredentialForm({ header, action, cta, microcopy, film = false, onSucces
       if (r.ok) {
         const me = await refreshMe()
         if (me) {
-          if (action === '/auth/login') toast(t('shell.login.toast.welcome', { name: me.username || t('shell.login.reader.fallback') }))
+          // No welcome into a library that is still shut: a temporary password
+          // lands on "Choose your own password", not in.
+          if (action === '/auth/login' && !me.must_change_password) toast(t('shell.login.toast.welcome', { name: me.username || t('shell.login.reader.fallback') }))
           return onSuccess(me)
         }
       }

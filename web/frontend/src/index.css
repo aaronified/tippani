@@ -4994,6 +4994,10 @@
      what is left, and leaves the fixed rail where it is. */
   @media (min-width: 769px) {
     body { padding-left: var(--rail); }
+    /* NO RAIL, NO ROOM FOR ONE. The sign-in, onboarding and choose-a-password
+       screens draw no rail, so the padding pushed their centred frame 118px right
+       of the page's middle at 1280. */
+    body:has(main:is([data-screen-label="login"], [data-screen-label="onboarding"], [data-screen-label="choose-password"])) { padding-left: 0; }
   }
 
   /* ---- the top bar's contents (§ design v3.1) -----------------------------
