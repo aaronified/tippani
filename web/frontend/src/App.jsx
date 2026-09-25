@@ -1509,7 +1509,16 @@ function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd
   }
   // The bar stays focusable while slid away, so focusing a key must bring it
   // back rather than leave focus on something off-screen.
-  const away = hidden && !focused
+  //
+  // KEYBOARD FOCUS, READ LIVE. A flag set on focus and cleared on blur stuck on
+  // Settings and Metadata: the reader taps Back to go from a section to its
+  // index, the key becomes disabled there, and a disabled button fires no blur —
+  // so the dock believed it was focused and never slid away again. A tap's focus
+  // is not a reason to stay either; it is a keyboard user's focus that must not
+  // be stranded off-screen, which is what :focus-visible says.
+  const navRef = useRef(null)
+  const keyboardInside = focused && !!navRef.current?.matches(':has(:focus-visible)')
+  const away = hidden && !keyboardInside
   const seats = (keys || []).slice(0, 2)
   // A seat the screen renders itself — see useScreenBar. MoreMenu is the reason:
   // it anchors to its own trigger, so the shell cannot draw the button for it.
@@ -1539,6 +1548,7 @@ function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd
   )
   return (
     <nav
+      ref={navRef}
       className={'mobile-dock' + (away ? ' is-away' : '')}
       data-glass="dock"
       aria-label={t('shell.nav.dock.aria')}
