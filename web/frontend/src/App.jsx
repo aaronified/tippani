@@ -1522,13 +1522,15 @@ function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd
   // So the flag holds exactly "a keyboard focus is inside the bar": set from the
   // focus event's own :focus-visible, cleared on every blur (a move between two
   // keys blurs one and focuses the next, and the focus sets it again), and
-  // cleared when Back turns disabled — the one way focus leaves the bar without
-  // a blur. A render-time read of the DOM was tried and missed the
-  // keyboard case: nothing re-rendered when focus arrived, so the bar stayed away.
+  // cleared after any render that has left focus outside the bar. That last one
+  // covers the ways focus leaves without a blur: Back turning disabled, and a
+  // seat key removed while it held focus (Chrome fires no blur for a removed
+  // node). A render-time read of the DOM was tried and missed the keyboard
+  // case: nothing re-rendered when focus arrived, so the bar stayed away.
   const navRef = useRef(null)
   useEffect(() => {
-    if (!navRef.current?.contains(document.activeElement)) setFocused(false)
-  }, [canBack])
+    if (focused && !navRef.current?.contains(document.activeElement)) setFocused(false)
+  })
   const away = hidden && !focused
   const seats = (keys || []).slice(0, 2)
   // A seat the screen renders itself — see useScreenBar. MoreMenu is the reason:

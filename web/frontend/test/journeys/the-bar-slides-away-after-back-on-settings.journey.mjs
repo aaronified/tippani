@@ -17,9 +17,10 @@
 // wheel is the nearest thing to a thumb that moves the page without touching a
 // control.
 //
-// Mutation: with `press('Back')` deleted the dock hides and this passes, which is
+// Mutations: with `press('Back')` deleted the dock hides and this passes, which is
 // why the press is the decisive step; with the fix reverted (focus flag set on
-// any focus, cleared only on blur) `inReach('Back')` stays true.
+// any focus, cleared only on blur) `inReach('Back')` stays true; and with the
+// dock's own clearing effect deleted, the keyboard-Back case keeps the bar up.
 //
 // A THIRD EXCEPTION, in the keyboard cases: which control has focus is read off
 // the page — the focused element's aria-label attribute — because a keyboard
@@ -57,9 +58,10 @@ it('after tapping Back on Settings, scrolling a section still slides the bar awa
 
   expect(await app.inReach('Back'), 'the bar stayed up while the reader scrolled down').toBe(false)
 
-  // AND A KEYBOARD READER WHO TABS INTO THE BAR GETS IT BACK. The fix's first cut
-  // read focus at render time, and nothing re-rendered when focus arrived, so the
-  // bar stayed away with focus on a key off-screen.
+  // AND A KEYBOARD READER WHO TABS INTO THE BAR GETS IT BACK: focus on a key the
+  // bar has slid away with must bring the bar up. This holds the behaviour, not
+  // a particular wrong version of it — a render-time read of focus, the fix's
+  // first cut, also passes here, because tabbing to the key re-renders the bar.
   expect(await tabBackTo('Back'), 'Tab never reached the bar').toBe(true)
   await new Promise((r) => setTimeout(r, 400))
   // Where the focused key sits, not `inReach`: the key's own tooltip opens on
