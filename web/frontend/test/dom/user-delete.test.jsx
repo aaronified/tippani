@@ -63,6 +63,10 @@ describe('deleting another account', () => {
     const dialog = screen.getByRole('alertdialog')
     expect(within(dialog).getByText(/Delete user "bob"\?/)).toBeTruthy()
     expect(within(dialog).getByText(/books and annotations are removed too/)).toBeTruthy()
+    // And where they go: the bin, sealed, not "cannot be undone" — an account is
+    // binned like everything else, so the final-delete warning would be false.
+    expect(within(dialog).getByText(/wait in your bin, sealed/)).toBeTruthy()
+    expect(within(dialog).queryByText(/cannot be undone/i)).toBeNull()
     // The dialog is a question, not a receipt.
     expect(CALLS.some(([m]) => m === 'DELETE')).toBe(false)
   })

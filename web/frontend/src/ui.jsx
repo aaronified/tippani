@@ -5516,6 +5516,7 @@ export function useConfirm() {
       body={state?.body}
       confirmLabel={state?.confirmLabel}
       reversible={state?.reversible}
+      note={state?.note}
       danger={!!state?.danger}
       onConfirm={() => answer(true)}
       onCancel={() => answer(false)}
