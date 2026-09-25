@@ -384,14 +384,12 @@
         <li><a href="#work-source-files">Source files</a></li>
         <li><a href="#req-change-one-surface-yourself">One surface at a time</a></li>
         <li><a href="#tile-slots">Per-slot materials</a></li>
-        <li><a href="#prefetch-and-loaders">Prefetch and loaders</a></li>
         <li><a href="#admin-and-profile">Admin and Profile</a></li>
         <li><a href="#anthology-enhancements">Anthology arranging</a></li>
         <li><a href="#jobs">Jobs and logs</a></li>
-        <li><a href="#nightly-backup">Nightly backup</a></li>
         <li><a href="#person-signature">Signatures</a></li>
         <li><a href="#req-7">Author portraits</a></li>
-        <li><a href="#req-12">Audio review</a></li>
+        <li><a href="#req-12">Read aloud</a></li>
       </ul>
       <!-- ROADMAP:RAIL_FEATURES:END -->
     </details>
@@ -639,9 +637,13 @@
     proverbs can carry nothing but the words. Composing works from any selection, the
     per-entry commentary is there, and the Markdown export round-trips.
   </p>
-  <ul>
-    <li><strong>EPUB</strong>, via <a href="#interop">§15</a> — a small book of your own quotes, readable on the same e-reader the highlights came off. Deliberately deferred, and cheap when it comes back: <code>archive/zip</code> in the standard library is enough for an EPUB (a ZIP of XHTML with an OPF and an NCX), so it needs no new dependency, which is the only reason it belongs here at all.</li>
-  </ul>
+  <p>
+    <strong>And the rest shipped by 3.0.0</strong>
+    (<a href="https://github.com/aaronified/tippani/issues/18">#18</a>, closed): EPUB export,
+    a small book of your own quotes, built with the standard library's
+    <code>archive/zip</code>. What comes next is its own card below,
+    <a href="#anthology-enhancements">Anthologies you can arrange and print</a>.
+  </p>
   </div>
 </details>
 
@@ -906,7 +908,14 @@
     spaced-repetition</strong> count only the review loop knows. Opt-in; nothing exposed
     without a token.
   </p>
-  <p>In three tiers, cheapest first:</p>
+  <p>
+    <strong>Tiers 1 and 2 shipped in 3.0.0</strong>
+    (<a href="https://github.com/aaronified/tippani/issues/25">#25</a>, closed): Profile →
+    Dashboard widget makes a read-only key, <code>GET /api/widget</code> answers four numbers
+    (works, quotes, forgotten, mastered) for that reader's own library, and the README has the
+    <code>services.yaml</code> to paste. What is left is tier 3.
+  </p>
+  <p>The three tiers, as planned:</p>
   <ol>
     <li><strong>Document what already works</strong> — Tippani's unauthenticated <code>/healthz</code> means any dashboard can ping it today, so a "Dashboards" docs page with a ready-to-paste <code>services.yaml</code> snippet and the optional <code>homepage.*</code> compose labels costs nothing and lands first.</li>
     <li><strong>Custom-API widget</strong> — Homepage's <code>customapi</code> widget can render live counts with <strong>zero upstream code</strong>, but its requests come from the Homepage <em>server</em> with no session cookie, so this tier rides on the scoped API tokens of <a href="#account">§1</a>: a slim read-only stats surface accepting <code>Authorization: Bearer</code>, plus a documented field mapping. This is the real deliverable.</li>
@@ -1170,25 +1179,12 @@
   </p>
 </div>
 
-<div class="card req" id="prefetch-and-loaders">
-  <h3>Pictures that arrive before you scroll to them</h3>
-  <p>
-    On a slow connection a shelf fills in as you scroll, and a screen that is waiting looks
-    the same as a screen that is empty. Two halves to it: fetch the next screen's pictures
-    before they are asked for, which is cheap once they are on disk — and show something
-    that says <em>this is coming</em> only when something actually is.
-  </p>
-  <p>
-    A spinner that appears on every render teaches people to ignore spinners, so the second
-    half is as much about when NOT to draw one.
-  </p>
-</div>
-
 <div class="card req" id="admin-and-profile">
   <h3>An Admin section that never reads your library</h3>
   <p>
-    Settings › Server becomes Admin: the users on the server with their sign-on state, single
-    sign-on set up in the app, maintenance, and temporary passwords an admin can issue.
+    Settings › Server becomes Admin: the users on the server with their sign-on state,
+    single sign-on set up in the app, maintenance, and a temporary password issued from
+    a user's row. (Admin-set passwords are already temporary as of 3.0.0.)
   </p>
   <p>
     Everything personal stays on Profile — your own API keys, notifications and sign-on link —
@@ -1216,13 +1212,6 @@
   </p>
 </div>
 
-<div class="card req" id="nightly-backup">
-  <h3>A backup every night</h3>
-  <p>
-    An archive made on its own at night, without anyone pressing the button.
-  </p>
-</div>
-
 <div class="card req" id="person-signature">
   <h3>A signature beside a person’s quotes</h3>
   <p>
@@ -1246,7 +1235,7 @@
 </div>
 
 <div class="card req" id="req-12">
-  <h3>Audio review, in the browser only</h3>
+  <h3>Quotes read aloud, in the browser only</h3>
   <p class="mono issue-meta"><a href="https://github.com/aaronified/tippani/issues/12">#12</a> · sits beside §2 The review loop</p>
   <p>
     Reading a due card aloud, using the browser's own <code>SpeechSynthesis</code>. It
@@ -1260,8 +1249,8 @@
   <p>
     Accepted rather than parked because the line it sat next to turned out to be drawn
     in the right place already — see
-    <a href="#aside-ocr">OCR, and speech, on the server</a>. Scope: a play control on a
-    review card and nothing else. No stored audio, no transcription, no server route.
+    <a href="#aside-ocr">OCR, and speech, on the server</a>. Scope, widened by the owner in
+    3.0.0 (<code>docs/plans/read-aloud.md</code>): a play control on every quote card, a quote's detail and a review card, whole anthologies and boards read in order, each quote in its own language. No stored audio, no transcription, no server route.
   </p>
 </div>
 <!-- ROADMAP:FEATURES:END -->

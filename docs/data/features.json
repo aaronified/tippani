@@ -347,30 +347,13 @@
       "plan": "tile-slots.md"
     },
     {
-      "title": "Pictures that arrive before you scroll to them",
-      "railLabel": "Prefetch and loaders",
-      "html": [
-        "<p>",
-        "  On a slow connection a shelf fills in as you scroll, and a screen that is waiting looks",
-        "  the same as a screen that is empty. Two halves to it: fetch the next screen's pictures",
-        "  before they are asked for, which is cheap once they are on disk — and show something",
-        "  that says <em>this is coming</em> only when something actually is.",
-        "</p>",
-        "<p>",
-        "  A spinner that appears on every render teaches people to ignore spinners, so the second",
-        "  half is as much about when NOT to draw one.",
-        "</p>"
-      ],
-      "id": "prefetch-and-loaders",
-      "plan": "prefetch-and-loaders.md"
-    },
-    {
       "title": "An Admin section that never reads your library",
       "railLabel": "Admin and Profile",
       "html": [
         "<p>",
-        "  Settings › Server becomes Admin: the users on the server with their sign-on state, single",
-        "  sign-on set up in the app, maintenance, and temporary passwords an admin can issue.",
+        "  Settings › Server becomes Admin: the users on the server with their sign-on state,",
+        "  single sign-on set up in the app, maintenance, and a temporary password issued from",
+        "  a user's row. (Admin-set passwords are already temporary as of 3.0.0.)",
         "</p>",
         "<p>",
         "  Everything personal stays on Profile — your own API keys, notifications and sign-on link —",
@@ -409,17 +392,6 @@
       "plan": "jobs.md"
     },
     {
-      "title": "A backup every night",
-      "railLabel": "Nightly backup",
-      "html": [
-        "<p>",
-        "  An archive made on its own at night, without anyone pressing the button.",
-        "</p>"
-      ],
-      "id": "nightly-backup",
-      "plan": "nightly-backup.md"
-    },
-    {
       "title": "A signature beside a person’s quotes",
       "railLabel": "Signatures",
       "html": [
@@ -450,8 +422,8 @@
       ]
     },
     "12": {
-      "title": "Audio review, in the browser only",
-      "railLabel": "Audio review",
+      "title": "Quotes read aloud, in the browser only",
+      "railLabel": "Read aloud",
       "near": "§2 The review loop",
       "html": [
         "<p>",
@@ -466,8 +438,8 @@
         "<p>",
         "  Accepted rather than parked because the line it sat next to turned out to be drawn",
         "  in the right place already — see",
-        "  <a href=\"#aside-ocr\">OCR, and speech, on the server</a>. Scope: a play control on a",
-        "  review card and nothing else. No stored audio, no transcription, no server route.",
+        "  <a href=\"#aside-ocr\">OCR, and speech, on the server</a>. Scope, widened by the owner in",
+        "  3.0.0 (<code>docs/plans/read-aloud.md</code>): a play control on every quote card, a quote's detail and a review card, whole anthologies and boards read in order, each quote in its own language. No stored audio, no transcription, no server route.",
         "</p>"
       ]
     },
