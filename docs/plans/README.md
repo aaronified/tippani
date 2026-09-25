@@ -21,8 +21,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Fourteen files sit here, and only some of them are plans** — the table at the foot of this
-file names the five that are not, leaving nine features.
+**Sixteen files sit here, and only some of them are plans** — the table at the foot of this
+file names the five that are not, leaving eleven features.
 
 THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
 incremented it to "Eight" without counting the directory; a change that fixed THAT wrote

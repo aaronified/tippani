@@ -93,7 +93,7 @@
       "id": "access-reading-comfort",
       "plan": "access.md",
       "issue": 32,
-      "shipped_in": "Unreleased"
+      "shipped_in": "3.0.0"
     },
     {
       "title": "Anthologies that fill themselves, and export as a book",
@@ -117,7 +117,7 @@
       ],
       "id": "anthology-fill-and-export",
       "plan": "anthology-update.md",
-      "shipped_in": "Unreleased"
+      "shipped_in": "3.0.0"
     },
     {
       "title": "Atrium, the glass material set",
@@ -165,7 +165,7 @@
         "</p>"
       ],
       "id": "bulk-editors-one-table",
-      "shipped_in": "Unreleased"
+      "shipped_in": "3.0.0"
     },
     {
       "title": "The library remembers what you already typed",
@@ -234,7 +234,7 @@
       ],
       "id": "import-one-drop-target",
       "plan": "import-one-drop-target.md",
-      "shipped_in": "Unreleased"
+      "shipped_in": "3.0.0"
     },
     {
       "title": "Locators from files — dialogue timestamps and ebook locations",
@@ -363,6 +363,72 @@
       ],
       "id": "prefetch-and-loaders",
       "plan": "prefetch-and-loaders.md"
+    },
+    {
+      "title": "An Admin section that never reads your library",
+      "railLabel": "Admin and Profile",
+      "html": [
+        "<p>",
+        "  Settings › Server becomes Admin: the users on the server with their sign-on state, single",
+        "  sign-on set up in the app, maintenance, and temporary passwords an admin can issue.",
+        "</p>",
+        "<p>",
+        "  Everything personal stays on Profile — your own API keys, notifications and sign-on link —",
+        "  and nothing in Admin opens another reader's quotes.",
+        "</p>"
+      ],
+      "id": "admin-and-profile",
+      "plan": "admin-and-profile.md"
+    },
+    {
+      "title": "Anthologies you can arrange and print",
+      "railLabel": "Anthology arranging",
+      "html": [
+        "<p>",
+        "  Drag entries into order, add your own section headings, or group by work, person or character.",
+        "  Removed entries stay removed, and a cover, epigraph and dedication open the book.",
+        "</p>",
+        "<p>",
+        "  A continuous reading mode, better printing, and a PDF whose text you can still select.",
+        "</p>"
+      ],
+      "id": "anthology-enhancements",
+      "plan": "anthology-enhancements.md"
+    },
+    {
+      "title": "Long jobs that survive closing the tab",
+      "railLabel": "Jobs and logs",
+      "html": [
+        "<p>",
+        "  Fetches, imports and backups run on the server as jobs, each with its own log of what it",
+        "  searched and where. Past jobs keep 30 days of history, and the app's own logs are readable",
+        "  and exportable from Settings.",
+        "</p>"
+      ],
+      "id": "jobs",
+      "plan": "jobs.md"
+    },
+    {
+      "title": "A backup every night",
+      "railLabel": "Nightly backup",
+      "html": [
+        "<p>",
+        "  An archive made on its own at night, without anyone pressing the button.",
+        "</p>"
+      ],
+      "id": "nightly-backup",
+      "plan": "nightly-backup.md"
+    },
+    {
+      "title": "A signature beside a person’s quotes",
+      "railLabel": "Signatures",
+      "html": [
+        "<p>",
+        "  Add a person's signature to their details, and put it under their quote on a shared image.",
+        "</p>"
+      ],
+      "id": "person-signature",
+      "plan": "person-signature.md"
     }
   ],
   "overrides": {
