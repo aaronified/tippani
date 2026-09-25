@@ -14,6 +14,11 @@ on:
       - "docs/ui-glossary.html"
       - "docs/img/**"
       - ".github/workflows/pages.yml"
+      # The deploy's own gate. A fix to it that does not re-run the deploy leaves
+      # the last red run standing and the site unpublished, which is how aa0340fb
+      # landed: its push touched nothing above, so the fix went unexercised until
+      # a hand-dispatched run.
+      - "scripts/site-links.mjs"
   workflow_dispatch:
 
 permissions:
