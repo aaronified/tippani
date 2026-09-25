@@ -30,6 +30,7 @@
 //
 // See README.md in this directory for the full flag list and the with-server wrapper.
 
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { existsSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
@@ -360,6 +361,66 @@ export async function launchBrowser(engine, opts = {}) {
     throw new Error(`puppeteer-core is not installed — run \`npm ci\` in scripts/screenshots/ (${err.message})`)
   }
   return puppeteer.launch(launchOptions(engine, opts))
+}
+
+// oneTreePerLook — ONE ACCESSIBILITY TREE PER LOOK, NOT ONE PER CONTROL.
+// Puppeteer's `page.accessibility.snapshot({ root })` asks Chrome for the page's
+// WHOLE tree on every call and then searches it for the root. So naming 400
+// controls cost 400 full trees: 22 seconds for one look at Metadata → People,
+// which took the journeys past their minute on CI.
+//
+// Inside `fn`, every snapshot taken through the `snapshot` it is handed reads one
+// answer per frame. Puppeteer still decides every name and role, by its own rules
+// for what is interesting and which node a root stands for, and no copy of those
+// rules lives here. What this knows is Puppeteer's wiring: `page.accessibility`
+// is the main frame's, and it sends through `mainFrame().client`. The wiring is
+// pinned by package-lock.json and checked on every look. A look that took
+// snapshots and saw no tree request throws, rather than quietly paying a full
+// tree per control again after an upgrade.
+//
+// LOOKS CAN OVERLAP ON ONE PAGE: vitest does not stop a journey that timed out,
+// and its body goes on polling while the next journey in the file starts. So the
+// session's `send` is wrapped once, the wrapper is a pass-through outside a look,
+// and each look keeps its own cache in AsyncLocalStorage. An earlier version
+// swapped `send` in and out around each look, and two overlapping looks put each
+// other's wrappers back.
+const LOOK = new AsyncLocalStorage()
+const WRAPPED = new WeakSet()
+
+export async function oneTreePerLook(page, fn) {
+  const client = page.mainFrame().client
+  // Firefox has no CDP session to share, so a look there pays what it always did.
+  if (typeof client?.send !== 'function') return fn((root) => page.accessibility.snapshot({ root }))
+  if (!WRAPPED.has(client)) {
+    const send = client.send
+    client.send = function (method, params, ...rest) {
+      const look = LOOK.getStore()
+      if (!look || method !== 'Accessibility.getFullAXTree') return send.call(this, method, params, ...rest)
+      look.asked++
+      const key = params?.frameId ?? ''
+      if (!look.trees.has(key)) {
+        // A refused tree is not kept, so the next snapshot in this look asks again.
+        look.trees.set(key, send.call(this, method, params, ...rest).catch((err) => {
+          look.trees.delete(key)
+          throw err
+        }))
+      }
+      return look.trees.get(key)
+    }
+    WRAPPED.add(client)
+  }
+  const look = { trees: new Map(), asked: 0, snapshots: 0 }
+  const snapshot = (root) => {
+    look.snapshots++
+    return page.accessibility.snapshot({ root })
+  }
+  const out = await LOOK.run(look, () => fn(snapshot))
+  if (look.snapshots > 0 && look.asked === 0) {
+    throw new Error('oneTreePerLook: page.accessibility no longer sends Accessibility.getFullAXTree through ' +
+      'mainFrame().client, so every look is paying a whole tree per control again. Puppeteer has moved; ' +
+      'see the comment above oneTreePerLook in scripts/screenshots/capture.mjs.')
+  }
+  return out
 }
 
 // Kill CSS transitions/animations and the caret so no capture lands mid-motion —

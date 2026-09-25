@@ -32,6 +32,8 @@
 // that a red journey says what the reader was looking at; "expected to find a
 // button named Save" on its own sends somebody to the wrong file.
 
+import { oneTreePerLook } from '../../../../../scripts/screenshots/capture.mjs'
+
 const DEFAULT_TIMEOUT = 15000
 
 // What a person can press. Roles, not tag names, because the role is what the
@@ -92,9 +94,6 @@ export function screenVerbs(getPage) {
     }
   }
 
-  // candidates — every visible thing of this kind, each paired with the name
-  // Chrome computes for it. One CDP snapshot per element, which is the price of
-  // asking the browser rather than guessing.
   // A MODAL TAKES THE SCREEN, so a verb that acts on a control may only see what
   // is inside it. This is ARIA's own rule, not a convenience: `aria-modal="true"`
   // says everything outside the dialog is removed from the accessibility tree,
@@ -150,43 +149,17 @@ export function screenVerbs(getPage) {
     return handles
   }
 
-  // ONE ACCESSIBILITY TREE PER LOOK, NOT ONE PER CONTROL. Puppeteer's
-  // `snapshot({ root })` asks Chrome for the page's WHOLE tree on every call and
-  // then searches it for the root. So one look at Metadata → People, about 400
-  // controls, cost 400 full trees and 22 seconds. A journey that pressed three
-  // things there ran past its minute on CI.
-  //
-  // The fix is to ask Chrome once per look and let every snapshot in it read that
-  // answer. The naming is still Puppeteer's own, with its rules for what is
-  // interesting and which node a root stands for, and no copy of them lives here.
-  // What this knows is Puppeteer's wiring: `page.accessibility` is the main
-  // frame's, and it sends through `mainFrame().client`. That wiring is pinned by
-  // scripts/screenshots/package-lock.json. Every name is read from one moment of
-  // the page, which the old way did not do either, and `find` polls again anyway.
-  async function oneTreePerLook(fn) {
-    const client = page().mainFrame().client
-    const send = client.send
-    let tree = null
-    client.send = function (method, ...rest) {
-      if (method !== 'Accessibility.getFullAXTree') return send.call(this, method, ...rest)
-      tree ??= send.call(this, method, ...rest)
-      return tree
-    }
-    try {
-      return await fn()
-    } finally {
-      client.send = send
-    }
-  }
-
+  // candidates — every visible thing of this kind, each paired with the name
+  // Chrome computes for it, from one accessibility tree per look
+  // (oneTreePerLook in capture.mjs says why that matters and how it is done).
   async function candidates(kind) {
     const handles = await within(CSS_FOR[kind])
     const roles = kind === 'press' ? PRESSABLE : FILLABLE
     const out = []
-    await oneTreePerLook(async () => {
+    await oneTreePerLook(page(), async (snapshot) => {
       for (const h of handles) {
         if (!(await h.isVisible().catch(() => false))) { await h.dispose(); continue }
-        const snap = await page().accessibility.snapshot({ root: h }).catch(() => null)
+        const snap = await snapshot(h).catch(() => null)
         if (!snap || !snap.name || !roles.includes(snap.role)) { await h.dispose(); continue }
         out.push({ handle: h, name: snap.name, role: snap.role })
       }
