@@ -1516,9 +1516,17 @@ function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd
   // so the dock believed it was focused and never slid away again. A tap's focus
   // is not a reason to stay either; it is a keyboard user's focus that must not
   // be stranded off-screen, which is what :focus-visible says.
+  //
+  // So the flag holds exactly "a keyboard focus is inside the bar": set from the
+  // focus event's own :focus-visible, cleared when focus leaves for somewhere
+  // outside, and cleared when Back turns disabled — the one way focus leaves the
+  // bar without a blur. A render-time read of the DOM was tried and missed the
+  // keyboard case: nothing re-rendered when focus arrived, so the bar stayed away.
   const navRef = useRef(null)
-  const keyboardInside = focused && !!navRef.current?.matches(':has(:focus-visible)')
-  const away = hidden && !keyboardInside
+  useEffect(() => {
+    if (!navRef.current?.contains(document.activeElement)) setFocused(false)
+  }, [canBack])
+  const away = hidden && !focused
   const seats = (keys || []).slice(0, 2)
   // A seat the screen renders itself — see useScreenBar. MoreMenu is the reason:
   // it anchors to its own trigger, so the shell cannot draw the button for it.
@@ -1552,8 +1560,8 @@ function MobileDock({ keys, hidden, canBack, onBack, onJumpBack, onSearch, onAdd
       className={'mobile-dock' + (away ? ' is-away' : '')}
       data-glass="dock"
       aria-label={t('shell.nav.dock.aria')}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onFocus={(e) => setFocused(e.target.matches(':focus-visible'))}
+      onBlur={(e) => setFocused(!!navRef.current?.contains(e.relatedTarget) && e.relatedTarget.matches(':focus-visible'))}
     >
       {key({
         id: 'back',
