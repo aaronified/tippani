@@ -268,11 +268,6 @@ jobs:
           node-version: "22"
       - run: npm ci
         working-directory: web/frontend
-      # NO `npm ci` IN scripts/screenshots HERE, ON PURPOSE. controls-ratchet.test.js
-      # runs controls.mjs to watch it refuse a missing or unknown --fixture, and those
-      # refusals have to work on a clone that installed only web/frontend. If that
-      # case goes red with exit 1, a puppeteer-core import has crept back above
-      # them, and installing here would hide it.
       - run: npm test
         working-directory: web/frontend
       # THE DESIGN RULES, RUN SEPARATELY AND STILL BLOCKING. The files in
@@ -283,6 +278,15 @@ jobs:
       # feature ship 100% dead that way. So they are out of `npm test` and in their
       # own step, which still fails the build — they just stop being counted as
       # evidence that anything works.
+      #
+      # NO `npm ci` IN scripts/screenshots IN THIS JOB, ON PURPOSE.
+      # controls-ratchet.test.js (run by this step) runs controls.mjs to watch it
+      # refuse a missing or unknown --fixture, and those refusals have to work on a
+      # clone that installed only web/frontend. If those two cases go red with
+      # "expected 1 to be 2", something controls.mjs loads statically (it,
+      # capture.mjs or ratchet.mjs) has started importing a package from that
+      # directory. Where the import sits does not matter: static imports resolve
+      # before any line runs. Installing here would hide it.
       - run: npm run lint:rules
         working-directory: web/frontend
       - run: npm run build
