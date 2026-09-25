@@ -31,8 +31,8 @@ install the plugins a repository turns on under `enabledPlugins`
 (code.claude.com/docs/en/cloud-environments, *What carries over from your setup*), and with
 the install record emptied and the cache moved aside, a nested start fired no hook and
 recorded no install. And the next session is not in this container: each cloud session gets
-a fresh VM, and "installs mid-session don't carry over to other sessions" (same page), so it
-starts without the install, the digest settings below or the per-clone pieces. **A session
+a fresh VM, and installs made mid-session "don't carry over to other sessions" (same page), so
+it starts without the install, the digest settings below or the per-clone pieces. **A session
 STARTED with the kit and this repo together is multi-repository, and the same table says
 such a session starts above the clones and reads no repo's `.claude/settings.json`** — so
 this repo's `enabledPlugins` and `env` block do not apply there, and it needs the install at
@@ -40,22 +40,28 @@ user scope and the thresholds outside the repo. Attaching the kit mid-session wi
 `add_repo` is not that case: the session that did it went on reading this file, and an edit
 to its `env` block reached the session's own shell.
 
-**`scripts/claude-kit-setup.sh` IS THE INTENDED ROUTE, AND IT IS NOT IN PLACE YET: the owner
-pastes it into the environment's setup script**, which runs before Claude Code launches.
-**It runs once per environment cache**, not per session: at the environment's first session,
-and again only when the setup script or the allowed hosts change or the cache expires after
-about seven days (same page, *Environment caching*); every other session starts from that
-snapshot. So the session that builds the cache must be STARTED with the kit picked — an
-`add_repo` comes after the setup script has already run — or the script prints its failure,
-exits 0 (a setup script that exits non-zero stops the session starting), and the cache
-holds no kit until the next rebuild. The sign in a session is that none of the kit's skills
-(`work-rating`, `pre-commit-gate`) are in its skill list — not `claude plugin list`, which
-says what is installed on disk and was showing claude-kit enabled in a session that had
-loaded none of it. Then: to give later sessions the kit, rebuild the cache — change the
-setup script and start a session with the kit picked; to cover this session's commits, run
-the script from it, which adds the hook and the exclude line at once (the plugin it
-installs loads only in a `claude -p` started in the same container). What it was tested
-against, and what not, is in `docs/wiki/How-this-was-written.md`.
+**`scripts/claude-kit-setup.sh` IS THE INTENDED ROUTE: the owner pastes it into the
+environment's setup script** (not done as of 25 September), which runs before Claude Code
+launches. **It runs once per environment cache**, not per session: at the environment's
+first session, and again only when the setup script or the allowed hosts change or the cache
+expires after about seven days (same page, *Environment caching*); every other session starts
+from that snapshot. So the session that builds the cache must be STARTED with the kit picked
+— an `add_repo` comes after the setup script has run — or the script prints its failure,
+exits 0 (a setup script that exits non-zero stops the session starting), and the cache holds
+no kit until the next rebuild. And each session starts from a fresh clone (same page), so
+whether the hook and exclude line the script writes into the clone reach later sessions is
+not known. Two signs, then, in any session:
+
+- **None of the kit's skills (`work-rating`, `pre-commit-gate`) in the session's skill
+  list** — not `claude plugin list`, which reports what is on disk and showed claude-kit
+  enabled in a session that had loaded none of it. The cache has no kit, and only the owner
+  can fix that: change the setup script, then start a session with the kit picked.
+- **No `.git/hooks/pre-commit`.** The per-clone pieces are missing, and the session can fix
+  that itself: run the script — after an `add_repo` of the kit, if its skills are missing
+  too, or the guard has no copy to write from. The plugin it installs loads only in a
+  `claude -p` started in the same container.
+
+What it was tested against, and what not, is in `docs/wiki/How-this-was-written.md`.
 
 **PER CLONE, TWO LOCAL PIECES THAT GIT NEVER COMMITS**, both the kit's own instructions:
 `/.visual-verify/` in `.git/info/exclude`, because `visual-verify` writes its working

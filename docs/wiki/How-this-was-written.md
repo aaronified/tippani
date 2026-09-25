@@ -965,10 +965,13 @@ What that honestly does not cover:
   was run in a sandbox under `env -i` — its own `HOME` with a copy of the kit's guard in
   a fake plugin cache, stub `claude` and `npm`, a real `git init` — through a clean run
   and a rerun, then `claude` failing; a `settings.json` that is not JSON; a pre-commit
-  hook that is not the kit's, the same hook with the printed line added, one that
-  names the guard only in a comment, one that calls it through a variable, and one
-  with the guard appended under the kit's own comment line; the kit's hook naming an
-  old version's path; the guard missing from the cache; a plugin record naming an
+  hook that is not the kit's, the same hook with the printed line added — which then
+  refused a commit carrying a staged kit file, and went on refusing it after the kit
+  moved to a new version, and under a `HOME` containing a space — one that names the
+  guard only in a comment, one that calls it through a variable, and one with the
+  guard appended under the kit's own comment line; the kit's hook naming an old
+  version's path; an old kit hook whose text has drifted, with its guard gone and with
+  it still on disk; the guard missing from the cache; a plugin record naming an
   older version than the newest cached, and no record; the guard's audit finding a
   tracked kit file, and failing to run; an exclude file with no final newline; a
   linked worktree; `core.hooksPath`; and a directory that is not a clone. **What has
