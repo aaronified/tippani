@@ -129,8 +129,9 @@ forty test files — the pattern and the registration point are the useful facts
 listing the siblings only guarantees the list is wrong on the eleventh.
 
 `scripts/doc-map-check.mjs` keeps this honest: it fails CI if a path named here has
-stopped existing, or if a new package, script or workflow has appeared that this section
-never mentions. Run it yourself with `node scripts/doc-map-check.mjs`.
+stopped existing, if a new package, script or workflow has appeared that this section
+never mentions, or if the table under [Maintainer: CI](#maintainer-ci) and `ci.yml`'s jobs
+disagree. Run it yourself with `node scripts/doc-map-check.mjs`.
 
 ### The shape of a request
 

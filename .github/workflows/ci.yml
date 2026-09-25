@@ -381,7 +381,8 @@ jobs:
       # Developing.md's file map is the answer to "where does this go", so a path in it
       # that has been renamed away is worse than no map at all — it sends someone
       # confidently to the wrong place. This asserts every path it names still exists,
-      # and that no package, script or workflow has been added without the map hearing.
+      # that no package, script or workflow has been added without the map hearing, and
+      # that the Maintainer: CI table has a row for every job in this file and no other.
       - run: node scripts/doc-map-check.mjs
       # docs/wiki/ is published to the GitHub wiki by wiki.yml, and there is no build
       # step between those files and a reader — a dead link ships the moment it is

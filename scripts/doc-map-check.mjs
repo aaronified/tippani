@@ -16,13 +16,18 @@
 //           on. A contributor's first question is "where does this go", and the answer is
 //           wrong by omission.
 //
-// Only three kinds of thing are REQUIRED to appear, and they are the three where being
-// absent from the map actively misleads: a package under internal/, a script, a workflow.
-// Files inside a package are not required — that is the inventory this deliberately
-// is not.
+// Only three kinds of thing are REQUIRED to appear in the map, and they are the three
+// where being absent from it actively misleads: a package under internal/, a script, a
+// workflow. Files inside a package are not required — that is the inventory this
+// deliberately is not.
+//
+// And one more, one level down: every job under `jobs:` in ci.yml must have a row in
+// the "Maintainer: CI" table, and every row there must be a job, because the workflow
+// file being named says nothing about what is in it (see below).
 //
 //   node scripts/doc-map-check.mjs            check; non-zero on any problem
-//   node scripts/doc-map-check.mjs --warn     report and exit 0 (local use)
+//   node scripts/doc-map-check.mjs --warn     report and exit 0 (local use); a broken
+//                                             extractor still exits 2
 //
 // No dependencies, and none wanted: it runs on a bare `node` in a workflow container.
 
@@ -138,27 +143,34 @@ const missing = required.filter((p) => !named(p))
 // throughout: it asks for every workflow FILE and not for what is in one. The
 // Maintainer: CI table is where someone reading a red run learns what a job is for,
 // so a job it never names is the MISSING failure one level down. It reads the job
-// keys by their indentation under `jobs:`, which is all ci.yml's shape needs, and it
-// refuses to pass having found none.
-const ciJobs = [...(readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8').split(/^jobs:\s*$/m)[1] ?? '')
-  .matchAll(/^ {2}([a-z][a-z0-9-]*):\s*$/gm)].map((m) => m[1])
+// keys by their indentation under `jobs:` and the table's rows by their first cell,
+// in both directions: a job with no row, and a row for a job ci.yml no longer has.
+// It refuses to pass having found no jobs, no table, or a key line under `jobs:` it
+// could not read as a job id — a partial miss is the same silence as a total one.
+const jobsText = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8').split(/^jobs:\s*$/m)[1] ?? ''
+const ciJobs = [...jobsText.matchAll(/^ {2}([A-Za-z_][A-Za-z0-9_-]*):[ \t]*(?:#.*)?$/gm)].map((m) => m[1])
+const keyLines = [...jobsText.matchAll(/^ {2}[^ #\r\n]/gm)].length
 const ciSection = text.split(/^## Maintainer: CI\s*$/m)[1]?.split(/^## /m)[0] ?? ''
-if (!ciJobs.length || !ciSection) {
-  console.error(`${DOC}: found ${ciJobs.length} jobs in ci.yml and ${ciSection ? 'a' : 'no'} "Maintainer: CI" section — the extractor is broken`)
+const rows = [...ciSection.matchAll(/^\| `([^`]+)` \|/gm)].map((m) => m[1])
+if (!ciJobs.length || keyLines !== ciJobs.length || !rows.length) {
+  console.error(`${DOC}: read ${ciJobs.length} job ids from ${keyLines} key lines under jobs: in ci.yml, ` +
+    `and ${rows.length} rows in the "Maintainer: CI" table — the extractor is broken`)
   process.exit(2)
 }
-const unlisted = ciJobs.filter((j) => !ciSection.includes(`\`${j}\``))
+const unlisted = ciJobs.filter((j) => !rows.includes(j))
+const gone = rows.filter((r) => !ciJobs.includes(r))
 
 for (const p of stale) console.error(`${DOC}: names \`${p}\`, which matches nothing in the tree`)
 for (const p of missing) console.error(`${DOC}: never mentions ${p}`)
-for (const j of unlisted) console.error(`${DOC}: the CI table never names ci.yml's job \`${j}\``)
+for (const j of unlisted) console.error(`${DOC}: the CI table has no row for ci.yml's job \`${j}\``)
+for (const r of gone) console.error(`${DOC}: the CI table has a row for \`${r}\`, which ci.yml has no job called`)
 
-if (!stale.length && !missing.length && !unlisted.length) {
+if (!stale.length && !missing.length && !unlisted.length && !gone.length) {
   console.log(
     `${DOC} up to date — ${claims.length} paths named and all resolve, ` +
       `${required.length} packages/scripts/workflows all covered, ${ciJobs.length} CI jobs in the CI table`,
   )
   process.exit(0)
 }
-console.error(`${DOC}: ${stale.length} stale, ${missing.length} uncovered, ${unlisted.length} CI jobs unlisted`)
+console.error(`${DOC}: ${stale.length} stale, ${missing.length} uncovered, ${unlisted.length + gone.length} CI table rows wrong`)
 process.exit(WARN ? 0 : 1)
