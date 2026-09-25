@@ -159,9 +159,8 @@ jobs:
   #
   # ITS OWN JOB because it needs a browser and minutes rather than seconds, and
   # because a failure here means something different from a unit failure: the app
-  # is broken, not a function. Chromium comes from Playwright's installer, which is
-  # the one this repo's other browser harness already discovers (capture.mjs's
-  # playwrightChromiums), so there is one place a browser is found.
+  # is broken, not a function. The browser is the runner's own Google Chrome, named
+  # in the step that checks for it, and that step says why it has to be named.
   journeys:
     runs-on: ubuntu-latest
     steps:
@@ -178,13 +177,35 @@ jobs:
       # the scaffold's own install is cheap and the browser comes separately.
       - run: npm ci
         working-directory: scripts/screenshots
-      - name: a browser to drive
-        run: npx --yes playwright@1.49.0 install --with-deps chromium
+      # THE BROWSER IS THE RUNNER'S GOOGLE CHROME, BY NAME.
+      #
+      # ubuntu-latest (24.04) forbids unprivileged user namespaces through AppArmor,
+      # and Chrome's sandbox is built on one. AppArmor's own shipped `chrome` profile
+      # grants it to /opt/google/chrome/chrome; the runner image's Chromium snapshot
+      # and Playwright's build are covered by nothing. This job used to install
+      # Playwright's Chromium and leave the harness to find it, and the harness never
+      # did: Playwright installs into ~/.cache/ms-playwright, and capture.mjs searches
+      # PLAYWRIGHT_BROWSERS_PATH or /opt/pw-browsers. So it fell through to
+      # /usr/bin/chromium, the image's snapshot build, and all 79 files died at launch
+      # with "No usable sandbox!" before a single press.
+      #
+      # REJECTED: lifting the restriction with the
+      # kernel.apparmor_restrict_unprivileged_userns sysctl, writing an AppArmor
+      # profile for Playwright's build, and --no-sandbox. Each takes a protection
+      # away so a test can start, and naming the browser the OS already trusts takes
+      # nothing away. The cost is that Chrome's version moves with the runner image
+      # instead of being pinned. So this step prints it, and a journey that goes red
+      # with no change in the repo is read against that version first.
+      - name: the browser to drive
+        run: |
+          test -x /usr/bin/google-chrome || { echo "::error::no Google Chrome at /usr/bin/google-chrome on this runner"; exit 1; }
+          /usr/bin/google-chrome --version
       - name: the journeys
         run: npm run journeys
         working-directory: web/frontend
         env:
           TIPPANI_BROWSER: chrome
+          CHROME_PATH: /usr/bin/google-chrome
       # WHAT A FAILING JOURNEY LEAVES BEHIND: a full-page screenshot of what the
       # reader was looking at, and what the server said while they looked. A red
       # browser test with neither is a red test nobody can act on.
