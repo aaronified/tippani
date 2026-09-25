@@ -373,7 +373,10 @@ export async function launchBrowser(engine, opts = {}) {
 // which took the journeys past their minute on CI.
 //
 // Inside `fn`, every snapshot taken through the `snapshot` it is handed reads one
-// answer per frame. Puppeteer still decides every name and role, by its own rules
+// answer per frame: the page as it stood at the look's first snapshot. So `fn`
+// only reads. A press or a wait inside a look is still named from the screen
+// before it, and a caller that needs the screen after takes a new look, which is
+// what `find` does each time it polls. Puppeteer still decides every name and role, by its own rules
 // for what is interesting and which node a root stands for, and no copy of those
 // rules lives here. What this knows is Puppeteer's wiring: `page.accessibility`
 // is the main frame's, and it sends through `mainFrame().client`. The wiring is
@@ -392,8 +395,13 @@ const WRAPPED = new WeakSet()
 
 export async function oneTreePerLook(page, fn) {
   const client = page.mainFrame().client
-  // Firefox has no CDP session to share, so a look there pays what it always did.
-  if (typeof client?.send !== 'function') return fn((root) => page.accessibility.snapshot({ root }))
+  // CHROME ONLY, and not by choice here. Puppeteer's Firefox frame carries a
+  // BidiCdpSession whose send throws UnsupportedOperation, and
+  // page.accessibility.snapshot sends through it, so a snapshot fails on Firefox
+  // with this wrapper or without it. Said plainly rather than left to fail inside.
+  if (typeof client?.send !== 'function') {
+    throw new Error('oneTreePerLook needs a page with a CDP session (Chrome): page.accessibility.snapshot cannot read a tree without one')
+  }
   if (!WRAPPED.has(client)) {
     const send = client.send
     client.send = function (method, params, ...rest) {
