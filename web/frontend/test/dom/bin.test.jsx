@@ -416,3 +416,18 @@ describe('the rail and the drawer are the door now', () => {
     expect(screen.getAllByText(/1\.0\.0/)).toHaveLength(1)
   })
 })
+
+// A DELETED ACCOUNT IS OPAQUE TO THE ADMIN HOLDING IT. Its row says whose it was
+// and how many quotes it holds, and offers no way to open it — the server returns
+// none of its contents either (Go: TestDeletingAnAccountBinsItWhole...), and a
+// chevron here would promise a list and open an empty one.
+describe('a deleted account in the bin', () => {
+  it('shows the name and the count, and cannot be opened', async () => {
+    TRASH = [ENTRY({ kind: 'account', label: 'bob', child_count: 2 })]
+    await page()
+    const li = screen.getByText('bob').closest('li')
+    expect(li.textContent).toContain('2 quotes')
+    expect(screen.queryByRole('button', { name: /What is inside/ })).toBeNull()
+    expect(within(li).getByRole('button', { name: /restore/i })).toBeTruthy()
+  })
+})

@@ -172,8 +172,8 @@ func (s *Server) handleGetTrashEntry(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	// A DELETED ACCOUNT IS OPAQUE TO THE ADMIN HOLDING IT: its name and how many
-	// quotes it holds, and nothing it contains. It sits in the deleting admin's
+	// A DELETED ACCOUNT IS OPAQUE TO THE ADMIN HOLDING IT: its name, how many
+	// quotes it holds and how many pictures were kept, and nothing it contains. It sits in the deleting admin's
 	// bin only because a row in its owner's own would cascade away with them; that
 	// placement is custody, not access. Restoring it returns it whole to its owner.
 	if t.Kind == "account" {
