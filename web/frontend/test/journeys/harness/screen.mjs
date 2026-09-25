@@ -150,16 +150,47 @@ export function screenVerbs(getPage) {
     return handles
   }
 
+  // ONE ACCESSIBILITY TREE PER LOOK, NOT ONE PER CONTROL. Puppeteer's
+  // `snapshot({ root })` asks Chrome for the page's WHOLE tree on every call and
+  // then searches it for the root. So one look at Metadata → People, about 400
+  // controls, cost 400 full trees and 22 seconds. A journey that pressed three
+  // things there ran past its minute on CI.
+  //
+  // The fix is to ask Chrome once per look and let every snapshot in it read that
+  // answer. The naming is still Puppeteer's own, with its rules for what is
+  // interesting and which node a root stands for, and no copy of them lives here.
+  // What this knows is Puppeteer's wiring: `page.accessibility` is the main
+  // frame's, and it sends through `mainFrame().client`. That wiring is pinned by
+  // scripts/screenshots/package-lock.json. Every name is read from one moment of
+  // the page, which the old way did not do either, and `find` polls again anyway.
+  async function oneTreePerLook(fn) {
+    const client = page().mainFrame().client
+    const send = client.send
+    let tree = null
+    client.send = function (method, ...rest) {
+      if (method !== 'Accessibility.getFullAXTree') return send.call(this, method, ...rest)
+      tree ??= send.call(this, method, ...rest)
+      return tree
+    }
+    try {
+      return await fn()
+    } finally {
+      client.send = send
+    }
+  }
+
   async function candidates(kind) {
     const handles = await within(CSS_FOR[kind])
     const roles = kind === 'press' ? PRESSABLE : FILLABLE
     const out = []
-    for (const h of handles) {
-      if (!(await h.isVisible().catch(() => false))) { await h.dispose(); continue }
-      const snap = await page().accessibility.snapshot({ root: h }).catch(() => null)
-      if (!snap || !snap.name || !roles.includes(snap.role)) { await h.dispose(); continue }
-      out.push({ handle: h, name: snap.name, role: snap.role })
-    }
+    await oneTreePerLook(async () => {
+      for (const h of handles) {
+        if (!(await h.isVisible().catch(() => false))) { await h.dispose(); continue }
+        const snap = await page().accessibility.snapshot({ root: h }).catch(() => null)
+        if (!snap || !snap.name || !roles.includes(snap.role)) { await h.dispose(); continue }
+        out.push({ handle: h, name: snap.name, role: snap.role })
+      }
+    })
     return out
   }
 
