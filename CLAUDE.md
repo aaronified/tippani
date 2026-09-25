@@ -28,7 +28,12 @@ with the install record emptied and the cache moved aside, a nested start fired 
 recorded no install. The container is ephemeral — reclaimed after inactivity, with nothing
 outside a pushed commit surviving it, by the environment's own description rather than a
 test here — so the install, the digest settings below and the two per-clone lines go with
-it.
+it. **`scripts/claude-kit-setup.sh` puts all of it back**, and belongs in the environment's
+setup script, which runs before the session starts. Tested against a fresh state (plugin
+records, cache, marketplace and user settings moved aside): it installed the kit, wrote the
+thresholds, the hook, the exclude line and `npm ci`; the next start fired the kit's hooks;
+a second run changed nothing. Not tested: running AS the setup script, which needs the kit
+attached for the same reason.
 
 **PER CLONE, TWO LOCAL LINES THAT GIT NEVER COMMITS**, both the kit's own instructions:
 `/.visual-verify/` in `.git/info/exclude`, because `visual-verify` writes its working
@@ -98,8 +103,12 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   back as unset and the hook uses its own defaults (60 tool calls), so a digest fires while
   the project file says it cannot. The same three names are in `/root/.claude/settings.json`
   for that reason, and that file is NOT in this repo, so a fresh machine needs them written
-  there by hand. A setting that is true in one file and inert in the process is the shape of
-  thing this document exists to stop.
+  there — by hand, or by `scripts/claude-kit-setup.sh`. A setting that is true in one file
+  and inert in the process is the shape of thing this document exists to stop. (25 September,
+  Claude Code 2.1.282: a nested `claude -p` in the cloud container DID hand the project block
+  to the kit's hooks, so the case that fails is narrower than every headless session. That
+  is not a reason to drop the user-level copy — a session cannot tell from inside which case
+  it is in.)
 
   History, kept because it is what the settings will look like if the digest is ever wanted
   back: it ran on a clock rather than a counter, first at 30 minutes and then at 120
