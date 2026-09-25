@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-  # The full -race sweep runs here, not on every push. See the `race` job.
+  # The full -race sweep runs here, not on every push. See `race-nightly`.
   schedule:
     - cron: "0 3 * * *"
 
@@ -53,7 +53,7 @@ jobs:
   # (_txlock=immediate) and both drive real goroutines against a real SQLite
   # file, so a data race there is a data race in production, not a test artefact.
   #
-  # But the whole-suite sweep costs TWENTY-NINE MINUTES, and the reason is
+  # But the whole-suite sweep cost TWENTY-NINE MINUTES at 1.7.4, and the reason is
   # specific to this app: modernc.org/sqlite is pure Go, so -race instruments
   # the entire database engine — every btree page and every VDBE step — and not
   # merely this repo's own code, as it would with a cgo driver. internal/httpapi
@@ -69,15 +69,16 @@ jobs:
   # roughly doubled since it was written. The per-push job below is unaffected —
   # it runs five named tests in about 45 seconds — but `-timeout 60m` on the
   # nightly is no longer a margin either, and what it will do on a runner is not
-  # something a developer machine can answer. Raising it, sharding the package,
-  # or sampling the sweep are all decisions with costs; this note exists so the
-  # next red nightly is read as arithmetic rather than as a hang.
+  # something a developer machine can answer. The runner answered: the nightly on
+  # 2.2.9 (run 36112406641) stopped at "test timed out after 1h0m0s" in
+  # internal/httpapi while every other package passed. So that package is split
+  # six ways by test name, in race-nightly-httpapi below.
   #
   # Raising the number would have bought one release and made every push wait
   # half an hour, and a job that slow is a job people stop reading. So the split
-  # is by value: the locking tests run raced on EVERY push, which is what that
-  # original comment actually wanted and costs about two minutes, and the full
-  # sweep runs nightly where thirty minutes is free.
+  # is by value: the locking tests run raced on every push to main and every pull
+  # request, which is what that original comment actually wanted and costs about
+  # two minutes, and the full sweep runs nightly, where the time is free.
   race:
     runs-on: ubuntu-latest
     steps:
@@ -104,11 +105,11 @@ jobs:
           exit $fail
 
   # THE NIGHTLY SWEEP, SHARDED BY PACKAGE. It used to be one job — `go test -race
-  # -timeout 60m ./...` — and it stopped fitting: internal/httpapi alone did not
-  # finish in 55 minutes on an idle machine (see the measurement above). One job
-  # for the whole tree meant one timeout for eleven packages of wildly different
-  # size, so the slowest one set the budget for all of them and a red result named
-  # nothing but "the suite".
+  # -timeout 60m ./...` — and a red result named nothing but "the suite". Sharding
+  # by package names the package. It does NOT buy internal/httpapi more time:
+  # `-timeout` has always applied to each package's test binary on its own, so that
+  # package ran out of its hour inside the one job exactly as it would in a shard of
+  # its own. It is split by test name instead, in race-nightly-httpapi below.
   #
   # `fail-fast: false` IS THE POINT OF THE MATRIX, not a detail. A race in
   # internal/store must not cancel the run that would have found the one in
@@ -131,7 +132,6 @@ jobs:
           - ./cmd/tippani
           - ./internal/auth
           - ./internal/changelog
-          - ./internal/httpapi
           - ./internal/i18n
           - ./internal/importer
           - ./internal/metadata
@@ -146,10 +146,51 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26"
-      # 60m per PACKAGE rather than for the tree. httpapi is the only one that
-      # needs anything like it; the rest finish in minutes and cost nothing by
-      # being allowed the same ceiling.
+      # 60m per package. None of these needs anything like it; they finish in
+      # minutes and cost nothing by being allowed the same ceiling.
       - run: go test -race -timeout 60m ${{ matrix.pkg }}
+
+  # INTERNAL/HTTPAPI, SPLIT SIX WAYS BY TEST NAME. It is the one package that does
+  # not fit an hour raced: it holds most of the repo's test functions, and almost
+  # every one signs a user up (a real bcrypt hash) and builds a fresh database
+  # through every migration, under a detector that instruments the whole pure-Go
+  # SQLite engine. Its tests are listed from the race binary itself and dealt
+  # round-robin into six shards, so a test added tomorrow lands in a shard with no
+  # list to update. Each shard has its own hour.
+  #
+  # THE LIST COMES FROM `go test -list`, NOT FROM A FILE, and every shard checks
+  # it ran something: a -run pattern that matches nothing exits 0 and reads as
+  # green, the false green the per-push job already guards against.
+  # TestEveryTestedPackageIsInTheNightlySweep sees ./internal/httpapi in this
+  # matrix, so the package is still counted as swept.
+  race-nightly-httpapi:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pkg:
+          - ./internal/httpapi
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - name: one sixth of the package's tests, under -race
+        env:
+          PKG: ${{ matrix.pkg }}
+          SHARD: ${{ matrix.shard }}
+          OF: 6
+        run: |
+          set -euo pipefail
+          go test -race -list '.*' "$PKG" | grep -E '^(Test|Example|Fuzz)' > /tmp/all.txt
+          awk -v k="$SHARD" -v n="$OF" '(NR - 1) % n == k - 1' /tmp/all.txt > /tmp/mine.txt
+          [ -s /tmp/mine.txt ] || { echo "::error::shard $SHARD of $OF has no tests"; exit 1; }
+          echo "shard $SHARD of $OF: $(wc -l < /tmp/mine.txt) of $(wc -l < /tmp/all.txt) tests"
+          go test -race -v -timeout 60m -run "^($(paste -sd'|' /tmp/mine.txt))\$" "$PKG" 2>&1 | tee /tmp/run.log
+          ran=$(grep -cE '^--- (PASS|SKIP): ' /tmp/run.log || true)
+          [ "$ran" -gt 0 ] || { echo "::error::shard $SHARD ran no tests"; exit 1; }
 
   # THE TIER THAT PRESSES BUTTONS. A real browser against a real server against a
   # real SQLite database, signed in through the real login form. It is the only job
