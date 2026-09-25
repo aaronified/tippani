@@ -255,11 +255,11 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      # fetch-depth: 0 because register-citations.test.js asks git about every
-      # commit its four documents cite: for the defect register and the fidelity
-      # audit, is it an ancestor of HEAD; for the other two, can some branch or
-      # tag reach it. A depth-1 checkout has one commit and no tags, so every one
-      # of those citations reads as dangling.
+      # fetch-depth: 0 because register-citations.test.js asks git where every
+      # commit cited by the documents in its DOCS table sits in the history: an
+      # ancestor of HEAD for some, reachable from a branch or tag for the rest (the
+      # table says which). A depth-1 checkout has one commit and no tags, so every
+      # one of those citations reads as dangling.
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
