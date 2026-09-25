@@ -547,17 +547,19 @@ purpose and watch the test go red before you trust it.
 `-race` needs `CGO_ENABLED=1` and a C compiler, which the rest of the build deliberately
 does without (`CGO_ENABLED=0`, pure-Go SQLite) — so on a machine with no gcc it is a
 thing you read in a CI log rather than run. Plain `go test ./...` is the local bar; if you
-are changing anything that writes concurrently, push and read the race job before you call
-it done.
+are changing anything that writes concurrently, open a pull request and read its race job
+before you call it done.
 
 **It runs in two halves, and the reason is worth knowing before you move it back.** The
-whole suite under `-race` takes **29 minutes**, because pure-Go SQLite means the detector
-instruments the entire database engine rather than only this repo's code —
-`internal/httpapi` alone is 143 seconds unraced and about 29 minutes raced. So the five
-locking tests (`conflict_pool_test.go`, `write_lock_test.go`) run raced on **every push**,
-which is the coverage those files were written for and costs a couple of minutes, and the
-full sweep runs **nightly at 03:00 UTC**. If you add a test that races, name it in the
-`race` job's filter or it will not be raced until the following morning.
+whole suite under `-race` took **29 minutes** at 1.7.4 and no longer finishes in an hour,
+because pure-Go SQLite means the detector instruments the entire database engine rather
+than only this repo's code. Measured on 2026-09-01, `internal/httpapi` alone did not finish
+in 55 minutes raced, and the nightly run on 2.2.9 stopped at its 60-minute timeout. So the
+five locking tests (`conflict_pool_test.go`, `write_lock_test.go`) run raced on **every
+push to `main` and every pull request**, which is the coverage those files were written for
+and costs a couple of minutes, and the full sweep runs **nightly at 03:00 UTC**, one job per
+package (`race-nightly`). If you add a test that races, name it in the `race` job's filter
+or it will not be raced until the following morning.
 
 That job asserts each named test actually ran. A `-run` filter that matches nothing still
 exits 0, and `ok (0 tests)` reads exactly like `ok` — a false green that has already cost
