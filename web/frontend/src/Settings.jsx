@@ -3977,10 +3977,8 @@ function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm 
     onSafe(true)
     if (key === 'password' && recoverable && creds?.password) setPassword(creds.password)
   }
-  // Focus follows the step: the copy's own box had it, and the download leaves
-  // it nowhere, so a keyboard reader lands on the field that is now the question.
+  // The field the step hands focus to once the copy is down — see SafetyBackupStep.
   const nextRef = useRef(null)
-  useEffect(() => { if (safe) nextRef.current?.focus() }, [safe])
 
   // The same three validate reasons the onboarding twin uses (App.jsx), through
   // the same keys: two dialogs for one operation should not own two vocabularies
@@ -4013,7 +4011,7 @@ function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm 
           ? t('settings.restore.warn.dated.prose', { date: fmtWhen(meta.created) })
           : t('settings.restore.warn.prose')}
       </p>
-      <SafetyBackupStep done={safe} onDone={tookCopy} />
+      <SafetyBackupStep done={safe} onDone={tookCopy} next={nextRef} />
       {key === 'passphrase' && (
         <label className="tp-field">
           <MonoLabel>{t('common.field.passphrase.label')}</MonoLabel>

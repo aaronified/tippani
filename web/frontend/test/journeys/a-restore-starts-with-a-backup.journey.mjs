@@ -21,8 +21,8 @@
 //   keyboard reader knows where focus is and the vocabulary has no verb for it.
 //
 // Mutations: with the second `press('Download a backup first')` deleted the
-// Restore button stays shut and "restored" never appears; with the restore
-// dialog's focus hand-off removed `focusedField` is not "Your password"; with the
+// Restore button stays shut and "restored" never appears; with the step's
+// focus hand-off removed `focusedField` is not "Your password"; with the
 // catch removed from the download the step never says "Backup failed".
 //
 // It knows the words on the screen, the file it is handed, that password, the

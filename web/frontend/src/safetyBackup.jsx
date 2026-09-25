@@ -16,7 +16,10 @@ import { ErrorText, IconExport, MonoLabel, StickerButton } from './ui.jsx'
 import { PASSPHRASE_MAX, PASSWORD_MAX, passphraseProblem } from './secret.js'
 import { t } from './i18n.js'
 
-export function SafetyBackupStep({ done, onDone }) {
+// `next` is the field that becomes the question once the copy is down: the
+// download leaves focus on a box that is about to be replaced with a sentence,
+// so a keyboard reader is handed on rather than left at the top of the page.
+export function SafetyBackupStep({ done, onDone, next }) {
   const [usePhrase, setUsePhrase] = useState(false)
   const [secret, setSecret] = useState('')
   const [busy, setBusy] = useState(false)
@@ -54,6 +57,7 @@ export function SafetyBackupStep({ done, onDone }) {
       // The credential goes up with the news, so a restore that asks for the same
       // password does not ask for it twice.
       onDone(creds)
+      next?.current?.focus()
     } catch {
       setErr(t('error.backup.failed'))
     } finally {

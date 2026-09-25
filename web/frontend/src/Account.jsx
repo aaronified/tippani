@@ -314,9 +314,8 @@ function MaintenanceCard() {
   const [confirm, setConfirm] = useState('')
   const [safe, setSafe] = useState(false)
   // The word box waits for the copy: focused on open it took the keyboard past a
-  // step that must come first, and after the download focus has nowhere to be.
+  // step that must come first. The step hands focus to it once the copy is down.
   const confirmRef = useRef(null)
-  useEffect(() => { if (safe) confirmRef.current?.focus() }, [safe])
 
   async function reindex() {
     setBusy('reindex')
@@ -385,7 +384,7 @@ function MaintenanceCard() {
             </GhostButton>
           ) : (
             <div className="mt-2 space-y-2">
-              <SafetyBackupStep done={safe} onDone={() => setSafe(true)} />
+              <SafetyBackupStep done={safe} onDone={() => setSafe(true)} next={confirmRef} />
               <p className="microcopy">
                 {/* RESET is the word the server compares — never translated. */}
                 {tNodes('account.reset.confirm.prose', { word: <b>RESET</b> })}
