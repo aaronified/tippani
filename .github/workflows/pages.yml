@@ -21,10 +21,16 @@ on:
       # how aa0340fb landed: its push touched nothing above, so the fix went
       # unexercised until a hand-dispatched run.
       - "scripts/site-links.mjs"
-      # src/i18n.js imports these with ?raw, so every word of the demo is built from
-      # them, and a locale-only push changes the published demo. The * stops at a
-      # slash, so internal/i18n/testdata/ stays out.
+      # src/i18n.js imports these with ?raw, so every interface string in the demo
+      # is built from them, and a locale-only push changes the published demo. The
+      # * stops at a slash, so internal/i18n/testdata/ stays out.
       - "internal/i18n/*.txt"
+      # The bundle's inputs as scripts/dist-inputs.mjs derives them, rather than as
+      # this list names them. A push that rebuilds dist carries a new manifest when
+      # any input moved, so the next import from outside web/frontend redeploys
+      # without this list learning its name. The glob above stays, because the
+      # manifest only moves in a push that includes the rebuild.
+      - "web/dist-inputs.json"
   workflow_dispatch:
 
 permissions:
