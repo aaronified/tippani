@@ -887,6 +887,13 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.Handler {
 			return
 		}
 		noteRequestUser(r, uname)
+		// A PASSWORD SOMEBODY ELSE CHOSE OPENS ONE DOOR: choosing your own. Until
+		// then the admin who set it could sign in as this reader, so the library
+		// stays shut; only who-am-I, the change itself and signing out answer.
+		if !passwordGateOpen[r.Pattern] && mustChangePassword(s.Store.DB, uid) {
+			writeErr(w, http.StatusForbidden, "choose your own password first")
+			return
+		}
 		ctx := context.WithValue(r.Context(), ctxUserID, uid)
 		ctx = context.WithValue(ctx, ctxUsername, uname)
 		ctx = context.WithValue(ctx, ctxIsAdmin, isAdmin)
@@ -897,6 +904,13 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.Handler {
 		s.purgeIfNewDay()
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// passwordGateOpen is what a session with a temporary password may still reach.
+var passwordGateOpen = map[string]bool{
+	"GET /auth/me":        true,
+	"POST /auth/password": true,
+	"POST /auth/logout":   true,
 }
 
 // requireAdmin is requireAuth plus an is_admin check, for user management.

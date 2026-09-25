@@ -206,6 +206,9 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		// account is linked to it — the Settings row needs both.
 		"oidc":        s.oidcStatus(),
 		"oidc_linked": linked,
+		// Set when an admin chose this account's password; the app shows nothing
+		// but "choose your own" until it is cleared (requireAuth enforces it).
+		"must_change_password": mustChangePassword(s.Store.DB, userID(r)),
 		"version":     buildinfo.Version, // running build, for the Settings → Updates card
 		// WHEN THAT BUILD CAME OUT, from the history embedded in the binary — see
 		// releaseDate. "" for anything that is not a finished release, which the
@@ -1516,13 +1519,18 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "current password is incorrect")
 		return
 	}
+	// A temporary password stays temporary if it is chosen again.
+	if req.New == req.Current && mustChangePassword(s.Store.DB, userID(r)) {
+		writeErr(w, http.StatusBadRequest, "choose a password of your own, not the one you were given")
+		return
+	}
 	newHash, err := auth.HashPassword(req.New)
 	if err != nil {
 		internalError(w, r, "hash password", err)
 		return
 	}
 	if _, err := s.Store.DB.Exec(
-		`UPDATE users SET password_hash = ? WHERE id = ?`, newHash, userID(r),
+		`UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?`, newHash, userID(r),
 	); err != nil {
 		internalError(w, r, "update password", err)
 		return

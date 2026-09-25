@@ -220,12 +220,20 @@ func signupAdmin(t *testing.T, h http.Handler) *testClient {
 // addUser has the admin create a regular user, then logs that user in.
 func addUser(t *testing.T, h http.Handler, admin *testClient, name string) *testClient {
 	t.Helper()
+	// The admin's password is temporary, so the new reader does what a person
+	// does at first sign-in: chooses their own ("supersecret", which the tests
+	// sign in with later).
 	admin.mustDo("POST", "/admin/users",
-		map[string]string{"username": name, "password": "supersecret"}, http.StatusCreated)
+		map[string]string{"username": name, "password": "temporary1"}, http.StatusCreated)
 	c := &testClient{t: t, h: h}
-	rec := c.do("POST", "/auth/login", map[string]string{"username": name, "password": "supersecret"})
+	rec := c.do("POST", "/auth/login", map[string]string{"username": name, "password": "temporary1"})
 	if rec.Code != 200 {
 		t.Fatalf("login %s: %d %s", name, rec.Code, rec.Body)
+	}
+	c.cookie = cookieOf(t, rec)
+	rec = c.do("POST", "/auth/password", map[string]string{"current": "temporary1", "new": "supersecret"})
+	if rec.Code != 200 {
+		t.Fatalf("%s choosing their own password: %d %s", name, rec.Code, rec.Body)
 	}
 	c.cookie = cookieOf(t, rec)
 	return c

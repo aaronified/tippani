@@ -89,6 +89,14 @@ it('a second account sees an empty notebook, and the first gets its own back', a
   await app.type('their password', 'second-reader-pw')
   await app.press('Sign in')
 
+  // THE ADMIN CHOSE THAT PASSWORD, SO IT IS TEMPORARY: the new reader picks
+  // their own before the library opens.
+  await app.see('Choose your own password')
+  await app.type('current password', 'second-reader-pw')
+  await app.type('new password (8–20)', 'second-own-pw')
+  await app.type('repeat new password', 'second-own-pw')
+  await app.press('Update password')
+
   // NOW SIGNED IN AS THE SECOND ACCOUNT. This greeting names the signed-in
   // account inside the page's own text, which nothing but an actual switch of
   // session could cause — the nav also renames its Profile button to match,

@@ -406,8 +406,11 @@ func userCmd(args []string) {
 		// The first user becomes the admin (same rule as first-run onboarding),
 		// so a CLI-bootstrapped instance always has someone who can manage users.
 		if _, err := st.DB.Exec(
-			`INSERT INTO users (username, password_hash, is_admin)
-			 SELECT ?, ?, CASE WHEN NOT EXISTS (SELECT 1 FROM users) THEN 1 ELSE 0 END`,
+			// Anyone after the first is given a password by the operator, so it is
+			// temporary; the first account is the operator's own.
+			`INSERT INTO users (username, password_hash, is_admin, must_change_password)
+			 SELECT ?, ?, CASE WHEN NOT EXISTS (SELECT 1 FROM users) THEN 1 ELSE 0 END,
+			        CASE WHEN EXISTS (SELECT 1 FROM users) THEN 1 ELSE 0 END`,
 			name, hash,
 		); err != nil {
 			log.Fatalf("add user: %v", err)
@@ -422,7 +425,9 @@ func userCmd(args []string) {
 	case "passwd":
 		hash := readPasswordHash()
 		res, err := st.DB.Exec(
-			`UPDATE users SET password_hash = ?, password_unknown = 0 WHERE username = ?`, hash, name,
+			// A reset is a password the operator knows: temporary until its owner
+			// picks their own.
+			`UPDATE users SET password_hash = ?, password_unknown = 0, must_change_password = 1 WHERE username = ?`, hash, name,
 		)
 		if err != nil {
 			log.Fatalf("passwd: %v", err)

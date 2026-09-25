@@ -74,7 +74,9 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := s.Store.DB.Exec(
-		`INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 0)
+		// must_change_password: the admin chose this password, so it is temporary
+		// and the new reader picks their own at first sign-in.
+		`INSERT INTO users (username, password_hash, is_admin, must_change_password) VALUES (?, ?, 0, 1)
 		 ON CONFLICT(username) DO NOTHING`, uname, hash,
 	)
 	if err != nil {
@@ -327,4 +329,14 @@ func normalizeUsername(s string) (string, bool) {
 		}
 	}
 	return name, true
+}
+
+// mustChangePassword reports whether uid's password was set by somebody else.
+// A read error answers true: a gate that fails open is not a gate.
+func mustChangePassword(db *sql.DB, uid int64) bool {
+	var must bool
+	if err := db.QueryRow(`SELECT must_change_password FROM users WHERE id = ?`, uid).Scan(&must); err != nil {
+		return !errors.Is(err, sql.ErrNoRows)
+	}
+	return must
 }

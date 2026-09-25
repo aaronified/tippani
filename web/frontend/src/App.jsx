@@ -116,7 +116,7 @@ import {
   useResolvedDark,
 } from './ui.jsx'
 import { takeSearchSeed } from './facets.js'
-import { Profile } from './Account.jsx'
+import { PasswordForm, Profile } from './Account.jsx'
 import { PageHelp, ScreenHelpSheet } from './help.jsx'
 import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
@@ -236,7 +236,19 @@ export default function App() {
 
   let screen = null
   if (!checking) {
-    if (user) {
+    if (user?.must_change_password) {
+      screen = (
+        <ChooseOwnPassword
+          onDone={async () => setUser(await refreshMe())}
+          onLogout={async () => {
+            await globalThis.fetch(apiURL('/auth/logout'), { method: 'POST' })
+            forgetSessionCaches()
+            setUser(null)
+          }}
+        />
+      )
+    }
+    else if (user) {
       screen = (
         <Shell
           user={user}
@@ -618,6 +630,32 @@ export function Login({ onLogin, oidc = null }) {
             microcopy={t('shell.login.microcopy.prose')}
             onSuccess={onLogin}
           />
+        </div>
+        <Sprockets />
+      </div>
+    </main>
+  )
+}
+
+// ChooseOwnPassword — the only screen a temporary password opens. The admin who
+// set it knows it, so the server keeps the library shut until the reader picks
+// one of their own; this is the same change-password form Profile carries, in the
+// sign-in screen's frame, because the reader has not arrived yet.
+function ChooseOwnPassword({ onDone, onLogout }) {
+  useEffect(() => {
+    applyTheme({ materialSet: 'film-assembly', theme: 'dark' })
+  }, [])
+  const base = useFrameBase()
+  return (
+    <main className="flex min-h-screen items-center justify-center px-4 py-10" data-screen-label="choose-password">
+      <div className="film-strip w-full max-w-2xl">
+        <Sprockets />
+        <EdgeRow left="" code={frameCode(base)} />
+        <div className="mx-auto w-full max-w-sm space-y-4 px-6 py-8">
+          <h1 className="wordmark" style={{ fontSize: 'var(--type-ui-22)' }}>{t('shell.password.temporary.title')}</h1>
+          <p className="microcopy">{t('shell.password.temporary.prose')}</p>
+          <PasswordForm onDone={onDone} />
+          <FilmButton type="button" className="w-full" onClick={onLogout}>{t('account.logout.action')}</FilmButton>
         </div>
         <Sprockets />
       </div>

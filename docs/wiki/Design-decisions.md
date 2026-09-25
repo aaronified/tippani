@@ -19214,3 +19214,19 @@ route answers 409 while it is 1. Rejected: a check in the Profile card only, bec
 not a guard. *The widget key travels only in a header.* `?key=` was accepted but never
 documented. The request log prints the full URI, so a dashboard polling it would have written the
 key to the log on every poll. The query form is gone, and the widget test asserts it is refused.
+
+**Two more gaps closed before 3.0.0, at the owner's choice.** Asked whether to tag with the
+admin-data gaps planned or to build them first, the owner chose to build them.
+*A deleted account is opaque in the admin's bin.* The snapshot has to live in the deleting
+admin's bin, because a row in its owner's own would cascade away with them. That placement is
+custody, not access. So `GET /trash/{id}` answers an `account` entry with its name and count
+and no contents, and the Bin draws no chevron for it. Hiding it only in the client was
+rejected: the route would still have served the quotes to anyone who asked.
+*A password somebody else chose is temporary.* Migration 0078 adds `must_change_password`. It is
+set when an admin makes an account and by `tippani user passwd`, and by `user add` for every
+account after the first (the first is the operator's own). It is cleared when the reader changes
+their password. While it is set, `requireAuth` answers 403 to everything except `GET /auth/me`,
+`POST /auth/password` and `POST /auth/logout`, keyed on the matched route pattern rather than a
+path prefix. `mustChangePassword` fails closed on a read error. The app shows only "Choose your
+own password" in the sign-in frame. Choosing the given password again is refused, since it would
+leave the admin holding a working password.

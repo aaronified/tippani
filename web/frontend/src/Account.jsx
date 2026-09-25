@@ -137,7 +137,7 @@ function NameForm({ user, onUser }) {
 
 // PasswordForm — moved verbatim from Settings; changing your password signs out
 // every other session (the server re-issues the caller's).
-function PasswordForm() {
+export function PasswordForm({ onDone } = {}) {
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [repeat, setRepeat] = useState('')
@@ -164,6 +164,7 @@ function PasswordForm() {
       setNext('')
       setRepeat('')
       setDone(true)
+      onDone?.()
     } else {
       setError(errText(r, t('error.save.password')))
     }

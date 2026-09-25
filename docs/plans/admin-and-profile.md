@@ -7,7 +7,6 @@ Not built. Tasks, one per ask:
 - [ ] Show each user's SSO state on their row: linked or not (and the provider), how the account was made (password or SSO auto-create), and whether it has a password anyone knows.
 - [ ] Add "Unlink SSO" to a user's row in Admin.
 - [ ] Replace the command-line-only password reset with "Issue temporary password" on a user's row.
-- [ ] Make every admin-set password (new account or reset) temporary: the person must choose their own at first sign-in.
 - [ ] End every session and device made before a person's first own password, when they set it.
 - [ ] Tell the person when an admin resets their password (Pushover, if they have it set).
 - [ ] Keep SSO linking on Profile.
@@ -25,7 +24,6 @@ Not built. Tasks, one per ask:
 - [ ] Keep Notifications on Profile only.
 - [ ] Move the Maintenance card (reindex, factory reset) from Profile to Admin.
 - [ ] Make restore and factory reset take a fresh backup and download it first, as a step of the same flow, before anything is replaced.
-- [ ] Keep a deleted account's bin entry opaque to the admin: its name and item count only, no quotes or titles; restoring it returns it whole to its owner.
 - [ ] Reuse a cover, poster or portrait already on disk when the same image is needed again, instead of downloading or storing another copy.
 - [ ] When these ship, update the placement entry in Design-decisions ("Where the three live") to say they are built.
 

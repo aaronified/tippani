@@ -1111,6 +1111,8 @@ common.field.passphrase.label = পাসফ্রেজ
 shell.login.password.range.placeholder = পাসওয়ার্ড ({a}–{b} অক্ষর)
 shell.login.cta.label = লগ ইন
 shell.login.microcopy.prose = ঢুকতে পারছেন না? অ্যাডমিন পাসওয়ার্ড বদলে দিতে পারেন
+shell.password.temporary.title = নিজের পাসওয়ার্ড বেছে নিন
+shell.password.temporary.prose = যে পাসওয়ার্ডে ঢুকলেন সেটা অ্যাডমিনের দেওয়া। লাইব্রেরি খুলতে এমন একটা পাসওয়ার্ড দিন যা শুধু আপনি জানেন।
 # The toast on a successful login. {name} is the account's username.
 shell.login.toast.welcome = ফিরে এলেন, {name}
 # What the toast calls somebody whose account has no username to read.

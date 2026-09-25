@@ -191,3 +191,42 @@ func TestDisplayNameAndRoles(t *testing.T) {
 	bob.mustDo("PATCH", "/admin/users/"+itoa(bobID), map[string]bool{"is_admin": false}, http.StatusConflict)
 	bob.mustDo("PATCH", "/admin/users/99999", map[string]bool{"is_admin": true}, http.StatusNotFound)
 }
+
+// A password the admin chose is temporary: until its owner picks their own, the
+// session answers who-am-I, the change itself and sign-out, and nothing else —
+// the admin who knows the password must not be able to read the library with it.
+func TestAnAdminSetPasswordMustBeChangedBeforeTheLibraryOpens(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	admin.mustDo("POST", "/admin/users", map[string]string{"username": "cara", "password": "given-by-admin"}, http.StatusCreated)
+
+	cara := &testClient{t: t, h: h}
+	rec := cara.do("POST", "/auth/login", map[string]string{"username": "cara", "password": "given-by-admin"})
+	if rec.Code != 200 {
+		t.Fatalf("login: %d %s", rec.Code, rec.Body)
+	}
+	cara.cookie = cookieOf(t, rec)
+	me := decode[struct {
+		Must bool `json:"must_change_password"`
+	}](t, cara.mustDo("GET", "/auth/me", nil, 200))
+	if !me.Must {
+		t.Fatal("/auth/me does not say the password is temporary")
+	}
+	cara.mustDo("GET", "/books", nil, http.StatusForbidden)
+	cara.mustDo("POST", "/books", map[string]any{"title": "Nope"}, http.StatusForbidden)
+	// Choosing the given password again is not choosing one's own.
+	cara.mustDo("POST", "/auth/password", map[string]string{"current": "given-by-admin", "new": "given-by-admin"}, http.StatusBadRequest)
+
+	rec = cara.mustDo("POST", "/auth/password", map[string]string{"current": "given-by-admin", "new": "caras-own-pw"}, 200)
+	cara.cookie = cookieOf(t, rec)
+	cara.mustDo("GET", "/books", nil, 200)
+	me = decode[struct {
+		Must bool `json:"must_change_password"`
+	}](t, cara.mustDo("GET", "/auth/me", nil, 200))
+	if me.Must {
+		t.Fatal("still temporary after choosing one")
+	}
+	// The admin's own account, made at onboarding, was never temporary.
+	admin.mustDo("GET", "/books", nil, 200)
+}

@@ -1110,6 +1110,8 @@ common.field.passphrase.label = Passphrase
 shell.login.password.range.placeholder = password ({a}–{b})
 shell.login.cta.label = Sign in
 shell.login.microcopy.prose = locked out? an admin can reset your password
+shell.password.temporary.title = Choose your own password
+shell.password.temporary.prose = An admin set the password you signed in with. Pick one only you know to open your library.
 # The toast on a successful login. {name} is the account's username.
 shell.login.toast.welcome = welcome back, {name}
 # What the toast calls somebody whose account has no username to read.
