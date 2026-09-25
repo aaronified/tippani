@@ -172,6 +172,16 @@ func (s *Server) handleGetTrashEntry(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	// A DELETED ACCOUNT IS OPAQUE TO THE ADMIN HOLDING IT: its name and how many
+	// quotes it holds, and nothing it contains. It sits in the deleting admin's
+	// bin only because a row in its owner's own would cascade away with them; that
+	// placement is custody, not access. Restoring it returns it whole to its owner.
+	if t.Kind == "account" {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"entry": t, "contents": []map[string]any{}, "works": []trashWork{}, "record": nil,
+		})
+		return
+	}
 	var snap snapshot
 	if err := json.Unmarshal([]byte(payload), &snap); err != nil {
 		internalError(w, r, "read trash payload", err)

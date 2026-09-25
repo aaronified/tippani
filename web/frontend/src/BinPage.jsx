@@ -152,7 +152,9 @@ export const TRASH_CHILD_NOUN = {
 // it. Found on a render; the chevron is now drawn only where there is something
 // behind it, which is the rule the code beside it already states for a single
 // highlight.
-const TRASH_EXPANDABLE = (kind) => TRASH_CHILD_NOUN[kind] === 'unit.quote'
+// A DELETED ACCOUNT holds quotes but never opens: the admin whose bin it waits in
+// sees its name and its count, and not a line of somebody else's library.
+const TRASH_EXPANDABLE = (kind) => kind !== 'account' && TRASH_CHILD_NOUN[kind] === 'unit.quote'
 
 // The plural each kind counts in, for the filter chips. "Film or shows" is not a
 // phrase, which is why this is a table rather than a suffix.

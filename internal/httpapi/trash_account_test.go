@@ -114,6 +114,15 @@ func TestDeletingAnAccountBinsItWholeAndRestoringBringsItBack(t *testing.T) {
 		t.Errorf("child_count = %d, want 2 (one highlight, one standalone quote)", bin[0].ChildCount)
 	}
 
+	// Opaque to the admin holding it: the name and the count above, and nothing
+	// from inside. Not a quote, not a title, not an author.
+	peek := admin.mustDo("GET", "/trash/"+itoa(bin[0].ID), nil, http.StatusOK).Body.String()
+	for _, secret := range []string{"The spice must flow", "Fear is the mind-killer", "Sandworm Studies", "Liet Kynes"} {
+		if strings.Contains(peek, secret) {
+			t.Fatalf("the admin read %q out of bob's binned account: %s", secret, peek)
+		}
+	}
+
 	restore(t, admin, bin[0].ID, http.StatusOK)
 
 	// The account is back, with its id, and can log in again.
