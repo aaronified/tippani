@@ -33,21 +33,25 @@ setup*), and with the install record emptied and the cache moved aside, a nested
 fired no hook and recorded no install. And the container is ephemeral — reclaimed after
 inactivity, nothing outside a pushed commit surviving it, by the environment's own
 description rather than a test here — so the next session starts in a new container without
-the install, the digest settings below or the per-clone pieces. **Attaching the kit also
-makes the session multi-repository, and the same table says such a session reads no repo's
-`.claude/settings.json`** — so this repo's `enabledPlugins` and `env` block do not apply
-there: such a session needs the install at user scope and the thresholds outside the repo.
+the install, the digest settings below or the per-clone pieces. **A session STARTED with the
+kit and this repo together is multi-repository, and the same table says such a session
+starts above the clones and reads no repo's `.claude/settings.json`** — so this repo's
+`enabledPlugins` and `env` block do not apply there, and it needs the install at user scope
+and the thresholds outside the repo. Attaching the kit mid-session with `add_repo` is not
+that case: the session that did it went on reading this file, and an edit to its `env`
+block reached the session's own shell.
 
-**`scripts/claude-kit-setup.sh` IS THE INTENDED ROUTE**, for the environment's setup script:
-that runs before Claude Code launches, and what it writes is kept in the environment's cache.
-If it runs before the clone, it skips the per-clone pieces and says so; run it again from the
-session then. It always exits 0, because a setup script that exits non-zero stops the
-session from starting, and prints what failed instead. The version first committed was run
-against a fresh state here (plugin records, cache, marketplace and user settings moved
-aside): it installed the kit, wrote the thresholds, the hook, the exclude line and `npm ci`,
-the next start fired the kit's hooks, and a second run changed nothing. The current version
-was tested in a sandbox with `claude` and `npm` stubbed. Not tested: running AS the setup
-script, which needs the kit attached for the same reason.
+**`scripts/claude-kit-setup.sh` IS THE INTENDED ROUTE**, for the environment's setup script,
+which runs before Claude Code launches. **It runs once per environment cache**, not per
+session: at the environment's first session, and again only when the setup script or the
+allowed hosts change or the cache expires after about seven days (same page, *Environment
+caching*); every other session starts from that snapshot. So the session that builds the
+cache must have the kit attached — without it the script prints its failure, exits 0 (a
+setup script that exits non-zero stops the session starting), and the cache holds no kit
+until the next rebuild. In any session, no claude-kit in `claude plugin list`, or no
+`.git/hooks/pre-commit`, means run the script from the session: the per-clone pieces apply at
+once, the plugin at the next start. What it was tested against, and what not, is in
+`docs/wiki/How-this-was-written.md`.
 
 **PER CLONE, TWO LOCAL PIECES THAT GIT NEVER COMMITS**, both the kit's own instructions:
 `/.visual-verify/` in `.git/info/exclude`, because `visual-verify` writes its working
@@ -125,7 +129,8 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   unset and used its own defaults (60 tool calls). Which session that was is not recorded,
   but the cloud docs name a cause that fits: a session with several repositories reads no
   repo's `.claude/settings.json` (code.claude.com/docs/en/cloud-environments, *What carries
-  over from your setup*), and attaching the kit makes a session exactly that. Where the
+  over from your setup*), and picking the kit alongside this repo at session start makes a
+  session exactly that. Where the
   project file IS read, it reaches the hooks: on 25 September (Claude Code 2.1.282) a nested
   `claude -p` in the cloud container, started with every `CLAUDE_KIT_*` stripped from its
   environment, handed the kit's hooks the project block and the user block alike, and with
