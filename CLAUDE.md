@@ -115,6 +115,33 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   the reader sees means re-submitting through plan mode; editing the file and reporting the
   panel fixed is a claim about something that was never checked.
 
+- **BEFORE EVERY PUSH, EVERY COMMIT IN IT IS RATED BY ITS OWN AGENT, AND THE RATER LOOKS.** The
+  owner's: *"before every push, every commit in that push will be rated by separate agents (to
+  ensure the best detailed coverage), and the rater will also visually verify stuff"*, and
+  *"rater will have a guideline to check basic hygiene and feature list when visually
+  checking"*. One `work-rater` per commit, in parallel, each handed the prompts behind that
+  commit verbatim and that commit's diff, never a target. Each captures the screens its commit
+  touches (390 and 1280, light and dark, against the archive when there is one) and checks
+  them against the list below, reporting each line as seen or not seen. The pass table above
+  applies per commit.
+
+  **The visual guideline.**
+  - *Feature list*: every ask the commit answers, found on screen and pressed, not read in the
+    diff.
+  - *Hygiene*, on every screen the commit touches, measured where a number exists:
+    - A card's content is inset the same on all four sides (`--card-pad`).
+    - Every card wears `.hand-card`'s material, the same as a quote card.
+    - The phone dock slides away on scroll.
+    - No horizontal page scroll at 390 (`sideways` = 0).
+    - No text box is sized in px, and nothing clips at 175% type (`make typescale`).
+    - Glyphs are the app's own, never an emoji, and sit on the text's line.
+    - Every dropdown is the themed `Select`.
+    - Faces are circles and works are rectangles.
+    - A name is not truncated where the reader is there to read it.
+    - The ✓/✕ pair follows its arming and colour rules.
+    - Both themes read.
+    - The console shows no error.
+
 - **DO NOT EDIT CODE FILES WHILE A RATER IS RUNNING.** The owner's, standing: "do not edit
   code files when the rater is running. keep this in memory." A rater reads the tree it was
   pointed at and re-runs its suites there, so an edit mid-pass means it is rating a commit
@@ -378,10 +405,15 @@ running (`dockerd &` if not already up in this environment).
   like `feat(cast): ...`. Subject says what changed; body says why, and the rejected
   alternative — see `git log` for the house style.
 - Comments explain why, not what.
-- A frontend change ships with the rebuilt `web/dist/` in the same commit — and "frontend
-  change" includes `internal/i18n/en.txt` and `bn.txt`, which `src/i18n.js` imports with
-  Vite's `?raw`. `make frontend` rebuilds both `web/dist/` and `web/dist-inputs.json`;
-  commit the two together. `go test ./...` fails on a stale `dist`.
+- **ONE COMMIT PER FEATURE OR FIX, AND `web/dist/` IS REBUILT ONCE PER PUSH.** The owner's:
+  *"keep committing individual features and fixes"*, then *"you dont need to rebuild web/dist
+  for each … only do that when you are pushing the commits"*. So feature commits carry
+  source, tests and docs, and the last commit before every push is `chore(dist): rebuild`,
+  made with `make frontend` (which writes `web/dist/` and `web/dist-inputs.json`, committed
+  together) and then `make glossary`. "Frontend" includes `internal/i18n/en.txt` and
+  `bn.txt`, which `src/i18n.js` imports with Vite's `?raw`. `go test ./...` fails on a stale
+  `dist`, so a commit between two rebuilds is red there; every PUSHED head is not, and that
+  is the line held.
 - Docs that go stale with a change and belong in the same PR: `CHANGELOG.md` (user-visible
   changes), `docs/ui-glossary.html` (interface renames), `docs/wiki/How-this-was-written.md` (verification changes),
   `docs/wiki/Design-decisions.md` (design departures).
