@@ -953,6 +953,49 @@ What that honestly does not cover:
   is the browser's back gesture, so a nav that navigates away. The same sweep
   showed the other half was worse than the report: eleven full-viewport overlays,
   and seven of them never froze the page behind them at all.
+- **`scripts/claude-kit-setup.sh` is checked by `scripts/claude-kit-setup-check.sh`, and
+  the one thing it is for has never been run.** The check is a sandbox, not a stub
+  suite: its own `HOME` holding a copy of the installed kit's real guard, a real `git
+  init`, and stubs only for `claude` and `npm`, the two commands that would reach the
+  network, both logging their arguments so the check sees the right plugin installed and
+  `npm ci` run in both packages. It runs the setup script through the cases its
+  history broke on — a hook that is not the kit's, the kit's hook naming a version
+  that is gone, one whose text has drifted, the kit's text under someone's own
+  commands, a plugin record naming an older version than the newest cached or a
+  directory that is not there, a `settings.json` that is not JSON, an exclude file
+  with no final newline or one that only mentions visual-verify in a comment, a
+  linked worktree, `core.hooksPath`, a `HOME` with a space, no clone — and asserts the
+  last line of each, so no run over a hook it did not write ends in "set up". The hook
+  is exercised through real `git commit`s, which run it only if it is executable: one
+  with a copied kit file staged must be refused, one with an ordinary file must go
+  through, for the written hook and for the line it offers (with a command after it,
+  and after the kit moves to a new version). It is run by hand; CI cannot fetch the
+  private kit the guard comes from. Mutation-checked: thirteen edits to the setup
+  script each turned it red — overwriting any hook, dropping the audit, exiting with
+  the failure count, dropping the newline repair, preferring the newest cache to the
+  record, not checking the record's directory, dropping the chmod, not counting a
+  foreign hook or a missing clone, dropping one `npm ci`, misspelling the plugin,
+  dropping `|| exit 1` from the offered line, loosening the exclude match.
+
+  The script's first version was also run for real in the cloud container on 25
+  September, against a fresh state made by moving the plugin records, the plugin
+  cache, the marketplace clone and the user settings aside: it installed the kit,
+  wrote the thresholds, the hook, the exclude line and both `npm ci`s, a nested
+  `claude -p` started after it fired the kit's hooks, and a second run changed
+  nothing. What else was measured there, since CLAUDE.md now carries only the
+  instructions: `claude plugin install` before a `marketplace add` answers "not found
+  in marketplace", and the add fails on HTTPS authentication until the private kit is
+  attached to the session; the session that installed the kit then ran `Bash` for an
+  hour without the kit's activity log ever being written and with none of its skills
+  in its list, while `claude plugin list` showed it enabled; with the install record
+  emptied and the cache moved aside, a nested start installed nothing; a nested
+  `claude -p` started with every `CLAUDE_KIT_*` stripped from its environment read the
+  project settings' `env` block and the user settings' alike; and a staged copy of the
+  kit's `work-rating/SKILL.md` was only flagged "review only" by the guard, whose
+  built-in names predate it. **What has not been run is the one thing the script is
+  for**: executing AS a cloud environment's setup script, before Claude Code launches,
+  in a session started with the kit attached. Whether its per-clone half survives into
+  later sessions, which each start from a fresh clone, is unknown with it.
 
 ---
 

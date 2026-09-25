@@ -8,11 +8,55 @@ anywhere else. Ships as one static Go binary with the SPA embedded — no Node a
 This project references [claude-kit](https://github.com/aaronified/claude-kit) (agents,
 skills, commands, hooks) in **Reference mode** via `.claude/settings.json`
 (`extraKnownMarketplaces` + `enabledPlugins`). Nothing from the kit is copied into this
-repo, so there is nothing here to exclude or keep in sync. In an interactive session,
-Claude Code prompts to install the plugin the first time; in a headless/remote session it
-does not auto-install — run `claude plugin install claude-kit@claude-kit` there once.
-Prefer the kit's skills/agents (e.g. `test-summary`, `git-sync`, `screenshot-runner`,
-`repo-doc-set`) over ad hoc equivalents when one already fits the task.
+repo, so there is nothing here to keep in sync. In an interactive session, Claude Code
+prompts to install the plugin the first time; in a headless/remote session it does not
+auto-install. Prefer the kit's skills/agents (e.g. `test-summary`, `git-sync`,
+`screenshot-runner`, `repo-doc-set`) over ad hoc equivalents when one already fits the task.
+
+**IN A CLOUD SESSION THE KIT IS NOT INSTALLED FOR YOU, AND INSTALLING IT BY HAND REACHES ONLY
+THE CONTAINER IT RAN IN.** The cloud docs: a session does not install the plugins a repo
+turns on under `enabledPlugins`, and each session is a fresh VM
+(code.claude.com/docs/en/cloud-environments). The kit is a private repository, which the
+session's git proxy serves only once it is attached to the session. By hand, in this order:
+attach `aaronified/claude-kit` (at session start, or `add_repo`), `claude plugin
+marketplace add aaronified/claude-kit`, `claude plugin install claude-kit@claude-kit` —
+`install` alone answers *Plugin "claude-kit" not found in marketplace*. What it installs
+does not load in the session that ran it.
+
+**`scripts/claude-kit-setup.sh` IS FOR THE ENVIRONMENT'S SETUP SCRIPT**, which the owner
+pastes in (not done as of 25 September). A setup script runs once per environment cache,
+before Claude Code launches, so the session that builds the cache must be started with the
+kit picked. That route has not run end to end, so check rather than assume:
+
+- **Before relying on the kit,** its skills (`work-rating`, `pre-commit-gate`) are in the
+  session's skill list. `claude plugin list` reports what is on disk, not what loaded.
+- **Before the first commit,** with nothing staged,
+  `sh "$(git rev-parse --path-format=absolute --git-path hooks)/pre-commit"` prints
+  `kit-guard: clean`. Anything else: run the script, after attaching the kit if its plugin
+  cache is missing.
+
+What was measured, what the script was tested against, and what is still unknown are in
+`docs/wiki/How-this-was-written.md`.
+
+**PER CLONE, TWO LOCAL PIECES THAT GIT NEVER COMMITS**, both the kit's instructions:
+`/.visual-verify/` in `.git/info/exclude`, where `visual-verify` writes its working
+screenshots, and the kit's commit guard as the pre-commit hook. The guard knows the kit's
+files by a built-in list of names that predates `work-rating`, `prose-style` and several
+more, so a plain copy of one of those is only flagged for review; the list is the kit's to
+fix.
+
+**FIREFOX CANNOT BE HAD IN THE CLOUD CONTAINER** (the comment above `CHROME_CANDIDATES` in
+`scripts/screenshots/capture.mjs` says why), **AND THE KIT SAYS NOT TO TRY**: `visual-verify`
+forbids installing a browser to reach Firefox. Captures there take the pre-installed
+Chromium with `TIPPANI_BROWSER=chrome`, and the report names the engine.
+
+**THE KIT'S `AI.md` IS `docs/wiki/How-this-was-written.md`**, moved there and not copied
+(the wiki's Home says so), **and it carries no census block**, so `pre-commit-gate` stage
+0's `ai_census.py --check` exits 2 here, with or without `--ai-file` pointing at it.
+**Whether the page takes a census block is the owner's decision, not yet made**: the block
+is figures the gate re-stamps on every commit, and this shallow clone would understate them
+until `git fetch --unshallow` (not tried here). Until then that exit is expected. An `AI.md`
+made to quiet it would be a second copy of a page the wiki says has none.
 
 Two of the kit's rules bind work in this repo even when no kit skill is running:
 
@@ -56,15 +100,29 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
 
   `session_digest.py` fires on whichever of three thresholds trips first — prompts,
   minutes, tool calls — so switching it off means pushing **all three** out of reach, not
-  one. They are `CLAUDE_KIT_DIGEST_MINUTES`, `_EVERY` and `_TOOLS`, all at `100000`.
+  one. They are `CLAUDE_KIT_DIGEST_MINUTES`, `_EVERY` and `_TOOLS`, all at `100000`. Not
+  the kit's single switch, `CLAUDE_KIT_DIGEST=0`: that also stops the ledger, and the ledger
+  is what `/digest` reads when the owner asks for a summary (the kit's `commands/digest.md`).
 
-  **AND THE PROJECT FILE IS NOT THE ONLY PLACE THEY HAVE TO BE SET.** In a headless or
-  remote session the project `env` block does not reach the hook process — the names read
-  back as unset and the hook uses its own defaults (60 tool calls), so a digest fires while
-  the project file says it cannot. The same three names are in `/root/.claude/settings.json`
-  for that reason, and that file is NOT in this repo, so a fresh machine needs them written
-  there by hand. A setting that is true in one file and inert in the process is the shape of
-  thing this document exists to stop.
+  **AND THE PROJECT FILE IS NOT THE ONLY PLACE THEY HAVE TO BE SET.** A remote session once
+  fired a digest while the project file said it could not: the hook read the three names as
+  unset and used its own defaults (60 tool calls). Which session that was is not recorded,
+  but the cloud docs name a cause that fits: a session with several repositories reads no
+  repo's `.claude/settings.json` (code.claude.com/docs/en/cloud-environments, *What carries
+  over from your setup*), and picking the kit alongside this repo at session start makes a
+  session exactly that. Where the
+  project file IS read, it reaches the hooks: on 25 September (Claude Code 2.1.282) a nested
+  `claude -p` in the cloud container, started with every `CLAUDE_KIT_*` stripped from its
+  environment, handed the kit's hooks the project block and the user block alike, and with
+  the value in neither the hook fell back to its default, as a control. So the same three
+  names are also in `/root/.claude/settings.json`, which is NOT in this repo: a fresh machine
+  needs them written there, by hand or by `scripts/claude-kit-setup.sh`. **The route the docs
+  give, and the one that needs no file at all, is the cloud environment's own environment
+  variables**, which every session copies into its process environment at startup (same
+  page, *Set environment variables*). They are the owner's to set, and this environment sets
+  none of the three — the session's launch environment carries no `CLAUDE_KIT_*`. A setting
+  that is true in one file and inert in the process is the shape of thing this document
+  exists to stop.
 
   History, kept because it is what the settings will look like if the digest is ever wanted
   back: it ran on a clock rather than a counter, first at 30 minutes and then at 120
