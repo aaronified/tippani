@@ -380,7 +380,7 @@ why Amazon's is the letterform alone.
 | File | What it does |
 | --- | --- |
 | `workflows/ci.yml` | The push and PR gate. Six jobs: `go`, `race`, `race-nightly`, `journeys`, `frontend`, `roadmap`. |
-| `workflows/roadmap-bugs.yml` | On every issue event, rebuilds the tracker snapshot, re-renders the roadmap, and commits if anything moved. |
+| `workflows/roadmap-bugs.yml` | On every issue event, rebuilds the tracker snapshot, re-renders the roadmap, and commits if anything moved, then dispatches `pages.yml` when the page itself moved, because its own push starts no workflow. |
 | `workflows/pages.yml` | Builds the demo and assembles the published site around it. |
 | `workflows/wiki.yml` | Copies `docs/wiki/*.md` to this repository's GitHub wiki. The repository is the source; an edit made in the wiki is overwritten by the next run. |
 | `workflows/release.yml` | Cuts the GitHub Release on a `v*` tag from that version's changelog section. |
