@@ -108,7 +108,9 @@ describe('the controls ratchet', () => {
     // refusal, and the case below proves nothing else claims it.
     const dead = ['--base-url', 'http://127.0.0.1:1', '--width', '390']
     const run = spawnSync(process.execPath, [join(SHOTS, 'controls.mjs'), ...dead], { encoding: 'utf8' })
-    expect(run.status, 'the probe ran without being told which library it is against, so its ratchet was off').toBe(2)
+    // The probe's own stderr goes in the message: a probe that died while loading
+    // exits 1 too, and without its words that reads as a refusal that never fired.
+    expect(run.status, `the probe ran without being told which library it is against, so its ratchet was off\n${run.stderr}`).toBe(2)
     expect(`${run.stderr}${run.stdout}`, 'it refused without saying what to pass').toMatch(/--fixture/)
 
     // 2 MEANS THIS AND ONLY THIS. Given a shelf, the same unreachable server is a
@@ -175,7 +177,7 @@ describe('the controls ratchet', () => {
     // baseline at the foot of the file, so the typo still cost fifty minutes.
     const dead = ['--base-url', 'http://127.0.0.1:1', '--width', '390']
     const typo = spawnSync(process.execPath, [join(SHOTS, 'controls.mjs'), ...dead, '--fixture', 'bakcup'], { encoding: 'utf8' })
-    expect(typo.status, 'a shelf with no ceiling ran anyway').toBe(2)
+    expect(typo.status, `a shelf with no ceiling ran anyway\n${typo.stderr}`).toBe(2)
     expect(`${typo.stderr}${typo.stdout}`, 'it refused without naming the shelves it knows').toMatch(/seed/)
     expect(typo.stdout, 'it walked the app before deciding the shelf was a typo').not.toMatch(/presses/)
 

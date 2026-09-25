@@ -335,11 +335,11 @@ jobs:
       # NO `npm ci` IN scripts/screenshots IN THIS JOB, ON PURPOSE.
       # controls-ratchet.test.js (run by this step) runs controls.mjs to watch it
       # refuse a missing or unknown --fixture, and those refusals have to work on a
-      # clone that installed only web/frontend. If those two cases go red with
-      # "expected 1 to be 2", something controls.mjs loads statically (it,
-      # capture.mjs or ratchet.mjs) has started importing a package from that
-      # directory. Where the import sits does not matter: static imports resolve
-      # before any line runs. Installing here would hide it.
+      # clone that installed only web/frontend. When those two cases go red, the
+      # message carries what the probe printed; a package it cannot resolve is the
+      # failure this missing install exists to catch, and installing here would
+      # hide it. (test/pure/one-tree-per-look.test.js, in `npm test` above, loads
+      # capture.mjs the same way.)
       - run: npm run lint:rules
         working-directory: web/frontend
       - run: npm run build
