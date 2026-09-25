@@ -20,39 +20,48 @@ marketplace add aaronified/claude-kit` then fails on HTTPS authentication, becau
 is a private repository the session's git proxy serves only once it is one of the session's
 repositories. What worked, in this order: attach `aaronified/claude-kit` to the session
 (pick it at session start, or `add_repo`), then `claude plugin marketplace add
-aaronified/claude-kit`, then `claude plugin install claude-kit@claude-kit`. **The install
-takes effect at the NEXT session start, not in the session that ran it** — a nested
-`claude -p` in the same container fired the kit's `SessionStart` hook and the installing
-session never did. Nor does a start install it on its own once the marketplace is cloned:
-with the install record emptied and the cache moved aside, a nested start fired no hook and
-recorded no install. The container is ephemeral — reclaimed after inactivity, with nothing
-outside a pushed commit surviving it, by the environment's own description rather than a
-test here — so the install, the digest settings below and the two per-clone lines go with
-it. **`scripts/claude-kit-setup.sh` puts all of it back**, and belongs in the environment's
-setup script, which runs before the session starts. Tested against a fresh state (plugin
-records, cache, marketplace and user settings moved aside): it installed the kit, wrote the
-thresholds, the hook, the exclude line and `npm ci`; the next start fired the kit's hooks;
-a second run changed nothing. Not tested: running AS the setup script, which needs the kit
-attached for the same reason.
+aaronified/claude-kit`, then `claude plugin install claude-kit@claude-kit`.
 
-**PER CLONE, TWO LOCAL LINES THAT GIT NEVER COMMITS**, both the kit's own instructions:
+**DONE BY HAND, THOSE THREE STEPS REACH NO CLOUD SESSION.** The install takes effect at the
+next session start, not in the session that ran it: the installing session went on running
+`Bash` for an hour, the kit's activity log — which records every `Bash` call — was never
+written, and none of the kit's skills appeared in it, while a `claude -p` started afterwards
+in the same container fired the kit's hooks. Nor does a start install it on its own once
+the marketplace is cloned: with the install record emptied and the cache moved aside, a
+nested start fired no hook and recorded no install. And the container is ephemeral —
+reclaimed after inactivity, nothing outside a pushed commit surviving it, by the
+environment's own description rather than a test here — so the next session starts in a new
+container without the install, the digest settings below or the per-clone pieces.
+**`scripts/claude-kit-setup.sh` is the route that does reach one**: it belongs in the
+environment's setup script, which runs before the session starts. Tested against a fresh
+state (plugin records, cache, marketplace and user settings moved aside): it installed the
+kit, wrote the thresholds, the hook, the exclude line and `npm ci`; the next start fired the
+kit's hooks; a second run changed nothing. Not tested: running AS the setup script, which
+needs the kit attached for the same reason.
+
+**PER CLONE, TWO LOCAL PIECES THAT GIT NEVER COMMITS**, both the kit's own instructions:
 `/.visual-verify/` in `.git/info/exclude`, because `visual-verify` writes its working
 screenshots there and a `git add -A` after a run would commit them; and the kit's commit
 guard as `.git/hooks/pre-commit` (`kit_guard.py --hook`), which refuses a commit carrying a
 kit file and skips itself when the plugin has moved.
 
-**FIREFOX CANNOT BE HAD IN THE CLOUD CONTAINER, AND THE KIT SAYS NOT TO TRY.** The screenshot
-harness defaults to Firefox because `visual-verify` puts it first, but the container has
-none, apt offers only the snap stub, and the environment's proxy refuses every Mozilla
-download host (403). `visual-verify` forbids installing a browser to reach Firefox — take
-the next one in its order and say why — so captures there run on the pre-installed Chromium
-with `TIPPANI_BROWSER=chrome`, and the report names the engine.
+**FIREFOX CANNOT BE HAD IN THE CLOUD CONTAINER, AND THE KIT SAYS NOT TO TRY.** Why the
+container has none, and why the harness stays Firefox-first anyway, is the comment above
+`CHROME_CANDIDATES` in `scripts/screenshots/capture.mjs`. What that comment does not say is
+the kit's rule: `visual-verify` forbids installing a browser to reach Firefox, so captures
+there take the pre-installed Chromium with `TIPPANI_BROWSER=chrome` and the report names the
+engine.
 
 **THE KIT'S `AI.md` IS `docs/wiki/How-this-was-written.md`**, moved there and not copied
-(the wiki's Home says so). `pre-commit-gate` stage 0 runs `ai_census.py --check`, which looks
-only for `AI.md` or `docs/AI.md`, so it exits 2 here — and the page carries no census block
-to compare anyway. That exit is the layout, not drift. Creating an `AI.md` to quiet it would
-put a second copy of a page beside the one the wiki says has none.
+(the wiki's Home says so), **and it carries no census block.** So `pre-commit-gate` stage 0's
+`ai_census.py --check` exits 2 here twice over: as the stage writes it, it looks for `AI.md`
+or `docs/AI.md` and finds neither; pointed at the page with `--ai-file
+docs/wiki/How-this-was-written.md`, it finds no `## Measured as of` heading to compare.
+**Whether the page takes a census block is the owner's decision, and it has not been
+made** — the block is figures the gate then re-stamps on every commit, and a shallow clone
+cannot produce them (the census says its own figures understate by an unknown amount). Until
+it is made, that exit is expected. Creating an `AI.md` to quiet it would put a second copy
+beside the page the wiki says has none.
 
 Two of the kit's rules bind work in this repo even when no kit skill is running:
 
@@ -98,17 +107,17 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   minutes, tool calls — so switching it off means pushing **all three** out of reach, not
   one. They are `CLAUDE_KIT_DIGEST_MINUTES`, `_EVERY` and `_TOOLS`, all at `100000`.
 
-  **AND THE PROJECT FILE IS NOT THE ONLY PLACE THEY HAVE TO BE SET.** In a headless or
-  remote session the project `env` block does not reach the hook process — the names read
-  back as unset and the hook uses its own defaults (60 tool calls), so a digest fires while
-  the project file says it cannot. The same three names are in `/root/.claude/settings.json`
-  for that reason, and that file is NOT in this repo, so a fresh machine needs them written
-  there — by hand, or by `scripts/claude-kit-setup.sh`. A setting that is true in one file
-  and inert in the process is the shape of thing this document exists to stop. (25 September,
-  Claude Code 2.1.282: a nested `claude -p` in the cloud container DID hand the project block
-  to the kit's hooks, so the case that fails is narrower than every headless session. That
-  is not a reason to drop the user-level copy — a session cannot tell from inside which case
-  it is in.)
+  **AND THE PROJECT FILE IS NOT THE ONLY PLACE THEY HAVE TO BE SET.** A remote session once
+  fired a digest while the project file said it could not: the hook read the three names as
+  unset and used its own defaults (60 tool calls). What made that session different is not
+  known. On 25 September (Claude Code 2.1.282) a nested `claude -p` in the cloud container,
+  started with every `CLAUDE_KIT_*` stripped from its environment, handed the kit's hooks the
+  project block and the user block alike — and with the value in neither, the hook fell back
+  to its default, as a control. So the same three names are also in
+  `/root/.claude/settings.json`, which is NOT in this repo: a fresh machine needs them written
+  there, by hand or by `scripts/claude-kit-setup.sh`. The copy costs nothing, and a session
+  cannot tell from inside which case it is in. A setting that is true in one file and inert
+  in the process is the shape of thing this document exists to stop.
 
   History, kept because it is what the settings will look like if the digest is ever wanted
   back: it ran on a clock rather than a counter, first at 30 minutes and then at 120
