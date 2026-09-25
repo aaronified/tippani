@@ -1111,6 +1111,8 @@ common.field.passphrase.label = পাসফ্রেজ
 shell.login.password.range.placeholder = পাসওয়ার্ড ({a}–{b} অক্ষর)
 shell.login.cta.label = লগ ইন
 shell.login.microcopy.prose = ঢুকতে পারছেন না? অ্যাডমিন পাসওয়ার্ড বদলে দিতে পারেন
+shell.password.temporary.title = নিজের পাসওয়ার্ড বেছে নিন
+shell.password.temporary.prose = যে পাসওয়ার্ডে ঢুকলেন সেটা অ্যাডমিনের দেওয়া। লাইব্রেরি খুলতে এমন একটা পাসওয়ার্ড দিন যা শুধু আপনি জানেন।
 # The toast on a successful login. {name} is the account's username.
 shell.login.toast.welcome = ফিরে এলেন, {name}
 # What the toast calls somebody whose account has no username to read.
@@ -5534,6 +5536,13 @@ settings.restore.warn.dated.prose = এই সার্ভারের সবক
 # common.field.password.label.
 # bn: আপনার stays: the contrast with a passphrase is the point of the label (§1.3).
 settings.restore.password.label = আপনার পাসওয়ার্ড
+settings.safety.why.prose = প্রথমে এই সার্ভারে এখন যা আছে তার একটা কপি ডাউনলোড করুন। অন্য ব্যাকআপের মতোই এটা সিল করা থাকে, আর এখানে রাখা হয় না।
+settings.safety.done.prose = কপি ডাউনলোড হয়েছে। নতুন ডেটা ঠিক আছে কিনা নিশ্চিত না হওয়া পর্যন্ত এটা রেখে দিন।
+settings.safety.action = আগে একটা ব্যাকআপ ডাউনলোড করুন
+settings.safety.busy = কপি তৈরি হচ্ছে…
+settings.safety.first.reason = আগে একটা ব্যাকআপ ডাউনলোড করুন
+settings.safety.password.label = কপি সিল করার জন্য আপনার পাসওয়ার্ড
+settings.safety.passphrase.label = কপি সিল করার জন্য পাসফ্রেজ
 settings.restore.password.recoverable.prose = এই আর্কাইভ এই সার্ভারেরই তৈরি, তাই আপনার এখনকার পাসওয়ার্ডেই খুলবে।
 settings.restore.password.named.prose = অন্য সার্ভারে ‘{name}’-এর তৈরি, তাই তখন ওই অ্যাকাউন্টের যে পাসওয়ার্ড ছিল সেটাই লাগবে।
 settings.restore.password.era.prose = অন্য সার্ভারে তৈরি, তাই তৈরির সময় যে পাসওয়ার্ড ছিল সেটাই লাগবে।
