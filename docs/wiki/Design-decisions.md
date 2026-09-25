@@ -9050,6 +9050,9 @@ to see a glyph change shape on a state change should find the reason rather than
 
 ### OPEN — the nightly `-race` sweep no longer fits in its hour
 
+*Closed at 3.0.1 by "internal/httpapi is raced nightly in six shards" below. The per-package
+split after this entry did not close it, whatever that entry said.*
+
 - **Measured 2026-09-01**, on an otherwise idle machine: `go test -race
   ./internal/httpapi/` did not finish in 55 minutes. It panicked on the timeout with the
   suite still working — **no data race, no deadlock**, five goroutines alive and one test
@@ -9127,18 +9130,46 @@ beside it. The owner's answer: "Fall back to icon rail. And also get rid of 200%
 
 ### The nightly `-race` sweep is sharded by package
 
-*Closes the third open question. The owner: "Shard the nightly by package."*
+*Was said to close the open question above; it did not. The owner: "Shard the nightly by
+package."*
 
 - **One job per package, `fail-fast: false`,** which is the point rather than a detail: a
   race in `internal/store` must not cancel the run that would have found the one in
-  `internal/importer`. 60m per package rather than for the tree — `httpapi` is the only one
-  that needs it, and the rest cost nothing by being allowed the same ceiling.
+  `internal/importer`. 60m per package. That gave `internal/httpapi` nothing it did not
+  already have — `-timeout` applies to each test binary on its own — and the 2.2.9 nightly
+  (run 36112406641) timed out in it anyway; see the next entry.
 - **The list is explicit and a test keeps it honest.** `go list ./...` in a shell step
   would be self-maintaining and would also silently drop a renamed package, with the sweep
   going green because it swept nothing — the same false green that cost this repo v1.7.4.
   `TestEveryTestedPackageIsInTheNightlySweep` fails in both directions.
 
 <sub>Unreleased — `.github/workflows/ci.yml` · `internal/olog/codes_test.go`</sub>
+
+### internal/httpapi is raced nightly in six shards, by test name
+
+*Closes the open question above.*
+
+- **Six jobs, one package, a sixth of its tests each.** `race-nightly-httpapi` is a matrix
+  of `./internal/httpapi` by six shards. Each shard lists the package's tests from the race
+  binary (`go test -race -list`), takes every sixth in round-robin, and runs them with its
+  own `-timeout 60m` and `-count=1`. The share is never written down, so a test added
+  tomorrow lands in a shard with nothing to update, and the shard count is the matrix's
+  own size.
+- **Every shard checks every test it was dealt, by name,** as the per-push job checks its
+  five. A `-run` pattern that matches nothing exits 0, which is the false green that cost
+  v1.7.4.
+- **Instead of.** Raising the package's timeout alone: one job well over an hour, which is
+  a job nobody reads. Sampling the sweep: it stops being a sweep. Sharding by package, the
+  entry above: it named the package but gave it no more time.
+- **Whose call.** The session's own. It had reported this timeout to the owner as "a budget
+  decision for you", and then took the decision under the owner's "work on the fixes for
+  v3.0.1". The owner may reverse it.
+- **Not yet measured on a runner under `-race`.** Without `-race` (the container that built
+  it has no C compiler), 1,360 tests split 227/227/227/227/226/226 and every shard passed.
+  `workflow_dispatch` runs the sweep by hand, so the first measurement need not wait for
+  03:00.
+
+<sub>3.0.1 — `.github/workflows/ci.yml` · `docs/wiki/Developing.md`</sub>
 
 ### The work detail is two columns, and it opts out of the window's scroll
 
