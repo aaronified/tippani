@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Keeps Developing.md's "Where things live" map honest, in the two ways it goes wrong.
+// Keeps Developing.md's "Where things live" map honest in the two ways it goes wrong,
+// and its CI table in step with ci.yml's jobs.
 //
 // It does NOT try to keep the document in sync with the code. The map is deliberately
 // written at an altitude where syncing is unnecessary — patterns and chokepoints, not an
@@ -145,16 +146,21 @@ const missing = required.filter((p) => !named(p))
 // so a job it never names is the MISSING failure one level down. It reads the job
 // keys by their indentation under `jobs:` and the table's rows by their first cell,
 // in both directions: a job with no row, and a row for a job ci.yml no longer has.
-// It refuses to pass having found no jobs, no table, or a key line under `jobs:` it
-// could not read as a job id — a partial miss is the same silence as a total one.
-const jobsText = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8').split(/^jobs:\s*$/m)[1] ?? ''
+// It refuses to pass having found no jobs or no table, a key line under `jobs:` it
+// could not read as a job id, or a table row whose first cell is not one backticked
+// job id — a partial miss is the same silence as a total one. The `jobs:` block ends
+// at the next line that starts in column 0 and is not a comment.
+const jobsText = (readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8').split(/^jobs:\s*$/m)[1] ?? '')
+  .split(/^[^\s#]/m)[0]
 const ciJobs = [...jobsText.matchAll(/^ {2}([A-Za-z_][A-Za-z0-9_-]*):[ \t]*(?:#.*)?$/gm)].map((m) => m[1])
 const keyLines = [...jobsText.matchAll(/^ {2}[^ #\r\n]/gm)].length
 const ciSection = text.split(/^## Maintainer: CI\s*$/m)[1]?.split(/^## /m)[0] ?? ''
-const rows = [...ciSection.matchAll(/^\| `([^`]+)` \|/gm)].map((m) => m[1])
-if (!ciJobs.length || keyLines !== ciJobs.length || !rows.length) {
+// Every table line but the header row and the |---| rule.
+const tableLines = ciSection.split('\n').filter((l) => l.startsWith('|') && !/^\|\s*:?-{3}/.test(l)).slice(1)
+const rows = tableLines.map((l) => /^\|\s*`([^`]+)`\s*\|/.exec(l)?.[1]).filter(Boolean)
+if (!ciJobs.length || keyLines !== ciJobs.length || !rows.length || rows.length !== tableLines.length) {
   console.error(`${DOC}: read ${ciJobs.length} job ids from ${keyLines} key lines under jobs: in ci.yml, ` +
-    `and ${rows.length} rows in the "Maintainer: CI" table — the extractor is broken`)
+    `and ${rows.length} job ids from ${tableLines.length} rows in the "Maintainer: CI" table — the extractor is broken`)
   process.exit(2)
 }
 const unlisted = ciJobs.filter((j) => !rows.includes(j))
