@@ -18,7 +18,8 @@
 //   they name nothing: every one was a 404.
 //
 // So, outside code spans and fences: a link to a wiki page loses its `.md`; a link to
-// a file the Pages site publishes goes to the site; any other path in the repository
+// one of the pages the Pages site publishes (the landing page, the roadmap, the
+// glossary) goes to the site; any other path in the repository
 // goes to github.com at the ref being published, under blob/ for a file and tree/ for
 // a directory (a target ending in `/`). Anchors are kept. Nothing else is touched.
 // It resolves paths as strings and reads no file but the pages, so what exists is
@@ -34,10 +35,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-// What pages.yml copies into the Pages site, by the path each has in the repository.
-// pages.yml's "Assemble the site" step is the source; a file added there and not here
-// is linked on github.com instead, which shows its source rather than breaking.
+// The pages pages.yml copies into the Pages site, by the path each has in the
+// repository, and where each lands (the landing page is the site's root).
+// pages.yml's "Assemble the site" step is the source; a file it copies and this map
+// does not name is linked on github.com instead, which shows its source rather than
+// breaking.
 const ON_THE_SITE = {
+  'docs/landing.html': '',
   'docs/roadmap.html': 'roadmap.html',
   'docs/ui-glossary.html': 'ui-glossary.html',
 }
@@ -71,7 +75,7 @@ export function wikiTarget(target, { pages, repo, ref }) {
   if (inRepo === '..' || inRepo.startsWith('../')) {
     throw new Error(`link "${target}" climbs out of the repository`)
   }
-  if (ON_THE_SITE[inRepo]) return siteOf(repo) + ON_THE_SITE[inRepo] + anchor
+  if (inRepo in ON_THE_SITE) return siteOf(repo) + ON_THE_SITE[inRepo] + anchor
   const dir = path.endsWith('/')
   return `https://github.com/${repo}/${dir ? 'tree' : 'blob'}/${ref}/${inRepo.replace(/\/$/, '')}${dir ? '/' : ''}${anchor}`
 }

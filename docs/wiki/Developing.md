@@ -384,7 +384,7 @@ why Amazon's is the letterform alone.
 | `workflows/ci.yml` | The push and PR gate. What each of its jobs runs is under [Maintainer: CI](#maintainer-ci). |
 | `workflows/roadmap-bugs.yml` | On every issue event, rebuilds the tracker snapshot, re-renders the roadmap, and commits if anything moved, then dispatches `pages.yml` when the page itself moved, because its own push starts no workflow. |
 | `workflows/pages.yml` | Builds the demo and assembles the published site around it. |
-| `workflows/wiki.yml` | Copies `docs/wiki/*.md` to this repository's GitHub wiki. The repository is the source; an edit made in the wiki is overwritten by the next run. |
+| `workflows/wiki.yml` | Writes `docs/wiki/*.md` to this repository's GitHub wiki through `wiki-publish.mjs`, with links rewritten for the wiki and the text otherwise unchanged. The repository is the source; an edit made in the wiki is overwritten by the next run. |
 | `workflows/release.yml` | Cuts the GitHub Release on a `v*` tag from that version's changelog section. |
 | `workflows/docker-publish.yml` | Builds the multi-arch image and pushes to GHCR. Decides which image tags may move. |
 | `ISSUE_TEMPLATE/` | The two issue forms and the no-blank-issues config that feed the roadmap pipeline. |

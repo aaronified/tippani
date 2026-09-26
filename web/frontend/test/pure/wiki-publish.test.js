@@ -47,16 +47,18 @@ describe('wiki-publish', () => {
     const read = publish({
       'Home.md': [
         '[go.mod](../../go.mod), [plans](../plans/), [the roadmap](../roadmap.html#android),',
-        '[the glossary](../ui-glossary.html), [a design](../design/handoff/handoff.md)',
+        '[the glossary](../ui-glossary.html), [a design](../design/handoff/handoff.md),',
+        '[home](../landing.html)',
         '',
       ].join('\n'),
-    }, { ref: 'v3' })
+    }, { ref: 'next' })
     expect(read('Home.md')).toBe([
-      '[go.mod](https://github.com/aaronified/tippani/blob/v3/go.mod), '
-        + '[plans](https://github.com/aaronified/tippani/tree/v3/docs/plans/), '
+      '[go.mod](https://github.com/aaronified/tippani/blob/next/go.mod), '
+        + '[plans](https://github.com/aaronified/tippani/tree/next/docs/plans/), '
         + '[the roadmap](https://aaronified.github.io/tippani/roadmap.html#android),',
       '[the glossary](https://aaronified.github.io/tippani/ui-glossary.html), '
-        + '[a design](https://github.com/aaronified/tippani/blob/v3/docs/design/handoff/handoff.md)',
+        + '[a design](https://github.com/aaronified/tippani/blob/next/docs/design/handoff/handoff.md),',
+      '[home](https://aaronified.github.io/tippani/)',
       '',
     ].join('\n'))
   })

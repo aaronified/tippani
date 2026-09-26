@@ -8,8 +8,9 @@ name: wiki
 # Developing.md's file map against the tree, ai-counts recounts
 # How-this-was-written.md, and wiki-check.mjs proves every internal link resolves.
 # None of those can see the wiki — it is a separate git repository with no CI of its
-# own. So the repository stays the source and this job copies it across, which is the
-# only arrangement where the published pages are the checked ones.
+# own. So the repository stays the source and this job publishes it across, changing
+# only link targets (wiki-publish.mjs), which is the only arrangement where the
+# published text is the checked text.
 #
 # THE WIKI IS THEREFORE DOWNSTREAM. An edit made in the browser is overwritten by the
 # next run of this job, and that is deliberate rather than unfortunate: the alternative
@@ -26,6 +27,10 @@ on:
     paths:
       - "docs/wiki/**"
       - ".github/workflows/wiki.yml"
+      # The publisher and the check that gates it: a change to either changes what
+      # the wiki receives without touching a page.
+      - "scripts/wiki-publish.mjs"
+      - "scripts/wiki-check.mjs"
   workflow_dispatch:
 
 # The wiki is one branch in one repository, so two runs pushing at once is a race
