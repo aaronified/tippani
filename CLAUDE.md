@@ -82,7 +82,30 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   | The pass says | What happens |
   |---|---|
   | **8/10 or better** | fix every finding, then **stop**. No second pass. |
-  | **below 8/10** | fix every finding, then **rerun**, and repeat until a pass lands at 8 or better. |
+  | **below 8/10, with three or more major findings** | fix every finding, then **rerun**, on the fixes. |
+  | **below 8/10, with fewer than three major findings** | fix every finding, then **stop**. |
+
+  **FEWER THAN THREE MAJOR FINDINGS, NO RERUN, WHATEVER THE SCORE.** The owner, 27 September,
+  after 3.0.4 took six passes: *"if a rater didn't find at least 3 major issues, no need to
+  rerun rater, regardless of rating."* A major finding is a SCORED one (below) that the rater
+  marks high or medium severity.
+
+  **ONLY ACTUAL ISSUES COST POINTS.** The same day: *"Make the rater cut rating marks only for
+  actual issues, documentation problems are non rated issues (still should be reported)
+  unless it is facing the user in the app or about a wrong claim in readme or wiki."*
+  - **Scored:** a behaviour defect; a test that cannot fail for the defect it names; a
+    house-rule breach in code; text a user meets in the app; a wrong claim in the README or
+    the wiki; and a false account of the work (a body or report claiming a run, a mutation or
+    a change that did not happen).
+  - **Reported, not scored:** every other documentation problem: commit bodies, code
+    comments, plans, test headers and fixture notes. The rater lists each, marked unscored,
+    and it is fixed or answered like any finding. It lowers no number.
+
+  The rater's prompt carries that split, since it is part of how to score and not a target.
+  Why both rules came together: 3.0.4's last four passes scored commits below 8 almost entirely
+  for their commit bodies (a misquote, a miscount, a file named wrong). History here is never
+  rewritten, so each correction was a new body for the next pass to fault, and the loop ended
+  only when the owner stopped it.
 
   EVERY FINDING IS FIXED EITHER WAY. The score decides whether another pass runs, never
   whether the findings are worth acting on — a 9/10 pass's three findings are three real
