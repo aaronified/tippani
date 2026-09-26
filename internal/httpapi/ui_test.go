@@ -486,9 +486,9 @@ func TestStats(t *testing.T) {
 	if !names["Gaiman"] || !names["Pratchett"] || names["Gaiman & Pratchett"] {
 		t.Fatalf("joined credit not split: %+v", authors.Top)
 	}
-	// Every quote was saved seconds ago — the new-item grace week reads them
-	// all as remembered.
-	if authors.Top[0].Remembered != 2 || authors.Top[0].Unseen != 0 {
+	// Every quote was saved seconds ago and nobody has asked them, so they read
+	// unseen (not yet asked), grace week or not.
+	if authors.Top[0].Remembered != 0 || authors.Top[0].Unseen != 2 {
 		t.Fatalf("grace-week statuses: %+v", authors.Top[0])
 	}
 	actors := got.Breakdown["actors"]
@@ -503,8 +503,8 @@ func TestStats(t *testing.T) {
 		got.Breakdown["films"].Count != 1 || got.Breakdown["shows"].Count != 0 || got.Breakdown["series"].Count != 0 {
 		t.Fatalf("breakdown works: books=%+v films=%+v", got.Breakdown["books"], got.Breakdown["films"])
 	}
-	// Recall overview: 6 quotes, all inside the grace week, none reviewed yet.
-	if got.Recall.States.Total != 6 || got.Recall.States.Remembered != 6 || got.Recall.Reviewed != 0 {
+	// Recall overview: 6 quotes, none asked yet, so all six read unseen.
+	if got.Recall.States.Total != 6 || got.Recall.States.Unseen != 6 || got.Recall.Reviewed != 0 {
 		t.Fatalf("recall: %+v", got.Recall)
 	}
 	// Highlight colours across every kind that wears one: q1 blue; q2–q4 and both

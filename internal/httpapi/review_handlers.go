@@ -93,7 +93,7 @@ const (
 	// 100, so nothing sits above the old ceiling to rescue, and the off-rung climb
 	// rule in nextRung lets a value join the nearest rung above at its next answer.
 	reviewMaxStability = 365.0
-	reviewNewItemDays  = 7.0 // days; grace week after an item is added — reads "remembered", not yet due
+	reviewNewItemDays  = 7.0 // days; grace week after an item is added: the daily quiz does not ask it yet
 	reviewSeen         = 1.0 // default srSeen: "seeing" (practice/share/favourite) marginal lengthen; 1.0 = off
 	reviewQuota        = 8   // default srDaily deck size
 	// reviewLeechLapses is how many times a card has to be forgotten before the
@@ -697,18 +697,22 @@ func srScopeValid(scope string) bool {
 // timestamp, is the honest signal; the card re-earns "remembered" only when a
 // later recall succeeds (flipping last_result back to "got").
 //
-// A fresh item gets a grace week (reviewNewItemDays): having just saved the
-// quote counts as knowing it, so the card reads "remembered" before any
-// review — unless a recorded lapse says otherwise (the check above).
+// A QUOTE NEVER ASKED IS "unseen" FROM THE DAY IT IS SAVED. The owner, at 3.0.3:
+// "this shall be grace week, the quotes will not be 'forgotten', but not yet
+// asked." It used to read "remembered" for its first week, on the theory that
+// saving a quote counts as knowing it, which said the one thing about it that
+// nothing had checked. The grace week (reviewNewItemDays) stays, and is a rule
+// about the DECK: a quote waits a week before the daily quiz asks it. An item
+// that has been answered inside its first week still reads "remembered" then.
 func recallStatus(seen bool, stability, elapsedDays, ageDays float64, lastResult string) string {
 	if lastResult == "forgot" {
 		return "probably-forgotten"
 	}
-	if ageDays < reviewNewItemDays {
-		return "remembered"
-	}
 	if !seen {
 		return "unseen"
+	}
+	if ageDays < reviewNewItemDays {
+		return "remembered"
 	}
 	if stability < reviewMinStability {
 		stability = reviewMinStability
@@ -915,9 +919,10 @@ func elapsedDays(ts sql.NullString) float64 {
 type deckBucket int
 
 const (
-	bucketAll    deckBucket = iota // Practice: the whole in-scope pool
-	bucketDue                      // Daily: answered cards whose interval has elapsed
-	bucketUnseen                   // Daily: never-answered cards past their grace week
+	bucketDue        deckBucket = iota // Daily: answered cards whose interval has elapsed
+	bucketUnseen                       // Daily: never-answered cards past their grace week
+	bucketAsked                        // Practice: every answered card, due or not
+	bucketNeverAsked                   // Practice: every never-answered card, grace week or not
 )
 
 // shuffleKeySQL mirrors shuffleKey as a SQL expression so a bounded fetch takes
@@ -1071,7 +1076,11 @@ func (rs reviewSource) bucketClause(bucket deckBucket, mod, day string, seed int
 		         AND COALESCE(julianday('now') - julianday(x.created_at), 1e9) >= ?
 		         ORDER BY ` + shuffle,
 			[]any{reviewNewItemDays, seed}
-	default: // bucketAll
+	case bucketAsked:
+		return ` AND r.item_id IS NOT NULL ORDER BY ` + shuffle, []any{seed}
+	case bucketNeverAsked:
+		return ` AND r.item_id IS NULL ORDER BY ` + shuffle, []any{seed}
+	default: // no bucket asks for the whole pool since Practice split in two (3.0.3)
 		return ` ORDER BY ` + shuffle, []any{seed}
 	}
 }
@@ -1082,7 +1091,8 @@ const schedCols = `r.item_id IS NOT NULL, COALESCE(r.stability, ?), COALESCE(r.r
                    COALESCE(r.last_result,''), COALESCE(julianday('now') - julianday(x.created_at), 1e9)`
 
 // bookCandidates / screenCandidates / utteranceCandidates fetch reviewable cards
-// for one bucket. bucketAll (Practice) returns the whole in-scope pool;
+// for one bucket. bucketAsked / bucketNeverAsked (Practice) return the answered
+// and the never-answered halves of the in-scope pool, hash-spread;
 // bucketDue / bucketUnseen (Daily) each return their own slice,
 // most-forgotten-first and hash-spread respectively, capped at `limit`.
 func (s *Server) bookCandidates(uid int64, bucket deckBucket, th reviewTheme, mod, day string, seed int64, limit int) ([]reviewCand, error) {
@@ -1250,10 +1260,18 @@ const (
 	// that can't form a multiple-choice question (too few distinct titles), so
 	// the deck needs spares to still fill.
 	reviewFetchHeadroom = 5
-	// reviewUnseenShare reserves every Nth Daily slot for a card never answered.
-	// At the default quota of 8 that is 2 unseen a day.
+	// reviewDueEvery gives every Nth slot to a card already asked, and the others
+	// to cards never asked: two unseen for each due review, in the Daily Quiz and
+	// in Practice. The owner, at 3.0.3: "fix the spaced repetition so that it
+	// gives highest weightage to quotes not yet asked", and, of how far: "Unseen
+	// get most slots". It was the other way round, one unseen slot in three.
 	//
-	// This is a policy trade-off, not a derivation. Intake costs more than one
+	// THE COST, which the ruling accepts. What follows is the argument for the old
+	// one-in-three, and it still holds: intake now outruns it. Due reviews get a
+	// third of the quota, so a backlog builds sooner and a due card waits longer,
+	// and the quota (2..10, srDaily) is the reader's lever when it does.
+	//
+	// The old reasoning. This is a policy trade-off, not a derivation. Intake costs more than one
 	// answer each: a brand-new card takes the 7-day rung on its FIRST correct
 	// recall (found=false takes the max() branch, not nextRung) and climbs from
 	// there. UNDER THE DEFAULT RULE, WHICH IS ADAPTIVE SINCE 3.1.0, that climb is
@@ -1269,7 +1287,7 @@ const (
 	// header promises a due STATE, and the seen bucket stays ordered
 	// most-overdue-first, so a backlog degrades into honest FIFO by overdue-ness
 	// and the status dots stay truthful.
-	reviewUnseenShare = 3
+	reviewDueEvery = 3
 	// reviewSeedRange bounds Practice's per-request shuffle seed. The seed is an
 	// addend in shuffleKey, not a factor, so it isn't what constrains overflow —
 	// `id * 2654435761` is, and that stays inside int64 up to id ≈ 3.47e9. This
@@ -1359,28 +1377,58 @@ func (s *Server) deckCandidates(uid int64, bucket deckBucket, sc reviewScope, th
 	return spreadByWork(out), nil
 }
 
-// mergeDeck interleaves the reserved unseen cards evenly through the due ones so
-// a session isn't front-loaded with the whole backlog, then appends whatever is
-// left of both. That tail matters: buildQuestion can reject a card, and the
-// spares are what keep the deck full rather than short.
-func mergeDeck(due, unseen []reviewCand, slots, every int) []reviewCand {
-	out := make([]reviewCand, 0, len(due)+len(unseen))
-	di, ui := 0, 0
-	for len(out) < slots && (di < len(due) || ui < len(unseen)) {
-		wantUnseen := (len(out)+1)%every == 0 || di >= len(due)
-		if wantUnseen && ui < len(unseen) {
-			out = append(out, unseen[ui])
-			ui++
-			continue
+// mergeDeck deals the deck: every `dueEvery`th slot is a card already asked
+// (for Daily, the most overdue first), and the others are cards never asked,
+// so a session leads with what the reader has not been asked yet. Either kind
+// fills the other's slots when it runs out, then whatever is left of both is
+// appended. That tail matters: buildQuestion can reject a card, and the spares
+// are what keep the deck full rather than short.
+//
+// AND THE WORKS STAY MIXED ACROSS THE SEAM. Each list arrives rotated by work
+// (spreadByWork), but dealing two rotated lists two-to-one can put the same
+// work in consecutive slots. So a slot takes, from its list's next few cards,
+// the first whose work is not in the last two dealt, and the list's own order
+// otherwise.
+func mergeDeck(asked, unseen []reviewCand, slots, dueEvery int) []reviewCand {
+	asked = append([]reviewCand(nil), asked...)
+	unseen = append([]reviewCand(nil), unseen...)
+	out := make([]reviewCand, 0, len(asked)+len(unseen))
+	take := func(list *[]reviewCand) {
+		pick := 0
+		for j := 0; j < len(*list) && j < mergeLookahead; j++ {
+			if !recentWork(out, (*list)[j].workKey) {
+				pick = j
+				break
+			}
 		}
-		if di >= len(due) {
-			break
-		}
-		out = append(out, due[di])
-		di++
+		out = append(out, (*list)[pick])
+		*list = append((*list)[:pick], (*list)[pick+1:]...)
 	}
-	out = append(out, due[di:]...)
-	return append(out, unseen[ui:]...)
+	for len(out) < slots && (len(asked) > 0 || len(unseen) > 0) {
+		wantAsked := (len(out)+1)%dueEvery == 0 || len(unseen) == 0
+		if wantAsked && len(asked) > 0 {
+			take(&asked)
+		} else {
+			take(&unseen)
+		}
+	}
+	out = append(out, unseen...)
+	return append(out, asked...)
+}
+
+// mergeLookahead is how far mergeDeck looks down a list for a card from another
+// work: far enough to step past a run of one book, near enough that the most
+// overdue review is not pushed far down the round.
+const mergeLookahead = 4
+
+// recentWork says whether a work was one of the last two cards dealt.
+func recentWork(out []reviewCand, key string) bool {
+	for i := len(out) - 1; i >= 0 && i >= len(out)-2; i-- {
+		if key != "" && out[i].workKey == key {
+			return true
+		}
+	}
+	return false
 }
 
 // finish stamps a candidate's derived fields (direction + status) and returns
@@ -2651,7 +2699,7 @@ func (s *Server) dailyDeck(uid int64, offset int) (dailyDeckState, error) {
 		if err != nil {
 			return d, fmt.Errorf("daily quiz unseen: %w", err)
 		}
-		for _, c := range mergeDeck(due, unseen, slots, reviewUnseenShare) {
+		for _, c := range mergeDeck(due, unseen, slots, reviewDueEvery) {
 			if len(items) >= slots {
 				break
 			}
@@ -2757,16 +2805,25 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 	}
 	// Same selector as the Daily Quiz, so Practice inherits the hash-spread
 	// sample and the per-work rotation — a round no longer walks forty quotes
-	// from one book. What Practice does NOT inherit is the due filter or the
-	// unseen reservation: it has no schedule to honour, so reserving slots for
-	// unseen cards would make an already-reviewed card *more* likely to come up
-	// than an unreviewed one. bucketAll keeps every card equally likely. The seed
-	// is fresh per request, so each round is a different walk.
-	cands, err := s.deckCandidates(uid, bucketAll, scope, theme, "", "", rand.Int64N(reviewSeedRange), 0)
+	// from one book. And, since 3.0.3, the same mix: two cards never asked for
+	// each one already asked (reviewDueEvery). The owner, asked whether Practice
+	// should favour quotes not yet asked: "same as daily quiz". What Practice does
+	// NOT inherit is the due filter or the grace week: it has no schedule to
+	// honour, so an asked card may come up whenever, and a quote saved yesterday
+	// can be practised today. The seed is fresh per request, so each round is a
+	// different walk.
+	seed := rand.Int64N(reviewSeedRange)
+	asked, err := s.deckCandidates(uid, bucketAsked, scope, theme, "", "", seed, 0)
 	if err != nil {
 		internalError(w, r, "practice pool", err)
 		return
 	}
+	never, err := s.deckCandidates(uid, bucketNeverAsked, scope, theme, "", "", seed, 0)
+	if err != nil {
+		internalError(w, r, "practice pool", err)
+		return
+	}
+	cands := mergeDeck(asked, never, len(asked)+len(never), reviewDueEvery)
 	// WHETHER PRACTICE IS SCORED DECIDES WHETHER IT MAY SELF-MARK. With
 	// srPracticeCounts off — the default — Practice moves no schedule and keeps no
 	// grade worth defending, so the flip card belongs here and leads. Turn scoring

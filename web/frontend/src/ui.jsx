@@ -8054,12 +8054,18 @@ export function reviewStatus(item = {}) {
       tip: detail ? t("common.status.tip", { name: t(meta.label), detail }) : t(meta.label),
     };
   };
-  // New-item grace week (mirrors the server): remembered before any review,
-  // and not yet in the Daily Quiz — unless a recorded lapse says otherwise.
-  if (last_result !== "forgot" && utcDays(created_at, Infinity) < NEW_ITEM_DAYS) {
+  // A QUOTE NEVER ASKED READS UNSEEN FROM THE DAY IT IS SAVED (mirrors the
+  // server's recallStatus, 3.0.3). The owner: "the quotes will not be
+  // 'forgotten', but not yet asked". The grace week is the Daily Quiz's rule
+  // (it waits a week before asking), so the dot does not spell it out: "Not yet
+  // reviewed · added this week" is seven words against the house ceiling of
+  // five. A quote answered inside that week still reads remembered, unless a
+  // recorded lapse says otherwise.
+  const fresh = utcDays(created_at, Infinity) < NEW_ITEM_DAYS;
+  if (!reviewed) return verdict("unseen", "");
+  if (last_result !== "forgot" && fresh) {
     return verdict("remembered", t("common.status.new.detail"));
   }
-  if (!reviewed) return verdict("unseen", "");
   const elapsed = utcDays(last_reviewed_at, 0);
   const p = Math.pow(2, -elapsed / h);
   const key =

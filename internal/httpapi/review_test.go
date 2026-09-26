@@ -877,9 +877,10 @@ func TestReviewStatusInList(t *testing.T) {
 	}
 }
 
-// The new-item grace week (reviewNewItemDays): a quote saved this week reads
-// "remembered" and is not yet due; past the week it surfaces as unseen and
-// enters the Daily Quiz; a recorded lapse always beats the buffer.
+// The new-item grace week (reviewNewItemDays): a quote saved this week is not
+// yet in the Daily Quiz, and reads "unseen" (not yet asked) from the day it is
+// saved; past the week it enters the Daily Quiz; a recorded lapse always beats
+// the buffer.
 func TestReviewNewItemBuffer(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
@@ -887,13 +888,14 @@ func TestReviewNewItemBuffer(t *testing.T) {
 	_, ids := seedReviewBook(t, c, "Dune", 2)
 	seedDistractorBook(t, srv, c, "Emma")
 
-	// Fresh items: nothing due, and the whole library reads remembered (the two
-	// fresh Dune quotes via the buffer, the parked Emma quote via its half-life).
+	// Fresh items: nothing due. The two fresh Dune quotes read unseen, since
+	// nobody has asked them yet, and the parked Emma quote reads remembered by
+	// its half-life.
 	deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
 	if len(deck.Items) != 0 {
 		t.Fatalf("fresh items served in the daily deck: %+v", deck.Items)
 	}
-	if deck.States.Remembered != 3 || deck.States.Unseen != 0 || deck.States.Total != 3 {
+	if deck.States.Remembered != 1 || deck.States.Unseen != 2 || deck.States.Total != 3 {
 		t.Fatalf("states inside the grace week: %+v", deck.States)
 	}
 
@@ -1087,13 +1089,19 @@ func TestDailyQuizAdmitsUnseenBesideBacklog(t *testing.T) {
 			got++
 		}
 	}
-	if want := reviewQuota / reviewUnseenShare; got != want {
-		t.Fatalf("unseen cards in deck: got %d, want %d (reserved share)", got, want)
+	// Since 3.0.3 unseen cards take two slots in three, and every third slot is
+	// the most overdue review, so the backlog still gets its share.
+	if want := reviewQuota - reviewQuota/reviewDueEvery; got != want {
+		t.Fatalf("unseen cards in deck: got %d, want %d (two in every three slots)", got, want)
 	}
-	// The rest of the deck is still the backlog, most overdue first — the
-	// reservation must not starve the schedule.
-	if backlogged := len(deck.Items) - got; backlogged != reviewQuota-reviewQuota/reviewUnseenShare {
-		t.Fatalf("due cards in deck: got %d", backlogged)
+	if backlogged := len(deck.Items) - got; backlogged != reviewQuota/reviewDueEvery {
+		t.Fatalf("due cards in deck: got %d, want %d", backlogged, reviewQuota/reviewDueEvery)
+	}
+	// And the round leads with what the reader has not been asked yet.
+	for i, it := range deck.Items[:2] {
+		if !(it.Kind == kindBook && unseen[it.ID]) {
+			t.Fatalf("card %d of the round is a review; the first two should be quotes not yet asked", i+1)
+		}
 	}
 }
 
@@ -1127,10 +1135,11 @@ func TestDailyQuizBucketsYieldWhenEmpty(t *testing.T) {
 	}
 }
 
-// Practice draws from the whole pool with no due filter and no unseen
-// reservation — an already-reviewed card must not become more likely to come up
-// than an unreviewed one — but it does inherit the per-work rotation.
-func TestPracticeSharesSelectionWithoutReservation(t *testing.T) {
+// Practice draws from the whole pool with no due filter, and since 3.0.3 it
+// deals as the Daily Quiz does: two quotes never asked for every one already
+// asked, so a round leads with what the reader has not been asked yet. It keeps
+// the per-work rotation across that mix.
+func TestPracticeLeadsWithQuotesNotYetAskedAndRotatesWorks(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
 	c := signupAdmin(t, h)
@@ -1157,6 +1166,14 @@ func TestPracticeSharesSelectionWithoutReservation(t *testing.T) {
 	}
 	if len(seen) != 3 {
 		t.Fatalf("first three practice cards should span all three books, got %v", seen)
+	}
+	// Two in every three slots are quotes not yet asked: the even ids above were
+	// answered, the odd ones never were.
+	for i, it := range deck.Items[:12] {
+		asked := it.ID%2 == 0
+		if want := (i+1)%reviewDueEvery == 0; asked != want {
+			t.Fatalf("practice card %d: asked=%v, want asked=%v (every third slot a quote already asked)", i+1, asked, want)
+		}
 	}
 }
 
@@ -1188,7 +1205,6 @@ func TestSpreadByWork(t *testing.T) {
 		t.Fatalf("single-work list must keep its order: %+v", got)
 	}
 }
-
 
 // THE CAPACITY TRAVELS WITH THE COUNTS IT IS COMPARED AGAINST.
 //

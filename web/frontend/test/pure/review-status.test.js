@@ -33,18 +33,22 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('the new-item grace week', () => {
-  it('reads remembered inside the first week, before any review', () => {
+  // A QUOTE NEVER ASKED IS NOT YET ASKED, grace week or not (3.0.3). The week
+  // is when the Daily Quiz leaves it alone, and the tip says so.
+  it('reads not yet reviewed inside the first week', () => {
     const s = reviewStatus({ reviewed: false, created_at: daysAgo(2) })
+    expect(s.key).toBe('unseen')
+    expect(s.tip).toBe('Not yet reviewed')
+  })
+
+  it('and still on the last day of the week', () => {
+    expect(reviewStatus({ reviewed: false, created_at: daysAgo(6.9) }).key).toBe('unseen')
+  })
+
+  it('reads remembered inside the first week once it has been answered', () => {
+    const s = reviewStatus({ reviewed: true, stability: 12, last_result: 'got', created_at: daysAgo(2), last_reviewed_at: daysAgo(1) })
     expect(s.key).toBe('remembered')
     expect(s.tip).toBe('Remembered · added this week')
-  })
-
-  it('reads remembered on the last day of the week', () => {
-    expect(reviewStatus({ reviewed: false, created_at: daysAgo(6.9) }).key).toBe('remembered')
-  })
-
-  it('falls out of grace at exactly seven days', () => {
-    expect(reviewStatus({ reviewed: false, created_at: daysAgo(7) }).key).toBe('unseen')
   })
 
   it('is overridden by a recorded lapse, however new the quote', () => {

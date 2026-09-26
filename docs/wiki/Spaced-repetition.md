@@ -32,8 +32,8 @@ Verified against `v3` at the commit this file lands on.
 | Default rule | Fixed ladder **7 → 30 → 100** days. A correct recall climbs one rung; **a lapse falls straight to 7 from any height** |
 | Adaptive rule | **Built, opt-in.** `grow 2.5`, `shrink 0.5`, `late 1.2` — and it never awards less than the elapsed gap warrants |
 | Bounds | `reviewMinStability` 7, `reviewMaxStability` **100** |
-| Grace | `reviewNewItemDays` 7 — a new quote reads "remembered" and is not due |
-| Deck | Quota **8**/day; every 3rd slot reserved for unseen; ordered most-overdue-first by `elapsed/stability`; deterministic per day by seed |
+| Grace | `reviewNewItemDays` 7: a new quote is not in the Daily Quiz for its first week, and reads "not yet reviewed" (until 3.0.3 it read "remembered") |
+| Deck | Quota **8**/day; since 3.0.3 two slots in three go to quotes never asked and every third to the most overdue review (it was one unseen slot in three); due cards ordered most-overdue-first by `elapsed/stability`; deterministic per day by seed. Practice deals the same two-to-one mix, without the due filter or the grace week |
 | Directions | **Seven** — source, quote, cloze (typed), cloze-mcq, speaker, author, flip. Daily excludes flip. **Chosen by a hash of card and day**, not by difficulty |
 | Cloze | Blank is the longest content-word run; **1 word until stability ≥ 30, then up to 3**; ≥ 6 tokens, ≥ 75% Latin script; graded token-by-token with a per-word edit budget |
 | Synonyms | **Seven hard-coded pairs** in `cloze.go`, worth 0.5 of an exact recall |

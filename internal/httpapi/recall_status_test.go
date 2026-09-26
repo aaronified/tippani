@@ -67,10 +67,11 @@ func TestRecallStatus(t *testing.T) {
 	cases := []recallCase{
 		// ---- the new-item grace week (reviewNewItemDays) ----
 		//
-		// Having just written a quote down counts as knowing it, so a fresh item
-		// reads remembered before it has ever been answered.
-		{"fresh item reads remembered before any review", false, reviewMinStability, 0, 2, "", "remembered"},
-		{"grace holds on the last day of the week", false, reviewMinStability, 0, 6.999, "", "remembered"},
+		// A QUOTE NEVER ASKED IS UNSEEN FROM THE DAY IT IS SAVED (3.0.3). The owner:
+		// "the quotes will not be 'forgotten', but not yet asked". The grace week
+		// keeps it out of the daily quiz; it no longer claims the quote is known.
+		{"a fresh item never asked reads unseen", false, reviewMinStability, 0, 2, "", "unseen"},
+		{"and still on the last day of its week", false, reviewMinStability, 0, 6.999, "", "unseen"},
 		// The comparison is `ageDays < reviewNewItemDays`, so seven days exactly is
 		// OUT. This is the edge the JS test pins from its own side
 		// ("falls out of grace at exactly seven days"); both must agree or a card
