@@ -152,7 +152,11 @@ jobs:
 
   publish:
     needs: render
-    if: needs.render.outputs.page_moved == 'true'
+    # A status function of its own, like render's. With none, GitHub adds
+    # success(), which is false when any job earlier in the chain was skipped or
+    # failed, and label is skipped on every push and dispatch. So a page render
+    # moved would never have been deployed on those runs.
+    if: ${{ !cancelled() && needs.render.result == 'success' && needs.render.outputs.page_moved == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
