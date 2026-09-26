@@ -9206,8 +9206,8 @@ package."*
   size, so each job would take every twelfth test and half of both packages would go
   unraced, with every per-name check green. A second package that needs splitting gets a
   job of its own.
-- **Every shard checks every test it was dealt, by name,** as the per-push job checks its
-  five. A `-run` pattern that matches nothing exits 0, which is the false green that cost
+- **Every shard checks every test it was dealt, by name,** as the per-push job checks each of its
+  names. A `-run` pattern that matches nothing exits 0, which is the false green that cost
   v1.7.4.
 - **Instead of.** Raising the package's timeout alone: one job well over an hour, which is
   a job nobody reads. Sampling the sweep: it stops being a sweep. Sharding by package, the
