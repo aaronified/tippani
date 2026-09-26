@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.0.1] - 2026-09-26
 
 ### Fixed
 
@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   old, closed database, so pairing a phone and every phone's request failed until Tippani was
   restarted. The same was true after a search repair that had to rebuild the database. A
   pairing code made before a reset or a restore no longer works after it.
+- **The wiki's links open the page they name.** A link from one wiki page to another opened that
+  page's raw Markdown as plain text, and a link from the wiki to a file in the repository, the
+  roadmap or the interface glossary was a dead link. Both now go where they say.
 
 ## [3.0.0] - 2026-09-25
 
