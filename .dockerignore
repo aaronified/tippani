@@ -12,3 +12,5 @@ docs
 web/frontend/node_modules
 internal/importer/testdata
 *.md
+# The one Markdown file the binary embeds (changelog.go at the root).
+!CHANGELOG.md

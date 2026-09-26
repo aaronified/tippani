@@ -12,7 +12,7 @@ TVDB_TOKEN ?=
 LDFLAGS := -s -w -X tippani/internal/buildinfo.Version=$(VERSION) \
 	-X main.defaultTMDBKey=$(TMDB_TOKEN) -X main.defaultTVDBKey=$(TVDB_TOKEN)
 
-.PHONY: build frontend glossary changelog test run clean typescale frame-scroll panel-depth hero-control controls sheet-drag overlay-scroll metadata-layout
+.PHONY: build frontend glossary test run clean typescale frame-scroll panel-depth hero-control controls sheet-drag overlay-scroll metadata-layout
 
 ## build: static binary with the currently built (or placeholder) frontend embedded
 build:
@@ -105,12 +105,6 @@ controls:
 ## means and, just as importantly, what it does not cover.
 perf:
 	bash scripts/perf/run-with-server.sh
-
-## changelog: refresh the copy the binary embeds (//go:embed cannot reach the
-## repo root, so the app shows internal/changelog/CHANGELOG.md — a drift test
-## fails the build when it falls behind the real one)
-changelog:
-	cp CHANGELOG.md internal/changelog/CHANGELOG.md
 
 test:
 	go test ./...

@@ -7,32 +7,6 @@ import (
 	"testing"
 )
 
-// THE DRIFT TEST, and the reason the copy is allowed to exist at all.
-//
-// //go:embed cannot reach outside its own package directory and there is no Go
-// package at the repo root, so the canonical CHANGELOG.md cannot be embedded from
-// here. A copy is the only way, and two copies of anything is a drift surface —
-// this repo already lost that fight once with web/dist and had to add a CI gate.
-//
-// So the alarm ships in the same commit as the copy, not later. The failure
-// message carries the fix, because the person who hits this is mid-release and
-// should not have to work out what the second file is for.
-func TestTheEmbeddedCopyMatchesTheRealChangelog(t *testing.T) {
-	root, err := os.ReadFile("../../CHANGELOG.md")
-	if err != nil {
-		t.Fatalf("cannot read the canonical CHANGELOG.md: %v", err)
-	}
-	// Compared with line endings normalised: the working tree is CRLF on Windows
-	// and LF in git, and a test that failed on that would fail on one machine and
-	// pass on the other — which is worse than no test.
-	norm := func(b []byte) string { return strings.ReplaceAll(string(b), "\r\n", "\n") }
-	if norm(root) != norm([]byte(source)) {
-		t.Fatalf("internal/changelog/CHANGELOG.md has drifted from the root CHANGELOG.md.\n" +
-			"The embedded copy is what the app SHOWS, so releasing now would ship the old notes.\n" +
-			"Fix:  cp CHANGELOG.md internal/changelog/CHANGELOG.md")
-	}
-}
-
 func TestTheNewestReleaseIsFirst(t *testing.T) {
 	// "The latest release will be on the top" is the requirement, and it is a
 	// property of the FILE — which is maintained newest-first — preserved by the
@@ -193,7 +167,7 @@ func TestThePreambleIsNotMistakenForARelease(t *testing.T) {
 // release three versions old, because the damage is to the line ABOVE, and the
 // hand-edit's neighbour can be anything.
 func TestEveryBulletSurvivesTheParse(t *testing.T) {
-	md, err := os.ReadFile("CHANGELOG.md")
+	md, err := os.ReadFile("../../CHANGELOG.md")
 	if err != nil {
 		t.Fatal(err)
 	}

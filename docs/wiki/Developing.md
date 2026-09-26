@@ -346,7 +346,7 @@ The shared modules do:
 | `roadmap-data.mjs` | Renders `docs/data/*.json` into the marked regions of `docs/roadmap.html`. Backs up first, and refuses to write a page that fails verification. |
 | `roadmap-tracker.mjs` | Reads the issue tracker through `gh` into `docs/data/tracker.json`, so the renderer needs no network. `--audit` writes nothing and fails if the page and the tracker disagree. |
 | `web/frontend/scripts/glossary-build.mjs` | Generates `docs/ui-glossary.html`: entries from `scripts/glossary/catalogue.js` and from the `glossary` declarations beside the components, constants from `src/tokens.js`, theme data captured from `theme.js`'s own `applyTheme`, and the built stylesheet inlined so samples are styled by the rules the app ships. Lives under `web/frontend/` rather than in this directory because it renders the real components through Vite and needs that package's `node_modules`. `--check` verifies it. |
-| `changelog-entry.mjs` | Adds one entry to the newest release's section, in both copies of the file. Exists because three hand-edits in one afternoon damaged `CHANGELOG.md` the same way — an offset computed rather than found (`index('### Fixed') + len('### Fixed\n\n')`, and this file has no blank line after a heading), which lands one character inside the bullet below and produces `-- **New entry` while stripping the `-` off the entry underneath. Both notes then vanish from the app's Changelog screen, because `changelog.go` matches `"- "` only. It finds the position instead of computing it, and re-parses the result before writing — refusing if the entry does not come back out as it went in, or if any existing entry changed. `internal/changelog`'s `TestEveryBulletSurvivesTheParse` is the other half, and is what caught the third one. |
+| `changelog-entry.mjs` | Adds one entry to the newest release's section of `CHANGELOG.md`. Exists because three hand-edits in one afternoon damaged `CHANGELOG.md` the same way — an offset computed rather than found (`index('### Fixed') + len('### Fixed\n\n')`, and this file has no blank line after a heading), which lands one character inside the bullet below and produces `-- **New entry` while stripping the `-` off the entry underneath. Both notes then vanish from the app's Changelog screen, because `changelog.go` matches `"- "` only. It finds the position instead of computing it, and re-parses the result before writing — refusing if the entry does not come back out as it went in, or if any existing entry changed. `internal/changelog`'s `TestEveryBulletSurvivesTheParse` is the other half, and is what caught the third one. |
 | `iso6393-data.mjs` | Writes `web/frontend/src/iso6393.data.js` (the ISO 639-3 registry, loaded lazily by the language search) and `iso6393.pairs.js` (639-1 → 639-3) from the `iso-639-3` package pinned in `web/frontend`'s devDependencies — the one script here that reads that package's `node_modules`, because the registry is data, not a runtime dependency. `--check` fails when the committed files differ from what the pinned package produces. |
 | `site-links.mjs` | Walks an assembled `_site/` and fails on any local `href` or `src` in its pages' markup, or CSS `url()` in its pages or its stylesheets, that does not resolve inside the site. CI's `roadmap` job also runs it on `scripts/testdata/site-links/`: one site that must pass, and two that must each fail with exit 1 naming their broken link, one per place a `url()` is read (a page's `<style>`, a stylesheet). |
 | `seed-issues.mjs` | Backfills a GitHub issue per roadmap item that predates the automation. |
@@ -857,14 +857,10 @@ Releases are tag-driven. There is no version constant to bump: it is stamped fro
 1. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`. Match the
    house style of the entries above it: the user-visible symptom first, then the
    reasoning, then what was rejected.
-2. Copy it into the binary: `cp CHANGELOG.md internal/changelog/CHANGELOG.md`.
-   The app shows the EMBEDDED copy (`//go:embed` cannot reach the repo root), so a
-   release that skips this ships the previous version's notes to everyone who opens
-   Settings → Changelog. `make changelog` does it, and the drift test in
-   `internal/changelog` fails the build if you forget — this step is the reminder,
-   not the guarantee.
-3. Commit as `chore(release): X.Y.Z`.
-4. Tag and push — **the tag by name, never `--tags`**:
+2. Commit as `chore(release): X.Y.Z`. The binary embeds `CHANGELOG.md` itself
+   (`changelog.go` at the root), so what Settings → Changelog shows is this file, and
+   there is no copy to refresh.
+3. Tag and push — **the tag by name, never `--tags`**:
 
    ```bash
    git tag vX.Y.Z
@@ -878,7 +874,7 @@ Releases are tag-driven. There is no version constant to bump: it is stamped fro
    alongside the one I meant. That is not hypothetical: on 2026-08-09 an orphaned
    `v1.3.0` went up beside `v1.7.2`, built more slowly, finished second, and took
    `:latest` with it. Naming the tag pushes exactly one thing.
-5. Watch it land: `gh run list --limit 5`, and check the release page and the GHCR tags.
+4. Watch it land: `gh run list --limit 5`, and check the release page and the GHCR tags.
 
 `release.yml` cuts the GitHub Release using that version's changelog section as the notes,
 and `docker-publish.yml` builds and pushes the GHCR image on the same tag. Both are also

@@ -16,23 +16,21 @@
 // offline. Notes for a version you have not installed are a different question,
 // and the update card already answers it with a link.
 //
-// THE FILE IS A COPY, AND THAT IS A COST WORTH NAMING. //go:embed cannot reach
-// outside its own package directory and there is no Go package at the repo root,
-// so the canonical CHANGELOG.md at the top of the tree cannot be embedded from
-// here. A copy lives beside this file. Two copies of anything is a drift surface
-// — this repo has already lost that fight once with web/dist — so the drift is
-// not left to discipline: changelog_test.go reads ../../CHANGELOG.md and fails
-// when the two differ, with the command to fix it in the failure message.
+// THE FILE IS THE ROOT'S CHANGELOG.md, and there is one. //go:embed cannot reach
+// outside its own package directory, so the root is a package (changelog.go
+// there) that embeds the file and this package reads it. Until 3.0.2 a
+// byte-identical copy lived beside this file with a drift test to hold the two
+// together, and the owner ruled: "there should be only one".
 package changelog
 
 import (
-	_ "embed"
 	"strings"
 	"sync"
+
+	"tippani"
 )
 
-//go:embed CHANGELOG.md
-var source string
+var source = tippani.Changelog
 
 // Release is one version's worth of notes.
 //

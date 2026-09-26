@@ -34,7 +34,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const COPIES = ['CHANGELOG.md', join('internal', 'changelog', 'CHANGELOG.md')]
+const FILE = 'CHANGELOG.md'
 
 function parseEntries(md, section) {
   // The parser's rule, and only the part this tool has to agree with.
@@ -92,7 +92,7 @@ if (!section || !text) {
 }
 
 const bullet = wrap(text)
-const primary = readFileSync(join(ROOT, COPIES[0]), 'utf8')
+const primary = readFileSync(join(ROOT, FILE), 'utf8')
 
 // THE POSITION, FOUND. The newest release is the first `## `; the section is the
 // first `### <name>` after it; the insertion point is just past that heading's own
@@ -128,6 +128,6 @@ for (let i = 0; i < before.length; i++) {
   }
 }
 
-for (const rel of COPIES) writeFileSync(join(ROOT, rel), next)
+writeFileSync(join(ROOT, FILE), next)
 console.log(`added to ${section}: ${wanted.slice(0, 72)}${wanted.length > 72 ? '…' : ''}`)
-console.log(`both copies written — ${COPIES.join(', ')}`)
+console.log(`written — ${FILE}`)
