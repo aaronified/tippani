@@ -988,11 +988,15 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 	// NEXT restore's cleanup, so it is still there when the carry-over runs, its
 	// -wal beside it if the pre-swap checkpoint left one.
 	replaced := filepath.Join(preDir, filepath.Base(s.Store.Path()))
+	// Whether the move got all of the current data out of the way. The rollback
+	// clears the data dir for the old files only once it has (see there).
+	asideDone := false
 	swapErr := s.Store.Swap(
 		func() error {
 			if err := s.moveTopLevel(s.DataDir, preDir); err != nil {
 				return fmt.Errorf("move current data aside: %w", err)
 			}
+			asideDone = true
 			if err := moveEntries(stage, s.DataDir); err != nil {
 				return fmt.Errorf("move restored data in: %w", err)
 			}
@@ -1005,14 +1009,26 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 			}
 			return nil
 		},
+		// Once the move had everything aside, whatever is in the data dir came from
+		// the archive or from opening it (a -wal, a .recover), and all of it goes to
+		// staging/failed before the old files come back, so none of it lands beside
+		// them. Before that, what is there is live data the move never reached — the
+		// database itself, when the entry that failed sorts before it — and it stays
+		// where it is. The rollback used to clear the data dir either way, which
+		// sent the live database into staging/failed, and nothing keeps that: this
+		// function removes staging on its way out, and after a crash the boot sweep
+		// (CleanupBackupStaging) does. Meanwhile the store came back on an empty
+		// database and the restore answered "previous data is intact".
 		func(cause error) error {
 			olog.Errorf(olog.CodeBackupSwap, "[backup] restore swap failed: %v — rolling back", cause)
-			failDir := filepath.Join(staging, "failed")
-			if err := os.Mkdir(failDir, 0o700); err != nil {
-				return err
-			}
-			if err := s.moveTopLevel(s.DataDir, failDir); err != nil {
-				return err
+			if asideDone {
+				failDir := filepath.Join(staging, "failed")
+				if err := os.Mkdir(failDir, 0o700); err != nil {
+					return err
+				}
+				if err := s.moveTopLevel(s.DataDir, failDir); err != nil {
+					return err
+				}
 			}
 			return moveEntries(preDir, s.DataDir)
 		},
