@@ -41,13 +41,14 @@ package httpapi
 // single lapse falls straight back to the 7-day rung from any height. A card
 // is due when p <= 0.5 (elapsed >= stability), so the rungs ARE the review
 // intervals. Fresh items also get a grace week (reviewNewItemDays from the
-// item's created_at): having just written a quote down counts as knowing it,
-// so during that buffer the card reads "remembered" and is not yet due — a
-// recorded lapse still wins. The derived status shown on every card's dot:
-//   remembered         p >= 0.9, or the item is inside its first week
+// item's created_at): the Daily Quiz does not ask a quote in its first week.
+// Since 3.0.3 a quote never asked reads "unseen" from the day it is saved, and
+// only an item answered inside its first week reads "remembered" for that week;
+// a recorded lapse still wins. The derived status shown on every card's dot:
+//   remembered         p >= 0.9, or answered and inside its first week
 //   forgetting         0.5 <= p < 0.9
 //   probably-forgotten p < 0.5     (due / overdue)
-//   unseen             never reviewed (and past the first week)
+//   unseen             never reviewed, whatever its age
 // Statuses are derived at read time, never stored.
 
 import (
@@ -2726,9 +2727,10 @@ func (s *Server) dailyDeck(uid int64, offset int) (dailyDeckState, error) {
 }
 
 // handleDailyQuiz serves GET /review/daily?offset=N — the rest of today's due
-// deck: most-forgotten cards first, then unseen ones in a per-day shuffle,
-// capped at the unspent daily quota, across the configured scope. An empty pool
-// or a spent quota both come back as items: [] with today's tally alongside.
+// deck: two cards never asked, in a per-day shuffle, for every due review, the
+// most forgotten first (mergeDeck), capped at the unspent daily quota, across
+// the configured scope. An empty pool or a spent quota both come back as
+// items: [] with today's tally alongside.
 func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 	offset, ok := tzOffset(r.URL.Query().Get("offset"))
 	if !ok {
@@ -2780,7 +2782,8 @@ func (s *Server) handleDailyQuiz(w http.ResponseWriter, r *http.Request) {
 }
 
 // handlePractice serves GET /review/practice?offset=N — the whole in-scope pool
-// as cards for the client to shuffle and walk, with a random direction each.
+// as cards, dealt in the order the client walks them (mergeDeck), with a random
+// direction each.
 // Practice never filters by due-ness and never benches cards; the client tracks
 // its own position and honours Skip locally.
 func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {

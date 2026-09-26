@@ -8015,9 +8015,10 @@ function utcDays(ts, fallback) {
 // probably-forgotten below. A card whose last answer was a lapse ("forgot")
 // is always probably-forgotten, however recently reviewed — the failed
 // recall, not the timestamp, is the honest signal (mirrors recallStatus on
-// the server). A quote inside its first week (created_at) reads remembered —
-// you just wrote it down. The tooltip carries the half-life and when it next
-// comes due, like the settings InfoDots.
+// the server). A quote never asked reads unseen whatever its age; one answered
+// inside its first week (created_at) reads remembered for that week. The
+// tooltip carries the half-life and when it next comes due, like the settings
+// InfoDots.
 export function reviewStatus(item = {}) {
   const { reviewed, stability, last_reviewed_at, last_result, created_at } = item;
   // `half` IS COMPUTED BEFORE ANY BRANCH, and that is a fix rather than a tidy.
