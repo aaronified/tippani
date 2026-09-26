@@ -180,7 +180,9 @@ if (!ciJobs.length || oddKeys.length || !table.length) {
 }
 const [, delimiter, ...body] = table
 // GFM's delimiter row: one or more dashes per cell, optional colons, and the last
-// cell's closing pipe optional, as GitHub renders it either way.
+// cell's closing pipe optional, as GitHub renders it either way. A table written
+// without leading pipes, which GFM also allows, is not read: every table this
+// document has ever had opens its rows with one.
 const undelimited = !delimiter || !/^\|(\s*:?-+:?\s*\|)*\s*:?-+:?\s*\|?\s*$/.test(delimiter.l) ? [table[0].n] : []
 const cells = (undelimited.length ? table.slice(1) : body).map(({ n, l }) => ({ n, l, id: /^\|\s*`([^`]+)`\s*\|/.exec(l)?.[1] }))
 const rows = cells.map((c) => c.id).filter(Boolean)

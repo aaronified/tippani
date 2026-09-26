@@ -9224,7 +9224,7 @@ package."*
   Every per-package job passed as well.
 - **The first unraced pass had two failures in shard 6, unnamed** because that log was not
   kept (5ae0f6c8). A later rerun of "shard 6" cleared nothing about them: at 1,371 tests the
-  round-robin had moved, so only 80 of its tests were among the 226 that failed. So exactly
+  round-robin had moved, so only 80 of its tests were among the 226 in the shard that failed. So exactly
   those 226, the list 5ae0f6c8 dealt, were run again at 3.0.2's tree, unraced, with
   `-count=3`: all 226 still exist, and 678 of 678 passed, in 276 seconds. The two failures
   have not come back in three runs of every test that could have produced them, and the

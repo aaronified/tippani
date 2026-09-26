@@ -56,7 +56,7 @@ describe('doc-map-check reading the CI table', () => {
     expect(check(['| Job | What |', '| --- | --- |', ...ROWS]).code).toBe(0)
   })
 
-  it('takes GFM delimiter rows in every form GitHub renders', () => {
+  it('takes a GFM delimiter row with or without its closing pipe, and with alignment colons', () => {
     for (const delim of ['| - | - |', '|:-:|:--|', '| --- | ---', '|---|---|']) {
       expect(check(['| Job | What |', delim, ...ROWS]).code, delim).toBe(0)
     }

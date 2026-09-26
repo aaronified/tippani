@@ -163,8 +163,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          # Stamp the version decided above (0.5.0 on a tag, "edge" on main,
-          # 3.0.0-edge.<sha> on a release branch) into the binary so the in-app
+          # Stamp the version decided above (1.2.3 on a tag, edge.main.<sha> on
+          # main, <N>.0.0-edge.<branch>.<sha> on a release branch, e.g.
+          # 3.0.0-edge.v3.<sha>) into the binary so the in-app
           # update check knows what it's running.
           # TMDB_TOKEN is the built-in film/show credential (a v4 read access
           # token), kept in a repository secret so it is not in the source. An

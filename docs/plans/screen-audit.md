@@ -135,7 +135,7 @@ fixing its instances.
 
 ## How to resume
 
-    git checkout v3
+    git checkout main
     go test ./... -timeout 25m          # httpapi alone is ~680s
     cd web/frontend && npx vitest run
 
