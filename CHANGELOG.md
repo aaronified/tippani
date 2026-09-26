@@ -19,9 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A request still running after a minute is named once in the log**, with its request id, so a
   quiet log now means requests are not arriving rather than possibly hanging.
 - **A phone can be paired again after a factory reset.** The reset left device pairing on the
-  old, closed database, so pairing a phone and every phone's request failed until Tippani was
-  restarted. The same was true after a search repair that had to rebuild the database. A
-  pairing code made before a reset or a restore no longer works after it.
+  old, closed database, so pairing a phone failed until Tippani was restarted. After a search
+  repair that had to rebuild the database, pairing failed and every paired phone's requests
+  were refused until a restart; that is fixed too. A pairing code made before a reset or a
+  restore no longer works after it.
 - **The wiki's links open the page they name.** A link from one wiki page to another opened that
   page's raw Markdown as plain text, and a link from the wiki to a file in the repository, the
   roadmap or the interface glossary was a dead link. Both now go where they say.
