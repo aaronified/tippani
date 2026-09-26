@@ -125,8 +125,8 @@ export, and encrypted backups.
 
 ## Light on your server
 
-- One ~12 MB binary with the interface built in. No Node, no separate database server.
-- About 25 MB of memory when idle, and nothing running in the background.
+- One ~29 MB binary with the interface built in. No Node, no separate database server.
+- About 30 MB of memory when idle, and nothing running in the background.
 - Covers are stored on your own disk. Metadata lookups are optional, and nothing is fetched on a timer.
 - `TIPPANI_OFFLINE=1` stops every outside connection.
 - Tippani was written with AI assistance and contains no AI: no model calls, nothing sent anywhere.
