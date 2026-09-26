@@ -425,6 +425,7 @@ go test ./...                         # must pass; CI uses -timeout 20m
 go build ./cmd/tippani                # or `make build`
 make run                              # go run ./cmd/tippani serve -> :8080, onboard in browser
 
+(cd scripts/screenshots && npm ci)    # once, for npm run journeys: they launch their browser through it
 cd web/frontend && npm ci
 npm test                              # vitest: the pure + dom projects
 npm run journeys                      # the browser tier — real server, real database
