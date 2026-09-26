@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 
 	"tippani/internal/olog"
 )
@@ -26,10 +25,17 @@ import (
 // every exit, a failed files included, because a store left holding closed pools
 // fails every request until somebody restarts it.
 //
-// THE ONE EXIT THAT DOES NOT REOPEN is a failed files that left no file at the
-// path. Opening would create an empty database there, and a server that comes back
-// empty after a failed swap looks like a server that lost everything; with the
-// pools closed it only looks broken, and the files are wherever files left them.
+// THE REOPEN NEVER CREATES A FILE (openPools(false): SQLite's mode=rw). A swap
+// that left nothing at the path — a move that stopped halfway, a rollback that
+// said it put the old file back and did not — fails its reopen and says so. It
+// used to skip the reopen when files failed and the path was empty, and to create
+// a database whenever files succeeded, so a rollback that reported success over an
+// empty path brought the server back on a new empty database while its caller,
+// told the old files were back, went on to delete the directory holding them. A
+// server that comes back empty after a failed swap looks like a server that lost
+// everything; with the pools closed it only looks broken, the error says why, and
+// the files are wherever the swap left them. Reset, the one swap whose point is an
+// empty database, puts an empty file at the path itself.
 //
 // Every call counts a generation, failed or not: a failed swap may still have
 // moved files, and a consumer that sees a new number only gives up trusting an id
@@ -52,12 +58,7 @@ func (s *Store) swapLocked(files func() error) error {
 		olog.Alertf("[store] closing the library pool before the swap returned: %v (continuing)", err)
 	}
 	filesErr := files()
-	if filesErr != nil {
-		if _, err := os.Stat(s.path); err != nil {
-			return filesErr
-		}
-	}
-	if err := s.openPools(); err != nil {
+	if err := s.openPools(false); err != nil {
 		return errors.Join(filesErr, fmt.Errorf("reopen %s after the swap: %w", s.path, err))
 	}
 	return filesErr
@@ -67,12 +68,22 @@ func (s *Store) swapLocked(files func() error) error {
 // one: migrate forward, integrity-check, FTS self-heal. The caller holds logMu and
 // repairMu, so the self-heal runs repairFTSLocked, whose escalation to a whole-file
 // recovery (another swap) re-takes neither.
+//
+// As at boot, a self-heal that fails leaves search broken and is not a failed
+// bring-up. Pools it could not reopen are: that recovery is a swap of its own, and
+// one that ended with nothing it could open left the store on closed pools, which
+// the self-heal only logs. So the pools are asked rather than assumed, and a
+// restore on them rolls back instead of running its after step on a closed pool
+// and answering "Restore complete" over a server that fails every request.
 func (s *Store) bringUp() error {
 	if err := s.Migrate(); err != nil {
 		return fmt.Errorf("migrate restored database: %w", err)
 	}
 	s.CheckIntegrity()
 	s.repairFTSLocked()
+	if err := errors.Join(s.DB.Ping(), s.LogDB.Ping()); err != nil {
+		return fmt.Errorf("the database is not open after its self-heal: %w", err)
+	}
 	return nil
 }
 

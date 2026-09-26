@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -19,13 +20,19 @@ import (
 // the restore (httpapi, whose round trip is tested there) and the logbook that
 // writes through LogWrite, which does not exist yet; nothing observable over HTTP
 // can say which connection a line went through, whether it synced, or whether a
-// swap waited for it.
+// swap waited for it. And one variable, promote, the rename that puts a recovered
+// file over the old one, which failPromote replaces: a rename that fails while the
+// file system goes on working cannot be made on a real one (a read-only directory
+// also refuses the reopen that follows), and what the store does after one is the
+// thing under test.
 //
 // What each one guards, in a sentence a person would say: logging costs no disk
 // sync while a saved quote still does; a log line written after a restore, a
 // recovery or a factory reset lands in the database the server is now on; a
 // restore whose search index is too broken to rebuild recovers instead of hanging
-// the server; and a restore that fails puts the old library back and reopens it.
+// the server; a restore that fails puts the old library back and reopens it; and
+// no failed swap or recovery leaves the server on closed pools while saying it
+// worked, or leaves an empty database where the library was.
 
 func TestTheLogPoolSkipsTheSyncALibraryWriteStillPays(t *testing.T) {
 	s := openHead(t)
@@ -226,19 +233,9 @@ func TestARestoreWhoseIndexCannotBeRebuiltRecoversInsteadOfHanging(t *testing.T)
 		t.Fatal(err)
 	}
 
-	// The archive's database: intact content, and books_fts gone, so there is no
-	// CREATE statement to rebuild it from — rebuildFTSTable fails for real and the
-	// self-heal has only Recover left (the shape httpapi's
-	// TestReindexEscalationRepointsSessions uses too).
-	restored := migratedFileWith(t, filepath.Join(t.TempDir(), "restored.db"), "Leviathan Rising")
-	broken, err := sql.Open("sqlite", "file:"+restored)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := broken.Exec(`DROP TABLE books_fts`); err != nil {
-		t.Fatal(err)
-	}
-	broken.Close()
+	// The archive's database: intact content, and an index the self-heal can only
+	// recover (the shape httpapi's TestReindexEscalationRepointsSessions uses too).
+	restored := brokenIndexArchive(t, "Leviathan Rising")
 
 	done := make(chan error, 1)
 	go func() {
@@ -367,8 +364,10 @@ func TestARestoreThatFailsPutsTheOldLibraryBack(t *testing.T) {
 }
 
 // A swap whose file work fails before it moved anything reopens the files it
-// found; one whose failure took the file away reopens nothing rather than create
-// an empty database where the library was.
+// found. One whose failure took the file away tries to reopen too, and fails
+// rather than create an empty database where the library was; and a rollback that
+// says it put the file back when it did not is caught the same way, as a failed
+// rollback, which the restore answers by exiting with the old files kept.
 func TestAFailedSwapReopensWhatIsThereAndConjuresNothing(t *testing.T) {
 	dir := t.TempDir()
 	s, err := Open(filepath.Join(dir, "tippani.db"))
@@ -394,17 +393,165 @@ func TestAFailedSwapReopensWhatIsThereAndConjuresNothing(t *testing.T) {
 		t.Fatalf("after a move that failed untouched, the log pool is not open: %v", err)
 	}
 
-	if err := s.Swap(func() error {
+	err = s.Swap(func() error {
 		if err := moveDB(s.Path(), filepath.Join(dir, "elsewhere.db")); err != nil {
 			return err
 		}
 		return errors.New("moved the library away and stopped")
-	}, nil, nil); err == nil {
+	}, nil, nil)
+	if err == nil {
 		t.Fatal("a failed move reported success")
+	}
+	if !strings.Contains(err.Error(), "reopen") {
+		t.Fatalf("a swap that left nothing to reopen did not say its reopen failed: %v", err)
 	}
 	if _, err := os.Stat(s.Path()); !os.IsNotExist(err) {
 		t.Fatalf("a failed swap created a database where the library was (stat: %v)", err)
 	}
+
+	// The rollback that lies: it reports the old file back and leaves the path
+	// empty. Opening what is there would make a new empty database, and the
+	// restore, told the rollback worked, would answer "previous data is intact"
+	// and delete the staging directory the library had been moved into.
+	s2 := openHead(t)
+	mustExecT(t, s2, `INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')`)
+	aside := filepath.Join(t.TempDir(), "aside.db")
+	err = s2.Swap(
+		func() error {
+			if err := moveDB(s2.Path(), aside); err != nil {
+				return err
+			}
+			return errors.New("moved the library aside and stopped")
+		},
+		func(error) error { return nil },
+		nil,
+	)
+	var rb *RollbackError
+	if !errors.As(err, &rb) {
+		t.Fatalf("a rollback that left nothing at the path reported %v, want a RollbackError", err)
+	}
+	if _, err := os.Stat(s2.Path()); !os.IsNotExist(err) {
+		t.Fatalf("a rollback that put nothing back got an empty database made for it (stat: %v)", err)
+	}
+}
+
+// A recovery rebuilds the library into a new file and then renames it over the
+// old one. When that last rename fails, the old file must still be there and
+// open: the server goes on serving it, and a restart finds it, rather than an
+// empty path that the next boot fills with a new database.
+func TestARecoveryWhoseLastRenameFailsKeepsTheLibraryOpen(t *testing.T) {
+	s := openHead(t)
+	mustExecT(t, s, `INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')`)
+	mustExecT(t, s, `INSERT INTO books (user_id, title) VALUES (1, 'The Kept Book')`)
+	failPromote(t, func(string, string) error { return errors.New("the rename was refused") })
+
+	if err := s.Recover(); err == nil {
+		t.Fatal("a recovery whose rename failed reported success")
+	}
+	if _, err := os.Stat(s.Path()); err != nil {
+		t.Fatalf("a failed rename left nothing at the library's path: %v", err)
+	}
+	if n := countT(t, s.DB, `SELECT count(*) FROM books WHERE title = 'The Kept Book'`); n != 1 {
+		t.Fatal("the library is not open after the failed recovery")
+	}
+	if err := s.LogWrite(func(db *sql.DB) error {
+		_, err := db.Exec(`INSERT INTO system_logs (at, level, line) VALUES (1, 'info', 'still here')`)
+		return err
+	}); err != nil {
+		t.Fatalf("the log pool is not open after the failed recovery: %v", err)
+	}
+}
+
+// The same failed rename, reached from inside a restore: the archive's search
+// index is too broken to rebuild, so the bring-up recovers the whole file, and the
+// recovery's rename fails. The restore then reports only what is true — either the
+// restored library is live and answering, or the old one is back.
+func TestARestoreWhoseRecoveryCannotFinishReportsOnlyWhatIsTrue(t *testing.T) {
+	setup := func(t *testing.T) (s *Store, move func() error, rollback func(error) error, rolledBack *bool) {
+		t.Helper()
+		dir := t.TempDir()
+		var err error
+		if s, err = Open(filepath.Join(dir, "tippani.db")); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { s.Close() })
+		if err := s.Migrate(); err != nil {
+			t.Fatal(err)
+		}
+		mustExecT(t, s, `INSERT INTO users (id, username, password_hash) VALUES (1, 'alice', 'x')`)
+		mustExecT(t, s, `INSERT INTO books (user_id, title) VALUES (1, 'The Kept Book')`)
+		restored := brokenIndexArchive(t, "Leviathan Rising")
+		pre, failed := filepath.Join(dir, "pre"), filepath.Join(dir, "failed")
+		for _, d := range []string{pre, failed} {
+			if err := os.Mkdir(d, 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		rolledBack = new(bool)
+		move = func() error {
+			if err := moveDB(s.Path(), filepath.Join(pre, "tippani.db")); err != nil {
+				return err
+			}
+			return moveDB(restored, s.Path())
+		}
+		// As the restore's does: everything in the data dir out of the way (the
+		// restored file, if there is one, and the recovery's leftovers), then the
+		// old files back.
+		rollback = func(error) error {
+			*rolledBack = true
+			if err := moveEntriesExcept(dir, failed, "pre", "failed"); err != nil {
+				return err
+			}
+			return moveEntriesExcept(pre, dir)
+		}
+		return s, move, rollback, rolledBack
+	}
+
+	t.Run("the rename fails and the restored file stays", func(t *testing.T) {
+		s, move, rollback, rolledBack := setup(t)
+		failPromote(t, func(string, string) error { return errors.New("the rename was refused") })
+		if err := s.Swap(move, rollback, nil); err != nil {
+			t.Fatalf("swap: %v (the restored file was intact, only its search index was broken)", err)
+		}
+		if *rolledBack {
+			t.Fatal("the restore rolled back although the restored file was there and open")
+		}
+		if n := countT(t, s.DB, `SELECT count(*) FROM books WHERE title = 'Leviathan Rising'`); n != 1 {
+			t.Fatal("the restore reported success but the restored library is not what the server is on")
+		}
+		if err := s.LogWrite(func(db *sql.DB) error {
+			_, err := db.Exec(`INSERT INTO system_logs (at, level, line) VALUES (1, 'info', 'after')`)
+			return err
+		}); err != nil {
+			t.Fatalf("the restore reported success but the log pool is not open: %v", err)
+		}
+	})
+
+	// The rename this replaced deleted the old file first, so a failure left the
+	// path empty. Should anything leave it so again, the bring-up has to notice
+	// the closed pools: the restore rolls back rather than answering "complete".
+	t.Run("the path is left empty", func(t *testing.T) {
+		s, move, rollback, rolledBack := setup(t)
+		failPromote(t, func(_, to string) error {
+			os.Remove(to)
+			return errors.New("the rename failed after the old file was gone")
+		})
+		afterRan := false
+		err := s.Swap(move, rollback, func(*sql.DB) error { afterRan = true; return nil })
+		if err == nil {
+			t.Fatal("a restore left on closed pools reported success")
+		}
+		var rb *RollbackError
+		if errors.As(err, &rb) {
+			t.Fatalf("the rollback worked but the swap reported it failing: %v", err)
+		}
+		if !*rolledBack || afterRan {
+			t.Fatalf("rolled back %v, success step ran %v; want the rollback and not the step", *rolledBack, afterRan)
+		}
+		if n := countT(t, s.DB, `SELECT count(*) FROM books WHERE title = 'The Kept Book'`); n != 1 {
+			t.Fatal("the old library is not live after the rollback")
+		}
+	})
 }
 
 // A recovery copies rows into a fresh file, and a fresh file's AUTOINCREMENT
@@ -444,6 +591,49 @@ func migratedFileWith(t *testing.T, path, title string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+// brokenIndexArchive is a restorable database whose books_fts is gone, so there is
+// no CREATE statement to rebuild it from: rebuildFTSTable fails for real and the
+// self-heal has only a whole-file recovery left.
+func brokenIndexArchive(t *testing.T, title string) string {
+	t.Helper()
+	path := migratedFileWith(t, filepath.Join(t.TempDir(), "restored.db"), title)
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`DROP TABLE books_fts`); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// failPromote has the recovery's last step, the rename of the rebuilt file over
+// the old one, run fn instead, until the test ends.
+func failPromote(t *testing.T, fn func(from, to string) error) {
+	t.Helper()
+	was := promote
+	promote = fn
+	t.Cleanup(func() { promote = was })
+}
+
+// moveEntriesExcept moves every entry of from into to but the names given.
+func moveEntriesExcept(from, to string, except ...string) error {
+	entries, err := os.ReadDir(from)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if slices.Contains(except, e.Name()) {
+			continue
+		}
+		if err := os.Rename(filepath.Join(from, e.Name()), filepath.Join(to, e.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // moveDB moves a closed database and whichever of its sidecars exist, as the

@@ -327,7 +327,7 @@ func (s *Store) recoverLocked() error {
 	_, _ = removeWithRetry(tmp)
 	_, _ = removeWithRetry(tmp + "-wal")
 	_, _ = removeWithRetry(tmp + "-shm")
-	fresh, err := openDB(tmp)
+	fresh, err := openDB(tmp, true)
 	if err != nil {
 		return fmt.Errorf("open temp db: %w", err)
 	}
@@ -400,16 +400,29 @@ func (s *Store) recoverLocked() error {
 
 	// Swap the fresh file in for the old one. swapLocked reopens both pools on
 	// whatever is at the path when this returns: the recovered file, or the old
-	// one when it could not be cleared, so the server is not left db-less.
+	// one when it could not be replaced, so the server is not left db-less.
+	//
+	// The old file's sidecars go first, because a -wal left beside the recovered
+	// file would be replayed into it as if it were its own. swapLocked's checkpoint,
+	// and the last connection's close after it, folded the -wal into the old file,
+	// so an old file reopened after a failed promote has lost nothing with it.
+	//
+	// THE OLD FILE ITSELF IS NEVER DELETED, ONLY RENAMED OVER. Rename replaces its
+	// target in one step (POSIX; Go's os.Rename on Windows passes
+	// MOVEFILE_REPLACE_EXISTING), so a promote that fails leaves the old file where
+	// it was, for swapLocked to reopen. This used to delete it and then rename, and
+	// a rename that failed between the two left nothing at the path: the store sat
+	// on closed pools, and the next boot made an empty database there, with the
+	// library in the .recover file beside it.
 	err = s.swapLocked(func() error {
-		for _, suffix := range []string{"-wal", "-shm", ""} {
+		for _, suffix := range []string{"-wal", "-shm"} {
 			if _, err := removeWithRetry(old + suffix); err != nil {
 				return fmt.Errorf("remove old %s: %w", old+suffix, err)
 			}
 		}
 		_, _ = removeWithRetry(tmp + "-wal")
 		_, _ = removeWithRetry(tmp + "-shm")
-		if err := os.Rename(tmp, old); err != nil {
+		if err := promote(tmp, old); err != nil {
 			return fmt.Errorf("promote recovered db: %w", err)
 		}
 		return nil
@@ -452,7 +465,15 @@ func (s *Store) Reset() error {
 				olog.Printf("[reset] deleted %s", f)
 			}
 		}
-		return nil
+		// A swap's reopen never creates the file (swapLocked says why), and an
+		// empty database is this one's whole point, so it makes the file itself.
+		// SQLite opens a zero-length file as an empty database; 0644 is the mode
+		// SQLite would have created it with.
+		f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o644)
+		if err != nil {
+			return fmt.Errorf("create the empty database %s: %w", path, err)
+		}
+		return f.Close()
 	})
 	if err != nil {
 		return err
@@ -480,4 +501,25 @@ func removeWithRetry(path string) (bool, error) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	return false, err
+}
+
+// promote puts a recovered database over the old file. It is a variable so a
+// test can make it fail: the case it exists for is a rename that fails while the
+// file system goes on working, and no real file system can be made to refuse one
+// rename and still let the old file be reopened in the same directory. A
+// read-only directory refuses the -wal and -shm the reopen needs too.
+var promote = renameWithRetry
+
+// renameWithRetry renames from over to, retrying briefly for the same reason
+// removeWithRetry does: Windows can hold a handle on the target for a moment
+// after the connection closes.
+func renameWithRetry(from, to string) error {
+	var err error
+	for i := 0; i < 10; i++ {
+		if err = os.Rename(from, to); err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
 }

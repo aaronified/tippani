@@ -53,21 +53,23 @@ type Store struct {
 // pool, both on the same file (see openDB for the pragmas and why).
 func Open(path string) (*Store, error) {
 	s := &Store{path: path}
-	if err := s.openPools(); err != nil {
+	if err := s.openPools(true); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
 // openPools opens both pools on whatever file sits at s.path and swaps them in.
-// On failure neither is swapped in, so the store keeps the handles it had (closed
-// ones, after a swap) rather than nil ones every caller would have to test for.
-func (s *Store) openPools() error {
-	db, err := openDB(s.path)
+// create says whether a missing file may be made: at Open, yes, because a first
+// boot starts from nothing; after a swap, never (swapLocked says why). On failure
+// neither is swapped in, so the store keeps the handles it had (closed ones, after
+// a swap) rather than nil ones every caller would have to test for.
+func (s *Store) openPools(create bool) error {
+	db, err := openDB(s.path, create)
 	if err != nil {
 		return err
 	}
-	logDB, err := openLogDB(s.path)
+	logDB, err := openLogDB(s.path, create)
 	if err != nil {
 		db.Close()
 		return err
@@ -84,7 +86,7 @@ const busyTimeout = 5 * time.Second
 // openDB builds the library pool (Store.DB) with the standard DSN + pool, verifying
 // it opens. Opened by openPools, at Open and after every swap, and by Recover for
 // its temp file, so every database is configured identically.
-func openDB(path string) (*sql.DB, error) {
+func openDB(path string, create bool) (*sql.DB, error) {
 	// synchronous=FULL (not NORMAL): in WAL, NORMAL only fsyncs at checkpoint, so
 	// an unclean stop (docker stop → SIGKILL, or a volume that doesn't guarantee
 	// fsync ordering) can leave a torn WAL that surfaces later as "database disk
@@ -119,26 +121,31 @@ func openDB(path string) (*sql.DB, error) {
 	// was. Reads are deliberately left on the 4-connection pool.
 	//
 	// Modest pool: WAL allows concurrent readers alongside a single writer.
-	return openPool(path, "FULL", 4)
+	return openPool(path, "FULL", 4, create)
 }
 
 // openLogDB opens the log pool (Store.LogDB): the same file and the same DSN as
 // openDB but for synchronous, and one connection. One, because the logbook has one
 // writer whose batches run one after another anyway; a second connection would
 // only be a second claimant on SQLite's write lock, ahead of somebody's save.
-func openLogDB(path string) (*sql.DB, error) {
-	return openPool(path, "NORMAL", 1)
+func openLogDB(path string, create bool) (*sql.DB, error) {
+	return openPool(path, "NORMAL", 1, create)
 }
 
 // openPool is the DSN both pools share (openDB says why each part of it is
-// there), differing only in synchronous and in the pool's size.
-func openPool(path, synchronous string, conns int) (*sql.DB, error) {
+// there), differing only in synchronous, in the pool's size, and in whether a
+// missing file is created. Without create it asks SQLite for mode=rw, which
+// fails on a missing file instead of making an empty one.
+func openPool(path, synchronous string, conns int, create bool) (*sql.DB, error) {
 	dsn := fmt.Sprintf(
 		"file:%s?_txlock=immediate"+
 			"&_pragma=busy_timeout(%d)&_pragma=journal_mode(WAL)"+
 			"&_pragma=foreign_keys(1)&_pragma=synchronous(%s)",
 		path, busyTimeout.Milliseconds(), synchronous,
 	)
+	if !create {
+		dsn += "&mode=rw"
+	}
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
