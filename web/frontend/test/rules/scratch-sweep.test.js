@@ -28,7 +28,7 @@
 // at a directory of their own and never near a real one.
 
 import { execFileSync, spawn } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -92,11 +92,30 @@ function scratchDir(name) {
   return d
 }
 
+// EVERY PROCESS RUNNING A BINARY FROM THIS CASE'S ROOT, found by its executable
+// rather than by the pid `spawn` returned. For an orphan that pid is `setsid`'s:
+// it forks the holder into a session of its own and exits, so killing the pid and
+// its group reached nothing, and the holder the sweep is meant to leave alone (the
+// foreign one) went on blocking on its fifo after the case ended. Twenty-four had
+// piled up on one machine in a day. `/proc/<pid>/exe` names the copied binary,
+// which lives under root, so this finds the holder whichever way it was started.
+function strays() {
+  const found = []
+  for (const name of readdirSync('/proc')) {
+    if (!/^\d+$/.test(name)) continue
+    let exe
+    try { exe = readlinkSync(`/proc/${name}/exe`) } catch { continue }
+    if (exe.startsWith(root + '/')) found.push(Number(name))
+  }
+  return found
+}
+
 beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'sweep-case-')) })
 afterEach(() => {
   for (const p of spawned.splice(0)) {
     for (const pid of [p.pid, -p.pid]) { try { process.kill(pid, 'SIGKILL') } catch { /* already gone */ } }
   }
+  for (const pid of strays()) { try { process.kill(pid, 'SIGKILL') } catch { /* already gone */ } }
   rmSync(root, { recursive: true, force: true })
 })
 
