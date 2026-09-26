@@ -427,6 +427,15 @@ func (s *Server) sealBackup(w http.ResponseWriter, r *http.Request, mode byte, a
 		writeErr(w, http.StatusInternalServerError, "database snapshot failed")
 		return false
 	}
+	// Without the job history and the system log, which belong to this server
+	// rather than to the library (store.StripJournal says why). Failing to strip
+	// fails the backup: an archive is a file that leaves the server, and the log
+	// holds every request anybody made.
+	if err := store.StripJournal(snap); err != nil {
+		olog.Errorf(olog.CodeBackupStrip, "[backup] could not leave the job history and logs out of the snapshot: %v", err)
+		writeErr(w, http.StatusInternalServerError, "database snapshot failed")
+		return false
+	}
 
 	if err := s.writeBackupArchive(dest, snap, mode, account, secret, instKey); err != nil {
 		_ = os.Remove(dest)
@@ -968,11 +977,17 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	// ONE CALL HOLDS THE WHOLE SWAP: the move, the reopen and, when either fails,
-	// the rollback, under the store's swap lock (store.Swap). It used to be a
-	// close, a move and a reopen as three separate calls, with a second reopen for
-	// the rollback, and the logbook's writer would have been free to write into
-	// the data dir halfway through the move.
+	// ONE CALL HOLDS THE WHOLE SWAP: the move, the reopen, the carry-over and,
+	// when any fails, the rollback, under the store's swap lock (store.Swap). It
+	// used to be a close, a move and a reopen as three separate calls, with a
+	// second reopen for the rollback, and the logbook's writer would have been
+	// free to write into the data dir halfway through the move.
+	//
+	// The database being replaced lands here, and the carry-over reads the job
+	// history and the system log back out of it. The directory is kept until the
+	// NEXT restore's cleanup, so it is still there when the carry-over runs, its
+	// -wal beside it if the pre-swap checkpoint left one.
+	replaced := filepath.Join(preDir, filepath.Base(s.Store.Path()))
 	swapErr := s.Store.Swap(
 		func() error {
 			if err := s.moveTopLevel(s.DataDir, preDir); err != nil {
@@ -1001,7 +1016,16 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 			}
 			return moveEntries(preDir, s.DataDir)
 		},
-		nil,
+		// Keep the server's own journal, not the archive's (which is empty:
+		// archives are stripped, and one from before 3.1.0 never had one). A
+		// failure here costs the history and never the restore.
+		func(db *sql.DB) error {
+			if err := store.CarryJournal(db, replaced); err != nil {
+				olog.Warnf(olog.CodeBackupCarry,
+					"[backup] the job history and system log could not be carried over from %s: %v — the restored server starts with none", preDir, err)
+			}
+			return nil
+		},
 	)
 	if swapErr != nil {
 		var rb *store.RollbackError
