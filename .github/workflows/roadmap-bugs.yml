@@ -37,9 +37,10 @@ on:
       - "scripts/roadmap-tracker.mjs"
   workflow_dispatch:
 
-# The workflow's default. The label job adds issues: write, which labelling needs,
-# and the publish job alone holds actions: write, which dispatching needs, so the
-# render job, which runs two node scripts and saves its token in .git/config at
+# The workflow's default, which render inherits. A job with a block of its own holds
+# only what that block names, not this plus it: label holds issues: write, which
+# labelling needs, and publish holds actions: write, which dispatching needs. So
+# render, which runs two node scripts and saves its token in .git/config at
 # checkout, holds neither.
 permissions:
   contents: write
