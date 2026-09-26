@@ -2,14 +2,16 @@ package httpapi
 
 import (
 	"net/http"
+	"os"
 	"testing"
 )
 
 // A PHONE CAN BE PAIRED AFTER A FACTORY RESET. A reset swaps the database handle,
 // and the handler repointed the session store at the new one and left the
-// device-token store on the closed old handle, so every pairing and every phone's
-// request after it failed until a restart. The restore path already repointed
-// both, through rebindDB.
+// device-token store on the closed old handle, so pairing a phone after it failed
+// until a restart. (Phones paired before a reset lose their tokens with the
+// database, restart or not.) The restore path already repointed both, through
+// rebindDB.
 //
 // THE REINDEX HALF OF THE SAME FIX IS NOT EXERCISED HERE. A search reindex swaps
 // the handle only when it has to escalate to a whole-database Recover, which
@@ -49,5 +51,54 @@ func TestAPairingCodeFromBeforeAFactoryResetIsRefused(t *testing.T) {
 	signupAdmin(t, h)
 	if rec := claim(t, h, stale, "someone else's phone"); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("a pairing code minted before the reset was claimed after it: got %d %s, want 401", rec.Code, rec.Body)
+	}
+}
+
+// A FACTORY RESET THAT FAILS PARTWAY STILL LEAVES SIGN-IN WORKING. Reset closes
+// the database before it deletes anything, and a delete it cannot make reopens
+// the existing file, so the auth stores have to be repointed on that exit too, or
+// every session answers 401 against a closed handle until a restart. And the
+// pairing codes minted before it are gone even so.
+//
+// WHAT IT KNOWS, declared: the server's data directory (srv.DataDir), which it
+// makes unwritable so the reset's delete fails. Nothing a reader can do makes a
+// reset fail halfway. Root deletes from a directory it cannot write, so the case
+// skips there.
+func TestAFailedFactoryResetLeavesSignInWorking(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root deletes from a directory it cannot write, so the reset would not fail")
+	}
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	stale := startPairing(t, admin).Code
+	safetyBackup(t, admin)
+	if err := os.Chmod(srv.DataDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(srv.DataDir, 0o700) })
+	admin.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusInternalServerError)
+	if err := os.Chmod(srv.DataDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	admin.mustDo("GET", "/books", nil, http.StatusOK)
+	if rec := claim(t, h, stale, "someone's phone"); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("a pairing code minted before a failed reset was claimed after it: got %d %s, want 401", rec.Code, rec.Body)
+	}
+}
+
+// A PAIRING CODE MINTED BEFORE A RESTORE DOES NOT OUTLIVE IT, for the same reason
+// as a reset: the restored database gives account ids out again, and a code is
+// held by id.
+func TestAPairingCodeFromBeforeARestoreIsRefused(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	backupNow(admin)
+	stale := startPairing(t, admin).Code
+	safetyBackup(t, admin)
+	admin.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
+	if rec := claim(t, h, stale, "someone else's phone"); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("a pairing code minted before a restore was claimed after it: got %d %s, want 401", rec.Code, rec.Body)
 	}
 }

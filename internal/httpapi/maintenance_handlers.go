@@ -61,9 +61,11 @@ func (s *Server) handleResetDatabase(w http.ResponseWriter, r *http.Request) {
 	// The session and device-token stores captured the OLD *sql.DB at
 	// construction; repoint both at the store's handle so auth works against it.
 	// ON EVERY EXIT, not only success: Reset closes the old handle before
-	// anything can fail, and its failing exits leave a reopened one, so a reset
-	// that failed partway would otherwise leave every sign-in on a closed handle.
-	// This repointed the sessions alone, and only after a success.
+	// anything can fail. A failed delete reopens the existing file, and a failed
+	// migrate leaves the fresh one open, so a reset that failed partway would
+	// otherwise leave every sign-in on a closed handle. (A failed reopen leaves no
+	// open handle, and the rebind then changes nothing.) This repointed the
+	// sessions alone, and only after a success.
 	s.rebindDB()
 	// And every pairing code and pending sign-on link issued before it, on every
 	// exit too: a failed migrate has emptied the accounts as surely as a success.
