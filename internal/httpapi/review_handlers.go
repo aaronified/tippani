@@ -1389,7 +1389,13 @@ func (s *Server) deckCandidates(uid int64, bucket deckBucket, sc reviewScope, th
 // work in consecutive slots. So a slot takes, from its list's next few cards,
 // the first whose work is not in the last two dealt, and the list's own order
 // otherwise.
-func mergeDeck(asked, unseen []reviewCand, slots, dueEvery int) []reviewCand {
+//
+// THE SLOTS ARE NUMBERED FROM `dealt`, the cards the reader has already been
+// dealt today. The Daily deck is rebuilt on every fetch with only the unspent
+// slots, so counting from zero each time restarted the pattern: a reader who
+// answered one or two cards a visit was never asked a due review while unseen
+// cards remained. Practice deals a round at once and passes 0.
+func mergeDeck(asked, unseen []reviewCand, slots, dueEvery, dealt int) []reviewCand {
 	asked = append([]reviewCand(nil), asked...)
 	unseen = append([]reviewCand(nil), unseen...)
 	out := make([]reviewCand, 0, len(asked)+len(unseen))
@@ -1405,7 +1411,7 @@ func mergeDeck(asked, unseen []reviewCand, slots, dueEvery int) []reviewCand {
 		*list = append((*list)[:pick], (*list)[pick+1:]...)
 	}
 	for len(out) < slots && (len(asked) > 0 || len(unseen) > 0) {
-		wantAsked := (len(out)+1)%dueEvery == 0 || len(unseen) == 0
+		wantAsked := (dealt+len(out)+1)%dueEvery == 0 || len(unseen) == 0
 		if wantAsked && len(asked) > 0 {
 			take(&asked)
 		} else {
@@ -2699,7 +2705,7 @@ func (s *Server) dailyDeck(uid int64, offset int) (dailyDeckState, error) {
 		if err != nil {
 			return d, fmt.Errorf("daily quiz unseen: %w", err)
 		}
-		for _, c := range mergeDeck(due, unseen, slots, reviewDueEvery) {
+		for _, c := range mergeDeck(due, unseen, slots, reviewDueEvery, answered) {
 			if len(items) >= slots {
 				break
 			}
@@ -2823,7 +2829,7 @@ func (s *Server) handlePractice(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "practice pool", err)
 		return
 	}
-	cands := mergeDeck(asked, never, len(asked)+len(never), reviewDueEvery)
+	cands := mergeDeck(asked, never, len(asked)+len(never), reviewDueEvery, 0)
 	// WHETHER PRACTICE IS SCORED DECIDES WHETHER IT MAY SELF-MARK. With
 	// srPracticeCounts off — the default — Practice moves no schedule and keeps no
 	// grade worth defending, so the flip card belongs here and leads. Turn scoring

@@ -1090,18 +1090,65 @@ func TestDailyQuizAdmitsUnseenBesideBacklog(t *testing.T) {
 		}
 	}
 	// Since 3.0.3 unseen cards take two slots in three, and every third slot is
-	// the most overdue review, so the backlog still gets its share.
-	if want := reviewQuota - reviewQuota/reviewDueEvery; got != want {
-		t.Fatalf("unseen cards in deck: got %d, want %d (two in every three slots)", got, want)
+	// the most overdue review, so the backlog still gets its share: of the eight,
+	// slots three and six. Literal numbers, so a change to the ratio fails here
+	// rather than moving the expectation with it.
+	if reviewQuota != 8 {
+		t.Fatalf("this test counts an eight-card deck; the default quota is %d", reviewQuota)
 	}
-	if backlogged := len(deck.Items) - got; backlogged != reviewQuota/reviewDueEvery {
-		t.Fatalf("due cards in deck: got %d, want %d", backlogged, reviewQuota/reviewDueEvery)
+	if got != 6 {
+		t.Fatalf("unseen cards in deck: got %d, want 6 of 8 (two in every three slots)", got)
+	}
+	if backlogged := len(deck.Items) - got; backlogged != 2 {
+		t.Fatalf("due cards in deck: got %d, want 2 of 8", backlogged)
 	}
 	// And the round leads with what the reader has not been asked yet.
 	for i, it := range deck.Items[:2] {
 		if !(it.Kind == kindBook && unseen[it.ID]) {
 			t.Fatalf("card %d of the round is a review; the first two should be quotes not yet asked", i+1)
 		}
+	}
+}
+
+// A reader who answers one card and comes back later still meets a review every
+// third card. The deck is rebuilt on each visit from the slots left, and while it
+// counted those from zero every visit led with two unseen cards, so this reader
+// was never asked a due review while any unseen card remained.
+func TestDailyQuizKeepsItsPatternAcrossVisits(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	_, backlog := seedReviewBook(t, c, "Middlemarch", reviewQuota*3)
+	_, fresh := seedReviewBook(t, c, "Dune", reviewQuota*3)
+	ageSeededItems(t, srv)
+	for _, id := range backlog {
+		if _, err := srv.Store.DB.Exec(`INSERT INTO item_reviews
+			(kind, item_id, stability, review_count, last_result, last_reviewed_at, last_touched_at)
+			VALUES ('book', ?, 7, 1, 'got', datetime('now', '-90 days'), datetime('now', '-90 days'))`, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	unseen := map[int64]bool{}
+	for _, id := range fresh {
+		unseen[id] = true
+	}
+
+	var met strings.Builder
+	for visit := 1; visit <= reviewQuota; visit++ {
+		deck := decode[reviewDeckResp](t, c.mustDo("GET", "/review/daily", nil, 200))
+		if len(deck.Items) == 0 {
+			t.Fatalf("visit %d: the deck is empty with %d answered", visit, visit-1)
+		}
+		first := deck.Items[0]
+		if unseen[first.ID] {
+			met.WriteByte('U')
+		} else {
+			met.WriteByte('A')
+		}
+		answer(t, c, first.Kind, first.ID, "got", "daily")
+	}
+	if got := met.String(); got != "UUAUUAUU" {
+		t.Fatalf("one card a visit met %s, want UUAUUAUU (a review every third card)", got)
 	}
 }
 

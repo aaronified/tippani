@@ -3007,6 +3007,11 @@ Why 365 and not more: one year is the longest retention interval Cepeda, Vul, Ro
 - **The works stay mixed across the seam.** Each bucket arrives rotated by work, and dealing
   two rotated lists two-to-one could put one work in consecutive slots. So a slot takes,
   from its list's next four cards, the first whose work is not among the last two dealt.
+- **The slots are counted across the day, not per visit.** The Daily deck is rebuilt on
+  every visit with only the slots left, so a count that started at zero each time led every
+  visit with two unseen cards, and a reader who answered a card or two per visit was never
+  asked a review while any unseen card remained. The count starts at the cards already
+  answered today.
 - **The cost, accepted.** The arithmetic in the entry above still holds, and intake now
   outruns it: due reviews get a third of the quota, so a backlog builds sooner and a due
   card waits longer. The daily quota (2 to 10) is the reader's lever.
