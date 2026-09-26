@@ -411,6 +411,13 @@ jobs:
       # that no package, script or workflow has been added without the map hearing, and
       # that the Maintainer: CI table has a row for every job in this file and no other.
       - run: node scripts/doc-map-check.mjs
+      # The deploy's link check, on its own two sites: a page whose <style> holds a
+      # selector that is not a link and a url() that is, and the same with that
+      # url() pointing at a file that is not there. Pages runs the check only on the
+      # real site, where neither case occurs, so a swap of which half reads the
+      # markup and which the whole page would otherwise pass unseen.
+      - run: node scripts/site-links.mjs scripts/testdata/site-links/ok
+      - run: "! node scripts/site-links.mjs scripts/testdata/site-links/bad"
       # docs/wiki/ is published to the GitHub wiki by wiki.yml, and there is no build
       # step between those files and a reader — a dead link ships the moment it is
       # pushed. This asserts every internal link resolves, that the navigation names
