@@ -20,9 +20,12 @@ mkdirSync(opts.out, { recursive: true })
 const engine = findBrowser(null, 'chrome')
 const browser = await puppeteer.launch(launchOptions(engine, { viewport: { width: opts.width, height: 1600 } }))
 const page = await browser.newPage()
-// Reduced motion as well as the scheme, which is how every capture here runs:
-// flow.jsx then draws a quote with a seal as a plain paragraph with the seal
-// floated, not the flowed text a reader without the setting sees.
+// Reduced motion as well as the scheme, on every capture this script takes, and
+// the app draws differently under it. A quote with a seal is flow.jsx's plain
+// fallback: shown in full rather than clamped, with the full-size seal floated
+// top right rather than at its saved spot or as the collapsed badge. Tag chips,
+// hand notes and primary buttons lose their tilt (index.css's reduced-motion
+// rules). A reader without the setting sees them flowed, clamped and tilted.
 await emulateEngineMedia(page, engine.browser, 'dark')
 await ensureSession(page, opts)
 
