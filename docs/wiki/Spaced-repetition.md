@@ -17,7 +17,7 @@ Four rulings, taken with the research in front of them:
 **Every decision below carries its citation, and every citation has an
 infodot string written for it** — the reader should be able to press ⓘ beside a
 control and read why it is that way. `INFODOT_MAX` is 240 characters
-(`test/pure/infodot-copy.test.js:58`); the strings in *The infodots* are inside it
+(`test/rules/infodot-copy.test.js:58`); the strings in *The infodots* are inside it
 and are the builder's to use verbatim or trim, in `en.txt` and `bn.txt` both.
 
 ---

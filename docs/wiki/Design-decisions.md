@@ -1922,7 +1922,7 @@ Rule 3 exists because an as-you-type capitaliser is otherwise an unappealable on
 
 **Approved.** Mine. I chose the scope — names *and* titles, not names alone — knowing titles are the riskier half, which is why the promote-only rule and the yield had to come with it rather than after it.
 
-<sub>1.7.8 — `web/frontend/src/ui.jsx` · `web/frontend/test/pure/name-casing.test.js` · `web/frontend/test/dom/name-casing-field.test.jsx` · `CHANGELOG.md`</sub>
+<sub>1.7.8 — `web/frontend/src/ui.jsx` · `web/frontend/test/rules/name-casing.test.js` · `web/frontend/test/dom/name-casing-field.test.jsx` · `CHANGELOG.md`</sub>
 
 ### A film's supplier ids are editable, and a typed id pins the next search
 
@@ -1972,7 +1972,7 @@ That was sound about the id and wrong about the search that produces it: it defe
 
 **Nothing in the block changed in the move** — same components, same copy, same endpoints. A move that also rewrites is a move nobody can review. The one thing that did change was an accident and is worth recording: `toast` was called by two handlers and left behind by the import, so every key save threw after a successful PUT. `icon-imports.test.js` read JSX tags only and could not see a helper CALL; it reads a named list of shared helpers now, which is the same class-not-spelling widening that file already did once.
 
-<sub>`web/frontend/src/MetadataSources.jsx` · `web/frontend/src/Settings.jsx` (`SETTINGS_LAYOUT`) · `web/frontend/test/pure/icon-imports.test.js`</sub>
+<sub>`web/frontend/src/MetadataSources.jsx` · `web/frontend/src/Settings.jsx` (`SETTINGS_LAYOUT`) · `web/frontend/test/rules/icon-imports.test.js`</sub>
 
 ### A status chip appears only where there is something to say, and "working" is silence
 
@@ -4003,7 +4003,7 @@ Falling back to the default rather than the nearest bound is the smaller of two 
 
 **Approved.** Mine, as a defect rather than a design: nothing about the theme changed, only what could reach it, and the honest version of the record is that the log and the roadmap both called it built for two releases on the strength of a passing server test.
 
-<sub>2.1.2 — `internal/httpapi/review_theme.go` · `web/frontend/src/review.jsx` · `web/frontend/src/anthologies.jsx` · `web/frontend/test/pure/theme-reachable.test.js`</sub>
+<sub>2.1.2 — `internal/httpapi/review_theme.go` · `web/frontend/src/review.jsx` · `web/frontend/src/anthologies.jsx` · `web/frontend/test/rules/theme-reachable.test.js`</sub>
 
 ## 9. Import and the Staging Queue
 
@@ -5277,7 +5277,7 @@ Two mechanisms for explaining a control both widened the page and neither worked
 
 **Approved.** The owner's, who asked for formatting and assets rather than only brevity — "the user should be able to easily scan the page to know where he needs to go, gets there with a click or a short scroll, and understands everything at a glance" — and who added, after the first pass, that the reader "is not a complete idiot".
 
-<sub>2.0.1 — `web/frontend/src/help.jsx` · `web/frontend/src/ui.jsx` · `web/frontend/src/gestures.jsx` · `web/frontend/test/pure/help-budget.test.js`</sub>
+<sub>2.0.1 — `web/frontend/src/help.jsx` · `web/frontend/src/ui.jsx` · `web/frontend/src/gestures.jsx` · `web/frontend/test/rules/help-budget.test.js`</sub>
 
 ### A gesture is drawn, and the drawing is abstract so it cannot go stale
 
@@ -5664,7 +5664,7 @@ Library and Catalogue never met it because they pass `'annotation'` and `'dialog
 
 <sub>2.1.3 — `internal/i18n/i18n.go` · `web/frontend/src/i18n.js` · `internal/olog/codes.go` · `docs/wiki/Troubleshooting.md`</sub>
 
-<sub>2.1.0 → 2.1.1 (reversal) — `internal/i18n/i18n.go` · `internal/i18n/en.txt` · `internal/i18n/bn.txt` · `internal/i18n/README.md` · `web/frontend/src/i18n.js` · `web/frontend/src/locale.jsx` · `internal/httpapi/locale_handlers.go` · `scripts/locale-template.mjs` · `web/frontend/test/pure/locale-resolve.test.js` · `web/frontend/test/pure/help-budget.test.js` · `web/frontend/test/pure/translated-not-sliced.test.js` · `docs/plans/multilingual.md`</sub>
+<sub>2.1.0 → 2.1.1 (reversal) — `internal/i18n/i18n.go` · `internal/i18n/en.txt` · `internal/i18n/bn.txt` · `internal/i18n/README.md` · `web/frontend/src/i18n.js` · `web/frontend/src/locale.jsx` · `internal/httpapi/locale_handlers.go` · `scripts/locale-template.mjs` · `web/frontend/test/pure/locale-resolve.test.js` · `web/frontend/test/rules/help-budget.test.js` · `web/frontend/test/rules/translated-not-sliced.test.js` · `docs/plans/multilingual.md`</sub>
 
 ### Six default portraits, picked by a hash of the name
 
@@ -5734,7 +5734,7 @@ A popup that places itself in CSS is correct exactly once, and a board that re-p
 
 **Decided.** Reversed. Every dropdown, menu and suggestion list used `position: absolute; top: calc(100% + 4px)`, and a separate rule raised a whole card above its neighbours whenever a menu was open inside it. **Why it was wrong.** `top: calc(100% + N)` is right exactly once — when there is room below the trigger. Open a Select near the bottom of a phone screen and the panel rendered below the fold, so choosing an option meant scrolling the page to reach options that were supposed to be in front of you. A menu you have to go looking for is a menu that has failed. The z-index rule is the tell: it dragged the card's cover, its quote and its shadow up along with the menu, because an absolutely-positioned menu cannot escape its own card. A workaround that has to move four things to reveal one is a workaround for a structural mistake. Both were mine, and the second is the evidence I should have read years earlier.
 
-<sub>`web/frontend/test/pure/popup-offsets.test.js`</sub>
+<sub>`web/frontend/test/rules/popup-offsets.test.js`</sub>
 
 ### The desktop ⋯ menu portalled to `<body>` — the origin of the standing rule
 
@@ -5750,7 +5750,7 @@ A popup that places itself in CSS is correct exactly once, and a board that re-p
 
 **Why.** CSS cannot do this, and not for want of a cleverer rule: to know it is off the screen a popup has to measure the **viewport**, and an absolutely-positioned element is placed against its offset parent, which knows nothing about where on the page it ended up. Anchor positioning would do it natively and is not yet safe to rely on. So placement moved into JS, and with it into a portal — a card that sets `container-type` or `transform` is a containing block *and* a stacking context, and a popup inside one cannot escape however it is positioned. The arithmetic is a separate pure function because jsdom applies no layout and reports every rectangle as zeros: a test driving this through the DOM would assert that nothing fits inside nothing. The invariant is now the strong form — not "these two composed classes do not contradict each other" but "no popup class places itself at all" — and writing a `top` back fails three tests by name. It applies to the selects, the multi-selects, the tag and work suggestion lists, the ⋯ menus, the shelf chip, the calendar and the import format picker at once. My call, and one primitive rather than nine local patches is the whole argument.
 
-<sub>`web/frontend/src/ui.jsx` · `web/frontend/test/pure/popup-offsets.test.js`</sub>
+<sub>`web/frontend/src/ui.jsx` · `web/frontend/test/rules/popup-offsets.test.js`</sub>
 
 ### Flip only when the preferred side cannot fit and the other is roomier; always cap
 
@@ -5776,7 +5776,7 @@ A popup that places itself in CSS is correct exactly once, and a board that re-p
 
 **Decided.** Reversed. The collapsed colour list rendered as `className="cs-menu token-menu"` — `.token-menu` for the popover look, `.cs-menu` for placement. **Why I was wrong.** Reusing `.token-menu` for the border, shadow and entrance animation was the right instinct. What I missed is that `.token-menu` also *places* itself, because it was written for a dropdown hanging under a text input: `top: calc(100% + 4px)`. `.cs-menu` set `bottom` to open upwards and never cleared the `top`. Nothing conflicts in the way CSS usually conflicts, which is why it survived review — neither declaration loses. For a box with `height: auto`, `top` and `bottom` both set is not a tie to be broken: CSS solves for the *height*, and against a 44px anchor that came out near −60px. What reached the screen was the border, twice, with nothing between. It was unusable for a whole release, and all six existing tests over that picker passed the entire time, because they test behaviour and this was layout. Both offsets have to be cleared, which is now enforced as "no popup sets an offset at all".
 
-<sub>`web/frontend/test/pure/popup-offsets.test.js`</sub>
+<sub>`web/frontend/test/rules/popup-offsets.test.js`</sub>
 
 ### A container query, not a media query or a ResizeObserver, chooses the collapsed colour picker
 
@@ -5984,7 +5984,7 @@ That was true about a parent record and false about a destination. The quote liv
 
 **Why.** A wheel or a swipe that runs past the end of a popup carries on into the page behind it. Nothing throws and nothing looks broken while it happens — the page you cannot see moves under the dialog you are reading, and it is still moved when you close it, so you come back somewhere you never navigated to. Nine scroll containers were affected and only two declared the property, which makes it a bug of *omission* — and the failure mode is not "someone wrote the wrong value", it is "someone adds `overflow-y: auto` next year and never thinks about chaining at all". Only a sweep catches that. The second half was worse than the report: CSS containment only governs a scroll that *started* inside the overlay, so eleven full-viewport overlays needed the body lock as well. My call to write the invariant rather than eleven fixes, and it is the pattern the popup-offsets test later copied.
 
-<sub>`web/frontend/test/pure/scroll-containment.test.js`</sub>
+<sub>`web/frontend/test/rules/scroll-containment.test.js`</sub>
 
 ### An `ErrorBoundary` shows the real error instead of a white screen
 
@@ -6498,7 +6498,7 @@ So the folder holds nothing. It is a rendering of a filter — open it and you a
 
 ### Info dots are what the control does plus one consequence, and it is enforced
 
-**Decided.** An info dot's copy is capped at 240 characters and three sentences per branch, checked by `test/pure/infodot-copy.test.js`. Seventeen were rewritten; the longest went from 988 characters to 281.
+**Decided.** An info dot's copy is capped at 240 characters and three sentences per branch, checked by `test/rules/infodot-copy.test.js`. Seventeen were rewritten; the longest went from 988 characters to 281.
 
 **Why.** The five-word rule works — of 162 tooltip labels only five exceed it, each by one word — but it has an unbounded consequence nobody had noticed: longer copy was told to go and live in an info dot, and nothing ever constrained an info dot. They grew to 400, 700, nearly a thousand characters, and what filled them was consistently RATIONALE rather than instruction. One spent 680 characters on a switch whose behaviour takes 90.
 
@@ -6510,7 +6510,7 @@ So the folder holds nothing. It is a rendering of a filter — open it and you a
 
 **Approved.** The reader's, in the form "every line must pass a rigour test — is it absolutely necessary for the understanding?"
 
-<sub>1.13.0 — `web/frontend/test/pure/infodot-copy.test.js` · `web/frontend/src/share.jsx` · `web/frontend/src/Account.jsx` · `web/frontend/src/Settings.jsx`</sub>
+<sub>1.13.0 — `web/frontend/test/rules/infodot-copy.test.js` · `web/frontend/src/share.jsx` · `web/frontend/src/Account.jsx` · `web/frontend/src/Settings.jsx`</sub>
 
 ### A book has three credits, and the other two are people rather than strings
 
@@ -6561,7 +6561,7 @@ Embedded wins on the thing this app is actually for. The promise is stated in th
 
 ### A timeline label is a year, and a year has to be readable and honest about its scale
 
-**Decided.** The column ticks move off `--font-mono` to `--font-ui` at 10.5/500, the tick row grows 46 → 58px with `.tl-row` growing by the same 12 so the plot keeps its 110px, `slashed-zero` is removed from the gap markers, and `bucketLabel(start, size)` replaces `decadeLabel` everywhere the scale is not a decade. `test/pure/timeline-metrics.test.js` holds the stylesheet against `StatsPage.jsx`.
+**Decided.** The column ticks move off `--font-mono` to `--font-ui` at 10.5/500, the tick row grows 46 → 58px with `.tl-row` growing by the same 12 so the plot keeps its 110px, `slashed-zero` is removed from the gap markers, and `bucketLabel(start, size)` replaces `decadeLabel` everywhere the scale is not a decade. `test/rules/timeline-metrics.test.js` holds the stylesheet against `StatsPage.jsx`.
 
 **Why.** 1.13.0 was asked to fix "8 and 0 look exactly the same" on this chart. It changed the year markers *inside* a folded gap, wrote a long comment about why the mono face was wrong for them, and left the ticks under every column — the labels anyone actually reads, one per bucket — at mono 9px. The report came back unchanged, correctly. Fixing an instance of a problem and describing it as the class is the failure worth naming here: the comment I wrote made the remaining case harder to find, because it read as though the work was done.
 
@@ -6575,7 +6575,7 @@ Embedded wins on the thing this app is actually for. The promise is stated in th
 
 **Approved.** The reader's, in the form "the timeline font is not fixed. 8 and 0 are still identical. i think that is because you are using a font that uses a slanted slash for 0" — which named the slash I had added.
 
-<sub>1.13.2 — `web/frontend/src/index.css` · `web/frontend/src/StatsPage.jsx` · `web/frontend/test/pure/timeline-metrics.test.js`</sub>
+<sub>1.13.2 — `web/frontend/src/index.css` · `web/frontend/src/StatsPage.jsx` · `web/frontend/test/rules/timeline-metrics.test.js`</sub>
 
 ### A decade is a door; a year and a century are deliberately not
 
@@ -6929,7 +6929,7 @@ It said so in a paragraph under the Labels row's style chips, shown to every rea
 
 **Approved.** Mine, prompted by the crash.
 
-<sub>1.15.2 — `web/frontend/test/pure/icon-imports.test.js` · `web/frontend/src/Settings.jsx`</sub>
+<sub>1.15.2 — `web/frontend/test/rules/icon-imports.test.js` · `web/frontend/src/Settings.jsx`</sub>
 
 ## 16. Serving and Running It: HTTP Surface, Logging, TLS and Updates
 
@@ -7251,7 +7251,7 @@ This code was written almost entirely by AI, which fails differently: it compile
 
 **Approved.** Mine, and I approved the source-reading version after the glossary generator had already demonstrated the self-agreeing failure.
 
-<sub>1.6.0 — `CHANGELOG.md` · `How-this-was-written.md` · `web/frontend/test/pure/help.test.jsx`</sub>
+<sub>1.6.0 — `CHANGELOG.md` · `How-this-was-written.md` · `web/frontend/test/rules/help.test.jsx`</sub>
 
 ### A bug of omission needs a stylesheet invariant sweep, not a case
 
@@ -8475,7 +8475,7 @@ own icon-import test already records where that ends: a checker nobody believes 
 deleted. Each matcher was narrowed until every remaining finding was real, and all nine
 that survived were fixed.
 
-<sub>Unreleased — `web/frontend/scripts/glossary-build.mjs` · `web/frontend/scripts/glossary/` · `web/frontend/src/tokens.js` · `web/frontend/src/ui.jsx` · `web/frontend/test/pure/tokens.test.js` · `web/frontend/test/pure/glossary-registry.test.js` · `scripts/glossary-css.mjs` (deleted)</sub>
+<sub>Unreleased — `web/frontend/scripts/glossary-build.mjs` · `web/frontend/scripts/glossary/` · `web/frontend/src/tokens.js` · `web/frontend/src/ui.jsx` · `web/frontend/test/rules/tokens.test.js` · `web/frontend/test/rules/glossary-registry.test.js` · `scripts/glossary-css.mjs` (deleted)</sub>
 
 ### A fill has to argue for itself, and only four arguments count
 
@@ -8633,7 +8633,7 @@ to see a glyph change shape on a state change should find the reason rather than
   pack, unasked, would be the wrong way round.
 - **Approved** — reported to the owner as findings at the end of the standing-rules pass.
 
-<sub>Unreleased — `web/frontend/src/ui.jsx` · `web/frontend/src/index.css` · `web/frontend/src/tokens.js` · `web/frontend/src/cast.jsx` · `web/frontend/src/Account.jsx` · `scripts/screenshots/typescale.mjs` · `web/frontend/test/dom/edge-fade.test.jsx` · `web/frontend/test/dom/entrance-rule.test.jsx` · `web/frontend/test/pure/spacing-debt.test.js`</sub>
+<sub>Unreleased — `web/frontend/src/ui.jsx` · `web/frontend/src/index.css` · `web/frontend/src/tokens.js` · `web/frontend/src/cast.jsx` · `web/frontend/src/Account.jsx` · `scripts/screenshots/typescale.mjs` · `web/frontend/test/dom/edge-fade.test.jsx` · `web/frontend/test/dom/entrance-rule.test.jsx` · `web/frontend/test/rules/spacing-debt.test.js`</sub>
 
 ### The navigation is a rail down the left edge, not a strip across the top
 
@@ -9172,7 +9172,7 @@ beside it. The owner's answer: "Fall back to icon rail. And also get rid of 200%
   one, and the answer is to fix it rather than to write the number down.
 
 <sub>Unreleased — `web/frontend/src/ui.jsx` (NameScroll) · ten screens ·
-`test/pure/no-truncated-names.test.js` · `scripts/screenshots/typescale-baseline.json`</sub>
+`test/rules/no-truncated-names.test.js` · `scripts/screenshots/typescale-baseline.json`</sub>
 
 ### The nightly `-race` sweep is sharded by package
 
@@ -9356,7 +9356,7 @@ mistake is more useful than the fix.*
   `scrollHeight` is a constant 0 there — so nothing in 2,238 frontend tests could fail on
   any of this, and "done, suite green" was an honest sentence about the wrong thing.
 - **So there are two guards, because one cannot do it.**
-  `test/pure/screen-scroll-chain.test.js` reads the stylesheet and fails when a link is
+  `test/rules/screen-scroll-chain.test.js` reads the stylesheet and fails when a link is
   deleted (it also fails on the specific child-combinator form, since that is the version
   that shipped); `scripts/screenshots/frame-scroll.mjs` — `make frame-scroll` — opens a
   book in Firefox at 1440×900 and 1440×520 and fails on a clipped page, on a column that
@@ -9364,14 +9364,14 @@ mistake is more useful than the fix.*
   is not decoration: the fixture's books carry three quotes, which fit whatever the frame
   does, so at one size a broken stream and a working one report the same number.
 
-<sub>Unreleased — `web/frontend/src/index.css` · `test/pure/screen-scroll-chain.test.js` ·
+<sub>Unreleased — `web/frontend/src/index.css` · `test/rules/screen-scroll-chain.test.js` ·
 `scripts/screenshots/frame-scroll.mjs` · `Makefile`</sub>
 
 <sub>Unreleased — `web/frontend/src/ui.jsx` (`DetailFrame`, `useScreenOwnsScroll`,
 `useColumnScroll`, `MediaBlock`, `COVER_MIN_W`) · `works.jsx` (`WorkHero`, `HeroKindRow`,
 `HeroGenres`, `HeroFact`) · `Library.jsx` · `Movies.jsx` · `App.jsx` · `index.css` ·
 `CoverPicker.jsx` ·
-`test/pure/cover-floor.test.js` · `test/dom/media-block.test.jsx`</sub>
+`test/rules/cover-floor.test.js` · `test/dom/media-block.test.jsx`</sub>
 
 ### A deadline that cannot reach the connection fails by doing nothing
 
@@ -9487,7 +9487,7 @@ undone.*
   that test for the bug.
 
 <sub>Unreleased — `web/frontend/src/Library.jsx` · `Movies.jsx` · `WorkDetails.jsx` ·
-`MetadataPage.jsx` · `test/pure/full-state-put.test.js` · `test/pure/work-put-shape.test.js` ·
+`MetadataPage.jsx` · `test/pure/full-state-put.test.js` · `test/rules/work-put-shape.test.js` ·
 `test/dom/metadata-apply.test.jsx`</sub>
 
 ### The board header is one row, and the settings went behind ⋯
@@ -9710,7 +9710,7 @@ another will open a popup with settings, stat, and metadata."*
 
 <sub>Unreleased — `internal/updater/docker.go` · `internal/httpapi/cast_images.go` ·
 `web/frontend/src/index.css` · `Settings.jsx` · `docs/wiki/Troubleshooting.md` ·
-`test/pure/sticky-hover.test.js` · `internal/httpapi/character_merge_test.go`</sub>
+`test/rules/sticky-hover.test.js` · `internal/httpapi/character_merge_test.go`</sub>
 
 ### Duplicate a quote, and a cluster that was asked for the wrong name
 
@@ -10359,7 +10359,7 @@ second of the three gaps the prototype sweep named.
 
 <sub>Unreleased — `internal/httpapi/field_offers.go` · `reverify_handlers.go` ·
 `web/frontend/src/fieldOffers.jsx` · `ui.jsx` · `WorkDetails.jsx` · `ReverifyReview.jsx` ·
-`index.css` · `internal/i18n/{en,bn}.txt` · `test/pure/offers-fields.test.js` ·
+`index.css` · `internal/i18n/{en,bn}.txt` · `test/rules/offers-fields.test.js` ·
 `test/dom/field-offers.test.jsx` · `internal/httpapi/field_offers_test.go`</sub>
 
 ### The list you pick a link from, and the roster it is deliberately not
@@ -10536,7 +10536,7 @@ through a green suite declaring no `overflow-x` at all, so the box grew to fit i
 and the 26px mask never landed. The row test had a case named "scrolls under the fade rather
 than wrapping" whose body asserted the box wore the class `speaker-chips` — a hollow claim
 that could not fail. jsdom has no layout, so it genuinely cannot measure a fade; what it can
-do is read the stylesheet, and `test/pure/scroller-boxes.test.js` now sweeps every
+do is read the stylesheet, and `test/rules/scroller-boxes.test.js` now sweeps every
 `<Scroller>` in the source for a class that declares an overflow on the axis it was handed.
 It is the complement of `scroll-containment.test.js`, which audits the boxes that DO scroll:
 that one catches "somebody adds an overflow and never thinks about chaining", this one
@@ -10735,7 +10735,7 @@ and the dub section), the exhaustive tile chooser over `whos-in-it`, "Set for th
 and "Remove from all works" one at a time.
 
 <sub>Unreleased — `web/frontend/src/identityScope.js` · `identityGlobal.jsx` · `identity.jsx`
-· `internal/store/identity.go` · `test/pure/identity-scope.test.js`</sub>
+· `internal/store/identity.go` · `test/rules/identity-scope.test.js`</sub>
 
 ### The favourite tile grows a work, and every pill becomes a door
 
@@ -11602,7 +11602,7 @@ not what they are reporting.
 **Still unverified on the owner's phone**, which is the only place this defect has ever been
 observed.
 
-<sub>Unreleased — `web/frontend/src/ui.jsx` · `web/frontend/src/index.css` · `scripts/screenshots/sheet-drag.mjs` · `web/frontend/test/pure/sheet-head-owns-the-drag.test.js`</sub>
+<sub>Unreleased — `web/frontend/src/ui.jsx` · `web/frontend/src/index.css` · `scripts/screenshots/sheet-drag.mjs` · `web/frontend/test/rules/sheet-head-owns-the-drag.test.js`</sub>
 
 
 ### The second count could only ever read one, and the hero picture stopped opening
@@ -11687,7 +11687,7 @@ A failure while the viewer is up takes the viewer down with it, which is new.
 <sub>Unreleased — `internal/httpapi/whos_in_it.go` · `whos_in_it_test.go` ·
 `web/frontend/src/identity.jsx` · `identityLocal.jsx` · `identityScope.js` ·
 `characterRows.jsx` · `ui.jsx` · `index.css` · `internal/i18n/en.txt` · `bn.txt` ·
-`test/dom/portrait-zoom.test.jsx` · `test/pure/identity-scope.test.js`</sub>
+`test/dom/portrait-zoom.test.jsx` · `test/rules/identity-scope.test.js`</sub>
 
 ### One class served two marks, and a four-screen instruction shipped as one screen
 
@@ -11775,7 +11775,7 @@ reader says so. The fixture uses that verb now; the count was right and the test
 `identityGlobal.jsx` · `identityLocal.jsx` · `WorkDetails.jsx` · `identity.jsx` ·
 `internal/store/quote_person.go` · `quote_cast.go` · `internal/httpapi/identity_handlers.go`
 · `book_handlers.go` · `movie_handlers.go` · `internal/i18n/en.txt` · `bn.txt` ·
-`test/pure/src-mark-visible.test.js` · `quote-pair-everywhere.test.js` (new) ·
+`test/rules/src-mark-visible.test.js` · `quote-pair-everywhere.test.js` (new) ·
 `test/dom/settings-key-field.test.jsx` · `identity_counts_test.go` (new)</sub>
 
 ### The one endpoint that can rename had no caller, and a moved block left its scope
@@ -15271,7 +15271,7 @@ got rebuilt. About three-quarters of `internal/httpapi` already drives a real
 rot was in the frontend, so the frontend is where the new tier went.
 
 **AND THE REPO ALREADY KNEW.** `Makefile:46`, of a source scanner: *"jsdom has no layout,
-so the vitest suite cannot see this at all — `test/pure/screen-scroll-chain.test.js` guards
+so the vitest suite cannot see this at all — `test/rules/screen-scroll-chain.test.js` guards
 the stylesheet half, and this measures the result."* It kept both — the scanner that checks
 the spelling and the probe that checks the result — and left the probe out of CI. The
 diagnosis was written down years before the cure.

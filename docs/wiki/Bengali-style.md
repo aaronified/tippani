@@ -16,7 +16,7 @@ you like; they are the reason several decisions in this sheet go the way they do
 
 1. **`bn.txt` is held to the same copy budgets as `en.txt`.**
    `web/frontend/test/locale-file.js` exports `BUILTINS = [['en', EN], ['bn', BN]]`, and
-   `test/pure/help-budget.test.js` and `test/pure/infodot-copy.test.js` both walk it. A
+   `test/rules/help-budget.test.js` and `test/rules/infodot-copy.test.js` both walk it. A
    Bengali `.what` over 160 characters fails the suite. Hard numbers in §6.
 
 2. **A value cannot carry a marker.** The parser splits on the **first `=`** and trims
@@ -41,7 +41,7 @@ you like; they are the reason several decisions in this sheet go the way they do
 
 ```
 cd "D:/Code Projects/tippani/web/frontend"
-npx vitest run test/pure/help-budget.test.js test/pure/infodot-copy.test.js
+npx vitest run test/rules/help-budget.test.js test/rules/infodot-copy.test.js
 ```
 
 Both pass today. If either fails after your pass, the failure names the key and the
@@ -744,7 +744,7 @@ Measured against real strings from this file:
 
 ### 6.2 The caps, and where they are enforced
 
-`web/frontend/test/pure/help-budget.test.js`, run over `bn.txt` as well as `en.txt`:
+`web/frontend/test/rules/help-budget.test.js`, run over `bn.txt` as well as `en.txt`:
 
 | Role | Cap (`String.length`) | Also |
 | --- | --- | --- |

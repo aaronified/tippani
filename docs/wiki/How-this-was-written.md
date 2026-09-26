@@ -371,7 +371,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   the Delete key on a row of the annotations table and of the dialogue table each called a
   setter bound in their parent. Both were reachable buttons; both threw when pressed.
 
-  `test/pure/no-free-names.test.js` is the mechanical control. Babel is already in this
+  `test/rules/no-free-names.test.js` is the mechanical control. Babel is already in this
   project's `node_modules` — Vite's React plugin brings it — so the scope analysis costs no
   download and about a second, and it names the file and the line. It is declared in
   `devDependencies` anyway, because a transitive dependency is a fact about somebody else's
@@ -419,7 +419,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   silently skipping `src/demo/install.js` for as long as that directory has existed, and
   every one still passes with it in scope. The six that remain read a directory that is
   not the source tree at all — `web/dist`, `src/textures`, `docs/plans`, the repo — and
-  `test/pure/one-walk.test.js` names each with its reason. So the count is a floor being
+  `test/rules/one-walk.test.js` names each with its reason. So the count is a floor being
   held rather than a debt being paid: what it stops now is a NEW guard walking the source
   tree by hand, which is the case that matters, because a new guard is written by whoever
   has just been bitten by the thing it checks and is not thinking about whether its own
@@ -803,7 +803,7 @@ What that honestly does not cover:
   Feeding the *prose* from `web/frontend/src/help.jsx` remains
   [the roadmap's help &amp; density section](../roadmap.html#help-density).
   What 1.6.0 added is the cheaper
-  half of that: `web/frontend/test/pure/help.test.jsx` asserts that every screen a
+  half of that: `web/frontend/test/rules/help.test.jsx` asserts that every screen a
   nav list can reach has an entry, and that a control the app labels is a control
   the help names. It found three gaps on the first run — the whole Quotes filter
   row, the Catalogue's group-by, and an "Export all" button that had stopped
