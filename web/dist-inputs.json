@@ -13,8 +13,8 @@
     "web/frontend/vite.config.js"
   ],
   "sha256": {
-    "internal/i18n/bn.txt": "44b562588825dbf4ff3fc1d78e1769c72606f3c935bed2bc7a7c91876ae0caa0",
-    "internal/i18n/en.txt": "dd9a0e1d5607e5466a012164a3aa450dbb7408a8308c070f37be27f3b602a05a",
+    "internal/i18n/bn.txt": "9c92dddf18a0eaa8fbe3da0744da178904e12d6b1f9902578b3cad1e1837177f",
+    "internal/i18n/en.txt": "960a0f5060fa531bdafdec9fde87369e59ec9de2cc4a4314a535d1a1790fb0ab",
     "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
     "web/frontend/package-lock.json": "bb11669a318d0aef1ad6a2c77c07ee7a608a94cd5ef5e5972c77e25e62161028",
     "web/frontend/package.json": "79431a751199f0313734def387b8951ab3918262adfa8597138f238812dd47a6",
@@ -77,7 +77,7 @@
     "web/frontend/src/gestures.jsx": "24e2737c309fbb81ef87e4e33e0af30dff2b87860332d9eb1626527eb27ef50d",
     "web/frontend/src/glassLens.js": "17debf85f33334444f12f3b36f83cc2152a40f23da7571a2fe3245789d9c70e1",
     "web/frontend/src/greetings.js": "1a184c8c27ddcd6127886f14f7ce0a5d59c1d694408bb567599209098099d358",
-    "web/frontend/src/help.jsx": "222a2b203eaa039a22349318ca51aa256c691c8b8c35209aa21384b52fb58e21",
+    "web/frontend/src/help.jsx": "435d62c516d2eac6df92658943866b1a9cb2322be0ee4b0bd08c84355e3a2498",
     "web/frontend/src/history.js": "7feecd52ff1cc71b41888c2cfdabc906c430c113c87c4d4771239b33cf820704",
     "web/frontend/src/i18n.js": "6056197526bb55ee44f4a4c3be19304e9c48bf83af8e98f6c44dfa80fd82afe5",
     "web/frontend/src/identity.jsx": "7857abaadb17753a88d20ecaa20fe7a0004cf790ad988076a020d6c36681bcf8",
@@ -163,7 +163,7 @@
     "web/frontend/src/tokens.js": "a0aee4ab34d8521c5c858214a040e84ebeb8b7c509e8e4a7a633554ba54022c1",
     "web/frontend/src/tour.jsx": "b8fe999b9a198ca9b53c89dfdada12b31be1b291e4dd109958cc7d5669065a63",
     "web/frontend/src/type.js": "3cf44432b2659f7c6101bf0f7196a7036fb377a94e7fe20bc2d614301e79064b",
-    "web/frontend/src/ui.jsx": "5e3430702e11fa1c6455c096313dbbdc010d75267d0a8d18f7b291cfe87d1ba9",
+    "web/frontend/src/ui.jsx": "2b36e1951477c6d748944115bc66b0176e816deb9b517e2557cc3dbce4ab712b",
     "web/frontend/src/undo.jsx": "27dd04ac24e09c8b53b5caee551b7ecd575ae012aa087fa87e3d31ed767e0834",
     "web/frontend/src/update.js": "b30d91b8a80432e7e68145b3944a0a947f6a1685485cc00c95704ef276b40a42",
     "web/frontend/src/vocabulary.js": "9485138ce686ee2ca34e619f6087260bb0a68f032d864e6dddccdbf564ae70fb",
