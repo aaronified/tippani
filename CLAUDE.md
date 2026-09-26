@@ -51,12 +51,14 @@ forbids installing a browser to reach Firefox. Captures there take the pre-insta
 Chromium with `TIPPANI_BROWSER=chrome`, and the report names the engine.
 
 **THE KIT'S `AI.md` IS `docs/wiki/How-this-was-written.md`**, moved there and not copied
-(the wiki's Home says so), **and it carries no census block**, so `pre-commit-gate` stage
-0's `ai_census.py --check` exits 2 here, with or without `--ai-file` pointing at it.
-**Whether the page takes a census block is the owner's decision, not yet made**: the block
-is figures the gate re-stamps on every commit, and this shallow clone would understate them
-until `git fetch --unshallow` (not tried here). Until then that exit is expected. An `AI.md`
-made to quiet it would be a second copy of a page the wiki says has none.
+(the wiki's Home says so). **It carries the census block at the top of "How this repo was
+written"**, the owner's call on 26 September: *"Top of that section"*, with the page's
+breakdown by model following it. The kit looks for `AI.md`, so the check names the page:
+`ai_census.py --check --ai-file docs/wiki/How-this-was-written.md`. The block is figures
+stamped at one commit, so any later commit makes them stale (exit 1) until the block is
+regenerated and pasted over the old one. Count from a full clone: a shallow one understates
+every figure. An `AI.md` made anyway would be a second copy of a page the wiki says has
+none.
 
 Two of the kit's rules bind work in this repo even when no kit skill is running:
 

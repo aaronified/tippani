@@ -58,40 +58,129 @@ with me directing the work, deciding what gets built, and reviewing what comes
 back.
 
 The audit trail is the git history itself: nearly every commit carries a
-`Co-Authored-By:` trailer naming the model that worked on it.
+`Co-Authored-By:` trailer naming the model that worked on it. The block below is
+the measurement, stamped with the commit it was counted at and re-counted by the
+kit's `ai_census.py --check`. The breakdown by model, and the commits that carry no
+trailer, follow it under *By model*.
 
-| | |
-| :-- | :-- |
-| Commits in the repository | 627 |
-| Commits with an AI co-author trailer | **619** |
-| Period | 2026-07-02 → 2026-08-19 |
+## Measured as of `7eae4092e1e9a3bb3624c553bef1c5a6be2b1dc7` (2026-09-26)
 
-Models used, by commit count:
+| Figure | Value |
+| --- | --- |
+| Commits, no merges, exclusions applied | 1,551 |
+| AI-assisted commits | 1,539 — 99.2% |
+| Lines added / removed, AI-assisted commits | +820,145 / -335,090 |
+| Lines added / removed, all commits | +829,740 / -343,546 |
+| **Surviving lines from AI-assisted commits** | **482,140 of 486,043 — 99.2%** |
+
+These figures describe the tree at that sha and change with every commit, which is why
+they are stamped: an unstamped percentage cannot be checked against anything, and so is
+not a disclosure.
+
+## Verify these numbers
+
+```bash
+# The marker, matched case-insensitively against the whole commit message. The census
+# applies it as a Python regex; -E below is the closest git has.
+AI='^[ \t]*co-authored-by:.*(claude|anthropic|copilot|chatgpt|openai|gemini|cursor|codex|aider|devin|\[bot\])'
+
+# The exclusions, in the order the census applied them.
+EX=(':(exclude)*.lock' ':(exclude)**/*.lock' ':(exclude)package-lock.json'
+    ':(exclude)**/package-lock.json' ':(exclude)yarn.lock' ':(exclude)**/yarn.lock'
+    ':(exclude)pnpm-lock.yaml' ':(exclude)**/pnpm-lock.yaml' ':(exclude)go.sum'
+    ':(exclude)**/go.sum' ':(exclude)vendor/**' ':(exclude)third_party/**'
+    ':(exclude)node_modules/**' ':(exclude)dist/**' ':(exclude)build/**'
+    ':(exclude)target/**' ':(exclude)*.min.js' ':(exclude)**/*.min.js'
+    ':(exclude)*.min.css' ':(exclude)**/*.min.css' ':(exclude)*.map'
+    ':(exclude)**/*.map' ':(exclude)**/*.generated.*' ':(exclude)**/generated/**'
+    ':(exclude)**/__snapshots__/**')
+
+# 1. Commits, then AI-assisted commits.
+git rev-list --count --no-merges HEAD -- . "${EX[@]}"
+git rev-list --count --no-merges -E -i --grep="$AI" HEAD -- . "${EX[@]}"
+
+# 2. Lines added and removed -- AI-assisted commits, then all commits.
+git log --no-merges -E -i --grep="$AI" --numstat --format='' -- . "${EX[@]}" \
+  | awk '$1 ~ /^[0-9]+$/ { a += $1; d += $2 } END { print "+" a, "-" d }'
+git log --no-merges --numstat --format='' -- . "${EX[@]}" \
+  | awk '$1 ~ /^[0-9]+$/ { a += $1; d += $2 } END { print "+" a, "-" d }'
+
+# 3. Surviving-blame share, at the coverage the census used: text files only, under the
+#    blame cap, blamed at HEAD. Then look each line's commit up in the AI-assisted set.
+#    Drop the two skip tests and this over-counts by every binary and generated blob.
+shas=$(mktemp); lines=$(mktemp)
+git log --no-merges -E -i --grep="$AI" --format=%H | sort -u > "$shas"
+git ls-files -- . "${EX[@]}" | while IFS= read -r f; do
+  [ "$(wc -c < "$f" 2>/dev/null || echo 0)" -le 2000000 ] || continue
+  [ -s "$f" ] && ! grep -Iq '' "$f" 2>/dev/null && continue
+  git blame --line-porcelain --no-progress HEAD -- "$f" 2>/dev/null
+done | awk '(length($1) == 40 || length($1) == 64) && $2 ~ /^[0-9]+$/ { print $1 }' > "$lines"
+awk 'NR == FNR { ai[$1]; next }
+     { total++ } $1 in ai { hit++ }
+     END { printf "%d of %d lines (%.1f%%)\n", hit, total, 100 * hit / total }' \
+  "$shas" "$lines"
+```
+
+## What the count covers
+
+- **Marker.** A commit counts as AI-assisted when its message matches `^[ \t]*co-authored-
+  by:.*(claude|anthropic|copilot|chatgpt|openai|gemini|cursor|codex|aider|devin|\[bot\])`,
+  case-insensitively. Merge commits are excluded throughout, because a merge authors no
+  content.
+- **Unmeasured history.** <Fill in or delete: the trailer convention starts at `<sha>`
+  (`<date>`), and the N commits before it are unmeasured rather than human-written.>
+- **Exclusions.** `*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `go.sum`,
+  `vendor/**`, `third_party/**`, `node_modules/**`, `dist/**`, `build/**`, `target/**`,
+  `*.min.js`, `*.min.css`, `*.map`, `**/*.generated.*`, `**/generated/**`,
+  `**/__snapshots__/**`.
+- **Blame flags.** `git blame` with no `-M` and no `-C`. Move and copy detection
+  reattributes moved lines to their original commit and can shift the surviving share by
+  tens of points, so the flags used are declared rather than left for the reader to guess.
+- **Coverage.** Tracked files: 1,422 blamed, 4 removed by the exclusion list, 449 skipped as
+  binary, 1 skipped over the 2,000,000-byte blame cap, 0 staged but absent at the stamped
+  sha, 0 whose blame failed and were counted as unattributed. Blame is taken at that sha, so
+  uncommitted working-tree edits sit outside every figure. Nothing was sampled: every other
+  line was counted.
+- **Floor, not measurement.** Untagged AI-assisted commits, if any exist, make every figure
+  above a lower bound.
+
+| Exclusion | Files removed |
+| --- | --- |
+| `package-lock.json` | 3 |
+| `go.sum` | 1 |
+
+## By model
+
+Models used, by commit count, at the same commit (merges excluded):
 
 | Model | Commits |
 | :-- | --: |
-| Claude Opus 5 | 403 |
-| Claude Opus 4.8 | 151 |
-| Claude Fable 5 | 55 |
+| Claude Opus 5 | 1,169 |
+| Claude Opus 5.5 | 161 |
+| Claude Opus 4.8 | 150 |
+| Claude Fable 5 | 53 |
+| Claude Sonnet 5 | 5 |
 | Claude Haiku 4.5 | 5 |
-| Claude Sonnet 5 | 4 |
+| Claude Fable 5.1 | 4 |
 | Claude Sonnet 4.6 | 1 |
 
 Some of those trailers carry a `(1M context)` suffix naming the long-context
-variant — 286 of the Opus 5 commits and 147 of the Opus 4.8 ones. It is the same
-model with a larger window, so the table folds them; the second command below
-prints them unfolded if you would rather see it raw.
+variant: 450 of the Opus 5 commits, 79 of the Opus 5.5 ones and 146 of the Opus 4.8
+ones. It is the same model with a larger window, so the table folds them; the second
+command below prints them unfolded if you would rather see it raw.
 
-Eight commits carry no trailer, and they divide three ways. **Four** are
+Twelve commits carry no trailer, and they divide four ways. **Four** are
 `github-actions[bot]` regenerating the roadmap's known-bugs block from the issue
 tracker — machine-written but not AI-written, and that distinction is the point of
 this file: a script rendering a JSON file into HTML is not a model making choices.
-**One** (`1687961`) adds attribution URLs for Bookcision, Readest and pretext to
-the README, typed by hand. The remaining **three** are oversights rather than
-categories — the `2.0.0` and `2.1.0` release stamps and one Go test refactor,
-each of which was AI-written and should have said so. They are named here instead
-of being quietly fixed, because a disclosure that rounds its own gaps away is not
-one.
+**One** (`16879616`) adds attribution URLs for Bookcision, Readest and pretext to
+the README, typed by hand. **Six** are oversights rather than categories, each
+AI-written and each of which should have said so: the `2.0.0` and `2.1.0` release
+stamps, one Go test refactor (`087b2dc0`), and three commits whose author is recorded
+as Claude with no trailer beside it (`faa0ec36`, `4da5b829`, `3121bf7e`). **One**
+(`ae85064b`, a CI fix) is recorded under the owner's name with no trailer, and the
+history does not say which it was. They are named here instead of being quietly
+fixed, because a disclosure that rounds its own gaps away is not one.
 
 To see it yourself:
 
