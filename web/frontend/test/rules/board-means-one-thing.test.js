@@ -169,7 +169,10 @@ describe('the words the ruling settled', () => {
   it('and the changelog scan is reading something', () => {
     // A section it could not find would be an empty string, and an empty string
     // satisfies the assertion above without looking at a word.
-    expect(UNRELEASED.length, 'no [Unreleased] or newest release section was found in CHANGELOG.md').toBeGreaterThan(1000)
+    // SO IT ASKS FOR A HEADING AND AN ENTRY, NOT A LENGTH. This was a floor of 1,000
+    // characters, which read "found" as "long": 3.0.3's section is 773 and was found.
+    expect(UNRELEASED, 'no [Unreleased] or newest release section was found in CHANGELOG.md').toMatch(/^## \[[^\]]+\]/)
+    expect(UNRELEASED, 'the section the scan found holds no entry to read').toMatch(/\n- \S/)
     expect(namesAScreenABoard("The bulk editor on a book's board has offered Chapter #"),
       'the changelog scan cannot see the exact line a rater found').toBe(true)
     expect(namesAScreenABoard('Every tile on the Library board carried an eager img'),
