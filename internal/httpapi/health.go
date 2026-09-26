@@ -72,12 +72,13 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 // during a restore's swap, lets the request through, so today's behaviour holds
 // there.
 //
-// THE WAIT IGNORES THE CLIENT GOING AWAY. Some handlers must finish after the
-// browser has left: an in-app update pulls and relaunches whether or not anyone is
-// still watching (TestAnUpdateSurvivesTheClientGoingAway). A door that followed
-// the client's cancellation stopped those before they started. So the wait is
-// bounded by ConnWait alone, and what happens after it is the handler's business,
-// as it always was.
+// THE WAIT IGNORES THE CLIENT GOING AWAY. A client that left mid-wait would make
+// Admit return context.Canceled, which is not ErrNoConnection, so the request
+// would slip past the door into a handler whose database calls carry no context
+// and wait without bound: the hang this door exists to end. Bounded by ConnWait
+// alone, it is refused like any other. (An early version returned instead when
+// the client had left, which also stopped an in-app update whose browser had
+// gone before it started: TestAnUpdateSurvivesTheClientGoingAway.)
 func (s *Server) admitDB(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := s.Store.Admit(context.WithoutCancel(r.Context()), store.ConnWait)

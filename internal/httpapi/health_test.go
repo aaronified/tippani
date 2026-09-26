@@ -178,6 +178,61 @@ func TestAnAPIRequestIsRefusedWhenNoConnectionComesFree(t *testing.T) {
 	c.mustDo("GET", "/auth/me", nil, http.StatusOK) // still signed in
 }
 
+// A client that gives up while its request waits at the door is still refused
+// there, rather than let through into a handler that would wait for ever.
+func TestARequestWhoseClientLeavesMidWaitIsStillRefused(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	store.HoldEveryConnectionForTest(t, srv.Store.DB)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	req := httptest.NewRequest("GET", "/api/auth/me", nil).WithContext(ctx)
+	req.AddCookie(c.cookie)
+	waits := srv.Store.DB.Stats().WaitCount
+	done := make(chan int, 1)
+	go func() {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		done <- rec.Code
+	}()
+	for i := 0; srv.Store.DB.Stats().WaitCount == waits; i++ {
+		if i > 400 {
+			t.Fatal("the request never queued for a connection")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	cancel() // the client gives up while it waits
+	select {
+	case code := <-done:
+		if code != http.StatusServiceUnavailable {
+			t.Fatalf("a request whose client left mid-wait: got %d, want 503 at the door", code)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("a request whose client left mid-wait slipped past the door and is waiting for ever in a handler")
+	}
+}
+
+// A closed database is not "no connection came free": the door lets the request
+// through at once, and the handler answers as it always did.
+func TestTheDoorDoesNotWaitOnAClosedDatabase(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	if err := srv.Store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	rec := c.do("GET", "/auth/me", nil)
+	if rec.Code == http.StatusServiceUnavailable {
+		t.Fatalf("a closed database was refused at the door as if no connection came free: %s", rec.Body)
+	}
+	if took := time.Since(start); took > time.Second {
+		t.Fatalf("the door waited %s on a closed database", took)
+	}
+}
+
 func TestAHungRequestIsNamedInTheLogWhileItHangs(t *testing.T) {
 	srv := newTestServer(t)
 	h := srv.Handler()
