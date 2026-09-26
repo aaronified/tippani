@@ -402,3 +402,74 @@ func TestOIDCNamesComeFromUserinfoWhenTheTokenHasNone(t *testing.T) {
 		t.Fatalf("account named %q, want alice from userinfo", me.Username)
 	}
 }
+
+// A SIGN-ON LINK STARTED BEFORE A RESET OR A RESTORE DOES NOT COMPLETE AFTER IT.
+// A pending link names the account that started it by id, and the database a
+// reset or a restore swaps in gives ids out again: after a reset the admin who
+// onboards the emptied server is id 1, as the starter was. A link completed
+// then would attach the starter's provider identity to that admin, and the
+// starter could sign in as them with the provider's button.
+//
+// WHAT IT KNOWS: the routes, and the provider stand-in the rest of this file
+// uses. The link is started and finished by hand rather than by signInWithOIDC,
+// because the swap has to happen between the press and the provider's answer.
+func TestAnOIDCLinkStartedBeforeASwapDoesNotCompleteAfterIt(t *testing.T) {
+	for _, swap := range []string{"reset", "restore"} {
+		t.Run(swap, func(t *testing.T) {
+			srv := newTestServer(t)
+			idp := withOIDC(t, srv)
+			h := srv.Handler()
+			starter := signupAdmin(t, h)
+			if swap == "restore" {
+				backupNow(starter)
+			}
+
+			// The press on "Link Authelia", up to the provider's page.
+			req := httptest.NewRequest("GET", "/api/auth/oidc/login?link=1", nil)
+			req.AddCookie(starter.cookie)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			loc, _ := url.Parse(rec.Header().Get("Location"))
+			if rec.Code != http.StatusFound || !strings.HasPrefix(loc.String(), idp.srv.URL+"/authorize") {
+				t.Fatalf("starting the link: %d %s", rec.Code, loc)
+			}
+			q := loc.Query()
+			idp.mu.Lock()
+			idp.nonce, idp.challenge = q.Get("nonce"), q.Get("code_challenge")
+			idp.mu.Unlock()
+			var state *http.Cookie
+			for _, c := range rec.Result().Cookies() {
+				if c.Name == oidcStateCookie {
+					state = c
+				}
+			}
+
+			safetyBackup(t, starter)
+			var holder *testClient
+			if swap == "reset" {
+				starter.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusOK)
+				holder = signupAdmin(t, h) // id 1 again
+			} else {
+				starter.mustDo("POST", "/admin/restore", map[string]any{"password": testPw}, http.StatusOK)
+				holder = starter
+			}
+
+			// The provider answers, after the swap.
+			cb := httptest.NewRequest("GET", "/api/auth/oidc/callback?code=good-code&state="+url.QueryEscape(q.Get("state")), nil)
+			cb.AddCookie(state)
+			rec = httptest.NewRecorder()
+			h.ServeHTTP(rec, cb)
+			if back := rec.Header().Get("Location"); strings.Contains(back, "oidc_linked=1") {
+				t.Fatalf("a link started before the %s completed after it: %s", swap, back)
+			}
+			if swap == "reset" {
+				if me := decode[map[string]any](t, holder.mustDo("GET", "/auth/me", nil, 200)); me["oidc_linked"] == true {
+					t.Fatalf("the admin who onboarded after the reset is linked to the starter's identity")
+				}
+			}
+			if _, c := signInWithOIDC(t, h, idp, "", nil); c != nil {
+				t.Fatalf("the starter's identity signs in after the %s", swap)
+			}
+		})
+	}
+}

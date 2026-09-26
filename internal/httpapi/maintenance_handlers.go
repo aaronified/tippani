@@ -65,9 +65,9 @@ func (s *Server) handleResetDatabase(w http.ResponseWriter, r *http.Request) {
 	// that failed partway would otherwise leave every sign-in on a closed handle.
 	// This repointed the sessions alone, and only after a success.
 	s.rebindDB()
-	// And every pairing code minted before it, on every exit too: a failed
-	// migrate has emptied the accounts as surely as a success.
-	s.forgetPairingCodes()
+	// And every pairing code and pending sign-on link issued before it, on every
+	// exit too: a failed migrate has emptied the accounts as surely as a success.
+	s.forgetAccountGrants()
 	if err != nil {
 		internalError(w, r, "reset database", err)
 		return

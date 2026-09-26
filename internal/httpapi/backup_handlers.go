@@ -1013,10 +1013,10 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 	}
 
 	// Success: repoint the auth stores at the reopened DB, keep exactly this
-	// one safety generation, and forget every pairing code minted against the
-	// accounts this restore replaced.
+	// one safety generation, and forget every pairing code and pending sign-on
+	// link issued against the accounts this restore replaced.
 	s.rebindDB()
-	s.forgetPairingCodes()
+	s.forgetAccountGrants()
 	// ONE DOWNLOAD, ONE REPLACEMENT. The copy covered what was here before this
 	// restore; a second restore replaces what this one put back, which nobody
 	// has a copy of.

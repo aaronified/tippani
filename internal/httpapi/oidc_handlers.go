@@ -69,6 +69,21 @@ func (st *oidcState) put(p oidcPending) bool {
 	return true
 }
 
+// forgetLinks drops every pending link and keeps pending sign-ins. A link names
+// the account that started it by id, and the database a reset or a restore swaps
+// in reuses ids, so a link completed after the swap would attach the starter's
+// provider identity to whoever holds that id now, and the starter could then sign
+// in as them. A sign-in names no account until the provider answers.
+func (st *oidcState) forgetLinks() {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	for k, p := range st.pending {
+		if p.linkUID != 0 {
+			delete(st.pending, k)
+		}
+	}
+}
+
 // take returns and forgets the login, so a state is good for one callback.
 func (st *oidcState) take(state string) (oidcPending, bool) {
 	st.mu.Lock()

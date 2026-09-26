@@ -56,6 +56,16 @@ func (s *Server) forgetPairingCodes() {
 	s.pairingMu.Unlock()
 }
 
+// forgetAccountGrants drops everything held in memory that names an account by
+// id: pairing codes and pending sign-on links. Both database swaps, a factory
+// reset and a restore, call this one function, so a third kind of grant is added
+// here and reaches both, rather than being remembered at one and missed at the
+// other.
+func (s *Server) forgetAccountGrants() {
+	s.forgetPairingCodes()
+	s.oidc.forgetLinks()
+}
+
 type pairingCode struct {
 	userID  int64
 	expires time.Time
