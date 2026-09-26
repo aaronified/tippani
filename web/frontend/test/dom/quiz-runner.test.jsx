@@ -38,6 +38,16 @@ vi.mock('../../src/api.js', async (orig) => ({
 
 const { QuizRunner } = await import('../../src/review.jsx')
 
+// EVERY console.error THE FILE PRODUCES, from its first render, passed through
+// unchanged. React reports an unknown prop ONCE per process, so a case that spied
+// on the console only while it rendered saw nothing whenever an earlier case had
+// already drawn a cloze card: with the defect back it passed in the whole file and
+// failed only when run alone. Collected from the top, the warning is seen
+// wherever it fires.
+const consoleErrors = []
+const consoleError = console.error
+console.error = (...args) => { consoleErrors.push(args.map(String).join(' ')); consoleError(...args) }
+
 
 const mcq = (over = {}) => ({
   kind: 'book', id: 1, direction: 'source', quote: 'the only way out is through',
@@ -326,16 +336,11 @@ describe('a cloze card', () => {
   // anyway, and React reported `hideLabel` as an unknown attribute on the <input>.
   // Whether the label is visible is the stylesheet's business, which jsdom does not
   // load, so that half is checked on screen. This half is the name a screen reader
-  // reads, and the console.
+  // reads, and the console, read from the file's first render (see consoleErrors).
   it('names the blank for a screen reader and reports nothing to the console', () => {
-    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
-    try {
-      render(<QuizRunner mode="daily" cards={[clz()]} />)
-      expect(screen.getByRole('textbox', { name: 'The missing words' })).toBeTruthy()
-      expect(errors.mock.calls.map((c) => c.map(String).join(' ')).filter((m) => /hideLabel|hidelabel/.test(m))).toEqual([])
-    } finally {
-      errors.mockRestore()
-    }
+    render(<QuizRunner mode="daily" cards={[clz()]} />)
+    expect(screen.getByRole('textbox', { name: 'The missing words' })).toBeTruthy()
+    expect(consoleErrors.filter((m) => /hideLabel|hidelabel/.test(m))).toEqual([])
   })
 
   // The confirm step is for multiple choice. Typing an answer and pressing
