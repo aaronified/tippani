@@ -145,7 +145,7 @@ const (
 	// 1 MiB plaintext frames. Big enough that the per-frame 21 bytes of overhead
 	// and the AEAD setup are noise against a multi-hundred-MB archive; small
 	// enough that encrypting one never needs more than a couple of MB live, which
-	// matters on the ~25 MB idle-RSS budget this server holds itself to.
+	// matters on a server that idles at about 30 MB of RSS.
 	backupChunk = 1 << 20
 )
 

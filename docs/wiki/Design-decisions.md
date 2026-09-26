@@ -134,7 +134,7 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 **Decided.** The shipped systemd unit sets all three as environment variables; the compose file carries them commented out with a pointer to PLAN §8, and the README repeats them under "Runtime tuning for a shared NAS".
 
-**Why.** `GOMAXPROCS=1` hard-caps the app at one core so an import or a search burst cannot starve the hundred services beside it. `GOGC=200` trades a little RSS for fewer GC cycles, which is the right way round when the scarce thing is CPU. The README's own idle figure is ~25 MB RSS, so a 64 MiB limit is a ceiling rather than a squeeze.
+**Why.** `GOMAXPROCS=1` hard-caps the app at one core so an import or a search burst cannot starve the hundred services beside it. `GOGC=200` trades a little RSS for fewer GC cycles, which is the right way round when the scarce thing is CPU. The README's own idle figure is about 30 MB RSS (measured for 3.0.4; it said ~25 MB until then), so a 64 MiB limit is still a ceiling rather than a squeeze.
 
 **Instead of.** `GOMAXPROCS=2` is named in the plan as the looser option. Argon2id for password hashing was rejected on the same budget — its ~64 MB per hash is exactly wrong on a RAM-shared box.
 
@@ -4694,7 +4694,7 @@ Backup is a nightly `VACUUM INTO` snapshot with no streaming daemon, and restore
 
 ### AES-256-GCM in framed chunks, and no fixed key in the binary
 
-**Decided.** A backup archive is everything: every user's library, the password hashes, the metadata API keys. It left the server as a plain tar.gz until 1.4.1, which is fine while it sits in `<DataDir>/backups` and not fine the moment it is downloaded to a laptop, synced to a cloud drive, or mailed to yourself — which is exactly what a backup is for. So it is sealed: AES-256-GCM over 1 MiB plaintext frames, chosen so the per-frame 21 bytes of overhead is noise against a multi-hundred-megabyte archive while encrypting one frame never needs more than a couple of megabytes live, which matters inside the ~25 MB idle-RSS budget. A single fixed key compiled into the binary was considered and rejected: this is an MIT-licensed repository, so that constant would be public, and "encrypted with a published key" is a claim that reads as protection while providing none. I rejected the fixed key on purpose and I want the rejection on the record, because it is the shortcut this feature invites.
+**Decided.** A backup archive is everything: every user's library, the password hashes, the metadata API keys. It left the server as a plain tar.gz until 1.4.1, which is fine while it sits in `<DataDir>/backups` and not fine the moment it is downloaded to a laptop, synced to a cloud drive, or mailed to yourself — which is exactly what a backup is for. So it is sealed: AES-256-GCM over 1 MiB plaintext frames, chosen so the per-frame 21 bytes of overhead is noise against a multi-hundred-megabyte archive while encrypting one frame never needs more than a couple of megabytes live, which matters inside an idle RSS of about 30 MB (it was ~25 MB when this was written). A single fixed key compiled into the binary was considered and rejected: this is an MIT-licensed repository, so that constant would be public, and "encrypted with a published key" is a claim that reads as protection while providing none. I rejected the fixed key on purpose and I want the rejection on the record, because it is the shortcut this feature invites.
 
 **Instead of.** A compiled-in key; leaving archives plain.
 
