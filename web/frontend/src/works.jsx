@@ -2108,7 +2108,13 @@ export function WorkListScaffold({
   //
   // The crumb is the one difference: only the arrived-at case publishes a title,
   // since a top-level board's name is already what the shell calls the tab.
-  useCrumb(mobile && onBack ? title : null)
+  //
+  // AND IT PUBLISHES ON A DESK TOO. This said `mobile && onBack`, from when a
+  // desk still drew the scaffold's own <h1>. `.page-header h1` has been visually
+  // hidden since 3.0.0, on the promise that the breadcrumb names the page, and the
+  // breadcrumb prints what is published here, so an opened board of quotes had no
+  // name on a desk and no breadcrumb either.
+  useCrumb(onBack ? title : null)
   // THE BOARD'S COMPLETE SET, for the top bar's ⋯ — see ScreenMenu.
   //
   // WHAT BECOMES A ROW AND WHAT BECOMES A DOOR. A menu bar can hold a choice

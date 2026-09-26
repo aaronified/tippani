@@ -76,6 +76,7 @@ import {
   PageHeader,
   toast,
   Toggle,
+  useCrumb,
   useFormHost,
 } from './ui.jsx'
 
@@ -1501,6 +1502,13 @@ function AnthologyPage({ id, onClose, onDeleted, onOpenBook, onOpenMovie }) {
   }
 
   const rows = entries || []
+  // THE ANTHOLOGY'S NAME GOES TO THE SHELL, because the page's own heading is off
+  // the screen: `.page-header h1` is visually hidden on the grounds that the
+  // breadcrumb names the page on a desk and the shell header on a phone. Both of
+  // those print what a detail publishes here, and this page published nothing, so
+  // from 3.0.0 an open anthology said "Anthologies" on a phone and drew no
+  // breadcrumb at all on a desk. Its name was nowhere on the screen.
+  useCrumb(anthology ? anthology.title || t('anthologies.read.title.fallback') : null)
   // THE SAME FOUR THE HEADER ROW DRAWS, and deliberately the same four rather
   // than a different set: the ⋯ is a menu bar, so it lists what the screen can do
   // whether or not the control is also on the page. Practise is disabled there by

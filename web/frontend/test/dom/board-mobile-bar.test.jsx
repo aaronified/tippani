@@ -62,8 +62,10 @@ beforeEach(() => {
 const noop = () => {}
 // On a phone the board's NAME is no longer in the page at all — it is published
 // to the shell's header — so the load signal has to be something the page itself
-// still draws. On a desktop the PageHeader keeps the name, and the assertion
-// below relies on that difference being real.
+// still draws. On a desktop the PageHeader keeps the name IN THE DOCUMENT, which
+// is what the load signal below finds, but not on the screen: `.page-header h1`
+// is visually hidden, so a desk also needs the published name (see the last
+// case).
 const openBoard = async (mobile) => {
   asPhone(mobile)
   render(<QuotesPage openId={1} onOpen={noop} onClose={noop} />)
@@ -110,5 +112,18 @@ describe('an opened board on a desktop', () => {
     await openBoard(false)
     await waitFor(() => expect(screen.getByText('All boards')).toBeTruthy())
     expect(document.querySelector('.mobile-detail-bar')).toBeNull()
+  })
+
+  // THE NAME IS PUBLISHED ON A DESK TOO. The page's <h1> is in the document and
+  // off the screen — the stylesheet hides it because the breadcrumb names the
+  // page — and the breadcrumb prints what is published. This published on a
+  // phone only, so from 3.0.0 an open board had no name on a desk at all.
+  it('publishes its name for the breadcrumb, which is the only place a desk prints it', async () => {
+    let crumb = null
+    const Probe = () => { crumb = useCrumbTitle(); return null }
+    asPhone(false)
+    render(<><QuotesPage openId={1} onOpen={noop} onClose={noop} /><Probe /></>)
+    await screen.findByText('Proverbs')
+    await waitFor(() => expect(crumb).toBe('Proverbs'))
   })
 })

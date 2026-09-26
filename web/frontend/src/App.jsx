@@ -1004,10 +1004,22 @@ function TagsRedirect({ onGo }) {
 // every section — a thing that "says nothing of worth", because the answer is
 // usually yes and a reader learns to stop reading it. What is worth saying is the
 // other case, and only then: this section has three settings that differ from stock.
-function Breadcrumb({ tab, detail, title, crumb, onRoot }) {
-  const rootKey = detail?.type === 'movie' ? 'movies' : detail?.type === 'book' ? 'library' : null
-  const rootLabel = rootKey ? t(`nav.tab.${rootKey === 'movies' ? 'movies' : 'library'}.label`) : t('shell.wordmark.label')
-  const leaf = detail ? title : t(screenTitleKey(tab))
+//
+// EVERY DETAIL IS ROOTED IN THE SCREEN IT OPENS FROM, and names itself. A work, a
+// board of quotes and an anthology are each a thing open inside a screen, so each
+// reads `screen / name`. Only the two works had a root here, and the other two had
+// no name to show: nothing published one. With no leaf the whole crumb returned
+// null, and since `.page-header h1` is visually hidden on the promise that this
+// names the page, an open board or anthology showed its name nowhere on a desk.
+//
+// A SECTION'S LEAF IS ITS SCREEN, and the section is the crumb beside it. A
+// section is a detail with no title of its own, so asking for the detail's title
+// returned nothing and the section branch below could never draw.
+const CRUMB_ROOTS = { book: 'library', movie: 'movies', board: 'quotes', anthology: 'anthologies' }
+export function Breadcrumb({ tab, detail, title, crumb, onRoot }) {
+  const rootKey = CRUMB_ROOTS[detail?.type] || null
+  const rootLabel = rootKey ? t(screenTitleKey(rootKey)) : t('shell.wordmark.label')
+  const leaf = detail && detail.type !== 'section' ? title : t(screenTitleKey(tab))
   if (!leaf) return null
   return (
     <nav className="topbar-crumbs" aria-label={t('shell.crumbs.aria')}>
