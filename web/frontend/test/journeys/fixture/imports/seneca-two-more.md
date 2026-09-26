@@ -6,10 +6,10 @@ genres: Philosophy
 type: book
 ---
 
-> It is not that we have a short time to live, but that we waste a lot of it.
+> Nobody ever finished a long road by measuring how much of it was still left.
 - loc: 1
 - date: 2026-06-01
 
-> While we are postponing, life speeds by.
+> A borrowed book is always read fastest.
 - loc: 2
 - date: 2026-06-02

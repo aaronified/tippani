@@ -30,8 +30,8 @@ const KEPT = 'Lines I want to keep'
 
 it('a reader keeps one highlight in a new anthology without selecting anything', async () => {
   await app.goto('/library')
-  // One of the four real books the fixture keeps verbatim, so naming it
-  // survives a regeneration of the derived ones.
+  // One of the four real titles the fixture keeps, so naming it survives a
+  // regeneration of the derived ones.
   await app.press("Grimm's Fairy Stories")
 
   // The card's own overflow, then the verb inside it — the two presses a reader

@@ -26,13 +26,15 @@ const app = openApp()
 it('a reader searches for a phrase from a highlight and the result names the book', async () => {
   await app.goto('/')
 
-  // "roubles" is Prince Myshkin's own word ("I have twenty-five roubles, and I
-  // shall easily find some Hôtel-garnie") — not a word the fixture's random
+  // "Epanchin" is the general's name in one of The Idiot's highlights the fixture
+  // keeps ("General Epanchin was in the very prime of life…", found word for word
+  // in Eva Martin's translation, Gutenberg #2638) — not a word the fixture's random
   // generator would ever produce (its invented titles run on alder, bramble,
   // cobble, ember and the like), so a hit here is never a coincidence of the
-  // fixture and survives a regeneration of the other 26 books the way this one,
-  // kept verbatim, always does.
-  await app.type('Search everything', 'roubles')
+  // fixture, and a checked line survives a regeneration the way the invented books
+  // do not. (It searched "roubles" until 3.1.0, from a line that was not checked
+  // and is invented prose now.)
+  await app.type('Search everything', 'Epanchin')
   await app.pressKey('Enter')
 
   // Home's own Favourites shelf never carries this book or its author — so

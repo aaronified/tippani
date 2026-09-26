@@ -17,13 +17,17 @@
 // a screen that has to draw a queue afterwards. A file the detector sends to the
 // wrong parser produces zero rows and a Go parser test that still passes.
 //
-// THE FILES ARE COMMITTED AND THEIR TEXT IS REAL. Each carries one line taken
-// verbatim from this fixture's own copy of one of its four real books — Grimm,
-// Dostoyevsky, Bhagat Singh — so a case that finds its line on the queue found
-// something the parser actually read out of the bytes, not a title it guessed from
-// the filename. Their SHAPES follow the importer's own testdata and the format
-// notes in `kindle_clippings.go` and `bookcision.go`, including the CRLF line
-// endings a real Kindle writes.
+// THE FILES ARE COMMITTED AND EACH LINE IS ONE THE FIXTURE ALREADY HOLDS. Each
+// carries one line taken from this fixture's own copy of one of its four real
+// titles — Grimm, Dostoyevsky, Bhagat Singh — so a case that finds its line on the
+// queue found something the parser actually read out of the bytes, not a title it
+// guessed from the filename. The Grimm and Dostoyevsky lines are real, and checked
+// word for word against Project Gutenberg (#11027, #2638). The Bhagat Singh line is
+// the invented prose the fixture has held in that highlight's place since 3.1.0:
+// nothing of that book was checked, and the owner's call was "Swap unverified lines
+// for invented prose". Their SHAPES follow the importer's own testdata and the
+// format notes in `kindle_clippings.go` and `bookcision.go`, including the CRLF
+// line endings a real Kindle writes.
 
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -54,7 +58,7 @@ const ROUTES = [
     what: "Readest's annotation export",
     file: 'atheist-readest.json',
     book: 'Why I Am An Atheist and Other Works',
-    line: 'The sword of revolution is sharpened on the whetting stone of ideas',
+    line: 'The old press in the back room was older than any of us',
   },
 ]
 

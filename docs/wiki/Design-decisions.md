@@ -15481,7 +15481,7 @@ could have passed over a screen that threw on mount. `per-user-isolation` read
 harness's business, and a journey that spells it knows one thing too many about how
 its world was built, so the account moved onto the world handle. And the list of
 "stable names a journey may pin" was stated too narrowly: the four real
-books are kept verbatim by the curator, TITLE AND AUTHOR, so `Jacob Grimm` is
+books keep their TITLE AND AUTHOR through the curator, so `Jacob Grimm` is
 exactly as safe as `Grimm's Fairy Stories`; it is the 23 derived works whose
 invented titles and invented people regenerate.
 
@@ -15546,18 +15546,22 @@ bytes back through `app.downloaded`, and build the fixture to match what came ou
   a two-quote fixture in the same shape     ->  2 quotes staged, "joins your
                                                 existing On the Shortness of Life"
 
-`fixture/imports/seneca-two-more.md` is two lines of Seneca, of unrecorded source, deliberately two lines
-this fixture's copy of that book does NOT already hold — so "the quote arrived" is a
-fact about the import rather than about what was already there.
+`fixture/imports/seneca-two-more.md` is two lines filed under *On the Shortness of Life*,
+deliberately two lines this fixture's copy of that book does NOT already hold — so "the
+quote arrived" is a fact about the import rather than about what was already there.
+They are invented prose written for the fixture; until 3.1.0 they were two lines of
+Seneca of unrecorded source (see below).
 
 **AND "ROUTES" IS PLURAL, WHICH THE FIRST PASS OF THIS WORK QUIETLY MADE SINGULAR.**
 A rater caught it: one file, one format, against an app that reads eight. Three more
-fixtures now sit beside it, each carrying one line taken verbatim from this fixture's
-own copy of one of the four real books, and each shaped from the importer's own testdata
-rather than from memory — a Kindle's `My Clippings.txt` (Grimm, with the CRLF line
-endings a real device writes), a Bookcision export (Dostoyevsky), and a Readest
-annotation export (Bhagat Singh). All three are read correctly: the app names the
-book each belongs to and shows the parsed line on the queue.
+fixtures now sit beside it, each carrying one line from this fixture's own copy of one
+of the four real books, and each shaped from the importer's own testdata rather than
+from memory — a Kindle's `My Clippings.txt` (Grimm, with the CRLF line endings a real
+device writes), a Bookcision export (Dostoyevsky), and a Readest annotation export
+(Bhagat Singh). The Grimm and Dostoyevsky lines are real and checked against Project
+Gutenberg; the Bhagat Singh line is the invented prose that stands in that highlight's
+place since 3.1.0. All three are read correctly: the app names the book each belongs
+to and shows the parsed line on the queue.
 
 **WHAT THOSE THREE ASSERT, AND WHERE THE LINE IS DRAWN.** The whole of a route is
 "the app read this file and understood it" — which book, and what the line says —
@@ -15568,6 +15572,63 @@ said here rather than left to be discovered: the four HTML routes (Goodreads,
 Hardcover, IMDb, the saved Kindle notebook) have Go parser tests and no journey.
 They need a saved page of real markup to be honest about, which is a fixture
 question rather than a test-writing one.
+
+### The four real titles keep only the lines checked against a public-domain text (3.1.0)
+
+**The ruling.** The curator kept four real books verbatim at the owner's call, and at
+3.0.4 it came out that only one of them had been checked. The owner, asked what the
+public repo should keep: *"Swap unverified lines for invented prose"*. So the four keep
+their titles and authors, which is what the journeys name, and a line only where it has
+been found word for word in a public-domain text.
+
+**What was checked, and how.** Each highlight was looked for in a Project Gutenberg text,
+with both sides lowercased and every run of anything but a letter or a digit folded to
+one space, so a curly quote or a dash is no reason to miss and a changed word is.
+
+| | highlights | found | in |
+|---|---|---|---|
+| The Idiot | 22 | 11 | Eva Martin's 1915 translation, #2638 — the count `a09f2527` recorded, checked again |
+| Grimm's Fairy Stories | 1 | 1 | #11027, which carries the archive's spelling of the title ("Hansel and Grethel") |
+| On the Shortness of Life | 5 | 0 | not Aubrey Stewart's 1889 translation (#64576); its translator is unknown |
+| Why I Am An Atheist | 6 | — | nothing checked |
+
+So 12 real lines stay and 22 are invented: 11 of The Idiot, 5 of Seneca, 6 of Bhagat
+Singh. The Grimm line was not checked when the ruling was made, and is kept because it
+has been now. The import sample's two Seneca lines are invented too, and the Readest
+sample carries the fixture's new Bhagat Singh line in place of the old one, so it still
+holds a line the fixture holds.
+
+**Written, not generated.** Every other book's lines are `inventProse`'s word salad.
+These four are the books the journeys open by name, so their lines are the ones on
+screen: each unchecked one became a passage written for the fixture, of about its length
+and its kind — dialogue with its curly quotes where the highlight was dialogue, a
+lowercase start where it began mid-sentence, the stray PDF hyphen where it had one. None
+is a quotation, and none paraphrases the line it replaces. Rejected: generated prose here
+too, which works, and turns the books a journey photographs into rows of nouns with no
+quote marks or dashes left in them. The curator finds each passage by a hash of the
+original line, so the repo does not keep the line it replaces. A highlight with no
+passage, one the owner adds or edits later, falls back to generated prose, and the
+summary names it by hash and location.
+
+**The refusal covers them now.** The curator's leak check skipped the four books
+entirely, so an unchecked line could have survived a re-run with nothing to say so.
+Every unchecked line of theirs over 20 characters is now on its must-be-gone list, and
+so are the owner's notes on those books.
+
+**The curator ran against the archive, and the fixture took only the lines.** The
+archive has moved since the fixture was curated: 12 more standalone quotes on the boards,
+17 more highlights and one more film line on invented works, edits to several others, one
+of Bhagat Singh's highlights rewritten and given a chapter, and three of his recoloured.
+A wholesale re-run would also drop the Solitude/Solitide tag pair the fixture carries on
+purpose (see the tag vocabulary section). The curator's rule is that a person reads its
+output before any of it is committed, and the new board quotes have had no such reading.
+So the changed curator was run against the archive (the refusal passed, and no line fell
+back to generated prose), and the committed fixture took from its output the 22 new lines
+of the four real titles and its note, and nothing else. A wholesale regeneration is the
+owner's call.
+
+**One journey searched a line that is gone.** `searching-and-finding` typed "roubles",
+from one of the eleven unchecked Idiot lines. It types "Epanchin" now, from a checked one.
 
 ## One question, two postures, and the bar that was hiding behind the header
 

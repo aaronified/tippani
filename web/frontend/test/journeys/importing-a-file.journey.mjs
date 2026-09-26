@@ -22,10 +22,12 @@
 // a small Markdown file in the shape the app's OWN export writes — verified by
 // pressing Export on the Library, reading the bytes back through
 // `app.downloaded`, and building the fixture to match it. Its two lines are
-// Seneca, not among the owner's highlights and of unrecorded source, and
-// deliberately NOT among the five this fixture's copy
-// of that book already holds, so "the quote arrived" is a fact about the import
-// rather than about what was already there.
+// invented prose written for this fixture and filed under On the Shortness of
+// Life (until 3.1.0 they were two lines of Seneca of unrecorded source, and the
+// owner's call was "Swap unverified lines for invented prose"), and they are
+// deliberately NOT among the five this fixture's copy of that book already holds,
+// so "the quote arrived" is a fact about the import rather than about what was
+// already there.
 
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -41,7 +43,7 @@ const FILE = join(HERE, 'fixture', 'imports', 'seneca-two-more.md')
 
 // One line out of the file, distinctive enough that nothing else in the library
 // carries it and short enough to read in a failure message.
-const ARRIVING = 'While we are postponing, life speeds by.'
+const ARRIVING = 'A borrowed book is always read fastest.'
 
 it('a reader imports a file, and nothing lands in the library until they approve it', async () => {
   // NOT THERE BEFORE ANY OF THIS. Without this line the last assertion would be

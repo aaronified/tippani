@@ -35,7 +35,7 @@ it('a reader opens their library and finds a book Home was not showing', async (
   //
   // A BOOK THAT SURVIVES A REGENERATION OF THE FIXTURE. Every other title in the
   // library is invented, so re-running the curator could change it; the four
-  // real books are kept verbatim and this is one of them. A journey
+  // real titles are kept, with their authors, and this is one of them. A journey
   // pinned to an invented title would go red on a fixture rebuild that changed
   // nothing about the app.
   await app.see('The Idiot')
