@@ -169,16 +169,22 @@ jobs:
   # THE LIST COMES FROM `go test -list`, NOT FROM A FILE, and every shard checks
   # it ran something: a -run pattern that matches nothing exits 0 and reads as
   # green, the false green the per-push job already guards against.
-  # TestEveryTestedPackageIsInTheNightlySweep sees ./internal/httpapi in this
-  # matrix, so the package is still counted as swept.
+  # TestEveryTestedPackageIsInTheNightlySweep reads the PKG line below, so the
+  # package is still counted as swept.
+  #
+  # THE PACKAGE IS NOT A MATRIX AXIS, so that the matrix's size is the number of
+  # shards and nothing else. With a second package under a `pkg:` axis, job-total
+  # would double while each package still ran six jobs, each job would take every
+  # twelfth test, and half of both packages would go unraced with every per-name
+  # check green. A second package that needs splitting gets a job of its own.
   race-nightly-httpapi:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      PKG: ./internal/httpapi
     strategy:
       fail-fast: false
       matrix:
-        pkg:
-          - ./internal/httpapi
         shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v5
@@ -187,10 +193,9 @@ jobs:
           go-version: "1.26"
       - name: one sixth of the package's tests, under -race
         env:
-          PKG: ${{ matrix.pkg }}
           SHARD: ${{ matrix.shard }}
-          # The matrix's size, not a second copy of it: while `pkg` has one entry,
-          # every job in the matrix is one shard.
+          # The matrix's size, which is the shard count because shard is its only
+          # axis, not a second copy of the list above.
           OF: ${{ strategy.job-total }}
         run: |
           set -euo pipefail

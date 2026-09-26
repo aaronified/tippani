@@ -93,8 +93,10 @@ func TestEveryTestedPackageIsInTheNightlySweep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read %s: %v", ci, err)
 	}
+	// A matrix entry, or the PKG line of a job that splits one package by test
+	// name (race-nightly-httpapi, whose matrix is its shards).
 	listed := map[string]bool{}
-	for _, m := range regexp.MustCompile(`(?m)^\s*- \./(\S+)\s*$`).FindAllStringSubmatch(string(body), -1) {
+	for _, m := range regexp.MustCompile(`(?m)^\s*(?:- |PKG: )\./(\S+)\s*$`).FindAllStringSubmatch(string(body), -1) {
 		listed[m[1]] = true
 	}
 	if len(listed) < 5 {

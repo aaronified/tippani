@@ -9196,11 +9196,16 @@ package."*
 *Closes the open question above.*
 
 - **Six jobs, one package, a sixth of its tests each.** `race-nightly-httpapi` is a matrix
-  of `./internal/httpapi` by six shards. Each shard lists the package's tests from the race
-  binary (`go test -race -list`), takes every sixth in round-robin, and runs them with its
-  own `-timeout 60m` and `-count=1`. The share is never written down, so a test added
-  tomorrow lands in a shard with nothing to update, and the shard count is the matrix's
-  own size.
+  of six shards over one package, `./internal/httpapi`, named once in the job's `PKG`. Each
+  shard lists the package's tests from the race binary (`go test -race -list`), takes
+  every sixth in round-robin, and runs them with its own `-timeout 60m` and `-count=1`.
+  The share is never written down, so a test added tomorrow lands in a shard with nothing
+  to update, and the shard count is the matrix's own size.
+- **The package is not a matrix axis,** because that is what keeps the matrix's size equal
+  to the shard count. It was one at first. A second entry there would have doubled the
+  size, so each job would take every twelfth test and half of both packages would go
+  unraced, with every per-name check green. A second package that needs splitting gets a
+  job of its own.
 - **Every shard checks every test it was dealt, by name,** as the per-push job checks its
   five. A `-run` pattern that matches nothing exits 0, which is the false green that cost
   v1.7.4.
