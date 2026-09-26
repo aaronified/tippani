@@ -112,7 +112,11 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
 RUN mkdir -p /data && chown 65532:65532 /data
 
 # ---- runtime: distroless static, non-root (PLAN §1) ----
-FROM gcr.io/distroless/static-debian12:nonroot
+# DEBIAN 13, NOT 12: static-debian12 still carried tzdata 2026b on 26 September,
+# flagged as DLA-4792-1, while static-debian13 already had 2026c. The binary is
+# static and uses the image only for its CA bundle, time zones and the nonroot
+# user, which is uid 65532 in both.
+FROM gcr.io/distroless/static-debian13:nonroot
 COPY --from=backend /tippani /tippani
 COPY --from=backend --chown=65532:65532 /data /data
 ENV TIPPANI_DATA=/data
