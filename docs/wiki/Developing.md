@@ -560,9 +560,10 @@ because pure-Go SQLite means the detector instruments the entire database engine
 than only this repo's code. On an idle developer machine on 2026-09-01, `internal/httpapi`
 alone did not finish in 55 minutes raced, and the nightly on 2.2.9 ended with that package
 alone at its 60-minute timeout while every other package passed. So the five locking tests
-(`conflict_pool_test.go`, `write_lock_test.go`) run raced on **every push to `main` and
-every pull request**, which is the coverage those files were written for and costs a couple
-of minutes, and the full sweep runs **nightly at 03:00 UTC**: one job per package
+(`conflict_pool_test.go`, `write_lock_test.go`), and three from `health_test.go` that hold
+the pool full, run raced on **every push to `main` and every pull request**, which is the
+coverage those files were written for. The job took 45 seconds on a runner at 3.0.0, before
+the three joined it. The full sweep runs **nightly at 03:00 UTC**, or by hand: one job per package
 (`race-nightly`), and `internal/httpapi` split six ways by test name
 (`race-nightly-httpapi`). **Sharding by package does not buy that package any time**:
 `-timeout` has always applied to each package's test binary on its own. The six-way split
@@ -748,14 +749,14 @@ Five failures that are self-inflicted rather than real, in the order they catch 
 ## Maintainer: CI
 
 `.github/workflows/ci.yml` runs on pushes to `main` and on pull requests, plus a 03:00 UTC
-schedule. Its jobs:
+schedule, and by hand (`workflow_dispatch`: `gh workflow run ci.yml`). Its jobs:
 
 | Job | What it runs |
 | --- | --- |
 | `go` | `go vet`, the full Go suite — which includes the check that `web/dist` is not stale — and a smoke test that boots the server and health-checks it. |
-| `race` | The five locking tests under `-race`, on every push to `main` and every pull request. Asserts each named test actually ran. |
-| `race-nightly` | Every package but `internal/httpapi` under `-race`, on the schedule only, one job per package so a race or a timeout in one does not hide another. |
-| `race-nightly-httpapi` | `internal/httpapi` under `-race`, on the schedule only, split six ways by test name because the package does not fit an hour raced. Each shard lists the tests from the race binary and fails if it ran none. |
+| `race` | The five locking tests, and three #40 tests that hold the connection pool full, under `-race`, on every push to `main`, every pull request and every run by hand. Asserts each named test actually ran. |
+| `race-nightly` | Every package but `internal/httpapi` under `-race`, on the schedule and on a run by hand, one job per package so a race or a timeout in one does not hide another. |
+| `race-nightly-httpapi` | `internal/httpapi` under `-race`, on the schedule and on a run by hand, split six ways by test name because the package does not fit an hour raced. Each shard lists the tests from the race binary and fails unless every test it was dealt ran. |
 | `journeys` | `npm run journeys` in the runner's Google Chrome, with its sandbox on. A failing journey uploads what the reader saw and what the server said. |
 | `frontend` | `npm test`, `npm run lint:rules`, `npm run build`, `git diff --exit-code -- web/dist web/dist-inputs.json`, `npm run glossary:check` and `iso6393-data.mjs --check`. It checks out the whole history, which the citation guard in `lint:rules` reads. |
 | `roadmap` | `roadmap-data.mjs --check`, `doc-map-check.mjs` and `wiki-check.mjs`. (The glossary check moved into the `frontend` job, which is where a fresh `web/dist` and `node_modules` exist.) |
