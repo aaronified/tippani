@@ -1,10 +1,11 @@
 name: docker
 
 # Build the multi-arch image and push it to GHCR so `docker compose up` can
-# pull ghcr.io/<owner>/tippani. Runs on pushes to main, on the release branch of
-# the moment, and on version tags.
+# pull ghcr.io/<owner>/tippani. Runs on pushes to main and on version tags, and
+# on a release branch while one is in flight: add it to `branches:` below. v3 was
+# the last, and was deleted after 3.0.1, when the owner moved everything to main.
 #
-# A RELEASE BRANCH GETS AN IMAGE NAMED AFTER IT — `:v3` — and nothing that moves:
+# A RELEASE BRANCH GETS AN IMAGE NAMED AFTER IT (`:v3` for v3) and nothing that moves:
 # no `latest`, no `edge`, no series pointer. The alternative was what we had,
 # which is that the only way to try the branch before it merges is to build the
 # image yourself, and "test this on the NAS it is built for" then costs a
@@ -13,7 +14,7 @@ name: docker
 # onto unfinished work by it.
 on:
   push:
-    branches: [main, v3]
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -98,9 +99,9 @@ jobs:
             type=raw,value=latest,enable=${{ steps.rank.outputs.overall == 'true' }}
             type=raw,value=edge,enable={{is_default_branch}}
             type=sha,format=short,enable={{is_default_branch}}
-            # The branch's own name, for a non-default branch only: `:v3` while
-            # v3 is in flight, and nothing at all once it merges and the branch
-            # stops being pushed to.
+            # The branch's own name, for a non-default branch only: `:v3` was
+            # this while v3 was in flight, and nothing at all once it merged and
+            # the branch stopped being pushed to.
             type=ref,event=branch,enable=${{ github.ref_name != github.event.repository.default_branch }}
           flavor: |
             latest=false
@@ -108,7 +109,7 @@ jobs:
       # WHAT THE BRANCH BUILD CALLS ITSELF.
       #
       # metadata-action's `version` output for a branch push is the branch name,
-      # and the release branch is named "v3" — which internal/updater reads as
+      # and 3.0.0's release branch was named "v3", which internal/updater reads as
       # the release 3.0.0. Stamped in unchanged, the branch image showed "3.0.0"
       # in Settings as though it were the finished thing and, being newer than
       # every published tag, never offered an update: a tester could sit on a
@@ -128,8 +129,8 @@ jobs:
       # Tag builds never reach this: their version IS the release.
       #
       # EVERY BRANCH BUILD CARRIES ITS BRANCH AND ITS COMMIT, because a moving
-      # image tag has no release to be compared against: pushing to v3 rebuilds
-      # `:v3` and creates no GitHub release, so a box tracking that tag was told
+      # image tag has no release to be compared against: pushing to a release branch
+      # rebuilds its tag and creates no GitHub release, so a box tracking that tag was told
       # it was current with several commits' worth of image sitting in front of
       # it. The check reads these two back and asks GitHub whether the branch has
       # moved (see updater.BranchBuild). main gets the same treatment for the
@@ -163,7 +164,7 @@ jobs:
         with:
           context: .
           # Stamp the version decided above (0.5.0 on a tag, "edge" on main,
-          # "edge-v3" on the release branch) into the binary so the in-app
+          # 3.0.0-edge.<sha> on a release branch) into the binary so the in-app
           # update check knows what it's running.
           # TMDB_TOKEN is the built-in film/show credential (a v4 read access
           # token), kept in a repository secret so it is not in the source. An

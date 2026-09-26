@@ -152,9 +152,6 @@ save always wins. A binary you build yourself has no built-in key until you pass
 
 **TheTVDB's free key needs your subscriber PIN** beside it; both fields are in Metadata › Sources.
 
-**Trying an unreleased branch.** `ghcr.io/aaronified/tippani:v3` follows the v3 branch. Give it a separate data
-folder, not your real library.
-
 **Plain-file backup.** On the host: `sqlite3 tippani.db "VACUUM INTO 'backup.db'"` against the `/data` folder.
 
 </details>

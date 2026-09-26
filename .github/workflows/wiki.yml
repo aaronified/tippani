@@ -23,7 +23,7 @@ name: wiki
 
 on:
   push:
-    branches: [main, v3]
+    branches: [main]
     paths:
       - "docs/wiki/**"
       - ".github/workflows/wiki.yml"

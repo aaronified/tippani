@@ -39,13 +39,13 @@ the thing rather than tidy it.
 
 | Stays | Why it cannot move |
 | --- | --- |
-| [`README.md`](https://github.com/aaronified/tippani/blob/v3/README.md) | GitHub renders it as the repository's front page. It is the "should I run this, and how" document and now links here for everything deeper. |
-| [`CHANGELOG.md`](https://github.com/aaronified/tippani/blob/v3/CHANGELOG.md) | **The binary embeds a byte-identical copy** (`internal/changelog/CHANGELOG.md`) and serves it in-app. A wiki page cannot be compiled in. |
+| [`README.md`](https://github.com/aaronified/tippani/blob/main/README.md) | GitHub renders it as the repository's front page. It is the "should I run this, and how" document and now links here for everything deeper. |
+| [`CHANGELOG.md`](https://github.com/aaronified/tippani/blob/main/CHANGELOG.md) | **The binary embeds a byte-identical copy** (`internal/changelog/CHANGELOG.md`) and serves it in-app. A wiki page cannot be compiled in. |
 | `CLAUDE.md` | Agent instructions. Tooling reads it from the repository root by name. |
 | `docs/roadmap.html`, `docs/ui-glossary.html`, `docs/landing.html` | **Generated**, and published by the Pages workflow — see below. |
 | `docs/data/*.json` | The roadmap generator's input, not prose. |
-| [`docs/plans/`](https://github.com/aaronified/tippani/blob/v3/docs/plans/README.md) | The queue of things **not built yet**. Its own rule: *"Nothing in here describes the app as it stands"*, and a plan is deleted when it ships. Mixing promises into the reference documentation is what that directory exists to prevent. |
-| [`docs/design/`](https://github.com/aaronified/tippani/blob/v3/docs/design/README.md) | The prototypes are self-contained `.dc.html` files you open in a browser — pressable, carrying their own data. A wiki cannot host one, and the handoff documents are read beside them. |
+| [`docs/plans/`](https://github.com/aaronified/tippani/blob/main/docs/plans/README.md) | The queue of things **not built yet**. Its own rule: *"Nothing in here describes the app as it stands"*, and a plan is deleted when it ships. Mixing promises into the reference documentation is what that directory exists to prevent. |
+| [`docs/design/`](https://github.com/aaronified/tippani/blob/main/docs/design/README.md) | The prototypes are self-contained `.dc.html` files you open in a browser — pressable, carrying their own data. A wiki cannot host one, and the handoff documents are read beside them. |
 
 ## Why the roadmap is a link and not a page
 
