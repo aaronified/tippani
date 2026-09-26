@@ -5106,11 +5106,11 @@ The navigation shape is the single most re-litigated decision in the project, mo
 
 <sub>0.4.4 — `CHANGELOG.md`</sub>
 
-### The guided tour ships its own public-domain sample content
+### The guided tour ships its own sample content
 
 **Decided.** A *Pride and Prejudice* quote and a *Casablanca* line are built in as tour content. The tour never asks for your files.
 
-**Why.** A tour that needs your library cannot run on first launch, which is the only moment it is for. Public domain because the samples ship in the binary. The admin steps show and ask for the TMDB / TheTVDB / Google Books keys with instructions on where each comes from, and the highlighted Metadata card stays usable so they can be pasted mid-tour.
+**Why.** A tour that needs your library cannot run on first launch, which is the only moment it is for. The samples were meant to be public domain, because they ship in the binary, and only the book line is: *Casablanca* (1942) is under US copyright until 2038. At 3.0.4 the owner, asked whether to swap it for a public-domain film, chose to keep it as a five-word quotation. The admin steps show and ask for the TMDB / TheTVDB / Google Books keys with instructions on where each comes from, and the highlighted Metadata card stays usable so they can be pasted mid-tour.
 
 **Approved.** I approved the sample content and the licence constraint on it together.
 
