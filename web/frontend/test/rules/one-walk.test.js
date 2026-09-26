@@ -97,6 +97,7 @@ const KNOWN = [
   'rules/one-walk.test.js',            // test/ — this file counts itself, see above
   'rules/pack-citations.test.js',      // docs/plans (its src half uses the shared walk)
   'rules/prefixed-pairs-survive.test.js', // web/dist — the built CSS again
+  'rules/workflow-needs-status.test.js', // .github/workflows — the workflows, not source
 ]
 
 describe('the walk over the source tree', () => {

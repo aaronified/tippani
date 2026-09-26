@@ -1,3 +1,4 @@
+import { reportIfDatabaseBusy } from './databaseBusy.js'
 import { t } from './i18n.js'
 
 // Tiny fetch helpers (PLAN §10: fetch + useState suffice — no fetch libraries).
@@ -45,7 +46,10 @@ async function send(url, opts) {
   } catch {
     return { ok: false, status: 0, data: null }
   }
-  return parse(res)
+  const r = await parse(res)
+  // The database door's refusal, heard once for the whole app (databaseBusy.js).
+  reportIfDatabaseBusy(r)
+  return r
 }
 
 // timeoutMs — A FETCH THAT NEVER RESOLVES IS A SCREEN THAT NEVER MOVES, and one

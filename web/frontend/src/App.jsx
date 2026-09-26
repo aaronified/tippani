@@ -63,8 +63,10 @@ import {
 } from './routes.js'
 import { jumpBack, navigateBack, noteRoute, popIsOverlay, pushRoute, recentRoutes, seedRoute } from './history.js'
 import { DEMO, apiURL, coverImgURL, json, uploadWithProgress } from './api.js'
+import { DATABASE_BUSY, onDatabaseBusy } from './databaseBusy.js'
 import {
   useEscape,
+  Card,
   CloseButton,
   EdgeRow,
   ErrorBoundary,
@@ -161,6 +163,11 @@ export default function App() {
   // The operator's single sign-on provider ({name}) or null, from /auth/status.
   const [oidc, setOIDC] = useState(null)
   const [checking, setChecking] = useState(true)
+  // The database door refused a request (TIP-HTTP-002, issue #40), and whether it
+  // was the boot's own question, which only a reload asks again.
+  const [busy, setBusy] = useState(false)
+  const bootBusy = useRef(false)
+  useEffect(() => onDatabaseBusy(() => setBusy(true)), [])
 
   // What the signed-out screens need to know: whether this is a first run, the
   // kept backup, and the operator's sign-on provider.
@@ -174,8 +181,19 @@ export default function App() {
 
   useEffect(() => {
     globalThis.fetch(apiURL('/auth/me'))
-      .then((r) => (r.ok ? r.json() : null))
-      .then((u) => (u ? setUser(u) : loadStatus()))
+      .then(async (r) => {
+        if (r.ok) return r.json()
+        // NOT "signed out". A boot refused at the database door used to read as no
+        // session, and the reader got the sign-in form, whose sign-in the door then
+        // refused too: about twenty seconds of nothing, then the wrong screen.
+        if (r.status === 503 && (await r.json().catch(() => null))?.code === DATABASE_BUSY) {
+          bootBusy.current = true
+          setBusy(true)
+          return undefined
+        }
+        return null
+      })
+      .then((u) => (u ? setUser(u) : u === null ? loadStatus() : undefined))
       .finally(() => setChecking(false))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -277,6 +295,20 @@ export default function App() {
     }
     else if (needsOnboarding) screen = <Onboarding onDone={setUser} backup={onboardBackup} />
     else screen = <Login onLogin={setUser} oidc={oidc} />
+  }
+  if (busy) {
+    // Over whatever the reader was doing, so a half-filled form is still there when
+    // the database answers. At boot there is nothing yet, and the sign-in form it
+    // would fall back to is the wrong screen, so the busy screen stands alone.
+    screen = (
+      <>
+        {!bootBusy.current && screen}
+        <BusyScreen onAnswered={() => {
+          setBusy(false)
+          if (bootBusy.current) globalThis.location.reload()
+        }} />
+      </>
+    )
   }
   return (
     <>
@@ -677,6 +709,40 @@ export function ChooseOwnPassword({ onDone, onLogout }) {
         <Sprockets />
       </div>
     </main>
+  )
+}
+
+// BusyScreen — the database door refused a request (TIP-HTTP-002, issue #40), so
+// what the reader just did changed nothing. It says so over whatever was on the
+// screen, and it has no button: it asks /healthz every five seconds and steps
+// aside the moment the database answers, which leaves a half-filled form as it was
+// to be saved again.
+const BUSY_POLL_MS = 5000
+function BusyScreen({ onAnswered }) {
+  const answered = useRef(onAnswered)
+  answered.current = onAnswered
+  useEffect(() => {
+    const id = globalThis.setInterval(async () => {
+      try {
+        const r = await globalThis.fetch('/healthz')
+        if (r.ok) answered.current()
+      } catch { /* still not answering */ }
+    }, BUSY_POLL_MS)
+    return () => globalThis.clearInterval(id)
+  }, [])
+  return (
+    <div
+      role="alertdialog"
+      aria-labelledby="busy-title"
+      aria-describedby="busy-body"
+      className="tp-scrim fixed inset-0 z-50 flex items-center justify-center px-4 py-10"
+    >
+      <Card className="w-full max-w-md text-center">
+        <h2 id="busy-title" className="display-title mb-2" style={{ fontSize: 'var(--type-ui-19)' }}>{t('shell.busy.title')}</h2>
+        <p id="busy-body">{t('shell.busy.body')}</p>
+        <p className="mt-3 text-sm" style={{ color: 'var(--faint)' }}>{t('shell.busy.detail')}</p>
+      </Card>
+    </div>
   )
 }
 

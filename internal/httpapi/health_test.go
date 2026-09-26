@@ -162,10 +162,15 @@ func TestAnAPIRequestIsRefusedWhenNoConnectionComesFree(t *testing.T) {
 			if a.took < 9*time.Second {
 				t.Fatalf("%s gave up after %s, before its wait for a connection was over", a.name, a.took)
 			}
-			var e struct{ Error string }
+			var e struct{ Error, Code string }
 			_ = json.Unmarshal(a.rec.Body.Bytes(), &e)
 			if !strings.Contains(e.Error, "changed nothing") {
 				t.Fatalf("%s's 503 does not say it changed nothing: %q", a.name, a.rec.Body)
+			}
+			// The code is how the SPA tells this refusal from another 503 and shows
+			// its busy screen, rather than matching the English.
+			if e.Code != "TIP-HTTP-002" {
+				t.Fatalf("%s's 503 carries code %q, want TIP-HTTP-002: %q", a.name, e.Code, a.rec.Body)
 			}
 		case <-deadline:
 			t.Fatal("a request with no connection to be had was still waiting after 20s: it queues for ever, which is issue #40")

@@ -90,8 +90,12 @@ func (s *Server) admitDB(next http.Handler) http.Handler {
 		s.running.reportOverdue(now)
 		olog.Errorf(olog.CodeHTTPNoConnection, "%s %s%s: %v; %s",
 			r.Method, r.URL.Path, reqSuffix(r), err, s.running.describe(1, now))
-		writeErr(w, http.StatusServiceUnavailable,
+		// The code beside the sentence is how the SPA knows this refusal from any
+		// other 503 (a missing provider key is one) and shows its busy screen,
+		// without matching on English.
+		writeErrDetail(w, http.StatusServiceUnavailable,
 			"Tippani's database is not answering, so this request changed nothing. "+
-				"Try again in a minute; if it keeps happening, restart Tippani and include its log in a report.")
+				"Try again in a minute; if it keeps happening, restart Tippani and include its log in a report.",
+			map[string]any{"code": string(olog.CodeHTTPNoConnection)})
 	})
 }

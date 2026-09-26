@@ -1118,6 +1118,10 @@ shell.login.toast.welcome = ফিরে এলেন, {name}
 # What the toast calls somebody whose account has no username to read.
 shell.login.reader.fallback = পাঠক
 shell.login.sso.cta = {name} দিয়ে লগ ইন
+# The busy screen: the database door refused a request (TIP-HTTP-002, issue #40).
+shell.busy.title = ব্যস্ত আছি
+shell.busy.body = ডেটাবেসে কানেক্ট করার চেষ্টা চলছে
+shell.busy.detail = TIP-HTTP-002
 # A blocked button prints its reason as a sentence underneath. {reason} is one of
 # the error.validate.* messages, and this key is what puts the full stop on it.
 common.form.reason.sentence = {reason}।

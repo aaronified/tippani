@@ -1118,6 +1118,10 @@ shell.login.toast.welcome = welcome back, {name}
 shell.login.reader.fallback = reader
 # {name} is the operator's provider, TIPPANI_OIDC_NAME — "Authelia", "Authentik".
 shell.login.sso.cta = Sign in with {name}
+# The busy screen: the database door refused a request (TIP-HTTP-002, issue #40).
+shell.busy.title = Busy for a moment
+shell.busy.body = Tippani's database isn't answering, so this change wasn't saved. Try again shortly; if it lasts, restart Tippani.
+shell.busy.detail = The database did not answer within ten seconds (TIP-HTTP-002).
 # A blocked button prints its reason as a sentence underneath. {reason} is one of
 # the error.validate.* messages, and this key is what puts the full stop on it.
 common.form.reason.sentence = {reason}.

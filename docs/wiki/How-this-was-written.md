@@ -512,8 +512,9 @@ worth nothing here and only execution counts. What the repo actually runs:
   **Twenty-eight guards read a directory themselves; twenty-two have converted.** Most
   were a plain `readdirSync(SRC).filter(...)` — non-recursive — so each had ALSO been
   silently skipping `src/demo/install.js` for as long as that directory has existed, and
-  every one still passes with it in scope. The six that remain read a directory that is
-  not the source tree at all — `web/dist`, `src/textures`, `docs/plans`, the repo — and
+  every one still passes with it in scope. The six that remain, and one added at 3.0.2,
+  read a directory that is not the source tree at all — `web/dist`, `src/textures`,
+  `docs/plans`, the repo, `.github/workflows` — and
   `test/rules/one-walk.test.js` names each with its reason. So the count is a floor being
   held rather than a debt being paid: what it stops now is a NEW guard walking the source
   tree by hand, which is the case that matters, because a new guard is written by whoever
