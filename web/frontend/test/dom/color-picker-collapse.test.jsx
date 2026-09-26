@@ -81,7 +81,7 @@ describe('ColorSwatches', () => {
     //
     // jsdom has no stacking contexts, so what is testable is the structural
     // claim the fix rests on: the list is a child of <body>. The offsets that
-    // made it a 3px sliver are covered in test/pure/popup-offsets.test.js, which
+    // made it a 3px sliver are covered in test/rules/popup-offsets.test.js, which
     // reads the stylesheet — this file measures nothing.
     const { container } = render(<ColorSwatches value="blue" onChange={() => {}} collapsible />)
     fireEvent.click(screen.getByRole('button', { expanded: false }))

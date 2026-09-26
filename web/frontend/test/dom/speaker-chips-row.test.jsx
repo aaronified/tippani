@@ -64,7 +64,7 @@ describe('the chip row', () => {
     // that "scrolls rather than wraps" — which passed the whole time
     // `.speaker-chips` declared no overflow at all and therefore could not
     // scroll and could never show the fade. jsdom has no layout, so a measured
-    // fade is unprovable in it; `test/pure/scroller-boxes.test.js` sweeps the
+    // fade is unprovable in it; `test/rules/scroller-boxes.test.js` sweeps the
     // stylesheet for exactly that omission and is what caught this one.
   })
 

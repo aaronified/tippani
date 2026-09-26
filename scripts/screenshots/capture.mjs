@@ -553,7 +553,7 @@ export async function waitForScreenLabel(page, timeoutMs) {
 // scratch server (see run-with-server.sh) to get the signup path on the first theme.
 // THE TWO LOOKUPS `pickFilm` NEEDS, against a live page. The decision itself is
 // `pickfilm.mjs`, so it can be asked without booting a server — see the argument
-// there, and `test/pure/pick-film.test.js`.
+// there, and `test/rules/pick-film.test.js`.
 export function filmLookups(page, baseUrl) {
   return {
     films: () => page.evaluate(async (base) => {

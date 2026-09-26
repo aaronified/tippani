@@ -133,7 +133,7 @@ const PROBE = `(() => {
   }
   // THE PREDICATE IS clipverdict.mjs, stringified in rather than copied — a copy is
   // what let the exemption be wrong in one of them for half an hour. It has its own
-  // tests: test/pure/clip-verdict.test.js. (No backticks in here: this whole block
+  // tests: test/rules/clip-verdict.test.js. (No backticks in here: this whole block
   // is a template literal, and one would end it.)
   const clipOf = ${clipOf.toString()}
   const out = {}

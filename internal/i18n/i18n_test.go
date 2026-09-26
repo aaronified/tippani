@@ -1,7 +1,7 @@
 package i18n
 
 // The Go half of the format's tests. The JS half is
-// web/frontend/test/pure/locale-parser.test.js, and the two share
+// web/frontend/test/rules/locale-parser.test.js, and the two share
 // testdata/agree.txt and testdata/agree.json — the fixture and the PINNED
 // answer. Neither parser generates the other's expectation, so a drift in either
 // one turns its own suite red instead of the two of them quietly agreeing on

@@ -13,7 +13,7 @@
 // That is exactly what shipped, and NOTHING in the repo could have caught it:
 // jsdom has no layout, so `scrollHeight` there is a constant 0 and every
 // assertion about scrolling passes vacuously. The stylesheet half is guarded by
-// test/pure/screen-scroll-chain.test.js, which fails when a link is deleted. This
+// test/rules/screen-scroll-chain.test.js, which fails when a link is deleted. This
 // is the other half — the one that measures.
 //
 // WHY A SHORT WINDOW IS PART OF THE CHECK. The fixture library's books carry two

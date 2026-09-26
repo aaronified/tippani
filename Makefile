@@ -41,7 +41,7 @@ typescale:
 
 ## frame-scroll: open a book's detail in a real browser and fail if the locked page
 ## clips or a column cannot scroll. jsdom has no layout, so the vitest suite cannot
-## see this at all — test/pure/screen-scroll-chain.test.js guards the stylesheet half,
+## see this at all — test/rules/screen-scroll-chain.test.js guards the stylesheet half,
 ## and this measures the result.
 frame-scroll:
 	bash scripts/screenshots/run-frame-scroll.sh

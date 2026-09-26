@@ -175,7 +175,7 @@ const def = (obj, name, get) => Object.defineProperty(obj, name, { get, enumerab
 // the option is how many there are: the numbering is the reading order, and a
 // language that needs a different order still has three lines in one place.
 // `key` AND `roles` ARE THE ROW'S OWN NAME, carried rather than inferred. The panel
-// never reads either; test/pure/help-budget.test.js does, and it is what lets the
+// never reads either; test/rules/help-budget.test.js does, and it is what lets the
 // copy budgets be measured against internal/i18n/en.txt instead of against the
 // English that used to sit here. A test that had to re-derive which of the four
 // fields each row has would be a second copy of this registry.

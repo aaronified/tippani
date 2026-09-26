@@ -6,7 +6,7 @@
 // hasant (এপ্), and অক্টোবর gives অক্. Any language with combining marks breaks the
 // same way, and no translator could fix it from the locale file."
 //
-// WHY THIS IS A RENDER AND NOT A GREP. `test/pure/translated-not-sliced.test.js`
+// WHY THIS IS A RENDER AND NOT A GREP. `test/rules/translated-not-sliced.test.js`
 // asserted the rule as `expect(stats).toContain('MONTH_KEYS')` — which the file's
 // own COMMENT about MONTH_KEYS satisfies, so the guard would survive the import
 // being deleted. The repo's audit lists it (§2.2) and the owner's standard settles

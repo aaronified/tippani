@@ -1,7 +1,7 @@
 // A SHORTCUT IS SPELLED OUT ON THE CONTROL THAT RUNS IT.
 //
 // THE RULE, in the owner's words and already quoted at the top of
-// `test/pure/keys.test.js`: shortcuts "should be intuitive and must always be
+// `test/rules/keys.test.js`: shortcuts "should be intuitive and must always be
 // spelled out in the corresponding button's tooltip". A binding no control
 // mentions is a shortcut only its author knows about.
 //

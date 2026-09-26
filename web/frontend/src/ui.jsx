@@ -167,7 +167,7 @@ export const ariaLabelText = (title) => (typeof title === "string" ? title : und
 // paragraph above describes, committed by the commit that wrote the paragraph.
 // No caller passes a node title today, so the bug is latent rather than visible;
 // a latent bug behind a helper written to prevent it is still the helper not
-// being used. `test/pure/aria-label-text.test.js` counts the bare ones, and the
+// being used. `test/rules/aria-label-text.test.js` counts the bare ones, and the
 // count is zero.
 
 export const MOBILE_SCREEN_QUERY = "(max-width: 768px)";

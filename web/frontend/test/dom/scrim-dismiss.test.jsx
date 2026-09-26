@@ -11,7 +11,7 @@
 // `overscroll-behavior: contain`, so a wheel that runs past the end of a dialog
 // stops there instead of moving the page behind it — the page you cannot see,
 // moving under the thing you are reading, and still moved when you close it.
-// `test/pure/scroll-containment.test.js` sweeps for that; what is checked here is
+// `test/rules/scroll-containment.test.js` sweeps for that; what is checked here is
 // that each overlay actually WEARS the class carrying it.
 //
 // WHY IT IS WORTH A TEST NOW. Nine files wrote the same class list and the same

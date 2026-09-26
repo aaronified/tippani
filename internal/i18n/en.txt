@@ -6035,7 +6035,7 @@ common.favourite.filter.tip = Only favourites
 #
 # THE BUDGETS ARE ENFORCED AGAINST THIS FILE, not against the source: a
 # translation that runs 30% longer than the English has to be cut rather than
-# allowed to overflow. See test/pure/help-budget.test.js. Nothing here
+# allowed to overflow. See test/rules/help-budget.test.js. Nothing here
 # interpolates — there is not one placeholder in the whole section.
 #
 # A HEADING IS OFTEN AN ALIAS. Nine of the sixteen sections are named by a tab,

@@ -6,7 +6,7 @@
 // bundler resolved it as a global and the key threw the moment it was pressed.
 // Live, in both screens, until a rater read the diff.
 //
-// THE SCOPE CHECK (`test/pure/no-free-names.test.js`) catches the NAME. It cannot
+// THE SCOPE CHECK (`test/rules/no-free-names.test.js`) catches the NAME. It cannot
 // know the button works, and that is the owner's own standard for a test: "is the
 // button clickable (for all buttons)?" So this presses it.
 //
