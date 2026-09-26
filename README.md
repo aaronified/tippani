@@ -47,10 +47,13 @@
 
 ## What it does
 
+<!-- ONE TABLE PER FEATURE, so each keeps its own column widths: in one shared table the
+     alternating 40% cells cancel out and every column comes out the same width. -->
+
 <table>
   <tr>
-    <td width="44%"><img src="docs/img/features/remember.jpg" width="100%" alt="A Daily Quiz card asking which word completes a quote by Einstein, with four choices"></td>
-    <td>
+    <td width="40%"><img src="docs/img/features/remember.jpg" width="100%" alt="A Daily Quiz card asking which word completes a quote by Einstein, with four choices"></td>
+    <td width="60%">
       <h3>🧠 It helps you remember</h3>
       A short Daily Quiz brings quotes back just before you would forget them, using a real
       spaced-repetition model, and leads with the ones you have not been asked yet. Five kinds
@@ -58,64 +61,85 @@
       <a href="https://github.com/aaronified/tippani/wiki/Spaced-repetition">How it works</a>.
     </td>
   </tr>
+</table>
+
+<table>
   <tr>
-    <td>
+    <td width="60%">
       <h3>📚 One library for everything you read and watch</h3>
       Books keep their chapter and page. Films and shows keep their timestamp and episode.
       Games keep their act and quest. A quote from anywhere else (a speech, a letter, something
       a friend said) keeps its speaker and, if you want, its translation.
     </td>
-    <td width="44%"><img src="docs/img/features/library.jpg" width="100%" alt="Favourites on Home: a film line, a book highlight, a game line and a standalone quote side by side"></td>
+    <td width="40%"><img src="docs/img/features/library.jpg" width="100%" alt="Favourites on Home: a book highlight, a film line, a game line and a standalone quote side by side"></td>
   </tr>
+</table>
+
+<table>
   <tr>
-    <td width="44%"><img src="docs/img/features/details.jpg" width="100%" alt="The Idiot's page: its cover, year, genre, author portrait and blurb, beside its highlights"></td>
-    <td>
+    <td width="40%"><img src="docs/img/features/details.jpg" width="100%" alt="The Idiot's page: its cover, year, genre and author portrait, beside its highlights"></td>
+    <td width="60%">
       <h3>📡 Covers and details fill themselves in</h3>
       Type a title, pick the right match, and the cover, cast and blurb arrive from TMDB, IGDB,
       Google Books and others. Nothing to type by hand.
     </td>
   </tr>
+</table>
+
+<table>
   <tr>
-    <td>
+    <td width="60%">
       <h3>🔎 Find anything instantly</h3>
       Search every title, person, quote, note and tag at once. It forgives typos, and typing
       <code>author:</code>, <code>tag:</code> or <code>colour:</code> suggests words from your own library.
     </td>
-    <td width="44%"><img src="docs/img/features/search.jpg" width="100%" alt="The search box after typing tag:, suggesting the library's four tags"></td>
+    <td width="40%"><img src="docs/img/features/search.jpg" width="100%" alt="The search box after typing tag:, suggesting the library's four tags"></td>
   </tr>
+</table>
+
+<table>
   <tr>
-    <td width="44%"><img src="docs/img/features/anthology.jpg" width="100%" alt="An anthology: Practise, Edit, Export and EPUB, an introduction, and quotes with notes written between them"></td>
-    <td>
+    <td width="40%"><img src="docs/img/features/anthology.jpg" width="100%" alt="An anthology: Practise, Edit, Export and EPUB, an introduction, and quotes with notes written between them"></td>
+    <td width="60%">
       <h3>📖 Anthologies</h3>
       Gather quotes into your own reading order, write between them, and export the result as
       Markdown or EPUB.
     </td>
   </tr>
+</table>
+
+<table>
   <tr>
-    <td>
+    <td width="60%">
       <h3>📨 Share a quote as a picture</h3>
       Tippani draws a quote card on your device, in your theme, with the speaker's portrait
       behind it, and sends it to your phone's share sheet. Plain text, Markdown, WhatsApp and
       Reddit formats too.
     </td>
-    <td width="44%"><img src="docs/img/features/share.jpg" width="100%" alt="The Share dialog on its Image format, with the portrait set as the backdrop and a preview of the card"></td>
+    <td width="40%"><img src="docs/img/features/share.jpg" width="100%" alt="The Share dialog on its Image format, with the portrait set as the backdrop and a preview of the card"></td>
   </tr>
+</table>
+
+<table>
   <tr>
-    <td width="44%"><img src="docs/img/features/import.jpg" width="100%" alt="The import queue: five Pride and Prejudice highlights from a Kindle file, waiting to be approved or discarded"></td>
-    <td>
+    <td width="40%"><img src="docs/img/features/import.jpg" width="100%" alt="The import queue: five Pride and Prejudice highlights from a Kindle file, waiting to be approved or discarded"></td>
+    <td width="60%">
       <h3>📥 Bring your highlights with you</h3>
       Kindle (Bookcision, the notebook, or <code>My Clippings.txt</code>), Readest and Tippani
       Markdown, saved Goodreads and Hardcover pages, IMDb quote pages. Imports wait for your
       approval, and the same file never adds anything twice.
     </td>
   </tr>
+</table>
+
+<table>
   <tr>
-    <td>
+    <td width="60%">
       <h3>🌐 Any language</h3>
       English and Bengali ship in the box, and a quote keeps its own script and translation.
       Adding another interface language is one text file, with no rebuild.
     </td>
-    <td width="44%"><img src="docs/img/features/language.jpg" width="100%" alt="A board of Bengali proverbs, each in Bengali script with its English translation under it"></td>
+    <td width="40%"><img src="docs/img/features/language.jpg" width="100%" alt="A board of Bengali proverbs in Bengali script, most with an English translation under them"></td>
   </tr>
 </table>
 
