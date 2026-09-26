@@ -28,7 +28,7 @@
 // at a directory of their own and never near a real one.
 
 import { execFileSync, spawn } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -99,13 +99,14 @@ function scratchDir(name) {
 // foreign one) went on blocking on its fifo after the case ended. Twenty-four had
 // piled up on one machine in a day. `/proc/<pid>/exe` names the copied binary,
 // which lives under root, so this finds the holder whichever way it was started.
+// The pids come from `ps` rather than a listing of /proc, which would be a second
+// hand-rolled directory walk in this tier (one-walk.test.js).
 function strays() {
   const found = []
-  for (const name of readdirSync('/proc')) {
-    if (!/^\d+$/.test(name)) continue
+  for (const pid of String(execFileSync('ps', ['-eo', 'pid='])).split(/\s+/).filter(Boolean)) {
     let exe
-    try { exe = readlinkSync(`/proc/${name}/exe`) } catch { continue }
-    if (exe.startsWith(root + '/')) found.push(Number(name))
+    try { exe = readlinkSync(`/proc/${pid}/exe`) } catch { continue }
+    if (exe.startsWith(root + '/')) found.push(Number(pid))
   }
   return found
 }
