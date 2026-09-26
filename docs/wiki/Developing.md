@@ -509,7 +509,7 @@ go vet ./...
 cd web/frontend && npm test          # the frontend suite (Vitest)
 npx vitest --root web/frontend run test/dom/icons.test.jsx    # one file
 
-(cd scripts/screenshots && npm ci)   # once: the journeys launch their browser through it
+(cd scripts/screenshots && npm ci)    # once, for npm run journeys: they launch their browser through it
 cd web/frontend && npm run journeys  # the journeys: a real browser against a real server
 ```
 
