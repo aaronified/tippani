@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **The health check says whether Tippani can reach its database** (#40). It used to answer
+  "healthy" for as long as the process was running, so a server whose database had stopped
+  answering looked fine. Now `docker ps` shows it unhealthy, `docker inspect` shows why, and the
+  log says which requests were waiting. Docker does not restart a container for being unhealthy
+  by itself.
+- **A request that cannot reach the database is refused after ten seconds** with "changed
+  nothing", instead of waiting for ever.
+- **A request still running after a minute is named once in the log**, with its request id, so a
+  quiet log now means requests are not arriving rather than possibly hanging.
+
 ## [3.0.0] - 2026-09-25
 
 Tippani 3 is a redesign from top to bottom: a new look, a Metadata console for keeping a large

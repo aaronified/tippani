@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
+	"time"
 
 	_ "modernc.org/sqlite" // pure-Go driver; FTS5 built in, CGO_ENABLED=0
 )
@@ -29,6 +30,11 @@ func Open(path string) (*Store, error) {
 	}
 	return &Store{DB: db, path: path}, nil
 }
+
+// busyTimeout is how long a statement waits for SQLite's write lock before it
+// fails with SQLITE_BUSY. It is a constant rather than a literal in the DSN because
+// ConnWait (health.go) is derived from it, and the two must not drift apart.
+const busyTimeout = 5 * time.Second
 
 // openDB builds the connection with the standard DSN + pool, verifying it opens.
 // Shared by Open and Reset so a re-initialised database is configured identically.
@@ -65,9 +71,9 @@ func openDB(path string) (*sql.DB, error) {
 	// was. Reads are deliberately left on the 4-connection pool.
 	dsn := fmt.Sprintf(
 		"file:%s?_txlock=immediate"+
-			"&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"+
+			"&_pragma=busy_timeout(%d)&_pragma=journal_mode(WAL)"+
 			"&_pragma=foreign_keys(1)&_pragma=synchronous(FULL)",
-		path,
+		path, busyTimeout.Milliseconds(),
 	)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {

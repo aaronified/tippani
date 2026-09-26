@@ -122,6 +122,10 @@ ENV TIPPANI_BIND=0.0.0.0:8080
 VOLUME /data
 EXPOSE 8080
 # The binary probes itself — distroless has no shell/curl, so exec form only.
+# Healthy means a request arriving now could reach the database: /healthz waits
+# up to 2s for a pooled connection and runs one read. Three failures 30s apart
+# mark the container unhealthy, with the reason in `docker inspect`, and Docker
+# does not restart it for that (see docs/wiki/Troubleshooting.md, HEALTH).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/tippani", "healthcheck"]
 USER nonroot:nonroot

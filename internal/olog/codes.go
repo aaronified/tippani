@@ -14,8 +14,13 @@ type Code string
 
 const (
 	// HTTP — cross-cutting web layer.
-	CodeHTTPInternal  Code = "TIP-HTTP-000" // unclassified internal error (generic 500 fallback)
-	CodeHTTPTLSReload Code = "TIP-HTTP-001" // the TLS cert/key pair failed to re-load after changing on disk; the previous pair is still served
+	CodeHTTPInternal     Code = "TIP-HTTP-000" // unclassified internal error (generic 500 fallback)
+	CodeHTTPTLSReload    Code = "TIP-HTTP-001" // the TLS cert/key pair failed to re-load after changing on disk; the previous pair is still served
+	CodeHTTPNoConnection Code = "TIP-HTTP-002" // an API request was refused 503 because no database connection came free in time
+	CodeHTTPStillRunning Code = "TIP-HTTP-003" // a request was still running past the server's 60s write deadline (reported once)
+
+	CodeHealthNoConnection Code = "TIP-HEALTH-001" // /healthz: no database connection came free within its budget
+	CodeHealthNoAnswer     Code = "TIP-HEALTH-002" // /healthz: the database did not answer the probe (closed, or failing)
 
 	// UPDATE — in-app self-update (Settings → Updates, admin).
 	CodeUpdateEngine Code = "TIP-UPDATE-001" // a Docker Engine API call failed during self-update (identify/pull/recreate)
@@ -159,8 +164,12 @@ const (
 // source of truth paired with docs/wiki/Troubleshooting.md (human-readable cause+fix).
 // Keep this and the doc in lockstep — the sync test enforces it.
 var Registry = map[Code]string{
-	CodeHTTPInternal:  "Unclassified internal server error (generic 500 fallback).",
-	CodeHTTPTLSReload: "The TLS certificate/key pair changed on disk but failed to re-load; the previously loaded pair is still being served.",
+	CodeHTTPInternal:       "Unclassified internal server error (generic 500 fallback).",
+	CodeHTTPTLSReload:      "The TLS certificate/key pair changed on disk but failed to re-load; the previously loaded pair is still being served.",
+	CodeHTTPNoConnection:   "An API request waited its limit for a database connection and none came free, so it was answered 503 and changed nothing.",
+	CodeHTTPStillRunning:   "A request was still running after the server's 60s write deadline; it is named once, with its request id.",
+	CodeHealthNoConnection: "The health check could not get a database connection within its budget, so the container reports unhealthy.",
+	CodeHealthNoAnswer:     "The health check got a connection but the database did not answer its read (closed during a restore or reset, or failing).",
 
 	CodeUpdateEngine: "A Docker Engine API call failed during self-update (identify self, pull image, or launch the recreater).",
 

@@ -95,7 +95,9 @@ jobs:
         if: github.event_name != 'schedule'
         run: |
           set -o pipefail
-          names='TestDuplicatePostUnderPoolPressure|TestConcurrentDuplicatePostsAllConflict|TestConcurrentDuplicateDialoguePostsAllConflict|TestConcurrentReadThenWriteTransactions|TestReadersOverlapAWriter'
+          # The locking tests, and the three that hold the pool full to check the
+          # health check, the refusal at the /api door and the in-flight table (#40).
+          names='TestDuplicatePostUnderPoolPressure|TestConcurrentDuplicatePostsAllConflict|TestConcurrentDuplicateDialoguePostsAllConflict|TestConcurrentReadThenWriteTransactions|TestReadersOverlapAWriter|TestHealthzAnswers503WhenNoConnectionComesFree|TestAnAPIRequestIsRefusedWhenNoConnectionComesFree|TestAHungRequestIsNamedInTheLogWhileItHangs'
           # -count=1: setup-go caches the build cache, and a cached test result
           # would print as a PASS without the test running under the detector.
           go test -race -count=1 -v -timeout 15m -run "^($names)\$" ./internal/httpapi/ ./internal/store/ 2>&1 | tee /tmp/race.log

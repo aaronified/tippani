@@ -32,6 +32,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -83,6 +84,8 @@ func main() {
 // It is the container HEALTHCHECK command: the distroless image has no shell or
 // curl, so the binary checks itself. It dials the loopback interface on the
 // configured port (TIPPANI_BIND may be 0.0.0.0, which isn't a valid dial target).
+// Healthy means a request arriving now could reach the database (see handleHealthz);
+// an unhealthy answer's reason is printed, so `docker inspect` shows it.
 func healthcheck() {
 	host, port, err := net.SplitHostPort(envOr("TIPPANI_BIND", "127.0.0.1:8080"))
 	if err != nil {
@@ -110,7 +113,10 @@ func healthcheck() {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(os.Stderr, "healthcheck: unhealthy (status %d)\n", resp.StatusCode)
+		// The reason is in the body (a TIP-HEALTH code and the pool's counts), and
+		// Docker keeps a check's output in `docker inspect`, so it is printed.
+		why, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		fmt.Fprintf(os.Stderr, "healthcheck: unhealthy (status %d): %s\n", resp.StatusCode, strings.TrimSpace(string(why)))
 		os.Exit(1)
 	}
 }

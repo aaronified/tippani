@@ -4,8 +4,9 @@ Every handled error Tippani logs carries a stable code of the form
 `TIP-<SUBSYS>-<NNN>` (for example `TIP-SRCH-002`). When something goes wrong,
 find the code in `docker logs` and look it up here.
 
-- Logs go to **both stdout and stderr**, so `docker logs <container>` shows them
-  regardless of how the stream is captured.
+- `[error]` lines and the one-line-per-request access log go to **stderr**; `[warn]`,
+  `[trace]` and ordinary progress lines go to **stdout**. `docker logs <container>`
+  merges the two, so it shows everything.
 - Lines are tagged: `[error]` (a failure), `[warn]` (recovered/degraded, worth
   knowing), `[trace]` (deep per-operation detail, only when
   `TIPPANI_LOG_LEVEL=debug`).
@@ -38,6 +39,32 @@ which Compose keeps in list form, leaving tracing silently off.
 | --- | --- | --- | --- |
 | `TIP-HTTP-000` | Unclassified internal server error (the generic 500 fallback). | A database, transaction, or encoding failure that has not yet been given a specific code. | Read the full `[error]` line — it includes the request method, path, and underlying cause. If it recurs, the handler should be given a specific code. |
 | `TIP-HTTP-001` | The TLS certificate/key pair changed on disk but failed to re-load; the previous pair is still served. | A renewal wrote a malformed file, or wrote the cert and key non-atomically (Tippani retries once the second file lands). | Check `TIPPANI_TLS_CERT`/`TIPPANI_TLS_KEY` point at a matching PEM pair. HTTPS keeps working on the old certificate until it expires, so fix the files and the next handshake picks them up — no restart needed. |
+| `TIP-HTTP-002` | An API request waited ten seconds for a database connection, none came free, and it was answered 503 without changing anything. | Every connection in the pool is held and not coming back: the state issue #40 describes. The line ends with the requests in flight, oldest first. | If it is a single line during a restore, a reset or a large import, it was that. If it repeats, save the log and the goroutine dump described under HEALTH below, then restart Tippani. |
+| `TIP-HTTP-003` | A request was still running after the server's 60-second write deadline. Each is named once, with its request id. | Expected for a backup download, a restore, an in-app update and a very large import approval, which run as long as they need. On any other route it is a request stuck waiting. | Find the same `req rN` on its access line once it finishes, or on a `TIP-HEALTH-001` line if the pool is held. A stuck ordinary request is worth a report with the log. |
+
+## HEALTH — the container's health check
+
+`/healthz`, which the image's `HEALTHCHECK` calls every 30 seconds, answers 200 when a
+request arriving now could reach the database and get an answer, and 503 with the
+reason when it could not. A failed check writes one of these lines, ending with the
+requests in flight; the first check that passes afterwards writes
+`[health] healthy again after N failed check(s)`. **Docker does not restart a
+container for being unhealthy**; only an orchestrator or an autoheal container does.
+
+| Code | Meaning | Likely cause | What to do |
+| --- | --- | --- | --- |
+| `TIP-HEALTH-001` | The health check could not get a database connection within two seconds, so the container reports unhealthy. | Every pooled connection is held. The line names the requests in flight; the oldest is usually the one holding things up. | Before restarting, save `docker logs tippani > tippani.log 2>&1` and `docker inspect --format '{{json .State.Health}}' tippani`. Then `docker kill --signal=QUIT tippani`: Tippani does not catch SIGQUIT, so Go writes every goroutine's stack to the log and exits; `docker start tippani` if the restart policy does not bring it back. Attach all three to a report. |
+| `TIP-HEALTH-002` | The health check got a connection, but the database did not answer its read. | The database is closed: for a moment during a restore or a reset (a single line followed by "healthy again" is that), or for good if a reopen failed. | A single one during a restore or reset needs nothing. If it persists, read the log above it for the restore or reset that failed, and restart. |
+
+### Healthy, and still nothing loads
+
+| What you see | What it means |
+| --- | --- |
+| The health check is green, and there is no `TIP-HTTP-003` line and no access line for the page you loaded. | Your requests are not reaching Tippani. Loading a page always writes an access line, even when the database is stuck, because the page itself needs no database. Compare `docker exec tippani /tippani healthcheck` (inside the container) with a request from the host; if only the host fails, the problem is the port publish or the network in front of it. |
+| The page's frame loads and the screen stays empty. | An API call is hung or refused. Look for `TIP-HTTP-002` and `TIP-HTTP-003`. |
+| The health check reports `Client.Timeout exceeded` with no code. | The server did not answer within three seconds at all, which points at the storage or the host rather than at the pool. |
+
+The image has no shell, `wget` or `kill`, so these are all run from the host.
 
 ## UPDATE — in-app self-update
 

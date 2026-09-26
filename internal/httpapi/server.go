@@ -112,6 +112,11 @@ type Server struct {
 	// backupMu serializes backup/restore (backup_handlers.go) — concurrent runs
 	// would race on the backups dir and the swap. TryLock → 409 when busy.
 	backupMu sync.Mutex
+	// running is every request running now, so a hung one is named in the log;
+	// healthFailed counts consecutive failed health checks, so the first green
+	// after them says so. Both work as zero values (inflight.go, health.go).
+	running      flightTable
+	healthFailed atomic.Int64
 	// safety records the admin who just downloaded a fresh backup on the way to a
 	// restore or a reset; both refuse without it (handleSafetyBackup).
 	safety safetyNote
@@ -619,17 +624,20 @@ func (s *Server) Handler() http.Handler {
 	// mux keeps /healthz at the root for ops and serves the SPA (index.html
 	// fallback) for everything else — so a hard refresh on /library or /books/42
 	// loads the app instead of hitting an API route.
+	//
+	// admitDB guards the /api mount, so no API request queues for ever on a pool
+	// that has stopped giving connections; /healthz asks the same question and
+	// answers it for Docker (health.go).
 	root := http.NewServeMux()
-	root.Handle("/api/", http.StripPrefix("/api", mux))
-	root.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
+	root.Handle("/api/", s.admitDB(http.StripPrefix("/api", mux)))
+	root.HandleFunc("GET /healthz", s.handleHealthz)
 	root.Handle("/", s.spaHandler())
 
 	csrf := http.NewCrossOriginProtection()
 	// gzip sits inside logRequests so the logged byte count is what actually
-	// went over the wire, not the pre-compression size.
-	return logRequests(gzipResponses(securityHeaders(exceptBearer(csrf.Handler(root), root))))
+	// went over the wire, not the pre-compression size. running.track sits
+	// inside it too, so it sees the request id logRequests assigned.
+	return logRequests(s.running.track(gzipResponses(securityHeaders(exceptBearer(csrf.Handler(root), root)))))
 }
 
 // exceptBearer routes requests that carry an Authorization: Bearer credential
@@ -697,9 +705,12 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
 // logRequests logs one line per request (method, path, status, duration, size,
-// client) to stdout — visible in `docker logs`. /healthz is skipped so the
-// container's periodic probe doesn't drown the log. This is the baseline
-// visibility; handlers add [error]/[import]/[movies] lines for detail.
+// client) through the standard logger, to stderr — visible in `docker logs`.
+// /healthz is skipped so the container's periodic probe doesn't drown the log; a
+// failing probe logs its own [error] line (health.go). The line is written when
+// the request finishes, so a request that never finishes is named by the
+// in-flight tracker instead (inflight.go). This is the baseline visibility;
+// handlers add [error]/[import]/[movies] lines for detail.
 func logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" {
