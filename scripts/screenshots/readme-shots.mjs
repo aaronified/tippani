@@ -5,8 +5,8 @@
 // call for 3.0.4: "use it for the photoshoot. do not use the notes (anonymise
 // using your own notes and tags)". So this runs against a restored copy of the
 // archive in which every note, tag, anthology and account name has been replaced
-// before the browser opens: 0379e1a5 lists what was changed, and a09f2527 which
-// lines of The Idiot the anthology now holds. It restores nothing and writes no
+// before the browser opens: 0379e1a5 lists what was changed, bfad2a5f which four
+// favourites it keeps, and a09f2527 which lines of The Idiot the anthology holds. It restores nothing and writes no
 // note. It sets the skin each shot
 // names, answers Daily Quiz cards only to bring a chosen card to the top of the
 // deck, and imports readme-import-sample.txt for the import shot.
@@ -37,12 +37,13 @@
 // The placeholder keys are never sent anywhere: offline, the server makes no call.
 //
 // WRITES THE README'S OWN FILES, under the names README.md uses: against the server
-// above, `--out docs/img` writes every file the README shows, and no conversion or
-// rename follows. The six screens are JPEG at the size they were shot, the eight
+// above, `--out docs/img` writes the sixteen images the header, the strip and the
+// feature tables show, and no conversion or rename follows. (The suppliers' logos
+// under docs/img/providers are their own files, left as supplied.) The six screens are JPEG at the size they were shot, the eight
 // feature crops JPEG at twice the density and no wider than 1040px, and the
 // wordmark PNG on a clear ground. Chrome encodes and scales them itself, on a
 // canvas.
-// --look also writes each framed shot's whole page as look-*.png, so a crop is
+// --look also writes each framed feature shot's whole page as look-*.png, so a crop is
 // chosen by looking at it.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -370,7 +371,7 @@ for (const shot of SHOTS) {
     await shot.go()
     if (shot.frame) {
       const clip = await shot.frame()
-      if (opts.look) await save(shot.name.replace(/^feature-/, 'look-'))
+      if (opts.look && shot.name.startsWith('feature-')) await save(shot.name.replace(/^feature-/, 'look-'))
       await save(shot.name, clip, !!shot.clear)
     } else {
       await save(shot.name)
