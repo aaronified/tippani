@@ -16,9 +16,11 @@
 // THE RULE, which is what these cases ask: a scratch directory is swept when the
 // only things holding it are the harness's OWN servers with no shell left above
 // them, and is left alone otherwise. "Ours" is the binary's path — the run
-// scripts build it into a mktemp of its own; "no shell above it" is a parent of
-// PID 1, because an orphan is reparented to init and a concurrent run's server
-// still has its `run-*.sh`.
+// scripts build it into a mktemp of its own; "no shell above it" is a parent that
+// is init, because an orphan is reparented there and a concurrent run's server
+// still has its `run-*.sh`. Init is PID 1, or on a systemd desktop the user's
+// `systemd --user`, which adopts orphans before PID 1 can. The orphan case below
+// failed on such a machine until the sweep knew that.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW: the paragraph above, that the function lives
 // in `scripts/screenshots/scratch-server.sh` and is sourced by every `run-*.sh`,

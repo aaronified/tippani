@@ -39,10 +39,12 @@
 #
 # A CONCURRENT RUN AND AN ORPHAN LOOK IDENTICAL FROM THE DIRECTORY, and are told
 # apart from above: a concurrent run's server has its `run-*.sh` shell as its
-# parent, and an orphan's shell is gone, so it has been reparented to init. So
-# the sweep removes a scratch dir whose only holders are OUR OWN servers with no
-# shell above them — a `<mktemp>/tippani serve`, PPID 1 — and still steps over a
-# directory anything else is in, which is what keeps a concurrent run safe.
+# parent, and an orphan's shell is gone, so it has been reparented to init (PID 1,
+# or on a systemd desktop the user's `systemd --user`, which adopts orphans first).
+# So the sweep removes a scratch dir whose only holders are OUR OWN servers with no
+# shell above them — a `<mktemp>/tippani serve` whose parent is init — and still
+# steps over a directory anything else is in, which is what keeps a concurrent run
+# safe.
 #
 # AND IT SWEEPS WHERE mktemp ACTUALLY PUTS THINGS. `mktemp -d` honours $TMPDIR, so
 # a hardcoded /tmp finds nothing on any machine that sets it.
@@ -154,7 +156,11 @@ scratch_orphans() {
     # `status`, not `stat`: field 4 of stat is only the parent when nothing in
     # the process name contains a space or a bracket, which is not ours to promise.
     ppid="$(awk '/^PPid:/ {print $2}' "/proc/$pid/status" 2>/dev/null)"
-    [ "$ppid" = "1" ] || return 1
+    # Init, or a systemd user manager. On a systemd desktop an orphan is not
+    # reparented to PID 1: `systemd --user` is a subreaper and takes it, so a
+    # PID-1 test alone never swept anything on such a machine. A concurrent run's
+    # parent is its run-*.sh shell, which is never called systemd.
+    [ "$ppid" = "1" ] || [ "$(cat "/proc/$ppid/comm" 2>/dev/null)" = systemd ] || return 1
   done
   for pid in $pids; do
     echo "stopping a scratch server its shell no longer owns: pid $pid serving $data"
