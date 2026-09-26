@@ -430,13 +430,29 @@ jobs:
       # that no package, script or workflow has been added without the map hearing, and
       # that the Maintainer: CI table has a row for every job in this file and no other.
       - run: node scripts/doc-map-check.mjs
-      # The deploy's link check, on its own two sites: a page whose <style> holds a
-      # selector that is not a link and a url() that is, and the same with that
-      # url() pointing at a file that is not there. Pages runs the check only on the
-      # real site, where neither case occurs, so a swap of which half reads the
-      # markup and which the whole page would otherwise pass unseen.
+      # The deploy's link check, on sites of its own: `ok`, a page whose <style>
+      # holds a selector that is not a link and a url() that is; `bad`, the same
+      # with that url() pointing at a file that is not there; and `bad-css`, with
+      # the broken url() in a .css file instead. The real site has no broken url()
+      # in either place, so a checker that stopped reading one of them would pass
+      # there unseen.
+      #
+      # EACH BROKEN SITE MUST FAIL FOR ITS OWN LINK. A bare `!` passes on any
+      # non-zero exit: a fixture directory gone missing exits 2, and a checker that
+      # throws exits 1 with a stack trace, and either would read as green.
       - run: node scripts/site-links.mjs scripts/testdata/site-links/ok
-      - run: "! node scripts/site-links.mjs scripts/testdata/site-links/bad"
+      - name: the link check refuses each broken site, naming its link
+        run: |
+          set +e
+          for c in "bad index.html → css/missing.png" "bad-css css/s.css → ./missing.png"; do
+            site=${c%% *}; want=${c#* }
+            out=$(node scripts/site-links.mjs "scripts/testdata/site-links/$site" 2>&1); code=$?
+            printf '%s\n' "$out"
+            if [ "$code" != 1 ] || ! grep -qF '1 broken link(s)' <<<"$out" || ! grep -qF "$want" <<<"$out"; then
+              echo "::error::site-links on $site exited $code without reporting exactly '$want'"
+              exit 1
+            fi
+          done
       # docs/wiki/ is published to the GitHub wiki by wiki.yml, and there is no build
       # step between those files and a reader — a dead link ships the moment it is
       # pushed. This asserts every internal link resolves, that the navigation names
