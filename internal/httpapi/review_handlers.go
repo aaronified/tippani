@@ -1408,7 +1408,11 @@ func mergeDeck(asked, unseen []reviewCand, slots, dueEvery, dealt int) []reviewC
 			}
 		}
 		out = append(out, (*list)[pick])
-		*list = append((*list)[:pick], (*list)[pick+1:]...)
+		// Close the gap by moving the few cards ahead of the pick up one, not
+		// the whole tail back: at most mergeLookahead moves, where re-slicing
+		// the tail made a Practice round over a big library quadratic.
+		copy((*list)[1:pick+1], (*list)[:pick])
+		*list = (*list)[1:]
 	}
 	for len(out) < slots && (len(asked) > 0 || len(unseen) > 0) {
 		wantAsked := (dealt+len(out)+1)%dueEvery == 0 || len(unseen) == 0
