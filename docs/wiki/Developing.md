@@ -564,8 +564,8 @@ alone did not finish in 55 minutes raced, and the nightly on 2.2.9 ended with th
 alone at its 60-minute timeout while every other package passed. So the five locking tests
 (`conflict_pool_test.go`, `write_lock_test.go`), and three from `health_test.go` that hold
 the pool full, run raced on **every push to `main` and every pull request**, which is the
-coverage those files were written for. The job took 45 seconds on a runner at 3.0.0, before
-the three joined it. The full sweep runs **nightly at 03:00 UTC**, or by hand: one job per package
+coverage those files were written for. The job takes about two minutes on a runner with its
+eight tests (2m01s at 3.0.1). The full sweep runs **nightly at 03:00 UTC**, or by hand: one job per package
 (`race-nightly`), and `internal/httpapi` split six ways by test name
 (`race-nightly-httpapi`). **Sharding by package does not buy that package any time**:
 `-timeout` has always applied to each package's test binary on its own. The six-way split

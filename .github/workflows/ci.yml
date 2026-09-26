@@ -71,7 +71,8 @@ jobs:
   # test in newTestServer. The package holds 949 test functions now and each one
   # builds a fresh database through every migration, so the number above has
   # roughly doubled since it was written. The per-push job below is unaffected —
-  # it ran its five named tests in 45 seconds at 3.0.0 — but `-timeout 60m` on the
+  # it ran its five named tests in 45 seconds at 3.0.0, and its eight in 2m01s at
+  # 3.0.1 — but `-timeout 60m` on the
   # nightly is no longer a margin either, and what it will do on a runner is not
   # something a developer machine can answer. The runner answered: the nightly on
   # 2.2.9 (run 36112406641) stopped at "test timed out after 1h0m0s" in
@@ -81,9 +82,9 @@ jobs:
   # Raising the number would have bought one release and made every push wait
   # half an hour, and a job that slow is a job people stop reading. So the split
   # is by value: the locking tests run raced on every push to main and every pull
-  # request, which is what that original comment actually wanted. It took 45
-  # seconds on a runner at 3.0.0, before the three #40 tests joined it. The full
-  # sweep runs nightly, where the time is free.
+  # request, which is what that original comment actually wanted. It takes about
+  # two minutes on a runner with its eight tests (2m01s at 3.0.1). The full sweep
+  # runs nightly, where the time is free.
   race:
     runs-on: ubuntu-latest
     steps:

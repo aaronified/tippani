@@ -9215,14 +9215,19 @@ package."*
 - **Whose call.** The session's own. It had reported this timeout to the owner as "a budget
   decision for you", and then took the decision under the owner's "work on the fixes for
   v3.0.1". The owner may reverse it.
-- **Not yet measured on a runner under `-race`.** Without `-race` (the container that built
-  it has no C compiler), 1,360 tests split 227/227/227/227/226/226 and every shard passed on
-  its final run. On the first pass shard 6 reported two failures. That log was not kept
-  (5ae0f6c8), so the two are unnamed. Shard 6 was then run again, unraced, at 1,371 tests
-  (its share is 228), with `-count=3` and the log kept: 684 of 684 passed, in 414 seconds.
-  So a first-night failure in shard 6 is more likely a race than that flake, though three
-  clean runs do not rule the flake out. `workflow_dispatch` runs the sweep by hand, so the
-  first measurement need not wait for 03:00.
+- **Measured on a runner under `-race`, 26 September**, by the sweep dispatched at 3.0.1's
+  push (run 36224498389, at 02273f53, the code v3.0.1 shipped). Every shard passed, in
+  43m01s, 34m47s, 34m50s, 45m25s, 44m04s and 29m40s. The longest leaves about fifteen
+  minutes of its hour, so a seventh shard is the next step if the package keeps growing.
+  Every per-package job passed as well.
+- **The first unraced pass had two failures in shard 6, unnamed** because that log was not
+  kept (5ae0f6c8). A later rerun of "shard 6" cleared nothing about them: at 1,371 tests the
+  round-robin had moved, so only 80 of its tests were among the 226 that failed. So exactly
+  those 226, the list 5ae0f6c8 dealt, were run again at 3.0.2's tree, unraced, with
+  `-count=3`: all 226 still exist, and 678 of 678 passed, in 276 seconds. The two failures
+  have not come back in three runs of every test that could have produced them, and the
+  raced sweep passed too. A flake is still possible, and a first failure there would be
+  worth reading as one before reading it as a race.
 
 <sub>3.0.1 — `.github/workflows/ci.yml` · `docs/wiki/Developing.md`</sub>
 
