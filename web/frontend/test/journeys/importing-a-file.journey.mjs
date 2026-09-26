@@ -22,7 +22,8 @@
 // a small Markdown file in the shape the app's OWN export writes — verified by
 // pressing Export on the Library, reading the bytes back through
 // `app.downloaded`, and building the fixture to match it. Its two lines are
-// Seneca, public domain, and deliberately NOT among the five this fixture's copy
+// Seneca, from the owner's edition (translator unchecked: see KEEP_BOOKS in
+// scripts/journeys/curate-fixture.mjs), and deliberately NOT among the five this fixture's copy
 // of that book already holds, so "the quote arrived" is a fact about the import
 // rather than about what was already there.
 

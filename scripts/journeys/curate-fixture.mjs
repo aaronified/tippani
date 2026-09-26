@@ -49,8 +49,17 @@ import { inventName, inventProse, inventTitle, scriptOf } from './invent.mjs'
 //
 // Matched on a substring of the title because the archive spells two of them
 // differently from the way the owner named them ("Why I Am An Atheist and Other
-// Works", "Grimm's Fairy Stories"). All four authors died well over a century
-// ago; these are public domain wherever this repo is read.
+// Works", "Grimm's Fairy Stories").
+//
+// THE AUTHORS ARE LONG DEAD AND THAT IS NOT THE SAME AS THE LINES BEING FREE. This
+// said all four "died well over a century ago; these are public domain wherever
+// this repo is read". Bhagat Singh died in 1931, and a modern translation is under
+// copyright however long ago its author died. The lines kept are the owner's own
+// highlights from the owner's editions, and only The Idiot has been checked: 11 of
+// its 22 match Eva Martin's 1915 translation (Project Gutenberg #2638) word for
+// word, and 11 do not. The Seneca's translator is unchecked. The owner's call at
+// 3.0.4: every line not verified as public domain becomes invented prose, as every
+// other book here already is, and that change is 3.1.0's.
 const KEEP_BOOKS = ['idiot', 'shortness of life', 'atheist', 'grimm']
 
 const args = process.argv.slice(2)
@@ -393,10 +402,10 @@ async function main() {
   const annCount = recipe.books.reduce((n, b) => n + b.annotations.length, 0)
   const diaCount = recipe.movies.reduce((n, m) => n + m.dialogues.length, 0)
   line('books', `${recipe.books.length} (${report.keptBooks.length} verbatim, ${recipe.books.length - report.keptBooks.length} invented)`)
-  line('verbatim, and why', report.keptBooks.join('; ') + '  — public domain')
+  line('verbatim, and why', report.keptBooks.join('; ') + '  — long-dead authors; see KEEP_BOOKS for which lines are verified public domain')
   line('films, games and shows', `${recipe.movies.length} (all invented; one show ADDED, see the note in the source)`)
   line('quotes in the recipe', `${annCount + diaCount + recipe.quotes.length} (${annCount} highlights, ${diaCount} lines, ${recipe.quotes.length} standalone)`)
-  line('of those, verbatim', `${report.quotesKept}  (the four public-domain books, and the boards of quotes and proverbs)`)
+  line('of those, verbatim', `${report.quotesKept}  (the four kept books, and the boards of quotes and proverbs)`)
   line('of those, invented', annCount + diaCount + recipe.quotes.length - report.quotesKept)
   line('notes', 'all invented, including on the verbatim books')
   line('images', `${colourIndex} flat colour blocks, 300x450`)
