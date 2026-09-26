@@ -33,12 +33,30 @@ var journalTables = []string{"job_logs", "jobs", "system_logs"}
 //
 // Deleting is not enough on its own: deleted rows stay readable in the file's free
 // pages until they are overwritten, and an archive is a file somebody downloads.
-// The VACUUM after the DELETEs rebuilds the file without its free pages at all.
+// So after the DELETEs the snapshot is copied once more with VACUUM INTO, which
+// writes only live content, and the copy is renamed over it.
+//
+// VACUUM INTO A SIBLING, NOT VACUUM IN PLACE. A plain VACUUM builds its copy in
+// SQLite's temp directory (SQLITE_TMPDIR, else /var/tmp or /tmp: RAM on some
+// hosts, missing or read-only in a locked-down container) and then writes it back
+// over the original through a rollback journal the size of the file, so a backup
+// needed two to three times the snapshot's space where it had needed one. VACUUM
+// INTO writes its target directly, beside the snapshot in the same staging dir.
 //
 // The snapshot is in rollback-journal mode (VACUUM INTO writes it so) and this
 // handle sets no journal mode, so nothing is left in a -wal beside the file, which
 // the archive would not take.
-func StripJournal(snapPath string) error {
+func StripJournal(snapPath string) (err error) {
+	stripped := snapPath + ".stripped"
+	// VACUUM INTO refuses a target that exists; one could only be a leftover.
+	if err := os.Remove(stripped); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("clear %s: %w", stripped, err)
+	}
+	defer func() {
+		if err != nil {
+			os.Remove(stripped)
+		}
+	}()
 	db, err := sql.Open("sqlite", "file:"+snapPath)
 	if err != nil {
 		return fmt.Errorf("open snapshot: %w", err)
@@ -50,10 +68,17 @@ func StripJournal(snapPath string) error {
 			return fmt.Errorf("empty %s: %w", t, err)
 		}
 	}
-	if _, err := db.Exec(`VACUUM`); err != nil {
+	if _, err := db.Exec(`VACUUM INTO ?`, stripped); err != nil {
 		return fmt.Errorf("vacuum the stripped snapshot: %w", err)
 	}
-	return db.Close()
+	// Closed before the rename: Windows will not replace a file held open.
+	if err := db.Close(); err != nil {
+		return fmt.Errorf("close snapshot: %w", err)
+	}
+	if err := os.Rename(stripped, snapPath); err != nil {
+		return fmt.Errorf("replace the snapshot with the stripped copy: %w", err)
+	}
+	return nil
 }
 
 // CarryJournal copies the journal out of the database at from — the generation a

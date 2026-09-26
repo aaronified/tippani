@@ -54,7 +54,7 @@ func TestAStrippedSnapshotHoldsNoJournalNotEvenInItsFreePages(t *testing.T) {
 	if bytes.Contains(raw, []byte(journalMarker)) {
 		t.Fatal("the stripped snapshot still holds journal text in its bytes")
 	}
-	for _, sidecar := range []string{"-wal", "-journal"} {
+	for _, sidecar := range []string{"-wal", "-journal", ".stripped"} {
 		if _, err := os.Stat(snap + sidecar); err == nil {
 			t.Fatalf("stripping left a %s beside the snapshot, and the archive takes only the file", sidecar)
 		}
