@@ -35,3 +35,10 @@ to following the set. The saved-look format needs nothing — it already carries
 **WHAT IT IS NOT.** It is not the material DIALS, which ship: those are what a material
 does with light, per tile, behind "Open the dials". A slot is which material is there at
 all.
+
+**THE OWNER'S RULINGS, 26 September**, each a task:
+
+- [ ] A slot override belongs to its material set. Switching sets shows that set's own
+      overrides, and none of another's.
+- [ ] The material dials stay where they are. The slots row is added beside them, and
+      nothing moves.

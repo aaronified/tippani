@@ -10,6 +10,25 @@ a pass recording where the plan turned out to be wrong — and the file here is
 deleted.** So this directory is always a list of what is coming, never an
 archive. Git holds the retired plans.
 
+## The queue, in the owner's order
+
+Asked on 26 September to rank the plans by complexity, the owner answered: *"leave 6, 7, &
+10 out. start with 8. then 3, 2, 1 and then the rest as ordered."* Of locators, which needs
+work-source-files: *"Leave it out too"*. One plan at a time, each its own release with one
+rater:
+
+1. `jobs.md`, release 3.1.0.
+2. `person-signature.md`.
+3. `read-aloud.md`.
+4. `tile-slots.md`.
+5. `episodes.md`.
+6. `anthology-enhancements.md`, which depends on `episodes` for the drag primitive.
+
+Left out by the owner: `atrium-liquid-glass.md`, `admin-and-profile.md`,
+`work-source-files.md`, and `locators-from-files.md`. `nightly-backup.md` and
+`prefetch-and-loaders.md` were not in the ranked list, so neither is queued. Each plan's
+own file records the owner's clarifications, as tasks.
+
 ## Why it has an exit
 
 A plan for a feature that shipped six releases ago is a design document sitting

@@ -40,6 +40,15 @@ changelog, `Design-decisions.md`, or a test. The file is deleted when the list i
   \"Ranch…"), which the name rule forbids where the reader is there to read it. Seen by the
   second 3.0.4 rater pass in the README's favourites image. It predates 3.0.4.
 
+## For 3.1.0, the owner's call at 3.0.4
+
+- [ ] **The journey fixture's unverified verbatim lines become invented prose.** The fixture
+  keeps four real books verbatim. Only The Idiot has been checked, and 11 of its 22 lines
+  match Eva Martin's public-domain translation (Gutenberg #2638). The owner, asked what the
+  public repo should keep: *"Swap unverified lines for invented prose"*. The same goes for
+  the import sample's two Seneca lines, which are of unrecorded source. Re-run the curator
+  (`scripts/journeys/curate-fixture.mjs`, against the archive), then the full journey tier.
+
 ## Open, and not ours to close yet
 
 - [ ] **GO-2026-5932**, `golang.org/x/crypto/openpgp` ("unmaintained, unsafe by design"),

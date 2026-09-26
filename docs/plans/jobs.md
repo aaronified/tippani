@@ -17,3 +17,16 @@ per ask:
 - [ ] Keep 30 days of jobs and logs, pruned when a job or log line is written and when the tab opens, with no timer.
 - [ ] Store jobs, job logs and system logs in the app's SQLite database; stdout and stderr keep working for `docker logs`.
 - [ ] Users see their own jobs; an admin sees every user's jobs and the system logs.
+
+The owner's answers, 27 September, each a task:
+
+- [ ] The invariant's new wording is the sentence above, verbatim: *"nothing runs unless a
+      person or the app's own lookup started it, and nothing wakes on a timer."*
+- [ ] One job runs at a time across the server. The rest queue in the order started, and a
+      waiting job says it is waiting.
+- [ ] Single manual lookups (a title search in Add, the cover picker) run in their request,
+      as fast as today and never queued behind a bulk run, and each is still recorded as a
+      job with its log.
+- [ ] A Stop button on a running job. It stops after the item in hand, and the job is kept
+      as stopped, with its log, and can be rerun.
+- [ ] Ship as 3.1.0.
