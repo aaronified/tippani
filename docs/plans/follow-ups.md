@@ -1,74 +1,25 @@
-# 3.0.2
+# Follow-ups
 
-**Not a feature.** The task list for the release after 3.0.1, one line per task, in
-the owner's order where they gave one. Each item is struck from here when it ships
-and is recorded where its kind of fact lives: the changelog, `Design-decisions.md`, or
-a test. The file is deleted when the list is empty.
+**Not a feature.** What is left over from a release's task list, one line per task. Each
+item is struck from here when it ships and recorded where its kind of fact lives: the
+changelog, `Design-decisions.md`, or a test. The file is deleted when the list is empty.
 
-## From the owner
+3.0.2's list shipped whole except for what is below.
 
-- [ ] **Authelia sign-in.** The owner, 26 September: *"authelia sign in is not
-  possible. ship this fix in the 3.0.2 as well"*. Pressing *Sign in with Authelia*
-  comes back to the sign-in screen with "no account is linked to this identity; sign
-  in with a password and link it from Profile". `oidcAccount`
-  (`internal/httpapi/oidc_handlers.go`) returns it on three conditions at once: no
-  account holds the provider's `sub` as its `oidc_subject`; username linking is off
-  (`OIDCLinkByUsername`) or finds no unlinked account with that name; and
-  `OIDCAutoCreate` is off. Find which one this instance hits, whether the stored subject
-  stopped matching or was never written, or whether the link on Profile could not be
-  reached, then fix it. Hold the fix with a test that signs in through a stand-in
-  provider.
-- [ ] **One changelog.** The owner: *"why are there two changelogs? there should be
-  only one"*. `internal/changelog/CHANGELOG.md` is a byte-identical copy of the root
-  file, kept because `//go:embed` cannot reach outside its package directory and the
-  repository root has no Go package. Give the root a small package that embeds
-  `CHANGELOG.md`, have `internal/changelog` read it from there, and delete the copy,
-  its drift test, `make changelog`, and `changelog-entry.mjs`'s second write.
-- [ ] **The busy screen for #40.** When the `/api` door refuses a request
-  (`TIP-HTTP-002`, 503), the SPA shows nothing for about twenty seconds and then the
-  sign-in form. It needs a screen that says the database is not answering and that
-  nothing was changed. The English string is the session's to draft and the Bengali is
-  the owner's to write, before the tag.
-- [ ] **AddSurface reads the door's 503 as "no provider key".** `AddSurface.jsx`
-  turns any 503 from a film, show or game lookup into the manual form, so a lookup
-  refused at the door hides the door's message and the manual save is refused too.
-  Reroute only when the supplier really has no key; hold it with a DOM test.
-- [ ] **A preference read inside nineteen transactions.** `creditSeps`
-  (`people_handlers.go`) reads the user's preferences through `s.Store.DB`, a second
-  pool connection, from inside open transactions (annotation, import approval, bulk,
-  dialogue, identity, movie, reverify, cast, replace, metadata). Under load that is
-  how the pool fills, which is #40's state. Read it above `Begin()` at each site.
-- [ ] **Round 6's guard tests**, each proposed by a rater, and each one a defect the
-  session fixed by hand more than once:
-  - every Chrome probe in `scripts/screenshots/` applies `emulateEngineMedia` and
-    installs `noMotionScript(NO_MOTION_CSS)`, with `seed-cast.mjs` (captures nothing)
-    and `glass-cost.mjs` (must keep motion on) exempt by name and reason;
-  - a workflow job downstream of a job that can be skipped names a status function in
-    its `if`, which is how `f4c05af2` skipped the publish job;
-  - the journeys job's sandbox probe moves into a script with a test that runs it
-    against a stub Chrome, one case per outcome.
-- [ ] **A committed test for doc-map-check's CI-table reader.** `3b694d6c` was
-  checked by hand in a scratch worktree, seven cases, and nothing holds them.
+## Moved past 3.0.2 by the owner
 
-## Found while shipping 3.0.1
+- [ ] **glass-cost cannot measure on Firefox.** `launchBrowser`'s Firefox profile always
+  sets reduced motion, so `lensAllowed` refuses the lens. The probe now says so and exits 1,
+  but it has no way to run there. It needs a browser running the app, which this machine
+  cannot keep signed in for more than about thirty seconds.
+- [ ] **cardmaterial's figures are light-scheme figures.** They were recorded as "dark"
+  and measured in Chrome's default light scheme. Re-measure in dark, now that the probe
+  applies its theme and installs its no-motion stylesheet.
 
-- [ ] **Two dead roadmap anchors.** `Design-decisions.md` links
-  `roadmap.html#review-loop` and `#search-precision`. Those sections left the roadmap
-  in `e84414bc`, so the links land at the page's top and the prose around them still
-  reads as planned.
-- [ ] **Two planning documents cite moved scanners.** `codebase-audit.md` and
-  `open-defects.md` in this directory name thirteen scanners under `test/pure` that
-  `b0fa2f04` moved to `test/rules`. They are the planning agent's records, so whether
-  to rewrite them is its call or the owner's.
-- [ ] **The wiki's hand-written `blob/v3` links.** Home's links to the README,
-  CHANGELOG, plans and design pack point at `v3`, which stays at v3.0.0, while the
-  published pages follow main. Owner's call: follow main, or stay on the release line.
-- [ ] **glass-cost cannot measure on Firefox.** `launchBrowser`'s Firefox profile
-  always sets reduced motion, so `lensAllowed` refuses the lens. It now says so and
-  exits 1, but has no way to run there.
-- [ ] **cardmaterial's figures are light-scheme figures.** They were recorded as
-  "dark" and measured in Chrome's default light scheme. Re-measure in dark now that
-  the probe applies its theme and its no-motion stylesheet.
-- [ ] **The nightly -race sweep's first measurement.** The six-way split of
-  `internal/httpapi` was first run on a runner with 3.0.1's push. Record each shard's
-  time in `Design-decisions.md`, where the entry still says "not yet measured".
+## Open, and not ours to close yet
+
+- [ ] **GO-2026-5932**, `golang.org/x/crypto/openpgp` ("unmaintained, unsafe by design"),
+  has no fixed version. govulncheck finds no import or call of that package from this code,
+  only the module in `go.mod`. The owner: "the second one cannot be fixed now". Upgrade
+  `golang.org/x/crypto` when a fix is released, or when the advisory is withdrawn for
+  modules that do not import the package.
