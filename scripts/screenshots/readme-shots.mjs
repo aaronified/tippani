@@ -21,10 +21,14 @@
 //   TIPPANI_USER=reader TIPPANI_PASS=… node readme-shots.mjs \
 //     --base-url http://127.0.0.1:8151 --out <dir> [--only name,name] [--look]
 //
-// Writes PNGs: hero-*.png at the size the README's strip was shot at, and
-// feature-*.png cropped at twice that density. --look also writes each framed
-// shot's whole page as look-*.png, so a crop is chosen by looking at it.
-import { mkdirSync } from 'node:fs'
+// WRITES THE README'S OWN FILES, under the names README.md uses, so `--out
+// docs/img` is the whole of making them: the six screens as JPEG at the size they
+// were shot, the eight feature crops as JPEG at twice the density and no wider
+// than 1040px, and the wordmark as PNG on a clear ground. Chrome encodes and
+// scales them itself (a canvas), so nothing outside this script is a step.
+// --look also writes each framed shot's whole page as look-*.png, so a crop is
+// chosen by looking at it.
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import puppeteer from 'puppeteer-core'
@@ -133,12 +137,48 @@ async function frameOf(handles, { pad = 18, maxHeight = Infinity } = {}) {
   return { x, y, width: x1 + pad - x, height: Math.min(y1 + pad - y, maxHeight) }
 }
 
+// The file each shot becomes, as README.md and docs/landing.html name it.
+const FILES = {
+  'banner-light': 'wordmark-light.png',
+  'banner-dark': 'wordmark-dark.png',
+  'hero-library': 'library-manuscript-light.jpg',
+  'hero-catalogue': 'catalogue-film-assembly-dark.jpg',
+  'hero-search': 'search-atelier-light.jpg',
+  'hero-stats': 'stats-bindery-dark.jpg',
+  'hero-anthology-phone': 'anthology-mobile-quarry-light.jpg',
+  'hero-quiz-phone': 'quiz-mobile-office-dark.jpg',
+}
+const fileFor = (name) => FILES[name] || (name.startsWith('feature-') ? `features/${name.slice(8)}.jpg` : `${name}.png`)
+const FEATURE_WIDTH = 1040
+
+// A JPEG no wider than `maxWidth`, from a PNG, scaled and encoded by Chrome.
+let encoder = null
+async function toJpeg(png, maxWidth) {
+  encoder ??= await browser.newPage()
+  const b64 = await encoder.evaluate(async (src, maxWidth) => {
+    const img = new Image()
+    img.src = src
+    await img.decode()
+    const w = Math.min(img.naturalWidth, maxWidth), h = Math.round(img.naturalHeight * w / img.naturalWidth)
+    const c = document.createElement('canvas')
+    c.width = w; c.height = h
+    const g = c.getContext('2d')
+    g.imageSmoothingQuality = 'high'
+    g.drawImage(img, 0, 0, w, h)
+    return c.toDataURL('image/jpeg', 0.85).split(',')[1]
+  }, `data:image/png;base64,${png.toString('base64')}`, maxWidth)
+  return Buffer.from(b64, 'base64')
+}
+
 async function save(name, clip, clear = false) {
-  const file = join(opts.out, `${name}.png`)
+  const file = join(opts.out, fileFor(name))
+  mkdirSync(dirname(file), { recursive: true })
   // NOT BEYOND THE VIEWPORT. By default a clipped shot resizes the page to reach
   // it, the app re-lays out, and the entrance fade starts again: the first crops
   // came out washed pale. Every frame here fits the tall crop window.
-  await page.screenshot(clip ? { path: file, clip, captureBeyondViewport: false, omitBackground: clear } : { path: file })
+  const png = await page.screenshot(clip ? { clip, captureBeyondViewport: false, omitBackground: clear } : {})
+  const bytes = file.endsWith('.jpg') ? await toJpeg(png, name.startsWith('feature-') ? FEATURE_WIDTH : Infinity) : png
+  writeFileSync(file, bytes)
   console.log('captured', file)
 }
 
@@ -235,11 +275,20 @@ const SHOTS = [
       })
       return frameOf([section.asElement()], { maxHeight: 620 })
     } },
-  // A WORK AS IT ARRIVES: the cover, the year, the author's portrait and the
-  // blurb all came from the metadata sources, and The Idiot's lines under it are
-  // public domain.
+  // A WORK AS IT ARRIVES: the cover, the year, the genre and the author's
+  // portrait came from the metadata sources, and The Idiot's lines beside them
+  // are Eva Martin's 1915 translation. CUT ABOVE THE BLURB, which is the
+  // publisher's copy for a modern translation and not public domain.
   { name: 'feature-details', skin: PAPER, go: () => open('/books/15', { viewport: CROP, scale: 2 }),
-    frame: async () => frameOf([await page.$('[data-screen-label]')], { pad: 0, maxHeight: 720 }) },
+    frame: async () => {
+      const f = await frameOf([await page.$('[data-screen-label]')], { pad: 0 })
+      const blurbTop = await page.evaluate(() => {
+        const el = [...document.querySelectorAll('[data-screen-label] *')].find((e) => e.children.length === 0 && /^Revealing Dostoevsky/.test(e.textContent.trim()))
+        return el ? el.getBoundingClientRect().top : null
+      })
+      if (blurbTop == null) throw new Error('the blurb this crop stops above was not found')
+      return { ...f, height: blurbTop - f.y - 10 }
+    } },
   { name: 'feature-search', skin: PAPER, go: async () => {
     await open('/search', { viewport: CROP, scale: 2 })
     await type('Search', 'tag:')
