@@ -260,3 +260,16 @@ a feature whose whole purpose is not losing things.
 | `TIP-BACKUP-009` | A restore could not carry the job history and system log over from the database it replaced. The restore went ahead; the restored server starts with no history. | The replaced database in `.pre-restore-<ts>` could not be read (removed by hand, or damaged). | Nothing to fix for the library, which restored. The old history is still in `.pre-restore-<ts>/tippani.db` until the next restore. |
 | `TIP-AUTH-001` | A single sign-on could not start, or the provider's answer failed validation. | `TIPPANI_OIDC_ISSUER` unreachable from the server, an issuer that does not match its own discovery document (a trailing path or `http`/`https` mismatch), a redirect URL the provider does not have registered, or a clock skewed by more than a minute. The full `[warn]` line names which check failed. | Fix the provider or the `TIPPANI_OIDC_*` settings and press the sign-in button again; password sign-in is unaffected. |
 | `TIP-NOTIFY-001` | A Pushover message was not accepted. | Network, `TIPPANI_OFFLINE` switched on, or an invalid user key / application token (Pushover answers 4xx). | Check the keys in Profile → Notifications and press **Send a test**; the import, fetch or backup that triggered the message completed regardless. |
+
+## LOG and JOBS — the logs and jobs kept in the database
+
+The database keeps a copy of the system log and every job's log for 30 days (Settings → Jobs).
+stdout and stderr are unaffected: `docker logs` still has every line, including the ones a code
+below says the database did not keep.
+
+| Code | Meaning | Likely cause | What to do |
+| --- | --- | --- | --- |
+| `TIP-LOG-001` | The log writer stopped on an internal error and restarted; the lines it was writing were not kept in the database. | A bug in Tippani. The `[error]` line carries the stack. | Nothing to fix on your side, and nothing else is affected. Please report the full `[error]` line. |
+| `TIP-LOG-002` | A batch of log lines could not be written to the database; those lines were not kept there. | Another writer held the database's write lock through every retry (a long import or restore), the disk is full, or the database is damaged (`TIP-STORE-002`). | Free disk space if it is short. A one-off during a large import is harmless: the lines are still in `docker logs`. |
+| `TIP-LOG-003` | Log lines arrived faster than the database could take them, and some were not kept. The system log says how many. | A burst of requests (a script, a crawler, many readers at once) on slow storage. Request and file lines are dropped first; job lines and errors last. | Nothing, if it is rare. If it is frequent, check the storage the data volume sits on. |
+| `TIP-LOG-004` | The prune that removes jobs and log lines older than 30 days failed. | The database was busy or read-only at the time. | Nothing is lost; old lines stay until the next prune succeeds, which is tried on a later write or when Settings → Jobs opens. |

@@ -144,6 +144,7 @@ jobs:
           - ./internal/changelog
           - ./internal/i18n
           - ./internal/importer
+          - ./internal/jobs
           - ./internal/metadata
           - ./internal/olog
           - ./internal/outbound
