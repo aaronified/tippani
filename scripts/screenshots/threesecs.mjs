@@ -17,7 +17,7 @@
 // that happens to look plausible is the worst kind.
 import { mkdirSync } from 'node:fs'
 import puppeteer from 'puppeteer-core'
-import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions, noMotionScript } from './capture.mjs'
+import { HARNESS_ACCOUNT, NO_MOTION_CSS, emulateEngineMedia, ensureSession, findBrowser, launchOptions, noMotionScript } from './capture.mjs'
 
 const opts = { baseUrl: 'http://127.0.0.1:8080', out: '/tmp/claude-0/threesecs', theme: 'dark' }
 for (let i = 2; i < process.argv.length; i++) {
@@ -33,7 +33,7 @@ const page = await browser.newPage()
 // The theme reaches Chrome only this way: launchOptions sets it for Firefox alone,
 // and ensureSession never read the `theme` it used to be handed.
 await emulateEngineMedia(page, engine, opts.theme)
-await page.evaluateOnNewDocument(noMotionScript)
+await page.evaluateOnNewDocument(noMotionScript(NO_MOTION_CSS))
 
 const nameOf = async (h) => (await page.evaluate((e) => (e.innerText || e.getAttribute('aria-label') || '').trim(), h)) || ''
 const pressByWords = async (words) => {

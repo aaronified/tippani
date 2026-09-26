@@ -33,7 +33,7 @@
 // the real screen and photographs what a reader would see.
 import { mkdirSync } from 'node:fs'
 import puppeteer from 'puppeteer-core'
-import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions, noMotionScript } from './capture.mjs'
+import { HARNESS_ACCOUNT, NO_MOTION_CSS, emulateEngineMedia, ensureSession, findBrowser, launchOptions, noMotionScript } from './capture.mjs'
 
 const opts = { baseUrl: 'http://127.0.0.1:8080', out: '/tmp/claude-0/cardmaterial', width: 1280, theme: 'dark' }
 for (let i = 2; i < process.argv.length; i++) {
@@ -54,7 +54,7 @@ const page = await browser.newPage()
 // and ensureSession never read the `theme` it used to be handed.
 await emulateEngineMedia(page, engine, opts.theme)
 await page.setViewport({ width: opts.width, height: 1100, deviceScaleFactor: 2 })
-await page.evaluateOnNewDocument(noMotionScript)
+await page.evaluateOnNewDocument(noMotionScript(NO_MOTION_CSS))
 await ensureSession(page, { baseUrl: opts.baseUrl, ...HARNESS_ACCOUNT })
 
 const nameOf = async (h) => (await page.evaluate((e) => (e.innerText || e.getAttribute('aria-label') || '').trim(), h)) || ''
