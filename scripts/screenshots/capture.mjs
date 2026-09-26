@@ -403,8 +403,9 @@ export async function launchBrowser(engine, opts = {}) {
 // and its body goes on polling while the next journey in the file starts. So the
 // session's `send` is wrapped once, the wrapper is a pass-through outside a look,
 // and each look keeps its own cache in AsyncLocalStorage. An earlier version
-// swapped `send` in and out around each look, and two overlapping looks put each
-// other's wrappers back.
+// swapped `send` in and out around each look, and when the later-started of two
+// overlapping looks finished last, it put back the earlier look's wrapper, still
+// holding that look's tree.
 const LOOK = new AsyncLocalStorage()
 const WRAPPED = new WeakSet()
 

@@ -15,8 +15,12 @@
 // relies on, that `page.accessibility.snapshot` sends Accessibility.getFullAXTree
 // through `page.mainFrame().client`, and that Puppeteer's Firefox browser says
 // `cdpSupported: false`. The page below is a stand-in with that shape and nothing
-// else. Nothing observable could serve instead: the browser gives the
-// same names either way, which is the point.
+// else. Nothing observable could serve instead. A leaked look does show on screen:
+// the next screen's look finds nothing, as ac0e4400's probe saw. But it shows only
+// when the later-started of two overlapping looks finishes last, and a journey
+// cannot choose that order, so it would pass or fail by timing. A kept refusal
+// costs a journey one poll, because find takes a new look on every poll. And CI
+// runs the journeys on Chrome, so the Firefox refusal has no screen to show on.
 
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -37,6 +41,8 @@ function chromePage() {
     },
   }
   page.mainFrame = () => ({ client })
+  // As CdpBrowser: it defines no cdpSupported.
+  page.browser = () => ({ protocol: 'cdp' })
   page.accessibility = {
     async snapshot() {
       await client.send('Accessibility.getFullAXTree', {})
