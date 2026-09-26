@@ -295,16 +295,29 @@ jobs:
             # Measured, not assumed: the fallback works only if the helper is there
             # and setuid root, so the same start is tried with it allowed.
             ls -l "$(dirname "$(readlink -f "$CHROME_PATH")")/chrome-sandbox" || true
-            if err2=$(timeout 60 "$CHROME_PATH" --headless --dump-dom about:blank 2>&1 >/dev/null); then
+            err2=$(timeout 60 "$CHROME_PATH" --headless --dump-dom about:blank 2>&1 >/dev/null) && rc2=0 || rc2=$?
+            if [ "$rc2" = 0 ]; then
               echo "::warning::the namespace sandbox does not start here; Chrome started on its setuid chrome-sandbox"
             else
-              printf '%s\n' "$err2" | tail -n 20
-              echo "::error::neither sandbox starts: no user namespace, and the setuid helper did not start Chrome either"
+              [ -z "$err2" ] || printf '%s\n' "$err2" | tail -n 20
+              # Either way the journeys cannot rely on a sandbox, so the job stops;
+              # what differs is whether the helper was seen to fail or only to hang.
+              if [ "$rc2" = 124 ]; then
+                echo "::error::the namespace sandbox does not start, and Chrome on the setuid helper did not finish within 60s, so whether that sandbox works is unknown"
+              elif grep -q 'No usable sandbox' <<<"$err2"; then
+                echo "::error::neither sandbox starts: no user namespace, and the setuid helper did not start Chrome either"
+              else
+                echo "::error::the namespace sandbox does not start, and Chrome on the setuid helper exited $rc2 for a reason it did not name as the sandbox"
+              fi
               exit 1
             fi
           else
-            printf '%s\n' "$err" | tail -n 20
-            echo "::warning::the sandbox probe exited $rc$([ "$rc" = 124 ] && echo ', timed out after 60s') for a reason other than the sandbox"
+            [ -z "$err" ] || printf '%s\n' "$err" | tail -n 20
+            if [ "$rc" = 124 ]; then
+              echo "::warning::the sandbox probe did not finish within 60s, so it says nothing about the sandbox"
+            else
+              echo "::warning::the sandbox probe exited $rc for a reason other than the sandbox"
+            fi
           fi
       - name: the journeys
         run: npm run journeys
