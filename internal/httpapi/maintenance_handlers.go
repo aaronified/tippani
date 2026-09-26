@@ -19,8 +19,9 @@ func (s *Server) handleReindexFTS(w http.ResponseWriter, r *http.Request) {
 	olog.Printf("[admin] search reindex requested by user %d (%s)", userID(r), username(r))
 	failed := s.Store.ReindexFTS()
 	// ReindexFTS may escalate to a whole-database Recover, which swaps the DB
-	// handle — repoint the session store at the current one.
-	s.Sessions.DB = s.Store.DB
+	// handle — repoint every store that captured the old one (rebindDB: the
+	// sessions AND the device tokens; this used to repoint the sessions alone).
+	s.rebindDB()
 	if failed == nil {
 		failed = []string{}
 	}
@@ -60,9 +61,11 @@ func (s *Server) handleResetDatabase(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "reset database", err)
 		return
 	}
-	// The session store captured the OLD *sql.DB at construction; repoint it at
-	// the fresh handle so auth works against the new database.
-	s.Sessions.DB = s.Store.DB
+	// The session and device-token stores captured the OLD *sql.DB at
+	// construction; repoint both at the fresh handle so auth works against the new
+	// database. This repointed the sessions alone, and every phone's pairing and
+	// request after a reset then hit a closed handle until a restart.
+	s.rebindDB()
 	s.safety.clear() // the copy covered what this reset removed; it is spent
 
 	// Drop orphaned media (covers/posters/avatars) — the rows that referenced

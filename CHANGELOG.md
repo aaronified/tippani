@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nothing", instead of waiting for ever.
 - **A request still running after a minute is named once in the log**, with its request id, so a
   quiet log now means requests are not arriving rather than possibly hanging.
+- **A phone can be paired again after a factory reset.** The reset left device pairing on the
+  old, closed database, so pairing a phone and every phone's request failed until Tippani was
+  restarted. The same was true after a search repair that had to rebuild the database.
 
 ## [3.0.0] - 2026-09-25
 
