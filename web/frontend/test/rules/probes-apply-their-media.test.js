@@ -31,6 +31,7 @@ const EXEMPT = {
   'capture.mjs': 'the library that defines findBrowser and emulateEngineMedia; its own capture path emulates',
   'seed-cast.mjs': 'seeds a cast through the API and captures nothing, so no scheme can reach a picture',
   'glass-cost.mjs': 'must keep motion ON: lensAllowed refuses the lens under reduced motion, so it emulates the scheme alone',
+  'readme-shots.mjs': 'must keep motion ON: the README shows the app as most readers see it, and reduced motion draws it differently (no tilt, quotes unclamped), so it emulates each shot\'s scheme alone',
 }
 
 const probes = readdirSync(DIR).filter((f) => f.endsWith('.mjs'))
