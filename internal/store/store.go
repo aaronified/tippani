@@ -184,6 +184,13 @@ func (s *Store) LogWrite(fn func(db *sql.DB) error) error {
 // Generation counts the swaps of the database files so far: restores, recoveries
 // and factory resets. Anything that noted a user id must note this with it, and
 // drop the id when the number has moved (see Store.gen).
+//
+// READ IT BEFORE THE QUERY THAT RESOLVES THE USER, NEVER AFTER. A swap counts its
+// generation once the new pools are open, so a session checked against the old
+// file with the number read afterwards pairs an id from the old accounts with the
+// new generation, and the id then passes for whoever holds it in the restored
+// file. Read first, the number is never newer than the file the id came from:
+// the worst a swap in between can do is make a good id look stale and drop it.
 func (s *Store) Generation() uint64 { return s.gen.Load() }
 
 // Checkpoint folds the write-ahead log back into the main database file and
