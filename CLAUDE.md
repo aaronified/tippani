@@ -288,16 +288,18 @@ to be user-like is the part being ASSERTED.
 
 **THE VOCABULARY IS THE POINT** (`test/journeys/harness/screen.mjs`): `see`, `gone`,
 `press`, `pressAll`, `pressKey`, `hold`, `type`, `choose`, `chosen`, `upload`, `valueOf`,
-`onScreen`, `sideways`, `inReach`, `said`, plus `goto` and `downloaded` on the world. (`said` was
+`onScreen`, `sideways`, `splitWords`, `inReach`, `said`, plus `goto` and `downloaded` on the world. (`said` was
 in the harness and missing here; `inReach` — can a thumb press this without scrolling —
 arrived when `press` began centring its target, which made a press unable to tell whether a
 control had followed the reader down.) (This list had stopped
 counting at nine while the harness carried thirteen — `hold`, `choose` and `chosen` were
 missing before `sideways` was added, which is the same drift the numbers in
-`How-this-was-written.md` now have a guard for.) `sideways` is the only one that is a
-NUMBER rather than a word — how far the whole page slides left and right, 0 where it does
-not — because a page laid out three times wider than the phone it is on still looks like a
-phone in a picture, and there is nothing on the screen to read. Names come from Chrome's own accessible-name computation, so
+`How-this-was-written.md` now have a guard for.) `sideways` is a NUMBER rather than a
+word — how far the whole page slides left and right, 0 where it does not — because a page
+laid out three times wider than the phone it is on still looks like a phone in a picture,
+and there is nothing on the screen to read. `splitWords` is the other measurement: the words
+a line break cut in two, because `innerText` reports a word whole, so `see('Annotations')`
+passed over a Stats tile printing "ANNOTATION" over a lone "S" (3.0.4). Names come from Chrome's own accessible-name computation, so
 no journey ever names a class. `press` REFUSES an ambiguous name rather than guessing,
 and case is folded because `innerText` reports text as rendered — a label the stylesheet
 uppercases reaches a journey shouting.

@@ -526,6 +526,33 @@ export function screenVerbs(getPage) {
     return Math.max(0, de.scrollWidth - de.clientWidth)
   })
 
+  // splitWords — THE WORDS ON THE SCREEN THAT A LINE BREAK CUTS IN TWO, as the
+  // words they are, and none where every word sits whole on its line. A number of
+  // sorts, like `sideways`, and for the same reason: `innerText` reports the word
+  // whole, so `see('Annotations')` passes over a tile that prints "ANNOTATION" over
+  // a lone "S". Only where the word's pieces are drawn says it broke. A break at a
+  // hyphen is one the word offers, so a word is taken as the run between spaces and
+  // hyphens, and a piece counts as another line when it sits more than half a line
+  // away, which a fallback face's taller glyphs do not.
+  const splitWords = () => page().evaluate(() => {
+    const found = new Set()
+    const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      const re = /[^\s\-\u2010\u2011]+/g
+      let m
+      while ((m = re.exec(n.data))) {
+        const r = document.createRange()
+        r.setStart(n, m.index)
+        r.setEnd(n, m.index + m[0].length)
+        const rects = [...r.getClientRects()].filter((x) => x.width > 0 && x.height > 0)
+        if (rects.length < 2) continue
+        const tops = rects.map((x) => x.top)
+        if (Math.max(...tops) - Math.min(...tops) > Math.max(...rects.map((x) => x.height)) / 2) found.add(m[0])
+      }
+    }
+    return [...found]
+  })
+
   // inReach — CAN A THUMB PRESS THIS WITHOUT SCROLLING? True when the control a
   // person would press by that name is inside the window and nothing is drawn over
   // its middle. `press` cannot answer it, on purpose: `press` scrolls its target
@@ -600,5 +627,5 @@ export function screenVerbs(getPage) {
     }
   }
 
-  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen, sideways, inReach, said }
+  return { onScreen, see, gone, press, pressAll, pressKey, hold, type, choose, upload, valueOf, chosen, sideways, splitWords, inReach, said }
 }
