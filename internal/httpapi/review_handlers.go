@@ -1975,7 +1975,7 @@ func (s *Server) fillEasyChips(uid int64, items []reviewCard) {
 	for k, refs := range byKind {
 		found[k] = s.loadCharacterImages(uid, k, refs)
 	}
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	for i := range items {
 		if items[i].workID == 0 || strings.TrimSpace(items[i].Character) == "" {
 			continue

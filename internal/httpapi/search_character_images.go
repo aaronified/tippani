@@ -27,7 +27,7 @@ func (s *Server) fillSearchCharacterImages(uid int64, res *searchResults) {
 		}
 	}
 	found := s.loadCharacterImages(uid, "movie", refs)
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	for _, hits := range groups {
 		for i := range hits {
 			hits[i].CharacterImages = characterImagesFor(found, seps, hits[i].MovieID, hits[i].Character)

@@ -202,7 +202,7 @@ func (s *Server) handleReviewExcluded(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	// READ ONCE, FOR ALL THREE SOURCES. The reader's separators are one fact
 	// about them, not one per quote kind.
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	var groups []excludedGroup
 	for _, rs := range []reviewSource{bookSource(), screenSource(), utteranceSource()} {
 		got, err := s.excludedFrom(uid, rs, seps)

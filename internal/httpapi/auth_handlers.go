@@ -11,6 +11,7 @@ import (
 	"tippani/internal/auth"
 	"tippani/internal/buildinfo"
 	"tippani/internal/i18n"
+	"tippani/internal/store"
 )
 
 const maxAuthBody = 4 << 10 // 4 KiB is plenty for credentials
@@ -885,8 +886,14 @@ func badTileName(v string) bool {
 // wrong. There is now one palette per mode and the set only says what things are
 // made of, so every set works in both modes and the default is a single answer.
 func (s *Server) loadPrefs(uid int64) (prefs, error) {
+	return s.loadPrefsFrom(s.Store.DB, uid)
+}
+
+// loadPrefsFrom is loadPrefs through a given connection, so a caller inside a
+// transaction reads on the connection it already holds (see creditSeps).
+func (s *Server) loadPrefsFrom(q store.Queryer, uid int64) (prefs, error) {
 	var raw string
-	if err := s.Store.DB.QueryRow(
+	if err := q.QueryRow(
 		`SELECT preferences FROM users WHERE id = ?`, uid).Scan(&raw); err != nil {
 		return prefs{}, err
 	}

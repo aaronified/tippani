@@ -603,7 +603,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 					// one row: the columns are correct either way, and
 					// SyncAllCredits repairs a straggler.
 					if tx, terr := s.Store.DB.Begin(); terr == nil {
-						if cerr := store.SyncCreditsFromColumns(tx, b.uid, "book", b.id, s.creditSeps(b.uid)); cerr != nil {
+						if cerr := store.SyncCreditsFromColumns(tx, b.uid, "book", b.id, s.creditSeps(tx, b.uid)); cerr != nil {
 							tx.Rollback()
 							olog.Warnf(olog.CodeMetaRowScan, "[meta] backfill: credits not linked for book %d: %v", b.id, cerr)
 						} else if cerr := tx.Commit(); cerr != nil {

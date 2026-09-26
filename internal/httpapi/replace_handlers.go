@@ -245,7 +245,7 @@ func (s *Server) replace(w http.ResponseWriter, r *http.Request, apply bool) {
 	// done here as well: "wrong until somebody opens the film" is not a state to
 	// leave a library in after a write the reader asked for.
 	castKind, castLinks := quoteCastKind[kind]
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(tx, uid)
 	for _, c := range changes {
 		if _, err := tx.Exec(
 			`UPDATE `+spec.Table+` SET `+req.Field+` = ?, updated_at = datetime('now') WHERE id = ?`,

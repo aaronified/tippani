@@ -212,8 +212,15 @@ var personKindsList = func() string {
 // creditSeps loads the caller's separator configuration for multi-author
 // splitting (the creditSeparators preference). Best-effort: a prefs load
 // failure falls back to the default separator set.
-func (s *Server) creditSeps(uid int64) metadata.CreditSeps {
-	pf, err := s.loadPrefs(uid)
+//
+// IT READS THROUGH THE CONNECTION IT IS HANDED, and inside a transaction that is
+// the transaction. It read through s.Store.DB at every call, and 32 of its 51
+// callers were inside an open transaction, so each took a second pool connection
+// while holding the first. Four such requests at once hold all four connections
+// and each waits for a fifth, with no timeout: issue #40's state. The argument
+// is not optional, so a new caller has to choose.
+func (s *Server) creditSeps(q store.Queryer, uid int64) metadata.CreditSeps {
+	pf, err := s.loadPrefsFrom(q, uid)
 	if err != nil {
 		return metadata.DefaultCreditSeps
 	}
@@ -452,7 +459,7 @@ func (s *Server) gcOrphanPeople(uid int64, kind string) {
 	if !validPersonKind(kind) {
 		return
 	}
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	ref := orphanRefQuery(kind)
 	if ref == "" {
 		olog.Warnf(olog.CodePeopleOrphanGC, "[people] orphan GC has no reference query for kind %q; skipping", kind)
@@ -896,7 +903,7 @@ func (s *Server) handlePeopleNames(w http.ResponseWriter, r *http.Request) {
 	// resolvable on its own. The stored credit string stays verbatim — only
 	// this people view splits. The byName map dedupes components shared
 	// across works case-insensitively.
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	// Tally on the SPLIT components: a co-authored book counts once for each
 	// author, keyed case-insensitively like byName below. First spelling wins
 	// for display.
@@ -1178,7 +1185,7 @@ func (s *Server) handleRenamePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[people] handleRenamePerson uid=%d kind=%s from=%q to=%q", uid, req.Kind, req.From, req.To)
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 
 	tx, err := s.Store.DB.Begin()
 	if err != nil {

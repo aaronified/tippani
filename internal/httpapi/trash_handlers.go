@@ -426,7 +426,7 @@ func (s *Server) restoreSnapshot(tx *sql.Tx, uid int64, snap snapshot) error {
 	// Read once for the walk: a whole-account restore visits every quote in the
 	// library, and loading a preferences document per row would be the same answer
 	// fetched thousands of times.
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(tx, uid)
 	for _, table := range restoreOrder {
 		rows := snap[table]
 		if len(rows) == 0 || table == "users" || vocabularyTables[table] {
@@ -663,7 +663,7 @@ func (s *Server) undoPersonMerge(tx *sql.Tx, uid int64, payload string) error {
 	if err := json.Unmarshal([]byte(payload), &u); err != nil {
 		return fmt.Errorf("undo merge: unreadable entry: %w", err)
 	}
-	return store.UndoPersonMerge(tx, uid, &u, s.creditSeps(uid))
+	return store.UndoPersonMerge(tx, uid, &u, s.creditSeps(tx, uid))
 }
 
 // identityReversals are the bin kinds whose payload is a REVERSAL rather than a

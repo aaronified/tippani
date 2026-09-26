@@ -24,7 +24,7 @@ import (
 // are what say which handler forgot.
 func quoteLinksMustAgree(t *testing.T, srv *Server, uid int64) {
 	t.Helper()
-	bad, err := store.QuoteLinksAgree(srv.Store.DB, uid, srv.creditSeps(uid))
+	bad, err := store.QuoteLinksAgree(srv.Store.DB, uid, srv.creditSeps(srv.Store.DB, uid))
 	if err != nil {
 		t.Fatalf("quote link check failed: %v", err)
 	}

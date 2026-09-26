@@ -150,7 +150,7 @@ func (tm *tallyMap) finish() statsKind {
 // idea of a work: there is no table of speeches to walk, so their "works" are
 // the occasions the quotes name.
 func (s *Server) statsBreakdown(uid int64) (map[string]statsKind, error) {
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	authors, books, series := newTallyMap(), newTallyMap(), newTallyMap()
 	films, shows, directors, actors := newTallyMap(), newTallyMap(), newTallyMap(), newTallyMap()
 	// CHARACTERS ARE THEIR OWN TALLY, not a second reading of the actor one.
@@ -947,7 +947,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "timeline", err)
 		return
 	}
-	favouritePerson, err := s.favouritePerson(uid, s.creditSeps(uid))
+	favouritePerson, err := s.favouritePerson(uid, s.creditSeps(s.Store.DB, uid))
 	if err != nil {
 		internalError(w, r, "favourite person", err)
 		return

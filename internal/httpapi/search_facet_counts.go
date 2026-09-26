@@ -106,7 +106,7 @@ func (s *Server) handleSearchFacetCounts(w http.ResponseWriter, r *http.Request)
 	sc := parseSearchScope(scope)
 	olog.Tracef("[search] handleSearchFacetCounts uid=%d scope=%q q=%q", uid, scope, q)
 
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	out := map[string]map[string]int{}
 	for field, kinds := range facetCountKinds {
 		counts := map[string]int{}

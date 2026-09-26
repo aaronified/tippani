@@ -591,7 +591,7 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	// nothing, and the alternative — deciding here which of the sorted columns was
 	// a person — is a second list to keep in step with quoteFieldKinds. See 0059.
 	if k, ok := quotePersonKind[kind]; ok {
-		seps := s.creditSeps(uid)
+		seps := s.creditSeps(tx, uid)
 		for _, id := range owned {
 			if err := store.SyncQuotePerson(tx, uid, k, id, seps); err != nil {
 				internalError(w, r, "bulk tag: link person", err)
@@ -602,7 +602,7 @@ func (s *Server) bulkTag(w http.ResponseWriter, r *http.Request, kind string) {
 	// The same sweep for the cast link, over the kinds that have one — see
 	// quoteCastKind, which is a different set for a reason it states.
 	if wk, ok := quoteCastKind[kind]; ok {
-		seps := s.creditSeps(uid)
+		seps := s.creditSeps(tx, uid)
 		for _, id := range owned {
 			if err := store.SyncQuoteCast(tx, uid, wk, id, seps); err != nil {
 				internalError(w, r, "bulk tag: link speaker", err)
@@ -895,7 +895,7 @@ func (s *Server) handleBulkUpdateMovies(w http.ResponseWriter, r *http.Request) 
 	// changed, the link rows kept the old company, and CreditsAgree would report
 	// the drift on the next check with nothing here to blame.
 	if req.Director != nil || req.Publisher != nil {
-		seps := s.creditSeps(uid)
+		seps := s.creditSeps(tx, uid)
 		for _, id := range owned {
 			if err := store.SyncCreditsFromColumns(tx, uid, "movie", id, seps); err != nil {
 				internalError(w, r, "bulk movies: credits", err)

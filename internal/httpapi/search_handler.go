@@ -1116,7 +1116,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	sc := parseSearchScope(scope)
 
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 
 	// Structured facets parse the RAW query only (a date or a decade isn't a
 	// typo, so they never join the fuzzy re-run — guarded on whether the query

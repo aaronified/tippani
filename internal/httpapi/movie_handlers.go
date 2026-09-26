@@ -1240,7 +1240,7 @@ func (s *Server) resyncMovieFromSource(w http.ResponseWriter, r *http.Request, i
 	}
 	// Correcting the movie's cast flows through to dialogues imported before it
 	// existed: backfill any empty actor whose character now matches the new cast.
-	filled, err := refillMovieActors(tx, uid, id, s.creditSeps(uid))
+	filled, err := refillMovieActors(tx, uid, id, s.creditSeps(tx, uid))
 	if err != nil {
 		log.Printf("[movies] resync %d: refill actors: %v", id, err)
 		failErr("resync movie: refill actors", err)

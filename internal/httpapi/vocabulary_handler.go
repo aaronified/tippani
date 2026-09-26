@@ -47,7 +47,7 @@ func (s *Server) handleSearchVocabulary(w http.ResponseWriter, r *http.Request) 
 	// credit columns hold JOINED strings ("Gaiman & Pratchett"), so they are split
 	// the same way the rest of the app splits them — otherwise `author:` would offer
 	// a pair of names as one option and match nothing.
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	for _, spec := range []struct {
 		key   string
 		query string

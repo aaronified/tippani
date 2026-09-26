@@ -41,7 +41,7 @@ import (
 // link rows for the other two describing a state that no longer exists. The cost
 // is two extra deletes over rows that are usually empty.
 func (s *Server) syncBookCredits(tx *sql.Tx, uid, id int64, author, translator, editor string) error {
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(tx, uid)
 	for _, c := range []struct {
 		role store.CreditRole
 		raw  string
@@ -75,7 +75,7 @@ func (s *Server) syncBookCredits(tx *sql.Tx, uid, id int64, author, translator, 
 // caller that syncs only what it believes it touched leaves the other half of
 // the cache pointing at people the reader has just removed.
 func (s *Server) syncMovieCredits(tx *sql.Tx, uid, id int64, director, publisher string) error {
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(tx, uid)
 	for _, c := range []struct {
 		role store.CreditRole
 		raw  string

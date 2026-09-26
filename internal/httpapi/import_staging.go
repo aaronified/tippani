@@ -1083,7 +1083,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 		// quoted or not), so approval must still create it or a whole-library
 		// export would lose them all on the way back in.
 		quotes := byWork[work.ID]
-		destKind, destID, created, anchor, err := resolveApprovalTarget(tx, uid, work, s.creditSeps(uid))
+		destKind, destID, created, anchor, err := resolveApprovalTarget(tx, uid, work, s.creditSeps(tx, uid))
 		_ = destID // unused on the quotes arm, which has no destination work
 		if err != nil {
 			var ce importClientError
@@ -1096,7 +1096,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if destKind == stagedKindQuotes {
-			added, err := writeUtterances(tx, uid, stagedAsUtterances(quotes), s.creditSeps(uid))
+			added, err := writeUtterances(tx, uid, stagedAsUtterances(quotes), s.creditSeps(tx, uid))
 			if err != nil {
 				var ce importClientError
 				if errors.As(err, &ce) {
@@ -1119,7 +1119,7 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 				}
 				dupes = append(dupes, hints...)
 			}
-			added, enriched, err := writeBookAnnotations(tx, uid, work.Source, destID, stagedAsAnnotations(quotes), s.creditSeps(uid))
+			added, enriched, err := writeBookAnnotations(tx, uid, work.Source, destID, stagedAsAnnotations(quotes), s.creditSeps(tx, uid))
 			if err != nil {
 				var ce importClientError
 				if errors.As(err, &ce) {
@@ -1133,11 +1133,11 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 			bookIDs = appendUnique(bookIDs, destID)
 			tAdd, tSkip, tEn = tAdd+added, tSkip+len(quotes)-added, tEn+enriched
 		} else {
-			if err := backfillImportMovie(tx, uid, destID, work.header(), s.creditSeps(uid)); err != nil {
+			if err := backfillImportMovie(tx, uid, destID, work.header(), s.creditSeps(tx, uid)); err != nil {
 				codedError(w, r, olog.CodeImportApprove, "approve staged: backfill title", err)
 				return
 			}
-			added, enriched, err := writeMovieDialogues(tx, uid, destID, stagedAsDialogues(quotes), s.creditSeps(uid))
+			added, enriched, err := writeMovieDialogues(tx, uid, destID, stagedAsDialogues(quotes), s.creditSeps(tx, uid))
 			if err != nil {
 				var ce importClientError
 				if errors.As(err, &ce) {

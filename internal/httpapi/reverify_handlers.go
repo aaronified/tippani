@@ -1110,7 +1110,7 @@ func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[s
 	// is one of them, so the link rows are re-derived from whatever landed —
 	// unconditionally, because whether this call touched the credit is decided
 	// by a map above and re-reading is cheaper than threading that answer down.
-	if cerr := store.SyncCreditsFromColumns(tx, uid, "book", id, s.creditSeps(uid)); cerr != nil {
+	if cerr := store.SyncCreditsFromColumns(tx, uid, "book", id, s.creditSeps(tx, uid)); cerr != nil {
 		s.removeCoverFile(newCover)
 		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify book %d credits failed: %v", id, cerr)
 		return "", errors.New("write failed")
@@ -1312,7 +1312,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 	// is one of them, so the link rows are re-derived from whatever landed —
 	// unconditionally, because whether this call touched the credit is decided
 	// by a map above and re-reading is cheaper than threading that answer down.
-	if cerr := store.SyncCreditsFromColumns(tx, uid, "movie", id, s.creditSeps(uid)); cerr != nil {
+	if cerr := store.SyncCreditsFromColumns(tx, uid, "movie", id, s.creditSeps(tx, uid)); cerr != nil {
 		s.removeCoverFile(newPoster)
 		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify movie %d credits failed: %v", id, cerr)
 		return "", errors.New("write failed")
@@ -1365,7 +1365,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 			return "", errors.New("write failed")
 		}
 		// A refreshed cast can name speakers for dialogues whose actor is blank.
-		if _, ferr := refillMovieActors(tx, uid, id, s.creditSeps(uid)); ferr != nil {
+		if _, ferr := refillMovieActors(tx, uid, id, s.creditSeps(tx, uid)); ferr != nil {
 			olog.Warnf(olog.CodeMetaReverifyApply, "[meta] re-verify movie %d actor refill failed: %v", id, ferr)
 		}
 	}

@@ -159,7 +159,7 @@ func (s *Server) handlePersonByID(w http.ResponseWriter, r *http.Request) {
 	// CAPPED, AND THE COUNT IS NOT. personLineCap bounds what the panel draws; the
 	// shared count walks the unlinked rows whatever the cap, because it is the
 	// number that would otherwise be silently wrong.
-	lines, tally, err := store.PersonLines(s.Store.DB, uid, id, s.creditSeps(uid), personLineCap)
+	lines, tally, err := store.PersonLines(s.Store.DB, uid, id, s.creditSeps(s.Store.DB, uid), personLineCap)
 	if err != nil {
 		internalError(w, r, "read lines", err)
 		return
@@ -200,7 +200,7 @@ func (s *Server) fillLineFaces(uid int64, lines []store.QuoteLine) {
 	for k, refs := range byKind {
 		found[k] = s.loadCharacterImages(uid, k, refs)
 	}
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	for i := range lines {
 		k := shelfOf(lines[i].Kind)
 		if k == "" {
@@ -409,7 +409,7 @@ func (s *Server) recomposeFor(tx *sql.Tx, uid, personID int64) error {
 		return err
 	}
 	// Collected before writing: the recompose updates the table this was reading.
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(tx, uid)
 	for _, v := range refs {
 		if err := store.RecomposeCredit(tx, uid, v.kind, v.id, store.CreditRole(v.role), seps); err != nil {
 			return err
@@ -967,7 +967,7 @@ func (s *Server) handleCharacterByID(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "read appearances", err)
 		return
 	}
-	lines, tally, err := store.CharacterLines(s.Store.DB, uid, id, s.creditSeps(uid), personLineCap)
+	lines, tally, err := store.CharacterLines(s.Store.DB, uid, id, s.creditSeps(s.Store.DB, uid), personLineCap)
 	if err != nil {
 		internalError(w, r, "read character lines", err)
 		return
@@ -1211,7 +1211,7 @@ func (s *Server) handleCreditAs(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	if err := store.SetCreditAs(tx, uid, req.Kind, req.WorkID, store.CreditRole(req.Role),
-		req.PersonID, req.CreditAs, s.creditSeps(uid)); err != nil {
+		req.PersonID, req.CreditAs, s.creditSeps(tx, uid)); err != nil {
 		// Not found covers both "no such credit" and "not yours" — the same rule the
 		// rest of this file follows, and the reason they are indistinguishable.
 		writeErr(w, http.StatusNotFound, err.Error())
@@ -1422,7 +1422,7 @@ func (s *Server) handleMergePeople(w http.ResponseWriter, r *http.Request) {
 	// that failed is neither, and answering both with a 409 carrying err.Error()
 	// reported a broken database as a disagreement about identity and put the SQL
 	// in a toast. store.Refusal is which one the store is returning.
-	undo, err := store.MergePeople(tx, uid, req.KeepID, req.DropID, s.creditSeps(uid))
+	undo, err := store.MergePeople(tx, uid, req.KeepID, req.DropID, s.creditSeps(tx, uid))
 	var refused *store.Refusal
 	switch {
 	case errors.As(err, &refused):

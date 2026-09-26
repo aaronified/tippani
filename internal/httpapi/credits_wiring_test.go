@@ -25,7 +25,7 @@ import (
 // both values are what say which handler forgot.
 func creditsMustAgree(t *testing.T, srv *Server, uid int64) {
 	t.Helper()
-	bad, err := store.CreditsAgree(srv.Store.DB, uid, srv.creditSeps(uid))
+	bad, err := store.CreditsAgree(srv.Store.DB, uid, srv.creditSeps(srv.Store.DB, uid))
 	if err != nil {
 		t.Fatalf("credit check failed: %v", err)
 	}

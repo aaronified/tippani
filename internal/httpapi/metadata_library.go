@@ -331,7 +331,7 @@ func (s *Server) handleRemapSpeakers(w http.ResponseWriter, r *http.Request) {
 	// the person rename uses. It keeps separators, spacing and every co-credit
 	// byte-for-byte, which is the whole requirement here: "V, Evey" must come back
 	// as "V, Evey" with only the matched part touched.
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(tx, uid)
 	remapped := 0
 	for _, d := range dials {
 		charParts := metadata.SplitCredits(d.ch, seps)

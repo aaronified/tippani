@@ -625,7 +625,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "set tags", err)
 		return
 	}
-	if err := store.SyncQuotePerson(tx, uid, store.KindScreen, id, s.creditSeps(uid)); err != nil {
+	if err := store.SyncQuotePerson(tx, uid, store.KindScreen, id, s.creditSeps(tx, uid)); err != nil {
 		internalError(w, r, "link actor", err)
 		return
 	}
@@ -633,7 +633,7 @@ func (s *Server) handleCreateDialogue(w http.ResponseWriter, r *http.Request) {
 	// The link above says who the human is; this says which ROLE on this film —
 	// which is what a picture, a character record and "everything this character
 	// said" all hang off. See store/quote_cast.go.
-	if err := store.SyncQuoteCast(tx, uid, "movie", id, s.creditSeps(uid)); err != nil {
+	if err := store.SyncQuoteCast(tx, uid, "movie", id, s.creditSeps(tx, uid)); err != nil {
 		internalError(w, r, "link dialogue speaker", err)
 		return
 	}
@@ -737,7 +737,7 @@ func (s *Server) handleListDialogues(w http.ResponseWriter, r *http.Request) {
 	// place: the list is who the line NAMES, and a library with no art still has
 	// names on its lines.
 	found := s.loadCharacterImages(uid, "movie", refs)
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	for i := range items {
 		items[i].CharacterImages = characterImagesFor(found, seps, items[i].MovieID, items[i].Character)
 	}
@@ -847,7 +847,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "set tags", err)
 		return
 	}
-	if err := store.SyncQuotePerson(tx, uid, store.KindScreen, id, s.creditSeps(uid)); err != nil {
+	if err := store.SyncQuotePerson(tx, uid, store.KindScreen, id, s.creditSeps(tx, uid)); err != nil {
 		internalError(w, r, "link actor", err)
 		return
 	}
@@ -855,7 +855,7 @@ func (s *Server) handleUpdateDialogue(w http.ResponseWriter, r *http.Request) {
 	// The link above says who the human is; this says which ROLE on this film —
 	// which is what a picture, a character record and "everything this character
 	// said" all hang off. See store/quote_cast.go.
-	if err := store.SyncQuoteCast(tx, uid, "movie", id, s.creditSeps(uid)); err != nil {
+	if err := store.SyncQuoteCast(tx, uid, "movie", id, s.creditSeps(tx, uid)); err != nil {
 		internalError(w, r, "link dialogue speaker", err)
 		return
 	}

@@ -268,7 +268,7 @@ func (s *Server) linkQuotes(uid int64, kind string, workID int64) {
 		return
 	}
 	defer tx.Rollback()
-	if err := store.LinkWorkQuotesToCast(tx, uid, kind, workID, s.creditSeps(uid)); err != nil {
+	if err := store.LinkWorkQuotesToCast(tx, uid, kind, workID, s.creditSeps(tx, uid)); err != nil {
 		olog.Warnf(olog.CodeCastRowScan, "[cast] link quotes for %s %d: %v", kind, workID, err)
 		return
 	}
@@ -311,7 +311,7 @@ func (s *Server) quoteCharacters(uid int64, kind string, workID int64) ([]quoteC
 	}
 	defer rows.Close()
 
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	seen := map[string]bool{}
 	out := []quoteCharacter{}
 	for rows.Next() {

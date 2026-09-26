@@ -211,7 +211,7 @@ func TestTheNamesUnderASkippedWorkAreWholePeople(t *testing.T) {
 //
 // THE LESSON THIS REPO KEEPS RELEARNING: a pure test of a splitter proves the
 // splitter, not that anything calls it with the right argument. Swapping the
-// handler's `s.creditSeps(uid)` for the default set leaves every case above
+// handler's `s.creditSeps(q, uid)` for the default set leaves every case above
 // green — so the preference is set here, through the route that stores it, and
 // asked of the route that reads it.
 func TestTheSkippedListSplitsCreditsTheWayTheReaderAsked(t *testing.T) {

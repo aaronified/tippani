@@ -286,7 +286,7 @@ func (s *Server) handleCreateAnnotation(w http.ResponseWriter, r *http.Request) 
 	// column has existed since characters got records and nothing wrote it, so every
 	// reader of "which cast row said this" folded the text instead — three folds
 	// that could disagree, and no way to ask the question in reverse.
-	if err := store.SyncQuoteCast(tx, uid, "book", id, s.creditSeps(uid)); err != nil {
+	if err := store.SyncQuoteCast(tx, uid, "book", id, s.creditSeps(tx, uid)); err != nil {
 		internalError(w, r, "link annotation speaker", err)
 		return
 	}
@@ -401,7 +401,7 @@ func (s *Server) handleListAnnotations(w http.ResponseWriter, r *http.Request) {
 	// pictures meant a reader with no character art at all got no chips on any
 	// line, which is most readers and every new library.
 	found := s.loadCharacterImages(uid, "book", refs)
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	for i := range items {
 		items[i].CharacterImages = characterImagesFor(found, seps, items[i].BookID, items[i].Character)
 	}
@@ -504,7 +504,7 @@ func (s *Server) handleUpdateAnnotation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	// The speaker link follows the name it was edited to — see the create path.
-	if err := store.SyncQuoteCast(tx, uid, "book", id, s.creditSeps(uid)); err != nil {
+	if err := store.SyncQuoteCast(tx, uid, "book", id, s.creditSeps(tx, uid)); err != nil {
 		internalError(w, r, "link annotation speaker", err)
 		return
 	}

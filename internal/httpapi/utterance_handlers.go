@@ -413,7 +413,7 @@ func (s *Server) handleCreateUtterance(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "set tags", err)
 		return
 	}
-	if err := store.SyncQuotePerson(tx, uid, store.KindUtterance, id, s.creditSeps(uid)); err != nil {
+	if err := store.SyncQuotePerson(tx, uid, store.KindUtterance, id, s.creditSeps(tx, uid)); err != nil {
 		internalError(w, r, "link speaker", err)
 		return
 	}
@@ -624,7 +624,7 @@ func (s *Server) handleUpdateUtterance(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, "set tags", err)
 		return
 	}
-	if err := store.SyncQuotePerson(tx, uid, store.KindUtterance, id, s.creditSeps(uid)); err != nil {
+	if err := store.SyncQuotePerson(tx, uid, store.KindUtterance, id, s.creditSeps(tx, uid)); err != nil {
 		internalError(w, r, "link speaker", err)
 		return
 	}

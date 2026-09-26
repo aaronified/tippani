@@ -162,7 +162,7 @@ func (s *Server) handleBulkUpdateBooks(w http.ResponseWriter, r *http.Request) {
 	// Read once for the whole batch rather than per book: it is one account's
 	// setting, and bulk edit is the path where "per row" would mean forty
 	// identical preference loads.
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	olog.Tracef("[meta] handleBulkUpdateBooks uid=%v ids=%d", uid, len(req.IDs))
 	owned, err := s.ownedRowIDs("books", uid, req.IDs)
 	if err != nil {

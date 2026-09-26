@@ -345,7 +345,7 @@ func (s *Server) quotesNaming(uid int64, kind string, workID int64, castID int64
 		return nil, err
 	}
 	defer rows.Close()
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(s.Store.DB, uid)
 	out := []quotedLine{}
 	for rows.Next() {
 		var l quotedLine
@@ -386,7 +386,7 @@ func (s *Server) quotesNaming(uid int64, kind string, workID int64, castID int64
 // `dialogues_au` reindexes the row on any update, so the search index needs
 // nothing here; annotations_fts indexes quote and note only and never held it.
 func (s *Server) rewriteQuoteCharacters(tx *sql.Tx, uid int64, kind string, lines []quotedLine, charKey, to string) error {
-	seps := s.creditSeps(uid)
+	seps := s.creditSeps(tx, uid)
 	table := "annotations"
 	if kind != "book" {
 		table = "dialogues"
