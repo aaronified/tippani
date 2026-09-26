@@ -21,8 +21,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Sixteen files sit here, and only some of them are plans** — the table at the foot of this
-file names the six that get no roadmap card, leaving ten features on the roadmap.
+**Seventeen files sit here, and only some of them are plans** — the table at the foot of this
+file names the seven that get no roadmap card, leaving ten features on the roadmap.
 
 THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
 incremented it to "Eight" without counting the directory; a change that fixed THAT wrote
@@ -202,6 +202,7 @@ the same exclusions nightly will eventually decide one of them differently.
 | `codebase-audit.md` | The same shape, over the code. Its own first line: "**Not a feature.**" |
 | `nightly-backup.md` | A plan, but carded it would promise the opposite of an approved decision: `Design-decisions.md` settles the nightly backup as "the user's timer and not mine", and the plan's own "Not on the roadmap, deliberately" section says so. A card went up by mistake in 3.0.0's sweep and came straight back down |
 | `prefetch-and-loaders.md` | A discussion with a build order, not a committed feature. Its first two steps need no ruling and its last two wait on measurements nobody has taken, so a public card reading "prefetch and loaders" would promise the whole of it. It earns a card when the boundary sentence it proposes is in `Design-decisions.md` — then the sentence is the promise and the card can name it |
+| `3.0.2.md` | A release's task list, not a feature: defects and follow-ups, each struck as it ships, and the file deleted when the list is empty. A feature that grows out of one gets its own plan here, and its card comes with that plan |
 
 A file that belongs on this list is added to it in the same change that adds the
 file. **The sweep reports; it does not decide** — anything not listed here and not
