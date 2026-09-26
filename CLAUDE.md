@@ -56,7 +56,9 @@ written"**, the owner's call on 26 September: *"Top of that section"*, with the 
 breakdown by model following it. The kit looks for `AI.md`, so the check names the page:
 `ai_census.py --check --ai-file docs/wiki/How-this-was-written.md`. The block is figures
 stamped at one commit, so any later commit makes them stale (exit 1) until the block is
-regenerated and pasted over the old one. Count from a full clone: a shallow one understates
+regenerated and pasted over the old one. Keep the filled-in *Unmeasured history* bullet
+rather than the template's `<Fill in or delete…>` placeholder, and move the `SHA=` line in
+the page's *To see it yourself* commands to the new stamp. Count from a full clone: a shallow one understates
 every figure. An `AI.md` made anyway would be a second copy of a page the wiki says has
 none.
 

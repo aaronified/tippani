@@ -127,8 +127,9 @@ awk 'NR == FNR { ai[$1]; next }
   by:.*(claude|anthropic|copilot|chatgpt|openai|gemini|cursor|codex|aider|devin|\[bot\])`,
   case-insensitively. Merge commits are excluded throughout, because a merge authors no
   content.
-- **Unmeasured history.** <Fill in or delete: the trailer convention starts at `<sha>`
-  (`<date>`), and the N commits before it are unmeasured rather than human-written.>
+- **Unmeasured history.** None. The first commit, `6f8f7033` (2026-07-02), already carries
+  the trailer, so no history predates the convention. The twelve commits with no trailer
+  are named under *By model*.
 - **Exclusions.** `*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `go.sum`,
   `vendor/**`, `third_party/**`, `node_modules/**`, `dist/**`, `build/**`, `target/**`,
   `*.min.js`, `*.min.css`, `*.map`, `**/*.generated.*`, `**/generated/**`,
@@ -151,14 +152,17 @@ awk 'NR == FNR { ai[$1]; next }
 
 ## By model
 
-Models used, by commit count, at the same commit (merges excluded):
+Models used, by commit count, at the same commit. Merges are excluded, and the block's
+exclusion list is not applied, so the rows sum to 1,549 against the block's 1,539. One
+commit, `b77a22e5`, carries its line outside git's trailer block, so the commands below
+grep the message rather than asking git for trailers:
 
 | Model | Commits |
 | :-- | --: |
 | Claude Opus 5 | 1,169 |
 | Claude Opus 5.5 | 161 |
 | Claude Opus 4.8 | 150 |
-| Claude Fable 5 | 53 |
+| Claude Fable 5 | 54 |
 | Claude Sonnet 5 | 5 |
 | Claude Haiku 4.5 | 5 |
 | Claude Fable 5.1 | 4 |
@@ -185,20 +189,22 @@ fixed, because a disclosure that rounds its own gaps away is not one.
 To see it yourself:
 
 ```bash
+SHA=7eae4092   # the commit the block above is stamped with
+
 # every commit, with the model that co-authored it
-git log --date=short \
+git log --no-merges --date=short "$SHA" \
   --format='%h %ad %s — %(trailers:key=Co-Authored-By,valueonly,separator=%x2C)'
 
-# the count, and the breakdown above
-git log --format='%b' | grep -c 'Co-Authored-By: Claude'
-git log --format='%b' | grep 'Co-Authored-By' | sort | uniq -c | sort -rn
+# the count, and the breakdown above (1M-context variants unfolded)
+git log --no-merges --format='%b' "$SHA" | grep -c '^Co-Authored-By: Claude'
+git log --no-merges --format='%b' "$SHA" | grep '^Co-Authored-By' | sort | uniq -c | sort -rn
 ```
 
 The agent configuration used to do the work — session skills and subagent
 definitions under `.claude/` — is **gitignored and not part of this repository**,
 so what you see here is the output, not the toolchain.
 
-### Increasingly this is several agents at once, not one conversation in sequence
+## Increasingly this is several agents at once, not one conversation in sequence
 
 Later releases were built by fanning a task out across **parallel subagents** under
 my direction and then reconciling what came back, rather than by one session doing
