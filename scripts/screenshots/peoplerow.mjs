@@ -22,7 +22,7 @@
 const BUDGET = { 390: 16, 1280: 0 }
 import { mkdirSync } from 'node:fs'
 import puppeteer from 'puppeteer-core'
-import { HARNESS_ACCOUNT, ensureSession, findBrowser, launchOptions, noMotionScript } from './capture.mjs'
+import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions, noMotionScript } from './capture.mjs'
 
 const opts = { baseUrl: 'http://127.0.0.1:8080', out: '/tmp/claude-0/peoplerow', theme: 'dark' }
 for (let i = 2; i < process.argv.length; i++) {
@@ -35,6 +35,9 @@ mkdirSync(opts.out, { recursive: true })
 const engine = findBrowser(null, 'chrome')
 const browser = await puppeteer.launch(launchOptions(engine))
 const page = await browser.newPage()
+// The theme reaches Chrome only this way: launchOptions sets it for Firefox alone,
+// and ensureSession never read the `theme` it used to be handed.
+await emulateEngineMedia(page, engine, opts.theme)
 await page.evaluateOnNewDocument(noMotionScript)
 
 const nameOf = async (h) => (await page.evaluate((e) => (e.innerText || e.getAttribute('aria-label') || '').trim(), h)) || ''
@@ -52,7 +55,7 @@ const pressByWords = async (words) => {
 let bad = 0
 for (const width of [390, 1280]) {
   await page.setViewport({ width, height: 1100, deviceScaleFactor: 2 })
-  await ensureSession(page, { baseUrl: opts.baseUrl, ...HARNESS_ACCOUNT, theme: opts.theme })
+  await ensureSession(page, { baseUrl: opts.baseUrl, ...HARNESS_ACCOUNT })
   await page.goto(`${opts.baseUrl}/metadata`, { waitUntil: 'networkidle0' })
   await new Promise((r) => setTimeout(r, 900))
   for (const w of ['skip tour', 'finish later']) { if (await pressByWords(w)) await new Promise((r) => setTimeout(r, 300)) }

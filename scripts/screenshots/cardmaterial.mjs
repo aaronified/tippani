@@ -2,7 +2,10 @@
 // the real app, photograph the same card each time, and measure.
 //
 // WHAT IT FOUND, and it is the owner's report confirmed: "they now look identical
-// in all material sets". Over the Review card at 1280, dark:
+// in all material sets". Over the Review card at 1280 — recorded as "dark", but
+// the probe never applied its theme on Chrome until a later commit, so these are
+// Chrome's default light scheme (grey levels of 221-231 out of 255 are a light
+// card), and without reduced motion:
 //
 //   manuscript 225.44   film-assembly 221.76   office 223.59   school 223.61
 //   atelier    223.59   bindery       223.59   quarry 223.59   atrium 231.14
@@ -30,7 +33,7 @@
 // the real screen and photographs what a reader would see.
 import { mkdirSync } from 'node:fs'
 import puppeteer from 'puppeteer-core'
-import { HARNESS_ACCOUNT, ensureSession, findBrowser, launchOptions, noMotionScript } from './capture.mjs'
+import { HARNESS_ACCOUNT, emulateEngineMedia, ensureSession, findBrowser, launchOptions, noMotionScript } from './capture.mjs'
 
 const opts = { baseUrl: 'http://127.0.0.1:8080', out: '/tmp/claude-0/cardmaterial', width: 1280, theme: 'dark' }
 for (let i = 2; i < process.argv.length; i++) {
@@ -47,9 +50,12 @@ const SETS = ['Manuscript', 'Film assembly', 'Office', 'School', 'Atelier', 'Bin
 const engine = findBrowser(null, 'chrome')
 const browser = await puppeteer.launch(launchOptions(engine))
 const page = await browser.newPage()
+// The theme reaches Chrome only this way: launchOptions sets it for Firefox alone,
+// and ensureSession never read the `theme` it used to be handed.
+await emulateEngineMedia(page, engine, opts.theme)
 await page.setViewport({ width: opts.width, height: 1100, deviceScaleFactor: 2 })
 await page.evaluateOnNewDocument(noMotionScript)
-await ensureSession(page, { baseUrl: opts.baseUrl, ...HARNESS_ACCOUNT, theme: opts.theme })
+await ensureSession(page, { baseUrl: opts.baseUrl, ...HARNESS_ACCOUNT })
 
 const nameOf = async (h) => (await page.evaluate((e) => (e.innerText || e.getAttribute('aria-label') || '').trim(), h)) || ''
 const pressByWords = async (words) => {

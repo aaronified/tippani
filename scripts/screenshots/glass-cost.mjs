@@ -15,12 +15,14 @@
 // number and this script does not pretend it is — what it is good for is the
 // RATIO, which is a property of the work being asked of the compositor rather
 // than of the machine doing it.
-import { ensureSession, findBrowser, launchBrowser } from './capture.mjs'
+import { emulateEngineMedia, ensureSession, findBrowser, launchBrowser } from './capture.mjs'
 
 const BASE = process.argv[2] || 'http://127.0.0.1:8129'
 const engine = findBrowser(null, process.env.TIPPANI_BROWSER || 'chrome')
 const browser = await launchBrowser(engine, { theme: 'dark', headless: true, viewport: { width: 390, height: 844 } })
 const page = await browser.newPage()
+// Dark on Chrome too: launchBrowser's theme reaches Firefox's profile only.
+await emulateEngineMedia(page, engine, 'dark')
 await page.setViewport({ width: 390, height: 844 })
 // The scaffold's own sign-in, with the same shape it takes everywhere else: the
 // onboarding path runs because this is a fresh data dir.
