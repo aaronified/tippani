@@ -173,15 +173,25 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   the reader sees means re-submitting through plan mode; editing the file and reporting the
   panel fixed is a claim about something that was never checked.
 
-- **BEFORE EVERY PUSH, EVERY COMMIT IN IT IS RATED BY ITS OWN AGENT, AND THE RATER LOOKS.** The
-  owner's: *"before every push, every commit in that push will be rated by separate agents (to
-  ensure the best detailed coverage), and the rater will also visually verify stuff"*, and
-  *"rater will have a guideline to check basic hygiene and feature list when visually
-  checking"*. One `work-rater` per commit, in parallel, each handed the prompts behind that
-  commit verbatim and that commit's diff, never a target. Each captures the screens its commit
-  touches (390 and 1280, light and dark, against the archive when there is one) and checks
-  them against the list below, reporting each line as seen or not seen. The pass table above
-  applies per commit.
+- **BEFORE EVERY PUSH, EVERY COMMIT IN IT IS RATED, BY NO MORE THAN FIVE RATERS, AND THE RATER
+  LOOKS.** The owner's: *"before every push, every commit in that push will be rated by separate
+  agents (to ensure the best detailed coverage), and the rater will also visually verify
+  stuff"*, and *"rater will have a guideline to check basic hygiene and feature list when
+  visually checking"*. Then, on 26 September, stopping a fan-out of twenty-two: *"Don't fan out
+  more than 5 raters. Group commits if needed"*, because *"if you create such minute raters
+  they will start hallucinating issues resulting in regressions."* So at most five `work-rater`s
+  run in parallel, and when a push holds more commits than that they are grouped, by area or
+  by the finding they answer. Each rater is handed the prompts behind its group verbatim and
+  the group's diffs, never a target, and scores each commit in the group. The pass table above
+  applies per commit. Each captures the screens its commits touch (390 and 1280, light and
+  dark, against the archive when there is one) and checks them against the list below,
+  reporting each line as seen or not seen.
+
+  **A RATING THAT FINISHED STILL STANDS WHEN THE FAN-OUT IS STOPPED.** The owner's: *"You can
+  act on whatever raters already rated. If they were more than 8, those commits are already
+  rated then."* Recover the finished results from the workflow's journal, act on them by the
+  pass table, and re-rate only what had no result. The kit's `work-rating` skill carries the
+  same rule (claude-kit ac0b427).
 
   **The visual guideline.** The owner asked for one; the items are the session's, drawn from
   the owner's reports (the first three) and from the Standing UI rules below.
