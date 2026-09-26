@@ -74,6 +74,30 @@ function StatTile({ n, label, heart, dot, sub }) {
   )
 }
 
+// A TILE IS NEVER NARROWER THAN THE LONGEST WORD ON IT. These grids had a floor
+// in px, 118 and 148, and the tiles sit in a card, whose `overflow-wrap: anywhere`
+// lets a word break when it does not fit. At 1280 the overview's tiles came out
+// 126px wide, 92px inside the padding, and ANNOTATIONS in letter-spaced mono is
+// 94px, so it printed "ANNOTATION" over a lone "S".
+//
+// THE GRID CARRIES THE LABELS' FONT, so `ch` is their real advance. Every label
+// is mono, and a mono face's glyphs share one advance, so the longest word is
+// that many advances plus the .14em tracking `.mono-label` adds to each, whatever
+// face the reader chose. An estimate in em was tried first and came out 2px
+// short of the measured word. Nothing inside a tile inherits this font: the
+// number, the label and the microcopy each set their own. The px floor stays
+// underneath, and the whole measure moves with the mono dial and the locale.
+function tileGrid(labels, floorPx) {
+  const longest = Math.max(0, ...labels.flatMap((l) => String(l).split(/\s+/)).map((w) => [...w].length))
+  return {
+    display: 'grid',
+    gap: 12,
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'var(--type-mono-11)',
+    gridTemplateColumns: `repeat(auto-fit, minmax(max(${floorPx}px, calc(${longest} * (1ch + .14em) + 34px)), 1fr))`,
+  }
+}
+
 function Overview({ s }) {
   // ONE WORD, ONE MEANING. This row called book highlights "Quotes" while the
   // nav has a Quotes tab that means the standalone kind — so the tile named
@@ -90,11 +114,12 @@ function Overview({ s }) {
     [t('stats.overview.genres.label'), s.genres],
     [t('stats.overview.tags.label'), s.tags],
   ]
+  const favLabel = t('stats.overview.favourites.label')
   return (
     <Card>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))', gap: 12 }}>
+      <div style={tileGrid([...tiles.map(([label]) => label), favLabel], 118)}>
         {tiles.map(([label, n]) => <StatTile key={label} n={n} label={label} />)}
-        <StatTile n={s.favorites} label={t('stats.overview.favourites.label')} heart />
+        <StatTile n={s.favorites} label={favLabel} heart />
       </div>
     </Card>
   )
@@ -361,7 +386,7 @@ function MemoryCard({ recall }) {
         label={t('stats.memory.title')}
         right={<span className="mono-label">{t('stats.memory.rotation.label', { done: recall.reviewed, total: st.total })}</span>}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))', gap: 12 }}>
+      <div style={tileGrid([...tiles.map(([key]) => t(STATUS_META[key].label)), t('stats.memory.half-life.label'), t('stats.memory.streak.label')], 148)}>
         {tiles.map(([key, n]) => (
           <StatTile key={key} n={n} label={t(STATUS_META[key].label)} dot={STATUS_META[key]} />
         ))}
