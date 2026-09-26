@@ -162,21 +162,31 @@ export default function App() {
   const [oidc, setOIDC] = useState(null)
   const [checking, setChecking] = useState(true)
 
+  // What the signed-out screens need to know: whether this is a first run, the
+  // kept backup, and the operator's sign-on provider.
+  const loadStatus = () => globalThis.fetch(apiURL('/auth/status'))
+    .then((r) => r.json())
+    .then((s) => {
+      setNeedsOnboarding(s.needs_onboarding)
+      setOnboardBackup(s.backup || null)
+      setOIDC(s.oidc || null)
+    })
+
   useEffect(() => {
     globalThis.fetch(apiURL('/auth/me'))
       .then((r) => (r.ok ? r.json() : null))
-      .then((u) => {
-        if (u) return setUser(u)
-        return globalThis.fetch(apiURL('/auth/status'))
-          .then((r) => r.json())
-          .then((s) => {
-            setNeedsOnboarding(s.needs_onboarding)
-            setOnboardBackup(s.backup || null)
-            setOIDC(s.oidc || null)
-          })
-      })
+      .then((u) => (u ? setUser(u) : loadStatus()))
       .finally(() => setChecking(false))
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // AND AGAIN WHENEVER A SESSION ENDS. Signing out is `setUser(null)` in place,
+  // with no reload, and a page that opened signed in never asked for the status.
+  // So the sign-in form came back without the provider's button, and "Sign in
+  // with Authelia" appeared only after a refresh: the owner's report. Keyed on
+  // the user, so every way out is covered, not one handler each.
+  useEffect(() => {
+    if (!checking && !user) loadStatus()
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Per-user appearance preferences apply on login and reset on logout (§4).
   //

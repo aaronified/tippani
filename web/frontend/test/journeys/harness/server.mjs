@@ -63,7 +63,10 @@ function healthy(bin, bind) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-export async function startServer({ binary, goldenData, offline = true }) {
+// `env` is how the operator configured this instance, for a journey about
+// something only configuration turns on (a sign-on provider). It is added last,
+// so a journey can see it did what it set.
+export async function startServer({ binary, goldenData, offline = true, env = {} }) {
   const data = await mkdtemp(join(tmpdir(), 'tippani-journey-'))
   if (goldenData) await cp(goldenData, data, { recursive: true })
 
@@ -77,6 +80,7 @@ export async function startServer({ binary, goldenData, offline = true }) {
         TIPPANI_DATA: data,
         TIPPANI_BIND: bind,
         ...(offline ? { TIPPANI_OFFLINE: '1' } : {}),
+        ...env,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })

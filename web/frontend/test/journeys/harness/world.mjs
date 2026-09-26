@@ -70,13 +70,14 @@ function required(name) {
 // world restored from the golden library — which has one — can never reach that
 // screen. So this world skips the copy AND skips the sign-in: there is nobody to
 // sign in as yet, and making the account is the thing being tested.
-export function openApp({ viewport = DESKTOP, theme = 'light', empty = false } = {}) {
+export function openApp({ viewport = DESKTOP, theme = 'light', empty = false, env = {} } = {}) {
   const w = {}
 
   beforeAll(async () => {
     w.server = await startServer({
       binary: required('TIPPANI_JOURNEY_BINARY'),
       goldenData: empty ? null : required('TIPPANI_JOURNEY_GOLDEN'),
+      env,
     })
     const engine = findBrowser(null, process.env.TIPPANI_BROWSER || 'chrome')
     w.engine = engine
