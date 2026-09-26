@@ -6975,7 +6975,13 @@ that reading.
 queries ignore context. A wrapper around every database call that bounds its own wait, which would
 start a goroutine per statement, a design question this repo settles before code. A bigger pool,
 which moves the cliff. A line at every request's arrival, which doubles the log. A watchdog
-goroutine, which the repo's rule forbids.
+goroutine, which the repo's rule forbids. A guard that keeps /healthz green while API requests are
+still finishing, so a busy pool (a writer can hold a connection for busy_timeout, longer than the
+check's two seconds) never logs a red check: left out for now, because Docker needs three failures
+in a row and a single burst is documented as needing nothing. Moving the read of the name
+separators out of the nineteen transactions that take a second connection while holding one: it is
+the wait this door names but does not bound, and it is a change across nineteen handlers, so it is
+its own piece of work.
 
 **Reversal.** It partly reverses the entry above: a green probe still writes nothing, but a failed
 one writes an [error] line, and the first green after it says so. That entry's "stdout" was always

@@ -168,7 +168,7 @@ var Registry = map[Code]string{
 	CodeHTTPTLSReload:      "The TLS certificate/key pair changed on disk but failed to re-load; the previously loaded pair is still being served.",
 	CodeHTTPNoConnection:   "An API request waited its limit for a database connection and none came free, so it was answered 503 and changed nothing.",
 	CodeHTTPStillRunning:   "A request was still running after the server's 60s write deadline; it is named once, with its request id.",
-	CodeHealthNoConnection: "The health check could not get a database connection within its budget, so the container reports unhealthy.",
+	CodeHealthNoConnection: "The health check could not get a database connection within its budget; three failed checks in a row mark the container unhealthy.",
 	CodeHealthNoAnswer:     "The health check got a connection but the database did not answer its read (closed during a restore or reset, or failing).",
 
 	CodeUpdateEngine: "A Docker Engine API call failed during self-update (identify self, pull image, or launch the recreater).",
