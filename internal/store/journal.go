@@ -65,13 +65,18 @@ func StripJournal(snapPath string) error {
 // screens a reader has open all name a job by its id, and every one of them should
 // still find its row after the restore.
 //
-// AN OWNER IS KEPT ONLY WHERE THE RESTORED DATABASE HAS THAT ID AND THAT USERNAME.
-// The restored users table is a different generation of accounts: id 2 may be the
-// same person, somebody else (an id reused after a delete), or the same name moved
-// to another id. A job whose owner does not match on both goes to the admin (NULL),
-// and a job that was already the admin's stays the admin's even if an account of
-// its old name exists: whatever made it the admin's (the account deleted, an
-// earlier restore) knew something this does not.
+// AN OWNER IS KEPT ONLY WHERE THE RESTORED DATABASE HAS THAT ID UNDER ONE OF THE
+// OWNER'S NAMES. The restored users table is a different generation of accounts:
+// id 2 may be the same person, somebody else (an id reused after a delete), or the
+// same name moved to another id. The names are two because a reader can rename
+// themselves: the one the job was started under (jobs.username, a snapshot), and
+// the one the account carries now on the server being replaced. Matching the
+// snapshot alone took a renamed reader's whole history from them at every
+// restore, even of a backup holding them under the same id and their new name. A
+// job whose owner matches on neither goes to the admin (NULL), and a job that was
+// already the admin's stays the admin's even if an account of its old name
+// exists: whatever made it the admin's (the account deleted, an earlier restore)
+// knew something this does not.
 //
 // A job that was queued or running is interrupted: the restore stopped the world
 // under it, and nothing resumes on its own. The ids AUTOINCREMENT will hand out
@@ -126,7 +131,10 @@ func CarryJournal(db *sql.DB, from string) (err error) {
 			                       error, total, done, stop_requested, rerun_of, from_job,
 			                       created_at, started_at, finished_at)
 			SELECT o.id,
-			       CASE WHEN EXISTS (SELECT 1 FROM main.users u WHERE u.id = o.user_id AND u.username = o.username)
+			       CASE WHEN EXISTS (SELECT 1 FROM main.users u
+			                          WHERE u.id = o.user_id
+			                            AND u.username IN (o.username,
+			                                               (SELECT ou.username FROM old.users ou WHERE ou.id = o.user_id)))
 			            THEN o.user_id END,
 			       o.username, o.kind, o.queued, o.subject,
 			       CASE WHEN o.state IN ('queued', 'running') THEN 'interrupted' ELSE o.state END,
