@@ -32,10 +32,13 @@ changelog, `Design-decisions.md`, or a test. The file is deleted when the list i
   298px box, "type what belongs in the b". 3.0.4 made it fit at the default size, and the
   field already spans the row there. A shorter phone hint, or a hint line that wraps, is the
   fix, and either is a copy decision (the Bengali is the owner's).
-- [ ] **Nothing guards the Stats tiles against breaking a word again.** jsdom does no
-  layout, and `make typescale` counts clipping, which a wrapped word is not. The probe that
-  found it (de692fb0's body) needs a browser. As a journey it needs a new verb in
-  `screen.mjs`, which is the owner's vocabulary to extend.
+- [ ] **The console logs a CSP refusal of the app's own `<style id="tp-language-type">`** on
+  Home and other screens, which would mean the per-language type rules do not apply. Seen by
+  both 3.0.4 rater passes and dated by them to 48367b5c (fonts.js), so it is in 3.0.3 too.
+  Not yet checked first-hand.
+- [ ] **Home's favourite cards cut a person's name** ("Rabindranath Tago…", "Ranchoddas
+  \"Ranch…"), which the name rule forbids where the reader is there to read it. Seen by the
+  second 3.0.4 rater pass in the README's favourites image. It predates 3.0.4.
 
 ## Open, and not ours to close yet
 
