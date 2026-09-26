@@ -242,8 +242,11 @@ export function AddLookup({ initialKind = 'book', onAdded, onCreated, initialQue
     setBusy(false)
     if (r.ok) return setCandidates(r.data.candidates)
     // No key → lookup 503s; steer to manual (which always works) instead of a
-    // scary error.
-    if (!isBook && r.status === 503) return setManual(true)
+    // scary error. ONLY WHEN THE SUPPLIER REALLY HAS NO KEY: the /api door also
+    // answers 503 when the database is not answering (#40), and read as "no key"
+    // that hid the door's "changed nothing" message behind a manual form whose
+    // save the door then refused as well.
+    if (!isBook && r.status === 503 && kindHasNoKey) return setManual(true)
     setError(errText(r, t('error.lookup.failed')))
   }
 
