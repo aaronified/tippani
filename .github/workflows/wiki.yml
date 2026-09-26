@@ -67,11 +67,16 @@ jobs:
       #
       # Only *.md is touched. If anyone ever commits an image to the wiki by hand it
       # survives, because nothing here claims to own the whole directory.
+      #
+      # NOT A PLAIN cp, because the sources link the way the repository needs and the
+      # wiki reads them from somewhere else. There, `Page.md` is served as raw text and
+      # a `../` path into the repository is a 404. wiki-publish.mjs rewrites both, at
+      # the ref this run publishes, and says why at its head.
       - name: Copy the pages across
         run: |
           set -euo pipefail
           rm -f wiki/*.md
-          cp docs/wiki/*.md wiki/
+          node scripts/wiki-publish.mjs --out wiki --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
 
       - name: Commit and push, if anything actually changed
         working-directory: wiki
