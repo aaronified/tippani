@@ -204,10 +204,10 @@ a fixture-dependent probe is only trustworthy with its seed and its embed both v
 
 | Where | The assertion | Why it is hollow |
 | --- | --- | --- |
-| `test/pure/keys.test.js:226-289` | `/<Kbd keys=\{shortcutFor\(DRAWER_SHORTCUTS\[row\[0\]\]\)\}/` and similar | All pass if `Kbd` renders `null`; all fail if the map callback renames `row`. **Test instead:** the key cap a control actually shows — `dom/mobile-no-keys.test.jsx` already mounts the drawer |
+| `test/rules/keys.test.js:226-289` | `/<Kbd keys=\{shortcutFor\(DRAWER_SHORTCUTS\[row\[0\]\]\)\}/` and similar | All pass if `Kbd` renders `null`; all fail if the map callback renames `row`. **Test instead:** the key cap a control actually shows — `dom/mobile-no-keys.test.jsx` already mounts the drawer |
 | `test/pure/features-nav.test.js:302-321` | a 240-character proximity window between two strings; `onOpenBook={openBook}` verbatim | Breaks on renaming a local. A `&&` instead of a ternary is equally correct and fails. **Test instead:** which doors are on screen with a section hidden |
-| `test/pure/hero-rhythm.test.js:110-113` | `compact` must sit **alone on its own line** within 900 chars of `<ShelfControl` | `compact={true}` is identical to React and fails. Passes if the prop is ignored |
-| `test/pure/translated-not-sliced.test.js:39,45` | `toContain('MONTH_KEYS')` | Passes on a comment mentioning the name. The rest of the file is a real guard |
+| `test/rules/hero-rhythm.test.js:110-113` | `compact` must sit **alone on its own line** within 900 chars of `<ShelfControl` | `compact={true}` is identical to React and fails. Passes if the prop is ignored |
+| `test/rules/translated-not-sliced.test.js:39,45` | `toContain('MONTH_KEYS')` | Passes on a comment mentioning the name. The rest of the file is a real guard |
 | `dom/filter-chip.test.jsx:133`, `dom/selection-cards.test.jsx:180`, `dom/surface-readability.test.jsx:210`, `dom/accent-texture.test.jsx:419` | exact byte-level CSS formatting, one including a newline | The *value* is what matters. Three of these four files already own a cascade resolver — route the assertion through it and check the resolved value |
 
 **What replaced each one**, and every replacement is a render or a resolved value
@@ -234,7 +234,7 @@ Two things came out of doing it that reading had not shown:
   two readings coincide, so nothing showed it. Fixed with the target reduced the
   same way as the candidate.
 
-`test/pure/tokens.test.js:34-42` is borderline and listed for completeness: `css.includes(token.proof)`
+`test/rules/tokens.test.js:34-42` is borderline and listed for completeness: `css.includes(token.proof)`
 is literally "assert a line exists", but its job is keeping the generated glossary honest
 and `:48-55` closes the loop. Worth knowing what it does *not* guard: `min-height: 44px`
 in the stylesheet says nothing about whether a tappable element wears the class. That is
@@ -243,7 +243,7 @@ on each captured screen — and belongs beside `make typescale`.
 
 ### 2.3 The coverage hole — CLOSED
 
-`test/pure/scroll-containment.test.js` swept `index.css` only. **Nine `overflow-y-auto`
+`test/rules/scroll-containment.test.js` swept `index.css` only. **Nine `overflow-y-auto`
 Tailwind classes across seven files** — `ui.jsx` (2), `AddSurface.jsx` (2), `share.jsx`,
 `people.jsx`, `Settings.jsx`, `SearchPage.jsx`, `ReverifyReview.jsx` — were scroll
 containers the sweep could not see, so none was checked for `overscroll-behavior`. The
