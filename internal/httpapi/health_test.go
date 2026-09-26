@@ -11,7 +11,11 @@ package httpapi
 // reader can do puts a live server into this state on purpose; the pool's
 // WaitCount, only as a setup barrier ("the request is now queued"); and the log,
 // through olog.CaptureForTest, because the log is what an operator reads in
-// `docker logs`. Every duration is the real one: no knob exists to shorten them.
+// `docker logs`. Also srv.Store.Close(), to put the server into the closed state
+// a failed reopen leaves; a raw srv.Store.DB.Begin(), to hold SQLite's write
+// lock; and the stuckAfter constant, so the minute-long test times itself
+// against the real deadline. Nothing a reader can do reaches any of these states.
+// Every duration is the real one: no knob exists to shorten them.
 
 import (
 	"context"
