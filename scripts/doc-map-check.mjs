@@ -146,23 +146,39 @@ const missing = required.filter((p) => !named(p))
 // so a job it never names is the MISSING failure one level down. It reads the job
 // keys by their indentation under `jobs:` and the table's rows by their first cell,
 // in both directions: a job with no row, and a row for a job ci.yml no longer has.
-// It refuses to pass having found no jobs or no table, a key line under `jobs:` it
-// could not read as a job id, or a table row whose first cell is not one backticked
-// job id — a partial miss is the same silence as a total one. The `jobs:` block ends
-// at the next line that starts in column 0 and is not a comment.
+// The `jobs:` block ends at the next line that starts in column 0 and is not a comment.
+//
+// WHICH SIDE IS WRONG DECIDES THE EXIT. Exit 2, the extractor, is for what this
+// script failed to read: no jobs, a key line under `jobs:` that is not a job id, or
+// no table under the heading at all. A table it can read that says something wrong
+// is the document's fault, and is reported by line with the other document faults.
+// That covers a row whose first cell is not one backticked job id, and a table with
+// no delimiter row. It reads the section's FIRST table only, so a second table
+// under the heading is prose, and the delimiter row is GFM's: one dash or more per
+// cell, with optional colons.
 const jobsText = (readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8').split(/^jobs:\s*$/m)[1] ?? '')
   .split(/^[^\s#]/m)[0]
 const ciJobs = [...jobsText.matchAll(/^ {2}([A-Za-z_][A-Za-z0-9_-]*):[ \t]*(?:#.*)?$/gm)].map((m) => m[1])
-const keyLines = [...jobsText.matchAll(/^ {2}[^ #\r\n]/gm)].length
-const ciSection = text.split(/^## Maintainer: CI\s*$/m)[1]?.split(/^## /m)[0] ?? ''
-// Every table line but the header row and the |---| rule.
-const tableLines = ciSection.split('\n').filter((l) => l.startsWith('|') && !/^\|\s*:?-{3}/.test(l)).slice(1)
-const rows = tableLines.map((l) => /^\|\s*`([^`]+)`\s*\|/.exec(l)?.[1]).filter(Boolean)
-if (!ciJobs.length || keyLines !== ciJobs.length || !rows.length || rows.length !== tableLines.length) {
-  console.error(`${DOC}: read ${ciJobs.length} job ids from ${keyLines} key lines under jobs: in ci.yml, ` +
-    `and ${rows.length} job ids from ${tableLines.length} rows in the "Maintainer: CI" table — the extractor is broken`)
+const oddKeys = [...jobsText.matchAll(/^ {2}[^ #\r\n].*$/gm)].map((m) => m[0])
+  .filter((l) => !/^ {2}[A-Za-z_][A-Za-z0-9_-]*:[ \t]*(?:#.*)?$/.test(l))
+const docLines = text.split('\n')
+const ciHead = docLines.findIndex((l) => /^## Maintainer: CI\s*$/.test(l))
+const table = []
+for (let i = ciHead + 1; ciHead >= 0 && i < docLines.length && !docLines[i].startsWith('## '); i++) {
+  if (docLines[i].startsWith('|')) table.push({ n: i + 1, l: docLines[i] })
+  else if (table.length) break
+}
+if (!ciJobs.length || oddKeys.length || !table.length) {
+  console.error(`${DOC}: read ${ciJobs.length} job ids under jobs: in ci.yml, and ${table.length} table lines under ` +
+    `"## Maintainer: CI" in ${DOC} — the extractor is broken`)
+  for (const l of oddKeys) console.error(`  ci.yml: a key under jobs: that is not a job id: ${l.trim()}`)
   process.exit(2)
 }
+const [, delimiter, ...body] = table
+const undelimited = !delimiter || !/^\|(\s*:?-+:?\s*\|)+\s*$/.test(delimiter.l) ? [table[0].n] : []
+const cells = (undelimited.length ? table.slice(1) : body).map(({ n, l }) => ({ n, l, id: /^\|\s*`([^`]+)`\s*\|/.exec(l)?.[1] }))
+const rows = cells.map((c) => c.id).filter(Boolean)
+const unread = cells.filter((c) => !c.id)
 const unlisted = ciJobs.filter((j) => !rows.includes(j))
 const gone = rows.filter((r) => !ciJobs.includes(r))
 
@@ -170,13 +186,16 @@ for (const p of stale) console.error(`${DOC}: names \`${p}\`, which matches noth
 for (const p of missing) console.error(`${DOC}: never mentions ${p}`)
 for (const j of unlisted) console.error(`${DOC}: the CI table has no row for ci.yml's job \`${j}\``)
 for (const r of gone) console.error(`${DOC}: the CI table has a row for \`${r}\`, which ci.yml has no job called`)
+for (const n of undelimited) console.error(`${DOC}:${n}: the CI table has no delimiter row under its header, so it does not render as a table`)
+for (const c of unread) console.error(`${DOC}:${c.n}: a CI table row whose first cell is not one backticked job id: ${c.l.slice(0, 80)}`)
 
-if (!stale.length && !missing.length && !unlisted.length && !gone.length) {
+const tableWrong = unlisted.length + gone.length + undelimited.length + unread.length
+if (!stale.length && !missing.length && !tableWrong) {
   console.log(
     `${DOC} up to date — ${claims.length} paths named and all resolve, ` +
       `${required.length} packages/scripts/workflows all covered, ${ciJobs.length} CI jobs in the CI table`,
   )
   process.exit(0)
 }
-console.error(`${DOC}: ${stale.length} stale, ${missing.length} uncovered, ${unlisted.length + gone.length} CI table rows wrong`)
+console.error(`${DOC}: ${stale.length} stale, ${missing.length} uncovered, ${tableWrong} CI table problems`)
 process.exit(WARN ? 0 : 1)
