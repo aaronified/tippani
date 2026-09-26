@@ -228,7 +228,9 @@ jobs:
     runs-on: ubuntu-latest
     # NAMED ONCE, for the step that checks it and the harness that launches it.
     # The check step asks findBrowser itself which binary it would launch, so the
-    # two cannot disagree however findBrowser orders its overrides.
+    # two cannot disagree however findBrowser orders its overrides. It sees this
+    # job's env only: an override set on the journeys step alone (TIPPANI_BROWSER,
+    # PUPPETEER_EXECUTABLE_PATH, CHROME_PATH) escapes the check, so one goes here.
     env:
       CHROME_PATH: /usr/bin/google-chrome
       TIPPANI_BROWSER: chrome
@@ -256,9 +258,12 @@ jobs:
       # binary, so the profile can attach and Chrome's preferred namespace sandbox
       # can start. The .deb's setuid chrome-sandbox beside it is Chrome's fallback.
       # A build at another path has neither unless something else grants it, so
-      # the step below does not assume: it starts Chrome once with the setuid
-      # fallback switched off, and once more with it allowed if that fails, and
-      # says which of the two the sandbox rests on, or fails if neither does.
+      # the step below does not assume. It starts Chrome once with the setuid
+      # fallback switched off and, if that fails for want of a sandbox, once more
+      # with it allowed. It says which sandbox Chrome rests on, and fails the job
+      # if the fallback does not start Chrome, whether refused or only hung. A
+      # first start that fails for any other reason prints Chrome's words and its
+      # status as a warning, and leaves the verdict to the journeys.
       #
       # This job used to install Playwright's Chromium and leave the harness to find
       # it, and the harness never did: Playwright installs into ~/.cache/ms-playwright,
@@ -306,12 +311,15 @@ jobs:
               echo "::warning::the namespace sandbox does not start here; Chrome started on its setuid chrome-sandbox"
             else
               [ -z "$err2" ] || printf '%s\n' "$err2" | tail -n 20
-              # Either way the journeys cannot rely on a sandbox, so the job stops;
-              # what differs is whether the helper was seen to fail or only to hang.
+              # Either way the journeys cannot rely on a sandbox, so the job stops.
+              # Chrome names its sandbox failures, and those say which; a hang or
+              # any other exit is reported with its status, since it says neither.
               if [ "$rc2" = 124 ]; then
                 echo "::error::the namespace sandbox does not start, and Chrome on the setuid helper did not finish within 60s, so whether that sandbox works is unknown"
               elif grep -q 'No usable sandbox' <<<"$err2"; then
-                echo "::error::neither sandbox starts: no user namespace, and the setuid helper did not start Chrome either"
+                echo "::error::neither sandbox starts: no user namespace, and no chrome-sandbox helper for Chrome to fall back to"
+              elif grep -q 'SUID sandbox helper binary' <<<"$err2"; then
+                echo "::error::neither sandbox starts: no user namespace, and the chrome-sandbox helper is missing or not owned by root with mode 4755"
               else
                 echo "::error::the namespace sandbox does not start, and Chrome on the setuid helper exited $rc2 for a reason it did not name as the sandbox"
               fi
