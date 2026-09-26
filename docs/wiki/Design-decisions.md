@@ -9216,9 +9216,13 @@ package."*
   decision for you", and then took the decision under the owner's "work on the fixes for
   v3.0.1". The owner may reverse it.
 - **Not yet measured on a runner under `-race`.** Without `-race` (the container that built
-  it has no C compiler), 1,360 tests split 227/227/227/227/226/226 and every shard passed.
-  `workflow_dispatch` runs the sweep by hand, so the first measurement need not wait for
-  03:00.
+  it has no C compiler), 1,360 tests split 227/227/227/227/226/226 and every shard passed on
+  its final run. On the first pass shard 6 reported two failures. That log was not kept
+  (5ae0f6c8), so the two are unnamed. Shard 6 was then run again, unraced, at 1,371 tests
+  (its share is 228), with `-count=3` and the log kept: 684 of 684 passed, in 414 seconds.
+  So a first-night failure in shard 6 is more likely a race than that flake, though three
+  clean runs do not rule the flake out. `workflow_dispatch` runs the sweep by hand, so the
+  first measurement need not wait for 03:00.
 
 <sub>3.0.1 — `.github/workflows/ci.yml` · `docs/wiki/Developing.md`</sub>
 
