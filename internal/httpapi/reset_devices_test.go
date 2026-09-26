@@ -34,3 +34,20 @@ func TestAPhoneCanBePairedAfterAFactoryReset(t *testing.T) {
 	phone := &testClient{t: t, h: h, bearer: decode[claimResp](t, rec).Token}
 	phone.mustDo("GET", "/books", nil, http.StatusOK)
 }
+
+// A PAIRING CODE MINTED BEFORE A FACTORY RESET DOES NOT OUTLIVE IT. A code is a
+// credential for the account that minted it, held by user id, and the admin who
+// onboards the emptied server gets that id again: a code that survived would pair
+// a phone to them.
+func TestAPairingCodeFromBeforeAFactoryResetIsRefused(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	stale := startPairing(t, admin).Code
+	safetyBackup(t, admin)
+	admin.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusOK)
+	signupAdmin(t, h)
+	if rec := claim(t, h, stale, "someone else's phone"); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("a pairing code minted before the reset was claimed after it: got %d %s, want 401", rec.Code, rec.Body)
+	}
+}

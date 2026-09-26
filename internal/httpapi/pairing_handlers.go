@@ -45,6 +45,17 @@ const (
 // screen can't be mistyped as a different valid code.
 const pairingAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
+// forgetPairingCodes drops every outstanding pairing code. A code is a credential
+// for the account that minted it, held by user id, and a factory reset or a
+// restore replaces the accounts: the new database can give that id to someone
+// else (the admin who onboards an emptied server is id 1 again), so a code minted
+// before the swap would pair a phone to them.
+func (s *Server) forgetPairingCodes() {
+	s.pairingMu.Lock()
+	s.pairingCodes = nil
+	s.pairingMu.Unlock()
+}
+
 type pairingCode struct {
 	userID  int64
 	expires time.Time

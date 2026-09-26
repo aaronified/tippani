@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   quiet log now means requests are not arriving rather than possibly hanging.
 - **A phone can be paired again after a factory reset.** The reset left device pairing on the
   old, closed database, so pairing a phone and every phone's request failed until Tippani was
-  restarted. The same was true after a search repair that had to rebuild the database.
+  restarted. The same was true after a search repair that had to rebuild the database. A
+  pairing code made before a reset or a restore no longer works after it.
 
 ## [3.0.0] - 2026-09-25
 
