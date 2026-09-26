@@ -16,6 +16,19 @@ changelog, `Design-decisions.md`, or a test. The file is deleted when the list i
   and measured in Chrome's default light scheme. Re-measure in dark, now that the probe
   applies its theme and installs its no-motion stylesheet.
 
+## Found while shooting 3.0.4's README
+
+- [ ] **A Kindle clipping's date is kept as Kindle wrote it**, e.g. "Added on Saturday,
+  26 September 2026 09:12:03", by design (the parser reads the format by structure, not by
+  language, and `kindle_clippings_test.go` pins the raw string). Every screen that prints a
+  noted date assumes ISO. The pending-import row prints its first ten characters, "ADDED ON
+  S". Home and Quotes print no date at all, because `fmtDate` cannot parse it. Decide
+  whether the importer parses the common locales into ISO; at least, the pending row
+  should format the way the other screens do.
+- [ ] **At 175% type, mono labels on Stats break mid-word** outside the tiles 3.0.4 fixed:
+  the section heads (MEMORY, TIMELINE, BREAKDOWN on a phone) and chart figures (10–17, 673).
+  Found with a script that reports any word whose line boxes have more than one top.
+
 ## Open, and not ours to close yet
 
 - [ ] **GO-2026-5932**, `golang.org/x/crypto/openpgp` ("unmaintained, unsafe by design"),
