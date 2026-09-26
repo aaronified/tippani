@@ -49,7 +49,7 @@ it('a reader opens the metadata console and reads what a work is missing', async
   // shows.
   await app.press('Works')
 
-  // A PUBLIC-DOMAIN TITLE KEPT VERBATIM IN THE FIXTURE. Every invented title in
+  // A REAL TITLE KEPT VERBATIM IN THE FIXTURE. Every invented title in
   // the golden library can change when the curator is re-run; the handful of real
   // ones cannot, so a journey pinned to one does not go red on a fixture rebuild
   // that changed nothing about the app.

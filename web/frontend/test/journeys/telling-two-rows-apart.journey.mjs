@@ -34,7 +34,7 @@ it('a reader opens the look-up on the row they meant, not on whichever one came 
   await app.goto('/metadata')
   await app.press('Works')
 
-  // A PUBLIC-DOMAIN TITLE KEPT VERBATIM IN THE FIXTURE, the same one the console's
+  // A REAL TITLE KEPT VERBATIM IN THE FIXTURE, the same one the console's
   // other journey pins to: an invented title can change when the curator is re-run.
   await app.see("Grimm's Fairy Stories")
 

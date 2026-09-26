@@ -18,7 +18,7 @@
 // wrong parser produces zero rows and a Go parser test that still passes.
 //
 // THE FILES ARE COMMITTED AND THEIR TEXT IS REAL. Each carries one line taken
-// verbatim from this fixture's own copy of a public-domain book — Grimm,
+// verbatim from this fixture's own copy of one of its four real books — Grimm,
 // Dostoyevsky, Bhagat Singh — so a case that finds its line on the queue found
 // something the parser actually read out of the bytes, not a title it guessed from
 // the filename. Their SHAPES follow the importer's own testdata and the format

@@ -32,7 +32,7 @@
 //
 // IT NAMES "Grimm's Fairy Stories" BECAUSE IT SURVIVES A FIXTURE REBUILD, the
 // same reason every other journey in this directory pins to one of the four
-// public-domain titles rather than an invented one. It carries exactly one
+// real titles rather than an invented one. It carries exactly one
 // quote, and that is what lets a single, unambiguous "More actions" reach it:
 // every quote card in this app wears an identically named "More actions"
 // button, so on a book with more than one the harness's own ambiguity rule (a
@@ -55,7 +55,7 @@ it('a reader edits a quote and the old wording is gone after a reload', async ()
   await app.goto('/library')
   await app.press("Grimm's Fairy Stories")
   // THE AUTHOR IS AS STABLE AS THE TITLE, and the list of stable names needed
-  // saying properly rather than extending by exception. The four public-domain
+  // saying properly rather than extending by exception. The four real
   // books are kept verbatim by the curator — title AND author — so naming
   // either is safe; it is the 23 DERIVED works whose invented titles and
   // invented people regenerate. The fixture stores this one as "Jacob Grimm and

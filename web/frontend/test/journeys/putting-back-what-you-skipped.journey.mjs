@@ -28,7 +28,7 @@
 // restore and the reload at the end fails, because the line is still skipped.
 //
 // "Grimm's Fairy Stories" FOR THE REASON EVERY JOURNEY HERE NAMES IT: it is one
-// of the four public-domain titles the curator keeps verbatim through a fixture
+// of the four real titles the curator keeps verbatim through a fixture
 // rebuild, and it carries exactly one quote — so a single "More actions" is
 // unambiguous, which the harness requires rather than guessing between cards.
 //

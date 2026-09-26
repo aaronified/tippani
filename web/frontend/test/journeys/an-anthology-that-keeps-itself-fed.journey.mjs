@@ -37,7 +37,7 @@ const app = openApp()
 
 // A word the fixture's generator cannot produce — its invented prose runs on
 // alder, bramble, cobble, ember and the like — so a match is never a coincidence.
-// One of the four public-domain books the fixture keeps verbatim, so naming it
+// One of the four real books the fixture keeps verbatim, so naming it
 // survives a regeneration of the derived ones. It carries five highlights.
 const BOOK = 'On the Shortness of Life'
 const LATER = 'A line written after the anthology already existed.'

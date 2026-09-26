@@ -31,7 +31,7 @@ it('a reader selects two highlights and gathers them into an anthology they name
   await app.goto('/library')
   // Seneca rather than Grimm: the fixture gives that one a single highlight, and a
   // selection of one cannot show that the bar gathers a SET. One of the curated
-  // public-domain books, so the title survives a regeneration of the derived ones.
+  // real books, so the title survives a regeneration of the derived ones.
   await app.press('On the Shortness of Life')
 
   const ticked = await app.pressAll('Select this quote')

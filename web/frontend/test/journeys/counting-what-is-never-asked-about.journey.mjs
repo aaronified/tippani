@@ -34,7 +34,7 @@ const app = openApp()
 
 it('a reader skips a book\'s highlights and reads how many of it that was', async () => {
   await app.goto('/library')
-  // Seneca, for the reason the selection journey gives: a curated public-domain
+  // Seneca, for the reason the selection journey gives: a curated real
   // title survives a regeneration of the derived fixture, and this one has several
   // highlights — a work with one cannot show a fraction at all.
   await app.press('On the Shortness of Life')

@@ -16,7 +16,7 @@
 //
 // IT NAMES "The Idiot" BECAUSE THAT TITLE SURVIVES A FIXTURE REBUILD. Every other
 // work in the library is invented by the curator and regenerates; the four
-// public-domain books are kept verbatim. A journey pinned to a generated title
+// real books are kept verbatim. A journey pinned to a generated title
 // goes red on a rebuild that changed nothing about the app.
 
 import { expect, it } from 'vitest'

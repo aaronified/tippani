@@ -15480,7 +15480,7 @@ could have passed over a screen that threw on mount. `per-user-isolation` read
 `process.env.TIPPANI_JOURNEY_PASS` at the call site — the variable's name is the
 harness's business, and a journey that spells it knows one thing too many about how
 its world was built, so the account moved onto the world handle. And the list of
-"stable names a journey may pin" was stated too narrowly: the four public-domain
+"stable names a journey may pin" was stated too narrowly: the four real
 books are kept verbatim by the curator, TITLE AND AUTHOR, so `Jacob Grimm` is
 exactly as safe as `Grimm's Fairy Stories`; it is the 23 derived works whose
 invented titles and invented people regenerate.
@@ -15536,7 +15536,7 @@ questions.
 
 ### What the round trip proved, in both directions
 
-The owner asked for import files built from the kept public-domain books, and for
+The owner asked for import files built from the four kept books, and for
 the export routes to be checked with them. Both halves are in, and the format was
 established from the app rather than guessed: press Export on the Library, read the
 bytes back through `app.downloaded`, and build the fixture to match what came out.
@@ -15546,14 +15546,14 @@ bytes back through `app.downloaded`, and build the fixture to match what came ou
   a two-quote fixture in the same shape     ->  2 quotes staged, "joins your
                                                 existing On the Shortness of Life"
 
-`fixture/imports/seneca-two-more.md` is public-domain Seneca, deliberately two lines
+`fixture/imports/seneca-two-more.md` is two lines of Seneca, of unrecorded source, deliberately two lines
 this fixture's copy of that book does NOT already hold — so "the quote arrived" is a
 fact about the import rather than about what was already there.
 
 **AND "ROUTES" IS PLURAL, WHICH THE FIRST PASS OF THIS WORK QUIETLY MADE SINGULAR.**
 A rater caught it: one file, one format, against an app that reads eight. Three more
 fixtures now sit beside it, each carrying one line taken verbatim from this fixture's
-own copy of a public-domain book, and each shaped from the importer's own testdata
+own copy of one of the four real books, and each shaped from the importer's own testdata
 rather than from memory — a Kindle's `My Clippings.txt` (Grimm, with the CRLF line
 endings a real device writes), a Bookcision export (Dostoyevsky), and a Readest
 annotation export (Bhagat Singh). All three are read correctly: the app names the
