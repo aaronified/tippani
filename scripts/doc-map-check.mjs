@@ -29,14 +29,18 @@
 //   node scripts/doc-map-check.mjs            check; non-zero on any problem
 //   node scripts/doc-map-check.mjs --warn     report and exit 0 (local use); a broken
 //                                             extractor still exits 2
+//   node scripts/doc-map-check.mjs --root DIR check another tree (its test's fixtures)
 //
 // No dependencies, and none wanted: it runs on a bare `node` in a workflow container.
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+// `--root DIR` points the check at another tree, which is how its own test runs it
+// over a fixture; left out, it checks the repository this script is in.
+const rootAt = process.argv.indexOf('--root')
+const ROOT = rootAt > 0 ? resolve(process.argv[rootAt + 1]) : join(dirname(fileURLToPath(import.meta.url)), '..')
 const DOC = 'docs/wiki/Developing.md'
 const WARN = process.argv.includes('--warn')
 
@@ -175,7 +179,9 @@ if (!ciJobs.length || oddKeys.length || !table.length) {
   process.exit(2)
 }
 const [, delimiter, ...body] = table
-const undelimited = !delimiter || !/^\|(\s*:?-+:?\s*\|)+\s*$/.test(delimiter.l) ? [table[0].n] : []
+// GFM's delimiter row: one or more dashes per cell, optional colons, and the last
+// cell's closing pipe optional, as GitHub renders it either way.
+const undelimited = !delimiter || !/^\|(\s*:?-+:?\s*\|)*\s*:?-+:?\s*\|?\s*$/.test(delimiter.l) ? [table[0].n] : []
 const cells = (undelimited.length ? table.slice(1) : body).map(({ n, l }) => ({ n, l, id: /^\|\s*`([^`]+)`\s*\|/.exec(l)?.[1] }))
 const rows = cells.map((c) => c.id).filter(Boolean)
 const unread = cells.filter((c) => !c.id)
