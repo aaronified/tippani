@@ -15,14 +15,22 @@
 // number and this script does not pretend it is — what it is good for is the
 // RATIO, which is a property of the work being asked of the compositor rather
 // than of the machine doing it.
-import { emulateEngineMedia, ensureSession, findBrowser, launchBrowser } from './capture.mjs'
+import { ensureSession, findBrowser, launchBrowser } from './capture.mjs'
 
 const BASE = process.argv[2] || 'http://127.0.0.1:8129'
 const engine = findBrowser(null, process.env.TIPPANI_BROWSER || 'chrome')
 const browser = await launchBrowser(engine, { theme: 'dark', headless: true, viewport: { width: 390, height: 844 } })
 const page = await browser.newPage()
-// Dark on Chrome too: launchBrowser's theme reaches Firefox's profile only.
-await emulateEngineMedia(page, engine, 'dark')
+// Dark on Chrome too, since launchBrowser's theme reaches Firefox's profile only.
+// NOT emulateEngineMedia: it also asks for reduced motion, and lensAllowed
+// (web/frontend/src/glassLens.js) switches the lens off under it, so both halves
+// of this measurement would be the lens off.
+if (engine.browser === 'chrome') {
+  await page.emulateMediaFeatures([
+    { name: 'prefers-color-scheme', value: 'dark' },
+    { name: 'prefers-reduced-motion', value: 'no-preference' },
+  ])
+}
 await page.setViewport({ width: 390, height: 844 })
 // The scaffold's own sign-in, with the same shape it takes everywhere else: the
 // onboarding path runs because this is a fresh data dir.
@@ -67,6 +75,14 @@ await setGlass(false)
 const off = await scrollFrames()
 await setGlass(true)
 const lensed = await page.evaluate(() => document.querySelectorAll('svg[data-tp-lens] filter').length)
+// A lens that never applied has no cost, and printing one would read as "free".
+// lensAllowed refuses it under reduced motion, which launchBrowser's Firefox
+// profile always sets.
+if (!lensed) {
+  console.error('glass-cost: the lens was never applied (0 filters built), so there is no cost to measure')
+  await browser.close()
+  process.exit(1)
+}
 const on = await scrollFrames()
 
 console.log(`panes marked          ${panes}`)
