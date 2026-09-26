@@ -8,8 +8,9 @@
 //
 // The model: p = 2^(-elapsed / half-life). Remembered at p >= 0.9, forgetting
 // down to 0.5, probably-forgotten below. Half-life is floored at 7 days
-// (reviewMinStability), a card in its first week reads remembered
-// (reviewNewItemDays), and a lapse beats all of it.
+// (reviewMinStability), a quote never asked reads unseen whatever its age, one
+// answered inside its first week (reviewNewItemDays) reads remembered, and a
+// lapse beats all of it.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fmtHalfLife, reviewStatus } from '../../src/ui.jsx'
@@ -58,8 +59,14 @@ describe('the new-item grace week', () => {
 
   // created_at is nullable in principle; utcDays returns Infinity for a missing
   // timestamp, which must NOT read as "added this week".
-  it('does not grant grace to an item with no created_at', () => {
-    expect(reviewStatus({ reviewed: false }).key).toBe('unseen')
+  it('does not grant grace to an answered item with no created_at', () => {
+    expect(reviewStatus({ reviewed: true, stability: 7, last_result: 'got', last_reviewed_at: daysAgo(365) }).key).toBe('probably-forgotten')
+  })
+
+  it('grace ends at exactly seven days, for a quote already answered', () => {
+    const answered = { reviewed: true, stability: 7, last_result: 'got', last_reviewed_at: daysAgo(365) }
+    expect(reviewStatus({ ...answered, created_at: daysAgo(6.9) }).key).toBe('remembered')
+    expect(reviewStatus({ ...answered, created_at: daysAgo(7) }).key).toBe('probably-forgotten')
   })
 })
 

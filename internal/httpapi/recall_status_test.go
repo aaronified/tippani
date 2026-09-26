@@ -13,8 +13,9 @@ package httpapi
 //
 // The model: p = 2^(-elapsedDays/stability). Remembered at p >= 0.9, forgetting
 // down to 0.5, probably-forgotten below. stability is floored at
-// reviewMinStability, an item younger than reviewNewItemDays reads remembered,
-// and a lapse beats all of it.
+// reviewMinStability, a quote never asked reads unseen whatever its age, one
+// answered inside its first week (reviewNewItemDays) reads remembered, and a
+// lapse beats all of it.
 //
 // The mirror of this function is reviewStatus() in web/frontend/src/ui.jsx,
 // tested in web/frontend/test/pure/review-status.test.js. The two are separate
@@ -73,17 +74,20 @@ func TestRecallStatus(t *testing.T) {
 		{"a fresh item never asked reads unseen", false, reviewMinStability, 0, 2, "", "unseen"},
 		{"and still on the last day of its week", false, reviewMinStability, 0, 6.999, "", "unseen"},
 		// The comparison is `ageDays < reviewNewItemDays`, so seven days exactly is
-		// OUT. This is the edge the JS test pins from its own side
-		// ("falls out of grace at exactly seven days"); both must agree or a card
+		// OUT. Grace only reaches an ANSWERED item now, so the edge is pinned on
+		// one: answered a year ago, so out of grace it reads probably-forgotten.
+		// The JS test pins the same edge from its side ("grace ends at exactly
+		// seven days, for a quote already answered"); both must agree or a card
 		// changes colour the moment the page re-renders from a different source.
-		{"grace ends at exactly seven days", false, reviewMinStability, 0, reviewNewItemDays, "", "unseen"},
+		{"grace ends at exactly seven days", true, reviewMinStability, 365, reviewNewItemDays, "got", "probably-forgotten"},
+		{"and holds just inside it", true, reviewMinStability, 365, 6.999, "got", "remembered"},
 		// Grace is checked before the curve, so a fresh item that was somehow
 		// reviewed a year ago still reads remembered. Contrived, but it is what
 		// pins the branch ORDER rather than just the branch.
 		{"grace outranks a stale curve", true, reviewMinStability, 365, 3, "got", "remembered"},
 		// A missing created_at arrives as the COALESCE default 1e9 from both the
 		// deck queries and itemAgeDays — very old, so no accidental grace.
-		{"a missing created_at gets no grace", false, reviewMinStability, 0, 1e9, "", "unseen"},
+		{"a missing created_at gets no grace", true, reviewMinStability, 365, 1e9, "got", "probably-forgotten"},
 
 		// ---- unseen ----
 		{"never reviewed and out of grace", false, reviewMinStability, 0, oldItemDays, "", "unseen"},
