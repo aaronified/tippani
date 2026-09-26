@@ -3,7 +3,7 @@
 //
 // WHAT IT FOUND, and it is the owner's report confirmed: "they now look identical
 // in all material sets". Over the Review card at 1280 — recorded as "dark", but
-// the probe never applied its theme on Chrome until a later commit, so these are
+// the probe never applied its theme on Chrome until 9b2d67b2, so these are
 // Chrome's default light scheme (grey levels of 221-231 out of 255 are a light
 // card), and without reduced motion:
 //

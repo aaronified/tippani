@@ -337,11 +337,13 @@ export function launchOptions({ browser, executablePath }, { theme = 'light', he
 // A no-op on Firefox, where the profile already carries them.
 //
 // IT TAKES THE ENGINE'S NAME OR findBrowser'S RESULT, AND REFUSES ANYTHING ELSE.
-// It used to return quietly on any value but the string 'chrome', and four
-// probes passed something else: three the whole findBrowser result, one a raw
-// TIPPANI_BROWSER that might say 'chromium' or 'Chrome'. Each captured in the
-// browser's default colour scheme with nothing to say so, which is the quiet
-// wrong answer launchOptions' comment above warns about.
+// It used to return quietly on any value but the string 'chrome'. shots,
+// surfaces and glyph-align passed the whole findBrowser result, so on Chrome they
+// ran without the colour scheme or the reduced motion they asked for (shots.mjs
+// from 5 September, surfaces from the 19th, glyph-align from the 21st), with
+// nothing to say so: the quiet wrong answer launchOptions' comment above warns
+// about. overlay-scroll passed a raw TIPPANI_BROWSER; it asks for light and takes
+// no screenshot, so under 'chromium' or 'Chrome' it lost only reduced motion.
 export async function emulateEngineMedia(page, browser, theme = 'light') {
   const name = browser && typeof browser === 'object' ? browser.browser : browser
   if (name !== 'chrome' && name !== 'firefox') {
@@ -366,8 +368,8 @@ export async function emulateEngineMedia(page, browser, theme = 'light') {
 // not the repo's, and every other export in this file works without it. That is
 // load-bearing wherever this file is imported without the install: controls.mjs,
 // which controls-ratchet.test.js runs in CI's frontend job to watch it refuse a
-// missing or unknown --fixture, and test/pure/one-tree-per-look.test.js, which
-// `npm test` runs in the same job (`git grep -lF "capture.mjs'" -- web/frontend`
+// missing or unknown --fixture, and test/pure/one-tree-per-look.test.js and
+// test/pure/engine-media.test.js, which `npm test` runs in the same job (`git grep -lF "capture.mjs'" -- web/frontend`
 // lists the importers outside this directory). The journeys need the install
 // because they launch: CI's journeys job runs `npm ci` here first, and a local
 // `npm run journeys` needs the same.

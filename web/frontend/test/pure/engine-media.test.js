@@ -1,8 +1,11 @@
 // THE THEME A PROBE ASKS FOR IS THE THEME IT GETS, OR IT IS TOLD.
 //
-// emulateEngineMedia used to return quietly on any value but the string 'chrome',
-// and four probes passed something else. Each captured in the browser's default
-// colour scheme for weeks with nothing to say so. It now takes an engine's name
+// emulateEngineMedia used to return quietly on any value but the string 'chrome'.
+// shots, surfaces and glyph-align passed the whole findBrowser result, so on Chrome
+// they ran without the colour scheme or reduced motion they asked for (shots.mjs
+// from 5 September, surfaces from the 19th, glyph-align from the 21st). overlay-scroll
+// passed a raw TIPPANI_BROWSER; it asks for light and takes no screenshot, so under
+// 'chromium' or 'Chrome' it lost only reduced motion. It now takes an engine's name
 // or findBrowser's result, and throws on anything else.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW, declared because a test here may not know a
@@ -29,6 +32,14 @@ describe('emulateEngineMedia', () => {
         { name: 'prefers-color-scheme', value: 'dark' },
         { name: 'prefers-reduced-motion', value: 'reduce' },
       ]])
+    }
+  })
+
+  it('asks for light when the probe names no theme, or names light', async () => {
+    for (const theme of [undefined, 'light']) {
+      const page = stand()
+      await emulateEngineMedia(page, 'chrome', theme)
+      expect(page.calls[0][0], `theme ${theme}`).toEqual({ name: 'prefers-color-scheme', value: 'light' })
     }
   })
 
