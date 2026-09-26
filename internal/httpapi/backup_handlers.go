@@ -968,43 +968,46 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 		writeErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	if err := s.Store.CloseForSwap(); err != nil {
-		olog.Alertf("[backup] closing live db before swap returned: %v (continuing)", err)
-	}
-	swapErr := func() error {
-		if err := s.moveTopLevel(s.DataDir, preDir); err != nil {
-			return fmt.Errorf("move current data aside: %w", err)
-		}
-		if err := moveEntries(stage, s.DataDir); err != nil {
-			return fmt.Errorf("move restored data in: %w", err)
-		}
-		// The archive's snapshot is canonically named tippani.db; the live file
-		// can differ (tests). Land it under the name the store reopens.
-		if base := filepath.Base(s.Store.Path()); base != "tippani.db" {
-			if err := renameWithRetry(filepath.Join(s.DataDir, "tippani.db"), filepath.Join(s.DataDir, base)); err != nil {
-				return fmt.Errorf("rename restored db: %w", err)
+	// ONE CALL HOLDS THE WHOLE SWAP: the move, the reopen and, when either fails,
+	// the rollback, under the store's swap lock (store.Swap). It used to be a
+	// close, a move and a reopen as three separate calls, with a second reopen for
+	// the rollback, and the logbook's writer would have been free to write into
+	// the data dir halfway through the move.
+	swapErr := s.Store.Swap(
+		func() error {
+			if err := s.moveTopLevel(s.DataDir, preDir); err != nil {
+				return fmt.Errorf("move current data aside: %w", err)
 			}
-		}
-		return s.Store.ReopenAfterSwap()
-	}()
-	if swapErr != nil {
-		olog.Errorf(olog.CodeBackupSwap, "[backup] restore swap failed: %v — rolling back", swapErr)
-		failDir := filepath.Join(staging, "failed")
-		rbErr := func() error {
+			if err := moveEntries(stage, s.DataDir); err != nil {
+				return fmt.Errorf("move restored data in: %w", err)
+			}
+			// The archive's snapshot is canonically named tippani.db; the live file
+			// can differ (tests). Land it under the name the store reopens.
+			if base := filepath.Base(s.Store.Path()); base != "tippani.db" {
+				if err := renameWithRetry(filepath.Join(s.DataDir, "tippani.db"), filepath.Join(s.DataDir, base)); err != nil {
+					return fmt.Errorf("rename restored db: %w", err)
+				}
+			}
+			return nil
+		},
+		func(cause error) error {
+			olog.Errorf(olog.CodeBackupSwap, "[backup] restore swap failed: %v — rolling back", cause)
+			failDir := filepath.Join(staging, "failed")
 			if err := os.Mkdir(failDir, 0o700); err != nil {
 				return err
 			}
 			if err := s.moveTopLevel(s.DataDir, failDir); err != nil {
 				return err
 			}
-			if err := moveEntries(preDir, s.DataDir); err != nil {
-				return err
-			}
-			return s.Store.ReopenAfterSwap()
-		}()
-		if rbErr != nil {
+			return moveEntries(preDir, s.DataDir)
+		},
+		nil,
+	)
+	if swapErr != nil {
+		var rb *store.RollbackError
+		if errors.As(swapErr, &rb) {
 			olog.Errorf(olog.CodeBackupRollback,
-				"[backup] ROLLBACK FAILED (%v) — exiting for a clean boot; previous data is in %s", rbErr, preDir)
+				"[backup] ROLLBACK FAILED (%v) — exiting for a clean boot; previous data is in %s", rb.Rollback, preDir)
 			os.Exit(1)
 		}
 		s.rebindDB()

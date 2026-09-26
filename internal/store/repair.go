@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -77,9 +78,24 @@ func (s *Store) CheckIntegrity() bool {
 // index, never touching the corrupt pages. Data is preserved throughout (the FTS
 // indexes are derived). A failure at both levels is logged loudly and the server
 // still starts (search on that scope errors until Profile → Reset all data).
+//
+// It takes both locks up front, the swap lock first (store.go's order), because
+// the escalation is a swap and neither lock can be taken once the other is held
+// out of order. Boot calls it before anything else is running, so holding the
+// swap lock for the whole check costs nobody anything.
 func (s *Store) RepairFTS() {
+	s.logMu.Lock()
+	defer s.logMu.Unlock()
 	s.repairMu.Lock()
 	defer s.repairMu.Unlock()
+	s.repairFTSLocked()
+}
+
+// repairFTSLocked is RepairFTS's body, for a caller already holding logMu and
+// repairMu: RepairFTS itself, and a restore's bring-up inside Swap. It escalates
+// through recoverLocked for the same reason — a restore whose index needs a whole
+// recovery would otherwise wait forever on the locks it is already holding.
+func (s *Store) repairFTSLocked() {
 	olog.Printf("[fts] checking %d full-text index(es) for corruption", len(ftsTables))
 	needRecover := false
 	for _, t := range ftsTables {
@@ -98,7 +114,7 @@ func (s *Store) RepairFTS() {
 	}
 	if needRecover {
 		olog.Alertf("[fts] an index is too corrupt to rebuild in place — recovering the whole database by rebuilding it from intact content (no data lost)")
-		if err := s.Recover(); err != nil {
+		if err := s.recoverLocked(); err != nil {
 			olog.Errorf(olog.CodeStoreRecoverFailed, "[fts] database recovery FAILED: %v — search will error until Profile → Reset all data", err)
 		} else {
 			olog.Printf("[fts] database recovered — all indexes rebuilt from content, no data lost")
@@ -111,19 +127,14 @@ func (s *Store) RepairFTS() {
 // "Rebuild search index". If an index is too corrupt to rebuild in place it
 // escalates to Recover (whole-database rebuild from content). Returns the tables
 // that could NOT be rebuilt (empty on full success, including after a recovery).
+//
+// The rebuilds hold repairMu alone and let go of it before the escalation, which
+// takes the swap lock and then repairMu again (Recover). Holding repairMu across
+// would take the two locks in the wrong order: a restore holds the swap lock and
+// then wants repairMu, so a reindex and a restore arriving together would each
+// hold the lock the other was waiting for.
 func (s *Store) ReindexFTS() []string {
-	s.repairMu.Lock()
-	defer s.repairMu.Unlock()
-	olog.Printf("[fts] reindex requested — reconstructing all %d index(es)", len(ftsTables))
-	var failed []string
-	for _, t := range ftsTables {
-		if err := s.rebuildFTSTable(t); err != nil {
-			olog.Errorf(olog.CodeStoreFTSRebuild, "[fts] reindex: %s in-place rebuild failed: %v", t, err)
-			failed = append(failed, t)
-		} else {
-			olog.Printf("[fts] reindex: %s done", t)
-		}
-	}
+	failed := s.rebuildEveryIndex()
 	if len(failed) == 0 {
 		olog.Printf("[fts] reindex complete — all indexes rebuilt")
 		return nil
@@ -136,6 +147,24 @@ func (s *Store) ReindexFTS() []string {
 	}
 	olog.Printf("[fts] reindex: database recovered — all indexes rebuilt from content, no data lost")
 	return nil
+}
+
+// rebuildEveryIndex is ReindexFTS's in-place half, under repairMu: every index
+// rebuilt from its content, and the ones that could not be.
+func (s *Store) rebuildEveryIndex() []string {
+	s.repairMu.Lock()
+	defer s.repairMu.Unlock()
+	olog.Printf("[fts] reindex requested — reconstructing all %d index(es)", len(ftsTables))
+	var failed []string
+	for _, t := range ftsTables {
+		if err := s.rebuildFTSTable(t); err != nil {
+			olog.Errorf(olog.CodeStoreFTSRebuild, "[fts] reindex: %s in-place rebuild failed: %v", t, err)
+			failed = append(failed, t)
+		} else {
+			olog.Printf("[fts] reindex: %s done", t)
+		}
+	}
+	return failed
 }
 
 // RepairIndex reconstructs a single FTS index in place (DROP + recreate + rebuild
@@ -228,9 +257,25 @@ func (s *Store) rebuildFTSTable(t string) error {
 // file, and the sync triggers repopulate the indexes from that copied content as
 // it lands. Crucially it NEVER reads the corrupt index pages (only the intact
 // base tables), so it succeeds where an in-place DROP/rebuild can't. The fresh
-// file then atomically replaces the old one and the DB handle is swapped in
-// place (callers holding their own *sql.DB must re-read it).
+// file then atomically replaces the old one and both pools are reopened on it
+// (callers holding their own *sql.DB must re-read it).
+//
+// The job history and the system log are base tables like any other, so they are
+// copied with the rest and a recovery keeps them.
 func (s *Store) Recover() error {
+	s.logMu.Lock()
+	defer s.logMu.Unlock()
+	s.repairMu.Lock()
+	defer s.repairMu.Unlock()
+	return s.recoverLocked()
+}
+
+// recoverLocked is Recover's body, for a caller already holding logMu and
+// repairMu: Recover itself, and the FTS self-heal (repairFTSLocked), which a
+// restore reaches from inside Swap. Holding the swap lock from the first copy to
+// the reopen is what keeps the logbook out of the old file after its rows have
+// been copied, where anything it wrote would be lost with that file.
+func (s *Store) recoverLocked() error {
 	old := s.path
 	tmp := old + ".recover"
 	olog.Alertf("[recover] rebuilding database from intact content into %s", tmp)
@@ -294,21 +339,50 @@ func (s *Store) Recover() error {
 	}
 
 	// Copy content in. FK off (the source was already consistent; this avoids
-	// insertion-order constraints); triggers stay ON so the fts indexes fill as
-	// rows land. ATTACH reads only the base tables we name — never the corrupt
-	// index pages.
+	// insertion-order constraints — job_logs sorts before the jobs it points at);
+	// triggers stay ON so the fts indexes fill as rows land. ATTACH reads only the
+	// base tables we name — never the corrupt index pages.
+	//
+	// ONE PINNED CONNECTION, because the pragma and the ATTACH both belong to the
+	// connection they run on. This used to run them on the pool and rely on the
+	// pool handing the same idle connection back each time, which it does until
+	// the day it does not, and then the copies run with foreign keys on against a
+	// database that attached nothing.
 	copyErr := func() error {
-		if _, err := fresh.Exec(`PRAGMA foreign_keys=OFF`); err != nil {
+		ctx := context.Background()
+		conn, err := fresh.Conn(ctx)
+		if err != nil {
 			return err
 		}
-		if _, err := fresh.Exec(`ATTACH DATABASE ? AS old`, old); err != nil {
+		defer conn.Close()
+		if _, err := conn.ExecContext(ctx, `PRAGMA foreign_keys=OFF`); err != nil {
+			return err
+		}
+		if _, err := conn.ExecContext(ctx, `ATTACH DATABASE ? AS old`, old); err != nil {
 			return fmt.Errorf("attach old db: %w", err)
 		}
-		defer fresh.Exec(`DETACH DATABASE old`)
+		defer conn.ExecContext(ctx, `DETACH DATABASE old`)
 		for _, t := range tables {
 			q := `INSERT INTO main."` + t + `" SELECT * FROM old."` + t + `"`
-			if _, err := fresh.Exec(q); err != nil {
+			if _, err := conn.ExecContext(ctx, q); err != nil {
 				return fmt.Errorf("copy %s: %w", t, err)
+			}
+		}
+		// AUTOINCREMENT's counters live in sqlite_sequence, which the list above
+		// skips with every sqlite_ table. The copies already lifted each counter to
+		// its table's highest id; this lifts it to the old file's, which is higher
+		// when the newest rows had been deleted — so a pruned job, or a deleted
+		// font, does not lend its id to the next one made.
+		for _, q := range []string{
+			`UPDATE main.sqlite_sequence AS m
+			    SET seq = (SELECT o.seq FROM old.sqlite_sequence o WHERE o.name = m.name)
+			  WHERE seq < (SELECT o.seq FROM old.sqlite_sequence o WHERE o.name = m.name)`,
+			`INSERT INTO main.sqlite_sequence (name, seq)
+			 SELECT o.name, o.seq FROM old.sqlite_sequence o
+			  WHERE NOT EXISTS (SELECT 1 FROM main.sqlite_sequence m WHERE m.name = o.name)`,
+		} {
+			if _, err := conn.ExecContext(ctx, q); err != nil {
+				return fmt.Errorf("carry the id counters: %w", err)
 			}
 		}
 		return nil
@@ -324,29 +398,25 @@ func (s *Store) Recover() error {
 		return fmt.Errorf("close temp db: %w", err)
 	}
 
-	// Swap the fresh file in for the old one, then reopen the live handle on it.
-	if err := s.DB.Close(); err != nil {
-		olog.Alertf("[recover] closing old db returned: %v (continuing)", err)
-	}
-	for _, suffix := range []string{"-wal", "-shm", ""} {
-		if _, err := removeWithRetry(old + suffix); err != nil {
-			// Can't clear the old file — reopen it so the server isn't db-less.
-			if db, oerr := openDB(old); oerr == nil {
-				s.DB = db
+	// Swap the fresh file in for the old one. swapLocked reopens both pools on
+	// whatever is at the path when this returns: the recovered file, or the old
+	// one when it could not be cleared, so the server is not left db-less.
+	err = s.swapLocked(func() error {
+		for _, suffix := range []string{"-wal", "-shm", ""} {
+			if _, err := removeWithRetry(old + suffix); err != nil {
+				return fmt.Errorf("remove old %s: %w", old+suffix, err)
 			}
-			return fmt.Errorf("remove old %s: %w", old+suffix, err)
 		}
-	}
-	_, _ = removeWithRetry(tmp + "-wal")
-	_, _ = removeWithRetry(tmp + "-shm")
-	if err := os.Rename(tmp, old); err != nil {
-		return fmt.Errorf("promote recovered db: %w", err)
-	}
-	db, err := openDB(old)
+		_, _ = removeWithRetry(tmp + "-wal")
+		_, _ = removeWithRetry(tmp + "-shm")
+		if err := os.Rename(tmp, old); err != nil {
+			return fmt.Errorf("promote recovered db: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("reopen recovered db: %w", err)
+		return err
 	}
-	s.DB = db
 	olog.Alertf("[recover] done — database rebuilt, all rows preserved")
 	return nil
 }
@@ -355,36 +425,38 @@ func (s *Store) Recover() error {
 // empty schema. Deletion is by FILE, not row-by-row — a corrupt FTS index can
 // block DELETE/DROP (the sync triggers touch the bad index), and the point is a
 // guaranteed-clean slate. Everything is gone afterwards — users, sessions,
-// settings, preferences, all library content — so the app returns to first-run
-// onboarding. The Store's DB handle is swapped to the fresh connection in place;
-// callers holding their own *sql.DB (e.g. the session store) must re-read it.
+// settings, preferences, all library content, the job history and the system log
+// — so the app returns to first-run onboarding. Both pools are swapped to the
+// fresh file in place; callers holding their own *sql.DB (e.g. the session store)
+// must re-read it.
 func (s *Store) Reset() error {
+	s.logMu.Lock()
+	defer s.logMu.Unlock()
+	s.repairMu.Lock()
+	defer s.repairMu.Unlock()
 	path := s.path
 	olog.Alertf("[reset] FACTORY RESET requested — wiping %s and re-initialising an empty database", path)
-	if err := s.DB.Close(); err != nil {
-		olog.Alertf("[reset] closing existing db before wipe returned: %v (continuing)", err)
-	}
 	// -wal / -shm first, then the main file. removeWithRetry tolerates Windows
-	// briefly holding the handle after Close.
-	for _, suffix := range []string{"-wal", "-shm", ""} {
-		f := path + suffix
-		removed, err := removeWithRetry(f)
-		if err != nil {
-			olog.Errorf(olog.CodeStoreResetDelete, "[reset] could not delete %s: %v — reopening the existing database", f, err)
-			if db, oerr := openDB(path); oerr == nil {
-				s.DB = db
+	// briefly holding the handle after Close. A delete that fails leaves the main
+	// file where it was, and swapLocked reopens it; the checkpoint swapLocked runs
+	// first means a -wal already gone took nothing with it.
+	err := s.swapLocked(func() error {
+		for _, suffix := range []string{"-wal", "-shm", ""} {
+			f := path + suffix
+			removed, err := removeWithRetry(f)
+			if err != nil {
+				olog.Errorf(olog.CodeStoreResetDelete, "[reset] could not delete %s: %v — reopening the existing database", f, err)
+				return fmt.Errorf("delete %s: %w", f, err)
 			}
-			return fmt.Errorf("delete %s: %w", f, err)
+			if removed {
+				olog.Printf("[reset] deleted %s", f)
+			}
 		}
-		if removed {
-			olog.Printf("[reset] deleted %s", f)
-		}
-	}
-	db, err := openDB(path)
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("reopen after wipe: %w", err)
+		return err
 	}
-	s.DB = db
 	if err := s.Migrate(); err != nil {
 		return fmt.Errorf("migrate fresh database: %w", err)
 	}
