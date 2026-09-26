@@ -13,7 +13,8 @@ import { ariaLabelText, FieldIconButton, IconBack, InfoDot, MonoLabel, StickerBu
 // The tour never asks for the user's files — the two SAMPLE_QUOTES below are
 // the built-in demo content, rendered inline on the
 // Library and Catalogue steps so an empty library still shows what a captured
-// quote looks like. The book line (Pride and Prejudice) is public domain. The film
+// quote looks like. The book line is public domain in both locales: Pride and
+// Prejudice in English, song 1 of Tagore's Gitanjali (1910) in Bengali. The film
 // line is not: Casablanca (1942) is under US copyright until 2038, and its five
 // words are a quotation, kept at the owner's call at 3.0.4.
 
