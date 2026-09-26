@@ -103,7 +103,8 @@ jobs:
     # longer exists. THE GROUP IS ON THIS JOB, NOT THE WORKFLOW. A pending member is
     # dropped when a newer one queues, and at workflow level that dropped the whole
     # run, label included. Each label job acts only on its own run's issue, so a
-    # report superseded in a burst of issue activity was never labelled. Out here,
+    # report superseded in a burst of issue activity stayed unlabelled until a
+    # later event on it ran a label job that was not dropped as well. Out here,
     # label always runs. A dropped render loses nothing, because the newer one reads
     # the tracker afresh. publish needs no group: pages.yml has its own.
     concurrency:
