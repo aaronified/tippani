@@ -15,7 +15,7 @@
   "sha256": {
     "internal/i18n/bn.txt": "971bed0fb87ee80a1a0cf7e6d5d10f1f917ecc294c8446e33a9b4abfadd95152",
     "internal/i18n/en.txt": "d201756d205326ba297517508c9d4b6e580599550c167ed1ef8b330322e44c1a",
-    "web/frontend/index.html": "faa8bb6fc81705b9d9d395a62a9d474414a029c571723bf099f84cb624ce906c",
+    "web/frontend/index.html": "da5306bcdfa68faaef9bd91903c210ba3849a36a287972dc93d57e1f9869a4c0",
     "web/frontend/package-lock.json": "bb11669a318d0aef1ad6a2c77c07ee7a608a94cd5ef5e5972c77e25e62161028",
     "web/frontend/package.json": "79431a751199f0313734def387b8951ab3918262adfa8597138f238812dd47a6",
     "web/frontend/public/icons/apple-touch-icon.png": "f00d4ff6d27b666557ea66a8703cd123508261f3e98b8248c7aad2b8d6c7bf88",
