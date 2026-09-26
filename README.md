@@ -1,15 +1,11 @@
 <p align="center">
-  <!-- The app's own mark, from web/frontend/public/ rather than a copy under docs/img,
-       so the favicon, the installed app's icon and this stay one drawing. -->
+  <!-- The mark, and the name in English and Bengali, drawn by the app in its own faces
+       with the theme's own ink: scripts/screenshots/readme-shots.mjs, the banner shots. -->
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="web/frontend/public/mark-dark.svg">
-    <img src="web/frontend/public/mark.svg" alt="" width="104" height="104">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/wordmark-dark.png">
+    <img src="docs/img/wordmark-light.png" width="402" alt="tippani · টিপ্পনী — ṭippaṇī · टिप्पणी, a note in the margin">
   </picture>
 </p>
-
-<h1 align="center">Tippani</h1>
-
-<p align="center"><em>ṭippaṇī · टिप्पणी · টিপ্পনী — a note in the margin</em></p>
 
 <p align="center">
   Your book highlights, film lines and favourite quotes, in one place you host yourself.<br>
@@ -34,45 +30,94 @@
 
 <table>
   <tr>
-    <td><img src="docs/img/library-paper-light.jpg" width="440" alt="The Library: a grid of book covers with genre filters"></td>
-    <td><img src="docs/img/catalogue-film-dark.jpg" width="440" alt="The Catalogue in the dark film theme: film and show posters"></td>
-    <td><img src="docs/img/search-film-light.jpg" width="440" alt="Search correcting a misspelled query, with results across books and highlights"></td>
-    <td><img src="docs/img/import-paper-dark.jpg" width="440" alt="Import: Markdown, Bookcision, Hardcover, Goodreads, IMDb and Kindle"></td>
-    <td><img src="docs/img/quotes-mobile-paper-light.jpg" width="215" alt="Quotes on a phone in Bengali, Hindi and English, with translations"></td>
-    <td><img src="docs/img/home-mobile-film-dark.jpg" width="215" alt="Home on a phone: the Daily Quiz and Practice"></td>
+    <td width="50%"><img src="docs/img/library-manuscript-light.jpg" width="100%" alt="The Library: a shelf of book covers sorted by author, with genre, state and series filters"></td>
+    <td width="50%"><img src="docs/img/catalogue-film-assembly-dark.jpg" width="100%" alt="The Catalogue in a dark theme: film, show and game posters with line counts"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/img/search-atelier-light.jpg" width="100%" alt="Search correcting the misspelling athiest to atheist, with a book and a highlight in the results"></td>
+    <td><img src="docs/img/stats-bindery-dark.jpg" width="100%" alt="Stats in a dark theme: library counts, a calendar of saves, and where every quote stands in memory"></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/img/anthology-mobile-quarry-light.jpg" width="230" alt="An anthology on a phone: an introduction, then quotes from Bhagat Singh and Dostoyevsky with notes between them"></td>
+    <td align="center"><img src="docs/img/quiz-mobile-office-dark.jpg" width="230" alt="The Daily Quiz on a phone: a fill-in-the-blank question from Subhas Chandra Bose"></td>
   </tr>
 </table>
 
-<p align="center"><sub>The <a href="https://aaronified.github.io/tippani/demo/">demo</a> is always the latest interface.</sub></p>
+<p align="center"><sub>Shot from a real library with its notes and tags replaced. The <a href="https://aaronified.github.io/tippani/demo/">demo</a> is always the latest interface.</sub></p>
 
 ## What it does
 
-**🧠 It helps you remember.** A short Daily Quiz brings quotes back just before you would forget them,
-using a real spaced-repetition model. Five kinds of question, including fill-in-the-blank, and a Practice
-mode whenever you want more. [How it works](https://github.com/aaronified/tippani/wiki/Spaced-repetition).
-
-**📚 One library for everything you read and watch.** Books keep their chapter and page. Films and shows keep
-their timestamp and episode. Games keep their act and quest. A quote from anywhere else (a speech, a letter,
-something a friend said) keeps its speaker and, if you want, its translation.
-
-**📡 Covers and details fill themselves in.** Type a title, pick the right match, and the cover, cast and blurb
-arrive from TMDB, IGDB, Google Books and others. Nothing to type by hand.
-
-**🔎 Find anything instantly.** Search every title, person, quote, note and tag at once. It forgives typos, and
-typing `author:`, `tag:` or `colour:` suggests words from your own library.
-
-**📖 Anthologies.** Gather quotes into your own reading order, write between them, and export the result as
-Markdown or EPUB.
-
-**📨 Share a quote as a picture.** Tippani draws a quote card on your device, in your theme, with the speaker's
-portrait behind it, and sends it to your phone's share sheet. Plain text, Markdown, WhatsApp and Reddit formats too.
-
-**📥 Bring your highlights with you.** Kindle (Bookcision, the notebook, or `My Clippings.txt`), Readest and
-Tippani Markdown, saved Goodreads and Hardcover pages, IMDb quote pages. Imports wait for your approval, and the
-same file never adds anything twice.
-
-**🌐 Any language.** English and Bengali ship in the box, and a quote keeps its own script and translation. Adding
-another interface language is one text file, with no rebuild.
+<table>
+  <tr>
+    <td width="44%"><img src="docs/img/features/remember.jpg" width="100%" alt="A Daily Quiz card asking which word completes a quote by Einstein, with four choices"></td>
+    <td>
+      <h3>🧠 It helps you remember</h3>
+      A short Daily Quiz brings quotes back just before you would forget them, using a real
+      spaced-repetition model, and leads with the ones you have not been asked yet. Five kinds
+      of question, including fill-in-the-blank, and a Practice mode whenever you want more.
+      <a href="https://github.com/aaronified/tippani/wiki/Spaced-repetition">How it works</a>.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <h3>📚 One library for everything you read and watch</h3>
+      Books keep their chapter and page. Films and shows keep their timestamp and episode.
+      Games keep their act and quest. A quote from anywhere else (a speech, a letter, something
+      a friend said) keeps its speaker and, if you want, its translation.
+    </td>
+    <td width="44%"><img src="docs/img/features/library.jpg" width="100%" alt="Favourites on Home: a film line, a book highlight, a game line and a standalone quote side by side"></td>
+  </tr>
+  <tr>
+    <td width="44%"><img src="docs/img/features/details.jpg" width="100%" alt="The Idiot's page: its cover, year, genre, author portrait and blurb, beside its highlights"></td>
+    <td>
+      <h3>📡 Covers and details fill themselves in</h3>
+      Type a title, pick the right match, and the cover, cast and blurb arrive from TMDB, IGDB,
+      Google Books and others. Nothing to type by hand.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <h3>🔎 Find anything instantly</h3>
+      Search every title, person, quote, note and tag at once. It forgives typos, and typing
+      <code>author:</code>, <code>tag:</code> or <code>colour:</code> suggests words from your own library.
+    </td>
+    <td width="44%"><img src="docs/img/features/search.jpg" width="100%" alt="The search box after typing tag:, suggesting the library's four tags"></td>
+  </tr>
+  <tr>
+    <td width="44%"><img src="docs/img/features/anthology.jpg" width="100%" alt="An anthology: Practise, Edit, Export and EPUB, an introduction, and quotes with notes written between them"></td>
+    <td>
+      <h3>📖 Anthologies</h3>
+      Gather quotes into your own reading order, write between them, and export the result as
+      Markdown or EPUB.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <h3>📨 Share a quote as a picture</h3>
+      Tippani draws a quote card on your device, in your theme, with the speaker's portrait
+      behind it, and sends it to your phone's share sheet. Plain text, Markdown, WhatsApp and
+      Reddit formats too.
+    </td>
+    <td width="44%"><img src="docs/img/features/share.jpg" width="100%" alt="The Share dialog on its Image format, with the portrait set as the backdrop and a preview of the card"></td>
+  </tr>
+  <tr>
+    <td width="44%"><img src="docs/img/features/import.jpg" width="100%" alt="The import queue: five Pride and Prejudice highlights from a Kindle file, waiting to be approved or discarded"></td>
+    <td>
+      <h3>📥 Bring your highlights with you</h3>
+      Kindle (Bookcision, the notebook, or <code>My Clippings.txt</code>), Readest and Tippani
+      Markdown, saved Goodreads and Hardcover pages, IMDb quote pages. Imports wait for your
+      approval, and the same file never adds anything twice.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <h3>🌐 Any language</h3>
+      English and Bengali ship in the box, and a quote keeps its own script and translation.
+      Adding another interface language is one text file, with no rebuild.
+    </td>
+    <td width="44%"><img src="docs/img/features/language.jpg" width="100%" alt="A board of Bengali proverbs, each in Bengali script with its English translation under it"></td>
+  </tr>
+</table>
 
 **And also:** several accounts on one server, sign-in through your own identity provider (Authelia, Authentik,
 Keycloak…), Pushover notifications, a [gethomepage](https://gethomepage.dev) widget, detailed stats, full

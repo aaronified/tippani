@@ -108,7 +108,7 @@ jobs:
           # The social card. og:image must be absolute and must resolve from the
           # Pages origin — the README's screenshots live on raw.githubusercontent,
           # which is not this origin, so nothing here could have unfurled before.
-          cp docs/img/library-paper-light.jpg _site/social.jpg
+          cp docs/img/library-manuscript-light.jpg _site/social.jpg
           # The icon the landing page and the docs reference.
           cp web/frontend/public/mark.svg _site/mark.svg
           # A 404 that offers the way back rather than GitHub's default.
