@@ -990,9 +990,21 @@ var accountTables = []string{
 //	notify_settings a Pushover user key and app token; the same reasoning: a
 //	               restored account should not start messaging a phone again
 //	               without somebody choosing to.
+//
+// And three that are not credentials but were never the reader's to take with
+// them:
+//
+//	jobs           what ran, for whom, and how it ended: the operator's record of
+//	job_logs       the server, not part of anybody's library. Deleting an account
+//	system_logs    leaves its jobs to the admin (0079's trigger nulls the owner),
+//	               so they never leave: snapshotting them would have a restore
+//	               put back rows that are still there, colliding on their own
+//	               ids. (Only `jobs` has a user_id; the other two are listed so
+//	               the reason sits with it.)
 var accountSkipTables = map[string]bool{
 	"sessions": true, "device_tokens": true, "quiz_sessions": true,
 	"widget_keys": true, "notify_settings": true,
+	"jobs": true, "job_logs": true, "system_logs": true,
 }
 
 // binAccount snapshots an entire account and its library into ONE bin entry,
