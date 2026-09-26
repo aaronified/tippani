@@ -321,6 +321,23 @@ describe('a cloze card', () => {
     expect(posted()).toHaveLength(0)
   })
 
+  // THE BLANK KEEPS ITS NAME WHILE ITS LABEL LEAVES THE SCREEN. The card asked the
+  // field to hide its label, and the field had no such option: the label drew
+  // anyway, and React reported `hideLabel` as an unknown attribute on the <input>.
+  // Whether the label is visible is the stylesheet's business, which jsdom does not
+  // load, so that half is checked on screen. This half is the name a screen reader
+  // reads, and the console.
+  it('names the blank for a screen reader and reports nothing to the console', () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      render(<QuizRunner mode="daily" cards={[clz()]} />)
+      expect(screen.getByRole('textbox', { name: 'The missing words' })).toBeTruthy()
+      expect(errors.mock.calls.map((c) => c.map(String).join(' ')).filter((m) => /hideLabel|hidelabel/.test(m))).toEqual([])
+    } finally {
+      errors.mockRestore()
+    }
+  })
+
   // The confirm step is for multiple choice. Typing an answer and pressing
   // Check is already a submit step; a confirmation on top would be asking twice.
   it('is not given a second confirm step', () => {

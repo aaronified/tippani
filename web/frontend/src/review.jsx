@@ -648,6 +648,13 @@ function CardTools({ card, onPatch }) {
 export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, onAnswered, onDone, submitStep = false }) {
   // Phones get no key legends anywhere; see Kbd.
   const noKeys = useIsMobileScreen()
+  // The blank's placeholder: the only shortcut in the app rendered as text rather
+  // than through Kbd or a Tooltip, so it needs the phone gate spelled out here. A
+  // placeholder is the narrowest line on the screen and half of it was a key
+  // nobody on a touch device can press. The field sizes itself from it.
+  const clozeHint = noKeys
+    ? t('quiz.cloze.placeholder')
+    : t('quiz.cloze.placeholder-key', { key: shortcutFor('focus-blank', mode === 'practice') })
   // startIndex seeds the position (Practice restores it from a persisted
   // session on reload); onIndex reports each advance so the host can persist it.
   const [i, setI] = useState(startIndex)
@@ -972,29 +979,30 @@ export function QuizRunner({ mode, cards, allowSkip, startIndex = 0, onIndex, on
         <div className="mt-3">
           {graded == null ? (
             <form
-              className="flex items-end gap-2"
+              className="flex flex-wrap items-end gap-2"
               onSubmit={(e) => {
                 e.preventDefault()
                 checkCloze()
               }}
             >
-              <Field
-                label={t('quiz.cloze.field.label')}
-                hideLabel
-                inputRef={clozeRef}
-                value={attempt}
-                // The only shortcut in the app rendered as text rather than through
-                // Kbd or a Tooltip, so it needs the phone gate spelled out here.
-                // A placeholder is the narrowest line on the screen and half of it
-                // was a key nobody on a touch device can press.
-                placeholder={
-                  noKeys
-                    ? t('quiz.cloze.placeholder')
-                    : t('quiz.cloze.placeholder-key', { key: shortcutFor('focus-blank', mode === 'practice') })
-                }
-                autoFocus
-                onChange={(e) => setAttempt(e.target.value)}
-              />
+              {/* THE FIELD IS AS WIDE AS WHAT IT SAYS, AND THEN WIDER. It sized to an
+                  input's default twenty characters, so its own placeholder was cut
+                  mid-word ("type what belongs in the bl") on a desk with half the
+                  card empty beside it. It now grows to fill the row from a basis
+                  of the placeholder's length, and where the row cannot hold that
+                  and the button, a phone's, the button wraps below it rather than
+                  the words being clipped. In ch, so the type dials move it. */}
+              <div style={{ flex: `1 1 ${clozeHint.length + 4}ch`, minWidth: 0 }}>
+                <Field
+                  label={t('quiz.cloze.field.label')}
+                  hideLabel
+                  inputRef={clozeRef}
+                  value={attempt}
+                  placeholder={clozeHint}
+                  autoFocus
+                  onChange={(e) => setAttempt(e.target.value)}
+                />
+              </div>
               <button type="submit" className="tp-btn tp-btn-primary tactile" disabled={saving || !attempt.trim()}>
                 {t('quiz.cloze.check.label')}
               </button>

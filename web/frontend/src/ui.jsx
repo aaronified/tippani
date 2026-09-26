@@ -2810,10 +2810,14 @@ export function useFilePick({ accept, multiple = false, disabled = false, onFile
   };
 }
 
-export function Field({ label, className = "", nameCase = false, onChange, inputRef, ...rest }) {
+// `hideLabel` keeps the label as the input's name and takes it off the screen,
+// for a field whose row already says what it is for. Slider had the prop and
+// Field did not, so the one caller that passed it here, the quiz's blank, drew
+// its label anyway and handed `hideLabel` to the <input> as an attribute.
+export function Field({ label, className = "", nameCase = false, hideLabel = false, onChange, inputRef, ...rest }) {
   return (
     <label className={"tp-field " + className}>
-      <MonoLabel>{label}</MonoLabel>
+      <MonoLabel className={hideLabel ? "sr-only" : ""}>{label}</MonoLabel>
       <input
         className="tp-input"
         ref={inputRef}
