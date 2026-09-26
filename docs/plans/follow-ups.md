@@ -28,6 +28,14 @@ changelog, `Design-decisions.md`, or a test. The file is deleted when the list i
 - [ ] **At 175% type, mono labels on Stats break mid-word** outside the tiles 3.0.4 fixed:
   the section heads (MEMORY, TIMELINE, BREAKDOWN on a phone) and chart figures (10–17, 673).
   Found with a script that reports any word whose line boxes have more than one top.
+- [ ] **The quiz blank's hint still clips at 175% type on a phone**: 349px of text in a
+  298px box, "type what belongs in the b". 3.0.4 made it fit at the default size, and the
+  field already spans the row there. A shorter phone hint, or a hint line that wraps, is the
+  fix, and either is a copy decision (the Bengali is the owner's).
+- [ ] **Nothing guards the Stats tiles against breaking a word again.** jsdom does no
+  layout, and `make typescale` counts clipping, which a wrapped word is not. The probe that
+  found it (de692fb0's body) needs a browser. As a journey it needs a new verb in
+  `screen.mjs`, which is the owner's vocabulary to extend.
 
 ## Open, and not ours to close yet
 
