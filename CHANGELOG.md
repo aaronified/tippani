@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.3] - 2026-09-26
+
+### Changed
+
+- **The daily quiz leads with quotes you have not been asked yet.** Two cards in three are
+  quotes never asked, and every third is your most overdue review. It used to be the other
+  way round, with one card in three for anything new. Practice deals the same mix, still
+  without the daily quiz's due dates, so a quote you saved yesterday can be practised today.
+- **A quote nobody has asked yet says so.** It reads "Not yet reviewed" from the day you save
+  it, where it used to read "Remembered" for its first week. The daily quiz still waits a
+  week before asking it, and Home's "how these work" note now says so.
+- **"Show me around this screen" is now "Tour this page"**, with the number of steps, and the
+  tour's mark is a plane. In Bengali it reads এই পাতাটা ঘুরে দেখুন.
+
+### Fixed
+
+- **In Bengali, Home's "how these work" note says অর্ধায়ু**, where it said স্মৃতি-অর্ধায়ু.
+
 ## [3.0.2] - 2026-09-26
 
 ### Added
