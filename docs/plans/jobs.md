@@ -30,3 +30,13 @@ The owner's answers, 27 September, each a task:
 - [ ] A Stop button on a running job. It stops after the item in hand, and the job is kept
       as stopped, with its log, and can be rerun.
 - [ ] Ship as 3.1.0.
+
+The owner's asks when 3.1.0 started, 27 September, each a task:
+
+- [ ] Two hooks feed the logs: one in the outbound gate (`internal/outbound`), one in the
+      request logger.
+- [ ] System logs are written on their own database connection at `synchronous=NORMAL`, so
+      logging every request costs no disk sync.
+- [ ] Jobs is a tab on a desk and a tile on the phone's Settings index, like the other
+      sections. The phone tile holds one red Stop all button, with a confirmation, and a
+      count of queued jobs.
