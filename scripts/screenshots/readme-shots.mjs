@@ -5,19 +5,23 @@
 // call for 3.0.4: "use it for the photoshoot. do not use the notes (anonymise
 // using your own notes and tags)". So this runs against a restored copy of the
 // archive in which every note, tag, anthology and account name has been replaced
-// before the browser opens (the commit that added this file says what was
-// changed). It restores nothing and writes no note. It sets the skin each shot
+// before the browser opens: 0379e1a5 lists what was changed, and a09f2527 which
+// lines of The Idiot the anthology now holds. It restores nothing and writes no
+// note. It sets the skin each shot
 // names, answers Daily Quiz cards only to bring a chosen card to the top of the
 // deck, and imports readme-import-sample.txt for the import shot.
 //
-// WHAT IS LEGIBLE IS PUBLIC DOMAIN. A README is a public page, so every shot that
-// prints quote text frames public-domain text: Bhagat Singh, Tagore, Bose, Einstein,
-// Austen, the proverbs, and those lines of The Idiot that match Eva Martin's 1915
-// translation word for word (Project Gutenberg #2638). Only 11 of the owner's 22
-// highlights of it do; the other 11 are some other translation, and no shot shows
-// them. Other books appear as covers and counts, which is not quotation. That is
-// the rule the 6aa59990 re-shoot kept, and it is why several shots below name the
-// card they want.
+// WHAT IS LEGIBLE IS PUBLIC DOMAIN, WITH TWO NAMED EXCEPTIONS. A README is a public
+// page, so every shot that prints quote text frames public-domain text: Bhagat
+// Singh, Tagore, Bose, Einstein, Austen, the proverbs, and those lines of The Idiot
+// that match Eva Martin's 1915 translation word for word (Project Gutenberg #2638).
+// Only 11 of the owner's 22 highlights of it do; the other 11 are some other
+// translation, and no shot shows them. The exceptions are the favourites' film and
+// game lines, "All izz well…" (3 Idiots) and "Fus Ro Dah" (Skyrim), a few words
+// each, which are there because the feature is one library for everything you
+// read AND watch. Other books appear as covers and counts, which is not quotation.
+// That is the rule the 6aa59990 re-shoot kept, and it is why several shots below
+// name the card they want.
 //
 // usage, with Chrome from the Playwright image:
 //   TIPPANI_USER=reader TIPPANI_PASS=… node readme-shots.mjs \
@@ -32,11 +36,12 @@
 //   TIPPANI_DATA=<the anonymised copy> TIPPANI_BIND=127.0.0.1:8151 TIPPANI_OFFLINE=1 ./tippani serve
 // The placeholder keys are never sent anywhere: offline, the server makes no call.
 //
-// WRITES THE README'S OWN FILES, under the names README.md uses, so `--out
-// docs/img` is the whole of making them: the six screens as JPEG at the size they
-// were shot, the eight feature crops as JPEG at twice the density and no wider
-// than 1040px, and the wordmark as PNG on a clear ground. Chrome encodes and
-// scales them itself (a canvas), so nothing outside this script is a step.
+// WRITES THE README'S OWN FILES, under the names README.md uses: against the server
+// above, `--out docs/img` writes every file the README shows, and no conversion or
+// rename follows. The six screens are JPEG at the size they were shot, the eight
+// feature crops JPEG at twice the density and no wider than 1040px, and the
+// wordmark PNG on a clear ground. Chrome encodes and scales them itself, on a
+// canvas.
 // --look also writes each framed shot's whole page as look-*.png, so a crop is
 // chosen by looking at it.
 import { mkdirSync, writeFileSync } from 'node:fs'
