@@ -5,11 +5,16 @@ import (
 	"testing"
 )
 
-// A PHONE CAN BE PAIRED AFTER A FACTORY RESET, AND AFTER A REINDEX THAT HAD TO
-// RECOVER. Both swap the database handle, and both repointed the session store at
-// the new one and left the device-token store on the closed old handle, so every
-// pairing and every phone's request after them failed until a restart. The
-// restore path already repointed both, through rebindDB.
+// A PHONE CAN BE PAIRED AFTER A FACTORY RESET. A reset swaps the database handle,
+// and the handler repointed the session store at the new one and left the
+// device-token store on the closed old handle, so every pairing and every phone's
+// request after it failed until a restart. The restore path already repointed
+// both, through rebindDB.
+//
+// THE REINDEX HALF OF THE SAME FIX IS NOT EXERCISED HERE. A search reindex swaps
+// the handle only when it has to escalate to a whole-database Recover, which
+// needs an FTS index damaged past rebuilding in place, and there is no route or
+// fixture that produces that on purpose. The handler calls the same rebindDB.
 //
 // WHAT IT KNOWS: nothing past the routes. It resets, onboards again, pairs a phone
 // through the pairing routes a phone uses, and reads with its token.

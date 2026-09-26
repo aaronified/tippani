@@ -57,15 +57,18 @@ func (s *Server) handleResetDatabase(w http.ResponseWriter, r *http.Request) {
 	}
 	olog.Alertf("[admin] FACTORY RESET requested by user %d (%s) — deleting ALL data and settings", userID(r), username(r))
 
-	if err := s.Store.Reset(); err != nil {
+	err := s.Store.Reset()
+	// The session and device-token stores captured the OLD *sql.DB at
+	// construction; repoint both at the store's handle so auth works against it.
+	// ON EVERY EXIT, not only success: Reset closes the old handle before
+	// anything can fail, and its failing exits leave a reopened one, so a reset
+	// that failed partway would otherwise leave every sign-in on a closed handle.
+	// This repointed the sessions alone, and only after a success.
+	s.rebindDB()
+	if err != nil {
 		internalError(w, r, "reset database", err)
 		return
 	}
-	// The session and device-token stores captured the OLD *sql.DB at
-	// construction; repoint both at the fresh handle so auth works against the new
-	// database. This repointed the sessions alone, and every phone's pairing and
-	// request after a reset then hit a closed handle until a restart.
-	s.rebindDB()
 	s.safety.clear() // the copy covered what this reset removed; it is spent
 
 	// Drop orphaned media (covers/posters/avatars) — the rows that referenced
