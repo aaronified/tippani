@@ -2522,8 +2522,8 @@ tour.progress.label = {done} / {total}
 tour.later.label = বাকিটা পরে
 # Ends the tour for good.
 tour.skip.label = ট্যুর বাদ দিন
-help.tour.label.one = এই পাতাটা ঘুরিয়ে দেখান (১টি ধাপ)
-help.tour.label.other = এই পাতাটা ঘুরিয়ে দেখান ({n}টি ধাপ)
+help.tour.label.one = এই পাতাটা ঘুরে দেখুন (১টি ধাপ)
+help.tour.label.other = এই পাতাটা ঘুরে দেখুন ({n}টি ধাপ)
 tour.reenable.label = ট্যুর আবার চালু করুন
 tour.toast.reenabled = ট্যুর আবার চালু হল।
 tour.back.aria = আগের ধাপ
@@ -3215,8 +3215,9 @@ home.states.capacity.note = আপনার সংগ্রহ সময়স�
 # {curve} and {spaced} are links to Wikipedia; {remembered} {forgetting} and
 # {forgotten} are the three status words in bold, and they must match
 # common.status.*.label, which is what the dots on every card say.
-home.states.help.adaptive.prose = প্রতিটা উদ্ধৃতির একটা স্মৃতি-অর্ধায়ু থাকে: মনে করতে পারলে সেটা আড়াই গুণ বাড়ে, সর্বোচ্চ এক বছর; ভুলে গেলে অর্ধেক হয় — এর ভিত্তি {curve}, যার ওপর দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা বেশি থাকলে উদ্ধৃতিটা {remembered}, কমতে থাকলে {forgetting}, আর অর্ধেকের নিচে নামলে {forgotten} — তখনই রোজকার কুইজ সেটা ফিরিয়ে আনে। নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ মনে-থাকা বলেই ধরা হয়। অর্ধায়ু দেখতে যেকোনো বিন্দুর ওপর মাউস রাখুন।
-home.states.help.ladder.prose = প্রতিটা উদ্ধৃতির একটা স্মৃতি-অর্ধায়ু থাকে: মনে করতে পারলে সেটা বাঁধা ধাপে ওঠে — এক সপ্তাহ, তারপর ৩০, ১০০, ৩৬৫ দিন; ভুলে গেলে আবার এক সপ্তাহে নামে — এর ভিত্তি {curve}, যার ওপর দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা বেশি থাকলে উদ্ধৃতিটা {remembered}, কমতে থাকলে {forgetting}, আর অর্ধেকের নিচে নামলে {forgotten} — তখনই রোজকার কুইজ সেটা ফিরিয়ে আনে। নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ মনে-থাকা বলেই ধরা হয়। অর্ধায়ু দেখতে যেকোনো বিন্দুর ওপর মাউস রাখুন।
+# ?? the owner's to confirm: "নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ রোজকার কুইজে আসে না" replaces "…মনে-থাকা বলেই ধরা হয়", which 3.0.3 made untrue (a new quote now reads "not yet reviewed")
+home.states.help.adaptive.prose = প্রতিটা উদ্ধৃতির একটা অর্ধায়ু থাকে: মনে করতে পারলে সেটা আড়াই গুণ বাড়ে, সর্বোচ্চ এক বছর; ভুলে গেলে অর্ধেক হয় — এর ভিত্তি {curve}, যার ওপর দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা বেশি থাকলে উদ্ধৃতিটা {remembered}, কমতে থাকলে {forgetting}, আর অর্ধেকের নিচে নামলে {forgotten} — তখনই রোজকার কুইজ সেটা ফিরিয়ে আনে। নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ রোজকার কুইজে আসে না। অর্ধায়ু দেখতে যেকোনো বিন্দুর ওপর মাউস রাখুন।
+home.states.help.ladder.prose = প্রতিটা উদ্ধৃতির একটা অর্ধায়ু থাকে: মনে করতে পারলে সেটা বাঁধা ধাপে ওঠে — এক সপ্তাহ, তারপর ৩০, ১০০, ৩৬৫ দিন; ভুলে গেলে আবার এক সপ্তাহে নামে — এর ভিত্তি {curve}, যার ওপর দাঁড়িয়ে {spaced}। মনে পড়ার সম্ভাবনা বেশি থাকলে উদ্ধৃতিটা {remembered}, কমতে থাকলে {forgetting}, আর অর্ধেকের নিচে নামলে {forgotten} — তখনই রোজকার কুইজ সেটা ফিরিয়ে আনে। নতুন রাখা উদ্ধৃতি প্রথম সপ্তাহ রোজকার কুইজে আসে না। অর্ধায়ু দেখতে যেকোনো বিন্দুর ওপর মাউস রাখুন।
 # The two link texts inside those paragraphs.
 home.states.help.curve.label = ভুলে যাওয়ার রেখা
 home.states.help.spaced.label = ফাঁক রেখে পুনরাবৃত্তি
