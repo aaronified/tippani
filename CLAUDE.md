@@ -70,6 +70,18 @@ Two of the kit's rules bind work in this repo even when no kit skill is running:
   that must weigh a trade-off or find a bug. A fan-out inherits the caller's model unless
   told otherwise, and over-tiering never announces itself: the answers come back fine and
   only the bill records it.
+
+  **THREE JOBS ARE NAMED, AND THEY BIND THIS SESSION AS WELL AS ITS RATERS.** The owner,
+  27 September: *"The rater must use haiku if it needs to fan out or run screenshot bot. For
+  changelog writing, sonnet will be used. For release as well. Same for you."* So:
+  - **Haiku:** any fan-out, and every screenshot or capture run, whether a rater starts it
+    or this session does.
+  - **Sonnet:** writing the changelog, and the release itself. That means the cut (version,
+    section, census, commit, tag), the notes, and the check before it.
+
+  A session on a higher model delegates both to a `sonnet` agent and reviews what comes back.
+  It does not do the writing itself. The kit's `work-rating` and `changelog-release` skills
+  carry the same rule (claude-kit e8b10bf).
 - **Rate before reporting done.** Run the kit's `work-rating` skill at the end of a piece
   of work — it is stage 8 of `pre-commit-gate`, ahead of the commit. Hand the rater the
   session's prompts verbatim and never the target; act on its findings before reporting,
