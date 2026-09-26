@@ -11,15 +11,26 @@
 // deck, and imports readme-import-sample.txt for the import shot.
 //
 // WHAT IS LEGIBLE IS PUBLIC DOMAIN. A README is a public page, so every shot that
-// prints quote text frames public-domain text (Bhagat Singh, The Idiot in Eva
-// Martin's 1915 translation, Tagore, Bose, Einstein, Austen, the proverbs). Other
-// books appear as covers and counts, which is not quotation. That is the rule the
-// 6aa59990 re-shoot kept, and it is why several shots below name the card they
-// want.
+// prints quote text frames public-domain text: Bhagat Singh, Tagore, Bose, Einstein,
+// Austen, the proverbs, and those lines of The Idiot that match Eva Martin's 1915
+// translation word for word (Project Gutenberg #2638). Only 11 of the owner's 22
+// highlights of it do; the other 11 are some other translation, and no shot shows
+// them. Other books appear as covers and counts, which is not quotation. That is
+// the rule the 6aa59990 re-shoot kept, and it is why several shots below name the
+// card they want.
 //
 // usage, with Chrome from the Playwright image:
 //   TIPPANI_USER=reader TIPPANI_PASS=… node readme-shots.mjs \
 //     --base-url http://127.0.0.1:8151 --out <dir> [--only name,name] [--look]
+//
+// AND THE SERVER IT RUNS AGAINST IS PART OF THE PICTURE. It is built as a release
+// is, and offline, so the rail's badge reads the release and the Catalogue says
+// what an install with the image's built-in keys says:
+//   CGO_ENABLED=0 go build -trimpath -ldflags "-s -w \
+//     -X tippani/internal/buildinfo.Version=<the release> \
+//     -X main.defaultTMDBKey=placeholder -X main.defaultTVDBKey=placeholder" -o tippani ./cmd/tippani
+//   TIPPANI_DATA=<the anonymised copy> TIPPANI_BIND=127.0.0.1:8151 TIPPANI_OFFLINE=1 ./tippani serve
+// The placeholder keys are never sent anywhere: offline, the server makes no call.
 //
 // WRITES THE README'S OWN FILES, under the names README.md uses, so `--out
 // docs/img` is the whole of making them: the six screens as JPEG at the size they
@@ -62,7 +73,7 @@ const page = await browser.newPage()
 // UTC, so "today" is the day the anonymised copy was prepared for; the app sends
 // the browser's offset with every Daily Quiz request.
 await page.emulateTimezone('UTC')
-const { press, type, see } = screenVerbs(() => page)
+const { press, type, see, choose } = screenVerbs(() => page)
 const account = { baseUrl: opts.baseUrl, username: HARNESS_ACCOUNT.username, password: HARNESS_ACCOUNT.password, timeoutMs: 30000 }
 
 const api = (method, path, body) => page.evaluate(async (method, path, body) => {
@@ -302,6 +313,10 @@ const SHOTS = [
     // The toolbar runs wider than the entries, so it is framed too: Export and
     // EPUB are half of what the feature says.
     frame: async () => frameOf([await page.$('.anthology-read'), ...(await page.$$('.anthology-read .page-header button'))], { maxHeight: 700 }) },
+  // THE PICTURE ITSELF, not the dialog around it: at the table's width the
+  // dialog's controls left the quote too small to read. In the image's DARK theme,
+  // the owner's call on contrast: on a light card the portrait behind the text all
+  // but vanishes, and on a dark one Bhagat Singh's face and hat read.
   { name: 'feature-share', skin: PAPER, go: async () => {
     await open('/books/21', { viewport: CROP, scale: 2 })
     const card = await cardHolding('Bombs and pistols')
@@ -310,9 +325,10 @@ const SHOTS = [
     }
     await page.waitForSelector('[role="dialog"]')
     await sleep(1200)
-    await press('Backdrop').catch(() => {})
-    await sleep(1500)
-  }, frame: async () => frameOf([await page.$('[role="dialog"]')], { pad: 0 }) },
+    await press('Backdrop')
+    await choose('Image theme', 'Dark')
+    await sleep(1800)
+  }, frame: async () => frameOf([await page.$('[role="dialog"] canvas')], { pad: 0 }) },
   // THE QUEUE, NOT THE DROP WELL. The claim is that imports wait for approval, and
   // the file is dropped the way a reader drops one, through ＋ Add › Files.
   { name: 'feature-import', skin: PAPER, go: async () => {
