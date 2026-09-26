@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.2] - 2026-09-26
+
+### Added
+
+- **When the database is not answering, Tippani says so.** A request refused because no database
+  connection came free (#40) now shows "Busy for a moment", with what happened and the code
+  TIP-HTTP-002, instead of dropping you to the sign-in form after twenty seconds. The screen
+  checks again every few seconds and steps aside when the database answers, leaving what you
+  were typing where it was.
+
+### Fixed
+
+- **Signing out shows "Sign in with Authelia" straight away.** On an instance with single
+  sign-on, the sign-in form came back after signing out without the provider's button, and
+  it appeared only after a refresh.
+- **Adding a film, show or game says when the database is busy.** A lookup refused because the
+  database was not answering read as "no provider key" and opened the manual form, whose save
+  was then refused as well. It now shows the real reason.
+- **Saving a quote no longer needs two database connections at once.** Many saves read a
+  preference on a second connection while holding the first, and a few at the same moment
+  could fill the pool and stall every request, which is the state #40 describes.
+
+### Security
+
+- **A single sign-on link started before a factory reset or a restore cannot finish after it.**
+  The link named the account by its number, and the replaced database reuses numbers, so a
+  link completed afterwards could attach one person's sign-on identity to someone else's
+  account.
+- **The container image is built on Debian 13**, whose time-zone data is current
+  (DLA-4792-1, tzdata 2026c). GO-2026-5932, in golang.org/x/crypto's openpgp package, has no
+  fixed version yet; Tippani does not use that package.
+
+### Changed
+
+- **The `:v3` image is no longer updated.** Releases, `:latest` and `:edge` follow main.
+
 ## [3.0.1] - 2026-09-26
 
 ### Fixed
