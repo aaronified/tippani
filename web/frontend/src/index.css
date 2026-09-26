@@ -591,6 +591,16 @@
      the ink that rides on either: white, and deliberately not --on-accent, which
      is a warm cream tuned to sit on the accent rather than on a photograph. */
   .tp-scrim-deep { background: rgba(21, 16, 12, .72); }
+  /* THE BUSY SCREEN'S WASH: .tp-scrim's, restated under another name, because
+     .tp-scrim marks an overlay the reader dismisses and nested-dismiss.test.jsx
+     holds each of those to a Back entry. The busy screen cannot be dismissed; it
+     steps aside only when the database answers (App.jsx, BusyScreen). */
+  .tp-busy-wash {
+    background: rgba(21, 16, 12, .42);
+    -webkit-backdrop-filter: blur(10px) saturate(.78);
+    backdrop-filter: blur(10px) saturate(.78);
+    overscroll-behavior: contain;
+  }
   html { --on-scrim: #FFFFFF; }
 
   /* ---- sheen (§5) --------------------------------------------------------

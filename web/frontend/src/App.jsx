@@ -735,7 +735,7 @@ function BusyScreen({ onAnswered }) {
       role="alertdialog"
       aria-labelledby="busy-title"
       aria-describedby="busy-body"
-      className="tp-scrim fixed inset-0 z-50 flex items-center justify-center px-4 py-10"
+      className="tp-busy-wash fixed inset-0 z-50 flex items-center justify-center px-4 py-10"
     >
       <Card className="w-full max-w-md text-center">
         <h2 id="busy-title" className="display-title mb-2" style={{ fontSize: 'var(--type-ui-19)' }}>{t('shell.busy.title')}</h2>
