@@ -116,7 +116,7 @@
       behind it, and sends it to your phone's share sheet. Plain text, Markdown, WhatsApp and
       Reddit formats too.
     </td>
-    <td width="40%"><img src="docs/img/features/share.jpg" width="100%" alt="The Share dialog on its Image format, with the portrait set as the backdrop and a preview of the card"></td>
+    <td width="40%"><img src="docs/img/features/share.jpg" width="100%" alt="A quote by Bhagat Singh drawn as a picture in the dark theme, his portrait behind the text"></td>
   </tr>
 </table>
 
