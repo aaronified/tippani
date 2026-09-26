@@ -63,7 +63,7 @@ it('a reader who is not an admin is walked past the cards only an admin has', as
   // for an account that can act on all three.
   await app.goto('/settings')
   await app.press('Help for Settings')
-  await app.see('Show me around this screen (3 steps)')
+  await app.see('Tour this page (3 steps)')
   await app.pressKey('Escape')
 
   // A SECOND, ORDINARY ACCOUNT.
@@ -102,12 +102,12 @@ it('a reader who is not an admin is walked past the cards only an admin has', as
   // THE SAME BUTTON, ON THE SAME SCREEN, FOR SOMEBODY WHO IS NOT AN ADMIN.
   await app.goto('/settings')
   await app.press('Help for Settings')
-  await app.see('Show me around this screen (1 step)')
+  await app.see('Tour this page (1 step)')
 
   // AND WALKING IT NEVER REACHES THEM. The one step it does have is the one this
   // account can act on, and the tour ends rather than going on to the two it
   // cannot: `Next` is not there to press.
-  await app.press('Show me around this screen (1 step)')
+  await app.press('Tour this page (1 step)')
   await app.see('Make it yours')
   await app.gone(ADMIN_ONLY)
 

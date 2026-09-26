@@ -33,7 +33,7 @@ it('a reader asks Settings to show itself and is shown Settings, not the whole a
 
   // THE COUNT IS PART OF THE PROMISE. Settings owns three steps, and the button
   // says so rather than opening an unknown number of them.
-  await app.press('Show me around this screen (3 steps)')
+  await app.press('Tour this page (3 steps)')
 
   // A Settings step, spotlighted on the screen it belongs to.
   await app.see('Make it yours')

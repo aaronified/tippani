@@ -37,6 +37,7 @@ import {
   IconPlus,
   IconQuote,
   IconReading,
+  IconTour,
   IconReset,
   IconSearch,
   IconShare,
@@ -572,7 +573,7 @@ export function helpGuide(touch = false) {
 function tourLead(screen, onTour, tourSteps) {
   if (!onTour || tourSteps <= 0) return null
   return (close) => (
-    <GhostButton icon={<IconReading />} onClick={() => { close(); onTour(screen) }}>
+    <GhostButton icon={<IconTour />} onClick={() => { close(); onTour(screen) }}>
       {t('help.tour.label', { count: tourSteps, n: tourSteps })}
     </GhostButton>
   )

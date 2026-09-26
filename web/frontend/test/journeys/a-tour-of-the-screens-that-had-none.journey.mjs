@@ -31,7 +31,7 @@ it('a screen that had no walkthrough has one, and it is that screen’s', async 
   await app.goto('/bin')
 
   await app.press('Help for Bin')
-  await app.press('Show me around this screen (1 step)')
+  await app.press('Tour this page (1 step)')
 
   // The Bin's own step, on the Bin.
   await app.see('Nothing goes straight out')

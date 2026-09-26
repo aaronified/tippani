@@ -13440,7 +13440,10 @@ of code it saves: a separate per-screen list would be the place where the app's 
 from every screen and already names that screen. A reader confused by Metadata does not go
 to Settings; they press the thing next to what is confusing them. And the button states the
 count — *"Show me around this screen (3 steps)"* — because a walkthrough of unknown length
-is a commitment people decline.
+is a commitment people decline. At 3.0.3 the owner renamed it *"Tour this page (3 steps)"*
+and kept the count; the Bengali became এই পাতাটা ঘুরে দেখুন, the app inviting the reader
+rather than the reader asking the app (Bengali-style §5.4), and the tour's glyph became a
+plane.
 
 **A screen with no steps draws no button.** Quotes and Search have none. A control that
 opens an empty tour is worse than an absent one: it gets pressed twice before it is

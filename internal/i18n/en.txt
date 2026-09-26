@@ -2543,10 +2543,10 @@ tour.later.label = finish later
 # Ends the tour for good.
 tour.skip.label = skip tour
 # THE WALKTHROUGH FOR ONE SCREEN, offered at the top of that screen's help. Plural
-# because the count is the honest thing to promise: "Show me around (3 steps)" tells
-# a reader what they are committing to, which a bare "Show me around" does not.
-help.tour.label.one = Show me around this screen (1 step)
-help.tour.label.other = Show me around this screen ({n} steps)
+# because the count is the honest thing to promise: "Tour this page (3 steps)" tells
+# a reader what they are committing to, which a bare "Tour this page" does not.
+help.tour.label.one = Tour this page (1 step)
+help.tour.label.other = Tour this page ({n} steps)
 # Where they skipped the tour and want it back — the same slot the skip was in.
 tour.reenable.label = Turn the tour back on
 tour.toast.reenabled = The tour is back on.

@@ -2522,8 +2522,8 @@ tour.progress.label = {done} / {total}
 tour.later.label = বাকিটা পরে
 # Ends the tour for good.
 tour.skip.label = ট্যুর বাদ দিন
-help.tour.label.one = এই পাতাটা ঘুরিয়ে দেখান (১টি ধাপ)
-help.tour.label.other = এই পাতাটা ঘুরিয়ে দেখান ({n}টি ধাপ)
+help.tour.label.one = এই পাতাটা ঘুরে দেখুন (১টি ধাপ)
+help.tour.label.other = এই পাতাটা ঘুরে দেখুন ({n}টি ধাপ)
 tour.reenable.label = ট্যুর আবার চালু করুন
 tour.toast.reenabled = ট্যুর আবার চালু হল।
 tour.back.aria = আগের ধাপ

@@ -691,8 +691,16 @@ this button do?"** If yes, it stands alone. If not, it takes করুন / -উ
 Everything else takes the imperative in full: hints, confirms, empty states, help
 sentences, tooltips that are instructions rather than names.
 
-Three more label rules:
+Four more label rules:
 
+- **The app speaks to the reader, not the reader to the app.** The owner's, 26 September,
+  over the tour button: *"bengali usually uses the system to tell the user, that is more
+  natural, unlike english."* English often writes a control in the reader's own voice: *Show
+  me around this screen* is the reader asking the app. Bengali reads more naturally as the
+  app inviting the reader: **এই পাতাটা ঘুরে দেখুন** (have a look around this page), not
+  **এই পাতাটা ঘুরিয়ে দেখান** (show me around this page). So translate the intent, and write
+  the Bengali as the app addressing the reader even where the English is in the reader's
+  voice.
 - **A tooltip names the control or says what pressing it will do — it never describes the
   current state.** `en.txt` is explicit about the favourite toggle: it says *Add to
   favourites*, not *Not a favourite*. So: **প্রিয়তে রাখুন** / **প্রিয় থেকে সরান**.

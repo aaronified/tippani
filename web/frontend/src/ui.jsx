@@ -10227,6 +10227,7 @@ export function IconSwitchUser({ size = ICON_SIZE }) { return <svg {...iconStrok
 // IconLogout — through the door and out. Ends this browser session only, which
 // is why the door stays and only the figure's arrow leaves.
 export function IconLogout({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M10 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H10"/><path d="M9.5 12h10"/><path d="m16 8.5 3.5 3.5-3.5 3.5"/></svg> }
+
 // IconKey — the password field, and only ever a password. It is the same key on
 // the profile form and in the backup copy, deliberately: an archive is opened by
 // the password that sealed it, and the repeated glyph is part of saying so.
@@ -10251,10 +10252,12 @@ export function IconRestore({ size = ICON_SIZE }) { return <svg {...iconStroke} 
 export function IconPicture({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="8.8" cy="9.6" r="1.6"/><path d="m4.5 17 4.6-4.6a1.6 1.6 0 0 1 2.3 0l3 3"/><path d="m13.7 14.2 1.9-1.9a1.6 1.6 0 0 1 2.3 0l2.1 2.1"/></svg> }
 
 export function IconRefresh({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M20.5 12a8.5 8.5 0 1 1-2.9-6.4"/><path d="M20.5 3.5V9.2h-5.7"/></svg> }
-// IconTour — a pennant on a pole: the guided tour, whether it is being started
-// for the first time, replayed, or resumed. A flag rather than a circular arrow,
-// because IconRefresh beside it in the same row means the narrower thing — from
-// the beginning — and two ways of saying "the tour" would leave neither saying
+// IconTour — a plane, banking: the guided tour, whether it is being started for
+// the first time, replayed, or resumed, and a screen's own "Tour this page". The
+// owner's pick at 3.0.3 (Tabler's plane-tilt), in place of a pennant on a pole,
+// and one glyph for both tours rather than one each. Not a circular arrow,
+// because IconRefresh beside it in the same row means the narrower thing, from
+// the beginning, and two ways of saying "the tour" would leave neither saying
 // which.
 // ---- the three verbs, and the eight roles -----------------------------------
 //
@@ -10324,7 +10327,7 @@ export function IconRoleTranslator({ size = ICON_SIZE }) { return <svg {...trace
 const studioBox = { ...tracedStroke, viewBox: "2.43 0 24 24" }
 export function IconRoleStudio({ size = ICON_SIZE }) { return <svg {...studioBox} width={size} height={size}><path d="M8.88 22.21C8.84 22.19 8.79 22.15 8.77 22.12C8.75 22.09 8.75 19.72 8.75 13.98L8.75 5.90L8.97 6.02L9.20 6.14L9.20 14.09C9.20 19.29 9.19 22.06 9.18 22.11C9.16 22.14 9.12 22.19 9.06 22.21C8.96 22.25 8.98 22.25 8.88 22.21ZM14.76 13.11C13.77 12.48 12.94 11.54 12.45 10.45C12.21 9.93 12.05 9.41 11.94 8.80C11.90 8.53 11.89 8.38 11.89 7.82C11.89 7.05 11.92 6.74 12.10 6.10C12.23 5.64 12.22 5.66 12.35 5.92C12.96 7.05 14.48 8.42 16.47 9.60C16.68 9.72 16.86 9.83 16.86 9.84C16.86 9.85 16.73 10.08 16.59 10.35C16.44 10.62 16.26 10.95 16.18 11.08C15.81 11.76 15.00 13.23 14.99 13.24C14.99 13.24 14.88 13.18 14.76 13.11ZM16.72 9.20C14.37 7.83 12.58 6.04 12.59 5.05C12.59 4.70 12.79 4.51 13.27 4.41C13.56 4.35 14.25 4.37 14.68 4.45C15.64 4.62 16.71 4.97 17.83 5.49C18.28 5.70 18.94 6.04 18.94 6.06C18.94 6.07 18.90 6.15 18.85 6.24C18.81 6.32 18.58 6.73 18.36 7.14C17.31 9.04 17.10 9.41 17.09 9.41C17.08 9.41 16.91 9.31 16.72 9.20ZM11.00 6.60C10.97 6.58 10.70 6.44 10.41 6.28C8.69 5.33 8.40 5.17 8.26 5.04C7.94 4.75 7.81 4.28 7.92 3.85C7.95 3.76 8.09 3.46 8.32 3.05C8.51 2.69 8.75 2.27 8.84 2.10C9.18 1.50 9.53 1.27 10.10 1.30C10.28 1.31 10.35 1.33 10.51 1.40C10.71 1.50 13.09 2.81 13.13 2.85C13.15 2.87 13.16 2.85 12.28 4.45C11.92 5.10 11.50 5.86 11.35 6.13C11.20 6.41 11.07 6.64 11.06 6.64C11.05 6.64 11.02 6.62 11.00 6.60ZM18.61 5.35C17.15 4.62 15.82 4.16 14.61 3.96C14.26 3.91 13.52 3.88 13.30 3.92L13.19 3.94L13.31 3.79C13.49 3.56 14.09 2.98 14.38 2.77C14.63 2.58 15.07 2.30 15.33 2.17C15.60 2.04 16.14 1.83 16.47 1.74C17.95 1.33 19.42 1.46 20.85 2.12C20.96 2.17 21.05 2.22 21.05 2.24C21.05 2.25 21.03 2.30 21.00 2.34C20.98 2.39 20.67 2.94 20.33 3.57C19.69 4.73 19.19 5.63 19.19 5.63C19.18 5.64 18.92 5.51 18.61 5.35Z"/></svg> }
 
-export function IconTour({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M6 21V3.5"/><path d="M6 4.5h11.5l-2.6 3.8 2.6 3.8H6"/></svg> }
+export function IconTour({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M14.5 6.5l3 -2.9a2.05 2.05 0 0 1 2.9 2.9l-2.9 3l2.5 7.5l-2.5 2.55l-3.5 -6.55l-3 3v3l-2 2l-1.5 -4.5l-4.5 -1.5l2 -2h3l3 -3l-6.5 -3.5l2.5 -2.5l7.5 2.5"/></svg> }
 // IconBookmark — one place inside something longer. It opens the picker that
 // replays a SINGLE tour step, which is the whole difference between it and the
 // flag it sits beside.
