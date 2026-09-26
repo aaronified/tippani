@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.4] - 2026-09-26
+
+### Fixed
+
+- **An open anthology says its name again.** Since 3.0.0 an anthology's own page printed its
+  title nowhere: a phone's header said only "Anthologies", and a desk drew no breadcrumb. It
+  now reads "Anthologies / *its name*" on a desk and its name in a phone's header.
+- **An open board of quotes, and a Settings or Metadata section, have their breadcrumb back
+  on a desk**: "Quotes / *the board*", and "Settings / Review" with Settings the way back up.
+- **The Daily Quiz's blank shows its whole prompt.** The fill-in-the-blank field cut its own
+  hint short ("type what belongs in the bl") and drew a label it meant to hide. It now fills
+  the row, and on a phone the Check button sits under it.
+- **Stats no longer breaks a word across two lines.** At some widths the overview printed
+  "ANNOTATION" over a lone "S". Each tile is now at least as wide as its longest word, at any
+  type size.
+
+### Changed
+
+- **The README has a new front page**: the mark with the name in English and Bengali beside
+  it, six screens from a real library with its notes and tags replaced, and a picture for
+  every feature. It now gives the binary as about 29 MB and idle memory as about 30 MB, as
+  measured for this release, where it said 12 and 25.
+
 ## [3.0.3] - 2026-09-26
 
 ### Changed
