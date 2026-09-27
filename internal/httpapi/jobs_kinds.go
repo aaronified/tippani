@@ -106,7 +106,7 @@ var builtinJobKinds = []queuedKind{
 	// {book_ids, movie_ids}: fill in what the selected works are missing.
 	// Result {fields, failed, unpinned}, and those are its counts.
 	{name: "fill", rerunnable: true, againAfterSuccess: true, validate: validateFill,
-		counts: countsNamed("fields", "failed", "unpinned")},
+		counts: countsNamed("fields", "failed", "unpinned"), run: runFill},
 	// {missing_only}: fetch every cover and poster the reader's library lacks
 	// (or, without missing_only, better ones). Admin, as the chunked route is.
 	// Result {fetched, enriched, failed, skipped}, and those are its counts.
