@@ -455,18 +455,30 @@ func sealCredentials(w http.ResponseWriter, r *http.Request) (mode byte, account
 		Passphrase string `json:"passphrase"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-	switch {
-	case req.Passphrase != "":
-		if msg := passphraseProblem(req.Passphrase); msg != "" {
-			writeErr(w, http.StatusBadRequest, msg)
-			return 0, "", "", false
-		}
-		return backupModePassphrase, "", req.Passphrase, true
-	case req.Password != "":
-		return backupModePassword, username(r), req.Password, true
+	mode, account, secret, msg := sealWith(req.Password, req.Passphrase, username(r))
+	if msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
+		return 0, "", "", false
 	}
-	writeErr(w, http.StatusBadRequest, "confirm your password, or set a passphrase, to seal the archive")
-	return 0, "", "", false
+	return mode, account, secret, true
+}
+
+// sealWith is how an archive is to be sealed, from what the caller sent: the
+// passphrase when there is one, else account's password. msg is the 400 when
+// neither will do. The API's backup and the backup job read it the same way, so a
+// credential one accepts the other does too; whether a password is really the
+// account's is the caller's to check.
+func sealWith(password, passphrase, account string) (mode byte, acct, secret, msg string) {
+	switch {
+	case passphrase != "":
+		if msg := passphraseProblem(passphrase); msg != "" {
+			return 0, "", "", msg
+		}
+		return backupModePassphrase, "", passphrase, ""
+	case password != "":
+		return backupModePassword, account, password, ""
+	}
+	return 0, "", "", "confirm your password, or set a passphrase, to seal the archive"
 }
 
 // SAFETY BACKUP — THE COPY TAKEN ON THE WAY TO A RESTORE OR A RESET. The owner:
@@ -767,11 +779,18 @@ func (s *Server) handleRestoreUpload(w http.ResponseWriter, r *http.Request) {
 // typed "RESTORE" played in 1.4.1, discharged by something that cannot be guessed
 // from the shape of the dialog. An empty password never qualifies.
 func (s *Server) passwordIsCallers(r *http.Request, pw string) bool {
+	return s.passwordIs(userID(r), pw)
+}
+
+// passwordIs reports whether pw is account uid's current password; an empty one
+// never is. passwordIsCallers is it for the request's own account; the backup job
+// asks it of the account that queued it.
+func (s *Server) passwordIs(uid int64, pw string) bool {
 	if pw == "" {
 		return false
 	}
 	var hash string
-	if err := s.Store.DB.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, userID(r)).Scan(&hash); err != nil {
+	if err := s.Store.DB.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, uid).Scan(&hash); err != nil {
 		return false
 	}
 	return auth.CheckPassword(hash, pw)

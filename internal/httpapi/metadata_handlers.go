@@ -456,6 +456,20 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 // (or empty cursor) starts from the top; the client loops until done. Chunks
 // also keep each HTTP request short, so proxy timeouts and tab navigation
 // can no longer silently abort a long run.
+// coversMovieWhere is which of a reader's films the covers pass walks: the ones a
+// source was pinned for, since only those have a poster to fetch again.
+const coversMovieWhere = `user_id = ? AND source_metadata IS NOT NULL`
+
+// coversWorkload is how many works a covers pass over uid's library walks: every
+// book, and every film with a source. The chunked route reports it as its total,
+// and the covers job is queued with it as its item count, so the two agree.
+func (s *Server) coversWorkload(uid int64) (int, error) {
+	var total int
+	err := s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books WHERE user_id = ?) +
+		(SELECT COUNT(*) FROM movies WHERE `+coversMovieWhere+`)`, uid, uid).Scan(&total)
+	return total, err
+}
+
 func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -491,10 +505,9 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	// read as licence to walk every account's shelf; an admin never touches
 	// another reader's rows, so every query below is scoped like any other.
 	uid := userID(r)
-	const movieWhere = `user_id = ? AND source_metadata IS NOT NULL`
-	var total int
-	if err := s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books WHERE user_id = ?) +
-		(SELECT COUNT(*) FROM movies WHERE `+movieWhere+`)`, uid, uid).Scan(&total); err != nil {
+	const movieWhere = coversMovieWhere
+	total, err := s.coversWorkload(uid)
+	if err != nil {
 		internalError(w, r, "count refetch total", err)
 		return
 	}

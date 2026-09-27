@@ -60,6 +60,15 @@ func cleanSubject(s string) string {
 	return string(r[:subjectRunes-1]) + "…"
 }
 
+// OneLine is the door's first pass alone: line breaks as ⏎, control characters
+// and terminal escapes gone. It is for text read back OUT of the database into a
+// place where a break or an escape does harm — a Markdown export, where a line
+// break could close the fence early or forge a line of its own, and an escape
+// repaints the terminal of whoever cats the file. What the door kept passes
+// unchanged; a row that never passed it (a hand-made archive's journal, carried
+// over by a restore) is made safe here all the same.
+func OneLine(s string) string { return stripControls(s) }
+
 func capFor(level string) int {
 	if level == LevelRequest || level == LevelAsset {
 		return capShort

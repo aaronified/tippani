@@ -273,6 +273,8 @@ func serve() {
 	srv.TMDBBuiltin = defaultTMDBKey // last fallback before 503 (key otherwise set in Settings)
 	srv.TVDBBuiltin = defaultTVDBKey // ditto for TheTVDB, which is the default film/show source
 	srv.Jobs, srv.Logbook = runner, lb
+	// The kinds a person can start, on the queue before the first request.
+	srv.RegisterJobKinds()
 
 	// One-shot: hand the starter stickers to the accounts that existed before
 	// they shipped, so an upgrade opens the same box a fresh install does. Not a

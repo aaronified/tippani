@@ -140,6 +140,12 @@ type Server struct {
 	// which is how the app ran before 3.1.0.
 	Jobs    *jobs.Runner
 	Logbook *jobs.Logbook
+
+	// startable is every kind registered on Jobs, with what POST /jobs checks
+	// before it queues one (jobs_kinds.go). Filled by RegisterJobKinds before
+	// the first request; the lock is for the tests that add their own kinds.
+	startableMu sync.RWMutex
+	startable   map[string]queuedKind
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {
@@ -270,6 +276,19 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/update/apply", s.requireAdmin(s.handleUpdateApply))
 	mux.Handle("GET /admin/update/state", s.requireAdmin(s.handleUpdateState))
 	mux.Handle("POST /admin/update/channel", s.requireAdmin(s.handleUpdateChannel))
+
+	// Jobs (jobs_handlers.go): every signed-in reader's, each scoped to what they
+	// may see — their own, or everybody's for an admin. The literal segments
+	// (summary, stop-all) beat the {id} wildcard under the mux's precedence.
+	mux.Handle("POST /jobs", s.requireAuth(s.handleStartJob))
+	mux.Handle("GET /jobs", s.requireAuth(s.handleListJobs))
+	mux.Handle("GET /jobs/summary", s.requireAuth(s.handleJobsSummary))
+	mux.Handle("POST /jobs/stop-all", s.requireAuth(s.handleStopAllJobs))
+	mux.Handle("GET /jobs/{id}", s.requireAuth(s.handleGetJob))
+	mux.Handle("GET /jobs/{id}/result", s.requireAuth(s.handleJobResult))
+	mux.Handle("GET /jobs/{id}/log.md", s.requireAuth(s.handleJobLogMarkdown))
+	mux.Handle("POST /jobs/{id}/stop", s.requireAuth(s.handleStopJob))
+	mux.Handle("POST /jobs/{id}/rerun", s.requireAuth(s.handleRerunJob))
 
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))
@@ -882,6 +901,7 @@ const (
 	ctxIsAdmin
 	ctxReqID
 	ctxReqUser
+	ctxGen
 )
 
 // reqSeq numbers requests within a process run so every log line for one request
@@ -985,6 +1005,11 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.Handler {
 		ctx := context.WithValue(r.Context(), ctxUserID, uid)
 		ctx = context.WithValue(ctx, ctxUsername, uname)
 		ctx = context.WithValue(ctx, ctxIsAdmin, isAdmin)
+		// And the generation the account was read under, for the queue: a job
+		// started, stopped or run again with an id from a file a restore has
+		// since replaced is refused rather than filed under whoever holds that id
+		// now (jobs.ErrStale; viewer, jobs_handlers.go).
+		ctx = context.WithValue(ctx, ctxGen, gen)
 		// The bin's retention sweep, at most once a calendar day, from whichever
 		// authenticated request is first after midnight. This is the whole scheduler:
 		// no ticker, no goroutine, nothing awake on an idle instance (see PurgeTrash).

@@ -179,6 +179,10 @@ func NewRunner(st *store.Store, lb *Logbook, opts Options) *Runner {
 	}
 }
 
+// PerOwner is how many jobs one account may have waiting or running at once:
+// the number a press refused with ErrLimit is told.
+func (r *Runner) PerOwner() int { return r.opts.PerOwner }
+
 func closedChan() chan struct{} {
 	c := make(chan struct{})
 	close(c)
