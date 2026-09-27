@@ -21,8 +21,9 @@
 // decides to exit against work arriving in that same moment (the lost wakeup:
 // a worker that looks, finds nothing, and exits just after somebody queued
 // something and saw it still alive, leaves that job waiting for the next
-// person's press). Neither sleeps, except the drainer's backoff while SQLite's
-// write lock is held by somebody else.
+// person's press). Neither sleeps, except to back off while SQLite's write lock
+// is held by somebody else (busyRetry): the drainer between attempts at a batch,
+// the worker between attempts at claiming a job or recording its end.
 //
 // Three pieces:
 //

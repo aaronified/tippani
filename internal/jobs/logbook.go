@@ -659,8 +659,8 @@ const (
 
 // busyRetry runs write until it succeeds, fails with anything but SQLite's busy,
 // has been tried attempts times, or giveUp says there is no longer any point. It
-// is the one sleep this package has, and it sleeps only while somebody else holds
-// the lock: nothing here waits on a clock for any other reason.
+// is the only pause the drainer and the worker ever take, and they take it only
+// while somebody else holds the lock.
 func busyRetry(attempts int, backoff, ceiling time.Duration, giveUp func() bool, write func() error) error {
 	wait := backoff
 	for attempt := 1; ; attempt++ {
