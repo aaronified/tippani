@@ -27,7 +27,7 @@ import (
 // reaches the log, and neither does a forged line break or a terminal escape; a
 // line for a job that is gone never costs anybody else their lines; an in-request
 // job lands with its lines, and with no owner when the database was swapped under
-// it; when the log falls behind, request lines go first and a job's lines last,
+// it or its reader's account was deleted before it landed; when the log falls behind, request lines go first and a job's lines last,
 // and the log says how many went; no line is ever left waiting with nothing to
 // write it; and thirty days on, old lines and finished jobs go and a job still
 // waiting does not.
@@ -145,7 +145,7 @@ func TestALineForAJobThatIsGoneNeverCostsAnybodyTheirs(t *testing.T) {
 	}
 }
 
-func TestAnInRequestJobLandsWithItsLinesAndNoOwnerAfterASwap(t *testing.T) {
+func TestAnInRequestJobLandsWithItsLinesAndNoOwnerOnceItsIdMayBeSomebodyElses(t *testing.T) {
 	st := openStore(t)
 	exec(t, st.DB, `INSERT INTO users (id, username, password_hash) VALUES (3, 'aro', 'x')`)
 	lb := attached(t, st)
@@ -192,8 +192,19 @@ func TestAnInRequestJobLandsWithItsLinesAndNoOwnerAfterASwap(t *testing.T) {
 		Error: "HTTP 500", Created: end, Finished: end}, nil)
 	flush(t, lb)
 
+	// A request whose reader's account was deleted before its row landed, in the
+	// same file, and whose id was then given to somebody new.
+	gone := row
+	gone.Gen = st.Generation()
+	exec(t, st.DB, `DELETE FROM users WHERE id = 3`)
+	exec(t, st.DB, `INSERT INTO users (id, username, password_hash) VALUES (3, 'newcomer', 'x')`)
+	lb.InRequest(gone, nil)
+	flush(t, lb)
+
 	got := strings1(t, st.DB, `SELECT coalesce(user_id, 'NULL') || ' ' || kind || ' ' || state || ' ' || error FROM jobs ORDER BY id`)
-	want := []string{"3 lookup.book succeeded ", "NULL lookup.book succeeded ", "NULL request failed HTTP 500"}
+	// The first row, owned when it landed, lost its owner to 0079's trigger at
+	// the delete, as every row of a deleted account does.
+	want := []string{"NULL lookup.book succeeded ", "NULL lookup.book succeeded ", "NULL request failed HTTP 500", "NULL lookup.book succeeded "}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("rows:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}

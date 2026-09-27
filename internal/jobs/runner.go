@@ -29,7 +29,7 @@ var (
 	ErrNotFound      = errors.New("jobs: no such job")                                             // 404
 	ErrNotRerunnable = errors.New("jobs: this job cannot be run again")                            // 409
 	ErrUnknownKind   = errors.New("jobs: no such kind of job")                                     // 400
-	ErrNoOwner       = errors.New("jobs: a job needs an account to belong to")                     // 400
+	ErrNoOwner       = errors.New("jobs: a job needs an account to belong to")                     // 400; also an account deleted mid-request
 	ErrTooLarge      = errors.New("jobs: a job's result may be at most 8 MB")                      // the kind's bug
 )
 
@@ -253,14 +253,31 @@ func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total in
 	return id, err
 }
 
-// insert checks the duplicate and the limit and inserts, in one transaction, so
-// two presses at once cannot both pass either check.
+// insert checks the account, the duplicate and the limit and inserts, in one
+// transaction, so two presses at once cannot both pass either check.
+//
+// THE ACCOUNT IS CHECKED HERE, BY ID AND NAME, because 0079's trigger only clears
+// user_id on the rows that exist when an account is deleted, and users.id is
+// reused. A request that resolved its account just before the delete would
+// otherwise insert the dead id just after it, and the job would run for whoever
+// is given that id next. The main pool's transactions take the write lock at
+// BEGIN (_txlock=immediate), so no delete lands between this check and the
+// insert, and the trigger covers every delete after it: a user_id on a queued
+// row always names the account that queued it, which is what lets the claim
+// (execute) and Rerun check the id alone.
 func (r *Runner) insert(owner Owner, kind, subject, params string, total int, rerunOf int64) (int64, error) {
 	tx, err := r.st.DB.Begin()
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback()
+	var one int
+	switch err := tx.QueryRow(`SELECT 1 FROM users WHERE id = ? AND username = ?`, owner.UserID, owner.Username).Scan(&one); {
+	case errors.Is(err, sql.ErrNoRows):
+		return 0, ErrNoOwner
+	case err != nil:
+		return 0, err
+	}
 	var dup int64
 	err = tx.QueryRow(`SELECT id FROM jobs WHERE user_id = ? AND kind = ? AND params = ?
 		AND state IN ('queued', 'running') ORDER BY id LIMIT 1`, owner.UserID, kind, params).Scan(&dup)
@@ -466,11 +483,12 @@ var (
 //
 // THE OWNER IS CHECKED BY ID ALONE, not by id and name as the spec first had
 // it. A reader may rename themselves while their job waits, and the row keeps
-// the name it was started under. The id is enough because of 0079's trigger:
-// deleting an account sets its jobs' user_id to NULL in the same statement, so a
-// user_id still on the row names the account that queued it, never whoever is
-// given that id next. A restore interrupts every waiting job as it carries them
-// over, so no job from another generation is ever claimed.
+// the name it was started under. The id is enough because insert checked the
+// account by id and name in the transaction that added the row, and 0079's
+// trigger sets user_id to NULL on every delete after that, in the same
+// statement: a user_id still on the row names the account that queued it, never
+// whoever is given that id next. A restore interrupts every waiting job as it
+// carries them over, so no job from another generation is ever claimed.
 func (r *Runner) execute(j *Job) (err error) {
 	gen := r.st.Generation()
 	if !j.uid.Valid {

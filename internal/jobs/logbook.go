@@ -151,12 +151,15 @@ type entry struct {
 	text  string
 	jobID int64
 	row   Row
-	lines []Line
-	class int
-	size  int    // bytes against maxBufferBytes
-	units int    // entries against maxBufferUnits: one, or one per line plus the row
-	seq   uint64 // arrival order, for Flush
-	gone  bool   // evicted to make room; skipped by the drainer
+	// account is an in-request row's username as the request resolved it, before
+	// the door cleaned it for keeping: the name the account check matches on.
+	account string
+	lines   []Line
+	class   int
+	size    int    // bytes against maxBufferBytes
+	units   int    // entries against maxBufferUnits: one, or one per line plus the row
+	seq     uint64 // arrival order, for Flush
+	gone    bool   // evicted to make room; skipped by the drainer
 }
 
 // Logbook is the asynchronous, batched writer onto the store's log connection.
@@ -256,6 +259,7 @@ func (lb *Logbook) JobLine(jobID int64, lvl, line string) {
 
 // InRequest keeps an in-request job: its row and its lines, written together.
 func (lb *Logbook) InRequest(row Row, lines []Line) {
+	account := row.Username
 	row.Kind = kindOrRequest(row.Kind)
 	row.Subject = cleanSubject(row.Subject)
 	row.Username = cleanSubject(row.Username)
@@ -272,7 +276,7 @@ func (lb *Logbook) InRequest(row Row, lines []Line) {
 		size += len(l.Text) + entryOverhead
 	}
 	lb.add(&entry{
-		kind: entryInRequest, at: row.Finished.UnixMilli(), row: row, lines: kept,
+		kind: entryInRequest, at: row.Finished.UnixMilli(), row: row, account: account, lines: kept,
 		class: classHigh, size: size, units: 1 + len(kept),
 	})
 }
@@ -641,6 +645,16 @@ func writeBatch(db *sql.DB, gen uint64, notes, batch []*entry) error {
 }
 
 // writeInRequest writes an in-request job's row and then its lines.
+//
+// The owner is the account only if it is still there under the same id and
+// name as the row lands. The generation catches a swap; this catches a delete in
+// the same file, which 0079's trigger cannot, since the row did not exist yet to
+// be cleared — and the row can land well after its request authenticated (the
+// work page's cast-art request may run for 45 s, and a drainer waiting out a
+// held lock takes half a minute more). users.id is reused, so without it a
+// deleted reader's lookup would land in the history of whoever is given their
+// id next. A reader who renamed themselves mid-request loses that one row to
+// the admin's view, which is the safe way to be wrong.
 func writeInRequest(tx *sql.Tx, gen uint64, e *entry) error {
 	r := e.row
 	var uid any
@@ -649,8 +663,8 @@ func writeInRequest(tx *sql.Tx, gen uint64, e *entry) error {
 	}
 	res, err := tx.Exec(`INSERT INTO jobs (user_id, username, kind, queued, subject, state, error,
 		                                   created_at, started_at, finished_at)
-		VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
-		uid, r.Username, r.Kind, r.Subject, r.State, r.Error,
+		VALUES ((SELECT id FROM users WHERE id = ? AND username = ?), ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
+		uid, e.account, r.Username, r.Kind, r.Subject, r.State, r.Error,
 		r.Created.UnixMilli(), r.Created.UnixMilli(), r.Finished.UnixMilli())
 	if err != nil {
 		return fmt.Errorf("in-request job: %w", err)

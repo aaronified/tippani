@@ -957,14 +957,19 @@ func TestAJobWhoseAccountWentIsNotRunForAnybody(t *testing.T) {
 	gone := g.enqueue(g.mitra(), "count", nil)
 	exec(t, g.st.DB, `DELETE FROM users WHERE id = 2`) // as `tippani user del` does it
 	exec(t, g.st.DB, `INSERT INTO users (id, username, password_hash) VALUES (2, 'someone-else', 'x')`)
+	// A request that resolved mitra before her account went presses after it,
+	// her id now somebody else's: refused, rather than queued under that id.
+	if _, err := g.r.Enqueue(g.mitra(), "count", "", map[string]any{"late": true}, 0, nil); !errors.Is(err, jobs.ErrNoOwner) {
+		t.Fatalf("a press from an account deleted mid-request: %v, want ErrNoOwner", err)
+	}
 	demoted := g.enqueue(g.aro(), "admin-steps", n(1))
 	exec(t, g.st.DB, `UPDATE users SET is_admin = 0 WHERE id = 1`)
 	g.steps.let()
 
 	g.waitState(gone, "failed")
 	g.waitState(demoted, "failed")
-	if ran.Load() != 0 {
-		t.Fatal("a job whose account was deleted ran, under an id somebody else now holds")
+	if ran.Load() != 0 || count(t, g.st.DB, `SELECT count(*) FROM jobs WHERE user_id = 2`) != 0 {
+		t.Fatal("a job whose account was deleted ran, or is kept, under an id somebody else now holds")
 	}
 	for id, want := range map[int64]string{gone: "the account that started this job is gone", demoted: "the account that started this job is no longer an admin"} {
 		var e string
