@@ -2,6 +2,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -171,13 +172,36 @@ func (s *Store) Close() error {
 
 // CloseLog closes the log pool alone: shutdown's step between the logbook's last
 // flush and the checkpoint (cmd/tippani's shutdown says why that order). It takes
-// the swap lock like Close, so a prune chunk still in flight on the pool finishes
-// first. Close afterwards closes it again, which is harmless.
-func (s *Store) CloseLog() error {
-	s.logMu.Lock()
-	defer s.logMu.Unlock()
-	return s.LogDB.Close()
+// the swap lock like Close, so a batch or a prune chunk still in flight on the
+// pool finishes first. Close afterwards closes it again, which is harmless.
+//
+// IT WAITS AT MOST wait FOR THAT. A write in flight when the logbook's flush ran
+// out of time is one waiting on SQLite's lock, which can take busy_timeout (five
+// seconds) to give up, and shutdown has no five seconds to spare. Past wait it
+// returns ErrLogStillWriting and leaves the pool open: the close still happens,
+// by itself, the moment that write lets go, and the checkpoint need not wait for
+// it — a batch landing behind the checkpoint leaves a WAL that is valid and is
+// folded back at the next open.
+func (s *Store) CloseLog(wait time.Duration) error {
+	closed := make(chan error, 1)
+	go func() {
+		s.logMu.Lock()
+		defer s.logMu.Unlock()
+		closed <- s.LogDB.Close()
+	}()
+	t := time.NewTimer(wait)
+	defer t.Stop()
+	select {
+	case err := <-closed:
+		return err
+	case <-t.C:
+		return ErrLogStillWriting
+	}
 }
+
+// ErrLogStillWriting is CloseLog's answer when a write through the log pool was
+// still in flight when its wait ran out.
+var ErrLogStillWriting = errors.New("a log write was still waiting on the database, so the log pool was left to close when it ends")
 
 // LogWrite runs fn with the log pool, holding the swap lock for reading. It is the
 // only way anything writes through LogDB — the logbook's drainer — and the lock is
@@ -211,4 +235,28 @@ func (s *Store) Generation() uint64 { return s.gen.Load() }
 func (s *Store) Checkpoint() error {
 	_, err := s.DB.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`)
 	return err
+}
+
+// CheckpointWithin is shutdown's checkpoint: Checkpoint, waiting at most wait for
+// a writer to finish (WithLockWait) rather than busy_timeout's five seconds, and
+// saying so when one did not.
+//
+// A writer still holding the lock when the wait ends does not stop the
+// checkpoint. SQLite then carries on as a passive checkpoint, folding back every
+// frame committed before that writer began, and reports the database busy. The
+// frames folded back are the point of the step, since they are what a kill
+// afterwards could tear; so shutdown runs it even with no time left, and a
+// checkpoint that starts and is cut short by its own wait still does that part.
+// Checkpoint's plain Exec threw the busy answer away and was read as success.
+func (s *Store) CheckpointWithin(wait time.Duration) error {
+	return s.WithLockWait(wait, func(c *sql.Conn) error {
+		var busy, frames, folded int
+		if err := c.QueryRowContext(context.Background(), `PRAGMA wal_checkpoint(TRUNCATE)`).Scan(&busy, &frames, &folded); err != nil {
+			return err
+		}
+		if busy != 0 {
+			return fmt.Errorf("another connection was still writing after %s, so %d of the WAL's %d frames were folded back and it was not truncated", wait, folded, frames)
+		}
+		return nil
+	})
 }

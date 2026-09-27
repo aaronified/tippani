@@ -31,7 +31,7 @@ const (
 	CodeStoreCorruption    Code = "TIP-STORE-002" // quick_check found page-level corruption
 	CodeStoreFTSRebuild    Code = "TIP-STORE-003" // an FTS index could not be reconstructed in place
 	CodeStoreRecoverFailed Code = "TIP-STORE-004" // whole-database recovery-from-content failed
-	CodeStoreCheckpoint    Code = "TIP-STORE-005" // WAL checkpoint on shutdown failed
+	CodeStoreCheckpoint    Code = "TIP-STORE-005" // WAL checkpoint on shutdown failed, or could not finish
 	CodeStoreResetDelete   Code = "TIP-STORE-006" // factory reset could not delete a database file
 	CodeStoreOneTimePass   Code = "TIP-STORE-007" // a one-time upgrade pass failed; skipped, unrecorded, retried next start
 
@@ -194,7 +194,7 @@ var Registry = map[Code]string{
 	CodeStoreCorruption:    "quick_check found page-level corruption in the database file.",
 	CodeStoreFTSRebuild:    "A full-text index could not be reconstructed in place from its content table.",
 	CodeStoreRecoverFailed: "Whole-database recovery (rebuild from intact content) failed.",
-	CodeStoreCheckpoint:    "WAL checkpoint on shutdown failed (the WAL is still valid and replays on reopen).",
+	CodeStoreCheckpoint:    "WAL checkpoint on shutdown failed, or could not finish because another connection was still writing (the WAL is still valid and replays on reopen).",
 	CodeStoreResetDelete:   "Factory reset could not delete a database file.",
 	CodeStoreOneTimePass:   "A one-time upgrade pass failed. It was skipped and left unrecorded, so the next start tries it again; the app boots either way.",
 
@@ -289,7 +289,7 @@ var Registry = map[Code]string{
 	CodeLogWrite:    "A batch of log lines could not be written to the database (the write lock was held past every retry, or the write failed); those lines were not kept there, and stdout and stderr still have them.",
 	CodeLogDropped:  "Log lines arrived faster than the database could take them, so some were not kept there; request and file lines go first, job lines and errors last.",
 	CodeLogPrune:    "The prune that removes jobs and log lines older than 30 days failed; nothing was lost, the old lines stay until the next prune succeeds.",
-	CodeLogShutdown: "At shutdown, the log lines still waiting to be written after the one-second budget were not kept in the database; stdout and stderr still have them.",
+	CodeLogShutdown: "At shutdown, the log lines still waiting to be written when the flush's budget (one second, or what was left of Docker's grace) ran out were not kept in the database; stdout and stderr still have them.",
 
 	CodeJobPanic:  "A job stopped on an internal error (a panic). It was marked failed, its log kept, and the next job in the queue started.",
 	CodeJobRecord: "A job's record — its state, its progress or its result — could not be written to the database, so Settings → Jobs may show it out of date.",

@@ -204,8 +204,10 @@ func serve() {
 	olog.SetSink(func(e olog.Entry) { lb.System(e.Level, e.Code, e.Line) })
 	log.SetOutput(io.MultiWriter(os.Stderr, olog.StdWriter()))
 
+	// No deferred Close: shutdown closes the store, within Docker's grace, and it
+	// is the one way serve returns (every other exit is a log.Fatal, which runs
+	// no defers).
 	st, dataDir := openStore()
-	defer st.Close()
 	lb.Attach(st)
 	// Every outward call, refused or not, is a line in the log of whoever made it.
 	outbound.SetObserver(lb.Outbound)
@@ -323,12 +325,12 @@ func serve() {
 	}
 	// Graceful shutdown. `docker stop` and the Watchtower self-updater send
 	// SIGTERM, then SIGKILL after a grace period (~10s by default). Without a
-	// handler the Go runtime terminates immediately: the deferred st.Close() never
-	// runs and the WAL is left un-checkpointed, so an unclean kill on a volume that
+	// handler the Go runtime terminates immediately: the store is never closed
+	// and the WAL is left un-checkpointed, so an unclean kill on a volume that
 	// doesn't guarantee fsync ordering can tear the WAL and corrupt the search
 	// indexes on the next boot. shutdown (below) stops the queue, drains in-flight
-	// requests, writes the last log lines and folds the WAL back into the main
-	// file, and then the deferred Close runs — all inside the grace period.
+	// requests, writes the last log lines, folds the WAL back into the main file
+	// and closes the store — all inside the grace period.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	serveErr := make(chan error, 1)
@@ -357,9 +359,14 @@ func serve() {
 	}
 }
 
+// shutdownBudget is how long shutdown's steps may take in all, the checkpoint's
+// wait for the lock included: Docker's ten-second grace, less a second for closing
+// the database and exiting. Each step has a budget of its own too, which is all
+// it takes when nothing is stuck. The whole is what holds when something is.
+const shutdownBudget = 9 * time.Second
+
 // shutdown stops the server in the one order that loses nothing it can keep, and
-// all of it inside Docker's ten-second grace (3 + 1 + 4 + 1 seconds at most,
-// with the checkpoint after):
+// all of it inside Docker's ten-second grace:
 //
 //  1. The queue. New jobs are refused and the running one is asked to stop after
 //     the item in hand; after 3 s its context is cancelled, so its outward calls
@@ -371,36 +378,71 @@ func serve() {
 //     the logbook stops keeping lines. It closes rather than only flushing, so a
 //     line logged after this (the checkpoint's own) goes to the terminal alone
 //     and never wakes a writer against the pool closed next.
-//  4. The log pool, which has nothing left to write.
-//  5. The checkpoint, with no pool left that could add to the WAL behind it.
-//  6. The library pool, when serve's deferred Close runs.
+//  4. The log pool, which has nothing left to write, or 1 s for the write it is
+//     still waiting on.
+//  5. The checkpoint, with no pool left that could add to the WAL behind it: 2 s
+//     for a writer to finish, then as much as can be folded back without it.
+//  6. Both pools, for what is left of the grace, and then the process exits
+//     whether they closed or not.
+//
+// THE STEPS ADD UP TO MORE THAN THE GRACE, AND ONE DEADLINE HOLDS THEM TO IT.
+// Every wait above is bounded by its own budget and by shutdownBudget from the
+// signal, whichever ends first, and that includes the waits nobody counted. When
+// another connection held SQLite's lock (an abandoned job, a handler Close did
+// not stop), the queue's two last writes and the log pool's in-flight write each
+// used to wait busy_timeout (5 s) before giving up, which put the checkpoint's
+// start past Docker's SIGKILL — the torn WAL this sequence exists to prevent —
+// and the checkpoint then waited 5 s more itself. A step that runs out does not
+// stop the ones after it; the checkpoint always runs, however late, because what
+// it folds back is what a kill could tear.
 func shutdown(httpServer *http.Server, runner *jobs.Runner, lb *jobs.Logbook, st *store.Store) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	end := time.Now().Add(shutdownBudget)
+	// within is d, or what is left of the whole, whichever is less; at least
+	// floor, for a step that must run even when nothing is left.
+	within := func(d, floor time.Duration) time.Duration {
+		return max(min(d, time.Until(end)), floor)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), within(3*time.Second, 0))
 	if err := runner.Close(ctx); err != nil {
 		olog.Errorf(olog.CodeJobRecord, "[jobs] stopping the queue: %v", err)
 	}
 	cancel()
 
-	ctx, cancel = context.WithTimeout(context.Background(), 4*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), within(4*time.Second, 0))
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Printf("graceful shutdown timed out (%v) — forcing close", err)
 		_ = httpServer.Close()
 	}
 	cancel()
 
-	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), within(time.Second, 0))
 	if err := lb.Close(ctx); err != nil {
 		olog.Errorf(olog.CodeLogShutdown, "the last log lines were not all kept in the database: %v", err)
 	}
 	cancel()
 
-	if err := st.CloseLog(); err != nil {
+	if err := st.CloseLog(within(time.Second, 100*time.Millisecond)); err != nil {
 		olog.Alertf("closing the log pool on shutdown returned: %v (continuing to the checkpoint)", err)
 	}
-	if err := st.Checkpoint(); err != nil {
+	if err := st.CheckpointWithin(within(2*time.Second, 100*time.Millisecond)); err != nil {
 		olog.Errorf(olog.CodeStoreCheckpoint, "wal checkpoint on shutdown failed: %v (db still valid; WAL replays on reopen)", err)
 	} else {
 		log.Printf("wal checkpointed into main database — clean shutdown")
+	}
+
+	// Close waits for every statement still running, a job's or a handler's
+	// that nothing stopped, and for the log pool's last write; none of that may
+	// hold the process past the grace. The checkpoint has run, so leaving
+	// without it leaves nothing the next open does not fold back.
+	closed := make(chan error, 1)
+	go func() { closed <- st.Close() }()
+	t := time.NewTimer(max(time.Until(end.Add(700*time.Millisecond)), 0))
+	defer t.Stop()
+	select {
+	case <-closed:
+	case <-t.C:
+		log.Printf("the database was still busy after the checkpoint; exiting without waiting for it (the next start folds back what is left)")
 	}
 }
 

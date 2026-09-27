@@ -29,9 +29,12 @@ package main
 // before; the boot lines and a coded warning are kept at their levels, and a
 // reader's lookup is kept as her job with the call it made; the command-line
 // tools leave a live server's running job running, while the daily deck is kept
-// as a job of its own with the call to Pushover it made; and on a server
-// terminating its own TLS, a failed handshake is kept with the request lines, not
-// in the middle of the log.
+// as a job of its own with the call to Pushover it made; on a server terminating
+// its own TLS, a failed handshake is kept with the request lines, not in the
+// middle of the log; and a stop with the database locked by another program still
+// ends inside Docker's grace. That last one holds SQLite's write lock through its
+// own transaction on the library pool, from before the stop to after it, as a
+// `sqlite3` shell left in a transaction would.
 
 import (
 	"bytes"
@@ -464,5 +467,42 @@ func TestAFailedHandshakeIsKeptWithTheRequestLines(t *testing.T) {
 	}
 	if n := count(t, st.DB, `SELECT count(*) FROM system_logs WHERE level = 'request' AND line LIKE 'GET /api/locales 200 %'`); n != 1 {
 		t.Errorf("the request asked over https is not kept:\n%s", srv.out)
+	}
+}
+
+// A STOP WITH THE DATABASE LOCKED BY ANOTHER PROGRAM STILL ENDS INSIDE DOCKER'S
+// GRACE. A `sqlite3` shell left in a transaction holds SQLite's write lock from
+// before the stop until after it, so nothing the server writes at the stop can
+// land. Each of those writes used to wait five seconds to find that out, and they
+// added up past the SIGKILL. Now each gives up in time, the server says which
+// lines it could not keep and that the checkpoint could not finish, and it exits
+// cleanly; what it could not write, the next start settles.
+func TestAStopWithTheDatabaseLockedElsewhereStillEndsInsideTheGrace(t *testing.T) {
+	dir := t.TempDir()
+	srv := serveOn(t, dir)
+	srv.get("/api/locales")
+	st := openData(t, dir)
+	// A job waiting, so the queue has something to write at the stop.
+	mustExec(t, st.DB, `INSERT INTO jobs (id, kind, state, created_at) VALUES (7, 'fill', 'queued', 3)`)
+	shell, err := st.DB.Begin() // the pool's transactions take the write lock at BEGIN
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.stop() // fails the test unless the server exits cleanly inside ten seconds
+	shell.Rollback()
+	terminal := srv.out.String()
+	for _, want := range []string{
+		"[error] TIP-LOG-005 the last log lines were not all kept in the database",
+		"[error] TIP-STORE-005 wal checkpoint on shutdown failed: another connection was still writing",
+	} {
+		if !strings.Contains(terminal, want) {
+			t.Errorf("the terminal does not say %q:\n%s", want, terminal)
+		}
+	}
+
+	again := serveOn(t, dir)
+	again.stop()
+	if n := count(t, st.DB, `SELECT count(*) FROM jobs WHERE id = 7 AND state = 'interrupted'`); n != 1 {
+		t.Errorf("the job the locked stop could not settle was not settled by the next start")
 	}
 }

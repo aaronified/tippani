@@ -94,6 +94,13 @@ type Options struct {
 	// FlushWait bounds the wait for a job's last lines before its finishing
 	// write. 0 means 2 s.
 	FlushWait time.Duration
+	// CloseWriteWait bounds how long each write Close makes after its wait —
+	// marking the job it gave up on and the waiting ones interrupted — waits for
+	// SQLite's write lock when somebody else holds it. 0 means half a second.
+	// A write that gives up leaves its rows as they were, and the next start's
+	// Boot interrupts them, saying the server restarted; shutdown's budget cannot
+	// spare busy_timeout's five seconds for each.
+	CloseWriteWait time.Duration
 }
 
 // Runner is the queue: one job at a time across the server, the rest waiting in
@@ -159,6 +166,9 @@ func NewRunner(st *store.Store, lb *Logbook, opts Options) *Runner {
 	}
 	if opts.FlushWait <= 0 {
 		opts.FlushWait = 2 * time.Second
+	}
+	if opts.CloseWriteWait <= 0 {
+		opts.CloseWriteWait = 500 * time.Millisecond
 	}
 	base, cancel := context.WithCancel(context.Background())
 	return &Runner{
@@ -782,7 +792,15 @@ func (r *Runner) stopWhere(gen uint64, scope string, args []any, waitingLine, ru
 
 // ids runs a statement that returns job ids.
 func (r *Runner) ids(q string, args ...any) ([]int64, error) {
-	rows, err := r.st.DB.Query(q, args...)
+	return idsOf(r.st.DB, q, args...)
+}
+
+// idsOf is ids on any pool or pinned connection: Close's writes run on one whose
+// wait for the lock is its own (store.WithLockWait).
+func idsOf(db interface {
+	QueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error)
+}, q string, args ...any) ([]int64, error) {
+	rows, err := db.QueryContext(context.Background(), q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -862,7 +880,9 @@ func (r *Runner) Boot() error {
 // Options.CancelWait more. A job still not back is marked interrupted there and
 // then (its goroutine is left to finish on its own; its end is not recorded over
 // that). Every waiting job is interrupted. A job ended by shutdown is interrupted,
-// not stopped: nobody pressed Stop.
+// not stopped: nobody pressed Stop. Those two writes wait at most
+// Options.CloseWriteWait each for a lock held elsewhere, so Close as a whole is
+// bounded: ctx, then CancelWait, then twice CloseWriteWait.
 func (r *Runner) Close(ctx context.Context) error {
 	r.mu.Lock()
 	if r.closed {
@@ -892,9 +912,13 @@ func (r *Runner) Close(ctx context.Context) error {
 	r.cancel()
 
 	gen := r.st.Generation()
-	waiting, err := r.ids(`UPDATE jobs SET state = 'interrupted', finished_at = ? WHERE state = 'queued' RETURNING id`,
-		time.Now().UnixMilli())
-	errs = append(errs, err)
+	var waiting []int64
+	errs = append(errs, r.st.WithLockWait(r.opts.CloseWriteWait, func(c *sql.Conn) error {
+		var err error
+		waiting, err = idsOf(c, `UPDATE jobs SET state = 'interrupted', finished_at = ? WHERE state = 'queued' RETURNING id`,
+			time.Now().UnixMilli())
+		return err
+	}))
 	r.forget(waiting...)
 	for _, id := range waiting {
 		r.lb.jobLineIn(gen, id, LevelWarn, "the server stopped before this job started")
@@ -915,9 +939,11 @@ func (r *Runner) abandon() error {
 	r.forget(j.id)
 	j.Log(LevelWarn, "the server stopped while this job was running, and could not wait for the item in hand")
 	done, total := j.final()
-	_, err := r.st.DB.Exec(`UPDATE jobs SET state = 'interrupted', done = ?, total = ?, finished_at = ?
-		WHERE id = ? AND state = 'running'`, done, total, time.Now().UnixMilli(), j.id)
-	return err
+	return r.st.WithLockWait(r.opts.CloseWriteWait, func(c *sql.Conn) error {
+		_, err := c.ExecContext(context.Background(), `UPDATE jobs SET state = 'interrupted', done = ?, total = ?, finished_at = ?
+			WHERE id = ? AND state = 'running'`, done, total, time.Now().UnixMilli(), j.id)
+		return err
+	})
 }
 
 // Exclusive runs fn with the queue held: a restore, a factory reset, a reindex or

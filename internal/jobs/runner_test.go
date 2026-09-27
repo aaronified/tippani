@@ -38,7 +38,8 @@ import (
 // after the item in hand and the job keeps its log; a reader's Stop all stops
 // their own jobs and an admin's stops everyone's; jobs a restart caught are
 // interrupted and nothing resumes by itself; shutdown interrupts what it cannot
-// finish and refuses anything new; a restore waits for a running job and holds
+// finish and refuses anything new, and does not wait out a lock held elsewhere to
+// say so; a restore waits for a running job and holds
 // the queue while it runs; only the owner can run a job again; a job started
 // twice, or a sixth, is refused with the reason; no job is left waiting with
 // nothing to run it, and a Stop never loses a race with the job starting;
@@ -480,6 +481,48 @@ func TestShutdownInterruptsWhatItCannotFinishAndRefusesAnythingNew(t *testing.T)
 			t.Fatalf("a job cancelled by shutdown: %s, error %q; want interrupted, not failed", g.state(id), errText)
 		}
 	})
+}
+
+// A SHUTDOWN WITH THE WRITE LOCK HELD ELSEWHERE DOES NOT WAIT IT OUT. The two
+// writes Close makes once it stops waiting for the job — the one it gave up on,
+// and the one still waiting — each wait half a second for the lock rather than
+// busy_timeout's five, because shutdown has Docker's ten seconds for everything.
+// What they could not write is left as it was, and the next start settles it.
+func TestAShutdownWithTheLockHeldElsewhereDoesNotWaitItOut(t *testing.T) {
+	g := newRig(t, jobs.Options{CancelWait: 100 * time.Millisecond})
+	unstick, entered := make(chan struct{}), make(chan struct{})
+	g.r.Register(jobs.Kind{Name: "stuck", Run: func(context.Context, *jobs.Job) error {
+		close(entered)
+		<-unstick
+		return nil
+	}})
+	t.Cleanup(func() { close(unstick) })
+	stuck := g.enqueue(g.mitra(), "stuck", nil)
+	<-entered
+	waiting := g.enqueue(g.mitra(), "quick", nil)
+
+	letGo := holdWriteLock(t, g.st.DB)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err := g.r.Close(ctx)
+	took := time.Since(start)
+	letGo()
+	if took > 3*time.Second {
+		t.Fatalf("Close took %s with the lock held elsewhere: its writes waited out busy_timeout", took)
+	}
+	if err == nil {
+		t.Fatal("Close could not write either end and reported nothing")
+	}
+	if g.state(stuck) != "running" || g.state(waiting) != "queued" {
+		t.Fatalf("rows Close could not write: %s and %s, want them left running and queued", g.state(stuck), g.state(waiting))
+	}
+	if err := jobs.NewRunner(g.st, g.lb, jobs.Options{}).Boot(); err != nil {
+		t.Fatal(err)
+	}
+	if g.state(stuck) != "interrupted" || g.state(waiting) != "interrupted" {
+		t.Fatalf("the next start left them %s and %s, want both interrupted", g.state(stuck), g.state(waiting))
+	}
 }
 
 // TIPPANI_JOBS_HOLD (HoldEnv) is used here, declared: it is the only way to have
