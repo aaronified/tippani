@@ -61,6 +61,9 @@ const (
 	// entryOverhead is what an entry costs beyond its text, so a flood of empty
 	// lines is still bounded by bytes.
 	entryOverhead = 64
+	// pruneEveryBatches is how many batches the drainer writes between prune
+	// chunks while there is always another batch waiting.
+	pruneEveryBatches = 4
 )
 
 // Drop classes, lowest dropped first.
@@ -77,9 +80,11 @@ const (
 //
 // THE PRUNE: thirty days, in chunks, with no timer. It runs when the drainer has
 // just written and the last prune is over an hour old, and when PruneSoon is
-// called (the Jobs tab opening). Each chunk is its own short transaction, and
-// the drainer writes any waiting batch before the next chunk, so a prune of a
-// month of request lines never holds the lock for longer than one chunk.
+// called (the Jobs tab opening). Each chunk is its own short transaction, run
+// whenever the drainer has nothing to write and after every pruneEveryBatches
+// batches besides: a prune of a month of request lines never holds the lock for
+// longer than one chunk, and lines arriving faster than they are written — the
+// flood the drop order is for, when the buffer is never empty — never starve it.
 //
 // Both sets of numbers live on the Logbook rather than in package variables, so
 // the one test that shrinks the ceiling changes its own logbook and no other.
@@ -181,6 +186,7 @@ type Logbook struct {
 
 	buf        []*entry // FIFO; buf[head:] is waiting, gone entries included
 	head       int
+	goneN      int // gone entries in buf[head:], which compactLocked clears out
 	bytes      int
 	units      int
 	classCount [classes]int
@@ -210,6 +216,7 @@ type Logbook struct {
 
 	lastPrune   time.Time
 	pruneWanted bool
+	sincePrune  int       // batches written since the last prune chunk, up to pruneEveryBatches
 	prune       *pruneRun // the prune in progress, if any
 
 	closed bool
@@ -360,7 +367,7 @@ func (lb *Logbook) Close(ctx context.Context) error {
 	lb.closed = true
 	lb.st = nil
 	clear(lb.buf)
-	lb.buf, lb.head, lb.bytes, lb.units, lb.classCount = nil, 0, 0, 0, [classes]int{}
+	lb.buf, lb.head, lb.goneN, lb.bytes, lb.units, lb.classCount = nil, 0, 0, 0, 0, [classes]int{}
 	lb.pruneWanted, lb.prune = false, nil
 	lb.signalLocked()
 	return err
@@ -432,13 +439,37 @@ func (lb *Logbook) oldestBelowLocked(c int) *entry {
 	return nil
 }
 
+// evictLocked drops e to make room. Its text goes at once, not when the drainer
+// passes it: while the drainer is stalled (waiting out a held lock, or not yet
+// attached) every line that evicts another would otherwise keep the one it
+// evicted in memory, and the 8 MB would be counted but not held to. And once
+// evicted entries are half of what is waiting, the buffer is compacted, so the
+// husks do not pile up either.
 func (lb *Logbook) evictLocked(e *entry) {
+	lb.overflow += e.lineCount()
 	e.gone = true
+	e.text, e.lines, e.row, e.account = "", nil, Row{}, ""
 	lb.bytes -= e.size
 	lb.units -= e.units
 	lb.classCount[e.class]--
-	lb.overflow += e.lineCount()
+	lb.goneN++
+	if lb.goneN > (len(lb.buf)-lb.head)/2 {
+		lb.compactLocked()
+	}
 	lb.signalLocked()
+}
+
+// compactLocked removes the gone entries from what is waiting, in order.
+func (lb *Logbook) compactLocked() {
+	n := 0
+	for _, e := range lb.buf[lb.head:] {
+		if !e.gone {
+			lb.buf[n] = e
+			n++
+		}
+	}
+	clear(lb.buf[n:])
+	lb.buf, lb.head, lb.goneN = lb.buf[:n], 0, 0
 }
 
 func (e *entry) lineCount() int {
@@ -478,6 +509,8 @@ func (lb *Logbook) takeLocked() []*entry {
 			lb.bytes -= e.size
 			lb.units -= e.units
 			lb.classCount[e.class]--
+		} else {
+			lb.goneN--
 		}
 		lb.buf[lb.head] = nil
 		lb.head++
@@ -525,6 +558,14 @@ func (lb *Logbook) drain() {
 			lb.mu.Unlock()
 			return
 		}
+		if lb.sincePrune >= pruneEveryBatches {
+			if run := lb.nextPruneLocked(); run != nil {
+				lb.sincePrune = 0
+				lb.mu.Unlock()
+				lb.pruneStep(st, run)
+				continue
+			}
+		}
 		batch := lb.takeLocked()
 		if len(batch) == 0 {
 			run := lb.nextPruneLocked()
@@ -534,10 +575,12 @@ func (lb *Logbook) drain() {
 				lb.mu.Unlock()
 				return
 			}
+			lb.sincePrune = 0
 			lb.mu.Unlock()
 			lb.pruneStep(st, run)
 			continue
 		}
+		lb.sincePrune = min(lb.sincePrune+1, pruneEveryBatches)
 		lb.inFlight, lb.inFlightMin, lb.inFlightN = true, batch[0].seq, linesIn(batch)
 		lb.inFlightOverflow, lb.inFlightFailed = lb.overflow, lb.failed
 		lb.overflow, lb.failed = 0, 0

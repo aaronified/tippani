@@ -34,7 +34,12 @@ import (
 //     is the only way to hold a job's lines back while leaving its finishing
 //     write free to land first, which is exactly the defect Flush-before-finish
 //     exists to prevent. The black-box version of that test failed about one run
-//     in fifteen with the Flush removed, because the drainer usually won anyway.
+//     in fifteen with the Flush removed, because the drainer usually won anyway;
+//   - a buffer that is never empty when the drainer looks — the flood the prune
+//     must not starve behind — is a matter of timing from outside, and
+//     beforeWrite adding one line before every batch makes it exact;
+//   - what an evicted line still holds in memory is in no table, so that test
+//     reads the buffer itself.
 //
 // The busy retry that succeeds uses no seam: it holds SQLite's write lock for
 // real, from the library pool, for longer than one attempt waits.
@@ -180,6 +185,82 @@ func TestAFinishedJobsLastLinesAreThereWhenItSaysItFinished(t *testing.T) {
 			time.Sleep(10 * time.Millisecond)
 		}
 	})
+}
+
+// AN EVICTED LINE LETS GO OF WHAT IT HELD. With nothing draining (as while the
+// drainer waits out a held lock), a buffer full of request lines takes errors,
+// each pushing request lines out. What the buffer still holds stays inside the
+// 8 MB, and the husks of what it pushed out do not pile up beside it.
+func TestAnEvictedLineLetsGoOfWhatItHeld(t *testing.T) {
+	lb := NewLogbook() // never attached: nothing drains
+	for range 5000 {
+		lb.System(LevelRequest, "", strings.Repeat("r", 2000))
+	}
+	for range 1100 {
+		lb.System(LevelError, "", strings.Repeat("e", 8000))
+	}
+	lb.mu.Lock()
+	held, entries, live := 0, 0, 0
+	for _, e := range lb.buf[lb.head:] {
+		held += len(e.text)
+		entries++
+		if !e.gone {
+			live++
+		}
+	}
+	lb.mu.Unlock()
+	if held > maxBufferBytes {
+		t.Errorf("the buffer holds %d bytes of text, over its %d", held, maxBufferBytes)
+	}
+	if entries > 2*live {
+		t.Errorf("the buffer keeps %d entries for %d lines still waiting", entries, live)
+	}
+}
+
+// THE PRUNE UNDER A FLOOD. Every batch the drainer writes brings another line
+// with it (beforeWrite), so the buffer is never empty when the drainer looks, as
+// under a crawler; the month-old lines still go, a chunk at a time between
+// batches.
+func TestThePruneStillRunsWhileLinesNeverStopArriving(t *testing.T) {
+	st := openStoreInternal(t)
+	old := time.Now().Add(-31 * 24 * time.Hour).UnixMilli()
+	for i := range 450 {
+		if _, err := st.DB.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'request', 'old')`, old+int64(i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lb := NewLogbook()
+	lb.tune.pruneChunk = 100 // five chunks for the 450
+	var flooding atomic.Bool
+	flooding.Store(true)
+	lb.tune.beforeWrite = func() {
+		if flooding.Load() {
+			lb.System(LevelRequest, "", "GET /api/books 200")
+		}
+	}
+	lb.Attach(st)
+	t.Cleanup(func() { lb.Close(context.Background()) })
+	// Cleanups run last first: the flood stops before the close, whose flush
+	// then has an end.
+	t.Cleanup(func() { flooding.Store(false) })
+	lb.System(LevelRequest, "", "the first request") // the flood keeps itself going from here
+
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		var left, flood int
+		st.DB.QueryRow(`SELECT count(*) FILTER (WHERE line = 'old'), count(*) FILTER (WHERE line LIKE 'GET %') FROM system_logs`).
+			Scan(&left, &flood)
+		if left == 0 {
+			if flood == 0 {
+				t.Fatal("the old lines went, but no flood ran while they did")
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%d month-old lines still kept after %d lines of flood", left, flood)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
 func TestTheSystemLogPastItsCeilingLosesItsOldest(t *testing.T) {
