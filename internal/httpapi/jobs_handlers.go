@@ -692,7 +692,7 @@ func (s *Server) handleJobLogMarkdown(w http.ResponseWriter, r *http.Request) {
 	var longest int
 	err = s.Store.DB.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM job_logs WHERE job_id = ?`, id).Scan(&upTo)
 	if err == nil {
-		longest, err = s.longestIn(`SELECT at, level, '', line FROM job_logs WHERE job_id = ? AND id <= ?
+		longest, err = s.longestIn(`SELECT id, at, level, '', line FROM job_logs WHERE job_id = ? AND id <= ?
 			AND (instr(line, '`+"`"+`') > 0 OR instr(level, '`+"`"+`') > 0)`, id, upTo)
 	}
 	if err != nil {
@@ -725,7 +725,7 @@ func (s *Server) handleJobLogMarkdown(w http.ResponseWriter, r *http.Request) {
 		about:    aboutLine(about...),
 		longest:  longest,
 		lines: func(emit func(string) error) error {
-			return s.eachExportLine(emit, `SELECT at, level, '', line FROM job_logs WHERE job_id = ? AND id <= ? ORDER BY id`, id, upTo)
+			return s.eachExportLine(emit, `SELECT id, at, level, '', line FROM job_logs WHERE job_id = ? AND id <= ?`, id, upTo)
 		},
 	})
 	if err != nil {
@@ -733,8 +733,8 @@ func (s *Server) handleJobLogMarkdown(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// longestIn is the longest backtick run in the export lines q selects (its
-// columns: at, level, code, line).
+// longestIn is the longest backtick run in the export lines q selects (see
+// eachExportLine for its shape).
 func (s *Server) longestIn(q string, args ...any) (int, error) {
 	longest := 0
 	err := s.eachExportLine(func(line string) error {
@@ -744,25 +744,70 @@ func (s *Server) longestIn(q string, args ...any) (int, error) {
 	return longest, err
 }
 
-// eachExportLine runs q (columns: at, level, code, line) and emits each row as
+// exportBatch is how many lines an export reads before it writes them.
+const exportBatch = 2000
+
+// errExportSwapped ends an export whose database was swapped part-way.
+var errExportSwapped = errors.New("the database was replaced (a restore or a reset) while the export was written")
+
+// eachExportLine emits, in id order, each line q selects — its columns id, at,
+// level, code, line, and its WHERE the last clause, with no ORDER BY — as
 // exportLine makes it.
+//
+// A BATCH AT A TIME, EACH READ TO THE END AND CLOSED BEFORE ANY OF IT IS SENT.
+// emit writes to the network, and a cursor held open across a write holds one of
+// the library pool's four connections for as long as the client takes to read:
+// four phones asleep mid-download and every request in the app waits for a
+// connection, and the cursor's read snapshot keeps the WAL from checkpointing
+// meanwhile. Keyed by id, so each batch is its own short query that starts
+// where the last one ended.
+//
+// A swap between two batches ends the export with a line saying so. After a
+// reset the ids below the export's last one name other lines, and a restore
+// could have been of anything: the rest would not be the log the fence was
+// measured over.
 func (s *Server) eachExportLine(emit func(string) error, q string, args ...any) error {
-	rows, err := s.Store.DB.Query(q, args...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var at int64
-		var level, code, line string
-		if err := rows.Scan(&at, &level, &code, &line); err != nil {
+	gen := s.Store.Generation()
+	var after int64
+	for {
+		type row struct {
+			id                int64
+			at                int64
+			level, code, line string
+		}
+		batch := make([]row, 0, exportBatch)
+		rows, err := s.Store.DB.Query(q+` AND id > ? ORDER BY id LIMIT ?`, append(slices.Clone(args), after, exportBatch)...)
+		if err != nil {
 			return err
 		}
-		if err := emit(exportLine(at, level, code, line)); err != nil {
+		for rows.Next() {
+			var l row
+			if err := rows.Scan(&l.id, &l.at, &l.level, &l.code, &l.line); err != nil {
+				rows.Close()
+				return err
+			}
+			batch = append(batch, l)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
 			return err
 		}
+		if s.Store.Generation() != gen {
+			if err := emit("… the export stops here: " + errExportSwapped.Error()); err != nil {
+				return err
+			}
+			return errExportSwapped
+		}
+		for _, l := range batch {
+			if err := emit(exportLine(l.at, l.level, l.code, l.line)); err != nil {
+				return err
+			}
+		}
+		if len(batch) < exportBatch {
+			return nil
+		}
+		after = batch[len(batch)-1].id
 	}
-	return rows.Err()
 }
 
 // handleStopJob: POST /jobs/{id}/stop → {job}. A waiting job is stopped at once,

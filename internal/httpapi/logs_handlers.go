@@ -209,7 +209,7 @@ func (s *Server) handleSystemLogsMarkdown(w http.ResponseWriter, r *http.Request
 	err := s.Store.DB.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM system_logs`).Scan(&upTo)
 	if err == nil {
 		tick := "'`'"
-		longest, err = s.longestIn(`SELECT at, level, code, line FROM system_logs WHERE `+where+` AND id <= ?
+		longest, err = s.longestIn(`SELECT id, at, level, code, line FROM system_logs WHERE `+where+` AND id <= ?
 			AND (instr(line, `+tick+`) > 0 OR instr(code, `+tick+`) > 0 OR instr(level, `+tick+`) > 0)`,
 			append(args, upTo)...)
 	}
@@ -228,8 +228,8 @@ func (s *Server) handleSystemLogsMarkdown(w http.ResponseWriter, r *http.Request
 		about:    aboutLine(f.describe(q), "times in UTC"),
 		longest:  longest,
 		lines: func(emit func(string) error) error {
-			return s.eachExportLine(emit, `SELECT at, level, code, line FROM system_logs WHERE `+where+
-				` AND id <= ? ORDER BY id`, append(args, upTo)...)
+			return s.eachExportLine(emit, `SELECT id, at, level, code, line FROM system_logs WHERE `+where+
+				` AND id <= ?`, append(args, upTo)...)
 		},
 	})
 	if err != nil {

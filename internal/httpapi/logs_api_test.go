@@ -1,12 +1,15 @@
 package httpapi
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"syscall"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -26,8 +29,16 @@ import (
 // under test is what the log does with the lines it gets. The request and file
 // lines come from real requests (the SPA served from srv.Static, as the request
 // log's own test serves it). One line is written straight into system_logs,
-// 31 days old, because no line can be logged in the past. And the wire field
-// names, which are the contract the screen is built to.
+// 31 days old, because no line can be logged in the past, and sixty thousand
+// more in one statement, because no request logs that many in a test's time.
+// And the wire field names, which are the contract the screen is built to.
+//
+// The downloads nobody reads are real sockets to a real listener, each with a
+// small receive buffer, which read the status line and then nothing: a client
+// that stops reading is a socket that stops draining, and the recorder the other
+// tests use never blocks. The time an export waits for such a client is
+// shortened (exportIdle) for the part that waits it out, so that part takes a
+// second and not a minute.
 //
 // What each one guards, in a sentence a person would say: only an admin reads
 // the system log; it shows every level but file requests and traces unless asked,
@@ -35,7 +46,8 @@ import (
 // keyword is matched without regard to case and a % or _ in it means itself; a
 // page ends where the next begins; nothing older than thirty days is shown; the
 // export holds exactly what the filters show, or everything kept, one line per
-// line inside a fence no line can close.
+// line inside a fence no line can close; downloads nobody is reading leave the
+// app answering everyone else, and are given up on in the end.
 
 // logging gives srv a logbook and routes olog into it, as serve() does.
 func logging(t *testing.T, srv *Server) {
@@ -255,6 +267,85 @@ func TestTheSystemLogExportsWhatTheFiltersShowOrEverythingKept(t *testing.T) {
 		"asset    GET /library/Wv-md 200", "Wv-md one with", "request  POST /api/auth/signup 200"} {
 		if !strings.Contains(eb, want) {
 			t.Fatalf("everything kept does not hold %q:\n%s", want, eb)
+		}
+	}
+}
+
+// stalledDownload opens GET path on ts as c, reads the status line, and then
+// reads nothing more: a phone that went to sleep mid-download. Its receive buffer
+// is kept small, so the server fills it and the kernel's send buffer and then
+// waits on the client, as it would over a real link.
+func stalledDownload(t *testing.T, ts *httptest.Server, c *testClient, path string) net.Conn {
+	t.Helper()
+	d := net.Dialer{Control: func(_, _ string, raw syscall.RawConn) error {
+		var serr error
+		if err := raw.Control(func(fd uintptr) {
+			serr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF, 4096)
+		}); err != nil {
+			return err
+		}
+		return serr
+	}}
+	conn, err := d.Dial("tcp", ts.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	fmt.Fprintf(conn, "GET %s HTTP/1.1\r\nHost: tippani\r\nCookie: %s=%s\r\n\r\n", apiPath(path), c.cookie.Name, c.cookie.Value)
+	conn.SetReadDeadline(time.Now().Add(20 * time.Second))
+	status, err := bufio.NewReader(conn).ReadString('\n')
+	if err != nil || !strings.HasPrefix(status, "HTTP/1.1 200") {
+		t.Fatalf("the download of %s began %q (%v), want a 200", path, status, err)
+	}
+	return conn
+}
+
+func TestDownloadsNobodyReadsLeaveTheAppAnsweringAndAreGivenUpOn(t *testing.T) {
+	srv := newTestServer(t)
+	logging(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	// Sixty thousand lines of two hundred bytes: a file several times what the
+	// socket buffers between the server and a client can hold.
+	if _, err := srv.Store.DB.Exec(`WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 60000)
+		INSERT INTO system_logs (at, level, code, line) SELECT ?, 'info', '', printf('[test] Wv-bulk %06d %s', i, ?) FROM n`,
+		time.Now().UnixMilli(), strings.Repeat("x", 180)); err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(h)
+	t.Cleanup(ts.Close) // after the downloads' own cleanups, which close them first
+
+	// More stalled exports than the library pool has connections, and the app
+	// still answers a reader's list at once.
+	for range 5 {
+		stalledDownload(t, ts, admin, "/admin/logs.md?all=1")
+	}
+	req, _ := http.NewRequest("GET", ts.URL+apiPath("/books"), nil)
+	req.AddCookie(admin.cookie)
+	start := time.Now()
+	res, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	if err != nil {
+		t.Fatalf("GET /books beside five stalled exports: %v", err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("GET /books beside five stalled exports: %d", res.StatusCode)
+	}
+	t.Logf("GET /books answered in %s beside five stalled exports", time.Since(start).Round(time.Millisecond))
+
+	// And a download nobody reads is let go once it has waited long enough,
+	// which the server's own log says.
+	old := exportIdle
+	exportIdle = 300 * time.Millisecond
+	t.Cleanup(func() { exportIdle = old })
+	stalledDownload(t, ts, admin, "/admin/logs.md?q=Wv-bulk")
+	for deadline := time.Now().Add(20 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+		got := marked(admin.logs(url.Values{"level": {"warn"}, "q": {"export was not all sent"}}), "export was not all sent")
+		if len(got) > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("an export nobody read for twenty seconds was never given up on")
 		}
 	}
 }

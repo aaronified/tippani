@@ -96,6 +96,23 @@ type mdExport struct {
 	lines func(emit func(line string) error) error
 }
 
+// exportIdle is how long an export waits for the client to take its next 64 KB
+// before it gives up on it. A variable so the test of a download nobody reads can
+// wait a moment instead of a minute.
+var exportIdle = 60 * time.Second
+
+// idleDeadline writes to w with a fresh write deadline each time, exportIdle
+// from now: a download is allowed as long as it takes, but not a pause that long.
+type idleDeadline struct {
+	w  http.ResponseWriter
+	rc *http.ResponseController
+}
+
+func (d idleDeadline) Write(p []byte) (int, error) {
+	_ = d.rc.SetWriteDeadline(time.Now().Add(exportIdle))
+	return d.w.Write(p)
+}
+
 // writeMarkdownExport sends e as a Markdown download. The status and headers are
 // sent before the first line, so a read that fails partway can only end the file
 // early; the error is returned for the caller to log.
@@ -103,9 +120,11 @@ func writeMarkdownExport(w http.ResponseWriter, e mdExport) error {
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+e.filename+`"`)
 	// A month of request lines is a large file, and the server's 60 s write
-	// deadline is for answers, not downloads (handleBackupDownload does the same).
-	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
-	bw := bufio.NewWriterSize(w, 64<<10)
+	// deadline is for answers, not downloads, so the deadline moves with each
+	// 64 KB written instead (idleDeadline). Clearing it outright, as the backup
+	// download does, would let a client that stopped reading — a phone asleep
+	// mid-download, a stalled proxy — keep this handler for good.
+	bw := bufio.NewWriterSize(idleDeadline{w: w, rc: http.NewResponseController(w)}, 64<<10)
 	f := fence(e.longest)
 	fmt.Fprintf(bw, "# %s\n\n%s\n\n%s\n", jobs.OneLine(e.heading), jobs.OneLine(e.about), f)
 	err := e.lines(func(line string) error {
