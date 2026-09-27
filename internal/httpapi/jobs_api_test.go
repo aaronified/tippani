@@ -815,6 +815,18 @@ func TestOnlyTheOwnerRunsAJobAgainAndAnAdminsKindAsksAgainWhoIsAdmin(t *testing.
 	backup := bob.mustStart("test.backup", map[string]string{"password": testPw})
 	bob.waitJob(backup.ID, "succeeded")
 	bob.mustDo("PATCH", fmt.Sprintf("/admin/users/%d", bobID), map[string]bool{"is_admin": false}, http.StatusOK)
+	// Not offered, in the job's poll or in his past jobs: a Rerun he may not press
+	// is not drawn.
+	for _, id := range []int64{adm.ID, backup.ID} {
+		if bob.job(id).Rerunnable {
+			t.Fatalf("a former admin is offered a rerun of his admin's job %d", id)
+		}
+	}
+	for _, j := range bob.jobs("view=past").Jobs {
+		if (j.ID == adm.ID || j.ID == backup.ID) && j.Rerunnable {
+			t.Fatalf("a former admin's past jobs offer a rerun of %d", j.ID)
+		}
+	}
 	if rec := bob.do("POST", fmt.Sprintf("/jobs/%d/rerun", adm.ID), nil); rec.Code != http.StatusForbidden {
 		t.Fatalf("a former admin's rerun of an admin's job: %d %s, want 403", rec.Code, rec.Body)
 	}

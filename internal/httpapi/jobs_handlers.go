@@ -178,7 +178,10 @@ func (s *Server) jobViewOf(j jobRow, v jobs.Owner, active []int64, applied map[i
 		// whose jobs make it up.
 		view.Ahead, _ = slices.BinarySearch(active, j.id)
 	}
-	if k, ok := s.startableKind(j.kind); ok && own && j.queued && k.rerunnable && finished(j.state) {
+	// An admin's kind asks the viewer as they are now: a former admin's own backup
+	// is not offered a Rerun that would only answer 403 (absent, not disabled).
+	if k, ok := s.startableKind(j.kind); ok && own && j.queued && k.rerunnable && finished(j.state) &&
+		(!k.adminOnly || v.IsAdmin) {
 		view.Rerunnable = j.state != jobs.StateSucceeded || k.againAfterSuccess
 	}
 	return view
