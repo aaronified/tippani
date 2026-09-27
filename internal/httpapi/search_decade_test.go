@@ -103,7 +103,7 @@ func TestADecadeFindsAStandaloneQuote(t *testing.T) {
 		"-0399": "The unexamined life is not worth living.",
 		"-0380": "The 380s BCE, at the far end of the decade.",
 		"-0389": "The 380s BCE, at the near end of it.",
-		"0040":  "It is not that we have a short time to live, but that we waste a lot of it.",
+		"0040":  "A line from the first century, written for this test.",
 		"1944":  "Give me blood, and I will give you freedom",
 		"":      "A line with no date at all.",
 	}
