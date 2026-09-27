@@ -29,7 +29,9 @@ import (
 //     jobs.Runner on a logbook, and RegisterJobKinds), and the test adds kinds of
 //     its own with addJobKind: a job the test holds running until it lets go, one
 //     that logs lines, one that fails, one that takes a moment to finish its item
-//     once asked to stop, one that will not stop until let go. A real kind's run
+//     once asked to stop, one that will not stop until let go, and one that says
+//     when it has been asked to stop and finishes its item only when let go, so a
+//     press can land while a delete waits on it. A real kind's run
 //     goes to the suppliers, and nothing a person does holds a job mid-item on
 //     demand;
 //   - the six built-in kinds' rules — who may start them, their validators, their
