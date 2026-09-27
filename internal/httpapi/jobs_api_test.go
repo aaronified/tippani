@@ -52,7 +52,8 @@ import (
 // held to its cap and its checks, and a backup's password is checked before
 // anything queues and kept out of the job; a finished job's log downloads as
 // Markdown whose block no line can leave; past jobs hold what ran in a request
-// and thirty days of it.
+// and thirty days of it; deleting a reader stops their jobs and keeps them for
+// the admin.
 
 // testQueue is the server's queue with the test's kinds on it.
 type testQueue struct {
@@ -903,5 +904,43 @@ func TestAServerWithNoQueueStartsNothing(t *testing.T) {
 	alice.mustDo("POST", "/jobs", map[string]any{"kind": "fill", "params": map[string]any{"book_ids": []int{1}}}, http.StatusServiceUnavailable)
 	if list := alice.jobs("view=current"); len(list.Jobs) != 0 {
 		t.Fatalf("jobs on a server with no queue: %+v", list)
+	}
+}
+
+// Deleting a reader stops their jobs before the account goes — the waiting one at
+// once, the running one after the item in hand — and the admin still has both,
+// stopped, with their logs.
+func TestDeletingAReaderStopsTheirJobs(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+	carol := addUser(t, h, alice, "carol")
+
+	running := bob.mustStart("test.hold", map[string]any{"tag": "running"})
+	bob.waitJob(running.ID, "running")
+	waiting := bob.mustStart("test.hold", map[string]any{"tag": "waiting"})
+	others := carol.mustStart("test.hold", map[string]any{"tag": "carol's"})
+
+	alice.mustDo("DELETE", fmt.Sprintf("/admin/users/%d", accountID(t, alice, "bob")), nil, http.StatusOK)
+	for _, id := range []int64{running.ID, waiting.ID} {
+		j := alice.waitJob(id, "stopped")
+		if j.Username != "bob" || j.Own {
+			t.Fatalf("a deleted reader's job, as the admin sees it: %+v", j)
+		}
+	}
+	// Carol's job was never his, and runs once his has stopped.
+	carol.waitJob(others.ID, "running")
+	var text []string
+	for _, l := range decode[struct {
+		Lines []struct {
+			Line string `json:"line"`
+		} `json:"lines"`
+	}](t, alice.mustDo("GET", fmt.Sprintf("/jobs/%d", waiting.ID), nil, http.StatusOK)).Lines {
+		text = append(text, l.Line)
+	}
+	if !slices.Contains(text, "stopped before it started: the account that started it is being deleted") {
+		t.Fatalf("the waiting job's log does not say why it stopped: %q", text)
 	}
 }

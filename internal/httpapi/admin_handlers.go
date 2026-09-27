@@ -209,6 +209,17 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "an admin must step down before being removed")
 		return
 	}
+	// Their jobs stop first: the waiting ones at once, the running one after the
+	// item in hand. A job left to run on would go on writing into rows scoped by
+	// an id that users.id hands to the next account made. The history stays, the
+	// admin's to see (0079's trigger clears the owner as the account goes). A
+	// queue that cannot say it stopped them refuses the delete rather than risk it.
+	if s.Jobs != nil {
+		if err := s.Jobs.StopOwner(id); err != nil {
+			codedError(w, r, olog.CodeJobRecord, "delete user: stop their jobs", err)
+			return
+		}
+	}
 	// Collect the user's cover/poster/sticker filenames before the DB rows cascade
 	// away: the cascade frees rows, not on-disk images. They are PARKED rather than
 	// removed now, because the account goes to the bin like everything else.
