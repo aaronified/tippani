@@ -240,6 +240,15 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, `confirmation required: send {"confirm":"UPDATE"}`)
 		return
 	}
+	// With the queue held (withQueueHeld): the recreated container is a new
+	// process, and a job running in this one would end mid-item, interrupted, for
+	// a press nobody meant as a Stop. Held through the pull too, so no job starts
+	// in the minutes before the restart it would not survive.
+	s.withQueueHeld(w, func() { s.applyUpdate(w, r) })
+}
+
+// applyUpdate pulls the new image and launches the recreater, with the queue held.
+func (s *Server) applyUpdate(w http.ResponseWriter, r *http.Request) {
 	// ONLY ONE UPDATE AT A TIME. Two applies race two one-shot recreaters at the
 	// same container, and the second one is the natural thing to do when the first
 	// appears to have done nothing — which, before the two fixes below, is exactly

@@ -754,7 +754,9 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&req)
 	creds := backupCreds{Password: req.Password, Passphrase: req.Passphrase, Confirm: req.Confirm}
 	creds.RecoveryOK = s.passwordIsCallers(r, req.Password)
-	s.restoreFromNewest(w, fmt.Sprintf("user %d (%s)", userID(r), username(r)), s.safetyGuard(userID(r)), creds, true)
+	s.withQueueHeld(w, func() {
+		s.restoreFromNewest(w, fmt.Sprintf("user %d (%s)", userID(r), username(r)), s.safetyGuard(userID(r)), creds, true)
+	})
 }
 
 // handleRestoreUpload: POST /admin/restore/upload — restore from an archive the
@@ -769,7 +771,12 @@ func (s *Server) handleRestoreUpload(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusPreconditionRequired, errNoSafetyBackup)
 		return
 	}
-	s.restoreFromUpload(w, r, true, fmt.Sprintf("user %d (%s)", userID(r), username(r)), s.safetyGuard(userID(r)))
+	// Held from before the upload is read, not only around the swap: a job that
+	// started while a large archive uploaded would fail the restore at its last
+	// step, after the whole upload, where refusing now costs nothing.
+	s.withQueueHeld(w, func() {
+		s.restoreFromUpload(w, r, true, fmt.Sprintf("user %d (%s)", userID(r), username(r)), s.safetyGuard(userID(r)))
+	})
 }
 
 // passwordIsCallers reports whether `pw` is the caller's own current password.

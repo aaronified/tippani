@@ -15,17 +15,22 @@ import (
 // returns "internal error" from a corrupt index. Returns {ok, failed:[…]}; a
 // non-empty `failed` means those indexes were too damaged to rebuild in place
 // and a full reset is the remaining option.
+//
+// With the queue held (withQueueHeld): the rebuild can escalate to a whole-file
+// recovery, which swaps the database under whatever job is running.
 func (s *Server) handleReindexFTS(w http.ResponseWriter, r *http.Request) {
-	olog.Printf("[admin] search reindex requested by user %d (%s)", userID(r), username(r))
-	failed := s.Store.ReindexFTS()
-	// ReindexFTS may escalate to a whole-database Recover, which swaps the DB
-	// handle — repoint every store that captured the old one (rebindDB: the
-	// sessions AND the device tokens; this used to repoint the sessions alone).
-	s.rebindDB()
-	if failed == nil {
-		failed = []string{}
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": len(failed) == 0, "failed": failed})
+	s.withQueueHeld(w, func() {
+		olog.Printf("[admin] search reindex requested by user %d (%s)", userID(r), username(r))
+		failed := s.Store.ReindexFTS()
+		// ReindexFTS may escalate to a whole-database Recover, which swaps the DB
+		// handle — repoint every store that captured the old one (rebindDB: the
+		// sessions AND the device tokens; this used to repoint the sessions alone).
+		s.rebindDB()
+		if failed == nil {
+			failed = []string{}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": len(failed) == 0, "failed": failed})
+	})
 }
 
 // handleResetDatabase is the factory reset behind Profile → "Reset all data"
@@ -44,6 +49,13 @@ func (s *Server) handleResetDatabase(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, `confirmation required: send {"confirm":"RESET"}`)
 		return
 	}
+	// With the queue held (withQueueHeld): the reset deletes the file a running
+	// job is writing its rows into.
+	s.withQueueHeld(w, func() { s.resetDatabase(w, r) })
+}
+
+// resetDatabase is the reset itself, with the queue held.
+func (s *Server) resetDatabase(w http.ResponseWriter, r *http.Request) {
 	// Under backupMu, like a restore: the note is checked and spent inside the
 	// lock, so a reset and a restore — or two resets — cannot both pass one copy.
 	if !s.backupMu.TryLock() {
