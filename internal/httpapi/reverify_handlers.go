@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -764,7 +762,14 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 			Fresh:  source + ":" + sourceID,
 		})
 	}
-	if merged := mergePersonLinks(p.Links, links); merged != strings.TrimSpace(p.Links) {
+	// A LINKS DIFF IS SOMETHING FETCHED THAT THE FIELD LACKS, and nothing else.
+	// The fold writes the whole field back in its own order, one address a line,
+	// so a field typed another way reads differently from the fold of itself
+	// with nothing fetched at all; compared with the text as stored, every such
+	// record would come back "changed" by a check that found nothing. The fresh
+	// side is the whole folded field, names and all, because that is what the
+	// apply writes.
+	if merged := mergeLinks(p.Links, links); merged != mergeLinks(p.Links, nil) {
 		d = append(d, fieldDiff{Field: "links", Stored: p.Links, Fresh: merged})
 	}
 	if imageURL != "" && (p.ImagePath == "" || identityDrift) {
@@ -783,63 +788,6 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 	}
 	it.Diffs = d
 	return it
-}
-
-// ---- link merging (Go mirror of people.jsx parseLinks/mergeLinks) ----
-
-// personLinkProviders recognises a saved link's provider by hostname, in the
-// display order the UI uses. Keep in lockstep with PROVIDERS in people.jsx.
-var personLinkProviders = []struct {
-	slug string
-	re   *regexp.Regexp
-}{
-	{"imdb", regexp.MustCompile(`(^|\.)imdb\.com$`)},
-	{"tmdb", regexp.MustCompile(`(^|\.)themoviedb\.org$`)},
-	{"tvdb", regexp.MustCompile(`(^|\.)thetvdb\.com$`)},
-	{"wikipedia", regexp.MustCompile(`(^|\.)wikipedia\.org$`)},
-	{"openlibrary", regexp.MustCompile(`(^|\.)openlibrary\.org$`)},
-}
-
-// mergePersonLinks folds freshly-resolved provider links into the stored
-// free-text links field without disturbing anything the user added by hand:
-// providers land in canonical order, existing URLs win, unrecognised extras
-// keep their place at the end.
-func mergePersonLinks(stored string, fetched map[string]string) string {
-	known := map[string]string{}
-	var extra []string
-	for _, tok := range strings.Fields(stored) {
-		u, err := url.Parse(tok)
-		if err != nil || u.Hostname() == "" {
-			extra = append(extra, tok)
-			continue
-		}
-		host := strings.ToLower(u.Hostname())
-		matched := ""
-		for _, p := range personLinkProviders {
-			if p.re.MatchString(host) {
-				matched = p.slug
-				break
-			}
-		}
-		if matched != "" && known[matched] == "" {
-			known[matched] = tok
-		} else {
-			extra = append(extra, tok)
-		}
-	}
-	for slug, u := range fetched {
-		if u != "" && known[slug] == "" {
-			known[slug] = u
-		}
-	}
-	var out []string
-	for _, p := range personLinkProviders {
-		if known[p.slug] != "" {
-			out = append(out, known[p.slug])
-		}
-	}
-	out = append(out, extra...)
-	return strings.Join(out, "\n")
 }
 
 // ---- apply ----

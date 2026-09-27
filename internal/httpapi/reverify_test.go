@@ -220,6 +220,68 @@ func TestReverifyPersonPreview(t *testing.T) {
 	}
 }
 
+// A person's re-verify offers the link it found with every name the reader gave
+// their links still on them, and applying what it offered keeps them on the
+// record; a check that found nothing the field lacks offers no links change at
+// all, however the reader ordered their links.
+func TestAPersonsReverifyKeepsTheNamesOnTheirLinks(t *testing.T) {
+	const (
+		imdb  = "https://www.imdb.com/name/nm0000123/"
+		mine  = "https://example.org/essays"
+		olib  = "https://openlibrary.org/authors/OL9X"
+		named = imdb + " | The other one\n" + mine + " | Their essays"
+	)
+	srv := newTestServer(t)
+	srv.resolveAuthor = func(context.Context, string, []string) (metadata.AuthorResolution, error) {
+		return metadata.AuthorResolution{Key: "OL9X", Name: "Frank Herbert", Links: map[string]string{"openlibrary": olib}}, nil
+	}
+	h := srv.Handler()
+	c := signupAdmin(t, h)
+	c.mustDo("POST", "/books", map[string]any{"title": "Dune", "author": "Frank Herbert"}, http.StatusCreated)
+	p := decode[struct {
+		ID int64 `json:"id"`
+	}](t, c.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Frank Herbert", "links": named}, http.StatusOK))
+	check := func() (links any, found bool) {
+		t.Helper()
+		res := decode[reverifyResp](t, c.mustDo("POST", "/metadata/reverify",
+			map[string]any{"people": []map[string]string{{"kind": "author", "name": "Frank Herbert"}}}, http.StatusOK))
+		if len(res.Items) != 1 || res.Items[0].Status != "ok" {
+			t.Fatalf("the check: %+v", res.Items)
+		}
+		for _, d := range res.Items[0].Diffs {
+			if d.Field == "links" {
+				return d.Fresh, true
+			}
+		}
+		return nil, false
+	}
+
+	fresh, found := check()
+	want := imdb + " | The other one\n" + olib + "\n" + mine + " | Their essays"
+	if !found || fresh != want {
+		t.Fatalf("the links the check offers: %q (offered: %v), want\n%s", fresh, found, want)
+	}
+	res := decode[reverifyApplyResp](t, c.mustDo("POST", "/metadata/reverify/apply", map[string]any{
+		"items": []map[string]any{{"type": "person", "kind": "author", "name": "Frank Herbert", "set": map[string]any{"links": fresh}}},
+	}, http.StatusOK))
+	if res.Applied != 1 {
+		t.Fatalf("the apply: %+v", res)
+	}
+	rec := decode[struct {
+		Links string `json:"links"`
+	}](t, c.mustDo("GET", fmt.Sprintf("/people/id/%d", p.ID), nil, http.StatusOK))
+	if rec.Links != want {
+		t.Fatalf("the record's links after the apply:\n%s\nwant\n%s", rec.Links, want)
+	}
+
+	// The same links, the reader's own way round: the fetched page is already
+	// there, so there is nothing to review.
+	c.mustDo("PUT", fmt.Sprintf("/people/id/%d", p.ID), map[string]any{"links": mine + " | Their essays\n" + olib}, http.StatusOK)
+	if fresh, found := check(); found {
+		t.Fatalf("a check that fetched nothing new offers the links %q", fresh)
+	}
+}
+
 func TestReverifyApply(t *testing.T) {
 	srv := newTestServer(t)
 	fetched := []string{}
