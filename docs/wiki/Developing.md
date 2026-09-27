@@ -436,9 +436,10 @@ that is the part you cannot infer by reading the code around it.
   `_txlock=immediate` consequence is that an unmarked transaction takes the write lock
   and serialises against real writers for nothing.
 - **Nothing wakes on a timer, and nothing runs unless a person or the app's own lookup
-  started it.** There is no ticker, no poller, no scheduler and no pool. Two goroutines
-  outlive the call that starts them, both in `internal/jobs` — the queue's worker and the
-  log's writer — and each exits when it has nothing to do; a third is a design conversation.
+  started it.** There is no ticker, no poller, no scheduler and no pool. Besides the
+  listener and shutdown's own bounded waits, two goroutines outlive the call that starts
+  them, both in `internal/jobs` — the queue's worker and the log's writer — and each exits
+  when it has nothing to do; a third is a design conversation.
 - **Every outbound HTTP call goes through `internal/outbound`**, and nothing outside
   `internal/store/` opens the database — the log's own connection included.
 - **The demo shim mirrors real response shapes.** When `web/frontend/src/demo/install.js`

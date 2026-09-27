@@ -776,10 +776,10 @@ old work, so a screen that breaks one is a bug and not a variation.
   timer."* The owner's wording, verbatim, from 3.1.0, where it replaced "no goroutine
   outlives its request". THE OLD LINE HAD TO GO BECAUSE THE OWNER ASKED FOR THE THING IT
   FORBADE: a fill over two thousand works has to outlive the press that started it, or
-  closing the tab stops it part-way with nothing anywhere saying where. So two goroutines
-  outlive the call that starts them, both in `internal/jobs` — the queue's worker and the
-  log's writer — and each is started by the call that hands it work and exits when there
-  is none. **The half that still binds is the one the old line was for**: no ticker,
+  closing the tab stops it part-way with nothing anywhere saying where. So, besides the
+  listener and shutdown's own bounded waits, two goroutines outlive the call that starts
+  them, both in `internal/jobs` — the queue's worker and the log's writer — and each is
+  started by the call that hands it work and exits when there is none. **The half that still binds is the one the old line was for**: no ticker,
   no poller, no cron, no scheduler and no pool, because an idle box with a hundred
   neighbours has to cost nothing. "The app's own lookup" is a screen fetching what it is
   about to draw — a work page's portraits and character art — never the app deciding by
