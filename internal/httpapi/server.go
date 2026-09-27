@@ -289,6 +289,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /jobs/{id}/log.md", s.requireAuth(s.handleJobLogMarkdown))
 	mux.Handle("POST /jobs/{id}/stop", s.requireAuth(s.handleStopJob))
 	mux.Handle("POST /jobs/{id}/rerun", s.requireAuth(s.handleRerunJob))
+	// The system log (logs_handlers.go): the server's own lines and a line per
+	// request, which name every reader, so an admin's alone.
+	mux.Handle("GET /admin/logs", s.requireAdmin(s.handleSystemLogs))
+	mux.Handle("GET /admin/logs.md", s.requireAdmin(s.handleSystemLogsMarkdown))
 
 	// Search (PLAN §4).
 	mux.Handle("GET /search", s.requireAuth(s.handleSearch))
