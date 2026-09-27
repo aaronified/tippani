@@ -17,6 +17,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"tippani/internal/outbound"
 )
 
 // A WORK PAGE'S PICTURES, ONE REQUEST: POST /{books|movies}/{id}/cast/art.
@@ -50,6 +52,9 @@ import (
 //   - one test keeps the system log as serve() keeps it (logging) and reads it
 //     as an admin does (GET /admin/logs), for the code a download that failed is
 //     logged under (TIP-COVER-001) — the Troubleshooting row an operator follows;
+//     one of those switches TIPPANI_OFFLINE on once its film's cast has arrived,
+//     as an operator does, and leaves the download to the server's own, which
+//     the offline gate refuses;
 //   - the answer's two names (character_images, portraits), which are the
 //     route's contract with the page;
 //   - one test serves the handler over a real connection with a write deadline
@@ -68,8 +73,9 @@ import (
 // fetches its own names rather than taking the cut pass for finished; a role the
 // reader removed has no picture fetched; one pass takes twenty roles and twenty
 // names, however many the work has; a picture or a headshot that will not
-// download is in the server's log under the code its row names; and a pass
-// slower than the server's write deadline still gets its answer to the page.
+// download is in the server's log under the code its row names, and one the
+// offline switch refused is not logged as an error there; and a pass slower
+// than the server's write deadline still gets its answer to the page.
 
 // countedDownloads stands in for the picture download: every address asked for
 // becomes a file in the covers dir, and hold, when set, is waited on before the
@@ -481,6 +487,52 @@ func TestAPictureThatWillNotDownloadIsLoggedUnderItsCode(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("no TIP-COVER-001 error names %s: %+v", addr, page.Lines)
+		}
+	}
+}
+
+// A PICTURE THE OFFLINE SWITCH REFUSED IS NOT AN ERROR. The operator switched
+// the app offline, the page asks for the film's two pictures — Amanda Waller's
+// and Viola Davis's headshot — and the gate refuses both, as it should. Neither
+// is logged as a TIP-COVER-001 error: offline, where every browser journey runs,
+// a page asks for every picture it has no file for, and an error for each would
+// bury the real ones. The same two failing any other way are still errors.
+func TestAPictureTheOfflineSwitchRefusedIsNotLoggedAsAnError(t *testing.T) {
+	srv := newTestServer(t)
+	logging(t, srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	film := suicideSquad(t, srv, alice)
+	addrs := []string{"artworks.thetvdb.com/waller.jpg", "artworks.thetvdb.com/head412.jpg"}
+	coverErrors := func(addr string) int {
+		n := 0
+		for _, l := range alice.logs(url.Values{"q": {addr}}).Lines {
+			if l.Code == "TIP-COVER-001" && l.Level == "error" {
+				n++
+			}
+		}
+		return n
+	}
+
+	t.Setenv(outbound.EnvVar, "1") // after the cast arrived, as an operator switches it
+	if got := decode[castArtAnswer](t, askCastArt(alice, "/movies/"+itoa(film), "Viola Davis")); got != (castArtAnswer{}) {
+		t.Fatalf("a film whose pictures the offline switch refused: %+v, want nothing arrived", got)
+	}
+	for _, addr := range addrs {
+		if n := coverErrors(addr); n != 0 {
+			t.Errorf("the offline switch's refusal of %s was logged as %d TIP-COVER-001 error(s)", addr, n)
+		}
+	}
+
+	// Online again, and the image host says no: that is the failure the code is for.
+	t.Setenv(outbound.EnvVar, "")
+	srv.fetchImage = func(context.Context, string, string) (string, error) {
+		return "", errors.New("the image host answered 503")
+	}
+	askCastArt(alice, "/movies/"+itoa(film), "Viola Davis")
+	for _, addr := range addrs {
+		if n := coverErrors(addr); n != 1 {
+			t.Errorf("a download of %s the host refused: %d TIP-COVER-001 error(s), want 1", addr, n)
 		}
 	}
 }

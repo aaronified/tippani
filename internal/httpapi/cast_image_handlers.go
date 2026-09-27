@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 )
 
 // POST /cast/{id}/image — fetch this character's picture once and serve it from
@@ -165,8 +166,7 @@ func (s *Server) storeCastImage(ctx context.Context, uid, castID int64, srcURL s
 	if ferr != nil {
 		// Logged with TIP-COVER-001, the code the on-demand cover refetch uses,
 		// because it is the same failure: a provider's image host said no.
-		olog.Errorf(olog.CodeCoverFetch,
-			"[cast] character image cast_id=%d url=%q failed: %v", castID, srcURL, ferr)
+		logImageMiss(ferr, "[cast] character image cast_id=%d url=%q failed: %v", castID, srcURL, ferr)
 		return errCastImageFetch
 	}
 	if _, err := s.Store.DB.Exec(
@@ -176,6 +176,26 @@ func (s *Server) storeCastImage(ctx context.Context, uid, castID int64, srcURL s
 		return fmt.Errorf("store character image: %w", err)
 	}
 	return nil
+}
+
+// logImageMiss logs a picture download that failed — a role's picture, a
+// headshot — as an error under TIP-COVER-001, the code an operator looks up when
+// a picture never arrives.
+//
+// EXCEPT A REFUSAL BY TIPPANI_OFFLINE, which is not a failure: the operator
+// switched the app offline on purpose, and the gate has already kept its own
+// line for the call ("→ refused (offline)"), in the job the request became or
+// in the system log. Offline, where every browser journey runs, a work page asks
+// for every picture it has no file for, and an error for each would bury the
+// errors that are real. It is a trace line instead. Every other failure — the
+// host allowlist, the size and format checks, a host that said no — is still
+// logged as it was.
+func logImageMiss(err error, format string, args ...any) {
+	if errors.Is(err, outbound.ErrOffline) {
+		olog.Tracef(format, args...)
+		return
+	}
+	olog.Errorf(olog.CodeCoverFetch, format, args...)
 }
 
 // castImageReq is the optional body: a picture the reader has chosen for this

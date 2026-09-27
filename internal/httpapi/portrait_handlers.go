@@ -172,11 +172,12 @@ func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string)
 	// It is logged all the same, under the code a role's picture that would not
 	// download is logged under (storeCastImage), because it is the same failure —
 	// a provider's image host said no — and a headshot that never arrives, on a
-	// page or in a People fetch, otherwise leaves nothing to look up.
+	// page or in a People fetch, otherwise leaves nothing to look up. A refusal
+	// by TIPPANI_OFFLINE is not that failure, and logImageMiss says why.
 	if imageURL != "" {
 		file, ferr := s.fetchImage(ctx, imageURL, s.coversDir())
 		if ferr != nil {
-			olog.Errorf(olog.CodeCoverFetch, "[people] portrait kind=%s name=%q url=%q failed: %v", kind, name, imageURL, ferr)
+			logImageMiss(ferr, "[people] portrait kind=%s name=%q url=%q failed: %v", kind, name, imageURL, ferr)
 		} else {
 			f.image = file
 		}
