@@ -488,16 +488,30 @@ func TestAStopWithTheDatabaseLockedElsewhereStillEndsInsideTheGrace(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
+	start := time.Now()
 	srv.stop() // fails the test unless the server exits cleanly inside ten seconds
+	took := time.Since(start)
 	shell.Rollback()
 	terminal := srv.out.String()
+	// Each step gave up on the lock and said so: the queue's write, the log's
+	// last flush, the log pool's close (which leaves it to close by itself) and
+	// the checkpoint, which folded back what it could.
 	for _, want := range []string{
+		"[error] TIP-JOBS-002 [jobs] stopping the queue: database is locked",
 		"[error] TIP-LOG-005 the last log lines were not all kept in the database",
+		"!! closing the log pool on shutdown returned: a log write was still waiting on the database",
 		"[error] TIP-STORE-005 wal checkpoint on shutdown failed: another connection was still writing",
 	} {
 		if !strings.Contains(terminal, want) {
 			t.Errorf("the terminal does not say %q:\n%s", want, terminal)
 		}
+	}
+	// Those give up after half a second, one, one and two, and the log's own
+	// write, already waiting when the stop began, after busy_timeout's five: about
+	// five seconds in all. Any one of them waiting out busy_timeout as well puts
+	// the stop at seven and more, and two at the edge of the SIGKILL.
+	if took > 7*time.Second {
+		t.Errorf("the stop took %s with the lock held elsewhere; its steps are bounded to end in about five", took)
 	}
 
 	again := serveOn(t, dir)
