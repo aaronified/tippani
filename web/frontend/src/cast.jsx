@@ -138,9 +138,23 @@ export function useCastArt(kind, workID, { cast = [], names = [], people = {}, o
   const artAsked = useRef('')
   const filled = useRef(onFilled)
   filled.current = onFilled
+  const mounted = useRef(true)
   useEffect(() => {
-    if (!workID) return undefined
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+  // WHICH ANSWERS THIS SURFACE HAS HEARD. The effect re-runs whenever the page
+  // redraws its cast or its headshot map, and a re-run while the request is out
+  // joins it — so two runs can be waiting on one answer, and it is reported once.
+  // A redraw is not a reason to drop the answer either: the run that asked
+  // reports what arrived even if a later run found nothing left to ask. (A Set of
+  // a mount's requests stays tiny: a request per work, plus one per late name.)
+  const heard = useRef(new Set())
+  const current = useRef('')
+  useEffect(() => {
+    if (!workID) return
     const key = `${kind}:${workID}`
+    current.current = key
     const art = artAsked.current !== key && (cast || []).some((c) => c?.character_image_url && !c?.character_image_path)
     const want = []
     if (kind !== 'book') {
@@ -151,22 +165,22 @@ export function useCastArt(kind, workID, { cast = [], names = [], people = {}, o
         if (want.length >= PORTRAIT_ASK_CAP) break
       }
     }
-    if (!art && want.length === 0) return undefined
+    if (!art && want.length === 0) return
     // MARKED BEFORE THE AWAIT: a re-render while the request is out would
     // otherwise ask for the same names again.
     for (const n of want) asked.current.add(n)
-    let live = true
-    askCastArt(kind, workID, want).then((r) => {
-      // A re-run of this effect joined the same request and hears its answer; the
-      // run it replaced says nothing.
-      if (!live) return
-      artAsked.current = key
+    const asking = askCastArt(kind, workID, want)
+    asking.then((r) => {
+      if (!mounted.current || heard.current.has(asking)) return
+      heard.current.add(asking)
+      // The art of THIS work has been asked for — unless the page moved on to
+      // another work while the answer was out, whose art is still to ask.
+      if (current.current === key) artAsked.current = key
       if (!r.ok) return
       const characters = r.data?.character_images || 0
       const portraits = r.data?.portraits || 0
       if (characters || portraits) filled.current?.({ characters, portraits })
     })
-    return () => { live = false }
   }, [kind, workID, cast, names, people])
 }
 

@@ -409,6 +409,23 @@ describe('the character art a work page needs', () => {
     expect(posted(/cast\/art$/)).toHaveLength(1)
   })
 
+  // AND A REDRAW THAT LEAVES NOTHING TO ASK does not drop the answer to the
+  // request already out: the pictures it brings are still reported, once.
+  it('reports what arrived even when the page redraws with nothing left to ask', async () => {
+    let release
+    ART_GATE = new Promise((r) => { release = r })
+    CAST = WITH_ART.map((c) => ({ ...c }))
+    const { rerender } = render(<Probe cast={WAITING} />)
+    await waitFor(() => expect(posted(/cast\/art$/)).toHaveLength(1))
+    rerender(<Probe cast={[{ id: 11, character_image_url: 'https://x/w.jpg', character_image_path: 'stored.jpg' }]} />)
+    await flush()
+    release()
+    await waitFor(() => expect(FILLED).toBe(1))
+    await flush()
+    expect(FILLED).toBe(1)
+    expect(posted(/cast\/art$/)).toHaveLength(1)
+  })
+
   // THE BOARD AND THE DETAILS PANEL ARE ONE PAGE, drawing the same faces. While
   // one surface's request is out, the other's is the same request.
   it('makes one request between the board and the cast panel on the same page', async () => {
