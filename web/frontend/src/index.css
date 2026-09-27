@@ -11820,3 +11820,92 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
   background: color-mix(in oklab, var(--raised), transparent 25%);
 }
 .colour-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 9px; }
+
+/* ---- Settings › Jobs (3.1.0) ----
+   THREE CARDS OF ROWS, AND EACH ROW IS THE RELEASE LOG'S SHAPE: a full-width head
+   that folds its own body, a chevron that says so, a rule between rows. One shape
+   for "a thing that happened, open it to read the detail" on one screen, rather
+   than a second invented for jobs.
+
+   THE LOG PANE IS THE ONE NESTED SCROLLER HERE AND IT EARNS IT. A fill writes a line
+   per work, so a running job's log is unbounded while the page around it is not;
+   the pane is capped in EM so it holds the same number of lines at every type size,
+   fades where it continues (Scroller measures, so a short log wears no fade), and
+   stops its scroll at its own edge. A line breaks ANYWHERE: a request path or a
+   provider's URL is one unbroken word, and a pane that let it run would push the
+   whole page sideways at 390. */
+.job-list { display: flex; flex-direction: column; min-width: 0; }
+.job-row { border-top: 1px solid var(--line); min-width: 0; }
+.job-row:first-child { border-top: 0; }
+.job-row-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.job-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  flex: 1 1 16em; min-width: 0;
+  padding: 10px 2px;
+  background: none; border: 0; color: inherit; font: inherit;
+  text-align: start; cursor: pointer;
+}
+.job-head > svg { align-self: center; flex: none; }
+.job-head:hover .job-title { color: var(--accent-ui); }
+.job-line {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  flex: 1 1 16em; min-width: 0; padding: 10px 2px;
+}
+.job-title { font-weight: 600; font-size: var(--type-ui-15); }
+.job-subject { color: var(--soft); font-size: var(--type-ui-13); overflow-wrap: anywhere; min-width: 0; }
+.job-who,
+.job-meta,
+.job-summary { color: var(--faint); font-size: var(--type-ui-12); overflow-wrap: anywhere; min-width: 0; }
+.job-summary { flex-basis: 100%; }
+.job-state { font-size: var(--type-ui-12); color: var(--soft); }
+.job-state.is-succeeded { color: var(--ok); }
+.job-state.is-failed { color: var(--error); }
+.job-body { display: grid; gap: var(--row, 12px); padding: 0 2px 14px 26px; min-width: 0; }
+@media (max-width: 768px) {
+  .job-body { padding-inline-start: 2px; }
+}
+.job-details {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px;
+  margin: 0; font-size: var(--type-ui-13);
+}
+.job-details dt { color: var(--faint); }
+.job-details dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.job-details dd.is-error { color: var(--error); }
+.job-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.jobs-tallies { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.jobs-tile { align-items: center; }
+.jobs-filters { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; padding: 2px 0 10px; }
+.job-log {
+  max-height: 18em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: .5em .75em;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--raised), transparent 25%);
+  font-family: var(--font-mono), monospace;
+  font-style: var(--font-mono-style);
+  font-variant-numeric: var(--font-mono-figures);
+  font-size: var(--type-mono-11);
+  line-height: 1.55;
+  min-width: 0;
+}
+.logs-pane { max-height: 28em; }
+.job-log-line { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 .75em; }
+.job-log-at { color: var(--faint); }
+.job-log-text { overflow-wrap: anywhere; white-space: pre-wrap; min-width: 0; }
+.job-log-line.is-warn .job-log-text { color: var(--accent-ui); }
+.job-log-line.is-error .job-log-text { color: var(--error); }
+/* THE LEVEL IS A WORD IN THE INTERFACE FACE, NOT THE MONO. The mono stack has no
+   Indic face (locale.jsx says so), so a Bengali level name set in it falls to
+   whatever the system reaches for — in the middle of every line. */
+.log-level {
+  font-family: var(--font-ui);
+  font-style: var(--font-ui-style);
+  font-size: var(--type-ui-11);
+  color: var(--faint);
+  margin-inline-end: .6em;
+}
+.logs-filters { display: grid; gap: 8px; margin-bottom: 10px; min-width: 0; }
+.logs-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.logs-export { margin-top: 10px; }

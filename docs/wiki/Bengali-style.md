@@ -992,6 +992,23 @@ constraint was length as much as sense.
 | invisible (of a character) | অদৃশ্য | Everyday, and exactly the point: the character is there and cannot be seen |
 | dot (of an ellipsis) | ডট | The rule's copy names three dots rather than borrowing “ellipsis”, which nobody says. v3: ডট, like every other dot |
 
+### From the jobs pass (3.1.0, Settings › Jobs)
+
+Settings grew a sixth section for the server's queue and its logs. Each row here is
+marked `# ?? ` at its key; the rest of the section's words are the sheet's own
+(থামান, আবার চালান, এক্সপোর্ট, অপেক্ষার তালিকা, বাকি).
+
+| English | Bengali | Reason |
+| --- | --- | --- |
+| job (one run of a fill, a fetch, a backup) | কাজ | The everyday word — *ব্যাকআপের কাজটা চলছে*. The table above already gives কাজ to an arithmetic *operation* in a mono Select; the two never share a screen |
+| log (a job's, the server's) | লগ | The word a programmer says aloud; খাতা stays the read log's ledger (§3.6), which is a record a reader keeps, not one a machine writes |
+| level (of a log line) | স্তর | Names the error / warning / info tiers as a group; each chip names its own tier |
+| request (an HTTP request, as a log level and a job kind) | রিকোয়েস্ট | অনুরোধ is a favour asked of a person, which is not what a browser sends |
+| failed (a job's end, on a chip) | ব্যর্থ | Short enough for a chip. A *count* of failures keeps the sheet's পারা গেল না, which is a sentence |
+
+A waiting job is **বাকি** in a count and **অপেক্ষার তালিকায়** as a state — the job is in
+the queue, and nothing inanimate is said to wait (v3.7).
+
 **Already in `bn.txt` from an earlier pass and therefore NOT marked**, listed only so
 nobody re-decides them: Updates আপডেট · Changelog চেঞ্জলগ · version ভার্সন · release
 রিলিজ · cookie কুকি. **Changed in v3:** API key and archive key are both **চাবি** (কি was a homonym of the question particle, and the two keys are one idea) · pair / unpair **পেয়ার করুন / আনপেয়ার করুন**.

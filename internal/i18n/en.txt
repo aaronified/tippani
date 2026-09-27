@@ -70,6 +70,7 @@ settings.section.lang.info.body = The interface language, its fallback, and the 
 settings.section.review.info.body = What the daily quiz draws from, how many cards, how hard, and how the schedule moves.
 settings.section.sections.info.body = Which parts of the app you use, and their order in the navigation.
 settings.section.server.info.body = The running version, backups, and what changed in each release.
+settings.section.jobs.info.body = What is running, what is waiting its turn, and what finished in the last 30 days, each with its log. An admin also sees every reader's jobs and the app's own logs.
 
 settings.section.aria = Which settings to change
 settings.section.theme.label = Theme
@@ -77,6 +78,7 @@ settings.section.lang.label = Language and font
 settings.section.review.label = Review
 settings.section.sections.label = Sections
 settings.section.server.label = Server
+settings.section.jobs.label = Jobs
 # The information dot beside that row.
 settings.language.info.title = Language
 settings.language.info.body = English and Bengali are built in. To add another, copy data/Locales/_TEMPLATE.txt to a file like fr.txt and translate it — it appears here without a rebuild.
@@ -1217,6 +1219,8 @@ shell.search.where.settings = settings
 shell.search.where.works = works and films
 shell.search.where.characters = characters in this library
 shell.search.where.people = people in this library
+# The system logs card in Settings › Jobs takes the bar while that section is open.
+shell.search.where.logs = system logs
 shell.search.aria.screen = Search {where}
 shell.search.aria.all = Search everything
 shell.search.global.aria = Search everything
@@ -5913,6 +5917,86 @@ settings.jobs.progress = {done} of {total}
 settings.jobs.took.s = {s}s
 settings.jobs.took.m = {m}m {s}s
 settings.jobs.took.h = {h}h {m}m
+
+# --- a job's log, in its row. {title} is the job's name from the list above.
+settings.jobs.log.aria = Log of {title}
+settings.jobs.log.empty = Nothing logged yet.
+settings.jobs.log.trimmed = The earliest lines are in the export.
+
+# --- Current jobs: what is running and what waits behind it.
+settings.jobs.current.title = Current jobs
+# The words beside the two counts in the card's head: "1 running", "3 waiting".
+settings.jobs.current.running.word = running
+settings.jobs.current.waiting.word = waiting
+settings.jobs.current.empty = Nothing is running or waiting.
+settings.jobs.current.fold.label = Fold current jobs
+settings.jobs.current.unfold.label = Show current jobs
+# A waiting job's one line. "Ahead" counts every job before it in the queue,
+# whoever started it, the running one included.
+settings.jobs.current.ahead.one = Waiting — one job ahead
+settings.jobs.current.ahead.other = Waiting — {n} jobs ahead
+settings.jobs.current.next = Waiting — next
+settings.jobs.current.stop.label = Stop
+settings.jobs.current.stop.aria = Stop {title}
+settings.jobs.current.stop.done = It stops after the item in hand.
+settings.jobs.current.stopping = Stopping after the item in hand…
+settings.jobs.current.stop-all.label = Stop all
+settings.jobs.current.stop-all.confirm.title = Stop all jobs?
+# The confirm's body is these sentences, the ones that apply, joined in code.
+settings.jobs.current.stop-all.confirm.running = The running job stops after the item in hand.
+settings.jobs.current.stop-all.confirm.waiting.one = The one waiting is stopped before it starts.
+settings.jobs.current.stop-all.confirm.waiting.other = The {n} waiting are stopped before they start.
+settings.jobs.current.stop-all.confirm.kept = Each is kept with its log and can be run again.
+# Said only to an admin, whose Stop all reaches every reader's jobs.
+settings.jobs.current.stop-all.confirm.admin = This includes other readers' jobs.
+settings.jobs.current.stop-all.confirm.verb = Stop them
+settings.jobs.current.stop-all.done = {stopping} stopping · {waiting} stopped before starting
+
+# --- Past jobs: everything that finished in the last 30 days, newest first.
+settings.jobs.past.title = Past jobs
+settings.jobs.past.filter.aria = Which jobs to show
+settings.jobs.past.filter.all.label = All
+settings.jobs.past.empty = Nothing has finished in the last 30 days.
+settings.jobs.past.empty.filtered = None of these in the last 30 days.
+settings.jobs.past.more.label = Load older
+# The details under an opened row.
+settings.jobs.past.who.label = Started by
+settings.jobs.past.when.label = Started
+settings.jobs.past.took.label = Took
+settings.jobs.past.result.label = Result
+settings.jobs.past.error.label = What went wrong
+settings.jobs.past.export.tip = This job's log, as a Markdown file
+settings.jobs.past.rerun.label = Run again
+settings.jobs.past.rerun.done = Started again — it is in Current jobs.
+# A re-verify's findings wait to be looked over; Review opens them on Metadata,
+# where the changes are chosen and applied.
+settings.jobs.past.review.label = Review
+settings.jobs.past.review.tip = Open what it found on Metadata and choose what to apply
+
+# --- System logs: the app's own log, for an admin.
+settings.logs.title = System logs
+settings.logs.level.aria = Which levels to show
+settings.logs.level.error.label = Error
+settings.logs.level.warn.label = Warning
+settings.logs.level.info.label = Info
+# A request the server answered: a read, a save, a sign-in.
+settings.logs.level.request.label = Request
+# A file the server handed out — a cover, a font, the app itself. Off by default.
+settings.logs.level.asset.label = File
+settings.logs.level.trace.label = Trace
+settings.logs.level.last = One level has to stay on.
+settings.logs.range.aria = How far back
+settings.logs.range.hour.label = Last hour
+settings.logs.range.day.label = Last 24 hours
+settings.logs.range.week.label = Last 7 days
+settings.logs.range.month.label = Last 30 days
+settings.logs.search.placeholder = Keyword
+settings.logs.search.aria = Search the system logs
+settings.logs.lines.aria = System log lines
+settings.logs.empty = No lines match.
+settings.logs.more.label = Load older
+settings.logs.export.shown.label = What is shown
+settings.logs.export.all.label = Everything kept (30 days)
 
 # ===========================================================================
 # SHARED VOCABULARY THE LAST THREE SCREENS ASKED FOR.

@@ -62,6 +62,13 @@ const KEPT = {
   'settings.jobs.count.skipped':
     'a finished job\'s summary joins its counts with " · " into one string before it reaches the screen, like the identity crumb — and the rows a cover fetch skipped are not the quiz\'s skipped cards the glyph means.',
 }
+// THE JOBS SCREEN'S OTHER COUNTS ARE SENTENCES, and the anchored pattern above
+// cannot reach them, which is the design rather than a gap: "Waiting — 2 jobs
+// ahead" is a line about ONE job, and the Stop all confirm's "the 3 waiting are
+// stopped before they start" is a sentence the reader weighs before pressing
+// something. A drawing in either would be a rebus. The two standalone counts of
+// jobs — running and waiting, in the Current jobs head and on the phone's tile —
+// wear IconJobs through Tally.
 
 const baseOf = (k) => k.replace(/\.(one|other)$/, '')
 
@@ -132,6 +139,7 @@ describe('the glyph rule reaches the screens it was asked for', () => {
   const CONVERTED = [
     'works.jsx', 'MetadataPage.jsx', 'BinPage.jsx', 'StatsPage.jsx',
     'identity.jsx', 'identityLocal.jsx', 'Movies.jsx', 'Settings.jsx',
+    'jobsSection.jsx',
   ]
   // `sourcesUnder` rather than a readdir of my own: the repo has ONE walk over
   // its source tree, and a second one that quietly finds nothing is a guard that

@@ -61,6 +61,7 @@ import {
   IconDelete,
   IconDevice,
   IconExport,
+  IconJobs,
   IconEye,
   IconEyeOff,
   IconKey,
@@ -113,6 +114,7 @@ import {
 import { PersonChip } from './people.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { SectionRail } from './sectionRail.jsx'
+import { JobsCurrentCard, JobsPastCard, SystemLogsCard } from './jobsSection.jsx'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
 // (admin only) Updates + Backup. Library stats now live on their own Stats page
@@ -180,9 +182,12 @@ function useColumnCount() {
 // KIND of note a quote is, which is a fact about the library rather than a
 // preference about the app — the same reason the language table and the tags are
 // over there. The card itself is unchanged and is exported from this file.
-export const SETTINGS_CARDS = ['features', 'sr', 'server']
+// THE THREE JOBS CARDS ARE THE LAST THREE, and 'logs' is built for an admin only,
+// exactly as 'server' is: registering it is what draws it, and a reader has no
+// business with the server's own log.
+export const SETTINGS_CARDS = ['features', 'sr', 'server', 'jobs-current', 'jobs-past', 'logs']
 
-// ---- THE FIVE SECTIONS ------------------------------------------------------
+// ---- THE SIX SECTIONS -------------------------------------------------------
 //
 // Settings was one scrolling grid of cards and the v3 pack makes it five named
 // screens behind a rail. The reason is not tidiness: the page had grown to where
@@ -207,6 +212,11 @@ export const SETTINGS_SECTIONS = [
   ['review', 'settings.section.review.label', 'quiz'],
   ['sections', 'settings.section.sections.label', 'move'],
   ['server', 'settings.section.server.label', 'device'],
+  // JOBS IS FOR EVERY READER, and last. Everybody's fills and lookups are jobs
+  // now, so everybody has a queue to look at and a Stop to press; an admin's copy
+  // of the section adds the system logs and everyone's queue rather than being a
+  // different section.
+  ['jobs', 'settings.section.jobs.label', 'jobs'],
 ]
 
 // What each section's info dot says. Derived from the id rather than kept as a
@@ -227,6 +237,7 @@ export const SECTION_GLYPH = {
   quiz: <IconQuiz />,
   move: <IconMoveTo />,
   device: <IconDevice />,
+  jobs: <IconJobs />,
 }
 
 export const SECTION_CARDS = {
@@ -235,6 +246,7 @@ export const SECTION_CARDS = {
   review: ['sr'],
   sections: ['features'],
   server: ['server'],
+  jobs: ['jobs-current', 'jobs-past', 'logs'],
 }
 
 // ── WHICH PREFERENCES EACH SECTION OWNS, and why this table exists at all.
@@ -293,6 +305,9 @@ export const SECTION_PREFS = {
   // restore) and one admin setting the server keeps itself (the release channel,
   // via /admin/update/channel) — none of them a user preference this table is for.
   server: [],
+  // JOBS OWNS NONE EITHER, for Server's reason: what it holds are acts — stop,
+  // run again, export — and a filter on a list, none of them a stored preference.
+  jobs: [],
 }
 
 // NOT A SETTING A READER CHOSE, so not counted anywhere. Each of these is stored
@@ -428,6 +443,11 @@ const SETTINGS_PREFIX = {
   // for live under three roots, and a card that could only declare one would go
   // missing the moment somebody typed "backup".
   server: ['settings.updates.', 'settings.backup.', 'settings.changelog.'],
+  // One root per jobs card, so typing "stop" finds the card whose Stop all it is
+  // and "export" the two that export.
+  'jobs-current': 'settings.jobs.current.',
+  'jobs-past': 'settings.jobs.past.',
+  logs: 'settings.logs.',
 }
 
 // settingsMatches — does this card answer to what was typed?
@@ -449,7 +469,7 @@ export function settingsMatches(cardKey, query) {
   return false
 }
 
-export default function Settings({ user, onPreferences, update, onUpdateInfo, section: routed = null, onSection = null, onGo = null }) {
+export default function Settings({ user, onPreferences, update, onUpdateInfo, section: routed = null, onSection = null, onGo = null, onReviewJob = null }) {
   const mobile = useIsMobileScreen()
   const ncols = useColumnCount()
   // ── THE PHONE'S TWO SEATS, and they are the two verbs on this page.
@@ -484,7 +504,28 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   const [updateNow, setUpdateNow] = useState(false)
   // WHAT THE SHELL'S FIELD IS ASKING ABOUT WHILE THIS SCREEN IS UP.
   const [q, setQ] = useState('')
-  useScreenSearch({ key: 'settings', label: t('shell.search.where.settings'), onQuery: setQ })
+  // …EXCEPT ON JOBS, FOR AN ADMIN, WHERE IT SEARCHES THE SYSTEM LOGS. The omnibar
+  // rule is that the bar searches what you are looking at, and on that section
+  // what an admin is looking at is a log with a keyword filter. So the keyword
+  // lives HERE, and this screen publishes one context or the other — never both:
+  // two publishers of one bar settle on whichever effect ran last, which is a
+  // child before its parent on every render and the reverse on some.
+  //
+  // "OPEN" MEANS ON SCREEN. On a desk the remembered section is drawn beside the
+  // tabs; on a phone the index is drawn until a section is routed, and the bar
+  // over the index is still Settings' own.
+  const [logsQ, setLogsQ] = useState('')
+  const logsHere = !!user.is_admin && (mobile ? routed === 'jobs' : section === 'jobs')
+  useScreenSearch(logsHere
+    ? { key: 'settings-logs', label: t('shell.search.where.logs'), onQuery: setLogsQ }
+    : { key: 'settings', label: t('shell.search.where.settings'), onQuery: setQ })
+  // The bar empties itself when its context changes (App's TopBarSearch), so the
+  // context it left must empty too: a Settings filter still holding "backup" would
+  // go on hiding sections behind a field that no longer shows the word.
+  useEffect(() => {
+    if (logsHere) setQ('')
+    else setLogsQ('')
+  }, [logsHere])
   useScreenBar({
     // WHO YOU ARE, UNDER THE WORD "SETTINGS". It was a mono label inside
     // .page-header, and on a phone that header has its <h1> visually hidden —
@@ -540,6 +581,11 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
     // own summary is a second copy to keep in step, and this pair had already
     // drifted: the tile counted /cleanup's open bucket while the page counted
     // whichever bucket you last looked at.
+    // EVERY READER'S QUEUE, and the past thirty days of it. The backup prompt is
+    // handed in so a backup run again asks for its credential through the prompt
+    // that sealed it the first time, not a second copy of it.
+    'jobs-current': <JobsCurrentCard user={user} />,
+    'jobs-past': <JobsPastCard user={user} onReview={onReviewJob} credentialPrompt={(props) => <BackupPrompt {...props} />} />,
     ...(user.is_admin
       ? {
           server: (
@@ -553,6 +599,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
               onBackupAsking={setBackupNow}
             />
           ),
+          logs: <SystemLogsCard q={logsQ} onQuery={setLogsQ} />,
         }
       : {}),
   }
@@ -697,6 +744,10 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
         </>
       ),
     } : {}),
+    // THE OWNER'S TILE: one red Stop all with its confirm, and how many jobs are
+    // queued — the Current jobs card itself, asked for its compact face, so the
+    // confirm and the request are the ones inside the section.
+    jobs: <JobsCurrentCard user={user} compact />,
   } : {}
 
   return (

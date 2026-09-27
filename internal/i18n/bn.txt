@@ -75,6 +75,7 @@ settings.section.lang.info.body = অ্যাপ কোন ভাষায় �
 settings.section.review.info.body = রোজকার কুইজ কোন উদ্ধৃতি থেকে প্রশ্ন নেবে, কটা কার্ড, কতটা কঠিন, আর কখন কোনটা আবার ফিরবে।
 settings.section.sections.info.body = অ্যাপের কোন অংশগুলো রাখবেন, আর নেভিগেশনে সেগুলো কোন ক্রমে থাকবে।
 settings.section.server.info.body = কোন সংস্করণ চলছে, ব্যাকআপ, আর প্রতিটা রিলিজে কী বদলেছে।
+settings.section.jobs.info.body = কী চলছে, কী অপেক্ষার তালিকায়, আর গত 30 দিনে কী শেষ হল — প্রতিটার সঙ্গে তার লগ। অ্যাডমিন সবার কাজ আর অ্যাপের নিজের লগও দেখতে পান।
 
 settings.section.aria = কোন সেটিংস বদলাবেন
 settings.section.theme.label = থিম
@@ -82,6 +83,8 @@ settings.section.lang.label = ভাষা ও ফন্ট
 settings.section.review.label = রিভিউ
 settings.section.sections.label = বিভাগ
 settings.section.server.label = সার্ভার
+# ?? "job" → কাজ, the everyday word; the Additions table already gives কাজ to an arithmetic "operation" in a mono Select, a different screen
+settings.section.jobs.label = কাজ
 # The information dot beside that row.
 settings.language.info.title = ভাষা
 settings.language.info.body = ইংরেজি আর বাংলা অ্যাপেই আছে। অন্য ভাষা চাইলে data/Locales/_TEMPLATE.txt ফাইলটা fr.txt-এর মতো নামে কপি করে অনুবাদ করুন — নতুন করে বিল্ড না করেই এখানে দেখা যাবে।
@@ -1217,6 +1220,9 @@ shell.search.where.settings = সেটিংস
 shell.search.where.works = বই আর ছবি
 shell.search.where.characters = এই লাইব্রেরির চরিত্র
 shell.search.where.people = এই লাইব্রেরির মানুষ
+# The system logs card in Settings › Jobs takes the bar while that section is open.
+# ?? "log" → লগ, the word a programmer says; খাতা stays the read log's ledger
+shell.search.where.logs = সিস্টেম লগ
 shell.search.aria.screen = {where} খুঁজুন
 shell.search.aria.all = সবকিছুতে খুঁজুন
 
@@ -5756,6 +5762,90 @@ settings.jobs.progress = {total}-এর মধ্যে {done}
 settings.jobs.took.s = {s}s
 settings.jobs.took.m = {m}m {s}s
 settings.jobs.took.h = {h}h {m}m
+
+# --- a job's log, in its row. {title} is the job's name from the list above.
+# bn: the hole stays bare (§5.4), so the frame puts the name after a colon.
+settings.jobs.log.aria = লগ: {title}
+settings.jobs.log.empty = এখনও কিছু লেখা হয়নি।
+settings.jobs.log.trimmed = শুরুর দিকের লাইনগুলো এক্সপোর্টে আছে।
+
+# --- Current jobs: what is running and what waits behind it.
+settings.jobs.current.title = চলতি কাজ
+# The words beside the two counts in the card's head: "1 running", "3 waiting".
+# bn: বাকি, the word v3.7 gave to a thing still to be done — a job cannot wait.
+settings.jobs.current.running.word = চলছে
+settings.jobs.current.waiting.word = বাকি
+settings.jobs.current.empty = কিছুই চলছে না, অপেক্ষার তালিকাও খালি।
+settings.jobs.current.fold.label = চলতি কাজ গুটিয়ে নিন
+settings.jobs.current.unfold.label = চলতি কাজ দেখান
+# A waiting job's one line. "Ahead" counts every job before it in the queue,
+# whoever started it, the running one included.
+settings.jobs.current.ahead.one = অপেক্ষার তালিকায় — আগে একটা কাজ
+settings.jobs.current.ahead.other = অপেক্ষার তালিকায় — আগে {n}টা কাজ
+settings.jobs.current.next = অপেক্ষার তালিকায় — এরপরেই
+settings.jobs.current.stop.label = থামান
+settings.jobs.current.stop.aria = থামান: {title}
+# bn: "after the item in hand" → হাতেরটুকু সেরে, finishing the bit in hand.
+settings.jobs.current.stop.done = হাতেরটুকু সেরে থামবে।
+settings.jobs.current.stopping = হাতেরটুকু সেরে থামছে…
+settings.jobs.current.stop-all.label = সব থামান
+settings.jobs.current.stop-all.confirm.title = সব কাজ থামাবেন?
+# The confirm's body is these sentences, the ones that apply, joined in code.
+settings.jobs.current.stop-all.confirm.running = যেটা চলছে, সেটা হাতেরটুকু সেরে থামবে।
+settings.jobs.current.stop-all.confirm.waiting.one = অপেক্ষার তালিকার কাজটা শুরুই হবে না।
+settings.jobs.current.stop-all.confirm.waiting.other = অপেক্ষার তালিকার {n}টা কাজ শুরুই হবে না।
+settings.jobs.current.stop-all.confirm.kept = প্রতিটা তার লগ নিয়ে থেকে যাবে, পরে আবার চালানো যাবে।
+# Said only to an admin, whose Stop all reaches every reader's jobs.
+settings.jobs.current.stop-all.confirm.admin = অন্য পাঠকদের কাজও এর মধ্যে পড়ে।
+settings.jobs.current.stop-all.confirm.verb = থামান
+settings.jobs.current.stop-all.done = {stopping}টা থামছে · {waiting}টা শুরুর আগেই থামল
+
+# --- Past jobs: everything that finished in the last 30 days, newest first.
+settings.jobs.past.title = আগের কাজ
+settings.jobs.past.filter.aria = কোন কাজগুলো দেখাবে
+settings.jobs.past.filter.all.label = সব
+settings.jobs.past.empty = গত 30 দিনে কিছুই শেষ হয়নি।
+settings.jobs.past.empty.filtered = গত 30 দিনে এমন কিছু নেই।
+settings.jobs.past.more.label = আরও পুরোনো দেখান
+# The details under an opened row.
+settings.jobs.past.who.label = কে চালিয়েছেন
+settings.jobs.past.when.label = কখন শুরু
+settings.jobs.past.took.label = কতক্ষণ লাগল
+settings.jobs.past.result.label = ফল
+settings.jobs.past.error.label = কী গোলমাল হল
+settings.jobs.past.export.tip = এই কাজের লগ, Markdown ফাইল হিসেবে
+settings.jobs.past.rerun.label = আবার চালান
+settings.jobs.past.rerun.done = আবার শুরু হল — চলতি কাজে দেখা যাবে।
+# A re-verify's findings wait to be looked over; Review opens them on Metadata,
+# where the changes are chosen and applied.
+settings.jobs.past.review.label = দেখে নিন
+settings.jobs.past.review.tip = যা যা বদল পাওয়া গেছে, মেটাডেটায় খুলে বেছে নিন কোনগুলো বসাবেন
+
+# --- System logs: the app's own log, for an admin.
+settings.logs.title = সিস্টেম লগ
+# ?? a log "level" → স্তর; the chips below name the levels themselves
+settings.logs.level.aria = কোন স্তরের লাইন দেখাবে
+settings.logs.level.error.label = গোলমাল
+settings.logs.level.warn.label = সতর্কতা
+settings.logs.level.info.label = তথ্য
+# A request the server answered: a read, a save, a sign-in.
+settings.logs.level.request.label = রিকোয়েস্ট
+# A file the server handed out — a cover, a font, the app itself. Off by default.
+settings.logs.level.asset.label = ফাইল
+settings.logs.level.trace.label = ট্রেস
+settings.logs.level.last = অন্তত একটা স্তর চালু রাখতে হয়।
+settings.logs.range.aria = কত আগে পর্যন্ত
+settings.logs.range.hour.label = গত এক ঘণ্টা
+settings.logs.range.day.label = গত 24 ঘণ্টা
+settings.logs.range.week.label = গত 7 দিন
+settings.logs.range.month.label = গত 30 দিন
+settings.logs.search.placeholder = শব্দ
+settings.logs.search.aria = সিস্টেম লগে খুঁজুন
+settings.logs.lines.aria = সিস্টেম লগের লাইন
+settings.logs.empty = কোনও লাইন মেলেনি।
+settings.logs.more.label = আরও পুরোনো দেখান
+settings.logs.export.shown.label = যা দেখা যাচ্ছে
+settings.logs.export.all.label = রাখা সবকিছু (30 দিন)
 
 # ===========================================================================
 # SHARED VOCABULARY THE LAST THREE SCREENS ASKED FOR.
