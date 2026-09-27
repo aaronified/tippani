@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"tippani/internal/jobs"
 	"tippani/internal/olog"
 )
 
@@ -68,6 +69,10 @@ func (s *Server) resetDatabase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	olog.Alertf("[admin] FACTORY RESET requested by user %d (%s) — deleting ALL data and settings", userID(r), username(r))
+	// Kept as a job, and the only thing kept from before: its row is written
+	// when the request ends, into the empty file, with no owner (the account
+	// that pressed it is gone with the rest), so the next admin finds it.
+	jobs.Begin(r.Context(), "reset", "")
 
 	err := s.Store.Reset()
 	// The session and device-token stores captured the OLD *sql.DB at

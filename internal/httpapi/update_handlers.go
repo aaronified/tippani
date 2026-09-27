@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"tippani/internal/buildinfo"
+	"tippani/internal/jobs"
 	"tippani/internal/olog"
 	"tippani/internal/updater"
 )
@@ -258,6 +259,10 @@ func (s *Server) applyUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer s.updateMu.Unlock()
+	// Kept as a job, named after the image once it is known: the Engine's calls
+	// are the operator's own socket and are not logged, so the row and its end
+	// are the record.
+	jobs.Begin(r.Context(), "update.apply", "")
 
 	// WHERE IT GOT TO, written down as it goes — see update_progress.go. The page
 	// that started this almost never hears the answer (the pull outlasts the
@@ -330,6 +335,9 @@ func (s *Server) applyUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	prog.on(image, name)
+	if rec := jobs.From(r.Context()); rec != nil {
+		rec.Subject(image)
+	}
 	olog.Alertf("[update] APPLY requested by user %d (%s) — pulling %s and recreating container %q", userID(r), username(r), image, name)
 	prog.step(updatePhasePulling)
 	if err := d.Pull(ctx, image); err != nil {

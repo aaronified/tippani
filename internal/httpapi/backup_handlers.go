@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"tippani/internal/auth"
+	"tippani/internal/jobs"
 	"tippani/internal/olog"
 	"tippani/internal/store"
 )
@@ -343,6 +344,9 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
 		return
 	}
+	// The API's synchronous backup runs in its request, and is kept as a job
+	// like the queued one, under the same kind.
+	jobs.Begin(r.Context(), "backup", "")
 
 	if err := os.MkdirAll(s.backupsDir(), 0o700); err != nil {
 		olog.Errorf(olog.CodeBackupArchive, "[backup] backups dir: %v", err)
@@ -551,6 +555,7 @@ func (s *Server) handleSafetyBackup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "that is not your password — the archive would be sealed with a key you could not reproduce")
 		return
 	}
+	jobs.Begin(r.Context(), "backup.safety", "")
 	tmp, err := os.CreateTemp(s.DataDir, ".safety-*"+backupExt)
 	if err != nil {
 		internalError(w, r, "safety backup temp", err)
@@ -755,7 +760,7 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	creds := backupCreds{Password: req.Password, Passphrase: req.Passphrase, Confirm: req.Confirm}
 	creds.RecoveryOK = s.passwordIsCallers(r, req.Password)
 	s.withQueueHeld(w, func() {
-		s.restoreFromNewest(w, fmt.Sprintf("user %d (%s)", userID(r), username(r)), s.safetyGuard(userID(r)), creds, true)
+		s.restoreFromNewest(w, r, fmt.Sprintf("user %d (%s)", userID(r), username(r)), s.safetyGuard(userID(r)), creds, true)
 	})
 }
 
@@ -842,7 +847,7 @@ func (s *Server) handleOnboardRestore(w http.ResponseWriter, r *http.Request) {
 	// restore last night's archive" work — the reset deletes the database and leaves
 	// the recovery key, so the archive is still openable without the era password.
 	creds := backupCreds{Password: req.Password, Passphrase: req.Passphrase, RecoveryOK: true}
-	s.restoreFromNewest(w, "first-run onboarding", func() error {
+	s.restoreFromNewest(w, r, "first-run onboarding", func() error {
 		if exists, err := s.usersExist(); err != nil {
 			return err
 		} else if exists {
@@ -896,7 +901,7 @@ var errOnboardingClosed = errors.New("someone finished onboarding while this res
 // straight through to the core's last-moment re-check (onboarding uses it).
 // needConfirm asks the core to require a typed RESTORE for an UNSEALED archive
 // (the admin path; onboarding has nothing to lose and skips it).
-func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, guard func() error, creds backupCreds, needConfirm bool) {
+func (s *Server) restoreFromNewest(w http.ResponseWriter, r *http.Request, requestedBy string, guard func() error, creds backupCreds, needConfirm bool) {
 	if !s.backupMu.TryLock() {
 		writeErr(w, http.StatusConflict, "a backup or restore is already running")
 		return
@@ -908,6 +913,12 @@ func (s *Server) restoreFromNewest(w http.ResponseWriter, requestedBy string, gu
 		writeErr(w, http.StatusBadRequest, "no backup on the server — create one first")
 		return
 	}
+	// Kept as a job from here, whatever becomes of it: a restore that fails at
+	// the password is as much worth finding in Past jobs as one that swapped.
+	// Its row lands after the swap, in the restored file, with no owner (the
+	// account it was pressed under belongs to the replaced one), so it is the
+	// admin's to see.
+	jobs.Begin(r.Context(), "restore", name)
 	s.restoreArchive(w, filepath.Join(s.backupsDir(), name), name, requestedBy, guard, creds, needConfirm)
 }
 
@@ -1120,6 +1131,9 @@ func (s *Server) restoreFromUpload(w http.ResponseWriter, r *http.Request, requi
 		return
 	}
 	defer s.backupMu.Unlock()
+	// Kept as a job, as restoreFromNewest's is; spoolUpload names it after the
+	// file.
+	jobs.Begin(r.Context(), "restore", "")
 
 	rc := http.NewResponseController(w)
 	_ = rc.SetReadDeadline(time.Time{})
@@ -1189,6 +1203,9 @@ func spoolUpload(r *http.Request, dest string) (backupCreds, int, string) {
 		case "passphrase":
 			creds.Passphrase = field(part)
 		case "file":
+			if rec := jobs.From(r.Context()); rec != nil {
+				rec.Subject(part.FileName())
+			}
 			out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 			if err != nil {
 				_ = part.Close()
