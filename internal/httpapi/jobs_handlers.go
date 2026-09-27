@@ -707,12 +707,13 @@ func (s *Server) handleJobLogMarkdown(w http.ResponseWriter, r *http.Request) {
 	}
 	// The block holds the lines up to the newest one now, and the fence is
 	// measured over exactly those: a running job's next line cannot land in the
-	// block unmeasured.
+	// block unmeasured. gen is the database all of it is read from.
+	gen := s.Store.Generation()
 	var upTo int64
 	var longest int
 	err = s.Store.DB.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM job_logs WHERE job_id = ?`, id).Scan(&upTo)
 	if err == nil {
-		longest, err = s.longestIn(`SELECT id, at, level, '', line FROM job_logs WHERE job_id = ? AND id <= ?
+		longest, err = s.longestIn(gen, `SELECT id, at, level, '', line FROM job_logs WHERE job_id = ? AND id <= ?
 			AND (instr(line, '`+"`"+`') > 0 OR instr(level, '`+"`"+`') > 0)`, id, upTo)
 	}
 	if err != nil {
@@ -745,7 +746,7 @@ func (s *Server) handleJobLogMarkdown(w http.ResponseWriter, r *http.Request) {
 		about:    aboutLine(about...),
 		longest:  longest,
 		lines: func(emit func(string) error) error {
-			return s.eachExportLine(emit, `SELECT id, at, level, '', line FROM job_logs WHERE job_id = ? AND id <= ?`, id, upTo)
+			return s.eachExportLine(gen, emit, `SELECT id, at, level, '', line FROM job_logs WHERE job_id = ? AND id <= ?`, id, upTo)
 		},
 	})
 	if err != nil {
@@ -753,11 +754,11 @@ func (s *Server) handleJobLogMarkdown(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// longestIn is the longest backtick run in the export lines q selects (see
-// eachExportLine for its shape).
-func (s *Server) longestIn(q string, args ...any) (int, error) {
+// longestIn is the longest backtick run in the export lines q selects from
+// generation gen's database (see eachExportLine for its shape).
+func (s *Server) longestIn(gen uint64, q string, args ...any) (int, error) {
 	longest := 0
-	err := s.eachExportLine(func(line string) error {
+	err := s.eachExportLine(gen, func(line string) error {
 		longest = max(longest, longestBackticks(line))
 		return nil
 	}, q, args...)
@@ -782,12 +783,12 @@ var errExportSwapped = errors.New("the database was replaced (a restore or a res
 // meanwhile. Keyed by id, so each batch is its own short query that starts
 // where the last one ended.
 //
-// A swap between two batches ends the export with a line saying so. After a
-// reset the ids below the export's last one name other lines, and a restore
-// could have been of anything: the rest would not be the log the fence was
-// measured over.
-func (s *Server) eachExportLine(emit func(string) error, q string, args ...any) error {
-	gen := s.Store.Generation()
+// gen is the store generation the export began on, read before its first read
+// (the newest id, the fence's pass). A batch read from any other generation is
+// not sent, and the export ends with a line saying so: after a reset the ids
+// below the export's last one name other lines, and a restore could have been
+// of anything, so the rest would not be the log the fence was measured over.
+func (s *Server) eachExportLine(gen uint64, emit func(string) error, q string, args ...any) error {
 	var after int64
 	for {
 		type row struct {

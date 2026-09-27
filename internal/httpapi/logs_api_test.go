@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -38,7 +39,9 @@ import (
 // that stops reading is a socket that stops draining, and the recorder the other
 // tests use never blocks. The time an export waits for such a client is
 // shortened (exportIdle) for the part that waits it out, so that part takes a
-// second and not a minute.
+// second and not a minute. And one test swaps the database files under an export
+// that has stalled part-way (Store.Swap with nothing to move, then rebindDB, as a
+// restore does), which is the one way to land a swap inside an export on demand.
 //
 // What each one guards, in a sentence a person would say: only an admin reads
 // the system log; it shows every level but file requests and traces unless asked,
@@ -47,7 +50,8 @@ import (
 // page ends where the next begins; nothing older than thirty days is shown; the
 // export holds exactly what the filters show, or everything kept, one line per
 // line inside a fence no line can close; downloads nobody is reading leave the
-// app answering everyone else, and are given up on in the end.
+// app answering everyone else, and are given up on in the end; an export the
+// database is swapped under says where it stopped.
 
 // logging gives srv a logbook and routes olog into it, as serve() does.
 func logging(t *testing.T, srv *Server) {
@@ -271,11 +275,12 @@ func TestTheSystemLogExportsWhatTheFiltersShowOrEverythingKept(t *testing.T) {
 	}
 }
 
-// stalledDownload opens GET path on ts as c, reads the status line, and then
-// reads nothing more: a phone that went to sleep mid-download. Its receive buffer
-// is kept small, so the server fills it and the kernel's send buffer and then
-// waits on the client, as it would over a real link.
-func stalledDownload(t *testing.T, ts *httptest.Server, c *testClient, path string) net.Conn {
+// stalledDownload opens GET path on ts as c, reads the status line and the
+// headers, and then reads nothing more: a phone that went to sleep mid-download.
+// Its receive buffer is kept small, so the server fills it and the kernel's send
+// buffer and then waits on the client, as it would over a real link. The body is
+// there to read later, for a test that wakes the phone up.
+func stalledDownload(t *testing.T, ts *httptest.Server, c *testClient, path string) *http.Response {
 	t.Helper()
 	d := net.Dialer{Control: func(_, _ string, raw syscall.RawConn) error {
 		var serr error
@@ -291,13 +296,17 @@ func stalledDownload(t *testing.T, ts *httptest.Server, c *testClient, path stri
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { conn.Close() })
-	fmt.Fprintf(conn, "GET %s HTTP/1.1\r\nHost: tippani\r\nCookie: %s=%s\r\n\r\n", apiPath(path), c.cookie.Name, c.cookie.Value)
-	conn.SetReadDeadline(time.Now().Add(20 * time.Second))
-	status, err := bufio.NewReader(conn).ReadString('\n')
-	if err != nil || !strings.HasPrefix(status, "HTTP/1.1 200") {
-		t.Fatalf("the download of %s began %q (%v), want a 200", path, status, err)
+	req, _ := http.NewRequest("GET", ts.URL+apiPath(path), nil)
+	req.AddCookie(c.cookie)
+	if err := req.Write(conn); err != nil {
+		t.Fatal(err)
 	}
-	return conn
+	conn.SetReadDeadline(time.Now().Add(20 * time.Second))
+	res, err := http.ReadResponse(bufio.NewReader(conn), req)
+	if err != nil || res.StatusCode != http.StatusOK {
+		t.Fatalf("the download of %s began %v (%v), want a 200", path, res, err)
+	}
+	return res
 }
 
 func TestDownloadsNobodyReadsLeaveTheAppAnsweringAndAreGivenUpOn(t *testing.T) {
@@ -347,5 +356,44 @@ func TestDownloadsNobodyReadsLeaveTheAppAnsweringAndAreGivenUpOn(t *testing.T) {
 		if time.Now().After(deadline) {
 			t.Fatal("an export nobody read for twenty seconds was never given up on")
 		}
+	}
+}
+
+// An export that a restore or a reset swaps the database under part-way ends with
+// a line saying so, inside its block, rather than going on with lines from a
+// database its fence was never measured over.
+func TestAnExportTheDatabaseIsSwappedUnderSaysWhereItStopped(t *testing.T) {
+	srv := newTestServer(t)
+	logging(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	if _, err := srv.Store.DB.Exec(`WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 60000)
+		INSERT INTO system_logs (at, level, code, line) SELECT ?, 'info', '', printf('[test] Wv-bulk %06d %s', i, ?) FROM n`,
+		time.Now().UnixMilli(), strings.Repeat("x", 180)); err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(h)
+	t.Cleanup(ts.Close)
+
+	// The download stalls a few megabytes in, far short of its end, and the
+	// database is swapped under it: the restore's own swap, with nothing to move,
+	// and the rebinding it does after it.
+	res := stalledDownload(t, ts, admin, "/admin/logs.md?q=Wv-bulk")
+	if err := srv.Store.Swap(func() error { return nil }, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	srv.rebindDB()
+	body, err := io.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		t.Fatalf("reading the rest of the export: %v", err)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(body), "\n"), "\n")
+	if n := len(lines); n < 3 || lines[n-1] != "```" ||
+		lines[n-2] != "… the export stops here: the database was replaced (a restore or a reset) while the export was written" {
+		t.Fatalf("the export's last lines: %q", lines[max(0, len(lines)-3):])
+	}
+	if kept := strings.Count(string(body), "Wv-bulk"); kept == 0 || kept >= 60000 {
+		t.Fatalf("the export holds %d of the 60000 lines, want the ones before the swap", kept)
 	}
 }
