@@ -29,6 +29,10 @@ import (
 // know, a cast whose read failed — is marked changed and keeps the check's value:
 // the safe mistake is a box the reader has to tick themselves, never one ticked
 // over a value nobody reviewed.
+//
+// The check keeps a diff without its fresh value when that is the first
+// supplier's value in alts (keptDiff), and the review puts it back, so the
+// screen reads each diff as the preview always answered it.
 
 // reviewReverify is the reverify kind's review (queuedKind.review).
 func reviewReverify(s *Server, uid int64, result json.RawMessage) (any, error) {
@@ -51,6 +55,14 @@ func reviewReverify(s *Server, uid int64, result json.RawMessage) (any, error) {
 			return nil, err
 		}
 		for _, d := range diffs {
+			if _, kept := d["fresh"]; !kept {
+				var alts []struct {
+					Value json.RawMessage `json:"value"`
+				}
+				if json.Unmarshal(d["alts"], &alts) == nil && len(alts) > 0 {
+					d["fresh"] = alts[0].Value
+				}
+			}
 			var field string
 			_ = json.Unmarshal(d["field"], &field)
 			cur, known := now[field]

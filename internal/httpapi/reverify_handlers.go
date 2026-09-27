@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"database/sql"
@@ -57,7 +58,9 @@ type fieldDiff struct {
 	// Fresh is the PREFERRED supplier's answer and stays for two reasons: it is
 	// the default pick, so a reader who ticks a field without opening the choice
 	// gets what they used to get; and it is what every existing client and test
-	// reads. Alts[0] is always the same value.
+	// reads. Alts[0] is ordinarily the same supplier's answer, the same value
+	// but for the surrounding space a diff trims from text — which is why a
+	// check job keeps one of the two only where they are equal (keptDiff).
 	Fresh any        `json:"fresh"`
 	Alts  []fieldAlt `json:"alts,omitempty"`
 }
@@ -213,6 +216,16 @@ func (s *Server) handleMetadataReverify(w http.ResponseWriter, r *http.Request) 
 // kept, so an item whose every diff would overwrite something reads as up to
 // date rather than as an empty expander — and a check of a hundred works does
 // not store the overwrites nobody asked to see.
+//
+// WHAT IT KEEPS IS BOUNDED BY WHAT ONE JOB MAY KEEP (jobs.MaxResult), and by
+// bytes, as it goes. Five hundred items is the cap on what a check is given, not
+// on what it finds: five hundred films whose casts the reader edited differ in
+// the cast on every one, by design, and with two suppliers each cast is in its
+// diff three times over. Stored once at the end, such a check came to more than
+// a job may hold, the store refused it, and all five hundred lookups were lost —
+// and a rerun lost them the same way. So each item is measured as it is kept,
+// and when the next would not fit the check stops there: what it found so far is
+// kept, the review opens on it, and the log says which items are not in it.
 func runReverify(s *Server, ctx context.Context, j *jobs.Job) error {
 	var p struct {
 		BookIDs   []int64       `json:"book_ids"`
@@ -240,7 +253,9 @@ func runReverify(s *Server, ctx context.Context, j *jobs.Job) error {
 	for _, who := range p.People {
 		checks = append(checks, func() reverifyItem { return s.reverifyPerson(ctx, uid, who.Kind, who.Name) })
 	}
-	items := []reverifyItem{}
+	// The items as the job keeps them, and what they come to: the brackets, and
+	// each item with the comma before it.
+	items, size := []json.RawMessage{}, len("[]")
 	for i, check := range checks {
 		if j.Stopping() {
 			break
@@ -255,12 +270,62 @@ func runReverify(s *Server, ctx context.Context, j *jobs.Job) error {
 			}
 			it.Diffs = kept
 		}
+		b, err := keptReverifyItem(it)
+		if err != nil {
+			return err
+		}
+		if size+1+len(b) > jobs.MaxResult {
+			j.Log(jobs.LevelWarn, "the findings reached what one check can keep (%d MB), so the last %d of its %d items, from %s on, are not in them — check those again in a smaller selection",
+				jobs.MaxResult>>20, len(checks)-i, len(checks), itemName(it.Type, it.ID, cmp.Or(it.Title, it.Name)))
+			break
+		}
+		size += 1 + len(b)
 		level, line := reverifyLine(it)
 		j.Log(level, "%s", line)
-		items = append(items, it)
+		items = append(items, b)
 		j.Progress(i+1, len(checks))
 	}
 	return j.SetResult(items)
+}
+
+// keptDiff is a diff as a check job keeps it: without Fresh when Fresh is what
+// the first supplier in Alts says, which it is whenever a diff has alternatives
+// (fieldDiff) — compared here rather than trusted, so a diff whose two differ
+// keeps both. The review puts it back (reviewReverify), so the screen reads the
+// diff it always read. A cast is the largest value a diff holds, and in a diff
+// with two suppliers it is there four times: stored, fresh and each supplier's;
+// the copy that says nothing the others do not is the one not kept.
+type keptDiff struct {
+	fieldDiff
+	Fresh json.RawMessage `json:"fresh,omitempty"` // absent: alts[0].value
+}
+
+// keptItem is a preview item as a check job keeps it: its diffs as keptDiffs.
+type keptItem struct {
+	reverifyItem
+	Diffs []keptDiff `json:"diffs"`
+}
+
+// keptReverifyItem is it as a check job keeps it, as JSON.
+func keptReverifyItem(it reverifyItem) ([]byte, error) {
+	k := keptItem{reverifyItem: it, Diffs: make([]keptDiff, 0, len(it.Diffs))}
+	for _, d := range it.Diffs {
+		fresh, err := json.Marshal(d.Fresh)
+		if err != nil {
+			return nil, err
+		}
+		if len(d.Alts) > 0 {
+			first, err := json.Marshal(d.Alts[0].Value)
+			if err != nil {
+				return nil, err
+			}
+			if bytes.Equal(first, fresh) {
+				fresh = nil
+			}
+		}
+		k.Diffs = append(k.Diffs, keptDiff{fieldDiff: d, Fresh: fresh})
+	}
+	return json.Marshal(k)
 }
 
 // reverifyLine is a check's line for one item: what differs, or why nothing

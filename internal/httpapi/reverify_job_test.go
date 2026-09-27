@@ -22,15 +22,20 @@ import (
 // for an author), because a test may not reach the real ones, and one test holds
 // the book supplier mid-answer so that Stop is pressed with an item in hand; and
 // the wire fields of a job, its counts and the preview's items (type, title,
-// status, diffs, field, stored, fresh), which are the contract the review is
-// built to.
+// status, diffs, field, stored, fresh, alts), which are the contract the review
+// is built to; and how much one job may keep (jobs.MaxResult), which one test
+// fills with descriptions a supplier would never send, because what it guards is
+// what happens at that size.
 //
 // What each one guards, in a sentence a person would say: a check asks about
 // every work and person it was given, says in its log what differs on each, keeps
 // its findings for the review, counts the items and those with something to
 // review under the names the screens read, and writes nothing; asked for empty
-// fields only, it keeps only the differences that would fill one; and Stop ends
-// it after the item in hand, keeping what it found up to there.
+// fields only, it keeps only the differences that would fill one; Stop ends it
+// after the item in hand, keeping what it found up to there; and a check that
+// finds more than one job can keep keeps what fits, says which items it left,
+// and still opens its review, each diff whole — its fresh value as the preview
+// gave it even where that is not quite the first supplier's.
 
 // duneAsTheSupplierHasIt is a book supplier that knows every ISBN as Dune with a
 // description, a year and a page count.
@@ -164,5 +169,103 @@ func TestACheckJobStopsAfterTheItemInHandAndKeepsWhatItFound(t *testing.T) {
 	countsAre(t, stopped, map[string]any{"items": float64(1), "changes": float64(1)})
 	if found := checkFindings(t, alice, job.ID); len(found) != 1 || found["Dune"] == "" {
 		t.Fatalf("a check stopped after its first book kept %v", found)
+	}
+}
+
+// A CHECK THAT FINDS MORE THAN ONE JOB CAN KEEP. Two suppliers answer for every
+// book, each with a description the size of a novel, so each book's findings are
+// about a third of what one job may keep. The check keeps the books whose
+// findings fit, says in its log which it left, and ends succeeded with its
+// review — rather than failing at the end with nothing kept. And the review
+// reads each kept diff whole: the supplier's value the check did not store
+// twice is back in fresh.
+func TestACheckThatFindsMoreThanAJobCanKeepKeepsWhatFits(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	google, openLibrary := strings.Repeat("g", 1_500_000), strings.Repeat("o", 1_500_000)
+	srv.searchBooks = func(_ context.Context, isbn, _, _, _ string) ([]metadata.BookCandidate, error) {
+		if isbn == "" {
+			return nil, nil
+		}
+		return []metadata.BookCandidate{
+			{Source: "google", Title: "Dune", Author: "Frank Herbert", ISBN13: isbn, Description: google},
+			{Source: "openlibrary", Title: "Dune", Author: "Frank Herbert", ISBN13: isbn, Description: openLibrary},
+		}, nil
+	}
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	var ids []int64
+	for i, isbn := range []string{duneISBN, messiahISBN, "9780441005901", "9780441017607"} {
+		ids = append(ids, createdID(t, alice, "/books", map[string]any{"title": fmt.Sprintf("Book %d", i+1), "author": "Frank Herbert", "isbn": isbn}))
+	}
+
+	job := alice.waitJob(alice.mustStart("reverify", map[string]any{"book_ids": ids}).ID, "succeeded")
+	if job.Done != 2 || job.Total != 4 {
+		t.Fatalf("the check's progress: %d of %d, want the two whose findings fit", job.Done, job.Total)
+	}
+	countsAre(t, job, map[string]any{"items": float64(2), "changes": float64(2)})
+	want := "warn the findings reached what one check can keep (8 MB), so the last 2 of its 4 items, from «Book 3» on, are not in them"
+	if log := strings.Join(logOf(t, alice, job.ID), "\n"); !strings.Contains(log, want) {
+		t.Errorf("the check's log has no %q:\n%s", want, log)
+	}
+
+	review := decode[struct {
+		Result []struct {
+			Title string `json:"title"`
+			Diffs []struct {
+				Field string `json:"field"`
+				Fresh string `json:"fresh"`
+				Alts  []struct {
+					Source string `json:"source"`
+					Value  string `json:"value"`
+				} `json:"alts"`
+			} `json:"diffs"`
+		} `json:"result"`
+	}](t, alice.mustDo("GET", fmt.Sprintf("/jobs/%d/result", job.ID), nil, http.StatusOK)).Result
+	if len(review) != 2 || review[0].Title != "Book 1" || review[1].Title != "Book 2" {
+		t.Fatalf("the review has %d items, want Book 1 and Book 2", len(review))
+	}
+	for _, it := range review {
+		for _, d := range it.Diffs {
+			if d.Field != "description" {
+				continue
+			}
+			if d.Fresh != google || len(d.Alts) != 2 || d.Alts[0].Value != google || d.Alts[1].Value != openLibrary {
+				t.Fatalf("%s's description in the review: fresh of %d bytes, %d alternatives; want Google's as fresh and both suppliers'",
+					it.Title, len(d.Fresh), len(d.Alts))
+			}
+		}
+	}
+}
+
+// FRESH IS NOT ALWAYS THE FIRST SUPPLIER'S VALUE TO THE LETTER. The preview trims
+// the preferred supplier's text before offering it, and the alternatives carry
+// each supplier's as sent — so a description with a stray space at its end is
+// fresh without it and alts[0] with it. The check keeps both, and the review
+// offers the trimmed one, as the preview did.
+func TestACheckKeepsAFreshValueTheFirstSupplierSaidOtherwise(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	srv.searchBooks = func(_ context.Context, isbn, _, _, _ string) ([]metadata.BookCandidate, error) {
+		return []metadata.BookCandidate{
+			{Source: "google", Title: "Dune", Author: "Frank Herbert", ISBN13: isbn, Description: "A desert planet. "},
+			{Source: "openlibrary", Title: "Dune", Author: "Frank Herbert", ISBN13: isbn, Description: "Arrakis."},
+		}, nil
+	}
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": duneISBN})
+
+	job := alice.waitJob(alice.mustStart("reverify", map[string]any{"book_ids": []int64{dune}}).ID, "succeeded")
+	review := decode[struct {
+		Result []struct {
+			Diffs []struct {
+				Field string `json:"field"`
+				Fresh string `json:"fresh"`
+			} `json:"diffs"`
+		} `json:"result"`
+	}](t, alice.mustDo("GET", fmt.Sprintf("/jobs/%d/result", job.ID), nil, http.StatusOK)).Result
+	if len(review) != 1 || len(review[0].Diffs) != 1 || review[0].Diffs[0].Fresh != "A desert planet." {
+		t.Fatalf("the review of Dune: %+v, want its description offered as the preview offered it, trimmed", review)
 	}
 }

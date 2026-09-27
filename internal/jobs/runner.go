@@ -52,10 +52,13 @@ const HoldEnv = "TIPPANI_JOBS_HOLD"
 
 func holding() bool { return os.Getenv(HoldEnv) == "1" && outbound.Off() }
 
-// maxResult is the most a job's result may hold. The result is read back whole by
-// the job's own screen (a re-verify's preview), and a row larger than this would
-// be a bug in the kind, not a large library.
-const maxResult = 8 << 20
+// MaxResult is the most a job's result may hold (SetResult refuses more). The
+// result is read back whole by the job's own screen (a re-verify's preview) and
+// kept in one row. A kind whose result grows with what it finds, rather than
+// with what it was given, keeps its result under this itself — the re-verify's
+// check stops keeping findings once the next would not fit, and says so in its
+// log — since a result refused at the end loses everything the job did.
+const MaxResult = 8 << 20
 
 // progressEvery is the most often Progress writes: a fill of two thousand items
 // is not two thousand writes, and a screen polling once a second sees no less.

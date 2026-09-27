@@ -113,7 +113,7 @@ func (j *Job) SetResult(v any) error {
 	if err != nil {
 		return err
 	}
-	if len(b) > maxResult {
+	if len(b) > MaxResult {
 		return ErrTooLarge
 	}
 	counts, err := j.counts(b)
