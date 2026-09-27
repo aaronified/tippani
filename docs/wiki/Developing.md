@@ -7,8 +7,9 @@ Two things shape everything else, so they come before the setup commands:
   committed build artefact embedded by `web/embed.go`, which is unusual and deliberate —
   it means `go build` alone produces something that runs.
 - **CPU frugality is a requirement, not a preference.** The target is a NAS already
-  running a hundred other things. No pollers, no timers, no background jobs. If a change
-  needs something to wake up on its own, that is a design discussion before it is a patch.
+  running a hundred other things. No pollers, no timers, no scheduler: nothing runs unless a
+  person or the app's own lookup started it, and nothing wakes on a timer. If a change needs
+  something to wake up on its own, that is a design discussion before it is a patch.
 
 ## Which document answers what
 
@@ -65,11 +66,13 @@ Refused on sight, with the reasoning on the roadmap or in `docs/wiki/Design-deci
 
 - **A new always-on dependency.** The Go side has three direct modules and the frontend
   has three runtime npm packages. A fourth needs a reason that survives being written down.
-- **A background job, timer, poller or cron.** Cleanup and scheduling happen on a read.
-  This is the frugality budget, and it is the constraint most features have to be
+- **Anything that wakes on a timer** — a ticker, a poller, a cron, a scheduler, a pool of
+  workers. Cleanup and scheduling happen on a read, and a job runs because somebody started
+  it. This is the frugality budget, and it is the constraint most features have to be
   redesigned around rather than argued out of.
-- **Anything that phones home by default.** Every outbound call in this app is one the
-  user triggered.
+- **Anything that phones home by default.** Every outbound call in this app is one a person
+  asked for, or one a screen they opened makes for what it is about to draw, and every one
+  is a line in the log.
 - **A config file.** Everything is an environment variable, on purpose.
 - **A frontend state library.** `fetch` and `useState`, and a refetch signal passed down
   from `App.jsx`. This is a small app and it should keep reading like one.
@@ -140,6 +143,7 @@ browser ──▶ web/dist (embedded SPA)          ← everything not under /api
         └─▶ /api/* ──▶ internal/httpapi/server.go
                         ├── middleware: logging → gzip → security headers → CSRF
                         ├── *_handlers.go   the route group for this noun
+                        ├── internal/jobs   the queue, and the log of every job and request
                         └── internal/store  the only thing that opens SQLite
                                 └── internal/search   FTS5 MATCH, escaped
                                     internal/importer parse an uploaded file
@@ -150,7 +154,7 @@ browser ──▶ web/dist (embedded SPA)          ← everything not under /api
 
 | Path | What it is |
 | --- | --- |
-| `cmd/tippani/main.go` | The entry point and the subcommand table: `serve`, `user add\|passwd\|del`, `healthcheck`, `version`. Reads every `TIPPANI_*` variable, opens and migrates the database, starts the server with graceful shutdown. **Where a new CLI verb goes.** |
+| `cmd/tippani/main.go` | The entry point and the subcommand table: `serve`, `user add\|passwd\|del`, `notify daily`, `healthcheck`, `version`. Reads every `TIPPANI_*` variable, opens and migrates the database, wires the log and the job queue to it, and serves until a signal, then shuts down in the order its `shutdown` sets out. **Where a new CLI verb goes.** |
 | `cmd/tippani/tls.go` | Optional native HTTPS from a PEM pair, hot-reloaded when the files change so external renewal tooling needs no restart. |
 
 ### `internal/` — the packages
@@ -158,13 +162,14 @@ browser ──▶ web/dist (embedded SPA)          ← everything not under /api
 | Package | What it owns |
 | --- | --- |
 | `internal/httpapi/` | Every HTTP route, the middleware chain, and the request/response shapes. The largest package by far — see its own table below. |
-| `internal/store/` | The SQLite connection, the pragmas, the migrations, the dedupe rules. **The only package that opens the database.** |
+| `internal/store/` | The SQLite connections — the library's pool and the log's own `synchronous=NORMAL` connection — the pragmas, the migrations, the dedupe rules, and the one lock every swap of the database files takes. **The only package that opens the database.** |
 | `internal/search/` | Building safe FTS5 `MATCH` expressions, and the typo-correction pass. |
 | `internal/importer/` | One parser per source format, producing the package's shared intermediate shapes. Touches no database. |
 | `internal/metadata/` | Every outbound call to a metadata provider: Google Books, Open Library, TMDB, TheTVDB, Wikidata, Amazon, the two picture searches (`image_search.go`), plus the SSRF-guarded image fetcher. It used to be described as every outbound call in the app and was one short — `internal/updater/` asks GitHub for the latest release. |
 | `internal/auth/` | Password hashing, cookie sessions, bearer device tokens, and the login rate limiter. |
-| `internal/outbound/` | The one answer to "may this request leave the machine?". A `http.RoundTripper` that refuses everything while `TIPPANI_OFFLINE` is set, wrapped around the three real clients — the shared provider client, the SSRF-guarded image fetcher, and the GitHub release check. A test names every `&http.Client{}` in the tree so a fourth cannot appear ungated. |
-| `internal/olog/` | Operational logging, and the registry of stable `TIP-*` operator codes. |
+| `internal/outbound/` | The one answer to "may this request leave the machine?". A `http.RoundTripper` that refuses everything while `TIPPANI_OFFLINE` is set, wrapped around the four real clients — the shared provider client, the SSRF-guarded image fetcher, the GitHub release check and Pushover's — and telling one observer of every call that leaves, refusals included. The OIDC client carries the observer without the gate. `Redact` is the one list of what a URL may not show in a log. A test names every `&http.Client{}` in the tree so a fifth cannot appear ungated. |
+| `internal/jobs/` | The routines a reader starts, run on the server, and the logs. `runner.go` is the queue — one job at a time across the server, the rest waiting in the order started; `logbook.go` is the one writer of the system log and every job's lines, onto the store's log connection; `clean.go` is the door every line passes, which strips control characters and secrets; `recorder.go` is how a line finds its job, including the job a request becomes when it looks outward. The kinds a person can start are registered from `internal/httpapi/jobs_kinds.go`. |
+| `internal/olog/` | Operational logging, the registry of stable `TIP-*` operator codes, and the sink every line is also handed to, which is how the system log is kept. |
 | `internal/updater/` | The in-app self-update: the GitHub release check, and the Docker Engine calls that pull and recreate. |
 | `internal/changelog/` | The release history, embedded and parsed. Holds a **copy** of the root `CHANGELOG.md` because `//go:embed` cannot reach outside its own package; a drift test fails when the two differ. |
 | `internal/buildinfo/` | The running build's identity — version from ldflags, plus the repo and image the update check queries. Three constants a fork overrides. |
@@ -214,6 +219,7 @@ The route groups themselves, so you can find the noun you want:
 | `taxonomy_handlers.go` | Tags and genres, and the starter vocabulary seeded per account. |
 | `seed_stickers.go` · `assets/stickers/` | The five starter seals, embedded as SVG and copied into each account's own cover store — plus the one-shot backfill that hands them to accounts older than the feature. |
 | `backup_handlers.go` · `backup_recovery.go` | Archive create, download and in-process restore; the per-instance recovery key. |
+| `jobs_handlers.go` · `jobs_kinds.go` · `jobkinds.go` · `logs_handlers.go` | The jobs API — start, list, watch, stop, rerun, export — and the kinds a person may start with the params each accepts; which kind a request is when it looks outward, by route; and the admin's system log. |
 | `admin_handlers.go` · `maintenance_handlers.go` · `update_handlers.go` · `update_progress.go` | User management, FTS rebuild and factory reset, and the self-updater — which writes down which step it reached as it goes, because the apply outlasts the reply and the page cannot otherwise see what happened. |
 | `pairing_handlers.go` · `capabilities_handler.go` · `share_handlers.go` | Phone pairing by QR, the client version handshake, and one-shot share-image downloads. |
 | `cleanup_handlers.go` | The one-pass sweep behind Settings → Stray marks: every quote read once, capped, with what the rules in `cleanup.go` found. Read-only. |
@@ -223,14 +229,14 @@ The route groups themselves, so you can find the noun you want:
 
 | File | What it is |
 | --- | --- |
-| `store.go` | Opens the connection with this project's pragmas and pool settings. |
+| `store.go` | Opens both pools with this project's pragmas and pool settings: the library's four connections at `synchronous=FULL`, and the log's one at `NORMAL`, which only `LogWrite` writes through. |
 | `migrate.go` | The migration runner. Applies embedded `migrations/*.sql` newer than the recorded schema version, one transaction each, and **refuses to open a database from a newer build**. |
 | `migrations/` | Numbered, embedded, append-only SQL. `NNNN_what_it_does.sql`. Never edit one that has shipped. |
 | `onetime.go` | The registry for **one-time upgrade passes** — the third kind of change, neither a schema migration nor a boot repair. Each pass registers itself from its own file's `init()`, runs once per database, and records itself in `one_time_passes`. |
 | `onetime_<version>_<what>.go` | One such pass, named for the release it first ships in. Retiring it is a file deletion: nothing else names it. |
 | `hash.go` | **The dedupe rules** for all three quote kinds, and the text normalisation — punctuation folding, case, whitespace — that defines what "the same words" means. |
 | `repair.go` | `quick_check` on boot, per-index FTS rebuild, recovery-from-content, and the factory reset. |
-| `backup.go` | The `VACUUM INTO` snapshot and the close/reopen pair a file swap needs. |
+| `backup.go` · `swap.go` · `journal.go` | The `VACUUM INTO` snapshot; `Swap`, the one way the database files are replaced, which holds the swap lock across the move and reopens both pools on every exit; and the job history an archive leaves out (`StripJournal`) and a restore carries over (`CarryJournal`). |
 | `settings.go` | The key-value settings table, which is where in-app metadata keys live. |
 
 #### `internal/search/`
@@ -429,10 +435,12 @@ that is the part you cannot infer by reading the code around it.
 - **A read-only transaction says so.** See [Database changes](#database-changes) — the
   `_txlock=immediate` consequence is that an unmarked transaction takes the write lock
   and serialises against real writers for nothing.
-- **No goroutine outlives its request.** There is no worker pool, no ticker and no
-  scheduler in this codebase, and adding the first one is a design conversation.
-- **Nothing outside `internal/metadata/` makes an outbound HTTP call**, and nothing
-  outside `internal/store/` opens the database.
+- **Nothing wakes on a timer, and nothing runs unless a person or the app's own lookup
+  started it.** There is no ticker, no poller, no scheduler and no pool. Two goroutines
+  outlive the call that starts them, both in `internal/jobs` — the queue's worker and the
+  log's writer — and each exits when it has nothing to do; a third is a design conversation.
+- **Every outbound HTTP call goes through `internal/outbound`**, and nothing outside
+  `internal/store/` opens the database — the log's own connection included.
 - **The demo shim mirrors real response shapes.** When `web/frontend/src/demo/install.js`
   drifts from a handler, the published demo does not fail — it renders something wrong,
   quietly, which is worse.
