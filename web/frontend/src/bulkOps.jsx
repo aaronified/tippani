@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { t } from './i18n.js'
+import { followJob, isLive, jobStateLabel, jobTitle, jobWaitingText, startJob } from './jobs.js'
 import { quoteKindOptions } from './quoteKind.js'
 import { formatPartialDate, toast } from './ui.jsx'
 
@@ -79,15 +80,19 @@ export function countedNoun(kind, n) {
   return t('common.count.phrase', { n, noun: t(unit, { count: n }) })
 }
 
-// FILL_CHUNK matches the server's per-call cap. A selection larger than this is
-// sent as sequential batches, which is what bounds provider load — the same
-// shape the re-verify console already uses.
-const FILL_CHUNK = 15
-
 export function useBulkOps({ kind, ids = [], onDone }) {
   const [busy, setBusy] = useState(false)
   const routes = KIND_ROUTES[kind]
   const count = ids.length
+  // WHETHER THE SCREEN THAT PRESSED IS STILL HERE. A fill is a job on the server
+  // now and outlives the bar and the card that started it, so its end is news
+  // only to a screen that is still up — anywhere else it is a row in Settings ›
+  // Jobs, and a toast about it would land on whatever the reader went to instead.
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   // post is every field-setting action: colour, tags, the seal, favourite, the
   // quiz toggle. One shape because the server takes one — `{ids, ...fields}` —
@@ -112,40 +117,52 @@ export function useBulkOps({ kind, ids = [], onDone }) {
     onDone?.()
   }
 
-  // fillGaps sends the rows in batches the server will accept and reports one
-  // total. A per-batch toast for a selection of forty would be three toasts
-  // saying three different numbers about one action.
+  // fillGaps STARTS A JOB AND WAITS FOR ITS END, and the whole selection is one
+  // job. It used to walk the selection in batches of fifteen from here, which
+  // meant closing the tab, locking the phone or opening another screen killed the
+  // fill part-way with nothing to say where it stopped. The server runs it now,
+  // one work at a time behind whatever else is running, and it is still going —
+  // with its log — whatever this screen does next.
+  //
+  // EACH PRESS IS A JOB OF ITS OWN; a second press on the same selection while
+  // the first still runs is the one the server refuses as a duplicate, and that
+  // refusal names the running job, which is followed instead of reported.
+  //
+  // ONE TOAST AT THE END, with the field count rather than the work count, for the
+  // reason it always had: "filled 3 books" over a selection of forty reads as a
+  // failure, while "filled 7 fields" is what actually happened.
   async function fillGaps() {
     setBusy(true)
     const key = kind === 'book' ? 'book_ids' : 'movie_ids'
-    let fields = 0
-    let failed = 0
-    for (let i = 0; i < ids.length; i += FILL_CHUNK) {
-      const body = { [key]: ids.slice(i, i + FILL_CHUNK) }
-      // The last chunk of a run that spans several tells the server the run is
-      // over, so a long fill can say so on the reader's phone (Pushover) — no
-      // single chunk knows otherwise. A one-chunk run is over before a phone
-      // would buzz, and sends the plain body.
-      if (ids.length > FILL_CHUNK && i + FILL_CHUNK >= ids.length) Object.assign(body, { run_total: ids.length, run_fields: fields })
-      const r = await json('POST', '/metadata/fill', body)
-      if (!r.ok) {
-        setBusy(false)
-        return toast(errText(r, t('error.fill.generic')))
-      }
-      // The FIELD count is what the toast reports, not the work count: "filled 3
-      // books" over a selection of forty reads as a failure, while "filled 7
-      // fields" is what actually happened and is unambiguously a win.
-      fields += r.data?.fields || 0
-      failed += r.data?.failed || 0
+    const r = await startJob('fill', { [key]: ids })
+    const id = r.ok ? r.job?.id : r.jobId
+    if (!id) {
+      if (mounted.current) setBusy(false)
+      return toast(r.error)
     }
+    let job = r.ok ? r.job : null
+    // BEHIND SOMEBODY ELSE'S JOB, THE BAR STAYS BUSY FOR A WHILE, and it says why
+    // once rather than looking stuck.
+    if (job?.state === 'queued') toast(jobWaitingText(job))
+    if (!job || isLive(job)) job = await followJob(id, { alive: () => mounted.current })
+    if (!mounted.current) return
     setBusy(false)
-    // "Nothing was missing" is the good case and has to read like one, or people
-    // learn to distrust the button.
-    toast(
-      fields === 0
-        ? t(failed ? 'common.selection.fill.toast.none-fetched' : 'common.selection.fill.toast.nothing-missing')
-        : t('common.selection.fill.toast.filled', { count: fields, n: fields }),
-    )
+    if (!job) return toast(t('error.fill.generic'))
+    if (job.state === 'failed') toast(job.error || t('error.fill.generic'))
+    // Stopped from Settings › Jobs, or cut short by a restart: what it filled
+    // before then is kept, and the toast says it did not reach the end.
+    else if (job.state !== 'succeeded') toast(`${jobTitle(job)} · ${jobStateLabel(job.state)}`)
+    else {
+      const fields = job.counts?.fields || 0
+      const failed = job.counts?.failed || 0
+      // "Nothing was missing" is the good case and has to read like one, or
+      // people learn to distrust the button.
+      toast(
+        fields === 0
+          ? t(failed ? 'common.selection.fill.toast.none-fetched' : 'common.selection.fill.toast.nothing-missing')
+          : t('common.selection.fill.toast.filled', { count: fields, n: fields }),
+      )
+    }
     onDone?.()
   }
 

@@ -112,6 +112,16 @@ export function jobStateLabel(state) {
   return JOB_STATES.includes(state) ? t(`settings.jobs.state.${state}`) : state || ''
 }
 
+// WHERE A WAITING JOB STANDS — "Waiting — 2 jobs ahead", "Waiting — next". One
+// function because two surfaces say it: the job's own row in Current jobs, and
+// the screen that just started it and has to explain why nothing has moved yet
+// (a fill pressed behind somebody's two-hour cover fetch). `ahead` counts across
+// every reader's queue, which is the honest answer to "when will mine run".
+export function jobWaitingText(job) {
+  const ahead = job?.ahead || 0
+  return ahead > 0 ? t('settings.jobs.current.ahead', { count: ahead, n: ahead }) : t('settings.jobs.current.next')
+}
+
 // The counts, one phrase each — "12 fields filled", "2 failed". An array rather
 // than one string so a caller can lay them out; `jobSummary` joins them.
 export function jobCounts(job) {
@@ -499,4 +509,64 @@ export function useCurrentJobs({ enabled = true } = {}) {
   }, [enabled])
   useJobsAnnounced((reason) => { if (reason === 'acted') kick.current() })
   return { ...state, reload: () => kick.current() }
+}
+
+// ---- a screen that started a job and waits for its end -----------------------
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const shown = () => new Promise((resolve) => {
+  const on = () => {
+    if (hidden()) return
+    document.removeEventListener('visibilitychange', on)
+    resolve()
+  }
+  document.addEventListener('visibilitychange', on)
+})
+
+// followJob — one job, until it finishes, as a promise: the final job, or null
+// when the caller stopped caring (`alive()` turned false) or the job cannot be
+// read any more.
+//
+// WHY A PROMISE AS WELL AS useJob. A selection's Fill gaps is a press inside a
+// hook that can be pressed again while the first job still runs — each press is
+// a job of its own — so the thing waiting is the press, not the screen, and a
+// screen-level hook holds one id. The cadence is useJob's (a second while
+// something moves, three once ten reads in a row brought nothing, nothing at all
+// while the tab is hidden), minus the log: a press wants the end, not the lines,
+// so each line is fetched once and dropped.
+//
+// `alive` IS THE SCREEN'S "AM I STILL HERE". A reader who leaves the screen has
+// not stopped the job — it is on the server and in Settings › Jobs — so the
+// follower just stops asking, and no toast lands on a screen they left.
+export async function followJob(id, { alive = () => true, onJob = null } = {}) {
+  let after = 0
+  let quiet = 0
+  let last = ''
+  let failures = 0
+  for (;;) {
+    if (!alive()) return null
+    if (hidden()) {
+      await shown()
+      continue
+    }
+    const r = await readJob(id, after)
+    if (!alive()) return null
+    if (!r.ok) {
+      // A job that is gone is not coming back; anything else — a server coming
+      // back from a restart — is worth a few slow tries.
+      failures += 1
+      if (r.status === 404 || failures >= 5) return null
+      await sleep(3000)
+      continue
+    }
+    failures = 0
+    if (r.lines.length) after = r.lines[r.lines.length - 1].id
+    onJob?.(r.job)
+    if (r.more) continue
+    if (!isLive(r.job)) return r.job
+    const sig = `${r.job?.state}|${r.job?.done}`
+    quiet = sig === last ? quiet + 1 : 0
+    last = sig
+    await sleep(quiet >= 10 ? 3000 : 1000)
+  }
 }

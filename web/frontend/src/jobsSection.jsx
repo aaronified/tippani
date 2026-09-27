@@ -38,6 +38,7 @@ import {
   jobSummary,
   jobTitle,
   jobTook,
+  jobWaitingText,
   listJobs,
   LOG_LEVELS,
   LOG_RANGES,
@@ -354,15 +355,12 @@ function RunningJob({ job, user, open, stopping, onToggle, onStop }) {
 const STOP_GLYPH = <IconStop size={20} />
 
 function WaitingJob({ job, user, onStop }) {
-  const ahead = job.ahead || 0
   return (
     <div className="job-row is-waiting">
       <div className="job-row-head">
         <span className="job-line">
           <JobName job={job} />
-          <span className="job-meta">
-            {ahead > 0 ? t('settings.jobs.current.ahead', { count: ahead, n: ahead }) : t('settings.jobs.current.next')}
-          </span>
+          <span className="job-meta">{jobWaitingText(job)}</span>
         </span>
         {/* A GLYPH HERE, WHERE THE RUNNING ROW HAS WORDS. The running row's Stop
             is the one press the card exists for and keeps its label; a waiting
