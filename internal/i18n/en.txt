@@ -4386,6 +4386,8 @@ reverify.item.approve-none = none
 reverify.field.approve.tip = Approve this change
 reverify.column.stored = STORED
 reverify.column.fresh = FRESH
+# Under a stored value that was edited after a re-verify that ran as a job; such a field is never ticked for the reader.
+reverify.column.changed = changed since the check
 # A cast list is clamped to six; this is the tail.
 reverify.value.more = +{n} more
 # Why an item had nothing checked, or could not be.

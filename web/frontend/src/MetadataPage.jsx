@@ -120,7 +120,7 @@ const METADATA_SECTIONS = [
 // handed and this screen's own words for it.
 
 
-export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences, section: routed = null, onSection = null, onRedirectSection = null }) {
+export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences, section: routed = null, onSection = null, onRedirectSection = null, reverifyJob = null, onReverifyClose = null }) {
   const [lib, setLib] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -674,6 +674,22 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           selection={reverify}
           fillsOnly={!!reverify.fills_only}
           onClose={() => setReverify(null)}
+          onFlash={setFlash}
+          onDone={load}
+        />
+      )}
+      {/* A RE-VERIFY THAT RAN AS A JOB, reviewed from its address — the door
+          Settings › Jobs' Review opens (/metadata/reverify/{job}). The address is
+          the state, so closing is the shell's Back rather than a local flag: a
+          flag would hide the review while the address still named it, and a
+          refresh would bring it straight back. Keyed by the job, so a second
+          Review opens the second job's findings rather than keeping the first's. */}
+      {reverifyJob && !reverify && (
+        <ReverifyFlow
+          key={`job-${reverifyJob}`}
+          jobId={reverifyJob}
+          routed
+          onClose={() => onReverifyClose?.()}
           onFlash={setFlash}
           onDone={load}
         />

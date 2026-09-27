@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
 import { t } from './i18n.js'
+import { readJob, readJobResult } from './jobs.js'
 
 import {
   ariaLabelText,
@@ -187,6 +188,10 @@ function FieldDiffRow({ diff, picked, onToggle, onChoose }) {
             {t('reverify.column.stored')}
           </MonoLabel>
           <ValueCell field={diff.field} value={diff.stored} />
+          {/* A REVIEW OPENED LATER, FROM A FINISHED JOB, reads the stored value
+              as it is NOW, and the server marks a field somebody changed after
+              the check. It is never ticked for the reader, and this says why. */}
+          {diff.changed && <p className="microcopy mt-1">{t('reverify.column.changed')}</p>}
         </div>
         {choosing ? (
           alts.map((a) => {
@@ -294,11 +299,26 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
 // WHAT IT DOES NOT DO is apply without asking. A bulk act that writes to a
 // hundred records on one press is the thing the review step exists to prevent,
 // and the pack's own list of the works is what a reader wants to see first.
-export function ReverifyFlow({ selection, fillsOnly = false, onClose, onFlash, onDone }) {
+//
+// `jobId` IS A CHECK THAT ALREADY RAN, ON THE SERVER. A re-verify outlives the
+// screen that started it in 3.1.0, and Settings › Jobs' Review sends the reader
+// here with its job in the address (/metadata/reverify/{job}). There is nothing
+// to check, so the flow opens on the job's findings (GET /jobs/{id}/result)
+// with the stored values as they are NOW; a field the server marks `changed` —
+// somebody edited it after the check — is never ticked for the reader, even
+// when it is empty, because the check's answer was about a value that is gone.
+// Apply is the same request as ever. (Converting the check itself and the apply
+// into jobs is the callers' change; this is the half the Review press needs.)
+//
+// `routed` SAYS THE ADDRESS OPENED IT, so the address is already the history
+// entry a Back leaves: the flow pushes no marker of its own, and `onClose` is
+// the shell's Back. With a marker as well, one Back would close the flow and
+// leave the reader on an address that opens it again.
+export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = false, jobId = null, routed = false, onClose, onFlash, onDone }) {
   // ITS OWN BACK ENTRY — see PersonModal. A surface that pushes none is dismissed
   // by the press that was meant for it AND by whatever is underneath, because the
   // panel stack and the screen both keep entries and this one kept nothing.
-  useBackToClose(true, onClose)
+  useBackToClose(!routed, onClose)
 
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is
@@ -309,16 +329,64 @@ export function ReverifyFlow({ selection, fillsOnly = false, onClose, onFlash, o
  const mobile = useIsMobileScreen()
   const [items, setItems] = useState([]) // previewed items, all statuses
   const [progress, setProgress] = useState({ done: 0, total: 0 })
-  const [phase, setPhase] = useState('checking') // checking | review | applying | done
+  // loading is a finished job's findings on their way; checking is a check running here.
+  const [phase, setPhase] = useState(jobId ? 'loading' : 'checking') // loading | failed | checking | review | applying | done
   const [approvals, setApprovals] = useState({}) // "key|field" -> bool
   const [openItem, setOpenItem] = useState(null) // itemKey expanded
   const [results, setResults] = useState(null) // apply results
   const [err, setErr] = useState('')
+  // A job's own `fills_only`, read with its findings: the surface is headed by
+  // the act that started it, whichever screen that was.
+  const [jobFillsOnly, setJobFillsOnly] = useState(false)
+  const fillsOnly = fillsOnlyProp || jobFillsOnly
   const cancelled = useRef(false)
+
+  // Seeds the approvals the way both paths do: a pure fill (nothing stored) is
+  // ticked, an overwrite is not — and nothing the server says changed since the
+  // check is ticked at all.
+  function review(all) {
+    const seed = {}
+    for (const it of all) {
+      for (const d of it.diffs || []) {
+        seed[`${itemKey(it)}|${d.field}`] = emptyStored(d.stored) && !d.changed
+      }
+    }
+    setItems(all)
+    setApprovals(seed)
+    const changed = all.filter((it) => it.status === 'ok' && (it.diffs || []).length > 0)
+    if (changed.length === 1) setOpenItem(itemKey(changed[0]))
+    setPhase('review')
+  }
+
+  // A FINISHED JOB: its findings, read once. `fills_only` was applied by the
+  // server when it checked, so the items arrive already narrowed.
+  useEffect(() => {
+    if (!jobId) return undefined
+    cancelled.current = false
+    ;(async () => {
+      const [found, meta] = await Promise.all([readJobResult(jobId), readJob(jobId)])
+      if (cancelled.current) return
+      if (meta.ok && meta.job?.params?.fills_only) setJobFillsOnly(true)
+      if (!found.ok || found.kind !== 'reverify' || !Array.isArray(found.result)) {
+        // Nothing to review — a job past its thirty days, or one that is not
+        // this reader's. The error is the whole surface; there is no "everything
+        // is up to date" to say about findings that could not be read.
+        setErr(found.ok ? t('error.reverify.preview') : found.error)
+        setPhase('failed')
+        return
+      }
+      review(found.result.map((it) => ({ ...it, diffs: it.diffs || [] })))
+    })()
+    return () => {
+      cancelled.current = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId])
 
   // Preview: slice the selection into small sequential chunks — frugal to the
   // providers, short requests, and a progress bar that means something.
   useEffect(() => {
+    if (jobId) return undefined
     cancelled.current = false
     const queue = [
       ...(selection.book_ids || []).map((id) => ({ type: 'book', id })),
@@ -328,7 +396,6 @@ export function ReverifyFlow({ selection, fillsOnly = false, onClose, onFlash, o
     setProgress({ done: 0, total: queue.length })
     ;(async () => {
       const all = []
-      const seed = {}
       // The whole loop is guarded: a network-level fetch rejection (wifi drop,
       // server restart) must land in the error line, not wedge "checking".
       try {
@@ -353,9 +420,6 @@ export function ReverifyFlow({ selection, fillsOnly = false, onClose, onFlash, o
               ? (it.diffs || []).filter((d) => emptyStored(d.stored))
               : it.diffs
             all.push({ ...it, diffs })
-            for (const d of diffs || []) {
-              seed[`${itemKey(it)}|${d.field}`] = emptyStored(d.stored)
-            }
           }
           setProgress({ done: Math.min(i + CHUNK, queue.length), total: queue.length })
         }
@@ -363,11 +427,7 @@ export function ReverifyFlow({ selection, fillsOnly = false, onClose, onFlash, o
         if (cancelled.current) return
         setErr(t('error.reverify.interrupted'))
       }
-      setItems(all)
-      setApprovals(seed)
-      const changed = all.filter((it) => it.status === 'ok' && (it.diffs || []).length > 0)
-      if (changed.length === 1) setOpenItem(itemKey(changed[0]))
-      setPhase('review')
+      review(all)
     })()
     return () => {
       cancelled.current = true
@@ -481,6 +541,7 @@ export function ReverifyFlow({ selection, fillsOnly = false, onClose, onFlash, o
 
   const body = (
     <div className="space-y-3">
+      {phase === 'loading' && <p className="microcopy">{t('common.state.loading')}</p>}
       {phase === 'checking' && (
         <>
           <p className="microcopy">{t('reverify.checking.prose')}</p>
@@ -491,7 +552,7 @@ export function ReverifyFlow({ selection, fillsOnly = false, onClose, onFlash, o
           />
         </>
       )}
-      {phase !== 'checking' && (
+      {phase !== 'checking' && phase !== 'loading' && phase !== 'failed' && (
         <MonoLabel className="block" style={{ fontSize: 'var(--type-ui-11)' }}>
           {/* THE SEPARATOR IS JOINED HERE, NOT CARRIED IN THE VALUE. These three
               read as one middot-joined line, and the first draft put the " · "

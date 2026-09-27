@@ -2595,6 +2595,10 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               // Jobs' Review sends a reader to (routes.js). Null on every other
               // visit, which is how the console knows nobody asked.
               reverifyJob={detail?.type === 'reverify' ? detail.id : null}
+              // Closing that review is Back: to Settings › Jobs when the reader
+              // came from there, and onto the plain console when they arrived at
+              // the address directly (goBack replaces the entry then).
+              onReverifyClose={() => goBack('metadata')}
             />
           </div>
         )}

@@ -4306,6 +4306,7 @@ reverify.field.approve.tip = এই বদল মেনে নিন
 # bn: Bengali has no letter case, so the two small-caps column heads are ordinary words.
 reverify.column.stored = যা আছে
 reverify.column.fresh = যা এল
+reverify.column.changed = মিলিয়ে দেখার পরে বদলেছে
 # A cast list is clamped to six; this is the tail.
 reverify.value.more = আরও {n}টা
 # Why an item had nothing checked, or could not be.
