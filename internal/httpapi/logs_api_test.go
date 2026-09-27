@@ -39,9 +39,12 @@ import (
 // that stops reading is a socket that stops draining, and the recorder the other
 // tests use never blocks. The time an export waits for such a client is
 // shortened (exportIdle) for the part that waits it out, so that part takes a
-// second and not a minute. And one test swaps the database files under an export
-// that has stalled part-way (Store.Swap with nothing to move, then rebindDB, as a
-// restore does), which is the one way to land a swap inside an export on demand.
+// second and not a minute. And two tests swap the database files under an export
+// (Store.Swap with nothing to move, then rebindDB, as a restore does): one under
+// an export that has stalled part-way, which is the one way to land a swap
+// between two of its batches on demand, and one from afterFencePass, the seam
+// that runs as the export's fence pass ends, which is the one way to land it
+// between the export's first reads and its first line.
 //
 // What each one guards, in a sentence a person would say: only an admin reads
 // the system log; it shows every level but file requests and traces unless asked,
@@ -51,7 +54,8 @@ import (
 // export holds exactly what the filters show, or everything kept, one line per
 // line inside a fence no line can close; downloads nobody is reading leave the
 // app answering everyone else, and are given up on in the end; an export the
-// database is swapped under says where it stopped.
+// database is swapped under says where it stopped, and sends none of the new
+// database's lines when the swap comes before its first.
 
 // logging gives srv a logbook and routes olog into it, as serve() does.
 func logging(t *testing.T, srv *Server) {
@@ -395,5 +399,49 @@ func TestAnExportTheDatabaseIsSwappedUnderSaysWhereItStopped(t *testing.T) {
 	}
 	if kept := strings.Count(string(body), "Wv-bulk"); kept == 0 || kept >= 60000 {
 		t.Fatalf("the export holds %d of the 60000 lines, want the ones before the swap", kept)
+	}
+}
+
+// A swap that lands after an export has measured its fence and before it has
+// sent a line ends it before its first line: every line it would send comes from
+// a database the fence was not measured over, and the file says so.
+func TestAnExportSwappedUnderBeforeItsFirstLineSendsNoneOfIt(t *testing.T) {
+	srv := newTestServer(t)
+	logging(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	for i := range 3 {
+		olog.Printf("[test] Wv-before-the-swap %d", i)
+	}
+	// The three are kept before the export begins, so an export that sent them
+	// would show them.
+	flushed(t, srv.Logbook)
+	if got := marked(admin.logs(url.Values{"q": {"Wv-before-the-swap"}}), "Wv-before-the-swap"); len(got) != 3 {
+		t.Fatalf("the lines to export: %q", got)
+	}
+	swapped := false
+	afterFencePass = func() {
+		if swapped {
+			return
+		}
+		swapped = true
+		if err := srv.Store.Swap(func() error { return nil }, nil, nil); err != nil {
+			t.Error(err)
+		}
+		srv.rebindDB()
+	}
+	t.Cleanup(func() { afterFencePass = nil })
+
+	body := admin.mustDo("GET", "/admin/logs.md?q=Wv-before-the-swap", nil, http.StatusOK).Body.String()
+	if !swapped {
+		t.Fatal("the export never reached the end of its fence pass")
+	}
+	if n := strings.Count(body, "[test] Wv-before-the-swap"); n != 0 {
+		t.Fatalf("the export holds %d of the log's lines, want none:\n%s", n, body)
+	}
+	lines := strings.Split(strings.TrimSuffix(body, "\n"), "\n")
+	if n := len(lines); n < 3 || lines[n-1] != "```" || lines[n-3] != "```" ||
+		lines[n-2] != "… the export stops here: the database was replaced (a restore or a reset) while the export was written" {
+		t.Fatalf("the export's last lines: %q", lines[max(0, len(lines)-3):])
 	}
 }

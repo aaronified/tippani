@@ -778,8 +778,18 @@ func (s *Server) longestIn(gen uint64, q string, args ...any) (int, error) {
 		longest = max(longest, longestBackticks(line))
 		return nil
 	}, q, args...)
+	if afterFencePass != nil {
+		afterFencePass()
+	}
 	return longest, err
 }
+
+// afterFencePass, when set, runs as an export's fence pass ends, before its line
+// pass reads anything. A test seam and nothing else: the one way to land a swap
+// between an export's first reads and its lines, a window of microseconds that
+// nothing a person does holds open, and the one a line pass that read the
+// generation for itself would miss.
+var afterFencePass func()
 
 // exportBatch is how many lines an export reads before it writes them.
 const exportBatch = 2000
