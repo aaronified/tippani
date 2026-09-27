@@ -319,7 +319,10 @@ itself, and one agent-written file was a debugging probe — every press in a `t
 
 **SETUP MAY USE THE API; THE JOURNEY MAY NOT.** Arranging the world is not the thing
 under test, and a reader does not curl their own library into existence either. What has
-to be user-like is the part being ASSERTED.
+to be user-like is the part being ASSERTED. The world's `setup(method, path, body)` is
+that API, signed in as the reader on a session of its own, and `secondReader` makes a
+second account through the admin's API and signs it in through the form; a file that
+calls either names in its header the addresses and fields its setup knows.
 
 **THE VOCABULARY IS THE POINT** (`test/journeys/harness/screen.mjs`): `see`, `gone`,
 `press`, `pressAll`, `pressKey`, `hold`, `type`, `choose`, `chosen`, `upload`, `valueOf`,

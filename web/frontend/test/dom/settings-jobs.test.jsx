@@ -300,8 +300,12 @@ describe('Past jobs', () => {
     fireEvent.click(await within(past).findByRole('button', { name: /^Fill gaps/ }))
     const log = await within(past).findByRole('log', { name: 'Log of Fill gaps' })
     const line = async (text) => (await within(log).findByText(text)).parentElement.textContent
-    expect(await line('openlibrary.org answered 429')).toBe('Warningopenlibrary.org answered 429')
-    expect(await line('«Lanterns» — not found')).toBe('Error«Lanterns» — not found')
+    // THE WORD AND THE LINE ARE TWO WORDS IN THE TEXT, a space between them. This
+    // read "Warningopenlibrary.org" here, pinned, because the gap was a margin:
+    // air on the screen and nothing in what a copy, a screen reader or
+    // find-in-page gets. The journeys' screen dumps read "RequestGET /api/…".
+    expect(await line('openlibrary.org answered 429')).toBe('Warning openlibrary.org answered 429')
+    expect(await line('«Lanterns» — not found')).toBe('Error «Lanterns» — not found')
     expect(await line('«The Paper Boat» — filled year, pages')).toBe('«The Paper Boat» — filled year, pages')
   })
 
@@ -442,6 +446,15 @@ describe('System logs', () => {
     expect(first.has('from')).toBe(false)
     expect(within(logs).getByRole('button', { name: 'File', pressed: false })).toBeTruthy()
     expect(within(logs).getByRole('button', { name: 'Trace', pressed: false })).toBeTruthy()
+  })
+
+  // Every System logs line leads with its level, and the level is a word of its
+  // own in the text, as in a job's log.
+  it('reads each line as its level, a space, and the server’s words', async () => {
+    await page()
+    const logs = await card('System logs')
+    const words = await within(logs).findByText('openlibrary.org answered 503', { exact: false })
+    expect(words.parentElement.textContent).toBe('Warning TIP-NET-004 openlibrary.org answered 503')
   })
 
   it('sends the levels, the time range and the keyword the reader chose', async () => {

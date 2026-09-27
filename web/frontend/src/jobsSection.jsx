@@ -129,9 +129,11 @@ function JobLog({ lines, trimmed = false, loaded = true, label, follow = false }
                 does. It was a warning drawn in the accent, which is the colour of
                 a press — CLAUDE.md: "the accent is not a warning" — and a line in
                 it read as a link. A word also reaches a reader who cannot tell
-                the two colours apart. */}
+                the two colours apart. And a SPACE after it, as text: a margin
+                alone read "WarningGET …" to a copy, a screen reader and
+                find-in-page (index.css, .log-level). */}
             {(l.level === 'warn' || l.level === 'error') && (
-              <span className="log-level">{t(`settings.logs.level.${l.level}.label`)}</span>
+              <><span className="log-level">{t(`settings.logs.level.${l.level}.label`)}</span>{' '}</>
             )}
             {/* THE LINE IS THE SERVER'S, and it is data out of the database — a
                 URL, a title, a status — rather than copy this screen could
@@ -664,9 +666,10 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
             <div key={l.id} className={`job-log-line is-${l.level}`}>
               <span className="job-log-at">{formatClock(l.at)}</span>
               <span className="job-log-text">
-                <span className="log-level">{LOG_LEVELS.includes(l.level) ? t(`settings.logs.level.${l.level}.label`) : l.level}</span>
+                <span className="log-level">{LOG_LEVELS.includes(l.level) ? t(`settings.logs.level.${l.level}.label`) : l.level}</span>{' '}
                 {/* The code and the line are the server's words out of the table —
-                    a request path, a TIP code, an error — not this screen's copy. */}
+                    a request path, a TIP code, an error — not this screen's copy.
+                    The space before them is text, as in a job's log. */}
                 <span data-content>{l.code ? `${l.code} ` : ''}{l.line}</span>
               </span>
             </div>
