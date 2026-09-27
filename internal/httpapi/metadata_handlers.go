@@ -439,6 +439,20 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// coversMovieWhere is which of a reader's films the covers pass walks: the ones a
+// source was pinned for, since only those have a poster to fetch again.
+const coversMovieWhere = `user_id = ? AND source_metadata IS NOT NULL`
+
+// coversWorkload is how many works a covers pass over uid's library walks: every
+// book, and every film with a source. The chunked route reports it as its total,
+// and the covers job is queued with it as its item count, so the two agree.
+func (s *Server) coversWorkload(uid int64) (int, error) {
+	var total int
+	err := s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books WHERE user_id = ?) +
+		(SELECT COUNT(*) FROM movies WHERE `+coversMovieWhere+`)`, uid, uid).Scan(&total)
+	return total, err
+}
+
 // handleCoversRefetch implements POST /covers/refetch (admin): for every book
 // (and movie) it re-derives whatever is still missing from the latest available
 // identifiers and fills empty fields only — never overwriting the user's data.
@@ -456,20 +470,6 @@ func (s *Server) handlePutMetadataKeys(w http.ResponseWriter, r *http.Request) {
 // (or empty cursor) starts from the top; the client loops until done. Chunks
 // also keep each HTTP request short, so proxy timeouts and tab navigation
 // can no longer silently abort a long run.
-// coversMovieWhere is which of a reader's films the covers pass walks: the ones a
-// source was pinned for, since only those have a poster to fetch again.
-const coversMovieWhere = `user_id = ? AND source_metadata IS NOT NULL`
-
-// coversWorkload is how many works a covers pass over uid's library walks: every
-// book, and every film with a source. The chunked route reports it as its total,
-// and the covers job is queued with it as its item count, so the two agree.
-func (s *Server) coversWorkload(uid int64) (int, error) {
-	var total int
-	err := s.Store.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM books WHERE user_id = ?) +
-		(SELECT COUNT(*) FROM movies WHERE `+coversMovieWhere+`)`, uid, uid).Scan(&total)
-	return total, err
-}
-
 func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
