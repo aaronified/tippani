@@ -69,6 +69,7 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[people] handlePersonPortrait uid=%d kind=%s name=%q", uid, req.Kind, req.Name)
+	jobSubject(r.Context(), req.Name)
 
 	found, err := s.portraitByName(r.Context(), uid, req.Kind, req.Name)
 	if ref, ok := asRefusal(err); ok {

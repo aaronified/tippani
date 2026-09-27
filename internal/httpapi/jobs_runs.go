@@ -13,6 +13,40 @@ import (
 // how a run names its items in its log — a line an operator reads down a column,
 // in English, one per item.
 
+// workTitle is a work of uid's title, as a job's subject names it; "" when uid
+// has no such work (another reader's id is not named).
+func (s *Server) workTitle(uid int64, kind string, id int64) string {
+	table := "books"
+	if kind == "movie" {
+		table = "movies"
+	}
+	var title string
+	_ = s.Store.DB.QueryRow(`SELECT title FROM `+table+` WHERE id = ? AND user_id = ?`, id, uid).Scan(&title)
+	return title
+}
+
+// soleSubject is a job's subject when it is about one work or one person: what a
+// row in Past jobs names it by. A job of several is about as many things, which
+// the Jobs tab counts itself, so its subject is "".
+func (s *Server) soleSubject(uid int64, books, movies []int64, people []reverifyAsk, records []int64) string {
+	if len(books)+len(movies)+len(people)+len(records) != 1 {
+		return ""
+	}
+	switch {
+	case len(books) == 1:
+		return s.workTitle(uid, "book", books[0])
+	case len(movies) == 1:
+		return s.workTitle(uid, "movie", movies[0])
+	case len(people) == 1:
+		return people[0].Name
+	}
+	p, err := s.personByID(uid, records[0])
+	if err != nil {
+		return ""
+	}
+	return p.Name
+}
+
 // queuedWork is one work a job walks.
 type queuedWork struct {
 	kind string // book | movie

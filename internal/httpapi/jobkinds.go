@@ -1,5 +1,12 @@
 package httpapi
 
+import (
+	"context"
+	"strings"
+
+	"tippani/internal/jobs"
+)
+
 // WHAT KIND OF JOB A REQUEST IS, WHEN IT BECOMES ONE.
 //
 // A request becomes an in-request job when it looks outward (the outbound hook
@@ -79,3 +86,21 @@ var jobKinds = map[string]string{
 // jobKind is the kind for a route pattern, or "" for one the table does not know
 // (jobs.Lazy then keeps it as "request").
 func jobKind(pattern string) string { return jobKinds[pattern] }
+
+// jobSubject names what the request's job is about — the title, the ISBN, the
+// name the reader typed — when the request is part of one, and does nothing
+// otherwise. Data, not prose: the Jobs tab composes the title around it in the
+// reader's language, and an empty subject leaves whatever was named before.
+//
+// ONLY A HANDLER CALLS IT, at its entry point. The functions a handler shares
+// with a queued job (fetchPerson, reverifyBook, …) never name a subject: in a
+// job, the recorder in the context is the job itself, and naming it after each
+// item would rename a job of five hundred items five hundred times.
+func jobSubject(ctx context.Context, subject string) {
+	if subject = strings.TrimSpace(subject); subject == "" {
+		return
+	}
+	if rec := jobs.From(ctx); rec != nil {
+		rec.Subject(subject)
+	}
+}

@@ -85,6 +85,7 @@ func (s *Server) handleCastArt(kind string) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "not found")
 			return
 		}
+		jobSubject(r.Context(), s.workTitle(uid, kind, workID))
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
 		got := s.castArt(r.Context(), castArtKey{uid, kind, workID}, castArtAsked(kind, req.Names))
 		writeJSON(w, http.StatusOK, map[string]any{"character_images": got.images, "portraits": got.portraits})

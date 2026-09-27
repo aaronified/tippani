@@ -1077,6 +1077,7 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	olog.Tracef("[people] handlePersonLookup kind=%s name=%q", req.Kind, req.Name)
+	jobSubject(r.Context(), req.Name)
 	links, err := s.lookupLinks(r.Context(), req.Kind, req.Name)
 	if err != nil {
 		if ref, ok := asRefusal(err); ok {

@@ -268,7 +268,7 @@ func rowIDs(in []int64) (out []int64, ok bool) {
 
 var errBadID = badParams("every id must be a positive whole number")
 
-func validateFill(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, error) {
+func validateFill(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput, error) {
 	var p struct {
 		BookIDs  []int64 `json:"book_ids"`
 		MovieIDs []int64 `json:"movie_ids"`
@@ -288,7 +288,8 @@ func validateFill(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, error
 	case n > maxWorksPerJob:
 		return jobInput{}, badParams("too many works for one job (at most %d)", maxWorksPerJob)
 	}
-	return jobInput{params: map[string]any{"book_ids": books, "movie_ids": movies}, total: n}, nil
+	return jobInput{params: map[string]any{"book_ids": books, "movie_ids": movies}, total: n,
+		subject: s.soleSubject(viewer.UserID, books, movies, nil, nil)}, nil
 }
 
 func validateCovers(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput, error) {
@@ -305,7 +306,7 @@ func validateCovers(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput
 	return jobInput{params: map[string]any{"missing_only": p.MissingOnly}, total: total}, nil
 }
 
-func validatePeople(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, error) {
+func validatePeople(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput, error) {
 	var p struct {
 		IDs []int64 `json:"ids"`
 	}
@@ -321,7 +322,8 @@ func validatePeople(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, err
 	case len(ids) > maxPeoplePerJob:
 		return jobInput{}, badParams("too many people for one job (at most %d)", maxPeoplePerJob)
 	}
-	return jobInput{params: map[string]any{"ids": ids}, total: len(ids)}, nil
+	return jobInput{params: map[string]any{"ids": ids}, total: len(ids),
+		subject: s.soleSubject(viewer.UserID, nil, nil, nil, ids)}, nil
 }
 
 // reverifyAsk is a person a re-verify asks about, by kind and name, as
@@ -331,7 +333,7 @@ type reverifyAsk struct {
 	Name string `json:"name"`
 }
 
-func validateReverify(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, error) {
+func validateReverify(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput, error) {
 	var p struct {
 		BookIDs   []int64       `json:"book_ids"`
 		MovieIDs  []int64       `json:"movie_ids"`
@@ -367,7 +369,7 @@ func validateReverify(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, e
 	}
 	return jobInput{params: map[string]any{
 		"book_ids": books, "movie_ids": movies, "people": people, "fills_only": p.FillsOnly,
-	}, total: n}, nil
+	}, total: n, subject: s.soleSubject(viewer.UserID, books, movies, people, nil)}, nil
 }
 
 // validateReverifyApply takes the items as the review sends them — each one the

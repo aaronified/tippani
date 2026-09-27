@@ -97,6 +97,10 @@ func (s *Server) handleCastImage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "cast row not found")
 		return
 	}
+	var character string
+	if s.Store.DB.QueryRow(`SELECT character FROM work_cast WHERE id = ? AND user_id = ?`, castID, uid).Scan(&character) == nil {
+		jobSubject(r.Context(), character)
+	}
 
 	if req.ImageURL != "" {
 		// The reader chose this one. It replaces whatever is there, provider or not.

@@ -194,6 +194,11 @@ func (s *Server) handleMetadataReverify(w http.ResponseWriter, r *http.Request) 
 			changed++
 		}
 	}
+	// A check of one item is about that item; a check of several is about as
+	// many things, which the Jobs tab counts itself.
+	if len(items) == 1 {
+		jobSubject(r.Context(), cmp.Or(items[0].Title, items[0].Name))
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "checked": len(items), "changed": changed})
 }
 

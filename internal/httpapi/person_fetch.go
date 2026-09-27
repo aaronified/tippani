@@ -233,7 +233,13 @@ func (s *Server) handlePersonFetch(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	p, links, err := s.fetchPerson(r.Context(), userID(r), id)
+	uid := userID(r)
+	p, err := s.personByID(uid, id)
+	var links map[string]string
+	if err == nil {
+		jobSubject(r.Context(), p.Name)
+		p, links, err = s.fetchRecord(r.Context(), uid, p)
+	}
 	switch ref, refused := asRefusal(err); {
 	case err == nil:
 		writeJSON(w, http.StatusOK, map[string]any{"person": p, "links": links})
