@@ -5864,6 +5864,60 @@ settings.jobs.current.stop-all.confirm.verb = থামান
 settings.jobs.current.stop-all.done.one = {n}টা কাজ থামানো হল
 settings.jobs.current.stop-all.done.other = {n}টা কাজ থামানো হল
 
+# --- Common jobs: the jobs a reader runs again and again, each with a place of
+# its own. A row is the job's name, one line of what it does, how it went the last
+# time, and Run (Run again once it has run) — or Stop while that job runs or waits.
+# bn: a row's name is a noun phrase, as every job's is (কভার আনা), because the two
+# library-wide rows name the job in Current and Past jobs too.
+# ?? draft for the owner (3.1.0 common jobs): নিয়মিত for "common" — the jobs a reader runs as a matter of course; সাধারণ would read as "ordinary"
+settings.jobs.common.title = নিয়মিত কাজ
+# ?? draft for the owner (3.1.0 common jobs): উৎস for "work", as unit.work says it; the job's name in the lists too
+settings.jobs.common.fill-all.label = সব উৎসের শূন্যস্থান পূরণ
+# ?? draft for the owner (3.1.0 common jobs): ফাঁকা ঘর is common.action.fill.tip's "empty fields"
+settings.jobs.common.fill-all.prose = প্রতিটা বই আর সিনেমার যা নেই, খুঁজে দেখে শুধু ফাঁকা ঘরগুলো ভরায়।
+# ?? draft for the owner (3.1.0 common jobs): "missing people" is the people whose details are missing, not people who are lost: না-থাকা তথ্য
+settings.jobs.common.people-missing.label = মানুষের না-থাকা তথ্য আনা
+# ?? draft for the owner (3.1.0 common jobs): মুখের ছবি is common.field.portrait.label, তথ্যসূত্রের লিংক the sheet's "reference page"
+settings.jobs.common.people-missing.prose = যাঁদের মুখের ছবি বা তথ্যসূত্রের লিংক নেই, তাঁদের সবার জন্য আনে।
+# ?? draft for the owner (3.1.0 common jobs): তথ্য for "details", as the sheet's jobs-pass table gives it
+settings.jobs.common.covers.label = কভার আর তথ্য আনা
+# ?? draft for the owner (3.1.0 common jobs): সংগ্রহ for "the library", as settings.backup.what.prose says it
+settings.jobs.common.covers.prose = পুরো সংগ্রহের কভার, পোস্টার আর উৎসগুলোর যা তথ্য নেই।
+# ?? draft for the owner (3.1.0 common jobs): the Server card's button (settings.backup.now.label) as a noun phrase
+settings.jobs.common.backup.label = এখনই ব্যাকআপ নেওয়া
+# ?? draft for the owner (3.1.0 common jobs): "seals" is the archive being encrypted (v3.1: এনক্রিপ্ট করা); "the one archive" — the server keeps only the newest
+settings.jobs.common.backup.prose = পুরো সংগ্রহ এনক্রিপ্ট করে সার্ভারের একমাত্র আর্কাইভে রাখে।
+# ?? draft for the owner (3.1.0 common jobs): চালান, the sheet's "run"
+settings.jobs.common.run.label = চালান
+# ?? draft for the owner (3.1.0 common jobs): Past jobs' own words (settings.jobs.past.rerun.label)
+settings.jobs.common.again.label = আবার চালান
+# The covers pass's quick run: only what is missing, never a better picture over one already stored.
+# ?? draft for the owner (3.1.0 common jobs): the People console's "Fetch missing" is যা নেই, আনুন; this is its half-phrase
+settings.jobs.common.missing-only.label = শুধু যা নেই
+# ?? draft for the owner (3.1.0 common jobs): একটা থাকলে সেটাই থাকবে — "one already stored is kept"
+settings.jobs.common.missing-only.tip = শুধু যে কভার আর পোস্টার নেই; একটা থাকলে সেটাই থাকবে
+# Each press's name for a screen reader, since every row has one. {title} is the row's name.
+# bn: the hole stays bare (§5.4), so the frame puts the name after a colon, as the Stop buttons do.
+# ?? draft for the owner (3.1.0 common jobs): Current jobs' "থামান: {title}" frame
+settings.jobs.common.run.aria = চালান: {title}
+# ?? draft for the owner (3.1.0 common jobs): the same frame
+settings.jobs.common.again.aria = আবার চালান: {title}
+# ?? draft for the owner (3.1.0 common jobs): the same frame
+settings.jobs.common.missing-only.aria = শুধু যা নেই: {title}
+# ?? draft for the owner (3.1.0 common jobs): the same frame
+settings.jobs.common.stop.aria = থামান: {title}
+# Under a row: how its last run ended. The state, the time and what it did are
+# drawn after this word; {state} and {when} are the same two in the button's name.
+# ?? draft for the owner (3.1.0 common jobs): শেষবার for "last run", which the state and the time follow
+settings.jobs.common.last.label = শেষবার
+# ?? draft for the owner (3.1.0 common jobs): the colon frame again, with the state and the time after a dash
+settings.jobs.common.last.aria = শেষবার: {title} — {state}, {when}
+# ?? draft for the owner (3.1.0 common jobs): Latin digits, as settings.jobs.past.empty has them
+settings.jobs.common.never = গত 30 দিনে চালানো হয়নি
+# A server that runs no jobs (a test server's, the daily-deck command's) has no row to offer.
+# ?? draft for the owner (3.1.0 common jobs): rarely seen: a server that runs no jobs at all
+settings.jobs.common.empty = এই সার্ভারে এখান থেকে কিছুই চালানো যায় না।
+
 # --- Past jobs: everything that finished in the last 30 days, newest first.
 settings.jobs.past.title = আগের কাজ
 settings.jobs.past.filter.aria = কোন কাজগুলো দেখাবে

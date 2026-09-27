@@ -115,6 +115,7 @@ import { PersonChip } from './people.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { JobsCurrentCard, JobsPastCard, SystemLogsCard } from './jobsSection.jsx'
+import { CommonJobsCard } from './commonJobs.jsx'
 import { jobWaitingText, queueNotice, readJobsSummary, useKindJob } from './jobs.js'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
@@ -183,10 +184,10 @@ function useColumnCount() {
 // KIND of note a quote is, which is a fact about the library rather than a
 // preference about the app — the same reason the language table and the tags are
 // over there. The card itself is unchanged and is exported from this file.
-// THE THREE JOBS CARDS ARE THE LAST THREE, and 'logs' is built for an admin only,
+// THE FOUR JOBS CARDS ARE THE LAST FOUR, and 'logs' is built for an admin only,
 // exactly as 'server' is: registering it is what draws it, and a reader has no
 // business with the server's own log.
-export const SETTINGS_CARDS = ['features', 'sr', 'server', 'jobs-current', 'jobs-past', 'logs']
+export const SETTINGS_CARDS = ['features', 'sr', 'server', 'jobs-current', 'jobs-common', 'jobs-past', 'logs']
 
 // ---- THE SIX SECTIONS -------------------------------------------------------
 //
@@ -247,7 +248,9 @@ export const SECTION_CARDS = {
   review: ['sr'],
   sections: ['features'],
   server: ['server'],
-  jobs: ['jobs-current', 'jobs-past', 'logs'],
+  // COMMON JOBS SECOND, under what is running now: it is where a reader starts
+  // the jobs they run most, and what they start there appears in the card above.
+  jobs: ['jobs-current', 'jobs-common', 'jobs-past', 'logs'],
 }
 
 // ── WHICH PREFERENCES EACH SECTION OWNS, and why this table exists at all.
@@ -447,6 +450,7 @@ const SETTINGS_PREFIX = {
   // One root per jobs card, so typing "stop" finds the card whose Stop all it is
   // and "export" the two that export.
   'jobs-current': 'settings.jobs.current.',
+  'jobs-common': 'settings.jobs.common.',
   'jobs-past': 'settings.jobs.past.',
   logs: 'settings.logs.',
 }
@@ -586,6 +590,9 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
     // handed in so a backup run again asks for its credential through the prompt
     // that sealed it the first time, not a second copy of it.
     'jobs-current': <JobsCurrentCard user={user} />,
+    // The four a reader runs most, each in a place of its own; Back up now asks
+    // for its credential through the same prompt the Server card uses.
+    'jobs-common': <CommonJobsCard user={user} credentialPrompt={(props) => <BackupPrompt {...props} />} />,
     'jobs-past': <JobsPastCard user={user} onReview={onReviewJob} credentialPrompt={(props) => <BackupPrompt {...props} />} />,
     ...(user.is_admin
       ? {

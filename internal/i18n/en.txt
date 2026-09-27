@@ -6008,6 +6008,38 @@ settings.jobs.current.stop-all.confirm.verb = Stop them
 settings.jobs.current.stop-all.done.one = {n} job stopped
 settings.jobs.current.stop-all.done.other = {n} jobs stopped
 
+# --- Common jobs: the jobs a reader runs again and again, each with a place of
+# its own. A row is the job's name, one line of what it does, how it went the last
+# time, and Run (Run again once it has run) — or Stop while that job runs or waits.
+settings.jobs.common.title = Common jobs
+# The four rows. A label is also the name of the job in Current and Past jobs, for
+# the two a row starts over the whole library.
+settings.jobs.common.fill-all.label = Fill gaps in every work
+settings.jobs.common.fill-all.prose = Looks up what every book and film is missing, and fills only the empty fields.
+settings.jobs.common.people-missing.label = Fetch missing people
+settings.jobs.common.people-missing.prose = A portrait and reference links for everyone still missing either.
+settings.jobs.common.covers.label = Fetch covers and details
+settings.jobs.common.covers.prose = Covers, posters and the details your works are missing, across the library.
+settings.jobs.common.backup.label = Back up now
+settings.jobs.common.backup.prose = Seals the library into the one archive the server keeps.
+settings.jobs.common.run.label = Run
+settings.jobs.common.again.label = Run again
+# The covers pass's quick run: only what is missing, never a better picture over one already stored.
+settings.jobs.common.missing-only.label = Missing only
+settings.jobs.common.missing-only.tip = Only the covers and posters that are missing; one already stored is kept
+# Each press's name for a screen reader, since every row has one. {title} is the row's name.
+settings.jobs.common.run.aria = Run {title}
+settings.jobs.common.again.aria = Run again: {title}
+settings.jobs.common.missing-only.aria = {title}: missing only
+settings.jobs.common.stop.aria = Stop {title}
+# Under a row: how its last run ended. The state, the time and what it did are
+# drawn after this word; {state} and {when} are the same two in the button's name.
+settings.jobs.common.last.label = Last run
+settings.jobs.common.last.aria = Last run of {title}: {state}, {when}
+settings.jobs.common.never = Not run in the last 30 days
+# A server that runs no jobs (a test server's, the daily-deck command's) has no row to offer.
+settings.jobs.common.empty = Nothing can be run from here on this server.
+
 # --- Past jobs: everything that finished in the last 30 days, newest first.
 settings.jobs.past.title = Past jobs
 settings.jobs.past.filter.aria = Which jobs to show

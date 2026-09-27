@@ -97,8 +97,19 @@ export const DEFAULT_LOG_RANGE = 'day'
 
 // ---- what a job is called ----------------------------------------------------
 
+// TWO KINDS HAVE A LIBRARY-WIDE HALF WITH A NAME OF ITS OWN: a fill of every work
+// and a fetch of every record missing something, which only the Common jobs card
+// starts (params `all` and `missing`, GET /jobs/common). Each is its kind's job
+// and is titled as the card's row is, so the row a reader pressed and the job it
+// put in the queue read the same wherever the job is shown.
+const LIBRARY_WIDE = [
+  ['fill', 'all', 'settings.jobs.common.fill-all.label'],
+  ['people', 'missing', 'settings.jobs.common.people-missing.label'],
+]
+
 export function jobTitle(job) {
-  return t(`settings.jobs.kind.${kindSlug(job?.kind)}`)
+  const wide = LIBRARY_WIDE.find(([kind, flag]) => job?.kind === kind && job?.params?.[flag] === true)
+  return t(wide ? wide[2] : `settings.jobs.kind.${kindSlug(job?.kind)}`)
 }
 
 // The title with what the job was about — "Book lookup · Dune" — for a name that
@@ -458,6 +469,28 @@ export async function readJobsSummary() {
   return { ok: true, running: d.running || null, waiting: num(d.waiting) }
 }
 
+// readCommonJobs — the Common jobs card's rows, in the server's order: the jobs
+// this reader may run from there, each with the params its Run sends, the last
+// time it ended (`last`) and the one running or waiting now (`current`), both
+// jobs in the usual shape or null. `id` is the row's own name — fill-all,
+// people-missing, covers, backup — and the card keys its words on it. Bounded
+// like the two polls above, because it is the third.
+export async function readCommonJobs() {
+  const r = await json('GET', '/jobs/common', undefined, { timeoutMs: POLL_TIMEOUT_MS })
+  if (!r.ok) return refusal(r)
+  const rows = list(r.data?.jobs)
+    .filter((row) => row && typeof row.id === 'string' && row.id)
+    .map((row) => ({
+      id: row.id,
+      kind: String(row.kind || ''),
+      params: row.params && typeof row.params === 'object' ? row.params : {},
+      adminOnly: !!row.admin_only,
+      last: row.last || null,
+      current: row.current || null,
+    }))
+  return { ok: true, rows }
+}
+
 export async function readJobResult(id) {
   const r = await json('GET', `/jobs/${id}/result`)
   if (!r.ok) return refusal(r)
@@ -693,6 +726,54 @@ export function useCurrentJobs({ enabled = true } = {}) {
     }
   }, [enabled])
   useJobsAnnounced((reason) => { if (reason === 'acted') kick.current() })
+  return { ...state, reload: () => kick.current() }
+}
+
+// useCommonJobs — the Common jobs card's rows, for as long as the card is up, at
+// useCurrentJobs' cadence: every two seconds while one of its jobs runs or waits,
+// every ten while none does, nothing while the tab is hidden. It reads again at
+// once on every announcement, a job that SETTLED included — that is the moment a
+// row's last run changes, and the current poll is the one that saw it.
+export function useCommonJobs() {
+  const [state, setState] = useState({ rows: [], loaded: false, error: '' })
+  const kick = useRef(() => {})
+  useEffect(() => {
+    let alive = true
+    let timer = null
+    let busy = false
+    let again = false
+    async function read() {
+      clearTimeout(timer)
+      timer = null
+      if (!alive) return
+      if (busy) { again = true; return }
+      if (hidden()) return
+      busy = true
+      const r = await readCommonJobs()
+      busy = false
+      if (!alive) return
+      let live = false
+      if (r.ok) {
+        live = r.rows.some((row) => isLive(row.current))
+        setState({ rows: r.rows, loaded: true, error: '' })
+      } else {
+        setState((s) => ({ ...s, loaded: true, error: r.error }))
+      }
+      if (again) { again = false; return read() }
+      timer = setTimeout(read, live ? 2000 : 10000)
+    }
+    kick.current = read
+    const onVisible = () => { if (!hidden()) read() }
+    document.addEventListener('visibilitychange', onVisible)
+    read()
+    return () => {
+      alive = false
+      clearTimeout(timer)
+      kick.current = () => {}
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+  useJobsAnnounced(() => kick.current())
   return { ...state, reload: () => kick.current() }
 }
 

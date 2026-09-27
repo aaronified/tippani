@@ -13,10 +13,12 @@
 // jobs.js, which is the one module the wire contract lives in; this file draws
 // what that module hands it.
 //
-// THREE CARDS, AND WHAT EACH IS FOR, in the order a reader reaches for them:
+// FOUR CARDS, AND WHAT EACH IS FOR, in the order a reader reaches for them:
 //   - CURRENT JOBS: is anything running, what is waiting, and a way to stop it.
 //     The running job's log is OPEN when the card is, because "what is it doing
 //     right now" is the question somebody opens this card to ask.
+//   - COMMON JOBS (commonJobs.jsx, drawn with this file's card and log): the
+//     jobs a reader runs again and again, each in a place of its own.
 //   - PAST JOBS: what finished, how it ended, its log to read or export, and a
 //     press to run it again.
 //   - SYSTEM LOGS (an admin's only): the app's own log, narrowed by level, time
@@ -82,7 +84,7 @@ import {
 // paper and head, but its head takes a fact and no controls, and two of these
 // cards carry their verbs in the head — Stop all belongs beside the counts it
 // acts on, not three rows down.
-function JobsCard({ title, aside = null, controls = null, children }) {
+export function JobsCard({ title, aside = null, controls = null, children }) {
   return (
     <section className="hand-card pref-group jobs-card" aria-label={ariaLabelText(title)}>
       <CardHead title={title} aside={aside}>{controls}</CardHead>
@@ -561,7 +563,7 @@ function PastJob({ job, user, open, busy, onToggle, onRerun, onReview }) {
   )
 }
 
-function PastLog({ job, title }) {
+export function PastLog({ job, title }) {
   // A past row's job has finished: read its log until it is all here, then stop.
   const live = useJob(job.id, { final: true })
   return <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t('settings.jobs.log.aria', { title })} />

@@ -103,7 +103,8 @@ func badParams(format string, args ...any) *refusal {
 // their params to these shapes (the SPA's startJob), so a field renamed here is a
 // field renamed there.
 var builtinJobKinds = []queuedKind{
-	// {book_ids, movie_ids}: fill in what the selected works are missing.
+	// {book_ids, movie_ids}: fill in what the selected works are missing; or
+	// {all: true}, every work the reader has when it runs (validateEvery).
 	// Result {fields, failed, unpinned}, and those are its counts.
 	{name: "fill", rerunnable: true, againAfterSuccess: true, validate: validateFill,
 		counts: countsNamed("fields", "failed", "unpinned"), run: runFill},
@@ -112,9 +113,11 @@ var builtinJobKinds = []queuedKind{
 	// Result {fetched, enriched, failed, skipped}, and those are its counts.
 	{name: "covers", adminOnly: true, rerunnable: true, againAfterSuccess: true, validate: validateCovers,
 		counts: countsNamed("fetched", "enriched", "failed", "skipped"), run: runCovers},
-	// {ids}: a portrait and links for each person record. Result {ok, failed,
-	// first_error}, and those are its counts, the error's text included: the
-	// People screen's flash says why the first one failed.
+	// {ids}: a portrait and links for each person record; or {missing: true},
+	// every record the reader has that lacks one or the other when it runs
+	// (personLacks). Result {ok, failed, first_error}, and those are its counts,
+	// the error's text included: the People screen's flash says why the first
+	// one failed.
 	{name: "people", rerunnable: true, againAfterSuccess: true, validate: validatePeople,
 		counts: countsNamed("ok", "failed", "first_error"), run: runPeople},
 	// {book_ids, movie_ids, people: [{kind, name}], fills_only}: ask the
@@ -272,9 +275,14 @@ func validateFill(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput, 
 	var p struct {
 		BookIDs  []int64 `json:"book_ids"`
 		MovieIDs []int64 `json:"movie_ids"`
+		All      bool    `json:"all"`
 	}
 	if err := decodeParams(raw, &p); err != nil {
 		return jobInput{}, err
+	}
+	if p.All {
+		return validateEvery("all", len(p.BookIDs)+len(p.MovieIDs), "fill every work or the works named, not both",
+			func() (int, error) { return s.countWorks(viewer.UserID) })
 	}
 	books, okB := rowIDs(p.BookIDs)
 	movies, okM := rowIDs(p.MovieIDs)
@@ -308,10 +316,18 @@ func validateCovers(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput
 
 func validatePeople(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput, error) {
 	var p struct {
-		IDs []int64 `json:"ids"`
+		IDs     []int64 `json:"ids"`
+		Missing bool    `json:"missing"`
 	}
 	if err := decodeParams(raw, &p); err != nil {
 		return jobInput{}, err
+	}
+	if p.Missing {
+		return validateEvery("missing", len(p.IDs), "fetch every record missing something or the ones named, not both",
+			func() (int, error) {
+				ids, err := s.peopleMissing(viewer.UserID)
+				return len(ids), err
+			})
 	}
 	ids, ok := rowIDs(p.IDs)
 	switch {
@@ -324,6 +340,33 @@ func validatePeople(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput
 	}
 	return jobInput{params: map[string]any{"ids": ids}, total: len(ids),
 		subject: s.soleSubject(viewer.UserID, nil, nil, nil, ids)}, nil
+}
+
+// validateEvery queues the library-wide half of a fill or a people fetch: params
+// {flag: true} and nothing else, which Settings › Jobs' common jobs send ("Fill
+// gaps in every work", "Fetch missing people", jobs_common.go).
+//
+// WHICH WORKS OR RECORDS IS DECIDED WHEN THE JOB RUNS, NOT HERE (runFill,
+// runPeople). A job waits its turn behind whatever else is queued, an hour's
+// cover fetch among them, and a list taken at the press would leave out a work
+// added meanwhile and ask again about a record the row's own Fetch completed
+// meanwhile. So the params hold no list, the same press twice is the same job to
+// the duplicate check, and a Run again runs over the library as it is then.
+// count is only the total the row shows while it waits.
+//
+// NO CAP. The two thousand is how much one press may hand the queue in a list
+// (the screens split a bigger selection into several jobs); "every work" is one
+// job by name, and splitting it would make it several jobs that each say "every
+// work".
+func validateEvery(flag string, named int, both string, count func() (int, error)) (jobInput, error) {
+	if named > 0 {
+		return jobInput{}, badParams("%s", both)
+	}
+	n, err := count()
+	if err != nil {
+		return jobInput{}, fmt.Errorf("count what the job will walk: %w", err)
+	}
+	return jobInput{params: map[string]any{flag: true}, total: n}, nil
 }
 
 // reverifyAsk is a person a re-verify asks about, by kind and name, as
