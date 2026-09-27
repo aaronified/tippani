@@ -537,11 +537,14 @@ func TestARestoreWaitsForTheRunningJobAndHoldsTheQueueWhileItRuns(t *testing.T) 
 	if err := g.r.Exclusive(func() error { called = true; return nil }); !errors.Is(err, jobs.ErrBusy) || called {
 		t.Fatalf("Exclusive while a job runs: %v, ran %v; want ErrBusy and not run", err, called)
 	}
+	// The hold goes on BEFORE x is let go. The worker that ran x looks at the
+	// hold only at the top of its loop, so a hold set after x ended can come too
+	// late for a look already under way, and that look takes q.
+	t.Setenv(outbound.EnvVar, "1")
+	t.Setenv(jobs.HoldEnv, "1")
 	g.steps.let()
 	g.waitState(x, "succeeded")
 
-	t.Setenv(outbound.EnvVar, "1")
-	t.Setenv(jobs.HoldEnv, "1")
 	q := g.enqueue(g.mitra(), "quick", map[string]any{"q": 1})
 	time.Sleep(200 * time.Millisecond)
 	if g.state(q) != "queued" {
