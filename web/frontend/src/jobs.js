@@ -100,6 +100,14 @@ export function jobTitle(job) {
   return t(`settings.jobs.kind.${kindSlug(job?.kind)}`)
 }
 
+// The title with what the job was about — "Book lookup · Dune" — for a name that
+// has to stand alone, like a control's: two jobs of one kind share a title, and
+// the subject is the reader's own words for which one this is.
+export function jobLabel(job) {
+  const title = jobTitle(job)
+  return job?.subject ? `${title} · ${job.subject}` : title
+}
+
 export function jobStateLabel(state) {
   return JOB_STATES.includes(state) ? t(`settings.jobs.state.${state}`) : state || ''
 }

@@ -136,7 +136,32 @@ describe('Current jobs', () => {
     expect(within(current).getByRole('button', { name: 'Fetch covers', expanded: true })).toBeTruthy()
     expect(within(current).getByText('Waiting — one job ahead')).toBeTruthy()
     expect(within(current).getByText('Waiting — 2 jobs ahead')).toBeTruthy()
-    expect(within(current).getByRole('button', { name: 'Stop Fetch covers' })).toBeTruthy()
+    expect(within(current).getByRole('button', { name: 'Stop Fetch covers (running)' })).toBeTruthy()
+  })
+
+  // EACH PRESS OF FILL GAPS IS A NEW JOB, so three fills in the queue are three
+  // rows with one title. Each Stop still has a name of its own — where that job
+  // stands, as its row says — or a screen reader hears one button three times.
+  it('names every Stop by where its job stands, so three of one kind are three names', async () => {
+    CURRENT = [
+      job({ id: 10, kind: 'fill', state: 'running', total: 40, done: 12, started_at: NOW - 60000 }),
+      job({ id: 11, kind: 'fill', state: 'queued', ahead: 1 }),
+      job({ id: 12, kind: 'fill', state: 'queued', ahead: 2 }),
+    ]
+    await page()
+    const current = await card('Current jobs')
+    await within(current).findByRole('button', { name: 'Stop Fill gaps (running)' })
+    expect(within(current).getByRole('button', { name: 'Stop Fill gaps (one job ahead)' })).toBeTruthy()
+    expect(within(current).getByRole('button', { name: 'Stop Fill gaps (2 jobs ahead)' })).toBeTruthy()
+    const names = within(current).getAllByRole('button', { name: /^Stop Fill gaps/ }).map((b) => b.getAttribute('aria-label'))
+    expect(new Set(names).size).toBe(3)
+  })
+
+  it('carries a job’s subject in its Stop’s name', async () => {
+    CURRENT = [job({ id: 13, kind: 'fill', state: 'queued', ahead: 0, subject: 'The Dispossessed' })]
+    await page()
+    const current = await card('Current jobs')
+    expect(await within(current).findByRole('button', { name: 'Stop Fill gaps · The Dispossessed (next)' })).toBeTruthy()
   })
 
   it('asks before Stop all, says what happens to each job, and sends nothing on Cancel', async () => {

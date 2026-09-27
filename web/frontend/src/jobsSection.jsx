@@ -32,6 +32,7 @@ import {
   formatClock,
   formatWhen,
   jobCounts,
+  jobLabel,
   jobLogURL,
   jobStateLabel,
   jobSummary,
@@ -148,6 +149,22 @@ function JobName({ job }) {
 // admin — anybody's (F3). Offering it to a reader for somebody else's queued job
 // would be a press that ends in a 404.
 const canStop = (job, user) => !!job?.own || !!user?.is_admin
+
+// EVERY STOP ON THE CARD HAS A NAME OF ITS OWN. Each press of Fill gaps is a new
+// job, so two waiting fills behind a running one were three buttons all called
+// "Stop Fill gaps": a screen reader could not tell them apart, and a journey
+// refuses a name that matches twice. Where a job stands is already on its row,
+// is different for every job in the queue (`ahead` counts across all readers),
+// and is what a reader chooses by — so the name carries it, with the subject
+// when there is one.
+function stopName(job) {
+  const title = jobLabel(job)
+  if (job.state === 'running') return t('settings.jobs.current.stop.running.aria', { title })
+  const ahead = job.ahead || 0
+  return ahead > 0
+    ? t('settings.jobs.current.stop.ahead.aria', { title, count: ahead, n: ahead })
+    : t('settings.jobs.current.stop.next.aria', { title })
+}
 
 // ---- Current jobs --------------------------------------------------------------
 
@@ -297,7 +314,7 @@ function RunningJob({ job, user, open, stopping, onToggle, onStop }) {
         {canStop(j, user) && (stopping ? (
           <span className="microcopy">{t('settings.jobs.current.stopping')}</span>
         ) : (
-          <GhostButton icon={<IconStop />} keepLabel className="tp-btn-danger" aria-label={t('settings.jobs.current.stop.aria', { title })} onClick={onStop}>
+          <GhostButton icon={<IconStop />} keepLabel className="tp-btn-danger" aria-label={stopName(j)} onClick={onStop}>
             {t('settings.jobs.current.stop.label')}
           </GhostButton>
         ))}
@@ -336,7 +353,7 @@ function WaitingJob({ job, user, onStop }) {
           <IconButton
             icon={STOP_GLYPH}
             danger
-            ariaLabel={t('settings.jobs.current.stop.aria', { title: jobTitle(job) })}
+            ariaLabel={stopName(job)}
             onClick={onStop}
           />
         )}

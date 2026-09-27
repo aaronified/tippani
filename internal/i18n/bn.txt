@@ -5793,7 +5793,10 @@ settings.jobs.current.ahead.one = অপেক্ষার তালিকায
 settings.jobs.current.ahead.other = অপেক্ষার তালিকায় — আগে {n}টা কাজ
 settings.jobs.current.next = অপেক্ষার তালিকায় — এরপরেই
 settings.jobs.current.stop.label = থামান
-settings.jobs.current.stop.aria = থামান: {title}
+settings.jobs.current.stop.running.aria = থামান: {title} (চলছে)
+settings.jobs.current.stop.next.aria = থামান: {title} (এরপরেই)
+settings.jobs.current.stop.ahead.aria.one = থামান: {title} (আগে একটা কাজ)
+settings.jobs.current.stop.ahead.aria.other = থামান: {title} (আগে {n}টা কাজ)
 # bn: "after the item in hand" → হাতেরটুকু সেরে, finishing the bit in hand.
 settings.jobs.current.stop.done = হাতেরটুকু সেরে থামবে।
 settings.jobs.current.stopping = হাতেরটুকু সেরে থামছে…

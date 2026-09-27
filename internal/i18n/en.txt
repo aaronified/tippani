@@ -5947,7 +5947,12 @@ settings.jobs.current.ahead.one = Waiting — one job ahead
 settings.jobs.current.ahead.other = Waiting — {n} jobs ahead
 settings.jobs.current.next = Waiting — next
 settings.jobs.current.stop.label = Stop
-settings.jobs.current.stop.aria = Stop {title}
+# Each Stop's name for a screen reader, and it says where that job stands, because
+# two jobs of one kind share a title. {title} is the job's name, with its subject.
+settings.jobs.current.stop.running.aria = Stop {title} (running)
+settings.jobs.current.stop.next.aria = Stop {title} (next)
+settings.jobs.current.stop.ahead.aria.one = Stop {title} (one job ahead)
+settings.jobs.current.stop.ahead.aria.other = Stop {title} ({n} jobs ahead)
 settings.jobs.current.stop.done = It stops after the item in hand.
 settings.jobs.current.stopping = Stopping after the item in hand…
 settings.jobs.current.stop-all.label = Stop all
