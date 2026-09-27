@@ -543,7 +543,10 @@ is paid for only where a component is genuinely under test, `rules` — the file
 that read the source text and assert how it is spelled — and `vitest.journeys.config.js`,
 which is a separate config rather than a project because it needs a globalSetup that
 builds the binary and seeds a library, and a timeout an order of magnitude longer than the
-others. Only `pure` and `dom` are what `npm test` runs; `rules` runs as
+others. The binary embeds the SPA the sources build: when `web/dist` is behind them, as it
+is between two pushes, the globalSetup builds the SPA into the run's own directory and
+hands it to `go build` as an overlay, and says so on its first line. `web/dist` itself is
+never written. Only `pure` and `dom` are what `npm test` runs; `rules` runs as
 `npm run lint:rules` and the journeys as `npm run journeys`, each its own CI step. `rules`
 is out of `npm test` because the app can be entirely broken and every one of those files
 still passes — a suite let a feature ship 100% dead exactly that way, which is what the

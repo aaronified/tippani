@@ -5,6 +5,8 @@
 // process, before a single worker starts:
 //
 //   1. `go build` the real binary. Not `go run`, which recompiles per invocation.
+//      It embeds the SPA the tree's sources build, which is not always the one in
+//      web/dist: see spaOverlay.
 //   2. Boot it once against an empty directory and replay the fixture through the
 //      PUBLIC API — the same endpoints the SPA calls, so a fixture the API would
 //      have refused never becomes a library a journey can see.
@@ -28,9 +30,9 @@
 // was kept out of it.
 
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { seedFixture } from './seed-fixture.mjs'
@@ -38,6 +40,8 @@ import { startServer } from './server.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '..', '..', '..', '..', '..')
+const FRONTEND = join(REPO, 'web', 'frontend')
+const DIST = join(REPO, 'web', 'dist')
 
 export const ACCOUNT = { username: 'journey-reader', password: 'journey-reader-pw' }
 
@@ -54,10 +58,60 @@ function run(cmd, args, opts = {}) {
   })
 }
 
+async function filesUnder(dir) {
+  const out = []
+  for (const e of await readdir(dir, { withFileTypes: true, recursive: true })) {
+    if (e.isFile()) out.push(join(e.parentPath, e.name))
+  }
+  return out
+}
+
+// THE SPA THE TREE WOULD BUILD, NOT THE ONE LAST COMMITTED. The binary embeds
+// web/dist, and web/dist is rebuilt once per push (CLAUDE.md), so between two
+// rebuilds it is the SPA of the last push: a journey run then drives the old
+// screens against the new server, and a green run says nothing about a screen
+// changed since. It did, for the whole of 3.1.0's Settings › Jobs work: the
+// tier stayed green driving the browser loops those screens had given up.
+//
+// So when web/dist-inputs.json no longer matches the sources
+// (scripts/dist-inputs.mjs --check, the question `go test` asks), the SPA is
+// built into this run's own directory and handed to `go build` as an overlay
+// over web/dist: every committed file taken out, every built one put in its
+// place. web/dist itself is never written. A rebuilt web/dist in the working
+// tree would be one `git add` from a commit between rebuilds, and it would turn
+// the stale-dist check green over a dist nobody meant to ship.
+//
+// Rejected: a flag or an environment variable telling the server to serve the
+// SPA from a directory. It would be a way for the app to serve files other than
+// the ones it was built with, added so a test can do it.
+//
+// Returns the overlay's path, or null when web/dist is current and the binary
+// can embed it as it is. Either way the run says which it is on, since "which
+// bundle did these journeys drive" is the first question about a result.
+async function spaOverlay(binDir) {
+  try {
+    await run(process.execPath, ['scripts/dist-inputs.mjs', '--check'], { cwd: REPO })
+    console.log('journeys: web/dist is current for its sources, and the binary embeds it')
+    return null
+  } catch {
+    // Stale, or no manifest: build the SPA the sources describe.
+  }
+  const built = join(binDir, 'dist')
+  await run(process.execPath, [join(FRONTEND, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--outDir', built, '--emptyOutDir'], { cwd: FRONTEND })
+  const replace = {}
+  for (const f of await filesUnder(DIST)) replace[f] = ''
+  for (const f of await filesUnder(built)) replace[join(DIST, relative(built, f))] = f
+  const overlay = join(binDir, 'overlay.json')
+  await writeFile(overlay, JSON.stringify({ Replace: replace }))
+  console.log('journeys: web/dist is behind its sources, so the binary embeds a fresh build of the SPA (web/dist is not touched)')
+  return overlay
+}
+
 export default async function setup() {
   const binDir = await mkdtemp(join(tmpdir(), 'tippani-journey-bin-'))
   const binary = join(binDir, 'tippani')
-  await run('go', ['build', '-o', binary, './cmd/tippani'], { cwd: REPO })
+  const overlay = await spaOverlay(binDir)
+  await run('go', ['build', ...(overlay ? ['-overlay', overlay] : []), '-o', binary, './cmd/tippani'], { cwd: REPO })
 
   const server = await startServer({ binary, goldenData: null })
   const goldenData = server.data
