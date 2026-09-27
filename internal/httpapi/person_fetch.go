@@ -28,29 +28,23 @@ import (
 // which says nothing about which.
 var errNoSuchPerson = errors.New("not found")
 
-// fetchPerson fetches record id of uid's: resolves it as its first role (an
-// author from their books, an actor from a film's credits, a studio from IGDB),
-// writes the portrait, identity and facts onto it, looks up its reference pages
-// when the resolve brought none, folds them into its links keeping every name
-// the reader gave one, and saves. It answers the record as it is afterwards and
-// the links the fetch found.
+// fetchPerson fetches record p of uid's, as personByID read it: resolves it as
+// its first role (an author from their books, an actor from a film's credits, a
+// studio from IGDB), writes the portrait, identity and facts onto it, looks up
+// its reference pages when the resolve brought none, folds them into its links
+// keeping every name the reader gave one, and saves. It answers the record as it
+// is afterwards and the links the fetch found.
 //
-// Its errors are errNoSuchPerson, a *refusal whose sentence the reader is shown
-// (the lookup failed), or anything else (a write failed). A reference-page lookup
-// that fails costs the links and not the fetch, as it did in the browser: the
-// portrait has been written by then, and it is still worth having.
-func (s *Server) fetchPerson(ctx context.Context, uid, id int64) (personRow, map[string]string, error) {
-	p, err := s.personByID(uid, id)
-	if err != nil {
-		return personRow{}, nil, err
-	}
-	return s.fetchRecord(ctx, uid, p)
-}
-
-// fetchRecord is fetchPerson for a record already read (personByID): the
-// caller that wants the record's name before the fetch — a log line, a job's
-// subject — reads it once.
-func (s *Server) fetchRecord(ctx context.Context, uid int64, p personRow) (personRow, map[string]string, error) {
+// THE CALLER READS THE RECORD, because both callers want it before the fetch:
+// the row's Fetch names its job after it, and the people job names it in its
+// log line, and compares it with what the fetch leaves to say what changed.
+//
+// Its errors are a *refusal whose sentence the reader is shown (the lookup
+// failed) or anything else (a write failed); personByID's own is
+// errNoSuchPerson. A reference-page lookup that fails costs the links and not
+// the fetch, as it did in the browser: the portrait has been written by then,
+// and it is still worth having.
+func (s *Server) fetchPerson(ctx context.Context, uid int64, p personRow) (personRow, map[string]string, error) {
 	id := p.ID
 	kind := s.fetchKind(uid, id)
 	found, err := s.findPortrait(ctx, uid, kind, p.Name)
@@ -170,7 +164,7 @@ func runPeople(s *Server, ctx context.Context, j *jobs.Job) error {
 		before, err := s.personByID(uid, id)
 		var after personRow
 		if err == nil {
-			after, _, err = s.fetchRecord(ctx, uid, before)
+			after, _, err = s.fetchPerson(ctx, uid, before)
 		}
 		name := itemName("person", id, before.Name)
 		if err != nil {
@@ -238,7 +232,7 @@ func (s *Server) handlePersonFetch(w http.ResponseWriter, r *http.Request) {
 	var links map[string]string
 	if err == nil {
 		jobSubject(r.Context(), p.Name)
-		p, links, err = s.fetchRecord(r.Context(), uid, p)
+		p, links, err = s.fetchPerson(r.Context(), uid, p)
 	}
 	switch ref, refused := asRefusal(err); {
 	case err == nil:
