@@ -23,7 +23,7 @@ import (
 
 // jobRunningMessage is what the refused press is told, and the restore and reset
 // prompts say the same before their first step (they read /jobs/summary).
-const jobRunningMessage = "A job is running. Stop it in Settings › Jobs, or wait for it to finish."
+const jobRunningMessage = "A job is running. Stop it in Settings → Jobs, or wait for it to finish."
 
 // withQueueHeld runs fn with the queue held, or answers 409 {error, busy: true}
 // while a job runs (503 while the server shuts down, or once a launched update

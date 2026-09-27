@@ -2,17 +2,24 @@
 
 Every design decision I have made in this project, with the reasoning that produced it,
 the alternative I turned down, and — where it applies — the part I got wrong and what
-changed my mind. Four hundred and seventy-two entries, grouped by what they are about
-rather than by when they happened.
+changed my mind. Eight hundred and ninety entries, grouped by what they are about
+rather than by when they happened. An entry is a `###` heading in the eighteen numbered
+sections or a `##` heading after them; a heading inside an entry is part of it, and the
+three headings in §18 that hold tables rather than a decision are not entries.
 
-**Everything in this document was approved by me.** That statement covers every entry
-below without exception, and it is why the **Approved** line exists on an entry at all. I
-am one person building this, so there is no committee to hide a decision behind and no
-reviewer to blame it on; a thing is in this repository because I looked at it and said
-yes. Where an entry carries its own **Approved** line it is because there is something
-more to say — that I signed it off on a summary rather than on the code, that I approved
-correcting my own earlier claim, that I would defend this one hardest. Where an entry has
-none, the blanket approval above is the whole of it and nothing is being left unsaid.
+**Everything in this document was approved by me, with one exception, and it is named
+here.** §18 keeps a table, *Decisions awaiting my ruling*, of calls made while 3.1.0 was
+being built and put to me afterwards. Until a row there records my ruling, its decision
+waits for one, and so do the entries it points at and whatever an entry elsewhere says on
+the strength of it — even under **Decided**, which says what the code does and not that I
+said yes to it. The approval covers every other entry below without exception, and it is
+why the **Approved** line exists on an entry at all. I am one person building this, so
+there is no committee to hide a decision behind and no reviewer to blame it on; a thing is
+in this repository because I looked at it and said yes. Where an entry carries its own
+**Approved** line it is because there is something more to say — that I signed it off on a
+summary rather than on the code, that I approved correcting my own earlier claim, that I
+would defend this one hardest. Where an entry has none, the blanket approval above is the
+whole of it and nothing is being left unsaid.
 
 And where I said yes on thin reasoning, or by default, or because nothing ever pushed
 back, the entry says that too. "Approved by silence" is a real approval and a weaker one,
@@ -113,6 +120,7 @@ ships* in section 17 is the entry that gave the rule its missing half.
 15. [Appearance as Material: Skins, Texture, Type and Colour](#15-appearance-as-material-skins-texture-type-and-colour)
 16. [Serving and Running It: HTTP Surface, Logging, TLS and Updates](#16-serving-and-running-it-http-surface-logging-tls-and-updates)
 17. [Verification, Release Engineering and Provenance](#17-verification-release-engineering-and-provenance)
+18. [Jobs and Logs](#18-jobs-and-logs)
 
 ---
 
@@ -142,17 +150,19 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 <sub>pre-1.0 — `deploy/tippani.service` · `docker-compose.yml` · `README.md` · `docs/wiki/Design-decisions.md`</sub>
 
-### No background jobs, pollers, tickers or cron — cleanup and scheduling run on read
+### Nothing wakes on a timer — cleanup and scheduling run on read, and a job runs because somebody started it
 
-**Decided.** Nothing in the binary wakes up on its own. There is no `time.Ticker` anywhere outside tests; the only goroutine in `main` is the listener. Expired sessions are deleted lazily inside `Sessions.Create`, and review scheduling is computed at query time.
+**Decided.** Nothing in the binary wakes up on its own. There is no `time.Ticker` anywhere outside tests, no poller, no cron and no scheduler. Expired sessions are deleted lazily inside `Sessions.Create`, and review scheduling is computed at query time. Three goroutines outlive the call that starts them: the listener in `main`, and in `internal/jobs` the queue's worker and the log's writer (shutdown's bounded waits aside, which end with the process). Each of those two is started by the call that hands it work — a press that queues a job, a line that needs writing — and exits when there is none. The clocks the binary does hold each bound a wait (a retry's backoff while SQLite's lock is held, shutdown's budget), and none of them starts anything.
 
-**Why.** Idle CPU has to be approximately zero on a box with a hundred neighbours, and a timer is the one thing that cannot be. `Developing.md` states it as a rejection criterion: "If a change needs something to wake up on its own, that is a design discussion before it is a patch."
+**Why.** Idle CPU has to be approximately zero on a box with a hundred neighbours, and a timer is the one thing that cannot be. `Developing.md` states it as a rejection criterion: "If a change needs something to wake up on its own, that is a design discussion before it is a patch." A worker that exists only while a job waits costs nothing while nothing does, which is the property this line was drawn to protect; a worker that waited for work for the life of the process would not.
 
-**Instead of.** A cleanup cron for expired sessions — rejected in the plan itself ("no cleanup cron"). Litestream for continuous backup — rejected for constant background CPU; nightly `VACUUM INTO` from the host's own cron is the answer instead, which is the user's timer and not mine.
+**Instead of.** A cleanup cron for expired sessions — rejected in the plan itself ("no cleanup cron"). Litestream for continuous backup — rejected for constant background CPU; nightly `VACUUM INTO` from the host's own cron is the answer instead, which is the user's timer and not mine. A pool of workers, or one worker parked on a channel from boot to shutdown, for the jobs (§18).
 
-**Approved.** I signed this off as a hard line rather than a default, which is why it appears in the contributing guide as grounds for rejecting a patch.
+**Reversal.** Partly, in 3.1.0. This entry was *"No background jobs, pollers, tickers or cron — cleanup and scheduling run on read"*, and it said "the only goroutine in `main` is the listener". I asked for the routines a reader starts to run on the server, so that they survive leaving the screen, and reworded the invariant for it, verbatim: *"nothing runs unless a person or the app's own lookup started it, and nothing wakes on a timer."* So background jobs exist now. What did not come back is anything that wakes by itself.
 
-<sub>pre-1.0 — `internal/auth/auth.go` · `docs/wiki/Design-decisions.md` · `Developing.md` · `README.md`</sub>
+**Approved.** I signed this off as a hard line rather than a default, which is why it appears in the contributing guide as grounds for rejecting a patch. The rewording is mine word for word, and it keeps the line where it was always drawn: at the clock.
+
+<sub>pre-1.0; reworded 3.1.0 — `internal/auth/auth.go` · `internal/jobs/doc.go` · `docs/wiki/Design-decisions.md` · `Developing.md` · `README.md`</sub>
 
 ### Pure-Go SQLite (modernc) over CGo mattn, buying `CGO_ENABLED=0` at ~1.5–2× per-query CPU
 
@@ -200,15 +210,17 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 <sub>pre-1.0 — `web/frontend/src/flow.jsx` · `docs/wiki/Design-decisions.md`</sub>
 
-### Tippani never contacts the network on its own — every outbound call is one you triggered
+### Tippani looks outward only when a person or the app's own lookup asks, and every call is a line in a log
 
-**Decided.** There is no scheduled or ambient outbound traffic. Metadata lookups (Google Books, Open Library, TMDB, TheTVDB, Wikidata) run when you ask for them; the GitHub release check runs only when an admin presses the button. Cover and portrait fetches go through a host allowlist behind an SSRF guard and are then served from local disk, never hotlinked.
+**Decided.** There is no scheduled or ambient outbound traffic. Metadata lookups (Google Books, Open Library, TMDB, TheTVDB, Wikidata) run when somebody asks for them — a search in Add, a Fetch, a save with a cover address, a fill, a re-verify — and the GitHub release check runs only when an admin presses the button. Pushover is told only what a reader set it up to hear, and there are four things it can be told: an import large enough to be worth a message, staged for review or approved into the library; a long metadata run of theirs finishing; a backup written; and the daily deck, which `tippani notify daily` sends when the host's cron runs it. Its test message goes when the reader presses for one. The app's own lookups are the ones a screen makes for what it is about to draw: a work page asks for the portraits and character pictures it has no file for. Cover and portrait fetches go through a host allowlist behind an SSRF guard and are then served from local disk, never hotlinked. **Every call that leaves is a line in a log** — method, host, path and query, then what came back, and no key in it — in the job that made it, or in the system log, tagged `[outbound]`, when no job did. `TIPPANI_OFFLINE` refuses them all except sign-in to the operator's own provider, and a refusal is logged like a call.
 
-**Why.** It follows from the no-background-jobs rule, and it is also the honest reading of "self-hosted". A CSP of `default-src 'self'` with nothing external is what makes it checkable from the browser side rather than only from the source.
+**Why.** It follows from the rule that nothing wakes on a timer, and it is also the honest reading of "self-hosted". A CSP of `default-src 'self'` with nothing external is what makes it checkable from the browser side, and since 3.1.0 the log makes it checkable from the server side: an operator who wants to know what left the box reads it, rather than trusting this entry.
 
-**Approved.** I approved this and I approved saying it plainly in `How-this-was-written.md` rather than leaving it to be inferred from the absence of code.
+**Reversal.** In wording, in 3.1.0, and the wording had been wrong for a while before that. This entry was *"Tippani never contacts the network on its own — every outbound call is one you triggered"*. A work page had been fetching faces nobody pressed for since 2.2.4, from the browser; 3.1.0 moved that onto the server as one request and made it, like every other call, a line somebody can read. "One you triggered" had stopped being true without anybody deciding it should.
 
-<sub>pre-1.0 — `How-this-was-written.md` · `README.md` · `docs/wiki/Design-decisions.md`</sub>
+**Approved.** I approved this and I approved saying it plainly in `How-this-was-written.md` rather than leaving it to be inferred from the absence of code. The heading is drawn from my invariant sentence, *"nothing runs unless a person or the app's own lookup started it, and nothing wakes on a timer"*, which is mine word for word; the heading carries it from what runs to what leaves the box. The reading that the heading is narrower than it looks — that the app may look for what is on a screen somebody opened, and for nothing else — is the builder's, and it waits for my ruling (F13, in §18).
+
+<sub>pre-1.0; reworded 3.1.0 — `How-this-was-written.md` · `README.md` · `internal/outbound/outbound.go` · `internal/jobs/outbound.go`</sub>
 
 ### No AI at runtime: not disabled by default, not present
 
@@ -444,23 +456,29 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 SQLite is the whole persistence story here, so its pragmas, its lock ordering and its inability to alter a constraint shape more decisions than any other single component. This section also holds the concurrency misdiagnosis that took me two releases to correct, and the plan for making deletion recoverable without a soft-delete flag.
 
-### WAL with `synchronous=FULL`, superseding the planned `NORMAL`
+### WAL with `synchronous=FULL` for the library, and one `NORMAL` connection for the logs
 
-**Decided.** I open the database with `journal_mode(WAL)` and `synchronous(FULL)`. PLAN §8 specified `NORMAL`, and I was wrong: in WAL mode `NORMAL` only fsyncs at checkpoint, so an unclean stop — `docker stop` escalating to SIGKILL, or a volume that does not guarantee fsync ordering — can leave a torn WAL that surfaces later as `database disk image is malformed`. `FULL` fsyncs the WAL on every commit and closes that window. Write volume here is low (imports, edits, never a hot path), so the extra fsync is negligible against the corruption it prevents. I approved this the day I finished reading the corruption postmortem.
+**Decided.** I open the database with `journal_mode(WAL)` and `synchronous(FULL)`. PLAN §8 specified `NORMAL`, and I was wrong: in WAL mode `NORMAL` only fsyncs at checkpoint, so an unclean stop — `docker stop` escalating to SIGKILL, or a volume that does not guarantee fsync ordering — can leave a torn WAL that surfaces later as `database disk image is malformed`. `FULL` fsyncs the WAL on every commit and closes that window. Write volume here is low (imports, edits, never a hot path), so the extra fsync is negligible against the corruption it prevents. I approved this the day I finished reading the corruption postmortem. **Since 3.1.0 one connection is the exception**: `Store.LogDB`, the same file and DSN at `synchronous(NORMAL)`, one connection, written only by the logbook — the system log, every job's lines, the rows of the jobs that ran inside a request, and the prune that ages them out. Library writes, and the rows of queued jobs, stay on the `FULL` pool.
 
-**Instead of.** `synchronous=NORMAL`, as planned, on the argument that WAL is crash-safe anyway. It is, against a process crash; not against a volume that reorders.
+**Why the exception is safe.** `synchronous` is a property of the connection, not of the file. A `FULL` commit fsyncs the WAL up to its own frame, and the `NORMAL` frames written before it are in that WAL, so they are made durable by the next library write for free. What a crash can cost is the last log batches written after the last library commit — lines about the seconds before the crash, whose first copy went to `docker logs` anyway. Logging every request is the one hot write path this app has, and under `FULL` it would be a disk sync per request.
 
-**Reversal.** This entry *is* a reversal of the plan. §8 now records the supersession in place rather than quietly reading as if it were built.
+**Instead of.** `synchronous=NORMAL`, as planned, on the argument that WAL is crash-safe anyway. It is, against a process crash; not against a volume that reorders. For the logs: the library pool at `FULL`, which is the sync per request I ruled out, and a second database file, which a backup, a restore and a factory reset would each have to learn about.
 
-<sub>0.6.4 — `internal/store/store.go` · `docs/wiki/Design-decisions.md`</sub>
+**Reversal.** This entry *is* a reversal of the plan. §8 now records the supersession in place rather than quietly reading as if it were built. **And 3.1.0 reverses it in part**, on my ruling for the release: *"system logs written on their own database connection at synchronous=NORMAL, so logging every request doesn't cost a disk sync each time."* The argument above still holds for everything a reader would miss; it never held for a log line.
 
-### Graceful shutdown drains, then checkpoints the WAL
+<sub>0.6.4; the log connection 3.1.0 — `internal/store/store.go` · `internal/jobs/logbook.go` · `docs/wiki/Design-decisions.md`</sub>
 
-**Decided.** On `SIGTERM` or interrupt the server drains in-flight requests with a 5-second `http.Server.Shutdown` context, then runs `PRAGMA wal_checkpoint(TRUNCATE)` to fold the log back into the main file before the deferred `Close` runs. Docker's default stop grace is around ten seconds, so the whole sequence finishes well before SIGKILL. Without the handler the Go runtime terminates immediately, the deferred close never runs, and an unclean kill has a live WAL to tear. The checkpoint is best-effort — a busy checkpoint is logged as `TIP-STORE-005` and not treated as fatal, because the WAL is still valid and replays on reopen. My call, made in the same pass as the `FULL` change and for the same reason.
+### Graceful shutdown stops the queue, drains, keeps the last lines, then checkpoints the WAL — inside one nine-second budget
 
-**Instead of.** Relying on WAL replay alone; rejected because replay is the recovery path, not the design.
+**Decided.** On `SIGTERM` or interrupt, `shutdown` runs six steps in this order. **The queue** refuses new jobs and asks the running one to stop after the item in hand; after 3 s its context is cancelled, so its outward calls abort, and after 1 s more a job still not back is marked interrupted, as are the ones waiting (those two writes wait at most half a second for the lock, and a row they could not settle is interrupted by the next start). **The requests** get 4 s through `http.Server.Shutdown`, then their connections are closed. **The logbook** gets 1 s to write what those two steps logged and then closes, so a line logged after it (the checkpoint's own) goes to the terminal alone. **The log connection** closes, or is left to close itself if a write is still waiting on the lock after 1 s. **The checkpoint**, `PRAGMA wal_checkpoint(TRUNCATE)`, waits at most 2 s for a writer and then folds back what it can without it. **Both pools** close within what is left and 0.7 s more, and the process exits whether they did or not. Every step takes its own budget or what is left of nine seconds from the signal, whichever is less, and the checkpoint always runs. The checkpoint is best-effort — a busy one is logged as `TIP-STORE-005` with how many frames it folded back, and not treated as fatal, because the WAL is still valid and replays on reopen. My call, made in the same pass as the `FULL` change and for the same reason.
 
-<sub>0.6.4 — `cmd/tippani/main.go` · `internal/store/store.go`</sub>
+**Why this order, and why one deadline.** The job goes first because it is the longest thing running and the only one that writes for minutes, and its end should be recorded while the database is open. The log closes before its pool so nothing writes into a closed connection, and before the checkpoint so nothing lands in the WAL behind it. The single deadline is there because the steps' own budgets add up to more than Docker's ten-second grace once something holds SQLite's lock: each of the queue's last two writes and the log's last write would wait out `busy_timeout` (5 s), and a context does not bound that wait on this driver — measured — so the bound is SQLite's own, a shortened `busy_timeout` on one pinned connection (`WithLockWait`).
+
+**Instead of.** Relying on WAL replay alone; rejected because replay is the recovery path, not the design. A deferred `st.Close` after the checkpoint, which is what 0.6.4 shipped and which could wait on a stuck statement with no bound. `ExecContext` under the remaining budget, which the review proposed and the driver ignores while SQLite waits on the lock.
+
+**Reversal.** In part, in 3.1.0. The entry was *"Graceful shutdown drains, then checkpoints the WAL"*: a 5-second `Shutdown`, then the checkpoint, then the deferred `Close`. The queue and the log connection added three steps before the checkpoint and a way for each to overrun, which is why the budget became one.
+
+<sub>0.6.4; the six steps and the budget 3.1.0 — `cmd/tippani/main.go` · `internal/store/store.go` · `internal/store/busy.go` · `internal/jobs/runner.go`</sub>
 
 ### One transaction per imported file
 
@@ -496,7 +514,9 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** Dropping to a single connection, which the abandoned single-writer plan implied. It would have serialised readers behind writers on a box whose search is meant to be the fast thing.
 
-<sub>1.3.2 — `internal/store/store.go` · `internal/store/write_lock_test.go`</sub>
+**And a fifth connection, which is not in the pool.** From 3.1.0 the store opens `LogDB` beside it: one connection (`SetMaxOpenConns(1)`) on the same file at `synchronous=NORMAL`, written only by the logbook, its batches and its prune, through `Store.LogWrite`. It takes SQLite's write lock like any writer, so a batch waits behind a library write and a library write behind a batch, each within `busy_timeout`. It does not read: the Jobs tab's lists, a job's poll and the system log all read through the four. One connection is enough because there is one writer, the logbook's single drainer, and it is what lets a file swap reason about the log at all: the swap takes the lock `LogWrite` holds for reading, so the drainer waits out a restore, a recovery or a reset, then writes into whichever file the server is on afterwards.
+
+<sub>1.3.2; the log connection 3.1.0 — `internal/store/store.go` · `internal/store/swap.go` · `internal/store/write_lock_test.go`</sub>
 
 ### The one genuinely read-only transaction is marked `ReadOnly`
 
@@ -768,7 +788,7 @@ It also fixed a live 500 rather than a future risk. `boardKindSpeech = "speech"`
 
 **`movies.cast_json` is not dropped and is still written**, following 0036 and 0037 exactly: 0036 kept `utterances.category` "deliberately and for one release" because *"dropping a column is the one migration step that cannot be walked back by hand"*, and 0037's backfill is what it was kept for. One strengthening on that case: `category` was a value the reader typed and could retype, while a cast comes from a provider that may be unreachable or unkeyed next week — so if 0048's backfill is wrong about a library, the frozen blob is the only copy in existence. `dialogues.actor` is not touched either; the mapping becomes the source that fills it, not a replacement for it, and it stays stored, FTS-indexed, faceted, exported and imported.
 
-**With one exception, and it is the difference between "kept" and "frozen".** The two paths that replace a title's whole record — the create-from-source insert and `resyncMovieFromSource` — go on writing the blob whole. `applyReverifyMovie` writes it **only where it is empty**, `CASE WHEN COALESCE(cast_json,'') IN ('','[]')`, because that function is also what `POST /metadata/fill` applies through, and fill is unattended and bulk: fifteen titles a call, no diff on screen, chunked over a whole selection by the client. A resync is one title somebody asked for by name; a fill is a button that can walk a library, and a column kept solely so a mistake is repairable cannot be spent by the path with no human in it. Filling an empty blob rather than refusing outright was originally to keep the column's **last remaining reader** working on a title that never had one — the quiz's speaker distractors. **That reader has since moved to `work_cast`, and the freeze is why**: an approved cast diff writes the mapping and no longer writes the blob, so the pool went stale for good while `resyncMovieFromSource` went on replacing the blob whole, and one title answered *"who else is in this film?"* two different ways depending on which button was pressed. Nothing reads the column now. The conditional write stays for a smaller reason that is still true: the `CASE` is what keeps `cast_json` in the UPDATE's column list, so a cast-only approval has a statement to prove ownership with rather than falling through to "no approved fields".
+**With one exception, and it is the difference between "kept" and "frozen".** The two paths that replace a title's whole record — the create-from-source insert and `resyncMovieFromSource` — go on writing the blob whole. `applyReverifyMovie` writes it **only where it is empty**, `CASE WHEN COALESCE(cast_json,'') IN ('','[]')`, because that function is also what a fill applies through — the `fill` job Fill gaps starts, and `POST /metadata/fill` for an API caller — and a fill is unattended and bulk: up to two thousand titles a job, no diff on screen. A resync is one title somebody asked for by name; a fill is a button that can walk a library, and a column kept solely so a mistake is repairable cannot be spent by the path with no human in it. Filling an empty blob rather than refusing outright was originally to keep the column's **last remaining reader** working on a title that never had one — the quiz's speaker distractors. **That reader has since moved to `work_cast`, and the freeze is why**: an approved cast diff writes the mapping and no longer writes the blob, so the pool went stale for good while `resyncMovieFromSource` went on replacing the blob whole, and one title answered *"who else is in this film?"* two different ways depending on which button was pressed. Nothing reads the column now. The conditional write stays for a smaller reason that is still true: the `CASE` is what keeps `cast_json` in the UPDATE's column list, so a cast-only approval has a statement to prove ownership with rather than falling through to "no approved fields".
 
 **THE ACTOR→PORTRAIT RESOLVER MOVED TO THE MAPPING, and it had to.** `actorPortraitFromCast` pins an actor to a supplier's person id taken from the cast of a film they are in — the film is the disambiguator, so the id is exact — and its fallback is a by-name person search its own comment calls namesake-prone (§ *Pin a person, not a name*). Reading the blob meant the two things this table adds were the two the resolver could not see: **a name the reader corrects** (the mapping fills `dialogues.actor`, so the chip shows the corrected spelling while the blob still held the provider's, and the lookup missed) and **a game's entire voice cast** (for most games the blob is `'[]'`). It now reads `work_cast` by `actor_key` — the row carries `person_id` and `image_url` itself — with tombstones excluded, and a row's own `source` word instead of one guessed from the film's `tmdb_id`/`tvdb_id`. That last change makes `wikidata` reachable, so `resolveActorMeta` keeps a Wikidata QID exactly as it already kept a TVDB id: it is not a TMDB person id, it cannot be handed to `/person/{id}`, and a bio is not worth swapping a correct identity for a namesake's. The dialogue join is gone with the blob — a cast row no longer needs a quote beside it to be found, which was an artefact of the blob being reachable only through the film.
 
@@ -1878,13 +1898,15 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 <sub>`docs/wiki/Design-decisions.md` · `internal/importer/hardcover.go` · `internal/httpapi/import_handlers.go`</sub>
 
-### Metadata is fetched on demand only, and the one bulk path is admin-triggered and cursor-chunked
+### Metadata is fetched when somebody asks, and a pass over many works is a job on the server
 
-**Decided.** No background fetching, ever. `POST /books/lookup` and `POST /movies/lookup` return candidates for a person to pick. The single bulk path, `POST /covers/refetch`, is behind `requireAdmin` and processes up to `limit` rows after `cursor`, returning `{next_cursor, done, total, remaining}`.
+**Decided.** Nothing fetches on a schedule, ever. `POST /books/lookup` and `POST /movies/lookup` return candidates for a person to pick. A pass over many works — Fill gaps, Fetch covers, People's Fetch missing, a re-verify — is a job somebody starts, run on the server one at a time behind whatever else is queued (§18), and the covers pass is admin-only, as its route always was. `POST /covers/refetch` still answers an API caller a chunk at a time — up to `limit` rows after `cursor`, returning `{next_cursor, done, total, remaining}` — and the covers job walks the same rows one at a time, so a Stop lands after the row in hand.
 
-**Why.** §8 sets an idle-CPU budget of approximately zero on a NAS sharing a box with a hundred other services, and a background enricher is a poller by another name. Chunking is not only about that budget: each HTTP request stays short, so a proxy timeout or a tab navigation can no longer silently abort a long run, and the client can draw real progress instead of a spinner that means nothing. The `total` is the full workload at that instant and `remaining` shrinks with the cursor. I approved the chunked shape after the un-chunked one died against a reverse proxy.
+**Why.** §8 sets an idle-CPU budget of approximately zero on a NAS sharing a box with a hundred other services, and a background enricher is a poller by another name. A job somebody started is not one: it runs because a person pressed, and the worker that runs it is gone when the queue is empty. Chunking was the first answer to a long run: each HTTP request stayed short, so a proxy timeout could no longer silently abort it, and the client could draw real progress instead of a spinner that means nothing. I approved the chunked shape after the un-chunked one died against a reverse proxy. A job has no request to outlive, so a tab navigation, a locked phone or a closed tab no longer stops the run part-way either, and it reports its progress as `done` of `total`.
 
-<sub>`docs/wiki/Design-decisions.md` · `internal/httpapi/metadata_handlers.go` · `internal/httpapi/server.go`</sub>
+**Reversal.** In part, in 3.1.0. The entry was *"Metadata is fetched on demand only, and the one bulk path is admin-triggered and cursor-chunked"*, and its first line was "No background fetching, ever." The browser looped `POST /covers/refetch` a chunk at a time for as long as the tab stayed open, and Fill gaps, the People fetch and re-verify each looped their own route the same way; now each is a job, and a job does its fetching in the background by design. What the old line was for — the server never deciding by itself to go and fetch — holds.
+
+<sub>the jobs 3.1.0 — `docs/wiki/Design-decisions.md` · `internal/httpapi/metadata_handlers.go` · `internal/httpapi/jobs_kinds.go` · `internal/httpapi/server.go`</sub>
 
 ### TMDB ships a built-in application key, and the env var was dropped
 
@@ -2048,11 +2070,11 @@ The GET's own comment had been describing this card since the release before it 
 
 ### `missing_only` — a refetch mode that never replaces stored art
 
-**Decided.** A boolean on `POST /covers/refetch` that fills empty covers and posters only and never upgrades a stored low-resolution image. It is what the mobile Metadata screen sends.
+**Decided.** A boolean on the covers pass — the covers job's `missing_only`, and the same flag on `POST /covers/refetch` — that fills empty covers and posters only and never upgrades a stored low-resolution image. It is what the phone's Fetch key sends.
 
-**Why.** The bulk refetch is otherwise happy to replace a thumbnail with a better scan, which is right when you asked for it on a desktop and watched the progress bar. A quick tap on a phone should not be able to churn art you are happy with — including art you uploaded or pasted yourself — and there is no undo for a replaced cover. Two intentions, one endpoint, one flag. My call.
+**Why.** The bulk refetch is otherwise happy to replace a thumbnail with a better scan, which is right when you asked for it on a desktop and watched the progress bar. A quick tap on a phone should not be able to churn art you are happy with — including art you uploaded or pasted yourself — and there is no undo for a replaced cover. Two intentions, one pass, one flag. My call.
 
-<sub>`internal/httpapi/metadata_handlers.go` · `web/frontend/src/MetadataPage.jsx`</sub>
+<sub>`internal/httpapi/metadata_handlers.go` · `internal/httpapi/jobs_kinds.go` · `web/frontend/src/MetadataPage.jsx`</sub>
 
 ### "Fetch metadata" opens the edition picker instead of silently applying a guess
 
@@ -2072,11 +2094,13 @@ The GET's own comment had been describing this card since the release before it 
 
 ### Re-verify previews every changed field against the pinned identity and writes nothing until approved
 
-**Decided.** `POST /metadata/reverify` re-runs each item's lookup against the *pinned* ids — `isbn`/`asin`/`google_id`, `tmdb_id`/`tvdb_id`, `people.source_id` or the stored cast — and returns per-field diffs without writing. `POST /metadata/reverify/apply` writes only what was approved, resending the previewed values. Rows where the stored value is empty arrive pre-ticked; anything that would overwrite arrives unticked.
+**Decided.** A re-verify re-runs each item's lookup against the *pinned* ids — `isbn`/`asin`/`google_id`, `tmdb_id`/`tvdb_id`, `people.source_id` or the stored cast — and previews per-field diffs without writing; the apply writes only what was approved. The dialog runs the two as jobs, `reverify` and `reverify-apply` (§18). `POST /metadata/reverify` and `POST /metadata/reverify/apply` do the same for an API caller, the apply resending the previewed values. Rows where the stored value is empty arrive pre-ticked; anything that would overwrite arrives unticked, and so does a field whose stored value has moved since the check, marked as changed.
 
-**Why.** Targeting the pinned identity is what makes this a re-check rather than a re-guess: a by-name re-lookup could return a different book. The flow is stateless by design — no server-side diff session — so the client holds the preview and sends back exactly what the user saw and ticked, which is the same trust boundary as the existing PUT surface: whitelisted fields, the same validators, ownership-scoped SQL. The tick defaults encode the same rule as the adoption modes: a pure fill takes nothing away, so approving it is the reasonable default; an overwrite is the thing you opened this screen to review. It runs under `requireAuth` rather than `requireAdmin`, because both endpoints touch only the caller's own rows, with a 15-item cap per call bounding provider load and the client chunking above it. I approved the whole shape, including the pre-ticking, which is the only part that does anything without being asked.
+**Why.** Targeting the pinned identity is what makes this a re-check rather than a re-guess: a by-name re-lookup could return a different book. The check's preview is kept with its job, as the job's result, for thirty days, so a check the reader walked away from is reviewed later from Past jobs. What the kept preview is not is the library as it stands, so the boundary is held at the two ends of the review. Opening it reads each field again as it is now and marks a diff changed when its stored value is not what the check saw, and a changed diff is never pre-ticked. The apply carries, per field, the value the reader was shown as its `expect`, and skips a field that no longer holds it, noting "changed since the check". So what is written is exactly what the reader saw and ticked, over exactly the values they saw, through the same trust boundary as the existing PUT surface: whitelisted fields, the same validators, ownership-scoped SQL. The tick defaults encode the same rule as the adoption modes: a pure fill takes nothing away, so approving it is the reasonable default; an overwrite is the thing you opened this screen to review. It runs under `requireAuth` rather than `requireAdmin`, because the routes and the jobs touch only the caller's own rows; a job takes 500 items at most and a call to either route 15, bounding provider load, with an API caller chunking above that. I approved the shape before 3.1.0, including the pre-ticking, which is the only part that does anything without being asked. The job is my ask of 3.1.0 (§18), and the re-read and the `expect` are how it was built to keep the boundary the old shape kept.
 
-<sub>`internal/httpapi/reverify_handlers.go` · `web/frontend/src/ReverifyReview.jsx`</sub>
+**Reversal.** In part, in 3.1.0. The Why said *"The flow is stateless by design — no server-side diff session — so the client holds the preview and sends back exactly what the user saw and ticked"*. The dialog's check was a loop of `POST /metadata/reverify`, ten items a call, and closing the dialog or locking the phone stopped a check of four hundred works wherever it had got to. It is a `reverify` job now, of 500 items at most, and its kept preview is a server-side diff session in all but name. The two routes stay for an API caller, and the synchronous apply honours the same `expect` check when it is sent one.
+
+<sub>`internal/httpapi/reverify_handlers.go` · `internal/httpapi/reverify_review.go` · `web/frontend/src/ReverifyReview.jsx`</sub>
 
 ### An ISBN names one book, so provider records are merged best-of per field
 
@@ -2386,7 +2410,7 @@ The rename's blast radius is the larger one: `metadata.ReplaceCredit` matches a 
 
 **THE READING IS SHOWN BEFORE THE LINK IS ADDED.** A key and a URL are one fact written twice, so the box prints "Reads as IMDb — www.imdb.com" under what was typed. A field that silently transforms your input is a field you check afterwards every time. A scheme-less address is completed rather than refused, because copying out of a browser's bar drops it about half the time — and the match is on the HOSTNAME, so `imdb.com.example.org` is somebody else's domain and stays under the globe rather than borrowing IMDb's name.
 
-**Free text and not a `work_link` table.** A table would let a link carry its own provenance and ordering, and would also make "any site on any record" a vocabulary somebody has to extend before a reader can paste a URL. One column, one parser (`parseLinks`), one merge and one panel shape for people, characters and works; three shapes would be three chances to disagree about what a stored link is. Capped at 4000 characters where a person's is not, because this one is pasted into a box rather than assembled from a fetch.
+**Free text and not a `work_link` table.** A table would let a link carry its own provenance and ordering, and would also make "any site on any record" a vocabulary somebody has to extend before a reader can paste a URL. One column, one parser (`parseLinks`), one merge and one panel shape for people, characters and works (the merge moved to the server in 3.1.0, where a person's Fetch now folds fetched links into the stored ones, keeping the names readers gave them); three shapes would be three chances to disagree about what a stored link is. Capped at 4000 characters where a person's is not, because this one is pasted into a box rather than assembled from a fetch.
 
 **WHAT IS NOT BUILT, and it is in the source as well.** The pack's per-link provenance (`auto` · `you`) is absent. Nothing fetches a WORK's links yet — a person's are assembled from a lookup, a work's are all pasted — so a tag on every row would print the same word every time, which is not a tag. The column is the same free text a person's is, so the distinction can be drawn the day something fetches them. **The pack's other unbuilt clause, the list you pick a provider from, is built — see the entry at the end of this document**, and it is what makes the provenance question live: a derived page is one the app wrote.
 
@@ -3632,9 +3656,11 @@ the character is notable outside their own story.
 
 **Why remembered rather than re-derived.** Probing costs up to four requests, which is
 affordable exactly once. Storing the answer turns every later character search on that
-title into one request, and writing it inside a request already talking to Fandom avoids
-the background job this app does not have. A FAILED probe is deliberately not remembered:
-a wiki that did not exist last month may exist now, and asking again costs one 404.
+title into one request, and writing it inside a request already talking to Fandom means
+nothing has to come back for it later — nothing here wakes on a timer, and the queue runs
+only what a person or the app's own lookup started. A FAILED probe is deliberately not
+remembered: a wiki that did not exist last month may exist now, and asking again costs one
+404.
 
 **Why typed as well.** The ladder cannot resolve every work — Star Wars characters live on
 `starwars` and on `wookieepedia`, and no derivation from a title picks between them. One
@@ -4704,11 +4730,11 @@ Backup is a nightly `VACUUM INTO` snapshot with no streaming daemon, and restore
 
 ### The account password is verified before the archive is written
 
-**Decided.** `POST /admin/backup` checks the supplied password against the stored hash before anything is written — not for authorization, since the session already covers that, but because a typo would otherwise produce a perfectly valid archive that nothing can ever open, and you would not find out until the day you needed it. A backup whose failure surfaces only at restore is worse than no backup, because it has already displaced the habit of taking one. I approved this the moment the failure mode was named.
+**Decided.** `POST /admin/backup` checks the supplied password against the stored hash before anything is written — not for authorization, since the session already covers that, but because a typo would otherwise produce a perfectly valid archive that nothing can ever open, and you would not find out until the day you needed it. A backup whose failure surfaces only at restore is worse than no backup, because it has already displaced the habit of taking one. I approved this the moment the failure mode was named. **Since 3.1.0 Back up now is a queued job, and it checks twice**: at the press, so a wrong password is still a 401 before anything waits, and again when the job runs, against the owner's password as it is by then, because the job can wait behind others while the password changes. The password lives only in the queue's memory until the job ends, and is never stored.
 
 **Instead of.** Sealing with whatever was typed and letting restore find out.
 
-<sub>1.4.1 — `internal/httpapi/backup_handlers.go`</sub>
+<sub>1.4.1; the job 3.1.0 — `internal/httpapi/backup_handlers.go` · `internal/httpapi/jobs_kinds.go`</sub>
 
 ### Archive v1 keyed on `<username>#<password>`, and lasted about an hour
 
@@ -4834,15 +4860,19 @@ Backup is a nightly `VACUUM INTO` snapshot with no streaming daemon, and restore
 
 <sub>1.4.1 — `internal/httpapi/backup_handlers.go`</sub>
 
-### Restore and upload clear the HTTP deadlines; the safety copy uses `MkdirTemp`
+### Each read of a restore upload moves its deadline a minute ahead, the restore clears its write deadline, and the safety copy uses `MkdirTemp`
 
-**Decided.** Extract, validate, swap and reopen can outlive the server's 60-second `WriteTimeout` on a large library, and a multi-gigabyte upload outlives the 30-second `ReadTimeout`, so both paths clear the relevant deadlines via `http.NewResponseController` — otherwise the work completes and the final JSON never reaches the client, which reads as a failed restore that actually succeeded. Separately, the `.pre-restore-<ts>` safety directory is created with `os.MkdirTemp` rather than a second-precision name. Second precision alone collides when two restores land in the same second — restore, then restore a different upload — and `os.Mkdir` would fail; worse, the name would alias this generation onto the previous one, so a rollback could grab the wrong directory. `MkdirTemp` guarantees a fresh name and the timestamp still makes it human-sortable. I approved both after reasoning about what the wrong outcome would look like, which in the second case is a rollback restoring the wrong data.
+**Decided.** Extract, validate, swap and reopen can outlive the server's 60-second `WriteTimeout` on a large library, so a restore clears its write deadline via `http.NewResponseController` — otherwise the work completes and the final JSON never reaches the client, which reads as a failed restore that actually succeeded. A multi-gigabyte upload outlives the 30-second `ReadTimeout`, so each read of a restore upload moves the read deadline a minute ahead: a minute in which nothing arrives answers 408, *"the upload stopped arriving, so it was given up; nothing was changed — upload the file again"*, and logs `TIP-BACKUP-010`. The read deadline is cleared once the upload is in, because the swap after it can outlive a minute. The onboarding upload shares the path. Separately, the `.pre-restore-<ts>` safety directory is created with `os.MkdirTemp` rather than a second-precision name. Second precision alone collides when two restores land in the same second — restore, then restore a different upload — and `os.Mkdir` would fail; worse, the name would alias this generation onto the previous one, so a rollback could grab the wrong directory. `MkdirTemp` guarantees a fresh name and the timestamp still makes it human-sortable.
+
+**Why the upload may not stop.** An admin's restore holds the job queue from before the upload is read (§18), so while it sends nothing no job can start and none is claimed. An upload that stalled for good — the tab alive, the link dead — would hold every reader's queue until the TCP connection died.
 
 **Instead of.** Raising the global timeouts, which weakens every other route.
 
-**Reversal.** The `MkdirTemp` change reversed an earlier fixed-name scheme.
+**Reversal.** The `MkdirTemp` change reversed an earlier fixed-name scheme. **And in 3.1.0 an upload stopped clearing its read deadline.** This entry was *"Restore and upload clear the HTTP deadlines; the safety copy uses `MkdirTemp`"*, and it said both paths *"clear the relevant deadlines via `http.NewResponseController`"*: the upload's read deadline was cleared for as long as the upload took, which was right until the queue's hold made one stalled connection a way to freeze every reader's queue.
 
-<sub>1.4.1 — `internal/httpapi/backup_handlers.go`</sub>
+**Approved.** I approved clearing the deadlines and `MkdirTemp` after reasoning about what the wrong outcome would look like, which in the second case is a rollback restoring the wrong data.
+
+<sub>1.4.1; the upload's idle deadline 3.1.0 — `internal/httpapi/backup_handlers.go`</sub>
 
 ### Two restore blocks with two confirmations became one control
 
@@ -5651,7 +5681,7 @@ Library and Catalogue never met it because they pass `'annotation'` and `'dialog
 
 **`_name`, `_fallback` and `_dir` are reserved, and never rendered.** `_name` is how a language labels itself, so a file that forgot the line shows its bare code — which is the accurate report. `_fallback` lets a language name its neighbour before a built-in (Bhojpuri → Hindi → the box), and **the cycle guard is that the chain is a `Set`, not a depth counter**: `_fallback = b` in `a.txt` and `_fallback = a` in `b.txt` is a mistake two people make separately and it must cost nothing. A `_fallback` naming a language nobody has installed is ignored rather than fatal. `_dir = rtl` sets `documentElement.dir`, and both the README and `localeDir` say plainly that this flips text direction and **the layout has not been audited for RTL** — icons, edges and the film-strip sprockets are all positioned assuming left to right. It is offered because a right-to-left language with no `dir` at all is unreadable, not because the app is ready for one.
 
-**Why the bytes live in `internal/i18n/` and not in the frontend tree, which is where the plan first put them.** `//go:embed` cannot escape its own package directory. `internal/changelog` exists entirely to work around that limit and pays for it with a duplicated `CHANGELOG.md` and a drift test that fails when the two differ — and both built-ins *must* be embedded, or a wrecked config directory leaves the app with no text. Vite has no such limit: `?raw` resolves any path in the repository. So the constraint runs one way only and the file goes where the constrained side can see it; the frontend reaches across the tree boundary and the Dockerfile's frontend stage copies `internal/i18n/*.txt` for the same reason. One file, two consumers, nothing to drift and no drift test to write.
+**Why the bytes live in `internal/i18n/` and not in the frontend tree, which is where the plan first put them.** `//go:embed` cannot escape its own package directory. `internal/changelog` was built entirely to work around that limit and paid for it, until 3.0.2 made the repo root a package, with a duplicated `CHANGELOG.md` and a drift test that failed when the two differed — and both built-ins *must* be embedded, or a wrecked config directory leaves the app with no text. Vite has no such limit: `?raw` resolves any path in the repository. So the constraint runs one way only and the file goes where the constrained side can see it; the frontend reaches across the tree boundary and the Dockerfile's frontend stage copies `internal/i18n/*.txt` for the same reason. One file, two consumers, nothing to drift and no drift test to write.
 
 **Two parsers of one format, pinned to a hand-written answer neither of them generates.** `Parse` in Go and `parseLocale` in JS apply the same eight rules in the same order — BOM dropped once, CRLF and lone CR normalised, first `=` splits, both halves trimmed, a mangled line recorded and skipped, duplicate keys last-wins in both directions. They agree because `internal/i18n/testdata/agree.txt` and `agree.json` are one fixture and one expectation that *both* suites compare against, so either parser drifting turns its own suite red instead of the two of them quietly settling on something new; `.gitattributes` marks the fixture `-text` so its CR and CRLF endings survive a checkout, and the Go test fails loudly if they have been eaten. `trimSet` is spelled out as `" \t\n\r\v\f"` because Go's `TrimSpace` and JS's `String.trim` disagree about what whitespace is, and NBSP is deliberately excluded from both — French punctuation needs one before a colon and trimming it would silently correct somebody's language.
 
@@ -6379,7 +6409,7 @@ A column on the row also travels for free everywhere a quote already travels —
 
 ### Fill the gaps writes only what is empty, which is what lets it skip the preview
 
-**Decided.** `POST /metadata/fill` runs the re-verify fetch, keeps only the diffs whose STORED side is empty, and applies them through the re-verify writer. The predicate decides by TYPE — empty string, zero, empty slice, nil — not by field name.
+**Decided.** Fill gaps — a `fill` job since 3.1.0, and `POST /metadata/fill` for an API caller — runs the re-verify fetch, keeps only the diffs whose STORED side is empty, and applies them through the re-verify writer. The predicate decides by TYPE — empty string, zero, empty slice, nil — not by field name.
 
 **Why.** Re-verify asks "what changed?", shows every difference and waits for a human to tick the ones they believe. That is right, because a provider disagreeing with your library is not automatically the provider being correct — and it is completely unusable over forty books, where nobody will adjudicate two hundred diffs to recover a missing publication year.
 
@@ -6576,11 +6606,11 @@ So the folder holds nothing. It is a rendering of a filter — open it and you a
 
 ### The changelog ships inside the binary rather than being fetched
 
-**Decided.** `internal/changelog` embeds a copy of `CHANGELOG.md`, parses it into releases → sections → entries, and `GET /changelog` serves it. A dialog on the Updates card shows it newest first, with the running build marked. Entries stay as markdown and the client renders the three inline spans by hand.
+**Decided.** The root package embeds `CHANGELOG.md`, `internal/changelog` parses it into releases → sections → entries, and `GET /changelog` serves it. A dialog on the Updates card shows it newest first, with the running build marked. Entries stay as markdown and the client renders the three inline spans by hand.
 
 **Why.** The request was "fetch it from git", and the shipped artifact cannot: the image is `distroless/static` with one binary in it, no git and no shell, `.git` and the docs are outside the build context, and the CSP has no `connect-src` so the browser cannot call GitHub either. The two real sources are the embedded file and GitHub's HTTP API.
 
-Embedded wins on the thing this app is actually for. The promise is stated in three places and is load-bearing — "zero background jobs", "nothing external is required to run", and §193's "Tippani never contacts the network on its own", whose own justification is that it is the honest reading of self-hosted. A changelog that is blank on a LAN-only NAS, behind a firewall, or after the update check has spent the hour's 60 unauthenticated GitHub requests is blank in exactly the situation the product optimises for. And a changelog is a fact about the binary you are RUNNING, not about the internet: the embedded copy answers that exactly, forever, offline. Notes for a version you have not installed are a different question, and the card already answers it with a link — which stays.
+Embedded wins on the thing this app is actually for. The promise is stated in three places and is load-bearing — "zero background jobs", "nothing external is required to run", and §1's "Tippani never contacts the network on its own", whose own justification is that it is the honest reading of self-hosted. (That is how the first and the last read then. 3.1.0 gave the app jobs a person starts, so the first is "nothing wakes on a timer" now, and reworded §1 to say what a screen may fetch for itself; the argument here never rested on either wording: the case it wins is the offline one.) A changelog that is blank on a LAN-only NAS, behind a firewall, or after the update check has spent the hour's 60 unauthenticated GitHub requests is blank in exactly the situation the product optimises for. And a changelog is a fact about the binary you are RUNNING, not about the internet: the embedded copy answers that exactly, forever, offline. Notes for a version you have not installed are a different question, and the card already answers it with a link — which stays.
 
 **The copy was the cost, and at 3.0.2 it is gone.** `//go:embed` cannot reach outside its package, and there was no Go package at the repo root, so `internal/changelog` kept a byte-identical copy beside itself, with a drift test, `make changelog` and a release-checklist step to hold the two together. The owner, at 3.0.2: *"why are there two changelogs? there should be only one"*. The root is a package now (`changelog.go`, package `tippani`), it embeds `CHANGELOG.md`, and `internal/changelog` reads it from there. The copy, the drift test, the make target, the checklist step and the entry script's second write are gone. `.dockerignore` excludes root Markdown, so `CHANGELOG.md` is named as its one exception, because the image build compiles the root package.
 
@@ -6840,7 +6870,7 @@ were nothing but this rule applied to text that had accumulated.
 
 **Why roles rather than fonts.** A role is what the font is FOR, so swapping one is a line in `fonts.js` and not a search for every place a family name was written down. It is also the only way the picker can say anything useful: a list that sets "the quick brown fox" in every face answers no question anybody has, and it cannot show the Bengali row at all, whose whole point is a script no specimen sentence contains.
 
-**Bundled, not fetched, and the cost is stated.** This app never contacts the network on its own, and a type picker that loaded Google Fonts would be the first thing in it that did — on a screen about how your own words look. `web/dist` goes from 3.4 MB to 7.2 MB. What grows is the image on disk, not what a browser downloads: `@fontsource` splits every face by `unicode-range`, so a subset is fetched only when a codepoint in its range is drawn. All eighteen families are OFL-1.1.
+**Bundled, not fetched, and the cost is stated.** This app's browser talks to nobody but its own server, and a type picker that loaded Google Fonts would be the first thing in it that did — on a screen about how your own words look. `web/dist` goes from 3.4 MB to 7.2 MB. What grows is the image on disk, not what a browser downloads: `@fontsource` splits every face by `unicode-range`, so a subset is fetched only when a codepoint in its range is drawn. All eighteen families are OFL-1.1.
 
 **An unrecognised token falls back to the built-in, never to nothing.** A preference that fails to resolve must not leave the app with no font: that is indistinguishable from a broken stylesheet, and it is silent.
 
@@ -7052,7 +7082,7 @@ stderr: the access line goes through the standard logger.
 
 ### Separate body-size caps per surface
 
-**Decided.** There is no global body cap, because the surfaces genuinely differ: `maxAuthBody` is 4 KiB, which is plenty for credentials; `maxCRUDBody` covers quote writes; `maxUploadBytes` is 12 MiB for a cover's multipart envelope, leaving headroom around a 10 MB image that `metadata.StoreImage` re-caps after decoding; `maxRestoreUpload` is 2 GiB with a 413 beyond, and `maxRestoreBytes` is an 8 GiB decompression-bomb guard on what the archive expands to. A single generous cap would mean the login endpoint accepts a gigabyte. The restore paths additionally clear the HTTP deadlines (11.21), which is the one place a cap and a timeout have to be reasoned about together. My call, and I would rather have six named constants than one.
+**Decided.** There is no global body cap, because the surfaces genuinely differ: `maxAuthBody` is 4 KiB, which is plenty for credentials; `maxCRUDBody` covers quote writes; `maxUploadBytes` is 12 MiB for a cover's multipart envelope, leaving headroom around a 10 MB image that `metadata.StoreImage` re-caps after decoding; `maxRestoreUpload` is 2 GiB with a 413 beyond, and `maxRestoreBytes` is an 8 GiB decompression-bomb guard on what the archive expands to. A single generous cap would mean the login endpoint accepts a gigabyte. The restore paths additionally move the upload's read deadline with each read and clear the write deadline (section 11, *Each read of a restore upload moves its deadline a minute ahead…*), which is the one place a cap and a timeout have to be reasoned about together. My call, and I would rather have six named constants than one.
 
 **Instead of.** One global `MaxBytesReader` in middleware.
 
@@ -7076,7 +7106,7 @@ stderr: the access line goes through the standard logger.
 
 ### A read that shows a log waits up to 200 ms for the log writer; the list of past jobs does not
 
-**Decided.** A job's lines and every system line reach the database through the logbook's one drainer, in batches, so a read made just after a line was logged can miss it. Four reads wait for the drainer first, for at most 200 ms: a job's poll (`GET /jobs/{id}`), the system log (`GET /admin/logs`), and the two Markdown exports, a job's (`GET /jobs/{id}/log.md`) and the system log's (`GET /admin/logs.md`). The implementation spec named the first two; the plan, `docs/plans/jobs.md` as it stood at `aae3f761`, named none of them. The exports are a departure from the spec, because an export is the file somebody is handed to read a failure from, and a file that stops short of the last line logged is the one read where "the next poll has it" is no answer. The list of past jobs (`GET /jobs?view=past`) does not wait. An in-request job's row lands milliseconds after its request ends, nobody asks for the list faster than that, and a queued job's row is written as it happens.
+**Decided.** A job's lines and every system line reach the database through the logbook's one drainer, in batches, so a read made just after a line was logged can miss it. Four reads wait for the drainer first, for at most 200 ms: a job's poll (`GET /jobs/{id}`), the system log (`GET /admin/logs`), and the two Markdown exports, a job's (`GET /jobs/{id}/log.md`) and the system log's (`GET /admin/logs.md`). The implementation spec named the first two; the plan, folded into §18, named none of them. The exports are a departure from the spec, because an export is the file somebody is handed to read a failure from, and a file that stops short of the last line logged is the one read where "the next poll has it" is no answer. The list of past jobs (`GET /jobs?view=past`) does not wait. An in-request job's row lands milliseconds after its request ends, nobody asks for the list faster than that, and a queued job's row is written as it happens.
 
 **Why.** The wait is free while the drainer keeps up: a flush returns once what was logged before it is written. It costs the whole 200 ms while the drainer is held up, waiting out another writer's lock or parked by a restore. On the past list that is 200 ms on every read for nothing. The list is read when the tab opens and again when a job ends or somebody presses something, and none of those is racing a line.
 
@@ -7102,13 +7132,15 @@ stderr: the access line goes through the standard logger.
 
 <sub>0.4.6 — `cmd/tippani/main.go` · `internal/store/repair.go`</sub>
 
-### Outbound tracing redacts query-param secrets
+### Outbound tracing redacts query-param secrets, and so does every error a call returns
 
-**Decided.** Every outbound provider call logs at trace level — `[trace] [meta] GET … -> 200 (N bytes)` — and the URL passes through `redactURL` first, which replaces the `api_key` and `key` query parameters with `***`. Those are the TMDB v3 key and the Google Books key, which travel in the query string. The v4 TMDB token and the TVDB JWT travel in the `Authorization` header and so are structurally absent from a trace — not redacted, absent, which is the stronger property and the reason I prefer header auth where a provider offers both. `redactURL` is best-effort: an unparseable URL is returned as-is, and a URL with nothing to hide is returned byte-for-byte rather than round-tripped through the query encoder. Tracing itself is a no-op unless `TIPPANI_LOG_LEVEL=debug`. I approved the redaction and the no-op gate together, because a trace that is expensive is a trace nobody turns on.
+**Decided.** Every outbound provider call logs at trace level — `[trace] [meta] GET … -> 200 (N bytes)` — and the URL passes through `outbound.Redact` first, which replaces the value of every query or fragment parameter on one list with `…` and drops any `user:password@`. The list is twenty-two names: `key` and `api_key` (the Google Books and TMDB v3 keys, the only two providers here that put a credential in the query string), the other common spellings of a key, a token, a secret, a password, a signature, `auth` and `code`, and the S3 and Google Cloud Storage presign names, for a cover address a reader pastes in. The v4 TMDB token and the TVDB JWT travel in the `Authorization` header and so are structurally absent from a trace — not redacted, absent, which is the stronger property and the reason I prefer header auth where a provider offers both. `Redact` works on the text rather than through `url.Parse`, so a URL too broken to parse is still redacted, and everything but the hidden values stays byte for byte. **And the error a failed call returns is redacted where the client makes it** (`outbound.RedactError`, in `httpGet`, `httpPost` and the other clients that call out): Go's `*url.Error` quotes the whole URL, and that text went on up to handlers that printed it and to 502 messages that showed it. Tracing itself is a no-op unless `TIPPANI_LOG_LEVEL=debug`. I approved the redaction and the no-op gate together, because a trace that is expensive is a trace nobody turns on.
 
-**Instead of.** Logging the URL whole at debug level, on the theory that debug logs are private. They end up in bug reports.
+**Instead of.** Logging the URL whole at debug level, on the theory that debug logs are private. They end up in bug reports. Redacting in the handlers that print a failed call's error: there are dozens, and the next one would be written without it.
 
-<sub>0.6.4 — `internal/metadata/metadata.go` · `internal/olog/olog.go`</sub>
+**Reversal.** In 3.1.0. This entry described `redactURL`, which knew two names, masked them as `***` by re-encoding the query, and returned an unparseable URL as it was. Logs kept for thirty days and exported for somebody else to read made a second, longer list necessary, and two lists of secret names had already grown apart; `redactURL` went and `outbound.Redact` is the one list, used by the trace, by the log's own door (§18) and by the error text.
+
+<sub>0.6.4; one list 3.1.0 — `internal/outbound/redact.go` · `internal/metadata/metadata.go` · `internal/olog/olog.go`</sub>
 
 ### The container healthcheck is the binary probing its own loopback port
 
@@ -7120,7 +7152,7 @@ stderr: the access line goes through the standard logger.
 
 ### Native TLS from a PEM pair, hot-reloaded, with an explicit refusal on ACME
 
-**Decided.** `TIPPANI_TLS_CERT` and `TIPPANI_TLS_KEY` point at a PEM pair and Tippani serves TLS itself, with no reverse-proxy container required; both must be set together or the boot fails. The pair is re-read per TLS handshake, gated on a cheap size-plus-mtime stamp — two `Stat`s per connection, nothing per request — so external renewal tooling can rotate the files in place and the next handshake serves the new pair with no restart. A failed re-load keeps serving the previous pair and logs `TIP-HTTP-001` rather than dropping TLS, because a renewer that writes cert and key non-atomically parses as a mismatched pair for a moment, and the retry fires again when the second file lands. The stamps are adopted even on failure so a broken file warns once rather than once per handshake. Certificates come from wherever the operator already gets them — a home CA, `tailscale cert`, an acme.sh or certbot renewal on the host — and Tippani deliberately does not speak ACME: a renewal loop is a background job with a third-party dependency, and this app ships with zero of those. I approved the refusal as firmly as the feature.
+**Decided.** `TIPPANI_TLS_CERT` and `TIPPANI_TLS_KEY` point at a PEM pair and Tippani serves TLS itself, with no reverse-proxy container required; both must be set together or the boot fails. The pair is re-read per TLS handshake, gated on a cheap size-plus-mtime stamp — two `Stat`s per connection, nothing per request — so external renewal tooling can rotate the files in place and the next handshake serves the new pair with no restart. A failed re-load keeps serving the previous pair and logs `TIP-HTTP-001` rather than dropping TLS, because a renewer that writes cert and key non-atomically parses as a mismatched pair for a moment, and the retry fires again when the second file lands. The stamps are adopted even on failure so a broken file warns once rather than once per handshake. Certificates come from wherever the operator already gets them — a home CA, `tailscale cert`, an acme.sh or certbot renewal on the host — and Tippani deliberately does not speak ACME: a renewal loop wakes on a timer and brings a third-party client with it, and nothing in this app wakes on a timer — its queue runs only what a person or the app's own lookup started. I approved the refusal as firmly as the feature.
 
 **Instead of.** `autocert`, which would add a dependency, a background renewal loop and an outbound obligation.
 
@@ -7710,13 +7742,13 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **Two columns, not a better value in one.** The two pictures answer different questions. A headshot is a fact about a PERSON and is the same on every title they appear in — it is what the portrait pipeline resolves and what a rename has to follow. A character image is a fact about ONE ROW: this role, in this work. Overwriting `image_url` with it would put a costume on the actor's identity everywhere, and the first screen to notice would be a people page showing Viola Davis as somebody else. It also has to stay distinguishable from a role that genuinely has no art, which one column cannot express.
 
-**The rejected alternative was re-pinning existing titles.** It is the only thing that would give an existing library character art without the reader lifting a finger, and it costs a search-and-match against TheTVDB for every title — a network call each, from inside `Migrate()`, where a failure has to be swallowed and a wrong match cannot be reviewed. It would also overwrite provider facts on rows nobody asked about, and this repo has no background worker to do it outside a request. So a pin stays a decision the reader made, and character art arrives one title at a time on re-verify.
+**The rejected alternative was re-pinning existing titles.** It is the only thing that would give an existing library character art without the reader lifting a finger, and it costs a search-and-match against TheTVDB for every title — a network call each, from inside `Migrate()`, where a failure has to be swallowed and a wrong match cannot be reviewed. It would also overwrite provider facts on rows nobody asked about, and an upgrade is nobody asking: nothing here wakes on a timer, and the queue runs only what a person or the app's own lookup started. So a pin stays a decision the reader made, and character art arrives one title at a time on re-verify.
 
 **What that costs, plainly: an upgraded library sees no character art until each title is re-verified.** The mitigation is the notice rather than the fix — the Metadata screen's Sources section says how many titles are still pinned to TMDB alone, and stops saying it when the count reaches zero. Self-clearing, so there is no dismissal to store and none to go stale.
 
 **A fresh install is never told.** A notice about a change you never lived through is a sentence the interface made up, so the notice is gated on a marker written by a one-time pass that only fires on a database which already existed (`OneTimeEnv.FreshInstall`). That guard needed its own test: on a genuinely fresh database the pass writes nothing whether the guard is there or not, so inverting it left the obvious test green.
 
-**A TMDB refetch must not erase what TheTVDB found**, and this is the one way the feature can be lost. TMDB sends an empty character image for every row of every title, and `/metadata/fill` applies refetches in bulk and unattended — so under plain assignment a single fill would blank every costume in a library and report success. The `CASE WHEN ? <> ''` guards in `updateProviderCastRow` and `updateCastRowFacts` are what make the two providers additive over a row's life instead of the last fetch winning.
+**A TMDB refetch must not erase what TheTVDB found**, and this is the one way the feature can be lost. TMDB sends an empty character image for every row of every title, and a fill applies refetches in bulk and unattended — so under plain assignment a single fill would blank every costume in a library and report success. The `CASE WHEN ? <> ''` guards in `updateProviderCastRow` and `updateCastRowFacts` are what make the two providers additive over a row's life instead of the last fetch winning.
 
 **Verified without reaching the API.** The environment this was written in blocks `thetvdb.github.io`, `api4.thetvdb.com` and `thetvdb.com`, and the repo's own TheTVDB fixture is hand-written without the field — so "the character record has an `image`" could not be confirmed from either. It was established from the generated types in a published client package instead: `ICharacter` declares `image: string`, and `IMovieExtendedRecord`, `ISeriesExtendedRecord` and `IPeopleExtendedRecord` all embed `characters: ICharacter[]` — which are the endpoints this app already calls.
 
@@ -8083,7 +8115,7 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **Why the panel was not enough.** 2.2.3 made the People panel call `POST /cast/{id}/image`, which was the first caller that route had ever had. But the panel is not where character faces appear in quantity — a work's board of lines is, and a reader who never opens People saw exactly the empty chips they had reported. Fixing the reported symptom on the surface that does not show it is a fix that reads as complete and is not.
 
-**It costs nothing when there is nothing to do**, which is what makes it safe to do on a page rather than behind a button: `GET /movies/{id}` already carries both image fields on every cast row, so the page can answer "is anything missing" without asking anyone, and only then goes for the ids. Serial and capped for the reason the panel's is. The page is told once, at the end, and only if something arrived.
+**It costs nothing when there is nothing to do**, which is what makes it safe to do on a page rather than behind a button: `GET /movies/{id}` already carries both image fields on every cast row, so the page can answer "is anything missing" without asking anyone, and only then asks. Serial and capped for the reason the panel's is. The page is told once, at the end, and only if something arrived. **Since 3.1.0 the asking is one request the server does whole** — `POST /movies/{id}/cast/art`, shared with the headshots (*The route was right and nothing was asking*, below) — where the board went for each role's id itself, one `POST /cast/{id}/image` at a time.
 
 <sub>2.2.4 — `web/frontend/src/cast.jsx` · `web/frontend/src/Movies.jsx`</sub>
 
@@ -8316,7 +8348,7 @@ away.
 
 ### The route was right and nothing was asking
 
-**Decided.** `usePortraitFill` fetches the portraits a screen is about to draw.
+**Decided.** A work page asks for the portraits it is about to draw. Since 3.1.0 it asks in one request, `POST /{books|movies}/{id}/cast/art` (`useCastArt`), which also carries the character art; the server fetches both serially under the caps below, within about forty-five seconds, and answers how many of each arrived.
 
 **The second time this exact shape has been found**, and the first was 2.2.3's
 `useCharacterArt`: `POST /cast/{id}/image` had been written so "a client may call this for
@@ -8337,11 +8369,20 @@ obvious version re-asks on every render for the people with no findable portrait
 most minor credits, for ever. And `onFilled` only when something arrived, because a reload
 that changes nothing is a request and a re-render, and that is how a quiet loop starts.
 
+**3.1.0 moved the loop onto the server, and the restraints split between the two.**
+`usePortraitFill`, `useCharacterArt` and the cast panel's `fillImages` were three loops in the
+browser, a request per picture — twenty roles and twenty actors were forty outbound fetches
+the moment a film opened, each its own record, and a parent's refetch part-way cut a loop
+short. Serial and capped at twenty is the server's now. Asked once per name per mount, and
+`onFilled` only when something arrived, stay the page's, and one request is in flight per
+work, so the film board and the Details panel on one page join the same one and both hear
+its answer.
+
 **Deliberately not wired to authors and directors yet.** An author resolves through Open
 Library, one outbound lookup each; firing twenty of those when a shelf opens is a
 different decision from this one and should be made on its own.
 
-<sub>2.2.8 — `web/frontend/src/credits.jsx` · `web/frontend/src/cast.jsx` · `web/frontend/src/Movies.jsx`</sub>
+<sub>2.2.8; one request 3.1.0 — `web/frontend/src/cast.jsx` · `web/frontend/src/Movies.jsx`</sub>
 
 ### v3 — the materials release, decided before it was started
 
@@ -11406,11 +11447,12 @@ after the measurement was put to them: **neither gesture** — not a `pointerdow
 not a row entering a moving viewport — and the wait removed instead.
 
 **Why that is not merely "not yet".** `docs/plans/prefetch-and-loaders.md` establishes that
-this repo's "no background fetching, ever" is about the SERVER fetching third-party metadata
-on a schedule, and that same-origin requests without a press are already ordinary here —
-`warmScreens` prefetches route chunks on idle, `usePortraitFill` fires up to twenty
-unrequested portrait calls, and the search vocabulary loads on first focus. So nothing
-written down forbade this. What killed it is narrower and worse: **`GET /characters/{id}`
+this repo's "no background fetching, ever" (§6's words until 3.1.0 made them "nothing
+fetches on a schedule, ever") is about the SERVER fetching third-party metadata on a
+schedule, and that same-origin requests without a press are already ordinary here —
+`warmScreens` prefetches route chunks on idle, a work page asks for up to twenty portraits
+nobody requested (`usePortraitFill` then, one `cast/art` request since 3.1.0), and the
+search vocabulary loads on first focus. So nothing written down forbade this. What killed it is narrower and worse: **`GET /characters/{id}`
 WRITES.** `fillLineFaces` → `loadCharacterImages` → `adoptQuoteCharacters` opens a
 transaction and inserts up to twelve `work_cast` rows, adopting characters a work's quotes
 name but its cast list does not. Deliberate on a deliberate press; on a `pointerdown` it
@@ -12126,6 +12168,232 @@ links with anyway. And the scope value is `quotes`, not `utterances`: the struct
 
 <sub>Unreleased — `internal/httpapi/search_handler.go` · `search_decade_test.go` ·
 `web/frontend/src/SearchPage.jsx` · `test/dom/decade-quotes.test.jsx` (new)</sub>
+
+## 18. Jobs and Logs
+
+3.1.0 moved every routine a reader starts off their tab and onto the server, and began keeping the app's log in its own database: each job's lines, the system log, and a job for every request that looked outward, for thirty days, read in Settings › Jobs. The plan that asked for it was `docs/plans/jobs.md`, a task list with my answers of 27 September and the three asks I made as the release began; it is folded in here and deleted, and git has it as it stood at `aae3f761`. Entries elsewhere that it changed are corrected where they stand, each with its reversal: in §1 the line about timers and the one about the network, in §3 the `synchronous` entry, the pool and the shutdown sequence, in §11 the upload's deadline, and in §16 the redaction list.
+
+### What each of the plan's tasks became
+
+| The plan's task | What shipped |
+|---|---|
+| Run every routine a reader starts on the server, so it survives leaving the screen or closing the tab. | Fill gaps, Fetch covers, People's Fetch missing, re-verify's check and its apply, and Back up now are six kinds of queued job: `fill`, `covers`, `people`, `reverify`, `reverify-apply` and `backup`. The screen that pressed watches its job while it is up; leaving stops nothing, and Settings › Jobs has the job either way. |
+| Reword the invariant "no goroutine outlives its request". | In `CLAUDE.md`, verbatim, and in §1. |
+| Make a job of every time the app looks outward: bulk fetches and re-verify, imports and backups, automatic lookups, and single manual lookups. | The queued kinds are jobs by construction. Any other request that looks outward becomes a job the moment its first outward call is logged, its kind read from the route it matched (`jobkinds.go`). Imports, a restore, a reset, the safety copy, an update's apply and the API's `POST /admin/backup` name themselves as jobs, because each is worth a record even when it looks nowhere, and so does the daily deck; single sign-on is kept under its own kind, `signin.oidc`, whenever it asks the provider. A call no job claims goes in the system log, tagged `[outbound]`. |
+| Give every job its own detailed log: what was searched, where, and every outbound request, grouped by job. | What was searched is the job's subject — a title, an ISBN, a name, a file — kept as data. Its lines are one per outward call, `GET api.themoviedb.org/3/search/movie?query=Dune&api_key=… → 200 · 312 ms · 14 B` or `→ refused (offline)`, and for a queued kind one per item, saying what came of it. |
+| Mark a job still running at boot as interrupted, keep its log, and offer a one-press rerun. | `Runner.Boot`, which `serve()` alone calls, marks every running or waiting row interrupted, with a line saying which it was. Run again is offered to the job's owner where the kind can be run again. |
+| Add a Settings › Jobs tab. | The last section, for every reader: the sixth for an admin, the fifth for a reader, who has no Server. |
+| Current jobs: one expandable card, each job showing its live log. | One card that folds to its head. The running job opens on its live log, which follows the newest line until the reader scrolls up; a waiting job is one line, "Waiting — 2 jobs ahead". |
+| Past jobs: a second card with state (succeeded, failed, interrupted), details, and log export. | Chips over the four ways a job ends (stopped is the fourth). A row opens to who started it (for an admin), when, how long, its counts and its error, its log, Export, Run again, and Review findings for a re-verify whose findings are not yet applied. |
+| System logs: a separate card holding the app's own logs (every level, including the request lines for inbound reads and writes), kept across restarts. | An admin's card: every line `olog` writes, the standard logger's, net/http's own, and a line per request. |
+| Filter system logs by level, time range and keyword. | Level chips (error, warning, info, request, file, trace, all but the last two on), the app's own `Select` for the last hour, 24 hours, 7 days or 30 days, and the keyword typed into the shell's search bar while the section is open, mirrored by a field in the card on a desk. |
+| Export as Markdown both ways: exactly what the filters show, or everything retained. | Both. "What is shown" is every line the filters select, not the page on screen. A job's log exports the same way. |
+| Keep 30 days of jobs and logs, pruned when a job or log line is written and when the tab opens, with no timer. | Thirty days, and at most a million system lines. The prune rides the log writer (below), and the tab's first read asks for one. Every read stops at thirty days whether or not the prune has run. |
+| Store jobs, job logs and system logs in the app's SQLite database; stdout and stderr keep working for `docker logs`. | Three tables in migration 0079. The terminal's lines are what they were, the access line's full URI included. |
+| Users see their own jobs; an admin sees every user's jobs and the system logs. | Every read is scoped, and another reader's job answers 404 wherever it is asked for. An admin sees each job under the name it was started with. |
+
+My answers of 27 September:
+
+| The answer | What shipped |
+|---|---|
+| The invariant's new wording, verbatim: *"nothing runs unless a person or the app's own lookup started it, and nothing wakes on a timer."* | As above. |
+| One job runs at a time across the server; the rest queue in the order started, and a waiting job says it is waiting. | One worker, claiming the oldest waiting job by id. Every job carries `ahead`, how many jobs are before it across every reader — a number, not rows, so nobody sees whose — and every screen that shows a waiting job says it. |
+| Single manual lookups run in their request, as fast as today and never queued behind a bulk run, and each is still recorded as a job with its log. | A request's job is held in memory and written after the answer has gone (*A lookup in a request is a job written from memory*). |
+| A Stop button on a running job: it stops after the item in hand, the job is kept as stopped with its log, and it can be rerun. | Stop on each job, and Stop all. A waiting job is stopped before it starts. A Stop that lands while a job's last item is in hand lets that item finish, and the job reads succeeded, not stopped, because it did everything it was given. Run again is offered after a success only where the kind offers it after any success, which is every kind but the review's apply. |
+| Ship as 3.1.0. | This release. |
+
+My asks as 3.1.0 began, the same day:
+
+| The ask | What shipped |
+|---|---|
+| Two hooks feed the logs: one in the outbound gate, one in the request logger. | `outbound.SetObserver`, which the gate calls after every round trip and every refusal, and the request logger's kept line and in-request job (*Two hooks write the job lines*). |
+| System logs on their own database connection at `synchronous=NORMAL`, so logging every request costs no disk sync. | `Store.LogDB`, one connection, written only by the log writer (§3). |
+| Jobs is a tab on a desk and a tile on the phone's Settings index; the tile holds one red Stop all, with a confirmation, and a count of queued jobs. | The tile is the Current jobs card drawn compact: how many are waiting, with its glyph and its word, and a red Stop all behind a confirmation that says what happens to the running job and to the waiting ones. |
+
+### One job at a time across the server, and the table is the queue
+
+**Decided.** The queue is the `jobs` table. A press checks and inserts a waiting row in one transaction; one worker claims the oldest waiting row with a single `UPDATE … RETURNING`, runs it, and records its end before it claims the next. A reader may have five jobs waiting or running at once; the same kind with the same params pressed twice is one job, and the second press is told which; a reader pressing an admin's kind is refused. Before the finishing write the worker waits, up to 2 s, for the job's own lines to be written, so a job never reads finished with its last lines missing. Stop is a compare-and-set on a waiting row, and on the running one a flag its item loop reads between items. One line per finished job goes to the terminal: `[jobs] #12 Fill gaps in 40 works for aro succeeded in 2m3s (40/40)`.
+
+**Why.** My rule, and the box's: one at a time is what keeps a fill of two thousand works from being two thousand works times however many readers pressed at once. A table survives what a channel does not — a crash, a restart — as rows `Boot` can mark interrupted and a reader can run again.
+
+**Instead of.** A goroutine per job with a channel for the queue: its order and its contents are gone on a restart. A pool of workers, which my rule forbids.
+
+<sub>3.1.0 — `internal/jobs/runner.go` · `internal/jobs/job.go` · `internal/httpapi/jobs_kinds.go` · `internal/store/migrations/0079_jobs.sql`</sub>
+
+### The worker and the log writer exist only while there is work
+
+**Decided.** Nothing starts either goroutine in `internal/jobs` but work. The worker is started by the press that finds none running and exits when it finds nothing to claim; the log writer is started by the line that finds none running — the boot's own lines are the first — and exits when there is nothing left to write. Each guards the moment it decides to exit against work arriving in that same moment — one mutex over whether it is alive and whether work is waiting — so a job queued, or a line logged, just as the worker or the writer looks and finds nothing is never left for the next press to discover. Neither sleeps, except to back off while another connection holds SQLite's write lock.
+
+**Why.** It is §1's line kept rather than argued around: an idle server runs neither of them. The lost wakeup is the one way this shape fails, and it fails silently — a job waiting with no worker looks exactly like a job waiting behind another.
+
+**Instead of.** A worker started at boot and parked on a channel, which is simpler and is a goroutine for the life of the process. A log flusher on a ticker.
+
+<sub>3.1.0 — `internal/jobs/doc.go` · `internal/jobs/runner.go` · `internal/jobs/logbook.go`</sub>
+
+### Two hooks write the job lines, and olog's sink carries the app's own
+
+**Decided.** My two hooks, *"one hook in the outbound gate and one in the request logger"*. **The gate's**: `outbound.SetObserver` installs one function that the gate calls after every round trip, and on every refusal under `TIPPANI_OFFLINE`, with the request, the answer or the error, and the time it took; the logbook turns that into one line in whichever job the request's context carries, or into the system log when it carries none. A failure, a refusal and an answer of 400 or worse are warnings. The code that made a refused call does not log it again as an error: a lookup or a download that `TIPPANI_OFFLINE` refused is a trace line there (`logOutwardFailure`), because the operator switched the app offline on purpose and the gate's line already says so, and offline a fill logged an error for every work it was given. Any other failure is still an error, under its code. The OIDC client carries the hook without the gate (`outbound.Observed`), so sign-in's calls are in the log too; the healthcheck and the Docker Engine API are the app looking at its own machine and carry neither. **The request logger's**: `logRequests` keeps a line per request and gives every request a job to log into (the next two entries). The app's own lines reach the system log by a third route: everything `olog` writes, the standard logger's lines through a tee, and net/http's through `olog.ServerLog`, each handed to `olog.SetSink` at the level of the function that wrote it.
+
+**Why the gate and not the clients.** The gate is the one thing an outbound client here cannot be built without — `TestEveryOutboundClientCarriesTheGate` fails on one that lacks it — so an observer there hears the next client the day it is written. An observer per client is four places to remember. The line is written when the answer arrives, with the size the server declared, so a caller that never reads the body still leaves one.
+
+**Instead of.** The observer in `httpapi`, which the daily-deck command, having no server, could not install. A byte count taken when the body closes, which leaves no line at all for a caller that never reads it.
+
+<sub>3.1.0 — `internal/outbound/outbound.go` · `internal/jobs/outbound.go` · `internal/httpapi/server.go` · `internal/httpapi/outward_failures.go` · `internal/olog/olog.go` · `cmd/tippani/main.go`</sub>
+
+### What a kept request line holds, and what it leaves out
+
+**Decided.** The kept line is `METHOD /path?name=…&name=… STATUS DURATION BYTES REMOTE USER rid`: the query's names, every value that is not empty replaced by `…`, the share link's token in `/share/image/{token}` replaced by `…` however the path is spelled, and the single sign-on callback's code and state blanked with the other values. A successful GET or HEAD of a file — the SPA and its bundle, `/covers/{file}`, a reader's font — is kept at the `file` level (`asset` on the wire), which the System logs card hides until asked; a file that failed is kept as a request, because a missing cover is what somebody opens the log to find. The Jobs tab's own reads, `GET /jobs…` and `GET /admin/logs…`, are not kept at all. The terminal still gets the line it always did, full URI and all. `http.Server` takes 64 KB of headers at most.
+
+**Why.** Thirty days of what readers searched for, and of live share links, exported to whoever the operator asks for help, would be a leak with a retention policy; the names alone still tell a search from a sort. Reading the log must not write the log, or a phone left open on the tab fills it with its own polls. And now that every request is kept, Go's default of a megabyte of headers is a megabyte a stranger could make the log hold, per request.
+
+**Instead of.** The terminal's line kept as it is. An allowlist of query names safe to keep whole, which is one more list to maintain.
+
+<sub>3.1.0 — `internal/httpapi/request_log.go` · `internal/httpapi/server.go` · `cmd/tippani/main.go`</sub>
+
+### A lookup in a request is a job written from memory, after the answer
+
+**Decided.** Every request carries a `*jobs.Lazy` beside its reader. It is nothing until something logs into it — the gate's first line, or a handler's `jobs.Begin` — and then it is a job held in memory, up to 500 lines or 256 KB and then "N more lines were not kept". When the request ends, the request logger hands the logbook the row and its lines as one entry: succeeded under 400, failed with "HTTP <status>" otherwise, and a handler's panic still leaves its line and its job before net/http sees it. Nothing touches the database on the request's path. Such a job is in Past jobs and never in Current jobs, and it cannot be run again, because the request it ran in is gone. The handlers that know what was searched name it as the job's subject.
+
+**Why.** My answer: a single manual lookup runs *"as fast as today and never queued behind a bulk run, and each is still recorded as a job with its log."* A row written as the request starts, and its lines as they come, is a database write — on the library pool, a disk sync — in front of every search a reader types.
+
+**Instead of.** Queueing the lookups, which I ruled out. Writing the row first.
+
+<sub>3.1.0 — `internal/jobs/recorder.go` · `internal/httpapi/server.go` · `internal/httpapi/jobkinds.go`</sub>
+
+### Every line passes one door, and the log writer is bounded
+
+**Decided.** Every line, subject, error and string count passes one door, `clean`, before it is kept: CR and LF become `⏎`, control characters and escape sequences go, invalid UTF-8 becomes U+FFFD, every URL in it goes through `outbound.RedactText`, and it is cut at 2 KB for a request or file line and 8 KB for anything else, ending "… N bytes cut". Redaction runs before the cut, so the count is true. The buffer holds 8 MB and 16,384 lines; when it is full, the oldest line of the lowest class below the newcomer's goes — request, file and trace lines first, then info — while job lines, in-request jobs, warnings and errors stay until only they fill it, and the next batch says how many were not kept (`TIP-LOG-003`). Batches of 500 are written one transaction each on the log connection; a batch that meets a held lock is kept and retried, 50 ms doubling to 2 s, six times. `Flush` waits until every line logged before it is written, not until the buffer is empty, which under a steady stream of requests never happens. **The prune rides the writer**: 2,000 rows a chunk, each chunk its own transaction, on the first write after start and a write an hour after the last prune, whenever the tab's first read asks, and one chunk every four batches while lines keep coming, because under a flood the buffer never empties and a prune that waited for a quiet moment would never run.
+
+**Why.** One door is the only shape that makes "no key in the log" checkable: the gate's line, a provider's error text, a people fetch's first error, a request's subject and every `olog` line pass it, and whatever arrives next will too. The bounds are the log's answer to a burst it cannot keep up with — a crawler, a script, many readers at once — and the drop order keeps the lines somebody opens a log to read.
+
+**Instead of.** A writer per caller, which puts a database write, and a disk wait, on every request's path. A flusher on a ticker, which the invariant forbids. A prune per line written, which is a `DELETE` for every line kept.
+
+<sub>3.1.0 — `internal/jobs/clean.go` · `internal/jobs/logbook.go` · `internal/jobs/prune.go`</sub>
+
+### A generation guards every owner across a file swap
+
+**Decided.** The store counts its swaps — each restore, recovery and factory reset — as a generation. `requireAuth` reads it before it resolves the session, and the id on every job row and line travels with the generation it was read under. An in-request job whose generation is stale when it is written lands with no owner, which makes it the admin's; a job line from another generation is not written into this file; a press made across a swap is refused as busy, and the same press again goes ahead. A job is also written under an account only while that account exists under that name — the check is inside the transaction that adds the row — so the worker's check at the claim can be by id alone, with 0079's trigger clearing `user_id` on every job of an account that is deleted.
+
+**Why.** `users.id` is reused, and a restore can put anybody behind an id. Reading the generation before the session is the order whose only failure is a good id dropped as stale; read after, an old id would pass for whoever holds it in the restored file. Checking the name at the claim as well, which the design first asked for, would fail a waiting job whose owner renamed themselves.
+
+**Instead of.** Rewriting `jobs.username` on a rename: the column records who started the job. A foreign key with `ON DELETE SET NULL`, which is also checked on insert and would fail a whole batch of the log over one row whose account went in the meantime.
+
+<sub>3.1.0 — `internal/store/store.go` · `internal/jobs/logbook.go` · `internal/jobs/runner.go` · `internal/store/migrations/0079_jobs.sql`</sub>
+
+### Archives leave the history behind, and a restore keeps the server's own
+
+**Decided.** Every archive is stripped — the kept backup, the API's, and the safety copy a restore or reset insists on: after `VACUUM INTO`, `StripJournal` empties the three tables on a private handle, writes the snapshot again with `VACUUM INTO` a sibling file and renames that over it, so no deleted row survives in a free page. A restore carries the replaced server's history into the restored file (`CarryJournal`, the swap's last step, with the log writer held off): the three tables copied with their ids, a job's owner kept only when the restored accounts hold that id under the name the job was started with or under the name the account had on the server being replaced, and a running or waiting job marked interrupted. A carry that fails logs `TIP-BACKUP-009` and the restore goes ahead with no history; a strip that fails fails the backup (`TIP-BACKUP-008`). A factory reset takes the history with everything else, and the reset's own job is the only row of the empty file.
+
+**Why.** The history belongs to the server, not to the library. A million request lines would be most of a small library's archive, and a restore that brought back an older history would reuse job ids that the queue, the log writer and a reader's open screens are still using.
+
+**Instead of.** `secure_delete`, which overwrites the deleted cells and keeps their pages, so the archive would carry the full size of the log it had just emptied. A plain `VACUUM` in place, which needs a writable temp directory and two to three times the snapshot's size.
+
+<sub>3.1.0 — `internal/store/journal.go` · `internal/store/swap.go` · `internal/httpapi/backup_handlers.go`</sub>
+
+### A restore, a reset, a search rebuild or an update waits for the running job
+
+**Decided.** Each runs inside `Runner.Exclusive`. While a job runs it is refused with 409 and *"A job is running. Stop it in Settings → Jobs, or wait for it to finish."*; while it runs, no job starts, and a press is refused as busy. A job that is only waiting does not stand in the way — a restore interrupts it as it carries the history over, and a reset empties the table — and the restore and reset prompts say so before step one. A restore is held from before its upload is read, and an update through its pull. A claim the worker is in the middle of is waited out rather than counted as a running job. An update that has launched its recreater keeps the queue shut after its own hold ends — a press, a restore, a reset, a rebuild or a second update answers 503 — until the container is replaced, and for five minutes at most: a server still running then was not replaced, and the next press opens the queue with no timer (`Runner.Retire`).
+
+**Why.** Each pulls the ground from under a job in the middle of an item: a restore and a reset swap the files, a rebuild can escalate to a whole-file recovery, and an update recreates the server. Holding from before the upload means a job cannot start during a long upload and fail the restore at its last step.
+
+**Instead of.** The hold around the swap alone, whose refusal would come after the whole upload. Refusing while anything waits, which would make an admin empty the queue to restore. Queueing a restore as a job, which would swap the database under the queue it was waiting in.
+
+<sub>3.1.0 — `internal/httpapi/jobs_exclusive.go` · `internal/jobs/runner.go` · `internal/httpapi/backup_handlers.go`</sub>
+
+### Deleting a reader stops their jobs and waits for the item in hand
+
+**Decided.** Deleting an account stops its jobs first — the waiting ones at once, the running one after its item — and then waits up to ten seconds for the worker to let go of that account's job. A job still running then refuses the delete with 409, saying it has been asked to stop, and the next press goes ahead. From the moment the delete begins until it ends, the account can start no job — its session still works until the account goes, so a press answers 400 — and a refused delete lets it start them again. The history stays, handed to the admin by 0079's trigger.
+
+**Why.** The queue checks a job's owner when it claims it, not while it runs, and a job still running under a deleted id could write into rows scoped by the id the next sign-up is given.
+
+**Instead of.** Stopping them after the delete, when the trigger has already cleared the owner the jobs are found by. Refusing at once while a job runs, which would make nearly every such delete a second press for nothing.
+
+<sub>3.1.0 — `internal/httpapi/admin_handlers.go` · `internal/jobs/runner.go`</sub>
+
+### The server stores data, not prose
+
+**Decided.** A job's row holds a kind, a subject and counts. The title and the summary a reader sees — "Fill gaps", "9 fields filled · 1 failed", "Waiting — 2 jobs ahead" — are composed in the app, from `settings.jobs.kind.*` and its siblings, in the reader's language; a kind the screen does not know yet reads "Job". The server keeps one English name, `jobs.Title`, for the two places no locale reaches: the line it prints when a queued job ends, and the heading of an exported log.
+
+**Why.** A title column would be prose in one language in the database, stale the day a wording changes, and the screens would have to ignore it for every reader not reading English.
+
+**Instead of.** A title written with the row. A table of names in `httpapi` beside the export, which the runner cannot import.
+
+<sub>3.1.0 — `internal/jobs/title.go` · `web/frontend/src/jobs.js`</sub>
+
+### A kind's counts are made once, when its result is stored
+
+**Decided.** Each queued kind says what its counts are — fill `{fields, failed, unpinned}`, covers `{fetched, enriched, failed, skipped}`, people `{ok, failed, first_error}`, reverify `{items, changes}`, reverify-apply `{applied, skipped, failed}`, and none for a backup — and storing a result writes its counts beside it, in their own column. A list reads that column and never the result.
+
+**Why.** The first build made the counts in SQL from whatever the result held, which dropped the one string among them (a people fetch's first error), turned a re-verify's findings into a bare length, and ran `json_each` over up to 8 MB a row on every poll of the list.
+
+**Instead of.** Teaching that query each kind's field names, which is still a scan of every result on every read, with the meaning of a kind's counts in a query rather than beside the kind.
+
+<sub>3.1.0 — `internal/httpapi/jobs_kinds.go` · `internal/jobs/job.go` · `internal/store/migrations/0079_jobs.sql`</sub>
+
+### An export is what the filters select, in a fence nothing inside can close, read in batches
+
+**Decided.** A job's `log.md` and the system log's `logs.md` are Markdown: a heading (a job's English title, in a code span), a line naming the version, the export time in UTC and the filters, or "everything kept, 30 days", and then the lines in one fenced block whose fence is longer than any run of backticks in them, measured over exactly the lines written. "What is shown" is every line the filters select, oldest first, not the page on screen, over the window the list was read over. That window is the server's: the card asks for its range as a length of time (`since`), which the server ends at its own now, and the list's answer names the window it read, its start and its newest line (`from` and `upto`), which the next page and "What is shown" send back. A window that ends before it starts is refused. The lines are read 2,000 at a time by id, each batch closed before any of it is written, and the write deadline moves a minute ahead with every 64 KB the client takes. A restore or reset between two batches ends the export with a line saying so.
+
+**Why.** An export is the file somebody is handed to read a failure from, so it has to survive whatever text a line holds and a client that reads slowly. A cursor held open while writing to a phone that had gone to sleep held one of the library's four connections, and its snapshot, with no limit.
+
+**Instead of.** Spooling the export to a file in the data directory, which needs a month of request lines' worth of disk for every export at once. Exporting the page on screen. A window from the browser's clock, which is what the card first sent: `from` and `to` from the browser's now. A browser whose clock ran behind the server's exported a file that ended before the newest lines, the ones somebody exports a log for, and the journey tier's browser, its clock fixed at 2026-01-01, was handed a file with none of the lines on its card. A line id cannot be skewed, so that is where "What is shown" ends.
+
+<sub>3.1.0 — `internal/httpapi/jobs_markdown.go` · `internal/httpapi/jobs_handlers.go` · `internal/httpapi/logs_handlers.go`</sub>
+
+### The screen polls while it is open, and the server never does
+
+**Decided.** A job's own view polls `GET /jobs/{id}?log_after=` every second while the job lives, every three seconds after ten polls that brought nothing, and not at all while the tab is hidden; Current jobs polls every 2 s while anything is current and every 10 s otherwise. Each of those reads gives up after ten seconds, so one answer that never comes cannot freeze a card. Current jobs is the whole queue in one answer, never paged, which it can be because an account has at most five jobs waiting or running. They are the reads the log does not keep.
+
+**Why.** It is the reader's screen asking while the reader is looking, which is §1's rule read the way it was meant: nothing on the server wakes, and a closed tab asks nothing.
+
+<sub>3.1.0 — `web/frontend/src/jobs.js` · `web/frontend/src/jobsSection.jsx`</sub>
+
+### Two test seams are in the binary, and neither works online
+
+**Decided.** `TIPPANI_JOBS_HOLD=1` keeps the worker from claiming anything, so every job stays waiting; `TIPPANI_LOG_HOLD=1` keeps the log writer from writing until the logbook closes at shutdown. Each is honoured only while `TIPPANI_OFFLINE` is on — a server that can reach the internet ignores both, and a test proves it — and each is named in the header of every file that uses it.
+
+**Why.** Offline, which is how every browser journey runs, a job ends in milliseconds, so "a waiting job says it is waiting" and "Stop all asks first" had nothing on screen to assert. And the test of the shutdown order caught its own bug only by chance, six or seven runs in eight, because the writer had usually written the line before the order mattered; held, a wrong order keeps nothing at all, every run.
+
+**Instead of.** Several hundred queued jobs before the signal, which widens the race without ending it.
+
+<sub>3.1.0 — `internal/jobs/runner.go` · `internal/jobs/logbook.go`</sub>
+
+### Decisions awaiting my ruling
+
+Each was built as written and put to me with 3.1.0; the line changes when I rule on it.
+
+| | The decision | Why it went this way |
+|---|---|---|
+| F1 | **Ruled, 28 September: imports and every backup queue; a restore, a factory reset, an update and the onboarding restore stay immediate.** Asked whether imports, a restore, a factory reset, an update and the API's backup should wait in the queue, I answered *"Queue imports and backups only"* — the answer whose restore, reset and update stay immediate, because they already refuse while a job runs. As first built, six kinds queued — the five loops the screens used to drive (fill, covers, people, re-verify and its apply) and the app's backup — and imports, restores, the safety copy, a reset, an update's apply, the daily deck and the API's synchronous `POST /admin/backup` were recorded as jobs but ran in their request. The ruling is not built yet; until it is, the code is as first built, and this row says so. | What went the first way: an import is one sub-second request that had already finished whether the tab stayed or not. What stays: a restore or a reset swaps the database under the queue itself. |
+| F2 | A screen's own lookups — a work page's portraits and character art, a game's voice cast on save — run in their request, as a manual lookup does. | Queued behind a bulk run, the page would sit empty for as long as the run took. |
+| F3 | An admin's Stop all stops every reader's jobs, and its confirm says so; a reader's stops their own. Run again and Review findings are the owner's alone, even for an admin. | A rerun is queued as whoever presses it, and a result is somebody's library. |
+| F4 | A kept request line has the method, the path and the query's names; the values, the share token and the sign-on code and state are blanked, and the terminal keeps the full line. Files are kept at the `file` level, hidden by default, and the Jobs tab's own reads not at all. | *What a kept request line holds*, above. |
+| F5 | Current jobs lists queued jobs only; an in-request job appears in Past jobs when its request ends. | It would be on the card for the milliseconds its request took. |
+| F6 | The phone tile's Stop all is absent, not disabled, when nothing runs or waits, and the count reads 0. | The house rule for a control with nothing to act on. |
+| F7 | Every Bengali line of the jobs work is a draft, marked `# ??` in `bn.txt` and listed in `docs/wiki/Bengali-style.md` under *From the jobs pass*. | The register is mine to settle. |
+| F8 | The fixture's Grimm line stays, as a real line checked against Project Gutenberg #11027. | It had not been checked when I ruled on the unverified lines; checked since, it is there. The whole record is the entry *The four real titles keep only the lines checked against a public-domain text*, under *A suite that read the app, and the tier that uses it instead*. |
+| F9 | `library.json` took only the 22 swapped lines from the curator's run, not a regenerated fixture. | The archive has moved since the fixture was curated: a wholesale re-run brings in lines nobody has reviewed for a public repo and drops a tag pair a journey needs. |
+| F10 | `IconJobs` is two Tabler glyphs combined: `list`, with its first bullet replaced by `player-play`. | One runs and the rest wait in order, which is the queue's whole rule. A stack of layers says "several at once", the one thing the queue refuses. |
+| F11 | Open: should the phone tile show how many are running as well as how many wait? | I asked for a count of queued jobs, and the tile shows that and no more. |
+| F12 | A fill over 2,000 works is sent as several jobs in a row, so the Pushover message at the end of a long fill comes once per job. | The cap is how long one press may hold everybody's queue. A re-verify cannot be split, because its findings are reviewed as one, so it is capped at 500 and the dialog says so before anything is checked. |
+| F13 | "The app's own lookup", in my invariant, is a screen asking for what it is about to draw — a work page's portraits and character art — and never the app deciding by itself that now is a good time. So §1's *Tippani looks outward only when a person or the app's own lookup asks* is narrower than it looks: the app may look for what is on a screen somebody opened, and for nothing else. | My sentence names the app's own lookup and does not say how far it reaches. This is how the builder read it, from what the code does: a work page asks for the faces it is about to draw. |
+
+### Where the plan turned out to be wrong
+
+| The plan | What was true |
+|---|---|
+| "Make a job of every time the app looks outward: bulk fetches and re-verify, imports and backups…", which read as one list of things to queue | Not all of it queues. A single manual lookup runs in its request, on my answer, and so does a screen's own lookup (F2). Imports were first built that way too, each one request that had already finished whether or not the tab stayed open; on 28 September I ruled that imports and every backup queue (F1). A restore and a reset could not be queued at all — they replace the database the queue lives in — so they hold the queue rather than join it. |
+| The system log holds "every level, including the request lines for inbound reads and writes" | Every request, at two levels rather than one: the files a page loads are most of the log and the least of what anybody opens it for, so they are kept at `file` and hidden until asked. And the Jobs tab's own reads are not kept at all, since the tab open on a phone would otherwise fill the log with its own polls. |
+| "Two hooks feed the logs" | Two hooks write every job's lines and every request line. The app's own lines, which the System logs card is mostly for, come from neither: they reach the log through olog's sink and a tee on the standard logger, which every one of them was already written through. |
+| "offer a one-press rerun" | Only to the job's owner, even when an admin is looking (F3), and only for the six queued kinds, since an in-request job's request is gone. A succeeded apply is not offered one — it would only find every field changed since the check — and nor is a former admin's admin job. A backup's rerun asks for the password again, because it was never stored. |
+| "each job showing its live log" | Only the running job has a live log. A waiting job has logged nothing yet, so it is one line saying where it stands. |
+| "what was searched" in each job's log | Kept as the job's subject, as data. The words a reader sees — the title, the summary, "Waiting — 2 jobs ahead" — are composed in the app, in the reader's language (*The server stores data, not prose*). |
+| The backup, one queued job like the others | Its password is checked twice: in the request, so a wrong one is a 401 before anything waits, and again by the job against the owner's password as it is by then, because the job can wait behind others for minutes while the password changes. |
+| "pruned when a job or log line is written" | Not per line — that would be a delete for every line kept — but on the first write after start, an hour after the last prune, and a chunk every four batches, because under a flood the buffer never empties. |
+| "Mark a job still running at boot as interrupted" | Waiting jobs too, since nothing resumes by itself. And a job the shutdown gave up on is interrupted, not stopped: stopped says a person pressed Stop. |
+| "a count of queued jobs" on the phone's tile | Of the waiting ones; the running job is not in the number (F11). |
+| Automatic lookups, as jobs like any other | A work page's faces became one request per page, which the server does whole — the portraits and the character art together, serially, under the old caps of twenty and twenty, shared while it is out — in place of up to forty requests from the browser, one per picture (F2). |
+| Nothing about the People row's Fetch | It became one request by record id, and the server folds the fetched links into the stored ones. The fold had lived only in the browser, and the only fold in Go split the stored text on whitespace, erasing the names readers give their links; re-verify's person links went through that fold and were erasing names on apply, and are fixed with it. |
 
 ## The Library sorts by year, and the absence leaves the number line
 
@@ -16036,11 +16304,15 @@ its own defect.
 `web/frontend/test/journeys/reading-the-metadata-console.journey.mjs`.*
 
 
-## Settings becomes five screens, and the rail it is navigated by is Metadata's
+## Settings becomes six screens for an admin and five for a reader, and the rail it is navigated by is Metadata's
 
-**Decided.** Settings is five sections — Theme, Language and font, Review, Sections,
-Server — behind `sectionRail.jsx`, which Metadata draws too. `SETTINGS_SECTIONS` names
-them and `SECTION_CARDS` says which cards each one holds.
+**Decided.** Settings is six sections for an admin and five for a reader, who has no
+Server — Theme, Language and font, Review, Sections, Server, and from 3.1.0 Jobs (§18),
+which every reader has rather than an admin alone, because everybody's fills and lookups
+are jobs — behind `sectionRail.jsx`, which Metadata draws too. `SETTINGS_SECTIONS` names
+them and `SECTION_CARDS` says which cards each one holds; a section none of whose cards is
+built for the reader looking is not drawn. The heading said "five screens" until Jobs
+arrived.
 
 **Why.** The page had grown to where the only way to find a preference was to scroll
 past every other one, and the v3 pack's answer is named sections. The old grid had a
@@ -17982,8 +18254,8 @@ of bare divs and `MonoLabel`s: Version, Channel, Make a backup and Restore now e
 their name on the left and their control on the right, as the pack draws them
 (`settings-restructured.dc.html:2749-2759`). The pack's middle backup row — a nightly backup
 — is NOT here, and its absence is recorded rather than faked: it needs something that wakes
-at four in the morning, and this repo's standing invariant is that no goroutine outlives its
-request. See `docs/plans/nightly-backup.md`.
+at four in the morning, and this repo's standing invariant is that nothing wakes on a timer.
+See `docs/plans/nightly-backup.md`.
 
 *Unreleased — `internal/httpapi/review_excluded.go`, `web/frontend/src/Settings.jsx`,
 `web/frontend/src/fonts.js`, `web/frontend/src/fontPicker.jsx`,
@@ -18563,8 +18835,9 @@ wrapper that overwrote `onBlur` would stop them committing with nothing failing.
 **GRAMMAR IS NOT HERE, AND SAYING SO IS THE POINT.** There is no browser primitive —
 `spellcheck` is words against a dictionary. Chrome can do grammar, but only via "enhanced spell
 check", which sends what you type to Google: an outbound call carrying a reader's own quotes,
-in an app whose first invariant is that it never contacts the network on its own. A local
-engine is a real option and a real cost, so it stays the owner's call.
+in an app where nothing leaves the box unless a person or a screen they opened asked for it,
+and where a call the browser made by itself would not even reach the log. A local engine is a
+real option and a real cost, so it stays the owner's call.
 
 **AND THE SWEEP FOUND THE THIRTEENTH FIELD.** Twelve were wired by hand across four add
 surfaces; `prose-fields-are-checked.test.js` derives the list from the BINDING — a box bound to
@@ -19352,8 +19625,8 @@ no miss since, which is where "start new lines at Mastered" puts a line; the wor
 thing in the app. Both are earned by answering the quiz in `TestWidgetReportsTheFourNumbers`.
 Mutation: dropping the rung and lapse conditions from the mastered query reports 2 for 1.
 
-**The daily message has no timer in the app.** The approved decision "No background jobs,
-pollers, tickers or cron" settles it — the host's cron is "the user's timer and not mine": `tippani notify daily` is run by
+**The daily message has no timer in the app.** The approved decision *Nothing wakes on a
+timer* (§1) settles it — the host's cron is "the user's timer and not mine": `tippani notify daily` is run by
 the host's cron, and `notify_settings.last_daily_day` makes a cron that fires twice send once.
 It counts the deck with `dailyDeck`, the function `GET /review/daily` now calls, so the phone
 and the screen cannot disagree about how many cards wait. Mutation: removing the
@@ -19361,13 +19634,15 @@ and the screen cannot disagree about how many cards wait. Mutation: removing the
 
 **What else sends, and why those.** The rule was: the reader has plausibly left the screen, and
 the thing is finished or waiting on them. A large import (50+ quotes) when it is staged and when
-it is approved; a long metadata run (20+ works) — the whole-library cover refetch on its last
-chunk, and a bulk fill whose client names the run's size on its last chunk because no single
-15-item request knows the run is over; and a written backup archive. Rejected: a message per
-quiz answer, per metadata fault, or on update availability — each either happens while the
-reader is looking at it or is a nag rather than news. Messages are sent inside the request
-that finished the work, after the response is flushed, with a five-second timeout and never in
-a goroutine — nothing outlives its request. A failing Pushover logs `TIP-NOTIFY-001` and never
+it is approved; a long metadata run (20+ works) — a covers or fill job, as it ends, since from
+3.1.0 the job knows the run's size and when it is over (until then the covers refetch sent it
+on its last chunk, and a bulk fill's client named the run's size on its last chunk because no
+single 15-item request knew the run was over); and a written backup archive. Rejected: a
+message per quiz answer, per metadata fault, or on update availability — each either happens
+while the reader is looking at it or is a nag rather than news. A request's message is sent
+inside the request that finished the work, after the response is flushed; a job's is sent by
+the job as it ends, on the queue's worker. Both have a five-second timeout, and neither is
+sent from a goroutine of its own. A failing Pushover logs `TIP-NOTIFY-001` and never
 fails the import that caused it. Pushover itself is gated by `TIPPANI_OFFLINE`.
 
 **Where the three live: Profile, one set per account.** The placement moved four times. The

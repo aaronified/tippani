@@ -23,7 +23,8 @@ const stuckAfter = 60 * time.Second
 // keeps the running requests in a map and names each one once when it passes
 // stuckAfter.
 //
-// NO GOROUTINE AND NO TICKER, which is the repo's rule. The sweep runs on every
+// NO TICKER, which is the repo's rule (nothing wakes on a timer), AND NO
+// GOROUTINE OF ITS OWN. The sweep runs on every
 // request's arrival, and on every health check and refused request, and the
 // Docker HEALTHCHECK calls /healthz every 30s, so a hung request is named within
 // about half a minute of passing the deadline even when nothing else arrives.

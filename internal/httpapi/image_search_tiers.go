@@ -173,8 +173,9 @@ type personPin struct {
 	// THE LINKS FIELD IS A PINNED IDENTITY IN DISGUISE. A person resolved through
 	// Open Library carries their Wikipedia article here, which is the exact
 	// article — so the Wikimedia rung can fetch a known page instead of searching
-	// a name and hoping it is not a namesake. Free text, space-separated, exactly
-	// as mergePersonLinks writes it.
+	// a name and hoping it is not a namesake. Free text, as mergeLinks writes it
+	// (merge_links.go): addresses separated by whitespace, a line's last one
+	// perhaps followed by ` | Name`, which wikipediaLinkOf passes over as no address.
 	Links string
 }
 

@@ -38,9 +38,10 @@
 // GRAMMAR IS NOT HERE, AND SAYING SO IS THE POINT. There is no browser primitive
 // for it — `spellcheck` is words against a dictionary and nothing more. Chrome can
 // do grammar, but only with "enhanced spell check", which sends what you type to
-// Google; that is an outbound call from a reader's own quotes, in an app whose
-// first invariant is that it never contacts the network on its own. A local engine
-// (harper-wasm and the like) is a real option and a real cost — a megabyte-plus of
+// Google; that is an outbound call from a reader's own quotes to a third party,
+// in an app that looks outward only when a person or its own lookup asks, and
+// then only from the server. A local engine (harper-wasm and the like) is a
+// real option and a real cost — a megabyte-plus of
 // WebAssembly, English only — so it is the owner's call, not a detail of this
 // helper. See the note in the task queue.
 import { useState } from 'react'

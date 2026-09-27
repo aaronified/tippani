@@ -522,7 +522,9 @@ func TestAStopOnARowLeftRunningDuringAClaimStillSettlesIt(t *testing.T) {
 // the runner's secrets map, because a secret let go is by design unobservable —
 // nothing outside the job that holds it can read one, and after the job ends
 // nothing can at all. Uses TIPPANI_JOBS_HOLD (HoldEnv), declared, for the one
-// path that needs a job waiting with nothing running: a restore ending it.
+// path that needs a job waiting with nothing running: a restore ending it; and,
+// before that path, waits on the runner's idle channel, since the moment the
+// worker lets go of its last job shows in no row.
 func TestASecretIsForgottenOnEveryWayAJobEnds(t *testing.T) {
 	st := openStoreInternal(t)
 	if _, err := st.DB.Exec(`INSERT INTO users (id, username, password_hash, is_admin) VALUES (1, 'aro', 'x', 1), (2, 'mitra', 'x', 0)`); err != nil {
@@ -617,17 +619,30 @@ func TestASecretIsForgottenOnEveryWayAJobEnds(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Ended by a restore while the queue was held.
+	// Ended by a restore while the queue was held. The restore comes once the
+	// worker that ended the jobs above has let go (a restore pressed while it
+	// still holds its last job is refused as busy, rightly, and that is not this
+	// case), and the hold stays on through it: cleared any sooner, a worker still
+	// on its way out could claim the waiting job first, and the restore would
+	// then be refused for the job it was meant to interrupt.
+	r.mu.Lock()
+	idle := r.idle
+	r.mu.Unlock()
+	select {
+	case <-idle:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the worker never let go after the jobs above ended")
+	}
 	t.Setenv("TIPPANI_OFFLINE", "1")
 	t.Setenv(HoldEnv, "1")
 	restored := enq(mitra, "quick", 7)
-	t.Setenv(HoldEnv, "")
 	if err := r.Exclusive(func() error {
 		_, err := st.DB.Exec(`UPDATE jobs SET state = 'interrupted', finished_at = 1 WHERE id = ?`, restored)
 		return err
 	}); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv(HoldEnv, "")
 	if n := held(); n != 0 {
 		t.Fatalf("after a restore interrupted a waiting job: %d secret(s) held", n)
 	}

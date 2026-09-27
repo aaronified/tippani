@@ -5,11 +5,13 @@
 // FOR, which is why swapping one is a one-line change here and not a search for
 // every place a family name was written down.
 //
-// EVERY FACE IS BUNDLED, NOT FETCHED, and that is not an optimisation. Tippani
-// never contacts the network on its own — no telemetry, no CDN, no phone-home —
-// and a type picker that loaded Google Fonts would be the first thing in the app
-// that did, on a screen about how your own words look. The cost is stated and
-// accepted: twelve more families in the build. It is smaller than it sounds,
+// EVERY FACE IS BUNDLED, NOT FETCHED, and that is not an optimisation. The
+// browser talks to nobody but the server it came from, and the server looks
+// outward only when a person or its own lookup asks — no telemetry, no CDN, no
+// phone-home — so a type picker that loaded Google Fonts would be the first
+// thing in the app to reach a third party from a reader's browser, on a screen
+// about how your own words look. The cost is stated and accepted: twelve more
+// families in the build. It is smaller than it sounds,
 // because @fontsource splits every face by unicode-range, so a subset is only
 // DOWNLOADED when a codepoint in its range is actually drawn. What grows
 // unconditionally is the CSS and the image on disk, not what a browser fetches.

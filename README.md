@@ -150,9 +150,11 @@ export, and encrypted backups.
 ## Light on your server
 
 - One ~29 MB binary with the interface built in. No Node, no separate database server.
-- About 30 MB of memory when idle, and nothing running in the background.
+- About 30 MB of memory when idle. Nothing runs unless somebody asked for it, and nothing wakes on a timer.
 - Covers are stored on your own disk. Metadata lookups are optional, and nothing is fetched on a timer.
-- `TIPPANI_OFFLINE=1` stops every outside connection.
+- `TIPPANI_OFFLINE=1` stops every outside connection except sign-in to your own identity provider. Every call that
+  does go out is kept in its job's log, or in the system log an admin reads, and both are read and exported in
+  Settings → Jobs.
 - Tippani was written with AI assistance and contains no AI: no model calls, nothing sent anywhere.
   [How this was written](https://github.com/aaronified/tippani/wiki/How-this-was-written).
 
@@ -193,12 +195,12 @@ save always wins. A binary you build yourself has no built-in key until you pass
 
 | Setting | Default | What it does |
 | :-- | :-- | :-- |
-| `/data` volume | `tippani-data` | Everything Tippani keeps: the database, covers, translations and backups. Must be writable by uid 65532. |
+| `/data` volume | `tippani-data` | Everything Tippani keeps: the database (your library, and 30 days of jobs and logs), covers, translations and backups. Must be writable by uid 65532. |
 | `TIPPANI_BIND` | `0.0.0.0:8080` in the image | Listen address. Publish `127.0.0.1:8080:8080` to keep it local behind a proxy or VPN. |
 | `TIPPANI_TLS_CERT` / `TIPPANI_TLS_KEY` | unset | A PEM certificate and key. Tippani then serves HTTPS itself and picks up renewals automatically. |
 | `TIPPANI_COOKIE_SECURE` | `0` | Set `1` when a proxy in front handles HTTPS. |
 | `TIPPANI_TRUSTED_PROXY` | `0` | Set `1` to trust `X-Forwarded-*` headers from your proxy. |
-| `TIPPANI_OFFLINE` | `0` | Set `1` to block every outside connection. Your library still works. |
+| `TIPPANI_OFFLINE` | `0` | Set `1` to block every outside connection except sign-in to your own identity provider. Your library still works. |
 | `TIPPANI_OIDC_*` | unset | Single sign-on. See below. |
 | `TIPPANI_PUSHOVER_TOKEN` | unset | A shared Pushover app token, so each reader only needs their own user key. |
 | `TIPPANI_DOCKER_HOST` | unset | Docker Engine address for one-click updates, e.g. `tcp://dockerproxy:2375`. |

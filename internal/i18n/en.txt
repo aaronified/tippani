@@ -70,6 +70,7 @@ settings.section.lang.info.body = The interface language, its fallback, and the 
 settings.section.review.info.body = What the daily quiz draws from, how many cards, how hard, and how the schedule moves.
 settings.section.sections.info.body = Which parts of the app you use, and their order in the navigation.
 settings.section.server.info.body = The running version, backups, and what changed in each release.
+settings.section.jobs.info.body = What is running, what is waiting its turn, and what finished in the last 30 days, each with its log. An admin also sees every reader's jobs and the app's own logs.
 
 settings.section.aria = Which settings to change
 settings.section.theme.label = Theme
@@ -77,6 +78,7 @@ settings.section.lang.label = Language and font
 settings.section.review.label = Review
 settings.section.sections.label = Sections
 settings.section.server.label = Server
+settings.section.jobs.label = Jobs
 # The information dot beside that row.
 settings.language.info.title = Language
 settings.language.info.body = English and Bengali are built in. To add another, copy data/Locales/_TEMPLATE.txt to a file like fr.txt and translate it — it appears here without a rebuild.
@@ -1217,6 +1219,8 @@ shell.search.where.settings = settings
 shell.search.where.works = works and films
 shell.search.where.characters = characters in this library
 shell.search.where.people = people in this library
+# The system logs card in Settings › Jobs takes the bar while that section is open.
+shell.search.where.logs = system logs
 shell.search.aria.screen = Search {where}
 shell.search.aria.all = Search everything
 shell.search.global.aria = Search everything
@@ -4368,6 +4372,12 @@ reverify.title = Re-verify metadata
 reverify.title.fills = Fetch empty fields
 reverify.checking.prose = Checking each item against its linked source — nothing changes until you approve it.
 reverify.checking.progress = checking · {done}/{total}
+# Under the checking bar. The check is a job on the server since 3.1.0, so
+# closing the dialog does not stop it — Cancel does, and asks first.
+reverify.checking.away = Close this and it carries on — Settings → Jobs has it.
+# Above the check when the selection was bigger than one check holds (500).
+# {kept} is that cap, {total} the selection's size; the rest are not checked.
+reverify.capped = A check holds {kept} at most, so this one has the first {kept} of {total}. Narrow the list for the rest.
 # The tally across the top once the checking is done.
 reverify.summary = {checked} checked · {changed} with changes · {clean} up to date
 reverify.summary.skipped = {n} skipped (no pinned id)
@@ -4382,6 +4392,8 @@ reverify.item.approve-none = none
 reverify.field.approve.tip = Approve this change
 reverify.column.stored = STORED
 reverify.column.fresh = FRESH
+# Under a stored value that was edited after a re-verify that ran as a job; such a field is never ticked for the reader.
+reverify.column.changed = changed since the check
 # A cast list is clamped to six; this is the tail.
 reverify.value.more = +{n} more
 # Why an item had nothing checked, or could not be.
@@ -4402,10 +4414,19 @@ reverify.flash.other = re-verify: {n} items updated
 reverify.flash.failed = {n} failed
 reverify.flash.skipped.one = {n} image skipped
 reverify.flash.skipped.other = {n} images skipped
+# Closing the dialog keeps the job; these toasts say where it went. Five words
+# or fewer, the house rule for a toast.
+reverify.kept.running = Still running · Settings → Jobs
+reverify.kept.review = Findings kept · Settings → Jobs
+# Cancel while the check runs STOPS it, which is why it asks.
+reverify.stop.confirm.title = Stop the check?
+reverify.stop.confirm.body = It stops after the item in hand, and is kept in Settings → Jobs with its log.
+# The same confirm over a check still in the queue: it has no item in hand, so
+# the server ends it before it starts.
+reverify.stop.confirm.body.waiting = It is stopped before it starts, and kept in Settings → Jobs with its log.
+reverify.stop.confirm.verb = Stop it
 error.reverify.preview = preview failed
 error.reverify.apply = apply failed
-error.reverify.interrupted = the check was interrupted — check your connection and reopen Re-verify
-error.reverify.apply-interrupted = apply was interrupted — check your connection and try again (already-applied items stay applied)
 
 # ---------------------------------------------------------------------------
 # THE FIELD'S CANDIDATES — fieldOffers.jsx. One field, and what every supplier
@@ -4684,6 +4705,11 @@ account.reset.open = Reset all data…
 account.reset.confirm.prose = Type {word} to confirm you want to delete everything:
 account.reset.submit = Delete everything & restart
 account.reset.busy = Resetting…
+# Above step one of the factory reset, read when it opens: the same refusal as
+# the restore's, and the waiting jobs go with everything else.
+account.reset.queue.running = {title} is running. The reset is refused until it stops or finishes — stop it in Settings → Jobs first.
+account.reset.queue.waiting.one = One job is waiting; a reset deletes it with everything else.
+account.reset.queue.waiting.other = {n} jobs are waiting; a reset deletes them with everything else.
 
 # The admin's list of everyone on the server. Granting is something you do to
 # others; revoking is something you do only to yourself.
@@ -5673,6 +5699,11 @@ settings.backup.file.chosen.label = {name} · {size}
 settings.backup.restore.label = Restore…
 settings.backup.toast.created = backup created
 settings.backup.toast.restored = restored · logging you out
+# A backup is a job on the server since 3.1.0; these two are how it can end
+# without an archive other than failing — stopped from Settings › Jobs, or cut
+# short by a restart. Toasts, five words or fewer.
+settings.backup.toast.stopped = backup stopped
+settings.backup.toast.interrupted = backup interrupted
 
 # ---------------------------------------------------------------------------
 # THE RESTORE PROMPT — one dialog, asking for exactly what the chosen archive's
@@ -5685,6 +5716,13 @@ settings.restore.title = Restore
 # need — the parser trims both halves.
 settings.restore.warn.prose = Replaces everything on this server — every user, library and setting — and signs everyone out. One copy of the current data is kept on the server for recovery.
 settings.restore.warn.dated.prose = Replaces everything on this server with the backup from {date} — every user, library and setting — and signs everyone out. One copy of the current data is kept for recovery.
+# Above step one of the restore prompt, read when it opens. A restore swaps the
+# database under the job queue (3.1.0), so the server refuses it while a job
+# runs, and the jobs still waiting end with the old database. {title} is the
+# running job's name, which the app composes from its kind and what it was about.
+settings.restore.queue.running = {title} is running. The restore is refused until it stops or finishes — stop it in Settings → Jobs first.
+settings.restore.queue.waiting.one = One job is waiting; a restore ends it, and it is kept as interrupted.
+settings.restore.queue.waiting.other = {n} jobs are waiting; a restore ends them, and each is kept as interrupted.
 # The account password, as against a passphrase — which is why it is not just
 # common.field.password.label.
 settings.restore.password.label = Your password
@@ -5832,6 +5870,191 @@ settings.keys.add.aria = Add the {name}
 settings.keys.replace.aria = Replace the {name}
 settings.keys.save.blank.tip = Save blank — clears this key
 settings.keys.toast.cleared = cleared
+
+# ===========================================================================
+# SETTINGS › JOBS — what the server is doing for you, and what it has done.
+#
+# A JOB is one run of something a reader started: a fill, a cover fetch, a
+# backup, a single lookup. One runs at a time across the whole server; the rest
+# wait their turn in the order they were started. Finished jobs are kept, with
+# their logs, for 30 days. The server sends a job as data — a kind, a subject,
+# some counts — and every sentence about it is composed here.
+# ===========================================================================
+
+# --- what a job is called, by its kind. `lookup-book` is the kind `lookup.book`:
+# a key cannot hold a dot inside one segment. A kind this screen does not know
+# yet is simply "Job".
+settings.jobs.kind.fill = Fill gaps
+settings.jobs.kind.covers = Fetch covers
+settings.jobs.kind.people = Fetch people
+settings.jobs.kind.reverify = Re-verify
+settings.jobs.kind.reverify-apply = Apply re-verified changes
+settings.jobs.kind.backup = Back up
+# The copy a restore or a reset asks for first, downloaded in its request and
+# kept on the server as a job all the same.
+settings.jobs.kind.backup-safety = Safety backup
+settings.jobs.kind.lookup-book = Book lookup
+settings.jobs.kind.lookup-movie = Title lookup
+settings.jobs.kind.lookup-images = Picture search
+settings.jobs.kind.lookup-portrait = Portrait lookup
+settings.jobs.kind.lookup-links = Reference page lookup
+# The People row's Fetch: one person's photo and reference links together.
+settings.jobs.kind.lookup-person = Person lookup
+settings.jobs.kind.lookup-reverify = Re-verify one
+settings.jobs.kind.lookup-cast-image = Cast picture
+settings.jobs.kind.lookup-cast-imdb = Cast from IMDb
+settings.jobs.kind.lookup-cast-tvdb = Cast from TheTVDB
+settings.jobs.kind.lookup-cast-art = Cast pictures
+settings.jobs.kind.update-check = Update check
+settings.jobs.kind.update-apply = Update
+settings.jobs.kind.metadata-test = Source test
+# Account › Notifications' "Send a test".
+settings.jobs.kind.notify-test = Test notification
+# Signing in through the operator's own provider, which looks outward before anybody is signed in.
+settings.jobs.kind.signin-oidc = Single sign-on
+settings.jobs.kind.work-save = Save a work
+settings.jobs.kind.person-save = Save a person
+# A character's picture saved from an address.
+settings.jobs.kind.character-save = Character picture
+settings.jobs.kind.import = Import
+settings.jobs.kind.restore = Restore
+settings.jobs.kind.reset = Reset all data
+settings.jobs.kind.notify-daily = Daily deck
+settings.jobs.kind.request = Request
+settings.jobs.kind.other = Job
+
+# --- the six states, as a chip and as a row's word. Queued and running are a job
+# still in the queue; the other four are how it ended. INTERRUPTED is the server
+# stopping under it — a restart, a shutdown, a restore — where STOPPED is somebody
+# pressing Stop.
+settings.jobs.state.queued = Waiting
+settings.jobs.state.running = Running
+settings.jobs.state.succeeded = Succeeded
+settings.jobs.state.failed = Failed
+settings.jobs.state.stopped = Stopped
+settings.jobs.state.interrupted = Interrupted
+
+# --- what a finished job did, one phrase per count. The screen joins them with
+# " · " in code, so each phrase carries its own word order.
+settings.jobs.count.fields.one = {n} field filled
+settings.jobs.count.fields.other = {n} fields filled
+settings.jobs.count.fetched.one = {n} fetched
+settings.jobs.count.fetched.other = {n} fetched
+# A cover fetch that also filled in a work's details on the way.
+settings.jobs.count.enriched.one = {n} enriched
+settings.jobs.count.enriched.other = {n} enriched
+settings.jobs.count.ok.one = {n} done
+settings.jobs.count.ok.other = {n} done
+settings.jobs.count.items.one = {n} checked
+settings.jobs.count.items.other = {n} checked
+settings.jobs.count.changes.one = {n} with changes
+settings.jobs.count.changes.other = {n} with changes
+settings.jobs.count.applied.one = {n} applied
+settings.jobs.count.applied.other = {n} applied
+# A work with no provider id pinned, which a fill or a re-verify cannot look up.
+settings.jobs.count.unpinned.one = {n} unpinned
+settings.jobs.count.unpinned.other = {n} unpinned
+settings.jobs.count.skipped.one = {n} skipped
+settings.jobs.count.skipped.other = {n} skipped
+settings.jobs.count.failed.one = {n} failed
+settings.jobs.count.failed.other = {n} failed
+# A running job's progress, under its title.
+settings.jobs.progress = {done} of {total}
+# How long a job took. Symbols beside digits, like the half-life's {n}h.
+settings.jobs.took.s = {s}s
+settings.jobs.took.m = {m}m {s}s
+settings.jobs.took.h = {h}h {m}m
+
+# --- a job's log, in its row. {title} is the job's name from the list above.
+settings.jobs.log.aria = Log of {title}
+settings.jobs.log.empty = Nothing logged yet.
+settings.jobs.log.trimmed = The earliest lines are in the export.
+
+# --- Current jobs: what is running and what waits behind it.
+settings.jobs.current.title = Current jobs
+# The words beside the two counts in the card's head: "1 running", "3 waiting".
+settings.jobs.current.running.word = running
+settings.jobs.current.waiting.word = waiting
+settings.jobs.current.empty = Nothing is running or waiting.
+settings.jobs.current.fold.label = Fold current jobs
+settings.jobs.current.unfold.label = Show current jobs
+# A waiting job's one line. "Ahead" counts every job before it in the queue,
+# whoever started it, the running one included.
+settings.jobs.current.ahead.one = Waiting — one job ahead
+settings.jobs.current.ahead.other = Waiting — {n} jobs ahead
+settings.jobs.current.next = Waiting — next
+settings.jobs.current.stop.label = Stop
+# Each Stop's name for a screen reader, and it says where that job stands, because
+# two jobs of one kind share a title. {title} is the job's name, with its subject.
+settings.jobs.current.stop.running.aria = Stop {title} (running)
+settings.jobs.current.stop.next.aria = Stop {title} (next)
+settings.jobs.current.stop.ahead.aria.one = Stop {title} (one job ahead)
+settings.jobs.current.stop.ahead.aria.other = Stop {title} ({n} jobs ahead)
+# Toasts are five words or fewer (ui.jsx's toast); the row itself says the rest.
+settings.jobs.current.stop.done = Stopping after this item
+settings.jobs.current.stopping = Stopping after the item in hand…
+settings.jobs.current.stop-all.label = Stop all
+settings.jobs.current.stop-all.confirm.title = Stop all jobs?
+# The confirm's body is these sentences, the ones that apply, joined in code.
+settings.jobs.current.stop-all.confirm.running = The running job stops after the item in hand.
+settings.jobs.current.stop-all.confirm.waiting.one = The one waiting is stopped before it starts.
+settings.jobs.current.stop-all.confirm.waiting.other = The {n} waiting are stopped before they start.
+# True for a reader and for an admin alike: only the reader who started a job can run it again.
+settings.jobs.current.stop-all.confirm.kept = Each is kept with its log, and whoever started it can run it again.
+# Said only to an admin, whose Stop all reaches every reader's jobs.
+settings.jobs.current.stop-all.confirm.admin = This includes other readers' jobs.
+settings.jobs.current.stop-all.confirm.verb = Stop them
+# The toast after Stop all, counting every job it reached. Nothing is said when it reached none.
+settings.jobs.current.stop-all.done.one = {n} job stopped
+settings.jobs.current.stop-all.done.other = {n} jobs stopped
+
+# --- Past jobs: everything that finished in the last 30 days, newest first.
+settings.jobs.past.title = Past jobs
+settings.jobs.past.filter.aria = Which jobs to show
+settings.jobs.past.filter.all.label = All
+settings.jobs.past.empty = Nothing has finished in the last 30 days.
+settings.jobs.past.empty.filtered = None of these in the last 30 days.
+settings.jobs.past.more.label = Load older
+# The details under an opened row.
+settings.jobs.past.who.label = Started by
+settings.jobs.past.when.label = Started
+settings.jobs.past.took.label = Took
+settings.jobs.past.result.label = Result
+settings.jobs.past.error.label = What went wrong
+settings.jobs.past.export.tip = This job's log, as a Markdown file
+settings.jobs.past.rerun.label = Run again
+settings.jobs.past.rerun.done = Started again
+# A re-verify's findings wait to be looked over; Review findings opens them on
+# Metadata, where the changes are chosen and applied. Not "Review" alone: the
+# Settings rail's Review tab is on the same desk screen, and two presses with one
+# name cannot be told apart by a screen reader or a press by name.
+settings.jobs.past.review.label = Review findings
+settings.jobs.past.review.tip = Open what it found on Metadata and choose what to apply
+
+# --- System logs: the app's own log, for an admin.
+settings.logs.title = System logs
+settings.logs.level.aria = Which levels to show
+settings.logs.level.error.label = Error
+settings.logs.level.warn.label = Warning
+settings.logs.level.info.label = Info
+# A request the server answered: a read, a save, a sign-in.
+settings.logs.level.request.label = Request
+# A file the server handed out — a cover, a font, the app itself. Off by default.
+settings.logs.level.asset.label = File
+settings.logs.level.trace.label = Trace
+settings.logs.level.last = One level has to stay on.
+settings.logs.range.aria = How far back
+settings.logs.range.hour.label = Last hour
+settings.logs.range.day.label = Last 24 hours
+settings.logs.range.week.label = Last 7 days
+settings.logs.range.month.label = Last 30 days
+settings.logs.search.placeholder = Keyword
+settings.logs.search.aria = Search the system logs
+settings.logs.lines.aria = System log lines
+settings.logs.empty = No lines match.
+settings.logs.more.label = Load older
+settings.logs.export.shown.label = What is shown
+settings.logs.export.all.label = Everything kept (30 days)
 
 # ===========================================================================
 # SHARED VOCABULARY THE LAST THREE SCREENS ASKED FOR.

@@ -124,6 +124,8 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
   // The same hook a work's card menu calls with one id. Above the early return,
   // because hooks cannot be conditional.
   const ops = useBulkOps({ kind, ids, onDone })
+  // The synchronous writes. A fill in hand is `ops.filling`, and holds only Fill
+  // gaps — see useBulkOps for why the two are apart.
   const busy = ops.busy
 
   // ESCAPE LEAVES THE MODE, because a mode you can only leave by finding a button
@@ -392,8 +394,8 @@ export function SelectionBar({ selection, rows = [], onDone, tagSuggestions = []
             // flipping quiz toggle readable once the words are clipped: a hover or
             // a long press says which way round the selection currently is.
             ariaLabel={a.label}
-            tooltip={a.id === 'fill' && busy ? t('common.action.fetch.busy') : a.label}
-            disabled={none || busy}
+            tooltip={a.id === 'fill' && ops.filling ? ops.fillStatus : a.label}
+            disabled={none || busy || (a.id === 'fill' && ops.filling)}
             onClick={() => a.run()}
           />
         )

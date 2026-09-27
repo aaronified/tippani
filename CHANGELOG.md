@@ -5,6 +5,79 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-09-28
+
+### Added
+
+- **Settings → Jobs, a new section for what Tippani is doing on your behalf.** Current
+  jobs shows what is running right now, with a live log that follows along, and a
+  waiting job says how many are ahead of it. Past jobs keeps every job that has finished
+  — its outcome, how long it took and its own log to export — and offers Run again on a
+  fill, fetch, re-verify or backup you started. An admin also gets System logs: every
+  line Tippani writes, filtered by level, a time range (the last hour, day, week or 30
+  days) and a keyword, exported as Markdown either way — just what the filters currently
+  show, or everything kept. On a phone, the Settings index carries a Jobs tile with how
+  many jobs are waiting and a red Stop all, which asks first and says what it is about
+  to stop.
+- **Fill gaps, Fetch covers, People's Fetch missing, a re-verify's check and its Apply,
+  and Back up now all run on the server now**, so they keep going if you leave the
+  screen or close the tab, and you can check on them later from Settings → Jobs. Only
+  one runs at a time across the whole server; the rest queue in order, and a waiting one
+  says so. A re-verify's findings can now be opened later, with Review findings in Past
+  jobs — if a field changed since the check, Apply leaves it alone and says why, instead
+  of overwriting it. Stop finishes the item in hand, then stops the rest of the job; one
+  stopped on its very last item is left marked finished, since it had nothing left to
+  do. A job Tippani was still running when it restarted is kept as interrupted, with its
+  log, and offered to run again.
+- **Every lookup is recorded as a job with its own log of every request that went out
+  and what came back** — a bulk fetch, a re-verify, or a single search for a cover or a
+  person's details. An import or a backup is recorded as a job too, with a log of its
+  own, though neither looks anything up, apart from the Pushover message you set up. A
+  single lookup still answers as fast as it always has: it is written down once the
+  request ends, not before. Thirty days of jobs and logs are kept, then pruned
+  automatically.
+
+### Changed
+
+- **A restore, a factory reset, a search-index rebuild or an update now waits for a job
+  in progress rather than starting underneath it**, and is refused with a pointer to
+  Settings → Jobs; the restore and reset prompts say so before their very first step, so
+  you find out before you begin, not partway through. A restore upload that stops
+  arriving for a minute is given up, with nothing changed — upload the file again.
+- **A film, show or game's cast portraits and character art now arrive in one request**,
+  rather than one browser request per picture.
+- **People's Fetch, and Fetch missing, now do the whole job on the server**: resolving
+  the record, downloading the portrait, and folding any newly found links into the ones
+  already saved, in a single step.
+- **A re-verify checks at most 500 works and people at a time, and says so before it
+  starts.** In 3.0.4 the browser checked any number of them in chunks with no limit;
+  because a re-verify's findings are reviewed as one, a larger selection now takes its
+  first 500 and asks you to narrow the rest.
+- **Fill gaps sends a selection over 2,000 works, and People's Fetch missing over 2,000
+  people, as consecutive jobs**, queued one after another, instead of one open-ended run
+  in the browser.
+
+### Fixed
+
+- **Re-verifying a person no longer erases the names you gave your own links.** The
+  fold that merges freshly found links into the ones you saved used to split the whole
+  field on whitespace, so a line such as `https://example.org | My favourite` came back
+  with the name gone; it is fixed, including for an address with a bare `%` in it, such
+  as a sale page's URL.
+- **Metadata's Fetch no longer fills its progress bar before a single film poster is
+  fetched.** The pass counted the films it had not reached yet, from the last book's
+  position, as already done, so the bar could read complete before any poster
+  arrived.
+- **A failed restore's rollback no longer risks your live library.** If moving a file
+  aside hit a transient snag partway through (a locked file, a flaky network mount), the
+  rollback used to sweep everything left in your data directory — the live database
+  included — into a failed folder before putting the moved files back. It now leaves
+  alone whatever the move never reached.
+- **A failed lookup no longer shows your provider key.** When a request to a source such
+  as Google Books or TMDB failed outright, not just a bad reply, the error text could
+  carry your API key in the address — in Metadata → Sources, and in the server's own
+  logs. It is blanked now, wherever a request can fail.
+
 ## [3.0.4] - 2026-09-26
 
 ### Fixed

@@ -1,5 +1,12 @@
 package httpapi
 
+import (
+	"context"
+	"strings"
+
+	"tippani/internal/jobs"
+)
+
 // WHAT KIND OF JOB A REQUEST IS, WHEN IT BECOMES ONE.
 //
 // A request becomes an in-request job when it looks outward (the outbound hook
@@ -31,10 +38,8 @@ var jobKinds = map[string]string{
 	"POST /cast/{id}/image":       "lookup.cast-image",
 	"POST /movies/{id}/cast/imdb": "lookup.cast-imdb",
 	"POST /movies/{id}/cast/tvdb": "lookup.cast-tvdb",
-	// A work page's pictures, fetched on screen as it opens, by the route the
-	// conversions add (the work page's lookups moving onto the server). Keyed
-	// here ahead of it: nothing in this tree is registered under either
-	// pattern, so neither entry matches a request yet.
+	// A work page's pictures, its pending role pictures and headshots in one
+	// request (cast_art_handlers.go).
 	"POST /books/{id}/cast/art":  "lookup.cast-art",
 	"POST /movies/{id}/cast/art": "lookup.cast-art",
 
@@ -47,8 +52,11 @@ var jobKinds = map[string]string{
 	"PUT /people/id/{id}":        "person.save",
 	"PUT /characters/{id}/image": "character.save",
 
-	// The loops the screens still drive one request at a time. Named as the
-	// queued kinds that replace them are, so the two read alike in Past jobs.
+	// The chunked routes an API caller loops, which the app's own Fill gaps and
+	// Fetch covers stopped looping in 3.1.0, and the single apply the field-offers
+	// panel sends when a reader takes a supplier's value for one work. Named as
+	// the queued kinds that replaced the screens' loops are, so the two read alike
+	// in Past jobs.
 	"POST /metadata/fill":           "fill",
 	"POST /covers/refetch":          "covers",
 	"POST /metadata/reverify/apply": "reverify-apply",
@@ -82,3 +90,21 @@ var jobKinds = map[string]string{
 // jobKind is the kind for a route pattern, or "" for one the table does not know
 // (jobs.Lazy then keeps it as "request").
 func jobKind(pattern string) string { return jobKinds[pattern] }
+
+// jobSubject names what the request's job is about — the title, the ISBN, the
+// name the reader typed — when the request is part of one, and does nothing
+// otherwise. Data, not prose: the Jobs tab composes the title around it in the
+// reader's language, and an empty subject leaves whatever was named before.
+//
+// ONLY A HANDLER CALLS IT, at its entry point. The functions a handler shares
+// with a queued job (fetchPerson, reverifyBook, …) never name a subject: in a
+// job, the recorder in the context is the job itself, and naming it after each
+// item would rename a job of five hundred items five hundred times.
+func jobSubject(ctx context.Context, subject string) {
+	if subject = strings.TrimSpace(subject); subject == "" {
+		return
+	}
+	if rec := jobs.From(ctx); rec != nil {
+		rec.Subject(subject)
+	}
+}

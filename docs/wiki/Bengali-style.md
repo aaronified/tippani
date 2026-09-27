@@ -992,9 +992,66 @@ constraint was length as much as sense.
 | invisible (of a character) | অদৃশ্য | Everyday, and exactly the point: the character is there and cannot be seen |
 | dot (of an ellipsis) | ডট | The rule's copy names three dots rather than borrowing “ellipsis”, which nobody says. v3: ডট, like every other dot |
 
+### From the jobs pass (3.1.0, Settings › Jobs)
+
+Settings grew a sixth section for the server's queue and its logs. Each row here is
+marked `# ?? ` at its key; the rest of the section's words are the sheet's own
+(থামান, আবার চালান, এক্সপোর্ট, অপেক্ষার তালিকা, বাকি).
+
+| English | Bengali | Reason |
+| --- | --- | --- |
+| job (one run of a fill, a fetch, a backup) | কাজ | The everyday word — *ব্যাকআপের কাজটা চলছে*. The table above already gives কাজ to an arithmetic *operation* in a mono Select; the two never share a screen |
+| log (a job's, the server's) | লগ | The word a programmer says aloud; খাতা stays the read log's ledger (§3.6), which is a record a reader keeps, not one a machine writes |
+| level (of a log line) | স্তর | Names the error / warning / info tiers as a group; each chip names its own tier |
+| request (an HTTP request, as a log level and a job kind) | রিকোয়েস্ট | অনুরোধ is a favour asked of a person, which is not what a browser sends |
+| failed (a job's end, on a chip) | ব্যর্থ | Short enough for a chip. A *count* of failures keeps the sheet's পারা গেল না, which is a sentence |
+| Review findings (a past re-verify's button, `settings.jobs.past.review.label`) | যা পাওয়া গেছে, দেখে নিন | Not রিভিউ, which is the Settings rail's tab on the same desk screen. যা পাওয়া গেছে is *Findings kept*'s own phrase (`reverify.kept.review`); দেখে নিন is the sheet's verb for looking a thing over before it is taken, as the staging card's is. Marked `# ?? draft for the owner (3.1.0)` |
+
+A waiting job is **বাকি** in a count and **অপেক্ষার তালিকায়** as a state — the job is in
+the queue, and nothing inanimate is said to wait (v3.7).
+
 **Already in `bn.txt` from an earlier pass and therefore NOT marked**, listed only so
 nobody re-decides them: Updates আপডেট · Changelog চেঞ্জলগ · version ভার্সন · release
 রিলিজ · cookie কুকি. **Changed in v3:** API key and archive key are both **চাবি** (কি was a homonym of the question particle, and the two keys are one idea) · pair / unpair **পেয়ার করুন / আনপেয়ার করুন**.
+
+#### The screens that start a job (the callers)
+
+Sentences, not terms: the lines the re-verify dialog, the backup and the restore and reset
+prompts say now that their work runs on the server's queue. Each is drafted to this sheet
+and marked `# ?? draft for the owner (3.1.0 jobs callers)` at its key, with what to check;
+`grep -n 'jobs callers' internal/i18n/bn.txt` lists them. Where a sibling already said the
+same fact, the draft reuses its words — *হাতেরটুকু সেরে থামবে* and *শুরুই হবে না* are the
+Stop all confirm's, *মাঝপথে থেমেছে* is the interrupted state's chip.
+
+| Key | English | Bengali |
+| --- | --- | --- |
+| `reverify.checking.away` | Close this and it carries on — Settings → Jobs has it. | এটা বন্ধ করলেও মিলিয়ে দেখা চলতে থাকবে — সেটিংস → কাজ-এ পাবেন। |
+| `reverify.capped` | A check holds {kept} at most, so this one has the first {kept} of {total}. Narrow the list for the rest. | একবারে সর্বোচ্চ {kept}টা মিলিয়ে দেখা যায়, তাই এবারে {total}টার প্রথম {kept}টাই আছে। বাকিগুলোর জন্য তালিকা ছোট করে নিন। |
+| `reverify.kept.running` | Still running · Settings → Jobs | এখনও চলছে · সেটিংস → কাজ-এ |
+| `reverify.kept.review` | Findings kept · Settings → Jobs | যা পাওয়া গেছে, রাখা আছে · সেটিংস → কাজ-এ |
+| `reverify.stop.confirm.title` | Stop the check? | মিলিয়ে দেখা থামাবেন? |
+| `reverify.stop.confirm.body` | It stops after the item in hand, and is kept in Settings → Jobs with its log. | হাতেরটুকু সেরে থামবে, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে। |
+| `reverify.stop.confirm.body.waiting` | It is stopped before it starts, and kept in Settings → Jobs with its log. | শুরুই হবে না, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে। |
+| `reverify.stop.confirm.verb` | Stop it | থামান |
+| `settings.backup.toast.stopped` | backup stopped | ব্যাকআপ থামানো হল |
+| `settings.backup.toast.interrupted` | backup interrupted | ব্যাকআপ মাঝপথে থেমে গেল |
+| `settings.restore.queue.running` | {title} is running. The restore is refused until it stops or finishes — stop it in Settings → Jobs first. | {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত ফিরিয়ে আনা যাবে না — আগে সেটিংস → কাজ-এ গিয়ে থামান। |
+| `settings.restore.queue.waiting.one` | One job is waiting; a restore ends it, and it is kept as interrupted. | অপেক্ষার তালিকায় একটা কাজ আছে — ফিরিয়ে আনলে সেটা আর চলবে না, “মাঝপথে থেমেছে” হয়ে থেকে যাবে। |
+| `settings.restore.queue.waiting.other` | {n} jobs are waiting; a restore ends them, and each is kept as interrupted. | অপেক্ষার তালিকায় {n}টা কাজ আছে — ফিরিয়ে আনলে সেগুলো আর চলবে না, প্রতিটা “মাঝপথে থেমেছে” হয়ে থেকে যাবে। |
+| `account.reset.queue.running` | {title} is running. The reset is refused until it stops or finishes — stop it in Settings → Jobs first. | {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত সব ডেটা মোছা যাবে না — আগে সেটিংস → কাজ-এ গিয়ে থামান। |
+| `account.reset.queue.waiting.one` | One job is waiting; a reset deletes it with everything else. | অপেক্ষার তালিকায় একটা কাজ আছে — বাকি সবকিছুর সঙ্গে সেটাও মুছে যাবে। |
+| `account.reset.queue.waiting.other` | {n} jobs are waiting; a reset deletes them with everything else. | অপেক্ষার তালিকায় {n}টা কাজ আছে — বাকি সবকিছুর সঙ্গে সেগুলোও মুছে যাবে। |
+
+#### Added when the halves were merged
+
+A job's name the server records and Settings › Jobs had no words for until the backend and
+the screen met. Marked `# ?? draft for the owner (3.1.0 integration)` at its key;
+`grep -n '3.1.0 integration' internal/i18n/bn.txt` lists it. A job's name is a noun phrase,
+as every other kind's is (কভার আনা, not কভার আনুন).
+
+| Key | English | Bengali |
+| --- | --- | --- |
+| `settings.jobs.kind.backup-safety` | Safety backup | ব্যাকআপ ডাউনলোড |
 
 ---
 

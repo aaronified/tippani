@@ -857,6 +857,67 @@ function search(q, scope) {
 
 const RO = { error: 'This is a read-only demo — changes are not saved. Self-host Tippani to edit your own library.' }
 
+// ---- jobs and logs (3.1.0), field for field against the wire contract ----
+//
+// THE SHAPES ARE THE SERVER'S, NOT THE SCREEN'S, for the reason every other case
+// here gives: a Settings › Jobs that reads `jobs` and gets `{}` from the fallback
+// renders an empty queue and looks like a working app, and one that reads a job
+// with `created` where the server says `created_at` prints "Invalid Date" only
+// here. Times are fixed rather than "a minute ago" so a screenshot of the demo is
+// the same picture every run.
+const JOB_T = Date.parse('2026-08-03T11:45:00Z')
+const MIN = 60 * 1000
+const demoJob = (over) => ({
+  id: 0, kind: 'fill', queued: true, subject: '', state: 'succeeded', params: {}, counts: {},
+  error: '', total: 0, done: 0, ahead: 0,
+  // `username` is "" unless the viewer is an admin — and the demo reader is one.
+  username: 'reader', own: true, rerunnable: false, applied: false,
+  rerun_of: null, from_job: null,
+  created_at: JOB_T, started_at: JOB_T, finished_at: JOB_T,
+  ...over,
+})
+const DEMO_JOBS = [
+  demoJob({ id: 3, kind: 'fill', total: 12, done: 12, counts: { fields: 9, unpinned: 2, failed: 1 }, rerunnable: true,
+    created_at: JOB_T - 9 * MIN, started_at: JOB_T - 9 * MIN, finished_at: JOB_T - 7 * MIN }),
+  demoJob({ id: 2, kind: 'lookup.book', queued: false, subject: 'The Dispossessed',
+    created_at: JOB_T - 30 * MIN, started_at: JOB_T - 30 * MIN, finished_at: JOB_T - 30 * MIN + 900 }),
+  demoJob({ id: 1, kind: 'covers', state: 'interrupted', total: 40, done: 17, counts: { fetched: 15, failed: 2 }, rerunnable: true,
+    created_at: JOB_T - 26 * 60 * MIN, started_at: JOB_T - 26 * 60 * MIN, finished_at: JOB_T - 26 * 60 * MIN + 4 * MIN }),
+]
+const DEMO_JOB_LINES = {
+  3: [
+    { id: 31, at: JOB_T - 9 * MIN, level: 'info', line: 'GET openlibrary.org/search.json?q=… → 200 · 212 ms · 3.1 kB' },
+    { id: 32, at: JOB_T - 8 * MIN, level: 'info', line: '«Rooms of Attention» — filled year, pages' },
+    { id: 33, at: JOB_T - 8 * MIN, level: 'warn', line: '«The Paper Boat» — not found' },
+  ],
+  2: [{ id: 21, at: JOB_T - 30 * MIN, level: 'info', line: 'GET openlibrary.org/search.json?q=… → 200 · 188 ms · 5.4 kB' }],
+  1: [
+    { id: 11, at: JOB_T - 26 * 60 * MIN, level: 'info', line: '«Rooms of Attention» — cover fetched' },
+    { id: 12, at: JOB_T - 26 * 60 * MIN + 4 * MIN, level: 'warn', line: 'the server restarted while this job was running' },
+  ],
+}
+const DEMO_LOGS = [
+  { id: 5, at: JOB_T - MIN, level: 'request', code: '', line: 'GET /api/books 200 4ms 18204B 127.0.0.1 reader rid=…' },
+  { id: 4, at: JOB_T - 7 * MIN, level: 'info', code: '', line: '[jobs] #3 fill for reader succeeded in 2m0s (12/12)' },
+  { id: 3, at: JOB_T - 26 * 60 * MIN + 4 * MIN, level: 'warn', code: '', line: '[jobs] #1 covers interrupted: the server restarted' },
+  { id: 2, at: JOB_T - 26 * 60 * MIN + 5 * MIN, level: 'info', code: '', line: 'tippani demo listening on :8080' },
+  { id: 1, at: JOB_T - 26 * 60 * MIN + 5 * MIN, level: 'asset', code: '', line: 'GET /assets/index.js 200 1ms 412001B 127.0.0.1 - rid=…' },
+]
+// What a POST /jobs made in this tab. Nothing runs — there is nothing to run it —
+// so the job is answered as failed, saying why, which is the demo's honest version
+// of "started": the Jobs screen then shows a real row with a real log line.
+const demoMade = []
+const demoJobByID = (id) => DEMO_JOBS.find((j) => j.id === id) || demoMade.find((j) => j.id === id) || null
+function demoStartJob(body) {
+  const job = demoJob({
+    id: 100 + demoMade.length, kind: String(body?.kind || 'request'), state: 'failed',
+    error: RO.error, created_at: Date.now(), started_at: Date.now(), finished_at: Date.now(),
+  })
+  demoMade.unshift(job)
+  DEMO_JOB_LINES[job.id] = [{ id: job.id * 10, at: job.created_at, level: 'warn', line: RO.error }]
+  return job
+}
+
 // Exported for tests. It is a pure (method, path, params, body) function with
 // no fetch and no DOM, so the shim's shapes can be asserted directly — and the
 // shapes are the whole risk here: a demo answer that is close but not identical
@@ -889,6 +950,20 @@ export function route(method, path, params, body) {
     // PUT /people is tolerated (echo) so the link menu + console flows can be
     // exercised — nothing persists, which is the point of the demo.
     if (path === '/people' && method === 'PUT') return [200, { id: 99, image_path: '', ...body }]
+    // Jobs: a start is answered as the server answers one (202 and the job), a
+    // Stop all has nothing to stop, and the two in-request fetches a work page and
+    // the people console make find nothing new — each in the server's shape.
+    if (path === '/jobs') return [202, { job: demoStartJob(body) }]
+    if (path === '/jobs/stop-all') return [200, { stopping: 0, stopped_waiting: 0 }]
+    if (/^\/jobs\/\d+\/stop$/.test(path)) {
+      const job = demoJobByID(Number(path.split('/')[2]))
+      return job ? [200, { job }] : [404, { error: 'job not found' }]
+    }
+    if (/^\/(books|movies)\/\d+\/cast\/art$/.test(path)) return [200, { character_images: 0, portraits: 0 }]
+    if (/^\/people\/id\/\d+\/fetch$/.test(path)) {
+      const person = PEOPLE.find((p) => p.id === Number(path.split('/')[3]))
+      return person ? [200, { person, links: {} }] : [404, { error: 'person not found' }]
+    }
     return [403, RO]
   }
   const id = (p) => Number(path.slice(p.length))
@@ -1006,6 +1081,34 @@ export function route(method, path, params, body) {
     case path === '/admin/backup':
       return [200, { backup: { name: 'tippani-backup-20260803-114500.tpbk', size: 4823910, created: '2026-08-03T11:45:00Z', key: 'account', account: 'reader' } }]
     case path === '/search': return [200, search(params.get('q'), params.get('scope'))]
+    // Settings › Jobs. Nothing is ever running in a demo, so the current view is
+    // an empty queue with its two counts at zero — the envelope, not a missing one.
+    case path === '/jobs': {
+      if (params.get('view') === 'current') return [200, { jobs: [], running: 0, waiting: 0, more: false }]
+      const state = params.get('state')
+      const jobs = [...demoMade, ...DEMO_JOBS].filter((j) => !state || j.state === state)
+      return [200, { jobs, running: 0, waiting: 0, more: false }]
+    }
+    case path === '/jobs/summary': return [200, { running: null, waiting: 0 }]
+    case /^\/jobs\/\d+$/.test(path): {
+      const job = demoJobByID(id('/jobs/'))
+      if (!job) return [404, { error: 'job not found' }]
+      const after = Number(params.get('log_after') || 0)
+      return [200, { job, lines: (DEMO_JOB_LINES[job.id] || []).filter((l) => l.id > after), more: false }]
+    }
+    case /^\/jobs\/\d+\/result$/.test(path): {
+      const job = demoJobByID(Number(path.split('/')[2]))
+      return job ? [200, { kind: job.kind, result: job.kind === 'reverify' ? [] : job.counts }] : [404, { error: 'job not found' }]
+    }
+    case path === '/admin/logs': {
+      const levels = (params.get('level') || 'error,warn,info,request').split(',')
+      const q = (params.get('q') || '').toLowerCase()
+      const lines = DEMO_LOGS.filter((l) => levels.includes(l.level) && (!q || l.line.toLowerCase().includes(q)))
+      // The window read, as the server names it: its start by the demo's own
+      // fixed clock, and the newest line there is.
+      const from = Number(params.get('from')) || JOB_T - Number(params.get('since') || 30 * 24 * 60 * MIN)
+      return [200, { lines, more: false, from, upto: DEMO_LOGS[0].id }]
+    }
     // The Filters panel and the `field:` dropdown both read this, and both read
     // it by MAPPING over each list — so the fallback's `{}` would not be a thin
     // demo, it would be a panel with nothing in it and no clue why. Every key

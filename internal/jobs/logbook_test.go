@@ -20,9 +20,10 @@ import (
 //
 // WHAT IT KNOWS, declared: the package's exported API, and the three tables it
 // writes (0079's jobs, job_logs and system_logs), which these tests read back and
-// sometimes seed. Nothing observable over HTTP could serve yet: the endpoints that
-// read the logs are a later stage of 3.1.0, and the tables are what the logbook
-// promises to fill. Standing in for a restore, a recovery or a factory reset, it
+// sometimes seed. Nothing observable over HTTP can serve here: the endpoints that
+// read the logs are httpapi's, a package that imports this one and cannot be
+// reached from its tests, and the tables are what the logbook promises to fill.
+// Standing in for a restore, a recovery or a factory reset, it
 // calls the store's Swap and, once, moves another database file into its place.
 // The bounds are the real ones (8 MB, 16384 lines); the one test that needs
 // smaller numbers is in seams_test.go and says so. One test sets TIPPANI_LOG_HOLD

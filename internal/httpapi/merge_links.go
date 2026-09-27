@@ -17,16 +17,14 @@ import (
 // line with none reads exactly as it always did. people.jsx's parseLinks reads the
 // field the same way for every screen that draws it.
 //
-// THE FOLD IS THE BROWSER'S, as people.jsx's mergeLinks, ported for the routes
-// that fold on the server: a person's Fetch by id (POST /people/id/{id}/fetch,
-// the function the people job is declared to loop) and a person's re-verify. The
-// People row in the SPA still folds in the browser, with mergeLinks, until it
-// moves onto the Fetch route with the Jobs screen. The Go fold that already
-// existed, for the re-verify, split the field on whitespace: `https://… | The
-// other one` came back as five links — the address, `|`, `The`, `other`, `one` —
-// and the apply wrote them, so a re-verify erased every name on the record it
-// was asked to check. The browser's rules are the ones ported, and both server
-// callers use them.
+// THE FOLD WAS THE BROWSER'S UNTIL 3.1.0, as people.jsx's mergeLinks, and moved
+// here with the People row's Fetch (POST /people/id/{id}/fetch) and the people job,
+// which loops the same fetch; a person's re-verify folds through it too. The Go
+// fold that already existed, for the re-verify, split the field on whitespace:
+// `https://… | The other one` came back as five links — the address, `|`, `The`,
+// `other`, `one` — and the apply wrote them, so a re-verify erased every name on
+// the record it was asked to check. The browser's rules are the ones ported, and
+// every caller uses them.
 
 // linkProviders recognises a link's provider by its host, first match wins, in
 // the order a record's links are written back. The same list, in the same order,

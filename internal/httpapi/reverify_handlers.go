@@ -1,14 +1,18 @@
 package httpapi
 
 import (
+	"bytes"
+	"cmp"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
+	"tippani/internal/jobs"
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
@@ -25,14 +29,18 @@ import (
 // trust boundary as the existing PUT edit surface: whitelisted fields, the
 // same validators, ownership-scoped SQL).
 //
-// Stateless by design: no server-side diff session — the client holds the
-// preview and sends back exactly what the user saw and ticked. requireAuth
-// (not admin): both endpoints touch only the caller's own rows, like
+// The ROUTES are stateless by design: no server-side diff session — the caller
+// holds the preview and sends back exactly what the user saw and ticked.
+// requireAuth (not admin): both endpoints touch only the caller's own rows, like
 // /books/lookup and /people/portrait; the per-call item cap bounds provider
-// load. The client slices a large selection into small sequential batches and
-// drives a progress bar, reusing the covers-refetch loop shape.
+// load, and an API caller slices a large selection into batches under it. The
+// app's own dialog stopped looping them in 3.1.0: its check and its apply are
+// the reverify and reverify-apply jobs (runReverify, runReverifyApply), which
+// call the same functions an item at a time, five hundred items a job, and keep
+// the check's preview as the job's result for the review to read back.
 
-// maxReverifyItems caps one preview/apply call. The client chunks above this.
+// maxReverifyItems caps one preview/apply call. An API caller chunks above this;
+// the jobs have their own cap (maxReverifyPerJob).
 const maxReverifyItems = 15
 
 // fieldAlt is one supplier's answer for one field.
@@ -54,7 +62,9 @@ type fieldDiff struct {
 	// Fresh is the PREFERRED supplier's answer and stays for two reasons: it is
 	// the default pick, so a reader who ticks a field without opening the choice
 	// gets what they used to get; and it is what every existing client and test
-	// reads. Alts[0] is always the same value.
+	// reads. Alts[0] is ordinarily the same supplier's answer, the same value
+	// but for the surrounding space a diff trims from text — which is why a
+	// check job keeps one of the two only where they are equal (keptDiff).
 	Fresh any        `json:"fresh"`
 	Alts  []fieldAlt `json:"alts,omitempty"`
 }
@@ -191,7 +201,158 @@ func (s *Server) handleMetadataReverify(w http.ResponseWriter, r *http.Request) 
 			changed++
 		}
 	}
+	// A check of one item is about that item; a check of several is about as
+	// many things, which the Jobs tab counts itself.
+	if len(items) == 1 {
+		jobSubject(r.Context(), cmp.Or(items[0].Title, items[0].Name))
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "checked": len(items), "changed": changed})
+}
+
+// runReverify is the reverify job: the check POST /metadata/reverify makes,
+// item by item, for as many items as one job holds, with a line in its log for
+// each. Its result is the preview's items, for the review to read back later
+// (GET /jobs/{id}/result, reviewReverify), and it never writes: the review
+// decides, and the apply writes.
+//
+// FILLS ONLY IS APPLIED HERE, AS THE REVIEW DID IN THE BROWSER: a diff whose
+// stored side is empty is kept and every other one dropped, before the item is
+// kept, so an item whose every diff would overwrite something reads as up to
+// date rather than as an empty expander — and a check of a hundred works does
+// not store the overwrites nobody asked to see.
+//
+// WHAT IT KEEPS IS BOUNDED BY WHAT ONE JOB MAY KEEP (jobs.MaxResult), and by
+// bytes, as it goes. Five hundred items is the cap on what a check is given, not
+// on what it finds: five hundred films whose casts the reader edited differ in
+// the cast on every one, by design, and with two suppliers each cast is in its
+// diff three times over. Stored once at the end, such a check came to more than
+// a job may hold, the store refused it, and all five hundred lookups were lost —
+// and a rerun lost them the same way. So each item is measured as it is kept,
+// and when the next would not fit the check stops there: what it found so far is
+// kept, the review opens on it, and the log says which items are not in it.
+func runReverify(s *Server, ctx context.Context, j *jobs.Job) error {
+	var p struct {
+		BookIDs   []int64       `json:"book_ids"`
+		MovieIDs  []int64       `json:"movie_ids"`
+		People    []reverifyAsk `json:"people"`
+		FillsOnly bool          `json:"fills_only"`
+	}
+	if err := j.Params(&p); err != nil {
+		return err
+	}
+	uid := j.Owner().UserID
+	keys, err := s.providerKeys()
+	if err != nil {
+		j.Log(jobs.LevelWarn, "a saved supplier key could not be read, so the lookups ask without it: %v", err)
+	}
+	checks := make([]func() reverifyItem, 0, len(p.BookIDs)+len(p.MovieIDs)+len(p.People))
+	for _, id := range p.BookIDs {
+		checks = append(checks, func() reverifyItem {
+			return s.reverifyBook(ctx, uid, id, keys.googleBooks, keys.amazonCookie, keys.amazonDomain, false)
+		})
+	}
+	for _, id := range p.MovieIDs {
+		checks = append(checks, func() reverifyItem { return s.reverifyMovie(ctx, uid, id, keys.tmdb, keys.tvdb, false) })
+	}
+	for _, who := range p.People {
+		checks = append(checks, func() reverifyItem { return s.reverifyPerson(ctx, uid, who.Kind, who.Name) })
+	}
+	// The items as the job keeps them, and what they come to: the brackets, and
+	// each item with the comma before it.
+	items, size := []json.RawMessage{}, len("[]")
+	for i, check := range checks {
+		if j.Stopping() {
+			break
+		}
+		it := check()
+		if p.FillsOnly {
+			kept := []fieldDiff{}
+			for _, d := range it.Diffs {
+				if isEmptyValue(d.Stored) {
+					kept = append(kept, d)
+				}
+			}
+			it.Diffs = kept
+		}
+		b, err := keptReverifyItem(it)
+		if err != nil {
+			return err
+		}
+		if size+1+len(b) > jobs.MaxResult {
+			j.Log(jobs.LevelWarn, "the findings reached what one check can keep (%d MB), so the last %d of its %d items, from %s on, are not in them — check those again in a smaller selection",
+				jobs.MaxResult>>20, len(checks)-i, len(checks), itemName(it.Type, it.ID, cmp.Or(it.Title, it.Name)))
+			break
+		}
+		size += 1 + len(b)
+		level, line := reverifyLine(it)
+		j.Log(level, "%s", line)
+		items = append(items, b)
+		j.Progress(i+1, len(checks))
+	}
+	return j.SetResult(items)
+}
+
+// keptDiff is a diff as a check job keeps it: without Fresh when Fresh is what
+// the first supplier in Alts says, which it is whenever a diff has alternatives
+// (fieldDiff) — compared here rather than trusted, so a diff whose two differ
+// keeps both. The review puts it back (reviewReverify), so the screen reads the
+// diff it always read. A cast is the largest value a diff holds, and in a diff
+// with two suppliers it is there four times: stored, fresh and each supplier's;
+// the copy that says nothing the others do not is the one not kept.
+type keptDiff struct {
+	fieldDiff
+	Fresh json.RawMessage `json:"fresh,omitempty"` // absent: alts[0].value
+}
+
+// keptItem is a preview item as a check job keeps it: its diffs as keptDiffs.
+type keptItem struct {
+	reverifyItem
+	Diffs []keptDiff `json:"diffs"`
+}
+
+// keptReverifyItem is it as a check job keeps it, as JSON.
+func keptReverifyItem(it reverifyItem) ([]byte, error) {
+	k := keptItem{reverifyItem: it, Diffs: make([]keptDiff, 0, len(it.Diffs))}
+	for _, d := range it.Diffs {
+		fresh, err := json.Marshal(d.Fresh)
+		if err != nil {
+			return nil, err
+		}
+		if len(d.Alts) > 0 {
+			first, err := json.Marshal(d.Alts[0].Value)
+			if err != nil {
+				return nil, err
+			}
+			if bytes.Equal(first, fresh) {
+				fresh = nil
+			}
+		}
+		k.Diffs = append(k.Diffs, keptDiff{fieldDiff: d, Fresh: fresh})
+	}
+	return json.Marshal(k)
+}
+
+// reverifyLine is a check's line for one item: what differs, or why nothing
+// could be compared.
+func reverifyLine(it reverifyItem) (level, line string) {
+	name := itemName(it.Type, it.ID, it.Title)
+	switch {
+	case it.Status == "not_found":
+		return jobs.LevelWarn, name + " — not found"
+	case it.Status == "unpinned":
+		return jobs.LevelInfo, name + " — unpinned, so there is nothing to ask: " + it.Error
+	case it.Status != "ok":
+		return jobs.LevelWarn, name + " — failed: " + it.Error
+	case len(it.Diffs) > 0:
+		fields := make([]string, 0, len(it.Diffs))
+		for _, d := range it.Diffs {
+			fields = append(fields, d.Field)
+		}
+		return jobs.LevelInfo, name + " — " + countOf(len(it.Diffs), "difference", "differences") + ": " + fieldWords(fields)
+	case it.Error != "":
+		return jobs.LevelInfo, name + " — " + it.Error
+	}
+	return jobs.LevelInfo, name + " — up to date"
 }
 
 // itemGenreNames reads ONE item's stored genre names (kind = "book" |
@@ -221,13 +382,17 @@ func (s *Server) itemGenreNames(kind string, id int64) []string {
 	return out
 }
 
-// diffStr appends a diff when the fresh string is non-empty and differs.
-func diffStr(diffs []fieldDiff, field, stored, fresh string) []fieldDiff {
+// diffStr appends a diff when the fresh string is non-empty and differs from
+// the field as stored — st, the row's fields as a diff carries them
+// (storedBookFields, storedMovieFields), its text already without its
+// surrounding space.
+func diffStr(diffs []fieldDiff, st map[string]any, field, fresh string) []fieldDiff {
 	fresh = strings.TrimSpace(fresh)
-	if fresh == "" || fresh == strings.TrimSpace(stored) {
+	stored, _ := st[field].(string)
+	if fresh == "" || fresh == stored {
 		return diffs
 	}
-	return append(diffs, fieldDiff{Field: field, Stored: strings.TrimSpace(stored), Fresh: fresh})
+	return append(diffs, fieldDiff{Field: field, Stored: stored, Fresh: fresh})
 }
 
 // sameGenreSet compares genre lists case-insensitively as sets.
@@ -248,9 +413,10 @@ func sameGenreSet(a, b []string) bool {
 }
 
 // reverifyLookupError turns a provider failure into a short, non-leaking hint
-// (the full cause goes to the log under TIP-META-011).
+// (the full cause goes to the log under TIP-META-011, unless the offline switch
+// refused the call: logOutwardFailure).
 func reverifyLookupError(what string, err error) string {
-	olog.Errorf(olog.CodeMetaReverifyFetch, "[meta] re-verify %s lookup failed: %v", what, err)
+	logOutwardFailure(olog.CodeMetaReverifyFetch, err, "[meta] re-verify %s lookup failed: %v", what, err)
 	if errors.Is(err, metadata.ErrQuota) {
 		return "Google Books' shared quota is used up — add a free key in Settings → Metadata sources"
 	}
@@ -286,6 +452,27 @@ func (s *Server) readStoredBook(uid, id int64) (storedBook, error) {
 	return b, nil
 }
 
+// storedBookFields is b's fields as a re-verify's diffs carry them in stored:
+// text without its surrounding space, the ISBN normalised, the rest as read.
+//
+// ONE READER FOR BOTH SIDES. The check takes each diff's stored side from here,
+// and the review opened later (reviewReverify) and the apply's expect check
+// (applyReverifyItem) read the field again through here, to ask whether it has
+// changed since. Two formattings of the same value — the check trimming a title
+// and the review not, say — would read every such field as changed, and every
+// apply would leave every field as "changed since the check", with nothing
+// wrong but the format.
+func storedBookFields(b storedBook) map[string]any {
+	trim := strings.TrimSpace
+	return map[string]any{
+		"title": trim(b.title), "author": trim(b.author), "description": trim(b.desc),
+		"published_year": b.year, "genres": b.genres, "series": trim(b.series),
+		"series_index": b.seriesIdx, "isbn": metadata.NormalizeISBN(b.isbn),
+		"subtitle": trim(b.subtitle), "publisher": trim(b.publisher), "pages": b.pages,
+		"cover": b.cover,
+	}
+}
+
 func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, domain string, withOffers bool) reverifyItem {
 	it := reverifyItem{Type: "book", ID: id, Status: "ok", Diffs: []fieldDiff{}}
 	b, err := s.readStoredBook(uid, id)
@@ -302,6 +489,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	series, cover, subtitle, publisher := b.series, b.cover, b.subtitle, b.publisher
 	year, pages, seriesIdx, genres := b.year, b.pages, b.seriesIdx, b.genres
 	it.Title = title
+	st := storedBookFields(b)
 
 	// Identity ladder — the pinned id decides which live source answers.
 	// (openlibrary_id alone is deliberately not re-checked: OL work records
@@ -365,41 +553,41 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	}
 
 	d := it.Diffs
-	d = diffStr(d, "title", title, cand.Title)
-	d = diffStr(d, "author", author, cand.Author)
-	d = diffStr(d, "description", desc, cand.Description)
+	d = diffStr(d, st, "title", cand.Title)
+	d = diffStr(d, st, "author", cand.Author)
+	d = diffStr(d, st, "description", cand.Description)
 	if cand.PublishedYear != 0 && cand.PublishedYear != year {
-		d = append(d, fieldDiff{Field: "published_year", Stored: year, Fresh: cand.PublishedYear})
+		d = append(d, fieldDiff{Field: "published_year", Stored: st["published_year"], Fresh: cand.PublishedYear})
 	}
 	// Genres: candidate capped at 5 (same cap as the covers refetch), compared
 	// as a case-insensitive set after the canonical title-casing.
 	if len(cand.Genres) > 0 {
 		fresh := cappedGenres(cand.Genres)
 		if !sameGenreSet(genres, fresh) {
-			d = append(d, fieldDiff{Field: "genres", Stored: genres, Fresh: fresh})
+			d = append(d, fieldDiff{Field: "genres", Stored: st["genres"], Fresh: fresh})
 		}
 	}
-	d = diffStr(d, "series", series, cand.Series)
+	d = diffStr(d, st, "series", cand.Series)
 	if cand.SeriesIndex != 0 && cand.SeriesIndex != seriesIdx {
-		d = append(d, fieldDiff{Field: "series_index", Stored: seriesIdx, Fresh: cand.SeriesIndex})
+		d = append(d, fieldDiff{Field: "series_index", Stored: st["series_index"], Fresh: cand.SeriesIndex})
 	}
 	if cand.ISBN13 != "" && cand.ISBN13 != isbnN {
-		d = append(d, fieldDiff{Field: "isbn", Stored: isbnN, Fresh: cand.ISBN13})
+		d = append(d, fieldDiff{Field: "isbn", Stored: st["isbn"], Fresh: cand.ISBN13})
 	}
 	// 0061's three. diffStr already declines to offer a blank fresh value over a
 	// stored one, which is the rule that matters here: Open Library's work record
 	// often has no publisher for a book Google knows the imprint of, and a
 	// re-verify must not offer to erase what is there.
-	d = diffStr(d, "subtitle", subtitle, cand.Subtitle)
-	d = diffStr(d, "publisher", publisher, cand.Publisher)
+	d = diffStr(d, st, "subtitle", cand.Subtitle)
+	d = diffStr(d, st, "publisher", cand.Publisher)
 	if cand.Pages != 0 && cand.Pages != pages {
-		d = append(d, fieldDiff{Field: "pages", Stored: pages, Fresh: cand.Pages})
+		d = append(d, fieldDiff{Field: "pages", Stored: st["pages"], Fresh: cand.Pages})
 	}
 	// Cover: offered when the fresh source has art AND the stored one is
 	// missing or below the low-res threshold — a good stored cover is never
 	// churned. Stored = the local file (client renders it), fresh = the URL.
 	if cand.CoverURL != "" && (cover == "" || s.coverWidth(cover) < lowResCoverWidth) {
-		d = append(d, fieldDiff{Field: "cover", Stored: cover, Fresh: cand.CoverURL})
+		d = append(d, fieldDiff{Field: "cover", Stored: st["cover"], Fresh: cand.CoverURL})
 	}
 	// Same rule as a film's, and the same reason for doing it here rather than
 	// inside each comparison: whether a field DIFFERS from what is stored is a
@@ -520,6 +708,19 @@ func (s *Server) readStoredMovie(uid, id int64) (storedMovie, error) {
 	return m, nil
 }
 
+// storedMovieFields is m's fields as a re-verify's diffs carry them in stored,
+// read by the check and the review alike (storedBookFields says why it is one
+// reader). The cast is not among them: it is its own read (loadCastMembers),
+// which the check and the review share as it is.
+func storedMovieFields(m storedMovie) map[string]any {
+	trim := strings.TrimSpace
+	return map[string]any{
+		"title": trim(m.title), "director": trim(m.director), "description": trim(m.desc),
+		"release_year": m.year, "genres": m.genres, "series": trim(m.series),
+		"poster": m.poster, "tmdb_id": m.tmdbID, "tvdb_id": m.tvdbID,
+	}
+}
+
 func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB, withOffers bool) reverifyItem {
 	it := reverifyItem{Type: "movie", ID: id, Status: "ok", Diffs: []fieldDiff{}}
 	m, err := s.readStoredMovie(uid, id)
@@ -535,6 +736,7 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	title, director, desc, mediaType, series, poster, fandomWiki := m.title, m.director, m.desc, m.mediaType, m.series, m.poster, m.fandomWiki
 	year, tmdbID, tvdbID, genres := m.year, m.tmdbID, m.tvdbID, m.genres
 	it.Title = title
+	st := storedMovieFields(m)
 
 	// EVERY SUPPLIER THIS WORK IS PINNED TO, not just the winning one.
 	//
@@ -576,19 +778,19 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	}
 
 	d := it.Diffs
-	d = diffStr(d, "title", title, det.Title)
-	d = diffStr(d, "director", director, det.Director)
-	d = diffStr(d, "description", desc, det.Overview)
+	d = diffStr(d, st, "title", det.Title)
+	d = diffStr(d, st, "director", det.Director)
+	d = diffStr(d, st, "description", det.Overview)
 	if det.ReleaseYear != 0 && det.ReleaseYear != year {
-		d = append(d, fieldDiff{Field: "release_year", Stored: year, Fresh: det.ReleaseYear})
+		d = append(d, fieldDiff{Field: "release_year", Stored: st["release_year"], Fresh: det.ReleaseYear})
 	}
 	if len(det.Genres) > 0 {
 		fresh := cappedGenres(det.Genres)
 		if !sameGenreSet(genres, fresh) {
-			d = append(d, fieldDiff{Field: "genres", Stored: genres, Fresh: fresh})
+			d = append(d, fieldDiff{Field: "genres", Stored: st["genres"], Fresh: fresh})
 		}
 	}
-	d = diffStr(d, "series", series, det.Series)
+	d = diffStr(d, st, "series", det.Series)
 	// Cast: ordered (character, actor) pairs; person_id/image_url ride along in
 	// fresh so an approved apply keeps the portrait pipeline working.
 	//
@@ -609,13 +811,13 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 		d = append(d, fieldDiff{Field: "cast", Stored: stored, Fresh: det.Cast})
 	}
 	if det.PosterURL != "" && (poster == "" || s.coverWidth(poster) < lowResCoverWidth) {
-		d = append(d, fieldDiff{Field: "poster", Stored: poster, Fresh: det.PosterURL})
+		d = append(d, fieldDiff{Field: "poster", Stored: st["poster"], Fresh: det.PosterURL})
 	}
 	if det.TMDBID != 0 && det.TMDBID != tmdbID {
-		d = append(d, fieldDiff{Field: "tmdb_id", Stored: tmdbID, Fresh: det.TMDBID})
+		d = append(d, fieldDiff{Field: "tmdb_id", Stored: st["tmdb_id"], Fresh: det.TMDBID})
 	}
 	if det.TVDBID != 0 && det.TVDBID != tvdbID {
-		d = append(d, fieldDiff{Field: "tvdb_id", Stored: tvdbID, Fresh: det.TVDBID})
+		d = append(d, fieldDiff{Field: "tvdb_id", Stored: st["tvdb_id"], Fresh: det.TVDBID})
 	}
 	// WHAT EACH SUPPLIER SAID, attached once the diff list is settled rather than
 	// woven into each comparison above. Two reasons: the comparisons decide
@@ -721,6 +923,17 @@ func (s *Server) getPersonFold(uid int64, kind, name string) (personRow, bool) {
 	return p, true
 }
 
+// storedPersonFields is p's fields as a re-verify's diffs carry them in stored,
+// read by the check and the review alike (storedBookFields says why it is one
+// reader): the identity as the one "source:id" string the apply takes, the rest
+// as read.
+func storedPersonFields(p personRow) map[string]any {
+	return map[string]any{
+		"identity": strings.TrimSpace(strings.TrimPrefix(p.Source+":"+p.SourceID, ":")),
+		"links":    p.Links, "portrait": p.ImagePath, "bio": p.Bio, "born": p.Born, "died": p.Died,
+	}
+}
+
 func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name string) reverifyItem {
 	it := reverifyItem{Type: "person", Kind: kind, Name: name, Title: name, Status: "ok", Diffs: []fieldDiff{}}
 	if !validPersonKind(kind) || name == "" {
@@ -750,17 +963,14 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 		return it
 	}
 	it.Source = source
+	st := storedPersonFields(p)
 
 	d := it.Diffs
 	// Identity needs BOTH halves — a cast entry with a headshot but no person
 	// id would otherwise emit a "source:" value the apply endpoint rejects.
 	identityDrift := source != "" && sourceID != "" && (source != p.Source || sourceID != p.SourceID)
 	if identityDrift {
-		d = append(d, fieldDiff{
-			Field:  "identity",
-			Stored: strings.TrimSpace(strings.TrimPrefix(p.Source+":"+p.SourceID, ":")),
-			Fresh:  source + ":" + sourceID,
-		})
+		d = append(d, fieldDiff{Field: "identity", Stored: st["identity"], Fresh: source + ":" + sourceID})
 	}
 	// A LINKS DIFF IS SOMETHING FETCHED THAT THE FIELD LACKS, and nothing else.
 	// The fold writes the whole field back in its own order, one address a line,
@@ -770,21 +980,21 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 	// side is the whole folded field, names and all, because that is what the
 	// apply writes.
 	if merged := mergeLinks(p.Links, links); merged != mergeLinks(p.Links, nil) {
-		d = append(d, fieldDiff{Field: "links", Stored: p.Links, Fresh: merged})
+		d = append(d, fieldDiff{Field: "links", Stored: st["links"], Fresh: merged})
 	}
 	if imageURL != "" && (p.ImagePath == "" || identityDrift) {
-		d = append(d, fieldDiff{Field: "portrait", Stored: p.ImagePath, Fresh: imageURL})
+		d = append(d, fieldDiff{Field: "portrait", Stored: st["portrait"], Fresh: imageURL})
 	}
 	// Bio + birth year only fill an empty field — a user's own text is never
 	// overwritten by a re-verify (mirrors the auto-enrich upsert's CASE guards).
 	if bio != "" && strings.TrimSpace(p.Bio) == "" {
-		d = append(d, fieldDiff{Field: "bio", Stored: p.Bio, Fresh: bio})
+		d = append(d, fieldDiff{Field: "bio", Stored: st["bio"], Fresh: bio})
 	}
 	if born != "" && strings.TrimSpace(p.Born) == "" {
-		d = append(d, fieldDiff{Field: "born", Stored: p.Born, Fresh: born})
+		d = append(d, fieldDiff{Field: "born", Stored: st["born"], Fresh: born})
 	}
 	if died != "" && strings.TrimSpace(p.Died) == "" {
-		d = append(d, fieldDiff{Field: "died", Stored: p.Died, Fresh: died})
+		d = append(d, fieldDiff{Field: "died", Stored: st["died"], Fresh: died})
 	}
 	it.Diffs = d
 	return it
@@ -793,33 +1003,13 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 // ---- apply ----
 
 // handleMetadataReverifyApply: POST /metadata/reverify/apply
-// {items: [{type, id | kind+name, set:{field: value}}]} → per-item results.
+// {items: [{type, id | kind+name, set:{field: value}, expect?}]} → per-item results.
 // Writes ONLY whitelisted, user-approved fields, per-item transactionally;
 // image fields (cover/poster/portrait — the previewed URLs) download after the
 // text commit so an image miss degrades to a note instead of reverting text.
 func (s *Server) handleMetadataReverifyApply(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Items []struct {
-			Type string                     `json:"type"`
-			ID   int64                      `json:"id"`
-			Kind string                     `json:"kind"`
-			Name string                     `json:"name"`
-			Set  map[string]json.RawMessage `json:"set"`
-			// The supplier the preview named, for the whole item. Still accepted so
-			// that a client which offers no per-field choice keeps working.
-			Source string `json:"source"`
-			// WHICH SUPPLIER EACH ACCEPTED VALUE CAME FROM — the wire half of
-			// mix-and-match. The reader picks per field, so provenance is per field,
-			// and this is the only place that fact exists: by the time apply runs,
-			// the responses the values were read out of are gone.
-			//
-			// It also RETIRES AN ASYMMETRY. A film's supplier used to be recomputed
-			// server-side because it was derivable from the row; a book's had to be
-			// echoed because it was not. Neither is derivable once the reader can
-			// take the description from one supplier and the year from another, so
-			// both kinds now say so here, and both are validated the same way.
-			Sources map[string]string `json:"sources"`
-		} `json:"items"`
+		Items []reverifyApplyItem `json:"items"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -835,42 +1025,195 @@ func (s *Server) handleMetadataReverifyApply(w http.ResponseWriter, r *http.Requ
 	uid := userID(r)
 	olog.Tracef("[meta] handleMetadataReverifyApply uid=%d items=%d", uid, len(req.Items))
 
-	type applyResult struct {
-		Type  string `json:"type"`
-		ID    int64  `json:"id,omitempty"`
-		Kind  string `json:"kind,omitempty"`
-		Name  string `json:"name,omitempty"`
-		OK    bool   `json:"ok"`
-		Error string `json:"error,omitempty"`
-		Note  string `json:"note,omitempty"`
-	}
 	results := []applyResult{}
 	applied, failed := 0, 0
 	for _, item := range req.Items {
-		res := applyResult{Type: item.Type, ID: item.ID, Kind: item.Kind, Name: item.Name}
-		var note string
-		var aerr error
-		switch item.Type {
-		case "book":
-			note, aerr = s.applyReverifyBook(r.Context(), uid, item.ID, item.Set, item.Source, item.Sources)
-		case "movie":
-			note, aerr = s.applyReverifyMovie(r.Context(), uid, item.ID, item.Set, item.Sources)
-		case "person":
-			note, aerr = s.applyReverifyPerson(r.Context(), uid, strings.TrimSpace(item.Kind), strings.TrimSpace(item.Name), item.Set)
-		default:
-			aerr = errors.New("type must be book, movie or person")
-		}
-		res.Note = note
-		if aerr != nil {
-			res.Error = aerr.Error()
-			failed++
-		} else {
-			res.OK = true
+		res := s.applyReverifyItem(r.Context(), uid, item)
+		if res.OK {
 			applied++
+		} else {
+			failed++
 		}
 		results = append(results, res)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"applied": applied, "failed": failed, "results": results})
+}
+
+// reverifyApplyItem is one item of an apply: which row, the fields to write on
+// it, and what the reader was shown as stored for each.
+type reverifyApplyItem struct {
+	Type string                     `json:"type"`
+	ID   int64                      `json:"id"`
+	Kind string                     `json:"kind"`
+	Name string                     `json:"name"`
+	Set  map[string]json.RawMessage `json:"set"`
+	// The supplier the preview named, for the whole item. Still accepted so
+	// that a client which offers no per-field choice keeps working.
+	Source string `json:"source"`
+	// WHICH SUPPLIER EACH ACCEPTED VALUE CAME FROM — the wire half of
+	// mix-and-match. The reader picks per field, so provenance is per field,
+	// and this is the only place that fact exists: by the time apply runs,
+	// the responses the values were read out of are gone.
+	//
+	// It also RETIRES AN ASYMMETRY. A film's supplier used to be recomputed
+	// server-side because it was derivable from the row; a book's had to be
+	// echoed because it was not. Neither is derivable once the reader can
+	// take the description from one supplier and the year from another, so
+	// both kinds now say so here, and both are validated the same way.
+	Sources map[string]string `json:"sources"`
+	// Expect is, per field, the stored value the review showed the reader
+	// (null for an empty one). A field whose value is no longer that is not
+	// written (applyReverifyItem). Optional: an item without it is applied as
+	// it always was.
+	Expect map[string]json.RawMessage `json:"expect"`
+}
+
+// applyResult is what an apply says about one item.
+type applyResult struct {
+	Type  string `json:"type"`
+	ID    int64  `json:"id,omitempty"`
+	Kind  string `json:"kind,omitempty"`
+	Name  string `json:"name,omitempty"`
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+	Note  string `json:"note,omitempty"`
+	// title is the work's, when the apply read it, for a job's log line.
+	title string
+	// wrote is the fields sent to the writer, for the same line.
+	wrote []string
+}
+
+// changedSinceTheCheck is the note on an item some of whose fields were left
+// because they no longer held what the reader was shown.
+const changedSinceTheCheck = "changed since the check, so left as it is: "
+
+// applyReverifyItem applies one item, as POST /metadata/reverify/apply and the
+// reverify-apply job both do.
+//
+// A FIELD THAT CHANGED SINCE THE CHECK IS LEFT AS IT IS. A review can be opened
+// days after its check, from Past jobs, and the reader decides on what they were
+// shown; between that and the press, the library can move — they type a
+// description in another tab, a fill fills the year. Each field of an item that
+// carries expect is compared with what the row holds now, read by the same
+// loader and compared by the same rule the review used to show it
+// (reverifyStoredNow, sameStored: null, "", 0 and [] are all empty); a field
+// that differs is dropped from the write, and the item's note names it. An item
+// every field of which moved writes nothing and is still ok — nothing failed,
+// the apply did what it should. A row that is gone is left to the writer, which
+// says not found.
+func (s *Server) applyReverifyItem(ctx context.Context, uid int64, item reverifyApplyItem) applyResult {
+	res := applyResult{Type: item.Type, ID: item.ID, Kind: item.Kind, Name: item.Name}
+	kind, name := strings.TrimSpace(item.Kind), strings.TrimSpace(item.Name)
+	switch item.Type {
+	case "book", "movie", "person":
+	default:
+		res.Error = "type must be book, movie or person"
+		return res
+	}
+	set := item.Set
+	var moved []string
+	if len(item.Expect) > 0 {
+		now, err := s.reverifyStoredNow(uid, reverifyHead{Type: item.Type, ID: item.ID, Kind: kind, Name: name})
+		if err != nil {
+			olog.Errorf(olog.CodeMetaReverifyFetch, "[meta] re-verify apply %s %d: reading what is stored: %v", item.Type, item.ID, err)
+			res.Error = "could not read what is stored now — try again"
+			return res
+		}
+		if now != nil {
+			res.title, _ = now["title"].(string)
+			set = map[string]json.RawMessage{}
+			for field, v := range item.Set {
+				if then, asked := item.Expect[field]; asked {
+					if cur, known := now[field]; !known || !sameStored(field, then, cur) {
+						moved = append(moved, field)
+						continue
+					}
+				}
+				set[field] = v
+			}
+			slices.Sort(moved)
+		}
+	}
+	var notes []string
+	if len(moved) > 0 {
+		notes = append(notes, changedSinceTheCheck+fieldWords(moved))
+	}
+	if len(set) > 0 || len(moved) == 0 {
+		var note string
+		var aerr error
+		switch item.Type {
+		case "book":
+			note, aerr = s.applyReverifyBook(ctx, uid, item.ID, set, item.Source, item.Sources)
+		case "movie":
+			note, aerr = s.applyReverifyMovie(ctx, uid, item.ID, set, item.Sources)
+		case "person":
+			note, aerr = s.applyReverifyPerson(ctx, uid, kind, name, set)
+		}
+		if note != "" {
+			notes = append(notes, note)
+		}
+		if aerr != nil {
+			res.Error = aerr.Error()
+			res.Note = strings.Join(notes, "; ")
+			return res
+		}
+		for field := range set {
+			res.wrote = append(res.wrote, field)
+		}
+		slices.Sort(res.wrote)
+	}
+	res.OK = true
+	res.Note = strings.Join(notes, "; ")
+	return res
+}
+
+// runReverifyApply is the reverify-apply job: the review's Apply, item by item
+// through applyReverifyItem as the synchronous route applies them, with a line
+// in its log for each. Its result is the route's results, one per item it
+// reached, which the review reads back to say what was written; the check it
+// came from (from_job) is on the row, which is what makes that check read as
+// applied.
+func runReverifyApply(s *Server, ctx context.Context, j *jobs.Job) error {
+	var p struct {
+		Items []reverifyApplyItem `json:"items"`
+	}
+	if err := j.Params(&p); err != nil {
+		return err
+	}
+	uid := j.Owner().UserID
+	results := []applyResult{}
+	for i, item := range p.Items {
+		if j.Stopping() {
+			break
+		}
+		res := s.applyReverifyItem(ctx, uid, item)
+		level, line := applyLine(res)
+		j.Log(level, "%s", line)
+		results = append(results, res)
+		j.Progress(i+1, len(p.Items))
+	}
+	return j.SetResult(results)
+}
+
+// applyLine is an apply's line for one item: what it wrote, and anything it
+// left, or why it failed.
+func applyLine(res applyResult) (level, line string) {
+	name := itemName(res.Type, res.ID, cmp.Or(res.title, res.Name))
+	if !res.OK {
+		line = name + " — failed: " + res.Error
+		if res.Note != "" {
+			line += "; " + res.Note
+		}
+		return jobs.LevelWarn, line
+	}
+	line = name + " — nothing written"
+	if len(res.wrote) > 0 {
+		line = name + " — wrote " + fieldWords(res.wrote)
+	}
+	if res.Note != "" {
+		line += "; " + res.Note
+	}
+	return jobs.LevelInfo, line
 }
 
 // decodeSet pulls one typed field out of a set map; absent keys return ok=false.
@@ -1204,9 +1547,9 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 		//
 		// AND THIS PATH IS THE WRONG ONE TO SPEND IT FROM, which is why it is this
 		// statement and not the two beside it that changed. applyReverifyMovie is
-		// also /metadata/fill's writer, and fill is UNATTENDED AND BULK: fifteen
-		// titles a call, no diff on screen, chunked over a whole selection by the
-		// client. A resync is one title the reader asked for by name; a fill is a
+		// also the fill's writer, and fill is UNATTENDED AND BULK: up to two
+		// thousand titles a job (or fifteen a call from an API caller), no diff on
+		// screen. A resync is one title the reader asked for by name; a fill is a
 		// button that could walk a library. Before 0048 fill never touched this
 		// column at all — missingStored returned false for a []CastMember — so the
 		// hole opened with the same change that made the blob worth protecting.

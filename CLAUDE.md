@@ -319,7 +319,10 @@ itself, and one agent-written file was a debugging probe — every press in a `t
 
 **SETUP MAY USE THE API; THE JOURNEY MAY NOT.** Arranging the world is not the thing
 under test, and a reader does not curl their own library into existence either. What has
-to be user-like is the part being ASSERTED.
+to be user-like is the part being ASSERTED. The world's `setup(method, path, body)` is
+that API, signed in as the reader on a session of its own, and `secondReader` makes a
+second account through the admin's API and signs it in through the form; a file that
+calls either names in its header the addresses and fields its setup knows.
 
 **THE VOCABULARY IS THE POINT** (`test/journeys/harness/screen.mjs`): `see`, `gone`,
 `press`, `pressAll`, `pressKey`, `hold`, `type`, `choose`, `chosen`, `upload`, `valueOf`,
@@ -506,8 +509,20 @@ running (`dockerd &` if not already up in this environment).
   name and reason. The standing exemptions are the operator's own machines, not the
   internet: the `healthcheck` subcommand and the Docker Engine API (loopback), and the
   OIDC provider in `internal/auth/oidc.go` — switching the app offline must not lock
-  everyone out of sign-in.
-  `internal/store/` is the only package that opens the database.
+  everyone out of sign-in. The gate also tells an observer of every call that leaves,
+  refusals included, and the OIDC client carries the observer without the gate
+  (`outbound.Observed`), so every outward call, sign-in's too, is a line in a log: its
+  job's, or the system log's when no job made it.
+  `internal/store/` is the only package that opens the database — both pools: the library's,
+  and from 3.1.0 the log's own connection (`Store.LogDB`, one connection at
+  `synchronous=NORMAL`), which nothing writes through except the logbook, by
+  `Store.LogWrite`.
+- `internal/jobs/` is the queue and the logs: the `Runner` (one job at a time across the
+  server, the rest waiting in the order started), the `Logbook` (the batched writer of every
+  job's lines and the system log, through one door that strips control characters and
+  secrets), and the recorders that tell a line which job it belongs to. It imports `store`,
+  `olog` and `outbound`, and neither of the last two imports it: `serve()` wires the gate's
+  observer and olog's sink to the logbook.
 - The canonical docs live in `docs/wiki/`, one question each — see Developing's "Which document
   answers what". Don't duplicate a fact across two of them.
 
@@ -541,7 +556,7 @@ running (`dockerd &` if not already up in this environment).
   screen it sat on was one long scroll is not folded away because folding is right — it is
   folded away because of a constraint that no longer exists. The Review section is the
   worked example: its ten tuning numbers went behind an "In-depth controls" door when
-  Settings was a single column of nine cards, and Settings is five sections now, each its
+  Settings was a single column of nine cards, and Settings is six sections now, each its
   own screen, with most of a phone's height standing empty under a card of three rows. The
   door survived the reason for it.
 
@@ -760,8 +775,19 @@ old work, so a screen that breaks one is a bug and not a variation.
   boot repair. It goes in its own `internal/store/onetime_<version>_<what>.go`, named for
   the release it first ships in, registering itself from `init()` so retiring it later is
   a file deletion and nothing else. See `internal/store/onetime.go`.
-- No goroutine outlives its request — no worker pool, ticker, or scheduler; adding one is
-  a design discussion first.
+- *"nothing runs unless a person or the app's own lookup started it, and nothing wakes on a
+  timer."* The owner's wording, verbatim, from 3.1.0, where it replaced "no goroutine
+  outlives its request". THE OLD LINE HAD TO GO BECAUSE THE OWNER ASKED FOR THE THING IT
+  FORBADE: a fill over two thousand works has to outlive the press that started it, or
+  closing the tab stops it part-way with nothing anywhere saying where. So, besides the
+  listener and shutdown's own bounded waits, two goroutines outlive the call that starts
+  them, both in `internal/jobs` — the queue's worker and the log's writer — and each is
+  started by the call that hands it work and exits when there is none. **The half that still binds is the one the old line was for**: no ticker,
+  no poller, no cron, no scheduler and no pool, because an idle box with a hundred
+  neighbours has to cost nothing. "The app's own lookup" is a screen fetching what it is
+  about to draw — a work page's portraits and character art — never the app deciding by
+  itself that now is a good time. A third goroutine that outlives the call that starts it,
+  or anything that wakes on a clock, is a design discussion first.
 
 ## Gotchas
 

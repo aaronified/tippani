@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"cmp"
 	"errors"
 	"net/http"
 	"strconv"
@@ -31,6 +32,7 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "isbn, title, or asin is required")
 		return
 	}
+	jobSubject(r.Context(), cmp.Or(req.Title, req.ISBN, req.ASIN))
 	var isbn string
 	if req.ISBN != "" {
 		// The same reason the save form gives. A look-up is the OTHER place somebody
@@ -92,7 +94,7 @@ func (s *Server) handleBookLookup(w http.ResponseWriter, r *http.Request) {
 		}
 		if searchErr != nil {
 			// The client only sees "book lookup failed" — log the real cause.
-			olog.Errorf(olog.CodeMetaLookupFailed, "[meta] book lookup isbn=%q title=%q failed: %v", isbn, req.Title, searchErr)
+			logOutwardFailure(olog.CodeMetaLookupFailed, searchErr, "[meta] book lookup isbn=%q title=%q failed: %v", isbn, req.Title, searchErr)
 			writeErr(w, http.StatusBadGateway, "book lookup failed")
 			return
 		}
@@ -135,6 +137,8 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 	case "show", "game":
 		mediaType = req.MediaType
 	}
+	// The title, or the supplier's id when that is all the reader typed.
+	jobSubject(r.Context(), cmp.Or(req.Title, pinnedID("tmdb", req.TMDBID), pinnedID("tvdb", req.TVDBID), pinnedID("igdb", req.IGDBID)))
 
 	// GAMES TAKE A DIFFERENT SUPPLIER ENTIRELY, so they branch before the
 	// TMDB/TVDB pair rather than joining their candidate merge. Neither of those
@@ -267,7 +271,7 @@ func (s *Server) handleMovieLookup(w http.ResponseWriter, r *http.Request) {
 	// (one source down, the other returning hits) still yields useful results.
 	if len(cands) == 0 && firstErr != nil {
 		// The client only sees a short message; log the real provider cause.
-		olog.Errorf(olog.CodeMetaLookupFailed, "[meta] movie lookup %q year=%d media=%s failed: %v",
+		logOutwardFailure(olog.CodeMetaLookupFailed, firstErr, "[meta] movie lookup %q year=%d media=%s failed: %v",
 			req.Title, req.Year, mediaType, firstErr)
 		switch {
 		case errors.Is(firstErr, metadata.ErrTMDBAuth):
@@ -421,7 +425,7 @@ func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string
 		return
 	}
 	if len(cands) == 0 && searchErr != nil {
-		olog.Errorf(olog.CodeMetaIGDBLookup, "[meta] game lookup %q year=%d failed: %v", title, year, searchErr)
+		logOutwardFailure(olog.CodeMetaIGDBLookup, searchErr, "[meta] game lookup %q year=%d failed: %v", title, year, searchErr)
 		if errors.Is(searchErr, metadata.ErrIGDBAuth) {
 			writeErr(w, http.StatusBadGateway,
 				"IGDB rejected the credentials. Twitch answers a wrong client id OR secret the same way, "+
@@ -432,4 +436,13 @@ func (s *Server) gameLookup(w http.ResponseWriter, r *http.Request, title string
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": cands})
+}
+
+// pinnedID is a supplier's id as a lookup's subject names it, "tmdb:603", or ""
+// for none.
+func pinnedID(source string, id int64) string {
+	if id <= 0 {
+		return ""
+	}
+	return source + ":" + strconv.FormatInt(id, 10)
 }

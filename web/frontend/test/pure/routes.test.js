@@ -137,6 +137,14 @@ describe('parsePath', () => {
   })
 
   // The catalogue tab used to be called "movies". Both spellings still parse.
+  // A re-verify is reviewed by its job, from Settings › Jobs, long after the
+  // check ran — so the job is part of the address and has to survive a refresh.
+  it('opens a re-verify review by its job, and the bare console for a bad id', () => {
+    expect(parsePath('/metadata/reverify/12')).toEqual({ tab: 'metadata', detail: { type: 'reverify', id: 12 } })
+    expect(parsePath('/metadata/reverify/abc')).toEqual({ tab: 'metadata', detail: null })
+    expect(parsePath('/metadata/reverify')).toEqual({ tab: 'metadata', detail: null })
+  })
+
   it('accepts the legacy /movies spelling', () => {
     expect(parsePath('/movies')).toEqual({ tab: 'movies', detail: null })
     expect(parsePath('/movies/7')).toEqual({ tab: 'movies', detail: { type: 'movie', id: 7 } })
@@ -188,6 +196,7 @@ describe('the round trip', () => {
     ['library', { type: 'book', id: 42 }],
     ['movies', { type: 'movie', id: 7 }],
     ['anthologies', { type: 'anthology', id: 5 }],
+    ['metadata', { type: 'reverify', id: 12 }],
   ]
 
   // One test over every state rather than one one-line it per state: the body

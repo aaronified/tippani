@@ -18,7 +18,16 @@ import { fileURLToPath } from 'node:url'
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const FIXTURE_DIR = join(HERE, '..', 'fixture')
 
-export async function seedFixture({ baseUrl, username, password }) {
+// apiSession — ONE CLIENT OF THE PUBLIC API, with a cookie jar of its own, and
+// the only one in the harness. The seeding below uses it, and so does a
+// journey's setup (world.mjs's `setup` and `secondReader`), because "how do you
+// talk to the server and what does a refusal look like" is one verb, and a second
+// copy of it is a second thing to fix the day the session cookie changes.
+//
+// ITS JAR IS NOT THE BROWSER'S. Signing this client in is a second session for
+// the same account — the server keeps several — so arranging a world never
+// touches the session the reader's page is using.
+export function apiSession(baseUrl) {
   const jar = new Map()
   const cookie = () => [...jar].map(([k, v]) => `${k}=${v}`).join('; ')
   const eat = (res) => {
@@ -64,6 +73,11 @@ export async function seedFixture({ baseUrl, username, password }) {
     if (!res.ok) throw new Error(`cover ${kind}/${id} -> ${res.status}: ${(await res.text()).slice(0, 200)}`)
   }
 
+  return { api, uploadCover }
+}
+
+export async function seedFixture({ baseUrl, username, password }) {
+  const { api, uploadCover } = apiSession(baseUrl)
   const recipe = JSON.parse(await readFile(join(FIXTURE_DIR, 'library.json'), 'utf8'))
 
   const status = await api('GET', '/auth/status')

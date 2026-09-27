@@ -523,7 +523,7 @@ func (s *Server) handleCharacterImage(w http.ResponseWriter, r *http.Request) {
 	if req.ImageURL != "" {
 		name, ferr := s.fetchUserImage(r.Context(), req.ImageURL, s.coversDir())
 		if ferr != nil {
-			olog.Errorf(olog.CodeCoverFetch,
+			logOutwardFailure(olog.CodeCoverFetch, ferr,
 				"[characters] portrait id=%d url=%q failed: %v", id, req.ImageURL, ferr)
 			writeErr(w, http.StatusBadGateway, "that picture could not be fetched")
 			return

@@ -40,7 +40,11 @@ const prefixBlock = (src.match(/const SETTINGS_PREFIX = \{([\s\S]*?)\n\}/) || [,
 // `\[[^\]]*\]`, which matches `server: []` — a card declaring no searchable words
 // at all would have counted as prefixed and vanished on the first keystroke with
 // nothing failing. A list has to carry at least one quoted root to be one.
-const prefixed = [...prefixBlock.matchAll(/^\s*([A-Za-z0-9_]+):\s*(\[\s*'[^']+'[^\]]*\]|'[^']+')/gm)].map((m) => m[1])
+// A CARD ID MAY BE QUOTED, because the Jobs cards are `'jobs-current'` and
+// `'jobs-past'` — a hyphen is not an identifier character, so the key has to be a
+// string. Reading only bare keys would have reported both as unprefixed: the
+// scanner's own failure, dressed as the defect it exists to catch.
+const prefixed = [...prefixBlock.matchAll(/^\s*'?([A-Za-z0-9_-]+)'?:\s*(\[\s*'[^']+'[^\]]*\]|'[^']+')/gm)].map((m) => m[1])
 
 describe('searching Settings', () => {
   it('found both lists at all, so this file cannot pass by finding nothing', () => {

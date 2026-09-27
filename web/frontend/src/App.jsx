@@ -1946,7 +1946,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // NOTHING SCHEDULED, and that is the point of doing it this way. A real
   // notification needs something that wakes up on its own — a service worker, a push
   // subscription, a server that knows when your day starts — and every one of those
-  // is a background job this app does not have and will not add. A badge set on load
+  // wakes on its own, which nothing in this app does or will. A badge set on load
   // carries most of the same value: you glance at the home screen, and it says
   // whether there is anything to come back for.
   //
@@ -2591,6 +2591,14 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
                 setDetail({ type: 'section', id })
                 if (!DEMO) seedRoute(statePath('metadata', { type: 'section', id }))
               }}
+              // A FINISHED RE-VERIFY TO REVIEW, BY ITS JOB — the address Settings ›
+              // Jobs' Review sends a reader to (routes.js). Null on every other
+              // visit, which is how the console knows nobody asked.
+              reverifyJob={detail?.type === 'reverify' ? detail.id : null}
+              // Closing that review is Back: to Settings › Jobs when the reader
+              // came from there, and onto the plain console when they arrived at
+              // the address directly (goBack replaces the entry then).
+              onReverifyClose={() => goBack('metadata')}
             />
           </div>
         )}
@@ -2675,6 +2683,9 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
               // because "go to Metadata" and "go to the language table" are
               // different asks and only one of them is a door.
               onGo={(nextTab, id = null) => go(nextTab, id ? { type: 'section', id } : null)}
+              // THE OTHER DOOR OUT: a past re-verify's Review opens Metadata on
+              // that job, because the flow that applies a review lives there.
+              onReviewJob={(id) => go('metadata', { type: 'reverify', id })}
             />
           </div>
         )}

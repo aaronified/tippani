@@ -61,6 +61,7 @@ import {
   IconDelete,
   IconDevice,
   IconExport,
+  IconJobs,
   IconEye,
   IconEyeOff,
   IconKey,
@@ -113,6 +114,8 @@ import {
 import { PersonChip } from './people.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { SectionRail } from './sectionRail.jsx'
+import { JobsCurrentCard, JobsPastCard, SystemLogsCard } from './jobsSection.jsx'
+import { jobWaitingText, queueNotice, readJobsSummary, useKindJob } from './jobs.js'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
 // (admin only) Updates + Backup. Library stats now live on their own Stats page
@@ -180,9 +183,12 @@ function useColumnCount() {
 // KIND of note a quote is, which is a fact about the library rather than a
 // preference about the app — the same reason the language table and the tags are
 // over there. The card itself is unchanged and is exported from this file.
-export const SETTINGS_CARDS = ['features', 'sr', 'server']
+// THE THREE JOBS CARDS ARE THE LAST THREE, and 'logs' is built for an admin only,
+// exactly as 'server' is: registering it is what draws it, and a reader has no
+// business with the server's own log.
+export const SETTINGS_CARDS = ['features', 'sr', 'server', 'jobs-current', 'jobs-past', 'logs']
 
-// ---- THE FIVE SECTIONS ------------------------------------------------------
+// ---- THE SIX SECTIONS -------------------------------------------------------
 //
 // Settings was one scrolling grid of cards and the v3 pack makes it five named
 // screens behind a rail. The reason is not tidiness: the page had grown to where
@@ -207,6 +213,11 @@ export const SETTINGS_SECTIONS = [
   ['review', 'settings.section.review.label', 'quiz'],
   ['sections', 'settings.section.sections.label', 'move'],
   ['server', 'settings.section.server.label', 'device'],
+  // JOBS IS FOR EVERY READER, and last. Everybody's fills and lookups are jobs
+  // now, so everybody has a queue to look at and a Stop to press; an admin's copy
+  // of the section adds the system logs and everyone's queue rather than being a
+  // different section.
+  ['jobs', 'settings.section.jobs.label', 'jobs'],
 ]
 
 // What each section's info dot says. Derived from the id rather than kept as a
@@ -227,6 +238,7 @@ export const SECTION_GLYPH = {
   quiz: <IconQuiz />,
   move: <IconMoveTo />,
   device: <IconDevice />,
+  jobs: <IconJobs />,
 }
 
 export const SECTION_CARDS = {
@@ -235,6 +247,7 @@ export const SECTION_CARDS = {
   review: ['sr'],
   sections: ['features'],
   server: ['server'],
+  jobs: ['jobs-current', 'jobs-past', 'logs'],
 }
 
 // ── WHICH PREFERENCES EACH SECTION OWNS, and why this table exists at all.
@@ -293,6 +306,9 @@ export const SECTION_PREFS = {
   // restore) and one admin setting the server keeps itself (the release channel,
   // via /admin/update/channel) — none of them a user preference this table is for.
   server: [],
+  // JOBS OWNS NONE EITHER, for Server's reason: what it holds are acts — stop,
+  // run again, export — and a filter on a list, none of them a stored preference.
+  jobs: [],
 }
 
 // NOT A SETTING A READER CHOSE, so not counted anywhere. Each of these is stored
@@ -428,6 +444,11 @@ const SETTINGS_PREFIX = {
   // for live under three roots, and a card that could only declare one would go
   // missing the moment somebody typed "backup".
   server: ['settings.updates.', 'settings.backup.', 'settings.changelog.'],
+  // One root per jobs card, so typing "stop" finds the card whose Stop all it is
+  // and "export" the two that export.
+  'jobs-current': 'settings.jobs.current.',
+  'jobs-past': 'settings.jobs.past.',
+  logs: 'settings.logs.',
 }
 
 // settingsMatches — does this card answer to what was typed?
@@ -449,7 +470,7 @@ export function settingsMatches(cardKey, query) {
   return false
 }
 
-export default function Settings({ user, onPreferences, update, onUpdateInfo, section: routed = null, onSection = null, onGo = null }) {
+export default function Settings({ user, onPreferences, update, onUpdateInfo, section: routed = null, onSection = null, onGo = null, onReviewJob = null }) {
   const mobile = useIsMobileScreen()
   const ncols = useColumnCount()
   // ── THE PHONE'S TWO SEATS, and they are the two verbs on this page.
@@ -484,7 +505,28 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
   const [updateNow, setUpdateNow] = useState(false)
   // WHAT THE SHELL'S FIELD IS ASKING ABOUT WHILE THIS SCREEN IS UP.
   const [q, setQ] = useState('')
-  useScreenSearch({ key: 'settings', label: t('shell.search.where.settings'), onQuery: setQ })
+  // …EXCEPT ON JOBS, FOR AN ADMIN, WHERE IT SEARCHES THE SYSTEM LOGS. The omnibar
+  // rule is that the bar searches what you are looking at, and on that section
+  // what an admin is looking at is a log with a keyword filter. So the keyword
+  // lives HERE, and this screen publishes one context or the other — never both:
+  // two publishers of one bar settle on whichever effect ran last, which is a
+  // child before its parent on every render and the reverse on some.
+  //
+  // "OPEN" MEANS ON SCREEN. On a desk the remembered section is drawn beside the
+  // tabs; on a phone the index is drawn until a section is routed, and the bar
+  // over the index is still Settings' own.
+  const [logsQ, setLogsQ] = useState('')
+  const logsHere = !!user.is_admin && (mobile ? routed === 'jobs' : section === 'jobs')
+  useScreenSearch(logsHere
+    ? { key: 'settings-logs', label: t('shell.search.where.logs'), onQuery: setLogsQ }
+    : { key: 'settings', label: t('shell.search.where.settings'), onQuery: setQ })
+  // The bar empties itself when its context changes (App's TopBarSearch), so the
+  // context it left must empty too: a Settings filter still holding "backup" would
+  // go on hiding sections behind a field that no longer shows the word.
+  useEffect(() => {
+    if (logsHere) setQ('')
+    else setLogsQ('')
+  }, [logsHere])
   useScreenBar({
     // WHO YOU ARE, UNDER THE WORD "SETTINGS". It was a mono label inside
     // .page-header, and on a phone that header has its <h1> visually hidden —
@@ -540,6 +582,11 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
     // own summary is a second copy to keep in step, and this pair had already
     // drifted: the tile counted /cleanup's open bucket while the page counted
     // whichever bucket you last looked at.
+    // EVERY READER'S QUEUE, and the past thirty days of it. The backup prompt is
+    // handed in so a backup run again asks for its credential through the prompt
+    // that sealed it the first time, not a second copy of it.
+    'jobs-current': <JobsCurrentCard user={user} />,
+    'jobs-past': <JobsPastCard user={user} onReview={onReviewJob} credentialPrompt={(props) => <BackupPrompt {...props} />} />,
     ...(user.is_admin
       ? {
           server: (
@@ -553,6 +600,7 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
               onBackupAsking={setBackupNow}
             />
           ),
+          logs: <SystemLogsCard q={logsQ} onQuery={setLogsQ} />,
         }
       : {}),
   }
@@ -697,6 +745,10 @@ export default function Settings({ user, onPreferences, update, onUpdateInfo, se
         </>
       ),
     } : {}),
+    // THE OWNER'S TILE: one red Stop all with its confirm, and how many jobs are
+    // queued — the Current jobs card itself, asked for its compact face, so the
+    // confirm and the request are the ones inside the section.
+    jobs: <JobsCurrentCard user={user} compact />,
   } : {}
 
   return (
@@ -1197,9 +1249,10 @@ const specimenSize = (roleKey) => {
 // margin note. It is also the only honest way to show the Bengali and Devanagari
 // rows, whose whole point is a script the specimen sentence does not contain.
 //
-// Every alternate is BUNDLED, not fetched. Tippani never contacts the network on
-// its own, and a type picker that loaded Google Fonts would be the first thing in
-// the app that did — on a screen about how your own words look. All OFL-1.1.
+// Every alternate is BUNDLED, not fetched. The browser talks to nobody but this
+// server, and a type picker that loaded Google Fonts would be the first thing in
+// the app to reach a third party from it — on a screen about how your own words
+// look. All OFL-1.1.
 
 // FontRow — one role: its name, what it is for, the face it is set in, and the
 // face doing that job underneath.
@@ -3977,6 +4030,17 @@ function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm 
   }
   // The field the step hands focus to once the copy is down — see SafetyBackupStep.
   const nextRef = useRef(null)
+  // THE QUEUE, READ WHEN THE PROMPT OPENS. A restore swaps the database under the
+  // job queue, so the server refuses it while a job runs and ends the ones still
+  // waiting — and a reader should learn that here, above step one, rather than
+  // from a refusal after downloading a safety copy.
+  const [queue, setQueue] = useState(null)
+  useEffect(() => {
+    let alive = true
+    readJobsSummary().then((r) => { if (alive && r.ok) setQueue(r) })
+    return () => { alive = false }
+  }, [])
+  const busyQueue = queueNotice(queue, { running: 'settings.restore.queue.running', waiting: 'settings.restore.queue.waiting' })
 
   // The same three validate reasons the onboarding twin uses (App.jsx), through
   // the same keys: two dialogs for one operation should not own two vocabularies
@@ -4009,6 +4073,7 @@ function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm 
           ? t('settings.restore.warn.dated.prose', { date: fmtWhen(meta.created) })
           : t('settings.restore.warn.prose')}
       </p>
+      {busyQueue && <p className="microcopy" role="status">{busyQueue}</p>}
       <SafetyBackupStep done={safe} onDone={tookCopy} next={nextRef} />
       {key === 'passphrase' && (
         <label className="tp-field">
@@ -4191,7 +4256,7 @@ const fmtSize = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${M
 function BackupCard({ user, asking = false, onAsking }) {
   const [backup, setBackup] = useState(null) // {name, created, size, key, account} | null
   const [loaded, setLoaded] = useState(false)
-  const [busy, setBusy] = useState(false) // creating
+  const [busy, setBusy] = useState(false) // asking the server for the backup job
   // CONTROLLED, because the phone's dock opens it too. "Back up now" is one of
   // the two things somebody comes to this page on a phone to do, and it was six
   // cards down a scroll.
@@ -4233,30 +4298,52 @@ function BackupCard({ user, asking = false, onAsking }) {
     window.location.href = apiURL('/admin/backup/download')
   }
 
+  // A BACKUP IS A JOB ON THE SERVER (3.1.0). The request that sealed the archive
+  // used to hold this card for as long as the seal took, and a reader who left
+  // the screen left with nothing to say whether it had worked. Now the press asks
+  // for a `backup` job — the server checks the credential there and then, so a
+  // wrong password is refused before anything queues — and the prompt closes;
+  // the card watches the job and says how it ended. Leaving does not stop it:
+  // Settings › Jobs has it, with its log.
+  //
+  // THE DOCK'S KEY AND THE PHONE INDEX'S BUTTON OPEN THIS SAME PROMPT, so all
+  // three presses are this one function.
+  const backupJob = useKindJob('backup', {
+    onSettled: async (job) => {
+      if (job.state === 'failed') return toast(job.error || t('error.backup.failed'))
+      if (job.state !== 'succeeded') {
+        return toast(t(job.state === 'stopped' ? 'settings.backup.toast.stopped' : 'settings.backup.toast.interrupted'))
+      }
+      // The card's own read of the kept archive, now that there is a new one.
+      const r = await json('GET', '/admin/backup')
+      if (r.ok) setBackup(r.data.backup)
+      // IT DOES NOT DOWNLOAD ITSELF. Making a backup and taking a copy of it are
+      // two different acts, and welding them together got both of them wrong:
+      //
+      //   - The archive is KEPT on the server. That is the point of the feature —
+      //     one dated archive, ready to restore from, and the restore reads it from
+      //     there. Somebody who wanted that got a multi-megabyte file in their
+      //     Downloads folder as well, every time, unasked.
+      //   - On a phone the navigation is worse than untidy: assigning
+      //     window.location while a dialog is closing takes the browser off the
+      //     page mid-transition, and what comes back is a download shelf over a
+      //     Settings screen that has lost its scroll position.
+      //   - And it happened on the FAILURE path's twin — a backup that succeeded
+      //     but that you only wanted server-side still cost you the bandwidth.
+      //
+      // So the toast offers it instead. One tap if you want the copy, nothing if
+      // you do not, and the button on the card is there either way.
+      toast(t('settings.backup.toast.created'), { label: t('common.action.download.label'), onClick: download })
+    },
+  })
+  const backingUp = busy || backupJob.live
+
   async function create(creds) {
     setBusy(true)
-    const r = await json('POST', '/admin/backup', creds)
+    const r = await backupJob.start(creds, { reuse: false })
     setBusy(false)
-    if (!r.ok) return toast(errText(r, t('error.backup.failed')))
+    if (!r.ok) return toast(r.error)
     setAsking(false)
-    setBackup(r.data.backup)
-    // IT NO LONGER DOWNLOADS ITSELF. Making a backup and taking a copy of it are
-    // two different acts, and welding them together got both of them wrong:
-    //
-    //   - The archive is KEPT on the server. That is the point of the feature —
-    //     one dated archive, ready to restore from, and the restore reads it from
-    //     there. Somebody who wanted that got a multi-megabyte file in their
-    //     Downloads folder as well, every time, unasked.
-    //   - On a phone the navigation is worse than untidy: assigning
-    //     window.location while a dialog is closing takes the browser off the page
-    //     mid-transition, and what comes back is a download shelf over a Settings
-    //     screen that has lost its scroll position.
-    //   - And it happened on the FAILURE path's twin — a backup that succeeded but
-    //     that you only wanted server-side still cost you the bandwidth.
-    //
-    // So the toast offers it instead. One tap if you want the copy, nothing if you
-    // do not, and the button on the card is there either way.
-    toast(t('settings.backup.toast.created'), { label: t('common.action.download.label'), onClick: download })
   }
 
   // The archive the restore prompt is about, and therefore which credential it
@@ -4338,7 +4425,7 @@ function BackupCard({ user, asking = false, onAsking }) {
             this was two stacks of divs under one heading. The middle row is NOT
             here and its absence is recorded rather than faked: a nightly backup
             needs something that wakes up at four in the morning, and this repo's
-            standing invariant is that no goroutine outlives its request. See
+            standing invariant is that nothing wakes on a timer. See
             docs/plans/nightly-backup.md. */}
         {/* THE DOT CAME DOWN FROM THE HEADING. What it says — one dated encrypted
             archive, a passphrase one recoverable by nothing, and a restore that
@@ -4349,18 +4436,23 @@ function BackupCard({ user, asking = false, onAsking }) {
           label={t('settings.backup.make.label')}
           info={t('settings.backup.info.body')}
           said={loaded && (
-            <p className="microcopy">
-              {backup ? (
-                // tNodes: the date is bold, so the sentence carries a node. fmtSize
-                // renders MB/KB, which are symbols rather than words (§8) and stay.
-                tNodes('settings.backup.last.prose', {
-                  when: <b key="when">{fmtWhen(backup.created)}</b>,
-                  size: fmtSize(backup.size),
-                })
-              ) : (
-                t('settings.backup.empty.prose')
-              )}
-            </p>
+            <>
+              <p className="microcopy">
+                {backup ? (
+                  // tNodes: the date is bold, so the sentence carries a node. fmtSize
+                  // renders MB/KB, which are symbols rather than words (§8) and stay.
+                  tNodes('settings.backup.last.prose', {
+                    when: <b key="when">{fmtWhen(backup.created)}</b>,
+                    size: fmtSize(backup.size),
+                  })
+                ) : (
+                  t('settings.backup.empty.prose')
+                )}
+              </p>
+              {/* BEHIND ANOTHER JOB, where it stands — a busy button with no reason
+                  beside it reads as a stuck one. */}
+              {backupJob.job?.state === 'queued' && <p className="microcopy">{jobWaitingText(backupJob.job)}</p>}
+            </>
           )}
           control={
         <div className="flex flex-wrap items-center gap-3">
@@ -4368,9 +4460,9 @@ function BackupCard({ user, asking = false, onAsking }) {
             icon={<IconArchive />}
             keepLabel
             onClick={() => setAsking(true)}
-            disabled={busy || phase !== 'idle'}
+            disabled={backingUp || phase !== 'idle'}
           >
-            {busy ? t('settings.backup.now.busy') : t('settings.backup.now.label')}
+            {backingUp ? t('settings.backup.now.busy') : t('settings.backup.now.label')}
           </GhostButton>
           {/* THE DOWNLOAD IS A CONTROL NOW, not a `download` word in the corner.
               It was a bare tp-link beside a button, which read as a footnote to the
@@ -4445,7 +4537,7 @@ function BackupCard({ user, asking = false, onAsking }) {
               icon={<IconRestore />}
               keepLabel
               onClick={() => setPrompt(true)}
-              disabled={!target || busy || phase !== 'idle'}
+              disabled={!target || backingUp || phase !== 'idle'}
               title={!target ? t(source === 'file' ? 'error.validate.backup-file-required' : 'error.validate.backup-absent') : undefined}
             >
               {t('settings.backup.restore.label')}

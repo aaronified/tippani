@@ -68,7 +68,8 @@ type jobView struct {
 	Queued  bool   `json:"queued"` // ran through the queue; false: ran in its request
 	Subject string `json:"subject"`
 	State   string `json:"state"`
-	// Params are what the job was asked to do. Nothing secret is ever in them.
+	// Params are what the job was asked to do, less the lists it was given
+	// (jobParamsShown). Nothing secret is ever in them.
 	Params json.RawMessage `json:"params"`
 	// Counts are what the job's kind counts of its result (queuedKind.counts),
 	// never the result itself, which GET /jobs/{id}/result reads.
@@ -107,8 +108,33 @@ type jobRow struct {
 // re-verify's is every field of up to five hundred works, and the counts a list
 // shows were made from it when the job stored it (0079 says why, and why result
 // is the row's last column).
-const jobColumns = `id, user_id, username, kind, queued, subject, state, params, error, total, done,
+const jobColumns = `id, user_id, username, kind, queued, subject, state, ` + jobParamsShown + `, error, total, done,
 	rerun_of, from_job, created_at, started_at, finished_at, counts`
+
+// jobParamsShown is the params a job's JSON carries: the stored object without
+// its top-level arrays.
+//
+// THE LISTS A JOB WAS GIVEN ARE NOT SHOWN, because they are what makes params
+// large and nothing on a screen reads them. A five-hundred-item apply's params
+// are its items — every field of every work, some four megabytes — and Current
+// jobs is read every two seconds while anything runs, a job at a time for as
+// many as are queued. What the screens read is the scalars (a re-verify's
+// fills_only, a covers pass's missing_only), and the size of a list is the job's
+// total. The stored params are untouched: the job reads them, and a rerun queues
+// them again.
+//
+// DROPPED IN THE QUERY, NOT AFTER IT, so the lists never leave the database:
+// read into Go first, four megabytes would be copied out of SQLite and decoded
+// only to be thrown away, on every poll. A row whose params are not an object
+// (a hand-made archive's) is read as it is, and rawObject decides what it shows.
+// The CASE keeps true, false and null as JSON (json_each reads them as 1, 0 and
+// NULL) and an object as an object (rather than as a string of one).
+const jobParamsShown = `CASE WHEN NOT json_valid(params) THEN params
+	WHEN json_type(params) <> 'object' THEN params
+	ELSE (SELECT json_group_object(key, CASE type WHEN 'object' THEN json(value)
+	        WHEN 'true' THEN json('true') WHEN 'false' THEN json('false') WHEN 'null' THEN json('null')
+	        ELSE value END)
+	      FROM json_each(params) WHERE type <> 'array') END`
 
 func scanJob(sc interface{ Scan(...any) error }) (jobRow, error) {
 	var j jobRow

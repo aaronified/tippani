@@ -25,15 +25,23 @@ Tippani, so it comes first.
 - **No model ships with the binary.** Tippani is one static Go binary with an
   embedded SPA and a SQLite file.
 - **Your highlights are never sent to a model.** They are never sent anywhere.
-- **The only outbound calls are metadata lookups you trigger**, to the sources
-  named in the README (Google Books, Open Library, TMDB, TheTVDB, Wikidata) plus
-  a GitHub release check that runs **only when an admin presses the button**.
-  Cover and portrait fetches go through a host allowlist with an SSRF guard.
+- **The only outbound calls are metadata lookups**, to the sources named in the
+  README (Google Books, Open Library, TMDB, TheTVDB, Wikidata), that somebody asked
+  for or that a screen somebody opened makes for the pictures it is about to draw;
+  the Pushover messages a reader set up; and a GitHub release check that runs **only
+  when an admin presses the button**. Cover and portrait fetches go through a host
+  allowlist with an SSRF guard. Single sign-on, where it is configured, talks to the
+  operator's own provider.
+- **Every one of them is written down.** Since 3.1.0 each outward call is a line in
+  the log of the job that made it — method, host, path, what came back — kept for 30
+  days where an admin can read and export it, with every key and credential in the
+  address replaced by `…` before it is kept.
 - **And you can switch all of it off.** `TIPPANI_OFFLINE=1` refuses every one of
-  those before it is dialled — `internal/outbound` is a transport wrapped around
-  each of the three HTTP clients the app has, and a test names every
-  `&http.Client{}` in the tree so a fourth cannot appear ungated. The library
-  itself needs no network to read, so nothing you already have stops working.
+  those before it is dialled, sign-in to your own provider excepted —
+  `internal/outbound` is a transport wrapped around each of the four HTTP clients
+  that reach the internet, and a test names every `&http.Client{}` in the tree so a
+  fifth cannot appear ungated. The library itself needs no network to read, so
+  nothing you already have stops working.
 - **Nothing is sent anywhere to be encrypted either.** Backup archives are sealed
   (AES-256-GCM, Argon2id, both from Go's standard library and
   `golang.org/x/crypto`) entirely in-process. No key service, no escrow, no
@@ -250,31 +258,31 @@ AI-written code fails differently from hand-written code. It compiles, it reads
 well, it is plausibly commented, and it can still be wrong — so plausibility is
 worth nothing here and only execution counts. What the repo actually runs:
 
-- **1,958 Go test functions and 4,834 frontend tests, across 839 test files** — the
+- **2,000 Go test functions and 4,957 frontend tests, across 863 test files** — the
   Go half over real HTTP handlers against a real SQLite database, not mocks.
   Counted, not estimated, and every number here has a command that reproduces it:
 
   ```bash
   grep -rhoE '^func Test[A-Za-z0-9_]+' --include='*_test.go' . | wc -l   # Go functions
-  cd web/frontend && npx vitest run                                      # 4,834 of them
-  cd web/frontend && npm run journeys                                    # + 117 in the browser
-  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 323 Go files
+  cd web/frontend && npx vitest run                                      # 4,957 of them
+  cd web/frontend && npm run journeys                                    # + 123 in the browser
+  find . -name '*_test.go' -not -path './node_modules/*' | wc -l         # 333 Go files
   find ./web/frontend -path '*/node_modules' -prune -o -type f \
        \( -name '*.test.*' -o -name '*.spec.*' -o -name '*.journey.*' \) \
-       -print | wc -l                                                    # 516 frontend
+       -print | wc -l                                                    # 530 frontend
   ```
 
-  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,834 is what
+  **`npm test` NO LONGER RUNS ALL OF THEM, AND THAT IS THE POINT.** 4,957 is what
   `npx vitest run` reports across the three vitest projects, and the browser tier is
   not among them — it has its own config, because it needs a globalSetup that builds
-  the binary and seeds a library. `npm test` runs two projects — 3,914 tests over 339
-  files; `npm run lint:rules` runs the third, 920 assertions over 96 files; and
-  `npm run journeys` runs 117 tests over 81 files against a real server in a real
+  the binary and seeds a library. `npm test` runs two projects — 4,032 tests over 346
+  files; `npm run lint:rules` runs the third, 925 assertions over 97 files; and
+  `npm run journeys` runs 123 tests over 87 files against a real server in a real
   browser, which is the tier that would have caught the bug all this is named after.
-  Those 96 READ THE SOURCE TEXT and assert how it is
+  Those 97 READ THE SOURCE TEXT and assert how it is
   spelled: never truncate a name, spacing is a constant, no emoji glyphs, the
   typescale. They are worth keeping and they were never tests, because the app can
-  be entirely broken and all 96 of them still pass — none of them runs it. A
+  be entirely broken and all 97 of them still pass — none of them runs it. A
   suite let a feature ship 100% dead that way. CI runs `lint:rules` as its own step,
   so a broken design rule still fails the build; it just stops being counted as
   evidence that anything works.
@@ -297,7 +305,7 @@ worth nothing here and only execution counts. What the repo actually runs:
   recently from 1,153 / 1,977 / 338, from 1,336 / 2,218 / 394, from
   1,357 / 2,223 / 398, from 1,360 / 2,245 / 401, from 1,380 / 2,358 / 418, from
   1,391 / 2,366 / 419, from 1,466 / 2,772 / 471, from 1,493 / 3,041 / 520, from 1,493 / 3,071 / 521, from 1,493 / 3,083 / 522, from 1,493 / 3,111 / 523, from 1,493 / 3,324 / 533, from 1,494 / 3,350 / 535, from 1,494 / 3,416 / 540, from 1,494 / 3,426 / 541, from 1,494 / 3,431 / 542, from 1,494 / 3,434 / 543, from 1,494 / 3,435 / 543, from 1,494 / 3,436 / 543, from 1,494 / 3,439 / 543, from 1,494 / 3,448 / 543, from 1,494 / 3,449 / 543, from 1,494 / 3,450 / 543, from 1,494 / 3,562 / 551, from 1,508 / 3,590 / 555, from 1,508 / 3,595 / 556, from 1,508 / 3,610 / 558, from 1,508 / 3,616 / 559, from 1,508 / 3,624 / 561, from 1,509 / 3,626 / 562, from 1,509 / 3,631 / 563, from 1,512 / 3,633 / 563, from 1,513 / 3,642 / 564, from 1,514 / 3,645 / 565, from 1,522 / 3,645 / 565, from 1,524 / 3,646 / 565, from 1,533 / 3,648 / 566, from 1,538 / 3,652 / 567, from 1,542 / 3,652 / 567, from 1,685 / 4,102 / 633, from 1,685 / 4,135 / 636, from 1,687 / 4,137 / 636, from 1,690 / 4,142 / 636, from 1,690 / 4,151 / 636, from 1,692 / 4,154 / 636, from 1,692 / 4,156 / 636, from 1,692 / 4,157 / 636, from 1,692 / 4,158 / 636, from 1,703 / 4,188 / 638, from 1,703 / 4,191 / 638, from 1,705 / 4,198 / 638, from 1,707 / 4,201 / 638, from 1,708 / 4,202 / 638, from 1,708 / 4,209 / 639, from 1,708 / 4,219 / 640, from 1,708 / 4,234 / 641, from 1,708 / 4,245 / 642, from 1,708 / 4,248 / 643, from 1,708 / 4,257 / 644, from 1,708 / 4,265 / 644, from 1,708 / 4,272 / 645, from 1,708 / 4,281 / 646, from 1,710 / 4,292 / 646, from 1,713 / 4,296 / 647, from 1,713 / 4,299 / 647, from 1,713 / 4,312 / 648, from 1,731 / 4,430 / 660, from 1,738 / 4,430 / 664, from 1,738 / 4,435 / 665, from
-  1,738 / 4,455 / 681, from 1,738 / 4,470 / 695, from 1,804 / 4,784 / 792, from 1,804 / 4,787 / 794, from 1,805 / 4,787 / 796, from 1,806 / 4,789 / 796, from 1,806 / 4,793 / 797, from 1,806 / 4,794 / 797, from 1,815 / 4,794 / 799, from 1,816 / 4,794 / 800, from 1,818 / 4,794 / 800, from 1,818 / 4,797 / 801, from 1,819 / 4,797 / 801, from 1,819 / 4,801 / 802, from 1,819 / 4,802 / 802, from 1,822 / 4,827 / 810, from 1,828 / 4,828 / 811, and from 1,828 / 4,834 / 812 before the
+  1,738 / 4,455 / 681, from 1,738 / 4,470 / 695, from 1,804 / 4,784 / 792, from 1,804 / 4,787 / 794, from 1,805 / 4,787 / 796, from 1,806 / 4,789 / 796, from 1,806 / 4,793 / 797, from 1,806 / 4,794 / 797, from 1,815 / 4,794 / 799, from 1,816 / 4,794 / 800, from 1,818 / 4,794 / 800, from 1,818 / 4,797 / 801, from 1,819 / 4,797 / 801, from 1,819 / 4,801 / 802, from 1,819 / 4,802 / 802, from 1,822 / 4,827 / 810, from 1,828 / 4,828 / 811, from 1,828 / 4,834 / 812, from 1,828 / 4,898 / 817, from 1,958 / 4,834 / 839, from 1,893 / 4,954 / 835, and from 1,998 / 4,954 / 856 before the
   latest recount — which is why each one now sits beside the command that produces it.
   The last of those drifts is worth naming because it was one work session: a number
   recounted honestly at the start of a stretch is stale by the end of it.
@@ -760,6 +768,19 @@ worth nothing here and only execution counts. What the repo actually runs:
   `make frame-scroll` opens the page in Firefox and fails on a clipped page or a column
   that cannot scroll. **Before claiming a layout works, measure the layout** — the
   browser harness exists for exactly the class of failure the unit suite is blind to.
+- **A test that catches its bug in six runs of eight has found the bug, and does not
+  guard against it.** 3.1.0's queue and log writer are concurrent by design, and two of
+  their tests first caught their own named defect only by chance: the wait for a job's
+  last lines before its finishing write (one failing run in three of `-count=5` with the
+  wait removed), and the order of shutdown's steps (six or seven runs in eight with the
+  log pool closed first). Each was rewritten to hold the race open instead of hoping to
+  land in it — a hook that parks the log writer, a switch that holds every line until
+  shutdown's last flush — and was then red on every run with the defect put back. Two
+  such switches are in the shipped binary, `TIPPANI_JOBS_HOLD` (the queue claims
+  nothing, so a journey can see a job wait) and `TIPPANI_LOG_HOLD`. Both are honoured
+  only while `TIPPANI_OFFLINE` is on, which a test proves, and every file that uses one
+  names it in its header. `internal/jobs` runs raced every night with the other
+  packages; `TestEveryTestedPackageIsInTheNightlySweep` is what made it join.
 - **Two numbers that must agree read each other rather than a copy.** The threshold
   that decides whether a cover is worth replacing is the server's
   (`lowResCoverWidth`); the client draws the same fact in red. Written as a comment

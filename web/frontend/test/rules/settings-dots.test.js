@@ -30,7 +30,11 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const SRC = process.env.TIPPANI_SRC
-const FILE = readFileSync(join(SRC, 'Settings.jsx'), 'utf8')
+// SETTINGS IS TWO FILES NOW. The Jobs section's three cards live in
+// jobsSection.jsx (3.1.0), and a group-level dot there is the same defect as one
+// here — so the guard reads both, or the sixth section would be the one place a
+// heading could grow a dot unseen.
+const FILE = ['Settings.jsx', 'jobsSection.jsx'].map((f) => readFileSync(join(SRC, f), 'utf8')).join('\n')
 
 // THE ONE GROUP-LEVEL DOT, AND THE REASON IT IS ALLOWED. What it says is not true
 // of any single row — it is the bound every one of the ten schedule numbers

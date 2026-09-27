@@ -55,6 +55,12 @@ export const SCREENS = {
   stats: [() => import('../src/StatsPage.jsx'), 'default', { onSearch: noop }],
   staging: [() => import('../src/StagingPage.jsx'), 'default', { onPending: noop, onOpenBook: noop, onOpenMovie: noop, onApproved: noop }],
   settings: [() => import('../src/Settings.jsx'), 'default', { user: USER, onPreferences: noop, update: null, onUpdateInfo: noop, onStartTour: noop }],
+  // SETTINGS OPEN ON JOBS, AS AN ADMIN — a section, not a screen App routes to, and
+  // here because the bare Settings row above lands on Theme and never draws it.
+  // The Jobs section is three cards of its own (jobsSection.jsx), one of them an
+  // admin's only, so every gate this table feeds would otherwise pass over the
+  // newest section in the app. See SECTION_VARIANTS below.
+  'settings-jobs': [() => import('../src/Settings.jsx'), 'default', { user: USER, onPreferences: noop, update: null, onUpdateInfo: noop, onStartTour: noop, section: 'jobs' }],
   bin: [() => import('../src/BinPage.jsx'), 'default', { onClose: noop }],
   cleanup: [() => import('../src/CleanupPage.jsx'), 'default', { onClose: noop, onOpenBook: noop, onOpenMovie: noop, onOpenQuotes: noop }],
   // Checks composes the two above it. It gets its own row rather than being
@@ -69,6 +75,12 @@ export const SCREENS = {
   login: [() => import('../src/App.jsx'), 'Login', { onLogin: noop }],
   onboarding: [() => import('../src/App.jsx'), 'Onboarding', { onDone: noop, backup: null }],
 }
+
+// THE ROWS ABOVE THAT ARE A SECTION OF ANOTHER ROW'S SCREEN, each named with the
+// screen App routes to. They are rendered by every file that walks SCREENS, and
+// set aside by the one question they cannot answer — "is this a screen App tags?"
+// — because App tags the screen, not the section.
+export const SECTION_VARIANTS = { 'settings-jobs': 'settings' }
 
 // App tags each screen's wrapper with its route key, which makes the app itself
 // the authority on what the list is. A table beside a source file is the shape

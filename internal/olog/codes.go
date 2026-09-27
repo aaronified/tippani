@@ -75,7 +75,7 @@ const (
 	CodePeopleOrphanGC   Code = "TIP-PEOPLE-010"  // orphan-people garbage collection failed
 	CodeBookCover        Code = "TIP-BOOK-002"    // book cover fetch failed on create (cover dropped, book kept)
 	CodeMovieCover       Code = "TIP-MOVIE-002"   // movie poster fetch failed on create/update (dropped)
-	CodeCoverFetch       Code = "TIP-COVER-001"   // on-demand cover/poster refetch failed
+	CodeCoverFetch       Code = "TIP-COVER-001"   // on-demand image download failed (cover/poster refetch, role picture, headshot)
 
 	// User-supplied cover/poster/image URL fetch failed on an edit — the whole
 	// save is rejected (502), unlike the create-time CodeBookCover/CodeMovieCover
@@ -132,6 +132,7 @@ const (
 	CodeCastKeyFold   Code = "TIP-CAST-002" // a cast lookup key could not be re-folded at boot; the row keeps its old key
 	CodeIMDbFetch     Code = "TIP-CAST-003" // an on-demand IMDb cast pass failed; the work's cast is unchanged
 	CodeTVDBCastFetch Code = "TIP-CAST-004" // an on-demand TheTVDB cast re-pull failed; the work's cast is unchanged
+	CodeCastArt       Code = "TIP-CAST-005" // a work page's picture pass could not read its cast or store a picture; the rest went on
 
 	// CLEANUP — the Settings sweep that reads every quote and reports what a page
 	// left behind in it (stray spaces, reference marks, pronunciation glosses). Its
@@ -175,7 +176,7 @@ const (
 	// JOBS — the queue that runs a reader's bulk routines on the server.
 	CodeJobPanic  Code = "TIP-JOBS-001" // a job stopped on an internal error (a panic); it was marked failed and the queue went on
 	CodeJobRecord Code = "TIP-JOBS-002" // a job's record (its state, progress or result) could not be written to the database
-	CodeJobRead   Code = "TIP-JOBS-003" // a read of the job history, a job's log or the system log failed, or an export of one was cut short
+	CodeJobRead   Code = "TIP-JOBS-003" // Settings › Jobs could not read the job history, a job's log or the system log, or an export of one was cut short
 )
 
 // Registry maps every Code to a one-line description. It is the machine-readable
@@ -232,7 +233,7 @@ var Registry = map[Code]string{
 	CodePeopleOrphanGC:   "Garbage-collecting orphaned people rows/images failed; orphans may remain.",
 	CodeBookCover:        "A book cover image could not be fetched on create; the book was saved without a cover.",
 	CodeMovieCover:       "A movie poster could not be fetched on create/update; saved without a poster.",
-	CodeCoverFetch:       "An on-demand cover/poster refetch failed.",
+	CodeCoverFetch:       "An on-demand image download failed: a cover or poster refetch, a role's picture, or a person's headshot.",
 
 	CodeBookCoverUpdate:  "A user-supplied cover URL failed to fetch on edit; the save was rejected.",
 	CodeMovieCoverUpdate: "A user-supplied poster URL failed to fetch on edit; the save was rejected.",
@@ -265,6 +266,7 @@ var Registry = map[Code]string{
 	CodeCleanupIgnore:  "A finding you ignored could not be recorded, or the set of ignored findings could not be read. In the second case the list is not shown at all rather than shown without it, because that would re-offer everything you have dismissed.",
 	CodeIMDbFetch:      "A requested IMDb cast fetch failed (network, an unexpected page, or the write). The work's existing cast is unchanged; nothing partial is stored, because the merge runs in one transaction.",
 	CodeTVDBCastFetch:  "A requested TheTVDB cast re-pull failed (network, an expired key, or the write). The work's existing cast is unchanged; nothing partial is stored, because the merge runs in one transaction.",
+	CodeCastArt:        "A work page's picture pass could not read the work's cast, or could not store a role's picture or a headshot it fetched; that picture is missing and the rest of the pass went on.",
 
 	CodeBookChapters: "A book's own chapter list could not be read, so the chapter number and name fields offered no suggestions. Typing them by hand still works.",
 
@@ -295,6 +297,6 @@ var Registry = map[Code]string{
 	CodeLogShutdown: "At shutdown, the log lines still waiting to be written when the flush's budget (one second, or what was left of Docker's grace) ran out were not kept in the database; stdout and stderr still have them.",
 
 	CodeJobPanic:  "A job stopped on an internal error (a panic). It was marked failed, its log kept, and the next job in the queue started.",
-	CodeJobRecord: "A job's record — its state, its progress or its result — could not be written to the database, so what the jobs API answers for it may be out of date.",
-	CodeJobRead:   "A read of the job history, a job's log or the system log from the database failed (answered 500), or a Markdown export of one stopped before its end.",
+	CodeJobRecord: "A job's record — its state, its progress or its result — could not be written to the database, so Settings → Jobs may show it out of date.",
+	CodeJobRead:   "Settings → Jobs could not read the job history, a job's log or the system log from the database (answered 500), or a Markdown export of one stopped before its end.",
 }

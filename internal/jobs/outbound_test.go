@@ -19,7 +19,8 @@ import (
 // WHAT IT KNOWS, declared: the package's exported API and outbound's (the
 // observer is installed exactly as serve() installs it, outbound.SetObserver with
 // the logbook's Outbound), and the jobs, job_logs and system_logs tables, which
-// it reads back because the endpoints that show them are a later stage of 3.1.0.
+// it reads back because the endpoints that show them are httpapi's, a package
+// that imports this one and cannot be reached from its tests.
 // The calls are real: a real client through the real gate, to a real server on
 // this machine that answers the way a provider does, at the URL shape TMDB v3's
 // client builds (the key in api_key=). The kind is the test's own, one call and

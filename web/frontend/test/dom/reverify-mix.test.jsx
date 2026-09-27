@@ -11,22 +11,23 @@
 // picked, and the `sources` map must say which one it was. Getting that pairing
 // wrong writes one supplier's text under another supplier's name, which is worse
 // than either alone and invisible afterwards.
+//
+// SINCE 3.1.0 THE CHECK AND THE APPLY ARE JOBS on the server's queue: the flow
+// starts a `reverify` job, reviews what its result says, and applies through a
+// `reverify-apply` job whose items are what these cases read. The jobs routes
+// are answered by test/dom/helpers/jobsServer.js, which declares what it knows.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { jobsServer } from './helpers/jobsServer.js'
 
-let CALLS
+let JOBS
 let ITEMS
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
-    CALLS.push([method, path, body])
-    if (path === '/metadata/reverify') {
-      return { ok: true, data: { items: ITEMS, checked: ITEMS.length, changed: ITEMS.length } }
-    }
-    if (path === '/metadata/reverify/apply') {
-      return { ok: true, data: { applied: 1, failed: 0, results: [{ type: 'movie', id: 1, ok: true }] } }
-    }
+    const job = JOBS.answer(method, path, body)
+    if (job) return job
     return { ok: true, data: {} }
   }),
 }))
@@ -52,22 +53,25 @@ const dualPinned = () => [{
 }]
 
 async function openReview() {
+  JOBS.plan('reverify', { result: ITEMS })
+  JOBS.plan('reverify-apply', { result: [{ type: 'movie', id: 1, ok: true }] })
   render(<ReverifyFlow selection={{ movie_ids: [1] }} onClose={() => {}} onFlash={() => {}} onDone={() => {}} />)
   await screen.findByText('The Matrix')
-  // NO CLICK TO EXPAND. A single changed item opens itself (ReverifyReview.jsx:328),
-  // so clicking the toggle here would CLOSE it — which is how this test first
-  // failed, with the rows genuinely rendered and then genuinely hidden again.
+  // NO CLICK TO EXPAND. A single changed item opens itself, so clicking the
+  // toggle here would CLOSE it — which is how this test first failed, with the
+  // rows genuinely rendered and then genuinely hidden again.
   await waitFor(() => expect(document.querySelectorAll('input[type="checkbox"]').length).toBeGreaterThan(0))
 }
 
+// The first item of the apply job the flow started.
 function applyBody() {
-  const call = CALLS.find(([, p]) => p === '/metadata/reverify/apply')
-  return call?.[2]?.items?.[0]
+  const started = JOBS.started().find(([kind]) => kind === 'reverify-apply')
+  return started?.[1]?.items?.[0]
 }
 
 describe('per-field mix and match', () => {
   beforeEach(() => {
-    CALLS = []
+    JOBS = jobsServer()
     ITEMS = dualPinned()
   })
 
@@ -102,5 +106,18 @@ describe('per-field mix and match', () => {
     const item = applyBody()
     expect(item.set.description).toBe("TheTVDB's description.")
     expect(item.sources.description).toBe('tvdb')
+  })
+
+  // A FILL THE FLOW TICKED FOR THE READER NAMES ITS SUPPLIER TOO. The seed used
+  // to store `true` for a pre-ticked fill, and `true` went out as its source —
+  // a value the server's map of supplier names cannot hold, so an apply of the
+  // default ticks was refused whole as a malformed body.
+  it('sends a pre-ticked fill under its supplier’s name, not as a bare yes', async () => {
+    await openReview()
+    fireEvent.click(await screen.findByText(/^Apply/i))
+    await waitFor(() => expect(applyBody()).toBeTruthy())
+    const item = applyBody()
+    expect(item.set.director).toBe('The Wachowskis')
+    expect(item.sources.director).toBe('tvdb')
   })
 })

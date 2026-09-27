@@ -35,7 +35,9 @@ const EN = readFileSync(join(SRC, '..', '..', '..', 'internal/i18n/en.txt'), 'ut
 // The nouns this app has a drawing for. A count of anything else keeps its word
 // because there is nothing to put beside it — which is a fact about the icon set,
 // so it lives here rather than being argued per site.
-const DRAWN = '(?:quote|quotes|work|works|book|books|film|films|person|people|character|characters|tag|tags|skipped|dialogue|dialogues|film line|film lines)'
+// `job`, `jobs` and `waiting` joined with IconJobs (3.1.0): a count of jobs, or of
+// jobs waiting their turn, is the queue, and the queue has a drawing now.
+const DRAWN = '(?:quote|quotes|work|works|book|books|film|films|person|people|character|characters|tag|tags|skipped|dialogue|dialogues|film line|film lines|job|jobs|waiting)'
 const STANDALONE = new RegExp(`^([a-z0-9._-]+) = (\\{n\\} ${DRAWN})$`, 'gm')
 
 // KEPT — a standalone count still drawn as a word, each with the reason. Every
@@ -57,7 +59,16 @@ const KEPT = {
   'common.work-card.count.quote': 'the WORD a work card\'s Tally is given; the card draws the glyph.',
   'common.work-card.count.dialogue': 'the same, for a film.',
   'stats.super.quotes.label': 'a SuperTile takes its count as a string and prints it under a title; the tile is the one place on Stats that is a headline rather than a row.',
+  'settings.jobs.count.skipped':
+    'a finished job\'s summary joins its counts with " · " into one string before it reaches the screen, like the identity crumb — and the rows a cover fetch skipped are not the quiz\'s skipped cards the glyph means.',
 }
+// THE JOBS SCREEN'S OTHER COUNTS ARE SENTENCES, and the anchored pattern above
+// cannot reach them, which is the design rather than a gap: "Waiting — 2 jobs
+// ahead" is a line about ONE job, and the Stop all confirm's "the 3 waiting are
+// stopped before they start" is a sentence the reader weighs before pressing
+// something. A drawing in either would be a rebus. The two standalone counts of
+// jobs — running and waiting, in the Current jobs head and on the phone's tile —
+// wear IconJobs through Tally.
 
 const baseOf = (k) => k.replace(/\.(one|other)$/, '')
 
@@ -128,6 +139,7 @@ describe('the glyph rule reaches the screens it was asked for', () => {
   const CONVERTED = [
     'works.jsx', 'MetadataPage.jsx', 'BinPage.jsx', 'StatsPage.jsx',
     'identity.jsx', 'identityLocal.jsx', 'Movies.jsx', 'Settings.jsx',
+    'jobsSection.jsx',
   ]
   // `sourcesUnder` rather than a readdir of my own: the repo has ONE walk over
   // its source tree, and a second one that quietly finds nothing is a guard that
