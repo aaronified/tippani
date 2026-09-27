@@ -52,10 +52,13 @@ const HoldEnv = "TIPPANI_JOBS_HOLD"
 
 func holding() bool { return os.Getenv(HoldEnv) == "1" && outbound.Off() }
 
-// maxResult is the most a job's result may hold. The result is read back whole by
-// the job's own screen (a re-verify's preview), and a row larger than this would
-// be a bug in the kind, not a large library.
-const maxResult = 8 << 20
+// MaxResult is the most a job's result may hold (SetResult refuses more). The
+// result is read back whole by the job's own screen (a re-verify's preview) and
+// kept in one row. A kind whose result grows with what it finds, rather than
+// with what it was given, keeps its result under this itself — the re-verify's
+// check stops keeping findings once the next would not fit, and says so in its
+// log — since a result refused at the end loses everything the job did.
+const MaxResult = 8 << 20
 
 // progressEvery is the most often Progress writes: a fill of two thousand items
 // is not two thousand writes, and a screen polling once a second sees no less.
@@ -67,7 +70,10 @@ const progressEvery = 500 * time.Millisecond
 // Run gets the runner's own context, never a request's: it outlives the request
 // that queued it by design, and it is cancelled only when the server shuts down.
 // It should check j.Stopping() between items — Stop means "after the item in
-// hand" — and report each item with j.Progress.
+// hand" — and stop when it answers yes, and report each item with j.Progress.
+// Stopping's yes is also how the runner tells a job Stop cut short from one Stop
+// reached after its last item (finish), so a run asks it only where it would
+// stop: between items, never after the last.
 //
 // Counts, when set, is what the kind's screens read of a result without reading
 // the result: a few numbers, and at most a short string (a people fetch's first
@@ -563,15 +569,25 @@ func (r *Runner) execute(j *Job) (err error) {
 // that fails even so leaves the row reading running with nothing to end it; the
 // server's line then says the end was not recorded, rather than naming a state
 // the record does not hold, and Stop settles the row (settleOrphan).
+//
+// A JOB IS STOPPED ONLY IF IT STOPPED SHORT. Stop lands after the item in hand,
+// and when that item is the last there is nothing left to stop: the job did
+// everything it was given, and reading stopped — offered again, its finished
+// message already sent, a check's complete findings refused a review — would
+// say otherwise. So stopped (or, for a shutdown, interrupted) is a job whose run
+// was told to stop between items (Stopping answered yes) or ended on its
+// context; a run that was never told did every item, and a job with no items
+// to stop between (a backup) ends as its run did.
 func (r *Runner) finish(j *Job, runErr error) {
+	short := runErr != nil || j.told.Load()
 	state, errText, last, lvl := StateSucceeded, "", "", LevelInfo
 	switch {
-	case runErr != nil && !(j.Stopping() && errors.Is(runErr, context.Canceled)):
+	case runErr != nil && !(j.stopAsked() && errors.Is(runErr, context.Canceled)):
 		state, errText = StateFailed, clean(LevelError, runErr.Error())
 		last, lvl = "failed: "+errText, LevelError
-	case j.stop.Load():
+	case j.stop.Load() && short:
 		state, last = StateStopped, "stopped"
-	case j.shutdown.Load():
+	case j.shutdown.Load() && short:
 		// Nobody pressed Stop: the server stopped under it.
 		state, last, lvl = StateInterrupted, "the server stopped while this job was running", LevelWarn
 	}

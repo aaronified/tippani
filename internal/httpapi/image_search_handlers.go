@@ -33,6 +33,7 @@ package httpapi
 // at all.
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"net/http"
@@ -110,6 +111,9 @@ func (s *Server) handleImageSearch(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "a title, a name, an isbn or an asin is required")
 		return
 	}
+	// The field this kind searches by: a person's or a role's name, a work's
+	// title, or failing both the ISBN or ASIN.
+	jobSubject(r.Context(), cmp.Or(subject, strings.TrimSpace(req.ISBN), strings.TrimSpace(req.ASIN)))
 	cookie, err3 := s.Store.GetSetting(settingAmazonCookie)
 	domain, err4 := s.Store.GetSetting(settingAmazonDomain)
 	if err3 != nil || err4 != nil {

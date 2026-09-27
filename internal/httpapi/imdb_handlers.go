@@ -70,6 +70,7 @@ func (s *Server) handleCastFromIMDb(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	olog.Tracef("[imdb] cast fetch uid=%v work=%d imdb=%s", uid, workID, id)
+	jobSubject(r.Context(), id)
 
 	title, cast, err := metadata.IMDbCast(r.Context(), id)
 	if err != nil {

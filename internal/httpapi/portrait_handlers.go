@@ -69,10 +69,15 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 	}
 	uid := userID(r)
 	olog.Tracef("[people] handlePersonPortrait uid=%d kind=%s name=%q", uid, req.Kind, req.Name)
+	jobSubject(r.Context(), req.Name)
 
-	found, err := s.findPortrait(r.Context(), uid, req.Kind, req.Name)
+	found, err := s.portraitByName(r.Context(), uid, req.Kind, req.Name)
+	if ref, ok := asRefusal(err); ok {
+		writeErr(w, ref.status, ref.msg)
+		return
+	}
 	if err != nil {
-		writeErr(w, http.StatusBadGateway, errPortraitLookup)
+		internalError(w, r, "portrait upsert", err)
 		return
 	}
 
@@ -88,22 +93,6 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find-or-create, because 0056 dropped UNIQUE(user_id, name) and with it the
-	// ON CONFLICT target this used; the row is created only now that there is
-	// something to write on it. BY NAME, SO THE LOWEST ID: this route speaks
-	// (kind, name), and a record's own Fetch (POST /people/id/{id}/fetch) is the
-	// one that can reach the second of two namesakes.
-	pid, err := s.personRowByName(uid, req.Name)
-	if err != nil {
-		s.removeCoverFile(found.image)
-		internalError(w, r, "portrait upsert", err)
-		return
-	}
-	if err := s.persistPortrait(uid, pid, req.Kind, found); err != nil {
-		internalError(w, r, "portrait upsert", err)
-		return
-	}
-
 	p, _ := s.getPerson(uid, req.Kind, req.Name)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"resolved": true,
@@ -111,6 +100,36 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 		"person":   p,
 		"links":    found.links,
 	})
+}
+
+// portraitByName resolves kind name's portrait and writes what it found onto the
+// record of that name, as POST /people/portrait does, and answers what it found;
+// nothing is written when nothing was pinned. Its error is a *refusal saying
+// errPortraitLookup (the lookup failed) or a failed write.
+//
+// Find-or-create, because 0056 dropped UNIQUE(user_id, name) and with it the ON
+// CONFLICT target this used; the row is created only once there is something to
+// write on it. BY NAME, SO THE LOWEST ID: this speaks (kind, name), and a record's
+// own Fetch (POST /people/id/{id}/fetch) is the one that can reach the second of
+// two namesakes. A work page's headshots (POST /{books|movies}/{id}/cast/art)
+// take this path too, name by name.
+func (s *Server) portraitByName(ctx context.Context, uid int64, kind, name string) (portraitFind, error) {
+	found, err := s.findPortrait(ctx, uid, kind, name)
+	if err != nil {
+		return portraitFind{}, &refusal{http.StatusBadGateway, errPortraitLookup}
+	}
+	if !found.pinned() {
+		return found, nil
+	}
+	pid, err := s.personRowByName(uid, name)
+	if err != nil {
+		s.removeCoverFile(found.image)
+		return portraitFind{}, err
+	}
+	if err := s.persistPortrait(uid, pid, kind, found); err != nil {
+		return portraitFind{}, err
+	}
+	return found, nil
 }
 
 // errPortraitLookup is what a reader is told when resolving a portrait failed;
@@ -150,8 +169,15 @@ func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string)
 	// Download the portrait through the API-host allowlist (image.tmdb.org,
 	// artworks.thetvdb.com, covers.openlibrary.org, commons/upload.wikimedia.org
 	// are all allowed). Best-effort: a fetch miss still lets the identity persist.
+	// It is logged all the same, under the code a role's picture that would not
+	// download is logged under (storeCastImage), because it is the same failure —
+	// a provider's image host said no — and a headshot that never arrives, on a
+	// page or in a People fetch, otherwise leaves nothing to look up.
 	if imageURL != "" {
-		if file, ferr := s.fetchImage(ctx, imageURL, s.coversDir()); ferr == nil {
+		file, ferr := s.fetchImage(ctx, imageURL, s.coversDir())
+		if ferr != nil {
+			olog.Errorf(olog.CodeCoverFetch, "[people] portrait kind=%s name=%q url=%q failed: %v", kind, name, imageURL, ferr)
+		} else {
 			f.image = file
 		}
 	}

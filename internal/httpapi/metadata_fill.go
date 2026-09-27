@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"tippani/internal/jobs"
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
 )
@@ -147,9 +148,99 @@ func (s *Server) handleMetadataFill(w http.ResponseWriter, r *http.Request) {
 		"results": results, "checked": len(results), "filled": filled, "fields": fields, "failed": failed,
 	})
 	if req.RunTotal >= notifyFetchMin {
-		s.notifyAfter(w, r, uid, "fetch", "Metadata fill finished",
-			countOf(req.RunFields+fields, "field", "fields")+" filled across "+countOf(req.RunTotal, "work", "works")+".")
+		s.notifyAfter(w, r, uid, "fetch", fillDoneTitle, fillDoneMessage(req.RunFields+fields, req.RunTotal))
 	}
+}
+
+// What a fill over at least notifyFetchMin works says when it ends, whether the
+// screens' chunked run or the fill job made it.
+const fillDoneTitle = "Metadata fill finished"
+
+func fillDoneMessage(fields, works int) string {
+	return countOf(fields, "field", "fields") + " filled across " + countOf(works, "work", "works") + "."
+}
+
+// runFill is the fill job: the fill above, one work at a time, over as many works
+// as one job holds (jobs_kinds.go), with a line in the job's log for each.
+//
+// ITS COUNTS SPLIT WHAT THE ROUTE LUMPS TOGETHER. The route's failed is every work
+// that is not ok, an unpinned one included, because its screen said "none
+// fetched" either way. The job's are the wire contract's three: fields filled,
+// works that failed (not found, the lookup or the write failed), and works that
+// are not pinned to a supplier, which have nothing wrong with them and need a
+// Look up rather than a retry, so Past jobs names them apart.
+//
+// IT TELLS THE PHONE WHEN A LONG ONE REACHES ITS END, as the chunked run's last
+// chunk did, and not when it is stopped: a run that did not finish did not
+// finish, and the chunked run's last chunk was never sent when it was cut short.
+func runFill(s *Server, ctx context.Context, j *jobs.Job) error {
+	var p struct {
+		BookIDs  []int64 `json:"book_ids"`
+		MovieIDs []int64 `json:"movie_ids"`
+	}
+	if err := j.Params(&p); err != nil {
+		return err
+	}
+	uid := j.Owner().UserID
+	keys, err := s.providerKeys()
+	if err != nil {
+		j.Log(jobs.LevelWarn, "a saved supplier key could not be read, so the lookups ask without it: %v", err)
+	}
+	works := queuedWorks(p.BookIDs, p.MovieIDs)
+	n := len(works)
+	fields, failed, unpinned, walked := 0, 0, 0, 0
+	for i, w := range works {
+		if j.Stopping() {
+			break
+		}
+		var it reverifyItem
+		if w.kind == "book" {
+			it = s.reverifyBook(ctx, uid, w.id, keys.googleBooks, keys.amazonCookie, keys.amazonDomain, false)
+		} else {
+			it = s.reverifyMovie(ctx, uid, w.id, keys.tmdb, keys.tvdb, false)
+		}
+		res := s.fillOne(ctx, uid, it)
+		level, line := fillLine(res)
+		j.Log(level, "%s", line)
+		switch res.Status {
+		case "ok":
+			fields += len(res.Filled)
+		case "unpinned":
+			unpinned++
+		default:
+			failed++
+		}
+		walked++
+		j.Progress(i+1, n)
+	}
+	if err := j.SetResult(map[string]any{"fields": fields, "failed": failed, "unpinned": unpinned}); err != nil {
+		return err
+	}
+	if walked == n && n >= notifyFetchMin {
+		s.notify(ctx, uid, "fetch", fillDoneTitle, fillDoneMessage(fields, n))
+	}
+	return nil
+}
+
+// fillLine is a fill's line for one work: what it filled, or why it filled
+// nothing.
+func fillLine(res fillResult) (level, line string) {
+	name := itemName(res.Type, res.ID, res.Title)
+	switch {
+	case res.Status == "unpinned":
+		return jobs.LevelInfo, name + " — unpinned, so there is nothing to ask: " + res.Error
+	case res.Status == "not_found":
+		return jobs.LevelWarn, name + " — not found"
+	case res.Status != "ok":
+		return jobs.LevelWarn, name + " — failed: " + res.Error
+	case len(res.Filled) == 0:
+		return jobs.LevelInfo, name + " — nothing missing"
+	}
+	line = name + " — filled " + fieldWords(res.Filled)
+	if res.Note != "" {
+		line += "; " + res.Note
+	}
+	return jobs.LevelInfo, line
 }
 
 // countFill tallies one result. "Filled nothing" is not a failure — a library

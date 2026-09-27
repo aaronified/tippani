@@ -106,32 +106,32 @@ var builtinJobKinds = []queuedKind{
 	// {book_ids, movie_ids}: fill in what the selected works are missing.
 	// Result {fields, failed, unpinned}, and those are its counts.
 	{name: "fill", rerunnable: true, againAfterSuccess: true, validate: validateFill,
-		counts: countsNamed("fields", "failed", "unpinned")},
+		counts: countsNamed("fields", "failed", "unpinned"), run: runFill},
 	// {missing_only}: fetch every cover and poster the reader's library lacks
 	// (or, without missing_only, better ones). Admin, as the chunked route is.
 	// Result {fetched, enriched, failed, skipped}, and those are its counts.
 	{name: "covers", adminOnly: true, rerunnable: true, againAfterSuccess: true, validate: validateCovers,
-		counts: countsNamed("fetched", "enriched", "failed", "skipped")},
+		counts: countsNamed("fetched", "enriched", "failed", "skipped"), run: runCovers},
 	// {ids}: a portrait and links for each person record. Result {ok, failed,
 	// first_error}, and those are its counts, the error's text included: the
 	// People screen's flash says why the first one failed.
 	{name: "people", rerunnable: true, againAfterSuccess: true, validate: validatePeople,
-		counts: countsNamed("ok", "failed", "first_error")},
+		counts: countsNamed("ok", "failed", "first_error"), run: runPeople},
 	// {book_ids, movie_ids, people: [{kind, name}], fills_only}: ask the
 	// suppliers again and keep what they say, for the reader to review. Result:
 	// the preview's items; counts {items, changes}. Its review reads each field
 	// again when the result is opened (reviewReverify).
 	{name: "reverify", rerunnable: true, againAfterSuccess: true, validate: validateReverify,
-		counts: countReverify, review: reviewReverify},
+		counts: countReverify, review: reviewReverify, run: runReverify},
 	// {items, from_job}: write the fields the reader ticked in that review.
 	// Result: one line per item; counts {applied, skipped, failed}.
 	{name: "reverify-apply", rerunnable: true, validate: validateReverifyApply,
-		counts: countReverifyApply},
+		counts: countReverifyApply, run: runReverifyApply},
 	// {password | passphrase}: seal a backup with it. The password is checked
 	// here, for an answer before anything queues, and again by the job. Result:
 	// the archive, as GET /admin/backup describes it; nothing to count.
 	{name: "backup", adminOnly: true, rerunnable: true, againAfterSuccess: true,
-		validate: validateBackup, secret: backupSecret},
+		validate: validateBackup, secret: backupSecret, run: runBackup},
 }
 
 // countsNamed counts a result that is an object by keeping the members named,
@@ -268,7 +268,7 @@ func rowIDs(in []int64) (out []int64, ok bool) {
 
 var errBadID = badParams("every id must be a positive whole number")
 
-func validateFill(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, error) {
+func validateFill(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput, error) {
 	var p struct {
 		BookIDs  []int64 `json:"book_ids"`
 		MovieIDs []int64 `json:"movie_ids"`
@@ -288,7 +288,8 @@ func validateFill(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, error
 	case n > maxWorksPerJob:
 		return jobInput{}, badParams("too many works for one job (at most %d)", maxWorksPerJob)
 	}
-	return jobInput{params: map[string]any{"book_ids": books, "movie_ids": movies}, total: n}, nil
+	return jobInput{params: map[string]any{"book_ids": books, "movie_ids": movies}, total: n,
+		subject: s.soleSubject(viewer.UserID, books, movies, nil, nil)}, nil
 }
 
 func validateCovers(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput, error) {
@@ -305,7 +306,7 @@ func validateCovers(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput
 	return jobInput{params: map[string]any{"missing_only": p.MissingOnly}, total: total}, nil
 }
 
-func validatePeople(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, error) {
+func validatePeople(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput, error) {
 	var p struct {
 		IDs []int64 `json:"ids"`
 	}
@@ -321,7 +322,8 @@ func validatePeople(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, err
 	case len(ids) > maxPeoplePerJob:
 		return jobInput{}, badParams("too many people for one job (at most %d)", maxPeoplePerJob)
 	}
-	return jobInput{params: map[string]any{"ids": ids}, total: len(ids)}, nil
+	return jobInput{params: map[string]any{"ids": ids}, total: len(ids),
+		subject: s.soleSubject(viewer.UserID, nil, nil, nil, ids)}, nil
 }
 
 // reverifyAsk is a person a re-verify asks about, by kind and name, as
@@ -331,7 +333,7 @@ type reverifyAsk struct {
 	Name string `json:"name"`
 }
 
-func validateReverify(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, error) {
+func validateReverify(s *Server, raw json.RawMessage, viewer jobs.Owner) (jobInput, error) {
 	var p struct {
 		BookIDs   []int64       `json:"book_ids"`
 		MovieIDs  []int64       `json:"movie_ids"`
@@ -367,7 +369,7 @@ func validateReverify(_ *Server, raw json.RawMessage, _ jobs.Owner) (jobInput, e
 	}
 	return jobInput{params: map[string]any{
 		"book_ids": books, "movie_ids": movies, "people": people, "fills_only": p.FillsOnly,
-	}, total: n}, nil
+	}, total: n, subject: s.soleSubject(viewer.UserID, books, movies, people, nil)}, nil
 }
 
 // validateReverifyApply takes the items as the review sends them — each one the
@@ -395,12 +397,19 @@ func validateReverifyApply(s *Server, raw json.RawMessage, viewer jobs.Owner) (j
 	case n > maxReverifyPerJob:
 		return jobInput{}, badParams("too many items for one apply (at most %d)", maxReverifyPerJob)
 	}
-	for _, it := range p.Items {
+	for i, it := range p.Items {
 		var head struct {
 			Type string `json:"type"`
 		}
 		if json.Unmarshal(it, &head) != nil || strings.TrimSpace(head.Type) == "" {
 			return jobInput{}, badParams("every item must be an object that names its type")
+		}
+		// Read as the job will read it, so an item it could not read is refused
+		// now rather than failing the whole apply, every item unwritten, when it
+		// runs.
+		var item reverifyApplyItem
+		if json.Unmarshal(it, &item) != nil {
+			return jobInput{}, badParams("item %d could not be read: its id is a number, and set, sources and expect are objects of fields", i+1)
 		}
 	}
 	params := map[string]any{"items": p.Items}

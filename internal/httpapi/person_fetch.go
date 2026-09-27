@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+
+	"tippani/internal/jobs"
 )
 
 // ONE PERSON'S FETCH, BY THE RECORD'S ID: POST /people/id/{id}/fetch.
@@ -20,31 +22,33 @@ import (
 //
 // This route is that Fetch as one function, once, and a call of it is one
 // in-request lookup, kept as a lookup.person job like any single lookup.
-// Everything it writes goes onto the record named by id. The people job is
-// declared to loop the same function (jobs_kinds.go), though no queued kind has
-// its run in this tree yet. The SPA's row and its bulk Fetch still make the
-// three requests; they move onto this route and the job with the Jobs screen.
+// Everything it writes goes onto the record named by id. The people job loops
+// the same function (runPeople, below). The SPA's row and its bulk Fetch still
+// make the three requests; they move onto this route and the job with the Jobs
+// screen.
 
 // errNoSuchPerson is a record that is not the reader's, or not anybody's: a 404,
 // which says nothing about which.
 var errNoSuchPerson = errors.New("not found")
 
-// fetchPerson fetches record id of uid's: resolves it as its first role (an
-// author from their books, an actor from a film's credits, a studio from IGDB),
-// writes the portrait, identity and facts onto it, looks up its reference pages
-// when the resolve brought none, folds them into its links keeping every name
-// the reader gave one, and saves. It answers the record as it is afterwards and
-// the links the fetch found.
+// fetchPerson fetches record p of uid's, as personByID read it: resolves it as
+// its first role (an author from their books, an actor from a film's credits, a
+// studio from IGDB), writes the portrait, identity and facts onto it, looks up
+// its reference pages when the resolve brought none, folds them into its links
+// keeping every name the reader gave one, and saves. It answers the record as it
+// is afterwards and the links the fetch found.
 //
-// Its errors are errNoSuchPerson, a *refusal whose sentence the reader is shown
-// (the lookup failed), or anything else (a write failed). A reference-page lookup
-// that fails costs the links and not the fetch, as it did in the browser: the
-// portrait has been written by then, and it is still worth having.
-func (s *Server) fetchPerson(ctx context.Context, uid, id int64) (personRow, map[string]string, error) {
-	p, err := s.personByID(uid, id)
-	if err != nil {
-		return personRow{}, nil, err
-	}
+// THE CALLER READS THE RECORD, because both callers want it before the fetch:
+// the row's Fetch names its job after it, and the people job names it in its
+// log line, and compares it with what the fetch leaves to say what changed.
+//
+// Its errors are a *refusal whose sentence the reader is shown (the lookup
+// failed) or anything else (a write failed); personByID's own is
+// errNoSuchPerson. A reference-page lookup that fails costs the links and not
+// the fetch, as it did in the browser: the portrait has been written by then,
+// and it is still worth having.
+func (s *Server) fetchPerson(ctx context.Context, uid int64, p personRow) (personRow, map[string]string, error) {
+	id := p.ID
 	kind := s.fetchKind(uid, id)
 	found, err := s.findPortrait(ctx, uid, kind, p.Name)
 	if err != nil {
@@ -65,7 +69,7 @@ func (s *Server) fetchPerson(ctx context.Context, uid, id int64) (personRow, map
 	}
 	// Folded into the links as they are NOW, read again: the portrait write above
 	// does not touch them, but a save of the record's links between the read at
-	// the top and this line would otherwise be written over.
+	// the caller's and this line would otherwise be written over.
 	if cur, err := s.personByID(uid, id); err == nil {
 		p = cur
 	}
@@ -142,6 +146,83 @@ func (s *Server) savePersonLinks(uid, id int64, links string) error {
 	return err
 }
 
+// runPeople is the people job: a record's Fetch, for each record the job names,
+// one at a time, with a line in its log for each saying what the fetch found or
+// why it failed. Its counts are what the People screen's flash says: how many
+// were fetched, how many failed, and why the first one did, in the sentence the
+// row's own Fetch would have shown.
+func runPeople(s *Server, ctx context.Context, j *jobs.Job) error {
+	var p struct {
+		IDs []int64 `json:"ids"`
+	}
+	if err := j.Params(&p); err != nil {
+		return err
+	}
+	uid := j.Owner().UserID
+	ok, failed, firstErr := 0, 0, ""
+	for i, id := range p.IDs {
+		if j.Stopping() {
+			break
+		}
+		before, err := s.personByID(uid, id)
+		var after personRow
+		if err == nil {
+			after, _, err = s.fetchPerson(ctx, uid, before)
+		}
+		name := itemName("person", id, before.Name)
+		if err != nil {
+			failed++
+			said, cause := personFetchSaid(err)
+			if firstErr == "" {
+				firstErr = said
+			}
+			j.Log(jobs.LevelWarn, "%s — failed: %s", name, cause)
+		} else {
+			ok++
+			j.Log(jobs.LevelInfo, "%s — %s", name, personFetchFound(before, after))
+		}
+		j.Progress(i+1, len(p.IDs))
+	}
+	return j.SetResult(map[string]any{"ok": ok, "failed": failed, "first_error": firstErr})
+}
+
+// personFetchSaid is what a failed fetch tells the reader, as the row's Fetch
+// answers it, and what its log line says: the same, but for a failure of the
+// server's own, whose cause the reader is not shown and the log is.
+func personFetchSaid(err error) (said, cause string) {
+	if errors.Is(err, errNoSuchPerson) {
+		return "not found", "not found"
+	}
+	if ref, ok := asRefusal(err); ok {
+		return ref.msg, ref.msg
+	}
+	return "internal error", "internal error: " + err.Error()
+}
+
+// personFetchFound is what a fetch changed on a record, from the record before
+// and after: "portrait, identity, bio, links", or that it found nothing new.
+func personFetchFound(before, after personRow) string {
+	var got []string
+	if after.ImagePath != "" && after.ImagePath != before.ImagePath {
+		got = append(got, "portrait")
+	}
+	if after.Source != "" && (after.Source != before.Source || after.SourceID != before.SourceID) {
+		got = append(got, "identity ("+after.Source+")")
+	}
+	for _, f := range []struct{ name, was, is string }{
+		{"bio", before.Bio, after.Bio}, {"born", before.Born, after.Born}, {"died", before.Died, after.Died},
+		{"links", before.Links, after.Links},
+	} {
+		if f.is != f.was {
+			got = append(got, f.name)
+		}
+	}
+	if len(got) == 0 {
+		return "nothing new found"
+	}
+	return "found " + strings.Join(got, ", ")
+}
+
 // handlePersonFetch: POST /people/id/{id}/fetch, no body → {person, links}.
 func (s *Server) handlePersonFetch(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
@@ -149,7 +230,13 @@ func (s *Server) handlePersonFetch(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	p, links, err := s.fetchPerson(r.Context(), userID(r), id)
+	uid := userID(r)
+	p, err := s.personByID(uid, id)
+	var links map[string]string
+	if err == nil {
+		jobSubject(r.Context(), p.Name)
+		p, links, err = s.fetchPerson(r.Context(), uid, p)
+	}
 	switch ref, refused := asRefusal(err); {
 	case err == nil:
 		writeJSON(w, http.StatusOK, map[string]any{"person": p, "links": links})

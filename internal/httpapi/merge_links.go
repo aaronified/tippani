@@ -19,7 +19,7 @@ import (
 //
 // THE FOLD IS THE BROWSER'S, as people.jsx's mergeLinks, ported for the routes
 // that fold on the server: a person's Fetch by id (POST /people/id/{id}/fetch,
-// the function the people job is declared to loop) and a person's re-verify. The
+// the function the people job loops) and a person's re-verify. The
 // People row in the SPA still folds in the browser, with mergeLinks, until it
 // moves onto the Fetch route with the Jobs screen. The Go fold that already
 // existed, for the re-verify, split the field on whitespace: `https://… | The

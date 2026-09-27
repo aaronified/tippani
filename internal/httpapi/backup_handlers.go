@@ -3,6 +3,7 @@ package httpapi
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -357,6 +358,64 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	// card can render the new archive without a second round trip.
 	writeJSON(w, http.StatusOK, map[string]any{"backup": meta})
 	s.notifyAfter(w, r, userID(r), "backup", "Backup ready", backupReady(meta))
+}
+
+// runBackup is the backup job: the kept archive, made as POST /admin/backup
+// makes it (createBackup), sealed with the credential the job was queued with,
+// which the queue kept in memory for it alone (backupKey). Its result is the
+// archive as GET /admin/backup describes it, and the phone is told as the route
+// tells it.
+//
+// THE PASSWORD IS ASKED AGAIN HERE, INSIDE THE LOCK, as the route asks it: the
+// job may have waited behind somebody's two-hour fill, and a password changed
+// meanwhile would seal an archive under a password that no longer exists. That
+// is a failure the owner reruns (with the password they have now), not a 401:
+// there is no request to answer. Whether the owner is still an admin was asked
+// by the queue as it claimed the job, a moment before this ran (jobs.Runner's
+// execute), and is not asked twice.
+//
+// ANOTHER BACKUP OR A RESTORE HOLDING THE LOCK FAILS THE JOB rather than waiting
+// for it: the route answers 409 to the same, and a job that waited on the lock
+// would hold the queue behind a restore's upload for as long as it took.
+func runBackup(s *Server, ctx context.Context, j *jobs.Job) error {
+	key, ok := j.Secret().(backupKey)
+	if !ok {
+		return errors.New("this backup has no credential to seal it with — run it again")
+	}
+	if !s.backupMu.TryLock() {
+		return errors.New("a backup or restore is already running")
+	}
+	defer s.backupMu.Unlock()
+	owner := j.Owner()
+	account := key.account
+	if key.mode == backupModePassword {
+		if !s.passwordIs(owner.UserID, key.secret) {
+			return errors.New("your password changed since this backup was started — run it again")
+		}
+		// The label says whose password opens it, and that is the account as it
+		// is named now.
+		account = owner.Username
+	}
+	meta, err := s.createBackup(owner.UserID, account, key.mode, key.secret)
+	if err != nil {
+		return errors.New(backupErrorText(err))
+	}
+	name, _ := meta["name"].(string)
+	size, _ := meta["size"].(int64)
+	j.Log(jobs.LevelInfo, "%s — sealed with %s, %s", name, sealedWith(key.mode, account), humanBytes(size))
+	if err := j.SetResult(meta); err != nil {
+		return err
+	}
+	s.notify(ctx, owner.UserID, "backup", "Backup ready", backupReady(meta))
+	return nil
+}
+
+// sealedWith is what a backup's line says it was sealed with.
+func sealedWith(mode byte, account string) string {
+	if mode == backupModePassword {
+		return account + "'s password"
+	}
+	return "a passphrase"
 }
 
 // backupError is a backup that could not be made: the sentence the reader is

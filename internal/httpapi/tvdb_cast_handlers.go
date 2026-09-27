@@ -67,6 +67,9 @@ func (s *Server) handleCastFromTVDB(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
+	// The reader types nothing here — the id is the one the work is pinned to —
+	// so the work is what the pull is about.
+	jobSubject(r.Context(), s.workTitle(uid, "movie", workID))
 
 	var tvdbID int64
 	var mediaType string
