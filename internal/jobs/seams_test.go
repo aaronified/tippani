@@ -144,7 +144,8 @@ func TestABatchWaitsOutAHeldLockAndIsDroppedOnlyAfterItsLastTry(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (1, 'info', 'the import')`); err != nil {
+		// Timed now: the first batch's prune would take a line from 1970 as old.
+		if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', 'the import')`, time.Now().UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
 		lb.System(LevelInfo, "", "waited its turn")
@@ -169,7 +170,8 @@ func TestABatchWaitsOutAHeldLockAndIsDroppedOnlyAfterItsLastTry(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (1, 'info', 'the import')`); err != nil {
+		// Timed now: the first batch's prune would take a line from 1970 as old.
+		if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', 'the import')`, time.Now().UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
 		lb.System(LevelInfo, "", "gave up on")
