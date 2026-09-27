@@ -4,6 +4,7 @@
 package httpapi
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"tippani/internal/jobs"
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
@@ -563,6 +565,63 @@ func coversDoneMessage(total int) string {
 	return "Covers and details checked for " + countOf(total, "work", "works") + "."
 }
 
+// runCovers is the covers job: the pass the chunked route walks, one work at a
+// time, so a Stop lands after the work in hand; a line in the job's log for each
+// work it walked. It tells the phone when it reaches the end, as the route's last
+// chunk does, and not when it is stopped, which the route's never-sent last chunk
+// did not either.
+func runCovers(s *Server, ctx context.Context, j *jobs.Job) error {
+	var p struct {
+		MissingOnly bool `json:"missing_only"`
+	}
+	if err := j.Params(&p); err != nil {
+		return err
+	}
+	uid := j.Owner().UserID
+	keys, err := s.providerKeys()
+	if err != nil {
+		j.Log(jobs.LevelWarn, "a saved supplier key could not be read, so the lookups ask without it: %v", err)
+	}
+	var sum coversChunk
+	cursor, reached := "", false
+	for !j.Stopping() {
+		c, err := s.coversRefetchChunk(ctx, uid, cursor, 1, p.MissingOnly, keys)
+		if err != nil {
+			// What it did before the failure is still what it did.
+			_ = j.SetResult(coversCounts(sum))
+			return err
+		}
+		sum.fetched, sum.enriched, sum.failed, sum.skipped = sum.fetched+c.fetched, sum.enriched+c.enriched,
+			sum.failed+c.failed, sum.skipped+c.skipped
+		sum.total = c.total
+		for _, row := range c.rows {
+			level := jobs.LevelInfo
+			if row.warn {
+				level = jobs.LevelWarn
+			}
+			j.Log(level, "%s — %s", workName(row.kind, row.id, row.title), row.what)
+		}
+		j.Progress(c.total-c.remaining, c.total)
+		if c.next == "" {
+			reached = true
+			break
+		}
+		cursor = c.next
+	}
+	if err := j.SetResult(coversCounts(sum)); err != nil {
+		return err
+	}
+	if reached && sum.total >= notifyFetchMin {
+		s.notify(ctx, uid, "fetch", coversDoneTitle, coversDoneMessage(sum.total))
+	}
+	return nil
+}
+
+// coversCounts is a covers job's result, which is its counts.
+func coversCounts(c coversChunk) map[string]any {
+	return map[string]any{"fetched": c.fetched, "enriched": c.enriched, "failed": c.failed, "skipped": c.skipped}
+}
+
 // coversChunk is one stretch of a covers pass: what it did, and where the next
 // stretch starts ("" when the pass is over).
 type coversChunk struct {
@@ -571,6 +630,19 @@ type coversChunk struct {
 	// total is the whole pass's workload at this instant; remaining is how much
 	// of it the stretches after this one will still see.
 	total, remaining int
+	// rows is what happened to each work the stretch walked, in the order walked:
+	// the covers job's log, a line a work. The route answers only the counters.
+	rows []coversRow
+}
+
+// coversRow is one work a covers pass walked, and what the pass did to it, in
+// the words its log line uses.
+type coversRow struct {
+	kind  string // book | movie
+	id    int64
+	title string
+	what  string
+	warn  bool // something it tried failed, as opposed to there being nothing to do
 }
 
 // coversRefetchChunk walks up to limit of uid's works after cursor, as
@@ -651,6 +723,8 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 	for _, b := range books {
 		lastID = b.id
 		isbnN := metadata.NormalizeISBN(b.isbn)
+		row := coversRow{kind: "book", id: b.id, title: b.title}
+		var did []string
 
 		// Best candidate from the keyless/keyed sources.
 		var cand *metadata.BookCandidate
@@ -688,6 +762,7 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 			if uerr == nil {
 				if n, _ := res.RowsAffected(); n > 0 {
 					enriched++
+					did = append(did, "details filled")
 					// 0056: an author that was NULL may now hold a name, so the
 					// link rows follow it. In its own transaction because this
 					// sweep writes outside one — and best-effort, because a
@@ -719,6 +794,8 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 					_ = tx.Rollback()
 				} else if cerr := tx.Commit(); cerr != nil {
 					olog.Errorf(olog.CodeMetaGenrePersist, "[meta] genres not persisted: %v", cerr)
+				} else {
+					did = append(did, "genres added")
 				}
 			}
 		}
@@ -770,62 +847,79 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 			case name == "":
 				if len(urls) > 0 {
 					failed++ // had sources to try, all fetches failed
+					did = append(did, fmt.Sprintf("no cover could be fetched (%s tried)", countOf(len(urls), "place", "places")))
+					row.warn = true
 				} else {
 					skipped++ // nothing to try (no isbn/asin/cached URL/candidate)
+					did = append(did, "no cover to look for: no ISBN, ASIN or address kept from its supplier")
 				}
 			case lowRes && s.coverWidth(name) <= oldW:
 				s.removeCoverFile(name) // no better than what's stored — keep the old one
 				skipped++
+				did = append(did, "kept its cover: nothing larger was found")
 			default:
 				if _, uerr := s.Store.DB.Exec(`UPDATE books SET cover_path = ?, updated_at = datetime('now') WHERE id = ?`, name, b.id); uerr == nil {
 					fetched++
+					if lowRes {
+						did = append(did, "a larger cover fetched")
+					} else {
+						did = append(did, "cover fetched")
+					}
 					if b.cover != "" && b.cover != name {
 						s.removeCoverFile(b.cover)
 					}
 				} else {
 					s.removeCoverFile(name)
+					did = append(did, "the cover it fetched could not be saved")
+					row.warn = true
 				}
 			}
 		}
+		row.what = cmp.Or(strings.Join(did, ", "), "nothing missing")
+		c.rows = append(c.rows, row)
 	}
 
 	// Movies: fetch the TMDB poster cached at add time (keyless to fetch) —
 	// when it's missing, or stored low-res (same replace rule as books).
-	// Only runs in the movies phase; the cursor advances over movie ids.
+	// Only runs in the movies phase; the cursor advances over movie ids. Every
+	// film the stretch scanned is a target, in order, with the poster to fetch
+	// ("" when it needs none) or what the pass has to say about it.
 	type movieTarget struct {
-		id        int64
+		row       coversRow
 		url       string
 		oldPoster string
 		oldW      int
 	}
 	var movies []movieTarget
 	mScanned := 0 // chunk fullness = rows scanned, not posters found
-	mrows, err := s.Store.DB.Query(`SELECT id, COALESCE(poster_path, ''), COALESCE(source_metadata, '') FROM movies
+	mrows, err := s.Store.DB.Query(`SELECT id, title, COALESCE(poster_path, ''), COALESCE(source_metadata, '') FROM movies
 		WHERE `+movieWhere+` AND ? = 'movies' AND id > ? ORDER BY id LIMIT ?`, uid, phase, after, limit)
 	if err == nil {
 		for mrows.Next() {
 			var id int64
-			var poster, raw string
-			if err := mrows.Scan(&id, &poster, &raw); err != nil {
+			var title, poster, raw string
+			if err := mrows.Scan(&id, &title, &poster, &raw); err != nil {
 				olog.Warnf(olog.CodeMetaRowScan, "[meta] refetch movie row scan failed: %v", err)
 				continue
 			}
 			lastID = id
 			mScanned++
+			m := movieTarget{row: coversRow{kind: "movie", id: id, title: title, what: "nothing missing"}}
 			var meta struct {
 				PosterPath string `json:"poster_path"`
 			}
 			_ = json.Unmarshal([]byte(raw), &meta)
-			if meta.PosterPath == "" {
-				continue
-			}
 			oldW := 0
 			if poster != "" {
 				oldW = s.coverWidth(poster)
 			}
-			if poster == "" || (!missingOnly && oldW > 0 && oldW < lowResCoverWidth) {
-				movies = append(movies, movieTarget{id, metadata.TMDBPosterURL(meta.PosterPath), poster, oldW})
+			switch {
+			case meta.PosterPath == "":
+				m.row.what = "no poster to fetch: its supplier gave none when it was added"
+			case poster == "" || (!missingOnly && oldW > 0 && oldW < lowResCoverWidth):
+				m.url, m.oldPoster, m.oldW = metadata.TMDBPosterURL(meta.PosterPath), poster, oldW
 			}
+			movies = append(movies, m)
 		}
 		if err := mrows.Err(); err != nil {
 			olog.Warnf(olog.CodeMetaRowScan, "[meta] refetch movie row iteration failed: %v", err)
@@ -833,24 +927,36 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 		mrows.Close()
 	}
 	for _, m := range movies {
+		c.rows = append(c.rows, m.row)
+		if m.url == "" {
+			continue
+		}
+		row := &c.rows[len(c.rows)-1]
 		name, ferr := s.fetchImage(ctx, m.url, s.coversDir())
 		if ferr != nil {
 			failed++
+			row.what, row.warn = "no poster could be fetched", true
 			continue
 		}
 		if m.oldPoster != "" && s.coverWidth(name) <= m.oldW {
 			s.removeCoverFile(name) // no better than what's stored
 			skipped++
+			row.what = "kept its poster: nothing larger was found"
 			continue
 		}
-		if _, uerr := s.Store.DB.Exec(`UPDATE movies SET poster_path = ?, updated_at = datetime('now') WHERE id = ?`, name, m.id); uerr == nil {
+		if _, uerr := s.Store.DB.Exec(`UPDATE movies SET poster_path = ?, updated_at = datetime('now') WHERE id = ?`, name, m.row.id); uerr == nil {
 			fetched++
+			row.what = "poster fetched"
+			if m.oldPoster != "" {
+				row.what = "a larger poster fetched"
+			}
 			if m.oldPoster != "" && m.oldPoster != name {
 				s.removeCoverFile(m.oldPoster)
 			}
 		} else {
 			s.removeCoverFile(name)
 			failed++
+			row.what, row.warn = "the poster it fetched could not be saved", true
 		}
 	}
 

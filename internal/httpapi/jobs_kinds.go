@@ -111,7 +111,7 @@ var builtinJobKinds = []queuedKind{
 	// (or, without missing_only, better ones). Admin, as the chunked route is.
 	// Result {fetched, enriched, failed, skipped}, and those are its counts.
 	{name: "covers", adminOnly: true, rerunnable: true, againAfterSuccess: true, validate: validateCovers,
-		counts: countsNamed("fetched", "enriched", "failed", "skipped")},
+		counts: countsNamed("fetched", "enriched", "failed", "skipped"), run: runCovers},
 	// {ids}: a portrait and links for each person record. Result {ok, failed,
 	// first_error}, and those are its counts, the error's text included: the
 	// People screen's flash says why the first one failed.
