@@ -41,7 +41,8 @@ text at that line. Tasks, one per ask:
       print, and in EPUB, the cover as the EPUB cover.
 - [ ] Add a continuous-scroll reading mode in book typography, with the app's chrome hidden.
 - [ ] Improve print: page breaks at sections, a running title, and page numbers where the
-      browser allows.
+      browser allows, in the reading view's own print rules (`index.css:10636`
+      `.anthology-read { max-width: none; }`).
 - [ ] Add a separate "Save PDF" (the browser's own PDF output is fine) whose text stays
       selectable.
 - [ ] Not in this plan, at the owner's choice: publishing a read-only link, and saved searches.

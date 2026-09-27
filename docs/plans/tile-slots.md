@@ -46,7 +46,7 @@ Decided while planning, so the build needs nothing further:
       `` TileGround string `json:"tileGround"` ``, through `:397`), read by `applyTheme` (`theme.js:752`
       `tiles: SLOTS.map((slot) => {`). A one-time upgrade,
       `internal/store/onetime_<version>_tile_slots.go`, moves a reader's values under the
-      set they are wearing (`materialSet`), so nothing on screen changes on upgrade, and
+      set they are wearing (`auth_handlers.go:373` `` MaterialSet string `json:"materialSet"` ``), so nothing on screen changes on upgrade, and
       the four keys retire.
 - [ ] The new key joins the Theme section's reset list, where the four sit now
       (`Settings.jsx:270` `'tileGround', 'tileShell', 'tileCard', 'tileCover',`).

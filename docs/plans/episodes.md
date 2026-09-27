@@ -117,5 +117,10 @@ Decided while planning, so the build needs nothing further:
       seeds names and lists disagreements; the drag works by keyboard alone; the gesture test
       covers the new clip. Assert values, not counts. Each mutation-checked, the mutation named
       in the commit.
-- [ ] Re-check at build, as 3.1.0 is untagged at the pin: the job kinds each fetch path runs
+- [ ] Re-check at build, as 3.1.0 is untagged at the pin. At the pin the queued kinds are
+      declared but none is run by the queue yet (`person_fetch.go:24`
+      `// declared to loop the same function (jobs_kinds.go), though no queued kind has`), and
+      the screens still drive fill and re-verify one request at a time (`jobkinds.go:52`
+      `"POST /metadata/fill":           "fill",`). Check which of those has moved onto the
+      queue, and the job kinds each fetch path runs
       under (`jobs_kinds.go:108` `{name: "fill",`, `jobs_kinds.go:124` `{name: "reverify",`), and the reworded invariant in `CLAUDE.md`.
