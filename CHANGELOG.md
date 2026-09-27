@@ -32,15 +32,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Every lookup is recorded as a job with its own log of every request that went out
   and what came back** — a bulk fetch, a re-verify, or a single search for a cover or a
   person's details. An import or a backup is recorded as a job too, with a log of its
-  own, though neither one reaches outside your library. A single lookup still answers as
-  fast as it always has: it is written down once the request ends, not before. Thirty
-  days of jobs and logs are kept, then pruned automatically.
+  own, though neither looks anything up, apart from the Pushover message you set up. A
+  single lookup still answers as fast as it always has: it is written down once the
+  request ends, not before. Thirty days of jobs and logs are kept, then pruned
+  automatically.
 
 ### Changed
 
+- **A restore, a factory reset, a search-index rebuild or an update now waits for a job
+  in progress rather than starting underneath it**, and is refused with a pointer to
+  Settings → Jobs; the restore and reset prompts say so before their very first step, so
+  you find out before you begin, not partway through. A restore upload that stops
+  arriving for a minute is given up, with nothing changed — upload the file again.
 - **A film, show or game's cast portraits and character art now arrive in one request**,
-  rather than one browser request per picture, and answer within their own time even
-  when another open tab asked for the same page's pictures first.
+  rather than one browser request per picture.
 - **People's Fetch, and Fetch missing, now do the whole job on the server**: resolving
   the record, downloading the portrait, and folding any newly found links into the ones
   already saved, in a single step.
