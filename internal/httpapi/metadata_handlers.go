@@ -184,6 +184,48 @@ func (s *Server) resolveTVDB() (*metadata.TVDB, string) {
 	return nil, "none"
 }
 
+// providerKeys is what a pass over many works asks every supplier with: the
+// Google Books key and the Amazon cookie for books, the TMDB and TheTVDB clients
+// for films. Read once per pass, not once per work.
+type providerKeys struct {
+	googleBooks, amazonCookie, amazonDomain string
+	tmdb                                    *metadata.TMDB
+	tvdb                                    *metadata.TVDB
+}
+
+// providerKeys reads them. It was the same ten lines in the fill, the covers pass
+// and the re-verify, and the jobs that replace their client loops need it too, so
+// it is one function before it would have been five copies.
+//
+// A READ THAT FAILS IS NOT A KEY THAT IS MISSING, and the two must not look alike
+// in the log: GetSetting answers ("", nil) for an absent setting, so an error is
+// a real read failure, logged here as it always was. The pass goes on with what
+// was read, as it always did — a supplier asked without a key still answers, only
+// with a smaller quota. The error is returned as well, for a caller with a log of
+// its own to say why its lookups ran keyless; a handler has nobody to tell.
+func (s *Server) providerKeys() (providerKeys, error) {
+	var k providerKeys
+	var errs []error
+	for _, f := range []struct {
+		key string
+		to  *string
+	}{
+		{settingGoogleBooksKey, &k.googleBooks},
+		{settingAmazonCookie, &k.amazonCookie},
+		{settingAmazonDomain, &k.amazonDomain},
+	} {
+		v, err := s.Store.GetSetting(f.key)
+		if err != nil {
+			olog.Warnf(olog.CodeMetaKeyRead, "[meta] provider key read failed: %v", err)
+			errs = append(errs, err)
+		}
+		*f.to = v
+	}
+	k.tmdb, _ = s.resolveTMDB()
+	k.tvdb, _ = s.resolveTVDB()
+	return k, errors.Join(errs...)
+}
+
 // resolveIGDB returns the games client to use, or nil when no COMPLETE pair of
 // credentials is available, plus the source enum for /metadata/status.
 //
@@ -512,17 +554,12 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// GetSetting returns ("", nil) for an absent key, so a non-nil error here is a
-	// real read failure — not a missing setting — and the refetch would otherwise
-	// silently proceed as if no key/cookie were configured.
-	gkey, gErr := s.Store.GetSetting(settingGoogleBooksKey)
-	cookie, cErr := s.Store.GetSetting(settingAmazonCookie)
-	domain, dErr := s.Store.GetSetting(settingAmazonDomain)
-	for _, err := range []error{gErr, cErr, dErr} {
-		if err != nil {
-			olog.Warnf(olog.CodeMetaKeyRead, "[meta] provider key read failed: %v", err)
-		}
-	}
+	// A failed read is logged by providerKeys, rather than the refetch silently
+	// proceeding as if no key or cookie were configured; it goes on with what was
+	// read. It asks no film supplier: a poster is fetched from the address cached
+	// when the film was added.
+	keys, _ := s.providerKeys()
+	gkey, cookie, domain := keys.googleBooks, keys.amazonCookie, keys.amazonDomain
 
 	type bookRow struct {
 		id, uid    int64

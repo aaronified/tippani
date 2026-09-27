@@ -124,27 +124,18 @@ func (s *Server) handleMetadataFill(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	olog.Tracef("[meta] handleMetadataFill uid=%d books=%d movies=%d", uid, len(req.BookIDs), len(req.MovieIDs))
 
-	gkey, gErr := s.Store.GetSetting(settingGoogleBooksKey)
-	cookie, cErr := s.Store.GetSetting(settingAmazonCookie)
-	domain, dErr := s.Store.GetSetting(settingAmazonDomain)
-	for _, err := range []error{gErr, cErr, dErr} {
-		if err != nil {
-			olog.Warnf(olog.CodeMetaKeyRead, "[meta] provider key read failed: %v", err)
-		}
-	}
-	tmdb, _ := s.resolveTMDB()
-	tvdb, _ := s.resolveTVDB()
+	keys, _ := s.providerKeys() // a failed read is logged there, and the fill goes on with what was read
 
 	ctx := r.Context()
 	results := []fillResult{}
 	filled, failed := 0, 0
 	for _, id := range req.BookIDs {
-		res := s.fillOne(ctx, uid, s.reverifyBook(ctx, uid, id, gkey, cookie, domain, false))
+		res := s.fillOne(ctx, uid, s.reverifyBook(ctx, uid, id, keys.googleBooks, keys.amazonCookie, keys.amazonDomain, false))
 		results = append(results, res)
 		countFill(&filled, &failed, res)
 	}
 	for _, id := range req.MovieIDs {
-		res := s.fillOne(ctx, uid, s.reverifyMovie(ctx, uid, id, tmdb, tvdb, false))
+		res := s.fillOne(ctx, uid, s.reverifyMovie(ctx, uid, id, keys.tmdb, keys.tvdb, false))
 		results = append(results, res)
 		countFill(&filled, &failed, res)
 	}

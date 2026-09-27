@@ -174,24 +174,15 @@ func (s *Server) handleMetadataReverify(w http.ResponseWriter, r *http.Request) 
 	olog.Tracef("[meta] handleMetadataReverify uid=%d books=%d movies=%d people=%d",
 		uid, len(req.BookIDs), len(req.MovieIDs), len(req.People))
 
-	gkey, gErr := s.Store.GetSetting(settingGoogleBooksKey)
-	cookie, cErr := s.Store.GetSetting(settingAmazonCookie)
-	domain, dErr := s.Store.GetSetting(settingAmazonDomain)
-	for _, err := range []error{gErr, cErr, dErr} {
-		if err != nil {
-			olog.Warnf(olog.CodeMetaKeyRead, "[meta] provider key read failed: %v", err)
-		}
-	}
-	tmdb, _ := s.resolveTMDB()
-	tvdb, _ := s.resolveTVDB()
+	keys, _ := s.providerKeys() // a failed read is logged there, and the check goes on with what was read
 
 	ctx := r.Context()
 	items := []reverifyItem{}
 	for _, id := range req.BookIDs {
-		items = append(items, s.reverifyBook(ctx, uid, id, gkey, cookie, domain, req.Offers))
+		items = append(items, s.reverifyBook(ctx, uid, id, keys.googleBooks, keys.amazonCookie, keys.amazonDomain, req.Offers))
 	}
 	for _, id := range req.MovieIDs {
-		items = append(items, s.reverifyMovie(ctx, uid, id, tmdb, tvdb, req.Offers))
+		items = append(items, s.reverifyMovie(ctx, uid, id, keys.tmdb, keys.tvdb, req.Offers))
 	}
 	for _, p := range req.People {
 		items = append(items, s.reverifyPerson(ctx, uid, strings.TrimSpace(p.Kind), strings.TrimSpace(p.Name)))
