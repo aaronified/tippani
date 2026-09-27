@@ -79,9 +79,13 @@ describe('the summary and the system log', () => {
   })
 
   it('answers the system log as lines with a level and a code, narrowed by level', () => {
-    const [status, body] = get('/admin/logs', 'level=error,warn,info,request')
+    const [status, body] = get('/admin/logs', 'level=error,warn,info,request&since=3600000')
     expect(status).toBe(200)
+    expect(Object.keys(body).sort()).toEqual(['from', 'lines', 'more', 'upto'])
     expect(body.more).toBe(false)
+    // The window read, which the screen sends back for its next page and export.
+    expect(typeof body.from).toBe('number')
+    expect(body.upto).toBeGreaterThanOrEqual(Math.max(...body.lines.map((l) => l.id)))
     for (const l of body.lines) {
       expect(Object.keys(l).sort()).toEqual(['at', 'code', 'id', 'level', 'line'])
       expect(['error', 'warn', 'info', 'request']).toContain(l.level)

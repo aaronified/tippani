@@ -583,9 +583,11 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
   const [lines, setLines] = useState(null)
   const [more, setMore] = useState(false)
   const [error, setError] = useState('')
-  // The moment the list was read, which is what the export says "what is shown"
-  // about: the same window, ending where the reader's list ends.
-  const [readAt, setReadAt] = useState(() => Date.now())
+  // The window the list was read over, as the server's answer names it — its
+  // start by the server's clock and its newest line — which the next page and the
+  // export send back: "what is shown" ends where the reader's list ends, whatever
+  // this browser's clock says (jobs.js, logQuery). Null until the first answer.
+  const [shown, setShown] = useState(null)
   // TYPING IS NOT A REQUEST PER KEY. The bar calls through on every keystroke,
   // which is right for a list already in memory and wrong for a table on the
   // server; a quarter-second pause is when the reader has finished the word.
@@ -598,9 +600,10 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
 
   const load = async (append = false) => {
     const mine = ++stamp.current
-    const now = append ? readAt : Date.now()
+    // New filters are a new window: the old one is not what they show.
+    if (!append) setShown(null)
     const before = append && lines && lines.length ? lines[lines.length - 1].id : null
-    const r = await readSystemLogs({ levels, range, q: term, before, now })
+    const r = await readSystemLogs({ levels, range, q: term, before, ...(append ? shown : null) })
     if (mine !== stamp.current) return
     if (!r.ok) {
       setError(r.error)
@@ -609,13 +612,13 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
     }
     setError('')
     setMore(r.more)
-    if (!append) setReadAt(now)
+    if (!append) setShown({ from: r.from, upto: r.upto })
     setLines((prev) => (append && prev ? prev.concat(r.lines) : r.lines))
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(false) }, [levels.join(','), range, term])
 
-  const filters = { levels, range, q: term, now: readAt, to: readAt }
+  const filters = { levels, range, q: term, ...shown }
   return (
     <JobsCard title={t('settings.logs.title')}>
       <div className="logs-filters">

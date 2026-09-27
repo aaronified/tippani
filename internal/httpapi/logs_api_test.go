@@ -29,9 +29,10 @@ import (
 // no request makes the server print a line of the test's choosing, and what is
 // under test is what the log does with the lines it gets. The request and file
 // lines come from real requests (the SPA served from srv.Static, as the request
-// log's own test serves it). One line is written straight into system_logs,
-// 31 days old, because no line can be logged in the past, and sixty thousand
-// more in one statement, because no request logs that many in a test's time.
+// log's own test serves it). Two lines are written straight into system_logs,
+// one 31 days old and one two hours old, because no line can be logged in the
+// past, and sixty thousand more in one statement, because no request logs that
+// many in a test's time.
 // And the wire field names, which are the contract the screen is built to.
 //
 // The downloads nobody reads are real sockets to a real listener, each with a
@@ -50,7 +51,10 @@ import (
 // the system log; it shows every level but file requests and traces unless asked,
 // and exactly the levels asked for; a time range keeps the lines inside it; a
 // keyword is matched without regard to ASCII case and a % or _ in it means itself; a
-// page ends where the next begins; nothing older than thirty days is shown; the
+// page ends where the next begins; nothing older than thirty days is shown; "the
+// last hour" is the server's last hour, the list says the window it read, and
+// that window exported holds what was read and nothing logged after it; a
+// window that ends before it starts is refused; the
 // export holds exactly what the filters show, or everything kept, one line per
 // line inside a fence no line can close; downloads nobody is reading leave the
 // app answering everyone else, and are given up on in the end; an export the
@@ -87,6 +91,8 @@ type logLine struct {
 type logPage struct {
 	Lines []logLine `json:"lines"`
 	More  bool      `json:"more"`
+	From  int64     `json:"from"`
+	Upto  int64     `json:"upto"`
 }
 
 func (c *testClient) logs(query url.Values) logPage {
@@ -127,7 +133,7 @@ func TestAnAdminNarrowsTheSystemLogByLevelTimeAndKeyword(t *testing.T) {
 
 	raw := admin.mustDo("GET", "/admin/logs?q=Wv-log", nil, http.StatusOK)
 	var wire []json.RawMessage
-	json.Unmarshal(shaped(t, "GET /admin/logs", raw.Body.Bytes(), "lines", "more")["lines"], &wire)
+	json.Unmarshal(shaped(t, "GET /admin/logs", raw.Body.Bytes(), "lines", "more", "from", "upto")["lines"], &wire)
 	if len(wire) == 0 {
 		t.Fatalf("no lines: %s", raw.Body)
 	}
@@ -211,6 +217,70 @@ func TestAnAdminNarrowsTheSystemLogByLevelTimeAndKeyword(t *testing.T) {
 	}
 	if md := admin.mustDo("GET", "/admin/logs.md?all=1", nil, http.StatusOK).Body.String(); strings.Contains(md, "last month") {
 		t.Fatal("everything kept holds a line 31 days old")
+	}
+}
+
+// THE WINDOW IS THE SERVER'S. The screen asks for "the last hour" as a length
+// of time, which the server ends at its own now, so a browser whose clock is
+// hours or months out is shown, and exports, the same lines as one whose clock
+// is right. The list says the window it read; sent back, it is what "What is
+// shown" exports, and a line logged after the read is not in the file.
+func TestTheSystemLogsWindowIsSetByTheServersClock(t *testing.T) {
+	srv := newTestServer(t)
+	logging(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+
+	if _, err := srv.Store.DB.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', '[test] Wv-since two hours ago')`,
+		time.Now().Add(-2*time.Hour).UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	olog.Printf("[test] Wv-since just now")
+
+	// The last hour, and the last three, by the server's clock.
+	before := time.Now().Add(-time.Hour).UnixMilli()
+	hour := admin.logs(url.Values{"q": {"Wv-since"}, "since": {"3600000"}})
+	after := time.Now().Add(-time.Hour).UnixMilli()
+	if got := marked(hour, "Wv-since"); len(got) != 1 || !strings.HasSuffix(got[0], "Wv-since just now") {
+		t.Fatalf("the last hour: %q", got)
+	}
+	if hour.From < before || hour.From > after {
+		t.Fatalf("the last hour was read from %d, want the server's now less an hour, between %d and %d", hour.From, before, after)
+	}
+	if hour.Upto < hour.Lines[0].ID {
+		t.Fatalf("the window ends at line %d, before the newest line it holds, %d", hour.Upto, hour.Lines[0].ID)
+	}
+	if got := marked(admin.logs(url.Values{"q": {"Wv-since"}, "since": {"10800000"}}), "Wv-since"); len(got) != 2 {
+		t.Fatalf("the last three hours: %q", got)
+	}
+
+	// What is shown: the window the list was read over, and not a line logged
+	// after it.
+	olog.Printf("[test] Wv-since after the read")
+	shown := url.Values{"q": {"Wv-since"}, "from": {fmt.Sprint(hour.From)}, "upto": {fmt.Sprint(hour.Upto)}}
+	md := admin.mustDo("GET", "/admin/logs.md?"+shown.Encode(), nil, http.StatusOK).Body.String()
+	if !strings.Contains(md, "Wv-since just now") || strings.Contains(md, "two hours ago") || strings.Contains(md, "after the read") {
+		t.Fatalf("the export of what was shown:\n%s", md)
+	}
+	if !strings.Contains(md, "from "+utc(hour.From)+" UTC, to ") {
+		t.Fatalf("the export does not say the window it holds:\n%s", md)
+	}
+	// …while the list read again has the newer line.
+	if got := marked(admin.logs(url.Values{"q": {"Wv-since"}, "since": {"3600000"}}), "Wv-since"); len(got) != 2 {
+		t.Fatalf("the last hour read again: %q", got)
+	}
+
+	// A window that ends before it starts, and the other questions that cannot
+	// be answered, are refused rather than answered with an empty log.
+	for _, q := range []string{
+		fmt.Sprintf("from=%d&to=%d", time.Now().Add(-time.Hour).UnixMilli(), time.Now().Add(-2*time.Hour).UnixMilli()),
+		"to=" + fmt.Sprint(time.Now().Add(-31*24*time.Hour).UnixMilli()),
+		"since=3600000&from=1000",
+		"since=an+hour",
+		"upto=line",
+	} {
+		admin.mustDo("GET", "/admin/logs?"+q, nil, http.StatusBadRequest)
+		admin.mustDo("GET", "/admin/logs.md?"+q, nil, http.StatusBadRequest)
 	}
 }
 

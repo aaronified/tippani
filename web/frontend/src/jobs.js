@@ -501,14 +501,18 @@ export const jobLogURL = (id) => apiURL(`/jobs/${id}/log.md`)
 // values are fixed tokens, and a query a person can read in the address bar of a
 // download is worth one line.
 //
-// `to` IS FOR THE EXPORT, which closes the window at the moment the list on the
-// screen was read: "what is shown" is then the lines the reader is looking at,
-// not those plus whatever arrived while they read. The list itself is left
-// open-ended, so a re-read picks up the newest lines.
-export function logQuery({ levels = DEFAULT_LOG_LEVELS, range = DEFAULT_LOG_RANGE, q = '', before = null, limit = 0, now = Date.now(), to = null } = {}) {
+// THE WINDOW IS THE SERVER'S, NEVER THIS BROWSER'S CLOCK. A first read sends the
+// range as a length of time (`since`), which the server ends at its own now, and
+// its answer says the window it read: `from`, and `upto`, the newest line then.
+// The next page and "what is shown" send those two back, so the export holds the
+// lines the reader is looking at and not those plus whatever arrived while they
+// read. The query used to carry this browser's now, and a browser whose clock ran
+// behind the server's exported a window that ended before the newest lines, the
+// ones a reader exports a log for; months behind, the file held none.
+export function logQuery({ levels = DEFAULT_LOG_LEVELS, range = DEFAULT_LOG_RANGE, q = '', before = null, limit = 0, from = null, upto = null } = {}) {
   const span = (LOG_RANGES.find(([id]) => id === range) || LOG_RANGES[1])[1]
-  const parts = [`level=${levels.join(',')}`, `from=${now - span}`]
-  if (to) parts.push(`to=${to}`)
+  const parts = [`level=${levels.join(',')}`, from ? `from=${from}` : `since=${span}`]
+  if (upto) parts.push(`upto=${upto}`)
   const term = String(q || '').trim()
   if (term) parts.push(`q=${encodeURIComponent(term)}`)
   if (before) parts.push(`before=${before}`)
@@ -519,7 +523,7 @@ export function logQuery({ levels = DEFAULT_LOG_LEVELS, range = DEFAULT_LOG_RANG
 export async function readSystemLogs(filters) {
   const r = await json('GET', `/admin/logs?${logQuery({ limit: 200, ...filters })}`)
   if (!r.ok) return refusal(r)
-  return { ok: true, lines: list(r.data?.lines), more: !!r.data?.more }
+  return { ok: true, lines: list(r.data?.lines), more: !!r.data?.more, from: r.data?.from || null, upto: r.data?.upto || null }
 }
 
 export const systemLogsURL = (filters) => apiURL(`/admin/logs.md?${logQuery(filters)}`)

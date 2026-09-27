@@ -27,10 +27,14 @@ let CURRENT
 let PAST
 let LINES
 let LOGS
+let LOGS_MORE
 let STOPALL
 
 const HOUR = 60 * 60 * 1000
 const NOW = Date.now()
+// THE SERVER'S CLOCK, which is not this browser's: the window the fake server
+// says it read is set by it, as the real one's is by its own now.
+const SERVER_NOW = Date.parse('2026-09-27T12:00:00Z')
 const job = (over) => ({
   id: 0, kind: 'fill', queued: true, subject: '', state: 'queued', params: {}, counts: {},
   error: '', total: 0, done: 0, ahead: 0, username: '', own: true, rerunnable: false, applied: false,
@@ -60,7 +64,10 @@ vi.mock('../../src/api.js', async (orig) => ({
     }
     if (method === 'POST' && p === '/jobs/stop-all') return { ok: true, data: STOPALL }
     if (method === 'POST' && /^\/jobs\/\d+\/rerun$/.test(p)) return { ok: true, status: 202, data: { job: job({ id: 99 }) } }
-    if (method === 'GET' && p === '/admin/logs') return { ok: true, data: { lines: LOGS, more: false } }
+    if (method === 'GET' && p === '/admin/logs') {
+      const from = Number(q.get('from')) || SERVER_NOW - Number(q.get('since'))
+      return { ok: true, data: { lines: LOGS, more: LOGS_MORE, from, upto: Number(q.get('upto')) || 41 } }
+    }
     if (method === 'GET' && p === '/admin/backup') return { ok: true, data: { backup: null } }
     return { ok: true, data: {} }
   }),
@@ -100,6 +107,7 @@ beforeEach(() => {
   }
   STOPALL = { stopping: 1, stopped_waiting: 2 }
   LOGS = [{ id: 40, at: NOW - 60000, level: 'warn', code: 'TIP-NET-004', line: 'openlibrary.org answered 503' }]
+  LOGS_MORE = false
 })
 
 const page = async (user = ADMIN, extra = {}) => {
@@ -429,9 +437,9 @@ describe('System logs', () => {
     await within(logs).findByText('openlibrary.org answered 503', { exact: false })
     const first = logReads()[0]
     expect(first.get('level')).toBe('error,warn,info,request')
-    const span = NOW - Number(first.get('from'))
-    expect(span).toBeGreaterThan(23 * HOUR)
-    expect(span).toBeLessThan(25 * HOUR + 60000)
+    // A length of time, which the server ends at its own now.
+    expect(first.get('since')).toBe(String(24 * HOUR))
+    expect(first.has('from')).toBe(false)
     expect(within(logs).getByRole('button', { name: 'File', pressed: false })).toBeTruthy()
     expect(within(logs).getByRole('button', { name: 'Trace', pressed: false })).toBeTruthy()
   })
@@ -445,10 +453,7 @@ describe('System logs', () => {
     // The time range is the app's own dropdown.
     fireEvent.click(within(logs).getByRole('button', { name: /How far back/ }))
     fireEvent.click(await screen.findByRole('option', { name: 'Last 7 days' }))
-    await waitFor(() => {
-      const span = Date.now() - Number(logReads().at(-1).get('from'))
-      expect(span).toBeGreaterThan(6.9 * 24 * HOUR)
-    })
+    await waitFor(() => expect(logReads().at(-1).get('since')).toBe(String(7 * 24 * HOUR)))
     // The keyword is the shell's bar, which says it is searching the system logs.
     await waitFor(() => expect(HERE?.label).toBe('system logs'))
     act(() => HERE.onQuery('503'))
@@ -468,8 +473,41 @@ describe('System logs', () => {
     const params = new URLSearchParams(shown.split('?')[1])
     expect(params.get('level')).toBe('error,warn,info,request')
     expect(params.get('q')).toBe('openlibrary')
-    expect(Number(params.get('to'))).toBeGreaterThanOrEqual(Number(params.get('from')))
+    // The window the list was read over, as the server answered it.
+    expect(Number(params.get('from'))).toBe(SERVER_NOW - 24 * HOUR)
+    expect(params.get('upto')).toBe('41')
     expect(within(logs).getByRole('link', { name: /Everything kept/ }).getAttribute('href')).toBe('/api/admin/logs.md?all=1')
+  })
+
+  // A BROWSER WHOSE CLOCK IS MONTHS BEHIND THE SERVER'S — the journey tier's is
+  // fixed at 2026-01-01 — reads, pages and exports the server's window. When the
+  // screen sent its own clock, the export's window ended before the lines on the
+  // card and the file held none of them.
+  it('reads, pages and exports the server’s window when this browser’s clock is months out', async () => {
+    const real = Date.now.bind(Date)
+    const skew = Date.parse('2026-01-01T12:00:00Z') - real()
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => real() + skew)
+    try {
+      LOGS_MORE = true
+      await page()
+      const logs = await card('System logs')
+      await within(logs).findByText('openlibrary.org answered 503', { exact: false })
+      expect(logReads()[0].get('since')).toBe(String(24 * HOUR))
+
+      fireEvent.click(within(logs).getByRole('button', { name: 'Load older' }))
+      await waitFor(() => expect(logReads().length).toBe(2))
+      const next = logReads()[1]
+      expect(Number(next.get('from'))).toBe(SERVER_NOW - 24 * HOUR)
+      expect(next.get('upto')).toBe('41')
+      expect(next.get('before')).toBe('40')
+
+      const shown = new URLSearchParams(within(logs).getByRole('link', { name: /What is shown/ }).getAttribute('href').split('?')[1])
+      expect(Number(shown.get('from'))).toBe(SERVER_NOW - 24 * HOUR)
+      expect(shown.get('upto')).toBe('41')
+      expect(shown.has('to')).toBe(false)
+    } finally {
+      clock.mockRestore()
+    }
   })
 })
 

@@ -279,7 +279,9 @@ admin's alone, holds the system log, filtered by level, time and keyword. The sa
 a script, or a browser signed in to Tippani: `/api/jobs?view=past` lists the jobs that have
 ended, newest first (`view=current`: the ones waiting or running), `/api/jobs/<id>` is one job
 with its log and `/api/jobs/<id>/log.md` that log as Markdown; `/api/admin/logs` (narrowed with
-`level`, `from`, `to` and `q`) and `/api/admin/logs.md` (the same filters, or `?all=1` for
+`level`, `q` and a window: `since`, milliseconds back from the server's own now, or `from` and
+`to` in unix milliseconds, and `upto`, the newest line id to include; each answer names the
+window it read as `from` and `upto`) and `/api/admin/logs.md` (the same filters, or `?all=1` for
 everything kept) are the system log. stdout and stderr are unaffected: `docker logs` still has
 every line, including the ones a code below says the database did not keep.
 

@@ -1104,7 +1104,10 @@ export function route(method, path, params, body) {
       const levels = (params.get('level') || 'error,warn,info,request').split(',')
       const q = (params.get('q') || '').toLowerCase()
       const lines = DEMO_LOGS.filter((l) => levels.includes(l.level) && (!q || l.line.toLowerCase().includes(q)))
-      return [200, { lines, more: false }]
+      // The window read, as the server names it: its start by the demo's own
+      // fixed clock, and the newest line there is.
+      const from = Number(params.get('from')) || JOB_T - Number(params.get('since') || 30 * 24 * 60 * MIN)
+      return [200, { lines, more: false, from, upto: DEMO_LOGS[0].id }]
     }
     // The Filters panel and the `field:` dropdown both read this, and both read
     // it by MAPPING over each list — so the fallback's `{}` would not be a thin
