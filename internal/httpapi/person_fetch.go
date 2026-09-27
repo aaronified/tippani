@@ -12,20 +12,18 @@ import (
 
 // ONE PERSON'S FETCH, BY THE RECORD'S ID: POST /people/id/{id}/fetch.
 //
-// The People row's Fetch is three requests and a fold in the browser: the
+// The People row's Fetch was three requests and a fold in the browser: the
 // portrait by (kind, name), the reference pages by (kind, name) when the portrait
-// brought none, people.jsx's mergeLinks, and a save by id. Two of those speak
+// brought none, people.jsx's mergeLinks, and a save by id. Two of those spoke
 // names, so on the second of two records sharing a name the portrait, the
-// identity and the facts land on the FIRST (the lowest id wins a name), and only
-// the links reach the record the reader pressed. And the bulk Fetch missing
-// loops the same from the tab, stopping when the tab does.
+// identity and the facts landed on the FIRST (the lowest id wins a name), and
+// only the links reached the record the reader pressed. And the bulk Fetch
+// missing looped the same from the tab, stopping when the tab did.
 //
-// This route is that Fetch as one function, once, and a call of it is one
-// in-request lookup, kept as a lookup.person job like any single lookup.
-// Everything it writes goes onto the record named by id. The people job loops
-// the same function (runPeople, below). The SPA's row and its bulk Fetch still
-// make the three requests; they move onto this route and the job with the Jobs
-// screen.
+// Now it is this function, once: the people job loops it (runPeople, below),
+// and the row's Fetch is one in-request call of it, kept in Settings › Jobs as
+// lookup.person like any single lookup. Everything it writes goes onto the
+// record named by id.
 
 // errNoSuchPerson is a record that is not the reader's, or not anybody's: a 404,
 // which says nothing about which.

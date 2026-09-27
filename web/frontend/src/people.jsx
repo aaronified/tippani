@@ -8,7 +8,7 @@ import { formatYear, parsePartialDate, ProviderMark, Scroller, Tooltip } from '.
 // The person primitives — portrait, credit splitting, the saved-people map —
 // live in credits.jsx so the quiz card can draw a face without importing this
 // panel. Re-exported here because this is still where a reader looks for them.
-export { CharacterFaces, CreditFaces, DEFAULT_CREDIT_SEPS, parseCreditSeps, personImgURL, PersonPortrait, splitCredits, useCharacterFaces, usePeople, usePortraitFill } from './credits.jsx'
+export { CharacterFaces, CreditFaces, DEFAULT_CREDIT_SEPS, parseCreditSeps, personImgURL, PersonPortrait, splitCredits, useCharacterFaces, usePeople } from './credits.jsx'
 
 
 // The external references a person can link out to, in display order. A saved
@@ -426,24 +426,6 @@ export function namedLinks(text, { web = hostOf } = {}) {
       url, slug: '', label: labels[url] || '', name: labels[url] || web(url),
     })),
   ]
-}
-
-// mergeLinks folds freshly-fetched provider links into the stored free-text
-// field without disturbing anything the user added by hand: providers land in
-// canonical order, existing URLs win, extras keep their place at the end.
-export function mergeLinks(text, fetched) {
-  const { known, extra, labels } = parseLinks(text)
-  const merged = { ...known }
-  for (const [slug, url] of Object.entries(fetched || {})) {
-    if (url && !merged[slug]) merged[slug] = url
-  }
-  // THE NAMES SURVIVE THE FOLD. This function rewrites the whole field, so a
-  // fetch that did not touch a link would still erase the name the reader gave
-  // it — the same class of loss the "existing URLs win" rule above exists to
-  // stop, one column over.
-  return [...PROVIDERS.map(([slug]) => merged[slug]).filter(Boolean), ...extra]
-    .map((url) => linkLine(url, labels[url]))
-    .join('\n')
 }
 
 // ProviderChips — the compact inline form of the link set (Metadata console
@@ -989,6 +971,10 @@ function lifespanLabel(p) {
 // hand — is on the People console's row beside the character console's.
 //
 // THE HELPERS ABOVE ARE NOT DEAD WITH IT and that is why this file is still long:
-// `PersonPortrait`, `mergeLinks`, `parseLinks`, the credit splitters and the chip
-// rows are read by Search, Stats, the work screens and the metadata console. Only
-// the surface went.
+// `PersonPortrait`, `parseLinks`, the credit splitters and the chip rows are read
+// by Search, Stats, the work screens and the metadata console. Only the surface
+// went. (`mergeLinks` went later, in 3.1.0: folding fetched links into a record is
+// the server's now — one person's Fetch and the bulk people job both run the
+// same Go function — so a browser copy would be a second answer to one question.
+// Its test cases went with it: rules/link-fold-keeps-names.test.js holds the Go
+// side to them.)

@@ -254,7 +254,7 @@ function workID(seg) {
 }
 
 export function parsePath(pathname) {
-  const [a, b] = pathname.replace(/\/+$/, '').split('/').filter(Boolean)
+  const [a, b, c] = pathname.replace(/\/+$/, '').split('/').filter(Boolean)
   // "/" is the Home screen (daily review); unknown paths land there too.
   if (!a) return { tab: 'home', detail: null }
   if (a === 'books' && workID(b)) return { tab: 'library', detail: { type: 'book', id: workID(b) } }
@@ -302,6 +302,14 @@ export function parsePath(pathname) {
   // exactly, so `statePath`, `go`, `goBack` and the popstate handler all work
   // unchanged. An unknown section falls through to the bare screen, which lands the
   // reader on the index — the right answer for a link to a section that was renamed.
+  // A RE-VERIFY WAITING TO BE REVIEWED, BY ITS JOB. The check runs on the server
+  // now and outlives the screen that started it, so its review is reached from
+  // Settings › Jobs long after — and the review lives on Metadata, beside the flow
+  // that applies it. The job is in the address rather than handed over in memory
+  // for the reason a section is: Back, a refresh and a link all have to land on
+  // the same review. An unusable id is the bare console, as /books/abc is the
+  // bare shelf.
+  if (a === 'metadata' && b === 'reverify') return { tab: 'metadata', detail: workID(c) ? { type: 'reverify', id: workID(c) } : null }
   if ((a === 'settings' || a === 'metadata') && b) return { tab: a, detail: { type: 'section', id: b } }
   if (a === 'import') return { tab: 'import', detail: null }
   if (a === 'capture') return { tab: 'capture', detail: null }
@@ -312,6 +320,7 @@ export function parsePath(pathname) {
 
 export function statePath(tab, detail) {
   if (detail?.type === 'section') return `/${tab}/${detail.id}`
+  if (detail?.type === 'reverify') return `/metadata/reverify/${detail.id}`
   if (detail?.type === 'book') return `/books/${detail.id}`
   if (detail?.type === 'movie') return `/catalogue/${detail.id}`
   if (detail?.type === 'board') return `/quotes/${detail.id}`

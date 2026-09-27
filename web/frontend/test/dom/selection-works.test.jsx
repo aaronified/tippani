@@ -9,16 +9,24 @@
 //
 // So: what appears is asserted per kind, from the registry both surfaces read.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { jobsServer } from './helpers/jobsServer.js'
 
 let CALLS
 let RESP
+// Fill gaps is a job on the server since 3.1.0; this is the queue it goes to, in
+// the shapes the jobs routes answer with (see the helper's header).
+let JOBS
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
-    CALLS.push([method, path, body])
+    // The fourth field is WHEN, for the cases about the fill's polling schedule —
+    // under fake timers it is the fake clock's.
+    CALLS.push([method, path, body, Date.now()])
+    const job = JOBS.answer(method, path, body)
+    if (job) return job
     // The library-wide pool the value box offers from. A bulk selection spans
     // works, so this is the only pool that can serve it.
     if (String(path).startsWith('/search/vocabulary')) {
@@ -74,6 +82,7 @@ const hold = async (ms = 500) => {
 beforeEach(() => {
   CALLS = []
   RESP = {}
+  JOBS = jobsServer()
   opened = []
 })
 
@@ -225,21 +234,148 @@ describe('the bar over a selection of works', () => {
     expect(screen.queryByText('Watching')).toBeNull()
   })
 
-  it('fills only the gaps, in batches the server will accept', async () => {
-    RESP = { filled: 1, fields: 3, failed: 0 }
+  // ONE JOB OVER THE WHOLE SELECTION. It was batches of fifteen posted from the
+  // bar, and closing the tab part-way stopped the fill wherever it had got to.
+  it('fills only the gaps, as one job on the server', async () => {
+    JOBS.plan('fill', { counts: { fields: 3, failed: 0 } })
     open()
     fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
-    await waitFor(() => expect(sent('/metadata/fill')).toBeTruthy())
-    expect(sent('/metadata/fill')[2]).toEqual({ ids: undefined, book_ids: [1] })
+    await waitFor(() => expect(JOBS.started()).toHaveLength(1))
+    expect(JOBS.started()[0]).toEqual(['fill', { book_ids: [1] }])
     expect(await screen.findByText('filled 3 fields')).toBeTruthy()
   })
 
   it('says so plainly when there was nothing missing', async () => {
     // The good case. Reported as a failure, people learn to distrust the button.
-    RESP = { filled: 0, fields: 0, failed: 0 }
+    JOBS.plan('fill', { counts: { fields: 0, failed: 0 } })
     open()
     fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
     expect(await screen.findByText('nothing was missing')).toBeTruthy()
+  })
+
+  // BEHIND SOMEBODY ELSE'S JOB THE BAR STAYS BUSY, and a busy bar with no reason
+  // on it reads as a stuck one.
+  it('says where it stands when it has to wait its turn, and reports the end', async () => {
+    JOBS.plan('fill', { queued: true, ahead: 2 })
+    JOBS.hold('fill')
+    open()
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    expect(await screen.findByText('Waiting — 2 jobs ahead')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Fill gaps' }).disabled).toBe(true)
+    const [id] = [...JOBS.jobs.keys()]
+    JOBS.finish(id, { counts: { fields: 2, failed: 0 } })
+    expect(await screen.findByText('filled 2 fields', {}, { timeout: 4000 })).toBeTruthy()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Fill gaps' }).disabled).toBe(false))
+  })
+
+  // A FILL THAT WAITS HOLDS ONLY ITSELF. It can wait behind somebody else's job
+  // for hours, and the rest of the bar is a set of writes that answer in a moment:
+  // skipping in the quiz, a shelf, a delete. And the Fill control says where the
+  // job stands for as long as it waits, not "Fetching…" over a job not yet begun.
+  it('leaves the rest of the bar working while a fill waits, and says where it stands', async () => {
+    JOBS.plan('fill', { queued: true, ahead: 2 })
+    JOBS.hold('fill')
+    open()
+    const fill = screen.getByRole('button', { name: 'Fill gaps' })
+    fireEvent.click(fill)
+    await waitFor(() => expect(JOBS.started()).toHaveLength(1))
+    await waitFor(() => expect(fill.disabled).toBe(true))
+    // The label a keyboard or a long press gets — the only words the control has
+    // once the bar's labels are clipped.
+    fill.matches = (sel) => sel === ':focus-visible'
+    fireEvent.focus(fill)
+    await waitFor(() => expect(document.querySelector('.hint-bubble, .tp-hint, [data-hint]')?.textContent || '').toContain('Waiting — 2 jobs ahead'))
+    expect(document.querySelector('.hint-bubble, .tp-hint, [data-hint]').textContent).not.toContain('Fetching')
+    fireEvent.blur(fill)
+
+    const skip = screen.getByRole('button', { name: 'Skip in quiz' })
+    expect(skip.disabled, 'a waiting fill locked Skip in quiz').toBe(false)
+    expect(screen.getByLabelText(/Move the 1 selected to a shelf/).disabled, 'a waiting fill locked the shelf').toBe(false)
+    openMore()
+    expect(screen.getByRole('menuitem', { name: 'Delete' }), 'a waiting fill took Delete away').toBeTruthy()
+    fireEvent.keyDown(document.activeElement || document.body, { key: 'Escape' })
+    // And a press on one of them does its write while the fill still waits.
+    fireEvent.click(skip)
+    await waitFor(() => expect(sent('/books/bulk')?.[2]).toMatchObject({ ids: [1], review: false }))
+    expect(fill.disabled, 'the skip ended the fill’s wait').toBe(true)
+  })
+
+  // OVER ONE JOB'S CAP — 2,000 works, which Select all reaches on a big library —
+  // the server refuses a job whole, and the loop this replaced had no ceiling. So
+  // the set goes as consecutive jobs, and the press still says one thing at the
+  // end. The selection here is the bar's own shape with 2,001 ids, because two
+  // thousand covers on a board would be a test of rendering, not of the fill.
+  it('fills a selection over one job’s cap as consecutive jobs, and adds them up', async () => {
+    const ids = Array.from({ length: 2001 }, (_, i) => i + 1)
+    const selection = { kind: 'book', ids, count: ids.length, open: true, isSelected: () => true, deselectAll() {}, dismiss() {} }
+    JOBS.plan('fill', { counts: { fields: 3, failed: 0 } })
+    JOBS.plan('fill', { counts: { fields: 4, failed: 1 } })
+    render(<><SelectionBar selection={selection} rows={[]} onDone={() => {}} /><ToastHost /></>)
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    await waitFor(() => expect(JOBS.started()).toHaveLength(2))
+    const [[, first], [, second]] = JOBS.started()
+    expect(first.book_ids).toEqual(ids.slice(0, 2000))
+    expect(second).toEqual({ book_ids: [2001] })
+    expect(await screen.findByText('filled 7 fields')).toBeTruthy()
+  })
+
+  it('says so when the rest of a big selection could not start, and fills what did', async () => {
+    const ids = Array.from({ length: 2001 }, (_, i) => i + 1)
+    const selection = { kind: 'book', ids, count: ids.length, open: true, isSelected: () => true, deselectAll() {}, dismiss() {} }
+    JOBS.hold('fill')
+    render(<><SelectionBar selection={selection} rows={[]} onDone={() => {}} /><ToastHost /></>)
+    // The first piece starts; the second is refused at this reader's limit.
+    JOBS.refuse(429, { error: 'You already have 5 jobs running or waiting.', limit: 5 }, { after: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    expect(await screen.findByText('You already have 5 jobs running or waiting.')).toBeTruthy()
+    const [id] = [...JOBS.jobs.keys()]
+    JOBS.finish(id, { counts: { fields: 2, failed: 0 } })
+    expect(await screen.findByText('filled 2 fields', {}, { timeout: 4000 })).toBeTruthy()
+  })
+
+  // THE JOB OUTLIVES THE BAR. Leaving is not stopping: the fill goes on and is in
+  // Settings › Jobs; what the bar owes a reader who left is silence, not a toast
+  // landing on whatever screen they went to.
+  it('goes on without the bar, and says nothing once the bar has gone', async () => {
+    JOBS.hold('fill')
+    open()
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    await waitFor(() => expect(JOBS.started()).toHaveLength(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss the selection' }))
+    const [id] = [...JOBS.jobs.keys()]
+    expect(JOBS.stops(), 'dismissing the bar stopped the job').toEqual([])
+    JOBS.finish(id, { counts: { fields: 5, failed: 0 } })
+    await new Promise((r) => setTimeout(r, 1300))
+    expect(screen.queryByText('filled 5 fields')).toBeNull()
+  })
+
+  // A FILL ALREADY RUNNING — pressed in another tab — is the work this press
+  // asked for, so the server's "already running" is followed, not shown as a
+  // failure.
+  it('follows the same fill already running rather than reporting it', async () => {
+    const running = JOBS.add({ kind: 'fill', state: 'running', total: 1, params: { book_ids: [1] } })
+    JOBS.refuse(409, { error: 'That job is already running.', job_id: running.id })
+    open()
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    await waitFor(() => expect(JOBS.calls.some(([m, p]) => m === 'GET' && p.startsWith(`/jobs/${running.id}?`))).toBe(true))
+    expect(screen.queryByText('That job is already running.')).toBeNull()
+    JOBS.finish(running.id, { counts: { fields: 4, failed: 0 } })
+    expect(await screen.findByText('filled 4 fields', {}, { timeout: 4000 })).toBeTruthy()
+  })
+
+  it('says a fill that was stopped did not reach the end', async () => {
+    JOBS.plan('fill', { state: 'stopped', counts: { fields: 1 } })
+    open()
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    expect(await screen.findByText('Fill gaps · Stopped')).toBeTruthy()
+  })
+
+  it('shows the server’s refusal when the fill cannot start', async () => {
+    JOBS.refuse(429, { error: 'You already have 5 jobs running or waiting.', limit: 5 })
+    open()
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    expect(await screen.findByText('You already have 5 jobs running or waiting.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Fill gaps' }).disabled).toBe(false)
   })
 
   it('warns that deleting a work takes its quotes with it', () => {
@@ -647,5 +783,80 @@ describe('setting a field that cannot be cleared', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
     await waitFor(() => expect(sent('/books/bulk')).toBeTruthy())
     expect(sent('/books/bulk')[2].series).toBe('The Hainish Cycle')
+  })
+})
+
+// A FILL WAITING ON ITS JOB ASKS ON THE JOB'S SCHEDULE, which is the spec's
+// polling rule for every screen that watches a job: a second while it moves,
+// three once ten answers in a row brought nothing new, nothing at all while the
+// tab is hidden — and nothing more once the job has finished. Settings › Jobs has
+// its own cases for its own polls (jobs-polling.test.jsx); a selection's Fill gaps
+// waits through a different function, followJob, and these hold that one to the
+// same rule. A clock is the one thing a reader cannot be asked to watch, so the
+// clock is vitest's and the reader's side is the requests: which went out, when.
+describe('a fill waiting on its job asks on the job’s schedule', () => {
+  let visibility = 'visible'
+  beforeAll(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility })
+  })
+  afterAll(() => { delete document.visibilityState })
+  beforeEach(() => {
+    visibility = 'visible'
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+  })
+  afterEach(() => {
+    visibility = 'visible'
+    vi.useRealTimers()
+  })
+
+  const tick = (ms) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+  const jobReads = () => CALLS.filter(([m, p]) => m === 'GET' && /^\/jobs\/\d+\?/.test(p))
+  // Gaps between consecutive reads, dropping the zero between the start's own read
+  // and the follower's first — two askers on one press, not a schedule.
+  const gaps = (list) => list.slice(1).map((c, i) => c[3] - list[i][3]).filter((g) => g > 0)
+  const pressFill = async () => {
+    render(<Board />)
+    fireEvent.click(boxes()[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    await tick(0)
+    expect(JOBS.started()).toHaveLength(1)
+  }
+
+  it('asks every second, and every three once ten answers in a row bring nothing new', async () => {
+    JOBS.plan('fill', { queued: true, ahead: 1 })
+    JOBS.hold('fill')
+    await pressFill()
+    await tick(20000)
+    const g = gaps(jobReads())
+    expect(g.slice(0, 10)).toEqual(Array(10).fill(1000))
+    expect(g[10]).toBe(3000)
+  })
+
+  it('asks nothing while the tab is hidden, and asks the moment it is shown', async () => {
+    JOBS.hold('fill')
+    await pressFill()
+    await tick(3000)
+    const before = jobReads().length
+    expect(before).toBeGreaterThan(0)
+    visibility = 'hidden'
+    document.dispatchEvent(new Event('visibilitychange'))
+    await tick(30000)
+    expect(jobReads().length, 'the fill asked while the tab was hidden').toBe(before)
+    visibility = 'visible'
+    document.dispatchEvent(new Event('visibilitychange'))
+    await tick(0)
+    expect(jobReads().length, 'showing the tab did not ask at once').toBe(before + 1)
+  })
+
+  it('stops asking once the job has finished', async () => {
+    JOBS.hold('fill')
+    await pressFill()
+    await tick(2000)
+    const [id] = [...JOBS.jobs.keys()]
+    JOBS.finish(id, { counts: { fields: 1, failed: 0 } })
+    await tick(1000)
+    const after = jobReads().length
+    await tick(30000)
+    expect(jobReads().length).toBe(after)
   })
 })

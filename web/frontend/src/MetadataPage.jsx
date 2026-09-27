@@ -10,7 +10,7 @@ import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
 import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconMetadata, IconOpen, IconPerson, IconFetch, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
-import { personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
+import { personImgURL, ProviderChips, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
 import { CardHead } from './prefRow.jsx'
@@ -19,6 +19,7 @@ import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
+import { jobOutcome, jobStateLabel, jobWaitingText, useKindJob } from './jobs.js'
 import { CreditPills, IssuePills, RowCounts, WorkPills } from './issuePills.jsx'
 import { workDetailsPanel } from './WorkDetails.jsx'
 import { nearDupGroups } from './nearDupes.js'
@@ -120,10 +121,9 @@ const METADATA_SECTIONS = [
 // handed and this screen's own words for it.
 
 
-export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences, section: routed = null, onSection = null, onRedirectSection = null }) {
+export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences, section: routed = null, onSection = null, onRedirectSection = null, reverifyJob = null, onReverifyClose = null }) {
   const [lib, setLib] = useState(null)
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
   const [flash, setFlash] = useState('')
   // Force-fetch & re-verify (ROADMAP §2): {book_ids, movie_ids, people} or null.
   const [reverify, setReverify] = useState(null)
@@ -155,59 +155,41 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     load()
   }, [])
 
-  // Fetch missing covers/posters for the whole library (Open Library by ISBN,
-  // Amazon by ASIN, cached posters — no key needed). Admin-only endpoint.
-  // The endpoint is chunked ({cursor} → {next_cursor, done, total, remaining}),
-  // so this loops chunk by chunk and drives a real progress bar.
-  const [progress, setProgress] = useState(null) // {done, total} while running
+  // FETCH MISSING COVERS/POSTERS for the whole library (Open Library by ISBN,
+  // Amazon by ASIN, cached posters — no key needed). Admin-only.
+  //
+  // A JOB ON THE SERVER SINCE 3.1.0. It walked the library from here, cursor by
+  // cursor, so the run lasted exactly as long as this tab did; now the server
+  // walks it, one work at a time behind whatever else is queued, and this screen
+  // draws the job — its progress while it runs, its counts when it ends — for as
+  // long as the screen is up. Leaving does not stop it: Settings › Jobs has it.
+  //
+  // ONE FETCH AT A TIME, AND A SECOND PRESS SHOWS THE FIRST. A covers job already
+  // running or waiting (this reader's — pressed a minute ago, or on the phone) is
+  // drawn instead of starting another, and the screen looks for one when it opens,
+  // so a fetch started elsewhere arrives with its progress bar rather than an
+  // idle Fetch button.
+  //
   // missingOnly = fill empty covers/posters + details only, never upgrade stored
-  // low-res art — the "no replacement" mode the stripped-down mobile screen uses.
+  // low-res art — the "no replacement" mode the phone's Fetch key uses.
+  const [starting, setStarting] = useState(false)
+  const covers = useKindJob('covers', {
+    discover: !!user?.is_admin,
+    onSettled: (job) => {
+      if (job.state === 'failed') setError(job.error || t('error.refetch.covers'))
+      else setFlash(coversFlash(job))
+      load()
+    },
+  })
+  const busy = starting || covers.live
   async function fetchMissingCovers(missingOnly = false) {
-    setBusy(true)
+    if (busy) return
+    setStarting(true)
     setError('')
     setFlash('')
-    // Seed progress before the first request so the bar paints immediately, even
-    // when the whole library fits in one chunk (React would otherwise batch the
-    // set-then-clear into a single render and the bar would never show). total 0
-    // => indeterminate stripe until the first chunk reports the real total.
-    setProgress({ done: 0, total: 0 })
-    const sum = { fetched: 0, enriched: 0, failed: 0, skipped: 0 }
-    try {
-      let cursor = ''
-      let total = 0
-      for (;;) {
-        const body = {}
-        if (cursor) body.cursor = cursor
-        if (missingOnly) body.missing_only = true
-        const r = await json('POST', '/covers/refetch', body)
-        if (!r.ok) return setError(errText(r, t('error.refetch.covers')))
-        sum.fetched += r.data.fetched
-        sum.enriched += r.data.enriched || 0
-        sum.failed += r.data.failed
-        sum.skipped += r.data.skipped || 0
-        total = total || r.data.total
-        setProgress({ done: total - r.data.remaining, total })
-        if (r.data.done) break
-        cursor = r.data.next_cursor
-      }
-      // Spell out skipped/failed so a partial run reads as intentional ("11
-      // already had the best available") rather than a silent nothing-happened.
-      // Real plural families where the English hedged with a parenthesised -s: a
-      // locale file carries a plural category per language, and "cover(s)" works
-      // in none of them.
-      const parts = [
-        t('metadata.fetch.flash.covers', { count: sum.fetched, n: sum.fetched }),
-        t('metadata.fetch.flash.details', { count: sum.enriched, n: sum.enriched }),
-      ]
-      if (sum.skipped) parts.push(t('metadata.fetch.flash.skipped', { n: sum.skipped }))
-      if (sum.failed) parts.push(t('metadata.fetch.flash.failed', { n: sum.failed }))
-      if (!sum.fetched && !sum.enriched && !sum.skipped && !sum.failed) parts.length = 0
-      setFlash(parts.length ? parts.join(' · ') : t('metadata.fetch.flash.uptodate'))
-      load()
-    } finally {
-      setBusy(false)
-      setProgress(null)
-    }
+    const r = await covers.start({ missing_only: !!missingOnly })
+    setStarting(false)
+    if (!r.ok) setError(r.error)
   }
 
   // Unified catalogue console: a type (all/book/movie/show) that drives which
@@ -486,13 +468,19 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           the effect of the stray fetch button. that can be in the tab row itself."
           Fetch rides at the tab row's far end now, where Settings keeps Reset. */}
       <ErrorText>{error}</ErrorText>
-      {busy && progress && (
+      {/* THE JOB'S OWN PROGRESS, read from the server — so it is the same bar
+          whether this tab started the fetch or found it running. Indeterminate
+          until the job knows its size; a job still in the queue says where it
+          stands instead of pretending to move. */}
+      {busy && (
         <ProgressBar
-          value={progress.done}
-          max={progress.total}
-          label={progress.total > 0
-            ? t('metadata.fetch.progress', { done: progress.done, total: progress.total })
-            : t('metadata.fetch.progress.start')}
+          value={covers.job?.done || 0}
+          max={covers.job?.state === 'running' ? covers.job.total || 0 : 0}
+          label={covers.job?.state === 'queued'
+            ? jobWaitingText(covers.job)
+            : covers.job?.total > 0
+              ? t('metadata.fetch.progress', { done: covers.job.done || 0, total: covers.job.total })
+              : t('metadata.fetch.progress.start')}
         />
       )}
       {flash && (
@@ -678,8 +666,45 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           onDone={load}
         />
       )}
+      {/* A RE-VERIFY THAT RAN AS A JOB, reviewed from its address — the door
+          Settings › Jobs' Review opens (/metadata/reverify/{job}). The address is
+          the state, so closing is the shell's Back rather than a local flag: a
+          flag would hide the review while the address still named it, and a
+          refresh would bring it straight back. Keyed by the job, so a second
+          Review opens the second job's findings rather than keeping the first's. */}
+      {reverifyJob && !reverify && (
+        <ReverifyFlow
+          key={`job-${reverifyJob}`}
+          jobId={reverifyJob}
+          routed
+          onClose={() => onReverifyClose?.()}
+          onFlash={setFlash}
+          onDone={load}
+        />
+      )}
     </section>
   )
+}
+
+// coversFlash — what a finished covers job did, in the line the fetch has always
+// ended with. Skipped and failed are spelled out so a partial run reads as
+// intentional ("11 left as-is") rather than as nothing having happened; real
+// plural families where the English once hedged with "cover(s)". A run that was
+// stopped or cut short by a restart says so first, because its counts are what
+// it reached rather than the library's answer.
+function coversFlash(job) {
+  const { fetched, enriched, skipped, failed } = jobOutcome(job)
+  const parts = []
+  if (fetched || enriched || skipped || failed) {
+    parts.push(
+      t('metadata.fetch.flash.covers', { count: fetched, n: fetched }),
+      t('metadata.fetch.flash.details', { count: enriched, n: enriched }),
+    )
+    if (skipped) parts.push(t('metadata.fetch.flash.skipped', { n: skipped }))
+    if (failed) parts.push(t('metadata.fetch.flash.failed', { n: failed }))
+  }
+  if (job.state !== 'succeeded') return [jobStateLabel(job.state), ...parts].join(' · ')
+  return parts.length ? parts.join(' · ') : t('metadata.fetch.flash.uptodate')
 }
 
 // GAP_KEYS — the server's gap token, to the word this screen calls it. ONE table
@@ -2768,7 +2793,6 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
   const [q, setQ] = useState('')
   useScreenSearch({ key: 'metadata-people', label: t('shell.search.where.people'), onQuery: setQ })
   const [busyID, setBusyID] = useState(0)
-  const [bulk, setBulk] = useState(null) // {done, total} while bulk-fetching
   const [err, setErr] = useState('')
   // {kind, name} captured at click time, for the portrait editor.
   const [face, setFace] = useState(null) // the portrait being shown full screen
@@ -2866,88 +2890,92 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
       .filter((g) => g.length >= 2)
   }, [rows])
 
-  // fetchOne resolves the RIGHT person (book/credits disambiguation), fetches
-  // their portrait and pins the identity via POST /people/portrait, then merges
-  // the identity-resolved links into the row (bio/born untouched). Returns an
-  // error string or null, like the form handlers do.
+  // ONE PERSON'S FETCH IS ONE REQUEST, and the server does all of it: resolve the
+  // RIGHT person (an author from their books, an actor from a film's credits —
+  // the record's own roles say which), fetch the portrait, look up the reference
+  // pages, fold them into the stored links without disturbing a link or a name
+  // the reader added, and save — by the record's id. It was four requests and a
+  // merge written here, and the bulk fetch looped the same four from this tab;
+  // the fold now lives once, on the server, and the bulk fetch is a job that
+  // loops the very same function there.
   //
-  // IT STILL SPEAKS THE (kind, name) LANGUAGE, because the portrait ladder does:
-  // an author is resolved from their books and an actor from a film's credits, and
-  // the record's own roles are what say which. The first role is used, defaulting
-  // to author for a record that carries none — which is most of them, since a role
-  // is derived from a credit and an unreferenced record has no credit.
-  async function fetchOne(p) {
-    const kind = (p.kinds || [])[0] || 'author'
-    const r = await json('POST', '/people/portrait', { kind, name: p.name })
-    if (!r.ok) return errText(r)
-    const cur = r.data.person && r.data.person.id ? r.data.person : null
-    let linksMap = r.data.links && Object.keys(r.data.links).length ? r.data.links : null
-    if (!linksMap) {
-      const l = await json('POST', '/people/lookup', { kind, name: p.name })
-      if (l.ok) linksMap = l.data.links
-    }
-    const merged = mergeLinks(cur?.links ?? p.links, linksMap)
-    if (merged && merged !== (cur?.links ?? p.links ?? '')) {
-      // THE RECORD, BY ID. The old console wrote through PUT /people, which upserts
-      // by (kind, name) and lands on the LOWEST id where two records share a name —
-      // so fetching links for the second of two namesakes wrote them onto the
-      // first. The record endpoint cannot make that mistake.
-      const save = await json('PUT', `/people/id/${p.id}`, { links: merged })
-      if (!save.ok) return errText(save)
-    }
-    return null
-  }
-
+  // IT RUNS IN ITS REQUEST, NOT IN THE QUEUE: a single manual lookup is as fast as
+  // it always was and never waits behind somebody's two-hour fill, and it is still
+  // kept in Settings › Jobs with its log.
   async function fetchRow(p) {
     setBusyID(p.id)
     setErr('')
-    const e = await fetchOne(p)
+    const r = await json('POST', `/people/id/${p.id}/fetch`)
     setBusyID(0)
-    if (e) setErr(t('metadata.people.row.error', { name: p.name, error: e }))
+    if (!r.ok) setErr(t('metadata.people.row.error', { name: p.name, error: errText(r) }))
     load()
   }
 
-  async function fetchMissing() {
-    setErr('')
-    setBulk({ done: 0, total: missing.length })
-    let done = 0
-    let failed = 0
-    let firstErr = ''
-    await runPooled(missing, 2, async (p) => {
-      const e = await fetchOne(p)
-      if (e) {
-        failed++
-        if (!firstErr) firstErr = e
+  // FETCH MISSING IS A JOB ON THE SERVER — every row still missing a portrait or
+  // its reference pages, by id, one at a time behind whatever else is queued. It
+  // outlives this console: a reader can leave, and Settings › Jobs has it with its
+  // log. While the console is up it draws the job's progress, and when the job
+  // ends it says how many were fetched and re-reads the rows the job wrote.
+  //
+  // ONE AT A TIME, AND A SECOND PRESS SHOWS THE FIRST: a people fetch already
+  // running (pressed on the phone, or a minute ago) is drawn instead of starting
+  // another, and the console looks for one when it opens.
+  //
+  // MORE THAN ONE JOB'S WORTH (2,000 records) IS SEVERAL JOBS, drawn as one run —
+  // one bar over every row, one line at the end. A cast-heavy library has that
+  // many people missing a portrait, and the loop this replaced had no ceiling.
+  const peopleJob = useKindJob('people', {
+    onSettled: (job) => {
+      const { ok, failed, firstError } = jobOutcome(job)
+      if (job.state === 'failed') setErr(job.error || t('error.generic'))
+      else {
+        // The joining space is CODE, not the head of a value: the parser trims
+        // both halves of a line, so a value that starts with a space loses it.
+        onFlash(
+          [
+            job.state !== 'succeeded' && jobStateLabel(job.state),
+            t('metadata.people.fetch.flash', { ok, failed }) +
+              (firstError ? ' ' + t('metadata.people.fetch.flash.reason', { error: firstError }) : ''),
+          ].filter(Boolean).join(' · '),
+        )
       }
-      done++
-      setBulk({ done, total: missing.length })
-    })
-    setBulk(null)
-    // The joining space is CODE, not the head of a value: the parser trims both
-    // halves of a line, so a value that starts with a space loses it.
-    onFlash(
-      t('metadata.people.fetch.flash', { ok: done - failed, failed }) +
-        (firstErr ? ' ' + t('metadata.people.fetch.flash.reason', { error: firstErr }) : ''),
-    )
-    load()
+      load()
+    },
+  })
+  const [asking, setAsking] = useState(false)
+  const fetchingAll = asking || peopleJob.live
+  async function fetchMissing() {
+    if (fetchingAll) return
+    setErr('')
+    setAsking(true)
+    const r = await peopleJob.start({ ids: missing.map((p) => p.id) })
+    setAsking(false)
+    // A refusal part-way through a run — the rest did not start — is said while
+    // the part that did start runs.
+    if (!r.ok) setErr(r.error)
+    else if (r.cut) setErr(r.cut.error)
   }
+  const bulk = peopleJob.live ? peopleJob.job : null
 
   // ARRIVED WITH A FETCH ALREADY ASKED FOR, from the phone index's People verb.
   //
-  // IT WAITS FOR THE ROWS. `missing` is derived from the rows this console has
-  // loaded and filtered, so firing on mount would run over an empty list and
-  // report "0 fetched" about a library full of gaps — the shape of bug where the
-  // screen is right and the answer is wrong. `rows` is null until the read lands.
+  // IT WAITS FOR TWO READS. `missing` is derived from the rows this console has
+  // loaded and filtered, so firing before they land would ask for nobody and
+  // report "0 fetched" about a library full of gaps. And the console's look at
+  // the queue has to have answered too: a fetch already running is the one to
+  // show, and pressing before that answer is how a second one gets queued behind
+  // it.
   //
   // AND IT CLEARS THE INTENT EVEN WHEN THERE IS NOTHING TO FETCH, because the
   // press was answered either way and a held intent would fire on the next visit.
   const fetching = useRef(false)
   useEffect(() => {
-    if (!arriveFetching || fetching.current || !rows) return
+    if (!arriveFetching || fetching.current || !rows || !peopleJob.looked) return
     fetching.current = true
     onArrived?.()
-    if (missing.length > 0) fetchMissing()
-  }, [arriveFetching, rows, missing.length])
+    if (!peopleJob.live && missing.length > 0) fetchMissing()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arriveFetching, rows, peopleJob.looked, missing.length])
 
   return (
     <section className="space-y-3">
@@ -3001,7 +3029,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
                the name a hold or a hover answers with. */
             label={missing.length > 0 ? String(missing.length) : ''}
             keepLabel
-            disabled={!!bulk || missing.length === 0}
+            disabled={fetchingAll || missing.length === 0}
             onClick={fetchMissing}
             ariaLabel={missing.length > 0
               ? t('metadata.people.fetch.count.label', { n: missing.length })
@@ -3012,7 +3040,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
                above — the same act against a different kind of row. */
             <IconButton
               icon={<IconFetch />}
-              disabled={!!bulk || shown.length === 0}
+              disabled={fetchingAll || shown.length === 0}
               ariaLabel={t('metadata.people.reverify.label')}
               tooltip={t('metadata.people.reverify.tip')}
               onClick={() => onReverify(shown.map((p) => ({ kind: (p.kinds || [])[0] || 'author', name: p.name })))}
@@ -3040,7 +3068,18 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
       )}
       </ConsoleToolbar>
       <ErrorText>{err}</ErrorText>
-      {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={t('metadata.people.fetch.progress', { done: bulk.done, total: bulk.total })} />}
+      {/* THE JOB'S PROGRESS, from the server: the same bar whether this console
+          started the fetch or found it running. A job still in the queue says
+          where it stands. */}
+      {fetchingAll && (
+        <ProgressBar
+          value={bulk?.done || 0}
+          max={bulk?.state === 'running' ? bulk.total || 0 : 0}
+          label={bulk?.state === 'queued'
+            ? jobWaitingText(bulk)
+            : t('metadata.people.fetch.progress', { done: bulk?.done || 0, total: bulk?.total || missing.length })}
+        />
+      )}
       {dupGroups.length > 0 && (
         <div className="space-y-2">
           <MonoLabel>{t('metadata.people.dups.count', { n: dupGroups.length })}</MonoLabel>
@@ -3069,7 +3108,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
                 key={p.id}
                 first={i === 0}
                 p={p}
-                busy={busyID === p.id || !!bulk}
+                busy={busyID === p.id || fetchingAll}
                 onOpen={() => stack.open(personPanel(stack, { id: p.id, name: p.name }))}
                 /* THE PICTURE, FULL SCREEN — not a second surface for the record.
                    The owner: "Clicking on it now brings on the person modal. That

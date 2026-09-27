@@ -5,6 +5,7 @@ import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from './secret.js'
 import { t, tNodes } from './i18n.js'
 import { UserAvatar } from './avatar.jsx'
 import { SafetyBackupStep } from './safetyBackup.jsx'
+import { queueNotice, readJobsSummary } from './jobs.js'
 import { Notifications, SingleSignOn, WidgetKey } from './connections.jsx'
 
 // The display name's ceiling. Not a security bound — just the width the greeting
@@ -316,6 +317,21 @@ function MaintenanceCard() {
   // The word box waits for the copy: focused on open it took the keyboard past a
   // step that must come first. The step hands focus to it once the copy is down.
   const confirmRef = useRef(null)
+  // THE QUEUE, READ WHEN THE RESET OPENS. A reset replaces the database the job
+  // queue lives in, so the server refuses it while a job runs, and deletes the
+  // ones still waiting with everything else. Said above step one, before the
+  // reader downloads a copy for a reset the server is about to refuse.
+  const [queue, setQueue] = useState(null)
+  useEffect(() => {
+    if (!showReset) {
+      setQueue(null)
+      return undefined
+    }
+    let alive = true
+    readJobsSummary().then((r) => { if (alive && r.ok) setQueue(r) })
+    return () => { alive = false }
+  }, [showReset])
+  const busyQueue = queueNotice(queue, { running: 'account.reset.queue.running', waiting: 'account.reset.queue.waiting' })
 
   async function reindex() {
     setBusy('reindex')
@@ -384,6 +400,7 @@ function MaintenanceCard() {
             </GhostButton>
           ) : (
             <div className="mt-2 space-y-2">
+              {busyQueue && <p className="microcopy" role="status">{busyQueue}</p>}
               <SafetyBackupStep done={safe} onDone={() => setSafe(true)} next={confirmRef} />
               <p className="microcopy">
                 {/* RESET is the word the server compares — never translated. */}

@@ -10280,6 +10280,33 @@ export function IconFetch({ size = ICON_SIZE }) { return <DrawnMark size={size} 
 export function IconReset({ size = ICON_SIZE }) { return <DrawnMark size={size} d="M512.111-85.289c-0.042 0-0.093 0-0.144 0-282.782 0-512.022 229.24-512.022 512.022s229.24 512.022 512.022 512.022c172.56 0 325.183-85.363 417.944-216.164l1.070-1.59-72.822-51.158c-77.526 109.394-203.633 179.93-346.215 179.93-233.645 0-423.052-189.407-423.052-423.052 0-45.513 7.187-89.348 20.489-130.431l-0.838 2.993c55.744-172.939 215.257-295.86 403.479-295.86 233.579 0 422.945 189.3 423.052 422.854v0.011h88.97c-0.228-282.57-229.335-511.552-511.931-511.577h-0.003zM939.078 638.037h-299.829v88.97h210.859v210.859h88.97z" /> }
 export function IconUpdate({ size = ICON_SIZE }) { return <DrawnMark size={size} d="M939.38 637.417h-299.519v88.746h210.773v210.773h88.746zM173.943-83.647h-88.746v299.519h299.519v-88.746h-210.773zM18.060 291.839c-11.47 39.652-18.066 85.198-18.066 132.285 0 0.886 0.002 1.772 0.007 2.657l-0.001-0.136c0.138 282.702 229.345 511.824 512.067 511.824 58.631 0 114.961-9.854 167.423-27.996l-3.597 1.082c105.515-36.073 192.824-102.552 253.9-188.903l1.068-1.591-72.683-51.029c-77.601 109.199-203.637 179.584-346.111 179.584-233.671 0-423.121-189.328-423.32-422.952v-0.241c-0.005-0.759-0.008-1.656-0.008-2.554 0-38.577 5.398-75.893 15.481-111.233l-0.696 2.854zM512.067-85.377c-172.342 0.235-324.745 85.389-417.641 215.854l-1.065 1.574 72.595 51.207c77.601-109.199 203.637-179.584 346.111-179.584 233.671 0 423.121 189.328 423.32 422.952v0.241c0.005 0.759 0.008 1.656 0.008 2.554 0 38.577-5.398 75.893-15.481 111.233l0.696-2.854 85.507 23.784c11.442-39.607 18.024-85.1 18.024-132.131 0-0.987-0.003-1.974-0.009-2.96l0.001 0.152c-0.404-282.635-229.428-511.644-512.030-512.022h-0.036z" /> }
 
+// ---- the three glyphs Settings › Jobs needed ---------------------------------
+//
+// ALL THREE ARE STROKED ON THE 24 GRID, like the verbs around them, and none of
+// them is a circular arrow. The circular arrows here already mean three narrower
+// things — a local rescan, putting a value back, installing a release — and the
+// owner's report that split them ("all popups use that for fetch") is the reason a
+// fourth arrow meaning "run it again" would have been a regression drawn in.
+//
+// IconJobs — a list whose first bullet is a play mark and whose others are dots:
+// one job runs, the rest wait their turn in the order they were started. That
+// sentence is the whole rule of the queue, and the glyph says it before the word
+// beside it is read. It is Tabler's `list` with its first bullet swapped for
+// Tabler's `player-play`, scaled to the bullet's slot; a stack of layers was the
+// other candidate and was rejected, because layers say "several at once", which is
+// exactly what the queue refuses to do.
+export function IconJobs({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4.2 4.4v5.2l4.3-2.6z"/><path d="M12 7h8"/><path d="M12 12.5h8"/><path d="M12 18h8"/><path d="M6 12.5v.01"/><path d="M6 18v.01"/></svg> }
+// IconStop — Tabler's `player-stop`, the rounded square every media control in
+// the world uses for "stop", unchanged. A job stops after the item in hand and
+// is kept, so the mark is a pause-that-ends rather than a cross: IconClose
+// discards, and nothing a Stop press touches is thrown away.
+export function IconStop({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M5 5m0 2a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2z"/></svg> }
+// IconRerun — Tabler's `repeat`, two arrows chasing each other round a loop:
+// the same run, again. Chosen because it is the one "again" arrow that is not a
+// circle — IconRefresh, IconReset and IconUpdate all turn round a centre, and a
+// reader who has learned those three must not have to learn a fourth circle.
+export function IconRerun({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4 12v-3a3 3 0 0 1 3 -3h13m-3 -3l3 3l-3 3"/><path d="M20 12v3a3 3 0 0 1 -3 3h-13m3 3l-3 -3l3 -3"/></svg> }
+
 // THE ROLES, AND WHY THEY ARE NOT THE APP’S OWN DRAWINGS. The people console
 // prints a role per row, and it was printing four of them with two glyphs: author
 // wore the shelf of books, studio and publisher wore the SAME company mark, and a
