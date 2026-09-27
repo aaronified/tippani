@@ -650,6 +650,41 @@ func TestJobsRunOneAtATimeInTheOrderStartedAndSayHowManyAreAhead(t *testing.T) {
 	alice.waitJob(c.ID, "succeeded")
 }
 
+// The current jobs are the whole queue in one answer, however many wait and
+// whatever limit is asked for: more than a page's worth wait here, and none is
+// left out for a next page that would have come back empty.
+func TestTheCurrentJobsAreTheWholeQueueInOneAnswer(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	accounts := []*testClient{alice}
+	for i := range 10 {
+		accounts = append(accounts, addUser(t, h, alice, fmt.Sprintf("reader%d", i)))
+	}
+	// Each account's five, as many as one account may have waiting: fifty-five
+	// in all, one running and the rest waiting behind it.
+	var started []int64
+	for _, c := range accounts {
+		for k := range 5 {
+			started = append(started, c.mustStart("test.hold", map[string]any{"tag": fmt.Sprint(k)}).ID)
+		}
+	}
+	alice.waitJob(started[0], "running")
+
+	for _, query := range []string{"view=current", "", "view=current&limit=2"} {
+		got := alice.jobs(query)
+		if !slices.Equal(jobIDs(got.Jobs), started) || got.More || got.Running != 1 || got.Waiting != len(started)-1 {
+			t.Fatalf("the admin's current jobs (%q): %d of %d, more %t, running %d, waiting %d",
+				query, len(got.Jobs), len(started), got.More, got.Running, got.Waiting)
+		}
+	}
+	// And a reader's is their own five, whole, whatever the limit.
+	if got := accounts[3].jobs("view=current&limit=2"); !slices.Equal(jobIDs(got.Jobs), started[15:20]) || got.More {
+		t.Fatalf("a reader's current jobs: %v, more %t, want %v", jobIDs(got.Jobs), got.More, started[15:20])
+	}
+}
+
 func TestAReaderSeesOnlyTheirOwnJobsAndAnAdminSeesEveryonesUnderTheirName(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)

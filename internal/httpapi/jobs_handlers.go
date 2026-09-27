@@ -432,10 +432,18 @@ func first(vals []string) string {
 // → {jobs, running, waiting, more}.
 //
 // current is the queue: jobs that ran through it and are waiting or running, in
-// the order they run. past is every job that has ended — queued ones and the ones
-// that ran in their request (a lookup, an import) — newest first, thirty days of
-// them, a page at a time (before: the smallest id of the last page). running and
-// waiting count the queue within what the viewer may see, whichever view.
+// the order they run, ALL OF THEM, with more always false. past is every job that
+// has ended — queued ones and the ones that ran in their request (a lookup, an
+// import) — newest first, thirty days of them, a page at a time (before: the
+// smallest id of the last page). running and waiting count the queue within what
+// the viewer may see, whichever view.
+//
+// THE QUEUE IS NOT PAGED because its pages could not be followed: it runs oldest
+// first, and before means "ids below this one", which is the page before, not the
+// next. A queue cut at its limit answered more, and the next page was empty while
+// jobs waited past the cut. It is small enough to answer whole: an account has at
+// most PerOwner (five) waiting or running, so a reader's is five rows and an
+// admin's five for each account.
 func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	view := q.Get("view")
@@ -471,6 +479,7 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	order := "id ASC"
 	if view == "current" {
 		where = append(where, `queued = 1 AND state IN ('queued', 'running')`)
+		before = 0
 	} else {
 		// NO WAIT FOR THE LOG WRITER HERE, unlike a job's poll. What ran in a
 		// request lands in the logbook's next batch, milliseconds after the
@@ -498,8 +507,15 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 		where = append(where, `id < ?`)
 		args = append(args, before)
 	}
+	// A page asks for one row past it, to know whether there is more; the queue
+	// asks for all of it (LIMIT -1 is SQLite's "no limit").
+	whole := view == "current"
+	fetch := limit + 1
+	if whole {
+		fetch = -1
+	}
 	rows, err := s.Store.DB.Query(`SELECT `+jobColumns+` FROM jobs WHERE `+strings.Join(where, " AND ")+
-		` ORDER BY `+order+` LIMIT ?`, append(args, limit+1)...)
+		` ORDER BY `+order+` LIMIT ?`, append(args, fetch)...)
 	if err != nil {
 		codedError(w, r, olog.CodeJobRead, "list jobs", err)
 		return
@@ -519,7 +535,7 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 		codedError(w, r, olog.CodeJobRead, "list jobs", err)
 		return
 	}
-	more := len(list) > limit
+	more := !whole && len(list) > limit
 	if more {
 		list = list[:limit]
 	}
