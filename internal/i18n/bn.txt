@@ -4291,6 +4291,9 @@ reverify.title = মেটাডেটা আবার মিলিয়ে দ
 reverify.title.fills = ফাঁকা ঘরগুলো আনুন
 reverify.checking.prose = প্রতিটা বই-সিনেমা তার যুক্ত উৎসের সঙ্গে মিলিয়ে দেখা হচ্ছে — আপনি মেনে না নেওয়া পর্যন্ত কিছুই বদলাবে না।
 reverify.checking.progress = দেখা হচ্ছে · {done}/{total}
+# Under the checking bar. The check is a job on the server since 3.1.0, so
+# closing the dialog does not stop it — Cancel does, and asks first.
+reverify.checking.away = এটা বন্ধ করলেও মিলিয়ে দেখা চলতে থাকবে — সেটিংস › কাজ-এ পাবেন।
 # The tally across the top once the checking is done.
 reverify.summary = {checked}টা দেখা হল · {changed}টায় বদল · {clean}টা আগের মতোই ঠিক
 reverify.summary.skipped = {n}টা বাদ (বাঁধা id নেই)
@@ -4327,10 +4330,16 @@ reverify.flash.other = আবার মিলিয়ে দেখা: {n}ট�
 reverify.flash.failed = {n} পারা গেল না
 reverify.flash.skipped.one = {n}টা ছবি বাদ
 reverify.flash.skipped.other = {n}টা ছবি বাদ
+# Closing the dialog keeps the job; these toasts say where it went. Five words
+# or fewer, the house rule for a toast.
+reverify.kept.running = এখনও চলছে · সেটিংস › কাজ-এ
+reverify.kept.review = ফলাফল রাখা আছে · সেটিংস › কাজ-এ
+# Cancel while the check runs STOPS it, which is why it asks.
+reverify.stop.confirm.title = মিলিয়ে দেখা থামাবেন?
+reverify.stop.confirm.body = হাতেরটুকু সেরে থামবে, আর তার লগ নিয়ে সেটিংস › কাজ-এ থেকে যাবে।
+reverify.stop.confirm.verb = থামান
 error.reverify.preview = আগে থেকে দেখানো গেল না
 error.reverify.apply = বসানো গেল না
-error.reverify.interrupted = মিলিয়ে দেখা মাঝপথে থেমে গেছে — কানেকশন দেখে নিয়ে আবার খুলুন
-error.reverify.apply-interrupted = বসানো মাঝপথে থেমে গেছে — কানেকশন দেখে আবার চেষ্টা করুন (যা বসে গেছে, বসাই থাকবে)
 
 # ---------------------------------------------------------------------------
 # ফিল্ডের প্রার্থীরা — fieldOffers.jsx. একটা ফিল্ড, আর প্রত্যেক জোগানদারের বয়ান।

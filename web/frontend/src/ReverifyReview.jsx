@@ -1,16 +1,16 @@
 // Force-fetch & re-verify (ROADMAP §2) — the review-before-apply flow. Takes a
-// selection ({book_ids, movie_ids, people}), previews it against the live
-// sources in small sequential chunks (POST /metadata/reverify — nothing
-// written, real progress), then presents every changed field as a stored-vs-
-// fresh row with an approve checkbox. "Apply approved" resends exactly the
-// approved values (POST /metadata/reverify/apply). Pure fills (stored empty)
-// default to approved; anything that would overwrite defaults to unticked —
-// reviewing is the point. One component serves both form factors: a MobileSheet
-// on phones, a centered scrollable overlay on desktop.
+// selection ({book_ids, movie_ids, people}), has the server check it against
+// the live sources as a `reverify` job (nothing written, real progress from the
+// job), then presents every changed field as a stored-vs-fresh row with an
+// approve checkbox. "Apply approved" is a `reverify-apply` job carrying exactly
+// the approved values and, per field, the stored value the reader saw. Pure
+// fills (stored empty) default to approved; anything that would overwrite
+// defaults to unticked — reviewing is the point. One component serves both form
+// factors: a MobileSheet on phones, a centered scrollable overlay on desktop.
 import { useEffect, useRef, useState } from 'react'
-import { coverImgURL, errText, json } from './api.js'
+import { coverImgURL } from './api.js'
 import { t } from './i18n.js'
-import { readJob, readJobResult } from './jobs.js'
+import { isLive, jobStateLabel, jobTitle, jobWaitingText, readJobResult, startJob, stopJob, useJob } from './jobs.js'
 
 import {
   ariaLabelText,
@@ -33,9 +33,10 @@ import {
   SCRIM,
   backdropClose,
   IconChevron,
+  toast,
+  useConfirm,
 } from './ui.jsx'
 
-const CHUNK = 10 // items per preview call (server caps at 15)
 const IMAGE_FIELDS = new Set(['cover', 'poster', 'portrait'])
 // FIELD_KEYS — the server's field token, to the shared key that names it for a
 // reader. A table rather than a key built from the token, because the two
@@ -300,25 +301,75 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
 // hundred records on one press is the thing the review step exists to prevent,
 // and the pack's own list of the works is what a reader wants to see first.
 //
-// `jobId` IS A CHECK THAT ALREADY RAN, ON THE SERVER. A re-verify outlives the
-// screen that started it in 3.1.0, and Settings › Jobs' Review sends the reader
-// here with its job in the address (/metadata/reverify/{job}). There is nothing
-// to check, so the flow opens on the job's findings (GET /jobs/{id}/result)
-// with the stored values as they are NOW; a field the server marks `changed` —
-// somebody edited it after the check — is never ticked for the reader, even
-// when it is empty, because the check's answer was about a value that is gone.
-// Apply is the same request as ever. (Converting the check itself and the apply
-// into jobs is the callers' change; this is the half the Review press needs.)
+// THE CHECK IS A JOB ON THE SERVER (3.1.0), and so is the apply. The check used
+// to be a loop of POST /metadata/reverify calls from this dialog, which lived and
+// died with it: close the dialog, lock the phone, and a check of four hundred
+// works stopped wherever it was. Now the dialog starts a `reverify` job and draws
+// it, and the job outlives the dialog.
+//
+// SO CLOSING AND CANCELLING ARE TWO DIFFERENT PRESSES NOW, and each says which it
+// is. ✕, Back and the scrim CLOSE: the job goes on, and a toast says where it
+// will be (Settings › Jobs, where a finished check has a Review press). Cancel,
+// while the check runs, STOPS it — after the item in hand — and asks first,
+// because a press that used to mean "never mind" now ends somebody's work.
+//
+// `jobId` IS A CHECK THAT ALREADY RAN, OR IS STILL RUNNING, ON THE SERVER.
+// Settings › Jobs' Review sends the reader here with its job in the address
+// (/metadata/reverify/{job}). There is nothing to start: the flow watches the job
+// and opens on its findings (GET /jobs/{id}/result) with the stored values as
+// they are NOW; a field the server marks `changed` — somebody edited it after the
+// check — is never ticked for the reader, even when it is empty, because the
+// check's answer was about a value that is gone. The same is true of a check this
+// dialog started, which is read back the same way when it ends.
+//
+// THE APPLY CARRIES `expect`, per field, the stored value the reader was shown.
+// A field somebody changed between the review and the press is skipped by the
+// server with a note rather than overwritten, and `from_job` ties the apply to
+// the check, which is how Past jobs knows the check has been decided.
 //
 // `routed` SAYS THE ADDRESS OPENED IT, so the address is already the history
 // entry a Back leaves: the flow pushes no marker of its own, and `onClose` is
 // the shell's Back. With a marker as well, one Back would close the flow and
-// leave the reader on an address that opens it again.
+// leave the reader on an address that opens it again. A routed flow toasts
+// nothing on close: the reader came from Settings › Jobs and is going back there.
 export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = false, jobId = null, routed = false, onClose, onFlash, onDone }) {
+  const mobile = useIsMobileScreen()
+  const [items, setItems] = useState([]) // previewed items, all statuses
+  // starting: the check is being asked for; checking: it runs (or waits); loading:
+  // a finished check's findings are on their way.
+  const [phase, setPhase] = useState(jobId ? 'loading' : 'starting') // starting | checking | loading | failed | review | applying | done
+  const [approvals, setApprovals] = useState({}) // "key|field" -> source slug
+  const [openItem, setOpenItem] = useState(null) // itemKey expanded
+  const [results, setResults] = useState(null) // apply results
+  const [err, setErr] = useState('')
+  const [checkId, setCheckId] = useState(jobId)
+  const [applyId, setApplyId] = useState(null)
+  const check = useJob(checkId)
+  const applied = useJob(applyId)
+  const checkJob = check.job && check.job.id === checkId ? check.job : null
+  const applyJob = applied.job && applied.job.id === applyId ? applied.job : null
+  // A job's own `fills_only`: the surface is headed by the act that started it,
+  // whichever screen that was.
+  const fillsOnly = fillsOnlyProp || !!checkJob?.params?.fills_only
+  const { ask, confirmDialog } = useConfirm()
+  const alive = useRef(true)
+  const readFindings = useRef(false)
+  useEffect(() => {
+    alive.current = true
+    return () => { alive.current = false }
+  }, [])
+
+  // CLOSING KEEPS THE JOB, and says where it is — see the header.
+  function close() {
+    if (!routed && (phase === 'starting' || phase === 'checking' || phase === 'applying')) toast(t('reverify.kept.running'))
+    else if (!routed && phase === 'review') toast(t('reverify.kept.review'))
+    onClose?.()
+  }
+
   // ITS OWN BACK ENTRY — see PersonModal. A surface that pushes none is dismissed
   // by the press that was meant for it AND by whatever is underneath, because the
   // panel stack and the screen both keep entries and this one kept nothing.
-  useBackToClose(!routed, onClose)
+  useBackToClose(!routed, close)
 
    // The page behind an overlay does not move. Without this a wheel or a swipe
   // running past the end of the dialog scrolls the page you cannot see, which is
@@ -326,29 +377,13 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
   // inside a sheet does not unlock the sheet on its way out.
   useBodyScrollLock(true)
 
- const mobile = useIsMobileScreen()
-  const [items, setItems] = useState([]) // previewed items, all statuses
-  const [progress, setProgress] = useState({ done: 0, total: 0 })
-  // loading is a finished job's findings on their way; checking is a check running here.
-  const [phase, setPhase] = useState(jobId ? 'loading' : 'checking') // loading | failed | checking | review | applying | done
-  const [approvals, setApprovals] = useState({}) // "key|field" -> bool
-  const [openItem, setOpenItem] = useState(null) // itemKey expanded
-  const [results, setResults] = useState(null) // apply results
-  const [err, setErr] = useState('')
-  // A job's own `fills_only`, read with its findings: the surface is headed by
-  // the act that started it, whichever screen that was.
-  const [jobFillsOnly, setJobFillsOnly] = useState(false)
-  const fillsOnly = fillsOnlyProp || jobFillsOnly
-  const cancelled = useRef(false)
-
-  // Seeds the approvals the way both paths do: a pure fill (nothing stored) is
-  // ticked, an overwrite is not — and nothing the server says changed since the
-  // check is ticked at all.
+  // Seeds the approvals: a pure fill (nothing stored) is ticked, an overwrite is
+  // not — and nothing the server says changed since the check is ticked at all.
   function review(all) {
     const seed = {}
     for (const it of all) {
       for (const d of it.diffs || []) {
-        seed[`${itemKey(it)}|${d.field}`] = emptyStored(d.stored) && !d.changed
+        seed[`${itemKey(it)}|${d.field}`] = emptyStored(d.stored) && !d.changed ? defaultSourceFor(it, d) : undefined
       }
     }
     setItems(all)
@@ -358,82 +393,76 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
     setPhase('review')
   }
 
-  // A FINISHED JOB: its findings, read once. `fills_only` was applied by the
-  // server when it checked, so the items arrive already narrowed.
+  // A SELECTION: ask for the check. The server narrows a "fetch empty fields"
+  // check to the fills itself, so the findings arrive already filtered. A second
+  // dialog over the same selection while the first check runs gets the server's
+  // "already running" with that job's id, and watches it.
   useEffect(() => {
-    if (!jobId) return undefined
-    cancelled.current = false
+    if (jobId || !selection) return
     ;(async () => {
-      const [found, meta] = await Promise.all([readJobResult(jobId), readJob(jobId)])
-      if (cancelled.current) return
-      if (meta.ok && meta.job?.params?.fills_only) setJobFillsOnly(true)
+      const r = await startJob('reverify', {
+        book_ids: selection.book_ids || [],
+        movie_ids: selection.movie_ids || [],
+        people: selection.people || [],
+        fills_only: !!fillsOnlyProp,
+      })
+      if (!alive.current) return
+      const id = r.ok ? r.job?.id : r.jobId
+      if (!id) {
+        setErr(r.error)
+        setPhase('failed')
+        return
+      }
+      setCheckId(id)
+      setPhase((p) => (p === 'starting' ? 'checking' : p))
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // THE CHECK, AS THE SERVER TELLS IT. Live: its progress. Succeeded: its
+  // findings, read once. Anything else: why there is nothing to review.
+  useEffect(() => {
+    if (!checkJob) return
+    if (isLive(checkJob)) {
+      setPhase((p) => (p === 'starting' || p === 'loading' ? 'checking' : p))
+      return
+    }
+    if (readFindings.current) return
+    readFindings.current = true
+    if (checkJob.state === 'failed') {
+      setErr(checkJob.error || t('error.reverify.preview'))
+      setPhase('failed')
+      return
+    }
+    if (checkJob.state !== 'succeeded') {
+      // Stopped from Settings › Jobs, or cut short by a restart: a check that did
+      // not reach the end has no findings to review.
+      setErr(`${jobTitle(checkJob)} · ${jobStateLabel(checkJob.state)}`)
+      setPhase('failed')
+      return
+    }
+    setPhase('loading')
+    readJobResult(checkJob.id).then((found) => {
+      if (!alive.current) return
       if (!found.ok || found.kind !== 'reverify' || !Array.isArray(found.result)) {
-        // Nothing to review — a job past its thirty days, or one that is not
-        // this reader's. The error is the whole surface; there is no "everything
-        // is up to date" to say about findings that could not be read.
         setErr(found.ok ? t('error.reverify.preview') : found.error)
         setPhase('failed')
         return
       }
       review(found.result.map((it) => ({ ...it, diffs: it.diffs || [] })))
-    })()
-    return () => {
-      cancelled.current = true
-    }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId])
+  }, [checkJob?.id, checkJob?.state])
 
-  // Preview: slice the selection into small sequential chunks — frugal to the
-  // providers, short requests, and a progress bar that means something.
+  // A JOB THAT CANNOT BE READ AT ALL — past its thirty days, or not this
+  // reader's — is the error alone; there is no "everything is up to date" to say
+  // about findings nobody can see.
   useEffect(() => {
-    if (jobId) return undefined
-    cancelled.current = false
-    const queue = [
-      ...(selection.book_ids || []).map((id) => ({ type: 'book', id })),
-      ...(selection.movie_ids || []).map((id) => ({ type: 'movie', id })),
-      ...(selection.people || []).map((p) => ({ type: 'person', kind: p.kind, name: p.name })),
-    ]
-    setProgress({ done: 0, total: queue.length })
-    ;(async () => {
-      const all = []
-      // The whole loop is guarded: a network-level fetch rejection (wifi drop,
-      // server restart) must land in the error line, not wedge "checking".
-      try {
-        for (let i = 0; i < queue.length; i += CHUNK) {
-          if (cancelled.current) return
-          const chunk = queue.slice(i, i + CHUNK)
-          const body = {
-            book_ids: chunk.filter((c) => c.type === 'book').map((c) => c.id),
-            movie_ids: chunk.filter((c) => c.type === 'movie').map((c) => c.id),
-            people: chunk.filter((c) => c.type === 'person').map((c) => ({ kind: c.kind, name: c.name })),
-          }
-          const r = await json('POST', '/metadata/reverify', body)
-          if (cancelled.current) return
-          if (!r.ok || !r.data) {
-            setErr(errText(r, t('error.reverify.preview')))
-            break
-          }
-          for (const it of r.data.items || []) {
-            // DROPPED BEFORE THE ITEM IS KEPT, so an item whose every diff is an
-            // overwrite counts as clean rather than as an empty expander.
-            const diffs = fillsOnly
-              ? (it.diffs || []).filter((d) => emptyStored(d.stored))
-              : it.diffs
-            all.push({ ...it, diffs })
-          }
-          setProgress({ done: Math.min(i + CHUNK, queue.length), total: queue.length })
-        }
-      } catch {
-        if (cancelled.current) return
-        setErr(t('error.reverify.interrupted'))
-      }
-      review(all)
-    })()
-    return () => {
-      cancelled.current = true
-    }
+    if (checkJob || !check.error || (phase !== 'loading' && phase !== 'checking')) return
+    setErr(check.error)
+    setPhase('failed')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [check.error])
 
   const changed = items.filter((it) => it.status === 'ok' && (it.diffs || []).length > 0)
   const clean = items.filter((it) => it.status === 'ok' && (it.diffs || []).length === 0).length
@@ -453,9 +482,6 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
   // A field with no alternatives still works exactly as before — ticking it
   // stores the preferred source's slug, which is the same value it always sent,
   // now merely labelled.
-  function defaultSourceFor(item, diff) {
-    return diff.alts?.[0]?.source || item.source || ''
-  }
   function toggleField(item, field) {
     const k = `${itemKey(item)}|${field}`
     const d = item.diffs.find((x) => x.field === field)
@@ -483,6 +509,12 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
       .map((it) => {
         const set = {}
         const sources = {}
+        // WHAT THE READER WAS SHOWN AS STORED, per field — the server compares it
+        // with what is stored when the apply runs, and skips a field somebody
+        // changed in between rather than overwrite a value nobody reviewed. An
+        // absent value is sent as null: JSON drops an undefined, and a dropped
+        // key would be a field applied with no check at all.
+        const expect = {}
         for (const d of it.diffs) {
           const picked = approvals[`${itemKey(it)}|${d.field}`]
           if (!picked) continue
@@ -492,67 +524,103 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
           const alt = (d.alts || []).find((a) => a.source === picked)
           set[d.field] = alt ? alt.value : d.fresh
           sources[d.field] = picked
+          expect[d.field] = d.stored === undefined ? null : d.stored
         }
         if (Object.keys(set).length === 0) return null
         return it.type === 'person'
-          ? { type: 'person', kind: it.kind, name: it.name, set }
-          : { type: it.type, id: it.id, set, sources, source: it.source }
+          ? { type: 'person', kind: it.kind, name: it.name, set, expect }
+          : { type: it.type, id: it.id, set, sources, source: it.source, expect }
       })
       .filter(Boolean)
     if (payload.length === 0) return
     setPhase('applying')
     setErr('')
-    const all = []
-    // Guarded like the preview loop: a rejected fetch mid-apply returns to
-    // review (with whatever already applied reported) instead of a stuck
-    // "Applying…" button.
-    try {
-      for (let i = 0; i < payload.length; i += CHUNK) {
-        const r = await json('POST', '/metadata/reverify/apply', { items: payload.slice(i, i + CHUNK) })
-        if (!r.ok || !r.data) {
-          setErr(errText(r, t('error.reverify.apply')))
-          setPhase('review')
-          return
-        }
-        all.push(...(r.data.results || []))
-      }
-    } catch {
-      setErr(t('error.reverify.apply-interrupted'))
+    const r = await startJob('reverify-apply', { items: payload, from_job: checkId })
+    if (!alive.current) return
+    const id = r.ok ? r.job?.id : r.jobId
+    if (!id) {
+      setErr(r.error)
       setPhase('review')
       return
     }
-    setResults(all)
-    setPhase('done')
-    const okCount = all.filter((x) => x.ok).length
-    const failCount = all.length - okCount
-    const notes = all.filter((x) => x.note).length
-    // Joined here for the same reason as the summary line above.
-    onFlash?.(
-      [
-        t('reverify.flash', { count: okCount, n: okCount }),
-        failCount && t('reverify.flash.failed', { n: failCount }),
-        notes && t('reverify.flash.skipped', { count: notes, n: notes }),
-      ]
-        .filter(Boolean)
-        .join(' · '),
-    )
-    onDone?.()
+    setApplyId(id)
   }
 
+  // THE APPLY, AS THE SERVER TELLS IT. Its results are the job's result — one
+  // line per item, the same lines the synchronous apply answered with. A stopped
+  // or interrupted apply still shows the items it reached, under a line saying
+  // it did not reach the end.
+  useEffect(() => {
+    if (!applyJob || isLive(applyJob)) return
+    if (applyJob.state === 'failed') {
+      setErr(applyJob.error || t('error.reverify.apply'))
+      setPhase('review')
+      return
+    }
+    readJobResult(applyJob.id).then((found) => {
+      if (!alive.current) return
+      const all = found.ok && Array.isArray(found.result) ? found.result : null
+      if (!all) {
+        setErr(found.ok ? t('error.reverify.apply') : found.error)
+        setPhase('review')
+        return
+      }
+      if (applyJob.state !== 'succeeded') setErr(`${jobTitle(applyJob)} · ${jobStateLabel(applyJob.state)}`)
+      setResults(all)
+      setPhase('done')
+      const okCount = all.filter((x) => x.ok).length
+      const failCount = all.length - okCount
+      const notes = all.filter((x) => x.note).length
+      // Joined here for the same reason as the summary line below.
+      onFlash?.(
+        [
+          t('reverify.flash', { count: okCount, n: okCount }),
+          failCount && t('reverify.flash.failed', { n: failCount }),
+          notes && t('reverify.flash.skipped', { count: notes, n: notes }),
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      )
+      onDone?.()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyJob?.id, applyJob?.state])
+
+  // CANCEL WHILE CHECKING IS STOP, and it asks — see the header. Anywhere else it
+  // is the same as closing.
+  async function cancel() {
+    if (phase !== 'checking' || !checkId) return close()
+    const yes = await ask(t('reverify.stop.confirm.title'), {
+      body: t('reverify.stop.confirm.body'),
+      confirmLabel: t('reverify.stop.confirm.verb'),
+      danger: true,
+    })
+    if (!yes) return
+    const r = await stopJob(checkId)
+    if (!r.ok) return toast(r.error)
+    onClose?.()
+  }
+
+  const running = checkJob && checkJob.state === 'running' ? checkJob : null
   const body = (
     <div className="space-y-3">
       {phase === 'loading' && <p className="microcopy">{t('common.state.loading')}</p>}
-      {phase === 'checking' && (
+      {(phase === 'starting' || phase === 'checking') && (
         <>
           <p className="microcopy">{t('reverify.checking.prose')}</p>
+          {/* The job's own count, read from the server. A check still in the queue
+              says where it stands rather than drawing a bar that is not moving. */}
           <ProgressBar
-            value={progress.done}
-            max={progress.total}
-            label={t('reverify.checking.progress', { done: progress.done, total: progress.total })}
+            value={running?.done || 0}
+            max={running?.total || 0}
+            label={checkJob?.state === 'queued'
+              ? jobWaitingText(checkJob)
+              : t('reverify.checking.progress', { done: running?.done || 0, total: running?.total || checkJob?.total || 0 })}
           />
+          {!routed && <p className="microcopy">{t('reverify.checking.away')}</p>}
         </>
       )}
-      {phase !== 'checking' && phase !== 'loading' && phase !== 'failed' && (
+      {phase !== 'starting' && phase !== 'checking' && phase !== 'loading' && phase !== 'failed' && (
         <MonoLabel className="block" style={{ fontSize: 'var(--type-ui-11)' }}>
           {/* THE SEPARATOR IS JOINED HERE, NOT CARRIED IN THE VALUE. These three
               read as one middot-joined line, and the first draft put the " · "
@@ -618,7 +686,7 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
         </button>
       ) : (
         <>
-          <GhostButton onClick={onClose}>{t('common.action.cancel.label')}</GhostButton>
+          <GhostButton onClick={cancel}>{t('common.action.cancel.label')}</GhostButton>
           <button
             type="button"
             className="tp-btn tp-btn-primary tactile ml-auto"
@@ -641,9 +709,12 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
 
   if (mobile) {
     return (
-      <MobileSheet open onClose={onClose} title={title} footer={footer}>
-        {body}
-      </MobileSheet>
+      <>
+        {confirmDialog}
+        <MobileSheet open onClose={close} title={title} footer={footer}>
+          {body}
+        </MobileSheet>
+      </>
     )
   }
   return (
@@ -652,12 +723,13 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
       role="dialog"
       aria-modal="true"
       aria-label={ariaLabelText(title)}
-      onMouseDown={backdropClose(onClose)}
+      onMouseDown={backdropClose(close)}
     >
+      {confirmDialog}
       <HandCard variant={1} className="mx-auto w-full max-w-3xl px-6 py-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="display-title text-xl">{title}</h2>
-          <CloseButton onClick={onClose} />
+          <CloseButton onClick={close} />
         </div>
         {body}
         <div className="mt-4" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
@@ -666,4 +738,10 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
       </HandCard>
     </div>
   )
+}
+
+// defaultSourceFor — the supplier a plain tick takes a field from: the first
+// that answered for it, else the item's own preferred source.
+function defaultSourceFor(item, diff) {
+  return diff?.alts?.[0]?.source || item.source || ''
 }

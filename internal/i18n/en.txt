@@ -4372,6 +4372,9 @@ reverify.title = Re-verify metadata
 reverify.title.fills = Fetch empty fields
 reverify.checking.prose = Checking each item against its linked source — nothing changes until you approve it.
 reverify.checking.progress = checking · {done}/{total}
+# Under the checking bar. The check is a job on the server since 3.1.0, so
+# closing the dialog does not stop it — Cancel does, and asks first.
+reverify.checking.away = Close this and it carries on — Settings › Jobs has it.
 # The tally across the top once the checking is done.
 reverify.summary = {checked} checked · {changed} with changes · {clean} up to date
 reverify.summary.skipped = {n} skipped (no pinned id)
@@ -4408,10 +4411,16 @@ reverify.flash.other = re-verify: {n} items updated
 reverify.flash.failed = {n} failed
 reverify.flash.skipped.one = {n} image skipped
 reverify.flash.skipped.other = {n} images skipped
+# Closing the dialog keeps the job; these toasts say where it went. Five words
+# or fewer, the house rule for a toast.
+reverify.kept.running = Still running · Settings › Jobs
+reverify.kept.review = Findings kept · Settings › Jobs
+# Cancel while the check runs STOPS it, which is why it asks.
+reverify.stop.confirm.title = Stop the check?
+reverify.stop.confirm.body = It stops after the item in hand, and is kept in Settings › Jobs with its log.
+reverify.stop.confirm.verb = Stop it
 error.reverify.preview = preview failed
 error.reverify.apply = apply failed
-error.reverify.interrupted = the check was interrupted — check your connection and reopen Re-verify
-error.reverify.apply-interrupted = apply was interrupted — check your connection and try again (already-applied items stay applied)
 
 # ---------------------------------------------------------------------------
 # THE FIELD'S CANDIDATES — fieldOffers.jsx. One field, and what every supplier
