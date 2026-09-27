@@ -34,8 +34,9 @@ import (
 // is missing, says in its log what it did to each work, and counts fields filled,
 // works that failed and works that need a Look up apart, under the names the
 // screens read; Stop ends it after the work in hand, and what it had filled stays
-// filled; and a long fill tells the phone when it reaches its end, not when it is
-// stopped.
+// filled, and a Stop pressed during its last work leaves it finished, not
+// stopped; and a long fill tells the phone when it reaches its end, not when it
+// is stopped.
 
 // duneSupplier is a book supplier that knows every ISBN it is asked about as
 // Frank Herbert's Dune, 1965, 412 pages, and knows nothing by title alone.
@@ -176,6 +177,48 @@ func TestAFillJobStopsAfterTheWorkInHandAndKeepsWhatItFilled(t *testing.T) {
 	if year(first) != 1965 || year(second) != 0 {
 		t.Fatalf("after the stop: the first book's year %d, the second's %d; want the first filled and the second untouched",
 			year(first), year(second))
+	}
+}
+
+// A Stop pressed while the fill's one work is being looked up lets that work
+// finish, as every Stop does — and then the fill has done everything it was
+// given. It succeeded, with the year written; it is not a stopped fill.
+func TestAFillStoppedDuringItsLastWorkHasFinished(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	duneSupplier(srv)
+	answer := srv.searchBooks
+	asked, release := make(chan struct{}, 1), make(chan struct{})
+	srv.searchBooks = func(ctx context.Context, isbn, title, author, key string) ([]metadata.BookCandidate, error) {
+		asked <- struct{}{}
+		<-release
+		return answer(ctx, isbn, title, author, key)
+	}
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": duneISBN})
+
+	job := alice.mustStart("fill", map[string]any{"book_ids": []int64{dune}})
+	select {
+	case <-asked:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the fill never asked the supplier")
+	}
+	alice.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", job.ID), nil, http.StatusOK)
+	close(release)
+	done := alice.waitJob(job.ID, "succeeded")
+	if done.Done != 1 || done.Total != 1 {
+		t.Fatalf("the fill's progress: %d of %d", done.Done, done.Total)
+	}
+	countsAre(t, done, map[string]any{"fields": float64(2), "failed": float64(0), "unpinned": float64(0)})
+	if log := strings.Join(logOf(t, alice, job.ID), "\n"); strings.HasSuffix(log, "stopped") {
+		t.Errorf("a fill that did its one work ends its log saying it stopped:\n%s", log)
+	}
+	year := decode[struct {
+		Year int `json:"published_year"`
+	}](t, alice.mustDo("GET", fmt.Sprintf("/books/%d", dune), nil, http.StatusOK)).Year
+	if year != 1965 {
+		t.Fatalf("Dune's year after the fill: %d", year)
 	}
 }
 

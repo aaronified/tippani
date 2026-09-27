@@ -35,7 +35,8 @@ import (
 //
 // What each one guards, in a sentence a person would say: one job runs at a time
 // across the server and the rest wait their turn in the order started; Stop stops
-// after the item in hand and the job keeps its log; a reader's Stop all stops
+// after the item in hand and the job keeps its log, and one that lands on the
+// last item leaves the job finished, not stopped; a reader's Stop all stops
 // their own jobs and an admin's stops everyone's; jobs a restart caught are
 // interrupted and nothing resumes by itself; shutdown interrupts what it cannot
 // finish and refuses anything new, and does not wait out a lock held elsewhere to
@@ -295,6 +296,55 @@ func TestStopStopsAfterTheItemInHandAndTheJobKeepsItsLog(t *testing.T) {
 	if err := g.r.Stop(y, g.aro()); err != nil || g.state(y) != "succeeded" {
 		t.Fatalf("Stop on a finished job: %v, and it now reads %s", err, g.state(y))
 	}
+}
+
+// A STOP THAT LANDS ON THE LAST ITEM HAS NOTHING LEFT TO STOP. Pressed while a
+// job's last item is in hand, it lets that item finish, as every Stop does — and
+// the job has then done everything it was given, so it succeeded; it did not
+// stop, and it has nothing left over to run again. A shutdown landing there is
+// the same: the server stopped after the job had finished, not while it ran.
+func TestAStopThatLandsOnTheLastItemLeavesTheJobFinished(t *testing.T) {
+	t.Run("stop", func(t *testing.T) {
+		g := newRig(t, jobs.Options{})
+		id := g.enqueue(g.mitra(), "steps", n(2))
+		g.steps.next()
+		g.steps.let()
+		g.steps.next() // the last item is in hand
+		if err := g.r.Stop(id, g.mitra()); err != nil {
+			t.Fatal(err)
+		}
+		g.steps.let()
+		g.waitState(id, "succeeded")
+		want := []string{"item 0 done", "mitra asked it to stop; it stops after the item in hand", "item 1 done"}
+		if got := g.lines(id); strings.Join(got, "|") != strings.Join(want, "|") {
+			t.Fatalf("its log: %q, want %q", got, want)
+		}
+	})
+	t.Run("shutdown", func(t *testing.T) {
+		g := newRig(t, jobs.Options{})
+		id := g.enqueue(g.mitra(), "steps", n(1))
+		g.steps.next()
+		closed := make(chan error, 1)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			closed <- g.r.Close(ctx)
+		}()
+		// Refusing a new job is the same moment Close asks the running one to
+		// stop (one lock), so from here the item in hand is the last under a
+		// shutdown.
+		eventually(t, "Close refuses new jobs", func() bool {
+			_, err := g.r.Enqueue(g.mitra(), "quick", "", map[string]any{"late": true}, 0, nil)
+			return errors.Is(err, jobs.ErrClosed)
+		})
+		g.steps.let()
+		if err := <-closed; err != nil {
+			t.Fatal(err)
+		}
+		if s := g.state(id); s != "succeeded" {
+			t.Fatalf("a job whose last item finished as the server stopped reads %s, want succeeded", s)
+		}
+	})
 }
 
 func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {

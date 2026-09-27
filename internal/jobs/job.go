@@ -32,6 +32,7 @@ type Job struct {
 
 	stop      atomic.Bool // a person asked it to stop
 	shutdown  atomic.Bool // the server is stopping
+	told      atomic.Bool // Stopping told the run to stop, so it stopped short (finish)
 	abandoned atomic.Bool // Close stopped waiting for it and marked it interrupted
 	// over is closed when the worker lets go of the job, its end recorded
 	// (WaitOwnerIdle waits on it).
@@ -63,8 +64,21 @@ func (j *Job) Subject(s string) {
 }
 
 // Stopping reports whether the job should stop after the item in hand: a person
-// pressed Stop, or the server is shutting down. Run checks it between items.
-func (j *Job) Stopping() bool { return j.stop.Load() || j.shutdown.Load() }
+// pressed Stop, or the server is shutting down. Run checks it between items, and
+// stops when it answers yes — which is how the job's end is told: a run that was
+// answered yes stopped short of its items, and one never answered yes did them
+// all, a Stop pressed during its last item notwithstanding (finish).
+func (j *Job) Stopping() bool {
+	if !j.stopAsked() {
+		return false
+	}
+	j.told.Store(true)
+	return true
+}
+
+// stopAsked is whether Stop or shutdown has asked the job to stop, without
+// telling its run so.
+func (j *Job) stopAsked() bool { return j.stop.Load() || j.shutdown.Load() }
 
 // Params decodes the job's params into v.
 func (j *Job) Params(v any) error { return json.Unmarshal([]byte(j.params), v) }

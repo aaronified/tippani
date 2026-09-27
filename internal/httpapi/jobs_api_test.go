@@ -1281,6 +1281,8 @@ func TestDeletingAReaderWhoseJobWillNotStopWaitsForIt(t *testing.T) {
 		t.Fatalf("the job after the refused delete: %s, want still running", j.State)
 	}
 	close(letGo)
-	bob.waitJob(job.ID, "stopped")
+	// The item it would not let go of was all it had, so it ends having done
+	// everything: succeeded, not stopped (the runner's finish says why).
+	bob.waitJob(job.ID, "succeeded")
 	alice.mustDo("DELETE", fmt.Sprintf("/admin/users/%d", bobID), nil, http.StatusOK)
 }
