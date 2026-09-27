@@ -12180,7 +12180,7 @@ links with anyway. And the scope value is `quotes`, not `utterances`: the struct
 | Make a job of every time the app looks outward: bulk fetches and re-verify, imports and backups, automatic lookups, and single manual lookups. | The queued kinds are jobs by construction. Any other request that looks outward becomes a job the moment its first outward call is logged, its kind read from the route it matched (`jobkinds.go`). Imports, a restore, a reset, the safety copy, an update's apply and the API's `POST /admin/backup` name themselves as jobs, because each is worth a record even when it looks nowhere, and so does the daily deck; single sign-on is kept under its own kind, `signin.oidc`, whenever it asks the provider. A call no job claims goes in the system log, tagged `[outbound]`. |
 | Give every job its own detailed log: what was searched, where, and every outbound request, grouped by job. | What was searched is the job's subject — a title, an ISBN, a name, a file — kept as data. Its lines are one per outward call, `GET api.themoviedb.org/3/search/movie?query=Dune&api_key=… → 200 · 312 ms · 14 B` or `→ refused (offline)`, and for a queued kind one per item, saying what came of it. |
 | Mark a job still running at boot as interrupted, keep its log, and offer a one-press rerun. | `Runner.Boot`, which `serve()` alone calls, marks every running or waiting row interrupted, with a line saying which it was. Run again is offered to the job's owner where the kind can be run again. |
-| Add a Settings › Jobs tab. | The sixth section, for every reader. |
+| Add a Settings › Jobs tab. | The last section, for every reader: the sixth for an admin, the fifth for a reader, who has no Server. |
 | Current jobs: one expandable card, each job showing its live log. | One card that folds to its head. The running job opens on its live log, which follows the newest line until the reader scrolls up; a waiting job is one line, "Waiting — 2 jobs ahead". |
 | Past jobs: a second card with state (succeeded, failed, interrupted), details, and log export. | Chips over the four ways a job ends (stopped is the fourth). A row opens to who started it (for an admin), when, how long, its counts and its error, its log, Export, Run again, and Review for a re-verify whose findings are not yet applied. |
 | System logs: a separate card holding the app's own logs (every level, including the request lines for inbound reads and writes), kept across restarts. | An admin's card: every line `olog` writes, the standard logger's, net/http's own, and a line per request. |
@@ -16302,13 +16302,15 @@ its own defect.
 `web/frontend/test/journeys/reading-the-metadata-console.journey.mjs`.*
 
 
-## Settings becomes five screens, and the rail it is navigated by is Metadata's
+## Settings becomes six screens for an admin and five for a reader, and the rail it is navigated by is Metadata's
 
-**Decided.** Settings is six sections — Theme, Language and font, Review, Sections,
-Server, and from 3.1.0 Jobs (§18), which every reader has rather than an admin alone,
-because everybody's fills and lookups are jobs — behind `sectionRail.jsx`, which Metadata
-draws too. `SETTINGS_SECTIONS` names
-them and `SECTION_CARDS` says which cards each one holds.
+**Decided.** Settings is six sections for an admin and five for a reader, who has no
+Server — Theme, Language and font, Review, Sections, Server, and from 3.1.0 Jobs (§18),
+which every reader has rather than an admin alone, because everybody's fills and lookups
+are jobs — behind `sectionRail.jsx`, which Metadata draws too. `SETTINGS_SECTIONS` names
+them and `SECTION_CARDS` says which cards each one holds; a section none of whose cards is
+built for the reader looking is not drawn. The heading said "five screens" until Jobs
+arrived.
 
 **Why.** The page had grown to where the only way to find a preference was to scroll
 past every other one, and the v3 pack's answer is named sections. The old grid had a
