@@ -149,6 +149,25 @@ export function jobCounts(job) {
   return out
 }
 
+// jobOutcome — what a finished job did, by what each count MEANS to the screen
+// that started it: the fill's toast, the covers fetch's line, the people fetch's
+// flash. The wire names of the counts (`fields`, `ok`, `first_error`…) are spelled
+// here and in COUNT_KEYS above and nowhere else, so a contract correction to one
+// of them is this file; every number is a number, zero when the job did not say.
+export function jobOutcome(job) {
+  const c = job?.counts && typeof job.counts === 'object' ? job.counts : {}
+  return {
+    filled: num(c.fields),
+    fetched: num(c.fetched),
+    enriched: num(c.enriched),
+    ok: num(c.ok),
+    unpinned: num(c.unpinned),
+    skipped: num(c.skipped),
+    failed: num(c.failed),
+    firstError: typeof c.first_error === 'string' ? c.first_error : '',
+  }
+}
+
 // THE ONE LINE UNDER A JOB'S TITLE. A running job says how far it has got; a
 // finished one says what it did. The middle dot is the house joiner for facts on
 // one line, and the joining is code so a language's own word order lives inside

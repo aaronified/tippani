@@ -19,7 +19,7 @@ import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
-import { jobStateLabel, jobWaitingText, useKindJob } from './jobs.js'
+import { jobOutcome, jobStateLabel, jobWaitingText, useKindJob } from './jobs.js'
 import { CreditPills, IssuePills, RowCounts, WorkPills } from './issuePills.jsx'
 import { workDetailsPanel } from './WorkDetails.jsx'
 import { nearDupGroups } from './nearDupes.js'
@@ -693,17 +693,15 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
 // stopped or cut short by a restart says so first, because its counts are what
 // it reached rather than the library's answer.
 function coversFlash(job) {
-  const c = job.counts || {}
-  const fetched = c.fetched || 0
-  const enriched = c.enriched || 0
+  const { fetched, enriched, skipped, failed } = jobOutcome(job)
   const parts = []
-  if (fetched || enriched || c.skipped || c.failed) {
+  if (fetched || enriched || skipped || failed) {
     parts.push(
       t('metadata.fetch.flash.covers', { count: fetched, n: fetched }),
       t('metadata.fetch.flash.details', { count: enriched, n: enriched }),
     )
-    if (c.skipped) parts.push(t('metadata.fetch.flash.skipped', { n: c.skipped }))
-    if (c.failed) parts.push(t('metadata.fetch.flash.failed', { n: c.failed }))
+    if (skipped) parts.push(t('metadata.fetch.flash.skipped', { n: skipped }))
+    if (failed) parts.push(t('metadata.fetch.flash.failed', { n: failed }))
   }
   if (job.state !== 'succeeded') return [jobStateLabel(job.state), ...parts].join(' · ')
   return parts.length ? parts.join(' · ') : t('metadata.fetch.flash.uptodate')
@@ -2924,7 +2922,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
   // another, and the console looks for one when it opens.
   const peopleJob = useKindJob('people', {
     onSettled: (job) => {
-      const c = job.counts || {}
+      const { ok, failed, firstError } = jobOutcome(job)
       if (job.state === 'failed') setErr(job.error || t('error.generic'))
       else {
         // The joining space is CODE, not the head of a value: the parser trims
@@ -2932,8 +2930,8 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
         onFlash(
           [
             job.state !== 'succeeded' && jobStateLabel(job.state),
-            t('metadata.people.fetch.flash', { ok: c.ok || 0, failed: c.failed || 0 }) +
-              (c.first_error ? ' ' + t('metadata.people.fetch.flash.reason', { error: c.first_error }) : ''),
+            t('metadata.people.fetch.flash', { ok, failed }) +
+              (firstError ? ' ' + t('metadata.people.fetch.flash.reason', { error: firstError }) : ''),
           ].filter(Boolean).join(' · '),
         )
       }

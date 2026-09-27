@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { json, errText } from './api.js'
 import { t } from './i18n.js'
-import { followJob, isLive, jobStateLabel, jobTitle, jobWaitingText, startJob } from './jobs.js'
+import { followJob, isLive, jobOutcome, jobStateLabel, jobTitle, jobWaitingText, startJob } from './jobs.js'
 import { quoteKindOptions } from './quoteKind.js'
 import { formatPartialDate, toast } from './ui.jsx'
 
@@ -153,8 +153,7 @@ export function useBulkOps({ kind, ids = [], onDone }) {
     // before then is kept, and the toast says it did not reach the end.
     else if (job.state !== 'succeeded') toast(`${jobTitle(job)} · ${jobStateLabel(job.state)}`)
     else {
-      const fields = job.counts?.fields || 0
-      const failed = job.counts?.failed || 0
+      const { filled: fields, failed } = jobOutcome(job)
       // "Nothing was missing" is the good case and has to read like one, or
       // people learn to distrust the button.
       toast(
