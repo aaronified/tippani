@@ -36,7 +36,8 @@ import (
 // What each one guards, in a sentence a person would say: one job runs at a time
 // across the server and the rest wait their turn in the order started; Stop stops
 // after the item in hand and the job keeps its log; a reader's Stop all stops
-// their own jobs and an admin's stops everyone's; jobs a restart caught are
+// their own jobs and an admin's stops everyone's; a Stop or a Stop all from before
+// a restore swapped the database stops nothing; jobs a restart caught are
 // interrupted and nothing resumes by itself; shutdown interrupts what it cannot
 // finish and refuses anything new, and does not wait out a lock held elsewhere to
 // say so; a restore waits for a running job and holds
@@ -348,6 +349,45 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 	g.steps.next()
 	g.steps.let()
 	g.waitState(a2, "succeeded")
+}
+
+// A Stop and a Stop all from a request that signed in before the database was
+// swapped are refused, and stop nothing: the id a Stop names, and the account a
+// Stop all speaks for, belong to the file the request began on, and in the file
+// the server is on now they may be somebody else's.
+func TestAStopFromBeforeASwapIsRefusedAndStopsNothing(t *testing.T) {
+	g := newRig(t, jobs.Options{})
+	x := g.enqueue(g.mitra(), "steps", map[string]any{"n": 1, "t": "running"})
+	g.steps.next()
+	w := g.enqueue(g.mitra(), "steps", map[string]any{"n": 1, "t": "waiting"})
+	mitra, aro := g.mitra(), g.aro()
+	// The swap a restore makes, with nothing to move.
+	if err := g.st.Swap(func() error { return nil }, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := g.r.Stop(w, mitra); !errors.Is(err, jobs.ErrStale) {
+		t.Fatalf("Stop from a request that began before the swap: %v, want ErrStale", err)
+	}
+	if _, _, err := g.r.StopAll(aro); !errors.Is(err, jobs.ErrStale) {
+		t.Fatalf("Stop all from a request that began before the swap: %v, want ErrStale", err)
+	}
+	if g.state(w) != "queued" || g.state(x) != "running" {
+		t.Fatalf("after the refused stops: waiting %s, running %s", g.state(w), g.state(x))
+	}
+	if n := count(t, g.st.DB, `SELECT count(*) FROM jobs WHERE stop_requested = 1`); n != 0 {
+		t.Fatalf("a refused stop asked %d job(s) to stop", n)
+	}
+
+	// Signed in again, on the file the server is on, the same presses work.
+	if err := g.r.Stop(w, g.mitra()); err != nil || g.state(w) != "stopped" {
+		t.Fatalf("Stop after signing in again: %v, the job reads %s", err, g.state(w))
+	}
+	if stopping, _, err := g.r.StopAll(g.aro()); err != nil || stopping != 1 {
+		t.Fatalf("Stop all after signing in again: %d stopping, %v; want the running job", stopping, err)
+	}
+	g.steps.let()
+	g.waitState(x, "stopped")
 }
 
 func TestJobsARestartCaughtAreInterruptedAndNothingResumesByItself(t *testing.T) {
