@@ -153,7 +153,8 @@ export, and encrypted backups.
 - About 30 MB of memory when idle. Nothing runs unless somebody asked for it, and nothing wakes on a timer.
 - Covers are stored on your own disk. Metadata lookups are optional, and nothing is fetched on a timer.
 - `TIPPANI_OFFLINE=1` stops every outside connection except sign-in to your own identity provider. Every call that
-  does go out is kept in its job's log, which you can read and export.
+  does go out is kept in its job's log, or in the system log an admin reads, and both are read and exported in
+  Settings → Jobs.
 - Tippani was written with AI assistance and contains no AI: no model calls, nothing sent anywhere.
   [How this was written](https://github.com/aaronified/tippani/wiki/How-this-was-written).
 
