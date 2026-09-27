@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -30,12 +31,12 @@ import (
 // important." For every kind a person can start, each case here holds a job of
 // two items at one place a Stop can land — before its first item, inside each
 // call it makes outward, between its two items, and just before a write, with a
-// supplier's answer already in hand — presses Stop there, as the row's Stop, as
-// Stop all, and as an admin deleting the reader whose job it is, and then asks
-// the app, through its API and its data directory:
+// supplier's answer already in hand — presses Stop there, and then asks the app,
+// through its API and its data directory:
 //
 //   - the job reads stopped within 300 ms of the press, its log names who
-//     stopped it, and a call that was on the wire saw its request cancelled;
+//     pressed, a call that was on the wire saw its request cancelled, and the
+//     log says which item the Stop left as it was;
 //   - every item is done whole or untouched: the one finished before the Stop
 //     has everything it was given, the one in hand has nothing of it;
 //   - nothing temporary or partial is anywhere in the data directory, every
@@ -43,6 +44,18 @@ import (
 //     no picture is there that nothing names;
 //   - the job queued behind it runs and succeeds, and the stopped job, run again,
 //     succeeds and does all it was given.
+//
+// THE ROW'S STOP IS PRESSED AT EVERY POINT; Stop all, and an admin deleting the
+// reader whose job it is, at one point of each kind, a call on the wire where the
+// kind has one. The three reach the job through the same stop (the runner's
+// stopHeldLocked) and differ only in how they find it, which one point shows as
+// well as every point would, and the plan asks for them on the call that never
+// answers. Every
+// point crossed with every press was 84 servers: two and a half minutes of the
+// per-push run's twenty, and more than forty minutes raced.
+//
+// ONE TEST PER KIND, so the nightly race sweep, which deals this package's tests
+// into six shards of an hour by top-level name, spreads the kinds among them.
 //
 // A reader deleted while their job runs cannot be read back as themselves, so
 // that case restores the account from the admin's bin and signs them in again
@@ -63,7 +76,11 @@ import (
 //     so its temp file and its rename are the ones under test; the host sends
 //     half a picture and holds the rest where a case holds it, and srv.fetchImage
 //     answers every other address as a picture that is not there, since Amazon's
-//     and Open Library's own are nowhere a test may reach;
+//     and Open Library's own are nowhere a test may reach — except, once a case
+//     lets posters through, TMDB's image host's, which it sends to the stub by
+//     the poster's file name;
+//   - TMDB's /movie/{id} as a stub (filmsTMDB, covers_pass_test.go), for the
+//     films a covers pass walks;
 //   - two test seams, srv.itemSeam and srv.backupSeam: the one way to hold a job
 //     before its first item, between two, or between a backup's steps, where
 //     nothing is on the wire for a stub to hold;
@@ -97,6 +114,9 @@ type killWorld struct {
 	reached                  chan string
 	reachOnce                sync.Once
 	sawCancel                atomic.Bool
+	// posters lets a film's poster through, from TMDB's image host to the stub.
+	// Off while the films are added, so each is left for a covers pass to fetch.
+	posters atomic.Bool
 }
 
 func newKillWorld(t *testing.T) *killWorld {
@@ -110,6 +130,9 @@ func newKillWorld(t *testing.T) *killWorld {
 	w.holding.Store(true)
 	w.images = w.imageHost()
 	srv.fetchImage = func(ctx context.Context, rawURL, dir string) (string, error) {
+		if w.posters.Load() && strings.Contains(rawURL, "image.tmdb.org") {
+			rawURL = w.images + "/" + path.Base(rawURL)
+		}
 		if !strings.HasPrefix(rawURL, w.images) {
 			return "", errors.New("no such picture")
 		}
@@ -288,6 +311,9 @@ type killCase struct {
 	point   string // where the Stop lands, in words
 	outward bool   // the point is a call on the wire, which must see its request cancelled
 	done    int    // how many of the job's two items are finished at that point
+	// everyPress is the kind's one point where Stop all and the reader's delete
+	// are pressed too, not the row's Stop alone.
+	everyPress bool
 	// arm makes the library, arms the hold, and answers the job's params and a
 	// check of the library: that the job's first done items are finished whole
 	// and the rest untouched. jobID is the job whose result a check may read.
@@ -653,46 +679,85 @@ func keptBackup(t *testing.T, c *testClient) string {
 	return b.Backup.Name
 }
 
-// killCases is every kind at every place a Stop can land in it.
-func killCases() []killCase {
-	return []killCase{
-		fillCase("before its first work", false, 0, func(w *killWorld) { w.atItem(0, "before the first work") }),
-		fillCase("inside the book search", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "cut") }),
-		fillCase("inside the cover's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr(messiahISBN + ".png")) }),
-		fillCase("between its works", false, 1, func(w *killWorld) { w.atItem(1, "between the works") }),
-		fillCase("just before the write, the search answered", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "late") }),
-		fillCase("just before the write, the cover arrived", true, 1, func(w *killWorld) { w.latePicture.Store(ptr(messiahISBN + ".png")) }),
-		fillFilmsCase(),
+// coversFilmsCase is an admin's covers pass over two films whose posters did not
+// arrive when they were added, as a supplier's image host sometimes fails to
+// send one, held at one point in the second film's poster.
+func coversFilmsCase(point string, hold func(w *killWorld)) killCase {
+	return killCase{kind: "covers", admin: true, point: point, outward: true, done: 1,
+		arm: func(w *killWorld) (any, func(*testClient, int64, int)) {
+			filmsTMDB(w.t, w.srv)
+			var ids [2]int64
+			for i, tmdb := range []int{603, 604} {
+				ids[i] = decode[movieDetail](w.t, w.admin.mustDo("POST", "/movies", map[string]any{"tmdb_id": tmdb}, http.StatusCreated)).ID
+			}
+			w.posters.Store(true)
+			hold(w)
+			return map[string]any{"missing_only": true}, func(c *testClient, _ int64, done int) {
+				posters := map[int64]string{}
+				for _, f := range filmsOf(w.t, c) {
+					posters[f.ID] = f.Poster
+				}
+				for i, id := range ids {
+					if i < done && posters[id] == "" {
+						w.t.Fatalf("film %d of 2 was walked before the Stop and has no poster", i+1)
+					}
+					if i >= done && posters[id] != "" {
+						w.t.Fatalf("film %d of 2 was in hand or not reached, and a poster was written: %q", i+1, posters[id])
+					}
+				}
+			}
+		}}
+}
 
-		reverifyCase("before its first item", false, 0, false, func(w *killWorld) { w.atItem(0, "before the first item") }),
-		reverifyCase("inside the book search", true, 1, false, func(w *killWorld) { w.bookAnswers(messiahISBN, "cut") }),
-		reverifyCase("between its items", false, 1, false, func(w *killWorld) { w.atItem(1, "between the items") }),
-		reverifyCase("just before it keeps the item, the search answered", true, 1, false, func(w *killWorld) { w.bookAnswers(messiahISBN, "late") }),
-		reverifyCase("inside TMDB, TheTVDB having answered", true, 1, true, nil),
+// reverifyPeopleCase is a check over two author records whose second is held
+// inside Open Library's resolution: it keeps findings for the first alone, and
+// writes to neither. A check takes its people in the order of their names, so
+// the second is Le Guin.
+func reverifyPeopleCase() killCase {
+	names := []string{"Octavia E. Butler", "Ursula K. Le Guin"}
+	return killCase{kind: "reverify", point: "inside Open Library's resolution of a person", outward: true, done: 1,
+		arm: func(w *killWorld) (any, func(*testClient, int64, int)) {
+			ids := twoAuthors(w.t, w.reader)
+			w.authorAnswers("", "")
+			resolve := w.srv.resolveAuthor
+			w.srv.resolveAuthor = func(ctx context.Context, name string, titles []string) (metadata.AuthorResolution, error) {
+				if name == names[1] && w.holding.Load() {
+					return metadata.AuthorResolution{}, w.cut(ctx, "Open Library's resolution")
+				}
+				return resolve(ctx, name, titles)
+			}
+			var people []map[string]any
+			for _, n := range names {
+				people = append(people, map[string]any{"kind": "author", "name": n})
+			}
+			return map[string]any{"people": people}, func(c *testClient, jobID int64, done int) {
+				for _, id := range ids {
+					if p := personOf(w.t, c, id); p.Bio != "" || p.Image != "" || p.Links != "" {
+						w.t.Fatalf("a check wrote to a person: %+v", p)
+					}
+				}
+				if jobID == 0 {
+					return
+				}
+				var got []string
+				for _, it := range decode[struct {
+					Result []struct {
+						Name string `json:"name"`
+					} `json:"result"`
+				}](w.t, c.mustDo("GET", fmt.Sprintf("/jobs/%d/result", jobID), nil, http.StatusOK)).Result {
+					got = append(got, it.Name)
+				}
+				if !slices.Equal(got, names[:done]) {
+					w.t.Fatalf("the check kept findings for %q, want exactly the %d record(s) checked before the Stop: %q", got, done, names[:done])
+				}
+			}
+		}}
+}
 
-		applyCase("before its first item", false, 0, func(w *killWorld) { w.atItem(0, "before the first item") }),
-		applyCase("inside the portrait's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr("butler-portrait.png")) }),
-		applyCase("between its items", false, 1, func(w *killWorld) { w.atItem(1, "between the items") }),
-		applyCase("just before the write, the portrait arrived", true, 1, func(w *killWorld) { w.latePicture.Store(ptr("butler-portrait.png")) }),
-
-		peopleCase("before its first record", false, 0, func(w *killWorld) { w.atItem(0, "before the first record") }),
-		peopleCase("inside Open Library's resolution", true, 1, func(w *killWorld) { w.authorAnswers("cut", "") }),
-		peopleCase("inside the portrait's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr("Octavia-E.-Butler.png")) }),
-		peopleCase("inside the reference pages, the portrait arrived", true, 1, func(w *killWorld) { w.authorAnswers("", "cut") }),
-		peopleCase("between its records", false, 1, func(w *killWorld) { w.atItem(1, "between the records") }),
-		peopleCase("just before the write, the reference pages answered", true, 1, func(w *killWorld) { w.authorAnswers("", "late") }),
-
-		coversCase("before its first work", false, 0, func(w *killWorld) { w.atItem(0, "before the first work") }),
-		coversCase("inside the book search", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "cut") }),
-		coversCase("inside the cover's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr(messiahISBN + ".png")) }),
-		coversCase("between its works", false, 1, func(w *killWorld) { w.atItem(1, "between the works") }),
-		coversCase("just before the write, the search answered", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "late") }),
-		coversCase("just before the write, the cover arrived", true, 1, func(w *killWorld) { w.latePicture.Store(ptr(messiahISBN + ".png")) }),
-
-		backupCase("before its snapshot", "snapshot", 1),
-		backupCase("between two of its files", "file", 2),
-		backupCase("just before its promote", "promote", 1),
-	}
+// every marks the kind's point where every press is tried (killCase.everyPress).
+func every(c killCase) killCase {
+	c.everyPress = true
+	return c
 }
 
 func ptr(s string) *string { return &s }
@@ -701,15 +766,86 @@ func ptr(s string) *string { return &s }
 // an admin deleting the reader whose job is running.
 var stopPresses = []string{"stop", "stop all", "delete the reader"}
 
-func TestAStopAnywhereIsInstantAndLeavesEveryItemWholeOrUntouched(t *testing.T) {
-	for _, c := range killCases() {
-		for _, press := range stopPresses {
+// runKillCases runs each case at the row's Stop, and the kind's everyPress case
+// at every press its owner can meet.
+func runKillCases(t *testing.T, cases []killCase) {
+	for _, c := range cases {
+		presses := stopPresses[:1]
+		if c.everyPress {
+			presses = stopPresses
+		}
+		for _, press := range presses {
 			if press == "delete the reader" && c.admin {
 				continue // an admin's account is never deleted from under it (handleDeleteUser)
 			}
-			t.Run(c.kind+"/"+c.point+"/"+press, func(t *testing.T) { runKillCase(t, c, press) })
+			t.Run(c.point+"/"+press, func(t *testing.T) { runKillCase(t, c, press) })
 		}
 	}
+}
+
+func TestAStopInAFillIsInstantAndLeavesEachWorkWholeOrUntouched(t *testing.T) {
+	runKillCases(t, []killCase{
+		fillCase("before its first work", false, 0, func(w *killWorld) { w.atItem(0, "before the first work") }),
+		every(fillCase("inside the book search", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "cut") })),
+		fillCase("inside the cover's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr(messiahISBN + ".png")) }),
+		fillCase("between its works", false, 1, func(w *killWorld) { w.atItem(1, "between the works") }),
+		fillCase("just before the write, the search answered", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "late") }),
+		fillCase("just before the write, the cover arrived", true, 1, func(w *killWorld) { w.latePicture.Store(ptr(messiahISBN + ".png")) }),
+		fillFilmsCase(),
+	})
+}
+
+func TestAStopInACheckIsInstantAndKeepsNoHalfCheckedItem(t *testing.T) {
+	runKillCases(t, []killCase{
+		reverifyCase("before its first item", false, 0, false, func(w *killWorld) { w.atItem(0, "before the first item") }),
+		every(reverifyCase("inside the book search", true, 1, false, func(w *killWorld) { w.bookAnswers(messiahISBN, "cut") })),
+		reverifyCase("between its items", false, 1, false, func(w *killWorld) { w.atItem(1, "between the items") }),
+		reverifyCase("just before it keeps the item, the search answered", true, 1, false, func(w *killWorld) { w.bookAnswers(messiahISBN, "late") }),
+		reverifyCase("inside TMDB, TheTVDB having answered", true, 1, true, nil),
+		reverifyPeopleCase(),
+	})
+}
+
+func TestAStopInAnApplyIsInstantAndLeavesEachItemWholeOrUntouched(t *testing.T) {
+	runKillCases(t, []killCase{
+		applyCase("before its first item", false, 0, func(w *killWorld) { w.atItem(0, "before the first item") }),
+		applyCase("inside the book's cover download", true, 0, func(w *killWorld) { w.holdPicture.Store(ptr("dune-cover.png")) }),
+		every(applyCase("inside the portrait's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr("butler-portrait.png")) })),
+		applyCase("between its items", false, 1, func(w *killWorld) { w.atItem(1, "between the items") }),
+		applyCase("just before the write, the portrait arrived", true, 1, func(w *killWorld) { w.latePicture.Store(ptr("butler-portrait.png")) }),
+	})
+}
+
+func TestAStopInAPeopleFetchIsInstantAndLeavesEachRecordWholeOrUntouched(t *testing.T) {
+	runKillCases(t, []killCase{
+		peopleCase("before its first record", false, 0, func(w *killWorld) { w.atItem(0, "before the first record") }),
+		every(peopleCase("inside Open Library's resolution", true, 1, func(w *killWorld) { w.authorAnswers("cut", "") })),
+		peopleCase("inside the portrait's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr("Octavia-E.-Butler.png")) }),
+		peopleCase("inside the reference pages, the portrait arrived", true, 1, func(w *killWorld) { w.authorAnswers("", "cut") }),
+		peopleCase("between its records", false, 1, func(w *killWorld) { w.atItem(1, "between the records") }),
+		peopleCase("just before the write, the reference pages answered", true, 1, func(w *killWorld) { w.authorAnswers("", "late") }),
+	})
+}
+
+func TestAStopInACoversPassIsInstantAndLeavesEachWorkWholeOrUntouched(t *testing.T) {
+	runKillCases(t, []killCase{
+		coversCase("before its first work", false, 0, func(w *killWorld) { w.atItem(0, "before the first work") }),
+		every(coversCase("inside the book search", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "cut") })),
+		coversCase("inside the cover's download", true, 1, func(w *killWorld) { w.holdPicture.Store(ptr(messiahISBN + ".png")) }),
+		coversCase("between its works", false, 1, func(w *killWorld) { w.atItem(1, "between the works") }),
+		coversCase("just before the write, the search answered", true, 1, func(w *killWorld) { w.bookAnswers(messiahISBN, "late") }),
+		coversCase("just before the write, the cover arrived", true, 1, func(w *killWorld) { w.latePicture.Store(ptr(messiahISBN + ".png")) }),
+		coversFilmsCase("inside a film's poster download", func(w *killWorld) { w.holdPicture.Store(ptr("p604.jpg")) }),
+		coversFilmsCase("just before the write, a film's poster arrived", func(w *killWorld) { w.latePicture.Store(ptr("p604.jpg")) }),
+	})
+}
+
+func TestAStopInABackupIsInstantAndKeepsTheArchiveThereWas(t *testing.T) {
+	runKillCases(t, []killCase{
+		backupCase("before its snapshot", "snapshot", 1),
+		every(backupCase("between two of its files", "file", 2)),
+		backupCase("just before its promote", "promote", 1),
+	})
 }
 
 func runKillCase(t *testing.T, c killCase, press string) {
@@ -776,8 +912,14 @@ func runKillCase(t *testing.T, c killCase, press string) {
 	if stopped.Done != c.done {
 		t.Fatalf("the stopped job counts %d item(s) done, want %d: the one in hand is not one of them", stopped.Done, c.done)
 	}
-	if log := strings.Join(logOf(t, viewer, job.ID), "\n"); !strings.Contains(log, line) {
+	log := strings.Join(logOf(t, viewer, job.ID), "\n")
+	if !strings.Contains(log, line) {
 		t.Fatalf("the job's log does not say who pressed Stop (%q):\n%s", line, log)
+	}
+	// A Stop that cut an item short says which, on the item: the press's own line
+	// cannot, since it is logged before anybody knows.
+	if c.outward && !strings.Contains(log, " — left untouched: stopped before anything of it was written") {
+		t.Fatalf("the job's log does not say which item the Stop left as it was:\n%s", log)
 	}
 
 	// EVERY ITEM WHOLE OR UNTOUCHED, NOTHING LEFT BEHIND.
