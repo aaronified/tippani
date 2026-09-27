@@ -881,8 +881,18 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 			remaining = 0
 		}
 	default: // movies:N
+		// FROM THE CURSOR, NOT FROM THE LAST ROW. A stretch that ends the books
+		// hands over as movies:0, and its last row was a BOOK: counting the films
+		// after that book's id counted only the films numbered above it, so a pass
+		// that had walked every book reported films done before it reached one —
+		// the bar full while the posters were still to come. The two tables number
+		// their rows apart, so a book's id says nothing about a film's.
+		filmsAfter := lastID
+		if phase == "books" {
+			filmsAfter = 0
+		}
 		if s.Store.DB.QueryRow(`SELECT COUNT(*) FROM movies WHERE `+movieWhere+` AND id > ?`,
-			uid, lastID).Scan(&remaining) != nil {
+			uid, filmsAfter).Scan(&remaining) != nil {
 			remaining = 0
 		}
 	}
