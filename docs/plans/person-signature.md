@@ -95,4 +95,4 @@ Decided while planning, so the build needs nothing further:
       journey from the person popup to a share card with the signature in its corner. Each
       mutation-checked, the mutation named in the commit.
 - [ ] Re-check at build, as 3.1.0 is untagged at the pin: the route-to-kind table and the
-      outbound hook (`jobkinds.go:29`), and the reworded invariant in `CLAUDE.md`.
+      outbound hook (`jobkinds.go:29` `"POST /people/id/{id}/fetch":  "lookup.person",`), and the reworded invariant in `CLAUDE.md`.

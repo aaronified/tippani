@@ -10,7 +10,7 @@ citation is `path:line` and the text at that line. Tasks, one per ask:
       with no service and no download. Nothing under `web/frontend/src` uses it yet.
 - [ ] A play/stop control on every quote card and on a quote's detail, drawn with the app's
       own glyph. The cards are two components: `Library.jsx:1097`
-      `export function AnnotationCard({` (books, and standalone quotes on `Quotes.jsx:1092`)
+      `export function AnnotationCard({` (books, and standalone quotes on `Quotes.jsx:1092` `<AnnotationCard`)
       and `Movies.jsx:1785` `export function Frame({` (screen lines), each with its
       `ActionRow` (`actions.jsx:337` `export function ActionRow({`); plus Home's
       `Home.jsx:1602` `export function SerendipityCard({` and an anthology's passage,
