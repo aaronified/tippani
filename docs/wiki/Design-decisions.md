@@ -16292,8 +16292,10 @@ its own defect.
 
 ## Settings becomes five screens, and the rail it is navigated by is Metadata's
 
-**Decided.** Settings is five sections — Theme, Language and font, Review, Sections,
-Server — behind `sectionRail.jsx`, which Metadata draws too. `SETTINGS_SECTIONS` names
+**Decided.** Settings is six sections — Theme, Language and font, Review, Sections,
+Server, and from 3.1.0 Jobs (§18), which every reader has rather than an admin alone,
+because everybody's fills and lookups are jobs — behind `sectionRail.jsx`, which Metadata
+draws too. `SETTINGS_SECTIONS` names
 them and `SECTION_CARDS` says which cards each one holds.
 
 **Why.** The page had grown to where the only way to find a preference was to scroll
