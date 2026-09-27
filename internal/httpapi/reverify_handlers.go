@@ -413,9 +413,10 @@ func sameGenreSet(a, b []string) bool {
 }
 
 // reverifyLookupError turns a provider failure into a short, non-leaking hint
-// (the full cause goes to the log under TIP-META-011).
+// (the full cause goes to the log under TIP-META-011, unless the offline switch
+// refused the call: logOutwardFailure).
 func reverifyLookupError(what string, err error) string {
-	olog.Errorf(olog.CodeMetaReverifyFetch, "[meta] re-verify %s lookup failed: %v", what, err)
+	logOutwardFailure(olog.CodeMetaReverifyFetch, err, "[meta] re-verify %s lookup failed: %v", what, err)
 	if errors.Is(err, metadata.ErrQuota) {
 		return "Google Books' shared quota is used up — add a free key in Settings → Metadata sources"
 	}

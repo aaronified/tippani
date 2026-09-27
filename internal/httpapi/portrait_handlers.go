@@ -162,8 +162,9 @@ func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string)
 	if err != nil {
 		// Only the author (Open Library) path returns a hard error here — the
 		// actor/director paths degrade to best-effort. The client sees a generic
-		// message, so log the real cause.
-		olog.Errorf(olog.CodePeopleLookupFailed, "[people] portrait kind=%s name=%q failed: %v", kind, name, err)
+		// message, so log the real cause (and a refusal by the offline switch as
+		// no error: logOutwardFailure says why).
+		logOutwardFailure(olog.CodePeopleLookupFailed, err, "[people] portrait kind=%s name=%q failed: %v", kind, name, err)
 		return portraitFind{}, err
 	}
 	// Download the portrait through the API-host allowlist (image.tmdb.org,
@@ -173,11 +174,11 @@ func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string)
 	// download is logged under (storeCastImage), because it is the same failure —
 	// a provider's image host said no — and a headshot that never arrives, on a
 	// page or in a People fetch, otherwise leaves nothing to look up. A refusal
-	// by TIPPANI_OFFLINE is not that failure, and logImageMiss says why.
+	// by TIPPANI_OFFLINE is not that failure, and logOutwardFailure says why.
 	if imageURL != "" {
 		file, ferr := s.fetchImage(ctx, imageURL, s.coversDir())
 		if ferr != nil {
-			logImageMiss(ferr, "[people] portrait kind=%s name=%q url=%q failed: %v", kind, name, imageURL, ferr)
+			logOutwardFailure(olog.CodeCoverFetch, ferr, "[people] portrait kind=%s name=%q url=%q failed: %v", kind, name, imageURL, ferr)
 		} else {
 			f.image = file
 		}

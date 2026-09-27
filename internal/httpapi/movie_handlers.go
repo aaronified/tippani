@@ -602,7 +602,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 		}
 		d, err := igdb.Details(ctx, sourceID)
 		if err != nil {
-			olog.Errorf(olog.CodeMetaIGDBLookup, "[movie] igdb details source_id=%s failed: %v", sourceID, err)
+			logOutwardFailure(olog.CodeMetaIGDBLookup, err, "[movie] igdb details source_id=%s failed: %v", sourceID, err)
 			if errors.Is(err, metadata.ErrIGDBAuth) {
 				return nil, "IGDB rejected the credentials — re-check BOTH the client id and the secret " +
 					"in Settings → Metadata sources", http.StatusBadGateway
@@ -640,7 +640,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 		// credential here would put the wall back one screen further on.
 		d, err := metadata.GameDetailsWikidata(ctx, sourceID)
 		if err != nil {
-			olog.Errorf(olog.CodeMetaIGDBLookup, "[movie] wikidata game details qid=%s failed: %v", sourceID, err)
+			logOutwardFailure(olog.CodeMetaIGDBLookup, err, "[movie] wikidata game details qid=%s failed: %v", sourceID, err)
 			return nil, "that Wikidata record could not be read", http.StatusBadGateway
 		}
 		return d, "", 0
@@ -658,7 +658,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 		}
 		if err != nil {
 			// Both callers (create + resync) only surface the message; log the cause here.
-			olog.Errorf(olog.CodeMetaLookupFailed, "[movie] tvdb details source_id=%s show=%t failed: %v", sourceID, show, err)
+			logOutwardFailure(olog.CodeMetaLookupFailed, err, "[movie] tvdb details source_id=%s show=%t failed: %v", sourceID, show, err)
 			if errors.Is(err, metadata.ErrTVDBAuth) {
 				return nil, "TheTVDB rejected the key — re-check it in Settings → Metadata sources", http.StatusBadGateway
 			}
@@ -680,7 +680,7 @@ func (s *Server) fetchSourceDetails(ctx context.Context, source, sourceID, media
 		}
 		if err != nil {
 			// Both callers (create + resync) only surface the message; log the cause here.
-			olog.Errorf(olog.CodeMetaLookupFailed, "[movie] tmdb details source_id=%s show=%t failed: %v", sourceID, show, err)
+			logOutwardFailure(olog.CodeMetaLookupFailed, err, "[movie] tmdb details source_id=%s show=%t failed: %v", sourceID, show, err)
 			if errors.Is(err, metadata.ErrTMDBAuth) {
 				return nil, "TMDB rejected the key — re-check it in Settings → Metadata sources", http.StatusBadGateway
 			}

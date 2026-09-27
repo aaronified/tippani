@@ -727,7 +727,7 @@ func (s *Server) handleUpsertPerson(w http.ResponseWriter, r *http.Request) {
 	} else if req.ImageURL != "" {
 		name, ferr := s.fetchUserImage(r.Context(), req.ImageURL, s.coversDir())
 		if ferr != nil {
-			olog.Errorf(olog.CodePeopleImageFetch, "[people] upsert kind=%s name=%q image fetch failed: %v",
+			logOutwardFailure(olog.CodePeopleImageFetch, ferr, "[people] upsert kind=%s name=%q image fetch failed: %v",
 				req.Kind, req.Name, ferr)
 			writeErr(w, http.StatusBadGateway,
 				"couldn't fetch that image — check the URL points directly at a JPG/PNG/WebP/GIF under 2 MB")
@@ -1151,7 +1151,7 @@ func (s *Server) lookupLinks(ctx context.Context, kind, name string) (map[string
 	if err != nil {
 		// The client only ever sees a generic message, so log the real provider
 		// cause here — otherwise "lookup failed" is invisible in the logs.
-		olog.Errorf(olog.CodePeopleLookupFailed, "[people] lookup kind=%s name=%q failed: %v", kind, name, err)
+		logOutwardFailure(olog.CodePeopleLookupFailed, err, "[people] lookup kind=%s name=%q failed: %v", kind, name, err)
 		if errors.Is(err, metadata.ErrTMDBAuth) {
 			// A rejected key never fixes itself on retry — say so, don't tell the
 			// user to "try again in a moment".

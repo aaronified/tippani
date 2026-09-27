@@ -289,7 +289,7 @@ func (s *Server) handleUpdatePersonByID(w http.ResponseWriter, r *http.Request) 
 		if req.ImageURL != "" {
 			name, ferr := s.fetchUserImage(r.Context(), req.ImageURL, s.coversDir())
 			if ferr != nil {
-				olog.Errorf(olog.CodePeopleImageFetch, "[identity] person %d image fetch failed: %v", id, ferr)
+				logOutwardFailure(olog.CodePeopleImageFetch, ferr, "[identity] person %d image fetch failed: %v", id, ferr)
 				writeErr(w, http.StatusBadGateway,
 					"couldn't fetch that image — check the URL points directly at a JPG/PNG/WebP/GIF under 2 MB")
 				return
