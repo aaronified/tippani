@@ -349,6 +349,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /people/id/{id}/aliases", s.requireAuth(s.handlePersonAlias))
 	mux.Handle("PUT /people/id/{id}/names", s.requireAuth(s.handlePersonNames))
 	mux.Handle("POST /people/id/{id}/portrait", s.requireAuth(s.handlePersonImageUpload))
+	// The People row's Fetch: portrait, identity, facts and links, onto this
+	// record (person_fetch.go). No body; in its request, never queued.
+	mux.Handle("POST /people/id/{id}/fetch", s.requireAuth(s.handlePersonFetch))
 	mux.Handle("DELETE /people/id/{id}/aliases", s.requireAuth(s.handlePersonAliasDelete))
 	mux.Handle("GET /characters", s.requireAuth(s.handleCharacters))
 	mux.Handle("POST /characters", s.requireAuth(s.handleCreateCharacter))

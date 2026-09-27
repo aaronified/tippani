@@ -17,8 +17,8 @@ import "testing"
 // field"); the fold moved to the server with the People row's Fetch, and the cases
 // came with it, verbatim. The SPA's rule link-fold-keeps-names.test.js holds this
 // file to them by name, so the file, the test's name and both cases' strings stay.
-// The same fold through a route a reader presses, a person's re-verify, is driven
-// in reverify_test.go.
+// The same fold through the routes a reader presses — a person's Fetch and a
+// person's re-verify — is driven in person_fetch_test.go and reverify_test.go.
 //
 // What each case guards, in a sentence a person would say: a fetch leaves the
 // names on my links alone and adds the link it found; a link I never named stays
