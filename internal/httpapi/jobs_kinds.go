@@ -397,12 +397,19 @@ func validateReverifyApply(s *Server, raw json.RawMessage, viewer jobs.Owner) (j
 	case n > maxReverifyPerJob:
 		return jobInput{}, badParams("too many items for one apply (at most %d)", maxReverifyPerJob)
 	}
-	for _, it := range p.Items {
+	for i, it := range p.Items {
 		var head struct {
 			Type string `json:"type"`
 		}
 		if json.Unmarshal(it, &head) != nil || strings.TrimSpace(head.Type) == "" {
 			return jobInput{}, badParams("every item must be an object that names its type")
+		}
+		// Read as the job will read it, so an item it could not read is refused
+		// now rather than failing the whole apply, every item unwritten, when it
+		// runs.
+		var item reverifyApplyItem
+		if json.Unmarshal(it, &item) != nil {
+			return jobInput{}, badParams("item %d could not be read: its id is a number, and set, sources and expect are objects of fields", i+1)
 		}
 	}
 	params := map[string]any{"items": p.Items}

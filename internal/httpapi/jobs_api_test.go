@@ -953,6 +953,8 @@ func TestEveryKindsParamsAreHeldToItsCapAndItsChecks(t *testing.T) {
 	}
 	refused(bob, "test.reverify-apply", map[string]any{"items": many}, 400, "at most 500")
 	refused(bob, "test.reverify-apply", map[string]any{"items": []any{map[string]any{"id": 1}}}, 400, "names its type")
+	refused(bob, "test.reverify-apply", map[string]any{"items": []any{item, map[string]any{"type": "book", "id": 2, "set": "year"}}},
+		400, "item 2 could not be read")
 	check := func(owner string) int64 {
 		res, err := srv.Store.DB.Exec(`INSERT INTO jobs (user_id, username, kind, state, created_at, finished_at)
 			VALUES (?, ?, 'reverify', 'succeeded', ?, ?)`, accountID(t, alice, owner), owner, time.Now().UnixMilli(), time.Now().UnixMilli())
