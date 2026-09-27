@@ -143,17 +143,19 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 <sub>pre-1.0 — `deploy/tippani.service` · `docker-compose.yml` · `README.md` · `docs/wiki/Design-decisions.md`</sub>
 
-### No background jobs, pollers, tickers or cron — cleanup and scheduling run on read
+### Nothing wakes on a timer — cleanup and scheduling run on read, and a job runs because somebody started it
 
-**Decided.** Nothing in the binary wakes up on its own. There is no `time.Ticker` anywhere outside tests; the only goroutine in `main` is the listener. Expired sessions are deleted lazily inside `Sessions.Create`, and review scheduling is computed at query time.
+**Decided.** Nothing in the binary wakes up on its own. There is no `time.Ticker` anywhere outside tests, no poller, no cron and no scheduler. Expired sessions are deleted lazily inside `Sessions.Create`, and review scheduling is computed at query time. Three goroutines outlive the call that starts them: the listener in `main`, and in `internal/jobs` the queue's worker and the log's writer. Each of those two is started by the call that hands it work — a press that queues a job, a line that needs writing — and exits when there is none. The clocks the binary does hold each bound a wait (a retry's backoff while SQLite's lock is held, shutdown's budget), and none of them starts anything.
 
-**Why.** Idle CPU has to be approximately zero on a box with a hundred neighbours, and a timer is the one thing that cannot be. `Developing.md` states it as a rejection criterion: "If a change needs something to wake up on its own, that is a design discussion before it is a patch."
+**Why.** Idle CPU has to be approximately zero on a box with a hundred neighbours, and a timer is the one thing that cannot be. `Developing.md` states it as a rejection criterion: "If a change needs something to wake up on its own, that is a design discussion before it is a patch." A worker that exists only while a job waits costs nothing while nothing does, which is the property this line was drawn to protect; a worker that waited for work for the life of the process would not.
 
-**Instead of.** A cleanup cron for expired sessions — rejected in the plan itself ("no cleanup cron"). Litestream for continuous backup — rejected for constant background CPU; nightly `VACUUM INTO` from the host's own cron is the answer instead, which is the user's timer and not mine.
+**Instead of.** A cleanup cron for expired sessions — rejected in the plan itself ("no cleanup cron"). Litestream for continuous backup — rejected for constant background CPU; nightly `VACUUM INTO` from the host's own cron is the answer instead, which is the user's timer and not mine. A pool of workers, or one worker parked on a channel from boot to shutdown, for the jobs (§18).
 
-**Approved.** I signed this off as a hard line rather than a default, which is why it appears in the contributing guide as grounds for rejecting a patch.
+**Reversal.** Partly, in 3.1.0. This entry was *"No background jobs, pollers, tickers or cron — cleanup and scheduling run on read"*, and it said "the only goroutine in `main` is the listener". I asked for the routines a reader starts to run on the server, so that they survive leaving the screen, and reworded the invariant for it, verbatim: *"nothing runs unless a person or the app's own lookup started it, and nothing wakes on a timer."* So background jobs exist now. What did not come back is anything that wakes by itself.
 
-<sub>pre-1.0 — `internal/auth/auth.go` · `docs/wiki/Design-decisions.md` · `Developing.md` · `README.md`</sub>
+**Approved.** I signed this off as a hard line rather than a default, which is why it appears in the contributing guide as grounds for rejecting a patch. The rewording is mine word for word, and it keeps the line where it was always drawn: at the clock.
+
+<sub>pre-1.0; reworded 3.1.0 — `internal/auth/auth.go` · `internal/jobs/doc.go` · `docs/wiki/Design-decisions.md` · `Developing.md` · `README.md`</sub>
 
 ### Pure-Go SQLite (modernc) over CGo mattn, buying `CGO_ENABLED=0` at ~1.5–2× per-query CPU
 
@@ -201,15 +203,17 @@ Everything downstream answers to one fact: this runs on a low-powered NAS alread
 
 <sub>pre-1.0 — `web/frontend/src/flow.jsx` · `docs/wiki/Design-decisions.md`</sub>
 
-### Tippani never contacts the network on its own — every outbound call is one you triggered
+### Tippani looks outward only when a person or the app's own lookup asks, and every call is a line in a log
 
-**Decided.** There is no scheduled or ambient outbound traffic. Metadata lookups (Google Books, Open Library, TMDB, TheTVDB, Wikidata) run when you ask for them; the GitHub release check runs only when an admin presses the button. Cover and portrait fetches go through a host allowlist behind an SSRF guard and are then served from local disk, never hotlinked.
+**Decided.** There is no scheduled or ambient outbound traffic. Metadata lookups (Google Books, Open Library, TMDB, TheTVDB, Wikidata) run when somebody asks for them — a search in Add, a Fetch, a save with a cover address, a fill, a re-verify — and the GitHub release check runs only when an admin presses the button. Pushover is told only what a reader set it up to hear: a long run of theirs finishing, and the daily deck, which `tippani notify daily` sends when the host's cron runs it. The app's own lookups are the ones a screen makes for what it is about to draw: a work page asks for the portraits and character pictures it has no file for. Cover and portrait fetches go through a host allowlist behind an SSRF guard and are then served from local disk, never hotlinked. **Every call that leaves is a line in a log** — method, host, path and query, then what came back, and no key in it — in the job that made it, or in the system log, tagged `[outbound]`, when no job did. `TIPPANI_OFFLINE` refuses them all except sign-in to the operator's own provider, and a refusal is logged like a call.
 
-**Why.** It follows from the no-background-jobs rule, and it is also the honest reading of "self-hosted". A CSP of `default-src 'self'` with nothing external is what makes it checkable from the browser side rather than only from the source.
+**Why.** It follows from the rule that nothing wakes on a timer, and it is also the honest reading of "self-hosted". A CSP of `default-src 'self'` with nothing external is what makes it checkable from the browser side, and since 3.1.0 the log makes it checkable from the server side: an operator who wants to know what left the box reads it, rather than trusting this entry.
 
-**Approved.** I approved this and I approved saying it plainly in `How-this-was-written.md` rather than leaving it to be inferred from the absence of code.
+**Reversal.** In wording, in 3.1.0, and the wording had been wrong for a while before that. This entry was *"Tippani never contacts the network on its own — every outbound call is one you triggered"*. A work page had been fetching faces nobody pressed for since 2.2.4, from the browser; 3.1.0 moved that onto the server as one request and made it, like every other call, a line somebody can read. "One you triggered" had stopped being true without anybody deciding it should.
 
-<sub>pre-1.0 — `How-this-was-written.md` · `README.md` · `docs/wiki/Design-decisions.md`</sub>
+**Approved.** I approved this and I approved saying it plainly in `How-this-was-written.md` rather than leaving it to be inferred from the absence of code. The rewording is mine, and it is narrower than it looks: the app may look for what is on a screen somebody opened, and for nothing else.
+
+<sub>pre-1.0; reworded 3.1.0 — `How-this-was-written.md` · `README.md` · `internal/outbound/outbound.go` · `internal/jobs/outbound.go`</sub>
 
 ### No AI at runtime: not disabled by default, not present
 
@@ -445,23 +449,29 @@ Per-user isolation is treated as a security property, not a layout convenience, 
 
 SQLite is the whole persistence story here, so its pragmas, its lock ordering and its inability to alter a constraint shape more decisions than any other single component. This section also holds the concurrency misdiagnosis that took me two releases to correct, and the plan for making deletion recoverable without a soft-delete flag.
 
-### WAL with `synchronous=FULL`, superseding the planned `NORMAL`
+### WAL with `synchronous=FULL` for the library, and one `NORMAL` connection for the logs
 
-**Decided.** I open the database with `journal_mode(WAL)` and `synchronous(FULL)`. PLAN §8 specified `NORMAL`, and I was wrong: in WAL mode `NORMAL` only fsyncs at checkpoint, so an unclean stop — `docker stop` escalating to SIGKILL, or a volume that does not guarantee fsync ordering — can leave a torn WAL that surfaces later as `database disk image is malformed`. `FULL` fsyncs the WAL on every commit and closes that window. Write volume here is low (imports, edits, never a hot path), so the extra fsync is negligible against the corruption it prevents. I approved this the day I finished reading the corruption postmortem.
+**Decided.** I open the database with `journal_mode(WAL)` and `synchronous(FULL)`. PLAN §8 specified `NORMAL`, and I was wrong: in WAL mode `NORMAL` only fsyncs at checkpoint, so an unclean stop — `docker stop` escalating to SIGKILL, or a volume that does not guarantee fsync ordering — can leave a torn WAL that surfaces later as `database disk image is malformed`. `FULL` fsyncs the WAL on every commit and closes that window. Write volume here is low (imports, edits, never a hot path), so the extra fsync is negligible against the corruption it prevents. I approved this the day I finished reading the corruption postmortem. **Since 3.1.0 one connection is the exception**: `Store.LogDB`, the same file and DSN at `synchronous(NORMAL)`, one connection, written only by the logbook — the system log, every job's lines, the rows of the jobs that ran inside a request, and the prune that ages them out. Library writes, and the rows of queued jobs, stay on the `FULL` pool.
 
-**Instead of.** `synchronous=NORMAL`, as planned, on the argument that WAL is crash-safe anyway. It is, against a process crash; not against a volume that reorders.
+**Why the exception is safe.** `synchronous` is a property of the connection, not of the file. A `FULL` commit fsyncs the WAL up to its own frame, and the `NORMAL` frames written before it are in that WAL, so they are made durable by the next library write for free. What a crash can cost is the last log batches written after the last library commit — lines about the seconds before the crash, whose first copy went to `docker logs` anyway. Logging every request is the one hot write path this app has, and under `FULL` it would be a disk sync per request.
 
-**Reversal.** This entry *is* a reversal of the plan. §8 now records the supersession in place rather than quietly reading as if it were built.
+**Instead of.** `synchronous=NORMAL`, as planned, on the argument that WAL is crash-safe anyway. It is, against a process crash; not against a volume that reorders. For the logs: the library pool at `FULL`, which is the sync per request the owner ruled out, and a second database file, which a backup, a restore and a factory reset would each have to learn about.
 
-<sub>0.6.4 — `internal/store/store.go` · `docs/wiki/Design-decisions.md`</sub>
+**Reversal.** This entry *is* a reversal of the plan. §8 now records the supersession in place rather than quietly reading as if it were built. **And 3.1.0 reverses it in part**, on the owner's ruling for the release: *"system logs written on their own database connection at synchronous=NORMAL, so logging every request doesn't cost a disk sync each time."* The argument above still holds for everything a reader would miss; it never held for a log line.
 
-### Graceful shutdown drains, then checkpoints the WAL
+<sub>0.6.4; the log connection 3.1.0 — `internal/store/store.go` · `internal/jobs/logbook.go` · `docs/wiki/Design-decisions.md`</sub>
 
-**Decided.** On `SIGTERM` or interrupt the server drains in-flight requests with a 5-second `http.Server.Shutdown` context, then runs `PRAGMA wal_checkpoint(TRUNCATE)` to fold the log back into the main file before the deferred `Close` runs. Docker's default stop grace is around ten seconds, so the whole sequence finishes well before SIGKILL. Without the handler the Go runtime terminates immediately, the deferred close never runs, and an unclean kill has a live WAL to tear. The checkpoint is best-effort — a busy checkpoint is logged as `TIP-STORE-005` and not treated as fatal, because the WAL is still valid and replays on reopen. My call, made in the same pass as the `FULL` change and for the same reason.
+### Graceful shutdown stops the queue, drains, keeps the last lines, then checkpoints the WAL — inside one nine-second budget
 
-**Instead of.** Relying on WAL replay alone; rejected because replay is the recovery path, not the design.
+**Decided.** On `SIGTERM` or interrupt, `shutdown` runs six steps in this order. **The queue** refuses new jobs and asks the running one to stop after the item in hand; after 3 s its context is cancelled, so its outward calls abort, and after 1 s more a job still not back is marked interrupted, as are the ones waiting (those two writes wait at most half a second for the lock, and a row they could not settle is interrupted by the next start). **The requests** get 4 s through `http.Server.Shutdown`, then their connections are closed. **The logbook** gets 1 s to write what those two steps logged and then closes, so a line logged after it (the checkpoint's own) goes to the terminal alone. **The log connection** closes, or is left to close itself if a write is still waiting on the lock after 1 s. **The checkpoint**, `PRAGMA wal_checkpoint(TRUNCATE)`, waits at most 2 s for a writer and then folds back what it can without it. **Both pools** close within what is left and 0.7 s more, and the process exits whether they did or not. Every step takes its own budget or what is left of nine seconds from the signal, whichever is less, and the checkpoint always runs. The checkpoint is best-effort — a busy one is logged as `TIP-STORE-005` with how many frames it folded back, and not treated as fatal, because the WAL is still valid and replays on reopen. My call, made in the same pass as the `FULL` change and for the same reason.
 
-<sub>0.6.4 — `cmd/tippani/main.go` · `internal/store/store.go`</sub>
+**Why this order, and why one deadline.** The job goes first because it is the longest thing running and the only one that writes for minutes, and its end should be recorded while the database is open. The log closes before its pool so nothing writes into a closed connection, and before the checkpoint so nothing lands in the WAL behind it. The single deadline is there because the steps' own budgets add up to more than Docker's ten-second grace once something holds SQLite's lock: each of the queue's last two writes and the log's last write would wait out `busy_timeout` (5 s), and a context does not bound that wait on this driver — measured — so the bound is SQLite's own, a shortened `busy_timeout` on one pinned connection (`WithLockWait`).
+
+**Instead of.** Relying on WAL replay alone; rejected because replay is the recovery path, not the design. A deferred `st.Close` after the checkpoint, which is what 0.6.4 shipped and which could wait on a stuck statement with no bound. `ExecContext` under the remaining budget, which the review proposed and the driver ignores while SQLite waits on the lock.
+
+**Reversal.** In part, in 3.1.0. The entry was *"Graceful shutdown drains, then checkpoints the WAL"*: a 5-second `Shutdown`, then the checkpoint, then the deferred `Close`. The queue and the log connection added three steps before the checkpoint and a way for each to overrun, which is why the budget became one.
+
+<sub>0.6.4; the six steps and the budget 3.1.0 — `cmd/tippani/main.go` · `internal/store/store.go` · `internal/store/busy.go` · `internal/jobs/runner.go`</sub>
 
 ### One transaction per imported file
 
@@ -497,7 +507,9 @@ SQLite is the whole persistence story here, so its pragmas, its lock ordering an
 
 **Instead of.** Dropping to a single connection, which the abandoned single-writer plan implied. It would have serialised readers behind writers on a box whose search is meant to be the fast thing.
 
-<sub>1.3.2 — `internal/store/store.go` · `internal/store/write_lock_test.go`</sub>
+**And a fifth connection, which is not in the pool.** From 3.1.0 the store opens `LogDB` beside it: one connection (`SetMaxOpenConns(1)`) on the same file at `synchronous=NORMAL`, written only by the logbook, its batches and its prune, through `Store.LogWrite`. It takes SQLite's write lock like any writer, so a batch waits behind a library write and a library write behind a batch, each within `busy_timeout`. It does not read: the Jobs tab's lists, a job's poll and the system log all read through the four. One connection is enough because there is one writer, the logbook's single drainer, and it is what lets a file swap reason about the log at all: the swap takes the lock `LogWrite` holds for reading, so the drainer waits out a restore, a recovery or a reset, then writes into whichever file the server is on afterwards.
+
+<sub>1.3.2; the log connection 3.1.0 — `internal/store/store.go` · `internal/store/swap.go` · `internal/store/write_lock_test.go`</sub>
 
 ### The one genuinely read-only transaction is marked `ReadOnly`
 
@@ -4841,9 +4853,9 @@ Backup is a nightly `VACUUM INTO` snapshot with no streaming daemon, and restore
 
 **Instead of.** Raising the global timeouts, which weakens every other route.
 
-**Reversal.** The `MkdirTemp` change reversed an earlier fixed-name scheme.
+**Reversal.** The `MkdirTemp` change reversed an earlier fixed-name scheme. **And in 3.1.0 an upload stopped clearing its read deadline.** An admin's restore holds the job queue from before the upload is read (§18), so a stalled upload — the tab alive, the link dead — froze every reader's queue until the TCP connection died. Each read of the body now moves the read deadline a minute ahead instead: an upload may take as long as it takes, but not stop, and a minute of silence answers 408 and logs `TIP-BACKUP-010`. The deadline is cleared again once the upload is in, because the swap after it can outlive a minute. The onboarding upload shares the path.
 
-<sub>1.4.1 — `internal/httpapi/backup_handlers.go`</sub>
+<sub>1.4.1; the upload's idle deadline 3.1.0 — `internal/httpapi/backup_handlers.go`</sub>
 
 ### Two restore blocks with two confirmations became one control
 
@@ -6581,7 +6593,7 @@ So the folder holds nothing. It is a rendering of a filter — open it and you a
 
 **Why.** The request was "fetch it from git", and the shipped artifact cannot: the image is `distroless/static` with one binary in it, no git and no shell, `.git` and the docs are outside the build context, and the CSP has no `connect-src` so the browser cannot call GitHub either. The two real sources are the embedded file and GitHub's HTTP API.
 
-Embedded wins on the thing this app is actually for. The promise is stated in three places and is load-bearing — "zero background jobs", "nothing external is required to run", and §193's "Tippani never contacts the network on its own", whose own justification is that it is the honest reading of self-hosted. A changelog that is blank on a LAN-only NAS, behind a firewall, or after the update check has spent the hour's 60 unauthenticated GitHub requests is blank in exactly the situation the product optimises for. And a changelog is a fact about the binary you are RUNNING, not about the internet: the embedded copy answers that exactly, forever, offline. Notes for a version you have not installed are a different question, and the card already answers it with a link — which stays.
+Embedded wins on the thing this app is actually for. The promise is stated in three places and is load-bearing — "zero background jobs", "nothing external is required to run", and §1's "Tippani never contacts the network on its own", whose own justification is that it is the honest reading of self-hosted. (That is how §1 read then. 3.1.0 reworded it to say what a screen may fetch for itself, and the argument here never rested on the wording: the case it wins is the offline one.) A changelog that is blank on a LAN-only NAS, behind a firewall, or after the update check has spent the hour's 60 unauthenticated GitHub requests is blank in exactly the situation the product optimises for. And a changelog is a fact about the binary you are RUNNING, not about the internet: the embedded copy answers that exactly, forever, offline. Notes for a version you have not installed are a different question, and the card already answers it with a link — which stays.
 
 **The copy was the cost, and at 3.0.2 it is gone.** `//go:embed` cannot reach outside its package, and there was no Go package at the repo root, so `internal/changelog` kept a byte-identical copy beside itself, with a drift test, `make changelog` and a release-checklist step to hold the two together. The owner, at 3.0.2: *"why are there two changelogs? there should be only one"*. The root is a package now (`changelog.go`, package `tippani`), it embeds `CHANGELOG.md`, and `internal/changelog` reads it from there. The copy, the drift test, the make target, the checklist step and the entry script's second write are gone. `.dockerignore` excludes root Markdown, so `CHANGELOG.md` is named as its one exception, because the image build compiles the root package.
 
@@ -6841,7 +6853,7 @@ were nothing but this rule applied to text that had accumulated.
 
 **Why roles rather than fonts.** A role is what the font is FOR, so swapping one is a line in `fonts.js` and not a search for every place a family name was written down. It is also the only way the picker can say anything useful: a list that sets "the quick brown fox" in every face answers no question anybody has, and it cannot show the Bengali row at all, whose whole point is a script no specimen sentence contains.
 
-**Bundled, not fetched, and the cost is stated.** This app never contacts the network on its own, and a type picker that loaded Google Fonts would be the first thing in it that did — on a screen about how your own words look. `web/dist` goes from 3.4 MB to 7.2 MB. What grows is the image on disk, not what a browser downloads: `@fontsource` splits every face by `unicode-range`, so a subset is fetched only when a codepoint in its range is drawn. All eighteen families are OFL-1.1.
+**Bundled, not fetched, and the cost is stated.** This app's browser talks to nobody but its own server, and a type picker that loaded Google Fonts would be the first thing in it that did — on a screen about how your own words look. `web/dist` goes from 3.4 MB to 7.2 MB. What grows is the image on disk, not what a browser downloads: `@fontsource` splits every face by `unicode-range`, so a subset is fetched only when a codepoint in its range is drawn. All eighteen families are OFL-1.1.
 
 **An unrecognised token falls back to the built-in, never to nothing.** A preference that fails to resolve must not leave the app with no font: that is indistinguishable from a broken stylesheet, and it is silent.
 
@@ -7103,13 +7115,15 @@ stderr: the access line goes through the standard logger.
 
 <sub>0.4.6 — `cmd/tippani/main.go` · `internal/store/repair.go`</sub>
 
-### Outbound tracing redacts query-param secrets
+### Outbound tracing redacts query-param secrets, and so does every error a call returns
 
-**Decided.** Every outbound provider call logs at trace level — `[trace] [meta] GET … -> 200 (N bytes)` — and the URL passes through `redactURL` first, which replaces the `api_key` and `key` query parameters with `***`. Those are the TMDB v3 key and the Google Books key, which travel in the query string. The v4 TMDB token and the TVDB JWT travel in the `Authorization` header and so are structurally absent from a trace — not redacted, absent, which is the stronger property and the reason I prefer header auth where a provider offers both. `redactURL` is best-effort: an unparseable URL is returned as-is, and a URL with nothing to hide is returned byte-for-byte rather than round-tripped through the query encoder. Tracing itself is a no-op unless `TIPPANI_LOG_LEVEL=debug`. I approved the redaction and the no-op gate together, because a trace that is expensive is a trace nobody turns on.
+**Decided.** Every outbound provider call logs at trace level — `[trace] [meta] GET … -> 200 (N bytes)` — and the URL passes through `outbound.Redact` first, which replaces the value of every query or fragment parameter on one list with `…` and drops any `user:password@`. The list is twenty-two names: `key` and `api_key` (the Google Books and TMDB v3 keys, the only two providers here that put a credential in the query string), the other common spellings of a key, a token, a secret, a password, a signature, `auth` and `code`, and the S3 and Google Cloud Storage presign names, for a cover address a reader pastes in. The v4 TMDB token and the TVDB JWT travel in the `Authorization` header and so are structurally absent from a trace — not redacted, absent, which is the stronger property and the reason I prefer header auth where a provider offers both. `Redact` works on the text rather than through `url.Parse`, so a URL too broken to parse is still redacted, and everything but the hidden values stays byte for byte. **And the error a failed call returns is redacted where the client makes it** (`outbound.RedactError`, in `httpGet`, `httpPost` and the other clients that call out): Go's `*url.Error` quotes the whole URL, and that text went on up to handlers that printed it and to 502 messages that showed it. Tracing itself is a no-op unless `TIPPANI_LOG_LEVEL=debug`. I approved the redaction and the no-op gate together, because a trace that is expensive is a trace nobody turns on.
 
-**Instead of.** Logging the URL whole at debug level, on the theory that debug logs are private. They end up in bug reports.
+**Instead of.** Logging the URL whole at debug level, on the theory that debug logs are private. They end up in bug reports. Redacting in the handlers that print a failed call's error: there are dozens, and the next one would be written without it.
 
-<sub>0.6.4 — `internal/metadata/metadata.go` · `internal/olog/olog.go`</sub>
+**Reversal.** In 3.1.0. This entry described `redactURL`, which knew two names, masked them as `***` by re-encoding the query, and returned an unparseable URL as it was. Logs kept for thirty days and exported for somebody else to read made a second, longer list necessary, and two lists of secret names had already grown apart; `redactURL` went and `outbound.Redact` is the one list, used by the trace, by the log's own door (§18) and by the error text.
+
+<sub>0.6.4; one list 3.1.0 — `internal/outbound/redact.go` · `internal/metadata/metadata.go` · `internal/olog/olog.go`</sub>
 
 ### The container healthcheck is the binary probing its own loopback port
 
@@ -12130,7 +12144,7 @@ links with anyway. And the scope value is `quotes`, not `utterances`: the struct
 
 ## 18. Jobs and Logs
 
-3.1.0 moved every routine a reader starts off their tab and onto the server, and began keeping the app's log in its own database: each job's lines, the system log, and a job for every request that looked outward, for thirty days, read in Settings › Jobs. The plan that asked for it was `docs/plans/jobs.md`, a task list with my answers of 27 September and the three asks I made as the release began; it is folded in here and deleted, and git has it as it stood at `aae3f761`.
+3.1.0 moved every routine a reader starts off their tab and onto the server, and began keeping the app's log in its own database: each job's lines, the system log, and a job for every request that looked outward, for thirty days, read in Settings › Jobs. The plan that asked for it was `docs/plans/jobs.md`, a task list with my answers of 27 September and the three asks I made as the release began; it is folded in here and deleted, and git has it as it stood at `aae3f761`. Entries elsewhere that it changed are corrected where they stand, each with its reversal: in §1 the line about timers and the one about the network, in §3 the `synchronous` entry, the pool and the shutdown sequence, in §11 the upload's deadline, and in §16 the redaction list.
 
 ### What each of the plan's tasks became
 
@@ -18208,8 +18222,8 @@ of bare divs and `MonoLabel`s: Version, Channel, Make a backup and Restore now e
 their name on the left and their control on the right, as the pack draws them
 (`settings-restructured.dc.html:2749-2759`). The pack's middle backup row — a nightly backup
 — is NOT here, and its absence is recorded rather than faked: it needs something that wakes
-at four in the morning, and this repo's standing invariant is that no goroutine outlives its
-request. See `docs/plans/nightly-backup.md`.
+at four in the morning, and this repo's standing invariant is that nothing wakes on a timer.
+See `docs/plans/nightly-backup.md`.
 
 *Unreleased — `internal/httpapi/review_excluded.go`, `web/frontend/src/Settings.jsx`,
 `web/frontend/src/fonts.js`, `web/frontend/src/fontPicker.jsx`,
@@ -18789,8 +18803,9 @@ wrapper that overwrote `onBlur` would stop them committing with nothing failing.
 **GRAMMAR IS NOT HERE, AND SAYING SO IS THE POINT.** There is no browser primitive —
 `spellcheck` is words against a dictionary. Chrome can do grammar, but only via "enhanced spell
 check", which sends what you type to Google: an outbound call carrying a reader's own quotes,
-in an app whose first invariant is that it never contacts the network on its own. A local
-engine is a real option and a real cost, so it stays the owner's call.
+in an app where nothing leaves the box unless a person or a screen they opened asked for it,
+and where a call the browser made by itself would not even reach the log. A local engine is a
+real option and a real cost, so it stays the owner's call.
 
 **AND THE SWEEP FOUND THE THIRTEENTH FIELD.** Twelve were wired by hand across four add
 surfaces; `prose-fields-are-checked.test.js` derives the list from the BINDING — a box bound to
@@ -19578,8 +19593,8 @@ no miss since, which is where "start new lines at Mastered" puts a line; the wor
 thing in the app. Both are earned by answering the quiz in `TestWidgetReportsTheFourNumbers`.
 Mutation: dropping the rung and lapse conditions from the mastered query reports 2 for 1.
 
-**The daily message has no timer in the app.** The approved decision "No background jobs,
-pollers, tickers or cron" settles it — the host's cron is "the user's timer and not mine": `tippani notify daily` is run by
+**The daily message has no timer in the app.** The approved decision *Nothing wakes on a
+timer* (§1) settles it — the host's cron is "the user's timer and not mine": `tippani notify daily` is run by
 the host's cron, and `notify_settings.last_daily_day` makes a cron that fires twice send once.
 It counts the deck with `dailyDeck`, the function `GET /review/daily` now calls, so the phone
 and the screen cannot disagree about how many cards wait. Mutation: removing the
