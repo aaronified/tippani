@@ -181,6 +181,20 @@ describe('the backup, as a job', () => {
     expect(screen.getByRole('button', { name: /Back up now/ }).disabled).toBe(false)
   })
 
+  // LIVE FROM THE PRESS: between the start's answer and the card's first read of
+  // the job there is an id and no job to draw, and a Back up now that came back
+  // for that beat invites a second backup behind the first. The beat is held open.
+  it('stays busy between the start and the first read of its job', async () => {
+    JOBS.hold('backup')
+    JOBS.hangRead(2)
+    await card()
+    await makeOne()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Back up' })).toBeNull())
+    await waitFor(() => expect(JOBS.reads(100)).toBe(2))
+    expect(screen.queryByRole('button', { name: /Back up now/ }), 'Back up now came back before its job was read').toBeNull()
+    expect(screen.getByRole('button', { name: /Backing up/ }).disabled).toBe(true)
+  })
+
   it('says where it stands while it waits behind another job', async () => {
     JOBS.plan('backup', { queued: true, ahead: 1 })
     JOBS.hold('backup')

@@ -30,6 +30,8 @@ export function jobsServer({ own = true } = {}) {
   const held = new Set() // kinds whose next job stays running
   const refusals = [] // the next POST /jobs answers, in order: [status, data, starts to let through first]
   const calls = [] // every request this server answered: [method, path, body]
+  const reads = new Map() // job id → how many times GET /jobs/{id} has been asked
+  let hung = 0 // which read of a job is accepted and never answered (1-based); 0, none
   let next = 100
 
   const job = (over) => ({
@@ -108,7 +110,12 @@ export function jobsServer({ own = true } = {}) {
       const one = /^\/jobs\/(\d+)(\/result|\/stop)?$/.exec(p)
       const j = one && jobs.get(Number(one[1]))
       if (one && !j) a = { ok: false, status: 404, data: { error: 'job not found' } }
-      else if (one && method === 'GET' && !one[2]) a = ok({ job: { ...j }, lines: [], more: false })
+      else if (one && method === 'GET' && !one[2]) {
+        const n = (reads.get(j.id) || 0) + 1
+        reads.set(j.id, n)
+        // An open socket: nothing comes back, and a caller awaiting it waits.
+        a = n === hung ? new Promise(() => {}) : ok({ job: { ...j }, lines: [], more: false })
+      }
       else if (one && method === 'GET' && one[2] === '/result') a = ok({ kind: j.kind, result: results.has(j.id) ? results.get(j.id) : null })
       else if (one && method === 'POST' && one[2] === '/stop') {
         if (j.state === 'queued') finish(j.id, { state: 'stopped' })
@@ -133,5 +140,9 @@ export function jobsServer({ own = true } = {}) {
     // `after` lets that many starts through first — the second piece of a big set
     // refused while the first runs.
     refuse: (status, data, { after = 0 } = {}) => refusals.push([status, data, after]),
+    // The n-th read of every job goes unanswered — the beat between a start's own
+    // read of its job and a watcher's first, held open.
+    hangRead: (n) => { hung = n },
+    reads: (id) => reads.get(id) || 0,
   }
 }

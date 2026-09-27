@@ -119,6 +119,20 @@ describe('fetching covers, as a job', () => {
     expect(fetchButton().disabled).toBe(false)
   })
 
+  // LIVE FROM THE PRESS, NOT FROM THE FIRST POLL. Between the start's answer and
+  // the screen's first read of the job there is an id and no job to draw; a Fetch
+  // that came back for that beat invites the second press that queues the same
+  // work twice. The beat is held open here — the screen's first read never answers.
+  it('keeps Fetch held between the start and the first read of its job', async () => {
+    JOBS.hold('covers')
+    JOBS.hangRead(2)
+    await mount()
+    fireEvent.click(fetchButton())
+    await waitFor(() => expect(JOBS.reads(100)).toBe(2))
+    await act(async () => {})
+    expect(fetchButton().disabled, 'Fetch came back before its job was read').toBe(true)
+  })
+
   // A FETCH STARTED ELSEWHERE IS THE SAME FETCH. The screen looks when it opens,
   // and a second press would only have queued the same work behind the first.
   it('draws a fetch already running when the screen opens, and does not start another', async () => {
@@ -219,6 +233,16 @@ describe('fetching what People is missing, as a job', () => {
     } finally {
       JOB_CAPS.people = cap
     }
+  })
+
+  it('keeps Fetch missing held between the start and the first read of its job', async () => {
+    JOBS.hold('people')
+    JOBS.hangRead(2)
+    await people()
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch missing (2)' }))
+    await waitFor(() => expect(JOBS.reads(100)).toBe(2))
+    await act(async () => {})
+    expect(fetchMissing().disabled, 'Fetch missing came back before its job was read').toBe(true)
   })
 
   it('draws a people fetch already running when the console opens, and starts no other', async () => {
