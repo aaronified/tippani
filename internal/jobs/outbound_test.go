@@ -28,7 +28,8 @@ import (
 // What each one guards, in a sentence a person would say: a job that looked
 // something up shows what it asked and what came back, without the key; a lookup
 // made in a request is kept as a job with that same line; a call nobody's job made
-// is still in the system log; and a call the offline switch refused says so.
+// is still in the system log; and a call a provider refused, one nothing answered
+// and one the offline switch refused are each a warning that says which.
 
 const probeKey = "tmdbV3probeKey0123456789abcdef"
 
@@ -153,10 +154,24 @@ func TestACallNobodysJobMadeIsInTheSystemLogAndARefusalSaysSo(t *testing.T) {
 	observing(t, lb)
 	srv := provider(t)
 	host := strings.TrimPrefix(srv.URL, "http://")
+	// A provider having a bad day, and one that is not there at all: a port
+	// that was free a moment ago, so nothing answers on it.
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "try again later", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(down.Close)
+	gone := httptest.NewServer(http.NotFoundHandler())
+	gone.Close()
 
 	t.Setenv(outbound.EnvVar, "")
 	if err := search(context.Background(), srv.URL); err != nil {
 		t.Fatal(err)
+	}
+	if err := search(context.Background(), down.URL); err != nil {
+		t.Fatal(err)
+	}
+	if err := search(context.Background(), gone.URL); err == nil {
+		t.Fatal("a call to a closed port was answered")
 	}
 	t.Setenv(outbound.EnvVar, "1")
 	if err := search(context.Background(), srv.URL); err == nil {
@@ -165,16 +180,27 @@ func TestACallNobodysJobMadeIsInTheSystemLogAndARefusalSaysSo(t *testing.T) {
 	flush(t, lb)
 
 	lines := strings1(t, st.DB, `SELECT level || ' ' || line FROM system_logs ORDER BY id`)
-	if len(lines) != 2 {
-		t.Fatalf("two calls, and the system log holds %d lines: %q", len(lines), lines)
+	if len(lines) != 4 {
+		t.Fatalf("four calls, and the system log holds %d lines: %q", len(lines), lines)
 	}
 	went := "info [outbound] GET " + host + "/3/search/movie?query=Dune&api_key=… → 200 · "
 	if !strings.HasPrefix(lines[0], went) {
 		t.Errorf("the call that went out: %q, want %q…", lines[0], went)
 	}
+	// An answer of 400 or worse is a warning: the lookup did not get what it
+	// asked for, even though the call itself worked.
+	failed := "warn [outbound] GET " + strings.TrimPrefix(down.URL, "http://") + "/3/search/movie?query=Dune&api_key=… → 503 · "
+	if !strings.HasPrefix(lines[1], failed) {
+		t.Errorf("the call a provider answered 503: %q, want %q…", lines[1], failed)
+	}
+	// A call that never got an answer says why, in the transport's words.
+	broke := "warn [outbound] GET " + strings.TrimPrefix(gone.URL, "http://") + "/3/search/movie?query=Dune&api_key=… → error: "
+	if !strings.HasPrefix(lines[2], broke) || len(lines[2]) == len(broke) {
+		t.Errorf("the call nothing answered: %q, want %q and the reason", lines[2], broke)
+	}
 	refused := "warn [outbound] GET " + host + "/3/search/movie?query=Dune&api_key=… → refused (offline)"
-	if lines[1] != refused {
-		t.Errorf("the refused call: %q, want %q", lines[1], refused)
+	if lines[3] != refused {
+		t.Errorf("the refused call: %q, want %q", lines[3], refused)
 	}
 	if n := count(t, st.DB, `SELECT count(*) FROM jobs`); n != 0 {
 		t.Errorf("a call with no job or request made %d job(s)", n)
