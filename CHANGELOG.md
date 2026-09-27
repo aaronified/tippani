@@ -12,12 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Settings → Jobs, a new section for what Tippani is doing on your behalf.** Current
   jobs shows what is running right now, with a live log that follows along, and a
   waiting job says how many are ahead of it. Past jobs keeps every job that has finished
-  — its outcome, how long it took, its own log to export, and a Run again button. An
-  admin also gets System logs: every line Tippani writes, filtered by level, a time
-  range (the last hour, day, week or 30 days) and a keyword, exported as Markdown either
-  way — just what the filters currently show, or everything kept. On a phone, the
-  Settings index carries a Jobs tile with how many jobs are waiting and a red Stop all,
-  which asks first and says what it is about to stop.
+  — its outcome, how long it took and its own log to export — and offers Run again on a
+  fill, fetch, re-verify or backup you started. An admin also gets System logs: every
+  line Tippani writes, filtered by level, a time range (the last hour, day, week or 30
+  days) and a keyword, exported as Markdown either way — just what the filters currently
+  show, or everything kept. On a phone, the Settings index carries a Jobs tile with how
+  many jobs are waiting and a red Stop all, which asks first and says what it is about
+  to stop.
 - **Fill gaps, Fetch covers, People's Fetch missing, a re-verify's check and its Apply,
   and Back up now all run on the server now**, so they keep going if you leave the
   screen or close the tab, and you can check on them later from Settings → Jobs. Only
@@ -43,25 +44,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **People's Fetch, and Fetch missing, now do the whole job on the server**: resolving
   the record, downloading the portrait, and folding any newly found links into the ones
   already saved, in a single step.
-- **A re-verify checks at most 500 works at a time, and says so before it starts.** In
-  3.0.4 the browser checked any number of works in chunks with no limit; because a
-  re-verify's findings are reviewed as one, a larger selection now takes its first 500
-  and asks you to narrow the rest.
-- **Fill gaps and People's Fetch missing send a selection over 2,000 works as
-  consecutive jobs**, queued one after another, instead of one open-ended run in the
-  browser.
+- **A re-verify checks at most 500 works and people at a time, and says so before it
+  starts.** In 3.0.4 the browser checked any number of them in chunks with no limit;
+  because a re-verify's findings are reviewed as one, a larger selection now takes its
+  first 500 and asks you to narrow the rest.
+- **Fill gaps sends a selection over 2,000 works, and People's Fetch missing over 2,000
+  people, as consecutive jobs**, queued one after another, instead of one open-ended run
+  in the browser.
 
 ### Fixed
 
-- **Re-verifying a person, or fetching their details again, no longer erases the names
-  you gave your own links.** The fold that merges freshly found links into the ones you
-  saved used to split the whole field on whitespace, so a line such as
-  `https://example.org | My favourite` came back with the name gone; it is fixed,
-  including for an address with a bare `%` in it, such as a sale page's URL.
-- **Fetch covers' progress bar no longer fills before a single film poster is fetched.**
-  The pass (Metadata → Fetch covers) counted the films it had not reached yet, from the
-  last book's position, as already done, so the bar could read complete before any
-  poster arrived.
+- **Re-verifying a person no longer erases the names you gave your own links.** The
+  fold that merges freshly found links into the ones you saved used to split the whole
+  field on whitespace, so a line such as `https://example.org | My favourite` came back
+  with the name gone; it is fixed, including for an address with a bare `%` in it, such
+  as a sale page's URL.
+- **Metadata's Fetch no longer fills its progress bar before a single film poster is
+  fetched.** The pass counted the films it had not reached yet, from the last book's
+  position, as already done, so the bar could read complete before any poster
+  arrived.
 - **A failed restore's rollback no longer risks your live library.** If moving a file
   aside hit a transient snag partway through (a locked file, a flaky network mount), the
   rollback used to sweep everything left in your data directory — the live database
