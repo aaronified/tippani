@@ -1,9 +1,9 @@
 // The Metadata screen's bulk fetches run on the server, and the screen draws them.
 //
-// WHAT CHANGED IN 3.1.0. The covers fetch walked the library from this tab, one
-// request per chunk, so it lasted exactly as long as the tab did; it is a job on
-// the server's queue now, and the screen's part is to start it, draw its
-// progress while the screen is up, and say what it did when it ends.
+// WHAT CHANGED IN 3.1.0. The covers fetch and the People console's Fetch missing
+// both walked their rows from this tab, so each lasted exactly as long as the tab
+// did; they are jobs on the server's queue now, and the screen's part is to start
+// one, draw its progress while the screen is up, and say what it did when it ends.
 //
 // WHAT A READER SEES AND MAY DO, and so what this file presses:
 //   * Fetch starts one covers fetch, draws how far it has got, and says what it
@@ -11,7 +11,11 @@
 //   * a fetch already running (pressed a minute ago, or on the phone) is drawn
 //     when the screen opens, and Fetch does not start a second;
 //   * the phone's Fetch key asks for missing art only, as it always has;
-//   * a refusal, a failure and a stopped run each say so in words.
+//   * a refusal, a failure and a stopped run each say so in words;
+//   * Fetch missing on People is one job over exactly the rows still missing a
+//     portrait or their reference pages, and the rows are re-read when it ends;
+//   * arriving from the phone's People verb starts that fetch only once both the
+//     rows and the queue have answered — and not at all when one is running.
 //
 // THE NETWORK IS FAKED the way the neighbouring Metadata tests fake it, with the
 // jobs routes answered by test/dom/helpers/jobsServer.js (its header declares
@@ -23,6 +27,7 @@ import { jobsServer } from './helpers/jobsServer.js'
 
 let CALLS
 let JOBS
+let PEOPLE
 let WIDTH = 1280
 
 const book = (id, title) => ({
@@ -40,11 +45,12 @@ vi.mock('../../src/api.js', async (orig) => ({
     if (method === 'GET' && path === '/metadata/library') {
       return { ok: true, data: { books: [book(1, 'A Wizard of Earthsea'), book(2, 'The Dispossessed')], movies: [] } }
     }
+    if (method === 'GET' && path === '/people/records') return { ok: true, data: { people: PEOPLE } }
     return { ok: true, data: { people: [], characters: [], groups: [] } }
   }),
 }))
 
-const { default: MetadataPage } = await import('../../src/MetadataPage.jsx')
+const { default: MetadataPage, PeopleConsole } = await import('../../src/MetadataPage.jsx')
 const { useScreenBarState } = await import('../../src/ui.jsx')
 
 let BAR = { keys: null }
@@ -53,9 +59,21 @@ const Probe = () => {
   return null
 }
 
+// Two records still missing something and one that is complete, so "the rows
+// still missing something" is a set a wrong answer cannot hit by accident.
+const person = (over) => ({
+  id: 1, name: '', sort_name: '', bio: '', image_path: '', born: '', died: '',
+  links: '', source: '', source_id: '', kinds: ['author'], spellings: [], works: 1, quotes: 1, ...over,
+})
+
 beforeEach(() => {
   CALLS = []
   JOBS = jobsServer()
+  PEOPLE = [
+    person({ id: 7, name: 'Ursula K. Le Guin' }),
+    person({ id: 8, name: 'Complete Person', image_path: 'people/c.jpg', links: 'https://www.imdb.com/name/nm0000001/' }),
+    person({ id: 9, name: 'Mikhail Bulgakov', image_path: 'people/mb.jpg' }),
+  ]
   WIDTH = 1280
   localStorage.clear()
   window.matchMedia = (q) => ({
@@ -144,5 +162,66 @@ describe('fetching covers, as a job', () => {
     await mount()
     fireEvent.click(fetchButton())
     expect(await screen.findByText('Stopped · 1 cover fetched/upgraded · 0 details filled', {}, { timeout: 4000 })).toBeTruthy()
+  })
+})
+
+describe('fetching what People is missing, as a job', () => {
+  const people = async (props = {}) => {
+    const flashes = []
+    render(<PeopleConsole onFlash={(m) => flashes.push(m)} onSearch={() => {}} {...props} />)
+    await screen.findByText('Ursula K. Le Guin')
+    return flashes
+  }
+  const fetchMissing = () => screen.getByRole('button', { name: /^Fetch missing/ })
+  const recordReads = () => CALLS.filter(([m, p]) => m === 'GET' && p === '/people/records').length
+
+  it('is one job over exactly the rows still missing something, and re-reads them when it ends', async () => {
+    JOBS.hold('people')
+    const flashes = await people()
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch missing (2)' }))
+    await waitFor(() => expect(JOBS.started()).toEqual([['people', { ids: [7, 9] }]]))
+    expect(await screen.findByRole('progressbar', { name: 'fetching photos & links · 0/2' })).toBeTruthy()
+    expect(fetchMissing().disabled).toBe(true)
+
+    const before = recordReads()
+    const [id] = [...JOBS.jobs.keys()]
+    JOBS.finish(id, { counts: { ok: 1, failed: 1, first_error: 'not found' } })
+    await waitFor(() => expect(flashes).toContain('people: 1 fetched · 1 failed (not found)'), { timeout: 4000 })
+    await waitFor(() => expect(recordReads()).toBeGreaterThan(before))
+  })
+
+  it('draws a people fetch already running when the console opens, and starts no other', async () => {
+    JOBS.add({ kind: 'people', state: 'running', total: 5, done: 2 })
+    await people()
+    expect(await screen.findByRole('progressbar', { name: 'fetching photos & links · 2/5' })).toBeTruthy()
+    expect(fetchMissing().disabled).toBe(true)
+    expect(JOBS.started()).toEqual([])
+  })
+
+  // THE PHONE'S PEOPLE VERB ARRIVES WITH THE FETCH ALREADY ASKED FOR. Fired on
+  // mount it would ask for nobody — the rows are not in yet — and report "0
+  // fetched" about a library full of gaps.
+  it('starts the fetch it arrived with once the rows are in, over the rows that need it', async () => {
+    let arrived = 0
+    await people({ arriveFetching: true, onArrived: () => { arrived += 1 } })
+    await waitFor(() => expect(JOBS.started()).toEqual([['people', { ids: [7, 9] }]]))
+    expect(arrived).toBe(1)
+  })
+
+  it('shows the fetch already running instead, when it arrives with one asked for', async () => {
+    JOBS.add({ kind: 'people', state: 'running', total: 5, done: 1 })
+    let arrived = 0
+    await people({ arriveFetching: true, onArrived: () => { arrived += 1 } })
+    expect(await screen.findByRole('progressbar', { name: 'fetching photos & links · 1/5' })).toBeTruthy()
+    await waitFor(() => expect(arrived).toBe(1))
+    expect(JOBS.started(), 'arriving started a second people fetch behind the first').toEqual([])
+  })
+
+  it('draws the page’s flash from a finished fetch, on the Metadata screen itself', async () => {
+    JOBS.plan('people', { counts: { ok: 2, failed: 0 } })
+    render(<MetadataPage user={ADMIN} section="people" onOpenBook={() => {}} onOpenMovie={() => {}} onSearch={() => {}} />)
+    await screen.findByText('Ursula K. Le Guin')
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch missing (2)' }))
+    expect(await screen.findByText('people: 2 fetched · 0 failed', {}, { timeout: 4000 })).toBeTruthy()
   })
 })

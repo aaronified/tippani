@@ -10,7 +10,7 @@ import { BookLookupPicker, MovieLookupPicker } from './CoverPicker.jsx'
 import { bookState, EditBook } from './Library.jsx'
 import { EditMovie } from './Movies.jsx'
 import { BulkBar, EmptyState, ErrorText, FieldIconButton, GhostButton, HandCard, Card, SectionTitle, IconBooks, IconButton, IconChecks, IconDelete, IconEdit, IconKey, IconLanguages, IconMerge, IconMetadata, IconOpen, IconPerson, IconFetch, IconSearch, IconUsers, InfoDot, MonoLabel, NameInput, NameScroll, normName, MobileSheet, ProgressBar, IconQuote, IconReel, Scroller, Select, splitCommas, toast, Tooltip, PanelHost, usePanelStack, useConfirm, useIsMobileScreen, usePersistedState, useScreenBar, useScreenSearch, IconArrow, IconHighlight, Lightbox, IconRoleActor, IconRoleAuthor, IconRoleDirector, IconRolePublisher, IconRoleSpeaker, IconRoleStudio, IconRoleTranslator, IconNavCatalogue, IconNavMasks, IconNavSources, IconNavTags, IconNavUsers, IconNavWorks, IconNavQuotes, IconNavLibrary, Tally } from './ui.jsx'
-import { personImgURL, ProviderChips, mergeLinks, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
+import { personImgURL, ProviderChips, parseCreditSeps, parseLinks, splitCredits } from './people.jsx'
 import { characterPanel, MergeSheet, personPanel } from './identity.jsx'
 import { ColourCategoriesCard } from './Settings.jsx'
 import { CardHead } from './prefRow.jsx'
@@ -2795,7 +2795,6 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
   const [q, setQ] = useState('')
   useScreenSearch({ key: 'metadata-people', label: t('shell.search.where.people'), onQuery: setQ })
   const [busyID, setBusyID] = useState(0)
-  const [bulk, setBulk] = useState(null) // {done, total} while bulk-fetching
   const [err, setErr] = useState('')
   // {kind, name} captured at click time, for the portrait editor.
   const [face, setFace] = useState(null) // the portrait being shown full screen
@@ -2893,88 +2892,85 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
       .filter((g) => g.length >= 2)
   }, [rows])
 
-  // fetchOne resolves the RIGHT person (book/credits disambiguation), fetches
-  // their portrait and pins the identity via POST /people/portrait, then merges
-  // the identity-resolved links into the row (bio/born untouched). Returns an
-  // error string or null, like the form handlers do.
+  // ONE PERSON'S FETCH IS ONE REQUEST, and the server does all of it: resolve the
+  // RIGHT person (an author from their books, an actor from a film's credits —
+  // the record's own roles say which), fetch the portrait, look up the reference
+  // pages, fold them into the stored links without disturbing a link or a name
+  // the reader added, and save — by the record's id. It was four requests and a
+  // merge written here, and the bulk fetch looped the same four from this tab;
+  // the fold now lives once, on the server, and the bulk fetch is a job that
+  // loops the very same function there.
   //
-  // IT STILL SPEAKS THE (kind, name) LANGUAGE, because the portrait ladder does:
-  // an author is resolved from their books and an actor from a film's credits, and
-  // the record's own roles are what say which. The first role is used, defaulting
-  // to author for a record that carries none — which is most of them, since a role
-  // is derived from a credit and an unreferenced record has no credit.
-  async function fetchOne(p) {
-    const kind = (p.kinds || [])[0] || 'author'
-    const r = await json('POST', '/people/portrait', { kind, name: p.name })
-    if (!r.ok) return errText(r)
-    const cur = r.data.person && r.data.person.id ? r.data.person : null
-    let linksMap = r.data.links && Object.keys(r.data.links).length ? r.data.links : null
-    if (!linksMap) {
-      const l = await json('POST', '/people/lookup', { kind, name: p.name })
-      if (l.ok) linksMap = l.data.links
-    }
-    const merged = mergeLinks(cur?.links ?? p.links, linksMap)
-    if (merged && merged !== (cur?.links ?? p.links ?? '')) {
-      // THE RECORD, BY ID. The old console wrote through PUT /people, which upserts
-      // by (kind, name) and lands on the LOWEST id where two records share a name —
-      // so fetching links for the second of two namesakes wrote them onto the
-      // first. The record endpoint cannot make that mistake.
-      const save = await json('PUT', `/people/id/${p.id}`, { links: merged })
-      if (!save.ok) return errText(save)
-    }
-    return null
-  }
-
+  // IT RUNS IN ITS REQUEST, NOT IN THE QUEUE: a single manual lookup is as fast as
+  // it always was and never waits behind somebody's two-hour fill, and it is still
+  // kept in Settings › Jobs with its log.
   async function fetchRow(p) {
     setBusyID(p.id)
     setErr('')
-    const e = await fetchOne(p)
+    const r = await json('POST', `/people/id/${p.id}/fetch`)
     setBusyID(0)
-    if (e) setErr(t('metadata.people.row.error', { name: p.name, error: e }))
+    if (!r.ok) setErr(t('metadata.people.row.error', { name: p.name, error: errText(r) }))
     load()
   }
 
-  async function fetchMissing() {
-    setErr('')
-    setBulk({ done: 0, total: missing.length })
-    let done = 0
-    let failed = 0
-    let firstErr = ''
-    await runPooled(missing, 2, async (p) => {
-      const e = await fetchOne(p)
-      if (e) {
-        failed++
-        if (!firstErr) firstErr = e
+  // FETCH MISSING IS A JOB ON THE SERVER — every row still missing a portrait or
+  // its reference pages, by id, one at a time behind whatever else is queued. It
+  // outlives this console: a reader can leave, and Settings › Jobs has it with its
+  // log. While the console is up it draws the job's progress, and when the job
+  // ends it says how many were fetched and re-reads the rows the job wrote.
+  //
+  // ONE AT A TIME, AND A SECOND PRESS SHOWS THE FIRST: a people fetch already
+  // running (pressed on the phone, or a minute ago) is drawn instead of starting
+  // another, and the console looks for one when it opens.
+  const peopleJob = useKindJob('people', {
+    onSettled: (job) => {
+      const c = job.counts || {}
+      if (job.state === 'failed') setErr(job.error || t('error.generic'))
+      else {
+        // The joining space is CODE, not the head of a value: the parser trims
+        // both halves of a line, so a value that starts with a space loses it.
+        onFlash(
+          [
+            job.state !== 'succeeded' && jobStateLabel(job.state),
+            t('metadata.people.fetch.flash', { ok: c.ok || 0, failed: c.failed || 0 }) +
+              (c.first_error ? ' ' + t('metadata.people.fetch.flash.reason', { error: c.first_error }) : ''),
+          ].filter(Boolean).join(' · '),
+        )
       }
-      done++
-      setBulk({ done, total: missing.length })
-    })
-    setBulk(null)
-    // The joining space is CODE, not the head of a value: the parser trims both
-    // halves of a line, so a value that starts with a space loses it.
-    onFlash(
-      t('metadata.people.fetch.flash', { ok: done - failed, failed }) +
-        (firstErr ? ' ' + t('metadata.people.fetch.flash.reason', { error: firstErr }) : ''),
-    )
-    load()
+      load()
+    },
+  })
+  const [asking, setAsking] = useState(false)
+  const fetchingAll = asking || peopleJob.live
+  async function fetchMissing() {
+    if (fetchingAll) return
+    setErr('')
+    setAsking(true)
+    const r = await peopleJob.start({ ids: missing.map((p) => p.id) })
+    setAsking(false)
+    if (!r.ok) setErr(r.error)
   }
+  const bulk = peopleJob.live ? peopleJob.job : null
 
   // ARRIVED WITH A FETCH ALREADY ASKED FOR, from the phone index's People verb.
   //
-  // IT WAITS FOR THE ROWS. `missing` is derived from the rows this console has
-  // loaded and filtered, so firing on mount would run over an empty list and
-  // report "0 fetched" about a library full of gaps — the shape of bug where the
-  // screen is right and the answer is wrong. `rows` is null until the read lands.
+  // IT WAITS FOR TWO READS. `missing` is derived from the rows this console has
+  // loaded and filtered, so firing before they land would ask for nobody and
+  // report "0 fetched" about a library full of gaps. And the console's look at
+  // the queue has to have answered too: a fetch already running is the one to
+  // show, and pressing before that answer is how a second one gets queued behind
+  // it.
   //
   // AND IT CLEARS THE INTENT EVEN WHEN THERE IS NOTHING TO FETCH, because the
   // press was answered either way and a held intent would fire on the next visit.
   const fetching = useRef(false)
   useEffect(() => {
-    if (!arriveFetching || fetching.current || !rows) return
+    if (!arriveFetching || fetching.current || !rows || !peopleJob.looked) return
     fetching.current = true
     onArrived?.()
-    if (missing.length > 0) fetchMissing()
-  }, [arriveFetching, rows, missing.length])
+    if (!peopleJob.live && missing.length > 0) fetchMissing()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arriveFetching, rows, peopleJob.looked, missing.length])
 
   return (
     <section className="space-y-3">
@@ -3028,7 +3024,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
                the name a hold or a hover answers with. */
             label={missing.length > 0 ? String(missing.length) : ''}
             keepLabel
-            disabled={!!bulk || missing.length === 0}
+            disabled={fetchingAll || missing.length === 0}
             onClick={fetchMissing}
             ariaLabel={missing.length > 0
               ? t('metadata.people.fetch.count.label', { n: missing.length })
@@ -3039,7 +3035,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
                above — the same act against a different kind of row. */
             <IconButton
               icon={<IconFetch />}
-              disabled={!!bulk || shown.length === 0}
+              disabled={fetchingAll || shown.length === 0}
               ariaLabel={t('metadata.people.reverify.label')}
               tooltip={t('metadata.people.reverify.tip')}
               onClick={() => onReverify(shown.map((p) => ({ kind: (p.kinds || [])[0] || 'author', name: p.name })))}
@@ -3067,7 +3063,18 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
       )}
       </ConsoleToolbar>
       <ErrorText>{err}</ErrorText>
-      {bulk && <ProgressBar value={bulk.done} max={bulk.total} label={t('metadata.people.fetch.progress', { done: bulk.done, total: bulk.total })} />}
+      {/* THE JOB'S PROGRESS, from the server: the same bar whether this console
+          started the fetch or found it running. A job still in the queue says
+          where it stands. */}
+      {fetchingAll && (
+        <ProgressBar
+          value={bulk?.done || 0}
+          max={bulk?.state === 'running' ? bulk.total || 0 : 0}
+          label={bulk?.state === 'queued'
+            ? jobWaitingText(bulk)
+            : t('metadata.people.fetch.progress', { done: bulk?.done || 0, total: bulk?.total || missing.length })}
+        />
+      )}
       {dupGroups.length > 0 && (
         <div className="space-y-2">
           <MonoLabel>{t('metadata.people.dups.count', { n: dupGroups.length })}</MonoLabel>
@@ -3096,7 +3103,7 @@ export function PeopleConsole({ onFlash, onReverify, onSearch, onOpenWork = null
                 key={p.id}
                 first={i === 0}
                 p={p}
-                busy={busyID === p.id || !!bulk}
+                busy={busyID === p.id || fetchingAll}
                 onOpen={() => stack.open(personPanel(stack, { id: p.id, name: p.name }))}
                 /* THE PICTURE, FULL SCREEN — not a second surface for the record.
                    The owner: "Clicking on it now brings on the person modal. That

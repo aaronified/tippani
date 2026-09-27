@@ -18,10 +18,17 @@
 // this field, so a line carrying one is unambiguously new.
 //
 // WHAT THIS ASKS. That every stored field still reads the way it read before;
-// that a name survives the two functions which REWRITE the whole field (a
-// metadata fetch, and adding a link) — that is where a name would be lost, and it
-// would be lost silently and for good; and that a link with no name is unchanged
-// in every particular, because that is every link in every library today.
+// that a name survives being written back through the one writer — that is where
+// a name would be lost, and it would be lost silently and for good; and that a
+// link with no name is unchanged in every particular, because that is every link
+// in every library today.
+//
+// THE OTHER REWRITE MOVED TO THE SERVER IN 3.1.0. A metadata fetch folds the
+// links it found into the stored field, and that fold was `mergeLinks` here until
+// the People fetch became one request (`POST /people/id/{id}/fetch`) and a job
+// that loops the same Go function. Its two cases — a fetch leaves the reader's
+// names alone, and an unnamed link stays unnamed — belong to the Go fold's own
+// test now, beside the only copy of the fold there is.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW: the paragraphs above, and that `parseLinks`
 // answers `{ known, extra, labels }` — providers by slug, the rest in order, and
@@ -29,7 +36,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { linkLine, mergeLinks, parseLinks } from '../../src/people.jsx'
+import { linkLine, parseLinks } from '../../src/people.jsx'
 
 const IMDB = 'https://www.imdb.com/name/nm0000123/'
 const MINE = 'https://example.org/essays'
@@ -90,24 +97,6 @@ describe('writing one back', () => {
   it('and writes a bare address where there is no name to add', () => {
     expect(linkLine(MINE, '')).toBe(MINE)
     expect(linkLine(MINE, '   ')).toBe(MINE)
-  })
-})
-
-describe('a fetch that rewrites the whole field', () => {
-  it('leaves the names the reader gave alone', () => {
-    // THE LOSS THIS RULES OUT. mergeLinks rebuilds the field from its parts, so a
-    // fetch that did not touch a link would still erase its name — silently, and
-    // for good. It is the same class of loss as the "existing URLs win" rule one
-    // column over.
-    const stored = `${IMDB} | The other one\n${MINE} | Their essays`
-    const after = parseLinks(mergeLinks(stored, { tmdb: 'https://www.themoviedb.org/person/1' }))
-    expect(after.labels[IMDB]).toBe('The other one')
-    expect(after.labels[MINE]).toBe('Their essays')
-    expect(after.known.tmdb, 'the fetched link did not land').toBeTruthy()
-  })
-
-  it('and a link nobody has named stays unnamed rather than gaining an empty one', () => {
-    expect(mergeLinks(`${MINE}`, {})).toBe(MINE)
   })
 })
 

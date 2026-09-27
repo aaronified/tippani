@@ -33,18 +33,16 @@ import { pickFrom } from './helpers/pickFrom.jsx'
 
 let RECORDS
 let CALLS
+let FETCHED // what one record's fetch answers
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
     CALLS.push([method, path, body])
     if (method === 'GET' && path === '/people/records') return { ok: true, data: { people: RECORDS } }
-    // The portrait call answers with the identity it resolved and the reference
-    // pages that came with it — which is what makes the link save below happen at
-    // all, and therefore what the assertion is about.
-    if (method === 'POST' && path === '/people/portrait') {
-      return { ok: true, data: { person: null, links: { imdb: 'nm0000001' } } }
-    }
+    // One record's fetch, which the server does whole since 3.1.0 — the portrait,
+    // the reference pages, the fold into the stored links and the save.
+    if (method === 'POST' && /^\/people\/id\/\d+\/fetch$/.test(path)) return FETCHED
     return { ok: true, data: {} }
   }),
 }))
@@ -59,16 +57,17 @@ const rec = (over) => ({
 
 beforeEach(() => {
   CALLS = []
+  FETCHED = { ok: true, status: 200, data: { person: { id: 2, name: 'Oleg Basilashvili' }, links: { imdb: 'https://www.imdb.com/name/nm0000001/' } } }
   RECORDS = [
     rec({ id: 1, name: 'Mikhail Bulgakov', kinds: ['author'], spellings: ['M. Bulgakov', 'Михаил Булгаков'], works: 12, quotes: 128, image_path: 'people/mb.jpg' }),
     rec({ id: 2, name: 'Oleg Basilashvili', kinds: ['actor'], works: 3, quotes: 41 }),
     // A RECORD IN NO ROLE AT ALL, which is the row the old default hid: nothing
     // credits it, so nothing derives a role for it.
     // PROVIDER LINKS, on the one row no other case drives. They went on Oleg
-    // first and broke the fetch case eight cases down: `fetchOne` skips its PUT
-    // when the links it finds equal the ones already stored, so a record that
-    // HAS links takes a different path through the act that case is about. A
-    // fixture row is shared state.
+    // first and broke the fetch case eight cases down, when the fetch still
+    // skipped its save for links already stored — a record that HAS links took a
+    // different path through the act that case is about. A fixture row is shared
+    // state.
     rec({
       id: 3, name: 'Somebody Nobody Credits', kinds: [], works: 0, quotes: 0,
       links: 'https://www.imdb.com/name/nm0001/\nhttps://www.wikidata.org/wiki/Q123',
@@ -170,20 +169,35 @@ describe('the two doors on a row', () => {
   })
 })
 
-describe('fetching links onto a record', () => {
-  it('writes them by id, never by name', async () => {
+describe('fetching one record', () => {
+  it('asks for that record by its id, and never by name', async () => {
     await mount()
     // BY ITS ACCESSIBLE NAME, NOT BY ITS VISIBLE WORD. The fetch control is a row
     // action glyph now, like the ones on the works console — the word rides its
     // aria-label and its tooltip, which is what a screen reader and a hover both
     // get, and what this line reads.
     act(() => within(row('Oleg Basilashvili')).getByRole('button', { name: /fetch/i }).click())
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/people/portrait')).toBe(true))
     // PUT /people upserts by (kind, name) and lands on the lowest id where two
     // records share one — so fetching for the second of two namesakes wrote onto
-    // the first. The record endpoint cannot make that mistake.
-    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people/id/2')).toBe(true))
+    // the first. The fetch names the record by its id, which cannot make that
+    // mistake, and the server saves what it found onto that record.
+    await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/people/id/2/fetch')).toBe(true))
     expect(CALLS.some(([m, p]) => m === 'PUT' && p === '/people')).toBe(false)
+  })
+
+  it('reads the rows again afterwards, so what it found is on the screen', async () => {
+    await mount()
+    const reads = () => CALLS.filter(([m, p]) => m === 'GET' && p === '/people/records').length
+    const before = reads()
+    act(() => within(row('Oleg Basilashvili')).getByRole('button', { name: /fetch/i }).click())
+    await waitFor(() => expect(reads()).toBeGreaterThan(before))
+  })
+
+  it('says which record could not be fetched, and why', async () => {
+    FETCHED = { ok: false, status: 502, data: { error: 'TMDB did not answer' } }
+    await mount()
+    act(() => within(row('Oleg Basilashvili')).getByRole('button', { name: /fetch/i }).click())
+    expect(await screen.findByText('Oleg Basilashvili: TMDB did not answer')).toBeTruthy()
   })
 })
 
