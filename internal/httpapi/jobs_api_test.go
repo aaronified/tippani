@@ -950,7 +950,30 @@ func TestEveryKindsParamsAreHeldToItsCapAndItsChecks(t *testing.T) {
 	if !bob.job(bobsCheck).Applied || carol.job(carolsCheck).Applied {
 		t.Fatal("applied does not follow the apply that names the check")
 	}
+	// An apply that ended before it finished leaves the check to review again;
+	// one waiting to run, or one that succeeded, does not.
 	stop(bob, apply)
+	if bob.job(bobsCheck).Applied {
+		t.Fatal("a check reads applied after its apply was stopped part-way")
+	}
+	ahead := bob.mustStart("test.fill", map[string]any{"book_ids": []int64{7}})
+	bob.waitJob(ahead.ID, "running")
+	waitingApply := bob.mustStart("test.reverify-apply", map[string]any{"items": many[:1], "from_job": bobsCheck})
+	if !bob.job(bobsCheck).Applied {
+		t.Fatal("a check whose apply is waiting to run does not read applied")
+	}
+	stop(bob, waitingApply)
+	if bob.job(bobsCheck).Applied {
+		t.Fatal("a check reads applied after its apply was stopped before it started")
+	}
+	stop(bob, ahead)
+	applied := bob.mustStart("test.reverify-apply", map[string]any{"items": many[:1], "from_job": bobsCheck})
+	bob.waitJob(applied.ID, "running")
+	q.let()
+	bob.waitJob(applied.ID, "succeeded")
+	if !bob.job(bobsCheck).Applied {
+		t.Fatal("a check does not read applied after its apply succeeded")
+	}
 
 	// covers: an admin's, counted over their own library.
 	refused(bob, "test.covers", map[string]any{"missing_only": true}, 403, "admin")

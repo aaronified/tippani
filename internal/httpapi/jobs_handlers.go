@@ -219,9 +219,19 @@ func (s *Server) activeJobIDs() ([]int64, error) {
 	return ids, rows.Err()
 }
 
-// appliedChecks is which of rows another job names as the one it came from: a
-// re-verify's apply is the only job that names one (from_job, which only its
-// validate accepts), so these are the checks whose review has been applied.
+// appliedChecks is which of rows an apply names as the check it came from, and is
+// applying or has applied: a re-verify's apply is the only job that names one
+// (from_job, which only its validate accepts). Past jobs offers Review only for a
+// check that is not applied.
+//
+// AN APPLY THAT WAITS, RUNS OR SUCCEEDED COUNTS; ONE THAT WAS STOPPED, FAILED OR
+// WAS INTERRUPTED DOES NOT. Counting every apply that named the check took Review
+// away from a check whose apply was stopped before it started, or failed before
+// it wrote anything, though nothing had been applied. Offering Review again after
+// one that ended part-way is safe: the review reads every field as it is now and
+// marks what the apply wrote as changed (reviewReverify), so nothing it wrote is
+// ticked a second time. A waiting apply counts, because Review then would only
+// queue a second apply of the same check behind it.
 func (s *Server) appliedChecks(rows []jobRow) (map[int64]bool, error) {
 	var ids []any
 	for _, j := range rows {
@@ -231,7 +241,8 @@ func (s *Server) appliedChecks(rows []jobRow) (map[int64]bool, error) {
 	if len(ids) == 0 {
 		return out, nil
 	}
-	q := `SELECT DISTINCT from_job FROM jobs WHERE from_job IN (` + placeholders(len(ids)) + `)`
+	q := `SELECT DISTINCT from_job FROM jobs WHERE from_job IN (` + placeholders(len(ids)) + `)
+		AND state IN ('queued', 'running', 'succeeded')`
 	res, err := s.Store.DB.Query(q, ids...)
 	if err != nil {
 		return nil, err
