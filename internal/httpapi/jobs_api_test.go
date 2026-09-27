@@ -44,7 +44,9 @@ import (
 //
 // What each one guards, in a sentence a person would say: a job reads the same
 // on every screen that shows it, field for field; each kind's counts are the ones
-// its screens read, and a count's text keeps no key; one job runs at a time and the
+// its screens read, and a count's text keeps no key; a re-verify's review opened
+// after the library moved shows each field as it is now and marks what changed
+// since the check; one job runs at a time and the
 // rest wait in the order started, each saying how many are ahead of it, anybody's
 // counted and nobody's shown; a reader sees their own jobs only, and an admin
 // sees everybody's under the name each was started as; an admin can stop a
@@ -479,6 +481,112 @@ func TestEachKindsCountsAreTheOnesItsScreensRead(t *testing.T) {
 	j := admin.waitJob(admin.mustStart("test.people-leaky", map[string]any{"ids": []int{9}}).ID, "succeeded")
 	if e, _ := j.Counts["first_error"].(string); !strings.Contains(e, "api.themoviedb.org") || strings.Contains(e, "Wv-SECRET") {
 		t.Fatalf("a people fetch's first error in its counts: %q, want the call without its key", e)
+	}
+}
+
+// A review opened later, from a check that finished before the library moved,
+// shows each field as it is now and marks the ones that changed since the check,
+// so the screen ticks none of them for the reader; the rest read as the check
+// saw them, and everything else the check kept comes back as it was.
+func TestAReviewOpenedLaterShowsEachFieldAsItIsNowAndMarksWhatChanged(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	var check []any // what the check found, set once the rows it is about exist
+	srv.addJobKind(realKind(t, "reverify", "test.reverify", func(_ *Server, _ context.Context, j *jobs.Job) error {
+		return j.SetResult(check)
+	}))
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+
+	id := func(rec *httptest.ResponseRecorder) int64 {
+		return decode[struct {
+			ID int64 `json:"id"`
+		}](t, rec).ID
+	}
+	book := id(bob.mustDo("POST", "/books", map[string]any{"title": "Dune", "author": "Frank Herbert"}, http.StatusCreated))
+	gone := id(bob.mustDo("POST", "/books", map[string]any{"title": "Children of Dune"}, http.StatusCreated))
+	film := id(bob.mustDo("POST", "/movies", map[string]any{"title": "Dune"}, http.StatusCreated))
+	bob.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Frank Herbert"}, http.StatusOK)
+	diff := func(field string, stored, fresh any) map[string]any {
+		return map[string]any{"field": field, "stored": stored, "fresh": fresh}
+	}
+	described := diff("description", "", "A desert planet.")
+	described["alts"] = []any{map[string]any{"source": "google", "value": "A desert planet."},
+		map[string]any{"source": "openlibrary", "value": "Arrakis."}}
+	check = []any{
+		map[string]any{"type": "book", "id": book, "title": "Dune", "status": "ok", "source": "google",
+			"sources": []string{"google", "openlibrary"}, "diffs": []any{
+				described, diff("published_year", 0, 1965), diff("genres", []string{}, []string{"Science Fiction"})}},
+		map[string]any{"type": "movie", "id": film, "title": "Dune", "status": "ok", "diffs": []any{
+			diff("director", "", "Denis Villeneuve"), diff("release_year", 0, 2021)}},
+		map[string]any{"type": "person", "kind": "author", "name": "Frank Herbert", "title": "Frank Herbert", "status": "ok",
+			"diffs": []any{diff("bio", "", "An American author."), diff("born", "", "1920")}},
+		map[string]any{"type": "book", "id": gone, "title": "Children of Dune", "status": "ok", "diffs": []any{
+			diff("description", "", "The third novel.")}},
+		map[string]any{"type": "book", "id": 999999, "status": "not_found", "diffs": []any{}},
+	}
+	job := bob.waitJob(bob.mustStart("test.reverify", map[string]any{"book_ids": []int64{book, gone}, "movie_ids": []int64{film}}).ID, "succeeded")
+
+	// The library moves on after the check: bob writes his own description,
+	// dates the film, writes the author's bio, and deletes a book.
+	bob.mustDo("PUT", fmt.Sprintf("/books/%d", book), map[string]any{"title": "Dune", "author": "Frank Herbert", "description": "My own words."}, http.StatusOK)
+	bob.mustDo("PUT", fmt.Sprintf("/movies/%d", film), map[string]any{"title": "Dune", "release_year": 2021}, http.StatusOK)
+	bob.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Frank Herbert", "bio": "Wrote Dune."}, http.StatusOK)
+	bob.mustDo("DELETE", fmt.Sprintf("/books/%d", gone), nil, http.StatusOK)
+
+	type wireDiff struct {
+		Field   string          `json:"field"`
+		Stored  json.RawMessage `json:"stored"`
+		Fresh   json.RawMessage `json:"fresh"`
+		Alts    []any           `json:"alts"`
+		Changed *bool           `json:"changed"`
+	}
+	res := decode[struct {
+		Kind   string `json:"kind"`
+		Result []struct {
+			Type    string     `json:"type"`
+			Title   string     `json:"title"`
+			Status  string     `json:"status"`
+			Sources []string   `json:"sources"`
+			Diffs   []wireDiff `json:"diffs"`
+		} `json:"result"`
+	}](t, bob.mustDo("GET", fmt.Sprintf("/jobs/%d/result", job.ID), nil, http.StatusOK))
+	if len(res.Result) != 5 {
+		t.Fatalf("the review has %d items, want the check's 5: %+v", len(res.Result), res.Result)
+	}
+	got := map[string]string{}
+	for i, it := range res.Result {
+		for _, d := range it.Diffs {
+			if d.Changed == nil {
+				t.Fatalf("item %d's %s diff carries no changed", i, d.Field)
+			}
+			got[fmt.Sprintf("%d %s", i, d.Field)] = fmt.Sprintf("changed=%t stored=%s", *d.Changed, d.Stored)
+		}
+	}
+	for key, want := range map[string]string{
+		"0 description":    `changed=true stored="My own words."`,
+		"0 published_year": `changed=false stored=0`,
+		"0 genres":         `changed=false stored=[]`,
+		"1 director":       `changed=false stored=""`,
+		"1 release_year":   `changed=true stored=2021`,
+		"2 bio":            `changed=true stored="Wrote Dune."`,
+		"2 born":           `changed=false stored=""`,
+		// Deleted since the check: nothing to read, so never ticked.
+		"3 description": `changed=true stored=""`,
+	} {
+		if got[key] != want {
+			t.Errorf("%s: %s, want %s", key, got[key], want)
+		}
+	}
+	if len(got) != 8 {
+		t.Errorf("the review's diffs: %v", got)
+	}
+	// What the check kept besides comes back as it was.
+	first := res.Result[0]
+	if first.Title != "Dune" || strings.Join(first.Sources, ",") != "google,openlibrary" || len(first.Diffs[0].Alts) != 2 ||
+		string(first.Diffs[0].Fresh) != `"A desert planet."` || res.Result[4].Status != "not_found" {
+		t.Fatalf("the review lost what the check kept: %+v", res.Result)
 	}
 }
 

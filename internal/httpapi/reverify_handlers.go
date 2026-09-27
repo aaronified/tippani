@@ -268,20 +268,38 @@ func reverifyLookupError(what string, err error) string {
 	return "lookup failed — try again in a moment"
 }
 
-func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, domain string, withOffers bool) reverifyItem {
-	it := reverifyItem{Type: "book", ID: id, Status: "ok", Diffs: []fieldDiff{}}
-	var title, author, isbn, asin, googleID, desc, series, cover, rawMeta string
-	var subtitle, publisher string
-	var year, pages int
-	var seriesIdx float64
+// storedBook is a book as a re-verify reads it from the database: what the check
+// compares the suppliers' answers with, and what a review opened later reads
+// again (reviewReverify) to see whether it has changed since.
+type storedBook struct {
+	title, author, isbn, asin, googleID, desc, series, cover string
+	subtitle, publisher                                      string
+	year, pages                                              int
+	seriesIdx                                                float64
+	genres                                                   []string
+}
+
+// readStoredBook reads book id of uid's; sql.ErrNoRows when uid has no such book.
+func (s *Server) readStoredBook(uid, id int64) (storedBook, error) {
+	var b storedBook
 	err := s.Store.DB.QueryRow(`
 		SELECT title, COALESCE(author,''), COALESCE(isbn,''), COALESCE(asin,''), COALESCE(google_id,''),
 		       COALESCE(description,''), COALESCE(published_year,0), COALESCE(series,''),
-		       COALESCE(series_index,0), COALESCE(cover_path,''), COALESCE(source_metadata,''),
+		       COALESCE(series_index,0), COALESCE(cover_path,''),
 		       subtitle, publisher, pages
 		FROM books WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&title, &author, &isbn, &asin, &googleID, &desc, &year, &series, &seriesIdx, &cover, &rawMeta,
-			&subtitle, &publisher, &pages)
+		Scan(&b.title, &b.author, &b.isbn, &b.asin, &b.googleID, &b.desc, &b.year, &b.series, &b.seriesIdx, &b.cover,
+			&b.subtitle, &b.publisher, &b.pages)
+	if err != nil {
+		return b, err
+	}
+	b.genres = s.itemGenreNames("book", id)
+	return b, nil
+}
+
+func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, domain string, withOffers bool) reverifyItem {
+	it := reverifyItem{Type: "book", ID: id, Status: "ok", Diffs: []fieldDiff{}}
+	b, err := s.readStoredBook(uid, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		it.Status = "not_found"
 		return it
@@ -291,8 +309,10 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 		it.Status, it.Error = "fetch_failed", "could not read this book — try again"
 		return it
 	}
+	title, author, isbn, asin, googleID, desc := b.title, b.author, b.isbn, b.asin, b.googleID, b.desc
+	series, cover, subtitle, publisher := b.series, b.cover, b.subtitle, b.publisher
+	year, pages, seriesIdx, genres := b.year, b.pages, b.seriesIdx, b.genres
 	it.Title = title
-	genres := s.itemGenreNames("book", id)
 
 	// Identity ladder — the pinned id decides which live source answers.
 	// (openlibrary_id alone is deliberately not re-checked: OL work records
@@ -485,17 +505,35 @@ func attachBookAlts(diffs []fieldDiff, cands []metadata.BookCandidate) {
 	}
 }
 
-func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB, withOffers bool) reverifyItem {
-	it := reverifyItem{Type: "movie", ID: id, Status: "ok", Diffs: []fieldDiff{}}
-	var title, director, desc, mediaType, series, poster, fandomWiki string
-	var year int
-	var tmdbID, tvdbID int64
+// storedMovie is a film or show as a re-verify reads it (storedBook says why it
+// is its own read). The cast is read apart, by loadCastMembers, which the check
+// and the review share too.
+type storedMovie struct {
+	title, director, desc, mediaType, series, poster, fandomWiki string
+	year                                                         int
+	tmdbID, tvdbID                                               int64
+	genres                                                       []string
+}
+
+// readStoredMovie reads film id of uid's; sql.ErrNoRows when uid has no such film.
+func (s *Server) readStoredMovie(uid, id int64) (storedMovie, error) {
+	var m storedMovie
 	err := s.Store.DB.QueryRow(`
 		SELECT title, COALESCE(director,''), COALESCE(release_year,0), COALESCE(description,''),
 		       COALESCE(media_type,'movie'), COALESCE(series,''), COALESCE(tmdb_id,0), COALESCE(tvdb_id,0),
 		       COALESCE(poster_path,''), COALESCE(fandom_wiki,'')
 		FROM movies WHERE id = ? AND user_id = ?`, id, uid).
-		Scan(&title, &director, &year, &desc, &mediaType, &series, &tmdbID, &tvdbID, &poster, &fandomWiki)
+		Scan(&m.title, &m.director, &m.year, &m.desc, &m.mediaType, &m.series, &m.tmdbID, &m.tvdbID, &m.poster, &m.fandomWiki)
+	if err != nil {
+		return m, err
+	}
+	m.genres = s.itemGenreNames("movie", id)
+	return m, nil
+}
+
+func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB, withOffers bool) reverifyItem {
+	it := reverifyItem{Type: "movie", ID: id, Status: "ok", Diffs: []fieldDiff{}}
+	m, err := s.readStoredMovie(uid, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		it.Status = "not_found"
 		return it
@@ -505,8 +543,9 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 		it.Status, it.Error = "fetch_failed", "could not read this title — try again"
 		return it
 	}
+	title, director, desc, mediaType, series, poster, fandomWiki := m.title, m.director, m.desc, m.mediaType, m.series, m.poster, m.fandomWiki
+	year, tmdbID, tvdbID, genres := m.year, m.tmdbID, m.tvdbID, m.genres
 	it.Title = title
-	genres := s.itemGenreNames("movie", id)
 
 	// EVERY SUPPLIER THIS WORK IS PINNED TO, not just the winning one.
 	//

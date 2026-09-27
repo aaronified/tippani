@@ -118,9 +118,10 @@ var builtinJobKinds = []queuedKind{
 		counts: countsNamed("ok", "failed", "first_error")},
 	// {book_ids, movie_ids, people: [{kind, name}], fills_only}: ask the
 	// suppliers again and keep what they say, for the reader to review. Result:
-	// the preview's items; counts {items, changes}.
+	// the preview's items; counts {items, changes}. Its review reads each field
+	// again when the result is opened (reviewReverify).
 	{name: "reverify", rerunnable: true, againAfterSuccess: true, validate: validateReverify,
-		counts: countReverify},
+		counts: countReverify, review: reviewReverify},
 	// {items, from_job}: write the fields the reader ticked in that review.
 	// Result: one line per item; counts {applied, skipped, failed}.
 	{name: "reverify-apply", rerunnable: true, validate: validateReverifyApply,
