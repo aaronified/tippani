@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -187,4 +188,246 @@ func TestABatchWaitsOutAHeldLockAndIsDroppedOnlyAfterItsLastTry(t *testing.T) {
 			t.Fatalf("after giving up:\n%q\nwant\n%q", strings.Join(got, "|"), want)
 		}
 	})
+}
+
+// THE RUNNER'S ONE SEAM: afterClaim, which holds the worker between claiming a
+// job and taking its lock again, so a Stop lands in exactly the window where the
+// row already reads running and the worker has not yet said which job it holds.
+// runner_test.go's race test reaches the paths either side of it by timing; this
+// window is microseconds wide and timing does not reach it on purpose.
+func TestAStopInTheInstantAfterTheClaimIsNotLost(t *testing.T) {
+	st := openStoreInternal(t)
+	if _, err := st.DB.Exec(`INSERT INTO users (id, username, password_hash) VALUES (2, 'mitra', 'x')`); err != nil {
+		t.Fatal(err)
+	}
+	lb := NewLogbook()
+	lb.Attach(st)
+	t.Cleanup(func() { lb.Close(context.Background()) })
+	r := NewRunner(st, lb, Options{})
+	t.Cleanup(func() { r.Close(context.Background()) })
+	var items atomic.Int32
+	r.Register(Kind{Name: "two", Run: func(_ context.Context, j *Job) error {
+		for range 2 {
+			if j.Stopping() {
+				return nil
+			}
+			items.Add(1)
+		}
+		return nil
+	}})
+	claimed := make(chan struct{})
+	stopped := make(chan struct{})
+	var once sync.Once
+	r.afterClaim = func(bool) { // the worker looks again after the job; hold only the first claim
+		once.Do(func() {
+			close(claimed)
+			<-stopped
+		})
+	}
+	owner := Owner{UserID: 2, Username: "mitra", Gen: st.Generation()}
+	id, err := r.Enqueue(owner, "two", "", nil, 2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-claimed
+	if err := r.Stop(id, owner); err != nil {
+		t.Fatal(err)
+	}
+	close(stopped)
+
+	deadline := time.Now().Add(20 * time.Second)
+	var state string
+	for {
+		st.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&state)
+		if state != StateQueued && state != StateRunning {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the job never finished")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if state != StateStopped || items.Load() != 0 {
+		t.Fatalf("stopped the instant after its claim, the job ended %s after %d item(s); want stopped after none", state, items.Load())
+	}
+}
+
+// A SECRET IS FORGOTTEN ON EVERY WAY A JOB ENDS. White-box, declared: it reads
+// the runner's secrets map, because a secret let go is by design unobservable —
+// nothing outside the job that holds it can read one, and after the job ends
+// nothing can at all. Uses TIPPANI_JOBS_HOLD (HoldEnv), declared, for the one
+// path that needs a job waiting with nothing running: a restore ending it.
+func TestASecretIsForgottenOnEveryWayAJobEnds(t *testing.T) {
+	st := openStoreInternal(t)
+	if _, err := st.DB.Exec(`INSERT INTO users (id, username, password_hash, is_admin) VALUES (1, 'aro', 'x', 1), (2, 'mitra', 'x', 0)`); err != nil {
+		t.Fatal(err)
+	}
+	lb := NewLogbook()
+	lb.Attach(st)
+	t.Cleanup(func() { lb.Close(context.Background()) })
+	r := NewRunner(st, lb, Options{PerOwner: 100, CancelWait: 50 * time.Millisecond})
+	held := func() int {
+		r.smu.Lock()
+		defer r.smu.Unlock()
+		return len(r.secrets)
+	}
+	stateOf := func(id int64) string {
+		var s string
+		st.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&s)
+		return s
+	}
+	waitFor := func(id int64, want string) {
+		t.Helper()
+		deadline := time.Now().Add(20 * time.Second)
+		for stateOf(id) != want {
+			if time.Now().After(deadline) {
+				t.Fatalf("job %d is %s, want %s", id, stateOf(id), want)
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+	entered, unblock := make(chan string, 10), make(chan struct{})
+	var sawSecret atomic.Value
+	r.Register(Kind{Name: "block", Run: func(_ context.Context, j *Job) error {
+		sawSecret.Store(j.Secret())
+		entered <- "in"
+		<-unblock
+		return nil
+	}})
+	r.Register(Kind{Name: "quick", Run: func(context.Context, *Job) error { return nil }})
+	aro := Owner{UserID: 1, Username: "aro", IsAdmin: true, Gen: st.Generation()}
+	mitra := Owner{UserID: 2, Username: "mitra", Gen: st.Generation()}
+	enq := func(o Owner, kind string, tag int) int64 {
+		t.Helper()
+		id, err := r.Enqueue(o, kind, "", map[string]int{"tag": tag}, 0, "pw")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+
+	// Succeeded.
+	waitFor(enq(mitra, "quick", 1), StateSucceeded)
+	if n := held(); n != 0 {
+		t.Fatalf("after a job succeeded: %d secret(s) held", n)
+	}
+
+	// Stopped while waiting, by Stop, Stop all and StopOwner; failed because its
+	// account went. One job holds the queue meanwhile, and holds its own secret.
+	b := enq(aro, "block", 2)
+	<-entered
+	if sawSecret.Load() != "pw" {
+		t.Fatal("the running job could not read its secret")
+	}
+	w1, w2, w3 := enq(mitra, "quick", 3), enq(mitra, "quick", 4), enq(mitra, "quick", 5)
+	if err := r.Stop(w1, mitra); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := r.StopAll(Owner{UserID: 2, Username: "mitra", Gen: st.Generation()}); err != nil {
+		t.Fatal(err)
+	}
+	gone := enq(aro, "quick", 6)
+	if err := r.StopOwner(2); err != nil {
+		t.Fatal(err)
+	}
+	if stateOf(w1) != StateStopped || stateOf(w2) != StateStopped || stateOf(w3) != StateStopped {
+		t.Fatal("the waiting jobs were not all stopped")
+	}
+	if n := held(); n != 2 { // the running one, and aro's waiting one
+		t.Fatalf("after three stopped while waiting: %d secret(s) held, want 2", n)
+	}
+	if _, err := st.DB.Exec(`UPDATE users SET id = 3 WHERE id = 1`); err != nil { // aro's id no longer names aro
+		t.Fatal(err)
+	}
+	unblock <- struct{}{}
+	waitFor(b, StateSucceeded)
+	waitFor(gone, StateFailed)
+	if n := held(); n != 0 {
+		t.Fatalf("after a job whose account went failed: %d secret(s) held", n)
+	}
+	if _, err := st.DB.Exec(`UPDATE users SET id = 1 WHERE id = 3`); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ended by a restore while the queue was held.
+	t.Setenv("TIPPANI_OFFLINE", "1")
+	t.Setenv(HoldEnv, "1")
+	restored := enq(mitra, "quick", 7)
+	t.Setenv(HoldEnv, "")
+	if err := r.Exclusive(func() error {
+		_, err := st.DB.Exec(`UPDATE jobs SET state = 'interrupted', finished_at = 1 WHERE id = ?`, restored)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if n := held(); n != 0 {
+		t.Fatalf("after a restore interrupted a waiting job: %d secret(s) held", n)
+	}
+
+	// Interrupted by shutdown: the one it gave up waiting for, and one waiting.
+	abandoned := enq(aro, "block", 8)
+	<-entered
+	waiting := enq(mitra, "quick", 9)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	r.Close(ctx)
+	if stateOf(abandoned) != StateInterrupted || stateOf(waiting) != StateInterrupted {
+		t.Fatalf("after Close: %s and %s", stateOf(abandoned), stateOf(waiting))
+	}
+	if n := held(); n != 0 {
+		t.Fatalf("after shutdown: %d secret(s) held", n)
+	}
+	close(unblock)
+}
+
+// THE WORKER'S LOST WAKEUP, AT ITS EXACT INSTANT. afterClaim (declared above)
+// lands an Enqueue after the worker's claim has found nothing and before it takes
+// its lock to decide to exit: the new job's kick sees a worker still alive and
+// starts none, so that worker must look again rather than leave the job waiting.
+// runner_test.go's many-cycles test drives the same guard by volume.
+func TestAJobQueuedTheInstantTheWorkerFoundNoneStillRuns(t *testing.T) {
+	st := openStoreInternal(t)
+	if _, err := st.DB.Exec(`INSERT INTO users (id, username, password_hash) VALUES (2, 'mitra', 'x')`); err != nil {
+		t.Fatal(err)
+	}
+	lb := NewLogbook()
+	lb.Attach(st)
+	t.Cleanup(func() { lb.Close(context.Background()) })
+	r := NewRunner(st, lb, Options{})
+	t.Cleanup(func() { r.Close(context.Background()) })
+	r.Register(Kind{Name: "quick", Run: func(context.Context, *Job) error { return nil }})
+	owner := Owner{UserID: 2, Username: "mitra", Gen: st.Generation()}
+
+	var once sync.Once
+	var late atomic.Int64
+	r.afterClaim = func(found bool) {
+		if found {
+			return
+		}
+		once.Do(func() {
+			id, err := r.Enqueue(owner, "quick", "", map[string]string{"when": "the instant it found none"}, 0, nil)
+			if err != nil {
+				t.Error(err)
+			}
+			late.Store(id)
+		})
+	}
+	first, err := r.Enqueue(owner, "quick", "", nil, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		var n int
+		st.DB.QueryRow(`SELECT count(*) FROM jobs WHERE id IN (?, ?) AND state = 'succeeded'`, first, late.Load()).Scan(&n)
+		if n == 2 {
+			return
+		}
+		if time.Now().After(deadline) {
+			var s string
+			st.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, late.Load()).Scan(&s)
+			t.Fatalf("the job queued the instant the worker found none is still %q", s)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
