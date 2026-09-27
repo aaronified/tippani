@@ -31,7 +31,10 @@ var jobKinds = map[string]string{
 	"POST /cast/{id}/image":       "lookup.cast-image",
 	"POST /movies/{id}/cast/imdb": "lookup.cast-imdb",
 	"POST /movies/{id}/cast/tvdb": "lookup.cast-tvdb",
-	// A work page's pictures, fetched on screen as it opens.
+	// A work page's pictures, fetched on screen as it opens, by the route the
+	// conversions add (the work page's lookups moving onto the server). Keyed
+	// here ahead of it: nothing in this tree is registered under either
+	// pattern, so neither entry matches a request yet.
 	"POST /books/{id}/cast/art":  "lookup.cast-art",
 	"POST /movies/{id}/cast/art": "lookup.cast-art",
 

@@ -754,12 +754,12 @@ func writeBatch(db *sql.DB, gen uint64, notes, batch []*entry) error {
 // The owner is the account only if it is still there under the same id and
 // name as the row lands. The generation catches a swap; this catches a delete in
 // the same file, which 0079's trigger cannot, since the row did not exist yet to
-// be cleared — and the row can land well after its request authenticated (the
-// work page's cast-art request may run for 45 s, and a drainer waiting out a
-// held lock takes half a minute more). users.id is reused, so without it a
-// deleted reader's lookup would land in the history of whoever is given their
-// id next. A reader who renamed themselves mid-request loses that one row to
-// the admin's view, which is the safe way to be wrong.
+// be cleared — and the row can land well after its request authenticated (a
+// lookup waits on its suppliers first, and a drainer waiting out a held lock
+// takes half a minute more). users.id is reused, so without it a deleted
+// reader's lookup would land in the history of whoever is given their id next.
+// A reader who renamed themselves mid-request loses that one row to the admin's
+// view, which is the safe way to be wrong.
 func writeInRequest(tx *sql.Tx, gen uint64, e *entry) error {
 	r := e.row
 	var uid any

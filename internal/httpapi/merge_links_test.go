@@ -10,15 +10,16 @@ import "testing"
 //
 // WHAT IT KNOWS, declared, because a test here may not know the code: the fold by
 // its name, mergeLinks, and that it takes the stored field and the fetched links
-// by provider. This is the pure tier's test moved across the boundary. Until
-// 3.1.0 the fold was people.jsx's mergeLinks, where the function IS the observable
-// unit, and its first two cases below were the two in
+// by provider. This is the pure tier's test carried across the boundary: the
+// fold is people.jsx's mergeLinks, ported, and there the function IS the
+// observable unit. Its first two cases below are the two in
 // web/frontend/test/pure/link-names.test.js ("a fetch that rewrites the whole
-// field"); the fold moved to the server with the People row's Fetch, and the cases
-// came with it, verbatim. The SPA's rule link-fold-keeps-names.test.js holds this
-// file to them by name, so the file, the test's name and both cases' strings stay.
-// The same fold through the routes a reader presses — a person's Fetch and a
-// person's re-verify — is driven in person_fetch_test.go and reverify_test.go.
+// field"), verbatim, so the server's fold is held to the browser's own cases; keep
+// the file, the test's name and both cases' strings as they are. The server
+// folds for a person's Fetch by id and a person's re-verify, and those two
+// routes are driven in person_fetch_test.go and reverify_test.go; the People row
+// in the SPA still folds in the browser until it moves onto the Fetch route with
+// the Jobs screen.
 //
 // What each case guards, in a sentence a person would say: a fetch leaves the
 // names on my links alone and adds the link it found; a link I never named stays
