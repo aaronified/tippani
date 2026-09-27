@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"tippani/internal/jobs"
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
@@ -192,6 +193,90 @@ func (s *Server) handleMetadataReverify(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "checked": len(items), "changed": changed})
+}
+
+// runReverify is the reverify job: the check POST /metadata/reverify makes,
+// item by item, for as many items as one job holds, with a line in its log for
+// each. Its result is the preview's items, for the review to read back later
+// (GET /jobs/{id}/result, reviewReverify), and it never writes: the review
+// decides, and the apply writes.
+//
+// FILLS ONLY IS APPLIED HERE, AS THE REVIEW DID IN THE BROWSER: a diff whose
+// stored side is empty is kept and every other one dropped, before the item is
+// kept, so an item whose every diff would overwrite something reads as up to
+// date rather than as an empty expander — and a check of a hundred works does
+// not store the overwrites nobody asked to see.
+func runReverify(s *Server, ctx context.Context, j *jobs.Job) error {
+	var p struct {
+		BookIDs   []int64       `json:"book_ids"`
+		MovieIDs  []int64       `json:"movie_ids"`
+		People    []reverifyAsk `json:"people"`
+		FillsOnly bool          `json:"fills_only"`
+	}
+	if err := j.Params(&p); err != nil {
+		return err
+	}
+	uid := j.Owner().UserID
+	keys, err := s.providerKeys()
+	if err != nil {
+		j.Log(jobs.LevelWarn, "a saved supplier key could not be read, so the lookups ask without it: %v", err)
+	}
+	checks := make([]func() reverifyItem, 0, len(p.BookIDs)+len(p.MovieIDs)+len(p.People))
+	for _, id := range p.BookIDs {
+		checks = append(checks, func() reverifyItem {
+			return s.reverifyBook(ctx, uid, id, keys.googleBooks, keys.amazonCookie, keys.amazonDomain, false)
+		})
+	}
+	for _, id := range p.MovieIDs {
+		checks = append(checks, func() reverifyItem { return s.reverifyMovie(ctx, uid, id, keys.tmdb, keys.tvdb, false) })
+	}
+	for _, who := range p.People {
+		checks = append(checks, func() reverifyItem { return s.reverifyPerson(ctx, uid, who.Kind, who.Name) })
+	}
+	items := []reverifyItem{}
+	for i, check := range checks {
+		if j.Stopping() {
+			break
+		}
+		it := check()
+		if p.FillsOnly {
+			kept := []fieldDiff{}
+			for _, d := range it.Diffs {
+				if isEmptyValue(d.Stored) {
+					kept = append(kept, d)
+				}
+			}
+			it.Diffs = kept
+		}
+		level, line := reverifyLine(it)
+		j.Log(level, "%s", line)
+		items = append(items, it)
+		j.Progress(i+1, len(checks))
+	}
+	return j.SetResult(items)
+}
+
+// reverifyLine is a check's line for one item: what differs, or why nothing
+// could be compared.
+func reverifyLine(it reverifyItem) (level, line string) {
+	name := itemName(it.Type, it.ID, it.Title)
+	switch {
+	case it.Status == "not_found":
+		return jobs.LevelWarn, name + " — not found"
+	case it.Status == "unpinned":
+		return jobs.LevelInfo, name + " — unpinned, so there is nothing to ask: " + it.Error
+	case it.Status != "ok":
+		return jobs.LevelWarn, name + " — failed: " + it.Error
+	case len(it.Diffs) > 0:
+		fields := make([]string, 0, len(it.Diffs))
+		for _, d := range it.Diffs {
+			fields = append(fields, d.Field)
+		}
+		return jobs.LevelInfo, name + " — " + countOf(len(it.Diffs), "difference", "differences") + ": " + fieldWords(fields)
+	case it.Error != "":
+		return jobs.LevelInfo, name + " — " + it.Error
+	}
+	return jobs.LevelInfo, name + " — up to date"
 }
 
 // itemGenreNames reads ONE item's stored genre names (kind = "book" |

@@ -122,7 +122,7 @@ var builtinJobKinds = []queuedKind{
 	// the preview's items; counts {items, changes}. Its review reads each field
 	// again when the result is opened (reviewReverify).
 	{name: "reverify", rerunnable: true, againAfterSuccess: true, validate: validateReverify,
-		counts: countReverify, review: reviewReverify},
+		counts: countReverify, review: reviewReverify, run: runReverify},
 	// {items, from_job}: write the fields the reader ticked in that review.
 	// Result: one line per item; counts {applied, skipped, failed}.
 	{name: "reverify-apply", rerunnable: true, validate: validateReverifyApply,
