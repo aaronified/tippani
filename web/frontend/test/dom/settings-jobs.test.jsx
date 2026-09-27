@@ -11,10 +11,16 @@
 // back from it is only what a request SAID — which path, which filters, whether a
 // Stop all was sent at all — because "the screen sent the query the reader chose"
 // is the claim, and a request is where a query becomes a fact.
+//
+// DECLARED EXCEPTION, one: "red" is read through test/css-cascade.js — the
+// stylesheet the app ships, resolved over the button's own classes, whatever
+// they are. jsdom paints nothing, so the colour a reader would see can only be
+// asked of the cascade; no class name is spelled here.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { openSettingsSection } from './helpers/settingsSection.jsx'
+import { valueOf } from '../css-cascade.js'
 
 let CALLS
 let CURRENT
@@ -119,6 +125,9 @@ const phrase = (words) => (_, el) => {
 }
 const posted = (path) => CALLS.filter(([m, p]) => m === 'POST' && p === path)
 const logReads = () => CALLS.filter(([m, p]) => m === 'GET' && p.startsWith('/admin/logs?')).map(([, p]) => new URLSearchParams(p.split('?')[1]))
+// The colour a reader sees on a control, from the shipped stylesheet (see the header).
+const inkOf = (el) => valueOf([...el.classList].map((c) => `.${c}`).join(''), 'color')
+const RED = 'var(--error)'
 
 describe('Current jobs', () => {
   it('counts what is running and what is waiting, in words, in its head', async () => {
@@ -283,6 +292,74 @@ describe('Past jobs', () => {
   })
 })
 
+// WHO MAY DO WHAT. Each press below is offered only where the server will do it,
+// and each case here is a row where it would NOT — so a gate that let the press
+// through for everyone is a red case, not a green one with nothing to see.
+describe('who may press what', () => {
+  // Opens each row whose head matches, in turn, and runs `check` over the card
+  // once that row's body is on the screen. One row is open at a time, so the one
+  // export link on the card is the proof it is open — an absence below is an
+  // absence in an open row, not in a closed one.
+  const eachOpened = async (past, name, check) => {
+    const heads = await within(past).findAllByRole('button', { name })
+    for (const head of heads) {
+      fireEvent.click(head)
+      await waitFor(() => expect(head.getAttribute('aria-expanded')).toBe('true'))
+      expect(await within(past).findAllByRole('link', { name: /Export/ })).toHaveLength(1)
+      check(past)
+    }
+    return heads.length
+  }
+
+  it('offers no Review on a re-verify that was applied, is somebody else’s, or did not succeed', async () => {
+    PAST = [
+      job({ id: 21, kind: 'reverify', state: 'succeeded', applied: true, subject: 'applied', finished_at: NOW - HOUR }),
+      job({ id: 22, kind: 'reverify', state: 'succeeded', own: false, username: 'bina', subject: 'theirs', finished_at: NOW - 2 * HOUR }),
+      job({ id: 23, kind: 'reverify', state: 'stopped', subject: 'stopped', finished_at: NOW - 3 * HOUR }),
+    ]
+    await page(ADMIN, { onReviewJob: vi.fn() })
+    const past = await card('Past jobs')
+    const opened = await eachOpened(past, /^Re-verify/, (row) => {
+      expect(within(row).queryByRole('button', { name: 'Review' })).toBeNull()
+    })
+    expect(opened).toBe(3)
+  })
+
+  it('offers no Run again where the server says the job cannot be run again', async () => {
+    PAST = [job({ id: 24, kind: 'fill', state: 'failed', error: 'offline', rerunnable: false, finished_at: NOW - HOUR })]
+    await page()
+    const past = await card('Past jobs')
+    const opened = await eachOpened(past, /^Fill gaps/, (row) => {
+      expect(within(row).queryByRole('button', { name: 'Run again' })).toBeNull()
+    })
+    expect(opened).toBe(1)
+  })
+
+  const theirs = () => [
+    job({ id: 30, kind: 'covers', state: 'running', own: false, username: 'bina', total: 40, done: 3, started_at: NOW - 60000 }),
+    job({ id: 31, kind: 'fill', state: 'queued', own: false, username: 'bina', ahead: 1 }),
+  ]
+
+  it('draws a reader no Stop on a job that is somebody else’s', async () => {
+    CURRENT = theirs()
+    await page(READER)
+    const current = await card('Current jobs')
+    await within(current).findByText('Waiting — one job ahead')
+    expect(within(current).queryByRole('button', { name: /^Stop Fetch covers/ })).toBeNull()
+    expect(within(current).queryByRole('button', { name: /^Stop Fill gaps/ })).toBeNull()
+  })
+
+  it('and draws an admin one on anybody’s, red', async () => {
+    CURRENT = theirs()
+    await page(ADMIN)
+    const current = await card('Current jobs')
+    const running = await within(current).findByRole('button', { name: 'Stop Fetch covers (running)' })
+    const waiting = within(current).getByRole('button', { name: 'Stop Fill gaps (one job ahead)' })
+    expect(inkOf(running)).toBe(RED)
+    expect(inkOf(waiting)).toBe(RED)
+  })
+})
+
 describe('System logs', () => {
   it('is an admin’s card, and a reader has no such card at all', async () => {
     await page(READER)
@@ -368,7 +445,9 @@ describe('the phone’s Jobs tile', () => {
     index()
     await screen.findByRole('navigation', { name: /which settings to change/i })
     await screen.findByText(phrase('2 waiting'))
-    fireEvent.click(screen.getByRole('button', { name: 'Stop all' }))
+    const stopAll = screen.getByRole('button', { name: 'Stop all' })
+    expect(inkOf(stopAll)).toBe(RED)
+    fireEvent.click(stopAll)
     await screen.findByRole('alertdialog', { name: 'Stop all jobs?' })
     expect(posted('/jobs/stop-all')).toHaveLength(0)
   })
