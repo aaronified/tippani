@@ -4,8 +4,8 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/fs"
-	"log"
 	"net"
 	"net/http"
 	"path"
@@ -19,6 +19,7 @@ import (
 
 	"tippani/internal/auth"
 	"tippani/internal/i18n"
+	"tippani/internal/jobs"
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
 	"tippani/internal/store"
@@ -130,6 +131,15 @@ type Server struct {
 	// embedded and cannot move, these are edited under a running server and design
 	// §4's promise is "drop it in and it appears". See internal/i18n.
 	locales i18n.Overrides
+
+	// Jobs is the queue a reader's long routines run on, and Logbook is what keeps
+	// the system log and every job's log in the database (internal/jobs). serve()
+	// makes both and sets them before the first request. Either may be nil — in
+	// every test server that never sets them, and in the daily-deck command's —
+	// and then no request is kept in the database and nothing can be queued,
+	// which is how the app ran before 3.1.0.
+	Jobs    *jobs.Runner
+	Logbook *jobs.Logbook
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {
@@ -191,8 +201,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /auth/logout", s.requireAuth(s.handleLogout))
 	// Single sign-on. Both GETs are browser navigations, not fetches: login
 	// redirects to the provider and the provider redirects back to callback.
-	mux.HandleFunc("GET /auth/oidc/login", s.handleOIDCLogin)
-	mux.HandleFunc("GET /auth/oidc/callback", s.handleOIDCCallback)
+	// routed, because sign-in looks outward (outbound.Observed) with no session
+	// yet, so requireAuth is not there to name the route for the request's job.
+	mux.Handle("GET /auth/oidc/login", routed(s.handleOIDCLogin))
+	mux.Handle("GET /auth/oidc/callback", routed(s.handleOIDCCallback))
 	mux.Handle("DELETE /auth/oidc/link", s.requireAuth(s.handleOIDCUnlink))
 	// A dashboard's read key (gethomepage's Custom API widget). The GET is
 	// authenticated by the key itself, not a session — see widget_handlers.go.
@@ -637,7 +649,7 @@ func (s *Server) Handler() http.Handler {
 	// gzip sits inside logRequests so the logged byte count is what actually
 	// went over the wire, not the pre-compression size. running.track sits
 	// inside it too, so it sees the request id logRequests assigned.
-	return logRequests(s.running.track(gzipResponses(securityHeaders(exceptBearer(csrf.Handler(root), root)))))
+	return s.logRequests(s.running.track(gzipResponses(securityHeaders(exceptBearer(csrf.Handler(root), root)))))
 }
 
 // exceptBearer routes requests that carry an Authorization: Bearer credential
@@ -705,13 +717,27 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
 // logRequests logs one line per request (method, path, status, duration, size,
-// client) through the standard logger, to stderr — visible in `docker logs`.
-// /healthz is skipped so the container's periodic probe doesn't drown the log; a
-// failing probe logs its own [error] line (health.go). The line is written when
-// the request finishes, so a request that never finishes is named by the
-// in-flight tracker instead (inflight.go). This is the baseline visibility;
-// handlers add [error]/[import]/[movies] lines for detail.
-func logRequests(next http.Handler) http.Handler {
+// client) to stderr — visible in `docker logs`. /healthz is skipped so the
+// container's periodic probe doesn't drown the log; a failing probe logs its own
+// [error] line (health.go). The line is written when the request finishes, so a
+// request that never finishes is named by the in-flight tracker instead
+// (inflight.go). This is the baseline visibility; handlers add
+// [error]/[import]/[movies] lines for detail.
+//
+// IT IS ALSO THE SECOND OF THE TWO HOOKS THAT FEED THE KEPT LOG (the owner's: "one
+// in the outbound gate, one in the request logger"), and it does two things for
+// that when the server has a logbook:
+//
+//   - it keeps a line per request in the system log — not the terminal's line,
+//     which carries whatever a query string or a share link holds, but the
+//     persisted one (request_log.go), at a level that lets the Jobs tab hide the
+//     flood of file requests by default, and none at all for the tab's own reads;
+//   - it gives every request a *jobs.Lazy, in the context beside reqUser, so that
+//     a request which looks outward is kept as an in-request job with every call
+//     it made, and one that does not leaves nothing. requireAuth notes who the
+//     request is for and which route it matched; Finish hands the job to the
+//     logbook once the status is known.
+func (s *Server) logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" {
 			next.ServeHTTP(w, r)
@@ -730,10 +756,16 @@ func logRequests(next http.Handler) http.Handler {
 		// outer one, so a plain context value written downstream is invisible up
 		// here. A pointer placed before the chain runs and filled in by
 		// requireAuth is the one shape that survives that, and it costs one
-		// allocation per request.
+		// allocation per request. The request's job is the same shape for the
+		// same reason.
 		who := &reqUser{}
 		ctx := context.WithValue(r.Context(), ctxReqID, rid)
 		ctx = context.WithValue(ctx, ctxReqUser, who)
+		var job *jobs.Lazy
+		if s.Logbook != nil {
+			job = jobs.NewLazy(s.Logbook, jobKind)
+			ctx = jobs.WithRecorder(ctx, job)
+		}
 		r = r.WithContext(ctx)
 		rec := &statusRecorder{ResponseWriter: w}
 		start := time.Now()
@@ -741,6 +773,7 @@ func logRequests(next http.Handler) http.Handler {
 		if rec.status == 0 {
 			rec.status = http.StatusOK
 		}
+		took := time.Since(start).Round(time.Millisecond)
 		// rid ties this summary line to any [error]/[warn]/[trace] lines the
 		// handler logged for the same request (they all carry "(req rNNN)").
 		// An unauthenticated request logs "-" rather than an empty column, so the
@@ -749,9 +782,17 @@ func logRequests(next http.Handler) http.Handler {
 		if name == "" {
 			name = "-"
 		}
-		log.Printf("%s %s %d %s %dB %s %s %s",
-			r.Method, r.URL.RequestURI(), rec.status,
-			time.Since(start).Round(time.Millisecond), rec.bytes, r.RemoteAddr, name, rid)
+		olog.Accessf("%s %s %d %s %dB %s %s %s",
+			r.Method, r.URL.RequestURI(), rec.status, took, rec.bytes, r.RemoteAddr, name, rid)
+		if job != nil {
+			job.Finish(rec.status)
+		}
+		if s.Logbook != nil {
+			if level, keep := requestLevel(r.Method, r.URL.Path, rec.status); keep {
+				s.Logbook.System(level, "", fmt.Sprintf("%s %s %d %s %dB %s %s %s",
+					r.Method, keptURI(r.URL), rec.status, took, rec.bytes, r.RemoteAddr, name, rid))
+			}
+		}
 	})
 }
 
@@ -878,6 +919,15 @@ func bearerToken(r *http.Request) (token string, ok bool) {
 
 func (s *Server) requireAuth(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The request's job, if it becomes one, belongs to the account resolved
+		// below — but only in the database that account was read from. So the
+		// generation is read first, before the session is looked up, never after:
+		// store.Generation says why that order is the one that fails safe.
+		gen := s.Store.Generation()
+		job := requestJob(r)
+		if job != nil {
+			job.Route(r.Pattern)
+		}
 		var (
 			uid     int64
 			uname   string
@@ -902,6 +952,9 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.Handler {
 			return
 		}
 		noteRequestUser(r, uname)
+		if job != nil {
+			job.Viewer(uid, uname, gen)
+		}
 		// A PASSWORD SOMEBODY ELSE CHOSE OPENS ONE DOOR: choosing your own. Until
 		// then the admin who set it could sign in as this reader, so the library
 		// stays shut; only who-am-I, the change itself, signing out and the reader's

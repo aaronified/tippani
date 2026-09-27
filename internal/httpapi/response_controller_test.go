@@ -59,7 +59,7 @@ func TestTheWriteDeadlineReachesTheConnection(t *testing.T) {
 		got = fmt.Sprintf("%v", err)
 		w.Write([]byte("ok"))
 	})
-	ts := httptest.NewServer(logRequests(gzipResponses(securityHeaders(h))))
+	ts := httptest.NewServer((&Server{}).logRequests(gzipResponses(securityHeaders(h))))
 	defer ts.Close()
 
 	// Both ways round: the gzip wrapper is only in the chain for a client that
