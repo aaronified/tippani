@@ -32,7 +32,9 @@ import (
 // the contract Settings › Jobs is built to.
 //
 // What it guards, in a sentence a person would say: each lookup I make is kept
-// under what I looked up, and a job about one thing is kept under that thing.
+// under what I looked up, and a job about one thing is kept under that thing —
+// when the thing is mine: a job given another reader's id is kept under nothing,
+// and my Past jobs never names what is theirs.
 func TestEachJobIsKeptUnderWhatItIsAbout(t *testing.T) {
 	srv := newTestServer(t)
 	q := queueing(t, srv)
@@ -132,5 +134,47 @@ func TestEachJobIsKeptUnderWhatItIsAbout(t *testing.T) {
 		}
 		slices.Sort(all)
 		t.Log("every job kept:\n" + strings.Join(all, "\n"))
+	}
+}
+
+// ANOTHER READER'S WORK IS NOT NAMED. Bob, holding the ids of alice's book, film
+// and author (a stale link, a guessed number), starts a fill of each work, a
+// check of the book and a fetch of the author. Each job is his to see, and each
+// is kept under nothing: a job's subject is what Past jobs shows, and a title
+// read without asking whose it is would tell him what alice has.
+func TestAJobGivenAnotherReadersIDIsNotNamedAfterWhatItFound(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert"})
+	arrival := createdID(t, alice, "/movies", map[string]any{"title": "Arrival", "media_type": "movie"})
+	alice.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Ursula K. Le Guin"}, http.StatusOK)
+	leGuin := recordID(t, alice, "Ursula K. Le Guin")
+
+	for _, start := range []struct {
+		kind   string
+		params map[string]any
+	}{
+		{"fill", map[string]any{"book_ids": []int64{dune}}},
+		{"fill", map[string]any{"movie_ids": []int64{arrival}}},
+		{"reverify", map[string]any{"book_ids": []int64{dune}}},
+		{"people", map[string]any{"ids": []int64{leGuin}}},
+	} {
+		j := bob.mustStart(start.kind, start.params)
+		if j.Subject != "" {
+			t.Errorf("bob's %s of alice's id is kept under %q", start.kind, j.Subject)
+		}
+		bob.waitJob(j.ID, "succeeded")
+	}
+	past := bob.jobs("view=past&limit=50").Jobs
+	if len(past) != 4 {
+		t.Fatalf("bob's Past jobs: %d, want his four", len(past))
+	}
+	for _, j := range past {
+		if j.Subject != "" {
+			t.Errorf("bob's Past jobs shows his %s as %q", j.Kind, j.Subject)
+		}
 	}
 }
