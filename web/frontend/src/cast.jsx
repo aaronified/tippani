@@ -26,10 +26,11 @@
 
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { coverImgURL, errText, json } from './api.js'
+import { registerSessionCache } from './sessionCaches.js'
 import { t } from './i18n.js'
 import { Face } from './characterRows.jsx'
 import { usePersonOpener } from './personOpen.jsx'
-import { personImgURL, usePeople, usePortraitFill } from './people.jsx'
+import { personImgURL, usePeople } from './people.jsx'
 import {
   ErrorText,
   Field,
@@ -63,16 +64,111 @@ import {
 const roleLabel = (role) =>
   role === 'voice' ? t('cast.role.voice.label') : t('common.field.actor.label')
 
-// IMAGE FETCHES ARE SERIAL, and the cap is why. A film's cast is twenty rows, each
-// with a provider URL; firing twenty requests at once would open twenty outbound
-// connections from a self-hosted box the moment somebody opened a panel. One at a
-// time, oldest first (billing order), and the panel fills in as they land.
-// Twenty, which is metadata.maxCast — the largest cast any provider seed can
-// produce. Below that the cap is reached on ordinary films and the roles past it
-// keep the actor fallback with nothing said; at it, a normal work is covered in
-// one pass. A reader-authored cast can be longer (maxWorkCast is 200) and those
-// rows have no provider URL to fetch anyway.
-const IMAGE_FILL_CAP = 20
+// THE PICTURES A WORK PAGE IS ABOUT TO DRAW ARE ONE REQUEST (3.1.0), and the
+// server fetches them. A role's character art and an actor's headshot were each
+// fetched from here, one request per picture — twenty roles, twenty requests —
+// by three loops: this panel's, the film board's and the headshot hook both used.
+// `POST /{books|movies}/{id}/cast/art` does the lot on the server, serially and
+// under the same caps (twenty roles, twenty names), within a time budget, and
+// answers how many of each arrived; the page then re-reads what changed.
+//
+// TWENTY NAMES, for the reason twenty of anything is: metadata.maxCast, the
+// largest cast a provider seed can produce. The server holds the same cap.
+const PORTRAIT_ASK_CAP = 20
+
+// ONE REQUEST IN FLIGHT PER WORK, shared by every surface on the page. The film
+// board and the Details panel's cast list draw the same faces, and a parent's
+// refetch re-runs a surface's effect while its request is still out; either
+// would otherwise send the same request twice. A surface whose names the request
+// in flight already carries joins it and hears the same answer; one with names
+// it does not carry asks for those, after it.
+//
+// ENROLLED AS A SESSION CACHE, though it holds a request rather than an answer:
+// the next reader on this browser opening the same work would otherwise join the
+// last reader's request. Signing out forgets every request in the air, and a
+// request that lands after that removes only its own entry.
+const castArtInFlight = new Map()
+registerSessionCache(() => castArtInFlight.clear())
+function askCastArt(kind, id, names) {
+  const key = `${kind}:${id}`
+  const running = castArtInFlight.get(key)
+  if (running) {
+    const rest = names.filter((n) => !running.names.has(n))
+    return rest.length ? running.promise.then(() => askCastArt(kind, id, rest)) : running.promise
+  }
+  const path = kind === 'book' ? 'books' : 'movies'
+  const entry = { names: new Set(names), promise: null }
+  entry.promise = json('POST', `/${path}/${id}/cast/art`, { names }).finally(() => {
+    if (castArtInFlight.get(key) === entry) castArtInFlight.delete(key)
+  })
+  castArtInFlight.set(key, entry)
+  return entry.promise
+}
+
+// useCastArt — the faces a work page is about to draw, fetched because it is
+// about to draw them.
+//
+// THE COMPLAINTS IT ANSWERS, both still true of the page without it: a film's
+// board showed the actor fallback for ever unless somebody opened the People
+// panel, because nothing else asked for the character art a TheTVDB cast
+// carries; and "people images are not auto fetched still and needs to be
+// manually fetched", because nothing but an opened person asked for a headshot.
+//
+// IT COSTS NOTHING WHEN THERE IS NOTHING TO DO, and that is the whole design. The
+// page already holds the cast (each row says whether it has a provider picture
+// and no file) and the map of who has a stored headshot, so it can tell with no
+// request at all whether anything is missing — and a work whose faces are local
+// sends nothing.
+//
+// A NAME IS ASKED ONCE PER MOUNT, resolved or not. "Ask for everyone the map has
+// no picture for" re-asks on every render for the people who have no findable
+// headshot, which is most minor credits, for ever; re-opening the page is how you
+// retry. The character art is asked for once per work per mount, for the same
+// reason.
+//
+// `onFilled({characters, portraits})` fires only when something arrived, so the
+// page re-reads the one list that changed — a refetch that changes nothing is a
+// request and a re-render for free.
+//
+// `kind` is the WORK's: a book has characters and no actors, so it sends no
+// names and asks only when a role has art to fetch.
+export function useCastArt(kind, workID, { cast = [], names = [], people = {}, onFilled = null } = {}) {
+  const asked = useRef(null)
+  if (asked.current === null) asked.current = new Set()
+  const artAsked = useRef('')
+  const filled = useRef(onFilled)
+  filled.current = onFilled
+  useEffect(() => {
+    if (!workID) return undefined
+    const key = `${kind}:${workID}`
+    const art = artAsked.current !== key && (cast || []).some((c) => c?.character_image_url && !c?.character_image_path)
+    const want = []
+    if (kind !== 'book') {
+      for (const raw of names || []) {
+        const name = String(raw || '').trim()
+        if (!name || asked.current.has(name) || people?.[name]?.image_path) continue
+        want.push(name)
+        if (want.length >= PORTRAIT_ASK_CAP) break
+      }
+    }
+    if (!art && want.length === 0) return undefined
+    // MARKED BEFORE THE AWAIT: a re-render while the request is out would
+    // otherwise ask for the same names again.
+    for (const n of want) asked.current.add(n)
+    let live = true
+    askCastArt(kind, workID, want).then((r) => {
+      // A re-run of this effect joined the same request and hears its answer; the
+      // run it replaced says nothing.
+      if (!live) return
+      artAsked.current = key
+      if (!r.ok) return
+      const characters = r.data?.character_images || 0
+      const portraits = r.data?.portraits || 0
+      if (characters || portraits) filled.current?.({ characters, portraits })
+    })
+    return () => { live = false }
+  }, [kind, workID, cast, names, people])
+}
 
 // `onCastChanged` IS NAMED FOR WHAT IT MEANS, and it hands over THE NEW CAST.
 //
@@ -140,49 +236,39 @@ export function CastSection({ kind, item, onCastChanged, onOpenCharacter }) {
     () => [...new Set((rows || []).map((c) => (c.actor || '').trim()).filter(Boolean))],
     [rows],
   )
-  usePortraitFill(kind === 'book' ? '' : 'actor', actorNames, actorMap, reloadActors)
-  // Guards the image fill so re-rendering does not re-run it. A ref rather than
-  // state: it must not itself cause a render.
-  const filled = useRef(false)
-
-  const load = async (fill = false) => {
+  const load = async () => {
     const r = await json('GET', `/${path}/${item.id}/cast`)
     if (!r.ok) return setErr(errText(r, t('error.load.cast')))
     setErr('')
     setRole(r.data.actor_role || 'none')
     setRows(r.data.cast || [])
-    if (fill) fillImages(r.data.cast || [])
     return r.data.cast || []
   }
 
-  // THE MISSING HALF OF 0050. A row carries the provider's art URL from the
-  // moment the cast is fetched and an empty path until somebody asks for the
-  // bytes. This asks — once per opening, only for the rows that have a URL and no
-  // file, and one at a time.
+  // THE MISSING HALF OF 0050, AND THE HEADSHOTS BESIDE IT. A row carries the
+  // provider's art URL from the moment the cast is fetched and an empty path until
+  // somebody asks for the bytes, and a row with no art of its own falls back to
+  // the actor's headshot — so a panel whose actors have no stored portrait is a
+  // column of blank boxes. This asks for both, in the page's one request (see
+  // useCastArt), while the panel is open, and re-reads the list that changed.
   //
-  // A failure is silent by design: the endpoint is idempotent and cheap to call
-  // again, the row falls back to the actor's headshot meanwhile, and a red line
-  // over a cast list because one of twenty pictures did not download would be
-  // worse than the missing picture.
-  async function fillImages(list) {
-    const want = (list || []).filter((c) => c.character_image_url && !c.character_image_path).slice(0, IMAGE_FILL_CAP)
-    for (const c of want) {
-      const r = await json('POST', `/cast/${c.id}/image`)
-      if (!r.ok || !r.data?.character_image_path) continue
-      setRows((cur) => (cur || []).map((x) => (x.id === c.id ? { ...x, ...r.data } : x)))
-    }
-  }
+  // A failure is silent by design: the request is idempotent and cheap to make
+  // again, the row falls back meanwhile, and a red line over a cast list because
+  // one of twenty pictures did not download would be worse than the picture.
+  useCastArt(kind, open ? item.id : null, {
+    cast: rows,
+    names: actorNames,
+    people: actorMap,
+    onFilled: ({ characters, portraits }) => {
+      if (characters) load()
+      if (portraits) reloadActors()
+    },
+  })
 
   useEffect(() => {
-    if (!open) return
-    const first = !filled.current
-    filled.current = true
-    load(first)
+    if (open) load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item.id])
-
-  // Re-opening a different work must fetch that work's pictures too.
-  useEffect(() => { filled.current = false }, [item.id])
 
   async function save(id, fields) {
     setBusy('row')
@@ -1105,64 +1191,4 @@ export function CastFills({ item, onFilled }) {
       {said && <p className="microcopy">{said}</p>}
     </div>
   )
-}
-
-// useCharacterArt — the fetch for the faces a WORK PAGE is about to draw.
-//
-// WHY IT IS NOT ENOUGH THAT THE PANEL DOES IT. `POST /cast/{id}/image` was
-// written so that "a client may call this for every chip it is about to draw",
-// and the People panel (above) was the first client ever to call it. But the
-// panel is not where character faces are drawn en masse: a film's dialogue board
-// is, and a reader who never opens People saw the same empty chips they had
-// before — which is the half of "it is not fetching the same by default either"
-// the panel did not answer.
-//
-// IT COSTS NOTHING WHEN THERE IS NOTHING TO DO, and that is the whole design.
-// `GET /movies/{id}` already carries the cast with both image fields on every
-// row, so the caller can tell from what it is holding whether any role has a
-// provider picture and no file — and only then does this go and ask for the ids
-// it needs to fetch them by. A work whose art is already local makes no request
-// at all.
-//
-// Serial and capped, like the panel's: twenty roles would otherwise be twenty
-// outbound connections the moment somebody opened a film.
-//
-// `onFilled` is called once, after the last one lands, so the page can refetch
-// the rows that carry `character_images` — those are resolved server-side, so
-// the pictures do not appear until the list is asked again.
-export function useCharacterArt(kind, workID, cast, onFilled) {
-  const done = useRef('')
-  useEffect(() => {
-    const key = `${kind}:${workID}`
-    if (!workID || done.current === key) return
-    // The question the caller can already answer from what it is holding.
-    const pending = (cast || []).some((c) => c?.character_image_url && !c?.character_image_path)
-    if (!pending) return
-    let live = true
-    const path = kind === 'book' ? 'books' : 'movies'
-    ;(async () => {
-      const r = await json('GET', `/${path}/${workID}/cast`)
-      if (!live || !r.ok) return
-      const want = (r.data?.cast || [])
-        .filter((c) => c.character_image_url && !c.character_image_path)
-        .slice(0, IMAGE_FILL_CAP)
-      let got = 0
-      for (const c of want) {
-        if (!live) return
-        const one = await json('POST', `/cast/${c.id}/image`)
-        if (one.ok && one.data?.character_image_path) got += 1
-      }
-      // MARKED DONE ONLY ON THE WAY OUT. Setting it before the loop meant a parent
-      // refetch part-way through killed the run AND made the re-run return early —
-      // so the pictures that had already downloaded were never shown either, and it
-      // healed only on a fresh mount.
-      if (!live) return
-      done.current = key
-      // Only when something actually arrived: a refetch that changes nothing is a
-      // request and a re-render for no reason.
-      if (got) onFilled?.()
-    })()
-    return () => { live = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, workID, cast])
 }

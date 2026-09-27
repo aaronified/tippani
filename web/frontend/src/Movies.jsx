@@ -12,9 +12,9 @@ import { ANTHOLOGY_KIND, useGatherDoor } from './anthologyGather.jsx'
 import { selectionClick, selectionMenuItems, useSelection } from './selection.jsx'
 import { facetValue, facetValues, publishSearchSeed, seedableChips, withFacet, withFacetValues } from './facets.js'
 import { SelectionBar } from './SelectionBar.jsx'
-import { useCharacterArt } from './cast.jsx'
+import { useCastArt } from './cast.jsx'
 import { LanguageCombo, SuggestCombo, useWorkSuggestions } from './suggest.jsx'
-import { CreditFaces, PersonName, SpeakerChips, chipRows, creditsNotOnChips, parseCreditSeps, personImgURL, splitCredits, usePeople, usePortraitFill } from './people.jsx'
+import { CreditFaces, PersonName, SpeakerChips, chipRows, creditsNotOnChips, parseCreditSeps, personImgURL, splitCredits, usePeople } from './people.jsx'
 import {
   GroupHeading,
   WorkCard,
@@ -1272,20 +1272,27 @@ function Dialogues({ movieId, cast, movie, creditSeps, onStats, mobileFilterOpen
 
   const { stickers, reload: reloadStickers } = useStickers()
   const { map: actorMap, reload: reloadActors } = usePeople('actor') // name→metadata, for actor face icons
-  // THE FACES THIS BOARD DRAWS, fetched once if they are not local yet. A line's
-  // chip shows the character in costume where there is one (2.2.0), and nothing
-  // had ever asked for those bytes outside the People panel — so a reader who
-  // never opened that panel saw the actor fallback for ever. Costs no request at
-  // all when the work's art is already stored. See cast.jsx.
-  useCharacterArt('movie', movieId, cast, () => load())
-  // AND THE OTHER PICTURE. The chip draws the actor wherever a role has no art of
-  // its own, which is most roles — so the same argument that fetches the character
-  // art fetches the headshot behind it. Free when they are all stored already.
+  // THE FACES THIS BOARD DRAWS, fetched once if they are not local yet — in one
+  // request for the page (see cast.jsx). A line's chip shows the character in
+  // costume where there is one (2.2.0), and the actor wherever a role has no art
+  // of its own, which is most roles; nothing had ever asked for either outside the
+  // People panel, so a reader who never opened it saw blank faces for ever. Costs
+  // no request at all when every face is already stored. The character art is on
+  // the movie's own rows and the headshots on the actor map, so each reloads only
+  // when something of its kind arrived.
   const boardActors = useMemo(
     () => [...new Set(cast.map((c) => (c.actor || '').trim()).filter(Boolean))],
     [cast],
   )
-  usePortraitFill('actor', boardActors, actorMap, reloadActors)
+  useCastArt('movie', movieId, {
+    cast,
+    names: boardActors,
+    people: actorMap,
+    onFilled: ({ characters, portraits }) => {
+      if (characters) load()
+      if (portraits) reloadActors()
+    },
+  })
   const castListId = `cast-characters-${movieId}`
   const characters = [...new Set(cast.map((c) => c.character).filter(Boolean))]
   const tagMap = Object.fromEntries(tags.map((row) => [row.name, row]))

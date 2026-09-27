@@ -9,6 +9,12 @@
 //
 // So the assertions here are mostly about REQUESTS: which ones this panel makes,
 // and — for the image fill — that it makes them at all.
+//
+// SINCE 3.1.0 THE FILL IS ONE REQUEST PER WORK: `POST /{books|movies}/{id}/cast/art`
+// fetches the work's missing character art and the headshots for the names the
+// page sends, on the server, and answers how many of each arrived. The panel
+// and the film board share it while it is out. What the page decides — whether
+// to ask at all, which names, whether to re-read — is what these cases hold.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -23,6 +29,8 @@ let IMAGES
 let IMAGE_SOURCES
 let TVDB_NEEDS_ID
 let LOOKUP
+// The cast/art request waits on this, so a case can hold it in flight.
+let ART_GATE
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -34,6 +42,19 @@ vi.mock('../../src/api.js', async (orig) => ({
       const id = Number(path.split('/')[2])
       if (!OK_IMAGE) return { ok: true, data: { character_image_path: '' } }
       return { ok: true, data: { ...CAST.find((c) => c.id === id), character_image_path: `stored-${id}.jpg` } }
+    }
+    // The work's pictures, fetched by the server: every role with a provider
+    // picture and no file gets one, and the answer counts them.
+    if (method === 'POST' && /^\/(books|movies)\/\d+\/cast\/art$/.test(path)) {
+      await ART_GATE
+      if (!OK_IMAGE) return { ok: true, data: { character_images: 0, portraits: 0 } }
+      let n = 0
+      CAST = CAST.map((c) => {
+        if (!c.character_image_url || c.character_image_path) return c
+        n += 1
+        return { ...c, character_image_path: `stored-${c.id}.jpg` }
+      })
+      return { ok: true, data: { character_images: n, portraits: 0 } }
     }
     if (method === 'POST' && path.endsWith('/cast/tvdb')) {
       // The server refuses a row with no TheTVDB id until the reader names one.
@@ -87,6 +108,7 @@ beforeEach(() => {
   OK_PUT = true
   IMAGES = []
   IMAGE_SOURCES = { google: false, amazon: false }
+  ART_GATE = Promise.resolve()
 })
 
 describe('the people panel', () => {
@@ -116,11 +138,9 @@ describe('the people panel', () => {
     // THE REGRESSION. The route has existed since 0050 and nothing had ever
     // called it, so no character art had ever reached a reader's disk.
     await openPanel()
-    await waitFor(() => expect(posted(/^\/cast\/11\/image$/)).toHaveLength(1))
-    // With NO body: an empty call means "make sure this is local", and a body
-    // would mean "replace it with this", which is a different thing.
-    expect(posted(/^\/cast\/11\/image$/)[0][2]).toBeUndefined()
-    // And the row it fetched now draws the stored file rather than the fallback.
+    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/art$/)).toHaveLength(1))
+    // And the row it fetched now draws the stored file rather than the fallback —
+    // the panel re-read its cast once the answer said a picture arrived.
     // ASKED OF WHICH HALF IS ON THE SCREEN, not of which element carries a class:
     // the picture and its stand-in are drawn by one component now, so the box
     // wears the class either way and `img.cast-face` stopped matching a row that
@@ -130,20 +150,37 @@ describe('the people panel', () => {
     await waitFor(() => expect(document.querySelector('.cast-face img')).toBeTruthy())
   })
 
-  it('does not ask for a picture the provider does not have', async () => {
-    // Most roles have no art of their own even on TheTVDB, and every TMDB row has
-    // none by definition. Asking anyway would be a request per row per opening
-    // whose only possible answer is "there is nothing".
+  it('asks once for the whole work, never once per row', async () => {
+    // Twenty roles were twenty requests from here, each an outbound fetch from a
+    // self-hosted box the moment somebody opened a panel. The server walks the
+    // roles now; the page makes one request.
     await openPanel()
-    await waitFor(() => expect(posted(/^\/cast\/11\/image$/)).toHaveLength(1))
-    expect(posted(/^\/cast\/12\/image$/)).toEqual([])
+    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/art$/)).toHaveLength(1))
+    await flush()
+    expect(posted(/^\/cast\/\d+\/image$/).filter(([, , b]) => !b), 'a per-row fetch was made').toEqual([])
+    expect(posted(/cast\/art$/)).toHaveLength(1)
   })
 
   it('does not ask again for one it already has', async () => {
-    CAST = [{ ...WITH_ART[0], character_image_path: 'already.jpg' }]
+    // The art is local and the role names no actor, so there is no headshot to
+    // look for either: nothing on this page needs fetching, and nothing is asked.
+    CAST = [{ ...WITH_ART[0], actor: '', character_image_path: 'already.jpg' }]
     await openPanel()
     await waitFor(() => expect(screen.getByText('Amanda Waller')).toBeTruthy())
-    expect(posted(/\/image$/)).toEqual([])
+    await flush()
+    expect(posted(/cast\/art$/)).toEqual([])
+  })
+
+  it('says nothing, and re-reads nothing, when no picture arrived', async () => {
+    OK_IMAGE = false
+    await openPanel()
+    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/art$/)).toHaveLength(1))
+    const casts = () => CALLS.filter(([m, q]) => m === 'GET' && q === '/movies/7/cast').length
+    const before = casts()
+    await flush()
+    await flush()
+    expect(casts()).toBe(before)
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('saves both names of a corrected row in one request', async () => {
@@ -285,6 +322,7 @@ describe('the people panel', () => {
     CAST = [{ id: 21, character: 'Ahab', actor: '', character_image_url: '', character_image_path: '' }]
     await openPanel(BOOK, 'book')
     expect(await screen.findByText('Ahab')).toBeTruthy()
+    expect(posted(/cast\/art$/), 'a book with no art to fetch asked for some').toEqual([])
     // And the actor box is ABSENT rather than disabled — the API refuses an actor
     // on a book rather than quietly clearing it (0047's line).
     fireEvent.click(screen.getByRole('button', { name: /^Edit / }))
@@ -313,17 +351,19 @@ describe('the people panel', () => {
 // The hook is tested on its own rather than through Movies.jsx: the board pulls in
 // half the app, and what is at issue is which requests are made and when.
 describe('the character art a work page needs', () => {
-  const Probe = ({ cast, workID = 7 }) => {
-    const { useCharacterArt } = probeMod
-    useCharacterArt('movie', workID, cast, () => { FILLED += 1 })
+  const Probe = ({ cast, workID = 7, names = [], people = {} }) => {
+    const { useCastArt } = probeMod
+    useCastArt('movie', workID, { cast, names, people, onFilled: () => { FILLED += 1 } })
     return null
   }
+  const WAITING = [{ id: 11, character_image_url: 'https://x/w.jpg', character_image_path: '' }]
 
   it('asks for the pictures the board is about to draw', async () => {
     // The work's own record already says which roles have a provider picture and
     // no file — that is what makes the check free.
-    render(<Probe cast={[{ character_image_url: 'https://x/w.jpg', character_image_path: '' }]} />)
-    await waitFor(() => expect(posted(/^\/cast\/11\/image$/)).toHaveLength(1))
+    CAST = WITH_ART.map((c) => ({ ...c }))
+    render(<Probe cast={WAITING} />)
+    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/art$/)).toHaveLength(1))
     // And the page is told once, at the end, so it can refetch the rows whose
     // character_images the server resolves.
     await waitFor(() => expect(FILLED).toBe(1))
@@ -346,10 +386,47 @@ describe('the character art a work page needs', () => {
   it('does not report back when nothing arrived', async () => {
     // A refetch that changes nothing is a request and a re-render for no reason.
     OK_IMAGE = false
-    render(<Probe cast={[{ character_image_url: 'https://x/w.jpg', character_image_path: '' }]} />)
-    await waitFor(() => expect(posted(/^\/cast\/11\/image$/)).toHaveLength(1))
+    render(<Probe cast={WAITING} />)
+    await waitFor(() => expect(posted(/^\/movies\/7\/cast\/art$/)).toHaveLength(1))
     await flush()
     expect(FILLED).toBe(0)
+  })
+
+  // A PARENT'S REFETCH WHILE THE REQUEST IS OUT is the page drawing the same
+  // cast again, not a second reason to ask. It joins the request and hears its
+  // answer — and the pictures that arrived are still reported, which is what the
+  // old loop lost when a refetch cut it short.
+  it('joins the request in flight when the page redraws, and still reports what arrived', async () => {
+    let release
+    ART_GATE = new Promise((r) => { release = r })
+    CAST = WITH_ART.map((c) => ({ ...c }))
+    const { rerender } = render(<Probe cast={WAITING} />)
+    await waitFor(() => expect(posted(/cast\/art$/)).toHaveLength(1))
+    rerender(<Probe cast={WAITING.map((c) => ({ ...c }))} />)
+    await flush()
+    release()
+    await waitFor(() => expect(FILLED).toBe(1))
+    expect(posted(/cast\/art$/)).toHaveLength(1)
+  })
+
+  // THE BOARD AND THE DETAILS PANEL ARE ONE PAGE, drawing the same faces. While
+  // one surface's request is out, the other's is the same request.
+  it('makes one request between the board and the cast panel on the same page', async () => {
+    let release
+    ART_GATE = new Promise((r) => { release = r })
+    render(
+      <>
+        <Probe cast={WAITING} names={['Viola Davis', 'Margot Robbie']} />
+        <CastSection kind="movie" item={FILM} onChanged={() => {}} />
+      </>,
+    )
+    expect(await screen.findByText('Amanda Waller')).toBeTruthy()
+    await flush()
+    release()
+    await waitFor(() => expect(FILLED).toBe(1))
+    // The panel heard the same answer and re-read its cast: the stored picture is drawn.
+    await waitFor(() => expect(document.querySelector('.cast-face img')).toBeTruthy())
+    expect(posted(/cast\/art$/)).toHaveLength(1)
   })
 })
 

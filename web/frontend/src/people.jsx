@@ -8,7 +8,7 @@ import { formatYear, parsePartialDate, ProviderMark, Scroller, Tooltip } from '.
 // The person primitives — portrait, credit splitting, the saved-people map —
 // live in credits.jsx so the quiz card can draw a face without importing this
 // panel. Re-exported here because this is still where a reader looks for them.
-export { CharacterFaces, CreditFaces, DEFAULT_CREDIT_SEPS, parseCreditSeps, personImgURL, PersonPortrait, splitCredits, useCharacterFaces, usePeople, usePortraitFill } from './credits.jsx'
+export { CharacterFaces, CreditFaces, DEFAULT_CREDIT_SEPS, parseCreditSeps, personImgURL, PersonPortrait, splitCredits, useCharacterFaces, usePeople } from './credits.jsx'
 
 
 // The external references a person can link out to, in display order. A saved
