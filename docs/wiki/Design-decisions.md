@@ -781,7 +781,7 @@ It also fixed a live 500 rather than a future risk. `boardKindSpeech = "speech"`
 
 **`movies.cast_json` is not dropped and is still written**, following 0036 and 0037 exactly: 0036 kept `utterances.category` "deliberately and for one release" because *"dropping a column is the one migration step that cannot be walked back by hand"*, and 0037's backfill is what it was kept for. One strengthening on that case: `category` was a value the reader typed and could retype, while a cast comes from a provider that may be unreachable or unkeyed next week — so if 0048's backfill is wrong about a library, the frozen blob is the only copy in existence. `dialogues.actor` is not touched either; the mapping becomes the source that fills it, not a replacement for it, and it stays stored, FTS-indexed, faceted, exported and imported.
 
-**With one exception, and it is the difference between "kept" and "frozen".** The two paths that replace a title's whole record — the create-from-source insert and `resyncMovieFromSource` — go on writing the blob whole. `applyReverifyMovie` writes it **only where it is empty**, `CASE WHEN COALESCE(cast_json,'') IN ('','[]')`, because that function is also what `POST /metadata/fill` applies through, and fill is unattended and bulk: fifteen titles a call, no diff on screen, chunked over a whole selection by the client. A resync is one title somebody asked for by name; a fill is a button that can walk a library, and a column kept solely so a mistake is repairable cannot be spent by the path with no human in it. Filling an empty blob rather than refusing outright was originally to keep the column's **last remaining reader** working on a title that never had one — the quiz's speaker distractors. **That reader has since moved to `work_cast`, and the freeze is why**: an approved cast diff writes the mapping and no longer writes the blob, so the pool went stale for good while `resyncMovieFromSource` went on replacing the blob whole, and one title answered *"who else is in this film?"* two different ways depending on which button was pressed. Nothing reads the column now. The conditional write stays for a smaller reason that is still true: the `CASE` is what keeps `cast_json` in the UPDATE's column list, so a cast-only approval has a statement to prove ownership with rather than falling through to "no approved fields".
+**With one exception, and it is the difference between "kept" and "frozen".** The two paths that replace a title's whole record — the create-from-source insert and `resyncMovieFromSource` — go on writing the blob whole. `applyReverifyMovie` writes it **only where it is empty**, `CASE WHEN COALESCE(cast_json,'') IN ('','[]')`, because that function is also what a fill applies through — the `fill` job Fill gaps starts, and `POST /metadata/fill` for an API caller — and a fill is unattended and bulk: up to two thousand titles a job, no diff on screen. A resync is one title somebody asked for by name; a fill is a button that can walk a library, and a column kept solely so a mistake is repairable cannot be spent by the path with no human in it. Filling an empty blob rather than refusing outright was originally to keep the column's **last remaining reader** working on a title that never had one — the quiz's speaker distractors. **That reader has since moved to `work_cast`, and the freeze is why**: an approved cast diff writes the mapping and no longer writes the blob, so the pool went stale for good while `resyncMovieFromSource` went on replacing the blob whole, and one title answered *"who else is in this film?"* two different ways depending on which button was pressed. Nothing reads the column now. The conditional write stays for a smaller reason that is still true: the `CASE` is what keeps `cast_json` in the UPDATE's column list, so a cast-only approval has a statement to prove ownership with rather than falling through to "no approved fields".
 
 **THE ACTOR→PORTRAIT RESOLVER MOVED TO THE MAPPING, and it had to.** `actorPortraitFromCast` pins an actor to a supplier's person id taken from the cast of a film they are in — the film is the disambiguator, so the id is exact — and its fallback is a by-name person search its own comment calls namesake-prone (§ *Pin a person, not a name*). Reading the blob meant the two things this table adds were the two the resolver could not see: **a name the reader corrects** (the mapping fills `dialogues.actor`, so the chip shows the corrected spelling while the blob still held the provider's, and the lookup missed) and **a game's entire voice cast** (for most games the blob is `'[]'`). It now reads `work_cast` by `actor_key` — the row carries `person_id` and `image_url` itself — with tombstones excluded, and a row's own `source` word instead of one guessed from the film's `tmdb_id`/`tvdb_id`. That last change makes `wikidata` reachable, so `resolveActorMeta` keeps a Wikidata QID exactly as it already kept a TVDB id: it is not a TMDB person id, it cannot be handed to `/person/{id}`, and a bio is not worth swapping a correct identity for a namesake's. The dialogue join is gone with the blob — a cast row no longer needs a quote beside it to be found, which was an artefact of the blob being reachable only through the film.
 
@@ -1891,13 +1891,15 @@ Credits are stored exactly as they arrive and split only when read, so a wrong s
 
 <sub>`docs/wiki/Design-decisions.md` · `internal/importer/hardcover.go` · `internal/httpapi/import_handlers.go`</sub>
 
-### Metadata is fetched on demand only, and the one bulk path is admin-triggered and cursor-chunked
+### Metadata is fetched when somebody asks, and a pass over many works is a job on the server
 
-**Decided.** No background fetching, ever. `POST /books/lookup` and `POST /movies/lookup` return candidates for a person to pick. The single bulk path, `POST /covers/refetch`, is behind `requireAdmin` and processes up to `limit` rows after `cursor`, returning `{next_cursor, done, total, remaining}`.
+**Decided.** Nothing fetches on a schedule, ever. `POST /books/lookup` and `POST /movies/lookup` return candidates for a person to pick. A pass over many works — Fill gaps, Fetch covers, People's Fetch missing, a re-verify — is a job somebody starts, run on the server one at a time behind whatever else is queued (§18), and the covers pass is admin-only, as its route always was. `POST /covers/refetch` still answers an API caller a chunk at a time — up to `limit` rows after `cursor`, returning `{next_cursor, done, total, remaining}` — and the covers job walks the same rows one at a time, so a Stop lands after the row in hand.
 
-**Why.** §8 sets an idle-CPU budget of approximately zero on a NAS sharing a box with a hundred other services, and a background enricher is a poller by another name. Chunking is not only about that budget: each HTTP request stays short, so a proxy timeout or a tab navigation can no longer silently abort a long run, and the client can draw real progress instead of a spinner that means nothing. The `total` is the full workload at that instant and `remaining` shrinks with the cursor. I approved the chunked shape after the un-chunked one died against a reverse proxy.
+**Why.** §8 sets an idle-CPU budget of approximately zero on a NAS sharing a box with a hundred other services, and a background enricher is a poller by another name. A job somebody started is not one: it runs because a person pressed, and the worker that runs it is gone when the queue is empty. Chunking was the first answer to a long run: each HTTP request stayed short, so a proxy timeout could no longer silently abort it, and the client could draw real progress instead of a spinner that means nothing. I approved the chunked shape after the un-chunked one died against a reverse proxy. A job has no request to outlive, so a tab navigation, a locked phone or a closed tab no longer stops the run part-way either, and it reports its progress as `done` of `total`.
 
-<sub>`docs/wiki/Design-decisions.md` · `internal/httpapi/metadata_handlers.go` · `internal/httpapi/server.go`</sub>
+**Reversal.** In part, in 3.1.0. The entry was *"Metadata is fetched on demand only, and the one bulk path is admin-triggered and cursor-chunked"*, and its first line was "No background fetching, ever." The browser looped `POST /covers/refetch` a chunk at a time for as long as the tab stayed open, and Fill gaps, the People fetch and re-verify each looped their own route the same way; now each is a job, and a job does its fetching in the background by design. What the old line was for — the server never deciding by itself to go and fetch — holds.
+
+<sub>the jobs 3.1.0 — `docs/wiki/Design-decisions.md` · `internal/httpapi/metadata_handlers.go` · `internal/httpapi/jobs_kinds.go` · `internal/httpapi/server.go`</sub>
 
 ### TMDB ships a built-in application key, and the env var was dropped
 
@@ -2061,11 +2063,11 @@ The GET's own comment had been describing this card since the release before it 
 
 ### `missing_only` — a refetch mode that never replaces stored art
 
-**Decided.** A boolean on `POST /covers/refetch` that fills empty covers and posters only and never upgrades a stored low-resolution image. It is what the mobile Metadata screen sends.
+**Decided.** A boolean on the covers pass — the covers job's `missing_only`, and the same flag on `POST /covers/refetch` — that fills empty covers and posters only and never upgrades a stored low-resolution image. It is what the phone's Fetch key sends.
 
-**Why.** The bulk refetch is otherwise happy to replace a thumbnail with a better scan, which is right when you asked for it on a desktop and watched the progress bar. A quick tap on a phone should not be able to churn art you are happy with — including art you uploaded or pasted yourself — and there is no undo for a replaced cover. Two intentions, one endpoint, one flag. My call.
+**Why.** The bulk refetch is otherwise happy to replace a thumbnail with a better scan, which is right when you asked for it on a desktop and watched the progress bar. A quick tap on a phone should not be able to churn art you are happy with — including art you uploaded or pasted yourself — and there is no undo for a replaced cover. Two intentions, one pass, one flag. My call.
 
-<sub>`internal/httpapi/metadata_handlers.go` · `web/frontend/src/MetadataPage.jsx`</sub>
+<sub>`internal/httpapi/metadata_handlers.go` · `internal/httpapi/jobs_kinds.go` · `web/frontend/src/MetadataPage.jsx`</sub>
 
 ### "Fetch metadata" opens the edition picker instead of silently applying a guess
 
@@ -2089,7 +2091,9 @@ The GET's own comment had been describing this card since the release before it 
 
 **Why.** Targeting the pinned identity is what makes this a re-check rather than a re-guess: a by-name re-lookup could return a different book. The flow is stateless by design — no server-side diff session — so the client holds the preview and sends back exactly what the user saw and ticked, which is the same trust boundary as the existing PUT surface: whitelisted fields, the same validators, ownership-scoped SQL. The tick defaults encode the same rule as the adoption modes: a pure fill takes nothing away, so approving it is the reasonable default; an overwrite is the thing you opened this screen to review. It runs under `requireAuth` rather than `requireAdmin`, because both endpoints touch only the caller's own rows, with a 15-item cap per call bounding provider load and the client chunking above it. I approved the whole shape, including the pre-ticking, which is the only part that does anything without being asked.
 
-<sub>`internal/httpapi/reverify_handlers.go` · `web/frontend/src/ReverifyReview.jsx`</sub>
+**Reversal.** In part, in 3.1.0. The dialog's check was a loop of `POST /metadata/reverify`, ten items a call, and closing the dialog or locking the phone stopped a check of four hundred works wherever it had got to. It is a `reverify` job now, of 500 items at most, and its preview is kept on the server as the job's result for thirty days, so a check the reader walked away from is reviewed later from Past jobs — a server-side diff session in all but name. What keeps the trust boundary is the other end: opening the review reads every field again as it is now and marks a diff changed when its stored value has moved since the check, so it is never pre-ticked, and the apply, a `reverify-apply` job, carries for each field the value the reader was shown and skips a field that no longer holds it, noting "changed since the check". The two routes stay for an API caller, and the synchronous apply honours the same check when it is sent one.
+
+<sub>`internal/httpapi/reverify_handlers.go` · `internal/httpapi/reverify_review.go` · `web/frontend/src/ReverifyReview.jsx`</sub>
 
 ### An ISBN names one book, so provider records are merged best-of per field
 
@@ -2399,7 +2403,7 @@ The rename's blast radius is the larger one: `metadata.ReplaceCredit` matches a 
 
 **THE READING IS SHOWN BEFORE THE LINK IS ADDED.** A key and a URL are one fact written twice, so the box prints "Reads as IMDb — www.imdb.com" under what was typed. A field that silently transforms your input is a field you check afterwards every time. A scheme-less address is completed rather than refused, because copying out of a browser's bar drops it about half the time — and the match is on the HOSTNAME, so `imdb.com.example.org` is somebody else's domain and stays under the globe rather than borrowing IMDb's name.
 
-**Free text and not a `work_link` table.** A table would let a link carry its own provenance and ordering, and would also make "any site on any record" a vocabulary somebody has to extend before a reader can paste a URL. One column, one parser (`parseLinks`), one merge and one panel shape for people, characters and works; three shapes would be three chances to disagree about what a stored link is. Capped at 4000 characters where a person's is not, because this one is pasted into a box rather than assembled from a fetch.
+**Free text and not a `work_link` table.** A table would let a link carry its own provenance and ordering, and would also make "any site on any record" a vocabulary somebody has to extend before a reader can paste a URL. One column, one parser (`parseLinks`), one merge and one panel shape for people, characters and works (the merge moved to the server in 3.1.0, where a person's Fetch now folds fetched links into the stored ones, keeping the names readers gave them); three shapes would be three chances to disagree about what a stored link is. Capped at 4000 characters where a person's is not, because this one is pasted into a box rather than assembled from a fetch.
 
 **WHAT IS NOT BUILT, and it is in the source as well.** The pack's per-link provenance (`auto` · `you`) is absent. Nothing fetches a WORK's links yet — a person's are assembled from a lookup, a work's are all pasted — so a tag on every row would print the same word every time, which is not a tag. The column is the same free text a person's is, so the distinction can be drawn the day something fetches them. **The pack's other unbuilt clause, the list you pick a provider from, is built — see the entry at the end of this document**, and it is what makes the provenance question live: a derived page is one the app wrote.
 
@@ -4717,11 +4721,11 @@ Backup is a nightly `VACUUM INTO` snapshot with no streaming daemon, and restore
 
 ### The account password is verified before the archive is written
 
-**Decided.** `POST /admin/backup` checks the supplied password against the stored hash before anything is written — not for authorization, since the session already covers that, but because a typo would otherwise produce a perfectly valid archive that nothing can ever open, and you would not find out until the day you needed it. A backup whose failure surfaces only at restore is worse than no backup, because it has already displaced the habit of taking one. I approved this the moment the failure mode was named.
+**Decided.** `POST /admin/backup` checks the supplied password against the stored hash before anything is written — not for authorization, since the session already covers that, but because a typo would otherwise produce a perfectly valid archive that nothing can ever open, and you would not find out until the day you needed it. A backup whose failure surfaces only at restore is worse than no backup, because it has already displaced the habit of taking one. I approved this the moment the failure mode was named. **Since 3.1.0 Back up now is a queued job, and it checks twice**: at the press, so a wrong password is still a 401 before anything waits, and again when the job runs, against the owner's password as it is by then, because the job can wait behind others while the password changes. The password lives only in the queue's memory until the job ends, and is never stored.
 
 **Instead of.** Sealing with whatever was typed and letting restore find out.
 
-<sub>1.4.1 — `internal/httpapi/backup_handlers.go`</sub>
+<sub>1.4.1; the job 3.1.0 — `internal/httpapi/backup_handlers.go` · `internal/httpapi/jobs_kinds.go`</sub>
 
 ### Archive v1 keyed on `<username>#<password>`, and lasted about an hour
 
@@ -6392,7 +6396,7 @@ A column on the row also travels for free everywhere a quote already travels —
 
 ### Fill the gaps writes only what is empty, which is what lets it skip the preview
 
-**Decided.** `POST /metadata/fill` runs the re-verify fetch, keeps only the diffs whose STORED side is empty, and applies them through the re-verify writer. The predicate decides by TYPE — empty string, zero, empty slice, nil — not by field name.
+**Decided.** Fill gaps — a `fill` job since 3.1.0, and `POST /metadata/fill` for an API caller — runs the re-verify fetch, keeps only the diffs whose STORED side is empty, and applies them through the re-verify writer. The predicate decides by TYPE — empty string, zero, empty slice, nil — not by field name.
 
 **Why.** Re-verify asks "what changed?", shows every difference and waits for a human to tick the ones they believe. That is right, because a provider disagreeing with your library is not automatically the provider being correct — and it is completely unusable over forty books, where nobody will adjudicate two hundred diffs to recover a missing publication year.
 
@@ -7731,7 +7735,7 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **A fresh install is never told.** A notice about a change you never lived through is a sentence the interface made up, so the notice is gated on a marker written by a one-time pass that only fires on a database which already existed (`OneTimeEnv.FreshInstall`). That guard needed its own test: on a genuinely fresh database the pass writes nothing whether the guard is there or not, so inverting it left the obvious test green.
 
-**A TMDB refetch must not erase what TheTVDB found**, and this is the one way the feature can be lost. TMDB sends an empty character image for every row of every title, and `/metadata/fill` applies refetches in bulk and unattended — so under plain assignment a single fill would blank every costume in a library and report success. The `CASE WHEN ? <> ''` guards in `updateProviderCastRow` and `updateCastRowFacts` are what make the two providers additive over a row's life instead of the last fetch winning.
+**A TMDB refetch must not erase what TheTVDB found**, and this is the one way the feature can be lost. TMDB sends an empty character image for every row of every title, and a fill applies refetches in bulk and unattended — so under plain assignment a single fill would blank every costume in a library and report success. The `CASE WHEN ? <> ''` guards in `updateProviderCastRow` and `updateCastRowFacts` are what make the two providers additive over a row's life instead of the last fetch winning.
 
 **Verified without reaching the API.** The environment this was written in blocks `thetvdb.github.io`, `api4.thetvdb.com` and `thetvdb.com`, and the repo's own TheTVDB fixture is hand-written without the field — so "the character record has an `image`" could not be confirmed from either. It was established from the generated types in a published client package instead: `ICharacter` declares `image: string`, and `IMovieExtendedRecord`, `ISeriesExtendedRecord` and `IPeopleExtendedRecord` all embed `characters: ICharacter[]` — which are the endpoints this app already calls.
 
@@ -8098,7 +8102,7 @@ There is a second cost, and it is the one that made this concrete. Decisions tak
 
 **Why the panel was not enough.** 2.2.3 made the People panel call `POST /cast/{id}/image`, which was the first caller that route had ever had. But the panel is not where character faces appear in quantity — a work's board of lines is, and a reader who never opens People saw exactly the empty chips they had reported. Fixing the reported symptom on the surface that does not show it is a fix that reads as complete and is not.
 
-**It costs nothing when there is nothing to do**, which is what makes it safe to do on a page rather than behind a button: `GET /movies/{id}` already carries both image fields on every cast row, so the page can answer "is anything missing" without asking anyone, and only then goes for the ids. Serial and capped for the reason the panel's is. The page is told once, at the end, and only if something arrived.
+**It costs nothing when there is nothing to do**, which is what makes it safe to do on a page rather than behind a button: `GET /movies/{id}` already carries both image fields on every cast row, so the page can answer "is anything missing" without asking anyone, and only then asks. Serial and capped for the reason the panel's is. The page is told once, at the end, and only if something arrived. **Since 3.1.0 the asking is one request the server does whole** — `POST /movies/{id}/cast/art`, shared with the headshots (*The route was right and nothing was asking*, below) — where the board went for each role's id itself, one `POST /cast/{id}/image` at a time.
 
 <sub>2.2.4 — `web/frontend/src/cast.jsx` · `web/frontend/src/Movies.jsx`</sub>
 
@@ -8331,7 +8335,7 @@ away.
 
 ### The route was right and nothing was asking
 
-**Decided.** `usePortraitFill` fetches the portraits a screen is about to draw.
+**Decided.** A work page asks for the portraits it is about to draw. Since 3.1.0 it asks in one request, `POST /{books|movies}/{id}/cast/art` (`useCastArt`), which also carries the character art; the server fetches both serially under the caps below, within about forty-five seconds, and answers how many of each arrived.
 
 **The second time this exact shape has been found**, and the first was 2.2.3's
 `useCharacterArt`: `POST /cast/{id}/image` had been written so "a client may call this for
@@ -8352,11 +8356,20 @@ obvious version re-asks on every render for the people with no findable portrait
 most minor credits, for ever. And `onFilled` only when something arrived, because a reload
 that changes nothing is a request and a re-render, and that is how a quiet loop starts.
 
+**3.1.0 moved the loop onto the server, and the restraints split between the two.**
+`usePortraitFill`, `useCharacterArt` and the cast panel's `fillImages` were three loops in the
+browser, a request per picture — twenty roles and twenty actors were forty outbound fetches
+the moment a film opened, each its own record, and a parent's refetch part-way cut a loop
+short. Serial and capped at twenty is the server's now. Asked once per name per mount, and
+`onFilled` only when something arrived, stay the page's, and one request is in flight per
+work, so the film board and the Details panel on one page join the same one and both hear
+its answer.
+
 **Deliberately not wired to authors and directors yet.** An author resolves through Open
 Library, one outbound lookup each; firing twenty of those when a shelf opens is a
 different decision from this one and should be made on its own.
 
-<sub>2.2.8 — `web/frontend/src/credits.jsx` · `web/frontend/src/cast.jsx` · `web/frontend/src/Movies.jsx`</sub>
+<sub>2.2.8; one request 3.1.0 — `web/frontend/src/cast.jsx` · `web/frontend/src/Movies.jsx`</sub>
 
 ### v3 — the materials release, decided before it was started
 
@@ -11421,11 +11434,12 @@ after the measurement was put to them: **neither gesture** — not a `pointerdow
 not a row entering a moving viewport — and the wait removed instead.
 
 **Why that is not merely "not yet".** `docs/plans/prefetch-and-loaders.md` establishes that
-this repo's "no background fetching, ever" is about the SERVER fetching third-party metadata
-on a schedule, and that same-origin requests without a press are already ordinary here —
-`warmScreens` prefetches route chunks on idle, `usePortraitFill` fires up to twenty
-unrequested portrait calls, and the search vocabulary loads on first focus. So nothing
-written down forbade this. What killed it is narrower and worse: **`GET /characters/{id}`
+this repo's "no background fetching, ever" (§6's words until 3.1.0 made them "nothing
+fetches on a schedule, ever") is about the SERVER fetching third-party metadata on a
+schedule, and that same-origin requests without a press are already ordinary here —
+`warmScreens` prefetches route chunks on idle, a work page asks for up to twenty portraits
+nobody requested (`usePortraitFill` then, one `cast/art` request since 3.1.0), and the
+search vocabulary loads on first focus. So nothing written down forbade this. What killed it is narrower and worse: **`GET /characters/{id}`
 WRITES.** `fillLineFaces` → `loadCharacterImages` → `adoptQuoteCharacters` opens a
 transaction and inserts up to twelve `work_cast` rows, adopting characters a work's quotes
 name but its cast list does not. Deliberate on a deliberate press; on a `pointerdown` it
@@ -19602,13 +19616,15 @@ and the screen cannot disagree about how many cards wait. Mutation: removing the
 
 **What else sends, and why those.** The rule was: the reader has plausibly left the screen, and
 the thing is finished or waiting on them. A large import (50+ quotes) when it is staged and when
-it is approved; a long metadata run (20+ works) — the whole-library cover refetch on its last
-chunk, and a bulk fill whose client names the run's size on its last chunk because no single
-15-item request knows the run is over; and a written backup archive. Rejected: a message per
-quiz answer, per metadata fault, or on update availability — each either happens while the
-reader is looking at it or is a nag rather than news. Messages are sent inside the request
-that finished the work, after the response is flushed, with a five-second timeout and never in
-a goroutine — nothing outlives its request. A failing Pushover logs `TIP-NOTIFY-001` and never
+it is approved; a long metadata run (20+ works) — a covers or fill job, as it ends, since from
+3.1.0 the job knows the run's size and when it is over (until then the covers refetch sent it
+on its last chunk, and a bulk fill's client named the run's size on its last chunk because no
+single 15-item request knew the run was over); and a written backup archive. Rejected: a
+message per quiz answer, per metadata fault, or on update availability — each either happens
+while the reader is looking at it or is a nag rather than news. A request's message is sent
+inside the request that finished the work, after the response is flushed; a job's is sent by
+the job as it ends, on the queue's worker. Both have a five-second timeout, and neither is
+sent from a goroutine of its own. A failing Pushover logs `TIP-NOTIFY-001` and never
 fails the import that caused it. Pushover itself is gated by `TIPPANI_OFFLINE`.
 
 **Where the three live: Profile, one set per account.** The placement moved four times. The
