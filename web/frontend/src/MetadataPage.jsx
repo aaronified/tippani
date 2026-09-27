@@ -19,6 +19,7 @@ import { Face } from './characterRows.jsx'
 import { RecordRow, RowArt } from './recordRow.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { ReverifyFlow } from './ReverifyReview.jsx'
+import { jobStateLabel, jobWaitingText, useKindJob } from './jobs.js'
 import { CreditPills, IssuePills, RowCounts, WorkPills } from './issuePills.jsx'
 import { workDetailsPanel } from './WorkDetails.jsx'
 import { nearDupGroups } from './nearDupes.js'
@@ -123,7 +124,6 @@ const METADATA_SECTIONS = [
 export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, onPreferences, section: routed = null, onSection = null, onRedirectSection = null, reverifyJob = null, onReverifyClose = null }) {
   const [lib, setLib] = useState(null)
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
   const [flash, setFlash] = useState('')
   // Force-fetch & re-verify (ROADMAP §2): {book_ids, movie_ids, people} or null.
   const [reverify, setReverify] = useState(null)
@@ -155,59 +155,41 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
     load()
   }, [])
 
-  // Fetch missing covers/posters for the whole library (Open Library by ISBN,
-  // Amazon by ASIN, cached posters — no key needed). Admin-only endpoint.
-  // The endpoint is chunked ({cursor} → {next_cursor, done, total, remaining}),
-  // so this loops chunk by chunk and drives a real progress bar.
-  const [progress, setProgress] = useState(null) // {done, total} while running
+  // FETCH MISSING COVERS/POSTERS for the whole library (Open Library by ISBN,
+  // Amazon by ASIN, cached posters — no key needed). Admin-only.
+  //
+  // A JOB ON THE SERVER SINCE 3.1.0. It walked the library from here, cursor by
+  // cursor, so the run lasted exactly as long as this tab did; now the server
+  // walks it, one work at a time behind whatever else is queued, and this screen
+  // draws the job — its progress while it runs, its counts when it ends — for as
+  // long as the screen is up. Leaving does not stop it: Settings › Jobs has it.
+  //
+  // ONE FETCH AT A TIME, AND A SECOND PRESS SHOWS THE FIRST. A covers job already
+  // running or waiting (this reader's — pressed a minute ago, or on the phone) is
+  // drawn instead of starting another, and the screen looks for one when it opens,
+  // so a fetch started elsewhere arrives with its progress bar rather than an
+  // idle Fetch button.
+  //
   // missingOnly = fill empty covers/posters + details only, never upgrade stored
-  // low-res art — the "no replacement" mode the stripped-down mobile screen uses.
+  // low-res art — the "no replacement" mode the phone's Fetch key uses.
+  const [starting, setStarting] = useState(false)
+  const covers = useKindJob('covers', {
+    discover: !!user?.is_admin,
+    onSettled: (job) => {
+      if (job.state === 'failed') setError(job.error || t('error.refetch.covers'))
+      else setFlash(coversFlash(job))
+      load()
+    },
+  })
+  const busy = starting || covers.live
   async function fetchMissingCovers(missingOnly = false) {
-    setBusy(true)
+    if (busy) return
+    setStarting(true)
     setError('')
     setFlash('')
-    // Seed progress before the first request so the bar paints immediately, even
-    // when the whole library fits in one chunk (React would otherwise batch the
-    // set-then-clear into a single render and the bar would never show). total 0
-    // => indeterminate stripe until the first chunk reports the real total.
-    setProgress({ done: 0, total: 0 })
-    const sum = { fetched: 0, enriched: 0, failed: 0, skipped: 0 }
-    try {
-      let cursor = ''
-      let total = 0
-      for (;;) {
-        const body = {}
-        if (cursor) body.cursor = cursor
-        if (missingOnly) body.missing_only = true
-        const r = await json('POST', '/covers/refetch', body)
-        if (!r.ok) return setError(errText(r, t('error.refetch.covers')))
-        sum.fetched += r.data.fetched
-        sum.enriched += r.data.enriched || 0
-        sum.failed += r.data.failed
-        sum.skipped += r.data.skipped || 0
-        total = total || r.data.total
-        setProgress({ done: total - r.data.remaining, total })
-        if (r.data.done) break
-        cursor = r.data.next_cursor
-      }
-      // Spell out skipped/failed so a partial run reads as intentional ("11
-      // already had the best available") rather than a silent nothing-happened.
-      // Real plural families where the English hedged with a parenthesised -s: a
-      // locale file carries a plural category per language, and "cover(s)" works
-      // in none of them.
-      const parts = [
-        t('metadata.fetch.flash.covers', { count: sum.fetched, n: sum.fetched }),
-        t('metadata.fetch.flash.details', { count: sum.enriched, n: sum.enriched }),
-      ]
-      if (sum.skipped) parts.push(t('metadata.fetch.flash.skipped', { n: sum.skipped }))
-      if (sum.failed) parts.push(t('metadata.fetch.flash.failed', { n: sum.failed }))
-      if (!sum.fetched && !sum.enriched && !sum.skipped && !sum.failed) parts.length = 0
-      setFlash(parts.length ? parts.join(' · ') : t('metadata.fetch.flash.uptodate'))
-      load()
-    } finally {
-      setBusy(false)
-      setProgress(null)
-    }
+    const r = await covers.start({ missing_only: !!missingOnly })
+    setStarting(false)
+    if (!r.ok) setError(r.error)
   }
 
   // Unified catalogue console: a type (all/book/movie/show) that drives which
@@ -486,13 +468,19 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
           the effect of the stray fetch button. that can be in the tab row itself."
           Fetch rides at the tab row's far end now, where Settings keeps Reset. */}
       <ErrorText>{error}</ErrorText>
-      {busy && progress && (
+      {/* THE JOB'S OWN PROGRESS, read from the server — so it is the same bar
+          whether this tab started the fetch or found it running. Indeterminate
+          until the job knows its size; a job still in the queue says where it
+          stands instead of pretending to move. */}
+      {busy && (
         <ProgressBar
-          value={progress.done}
-          max={progress.total}
-          label={progress.total > 0
-            ? t('metadata.fetch.progress', { done: progress.done, total: progress.total })
-            : t('metadata.fetch.progress.start')}
+          value={covers.job?.done || 0}
+          max={covers.job?.state === 'running' ? covers.job.total || 0 : 0}
+          label={covers.job?.state === 'queued'
+            ? jobWaitingText(covers.job)
+            : covers.job?.total > 0
+              ? t('metadata.fetch.progress', { done: covers.job.done || 0, total: covers.job.total })
+              : t('metadata.fetch.progress.start')}
         />
       )}
       {flash && (
@@ -696,6 +684,29 @@ export default function MetadataPage({ user, onOpenBook, onOpenMovie, onSearch, 
       )}
     </section>
   )
+}
+
+// coversFlash — what a finished covers job did, in the line the fetch has always
+// ended with. Skipped and failed are spelled out so a partial run reads as
+// intentional ("11 left as-is") rather than as nothing having happened; real
+// plural families where the English once hedged with "cover(s)". A run that was
+// stopped or cut short by a restart says so first, because its counts are what
+// it reached rather than the library's answer.
+function coversFlash(job) {
+  const c = job.counts || {}
+  const fetched = c.fetched || 0
+  const enriched = c.enriched || 0
+  const parts = []
+  if (fetched || enriched || c.skipped || c.failed) {
+    parts.push(
+      t('metadata.fetch.flash.covers', { count: fetched, n: fetched }),
+      t('metadata.fetch.flash.details', { count: enriched, n: enriched }),
+    )
+    if (c.skipped) parts.push(t('metadata.fetch.flash.skipped', { n: c.skipped }))
+    if (c.failed) parts.push(t('metadata.fetch.flash.failed', { n: c.failed }))
+  }
+  if (job.state !== 'succeeded') return [jobStateLabel(job.state), ...parts].join(' · ')
+  return parts.length ? parts.join(' · ') : t('metadata.fetch.flash.uptodate')
 }
 
 // GAP_KEYS — the server's gap token, to the word this screen calls it. ONE table

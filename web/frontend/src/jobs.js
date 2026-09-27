@@ -270,6 +270,18 @@ export async function listJobs({ view = 'past', state = '', kind = '', before = 
   return { ok: true, jobs: list(d.jobs), running: num(d.running), waiting: num(d.waiting), more: !!d.more }
 }
 
+// findLiveJob — the reader's own job of one kind that is running or waiting, or
+// null. The screens that start a covers or a people fetch ask this first, so a
+// second press — or a press on a second device — shows the run already under way
+// instead of queueing the same work twice behind it. Own only: an admin's current
+// view holds every reader's jobs, and somebody else's fetch is not this reader's
+// progress bar.
+export async function findLiveJob(kind) {
+  const r = await listJobs({ view: 'current', kind, limit: 0 })
+  if (!r.ok) return null
+  return r.jobs.find((j) => j.kind === kind && j.own && isLive(j)) || null
+}
+
 export async function readJobsSummary() {
   const r = await json('GET', '/jobs/summary')
   if (!r.ok) return refusal(r)
@@ -569,4 +581,81 @@ export async function followJob(id, { alive = () => true, onJob = null } = {}) {
     last = sig
     await sleep(quiet >= 10 ? 3000 : 1000)
   }
+}
+
+// useKindJob — the one run of a kind this screen shows: a covers fetch on
+// Metadata, a people fetch on its console, a backup on the Server card.
+//
+// IT LOOKS BEFORE IT STARTS, and — with `discover` — once when the screen opens.
+// A fetch started on the phone and still running when the reader sits down at
+// the desk is the same fetch, and the console should be drawing its progress
+// bar rather than offering to start another. `looked` says the first look has
+// answered, which is what a screen arriving with "fetch" already asked for waits
+// on: pressing before it knows what is running is how two fetches get queued.
+//
+// `start(params, {reuse})` shows the run already going when there is one (reuse,
+// the default) or asks for a new one; either way a duplicate the server refuses
+// with the running job's id is joined rather than reported, because "that one is
+// already running" is not an error to the reader who wanted it running.
+//
+// `onSettled(job)` IS CALLED ONCE PER JOB, when the job this screen is watching
+// turns final while the screen is up: the moment to reload the rows the job
+// wrote and say what it did. A job that finishes after the screen closed says so
+// in Settings › Jobs instead.
+export function useKindJob(kind, { discover = true, onSettled = null } = {}) {
+  const [id, setId] = useState(null)
+  const [looked, setLooked] = useState(!discover)
+  const watched = useJob(id)
+  // useJob resets on a new id one render late; a job from the last id is not
+  // this one.
+  const job = watched.job && watched.job.id === id ? watched.job : null
+  const settle = useRef(onSettled)
+  settle.current = onSettled
+  const settled = useRef(new Set())
+
+  useEffect(() => {
+    if (!discover) return undefined
+    let alive = true
+    findLiveJob(kind).then((found) => {
+      if (!alive) return
+      if (found) setId((cur) => cur || found.id)
+      setLooked(true)
+    })
+    return () => { alive = false }
+  }, [kind, discover])
+
+  useEffect(() => {
+    if (!job || isLive(job) || settled.current.has(job.id)) return
+    settled.current.add(job.id)
+    settle.current?.(job)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.id, job?.state])
+
+  async function start(params, { reuse = true } = {}) {
+    if (reuse) {
+      if (job && isLive(job)) return { ok: true, job, joined: true }
+      const found = await findLiveJob(kind)
+      if (found) {
+        setId(found.id)
+        return { ok: true, job: found, joined: true }
+      }
+    }
+    const r = await startJob(kind, params)
+    if (!r.ok) {
+      if (r.jobId) {
+        setId(r.jobId)
+        return { ok: true, job: null, joined: true }
+      }
+      return r
+    }
+    if (r.job?.id) setId(r.job.id)
+    return r
+  }
+
+  // LIVE FROM THE PRESS, not from the first read: between the answer to the POST
+  // and the first poll there is an id and no job yet, and a button that
+  // re-enabled for that beat would invite the second press this exists to stop.
+  // A job that cannot be read at all (it is gone) is not live.
+  const live = !!id && (job ? isLive(job) : !watched.error)
+  return { job, live, looked, start }
 }
