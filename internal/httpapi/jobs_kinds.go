@@ -131,7 +131,7 @@ var builtinJobKinds = []queuedKind{
 	// here, for an answer before anything queues, and again by the job. Result:
 	// the archive, as GET /admin/backup describes it; nothing to count.
 	{name: "backup", adminOnly: true, rerunnable: true, againAfterSuccess: true,
-		validate: validateBackup, secret: backupSecret},
+		validate: validateBackup, secret: backupSecret, run: runBackup},
 }
 
 // countsNamed counts a result that is an object by keeping the members named,
