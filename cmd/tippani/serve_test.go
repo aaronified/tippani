@@ -18,12 +18,14 @@ package main
 // What each one guards, in a sentence a person would say: when the container is
 // stopped, the last lines it logged are kept, a job the previous run left is
 // interrupted with its line, and the checkpoint runs after the log is closed, not
-// before; the boot lines and a coded warning are kept at their levels; and the
+// before; the boot lines and a coded warning are kept at their levels; the
 // command-line tools leave a live server's running job running, while the daily
-// deck is kept as a job of its own.
+// deck is kept as a job of its own; and on a server terminating its own TLS, a
+// failed handshake is kept with the request lines, not in the middle of the log.
 
 import (
 	"bytes"
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"net"
@@ -43,7 +45,9 @@ import (
 type served struct {
 	t      *testing.T
 	cmd    *exec.Cmd
+	addr   string
 	base   string
+	client *http.Client  // trusts the server's own self-signed certificate when it has one
 	out    *bytes.Buffer // stdout and stderr together, as `docker logs` merges them
 	exited chan error
 }
@@ -71,12 +75,24 @@ func binaryEnv(dir string, extra ...string) []string {
 	return append(append(env, "TIPPANI_TEST_AS_BINARY=1", "TIPPANI_DATA="+dir, "TIPPANI_OFFLINE=1"), extra...)
 }
 
-func serveOn(t *testing.T, dir string) *served {
+// serveOn starts `tippani serve` on dir, with extra settings on top of
+// binaryEnv's; with TIPPANI_TLS_CERT among them it speaks https, as a server
+// terminating its own TLS does.
+func serveOn(t *testing.T, dir string, extra ...string) *served {
 	t.Helper()
 	addr := freeAddr(t)
-	s := &served{t: t, base: "http://" + addr, out: &bytes.Buffer{}, exited: make(chan error, 1)}
+	s := &served{t: t, addr: addr, base: "http://" + addr, client: &http.Client{},
+		out: &bytes.Buffer{}, exited: make(chan error, 1)}
+	for _, kv := range extra {
+		if strings.HasPrefix(kv, "TIPPANI_TLS_CERT=") {
+			s.base = "https://" + addr
+			// Its own certificate, made by the test: identity is not what is
+			// under test here.
+			s.client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		}
+	}
 	s.cmd = exec.Command(os.Args[0], "serve")
-	s.cmd.Env = binaryEnv(dir, "TIPPANI_BIND="+addr)
+	s.cmd.Env = binaryEnv(dir, append([]string{"TIPPANI_BIND=" + addr}, extra...)...)
 	s.cmd.Stdout, s.cmd.Stderr = s.out, s.out
 	if err := s.cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -90,7 +106,7 @@ func serveOn(t *testing.T, dir string) *served {
 	})
 	deadline := time.Now().Add(30 * time.Second)
 	for {
-		if resp, err := http.Get(s.base + "/healthz"); err == nil {
+		if resp, err := s.client.Get(s.base + "/healthz"); err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return s
@@ -110,7 +126,7 @@ func serveOn(t *testing.T, dir string) *served {
 
 func (s *served) get(path string) {
 	s.t.Helper()
-	resp, err := http.Get(s.base + path)
+	resp, err := s.client.Get(s.base + path)
 	if err != nil {
 		s.t.Fatalf("GET %s: %v", path, err)
 	}
@@ -306,4 +322,35 @@ func TestTheCommandLineLeavesALiveServersRunningJobRunning(t *testing.T) {
 		t.Errorf("the daily deck's log is %q, want one line per reader: %q\n(printed: %s)", lines, want, deck)
 	}
 	srv.stop()
+}
+
+// A SERVER ON ITS OWN CERTIFICATE KEEPS A FAILED HANDSHAKE WITH THE REQUEST LINES.
+// Somebody types http:// at a server that speaks only https — a scanner does the
+// same all day on an open port. net/http says so in a line of its own, and it is
+// kept at the request level, dropped first when the log is full, rather than as an
+// info line kept to the last.
+func TestAFailedHandshakeIsKeptWithTheRequestLines(t *testing.T) {
+	dir := t.TempDir()
+	cert, key := writeCertPair(t, t.TempDir(), "tippani.lan")
+	srv := serveOn(t, dir, "TIPPANI_TLS_CERT="+cert, "TIPPANI_TLS_KEY="+key)
+	if resp, err := http.Get("http://" + srv.addr + "/"); err == nil {
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("plain http at the https port was answered %d", resp.StatusCode)
+		}
+	}
+	srv.get("/api/locales") // the same server, asked properly, as a control
+	srv.stop()
+
+	st := openData(t, dir)
+	if n := count(t, st.DB, `SELECT count(*) FROM system_logs WHERE level = 'request'
+		AND line LIKE 'http: TLS handshake error from 127.0.0.1:%: client sent an HTTP request to an HTTPS server'`); n != 1 {
+		t.Errorf("the failed handshake is not kept once at the request level:\n%s", srv.out)
+	}
+	if n := count(t, st.DB, `SELECT count(*) FROM system_logs WHERE level = 'info' AND line LIKE 'http: %'`); n != 0 {
+		t.Errorf("net/http's lines are kept at info")
+	}
+	if n := count(t, st.DB, `SELECT count(*) FROM system_logs WHERE level = 'request' AND line LIKE 'GET /api/locales 200 %'`); n != 1 {
+		t.Errorf("the request asked over https is not kept:\n%s", srv.out)
+	}
 }

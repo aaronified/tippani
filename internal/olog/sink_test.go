@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"io"
 	"log"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // WHAT THE KEPT LOG IS HANDED. The sink is this package's whole contract with the
@@ -14,8 +17,9 @@ import (
 // observable unit: a line written through each one arrives at the sink at its
 // level, with its code beside it and not repeated inside it, and the terminal
 // still reads exactly what it read before there was a sink. The standard logger's
-// lines arrive through StdWriter the same way, and the request logger's terminal
-// line does not arrive at all — it keeps a line of its own.
+// lines arrive through StdWriter the same way, net/http's through ServerLog at the
+// level each deserves, and the request logger's terminal line does not arrive at
+// all — it keeps a line of its own.
 
 type sunk struct {
 	mu  sync.Mutex
@@ -125,5 +129,60 @@ func TestTheStandardLoggersLinesAreKeptToo(t *testing.T) {
 	std.Printf("unkept")
 	if n := len(s.entries()); n != 3 {
 		t.Fatalf("a line reached a sink that was removed: %d entries", n)
+	}
+}
+
+// NET/HTTP'S OWN LINES ARE KEPT AT WHAT THEY ARE. A real server with ServerLog as
+// its ErrorLog, as serve() sets it: one handler panics, and a plain-HTTP request
+// reaches a TLS listener, which is what a scanner or a mistyped http:// does. The
+// panic is an error with its code; the handshake is kept with the request lines,
+// not in the middle of the log; and the terminal still reads both.
+func TestNetHTTPsOwnLinesAreKeptAtWhatTheyAre(t *testing.T) {
+	printed := CaptureForTest(t)
+	s := sinkForTest(t)
+
+	panics := httptest.NewUnstartedServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		panic("a bug in the handler")
+	}))
+	panics.Config.ErrorLog = ServerLog()
+	panics.Start()
+	t.Cleanup(panics.Close)
+	if resp, err := http.Get(panics.URL); err == nil {
+		resp.Body.Close()
+		t.Fatalf("the handler panicked and the client was answered %d", resp.StatusCode)
+	}
+
+	secure := httptest.NewUnstartedServer(http.NotFoundHandler())
+	secure.Config.ErrorLog = ServerLog()
+	secure.StartTLS()
+	t.Cleanup(secure.Close)
+	if resp, err := http.Get("http://" + secure.Listener.Addr().String()); err == nil {
+		resp.Body.Close()
+	}
+
+	// Both lines are written as the connection ends, which is after the client
+	// has its answer; so they are waited for, briefly.
+	deadline := time.Now().Add(5 * time.Second)
+	for len(s.entries()) < 2 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	var panicked, handshake bool
+	for _, e := range s.entries() {
+		switch {
+		case strings.HasPrefix(e.Line, "http: panic serving "):
+			panicked = e.Level == "error" && e.Code == string(CodeHTTPPanic) &&
+				strings.Contains(e.Line, "a bug in the handler") && strings.Contains(e.Line, "goroutine ")
+		case strings.HasPrefix(e.Line, "http: TLS handshake error from "):
+			handshake = e.Level == "request" && e.Code == ""
+		}
+	}
+	if !panicked || !handshake {
+		t.Fatalf("net/http's lines were not kept as an error with its code (%t) and a request line (%t):\n%+v",
+			panicked, handshake, s.entries())
+	}
+	for _, want := range []string{"[error] TIP-HTTP-004 http: panic serving ", "http: TLS handshake error from "} {
+		if !strings.Contains(printed.String(), want) {
+			t.Errorf("the terminal does not read %q:\n%s", want, printed)
+		}
 	}
 }

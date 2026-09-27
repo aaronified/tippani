@@ -18,6 +18,7 @@ const (
 	CodeHTTPTLSReload    Code = "TIP-HTTP-001" // the TLS cert/key pair failed to re-load after changing on disk; the previous pair is still served
 	CodeHTTPNoConnection Code = "TIP-HTTP-002" // an API request was refused 503 because no database connection came free in time
 	CodeHTTPStillRunning Code = "TIP-HTTP-003" // a request was still running past the server's 60s write deadline (reported once)
+	CodeHTTPPanic        Code = "TIP-HTTP-004" // a request's handler panicked; net/http recovered it, closed that connection and went on
 
 	CodeHealthNoConnection Code = "TIP-HEALTH-001" // /healthz: no database connection came free within its budget
 	CodeHealthNoAnswer     Code = "TIP-HEALTH-002" // /healthz: the database did not answer the probe (closed, or failing)
@@ -183,6 +184,7 @@ var Registry = map[Code]string{
 	CodeHTTPTLSReload:      "The TLS certificate/key pair changed on disk but failed to re-load; the previously loaded pair is still being served.",
 	CodeHTTPNoConnection:   "An API request waited its limit for a database connection and none came free, so it was answered 503 and changed nothing.",
 	CodeHTTPStillRunning:   "A request was still running after the server's 60s write deadline; it is named once, with its request id.",
+	CodeHTTPPanic:          "A request's handler panicked. net/http recovered it and closed that one connection, and the server went on; the line carries the stack.",
 	CodeHealthNoConnection: "The health check could not get a database connection within its budget; three failed checks in a row mark the container unhealthy.",
 	CodeHealthNoAnswer:     "The health check got a connection but the database did not answer its read (closed during a restore or reset, or failing).",
 

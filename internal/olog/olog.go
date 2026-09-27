@@ -138,7 +138,7 @@ func Accessf(format string, args ...any) {
 
 // Entry is one line as the sink receives it.
 type Entry struct {
-	Level string    // error, warn, info or trace: which function wrote it
+	Level string    // error, warn, info or trace: which function wrote it; or request (ServerLog)
 	Code  string    // the TIP code the line carries, or ""
 	Line  string    // the text, without the level tag and code already in Level and Code
 	At    time.Time // when it was written
@@ -217,5 +217,39 @@ func (stdWriter) Write(p []byte) (int, error) {
 		level = "warn"
 	}
 	(*fn)(entryOf(level, line))
+	return len(p), nil
+}
+
+// ServerLog is the logger for http.Server's ErrorLog: the lines net/http writes
+// about connections and handlers, which with no ErrorLog go through the standard
+// logger, where StdWriter keeps every one at info. Two of them are not info:
+//
+//   - "http: panic serving …" is a handler that panicked, with its stack; net/http
+//     recovered it and the server went on. It is an error, written as Errorf
+//     writes one, with CodeHTTPPanic, so it can be found and looked up.
+//   - "http: TLS handshake error from …" is a connection that never became a
+//     request. On a server terminating its own TLS, internet scanners send a
+//     steady stream of these, and at info they would be kept for thirty days in
+//     the class the log drops last when it is full. At "request" they are kept
+//     with the request lines, dropped first when it is full — and still there
+//     for the one time they matter, a phone that cannot connect because of the
+//     certificate.
+//
+// Everything else stays at info. Each line still reaches stderr with the standard
+// timestamp, as it did through the standard logger.
+func ServerLog() *log.Logger { return log.New(serverWriter{}, "", 0) }
+
+type serverWriter struct{}
+
+func (serverWriter) Write(p []byte) (int, error) {
+	line := strings.TrimRight(string(p), "\n")
+	switch {
+	case strings.HasPrefix(line, "http: panic serving "):
+		Errorf(CodeHTTPPanic, "%s", line)
+	case strings.HasPrefix(line, "http: TLS handshake error "):
+		put(err, "request", line)
+	default:
+		put(err, "info", line)
+	}
 	return len(p), nil
 }

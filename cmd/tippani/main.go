@@ -305,6 +305,11 @@ func serve() {
 		// request is now kept in the log: a megabyte of path and query is a
 		// megabyte a stranger can make the log hold per request.
 		MaxHeaderBytes: 64 << 10,
+		// net/http's own lines (a handler's panic, a failed TLS handshake) go
+		// through olog rather than the standard logger, which would keep every one
+		// at info: a panic is an error, and a stream of scanners' handshakes is not
+		// worth the middle of the log. olog.ServerLog says where each goes.
+		ErrorLog: olog.ServerLog(),
 	}
 	if tlsOn {
 		reloader, err := newCertReloader(certPath, keyPath)
