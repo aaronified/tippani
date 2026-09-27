@@ -127,8 +127,11 @@ type Runner struct {
 	pending   bool
 	claiming  bool
 	claimStop map[int64]bool // Stop asked for a job while the worker was claiming it
-	running   *Job
-	idle      chan struct{} // closed when the current worker exits
+	// claimEnded is closed when the claim in progress ends. A Stop waits on it:
+	// until the claim is over, nobody can say whether it took the job asked for.
+	claimEnded chan struct{}
+	running    *Job
+	idle       chan struct{} // closed when the current worker exits
 
 	// secrets are what a job needs and must never be stored: a backup's
 	// password. Kept by job id, never on the Job and never in the row, and
@@ -236,16 +239,18 @@ func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total in
 		return 0, ErrStale
 	}
 	id, err := r.insert(owner, kind, cleanSubject(subject), p, total, rerunOf)
-	if err != nil {
-		return 0, err
-	}
-	if secret != nil {
+	if err == nil && secret != nil {
 		r.smu.Lock()
 		r.secrets[id] = secret
 		r.smu.Unlock()
 	}
+	// Kicked when the insert refuses, too. A press refused as a duplicate or as
+	// one too many is a press on jobs that are already waiting, and if a claim
+	// that failed on a locked database left them with no worker, pressing again
+	// is what a reader will do and has to be what starts one. A kick with
+	// nothing waiting costs a worker that looks once and exits.
 	r.kickLocked()
-	return id, nil
+	return id, err
 }
 
 // insert checks the duplicate and the limit and inserts, in one transaction, so
@@ -353,6 +358,14 @@ func (r *Runner) kickLocked() {
 	go r.work(r.idle)
 }
 
+// isClosed is whether shutdown has begun: a claim still retrying against a locked
+// database stops trying then, since Close interrupts whatever waits.
+func (r *Runner) isClosed() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.closed
+}
+
 // work is the worker: claim, run, repeat, and exit when there is nothing to claim.
 func (r *Runner) work(idle chan struct{}) {
 	defer close(idle)
@@ -365,20 +378,29 @@ func (r *Runner) work(idle chan struct{}) {
 		}
 		r.pending = false
 		r.claiming = true
+		r.claimEnded = make(chan struct{})
 		r.mu.Unlock()
 
-		j, err := r.claim()
+		var j *Job
+		err := busyRetry(busyAttempts, busyBackoff, busyCeiling, r.isClosed, func() error {
+			var err error
+			j, err = r.claim()
+			return err
+		})
 		if r.afterClaim != nil {
 			r.afterClaim(j != nil)
 		}
 
 		r.mu.Lock()
 		r.claiming = false
+		close(r.claimEnded)
 		stop := j != nil && r.claimStop[j.id]
 		clear(r.claimStop)
 		if err != nil {
-			// Not retried here: a database that fails the claim would fail it
-			// again at once. The job stays queued for the next kick.
+			// A lock held through every retry, or a write that cannot work. The
+			// worker goes, rather than spin on a database that is refusing it;
+			// the job stays queued, and the next Enqueue — even one refused as
+			// the same job — or the end of an Exclusive starts a worker for it.
 			olog.Errorf(olog.CodeJobRecord, "[jobs] claiming the next job: %v", err)
 		}
 		if j == nil {
@@ -486,6 +508,12 @@ func (r *Runner) execute(j *Job) (err error) {
 // a screen that sees the job finished finds its whole log already there. A job
 // Close gave up on was already marked interrupted, with its line; nothing more is
 // written for it but the stdout line.
+//
+// The finishing write waits out a held lock (busyRetry), and stops waiting if
+// Close gives up on the job meanwhile, since that already wrote its end. A write
+// that fails even so leaves the row reading running with nothing to end it; the
+// server's line then says the end was not recorded, rather than naming a state
+// the record does not hold, and Stop settles the row (settleOrphan).
 func (r *Runner) finish(j *Job, runErr error) {
 	state, errText, last, lvl := StateSucceeded, "", "", LevelInfo
 	switch {
@@ -499,6 +527,7 @@ func (r *Runner) finish(j *Job, runErr error) {
 		state, last, lvl = StateInterrupted, "the server stopped while this job was running", LevelWarn
 	}
 	done, total := j.final()
+	var recErr error
 	if j.abandoned.Load() {
 		state = StateInterrupted
 	} else {
@@ -508,11 +537,12 @@ func (r *Runner) finish(j *Job, runErr error) {
 		ctx, cancel := context.WithTimeout(context.Background(), r.opts.FlushWait)
 		r.lb.Flush(ctx)
 		cancel()
-		if _, err := r.st.DB.Exec(`UPDATE jobs SET state = ?, error = ?, done = ?, total = ?, finished_at = ?
-			WHERE id = ? AND state = 'running'`,
-			state, errText, done, total, time.Now().UnixMilli(), j.id); err != nil {
-			olog.Errorf(olog.CodeJobRecord, "[jobs] #%d could not record that it %s: %v", j.id, state, err)
-		}
+		recErr = busyRetry(busyAttempts, busyBackoff, busyCeiling, j.abandoned.Load, func() error {
+			_, err := r.st.DB.Exec(`UPDATE jobs SET state = ?, error = ?, done = ?, total = ?, finished_at = ?
+				WHERE id = ? AND state = 'running'`,
+				state, errText, done, total, time.Now().UnixMilli(), j.id)
+			return err
+		})
 	}
 	r.forget(j.id)
 
@@ -520,7 +550,13 @@ func (r *Runner) finish(j *Job, runErr error) {
 	if who == "" {
 		who = j.username
 	}
-	line := fmt.Sprintf("[jobs] #%d %s for %s %s in %s (%d/%d)", j.id, j.kind, who, state, took(time.Since(j.started)), done, total)
+	dur := took(time.Since(j.started))
+	if recErr != nil {
+		olog.Errorf(olog.CodeJobRecord, "[jobs] #%d %s for %s could not record its end (it %s in %s, %d/%d), so it reads running until Stop or a restart settles it: %v",
+			j.id, j.kind, who, state, dur, done, total, recErr)
+		return
+	}
+	line := fmt.Sprintf("[jobs] #%d %s for %s %s in %s (%d/%d)", j.id, j.kind, who, state, dur, done, total)
 	if errText != "" {
 		line += ": " + errText
 	}
@@ -556,7 +592,9 @@ func visible(viewer Owner, uid sql.NullInt64) bool {
 // Compare-and-set, so it cannot lose a race with the worker's claim: the waiting
 // row is stopped only if it is still waiting, and a job the claim got to first is
 // asked to stop in memory as well as in its row, where the worker, claiming or
-// running it, will see it.
+// running it, will see it. A row that reads running with no job in the worker's
+// hands is one whose end was never recorded, and it is settled (settleOrphan);
+// stopHeldLocked says which is which.
 func (r *Runner) Stop(id int64, viewer Owner) error {
 	if viewer.Gen != r.st.Generation() {
 		return ErrStale
@@ -582,8 +620,12 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 		return nil
 	}
 	r.mu.Lock()
-	fresh := r.flagStopLocked(id)
+	held, fresh := r.stopHeldLocked(id)
 	r.mu.Unlock()
+	if !held {
+		_, err := r.settleOrphan(id, fmt.Sprintf("its end was never recorded; %s stopped it, and it is marked interrupted", viewer.Username))
+		return err
+	}
 	res, err = r.st.DB.Exec(`UPDATE jobs SET stop_requested = 1 WHERE id = ? AND state = 'running'`, id)
 	if err != nil {
 		return err
@@ -594,23 +636,65 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 	return nil
 }
 
-// flagStopLocked asks the job in the worker's hands to stop, if it is id: the one
-// running, or the one being claimed. It reports whether this is news. A job that
-// is neither has ended, and nothing is kept for it.
-func (r *Runner) flagStopLocked(id int64) bool {
+// stopHeldLocked asks the job in the worker's hands to stop, if it is id, and
+// reports whether it was (held) and whether the ask is news (fresh). A job the
+// worker does not hold has ended, whatever its row says, and nothing is kept for
+// it.
+//
+// A CLAIM IN PROGRESS IS WAITED OUT. Until it ends, the row the claim took reads
+// running while the worker has not yet said which job it holds, so a running row
+// cannot be told from one left running by a failed finishing write — and taking
+// the one for the other would either leave that one running for good or mark the
+// job just claimed interrupted as it starts. So the ask goes in claimStop, where
+// the worker applies it before the job's first item if the claim took id, and
+// the answer waits for the claim, which is one statement. Called and returning
+// with r.mu held; it lets go of it while it waits.
+func (r *Runner) stopHeldLocked(id int64) (held, fresh bool) {
+	for r.claiming {
+		if !r.claimStop[id] {
+			r.claimStop[id] = true
+			fresh = true
+		}
+		ended := r.claimEnded
+		r.mu.Unlock()
+		<-ended
+		r.mu.Lock()
+	}
 	if j := r.running; j != nil && j.id == id {
-		return !j.stop.Swap(true)
+		news := !j.stop.Swap(true)
+		return true, fresh || news
 	}
-	if r.claiming && !r.claimStop[id] {
-		r.claimStop[id] = true
-		return true
+	return false, false
+}
+
+// settleOrphan ends a row that reads running although no job is in the worker's
+// hands: a job whose finishing write failed past every retry (finish says so on
+// stderr). Nothing would ever write its end, and until something does it counts
+// toward its owner's five, blocks the same job being started again and stands in
+// every waiting job's count ahead — so Stop settles it, as interrupted, as a
+// restart would have. The caller has seen that the worker does not hold it, with
+// no claim in progress (stopHeldLocked); it cannot come to hold it afterwards,
+// because a claim takes only a waiting row, and the compare-and-set leaves a row
+// that has since ended alone. It reports whether it settled the row.
+func (r *Runner) settleOrphan(id int64, line string) (bool, error) {
+	res, err := r.st.DB.Exec(`UPDATE jobs SET state = 'interrupted', finished_at = ? WHERE id = ? AND state = 'running'`,
+		time.Now().UnixMilli(), id)
+	if err != nil {
+		return false, err
 	}
-	return false
+	if n, _ := res.RowsAffected(); n != 1 {
+		return false, nil
+	}
+	r.forget(id)
+	r.lb.JobLine(id, LevelWarn, line)
+	return true, nil
 }
 
 // StopAll stops every job the viewer can see: their own, or everyone's for an
 // admin (the confirm says so). Waiting jobs are stopped at once; the running one
-// is asked to stop after the item in hand. It says how many of each.
+// is asked to stop after the item in hand. It says how many of each. A row left
+// reading running whose end was never recorded is settled at once and counted
+// with the waiting ones: like them, it has ended by the time this returns.
 func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error) {
 	if viewer.Gen != r.st.Generation() {
 		return 0, 0, ErrStale
@@ -621,7 +705,8 @@ func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error)
 	}
 	return r.stopWhere(scope, args,
 		fmt.Sprintf("%s stopped it before it started", viewer.Username),
-		fmt.Sprintf("%s asked every job to stop; this one stops after the item in hand", viewer.Username))
+		fmt.Sprintf("%s asked every job to stop; this one stops after the item in hand", viewer.Username),
+		fmt.Sprintf("its end was never recorded; %s asked every job to stop, and it is marked interrupted", viewer.Username))
 }
 
 // StopOwner stops every job of an account that is about to be deleted: waiting
@@ -629,11 +714,12 @@ func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error)
 func (r *Runner) StopOwner(uid int64) error {
 	_, _, err := r.stopWhere(" AND user_id = ?", []any{uid},
 		"stopped before it started: the account that started it is being deleted",
-		"the account that started this job is being deleted; it stops after the item in hand")
+		"the account that started this job is being deleted; it stops after the item in hand",
+		"its end was never recorded; the account that started it is being deleted, and it is marked interrupted")
 	return err
 }
 
-func (r *Runner) stopWhere(scope string, args []any, waitingLine, runningLine string) (stopping, stoppedWaiting int, err error) {
+func (r *Runner) stopWhere(scope string, args []any, waitingLine, runningLine, orphanLine string) (stopping, stoppedWaiting int, err error) {
 	waiting, err := r.ids(`UPDATE jobs SET state = 'stopped', finished_at = ? WHERE state = 'queued'`+scope+` RETURNING id`,
 		append([]any{time.Now().UnixMilli()}, args...)...)
 	if err != nil {
@@ -643,19 +729,32 @@ func (r *Runner) stopWhere(scope string, args []any, waitingLine, runningLine st
 	for _, id := range waiting {
 		r.lb.JobLine(id, LevelInfo, waitingLine)
 	}
+	stoppedWaiting = len(waiting)
 	running, err := r.ids(`UPDATE jobs SET stop_requested = 1 WHERE state = 'running'`+scope+` RETURNING id`, args...)
 	if err != nil {
-		return 0, len(waiting), err
+		return 0, stoppedWaiting, err
 	}
 	for _, id := range running {
 		r.mu.Lock()
-		fresh := r.flagStopLocked(id)
+		held, fresh := r.stopHeldLocked(id)
 		r.mu.Unlock()
-		if fresh {
+		switch {
+		case !held:
+			settled, err := r.settleOrphan(id, orphanLine)
+			if err != nil {
+				return stopping, stoppedWaiting, err
+			}
+			if settled {
+				stoppedWaiting++
+			}
+		case fresh:
 			r.lb.JobLine(id, LevelInfo, runningLine)
+			stopping++
+		default:
+			stopping++
 		}
 	}
-	return len(running), len(waiting), nil
+	return stopping, stoppedWaiting, nil
 }
 
 // ids runs a statement that returns job ids.

@@ -10,7 +10,7 @@ const (
 	StateSucceeded   = "succeeded"
 	StateFailed      = "failed"
 	StateStopped     = "stopped"     // a person pressed Stop
-	StateInterrupted = "interrupted" // the server stopped under it: a restart, a shutdown, a restore
+	StateInterrupted = "interrupted" // the server stopped under it (a restart, a shutdown, a restore), or its end was never recorded and Stop settled it
 )
 
 // kindShape is what a job kind may look like: lower case, digits, dots and

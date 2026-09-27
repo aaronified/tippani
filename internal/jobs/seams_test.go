@@ -194,7 +194,10 @@ func TestABatchWaitsOutAHeldLockAndIsDroppedOnlyAfterItsLastTry(t *testing.T) {
 // job and taking its lock again, so a Stop lands in exactly the window where the
 // row already reads running and the worker has not yet said which job it holds.
 // runner_test.go's race test reaches the paths either side of it by timing; this
-// window is microseconds wide and timing does not reach it on purpose.
+// window is microseconds wide and timing does not reach it on purpose. A Stop in
+// that window waits for the claim to end before it answers, so the test also
+// reads claimStop, the runner's note of it, to know the Stop has asked before the
+// claim is let go: nothing outside can say that a call still waiting has.
 func TestAStopInTheInstantAfterTheClaimIsNotLost(t *testing.T) {
 	st := openStoreInternal(t)
 	if _, err := st.DB.Exec(`INSERT INTO users (id, username, password_hash) VALUES (2, 'mitra', 'x')`); err != nil {
@@ -230,10 +233,18 @@ func TestAStopInTheInstantAfterTheClaimIsNotLost(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-claimed
-	if err := r.Stop(id, owner); err != nil {
-		t.Fatal(err)
+	stopErr := make(chan error, 1)
+	go func() { stopErr <- r.Stop(id, owner) }()
+	for asked := false; !asked; {
+		r.mu.Lock()
+		asked = r.claimStop[id]
+		r.mu.Unlock()
+		time.Sleep(time.Millisecond)
 	}
 	close(stopped)
+	if err := <-stopErr; err != nil {
+		t.Fatal(err)
+	}
 
 	deadline := time.Now().Add(20 * time.Second)
 	var state string
@@ -249,6 +260,70 @@ func TestAStopInTheInstantAfterTheClaimIsNotLost(t *testing.T) {
 	}
 	if state != StateStopped || items.Load() != 0 {
 		t.Fatalf("stopped the instant after its claim, the job ended %s after %d item(s); want stopped after none", state, items.Load())
+	}
+}
+
+// The other side of that window, through the same seam: a Stop on a row a failed
+// finishing write left running, pressed while the worker is claiming another job,
+// waits for the claim and then settles the row — rather than taking it for the
+// job being claimed and leaving it running for good.
+func TestAStopOnARowLeftRunningDuringAClaimStillSettlesIt(t *testing.T) {
+	st := openStoreInternal(t)
+	if _, err := st.DB.Exec(`INSERT INTO users (id, username, password_hash) VALUES (2, 'mitra', 'x')`); err != nil {
+		t.Fatal(err)
+	}
+	res, err := st.DB.Exec(`INSERT INTO jobs (user_id, username, kind, state, created_at, started_at) VALUES (2, 'mitra', 'quick', 'running', ?1, ?1)`,
+		time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	orphan, _ := res.LastInsertId()
+	lb := NewLogbook()
+	lb.Attach(st)
+	t.Cleanup(func() { lb.Close(context.Background()) })
+	r := NewRunner(st, lb, Options{})
+	t.Cleanup(func() { r.Close(context.Background()) })
+	r.Register(Kind{Name: "quick", Run: func(context.Context, *Job) error { return nil }})
+	claimed, letGo := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	r.afterClaim = func(bool) {
+		once.Do(func() {
+			close(claimed)
+			<-letGo
+		})
+	}
+	owner := Owner{UserID: 2, Username: "mitra", Gen: st.Generation()}
+	next, err := r.Enqueue(owner, "quick", "", map[string]int{"n": 1}, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-claimed
+	stopErr := make(chan error, 1)
+	go func() { stopErr <- r.Stop(orphan, owner) }()
+	for asked := false; !asked; {
+		r.mu.Lock()
+		asked = r.claimStop[orphan]
+		r.mu.Unlock()
+		time.Sleep(time.Millisecond)
+	}
+	close(letGo)
+	if err := <-stopErr; err != nil {
+		t.Fatal(err)
+	}
+	stateOf := func(id int64) string {
+		var s string
+		st.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&s)
+		return s
+	}
+	if s := stateOf(orphan); s != StateInterrupted {
+		t.Fatalf("Stop returned and the row left running reads %s, want interrupted", s)
+	}
+	deadline := time.Now().Add(20 * time.Second)
+	for stateOf(next) != StateSucceeded {
+		if time.Now().After(deadline) {
+			t.Fatalf("the job being claimed meanwhile reads %s, want succeeded", stateOf(next))
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 

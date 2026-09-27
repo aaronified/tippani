@@ -71,11 +71,9 @@ const (
 	classes
 )
 
-// BUSY, AND ONLY BUSY, IS RETRIED. Every attempt already waits busy_timeout (5s)
-// for the lock inside SQLite; the backoff between attempts (50 ms doubling to
-// 2 s, six attempts) lets whoever holds it finish. Past the last attempt the
-// batch is dropped and counted: a log that blocks the app while it waits would
-// be worse than a log with a gap it admits to.
+// BUSY, AND ONLY BUSY, IS RETRIED (busyRetry). Past the last attempt the batch is
+// dropped and counted: a log that blocks the app while it waits would be worse
+// than a log with a gap it admits to.
 //
 // THE PRUNE: thirty days, in chunks, with no timer. It runs when the drainer has
 // just written and the last prune is over an hour old, and when PruneSoon is
@@ -98,7 +96,7 @@ type tuning struct {
 
 func defaultTuning() tuning {
 	return tuning{
-		busyBackoff: 50 * time.Millisecond, busyCeiling: 2 * time.Second, busyAttempts: 6,
+		busyBackoff: busyBackoff, busyCeiling: busyCeiling, busyAttempts: busyAttempts,
 		retention: 30 * 24 * time.Hour, pruneEvery: time.Hour,
 		pruneChunk: 2000, systemCeiling: 1_000_000,
 		beforeWrite: func() {},
@@ -565,14 +563,34 @@ func notKept(n int) string {
 // busy. The swap lock is let go between attempts (each is its own LogWrite), so
 // a restore waiting to start is not held up by a batch waiting on an import.
 func (lb *Logbook) retrying(st *store.Store, write func(db *sql.DB) error) error {
-	wait := lb.tune.busyBackoff
+	return busyRetry(lb.tune.busyAttempts, lb.tune.busyBackoff, lb.tune.busyCeiling, lb.isClosed,
+		func() error { return st.LogWrite(write) })
+}
+
+// How a write that finds SQLite's write lock held is retried, by the logbook's
+// drainer and by the runner's claim and finishing write alike. Every attempt
+// already waits busy_timeout (5 s) for the lock inside SQLite; the pause between
+// attempts (50 ms doubling to 2 s, six attempts, about half a minute in all) lets
+// whoever holds it — a long import, a sqlite3 shell, slow storage — finish.
+const (
+	busyBackoff  = 50 * time.Millisecond
+	busyCeiling  = 2 * time.Second
+	busyAttempts = 6
+)
+
+// busyRetry runs write until it succeeds, fails with anything but SQLite's busy,
+// has been tried attempts times, or giveUp says there is no longer any point. It
+// is the one sleep this package has, and it sleeps only while somebody else holds
+// the lock: nothing here waits on a clock for any other reason.
+func busyRetry(attempts int, backoff, ceiling time.Duration, giveUp func() bool, write func() error) error {
+	wait := backoff
 	for attempt := 1; ; attempt++ {
-		err := st.LogWrite(write)
-		if err == nil || !store.IsBusy(err) || attempt >= lb.tune.busyAttempts || lb.isClosed() {
+		err := write()
+		if err == nil || !store.IsBusy(err) || attempt >= attempts || giveUp() {
 			return err
 		}
 		time.Sleep(wait)
-		wait = min(wait*2, lb.tune.busyCeiling)
+		wait = min(wait*2, ceiling)
 	}
 }
 

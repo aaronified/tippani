@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"tippani/internal/jobs"
+	"tippani/internal/olog"
 	"tippani/internal/outbound"
 	"tippani/internal/store"
 )
@@ -21,8 +22,13 @@ import (
 //
 // WHAT IT KNOWS, declared: the package's exported API, and the jobs and job_logs
 // tables, which it reads back (the endpoints that would show them are a later
-// stage of 3.1.0) and, for Boot and a deleted account, writes as a crashed
-// server or `tippani user del` would leave them. The kinds are the test's own:
+// stage of 3.1.0) and, for Boot, a deleted account and a job left waiting with
+// no worker, writes as a crashed server, `tippani user del` or a claim that
+// failed on a locked database would leave them. Where the database itself has
+// to misbehave, it does so from outside: SQLite's write lock held from the
+// library pool, as a long import holds it, and a trigger that refuses a job's
+// finishing write, as a full disk would. And it reads what the server printed
+// (olog's capture), where that line is the promise. The kinds are the test's own:
 // "steps", whose every item waits until the test lets it finish, is how a test
 // holds a job mid-item without a clock. One file here uses the journey tier's
 // seam, TIPPANI_JOBS_HOLD (HoldEnv), and says so at the test that does.
@@ -38,7 +44,11 @@ import (
 // nothing to run it, and a Stop never loses a race with the job starting; a
 // finished job's last lines are there when it says it finished; progress is
 // written every half second and always at the end; a job that crashes fails and
-// the next one starts; a job whose account went is not run for anybody else.
+// the next one starts; a write lock held past its wait delays a job's start and
+// end and loses neither; pressing a job that is already waiting starts the queue;
+// a job whose end could not be recorded reads running until Stop settles it, and
+// the server does not claim it ended otherwise; a job whose account went is not
+// run for anybody else.
 
 type rig struct {
 	t     *testing.T
@@ -809,6 +819,131 @@ func TestAJobThatCrashesFailsAndTheNextOneStarts(t *testing.T) {
 	if g.state(refused) != "failed" || strings.Contains(errOf(refused), "AIzaSECRET") || !strings.Contains(errOf(refused), "key=…") {
 		t.Fatalf("the job that failed with a key in its error: %s, error %q", g.state(refused), errOf(refused))
 	}
+}
+
+// holdWriteLock takes SQLite's write lock from the library pool, as a long import
+// holds it, until the returned func lets it go.
+func holdWriteLock(t *testing.T, db *sql.DB) (letGo func()) {
+	t.Helper()
+	tx, err := db.Begin() // _txlock=immediate: the lock is taken here
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (?, 'info', 'the import')`, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	return func() {
+		if err := tx.Commit(); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+// A lock held for longer than one attempt waits (busy_timeout, five seconds):
+// the job's start and its end each wait it out, and neither is lost to it.
+func TestAWriteLockHeldPastItsWaitDelaysAJobButLosesNothing(t *testing.T) {
+	t.Run("its end", func(t *testing.T) {
+		t.Parallel()
+		g := newRig(t, jobs.Options{})
+		entered, finish := make(chan struct{}), make(chan struct{})
+		returned := make(chan struct{})
+		g.r.Register(jobs.Kind{Name: "gate", Run: func(context.Context, *jobs.Job) error {
+			close(entered)
+			<-finish
+			defer close(returned)
+			return nil
+		}})
+		a := g.enqueue(g.mitra(), "gate", nil)
+		b := g.enqueue(g.mitra(), "quick", nil)
+		<-entered
+		letGo := holdWriteLock(t, g.st.DB)
+		close(finish)
+		<-returned
+		time.Sleep(6 * time.Second) // the finishing write's first attempt gives up at five
+		letGo()
+		g.waitState(a, "succeeded") // not left reading running
+		g.waitState(b, "succeeded") // and the one behind it still starts
+	})
+	t.Run("its start", func(t *testing.T) {
+		t.Parallel()
+		g := newRig(t, jobs.Options{})
+		// A job waiting with no worker alive, as a claim that failed would leave it.
+		id, _ := exec(t, g.st.DB, `INSERT INTO jobs (user_id, username, kind, state, created_at) VALUES (2, 'mitra', 'quick', 'queued', ?)`,
+			time.Now().UnixMilli()).LastInsertId()
+		letGo := holdWriteLock(t, g.st.DB)
+		// A restore ending starts the queue; the worker's first claim meets the lock.
+		if err := g.r.Exclusive(func() error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(6 * time.Second) // the claim's first attempt gives up at five
+		letGo()
+		g.waitState(id, "succeeded")
+	})
+}
+
+// A job left waiting with no worker (a claim that failed on a locked database)
+// is started by the reader pressing it again, though that press is refused as
+// the same job.
+func TestPressingAJobThatIsAlreadyWaitingStartsTheQueue(t *testing.T) {
+	g := newRig(t, jobs.Options{})
+	id, _ := exec(t, g.st.DB, `INSERT INTO jobs (user_id, username, kind, state, created_at) VALUES (2, 'mitra', 'quick', 'queued', ?)`,
+		time.Now().UnixMilli()).LastInsertId()
+	var dup *jobs.ErrDuplicate
+	if _, err := g.r.Enqueue(g.mitra(), "quick", "", nil, 0, nil); !errors.As(err, &dup) || dup.ID != id {
+		t.Fatalf("pressing the waiting job again: %v, want ErrDuplicate naming %d", err, id)
+	}
+	g.waitState(id, "succeeded")
+}
+
+// A job whose finishing write fails for good (a full disk; here a trigger that
+// refuses it) still reads running, and nothing will write its end. The server's
+// line says the end was not recorded rather than naming a state the row does not
+// hold; the row stands in the way of the same job and counts toward the owner's
+// five until Stop, or Stop all, settles it as interrupted.
+func TestAJobWhoseEndCouldNotBeRecordedReadsRunningUntilStopSettlesIt(t *testing.T) {
+	g := newRig(t, jobs.Options{})
+	out := olog.CaptureForTest(t)
+	exec(t, g.st.DB, `CREATE TRIGGER disk_full BEFORE UPDATE OF state ON jobs WHEN NEW.state = 'succeeded'
+		BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END`)
+
+	a := g.enqueue(g.mitra(), "quick", nil)
+	eventually(t, "the finish is attempted", func() bool {
+		return strings.Contains(out.String(), fmt.Sprintf("#%d quick for mitra could not record its end (it succeeded in", a))
+	})
+	if strings.Contains(out.String(), "quick for mitra succeeded") {
+		t.Fatalf("the server's log names a state the record does not hold:\n%s", out.String())
+	}
+	if g.state(a) != "running" {
+		t.Fatalf("a job whose end could not be written reads %s", g.state(a))
+	}
+	var dup *jobs.ErrDuplicate
+	if _, err := g.r.Enqueue(g.mitra(), "quick", "", nil, 0, nil); !errors.As(err, &dup) || dup.ID != a {
+		t.Fatalf("the same job again while the first reads running: %v, want ErrDuplicate naming %d", err, a)
+	}
+
+	if err := g.r.Stop(a, g.mitra()); err != nil {
+		t.Fatal(err)
+	}
+	if g.state(a) != "interrupted" || count(t, g.st.DB, `SELECT count(*) FROM jobs WHERE id = ? AND finished_at IS NOT NULL`, a) != 1 {
+		t.Fatalf("after Stop the job reads %s, want interrupted with a finish time", g.state(a))
+	}
+	if got := g.lines(a); len(got) != 1 || got[0] != "its end was never recorded; mitra stopped it, and it is marked interrupted" {
+		t.Fatalf("its log: %q", got)
+	}
+
+	// Stop all settles one too, and counts it as ended rather than as stopping.
+	b := g.enqueue(g.aro(), "quick", map[string]any{"b": 1})
+	eventually(t, "the second finish is attempted", func() bool {
+		return strings.Contains(out.String(), fmt.Sprintf("#%d quick for aro could not record its end", b))
+	})
+	stopping, ended, err := g.r.StopAll(g.aro())
+	if err != nil || stopping != 0 || ended != 1 || g.state(b) != "interrupted" {
+		t.Fatalf("Stop all over a row left running: %d stopping, %d ended, %v, and it reads %s", stopping, ended, err, g.state(b))
+	}
+
+	exec(t, g.st.DB, `DROP TRIGGER disk_full`)
+	again := g.enqueue(g.mitra(), "quick", nil) // no longer refused as the same job
+	g.waitState(again, "succeeded")
 }
 
 func TestAJobWhoseAccountWentIsNotRunForAnybody(t *testing.T) {
