@@ -1144,9 +1144,11 @@ func (b idleBody) Read(p []byte) (int, error) {
 // A STALLED UPLOAD IS GIVEN UP. The admin routes run this with the job queue held
 // (withQueueHeld), taken before the upload so that a job starting mid-upload
 // cannot fail the restore at its last step. So while an upload sends nothing, no
-// job can start and none is claimed. An upload that stopped for good, with the
-// tab open and the link dead, would hold the queue until the TCP connection died,
-// with no deadline to end it.
+// job can start and none is claimed, and an upload that stopped for good (the tab
+// open, the link dead) would hold the queue until the TCP connection died. The
+// read deadline is what ends it: uploadIdle of silence, and the upload is given
+// up with a 408 (TIP-BACKUP-010).
+//
 // requireConfirm asks the core to gate the swap on a typed RESTORE when — and
 // only when — the uploaded archive turns out to be an UNSEALED pre-1.4.1 one (the
 // admin path; onboarding has nothing to lose and skips it). guard is passed
