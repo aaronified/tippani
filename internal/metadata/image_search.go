@@ -40,6 +40,7 @@ import (
 	"strings"
 
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 )
 
 // Test seams: real endpoints in production, httptest servers in tests.
@@ -113,7 +114,7 @@ func AmazonImageSearch(ctx context.Context, query, cookie, domain string, n int)
 	req.Header.Set("Cookie", cookie)
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		olog.Tracef("[meta] amazon image search failed: %v", err)
+		olog.Tracef("[meta] amazon image search failed: %v", outbound.RedactError(err))
 		return nil, nil // best-effort: a blocked scrape is not an error worth surfacing
 	}
 	defer resp.Body.Close()
