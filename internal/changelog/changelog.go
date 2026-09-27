@@ -3,13 +3,13 @@
 //
 // WHY EMBEDDED RATHER THAN FETCHED. The obvious reading of "show me the
 // changelog" is "ask GitHub", and this app deliberately does not work that way.
-// The promise is stated in three places and is load-bearing: "zero background
-// jobs (no pollers, timers, or cron)", "nothing external is required to run",
-// and PLAN §193's "Tippani never contacts the network on its own", whose own
-// justification is that it is the honest reading of "self-hosted". A changelog
-// that is blank on a LAN-only NAS, or behind a firewall, or when GitHub's 60
-// requests an hour have already gone on the update check, is blank in exactly
-// the situation this app is built for.
+// The promise is stated in three places and is load-bearing: "nothing wakes on
+// a timer" (no pollers, timers, or cron), "nothing external is required to run",
+// and Design-decisions §1's "Tippani looks outward only when a person or the
+// app's own lookup asks", whose own justification is that it is the honest
+// reading of "self-hosted". A changelog that is blank on a LAN-only NAS, or
+// behind a firewall, or when GitHub's 60 requests an hour have already gone on
+// the update check, is blank in exactly the situation this app is built for.
 //
 // And a changelog is a fact about the binary you are RUNNING, not about the
 // internet. The embedded copy answers "what is in this thing" exactly, forever,

@@ -1946,7 +1946,7 @@ export function Shell({ user, onLogout, onPreferences, onUser }) {
   // NOTHING SCHEDULED, and that is the point of doing it this way. A real
   // notification needs something that wakes up on its own — a service worker, a push
   // subscription, a server that knows when your day starts — and every one of those
-  // is a background job this app does not have and will not add. A badge set on load
+  // wakes on its own, which nothing in this app does or will. A badge set on load
   // carries most of the same value: you glance at the home screen, and it says
   // whether there is anything to come back for.
   //

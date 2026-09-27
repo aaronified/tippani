@@ -16,10 +16,13 @@ package httpapi
 // A small import or a fetch of five works is over before the phone would buzz,
 // so each has a threshold below which nothing is sent.
 //
-// SENT INSIDE THE REQUEST THAT FINISHED THE WORK, with a short timeout, and
-// never in a goroutine of its own — the repo's invariant is that nothing
-// outlives its request. A slow or failing Pushover costs at most that timeout
-// and is logged (TIP-NOTIFY-001); it never fails the import that caused it.
+// SENT BY WHATEVER FINISHED THE WORK, with a short timeout, and never in a
+// goroutine of its own: a request sends its message after its answer is
+// flushed (notifyAfter), and a queued job sends its own as it ends, on the
+// queue's worker — the one goroutine besides the log's writer that outlives the
+// call that starts it, and nothing a message may add to. A slow or failing
+// Pushover costs at most that timeout and is logged (TIP-NOTIFY-001); it never
+// fails the import, fetch or backup that caused it.
 //
 // THE DAILY MESSAGE HAS NO TIMER IN THE APP. `tippani notify daily` is run by
 // the host's cron, the same answer Design-decisions gives nightly backups:

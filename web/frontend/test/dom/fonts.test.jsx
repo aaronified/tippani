@@ -242,9 +242,10 @@ describe('the dyslexia face', () => {
   })
 
   it('is BUNDLED rather than fetched, in every weight it ships', () => {
-    // fonts.js's own standing rule: "Tippani never contacts the network on its own
-    // — no telemetry, no CDN, no phone-home — and a type picker that loaded Google
-    // Fonts would be the first thing in the app that did." A face named in the
+    // fonts.js's own standing rule: the server looks outward only when asked — "no
+    // telemetry, no CDN, no phone-home" — and "a type picker that loaded Google
+    // Fonts would be the first thing in the app to reach a third party from a
+    // reader's browser". A face named in the
     // picker and not imported here would be a silent fallback to a system font,
     // which reads as the setting not working.
     const main = src('main.jsx')

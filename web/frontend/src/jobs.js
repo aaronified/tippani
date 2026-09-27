@@ -1,7 +1,8 @@
 // JOBS AND LOGS, SEEN FROM THE BROWSER — the one module that knows the wire.
 //
 // WHY ONE MODULE. The server and this app were built to one written contract at
-// the same time, by two different hands (docs/plans/jobs.md, and the spec's D0),
+// the same time, by two different hands (the plan, now Design-decisions §18, and
+// the spec's D0),
 // and a contract two sides implement independently is exactly where a field name
 // drifts. So every path under /jobs and /admin/logs, and every field read out of
 // their answers, is spelled HERE and nowhere else: a screen asks this module for

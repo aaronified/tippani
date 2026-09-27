@@ -1249,9 +1249,10 @@ const specimenSize = (roleKey) => {
 // margin note. It is also the only honest way to show the Bengali and Devanagari
 // rows, whose whole point is a script the specimen sentence does not contain.
 //
-// Every alternate is BUNDLED, not fetched. Tippani never contacts the network on
-// its own, and a type picker that loaded Google Fonts would be the first thing in
-// the app that did — on a screen about how your own words look. All OFL-1.1.
+// Every alternate is BUNDLED, not fetched. The browser talks to nobody but this
+// server, and a type picker that loaded Google Fonts would be the first thing in
+// the app to reach a third party from it — on a screen about how your own words
+// look. All OFL-1.1.
 
 // FontRow — one role: its name, what it is for, the face it is set in, and the
 // face doing that job underneath.
@@ -4424,7 +4425,7 @@ function BackupCard({ user, asking = false, onAsking }) {
             this was two stacks of divs under one heading. The middle row is NOT
             here and its absence is recorded rather than faked: a nightly backup
             needs something that wakes up at four in the morning, and this repo's
-            standing invariant is that no goroutine outlives its request. See
+            standing invariant is that nothing wakes on a timer. See
             docs/plans/nightly-backup.md. */}
         {/* THE DOT CAME DOWN FROM THE HEADING. What it says — one dated encrypted
             archive, a passphrase one recoverable by nothing, and a restore that

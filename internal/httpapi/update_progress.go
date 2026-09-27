@@ -22,8 +22,10 @@ package httpapi
 // the apply can die at, and each one names the next thing it is about to try, so
 // a record that stops at "pulling" means the pull is what did not come back.
 //
-// NO GOROUTINE, WHICH IS THE CONSTRAINT. Nothing here runs outside the request:
-// the handler is doing the work anyway and simply says so as it goes. The record
+// NO GOROUTINE. An update's apply runs in its request, as everything that
+// replaces the server under the queue does (it holds the queue rather than
+// joining it), so nothing here runs outside that request: the handler is doing
+// the work anyway and simply says so as it goes. The record
 // is a settings row rather than a table because it is ONE row that is always
 // overwritten — the last attempt, not a history — and a table for a single row
 // is a migration for nothing.

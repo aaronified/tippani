@@ -4,8 +4,8 @@ package main
 // pair and Tippani serves TLS itself — no reverse-proxy container required.
 // Certificates come from wherever the operator already gets them (their own
 // home CA, `tailscale cert`, an acme.sh/certbot renewal on the host); Tippani
-// deliberately does NOT speak ACME — renewal loops are background jobs with
-// third-party dependencies, and the ethos is zero of those.
+// deliberately does NOT speak ACME — a renewal loop is something that wakes on
+// a timer, with third-party dependencies, and the app has neither.
 
 import (
 	"crypto/tls"
