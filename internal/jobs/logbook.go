@@ -682,8 +682,10 @@ const (
 
 // busyRetry runs write until it succeeds, fails with anything but SQLite's busy,
 // has been tried attempts times, or giveUp says there is no longer any point. It
-// is the only pause the drainer and the worker ever take, and they take it only
-// while somebody else holds the lock.
+// is the only backoff the drainer and the worker take, and they take it only
+// while somebody else holds the lock. (The worker also waits, up to FlushWait,
+// for a finishing job's last lines to be written; that is a wait on the
+// drainer, not a backoff.)
 func busyRetry(attempts int, backoff, ceiling time.Duration, giveUp func() bool, write func() error) error {
 	wait := backoff
 	for attempt := 1; ; attempt++ {

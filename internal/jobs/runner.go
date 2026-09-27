@@ -1031,9 +1031,11 @@ func (r *Runner) abandon() error {
 // every time it is kicked — after every Enqueue, refused ones included, and
 // after every Exclusive — and nearly always finds none. Refusing while it looked
 // turned an admin's second maintenance step, pressed just after the first, into
-// "a job is running" with nothing running at all. The claim is one statement, so
-// the wait is short, and what it took decides: a job means ErrBusy, nothing
-// means fn runs.
+// "a job is running" with nothing running at all. The claim is one statement,
+// over in microseconds as a rule; against SQLite's write lock held elsewhere it
+// is retried (busyRetry), and the wait can then be the retry's half a minute,
+// busy_timeout's five seconds a try included. What it took decides: a job means
+// ErrBusy, nothing means fn runs.
 func (r *Runner) Exclusive(fn func() error) error {
 	r.mu.Lock()
 	for r.claiming {
