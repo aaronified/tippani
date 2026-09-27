@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -104,6 +105,13 @@ func TestAnAdminNarrowsTheSystemLogByLevelTimeAndKeyword(t *testing.T) {
 	bob.mustDo("GET", "/books?Wv-log", nil, http.StatusOK) // a request line
 	openPage(t, h, "/library/Wv-log")                      // a file line: the SPA
 
+	raw := admin.mustDo("GET", "/admin/logs?q=Wv-log", nil, http.StatusOK)
+	var wire []json.RawMessage
+	json.Unmarshal(shaped(t, "GET /admin/logs", raw.Body.Bytes(), "lines", "more")["lines"], &wire)
+	if len(wire) == 0 {
+		t.Fatalf("no lines: %s", raw.Body)
+	}
+	shaped(t, "a system line", wire[0], "id", "at", "level", "code", "line")
 	all := admin.logs(url.Values{"q": {"Wv-log"}})
 	got := strings.Join(marked(all, "Wv-log"), "\n")
 	for _, want := range []string{"error [test] Wv-log the disk said no", "warn [test] Wv-log 50% off",

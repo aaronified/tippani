@@ -32,8 +32,8 @@ func pastJob(c *testClient, kind string) wireJob {
 	c.t.Helper()
 	deadline := time.Now().Add(20 * time.Second)
 	for {
-		for _, j := range c.jobs("view=past&kind=" + kind).Jobs {
-			return j
+		if list := c.jobs("view=past&kind=" + kind).Jobs; len(list) > 0 {
+			return list[0]
 		}
 		if time.Now().After(deadline) {
 			c.t.Fatalf("no %s in past jobs", kind)

@@ -35,6 +35,8 @@ import (
 //     their caps and their checks are what is under test and their runs are not;
 //   - the wire field names, which are the contract the SPA is built to: a test of
 //     a contract has to name the fields it holds the server to;
+//   - one test closes the queue as shutdown closes it (srv.Jobs.Close), since no
+//     request shuts the server down;
 //   - three tests write a row straight into the journal: a job finished 31 days
 //     ago, which no request can make; a re-verify check, a kind only its own run
 //     makes; and a log line that never passed the logbook's door, as a hand-made
@@ -53,7 +55,7 @@ import (
 // anything queues and kept out of the job; a finished job's log downloads as
 // Markdown whose block no line can leave; past jobs hold what ran in a request
 // and thirty days of it; deleting a reader stops their jobs and keeps them for
-// the admin.
+// the admin; a server shutting down starts nothing.
 
 // testQueue is the server's queue with the test's kinds on it.
 type testQueue struct {
@@ -882,10 +884,22 @@ func TestPastJobsHoldWhatRanInARequestAndThirtyDaysOfIt(t *testing.T) {
 		return id
 	}
 	gone, kept := old(31), old(29)
+	// Still there to open by its id, until a prune takes it.
+	bob.mustDo("GET", fmt.Sprintf("/jobs/%d", gone), nil, http.StatusOK)
 	list := jobIDs(bob.jobs("view=past&kind=fill&prune=1").Jobs)
 	if slices.Contains(list, gone) || !slices.Contains(list, kept) {
 		t.Fatalf("bob's past fills: %v, want %d and not %d", list, kept, gone)
 	}
+	// The tab's first read asked for the prune, and it takes the old job with
+	// no timer: the last one ran with the server's first lines, under an hour
+	// ago, so nothing else would have run one now.
+	for deadline := time.Now().Add(20 * time.Second); bob.do("GET", fmt.Sprintf("/jobs/%d", gone), nil).Code != http.StatusNotFound; {
+		if time.Now().After(deadline) {
+			t.Fatalf("job %d, finished 31 days ago, was never pruned", gone)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	bob.mustDo("GET", fmt.Sprintf("/jobs/%d", kept), nil, http.StatusOK)
 	// The state chips: the lookup under its own state, and nothing under one no
 	// job of bob's is in.
 	if list := jobIDs(bob.jobs("view=past&state=stopped," + lookup.State).Jobs); !slices.Contains(list, lookup.ID) || slices.Contains(list, kept) {
@@ -895,6 +909,21 @@ func TestPastJobsHoldWhatRanInARequestAndThirtyDaysOfIt(t *testing.T) {
 		t.Fatalf("stopped or interrupted: %v", list)
 	}
 	bob.mustDo("GET", "/jobs?view=past&state=done", nil, http.StatusBadRequest)
+}
+
+func TestAServerShuttingDownStartsNothing(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	srv.Jobs.Close(ctx)
+	rec := alice.startJob("test.lines", map[string]any{"tag": "late"})
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("a job started as the server shuts down: %d %s, want 503", rec.Code, rec.Body)
+	}
+	shaped(t, "the 503", rec.Body.Bytes(), "error")
 }
 
 func TestAServerWithNoQueueStartsNothing(t *testing.T) {
