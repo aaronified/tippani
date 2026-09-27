@@ -501,10 +501,11 @@ export const jobLogURL = (id) => apiURL(`/jobs/${id}/log.md`)
 // values are fixed tokens, and a query a person can read in the address bar of a
 // download is worth one line.
 //
-// `to` IS FOR THE EXPORT, which closes the window at the moment the list on the
-// screen was read: "what is shown" is then the lines the reader is looking at,
-// not those plus whatever arrived while they read. The list itself is left
-// open-ended, so a re-read picks up the newest lines.
+// `to` IS FOR THE EXPORT, which closes the window at the newest line on the
+// screen, by that line's own stamp (SystemLogsCard says why not the browser's
+// clock): "what is shown" is then the lines the reader is looking at, not those
+// plus whatever arrived while they read. The list itself is left open-ended, so
+// a re-read picks up the newest lines.
 export function logQuery({ levels = DEFAULT_LOG_LEVELS, range = DEFAULT_LOG_RANGE, q = '', before = null, limit = 0, now = Date.now(), to = null } = {}) {
   const span = (LOG_RANGES.find(([id]) => id === range) || LOG_RANGES[1])[1]
   const parts = [`level=${levels.join(',')}`, `from=${now - span}`]

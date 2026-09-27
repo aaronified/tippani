@@ -471,6 +471,22 @@ describe('System logs', () => {
     expect(Number(params.get('to'))).toBeGreaterThanOrEqual(Number(params.get('from')))
     expect(within(logs).getByRole('link', { name: /Everything kept/ }).getAttribute('href')).toBe('/api/admin/logs.md?all=1')
   })
+
+  // THE SERVER STAMPS THE LINES, SO THE SERVER'S CLOCK ENDS THE FILE. The export
+  // was closed at the moment the browser read the list, and a browser whose clock
+  // is behind the server's exported an empty block under a screen full of lines —
+  // found by narrowing-the-system-logs.journey.mjs, whose browser keeps 1 January
+  // while its server keeps the real date. Here the one line is stamped a day after
+  // the browser's "now"; the file must still reach it.
+  it('ends "what is shown" at the newest line on the screen, whatever the browser’s clock says', async () => {
+    const DAY = 24 * HOUR
+    LOGS = [{ id: 41, at: NOW + DAY, level: 'info', code: '', line: 'stamped by a server a day ahead' }]
+    await page()
+    const logs = await card('System logs')
+    await within(logs).findByText('stamped by a server a day ahead', { exact: false })
+    const shown = within(logs).getByRole('link', { name: /What is shown/ }).getAttribute('href')
+    expect(Number(new URLSearchParams(shown.split('?')[1]).get('to'))).toBe(NOW + DAY)
+  })
 })
 
 describe('the phone’s Jobs tile', () => {

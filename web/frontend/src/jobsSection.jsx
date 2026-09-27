@@ -583,8 +583,8 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
   const [lines, setLines] = useState(null)
   const [more, setMore] = useState(false)
   const [error, setError] = useState('')
-  // The moment the list was read, which is what the export says "what is shown"
-  // about: the same window, ending where the reader's list ends.
+  // The moment the list was read, by the browser's clock: where the window starts
+  // (that moment less the range), for the list and its export alike.
   const [readAt, setReadAt] = useState(() => Date.now())
   // TYPING IS NOT A REQUEST PER KEY. The bar calls through on every keystroke,
   // which is right for a list already in memory and wrong for a table on the
@@ -615,7 +615,17 @@ export function SystemLogsCard({ q = '', onQuery = null }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(false) }, [levels.join(','), range, term])
 
-  const filters = { levels, range, q: term, now: readAt, to: readAt }
+  // "WHAT IS SHOWN" ENDS AT THE NEWEST LINE SHOWN, BY THE SERVER'S CLOCK. The
+  // server stamps every line and the list is read with no upper bound, so the list
+  // ends wherever the server's log had got to. Closing the file at the moment the
+  // BROWSER read the list held only while the two clocks agreed: a phone running
+  // a few minutes slow lost those minutes from the file, and one set months
+  // behind exported an empty block under a screen full of lines. The newest line's
+  // own stamp is the end of what the reader is looking at, whatever either clock
+  // says. With no line shown the file has nothing to hold, and the read's moment
+  // closes it as before.
+  const shownTo = lines && lines.length ? lines.reduce((m, l) => Math.max(m, l.at || 0), 0) : readAt
+  const filters = { levels, range, q: term, now: readAt, to: shownTo }
   return (
     <JobsCard title={t('settings.logs.title')}>
       <div className="logs-filters">
