@@ -189,12 +189,16 @@ export function useBulkOps({ kind, ids = [], onDone }) {
     // before then is kept, and the toast says it did not reach the end.
     else if (job.state !== 'succeeded') toast(`${jobTitle(job)} · ${jobStateLabel(job.state)}`)
     else {
-      const { filled: fields, failed } = jobOutcome(job)
+      const { filled: fields, failed, unpinned } = jobOutcome(job)
       // "Nothing was missing" is the good case and has to read like one, or
-      // people learn to distrust the button.
+      // people learn to distrust the button. So it is said only when every work
+      // was looked up and had nothing to fill: a work the server could not look
+      // up — it failed, or it is pinned to nothing (`unpinned`, which the job
+      // counts apart from a failure because it wants a Look up, not a retry) —
+      // may be missing plenty, and nothing was fetched for it.
       toast(
         fields === 0
-          ? t(failed ? 'common.selection.fill.toast.none-fetched' : 'common.selection.fill.toast.nothing-missing')
+          ? t(failed || unpinned ? 'common.selection.fill.toast.none-fetched' : 'common.selection.fill.toast.nothing-missing')
           : t('common.selection.fill.toast.filled', { count: fields, n: fields }),
       )
     }

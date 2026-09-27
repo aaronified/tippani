@@ -253,6 +253,18 @@ describe('the bar over a selection of works', () => {
     expect(await screen.findByText('nothing was missing')).toBeTruthy()
   })
 
+  // A WORK PINNED TO NOTHING WAS NEVER LOOKED UP. The job counts it apart from a
+  // failure (it wants a Look up, not a retry), and a toast that read only the
+  // failures told a reader whose every work was unpinned that nothing was
+  // missing — the one thing nobody had checked.
+  it('does not call a selection of unpinned works complete', async () => {
+    JOBS.plan('fill', { counts: { fields: 0, failed: 0, unpinned: 1 } })
+    open()
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    expect(await screen.findByText('nothing could be fetched')).toBeTruthy()
+    expect(screen.queryByText('nothing was missing')).toBeNull()
+  })
+
   // BEHIND SOMEBODY ELSE'S JOB THE BAR STAYS BUSY, and a busy bar with no reason
   // on it reads as a stuck one.
   it('says where it stands when it has to wait its turn, and reports the end', async () => {
