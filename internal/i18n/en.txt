@@ -5688,6 +5688,11 @@ settings.backup.file.chosen.label = {name} · {size}
 settings.backup.restore.label = Restore…
 settings.backup.toast.created = backup created
 settings.backup.toast.restored = restored · logging you out
+# A backup is a job on the server since 3.1.0; these two are how it can end
+# without an archive other than failing — stopped from Settings › Jobs, or cut
+# short by a restart. Toasts, five words or fewer.
+settings.backup.toast.stopped = backup stopped
+settings.backup.toast.interrupted = backup interrupted
 
 # ---------------------------------------------------------------------------
 # THE RESTORE PROMPT — one dialog, asking for exactly what the chosen archive's

@@ -5542,6 +5542,11 @@ settings.backup.file.chosen.label = {name} · {size}
 settings.backup.restore.label = ফিরিয়ে আনুন…
 settings.backup.toast.created = ব্যাকআপ তৈরি হল
 settings.backup.toast.restored = ফিরিয়ে আনা হল · লগ আউট হচ্ছে
+# A backup is a job on the server since 3.1.0; these two are how it can end
+# without an archive other than failing — stopped from Settings › Jobs, or cut
+# short by a restart. Toasts, five words or fewer.
+settings.backup.toast.stopped = ব্যাকআপ থামানো হল
+settings.backup.toast.interrupted = ব্যাকআপ মাঝপথে থেমে গেল
 
 # ---------------------------------------------------------------------------
 # THE RESTORE PROMPT — one dialog, asking for exactly what the chosen archive's

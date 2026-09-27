@@ -14,14 +14,23 @@
 // then insists the copy is still one tap away — from the toast, and from a control
 // on the card that is now the same size and shape as the button beside it rather
 // than the word `download` in a corner.
+//
+// SINCE 3.1.0 THE BACKUP IS A JOB on the server's queue: the prompt asks for a
+// `backup` job with the credential, the server refuses a wrong one there and
+// then, and the card watches the job and toasts how it ended. The jobs routes are
+// answered by test/dom/helpers/jobsServer.js, which declares what it knows.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { openSettingsSection } from './helpers/settingsSection.jsx'
+import { jobsServer } from './helpers/jobsServer.js'
 
 let CALLS
 let BACKUP
 let CREATE_OK
+let JOBS
+
+const MADE = { name: 'tippani-2026-08-14.tpbk', created: '2026-08-14T09:00:00Z', size: 5 << 20, key: 'password', account: 'a', recoverable: true }
 
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
@@ -29,10 +38,16 @@ vi.mock('../../src/api.js', async (orig) => ({
   json: vi.fn(async (method, path, body) => {
     CALLS.push([method, path, body])
     if (method === 'GET' && path === '/admin/backup') return { ok: true, data: { backup: BACKUP } }
-    if (method === 'POST' && path === '/admin/backup') {
-      if (!CREATE_OK) return { ok: false, status: 403, data: { error: 'wrong password' } }
-      BACKUP = { name: 'tippani-2026-08-14.tpbk', created: '2026-08-14T09:00:00Z', size: 5 << 20, key: 'password', account: 'a', recoverable: true }
-      return { ok: true, data: { backup: BACKUP } }
+    if (method === 'POST' && path === '/jobs' && body?.kind === 'backup') {
+      // The credential is checked in the request, before anything queues.
+      if (!CREATE_OK) return { ok: false, status: 401, data: { error: 'wrong password' } }
+    }
+    const job = JOBS.answer(method, path, body)
+    if (job) {
+      // A backup job that has finished well has left an archive on the server.
+      const made = [...JOBS.jobs.values()].some((j) => j.kind === 'backup' && j.state === 'succeeded')
+      if (made) BACKUP = MADE
+      return job
     }
     return { ok: true, data: {} }
   }),
@@ -68,6 +83,7 @@ beforeEach(() => {
   CALLS = []
   BACKUP = null
   CREATE_OK = true
+  JOBS = jobsServer()
   stubLocation()
 })
 
@@ -95,7 +111,7 @@ const makeOne = async () => {
     target: { value: 'hunter2' },
   })
   fireEvent.click(within(dialog).getByRole('button', { name: /^Back up$/ }))
-  await waitFor(() => expect(CALLS.some(([m, p]) => m === 'POST' && p === '/admin/backup')).toBe(true))
+  await waitFor(() => expect(CALLS.some(([m, p, b]) => m === 'POST' && p === '/jobs' && b?.kind === 'backup')).toBe(true))
 }
 
 describe('creating a backup', () => {
@@ -138,6 +154,58 @@ describe('creating a backup', () => {
     await screen.findByText(/wrong password/i)
     expect(screen.queryByRole('button', { name: 'Download' })).toBeNull()
     expect(went).toEqual([])
+  })
+})
+
+describe('the backup, as a job', () => {
+  it('is asked for with the credential typed into the prompt', async () => {
+    await card()
+    await makeOne()
+    expect(JOBS.started()).toEqual([['backup', { password: 'hunter2' }]])
+  })
+
+  // THE PROMPT CLOSES AND THE CARD WATCHES: the archive is sealed on the server,
+  // and the button says so until the job ends — then the new archive is on the
+  // card, and the toast offers the copy.
+  it('keeps the card busy while its job runs, then shows the new archive', async () => {
+    JOBS.hold('backup')
+    await card()
+    await makeOne()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Back up' })).toBeNull())
+    const busy = await screen.findByRole('button', { name: /Backing up/ })
+    expect(busy.disabled).toBe(true)
+    const [id] = [...JOBS.jobs.keys()]
+    JOBS.finish(id)
+    expect(await screen.findByText('backup created', {}, { timeout: 4000 })).toBeTruthy()
+    expect(await screen.findByRole('link', { name: /Download the last one/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Back up now/ }).disabled).toBe(false)
+  })
+
+  it('says where it stands while it waits behind another job', async () => {
+    JOBS.plan('backup', { queued: true, ahead: 1 })
+    JOBS.hold('backup')
+    await card()
+    await makeOne()
+    expect(await screen.findByText('Waiting — one job ahead')).toBeTruthy()
+  })
+
+  // THE SEAL CAN STILL FAIL AFTER THE PRESS — the password changed while the job
+  // waited, say — and the card says so in the job's own words, with nothing
+  // offered to download.
+  it('says why when its job fails, and offers nothing to download', async () => {
+    JOBS.plan('backup', { state: 'failed', error: 'your password changed since this backup was started — run it again' })
+    await card()
+    await makeOne()
+    expect(await screen.findByText('your password changed since this backup was started — run it again', {}, { timeout: 4000 })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Download' })).toBeNull()
+  })
+
+  it('says a stopped backup stopped', async () => {
+    JOBS.plan('backup', { state: 'stopped' })
+    await card()
+    await makeOne()
+    expect(await screen.findByText('backup stopped', {}, { timeout: 4000 })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Download' })).toBeNull()
   })
 })
 

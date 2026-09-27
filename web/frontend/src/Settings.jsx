@@ -115,6 +115,7 @@ import { PersonChip } from './people.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { JobsCurrentCard, JobsPastCard, SystemLogsCard } from './jobsSection.jsx'
+import { jobWaitingText, useKindJob } from './jobs.js'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
 // (admin only) Updates + Backup. Library stats now live on their own Stats page
@@ -4242,7 +4243,7 @@ const fmtSize = (n) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${M
 function BackupCard({ user, asking = false, onAsking }) {
   const [backup, setBackup] = useState(null) // {name, created, size, key, account} | null
   const [loaded, setLoaded] = useState(false)
-  const [busy, setBusy] = useState(false) // creating
+  const [busy, setBusy] = useState(false) // asking the server for the backup job
   // CONTROLLED, because the phone's dock opens it too. "Back up now" is one of
   // the two things somebody comes to this page on a phone to do, and it was six
   // cards down a scroll.
@@ -4284,30 +4285,52 @@ function BackupCard({ user, asking = false, onAsking }) {
     window.location.href = apiURL('/admin/backup/download')
   }
 
+  // A BACKUP IS A JOB ON THE SERVER (3.1.0). The request that sealed the archive
+  // used to hold this card for as long as the seal took, and a reader who left
+  // the screen left with nothing to say whether it had worked. Now the press asks
+  // for a `backup` job — the server checks the credential there and then, so a
+  // wrong password is refused before anything queues — and the prompt closes;
+  // the card watches the job and says how it ended. Leaving does not stop it:
+  // Settings › Jobs has it, with its log.
+  //
+  // THE DOCK'S KEY AND THE PHONE INDEX'S BUTTON OPEN THIS SAME PROMPT, so all
+  // three presses are this one function.
+  const backupJob = useKindJob('backup', {
+    onSettled: async (job) => {
+      if (job.state === 'failed') return toast(job.error || t('error.backup.failed'))
+      if (job.state !== 'succeeded') {
+        return toast(t(job.state === 'stopped' ? 'settings.backup.toast.stopped' : 'settings.backup.toast.interrupted'))
+      }
+      // The card's own read of the kept archive, now that there is a new one.
+      const r = await json('GET', '/admin/backup')
+      if (r.ok) setBackup(r.data.backup)
+      // IT DOES NOT DOWNLOAD ITSELF. Making a backup and taking a copy of it are
+      // two different acts, and welding them together got both of them wrong:
+      //
+      //   - The archive is KEPT on the server. That is the point of the feature —
+      //     one dated archive, ready to restore from, and the restore reads it from
+      //     there. Somebody who wanted that got a multi-megabyte file in their
+      //     Downloads folder as well, every time, unasked.
+      //   - On a phone the navigation is worse than untidy: assigning
+      //     window.location while a dialog is closing takes the browser off the
+      //     page mid-transition, and what comes back is a download shelf over a
+      //     Settings screen that has lost its scroll position.
+      //   - And it happened on the FAILURE path's twin — a backup that succeeded
+      //     but that you only wanted server-side still cost you the bandwidth.
+      //
+      // So the toast offers it instead. One tap if you want the copy, nothing if
+      // you do not, and the button on the card is there either way.
+      toast(t('settings.backup.toast.created'), { label: t('common.action.download.label'), onClick: download })
+    },
+  })
+  const backingUp = busy || backupJob.live
+
   async function create(creds) {
     setBusy(true)
-    const r = await json('POST', '/admin/backup', creds)
+    const r = await backupJob.start(creds, { reuse: false })
     setBusy(false)
-    if (!r.ok) return toast(errText(r, t('error.backup.failed')))
+    if (!r.ok) return toast(r.error)
     setAsking(false)
-    setBackup(r.data.backup)
-    // IT NO LONGER DOWNLOADS ITSELF. Making a backup and taking a copy of it are
-    // two different acts, and welding them together got both of them wrong:
-    //
-    //   - The archive is KEPT on the server. That is the point of the feature —
-    //     one dated archive, ready to restore from, and the restore reads it from
-    //     there. Somebody who wanted that got a multi-megabyte file in their
-    //     Downloads folder as well, every time, unasked.
-    //   - On a phone the navigation is worse than untidy: assigning
-    //     window.location while a dialog is closing takes the browser off the page
-    //     mid-transition, and what comes back is a download shelf over a Settings
-    //     screen that has lost its scroll position.
-    //   - And it happened on the FAILURE path's twin — a backup that succeeded but
-    //     that you only wanted server-side still cost you the bandwidth.
-    //
-    // So the toast offers it instead. One tap if you want the copy, nothing if you
-    // do not, and the button on the card is there either way.
-    toast(t('settings.backup.toast.created'), { label: t('common.action.download.label'), onClick: download })
   }
 
   // The archive the restore prompt is about, and therefore which credential it
@@ -4400,18 +4423,23 @@ function BackupCard({ user, asking = false, onAsking }) {
           label={t('settings.backup.make.label')}
           info={t('settings.backup.info.body')}
           said={loaded && (
-            <p className="microcopy">
-              {backup ? (
-                // tNodes: the date is bold, so the sentence carries a node. fmtSize
-                // renders MB/KB, which are symbols rather than words (§8) and stay.
-                tNodes('settings.backup.last.prose', {
-                  when: <b key="when">{fmtWhen(backup.created)}</b>,
-                  size: fmtSize(backup.size),
-                })
-              ) : (
-                t('settings.backup.empty.prose')
-              )}
-            </p>
+            <>
+              <p className="microcopy">
+                {backup ? (
+                  // tNodes: the date is bold, so the sentence carries a node. fmtSize
+                  // renders MB/KB, which are symbols rather than words (§8) and stay.
+                  tNodes('settings.backup.last.prose', {
+                    when: <b key="when">{fmtWhen(backup.created)}</b>,
+                    size: fmtSize(backup.size),
+                  })
+                ) : (
+                  t('settings.backup.empty.prose')
+                )}
+              </p>
+              {/* BEHIND ANOTHER JOB, where it stands — a busy button with no reason
+                  beside it reads as a stuck one. */}
+              {backupJob.job?.state === 'queued' && <p className="microcopy">{jobWaitingText(backupJob.job)}</p>}
+            </>
           )}
           control={
         <div className="flex flex-wrap items-center gap-3">
@@ -4419,9 +4447,9 @@ function BackupCard({ user, asking = false, onAsking }) {
             icon={<IconArchive />}
             keepLabel
             onClick={() => setAsking(true)}
-            disabled={busy || phase !== 'idle'}
+            disabled={backingUp || phase !== 'idle'}
           >
-            {busy ? t('settings.backup.now.busy') : t('settings.backup.now.label')}
+            {backingUp ? t('settings.backup.now.busy') : t('settings.backup.now.label')}
           </GhostButton>
           {/* THE DOWNLOAD IS A CONTROL NOW, not a `download` word in the corner.
               It was a bare tp-link beside a button, which read as a footnote to the
@@ -4496,7 +4524,7 @@ function BackupCard({ user, asking = false, onAsking }) {
               icon={<IconRestore />}
               keepLabel
               onClick={() => setPrompt(true)}
-              disabled={!target || busy || phase !== 'idle'}
+              disabled={!target || backingUp || phase !== 'idle'}
               title={!target ? t(source === 'file' ? 'error.validate.backup-file-required' : 'error.validate.backup-absent') : undefined}
             >
               {t('settings.backup.restore.label')}
