@@ -9,7 +9,7 @@
 //
 // So: what appears is asserted per kind, from the registry both surfaces read.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { jobsServer } from './helpers/jobsServer.js'
 
@@ -22,7 +22,9 @@ let JOBS
 vi.mock('../../src/api.js', async (orig) => ({
   ...(await orig()),
   json: vi.fn(async (method, path, body) => {
-    CALLS.push([method, path, body])
+    // The fourth field is WHEN, for the cases about the fill's polling schedule —
+    // under fake timers it is the fake clock's.
+    CALLS.push([method, path, body, Date.now()])
     const job = JOBS.answer(method, path, body)
     if (job) return job
     // The library-wide pool the value box offers from. A bulk selection spans
@@ -748,5 +750,80 @@ describe('setting a field that cannot be cleared', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
     await waitFor(() => expect(sent('/books/bulk')).toBeTruthy())
     expect(sent('/books/bulk')[2].series).toBe('The Hainish Cycle')
+  })
+})
+
+// A FILL WAITING ON ITS JOB ASKS ON THE JOB'S SCHEDULE, which is the spec's
+// polling rule for every screen that watches a job: a second while it moves,
+// three once ten answers in a row brought nothing new, nothing at all while the
+// tab is hidden — and nothing more once the job has finished. Settings › Jobs has
+// its own cases for its own polls (jobs-polling.test.jsx); a selection's Fill gaps
+// waits through a different function, followJob, and these hold that one to the
+// same rule. A clock is the one thing a reader cannot be asked to watch, so the
+// clock is vitest's and the reader's side is the requests: which went out, when.
+describe('a fill waiting on its job asks on the job’s schedule', () => {
+  let visibility = 'visible'
+  beforeAll(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility })
+  })
+  afterAll(() => { delete document.visibilityState })
+  beforeEach(() => {
+    visibility = 'visible'
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+  })
+  afterEach(() => {
+    visibility = 'visible'
+    vi.useRealTimers()
+  })
+
+  const tick = (ms) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+  const jobReads = () => CALLS.filter(([m, p]) => m === 'GET' && /^\/jobs\/\d+\?/.test(p))
+  // Gaps between consecutive reads, dropping the zero between the start's own read
+  // and the follower's first — two askers on one press, not a schedule.
+  const gaps = (list) => list.slice(1).map((c, i) => c[3] - list[i][3]).filter((g) => g > 0)
+  const pressFill = async () => {
+    render(<Board />)
+    fireEvent.click(boxes()[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Fill gaps' }))
+    await tick(0)
+    expect(JOBS.started()).toHaveLength(1)
+  }
+
+  it('asks every second, and every three once ten answers in a row bring nothing new', async () => {
+    JOBS.plan('fill', { queued: true, ahead: 1 })
+    JOBS.hold('fill')
+    await pressFill()
+    await tick(20000)
+    const g = gaps(jobReads())
+    expect(g.slice(0, 10)).toEqual(Array(10).fill(1000))
+    expect(g[10]).toBe(3000)
+  })
+
+  it('asks nothing while the tab is hidden, and asks the moment it is shown', async () => {
+    JOBS.hold('fill')
+    await pressFill()
+    await tick(3000)
+    const before = jobReads().length
+    expect(before).toBeGreaterThan(0)
+    visibility = 'hidden'
+    document.dispatchEvent(new Event('visibilitychange'))
+    await tick(30000)
+    expect(jobReads().length, 'the fill asked while the tab was hidden').toBe(before)
+    visibility = 'visible'
+    document.dispatchEvent(new Event('visibilitychange'))
+    await tick(0)
+    expect(jobReads().length, 'showing the tab did not ask at once').toBe(before + 1)
+  })
+
+  it('stops asking once the job has finished', async () => {
+    JOBS.hold('fill')
+    await pressFill()
+    await tick(2000)
+    const [id] = [...JOBS.jobs.keys()]
+    JOBS.finish(id, { counts: { fields: 1, failed: 0 } })
+    await tick(1000)
+    const after = jobReads().length
+    await tick(30000)
+    expect(jobReads().length).toBe(after)
   })
 })
