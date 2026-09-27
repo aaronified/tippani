@@ -2,7 +2,7 @@
 
 Every design decision I have made in this project, with the reasoning that produced it,
 the alternative I turned down, and — where it applies — the part I got wrong and what
-changed my mind. Four hundred and seventy-two entries, grouped by what they are about
+changed my mind. Eight hundred and eighty entries, grouped by what they are about
 rather than by when they happened.
 
 **Everything in this document was approved by me.** That statement covers every entry
