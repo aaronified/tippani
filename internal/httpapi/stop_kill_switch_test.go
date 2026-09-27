@@ -735,7 +735,7 @@ func runKillCase(t *testing.T, c killCase, press string) {
 		next = behind()
 	}
 
-	viewer, line := owner, who+" stopped it; the item in hand is left untouched"
+	viewer, line := owner, who+" pressed Stop"
 	var deleted chan int
 	pressed := time.Now()
 	switch press {
@@ -743,11 +743,11 @@ func runKillCase(t *testing.T, c killCase, press string) {
 		owner.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", job.ID), nil, http.StatusOK)
 	case "stop all":
 		owner.mustDo("POST", "/jobs/stop-all", nil, http.StatusOK)
-		line = who + " stopped every job; this one's item in hand is left untouched"
+		line = who + " pressed Stop all"
 	case "delete the reader":
 		// The delete waits for the job to be out of its hands, so it is sent
 		// beside the reads that watch it.
-		viewer, line = w.admin, "the account that started this job is being deleted, so it is stopped; the item in hand is left untouched"
+		viewer, line = w.admin, "Stop, because the account that started this job is being deleted"
 		deleted = make(chan int, 1)
 		bobID := accountID(t, w.admin, "bob")
 		pressed = time.Now()
@@ -777,7 +777,7 @@ func runKillCase(t *testing.T, c killCase, press string) {
 		t.Fatalf("the stopped job counts %d item(s) done, want %d: the one in hand is not one of them", stopped.Done, c.done)
 	}
 	if log := strings.Join(logOf(t, viewer, job.ID), "\n"); !strings.Contains(log, line) {
-		t.Fatalf("the job's log does not say who stopped it (%q):\n%s", line, log)
+		t.Fatalf("the job's log does not say who pressed Stop (%q):\n%s", line, log)
 	}
 
 	// EVERY ITEM WHOLE OR UNTOUCHED, NOTHING LEFT BEHIND.

@@ -300,7 +300,7 @@ func TestStopStopsAtOnceAndTheJobKeepsItsLog(t *testing.T) {
 	}
 	// In the order it happened: item 0 finished, Stop was pressed with item 1 in
 	// hand, and item 1 never finished.
-	want := []string{"item 0 done", "mitra stopped it; the item in hand is left untouched", "stopped"}
+	want := []string{"item 0 done", "mitra pressed Stop", "stopped"}
 	if got := g.lines(x); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("its log: %q, want %q", got, want)
 	}
@@ -359,7 +359,7 @@ func TestAStopThatLandsOnceTheLastItemIsDoneLeavesTheJobFinished(t *testing.T) {
 		}
 		close(keep)
 		g.waitState(id, "succeeded")
-		want := []string{"item 0 done", "mitra stopped it; the item in hand is left untouched"}
+		want := []string{"item 0 done", "mitra pressed Stop"}
 		if got := g.lines(id); strings.Join(got, "|") != strings.Join(want, "|") {
 			t.Fatalf("its log: %q, want %q", got, want)
 		}
@@ -411,7 +411,7 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 	if it := g.steps.next(); it.job != a1 {
 		t.Fatalf("after mitra's jobs stopped, job %d started, want aro's %d", it.job, a1)
 	}
-	if got := g.lines(m1); strings.Join(got, "|") != "mitra stopped every job; this one's item in hand is left untouched|stopped" {
+	if got := g.lines(m1); strings.Join(got, "|") != "mitra pressed Stop all|stopped" {
 		t.Fatalf("mitra's running job stopped by her Stop all says %q", got)
 	}
 

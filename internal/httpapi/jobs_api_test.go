@@ -786,7 +786,7 @@ func TestAnAdminStopsAReadersJobAndAReaderCannotStopAnothers(t *testing.T) {
 	for _, l := range log.Lines {
 		text = append(text, l.Line)
 	}
-	if !slices.Contains(text, "alice stopped it; the item in hand is left untouched") {
+	if !slices.Contains(text, "alice pressed Stop") {
 		t.Fatalf("bob's log does not say who stopped it: %q", text)
 	}
 }

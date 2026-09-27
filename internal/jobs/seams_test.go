@@ -243,7 +243,7 @@ func TestAStoppedJobsEndIsNotHeldForItsLog(t *testing.T) {
 	}
 	release()
 	flushT(t, lb, 20*time.Second)
-	want := "asking the supplier|mitra stopped it; the item in hand is left untouched|stopped"
+	want := "asking the supplier|mitra pressed Stop|stopped"
 	if got := strings.Join(linesT(t, st.DB, `SELECT line FROM job_logs ORDER BY id`), "|"); got != want {
 		t.Fatalf("its log once the log was let go: %q, want %q", got, want)
 	}

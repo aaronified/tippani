@@ -730,8 +730,14 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 		r.lb.jobLineIn(viewer.Gen, id, LevelInfo, fmt.Sprintf("%s stopped it before it started", viewer.Username))
 		return nil
 	}
+	// THE LINE SAYS WHO PRESSED, AND NOTHING THE JOB'S END COULD CONTRADICT. A
+	// Stop that lands once the last item is written leaves the job succeeded
+	// (finish), so a line claiming it was stopped, or that an item was left
+	// untouched, would sit in a finished job's log saying otherwise. What became
+	// of the item in hand is the kind's to say, and it says it (abandoned, in
+	// httpapi), on the item it left.
 	r.mu.Lock()
-	held := r.stopHeldLocked(id, fmt.Sprintf("%s stopped it; the item in hand is left untouched", viewer.Username))
+	held := r.stopHeldLocked(id, fmt.Sprintf("%s pressed Stop", viewer.Username))
 	r.mu.Unlock()
 	if !held {
 		_, err := r.settleOrphan(viewer.Gen, id, fmt.Sprintf("its end was never recorded; %s stopped it, and it is marked interrupted", viewer.Username))
@@ -822,7 +828,7 @@ func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error)
 	}
 	return r.stopWhere(viewer.Gen, scope, args,
 		fmt.Sprintf("%s stopped it before it started", viewer.Username),
-		fmt.Sprintf("%s stopped every job; this one's item in hand is left untouched", viewer.Username),
+		fmt.Sprintf("%s pressed Stop all", viewer.Username),
 		fmt.Sprintf("its end was never recorded; %s stopped every job, and it is marked interrupted", viewer.Username))
 }
 
@@ -852,7 +858,7 @@ func (r *Runner) StopOwner(uid int64) (release func(), err error) {
 	gen := r.st.Generation()
 	_, _, err = r.stopWhere(gen, " AND user_id = ?", []any{uid},
 		"stopped before it started: the account that started it is being deleted",
-		"the account that started this job is being deleted, so it is stopped; the item in hand is left untouched",
+		"Stop, because the account that started this job is being deleted",
 		"its end was never recorded; the account that started it is being deleted, and it is marked interrupted")
 	return release, err
 }
