@@ -132,6 +132,7 @@ const (
 	CodeCastKeyFold   Code = "TIP-CAST-002" // a cast lookup key could not be re-folded at boot; the row keeps its old key
 	CodeIMDbFetch     Code = "TIP-CAST-003" // an on-demand IMDb cast pass failed; the work's cast is unchanged
 	CodeTVDBCastFetch Code = "TIP-CAST-004" // an on-demand TheTVDB cast re-pull failed; the work's cast is unchanged
+	CodeCastArt       Code = "TIP-CAST-005" // a work page's picture pass could not read its cast or store a picture; the rest went on
 
 	// CLEANUP — the Settings sweep that reads every quote and reports what a page
 	// left behind in it (stray spaces, reference marks, pronunciation glosses). Its
@@ -265,6 +266,7 @@ var Registry = map[Code]string{
 	CodeCleanupIgnore:  "A finding you ignored could not be recorded, or the set of ignored findings could not be read. In the second case the list is not shown at all rather than shown without it, because that would re-offer everything you have dismissed.",
 	CodeIMDbFetch:      "A requested IMDb cast fetch failed (network, an unexpected page, or the write). The work's existing cast is unchanged; nothing partial is stored, because the merge runs in one transaction.",
 	CodeTVDBCastFetch:  "A requested TheTVDB cast re-pull failed (network, an expired key, or the write). The work's existing cast is unchanged; nothing partial is stored, because the merge runs in one transaction.",
+	CodeCastArt:        "A work page's picture pass could not read the work's cast, or could not store a role's picture or a headshot it fetched; that picture is missing and the rest of the pass went on.",
 
 	CodeBookChapters: "A book's own chapter list could not be read, so the chapter number and name fields offered no suggestions. Typing them by hand still works.",
 

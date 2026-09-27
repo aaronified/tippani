@@ -146,6 +146,10 @@ type Server struct {
 	// the first request; the lock is for the tests that add their own kinds.
 	startableMu sync.RWMutex
 	startable   map[string]queuedKind
+
+	// castArtFlights is every work page's picture pass in progress, so a second
+	// request for the same work joins the first (cast_art_handlers.go).
+	castArtFlights castArtFlights
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {
@@ -455,6 +459,10 @@ func (s *Server) Handler() http.Handler {
 	// that one re-pulls the poster, the genres and the year with it, and a reader
 	// who has corrected those by hand will not press it. See tvdb_cast_handlers.go.
 	mux.Handle("POST /movies/{id}/cast/tvdb", s.requireAuth(s.handleCastFromTVDB))
+	// The pictures a work page is about to draw — its roles' and its actors' — in
+	// one request rather than one each. See cast_art_handlers.go.
+	mux.Handle("POST /books/{id}/cast/art", s.requireAuth(s.handleCastArt("book")))
+	mux.Handle("POST /movies/{id}/cast/art", s.requireAuth(s.handleCastArt("movie")))
 	// The character's own picture, fetched once and served from here afterwards
 	// (0050). A POST because it may write — idempotent, so a client may call it for
 	// every chip it is about to draw. See cast_image_handlers.go.
