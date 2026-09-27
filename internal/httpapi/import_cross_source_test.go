@@ -43,7 +43,7 @@ func TestImportTheSameBookFromTwoRealSources(t *testing.T) {
 
 	// The device file first: it carries several books, The Idiot among them.
 	first := stage(t, c, "/import/kindle-clippings", "My Clippings.txt", clips)
-	firstApproved := decode[approveReply](t, c.do("POST", "/import/staged/approve",
+	firstApproved := decode[approveReply](t, c.follow("POST", "/import/staged/approve",
 		map[string]any{"batch_id": first.BatchID}))
 	if firstApproved.Added == 0 {
 		t.Fatalf("clippings import added nothing: %+v", firstApproved)
@@ -70,7 +70,7 @@ func TestImportTheSameBookFromTwoRealSources(t *testing.T) {
 		"retarget": map[string]any{"kind": "book", "id": target},
 	}, http.StatusOK)
 
-	approved := decode[approveReply](t, c.do("POST", "/import/staged/approve",
+	approved := decode[approveReply](t, c.follow("POST", "/import/staged/approve",
 		map[string]any{"batch_id": second.BatchID}))
 	// Eight sentences are in both files: they must land on the existing rows
 	// rather than beside them.
@@ -139,7 +139,7 @@ func TestImportTheSameBookFromTwoSources(t *testing.T) {
 	}, "\n")
 
 	first := stage(t, c, "/import/kindle-clippings", "My Clippings.txt", []byte(clips))
-	if a := decode[approveReply](t, c.do("POST", "/import/staged/approve",
+	if a := decode[approveReply](t, c.follow("POST", "/import/staged/approve",
 		map[string]any{"batch_id": first.BatchID})); a.Added != 2 {
 		t.Fatalf("clippings added %d, want 2", a.Added)
 	}
@@ -158,7 +158,7 @@ func TestImportTheSameBookFromTwoSources(t *testing.T) {
 		"retarget": map[string]any{"kind": "book", "id": second.Dupes[0].ID},
 	}, http.StatusOK)
 
-	got := decode[approveReply](t, c.do("POST", "/import/staged/approve",
+	got := decode[approveReply](t, c.follow("POST", "/import/staged/approve",
 		map[string]any{"batch_id": second.BatchID}))
 	if got.Added != 1 || got.Skipped != 1 {
 		t.Fatalf("the shared line must be skipped and the new one added: %+v", got)

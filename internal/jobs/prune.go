@@ -50,17 +50,25 @@ func (lb *Logbook) pruneStep(st *store.Store, run *pruneRun) {
 		return err
 	})
 	lb.mu.Lock()
-	defer lb.mu.Unlock()
 	if err != nil {
 		stderr.Printf("[error] %s the prune of jobs and log lines older than 30 days stopped: %v", olog.CodeLogPrune, err)
 		lb.prune = nil
+		lb.mu.Unlock()
 		return
 	}
 	if n < int64(lb.tune.pruneChunk) {
 		run.step++
 	}
+	var after func()
 	if run.step >= pruneDone {
 		lb.prune = nil
+		after = lb.afterPrune
+	}
+	lb.mu.Unlock()
+	// Outside the lock: the hook reads the library and the disk, and a line it
+	// logs meanwhile must be able to reach the buffer.
+	if after != nil {
+		after()
 	}
 }
 

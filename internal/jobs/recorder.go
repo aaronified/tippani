@@ -10,10 +10,10 @@ import (
 
 // Recorder is where a line goes when something looks outward: the queued job it
 // is part of (the runner's *Job), or the request it is part of (*Lazy). The outbound hook and
-// the queued kinds' item loops write lines; handlers only name a subject — the
-// title, ISBN or name a reader typed — and never write prose into a job. The one
-// exception is an import, whose request looks outward for nothing: it says what
-// it read the file as and what it staged, since nothing else would.
+// the queued kinds' runs write lines — an import's among them, which says what it
+// read the file as and what it staged, since it looks outward for nothing; handlers
+// only name a subject — the title, ISBN or name a reader typed — and never write
+// prose into a job.
 type Recorder interface {
 	Log(level, format string, args ...any)
 	Subject(s string)
@@ -51,8 +51,8 @@ const (
 // Lazy is one request's job, before it is known whether there is one. The
 // request logger puts one in every request's context; it becomes an in-request
 // job only when something is logged into it (an outbound call) or a handler
-// names it with Begin (an import, a restore, a backup through the API). A
-// request that does neither leaves no row.
+// names it with Begin (a restore, a backup through the API). A request that
+// does neither leaves no row.
 //
 // NO DATABASE WRITE ON THE REQUEST PATH. The lines are held here, and Finish
 // hands the row and its lines to the logbook in one piece when the request ends.
@@ -137,9 +137,9 @@ func (l *Lazy) Subject(s string) {
 }
 
 // Begin makes the request in ctx a job of kind, whether or not anything is ever
-// logged into it: the routes whose work is worth a record in itself (an import,
-// a restore, a factory reset, a backup through the API, an update, the daily
-// deck). A context without a *Lazy — a queued job's, or none — is left alone.
+// logged into it: the routes whose work is worth a record in itself (a restore, a
+// factory reset, a backup through the API, an update, the daily deck). A context
+// without a *Lazy — a queued job's, or none — is left alone.
 func Begin(ctx context.Context, kind, subject string) {
 	l, ok := From(ctx).(*Lazy)
 	if !ok {

@@ -211,7 +211,10 @@ func (s *Server) controlEntry(name string) bool {
 	if name == backupsDirName || name == recoveryKeyFile {
 		return true
 	}
-	for _, p := range []string{".backup-", ".restore-", preRestorePrefix, recoveryKeyFile + ".new-"} {
+	// The import spool (spoolDirName) is one too: an upload waiting for its job is
+	// not the library, and a restore that moved it aside would take the file from
+	// under the job that names it.
+	for _, p := range []string{".backup-", ".restore-", preRestorePrefix, recoveryKeyFile + ".new-", spoolDirName} {
 		if strings.HasPrefix(name, p) {
 			return true
 		}

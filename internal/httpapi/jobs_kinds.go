@@ -75,6 +75,11 @@ type queuedKind struct {
 	counts func(result json.RawMessage) map[string]any
 	// run is the job itself (jobs.Kind.Run, with the server).
 	run func(s *Server, ctx context.Context, j *jobs.Job) error
+	// runnableAgain, when set, is whether a finished job of this kind can be run
+	// again at all, from its stored params, beyond the rules above: an import only
+	// while the file it uploaded is still kept (importRunnableAgain). nil: the
+	// rules above decide.
+	runnableAgain func(s *Server, params string) bool
 }
 
 // jobInput is what a validate hands the queue.
@@ -132,6 +137,21 @@ var builtinJobKinds = []queuedKind{
 	// the archive, as GET /admin/backup describes it; nothing to count.
 	{name: "backup", adminOnly: true, rerunnable: true, againAfterSuccess: true,
 		validate: validateBackup, secret: backupSecret, run: runBackup},
+	// THE TWO BELOW ARE QUEUED BY THEIR OWN ROUTES AND NEVER THROUGH POST /jobs,
+	// which is what having no validate means (handleStartJob): their params name
+	// rows and files their route checked, and from a stranger they would name
+	// somebody else's.
+	//
+	// {source, as, filename, spool}: stage an upload, from the spool, as its route
+	// used to (import_queue.go). Result {status, body}: what the route answered
+	// before it queued; counts {staged}. Run again only while the upload is kept,
+	// which is only after an interruption.
+	{name: "import", rerunnable: true, counts: countImport, run: runImport, runnableAgain: importRunnableAgain},
+	// {ids | work_ids | batch_id | all}: write staged quotes into the library, a
+	// work at a time (import_staging.go). Result {status, body}, as an import's;
+	// counts {added, skipped}. Run again when it did not finish: a rerun approves
+	// whatever of the selection is still staged.
+	{name: "import.approve", rerunnable: true, counts: countApprove, run: runApproveStaged},
 }
 
 // countsNamed counts a result that is an object by keeping the members named,

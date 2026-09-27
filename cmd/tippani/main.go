@@ -275,6 +275,9 @@ func serve() {
 	srv.Jobs, srv.Logbook = runner, lb
 	// The kinds a person can start, on the queue before the first request.
 	srv.RegisterJobKinds()
+	// The uploads waiting for their imports: kept for the ones Boot just marked
+	// interrupted, so they can be run again, and gone for everything else.
+	srv.SweepSpool()
 
 	// One-shot: hand the starter stickers to the accounts that existed before
 	// they shipped, so an upgrade opens the same box a fresh install does. Not a

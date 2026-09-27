@@ -150,6 +150,11 @@ type Server struct {
 	// castArtFlights is every work page's picture pass in progress, so a second
 	// request for the same work joins the first (cast_art_handlers.go).
 	castArtFlights castArtFlights
+
+	// spoolMu is held while an upload is written to the spool and its import
+	// queued, and while the spool is swept, so a sweep never finds a file whose
+	// job is not in the table yet (import_queue.go).
+	spoolMu sync.Mutex
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {

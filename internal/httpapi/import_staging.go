@@ -63,26 +63,23 @@ type stagedWorkPreview struct {
 
 // stageBooks writes a parsed batch of books (one or many) into the staging tables
 // in a single transaction and answers with the batch id, the per-work breakdown
-// and a look-alike warning. Extra keys are merged into the reply so a format with
-// its own counters (Kindle clippings: bookmarks, merged notes, near-duplicates)
-// can report them; they are also kept on the batch so the queue can still show
-// them later.
-func (s *Server) stageBooks(w http.ResponseWriter, r *http.Request, source, filename string,
-	results []*importer.Result, extra map[string]any) {
+// and a look-alike warning. Extra keys are merged into the answer so a format
+// with its own counters (Kindle clippings: bookmarks, merged notes,
+// near-duplicates) can report them; they are also kept on the batch so the queue
+// can still show them later.
+func (s *Server) stageBooks(ctx context.Context, uid int64, source, filename string,
+	results []*importer.Result, extra map[string]any) importAnswer {
 
 	olog.Tracef("[import] stage books source=%s file=%q works=%d", source, filename, len(results))
-	uid := userID(r)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		codedError(w, r, olog.CodeImportStage, "stage books: begin tx", err)
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage books: begin tx", err)
 	}
 	defer tx.Rollback()
 
 	batchID, err := insertImportBatch(tx, uid, source, filename, extra)
 	if err != nil {
-		codedError(w, r, olog.CodeImportStage, "stage books: batch", err)
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage books: batch", err)
 	}
 
 	// One preview per staged WORK, not per parsed block: a file naming the same
@@ -96,18 +93,15 @@ func (s *Server) stageBooks(w http.ResponseWriter, r *http.Request, source, file
 	for _, res := range results {
 		workID, err := stageBookWork(tx, batchID, res.Book)
 		if err != nil {
-			codedError(w, r, olog.CodeImportStage, "stage books: work", err)
-			return
+			return importFault(ctx, olog.CodeImportStage, "stage books: work", err)
 		}
 		n, err := stageQuotes(tx, workID, res.Annotations, nil)
 		if err != nil {
 			var ce importClientError
 			if errors.As(err, &ce) {
-				importRefused(w, r, ce.msg)
-			} else {
-				codedError(w, r, olog.CodeImportStage, "stage books: quotes", err)
+				return importRefused(ctx, ce.msg)
 			}
-			return
+			return importFault(ctx, olog.CodeImportStage, "stage books: quotes", err)
 		}
 		staged += n
 
@@ -119,20 +113,17 @@ func (s *Server) stageBooks(w http.ResponseWriter, r *http.Request, source, file
 		prev := stagedWorkPreview{ID: workID, Kind: "book", Title: res.Book.Title, Author: res.Book.Author, Staged: n}
 		targetID, err := findImportBook(tx, uid, res.Book)
 		if err != nil {
-			codedError(w, r, olog.CodeImportStage, "stage books: resolve", err)
-			return
+			return importFault(ctx, olog.CodeImportStage, "stage books: resolve", err)
 		}
 		if targetID != 0 {
 			prev.TargetID = targetID
 			if err := tx.QueryRow(`SELECT title FROM books WHERE id = ?`, targetID).Scan(&prev.TargetTitle); err != nil {
-				codedError(w, r, olog.CodeImportStage, "stage books: target title", err)
-				return
+				return importFault(ctx, olog.CodeImportStage, "stage books: target title", err)
 			}
 		} else {
 			dupes, err := findSimilarBooks(tx, uid, res.Book.Title, 0)
 			if err != nil {
-				codedError(w, r, olog.CodeImportStage, "stage books: look-alikes", err)
-				return
+				return importFault(ctx, olog.CodeImportStage, "stage books: look-alikes", err)
 			}
 			for _, d := range dupes { // the same look-alike, once
 				if !dupeSeen[d.ID] {
@@ -149,30 +140,26 @@ func (s *Server) stageBooks(w http.ResponseWriter, r *http.Request, source, file
 		works = append(works, prev)
 	}
 	if err := tx.Commit(); err != nil {
-		codedError(w, r, olog.CodeImportStage, "stage books: commit", err)
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage books: commit", err)
 	}
-	s.replyStaged(w, r, source, batchID, staged, works, allDupes, extra)
+	return s.stagedAnswer(ctx, uid, source, batchID, staged, works, allDupes, extra)
 }
 
 // stageMovies is the catalogue counterpart of stageBooks: it stages parsed
 // film/show dialogue and previews the anchor each title would resolve to.
-func (s *Server) stageMovies(w http.ResponseWriter, r *http.Request, source, filename string,
-	results []*importer.MovieResult, extra map[string]any) {
+func (s *Server) stageMovies(ctx context.Context, uid int64, source, filename string,
+	results []*importer.MovieResult, extra map[string]any) importAnswer {
 
 	olog.Tracef("[import] stage titles source=%s file=%q works=%d", source, filename, len(results))
-	uid := userID(r)
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		codedError(w, r, olog.CodeImportStage, "stage titles: begin tx", err)
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage titles: begin tx", err)
 	}
 	defer tx.Rollback()
 
 	batchID, err := insertImportBatch(tx, uid, source, filename, extra)
 	if err != nil {
-		codedError(w, r, olog.CodeImportStage, "stage titles: batch", err)
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage titles: batch", err)
 	}
 
 	works := []stagedWorkPreview{}
@@ -181,18 +168,15 @@ func (s *Server) stageMovies(w http.ResponseWriter, r *http.Request, source, fil
 	for _, res := range results {
 		workID, err := stageMovieWork(tx, batchID, res.Movie)
 		if err != nil {
-			codedError(w, r, olog.CodeImportStage, "stage titles: work", err)
-			return
+			return importFault(ctx, olog.CodeImportStage, "stage titles: work", err)
 		}
 		n, err := stageQuotes(tx, workID, nil, res.Dialogues)
 		if err != nil {
 			var ce importClientError
 			if errors.As(err, &ce) {
-				importRefused(w, r, ce.msg)
-			} else {
-				codedError(w, r, olog.CodeImportStage, "stage titles: quotes", err)
+				return importRefused(ctx, ce.msg)
 			}
-			return
+			return importFault(ctx, olog.CodeImportStage, "stage titles: quotes", err)
 		}
 		staged += n
 
@@ -202,15 +186,13 @@ func (s *Server) stageMovies(w http.ResponseWriter, r *http.Request, source, fil
 		}
 		anchor, err := findImportMovie(tx, uid, res.Movie.Title, res.Movie.MediaType, res.Movie.Year)
 		if err != nil {
-			codedError(w, r, olog.CodeImportStage, "stage titles: anchor", err)
-			return
+			return importFault(ctx, olog.CodeImportStage, "stage titles: anchor", err)
 		}
 		if anchor.ID != 0 {
 			prev.TargetID, prev.TargetYear = anchor.ID, anchor.MatchedYear
 			prev.Ambiguous, prev.Alternatives = anchor.Ambiguous, anchor.Alternatives
 			if err := tx.QueryRow(`SELECT title FROM movies WHERE id = ?`, anchor.ID).Scan(&prev.TargetTitle); err != nil {
-				codedError(w, r, olog.CodeImportStage, "stage titles: target title", err)
-				return
+				return importFault(ctx, olog.CodeImportStage, "stage titles: target title", err)
 			}
 		}
 		if at, ok := byWork[workID]; ok {
@@ -221,14 +203,14 @@ func (s *Server) stageMovies(w http.ResponseWriter, r *http.Request, source, fil
 		works = append(works, prev)
 	}
 	if err := tx.Commit(); err != nil {
-		codedError(w, r, olog.CodeImportStage, "stage titles: commit", err)
-		return
+		return importFault(ctx, olog.CodeImportStage, "stage titles: commit", err)
 	}
-	s.replyStaged(w, r, source, batchID, staged, works, []dupHint{}, extra)
+	return s.stagedAnswer(ctx, uid, source, batchID, staged, works, []dupHint{}, extra)
 }
 
-// replyStaged answers an import: what was staged, and how much is now waiting in
-// total, so a client can show the pending badge without a second request.
+// stagedAnswer is an import's answer: what was staged, and how much is now
+// waiting in total, so a client can show the pending badge without a second
+// request.
 //
 // IT NAMES THE SOURCE, because the reader no longer chose one. With seven cards
 // the format was whichever card you pressed; with one drop target it is whatever
@@ -236,19 +218,24 @@ func (s *Server) stageMovies(w http.ResponseWriter, r *http.Request, source, fil
 // Goodreads" — and offer to be told otherwise. It is reported on every path, not
 // only the sniffed one: a fact about an import does not change shape depending on
 // which door it came through.
-func (s *Server) replyStaged(w http.ResponseWriter, r *http.Request, source string, batchID int64, staged int,
-	works []stagedWorkPreview, dupes []dupHint, extra map[string]any) {
+//
+// THE PHONE'S MESSAGE RIDES ON THE ANSWER rather than being sent from here: the
+// job sends it once the answer is kept (runImport), as the request used to send
+// it once the answer was written, so Pushover's round trip never stands between
+// the staging and the screen reading what was staged.
+func (s *Server) stagedAnswer(ctx context.Context, uid int64, source string, batchID int64, staged int,
+	works []stagedWorkPreview, dupes []dupHint, extra map[string]any) importAnswer {
 
-	pending, err := s.pendingStagedCount(userID(r))
+	pending, err := s.pendingStagedCount(uid)
 	if err != nil {
 		olog.Warnf(olog.CodeImportRowScan, "[import] pending count after staging: %v", err)
 	}
-	noteJob(r, jobs.LevelInfo, "staged %s from %s as batch %d; %d waiting in the queue to be approved",
+	noteJob(ctx, jobs.LevelInfo, "staged %s from %s as batch %d; %d waiting in the queue to be approved",
 		countOf(staged, "quote", "quotes"), countOf(len(works), "work", "works"), batchID, pending)
 	if counted := importCounted(extra); counted != "" {
-		noteJob(r, jobs.LevelInfo, "the format counted, beside the quotes: %s", counted)
+		noteJob(ctx, jobs.LevelInfo, "the format counted, beside the quotes: %s", counted)
 	}
-	reply := map[string]any{
+	body := map[string]any{
 		"source":              source,
 		"batch_id":            batchID,
 		"staged":              staged,
@@ -257,13 +244,13 @@ func (s *Server) replyStaged(w http.ResponseWriter, r *http.Request, source stri
 		"possible_duplicates": dupes,
 	}
 	for k, v := range extra {
-		reply[k] = v
+		body[k] = v
 	}
-	writeJSON(w, http.StatusOK, reply)
+	ans := importAnswer{Status: http.StatusOK, Body: body}
 	if staged >= notifyImportMin {
-		s.notifyAfter(w, r, userID(r), "import", "Import ready to review",
-			countOf(staged, "quote", "quotes")+" waiting in the import queue.")
+		ans.ready = countOf(staged, "quote", "quotes") + " waiting in the import queue."
 	}
+	return ans
 }
 
 // importCounted is what a format counted beside the quotes it staged (a Kindle
@@ -1064,11 +1051,22 @@ func (s *Server) listStagedQuotes(w http.ResponseWriter, r *http.Request, uid, b
 
 // ---- approving --------------------------------------------------------------
 
-// handleApproveStaged converts a selection of staged quotes into real
-// annotations/dialogues and answers with the counters the import endpoints used
-// to return. One transaction: either the whole selection lands or none of it
-// does, and on failure the quotes stay queued.
+// handleApproveStaged queues the approval of a selection of staged quotes, and
+// answers 202 {job}: what the selection names is checked here, so a selection
+// naming nothing is answered now (400, 404), and the writing is the job's
+// (runApproveStaged).
+//
+// AN APPROVAL IS A QUEUED JOB (3.1.0) because it is the one import step that
+// writes to the library, and it was the one no screen could see: it ran in its
+// request, beside whatever the queue was running, and left no row in Settings ›
+// Jobs. The owner's ask was that no eligible action skip the queue. Its subject is
+// the file the quotes came from when they came from one, else the first work's
+// title; its total is the works it approves, which is what its progress counts.
 func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
+	if s.Jobs == nil {
+		noQueue(w)
+		return
+	}
 	var sel stagedSelector
 	if !decodeBody(w, r, &sel) {
 		return
@@ -1079,173 +1077,414 @@ func (s *Server) handleApproveStaged(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	v := viewer(r)
+	id, err := s.Jobs.Enqueue(v, "import.approve", s.approvalSubject(uid, picked), sel, len(picked.WorkIDs), nil)
+	if err != nil {
+		s.writeJobRefusal(w, r, err)
+		return
+	}
+	s.writeJob(w, r, http.StatusAccepted, id, v)
+}
 
+// approvalSubject names an approval as Past jobs lists it: the file its quotes
+// came from, when every work it approves came from one, else the first work's
+// title. Data, not prose, like every subject; "" when neither can be read.
+func (s *Server) approvalSubject(uid int64, picked stagedSelection) string {
+	if len(picked.WorkIDs) == 0 {
+		return ""
+	}
+	batches := map[int64]bool{}
+	_ = chunkIDs(picked.WorkIDs, func(batch []int64) error {
+		rows, err := s.Store.DB.Query(`SELECT DISTINCT batch_id FROM staged_works WHERE id IN (`+inClause(len(batch))+`)`,
+			int64sAsAny(batch)...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			if rows.Scan(&id) == nil {
+				batches[id] = true
+			}
+		}
+		return rows.Err()
+	})
+	if len(batches) == 1 {
+		var filename, source string
+		for id := range batches {
+			_ = s.Store.DB.QueryRow(`SELECT COALESCE(filename, ''), source FROM import_batches WHERE id = ? AND user_id = ?`,
+				id, uid).Scan(&filename, &source)
+		}
+		if filename != "" {
+			return filename
+		}
+		if source != "" {
+			return source
+		}
+	}
+	var title string
+	_ = s.Store.DB.QueryRow(`SELECT title FROM staged_works WHERE id = ?`, picked.WorkIDs[0]).Scan(&title)
+	return title
+}
+
+// runApproveStaged is the approval job: the selection it was queued with, read
+// again (the queue may have changed while it waited), written into the library a
+// work at a time, and what the request used to answer kept as its result
+// ({status, body}, as an import's).
+func runApproveStaged(s *Server, ctx context.Context, j *jobs.Job) error {
+	var sel stagedSelector
+	if err := j.Params(&sel); err != nil {
+		return errors.New("this approval's record could not be read")
+	}
+	uid := j.Owner().UserID
+	ans := s.approveStaged(ctx, j, uid, sel)
+	if err := j.SetResult(ans); err != nil {
+		return err
+	}
+	if ans.ready != "" {
+		s.notify(ctx, uid, "import", "Import finished", ans.ready)
+	}
+	if ans.Status >= http.StatusBadRequest {
+		msg, _ := ans.Body["error"].(string)
+		return errors.New(msg)
+	}
+	return nil
+}
+
+// approvalTally is what an approval has written so far, work by work: the counters
+// the approval's answer carries.
+type approvalTally struct {
+	approved, quotesAdded, added, skipped, enriched int
+	books                                           []bookSummary
+	movies                                          []movieSummary
+	bookIDs, movieIDs                               []int64
+	dupes                                           []dupHint
+}
+
+// approveStaged converts a selection of staged quotes into real annotations and
+// dialogues and says what the request used to answer: the counters, per work and
+// in total.
+//
+// ONE TRANSACTION PER WORK, where the request's approval was one for the whole
+// selection. A job can be stopped, and "stops after the item in hand" has to leave
+// something whole on either side of the stop: every work before it is in the
+// library and out of the queue, and every work after it is still staged, exactly
+// as it was. The price is that a failure part-way is no longer all or nothing — the
+// works before it stay approved, the one that failed and the rest stay staged, and
+// the answer says so with the counters of what landed. The alternative, keeping one
+// transaction and checking Stop inside it, would hold SQLite's write lock for the
+// whole approval of a library-sized export and roll all of it back on a Stop.
+func (s *Server) approveStaged(ctx context.Context, j *jobs.Job, uid int64, sel stagedSelector) importAnswer {
+	picked, ref, err := s.stagedSelectionOf(uid, sel)
+	if err != nil {
+		return approveFault(ctx, "approve staged: selection", err, nil)
+	}
+	if ref != nil {
+		noteJob(ctx, jobs.LevelWarn, "nothing approved: %s", ref.msg)
+		return importAnswer{Status: ref.status, Body: map[string]any{"error": ref.msg}}
+	}
+	plan, err := s.approvalPlan(picked)
+	if err != nil {
+		return approveFault(ctx, "approve staged: load", err, nil)
+	}
+	var tally approvalTally
+	n := len(plan)
+	j.Progress(0, n)
+	for i, pw := range plan {
+		if j.Stopping() {
+			noteJob(ctx, jobs.LevelInfo, "stopped before %s; %s stay in the import queue",
+				countOf(n-i, "work", "works"), pronounFor(n-i))
+			break
+		}
+		if ans, failed := s.approveWork(ctx, uid, pw, &tally); failed {
+			if n-i > 1 {
+				noteJob(ctx, jobs.LevelWarn, "%s after it stay in the import queue", countOf(n-i-1, "work", "works"))
+			}
+			return ans
+		}
+		j.Progress(i+1, n)
+		if afterApprovedWork != nil {
+			afterApprovedWork()
+		}
+	}
+	return s.approvalAnswer(ctx, uid, http.StatusOK, "", &tally)
+}
+
+// afterApprovedWork, when set, runs after each work an approval has committed. A
+// test seam and nothing else: the one way to land a Stop between two works of one
+// approval, a window of microseconds that nothing a person does holds open.
+var afterApprovedWork func()
+
+// pronounFor is "it" for one and "they" for more, for a line about works left.
+func pronounFor(n int) string {
+	if n == 1 {
+		return "it"
+	}
+	return "they"
+}
+
+// plannedWork is one work an approval will write, with the staged quotes of the
+// selection that sit under it.
+type plannedWork struct {
+	workID   int64
+	quoteIDs []int64
+}
+
+// approvalPlan is the works a selection approves, in order, each with its quotes:
+// read once, before the first work is written, and each work read again inside its
+// own transaction (approveWork), so what is written is the queue as it is then.
+func (s *Server) approvalPlan(picked stagedSelection) ([]plannedWork, error) {
 	tx, err := s.Store.DB.Begin()
 	if err != nil {
-		codedError(w, r, olog.CodeImportApprove, "approve staged: begin tx", err)
-		return
+		return nil, err
+	}
+	defer tx.Rollback()
+	works, byWork, err := loadStagedForApproval(tx, picked)
+	if err != nil {
+		return nil, err
+	}
+	plan := make([]plannedWork, 0, len(works))
+	for _, w := range works {
+		pw := plannedWork{workID: w.ID}
+		for _, q := range byWork[w.ID] {
+			pw.quoteIDs = append(pw.quoteIDs, q.ID)
+		}
+		plan = append(plan, pw)
+	}
+	return plan, nil
+}
+
+// approveWork writes one planned work into the library and takes it out of the
+// queue, in one transaction, adding what it wrote to t only once that has
+// committed. failed says the approval ends here, with ans its answer: a file's
+// fault (a 400) or the server's (a 500), with the counters of what landed before.
+func (s *Server) approveWork(ctx context.Context, uid int64, pw plannedWork, t *approvalTally) (ans importAnswer, failed bool) {
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		return approveFault(ctx, "approve staged: begin tx", err, t), true
 	}
 	defer tx.Rollback()
 
-	works, byWork, err := loadStagedForApproval(tx, picked)
+	works, byWork, err := loadStagedForApproval(tx, stagedSelection{QuoteIDs: pw.quoteIDs, WorkIDs: []int64{pw.workID}})
 	if err != nil {
-		codedError(w, r, olog.CodeImportApprove, "approve staged: load", err)
-		return
+		return approveFault(ctx, "approve staged: load", err, t), true
+	}
+	if len(works) == 0 {
+		// Discarded, or approved from another screen, while this waited.
+		noteJob(ctx, jobs.LevelInfo, "staged work #%d is no longer in the import queue", pw.workID)
+		return importAnswer{}, false
+	}
+	work := works[0]
+	// A work with no quotes is not skipped: the pre-1.2.0 importer created the
+	// row for a book or film that carried none (an export writes every work,
+	// quoted or not), so approval must still create it or a whole-library
+	// export would lose them all on the way back in.
+	quotes := byWork[work.ID]
+	quoteIDs := make([]int64, 0, len(quotes))
+	for _, q := range quotes {
+		quoteIDs = append(quoteIDs, q.ID)
+	}
+	refused := func(err error, what string) (importAnswer, bool) {
+		var ce importClientError
+		if errors.As(err, &ce) {
+			noteJob(ctx, jobs.LevelWarn, "%s not approved: %s", itemName(work.Kind, work.ID, work.Title), ce.msg)
+			return s.approvalAnswer(ctx, uid, http.StatusBadRequest, ce.msg, t), true
+		}
+		return approveFault(ctx, what, err, t), true
 	}
 
-	books, movies := []bookSummary{}, []movieSummary{}
-	bookIDs, movieIDs := []int64{}, []int64{}
-	dupes := []dupHint{}
-	var tAdd, tSkip, tEn int
-	var quotesAdded int // standalone quotes have no work to summarise, so they get a running count
-
-	for _, work := range works {
-		// A work with no quotes is not skipped: the pre-1.2.0 importer created the
-		// row for a book or film that carried none (an export writes every work,
-		// quoted or not), so approval must still create it or a whole-library
-		// export would lose them all on the way back in.
-		quotes := byWork[work.ID]
-		destKind, destID, created, anchor, err := resolveApprovalTarget(tx, uid, work, s.creditSeps(tx, uid))
-		_ = destID // unused on the quotes arm, which has no destination work
+	var mine approvalTally // what this work adds, kept only if it commits
+	destKind, destID, created, anchor, err := resolveApprovalTarget(tx, uid, work, s.creditSeps(tx, uid))
+	if err != nil {
+		return refused(err, "approve staged: resolve target")
+	}
+	switch {
+	case destKind == stagedKindQuotes:
+		added, err := writeUtterances(tx, uid, stagedAsUtterances(quotes), s.creditSeps(tx, uid))
 		if err != nil {
-			var ce importClientError
-			if errors.As(err, &ce) {
-				writeErr(w, http.StatusBadRequest, ce.msg)
-			} else {
-				codedError(w, r, olog.CodeImportApprove, "approve staged: resolve target", err)
-			}
-			return
+			return refused(err, "approve staged: write quotes")
 		}
-
-		if destKind == stagedKindQuotes {
-			added, err := writeUtterances(tx, uid, stagedAsUtterances(quotes), s.creditSeps(tx, uid))
+		mine.quotesAdded = added
+		mine.added, mine.skipped = added, len(quotes)-added
+	case destKind == "book":
+		if created {
+			// A brand-new book: flag look-alikes already in the library so the
+			// answer can offer to merge, as the importers always have.
+			hints, err := findSimilarBooks(tx, uid, work.Title, destID)
 			if err != nil {
-				var ce importClientError
-				if errors.As(err, &ce) {
-					writeErr(w, http.StatusBadRequest, ce.msg)
-				} else {
-					codedError(w, r, olog.CodeImportApprove, "approve staged: write quotes", err)
-				}
-				return
+				return approveFault(ctx, "approve staged: look-alikes", err, t), true
 			}
-			quotesAdded += added
-			tAdd, tSkip = tAdd+added, tSkip+len(quotes)-added
-		} else if destKind == "book" {
-			if created {
-				// A brand-new book: flag look-alikes already in the library so
-				// the reply can offer to merge, as the importers always have.
-				hints, err := findSimilarBooks(tx, uid, work.Title, destID)
-				if err != nil {
-					codedError(w, r, olog.CodeImportApprove, "approve staged: look-alikes", err)
-					return
-				}
-				dupes = append(dupes, hints...)
-			}
-			added, enriched, err := writeBookAnnotations(tx, uid, work.Source, destID, stagedAsAnnotations(quotes), s.creditSeps(tx, uid))
-			if err != nil {
-				var ce importClientError
-				if errors.As(err, &ce) {
-					writeErr(w, http.StatusBadRequest, ce.msg)
-				} else {
-					codedError(w, r, olog.CodeImportApprove, "approve staged: write annotations", err)
-				}
-				return
-			}
-			books = append(books, bookSummary{destID, work.Title, created, added, len(quotes) - added, enriched})
-			bookIDs = appendUnique(bookIDs, destID)
-			tAdd, tSkip, tEn = tAdd+added, tSkip+len(quotes)-added, tEn+enriched
-		} else {
-			if err := backfillImportMovie(tx, uid, destID, work.header(), s.creditSeps(tx, uid)); err != nil {
-				codedError(w, r, olog.CodeImportApprove, "approve staged: backfill title", err)
-				return
-			}
-			added, enriched, err := writeMovieDialogues(tx, uid, destID, stagedAsDialogues(quotes), s.creditSeps(tx, uid))
-			if err != nil {
-				var ce importClientError
-				if errors.As(err, &ce) {
-					writeErr(w, http.StatusBadRequest, ce.msg)
-				} else {
-					codedError(w, r, olog.CodeImportApprove, "approve staged: write dialogues", err)
-				}
-				return
-			}
-			movies = append(movies, movieSummary{
-				MovieID: destID, Title: work.Title, MediaType: destKind, Created: created,
-				Anchored: anchor.Anchored, YearImported: work.ReleaseYear, MatchedYear: anchor.MatchedYear,
-				Ambiguous: anchor.Ambiguous, Alternatives: anchor.Alternatives,
-				Added: added, Skipped: len(quotes) - added, Enriched: enriched,
-			})
-			movieIDs = appendUnique(movieIDs, destID)
-			tAdd, tSkip, tEn = tAdd+added, tSkip+len(quotes)-added, tEn+enriched
+			mine.dupes = hints
 		}
+		added, enriched, err := writeBookAnnotations(tx, uid, work.Source, destID, stagedAsAnnotations(quotes), s.creditSeps(tx, uid))
+		if err != nil {
+			return refused(err, "approve staged: write annotations")
+		}
+		mine.books = []bookSummary{{destID, work.Title, created, added, len(quotes) - added, enriched}}
+		mine.bookIDs = []int64{destID}
+		mine.added, mine.skipped, mine.enriched = added, len(quotes)-added, enriched
+	default:
+		if err := backfillImportMovie(tx, uid, destID, work.header(), s.creditSeps(tx, uid)); err != nil {
+			return approveFault(ctx, "approve staged: backfill title", err, t), true
+		}
+		added, enriched, err := writeMovieDialogues(tx, uid, destID, stagedAsDialogues(quotes), s.creditSeps(tx, uid))
+		if err != nil {
+			return refused(err, "approve staged: write dialogues")
+		}
+		mine.movies = []movieSummary{{
+			MovieID: destID, Title: work.Title, MediaType: destKind, Created: created,
+			Anchored: anchor.Anchored, YearImported: work.ReleaseYear, MatchedYear: anchor.MatchedYear,
+			Ambiguous: anchor.Ambiguous, Alternatives: anchor.Alternatives,
+			Added: added, Skipped: len(quotes) - added, Enriched: enriched,
+		}}
+		mine.movieIDs = []int64{destID}
+		mine.added, mine.skipped, mine.enriched = added, len(quotes)-added, enriched
 	}
 
-	if err := deleteStagedIDs(tx, picked.QuoteIDs); err != nil {
-		codedError(w, r, olog.CodeImportApprove, "approve staged: clear queue", err)
-		return
+	if err := deleteStagedIDs(tx, quoteIDs); err != nil {
+		return approveFault(ctx, "approve staged: clear queue", err, t), true
 	}
 	// A work approved with no quotes has nothing to delete, so drop it explicitly;
 	// gcStaging then takes the batch it emptied.
-	if err := deleteEmptyStagedWorks(tx, picked.WorkIDs); err != nil {
-		codedError(w, r, olog.CodeImportApprove, "approve staged: clear works", err)
-		return
+	if err := deleteEmptyStagedWorks(tx, []int64{work.ID}); err != nil {
+		return approveFault(ctx, "approve staged: clear works", err, t), true
 	}
 	if err := gcStaging(tx, uid); err != nil {
-		codedError(w, r, olog.CodeImportApprove, "approve staged: gc", err)
-		return
+		return approveFault(ctx, "approve staged: gc", err, t), true
 	}
 	if err := tx.Commit(); err != nil {
-		codedError(w, r, olog.CodeImportApprove, "approve staged: commit", err)
-		return
+		return approveFault(ctx, "approve staged: commit", err, t), true
 	}
 
+	t.approved += len(quoteIDs)
+	t.quotesAdded += mine.quotesAdded
+	t.added, t.skipped, t.enriched = t.added+mine.added, t.skipped+mine.skipped, t.enriched+mine.enriched
+	t.books = append(t.books, mine.books...)
+	t.movies = append(t.movies, mine.movies...)
+	for _, id := range mine.bookIDs {
+		t.bookIDs = appendUnique(t.bookIDs, id)
+	}
+	for _, id := range mine.movieIDs {
+		t.movieIDs = appendUnique(t.movieIDs, id)
+	}
+	t.dupes = append(t.dupes, mine.dupes...)
+	line := fmt.Sprintf("%s: %d added, %d skipped", itemName(work.Kind, destID, work.Title), mine.added, mine.skipped)
+	if mine.enriched > 0 {
+		line += fmt.Sprintf(", %d enriched", mine.enriched)
+	}
+	if created {
+		line += ", new to the library"
+	}
+	noteJob(ctx, jobs.LevelInfo, "%s", line)
+	return importAnswer{}, false
+}
+
+// approveFault is approveStaged's answer to a failure of the server's own: the
+// cause in the system log under TIP-IMPORT-003, and the 500 the request answered,
+// with whatever had already landed (t, which may be nil).
+func approveFault(ctx context.Context, what string, err error, t *approvalTally) importAnswer {
+	olog.Errorf(olog.CodeImportApprove, "[import] %s: %v", what, err)
+	noteJob(ctx, jobs.LevelError, "the approval stopped on an internal error (%s)", olog.CodeImportApprove)
+	if t == nil {
+		t = &approvalTally{}
+	}
+	return approvalBody(http.StatusInternalServerError, "internal error", t, 0)
+}
+
+// approvalAnswer is an approval's answer, with the queue's pending count read now.
+func (s *Server) approvalAnswer(ctx context.Context, uid int64, status int, msg string, t *approvalTally) importAnswer {
 	pending, err := s.pendingStagedCount(uid)
 	if err != nil {
 		olog.Warnf(olog.CodeImportRowScan, "[import] pending count after approve: %v", err)
 	}
 	olog.Tracef("[import] approved %d staged quotes over %d works -> %d added, %d skipped, %d enriched",
-		len(picked.QuoteIDs), len(works), tAdd, tSkip, tEn)
+		t.approved, len(t.books)+len(t.movies), t.added, t.skipped, t.enriched)
+	if status < http.StatusBadRequest {
+		noteJob(ctx, jobs.LevelInfo, "approved %s: %d added, %d skipped, %d enriched; %d still in the import queue",
+			countOf(t.approved, "quote", "quotes"), t.added, t.skipped, t.enriched, pending)
+	}
+	ans := approvalBody(status, msg, t, pending)
+	if t.added >= notifyImportMin {
+		ans.ready = countOf(t.added, "quote", "quotes") + " added to your library."
+	}
+	return ans
+}
 
-	reply := map[string]any{
-		"approved":            len(picked.QuoteIDs),
-		"quotes_added":        quotesAdded,
-		"added":               tAdd,
-		"skipped":             tSkip,
-		"enriched":            tEn,
-		"books":               books,
-		"movies":              movies,
-		"book_ids":            bookIDs,
-		"movie_ids":           movieIDs,
-		"possible_duplicates": dupes,
+// approvalBody is the body the approval's request answered with — the counters,
+// per work and in total — and, for one that failed part-way, its error beside what
+// landed before it.
+func approvalBody(status int, msg string, t *approvalTally, pending int) importAnswer {
+	body := map[string]any{
+		"approved":            t.approved,
+		"quotes_added":        t.quotesAdded,
+		"added":               t.added,
+		"skipped":             t.skipped,
+		"enriched":            t.enriched,
+		"books":               orEmpty(t.books),
+		"movies":              orEmpty(t.movies),
+		"book_ids":            orEmpty(t.bookIDs),
+		"movie_ids":           orEmpty(t.movieIDs),
+		"possible_duplicates": orEmpty(t.dupes),
 		"pending":             pending,
+	}
+	if msg != "" {
+		body["error"] = msg
 	}
 	// Single-work back-compat keys, the shape the import endpoints answered with
 	// before staging: one book or one title is the common case, and a client
 	// (or a test) that only ever looked at book_id / movie_id still works.
-	if len(books) > 0 {
-		reply["book_id"] = books[0].BookID
-		reply["title"] = books[0].Title
-		reply["created"] = books[0].Created
+	if len(t.books) > 0 {
+		body["book_id"] = t.books[0].BookID
+		body["title"] = t.books[0].Title
+		body["created"] = t.books[0].Created
 	}
-	if len(movies) > 0 {
-		m := movies[0]
-		reply["movie_id"] = m.MovieID
-		reply["media_type"] = m.MediaType
-		reply["anchored"] = m.Anchored
-		reply["year_imported"] = m.YearImported
-		reply["matched_year"] = m.MatchedYear
-		reply["ambiguous"] = m.Ambiguous
-		reply["alternatives"] = m.Alternatives
-		if len(books) == 0 {
-			reply["title"] = m.Title
-			reply["created"] = m.Created
+	if len(t.movies) > 0 {
+		m := t.movies[0]
+		body["movie_id"] = m.MovieID
+		body["media_type"] = m.MediaType
+		body["anchored"] = m.Anchored
+		body["year_imported"] = m.YearImported
+		body["matched_year"] = m.MatchedYear
+		body["ambiguous"] = m.Ambiguous
+		body["alternatives"] = m.Alternatives
+		if len(t.books) == 0 {
+			body["title"] = m.Title
+			body["created"] = m.Created
 		}
 	}
-	writeJSON(w, http.StatusOK, reply)
-	if tAdd >= notifyImportMin {
-		s.notifyAfter(w, r, uid, "import", "Import finished",
-			countOf(tAdd, "quote", "quotes")+" added to your library.")
+	return importAnswer{Status: status, Body: body}
+}
+
+// orEmpty is a list as the answer carries it: [] rather than null when empty, as
+// the request's answer always had it.
+func orEmpty[T any](v []T) []T {
+	if v == nil {
+		return []T{}
 	}
+	return v
+}
+
+// countApprove is what Past jobs says of an approval: the quotes it added and the
+// ones already there, whether it finished, stopped or failed part-way — what landed
+// before a stop or a failure is in the library all the same.
+func countApprove(result json.RawMessage) map[string]any {
+	var a struct {
+		Body struct {
+			Added   *float64 `json:"added"`
+			Skipped *float64 `json:"skipped"`
+		} `json:"body"`
+	}
+	if json.Unmarshal(result, &a) != nil {
+		return nil
+	}
+	out := map[string]any{}
+	if a.Body.Added != nil {
+		out["added"] = *a.Body.Added
+	}
+	if a.Body.Skipped != nil {
+		out["skipped"] = *a.Body.Skipped
+	}
+	return out
 }
 
 // stagedWorkForApproval is a staged work plus the batch's source, everything the
@@ -1688,18 +1927,34 @@ type stagedSelection struct {
 	WorkIDs  []int64
 }
 
-// resolveStagedSelection turns a selector into the owned rows it names. Another
-// user's ids simply do not match, so a foreign selection reads as an empty one and
-// answers 404 — no existence leak.
+// resolveStagedSelection turns a selector into the owned rows it names, answering
+// the request itself when it cannot (stagedSelectionOf says which answers).
 func (s *Server) resolveStagedSelection(w http.ResponseWriter, r *http.Request, uid int64, sel stagedSelector) (stagedSelection, bool) {
-	var out stagedSelection
-	if len(sel.IDs) == 0 && len(sel.WorkIDs) == 0 && sel.BatchID <= 0 && !sel.All {
-		writeErr(w, http.StatusBadRequest, "nothing selected")
+	out, ref, err := s.stagedSelectionOf(uid, sel)
+	switch {
+	case err != nil:
+		codedError(w, r, olog.CodeImportRowScan, "staged selection", err)
+		return out, false
+	case ref != nil:
+		writeErr(w, ref.status, ref.msg)
 		return out, false
 	}
+	return out, true
+}
+
+// stagedSelectionOf turns a selector into the owned rows it names. Another user's
+// ids simply do not match, so a foreign selection reads as an empty one and is
+// refused as a 404 — no existence leak. A selector naming nothing, or too many
+// ids, is refused as a 400. It takes no request because an approval reads it
+// twice: in its request, for the answer before anything queues, and again in its
+// job, which may run after the queue has changed.
+func (s *Server) stagedSelectionOf(uid int64, sel stagedSelector) (stagedSelection, *refusal, error) {
+	var out stagedSelection
+	if len(sel.IDs) == 0 && len(sel.WorkIDs) == 0 && sel.BatchID <= 0 && !sel.All {
+		return out, &refusal{http.StatusBadRequest, "nothing selected"}, nil
+	}
 	if len(sel.IDs) > maxStagedSelection || len(sel.WorkIDs) > maxStagedSelection {
-		writeErr(w, http.StatusBadRequest, "too many items (max 5000)")
-		return out, false
+		return out, &refusal{http.StatusBadRequest, "too many items (max 5000)"}, nil
 	}
 
 	// The selector's own predicates, shared by both reads.
@@ -1714,11 +1969,10 @@ func (s *Server) resolveStagedSelection(w http.ResponseWriter, r *http.Request, 
 		args = append(args, sel.BatchID)
 	}
 
-	scan := func(q string, qargs []any) ([]int64, bool) {
+	scan := func(q string, qargs []any) ([]int64, error) {
 		rows, err := s.Store.DB.Query(q, qargs...)
 		if err != nil {
-			codedError(w, r, olog.CodeImportRowScan, "staged selection", err)
-			return nil, false
+			return nil, err
 		}
 		defer rows.Close()
 		var ids []int64
@@ -1730,11 +1984,7 @@ func (s *Server) resolveStagedSelection(w http.ResponseWriter, r *http.Request, 
 			}
 			ids = append(ids, id)
 		}
-		if err := rows.Err(); err != nil {
-			codedError(w, r, olog.CodeImportRowScan, "staged selection", err)
-			return nil, false
-		}
-		return ids, true
+		return ids, rows.Err()
 	}
 
 	quoteQ := `SELECT q.id FROM staged_quotes q
@@ -1745,9 +1995,9 @@ func (s *Server) resolveStagedSelection(w http.ResponseWriter, r *http.Request, 
 		quoteQ += ` AND q.id IN (` + inClause(len(sel.IDs)) + `)`
 		quoteArgs = append(append([]any{}, args...), int64sAsAny(sel.IDs)...)
 	}
-	quoteIDs, ok := scan(quoteQ+` ORDER BY q.id`, quoteArgs)
-	if !ok {
-		return out, false
+	quoteIDs, err := scan(quoteQ+` ORDER BY q.id`, quoteArgs)
+	if err != nil {
+		return out, nil, err
 	}
 	out.QuoteIDs = quoteIDs
 
@@ -1757,10 +2007,10 @@ func (s *Server) resolveStagedSelection(w http.ResponseWriter, r *http.Request, 
 	if len(sel.IDs) > 0 {
 		seen := map[int64]bool{}
 		if err := chunkIDs(quoteIDs, func(batch []int64) error {
-			ids, ok := scan(`SELECT DISTINCT staged_work_id FROM staged_quotes WHERE id IN (`+
+			ids, err := scan(`SELECT DISTINCT staged_work_id FROM staged_quotes WHERE id IN (`+
 				inClause(len(batch))+`)`, int64sAsAny(batch))
-			if !ok {
-				return errStagedSelectionAnswered
+			if err != nil {
+				return err
 			}
 			for _, id := range ids {
 				if !seen[id] {
@@ -1770,27 +2020,22 @@ func (s *Server) resolveStagedSelection(w http.ResponseWriter, r *http.Request, 
 			}
 			return nil
 		}); err != nil {
-			return out, false
+			return out, nil, err
 		}
 	} else {
-		workIDs, ok := scan(`SELECT w.id FROM staged_works w
+		workIDs, err := scan(`SELECT w.id FROM staged_works w
 		                       JOIN import_batches b ON b.id = w.batch_id`+where+` ORDER BY w.id`, args)
-		if !ok {
-			return out, false
+		if err != nil {
+			return out, nil, err
 		}
 		out.WorkIDs = workIDs
 	}
 
 	if len(out.QuoteIDs) == 0 && len(out.WorkIDs) == 0 {
-		writeErr(w, http.StatusNotFound, "no matching staged quotes")
-		return out, false
+		return out, &refusal{http.StatusNotFound, "no matching staged quotes"}, nil
 	}
-	return out, true
+	return out, nil, nil
 }
-
-// errStagedSelectionAnswered marks "scan already wrote the response" inside a
-// chunkIDs callback, whose signature only carries an error.
-var errStagedSelectionAnswered = errors.New("staged selection: response already written")
 
 // joinTags / splitStoredList are the denormalized tag+genre encoding these tables
 // use instead of join rows: a tag that exists only in an unapproved import must

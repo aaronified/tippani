@@ -234,6 +234,7 @@ type Logbook struct {
 	pruneWanted bool
 	sincePrune  int       // batches written since the last prune chunk, up to pruneEveryBatches
 	prune       *pruneRun // the prune in progress, if any
+	afterPrune  func()    // AfterPrune's; nil for none
 
 	closed bool
 	held   bool // LogHoldEnv: nothing is written until Close
@@ -345,6 +346,18 @@ func (lb *Logbook) PruneSoon() {
 	defer lb.mu.Unlock()
 	lb.pruneWanted = true
 	lb.kickLocked()
+}
+
+// AfterPrune has fn called each time a prune has gone through every step: what
+// the prune deleted may have been all that named something kept outside the
+// database (an import's spooled upload), and fn is where the owner of that thing
+// lets go of it. It runs on the log's writer, after the prune's last chunk and
+// outside the logbook's lock, so it may log; it should be quick, since no line is
+// written while it runs.
+func (lb *Logbook) AfterPrune(fn func()) {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	lb.afterPrune = fn
 }
 
 // Flush waits until every line logged before it was called has been written (or

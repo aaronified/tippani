@@ -33,6 +33,10 @@ func Title(kind, subject string, total int) string {
 		t = "Apply re-verified fields" + counted(" to", total, "item", "items")
 	case "backup":
 		t = "Back up the server"
+	case "import":
+		t = "Import"
+	case "import.approve":
+		t = "Approve imported quotes" + counted(" from", total, "work", "works")
 	// What runs in its request and is kept as a job all the same.
 	case "backup.safety":
 		t = "Download a safety backup"
@@ -40,8 +44,6 @@ func Title(kind, subject string, total int) string {
 		t = "Restore a backup"
 	case "reset":
 		t = "Factory reset"
-	case "import":
-		t = "Import"
 	case "update.check":
 		t = "Check for an update"
 	case "update.apply":

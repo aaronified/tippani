@@ -1,32 +1,63 @@
 package httpapi
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"tippani/internal/importer"
+	"tippani/internal/jobs"
 )
 
-// AN IMPORT IS KEPT AS A JOB, THOUGH IT RUNS IN ITS REQUEST.
+// AN IMPORT, AND ITS APPROVAL, ARE QUEUED JOBS.
 //
-// Driven through the API as the Import screen drives it — a file posted to the
-// drop target (POST /import/auto) or to a source's own route — and read back as
-// Settings › Jobs reads it: Past jobs, then the job's log.
+// Driven through the API as the Import screen and the import queue drive it — a
+// file posted to the drop target (POST /import/auto) or to a source's own route,
+// staged quotes approved (POST /import/staged/approve) — and read back as
+// Settings › Jobs reads them: the job the route answers with, Past jobs, the
+// job's log, and Run again.
 //
 // WHAT IT KNOWS, declared: what jobs_api_test.go's header declares (the queue and
-// its logbook given to the server as serve() gives them, and the wire field
-// names), and the importer's own sample files (internal/importer/testdata, as
-// import_auto_test.go reads them).
+// its logbook given to the server as serve() gives them, the test's kind that
+// holds the queue until it is let go, and the wire field names), and the
+// importer's own sample files (internal/importer/testdata, as import_auto_test.go
+// reads them). Beyond those, four things no request can reach:
+//   - the spool's place in the data directory (spoolDirName), because what is
+//     promised about an upload waiting for its job is where its bytes are and are
+//     not — never in an archive, gone once nothing can use them — and no answer
+//     of the API shows a file on the disk;
+//   - a server restarting, which no request does: the queue is closed as shutdown
+//     closes it and a new one started on the same database as serve() starts one
+//     (restarted), Boot and SweepSpool included;
+//   - a stray file left in the spool by a run that died writing it, put there by
+//     hand, since nothing a person does leaves one;
+//   - the moment between two works of one approval (afterApprovedWork), which is
+//     where a Stop has to land to be told from one pressed before or after it.
 //
-// What each one guards, in a sentence a person would say: a file I dropped is in
-// Past jobs under its name, saying what it was read as and what it staged, under
-// the batch the import queue shows; a file of quotes says so too; a file that is
-// something else is kept as a failed import that says what it is; a file its
-// route cannot read is kept as a failed import that says why; and what a Kindle
-// file counted beside its quotes — the bookmarks it skipped — is in the log.
+// What each one guards, in a sentence a person would say: a file I dropped is a
+// job in Past jobs under its name, saying what it was read as and what it staged,
+// under the batch the import queue shows; a file of quotes says so too; a file
+// that is something else is kept as a failed import that says what it is; a file
+// its route cannot read is kept as a failed import that says why; what a Kindle
+// file counted beside its quotes is in the log; a file I drop while another job
+// runs waits its turn, says how many are ahead, and stages nothing until it runs;
+// an import stopped before it ran keeps nothing of my file; an import a restart
+// cut off can be run again from what I uploaded, and once it has run it cannot be
+// run a second time, while whatever else was left in the spool is gone; the
+// server's backup never carries a file waiting to be imported; nobody can start
+// an import by naming a file through the jobs API; an approval waits its turn
+// behind another job and writes nothing until it runs, and is kept in Past jobs
+// under its file with what it added; and an approval stopped part-way has put
+// every work before the stop in the library, left every work after it staged, and
+// finishes the rest when run again.
 
 type wireLine struct {
 	ID    int64  `json:"id"`
@@ -38,20 +69,33 @@ type wireLine struct {
 // read again until it shows, and returns it with its log.
 func importJob(c *testClient, file string) (wireJob, []wireLine) {
 	c.t.Helper()
+	return pastJobAbout(c, "import", file)
+}
+
+// pastJobAbout waits for a job of kind about subject to be in c's past jobs, and
+// returns it with its log.
+func pastJobAbout(c *testClient, kind, subject string) (wireJob, []wireLine) {
+	c.t.Helper()
 	deadline := time.Now().Add(20 * time.Second)
 	for {
-		for _, j := range c.jobs("view=past&kind=import").Jobs {
-			if j.Subject == file {
-				return j, decode[struct {
-					Lines []wireLine `json:"lines"`
-				}](c.t, c.mustDo("GET", fmt.Sprintf("/jobs/%d?log_after=0", j.ID), nil, http.StatusOK)).Lines
+		for _, j := range c.jobs("view=past&kind=" + kind).Jobs {
+			if j.Subject == subject {
+				return j, jobLines(c, j.ID)
 			}
 		}
 		if time.Now().After(deadline) {
-			c.t.Fatalf("no import of %q in past jobs", file)
+			c.t.Fatalf("no %s of %q in past jobs", kind, subject)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// jobLines is a job's log, as its pane reads it.
+func jobLines(c *testClient, id int64) []wireLine {
+	c.t.Helper()
+	return decode[struct {
+		Lines []wireLine `json:"lines"`
+	}](c.t, c.mustDo("GET", fmt.Sprintf("/jobs/%d?log_after=0", id), nil, http.StatusOK)).Lines
 }
 
 // saying fails unless one of lines holds every part of want, and returns it.
@@ -70,7 +114,76 @@ func saying(t *testing.T, lines []wireLine, want ...string) wireLine {
 	return wireLine{}
 }
 
-func TestAnImportIsKeptAsAJobThatSaysWhatItReadAndStaged(t *testing.T) {
+// uploadOnly posts a file to an import route as the Import screen does, without
+// following the job it queues: the route's own answer.
+func (c *testClient) uploadOnly(path, name string, content []byte) *httptest.ResponseRecorder {
+	c.t.Helper()
+	var rec *httptest.ResponseRecorder
+	c.withoutFollowing(func() { rec = c.importFile(path, name, content) })
+	return rec
+}
+
+// withoutFollowing runs fn with importFile handing back the route's own answer:
+// the job it queued, not the job's answer.
+func (c *testClient) withoutFollowing(fn func()) {
+	c.noFollow = true
+	defer func() { c.noFollow = false }()
+	fn()
+}
+
+// queuedJob is the job a 202 names.
+func queuedJob(t *testing.T, rec *httptest.ResponseRecorder) wireJob {
+	t.Helper()
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("the route did not queue a job: %d %s", rec.Code, rec.Body)
+	}
+	return decode[struct {
+		Job wireJob `json:"job"`
+	}](t, rec).Job
+}
+
+// spooled is what the spool holds now, by name.
+func spooled(t *testing.T, srv *Server) []string {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(srv.DataDir, spoolDirName))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	return names
+}
+
+// restarted gives srv a new queue on the same database, as the next start of the
+// server gives it one: the old queue closed as shutdown closes it, then Boot, the
+// kinds and the spool's sweep, in serve()'s order.
+func restarted(t *testing.T, srv *Server) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Jobs.Close(ctx); err != nil {
+		t.Fatalf("closing the queue: %v", err)
+	}
+	r := jobs.NewRunner(srv.Store, srv.Logbook, jobs.Options{})
+	if err := r.Boot(); err != nil {
+		t.Fatalf("boot: %v", err)
+	}
+	srv.Jobs = r
+	srv.RegisterJobKinds()
+	srv.SweepSpool()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		r.Close(ctx)
+	})
+}
+
+func TestAnImportIsAQueuedJobThatSaysWhatItReadAndStaged(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)
 	c := signupAdmin(t, srv.Handler())
@@ -84,8 +197,11 @@ func TestAnImportIsKeptAsAJobThatSaysWhatItReadAndStaged(t *testing.T) {
 		t.Fatalf("the sample staged %d quotes; this test wants a plural", staged.Staged)
 	}
 	j, lines := importJob(c, "notes")
-	if j.Queued || !j.Own || j.State != "succeeded" || j.Error != "" {
+	if !j.Queued || !j.Own || j.State != "succeeded" || j.Error != "" || j.Rerunnable {
 		t.Fatalf("the import in past jobs: %+v", j)
+	}
+	if n, _ := j.Counts["staged"].(float64); int(n) != staged.Staged {
+		t.Fatalf("past jobs counts %v, want %d staged", j.Counts, staged.Staged)
 	}
 	saying(t, lines, "read as "+importer.SourceGoodreadsHTML, "the file says")
 	// The batch it names is the one the import queue shows.
@@ -102,6 +218,11 @@ func TestAnImportIsKeptAsAJobThatSaysWhatItReadAndStaged(t *testing.T) {
 	_, lines = importJob(c, "speeches.md")
 	saying(t, lines, "read as "+importer.SourceMarkdown, "route")
 	saying(t, lines, fmt.Sprintf("staged 2 quotes as batch %d", quotes.BatchID))
+
+	// Nothing of either upload is kept once its job has read it.
+	if left := spooled(t, srv); len(left) != 0 {
+		t.Fatalf("the spool still holds %v after both imports ran", left)
+	}
 }
 
 func TestAnImportThatStagesNothingIsKeptAsAFailedOneSayingWhy(t *testing.T) {
@@ -110,19 +231,24 @@ func TestAnImportThatStagesNothingIsKeptAsAFailedOneSayingWhy(t *testing.T) {
 	c := signupAdmin(t, srv.Handler())
 
 	// Something else entirely: the app's own export, a zip.
-	if rec := c.importAs("library.zip", []byte("PK\x03\x04\x14\x00\x00\x00\x08\x00"), ""); rec.Code != http.StatusBadRequest {
+	rec := c.importAs("library.zip", []byte("PK\x03\x04\x14\x00\x00\x00\x08\x00"), "")
+	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("a zip: %d %s", rec.Code, rec.Body)
 	}
+	zip := decode[autoReply](t, rec)
+	if zip.NearMiss != "zip" {
+		t.Fatalf("the zip's answer names no near miss: %+v", zip)
+	}
 	j, lines := importJob(c, "library.zip")
-	if j.State != "failed" || j.Error != "HTTP 400" {
-		t.Fatalf("the zip's import: %+v", j)
+	if j.State != "failed" || j.Error != zip.Error || j.Rerunnable {
+		t.Fatalf("the zip's import: %+v, want failed with %q", j, zip.Error)
 	}
 	if l := saying(t, lines, "not imported", "a zip archive"); l.Level != "warn" {
 		t.Fatalf("the near miss's line: %+v", l)
 	}
 
 	// A file its route cannot read, and the parser's own reason.
-	rec := c.importFile("/import/goodreads-html", "saved.htm", []byte("<html><body>nothing here</body></html>"))
+	rec = c.importFile("/import/goodreads-html", "saved.htm", []byte("<html><body>nothing here</body></html>"))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("a page that is not Goodreads: %d %s", rec.Code, rec.Body)
 	}
@@ -130,11 +256,23 @@ func TestAnImportThatStagesNothingIsKeptAsAFailedOneSayingWhy(t *testing.T) {
 		Error string `json:"error"`
 	}](t, rec).Error
 	j, lines = importJob(c, "saved.htm")
-	if j.State != "failed" {
+	if j.State != "failed" || j.Error != why {
 		t.Fatalf("the page's import: %+v", j)
 	}
 	saying(t, lines, "read as "+importer.SourceGoodreadsHTML)
 	saying(t, lines, "not imported: "+why)
+
+	// An override naming no format is refused before anything queues.
+	var bad *httptest.ResponseRecorder
+	c.withoutFollowing(func() { bad = c.importAs("notes.txt", []byte("plain"), "no_such_format") })
+	if bad.Code != http.StatusBadRequest || !strings.Contains(bad.Body.String(), "unknown import source") {
+		t.Fatalf("an unknown override: %d %s", bad.Code, bad.Body)
+	}
+	for _, pj := range c.jobs("view=past&kind=import").Jobs {
+		if pj.Subject == "notes.txt" {
+			t.Fatalf("an override refused before it queued left a job: %+v", pj)
+		}
+	}
 
 	// Nothing above may have staged a batch.
 	if q := queue(t, c, ""); len(q.Batches) != 0 {
@@ -173,4 +311,255 @@ func TestAKindleImportSaysWhatItCountedBesideTheQuotes(t *testing.T) {
 	saying(t, lines, "read as "+importer.SourceKindleClippings)
 	saying(t, lines, "staged 2 quotes from 1 work")
 	saying(t, lines, "bookmarks skipped 1")
+}
+
+// Mutation: queueImport staging the file in its request (runImport called there
+// instead of the Enqueue) puts the batch in the queue while the held job still
+// runs, and the 202 this test reads never comes.
+func TestAFileDroppedWhileAnotherJobRunsWaitsItsTurn(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	c := signupAdmin(t, srv.Handler())
+
+	held := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	c.waitJob(held.ID, "running")
+	rec := c.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD))
+	j := queuedJob(t, rec)
+	if j.Kind != "import" || j.State != "queued" || j.Subject != "sandworm.md" || j.Ahead != 1 || !j.Queued {
+		t.Fatalf("the upload's job while another runs: %+v", j)
+	}
+	if got := queue(t, c, ""); len(got.Batches) != 0 {
+		t.Fatalf("the file was staged while it waited: %+v", got.Batches)
+	}
+	q.let()
+	ans := decode[stageReply](t, c.followed(rec))
+	if ans.Staged != 2 {
+		t.Fatalf("the import once its turn came: %+v", ans)
+	}
+	if got := queue(t, c, ""); len(got.Batches) != 1 || got.Batches[0].ID != ans.BatchID {
+		t.Fatalf("the import queue after it ran: %+v", got.Batches)
+	}
+}
+
+// Mutation: handleStopJob without its sweep leaves the upload in the spool.
+func TestAnImportStoppedBeforeItRanKeepsNothingOfTheFile(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	c := signupAdmin(t, srv.Handler())
+
+	held := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	c.waitJob(held.ID, "running")
+	j := queuedJob(t, c.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD)))
+	if len(spooled(t, srv)) != 1 {
+		t.Fatalf("a waiting import's upload is not in the spool: %v", spooled(t, srv))
+	}
+	c.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", j.ID), nil, http.StatusOK)
+	if got := c.job(j.ID); got.State != "stopped" || got.Rerunnable {
+		t.Fatalf("the stopped import: %+v", got)
+	}
+	if left := spooled(t, srv); len(left) != 0 {
+		t.Fatalf("a stopped import left its upload behind: %v", left)
+	}
+	q.let()
+	if got := queue(t, c, ""); len(got.Batches) != 0 {
+		t.Fatalf("a stopped import staged something: %+v", got.Batches)
+	}
+}
+
+// Mutations: the sweep keeping only waiting and running imports' files (not an
+// interrupted one's) takes the upload the rerun needs, and the job is no longer
+// offered Run again; SweepSpool not sweeping at start leaves the stray file.
+func TestAnImportARestartCutOffRunsAgainFromTheUpload(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	c := signupAdmin(t, srv.Handler())
+
+	held := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	c.waitJob(held.ID, "running")
+	j := queuedJob(t, c.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD)))
+	stray := strings.Repeat("ab", 16) + ".upload"
+	if err := os.WriteFile(filepath.Join(srv.DataDir, spoolDirName, stray), []byte("half an upload"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	restarted(t, srv)
+	cut := c.job(j.ID)
+	if cut.State != "interrupted" || !cut.Rerunnable {
+		t.Fatalf("the import the restart cut off: %+v", cut)
+	}
+	left := spooled(t, srv)
+	if len(left) != 1 || left[0] == stray {
+		t.Fatalf("after the restart the spool holds %v: want the interrupted import's upload and not %s", left, stray)
+	}
+
+	again := c.followed(c.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", j.ID), nil, http.StatusAccepted))
+	if again.Code != http.StatusOK || decode[stageReply](t, again).Staged != 2 {
+		t.Fatalf("the rerun: %d %s", again.Code, again.Body)
+	}
+	if q := queue(t, c, ""); len(q.Batches) != 1 {
+		t.Fatalf("the import queue after the rerun: %+v", q.Batches)
+	}
+	if got := c.job(j.ID); got.Rerunnable {
+		t.Fatalf("the interrupted import is still offered Run again once its upload has been read: %+v", got)
+	}
+	if left := spooled(t, srv); len(left) != 0 {
+		t.Fatalf("the spool after the rerun: %v", left)
+	}
+}
+
+// Mutation: controlEntry without the spool's prefix archives the waiting upload.
+func TestTheServersBackupNeverCarriesAFileWaitingToBeImported(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	admin := signupAdmin(t, srv.Handler())
+
+	held := admin.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	admin.waitJob(held.ID, "running")
+	rec := admin.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD))
+	queuedJob(t, rec)
+	if len(spooled(t, srv)) != 1 {
+		t.Fatalf("no upload waiting in the spool: %v", spooled(t, srv))
+	}
+	backupNow(admin)
+	name, _ := srv.newestBackup()
+	enc, err := os.ReadFile(filepath.Join(srv.backupsDir(), name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range tarNames(t, plaintextOf(t, enc, testPw)) {
+		if strings.Contains(n, spoolDirName) {
+			t.Fatalf("the archive carries %s", n)
+		}
+	}
+	q.let()
+	if ans := admin.followed(rec); ans.Code != http.StatusOK {
+		t.Fatalf("the import after the backup: %d %s", ans.Code, ans.Body)
+	}
+}
+
+// Mutation: handleStartJob without its no-validate refusal hands the params to a
+// validate that is not there.
+func TestNobodyStartsAnImportByNamingAFileThroughTheJobsAPI(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+
+	held := alice.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	alice.waitJob(held.ID, "running")
+	upload := alice.uploadOnly("/import/markdown", "sandworm.md", []byte(stagedBookMD))
+	j := queuedJob(t, upload)
+	var p struct {
+		Spool string `json:"spool"`
+	}
+	raw, _ := json.Marshal(j.Params)
+	_ = json.Unmarshal(raw, &p)
+	for _, kind := range []string{"import", "import.approve"} {
+		rec := bob.startJob(kind, map[string]any{"source": importer.SourceMarkdown, "filename": "x.md", "spool": p.Spool, "all": true})
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("bob starting %s through POST /jobs: %d %s", kind, rec.Code, rec.Body)
+		}
+	}
+	q.let()
+	if ans := alice.followed(upload); ans.Code != http.StatusOK {
+		t.Fatalf("alice's own import: %d %s", ans.Code, ans.Body)
+	}
+	if got := queue(t, bob, ""); len(got.Batches) != 0 {
+		t.Fatalf("bob's queue holds alice's file: %+v", got.Batches)
+	}
+}
+
+// Mutation: handleApproveStaged writing the selection in its request puts the book
+// in the library while the held job runs.
+func TestAnApprovalWaitsItsTurnAndIsKeptUnderItsFile(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	c := signupAdmin(t, srv.Handler())
+
+	res := stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
+	held := c.mustStart("test.hold", map[string]any{"tag": "ahead"})
+	c.waitJob(held.ID, "running")
+	rec := c.do("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID})
+	j := queuedJob(t, rec)
+	if n := bookCount(t, c); n != 0 {
+		t.Fatalf("%d books in the library before the approval ran", n)
+	}
+	if j.Kind != "import.approve" || j.State != "queued" || j.Subject != "sandworm.md" || j.Ahead != 1 || j.Total != 1 {
+		t.Fatalf("the approval while another job runs: %+v", j)
+	}
+	// The same press again is the same job, and the screen is told which.
+	again := c.do("POST", "/import/staged/approve", map[string]any{"batch_id": res.BatchID})
+	if again.Code != http.StatusConflict || !strings.Contains(again.Body.String(), fmt.Sprintf(`"job_id":%d`, j.ID)) {
+		t.Fatalf("approving the same batch twice: %d %s", again.Code, again.Body)
+	}
+	q.let()
+	ap := decode[approveReply](t, c.followed(rec))
+	if ap.Added != 2 || ap.Pending != 0 || len(ap.BookIDs) != 1 {
+		t.Fatalf("the approval once its turn came: %+v", ap)
+	}
+	done, lines := pastJobAbout(c, "import.approve", "sandworm.md")
+	if done.State != "succeeded" || done.Rerunnable {
+		t.Fatalf("the approval in past jobs: %+v", done)
+	}
+	if n, _ := done.Counts["added"].(float64); n != 2 {
+		t.Fatalf("the approval's counts: %v", done.Counts)
+	}
+	saying(t, lines, "«Sandworm Studies»", "2 added")
+}
+
+// Mutation: approveStaged without its Stopping check between works writes the
+// second book too, and the stopped job reads as if it had never been asked.
+func TestAnApprovalStoppedPartWayLeavesEveryWorkWholeOnEitherSide(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	c := signupAdmin(t, srv.Handler())
+
+	stage(t, c, "/import/markdown", "sandworm.md", []byte(stagedBookMD))
+	second := strings.Replace(strings.Replace(stagedBookMD, "Sandworm Studies", "Arrakis Notes", 1),
+		"Liet Kynes", "Stilgar", 1)
+	stage(t, c, "/import/markdown", "arrakis.md", []byte(second))
+
+	reached, goOn := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	afterApprovedWork = func() { once.Do(func() { close(reached); <-goOn }) }
+	t.Cleanup(func() { afterApprovedWork = nil })
+
+	rec := c.do("POST", "/import/staged/approve", map[string]any{"all": true})
+	j := queuedJob(t, rec)
+	if j.Total != 2 {
+		t.Fatalf("an approval of two works counts %d", j.Total)
+	}
+	select {
+	case <-reached:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the approval never finished its first work")
+	}
+	c.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", j.ID), nil, http.StatusOK)
+	close(goOn)
+	ap := decode[approveReply](t, c.followed(rec))
+	stopped := c.job(j.ID)
+	if stopped.State != "stopped" || !stopped.Rerunnable || stopped.Done != 1 {
+		t.Fatalf("the approval stopped between its works: %+v", stopped)
+	}
+	if ap.Added != 2 || len(ap.BookIDs) != 1 || ap.Pending != 2 {
+		t.Fatalf("what the stopped approval says it wrote: %+v", ap)
+	}
+	if n := bookCount(t, c); n != 1 {
+		t.Fatalf("%d books in the library after the stop, want the first alone", n)
+	}
+	left := queue(t, c, "")
+	if len(left.Works) != 1 || len(left.Quotes) != 2 || left.Works[0].Title == "" {
+		t.Fatalf("the import queue after the stop: %+v", left)
+	}
+	saying(t, jobLines(c, j.ID), "stay in the import queue")
+
+	// Run again, it approves what the stop left.
+	rest := decode[approveReply](t, c.followed(c.mustDo("POST", fmt.Sprintf("/jobs/%d/rerun", j.ID), nil, http.StatusAccepted)))
+	if rest.Added != 2 || rest.Pending != 0 {
+		t.Fatalf("the approval run again: %+v", rest)
+	}
+	if n := bookCount(t, c); n != 2 {
+		t.Fatalf("%d books after the rerun, want both", n)
+	}
 }

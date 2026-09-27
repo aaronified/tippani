@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -24,16 +25,15 @@ import (
 // attach to your existing Casablanca (1942)" can be seen and corrected before
 // anything is written.
 func (s *Server) handleImportIMDb(w http.ResponseWriter, r *http.Request) {
-	s.importRoute(w, r, importer.SourceIMDb)
+	s.queueImport(w, r, importer.SourceIMDb)
 }
 
-func (s *Server) stageIMDbBytes(w http.ResponseWriter, r *http.Request, data []byte, filename string) {
+func (s *Server) stageIMDbBytes(ctx context.Context, uid int64, data []byte, filename string) importAnswer {
 	res, err := importer.IMDbQuotes(bytes.NewReader(data))
 	if err != nil {
-		importRefused(w, r, err.Error())
-		return
+		return importRefused(ctx, err.Error())
 	}
-	s.stageMovies(w, r, importer.SourceIMDb, filename, []*importer.MovieResult{res}, nil)
+	return s.stageMovies(ctx, uid, importer.SourceIMDb, filename, []*importer.MovieResult{res}, nil)
 }
 
 // importMovieResult reports how an imported title resolved: which movie the

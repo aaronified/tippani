@@ -209,7 +209,8 @@ func (s *Server) jobViewOf(j jobRow, v jobs.Owner, active []int64, applied map[i
 	// is not offered a Rerun that would only answer 403 (absent, not disabled).
 	if k, ok := s.startableKind(j.kind); ok && own && j.queued && k.rerunnable && finished(j.state) &&
 		(!k.adminOnly || v.IsAdmin) {
-		view.Rerunnable = j.state != jobs.StateSucceeded || k.againAfterSuccess
+		view.Rerunnable = (j.state != jobs.StateSucceeded || k.againAfterSuccess) &&
+			(k.runnableAgain == nil || k.runnableAgain(s, j.params))
 	}
 	return view
 }
@@ -370,7 +371,10 @@ func (s *Server) handleStartJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	k, ok := s.startableKind(req.Kind)
-	if !ok {
+	// A kind with no validate is queued by its own route and nowhere else: an
+	// import, whose params name a file its route spooled. Through here it would be
+	// a stranger naming a file.
+	if !ok || k.validate == nil {
 		writeErr(w, http.StatusBadRequest, "no such kind of job")
 		return
 	}
@@ -901,6 +905,9 @@ func (s *Server) handleStopJob(w http.ResponseWriter, r *http.Request) {
 		s.writeJobRefusal(w, r, err)
 		return
 	}
+	// An import stopped before it ran leaves its upload in the spool, and nothing
+	// will ever read it now.
+	s.sweepSpool()
 	s.writeJob(w, r, http.StatusOK, id, v)
 }
 
@@ -916,6 +923,8 @@ func (s *Server) handleStopAllJobs(w http.ResponseWriter, r *http.Request) {
 		s.writeJobRefusal(w, r, err)
 		return
 	}
+	s.sweepSpool() // as handleStopJob
+
 	writeJSON(w, http.StatusOK, map[string]any{"stopping": stopping, "stopped_waiting": stoppedWaiting})
 }
 
