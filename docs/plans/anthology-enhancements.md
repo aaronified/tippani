@@ -27,7 +27,9 @@ text at that line. Tasks, one per ask:
       `<GhostButton icon={<IconPlus />} onClick={takeWaiting} disabled={filling}>`) open a
       preview of the N passages, all ticked, where unticking one records it as removed. The
       fill already answers a preview without writing (`anthology_fill.go:75`
-      `` Preview bool `json:"preview"` ``).
+      `` Preview bool `json:"preview"` ``), but only with counts (`anthology_fill.go:84`
+      `` Added int `json:"added"` ``): the preview has to return the passages it would add,
+      and the fill has to take a list to leave out, which is new server work.
 - [ ] Write each entry's work identity (title, year, ISBN or source id) into the Markdown
       export, which today writes a book highlight as an attributed passage
       (`export_anthology.go:39` `// A BOOK HIGHLIGHT EXPORTS AS AN ATTRIBUTED PASSAGE, not as a record with an`).
@@ -53,7 +55,9 @@ The owner's answers, 27 September, each a task:
       chapter would.
 - [ ] "Exact match" on import is an identifier: the same ISBN for a book (`anthology_registry.go:151`
       `{Key: "isbn", Kinds: []string{kindBook}, Binding: "isbn", Label: "common.field.isbn.label"},`),
-      the same provider id for a screen work. Anything else stays standalone.
+      the same provider id for any work: a book's `asin`, `google_id` or `openlibrary_id`
+      (`0001_init.sql:24` `asin TEXT,`), a screen work's TMDB or TheTVDB id. Anything else
+      stays standalone.
 
 Decided while planning, so the build needs nothing further:
 
@@ -63,13 +67,34 @@ Decided while planning, so the build needs nothing further:
       bringing it back restores both; a sections table in the entries' position space
       (`0043_anthologies.sql:74` `position     REAL NOT NULL,`); and `group_by`, `cover_path`,
       `epigraph` and `dedication` on `anthologies`, each defaulting to empty.
+- [ ] Every query over an anthology's positions reads sections as well as entries, or a
+      renumber moves passages into the wrong section and a new entry ties with a trailing
+      heading: the renumber (`anthology_handlers.go:1347`
+      `func renumberAnthology(tx *sql.Tx, id int64) error {`), the next position when adding
+      (`anthology_handlers.go:1048`
+      `` if err := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_entries WHERE anthology_id = ?`, ``),
+      on import approval (`anthology_handlers.go:1425`
+      `` if err := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_entries WHERE anthology_id = ?`, ``),
+      in the fill (`anthology_fill.go:278`
+      `` `SELECT COALESCE(MAX(position), 0) + 1 FROM anthology_entries WHERE anthology_id = ?`, id).Scan(&next); err != nil { ``),
+      and the reorder's own lookup.
 - [ ] A removal lasts until it is brought back or the anthology is deleted, because a rule can
-      run again at any time. The quote-delete triggers (`0043_anthologies.sql:105`
+      run again at any time. A removed quote added back by hand leaves the removed list, so
+      the two rows never both exist. The quote-delete triggers (`0043_anthologies.sql:105`
       `CREATE TRIGGER anthology_entries_book_del AFTER DELETE ON annotations BEGIN`) clear
       removed rows as they clear entries.
-- [ ] Removed rows and sections travel wherever entries do: the bin's snapshot of a quote
-      (`trash.go:445` `SELECT e.* FROM anthology_entries e`) and the account's table list
-      (`trash.go:934` `"anthologies", "anthology_entries",`).
+- [ ] Removed rows travel wherever entries do, at all four sites: the bin's snapshot of a
+      quote (`trash.go:445` `SELECT e.* FROM anthology_entries e`); the restore's guard that
+      drops an entry whose anthology is gone (`trash_handlers.go:387`
+      `func anthologyStillThere(tx *sql.Tx, row map[string]any) bool {`), or a restore
+      fails its foreign key and rolls back; the account's table list (`trash.go:934`
+      `"anthologies", "anthology_entries",`); and the account bin's per-table query
+      (`trash.go:1048` `case "anthology_entries":`), since neither new table has a
+      `user_id`. Sections belong to an anthology, not a quote, so they travel at the last two.
+- [ ] The cover file is one of the reader's images: listed with them (`admin_handlers.go:325`
+      `func (s *Server) userCoverFiles(id int64) []string {`) and removed when the
+      anthology is (`anthology_handlers.go:972`
+      `func (s *Server) handleDeleteAnthology(w http.ResponseWriter, r *http.Request) {`).
 - [ ] A drag and a Move to… are one move and one request, the reorder route's "after this
       one" (`anthology_handlers.go:1218` `` After *entryRef `json:"after"` ``). Moving an entry
       writes one row (`anthology_handlers.go:66` `const anthologyPositionGap = 1e-6`); moving a
@@ -92,6 +117,9 @@ Decided while planning, so the build needs nothing further:
 - [ ] Tests: a fill after a removal adds nothing back; bringing one back restores its note and
       place; a drag and a Move to… land in the same place; a section drag carries its run;
       grouping draws one header per run; Markdown and EPUB round-trip sections and front
-      matter; import links on an ISBN and not on a title; binning and restoring a quote keeps
-      its removed rows; an account round trip keeps removed rows, sections and front matter.
+      matter; import links on an ISBN and on an ASIN and not on a title; a renumber across a
+      section keeps every passage in its section; binning and restoring a quote keeps its
+      removed rows, and deleting the anthology while the quote is in the bin still lets the
+      quote come back; an account round trip keeps removed rows, sections and front matter;
+      deleting an anthology removes its cover file.
       Each mutation-checked, the mutation named in the commit.
