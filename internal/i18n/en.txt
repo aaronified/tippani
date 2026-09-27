@@ -5953,7 +5953,8 @@ settings.jobs.current.stop.running.aria = Stop {title} (running)
 settings.jobs.current.stop.next.aria = Stop {title} (next)
 settings.jobs.current.stop.ahead.aria.one = Stop {title} (one job ahead)
 settings.jobs.current.stop.ahead.aria.other = Stop {title} ({n} jobs ahead)
-settings.jobs.current.stop.done = It stops after the item in hand.
+# Toasts are five words or fewer (ui.jsx's toast); the row itself says the rest.
+settings.jobs.current.stop.done = Stopping after this item
 settings.jobs.current.stopping = Stopping after the item in hand…
 settings.jobs.current.stop-all.label = Stop all
 settings.jobs.current.stop-all.confirm.title = Stop all jobs?
@@ -5961,11 +5962,14 @@ settings.jobs.current.stop-all.confirm.title = Stop all jobs?
 settings.jobs.current.stop-all.confirm.running = The running job stops after the item in hand.
 settings.jobs.current.stop-all.confirm.waiting.one = The one waiting is stopped before it starts.
 settings.jobs.current.stop-all.confirm.waiting.other = The {n} waiting are stopped before they start.
-settings.jobs.current.stop-all.confirm.kept = Each is kept with its log and can be run again.
+# True for a reader and for an admin alike: only the reader who started a job can run it again.
+settings.jobs.current.stop-all.confirm.kept = Each is kept with its log, and whoever started it can run it again.
 # Said only to an admin, whose Stop all reaches every reader's jobs.
 settings.jobs.current.stop-all.confirm.admin = This includes other readers' jobs.
 settings.jobs.current.stop-all.confirm.verb = Stop them
-settings.jobs.current.stop-all.done = {stopping} stopping · {waiting} stopped before starting
+# The toast after Stop all, counting every job it reached. Nothing is said when it reached none.
+settings.jobs.current.stop-all.done.one = {n} job stopped
+settings.jobs.current.stop-all.done.other = {n} jobs stopped
 
 # --- Past jobs: everything that finished in the last 30 days, newest first.
 settings.jobs.past.title = Past jobs
@@ -5982,7 +5986,7 @@ settings.jobs.past.result.label = Result
 settings.jobs.past.error.label = What went wrong
 settings.jobs.past.export.tip = This job's log, as a Markdown file
 settings.jobs.past.rerun.label = Run again
-settings.jobs.past.rerun.done = Started again — it is in Current jobs.
+settings.jobs.past.rerun.done = Started again
 # A re-verify's findings wait to be looked over; Review opens them on Metadata,
 # where the changes are chosen and applied.
 settings.jobs.past.review.label = Review

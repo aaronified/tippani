@@ -27,6 +27,7 @@ let CURRENT
 let PAST
 let LINES
 let LOGS
+let STOPALL
 
 const HOUR = 60 * 60 * 1000
 const NOW = Date.now()
@@ -57,7 +58,7 @@ vi.mock('../../src/api.js', async (orig) => ({
       const after = Number(q.get('log_after') || 0)
       return { ok: true, data: { job: found, lines: (LINES[id] || []).filter((l) => l.id > after), more: false } }
     }
-    if (method === 'POST' && p === '/jobs/stop-all') return { ok: true, data: { stopping: 1, stopped_waiting: 2 } }
+    if (method === 'POST' && p === '/jobs/stop-all') return { ok: true, data: STOPALL }
     if (method === 'POST' && /^\/jobs\/\d+\/rerun$/.test(p)) return { ok: true, status: 202, data: { job: job({ id: 99 }) } }
     if (method === 'GET' && p === '/admin/logs') return { ok: true, data: { lines: LOGS, more: false } }
     if (method === 'GET' && p === '/admin/backup') return { ok: true, data: { backup: null } }
@@ -97,6 +98,7 @@ beforeEach(() => {
     10: [{ id: 1, at: NOW - 30000, level: 'info', line: '«Rooms of Attention» — cover fetched' }],
     7: [{ id: 2, at: NOW - 2 * HOUR, level: 'info', line: '«The Paper Boat» — filled year, pages' }],
   }
+  STOPALL = { stopping: 1, stopped_waiting: 2 }
   LOGS = [{ id: 40, at: NOW - 60000, level: 'warn', code: 'TIP-NET-004', line: 'openlibrary.org answered 503' }]
 })
 
@@ -180,7 +182,9 @@ describe('Current jobs', () => {
     const ask = await screen.findByRole('alertdialog', { name: 'Stop all jobs?' })
     expect(ask.textContent).toContain('The running job stops after the item in hand.')
     expect(ask.textContent).toContain('The 2 waiting are stopped before they start.')
-    expect(ask.textContent).toContain('Each is kept with its log and can be run again.')
+    // Only the reader who started a job can run it again, so the sentence says
+    // exactly that — an admin stopping somebody else's cannot rerun it.
+    expect(ask.textContent).toContain('Each is kept with its log, and whoever started it can run it again.')
     // An admin's press reaches every reader's queue, and the confirm says so.
     expect(ask.textContent).toContain("This includes other readers' jobs.")
     fireEvent.click(within(ask).getByRole('button', { name: 'Cancel' }))
@@ -195,7 +199,31 @@ describe('Current jobs', () => {
     const ask = await screen.findByRole('alertdialog', { name: 'Stop all jobs?' })
     fireEvent.click(within(ask).getByRole('button', { name: 'Stop them' }))
     await waitFor(() => expect(posted('/jobs/stop-all')).toHaveLength(1))
-    await screen.findByText('1 stopping · 2 stopped before starting')
+    await screen.findByText('3 jobs stopped')
+    // The running row says it heard rather than keep offering a Stop.
+    await within(current).findByText('Stopping after the item in hand…')
+    expect(within(current).queryByRole('button', { name: 'Stop Fetch covers (running)' })).toBeNull()
+  })
+
+  it('says nothing when Stop all reached nothing — the jobs ended while the confirm was up', async () => {
+    STOPALL = { stopping: 0, stopped_waiting: 0 }
+    await page()
+    const current = await card('Current jobs')
+    fireEvent.click(await within(current).findByRole('button', { name: 'Stop all' }))
+    const ask = await screen.findByRole('alertdialog', { name: 'Stop all jobs?' })
+    fireEvent.click(within(ask).getByRole('button', { name: 'Stop them' }))
+    await waitFor(() => expect(posted('/jobs/stop-all')).toHaveLength(1))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(screen.queryByText(/jobs? stopped/)).toBeNull()
+  })
+
+  it('stops the running job on its own Stop, and the row says it will stop after the item in hand', async () => {
+    await page()
+    const current = await card('Current jobs')
+    fireEvent.click(await within(current).findByRole('button', { name: 'Stop Fetch covers (running)' }))
+    await waitFor(() => expect(posted('/jobs/10/stop')).toHaveLength(1))
+    await screen.findByText('Stopping after this item')
+    expect(within(current).getByText('Stopping after the item in hand…')).toBeTruthy()
   })
 
   it('tells a reader nothing about other readers’ jobs', async () => {
@@ -299,6 +327,7 @@ describe('Past jobs', () => {
     fireEvent.click(within(prompt).getByRole('button', { name: /^Back up$/ }))
     await waitFor(() => expect(posted('/jobs/6/rerun')).toHaveLength(1))
     expect(posted('/jobs/6/rerun')[0][2]).toEqual({ password: 'hunter2' })
+    await screen.findByText('Started again')
   })
 
   it('offers Review on a re-verify nobody has applied, and opens it by its job', async () => {

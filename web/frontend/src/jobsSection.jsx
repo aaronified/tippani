@@ -218,7 +218,15 @@ export function JobsCurrentCard({ user, compact = false }) {
     if (!yes) return
     const r = await stopAllJobs()
     if (!r.ok) return toast(r.error)
-    toast(t('settings.jobs.current.stop-all.done', { stopping: r.stopping, waiting: r.stoppedWaiting }))
+    // The running row says it heard, as it does for its own Stop: the job ends
+    // after the item it is on, and until then a Stop button still on the row
+    // reads as a press that did nothing.
+    if (r.stopping > 0) setStopping((s) => new Set([...s, ...jobs.filter((j) => j.state === 'running').map((j) => j.id)]))
+    // ONE COUNT, FIVE WORDS OR FEWER (the house's toast rule), and nothing at all
+    // when the press reached nothing — the jobs ended between the confirm and the
+    // press, and "0 jobs stopped" is news about nothing.
+    const total = r.stopping + r.stoppedWaiting
+    if (total > 0) toast(t('settings.jobs.current.stop-all.done', { count: total, n: total }))
   }
 
   async function stopOne(job) {
