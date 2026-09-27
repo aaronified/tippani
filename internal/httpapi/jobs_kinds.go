@@ -126,7 +126,7 @@ var builtinJobKinds = []queuedKind{
 	// {items, from_job}: write the fields the reader ticked in that review.
 	// Result: one line per item; counts {applied, skipped, failed}.
 	{name: "reverify-apply", rerunnable: true, validate: validateReverifyApply,
-		counts: countReverifyApply},
+		counts: countReverifyApply, run: runReverifyApply},
 	// {password | passphrase}: seal a backup with it. The password is checked
 	// here, for an answer before anything queues, and again by the job. Result:
 	// the archive, as GET /admin/backup describes it; nothing to count.

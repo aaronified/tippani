@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -1041,6 +1042,55 @@ func (s *Server) applyReverifyItem(ctx context.Context, uid int64, item reverify
 	res.OK = true
 	res.Note = strings.Join(notes, "; ")
 	return res
+}
+
+// runReverifyApply is the reverify-apply job: the review's Apply, item by item
+// through applyReverifyItem as the synchronous route applies them, with a line
+// in its log for each. Its result is the route's results, one per item it
+// reached, which the review reads back to say what was written; the check it
+// came from (from_job) is on the row, which is what makes that check read as
+// applied.
+func runReverifyApply(s *Server, ctx context.Context, j *jobs.Job) error {
+	var p struct {
+		Items []reverifyApplyItem `json:"items"`
+	}
+	if err := j.Params(&p); err != nil {
+		return err
+	}
+	uid := j.Owner().UserID
+	results := []applyResult{}
+	for i, item := range p.Items {
+		if j.Stopping() {
+			break
+		}
+		res := s.applyReverifyItem(ctx, uid, item)
+		level, line := applyLine(res)
+		j.Log(level, "%s", line)
+		results = append(results, res)
+		j.Progress(i+1, len(p.Items))
+	}
+	return j.SetResult(results)
+}
+
+// applyLine is an apply's line for one item: what it wrote, and anything it
+// left, or why it failed.
+func applyLine(res applyResult) (level, line string) {
+	name := itemName(res.Type, res.ID, cmp.Or(res.title, res.Name))
+	if !res.OK {
+		line = name + " — failed: " + res.Error
+		if res.Note != "" {
+			line += "; " + res.Note
+		}
+		return jobs.LevelWarn, line
+	}
+	line = name + " — nothing written"
+	if len(res.wrote) > 0 {
+		line = name + " — wrote " + fieldWords(res.wrote)
+	}
+	if res.Note != "" {
+		line += "; " + res.Note
+	}
+	return jobs.LevelInfo, line
 }
 
 // decodeSet pulls one typed field out of a set map; absent keys return ok=false.
