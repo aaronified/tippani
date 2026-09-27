@@ -17,8 +17,8 @@ Asked on 26 September to rank the plans by complexity, the owner answered: *"lea
 work-source-files: *"Leave it out too"*. One plan at a time, each its own release with one
 rater:
 
-1. `jobs.md`, release 3.1.0.
-2. `person-signature.md`.
+1. `jobs.md` — shipped in 3.1.0, folded into `Design-decisions.md` §18, and deleted.
+2. `person-signature.md`, next.
 3. `read-aloud.md`.
 4. `tile-slots.md`.
 5. `episodes.md`.
@@ -40,8 +40,8 @@ shipped plans stayed here afterwards and reintroduced it one directory over —
 along with twenty-three entries in the log whose grey line still read *planned*
 for features that had been running for months.
 
-**Seventeen files sit here, and only some of them are plans** — the table at the foot of this
-file names the seven that get no roadmap card, leaving ten features on the roadmap.
+**Sixteen files sit here, and only some of them are plans** — the table at the foot of this
+file names the seven that get no roadmap card, leaving nine features on the roadmap.
 
 THAT COUNT HAS NOW BEEN WRONG FIVE TIMES. It said "Seven"; a change that added a file
 incremented it to "Eight" without counting the directory; a change that fixed THAT wrote
@@ -56,7 +56,8 @@ numbers moved in the same change that removed the file — which is the whole of
 paragraphs down, applied for once in the direction it is usually needed least. A directory
 shrinking behind its own index is as wrong as one growing behind it.
 `bulk-editors-one-field-table.md` left the same way, twelve to eleven and seven to six, in
-the change that folded it into `Design-decisions.md`.
+the change that folded it into `Design-decisions.md`, and so did `jobs.md` at 3.1.0,
+seventeen to sixteen and ten to nine.
 
 **AND THE FIFTH IS THE ONE THE LESSON BELOW DOES NOT COVER**, which is why it is worth its
 own sentence. `work-source-files.md` arrived and NOBODY EDITED THIS PARAGRAPH — the four
@@ -98,12 +99,14 @@ have since left by the front door**: the update shipped, the pair is folded into
 under one heading with a pass on the four places they turned out to be wrong, and neither
 file is here any more.
 
-So the plans proper are the nine the table does not name: `access.md` for roadmap §6,
-`entry-helpers.md` and `episodes.md`, which no roadmap section owns, and
-`atrium-liquid-glass.md`, `locators-from-files.md` and `work-source-files.md` — the
-storage, mount and prune spine that `locators-from-files.md` already calls "the reader of
-these files" and cites by name — plus `jobs.md`, `admin-and-profile.md`, and `anthology-enhancements.md`,
-which picks up what the shipped anthology plans left out.
+So the plans proper are the nine the table does not name: `admin-and-profile.md`,
+`anthology-enhancements.md`, which picks up what the shipped anthology plans left out,
+`atrium-liquid-glass.md`, `episodes.md`, `person-signature.md`, `read-aloud.md`,
+`tile-slots.md`, and `locators-from-files.md` and `work-source-files.md` — the storage,
+mount and prune spine that `locators-from-files.md` already calls "the reader of these
+files" and cites by name. (This paragraph named `access.md` and `entry-helpers.md` for two
+releases after both had left, and missed three plans that had arrived; it is recounted from
+`ls` now, in the same change that took `jobs.md` out of it.)
 
 **`import-one-drop-target.md` was the tenth and left by the front door**, which is the
 exit this file is about: it shipped, it is folded into `Design-decisions.md` with a pass on the one

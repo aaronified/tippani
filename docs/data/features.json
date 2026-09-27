@@ -390,7 +390,8 @@
         "</p>"
       ],
       "id": "jobs",
-      "plan": "jobs.md"
+      "plan": "jobs.md",
+      "shipped_in": "3.1.0"
     },
     {
       "title": "A signature beside a person’s quotes",

@@ -20,7 +20,7 @@ own context, neither one is about this request at all.
 
 | What I quoted | What it actually governs |
 |---|---|
-| `docs/wiki/Design-decisions.md` — "**Decided.** No background fetching, ever." | Its section is titled *"Metadata is fetched on demand only, and the one bulk path is admin-triggered and cursor-chunked"*, and its **Why** is §8's idle-CPU budget "on a NAS sharing a box with a hundred other services", where "a background enricher is a poller by another name". It is about the SERVER fetching third-party metadata on a schedule. |
+| `docs/wiki/Design-decisions.md` — "**Decided.** No background fetching, ever." | Its section is titled *"Metadata is fetched on demand only, and the one bulk path is admin-triggered and cursor-chunked"* (retitled at 3.1.0 *"Metadata is fetched when somebody asks, and a pass over many works is a job on the server"*, the old words kept in its Reversal), and its **Why** is §8's idle-CPU budget "on a NAS sharing a box with a hundred other services", where "a background enricher is a poller by another name". It is about the SERVER fetching third-party metadata on a schedule. |
 | "This app makes no network request the reader did not ask for" | Both places it appears are about **third parties**: a type picker that would phone a font CDN (`docs/ui-glossary.html`) and a links panel that would phone ten providers for their favicons (`book-detail-wide.dc.html`). Neither is about the app asking its own server for the reader's own rows. |
 | `App.jsx` — "There is no loading state… this app has never shown a spinner for a screen" | It sits on the `lazy()` route-chunk declarations, above a `Suspense fallback={null}`, and its own next sentence is about the chunk: "the screen still announces itself immediately and only its body arrives a beat later". It is about CODE, not data and not images. |
 
@@ -30,8 +30,10 @@ nothing anybody has written down.
 
 **And the precedent runs the owner's way rather than against it.** `warmScreens` in
 `App.jsx` already prefetches route chunks on idle — the paragraph directly above the
-house rule says so — and `usePortraitFill` (`credits.jsx`) already fires up to twenty
-unrequested `POST /people/portrait` for a screen the reader is merely looking at, and
+house rule says so — and a work page already asks for up to twenty unrequested portraits
+for a screen the reader is merely looking at: when this was written `usePortraitFill`
+(`credits.jsx`) sent a `POST /people/portrait` per name, and since 3.1.0 it is one
+`POST /{books|movies}/{id}/cast/art` (`useCastArt`, `cast.jsx`) that the server does whole.
 `Design-decisions.md` blesses fetching the search vocabulary on first focus. The rule as landed has
 always meant *no outbound third-party call, and no poller*; it has never meant *no
 same-origin request without a press*.
