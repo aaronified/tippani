@@ -1013,6 +1013,34 @@ the queue, and nothing inanimate is said to wait (v3.7).
 nobody re-decides them: Updates আপডেট · Changelog চেঞ্জলগ · version ভার্সন · release
 রিলিজ · cookie কুকি. **Changed in v3:** API key and archive key are both **চাবি** (কি was a homonym of the question particle, and the two keys are one idea) · pair / unpair **পেয়ার করুন / আনপেয়ার করুন**.
 
+#### The screens that start a job (the callers)
+
+Sentences, not terms: the lines the re-verify dialog, the backup and the restore and reset
+prompts say now that their work runs on the server's queue. Each is drafted to this sheet
+and marked `# ?? draft for the owner (3.1.0 jobs callers)` at its key, with what to check;
+`grep -n 'jobs callers' internal/i18n/bn.txt` lists them. Where a sibling already said the
+same fact, the draft reuses its words — *হাতেরটুকু সেরে থামবে* and *শুরুই হবে না* are the
+Stop all confirm's, *মাঝপথে থেমেছে* is the interrupted state's chip.
+
+| Key | English | Bengali |
+| --- | --- | --- |
+| `reverify.checking.away` | Close this and it carries on — Settings › Jobs has it. | এটা বন্ধ করলেও মিলিয়ে দেখা চলতে থাকবে — সেটিংস › কাজ-এ পাবেন। |
+| `reverify.capped` | A check holds {kept} at most, so this one has the first {kept} of {total}. Narrow the list for the rest. | একবারে সর্বোচ্চ {kept}টা মিলিয়ে দেখা যায়, তাই এবারে {total}টার প্রথম {kept}টাই আছে। বাকিগুলোর জন্য তালিকা ছোট করে নিন। |
+| `reverify.kept.running` | Still running · Settings › Jobs | এখনও চলছে · সেটিংস › কাজ-এ |
+| `reverify.kept.review` | Findings kept · Settings › Jobs | যা পাওয়া গেছে, রাখা আছে · সেটিংস › কাজ-এ |
+| `reverify.stop.confirm.title` | Stop the check? | মিলিয়ে দেখা থামাবেন? |
+| `reverify.stop.confirm.body` | It stops after the item in hand, and is kept in Settings › Jobs with its log. | হাতেরটুকু সেরে থামবে, আর তার লগ নিয়ে সেটিংস › কাজ-এ থেকে যাবে। |
+| `reverify.stop.confirm.body.waiting` | It is stopped before it starts, and kept in Settings › Jobs with its log. | শুরুই হবে না, আর তার লগ নিয়ে সেটিংস › কাজ-এ থেকে যাবে। |
+| `reverify.stop.confirm.verb` | Stop it | থামান |
+| `settings.backup.toast.stopped` | backup stopped | ব্যাকআপ থামানো হল |
+| `settings.backup.toast.interrupted` | backup interrupted | ব্যাকআপ মাঝপথে থেমে গেল |
+| `settings.restore.queue.running` | {title} is running. The restore is refused until it stops or finishes — stop it in Settings › Jobs first. | {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত ফিরিয়ে আনা যাবে না — আগে সেটিংস › কাজ-এ গিয়ে থামান। |
+| `settings.restore.queue.waiting.one` | One job is waiting; a restore ends it, and it is kept as interrupted. | অপেক্ষার তালিকায় একটা কাজ আছে — ফিরিয়ে আনলে সেটা আর চলবে না, “মাঝপথে থেমেছে” হয়ে থেকে যাবে। |
+| `settings.restore.queue.waiting.other` | {n} jobs are waiting; a restore ends them, and each is kept as interrupted. | অপেক্ষার তালিকায় {n}টা কাজ আছে — ফিরিয়ে আনলে সেগুলো আর চলবে না, প্রতিটা “মাঝপথে থেমেছে” হয়ে থেকে যাবে। |
+| `account.reset.queue.running` | {title} is running. The reset is refused until it stops or finishes — stop it in Settings › Jobs first. | {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত সব ডেটা মোছা যাবে না — আগে সেটিংস › কাজ-এ গিয়ে থামান। |
+| `account.reset.queue.waiting.one` | One job is waiting; a reset deletes it with everything else. | অপেক্ষার তালিকায় একটা কাজ আছে — বাকি সবকিছুর সঙ্গে সেটাও মুছে যাবে। |
+| `account.reset.queue.waiting.other` | {n} jobs are waiting; a reset deletes them with everything else. | অপেক্ষার তালিকায় {n}টা কাজ আছে — বাকি সবকিছুর সঙ্গে সেগুলোও মুছে যাবে। |
+
 ---
 
 ## v3 decisions

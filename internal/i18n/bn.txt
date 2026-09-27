@@ -4293,6 +4293,7 @@ reverify.checking.prose = প্রতিটা বই-সিনেমা তা
 reverify.checking.progress = দেখা হচ্ছে · {done}/{total}
 # Under the checking bar. The check is a job on the server since 3.1.0, so
 # closing the dialog does not stop it — Cancel does, and asks first.
+# ?? draft for the owner (3.1.0 jobs callers): চলতে থাকবে for "carries on"; the line under the checking bar
 reverify.checking.away = এটা বন্ধ করলেও মিলিয়ে দেখা চলতে থাকবে — সেটিংস › কাজ-এ পাবেন।
 # Above the check when the selection was bigger than one check holds (500).
 # {kept} is that cap, {total} the selection's size; the rest are not checked.
@@ -4336,15 +4337,20 @@ reverify.flash.skipped.one = {n}টা ছবি বাদ
 reverify.flash.skipped.other = {n}টা ছবি বাদ
 # Closing the dialog keeps the job; these toasts say where it went. Five words
 # or fewer, the house rule for a toast.
+# ?? draft for the owner (3.1.0 jobs callers): a toast when the dialog closes on a running check
 reverify.kept.running = এখনও চলছে · সেটিংস › কাজ-এ
+# ?? draft for the owner (3.1.0 jobs callers): যা পাওয়া গেছে, রাখা আছে for "Findings kept"; said only when the check found something to change
 reverify.kept.review = যা পাওয়া গেছে, রাখা আছে · সেটিংস › কাজ-এ
 # Cancel while the check runs STOPS it, which is why it asks.
+# ?? draft for the owner (3.1.0 jobs callers): থামাবেন? for "Stop the check?"
 reverify.stop.confirm.title = মিলিয়ে দেখা থামাবেন?
+# ?? draft for the owner (3.1.0 jobs callers): হাতেরটুকু সেরে থামবে, the Stop all confirm's own words for "after the item in hand"
 reverify.stop.confirm.body = হাতেরটুকু সেরে থামবে, আর তার লগ নিয়ে সেটিংস › কাজ-এ থেকে যাবে।
 # The same confirm over a check still in the queue: it has no item in hand, so
 # the server ends it before it starts.
-# ?? draft for the owner (3.1.0 jobs callers): শুরু হওয়ার আগেই থেমে যাবে, the queued twin of হাতেরটুকু সেরে থামবে
-reverify.stop.confirm.body.waiting = শুরু হওয়ার আগেই থেমে যাবে, আর তার লগ নিয়ে সেটিংস › কাজ-এ থেকে যাবে।
+# ?? draft for the owner (3.1.0 jobs callers): শুরুই হবে না, the Stop all confirm's own words for a job stopped before it starts
+reverify.stop.confirm.body.waiting = শুরুই হবে না, আর তার লগ নিয়ে সেটিংস › কাজ-এ থেকে যাবে।
+# ?? draft for the owner (3.1.0 jobs callers): থামান, the Stop word of Settings › Jobs
 reverify.stop.confirm.verb = থামান
 error.reverify.preview = আগে থেকে দেখানো গেল না
 error.reverify.apply = বসানো গেল না
@@ -4623,8 +4629,11 @@ account.reset.submit = সব মুছে নতুন করে শুরু �
 account.reset.busy = মোছা হচ্ছে…
 # Above step one of the factory reset, read when it opens: the same refusal as
 # the restore's, and the waiting jobs go with everything else.
+# ?? draft for the owner (3.1.0 jobs callers): the reset refused while a job runs; {title} is the job's name, composed by the app
 account.reset.queue.running = {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত সব ডেটা মোছা যাবে না — আগে সেটিংস › কাজ-এ গিয়ে থামান।
+# ?? draft for the owner (3.1.0 jobs callers): অপেক্ষার তালিকায় for "waiting" (v3.7: nothing inanimate waits); মুছে যাবে for "deletes"
 account.reset.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — বাকি সবকিছুর সঙ্গে সেটাও মুছে যাবে।
+# ?? draft for the owner (3.1.0 jobs callers): the plural twin of the line above
 account.reset.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — বাকি সবকিছুর সঙ্গে সেগুলোও মুছে যাবে।
 
 # The admin's list of everyone on the server. Granting is something you do to
@@ -5558,7 +5567,9 @@ settings.backup.toast.restored = ফিরিয়ে আনা হল · ল�
 # A backup is a job on the server since 3.1.0; these two are how it can end
 # without an archive other than failing — stopped from Settings › Jobs, or cut
 # short by a restart. Toasts, five words or fewer.
+# ?? draft for the owner (3.1.0 jobs callers): থামানো হল, as Stop all's own toast says it
 settings.backup.toast.stopped = ব্যাকআপ থামানো হল
+# ?? draft for the owner (3.1.0 jobs callers): মাঝপথে থেমে গেল for "interrupted" (the state chip is মাঝপথে থেমেছে)
 settings.backup.toast.interrupted = ব্যাকআপ মাঝপথে থেমে গেল
 
 # ---------------------------------------------------------------------------
@@ -5576,8 +5587,11 @@ settings.restore.warn.dated.prose = এই সার্ভারের সবক
 # database under the job queue (3.1.0), so the server refuses it while a job
 # runs, and the jobs still waiting end with the old database. {title} is the
 # running job's name, which the app composes from its kind and what it was about.
+# ?? draft for the owner (3.1.0 jobs callers): the restore refused while a job runs; {title} is the job's name, composed by the app
 settings.restore.queue.running = {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত ফিরিয়ে আনা যাবে না — আগে সেটিংস › কাজ-এ গিয়ে থামান।
+# ?? draft for the owner (3.1.0 jobs callers): “মাঝপথে থেমেছে” quotes the interrupted state's chip
 settings.restore.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — ফিরিয়ে আনলে সেটা আর চলবে না, “মাঝপথে থেমেছে” হয়ে থেকে যাবে।
+# ?? draft for the owner (3.1.0 jobs callers): the plural twin of the line above
 settings.restore.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — ফিরিয়ে আনলে সেগুলো আর চলবে না, প্রতিটা “মাঝপথে থেমেছে” হয়ে থেকে যাবে।
 # The account password, as against a passphrase — which is why it is not just
 # common.field.password.label.
