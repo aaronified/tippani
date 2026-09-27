@@ -169,6 +169,16 @@ func (s *Store) Close() error {
 	return errors.Join(s.LogDB.Close(), s.DB.Close())
 }
 
+// CloseLog closes the log pool alone: shutdown's step between the logbook's last
+// flush and the checkpoint (cmd/tippani's shutdown says why that order). It takes
+// the swap lock like Close, so a prune chunk still in flight on the pool finishes
+// first. Close afterwards closes it again, which is harmless.
+func (s *Store) CloseLog() error {
+	s.logMu.Lock()
+	defer s.logMu.Unlock()
+	return s.LogDB.Close()
+}
+
 // LogWrite runs fn with the log pool, holding the swap lock for reading. It is the
 // only way anything writes through LogDB — the logbook's drainer — and the lock is
 // the point: a swap holds it for writing from before the files move until both

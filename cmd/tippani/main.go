@@ -42,6 +42,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -49,7 +50,9 @@ import (
 	"tippani/internal/buildinfo"
 	"tippani/internal/httpapi"
 	"tippani/internal/i18n"
+	"tippani/internal/jobs"
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 	"tippani/internal/store"
 	"tippani/web"
 )
@@ -190,8 +193,29 @@ var defaultTMDBKey = ""
 var defaultTVDBKey = ""
 
 func serve() {
+	// THE KEPT LOG STARTS BEFORE THE STORE DOES. The logbook buffers until it is
+	// given the store, so the lines openStore writes — the migrations, the
+	// integrity sweep, an FTS repair — are in Settings › Jobs › System logs too,
+	// and those are the lines somebody opens it after a bad boot to read. The
+	// sink takes this package's olog lines; the tee takes package log's (the boot
+	// and shutdown lines here, and the handlers that still use it), and the
+	// terminal keeps every line it had.
+	lb := jobs.NewLogbook()
+	olog.SetSink(func(e olog.Entry) { lb.System(e.Level, e.Code, e.Line) })
+	log.SetOutput(io.MultiWriter(os.Stderr, olog.StdWriter()))
+
 	st, dataDir := openStore()
 	defer st.Close()
+	lb.Attach(st)
+	// Every outward call, refused or not, is a line in the log of whoever made it.
+	outbound.SetObserver(lb.Outbound)
+	// The queue. Boot settles what the last run left — here and ONLY here: the
+	// command-line tools open this same store beside a live server, and Boot
+	// there would mark that server's running job interrupted under it.
+	runner := jobs.NewRunner(st, lb, jobs.Options{})
+	if err := runner.Boot(); err != nil {
+		olog.Errorf(olog.CodeJobRecord, "[jobs] settling the jobs the last run left: %v", err)
+	}
 	// Covers and posters are downloaded once and served locally from
 	// <DataDir>/MediaCover (PLAN §6; *arr-style, §9 of the UI instructions).
 	// Migrate the pre-rename covers/ directory in place, once.
@@ -246,6 +270,7 @@ func serve() {
 	configureOutside(srv)
 	srv.TMDBBuiltin = defaultTMDBKey // last fallback before 503 (key otherwise set in Settings)
 	srv.TVDBBuiltin = defaultTVDBKey // ditto for TheTVDB, which is the default film/show source
+	srv.Jobs, srv.Logbook = runner, lb
 
 	// One-shot: hand the starter stickers to the accounts that existed before
 	// they shipped, so an upgrade opens the same box a fresh install does. Not a
@@ -275,6 +300,11 @@ func serve() {
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
+		// Go's default is 1 MB of headers. Nothing this app is sent needs more
+		// than a cookie, a bearer token and a few short headers, and every
+		// request is now kept in the log: a megabyte of path and query is a
+		// megabyte a stranger can make the log hold per request.
+		MaxHeaderBytes: 64 << 10,
 	}
 	if tlsOn {
 		reloader, err := newCertReloader(certPath, keyPath)
@@ -291,9 +321,9 @@ func serve() {
 	// handler the Go runtime terminates immediately: the deferred st.Close() never
 	// runs and the WAL is left un-checkpointed, so an unclean kill on a volume that
 	// doesn't guarantee fsync ordering can tear the WAL and corrupt the search
-	// indexes on the next boot. Here we drain in-flight requests, fold the WAL back
-	// into the main file (Checkpoint) and then let the deferred Close run — all well
-	// inside the stop-grace period (5s drain) so it finishes before SIGKILL.
+	// indexes on the next boot. shutdown (below) stops the queue, drains in-flight
+	// requests, writes the last log lines and folds the WAL back into the main
+	// file, and then the deferred Close runs — all inside the grace period.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	serveErr := make(chan error, 1)
@@ -318,17 +348,54 @@ func serve() {
 		log.Fatal(err)
 	case sig := <-stop:
 		log.Printf("received %s — shutting down gracefully", sig)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := httpServer.Shutdown(ctx); err != nil {
-			log.Printf("graceful shutdown timed out (%v) — forcing close", err)
-			_ = httpServer.Close()
-		}
-		if err := st.Checkpoint(); err != nil {
-			olog.Errorf(olog.CodeStoreCheckpoint, "wal checkpoint on shutdown failed: %v (db still valid; WAL replays on reopen)", err)
-		} else {
-			log.Printf("wal checkpointed into main database — clean shutdown")
-		}
+		shutdown(httpServer, runner, lb, st)
+	}
+}
+
+// shutdown stops the server in the one order that loses nothing it can keep, and
+// all of it inside Docker's ten-second grace (3 + 1 + 4 + 1 seconds at most,
+// with the checkpoint after):
+//
+//  1. The queue. New jobs are refused and the running one is asked to stop after
+//     the item in hand; after 3 s its context is cancelled, so its outward calls
+//     abort, and after 1 s more a job still not back is marked interrupted. First,
+//     because a job is the longest thing running and the only one that writes
+//     for minutes, and its end should be recorded while the database is open.
+//  2. The requests: 4 s to finish, then the connections are closed.
+//  3. The last log lines: 1 s to write what the first two steps logged, and then
+//     the logbook stops keeping lines. It closes rather than only flushing, so a
+//     line logged after this (the checkpoint's own) goes to the terminal alone
+//     and never wakes a writer against the pool closed next.
+//  4. The log pool, which has nothing left to write.
+//  5. The checkpoint, with no pool left that could add to the WAL behind it.
+//  6. The library pool, when serve's deferred Close runs.
+func shutdown(httpServer *http.Server, runner *jobs.Runner, lb *jobs.Logbook, st *store.Store) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	if err := runner.Close(ctx); err != nil {
+		olog.Errorf(olog.CodeJobRecord, "[jobs] stopping the queue: %v", err)
+	}
+	cancel()
+
+	ctx, cancel = context.WithTimeout(context.Background(), 4*time.Second)
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Printf("graceful shutdown timed out (%v) — forcing close", err)
+		_ = httpServer.Close()
+	}
+	cancel()
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+	if err := lb.Close(ctx); err != nil {
+		olog.Errorf(olog.CodeLogShutdown, "the last log lines were not all kept in the database: %v", err)
+	}
+	cancel()
+
+	if err := st.CloseLog(); err != nil {
+		olog.Alertf("closing the log pool on shutdown returned: %v (continuing to the checkpoint)", err)
+	}
+	if err := st.Checkpoint(); err != nil {
+		olog.Errorf(olog.CodeStoreCheckpoint, "wal checkpoint on shutdown failed: %v (db still valid; WAL replays on reopen)", err)
+	} else {
+		log.Printf("wal checkpointed into main database — clean shutdown")
 	}
 }
 
@@ -381,21 +448,61 @@ func notifyCmd(args []string) {
 	}
 	st, dataDir := openStore()
 	defer st.Close()
+	// THE DAILY DECK IS A JOB LIKE ANY OTHER THAT LOOKS OUTWARD, so it is kept
+	// like one: a notify.daily job with a line per reader and every Pushover
+	// call it made, in Settings › Jobs where the server's own jobs are. This
+	// process is not the server, so it brings its own logbook and observer onto
+	// the same database; and it never calls the runner's Boot, which would mark
+	// a live server's running job interrupted. It belongs to no account (the
+	// operator's cron started it), so only an admin sees it.
+	lb := jobs.NewLogbook()
+	lb.Attach(st)
+	outbound.SetObserver(lb.Outbound)
+	job := &cliJob{}
+	started := time.Now()
 	srv := httpapi.New(st, nil, dataDir, false, false)
 	configureOutside(srv)
-	results, err := srv.SendDailyDecks(context.Background(), offset)
+	results, err := srv.SendDailyDecks(jobs.WithRecorder(context.Background(), job), offset)
 	for _, r := range results {
-		switch {
-		case r.Sent:
-			fmt.Printf("%s: sent (%d cards)\n", r.Username, r.Cards)
-		default:
-			fmt.Printf("%s: not sent — %s\n", r.Username, r.Skipped)
+		line := fmt.Sprintf("%s: not sent — %s", r.Username, r.Skipped)
+		if r.Sent {
+			line = fmt.Sprintf("%s: sent (%d cards)", r.Username, r.Cards)
 		}
+		fmt.Println(line)
+		job.Log(jobs.LevelInfo, "%s", line)
 	}
+	row := jobs.Row{Kind: "notify.daily", State: jobs.StateSucceeded, Created: started, Finished: time.Now()}
+	if err != nil {
+		row.State, row.Error = jobs.StateFailed, err.Error()
+	}
+	lb.InRequest(row, job.lines)
+	// Before exiting, and before log.Fatalf below, which skips every defer.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if cerr := lb.Close(ctx); cerr != nil {
+		olog.Errorf(olog.CodeLogShutdown, "notify daily: its job's log was not all kept: %v", cerr)
+	}
+	cancel()
 	if err != nil {
 		log.Fatalf("notify daily: %v", err)
 	}
 }
+
+// cliJob is a command's job while it runs: the lines logged into it, held until
+// the command hands the finished row to the logbook. A server request has
+// jobs.Lazy for this, whose end is an HTTP status; a command's end is its error.
+type cliJob struct {
+	mu    sync.Mutex
+	lines []jobs.Line
+}
+
+func (c *cliJob) Log(level, format string, args ...any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lines = append(c.lines, jobs.Line{At: time.Now(), Level: level, Text: fmt.Sprintf(format, args...)})
+}
+
+// Subject is a no-op: the daily deck is about every reader at once.
+func (c *cliJob) Subject(string) {}
 
 func userCmd(args []string) {
 	if len(args) < 2 {

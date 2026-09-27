@@ -164,10 +164,11 @@ const (
 	// LOG — the logbook, which keeps the system log and every job's log in the
 	// database (internal/jobs). Its own failures go to stderr and never into the
 	// log it failed to write.
-	CodeLogPanic   Code = "TIP-LOG-001" // the log writer stopped on an internal error and restarted; the lines in hand were not kept
-	CodeLogWrite   Code = "TIP-LOG-002" // a batch of log lines could not be written to the database; those lines were not kept
-	CodeLogDropped Code = "TIP-LOG-003" // log lines arrived faster than they could be written, and some were not kept
-	CodeLogPrune   Code = "TIP-LOG-004" // the 30-day prune of old jobs and log lines failed; it is tried again later
+	CodeLogPanic    Code = "TIP-LOG-001" // the log writer stopped on an internal error and restarted; the lines in hand were not kept
+	CodeLogWrite    Code = "TIP-LOG-002" // a batch of log lines could not be written to the database; those lines were not kept
+	CodeLogDropped  Code = "TIP-LOG-003" // log lines arrived faster than they could be written, and some were not kept
+	CodeLogPrune    Code = "TIP-LOG-004" // the 30-day prune of old jobs and log lines failed; it is tried again later
+	CodeLogShutdown Code = "TIP-LOG-005" // at shutdown, log lines still waiting after the flush's budget were not kept in the database
 
 	// JOBS — the queue that runs a reader's bulk routines on the server.
 	CodeJobPanic  Code = "TIP-JOBS-001" // a job stopped on an internal error (a panic); it was marked failed and the queue went on
@@ -282,10 +283,11 @@ var Registry = map[Code]string{
 	CodeOIDC:       "A single sign-on could not start (provider unreachable, discovery mismatch) or its answer failed validation (issuer, audience, expiry, nonce).",
 	CodeNotifySend: "A Pushover message was not accepted (network, TIPPANI_OFFLINE, or a bad user key / app token). The action that triggered it still completed.",
 
-	CodeLogPanic:   "The log writer stopped on an internal error and restarted; the lines it was writing at the time were not kept in the database (stdout and stderr still have them).",
-	CodeLogWrite:   "A batch of log lines could not be written to the database (the write lock was held past every retry, or the write failed); those lines were not kept there, and stdout and stderr still have them.",
-	CodeLogDropped: "Log lines arrived faster than the database could take them, so some were not kept there; request and file lines go first, job lines and errors last.",
-	CodeLogPrune:   "The prune that removes jobs and log lines older than 30 days failed; nothing was lost, the old lines stay until the next prune succeeds.",
+	CodeLogPanic:    "The log writer stopped on an internal error and restarted; the lines it was writing at the time were not kept in the database (stdout and stderr still have them).",
+	CodeLogWrite:    "A batch of log lines could not be written to the database (the write lock was held past every retry, or the write failed); those lines were not kept there, and stdout and stderr still have them.",
+	CodeLogDropped:  "Log lines arrived faster than the database could take them, so some were not kept there; request and file lines go first, job lines and errors last.",
+	CodeLogPrune:    "The prune that removes jobs and log lines older than 30 days failed; nothing was lost, the old lines stay until the next prune succeeds.",
+	CodeLogShutdown: "At shutdown, the log lines still waiting to be written after the one-second budget were not kept in the database; stdout and stderr still have them.",
 
 	CodeJobPanic:  "A job stopped on an internal error (a panic). It was marked failed, its log kept, and the next job in the queue started.",
 	CodeJobRecord: "A job's record — its state, its progress or its result — could not be written to the database, so Settings → Jobs may show it out of date.",
