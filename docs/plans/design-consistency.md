@@ -6,12 +6,12 @@ this file ends as a list of findings for the owner to schedule, and is deleted w
 is empty. Tasks, one per ask:
 
 - [ ] Re-verify before the first capture, then correct what moved:
-      `git diff --stat 75e55ae..HEAD -- web/frontend/src web/frontend/test/rules scripts/screenshots test/journeys/harness Makefile`,
+      `git diff --stat 75e55ae..HEAD -- web/frontend/src web/frontend/test/rules scripts/screenshots web/frontend/test/journeys/harness Makefile`,
       then `git grep -n` each quoted anchor below.
 - [ ] Run one adversarial pass per principle below over every screen, at 390 and 1280, in
       light and dark, against the restored archive, on Chromium (`TIPPANI_BROWSER=chrome`;
-      Firefox cannot be had in the container). A finder reports; independent refuters, told
-      to refute and to default to refuted when unsure, vote; a finding survives on a majority.
+      Firefox cannot be had in the container). A finder reports; three independent refuters,
+      told to refute and to default to refuted when unsure, vote; a finding survives on two.
 - [ ] Every finder, refuter and capture runs on haiku, as the repo's model rule says for any
       fan-out and any screenshot run.
 - [ ] A finding already on `screen-audit.md`, `codebase-audit.md`, `open-defects.md` or
