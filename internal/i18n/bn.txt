@@ -4333,7 +4333,7 @@ reverify.flash.skipped.other = {n}টা ছবি বাদ
 # Closing the dialog keeps the job; these toasts say where it went. Five words
 # or fewer, the house rule for a toast.
 reverify.kept.running = এখনও চলছে · সেটিংস › কাজ-এ
-reverify.kept.review = ফলাফল রাখা আছে · সেটিংস › কাজ-এ
+reverify.kept.review = যা পাওয়া গেছে, রাখা আছে · সেটিংস › কাজ-এ
 # Cancel while the check runs STOPS it, which is why it asks.
 reverify.stop.confirm.title = মিলিয়ে দেখা থামাবেন?
 reverify.stop.confirm.body = হাতেরটুকু সেরে থামবে, আর তার লগ নিয়ে সেটিংস › কাজ-এ থেকে যাবে।
@@ -5569,8 +5569,8 @@ settings.restore.warn.dated.prose = এই সার্ভারের সবক
 # runs, and the jobs still waiting end with the old database. {title} is the
 # running job's name, which the app composes from its kind and what it was about.
 settings.restore.queue.running = {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত ফিরিয়ে আনা যাবে না — আগে সেটিংস › কাজ-এ গিয়ে থামান।
-settings.restore.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — ফিরিয়ে আনলে সেটা আর চলবে না, ‘মাঝপথে থেমেছে’ হয়ে থেকে যাবে।
-settings.restore.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — ফিরিয়ে আনলে সেগুলো আর চলবে না, প্রতিটা ‘মাঝপথে থেমেছে’ হয়ে থেকে যাবে।
+settings.restore.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — ফিরিয়ে আনলে সেটা আর চলবে না, “মাঝপথে থেমেছে” হয়ে থেকে যাবে।
+settings.restore.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — ফিরিয়ে আনলে সেগুলো আর চলবে না, প্রতিটা “মাঝপথে থেমেছে” হয়ে থেকে যাবে।
 # The account password, as against a passphrase — which is why it is not just
 # common.field.password.label.
 # bn: আপনার stays: the contrast with a passphrase is the point of the label (§1.3).
