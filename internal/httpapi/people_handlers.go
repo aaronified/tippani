@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -1076,6 +1077,23 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	olog.Tracef("[people] handlePersonLookup kind=%s name=%q", req.Kind, req.Name)
+	links, err := s.lookupLinks(r.Context(), req.Kind, req.Name)
+	if err != nil {
+		if ref, ok := asRefusal(err); ok {
+			writeErr(w, ref.status, ref.msg)
+			return
+		}
+		internalError(w, r, "person lookup", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"links": links})
+}
+
+// lookupLinks resolves kind name's reference pages (slug → address), never nil.
+// Its error is a *refusal carrying what the reader is told — no supplier for
+// this kind is configured (503), or the supplier failed (502, the real cause
+// logged here) — so POST /people/lookup and a record's Fetch say the same thing.
+func (s *Server) lookupLinks(ctx context.Context, kind, name string) (map[string]string, error) {
 	var links map[string]string
 	var err error
 	// WHICH PROVIDER IS A QUESTION ABOUT THE MEDIUM, NOT ABOUT THE ROLE, and
@@ -1085,9 +1103,9 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 	// does not fail — it either answers with an actor who happens to share the
 	// name, or answers with nothing behind an error telling somebody chasing a
 	// literary translator to go and add a TMDB key.
-	switch req.Kind {
+	switch kind {
 	case "author", "translator", "editor":
-		links, err = s.authorLinks(r.Context(), req.Name)
+		links, err = s.authorLinks(ctx, name)
 	case "studio", "publisher":
 		// A STUDIO IS NOT A PERSON, and neither of the other two branches can
 		// say so. Sent to Open Library it comes back as an AUTHOR page —
@@ -1107,12 +1125,11 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 		// both, exactly as resolvePersonPortrait does.
 		igdb, _ := s.resolveIGDB()
 		if igdb == nil {
-			writeErr(w, http.StatusServiceUnavailable,
-				"company links come from IGDB — add the IGDB client id and secret in Settings first")
-			return
+			return nil, &refusal{http.StatusServiceUnavailable,
+				"company links come from IGDB — add the IGDB client id and secret in Settings first"}
 		}
 		var logo string
-		links, logo, _, err = igdb.CompanyLinks(r.Context(), req.Name)
+		links, logo, _, err = igdb.CompanyLinks(ctx, name)
 		if err == nil && logo != "" {
 			// The logo rides back on the same call rather than needing a second
 			// one: it is the portrait for this row, and the two are one fact.
@@ -1125,29 +1142,26 @@ func (s *Server) handlePersonLookup(w http.ResponseWriter, r *http.Request) {
 		// Actors, directors and speakers are TMDB people, resolved by name.
 		tmdb, _ := s.resolveTMDB()
 		if tmdb == nil {
-			writeErr(w, http.StatusServiceUnavailable,
-				"these links come from TMDB — add a TMDB key in Settings first")
-			return
+			return nil, &refusal{http.StatusServiceUnavailable,
+				"these links come from TMDB — add a TMDB key in Settings first"}
 		}
-		links, err = s.actorLinks(r.Context(), tmdb, req.Name)
+		links, err = s.actorLinks(ctx, tmdb, name)
 	}
 	if err != nil {
 		// The client only ever sees a generic message, so log the real provider
 		// cause here — otherwise "lookup failed" is invisible in the logs.
-		olog.Errorf(olog.CodePeopleLookupFailed, "[people] lookup kind=%s name=%q failed: %v", req.Kind, req.Name, err)
+		olog.Errorf(olog.CodePeopleLookupFailed, "[people] lookup kind=%s name=%q failed: %v", kind, name, err)
 		if errors.Is(err, metadata.ErrTMDBAuth) {
 			// A rejected key never fixes itself on retry — say so, don't tell the
 			// user to "try again in a moment".
-			writeErr(w, http.StatusBadGateway, "TMDB rejected the key — re-check it in Settings → Metadata sources.")
-			return
+			return nil, &refusal{http.StatusBadGateway, "TMDB rejected the key — re-check it in Settings → Metadata sources."}
 		}
-		writeErr(w, http.StatusBadGateway, "lookup failed — try again in a moment")
-		return
+		return nil, &refusal{http.StatusBadGateway, "lookup failed — try again in a moment"}
 	}
 	if links == nil {
 		links = map[string]string{}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"links": links})
+	return links, nil
 }
 
 // handleRenamePerson: POST /people/rename {kind, from, to} — rename an author or

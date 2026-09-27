@@ -70,55 +70,105 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 	uid := userID(r)
 	olog.Tracef("[people] handlePersonPortrait uid=%d kind=%s name=%q", uid, req.Kind, req.Name)
 
-	source, sourceID, imageURL, bio, born, died, links, rerr := s.resolvePersonPortrait(r.Context(), uid, req.Kind, req.Name)
-	if rerr != nil {
-		// Only the author (Open Library) path returns a hard error here — the
-		// actor/director paths degrade to best-effort. The client sees a generic
-		// message, so log the real cause.
-		olog.Errorf(olog.CodePeopleLookupFailed, "[people] portrait kind=%s name=%q failed: %v", req.Kind, req.Name, rerr)
-		writeErr(w, http.StatusBadGateway, "lookup failed — try again in a moment")
+	found, err := s.findPortrait(r.Context(), uid, req.Kind, req.Name)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, errPortraitLookup)
 		return
-	}
-
-	// Download the portrait through the API-host allowlist (image.tmdb.org,
-	// artworks.thetvdb.com, covers.openlibrary.org, commons/upload.wikimedia.org
-	// are all allowed). Best-effort: a fetch miss still lets the identity persist.
-	newImage := ""
-	if imageURL != "" {
-		if name, ferr := s.fetchImage(r.Context(), imageURL, s.coversDir()); ferr == nil {
-			newImage = name
-		}
 	}
 
 	// Nothing pinned (no identity, no image, no bio/born/died): report it and hand
 	// back the current row (or a shell) so the UI can offer manual entry, writing nothing.
-	if source == "" && newImage == "" && bio == "" && born == "" && died == "" {
+	if !found.pinned() {
 		if p, ok := s.getPerson(uid, req.Kind, req.Name); ok {
-			writeJSON(w, http.StatusOK, map[string]any{"resolved": false, "image": false, "person": p, "links": links})
+			writeJSON(w, http.StatusOK, map[string]any{"resolved": false, "image": false, "person": p, "links": found.links})
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"resolved": false, "image": false,
-			"person": map[string]any{"kind": req.Kind, "name": req.Name}, "links": links})
+			"person": map[string]any{"kind": req.Kind, "name": req.Name}, "links": found.links})
 		return
 	}
 
-	var oldImage string
-	_ = s.Store.DB.QueryRow(
-		`SELECT image_path FROM people WHERE user_id = ? AND name = ?`,
-		uid, req.Name).Scan(&oldImage)
-
-	// Upsert identity + image + bio/born/died. A blank newImage keeps any existing
-	// photo (identity still refreshed) so re-running never wipes a good portrait;
-	// bio/born/died fill only when empty, so a user's manual edits are never clobbered.
-	// Find-or-create then UPDATE, because 0056 dropped UNIQUE(user_id, name) and
-	// with it the ON CONFLICT target this used. The fill rules are unchanged and
-	// read more plainly against the row itself than against `excluded`.
+	// Find-or-create, because 0056 dropped UNIQUE(user_id, name) and with it the
+	// ON CONFLICT target this used; the row is created only now that there is
+	// something to write on it. BY NAME, SO THE LOWEST ID: this route speaks
+	// (kind, name), and a record's own Fetch (POST /people/id/{id}/fetch) is the
+	// one that can reach the second of two namesakes.
 	pid, err := s.personRowByName(uid, req.Name)
 	if err != nil {
-		s.removeCoverFile(newImage)
+		s.removeCoverFile(found.image)
 		internalError(w, r, "portrait upsert", err)
 		return
 	}
+	if err := s.persistPortrait(uid, pid, req.Kind, found); err != nil {
+		internalError(w, r, "portrait upsert", err)
+		return
+	}
+
+	p, _ := s.getPerson(uid, req.Kind, req.Name)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"resolved": true,
+		"image":    p.ImagePath != "",
+		"person":   p,
+		"links":    found.links,
+	})
+}
+
+// errPortraitLookup is what a reader is told when resolving a portrait failed;
+// findPortrait has logged the real cause.
+const errPortraitLookup = "lookup failed — try again in a moment"
+
+// portraitFind is what resolving a person's portrait found: the identity, the
+// portrait downloaded into the covers dir ("" when there was none, or its
+// download failed), the facts, and the reference links that came back with them.
+type portraitFind struct {
+	source, sourceID, image, bio, born, died string
+	links                                    map[string]string
+}
+
+// pinned is whether the resolve found anything to write on a record. Links alone
+// are not: a record's links are folded in by the caller, never written here.
+func (f portraitFind) pinned() bool {
+	return f.source != "" || f.image != "" || f.bio != "" || f.born != "" || f.died != ""
+}
+
+// findPortrait resolves kind name's portrait, identity and facts, and downloads
+// the portrait. It writes no row: POST /people/portrait and a record's own Fetch
+// write what it found onto different records (persistPortrait). An error is a
+// failed lookup, already logged; the caller says errPortraitLookup.
+func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string) (portraitFind, error) {
+	var f portraitFind
+	var imageURL string
+	var err error
+	f.source, f.sourceID, imageURL, f.bio, f.born, f.died, f.links, err = s.resolvePersonPortrait(ctx, uid, kind, name)
+	if err != nil {
+		// Only the author (Open Library) path returns a hard error here — the
+		// actor/director paths degrade to best-effort. The client sees a generic
+		// message, so log the real cause.
+		olog.Errorf(olog.CodePeopleLookupFailed, "[people] portrait kind=%s name=%q failed: %v", kind, name, err)
+		return portraitFind{}, err
+	}
+	// Download the portrait through the API-host allowlist (image.tmdb.org,
+	// artworks.thetvdb.com, covers.openlibrary.org, commons/upload.wikimedia.org
+	// are all allowed). Best-effort: a fetch miss still lets the identity persist.
+	if imageURL != "" {
+		if file, ferr := s.fetchImage(ctx, imageURL, s.coversDir()); ferr == nil {
+			f.image = file
+		}
+	}
+	return f, nil
+}
+
+// persistPortrait writes what findPortrait found onto record personID of uid's,
+// files kind among its roles, and collects the portrait it replaced. On an error
+// the downloaded file is removed, since nothing points at it.
+//
+// A blank image keeps any existing photo (the identity is still refreshed), so
+// running it again never wipes a good portrait; bio/born/died fill only when
+// empty, so a reader's own edits are never clobbered.
+func (s *Server) persistPortrait(uid, personID int64, kind string, f portraitFind) error {
+	var oldImage string
+	_ = s.Store.DB.QueryRow(
+		`SELECT image_path FROM people WHERE id = ? AND user_id = ?`, personID, uid).Scan(&oldImage)
 	if _, err := s.Store.DB.Exec(`
 		UPDATE people SET
 			image_path = CASE WHEN ? <> '' THEN ? ELSE image_path END,
@@ -127,29 +177,19 @@ func (s *Server) handlePersonPortrait(w http.ResponseWriter, r *http.Request) {
 			died = CASE WHEN died = '' AND ? <> '' THEN ? ELSE died END,
 			source = ?, source_id = ?
 		WHERE id = ? AND user_id = ?`,
-		newImage, newImage, bio, bio, born, born, died, died, source, sourceID, pid, uid); err != nil {
-		s.removeCoverFile(newImage) // roll back the just-fetched file on write failure
-		internalError(w, r, "portrait upsert", err)
-		return
+		f.image, f.image, f.bio, f.bio, f.born, f.born, f.died, f.died, f.source, f.sourceID, personID, uid); err != nil {
+		s.removeCoverFile(f.image) // roll back the just-fetched file on write failure
+		return err
 	}
-	if newImage != "" && oldImage != "" && oldImage != newImage {
+	if f.image != "" && oldImage != "" && oldImage != f.image {
 		s.removeCoverFile(oldImage) // best-effort; the new row is committed
 	}
 	// Fetching an actor's portrait for someone already saved as an author adds
 	// the actor role to that person rather than making a second row.
-	if id, err := s.personIDByName(uid, req.Name); err == nil && id != 0 {
-		if err := s.recordPersonKind(id, req.Kind); err != nil {
-			olog.Warnf(olog.CodePeopleRowScan, "[people] portrait role record failed: %v", err)
-		}
+	if err := s.recordPersonKind(personID, kind); err != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[people] portrait role record failed: %v", err)
 	}
-
-	p, _ := s.getPerson(uid, req.Kind, req.Name)
-	writeJSON(w, http.StatusOK, map[string]any{
-		"resolved": true,
-		"image":    p.ImagePath != "",
-		"person":   p,
-		"links":    links,
-	})
+	return nil
 }
 
 // resolvePersonPortrait resolves a person's portrait, stable identity and

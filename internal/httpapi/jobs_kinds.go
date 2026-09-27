@@ -85,8 +85,9 @@ type jobInput struct {
 	secret  any    // for the job alone, in memory (j.Secret); nil for none
 }
 
-// refusal is a validate's answer to params it will not queue, with the sentence
-// the screen shows.
+// refusal is an answer the screen shows as it is, with the status it goes with: a
+// validate's to params it will not queue, and a lookup's to a question it could
+// not answer (lookupLinks), which a handler and a job each pass on as they are.
 type refusal struct {
 	status int
 	msg    string
