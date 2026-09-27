@@ -28,37 +28,48 @@ import (
 //   - the queue is given to the server as serve() gives it (srv.Jobs, a
 //     jobs.Runner on a logbook, and RegisterJobKinds), and the test adds kinds of
 //     its own with addJobKind: a job the test holds running until it lets go, one
-//     that logs lines, one that fails. A real kind's run goes to the suppliers,
-//     and nothing a person does holds a job mid-item on demand;
-//   - the six built-in kinds' validators, reached through builtinJobKinds and
-//     registered under a test name with a run of the test's (realKind), because
-//     their caps and their checks are what is under test and their runs are not;
+//     that logs lines, one that fails, one that takes a moment to finish its item
+//     once asked to stop, one that will not stop until let go. A real kind's run
+//     goes to the suppliers, and nothing a person does holds a job mid-item on
+//     demand;
+//   - the six built-in kinds' rules — who may start them, their validators, their
+//     counts and the re-verify's review — reached through builtinJobKinds and
+//     registered under a test name with a run of the test's (realKind), which
+//     stores a result in the shape the kind's own run stores it, because those
+//     rules are what is under test and the runs are not;
+//   - how long deleting an account waits for a job that will not stop
+//     (ownerJobWait), shortened in the one test that waits it out, so that test
+//     takes a fifth of a second and not ten;
 //   - the wire field names, which are the contract the SPA is built to: a test of
 //     a contract has to name the fields it holds the server to;
 //   - one test closes the queue as shutdown closes it (srv.Jobs.Close), since no
 //     request shuts the server down;
 //   - three tests write a row straight into the journal: a job finished 31 days
-//     ago, which no request can make; a re-verify check, a kind only its own run
-//     makes; and a log line that never passed the logbook's door, as a hand-made
-//     archive's journal carried over by a restore would hold one.
+//     ago, which no request can make; a re-verify check whose from_job the apply
+//     names, a kind only its own run makes; and a log line that never passed the
+//     logbook's door, as a hand-made archive's journal carried over by a restore
+//     would hold one.
 //
 // What each one guards, in a sentence a person would say: a job reads the same
 // on every screen that shows it, field for field; each kind's counts are the ones
 // its screens read, and a count's text keeps no key; a re-verify's review opened
 // after the library moved shows each field as it is now and marks what changed
-// since the check; one job runs at a time and the
-// rest wait in the order started, each saying how many are ahead of it, anybody's
-// counted and nobody's shown; a reader sees their own jobs only, and an admin
-// sees everybody's under the name each was started as; an admin can stop a
+// since the check; one job runs at a time and the rest wait in the order
+// started, each saying how many are ahead of it, anybody's counted and nobody's
+// shown; a reader sees their own jobs only, their Jobs tile included, and an
+// admin sees everybody's under the name each was started as; an admin can stop a
 // reader's job and a reader cannot stop another's; Stop all stops what the one
 // pressing it may see; only a job's owner can run it again, and an admin's kind
-// asks again whether they are still an admin; a sixth job and the same job twice
+// asks again whether they are still an admin, and offers a former admin no
+// Rerun of one; a check reads applied only while its apply waits or runs, or once
+// it has succeeded; a sixth job and the same job twice
 // are refused with the reason and the number or the job; every kind's params are
 // held to its cap and its checks, and a backup's password is checked before
 // anything queues and kept out of the job; a finished job's log downloads as
 // Markdown whose block no line can leave; past jobs hold what ran in a request
-// and thirty days of it; deleting a reader stops their jobs and keeps them for
-// the admin; a server shutting down starts nothing.
+// and thirty days of it; deleting a reader stops their jobs, waits for the item
+// in hand, refuses while it will not end, and keeps the jobs for the admin; a
+// server shutting down starts nothing.
 
 // testQueue is the server's queue with the test's kinds on it.
 type testQueue struct {
@@ -1182,26 +1193,37 @@ func TestAServerWithNoQueueStartsNothing(t *testing.T) {
 }
 
 // Deleting a reader stops their jobs before the account goes — the waiting one at
-// once, the running one after the item in hand — and the admin still has both,
-// stopped, with their logs.
+// once, the running one after the item in hand, which the delete waits for — and
+// the admin still has both, stopped, with their logs.
 func TestDeletingAReaderStopsTheirJobs(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)
+	// A job whose item in hand takes a moment to finish once it is asked to stop,
+	// as a lookup already on the wire does.
+	srv.addJobKind(queuedKind{name: "test.slowstop", validate: testParams, run: func(_ *Server, _ context.Context, j *jobs.Job) error {
+		for !j.Stopping() {
+			time.Sleep(5 * time.Millisecond)
+		}
+		time.Sleep(300 * time.Millisecond)
+		j.Log(jobs.LevelInfo, "finished the item in hand")
+		return nil
+	}})
 	h := srv.Handler()
 	alice := signupAdmin(t, h)
 	bob := addUser(t, h, alice, "bob")
 	carol := addUser(t, h, alice, "carol")
 
-	running := bob.mustStart("test.hold", map[string]any{"tag": "running"})
+	running := bob.mustStart("test.slowstop", map[string]any{"tag": "running"})
 	bob.waitJob(running.ID, "running")
 	waiting := bob.mustStart("test.hold", map[string]any{"tag": "waiting"})
 	others := carol.mustStart("test.hold", map[string]any{"tag": "carol's"})
 
 	alice.mustDo("DELETE", fmt.Sprintf("/admin/users/%d", accountID(t, alice, "bob")), nil, http.StatusOK)
+	// Read once, straight after the delete answered: by then the item in hand
+	// has been finished, not only asked to stop.
 	for _, id := range []int64{running.ID, waiting.ID} {
-		j := alice.waitJob(id, "stopped")
-		if j.Username != "bob" || j.Own {
-			t.Fatalf("a deleted reader's job, as the admin sees it: %+v", j)
+		if j := alice.job(id); j.State != "stopped" || j.Username != "bob" || j.Own {
+			t.Fatalf("a deleted reader's job as the admin sees it once the delete has answered: %+v", j)
 		}
 	}
 	// Carol's job was never his, and runs once his has stopped.
@@ -1217,4 +1239,44 @@ func TestDeletingAReaderStopsTheirJobs(t *testing.T) {
 	if !slices.Contains(text, "stopped before it started: the account that started it is being deleted") {
 		t.Fatalf("the waiting job's log does not say why it stopped: %q", text)
 	}
+}
+
+// A reader whose running job will not let go of its item in time is not deleted:
+// the admin is told the job has been asked to stop and to press again, and the
+// account is still there until it has. Pressed again once the job has ended, the
+// delete goes ahead.
+func TestDeletingAReaderWhoseJobWillNotStopWaitsForIt(t *testing.T) {
+	old := ownerJobWait
+	ownerJobWait = 200 * time.Millisecond
+	t.Cleanup(func() { ownerJobWait = old })
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	letGo := make(chan struct{})
+	srv.addJobKind(queuedKind{name: "test.stubborn", validate: testParams, run: func(_ *Server, _ context.Context, j *jobs.Job) error {
+		select {
+		case <-letGo:
+		case <-q.done:
+		}
+		return nil
+	}})
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+	bobID := accountID(t, alice, "bob")
+
+	job := bob.mustStart("test.stubborn", map[string]any{"tag": "stubborn"})
+	bob.waitJob(job.ID, "running")
+	rec := alice.do("DELETE", fmt.Sprintf("/admin/users/%d", bobID), nil)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "asked to stop") {
+		t.Fatalf("deleting a reader whose job will not stop: %d %s, want 409", rec.Code, rec.Body)
+	}
+	if accountID(t, alice, "bob") != bobID {
+		t.Fatal("the account went although its job was still running")
+	}
+	if j := bob.job(job.ID); j.State != "running" {
+		t.Fatalf("the job after the refused delete: %s, want still running", j.State)
+	}
+	close(letGo)
+	bob.waitJob(job.ID, "stopped")
+	alice.mustDo("DELETE", fmt.Sprintf("/admin/users/%d", bobID), nil, http.StatusOK)
 }

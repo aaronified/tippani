@@ -1,12 +1,14 @@
 package httpapi
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"tippani/internal/auth"
@@ -172,6 +174,11 @@ func (s *Server) handleSetUserAdmin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// ownerJobWait is how long deleting an account waits for its running job to
+// finish the item in hand. A variable so the test of a job that will not stop
+// waits a moment instead of ten seconds.
+var ownerJobWait = 10 * time.Second
+
 // handleDeleteUser removes a user (their books/annotations cascade). The admin
 // cannot delete their own account, and the last remaining admin can never be
 // removed — so an instance always keeps at least one admin.
@@ -214,9 +221,22 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	// an id that users.id hands to the next account made. The history stays, the
 	// admin's to see (0079's trigger clears the owner as the account goes). A
 	// queue that cannot say it stopped them refuses the delete rather than risk it.
+	//
+	// AND THE DELETE WAITS FOR THE ITEM IN HAND, for ownerJobWait at most. Asking
+	// is not enough: the item still runs as this id, and a signup that lands
+	// before it ends gets the id (the highest one is reused) and that item's
+	// writes with it. A job still running when the wait is up refuses the delete,
+	// which the admin can press again in a moment; it has been asked to stop.
 	if s.Jobs != nil {
 		if err := s.Jobs.StopOwner(id); err != nil {
 			codedError(w, r, olog.CodeJobRecord, "delete user: stop their jobs", err)
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), ownerJobWait)
+		err := s.Jobs.WaitOwnerIdle(ctx, id)
+		cancel()
+		if err != nil {
+			writeErr(w, http.StatusConflict, "Their running job has been asked to stop and is finishing the item in hand. Delete the account again in a moment.")
 			return
 		}
 	}

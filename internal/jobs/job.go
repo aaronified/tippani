@@ -33,6 +33,9 @@ type Job struct {
 	stop      atomic.Bool // a person asked it to stop
 	shutdown  atomic.Bool // the server is stopping
 	abandoned atomic.Bool // Close stopped waiting for it and marked it interrupted
+	// over is closed when the worker lets go of the job, its end recorded
+	// (WaitOwnerIdle waits on it).
+	over chan struct{}
 
 	pmu       sync.Mutex
 	done      int

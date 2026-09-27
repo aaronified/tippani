@@ -463,6 +463,7 @@ func (r *Runner) work(idle chan struct{}) {
 
 		r.mu.Lock()
 		r.running = nil
+		close(j.over)
 		r.mu.Unlock()
 	}
 }
@@ -474,7 +475,7 @@ func (r *Runner) work(idle chan struct{}) {
 func (r *Runner) claim() (*Job, error) {
 	// The generation is read with a claim in progress, which Exclusive waits out
 	// before any swap, so it is the generation of the file the claim reads.
-	j := &Job{r: r, started: time.Now(), gen: r.st.Generation()}
+	j := &Job{r: r, started: time.Now(), gen: r.st.Generation(), over: make(chan struct{})}
 	var stopReq int
 	err := r.st.DB.QueryRow(`UPDATE jobs SET state = 'running', started_at = ?
 		WHERE id = (SELECT id FROM jobs WHERE state = 'queued' ORDER BY id LIMIT 1)
@@ -762,6 +763,38 @@ func (r *Runner) StopOwner(uid int64) error {
 		"the account that started this job is being deleted; it stops after the item in hand",
 		"its end was never recorded; the account that started it is being deleted, and it is marked interrupted")
 	return err
+}
+
+// WaitOwnerIdle waits until the worker holds no job of account uid, or until ctx
+// ends (its error). The delete of an account calls it after StopOwner: Stop means
+// after the item in hand, and the item in hand still runs as the account's id,
+// which users.id hands to the next account made once this one is gone. A claim in
+// progress is waited out first, since until it ends nobody can say whose job it
+// took.
+func (r *Runner) WaitOwnerIdle(ctx context.Context, uid int64) error {
+	for {
+		r.mu.Lock()
+		if r.claiming {
+			ended := r.claimEnded
+			r.mu.Unlock()
+			select {
+			case <-ended:
+				continue
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		j := r.running
+		r.mu.Unlock()
+		if j == nil || !j.uid.Valid || j.uid.Int64 != uid {
+			return nil
+		}
+		select {
+		case <-j.over:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // stopWhere stops the jobs scope picks. gen is the generation read before it, so
