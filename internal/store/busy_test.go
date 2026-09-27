@@ -9,6 +9,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // A LOCK SOMEBODY ELSE HOLDS IS TOLD APART FROM A WRITE THAT CANNOT WORK.
@@ -17,7 +20,11 @@ import (
 // observable unit; nothing over HTTP reports which error a log batch met. The
 // busy error is produced for real, by a second SQLite client on the same file (as
 // a `sqlite3` shell or a second process would be) asking for the write lock the
-// store's pool holds, with no busy wait of its own, so the answer comes at once.
+// store's pool holds, with no busy wait of its own, so the answer comes at once;
+// and its extended form, SQLITE_BUSY_SNAPSHOT, by a second client whose read
+// snapshot the store's pool commits past before the client writes. The test reads
+// that error's code from the driver to know it met the extended one, since a
+// plain BUSY passing would prove nothing about the extended codes.
 // The tests of shutdown's bounded waits (WithLockWait, CloseLog, CheckpointWithin)
 // turn that round: the second client holds the lock, and the store's own calls
 // are what must not wait it out. Nothing over HTTP runs during a shutdown, and
@@ -46,6 +53,37 @@ func TestIsBusyKnowsALockHeldElsewhere(t *testing.T) {
 	}
 	if !IsBusy(fmt.Errorf("write a log batch: %w", busy)) {
 		t.Fatal("IsBusy lost the busy error once it was wrapped")
+	}
+
+	// An extended busy code is busy too. A read transaction on a DEFERRED
+	// connection holds a snapshot; once another connection commits past it, its
+	// first write is SQLITE_BUSY_SNAPSHOT, which no busy wait fixes by itself and a
+	// retry in a fresh transaction does.
+	reader, err := sql.Open("sqlite", "file:"+s.Path()+"?_txlock=deferred&_pragma=busy_timeout(0)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	tx.Rollback() // the store's lock above is let go, so the next commit can land
+	rtx, err := reader.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rtx.Rollback()
+	var n int
+	if err := rtx.QueryRow(`SELECT count(*) FROM system_logs`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DB.Exec(`INSERT INTO system_logs (at, level, line) VALUES (1, 'info', 'committed past the snapshot')`); err != nil {
+		t.Fatal(err)
+	}
+	_, stale := rtx.Exec(`INSERT INTO system_logs (at, level, line) VALUES (1, 'info', 'from the stale snapshot')`)
+	var se *sqlite.Error
+	if !errors.As(stale, &se) || se.Code() != sqlite3.SQLITE_BUSY_SNAPSHOT {
+		t.Fatalf("a write from a snapshot another connection committed past: %v, want SQLITE_BUSY_SNAPSHOT", stale)
+	}
+	if !IsBusy(stale) {
+		t.Fatalf("IsBusy(%v) = false for SQLITE_BUSY_SNAPSHOT", stale)
 	}
 
 	// A write that fails for a reason no wait will fix is not busy.
