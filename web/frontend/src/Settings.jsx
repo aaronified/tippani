@@ -115,7 +115,7 @@ import { PersonChip } from './people.jsx'
 import { usePersonOpener } from './personOpen.jsx'
 import { SectionRail } from './sectionRail.jsx'
 import { JobsCurrentCard, JobsPastCard, SystemLogsCard } from './jobsSection.jsx'
-import { jobWaitingText, useKindJob } from './jobs.js'
+import { jobWaitingText, queueNotice, readJobsSummary, useKindJob } from './jobs.js'
 
 // Settings (§8.11): Appearance, Metadata sources, review/credits prefs, and
 // (admin only) Updates + Backup. Library stats now live on their own Stats page
@@ -4029,6 +4029,17 @@ function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm 
   }
   // The field the step hands focus to once the copy is down — see SafetyBackupStep.
   const nextRef = useRef(null)
+  // THE QUEUE, READ WHEN THE PROMPT OPENS. A restore swaps the database under the
+  // job queue, so the server refuses it while a job runs and ends the ones still
+  // waiting — and a reader should learn that here, above step one, rather than
+  // from a refusal after downloading a safety copy.
+  const [queue, setQueue] = useState(null)
+  useEffect(() => {
+    let alive = true
+    readJobsSummary().then((r) => { if (alive && r.ok) setQueue(r) })
+    return () => { alive = false }
+  }, [])
+  const busyQueue = queueNotice(queue, { running: 'settings.restore.queue.running', waiting: 'settings.restore.queue.waiting' })
 
   // The same three validate reasons the onboarding twin uses (App.jsx), through
   // the same keys: two dialogs for one operation should not own two vocabularies
@@ -4061,6 +4072,7 @@ function RestorePrompt({ meta, me, busyLabel, safe, onSafe, onCancel, onConfirm 
           ? t('settings.restore.warn.dated.prose', { date: fmtWhen(meta.created) })
           : t('settings.restore.warn.prose')}
       </p>
+      {busyQueue && <p className="microcopy" role="status">{busyQueue}</p>}
       <SafetyBackupStep done={safe} onDone={tookCopy} next={nextRef} />
       {key === 'passphrase' && (
         <label className="tp-field">

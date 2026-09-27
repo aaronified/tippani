@@ -4613,6 +4613,11 @@ account.reset.open = সব ডেটা মুছে দিন…
 account.reset.confirm.prose = সব মুছে ফেলতে চান, তা নিশ্চিত করতে {word} লিখুন:
 account.reset.submit = সব মুছে নতুন করে শুরু করুন
 account.reset.busy = মোছা হচ্ছে…
+# Above step one of the factory reset, read when it opens: the same refusal as
+# the restore's, and the waiting jobs go with everything else.
+account.reset.queue.running = {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত সব ডেটা মোছা যাবে না — আগে সেটিংস › কাজ-এ গিয়ে থামান।
+account.reset.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — বাকি সবকিছুর সঙ্গে সেটাও মুছে যাবে।
+account.reset.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — বাকি সবকিছুর সঙ্গে সেগুলোও মুছে যাবে।
 
 # The admin's list of everyone on the server. Granting is something you do to
 # others; revoking is something you do only to yourself.
@@ -5559,6 +5564,13 @@ settings.restore.title = ফিরিয়ে আনা
 # need — the parser trims both halves.
 settings.restore.warn.prose = এই সার্ভারের সবকিছু বদলে যাবে — সব ব্যবহারকারী, সংগ্রহ আর সেটিং — আর সবাই লগ আউট হবেন। এখনকার তথ্যের একটা কপি ফেরানোর জন্য সার্ভারে রেখে দেওয়া হয়।
 settings.restore.warn.dated.prose = এই সার্ভারের সবকিছু {date}-এর ব্যাকআপ দিয়ে বদলে যাবে — সব ব্যবহারকারী, সংগ্রহ আর সেটিং — আর সবাই লগ আউট হবেন। এখনকার তথ্যের একটা কপি ফেরানোর জন্য রাখা থাকে।
+# Above step one of the restore prompt, read when it opens. A restore swaps the
+# database under the job queue (3.1.0), so the server refuses it while a job
+# runs, and the jobs still waiting end with the old database. {title} is the
+# running job's name, which the app composes from its kind and what it was about.
+settings.restore.queue.running = {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত ফিরিয়ে আনা যাবে না — আগে সেটিংস › কাজ-এ গিয়ে থামান।
+settings.restore.queue.waiting.one = অপেক্ষার তালিকায় একটা কাজ আছে — ফিরিয়ে আনলে সেটা আর চলবে না, ‘মাঝপথে থেমেছে’ হয়ে থেকে যাবে।
+settings.restore.queue.waiting.other = অপেক্ষার তালিকায় {n}টা কাজ আছে — ফিরিয়ে আনলে সেগুলো আর চলবে না, প্রতিটা ‘মাঝপথে থেমেছে’ হয়ে থেকে যাবে।
 # The account password, as against a passphrase — which is why it is not just
 # common.field.password.label.
 # bn: আপনার stays: the contrast with a passphrase is the point of the label (§1.3).

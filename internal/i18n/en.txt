@@ -4699,6 +4699,11 @@ account.reset.open = Reset all data…
 account.reset.confirm.prose = Type {word} to confirm you want to delete everything:
 account.reset.submit = Delete everything & restart
 account.reset.busy = Resetting…
+# Above step one of the factory reset, read when it opens: the same refusal as
+# the restore's, and the waiting jobs go with everything else.
+account.reset.queue.running = {title} is running. The reset is refused until it stops or finishes — stop it in Settings › Jobs first.
+account.reset.queue.waiting.one = One job is waiting; a reset deletes it with everything else.
+account.reset.queue.waiting.other = {n} jobs are waiting; a reset deletes them with everything else.
 
 # The admin's list of everyone on the server. Granting is something you do to
 # others; revoking is something you do only to yourself.
@@ -5705,6 +5710,13 @@ settings.restore.title = Restore
 # need — the parser trims both halves.
 settings.restore.warn.prose = Replaces everything on this server — every user, library and setting — and signs everyone out. One copy of the current data is kept on the server for recovery.
 settings.restore.warn.dated.prose = Replaces everything on this server with the backup from {date} — every user, library and setting — and signs everyone out. One copy of the current data is kept for recovery.
+# Above step one of the restore prompt, read when it opens. A restore swaps the
+# database under the job queue (3.1.0), so the server refuses it while a job
+# runs, and the jobs still waiting end with the old database. {title} is the
+# running job's name, which the app composes from its kind and what it was about.
+settings.restore.queue.running = {title} is running. The restore is refused until it stops or finishes — stop it in Settings › Jobs first.
+settings.restore.queue.waiting.one = One job is waiting; a restore ends it, and it is kept as interrupted.
+settings.restore.queue.waiting.other = {n} jobs are waiting; a restore ends them, and each is kept as interrupted.
 # The account password, as against a passphrase — which is why it is not just
 # common.field.password.label.
 settings.restore.password.label = Your password

@@ -122,6 +122,21 @@ export function jobWaitingText(job) {
   return ahead > 0 ? t('settings.jobs.current.ahead', { count: ahead, n: ahead }) : t('settings.jobs.current.next')
 }
 
+// WHAT A PROMPT THAT SWAPS THE DATABASE SAYS ABOUT THE QUEUE, before its first
+// step. A restore and a factory reset replace the file the queue lives in, so
+// the server refuses them while a job runs, and the jobs still waiting are ended
+// by it; a reader should learn that at the top of the dialog, not from a refusal
+// after downloading a safety copy. `keys` names the dialog's own two sentences —
+// the running one takes the job's name, the waiting one is a plural family — so
+// each act words its own consequence. Empty when nothing runs or waits.
+export function queueNotice(summary, keys) {
+  if (!summary) return ''
+  const parts = []
+  if (summary.running) parts.push(t(keys.running, { title: jobLabel(summary.running) }))
+  if (summary.waiting > 0) parts.push(t(keys.waiting, { count: summary.waiting, n: summary.waiting }))
+  return parts.join(' ')
+}
+
 // The counts, one phrase each — "12 fields filled", "2 failed". An array rather
 // than one string so a caller can lay them out; `jobSummary` joins them.
 export function jobCounts(job) {
