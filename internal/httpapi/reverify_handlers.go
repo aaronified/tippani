@@ -15,6 +15,7 @@ import (
 	"tippani/internal/jobs"
 	"tippani/internal/metadata"
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 	"tippani/internal/store"
 )
 
@@ -414,8 +415,19 @@ func sameGenreSet(a, b []string) bool {
 
 // reverifyLookupError turns a provider failure into a short, non-leaking hint
 // (the full cause goes to the log under TIP-META-011).
+//
+// A REFUSAL BY THE OFFLINE SWITCH IS A TRACE, NOT AN ERROR — logImageMiss's rule
+// for pictures, and for the same reason. The operator switched the app offline
+// and the gate refused the call, as it was asked to, and it has already kept its
+// own line for it ("→ refused (offline)") in the job the lookup was for. Every
+// fill, re-verify and person fetch run offline asks this once per work, so an
+// error for each buried the errors that are failures under ones that are not.
 func reverifyLookupError(what string, err error) string {
-	olog.Errorf(olog.CodeMetaReverifyFetch, "[meta] re-verify %s lookup failed: %v", what, err)
+	if errors.Is(err, outbound.ErrOffline) {
+		olog.Tracef("[meta] re-verify %s lookup refused offline: %v", what, err)
+	} else {
+		olog.Errorf(olog.CodeMetaReverifyFetch, "[meta] re-verify %s lookup failed: %v", what, err)
+	}
 	if errors.Is(err, metadata.ErrQuota) {
 		return "Google Books' shared quota is used up — add a free key in Settings → Metadata sources"
 	}

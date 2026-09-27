@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -12,6 +14,8 @@ import (
 	"time"
 
 	"tippani/internal/metadata"
+	"tippani/internal/olog"
+	"tippani/internal/outbound"
 )
 
 // FILL GAPS, AS A JOB: a selection's Fill gaps, started as the screens start it
@@ -25,6 +29,9 @@ import (
 //     may not reach Google Books or Open Library; one test holds it mid-answer,
 //     as a slow supplier would, so that Stop is pressed with a work in hand;
 //   - Pushover is a stub of its API (newFakePushover), for the same reason;
+//   - the offline switch is its environment variable (outbound.EnvVar), set the
+//     way an operator sets it, and olog's lines reach the system log through the
+//     sink serve() installs, so GET /admin/logs can be asked what was logged;
 //   - the job's wire fields, and the names of its counts, which are the contract
 //     the screens are built to: the SPA's jobs.js reads counts by those names
 //     (COUNT_KEYS and jobOutcome), so a count spelled otherwise is a count the
@@ -35,8 +42,9 @@ import (
 // works that failed and works that need a Look up apart, under the names the
 // screens read; Stop ends it after the work in hand, and what it had filled stays
 // filled, and a Stop pressed during its last work leaves it finished, not
-// stopped; and a long fill tells the phone when it reaches its end, not when it
-// is stopped.
+// stopped; a long fill tells the phone when it reaches its end, not when it
+// is stopped; and a lookup the offline switch refused is not an error in the
+// system log, while a supplier that fails any other way still is.
 
 // duneSupplier is a book supplier that knows every ISBN it is asked about as
 // Frank Herbert's Dune, 1965, 412 pages, and knows nothing by title alone.
@@ -269,5 +277,49 @@ func TestALongFillJobTellsThePhoneWhenItReachesItsEnd(t *testing.T) {
 	want := fmt.Sprintf("0 fields filled across %d works.", notifyFetchMin)
 	if len(msgs) != 1 || msgs[0]["title"] != "Metadata fill finished" || msgs[0]["message"] != want {
 		t.Fatalf("a fill of %d works sent %+v, want one saying %q", notifyFetchMin, msgs, want)
+	}
+}
+
+// A LOOKUP THE OFFLINE SWITCH REFUSED IS NOT AN ERROR. The operator switched the
+// app offline and a fill asks the book's ISBN of its suppliers; the gate refuses
+// the call, as it should, and has already said so in the fill's own log. The
+// system log gets no TIP-META-011 error for it: offline, where every browser
+// journey runs, every fill left one per work, over the errors that are failures.
+// A supplier that fails any other way is still an error, once.
+func TestALookupTheOfflineSwitchRefusedIsNotLoggedAsAnError(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	olog.SetSink(func(e olog.Entry) { q.lb.System(e.Level, e.Code, e.Line) })
+	t.Cleanup(func() { olog.SetSink(nil) })
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": duneISBN})
+	fill := map[string]any{"book_ids": []int64{dune}}
+	lookupErrors := func() int {
+		n := 0
+		for _, l := range alice.logs(url.Values{"q": {"re-verify book isbn"}, "level": {"error"}}).Lines {
+			if l.Code == string(olog.CodeMetaReverifyFetch) {
+				n++
+			}
+		}
+		return n
+	}
+
+	t.Setenv(outbound.EnvVar, "1")
+	job := alice.waitJob(alice.mustStart("fill", fill).ID, "succeeded")
+	// The lookup was asked and refused, not skipped: the work failed.
+	countsAre(t, job, map[string]any{"fields": float64(0), "failed": float64(1), "unpinned": float64(0)})
+	if n := lookupErrors(); n != 0 {
+		t.Errorf("the offline switch's refusal of a fill's lookup was logged as %d TIP-META-011 error(s)", n)
+	}
+
+	// Online again, and the supplier says no: that is the failure the code is for.
+	t.Setenv(outbound.EnvVar, "")
+	srv.searchBooks = func(context.Context, string, string, string, string) ([]metadata.BookCandidate, error) {
+		return nil, errors.New("google books: status 503")
+	}
+	alice.waitJob(alice.mustStart("fill", fill).ID, "succeeded")
+	if n := lookupErrors(); n != 1 {
+		t.Errorf("a lookup the supplier refused: %d TIP-META-011 error(s), want 1", n)
 	}
 }
