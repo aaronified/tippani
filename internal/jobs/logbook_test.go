@@ -3,6 +3,7 @@ package jobs_test
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,25 +20,36 @@ import (
 // writes (0079's jobs, job_logs and system_logs), which these tests read back and
 // sometimes seed. Nothing observable over HTTP could serve yet: the endpoints that
 // read the logs are a later stage of 3.1.0, and the tables are what the logbook
-// promises to fill. The bounds are the real ones (8 MB, 16384 lines); the one test
-// that needs smaller numbers is in seams_test.go and says so.
+// promises to fill. Standing in for a restore, a recovery or a factory reset, it
+// calls the store's Swap and, once, moves another database file into its place.
+// The bounds are the real ones (8 MB, 16384 lines); the one test that needs
+// smaller numbers is in seams_test.go and says so.
 //
 // What each one guards, in a sentence a person would say: the lines from before
 // the database opened are still in the log; a key in a provider's error never
 // reaches the log, and neither does a forged line break or a terminal escape; a
-// line for a job that is gone never costs anybody else their lines; an in-request
-// job lands with its lines, and with no owner when the database was swapped under
-// it or its reader's account was deleted before it landed; when the log falls behind, request lines go first and a job's lines last,
-// and the log says how many went; no line is ever left waiting with nothing to
-// write it; and thirty days on, old lines and finished jobs go and a job still
+// line for a job that is gone never costs anybody else their lines, and a line
+// for a job in a file swapped out never lands on the job with its id in the file
+// swapped in; an in-request job lands with its lines, and with no owner when the
+// database was swapped under it or its reader's account was deleted before it
+// landed; when the log falls behind, request lines go first and a job's lines
+// last, and the log says how many went; no line is ever left waiting with nothing
+// to write it; and thirty days on, old lines and finished jobs go and a job still
 // waiting does not.
 
 func TestLinesFromBeforeTheDatabaseOpenedAreKept(t *testing.T) {
 	lb := jobs.NewLogbook()
 	lb.System(jobs.LevelInfo, "", "tippani 3.1.0 starting")
 	lb.System(jobs.LevelWarn, "TIP-STORE-007", "a one-time pass failed")
+	lb.JobLine(7, jobs.LevelInfo, "a job's line from before the store was attached")
 
 	st := openStore(t)
+	exec(t, st.DB, `INSERT INTO jobs (id, kind, state, created_at) VALUES (7, 'fill', 'running', ?)`, time.Now().UnixMilli())
+	// The store has swapped its files once before the logbook is attached, as
+	// a boot-time recovery does: the job's line still belongs to this file.
+	if err := st.Swap(func() error { return nil }, nil, nil); err != nil {
+		t.Fatal(err)
+	}
 	lb.Attach(st)
 	t.Cleanup(func() { closeLogbook(lb) })
 	flush(t, lb)
@@ -46,6 +58,9 @@ func TestLinesFromBeforeTheDatabaseOpenedAreKept(t *testing.T) {
 	want := []string{"info||tippani 3.1.0 starting", "warn|TIP-STORE-007|a one-time pass failed"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("system log after Attach:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if got := strings1(t, st.DB, `SELECT line FROM job_logs WHERE job_id = 7`); len(got) != 1 {
+		t.Fatalf("the job's line from before Attach: %q", got)
 	}
 }
 
@@ -142,6 +157,39 @@ func TestALineForAJobThatIsGoneNeverCostsAnybodyTheirs(t *testing.T) {
 	}
 	if n := count(t, st.DB, `SELECT count(*) FROM system_logs`); n != 1 {
 		t.Fatalf("the batch with the orphan line lost the system line: %d kept", n)
+	}
+}
+
+// A factory reset or a restore swaps the database file under the logbook. A job's
+// line logged while the files move is for the job with that id in the old file;
+// in the new one, whose ids start again, the same id is somebody else's job, and
+// the line must not land there. A line logged after the swap is for the new one.
+func TestALineForAJobInTheFileBeforeASwapNeverLandsOnAnotherJob(t *testing.T) {
+	st := openStore(t)
+	exec(t, st.DB, `INSERT INTO jobs (id, kind, state, created_at) VALUES (1, 'fill', 'running', ?)`, time.Now().UnixMilli())
+	// The file that takes its place, where job 1 is another reader's lookup.
+	fresh := openStore(t)
+	exec(t, fresh.DB, `INSERT INTO jobs (id, kind, queued, state, created_at) VALUES (1, 'lookup.book', 0, 'succeeded', ?)`, time.Now().UnixMilli())
+	freshPath := fresh.Path()
+	if err := fresh.Close(); err != nil {
+		t.Fatal(err)
+	}
+	lb := attached(t, st)
+
+	if err := st.Swap(func() error {
+		lb.JobLine(1, jobs.LevelInfo, "for the old job 1, logged as the files moved")
+		for _, sidecar := range []string{"-wal", "-shm"} {
+			os.Remove(st.Path() + sidecar)
+		}
+		return os.Rename(freshPath, st.Path())
+	}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	lb.JobLine(1, jobs.LevelInfo, "for the new job 1")
+	flush(t, lb)
+
+	if got := strings1(t, st.DB, `SELECT line FROM job_logs WHERE job_id = 1 ORDER BY id`); strings.Join(got, "|") != "for the new job 1" {
+		t.Fatalf("job 1 of the new file has %q, want only its own line", got)
 	}
 }
 

@@ -24,6 +24,11 @@ type Job struct {
 	subject  string
 	params   string
 	started  time.Time
+	// gen is the store generation the job was claimed under, so its lines are
+	// written only into the file where its id is this job (Logbook.jobLineIn).
+	// A job runs inside one generation: Exclusive, which every swap the server
+	// makes runs under, waits for the job in hand and holds the worker.
+	gen uint64
 
 	stop      atomic.Bool // a person asked it to stop
 	shutdown  atomic.Bool // the server is stopping
@@ -43,7 +48,7 @@ func (j *Job) Owner() Owner { return j.owner }
 
 // Log adds a line to the job's log. It never waits on the database.
 func (j *Job) Log(level, format string, args ...any) {
-	j.r.lb.JobLine(j.id, level, fmt.Sprintf(format, args...))
+	j.r.lb.jobLineIn(j.gen, j.id, level, fmt.Sprintf(format, args...))
 }
 
 // Subject renames what the job is about, in its row.

@@ -451,7 +451,9 @@ func (r *Runner) work(idle chan struct{}) {
 // lands before it (and there is nothing to claim) or after it (and finds it
 // running).
 func (r *Runner) claim() (*Job, error) {
-	j := &Job{r: r, started: time.Now()}
+	// The generation is read with a claim in progress, which Exclusive waits out
+	// before any swap, so it is the generation of the file the claim reads.
+	j := &Job{r: r, started: time.Now(), gen: r.st.Generation()}
 	var stopReq int
 	err := r.st.DB.QueryRow(`UPDATE jobs SET state = 'running', started_at = ?
 		WHERE id = (SELECT id FROM jobs WHERE state = 'queued' ORDER BY id LIMIT 1)
@@ -490,7 +492,6 @@ var (
 // whoever is given that id next. A restore interrupts every waiting job as it
 // carries them over, so no job from another generation is ever claimed.
 func (r *Runner) execute(j *Job) (err error) {
-	gen := r.st.Generation()
 	if !j.uid.Valid {
 		return errOwnerGone
 	}
@@ -503,7 +504,7 @@ func (r *Runner) execute(j *Job) (err error) {
 	case err != nil:
 		return fmt.Errorf("reading the account that started this job: %w", err)
 	}
-	j.owner = Owner{UserID: j.uid.Int64, Username: name, IsAdmin: admin, Gen: gen}
+	j.owner = Owner{UserID: j.uid.Int64, Username: name, IsAdmin: admin, Gen: j.gen}
 	k, ok := r.kind(j.kind)
 	if !ok {
 		return errNoLongerKind
@@ -634,14 +635,14 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 	}
 	if n, _ := res.RowsAffected(); n == 1 {
 		r.forget(id)
-		r.lb.JobLine(id, LevelInfo, fmt.Sprintf("%s stopped it before it started", viewer.Username))
+		r.lb.jobLineIn(viewer.Gen, id, LevelInfo, fmt.Sprintf("%s stopped it before it started", viewer.Username))
 		return nil
 	}
 	r.mu.Lock()
 	held, fresh := r.stopHeldLocked(id)
 	r.mu.Unlock()
 	if !held {
-		_, err := r.settleOrphan(id, fmt.Sprintf("its end was never recorded; %s stopped it, and it is marked interrupted", viewer.Username))
+		_, err := r.settleOrphan(viewer.Gen, id, fmt.Sprintf("its end was never recorded; %s stopped it, and it is marked interrupted", viewer.Username))
 		return err
 	}
 	res, err = r.st.DB.Exec(`UPDATE jobs SET stop_requested = 1 WHERE id = ? AND state = 'running'`, id)
@@ -649,7 +650,7 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 1 && fresh {
-		r.lb.JobLine(id, LevelInfo, fmt.Sprintf("%s asked it to stop; it stops after the item in hand", viewer.Username))
+		r.lb.jobLineIn(viewer.Gen, id, LevelInfo, fmt.Sprintf("%s asked it to stop; it stops after the item in hand", viewer.Username))
 	}
 	return nil
 }
@@ -694,7 +695,7 @@ func (r *Runner) stopHeldLocked(id int64) (held, fresh bool) {
 // no claim in progress (stopHeldLocked); it cannot come to hold it afterwards,
 // because a claim takes only a waiting row, and the compare-and-set leaves a row
 // that has since ended alone. It reports whether it settled the row.
-func (r *Runner) settleOrphan(id int64, line string) (bool, error) {
+func (r *Runner) settleOrphan(gen uint64, id int64, line string) (bool, error) {
 	res, err := r.st.DB.Exec(`UPDATE jobs SET state = 'interrupted', finished_at = ? WHERE id = ? AND state = 'running'`,
 		time.Now().UnixMilli(), id)
 	if err != nil {
@@ -704,7 +705,7 @@ func (r *Runner) settleOrphan(id int64, line string) (bool, error) {
 		return false, nil
 	}
 	r.forget(id)
-	r.lb.JobLine(id, LevelWarn, line)
+	r.lb.jobLineIn(gen, id, LevelWarn, line)
 	return true, nil
 }
 
@@ -721,7 +722,7 @@ func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error)
 	if !viewer.IsAdmin {
 		scope, args = " AND user_id = ?", []any{viewer.UserID}
 	}
-	return r.stopWhere(scope, args,
+	return r.stopWhere(viewer.Gen, scope, args,
 		fmt.Sprintf("%s stopped it before it started", viewer.Username),
 		fmt.Sprintf("%s asked every job to stop; this one stops after the item in hand", viewer.Username),
 		fmt.Sprintf("its end was never recorded; %s asked every job to stop, and it is marked interrupted", viewer.Username))
@@ -730,14 +731,18 @@ func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error)
 // StopOwner stops every job of an account that is about to be deleted: waiting
 // ones at once, the running one after the item in hand.
 func (r *Runner) StopOwner(uid int64) error {
-	_, _, err := r.stopWhere(" AND user_id = ?", []any{uid},
+	// Read before the statements that find the jobs: store.Generation says why.
+	gen := r.st.Generation()
+	_, _, err := r.stopWhere(gen, " AND user_id = ?", []any{uid},
 		"stopped before it started: the account that started it is being deleted",
 		"the account that started this job is being deleted; it stops after the item in hand",
 		"its end was never recorded; the account that started it is being deleted, and it is marked interrupted")
 	return err
 }
 
-func (r *Runner) stopWhere(scope string, args []any, waitingLine, runningLine, orphanLine string) (stopping, stoppedWaiting int, err error) {
+// stopWhere stops the jobs scope picks. gen is the generation read before it, so
+// its lines go only into the file its statements found the jobs in.
+func (r *Runner) stopWhere(gen uint64, scope string, args []any, waitingLine, runningLine, orphanLine string) (stopping, stoppedWaiting int, err error) {
 	waiting, err := r.ids(`UPDATE jobs SET state = 'stopped', finished_at = ? WHERE state = 'queued'`+scope+` RETURNING id`,
 		append([]any{time.Now().UnixMilli()}, args...)...)
 	if err != nil {
@@ -745,7 +750,7 @@ func (r *Runner) stopWhere(scope string, args []any, waitingLine, runningLine, o
 	}
 	r.forget(waiting...)
 	for _, id := range waiting {
-		r.lb.JobLine(id, LevelInfo, waitingLine)
+		r.lb.jobLineIn(gen, id, LevelInfo, waitingLine)
 	}
 	stoppedWaiting = len(waiting)
 	running, err := r.ids(`UPDATE jobs SET stop_requested = 1 WHERE state = 'running'`+scope+` RETURNING id`, args...)
@@ -758,7 +763,7 @@ func (r *Runner) stopWhere(scope string, args []any, waitingLine, runningLine, o
 		r.mu.Unlock()
 		switch {
 		case !held:
-			settled, err := r.settleOrphan(id, orphanLine)
+			settled, err := r.settleOrphan(gen, id, orphanLine)
 			if err != nil {
 				return stopping, stoppedWaiting, err
 			}
@@ -766,7 +771,7 @@ func (r *Runner) stopWhere(scope string, args []any, waitingLine, runningLine, o
 				stoppedWaiting++
 			}
 		case fresh:
-			r.lb.JobLine(id, LevelInfo, runningLine)
+			r.lb.jobLineIn(gen, id, LevelInfo, runningLine)
 			stopping++
 		default:
 			stopping++
@@ -829,6 +834,7 @@ func (r *Runner) Rerun(id int64, viewer Owner, secret any) (int64, error) {
 // commands that open the store beside a live server never do, or they would
 // interrupt that server's running job.
 func (r *Runner) Boot() error {
+	gen := r.st.Generation()
 	rows, err := r.st.DB.Query(`UPDATE jobs SET state = 'interrupted', finished_at = ?
 		WHERE state IN ('queued', 'running') RETURNING id, started_at IS NOT NULL`, time.Now().UnixMilli())
 	if err != nil {
@@ -845,7 +851,7 @@ func (r *Runner) Boot() error {
 		if wasRunning {
 			line = "the server restarted while this job was running"
 		}
-		r.lb.JobLine(id, LevelWarn, line)
+		r.lb.jobLineIn(gen, id, LevelWarn, line)
 	}
 	return rows.Err()
 }
@@ -885,12 +891,13 @@ func (r *Runner) Close(ctx context.Context) error {
 	}
 	r.cancel()
 
+	gen := r.st.Generation()
 	waiting, err := r.ids(`UPDATE jobs SET state = 'interrupted', finished_at = ? WHERE state = 'queued' RETURNING id`,
 		time.Now().UnixMilli())
 	errs = append(errs, err)
 	r.forget(waiting...)
 	for _, id := range waiting {
-		r.lb.JobLine(id, LevelWarn, "the server stopped before this job started")
+		r.lb.jobLineIn(gen, id, LevelWarn, "the server stopped before this job started")
 	}
 	return errors.Join(errs...)
 }

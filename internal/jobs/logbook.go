@@ -150,7 +150,13 @@ type entry struct {
 	code  string
 	text  string
 	jobID int64
-	row   Row
+	// gen is, for a job's line, the store generation its job id was read under,
+	// and genKnown whether that is known yet: a line logged before Attach is
+	// stamped there. The drainer writes a job's line only into that generation's
+	// file, where the id still means that job.
+	gen      uint64
+	genKnown bool
+	row      Row
 	// account is an in-request row's username as the request resolved it, before
 	// the door cleaned it for keeping: the name the account check matches on.
 	account string
@@ -221,7 +227,17 @@ func (lb *Logbook) Attach(st *store.Store) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 	lb.st = st
+	for _, e := range lb.buf[lb.head:] {
+		lb.stampLocked(e)
+	}
 	lb.kickLocked()
+}
+
+// stampLocked gives a job's line with no generation yet the store's current one.
+func (lb *Logbook) stampLocked(e *entry) {
+	if e.kind == entryJob && !e.genKnown && lb.st != nil {
+		e.gen, e.genKnown = lb.st.Generation(), true
+	}
 }
 
 // System keeps one line of the app's own log. code is a TIP code when the line
@@ -245,14 +261,29 @@ func (lb *Logbook) System(lvl, code, line string) {
 	})
 }
 
-// JobLine keeps one line of a queued job's log. A line for a job the current
-// database does not hold (pruned, or a file swapped in under it) is skipped when
-// its batch is written, never failing the batch.
+// JobLine keeps one line of a queued job's log, for the job with that id in the
+// database the server is on as it is called. A line for a job that database
+// does not hold (pruned) is skipped when its batch is written, never failing the
+// batch; so is a line whose database has been swapped for another since it was
+// logged (a restore, a recovery, a factory reset), where the id may name another
+// job: a reset's fresh file numbers its jobs from 1 again.
 func (lb *Logbook) JobLine(jobID int64, lvl, line string) {
+	lb.jobLine(jobID, lvl, line, 0, false)
+}
+
+// jobLineIn is JobLine for a job id read from generation gen's file. The runner's
+// own lines use it: each knows which file it read its job's id from, which the
+// moment the line is logged cannot say, since a swap can finish in between.
+func (lb *Logbook) jobLineIn(gen uint64, jobID int64, lvl, line string) {
+	lb.jobLine(jobID, lvl, line, gen, true)
+}
+
+func (lb *Logbook) jobLine(jobID int64, lvl, line string, gen uint64, genKnown bool) {
 	lvl = level(lvl, jobLevels)
 	text := clean(lvl, line)
 	lb.add(&entry{
 		kind: entryJob, at: time.Now().UnixMilli(), level: lvl, text: text, jobID: jobID,
+		gen: gen, genKnown: genKnown,
 		class: classHigh, size: len(text) + entryOverhead, units: 1,
 	})
 }
@@ -366,6 +397,7 @@ func (lb *Logbook) add(e *entry) {
 	if lb.closed {
 		return
 	}
+	lb.stampLocked(e)
 	for lb.bytes+e.size > maxBufferBytes || lb.units+e.units > maxBufferUnits {
 		victim := lb.oldestBelowLocked(e.class)
 		if victim == nil {
@@ -632,6 +664,11 @@ func writeBatch(db *sql.DB, gen uint64, notes, batch []*entry) error {
 				return fmt.Errorf("system line: %w", err)
 			}
 		case entryJob:
+			if e.gen != gen {
+				// Its id was read from a file this one replaced, where the same
+				// id may be a different job, so it is not written at all.
+				continue
+			}
 			if _, err := job.Exec(e.jobID, e.at, e.level, e.text, e.jobID); err != nil {
 				return fmt.Errorf("job %d line: %w", e.jobID, err)
 			}
