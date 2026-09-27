@@ -41,14 +41,15 @@ import (
 // finish and refuses anything new; a restore waits for a running job and holds
 // the queue while it runs; only the owner can run a job again; a job started
 // twice, or a sixth, is refused with the reason; no job is left waiting with
-// nothing to run it, and a Stop never loses a race with the job starting; a
-// finished job's last lines are there when it says it finished; progress is
-// written every half second and always at the end; a job that crashes fails and
-// the next one starts; a write lock held past its wait delays a job's start and
-// end and loses neither; pressing a job that is already waiting starts the queue;
-// a job whose end could not be recorded reads running until Stop settles it, and
-// the server does not claim it ended otherwise; a job whose account went is not
-// run for anybody else.
+// nothing to run it, and a Stop never loses a race with the job starting;
+// progress is written every half second and always at the end; a job that
+// crashes fails and the next one starts; a write lock held past its wait delays
+// a job's start and end and loses neither; pressing a job that is already
+// waiting starts the queue; a job whose end could not be recorded reads running
+// until Stop settles it, and the server does not claim it ended otherwise; a job
+// whose account went is not run for anybody else. (That a finished job's last
+// lines are there when it says it finished is in seams_test.go: only a parked
+// drainer shows it every time.)
 
 type rig struct {
 	t     *testing.T
@@ -728,36 +729,6 @@ func TestAStopNeverLosesARaceWithTheJobStarting(t *testing.T) {
 		outcomes[fmt.Sprintf("claimed=%d items=%d", claimed, items)]++
 	}
 	t.Logf("outcomes over the rounds: %v", outcomes) // all three kinds, on this machine
-}
-
-// Flush before finish: when a job reads finished, its last lines are in its log.
-// Checked in one read, so the state and the count are from the same moment.
-func TestAFinishedJobsLastLinesAreThereWhenItSaysItFinished(t *testing.T) {
-	g := newRig(t, jobs.Options{PerOwner: 100})
-	const lines = 1500
-	g.r.Register(jobs.Kind{Name: "chatty", Run: func(_ context.Context, j *jobs.Job) error {
-		for i := range lines {
-			j.Log(jobs.LevelInfo, "line %d", i)
-		}
-		return nil
-	}})
-	for round := range 5 {
-		id := g.enqueue(g.mitra(), "chatty", map[string]any{"round": round})
-		for {
-			var state string
-			var n int
-			if err := g.st.DB.QueryRow(`SELECT state, (SELECT count(*) FROM job_logs WHERE job_id = jobs.id) FROM jobs WHERE id = ?`, id).
-				Scan(&state, &n); err != nil {
-				t.Fatal(err)
-			}
-			if state == "succeeded" {
-				if n != lines {
-					t.Fatalf("round %d: the job read finished with %d of its %d lines in its log", round, n, lines)
-				}
-				break
-			}
-		}
-	}
 }
 
 func TestProgressIsWrittenEveryHalfSecondAndAlwaysAtTheEnd(t *testing.T) {

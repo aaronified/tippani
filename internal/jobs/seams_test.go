@@ -27,7 +27,14 @@ import (
 //   - no input makes the drainer panic, and what the logbook does after one —
 //     keep going, and say what it lost — is the thing under test;
 //   - a batch dropped after its last busy attempt would otherwise need six waits
-//     of busy_timeout (five seconds each) with a lock held throughout.
+//     of busy_timeout (five seconds each) with a lock held throughout;
+//   - a job's finishing write and the log's batch take the same SQLite write
+//     lock, so holding the lock holds both, and the order they land in once it
+//     is let go is a race between them. Parking the drainer itself (beforeWrite)
+//     is the only way to hold a job's lines back while leaving its finishing
+//     write free to land first, which is exactly the defect Flush-before-finish
+//     exists to prevent. The black-box version of that test failed about one run
+//     in fifteen with the Flush removed, because the drainer usually won anyway.
 //
 // The busy retry that succeeds uses no seam: it holds SQLite's write lock for
 // real, from the library pool, for longer than one attempt waits.
@@ -70,6 +77,109 @@ func linesT(t *testing.T, db *sql.DB, q string) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+// FLUSH BEFORE FINISH. With the drainer parked on beforeWrite, a job that has
+// logged and returned does not read finished while its lines are still waiting,
+// and reads finished with every one of them once they are written. And the wait
+// is bounded: a drainer that does not come back holds the job for FlushWait and
+// no longer, so a stuck log never stalls the queue.
+func TestAFinishedJobsLastLinesAreThereWhenItSaysItFinished(t *testing.T) {
+	const lines = 20
+	// rig is a store, a logbook whose drainer parks before its first batch until
+	// release is called, and a runner with flushWait and one kind that logs its
+	// lines, says it has returned, and returns.
+	rig := func(t *testing.T, flushWait time.Duration) (st *store.Store, r *Runner, parked, returned chan struct{}, release func()) {
+		st = openStoreInternal(t)
+		if _, err := st.DB.Exec(`INSERT INTO users (id, username, password_hash) VALUES (2, 'mitra', 'x')`); err != nil {
+			t.Fatal(err)
+		}
+		lb := NewLogbook()
+		hold := make(chan struct{})
+		parked, returned = make(chan struct{}), make(chan struct{})
+		var parkOnce, releaseOnce sync.Once
+		release = func() { releaseOnce.Do(func() { close(hold) }) }
+		lb.tune.beforeWrite = func() {
+			parkOnce.Do(func() { close(parked) })
+			<-hold
+		}
+		lb.Attach(st)
+		t.Cleanup(func() { lb.Close(context.Background()) })
+		r = NewRunner(st, lb, Options{FlushWait: flushWait})
+		t.Cleanup(func() { r.Close(context.Background()) })
+		// Cleanups run last first: the drainer is let go before either close,
+		// each of which could otherwise wait on it for ever after a failure.
+		t.Cleanup(release)
+		r.Register(Kind{Name: "chatty", Run: func(_ context.Context, j *Job) error {
+			for i := range lines {
+				j.Log(LevelInfo, "line %d", i)
+			}
+			close(returned)
+			return nil
+		}})
+		return st, r, parked, returned, release
+	}
+	owner := func(st *store.Store) Owner { return Owner{UserID: 2, Username: "mitra", Gen: st.Generation()} }
+	read := func(st *store.Store, id int64) (state string, n int) {
+		st.DB.QueryRow(`SELECT state, (SELECT count(*) FROM job_logs WHERE job_id = jobs.id) FROM jobs WHERE id = ?`, id).
+			Scan(&state, &n)
+		return state, n
+	}
+
+	t.Run("waits for its lines", func(t *testing.T) {
+		st, r, parked, returned, release := rig(t, 30*time.Second)
+		id, err := r.Enqueue(owner(st), "chatty", "", nil, 0, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		<-returned
+		<-parked
+		for end := time.Now().Add(time.Second); time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
+			if state, n := read(st, id); state != StateRunning {
+				t.Fatalf("with its lines still waiting to be written, the job reads %s with %d of %d lines", state, n, lines)
+			}
+		}
+		release()
+		deadline := time.Now().Add(20 * time.Second)
+		for {
+			state, n := read(st, id) // one read: the state and the count are of one moment
+			if state == StateSucceeded {
+				if n != lines {
+					t.Fatalf("the job reads finished with %d of its %d lines", n, lines)
+				}
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("the job still reads %s after its lines were let through", state)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	})
+
+	t.Run("but not for ever", func(t *testing.T) {
+		st, r, parked, returned, release := rig(t, 300*time.Millisecond)
+		id, err := r.Enqueue(owner(st), "chatty", "", nil, 0, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		<-returned
+		<-parked
+		deadline := time.Now().Add(10 * time.Second)
+		for state, _ := read(st, id); state != StateSucceeded; state, _ = read(st, id) {
+			if time.Now().After(deadline) {
+				t.Fatalf("with the log stuck, the job still reads %s long after its flush wait ran out", state)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		release()
+		deadline = time.Now().Add(20 * time.Second)
+		for _, n := read(st, id); n != lines; _, n = read(st, id) {
+			if time.Now().After(deadline) {
+				t.Fatalf("%d of %d lines arrived after the log came back", n, lines)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	})
 }
 
 func TestTheSystemLogPastItsCeilingLosesItsOldest(t *testing.T) {
