@@ -975,4 +975,6 @@ function lifespanLabel(p) {
 // by Search, Stats, the work screens and the metadata console. Only the surface
 // went. (`mergeLinks` went later, in 3.1.0: folding fetched links into a record is
 // the server's now — one person's Fetch and the bulk people job both run the
-// same Go function — so a browser copy would be a second answer to one question.)
+// same Go function — so a browser copy would be a second answer to one question.
+// Its test cases went with it: rules/link-fold-keeps-names.test.js holds the Go
+// side to them.)

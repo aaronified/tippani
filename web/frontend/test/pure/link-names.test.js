@@ -27,8 +27,12 @@
 // links it found into the stored field, and that fold was `mergeLinks` here until
 // the People fetch became one request (`POST /people/id/{id}/fetch`) and a job
 // that loops the same Go function. Its two cases — a fetch leaves the reader's
-// names alone, and an unnamed link stays unnamed — belong to the Go fold's own
-// test now, beside the only copy of the fold there is.
+// names alone, and an unnamed link stays unnamed — belong beside that Go fold, in
+// `TestMergeLinksKeepsTheReadersNames` (internal/httpapi/merge_links_test.go).
+// THAT TEST IS NOT WRITTEN YET: the fold is the backend's to port, and the Go fold
+// already in the tree, `mergePersonLinks`, splits on whitespace and would shred
+// every name. rules/link-fold-keeps-names.test.js goes red the day the server
+// serves the fold without the test, so the two cases cannot be lost in transit.
 //
 // WHAT A TEST WRITER NEEDS TO KNOW: the paragraphs above, and that `parseLinks`
 // answers `{ known, extra, labels }` — providers by slug, the rest in order, and
