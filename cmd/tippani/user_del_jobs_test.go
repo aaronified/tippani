@@ -8,9 +8,11 @@ package main
 // WHAT IT KNOWS, declared because a test here may not know the code: that the test
 // binary runs main() when TIPPANI_TEST_AS_BINARY=1 (TestMain, in
 // healthcheck_test.go), and the `jobs` table's name and its user_id and username
-// columns. It writes and reads job rows directly because no command or endpoint
-// creates or lists a job yet. The admin's delete in the app is the other path; its
-// test is in internal/httpapi.
+// columns. It writes and reads job rows directly because no server runs here: the
+// command is run against a data directory at rest, as an operator runs it with
+// the container stopped, so the file is all there is to set up and all there is
+// to look at, and nothing but the file can say that a job is nobody's. The admin's
+// delete in the app is the other path; its test is in internal/httpapi.
 
 import (
 	"os"

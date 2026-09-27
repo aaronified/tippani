@@ -1,38 +1,40 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 )
 
 // AN ADMIN DELETES A READER, AND THE READER'S JOBS STAY — AS THE ADMIN'S.
 //
-// WHAT IT KNOWS, declared because a test here may not know the code: the `jobs`
-// table's name and three of its columns (user_id, username, id). It writes a job
-// row and reads it back through srv.Store.DB because nothing else can yet: no
-// endpoint creates or lists a job until the jobs API exists. Everything else is
-// driven the way an admin drives it — the account is made, deleted and restored
-// from the bin through the API.
+// Driven the way a reader and an admin drive it: each starts a job through the
+// jobs API, and the account is made, deleted and restored from the bin through
+// the API.
+//
+// WHAT IT KNOWS, declared because a test here may not know the code: what
+// jobs_api_test.go's header declares (the queue set up as serve() sets it, the
+// test's own kinds, the wire field names), and the `jobs` table's name and its
+// user_id and username columns, which it reads through srv.Store.DB. The claim is
+// that the job belongs to nobody, and the wire cannot say that: an admin sees a
+// job owned by nobody and one owned by another reader alike, as not hers, under
+// the name it was started as. That it is not handed back when the account is is
+// said on the wire too, and read there.
 //
 // The other delete path, `tippani user del`, has its own test in cmd/tippani; the
 // trigger both rely on is 0079's, tested at the statement in internal/store.
 
 func TestAnAdminDeletingAReaderLeavesTheirJobsToTheAdmin(t *testing.T) {
 	srv := newTestServer(t)
+	queueing(t, srv)
 	h := srv.Handler()
 	admin := signupAdmin(t, h)
-	addUser(t, h, admin, "bob")
+	bob := addUser(t, h, admin, "bob")
+	bobsJob := bob.waitJob(bob.mustStart("test.lines", map[string]any{"tag": "bob's"}).ID, "succeeded")
+	alicesJob := admin.waitJob(admin.mustStart("test.lines", map[string]any{"tag": "alice's"}).ID, "succeeded")
+	aliceID := accountID(t, admin, "alice")
 
-	var bobID int64
-	if err := srv.Store.DB.QueryRow(`SELECT id FROM users WHERE username = 'bob'`).Scan(&bobID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := srv.Store.DB.Exec(`INSERT INTO jobs (id, user_id, username, kind, state, created_at)
-		VALUES (41, ?, 'bob', 'fill', 'succeeded', 1), (42, 1, 'alice', 'fill', 'succeeded', 2)`, bobID); err != nil {
-		t.Fatal(err)
-	}
-
-	admin.mustDo("DELETE", "/admin/users/"+itoa(bobID), nil, http.StatusOK)
+	admin.mustDo("DELETE", "/admin/users/"+itoa(accountID(t, admin, "bob")), nil, http.StatusOK)
 
 	owner := func(id int64) (uid *int64, name string) {
 		t.Helper()
@@ -41,11 +43,15 @@ func TestAnAdminDeletingAReaderLeavesTheirJobsToTheAdmin(t *testing.T) {
 		}
 		return uid, name
 	}
-	if uid, name := owner(41); uid != nil || name != "bob" {
+	if uid, name := owner(bobsJob.ID); uid != nil || name != "bob" {
 		t.Fatalf("bob's job after his account went: owned=%v username=%q, want no owner and his name kept", uid != nil, name)
 	}
-	if uid, _ := owner(42); uid == nil || *uid != 1 {
+	if uid, _ := owner(alicesJob.ID); uid == nil || *uid != aliceID {
 		t.Fatal("deleting bob changed the owner of alice's job")
+	}
+	// The admin still has it, with its log, under his name.
+	if j := admin.job(bobsJob.ID); j.Username != "bob" || j.Own || j.State != "succeeded" {
+		t.Fatalf("bob's job as the admin sees it after the delete: %+v", j)
 	}
 
 	// Putting the account back from the bin brings bob back under his old id, and
@@ -57,7 +63,13 @@ func TestAnAdminDeletingAReaderLeavesTheirJobsToTheAdmin(t *testing.T) {
 		t.Fatalf("admin's bin: %+v", bin)
 	}
 	restore(t, admin, bin[0].ID, http.StatusOK)
-	if uid, _ := owner(41); uid != nil {
+	if uid, _ := owner(bobsJob.ID); uid != nil {
 		t.Fatalf("restoring bob's account re-attached his old job to id %d", *uid)
+	}
+	back := &testClient{t: t, h: h}
+	back.cookie = cookieOf(t, back.mustDo("POST", "/auth/login", map[string]string{"username": "bob", "password": testPw}, http.StatusOK))
+	back.mustDo("GET", fmt.Sprintf("/jobs/%d", bobsJob.ID), nil, http.StatusNotFound)
+	if past := back.jobs("view=past"); len(past.Jobs) != 0 {
+		t.Fatalf("bob, back from the bin, has jobs: %+v", past.Jobs)
 	}
 }

@@ -31,8 +31,14 @@ import (
 //
 // WHAT IT KNOWS, declared because a test here may not know the code: the journal
 // tables' names and columns (system_logs, jobs, job_logs), which it reads through
-// srv.Store.DB because the endpoints that list them are a later stage of 3.1.0;
-// the Server's Logbook field, which is how serve() gives the server its logbook;
+// srv.Store.DB. What it promises is what the database keeps, which no one read of
+// the API shows whole: that what a request carried (a search's words, a share
+// link's token, a saved key) is in no row and no column, a job's stored result
+// included, which the API sends to its owner alone and shaped by its kind; that
+// the log's own reading leaves no line, which a check made through that reading
+// would take part in; and that a lookup kept for nobody is owned by no account,
+// which the wire cannot tell from one owned by another. Also known: the Server's
+// Logbook field, which is how serve() gives the server its logbook;
 // and olog.CaptureForTest, because stdout and stderr are what an operator reads in
 // `docker logs`. The restore test parks a lookup inside its outward call by
 // wrapping the observer, because a restore landing between the moment a request

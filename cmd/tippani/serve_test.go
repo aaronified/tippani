@@ -9,8 +9,12 @@ package main
 // WHAT IT KNOWS, declared because a test here may not know the code: that the test
 // binary runs main() when TIPPANI_TEST_AS_BINARY=1 (TestMain, in
 // healthcheck_test.go); the journal tables' names and columns (jobs, job_logs,
-// system_logs), which it reads, and writes where a job has to exist that nothing
-// yet queues — the endpoints that start and list jobs are a later stage of 3.1.0;
+// system_logs). It reads them from the file once the server has stopped, when
+// nothing is left running to ask, and beside a live server it asks the jobs API
+// instead. It writes a job where one has to be in a state no request can put it
+// in: left running by a crashed run, waiting when the container stops (every
+// server here is offline, so a queued job ends in milliseconds), and running on
+// a live server while a command runs beside it;
 // TIPPANI_LOG_HOLD, the logbook's declared test seam (honoured only offline),
 // which holds every line in memory until shutdown's last flush so that the
 // shutdown's order decides whether any line is kept at all, every run; the users
@@ -184,6 +188,52 @@ func (s *served) signUp(name, password string) {
 	}
 	s.client.Jar = jar
 	s.send("POST", "/api/auth/signup", map[string]string{"username": name, "password": password}, http.StatusOK)
+}
+
+// servedJob is a job as the jobs API answers it, the fields read here.
+type servedJob struct {
+	ID         int64  `json:"id"`
+	State      string `json:"state"`
+	Own        bool   `json:"own"`
+	Username   string `json:"username"`
+	FinishedAt *int64 `json:"finished_at"`
+}
+
+// job is job id as the jobs API answers the signed-in reader, and its log as
+// level and text, in order.
+func (s *served) job(id int64) (servedJob, []string) {
+	s.t.Helper()
+	var got struct {
+		Job   servedJob `json:"job"`
+		Lines []struct {
+			Level string `json:"level"`
+			Line  string `json:"line"`
+		} `json:"lines"`
+	}
+	if err := json.Unmarshal(s.send("GET", fmt.Sprintf("/api/jobs/%d", id), nil, http.StatusOK), &got); err != nil {
+		s.t.Fatal(err)
+	}
+	var lines []string
+	for _, l := range got.Lines {
+		lines = append(lines, l.Level+" "+l.Line)
+	}
+	return got.Job, lines
+}
+
+// newestPast is the newest of the past jobs of kind the signed-in reader sees,
+// as the jobs API lists them.
+func (s *served) newestPast(kind string) servedJob {
+	s.t.Helper()
+	var list struct {
+		Jobs []servedJob `json:"jobs"`
+	}
+	if err := json.Unmarshal(s.send("GET", "/api/jobs?view=past&kind="+kind, nil, http.StatusOK), &list); err != nil {
+		s.t.Fatal(err)
+	}
+	if len(list.Jobs) == 0 {
+		s.t.Fatalf("no %s in the past jobs", kind)
+	}
+	return list.Jobs[0]
 }
 
 // jobLines is the log of the newest job of kind, as level and text, in order.
@@ -406,19 +456,17 @@ func TestTheCommandLineLeavesALiveServersRunningJobRunning(t *testing.T) {
 	// deck does not ask about, so nothing is due for anybody.
 	deck := run("", true, "notify", "daily")
 
-	if n := count(t, st.DB, `SELECT count(*) FROM jobs WHERE id = 90 AND state = 'running' AND finished_at IS NULL`); n != 1 {
-		t.Fatalf("a command-line tool settled the live server's running job under it")
+	// Read as alice, the admin, sees them on the live server.
+	if j, _ := srv.job(90); j.State != "running" || j.FinishedAt != nil {
+		t.Fatalf("a command-line tool settled the live server's running job under it: %+v", j)
 	}
-	var owner sql.NullInt64
-	var state string
-	if err := st.DB.QueryRow(`SELECT user_id, state FROM jobs WHERE kind = 'notify.daily'`).Scan(&owner, &state); err != nil {
-		t.Fatalf("the daily deck was not kept as a job: %v\n%s", err, deck)
-	}
-	if owner.Valid || state != "succeeded" {
-		t.Errorf("the daily deck's job: owner %v, %s — want no owner (the operator's cron started it), succeeded", owner, state)
+	// Nobody's: not alice's own, and started by no account at all.
+	daily := srv.newestPast("notify.daily")
+	if daily.Own || daily.Username != "" || daily.State != "succeeded" {
+		t.Errorf("the daily deck's job: %+v — want nobody's (the operator's cron started it), succeeded\n%s", daily, deck)
 	}
 	want := []string{"info alice: not sent — nothing due", "info bob: not sent — nothing due"}
-	if lines := jobLines(t, st.DB, "notify.daily"); fmt.Sprint(lines) != fmt.Sprint(want) {
+	if _, lines := srv.job(daily.ID); fmt.Sprint(lines) != fmt.Sprint(want) {
 		t.Errorf("the daily deck's log is %q, want one line per reader: %q\n(printed: %s)", lines, want, deck)
 	}
 
@@ -428,10 +476,11 @@ func TestTheCommandLineLeavesALiveServersRunningJobRunning(t *testing.T) {
 	// writes its date.
 	mustExec(t, st.DB, `UPDATE annotations SET created_at = datetime('now', '-10 days')`)
 	deck = run("", false, "notify", "daily")
-	if err := st.DB.QueryRow(`SELECT state FROM jobs WHERE kind = 'notify.daily' ORDER BY id DESC LIMIT 1`).Scan(&state); err != nil || state != "failed" {
-		t.Errorf("the run whose message was refused was kept as %q (%v), want failed\n%s", state, err, deck)
+	failed := srv.newestPast("notify.daily")
+	if failed.ID == daily.ID || failed.State != "failed" {
+		t.Errorf("the run whose message was refused was kept as %+v, want a second run, failed\n%s", failed, deck)
 	}
-	lines := jobLines(t, st.DB, "notify.daily")
+	_, lines := srv.job(failed.ID)
 	if len(lines) != 3 || lines[0] != "warn POST api.pushover.net/1/messages.json → refused (offline)" ||
 		!strings.HasPrefix(lines[1], "info alice: not sent — ") || lines[2] != "info bob: not sent — nothing due" {
 		t.Errorf("the daily deck's log is %q, want the refused call to Pushover and then a line per reader\n(printed: %s)", lines, deck)
