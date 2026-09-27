@@ -348,23 +348,68 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	// like the queued one, under the same kind.
 	jobs.Begin(r.Context(), "backup", "")
 
+	meta, err := s.createBackup(userID(r), account, mode, secret)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, backupErrorText(err))
+		return
+	}
+	// Same shape GET /admin/backup returns — including how it is keyed — so the
+	// card can render the new archive without a second round trip.
+	writeJSON(w, http.StatusOK, map[string]any{"backup": meta})
+	s.notifyAfter(w, r, userID(r), "backup", "Backup ready", backupReady(meta))
+}
+
+// backupError is a backup that could not be made: the sentence the reader is
+// told, and the cause, which has been logged with its code where it happened.
+// The sentence is the one the API's backup has always answered for that step, so
+// a handler and a job that make an archive say the same thing about one that
+// failed, and neither says more than the sentence.
+type backupError struct {
+	msg string
+	err error
+}
+
+func (e *backupError) Error() string { return e.msg }
+func (e *backupError) Unwrap() error { return e.err }
+
+// backupErrorText is what a reader is told about a failed backup.
+func backupErrorText(err error) string {
+	var be *backupError
+	if errors.As(err, &be) {
+		return be.msg
+	}
+	return "internal error"
+}
+
+// createBackup makes the kept archive: a new dated archive in <DataDir>/backups,
+// sealed with the credential given, promoted from its partial file, and every
+// older one dropped (the newest backup is always the only one kept). It answers
+// the archive as GET /admin/backup describes it.
+//
+// NO REQUEST IN IT. POST /admin/backup calls it in its request and the backup job
+// calls it from the queue, so uid and account are the owner's, taken from
+// whichever started it. The caller holds backupMu, and has checked a password
+// against the account: both are the caller's because the two take the lock and
+// check the password differently. The request checks the caller's password once
+// it holds the lock; a queued backup checks the owner's current hash when it
+// runs, since the account may have changed its password while it waited
+// (backupKey).
+func (s *Server) createBackup(uid int64, account string, mode byte, secret string) (map[string]any, error) {
 	if err := os.MkdirAll(s.backupsDir(), 0o700); err != nil {
 		olog.Errorf(olog.CodeBackupArchive, "[backup] backups dir: %v", err)
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return
+		return nil, &backupError{"internal error", err}
 	}
 	name := backupPrefix + time.Now().UTC().Format(backupTimeLayout) + backupExt
 	final := filepath.Join(s.backupsDir(), name)
 	partial := final + ".partial"
-	if !s.sealBackup(w, r, mode, account, secret, partial) {
-		return
+	if err := s.sealArchive(uid, account, mode, secret, partial); err != nil {
+		return nil, err
 	}
 	_ = os.Remove(final) // same-second re-create: Windows rename won't overwrite
 	if err := os.Rename(partial, final); err != nil {
 		_ = os.Remove(partial)
 		olog.Errorf(olog.CodeBackupArchive, "[backup] promote archive: %v", err)
-		writeErr(w, http.StatusInternalServerError, "backup archive could not be written")
-		return
+		return nil, &backupError{"backup archive could not be written", err}
 	}
 
 	// The new archive exists — drop every older backup (and stray partials) so
@@ -382,21 +427,23 @@ func (s *Server) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	info, err := os.Stat(final)
 	if err != nil {
 		olog.Errorf(olog.CodeBackupArchive, "[backup] stat new archive: %v", err)
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return
+		return nil, &backupError{"internal error", err}
 	}
 	olog.Printf("[backup] created %s (%d bytes)", name, info.Size())
-	// Same shape GET /admin/backup returns — including how it is keyed — so the
-	// card can render the new archive without a second round trip.
-	writeJSON(w, http.StatusOK, map[string]any{"backup": s.backupMetaAt(s.backupsDir(), name, info)})
-	s.notifyAfter(w, r, userID(r), "backup", "Backup ready",
-		name+" ("+humanBytes(info.Size())+") is on the server.")
+	return s.backupMetaAt(s.backupsDir(), name, info), nil
 }
 
-// sealBackup snapshots the live database and writes it, sealed with the caller's
-// chosen credential, to dest. Its caller holds backupMu and has verified the
-// credential. It writes its own error response; false means one was written.
-func (s *Server) sealBackup(w http.ResponseWriter, r *http.Request, mode byte, account, secret, dest string) bool {
+// backupReady is what a new kept archive's notification says, whoever made it.
+func backupReady(meta map[string]any) string {
+	name, _ := meta["name"].(string)
+	size, _ := meta["size"].(int64)
+	return name + " (" + humanBytes(size) + ") is on the server."
+}
+
+// sealArchive snapshots the live database and writes it, sealed with the chosen
+// credential, to dest, for account uid. Its caller holds backupMu and has
+// verified the credential. Its errors are *backupError, logged here.
+func (s *Server) sealArchive(uid int64, account string, mode byte, secret, dest string) error {
 	// The instance recovery key, created on first use. Taken BEFORE the snapshot
 	// on purpose: it must exist and be settled on disk before anything is written,
 	// and it is deliberately NOT inside the snapshot (controlEntry excludes it), so
@@ -407,20 +454,18 @@ func (s *Server) sealBackup(w http.ResponseWriter, r *http.Request, mode byte, a
 		var err error
 		if instKey, err = s.ensureRecoveryKey(); err != nil {
 			olog.Errorf(olog.CodeBackupArchive, "[backup] recovery key: %v", err)
-			writeErr(w, http.StatusInternalServerError, "the instance recovery key could not be read or created")
-			return false
+			return &backupError{"the instance recovery key could not be read or created", err}
 		}
 	}
 	// Deliberately logs the MODE and never the key: an operator debugging "why
 	// will this not open" needs to know which credential it wants, and nothing
 	// more. Same reason there is no key material in any error message.
-	olog.Printf("[backup] backup requested by user %d (%s), sealed with %s", userID(r), account, keyModeName(mode))
+	olog.Printf("[backup] backup requested by user %d (%s), sealed with %s", uid, account, keyModeName(mode))
 
 	staging, err := os.MkdirTemp(s.DataDir, ".backup-")
 	if err != nil {
 		olog.Errorf(olog.CodeBackupArchive, "[backup] staging dir: %v", err)
-		writeErr(w, http.StatusInternalServerError, "internal error")
-		return false
+		return &backupError{"internal error", err}
 	}
 	defer os.RemoveAll(staging)
 
@@ -428,8 +473,7 @@ func (s *Server) sealBackup(w http.ResponseWriter, r *http.Request, mode byte, a
 	snap := filepath.Join(staging, "tippani.db")
 	if err := s.Store.VacuumInto(snap); err != nil {
 		olog.Errorf(olog.CodeBackupSnapshot, "[backup] snapshot failed: %v", err)
-		writeErr(w, http.StatusInternalServerError, "database snapshot failed")
-		return false
+		return &backupError{"database snapshot failed", err}
 	}
 	// Without the job history and the system log, which belong to this server
 	// rather than to the library (store.StripJournal says why). Failing to strip
@@ -437,17 +481,15 @@ func (s *Server) sealBackup(w http.ResponseWriter, r *http.Request, mode byte, a
 	// holds every request anybody made.
 	if err := store.StripJournal(snap); err != nil {
 		olog.Errorf(olog.CodeBackupStrip, "[backup] could not leave the job history and logs out of the snapshot: %v", err)
-		writeErr(w, http.StatusInternalServerError, "database snapshot failed")
-		return false
+		return &backupError{"database snapshot failed", err}
 	}
 
 	if err := s.writeBackupArchive(dest, snap, mode, account, secret, instKey); err != nil {
 		_ = os.Remove(dest)
 		olog.Errorf(olog.CodeBackupArchive, "[backup] archive write failed: %v", err)
-		writeErr(w, http.StatusInternalServerError, "backup archive could not be written")
-		return false
+		return &backupError{"backup archive could not be written", err}
 	}
-	return true
+	return nil
 }
 
 // sealCredentials reads how an archive is to be sealed: the caller's password, or
@@ -564,7 +606,8 @@ func (s *Server) handleSafetyBackup(w http.ResponseWriter, r *http.Request) {
 	dest := tmp.Name()
 	_ = tmp.Close()
 	defer os.Remove(dest)
-	if !s.sealBackup(w, r, mode, account, secret, dest) {
+	if err := s.sealArchive(userID(r), account, mode, secret, dest); err != nil {
+		writeErr(w, http.StatusInternalServerError, backupErrorText(err))
 		return
 	}
 	f, err := os.Open(dest)
