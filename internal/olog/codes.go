@@ -176,7 +176,7 @@ const (
 	// JOBS — the queue that runs a reader's bulk routines on the server.
 	CodeJobPanic  Code = "TIP-JOBS-001" // a job stopped on an internal error (a panic); it was marked failed and the queue went on
 	CodeJobRecord Code = "TIP-JOBS-002" // a job's record (its state, progress or result) could not be written to the database
-	CodeJobRead   Code = "TIP-JOBS-003" // a read of the job history, a job's log or the system log failed, or an export of one was cut short
+	CodeJobRead   Code = "TIP-JOBS-003" // Settings › Jobs could not read the job history, a job's log or the system log, or an export of one was cut short
 )
 
 // Registry maps every Code to a one-line description. It is the machine-readable
@@ -297,6 +297,6 @@ var Registry = map[Code]string{
 	CodeLogShutdown: "At shutdown, the log lines still waiting to be written when the flush's budget (one second, or what was left of Docker's grace) ran out were not kept in the database; stdout and stderr still have them.",
 
 	CodeJobPanic:  "A job stopped on an internal error (a panic). It was marked failed, its log kept, and the next job in the queue started.",
-	CodeJobRecord: "A job's record — its state, its progress or its result — could not be written to the database, so what the jobs API answers for it may be out of date.",
-	CodeJobRead:   "A read of the job history, a job's log or the system log from the database failed (answered 500), or a Markdown export of one stopped before its end.",
+	CodeJobRecord: "A job's record — its state, its progress or its result — could not be written to the database, so Settings → Jobs may show it out of date.",
+	CodeJobRead:   "Settings → Jobs could not read the job history, a job's log or the system log from the database (answered 500), or a Markdown export of one stopped before its end.",
 }

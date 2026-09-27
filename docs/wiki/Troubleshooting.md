@@ -272,14 +272,16 @@ a feature whose whole purpose is not losing things.
 
 ## LOG and JOBS — the logs and jobs kept in the database
 
-The database keeps a copy of the system log and every job's log for 30 days, read through the
-API in a browser signed in to Tippani. `/api/jobs?view=past` lists the jobs that have ended, newest
-first (`view=current`: the ones waiting or running), `/api/jobs/<id>` is one job with its log, and
-`/api/jobs/<id>/log.md` downloads that log as Markdown; a reader sees their own jobs, an admin
-everybody's. The system log is an admin's alone: `/api/admin/logs` (narrowed with `level`, `from`,
-`to` and `q`) and `/api/admin/logs.md` (the same filters, or `?all=1` for everything kept).
-stdout and stderr are unaffected: `docker logs` still has every line, including the ones a code
-below says the database did not keep.
+The database keeps a copy of the system log and every job's log for 30 days, read in
+**Settings → Jobs**: Current jobs and Past jobs hold each job with its log and an Export to
+Markdown (a reader sees their own jobs, an admin everybody's), and the System logs card, an
+admin's alone, holds the system log, filtered by level, time and keyword. The same reads answer
+a script, or a browser signed in to Tippani: `/api/jobs?view=past` lists the jobs that have
+ended, newest first (`view=current`: the ones waiting or running), `/api/jobs/<id>` is one job
+with its log and `/api/jobs/<id>/log.md` that log as Markdown; `/api/admin/logs` (narrowed with
+`level`, `from`, `to` and `q`) and `/api/admin/logs.md` (the same filters, or `?all=1` for
+everything kept) are the system log. stdout and stderr are unaffected: `docker logs` still has
+every line, including the ones a code below says the database did not keep.
 
 | Code | Meaning | Likely cause | What to do |
 | --- | --- | --- | --- |
