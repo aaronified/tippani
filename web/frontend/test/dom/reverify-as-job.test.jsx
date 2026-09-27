@@ -78,7 +78,7 @@ describe('the check', () => {
       { book_ids: [3], movie_ids: [1], people: [{ kind: 'author', name: 'Tagore' }], fills_only: true },
     ]]))
     expect(await screen.findByRole('progressbar', { name: 'checking · 0/3' })).toBeTruthy()
-    expect(screen.getByText('Close this and it carries on — Settings › Jobs has it.')).toBeTruthy()
+    expect(screen.getByText('Close this and it carries on — Settings → Jobs has it.')).toBeTruthy()
   })
 
   // ONE CHECK HOLDS 500 ITEMS. The People console's re-verify sends every person
@@ -115,7 +115,7 @@ describe('the check', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Close' }))
     expect(closed).toBe(1)
     expect(JOBS.stops(), 'closing the dialog stopped the check').toEqual([])
-    expect(await screen.findByText('Still running · Settings › Jobs')).toBeTruthy()
+    expect(await screen.findByText('Still running · Settings → Jobs')).toBeTruthy()
   })
 
   it('is stopped by Cancel only after the reader says so', async () => {
@@ -125,7 +125,7 @@ describe('the check', () => {
     await waitFor(() => expect(checkId()).toBeTruthy())
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Cancel' }))
     const ask = await screen.findByRole('alertdialog', { name: 'Stop the check?' })
-    expect(within(ask).getByText('It stops after the item in hand, and is kept in Settings › Jobs with its log.')).toBeTruthy()
+    expect(within(ask).getByText('It stops after the item in hand, and is kept in Settings → Jobs with its log.')).toBeTruthy()
     // Said no: nothing stopped, nothing closed.
     fireEvent.click(within(ask).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
@@ -147,7 +147,7 @@ describe('the check', () => {
     await screen.findByRole('progressbar', { name: 'Waiting — 2 jobs ahead' })
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Cancel' }))
     const ask = await screen.findByRole('alertdialog', { name: 'Stop the check?' })
-    expect(within(ask).getByText('It is stopped before it starts, and kept in Settings › Jobs with its log.')).toBeTruthy()
+    expect(within(ask).getByText('It is stopped before it starts, and kept in Settings → Jobs with its log.')).toBeTruthy()
     expect(within(ask).queryByText(/item in hand/)).toBeNull()
     fireEvent.click(within(ask).getByRole('button', { name: 'Stop it' }))
     await waitFor(() => expect(JOBS.stops()).toEqual([checkId()]))
@@ -221,7 +221,7 @@ describe('the findings and the apply', () => {
     await review()
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Close' }))
     expect(closed).toBe(1)
-    expect(await screen.findByText('Findings kept · Settings › Jobs')).toBeTruthy()
+    expect(await screen.findByText('Findings kept · Settings → Jobs')).toBeTruthy()
   })
 
   // NOTHING TO CHANGE, NOTHING KEPT TO COME BACK TO: closing an up-to-date review
@@ -233,7 +233,7 @@ describe('the findings and the apply', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Close' }))
     expect(closed).toBe(1)
     await new Promise((r) => setTimeout(r, 50))
-    expect(screen.queryByText('Findings kept · Settings › Jobs')).toBeNull()
+    expect(screen.queryByText('Findings kept · Settings → Jobs')).toBeNull()
   })
 
   it('goes back to the review, saying why, when the apply job fails', async () => {

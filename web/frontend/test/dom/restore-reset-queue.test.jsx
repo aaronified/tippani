@@ -42,7 +42,7 @@ beforeEach(() => {
   JOBS = jobsServer()
 })
 
-const RUNNING = 'Fill gaps is running. The restore is refused until it stops or finishes — stop it in Settings › Jobs first.'
+const RUNNING = 'Fill gaps is running. The restore is refused until it stops or finishes — stop it in Settings → Jobs first.'
 
 // THE ORDER A READER MEETS THINGS IN: the notice, then step one's button.
 const before = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -93,7 +93,7 @@ describe('the factory reset', () => {
     JOBS.add({ kind: 'backup', state: 'running' })
     JOBS.add({ kind: 'fill', state: 'queued' })
     await openReset()
-    const notice = await screen.findByText('Back up is running. The reset is refused until it stops or finishes — stop it in Settings › Jobs first. One job is waiting; a reset deletes it with everything else.')
+    const notice = await screen.findByText('Back up is running. The reset is refused until it stops or finishes — stop it in Settings → Jobs first. One job is waiting; a reset deletes it with everything else.')
     expect(before(notice, screen.getByRole('button', { name: /Download a backup first/ }))).toBe(true)
   })
 

@@ -62,7 +62,7 @@ func busyBody(t *testing.T, what string, rec *httptest.ResponseRecorder) {
 		t.Fatalf("%s while a job runs: %d %s, want 409", what, rec.Code, rec.Body)
 	}
 	m := shaped(t, what+"'s refusal", rec.Body.Bytes(), "error", "busy")
-	if string(m["busy"]) != "true" || string(m["error"]) != `"A job is running. Stop it in Settings › Jobs, or wait for it to finish."` {
+	if string(m["busy"]) != "true" || string(m["error"]) != `"A job is running. Stop it in Settings → Jobs, or wait for it to finish."` {
 		t.Fatalf("%s's refusal: %s", what, rec.Body)
 	}
 }

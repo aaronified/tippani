@@ -4374,7 +4374,7 @@ reverify.checking.prose = Checking each item against its linked source — nothi
 reverify.checking.progress = checking · {done}/{total}
 # Under the checking bar. The check is a job on the server since 3.1.0, so
 # closing the dialog does not stop it — Cancel does, and asks first.
-reverify.checking.away = Close this and it carries on — Settings › Jobs has it.
+reverify.checking.away = Close this and it carries on — Settings → Jobs has it.
 # Above the check when the selection was bigger than one check holds (500).
 # {kept} is that cap, {total} the selection's size; the rest are not checked.
 reverify.capped = A check holds {kept} at most, so this one has the first {kept} of {total}. Narrow the list for the rest.
@@ -4416,14 +4416,14 @@ reverify.flash.skipped.one = {n} image skipped
 reverify.flash.skipped.other = {n} images skipped
 # Closing the dialog keeps the job; these toasts say where it went. Five words
 # or fewer, the house rule for a toast.
-reverify.kept.running = Still running · Settings › Jobs
-reverify.kept.review = Findings kept · Settings › Jobs
+reverify.kept.running = Still running · Settings → Jobs
+reverify.kept.review = Findings kept · Settings → Jobs
 # Cancel while the check runs STOPS it, which is why it asks.
 reverify.stop.confirm.title = Stop the check?
-reverify.stop.confirm.body = It stops after the item in hand, and is kept in Settings › Jobs with its log.
+reverify.stop.confirm.body = It stops after the item in hand, and is kept in Settings → Jobs with its log.
 # The same confirm over a check still in the queue: it has no item in hand, so
 # the server ends it before it starts.
-reverify.stop.confirm.body.waiting = It is stopped before it starts, and kept in Settings › Jobs with its log.
+reverify.stop.confirm.body.waiting = It is stopped before it starts, and kept in Settings → Jobs with its log.
 reverify.stop.confirm.verb = Stop it
 error.reverify.preview = preview failed
 error.reverify.apply = apply failed
@@ -4707,7 +4707,7 @@ account.reset.submit = Delete everything & restart
 account.reset.busy = Resetting…
 # Above step one of the factory reset, read when it opens: the same refusal as
 # the restore's, and the waiting jobs go with everything else.
-account.reset.queue.running = {title} is running. The reset is refused until it stops or finishes — stop it in Settings › Jobs first.
+account.reset.queue.running = {title} is running. The reset is refused until it stops or finishes — stop it in Settings → Jobs first.
 account.reset.queue.waiting.one = One job is waiting; a reset deletes it with everything else.
 account.reset.queue.waiting.other = {n} jobs are waiting; a reset deletes them with everything else.
 
@@ -5720,7 +5720,7 @@ settings.restore.warn.dated.prose = Replaces everything on this server with the 
 # database under the job queue (3.1.0), so the server refuses it while a job
 # runs, and the jobs still waiting end with the old database. {title} is the
 # running job's name, which the app composes from its kind and what it was about.
-settings.restore.queue.running = {title} is running. The restore is refused until it stops or finishes — stop it in Settings › Jobs first.
+settings.restore.queue.running = {title} is running. The restore is refused until it stops or finishes — stop it in Settings → Jobs first.
 settings.restore.queue.waiting.one = One job is waiting; a restore ends it, and it is kept as interrupted.
 settings.restore.queue.waiting.other = {n} jobs are waiting; a restore ends them, and each is kept as interrupted.
 # The account password, as against a passphrase — which is why it is not just
