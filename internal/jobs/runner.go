@@ -580,12 +580,15 @@ func (r *Runner) finish(j *Job, runErr error) {
 		who = j.username
 	}
 	dur := took(time.Since(j.started))
+	// Named as the export names it (Title), so the line in `docker logs` and
+	// the Markdown somebody is handed call the job the same thing.
+	name := Title(j.kind, j.subject, total)
 	if recErr != nil {
 		olog.Errorf(olog.CodeJobRecord, "[jobs] #%d %s for %s could not record its end (it %s in %s, %d/%d), so it reads running until Stop or a restart settles it: %v",
-			j.id, j.kind, who, state, dur, done, total, recErr)
+			j.id, name, who, state, dur, done, total, recErr)
 		return
 	}
-	line := fmt.Sprintf("[jobs] #%d %s for %s %s in %s (%d/%d)", j.id, j.kind, who, state, dur, done, total)
+	line := fmt.Sprintf("[jobs] #%d %s for %s %s in %s (%d/%d)", j.id, name, who, state, dur, done, total)
 	if errText != "" {
 		line += ": " + errText
 	}

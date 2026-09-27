@@ -48,7 +48,8 @@ import (
 // a job's start and end and loses neither; pressing a job that is already
 // waiting starts the queue; a job whose end could not be recorded reads running
 // until Stop settles it, and the server does not claim it ended otherwise; a job
-// whose account went is not run for anybody else. (That a finished job's last
+// whose account went is not run for anybody else; the server's line for a job
+// that ended names it in English, as its export does. (That a finished job's last
 // lines are there when it says it finished is in seams_test.go: only a parked
 // drainer shows it every time.)
 
@@ -1055,5 +1056,30 @@ func TestAJobSeesWhatItWasGivenAndReportsBack(t *testing.T) {
 	}
 	if lines := g.lines(id); len(lines) != 1 || lines[0] != "GET https://api.themoviedb.org/3/x?api_key=… → 401" {
 		t.Fatalf("its log: %q", lines)
+	}
+}
+
+// When a job ends the server says so in `docker logs`, and it says what the job
+// was in the words the job's Markdown export uses: a fill of three works is
+// "Fill gaps in 3 works", not "fill". A kind nobody named is called by its kind.
+func TestTheServersLineNamesAFinishedJobInEnglish(t *testing.T) {
+	g := newRig(t, jobs.Options{})
+	out := olog.CaptureForTest(t)
+	g.r.Register(jobs.Kind{Name: "fill", Run: func(_ context.Context, j *jobs.Job) error {
+		j.Progress(3, 3)
+		return nil
+	}})
+	fill, err := g.r.Enqueue(g.mitra(), "fill", "", map[string]any{"book_ids": []int{1, 2, 3}}, 3, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.waitState(fill, "succeeded")
+	quick := g.enqueue(g.mitra(), "quick", nil)
+	g.waitState(quick, "succeeded")
+	eventually(t, "both jobs' lines are printed", func() bool {
+		return strings.Contains(out.String(), fmt.Sprintf("[jobs] #%d quick for mitra succeeded in", quick))
+	})
+	if want := fmt.Sprintf("[jobs] #%d Fill gaps in 3 works for mitra succeeded in", fill); !strings.Contains(out.String(), want) {
+		t.Fatalf("the server's line for the fill: want %q in\n%s", want, out.String())
 	}
 }
