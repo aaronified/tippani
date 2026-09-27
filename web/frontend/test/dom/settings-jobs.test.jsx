@@ -247,6 +247,25 @@ describe('Past jobs', () => {
     expect(within(stranger).getByText('from a later server')).toBeTruthy()
   })
 
+  // A WARNING IN A JOB'S LOG SAYS SO IN WORDS. It was a line in the accent — the
+  // colour of a press — with nothing else to tell it from the rest; the word is
+  // what a reader scanning the column finds, whatever colours they can see.
+  it('says "Warning" and "Error" before those lines of a job’s log, and nothing before the rest', async () => {
+    LINES[7] = [
+      { id: 2, at: NOW - 2 * HOUR, level: 'info', line: '«The Paper Boat» — filled year, pages' },
+      { id: 3, at: NOW - 2 * HOUR, level: 'warn', line: 'openlibrary.org answered 429' },
+      { id: 4, at: NOW - 2 * HOUR, level: 'error', line: '«Lanterns» — not found' },
+    ]
+    await page()
+    const past = await card('Past jobs')
+    fireEvent.click(await within(past).findByRole('button', { name: /^Fill gaps/ }))
+    const log = await within(past).findByRole('log', { name: 'Log of Fill gaps' })
+    const line = async (text) => (await within(log).findByText(text)).parentElement.textContent
+    expect(await line('openlibrary.org answered 429')).toBe('Warningopenlibrary.org answered 429')
+    expect(await line('«Lanterns» — not found')).toBe('Error«Lanterns» — not found')
+    expect(await line('«The Paper Boat» — filled year, pages')).toBe('«The Paper Boat» — filled year, pages')
+  })
+
   it('narrows to how a job ended with the state chips', async () => {
     await page()
     const past = await card('Past jobs')

@@ -11894,7 +11894,12 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .job-log-line { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 .75em; }
 .job-log-at { color: var(--faint); }
 .job-log-text { overflow-wrap: anywhere; white-space: pre-wrap; min-width: 0; }
-.job-log-line.is-warn .job-log-text { color: var(--accent-ui); }
+/* A WARNING IS A WORD, NOT A COLOUR. The level word leads the line (see .log-level
+   below) and is set a step firmer than its faint neighbours on a warning, so it is
+   found by eye down a column; the line itself stays in the body ink. The accent is
+   the colour of a press, never of a warning (CLAUDE.md), and an error keeps the
+   danger colour it has everywhere. */
+.job-log-line.is-warn .log-level { color: var(--soft); font-weight: 600; }
 .job-log-line.is-error .job-log-text { color: var(--error); }
 /* THE LEVEL IS A WORD IN THE INTERFACE FACE, NOT THE MONO. The mono stack has no
    Indic face (locale.jsx says so), so a Bengali level name set in it falls to

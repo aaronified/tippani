@@ -122,9 +122,20 @@ function JobLog({ lines, trimmed = false, loaded = true, label, follow = false }
       {lines.map((l) => (
         <div key={l.id} className={`job-log-line is-${l.level || 'info'}`}>
           <span className="job-log-at">{formatClock(l.at)}</span>
-          {/* THE LINE IS THE SERVER'S, and it is data out of the database — a URL,
-              a title, a status — rather than copy this screen could translate. */}
-          <span className="job-log-text" data-content>{l.line}</span>
+          <span className="job-log-text">
+            {/* A WARNING OR AN ERROR SAYS SO IN WORDS, as every System logs row
+                does. It was a warning drawn in the accent, which is the colour of
+                a press — CLAUDE.md: "the accent is not a warning" — and a line in
+                it read as a link. A word also reaches a reader who cannot tell
+                the two colours apart. */}
+            {(l.level === 'warn' || l.level === 'error') && (
+              <span className="log-level">{t(`settings.logs.level.${l.level}.label`)}</span>
+            )}
+            {/* THE LINE IS THE SERVER'S, and it is data out of the database — a
+                URL, a title, a status — rather than copy this screen could
+                translate. */}
+            <span data-content>{l.line}</span>
+          </span>
         </div>
       ))}
     </Scroller>
