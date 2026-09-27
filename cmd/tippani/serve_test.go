@@ -11,7 +11,10 @@ package main
 // healthcheck_test.go); the journal tables' names and columns (jobs, job_logs,
 // system_logs), which it reads, and writes where a job has to exist that nothing
 // yet queues — the endpoints that start and list jobs are a later stage of 3.1.0;
-// the users and notify_settings tables, to give the daily deck two more readers
+// TIPPANI_LOG_HOLD, the logbook's declared test seam (honoured only offline),
+// which holds every line in memory until shutdown's last flush so that the
+// shutdown's order decides whether any line is kept at all, every run; the users
+// and notify_settings tables, to give the daily deck two more readers
 // without signing each in to Pushover's settings screen; and annotations'
 // created_at, which it moves back ten days, because the daily deck does not ask
 // about a quote in its first week and nothing a reader does makes one older. The
@@ -262,7 +265,10 @@ func TestAStoppedServerKeepsItsLastLinesAndSettlesTheJobsItFound(t *testing.T) {
 		}
 	}
 
-	srv := serveOn(t, dir)
+	// Every line this server logs is held in memory until shutdown's last flush
+	// (TIPPANI_LOG_HOLD), so each line found kept below was written by that
+	// flush: a shutdown that closed the log pool first would keep none of them.
+	srv := serveOn(t, dir, "TIPPANI_LOG_HOLD=1")
 	srv.get("/api/locales")
 	srv.get("/api/auth/status?probe=Wv-kept-value")
 	// A reader looks a book up. This server is offline, so the lookup's call out
@@ -270,10 +276,14 @@ func TestAStoppedServerKeepsItsLastLinesAndSettlesTheJobsItFound(t *testing.T) {
 	srv.signUp("alice", "a-long-password")
 	srv.send("POST", "/api/books/lookup", map[string]string{"title": "Dune"}, http.StatusBadGateway)
 	// A job still waiting when the container is stopped. Shutdown's first step
-	// interrupts it and logs its line a moment before the log's last flush, so
-	// the line is kept only if that flush comes before the log pool closes.
+	// interrupts it and logs its line, which only the log's last flush can keep.
 	live := openData(t, dir)
 	mustExec(t, live.DB, `INSERT INTO jobs (id, kind, state, created_at) VALUES (60, 'fill', 'queued', 3)`)
+	// The hold is on: a server that has booted, served four requests and made a
+	// lookup's job has written none of it yet.
+	if n := count(t, live.DB, `SELECT count(*) FROM system_logs`) + count(t, live.DB, `SELECT count(*) FROM job_logs`); n != 0 {
+		t.Fatalf("%d lines were written before the stop, so the log is not held and this test proves no order", n)
+	}
 	live.Close()
 	srv.stop()
 	terminal := srv.out.String()
@@ -287,8 +297,7 @@ func TestAStoppedServerKeepsItsLastLinesAndSettlesTheJobsItFound(t *testing.T) {
 		// openStore's integrity pass, logged before the logbook had a store.
 		{"a boot line written before the store was open", "info", "[fts] books_fts OK"},
 		{"the request, with its query value left out", "request", "GET /api/auth/status?probe=… 200 %"},
-		// The line logged the moment the signal arrived: kept, so the log was
-		// written before its pool closed.
+		// The line logged the moment the signal arrived.
 		{"the shutdown's first line", "info", "received terminated — shutting down gracefully"},
 	} {
 		if kept(c.level, c.like) != 1 {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"tippani/internal/olog"
+	"tippani/internal/outbound"
 	"tippani/internal/store"
 )
 
@@ -107,6 +108,21 @@ func defaultTuning() tuning {
 		beforeWrite: func() {},
 	}
 }
+
+// LogHoldEnv is a test seam, declared here and in the header of every file that
+// uses it: TIPPANI_LOG_HOLD=1 keeps the drainer from writing until Close, so every
+// line the server logged is written by shutdown's last flush and none before it.
+// Shutdown's order is only observable that way. Without it, the drainer has
+// usually written a line a few milliseconds after it was logged, and a shutdown
+// that closed the log pool before its last flush lost only what was still in
+// hand — nothing, most runs — so a test of the order passed most of the time with
+// the order wrong. Held, a wrong order loses every line, every run.
+//
+// Honoured only while outbound.Off(), like the queue's HoldEnv: a server that can
+// reach the internet ignores it, so the switch cannot quietly leave a real
+// deployment keeping its log in memory. While it holds, a Flush waits out its
+// whole budget.
+const LogHoldEnv = "TIPPANI_LOG_HOLD"
 
 // stderr is where the logbook's own failures go. Never through olog: once the
 // olog sink feeds the logbook, a drainer that logged its failure through olog
@@ -220,12 +236,14 @@ type Logbook struct {
 	prune       *pruneRun // the prune in progress, if any
 
 	closed bool
+	held   bool // LogHoldEnv: nothing is written until Close
 	tune   tuning
 }
 
 // NewLogbook makes a logbook with no store: it buffers until Attach.
 func NewLogbook() *Logbook {
-	return &Logbook{changed: make(chan struct{}), tune: defaultTuning()}
+	return &Logbook{changed: make(chan struct{}), tune: defaultTuning(),
+		held: os.Getenv(LogHoldEnv) == "1" && outbound.Off()}
 }
 
 // Attach gives the logbook its store, once the log tables exist, and starts
@@ -359,8 +377,13 @@ func (lb *Logbook) Flush(ctx context.Context) error {
 // afterwards goes to stdout and stderr only, and whatever the flush did not get
 // to is let go, so a Flush after Close returns at once. Shutdown calls it before
 // closing the store, so the last lines land and nothing afterwards finds a
-// closed pool.
+// closed pool. A logbook held by LogHoldEnv is let go first, so this flush is
+// the one that writes everything.
 func (lb *Logbook) Close(ctx context.Context) error {
+	lb.mu.Lock()
+	lb.held = false
+	lb.kickLocked()
+	lb.mu.Unlock()
 	err := lb.Flush(ctx)
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
@@ -482,7 +505,7 @@ func (e *entry) lineCount() int {
 // kickLocked starts the drainer if there is work, a store to write it to, and
 // no drainer already.
 func (lb *Logbook) kickLocked() {
-	if lb.alive || lb.st == nil || lb.closed {
+	if lb.alive || lb.st == nil || lb.closed || lb.held {
 		return
 	}
 	if lb.head == len(lb.buf) && !lb.pruneWanted && lb.prune == nil {

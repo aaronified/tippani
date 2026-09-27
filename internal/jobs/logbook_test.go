@@ -1,6 +1,7 @@
 package jobs_test
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"tippani/internal/jobs"
+	"tippani/internal/outbound"
 )
 
 // THE LOGBOOK, THROUGH WHAT IT PROMISES.
@@ -23,7 +25,9 @@ import (
 // promises to fill. Standing in for a restore, a recovery or a factory reset, it
 // calls the store's Swap and, once, moves another database file into its place.
 // The bounds are the real ones (8 MB, 16384 lines); the one test that needs
-// smaller numbers is in seams_test.go and says so.
+// smaller numbers is in seams_test.go and says so. One test sets TIPPANI_LOG_HOLD
+// (LogHoldEnv), the logbook's declared test seam, to prove it holds only offline
+// and only until Close.
 //
 // What each one guards, in a sentence a person would say: the lines from before
 // the database opened are still in the log; a key in a provider's error never
@@ -34,8 +38,9 @@ import (
 // database was swapped under it or its reader's account was deleted before it
 // landed; when the log falls behind, request lines go first and a job's lines
 // last, and the log says how many went; no line is ever left waiting with nothing
-// to write it; and thirty days on, old lines and finished jobs go and a job still
-// waiting does not.
+// to write it; thirty days on, old lines and finished jobs go and a job still
+// waiting does not; and the test seam that holds every line for shutdown's last
+// flush never holds a server that can reach the internet.
 
 func TestLinesFromBeforeTheDatabaseOpenedAreKept(t *testing.T) {
 	lb := jobs.NewLogbook()
@@ -499,5 +504,45 @@ func TestAClosedLogbookKeepsNothingMoreAndBlocksNobody(t *testing.T) {
 	flush(t, lb) // returns at once: nothing is waiting
 	if got := strings1(t, st.DB, `SELECT line FROM system_logs`); strings.Join(got, "|") != "before close" {
 		t.Fatalf("system log: %q", got)
+	}
+}
+
+// THE LOG HOLD KEEPS EVERY LINE FOR THE LAST FLUSH, AND HOLDS ONLY OFFLINE.
+// TIPPANI_LOG_HOLD (LogHoldEnv) is the logbook's declared test seam: the serve
+// tests set it so that shutdown's order decides whether any line is kept at all.
+// What it must never do is leave a server that can reach the internet keeping its
+// log in memory.
+func TestTheLogHoldKeepsEveryLineForTheLastFlushAndHoldsOnlyOffline(t *testing.T) {
+	st := openStore(t)
+	t.Setenv(jobs.LogHoldEnv, "1")
+	kept := func(line string) int {
+		return count(t, st.DB, `SELECT count(*) FROM system_logs WHERE line = ?`, line)
+	}
+
+	// Online, the switch is ignored, and a line is written as it always is.
+	t.Setenv(outbound.EnvVar, "")
+	online := jobs.NewLogbook()
+	online.Attach(st)
+	online.System(jobs.LevelInfo, "", "written while online")
+	flush(t, online)
+	closeLogbook(online)
+	if kept("written while online") != 1 {
+		t.Fatal("online, the hold kept a line back")
+	}
+
+	// Offline, nothing is written until Close, and Close writes all of it.
+	t.Setenv(outbound.EnvVar, "1")
+	held := jobs.NewLogbook()
+	held.Attach(st)
+	held.System(jobs.LevelInfo, "", "held for the last flush")
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	if err := held.Flush(ctx); err == nil || kept("held for the last flush") != 0 {
+		t.Fatalf("a held logbook wrote its line before Close (flush: %v)", err)
+	}
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := held.Close(ctx); err != nil || kept("held for the last flush") != 1 {
+		t.Fatalf("Close did not write the held line (close: %v)", err)
 	}
 }
