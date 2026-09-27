@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	"tippani/internal/jobs"
@@ -22,7 +23,8 @@ import (
 //   - not the query's VALUES: they are what a reader searched for, a title, a
 //     name, and on the OIDC callback the one-time code and state;
 //   - not a share link's token, /share/image/{token}, which is the credential
-//     itself — whoever holds it can fetch the picture without signing in.
+//     itself — whoever holds it can fetch the picture without signing in; nor in
+//     the lines that name a request still running (keptPath).
 //
 // And it is not kept at all for the Jobs tab's own reads. The tab polls while it
 // is open; a log that wrote a line for every read of the log would fill itself
@@ -77,15 +79,34 @@ func under(path, prefix string) bool {
 // shareImagePrefix is the one path whose last segment is a credential.
 const shareImagePrefix = "/api/share/image/"
 
-// keptURI is the request URI as the kept line shows it: the path, with a share
-// link's token as "…", and the query with every value that is not empty as "…".
-// A name with no value stays as it was, and so does an empty value — "q=" says the
-// box was empty, which is worth reading and hides nothing.
-func keptURI(u *url.URL) string {
-	p := u.EscapedPath()
-	if strings.HasPrefix(p, shareImagePrefix) && len(p) > len(shareImagePrefix) {
-		p = shareImagePrefix + "…"
+// keptPath is a request's path as any line that outlives the request shows it:
+// the path as it was sent, or, for a share link, shareImagePrefix and "…".
+//
+// THE TEST IS ON THE PATH AS THE ROUTER READS IT, NOT AS IT WAS SENT. The router
+// unescapes each segment and cleans the path before it matches, so
+// /api/share/%69mage/{token} is served the picture (200), and /api//share/image/
+// {token} is redirected to it (307); both still carry the token as sent, and a
+// test on the raw text let both through into the kept log. u.Path is the path
+// unescaped, and path.Clean does the rest, so every spelling that reaches the
+// share route, or is sent on to it, is caught. A path that only looks like one
+// (an escaped slash, which the router would not follow) is blanked as well: a
+// line that hides a little too much costs nothing.
+//
+// The in-flight tracker and the database door use it too: their lines name the
+// requests still running, go to the same system log, and are kept as long.
+func keptPath(u *url.URL) string {
+	if c := path.Clean("/" + u.Path); strings.HasPrefix(c, shareImagePrefix) && len(c) > len(shareImagePrefix) {
+		return shareImagePrefix + "…"
 	}
+	return u.EscapedPath()
+}
+
+// keptURI is the request URI as the kept line shows it: the path (keptPath), and
+// the query with every value that is not empty as "…". A name with no value stays
+// as it was, and so does an empty value — "q=" says the box was empty, which is
+// worth reading and hides nothing.
+func keptURI(u *url.URL) string {
+	p := keptPath(u)
 	if u.RawQuery == "" {
 		return p
 	}

@@ -55,7 +55,9 @@ func (f *flightTable) track(next http.Handler) http.Handler {
 		if f.reqs == nil {
 			f.reqs = map[string]*flight{}
 		}
-		f.reqs[rid] = &flight{method: r.Method, path: r.URL.Path, remote: r.RemoteAddr, since: now}
+		// keptPath, not the path as sent: the lines this table writes go to the
+		// system log, and a share download is a request like any other here.
+		f.reqs[rid] = &flight{method: r.Method, path: keptPath(r.URL), remote: r.RemoteAddr, since: now}
 		f.mu.Unlock()
 		f.reportOverdue(now)
 		defer func() {

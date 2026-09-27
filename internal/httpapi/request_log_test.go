@@ -17,6 +17,7 @@ import (
 	"tippani/internal/jobs"
 	"tippani/internal/olog"
 	"tippani/internal/outbound"
+	"tippani/internal/store"
 )
 
 // WHAT THE SERVER KEEPS OF A REQUEST, AND OF A LOOKUP MADE IN ONE.
@@ -34,11 +35,16 @@ import (
 // `docker logs`. The restore test parks a lookup inside its outward call by
 // wrapping the observer, because a restore landing between the moment a request
 // is signed in and the moment its job is written is a window of microseconds that
-// nothing a person does holds open; the restore itself is the API's.
+// nothing a person does holds open; the restore itself is the API's. The test of a
+// share link stuck at the door holds the pool full (store.HoldEveryConnectionForTest,
+// as the health tests do, for the same reason: nothing a reader does puts a live
+// server in that state), and installs olog's sink as serve() does (olog.SetSink),
+// since the lines it reads are olog's.
 //
 // What each one guards, in a sentence a person would say: the log keeps what a
-// request did and not what it carried, a search's words or a share link; the
-// terminal line is the one it always was; a picture is kept as a file and the Jobs
+// request did and not what it carried, a search's words or a share link, however
+// the link is spelled, and a line naming a download stuck at the door keeps no link
+// either; the terminal line is the one it always was; a picture is kept as a file and the Jobs
 // tab's own reading is not kept at all; a lookup made with a saved key is kept as a
 // job that shows every call it made, and the key is in no row and on no stream;
 // and a lookup whose database was restored under it is kept for nobody.
@@ -109,22 +115,34 @@ func TestTheLogKeepsWhatARequestDidAndNotWhatItCarried(t *testing.T) {
 	// The phone's download manager fetches the link with no session at all.
 	anon := &testClient{t: t, h: h}
 	anon.mustDo("GET", staged.URL, nil, http.StatusOK)
+	// Two other spellings of the same link, which a person pasting or a client
+	// normalising a URL can send: a letter escaped, which the router unescapes and
+	// serves, and a doubled slash, which it redirects to the link.
+	anon.mustDo("GET", "/api/share/%69mage/"+token, nil, http.StatusOK)
+	if rec := anon.do("GET", "/api//share/image/"+token, nil); rec.Code/100 != 3 {
+		t.Fatalf("the doubled slash was answered %d, not sent on to the link", rec.Code)
+	}
 	flushed(t, lb)
 
 	lines := kept(t, srv)
 	search := regexp.MustCompile(`^request GET /api/books\?q=…&sort=…&empty= 200 \S+ \d+B 192\.0\.2\.1:1234 alice r\d+$`)
 	share := regexp.MustCompile(`^asset GET /api/share/image/… 200 \S+ \d+B 192\.0\.2\.1:1234 - r\d+$|^request GET /api/share/image/… 200 \S+ \d+B 192\.0\.2\.1:1234 - r\d+$`)
-	var sawSearch, sawShare bool
+	redirected := regexp.MustCompile(`^request GET /api/share/image/… 3\d\d \S+ \d+B 192\.0\.2\.1:1234 - r\d+$`)
+	var sawSearch, sawRedirect bool
+	sawShare := 0
 	for _, l := range lines {
 		sawSearch = sawSearch || search.MatchString(l)
-		sawShare = sawShare || share.MatchString(l)
+		sawRedirect = sawRedirect || redirected.MatchString(l)
+		if share.MatchString(l) {
+			sawShare++
+		}
 		if strings.Contains(l, "Wv-searched-words") || strings.Contains(l, token) {
 			t.Errorf("a kept line holds what the request carried: %q", l)
 		}
 	}
-	if !sawSearch || !sawShare {
-		t.Fatalf("the kept lines do not show the search (%t) and the share download (%t) as they should:\n%s",
-			sawSearch, sawShare, strings.Join(lines, "\n"))
+	if !sawSearch || sawShare != 2 || !sawRedirect {
+		t.Fatalf("the kept lines do not show the search (%t), the two share downloads (%d) and the redirect (%t) as they should:\n%s",
+			sawSearch, sawShare, sawRedirect, strings.Join(lines, "\n"))
 	}
 
 	// THE TERMINAL LINE IS THE ONE IT ALWAYS WAS: the whole request URI, on its
@@ -135,6 +153,67 @@ func TestTheLogKeepsWhatARequestDidAndNotWhatItCarried(t *testing.T) {
 	}
 	if !strings.Contains(terminal.String(), " GET /api/share/image/"+token+" 200 ") {
 		t.Fatalf("the terminal's line for the share download changed:\n%s", terminal)
+	}
+}
+
+// A SHARE LINK STUCK AT THE DOOR IS NAMED WITHOUT ITS TOKEN. The lines that name a
+// request still running (a failed health check's) or refused (the database door's)
+// go to the system log like the request's own line, and are kept as long, so they
+// leave the token out too. The pool is held full, as the health tests hold it,
+// which keeps the download waiting at the door while the health check fails, and
+// then has the door refuse it.
+func TestAShareDownloadStuckAtTheDoorIsNamedWithoutItsToken(t *testing.T) {
+	srv := newTestServer(t)
+	lb := keeping(t, srv)
+	// serve()'s sink: the health check's and the door's lines are olog's.
+	olog.SetSink(func(e olog.Entry) { lb.System(e.Level, e.Code, e.Line) })
+	t.Cleanup(func() { olog.SetSink(nil) })
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	staged := decode[struct {
+		URL string `json:"url"`
+	}](t, admin.importFile("/share/image", "quote.png", append(append([]byte{}, pngHeader...), "card"...)))
+	token := strings.TrimPrefix(staged.URL, "/share/image/")
+	if token == "" || token == staged.URL {
+		t.Fatalf("no share link came back: %q", staged.URL)
+	}
+
+	held := store.HoldEveryConnectionForTest(t, srv.Store.DB)
+	waits := srv.Store.DB.Stats().WaitCount
+	done := make(chan int, 1)
+	anon := &testClient{t: t, h: h}
+	go func() { done <- anon.do("GET", staged.URL, nil).Code }()
+	for i := 0; srv.Store.DB.Stats().WaitCount == waits; i++ {
+		if i > 400 {
+			t.Fatal("the download never queued for a connection")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if rec := healthz(h); rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("/healthz while the download waits on a held pool: got %d, want 503", rec.Code)
+	}
+	select {
+	case code := <-done:
+		if code != http.StatusServiceUnavailable {
+			t.Fatalf("the download, with no connection to be had: got %d, want 503 at the door", code)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("the download was still waiting at the door after 20s")
+	}
+	store.ReleaseForTest(held)
+	flushed(t, lb)
+
+	var health, door bool
+	for _, l := range kept(t, srv) {
+		health = health || strings.HasPrefix(l, "error GET /healthz: ") && strings.Contains(l, "GET /api/share/image/… ")
+		door = door || strings.HasPrefix(l, "error GET /api/share/image/… (req r")
+		if strings.Contains(l, token) {
+			t.Errorf("a kept line holds the share link's token: %q", l)
+		}
+	}
+	if !health || !door {
+		t.Fatalf("the kept log does not name the download in the failed health check (%t) and at the door (%t):\n%s",
+			health, door, strings.Join(kept(t, srv), "\n"))
 	}
 }
 

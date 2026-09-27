@@ -89,7 +89,7 @@ func (s *Server) admitDB(next http.Handler) http.Handler {
 		now := time.Now()
 		s.running.reportOverdue(now)
 		olog.Errorf(olog.CodeHTTPNoConnection, "%s %s%s: %v; %s",
-			r.Method, r.URL.Path, reqSuffix(r), err, s.running.describe(1, now))
+			r.Method, keptPath(r.URL), reqSuffix(r), err, s.running.describe(1, now))
 		// The code beside the sentence is how the SPA knows this refusal from any
 		// other 503 (a missing provider key is one) and shows its busy screen,
 		// without matching on English.
