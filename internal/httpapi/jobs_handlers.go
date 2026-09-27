@@ -69,8 +69,8 @@ type jobView struct {
 	State   string `json:"state"`
 	// Params are what the job was asked to do. Nothing secret is ever in them.
 	Params json.RawMessage `json:"params"`
-	// Counts are the result's numbers — each number in it, and each list's
-	// length — never the result itself, which GET /jobs/{id}/result reads.
+	// Counts are what the job's kind counts of its result (queuedKind.counts),
+	// never the result itself, which GET /jobs/{id}/result reads.
 	Counts   json.RawMessage `json:"counts"`
 	Error    string          `json:"error"`
 	Total    int             `json:"total"`
@@ -102,19 +102,12 @@ type jobRow struct {
 	started, finished                      sql.NullInt64
 }
 
-// jobColumns is every column jobRow reads, counts included. The counts are made
-// in SQL so a list never carries a job's whole result off the disk: a re-verify's
-// result is every field of up to five hundred works.
+// jobColumns is every column jobRow reads. result is not one of them: a
+// re-verify's is every field of up to five hundred works, and the counts a list
+// shows were made from it when the job stored it (0079 says why, and why result
+// is the row's last column).
 const jobColumns = `id, user_id, username, kind, queued, subject, state, params, error, total, done,
-	rerun_of, from_job, created_at, started_at, finished_at,
-	CASE
-		WHEN result = '' OR NOT json_valid(result) THEN '{}'
-		WHEN json_type(result) = 'array' THEN json_object('items', json_array_length(result))
-		WHEN json_type(result) = 'object' THEN COALESCE((SELECT json_group_object(key,
-				CASE WHEN type = 'array' THEN json_array_length(value) ELSE value END)
-			FROM json_each(jobs.result) WHERE type IN ('integer', 'real', 'array')), '{}')
-		ELSE '{}'
-	END`
+	rerun_of, from_job, created_at, started_at, finished_at, counts`
 
 func scanJob(sc interface{ Scan(...any) error }) (jobRow, error) {
 	var j jobRow

@@ -99,6 +99,8 @@ func TestARestoreKeepsTheServersJournalAndOnlyTheOwnersThatStillMatch(t *testing
 		(106, 5,    'erin',  'fill',   'queued',    1, NULL, NULL),
 		(107, 6,    'greta', 'fill',   'succeeded', 1, 2, 3),
 		(108, 7,    'hana',  'fill',   'succeeded', 1, 2, 3)`)
+	// What a finished job found, and its counts, which its screen reads back.
+	mustExecT(t, s, `UPDATE jobs SET counts = '{"fields":4}', result = '{"fields":4,"failed":0}' WHERE id = 101`)
 	mustExecT(t, s, `INSERT INTO job_logs (id, job_id, at, level, line) VALUES
 		(900, 101, 5, 'info', 'filled Invisible Cities'), (901, 105, 6, 'info', 'sealing')`)
 	mustExecT(t, s, `INSERT INTO system_logs (id, at, level, code, line) VALUES
@@ -205,6 +207,10 @@ func TestARestoreKeepsTheServersJournalAndOnlyTheOwnersThatStillMatch(t *testing
 	}
 	if j := jobs[103]; j.state != "failed" || j.finished.Int64 != 3 {
 		t.Errorf("a finished job changed in the carry-over: %+v", j)
+	}
+	if n := countT(t, s.DB, `SELECT count(*) FROM jobs WHERE id = 101
+		AND counts = '{"fields":4}' AND result = '{"fields":4,"failed":0}'`); n != 1 {
+		t.Error("job 101's result and counts were not carried")
 	}
 
 	if n := countT(t, s.DB, `SELECT count(*) FROM job_logs WHERE (id = 900 AND job_id = 101 AND line = 'filled Invisible Cities') OR (id = 901 AND job_id = 105)`); n != 2 {

@@ -152,7 +152,7 @@ func CarryJournal(db *sql.DB, from string) (err error) {
 		{"clear the restored journal", `DELETE FROM main.jobs`, nil},
 		{"clear the restored journal", `DELETE FROM main.system_logs`, nil},
 		{"carry the jobs", `
-			INSERT INTO main.jobs (id, user_id, username, kind, queued, subject, state, params, result,
+			INSERT INTO main.jobs (id, user_id, username, kind, queued, subject, state, params, counts, result,
 			                       error, total, done, stop_requested, rerun_of, from_job,
 			                       created_at, started_at, finished_at)
 			SELECT o.id,
@@ -163,7 +163,7 @@ func CarryJournal(db *sql.DB, from string) (err error) {
 			            THEN o.user_id END,
 			       o.username, o.kind, o.queued, o.subject,
 			       CASE WHEN o.state IN ('queued', 'running') THEN 'interrupted' ELSE o.state END,
-			       o.params, o.result, o.error, o.total, o.done, o.stop_requested, o.rerun_of, o.from_job,
+			       o.params, o.counts, o.result, o.error, o.total, o.done, o.stop_requested, o.rerun_of, o.from_job,
 			       o.created_at, o.started_at,
 			       CASE WHEN o.state IN ('queued', 'running') THEN ? ELSE o.finished_at END
 			  FROM old.jobs o`, []any{now}},

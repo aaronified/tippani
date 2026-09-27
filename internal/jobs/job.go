@@ -102,8 +102,9 @@ func (j *Job) final() (done, total int) {
 	return j.done, j.total
 }
 
-// SetResult stores v, as JSON, for the job's own screen to read back. More than
-// 8 MB is refused (ErrTooLarge).
+// SetResult stores v, as JSON, for the job's own screen to read back, and the
+// counts its kind makes of it (Kind.Counts) in the same write. More than 8 MB is
+// refused (ErrTooLarge).
 func (j *Job) SetResult(v any) error {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -112,6 +113,35 @@ func (j *Job) SetResult(v any) error {
 	if len(b) > maxResult {
 		return ErrTooLarge
 	}
-	_, err = j.r.st.DB.Exec(`UPDATE jobs SET result = ? WHERE id = ?`, string(b), j.id)
+	counts, err := j.counts(b)
+	if err != nil {
+		return err
+	}
+	_, err = j.r.st.DB.Exec(`UPDATE jobs SET result = ?, counts = ? WHERE id = ?`, string(b), counts, j.id)
 	return err
+}
+
+// counts is the kind's counts of result, as stored: {} for a kind that counts
+// nothing. A string among them passes the door a subject does (one line,
+// redacted, 200 characters): it is a provider's error text more often than not,
+// and it rides on every list row and into a flash.
+func (j *Job) counts(result []byte) (string, error) {
+	k, ok := j.r.kind(j.kind)
+	if !ok || k.Counts == nil {
+		return "{}", nil
+	}
+	c := k.Counts(result)
+	if len(c) == 0 {
+		return "{}", nil
+	}
+	for key, v := range c {
+		if s, ok := v.(string); ok {
+			c[key] = cleanSubject(s)
+		}
+	}
+	b, err := json.Marshal(c)
+	if err != nil {
+		return "", fmt.Errorf("jobs: counts: %w", err)
+	}
+	return string(b), nil
 }

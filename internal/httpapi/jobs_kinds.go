@@ -68,6 +68,11 @@ type queuedKind struct {
 	// stored value changed since the check comes back marked changed and the
 	// screen never pre-ticks it.
 	review func(s *Server, uid int64, result json.RawMessage) (any, error)
+	// counts is what the job JSON's counts say of a result the job stored
+	// (jobs.Kind.Counts): the numbers the screens read — Past jobs' summary line,
+	// the toast the starting screen shows — named as the wire contract names
+	// them. nil: none, and counts is {}.
+	counts func(result json.RawMessage) map[string]any
 	// run is the job itself (jobs.Kind.Run, with the server).
 	run func(s *Server, ctx context.Context, j *jobs.Job) error
 }
@@ -98,21 +103,105 @@ func badParams(format string, args ...any) *refusal {
 // field renamed there.
 var builtinJobKinds = []queuedKind{
 	// {book_ids, movie_ids}: fill in what the selected works are missing.
-	{name: "fill", rerunnable: true, againAfterSuccess: true, validate: validateFill},
+	// Result {fields, failed, unpinned}, and those are its counts.
+	{name: "fill", rerunnable: true, againAfterSuccess: true, validate: validateFill,
+		counts: countsNamed("fields", "failed", "unpinned")},
 	// {missing_only}: fetch every cover and poster the reader's library lacks
 	// (or, without missing_only, better ones). Admin, as the chunked route is.
-	{name: "covers", adminOnly: true, rerunnable: true, againAfterSuccess: true, validate: validateCovers},
-	// {ids}: a portrait and links for each person record.
-	{name: "people", rerunnable: true, againAfterSuccess: true, validate: validatePeople},
+	// Result {fetched, enriched, failed, skipped}, and those are its counts.
+	{name: "covers", adminOnly: true, rerunnable: true, againAfterSuccess: true, validate: validateCovers,
+		counts: countsNamed("fetched", "enriched", "failed", "skipped")},
+	// {ids}: a portrait and links for each person record. Result {ok, failed,
+	// first_error}, and those are its counts, the error's text included: the
+	// People screen's flash says why the first one failed.
+	{name: "people", rerunnable: true, againAfterSuccess: true, validate: validatePeople,
+		counts: countsNamed("ok", "failed", "first_error")},
 	// {book_ids, movie_ids, people: [{kind, name}], fills_only}: ask the
-	// suppliers again and keep what they say, for the reader to review.
-	{name: "reverify", rerunnable: true, againAfterSuccess: true, validate: validateReverify},
+	// suppliers again and keep what they say, for the reader to review. Result:
+	// the preview's items; counts {items, changes}.
+	{name: "reverify", rerunnable: true, againAfterSuccess: true, validate: validateReverify,
+		counts: countReverify},
 	// {items, from_job}: write the fields the reader ticked in that review.
-	{name: "reverify-apply", rerunnable: true, validate: validateReverifyApply},
+	// Result: one line per item; counts {applied, skipped, failed}.
+	{name: "reverify-apply", rerunnable: true, validate: validateReverifyApply,
+		counts: countReverifyApply},
 	// {password | passphrase}: seal a backup with it. The password is checked
-	// here, for an answer before anything queues, and again by the job.
+	// here, for an answer before anything queues, and again by the job. Result:
+	// the archive, as GET /admin/backup describes it; nothing to count.
 	{name: "backup", adminOnly: true, rerunnable: true, againAfterSuccess: true,
 		validate: validateBackup, secret: backupSecret},
+}
+
+// countsNamed counts a result that is an object by keeping the members named,
+// each a number or a string; anything else in it, and any member missing, is left
+// out. The screens read an absent count as none.
+func countsNamed(names ...string) func(json.RawMessage) map[string]any {
+	return func(result json.RawMessage) map[string]any {
+		var obj map[string]json.RawMessage
+		if json.Unmarshal(result, &obj) != nil {
+			return nil
+		}
+		out := map[string]any{}
+		for _, name := range names {
+			var v any
+			if json.Unmarshal(obj[name], &v) != nil {
+				continue
+			}
+			switch v.(type) {
+			case float64, string:
+				out[name] = v
+			}
+		}
+		return out
+	}
+}
+
+// countReverify counts a check's items and, of them, the ones with something to
+// review: checked and differing, as POST /metadata/reverify counts changed. A
+// check whose changes are 0 has nothing to review, and Past jobs offers no
+// Review for it.
+func countReverify(result json.RawMessage) map[string]any {
+	var items []struct {
+		Status string            `json:"status"`
+		Diffs  []json.RawMessage `json:"diffs"`
+	}
+	if json.Unmarshal(result, &items) != nil {
+		return nil
+	}
+	changes := 0
+	for _, it := range items {
+		if it.Status == "ok" && len(it.Diffs) > 0 {
+			changes++
+		}
+	}
+	return map[string]any{"items": len(items), "changes": changes}
+}
+
+// countReverifyApply counts an apply's lines as the review's own flash reads
+// them: written (ok), failed (not ok), and skipped — a line carrying a note,
+// which is what the apply says about a picture it could not fetch or a field it
+// left because it changed since the check. A written line with a note is
+// counted in both, as the flash counts it.
+func countReverifyApply(result json.RawMessage) map[string]any {
+	var lines []struct {
+		OK   bool   `json:"ok"`
+		Note string `json:"note"`
+	}
+	if json.Unmarshal(result, &lines) != nil {
+		return nil
+	}
+	applied, skipped, failed := 0, 0, 0
+	for _, l := range lines {
+		if l.OK {
+			applied++
+		} else {
+			failed++
+		}
+		if l.Note != "" {
+			skipped++
+		}
+	}
+	return map[string]any{"applied": applied, "skipped": skipped, "failed": failed}
 }
 
 // RegisterJobKinds puts every built-in kind that has a run on s.Jobs. serve()
@@ -130,7 +219,8 @@ func (s *Server) addJobKind(k queuedKind) {
 	run := k.run
 	s.Jobs.Register(jobs.Kind{
 		Name: k.name, AdminOnly: k.adminOnly, Rerunnable: k.rerunnable,
-		Run: func(ctx context.Context, j *jobs.Job) error { return run(s, ctx, j) },
+		Run:    func(ctx context.Context, j *jobs.Job) error { return run(s, ctx, j) },
+		Counts: k.counts,
 	})
 	s.startableMu.Lock()
 	defer s.startableMu.Unlock()

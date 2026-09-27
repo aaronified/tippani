@@ -21,6 +21,14 @@
 -- pruned job's id handed to a new one would put a stranger's job behind that link.
 -- The two log tables do not need it: a plain rowid is reused only when the newest
 -- row is deleted, and the prune removes the oldest.
+--
+-- counts IS WRITTEN BESIDE result, NOT DERIVED FROM IT ON READ. Every list of jobs
+-- carries each job's counts, and a count means something only to its kind (a
+-- re-verify's is how many of its items differ, an apply's how many were written),
+-- so the kind works them out once, when the job stores its result. And result is
+-- the row's LAST column: a re-verify's is every field of up to five hundred works,
+-- which spills into overflow pages, and SQLite reaches a column by walking the row
+-- from its start, so a read of the columns before result never walks those pages.
 CREATE TABLE jobs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,  -- never reused: in-memory maps, spools and links name a job by id
   -- NO REFERENCES users(id), on purpose. A foreign key is checked on INSERT as well
@@ -34,7 +42,7 @@ CREATE TABLE jobs (
   subject TEXT NOT NULL DEFAULT '',      -- data, not prose: what was searched, the file name
   state TEXT NOT NULL,                   -- queued|running|succeeded|failed|stopped|interrupted (Go-validated)
   params TEXT NOT NULL DEFAULT '{}',     -- JSON; never a secret
-  result TEXT NOT NULL DEFAULT '',       -- JSON the job's own screen reads back
+  counts TEXT NOT NULL DEFAULT '{}',     -- JSON: the result's counts, as the job's kind counts them
   error TEXT NOT NULL DEFAULT '',
   total INTEGER NOT NULL DEFAULT 0,
   done INTEGER NOT NULL DEFAULT 0,
@@ -43,7 +51,8 @@ CREATE TABLE jobs (
   from_job INTEGER,                      -- reverify-apply → the reverify it came from
   created_at INTEGER NOT NULL,           -- unix ms
   started_at INTEGER,
-  finished_at INTEGER
+  finished_at INTEGER,
+  result TEXT NOT NULL DEFAULT ''        -- JSON the job's own screen reads back; last, see above
 );
 -- The queue's claim (oldest queued), a reader's own list, and the prune's cutoff.
 CREATE INDEX jobs_state ON jobs(state, id);

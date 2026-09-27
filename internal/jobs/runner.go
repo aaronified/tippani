@@ -68,11 +68,18 @@ const progressEvery = 500 * time.Millisecond
 // that queued it by design, and it is cancelled only when the server shuts down.
 // It should check j.Stopping() between items — Stop means "after the item in
 // hand" — and report each item with j.Progress.
+//
+// Counts, when set, is what the kind's screens read of a result without reading
+// the result: a few numbers, and at most a short string (a people fetch's first
+// error). SetResult calls it on the result it stores and keeps the answer beside
+// it, because every list of jobs carries each job's counts and only the kind
+// knows what its result's numbers mean. nil: the kind counts nothing.
 type Kind struct {
 	Name       string
 	AdminOnly  bool
 	Rerunnable bool
 	Run        func(ctx context.Context, j *Job) error
+	Counts     func(result json.RawMessage) map[string]any
 }
 
 // Owner is who a job is for, as the request knew them: the account, and the store

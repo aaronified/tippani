@@ -43,7 +43,8 @@ import (
 //     archive's journal carried over by a restore would hold one.
 //
 // What each one guards, in a sentence a person would say: a job reads the same
-// on every screen that shows it, field for field; one job runs at a time and the
+// on every screen that shows it, field for field; each kind's counts are the ones
+// its screens read, and a count's text keeps no key; one job runs at a time and the
 // rest wait in the order started, each saying how many are ahead of it, anybody's
 // counted and nobody's shown; a reader sees their own jobs only, and an admin
 // sees everybody's under the name each was started as; an admin can stop a
@@ -319,9 +320,10 @@ func TestAJobReadsTheSameOnEveryScreenThatShowsIt(t *testing.T) {
 	if done.Done != 3 || done.Total != 3 || done.StartedAt == nil || done.FinishedAt == nil || done.Ahead != 0 {
 		t.Fatalf("the finished job: %+v", done)
 	}
-	// The result's numbers and the length of its list, never the list itself.
-	if fmt.Sprint(done.Counts) != "map[failed:1 fetched:3 items:2]" {
-		t.Fatalf("counts: %v", done.Counts)
+	// Counts are the kind's to make, and this one makes none: its result's
+	// numbers are not read as counts on its behalf, nor its list's length.
+	if len(done.Counts) != 0 {
+		t.Fatalf("counts of a kind that counts nothing: %v", done.Counts)
 	}
 	if done.Rerunnable || done.Applied || done.RerunOf != nil || done.FromJob != nil {
 		t.Fatalf("a finished job that reruns only when it did not succeed: %+v", done)
@@ -406,6 +408,78 @@ func TestAJobReadsTheSameOnEveryScreenThatShowsIt(t *testing.T) {
 	}
 	q.let()
 	admin.waitJob(again.ID, "succeeded")
+}
+
+// Each kind's counts are the ones its screens read (the wire contract's table):
+// the numbers, the people fetch's first error as text, a check's items and how
+// many differ, an apply's written, skipped and failed, and nothing for a backup.
+// Each kind's result is stored by a run of the test's, in the shape the kind's
+// own run stores it; what is under test is what the job JSON makes of it.
+func TestEachKindsCountsAreTheOnesItsScreensRead(t *testing.T) {
+	srv := newTestServer(t)
+	queueing(t, srv)
+	storing := func(result any) func(*Server, context.Context, *jobs.Job) error {
+		return func(_ *Server, _ context.Context, j *jobs.Job) error { return j.SetResult(result) }
+	}
+	book := func(id int, status string, diffs ...any) map[string]any {
+		return map[string]any{"type": "book", "id": id, "title": "A Book", "status": status, "diffs": append([]any{}, diffs...)}
+	}
+	year := map[string]any{"field": "published_year", "stored": 0, "fresh": 1969}
+	// A provider's error with its key in it, as a failed call reads.
+	leaky := `Get "https://api.themoviedb.org/3/search/person?query=Le+Guin&api_key=Wv-SECRET": EOF`
+	cases := []struct {
+		kind   string
+		params any
+		result any
+		want   string
+	}{
+		{"fill", map[string]any{"book_ids": []int{1}},
+			map[string]any{"fields": 12, "failed": 2, "unpinned": 1, "lines": []string{"one", "two"}},
+			"map[failed:2 fields:12 unpinned:1]"},
+		{"covers", map[string]any{"missing_only": true},
+			map[string]any{"fetched": 5, "enriched": 3, "failed": 1, "skipped": 0},
+			"map[enriched:3 failed:1 fetched:5 skipped:0]"},
+		{"people", map[string]any{"ids": []int{1, 2, 3, 4, 5}},
+			map[string]any{"ok": 4, "failed": 1, "first_error": "not found", "people": []int{1, 2, 3, 4, 5}},
+			"map[failed:1 first_error:not found ok:4]"},
+		{"reverify", map[string]any{"book_ids": []int{1, 2, 3}},
+			[]any{book(1, "ok", year), book(2, "ok"), book(3, "unpinned")},
+			"map[changes:1 items:3]"},
+		{"reverify-apply", map[string]any{"items": []any{map[string]any{"type": "book", "id": 1, "set": map[string]any{}}}},
+			[]any{
+				map[string]any{"type": "book", "id": 1, "ok": true},
+				map[string]any{"type": "book", "id": 2, "ok": true, "note": "the cover could not be fetched"},
+				map[string]any{"type": "movie", "id": 3, "ok": false, "error": "not found"},
+			},
+			"map[applied:2 failed:1 skipped:1]"},
+		{"backup", map[string]any{"password": testPw},
+			map[string]any{"name": "tippanibackup.tpbk", "size": 2048, "created_at": 1},
+			"map[]"},
+	}
+	for _, c := range cases {
+		srv.addJobKind(realKind(t, c.kind, "test."+c.kind, storing(c.result)))
+	}
+	// A second people fetch, whose first error carries a key: the count keeps
+	// the error and not the key.
+	srv.addJobKind(realKind(t, "people", "test.people-leaky", storing(map[string]any{"ok": 0, "failed": 1, "first_error": leaky})))
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+
+	for _, c := range cases {
+		j := admin.waitJob(admin.mustStart("test."+c.kind, c.params).ID, "succeeded")
+		if got := fmt.Sprint(j.Counts); got != c.want {
+			t.Errorf("%s: counts %s, want %s", c.kind, got, c.want)
+		}
+		// The list carries the same counts as the job's own poll.
+		past := admin.jobs("view=past&kind=test." + c.kind).Jobs
+		if len(past) != 1 || past[0].ID != j.ID || fmt.Sprint(past[0].Counts) != c.want {
+			t.Errorf("%s in past jobs: %+v, want job %d with counts %s", c.kind, past, j.ID, c.want)
+		}
+	}
+	j := admin.waitJob(admin.mustStart("test.people-leaky", map[string]any{"ids": []int{9}}).ID, "succeeded")
+	if e, _ := j.Counts["first_error"].(string); !strings.Contains(e, "api.themoviedb.org") || strings.Contains(e, "Wv-SECRET") {
+		t.Fatalf("a people fetch's first error in its counts: %q, want the call without its key", e)
+	}
 }
 
 func TestJobsRunOneAtATimeInTheOrderStartedAndSayHowManyAreAhead(t *testing.T) {
