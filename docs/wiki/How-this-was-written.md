@@ -25,15 +25,23 @@ Tippani, so it comes first.
 - **No model ships with the binary.** Tippani is one static Go binary with an
   embedded SPA and a SQLite file.
 - **Your highlights are never sent to a model.** They are never sent anywhere.
-- **The only outbound calls are metadata lookups you trigger**, to the sources
-  named in the README (Google Books, Open Library, TMDB, TheTVDB, Wikidata) plus
-  a GitHub release check that runs **only when an admin presses the button**.
-  Cover and portrait fetches go through a host allowlist with an SSRF guard.
+- **The only outbound calls are metadata lookups**, to the sources named in the
+  README (Google Books, Open Library, TMDB, TheTVDB, Wikidata), that somebody asked
+  for or that a screen somebody opened makes for the pictures it is about to draw;
+  the Pushover messages a reader set up; and a GitHub release check that runs **only
+  when an admin presses the button**. Cover and portrait fetches go through a host
+  allowlist with an SSRF guard. Single sign-on, where it is configured, talks to the
+  operator's own provider.
+- **Every one of them is written down.** Since 3.1.0 each outward call is a line in
+  the log of the job that made it — method, host, path, what came back — kept for 30
+  days where an admin can read and export it, with every key and credential in the
+  address replaced by `…` before it is kept.
 - **And you can switch all of it off.** `TIPPANI_OFFLINE=1` refuses every one of
-  those before it is dialled — `internal/outbound` is a transport wrapped around
-  each of the three HTTP clients the app has, and a test names every
-  `&http.Client{}` in the tree so a fourth cannot appear ungated. The library
-  itself needs no network to read, so nothing you already have stops working.
+  those before it is dialled, sign-in to your own provider excepted —
+  `internal/outbound` is a transport wrapped around each of the four HTTP clients
+  that reach the internet, and a test names every `&http.Client{}` in the tree so a
+  fifth cannot appear ungated. The library itself needs no network to read, so
+  nothing you already have stops working.
 - **Nothing is sent anywhere to be encrypted either.** Backup archives are sealed
   (AES-256-GCM, Argon2id, both from Go's standard library and
   `golang.org/x/crypto`) entirely in-process. No key service, no escrow, no
@@ -760,6 +768,19 @@ worth nothing here and only execution counts. What the repo actually runs:
   `make frame-scroll` opens the page in Firefox and fails on a clipped page or a column
   that cannot scroll. **Before claiming a layout works, measure the layout** — the
   browser harness exists for exactly the class of failure the unit suite is blind to.
+- **A test that catches its bug in six runs of eight has found the bug, and does not
+  guard against it.** 3.1.0's queue and log writer are concurrent by design, and two of
+  their tests first caught their own named defect only by chance: the wait for a job's
+  last lines before its finishing write (one failing run in three of `-count=5` with the
+  wait removed), and the order of shutdown's steps (six or seven runs in eight with the
+  log pool closed first). Each was rewritten to hold the race open instead of hoping to
+  land in it — a hook that parks the log writer, a switch that holds every line until
+  shutdown's last flush — and was then red on every run with the defect put back. Two
+  such switches are in the shipped binary, `TIPPANI_JOBS_HOLD` (the queue claims
+  nothing, so a journey can see a job wait) and `TIPPANI_LOG_HOLD`. Both are honoured
+  only while `TIPPANI_OFFLINE` is on, which a test proves, and every file that uses one
+  names it in its header. `internal/jobs` runs raced every night with the other
+  packages; `TestEveryTestedPackageIsInTheNightlySweep` is what made it join.
 - **Two numbers that must agree read each other rather than a copy.** The threshold
   that decides whether a cover is worth replacing is the server's
   (`lowResCoverWidth`); the client draws the same fact in red. Written as a comment
