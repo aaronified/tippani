@@ -915,13 +915,14 @@ func TestEveryKindsParamsAreHeldToItsCapAndItsChecks(t *testing.T) {
 		c.waitJob(j.ID, "stopped")
 	}
 
-	// fill: 2000 works, counted once each, in order.
+	// fill: 2000 works, counted once each, in order. The lists themselves are
+	// not in the job's JSON (jobs_contract_test.go says why); the count is.
 	refused(bob, "test.fill", map[string]any{"book_ids": upTo(1500), "movie_ids": upTo(501)}, 400, "at most 2000")
 	refused(bob, "test.fill", map[string]any{"book_ids": []int64{0}}, 400, "positive")
 	refused(bob, "test.fill", map[string]any{}, 400, "nothing to fill")
 	fill := bob.mustStart("test.fill", map[string]any{"book_ids": []int64{3, 1, 3}, "movie_ids": upTo(1998)})
-	if fill.Total != 2000 || fmt.Sprint(fill.Params["book_ids"]) != "[1 3]" {
-		t.Fatalf("the fill: total %d, params %v", fill.Total, fill.Params)
+	if fill.Total != 2000 {
+		t.Fatalf("the fill: total %d, want 1 and 3 once each and 1998 films", fill.Total)
 	}
 	// The same selection in another order is the same job.
 	rec := bob.startJob("test.fill", map[string]any{"movie_ids": upTo(1998), "book_ids": []int64{1, 3}})
@@ -935,8 +936,9 @@ func TestEveryKindsParamsAreHeldToItsCapAndItsChecks(t *testing.T) {
 
 	people := []map[string]string{{"kind": "author", "name": " Ursula K. Le Guin "}, {"kind": "author", "name": "Ursula K. Le Guin"}}
 	refused(bob, "test.reverify", map[string]any{"book_ids": upTo(400), "movie_ids": upTo(100), "people": people[:1]}, 400, "at most 500")
+	// The two spellings of Le Guin are one person: 400 + 99 + 1.
 	rv := bob.mustStart("test.reverify", map[string]any{"book_ids": upTo(400), "movie_ids": upTo(99), "people": people, "fills_only": true})
-	if rv.Total != 500 || fmt.Sprint(rv.Params["people"]) != "[map[kind:author name:Ursula K. Le Guin]]" || rv.Params["fills_only"] != true {
+	if rv.Total != 500 || rv.Params["fills_only"] != true {
 		t.Fatalf("the re-verify: total %d, params %v", rv.Total, rv.Params)
 	}
 	stop(bob, rv)
