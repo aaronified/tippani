@@ -362,10 +362,12 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
     return () => { alive.current = false }
   }, [])
 
-  // CLOSING KEEPS THE JOB, and says where it is — see the header.
+  // CLOSING KEEPS THE JOB, and says where it is — see the header. A review with
+  // nothing to change says nothing: there is nothing kept to come back to, and
+  // Past jobs offers no Review for it (jobHasFindings).
   function close() {
     if (!routed && (phase === 'starting' || phase === 'checking' || phase === 'applying')) toast(t('reverify.kept.running'))
-    else if (!routed && phase === 'review') toast(t('reverify.kept.review'))
+    else if (!routed && phase === 'review' && changed.length > 0) toast(t('reverify.kept.review'))
     onClose?.()
   }
 

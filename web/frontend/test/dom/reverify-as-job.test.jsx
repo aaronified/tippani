@@ -224,6 +224,18 @@ describe('the findings and the apply', () => {
     expect(await screen.findByText('Findings kept · Settings › Jobs')).toBeTruthy()
   })
 
+  // NOTHING TO CHANGE, NOTHING KEPT TO COME BACK TO: closing an up-to-date review
+  // says nothing, where one with findings says where they are.
+  it('says nothing about kept findings when the check found nothing to change', async () => {
+    JOBS.plan('reverify', { result: [{ type: 'book', id: 3, title: 'The Paper Boat', status: 'ok', source: 'openlibrary', diffs: [] }] })
+    open()
+    expect(await within(dialog()).findByText('everything checked is already up to date ✓')).toBeTruthy()
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Close' }))
+    expect(closed).toBe(1)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByText('Findings kept · Settings › Jobs')).toBeNull()
+  })
+
   it('goes back to the review, saying why, when the apply job fails', async () => {
     await review()
     JOBS.plan('reverify-apply', { state: 'failed', error: 'The database is busy' })

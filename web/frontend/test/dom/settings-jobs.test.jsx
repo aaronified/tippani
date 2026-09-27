@@ -359,18 +359,21 @@ describe('who may press what', () => {
     return heads.length
   }
 
-  it('offers no Review on a re-verify that was applied, is somebody else’s, or did not succeed', async () => {
+  // A CHECK THAT FOUND EVERYTHING UP TO DATE has nothing to decide, and a Review
+  // that only opens "everything is up to date" is a dead end kept for thirty days.
+  it('offers no Review on a re-verify that was applied, found nothing to change, is somebody else’s, or did not succeed', async () => {
     PAST = [
       job({ id: 21, kind: 'reverify', state: 'succeeded', applied: true, subject: 'applied', finished_at: NOW - HOUR }),
       job({ id: 22, kind: 'reverify', state: 'succeeded', own: false, username: 'bina', subject: 'theirs', finished_at: NOW - 2 * HOUR }),
       job({ id: 23, kind: 'reverify', state: 'stopped', subject: 'stopped', finished_at: NOW - 3 * HOUR }),
+      job({ id: 25, kind: 'reverify', state: 'succeeded', counts: { items: 12, changes: 0 }, subject: 'up to date', finished_at: NOW - 4 * HOUR }),
     ]
     await page(ADMIN, { onReviewJob: vi.fn() })
     const past = await card('Past jobs')
     const opened = await eachOpened(past, /^Re-verify/, (row) => {
       expect(within(row).queryByRole('button', { name: 'Review' })).toBeNull()
     })
-    expect(opened).toBe(3)
+    expect(opened).toBe(4)
   })
 
   it('offers no Run again where the server says the job cannot be run again', async () => {

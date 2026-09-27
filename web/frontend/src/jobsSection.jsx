@@ -32,6 +32,7 @@ import {
   formatClock,
   formatWhen,
   jobCounts,
+  jobHasFindings,
   jobLabel,
   jobLogURL,
   jobStateLabel,
@@ -540,10 +541,11 @@ function PastJob({ job, user, open, busy, onToggle, onRerun, onReview }) {
               </GhostButton>
             )}
             {/* REVIEW IS THE OWNER'S, AND ONLY WHILE THERE IS SOMETHING TO REVIEW:
-                a re-verify that finished, whose findings nobody has applied yet.
-                An applied one has been decided; somebody else's is theirs to
-                decide (F3). */}
-            {onReview && job.kind === 'reverify' && job.state === 'succeeded' && job.own && !job.applied && (
+                a re-verify that finished, found something to change, and whose
+                findings nobody has applied yet. An applied one has been decided;
+                one that found everything up to date has nothing to decide;
+                somebody else's is theirs to decide (F3). */}
+            {onReview && job.kind === 'reverify' && job.state === 'succeeded' && job.own && !job.applied && jobHasFindings(job) && (
               <Tooltip label={t('settings.jobs.past.review.tip')}>
                 <GhostButton icon={<IconOpen />} keepLabel onClick={onReview}>
                   {t('settings.jobs.past.review.label')}

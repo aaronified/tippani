@@ -168,6 +168,22 @@ export function jobOutcome(job) {
   }
 }
 
+// jobHasFindings — whether a finished re-verify found anything to review, which
+// is what Past jobs' Review and the dialog's "kept" toast hang on: a check that
+// found everything up to date has nothing to decide, and a Review press that only
+// opens "everything is up to date" is a dead end kept for thirty days.
+//
+// `changes` (items with at least one difference) when the job says it, else
+// `items` (nothing checked, nothing found). A check whose counts say neither is
+// OFFERED, not hidden: the contract (D0) leaves a check's counts to the server,
+// and a count named differently should cost a dead-end press, not every Review.
+export function jobHasFindings(job) {
+  const c = job?.counts && typeof job.counts === 'object' ? job.counts : {}
+  if (typeof c.changes === 'number') return c.changes > 0
+  if (typeof c.items === 'number') return c.items > 0
+  return true
+}
+
 // THE ONE LINE UNDER A JOB'S TITLE. A running job says how far it has got; a
 // finished one says what it did. The middle dot is the house joiner for facts on
 // one line, and the joining is code so a language's own word order lives inside
