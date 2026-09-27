@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <title>Tippani — a self-hosted home for your book highlights and film dialogues</title>
-<meta name="description" content="Tippani is a frugal, self-hosted app for keeping quotes from books, films and shows. Bulk-import highlights, tag and colour them, auto-fetch covers and metadata, search everything instantly, and export it all as Obsidian-friendly Markdown. One 29 MB Go binary, SQLite, no background jobs.">
+<meta name="description" content="Tippani is a frugal, self-hosted app for keeping quotes from books, films and shows. Bulk-import highlights, tag and colour them, auto-fetch covers and metadata, search everything instantly, and export it all as Obsidian-friendly Markdown. One 29 MB Go binary, SQLite, nothing on a timer.">
 <link rel="canonical" href="https://aaronified.github.io/tippani/">
 
 <meta property="og:type" content="website">
@@ -193,9 +193,9 @@
 <p>
   It is built for a low-powered NAS that already runs a hundred other things. One static Go binary
   of about 29 MB, a SQLite file beside it, and roughly <strong>30 MB of idle memory</strong> — a
-  budget I hold it inside rather than a number I measured once. There are
-  <strong>no background jobs</strong>: no pollers, no timers, no cron. When nothing is being asked
-  of it, it does nothing.
+  budget I hold it inside rather than a number I measured once. <strong>Nothing wakes on a
+  timer</strong>: no pollers, no cron, no scheduler. A long job you start runs on the server, one at a
+  time, and when nothing is being asked of it, it does nothing.
 </p>
 
 <pre><code>docker run -d --name tippani \
