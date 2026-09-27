@@ -11903,13 +11903,16 @@ button.work-pill:hover { color: var(--ink); border-color: var(--ink-border); }
 .job-log-line.is-error .job-log-text { color: var(--error); }
 /* THE LEVEL IS A WORD IN THE INTERFACE FACE, NOT THE MONO. The mono stack has no
    Indic face (locale.jsx says so), so a Bengali level name set in it falls to
-   whatever the system reaches for — in the middle of every line. */
+   whatever the system reaches for — in the middle of every line.
+   AND THE SPACE AFTER IT IS A CHARACTER, NOT A MARGIN (Tally's rule): a margin put
+   air between the word and the line and nothing in the text, so a copied line, a
+   screen reader and find-in-page all read "WarningGET …". The space the markup
+   writes is one mono space at the pane's size, the width the margin was. */
 .log-level {
   font-family: var(--font-ui);
   font-style: var(--font-ui-style);
   font-size: var(--type-ui-11);
   color: var(--faint);
-  margin-inline-end: .6em;
 }
 .logs-filters { display: grid; gap: 8px; margin-bottom: 10px; min-width: 0; }
 .logs-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
