@@ -85,9 +85,10 @@ type reverifyHead struct {
 }
 
 // reverifyStoredNow is what head's row holds now, per diff field, in the shape
-// the check's diffs carry it (reverifyBook, reverifyMovie, reverifyPerson). nil
-// when the row is gone. A field it cannot read is left out, and the review marks
-// its diff changed.
+// the check's diffs carry it: through the readers the check takes each diff's
+// stored side from (storedBookFields, storedMovieFields, storedPersonFields).
+// nil when the row is gone. A field it cannot read is left out, and the review
+// marks its diff changed.
 func (s *Server) reverifyStoredNow(uid int64, head reverifyHead) (map[string]any, error) {
 	switch head.Type {
 	case "book":
@@ -98,14 +99,7 @@ func (s *Server) reverifyStoredNow(uid int64, head reverifyHead) (map[string]any
 		if err != nil {
 			return nil, err
 		}
-		trim := strings.TrimSpace
-		return map[string]any{
-			"title": trim(b.title), "author": trim(b.author), "description": trim(b.desc),
-			"published_year": b.year, "genres": b.genres, "series": trim(b.series),
-			"series_index": b.seriesIdx, "isbn": metadata.NormalizeISBN(b.isbn),
-			"subtitle": trim(b.subtitle), "publisher": trim(b.publisher), "pages": b.pages,
-			"cover": b.cover,
-		}, nil
+		return storedBookFields(b), nil
 	case "movie":
 		m, err := s.readStoredMovie(uid, head.ID)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -114,12 +108,7 @@ func (s *Server) reverifyStoredNow(uid int64, head reverifyHead) (map[string]any
 		if err != nil {
 			return nil, err
 		}
-		trim := strings.TrimSpace
-		now := map[string]any{
-			"title": trim(m.title), "director": trim(m.director), "description": trim(m.desc),
-			"release_year": m.year, "genres": m.genres, "series": trim(m.series),
-			"poster": m.poster, "tmdb_id": m.tmdbID, "tvdb_id": m.tvdbID,
-		}
+		now := storedMovieFields(m)
 		if cast, err := loadCastMembers(s.Store.DB, "movie", head.ID); err == nil {
 			now["cast"] = cast
 		}
@@ -129,10 +118,7 @@ func (s *Server) reverifyStoredNow(uid int64, head reverifyHead) (map[string]any
 		if !ok {
 			return nil, nil
 		}
-		return map[string]any{
-			"identity": strings.TrimSpace(strings.TrimPrefix(p.Source+":"+p.SourceID, ":")),
-			"links":    p.Links, "portrait": p.ImagePath, "bio": p.Bio, "born": p.Born, "died": p.Died,
-		}, nil
+		return storedPersonFields(p), nil
 	}
 	return nil, nil
 }

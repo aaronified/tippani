@@ -313,13 +313,17 @@ func (s *Server) itemGenreNames(kind string, id int64) []string {
 	return out
 }
 
-// diffStr appends a diff when the fresh string is non-empty and differs.
-func diffStr(diffs []fieldDiff, field, stored, fresh string) []fieldDiff {
+// diffStr appends a diff when the fresh string is non-empty and differs from
+// the field as stored — st, the row's fields as a diff carries them
+// (storedBookFields, storedMovieFields), its text already without its
+// surrounding space.
+func diffStr(diffs []fieldDiff, st map[string]any, field, fresh string) []fieldDiff {
 	fresh = strings.TrimSpace(fresh)
-	if fresh == "" || fresh == strings.TrimSpace(stored) {
+	stored, _ := st[field].(string)
+	if fresh == "" || fresh == stored {
 		return diffs
 	}
-	return append(diffs, fieldDiff{Field: field, Stored: strings.TrimSpace(stored), Fresh: fresh})
+	return append(diffs, fieldDiff{Field: field, Stored: stored, Fresh: fresh})
 }
 
 // sameGenreSet compares genre lists case-insensitively as sets.
@@ -378,6 +382,27 @@ func (s *Server) readStoredBook(uid, id int64) (storedBook, error) {
 	return b, nil
 }
 
+// storedBookFields is b's fields as a re-verify's diffs carry them in stored:
+// text without its surrounding space, the ISBN normalised, the rest as read.
+//
+// ONE READER FOR BOTH SIDES. The check takes each diff's stored side from here,
+// and the review opened later (reviewReverify) and the apply's expect check
+// (applyReverifyItem) read the field again through here, to ask whether it has
+// changed since. Two formattings of the same value — the check trimming a title
+// and the review not, say — would read every such field as changed, and every
+// apply would leave every field as "changed since the check", with nothing
+// wrong but the format.
+func storedBookFields(b storedBook) map[string]any {
+	trim := strings.TrimSpace
+	return map[string]any{
+		"title": trim(b.title), "author": trim(b.author), "description": trim(b.desc),
+		"published_year": b.year, "genres": b.genres, "series": trim(b.series),
+		"series_index": b.seriesIdx, "isbn": metadata.NormalizeISBN(b.isbn),
+		"subtitle": trim(b.subtitle), "publisher": trim(b.publisher), "pages": b.pages,
+		"cover": b.cover,
+	}
+}
+
 func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, domain string, withOffers bool) reverifyItem {
 	it := reverifyItem{Type: "book", ID: id, Status: "ok", Diffs: []fieldDiff{}}
 	b, err := s.readStoredBook(uid, id)
@@ -394,6 +419,7 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	series, cover, subtitle, publisher := b.series, b.cover, b.subtitle, b.publisher
 	year, pages, seriesIdx, genres := b.year, b.pages, b.seriesIdx, b.genres
 	it.Title = title
+	st := storedBookFields(b)
 
 	// Identity ladder — the pinned id decides which live source answers.
 	// (openlibrary_id alone is deliberately not re-checked: OL work records
@@ -457,41 +483,41 @@ func (s *Server) reverifyBook(ctx context.Context, uid, id int64, gkey, cookie, 
 	}
 
 	d := it.Diffs
-	d = diffStr(d, "title", title, cand.Title)
-	d = diffStr(d, "author", author, cand.Author)
-	d = diffStr(d, "description", desc, cand.Description)
+	d = diffStr(d, st, "title", cand.Title)
+	d = diffStr(d, st, "author", cand.Author)
+	d = diffStr(d, st, "description", cand.Description)
 	if cand.PublishedYear != 0 && cand.PublishedYear != year {
-		d = append(d, fieldDiff{Field: "published_year", Stored: year, Fresh: cand.PublishedYear})
+		d = append(d, fieldDiff{Field: "published_year", Stored: st["published_year"], Fresh: cand.PublishedYear})
 	}
 	// Genres: candidate capped at 5 (same cap as the covers refetch), compared
 	// as a case-insensitive set after the canonical title-casing.
 	if len(cand.Genres) > 0 {
 		fresh := cappedGenres(cand.Genres)
 		if !sameGenreSet(genres, fresh) {
-			d = append(d, fieldDiff{Field: "genres", Stored: genres, Fresh: fresh})
+			d = append(d, fieldDiff{Field: "genres", Stored: st["genres"], Fresh: fresh})
 		}
 	}
-	d = diffStr(d, "series", series, cand.Series)
+	d = diffStr(d, st, "series", cand.Series)
 	if cand.SeriesIndex != 0 && cand.SeriesIndex != seriesIdx {
-		d = append(d, fieldDiff{Field: "series_index", Stored: seriesIdx, Fresh: cand.SeriesIndex})
+		d = append(d, fieldDiff{Field: "series_index", Stored: st["series_index"], Fresh: cand.SeriesIndex})
 	}
 	if cand.ISBN13 != "" && cand.ISBN13 != isbnN {
-		d = append(d, fieldDiff{Field: "isbn", Stored: isbnN, Fresh: cand.ISBN13})
+		d = append(d, fieldDiff{Field: "isbn", Stored: st["isbn"], Fresh: cand.ISBN13})
 	}
 	// 0061's three. diffStr already declines to offer a blank fresh value over a
 	// stored one, which is the rule that matters here: Open Library's work record
 	// often has no publisher for a book Google knows the imprint of, and a
 	// re-verify must not offer to erase what is there.
-	d = diffStr(d, "subtitle", subtitle, cand.Subtitle)
-	d = diffStr(d, "publisher", publisher, cand.Publisher)
+	d = diffStr(d, st, "subtitle", cand.Subtitle)
+	d = diffStr(d, st, "publisher", cand.Publisher)
 	if cand.Pages != 0 && cand.Pages != pages {
-		d = append(d, fieldDiff{Field: "pages", Stored: pages, Fresh: cand.Pages})
+		d = append(d, fieldDiff{Field: "pages", Stored: st["pages"], Fresh: cand.Pages})
 	}
 	// Cover: offered when the fresh source has art AND the stored one is
 	// missing or below the low-res threshold — a good stored cover is never
 	// churned. Stored = the local file (client renders it), fresh = the URL.
 	if cand.CoverURL != "" && (cover == "" || s.coverWidth(cover) < lowResCoverWidth) {
-		d = append(d, fieldDiff{Field: "cover", Stored: cover, Fresh: cand.CoverURL})
+		d = append(d, fieldDiff{Field: "cover", Stored: st["cover"], Fresh: cand.CoverURL})
 	}
 	// Same rule as a film's, and the same reason for doing it here rather than
 	// inside each comparison: whether a field DIFFERS from what is stored is a
@@ -612,6 +638,19 @@ func (s *Server) readStoredMovie(uid, id int64) (storedMovie, error) {
 	return m, nil
 }
 
+// storedMovieFields is m's fields as a re-verify's diffs carry them in stored,
+// read by the check and the review alike (storedBookFields says why it is one
+// reader). The cast is not among them: it is its own read (loadCastMembers),
+// which the check and the review share as it is.
+func storedMovieFields(m storedMovie) map[string]any {
+	trim := strings.TrimSpace
+	return map[string]any{
+		"title": trim(m.title), "director": trim(m.director), "description": trim(m.desc),
+		"release_year": m.year, "genres": m.genres, "series": trim(m.series),
+		"poster": m.poster, "tmdb_id": m.tmdbID, "tvdb_id": m.tvdbID,
+	}
+}
+
 func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadata.TMDB, tvdb *metadata.TVDB, withOffers bool) reverifyItem {
 	it := reverifyItem{Type: "movie", ID: id, Status: "ok", Diffs: []fieldDiff{}}
 	m, err := s.readStoredMovie(uid, id)
@@ -627,6 +666,7 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	title, director, desc, mediaType, series, poster, fandomWiki := m.title, m.director, m.desc, m.mediaType, m.series, m.poster, m.fandomWiki
 	year, tmdbID, tvdbID, genres := m.year, m.tmdbID, m.tvdbID, m.genres
 	it.Title = title
+	st := storedMovieFields(m)
 
 	// EVERY SUPPLIER THIS WORK IS PINNED TO, not just the winning one.
 	//
@@ -668,19 +708,19 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 	}
 
 	d := it.Diffs
-	d = diffStr(d, "title", title, det.Title)
-	d = diffStr(d, "director", director, det.Director)
-	d = diffStr(d, "description", desc, det.Overview)
+	d = diffStr(d, st, "title", det.Title)
+	d = diffStr(d, st, "director", det.Director)
+	d = diffStr(d, st, "description", det.Overview)
 	if det.ReleaseYear != 0 && det.ReleaseYear != year {
-		d = append(d, fieldDiff{Field: "release_year", Stored: year, Fresh: det.ReleaseYear})
+		d = append(d, fieldDiff{Field: "release_year", Stored: st["release_year"], Fresh: det.ReleaseYear})
 	}
 	if len(det.Genres) > 0 {
 		fresh := cappedGenres(det.Genres)
 		if !sameGenreSet(genres, fresh) {
-			d = append(d, fieldDiff{Field: "genres", Stored: genres, Fresh: fresh})
+			d = append(d, fieldDiff{Field: "genres", Stored: st["genres"], Fresh: fresh})
 		}
 	}
-	d = diffStr(d, "series", series, det.Series)
+	d = diffStr(d, st, "series", det.Series)
 	// Cast: ordered (character, actor) pairs; person_id/image_url ride along in
 	// fresh so an approved apply keeps the portrait pipeline working.
 	//
@@ -701,13 +741,13 @@ func (s *Server) reverifyMovie(ctx context.Context, uid, id int64, tmdb *metadat
 		d = append(d, fieldDiff{Field: "cast", Stored: stored, Fresh: det.Cast})
 	}
 	if det.PosterURL != "" && (poster == "" || s.coverWidth(poster) < lowResCoverWidth) {
-		d = append(d, fieldDiff{Field: "poster", Stored: poster, Fresh: det.PosterURL})
+		d = append(d, fieldDiff{Field: "poster", Stored: st["poster"], Fresh: det.PosterURL})
 	}
 	if det.TMDBID != 0 && det.TMDBID != tmdbID {
-		d = append(d, fieldDiff{Field: "tmdb_id", Stored: tmdbID, Fresh: det.TMDBID})
+		d = append(d, fieldDiff{Field: "tmdb_id", Stored: st["tmdb_id"], Fresh: det.TMDBID})
 	}
 	if det.TVDBID != 0 && det.TVDBID != tvdbID {
-		d = append(d, fieldDiff{Field: "tvdb_id", Stored: tvdbID, Fresh: det.TVDBID})
+		d = append(d, fieldDiff{Field: "tvdb_id", Stored: st["tvdb_id"], Fresh: det.TVDBID})
 	}
 	// WHAT EACH SUPPLIER SAID, attached once the diff list is settled rather than
 	// woven into each comparison above. Two reasons: the comparisons decide
@@ -813,6 +853,17 @@ func (s *Server) getPersonFold(uid int64, kind, name string) (personRow, bool) {
 	return p, true
 }
 
+// storedPersonFields is p's fields as a re-verify's diffs carry them in stored,
+// read by the check and the review alike (storedBookFields says why it is one
+// reader): the identity as the one "source:id" string the apply takes, the rest
+// as read.
+func storedPersonFields(p personRow) map[string]any {
+	return map[string]any{
+		"identity": strings.TrimSpace(strings.TrimPrefix(p.Source+":"+p.SourceID, ":")),
+		"links":    p.Links, "portrait": p.ImagePath, "bio": p.Bio, "born": p.Born, "died": p.Died,
+	}
+}
+
 func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name string) reverifyItem {
 	it := reverifyItem{Type: "person", Kind: kind, Name: name, Title: name, Status: "ok", Diffs: []fieldDiff{}}
 	if !validPersonKind(kind) || name == "" {
@@ -842,17 +893,14 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 		return it
 	}
 	it.Source = source
+	st := storedPersonFields(p)
 
 	d := it.Diffs
 	// Identity needs BOTH halves — a cast entry with a headshot but no person
 	// id would otherwise emit a "source:" value the apply endpoint rejects.
 	identityDrift := source != "" && sourceID != "" && (source != p.Source || sourceID != p.SourceID)
 	if identityDrift {
-		d = append(d, fieldDiff{
-			Field:  "identity",
-			Stored: strings.TrimSpace(strings.TrimPrefix(p.Source+":"+p.SourceID, ":")),
-			Fresh:  source + ":" + sourceID,
-		})
+		d = append(d, fieldDiff{Field: "identity", Stored: st["identity"], Fresh: source + ":" + sourceID})
 	}
 	// A LINKS DIFF IS SOMETHING FETCHED THAT THE FIELD LACKS, and nothing else.
 	// The fold writes the whole field back in its own order, one address a line,
@@ -862,21 +910,21 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 	// side is the whole folded field, names and all, because that is what the
 	// apply writes.
 	if merged := mergeLinks(p.Links, links); merged != mergeLinks(p.Links, nil) {
-		d = append(d, fieldDiff{Field: "links", Stored: p.Links, Fresh: merged})
+		d = append(d, fieldDiff{Field: "links", Stored: st["links"], Fresh: merged})
 	}
 	if imageURL != "" && (p.ImagePath == "" || identityDrift) {
-		d = append(d, fieldDiff{Field: "portrait", Stored: p.ImagePath, Fresh: imageURL})
+		d = append(d, fieldDiff{Field: "portrait", Stored: st["portrait"], Fresh: imageURL})
 	}
 	// Bio + birth year only fill an empty field — a user's own text is never
 	// overwritten by a re-verify (mirrors the auto-enrich upsert's CASE guards).
 	if bio != "" && strings.TrimSpace(p.Bio) == "" {
-		d = append(d, fieldDiff{Field: "bio", Stored: p.Bio, Fresh: bio})
+		d = append(d, fieldDiff{Field: "bio", Stored: st["bio"], Fresh: bio})
 	}
 	if born != "" && strings.TrimSpace(p.Born) == "" {
-		d = append(d, fieldDiff{Field: "born", Stored: p.Born, Fresh: born})
+		d = append(d, fieldDiff{Field: "born", Stored: st["born"], Fresh: born})
 	}
 	if died != "" && strings.TrimSpace(p.Died) == "" {
-		d = append(d, fieldDiff{Field: "died", Stored: p.Died, Fresh: died})
+		d = append(d, fieldDiff{Field: "died", Stored: st["died"], Fresh: died})
 	}
 	it.Diffs = d
 	return it
