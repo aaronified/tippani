@@ -17,6 +17,25 @@
 // What has to be user-like is the part being ASSERTED — so everything after the
 // sign-in happens by pressing what is on the screen. The handle below gives a
 // journey a page and a URL and deliberately gives it no `api()`.
+//
+// IT GIVES IT `setup` INSTEAD, AND THE NAME IS THE RULE. `setup(method, path,
+// body)` is the public API, signed in as the reader on a session of its own
+// (seed-fixture.mjs's apiSession, the one client the harness has), for the lines
+// of a journey that arrange its world: give a book an ISBN, queue three jobs. A
+// `setup(...)` call after the journey's first press is a journey asserting
+// through the API, and reads as one in review. Every file that calls it declares
+// in its own header the addresses and field names its setup knows, because those
+// are knowledge of the code the rest of the file does not have.
+//
+// AND `secondReader`, FOR THE JOURNEYS ABOUT TWO PEOPLE. It makes an account
+// through the admin's API — the admin chose its password, so the server marks it
+// temporary, and the harness picks the reader's own through the API too, since
+// "Choose your own password" is a-password-the-admin-chose-is-temporary's screen
+// and not every two-person journey's first step — then signs the browser out and
+// signs the new reader in THROUGH THE FORM, the way ensureSession signs the
+// first one in. From then on the page is theirs; `account` stays the first
+// reader's. It hands back a `setup` of the second reader's own, so their world
+// can be arranged as them.
 
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -36,6 +55,7 @@ import {
   seedRandomScript,
 } from '../../../../../scripts/screenshots/capture.mjs'
 import { screenVerbs } from './screen.mjs'
+import { apiSession } from './seed-fixture.mjs'
 import { startServer } from './server.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -72,6 +92,43 @@ function required(name) {
 // sign in as yet, and making the account is the thing being tested.
 export function openApp({ viewport = DESKTOP, theme = 'light', empty = false, env = {} } = {}) {
   const w = {}
+
+  // THE READER'S SETUP SESSION, signed in on first use and kept for the file.
+  // It is this world's, like everything else here: a session made against another
+  // file's server would be a cookie for a server that is not this one.
+  let arranging = null
+  const readerSetup = () => {
+    arranging ??= (async () => {
+      const s = apiSession(w.server.baseUrl)
+      await s.api('POST', '/auth/login', { username: required('TIPPANI_JOURNEY_USER'), password: required('TIPPANI_JOURNEY_PASS') })
+      return s
+    })()
+    return arranging
+  }
+
+  // A SECOND READER, made by the admin and signed in through the form. See the
+  // header for why the temporary password is replaced here rather than on screen.
+  const GIVEN = 'given-by-the-admin'
+  async function secondReader({ username, password }) {
+    if (password === GIVEN) throw new Error('the second reader needs a password of their own, not the one the harness gives')
+    const admin = await readerSetup()
+    await admin.api('POST', '/admin/users', { username, password: GIVEN })
+    const them = apiSession(w.server.baseUrl)
+    await them.api('POST', '/auth/login', { username, password: GIVEN })
+    await them.api('POST', '/auth/password', { current: GIVEN, new: password })
+    // A new password ends every session the account had, this client's with them.
+    await them.api('POST', '/auth/login', { username, password })
+
+    // SIGNED OUT THE WAY A BROWSER IS: it holds no session cookie. Signing out
+    // through the app would be a journey step of its own, and signing-in covers
+    // the form's other half; this is a person handed a browser nobody is signed
+    // in to. The page reloads onto the sign-in form, which is what gets typed in.
+    const cdp = await w.page.createCDPSession()
+    await cdp.send('Network.clearBrowserCookies')
+    await cdp.detach()
+    await ensureSession(w.page, { baseUrl: w.server.baseUrl, username, password, timeoutMs: 20000 })
+    return { username, password, setup: (method, path, body) => them.api(method, path, body) }
+  }
 
   beforeAll(async () => {
     w.server = await startServer({
@@ -193,6 +250,12 @@ export function openApp({ viewport = DESKTOP, theme = 'light', empty = false, en
     // that spells TIPPANI_JOURNEY_PASS knows one thing too many about how its
     // world was built, and the next journey to need it would copy the spelling.
     account: { username: required('TIPPANI_JOURNEY_USER'), password: required('TIPPANI_JOURNEY_PASS') },
+
+    // setup — THE API, FOR ARRANGING A WORLD AND NOTHING AFTER IT. The header
+    // says why it is named for its purpose rather than for what it is. Answers
+    // the parsed JSON, and a refusal throws with the server's reason.
+    setup: async (method, path, body) => (await readerSetup()).api(method, path, body),
+    secondReader,
 
     // downloaded — WAIT FOR THE FILE THE APP JUST HANDED THE READER, and give
     // back what is in it. This is the only way to assert on an export: what a
