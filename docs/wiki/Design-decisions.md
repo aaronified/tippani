@@ -2,8 +2,10 @@
 
 Every design decision I have made in this project, with the reasoning that produced it,
 the alternative I turned down, and — where it applies — the part I got wrong and what
-changed my mind. Eight hundred and eighty entries, grouped by what they are about
-rather than by when they happened.
+changed my mind. Eight hundred and ninety entries, grouped by what they are about
+rather than by when they happened. An entry is a `###` heading in the eighteen numbered
+sections or a `##` heading after them; a heading inside an entry is part of it, and the
+three headings in §18 that hold tables rather than a decision are not entries.
 
 **Everything in this document was approved by me, with one exception, and it is named
 here.** §18 keeps a table, *Decisions awaiting my ruling*, of calls made while 3.1.0 was
