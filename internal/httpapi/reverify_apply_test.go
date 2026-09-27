@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -25,8 +24,9 @@ import (
 // review's result line shows the reader; for the job, the queue given to the
 // server as serve() gives it (queueing, jobs_api_test.go), the book supplier's
 // seam for the check the review decides on (srv.searchBooks), the picture
-// download's seam held mid-answer so that Stop is pressed with an item in hand
-// (srv.fetchImage), and the job's counts' names, which jobs.js reads.
+// download's seam held until its request is cancelled, so that Stop is pressed
+// with an item in hand (srv.fetchImage), and the job's counts' names, which
+// jobs.js reads.
 //
 // What each one guards, in a sentence a person would say: a field somebody
 // changed after the review is left as they wrote it, with a note saying so, while
@@ -36,8 +36,8 @@ import (
 // read now is left, not taken for unchanged; a row that is gone is still not found;
 // the review's Apply, as a job, does the same, says in its log what it wrote on
 // each item, counts written, skipped and failed under the names the screens
-// read, and marks the check it came from applied; and Stop ends it after the
-// item in hand.
+// read, and marks the check it came from applied; and Stop ends it at once,
+// leaving the item in hand untouched.
 
 type applyAnswer struct {
 	Applied int `json:"applied"`
@@ -226,20 +226,18 @@ func TestAnApplyJobWritesWhatWasTickedAndMarksItsCheckApplied(t *testing.T) {
 	}
 }
 
-func TestAnApplyJobStopsAfterTheItemInHand(t *testing.T) {
+// A Stop pressed while the second item's cover is on its way ends the apply
+// there: the first item keeps what was written on it; the second is left as it
+// was — not "cover: fetch failed, other fields applied", nothing at all.
+func TestAnApplyJobStoppedWithAnItemInHandLeavesThatItemUntouched(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)
-	var holding atomic.Bool
-	holding.Store(true)
-	asked, release := make(chan struct{}, 1), make(chan struct{})
+	asked := make(chan struct{}, 1)
 	downloads(t, srv)
-	download := srv.fetchImage
 	srv.fetchImage = func(ctx context.Context, rawURL, dir string) (string, error) {
-		if holding.CompareAndSwap(true, false) {
-			asked <- struct{}{}
-			<-release // the first item's cover is slow to arrive
-		}
-		return download(ctx, rawURL, dir)
+		asked <- struct{}{}
+		<-ctx.Done() // the second item's cover never arrives
+		return "", ctx.Err()
 	}
 	h := srv.Handler()
 	alice := signupAdmin(t, h)
@@ -248,29 +246,33 @@ func TestAnApplyJobStopsAfterTheItemInHand(t *testing.T) {
 
 	job := alice.mustStart("reverify-apply", map[string]any{"items": []any{
 		map[string]any{"type": "book", "id": first, "source": "openlibrary",
-			"set": map[string]any{"cover": "https://covers.openlibrary.org/b/id/1-L.jpg"}, "expect": map[string]any{"cover": ""}},
+			"set": map[string]any{"published_year": 1965}, "expect": map[string]any{"published_year": 0}},
 		map[string]any{"type": "book", "id": second, "source": "openlibrary",
-			"set": map[string]any{"published_year": 1969}, "expect": map[string]any{"published_year": 0}},
+			"set":    map[string]any{"published_year": 1969, "cover": "https://covers.openlibrary.org/b/id/1-L.jpg"},
+			"expect": map[string]any{"published_year": 0, "cover": ""}},
 	}})
 	select {
 	case <-asked:
 	case <-time.After(20 * time.Second):
-		t.Fatal("the apply never fetched the cover")
+		t.Fatal("the apply never fetched the second item's cover")
 	}
 	alice.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", job.ID), nil, http.StatusOK)
-	close(release)
 	stopped := alice.waitJob(job.ID, "stopped")
 	if stopped.Done != 1 {
-		t.Fatalf("stopped after %d of %d items, want the one in hand", stopped.Done, stopped.Total)
+		t.Fatalf("stopped after %d of %d items, want the one applied before the Stop", stopped.Done, stopped.Total)
 	}
 	countsAre(t, stopped, map[string]any{"applied": float64(1), "skipped": float64(0), "failed": float64(0)})
-	year := decode[struct {
-		Year int `json:"published_year"`
-	}](t, alice.mustDo("GET", fmt.Sprintf("/books/%d", second), nil, http.StatusOK)).Year
-	cover := decode[struct {
-		Cover string `json:"cover_path"`
-	}](t, alice.mustDo("GET", fmt.Sprintf("/books/%d", first), nil, http.StatusOK)).Cover
-	if cover == "" || year != 0 {
-		t.Fatalf("after the stop: the first book's cover %q, the second's year %d; want the first written and the second untouched", cover, year)
+	book := func(id int64) (int, string) {
+		b := decode[struct {
+			Year  int    `json:"published_year"`
+			Cover string `json:"cover_path"`
+		}](t, alice.mustDo("GET", fmt.Sprintf("/books/%d", id), nil, http.StatusOK))
+		return b.Year, b.Cover
+	}
+	if year, _ := book(first); year != 1965 {
+		t.Fatalf("the first book's year after the stop: %d, want it written", year)
+	}
+	if year, cover := book(second); year != 0 || cover != "" {
+		t.Fatalf("the second book after the stop: year %d, cover %q; want it untouched", year, cover)
 	}
 }

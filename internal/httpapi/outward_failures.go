@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 
 	"tippani/internal/olog"
@@ -21,11 +22,17 @@ import (
 // allowlist, the size and format checks, a host that said no) is logged as it
 // was.
 //
+// AND A CALL A STOP CANCELLED, which is not a failure either: somebody pressed
+// Stop, the job's log says who, and the call's own line says it was cancelled. A
+// Stop All over a fill of two thousand works would otherwise leave an error in
+// the system log that nothing went wrong to earn. So is a request whose reader
+// went away, for the same reason.
+//
 // One helper for every such line, so that the rule is written once. It was
 // first written for the two picture downloads alone, and the lookups beside them
 // went on logging each refusal as an error.
 func logOutwardFailure(code olog.Code, err error, format string, args ...any) {
-	if errors.Is(err, outbound.ErrOffline) {
+	if errors.Is(err, outbound.ErrOffline) || errors.Is(err, context.Canceled) {
 		olog.Tracef(format, args...)
 		return
 	}

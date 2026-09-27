@@ -187,6 +187,68 @@ func TestAFinishedJobsLastLinesAreThereWhenItSaysItFinished(t *testing.T) {
 	})
 }
 
+// A STOPPED JOB'S END IS NOT HELD FOR ITS LOG. With the drainer parked, a job
+// somebody stops reads stopped within a moment of the press, although the runner
+// would wait thirty seconds for the lines of a job that finished by itself: the
+// person who pressed Stop is watching that row. Its lines, the press's included,
+// are all there once the log is let go.
+func TestAStoppedJobsEndIsNotHeldForItsLog(t *testing.T) {
+	st := openStoreInternal(t)
+	if _, err := st.DB.Exec(`INSERT INTO users (id, username, password_hash) VALUES (2, 'mitra', 'x')`); err != nil {
+		t.Fatal(err)
+	}
+	lb := NewLogbook()
+	hold := make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(hold) }) }
+	lb.tune.beforeWrite = func() { <-hold }
+	lb.Attach(st)
+	t.Cleanup(func() { lb.Close(context.Background()) })
+	r := NewRunner(st, lb, Options{FlushWait: 30 * time.Second})
+	t.Cleanup(func() {
+		// Bounded, so a run a broken Stop never reached is cut off by shutdown's
+		// cancel rather than waited for.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		r.Close(ctx)
+	})
+	t.Cleanup(release)
+	waiting := make(chan struct{})
+	r.Register(Kind{Name: "outward", Run: func(ctx context.Context, j *Job) error {
+		j.Log(LevelInfo, "asking the supplier")
+		close(waiting)
+		<-ctx.Done() // a call on the wire, aborted by the Stop
+		j.Stopping()
+		return nil
+	}})
+	owner := Owner{UserID: 2, Username: "mitra", Gen: st.Generation()}
+	id, err := r.Enqueue(owner, "outward", "", nil, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-waiting
+	pressed := time.Now()
+	if err := r.Stop(id, owner); err != nil {
+		t.Fatal(err)
+	}
+	var state string
+	for st.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&state); state != StateStopped; st.DB.QueryRow(`SELECT state FROM jobs WHERE id = ?`, id).Scan(&state) {
+		if time.Since(pressed) > 5*time.Second {
+			t.Fatalf("with the log held, the stopped job still reads %s five seconds after the press", state)
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	if took := time.Since(pressed); took > 300*time.Millisecond {
+		t.Fatalf("the stopped job read stopped %s after the press, want within 300ms", took)
+	}
+	release()
+	flushT(t, lb, 20*time.Second)
+	want := "asking the supplier|mitra stopped it; the item in hand is left untouched|stopped"
+	if got := strings.Join(linesT(t, st.DB, `SELECT line FROM job_logs ORDER BY id`), "|"); got != want {
+		t.Fatalf("its log once the log was let go: %q, want %q", got, want)
+	}
+}
+
 // AN EVICTED LINE LETS GO OF WHAT IT HELD. With nothing draining (as while the
 // drainer waits out a held lock), a buffer full of request lines takes errors,
 // each pushing request lines out. What the buffer still holds stays inside the
@@ -428,7 +490,7 @@ func TestAStopInTheInstantAfterTheClaimIsNotLost(t *testing.T) {
 	go func() { stopErr <- r.Stop(id, owner) }()
 	for asked := false; !asked; {
 		r.mu.Lock()
-		asked = r.claimStop[id]
+		_, asked = r.claimStop[id]
 		r.mu.Unlock()
 		time.Sleep(time.Millisecond)
 	}
@@ -493,7 +555,7 @@ func TestAStopOnARowLeftRunningDuringAClaimStillSettlesIt(t *testing.T) {
 	go func() { stopErr <- r.Stop(orphan, owner) }()
 	for asked := false; !asked; {
 		r.mu.Lock()
-		asked = r.claimStop[orphan]
+		_, asked = r.claimStop[orphan]
 		r.mu.Unlock()
 		time.Sleep(time.Millisecond)
 	}

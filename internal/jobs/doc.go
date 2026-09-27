@@ -4,8 +4,11 @@
 //
 // THE OWNER'S ASK: "Run every routine a reader starts on the server, so it
 // survives leaving the screen or closing the tab", with one job at a time across
-// the server, the rest queued in the order started, and a Stop that stops after
-// the item in hand. And the invariant this package is the reason for rewording,
+// the server, the rest queued in the order started, and a Stop that stops. It
+// first stopped after the item in hand; the owner's 3.1.0 ruling made it a kill
+// switch — "No dillydallying after it has been pressed", and "it still shall not
+// break anything" — so it now cancels the job at once and the item in hand is
+// left untouched (Kind says how). And the invariant this package is the reason for rewording,
 // verbatim: "nothing runs unless a person or the app's own lookup started it, and
 // nothing wakes on a timer."
 //

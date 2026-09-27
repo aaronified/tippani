@@ -281,6 +281,70 @@ describe('a finished job’s log in Past jobs', () => {
   })
 })
 
+// A STOP IS AT ONCE ON THE SERVER, so the screen that pressed it watches closely:
+// every 200 ms, the current jobs and the job's own log alike, until the job reads
+// stopped — and then back to the ordinary cadence, which is every ten seconds once
+// nothing is left running or waiting. A job that takes longer to end is watched so
+// for three seconds and no longer.
+describe('a Stop', () => {
+  const pressStop = async () => {
+    const current = screen.getByRole('region', { name: 'Current jobs' })
+    fireEvent.click(within(current).getByRole('button', { name: 'Stop Fetch covers (running)' }))
+    await tick(0)
+    return current
+  }
+  const stopsAt = (j) => {
+    CURRENT = []
+    JOBS[j.id] = () => ({ ok: true, status: 200, data: { job: { ...j, state: 'stopped', finished_at: Date.now() }, lines: [], more: false } })
+  }
+
+  it('says Stopping… the instant of the press, before the server has answered', async () => {
+    stillRunning(10)
+    await page()
+    HANG = [/^\/jobs\/10\/stop/]
+    const current = await pressStop()
+    expect(within(current).getByText('Stopping…')).toBeTruthy()
+    expect(within(current).queryByRole('button', { name: 'Stop Fetch covers (running)' })).toBeNull()
+  })
+
+  it('asks every 200 ms until the job reads stopped, and then as it did', async () => {
+    const j = stillRunning(10)
+    await page()
+    await tick(4100) // between two of the ordinary reads, so the press's own is the first after it
+    await pressStop()
+    const pressedAt = Date.now()
+    await tick(1000)
+    // The current jobs and the job's own log, both, every 200 ms.
+    const watched = currentReads().filter((c) => c.at >= pressedAt)
+    expect(watched.length).toBeGreaterThanOrEqual(5)
+    expect(new Set(gaps(watched))).toEqual(new Set([200]))
+    const logs = jobReads(10).filter((c) => c.at >= pressedAt)
+    expect(new Set(gaps(logs))).toEqual(new Set([200]))
+    stopsAt(j)
+    const stoppedAt = Date.now()
+    await tick(30000)
+    // The next close read hears it, and from there nothing is current: every ten seconds.
+    const after = currentReads().filter((c) => c.at >= stoppedAt)
+    expect(gaps(after).slice(1)).toEqual([10000, 10000])
+  })
+
+  it('watches a job that has not read stopped for three seconds, and then asks as it did', async () => {
+    stillRunning(10)
+    await page()
+    await tick(4100)
+    await pressStop()
+    const pressedAt = Date.now()
+    await tick(10000)
+    const watched = currentReads().filter((c) => c.at >= pressedAt)
+    const fast = gaps(watched).filter((g) => g === 200)
+    // Three seconds of it, give or take the read that began the watch.
+    expect(fast.length).toBeGreaterThanOrEqual(13)
+    expect(fast.length).toBeLessThanOrEqual(16)
+    const slow = watched.filter((c) => c.at >= pressedAt + 3400)
+    expect(new Set(gaps(slow))).toEqual(new Set([2000]))
+  })
+})
+
 describe('a read the server accepts and never answers', () => {
   it('does not stop the current jobs being asked for', async () => {
     HANG = [/^\/jobs\?view=current/]

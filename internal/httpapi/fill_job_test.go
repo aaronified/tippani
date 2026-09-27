@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"sort"
 	"strings"
@@ -22,9 +23,11 @@ import (
 //   - the queue is given to the server as serve() gives it (queueing,
 //     jobs_api_test.go), since no request starts the server;
 //   - the book supplier is the server's seam (srv.searchBooks), because a test
-//     may not reach Google Books or Open Library; one test holds it mid-answer,
-//     as a slow supplier would, so that Stop is pressed with a work in hand;
-//   - Pushover is a stub of its API (newFakePushover), for the same reason;
+//     may not reach Google Books or Open Library; one test holds it until its
+//     request is cancelled, as a supplier that never answers would be, so that
+//     Stop is pressed with a work in hand;
+//   - Pushover is a stub of its API (newFakePushover), for the same reason, and
+//     one test holds its answer, so that Stop is pressed after the last work;
 //   - the job's wire fields, and the names of its counts, which are the contract
 //     the screens are built to: the SPA's jobs.js reads counts by those names
 //     (COUNT_KEYS and jobOutcome), so a count spelled otherwise is a count the
@@ -33,10 +36,10 @@ import (
 // What each one guards, in a sentence a person would say: a fill fills only what
 // is missing, says in its log what it did to each work, and counts fields filled,
 // works that failed and works that need a Look up apart, under the names the
-// screens read; Stop ends it after the work in hand, and what it had filled stays
-// filled, and a Stop pressed during its last work leaves it finished, not
-// stopped; and a long fill tells the phone when it reaches its end, not when it
-// is stopped.
+// screens read; Stop ends it at once, what it had filled stays filled, and the
+// work in hand is left untouched, and a Stop pressed once its last work is
+// written leaves it finished, not stopped; and a long fill tells the phone when
+// it reaches its end, not when it is stopped.
 
 // duneSupplier is a book supplier that knows every ISBN it is asked about as
 // Frank Herbert's Dune, 1965, 412 pages, and knows nothing by title alone.
@@ -136,17 +139,20 @@ func TestAFillJobFillsWhatIsMissingAndSaysWhatItDidToEachWork(t *testing.T) {
 	}
 }
 
-func TestAFillJobStopsAfterTheWorkInHandAndKeepsWhatItFilled(t *testing.T) {
+// A Stop pressed while the second work is being looked up ends the fill there:
+// the first work keeps what it was filled with, and is counted; the second, whose
+// lookup the Stop cut off, is left as it was and is counted nowhere.
+func TestAFillJobStoppedWithAWorkInHandKeepsWhatItFilledAndLeavesThatWork(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)
 	duneSupplier(srv)
 	answer := srv.searchBooks
-	asked, release := make(chan struct{}, 1), make(chan struct{})
+	asked := make(chan struct{}, 1)
 	srv.searchBooks = func(ctx context.Context, isbn, title, author, key string) ([]metadata.BookCandidate, error) {
-		select {
-		case asked <- struct{}{}:
-			<-release // the first work's lookup is slow
-		default:
+		if isbn == messiahISBN {
+			asked <- struct{}{}
+			<-ctx.Done() // the second work's supplier never answers
+			return nil, ctx.Err()
 		}
 		return answer(ctx, isbn, title, author, key)
 	}
@@ -159,13 +165,12 @@ func TestAFillJobStopsAfterTheWorkInHandAndKeepsWhatItFilled(t *testing.T) {
 	select {
 	case <-asked:
 	case <-time.After(20 * time.Second):
-		t.Fatal("the fill never asked the supplier")
+		t.Fatal("the fill never asked about the second work")
 	}
 	alice.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", job.ID), nil, http.StatusOK)
-	close(release)
 	stopped := alice.waitJob(job.ID, "stopped")
 	if stopped.Done != 1 {
-		t.Fatalf("stopped after %d of %d works, want the one in hand", stopped.Done, stopped.Total)
+		t.Fatalf("stopped after %d of %d works, want the one finished before the Stop", stopped.Done, stopped.Total)
 	}
 	countsAre(t, stopped, map[string]any{"fields": float64(2), "failed": float64(0), "unpinned": float64(0)})
 
@@ -178,41 +183,59 @@ func TestAFillJobStopsAfterTheWorkInHandAndKeepsWhatItFilled(t *testing.T) {
 		t.Fatalf("after the stop: the first book's year %d, the second's %d; want the first filled and the second untouched",
 			year(first), year(second))
 	}
+	if log := strings.Join(logOf(t, alice, job.ID), "\n"); !strings.Contains(log, "«Dune» — left untouched") {
+		t.Errorf("the fill's log does not say which work it left as it was:\n%s", log)
+	}
 }
 
-// A Stop pressed while the fill's one work is being looked up lets that work
-// finish, as every Stop does — and then the fill has done everything it was
-// given. It succeeded, with the year written; it is not a stopped fill.
-func TestAFillStoppedDuringItsLastWorkHasFinished(t *testing.T) {
+// A STOP THAT LANDS ONCE THE LAST WORK IS WRITTEN HAS NOTHING LEFT TO STOP. A long
+// fill tells the phone it has finished once its last work is written, and a Stop
+// pressed while that message is on its way finds a fill that has done everything
+// it was given: it succeeded, with every work filled and the message sent; it is
+// not a stopped fill.
+func TestAFillStoppedOnceItsLastWorkIsWrittenHasFinished(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)
+	srv.PushoverToken = "azGDORePK8gMaC0QOYAMyEEuzJnyUi"
 	duneSupplier(srv)
-	answer := srv.searchBooks
-	asked, release := make(chan struct{}, 1), make(chan struct{})
-	srv.searchBooks = func(ctx context.Context, isbn, title, author, key string) ([]metadata.BookCandidate, error) {
-		asked <- struct{}{}
-		<-release
-		return answer(ctx, isbn, title, author, key)
-	}
+	sending, sent := make(chan struct{}, 1), make(chan struct{})
+	var said atomic.Value
+	pushover := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		said.Store(r.PostForm.Get("message"))
+		sending <- struct{}{}
+		<-sent // the message is on its way when the Stop is pressed
+		_, _ = w.Write([]byte(`{"status":1}`))
+	}))
+	t.Cleanup(pushover.Close)
+	srv.PushoverAPI = pushover.URL
 	h := srv.Handler()
 	alice := signupAdmin(t, h)
+	alice.mustDo("PUT", "/auth/notifications", map[string]any{"pushover_user": testPushoverUser}, http.StatusOK)
 	dune := createdID(t, alice, "/books", map[string]any{"title": "Dune", "author": "Frank Herbert", "isbn": duneISBN})
+	ids := []int64{dune}
+	for i := 1; i < notifyFetchMin; i++ {
+		ids = append(ids, createdID(t, alice, "/books", map[string]any{"title": fmt.Sprintf("Book %02d", i), "author": "Someone"}))
+	}
 
-	job := alice.mustStart("fill", map[string]any{"book_ids": []int64{dune}})
+	job := alice.mustStart("fill", map[string]any{"book_ids": ids})
 	select {
-	case <-asked:
+	case <-sending:
 	case <-time.After(20 * time.Second):
-		t.Fatal("the fill never asked the supplier")
+		t.Fatal("the fill never told the phone it had finished")
 	}
 	alice.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", job.ID), nil, http.StatusOK)
-	close(release)
+	close(sent)
 	done := alice.waitJob(job.ID, "succeeded")
-	if done.Done != 1 || done.Total != 1 {
+	if done.Done != len(ids) || done.Total != len(ids) {
 		t.Fatalf("the fill's progress: %d of %d", done.Done, done.Total)
 	}
-	countsAre(t, done, map[string]any{"fields": float64(2), "failed": float64(0), "unpinned": float64(0)})
+	countsAre(t, done, map[string]any{"fields": float64(2), "failed": float64(0), "unpinned": float64(len(ids) - 1)})
 	if log := strings.Join(logOf(t, alice, job.ID), "\n"); strings.HasSuffix(log, "stopped") {
-		t.Errorf("a fill that did its one work ends its log saying it stopped:\n%s", log)
+		t.Errorf("a fill that did every work ends its log saying it stopped:\n%s", log)
+	}
+	if got := said.Load(); got != fmt.Sprintf("2 fields filled across %d works.", len(ids)) {
+		t.Errorf("the phone was told %q", got)
 	}
 	year := decode[struct {
 		Year int `json:"published_year"`
@@ -266,7 +289,8 @@ func TestALongFillJobTellsThePhoneWhenItReachesItsEnd(t *testing.T) {
 	}
 	alice.waitJob(alice.mustStart("fill", map[string]any{"book_ids": ids}).ID, "succeeded")
 	msgs := push.sent()
-	want := fmt.Sprintf("0 fields filled across %d works.", notifyFetchMin)
+	// Dune's two fields are this fill's: the stopped one left Dune as it was.
+	want := fmt.Sprintf("2 fields filled across %d works.", notifyFetchMin)
 	if len(msgs) != 1 || msgs[0]["title"] != "Metadata fill finished" || msgs[0]["message"] != want {
 		t.Fatalf("a fill of %d works sent %+v, want one saying %q", notifyFetchMin, msgs, want)
 	}

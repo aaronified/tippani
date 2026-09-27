@@ -25,8 +25,8 @@ import (
 // suppliers are the server's own seams — TMDB (srv.TMDB, pointed at a stub of its
 // /movie/{id} answer), the book search (srv.searchBooks) and the picture download
 // (srv.fetchImage) — because a test may not reach the real ones, and the tests
-// that press Stop hold one of them mid-answer, as a slow supplier would, so that
-// a work is in hand; Pushover is a stub of its API (newFakePushover); the queue
+// that press Stop hold one of them, until its request is cancelled or the test
+// lets it go, so that a work is in hand; Pushover is a stub of its API (newFakePushover); the queue
 // is given to the server as serve() gives it (queueing, jobs_api_test.go); and
 // the chunked route's answer names (next_cursor, total, remaining) and the job's
 // counts' names, which are the contracts with the screens that draw them (the
@@ -36,8 +36,8 @@ import (
 // every book still counts the films it has not reached; a covers job fetches what
 // is missing, says what it did to each work, and counts fetched, enriched,
 // failed and skipped under the names the screens read, the reader's own library
-// only; Stop ends it after the work in hand; and a long one tells the phone when
-// it reaches its end, not when it is stopped.
+// only; Stop ends it at once, leaving the work in hand untouched; and a long one
+// tells the phone when it reaches its end, not when it is stopped.
 
 // filmsTMDB answers TMDB's /movie/{id} for any id, each film with a poster.
 func filmsTMDB(t *testing.T, srv *Server) {
@@ -163,19 +163,21 @@ func filmsOf(t *testing.T, c *testClient) []filmRow {
 	}](t, c.mustDo("GET", "/movies", nil, http.StatusOK)).Movies
 }
 
-func TestACoversJobStopsAfterTheWorkInHand(t *testing.T) {
+// A Stop pressed while the second film's poster is on its way ends the pass
+// there: the first film keeps its poster, and the second is left as it was.
+func TestACoversJobStoppedWithAWorkInHandLeavesThatWorkUntouched(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)
 	h := srv.Handler()
 	admin := signupAdmin(t, h)
 	coversLibrary(t, srv, admin, nil, []int{603, 604})
 	download := srv.fetchImage
-	asked, release := make(chan struct{}, 1), make(chan struct{})
+	asked := make(chan struct{}, 1)
 	srv.fetchImage = func(ctx context.Context, rawURL, dir string) (string, error) {
-		select {
-		case asked <- struct{}{}:
-			<-release // the first poster is slow to arrive
-		default:
+		if strings.Contains(rawURL, "p604") {
+			asked <- struct{}{}
+			<-ctx.Done() // the second poster never arrives
+			return "", ctx.Err()
 		}
 		return download(ctx, rawURL, dir)
 	}
@@ -184,13 +186,12 @@ func TestACoversJobStopsAfterTheWorkInHand(t *testing.T) {
 	select {
 	case <-asked:
 	case <-time.After(20 * time.Second):
-		t.Fatal("the covers pass never asked for a poster")
+		t.Fatal("the covers pass never asked for the second poster")
 	}
 	admin.mustDo("POST", fmt.Sprintf("/jobs/%d/stop", job.ID), nil, http.StatusOK)
-	close(release)
 	stopped := admin.waitJob(job.ID, "stopped")
 	if stopped.Done != 1 || stopped.Total != 2 {
-		t.Fatalf("stopped at %d of %d, want after the film in hand", stopped.Done, stopped.Total)
+		t.Fatalf("stopped at %d of %d, want after the film walked before the Stop", stopped.Done, stopped.Total)
 	}
 	countsAre(t, stopped, map[string]any{"fetched": float64(1), "enriched": float64(0), "failed": float64(0), "skipped": float64(0)})
 	posters := map[string]bool{}

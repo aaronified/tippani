@@ -4344,14 +4344,17 @@ reverify.kept.review = যা পাওয়া গেছে, রাখা আ�
 # Cancel while the check runs STOPS it, which is why it asks.
 # ?? draft for the owner (3.1.0 jobs callers): থামাবেন? for "Stop the check?"
 reverify.stop.confirm.title = মিলিয়ে দেখা থামাবেন?
-# ?? draft for the owner (3.1.0 jobs callers): হাতেরটুকু সেরে থামবে, the Stop all confirm's own words for "after the item in hand"
-reverify.stop.confirm.body = হাতেরটুকু সেরে থামবে, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে।
+# ?? draft for the owner (3.1.0): সঙ্গে সঙ্গে থামবে for "stops at once", হাতেরটুকু যেমন ছিল তেমনই থাকবে for "leaves the item in hand untouched" — the Stop all confirm's own words
+reverify.stop.confirm.body = সঙ্গে সঙ্গে থামবে, হাতেরটুকু যেমন ছিল তেমনই থাকবে, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে।
 # The same confirm over a check still in the queue: it has no item in hand, so
 # the server ends it before it starts.
 # ?? draft for the owner (3.1.0 jobs callers): শুরুই হবে না, the Stop all confirm's own words for a job stopped before it starts
 reverify.stop.confirm.body.waiting = শুরুই হবে না, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে।
 # ?? draft for the owner (3.1.0 jobs callers): থামান, the Stop word of Settings › Jobs
 reverify.stop.confirm.verb = থামান
+# Said in the dialog from the moment Stop it is pressed until the check reads stopped, which is a moment.
+# ?? draft for the owner (3.1.0): থামছে… for "Stopping…", the row's own word in Settings › Jobs
+reverify.stop.stopping = থামছে…
 error.reverify.preview = আগে থেকে দেখানো গেল না
 error.reverify.apply = বসানো গেল না
 
@@ -5848,13 +5851,16 @@ settings.jobs.current.stop.running.aria = থামান: {title} (চলছে
 settings.jobs.current.stop.next.aria = থামান: {title} (এরপরেই)
 settings.jobs.current.stop.ahead.aria.one = থামান: {title} (আগে একটা কাজ)
 settings.jobs.current.stop.ahead.aria.other = থামান: {title} (আগে {n}টা কাজ)
-# bn: "after the item in hand" → হাতেরটুকু সেরে, finishing the bit in hand.
-settings.jobs.current.stop.done = হাতেরটুকু সেরে থামছে
-settings.jobs.current.stopping = হাতেরটুকু সেরে থামছে…
+# A Stop is at once, and the job's item in hand is left untouched.
+# ?? draft for the owner (3.1.0): থামানো হল · হাতেরটুকু যেমন ছিল for "Stopped · item in hand untouched", a toast's five words
+settings.jobs.current.stop.done = থামানো হল · হাতেরটুকু যেমন ছিল
+# ?? draft for the owner (3.1.0): থামছে… for "Stopping…"; it was হাতেরটুকু সেরে থামছে… while a Stop waited for the item in hand
+settings.jobs.current.stopping = থামছে…
 settings.jobs.current.stop-all.label = সব থামান
 settings.jobs.current.stop-all.confirm.title = সব কাজ থামাবেন?
 # The confirm's body is these sentences, the ones that apply, joined in code.
-settings.jobs.current.stop-all.confirm.running = যেটা চলছে, সেটা হাতেরটুকু সেরে থামবে।
+# ?? draft for the owner (3.1.0): সঙ্গে সঙ্গে থামবে for "stops at once", যেমন ছিল তেমনই থাকবে for "is left untouched"
+settings.jobs.current.stop-all.confirm.running = যেটা চলছে, সেটা সঙ্গে সঙ্গে থামবে, আর হাতেরটুকু যেমন ছিল তেমনই থাকবে।
 settings.jobs.current.stop-all.confirm.waiting.one = অপেক্ষার তালিকার কাজটা শুরুই হবে না।
 settings.jobs.current.stop-all.confirm.waiting.other = অপেক্ষার তালিকার {n}টা কাজ শুরুই হবে না।
 settings.jobs.current.stop-all.confirm.kept = প্রতিটা তার লগ নিয়ে থেকে যাবে, আর যিনি চালিয়েছিলেন তিনি আবার চালাতে পারবেন।

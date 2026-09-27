@@ -1019,8 +1019,9 @@ Sentences, not terms: the lines the re-verify dialog, the backup and the restore
 prompts say now that their work runs on the server's queue. Each is drafted to this sheet
 and marked `# ?? draft for the owner (3.1.0 jobs callers)` at its key, with what to check;
 `grep -n 'jobs callers' internal/i18n/bn.txt` lists them. Where a sibling already said the
-same fact, the draft reuses its words — *হাতেরটুকু সেরে থামবে* and *শুরুই হবে না* are the
-Stop all confirm's, *মাঝপথে থেমেছে* is the interrupted state's chip.
+same fact, the draft reuses its words — *শুরুই হবে না* is the Stop all confirm's, *মাঝপথে
+থেমেছে* is the interrupted state's chip. (The confirm's *হাতেরটুকু সেরে থামবে* went when Stop
+became instant; its row is in the table below this one.)
 
 | Key | English | Bengali |
 | --- | --- | --- |
@@ -1029,7 +1030,6 @@ Stop all confirm's, *মাঝপথে থেমেছে* is the interrupted s
 | `reverify.kept.running` | Still running · Settings → Jobs | এখনও চলছে · সেটিংস → কাজ-এ |
 | `reverify.kept.review` | Findings kept · Settings → Jobs | যা পাওয়া গেছে, রাখা আছে · সেটিংস → কাজ-এ |
 | `reverify.stop.confirm.title` | Stop the check? | মিলিয়ে দেখা থামাবেন? |
-| `reverify.stop.confirm.body` | It stops after the item in hand, and is kept in Settings → Jobs with its log. | হাতেরটুকু সেরে থামবে, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে। |
 | `reverify.stop.confirm.body.waiting` | It is stopped before it starts, and kept in Settings → Jobs with its log. | শুরুই হবে না, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে। |
 | `reverify.stop.confirm.verb` | Stop it | থামান |
 | `settings.backup.toast.stopped` | backup stopped | ব্যাকআপ থামানো হল |
@@ -1040,6 +1040,25 @@ Stop all confirm's, *মাঝপথে থেমেছে* is the interrupted s
 | `account.reset.queue.running` | {title} is running. The reset is refused until it stops or finishes — stop it in Settings → Jobs first. | {title} চলছে। সেটা থামা বা শেষ না হওয়া পর্যন্ত সব ডেটা মোছা যাবে না — আগে সেটিংস → কাজ-এ গিয়ে থামান। |
 | `account.reset.queue.waiting.one` | One job is waiting; a reset deletes it with everything else. | অপেক্ষার তালিকায় একটা কাজ আছে — বাকি সবকিছুর সঙ্গে সেটাও মুছে যাবে। |
 | `account.reset.queue.waiting.other` | {n} jobs are waiting; a reset deletes them with everything else. | অপেক্ষার তালিকায় {n}টা কাজ আছে — বাকি সবকিছুর সঙ্গে সেগুলোও মুছে যাবে। |
+
+#### Stop is at once (3.1.0)
+
+The owner made Stop a kill switch — "No dillydallying after it has been pressed", and "it
+still shall not break anything" — so a job stops the moment Stop is pressed and the item in
+hand is left exactly as it was, where before it finished that item first. Every sentence
+that promised "after the item in hand" says so now. Marked `# ?? draft for the owner (3.1.0)`
+at its key; `grep -n 'owner (3.1.0):' internal/i18n/bn.txt` lists them. *সঙ্গে সঙ্গে* is "at
+once" as it is said aloud; *যেমন ছিল তেমনই থাকবে* ("stays as it was") is "left untouched"
+without a form-Bengali word for untouched; *হাতেরটুকু* keeps the jobs pass's word for the item
+in hand.
+
+| Key | English | Bengali |
+| --- | --- | --- |
+| `settings.jobs.current.stop-all.confirm.running` | The running job stops at once, and the item it has in hand is left untouched. | যেটা চলছে, সেটা সঙ্গে সঙ্গে থামবে, আর হাতেরটুকু যেমন ছিল তেমনই থাকবে। |
+| `settings.jobs.current.stop.done` | Stopped · item in hand untouched | থামানো হল · হাতেরটুকু যেমন ছিল |
+| `settings.jobs.current.stopping` | Stopping… | থামছে… |
+| `reverify.stop.confirm.body` | It stops at once and leaves the item in hand untouched, and it is kept in Settings → Jobs with its log. | সঙ্গে সঙ্গে থামবে, হাতেরটুকু যেমন ছিল তেমনই থাকবে, আর তার লগ নিয়ে সেটিংস → কাজ-এ থেকে যাবে। |
+| `reverify.stop.stopping` | Stopping… | থামছে… |
 
 #### Added when the halves were merged
 

@@ -199,9 +199,20 @@ export function JobsCurrentCard({ user, compact = false }) {
   // closes it, so the set holds the exceptions rather than the rule — a job that
   // starts running while the card is up opens itself.
   const [folded, setFolded] = useState(() => new Set())
-  // A Stop pressed on a running job: the server answers at once and the job ends
-  // after the item it is on, which can be seconds, so the row says it heard.
+  // THE JOBS A STOP WAS PRESSED ON, which say "Stopping…" from the instant of the
+  // press, before the server has answered: the server stops a job at once, and a
+  // row that went on offering its Stop until the answer came would read as a press
+  // that did nothing. Each row leaves the card when the close watch after the
+  // Stop (jobs.js) reads it stopped.
   const [stopping, setStopping] = useState(() => new Set())
+  const markStopping = (ids, on) => setStopping((s) => {
+    const next = new Set(s)
+    for (const id of ids) {
+      if (on) next.add(id)
+      else next.delete(id)
+    }
+    return next
+  })
   const any = running + waiting > 0
 
   async function stopAll() {
@@ -220,12 +231,14 @@ export function JobsCurrentCard({ user, compact = false }) {
       danger: true,
     })
     if (!yes) return
-    const r = await stopAllJobs()
-    if (!r.ok) return toast(r.error)
-    // The running row says it heard, as it does for its own Stop: the job ends
-    // after the item it is on, and until then a Stop button still on the row
-    // reads as a press that did nothing.
-    if (r.stopping > 0) setStopping((s) => new Set([...s, ...jobs.filter((j) => j.state === 'running').map((j) => j.id)]))
+    // Every row the press reaches says so at once, as its own Stop would.
+    const pressed = jobs.filter((j) => canStop(j, user)).map((j) => j.id)
+    markStopping(pressed, true)
+    const r = await stopAllJobs(pressed)
+    if (!r.ok) {
+      markStopping(pressed, false)
+      return toast(r.error)
+    }
     // ONE COUNT, FIVE WORDS OR FEWER (the house's toast rule), and nothing at all
     // when the press reached nothing — the jobs ended between the confirm and the
     // press, and "0 jobs stopped" is news about nothing.
@@ -234,12 +247,13 @@ export function JobsCurrentCard({ user, compact = false }) {
   }
 
   async function stopOne(job) {
+    markStopping([job.id], true)
     const r = await stopJob(job.id)
-    if (!r.ok) return toast(r.error)
-    if (job.state === 'running') {
-      setStopping((s) => new Set(s).add(job.id))
-      toast(t('settings.jobs.current.stop.done'))
+    if (!r.ok) {
+      markStopping([job.id], false)
+      return toast(r.error)
     }
+    if (job.state === 'running') toast(t('settings.jobs.current.stop.done'))
   }
 
   // RED, WITH ITS WORDS, AND ABSENT RATHER THAN DISABLED when there is nothing to
@@ -313,7 +327,7 @@ export function JobsCurrentCard({ user, compact = false }) {
               onStop={() => stopOne(job)}
             />
           ) : (
-            <WaitingJob key={job.id} job={job} user={user} onStop={() => stopOne(job)} />
+            <WaitingJob key={job.id} job={job} user={user} stopping={stopping.has(job.id)} onStop={() => stopOne(job)} />
           )))}
         </div>
       )}
@@ -357,7 +371,7 @@ function RunningJob({ job, user, open, stopping, onToggle, onStop }) {
 // lines rather than ten cards.
 const STOP_GLYPH = <IconStop size={20} />
 
-function WaitingJob({ job, user, onStop }) {
+function WaitingJob({ job, user, stopping, onStop }) {
   return (
     <div className="job-row is-waiting">
       <div className="job-row-head">
@@ -368,8 +382,10 @@ function WaitingJob({ job, user, onStop }) {
         {/* A GLYPH HERE, WHERE THE RUNNING ROW HAS WORDS. The running row's Stop
             is the one press the card exists for and keeps its label; a waiting
             row is one line of several, and the glyph it wears was taught by the
-            Stop all in the head. The name still says it, to a hover and a hold. */}
-        {canStop(job, user) && (
+            Stop all in the head. The name still says it, to a hover and a hold.
+            Pressed, it says "Stopping…" in words, as the running row does. */}
+        {canStop(job, user) && stopping && <span className="microcopy">{t('settings.jobs.current.stopping')}</span>}
+        {canStop(job, user) && !stopping && (
           <IconButton
             icon={STOP_GLYPH}
             danger

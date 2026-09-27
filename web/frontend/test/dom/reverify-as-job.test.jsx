@@ -125,16 +125,20 @@ describe('the check', () => {
     await waitFor(() => expect(checkId()).toBeTruthy())
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Cancel' }))
     const ask = await screen.findByRole('alertdialog', { name: 'Stop the check?' })
-    expect(within(ask).getByText('It stops after the item in hand, and is kept in Settings → Jobs with its log.')).toBeTruthy()
+    expect(within(ask).getByText('It stops at once and leaves the item in hand untouched, and it is kept in Settings → Jobs with its log.')).toBeTruthy()
     // Said no: nothing stopped, nothing closed.
     fireEvent.click(within(ask).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(JOBS.stops()).toEqual([])
     expect(closed).toBe(0)
-    // Said yes: that job is stopped, and the dialog goes.
+    // Said yes: that job is stopped, the dialog says so while the server ends
+    // it, and goes once it reads stopped.
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Cancel' }))
     fireEvent.click(within(await screen.findByRole('alertdialog', { name: 'Stop the check?' })).getByRole('button', { name: 'Stop it' }))
     await waitFor(() => expect(JOBS.stops()).toEqual([checkId()]))
+    expect(await within(dialog()).findByText('Stopping…')).toBeTruthy()
+    expect(closed).toBe(0)
+    JOBS.finish(checkId(), { state: 'stopped' })
     await waitFor(() => expect(closed).toBe(1))
   })
 

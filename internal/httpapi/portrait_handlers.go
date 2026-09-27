@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -175,7 +176,7 @@ func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string)
 	// a provider's image host said no — and a headshot that never arrives, on a
 	// page or in a People fetch, otherwise leaves nothing to look up. A refusal
 	// by TIPPANI_OFFLINE is not that failure, and logOutwardFailure says why.
-	if imageURL != "" {
+	if imageURL != "" && ctx.Err() == nil {
 		file, ferr := s.fetchImage(ctx, imageURL, s.coversDir())
 		if ferr != nil {
 			logOutwardFailure(olog.CodeCoverFetch, ferr, "[people] portrait kind=%s name=%q url=%q failed: %v", kind, name, imageURL, ferr)
@@ -187,17 +188,42 @@ func (s *Server) findPortrait(ctx context.Context, uid int64, kind, name string)
 }
 
 // persistPortrait writes what findPortrait found onto record personID of uid's,
-// files kind among its roles, and collects the portrait it replaced. On an error
-// the downloaded file is removed, since nothing points at it.
+// files kind among its roles, and collects the portrait it replaced, in one
+// transaction (persistPortraitOn). On an error the downloaded file is removed,
+// since nothing points at it.
+func (s *Server) persistPortrait(uid, personID int64, kind string, f portraitFind) error {
+	tx, err := s.Store.DB.Begin()
+	if err != nil {
+		s.removeCoverFile(f.image)
+		return err
+	}
+	defer tx.Rollback()
+	oldImage, err := persistPortraitOn(tx, uid, personID, kind, f)
+	if err == nil {
+		err = tx.Commit()
+	}
+	if err != nil {
+		s.removeCoverFile(f.image) // roll back the just-fetched file on write failure
+		return err
+	}
+	if f.image != "" && oldImage != "" && oldImage != f.image {
+		s.removeCoverFile(oldImage) // best-effort; the new row is committed
+	}
+	return nil
+}
+
+// persistPortraitOn is persistPortrait's writes, inside the caller's
+// transaction, and the portrait they replace, for the caller to remove once the
+// transaction has committed. The fields and the role go together, so a record is
+// never left with a portrait fetched as a role it is not filed under.
 //
 // A blank image keeps any existing photo (the identity is still refreshed), so
 // running it again never wipes a good portrait; bio/born/died fill only when
 // empty, so a reader's own edits are never clobbered.
-func (s *Server) persistPortrait(uid, personID int64, kind string, f portraitFind) error {
-	var oldImage string
-	_ = s.Store.DB.QueryRow(
+func persistPortraitOn(tx *sql.Tx, uid, personID int64, kind string, f portraitFind) (oldImage string, err error) {
+	_ = tx.QueryRow(
 		`SELECT image_path FROM people WHERE id = ? AND user_id = ?`, personID, uid).Scan(&oldImage)
-	if _, err := s.Store.DB.Exec(`
+	if _, err := tx.Exec(`
 		UPDATE people SET
 			image_path = CASE WHEN ? <> '' THEN ? ELSE image_path END,
 			bio  = CASE WHEN bio  = '' AND ? <> '' THEN ? ELSE bio  END,
@@ -206,18 +232,14 @@ func (s *Server) persistPortrait(uid, personID int64, kind string, f portraitFin
 			source = ?, source_id = ?
 		WHERE id = ? AND user_id = ?`,
 		f.image, f.image, f.bio, f.bio, f.born, f.born, f.died, f.died, f.source, f.sourceID, personID, uid); err != nil {
-		s.removeCoverFile(f.image) // roll back the just-fetched file on write failure
-		return err
-	}
-	if f.image != "" && oldImage != "" && oldImage != f.image {
-		s.removeCoverFile(oldImage) // best-effort; the new row is committed
+		return "", err
 	}
 	// Fetching an actor's portrait for someone already saved as an author adds
 	// the actor role to that person rather than making a second row.
-	if err := s.recordPersonKind(personID, kind); err != nil {
+	if err := recordPersonKindOn(tx, personID, kind); err != nil {
 		olog.Warnf(olog.CodePeopleRowScan, "[people] portrait role record failed: %v", err)
 	}
-	return nil
+	return oldImage, nil
 }
 
 // resolvePersonPortrait resolves a person's portrait, stable identity and

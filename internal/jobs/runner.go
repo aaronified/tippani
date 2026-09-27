@@ -64,16 +64,33 @@ const MaxResult = 8 << 20
 // is not two thousand writes, and a screen polling once a second sees no less.
 const progressEvery = 500 * time.Millisecond
 
+// stopFlushWait is the most a stopped job's finishing write waits for its last
+// lines. A person who pressed Stop is watching the row, and FlushWait's two
+// seconds is a stuck log's worth of wait, not a Stop's: the row reads stopped
+// now, and a line the log had not written yet lands a moment after it, which
+// the next poll picks up. Nothing is lost, only no longer waited for.
+const stopFlushWait = 100 * time.Millisecond
+
 // Kind is one sort of queued job: what it is called, who may start it, whether a
 // finished one can be run again, and what it does.
 //
-// Run gets the runner's own context, never a request's: it outlives the request
-// that queued it by design, and it is cancelled only when the server shuts down.
-// It should check j.Stopping() between items — Stop means "after the item in
-// hand" — and stop when it answers yes, and report each item with j.Progress.
-// Stopping's yes is also how the runner tells a job Stop cut short from one Stop
-// reached after its last item (finish), so a run asks it only where it would
-// stop: between items, never after the last.
+// Run gets the job's own context, never a request's: it outlives the request
+// that queued it by design. It is a child of the runner's, so shutdown ends it,
+// and Stop ends it the moment Stop is pressed — the owner's "the job cancel button
+// must also be the most responsive kill switch", and in the same breath "it still
+// shall not break anything". So a run hands the context to every outward call,
+// and asks ctx.Err() before each outward step and before every write, and an item
+// whose context ended before its write is ABANDONED WHOLE: nothing it fetched is
+// written, a file it downloaded is removed, and its database writes, which carry
+// no context, are one transaction begun only after the last check, so a write
+// that has begun finishes or rolls back whole and a Stop never lands inside one.
+//
+// It should check j.Stopping() between items and stop when it answers yes, ask it
+// again after an item it abandoned, and report each item it finished with
+// j.Progress. Stopping's yes is also how the runner tells a job Stop cut short
+// from one Stop reached once its last item was written (finish), so a run asks it
+// only where it would stop: between items, or after an abandoned one, never after
+// the last one done.
 //
 // Counts, when set, is what the kind's screens read of a result without reading
 // the result: a few numbers, and at most a short string (a people fetch's first
@@ -105,7 +122,8 @@ type Options struct {
 	// runner's context, before marking it interrupted. 0 means 1 s.
 	CancelWait time.Duration
 	// FlushWait bounds the wait for a job's last lines before its finishing
-	// write. 0 means 2 s.
+	// write. 0 means 2 s. A job somebody stopped waits stopFlushWait at most,
+	// whatever this says.
 	FlushWait time.Duration
 	// CloseWriteWait bounds how long each write Close makes after its wait —
 	// marking the job it gave up on and the waiting ones interrupted — waits for
@@ -146,7 +164,11 @@ type Runner struct {
 	alive     bool
 	pending   bool
 	claiming  bool
-	claimStop map[int64]bool // Stop asked for a job while the worker was claiming it
+	// claimStop is every job a Stop asked for while the worker was claiming, with
+	// the line naming who pressed it. The worker applies it to the job it took,
+	// before running a step of it, and logs the line there, so the line is in
+	// the log before anything the cancelled run says.
+	claimStop map[int64]string
 	// claimEnded is closed when the claim in progress ends. A Stop waits on it:
 	// until the claim is over, nobody can say whether it took the job asked for.
 	claimEnded chan struct{}
@@ -193,7 +215,7 @@ func NewRunner(st *store.Store, lb *Logbook, opts Options) *Runner {
 	return &Runner{
 		st: st, lb: lb, opts: opts,
 		kinds: map[string]Kind{}, base: base, cancel: cancel,
-		claimStop: map[int64]bool{}, secrets: map[int64]any{}, leaving: map[int64]int{},
+		claimStop: map[int64]string{}, secrets: map[int64]any{}, leaving: map[int64]int{},
 		idle: closedChan(),
 	}
 }
@@ -446,7 +468,11 @@ func (r *Runner) work(idle chan struct{}) {
 		r.mu.Lock()
 		r.claiming = false
 		close(r.claimEnded)
-		stop := j != nil && r.claimStop[j.id]
+		var stopLine string
+		stop := false
+		if j != nil {
+			stopLine, stop = r.claimStop[j.id]
+		}
 		clear(r.claimStop)
 		if err != nil {
 			// A lock held through every retry, or a write that cannot work. The
@@ -464,8 +490,13 @@ func (r *Runner) work(idle chan struct{}) {
 			r.mu.Unlock()
 			return
 		}
+		j.ctx, j.cancel = context.WithCancel(r.base)
 		if stop {
 			j.stop.Store(true)
+			j.Log(LevelInfo, "%s", stopLine)
+		}
+		if j.stop.Load() {
+			j.cancel() // stopped before its first step: it takes none
 		}
 		if r.closed {
 			j.shutdown.Store(true) // claimed as Close began: it ends at once, interrupted
@@ -474,6 +505,7 @@ func (r *Runner) work(idle chan struct{}) {
 		r.mu.Unlock()
 
 		r.run(j)
+		j.cancel() // the child is let go of the runner's context once the job is over
 
 		r.mu.Lock()
 		r.running = nil
@@ -556,7 +588,7 @@ func (r *Runner) execute(j *Job) (err error) {
 			err = fmt.Errorf("the job stopped on an internal error (%s)", olog.CodeJobPanic)
 		}
 	}()
-	return k.Run(WithRecorder(r.base, j), j)
+	return k.Run(WithRecorder(j.ctx, j), j)
 }
 
 // finish records how a job ended. Its last line is logged and flushed first, so
@@ -570,15 +602,21 @@ func (r *Runner) execute(j *Job) (err error) {
 // server's line then says the end was not recorded, rather than naming a state
 // the record does not hold, and Stop settles the row (settleOrphan).
 //
-// A JOB IS STOPPED ONLY IF IT STOPPED SHORT. Stop lands after the item in hand,
-// and when that item is the last there is nothing left to stop: the job did
-// everything it was given, and reading stopped — offered again, its finished
-// message already sent, a check's complete findings refused a review — would
-// say otherwise. So stopped (or, for a shutdown, interrupted) is a job whose run
-// was told to stop between items (Stopping answered yes) or ended on its
-// context; a run that was never told did every item, and a job with no items
-// to stop between (a backup) ends as its run did.
+// A JOB IS STOPPED ONLY IF IT STOPPED SHORT. Stop cancels the job at once, and
+// the item in hand is abandoned whole — but a Stop that lands once the last item
+// is written has nothing left to stop: the job did everything it was given, and
+// reading stopped — offered again, its finished message already sent, a check's
+// complete findings refused a review — would say otherwise. So stopped (or, for a
+// shutdown, interrupted) is a job whose run was told to stop (Stopping answered
+// yes, between items or after the item it abandoned) or ended on its context; a
+// run that was never told did every item, and a job with no items to stop
+// between (a backup) ends as its run did.
+//
+// A STOPPED JOB'S END IS WRITTEN AT ONCE. Its flush waits stopFlushWait at most,
+// not FlushWait, so the row a person is watching reads stopped within a moment of
+// the press.
 func (r *Runner) finish(j *Job, runErr error) {
+	j.ended.Store(true)
 	short := runErr != nil || j.told.Load()
 	state, errText, last, lvl := StateSucceeded, "", "", LevelInfo
 	switch {
@@ -599,7 +637,11 @@ func (r *Runner) finish(j *Job, runErr error) {
 		if last != "" {
 			j.Log(lvl, "%s", last)
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), r.opts.FlushWait)
+		wait := r.opts.FlushWait
+		if j.stop.Load() {
+			wait = min(wait, stopFlushWait)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), wait)
 		r.lb.Flush(ctx)
 		cancel()
 		recErr = busyRetry(busyAttempts, busyBackoff, busyCeiling, j.abandoned.Load, func() error {
@@ -653,15 +695,16 @@ func visible(viewer Owner, uid sql.NullInt64) bool {
 	return viewer.IsAdmin || (uid.Valid && uid.Int64 == viewer.UserID)
 }
 
-// Stop stops a job: at once if it is still waiting, after the item in hand if it
-// is running. A job that has already ended is left as it ended. A job the viewer
-// may not see is ErrNotFound.
+// Stop stops a job at once: a waiting one before it starts, a running one by
+// cancelling its context, so what it has in flight aborts now and the item in
+// hand is left untouched (Kind says how a run keeps that promise). A job that has
+// already ended is left as it ended. A job the viewer may not see is ErrNotFound.
 //
 // Compare-and-set, so it cannot lose a race with the worker's claim: the waiting
 // row is stopped only if it is still waiting, and a job the claim got to first is
-// asked to stop in memory as well as in its row, where the worker, claiming or
-// running it, will see it. A row that reads running with no job in the worker's
-// hands is one whose end was never recorded, and it is settled (settleOrphan);
+// stopped in memory as well as in its row, where the worker, claiming or running
+// it, will see it. A row that reads running with no job in the worker's hands is
+// one whose end was never recorded, and it is settled (settleOrphan);
 // stopHeldLocked says which is which.
 func (r *Runner) Stop(id int64, viewer Owner) error {
 	if viewer.Gen != r.st.Generation() {
@@ -688,51 +731,56 @@ func (r *Runner) Stop(id int64, viewer Owner) error {
 		return nil
 	}
 	r.mu.Lock()
-	held, fresh := r.stopHeldLocked(id)
+	held := r.stopHeldLocked(id, fmt.Sprintf("%s stopped it; the item in hand is left untouched", viewer.Username))
 	r.mu.Unlock()
 	if !held {
 		_, err := r.settleOrphan(viewer.Gen, id, fmt.Sprintf("its end was never recorded; %s stopped it, and it is marked interrupted", viewer.Username))
 		return err
 	}
-	res, err = r.st.DB.Exec(`UPDATE jobs SET stop_requested = 1 WHERE id = ? AND state = 'running'`, id)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 1 && fresh {
-		r.lb.jobLineIn(viewer.Gen, id, LevelInfo, fmt.Sprintf("%s asked it to stop; it stops after the item in hand", viewer.Username))
-	}
-	return nil
+	// The row's flag, for a claim that reads it; the job itself was stopped above.
+	_, err = r.st.DB.Exec(`UPDATE jobs SET stop_requested = 1 WHERE id = ? AND state = 'running'`, id)
+	return err
 }
 
-// stopHeldLocked asks the job in the worker's hands to stop, if it is id, and
-// reports whether it was (held) and whether the ask is news (fresh). A job the
-// worker does not hold has ended, whatever its row says, and nothing is kept for
-// it.
+// stopHeldLocked stops the job in the worker's hands, if it is id, and reports
+// whether it was held. Stopping it is three things, in this order: the line
+// naming who pressed it, logged once however many presses land; the flag the
+// run's own checks read; and the cancel, which aborts whatever the run has in
+// flight. The line goes first so that it is in the log ahead of anything the
+// cancelled run says on its way out. A job the worker does not hold has ended,
+// whatever its row says, and nothing is kept for it.
 //
 // A CLAIM IN PROGRESS IS WAITED OUT. Until it ends, the row the claim took reads
 // running while the worker has not yet said which job it holds, so a running row
 // cannot be told from one left running by a failed finishing write — and taking
 // the one for the other would either leave that one running for good or mark the
-// job just claimed interrupted as it starts. So the ask goes in claimStop, where
-// the worker applies it before the job's first item if the claim took id, and
-// the answer waits for the claim, which is one statement. Called and returning
-// with r.mu held; it lets go of it while it waits.
-func (r *Runner) stopHeldLocked(id int64) (held, fresh bool) {
+// job just claimed interrupted as it starts. So the stop goes in claimStop, with
+// its line, where the worker applies it before the job's first step if the claim
+// took id, and the answer waits for the claim, which is one statement. Called and
+// returning with r.mu held; it lets go of it while it waits.
+func (r *Runner) stopHeldLocked(id int64, line string) (held bool) {
 	for r.claiming {
-		if !r.claimStop[id] {
-			r.claimStop[id] = true
-			fresh = true
+		if _, asked := r.claimStop[id]; !asked {
+			r.claimStop[id] = line
 		}
 		ended := r.claimEnded
 		r.mu.Unlock()
 		<-ended
 		r.mu.Lock()
 	}
-	if j := r.running; j != nil && j.id == id {
-		news := !j.stop.Swap(true)
-		return true, fresh || news
+	j := r.running
+	if j == nil || j.id != id {
+		return false
 	}
-	return false, false
+	if j.ended.Load() {
+		return true // its run is over and its end is being written: nothing is left to stop
+	}
+	if !j.stop.Load() {
+		j.Log(LevelInfo, "%s", line)
+	}
+	j.stop.Store(true)
+	j.cancel()
+	return true
 }
 
 // settleOrphan ends a row that reads running although no job is in the worker's
@@ -758,11 +806,12 @@ func (r *Runner) settleOrphan(gen uint64, id int64, line string) (bool, error) {
 	return true, nil
 }
 
-// StopAll stops every job the viewer can see: their own, or everyone's for an
-// admin (the confirm says so). Waiting jobs are stopped at once; the running one
-// is asked to stop after the item in hand. It says how many of each. A row left
-// reading running whose end was never recorded is settled at once and counted
-// with the waiting ones: like them, it has ended by the time this returns.
+// StopAll stops every job the viewer can see, at once: their own, or everyone's
+// for an admin (the confirm says so). Waiting jobs are stopped before they start;
+// the running one is cancelled as Stop cancels it, its item in hand left
+// untouched. It says how many of each. A row left reading running whose end was
+// never recorded is settled at once and counted with the waiting ones: like them,
+// it has ended by the time this returns.
 func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error) {
 	if viewer.Gen != r.st.Generation() {
 		return 0, 0, ErrStale
@@ -773,12 +822,12 @@ func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error)
 	}
 	return r.stopWhere(viewer.Gen, scope, args,
 		fmt.Sprintf("%s stopped it before it started", viewer.Username),
-		fmt.Sprintf("%s asked every job to stop; this one stops after the item in hand", viewer.Username),
-		fmt.Sprintf("its end was never recorded; %s asked every job to stop, and it is marked interrupted", viewer.Username))
+		fmt.Sprintf("%s stopped every job; this one's item in hand is left untouched", viewer.Username),
+		fmt.Sprintf("its end was never recorded; %s stopped every job, and it is marked interrupted", viewer.Username))
 }
 
-// StopOwner stops every job of an account that is about to be deleted: waiting
-// ones at once, the running one after the item in hand.
+// StopOwner stops every job of an account that is about to be deleted, at once:
+// waiting ones before they start, the running one cancelled as Stop cancels it.
 //
 // AND THE ACCOUNT STARTS NOTHING MORE until the delete calls release, whichever
 // way the delete ends. Between this and the delete's commit the account still
@@ -803,17 +852,17 @@ func (r *Runner) StopOwner(uid int64) (release func(), err error) {
 	gen := r.st.Generation()
 	_, _, err = r.stopWhere(gen, " AND user_id = ?", []any{uid},
 		"stopped before it started: the account that started it is being deleted",
-		"the account that started this job is being deleted; it stops after the item in hand",
+		"the account that started this job is being deleted, so it is stopped; the item in hand is left untouched",
 		"its end was never recorded; the account that started it is being deleted, and it is marked interrupted")
 	return release, err
 }
 
 // WaitOwnerIdle waits until the worker holds no job of account uid, or until ctx
-// ends (its error). The delete of an account calls it after StopOwner: Stop means
-// after the item in hand, and the item in hand still runs as the account's id,
-// which users.id hands to the next account made once this one is gone. A claim in
-// progress is waited out first, since until it ends nobody can say whose job it
-// took.
+// ends (its error). The delete of an account calls it after StopOwner: a stopped
+// run still has to come back — out of a database write it had begun, which
+// finishes whole — and until it has it runs as the account's id, which users.id
+// hands to the next account made once this one is gone. A claim in progress is
+// waited out first, since until it ends nobody can say whose job it took.
 func (r *Runner) WaitOwnerIdle(ctx context.Context, uid int64) error {
 	for {
 		r.mu.Lock()
@@ -859,22 +908,18 @@ func (r *Runner) stopWhere(gen uint64, scope string, args []any, waitingLine, ru
 	}
 	for _, id := range running {
 		r.mu.Lock()
-		held, fresh := r.stopHeldLocked(id)
+		held := r.stopHeldLocked(id, runningLine)
 		r.mu.Unlock()
-		switch {
-		case !held:
-			settled, err := r.settleOrphan(gen, id, orphanLine)
-			if err != nil {
-				return stopping, stoppedWaiting, err
-			}
-			if settled {
-				stoppedWaiting++
-			}
-		case fresh:
-			r.lb.jobLineIn(gen, id, LevelInfo, runningLine)
+		if held {
 			stopping++
-		default:
-			stopping++
+			continue
+		}
+		settled, err := r.settleOrphan(gen, id, orphanLine)
+		if err != nil {
+			return stopping, stoppedWaiting, err
+		}
+		if settled {
+			stoppedWaiting++
 		}
 	}
 	return stopping, stoppedWaiting, nil

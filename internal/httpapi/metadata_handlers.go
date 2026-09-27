@@ -554,7 +554,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	// The LAST chunk of a run is the only one that knows the run is over; the
 	// per-chunk counts are the caller's to sum, so the message names the run's
 	// size rather than a total this request never saw.
-	if c.next == "" && c.total >= notifyFetchMin {
+	if c.next == "" && c.stopped == nil && c.total >= notifyFetchMin {
 		s.notifyAfter(w, r, uid, "fetch", coversDoneTitle, coversDoneMessage(c.total))
 	}
 }
@@ -568,10 +568,10 @@ func coversDoneMessage(total int) string {
 }
 
 // runCovers is the covers job: the pass the chunked route walks, one work at a
-// time, so a Stop lands after the work in hand; a line in the job's log for each
-// work it walked. It tells the phone when it reaches the end, as the route's last
-// chunk does, and not when it is stopped, which the route's never-sent last chunk
-// did not either.
+// time, with a line in the job's log for each work it walked. A Stop leaves the
+// work in hand as it was (coversRefetchChunk). It tells the phone when it
+// reaches the end, as the route's last chunk does, and not when it is stopped,
+// which the route's never-sent last chunk did not either.
 func runCovers(s *Server, ctx context.Context, j *jobs.Job) error {
 	var p struct {
 		MissingOnly bool `json:"missing_only"`
@@ -586,7 +586,7 @@ func runCovers(s *Server, ctx context.Context, j *jobs.Job) error {
 	}
 	var sum coversChunk
 	cursor, reached := "", false
-	for !j.Stopping() {
+	for i := 0; s.goOn(j, i); i++ {
 		c, err := s.coversRefetchChunk(ctx, uid, cursor, 1, p.MissingOnly, keys)
 		if err != nil {
 			// What it did before the failure is still what it did.
@@ -602,6 +602,10 @@ func runCovers(s *Server, ctx context.Context, j *jobs.Job) error {
 				level = jobs.LevelWarn
 			}
 			j.Log(level, "%s — %s", itemName(row.kind, row.id, row.title), row.what)
+		}
+		if w := c.stopped; w != nil {
+			abandoned(j, itemName(w.kind, w.id, w.title))
+			break
 		}
 		j.Progress(c.total-c.remaining, c.total)
 		if c.next == "" {
@@ -635,6 +639,9 @@ type coversChunk struct {
 	// rows is what happened to each work the stretch walked, in the order walked:
 	// the covers job's log, a line a work. The route answers only the counters.
 	rows []coversRow
+	// stopped is the work a Stop reached, left as it was: not in rows, not
+	// counted, and next and remaining are not worked out past it. nil when none.
+	stopped *coversRow
 }
 
 // coversRow is one work a covers pass walked, and what the pass did to it, in
@@ -649,8 +656,10 @@ type coversRow struct {
 
 // coversRefetchChunk walks up to limit of uid's works after cursor, as
 // POST /covers/refetch describes, and fills what each is missing. The chunked
-// route calls it once per request; the covers job calls it one work at a time,
-// so a Stop lands after the work in hand. An unreadable cursor is a *refusal.
+// route calls it once per request; the covers job calls it one work at a time.
+// An unreadable cursor is a *refusal. A ctx that ends mid-stretch — a Stop, or
+// the route's reader gone — ends the stretch at the work it reached, which is
+// left as it was (stopped).
 func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor string, limit int, missingOnly bool, keys providerKeys) (coversChunk, error) {
 	var c coversChunk
 	phase, after := "books", int64(0)
@@ -722,12 +731,26 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 	// left as-is — no higher-res source" rather than an unexplained partial run.
 	enriched, fetched, failed, skipped := 0, 0, 0, 0
 	lastID := after
+	// What the stretch has done when a Stop reaches a work in it: the works before
+	// it, walked and written; the work itself is in stopped and nowhere else.
+	stop := func(row coversRow) (coversChunk, error) {
+		c.fetched, c.enriched, c.failed, c.skipped = fetched, enriched, failed, skipped
+		c.stopped = &row
+		return c, nil
+	}
 	for _, b := range books {
 		lastID = b.id
 		isbnN := metadata.NormalizeISBN(b.isbn)
 		row := coversRow{kind: "book", id: b.id, title: b.title}
 		var did []string
 
+		// EVERY LOOKUP AND THE DOWNLOAD FIRST, THEN ONE WRITE (job_stop.go). The
+		// details, the genres and the cover were three writes between the lookups,
+		// so a Stop landing on the cover's download left a book with its details
+		// filled and its cover not: half a work. Now nothing is written until
+		// everything the work gets has arrived, and a Stop before then leaves it as
+		// it was.
+		//
 		// Best candidate from the keyless/keyed sources.
 		var cand *metadata.BookCandidate
 		if isbnN != "" || b.title != "" {
@@ -735,70 +758,21 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 				cand = &cs[0]
 			}
 		}
-		if cand == nil && b.asin != "" && cookie != "" {
+		if cand == nil && b.asin != "" && cookie != "" && ctx.Err() == nil {
 			if a, aerr := metadata.FetchAmazonBook(ctx, b.asin, cookie, domain); aerr == nil {
 				cand = a
 			}
 		}
-
 		// Metadata backfill (fill-empty), only when the identity is trustworthy.
-		if cand != nil && (isbnN != "" || b.asin != "") {
-			// 0061's three join the fill-empty backfill on the same terms as the
-			// three above, in the NULLIF/zero spelling their NOT NULL DEFAULT
-			// columns need — `COALESCE('', x)` is `''`, which would report an
-			// enrichment while donating nothing (see enrichStagedQuote).
-			res, uerr := s.Store.DB.Exec(`UPDATE books SET
-				author = COALESCE(author, ?),
-				description = COALESCE(description, ?),
-				published_year = COALESCE(published_year, ?),
-				subtitle = COALESCE(NULLIF(subtitle, ''), ?),
-				publisher = COALESCE(NULLIF(publisher, ''), ?),
-				pages = COALESCE(NULLIF(pages, 0), ?),
-				updated_at = datetime('now')
-				WHERE id = ? AND (author IS NULL OR description IS NULL OR published_year IS NULL
-				                  OR (subtitle = '' AND ? <> '') OR (publisher = '' AND ? <> '')
-				                  OR (pages = 0 AND ? <> 0))`,
-				nullable(cand.Author), nullable(cand.Description), nullableInt(cand.PublishedYear),
-				cand.Subtitle, cand.Publisher, cand.Pages,
-				b.id, cand.Subtitle, cand.Publisher, cand.Pages)
-			if uerr == nil {
-				if n, _ := res.RowsAffected(); n > 0 {
-					enriched++
-					did = append(did, "details filled")
-					// 0056: an author that was NULL may now hold a name, so the
-					// link rows follow it. In its own transaction because this
-					// sweep writes outside one — and best-effort, because a
-					// backfill that walks the whole library must not abort over
-					// one row: the columns are correct either way, and
-					// SyncAllCredits repairs a straggler.
-					if tx, terr := s.Store.DB.Begin(); terr == nil {
-						if cerr := store.SyncCreditsFromColumns(tx, b.uid, "book", b.id, s.creditSeps(tx, b.uid)); cerr != nil {
-							tx.Rollback()
-							olog.Warnf(olog.CodeMetaRowScan, "[meta] backfill: credits not linked for book %d: %v", b.id, cerr)
-						} else if cerr := tx.Commit(); cerr != nil {
-							olog.Warnf(olog.CodeMetaRowScan, "[meta] backfill: credit link commit failed for book %d: %v", b.id, cerr)
-						}
-					}
-				}
-			}
-			if b.genreCount == 0 && len(cand.Genres) > 0 {
-				// Cap fetched genres at 5 per item — suppliers can return a long
-				// tail of low-signal tags, and manual entry (which doesn't come
-				// through here) is left untouched.
-				genres := cand.Genres
-				if len(genres) > 5 {
-					genres = genres[:5]
-				}
-				if tx, terr := s.Store.DB.Begin(); terr != nil {
-					olog.Errorf(olog.CodeMetaGenrePersist, "[meta] genres not persisted: %v", terr)
-				} else if serr := setGenres(tx, "book", b.uid, b.id, genres); serr != nil {
-					olog.Errorf(olog.CodeMetaGenrePersist, "[meta] genres not persisted: %v", serr)
-					_ = tx.Rollback()
-				} else if cerr := tx.Commit(); cerr != nil {
-					olog.Errorf(olog.CodeMetaGenrePersist, "[meta] genres not persisted: %v", cerr)
-				} else {
-					did = append(did, "genres added")
-				}
+		backfill := cand != nil && (isbnN != "" || b.asin != "")
+		// Cap fetched genres at 5 per item — suppliers can return a long tail of
+		// low-signal tags, and manual entry (which doesn't come through here) is
+		// left untouched.
+		var genres []string
+		if backfill && b.genreCount == 0 && len(cand.Genres) > 0 {
+			genres = cand.Genres
+			if len(genres) > 5 {
+				genres = genres[:5]
 			}
 		}
 
@@ -814,8 +788,10 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 			oldW = s.coverWidth(b.cover)
 		}
 		lowRes := !missingOnly && b.cover != "" && oldW > 0 && oldW < lowResCoverWidth
-		if b.cover == "" || lowRes {
-			var urls []string
+		wantCover := b.cover == "" || lowRes
+		var urls []string
+		name := ""
+		if wantCover {
 			// Amazon's ISBN-10 image CDN is keyless and serves the full-size
 			// scan — the best-quality source, so try it first. A book Amazon
 			// doesn't stock returns a tiny placeholder the size floor rejects,
@@ -835,9 +811,8 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 			if b.asin != "" {
 				urls = append(urls, metadata.AmazonCoverURL(b.asin))
 			}
-			name := ""
 			for _, u := range urls {
-				if u == "" {
+				if u == "" || ctx.Err() != nil {
 					continue
 				}
 				if n, ferr := s.fetchImage(ctx, u, s.coversDir()); ferr == nil {
@@ -845,37 +820,114 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 					break
 				}
 			}
-			switch {
-			case name == "":
-				if len(urls) > 0 {
-					failed++ // had sources to try, all fetches failed
-					did = append(did, fmt.Sprintf("no cover could be fetched (%s tried)", countOf(len(urls), "place", "places")))
-					row.warn = true
-				} else {
-					skipped++ // nothing to try (no isbn/asin/cached URL/candidate)
-					did = append(did, "no cover to look for: no ISBN, ASIN or address kept from its supplier")
+		}
+		// A STOP BEFORE THE WRITE LEAVES THE BOOK AS IT WAS: what it had found is
+		// not written, the cover that arrived is removed, and the work is counted
+		// neither way. The transaction below begins only after this.
+		if ctx.Err() != nil {
+			s.removeCoverFile(name)
+			return stop(row)
+		}
+		keptOld := false
+		if name != "" && lowRes && s.coverWidth(name) <= oldW {
+			s.removeCoverFile(name) // no better than what's stored — keep the old one
+			name, keptOld = "", true
+		}
+
+		// THE WRITE: one transaction, so the work gets everything it was found or
+		// nothing. A backfill that walks the whole library still does not abort
+		// over one row: a work whose write fails is rolled back alone, says so, and
+		// the pass goes on to the next.
+		enrichedIt := false
+		if backfill || len(genres) > 0 || name != "" {
+			werr := func() error {
+				tx, err := s.Store.DB.Begin()
+				if err != nil {
+					return err
 				}
-			case lowRes && s.coverWidth(name) <= oldW:
-				s.removeCoverFile(name) // no better than what's stored — keep the old one
-				skipped++
-				did = append(did, "kept its cover: nothing larger was found")
-			default:
-				if _, uerr := s.Store.DB.Exec(`UPDATE books SET cover_path = ?, updated_at = datetime('now') WHERE id = ?`, name, b.id); uerr == nil {
-					fetched++
-					if lowRes {
-						did = append(did, "a larger cover fetched")
-					} else {
-						did = append(did, "cover fetched")
+				defer tx.Rollback()
+				if backfill {
+					// 0061's three join the fill-empty backfill on the same terms as
+					// the three above, in the NULLIF/zero spelling their NOT NULL
+					// DEFAULT columns need — `COALESCE('', x)` is `''`, which would
+					// report an enrichment while donating nothing (see
+					// enrichStagedQuote).
+					res, err := tx.Exec(`UPDATE books SET
+						author = COALESCE(author, ?),
+						description = COALESCE(description, ?),
+						published_year = COALESCE(published_year, ?),
+						subtitle = COALESCE(NULLIF(subtitle, ''), ?),
+						publisher = COALESCE(NULLIF(publisher, ''), ?),
+						pages = COALESCE(NULLIF(pages, 0), ?),
+						updated_at = datetime('now')
+						WHERE id = ? AND (author IS NULL OR description IS NULL OR published_year IS NULL
+						                  OR (subtitle = '' AND ? <> '') OR (publisher = '' AND ? <> '')
+						                  OR (pages = 0 AND ? <> 0))`,
+						nullable(cand.Author), nullable(cand.Description), nullableInt(cand.PublishedYear),
+						cand.Subtitle, cand.Publisher, cand.Pages,
+						b.id, cand.Subtitle, cand.Publisher, cand.Pages)
+					if err != nil {
+						return err
 					}
-					if b.cover != "" && b.cover != name {
-						s.removeCoverFile(b.cover)
+					if n, _ := res.RowsAffected(); n > 0 {
+						enrichedIt = true
+						// 0056: an author that was NULL may now hold a name, so the
+						// link rows follow it, in the same write as the name.
+						if err := store.SyncCreditsFromColumns(tx, b.uid, "book", b.id, s.creditSeps(tx, b.uid)); err != nil {
+							return fmt.Errorf("credits: %w", err)
+						}
 					}
-				} else {
-					s.removeCoverFile(name)
-					did = append(did, "the cover it fetched could not be saved")
-					row.warn = true
 				}
+				if len(genres) > 0 {
+					if err := setGenres(tx, "book", b.uid, b.id, genres); err != nil {
+						return fmt.Errorf("genres: %w", err)
+					}
+				}
+				if name != "" {
+					if _, err := tx.Exec(`UPDATE books SET cover_path = ?, updated_at = datetime('now') WHERE id = ?`, name, b.id); err != nil {
+						return fmt.Errorf("cover: %w", err)
+					}
+				}
+				return tx.Commit()
+			}()
+			if werr != nil {
+				olog.Warnf(olog.CodeMetaRowScan, "[meta] covers pass: book %d not saved: %v", b.id, werr)
+				s.removeCoverFile(name)
+				failed++
+				row.what, row.warn = "what was found for it could not be saved", true
+				c.rows = append(c.rows, row)
+				continue
 			}
+		}
+		if enrichedIt {
+			enriched++
+			did = append(did, "details filled")
+		}
+		if len(genres) > 0 {
+			did = append(did, "genres added")
+		}
+		switch {
+		case !wantCover:
+		case name != "":
+			fetched++
+			if lowRes {
+				did = append(did, "a larger cover fetched")
+			} else {
+				did = append(did, "cover fetched")
+			}
+			if b.cover != "" && b.cover != name {
+				s.removeCoverFile(b.cover)
+			}
+		case keptOld:
+			skipped++
+			did = append(did, "kept its cover: nothing larger was found")
+		case len(urls) > 0:
+			failed++ // had sources to try, all fetches failed
+			did = append(did, fmt.Sprintf("no cover could be fetched (%s tried)", countOf(len(urls), "place", "places")))
+			row.warn = true
+		default:
+			skipped++ // nothing to try (no isbn/asin/cached URL/candidate)
+			did = append(did, "no cover to look for: no ISBN, ASIN or address kept from its supplier")
 		}
 		row.what = cmp.Or(strings.Join(did, ", "), "nothing missing")
 		c.rows = append(c.rows, row)
@@ -929,12 +981,23 @@ func (s *Server) coversRefetchChunk(ctx context.Context, uid int64, cursor strin
 		mrows.Close()
 	}
 	for _, m := range movies {
-		c.rows = append(c.rows, m.row)
 		if m.url == "" {
+			c.rows = append(c.rows, m.row)
 			continue
 		}
+		var name string
+		var ferr error
+		if ctx.Err() == nil {
+			name, ferr = s.fetchImage(ctx, m.url, s.coversDir())
+		}
+		// The book's rule: a Stop before the write leaves the film as it was, and
+		// the poster that arrived is removed.
+		if ctx.Err() != nil {
+			s.removeCoverFile(name)
+			return stop(m.row)
+		}
+		c.rows = append(c.rows, m.row)
 		row := &c.rows[len(c.rows)-1]
-		name, ferr := s.fetchImage(ctx, m.url, s.coversDir())
 		if ferr != nil {
 			failed++
 			row.what, row.warn = "no poster could be fetched", true

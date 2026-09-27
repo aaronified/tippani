@@ -150,6 +150,13 @@ type Server struct {
 	// castArtFlights is every work page's picture pass in progress, so a second
 	// request for the same work joins the first (cast_art_handlers.go).
 	castArtFlights castArtFlights
+
+	// itemSeam and backupSeam are test seams and nothing else: the one way to land
+	// a Stop between two of a job's items (goOn), or between a backup's steps
+	// (backupStep), where nothing is on the wire for a stub of a supplier to hold.
+	// nil in every server but a test's.
+	itemSeam   func(j *jobs.Job, next int)
+	backupSeam func(ctx context.Context, step string)
 }
 
 func New(st *store.Store, static fs.FS, dataDir string, cookieSecure, trustedProxy bool) *Server {

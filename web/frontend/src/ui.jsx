@@ -10297,9 +10297,9 @@ export function IconUpdate({ size = ICON_SIZE }) { return <DrawnMark size={size}
 // exactly what the queue refuses to do.
 export function IconJobs({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M4.2 4.4v5.2l4.3-2.6z"/><path d="M12 7h8"/><path d="M12 12.5h8"/><path d="M12 18h8"/><path d="M6 12.5v.01"/><path d="M6 18v.01"/></svg> }
 // IconStop — Tabler's `player-stop`, the rounded square every media control in
-// the world uses for "stop", unchanged. A job stops after the item in hand and
-// is kept, so the mark is a pause-that-ends rather than a cross: IconClose
-// discards, and nothing a Stop press touches is thrown away.
+// the world uses for "stop", unchanged. A job stops at once, leaves the item in
+// hand untouched and is kept, so the mark is a pause-that-ends rather than a
+// cross: IconClose discards, and nothing a Stop press touches is thrown away.
 export function IconStop({ size = ICON_SIZE }) { return <svg {...iconStroke} width={size} height={size}><path d="M5 5m0 2a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2z"/></svg> }
 // IconRerun — Tabler's `repeat`, two arrows chasing each other round a loop:
 // the same run, again. Chosen because it is the one "again" arrow that is not a

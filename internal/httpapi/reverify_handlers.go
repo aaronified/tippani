@@ -230,6 +230,11 @@ func (s *Server) handleMetadataReverify(w http.ResponseWriter, r *http.Request) 
 // and a rerun lost them the same way. So each item is measured as it is kept,
 // and when the next would not fit the check stops there: what it found so far is
 // kept, the review opens on it, and the log says which items are not in it.
+//
+// A STOP KEEPS NO HALF-CHECKED ITEM (job_stop.go). An item whose lookup ended
+// with the job's context ended is left out of the findings, though one supplier
+// had answered: a diff from half the suppliers is not what the review is for.
+// What was checked before the Stop is kept, and reviewed like any check's.
 func runReverify(s *Server, ctx context.Context, j *jobs.Job) error {
 	var p struct {
 		BookIDs   []int64       `json:"book_ids"`
@@ -261,10 +266,14 @@ func runReverify(s *Server, ctx context.Context, j *jobs.Job) error {
 	// each item with the comma before it.
 	items, size := []json.RawMessage{}, len("[]")
 	for i, check := range checks {
-		if j.Stopping() {
+		if !s.goOn(j, i) {
 			break
 		}
 		it := check()
+		if ctx.Err() != nil {
+			abandoned(j, itemName(it.Type, it.ID, cmp.Or(it.Title, it.Name)))
+			break
+		}
 		if p.FillsOnly {
 			kept := []fieldDiff{}
 			for _, d := range it.Diffs {
@@ -1081,6 +1090,9 @@ type applyResult struct {
 	title string
 	// wrote is the fields sent to the writer, for the same line.
 	wrote []string
+	// stopped is an item a Stop reached before its write: nothing of it was
+	// written (errStoppedItem).
+	stopped bool
 }
 
 // changedSinceTheCheck is the note on an item some of whose fields were left
@@ -1153,6 +1165,7 @@ func (s *Server) applyReverifyItem(ctx context.Context, uid int64, item reverify
 			notes = append(notes, note)
 		}
 		if aerr != nil {
+			res.stopped = errors.Is(aerr, errStoppedItem)
 			res.Error = aerr.Error()
 			res.Note = strings.Join(notes, "; ")
 			return res
@@ -1173,6 +1186,10 @@ func (s *Server) applyReverifyItem(ctx context.Context, uid int64, item reverify
 // reached, which the review reads back to say what was written; the check it
 // came from (from_job) is on the row, which is what makes that check read as
 // applied.
+//
+// A Stop leaves the item in hand unwritten (job_stop.go): its picture, if it was
+// on its way, is cut off and removed, and its fields are not written without it.
+// The item is not among the results, so a review opened again offers it again.
 func runReverifyApply(s *Server, ctx context.Context, j *jobs.Job) error {
 	var p struct {
 		Items []reverifyApplyItem `json:"items"`
@@ -1183,10 +1200,14 @@ func runReverifyApply(s *Server, ctx context.Context, j *jobs.Job) error {
 	uid := j.Owner().UserID
 	results := []applyResult{}
 	for i, item := range p.Items {
-		if j.Stopping() {
+		if !s.goOn(j, i) {
 			break
 		}
 		res := s.applyReverifyItem(ctx, uid, item)
+		if res.stopped {
+			abandoned(j, itemName(res.Type, res.ID, cmp.Or(res.title, res.Name)))
+			break
+		}
 		level, line := applyLine(res)
 		j.Log(level, "%s", line)
 		results = append(results, res)
@@ -1371,7 +1392,7 @@ func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[s
 	// The approved cover downloads FIRST (through the metadata host allowlist)
 	// so the file can ride the same transaction; a miss degrades to a note.
 	newCover, oldCover := "", ""
-	if hasCover && strings.TrimSpace(coverURL) != "" {
+	if hasCover && strings.TrimSpace(coverURL) != "" && ctx.Err() == nil {
 		if name, ferr := s.fetchImage(ctx, strings.TrimSpace(coverURL), s.coversDir()); ferr != nil {
 			olog.Warnf(olog.CodeMetaReverifyImage, "[meta] re-verify book %d cover fetch failed: %v", id, ferr)
 			note = "cover: fetch failed — other fields applied"
@@ -1382,6 +1403,14 @@ func (s *Server) applyReverifyBook(ctx context.Context, uid, id int64, set map[s
 			cols = append(cols, "cover_path = ?")
 			args = append(args, newCover)
 		}
+	}
+	// A STOP BEFORE THE WRITE LEAVES THE BOOK AS IT WAS (job_stop.go): landing
+	// while the cover was on its way, it is not "fetch failed, other fields
+	// applied" — nothing is applied, and a cover that did arrive is removed. The
+	// transaction is begun only after this, so a Stop never lands inside it.
+	if ctx.Err() != nil {
+		s.removeCoverFile(newCover)
+		return "", errStoppedItem
 	}
 	if len(cols) == 0 && !hasGenres {
 		s.removeCoverFile(newCover)
@@ -1582,7 +1611,7 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 	}
 
 	newPoster, oldPoster := "", ""
-	if hasPoster && strings.TrimSpace(posterURL) != "" {
+	if hasPoster && strings.TrimSpace(posterURL) != "" && ctx.Err() == nil {
 		if name, ferr := s.fetchImage(ctx, strings.TrimSpace(posterURL), s.coversDir()); ferr != nil {
 			olog.Warnf(olog.CodeMetaReverifyImage, "[meta] re-verify movie %d poster fetch failed: %v", id, ferr)
 			note = "poster: fetch failed — other fields applied"
@@ -1593,6 +1622,11 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 			cols = append(cols, "poster_path = ?")
 			args = append(args, newPoster)
 		}
+	}
+	// The book's rule: a Stop before the write leaves the film as it was.
+	if ctx.Err() != nil {
+		s.removeCoverFile(newPoster)
+		return "", errStoppedItem
 	}
 	if len(cols) == 0 && !hasGenres {
 		s.removeCoverFile(newPoster)
@@ -1765,13 +1799,18 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 	}
 
 	newImage := ""
-	if hasPortrait && strings.TrimSpace(portraitURL) != "" {
+	if hasPortrait && strings.TrimSpace(portraitURL) != "" && ctx.Err() == nil {
 		if img, ferr := s.fetchImage(ctx, strings.TrimSpace(portraitURL), s.coversDir()); ferr != nil {
 			olog.Warnf(olog.CodeMetaReverifyImage, "[meta] re-verify person %q portrait fetch failed: %v", name, ferr)
 			note = "portrait: fetch failed — other fields applied"
 		} else {
 			newImage = img
 		}
+	}
+	// The book's rule: a Stop before the write leaves the record as it was.
+	if ctx.Err() != nil {
+		s.removeCoverFile(newImage)
+		return "", errStoppedItem
 	}
 	newLinks := p.Links
 	if hasLinks {
@@ -1786,13 +1825,24 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 	// Find-or-create then UPDATE — 0056 dropped the ON CONFLICT target. The
 	// fields written are exactly the ones this handler wrote before; the diffing
 	// that decides WHICH of them changed happens above, as it always did.
-	pid, perr := s.personRowByName(uid, name)
+	//
+	// ONE TRANSACTION, the find-or-create, the fields and the role alike, so the
+	// record is changed whole or not at all: no row made and then left bare, no
+	// fields written without the role they were fetched as.
+	tx, terr := s.Store.DB.Begin()
+	if terr != nil {
+		s.removeCoverFile(newImage)
+		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify person %q begin failed: %v", name, terr)
+		return "", errors.New("write failed")
+	}
+	defer tx.Rollback()
+	pid, perr := personRowByNameOn(tx, uid, name)
 	if perr != nil {
 		s.removeCoverFile(newImage)
 		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify person %q upsert failed: %v", name, perr)
 		return "", errors.New("write failed")
 	}
-	if _, xerr := s.Store.DB.Exec(`
+	if _, xerr := tx.Exec(`
 		UPDATE people SET bio = ?, image_path = ?, born = ?, died = ?, links = ?,
 		                  source = ?, source_id = ?
 		WHERE id = ? AND user_id = ?`,
@@ -1801,10 +1851,13 @@ func (s *Server) applyReverifyPerson(ctx context.Context, uid int64, kind, name 
 		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify person %q upsert failed: %v", name, xerr)
 		return "", errors.New("write failed")
 	}
-	if id, ierr := s.personIDByName(uid, name); ierr == nil && id != 0 {
-		if rerr := s.recordPersonKind(id, kind); rerr != nil {
-			olog.Warnf(olog.CodePeopleRowScan, "[meta] re-verify person role record failed: %v", rerr)
-		}
+	if rerr := recordPersonKindOn(tx, pid, kind); rerr != nil {
+		olog.Warnf(olog.CodePeopleRowScan, "[meta] re-verify person role record failed: %v", rerr)
+	}
+	if cerr := tx.Commit(); cerr != nil {
+		s.removeCoverFile(newImage)
+		olog.Errorf(olog.CodeMetaReverifyApply, "[meta] re-verify person %q commit failed: %v", name, cerr)
+		return "", errors.New("write failed")
 	}
 	if newImage != "" && p.ImagePath != "" && p.ImagePath != newImage {
 		s.removeCoverFile(p.ImagePath)
@@ -1888,6 +1941,10 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaT
 	}
 	// PREFERENCE ORDER, and it is the same order preferredSourceFor states —
 	// TheTVDB leads for films and shows because that is the default source.
+	//
+	// AND NOT ONE SUPPLIER MORE ONCE THE CONTEXT HAS ENDED: a Stop, or the
+	// reader gone. What the ones before it said is not used either — the caller
+	// abandons the work (job_stop.go) — so asking the rest only spends requests.
 	if tvdbID != 0 && tvdb != nil {
 		id := strconv.FormatInt(tvdbID, 10)
 		if mediaType == "show" {
@@ -1897,6 +1954,9 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaT
 			det, err := tvdb.MovieDetails(ctx, id)
 			add("tvdb", id, det, err)
 		}
+	}
+	if ctx.Err() != nil {
+		return out, ctx.Err()
 	}
 	if tmdbID != 0 && tmdb != nil {
 		id := strconv.FormatInt(tmdbID, 10)
@@ -1923,6 +1983,9 @@ func (s *Server) fetchAllMovieSources(ctx context.Context, uid, id int64, mediaT
 	// A SHOW OR A GAME IS NOT A LETTERBOXD FILM. It catalogues cinema, so asking
 	// it about a series spends a request to guarantee a 404 — or worse, finds a
 	// film that shares the name.
+	if ctx.Err() != nil {
+		return out, ctx.Err()
+	}
 	if len(out) > 0 && strings.TrimSpace(title) != "" {
 		if mediaType == "movie" {
 			det, err := metadata.LetterboxdDetails(ctx, title)

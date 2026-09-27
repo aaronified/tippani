@@ -259,6 +259,34 @@ export function useJobsAnnounced(fn) {
   }, [])
 }
 
+// ---- a Stop: shown at once, then watched closely -----------------------------
+//
+// THE SERVER STOPS A JOB AT ONCE. The owner's, for 3.1.0: "the job cancel button
+// must also be the most responsive kill switch. No dillydallying after it has been
+// pressed." So a job reads stopped a moment after the press — and a screen that
+// went on looking at its ordinary two seconds would keep a row the server has
+// already ended on the screen for most of them. So the screen that pressed says
+// "Stopping…" the instant of the press (the caller draws that), and every poll
+// watching one of the jobs asks every STOP_POLL_MS until it reads stopped, for
+// STOP_WATCH_MS at most, and then goes back to its own cadence. The bound is for a
+// job that takes longer to end — a database write it had begun finishes whole —
+// which the ordinary polls then pick up.
+export const STOP_POLL_MS = 200
+export const STOP_WATCH_MS = 3000
+
+const stopWatchers = new Set()
+
+// Tells every watcher that these jobs were just asked to stop.
+function announceStop(ids) {
+  const set = new Set(ids)
+  for (const fn of [...stopWatchers]) fn(set)
+}
+
+function watchStops(fn) {
+  stopWatchers.add(fn)
+  return () => stopWatchers.delete(fn)
+}
+
 // ---- the requests ------------------------------------------------------------
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
@@ -464,16 +492,23 @@ export async function readJobResult(id) {
   return { ok: true, kind: r.data?.kind || '', result: r.data?.result ?? null }
 }
 
+// stopJob — Stop one job, and watch it closely until it reads stopped (see
+// "a Stop" above).
 export async function stopJob(id) {
   const r = await json('POST', `/jobs/${id}/stop`)
   if (!r.ok) return refusal(r)
+  announceStop([id])
   announceJobs()
   return { ok: true, job: r.data?.job || null }
 }
 
-export async function stopAllJobs() {
+// stopAllJobs — Stop all. `ids` are the jobs the screen showed at the press, the
+// ones to watch closely until each reads stopped; the server stops what the
+// viewer may see whether this screen had drawn it or not.
+export async function stopAllJobs(ids = []) {
   const r = await json('POST', '/jobs/stop-all')
   if (!r.ok) return refusal(r)
+  announceStop(ids)
   announceJobs()
   return { ok: true, stopping: num(r.data?.stopping), stoppedWaiting: num(r.data?.stopped_waiting) }
 }
@@ -573,10 +608,17 @@ export function useJob(id, { final = false } = {}) {
     let done = false
     let failures = 0
     let settled = final
+    // Until when this job is watched closely, after a Stop pressed on it.
+    let hurry = 0
     const schedule = (ms) => {
       clearTimeout(timer)
       timer = setTimeout(tick, ms)
     }
+    const unwatch = watchStops((ids) => {
+      if (!ids.has(id) || done) return
+      hurry = Date.now() + STOP_WATCH_MS
+      if (!busy) schedule(0)
+    })
     async function tick() {
       timer = null
       if (!alive || done || busy) return
@@ -619,6 +661,7 @@ export function useJob(id, { final = false } = {}) {
       const sig = `${r.job?.state}|${r.job?.done}|${fresh.length ? after : ''}`
       quiet = sig === last ? quiet + 1 : 0
       last = sig
+      if (Date.now() < hurry) return schedule(STOP_POLL_MS)
       schedule(quiet >= 10 ? 3000 : 1000)
     }
     const onVisible = () => {
@@ -629,6 +672,7 @@ export function useJob(id, { final = false } = {}) {
     return () => {
       alive = false
       clearTimeout(timer)
+      unwatch()
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [id, final])
@@ -654,6 +698,9 @@ export function useCurrentJobs({ enabled = true } = {}) {
     let busy = false
     let again = false
     let seen = null
+    // The jobs a Stop was just pressed on, watched closely until none of them is
+    // current any more or the watch is over: {ids, until}, or null.
+    let hurry = null
     async function read() {
       clearTimeout(timer)
       timer = null
@@ -679,16 +726,26 @@ export function useCurrentJobs({ enabled = true } = {}) {
         setState((s) => ({ ...s, loaded: true, error: r.error }))
       }
       if (again) { again = false; return read() }
-      timer = setTimeout(read, current > 0 ? 2000 : 10000)
+      if (hurry && (Date.now() >= hurry.until || (r.ok && !r.jobs.some((j) => hurry.ids.has(j.id))))) hurry = null
+      timer = setTimeout(read, hurry ? STOP_POLL_MS : current > 0 ? 2000 : 10000)
     }
     kick.current = read
     const onVisible = () => { if (!hidden()) read() }
     document.addEventListener('visibilitychange', onVisible)
+    // The press that set the watch reads the list itself (announceJobs), so the
+    // watch only brings the next read forward, to now at the latest.
+    const unwatch = watchStops((ids) => {
+      if (!ids.size) return
+      hurry = { ids, until: Date.now() + STOP_WATCH_MS }
+      clearTimeout(timer)
+      timer = setTimeout(read, 0)
+    })
     read()
     return () => {
       alive = false
       clearTimeout(timer)
       kick.current = () => {}
+      unwatch()
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [enabled])

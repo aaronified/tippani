@@ -29,6 +29,7 @@ let LINES
 let LOGS
 let LOGS_MORE
 let STOPALL
+let HANG_STOP // a Stop the server accepts and has not answered yet
 
 const HOUR = 60 * 60 * 1000
 const NOW = Date.now()
@@ -63,6 +64,7 @@ vi.mock('../../src/api.js', async (orig) => ({
       return { ok: true, data: { job: found, lines: (LINES[id] || []).filter((l) => l.id > after), more: false } }
     }
     if (method === 'POST' && p === '/jobs/stop-all') return { ok: true, data: STOPALL }
+    if (method === 'POST' && /^\/jobs\/\d+\/stop$/.test(p) && HANG_STOP) return new Promise(() => {})
     if (method === 'POST' && /^\/jobs\/\d+\/rerun$/.test(p)) return { ok: true, status: 202, data: { job: job({ id: 99 }) } }
     if (method === 'GET' && p === '/admin/logs') {
       const from = Number(q.get('from')) || SERVER_NOW - Number(q.get('since'))
@@ -106,6 +108,7 @@ beforeEach(() => {
     7: [{ id: 2, at: NOW - 2 * HOUR, level: 'info', line: '«The Paper Boat» — filled year, pages' }],
   }
   STOPALL = { stopping: 1, stopped_waiting: 2 }
+  HANG_STOP = false
   LOGS = [{ id: 40, at: NOW - 60000, level: 'warn', code: 'TIP-NET-004', line: 'openlibrary.org answered 503' }]
   LOGS_MORE = false
 })
@@ -188,7 +191,7 @@ describe('Current jobs', () => {
     const current = await card('Current jobs')
     fireEvent.click(await within(current).findByRole('button', { name: 'Stop all' }))
     const ask = await screen.findByRole('alertdialog', { name: 'Stop all jobs?' })
-    expect(ask.textContent).toContain('The running job stops after the item in hand.')
+    expect(ask.textContent).toContain('The running job stops at once, and the item it has in hand is left untouched.')
     expect(ask.textContent).toContain('The 2 waiting are stopped before they start.')
     // Only the reader who started a job can run it again, so the sentence says
     // exactly that — an admin stopping somebody else's cannot rerun it.
@@ -208,8 +211,8 @@ describe('Current jobs', () => {
     fireEvent.click(within(ask).getByRole('button', { name: 'Stop them' }))
     await waitFor(() => expect(posted('/jobs/stop-all')).toHaveLength(1))
     await screen.findByText('3 jobs stopped')
-    // The running row says it heard rather than keep offering a Stop.
-    await within(current).findByText('Stopping after the item in hand…')
+    // Every row it reached says it heard rather than keep offering a Stop.
+    expect(await within(current).findAllByText('Stopping…')).toHaveLength(3)
     expect(within(current).queryByRole('button', { name: 'Stop Fetch covers (running)' })).toBeNull()
   })
 
@@ -225,13 +228,26 @@ describe('Current jobs', () => {
     expect(screen.queryByText(/jobs? stopped/)).toBeNull()
   })
 
-  it('stops the running job on its own Stop, and the row says it will stop after the item in hand', async () => {
+  it('stops the running job on its own Stop, at once, and says the item in hand is untouched', async () => {
     await page()
     const current = await card('Current jobs')
     fireEvent.click(await within(current).findByRole('button', { name: 'Stop Fetch covers (running)' }))
     await waitFor(() => expect(posted('/jobs/10/stop')).toHaveLength(1))
-    await screen.findByText('Stopping after this item')
-    expect(within(current).getByText('Stopping after the item in hand…')).toBeTruthy()
+    await screen.findByText('Stopped · item in hand untouched')
+    expect(within(current).getByText('Stopping…')).toBeTruthy()
+  })
+
+  // THE ROW SAYS IT HEARD THE INSTANT OF THE PRESS, not when the server answers:
+  // the server stops a job at once, and a Stop still offered until its answer
+  // came would read as a press that did nothing.
+  it('says Stopping… the instant Stop is pressed, before the server has answered', async () => {
+    HANG_STOP = true
+    await page()
+    const current = await card('Current jobs')
+    fireEvent.click(await within(current).findByRole('button', { name: 'Stop Fill gaps (one job ahead)' }))
+    expect(await within(current).findByText('Stopping…')).toBeTruthy()
+    expect(within(current).queryByRole('button', { name: 'Stop Fill gaps (one job ahead)' })).toBeNull()
+    expect(posted('/jobs/11/stop')).toHaveLength(1)
   })
 
   it('tells a reader nothing about other readers’ jobs', async () => {

@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -207,17 +208,99 @@ func fetchImage(ctx context.Context, rawURL, destDir string, anyHost bool) (stri
 		return "", fmt.Errorf("cover fetch: status %d", resp.StatusCode)
 	}
 
-	// Read one byte past the cap so a too-big body is distinguishable from one
-	// that is exactly at the cap.
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxImageBytes+1))
-	if err != nil {
-		return "", fmt.Errorf("cover fetch: %w", err)
-	}
-	name, err := StoreImage(data, destDir)
+	name, err := storeDownload(resp.Body, destDir)
 	if err != nil {
 		return "", fmt.Errorf("cover fetch: %w", err)
 	}
 	return name, nil
+}
+
+// DownloadPrefix begins the name a picture has while it is still arriving: a
+// dot file beside the place it will live, in a shape no route serves (a stored
+// picture is sixteen hex digits and its type), which SweepDownloads clears at
+// start.
+const DownloadPrefix = ".download-"
+
+// storeDownload streams a download into a temp file beside where it will live,
+// and renames it into place only once the whole of it has arrived and passed the
+// checks StoreImage makes.
+//
+// A DOWNLOAD THAT STOPS PART-WAY LEAVES NOTHING. A Stop cancels its context and
+// the copy returns the cancellation; a dropped connection, a body past the cap and
+// a body that is not a picture end it the same way; and every one of them removes
+// the temp file on its way out. So the covers directory never holds half a
+// picture, and never one under a name a row could come to point at — the rename
+// is the one step that makes a file a picture, and it happens last.
+func storeDownload(body io.Reader, destDir string) (string, error) {
+	tmp, err := os.CreateTemp(destDir, DownloadPrefix+"*")
+	if err != nil {
+		return "", err
+	}
+	promoted := false
+	defer func() {
+		if !promoted {
+			_ = tmp.Close()
+			_ = os.Remove(tmp.Name())
+		}
+	}()
+	// One byte past the cap, so a body past it is told from one exactly at it.
+	n, err := io.Copy(tmp, io.LimitReader(body, maxImageBytes+1))
+	if err != nil {
+		return "", err
+	}
+	if n > maxImageBytes {
+		return "", fmt.Errorf("image exceeds %d bytes", maxImageBytes)
+	}
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	data, err := io.ReadAll(tmp)
+	if err != nil {
+		return "", err
+	}
+	ext, err := checkImage(data, maxImageBytes)
+	if err != nil {
+		return "", err
+	}
+	name, err := imageName(ext)
+	if err != nil {
+		return "", err
+	}
+	if err := promote(tmp, filepath.Join(destDir, name)); err != nil {
+		return "", err
+	}
+	promoted = true
+	return name, nil
+}
+
+// promote closes a finished temp file and renames it to its final name, with the
+// permissions a stored picture has always had.
+func promote(tmp *os.File, final string) error {
+	if err := tmp.Chmod(0o644); err != nil {
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), final)
+}
+
+// SweepDownloads removes the temp files of downloads a crash cut short. Every
+// download that ends removes its own; one still in dir when the server starts
+// belongs to a process that is gone. serve() calls it once, before anything
+// could be downloading.
+func SweepDownloads(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if n := e.Name(); strings.HasPrefix(n, DownloadPrefix) && e.Type().IsRegular() {
+			if err := os.Remove(filepath.Join(dir, n)); err != nil {
+				olog.Warnf(olog.CodeCoverFetch, "[meta] could not remove a download a crash left behind, %s: %v", n, err)
+			}
+		}
+	}
 }
 
 // StoreImage validates in-memory image bytes (size cap + content sniff) and
@@ -231,7 +314,39 @@ func StoreImage(data []byte, destDir string) (string, error) {
 // StoreImageMax is StoreImage with a caller-chosen upper size cap — avatars
 // allow a larger upload than covers. destDir and the generated name are still
 // server-controlled, so nothing caller-supplied ever touches the path.
+//
+// The file is written under a temp name and renamed into place whole, as a
+// download is (storeDownload): a write cut short leaves no picture behind.
 func StoreImageMax(data []byte, destDir string, max int) (string, error) {
+	ext, err := checkImage(data, max)
+	if err != nil {
+		return "", err
+	}
+	name, err := imageName(ext)
+	if err != nil {
+		return "", err
+	}
+	tmp, err := os.CreateTemp(destDir, DownloadPrefix+"*")
+	if err != nil {
+		return "", err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
+		return "", err
+	}
+	if err := promote(tmp, filepath.Join(destDir, name)); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
+		return "", err
+	}
+	return name, nil
+}
+
+// checkImage is what a picture must be before it is stored — within max, a type
+// the app accepts by its bytes, not a placeholder, not a scripted SVG — and the
+// extension its bytes give it.
+func checkImage(data []byte, max int) (string, error) {
 	if len(data) > max {
 		return "", fmt.Errorf("image exceeds %d bytes", max)
 	}
@@ -253,15 +368,16 @@ func StoreImageMax(data []byte, destDir string, max int) (string, error) {
 	} else if len(data) < minImageBytes {
 		return "", errors.New("image too small (placeholder/blank)")
 	}
+	return ext, nil
+}
+
+// imageName is a new stored picture's name: sixteen random hex digits and ext.
+func imageName(ext string) (string, error) {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return "", err
 	}
-	name := hex.EncodeToString(b[:]) + ext
-	if err := os.WriteFile(filepath.Join(destDir, name), data, 0o644); err != nil {
-		return "", err
-	}
-	return name, nil
+	return hex.EncodeToString(b[:]) + ext, nil
 }
 
 // checkCoverURL enforces the scheme + host allowlist, on the initial URL and
