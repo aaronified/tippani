@@ -195,6 +195,24 @@ describe('Past jobs', () => {
     expect(exportLink.getAttribute('href')).toBe('/api/jobs/7/log.md')
   })
 
+  // THE SERVER NAMES A JOB BY ITS KIND and this screen says the kind in words. The
+  // People row's Fetch is the commonest single job there is, and for a stage it
+  // came out as "Job" because the screen's list had not heard of it.
+  it('names each job by what it did, and a kind it has no words for as a job', async () => {
+    PAST = [
+      job({ id: 4, kind: 'lookup.person', queued: false, subject: 'Ursula K. Le Guin', state: 'succeeded', finished_at: NOW - HOUR }),
+      job({ id: 3, kind: 'lookup.cast-tvdb', queued: false, subject: 'Severance', state: 'succeeded', finished_at: NOW - 2 * HOUR }),
+      job({ id: 2, kind: 'something.new', queued: false, subject: 'from a later server', state: 'succeeded', finished_at: NOW - 3 * HOUR }),
+    ]
+    await page()
+    const past = await card('Past jobs')
+    const row = await within(past).findByRole('button', { name: /^Person lookup/ })
+    expect(within(row).getByText('Ursula K. Le Guin')).toBeTruthy()
+    expect(within(past).getByRole('button', { name: /^Cast from TheTVDB/ })).toBeTruthy()
+    const stranger = within(past).getByRole('button', { name: /^Job/ })
+    expect(within(stranger).getByText('from a later server')).toBeTruthy()
+  })
+
   it('narrows to how a job ended with the state chips', async () => {
     await page()
     const past = await card('Past jobs')

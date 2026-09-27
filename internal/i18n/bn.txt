@@ -5700,14 +5700,23 @@ settings.jobs.kind.lookup-movie = টাইটেল খুঁজে দেখ�
 settings.jobs.kind.lookup-images = ছবি খোঁজা
 settings.jobs.kind.lookup-portrait = মুখের ছবি খোঁজা
 settings.jobs.kind.lookup-links = তথ্যসূত্রের পাতা খোঁজা
+# ?? names what the row's Fetch does (a photo and links) rather than "person lookup"; the row's subject is the person's name
+settings.jobs.kind.lookup-person = ছবি ও লিংক আনা
 settings.jobs.kind.lookup-reverify = একটা আবার মিলিয়ে দেখা
 settings.jobs.kind.lookup-cast-image = কাস্টের একটা ছবি
 settings.jobs.kind.lookup-cast-imdb = IMDb থেকে কাস্ট
+settings.jobs.kind.lookup-cast-tvdb = TheTVDB থেকে কাস্ট
 settings.jobs.kind.lookup-cast-art = কাস্টের ছবি
 settings.jobs.kind.update-check = আপডেট আছে কি না দেখা
 settings.jobs.kind.update-apply = আপডেট
 settings.jobs.kind.metadata-test = সূত্র পরীক্ষা
+# ?? বিজ্ঞপ্তির পরীক্ষা, not পরীক্ষার বিজ্ঞপ্তি, which reads as an exam notice
+settings.jobs.kind.notify-test = বিজ্ঞপ্তির পরীক্ষা
+settings.jobs.kind.signin-oidc = সিঙ্গল সাইন-অন
 settings.jobs.kind.work-save = উৎস সেভ
+# ?? মানুষের তথ্য, the words the bulk people fetch already uses (মানুষের তথ্য আনা); মানুষ সেভ alone reads as saving a human
+settings.jobs.kind.person-save = মানুষের তথ্য সেভ
+settings.jobs.kind.character-save = চরিত্রের ছবি
 settings.jobs.kind.import = ইমপোর্ট
 settings.jobs.kind.restore = ফিরিয়ে আনা
 settings.jobs.kind.reset = সব ডেটা মুছে ফেলা

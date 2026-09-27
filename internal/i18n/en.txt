@@ -5861,14 +5861,24 @@ settings.jobs.kind.lookup-movie = Title lookup
 settings.jobs.kind.lookup-images = Picture search
 settings.jobs.kind.lookup-portrait = Portrait lookup
 settings.jobs.kind.lookup-links = Reference page lookup
+# The People row's Fetch: one person's photo and reference links together.
+settings.jobs.kind.lookup-person = Person lookup
 settings.jobs.kind.lookup-reverify = Re-verify one
 settings.jobs.kind.lookup-cast-image = Cast picture
 settings.jobs.kind.lookup-cast-imdb = Cast from IMDb
+settings.jobs.kind.lookup-cast-tvdb = Cast from TheTVDB
 settings.jobs.kind.lookup-cast-art = Cast pictures
 settings.jobs.kind.update-check = Update check
 settings.jobs.kind.update-apply = Update
 settings.jobs.kind.metadata-test = Source test
+# Account › Notifications' "Send a test".
+settings.jobs.kind.notify-test = Test notification
+# Signing in through the operator's own provider, which looks outward before anybody is signed in.
+settings.jobs.kind.signin-oidc = Single sign-on
 settings.jobs.kind.work-save = Save a work
+settings.jobs.kind.person-save = Save a person
+# A character's picture saved from an address.
+settings.jobs.kind.character-save = Character picture
 settings.jobs.kind.import = Import
 settings.jobs.kind.restore = Restore
 settings.jobs.kind.reset = Reset all data

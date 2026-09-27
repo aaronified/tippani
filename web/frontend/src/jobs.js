@@ -42,10 +42,16 @@ export const JOB_KINDS = [
   // The queued ones: the five loops a reader starts from a screen, and the backup.
   'fill', 'covers', 'people', 'reverify', 'reverify-apply', 'backup',
   // Recorded in their request (F1, F2): lookups a reader starts one at a time,
-  // and the acts that swap the database under the queue.
+  // saves that fetch a picture from an address, and the acts that swap the
+  // database under the queue. THE SERVER'S ROUTE TABLE IS THE LIST TO KEEP THIS
+  // BESIDE (internal/httpapi/jobkinds.go, plus the kinds a handler names through
+  // jobs.Begin): a kind missing here still shows, as "Job", which is survivable
+  // and wrong — the People row's Fetch was one of those for a stage.
   'lookup.book', 'lookup.movie', 'lookup.images', 'lookup.portrait', 'lookup.links',
-  'lookup.reverify', 'lookup.cast-image', 'lookup.cast-imdb', 'lookup.cast-art',
-  'update.check', 'update.apply', 'metadata.test', 'work.save',
+  'lookup.person', 'lookup.reverify', 'lookup.cast-image', 'lookup.cast-imdb',
+  'lookup.cast-tvdb', 'lookup.cast-art',
+  'update.check', 'update.apply', 'metadata.test', 'notify.test', 'signin.oidc',
+  'work.save', 'person.save', 'character.save',
   'import', 'restore', 'reset', 'notify.daily', 'request',
 ]
 const kindSlug = (kind) => (JOB_KINDS.includes(kind) ? kind.replace(/\./g, '-') : 'other')
