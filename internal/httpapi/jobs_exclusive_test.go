@@ -1,9 +1,11 @@
 package httpapi
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -27,7 +29,11 @@ import (
 // minutes-long middle on demand. And one test kind whose params check swaps the
 // database files (Store.Swap with nothing to move, then rebindDB, as a restore
 // does): the one way to land a swap between a request's sign-in and its reaching
-// the queue, a window no press can hit on purpose.
+// the queue, a window no press can hit on purpose. The upload that stops arriving
+// is a real socket to a real listener, which sends part of a body and then
+// nothing, because the recorder the other requests use hands a handler its whole
+// body at once; and the time an upload may send nothing (uploadIdle) is shortened
+// to a second for it, so the test waits a second and not a minute.
 //
 // What each one guards, in a sentence a person would say: while a job runs, a
 // restore (from the kept archive or an upload), a factory reset, a search
@@ -36,7 +42,8 @@ import (
 // job starts, stops and runs again as before; while an update is running, a job
 // cannot be started, and can once it is done; a job asked for by a request that
 // signed in before a swap is refused with the same reason, and goes ahead when
-// asked again.
+// asked again; an uploaded restore that stops arriving holds the queue only until
+// it is given up.
 
 // busyBody fails unless rec is the refusal a job in the way gets.
 func busyBody(t *testing.T, what string, rec *httptest.ResponseRecorder) {
@@ -199,4 +206,57 @@ func TestNoJobStartsWhileAnUpdateHoldsTheQueue(t *testing.T) {
 		t.Fatalf("the update: %d", code)
 	}
 	bob.waitJob(bob.mustStart("test.lines", map[string]any{"tag": "after"}).ID, "succeeded")
+}
+
+// An uploaded restore that stops arriving — the tab still open, the link dead —
+// holds the queue only until it has sent nothing for a while: then the upload is
+// given up, the admin's browser (if it is still there) is told so, and jobs start
+// again.
+func TestARestoreUploadThatStopsArrivingLetsGoOfTheQueue(t *testing.T) {
+	old := uploadIdle
+	uploadIdle = time.Second
+	t.Cleanup(func() { uploadIdle = old })
+	srv := newTestServer(t)
+	queueing(t, srv)
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	bob := addUser(t, h, admin, "bob")
+	safetyBackup(t, admin)
+	ts := httptest.NewServer(h)
+	t.Cleanup(ts.Close)
+
+	conn, err := net.Dial("tcp", ts.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	const boundary = "Wv-boundary"
+	fmt.Fprintf(conn, "POST %s HTTP/1.1\r\nHost: tippani\r\nCookie: %s=%s\r\n"+
+		"Content-Type: multipart/form-data; boundary=%s\r\nContent-Length: %d\r\nExpect: 100-continue\r\n\r\n",
+		apiPath("/admin/restore/upload"), admin.cookie.Name, admin.cookie.Value, boundary, 10<<20)
+	// The server asks for the body once the restore is under way, with the queue
+	// held: from here the upload is what stands in every job's way.
+	conn.SetReadDeadline(time.Now().Add(20 * time.Second))
+	wire := bufio.NewReader(conn)
+	if line, err := wire.ReadString('\n'); err != nil || !strings.HasPrefix(line, "HTTP/1.1 100") {
+		t.Fatalf("the upload was not asked for its body: %q %v", line, err)
+	}
+	wire.ReadString('\n') // the blank line after the interim answer
+	fmt.Fprintf(conn, "--%s\r\nContent-Disposition: form-data; name=\"password\"\r\n\r\n%s\r\n"+
+		"--%s\r\nContent-Disposition: form-data; name=\"file\"; filename=\"backup%s\"\r\n"+
+		"Content-Type: application/octet-stream\r\n\r\n%s", boundary, testPw, boundary, backupExt, strings.Repeat("\x00", 8<<10))
+	// And then nothing more.
+
+	start := time.Now()
+	rec := bob.startJob("test.lines", map[string]any{"tag": "during the upload"})
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), `"busy":true`) {
+		t.Fatalf("a job started while a restore upload arrives: %d %s, want 409 busy", rec.Code, rec.Body)
+	}
+	// The upload is given up, and its browser is told why.
+	if line, err := wire.ReadString('\n'); err != nil || !strings.HasPrefix(line, "HTTP/1.1 408") {
+		t.Fatalf("the stalled upload was answered %q (%v), want 408", line, err)
+	}
+	t.Logf("the stalled upload was given up after %s", time.Since(start).Round(time.Millisecond))
+	// And jobs start again.
+	bob.waitJob(bob.mustStart("test.lines", map[string]any{"tag": "after the upload"}).ID, "succeeded")
 }

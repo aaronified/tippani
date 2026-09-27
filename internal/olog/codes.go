@@ -155,6 +155,7 @@ const (
 	CodeBackupUpload   Code = "TIP-BACKUP-007" // an uploaded restore archive could not be spooled to disk
 	CodeBackupStrip    Code = "TIP-BACKUP-008" // the job history and logs could not be left out of the snapshot; no archive produced
 	CodeBackupCarry    Code = "TIP-BACKUP-009" // a restore could not carry the job history and logs over; it starts with none
+	CodeBackupStalled  Code = "TIP-BACKUP-010" // an uploaded restore stopped arriving and was given up; nothing changed
 
 	// AUTH — single sign-on (OpenID Connect).
 	CodeOIDC Code = "TIP-AUTH-001" // an OIDC sign-in could not start or its answer failed validation
@@ -282,6 +283,7 @@ var Registry = map[Code]string{
 	CodeBackupUpload:   "An uploaded restore archive could not be spooled to disk (server-side I/O, or the disk is full).",
 	CodeBackupStrip:    "The backup could not leave the job history and system log out of its database snapshot; no archive was produced.",
 	CodeBackupCarry:    "A restore could not carry the job history and system log over from the database it replaced; the restore itself went ahead, with no history.",
+	CodeBackupStalled:  "An uploaded restore archive stopped arriving (nothing came for a minute), so the upload was given up; nothing was changed, and jobs can start again.",
 
 	CodeOIDC:       "A single sign-on could not start (provider unreachable, discovery mismatch) or its answer failed validation (issuer, audience, expiry, nonce).",
 	CodeNotifySend: "A Pushover message was not accepted (network, TIPPANI_OFFLINE, or a bad user key / app token). The action that triggered it still completed.",

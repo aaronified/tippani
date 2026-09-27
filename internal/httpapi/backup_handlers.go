@@ -1117,10 +1117,36 @@ func (s *Server) restoreArchive(w http.ResponseWriter, archive, label, requested
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "Restore complete — log in again."})
 }
 
+// uploadIdle is how long a restore upload may send nothing before it is given
+// up. A variable so the test of an upload that stops can wait a moment instead
+// of a minute.
+var uploadIdle = time.Minute
+
+// idleBody reads a request body with a fresh read deadline before each read,
+// uploadIdle from now: an upload may take as long as it takes, but not stop.
+type idleBody struct {
+	io.ReadCloser
+	rc *http.ResponseController
+}
+
+func (b idleBody) Read(p []byte) (int, error) {
+	_ = b.rc.SetReadDeadline(time.Now().Add(uploadIdle))
+	return b.ReadCloser.Read(p)
+}
+
 // restoreFromUpload streams an uploaded archive to disk, then runs the shared
 // restore core over it. It acquires backupMu up front (fail-fast 409) and holds
-// it across the whole upload+swap, and clears both the read and write deadlines —
-// a multi-GB upload outlives the server's 30s ReadTimeout / 60s WriteTimeout.
+// it across the whole upload+swap. A multi-GB upload outlives the server's 30s
+// ReadTimeout, so the read deadline moves with each read instead (idleBody), and
+// is cleared once the upload is in: the swap after it can outlive it too. The
+// write deadline is cleared for the whole request, for the same reason.
+//
+// A STALLED UPLOAD IS GIVEN UP. The admin routes run this with the job queue held
+// (withQueueHeld), taken before the upload so that a job starting mid-upload
+// cannot fail the restore at its last step. So while an upload sends nothing, no
+// job can start and none is claimed. An upload that stopped for good, with the
+// tab open and the link dead, would hold the queue until the TCP connection died,
+// with no deadline to end it.
 // requireConfirm asks the core to gate the swap on a typed RESTORE when — and
 // only when — the uploaded archive turns out to be an UNSEALED pre-1.4.1 one (the
 // admin path; onboarding has nothing to lose and skips it). guard is passed
@@ -1136,9 +1162,9 @@ func (s *Server) restoreFromUpload(w http.ResponseWriter, r *http.Request, requi
 	jobs.Begin(r.Context(), "restore", "")
 
 	rc := http.NewResponseController(w)
-	_ = rc.SetReadDeadline(time.Time{})
+	_ = rc.SetReadDeadline(time.Now().Add(uploadIdle))
 	_ = rc.SetWriteDeadline(time.Time{})
-	r.Body = http.MaxBytesReader(w, r.Body, maxRestoreUpload)
+	r.Body = http.MaxBytesReader(w, idleBody{ReadCloser: r.Body, rc: rc}, maxRestoreUpload)
 
 	staging, err := os.MkdirTemp(s.DataDir, ".restore-")
 	if err != nil {
@@ -1150,6 +1176,10 @@ func (s *Server) restoreFromUpload(w http.ResponseWriter, r *http.Request, requi
 	archive := filepath.Join(staging, "upload")
 
 	creds, code, msg := spoolUpload(r, archive)
+	// Cleared once the upload is in, whatever came of it: a deadline left on the
+	// connection would cut the server's own read of it (the one that notices a
+	// client leaving) in the middle of the swap.
+	_ = rc.SetReadDeadline(time.Time{})
 	if code != 0 {
 		writeErr(w, code, msg)
 		return
@@ -1192,6 +1222,10 @@ func spoolUpload(r *http.Request, dest string) (backupCreds, int, string) {
 			if isMaxBytes(err) {
 				return creds, http.StatusRequestEntityTooLarge, "the backup file is too large"
 			}
+			if errors.Is(err, os.ErrDeadlineExceeded) {
+				code, msg := uploadStalled(r)
+				return creds, code, msg
+			}
 			return creds, http.StatusBadRequest, "the upload could not be read"
 		}
 		switch part.FormName() {
@@ -1223,6 +1257,10 @@ func spoolUpload(r *http.Request, dest string) (backupCreds, int, string) {
 				if isMaxBytes(cerr) {
 					return creds, http.StatusRequestEntityTooLarge, "the backup file is too large"
 				}
+				if errors.Is(cerr, os.ErrDeadlineExceeded) {
+					code, msg := uploadStalled(r)
+					return creds, code, msg
+				}
 				olog.Errorf(olog.CodeBackupUpload, "[backup] spool upload: %v", cerr)
 				return creds, http.StatusInternalServerError, "the uploaded file could not be saved"
 			}
@@ -1234,6 +1272,14 @@ func spoolUpload(r *http.Request, dest string) (backupCreds, int, string) {
 		return creds, http.StatusBadRequest, `no backup file uploaded (send it as the "file" field)`
 	}
 	return creds, 0, ""
+}
+
+// uploadStalled is spoolUpload's answer to an upload that stopped arriving
+// (idleBody's deadline), logged so an operator whose restore never finished can
+// find why. The client is most likely gone; the answer is for one that is not.
+func uploadStalled(r *http.Request) (int, string) {
+	olog.Warnf(olog.CodeBackupStalled, "[backup] a restore upload sent nothing for %s and was given up%s", uploadIdle, reqSuffix(r))
+	return http.StatusRequestTimeout, "the upload stopped arriving, so it was given up; nothing was changed — upload the file again"
 }
 
 // isMaxBytes reports whether err is the sentinel http.MaxBytesReader raises when
