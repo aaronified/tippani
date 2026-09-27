@@ -112,7 +112,8 @@ Decided while planning, so the build needs nothing further:
 - [ ] Tests: migrating twice is idempotent; switching the order leaves every `dedupe_hash`
       byte-identical; renumbering `tv` rehashes and refuses a collision, read back from the
       rows; season 0 survives everything; a refetch keeps an edited name; bin and restore bring
-      back names and a custom order; export and import round-trip all three orders; the upgrade
+      back names and a custom order, and so does an account backup restored on another
+      server; export and import round-trip all three orders; the upgrade
       seeds names and lists disagreements; the drag works by keyboard alone; the gesture test
       covers the new clip. Assert values, not counts. Each mutation-checked, the mutation named
       in the commit.
