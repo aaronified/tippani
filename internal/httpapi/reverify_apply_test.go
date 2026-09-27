@@ -32,7 +32,8 @@ import (
 // changed after the review is left as they wrote it, with a note saying so, while
 // the item's other fields are written; an item every field of which changed
 // writes nothing and is not a failure; an item that says nothing about what it
-// was shown is applied as it always was; a row that is gone is still not found;
+// was shown is applied as it always was; a field whose value the apply cannot
+// read now is left, not taken for unchanged; a row that is gone is still not found;
 // the review's Apply, as a job, does the same, says in its log what it wrote on
 // each item, counts written, skipped and failed under the names the screens
 // read, and marks the check it came from applied; and Stop ends it after the
@@ -120,6 +121,32 @@ func TestAnApplyLeavesAFieldThatChangedSinceTheReview(t *testing.T) {
 	}](t, alice.mustDo("GET", "/people/id/"+itoa(recordID(t, alice, "Frank Herbert")), nil, http.StatusOK))
 	if author.Bio != "Wrote Dune." {
 		t.Errorf("the author's bio after the apply: %q, want hers", author.Bio)
+	}
+}
+
+// A FIELD THE APPLY CANNOT READ NOW IS LEFT AS IT IS. The apply takes a person's
+// source_id on its own, but no review reads one back — its identity is the one
+// "source:id" diff — so an expect naming it, even as empty, is a value nothing
+// can compare with what is stored. Unreadable is not unchanged: it is left, with
+// the note, and the record keeps the identity it has.
+func TestAnApplyLeavesAFieldItCannotReadNow(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	alice.mustDo("PUT", "/people", map[string]any{"kind": "author", "name": "Frank Herbert"}, http.StatusOK)
+
+	got := decode[applyAnswer](t, alice.mustDo("POST", "/metadata/reverify/apply", map[string]any{"items": []any{
+		map[string]any{"type": "person", "kind": "author", "name": "Frank Herbert",
+			"set": map[string]any{"source_id": "OL79034A"}, "expect": map[string]any{"source_id": nil}},
+	}}, http.StatusOK))
+	if len(got.Results) != 1 || !got.Results[0].OK || got.Results[0].Note != changedSinceTheCheck+"source id" {
+		t.Fatalf("an apply of a field it cannot read now: %+v, want ok with the note %q", got, changedSinceTheCheck+"source id")
+	}
+	author := decode[struct {
+		SourceID string `json:"source_id"`
+	}](t, alice.mustDo("GET", "/people/id/"+itoa(recordID(t, alice, "Frank Herbert")), nil, http.StatusOK))
+	if author.SourceID != "" {
+		t.Fatalf("the author's source_id after the apply: %q, want it left", author.SourceID)
 	}
 }
 
