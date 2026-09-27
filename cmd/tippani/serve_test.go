@@ -11,25 +11,35 @@ package main
 // healthcheck_test.go); the journal tables' names and columns (jobs, job_logs,
 // system_logs), which it reads, and writes where a job has to exist that nothing
 // yet queues — the endpoints that start and list jobs are a later stage of 3.1.0;
-// and the users and notify_settings tables, to give the daily deck two readers
-// without driving Pushover's settings screen. Every server runs with
-// TIPPANI_OFFLINE=1, so nothing here reaches the internet.
+// the users and notify_settings tables, to give the daily deck two more readers
+// without signing each in to Pushover's settings screen; and annotations'
+// created_at, which it moves back ten days, because the daily deck does not ask
+// about a quote in its first week and nothing a reader does makes one older. The
+// first reader, her quote and her Pushover settings are made through the API, as
+// the app's own screens make them. Every server runs with TIPPANI_OFFLINE=1, so
+// nothing here reaches the internet, and a lookup's or a message's call out is
+// refused, which is how the tests see that it was recorded.
 //
 // What each one guards, in a sentence a person would say: when the container is
 // stopped, the last lines it logged are kept, a job the previous run left is
 // interrupted with its line, and the checkpoint runs after the log is closed, not
-// before; the boot lines and a coded warning are kept at their levels; the
-// command-line tools leave a live server's running job running, while the daily
-// deck is kept as a job of its own; and on a server terminating its own TLS, a
-// failed handshake is kept with the request lines, not in the middle of the log.
+// before; the boot lines and a coded warning are kept at their levels, and a
+// reader's lookup is kept as her job with the call it made; the command-line
+// tools leave a live server's running job running, while the daily deck is kept
+// as a job of its own with the call to Pushover it made; and on a server
+// terminating its own TLS, a failed handshake is kept with the request lines, not
+// in the middle of the log.
 
 import (
 	"bytes"
 	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -133,6 +143,63 @@ func (s *served) get(path string) {
 	resp.Body.Close()
 }
 
+// send makes one API request with a JSON body, as the app's own screens do, and
+// fails the test unless it is answered want. It returns the answer's body.
+func (s *served) send(method, path string, body any, want int) []byte {
+	s.t.Helper()
+	b, err := json.Marshal(body)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	req, err := http.NewRequest(method, s.base+path, bytes.NewReader(b))
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := s.client.Do(req)
+	if err != nil {
+		s.t.Fatalf("%s %s: %v", method, path, err)
+	}
+	defer resp.Body.Close()
+	got, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != want {
+		s.t.Fatalf("%s %s: answered %d, want %d: %s", method, path, resp.StatusCode, want, got)
+	}
+	return got
+}
+
+// signUp makes the first account through the onboarding form, as a person does on
+// a new install, and keeps its session for the requests after it.
+func (s *served) signUp(name, password string) {
+	s.t.Helper()
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	s.client.Jar = jar
+	s.send("POST", "/api/auth/signup", map[string]string{"username": name, "password": password}, http.StatusOK)
+}
+
+// jobLines is the log of the newest job of kind, as level and text, in order.
+func jobLines(t *testing.T, db *sql.DB, kind string) []string {
+	t.Helper()
+	rows, err := db.Query(`SELECT level || ' ' || line FROM job_logs
+		WHERE job_id = (SELECT max(id) FROM jobs WHERE kind = ?) ORDER BY id`, kind)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var lines []string
+	for rows.Next() {
+		var l string
+		if err := rows.Scan(&l); err != nil {
+			t.Fatal(err)
+		}
+		lines = append(lines, l)
+	}
+	return lines
+}
+
 // stop sends SIGTERM, as `docker stop` does, and waits for a clean exit well
 // inside Docker's ten-second grace.
 func (s *served) stop() {
@@ -198,11 +265,15 @@ func TestAStoppedServerKeepsItsLastLinesAndSettlesTheJobsItFound(t *testing.T) {
 	srv := serveOn(t, dir)
 	srv.get("/api/locales")
 	srv.get("/api/auth/status?probe=Wv-kept-value")
+	// A reader looks a book up. This server is offline, so the lookup's call out
+	// is refused and the lookup fails, and the call is what its job's log shows.
+	srv.signUp("alice", "a-long-password")
+	srv.send("POST", "/api/books/lookup", map[string]string{"title": "Dune"}, http.StatusBadGateway)
 	// A job still waiting when the container is stopped. Shutdown's first step
 	// interrupts it and logs its line a moment before the log's last flush, so
 	// the line is kept only if that flush comes before the log pool closes.
 	live := openData(t, dir)
-	mustExec(t, live.DB, `INSERT INTO jobs (id, kind, state, created_at) VALUES (6, 'fill', 'queued', 3)`)
+	mustExec(t, live.DB, `INSERT INTO jobs (id, kind, state, created_at) VALUES (60, 'fill', 'queued', 3)`)
 	live.Close()
 	srv.stop()
 	terminal := srv.out.String()
@@ -240,11 +311,23 @@ func TestAStoppedServerKeepsItsLastLinesAndSettlesTheJobsItFound(t *testing.T) {
 		t.Errorf("the settled job does not say why it was interrupted")
 	}
 
+	// The lookup: kept as alice's job, failed as its request did, and its log is
+	// the call it made, refused.
+	if n := count(t, st.DB, `SELECT count(*) FROM jobs WHERE kind = 'lookup.book' AND state = 'failed'
+		AND error = 'HTTP 502' AND user_id = (SELECT id FROM users WHERE username = 'alice')`); n != 1 {
+		t.Errorf("the book lookup was not kept as alice's job:\n%s", terminal)
+	}
+	if lines := jobLines(t, st.DB, "lookup.book"); len(lines) == 0 ||
+		!strings.HasPrefix(lines[0], "warn GET www.googleapis.com/books/v1/volumes?") ||
+		!strings.HasSuffix(lines[0], " → refused (offline)") {
+		t.Errorf("the lookup's log does not show its call out, refused: %q", lines)
+	}
+
 	// The job waiting at the stop: interrupted by shutdown, with its line.
-	if n := count(t, st.DB, `SELECT count(*) FROM jobs WHERE id = 6 AND state = 'interrupted'`); n != 1 {
+	if n := count(t, st.DB, `SELECT count(*) FROM jobs WHERE id = 60 AND state = 'interrupted'`); n != 1 {
 		t.Errorf("the job waiting when the server stopped was not interrupted")
 	}
-	if n := count(t, st.DB, `SELECT count(*) FROM job_logs WHERE job_id = 6 AND line = 'the server stopped before this job started'`); n != 1 {
+	if n := count(t, st.DB, `SELECT count(*) FROM job_logs WHERE job_id = 60 AND line = 'the server stopped before this job started'`); n != 1 {
 		t.Errorf("the job interrupted at the stop lost its line, so the log's pool closed before its last flush:\n%s", terminal)
 	}
 
@@ -264,62 +347,82 @@ func TestAStoppedServerKeepsItsLastLinesAndSettlesTheJobsItFound(t *testing.T) {
 
 func TestTheCommandLineLeavesALiveServersRunningJobRunning(t *testing.T) {
 	dir := t.TempDir()
+	srv := serveOn(t, dir)
+	// alice sets the server up, saves a quote and turns Pushover on; the daily
+	// deck is on unless she turns it off.
+	srv.signUp("alice", "a-long-password")
+	var book struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal(srv.send("POST", "/api/books", map[string]any{"title": "Meditations"}, http.StatusCreated), &book); err != nil {
+		t.Fatal(err)
+	}
+	srv.send("POST", "/api/annotations", map[string]any{"book_id": book.ID,
+		"quote": "You have power over your mind, not outside events. Realize this, and you will find strength."}, http.StatusCreated)
+	srv.send("PUT", "/api/auth/notifications", map[string]any{"pushover_user": "ualice", "app_token": "tapp"}, http.StatusOK)
+
 	st := openData(t, dir)
+	var alice int64
+	if err := st.DB.QueryRow(`SELECT id FROM users WHERE username = 'alice'`).Scan(&alice); err != nil {
+		t.Fatal(err)
+	}
 	for _, q := range []string{
-		`INSERT INTO users (id, username, password_hash, is_admin) VALUES (1, 'alice', 'x', 1), (2, 'bob', 'x', 0), (3, 'mitra', 'x', 0)`,
-		// Two readers want the daily deck; mitra has no Pushover at all.
-		`INSERT INTO notify_settings (user_id, pushover_user, app_token) VALUES (1, 'ualice', 'tapp'), (2, 'ubob', 'tapp')`,
+		// bob wants the daily deck too and has nothing to be asked about; mitra
+		// has no Pushover at all.
+		`INSERT INTO users (id, username, password_hash, is_admin) VALUES (2, 'bob', 'x', 0), (3, 'mitra', 'x', 0)`,
+		`INSERT INTO notify_settings (user_id, pushover_user, app_token) VALUES (2, 'ubob', 'tapp')`,
 	} {
 		mustExec(t, st.DB, q)
 	}
-	st.Close()
-
-	srv := serveOn(t, dir)
 	// The live server's own job, started after it booted: running now.
-	st = openData(t, dir)
 	mustExec(t, st.DB, `INSERT INTO jobs (id, user_id, username, kind, state, created_at, started_at)
-		VALUES (9, 1, 'alice', 'covers', 'running', 1, 2)`)
+		VALUES (90, ?, 'alice', 'covers', 'running', 1, 2)`, alice)
 
-	run := func(stdin string, args ...string) string {
+	run := func(stdin string, wantOK bool, args ...string) string {
 		t.Helper()
 		cmd := exec.Command(os.Args[0], args...)
 		cmd.Env = binaryEnv(dir)
 		cmd.Stdin = strings.NewReader(stdin)
 		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("tippani %s: %v\n%s", strings.Join(args, " "), err, out)
+		if (err == nil) != wantOK {
+			t.Fatalf("tippani %s: %v (want it to succeed: %t)\n%s", strings.Join(args, " "), err, wantOK, out)
 		}
 		return string(out)
 	}
-	run("a-long-password\n", "user", "add", "carol")
-	deck := run("", "notify", "daily")
+	run("a-long-password\n", true, "user", "add", "carol")
+	// The first morning: alice's quote is in its first week, which the daily
+	// deck does not ask about, so nothing is due for anybody.
+	deck := run("", true, "notify", "daily")
 
-	if n := count(t, st.DB, `SELECT count(*) FROM jobs WHERE id = 9 AND state = 'running' AND finished_at IS NULL`); n != 1 {
+	if n := count(t, st.DB, `SELECT count(*) FROM jobs WHERE id = 90 AND state = 'running' AND finished_at IS NULL`); n != 1 {
 		t.Fatalf("a command-line tool settled the live server's running job under it")
 	}
-	var id int64
 	var owner sql.NullInt64
 	var state string
-	if err := st.DB.QueryRow(`SELECT id, user_id, state FROM jobs WHERE kind = 'notify.daily'`).Scan(&id, &owner, &state); err != nil {
+	if err := st.DB.QueryRow(`SELECT user_id, state FROM jobs WHERE kind = 'notify.daily'`).Scan(&owner, &state); err != nil {
 		t.Fatalf("the daily deck was not kept as a job: %v\n%s", err, deck)
 	}
 	if owner.Valid || state != "succeeded" {
 		t.Errorf("the daily deck's job: owner %v, %s — want no owner (the operator's cron started it), succeeded", owner, state)
 	}
-	var lines []string
-	rows, err := st.DB.Query(`SELECT line FROM job_logs WHERE job_id = ? ORDER BY id`, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for rows.Next() {
-		var l string
-		rows.Scan(&l)
-		lines = append(lines, l)
-	}
-	rows.Close()
-	want := []string{"alice: not sent — nothing due", "bob: not sent — nothing due"}
-	if fmt.Sprint(lines) != fmt.Sprint(want) {
+	want := []string{"info alice: not sent — nothing due", "info bob: not sent — nothing due"}
+	if lines := jobLines(t, st.DB, "notify.daily"); fmt.Sprint(lines) != fmt.Sprint(want) {
 		t.Errorf("the daily deck's log is %q, want one line per reader: %q\n(printed: %s)", lines, want, deck)
+	}
+
+	// A week and more later alice's quote is due, and the deck tells her phone.
+	// This server is offline, so the call is refused and the run fails, and the
+	// call is in the run's log. Nothing a reader does ages a quote, so the test
+	// writes its date.
+	mustExec(t, st.DB, `UPDATE annotations SET created_at = datetime('now', '-10 days')`)
+	deck = run("", false, "notify", "daily")
+	if err := st.DB.QueryRow(`SELECT state FROM jobs WHERE kind = 'notify.daily' ORDER BY id DESC LIMIT 1`).Scan(&state); err != nil || state != "failed" {
+		t.Errorf("the run whose message was refused was kept as %q (%v), want failed\n%s", state, err, deck)
+	}
+	lines := jobLines(t, st.DB, "notify.daily")
+	if len(lines) != 3 || lines[0] != "warn POST api.pushover.net/1/messages.json → refused (offline)" ||
+		!strings.HasPrefix(lines[1], "info alice: not sent — ") || lines[2] != "info bob: not sent — nothing due" {
+		t.Errorf("the daily deck's log is %q, want the refused call to Pushover and then a line per reader\n(printed: %s)", lines, deck)
 	}
 	srv.stop()
 }
