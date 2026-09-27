@@ -36,8 +36,10 @@ import (
 // The only new code here is the filter, which is the only new idea.
 //
 // requireAuth rather than admin, and the same 15-item cap, for the same reasons
-// re-verify has them: own rows only, and the cap bounds provider load while the
-// client chunks a large selection into sequential batches.
+// re-verify has them: own rows only, and the cap bounds provider load while an
+// API caller chunks a large selection into sequential batches. The app's Fill
+// gaps does not call this route since 3.1.0: it starts a fill job (runFill),
+// which walks the same fillOne a work at a time.
 
 // fillResult is one work's outcome. `Filled` names the fields written, so the
 // client can say "3 books · 7 fields" rather than a bare success — and so a run
@@ -103,8 +105,9 @@ func (s *Server) handleMetadataFill(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		BookIDs  []int64 `json:"book_ids"`
 		MovieIDs []int64 `json:"movie_ids"`
-		// A bulk fill is chunked by the client (maxReverifyItems per call), so no
-		// single request knows the run is over. The LAST chunk says so: RunTotal
+		// A bulk fill through this route is chunked by its caller
+		// (maxReverifyItems per call), so no single request knows the run is
+		// over. The LAST chunk says so: RunTotal
 		// is how many works the whole run covered and RunFields how many fields
 		// the earlier chunks filled. Only a notification reads either.
 		RunTotal  int `json:"run_total"`

@@ -513,9 +513,11 @@ func (s *Server) coversWorkload(uid int64) (int, error) {
 // The work is CHUNKED so the client can render real progress: each call
 // processes up to `limit` rows starting after `cursor` and returns
 // {next_cursor, done, total, remaining} alongside the counters. An empty body
-// (or empty cursor) starts from the top; the client loops until done. Chunks
-// also keep each HTTP request short, so proxy timeouts and tab navigation
-// can no longer silently abort a long run.
+// (or empty cursor) starts from the top; the caller loops until done. Chunks
+// also keep each HTTP request short, so proxy timeouts cannot silently abort a
+// long run. The app's own Fetch covers stopped looping it in 3.1.0: it starts
+// the covers job (runCovers, below), which walks the same stretch a row at a
+// time and outlives the tab.
 func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Cursor string `json:"cursor"`
@@ -550,7 +552,7 @@ func (s *Server) handleCoversRefetch(w http.ResponseWriter, r *http.Request) {
 		"next_cursor": c.next, "done": c.next == "", "total": c.total, "remaining": c.remaining,
 	})
 	// The LAST chunk of a run is the only one that knows the run is over; the
-	// per-chunk counts are the client's to sum, so the message names the run's
+	// per-chunk counts are the caller's to sum, so the message names the run's
 	// size rather than a total this request never saw.
 	if c.next == "" && c.total >= notifyFetchMin {
 		s.notifyAfter(w, r, uid, "fetch", coversDoneTitle, coversDoneMessage(c.total))

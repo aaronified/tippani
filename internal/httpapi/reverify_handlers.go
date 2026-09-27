@@ -29,14 +29,18 @@ import (
 // trust boundary as the existing PUT edit surface: whitelisted fields, the
 // same validators, ownership-scoped SQL).
 //
-// Stateless by design: no server-side diff session — the client holds the
-// preview and sends back exactly what the user saw and ticked. requireAuth
-// (not admin): both endpoints touch only the caller's own rows, like
+// The ROUTES are stateless by design: no server-side diff session — the caller
+// holds the preview and sends back exactly what the user saw and ticked.
+// requireAuth (not admin): both endpoints touch only the caller's own rows, like
 // /books/lookup and /people/portrait; the per-call item cap bounds provider
-// load. The client slices a large selection into small sequential batches and
-// drives a progress bar, reusing the covers-refetch loop shape.
+// load, and an API caller slices a large selection into batches under it. The
+// app's own dialog stopped looping them in 3.1.0: its check and its apply are
+// the reverify and reverify-apply jobs (runReverify, runReverifyApply), which
+// call the same functions an item at a time, five hundred items a job, and keep
+// the check's preview as the job's result for the review to read back.
 
-// maxReverifyItems caps one preview/apply call. The client chunks above this.
+// maxReverifyItems caps one preview/apply call. An API caller chunks above this;
+// the jobs have their own cap (maxReverifyPerJob).
 const maxReverifyItems = 15
 
 // fieldAlt is one supplier's answer for one field.
@@ -1542,9 +1546,9 @@ func (s *Server) applyReverifyMovie(ctx context.Context, uid, id int64, set map[
 		//
 		// AND THIS PATH IS THE WRONG ONE TO SPEND IT FROM, which is why it is this
 		// statement and not the two beside it that changed. applyReverifyMovie is
-		// also /metadata/fill's writer, and fill is UNATTENDED AND BULK: fifteen
-		// titles a call, no diff on screen, chunked over a whole selection by the
-		// client. A resync is one title the reader asked for by name; a fill is a
+		// also the fill's writer, and fill is UNATTENDED AND BULK: up to two
+		// thousand titles a job (or fifteen a call from an API caller), no diff on
+		// screen. A resync is one title the reader asked for by name; a fill is a
 		// button that could walk a library. Before 0048 fill never touched this
 		// column at all — missingStored returned false for a []CastMember — so the
 		// hole opened with the same change that made the blob worth protecting.
