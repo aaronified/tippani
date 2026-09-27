@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -45,6 +47,9 @@ import (
 //     closing the tab does to it and which no request can do to another;
 //   - how many roles and names one pass takes (castArtRoles, castArtNames), the
 //     two twenties the loops it replaces capped themselves at;
+//   - one test keeps the system log as serve() keeps it (logging) and reads it
+//     as an admin does (GET /admin/logs), for the code a download that failed is
+//     logged under (TIP-COVER-001) — the Troubleshooting row an operator follows;
 //   - the answer's two names (character_images, portraits), which are the
 //     route's contract with the page;
 //   - one test serves the handler over a real connection with a write deadline
@@ -62,8 +67,9 @@ import (
 // for finished; a request whose first was cut short by its reader leaving
 // fetches its own names rather than taking the cut pass for finished; a role the
 // reader removed has no picture fetched; one pass takes twenty roles and twenty
-// names, however many the work has; and a pass slower than the server's write
-// deadline still gets its answer to the page.
+// names, however many the work has; a picture or a headshot that will not
+// download is in the server's log under the code its row names; and a pass
+// slower than the server's write deadline still gets its answer to the page.
 
 // countedDownloads stands in for the picture download: every address asked for
 // becomes a file in the covers dir, and hold, when set, is waited on before the
@@ -447,6 +453,35 @@ func TestAPicturePassTakesTwentyRolesAndTwentyNames(t *testing.T) {
 	got := decode[castArtAnswer](t, askCastArt(alice, path, names...))
 	if got != (castArtAnswer{CharacterImages: 20, Portraits: 20}) || len(d.list()) != 40 {
 		t.Fatalf("one opening of a film with 21 of each: %+v, %d downloads; want 20 pictures, 20 headshots", got, len(d.list()))
+	}
+}
+
+// A PICTURE THAT WILL NOT DOWNLOAD IS IN THE LOG WHERE ITS ROW SAYS. The image
+// host refuses both of the film's pictures — Amanda Waller's and Viola Davis's
+// headshot. The page draws without them, and an admin looking for why finds a
+// line for each under TIP-COVER-001, naming the address it asked for.
+func TestAPictureThatWillNotDownloadIsLoggedUnderItsCode(t *testing.T) {
+	srv := newTestServer(t)
+	logging(t, srv)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	film := suicideSquad(t, srv, alice)
+	srv.fetchImage = func(context.Context, string, string) (string, error) {
+		return "", errors.New("the image host answered 503")
+	}
+
+	if got := decode[castArtAnswer](t, askCastArt(alice, "/movies/"+itoa(film), "Viola Davis")); got != (castArtAnswer{}) {
+		t.Fatalf("a film whose pictures will not download: %+v, want nothing arrived", got)
+	}
+	for _, addr := range []string{"artworks.thetvdb.com/waller.jpg", "artworks.thetvdb.com/head412.jpg"} {
+		page := alice.logs(url.Values{"q": {addr}})
+		found := false
+		for _, l := range page.Lines {
+			found = found || (l.Code == "TIP-COVER-001" && l.Level == "error")
+		}
+		if !found {
+			t.Errorf("no TIP-COVER-001 error names %s: %+v", addr, page.Lines)
+		}
 	}
 }
 

@@ -75,7 +75,7 @@ const (
 	CodePeopleOrphanGC   Code = "TIP-PEOPLE-010"  // orphan-people garbage collection failed
 	CodeBookCover        Code = "TIP-BOOK-002"    // book cover fetch failed on create (cover dropped, book kept)
 	CodeMovieCover       Code = "TIP-MOVIE-002"   // movie poster fetch failed on create/update (dropped)
-	CodeCoverFetch       Code = "TIP-COVER-001"   // on-demand cover/poster refetch failed
+	CodeCoverFetch       Code = "TIP-COVER-001"   // on-demand image download failed (cover/poster refetch, role picture, headshot)
 
 	// User-supplied cover/poster/image URL fetch failed on an edit — the whole
 	// save is rejected (502), unlike the create-time CodeBookCover/CodeMovieCover
@@ -233,7 +233,7 @@ var Registry = map[Code]string{
 	CodePeopleOrphanGC:   "Garbage-collecting orphaned people rows/images failed; orphans may remain.",
 	CodeBookCover:        "A book cover image could not be fetched on create; the book was saved without a cover.",
 	CodeMovieCover:       "A movie poster could not be fetched on create/update; saved without a poster.",
-	CodeCoverFetch:       "An on-demand cover/poster refetch failed.",
+	CodeCoverFetch:       "An on-demand image download failed: a cover or poster refetch, a role's picture, or a person's headshot.",
 
 	CodeBookCoverUpdate:  "A user-supplied cover URL failed to fetch on edit; the save was rejected.",
 	CodeMovieCoverUpdate: "A user-supplied poster URL failed to fetch on edit; the save was rejected.",
