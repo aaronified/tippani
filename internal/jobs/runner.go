@@ -955,17 +955,31 @@ func (r *Runner) abandon() error {
 
 // Exclusive runs fn with the queue held: a restore, a factory reset, a reindex or
 // an update, each of which swaps or rewrites the database under whatever is
-// running. It refuses with ErrBusy while a job runs or is being claimed; while fn
-// runs, the worker claims nothing and Enqueue answers ErrBusy. Afterwards it lets
-// go of the secrets of jobs fn ended (a restore interrupts every waiting job) and
-// starts the worker if anything is waiting.
+// running. It refuses with ErrBusy while a job runs; while fn runs, the worker
+// claims nothing and Enqueue answers ErrBusy. Afterwards it lets go of the
+// secrets of jobs fn ended (a restore interrupts every waiting job) and starts
+// the worker if anything is waiting.
+//
+// A CLAIM IN PROGRESS IS WAITED OUT, NOT REFUSED. The worker looks for a job
+// every time it is kicked — after every Enqueue, refused ones included, and
+// after every Exclusive — and nearly always finds none. Refusing while it looked
+// turned an admin's second maintenance step, pressed just after the first, into
+// "a job is running" with nothing running at all. The claim is one statement, so
+// the wait is short, and what it took decides: a job means ErrBusy, nothing
+// means fn runs.
 func (r *Runner) Exclusive(fn func() error) error {
 	r.mu.Lock()
+	for r.claiming {
+		ended := r.claimEnded
+		r.mu.Unlock()
+		<-ended
+		r.mu.Lock()
+	}
 	switch {
 	case r.closed:
 		r.mu.Unlock()
 		return ErrClosed
-	case r.running != nil || r.claiming:
+	case r.running != nil:
 		r.mu.Unlock()
 		return ErrBusy
 	}

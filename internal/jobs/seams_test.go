@@ -697,3 +697,77 @@ func TestAJobQueuedTheInstantTheWorkerFoundNoneStillRuns(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+// A RESTORE PRESSED WHILE THE WORKER IS LOOKING, through the same seam. The
+// worker looks for a job every time it is kicked and nearly always finds none,
+// and an Exclusive that lands in that look waits for it to end rather than
+// answering "a job is running" with nothing running: the admin's second
+// maintenance step, pressed just after the first, used to be refused that way.
+// A look that does take a job still refuses it.
+func TestAnExclusiveDuringALookWaitsForWhatTheLookFinds(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		found bool // the claim to hold: the one that finds a job, or the one that finds none
+		want  error
+	}{{"finds none", false, nil}, {"finds a job", true, ErrBusy}} {
+		t.Run(tc.name, func(t *testing.T) {
+			st := openStoreInternal(t)
+			if _, err := st.DB.Exec(`INSERT INTO users (id, username, password_hash) VALUES (2, 'mitra', 'x')`); err != nil {
+				t.Fatal(err)
+			}
+			lb := NewLogbook()
+			lb.Attach(st)
+			t.Cleanup(func() { lb.Close(context.Background()) })
+			r := NewRunner(st, lb, Options{})
+			t.Cleanup(func() { r.Close(context.Background()) })
+			running, finish := make(chan struct{}), make(chan struct{})
+			looking, letGo := make(chan struct{}), make(chan struct{})
+			var endFinish, endLetGo sync.Once
+			let := func() { endLetGo.Do(func() { close(letGo) }) }
+			end := func() { endFinish.Do(func() { close(finish) }) }
+			t.Cleanup(end) // before the runner's Close, which waits for the held job
+			t.Cleanup(let)
+			r.Register(Kind{Name: "held", Run: func(context.Context, *Job) error {
+				close(running)
+				<-finish
+				return nil
+			}})
+			r.Register(Kind{Name: "quick", Run: func(context.Context, *Job) error { return nil }})
+			var once sync.Once
+			r.afterClaim = func(found bool) {
+				if found == tc.found {
+					once.Do(func() {
+						close(looking)
+						<-letGo
+					})
+				}
+			}
+			owner := Owner{UserID: 2, Username: "mitra", Gen: st.Generation()}
+			kind := "quick" // it ends at once, and the worker looks again, finding none
+			if tc.found {
+				kind = "held"
+			}
+			if _, err := r.Enqueue(owner, kind, "", nil, 0, nil); err != nil {
+				t.Fatal(err)
+			}
+			<-looking
+			ran := false
+			done := make(chan error, 1)
+			go func() { done <- r.Exclusive(func() error { ran = true; return nil }) }()
+			select {
+			case err := <-done:
+				t.Fatalf("Exclusive answered %v while the worker was still looking", err)
+			case <-time.After(50 * time.Millisecond):
+			}
+			let()
+			if tc.found {
+				<-running
+			}
+			err := <-done
+			end()
+			if err != tc.want || ran != (tc.want == nil) {
+				t.Fatalf("Exclusive after a look that %s: %v, ran %v; want %v", tc.name, err, ran, tc.want)
+			}
+		})
+	}
+}
