@@ -265,12 +265,15 @@ describe('Past jobs', () => {
       job({ id: 4, kind: 'lookup.person', queued: false, subject: 'Ursula K. Le Guin', state: 'succeeded', finished_at: NOW - HOUR }),
       job({ id: 3, kind: 'lookup.cast-tvdb', queued: false, subject: 'Severance', state: 'succeeded', finished_at: NOW - 2 * HOUR }),
       job({ id: 2, kind: 'something.new', queued: false, subject: 'from a later server', state: 'succeeded', finished_at: NOW - 3 * HOUR }),
+      // The copy a restore asks for first: the server keeps it under this kind.
+      job({ id: 1, kind: 'backup.safety', queued: false, subject: '', state: 'succeeded', finished_at: NOW - 4 * HOUR }),
     ]
     await page()
     const past = await card('Past jobs')
     const row = await within(past).findByRole('button', { name: /^Person lookup/ })
     expect(within(row).getByText('Ursula K. Le Guin')).toBeTruthy()
     expect(within(past).getByRole('button', { name: /^Cast from TheTVDB/ })).toBeTruthy()
+    expect(within(past).getByRole('button', { name: /^Safety backup/ })).toBeTruthy()
     const stranger = within(past).getByRole('button', { name: /^Job/ })
     expect(within(stranger).getByText('from a later server')).toBeTruthy()
   })

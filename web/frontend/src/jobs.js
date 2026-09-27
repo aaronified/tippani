@@ -52,7 +52,7 @@ export const JOB_KINDS = [
   'lookup.cast-tvdb', 'lookup.cast-art',
   'update.check', 'update.apply', 'metadata.test', 'notify.test', 'signin.oidc',
   'work.save', 'person.save', 'character.save',
-  'import', 'restore', 'reset', 'notify.daily', 'request',
+  'import', 'restore', 'reset', 'backup.safety', 'notify.daily', 'request',
 ]
 const kindSlug = (kind) => (JOB_KINDS.includes(kind) ? kind.replace(/\./g, '-') : 'other')
 

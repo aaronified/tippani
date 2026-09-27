@@ -5744,6 +5744,8 @@ settings.jobs.kind.people = মানুষের তথ্য আনা
 settings.jobs.kind.reverify = আবার মিলিয়ে দেখা
 settings.jobs.kind.reverify-apply = মিলিয়ে দেখা বদল বসানো
 settings.jobs.kind.backup = ব্যাকআপ
+# ?? draft for the owner (3.1.0 integration): the copy a restore or reset asks for first; the button's own words (আগে একটা ব্যাকআপ ডাউনলোড করুন) as a noun phrase, with "safety" left unsaid as the button leaves it
+settings.jobs.kind.backup-safety = ব্যাকআপ ডাউনলোড
 settings.jobs.kind.lookup-book = বই খুঁজে দেখা
 settings.jobs.kind.lookup-movie = টাইটেল খুঁজে দেখা
 settings.jobs.kind.lookup-images = ছবি খোঁজা

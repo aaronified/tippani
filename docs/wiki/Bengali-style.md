@@ -1041,6 +1041,17 @@ Stop all confirm's, *মাঝপথে থেমেছে* is the interrupted s
 | `account.reset.queue.waiting.one` | One job is waiting; a reset deletes it with everything else. | অপেক্ষার তালিকায় একটা কাজ আছে — বাকি সবকিছুর সঙ্গে সেটাও মুছে যাবে। |
 | `account.reset.queue.waiting.other` | {n} jobs are waiting; a reset deletes them with everything else. | অপেক্ষার তালিকায় {n}টা কাজ আছে — বাকি সবকিছুর সঙ্গে সেগুলোও মুছে যাবে। |
 
+#### Added when the halves were merged
+
+A job's name the server records and Settings › Jobs had no words for until the backend and
+the screen met. Marked `# ?? draft for the owner (3.1.0 integration)` at its key;
+`grep -n '3.1.0 integration' internal/i18n/bn.txt` lists it. A job's name is a noun phrase,
+as every other kind's is (কভার আনা, not কভার আনুন).
+
+| Key | English | Bengali |
+| --- | --- | --- |
+| `settings.jobs.kind.backup-safety` | Safety backup | ব্যাকআপ ডাউনলোড |
+
 ---
 
 ## v3 decisions

@@ -5890,6 +5890,9 @@ settings.jobs.kind.people = Fetch people
 settings.jobs.kind.reverify = Re-verify
 settings.jobs.kind.reverify-apply = Apply re-verified changes
 settings.jobs.kind.backup = Back up
+# The copy a restore or a reset asks for first, downloaded in its request and
+# kept on the server as a job all the same.
+settings.jobs.kind.backup-safety = Safety backup
 settings.jobs.kind.lookup-book = Book lookup
 settings.jobs.kind.lookup-movie = Title lookup
 settings.jobs.kind.lookup-images = Picture search
