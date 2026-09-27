@@ -5834,6 +5834,87 @@ settings.keys.save.blank.tip = Save blank — clears this key
 settings.keys.toast.cleared = cleared
 
 # ===========================================================================
+# SETTINGS › JOBS — what the server is doing for you, and what it has done.
+#
+# A JOB is one run of something a reader started: a fill, a cover fetch, a
+# backup, a single lookup. One runs at a time across the whole server; the rest
+# wait their turn in the order they were started. Finished jobs are kept, with
+# their logs, for 30 days. The server sends a job as data — a kind, a subject,
+# some counts — and every sentence about it is composed here.
+# ===========================================================================
+
+# --- what a job is called, by its kind. `lookup-book` is the kind `lookup.book`:
+# a key cannot hold a dot inside one segment. A kind this screen does not know
+# yet is simply "Job".
+settings.jobs.kind.fill = Fill gaps
+settings.jobs.kind.covers = Fetch covers
+settings.jobs.kind.people = Fetch people
+settings.jobs.kind.reverify = Re-verify
+settings.jobs.kind.reverify-apply = Apply re-verified changes
+settings.jobs.kind.backup = Back up
+settings.jobs.kind.lookup-book = Book lookup
+settings.jobs.kind.lookup-movie = Title lookup
+settings.jobs.kind.lookup-images = Picture search
+settings.jobs.kind.lookup-portrait = Portrait lookup
+settings.jobs.kind.lookup-links = Reference page lookup
+settings.jobs.kind.lookup-reverify = Re-verify one
+settings.jobs.kind.lookup-cast-image = Cast picture
+settings.jobs.kind.lookup-cast-imdb = Cast from IMDb
+settings.jobs.kind.lookup-cast-art = Cast pictures
+settings.jobs.kind.update-check = Update check
+settings.jobs.kind.update-apply = Update
+settings.jobs.kind.metadata-test = Source test
+settings.jobs.kind.work-save = Save a work
+settings.jobs.kind.import = Import
+settings.jobs.kind.restore = Restore
+settings.jobs.kind.reset = Reset all data
+settings.jobs.kind.notify-daily = Daily deck
+settings.jobs.kind.request = Request
+settings.jobs.kind.other = Job
+
+# --- the six states, as a chip and as a row's word. Queued and running are a job
+# still in the queue; the other four are how it ended. INTERRUPTED is the server
+# stopping under it — a restart, a shutdown, a restore — where STOPPED is somebody
+# pressing Stop.
+settings.jobs.state.queued = Waiting
+settings.jobs.state.running = Running
+settings.jobs.state.succeeded = Succeeded
+settings.jobs.state.failed = Failed
+settings.jobs.state.stopped = Stopped
+settings.jobs.state.interrupted = Interrupted
+
+# --- what a finished job did, one phrase per count. The screen joins them with
+# " · " in code, so each phrase carries its own word order.
+settings.jobs.count.fields.one = {n} field filled
+settings.jobs.count.fields.other = {n} fields filled
+settings.jobs.count.fetched.one = {n} fetched
+settings.jobs.count.fetched.other = {n} fetched
+# A cover fetch that also filled in a work's details on the way.
+settings.jobs.count.enriched.one = {n} enriched
+settings.jobs.count.enriched.other = {n} enriched
+settings.jobs.count.ok.one = {n} done
+settings.jobs.count.ok.other = {n} done
+settings.jobs.count.items.one = {n} checked
+settings.jobs.count.items.other = {n} checked
+settings.jobs.count.changes.one = {n} with changes
+settings.jobs.count.changes.other = {n} with changes
+settings.jobs.count.applied.one = {n} applied
+settings.jobs.count.applied.other = {n} applied
+# A work with no provider id pinned, which a fill or a re-verify cannot look up.
+settings.jobs.count.unpinned.one = {n} unpinned
+settings.jobs.count.unpinned.other = {n} unpinned
+settings.jobs.count.skipped.one = {n} skipped
+settings.jobs.count.skipped.other = {n} skipped
+settings.jobs.count.failed.one = {n} failed
+settings.jobs.count.failed.other = {n} failed
+# A running job's progress, under its title.
+settings.jobs.progress = {done} of {total}
+# How long a job took. Symbols beside digits, like the half-life's {n}h.
+settings.jobs.took.s = {s}s
+settings.jobs.took.m = {m}m {s}s
+settings.jobs.took.h = {h}h {m}m
+
+# ===========================================================================
 # SHARED VOCABULARY THE LAST THREE SCREENS ASKED FOR.
 #
 # error.* keyed by WHAT FAILED, a handful of countable people-nouns beside the

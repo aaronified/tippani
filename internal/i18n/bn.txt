@@ -5669,6 +5669,95 @@ settings.keys.save.blank.tip = ফাঁকা রেখে সেভ করল�
 settings.keys.toast.cleared = মুছে গেল
 
 # ===========================================================================
+# SETTINGS › JOBS — what the server is doing for you, and what it has done.
+#
+# A JOB is one run of something a reader started: a fill, a cover fetch, a
+# backup, a single lookup. One runs at a time across the whole server; the rest
+# wait their turn in the order they were started. Finished jobs are kept, with
+# their logs, for 30 days. The server sends a job as data — a kind, a subject,
+# some counts — and every sentence about it is composed here.
+# ===========================================================================
+
+# --- what a job is called, by its kind. `lookup-book` is the kind `lookup.book`:
+# a key cannot hold a dot inside one segment. A kind this screen does not know
+# yet is simply "Job".
+# bn: a job's name is a noun phrase — কভার আনা, not the button's কভার আনুন —
+# because it names a run that happened, not a press still to make.
+settings.jobs.kind.fill = শূন্যস্থান পূরণ
+settings.jobs.kind.covers = কভার আনা
+settings.jobs.kind.people = মানুষের তথ্য আনা
+settings.jobs.kind.reverify = আবার মিলিয়ে দেখা
+settings.jobs.kind.reverify-apply = মিলিয়ে দেখা বদল বসানো
+settings.jobs.kind.backup = ব্যাকআপ
+settings.jobs.kind.lookup-book = বই খুঁজে দেখা
+settings.jobs.kind.lookup-movie = টাইটেল খুঁজে দেখা
+settings.jobs.kind.lookup-images = ছবি খোঁজা
+settings.jobs.kind.lookup-portrait = মুখের ছবি খোঁজা
+settings.jobs.kind.lookup-links = তথ্যসূত্রের পাতা খোঁজা
+settings.jobs.kind.lookup-reverify = একটা আবার মিলিয়ে দেখা
+settings.jobs.kind.lookup-cast-image = কাস্টের একটা ছবি
+settings.jobs.kind.lookup-cast-imdb = IMDb থেকে কাস্ট
+settings.jobs.kind.lookup-cast-art = কাস্টের ছবি
+settings.jobs.kind.update-check = আপডেট আছে কি না দেখা
+settings.jobs.kind.update-apply = আপডেট
+settings.jobs.kind.metadata-test = সূত্র পরীক্ষা
+settings.jobs.kind.work-save = উৎস সেভ
+settings.jobs.kind.import = ইমপোর্ট
+settings.jobs.kind.restore = ফিরিয়ে আনা
+settings.jobs.kind.reset = সব ডেটা মুছে ফেলা
+settings.jobs.kind.notify-daily = দৈনিক অনুশীলনী
+# ?? an HTTP request → রিকোয়েস্ট; অনুরোধ is a favour asked of a person
+settings.jobs.kind.request = রিকোয়েস্ট
+settings.jobs.kind.other = কাজ
+
+# --- the six states, as a chip and as a row's word. Queued and running are a job
+# still in the queue; the other four are how it ended. INTERRUPTED is the server
+# stopping under it — a restart, a shutdown, a restore — where STOPPED is somebody
+# pressing Stop.
+# bn: queued is অপেক্ষার তালিকায়, the queue's own word from the sheet — the job
+# is IN the list, so nothing inanimate is said to wait (v3.7).
+settings.jobs.state.queued = অপেক্ষার তালিকায়
+settings.jobs.state.running = চলছে
+settings.jobs.state.succeeded = সফল
+# ?? ব্যর্থ for the chip; a count of failures elsewhere says পারা গেল না, which is a sentence and too long for a chip
+settings.jobs.state.failed = ব্যর্থ
+settings.jobs.state.stopped = থামানো হয়েছে
+settings.jobs.state.interrupted = মাঝপথে থেমেছে
+
+# --- what a finished job did, one phrase per count. The screen joins them with
+# " · " in code, so each phrase carries its own word order.
+settings.jobs.count.fields.one = {n}টা ঘর ভরেছে
+settings.jobs.count.fields.other = {n}টা ঘর ভরেছে
+settings.jobs.count.fetched.one = {n}টা এসেছে
+settings.jobs.count.fetched.other = {n}টা এসেছে
+# A cover fetch that also filled in a work's details on the way.
+settings.jobs.count.enriched.one = {n}টা মেটাডেটা পেয়েছে
+settings.jobs.count.enriched.other = {n}টা মেটাডেটা পেয়েছে
+settings.jobs.count.ok.one = {n}টা হয়েছে
+settings.jobs.count.ok.other = {n}টা হয়েছে
+settings.jobs.count.items.one = {n}টা দেখা হল
+settings.jobs.count.items.other = {n}টা দেখা হল
+settings.jobs.count.changes.one = {n}টায় বদল
+settings.jobs.count.changes.other = {n}টায় বদল
+settings.jobs.count.applied.one = {n}টা বসেছে
+settings.jobs.count.applied.other = {n}টা বসেছে
+# A work with no provider id pinned, which a fill or a re-verify cannot look up.
+settings.jobs.count.unpinned.one = {n}টার বাঁধা id নেই
+settings.jobs.count.unpinned.other = {n}টার বাঁধা id নেই
+settings.jobs.count.skipped.one = {n}টা বাদ
+settings.jobs.count.skipped.other = {n}টা বাদ
+settings.jobs.count.failed.one = {n}টা পারা গেল না
+settings.jobs.count.failed.other = {n}টা পারা গেল না
+# A running job's progress, under its title.
+settings.jobs.progress = {total}-এর মধ্যে {done}
+# How long a job took. Symbols beside digits, like the half-life's {n}h.
+# bn: unchanged, for the half-life's reason (§6.3) — a letter beside a Western
+# digit is a symbol, and a column of durations reads down the digits.
+settings.jobs.took.s = {s}s
+settings.jobs.took.m = {m}m {s}s
+settings.jobs.took.h = {h}h {m}m
+
+# ===========================================================================
 # SHARED VOCABULARY THE LAST THREE SCREENS ASKED FOR.
 #
 # error.* keyed by WHAT FAILED, a handful of countable people-nouns beside the
