@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -40,6 +41,10 @@ import (
 //   - one test's picture download panics, as a bug in it would, and that
 //     request's panic is recovered by the test as net/http recovers it for a
 //     real connection;
+//   - one test ends a request's context mid-download, which is what a reader
+//     closing the tab does to it and which no request can do to another;
+//   - how many roles and names one pass takes (castArtRoles, castArtNames), the
+//     two twenties the loops it replaces capped themselves at;
 //   - the answer's two names (character_images, portraits), which are the
 //     route's contract with the page;
 //   - one test serves the handler over a real connection with a write deadline
@@ -54,8 +59,11 @@ import (
 // that has spent its time answers with what arrived; a request that joins a slow
 // one answers within its own time, not the other's; a pass that panicked does
 // not leave the request waiting on it waiting for good, nor let it take the pass
-// for finished; and a pass slower than the server's write deadline still gets
-// its answer to the page.
+// for finished; a request whose first was cut short by its reader leaving
+// fetches its own names rather than taking the cut pass for finished; a role the
+// reader removed has no picture fetched; one pass takes twenty roles and twenty
+// names, however many the work has; and a pass slower than the server's write
+// deadline still gets its answer to the page.
 
 // countedDownloads stands in for the picture download: every address asked for
 // becomes a file in the covers dir, and hold, when set, is waited on before the
@@ -319,6 +327,126 @@ func TestAPicturePassThatPanickedDoesNotHoldUpTheRequestWaitingOnIt(t *testing.T
 		}
 	case <-time.After(20 * time.Second):
 		t.Fatal("the request that joined the pass that panicked is waiting on it still")
+	}
+}
+
+// askCastArtIn is askCastArt in a request whose context the test holds, as the
+// reader's tab holds a real one.
+func askCastArtIn(ctx context.Context, c *testClient, path string, names ...string) *httptest.ResponseRecorder {
+	body, _ := json.Marshal(map[string]any{"names": names})
+	req := httptest.NewRequest("POST", apiPath(path+"/cast/art"), bytes.NewReader(body)).WithContext(ctx)
+	req.AddCookie(c.cookie)
+	rec := httptest.NewRecorder()
+	c.h.ServeHTTP(rec, req)
+	return rec
+}
+
+// THE FIRST REQUEST'S READER LEFT. The board asks for Viola Davis and its tab is
+// closed while Amanda Waller's picture is still downloading; the Details panel,
+// open in another tab, had asked for the same name and joined it. The picture in
+// hand is kept, the closed tab's pass starts nothing more, and the panel's
+// request looks up the headshot itself — the pass it joined never got to it.
+func TestARequestWhoseFirstWasCutShortFetchesItsOwnNames(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	film := suicideSquad(t, srv, alice)
+	d := countDownloads(srv)
+	d.hold = make(chan struct{})
+	path := "/movies/" + itoa(film)
+
+	tab, closeTab := context.WithCancel(context.Background())
+	defer closeTab()
+	board := make(chan *httptest.ResponseRecorder, 1)
+	go func() { board <- askCastArtIn(tab, alice, path, "Viola Davis") }()
+	d.began(t)
+	panel := make(chan *httptest.ResponseRecorder, 1)
+	go func() { panel <- askCastArt(alice, path, "Viola Davis") }()
+	waitForJoin(t, srv, castArtKey{uid: accountID(t, alice, "alice"), kind: "movie", id: film})
+	closeTab()
+	close(d.hold)
+	<-board
+
+	if got := decode[castArtAnswer](t, <-panel); got != (castArtAnswer{CharacterImages: 1, Portraits: 1}) {
+		t.Fatalf("the panel's answer: %+v, downloads %v; want the picture the board fetched and the headshot it fetched itself", got, d.list())
+	}
+	if want := []string{"https://artworks.thetvdb.com/waller.jpg", "https://artworks.thetvdb.com/head412.jpg"}; !slices.Equal(d.list(), want) {
+		t.Fatalf("downloaded %v, want %v", d.list(), want)
+	}
+}
+
+// A ROLE THE READER REMOVED IS NOT FETCHED. Deleting a supplier's role keeps it
+// as a tombstone, so the next cast fetch does not bring it back — its picture's
+// address still on it. Opening the film must not download the picture of a role
+// nobody can see.
+func TestARoleTheReaderRemovedHasNoPictureFetched(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	film := suicideSquad(t, srv, alice)
+	path := "/movies/" + itoa(film)
+	for _, row := range castOf(t, alice, path+"/cast").Cast {
+		if row.Character == "Amanda Waller" {
+			alice.mustDo("DELETE", "/cast/"+itoa(row.ID), nil, http.StatusNoContent)
+		}
+	}
+	d := countDownloads(srv)
+
+	if got := decode[castArtAnswer](t, askCastArt(alice, path)); got != (castArtAnswer{}) || len(d.list()) != 0 {
+		t.Fatalf("a film whose only role with a picture was removed: %+v, downloads %v; want nothing fetched", got, d.list())
+	}
+}
+
+// tvdbEnsemble is a TheTVDB record whose cast is roles from to to, each with a
+// picture of its own and its actor's headshot.
+func tvdbEnsemble(from, to int) string {
+	var roles []string
+	for i := from; i <= to; i++ {
+		roles = append(roles, fmt.Sprintf(`{"name":"Role %02d","personName":"Actor %02d","peopleType":"Actor","peopleId":%d,`+
+			`"personImgURL":"https://artworks.thetvdb.com/head%02d.jpg","image":"https://artworks.thetvdb.com/role%02d.jpg"}`,
+			i, i, 1000+i, i, i))
+	}
+	return `{"data":{"id":297763,"name":"The Ensemble","year":"2016","characters":[` + strings.Join(roles, ",") + `]}}`
+}
+
+// TWENTY ROLES AND TWENTY NAMES A PASS, whatever the work has. A supplier sends
+// at most twenty roles, but a work can hold more: a role the reader corrected is
+// kept when the supplier later lists a different cast. So the film here has
+// twenty-one roles with a picture to fetch — the twenty TheTVDB lists now and one
+// the reader renamed from the cast it listed before — and the page sends
+// twenty-one actors' names. One opening fetches twenty of each.
+func TestAPicturePassTakesTwentyRolesAndTwentyNames(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	film := filmWithTVDBID(t, alice, "The Ensemble", 297763)
+	path := "/movies/" + itoa(film)
+	stub, client, done := newTVDBCastStub(t, tvdbEnsemble(1, 20))
+	t.Cleanup(done)
+	srv.TVDB = client
+	alice.mustDo("POST", path+"/cast/tvdb", nil, http.StatusOK)
+	for _, row := range castOf(t, alice, path+"/cast").Cast {
+		if row.Character == "Role 01" {
+			alice.mustDo("PUT", "/cast/"+itoa(row.ID), map[string]any{"character": "Role One", "actor": "Actor 01"}, http.StatusOK)
+		}
+	}
+	stub.body = tvdbEnsemble(21, 40)
+	alice.mustDo("POST", path+"/cast/tvdb", nil, http.StatusOK)
+	pending, names := 0, []string{}
+	for _, row := range castOf(t, alice, path+"/cast").Cast {
+		if row.CharacterImageURL != "" && row.CharacterImagePath == "" {
+			pending++
+			names = append(names, row.Actor)
+		}
+	}
+	if pending != 21 {
+		t.Fatalf("the film has %d roles with a picture to fetch, want 21: %v", pending, names)
+	}
+	d := countDownloads(srv)
+
+	got := decode[castArtAnswer](t, askCastArt(alice, path, names...))
+	if got != (castArtAnswer{CharacterImages: 20, Portraits: 20}) || len(d.list()) != 40 {
+		t.Fatalf("one opening of a film with 21 of each: %+v, %d downloads; want 20 pictures, 20 headshots", got, len(d.list()))
 	}
 }
 
