@@ -480,8 +480,12 @@ saying rather than discovering.
 #### Scanning without a goroutine
 
 **This is the hard constraint and it has to be led with.** The invariant is
-absolute — *no goroutine outlives its request; no worker pool, ticker or
-scheduler* — and a folder scan is the shape that most wants one.
+absolute — *"nothing runs unless a person or the app's own lookup started it, and
+nothing wakes on a timer"* — and a folder scan is the shape that most wants to
+run by itself. (This plan was written against the older wording, *no goroutine outlives
+its request; no worker pool, ticker or scheduler*. 3.1.0 reworded it and gave the
+server a job queue, one job at a time; whether a long scan should be one of those
+jobs rather than a bounded request is a question this plan has not yet answered.)
 
 **The repo has already answered this once, and the answer is Cleanup's.** Its scan
 is on demand, capped at 500 findings, and returns `truncated` with the reason
@@ -1167,7 +1171,7 @@ destroys something on the reader's behalf and the reader presses it.
 | **No request carries a path.** | The client names a work, never a filename. A route census, because this is the property that makes traversal unreachable rather than defended |
 | **Mount config is admin-only.** | A non-admin `PUT` is refused, like the metadata keys it copies |
 | **The scan is bounded and resumable.** | A folder past the cap answers `truncated` with a cursor, and Continue from that cursor covers the rest exactly once — no gap, no repeat |
-| **No goroutine outlives the scan request.** | The invariant, on the feature most likely to break it. Assert goroutine count before and after |
+| **No goroutine outlives the scan request.** | This plan's own rule, from the invariant as it read when this was written, on the feature most likely to break it. Assert goroutine count before and after |
 | **An identifier match is exact and a title match is not.** | An ISBN hit attaches without hedging; a folded-title hit is a proposal. The supplied EPUB is the fixture — its title carries "The Malazan Book of the Fallen 9" and the library's does not |
 | **A vanished mount reads as `missing`, not `none`.** | Different sentence, different remedy |
 | **A refused attachment is not offered again.** | `cleanup_ignores`' key shape, hashed over path and work |
@@ -1316,7 +1320,7 @@ By hand, against a restored backup rather than `seed.mjs`:
 - **Un-pruning.** The file is gone; the only way back is to add it again. An app
   that offered to undo this would have to have kept the file.
 - **Automatic pruning** on age, size or a schedule. It destroys something on the
-  reader's behalf and no goroutine outlives its request anyway.
+  reader's behalf, and nothing in this app wakes on a timer anyway.
 - **Span dedupe between overlapping windows** — measured at 1% on real data.
 - **Correcting anything automatically**, and **deciding which side is right**.
   Cleanup's doctrine for the first; the owner's correction for the second. The app
