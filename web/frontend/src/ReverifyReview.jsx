@@ -310,8 +310,9 @@ function ReverifyItemCard({ item, open, onToggleOpen, approvals, onToggleField, 
 // SO CLOSING AND CANCELLING ARE TWO DIFFERENT PRESSES NOW, and each says which it
 // is. ✕, Back and the scrim CLOSE: the job goes on, and a toast says where it
 // will be (Settings › Jobs, where a finished check has a Review press). Cancel,
-// while the check runs, STOPS it — after the item in hand — and asks first,
-// because a press that used to mean "never mind" now ends somebody's work.
+// while the check runs, STOPS it — at once, keeping no finding for the item in
+// hand — and asks first, because a press that used to mean "never mind" now ends
+// somebody's work.
 //
 // `jobId` IS A CHECK THAT ALREADY RAN, OR IS STILL RUNNING, ON THE SERVER.
 // Settings › Jobs' Review sends the reader here with its job in the address
