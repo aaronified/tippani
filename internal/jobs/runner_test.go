@@ -36,7 +36,8 @@ import (
 // What each one guards, in a sentence a person would say: one job runs at a time
 // across the server and the rest wait their turn in the order started; Stop stops
 // after the item in hand and the job keeps its log; a reader's Stop all stops
-// their own jobs and an admin's stops everyone's; a Stop or a Stop all from before
+// their own jobs and an admin's stops everyone's, and an account being deleted
+// starts nothing until its delete has ended; a Stop or a Stop all from before
 // a restore swapped the database stops nothing; jobs a restart caught are
 // interrupted and nothing resumes by itself; shutdown interrupts what it cannot
 // finish and refuses anything new, and does not wait out a lock held elsewhere to
@@ -338,17 +339,28 @@ func TestStopAllStopsWhatTheViewerCanSee(t *testing.T) {
 	g.steps.next()
 	m6 := g.enqueue(g.mitra(), "steps", map[string]any{"n": 1, "t": 7})
 	a2 := g.enqueue(g.aro(), "steps", map[string]any{"n": 1, "t": 8})
-	if err := g.r.StopOwner(2); err != nil {
+	release, err := g.r.StopOwner(2)
+	if err != nil {
 		t.Fatal(err)
 	}
 	if g.state(m6) != "stopped" || g.state(a2) != "queued" {
 		t.Fatalf("after StopOwner(mitra): m6 %s, aro's a2 %s", g.state(m6), g.state(a2))
 	}
+	// Until the delete ends, the account going starts nothing; anybody else can.
+	if _, err := g.r.Enqueue(g.mitra(), "quick", "", map[string]any{"t": 9}, 0, nil); !errors.Is(err, jobs.ErrNoOwner) {
+		t.Fatalf("mitra starting a job while her account is being deleted: %v, want ErrNoOwner", err)
+	}
+	a3 := g.enqueue(g.aro(), "quick", map[string]any{"t": 10})
 	g.steps.let()
 	g.waitState(m5, "stopped")
 	g.steps.next()
 	g.steps.let()
 	g.waitState(a2, "succeeded")
+	g.waitState(a3, "succeeded")
+	// And once it has ended without the account going, it can again.
+	release()
+	release()
+	g.waitState(g.enqueue(g.mitra(), "quick", map[string]any{"t": 11}), "succeeded")
 }
 
 // A Stop and a Stop all from a request that signed in before the database was

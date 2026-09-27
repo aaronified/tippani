@@ -227,13 +227,21 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	// before it ends gets the id (the highest one is reused) and that item's
 	// writes with it. A job still running when the wait is up refuses the delete,
 	// which the admin can press again in a moment; it has been asked to stop.
+	//
+	// AND FROM THE STOP UNTIL THIS HANDLER RETURNS, THE ACCOUNT STARTS NOTHING.
+	// It exists until the delete commits, so a session of theirs could otherwise
+	// queue a job after the stop, for the worker to run under the dead id; the
+	// queue refuses it instead (StopOwner). Released on the way out, deleted or
+	// not: a refused delete leaves a reader who can start jobs again.
 	if s.Jobs != nil {
-		if err := s.Jobs.StopOwner(id); err != nil {
+		release, err := s.Jobs.StopOwner(id)
+		defer release()
+		if err != nil {
 			codedError(w, r, olog.CodeJobRecord, "delete user: stop their jobs", err)
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), ownerJobWait)
-		err := s.Jobs.WaitOwnerIdle(ctx, id)
+		err = s.Jobs.WaitOwnerIdle(ctx, id)
 		cancel()
 		if err != nil {
 			writeErr(w, http.StatusConflict, "Their running job has been asked to stop and is finishing the item in hand. Delete the account again in a moment.")

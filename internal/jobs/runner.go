@@ -29,7 +29,7 @@ var (
 	ErrNotFound      = errors.New("jobs: no such job")                                             // 404
 	ErrNotRerunnable = errors.New("jobs: this job cannot be run again")                            // 409
 	ErrUnknownKind   = errors.New("jobs: no such kind of job")                                     // 400
-	ErrNoOwner       = errors.New("jobs: a job needs an account to belong to")                     // 400; also an account deleted mid-request
+	ErrNoOwner       = errors.New("jobs: a job needs an account to belong to")                     // 400; also an account deleted mid-request, or being deleted (StopOwner)
 	ErrTooLarge      = errors.New("jobs: a job's result may be at most 8 MB")                      // the kind's bug
 )
 
@@ -149,6 +149,9 @@ type Runner struct {
 	// retireUntil is when Retire's hold ends, if the process has not been
 	// replaced by then; the zero time when nothing called it.
 	retireUntil time.Time
+	// leaving counts, by account, the deletes under way that have stopped its
+	// jobs (StopOwner) and not yet ended; Enqueue refuses such an account.
+	leaving map[int64]int
 
 	// secrets are what a job needs and must never be stored: a backup's
 	// password. Kept by job id, never on the Job and never in the row, and
@@ -184,7 +187,7 @@ func NewRunner(st *store.Store, lb *Logbook, opts Options) *Runner {
 	return &Runner{
 		st: st, lb: lb, opts: opts,
 		kinds: map[string]Kind{}, base: base, cancel: cancel,
-		claimStop: map[int64]bool{}, secrets: map[int64]any{},
+		claimStop: map[int64]bool{}, secrets: map[int64]any{}, leaving: map[int64]int{},
 		idle: closedChan(),
 	}
 }
@@ -259,6 +262,8 @@ func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total in
 		return 0, ErrClosed
 	case r.exclusive > 0:
 		return 0, ErrBusy
+	case r.leaving[owner.UserID] > 0:
+		return 0, ErrNoOwner
 	case owner.Gen != r.st.Generation():
 		return 0, ErrStale
 	}
@@ -758,14 +763,33 @@ func (r *Runner) StopAll(viewer Owner) (stopping, stoppedWaiting int, err error)
 
 // StopOwner stops every job of an account that is about to be deleted: waiting
 // ones at once, the running one after the item in hand.
-func (r *Runner) StopOwner(uid int64) error {
+//
+// AND THE ACCOUNT STARTS NOTHING MORE until the delete calls release, whichever
+// way the delete ends. Between this and the delete's commit the account still
+// exists, so a session of theirs still signed in could queue a job, the worker
+// could claim it, and it would run on under an id that users.id hands to the
+// next account made. Enqueue refuses them (ErrNoOwner) from the moment this is
+// called: it takes r.mu for the whole of its insert, so a job queued an instant
+// before is in the table by the time the statements below look, and is stopped
+// with the rest. release is never nil, and a second call does nothing.
+func (r *Runner) StopOwner(uid int64) (release func(), err error) {
+	r.mu.Lock()
+	r.leaving[uid]++
+	r.mu.Unlock()
+	release = sync.OnceFunc(func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if r.leaving[uid]--; r.leaving[uid] <= 0 {
+			delete(r.leaving, uid)
+		}
+	})
 	// Read before the statements that find the jobs: store.Generation says why.
 	gen := r.st.Generation()
-	_, _, err := r.stopWhere(gen, " AND user_id = ?", []any{uid},
+	_, _, err = r.stopWhere(gen, " AND user_id = ?", []any{uid},
 		"stopped before it started: the account that started it is being deleted",
 		"the account that started this job is being deleted; it stops after the item in hand",
 		"its end was never recorded; the account that started it is being deleted, and it is marked interrupted")
-	return err
+	return release, err
 }
 
 // WaitOwnerIdle waits until the worker holds no job of account uid, or until ctx

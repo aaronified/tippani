@@ -68,8 +68,8 @@ import (
 // anything queues and kept out of the job; a finished job's log downloads as
 // Markdown whose block no line can leave; past jobs hold what ran in a request
 // and thirty days of it; deleting a reader stops their jobs, waits for the item
-// in hand, refuses while it will not end, and keeps the jobs for the admin; a
-// server shutting down starts nothing.
+// in hand, refuses while it will not end, starts nothing they ask for meanwhile,
+// and keeps the jobs for the admin; a server shutting down starts nothing.
 
 // testQueue is the server's queue with the test's kinds on it.
 type testQueue struct {
@@ -1311,7 +1311,69 @@ func TestDeletingAReaderWhoseJobWillNotStopWaitsForIt(t *testing.T) {
 	if j := bob.job(job.ID); j.State != "running" {
 		t.Fatalf("the job after the refused delete: %s, want still running", j.State)
 	}
+	// Still a reader, so still one who can start a job, which waits its turn.
+	after := bob.mustStart("test.lines", map[string]any{"tag": "after the refused delete"})
 	close(letGo)
 	bob.waitJob(job.ID, "stopped")
+	bob.waitJob(after.ID, "succeeded")
 	alice.mustDo("DELETE", fmt.Sprintf("/admin/users/%d", bobID), nil, http.StatusOK)
+}
+
+// A job the reader being deleted asks for while the delete waits on their running
+// one is refused — their session still works until the account goes — and
+// nothing runs for them once it has: the admin has their one job, stopped, and no
+// other.
+func TestAJobAskedForWhileTheAccountIsBeingDeletedIsRefused(t *testing.T) {
+	srv := newTestServer(t)
+	q := queueing(t, srv)
+	// A job that says when it has been asked to stop and then finishes its item
+	// only when the test lets it, so the job asked for lands inside the delete.
+	asked, finish := make(chan struct{}), make(chan struct{})
+	srv.addJobKind(queuedKind{name: "test.asked", validate: testParams, run: func(_ *Server, _ context.Context, j *jobs.Job) error {
+		for !j.Stopping() {
+			select {
+			case <-q.done:
+				return nil
+			case <-time.After(5 * time.Millisecond):
+			}
+		}
+		close(asked)
+		select {
+		case <-finish:
+		case <-q.done:
+		}
+		return nil
+	}})
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	bob := addUser(t, h, alice, "bob")
+	bobID := accountID(t, alice, "bob")
+	running := bob.mustStart("test.asked", map[string]any{"tag": "running"})
+	bob.waitJob(running.ID, "running")
+
+	deleted := make(chan int, 1)
+	go func() { deleted <- alice.do("DELETE", fmt.Sprintf("/admin/users/%d", bobID), nil).Code }()
+	select {
+	case <-asked:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the delete never asked bob's job to stop")
+	}
+	rec := bob.startJob("test.lines", map[string]any{"tag": "asked for during the delete"})
+	close(finish)
+	if code := <-deleted; code != http.StatusOK {
+		t.Fatalf("the delete: %d", code)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("a job bob asked for while his account was being deleted: %d %s, want 400", rec.Code, rec.Body)
+	}
+	if j := alice.job(running.ID); j.State != "stopped" || j.Username != "bob" {
+		t.Fatalf("bob's running job once the delete answered: %+v", j)
+	}
+	for _, view := range []string{"current", "past"} {
+		for _, j := range alice.jobs("view=" + view).Jobs {
+			if j.ID != running.ID {
+				t.Fatalf("a job in the admin's %s jobs besides bob's one: %+v", view, j)
+			}
+		}
+	}
 }

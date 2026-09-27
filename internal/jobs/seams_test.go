@@ -593,9 +593,11 @@ func TestASecretIsForgottenOnEveryWayAJobEnds(t *testing.T) {
 		t.Fatal(err)
 	}
 	gone := enq(aro, "quick", 6)
-	if err := r.StopOwner(2); err != nil {
+	release, err := r.StopOwner(2)
+	if err != nil {
 		t.Fatal(err)
 	}
+	release()
 	if stateOf(w1) != StateStopped || stateOf(w2) != StateStopped || stateOf(w3) != StateStopped {
 		t.Fatal("the waiting jobs were not all stopped")
 	}
