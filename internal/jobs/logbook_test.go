@@ -245,6 +245,16 @@ func TestAnInRequestJobLandsWithItsLinesAndNoOwnerOnceItsIdMayBeSomebodyElses(t 
 		Error: "HTTP 500", Created: end, Finished: end}, nil)
 	flush(t, lb)
 
+	// Read BEFORE any account is deleted, while id 3 is still aro in this file:
+	// after a delete, 0079's trigger clears every row of the account, and a stale
+	// row that had landed as aro's would read ownerless too.
+	rows := `SELECT coalesce(user_id, 'NULL') || ' ' || kind || ' ' || state || ' ' || error FROM jobs ORDER BY id`
+	got := strings1(t, st.DB, rows)
+	want := []string{"3 lookup.book succeeded ", "NULL lookup.book succeeded ", "NULL request failed HTTP 500"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("rows after a swap:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+
 	// A request whose reader's account was deleted before its row landed, in the
 	// same file, and whose id was then given to somebody new.
 	gone := row
@@ -254,12 +264,12 @@ func TestAnInRequestJobLandsWithItsLinesAndNoOwnerOnceItsIdMayBeSomebodyElses(t 
 	lb.InRequest(gone, nil)
 	flush(t, lb)
 
-	got := strings1(t, st.DB, `SELECT coalesce(user_id, 'NULL') || ' ' || kind || ' ' || state || ' ' || error FROM jobs ORDER BY id`)
+	got = strings1(t, st.DB, rows)
 	// The first row, owned when it landed, lost its owner to 0079's trigger at
 	// the delete, as every row of a deleted account does.
-	want := []string{"NULL lookup.book succeeded ", "NULL lookup.book succeeded ", "NULL request failed HTTP 500", "NULL lookup.book succeeded "}
+	want = []string{"NULL lookup.book succeeded ", "NULL lookup.book succeeded ", "NULL request failed HTTP 500", "NULL lookup.book succeeded "}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
-		t.Fatalf("rows:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+		t.Fatalf("rows after the delete:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }
 
