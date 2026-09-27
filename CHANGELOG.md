@@ -12,12 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Settings → Jobs, a new section for what Tippani is doing on your behalf.** Current
   jobs shows what is running right now, with a live log that follows along, and a
   waiting job says how many are ahead of it. Past jobs keeps every job that has finished
-  — its outcome, how long it took, its own log to export, and a Run again button; a
-  safety copy made before a restore or a factory reset is named for what it is instead
-  of just "Job", and a re-verify that changed nothing says so plainly, with nothing to
-  review. An admin also gets System logs: every line Tippani writes, filtered by level,
-  a time range (the last hour, day, week or 30 days) and a keyword, exported as Markdown
-  either way — just what the filters currently show, or everything kept. On a phone, the
+  — its outcome, how long it took, its own log to export, and a Run again button. An
+  admin also gets System logs: every line Tippani writes, filtered by level, a time
+  range (the last hour, day, week or 30 days) and a keyword, exported as Markdown either
+  way — just what the filters currently show, or everything kept. On a phone, the
   Settings index carries a Jobs tile with how many jobs are waiting and a red Stop all,
   which asks first and says what it is about to stop.
 - **Fill gaps, Fetch covers, People's Fetch missing, a re-verify's check and its Apply,
