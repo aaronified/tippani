@@ -154,6 +154,13 @@ export function jobCounts(job) {
 // flash. The wire names of the counts (`fields`, `ok`, `first_error`…) are spelled
 // here and in COUNT_KEYS above and nowhere else, so a contract correction to one
 // of them is this file; every number is a number, zero when the job did not say.
+//
+// `first_error` IS THE ONE COUNT THAT IS NOT A NUMBER, and it rests on a reading
+// of the contract rather than on its letter: the spec's people result is
+// `{ok, failed, first_error}`, and D0's `counts` is "the result's counts, no big
+// arrays" — which a string satisfies and a server keeping only numbers would not.
+// Such a server costs the reason and nothing else: the flash says "1 failed"
+// without "(not found)". The backend's contract test is where this is held.
 export function jobOutcome(job) {
   const c = job?.counts && typeof job.counts === 'object' ? job.counts : {}
   return {
