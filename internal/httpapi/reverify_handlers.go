@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -878,33 +879,13 @@ func (s *Server) reverifyPerson(ctx context.Context, uid int64, kind, name strin
 // ---- apply ----
 
 // handleMetadataReverifyApply: POST /metadata/reverify/apply
-// {items: [{type, id | kind+name, set:{field: value}}]} → per-item results.
+// {items: [{type, id | kind+name, set:{field: value}, expect?}]} → per-item results.
 // Writes ONLY whitelisted, user-approved fields, per-item transactionally;
 // image fields (cover/poster/portrait — the previewed URLs) download after the
 // text commit so an image miss degrades to a note instead of reverting text.
 func (s *Server) handleMetadataReverifyApply(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Items []struct {
-			Type string                     `json:"type"`
-			ID   int64                      `json:"id"`
-			Kind string                     `json:"kind"`
-			Name string                     `json:"name"`
-			Set  map[string]json.RawMessage `json:"set"`
-			// The supplier the preview named, for the whole item. Still accepted so
-			// that a client which offers no per-field choice keeps working.
-			Source string `json:"source"`
-			// WHICH SUPPLIER EACH ACCEPTED VALUE CAME FROM — the wire half of
-			// mix-and-match. The reader picks per field, so provenance is per field,
-			// and this is the only place that fact exists: by the time apply runs,
-			// the responses the values were read out of are gone.
-			//
-			// It also RETIRES AN ASYMMETRY. A film's supplier used to be recomputed
-			// server-side because it was derivable from the row; a book's had to be
-			// echoed because it was not. Neither is derivable once the reader can
-			// take the description from one supplier and the year from another, so
-			// both kinds now say so here, and both are validated the same way.
-			Sources map[string]string `json:"sources"`
-		} `json:"items"`
+		Items []reverifyApplyItem `json:"items"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
@@ -920,42 +901,146 @@ func (s *Server) handleMetadataReverifyApply(w http.ResponseWriter, r *http.Requ
 	uid := userID(r)
 	olog.Tracef("[meta] handleMetadataReverifyApply uid=%d items=%d", uid, len(req.Items))
 
-	type applyResult struct {
-		Type  string `json:"type"`
-		ID    int64  `json:"id,omitempty"`
-		Kind  string `json:"kind,omitempty"`
-		Name  string `json:"name,omitempty"`
-		OK    bool   `json:"ok"`
-		Error string `json:"error,omitempty"`
-		Note  string `json:"note,omitempty"`
-	}
 	results := []applyResult{}
 	applied, failed := 0, 0
 	for _, item := range req.Items {
-		res := applyResult{Type: item.Type, ID: item.ID, Kind: item.Kind, Name: item.Name}
-		var note string
-		var aerr error
-		switch item.Type {
-		case "book":
-			note, aerr = s.applyReverifyBook(r.Context(), uid, item.ID, item.Set, item.Source, item.Sources)
-		case "movie":
-			note, aerr = s.applyReverifyMovie(r.Context(), uid, item.ID, item.Set, item.Sources)
-		case "person":
-			note, aerr = s.applyReverifyPerson(r.Context(), uid, strings.TrimSpace(item.Kind), strings.TrimSpace(item.Name), item.Set)
-		default:
-			aerr = errors.New("type must be book, movie or person")
-		}
-		res.Note = note
-		if aerr != nil {
-			res.Error = aerr.Error()
-			failed++
-		} else {
-			res.OK = true
+		res := s.applyReverifyItem(r.Context(), uid, item)
+		if res.OK {
 			applied++
+		} else {
+			failed++
 		}
 		results = append(results, res)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"applied": applied, "failed": failed, "results": results})
+}
+
+// reverifyApplyItem is one item of an apply: which row, the fields to write on
+// it, and what the reader was shown as stored for each.
+type reverifyApplyItem struct {
+	Type string                     `json:"type"`
+	ID   int64                      `json:"id"`
+	Kind string                     `json:"kind"`
+	Name string                     `json:"name"`
+	Set  map[string]json.RawMessage `json:"set"`
+	// The supplier the preview named, for the whole item. Still accepted so
+	// that a client which offers no per-field choice keeps working.
+	Source string `json:"source"`
+	// WHICH SUPPLIER EACH ACCEPTED VALUE CAME FROM — the wire half of
+	// mix-and-match. The reader picks per field, so provenance is per field,
+	// and this is the only place that fact exists: by the time apply runs,
+	// the responses the values were read out of are gone.
+	//
+	// It also RETIRES AN ASYMMETRY. A film's supplier used to be recomputed
+	// server-side because it was derivable from the row; a book's had to be
+	// echoed because it was not. Neither is derivable once the reader can
+	// take the description from one supplier and the year from another, so
+	// both kinds now say so here, and both are validated the same way.
+	Sources map[string]string `json:"sources"`
+	// Expect is, per field, the stored value the review showed the reader
+	// (null for an empty one). A field whose value is no longer that is not
+	// written (applyReverifyItem). Optional: an item without it is applied as
+	// it always was.
+	Expect map[string]json.RawMessage `json:"expect"`
+}
+
+// applyResult is what an apply says about one item.
+type applyResult struct {
+	Type  string `json:"type"`
+	ID    int64  `json:"id,omitempty"`
+	Kind  string `json:"kind,omitempty"`
+	Name  string `json:"name,omitempty"`
+	OK    bool   `json:"ok"`
+	Error string `json:"error,omitempty"`
+	Note  string `json:"note,omitempty"`
+	// title is the work's, when the apply read it, for a job's log line.
+	title string
+	// wrote is the fields sent to the writer, for the same line.
+	wrote []string
+}
+
+// changedSinceTheCheck is the note on an item some of whose fields were left
+// because they no longer held what the reader was shown.
+const changedSinceTheCheck = "changed since the check, so left as it is: "
+
+// applyReverifyItem applies one item, as POST /metadata/reverify/apply and the
+// reverify-apply job both do.
+//
+// A FIELD THAT CHANGED SINCE THE CHECK IS LEFT AS IT IS. A review can be opened
+// days after its check, from Past jobs, and the reader decides on what they were
+// shown; between that and the press, the library can move — they type a
+// description in another tab, a fill fills the year. Each field of an item that
+// carries expect is compared with what the row holds now, read by the same
+// loader and compared by the same rule the review used to show it
+// (reverifyStoredNow, sameStored: null, "", 0 and [] are all empty); a field
+// that differs is dropped from the write, and the item's note names it. An item
+// every field of which moved writes nothing and is still ok — nothing failed,
+// the apply did what it should. A row that is gone is left to the writer, which
+// says not found.
+func (s *Server) applyReverifyItem(ctx context.Context, uid int64, item reverifyApplyItem) applyResult {
+	res := applyResult{Type: item.Type, ID: item.ID, Kind: item.Kind, Name: item.Name}
+	kind, name := strings.TrimSpace(item.Kind), strings.TrimSpace(item.Name)
+	switch item.Type {
+	case "book", "movie", "person":
+	default:
+		res.Error = "type must be book, movie or person"
+		return res
+	}
+	set := item.Set
+	var moved []string
+	if len(item.Expect) > 0 {
+		now, err := s.reverifyStoredNow(uid, reverifyHead{Type: item.Type, ID: item.ID, Kind: kind, Name: name})
+		if err != nil {
+			olog.Errorf(olog.CodeMetaReverifyFetch, "[meta] re-verify apply %s %d: reading what is stored: %v", item.Type, item.ID, err)
+			res.Error = "could not read what is stored now — try again"
+			return res
+		}
+		if now != nil {
+			res.title, _ = now["title"].(string)
+			set = map[string]json.RawMessage{}
+			for field, v := range item.Set {
+				if then, asked := item.Expect[field]; asked {
+					if cur, known := now[field]; !known || !sameStored(field, then, cur) {
+						moved = append(moved, field)
+						continue
+					}
+				}
+				set[field] = v
+			}
+			slices.Sort(moved)
+		}
+	}
+	var notes []string
+	if len(moved) > 0 {
+		notes = append(notes, changedSinceTheCheck+fieldWords(moved))
+	}
+	if len(set) > 0 || len(moved) == 0 {
+		var note string
+		var aerr error
+		switch item.Type {
+		case "book":
+			note, aerr = s.applyReverifyBook(ctx, uid, item.ID, set, item.Source, item.Sources)
+		case "movie":
+			note, aerr = s.applyReverifyMovie(ctx, uid, item.ID, set, item.Sources)
+		case "person":
+			note, aerr = s.applyReverifyPerson(ctx, uid, kind, name, set)
+		}
+		if note != "" {
+			notes = append(notes, note)
+		}
+		if aerr != nil {
+			res.Error = aerr.Error()
+			res.Note = strings.Join(notes, "; ")
+			return res
+		}
+		for field := range set {
+			res.wrote = append(res.wrote, field)
+		}
+		slices.Sort(res.wrote)
+	}
+	res.OK = true
+	res.Note = strings.Join(notes, "; ")
+	return res
 }
 
 // decodeSet pulls one typed field out of a set map; absent keys return ok=false.
