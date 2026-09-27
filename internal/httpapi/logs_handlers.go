@@ -20,10 +20,12 @@ import (
 // THE FILTERS ARE THE SCREEN'S, AND THE EXPORT TAKES THE SAME ONES. Levels (by
 // default everything but file requests and traces, which are most of the log and
 // the least of what anybody opens it for); a time range, from and to, unix ms,
-// both inclusive; and a keyword, matched case-insensitively and LITERALLY — a %
-// or an _ somebody types is the character they saw in a line, not a wildcard, so
-// "50%" does not find "500 errors". The export of "what is shown" is every line
-// the filters select, not only the page on screen; ?all=1 is everything kept.
+// both inclusive; and a keyword, matched LITERALLY and case-insensitively for
+// ASCII letters only, since SQLite's LIKE folds no others ("É" does not find
+// "é") — a % or an _ somebody types is the character they saw in a line, not a
+// wildcard, so "50%" does not find "500 errors". The export of "what is shown"
+// is every line the filters select, not only the page on screen; ?all=1 is
+// everything kept.
 //
 // THIRTY DAYS, HOWEVER FAR BACK from REACHES. The prune deletes older lines when
 // it next runs; the reads stop at thirty days now, so what is shown does not
@@ -87,7 +89,8 @@ func parseLogFilter(q url.Values) (logFilter, string) {
 }
 
 // likeLiteral is s as a LIKE pattern that matches s anywhere, with LIKE's own
-// wildcards and the escape character taken as themselves (ESCAPE '\').
+// wildcards and the escape character taken as themselves (ESCAPE '\'). LIKE
+// folds the case of ASCII letters and no others.
 func likeLiteral(s string) string {
 	return "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s) + "%"
 }

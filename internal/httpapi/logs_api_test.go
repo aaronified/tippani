@@ -49,7 +49,7 @@ import (
 // What each one guards, in a sentence a person would say: only an admin reads
 // the system log; it shows every level but file requests and traces unless asked,
 // and exactly the levels asked for; a time range keeps the lines inside it; a
-// keyword is matched without regard to case and a % or _ in it means itself; a
+// keyword is matched without regard to ASCII case and a % or _ in it means itself; a
 // page ends where the next begins; nothing older than thirty days is shown; the
 // export holds exactly what the filters show, or everything kept, one line per
 // line inside a fence no line can close; downloads nobody is reading leave the
