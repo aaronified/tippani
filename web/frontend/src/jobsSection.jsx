@@ -518,7 +518,8 @@ function PastJob({ job, user, open, busy, onToggle, onRerun, onReview }) {
 }
 
 function PastLog({ job, title }) {
-  const live = useJob(job.id)
+  // A past row's job has finished: read its log until it is all here, then stop.
+  const live = useJob(job.id, { final: true })
   return <JobLog lines={live.lines} trimmed={live.trimmed} loaded={live.loaded} label={t('settings.jobs.log.aria', { title })} />
 }
 

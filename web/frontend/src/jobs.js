@@ -191,10 +191,23 @@ function refusal(r) {
   return { ok: false, status: r.status, error: errText(r), busy: !!d.busy, jobId: d.job_id || null, limit: d.limit || null }
 }
 
+// A POLL'S READ HAS A BOUND, AND IT IS THE ONE PLACE IN THIS MODULE THAT DOES.
+//
+// Both polls below hold a `busy` flag so two reads never overlap — which means a
+// read that is ACCEPTED AND NEVER ANSWERED stops the poll for as long as the card
+// is up. api.js records that this is not hypothetical: Docker's port proxy keeps
+// accepting on the host port while the container behind it is recreated, and the
+// update this app applies restarts exactly that container. So the two poll reads
+// give up after ten seconds and come back as the {ok:false, status:0} an
+// unreachable server gives, which the polls already retry. Nothing else here is
+// bounded: a list read on a press, a result, a stop — a slow answer to those is
+// slow, not lost, and a press can be pressed again.
+const POLL_TIMEOUT_MS = 10000
+
 // readJob — one poll's worth: the job, and whatever log lines arrived after the
 // last one this caller has.
 export async function readJob(id, after = 0) {
-  const r = await json('GET', `/jobs/${id}?log_after=${after}`)
+  const r = await json('GET', `/jobs/${id}?log_after=${after}`, undefined, { timeoutMs: POLL_TIMEOUT_MS })
   if (!r.ok) return refusal(r)
   const d = r.data || {}
   return { ok: true, job: d.job || null, lines: list(d.lines), more: !!d.more }
@@ -225,7 +238,9 @@ export async function listJobs({ view = 'past', state = '', kind = '', before = 
   // THE FIRST PAGE OF THE TAB'S FIRST LOAD ASKS FOR A PRUNE, and it is the only
   // thing on the client side of "pruned when the tab opens, with no timer".
   if (prune) q.set('prune', '1')
-  const r = await json('GET', `/jobs?${q.toString()}`)
+  // The current view is the one that is polled (useCurrentJobs); the past list is
+  // read when somebody opens it or presses something, so only the first is bounded.
+  const r = await json('GET', `/jobs?${q.toString()}`, undefined, view === 'current' ? { timeoutMs: POLL_TIMEOUT_MS } : undefined)
   if (!r.ok) return refusal(r)
   const d = r.data || {}
   return { ok: true, jobs: list(d.jobs), running: num(d.running), waiting: num(d.waiting), more: !!d.more }
@@ -324,7 +339,17 @@ export const LOG_PANE_MAX = 2000
 // nothing. After the job turns final it reads ONCE more, because the last lines
 // the job wrote can land a beat after the state that says it finished, and then
 // it stops: a finished job's log does not change.
-export function useJob(id) {
+//
+// `final` IS THE CALLER SAYING THE JOB HAD ALREADY FINISHED when it asked — a
+// row in Past jobs. There is no "turns final" to wait out, so the first answer
+// that holds every line is the last read.
+//
+// A READ THAT FAILS IS ASKED AGAIN, slowly, while the job may still be moving —
+// a server coming back from a restart answers the next one. Once the last job
+// seen had finished, three failures in a row end it: nothing about a finished
+// job is coming that is worth a request every three seconds for as long as its
+// row is open, and the error is on the screen.
+export function useJob(id, { final = false } = {}) {
   const [state, setState] = useState({ job: null, lines: [], trimmed: false, error: '', loaded: false })
   useEffect(() => {
     setState({ job: null, lines: [], trimmed: false, error: '', loaded: false })
@@ -337,6 +362,8 @@ export function useJob(id) {
     let last = ''
     let finalReads = 0
     let done = false
+    let failures = 0
+    let settled = final
     const schedule = (ms) => {
       clearTimeout(timer)
       timer = setTimeout(tick, ms)
@@ -352,11 +379,14 @@ export function useJob(id) {
       if (!r.ok) {
         setState((s) => ({ ...s, error: r.error, loaded: true }))
         // A job that is not there any more is not coming back; anything else is
-        // worth asking about again, slowly.
-        if (r.status === 404) done = true
+        // worth asking about again, slowly — up to the bound above.
+        failures += 1
+        if (r.status === 404 || (settled && failures >= 3)) done = true
         else schedule(3000)
         return
       }
+      failures = 0
+      settled = !isLive(r.job)
       const fresh = r.lines
       if (fresh.length) after = fresh[fresh.length - 1].id
       setState((s) => {
@@ -373,7 +403,7 @@ export function useJob(id) {
       // MORE LINES THAN ONE ANSWER HOLDS: keep reading, now, whatever the state.
       if (r.more) return schedule(0)
       if (!isLive(r.job)) {
-        if (finalReads >= 1) { done = true; return }
+        if (final || finalReads >= 1) { done = true; return }
         finalReads += 1
         return schedule(500)
       }
@@ -392,7 +422,7 @@ export function useJob(id) {
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [id])
+  }, [id, final])
   return state
 }
 
