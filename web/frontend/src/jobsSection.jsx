@@ -92,14 +92,20 @@ function JobsCard({ title, aside = null, controls = null, children }) {
 // fade. A LIVE log follows its newest line while the reader is at the bottom and
 // stops following the moment they scroll up to read — being dragged back down
 // mid-sentence is the one thing a log pane must never do.
+//
+// KEYED ON THE NEWEST LINE, NOT ON HOW MANY THERE ARE. The pane keeps its last
+// LOG_PANE_MAX lines, so once it is full every new line pushes the oldest out and
+// the count stops moving — a long fill reaches that after several hundred works,
+// and a pane that followed its length stopped following right there.
 function JobLog({ lines, trimmed = false, loaded = true, label, follow = false }) {
   const ref = useRef(null)
   const atEnd = useRef(true)
+  const newest = lines.length ? lines[lines.length - 1].id : 0
   useEffect(() => {
     const el = ref.current
     if (!el || !follow || !atEnd.current) return
     el.scrollTop = el.scrollHeight
-  }, [lines.length, follow])
+  }, [newest, follow])
   const onScroll = () => {
     const el = ref.current
     if (el) atEnd.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 8

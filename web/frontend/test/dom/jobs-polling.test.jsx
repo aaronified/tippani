@@ -169,6 +169,48 @@ describe('a running job’s log', () => {
     expect(gaps(since).slice(0, 3)).toEqual([1000, 1000, 1000])
   })
 
+  // THE PANE KEEPS ITS LAST 2000 LINES, so from the 2000th on a new line pushes the
+  // oldest out and the count stays put. Following has to be about the newest line,
+  // not the number of them. jsdom lays nothing out, so the pane's height is given
+  // here and where it is scrolled to is watched.
+  const measured = (log) => {
+    const moves = []
+    Object.defineProperty(log, 'scrollHeight', { configurable: true, get: () => 50000 })
+    Object.defineProperty(log, 'clientHeight', { configurable: true, get: () => 300 })
+    Object.defineProperty(log, 'scrollTop', { configurable: true, get: () => moves.at(-1) ?? 0, set: (v) => moves.push(v) })
+    return moves
+  }
+  const flooding = () => {
+    let next = 1
+    const batch = (n) => Array.from({ length: n }, () => ({ id: next, at: NOW, level: 'info', line: `line ${next++}` }))
+    const j = stillRunning(10)
+    let first = true
+    JOBS[10] = () => ({ ok: true, status: 200, data: { job: j, lines: first ? ((first = false), batch(2000)) : batch(5), more: false } })
+  }
+
+  it('keeps following its newest line once it holds all the lines it keeps', async () => {
+    flooding()
+    await page()
+    const log = screen.getByRole('log', { name: 'Log of Fetch covers' })
+    expect(within(log).getByText('line 2000')).toBeTruthy()
+    const moves = measured(log)
+    await tick(1000)
+    expect(within(log).getByText('line 2005')).toBeTruthy()
+    expect(moves).toContain(50000)
+  })
+
+  it('and stops following the moment the reader scrolls up to read', async () => {
+    flooding()
+    await page()
+    const log = screen.getByRole('log', { name: 'Log of Fetch covers' })
+    const moves = measured(log)
+    log.scrollTop = 1200
+    fireEvent.scroll(log)
+    await tick(1000)
+    expect(within(log).getByText('line 2005')).toBeTruthy()
+    expect(moves).toEqual([1200])
+  })
+
   it('is read once more after the job says it finished, and then never again', async () => {
     const j = stillRunning(10)
     await page()
