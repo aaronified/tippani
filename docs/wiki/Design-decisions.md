@@ -5,14 +5,19 @@ the alternative I turned down, and — where it applies — the part I got wrong
 changed my mind. Eight hundred and eighty entries, grouped by what they are about
 rather than by when they happened.
 
-**Everything in this document was approved by me.** That statement covers every entry
-below without exception, and it is why the **Approved** line exists on an entry at all. I
-am one person building this, so there is no committee to hide a decision behind and no
-reviewer to blame it on; a thing is in this repository because I looked at it and said
-yes. Where an entry carries its own **Approved** line it is because there is something
-more to say — that I signed it off on a summary rather than on the code, that I approved
-correcting my own earlier claim, that I would defend this one hardest. Where an entry has
-none, the blanket approval above is the whole of it and nothing is being left unsaid.
+**Everything in this document was approved by me, with one exception, and it is named
+here.** §18 keeps a table, *Decisions awaiting my ruling*, of calls made while 3.1.0 was
+being built and put to me afterwards. Until a row there records my ruling, its decision
+waits for one, and so do the entries it points at and whatever an entry elsewhere says on
+the strength of it — even under **Decided**, which says what the code does and not that I
+said yes to it. The approval covers every other entry below without exception, and it is
+why the **Approved** line exists on an entry at all. I am one person building this, so
+there is no committee to hide a decision behind and no reviewer to blame it on; a thing is
+in this repository because I looked at it and said yes. Where an entry carries its own
+**Approved** line it is because there is something more to say — that I signed it off on a
+summary rather than on the code, that I approved correcting my own earlier claim, that I
+would defend this one hardest. Where an entry has none, the blanket approval above is the
+whole of it and nothing is being left unsaid.
 
 And where I said yes on thin reasoning, or by default, or because nothing ever pushed
 back, the entry says that too. "Approved by silence" is a real approval and a weaker one,
@@ -12351,7 +12356,7 @@ Each was built as written and put to me with 3.1.0; the line changes when I rule
 
 | | The decision | Why it went this way |
 |---|---|---|
-| F1 | Six kinds queue: the five loops the screens used to drive (fill, covers, people, re-verify and its apply) and the app's backup. Imports, restores, the safety copy, a reset, an update's apply, the daily deck and the API's synchronous `POST /admin/backup` are recorded as jobs but run in their request. | An import is one sub-second request that already finished whether the tab stayed or not. A restore or a reset swaps the database under the queue itself. |
+| F1 | **Ruled, 28 September: imports and every backup queue; a restore, a factory reset, an update and the onboarding restore stay immediate.** Asked whether imports, a restore, a factory reset, an update and the API's backup should wait in the queue, I answered *"Queue imports and backups only"* — the answer whose restore, reset and update stay immediate, because they already refuse while a job runs. As first built, six kinds queued — the five loops the screens used to drive (fill, covers, people, re-verify and its apply) and the app's backup — and imports, restores, the safety copy, a reset, an update's apply, the daily deck and the API's synchronous `POST /admin/backup` were recorded as jobs but ran in their request. The ruling is not built yet; until it is, the code is as first built, and this row says so. | What went the first way: an import is one sub-second request that had already finished whether the tab stayed or not. What stays: a restore or a reset swaps the database under the queue itself. |
 | F2 | A screen's own lookups — a work page's portraits and character art, a game's voice cast on save — run in their request, as a manual lookup does. | Queued behind a bulk run, the page would sit empty for as long as the run took. |
 | F3 | An admin's Stop all stops every reader's jobs, and its confirm says so; a reader's stops their own. Run again and Review are the owner's alone, even for an admin. | A rerun is queued as whoever presses it, and a result is somebody's library. |
 | F4 | A kept request line has the method, the path and the query's names; the values, the share token and the sign-on code and state are blanked, and the terminal keeps the full line. Files are kept at the `file` level, hidden by default, and the Jobs tab's own reads not at all. | *What a kept request line holds*, above. |
@@ -12369,7 +12374,7 @@ Each was built as written and put to me with 3.1.0; the line changes when I rule
 
 | The plan | What was true |
 |---|---|
-| "Make a job of every time the app looks outward: bulk fetches and re-verify, imports and backups…", which read as one list of things to queue | Imports needed no queue: each is one request that already finished whether or not the tab stayed open, so each is recorded in its request instead (F1). A restore and a reset could not be queued at all — they replace the database the queue lives in — so they hold the queue rather than join it. |
+| "Make a job of every time the app looks outward: bulk fetches and re-verify, imports and backups…", which read as one list of things to queue | Not all of it queues. A single manual lookup runs in its request, on my answer, and so does a screen's own lookup (F2). Imports were first built that way too, each one request that had already finished whether or not the tab stayed open; on 28 September I ruled that imports and every backup queue (F1). A restore and a reset could not be queued at all — they replace the database the queue lives in — so they hold the queue rather than join it. |
 | The system log holds "every level, including the request lines for inbound reads and writes" | Every request, at two levels rather than one: the files a page loads are most of the log and the least of what anybody opens it for, so they are kept at `file` and hidden until asked. And the Jobs tab's own reads are not kept at all, since the tab open on a phone would otherwise fill the log with its own polls. |
 | "Two hooks feed the logs" | Two hooks write every job's lines and every request line. The app's own lines, which the System logs card is mostly for, come from neither: they reach the log through olog's sink and a tee on the standard logger, which every one of them was already written through. |
 | "offer a one-press rerun" | Only to the job's owner, even when an admin is looking (F3), and only for the six queued kinds, since an in-request job's request is gone. A succeeded apply is not offered one — it would only find every field changed since the check — and nor is a former admin's admin job. A backup's rerun asks for the password again, because it was never stored. |
