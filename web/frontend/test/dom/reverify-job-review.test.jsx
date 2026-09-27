@@ -25,7 +25,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
-const USER = { id: 1, username: 'aro', preferences: {}, is_admin: true, version: '3.1.0' }
+// `tour` IS SET because the first-run tour opens itself 800 ms after the shell
+// mounts and walks to Home. On a busy machine that landed in the middle of a case
+// — after Close, it pushed "/" over the jobs this file was about to look for.
+const USER = { id: 1, username: 'aro', preferences: { tour: 'done' }, is_admin: true, version: '3.1.0' }
 const NOW = Date.now()
 let CALLS
 
@@ -68,6 +71,11 @@ vi.mock('../../src/api.js', async (orig) => ({
 }))
 
 const { default: App } = await import('../../src/App.jsx')
+// The two screens this file visits are lazy in App. Loading them here puts their
+// first transform outside the first case's time budget, which on a busy machine
+// is where the whole of it went.
+await import('../../src/MetadataPage.jsx')
+await import('../../src/Settings.jsx')
 
 // App boots on a bare fetch for who is signed in, before its screens use the
 // api helper.
