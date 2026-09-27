@@ -1005,6 +1005,7 @@ marked `# ?? ` at its key; the rest of the section's words are the sheet's own
 | level (of a log line) | স্তর | Names the error / warning / info tiers as a group; each chip names its own tier |
 | request (an HTTP request, as a log level and a job kind) | রিকোয়েস্ট | অনুরোধ is a favour asked of a person, which is not what a browser sends |
 | failed (a job's end, on a chip) | ব্যর্থ | Short enough for a chip. A *count* of failures keeps the sheet's পারা গেল না, which is a sentence |
+| Review findings (a past re-verify's button, `settings.jobs.past.review.label`) | যা পাওয়া গেছে, দেখে নিন | Not রিভিউ, which is the Settings rail's tab on the same desk screen. যা পাওয়া গেছে is *Findings kept*'s own phrase (`reverify.kept.review`); দেখে নিন is the sheet's verb for looking a thing over before it is taken, as the staging card's is. Marked `# ?? draft for the owner (3.1.0)` |
 
 A waiting job is **বাকি** in a count and **অপেক্ষার তালিকায়** as a state — the job is in
 the queue, and nothing inanimate is said to wait (v3.7).

@@ -5880,9 +5880,11 @@ settings.jobs.past.error.label = কী গোলমাল হল
 settings.jobs.past.export.tip = এই কাজের লগ, Markdown ফাইল হিসেবে
 settings.jobs.past.rerun.label = আবার চালান
 settings.jobs.past.rerun.done = আবার শুরু হল
-# A re-verify's findings wait to be looked over; Review opens them on Metadata,
-# where the changes are chosen and applied.
-settings.jobs.past.review.label = দেখে নিন
+# A re-verify's findings wait to be looked over; Review findings opens them on
+# Metadata, where the changes are chosen and applied. Not "Review" alone: the
+# Settings rail's Review tab is on the same desk screen.
+# ?? draft for the owner (3.1.0): যা পাওয়া গেছে, "Findings kept"'s own words for the findings, and দেখে নিন, the sheet's verb for looking something over before it is taken (staging.card.review.label); the rail's tab is রিভিউ
+settings.jobs.past.review.label = যা পাওয়া গেছে, দেখে নিন
 settings.jobs.past.review.tip = যা যা বদল পাওয়া গেছে, মেটাডেটায় খুলে বেছে নিন কোনগুলো বসাবেন
 
 # --- System logs: the app's own log, for an admin.

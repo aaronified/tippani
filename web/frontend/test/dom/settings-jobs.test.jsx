@@ -345,12 +345,12 @@ describe('Past jobs', () => {
     await screen.findByText('Started again')
   })
 
-  it('offers Review on a re-verify nobody has applied, and opens it by its job', async () => {
+  it('offers Review findings on a re-verify nobody has applied, and opens it by its job', async () => {
     const onReviewJob = vi.fn()
     await page(ADMIN, { onReviewJob })
     const past = await card('Past jobs')
     fireEvent.click(await within(past).findByRole('button', { name: /^Re-verify/ }))
-    fireEvent.click(await within(past).findByRole('button', { name: 'Review' }))
+    fireEvent.click(await within(past).findByRole('button', { name: 'Review findings' }))
     expect(onReviewJob).toHaveBeenCalledWith(5)
   })
 })
@@ -375,8 +375,11 @@ describe('who may press what', () => {
   }
 
   // A CHECK THAT FOUND EVERYTHING UP TO DATE has nothing to decide, and a Review
-  // that only opens "everything is up to date" is a dead end kept for thirty days.
-  it('offers no Review on a re-verify that was applied, found nothing to change, is somebody else’s, or did not succeed', async () => {
+  // findings press that only opens "everything is up to date" is a dead end kept
+  // for thirty days. The name looked for is the button's whole name: with the old
+  // 'Review' left here, nothing on the card could match it and every case would
+  // pass whatever the gate did.
+  it('offers no Review findings on a re-verify that was applied, found nothing to change, is somebody else’s, or did not succeed', async () => {
     PAST = [
       job({ id: 21, kind: 'reverify', state: 'succeeded', applied: true, subject: 'applied', finished_at: NOW - HOUR }),
       job({ id: 22, kind: 'reverify', state: 'succeeded', own: false, username: 'bina', subject: 'theirs', finished_at: NOW - 2 * HOUR }),
@@ -386,7 +389,7 @@ describe('who may press what', () => {
     await page(ADMIN, { onReviewJob: vi.fn() })
     const past = await card('Past jobs')
     const opened = await eachOpened(past, /^Re-verify/, (row) => {
-      expect(within(row).queryByRole('button', { name: 'Review' })).toBeNull()
+      expect(within(row).queryByRole('button', { name: 'Review findings' })).toBeNull()
     })
     expect(opened).toBe(4)
   })

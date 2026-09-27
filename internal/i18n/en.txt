@@ -6024,9 +6024,11 @@ settings.jobs.past.error.label = What went wrong
 settings.jobs.past.export.tip = This job's log, as a Markdown file
 settings.jobs.past.rerun.label = Run again
 settings.jobs.past.rerun.done = Started again
-# A re-verify's findings wait to be looked over; Review opens them on Metadata,
-# where the changes are chosen and applied.
-settings.jobs.past.review.label = Review
+# A re-verify's findings wait to be looked over; Review findings opens them on
+# Metadata, where the changes are chosen and applied. Not "Review" alone: the
+# Settings rail's Review tab is on the same desk screen, and two presses with one
+# name cannot be told apart by a screen reader or a press by name.
+settings.jobs.past.review.label = Review findings
 settings.jobs.past.review.tip = Open what it found on Metadata and choose what to apply
 
 # --- System logs: the app's own log, for an admin.

@@ -3,16 +3,16 @@
 //
 // In 3.1.0 a re-verify runs on the server and outlives the screen that started
 // it, so its findings are looked over later: Settings › Jobs lists it under Past
-// jobs with a Review press, and Review opens Metadata on that job
+// jobs with a Review findings press, which opens Metadata on that job
 // (/metadata/reverify/{job}) because the flow that applies findings lives there.
 //
 // WHY THIS MOUNTS THE WHOLE APP. For a stage the two halves were each green on
-// their own — the Review press called the shell's door with the right job, and
-// the router turned the address into a detail — while the page at the end of
-// the door drew the plain console, because nothing on Metadata read the job.
-// CLAUDE.md's testing section is named after exactly that shape. The only test
-// that can fail on it presses Review, or opens the address, and looks at what is
-// drawn.
+// their own — the Review findings press called the shell's door with the right
+// job, and the router turned the address into a detail — while the page at the
+// end of the door drew the plain console, because nothing on Metadata read the
+// job. CLAUDE.md's testing section is named after exactly that shape. The only
+// test that can fail on it presses Review findings, or opens the address, and
+// looks at what is drawn.
 //
 // WHAT A READER SEES AND MAY DO:
 //  * the findings, as the job left them — no second check against the sources;
@@ -20,7 +20,7 @@
 //    them, even when it is empty now (the check's answer was about a value that
 //    is gone), while an untouched empty field is ticked as a re-verify always
 //    ticks a pure fill;
-//  * closing the review takes them back to where they pressed Review.
+//  * closing the review takes them back to where they pressed Review findings.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -127,12 +127,12 @@ describe('a finished re-verify, opened at its address', () => {
   })
 })
 
-describe('Review, pressed on a past job in Settings › Jobs', () => {
+describe('Review findings, pressed on a past job in Settings › Jobs', () => {
   it('opens that job’s findings on Metadata, and closing them goes back to the jobs', async () => {
     await mountAt('/settings/jobs')
     const past = await screen.findByRole('region', { name: 'Past jobs' })
     fireEvent.click(await within(past).findByRole('button', { name: /^Re-verify/ }))
-    fireEvent.click(await within(past).findByRole('button', { name: 'Review' }))
+    fireEvent.click(await within(past).findByRole('button', { name: 'Review findings' }))
     const review = await theReview()
     await within(review).findByText('The Paper Boat')
     expect(window.location.pathname).toBe('/metadata/reverify/5')

@@ -23,12 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and Back up now all run on the server now**, so they keep going if you leave the
   screen or close the tab, and you can check on them later from Settings → Jobs. Only
   one runs at a time across the whole server; the rest queue in order, and a waiting one
-  says so. A re-verify's Review can now be opened later, from Past jobs — if a field
-  changed since the check, Apply leaves it alone and says why, instead of overwriting
-  it. Stop finishes the item in hand, then stops the rest of the job; one stopped on its
-  very last item is left marked finished, since it had nothing left to do. A job Tippani
-  was still running when it restarted is kept as interrupted, with its log, and offered
-  to run again.
+  says so. A re-verify's findings can now be opened later, with Review findings in Past
+  jobs — if a field changed since the check, Apply leaves it alone and says why, instead
+  of overwriting it. Stop finishes the item in hand, then stops the rest of the job; one
+  stopped on its very last item is left marked finished, since it had nothing left to
+  do. A job Tippani was still running when it restarted is kept as interrupted, with its
+  log, and offered to run again.
 - **Every lookup is recorded as a job with its own log of every request that went out
   and what came back** — a bulk fetch, a re-verify, or a single search for a cover or a
   person's details. An import or a backup is recorded as a job too, with a log of its
