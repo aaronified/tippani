@@ -4341,6 +4341,10 @@ reverify.kept.review = যা পাওয়া গেছে, রাখা আ�
 # Cancel while the check runs STOPS it, which is why it asks.
 reverify.stop.confirm.title = মিলিয়ে দেখা থামাবেন?
 reverify.stop.confirm.body = হাতেরটুকু সেরে থামবে, আর তার লগ নিয়ে সেটিংস › কাজ-এ থেকে যাবে।
+# The same confirm over a check still in the queue: it has no item in hand, so
+# the server ends it before it starts.
+# ?? draft for the owner (3.1.0 jobs callers): শুরু হওয়ার আগেই থেমে যাবে, the queued twin of হাতেরটুকু সেরে থামবে
+reverify.stop.confirm.body.waiting = শুরু হওয়ার আগেই থেমে যাবে, আর তার লগ নিয়ে সেটিংস › কাজ-এ থেকে যাবে।
 reverify.stop.confirm.verb = থামান
 error.reverify.preview = আগে থেকে দেখানো গেল না
 error.reverify.apply = বসানো গেল না

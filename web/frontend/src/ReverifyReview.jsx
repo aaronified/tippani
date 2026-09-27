@@ -600,10 +600,15 @@ export function ReverifyFlow({ selection = null, fillsOnly: fillsOnlyProp = fals
 
   // CANCEL WHILE CHECKING IS STOP, and it asks — see the header. Anywhere else it
   // is the same as closing.
+  //
+  // THE CONFIRM SAYS WHAT STOPPING WILL DO TO THIS CHECK. A running one stops
+  // after the item in hand; one still in the queue has no item in hand — the
+  // server ends it before it starts — and the flow is showing "Waiting — 2 jobs
+  // ahead" right above the Cancel that asks.
   async function cancel() {
     if (phase !== 'checking' || !checkId) return close()
     const yes = await ask(t('reverify.stop.confirm.title'), {
-      body: t('reverify.stop.confirm.body'),
+      body: t(checkJob?.state === 'queued' ? 'reverify.stop.confirm.body.waiting' : 'reverify.stop.confirm.body'),
       confirmLabel: t('reverify.stop.confirm.verb'),
       danger: true,
     })

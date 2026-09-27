@@ -138,6 +138,21 @@ describe('the check', () => {
     await waitFor(() => expect(closed).toBe(1))
   })
 
+  // A CHECK STILL IN THE QUEUE HAS NO ITEM IN HAND, so the confirm does not say it
+  // stops after one: the server ends it before it starts.
+  it('says a waiting check is stopped before it starts, when Cancel asks', async () => {
+    JOBS.plan('reverify', { queued: true, ahead: 2 })
+    JOBS.hold('reverify')
+    open()
+    await screen.findByRole('progressbar', { name: 'Waiting — 2 jobs ahead' })
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Cancel' }))
+    const ask = await screen.findByRole('alertdialog', { name: 'Stop the check?' })
+    expect(within(ask).getByText('It is stopped before it starts, and kept in Settings › Jobs with its log.')).toBeTruthy()
+    expect(within(ask).queryByText(/item in hand/)).toBeNull()
+    fireEvent.click(within(ask).getByRole('button', { name: 'Stop it' }))
+    await waitFor(() => expect(JOBS.stops()).toEqual([checkId()]))
+  })
+
   it('says why when the check failed, and offers nothing to apply', async () => {
     JOBS.plan('reverify', { state: 'failed', error: 'Open Library did not answer' })
     open()

@@ -4421,6 +4421,9 @@ reverify.kept.review = Findings kept · Settings › Jobs
 # Cancel while the check runs STOPS it, which is why it asks.
 reverify.stop.confirm.title = Stop the check?
 reverify.stop.confirm.body = It stops after the item in hand, and is kept in Settings › Jobs with its log.
+# The same confirm over a check still in the queue: it has no item in hand, so
+# the server ends it before it starts.
+reverify.stop.confirm.body.waiting = It is stopped before it starts, and kept in Settings › Jobs with its log.
 reverify.stop.confirm.verb = Stop it
 error.reverify.preview = preview failed
 error.reverify.apply = apply failed
