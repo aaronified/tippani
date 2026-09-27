@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -96,55 +98,80 @@ func (s *Server) handleCastImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.ImageURL != "" {
+		// The reader chose this one. It replaces whatever is there, provider or not.
+		//
+		// TWO FETCHERS, AND PICKING THE WRONG ONE BREAKS THE FEATURE QUIETLY.
+		// fetchImage enforces the provider host allowlist (metadata.coverHosts),
+		// which is right for a URL TheTVDB supplied and wrong for one a reader
+		// typed — their picture is wherever they found it, and an allowlist would
+		// refuse it with a message about a fetch failure. fetchUserImage is the
+		// no-allowlist path the person form already uses for exactly this, with the
+		// same size and format checks. So provenance chooses, and this is the one
+		// place the two paths differ.
+		err = s.storeCastImage(r.Context(), uid, castID, req.ImageURL, s.fetchUserImage)
+	} else {
+		// Already ours, or the provider never had one: nothing to fetch, and the
+		// answer is the row as it stands.
+		_, err = s.fetchCastImage(r.Context(), uid, castID)
+	}
+	switch {
+	case errors.Is(err, errCastImageFetch):
+		// The reader loses a picture, not a page: the chip falls back to the
+		// actor's headshot and the row keeps its provider URL for the next attempt.
+		writeErr(w, http.StatusBadGateway, errCastImageFetch.Error())
+		return
+	case err != nil:
+		internalError(w, r, "character image", err)
+		return
+	}
+	s.writeCastRow(w, r, castID, uid)
+}
+
+// errCastImageFetch is a character picture whose download failed; the cause is
+// logged where it failed.
+var errCastImageFetch = errors.New("that character image could not be fetched")
+
+// fetchCastImage makes cast row castID's provider picture ours: fetched once,
+// through the provider host allowlist, and stored on the row. fetched is false
+// when there was nothing to fetch — the row already has its file, or its
+// provider has no picture for the role. The caller has checked that the row is
+// uid's and not a tombstone: POST /cast/{id}/image checks the one row, and a work
+// page's pictures (POST /{books|movies}/{id}/cast/art) check the work.
+func (s *Server) fetchCastImage(ctx context.Context, uid, castID int64) (fetched bool, err error) {
 	// Named away from `url` and `path`, which are stdlib package names.
 	var srcURL, stored string
 	if err := s.Store.DB.QueryRow(
 		`SELECT character_image_url, character_image_path FROM work_cast
 		 WHERE id = ? AND user_id = ?`, castID, uid,
 	).Scan(&srcURL, &stored); err != nil {
-		internalError(w, r, "load character image", err)
-		return
+		return false, fmt.Errorf("load character image: %w", err)
 	}
-	if req.ImageURL != "" {
-		// The reader chose this one. It replaces whatever is there, provider or not.
-		srcURL = req.ImageURL
-	} else if stored != "" || srcURL == "" {
-		// Already ours, or the provider never had one. Either way there is nothing
-		// to fetch and the answer is the row as it stands.
-		s.writeCastRow(w, r, castID, uid)
-		return
+	if stored != "" || srcURL == "" {
+		return false, nil
 	}
+	return true, s.storeCastImage(ctx, uid, castID, srcURL, s.fetchImage)
+}
 
-	// TWO FETCHERS, AND PICKING THE WRONG ONE BREAKS THE FEATURE QUIETLY.
-	// fetchImage enforces the provider host allowlist (metadata.coverHosts), which
-	// is right for a URL TheTVDB supplied and wrong for one a reader typed — their
-	// picture is wherever they found it, and an allowlist would refuse it with a
-	// message about a fetch failure. fetchUserImage is the no-allowlist path the
-	// person form already uses for exactly this, with the same size and format
-	// checks. So provenance chooses, and this is the one place the two paths differ.
-	fetch := s.fetchImage
-	if req.ImageURL != "" {
-		fetch = s.fetchUserImage
-	}
-	name, ferr := fetch(r.Context(), srcURL, s.coversDir())
+// storeCastImage fetches srcURL with fetch and stores it as cast row castID's
+// picture. A failed download is errCastImageFetch.
+func (s *Server) storeCastImage(ctx context.Context, uid, castID int64, srcURL string,
+	fetch func(ctx context.Context, rawURL, destDir string) (string, error)) error {
+	name, ferr := fetch(ctx, srcURL, s.coversDir())
 	if ferr != nil {
-		// The reader loses a picture, not a page: the chip falls back to the
-		// actor's headshot and the row keeps its provider URL for the next attempt.
 		// Logged with TIP-COVER-001, the code the on-demand cover refetch uses,
 		// because it is the same failure: a provider's image host said no.
 		olog.Errorf(olog.CodeCoverFetch,
 			"[cast] character image cast_id=%d url=%q failed: %v", castID, srcURL, ferr)
-		writeErr(w, http.StatusBadGateway, "that character image could not be fetched")
-		return
+		return errCastImageFetch
 	}
 	if _, err := s.Store.DB.Exec(
 		`UPDATE work_cast SET character_image_path = ?, updated_at = datetime('now')
 		 WHERE id = ? AND user_id = ?`, name, castID, uid,
 	); err != nil {
-		internalError(w, r, "store character image", err)
-		return
+		return fmt.Errorf("store character image: %w", err)
 	}
-	s.writeCastRow(w, r, castID, uid)
+	return nil
 }
 
 // castImageReq is the optional body: a picture the reader has chosen for this
