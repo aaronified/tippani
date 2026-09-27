@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"tippani/internal/olog"
@@ -46,6 +47,14 @@ import (
 // starting fetches once the budget is spent and answers with what arrived. The
 // page asks again next time it is opened.
 //
+// THE BUDGET IS THE REQUEST'S, NOT A PASS'S. It is set once, when the request
+// arrives, and everything the request does spends it: the pass it runs, the
+// pass it waits on, and the pass for its own names after that. Each pass
+// setting its own would let a request that joins another wait out the first
+// pass whole and then spend a budget of its own — twice the budget and a fetch,
+// behind a proxy that gives up at sixty seconds a 504, and a page that never
+// re-reads the pictures that did arrive.
+//
 // ONE PASS AT A TIME PER READER AND WORK. The film's board and its Details panel
 // draw the same faces, and a parent's refetch re-runs a surface's effect while
 // its request is still out, so the same work is asked for twice at once. The
@@ -54,15 +63,17 @@ import (
 // for any of its names the first did not carry. If the first request ended before
 // its pass did (its reader closed the tab), the second runs the pass itself.
 // Nothing outlives a request: the pass runs in the first request's own
-// goroutine, and a waiter gives up when its own request ends.
+// goroutine, and a waiter gives up when its own request ends or its budget is
+// spent — answering, then, what the pass it waited on has fetched so far.
 
 const (
 	castArtRoles = 20 // character pictures one pass fetches, as the cast panel's loop capped them
 	castArtNames = 20 // headshots one pass looks up, as usePortraitFill capped them
 )
 
-// castArtBudget is how long a pass keeps starting fetches. A variable so the
-// test that holds it to its budget need not wait forty-five seconds.
+// castArtBudget is how long a request keeps starting fetches and waiting on
+// another's. A variable so the tests that spend it need not wait forty-five
+// seconds.
 var castArtBudget = 45 * time.Second
 
 func (s *Server) handleCastArt(kind string) http.HandlerFunc {
@@ -87,7 +98,8 @@ func (s *Server) handleCastArt(kind string) http.HandlerFunc {
 		}
 		jobSubject(r.Context(), s.workTitle(uid, kind, workID))
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
-		got := s.castArt(r.Context(), castArtKey{uid, kind, workID}, castArtAsked(kind, req.Names))
+		deadline := time.Now().Add(castArtBudget)
+		got := s.castArt(r.Context(), castArtKey{uid, kind, workID}, castArtAsked(kind, req.Names), deadline)
 		writeJSON(w, http.StatusOK, map[string]any{"character_images": got.images, "portraits": got.portraits})
 	}
 }
@@ -132,13 +144,24 @@ func (a castArtCount) plus(b castArtCount) castArtCount {
 // joins.
 type castArtFlight struct {
 	names map[string]bool // what the pass was asked for
-	done  chan struct{}   // closed when it has ended, got and cut set
-	got   castArtCount
-	cut   bool // its request ended before the pass did
+	done  chan struct{}   // closed when it has ended, cut set
+	// images and portraits are what has arrived so far, counted as each lands,
+	// so a request that stops waiting before the pass ends can say what it
+	// fetched: the page re-reads its pictures only when an answer says some
+	// arrived.
+	images, portraits atomic.Int64
+	// cut is whether the pass did not finish: its request ended first, or it
+	// panicked.
+	cut bool
 	// waiting is how many requests have joined it. Nothing reads it but the
-	// test that has to know a second request is waiting before it lets the
-	// first finish.
+	// tests that have to know a second request is waiting before they let the
+	// first go on.
 	waiting int
+}
+
+// got is what the pass has fetched so far; all of it, once done is closed.
+func (f *castArtFlight) got() castArtCount {
+	return castArtCount{int(f.images.Load()), int(f.portraits.Load())}
 }
 
 // castArtFlights is every pass in progress. Its zero value is ready.
@@ -174,22 +197,30 @@ func (fl *castArtFlights) land(key castArtKey, f *castArtFlight) {
 	close(f.done)
 }
 
-// castArt runs, or joins, the pass for key and answers what arrived.
-func (s *Server) castArt(ctx context.Context, key castArtKey, names []string) castArtCount {
+// castArt runs, or joins, the pass for key and answers what arrived, starting no
+// fetch after deadline and waiting on no other request's pass past it.
+func (s *Server) castArt(ctx context.Context, key castArtKey, names []string, deadline time.Time) castArtCount {
 	var total castArtCount
 	for {
 		f, lead := s.castArtFlights.join(key, names)
 		if lead {
-			f.got, f.cut = s.fetchCastArt(ctx, key, names)
-			s.castArtFlights.land(key, f)
-			return total.plus(f.got)
+			s.leadCastArt(ctx, key, f, names, deadline)
+			return total.plus(f.got())
 		}
+		spent := time.NewTimer(time.Until(deadline))
 		select {
 		case <-f.done:
+			spent.Stop()
 		case <-ctx.Done():
+			spent.Stop()
 			return total
+		case <-spent.C:
+			// The pass it joined has outlasted this request's budget. What that
+			// pass has fetched is on the reader's rows already, and the answer
+			// says so; the rest arrives for whoever opens the page next.
+			return total.plus(f.got())
 		}
-		total = total.plus(f.got)
+		total = total.plus(f.got())
 		if !f.cut {
 			// What the first pass was not asked for is still to ask.
 			var rest []string
@@ -209,11 +240,21 @@ func (s *Server) castArt(ctx context.Context, key castArtKey, names []string) ca
 	}
 }
 
+// leadCastArt runs the pass f stands for and lands it, however the pass ends. A
+// pass that panics is landed all the same, and as cut: net/http recovers the
+// request and the server goes on, and a pass left in the table would keep every
+// later request for the work waiting on a channel nothing closes. Cut, the
+// requests waiting on it run the pass themselves.
+func (s *Server) leadCastArt(ctx context.Context, key castArtKey, f *castArtFlight, names []string, deadline time.Time) {
+	f.cut = true
+	defer s.castArtFlights.land(key, f)
+	f.cut = s.fetchCastArt(ctx, key, names, deadline, f)
+}
+
 // fetchCastArt is one pass: the work's pending character pictures, then the
-// pending headshots of names, one at a time, until the budget is spent. cut says
-// the request ended first.
-func (s *Server) fetchCastArt(ctx context.Context, key castArtKey, names []string) (got castArtCount, cut bool) {
-	deadline := time.Now().Add(castArtBudget)
+// pending headshots of names, one at a time, until deadline, each counted on f
+// as it lands. cut says the request ended first.
+func (s *Server) fetchCastArt(ctx context.Context, key castArtKey, names []string, deadline time.Time, f *castArtFlight) (cut bool) {
 	another := func() bool {
 		if ctx.Err() != nil {
 			cut = true
@@ -237,7 +278,7 @@ func (s *Server) fetchCastArt(ctx context.Context, key castArtKey, names []strin
 		fetched, err := s.fetchCastImage(ctx, key.uid, c.ID)
 		switch {
 		case err == nil && fetched:
-			got.images++
+			f.images.Add(1)
 		case err != nil && !errors.Is(err, errCastImageFetch):
 			// A failed download is logged where it failed; this is the database.
 			olog.Warnf(olog.CodeCastArt, "[cast] picture for cast row %d: %v", c.ID, err)
@@ -248,7 +289,7 @@ func (s *Server) fetchCastArt(ctx context.Context, key castArtKey, names []strin
 			continue
 		}
 		if !another() {
-			return got, cut
+			return cut
 		}
 		found, err := s.portraitByName(ctx, key.uid, "actor", name)
 		if err != nil {
@@ -258,10 +299,10 @@ func (s *Server) fetchCastArt(ctx context.Context, key castArtKey, names []strin
 			continue
 		}
 		if found.image != "" {
-			got.portraits++
+			f.portraits.Add(1)
 		}
 	}
-	return got, cut
+	return cut
 }
 
 // hasHeadshot is whether the record a headshot for name would be written onto

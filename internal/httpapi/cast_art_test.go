@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -32,9 +34,12 @@ import (
 //     moment no request can see, so the test that asks it waits until the
 //     server's table of passes in progress (srv.castArtFlights) says the second
 //     is waiting, and only then lets the first finish;
-//   - how long a pass keeps starting fetches (castArtBudget), shortened in the one
-//     test that spends it, so that test takes a fraction of a second and not
-//     forty-five;
+//   - how long a request keeps starting fetches and waiting (castArtBudget),
+//     shortened in the tests that spend it, so they take a fraction of a second
+//     and not forty-five;
+//   - one test's picture download panics, as a bug in it would, and that
+//     request's panic is recovered by the test as net/http recovers it for a
+//     real connection;
 //   - the answer's two names (character_images, portraits), which are the
 //     route's contract with the page;
 //   - one test serves the handler over a real connection with a write deadline
@@ -46,8 +51,11 @@ import (
 // who already has one and asking nothing twice; a book's page asks for no
 // headshots; another reader's film is not there; a second request for the same
 // film while the first is out joins it, and the pictures are fetched once; a pass
-// that has spent its time answers with what arrived; and a pass slower than the
-// server's write deadline still gets its answer to the page.
+// that has spent its time answers with what arrived; a request that joins a slow
+// one answers within its own time, not the other's; a pass that panicked does
+// not leave the request waiting on it waiting for good, nor let it take the pass
+// for finished; and a pass slower than the server's write deadline still gets
+// its answer to the page.
 
 // countedDownloads stands in for the picture download: every address asked for
 // becomes a file in the covers dir, and hold, when set, is waited on before the
@@ -165,28 +173,11 @@ func TestASecondRequestForTheSamePicturesJoinsTheFirst(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() { defer wg.Done(); answers[0] = askCastArt(alice, path, "Viola Davis") }()
-	select {
-	case <-d.in:
-	case <-time.After(20 * time.Second):
-		t.Fatal("the first request never began a download")
-	}
+	d.began(t)
 	// The board and the Details panel both draw Viola Davis; the panel also
 	// draws Margot Robbie.
 	go func() { defer wg.Done(); answers[1] = askCastArt(alice, path, "Viola Davis", "Margot Robbie") }()
-	key := castArtKey{uid: accountID(t, alice, "alice"), kind: "movie", id: film}
-	for deadline := time.Now().Add(20 * time.Second); ; {
-		srv.castArtFlights.mu.Lock()
-		f := srv.castArtFlights.m[key]
-		joined := f != nil && f.waiting == 1
-		srv.castArtFlights.mu.Unlock()
-		if joined {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the second request never joined the first")
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
+	waitForJoin(t, srv, castArtKey{uid: accountID(t, alice, "alice"), kind: "movie", id: film})
 	close(d.hold)
 	wg.Wait()
 
@@ -208,6 +199,126 @@ func TestASecondRequestForTheSamePicturesJoinsTheFirst(t *testing.T) {
 	}
 	if len(counts) != 3 || counts["https://artworks.thetvdb.com/waller.jpg"] != 1 || counts["https://artworks.thetvdb.com/head412.jpg"] != 1 {
 		t.Fatalf("downloaded %v, want each of the three pictures once", d.list())
+	}
+}
+
+// waitForJoin waits until a request has joined the pass in progress for key.
+func waitForJoin(t *testing.T, srv *Server, key castArtKey) {
+	t.Helper()
+	for deadline := time.Now().Add(20 * time.Second); ; {
+		srv.castArtFlights.mu.Lock()
+		f := srv.castArtFlights.m[key]
+		joined := f != nil && f.waiting == 1
+		srv.castArtFlights.mu.Unlock()
+		if joined {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the second request never joined the first")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// began waits until the first held download has begun.
+func (d *countedDownloads) began(t *testing.T) {
+	t.Helper()
+	select {
+	case <-d.in:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the first request never began a download")
+	}
+}
+
+// THE BUDGET IS THE REQUEST'S. The board asks and its download hangs; the
+// Details panel asks for the same film and joins it. The panel's request answers
+// once its own time is spent — while the board's download is still out — rather
+// than waiting the board's pass out and then spending a budget of its own.
+func TestARequestThatJoinsASlowOneAnswersWithinItsOwnTime(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	film := suicideSquad(t, srv, alice)
+	was := castArtBudget
+	castArtBudget = 300 * time.Millisecond
+	t.Cleanup(func() { castArtBudget = was })
+	d := countDownloads(srv)
+	d.hold = make(chan struct{})
+	path := "/movies/" + itoa(film)
+
+	board := make(chan *httptest.ResponseRecorder, 1)
+	go func() { board <- askCastArt(alice, path, "Viola Davis") }()
+	d.began(t)
+	panel := make(chan *httptest.ResponseRecorder, 1)
+	go func() { panel <- askCastArt(alice, path, "Viola Davis", "Margot Robbie") }()
+	waitForJoin(t, srv, castArtKey{uid: accountID(t, alice, "alice"), kind: "movie", id: film})
+
+	var rec *httptest.ResponseRecorder
+	select {
+	case rec = <-panel:
+	case <-time.After(20 * time.Second):
+		close(d.hold)
+		t.Fatal("the request that joined a slow one waited on it past its own time")
+	}
+	// Nothing had arrived when it answered: the board's download is still out.
+	if got := decode[castArtAnswer](t, rec); rec.Code != http.StatusOK || got != (castArtAnswer{}) {
+		t.Fatalf("the panel's answer: %d %+v, want 200 and nothing arrived yet", rec.Code, got)
+	}
+	close(d.hold)
+	if got := decode[castArtAnswer](t, <-board); got != (castArtAnswer{CharacterImages: 1}) {
+		t.Fatalf("the board's answer: %+v, want the one picture it started", got)
+	}
+	if want := []string{"https://artworks.thetvdb.com/waller.jpg"}; !slices.Equal(d.list(), want) {
+		t.Fatalf("downloaded %v, want only %v: neither request starts a fetch past its time", d.list(), want)
+	}
+}
+
+// A PASS THAT PANICS IS STILL OVER. net/http recovers the request and the server
+// goes on; the request that had joined it, and any after, must run a pass of
+// their own rather than wait on the one that is gone or take it for finished.
+func TestAPicturePassThatPanickedDoesNotHoldUpTheRequestWaitingOnIt(t *testing.T) {
+	srv := newTestServer(t)
+	h := srv.Handler()
+	alice := signupAdmin(t, h)
+	film := suicideSquad(t, srv, alice)
+	d := countDownloads(srv)
+	download := srv.fetchImage
+	var panicked atomic.Bool
+	in, hold := make(chan struct{}), make(chan struct{})
+	srv.fetchImage = func(ctx context.Context, rawURL, dir string) (string, error) {
+		if panicked.CompareAndSwap(false, true) {
+			close(in)
+			<-hold
+			panic("a bug in the picture download")
+		}
+		return download(ctx, rawURL, dir)
+	}
+	path := "/movies/" + itoa(film)
+	first := make(chan bool, 1)
+	go func() {
+		defer func() { first <- recover() != nil }()
+		askCastArt(alice, path, "Viola Davis")
+	}()
+	select {
+	case <-in:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the first request never began a download")
+	}
+	second := make(chan *httptest.ResponseRecorder, 1)
+	go func() { second <- askCastArt(alice, path, "Viola Davis") }()
+	waitForJoin(t, srv, castArtKey{uid: accountID(t, alice, "alice"), kind: "movie", id: film})
+	close(hold)
+	if !<-first {
+		t.Fatal("the first request did not panic")
+	}
+
+	select {
+	case rec := <-second:
+		if got := decode[castArtAnswer](t, rec); got != (castArtAnswer{CharacterImages: 1, Portraits: 1}) {
+			t.Fatalf("the request that waited on the pass that panicked: %+v, downloads %v; want the picture and the headshot", got, d.list())
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("the request that joined the pass that panicked is waiting on it still")
 	}
 }
 
