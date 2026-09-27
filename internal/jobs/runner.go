@@ -21,7 +21,7 @@ import (
 // status (spec D); the text here is for logs and tests, and the words a reader
 // sees are the API's.
 var (
-	ErrClosed        = errors.New("jobs: the server is shutting down")                             // 503
+	ErrClosed        = errors.New("jobs: the server is shutting down")                             // 503; also one about to be replaced (Retire)
 	ErrBusy          = errors.New("jobs: busy (a job, or a restore, reset or update, is running)") // 409
 	ErrStale         = errors.New("jobs: the database was swapped since this request began")       // 409, answered like ErrBusy
 	ErrAdminOnly     = errors.New("jobs: only an admin can start this kind of job")                // 403
@@ -146,6 +146,9 @@ type Runner struct {
 	claimEnded chan struct{}
 	running    *Job
 	idle       chan struct{} // closed when the current worker exits
+	// retireUntil is when Retire's hold ends, if the process has not been
+	// replaced by then; the zero time when nothing called it.
+	retireUntil time.Time
 
 	// secrets are what a job needs and must never be stored: a backup's
 	// password. Kept by job id, never on the Job and never in the row, and
@@ -252,7 +255,7 @@ func (r *Runner) enqueue(owner Owner, kind, subject string, params any, total in
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	switch {
-	case r.closed:
+	case r.closed, r.retiringLocked():
 		return 0, ErrClosed
 	case r.exclusive > 0:
 		return 0, ErrBusy
@@ -388,7 +391,7 @@ func nullID(id int64) any {
 // and nothing holds it off.
 func (r *Runner) kickLocked() {
 	r.pending = true
-	if r.alive || r.closed || r.exclusive > 0 {
+	if r.alive || r.closed || r.exclusive > 0 || r.retiringLocked() {
 		return
 	}
 	r.alive = true
@@ -1016,7 +1019,7 @@ func (r *Runner) Exclusive(fn func() error) error {
 		r.mu.Lock()
 	}
 	switch {
-	case r.closed:
+	case r.closed, r.retiringLocked():
 		r.mu.Unlock()
 		return ErrClosed
 	case r.running != nil:
@@ -1036,6 +1039,32 @@ func (r *Runner) Exclusive(fn func() error) error {
 	}()
 	return fn()
 }
+
+// Retire keeps the queue from starting anything for d, as a server about to be
+// replaced must: Enqueue and Exclusive answer ErrClosed, no worker is started,
+// and a job already waiting stays waiting, for the next process's Boot to
+// interrupt with its line. An update calls it once the recreater is launched,
+// from inside its Exclusive, so the queue goes from held to retired with no
+// moment between in which a job could start and then be cut off mid-item by the
+// container's replacement. It must be called there: inside an Exclusive no
+// worker is alive (one leaves at the top of its loop while an Exclusive runs),
+// so keeping the next one from starting (kickLocked) is all it has to do.
+//
+// d IS A BOUND, NOT A DELAY. The process normally ends well inside it. One that
+// is still here once d has passed was not replaced (a recreater that found no
+// newer image exits and leaves this container running), and refusing every job
+// until somebody restarts it by hand would be a second failure on top of the
+// first. So the hold lapses by itself, with no timer: it is read at each press
+// and each look, and the first press after it — an Enqueue, or an Exclusive's end
+// — starts the worker for whatever was left waiting.
+func (r *Runner) Retire(d time.Duration) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.retireUntil = time.Now().Add(d)
+}
+
+// retiringLocked is whether Retire's hold is on. Called with r.mu held.
+func (r *Runner) retiringLocked() bool { return time.Now().Before(r.retireUntil) }
 
 // forgetEnded drops the secrets of jobs that are no longer waiting or running in
 // the database the server is now on, whatever ended them.

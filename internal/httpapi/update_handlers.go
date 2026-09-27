@@ -245,8 +245,21 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 	// process, and a job running in this one would end mid-item, interrupted, for
 	// a press nobody meant as a Stop. Held through the pull too, so no job starts
 	// in the minutes before the restart it would not survive.
+	//
+	// AND THE HOLD DOES NOT END WHEN THIS HANDLER DOES. The recreater is launched
+	// at the end of it and replaces the container a few seconds later, so a job
+	// pressed in between would start and then be cut off just the same. A launch
+	// retires the queue (applyUpdate), and it stays shut until the process ends.
 	s.withQueueHeld(w, func() { s.applyUpdate(w, r) })
 }
+
+// updateReplaceWait is how long a launched update keeps the queue shut
+// (jobs.Runner.Retire) while the recreater replaces this container. A container
+// still here after it was not replaced — a recreater that found no newer image
+// exits and leaves it running — and its queue opens again rather than refusing
+// every job until somebody restarts it by hand. A variable so a test can see it
+// open again without waiting five minutes.
+var updateReplaceWait = 5 * time.Minute
 
 // applyUpdate pulls the new image and launches the recreater, with the queue held.
 func (s *Server) applyUpdate(w http.ResponseWriter, r *http.Request) {
@@ -352,6 +365,12 @@ func (s *Server) applyUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	prog.step(updatePhaseLaunched)
+	// Retired from inside the hold, so there is no moment between the two in
+	// which a job could start. A failed update above returns without it, and the
+	// queue opens again as the hold ends: nothing is coming to replace it.
+	if s.Jobs != nil {
+		s.Jobs.Retire(updateReplaceWait)
+	}
 	olog.Alertf("[update] recreater launched for %q — the container will restart on the new image", name)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":      true,

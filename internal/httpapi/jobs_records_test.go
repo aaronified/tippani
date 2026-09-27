@@ -66,11 +66,10 @@ func TestWhatAnAdminDoesToTheWholeServerIsKeptAsAJob(t *testing.T) {
 		} `json:"backup"`
 	}](t, admin.mustDo("GET", "/admin/backup", nil, http.StatusOK)).Backup.Name
 	safetyBackup(t, admin)
-	admin.mustDo("POST", "/admin/update/apply", map[string]string{"confirm": "UPDATE"}, http.StatusOK)
 
-	for kind, subject := range map[string]string{"backup": "", "backup.safety": "", "update.apply": fake.image} {
+	for _, kind := range []string{"backup", "backup.safety"} {
 		j := pastJob(admin, kind)
-		if j.Queued || !j.Own || j.State != "succeeded" || j.Subject != subject || j.Username != "alice" {
+		if j.Queued || !j.Own || j.State != "succeeded" || j.Subject != "" || j.Username != "alice" {
 			t.Fatalf("the %s in past jobs: %+v", kind, j)
 		}
 	}
@@ -97,6 +96,13 @@ func TestWhatAnAdminDoesToTheWholeServerIsKeptAsAJob(t *testing.T) {
 	}
 	if got := jobKindsOf(fresh.jobs("view=past").Jobs); !slices.Equal(got, []string{"reset"}) {
 		t.Fatalf("past jobs after a factory reset: %v, want the reset alone", got)
+	}
+
+	// The update last, since a launched one shuts the queue until the server is
+	// replaced, and a restore or a reset after it would be refused.
+	fresh.mustDo("POST", "/admin/update/apply", map[string]string{"confirm": "UPDATE"}, http.StatusOK)
+	if j := pastJob(fresh, "update.apply"); j.Queued || !j.Own || j.State != "succeeded" || j.Subject != fake.image || j.Username != "alice" {
+		t.Fatalf("the update in past jobs: %+v", j)
 	}
 }
 

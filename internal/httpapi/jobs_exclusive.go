@@ -26,8 +26,9 @@ import (
 const jobRunningMessage = "A job is running. Stop it in Settings › Jobs, or wait for it to finish."
 
 // withQueueHeld runs fn with the queue held, or answers 409 {error, busy: true}
-// while a job runs (503 while the server shuts down). On a server with no queue
-// fn simply runs.
+// while a job runs (503 while the server shuts down, or once a launched update
+// has retired the queue for the container's replacement). On a server with no
+// queue fn simply runs.
 func (s *Server) withQueueHeld(w http.ResponseWriter, fn func()) {
 	if s.Jobs == nil {
 		fn()

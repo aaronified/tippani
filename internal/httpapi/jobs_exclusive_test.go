@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"tippani/internal/jobs"
+	"tippani/internal/outbound"
 )
 
 // A RESTORE, A RESET, A SEARCH REBUILD AND AN UPDATE WAIT FOR A RUNNING JOB, AND
@@ -29,18 +31,26 @@ import (
 // minutes-long middle on demand. And one test kind whose params check swaps the
 // database files (Store.Swap with nothing to move, then rebindDB, as a restore
 // does): the one way to land a swap between a request's sign-in and its reaching
-// the queue, a window no press can hit on purpose. The upload that stops arriving
-// is a real socket to a real listener, which sends part of a body and then
-// nothing, because the recorder the other requests use hands a handler its whole
-// body at once; and the time an upload may send nothing (uploadIdle) is shortened
-// to a second for it, so the test waits a second and not a minute.
+// the queue, a window no press can hit on purpose. The test of a launched update
+// shortens how long it keeps the queue shut (updateReplaceWait) to two seconds,
+// since nothing replaces a test server and the wait is what it checks the end of;
+// and it makes a job that waits with nothing running through the journey tier's
+// seam, TIPPANI_JOBS_HOLD (jobs.HoldEnv, honoured offline only), because on a
+// server whose jobs end in milliseconds no press leaves one waiting. The upload
+// that stops arriving is a real socket to a real listener, which sends part of a
+// body and then nothing, because the recorder the other requests use hands a
+// handler its whole body at once; and the time an upload may send nothing
+// (uploadIdle) is shortened to a second for it, so the test waits a second and
+// not a minute.
 //
 // What each one guards, in a sentence a person would say: while a job runs, a
 // restore (from the kept archive or an upload), a factory reset, a search
 // rebuild and an update are each refused with the reason and change nothing, and
 // each goes ahead once the job has ended; after a restore and after a reset, a
 // job starts, stops and runs again as before; while an update is running, a job
-// cannot be started, and can once it is done; a job asked for by a request that
+// cannot be started, and can once it has failed; once an update has launched its
+// recreater, nothing starts and a job left waiting stays waiting, until a server
+// that was not replaced opens its queue again; a job asked for by a request that
 // signed in before a swap is refused with the same reason, and goes ahead when
 // asked again; an uploaded restore that stops arriving holds the queue only until
 // it is given up.
@@ -98,10 +108,6 @@ func TestARestoreAResetARebuildAndAnUpdateWaitForARunningJob(t *testing.T) {
 	bob.waitJob(waiting.ID, "stopped")
 
 	admin.mustDo("POST", "/admin/search/reindex", nil, http.StatusOK)
-	admin.mustDo("POST", "/admin/update/apply", map[string]string{"confirm": "UPDATE"}, http.StatusOK)
-	if len(fake.pulls()) != 1 {
-		t.Fatalf("the update once nothing ran pulled %v", fake.pulls())
-	}
 	admin.mustDo("POST", "/admin/restore", map[string]string{"password": testPw}, http.StatusOK)
 	// The restore signed everybody out; the admin is in the archive.
 	again := &testClient{t: t, h: h}
@@ -112,7 +118,14 @@ func TestARestoreAResetARebuildAndAnUpdateWaitForARunningJob(t *testing.T) {
 	safetyBackup(t, again)
 	again.mustDo("POST", "/admin/reset", map[string]string{"confirm": "RESET"}, http.StatusOK)
 	// And on the empty database a factory reset leaves, once somebody signs up.
-	startsAndStops(t, signupAdmin(t, h))
+	fresh := signupAdmin(t, h)
+	startsAndStops(t, fresh)
+	// The update last: once it has launched its recreater, the server is about
+	// to be replaced and takes nothing more.
+	fresh.mustDo("POST", "/admin/update/apply", map[string]string{"confirm": "UPDATE"}, http.StatusOK)
+	if len(fake.pulls()) != 1 {
+		t.Fatalf("the update once nothing ran pulled %v", fake.pulls())
+	}
 }
 
 // startsAndStops starts a held job as c, stops it, and runs it again: the three
@@ -168,6 +181,8 @@ func TestAJobAskedForAcrossASwapIsRefusedAndGoesAheadWhenAskedAgain(t *testing.T
 	admin.waitJob(admin.mustStart("test.swapped", map[string]any{"tag": "across"}).ID, "succeeded")
 }
 
+// While an update pulls, no job starts. This one's pull fails once it is let
+// go, so nothing is coming to replace the server, and a job starts again at once.
 func TestNoJobStartsWhileAnUpdateHoldsTheQueue(t *testing.T) {
 	srv := newTestServer(t)
 	queueing(t, srv)
@@ -176,7 +191,7 @@ func TestNoJobStartsWhileAnUpdateHoldsTheQueue(t *testing.T) {
 		pullHook: func(context.Context) error {
 			close(inPull)
 			<-release
-			return nil
+			return errors.New("the registry answered 503")
 		}}
 	srv.newDocker = func() UpdateDocker { return fake }
 	h := srv.Handler()
@@ -202,10 +217,73 @@ func TestNoJobStartsWhileAnUpdateHoldsTheQueue(t *testing.T) {
 		t.Fatalf("the refusal: %s", rec.Body)
 	}
 	close(release)
-	if code := <-applied; code != http.StatusOK {
-		t.Fatalf("the update: %d", code)
+	if code := <-applied; code != http.StatusInternalServerError {
+		t.Fatalf("the update whose pull failed: %d, want 500", code)
 	}
 	bob.waitJob(bob.mustStart("test.lines", map[string]any{"tag": "after"}).ID, "succeeded")
+}
+
+// ONCE AN UPDATE HAS LAUNCHED ITS RECREATER, THE SERVER TAKES NOTHING MORE until
+// it is replaced: a job pressed in the seconds before would start and be cut off
+// mid-item. A press is told the server is shutting down, a second update and a
+// search rebuild the same, and a job left waiting from before stays waiting. A
+// server that is still here once the replacement's wait is up was not replaced,
+// and its queue opens again: the next press starts, and the job left waiting
+// runs first.
+func TestAfterAnUpdateLaunchesNothingStartsUntilTheServerIsReplaced(t *testing.T) {
+	old := updateReplaceWait
+	updateReplaceWait = 2 * time.Second
+	t.Cleanup(func() { updateReplaceWait = old })
+	srv := newTestServer(t)
+	queueing(t, srv)
+	fake := &fakeDocker{avail: true, name: "tippani", image: "ghcr.io/aaronified/tippani:latest"}
+	srv.newDocker = func() UpdateDocker { return fake }
+	h := srv.Handler()
+	admin := signupAdmin(t, h)
+	bob := addUser(t, h, admin, "bob")
+
+	// A job waiting with nothing running, which only the hold seam makes on a
+	// server whose jobs end in milliseconds.
+	t.Setenv(outbound.EnvVar, "1")
+	t.Setenv(jobs.HoldEnv, "1")
+	waiting := bob.mustStart("test.lines", map[string]any{"tag": "waiting"})
+	time.Sleep(100 * time.Millisecond)
+	if j := bob.job(waiting.ID); j.State != "queued" {
+		t.Fatalf("with the queue held the job reads %s", j.State)
+	}
+	t.Setenv(jobs.HoldEnv, "")
+
+	admin.mustDo("POST", "/admin/update/apply", map[string]string{"confirm": "UPDATE"}, http.StatusOK)
+	launched := time.Now()
+	rec := bob.startJob("test.lines", map[string]any{"tag": "pressed after the launch"})
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "shutting down") {
+		t.Fatalf("a job pressed after the update launched: %d %s, want 503", rec.Code, rec.Body)
+	}
+	for _, try := range []struct{ what, path string }{
+		{"a second update", "/admin/update/apply"}, {"a search rebuild", "/admin/search/reindex"},
+	} {
+		if rec := admin.do("POST", try.path, map[string]string{"confirm": "UPDATE"}); rec.Code != http.StatusServiceUnavailable {
+			t.Fatalf("%s after the update launched: %d %s, want 503", try.what, rec.Code, rec.Body)
+		}
+	}
+	if len(fake.pulls()) != 1 {
+		t.Fatalf("the refused second update pulled: %v", fake.pulls())
+	}
+	time.Sleep(200 * time.Millisecond)
+	if j := bob.job(waiting.ID); j.State != "queued" {
+		t.Fatalf("the job left waiting, after the update launched: %s, want still waiting", j.State)
+	}
+	if time.Since(launched) >= updateReplaceWait {
+		t.Fatalf("the checks took %s, past the wait they were checking inside", time.Since(launched))
+	}
+
+	// Not replaced: once the wait is up, the queue takes jobs again, and the one
+	// left waiting runs first.
+	time.Sleep(time.Until(launched.Add(updateReplaceWait + 100*time.Millisecond)))
+	after := bob.waitJob(bob.mustStart("test.lines", map[string]any{"tag": "after the wait"}).ID, "succeeded")
+	if w := bob.job(waiting.ID); w.State != "succeeded" || w.StartedAt == nil || after.StartedAt == nil || *w.StartedAt > *after.StartedAt {
+		t.Fatalf("the job left waiting, once the queue opened again: %+v (the press after it: %+v)", w, after)
+	}
 }
 
 // An uploaded restore that stops arriving — the tab still open, the link dead —
