@@ -30,7 +30,18 @@
 // LOOPBACK IS NOT OUTBOUND AND IS NOT AFFECTED. cmd/tippani's healthcheck probes
 // 127.0.0.1/healthz and updater.NewDocker dials a unix socket or a local proxy.
 // Neither goes through here, and switching the app offline must not stop a
-// container from reporting itself healthy.
+// container from reporting itself healthy. Neither is observed either (below):
+// the log records the app looking outward, and those two are it looking at its
+// own machine.
+//
+// AND IT IS WHERE THE LOG HEARS EVERY CALL THAT LEAVES (SetObserver). The owner's
+// ask for 3.1.0 was two hooks and no more — "one in the outbound gate, one in the
+// request logger" — and the gate is the one place every outward request already
+// passes, refused or not. So the observer is told of each round trip here, after
+// it, and of each refusal too: a lookup that did not happen because the box is
+// offline is exactly the line a reader looking at a failed job needs. The one
+// provider that is not gated, the operator's own sign-in server, goes through
+// Observed instead: recorded, never refused.
 package outbound
 
 import (
@@ -38,6 +49,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
+	"time"
 )
 
 // EnvVar is the switch's name, exported so a test names it once rather than
@@ -67,18 +80,68 @@ func Off() bool {
 }
 
 // Transport wraps base so every request through it is refused while the switch
-// is on. A nil base means http.DefaultTransport, so Transport(nil) is the whole
-// of what a plain client needs.
+// is on, and every request through it, refused or not, is told to the observer.
+// A nil base means http.DefaultTransport, so Transport(nil) is the whole of what a
+// plain client needs.
 func Transport(base http.RoundTripper) http.RoundTripper { return gate{base: base} }
+
+// Observed wraps base so every request through it is told to the observer and
+// none is ever refused. It is for the one outward client the switch must not
+// reach — the operator's own OpenID Connect provider, where switching the app
+// offline would lock every account out of sign-in — so that its calls are in the
+// log like every other outward call, which is what "observed, not gated" in
+// clients_test.go means.
+func Observed(base http.RoundTripper) http.RoundTripper { return watch{base: base} }
 
 type gate struct{ base http.RoundTripper }
 
 func (g gate) RoundTrip(req *http.Request) (*http.Response, error) {
 	if Off() {
+		observe(req, nil, ErrOffline, 0)
 		return nil, ErrOffline
 	}
-	if g.base != nil {
-		return g.base.RoundTrip(req)
+	return roundTrip(g.base, req)
+}
+
+type watch struct{ base http.RoundTripper }
+
+func (w watch) RoundTrip(req *http.Request) (*http.Response, error) { return roundTrip(w.base, req) }
+
+func roundTrip(base http.RoundTripper, req *http.Request) (*http.Response, error) {
+	if base == nil {
+		base = http.DefaultTransport
 	}
-	return http.DefaultTransport.RoundTrip(req)
+	start := time.Now()
+	resp, err := base.RoundTrip(req)
+	observe(req, resp, err, time.Since(start))
+	return resp, err
+}
+
+// Observer is told of one round trip: the request, and either the response (its
+// headers arrived; the body is the caller's and unread) or the error. A refusal
+// under TIPPANI_OFFLINE is an error that errors.Is ErrOffline, with took 0.
+//
+// It runs on the caller's goroutine, before the caller sees the response, so it
+// must be quick and must not read the body. The request's context is the
+// caller's, which is how the log knows whose call it was.
+type Observer func(req *http.Request, resp *http.Response, err error, took time.Duration)
+
+var observer atomic.Pointer[Observer]
+
+// SetObserver installs fn as the observer of every gated and observed request, in
+// place of any before it; nil removes it. serve() installs the logbook's, once,
+// before the server takes its first request; `tippani notify daily` installs its
+// own. With none installed, a round trip costs one atomic load more than it did.
+func SetObserver(fn Observer) {
+	if fn == nil {
+		observer.Store(nil)
+		return
+	}
+	observer.Store(&fn)
+}
+
+func observe(req *http.Request, resp *http.Response, err error, took time.Duration) {
+	if fn := observer.Load(); fn != nil {
+		(*fn)(req, resp, err, took)
+	}
 }

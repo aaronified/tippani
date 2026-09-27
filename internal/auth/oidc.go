@@ -14,7 +14,9 @@ package auth
 //
 // THE PROVIDER IS THE OPERATOR'S OWN, so its client is not gated by
 // TIPPANI_OFFLINE (see internal/outbound's `ungated`): switching the app
-// offline must not lock every account out of an Authelia on the same LAN.
+// offline must not lock every account out of an Authelia on the same LAN. It is
+// observed, though (outbound.Observed): sign-in looks outward like a lookup does,
+// and its calls are in the log with everything else that leaves the app.
 
 import (
 	"context"
@@ -30,6 +32,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"tippani/internal/outbound"
 )
 
 // OIDC is one configured provider. The zero value is "not configured".
@@ -74,7 +78,7 @@ func (o *OIDC) Enabled() bool {
 	return o != nil && o.Issuer != "" && o.ClientID != ""
 }
 
-var oidcDefaultClient = &http.Client{Timeout: 15 * time.Second}
+var oidcDefaultClient = &http.Client{Timeout: 15 * time.Second, Transport: outbound.Observed(nil)}
 
 func (o *OIDC) client() *http.Client {
 	if o.Client != nil {

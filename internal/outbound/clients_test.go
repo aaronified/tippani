@@ -32,15 +32,20 @@ import (
 	"testing"
 )
 
-// UNGATED BY DESIGN, each verified at its own line. Neither of these leaves the
-// machine, and switching the app offline must not break either.
+// UNGATED BY DESIGN, each verified at its own line, and switching the app
+// offline must break none of them. Two never leave the machine, so they are
+// neither gated nor observed: the log records the app looking outward, and
+// these are it looking at itself. The third does leave — to the operator's own
+// sign-in server — so it is OBSERVED, NOT GATED: its client must carry
+// outbound.Observed, and its calls are in the log like every lookup's.
 var ungated = map[string]struct {
-	count int
-	why   string
+	count    int
+	observed bool
+	why      string
 }{
-	"cmd/tippani/main.go":        {1, "the healthcheck subcommand probes 127.0.0.1/healthz — its own loopback port, not the internet"},
-	"internal/auth/oidc.go":      {1, "the operator's own OpenID Connect provider, named by TIPPANI_OIDC_ISSUER — usually on the same LAN, and switching the app offline must not lock every account out of sign-in"},
-	"internal/updater/docker.go": {2, "the Docker Engine API over a mounted unix socket or a local docker-socket-proxy; local infrastructure, and a box switched offline still has a daemon"},
+	"cmd/tippani/main.go":        {1, false, "the healthcheck subcommand probes 127.0.0.1/healthz — its own loopback port, not the internet"},
+	"internal/auth/oidc.go":      {1, true, "observed, not gated: the operator's own OpenID Connect provider, named by TIPPANI_OIDC_ISSUER — usually on the same LAN, and switching the app offline must not lock every account out of sign-in; but sign-in looks outward all the same, so its calls are recorded"},
+	"internal/updater/docker.go": {2, false, "the Docker Engine API over a mounted unix socket or a local docker-socket-proxy; local infrastructure, and a box switched offline still has a daemon"},
 }
 
 func repoRoot(t *testing.T) string {
@@ -91,6 +96,7 @@ func TestEveryOutboundClientCarriesTheGate(t *testing.T) {
 	root := repoRoot(t)
 	seen := map[string]int{}
 	var bare []string
+	unobserved := map[string]int{} // literals with neither the gate nor the observer
 
 	for _, dir := range []string{"internal", "cmd"} {
 		err := filepath.Walk(filepath.Join(root, dir), func(path string, info os.FileInfo, err error) error {
@@ -115,6 +121,9 @@ func TestEveryOutboundClientCarriesTheGate(t *testing.T) {
 				seen[rel]++
 				if !strings.Contains(lit, "outbound.Transport(") {
 					bare = append(bare, rel)
+					if !strings.Contains(lit, "outbound.Observed(") {
+						unobserved[rel]++
+					}
 				}
 			}
 			return nil
@@ -144,6 +153,13 @@ func TestEveryOutboundClientCarriesTheGate(t *testing.T) {
 			t.Errorf("%s has %d http.Client literals, and %d is excused here (%s). "+
 				"Read the new one: gate it, or raise the count and say why it does not need gating.",
 				rel, got, ex.count, ex.why)
+		}
+		// An excuse from the gate is not an excuse from the log. A client
+		// excused as observed that lost outbound.Observed would take sign-in's
+		// calls out of every job and the system log while this test stayed green.
+		if ex.observed && unobserved[rel] > 0 {
+			t.Errorf("%s is excused as observed, not gated (%s), and %d of its http.Client literals carry no outbound.Observed, "+
+				"so its calls reach no log. Wrap its transport in outbound.Observed.", rel, ex.why, unobserved[rel])
 		}
 	}
 }
