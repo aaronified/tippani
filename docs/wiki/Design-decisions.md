@@ -113,6 +113,7 @@ ships* in section 17 is the entry that gave the rule its missing half.
 15. [Appearance as Material: Skins, Texture, Type and Colour](#15-appearance-as-material-skins-texture-type-and-colour)
 16. [Serving and Running It: HTTP Surface, Logging, TLS and Updates](#16-serving-and-running-it-http-surface-logging-tls-and-updates)
 17. [Verification, Release Engineering and Provenance](#17-verification-release-engineering-and-provenance)
+18. [Jobs and Logs](#18-jobs-and-logs)
 
 ---
 
@@ -12126,6 +12127,231 @@ links with anyway. And the scope value is `quotes`, not `utterances`: the struct
 
 <sub>Unreleased — `internal/httpapi/search_handler.go` · `search_decade_test.go` ·
 `web/frontend/src/SearchPage.jsx` · `test/dom/decade-quotes.test.jsx` (new)</sub>
+
+## 18. Jobs and Logs
+
+3.1.0 moved every routine a reader starts off their tab and onto the server, and began keeping the app's log in its own database: each job's lines, the system log, and a job for every request that looked outward, for thirty days, read in Settings › Jobs. The plan that asked for it was `docs/plans/jobs.md`, a task list with my answers of 27 September and the three asks I made as the release began; it is folded in here and deleted, and git has it as it stood at `aae3f761`.
+
+### What each of the plan's tasks became
+
+| The plan's task | What shipped |
+|---|---|
+| Run every routine a reader starts on the server, so it survives leaving the screen or closing the tab. | Fill gaps, Fetch covers, People's Fetch missing, re-verify's check and its apply, and Back up now are six kinds of queued job: `fill`, `covers`, `people`, `reverify`, `reverify-apply` and `backup`. The screen that pressed watches its job while it is up; leaving stops nothing, and Settings › Jobs has the job either way. |
+| Reword the invariant "no goroutine outlives its request". | In `CLAUDE.md`, verbatim, and in §1. |
+| Make a job of every time the app looks outward: bulk fetches and re-verify, imports and backups, automatic lookups, and single manual lookups. | The queued kinds are jobs by construction. Any other request that looks outward becomes a job the moment its first outward call is logged, its kind read from the route it matched (`jobkinds.go`). Imports, a restore, a reset, the safety copy, an update's apply and the API's `POST /admin/backup` name themselves as jobs, because each is worth a record even when it looks nowhere; so do single sign-on and the daily deck. A call no job claims goes in the system log, tagged `[outbound]`. |
+| Give every job its own detailed log: what was searched, where, and every outbound request, grouped by job. | What was searched is the job's subject — a title, an ISBN, a name, a file — kept as data. Its lines are one per outward call, `GET api.themoviedb.org/3/search/movie?query=Dune&api_key=… → 200 · 312 ms · 14 B` or `→ refused (offline)`, and for a queued kind one per item, saying what came of it. |
+| Mark a job still running at boot as interrupted, keep its log, and offer a one-press rerun. | `Runner.Boot`, which `serve()` alone calls, marks every running or waiting row interrupted, with a line saying which it was. Run again is offered to the job's owner where the kind can be run again. |
+| Add a Settings › Jobs tab. | The sixth section, for every reader. |
+| Current jobs: one expandable card, each job showing its live log. | One card that folds to its head. The running job opens on its live log, which follows the newest line until the reader scrolls up; a waiting job is one line, "Waiting — 2 jobs ahead". |
+| Past jobs: a second card with state (succeeded, failed, interrupted), details, and log export. | Chips over the four ways a job ends (stopped is the fourth). A row opens to who started it (for an admin), when, how long, its counts and its error, its log, Export, Run again, and Review for a re-verify whose findings are not yet applied. |
+| System logs: a separate card holding the app's own logs (every level, including the request lines for inbound reads and writes), kept across restarts. | An admin's card: every line `olog` writes, the standard logger's, net/http's own, and a line per request. |
+| Filter system logs by level, time range and keyword. | Level chips (error, warning, info, request, file, trace, all but the last two on), the app's own `Select` for the last hour, 24 hours, 7 days or 30 days, and the keyword typed into the shell's search bar while the section is open, mirrored by a field in the card on a desk. |
+| Export as Markdown both ways: exactly what the filters show, or everything retained. | Both. "What is shown" is every line the filters select, not the page on screen. A job's log exports the same way. |
+| Keep 30 days of jobs and logs, pruned when a job or log line is written and when the tab opens, with no timer. | Thirty days, and at most a million system lines. The prune rides the log writer (below), and the tab's first read asks for one. Every read stops at thirty days whether or not the prune has run. |
+| Store jobs, job logs and system logs in the app's SQLite database; stdout and stderr keep working for `docker logs`. | Three tables in migration 0079. The terminal's lines are what they were, the access line's full URI included. |
+| Users see their own jobs; an admin sees every user's jobs and the system logs. | Every read is scoped, and another reader's job answers 404 wherever it is asked for. An admin sees each job under the name it was started with. |
+
+My answers of 27 September:
+
+| The answer | What shipped |
+|---|---|
+| The invariant's new wording, verbatim: *"nothing runs unless a person or the app's own lookup started it, and nothing wakes on a timer."* | As above. |
+| One job runs at a time across the server; the rest queue in the order started, and a waiting job says it is waiting. | One worker, claiming the oldest waiting job by id. Every job carries `ahead`, how many jobs are before it across every reader — a number, not rows, so nobody sees whose — and every screen that shows a waiting job says it. |
+| Single manual lookups run in their request, as fast as today and never queued behind a bulk run, and each is still recorded as a job with its log. | A request's job is held in memory and written after the answer has gone (*A lookup in a request is a job written from memory*). |
+| A Stop button on a running job: it stops after the item in hand, the job is kept as stopped with its log, and it can be rerun. | Stop on each job, and Stop all. A waiting job is stopped before it starts. |
+| Ship as 3.1.0. | This release. |
+
+My asks as 3.1.0 began, the same day:
+
+| The ask | What shipped |
+|---|---|
+| Two hooks feed the logs: one in the outbound gate, one in the request logger. | `outbound.SetObserver`, which the gate calls after every round trip and every refusal, and the request logger's kept line and in-request job (*Two hooks write the job lines*). |
+| System logs on their own database connection at `synchronous=NORMAL`, so logging every request costs no disk sync. | `Store.LogDB`, one connection, written only by the log writer (§3). |
+| Jobs is a tab on a desk and a tile on the phone's Settings index; the tile holds one red Stop all, with a confirmation, and a count of queued jobs. | The tile is the Current jobs card drawn compact: how many are waiting, with its glyph and its word, and a red Stop all behind a confirmation that says what happens to the running job and to the waiting ones. |
+
+### One job at a time across the server, and the table is the queue
+
+**Decided.** The queue is the `jobs` table. A press checks and inserts a waiting row in one transaction; one worker claims the oldest waiting row with a single `UPDATE … RETURNING`, runs it, and records its end before it claims the next. A reader may have five jobs waiting or running at once; the same kind with the same params pressed twice is one job, and the second press is told which; a reader pressing an admin's kind is refused. Before the finishing write the worker waits, up to 2 s, for the job's own lines to be written, so a job never reads finished with its last lines missing. Stop is a compare-and-set on a waiting row, and on the running one a flag its item loop reads between items. One line per finished job goes to the terminal: `[jobs] #12 Fill gaps in 40 works for aro succeeded in 2m3s (40/40)`.
+
+**Why.** My rule, and the box's: one at a time is what keeps a fill of two thousand works from being two thousand works times however many readers pressed at once. A table survives what a channel does not — a crash, a restart — as rows `Boot` can mark interrupted and a reader can run again.
+
+**Instead of.** A goroutine per job with a channel for the queue: its order and its contents are gone on a restart. A pool of workers, which my rule forbids.
+
+<sub>3.1.0 — `internal/jobs/runner.go` · `internal/jobs/job.go` · `internal/httpapi/jobs_kinds.go` · `internal/store/migrations/0079_jobs.sql`</sub>
+
+### The worker and the log writer exist only while there is work
+
+**Decided.** Neither goroutine in `internal/jobs` is started at boot. The worker is started by the press that finds none running and exits when it finds nothing to claim; the log writer is started by the line that finds none running and exits when there is nothing left to write. Each guards the moment it decides to exit against work arriving in that same moment — one mutex over whether it is alive and whether work is waiting — so a job queued, or a line logged, just as the worker or the writer looks and finds nothing is never left for the next press to discover. Neither sleeps, except to back off while another connection holds SQLite's write lock.
+
+**Why.** It is §1's line kept rather than argued around: an idle server runs no goroutine of its own at all. The lost wakeup is the one way this shape fails, and it fails silently — a job waiting with no worker looks exactly like a job waiting behind another.
+
+**Instead of.** A worker started at boot and parked on a channel, which is simpler and is a goroutine for the life of the process. A log flusher on a ticker.
+
+<sub>3.1.0 — `internal/jobs/doc.go` · `internal/jobs/runner.go` · `internal/jobs/logbook.go`</sub>
+
+### Two hooks write the job lines, and olog's sink carries the app's own
+
+**Decided.** My two hooks, *"one hook in the outbound gate and one in the request logger"*. **The gate's**: `outbound.SetObserver` installs one function that the gate calls after every round trip, and on every refusal under `TIPPANI_OFFLINE`, with the request, the answer or the error, and the time it took; the logbook turns that into one line in whichever job the request's context carries, or into the system log when it carries none. A failure, a refusal and an answer of 400 or worse are warnings. The OIDC client carries the hook without the gate (`outbound.Observed`), so sign-in's calls are in the log too; the healthcheck and the Docker Engine API are the app looking at its own machine and carry neither. **The request logger's**: `logRequests` keeps a line per request and gives every request a job to log into (the next two entries). The app's own lines reach the system log by a third route: everything `olog` writes, the standard logger's lines through a tee, and net/http's through `olog.ServerLog`, each handed to `olog.SetSink` at the level of the function that wrote it.
+
+**Why the gate and not the clients.** The gate is the one thing an outbound client here cannot be built without — `TestEveryOutboundClientCarriesTheGate` fails on one that lacks it — so an observer there hears the next client the day it is written. An observer per client is four places to remember. The line is written when the answer arrives, with the size the server declared, so a caller that never reads the body still leaves one.
+
+**Instead of.** The observer in `httpapi`, which the daily-deck command, having no server, could not install. A byte count taken when the body closes, which leaves no line at all for a caller that never reads it.
+
+<sub>3.1.0 — `internal/outbound/outbound.go` · `internal/jobs/outbound.go` · `internal/httpapi/server.go` · `internal/olog/olog.go` · `cmd/tippani/main.go`</sub>
+
+### What a kept request line holds, and what it leaves out
+
+**Decided.** The kept line is `METHOD /path?name=…&name=… STATUS DURATION BYTES REMOTE USER rid`: the query's names, every value that is not empty replaced by `…`, the share link's token in `/share/image/{token}` replaced by `…` however the path is spelled, and the single sign-on callback's code and state blanked with the other values. A successful GET or HEAD of a file — the SPA and its bundle, `/covers/{file}`, a reader's font — is kept at the `file` level (`asset` on the wire), which the System logs card hides until asked; a file that failed is kept as a request, because a missing cover is what somebody opens the log to find. The Jobs tab's own reads, `GET /jobs…` and `GET /admin/logs…`, are not kept at all. The terminal still gets the line it always did, full URI and all. `http.Server` takes 64 KB of headers at most.
+
+**Why.** Thirty days of what readers searched for, and of live share links, exported to whoever the operator asks for help, would be a leak with a retention policy; the names alone still tell a search from a sort. Reading the log must not write the log, or a phone left open on the tab fills it with its own polls. And now that every request is kept, Go's default of a megabyte of headers is a megabyte a stranger could make the log hold, per request.
+
+**Instead of.** The terminal's line kept as it is. An allowlist of query names safe to keep whole, which is one more list to maintain.
+
+<sub>3.1.0 — `internal/httpapi/request_log.go` · `internal/httpapi/server.go` · `cmd/tippani/main.go`</sub>
+
+### A lookup in a request is a job written from memory, after the answer
+
+**Decided.** Every request carries a `*jobs.Lazy` beside its reader. It is nothing until something logs into it — the gate's first line, or a handler's `jobs.Begin` — and then it is a job held in memory, up to 500 lines or 256 KB and then "N more lines were not kept". When the request ends, the request logger hands the logbook the row and its lines as one entry: succeeded under 400, failed with "HTTP <status>" otherwise, and a handler's panic still leaves its line and its job before net/http sees it. Nothing touches the database on the request's path. Such a job is in Past jobs and never in Current jobs, and it cannot be run again, because the request it ran in is gone. The handlers that know what was searched name it as the job's subject.
+
+**Why.** My answer: a single manual lookup runs *"as fast as today and never queued behind a bulk run, and each is still recorded as a job with its log."* A row written as the request starts, and its lines as they come, is a database write — on the library pool, a disk sync — in front of every search a reader types.
+
+**Instead of.** Queueing the lookups, which I ruled out. Writing the row first.
+
+<sub>3.1.0 — `internal/jobs/recorder.go` · `internal/httpapi/server.go` · `internal/httpapi/jobkinds.go`</sub>
+
+### Every line passes one door, and the log writer is bounded
+
+**Decided.** Every line, subject, error and string count passes one door, `clean`, before it is kept: CR and LF become `⏎`, control characters and escape sequences go, invalid UTF-8 becomes U+FFFD, every URL in it goes through `outbound.RedactText`, and it is cut at 2 KB for a request or file line and 8 KB for anything else, ending "… N bytes cut". Redaction runs before the cut, so the count is true. The buffer holds 8 MB and 16,384 lines; when it is full, the oldest line of the lowest class below the newcomer's goes — request, file and trace lines first, then info — while job lines, in-request jobs, warnings and errors stay until only they fill it, and the next batch says how many were not kept (`TIP-LOG-003`). Batches of 500 are written one transaction each on the log connection; a batch that meets a held lock is kept and retried, 50 ms doubling to 2 s, six times. `Flush` waits until every line logged before it is written, not until the buffer is empty, which under a steady stream of requests never happens. **The prune rides the writer**: 2,000 rows a chunk, each chunk its own transaction, on the first write after start and a write an hour after the last prune, whenever the tab's first read asks, and one chunk every four batches while lines keep coming, because under a flood the buffer never empties and a prune that waited for a quiet moment would never run.
+
+**Why.** One door is the only shape that makes "no key in the log" checkable: the gate's line, a provider's error text, a people fetch's first error, a request's subject and every `olog` line pass it, and whatever arrives next will too. The bounds are the log's answer to a burst it cannot keep up with — a crawler, a script, many readers at once — and the drop order keeps the lines somebody opens a log to read.
+
+**Instead of.** A writer per caller, which puts a database write, and a disk wait, on every request's path. A flusher on a ticker, which the invariant forbids. A prune per line written, which is a `DELETE` for every line kept.
+
+<sub>3.1.0 — `internal/jobs/clean.go` · `internal/jobs/logbook.go` · `internal/jobs/prune.go`</sub>
+
+### A generation guards every owner across a file swap
+
+**Decided.** The store counts its swaps — each restore, recovery and factory reset — as a generation. `requireAuth` reads it before it resolves the session, and the id on every job row and line travels with the generation it was read under. An in-request job whose generation is stale when it is written lands with no owner, which makes it the admin's; a job line from another generation is not written into this file; a press made across a swap is refused as busy, and the same press again goes ahead. A job is also written under an account only while that account exists under that name — the check is inside the transaction that adds the row — so the worker's check at the claim can be by id alone, with 0079's trigger clearing `user_id` on every job of an account that is deleted.
+
+**Why.** `users.id` is reused, and a restore can put anybody behind an id. Reading the generation before the session is the order whose only failure is a good id dropped as stale; read after, an old id would pass for whoever holds it in the restored file. Checking the name at the claim as well, which the design first asked for, would fail a waiting job whose owner renamed themselves.
+
+**Instead of.** Rewriting `jobs.username` on a rename: the column records who started the job. A foreign key with `ON DELETE SET NULL`, which is also checked on insert and would fail a whole batch of the log over one row whose account went in the meantime.
+
+<sub>3.1.0 — `internal/store/store.go` · `internal/jobs/logbook.go` · `internal/jobs/runner.go` · `internal/store/migrations/0079_jobs.sql`</sub>
+
+### Archives leave the history behind, and a restore keeps the server's own
+
+**Decided.** Every archive is stripped — the kept backup, the API's, and the safety copy a restore or reset insists on: after `VACUUM INTO`, `StripJournal` empties the three tables on a private handle, writes the snapshot again with `VACUUM INTO` a sibling file and renames that over it, so no deleted row survives in a free page. A restore carries the replaced server's history into the restored file (`CarryJournal`, the swap's last step, with the log writer held off): the three tables copied with their ids, a job's owner kept only when the restored accounts hold that id under the name the job was started with or under the name the account had on the server being replaced, and a running or waiting job marked interrupted. A carry that fails logs `TIP-BACKUP-009` and the restore goes ahead with no history; a strip that fails fails the backup (`TIP-BACKUP-008`). A factory reset takes the history with everything else, and the reset's own job is the only row of the empty file.
+
+**Why.** The history belongs to the server, not to the library. A million request lines would be most of a small library's archive, and a restore that brought back an older history would reuse job ids that the queue, the log writer and a reader's open screens are still using.
+
+**Instead of.** `secure_delete`, which overwrites the deleted cells and keeps their pages, so the archive would carry the full size of the log it had just emptied. A plain `VACUUM` in place, which needs a writable temp directory and two to three times the snapshot's size.
+
+<sub>3.1.0 — `internal/store/journal.go` · `internal/store/swap.go` · `internal/httpapi/backup_handlers.go`</sub>
+
+### A restore, a reset, a search rebuild or an update waits for the running job
+
+**Decided.** Each runs inside `Runner.Exclusive`. While a job runs it is refused with 409 and *"A job is running. Stop it in Settings › Jobs, or wait for it to finish."*; while it runs, no job starts, and a press is refused as busy. A job that is only waiting does not stand in the way — a restore interrupts it as it carries the history over, and a reset empties the table — and the restore and reset prompts say so before step one. A restore is held from before its upload is read, and an update through its pull. A claim the worker is in the middle of is waited out rather than counted as a running job.
+
+**Why.** Each pulls the ground from under a job in the middle of an item: a restore and a reset swap the files, a rebuild can escalate to a whole-file recovery, and an update recreates the server. Holding from before the upload means a job cannot start during a long upload and fail the restore at its last step.
+
+**Instead of.** The hold around the swap alone, whose refusal would come after the whole upload. Refusing while anything waits, which would make an admin empty the queue to restore. Queueing a restore as a job, which would swap the database under the queue it was waiting in.
+
+<sub>3.1.0 — `internal/httpapi/jobs_exclusive.go` · `internal/jobs/runner.go` · `internal/httpapi/backup_handlers.go`</sub>
+
+### Deleting a reader stops their jobs and waits for the item in hand
+
+**Decided.** Deleting an account stops its jobs first — the waiting ones at once, the running one after its item — and then waits up to ten seconds for the worker to let go of that account's job. A job still running then refuses the delete with 409, saying it has been asked to stop, and the next press goes ahead. The history stays, handed to the admin by 0079's trigger.
+
+**Why.** The queue checks a job's owner when it claims it, not while it runs, and a job still running under a deleted id could write into rows scoped by the id the next sign-up is given.
+
+**Instead of.** Stopping them after the delete, when the trigger has already cleared the owner the jobs are found by. Refusing at once while a job runs, which would make nearly every such delete a second press for nothing.
+
+<sub>3.1.0 — `internal/httpapi/admin_handlers.go` · `internal/jobs/runner.go`</sub>
+
+### The server stores data, not prose
+
+**Decided.** A job's row holds a kind, a subject and counts. The title and the summary a reader sees — "Fill gaps", "9 fields filled · 1 failed", "Waiting — 2 jobs ahead" — are composed in the app, from `settings.jobs.kind.*` and its siblings, in the reader's language; a kind the screen does not know yet reads "Job". The server keeps one English name, `jobs.Title`, for the two places no locale reaches: the line it prints when a queued job ends, and the heading of an exported log.
+
+**Why.** A title column would be prose in one language in the database, stale the day a wording changes, and the screens would have to ignore it for every reader not reading English.
+
+**Instead of.** A title written with the row. A table of names in `httpapi` beside the export, which the runner cannot import.
+
+<sub>3.1.0 — `internal/jobs/title.go` · `web/frontend/src/jobs.js`</sub>
+
+### A kind's counts are made once, when its result is stored
+
+**Decided.** Each queued kind says what its counts are — fill `{fields, failed, unpinned}`, covers `{fetched, enriched, failed, skipped}`, people `{ok, failed, first_error}`, reverify `{items, changes}`, reverify-apply `{applied, skipped, failed}`, and none for a backup — and storing a result writes its counts beside it, in their own column. A list reads that column and never the result.
+
+**Why.** The first build made the counts in SQL from whatever the result held, which dropped the one string among them (a people fetch's first error), turned a re-verify's findings into a bare length, and ran `json_each` over up to 8 MB a row on every poll of the list.
+
+**Instead of.** Teaching that query each kind's field names, which is still a scan of every result on every read, with the meaning of a kind's counts in a query rather than beside the kind.
+
+<sub>3.1.0 — `internal/httpapi/jobs_kinds.go` · `internal/jobs/job.go` · `internal/store/migrations/0079_jobs.sql`</sub>
+
+### An export is what the filters select, in a fence nothing inside can close, read in batches
+
+**Decided.** A job's `log.md` and the system log's `logs.md` are Markdown: a heading (a job's English title, in a code span), a line naming the version, the export time in UTC and the filters, or "everything kept, 30 days", and then the lines in one fenced block whose fence is longer than any run of backticks in them, measured over exactly the lines written. "What is shown" is every line the filters select, oldest first, not the page on screen. The lines are read 2,000 at a time by id, each batch closed before any of it is written, and the write deadline moves a minute ahead with every 64 KB the client takes. A restore or reset between two batches ends the export with a line saying so.
+
+**Why.** An export is the file somebody is handed to read a failure from, so it has to survive whatever text a line holds and a client that reads slowly. A cursor held open while writing to a phone that had gone to sleep held one of the library's four connections, and its snapshot, with no limit.
+
+**Instead of.** Spooling the export to a file in the data directory, which needs a month of request lines' worth of disk for every export at once. Exporting the page on screen.
+
+<sub>3.1.0 — `internal/httpapi/jobs_markdown.go` · `internal/httpapi/jobs_handlers.go` · `internal/httpapi/logs_handlers.go`</sub>
+
+### The screen polls while it is open, and the server never does
+
+**Decided.** A job's own view polls `GET /jobs/{id}?log_after=` every second while the job lives, every three seconds after ten polls that brought nothing, and not at all while the tab is hidden; Current jobs polls every 2 s while anything is current and every 10 s otherwise. Each of those reads gives up after ten seconds, so one answer that never comes cannot freeze a card. They are the reads the log does not keep.
+
+**Why.** It is the reader's screen asking while the reader is looking, which is §1's rule read the way it was meant: nothing on the server wakes, and a closed tab asks nothing.
+
+<sub>3.1.0 — `web/frontend/src/jobs.js` · `web/frontend/src/jobsSection.jsx`</sub>
+
+### Two test seams are in the binary, and neither works online
+
+**Decided.** `TIPPANI_JOBS_HOLD=1` keeps the worker from claiming anything, so every job stays waiting; `TIPPANI_LOG_HOLD=1` keeps the log writer from writing until the logbook closes at shutdown. Each is honoured only while `TIPPANI_OFFLINE` is on — a server that can reach the internet ignores both, and a test proves it — and each is named in the header of every file that uses it.
+
+**Why.** Offline, which is how every browser journey runs, a job ends in milliseconds, so "a waiting job says it is waiting" and "Stop all asks first" had nothing on screen to assert. And the test of the shutdown order caught its own bug only by chance, six or seven runs in eight, because the writer had usually written the line before the order mattered; held, a wrong order keeps nothing at all, every run.
+
+**Instead of.** Several hundred queued jobs before the signal, which widens the race without ending it.
+
+<sub>3.1.0 — `internal/jobs/runner.go` · `internal/jobs/logbook.go`</sub>
+
+### Decisions awaiting my ruling
+
+Each was built as written and put to me with 3.1.0; the line changes when I rule on it.
+
+| | The decision | Why it went this way |
+|---|---|---|
+| F1 | Six kinds queue: the five loops the screens used to drive (fill, covers, people, re-verify and its apply) and the app's backup. Imports, restores, the safety copy, a reset, an update's apply, the daily deck and the API's synchronous `POST /admin/backup` are recorded as jobs but run in their request. | An import is one sub-second request that already finished whether the tab stayed or not. A restore or a reset swaps the database under the queue itself. |
+| F2 | A screen's own lookups — a work page's portraits and character art, a game's voice cast on save — run in their request, as a manual lookup does. | Queued behind a bulk run, the page would sit empty for as long as the run took. |
+| F3 | An admin's Stop all stops every reader's jobs, and its confirm says so; a reader's stops their own. Run again and Review are the owner's alone, even for an admin. | A rerun is queued as whoever presses it, and a result is somebody's library. |
+| F4 | A kept request line has the method, the path and the query's names; the values, the share token and the sign-on code and state are blanked, and the terminal keeps the full line. Files are kept at the `file` level, hidden by default, and the Jobs tab's own reads not at all. | *What a kept request line holds*, above. |
+| F5 | Current jobs lists queued jobs only; an in-request job appears in Past jobs when its request ends. | It would be on the card for the milliseconds its request took. |
+| F6 | The phone tile's Stop all is absent, not disabled, when nothing runs or waits, and the count reads 0. | The house rule for a control with nothing to act on. |
+| F7 | Every Bengali line of the jobs work is a draft, marked `# ??` in `bn.txt` and listed in `docs/wiki/Bengali-style.md` under *From the jobs pass*. | The register is mine to settle. |
+| F8 | The fixture's Grimm line stays, as a real line checked against Project Gutenberg #11027. | It had not been checked when I ruled on the unverified lines; checked since, it is there. The whole record is the entry *The four real titles keep only the lines checked against a public-domain text*, under *A suite that read the app, and the tier that uses it instead*. |
+| F9 | `library.json` took only the 22 swapped lines from the curator's run, not a regenerated fixture. | The archive has moved since the fixture was curated: a wholesale re-run brings in lines nobody has reviewed for a public repo and drops a tag pair a journey needs. |
+| F10 | `IconJobs` is two Tabler glyphs combined: `list`, with its first bullet replaced by `player-play`. | One runs and the rest wait in order, which is the queue's whole rule. A stack of layers says "several at once", the one thing the queue refuses. |
+| F11 | Open: should the phone tile show how many are running as well as how many wait? | I asked for a count of queued jobs, and the tile shows that and no more. |
+| F12 | A fill over 2,000 works is sent as several jobs in a row, so the Pushover message at the end of a long fill comes once per job. | The cap is how long one press may hold everybody's queue. A re-verify cannot be split, because its findings are reviewed as one, so it is capped at 500 and the dialog says so before anything is checked. |
+
+### Where the plan turned out to be wrong
+
+| The plan | What was true |
+|---|---|
+| "Make a job of every time the app looks outward: bulk fetches and re-verify, imports and backups…", which read as one list of things to queue | Imports needed no queue: each is one request that already finished whether or not the tab stayed open, so each is recorded in its request instead (F1). A restore and a reset could not be queued at all — they replace the database the queue lives in — so they hold the queue rather than join it. |
+| The system log holds "every level, including the request lines for inbound reads and writes" | Every request, at two levels rather than one: the files a page loads are most of the log and the least of what anybody opens it for, so they are kept at `file` and hidden until asked. And the Jobs tab's own reads are not kept at all, since the tab open on a phone would otherwise fill the log with its own polls. |
+| "Two hooks feed the logs" | Two hooks write every job's lines and every request line. The app's own lines, which the System logs card is mostly for, come from neither: they reach the log through olog's sink and a tee on the standard logger, which every one of them was already written through. |
+| "offer a one-press rerun" | Only to the job's owner, even when an admin is looking (F3), and only for the six queued kinds, since an in-request job's request is gone. A succeeded apply is not offered one — it would only find every field changed since the check — and nor is a former admin's admin job. A backup's rerun asks for the password again, because it was never stored. |
+| "each job showing its live log" | Only the running job has a live log. A waiting job has logged nothing yet, so it is one line saying where it stands. |
+| "what was searched" in each job's log | Kept as the job's subject, as data. The words a reader sees — the title, the summary, "Waiting — 2 jobs ahead" — are composed in the app, in the reader's language (*The server stores data, not prose*). |
+| The backup, one queued job like the others | Its password is checked twice: in the request, so a wrong one is a 401 before anything waits, and again by the job against the owner's password as it is by then, because the job can wait behind others for minutes while the password changes. |
+| "pruned when a job or log line is written" | Not per line — that would be a delete for every line kept — but on the first write after start, an hour after the last prune, and a chunk every four batches, because under a flood the buffer never empties. |
+| "Mark a job still running at boot as interrupted" | Waiting jobs too, since nothing resumes by itself. And a job the shutdown gave up on is interrupted, not stopped: stopped says a person pressed Stop. |
+| "a count of queued jobs" on the phone's tile | Of the waiting ones; the running job is not in the number (F11). |
+| Automatic lookups, as jobs like any other | A work page's faces became one request per page, which the server does whole — the portraits and the character art together, serially, under the old caps of twenty and twenty, shared while it is out — in place of up to forty requests from the browser, one per picture (F2). |
+| Nothing about the People row's Fetch | It became one request by record id, and the server folds the fetched links into the stored ones. The fold had lived only in the browser, and the only fold in Go split the stored text on whitespace, erasing the names readers give their links; re-verify's person links went through that fold and were erasing names on apply, and are fixed with it. |
 
 ## The Library sorts by year, and the absence leaves the number line
 
