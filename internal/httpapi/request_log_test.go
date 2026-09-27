@@ -3,6 +3,8 @@ package httpapi
 import (
 	"context"
 	"database/sql"
+	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -39,12 +41,17 @@ import (
 // share link stuck at the door holds the pool full (store.HoldEveryConnectionForTest,
 // as the health tests do, for the same reason: nothing a reader does puts a live
 // server in that state), and installs olog's sink as serve() does (olog.SetSink),
-// since the lines it reads are olog's.
+// since the lines it reads are olog's. The test of a handler that panics puts its
+// own handler behind the request logger (srv.logRequests), because no route in the
+// app panics on any input — a panic is a bug by definition — and what is under test
+// is what the logger keeps of one; the request goes through a real net/http server,
+// which is what recovers the panic.
 //
 // What each one guards, in a sentence a person would say: the log keeps what a
 // request did and not what it carried, a search's words or a share link, however
 // the link is spelled, and a line naming a download stuck at the door keeps no link
-// either; the terminal line is the one it always was; a picture is kept as a file and the Jobs
+// either; a request whose handler panics after looking outward is kept, line and
+// job, as a 500; the terminal line is the one it always was; a picture is kept as a file and the Jobs
 // tab's own reading is not kept at all; a lookup made with a saved key is kept as a
 // job that shows every call it made, and the key is in no row and on no stream;
 // and a lookup whose database was restored under it is kept for nobody.
@@ -214,6 +221,56 @@ func TestAShareDownloadStuckAtTheDoorIsNamedWithoutItsToken(t *testing.T) {
 	if !health || !door {
 		t.Fatalf("the kept log does not name the download in the failed health check (%t) and at the door (%t):\n%s",
 			health, door, strings.Join(kept(t, srv), "\n"))
+	}
+}
+
+// A HANDLER THAT PANICS AFTER LOOKING OUTWARD IS STILL KEPT. net/http recovers the
+// panic and the server goes on, so this request is the one somebody opens the log
+// to find: its line is there as a 500, and so is its job, failed, with the call it
+// made before the panic.
+func TestAHandlerThatPanicsAfterLookingOutwardIsStillKept(t *testing.T) {
+	t.Setenv(outbound.EnvVar, "1")
+	srv := newTestServer(t)
+	lb := keeping(t, srv)
+	outbound.SetObserver(lb.Outbound)
+	t.Cleanup(func() { outbound.SetObserver(nil) })
+	ts := httptest.NewUnstartedServer(srv.logRequests(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://books.example.org/volumes?q=Dune", nil)
+		if err != nil {
+			t.Error(err)
+		} else if _, err := (&http.Client{Transport: outbound.Transport(nil)}).Do(req); err == nil {
+			t.Error("offline, and the call went out")
+		}
+		panic("a bug in the handler")
+	})))
+	// net/http's own line about the panic, which is not what this test reads.
+	ts.Config.ErrorLog = log.New(io.Discard, "", 0)
+	ts.Start()
+	t.Cleanup(ts.Close)
+
+	if resp, err := http.Get(ts.URL + "/api/books/lookup"); err == nil {
+		resp.Body.Close()
+		t.Fatalf("the handler panicked and the client was answered %d", resp.StatusCode)
+	}
+	flushed(t, lb)
+
+	line := regexp.MustCompile(`^request GET /api/books/lookup 500 \S+ \d+B 127\.0\.0\.1:\d+ - r\d+$`)
+	found := false
+	for _, l := range kept(t, srv) {
+		found = found || line.MatchString(l)
+	}
+	if !found {
+		t.Errorf("the request whose handler panicked left no line as a 500:\n%s", strings.Join(kept(t, srv), "\n"))
+	}
+	var id int64
+	var state, errText string
+	if err := srv.Store.DB.QueryRow(`SELECT id, state, error FROM jobs`).Scan(&id, &state, &errText); err != nil {
+		t.Fatalf("the request looked outward and then panicked, and left no job: %v", err)
+	}
+	calls := column(t, srv.Store.DB, `SELECT level || ' ' || line FROM job_logs WHERE job_id = ?`, id)
+	if state != "failed" || errText != "HTTP 500" ||
+		len(calls) != 1 || calls[0] != "warn GET books.example.org/volumes?q=Dune → refused (offline)" {
+		t.Fatalf("the job is %s (%q) with %q; want failed (HTTP 500) with its refused call", state, errText, calls)
 	}
 }
 

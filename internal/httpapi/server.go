@@ -769,30 +769,49 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		r = r.WithContext(ctx)
 		rec := &statusRecorder{ResponseWriter: w}
 		start := time.Now()
-		next.ServeHTTP(rec, r)
-		if rec.status == 0 {
-			rec.status = http.StatusOK
-		}
-		took := time.Since(start).Round(time.Millisecond)
-		// rid ties this summary line to any [error]/[warn]/[trace] lines the
-		// handler logged for the same request (they all carry "(req rNNN)").
-		// An unauthenticated request logs "-" rather than an empty column, so the
-		// fields stay in the same positions for anything reading these lines.
-		name := who.name
-		if name == "" {
-			name = "-"
-		}
-		olog.Accessf("%s %s %d %s %dB %s %s %s",
-			r.Method, r.URL.RequestURI(), rec.status, took, rec.bytes, r.RemoteAddr, name, rid)
-		if job != nil {
-			job.Finish(rec.status)
-		}
-		if s.Logbook != nil {
-			if level, keep := requestLevel(r.Method, r.URL.Path, rec.status); keep {
-				s.Logbook.System(level, "", fmt.Sprintf("%s %s %d %s %dB %s %s %s",
-					r.Method, keptURI(r.URL), rec.status, took, rec.bytes, r.RemoteAddr, name, rid))
+		// THE LINES ARE WRITTEN IN A DEFER, SO A HANDLER THAT PANICS STILL LEAVES
+		// THEM. net/http recovers a handler's panic per connection and the server
+		// goes on, so the request that panicked is the one somebody opens the log to
+		// find — and with the tail after ServeHTTP it was the one request missing
+		// from it: no line, and no job for the outward calls it had already made.
+		// The panic is recovered only long enough to write them, as a 500 (whatever
+		// the handler had begun to send, the client got a response cut short), and
+		// then goes on up to net/http, which logs it and closes the connection as
+		// it always did.
+		defer func() {
+			p := recover()
+			status := rec.status
+			switch {
+			case p != nil:
+				status = http.StatusInternalServerError
+			case status == 0:
+				status = http.StatusOK
 			}
-		}
+			took := time.Since(start).Round(time.Millisecond)
+			// rid ties this summary line to any [error]/[warn]/[trace] lines the
+			// handler logged for the same request (they all carry "(req rNNN)").
+			// An unauthenticated request logs "-" rather than an empty column, so the
+			// fields stay in the same positions for anything reading these lines.
+			name := who.name
+			if name == "" {
+				name = "-"
+			}
+			olog.Accessf("%s %s %d %s %dB %s %s %s",
+				r.Method, r.URL.RequestURI(), status, took, rec.bytes, r.RemoteAddr, name, rid)
+			if job != nil {
+				job.Finish(status)
+			}
+			if s.Logbook != nil {
+				if level, keep := requestLevel(r.Method, r.URL.Path, status); keep {
+					s.Logbook.System(level, "", fmt.Sprintf("%s %s %d %s %dB %s %s %s",
+						r.Method, keptURI(r.URL), status, took, rec.bytes, r.RemoteAddr, name, rid))
+				}
+			}
+			if p != nil {
+				panic(p)
+			}
+		}()
+		next.ServeHTTP(rec, r)
 	})
 }
 
