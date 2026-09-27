@@ -32,12 +32,15 @@ that writes archives on a timer is a feature rather than a layout.
 
 **It needs the one thing this repo's invariants forbid by default.** From `CLAUDE.md`:
 
-> No goroutine outlives its request — no worker pool, ticker, or scheduler; adding one is a
-> design discussion first.
+> *"nothing runs unless a person or the app's own lookup started it, and nothing wakes on a
+> timer."*
 
-A nightly backup is precisely a ticker. So the first question is not where the toggle goes,
-it is whether this app gains a scheduler at all, and if so what else is allowed to use it.
-That is the owner's call, not a detail of the Server screen.
+That is the owner's rewording at 3.1.0, which gave the server a job queue; the line it
+replaced, "no goroutine outlives its request", forbade the queue too. The half this plan
+runs into did not move: a nightly backup is precisely something that wakes on a timer. So
+the first question is not where the toggle goes, it is whether this app gains a scheduler at
+all, and if so what else is allowed to use it. That is the owner's call, not a detail of the
+Server screen.
 
 **And the sub-line the pack draws is a second feature.** *"Last one 04:00 · 41 MB"* means the
 server records when the last automatic archive was written and how big it was, and hands both
@@ -63,7 +66,8 @@ ran would be the worst version of this: a promise with no receipt.
 
 The roadmap sweep's own rule is that a plan with no entry gets one — and this one does not,
 because publishing it would be promising something the repo has already decided against.
-`docs/wiki/Design-decisions.md:151` is marked **Approved** and settles the mechanism:
+`docs/wiki/Design-decisions.md`'s first section, in the entry *Nothing wakes on a timer*, is
+marked **Approved** and settles the mechanism:
 
 > Litestream for continuous backup — rejected for constant background CPU; nightly
 > `VACUUM INTO` from the host's own cron is the answer instead, **which is the user's timer
