@@ -139,7 +139,9 @@ func TestTheLogKeepsWhatARequestDidAndNotWhatItCarried(t *testing.T) {
 
 	lines := kept(t, srv)
 	search := regexp.MustCompile(`^request GET /api/books\?q=…&sort=…&empty= 200 \S+ \d+B 192\.0\.2\.1:1234 alice r\d+$`)
-	share := regexp.MustCompile(`^asset GET /api/share/image/… 200 \S+ \d+B 192\.0\.2\.1:1234 - r\d+$|^request GET /api/share/image/… 200 \S+ \d+B 192\.0\.2\.1:1234 - r\d+$`)
+	// A request, not a file: the share link is one deliberate download, which
+	// the log's default levels show.
+	share := regexp.MustCompile(`^request GET /api/share/image/… 200 \S+ \d+B 192\.0\.2\.1:1234 - r\d+$`)
 	redirected := regexp.MustCompile(`^request GET /api/share/image/… 3\d\d \S+ \d+B 192\.0\.2\.1:1234 - r\d+$`)
 	var sawSearch, sawRedirect bool
 	sawShare := 0
