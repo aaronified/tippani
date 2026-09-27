@@ -10,43 +10,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Settings → Jobs, a new section for what Tippani is doing on your behalf.** Current
-  jobs shows what is running right now, with a live log that follows along, and a waiting
-  job says how many are ahead of it. Past jobs keeps every job that has finished — its
-  outcome, how long it took, its own log to export, and a Run again button. An admin also
-  gets System logs: every line Tippani writes, filtered by level, a time range (the last
-  hour, day, week or 30 days) and a keyword, exported as Markdown either way — just what
-  the filters currently show, or everything kept. On a phone, the Settings index carries a
-  Jobs tile with how many jobs are waiting and a red Stop all, which asks first and says
-  what it is about to stop.
-- **Fill gaps, Fetch covers, People's Fetch missing, a re-verify's check and its Apply, and
-  Back up now all run on the server now**, so they keep going if you leave the screen or
-  close the tab, and you can check on them later from Settings → Jobs. Only one runs at a
-  time across the whole server; the rest queue in order, and a waiting one says so. Stop
-  finishes whatever item is already in hand before it stops the rest of the job — one
-  stopped on its very last item is left marked as finished, since it had nothing left to
-  do. A job Tippani was still running when it restarted is kept as interrupted, with its
-  log, and offered to run again.
-- **Every outward lookup is now recorded as a job with its own log** — a bulk fetch, a
-  re-verify, an import, a backup, or a single search for a cover or a person's details —
-  with what was searched and every request that went out. A single lookup still answers
-  as fast as it always has; it is only written down once the answer is in. Thirty days of
-  jobs and logs are kept, then pruned automatically.
-- **A very large selection for Fill gaps, Fetch missing or a re-verify is no longer
-  refused outright.** It now runs as consecutive jobs that queue one after another; a
-  re-verify, which cannot be split because its findings are reviewed as one, is capped
-  instead and says so before it starts.
+  jobs shows what is running right now, with a live log that follows along, and a
+  waiting job says how many are ahead of it. Past jobs keeps every job that has finished
+  — its outcome, how long it took, its own log to export, and a Run again button; a
+  safety copy made before a restore or a factory reset is named for what it is instead
+  of just "Job", and a re-verify that changed nothing says so plainly, with nothing to
+  review. An admin also gets System logs: every line Tippani writes, filtered by level,
+  a time range (the last hour, day, week or 30 days) and a keyword, exported as Markdown
+  either way — just what the filters currently show, or everything kept. On a phone, the
+  Settings index carries a Jobs tile with how many jobs are waiting and a red Stop all,
+  which asks first and says what it is about to stop.
+- **Fill gaps, Fetch covers, People's Fetch missing, a re-verify's check and its Apply,
+  and Back up now all run on the server now**, so they keep going if you leave the
+  screen or close the tab, and you can check on them later from Settings → Jobs. Only
+  one runs at a time across the whole server; the rest queue in order, and a waiting one
+  says so. A re-verify's Review can now be opened later, from Past jobs — if a field
+  changed since the check, Apply leaves it alone and says why, instead of overwriting
+  it. Stop finishes the item in hand, then stops the rest of the job; one stopped on its
+  very last item is left marked finished, since it had nothing left to do. A job Tippani
+  was still running when it restarted is kept as interrupted, with its log, and offered
+  to run again.
+- **Every lookup is recorded as a job with its own log of every request that went out
+  and what came back** — a bulk fetch, a re-verify, or a single search for a cover or a
+  person's details. An import or a backup is recorded as a job too, with a log of its
+  own, though neither one reaches outside your library. A single lookup still answers as
+  fast as it always has: it is written down once the request ends, not before. Thirty
+  days of jobs and logs are kept, then pruned automatically.
 
 ### Changed
 
 - **A film, show or game's cast portraits and character art now arrive in one request**,
-  rather than one browser request per picture, and answer within their own time even when
-  another open tab asked for the same page's pictures first.
-- **People's Fetch, and Fetch missing, now do the whole job on the server**: resolving the
-  record, downloading the portrait, and folding any newly found links into the ones
+  rather than one browser request per picture, and answer within their own time even
+  when another open tab asked for the same page's pictures first.
+- **People's Fetch, and Fetch missing, now do the whole job on the server**: resolving
+  the record, downloading the portrait, and folding any newly found links into the ones
   already saved, in a single step.
-- **Tippani no longer promises nothing runs in the background.** It says instead that
-  nothing runs unless you or its own lookups asked for it, and nothing wakes on a timer —
-  because a job you start now keeps going after you close the tab.
+- **A re-verify checks at most 500 works at a time, and says so before it starts.** In
+  3.0.4 the browser checked any number of works in chunks with no limit; because a
+  re-verify's findings are reviewed as one, a larger selection now takes its first 500
+  and asks you to narrow the rest.
+- **Fill gaps and People's Fetch missing send a selection over 2,000 works as
+  consecutive jobs**, queued one after another, instead of one open-ended run in the
+  browser.
 
 ### Fixed
 
@@ -55,27 +60,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   saved used to split the whole field on whitespace, so a line such as
   `https://example.org | My favourite` came back with the name gone; it is fixed,
   including for an address with a bare `%` in it, such as a sale page's URL.
-- **A re-verify's Apply leaves alone any field that changed since you last looked at the
-  check**, instead of overwriting it with what the check saw, and its log says which
-  field it left and why.
-- **A re-verify check over a very large selection no longer fails outright.** It keeps as
-  many results as fit, says in its log how many items were left out and from where, and
-  still opens for review.
-- **A picture Tippani could not fetch because you had switched it offline is no longer
-  logged as an error.** It is recorded quietly instead, since that is what you asked for.
-- **A headshot that fails to download is now recorded in the system log under
-  TIP-COVER-001**, the same way a cast portrait already was, so it can be found by
-  whoever goes looking for it.
-- **A safety copy Tippani makes before a restore or a factory reset now has a proper name
-  in Past jobs**, instead of just "Job".
-- **Fill gaps on a selection of works you had already unpinned now says "nothing could be
-  fetched"**, matching what it said before 3.1.0, instead of the misleading "nothing was
-  missing".
-- **Closing a re-verify that found nothing to change no longer says findings were kept,
-  and Past jobs no longer offers a Review for it that only ever says everything is
-  already up to date.**
-- **Stopping a re-verify check that has not started yet says it will be stopped before it
-  starts**, instead of describing an item in hand it does not have.
+- **Fetch covers' progress bar no longer fills before a single film poster is fetched.**
+  The pass (Metadata → Fetch covers) counted the films it had not reached yet, from the
+  last book's position, as already done, so the bar could read complete before any
+  poster arrived.
+- **A failed restore's rollback no longer risks your live library.** If moving a file
+  aside hit a transient snag partway through (a locked file, a flaky network mount), the
+  rollback used to sweep everything left in your data directory — the live database
+  included — into a failed folder before putting the moved files back. It now leaves
+  alone whatever the move never reached.
+- **A failed lookup no longer shows your provider key.** When a request to a source such
+  as Google Books or TMDB failed outright, not just a bad reply, the error text could
+  carry your API key in the address — in Metadata → Sources, and in the server's own
+  logs. It is blanked now, wherever a request can fail.
 
 ## [3.0.4] - 2026-09-26
 
