@@ -266,6 +266,38 @@ describe('the bar over a selection of works', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Fill gaps' }).disabled).toBe(false))
   })
 
+  // A FILL THAT WAITS HOLDS ONLY ITSELF. It can wait behind somebody else's job
+  // for hours, and the rest of the bar is a set of writes that answer in a moment:
+  // skipping in the quiz, a shelf, a delete. And the Fill control says where the
+  // job stands for as long as it waits, not "Fetching…" over a job not yet begun.
+  it('leaves the rest of the bar working while a fill waits, and says where it stands', async () => {
+    JOBS.plan('fill', { queued: true, ahead: 2 })
+    JOBS.hold('fill')
+    open()
+    const fill = screen.getByRole('button', { name: 'Fill gaps' })
+    fireEvent.click(fill)
+    await waitFor(() => expect(JOBS.started()).toHaveLength(1))
+    await waitFor(() => expect(fill.disabled).toBe(true))
+    // The label a keyboard or a long press gets — the only words the control has
+    // once the bar's labels are clipped.
+    fill.matches = (sel) => sel === ':focus-visible'
+    fireEvent.focus(fill)
+    await waitFor(() => expect(document.querySelector('.hint-bubble, .tp-hint, [data-hint]')?.textContent || '').toContain('Waiting — 2 jobs ahead'))
+    expect(document.querySelector('.hint-bubble, .tp-hint, [data-hint]').textContent).not.toContain('Fetching')
+    fireEvent.blur(fill)
+
+    const skip = screen.getByRole('button', { name: 'Skip in quiz' })
+    expect(skip.disabled, 'a waiting fill locked Skip in quiz').toBe(false)
+    expect(screen.getByLabelText(/Move the 1 selected to a shelf/).disabled, 'a waiting fill locked the shelf').toBe(false)
+    openMore()
+    expect(screen.getByRole('menuitem', { name: 'Delete' }), 'a waiting fill took Delete away').toBeTruthy()
+    fireEvent.keyDown(document.activeElement || document.body, { key: 'Escape' })
+    // And a press on one of them does its write while the fill still waits.
+    fireEvent.click(skip)
+    await waitFor(() => expect(sent('/books/bulk')?.[2]).toMatchObject({ ids: [1], review: false }))
+    expect(fill.disabled, 'the skip ended the fill’s wait').toBe(true)
+  })
+
   // THE JOB OUTLIVES THE BAR. Leaving is not stopping: the fill goes on and is in
   // Settings › Jobs; what the bar owes a reader who left is silence, not a toast
   // landing on whatever screen they went to.

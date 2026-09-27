@@ -81,7 +81,20 @@ export function countedNoun(kind, n) {
 }
 
 export function useBulkOps({ kind, ids = [], onDone }) {
+  // `busy` IS THE SYNCHRONOUS WRITES — a colour, a shelf, a delete — each a
+  // request that answers in a moment. The fill has a state of its own, below,
+  // because it is not one of those any more.
   const [busy, setBusy] = useState(false)
+  // THE FILL IN HAND: null while there is none, else `{ job }` — the job as last
+  // read, or null while its start is still being asked for.
+  //
+  // APART FROM `busy` BECAUSE A FILL CAN WAIT FOR HOURS. It is a job on the
+  // server, queued behind whatever else is running — somebody's two-hour cover
+  // fetch — and this hook waits for its end so it can say what it did. Held on
+  // `busy`, that wait disabled every control on the bar that shares it: one Fill
+  // gaps press locked colour, shelf, set fields and delete for the length of
+  // somebody else's job. Only Fill gaps waits on this.
+  const [fill, setFill] = useState(null)
   const routes = KIND_ROUTES[kind]
   const count = ids.length
   // WHETHER THE SCREEN THAT PRESSED IS STILL HERE. A fill is a job on the server
@@ -132,21 +145,30 @@ export function useBulkOps({ kind, ids = [], onDone }) {
   // reason it always had: "filled 3 books" over a selection of forty reads as a
   // failure, while "filled 7 fields" is what actually happened.
   async function fillGaps() {
-    setBusy(true)
+    if (fill) return
+    setFill({ job: null })
     const key = kind === 'book' ? 'book_ids' : 'movie_ids'
     const r = await startJob('fill', { [key]: ids })
     const id = r.ok ? r.job?.id : r.jobId
     if (!id) {
-      if (mounted.current) setBusy(false)
+      if (mounted.current) setFill(null)
       return toast(r.error)
     }
     let job = r.ok ? r.job : null
-    // BEHIND SOMEBODY ELSE'S JOB, THE BAR STAYS BUSY FOR A WHILE, and it says why
-    // once rather than looking stuck.
+    if (mounted.current) setFill({ job })
+    // BEHIND SOMEBODY ELSE'S JOB, FILL GAPS STAYS PRESSED FOR A WHILE. The press
+    // is answered at once with where it stands — the card's menu has closed by
+    // now and has nowhere else to say it — and the bar's Fill control goes on
+    // saying it (`fillStatus`) for as long as the job waits.
     if (job?.state === 'queued') toast(jobWaitingText(job))
-    if (!job || isLive(job)) job = await followJob(id, { alive: () => mounted.current })
+    if (!job || isLive(job)) {
+      job = await followJob(id, {
+        alive: () => mounted.current,
+        onJob: (j) => { if (mounted.current) setFill({ job: j }) },
+      })
+    }
     if (!mounted.current) return
-    setBusy(false)
+    setFill(null)
     if (!job) return toast(t('error.fill.generic'))
     if (job.state === 'failed') toast(job.error || t('error.fill.generic'))
     // Stopped from Settings › Jobs, or cut short by a restart: what it filled
@@ -194,7 +216,16 @@ export function useBulkOps({ kind, ids = [], onDone }) {
     onDone?.()
   }
 
-  return { busy, routes, count, post, setShelf, fillGaps, remove }
+  // WHAT THE FILL CONTROL SAYS WHILE A FILL IS IN HAND: where it stands in the
+  // queue while it waits, "Fetching…" once it runs. "Fetching…" over a job that
+  // has not started is the stuck-looking lie this exists to stop.
+  const fillStatus = !fill
+    ? ''
+    : fill.job?.state === 'queued'
+      ? jobWaitingText(fill.job)
+      : t('common.action.fetch.busy')
+
+  return { busy, filling: !!fill, fillStatus, routes, count, post, setShelf, fillGaps, remove }
 }
 
 // ---- editing a whole selection, field by field (1.16.0) ---------------------
