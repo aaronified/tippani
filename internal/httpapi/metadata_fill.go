@@ -225,7 +225,7 @@ func runFill(s *Server, ctx context.Context, j *jobs.Job) error {
 // fillLine is a fill's line for one work: what it filled, or why it filled
 // nothing.
 func fillLine(res fillResult) (level, line string) {
-	name := workName(res.Type, res.ID, res.Title)
+	name := itemName(res.Type, res.ID, res.Title)
 	switch {
 	case res.Status == "unpinned":
 		return jobs.LevelInfo, name + " — unpinned, so there is nothing to ask: " + res.Error

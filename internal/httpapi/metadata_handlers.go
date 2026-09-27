@@ -599,7 +599,7 @@ func runCovers(s *Server, ctx context.Context, j *jobs.Job) error {
 			if row.warn {
 				level = jobs.LevelWarn
 			}
-			j.Log(level, "%s — %s", workName(row.kind, row.id, row.title), row.what)
+			j.Log(level, "%s — %s", itemName(row.kind, row.id, row.title), row.what)
 		}
 		j.Progress(c.total-c.remaining, c.total)
 		if c.next == "" {

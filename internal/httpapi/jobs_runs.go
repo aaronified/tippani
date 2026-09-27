@@ -32,9 +32,10 @@ func queuedWorks(books, movies []int64) []queuedWork {
 	return out
 }
 
-// workName is how a log line names a work: its title in guillemets, or, for one
-// with no title to show (not found, or not the owner's), what it is and its id.
-func workName(kind string, id int64, title string) string {
+// itemName is how a log line names what it is about: a work's title or a
+// person's name in guillemets, or, for one with nothing to show (not found, or
+// not the owner's), what it is and its id.
+func itemName(kind string, id int64, title string) string {
 	if t := strings.TrimSpace(title); t != "" {
 		return "«" + t + "»"
 	}

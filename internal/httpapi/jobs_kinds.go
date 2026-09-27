@@ -116,7 +116,7 @@ var builtinJobKinds = []queuedKind{
 	// first_error}, and those are its counts, the error's text included: the
 	// People screen's flash says why the first one failed.
 	{name: "people", rerunnable: true, againAfterSuccess: true, validate: validatePeople,
-		counts: countsNamed("ok", "failed", "first_error")},
+		counts: countsNamed("ok", "failed", "first_error"), run: runPeople},
 	// {book_ids, movie_ids, people: [{kind, name}], fills_only}: ask the
 	// suppliers again and keep what they say, for the reader to review. Result:
 	// the preview's items; counts {items, changes}. Its review reads each field

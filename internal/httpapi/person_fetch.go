@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+
+	"tippani/internal/jobs"
 )
 
 // ONE PERSON'S FETCH, BY THE RECORD'S ID: POST /people/id/{id}/fetch.
@@ -42,6 +44,14 @@ func (s *Server) fetchPerson(ctx context.Context, uid, id int64) (personRow, map
 	if err != nil {
 		return personRow{}, nil, err
 	}
+	return s.fetchRecord(ctx, uid, p)
+}
+
+// fetchRecord is fetchPerson for a record already read (personByID): the
+// caller that wants the record's name before the fetch — a log line, a job's
+// subject — reads it once.
+func (s *Server) fetchRecord(ctx context.Context, uid int64, p personRow) (personRow, map[string]string, error) {
+	id := p.ID
 	kind := s.fetchKind(uid, id)
 	found, err := s.findPortrait(ctx, uid, kind, p.Name)
 	if err != nil {
@@ -62,7 +72,7 @@ func (s *Server) fetchPerson(ctx context.Context, uid, id int64) (personRow, map
 	}
 	// Folded into the links as they are NOW, read again: the portrait write above
 	// does not touch them, but a save of the record's links between the read at
-	// the top and this line would otherwise be written over.
+	// the caller's and this line would otherwise be written over.
 	if cur, err := s.personByID(uid, id); err == nil {
 		p = cur
 	}
@@ -137,6 +147,83 @@ func (s *Server) savePersonLinks(uid, id int64, links string) error {
 	_, err := s.Store.DB.Exec(`UPDATE people SET links = ? WHERE id = ? AND user_id = ?`,
 		strings.TrimSpace(links), id, uid)
 	return err
+}
+
+// runPeople is the people job: a record's Fetch, for each record the job names,
+// one at a time, with a line in its log for each saying what the fetch found or
+// why it failed. Its counts are what the People screen's flash says: how many
+// were fetched, how many failed, and why the first one did, in the sentence the
+// row's own Fetch would have shown.
+func runPeople(s *Server, ctx context.Context, j *jobs.Job) error {
+	var p struct {
+		IDs []int64 `json:"ids"`
+	}
+	if err := j.Params(&p); err != nil {
+		return err
+	}
+	uid := j.Owner().UserID
+	ok, failed, firstErr := 0, 0, ""
+	for i, id := range p.IDs {
+		if j.Stopping() {
+			break
+		}
+		before, err := s.personByID(uid, id)
+		var after personRow
+		if err == nil {
+			after, _, err = s.fetchRecord(ctx, uid, before)
+		}
+		name := itemName("person", id, before.Name)
+		if err != nil {
+			failed++
+			said, cause := personFetchSaid(err)
+			if firstErr == "" {
+				firstErr = said
+			}
+			j.Log(jobs.LevelWarn, "%s — failed: %s", name, cause)
+		} else {
+			ok++
+			j.Log(jobs.LevelInfo, "%s — %s", name, personFetchFound(before, after))
+		}
+		j.Progress(i+1, len(p.IDs))
+	}
+	return j.SetResult(map[string]any{"ok": ok, "failed": failed, "first_error": firstErr})
+}
+
+// personFetchSaid is what a failed fetch tells the reader, as the row's Fetch
+// answers it, and what its log line says: the same, but for a failure of the
+// server's own, whose cause the reader is not shown and the log is.
+func personFetchSaid(err error) (said, cause string) {
+	if errors.Is(err, errNoSuchPerson) {
+		return "not found", "not found"
+	}
+	if ref, ok := asRefusal(err); ok {
+		return ref.msg, ref.msg
+	}
+	return "internal error", "internal error: " + err.Error()
+}
+
+// personFetchFound is what a fetch changed on a record, from the record before
+// and after: "portrait, identity, bio, links", or that it found nothing new.
+func personFetchFound(before, after personRow) string {
+	var got []string
+	if after.ImagePath != "" && after.ImagePath != before.ImagePath {
+		got = append(got, "portrait")
+	}
+	if after.Source != "" && (after.Source != before.Source || after.SourceID != before.SourceID) {
+		got = append(got, "identity ("+after.Source+")")
+	}
+	for _, f := range []struct{ name, was, is string }{
+		{"bio", before.Bio, after.Bio}, {"born", before.Born, after.Born}, {"died", before.Died, after.Died},
+		{"links", before.Links, after.Links},
+	} {
+		if f.is != f.was {
+			got = append(got, f.name)
+		}
+	}
+	if len(got) == 0 {
+		return "nothing new found"
+	}
+	return "found " + strings.Join(got, ", ")
 }
 
 // handlePersonFetch: POST /people/id/{id}/fetch, no body → {person, links}.
